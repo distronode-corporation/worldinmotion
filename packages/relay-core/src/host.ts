@@ -62,7 +62,10 @@ function ipv6Words(text: string): number[] | undefined {
  * ignored; anything that is not an IP address is its own bucket, unchanged.
  */
 export function sourceBucket(address: string): string {
-  const a = address.toLowerCase().replace(/^\[(.*)\]$/, "$1").replace(/%.*$/, "");
+  const bare = address.toLowerCase().replace(/^\[(.*)\]$/, "$1");
+  // The zone id is cut at the first `%` by index, not with a regex that can backtrack.
+  const zone = bare.indexOf("%");
+  const a = zone < 0 ? bare : bare.slice(0, zone);
   if (IPV4.test(a)) return a;
   const w = ipv6Words(a);
   if (w === undefined) return address;

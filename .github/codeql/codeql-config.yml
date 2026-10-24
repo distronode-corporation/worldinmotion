@@ -1,0 +1,14 @@
+# CodeQL configuration for .github/workflows/codeql.yml.
+#
+# Generated bundles are not scanned. Each one is built from packages/*/src, which is scanned, plus
+# third-party dependencies, which are not ours to fix here; an alert in a bundle either repeats one
+# in our source or points into a dependency.
+name: worldinmotion CodeQL
+
+paths-ignore:
+  # The esbuild bundle of the client that the Claude Code plugin ships.
+  - plugins/claude-code/dist/**
+  # Build output of every package.
+  - packages/*/dist/**
+  # The bundled webview script of the VS Code extension.
+  - packages/vscode/media/activity.js

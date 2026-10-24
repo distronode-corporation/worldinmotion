@@ -191,7 +191,11 @@ Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 /** The usage lines for one command, or undefined when there is no such command. */
 export function commandUsage(command: string): string | undefined {
   if (!/^[a-z-]+$/.test(command)) return undefined;
-  const lines = USAGE.split("\n").filter((l) => new RegExp(`(^|\\| )wim ${command}( |$)`).test(l.trim()));
+  // A usage line names the command at its start or after "| " (an alternative form). Plain string
+  // tests, so the command is never compiled into a regular expression.
+  const needle = `wim ${command}`;
+  const names = (form: string) => form === needle || form.startsWith(`${needle} `);
+  const lines = USAGE.split("\n").filter((l) => l.trim().split("| ").some(names));
   return lines.length === 0 ? undefined : lines.map((l) => l.trim()).join("\n");
 }
 

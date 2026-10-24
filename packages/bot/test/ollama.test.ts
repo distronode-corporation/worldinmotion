@@ -83,6 +83,14 @@ describe("OllamaModel", () => {
     });
   });
 
+  it("strips trailing slashes in linear time, however many slashes the URL holds", () => {
+    // `/\/+$/` took seconds here: it retried from every slash of a run not at the end.
+    const started = performance.now();
+    const model = new OllamaModel({ model: "m", baseUrl: `${"/".repeat(100_000)}a` });
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(model.id).toBe("ollama:m");
+  });
+
   it("omits think when not configured and defaults missing counts and reason", async () => {
     const { base, seen } = await serve(200, JSON.stringify({ message: { content: "ok" } }));
     const res = await new OllamaModel({ model: "llama3.2:3b", baseUrl: base }).complete(REQUEST);

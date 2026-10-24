@@ -51,7 +51,10 @@ export class OllamaModel implements ChatModel {
   constructor(options: OllamaOptions) {
     this.model = options.model;
     this.id = `ollama:${options.model}`;
-    this.url = `${options.baseUrl.replace(/\/+$/, "")}/api/chat`;
+    // A loop, not `/\/+$/`: that regex backtracks quadratically on a long run of slashes.
+    let base = options.baseUrl;
+    while (base.endsWith("/")) base = base.slice(0, -1);
+    this.url = `${base}/api/chat`;
     this.think = options.think;
   }
 

@@ -67,6 +67,14 @@ describe("sourceBucket", () => {
     expect(sourceBucket("fe80::")).toBe("fe80:0:0:0::/64");
   });
 
+  it("cuts the zone id in linear time, however many `%` the address holds", () => {
+    // `/%.*$/` took seconds here: with a line break at the end it retried from every `%`.
+    const odd = `${"%".repeat(100_000)}\n`;
+    const started = performance.now();
+    expect(sourceBucket(odd)).toBe(odd);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
   it("leaves anything that is not an IP address as it is", () => {
     for (const odd of ["", "unknown", "1:2:3", "1::2::3", "1:2:3:4:5:6:7:8:9", "12345::", "g::1", "::ffff:1.2.3.999", "1:2:3:4:5:6:7:8::"]) {
       expect(sourceBucket(odd), odd).toBe(odd);

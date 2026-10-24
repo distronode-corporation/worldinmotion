@@ -1,5 +1,5 @@
 import { generateKeyPairSync, randomBytes, sign, X509Certificate } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import type { NetworkInterfaceInfo } from "node:os";
 import { spkiPin } from "@worldinmotion/protocol";
 
@@ -90,15 +90,18 @@ export function certPin(certPem: string): string {
 export function lanCert(db: string, hosts: string[], now: Date): { key: string; cert: string; pin: string } {
   const keyPath = `${db}.key.pem`;
   const certPath = `${db}.cert.pem`;
-  if (!existsSync(keyPath) || !existsSync(certPath)) {
-    const fresh = selfSignedCert(hosts, now);
+  // Read first and create only on ENOENT, so there is no separate existence check to race.
+  let pair: { key: string; cert: string };
+  try {
+    pair = { key: readFileSync(keyPath, "utf8"), cert: readFileSync(certPath, "utf8") };
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    pair = selfSignedCert(hosts, now);
     // `wx` refuses to overwrite, and the mode applies at creation, so the key is never readable by others.
-    writeFileSync(keyPath, fresh.key, { mode: 0o600, flag: "wx" });
-    writeFileSync(certPath, fresh.cert, { mode: 0o600, flag: "wx" });
+    writeFileSync(keyPath, pair.key, { mode: 0o600, flag: "wx" });
+    writeFileSync(certPath, pair.cert, { mode: 0o600, flag: "wx" });
   }
-  const key = readFileSync(keyPath, "utf8");
-  const cert = readFileSync(certPath, "utf8");
-  return { key, cert, pin: certPin(cert) };
+  return { ...pair, pin: certPin(pair.cert) };
 }
 
 /** The first non-internal IPv4 address, which LAN peers can reach. */
