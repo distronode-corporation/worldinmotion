@@ -11,14 +11,14 @@
 # WIM_RELAY_URLS must be the exact public URL(s) clients dial (a TLS proxy in front terminates wss).
 # Creating a mesh needs WIM_CREATE_KEY (or WIM_OPEN_CREATE=1 to let anyone create one); with
 # neither, the relay refuses every create. README.md lists every setting.
-FROM node:24-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS deps
+FROM node:25-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages ./packages
 # Only the relay's own dependency tree, without install scripts.
 RUN npm ci --omit=dev --ignore-scripts --workspace=@worldinmotion/relay-node && npm cache clean --force
 
-FROM node:24-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205
+FROM node:25-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370
 ENV NODE_ENV=production \
     WIM_DB=/data/wim-relay.db \
     WIM_HOST=0.0.0.0 \
