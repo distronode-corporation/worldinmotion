@@ -1,9 +1,9 @@
 import { X509Certificate } from "node:crypto";
-import { statSync } from "node:fs";
+import { mkdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { b64u } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it } from "vitest";
-import { certPin, derTime, lanAddress, selfSignedCert, start, type RunningRelay } from "../src/index.ts";
+import { certPin, derTime, lanAddress, lanCert, selfSignedCert, start, type RunningRelay } from "../src/index.ts";
 import { Dial, pinnedConnection, scratchDir } from "./helpers.ts";
 
 const running: RunningRelay[] = [];
@@ -48,6 +48,19 @@ describe("LAN mode", () => {
     const second = await start({ db, port: 0, lan: true, host: "127.0.0.1", log: () => {} });
     running.push(second);
     expect(second.pin).toBe(first.pin);
+  });
+
+  it("refuses to start over a key path it cannot read, and never replaces half a pair", async () => {
+    const now = new Date("2026-10-24T00:00:00Z");
+    const odd = join(await scratchDir(), "relay.db");
+    mkdirSync(`${odd}.key.pem`);
+    expect(() => lanCert(odd, ["127.0.0.1"], now)).toThrow(/EISDIR/);
+    // A key with no certificate is left alone: `wx` refuses to write over it.
+    const half = join(await scratchDir(), "relay.db");
+    const made = lanCert(half, ["127.0.0.1"], now);
+    expect(lanCert(half, ["127.0.0.1"], now)).toEqual(made);
+    rmSync(`${half}.cert.pem`);
+    expect(() => lanCert(half, ["127.0.0.1"], now)).toThrow(/EEXIST/);
   });
 
   it("binds the LAN address by default", async () => {

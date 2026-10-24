@@ -47,11 +47,10 @@ describe("createMesh", () => {
     const config = await new MeshFiles(d.home.meshDir(made.mesh), FS).loadConfig();
     expect(config).toMatchObject({ relay: RELAY, device: d.device.id, share_cards: true });
     // The code is never written to disk.
-    const all = await fs.readdir(d.home.meshDir(made.mesh), { recursive: true });
-    for (const f of all) {
-      const p = join(d.home.meshDir(made.mesh), String(f));
-      if ((await fs.stat(p)).isFile()) expect(await fs.readFile(p, "utf8")).not.toContain("wimrec1_");
-    }
+    const all = await fs.readdir(d.home.meshDir(made.mesh), { recursive: true, withFileTypes: true });
+    const files = all.filter((f) => f.isFile());
+    expect(files.length).toBeGreaterThan(0);
+    for (const f of files) expect(await fs.readFile(join(f.parentPath, f.name), "utf8")).not.toContain("wimrec1_");
   });
 
   it("can skip recovery, needs the operator key where the relay wants one, and refuses bad URLs", async () => {
