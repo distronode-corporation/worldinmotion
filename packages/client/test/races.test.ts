@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { claimLock, EMPTY_LOCK_MS, fsOps, listFiles, readText, withLock, writeNew } from "../src/fsx.ts";
 import { takeMarks } from "../src/held.ts";
 import { Home } from "../src/home.ts";
+import { busyRetries } from "../src/platform.ts";
 import { Spool } from "../src/spool.ts";
 import { FS, POSIX, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
 
@@ -114,7 +115,7 @@ describe("busy files on Windows", () => {
     expect((await spool.sweep()).map((i) => i.id)).toEqual(["02"]);
     expect((await spool.relayed()).map((i) => i.id)).toEqual(["01"]);
     // Dismissed meanwhile: the next pass, still unable to delete it, does not box it again.
-    expect(await spool.dismissRelayed()).toBe(1);
+    expect(await spool.dismissRelayed()).toEqual({ removed: 1, left: [] });
     expect(await spool.sweep()).toEqual([]);
     expect(await spool.relayed()).toEqual([]);
     stuck = false;
@@ -124,9 +125,9 @@ describe("busy files on Windows", () => {
     await spool.take(3);
     await spool.sweep();
     fsOps.rm = async () => busy();
-    expect(await spool.dismissRelayed()).toBe(0);
+    expect(await spool.dismissRelayed(["03"])).toEqual({ removed: 0, left: ["03"] });
     fsOps.rm = real.rm;
-    expect(await spool.dismissRelayed()).toBe(1);
+    expect(await spool.dismissRelayed()).toEqual({ removed: 1, left: [] });
   });
 
   it("a session leaves a control request it cannot remove yet for a later pass", async () => {
@@ -141,6 +142,77 @@ describe("busy files on Windows", () => {
     await fs.writeFile(request, "");
     await until(async () => (await readText(request)) === undefined);
     expect(tries).toBe(4);
+  });
+
+  it("unread stops before an item still busy after the wait, and skips only a corrupt one", async () => {
+    const spool = await Spool.open(join(await scratch("unread"), "spool"), win, 0);
+    for (let i = 1; i <= 3; i++) await spool.write(item(i));
+    const second = join(spool.dir, "000000000002.json");
+    fsOps.sleep = async () => undefined;
+    fsOps.readFile = async (path) => (path === second ? busy() : real.readFile(path));
+    // Handing out item 3 would let a take move the cursor past item 2, which is never delivered.
+    expect((await spool.unread()).map((i) => i.id)).toEqual(["01"]);
+    fsOps.readFile = real.readFile;
+    expect((await spool.unread()).map((i) => i.id)).toEqual(["01", "02", "03"]);
+    // Gone between the listing and the read, or corrupt: skipped, as before.
+    fsOps.readFile = async (path) => (path === second ? Promise.reject(Object.assign(new Error("gone"), { code: "ENOENT" })) : real.readFile(path));
+    expect((await spool.unread()).map((i) => i.id)).toEqual(["01", "03"]);
+    fsOps.readFile = real.readFile;
+    await fs.writeFile(second, "{");
+    expect((await spool.unread()).map((i) => i.id)).toEqual(["01", "03"]);
+  });
+
+  it("a sweep neither boxes nor removes an item still busy, and deals with it on a later pass", async () => {
+    const spool = await Spool.open(join(await scratch("busysweep"), "spool"), win, 0);
+    await spool.write(item(1, true));
+    await spool.write(item(2));
+    await spool.take(2);
+    const first = join(spool.dir, "000000000001.json");
+    fsOps.sleep = async () => undefined;
+    fsOps.readFile = async (path) => (path === first ? busy() : real.readFile(path));
+    expect((await spool.sweep()).map((i) => i.id)).toEqual(["02"]);
+    expect(existsSync(first)).toBe(true);
+    fsOps.readFile = real.readFile;
+    expect(await spool.relayed()).toEqual([]);
+    expect((await spool.sweep()).map((i) => i.id)).toEqual(["01"]);
+    expect((await spool.relayed()).map((i) => i.id)).toEqual(["01"]);
+  });
+
+  it("a box item still busy is reported, not lost: its dismissal is left to ask again", async () => {
+    const spool = await Spool.open(join(await scratch("busybox"), "spool"), win, 0);
+    await spool.write(item(1, true));
+    await spool.write(item(2, true));
+    await spool.take(2);
+    await spool.sweep();
+    const boxed = join(spool.relayedDir, "000000000001.json");
+    fsOps.sleep = async () => undefined;
+    fsOps.readFile = async (path) => (path === boxed ? busy() : real.readFile(path));
+    expect((await spool.relayed()).map((i) => i.id)).toEqual(["02"]);
+    expect(await spool.dismissRelayed(["01", "02"])).toEqual({ removed: 1, left: ["01"] });
+    expect(await spool.dismissRelayed()).toEqual({ removed: 0, left: [] });
+    fsOps.readFile = real.readFile;
+    expect(await spool.dismissRelayed(["01"])).toEqual({ removed: 1, left: [] });
+    expect(await spool.relayed()).toEqual([]);
+  });
+
+  it("a session keeps a dismiss mark whose box item could not be read yet, and dismisses it on a later pass", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const s = await openSession(devices[0]!, mesh, relay, { name: "a", env: { ...FS, platform: "win32" } });
+    cleanup.push(() => s.stop());
+    const id = "01J00000000000000000000009";
+    const boxed = join(s.spool.relayedDir, "000000000099.json");
+    await fs.mkdir(s.spool.relayedDir, { recursive: true });
+    await fs.writeFile(boxed, JSON.stringify({ cursor: 99, kind: "msg", from: "x@two", device: "d", id, at: 1, rendered: "r", relayed: true }));
+    // Busy through one whole pass's wait, then readable.
+    let tries = 0;
+    fsOps.sleep = async () => undefined;
+    fsOps.readFile = async (path) => (path === boxed && tries++ <= busyRetries("win32") ? busy() : real.readFile(path));
+    await fs.mkdir(s.files.dismissDir, { recursive: true });
+    await fs.writeFile(join(s.files.dismissDir, `${id}.dismiss`), "");
+    await until(() => !existsSync(boxed));
+    expect(tries).toBeGreaterThan(busyRetries("win32") + 1);
+    await until(async () => (await fs.readdir(s.files.dismissDir)).length === 0);
   });
 
   it("a mark that cannot be removed yet is left for the next pass, so it is taken once", async () => {
