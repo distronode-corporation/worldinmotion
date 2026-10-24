@@ -1,0 +1,9 @@
+# Every path is owned, so a pull request always requests a review.
+#
+# CODEOWNERS only has teeth behind a ruleset with "Require review from Code Owners"
+# turned on; on its own it is a request, not a gate. A handle here without write access
+# to the repository is silently ignored by GitHub, so check access before adding one.
+#
+# @seandean approves every change: the account that writes a pull request (usually
+# @distronode-com) can never approve it, so the owner must be a different person.
+* @seandean
