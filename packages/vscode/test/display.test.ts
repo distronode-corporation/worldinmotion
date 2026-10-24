@@ -16,7 +16,18 @@ describe("visible", () => {
     }
   });
 
-  it("escapes an unpaired surrogate but keeps a pair", () => {
+  it("keeps presentation selectors exactly where the protocol's sanitizeForDisplay does", () => {
+    const parts = ["a", "1", "\u2764", "\u{1F600}", "\u200D", "\uFE00", "\uFE0E", "\uFE0F", "\u20E3", "\uD83D"];
+    for (const a of parts) {
+      for (const b of parts) {
+        for (const c of parts) expect(visible(a + b + c), JSON.stringify(a + b + c)).toBe(sanitizeForDisplay(a + b + c));
+      }
+    }
+    expect(visible("\u{1F600}\uFE0F\uFE0F")).toBe("\u{1F600}\uFE0F<U+FE0F>");
+    expect(visible("\u2764\uFE0E")).toBe("\u2764\uFE0E");
+  });
+
+    it("escapes an unpaired surrogate but keeps a pair", () => {
     expect(visible("a\uD800b")).toBe("a<U+D800>b");
     expect(visible("\u{1F600}")).toBe("\u{1F600}");
   });

@@ -8,19 +8,37 @@ import { RESULT_STATUSES, type ResultStatus } from "./message.ts";
  */
 
 // Characters that can hide or reorder text on screen: C0 controls other than tab and newline, DEL,
-// C1 controls, bidirectional controls, zero-width and invisible format characters, line and
-// paragraph separators, Unicode tag characters and the variation selector supplement (both used to
-// smuggle invisible text), and unpaired surrogates.
+// C1 controls, line and paragraph separators, every format character (general category Cf: the
+// soft hyphen, bidirectional controls, zero-width characters, Unicode tags, interlinear annotation
+// and the like), every default-ignorable code point (variation selectors, fillers, and the code
+// points Unicode reserves as invisible), and unpaired surrogates. Tags and variation selectors can
+// smuggle invisible text, one or two characters per byte.
 const HIDDEN =
-  /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u00AD\u061C\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2069\uFEFF\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]|[\uD800-\uDFFF]/gu;
+  /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u2028\u2029\p{Cf}\p{Default_Ignorable_Code_Point}]|[\uD800-\uDFFF]/gu;
+
+// A character that can be drawn as an emoji, just before a presentation selector.
+const PRESENTATION_BASE = /\p{Emoji}$/u;
+
+/**
+ * True for a text or emoji presentation selector (U+FE0E, U+FE0F) directly after a character that
+ * can be drawn as an emoji. It only chooses how that character is drawn, so it is kept. Any other
+ * variation selector, a second one in a row included, is escaped.
+ */
+function isPresentation(c: string, text: string, offset: number): boolean {
+  // The code point before is at most two code units back, so the check is constant time.
+  return (c === "\uFE0E" || c === "\uFE0F") && PRESENTATION_BASE.test(text.slice(Math.max(0, offset - 2), offset));
+}
 
 function escapeHidden(c: string): string {
   return `<U+${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}>`;
 }
 
-/** Escapes hidden and control characters visibly, as `<U+XXXX>`. Tabs and newlines are kept. */
+/**
+ * Escapes hidden and control characters visibly, as `<U+XXXX>`. Tabs and newlines are kept, and
+ * so is one presentation selector right after an emoji.
+ */
 export function sanitizeForDisplay(text: string): string {
-  return text.replace(HIDDEN, escapeHidden);
+  return text.replace(HIDDEN, (c: string, offset: number) => (isPresentation(c, text, offset) ? c : escapeHidden(c)));
 }
 
 // An emoji, optionally with a skin tone modifier or emoji presentation selector, just before a
@@ -34,9 +52,10 @@ function sanitizeForAgent(text: string): string {
   return text.replace(HIDDEN, (c: string, offset: number) => {
     // Only the few code units next to the joiner matter, so each check is constant time.
     const keep =
-      c === "\u200D" &&
-      EMOJI_BEFORE.test(text.slice(Math.max(0, offset - 4), offset)) &&
-      EMOJI_AFTER.test(text.slice(offset + 1, offset + 3));
+      isPresentation(c, text, offset) ||
+      (c === "\u200D" &&
+        EMOJI_BEFORE.test(text.slice(Math.max(0, offset - 4), offset)) &&
+        EMOJI_AFTER.test(text.slice(offset + 1, offset + 3)));
     return keep ? c : escapeHidden(c);
   });
 }
@@ -149,7 +168,8 @@ function describe(msg: AgentMessage): string[] {
  * The text sits between marker lines that carry a fresh random boundary; any `<<<wim` in the text
  * or in a label is escaped, so it can never close the block or forge a header. The header says
  * plainly that the content comes from another AI session and is not the person's instruction or
- * approval. Hidden characters are escaped, except zero-width joiners inside emoji sequences.
+ * approval. Hidden characters are escaped, except zero-width joiners inside emoji sequences and
+ * one presentation selector right after an emoji.
  */
 export function frameForAgent(msg: AgentMessage): string {
   if (!ADDRESS_RE.test(msg.from)) throw new TypeError("frameForAgent: from must be name@device");

@@ -2,38 +2,51 @@
 // reaches this extension was written by another agent, so it is shown as plain text only, with
 // characters that can hide or reorder text made visible.
 
-// The same set as sanitizeForDisplay in @worldinmotion/protocol (a test holds the two equal):
-// C0 controls other than tab and newline, DEL, C1 controls, the soft hyphen, bidirectional
-// controls, zero-width and invisible format characters, line and paragraph separators, Unicode
-// tag characters, the variation selector supplement, and unpaired surrogates. The class is built
-// from numbers so this file holds no invisible characters itself.
+// The same rule as sanitizeForDisplay in @worldinmotion/protocol (a test holds the two equal):
+// C0 controls other than tab and newline, DEL, C1 controls, line and paragraph separators, every
+// format character (general category Cf: the soft hyphen, bidirectional controls, zero-width
+// characters, Unicode tags and the like), every default-ignorable code point (variation
+// selectors, fillers, and the code points Unicode reserves as invisible), and unpaired
+// surrogates. The ranges are built from numbers so this file holds no invisible characters itself.
 const RANGES: ReadonlyArray<readonly [number, number]> = [
   [0x0000, 0x0008],
   [0x000b, 0x001f],
   [0x007f, 0x009f],
-  [0x00ad, 0x00ad],
-  [0x061c, 0x061c],
-  [0x180e, 0x180e],
-  [0x200b, 0x200f],
-  [0x2028, 0x202e],
-  [0x2060, 0x2069],
-  [0xfeff, 0xfeff],
+  [0x2028, 0x2029],
   [0xd800, 0xdfff],
-  [0xe0000, 0xe007f],
-  [0xe0100, 0xe01ef],
 ];
 const BACKSLASH = String.fromCharCode(0x5c);
 const ELLIPSIS = String.fromCharCode(0x2026);
+const TEXT_SELECTOR = String.fromCharCode(0xfe0e);
+const EMOJI_SELECTOR = String.fromCharCode(0xfe0f);
 const point = (n: number): string => `${BACKSLASH}u{${n.toString(16)}}`;
-const HIDDEN = new RegExp(`[${RANGES.map(([a, b]) => `${point(a)}-${point(b)}`).join("")}]`, "gu");
+const HIDDEN = new RegExp(
+  `[${RANGES.map(([a, b]) => `${point(a)}-${point(b)}`).join("")}${BACKSLASH}p{Cf}${BACKSLASH}p{Default_Ignorable_Code_Point}]`,
+  "gu",
+);
+// A character that can be drawn as an emoji, just before a presentation selector.
+const PRESENTATION_BASE = new RegExp(`${BACKSLASH}p{Emoji}$`, "u");
+
+/**
+ * True for a text or emoji presentation selector directly after a character that can be drawn as
+ * an emoji: it only chooses how that character is drawn, so it is kept. Any other variation
+ * selector, a second one in a row included, is escaped.
+ */
+function isPresentation(c: string, text: string, offset: number): boolean {
+  // The code point before is at most two code units back.
+  return (c === TEXT_SELECTOR || c === EMOJI_SELECTOR) && PRESENTATION_BASE.test(text.slice(Math.max(0, offset - 2), offset));
+}
 
 function escapeHidden(c: string): string {
   return `<U+${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}>`;
 }
 
-/** Escapes hidden and control characters visibly, as `<U+XXXX>`. Tabs and newlines are kept. */
+/**
+ * Escapes hidden and control characters visibly, as `<U+XXXX>`. Tabs and newlines are kept, and
+ * so is one presentation selector right after an emoji.
+ */
 export function visible(text: string): string {
-  return text.replace(HIDDEN, escapeHidden);
+  return text.replace(HIDDEN, (c: string, offset: number) => (isPresentation(c, text, offset) ? c : escapeHidden(c)));
 }
 
 /** One line for a label or a description: hidden characters escaped, whitespace runs folded. */

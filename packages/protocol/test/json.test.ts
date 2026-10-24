@@ -32,6 +32,12 @@ describe("hasDuplicateKeys", () => {
       expect(hasDuplicateKeys(text), text).toBe(false);
     }
   });
+
+  it("throws a SyntaxError for text that is not JSON, an unterminated string included", () => {
+    for (const text of ['{"a', '"', '{"a":"b', '{"a\\', '["x\\"]', "{", "", "nope", '{"a":1,}']) {
+      expect(() => hasDuplicateKeys(text), text).toThrow(SyntaxError);
+    }
+  });
 });
 
 describe("parseJson", () => {
