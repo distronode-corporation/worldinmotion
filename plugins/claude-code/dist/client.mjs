@@ -88383,6 +88383,9 @@ function createFollowsLinks(platform2) {
 function busyRetries(platform2) {
   return platform2 === "win32" ? 50 : 0;
 }
+function momentarilyBusy(code2, platform2) {
+  return platform2 === "win32" && (code2 === "EPERM" || code2 === "EBUSY");
+}
 
 // src/fsx.ts
 function noFollow(c5) {
@@ -88407,6 +88410,7 @@ var fsOps = {
   copyNew: (from, to) => fs.copyFile(from, to, constants.COPYFILE_EXCL),
   lstat: (path2) => fs.lstat(path2, { bigint: true }),
   readFile: (path2) => fs.readFile(path2, "utf8"),
+  rm: (path2) => fs.rm(path2, { force: true }),
   kill: (pid, signal) => void process.kill(pid, signal),
   sleep: (ms) => new Promise((resolve3) => setTimeout(resolve3, ms))
 };
@@ -88419,8 +88423,7 @@ async function whileBusy(op2, platform2) {
     try {
       return await op2();
     } catch (error63) {
-      const busy = code(error63) === "EPERM" || code(error63) === "EBUSY";
-      if (!busy || attempt >= busyRetries(platform2)) throw error63;
+      if (!momentarilyBusy(code(error63), platform2) || attempt >= busyRetries(platform2)) throw error63;
       await fsOps.sleep(20);
     }
   }
@@ -88458,16 +88461,16 @@ async function writeNew(path2, data, env3 = realFsEnv, mode = 384) {
     await fs.rm(tmp, { force: true });
   }
 }
-async function readText(path2, env3 = realFsEnv) {
+async function readText(path2) {
   try {
-    return await whileBusy(() => fsOps.readFile(path2), env3.platform);
+    return await fsOps.readFile(path2);
   } catch (error63) {
     if (code(error63) === "ENOENT") return void 0;
     throw error63;
   }
 }
-async function readJson(path2, env3 = realFsEnv) {
-  const text2 = await readText(path2, env3);
+async function readJson(path2) {
+  const text2 = await readText(path2);
   if (text2 === void 0) return void 0;
   const parsed = parseJson(text2);
   if (!parsed.ok) throw new Error(`${path2}: ${parsed.reason === "duplicate_key" ? "duplicate key" : "not valid JSON"}`);
@@ -88494,7 +88497,19 @@ async function listFiles(path2) {
   }
 }
 async function removeFile(path2) {
-  await fs.rm(path2, { force: true });
+  await fsOps.rm(path2);
+}
+async function tryRemove(path2, env3 = realFsEnv) {
+  try {
+    await fsOps.rm(path2);
+    return true;
+  } catch (error63) {
+    if (momentarilyBusy(code(error63), env3.platform)) return false;
+    throw error63;
+  }
+}
+async function releaseLock(path2, env3 = realFsEnv) {
+  await whileBusy(() => fsOps.rm(path2), env3.platform);
 }
 var EMPTY_LOCK_MS = 5e3;
 async function lookAt(path2, env3) {
@@ -88523,7 +88538,7 @@ async function takeOver(path2, seen, env3) {
       });
     }
   } finally {
-    await removeFile(aside);
+    await tryRemove(aside, env3);
   }
 }
 async function contend(path2, env3, mine) {
@@ -88558,7 +88573,7 @@ async function withLock(lockPath, fn, env3 = realFsEnv, timeoutMs = 1e4) {
   try {
     return await fn();
   } finally {
-    await removeFile(lockPath);
+    await releaseLock(lockPath, env3);
   }
 }
 async function claimLock(lockPath, env3 = realFsEnv) {
@@ -88572,7 +88587,7 @@ async function claimLock(lockPath, env3 = realFsEnv) {
   return true;
 }
 async function lockHeld(lockPath, env3 = realFsEnv) {
-  const holder = Number(await readText(lockPath, env3));
+  const holder = Number(await whileBusy(() => readText(lockPath), env3.platform));
   return Number.isSafeInteger(holder) && holder > 0 && holder !== env3.pid && pidAlive(holder, fsOps.kill);
 }
 
@@ -88724,15 +88739,15 @@ var HeldBox = class {
   }
   /** Decisions left by other processes (`wim held`, the plugin's pane), consumed as they are read. */
   async takeMarks() {
-    return (await takeMarks(this.dir, ["approve", "refuse"])).map(({ id, mark }) => ({ id, verdict: mark }));
+    return (await takeMarks(this.dir, ["approve", "refuse"], this.env)).map(({ id, mark }) => ({ id, verdict: mark }));
   }
 };
-async function takeMarks(dir, marks) {
+async function takeMarks(dir, marks, env3) {
   const out = [];
   for (const name of (await listFiles(dir)).sort()) {
     const m4 = /^([0-9A-Z]{26})\.([a-z]+)$/.exec(name);
     if (m4 === null || !marks.includes(m4[2])) continue;
-    await removeFile(join3(dir, name));
+    if (!await tryRemove(join3(dir, name), env3)) continue;
     out.push({ id: m4[1], mark: m4[2] });
   }
   return out;
@@ -89242,7 +89257,7 @@ var SessionFiles = class {
     return claimLock(this.liveLock, this.env);
   }
   release() {
-    return removeFile(this.liveLock);
+    return releaseLock(this.liveLock, this.env);
   }
   isLiveElsewhere() {
     return lockHeld(this.liveLock, this.env);
@@ -89297,6 +89312,10 @@ var Spool = class _Spool {
   last;
   /** The take in progress, which the next one waits for. */
   taking = Promise.resolve();
+  /** The highest cursor this process wrote: a read of the file never goes back past it. */
+  written = 0;
+  /** Relayed items this process already copied to the box, so one it could not delete yet is not copied again. */
+  boxed = /* @__PURE__ */ new Set();
   dir;
   relayedDir;
   env;
@@ -89322,8 +89341,12 @@ var Spool = class _Spool {
   async names() {
     return (await listDir(this.dir)).filter((n3) => NAME2.test(n3)).sort();
   }
+  /**
+   * The cursor: the file (read again while it is busy for a moment), and never less than what
+   * this process last wrote, whatever a file system that is slow to show a rename says.
+   */
   async cursor() {
-    return cursorNumber(await readText(this.cursorPath));
+    return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
   }
   async write(item) {
     const cursor2 = ++this.last;
@@ -89354,6 +89377,7 @@ var Spool = class _Spool {
     const run = this.taking.then(async () => {
       if (cursor2 <= await this.cursor()) return;
       await writeAtomic(this.cursorPath, itemName(cursor2), this.env);
+      this.written = cursor2;
     });
     this.taking = run.catch(() => void 0);
     return run;
@@ -89369,8 +89393,11 @@ var Spool = class _Spool {
     for (const name of await this.names()) {
       if (Number(NAME2.exec(name)[1]) > upto) break;
       const item = await this.read(name);
-      if (item?.relayed === true && !alreadyRead.has(item.id)) await writeJson(join7(this.relayedDir, name), item, this.env);
-      await removeFile(join7(this.dir, name));
+      if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+        await writeJson(join7(this.relayedDir, name), item, this.env);
+        this.boxed.add(name);
+      }
+      if (!await tryRemove(join7(this.dir, name), this.env)) continue;
       if (item !== void 0) gone.push(item);
     }
     return gone;
@@ -89389,8 +89416,7 @@ var Spool = class _Spool {
     let n3 = 0;
     for (const item of await this.relayed()) {
       if (ids !== void 0 && !ids.includes(item.id)) continue;
-      await removeFile(join7(this.relayedDir, itemName(item.cursor)));
-      n3++;
+      if (await tryRemove(join7(this.relayedDir, itemName(item.cursor)), this.env)) n3++;
     }
     return n3;
   }
@@ -90182,7 +90208,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       const path2 = join8(this.files.behindDir, name);
       const msg = await readJson(path2).catch(() => void 0);
       const outcome = msg === void 0 ? "dropped" : await this.check(msg, true);
-      if (outcome !== "behind") await removeFile(path2);
+      if (outcome !== "behind") await tryRemove(path2, this.o.env);
     }
   }
   fromAddress(p3) {
@@ -90307,7 +90333,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       await this.sweep();
       await this.readPresence();
       for (const { id, verdict } of await this.held.takeMarks()) await this.decide(id, verdict).catch(() => void 0);
-      const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"])).map((m4) => m4.id);
+      const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m4) => m4.id);
       if (dismissed.length > 0) await this.spool.dismissRelayed(dismissed);
       for (const name of await listDir(this.files.controlDir)) {
         if (name.endsWith(".tmp")) continue;
@@ -90321,7 +90347,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         if (req !== null && this.o.handover !== true) continue;
         const path2 = join8(this.files.controlDir, name);
         const body = req === null ? void 0 : await readJson(path2).catch(() => void 0);
-        await removeFile(path2);
+        if (!await tryRemove(path2, this.o.env)) continue;
         if (m4 !== null) await this.resumePeer(m4[1]);
         if (req !== null && this.o.handover === true) await this.handOverSend(req[1], body);
       }
@@ -119920,16 +119946,15 @@ async function handOver(ctx, watcher, request2) {
   const answerPath = pathJoin(watcher.controlDir, `send-${id}.done.json`);
   const until = Date.now() + (ctx.io.handoverMs ?? 15e3);
   for (; ; ) {
-    const answer = await readJson(answerPath);
+    const answer = await whileBusy(() => readJson(answerPath), ctx.fsEnv.platform);
     if (answer !== void 0) {
-      await removeFile(answerPath);
+      await tryRemove(answerPath, ctx.fsEnv);
       if (!answer.ok) throw new ClientError(answer.error, "refused");
       return { id: answer.id, results: answer.results, live: answer.live };
     }
     if (Date.now() > until) {
       const requestPath = pathJoin(watcher.controlDir, `send-${id}.json`);
-      if (await readText(requestPath) !== void 0) {
-        await removeFile(requestPath);
+      if (await whileBusy(() => readText(requestPath), ctx.fsEnv.platform) !== void 0 && await tryRemove(requestPath, ctx.fsEnv)) {
         throw new SetupError(
           "the running `wim watch` did not take the send. Is it still connected? A `wim watch` started before this version of wim does not take sends: restart it."
         );

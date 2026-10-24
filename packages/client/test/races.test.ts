@@ -6,6 +6,7 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { claimLock, EMPTY_LOCK_MS, fsOps, listFiles, readText, withLock, writeNew } from "../src/fsx.ts";
+import { takeMarks } from "../src/held.ts";
 import { Home } from "../src/home.ts";
 import { Spool } from "../src/spool.ts";
 import { FS, POSIX, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
@@ -77,6 +78,80 @@ describe("overlapping takes", () => {
     await fs.rm(spool.dir);
     await spool.take(1);
     expect(await spool.cursor()).toBe(1);
+  });
+});
+
+describe("busy files on Windows", () => {
+  const win = { platform: "win32", pid: 1 } as const;
+  const busy = (): never => {
+    throw Object.assign(new Error("delete pending"), { code: "EPERM" });
+  };
+  const item = (i: number, relayed = false) => ({ kind: "msg" as const, from: "x@two", device: "d", id: `0${i}`, at: 1, rendered: `item ${i}`, ...(relayed ? { relayed } : {}) });
+
+  it("the spool cursor never reads older than this process wrote, and waits out a busy read", async () => {
+    const spool = await Spool.open(join(await scratch("cur"), "spool"), win, 0);
+    for (let i = 0; i < 3; i++) await spool.write(item(i));
+    await spool.take(3);
+    // A file system that has not shown the rename yet: the file still reads as before it.
+    fsOps.readFile = async (path) => (path === spool.cursorPath ? "000000000001.json" : real.readFile(path));
+    expect(await spool.cursor()).toBe(3);
+    expect((await spool.unread()).length).toBe(0);
+    // A cursor busy for a moment is read again, not taken for no cursor.
+    let fails = 2;
+    fsOps.sleep = async () => undefined;
+    fsOps.readFile = async (path) => (path === spool.cursorPath && fails-- > 0 ? busy() : real.readFile(path));
+    expect(await spool.cursor()).toBe(3);
+  });
+
+  it("a sweep skips an item it cannot delete yet, sends its receipt on a later pass, and boxes a relayed one once", async () => {
+    const spool = await Spool.open(join(await scratch("sw"), "spool"), win, 0);
+    await spool.write(item(1, true));
+    await spool.write(item(2));
+    await spool.take(2);
+    const first = join(spool.dir, "000000000001.json");
+    let stuck = true;
+    fsOps.rm = async (path) => (stuck && path === first ? busy() : real.rm(path));
+    expect((await spool.sweep()).map((i) => i.id)).toEqual(["02"]);
+    expect((await spool.relayed()).map((i) => i.id)).toEqual(["01"]);
+    // Dismissed meanwhile: the next pass, still unable to delete it, does not box it again.
+    expect(await spool.dismissRelayed()).toBe(1);
+    expect(await spool.sweep()).toEqual([]);
+    expect(await spool.relayed()).toEqual([]);
+    stuck = false;
+    expect((await spool.sweep()).map((i) => i.id)).toEqual(["01"]);
+    // A boxed item that cannot be removed yet is not counted as dismissed.
+    await spool.write(item(3, true));
+    await spool.take(3);
+    await spool.sweep();
+    fsOps.rm = async () => busy();
+    expect(await spool.dismissRelayed()).toBe(0);
+    fsOps.rm = real.rm;
+    expect(await spool.dismissRelayed()).toBe(1);
+  });
+
+  it("a session leaves a control request it cannot remove yet for a later pass", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const s = await openSession(devices[0]!, mesh, relay, { name: "a", env: { ...FS, platform: "win32" } });
+    cleanup.push(() => s.stop());
+    await fs.mkdir(s.files.controlDir, { recursive: true });
+    const request = join(s.files.controlDir, "resume-x@one");
+    let tries = 0;
+    fsOps.rm = async (path) => (path === request && ++tries < 4 ? busy() : real.rm(path));
+    await fs.writeFile(request, "");
+    await until(async () => (await readText(request)) === undefined);
+    expect(tries).toBe(4);
+  });
+
+  it("a mark that cannot be removed yet is left for the next pass, so it is taken once", async () => {
+    const dir = await scratch("marks");
+    const id = "01J00000000000000000000001";
+    await fs.writeFile(join(dir, `${id}.approve`), "");
+    fsOps.rm = async () => busy();
+    expect(await takeMarks(dir, ["approve"], win)).toEqual([]);
+    fsOps.rm = real.rm;
+    expect(await takeMarks(dir, ["approve"], win)).toEqual([{ id, mark: "approve" }]);
+    expect(await takeMarks(dir, ["approve"], win)).toEqual([]);
   });
 });
 

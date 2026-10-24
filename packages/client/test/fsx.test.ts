@@ -1,15 +1,17 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { claimLock, ensureDir, fsOps, listDir, lockHeld, readJson, readText, removeFile, withLock, writeAtomic, writeJson } from "../src/fsx.ts";
+import { claimLock, ensureDir, fsOps, listDir, lockHeld, readJson, readText, releaseLock, removeFile, tryRemove, whileBusy, withLock, writeAtomic, writeJson } from "../src/fsx.ts";
 import { FS, POSIX, scratch } from "./helpers.ts";
 
 const realRename = fsOps.rename;
 const realKill = fsOps.kill;
 const realSleep = fsOps.sleep;
 const realReadFile = fsOps.readFile;
+const realRm = fsOps.rm;
 afterEach(() => {
   fsOps.readFile = realReadFile;
+  fsOps.rm = realRm;
   fsOps.rename = realRename;
   fsOps.kill = realKill;
   fsOps.sleep = realSleep;
@@ -70,7 +72,7 @@ describe("reads", () => {
     await expect(listDir(join(dir, "f"))).rejects.toThrow();
   });
 
-  it("read again a file Windows reports busy for a moment, and only there", async () => {
+  it("waits out a busy moment for one named file, on Windows only, and nowhere else", async () => {
     const dir = await scratch();
     const p = join(dir, "f");
     await fs.writeFile(p, "12");
@@ -81,19 +83,47 @@ describe("reads", () => {
       if (fails-- > 0) throw Object.assign(new Error("delete pending"), { code: "EPERM" });
       return realReadFile(path);
     };
+    const win = { platform: "win32", pid: 1 } as const;
+    const posix = { platform: "linux", pid: 1 } as const;
     fails = 2;
-    expect(await readText(p, { platform: "win32", pid: 1 })).toBe("12");
+    expect(await whileBusy(() => readText(p), win.platform)).toBe("12");
     fails = 1;
-    await expect(readText(p, { platform: "linux", pid: 1 })).rejects.toThrow("delete pending");
+    await expect(whileBusy(() => readText(p), posix.platform)).rejects.toThrow("delete pending");
+    // A plain read never waits: a pass over many entries skips a busy one at once.
+    fails = 1;
+    await expect(readText(p)).rejects.toThrow("delete pending");
     // A lock being removed by its holder is looked at again, not an error. ("left over" names
     // no holder, so it is taken over.)
     const lock = join(dir, "l.lock");
     await fs.writeFile(lock, "left over");
     fails = 2;
-    expect(await withLock(lock, async () => "in", { platform: "win32", pid: 1 })).toBe("in");
+    expect(await withLock(lock, async () => "in", win)).toBe("in");
     await fs.writeFile(lock, "left over");
     fails = 1;
-    await expect(withLock(lock, async () => "in", { platform: "linux", pid: 1 })).rejects.toThrow("delete pending");
+    await expect(withLock(lock, async () => "in", posix)).rejects.toThrow("delete pending");
+    // Whether a live process holds a lock is read through a busy moment too.
+    await fs.writeFile(lock, String(process.pid));
+    fails = 2;
+    expect(await lockHeld(lock, { ...win, pid: process.pid + 1 })).toBe(true);
+    fsOps.readFile = realReadFile;
+    // Releasing a lock waits out a busy moment; removing a directory entry does not.
+    let rmFails = 0;
+    fsOps.rm = async (path) => {
+      if (rmFails-- > 0) throw Object.assign(new Error("in use"), { code: "EBUSY" });
+      return realRm(path);
+    };
+    rmFails = 2;
+    await releaseLock(lock, win);
+    expect(await readText(lock)).toBeUndefined();
+    await fs.writeFile(p, "x");
+    rmFails = 1;
+    expect(await tryRemove(p, win)).toBe(false);
+    expect(await readText(p)).toBe("x");
+    expect(await tryRemove(p, win)).toBe(true);
+    expect(await readText(p)).toBeUndefined();
+    await fs.writeFile(p, "x");
+    rmFails = 1;
+    await expect(tryRemove(p, posix)).rejects.toThrow("in use");
   });
 
   it("parses JSON strictly", async () => {
