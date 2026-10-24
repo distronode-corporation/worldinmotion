@@ -7,7 +7,11 @@
 // - the extension's and the plugin's policy names, and the extension's trust dialog, match the
 //   client's.
 
+import { copyFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../../client/src/client.ts";
 import { runEvents } from "../../client/src/events.ts";
@@ -20,14 +24,19 @@ import { Store } from "../src/state.ts";
 
 /**
  * The plugin's pure helpers (plugins/claude-code/hooks/parse.ts), loaded at run time: the plugin
- * is typed against Claude Code's own plugin types, which this project does not have.
+ * is typed against Claude Code's own plugin types, which this project does not have. A copy is
+ * loaded from a temp folder, because the plugin's tsconfig.json extends a file Claude Code writes
+ * locally (gitignored), so transforming the file in place fails on a clean checkout such as CI.
+ * parse.ts has only type imports, which the transform erases, so the copy stands alone.
  */
 type PluginParse = {
   ROUTE_POLICIES: readonly string[];
   parsePeers(value: unknown): unknown[];
   peerLine(peer: unknown): string;
 };
-const plugin = (await import(new URL("../../../plugins/claude-code/hooks/parse.ts", import.meta.url).href)) as PluginParse;
+const pluginCopy = join(mkdtempSync(join(process.env["WIM_TEST_TMP"] || tmpdir(), "wim-parse-")), "parse.ts");
+copyFileSync(fileURLToPath(new URL("../../../plugins/claude-code/hooks/parse.ts", import.meta.url)), pluginCopy);
+const plugin = (await import(pathToFileURL(pluginCopy).href)) as PluginParse;
 
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
