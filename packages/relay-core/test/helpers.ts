@@ -25,12 +25,20 @@ export const MESH = b64u.encode(new Uint8Array(16).fill(7));
 export type StoreKind = "memory" | "sql";
 export const KINDS: StoreKind[] = ["memory", "sql"];
 
-/** node:sqlite behind the minimal SqlDb surface, as relay-node wires it. */
+/**
+ * node:sqlite behind the minimal SqlDb surface, as relay-node wires it. It refuses numbered
+ * parameters the way Node 22's node:sqlite does, so the store's statements are held to what
+ * the oldest supported Node can run, on any Node.
+ */
 export function sqlDb(db: DatabaseSync): SqlDb {
+  const prepare = (sql: string) => {
+    if (/\?\d/.test(sql)) throw new Error(`column index out of range (a numbered parameter in: ${sql})`);
+    return db.prepare(sql);
+  };
   return {
-    exec: (sql, ...params) => void db.prepare(sql).run(...params),
-    all: (sql, ...params) => db.prepare(sql).all(...params) as Record<string, string | number | null>[],
-    one: (sql, ...params) => db.prepare(sql).get(...params) as Record<string, string | number | null> | undefined,
+    exec: (sql, ...params) => void prepare(sql).run(...params),
+    all: (sql, ...params) => prepare(sql).all(...params) as Record<string, string | number | null>[],
+    one: (sql, ...params) => prepare(sql).get(...params) as Record<string, string | number | null> | undefined,
   };
 }
 

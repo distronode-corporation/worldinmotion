@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { dropMesh, meshCount, migrate, SCHEMA_VERSION, SqlStore, type SessionRow } from "../src/index.ts";
+import { positional } from "../src/sql-store.ts";
 import { KINDS, makeStore, MESH, sqlDb } from "./helpers.ts";
 
 const session = (sid: string, device = "dev"): SessionRow => ({
@@ -180,5 +181,20 @@ describe("sql schema", () => {
     expect(db.one("SELECT COUNT(*) AS n FROM host_extra WHERE mesh = 'other'")!["n"]).toBe(1);
     // The schema itself is kept.
     expect(db.one("SELECT v FROM wim_meta WHERE k = 'schema'")!["v"]).toBe(SCHEMA_VERSION);
+  });
+});
+
+describe("positional", () => {
+  it("rewrites numbered parameters as plain ones, repeating values where a number repeats", () => {
+    expect(positional("DELETE FROM t WHERE mesh = ?1 AND id IN (SELECT id FROM u WHERE mesh = ?1 AND at <= ?2)", ["m", 5])).toEqual([
+      "DELETE FROM t WHERE mesh = ? AND id IN (SELECT id FROM u WHERE mesh = ? AND at <= ?)",
+      "m",
+      "m",
+      5,
+    ]);
+    expect(positional("UPDATE t SET sid = ?2 WHERE mesh = ?1 AND sid = ?3", ["m", "new", "old"])).toEqual(["UPDATE t SET sid = ? WHERE mesh = ? AND sid = ?", "new", "m", "old"]);
+    // A plain ? after ?3 is parameter 4, as in SQLite.
+    expect(positional("SELECT ?3, ?, ?1", ["a", "b", "c", "d"])).toEqual(["SELECT ?, ?, ?", "c", "d", "a"]);
+    expect(positional("SELECT * FROM t WHERE mesh = ? AND seq = ?", ["m", 2])).toEqual(["SELECT * FROM t WHERE mesh = ? AND seq = ?", "m", 2]);
   });
 });

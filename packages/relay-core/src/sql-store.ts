@@ -23,12 +23,31 @@ type SqlRow = Record<string, SqlValue>;
 /**
  * The smallest synchronous SQL surface both hosts offer: Node's `DatabaseSync` (through
  * `prepare(sql).run/all/get`) and a Durable Object's `ctx.storage.sql.exec(sql, ...params)`.
- * Each call runs exactly one statement.
+ * Each call runs exactly one statement, and its parameters are plain `?`s bound in order.
  */
 export interface SqlDb {
   exec(sql: string, ...params: SqlValue[]): void;
   all(sql: string, ...params: SqlValue[]): SqlRow[];
   one(sql: string, ...params: SqlValue[]): SqlRow | undefined;
+}
+
+/**
+ * Rewrites a statement's numbered parameters (`?1`, `?2`) as plain `?`s, with the values listed
+ * in the order the `?`s appear. Statements here use `?1` to repeat the mesh id, but Node 22's
+ * node:sqlite binds a numbered parameter only by name, so it refuses them with "column index out
+ * of range". A plain `?` takes the number after the largest one so far, as in SQLite. Returns the
+ * statement and then its values, ready to spread into a `SqlDb` call.
+ */
+export function positional(sql: string, params: readonly SqlValue[]): [string, ...SqlValue[]] {
+  const values: SqlValue[] = [];
+  let largest = 0;
+  const text = sql.replace(/\?(\d*)/g, (_match, digits: string) => {
+    const index = digits === "" ? largest + 1 : Number(digits);
+    largest = Math.max(largest, index);
+    values.push(params[index - 1]!);
+    return "?";
+  });
+  return [text, ...values];
 }
 
 /*
@@ -202,15 +221,15 @@ export class SqlStore implements MeshStore {
 
   // Every statement is scoped to this mesh, which is always its first parameter.
   private run(sql: string, ...params: SqlValue[]): void {
-    this.db.exec(sql, this.mesh, ...params);
+    this.db.exec(...positional(sql, [this.mesh, ...params]));
   }
 
   private all(sql: string, ...params: SqlValue[]): SqlRow[] {
-    return this.db.all(sql, this.mesh, ...params);
+    return this.db.all(...positional(sql, [this.mesh, ...params]));
   }
 
   private one(sql: string, ...params: SqlValue[]): SqlRow | undefined {
-    return this.db.one(sql, this.mesh, ...params);
+    return this.db.one(...positional(sql, [this.mesh, ...params]));
   }
 
   private count(sql: string, ...params: SqlValue[]): number {
