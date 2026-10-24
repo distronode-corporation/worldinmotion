@@ -110,6 +110,10 @@ describe("connection loss and takeover", () => {
     // Until the session has seen the close, so the presence below meets a link that is not open.
     await until(() => (s as unknown as { link?: { isOpen: boolean } }).link?.isOpen !== true);
     await fs.writeFile(s.files.presencePath, "busy");
+    // A pass the session's own timer started would make this tick return at once, and it may
+    // have read presence before the file above was written. Only microtasks run between this
+    // check and the call, so the tick below is the pass that reads it.
+    await until(() => !(s as unknown as { ticking: boolean }).ticking);
     await s.tick();
     expect(relay.sentByClients.filter((t) => t.includes('"presence"')).length).toBe(0);
   });
