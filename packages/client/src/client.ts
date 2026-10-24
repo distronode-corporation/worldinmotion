@@ -1286,8 +1286,10 @@ export class MeshSession extends EventEmitter {
       };
       // The first item only: the listener goes before anything is awaited, so a second item
       // delivered while this one is taken stays unread for the next call.
+      // An item's event can arrive after the scan above already took it (the event follows the
+      // write, and the scan can see the file first); one at or below the cursor is not new.
       const onItem = (item: SpoolItem): void => {
-        if (this.push !== undefined) return;
+        if (this.push !== undefined || item.cursor <= this.spool.taken) return;
         this.off("item", onItem);
         void this.take(item.cursor).then(() => {
           this.informed([item]);

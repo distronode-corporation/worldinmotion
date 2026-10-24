@@ -80,6 +80,11 @@ export class Spool {
    * The cursor: the file (read again while it is busy for a moment), and never less than what
    * this process last wrote, whatever a file system that is slow to show a rename says.
    */
+  /** The highest cursor this process has taken, without reading the file. */
+  get taken(): number {
+    return this.written;
+  }
+
   async cursor(): Promise<number> {
     return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
   }

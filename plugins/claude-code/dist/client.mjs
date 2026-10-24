@@ -89345,6 +89345,10 @@ var Spool = class _Spool {
    * The cursor: the file (read again while it is busy for a moment), and never less than what
    * this process last wrote, whatever a file system that is slow to show a rename says.
    */
+  /** The highest cursor this process has taken, without reading the file. */
+  get taken() {
+    return this.written;
+  }
   async cursor() {
     return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
   }
@@ -90821,7 +90825,7 @@ ${frameEntry(entry)}`);
         resolve3(item);
       };
       const onItem = (item) => {
-        if (this.push !== void 0) return;
+        if (this.push !== void 0 || item.cursor <= this.spool.taken) return;
         this.off("item", onItem);
         void this.take(item.cursor).then(() => {
           this.informed([item]);
