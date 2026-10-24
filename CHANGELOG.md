@@ -11,7 +11,7 @@ index-based on the `## [x.y.z]` heading and stops at the next such heading or at
 line beginning with `[`, so keep the link definitions at the bottom and do not start a
 body line with a bracket.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-24
 
 The first pre-release. The wire format and the commands may still change before 1.0.
 
