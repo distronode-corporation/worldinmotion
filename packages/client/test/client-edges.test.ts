@@ -376,6 +376,22 @@ describe("relay refusals and other answers", () => {
     expect(b.listenerCount("item")).toBe(listening);
   });
 
+  it("never hands out an item twice when its event arrives after the scan took it", async () => {
+    const { a, b } = await pair();
+    await a.send("b@two", "once");
+    await until(async () => (await unread(b)).length === 1);
+    const first = await b.next(10);
+    expect(first?.rendered).toContain("once");
+    // That item's own event, arriving late while a new wait listens (seen on a slow macOS
+    // runner): it is not new, so the wait ignores it and takes the next real one.
+    const listening = b.listenerCount("item");
+    const waiting = b.next(3000);
+    await until(() => b.listenerCount("item") > listening);
+    b.emit("item", first!);
+    await a.send("b@two", "the next one");
+    expect((await waiting)?.rendered).toContain("the next one");
+  });
+
   it("records room addressees, skipping peers of unknown devices", async () => {
     const { a, b } = await pair();
     await b.joinRoom("#t");
