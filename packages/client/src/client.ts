@@ -43,7 +43,7 @@ import { basename, join, resolve } from "node:path";
 import { Breaker, pauseNotice } from "./breaker.ts";
 import { cardFor, sameCard } from "./cards.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
-import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, writeJson, type FsEnv } from "./fsx.ts";
+import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeJson, type FsEnv } from "./fsx.ts";
 import { HeldBox, preview, takeMarks, type HeldItem, type Verdict } from "./held.ts";
 import { frameEntry, History, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
@@ -590,7 +590,8 @@ export class MeshSession extends EventEmitter {
       const path = join(this.files.behindDir, name);
       const msg = (await readJson(path).catch(() => undefined)) as SendFrame | undefined;
       const outcome = msg === undefined ? "dropped" : await this.check(msg, true);
-      if (outcome !== "behind") await removeFile(path);
+      // Checked again on a later retry if it cannot be removed yet; a repeat is dropped as seen.
+      if (outcome !== "behind") await tryRemove(path, this.o.env);
     }
   }
 
@@ -734,7 +735,7 @@ export class MeshSession extends EventEmitter {
       await this.sweep();
       await this.readPresence();
       for (const { id, verdict } of await this.held.takeMarks()) await this.decide(id, verdict).catch(() => undefined);
-      const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"])).map((m) => m.id);
+      const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m) => m.id);
       if (dismissed.length > 0) await this.spool.dismissRelayed(dismissed);
       for (const name of await listDir(this.files.controlDir)) {
         // A marker still being written is a temp file, and an answer is for the CLI to read.
@@ -751,7 +752,8 @@ export class MeshSession extends EventEmitter {
         if (req !== null && this.o.handover !== true) continue;
         const path = join(this.files.controlDir, name);
         const body = req === null ? undefined : await readJson(path).catch(() => undefined);
-        await removeFile(path);
+        // Taking a request is removing it: one that cannot be removed yet is left for the next pass.
+        if (!(await tryRemove(path, this.o.env))) continue;
         if (m !== null) await this.resumePeer(m[1]!);
         if (req !== null && this.o.handover === true) await this.handOverSend(req[1]!, body);
       }

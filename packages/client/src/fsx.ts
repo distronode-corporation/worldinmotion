@@ -5,7 +5,7 @@ import { parseJson, randomBytes, b64u } from "@worldinmotion/protocol";
 import { constants, promises as fs, type BigIntStats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { dirname } from "node:path";
-import { busyRetries, createFollowsLinks, pidAlive, type Platform } from "./platform.ts";
+import { busyRetries, createFollowsLinks, momentarilyBusy, pidAlive, type Platform } from "./platform.ts";
 
 /** The `open` flag that refuses a symbolic link, where the platform has one (not on Windows). */
 export function noFollow(c: { O_NOFOLLOW?: number }): number {
@@ -38,6 +38,7 @@ export const fsOps = {
   copyNew: (from: string, to: string): Promise<void> => fs.copyFile(from, to, constants.COPYFILE_EXCL),
   lstat: (path: string): Promise<BigIntStats> => fs.lstat(path, { bigint: true }),
   readFile: (path: string): Promise<string> => fs.readFile(path, "utf8"),
+  rm: (path: string): Promise<void> => fs.rm(path, { force: true }),
   kill: (pid: number, signal: 0): void => void process.kill(pid, signal),
   sleep: (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms)),
 };
@@ -50,14 +51,17 @@ function code(error: unknown): string | undefined {
   return (error as NodeJS.ErrnoException | undefined)?.code;
 }
 
-/** Runs `op`, and again while the platform reports the file busy for a moment (see busyRetries). */
-async function whileBusy<T>(op: () => Promise<T>, platform: Platform): Promise<T> {
+/**
+ * Runs `op`, and again while the platform reports the file busy for a moment (see busyRetries).
+ * Only for one named file that must be read or written now: a lock, the spool cursor, a rename
+ * into place. A pass over a directory's entries skips a busy entry instead (see tryRemove).
+ */
+export async function whileBusy<T>(op: () => Promise<T>, platform: Platform): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await op();
     } catch (error) {
-      const busy = code(error) === "EPERM" || code(error) === "EBUSY";
-      if (!busy || attempt >= busyRetries(platform)) throw error;
+      if (!momentarilyBusy(code(error), platform) || attempt >= busyRetries(platform)) throw error;
       await fsOps.sleep(20);
     }
   }
@@ -110,9 +114,9 @@ export async function writeNew(path: string, data: string, env: FsEnv = realFsEn
 }
 
 /** A file's text, or undefined when it does not exist. */
-export async function readText(path: string, env: FsEnv = realFsEnv): Promise<string | undefined> {
+export async function readText(path: string): Promise<string | undefined> {
   try {
-    return await whileBusy(() => fsOps.readFile(path), env.platform);
+    return await fsOps.readFile(path);
   } catch (error) {
     if (code(error) === "ENOENT") return undefined;
     throw error;
@@ -120,8 +124,8 @@ export async function readText(path: string, env: FsEnv = realFsEnv): Promise<st
 }
 
 /** A JSON file, parsed strictly (duplicate keys refused), or undefined when it does not exist. */
-export async function readJson(path: string, env: FsEnv = realFsEnv): Promise<unknown> {
-  const text = await readText(path, env);
+export async function readJson(path: string): Promise<unknown> {
+  const text = await readText(path);
   if (text === undefined) return undefined;
   const parsed = parseJson(text);
   if (!parsed.ok) throw new Error(`${path}: ${parsed.reason === "duplicate_key" ? "duplicate key" : "not valid JSON"}`);
@@ -153,7 +157,29 @@ export async function listFiles(path: string): Promise<string[]> {
 }
 
 export async function removeFile(path: string): Promise<void> {
-  await fs.rm(path, { force: true });
+  await fsOps.rm(path);
+}
+
+/**
+ * Removes a directory entry that a pass has dealt with, or that it claims by removing it. True
+ * when it is gone. False when Windows reports it busy: another handle has it open, or it is
+ * already being deleted and keeps its name until that handle closes. The pass then leaves the
+ * entry alone, and a later pass that still finds it tries again, so one busy file never stalls or
+ * fails the pass over the others.
+ */
+export async function tryRemove(path: string, env: FsEnv = realFsEnv): Promise<boolean> {
+  try {
+    await fsOps.rm(path);
+    return true;
+  } catch (error) {
+    if (momentarilyBusy(code(error), env.platform)) return false;
+    throw error;
+  }
+}
+
+/** Removes a lock this process holds. It must go now, so a busy moment is waited out. */
+export async function releaseLock(path: string, env: FsEnv = realFsEnv): Promise<void> {
+  await whileBusy(() => fsOps.rm(path), env.platform);
 }
 
 /** How long an empty lock file counts as one being written; after that its writer is taken to be dead. */
@@ -200,7 +226,8 @@ async function takeOver(path: string, seen: string, env: FsEnv): Promise<void> {
       });
     }
   } finally {
-    await removeFile(aside);
+    // A stale copy that cannot go yet is harmless: nothing reads the aside name.
+    await tryRemove(aside, env);
   }
 }
 
@@ -252,7 +279,7 @@ export async function withLock<T>(lockPath: string, fn: () => Promise<T>, env: F
   try {
     return await fn();
   } finally {
-    await removeFile(lockPath);
+    await releaseLock(lockPath, env);
   }
 }
 
@@ -274,6 +301,6 @@ export async function claimLock(lockPath: string, env: FsEnv = realFsEnv): Promi
 
 /** True when a live process other than this one holds `lockPath`. */
 export async function lockHeld(lockPath: string, env: FsEnv = realFsEnv): Promise<boolean> {
-  const holder = Number(await readText(lockPath, env));
+  const holder = Number(await whileBusy(() => readText(lockPath), env.platform));
   return Number.isSafeInteger(holder) && holder > 0 && holder !== env.pid && pidAlive(holder, fsOps.kill);
 }

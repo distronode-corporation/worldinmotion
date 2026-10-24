@@ -3,7 +3,7 @@
 // taken and sends the `delivered` receipts.
 
 import { join } from "node:path";
-import { listDir, readJson, readText, removeFile, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { listDir, readJson, readText, tryRemove, whileBusy, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 
 export type SpoolKind = "msg" | "task" | "result" | "file" | "notice";
 
@@ -39,6 +39,10 @@ export class Spool {
   private last: number;
   /** The take in progress, which the next one waits for. */
   private taking: Promise<void> = Promise.resolve();
+  /** The highest cursor this process wrote: a read of the file never goes back past it. */
+  private written = 0;
+  /** Relayed items this process already copied to the box, so one it could not delete yet is not copied again. */
+  private readonly boxed = new Set<string>();
 
   readonly dir: string;
   readonly relayedDir: string;
@@ -72,8 +76,12 @@ export class Spool {
     return (await listDir(this.dir)).filter((n) => NAME.test(n)).sort();
   }
 
+  /**
+   * The cursor: the file (read again while it is busy for a moment), and never less than what
+   * this process last wrote, whatever a file system that is slow to show a rename says.
+   */
   async cursor(): Promise<number> {
-    return cursorNumber(await readText(this.cursorPath));
+    return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
   }
 
   async write(item: Omit<SpoolItem, "cursor">): Promise<SpoolItem> {
@@ -108,6 +116,7 @@ export class Spool {
     const run = this.taking.then(async () => {
       if (cursor <= (await this.cursor())) return;
       await writeAtomic(this.cursorPath, itemName(cursor), this.env);
+      this.written = cursor;
     });
     this.taking = run.catch(() => undefined);
     return run;
@@ -124,8 +133,12 @@ export class Spool {
     for (const name of await this.names()) {
       if (Number(NAME.exec(name)![1]) > upto) break;
       const item = await this.read(name);
-      if (item?.relayed === true && !alreadyRead.has(item.id)) await writeJson(join(this.relayedDir, name), item, this.env);
-      await removeFile(join(this.dir, name));
+      if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+        await writeJson(join(this.relayedDir, name), item, this.env);
+        this.boxed.add(name);
+      }
+      // One that cannot be deleted yet stays for the next pass, which sends its receipt then.
+      if (!(await tryRemove(join(this.dir, name), this.env))) continue;
       if (item !== undefined) gone.push(item);
     }
     return gone;
@@ -146,8 +159,7 @@ export class Spool {
     let n = 0;
     for (const item of await this.relayed()) {
       if (ids !== undefined && !ids.includes(item.id)) continue;
-      await removeFile(join(this.relayedDir, itemName(item.cursor)));
-      n++;
+      if (await tryRemove(join(this.relayedDir, itemName(item.cursor)), this.env)) n++;
     }
     return n;
   }

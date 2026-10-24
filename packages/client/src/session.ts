@@ -3,7 +3,7 @@
 
 import { b64u, isName, isUlid, randomBytes, sha256, ulid, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { claimLock, listDir, lockHeld, readJson, removeFile, writeJson, type FsEnv } from "./fsx.ts";
+import { claimLock, listDir, lockHeld, readJson, releaseLock, removeFile, writeJson, type FsEnv } from "./fsx.ts";
 import type { MeshFiles } from "./mesh.ts";
 
 export type SessionState = {
@@ -123,7 +123,7 @@ export class SessionFiles {
   }
 
   release(): Promise<void> {
-    return removeFile(this.liveLock);
+    return releaseLock(this.liveLock, this.env);
   }
 
   isLiveElsewhere(): Promise<boolean> {

@@ -5,12 +5,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import { revokeDevice } from "../src/admin.ts";
 import { closestAddress } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
+import { fsOps } from "../src/fsx.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { listSessions } from "../src/session.ts";
 import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
+const realRm = fsOps.rm;
 afterEach(async () => {
+  fsOps.rm = realRm;
   for (const s of open.splice(0)) await s.stop().catch(() => undefined);
 });
 
@@ -67,6 +70,20 @@ describe("one-off sends", () => {
     const t = term(devices[0]!.root, relay, { handoverMs: 100 });
     expect(await run(t, "send", "cli@one", "hi")).toBe(1);
     expect(said(t)).toMatch(/did not take the send\. Is it still connected\? A `wim watch` started before this version of wim does not take sends: restart it\./);
+  });
+
+  it("says the outcome is unknown when the request it would withdraw is busy, as when the watch is taking it", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    await watcher(devices[0]!, mesh, relay, "cli", false);
+    // On Windows a request that another handle is deleting cannot be removed for a moment.
+    fsOps.rm = async (path) => {
+      if (/send-[0-9A-Z]{26}\.json$/.test(path)) throw Object.assign(new Error("delete pending"), { code: "EPERM" });
+      return realRm(path);
+    };
+    const t = term(devices[0]!.root, relay, { handoverMs: 100, platform: "win32" });
+    expect(await run(t, "send", "cli@one", "hi")).toBe(3);
+    expect(said(t)).not.toMatch(/did not take/);
   });
 
   it("says the outcome is unknown when the watch took the send but did not answer in time", async () => {

@@ -4,7 +4,7 @@
 
 import { isUlid, sanitizeForDisplay, type FileInfo } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { listDir, listFiles, readJson, removeFile, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { listDir, listFiles, readJson, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import type { HistoryEntry } from "./history.ts";
 import type { SpoolKind } from "./spool.ts";
 
@@ -77,21 +77,22 @@ export class HeldBox {
 
   /** Decisions left by other processes (`wim held`, the plugin's pane), consumed as they are read. */
   async takeMarks(): Promise<Array<{ id: string; verdict: Verdict }>> {
-    return (await takeMarks(this.dir, ["approve", "refuse"])).map(({ id, mark }) => ({ id, verdict: mark as Verdict }));
+    return (await takeMarks(this.dir, ["approve", "refuse"], this.env)).map(({ id, mark }) => ({ id, verdict: mark as Verdict }));
   }
 }
 
 /**
  * Mark files in `dir`: empty files named exactly `<ULID>.<mark>`, removed as they are read. A
  * mark carries no content, so nothing is read from it, and anything but a regular file (a link,
- * a directory) is not a mark.
+ * a directory) is not a mark. Taking one is removing it: a mark that cannot be removed yet is
+ * left for the next pass, so it is acted on once.
  */
-export async function takeMarks(dir: string, marks: readonly string[]): Promise<Array<{ id: string; mark: string }>> {
+export async function takeMarks(dir: string, marks: readonly string[], env: FsEnv): Promise<Array<{ id: string; mark: string }>> {
   const out: Array<{ id: string; mark: string }> = [];
   for (const name of (await listFiles(dir)).sort()) {
     const m = /^([0-9A-Z]{26})\.([a-z]+)$/.exec(name);
     if (m === null || !marks.includes(m[2]!)) continue;
-    await removeFile(join(dir, name));
+    if (!(await tryRemove(join(dir, name), env))) continue;
     out.push({ id: m[1]!, mark: m[2]! });
   }
   return out;

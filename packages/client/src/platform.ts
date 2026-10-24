@@ -88,3 +88,11 @@ export function createFollowsLinks(platform: Platform): boolean {
 export function busyRetries(platform: Platform): number {
   return platform === "win32" ? 50 : 0;
 }
+
+/**
+ * Whether an error code means "in use for a moment" rather than a real failure: EPERM or EBUSY,
+ * on Windows only (see busyRetries). On POSIX those codes are real permission errors.
+ */
+export function momentarilyBusy(code: string | undefined, platform: Platform): boolean {
+  return platform === "win32" && (code === "EPERM" || code === "EBUSY");
+}

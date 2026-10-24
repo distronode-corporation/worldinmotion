@@ -13,7 +13,7 @@ import type { Readable, Writable } from "node:stream";
 import { createMesh, decideJoin, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery } from "./admin.ts";
 import { botIO, ciIO } from "./adapters.ts";
 import { accepted, ClientError, MeshSession, type Inbound, type SessionOptions } from "./client.ts";
-import { readJson, readText, removeFile, writeAtomic, type FsEnv } from "./fsx.ts";
+import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { Home, SetupError, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
 import { runEvents } from "./events.ts";
@@ -745,17 +745,18 @@ async function handOver(
   const answerPath = pathJoin(watcher.controlDir, `send-${id}.done.json`);
   const until = Date.now() + (ctx.io.handoverMs ?? 15_000);
   for (;;) {
-    const answer = (await readJson(answerPath)) as { ok: boolean; error?: string; id: string; results: Array<{ to: string; status: string }>; live?: string[] } | undefined;
+    const answer = (await whileBusy(() => readJson(answerPath), ctx.fsEnv.platform)) as { ok: boolean; error?: string; id: string; results: Array<{ to: string; status: string }>; live?: string[] } | undefined;
     if (answer !== undefined) {
-      await removeFile(answerPath);
+      // Left for the watch to clear later if it cannot go now.
+      await tryRemove(answerPath, ctx.fsEnv);
       if (!answer.ok) throw new ClientError(answer.error!, "refused");
       return { id: answer.id, results: answer.results, live: answer.live! };
     }
     if (Date.now() > until) {
       const requestPath = pathJoin(watcher.controlDir, `send-${id}.json`);
       // The watch removes the request as it takes it, so a request still there was never taken.
-      if ((await readText(requestPath)) !== undefined) {
-        await removeFile(requestPath);
+      // Withdrawn by removing it; one that cannot be removed is being taken just now.
+      if ((await whileBusy(() => readText(requestPath), ctx.fsEnv.platform)) !== undefined && (await tryRemove(requestPath, ctx.fsEnv))) {
         throw new SetupError(
           "the running `wim watch` did not take the send. Is it still connected? A `wim watch` started before this version of wim does not take sends: restart it.",
         );
