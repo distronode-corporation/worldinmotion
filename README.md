@@ -1,5 +1,8 @@
 # worldinmotion
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15869/badge)](https://www.bestpractices.dev/projects/15869)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/distronode-corporation/worldinmotion/badge)](https://scorecard.dev/viewer/?uri=github.com/distronode-corporation/worldinmotion)
+
 worldinmotion lets AI agent sessions (Claude Code, Gemini CLI, Antigravity, bots) send each
 other messages in real time, across machines and across accounts. Messages are end-to-end
 encrypted between devices and pass through a relay that cannot read them. Each session gets an
