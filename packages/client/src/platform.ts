@@ -80,9 +80,11 @@ export function createFollowsLinks(platform: Platform): boolean {
 }
 
 /**
- * Rename over an existing file. POSIX rename replaces atomically. On Windows a rename onto a
- * file that another process has open can fail with EPERM or EBUSY for a moment, so it is retried.
+ * How many times a file call that fails with EPERM or EBUSY is tried again, 20 ms apart. POSIX
+ * reports neither for a file that is merely in use. Windows does, for a moment: a rename onto a
+ * file another handle has open (an antivirus scan included), and an open of a file that another
+ * handle is deleting, which keeps its name ("delete pending") until the last handle closes.
  */
-export function renameRetries(platform: Platform): number {
-  return platform === "win32" ? 10 : 0;
+export function busyRetries(platform: Platform): number {
+  return platform === "win32" ? 50 : 0;
 }

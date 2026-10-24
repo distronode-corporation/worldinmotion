@@ -5,7 +5,7 @@ import { parseJson, randomBytes, b64u } from "@worldinmotion/protocol";
 import { constants, promises as fs, type BigIntStats } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { dirname } from "node:path";
-import { createFollowsLinks, pidAlive, renameRetries, type Platform } from "./platform.ts";
+import { busyRetries, createFollowsLinks, pidAlive, type Platform } from "./platform.ts";
 
 /** The `open` flag that refuses a symbolic link, where the platform has one (not on Windows). */
 export function noFollow(c: { O_NOFOLLOW?: number }): number {
@@ -50,6 +50,19 @@ function code(error: unknown): string | undefined {
   return (error as NodeJS.ErrnoException | undefined)?.code;
 }
 
+/** Runs `op`, and again while the platform reports the file busy for a moment (see busyRetries). */
+async function whileBusy<T>(op: () => Promise<T>, platform: Platform): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await op();
+    } catch (error) {
+      const busy = code(error) === "EPERM" || code(error) === "EBUSY";
+      if (!busy || attempt >= busyRetries(platform)) throw error;
+      await fsOps.sleep(20);
+    }
+  }
+}
+
 /** Creates a directory (and parents) readable only by this user. */
 export async function ensureDir(path: string): Promise<void> {
   await fs.mkdir(path, { recursive: true, mode: 0o700 });
@@ -69,18 +82,11 @@ export async function writeAtomic(path: string, data: string | Uint8Array, env: 
   } finally {
     await handle.close();
   }
-  for (let attempt = 0; ; attempt++) {
-    try {
-      await fsOps.rename(tmp, path);
-      return;
-    } catch (error) {
-      const busy = code(error) === "EPERM" || code(error) === "EBUSY";
-      if (!busy || attempt >= renameRetries(env.platform)) {
-        await fs.rm(tmp, { force: true });
-        throw error;
-      }
-      await fsOps.sleep(20);
-    }
+  try {
+    await whileBusy(() => fsOps.rename(tmp, path), env.platform);
+  } catch (error) {
+    await fs.rm(tmp, { force: true });
+    throw error;
   }
 }
 
@@ -104,9 +110,9 @@ export async function writeNew(path: string, data: string, env: FsEnv = realFsEn
 }
 
 /** A file's text, or undefined when it does not exist. */
-export async function readText(path: string): Promise<string | undefined> {
+export async function readText(path: string, env: FsEnv = realFsEnv): Promise<string | undefined> {
   try {
-    return await fs.readFile(path, "utf8");
+    return await whileBusy(() => fsOps.readFile(path), env.platform);
   } catch (error) {
     if (code(error) === "ENOENT") return undefined;
     throw error;
@@ -114,8 +120,8 @@ export async function readText(path: string): Promise<string | undefined> {
 }
 
 /** A JSON file, parsed strictly (duplicate keys refused), or undefined when it does not exist. */
-export async function readJson(path: string): Promise<unknown> {
-  const text = await readText(path);
+export async function readJson(path: string, env: FsEnv = realFsEnv): Promise<unknown> {
+  const text = await readText(path, env);
   if (text === undefined) return undefined;
   const parsed = parseJson(text);
   if (!parsed.ok) throw new Error(`${path}: ${parsed.reason === "duplicate_key" ? "duplicate key" : "not valid JSON"}`);
@@ -153,12 +159,15 @@ export async function removeFile(path: string): Promise<void> {
 /** How long an empty lock file counts as one being written; after that its writer is taken to be dead. */
 export const EMPTY_LOCK_MS = 5_000;
 
-/** A lock file's holder and an identity that changes whenever the file is replaced; undefined when it is gone. */
-async function lookAt(path: string): Promise<{ holder: number | undefined; text: string; id: string; age: number } | undefined> {
+/**
+ * A lock file's holder and an identity that changes whenever the file is replaced; undefined when
+ * it is gone. A lock that its holder is removing just then may be busy for a moment on Windows.
+ */
+async function lookAt(path: string, env: FsEnv): Promise<{ holder: number | undefined; text: string; id: string; age: number } | undefined> {
   try {
-    const st = await fsOps.lstat(path);
+    const st = await whileBusy(() => fsOps.lstat(path), env.platform);
     // A link (or anything else) at a lock path is not a lock: it is taken over at once.
-    const text = st.isFile() ? await fsOps.readFile(path) : "(not a file)";
+    const text = st.isFile() ? await whileBusy(() => fsOps.readFile(path), env.platform) : "(not a file)";
     const holder = /^[1-9]\d{0,15}$/.test(text) ? Number(text) : undefined;
     return { holder, text, id: `${st.ino}:${st.mtimeNs}:${text}`, age: Date.now() - Number(st.mtimeMs) };
   } catch (error) {
@@ -184,7 +193,7 @@ async function takeOver(path: string, seen: string, env: FsEnv): Promise<void> {
   }
   try {
     // Nothing else knows the aside name, so the file is there.
-    if ((await lookAt(aside))!.id !== seen) {
+    if ((await lookAt(aside, env))!.id !== seen) {
       await fsOps.copyNew(aside, path).catch((error: unknown) => {
         // A third process took the free name: the lock is held either way.
         if (code(error) !== "EEXIST") throw error;
@@ -201,7 +210,7 @@ async function takeOver(path: string, seen: string, env: FsEnv): Promise<void> {
  * EMPTY_LOCK_MS.
  */
 async function contend(path: string, env: FsEnv, mine: boolean): Promise<"mine" | "held" | "busy" | "retry"> {
-  const seen = await lookAt(path);
+  const seen = await lookAt(path, env);
   if (seen === undefined) return "retry";
   if (mine && seen.holder === env.pid) return "mine";
   if (seen.holder !== undefined && pidAlive(seen.holder, fsOps.kill)) return "held";
@@ -214,9 +223,10 @@ async function contend(path: string, env: FsEnv, mine: boolean): Promise<"mine" 
 async function create(path: string, env: FsEnv): Promise<boolean> {
   // Where the create would follow a link, anything at the path (a dangling link too) counts as
   // an existing lock, so a link is taken over like any other stale lock and never written through.
-  if (createFollowsLinks(env.platform) && (await lookAt(path)) !== undefined) return false;
+  if (createFollowsLinks(env.platform) && (await lookAt(path, env)) !== undefined) return false;
   try {
-    const handle = await fs.open(path, "wx", 0o600);
+    // A lock its last holder is still removing is busy for a moment on Windows, not there or gone.
+    const handle = await whileBusy(() => fs.open(path, "wx", 0o600), env.platform);
     await handle.writeFile(String(env.pid));
     await handle.close();
     return true;
@@ -264,6 +274,6 @@ export async function claimLock(lockPath: string, env: FsEnv = realFsEnv): Promi
 
 /** True when a live process other than this one holds `lockPath`. */
 export async function lockHeld(lockPath: string, env: FsEnv = realFsEnv): Promise<boolean> {
-  const holder = Number(await readText(lockPath));
+  const holder = Number(await readText(lockPath, env));
   return Number.isSafeInteger(holder) && holder > 0 && holder !== env.pid && pidAlive(holder, fsOps.kill);
 }

@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { claimLock, EMPTY_LOCK_MS, fsOps, listFiles, readText, withLock, writeNew } from "../src/fsx.ts";
 import { Home } from "../src/home.ts";
+import { Spool } from "../src/spool.ts";
 import { FS, POSIX, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
@@ -55,6 +56,27 @@ describe("wait", () => {
     await sleep(50);
     const unread = await b.spool.unread();
     expect(unread.map((i) => i.rendered.includes("second"))).toEqual([true]);
+  });
+});
+
+describe("overlapping takes", () => {
+  it("never move the spool cursor back, whichever finishes first", async () => {
+    const dir = join(await scratch("take"), "spool");
+    for (let round = 0; round < 5; round++) {
+      const spool = await Spool.open(join(dir, String(round)), FS, 0);
+      for (let i = 0; i < 3; i++) await spool.write({ kind: "msg", from: "x@two", device: "d", id: `0${i}`, at: 1, rendered: `item ${i}` });
+      await Promise.all([spool.take(1), spool.take(3), spool.take(2)]);
+      expect(await spool.cursor()).toBe(3);
+    }
+    // A take that fails does not hold up the next one.
+    const spool = await Spool.open(join(dir, "f"), FS, 0);
+    await spool.write({ kind: "msg", from: "x@two", device: "d", id: "0f", at: 1, rendered: "f" });
+    await fs.rm(spool.dir, { recursive: true });
+    await fs.writeFile(spool.dir, "");
+    await expect(spool.take(1)).rejects.toThrow();
+    await fs.rm(spool.dir);
+    await spool.take(1);
+    expect(await spool.cursor()).toBe(1);
   });
 });
 

@@ -88380,8 +88380,8 @@ function pidAlive(pid, kill) {
 function createFollowsLinks(platform2) {
   return platform2 === "win32";
 }
-function renameRetries(platform2) {
-  return platform2 === "win32" ? 10 : 0;
+function busyRetries(platform2) {
+  return platform2 === "win32" ? 50 : 0;
 }
 
 // src/fsx.ts
@@ -88414,6 +88414,17 @@ var realFsEnv = { platform: process.platform, pid: process.pid };
 function code(error63) {
   return error63?.code;
 }
+async function whileBusy(op2, platform2) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await op2();
+    } catch (error63) {
+      const busy = code(error63) === "EPERM" || code(error63) === "EBUSY";
+      if (!busy || attempt >= busyRetries(platform2)) throw error63;
+      await fsOps.sleep(20);
+    }
+  }
+}
 async function ensureDir(path2) {
   await fs.mkdir(path2, { recursive: true, mode: 448 });
 }
@@ -88427,18 +88438,11 @@ async function writeAtomic(path2, data, env3 = realFsEnv, mode = 384) {
   } finally {
     await handle.close();
   }
-  for (let attempt = 0; ; attempt++) {
-    try {
-      await fsOps.rename(tmp, path2);
-      return;
-    } catch (error63) {
-      const busy = code(error63) === "EPERM" || code(error63) === "EBUSY";
-      if (!busy || attempt >= renameRetries(env3.platform)) {
-        await fs.rm(tmp, { force: true });
-        throw error63;
-      }
-      await fsOps.sleep(20);
-    }
+  try {
+    await whileBusy(() => fsOps.rename(tmp, path2), env3.platform);
+  } catch (error63) {
+    await fs.rm(tmp, { force: true });
+    throw error63;
   }
 }
 async function writeNew(path2, data, env3 = realFsEnv, mode = 384) {
@@ -88454,16 +88458,16 @@ async function writeNew(path2, data, env3 = realFsEnv, mode = 384) {
     await fs.rm(tmp, { force: true });
   }
 }
-async function readText(path2) {
+async function readText(path2, env3 = realFsEnv) {
   try {
-    return await fs.readFile(path2, "utf8");
+    return await whileBusy(() => fsOps.readFile(path2), env3.platform);
   } catch (error63) {
     if (code(error63) === "ENOENT") return void 0;
     throw error63;
   }
 }
-async function readJson(path2) {
-  const text2 = await readText(path2);
+async function readJson(path2, env3 = realFsEnv) {
+  const text2 = await readText(path2, env3);
   if (text2 === void 0) return void 0;
   const parsed = parseJson(text2);
   if (!parsed.ok) throw new Error(`${path2}: ${parsed.reason === "duplicate_key" ? "duplicate key" : "not valid JSON"}`);
@@ -88493,10 +88497,10 @@ async function removeFile(path2) {
   await fs.rm(path2, { force: true });
 }
 var EMPTY_LOCK_MS = 5e3;
-async function lookAt(path2) {
+async function lookAt(path2, env3) {
   try {
-    const st = await fsOps.lstat(path2);
-    const text2 = st.isFile() ? await fsOps.readFile(path2) : "(not a file)";
+    const st = await whileBusy(() => fsOps.lstat(path2), env3.platform);
+    const text2 = st.isFile() ? await whileBusy(() => fsOps.readFile(path2), env3.platform) : "(not a file)";
     const holder = /^[1-9]\d{0,15}$/.test(text2) ? Number(text2) : void 0;
     return { holder, text: text2, id: `${st.ino}:${st.mtimeNs}:${text2}`, age: Date.now() - Number(st.mtimeMs) };
   } catch (error63) {
@@ -88513,7 +88517,7 @@ async function takeOver(path2, seen, env3) {
     throw error63;
   }
   try {
-    if ((await lookAt(aside)).id !== seen) {
+    if ((await lookAt(aside, env3)).id !== seen) {
       await fsOps.copyNew(aside, path2).catch((error63) => {
         if (code(error63) !== "EEXIST") throw error63;
       });
@@ -88523,7 +88527,7 @@ async function takeOver(path2, seen, env3) {
   }
 }
 async function contend(path2, env3, mine) {
-  const seen = await lookAt(path2);
+  const seen = await lookAt(path2, env3);
   if (seen === void 0) return "retry";
   if (mine && seen.holder === env3.pid) return "mine";
   if (seen.holder !== void 0 && pidAlive(seen.holder, fsOps.kill)) return "held";
@@ -88532,9 +88536,9 @@ async function contend(path2, env3, mine) {
   return "retry";
 }
 async function create(path2, env3) {
-  if (createFollowsLinks(env3.platform) && await lookAt(path2) !== void 0) return false;
+  if (createFollowsLinks(env3.platform) && await lookAt(path2, env3) !== void 0) return false;
   try {
-    const handle = await fs.open(path2, "wx", 384);
+    const handle = await whileBusy(() => fs.open(path2, "wx", 384), env3.platform);
     await handle.writeFile(String(env3.pid));
     await handle.close();
     return true;
@@ -88568,7 +88572,7 @@ async function claimLock(lockPath, env3 = realFsEnv) {
   return true;
 }
 async function lockHeld(lockPath, env3 = realFsEnv) {
-  const holder = Number(await readText(lockPath));
+  const holder = Number(await readText(lockPath, env3));
   return Number.isSafeInteger(holder) && holder > 0 && holder !== env3.pid && pidAlive(holder, fsOps.kill);
 }
 
@@ -89291,6 +89295,8 @@ function cursorNumber(text2) {
 var Spool = class _Spool {
   /** The highest item number handed out so far, never reused. */
   last;
+  /** The take in progress, which the next one waits for. */
+  taking = Promise.resolve();
   dir;
   relayedDir;
   env;
@@ -89340,10 +89346,17 @@ var Spool = class _Spool {
     const raw = await readJson(join7(this.dir, name)).catch(() => void 0);
     return typeof raw?.rendered === "string" && typeof raw.id === "string" ? raw : void 0;
   }
-  /** Marks everything up to `cursor` as taken. The cursor never moves back. */
-  async take(cursor2) {
-    if (cursor2 <= await this.cursor()) return;
-    await writeAtomic(this.cursorPath, itemName(cursor2), this.env);
+  /**
+   * Marks everything up to `cursor` as taken. The cursor never moves back: one take at a time,
+   * since two that overlap would both read the old cursor and the lower one could land last.
+   */
+  take(cursor2) {
+    const run = this.taking.then(async () => {
+      if (cursor2 <= await this.cursor()) return;
+      await writeAtomic(this.cursorPath, itemName(cursor2), this.env);
+    });
+    this.taking = run.catch(() => void 0);
+    return run;
   }
   /**
    * Deletes taken items and returns them, so the caller can send their receipts. A relayed item

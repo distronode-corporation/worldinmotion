@@ -24,7 +24,7 @@ import { WimMcp } from "../src/mcp.ts";
 import { MeshFiles, parseMeshConfig, DEFAULT_BREAKER } from "../src/mesh.ts";
 import { listAllHeld } from "../src/offline.ts";
 import { SeqStore } from "../src/replay.ts";
-import { fetchHeldCode } from "../src/secretout.ts";
+import { fetchHeldCode, showSocketPath } from "../src/secretout.ts";
 import { SessionFiles, newSessionState } from "../src/session.ts";
 import { Connection, Link, type Dialer, type WireSocket } from "../src/wire.ts";
 import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sessionOpts, sleep, until, rosterSeqs } from "./helpers.ts";
@@ -383,8 +383,8 @@ describe("small module edges", () => {
     await fs.writeFile(path, JSON.stringify({ v: 1, byAddress: {} }));
     await s.record("a@x", "D".repeat(22), "T", 1);
     expect(await new SeqStore(path, FS).isNew("a@x", "D".repeat(22), "S", 9)).toBe(false);
-    // A server that hangs up without a code.
-    const sock = join(root, "s.sock");
+    // A server that hangs up without a code (a Unix socket, or a named pipe on Windows).
+    const sock = showSocketPath(root, process.platform);
     const srv = createServer((c) => c.end());
     await new Promise<void>((r) => srv.listen(sock, r));
     await expect(fetchHeldCode(sock)).rejects.toThrow(/no recovery code is waiting/);
