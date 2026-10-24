@@ -37,6 +37,8 @@ export function cursorNumber(text: string | undefined): number {
 export class Spool {
   /** The highest item number handed out so far, never reused. */
   private last: number;
+  /** The take in progress, which the next one waits for. */
+  private taking: Promise<void> = Promise.resolve();
 
   readonly dir: string;
   readonly relayedDir: string;
@@ -98,10 +100,17 @@ export class Spool {
     return typeof raw?.rendered === "string" && typeof raw.id === "string" ? raw : undefined;
   }
 
-  /** Marks everything up to `cursor` as taken. The cursor never moves back. */
-  async take(cursor: number): Promise<void> {
-    if (cursor <= (await this.cursor())) return;
-    await writeAtomic(this.cursorPath, itemName(cursor), this.env);
+  /**
+   * Marks everything up to `cursor` as taken. The cursor never moves back: one take at a time,
+   * since two that overlap would both read the old cursor and the lower one could land last.
+   */
+  take(cursor: number): Promise<void> {
+    const run = this.taking.then(async () => {
+      if (cursor <= (await this.cursor())) return;
+      await writeAtomic(this.cursorPath, itemName(cursor), this.env);
+    });
+    this.taking = run.catch(() => undefined);
+    return run;
   }
 
   /**

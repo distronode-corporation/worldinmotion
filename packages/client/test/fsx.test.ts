@@ -7,7 +7,9 @@ import { FS, POSIX, scratch } from "./helpers.ts";
 const realRename = fsOps.rename;
 const realKill = fsOps.kill;
 const realSleep = fsOps.sleep;
+const realReadFile = fsOps.readFile;
 afterEach(() => {
+  fsOps.readFile = realReadFile;
   fsOps.rename = realRename;
   fsOps.kill = realKill;
   fsOps.sleep = realSleep;
@@ -66,6 +68,32 @@ describe("reads", () => {
     await expect(readText(dir)).rejects.toThrow();
     await fs.writeFile(join(dir, "f"), "x");
     await expect(listDir(join(dir, "f"))).rejects.toThrow();
+  });
+
+  it("read again a file Windows reports busy for a moment, and only there", async () => {
+    const dir = await scratch();
+    const p = join(dir, "f");
+    await fs.writeFile(p, "12");
+    fsOps.sleep = async () => undefined;
+    // A file another handle is deleting answers EPERM until that handle closes.
+    let fails = 0;
+    fsOps.readFile = async (path) => {
+      if (fails-- > 0) throw Object.assign(new Error("delete pending"), { code: "EPERM" });
+      return realReadFile(path);
+    };
+    fails = 2;
+    expect(await readText(p, { platform: "win32", pid: 1 })).toBe("12");
+    fails = 1;
+    await expect(readText(p, { platform: "linux", pid: 1 })).rejects.toThrow("delete pending");
+    // A lock being removed by its holder is looked at again, not an error. ("left over" names
+    // no holder, so it is taken over.)
+    const lock = join(dir, "l.lock");
+    await fs.writeFile(lock, "left over");
+    fails = 2;
+    expect(await withLock(lock, async () => "in", { platform: "win32", pid: 1 })).toBe("in");
+    await fs.writeFile(lock, "left over");
+    fails = 1;
+    await expect(withLock(lock, async () => "in", { platform: "linux", pid: 1 })).rejects.toThrow("delete pending");
   });
 
   it("parses JSON strictly", async () => {

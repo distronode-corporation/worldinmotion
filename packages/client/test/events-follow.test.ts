@@ -6,7 +6,7 @@ import { appendFileSync, constants, renameSync, writeFileSync } from "node:fs";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MeshSession } from "../src/client.ts";
 import { FOLLOW_READ_MAX, runEvents } from "../src/events.ts";
 import { noFollow, openNoFollow } from "../src/fsx.ts";
@@ -166,6 +166,24 @@ describe("the history follower, edges", () => {
     expect(handle).toBeDefined();
     await handle!.close();
     expect(await openNoFollow(join(dir, "missing.jsonl"), constants.O_RDONLY)).toBeUndefined();
+  });
+
+  it("skips a poll tick while the previous pass is still running", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    // Only the intervals are fake, so the passes still do real I/O but each tick fires on demand.
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      const { lines } = await start(devices[0]!, mesh, relay);
+      const before = lines.length;
+      // Two ticks back to back: the first starts a pass, the second finds it running and skips.
+      vi.advanceTimersByTime(20);
+      vi.advanceTimersByTime(20);
+      await sleep(50);
+      expect(lines.slice(before).filter((l) => l.type === "error")).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("parseEntry accepts only entries", () => {

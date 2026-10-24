@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createFollowsLinks, defaultHome, dirProblem, keyFileProblem, pathFor, pidAlive, renameRetries } from "../src/platform.ts";
+import { busyRetries, createFollowsLinks, defaultHome, dirProblem, keyFileProblem, pathFor, pidAlive } from "../src/platform.ts";
 
 const file = { mode: 0o100600, uid: 1000, isFile: true, isSymlink: false };
 
@@ -62,9 +62,10 @@ describe("pidAlive", () => {
     expect(pidAlive(0, () => undefined)).toBe(false);
     expect(pidAlive(1.5, () => undefined)).toBe(false);
   });
-  it("retries renames only on Windows", () => {
-    expect(renameRetries("win32")).toBeGreaterThan(0);
-    expect(renameRetries("linux")).toBe(0);
+  it("retries busy files only on Windows", () => {
+    expect(busyRetries("win32")).toBeGreaterThan(0);
+    expect(busyRetries("linux")).toBe(0);
+    expect(busyRetries("darwin")).toBe(0);
   });
   it("knows that only Windows creates a file through a link at the path", () => {
     expect(createFollowsLinks("win32")).toBe(true);
