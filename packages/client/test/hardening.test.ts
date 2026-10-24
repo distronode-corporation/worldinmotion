@@ -127,7 +127,9 @@ describe("the plugin's internal tool", () => {
     const two = await peer.send("agent@one", "relayed two", { relayed: true });
     await until(async () => (await s.spool.unread()).filter((i) => i.relayed === true).length === 2);
     await s.take((await s.spool.unread()).at(-1)!.cursor);
-    await until(async () => (await s.spool.relayed()).length === 2);
+    // Counted as files in the box: a count needs no read, which antivirus can hold up on Windows.
+    const boxed = async (): Promise<number> => (await fs.readdir(s.spool.relayedDir)).filter((n) => /^\d{12}\.json$/.test(n)).length;
+    await until(async () => (await boxed()) === 2);
     // A link named like a mark, a lower-case id and a stray file are not marks.
     const target = join(await scratch("mark"), "t");
     await fs.writeFile(target, "");
@@ -136,15 +138,15 @@ describe("the plugin's internal tool", () => {
     await fs.writeFile(lower, "");
     await fs.writeFile(join(dismiss, "notes.txt"), "");
     await sleep(100);
-    expect((await s.spool.relayed()).length).toBe(2);
+    expect(await boxed()).toBe(2);
     // On a case-insensitive file system (macOS, Windows) the lower-case name and the real mark
     // are one file, so the lower-case one goes before the real one is written.
     await fs.rm(lower);
     await fs.writeFile(join(dismiss, `${one.id}.dismiss`), "");
-    await until(async () => (await s.spool.relayed()).length === 1, 3000, "dismissed");
-    expect((await s.spool.relayed())[0]!.id).toBe(two.id);
+    await until(async () => (await boxed()) === 1, 3000, "dismissed");
+    await until(async () => (await s.spool.relayed())[0]?.id === two.id, 3000, "the one left");
     await sleep(60);
-    expect((await s.spool.relayed()).length).toBe(1);
+    expect(await boxed()).toBe(1);
     expect(await fs.readFile(target, "utf8")).toBe("");
   });
 });

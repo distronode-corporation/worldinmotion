@@ -89303,6 +89303,7 @@ var SessionKeys = class {
 import { join as join7 } from "node:path";
 var NAME2 = /^(\d{12})\.json$/;
 var itemName = (cursor2) => `${String(cursor2).padStart(12, "0")}.json`;
+var BUSY = /* @__PURE__ */ Symbol("busy");
 function cursorNumber(text2) {
   const m4 = NAME2.exec((text2 ?? "").trim());
   return m4 === null ? 0 : Number(m4[1]);
@@ -89341,14 +89342,14 @@ var Spool = class _Spool {
   async names() {
     return (await listDir(this.dir)).filter((n3) => NAME2.test(n3)).sort();
   }
-  /**
-   * The cursor: the file (read again while it is busy for a moment), and never less than what
-   * this process last wrote, whatever a file system that is slow to show a rename says.
-   */
   /** The highest cursor this process has taken, without reading the file. */
   get taken() {
     return this.written;
   }
+  /**
+   * The cursor: the file (read again while it is busy for a moment), and never less than what
+   * this process last wrote, whatever a file system that is slow to show a rename says.
+   */
   async cursor() {
     return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
   }
@@ -89358,19 +89359,33 @@ var Spool = class _Spool {
     await writeJson(join7(this.dir, itemName(cursor2)), full, this.env);
     return full;
   }
-  /** Items not yet taken, oldest first. A file that does not parse is skipped. */
+  /**
+   * Items not yet taken, oldest first. A file that does not parse is skipped. The list stops
+   * before an item that is still busy after a moment's wait (Windows), so nothing after it is
+   * handed out and taken past it: it comes first on a later call.
+   */
   async unread() {
     const after = await this.cursor();
     const out = [];
     for (const name of await this.names()) {
       if (Number(NAME2.exec(name)[1]) <= after) continue;
-      const item = await this.read(name);
+      const item = await this.read(join7(this.dir, name));
+      if (item === BUSY) break;
       if (item !== void 0) out.push(item);
     }
     return out;
   }
-  async read(name) {
-    const raw = await readJson(join7(this.dir, name)).catch(() => void 0);
+  /**
+   * One item file: the item, undefined when it is gone or does not parse as one, or BUSY when
+   * it is still busy after the bounded wait. A busy file is there but cannot be read yet.
+   */
+  async read(path2) {
+    let raw;
+    try {
+      raw = await whileBusy(() => readJson(path2), this.env.platform);
+    } catch (error63) {
+      return momentarilyBusy(error63.code, this.env.platform) ? BUSY : void 0;
+    }
     return typeof raw?.rendered === "string" && typeof raw.id === "string" ? raw : void 0;
   }
   /**
@@ -89396,7 +89411,8 @@ var Spool = class _Spool {
     const gone = [];
     for (const name of await this.names()) {
       if (Number(NAME2.exec(name)[1]) > upto) break;
-      const item = await this.read(name);
+      const item = await this.read(join7(this.dir, name));
+      if (item === BUSY) continue;
       if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
         await writeJson(join7(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
@@ -89406,23 +89422,39 @@ var Spool = class _Spool {
     }
     return gone;
   }
-  /** Relayed items the cursor passed but nobody has read, oldest first. */
+  /** Relayed items the cursor passed but nobody has read, oldest first. One still busy is left out this time. */
   async relayed() {
-    const out = [];
-    for (const name of (await listDir(this.relayedDir)).filter((n3) => NAME2.test(n3)).sort()) {
-      const raw = await readJson(join7(this.relayedDir, name)).catch(() => void 0);
-      if (typeof raw?.rendered === "string") out.push(raw);
-    }
-    return out;
+    return (await this.box()).items;
   }
-  /** Removes relayed items from the box: the ones given, or all. Returns how many went. */
-  async dismissRelayed(ids) {
-    let n3 = 0;
-    for (const item of await this.relayed()) {
-      if (ids !== void 0 && !ids.includes(item.id)) continue;
-      if (await tryRemove(join7(this.relayedDir, itemName(item.cursor)), this.env)) n3++;
+  /** The box's readable items, and whether any item in it could not be read yet. */
+  async box() {
+    const items = [];
+    let busy = false;
+    for (const name of (await listDir(this.relayedDir)).filter((n3) => NAME2.test(n3)).sort()) {
+      const item = await this.read(join7(this.relayedDir, name));
+      if (item === BUSY) busy = true;
+      else if (item !== void 0) items.push(item);
     }
-    return n3;
+    return { items, busy };
+  }
+  /**
+   * Removes relayed items from the box: the ones given, or all. Returns how many went, and which
+   * of the ids given may still be there: one that could not be removed yet, or any not found
+   * while an item in the box could not be read yet. The caller asks again for those later.
+   */
+  async dismissRelayed(ids) {
+    const { items, busy } = await this.box();
+    let removed = 0;
+    const left = [];
+    for (const item of items) {
+      if (ids !== void 0 && !ids.includes(item.id)) continue;
+      if (await tryRemove(join7(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
+      else left.push(item.id);
+    }
+    if (busy) {
+      for (const id of ids ?? []) if (!items.some((i6) => i6.id === id)) left.push(id);
+    }
+    return { removed, left };
   }
 };
 
@@ -90338,7 +90370,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
       await this.readPresence();
       for (const { id, verdict } of await this.held.takeMarks()) await this.decide(id, verdict).catch(() => void 0);
       const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m4) => m4.id);
-      if (dismissed.length > 0) await this.spool.dismissRelayed(dismissed);
+      if (dismissed.length > 0) {
+        const { left } = await this.spool.dismissRelayed(dismissed);
+        for (const id of left) await writeAtomic(join8(this.files.dismissDir, `${id}.dismiss`), "", this.o.env);
+      }
       for (const name of await listDir(this.files.controlDir)) {
         if (name.endsWith(".tmp")) continue;
         const done = /^send-([0-9A-Z]{26})\.done\.json$/.exec(name);

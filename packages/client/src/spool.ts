@@ -4,6 +4,7 @@
 
 import { join } from "node:path";
 import { listDir, readJson, readText, tryRemove, whileBusy, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { momentarilyBusy } from "./platform.ts";
 
 export type SpoolKind = "msg" | "task" | "result" | "file" | "notice";
 
@@ -27,6 +28,9 @@ export type SpoolItem = {
 const NAME = /^(\d{12})\.json$/;
 
 export const itemName = (cursor: number): string => `${String(cursor).padStart(12, "0")}.json`;
+
+/** An item file that is there but still busy after the bounded wait (Windows only). */
+const BUSY = Symbol("busy");
 
 /** The item number a cursor file names, or 0. Anything else in it is ignored. */
 export function cursorNumber(text: string | undefined): number {
@@ -76,15 +80,15 @@ export class Spool {
     return (await listDir(this.dir)).filter((n) => NAME.test(n)).sort();
   }
 
-  /**
-   * The cursor: the file (read again while it is busy for a moment), and never less than what
-   * this process last wrote, whatever a file system that is slow to show a rename says.
-   */
   /** The highest cursor this process has taken, without reading the file. */
   get taken(): number {
     return this.written;
   }
 
+  /**
+   * The cursor: the file (read again while it is busy for a moment), and never less than what
+   * this process last wrote, whatever a file system that is slow to show a rename says.
+   */
   async cursor(): Promise<number> {
     return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
   }
@@ -96,20 +100,34 @@ export class Spool {
     return full;
   }
 
-  /** Items not yet taken, oldest first. A file that does not parse is skipped. */
+  /**
+   * Items not yet taken, oldest first. A file that does not parse is skipped. The list stops
+   * before an item that is still busy after a moment's wait (Windows), so nothing after it is
+   * handed out and taken past it: it comes first on a later call.
+   */
   async unread(): Promise<SpoolItem[]> {
     const after = await this.cursor();
     const out: SpoolItem[] = [];
     for (const name of await this.names()) {
       if (Number(NAME.exec(name)![1]) <= after) continue;
-      const item = await this.read(name);
+      const item = await this.read(join(this.dir, name));
+      if (item === BUSY) break;
       if (item !== undefined) out.push(item);
     }
     return out;
   }
 
-  private async read(name: string): Promise<SpoolItem | undefined> {
-    const raw = (await readJson(join(this.dir, name)).catch(() => undefined)) as SpoolItem | undefined;
+  /**
+   * One item file: the item, undefined when it is gone or does not parse as one, or BUSY when
+   * it is still busy after the bounded wait. A busy file is there but cannot be read yet.
+   */
+  private async read(path: string): Promise<SpoolItem | undefined | typeof BUSY> {
+    let raw: SpoolItem | undefined;
+    try {
+      raw = (await whileBusy(() => readJson(path), this.env.platform)) as SpoolItem | undefined;
+    } catch (error) {
+      return momentarilyBusy((error as NodeJS.ErrnoException).code, this.env.platform) ? BUSY : undefined;
+    }
     return typeof raw?.rendered === "string" && typeof raw.id === "string" ? raw : undefined;
   }
 
@@ -137,7 +155,9 @@ export class Spool {
     const gone: SpoolItem[] = [];
     for (const name of await this.names()) {
       if (Number(NAME.exec(name)![1]) > upto) break;
-      const item = await this.read(name);
+      const item = await this.read(join(this.dir, name));
+      // One that cannot be read yet is neither boxed nor removed: the next pass deals with it.
+      if (item === BUSY) continue;
       if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
         await writeJson(join(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
@@ -149,23 +169,38 @@ export class Spool {
     return gone;
   }
 
-  /** Relayed items the cursor passed but nobody has read, oldest first. */
+  /** Relayed items the cursor passed but nobody has read, oldest first. One still busy is left out this time. */
   async relayed(): Promise<SpoolItem[]> {
-    const out: SpoolItem[] = [];
-    for (const name of (await listDir(this.relayedDir)).filter((n) => NAME.test(n)).sort()) {
-      const raw = (await readJson(join(this.relayedDir, name)).catch(() => undefined)) as SpoolItem | undefined;
-      if (typeof raw?.rendered === "string") out.push(raw);
-    }
-    return out;
+    return (await this.box()).items;
   }
 
-  /** Removes relayed items from the box: the ones given, or all. Returns how many went. */
-  async dismissRelayed(ids?: readonly string[]): Promise<number> {
-    let n = 0;
-    for (const item of await this.relayed()) {
-      if (ids !== undefined && !ids.includes(item.id)) continue;
-      if (await tryRemove(join(this.relayedDir, itemName(item.cursor)), this.env)) n++;
+  /** The box's readable items, and whether any item in it could not be read yet. */
+  private async box(): Promise<{ items: SpoolItem[]; busy: boolean }> {
+    const items: SpoolItem[] = [];
+    let busy = false;
+    for (const name of (await listDir(this.relayedDir)).filter((n) => NAME.test(n)).sort()) {
+      const item = await this.read(join(this.relayedDir, name));
+      if (item === BUSY) busy = true;
+      else if (item !== undefined) items.push(item);
     }
-    return n;
+    return { items, busy };
+  }
+
+  /**
+   * Removes relayed items from the box: the ones given, or all. Returns how many went, and which
+   * of the ids given may still be there: one that could not be removed yet, or any not found
+   * while an item in the box could not be read yet. The caller asks again for those later.
+   */
+  async dismissRelayed(ids?: readonly string[]): Promise<{ removed: number; left: string[] }> {
+    const { items, busy } = await this.box();
+    let removed = 0;
+    const left: string[] = [];
+    for (const item of items) {
+      if (ids !== undefined && !ids.includes(item.id)) continue;
+      if (await tryRemove(join(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
+      else left.push(item.id);
+    }
+    if (busy) for (const id of ids ?? []) if (!items.some((i) => i.id === id)) left.push(id);
+    return { removed, left };
   }
 }

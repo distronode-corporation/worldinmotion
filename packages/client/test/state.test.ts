@@ -127,8 +127,8 @@ describe("Spool", () => {
     await spool.sweep();
     expect((await spool.relayed()).map((i) => i.id)).toEqual(["r1", "r2"]);
     await fs.writeFile(join(spool.relayedDir, "000000000077.json"), "{");
-    expect(await spool.dismissRelayed(["r1"])).toBe(1);
-    expect(await spool.dismissRelayed()).toBe(1);
+    expect(await spool.dismissRelayed(["r1"])).toEqual({ removed: 1, left: [] });
+    expect(await spool.dismissRelayed()).toEqual({ removed: 1, left: [] });
     expect(await spool.relayed()).toEqual([]);
   });
 

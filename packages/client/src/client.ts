@@ -43,7 +43,7 @@ import { basename, join, resolve } from "node:path";
 import { Breaker, pauseNotice } from "./breaker.ts";
 import { cardFor, sameCard } from "./cards.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
-import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeJson, type FsEnv } from "./fsx.ts";
+import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { HeldBox, preview, takeMarks, type HeldItem, type Verdict } from "./held.ts";
 import { frameEntry, History, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
@@ -736,7 +736,11 @@ export class MeshSession extends EventEmitter {
       await this.readPresence();
       for (const { id, verdict } of await this.held.takeMarks()) await this.decide(id, verdict).catch(() => undefined);
       const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m) => m.id);
-      if (dismissed.length > 0) await this.spool.dismissRelayed(dismissed);
+      if (dismissed.length > 0) {
+        // A dismissal the box could not settle yet keeps its mark for the next pass.
+        const { left } = await this.spool.dismissRelayed(dismissed);
+        for (const id of left) await writeAtomic(join(this.files.dismissDir, `${id}.dismiss`), "", this.o.env);
+      }
       for (const name of await listDir(this.files.controlDir)) {
         // A marker still being written is a temp file, and an answer is for the CLI to read.
         if (name.endsWith(".tmp")) continue;
