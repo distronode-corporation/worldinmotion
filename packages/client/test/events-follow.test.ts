@@ -150,6 +150,20 @@ describe("the history follower, edges", () => {
     await until(() => e.texts().includes("still read"), 3000, "the other session");
   });
 
+  it("keeps following other sessions when one session's state cannot be read", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const broken = await otherSession(devices[0]!, mesh, relay);
+    const files = await otherSession(devices[0]!, mesh, relay);
+    const e = await start(devices[0]!, mesh, relay);
+    // Its address comes from its state file, which now fails to parse, on any platform.
+    writeFileSync(broken.statePath, "{ not json");
+    appendFileSync(broken.historyPath, entry("not shown"));
+    appendFileSync(files.historyPath, entry("still read"));
+    await until(() => e.texts().includes("still read"), 3000, "the other session");
+    expect(e.texts()).not.toContain("not shown");
+  });
+
   it("noFollow is 0 where the platform has no O_NOFOLLOW", () => {
     expect(noFollow({})).toBe(0);
     expect(noFollow({ O_NOFOLLOW: 0x20000 })).toBe(0x20000);

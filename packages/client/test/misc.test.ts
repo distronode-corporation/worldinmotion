@@ -85,6 +85,13 @@ describe("cards", () => {
     await fs.writeFile(join(root, "odd", ".git"), "nothing useful");
     await fs.mkdir(join(root, "odd2", ".git"), { recursive: true });
     expect(await readBranch(join(root, "odd2"))).toBeUndefined();
+    // A HEAD that cannot be read (a directory, which fails to read on every OS) is no branch.
+    await fs.mkdir(join(root, "dirhead", ".git", "HEAD"), { recursive: true });
+    expect(await readBranch(join(root, "dirhead"))).toBeUndefined();
+    await fs.mkdir(join(root, "gitdirs", "dirhead", "HEAD"), { recursive: true });
+    await fs.mkdir(join(root, "wt2"), { recursive: true });
+    await fs.writeFile(join(root, "wt2", ".git"), "gitdir: ../gitdirs/dirhead\n");
+    expect(await readBranch(join(root, "wt2"))).toBeUndefined();
   });
 
   it("makes cards with the base name or the full path, and labels them safely", async () => {
