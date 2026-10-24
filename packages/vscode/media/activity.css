@@ -1,0 +1,61 @@
+/* The activity webview. Colours come from the VS Code theme. */
+body {
+  padding: 0 8px;
+  color: var(--vscode-foreground);
+  background: var(--vscode-panel-background, var(--vscode-editor-background));
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+}
+.toolbar .label {
+  margin-left: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+.toolbar button {
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground);
+  border: 1px solid transparent;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.toolbar button[aria-pressed="true"] {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+.conn-open { color: var(--vscode-testing-iconPassed); }
+.conn-closed { color: var(--vscode-errorForeground); }
+.graph-box { overflow-x: auto; }
+.graph .group { fill: none; stroke: var(--vscode-panel-border, var(--vscode-widget-border)); }
+.graph .group-label { fill: var(--vscode-descriptionForeground); font-size: 11px; }
+.graph .node rect { fill: var(--vscode-editorWidget-background); stroke: var(--vscode-focusBorder); }
+.graph .node text { fill: var(--vscode-foreground); font-size: 12px; }
+.graph .node { cursor: pointer; }
+.graph .node:focus rect { stroke-width: 2; }
+.graph .node-offline rect { stroke: var(--vscode-disabledForeground); }
+.graph .node-busy rect { stroke: var(--vscode-charts-yellow); }
+.graph .node-paused rect { stroke: var(--vscode-list-warningForeground); stroke-dasharray: 4 2; }
+.graph .node-room rect { stroke-dasharray: 2 2; }
+.graph .edge { fill: none; stroke: var(--vscode-charts-blue); opacity: 0.8; }
+.graph .arrow { fill: var(--vscode-charts-blue); }
+.graph .edge-label { fill: var(--vscode-foreground); font-size: 11px; }
+.timeline { border-collapse: collapse; width: 100%; }
+.timeline th { text-align: left; color: var(--vscode-descriptionForeground); font-weight: normal; padding: 2px 6px; }
+.timeline td { padding: 2px 6px; vertical-align: top; white-space: nowrap; }
+.timeline td.text { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 60ch; }
+.timeline tr.row { cursor: pointer; }
+.timeline tr.row:hover, .timeline tr.row:focus { background: var(--vscode-list-hoverBackground); outline: none; }
+.badge {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--vscode-badge-foreground);
+  background: var(--vscode-badge-background);
+}
+.empty { color: var(--vscode-descriptionForeground); }

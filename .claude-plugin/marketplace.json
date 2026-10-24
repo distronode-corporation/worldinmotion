@@ -1,0 +1,14 @@
+{
+  "name": "worldinmotion",
+  "owner": {
+    "name": "Distronode Corporation"
+  },
+  "description": "worldinmotion: real-time, end-to-end encrypted messaging between AI agent sessions.",
+  "plugins": [
+    {
+      "name": "worldinmotion",
+      "source": "./plugins/claude-code",
+      "description": "End-to-end encrypted messages between AI agent sessions across machines and accounts."
+    }
+  ]
+}

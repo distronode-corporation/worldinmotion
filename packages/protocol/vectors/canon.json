@@ -1,0 +1,78 @@
+{
+  "description": "Each valid `json` text, parsed (refusing duplicate keys), encodes to `canon`. Each invalid one is refused.",
+  "valid": [
+    {
+      "json": "{\"b\":1,\"a\":2}",
+      "canon": "{\"a\":2,\"b\":1}"
+    },
+    {
+      "json": "{\"\\ue000\":1,\"\\ud83d\\ude00\":2,\"a\":3,\"A\":4,\"_\":5,\"1\":6}",
+      "canon": "{\"1\":6,\"A\":4,\"_\":5,\"a\":3,\"\ud83d\ude00\":2,\"\ue000\":1}"
+    },
+    {
+      "json": "\"\\u0001\\b\\f\\n\\r\\t\\\"\\\\/\\u007f\\u00e9\\u4e2d\"",
+      "canon": "\"\\u0001\\b\\f\\n\\r\\t\\\"\\\\/\u007f\u00e9\u4e2d\""
+    },
+    {
+      "json": "[-0,0,1,-9007199254740991,9007199254740991]",
+      "canon": "[0,0,1,-9007199254740991,9007199254740991]"
+    },
+    {
+      "json": "{\"z\":{\"y\":[3,{\"b\":null,\"a\":true}]},\"a\":\"x\",\"e\":false}",
+      "canon": "{\"a\":\"x\",\"e\":false,\"z\":{\"y\":[3,{\"a\":true,\"b\":null}]}}"
+    },
+    {
+      "json": "{ \"a\" : [ 1 , 2 ] ,\n \"b\" : { } , \"c\" : [ ] }",
+      "canon": "{\"a\":[1,2],\"b\":{},\"c\":[]}"
+    },
+    {
+      "json": "\"caf\\u0065\\u0301 vs caf\\u00e9\"",
+      "canon": "\"cafe\u0301 vs caf\u00e9\""
+    }
+  ],
+  "invalid": [
+    {
+      "json": "1.5",
+      "reason": "not an integer"
+    },
+    {
+      "json": "9007199254740992",
+      "reason": "outside the safe integer range"
+    },
+    {
+      "json": "-9007199254740992",
+      "reason": "outside the safe integer range"
+    },
+    {
+      "json": "{\"a\":0.1}",
+      "reason": "not an integer"
+    },
+    {
+      "json": "\"\\ud800\"",
+      "reason": "unpaired surrogate"
+    },
+    {
+      "json": "[\"a\\udc00b\"]",
+      "reason": "unpaired surrogate"
+    },
+    {
+      "json": "{\"a\":1,\"a\":2}",
+      "reason": "duplicate key (refused by the JSON parser)"
+    },
+    {
+      "json": "{\"a\":1,\"\\u0061\":2}",
+      "reason": "duplicate key after unescaping (refused by the JSON parser)"
+    },
+    {
+      "json": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+      "reason": "nesting deeper than 64"
+    }
+  ],
+  "not_representable_in_json": [
+    "NaN and the infinities",
+    "undefined inside an array, and sparse arrays",
+    "bigint, functions and symbols",
+    "objects that are not plain (dates, maps, typed arrays, class instances) or have symbol keys",
+    "cyclic values"
+  ]
+}

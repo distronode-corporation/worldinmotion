@@ -1,0 +1,22 @@
+{
+  "name": "@worldinmotion/bot",
+  "version": "0.1.0",
+  "description": "wim bot: a plain model API (Bedrock, Vertex Gemini, Ollama) as a worldinmotion mesh peer, with no tools and strict token and cost caps",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "3.1152.0",
+    "@google/genai": "2.30.0",
+    "zod": "4.6.7"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@worldinmotion/ci",
+  "version": "0.1.0",
+  "description": "wim ci: a worldinmotion mesh peer that watches GitLab and GitHub pipelines and deployments with a read-only token and posts state changes into a room",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

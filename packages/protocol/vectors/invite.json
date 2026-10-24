@@ -1,0 +1,31 @@
+{
+  "description": "An invite code with a TLS pin, its id, and carol's join on a connection whose hello nonce is join.nonce: proof = HMAC-SHA256(secret, canon(device)), sig of type join over { t, mesh, invite, device, nonce }, and the short authentication string.",
+  "secret": "sDShP1k9LdfEOvZQYZ3GxGO3Br5cDhc0cQkxQCODLjI",
+  "code": "wim1_eyJleHAiOjE3NjAwMDM2MDAwMDAsIm1lc2giOiI4eXZUMUlaZ3luc0J0N1I3bWFaVEN3IiwicGluIjp7Imhhc2giOiI3OFBDb3NuSm1BRlRxYUFBQjFLWURWbEQtUXNWOTZRMlZBR21Oc2wydl9FIiwic2VxIjoxfSwicmVsYXkiOiJ3c3M6Ly9yZWxheS5leGFtcGxlIiwic2VjcmV0Ijoic0RTaFAxazlMZGZFT3ZaUVlaM0d4R08zQnI1Y0RoYzBjUWt4UUNPRExqSSIsInRscyI6Ii0zR1h3cFJ4Mld3Mm9QdUxjN2FGcmlrZ0dUQmtia1d3NlRSTnJhNnNFZE0ifQ",
+  "decoded": {
+    "relay": "wss://relay.example",
+    "mesh": "8yvT1IZgynsBt7R7maZTCw",
+    "pin": {
+      "seq": 1,
+      "hash": "78PCosnJmAFTqaAAB1KYDVlD-QsV96Q2VAGmNsl2v_E"
+    },
+    "exp": 1760003600000,
+    "tls": "-3GXwpRx2Ww2oPuLc7aFrikgGTBkbkWw6TRNra6sEdM"
+  },
+  "invite_id": "_EhmNyaJgI1rd0NaRI9Xub",
+  "join": {
+    "t": "join",
+    "mesh": "8yvT1IZgynsBt7R7maZTCw",
+    "invite": "_EhmNyaJgI1rd0NaRI9Xub",
+    "device": {
+      "id": "VODr6psj58tYNEQpJFsSKy",
+      "name": "carol",
+      "sign": "sASUvGAkhzvxKkOaRsvJ9Y1Apm5pn7C8X33bUFvHWHg",
+      "box": "pqqYKnDgXrIcbjoYMTjxqC5cT1mmTo_K4CxtkVzCXXA"
+    },
+    "nonce": "zthfJYmrcm4f1Y9MM8VwChuyUVeov53g3JJjnHhwHaM",
+    "sig": "jQOwujJ7nzowCdkOx4J36jfvZmy_BdGjaMDijyxqCkzW4Uq6EUamSgq2aSI8gamZxJaC2trXdRn8P4IkR687BQ",
+    "proof": "9PMqW1Ylu2ifSYxSZXvt4H6WOAqaAAbs3kcrP6FfRBo"
+  },
+  "sas": "FZFX5-V1DG8"
+}

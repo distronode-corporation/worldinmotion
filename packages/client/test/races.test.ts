@@ -1,0 +1,266 @@
+// Races between concurrent callers in one process or across processes of one device: sends
+// that overlap, a wait while two items arrive, lock takeover, and two first runs at once.
+
+import { readFileSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { promises as fs } from "node:fs";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { claimLock, EMPTY_LOCK_MS, fsOps, listFiles, readText, withLock, writeNew } from "../src/fsx.ts";
+import { Home } from "../src/home.ts";
+import { FS, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
+
+const cleanup: Array<() => Promise<unknown>> = [];
+const real = { ...fsOps };
+afterEach(async () => {
+  Object.assign(fsOps, real);
+  for (const f of cleanup.splice(0).reverse()) await f().catch(() => undefined);
+});
+
+const gone = (): never => {
+  throw Object.assign(new Error("gone"), { code: "ESRCH" });
+};
+
+describe("overlapping sends", () => {
+  it("give each frame its own seq and put them on the wire in seq order, so the receiver keeps both", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    const b = await openSession(devices[1]!, mesh, relay, { name: "b" });
+    cleanup.push(() => a.stop(), () => b.stop());
+    const before = relay.sentByClients.length;
+    // A task first: it records its addressees before it goes out, the slowest path.
+    const [task, msg] = await Promise.all([a.send("b@two", "do x", { kind: "task" }), a.send("b@two", "fyi")]);
+    expect([task.results[0]!.status, msg.results[0]!.status]).toEqual(["routed", "routed"]);
+    const seqs = relay.sentByClients
+      .slice(before)
+      .filter((t) => t.startsWith('{"t":"send"'))
+      .map((t) => (JSON.parse(t) as { seq: number }).seq);
+    expect(seqs.length).toBe(2);
+    expect(seqs[1]).toBe(seqs[0]! + 1);
+    expect(a.state.seq).toBe(seqs[1]);
+    await until(async () => (await b.spool.unread()).filter((i) => i.kind !== "notice").length === 2, 3000, "both items");
+  });
+});
+
+describe("wait", () => {
+  it("returns one item and leaves a second one, delivered at the same moment, unread", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const b = await openSession(devices[0]!, mesh, relay, { name: "b" });
+    cleanup.push(() => b.stop());
+    const waiting = b.next(3000);
+    await Promise.all([b.notice("x@one", "first"), b.notice("x@one", "second")]);
+    const got = await waiting;
+    expect(got?.rendered).toContain("first");
+    await sleep(50);
+    const unread = await b.spool.unread();
+    expect(unread.map((i) => i.rendered.includes("second"))).toEqual([true]);
+  });
+});
+
+describe("lock takeover", () => {
+  it("claimLock leaves alone a lock file that another process is still writing", async () => {
+    const dir = await scratch();
+    const lock = join(dir, "live.lock");
+    await fs.writeFile(lock, "");
+    let slept = 0;
+    fsOps.sleep = async () => {
+      // The other process finishes writing its pid.
+      if (slept++ === 0) writeFileSync(lock, String(process.pid));
+    };
+    expect(await claimLock(lock, { platform: "linux", pid: 4242 })).toBe(false);
+    expect(await readText(lock)).toBe(String(process.pid));
+  });
+
+  it("claimLock does not remove a lock that a contender took over a moment earlier", async () => {
+    const dir = await scratch();
+    const lock = join(dir, "live.lock");
+    await fs.writeFile(lock, "999999");
+    let raced = false;
+    fsOps.kill = (pid) => {
+      if (pid === 999999) {
+        // While this caller decides the holder is dead, a contender replaces the stale lock.
+        if (!raced) {
+          raced = true;
+          unlinkSync(lock);
+          writeFileSync(lock, "222");
+        }
+        gone();
+      }
+    };
+    expect(await claimLock(lock, { platform: "linux", pid: 111 })).toBe(false);
+    expect(readFileSync(lock, "utf8")).toBe("222");
+  });
+
+  it("withLock waits for a contender that took over a stale lock a moment earlier", async () => {
+    const dir = await scratch();
+    const lock = join(dir, "l.lock");
+    await fs.writeFile(lock, "999999");
+    const order: string[] = [];
+    let raced = false;
+    fsOps.kill = (pid) => {
+      if (pid === 999999) {
+        if (!raced) {
+          raced = true;
+          unlinkSync(lock);
+          writeFileSync(lock, "222");
+        }
+        gone();
+      }
+    };
+    fsOps.sleep = async () => {
+      // The contender is still inside its lock when this caller first waits; then it leaves.
+      order.push(`wait ${readFileSync(lock, "utf8")}`);
+      unlinkSync(lock);
+    };
+    await withLock(lock, async () => void order.push("inside"), { platform: "linux", pid: 111 });
+    expect(order).toEqual(["wait 222", "inside"]);
+  });
+});
+
+describe("lock edge cases", () => {
+  const me = { platform: "linux", pid: 111 } as const;
+  const errno = (code: string) => Object.assign(new Error(code), { code });
+
+  it("an empty lock older than EMPTY_LOCK_MS, a link and garbage are taken over", async () => {
+    const dir = await scratch();
+    const lock = join(dir, "live.lock");
+    await fs.writeFile(lock, "");
+    const old = (Date.now() - EMPTY_LOCK_MS - 1000) / 1000;
+    utimesSync(lock, old, old);
+    expect(await claimLock(lock, me)).toBe(true);
+    expect(await readText(lock)).toBe("111");
+    await fs.rm(lock);
+    await fs.symlink(join(dir, "nowhere"), lock);
+    expect(await claimLock(lock, me)).toBe(true);
+    expect((await fs.lstat(lock)).isFile()).toBe(true);
+    await fs.writeFile(lock, "12abc");
+    expect(await withLock(lock, async () => "in", me)).toBe("in");
+  });
+
+  it("a lock that vanishes while it is looked at, or is moved by a contender first, is tried again", async () => {
+    const dir = await scratch();
+    const lock = join(dir, "live.lock");
+    await fs.writeFile(lock, "999999");
+    fsOps.kill = (pid) => (pid === 999999 ? gone() : undefined);
+    let looks = 0;
+    fsOps.lstat = async (p) => {
+      if (looks++ === 0) throw errno("ENOENT");
+      return real.lstat(p);
+    };
+    let renames = 0;
+    fsOps.rename = async (a, b) => {
+      // A contender moves the stale lock away just before this one does.
+      if (renames++ === 0) {
+        await real.rename(a, `${a}.theirs`);
+        throw errno("ENOENT");
+      }
+      return real.rename(a, b);
+    };
+    expect(await claimLock(lock, me)).toBe(true);
+    expect(looks).toBeGreaterThan(1);
+  });
+
+  it("does not put a contender's lock back over a third one, and surfaces other file errors", async () => {
+    const dir = await scratch();
+    const lock = join(dir, "live.lock");
+    await fs.writeFile(lock, "999999");
+    let raced = false;
+    fsOps.kill = (pid) => {
+      if (pid === 999999) {
+        if (!raced) {
+          raced = true;
+          unlinkSync(lock);
+          writeFileSync(lock, "222");
+        }
+        gone();
+      }
+    };
+    fsOps.copyNew = async (_from, to) => {
+      // A third process took the free name in between.
+      writeFileSync(to, "333");
+      throw errno("EEXIST");
+    };
+    expect(await claimLock(lock, me)).toBe(false);
+    expect(readFileSync(lock, "utf8")).toBe("333");
+    expect((await fs.readdir(dir)).filter((n) => n.endsWith(".stale"))).toEqual([]);
+    Object.assign(fsOps, real);
+    raced = false;
+    fsOps.kill = (pid) => {
+      if (pid === 999999) {
+        unlinkSync(lock);
+        writeFileSync(lock, "222");
+        gone();
+      }
+    };
+    writeFileSync(lock, "999999");
+    fsOps.copyNew = async () => {
+      throw errno("EIO");
+    };
+    await expect(claimLock(lock, me)).rejects.toThrow("EIO");
+    Object.assign(fsOps, real);
+    writeFileSync(lock, "999999");
+    fsOps.kill = gone;
+    fsOps.rename = async () => {
+      throw errno("EACCES");
+    };
+    await expect(claimLock(lock, me)).rejects.toThrow("EACCES");
+    Object.assign(fsOps, real);
+    fsOps.lstat = async () => {
+      throw errno("EIO");
+    };
+    await expect(claimLock(lock, me)).rejects.toThrow("EIO");
+  });
+});
+
+describe("writeNew and listFiles", () => {
+  it("writeNew creates a file whole and refuses an existing one, also without hard links", async () => {
+    const dir = await scratch();
+    const p = join(dir, "sub", "k.json");
+    await writeNew(p, "one", { platform: "linux", pid: 5 });
+    expect(await readText(p)).toBe("one");
+    expect((await fs.stat(p)).mode & 0o777).toBe(0o600);
+    await expect(writeNew(p, "two")).rejects.toMatchObject({ code: "EEXIST" });
+    fsOps.link = async () => {
+      throw Object.assign(new Error("no links here"), { code: "EPERM" });
+    };
+    const q = join(dir, "q.json");
+    await writeNew(q, "three");
+    expect(await readText(q)).toBe("three");
+    await expect(writeNew(q, "four")).rejects.toMatchObject({ code: "EEXIST" });
+    expect((await fs.readdir(dir)).filter((n) => n.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("listFiles names regular files only, none for a missing directory, and rethrows other errors", async () => {
+    const dir = await scratch();
+    await fs.writeFile(join(dir, "a"), "");
+    await fs.mkdir(join(dir, "d"));
+    await fs.symlink(join(dir, "a"), join(dir, "l"));
+    expect(await listFiles(dir)).toEqual(["a"]);
+    expect(await listFiles(join(dir, "none"))).toEqual([]);
+    await expect(listFiles(join(dir, "a"))).rejects.toThrow();
+  });
+});
+
+describe("first run", () => {
+  it("two concurrent createDevice calls: one creates the key file, the other is refused", async () => {
+    const h = new Home(await scratch("home"), { ...FS, uid: process.getuid?.() });
+    const results = await Promise.allSettled([h.createDevice("alpha"), h.createDevice("beta")]);
+    const made = results.filter((r) => r.status === "fulfilled").map((r) => (r as PromiseFulfilledResult<{ id: string }>).value);
+    expect(made.length).toBe(1);
+    expect((await h.loadDevice())!.id).toBe(made[0]!.id);
+    const refused = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(String(refused.reason)).toMatch(/already exists/);
+  });
+
+  it("createDevice passes on a file error that is not a lost race", async () => {
+    const h = new Home(await scratch("home"), { ...FS, uid: process.getuid?.() });
+    fsOps.link = async () => {
+      // The directory turns read-only, so the fallback write cannot create the file either.
+      await fs.chmod(h.root, 0o500);
+      throw Object.assign(new Error("disk on fire"), { code: "EIO" });
+    };
+    cleanup.push(() => fs.chmod(h.root, 0o700));
+    await expect(h.createDevice("x")).rejects.toMatchObject({ code: "EACCES" });
+  });
+});

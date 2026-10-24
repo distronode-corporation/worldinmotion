@@ -1,0 +1,81 @@
+name: Audit
+
+# The dependency tree checked against the advisory databases, weekly and whenever the
+# lockfile changes. The weekly run matters because an advisory is published against code
+# that did not change: a scan that only runs on a push never sees it.
+#
+# Alerting is the run status. A failed scheduled run sends GitHub's own failure email to
+# the repository's maintainers; nothing here opens an issue or posts anywhere.
+#
+# GitHub disables a scheduled workflow in a public repository after 60 days without
+# repository activity. On a dormant repository re-enable it from the Actions tab.
+on:
+  schedule:
+    # Weekly, Monday, 30 minutes after scorecard.yml so the two do not queue together.
+    - cron: '47 6 * * 1'
+  push:
+    branches: [main]
+    paths: [package-lock.json]
+  pull_request:
+    paths: [package-lock.json]
+  workflow_dispatch:
+
+# Read-only. Neither job writes anything back.
+permissions:
+  contents: read
+
+# Two independent jobs: they ask two databases, and each answer should be reported
+# whatever the other says.
+jobs:
+  # GitHub's advisory database, through npm.
+  npm-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No `cache: npm`: nothing is installed here, and a restored cache is one more
+      # input to a job whose whole output is a security verdict.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      # No `npm ci`, on purpose. `npm audit` reads package-lock.json and posts the
+      # resolved tree to the advisory API; it needs no node_modules, so this job runs no
+      # install scripts. Deliberately NOT `--omit=dev`: the plugin bundle and the relay
+      # image are built with dev tooling, so the whole tree is in scope.
+      # `--audit-level=high` sets the failure bar; lower findings are still printed.
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+  # The OSV database (which aggregates GitHub's, plus others), through OSV-Scanner. The
+  # binary is the upstream release checked against a pinned SHA-256 rather than a
+  # third-party action, which keeps the organisation's action allow-list short. A version
+  # bump changes both lines below; take the digest from the release's
+  # osv-scanner_SHA256SUMS file and pick a release at least 7 days old.
+  osv-scanner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      OSV_SCANNER_VERSION: 2.7.0
+      OSV_SCANNER_SHA256: 160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install OSV-Scanner
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/osv-scanner"
+          curl -fsSL -o "$bin" \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $bin" | sha256sum -c -
+          chmod 0755 "$bin"
+          "$bin" --version
+
+      # Exits non-zero when any vulnerability is found, at any severity.
+      - name: osv-scanner
+        run: '"$RUNNER_TEMP/osv-scanner" scan source --lockfile package-lock.json'

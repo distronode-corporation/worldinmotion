@@ -1,0 +1,232 @@
+name: CI
+
+# The gate every change to main passes, and the gate release.yml runs again on a tagged
+# commit (it calls this file as a reusable workflow, so the two cannot drift):
+#   test               the whole local gate from CONTRIBUTING.md on every platform: install
+#                      from the lockfile, type-check the build graph, and run the vitest suite
+#                      with coverage, whose thresholds in vitest.config.ts fail the job below
+#                      100 percent.
+#   relay-cloudflare   the Workers relay's suite inside workerd.
+#   vscode-extension   the extension's smoke test in a real VS Code, its packaging, and the
+#                      check that the committed plugin bundle equals a fresh build.
+#   claude-code-plugin the Claude Code plugin's own tests.
+#   relay-image        a no-push build of the relay's Dockerfile.
+#   versions           every version string in the repository agrees.
+# The supply-chain checks on pull requests and on the workflows themselves
+# (dependency-review, zizmor) are in supply-chain.yml.
+#
+# The Node versions: `.nvmrc` is the current one, and 22.18 is the floor in every
+# package's `engines`.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      no_cache:
+        description: >-
+          Install with no npm cache. release.yml sets it: a tag run could restore a cache
+          written by any main-branch run, and a restored cache is build input nobody
+          reviewed in that run.
+        type: boolean
+        default: false
+
+# Least privilege, and nothing here writes.
+permissions:
+  contents: read
+
+# Only pull requests cancel in flight: a superseded pull request run is waste, a
+# superseded main run is history.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Every platform the client runs on, plus the oldest supported Node. Platform-specific code
+  # takes the platform as a parameter, so each run can cover every branch and the 100 percent
+  # thresholds hold on all of them.
+  test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        # `current` is whatever .nvmrc says; the include adds the engines floor.
+        node: [current]
+        include:
+          - os: ubuntu-24.04
+            node: "22.18"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # node-version wins over node-version-file when it is set, so `current` reads .nvmrc.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node != 'current' && matrix.node || '' }}
+          node-version-file: .nvmrc
+          cache: ${{ !inputs.no_cache && 'npm' || '' }}
+          package-manager-cache: ${{ !inputs.no_cache }}
+
+      - run: npm ci
+
+      # `tsc -b` builds every project referenced from tsconfig.json, test projects
+      # included, so test files are type-checked too.
+      - name: tsc -b
+        run: npx tsc -b
+
+      # Invoked directly rather than through `npm test` so this step does not depend on a
+      # script name, and with --coverage so the thresholds are enforced.
+      - name: vitest (with coverage)
+        run: npx vitest run --coverage
+
+  # packages/relay-cloudflare runs its tests inside the Workers runtime (workerd, through
+  # @cloudflare/vitest-plugin) with its own vitest config, which the root config excludes.
+  # Coverage uses istanbul there (v8 coverage needs a Node inspector) and holds the same 100
+  # percent per-file thresholds. Ubuntu only: workerd is the same runtime on every platform, and
+  # nothing here talks to Cloudflare.
+  relay-cloudflare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: ${{ !inputs.no_cache && 'npm' || '' }}
+          package-manager-cache: ${{ !inputs.no_cache }}
+
+      - run: npm ci
+
+      - name: vitest in workerd (with coverage)
+        run: npm run test:coverage --workspace=@worldinmotion/relay-cloudflare
+        env:
+          WRANGLER_SEND_METRICS: "false"
+
+  # packages/vscode: builds the extension, runs the integration smoke test in a real VS Code
+  # (downloaded by @vscode/test-electron, under a virtual display) against the fake events
+  # process in test/fixtures, and packages the .vsix. Nothing here talks to a relay. The unit
+  # tests and their coverage run in `test` with every other package.
+  vscode-extension:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: ${{ !inputs.no_cache && 'npm' || '' }}
+          package-manager-cache: ${{ !inputs.no_cache }}
+
+      - run: npm ci
+
+      - name: bundle the client and the extension
+        run: |
+          npm run bundle --workspace=@worldinmotion/client
+          npm run bundle --workspace=worldinmotion
+
+      # The Claude Code marketplace installs the plugin straight from the repository, so the
+      # committed bundle is what users run. It must be exactly what the sources build.
+      - name: the committed plugin bundle equals a fresh build
+        run: git diff --exit-code --stat plugins/claude-code/dist/client.mjs
+
+      - name: xvfb
+        run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+
+      - name: smoke test in VS Code
+        run: xvfb-run -a node packages/vscode/test-electron/run.mjs
+
+      # vsce names the file from the manifest (worldinmotion-<version>.vsix).
+      - name: package the .vsix (never published from CI)
+        working-directory: packages/vscode
+        run: npx vsce package --no-dependencies
+
+  # plugins/claude-code (the hooks module and its tests) runs inside Claude Code, not Node, so
+  # it is outside the vitest suite and `tsc -b`. `claude plugin test` runs its *.test.tsx
+  # files in the same environment the hooks run in, and needs no login. The CLI is pinned
+  # by .github/claude-code/package-lock.json (Dependabot proposes bumps, after the 7-day
+  # cooldown). Its postinstall is the only install script run here: it copies the
+  # platform's native binary, from the optional dependency npm just fetched, over the
+  # placeholder.
+  # Not type-checked here: the typings the plugin's tsconfig.json extends are written into
+  # the gitignored .claude-plugin/types by Claude Code itself, and the CLI has no command
+  # that emits them.
+  claude-code-plugin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      DISABLE_AUTOUPDATER: "1"
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: install the Claude Code CLI
+        working-directory: .github/claude-code
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          (cd node_modules/@anthropic-ai/claude-code && node install.cjs)
+          echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: claude plugin test
+        run: |
+          claude --version
+          claude plugin test plugins/claude-code
+
+  # The relay image is otherwise first built by release.yml, on a tag. Built here without
+  # pushing, so a broken Dockerfile shows on the pull request that breaks it.
+  relay-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: docker build (no push)
+        run: docker build --file packages/relay-node/Dockerfile --tag wim-relay:ci .
+
+  # release.yml checks the same against the tag; checking here too means a missed bump shows
+  # on the pull request, not on the tag.
+  versions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: every version string agrees
+        run: node .github/scripts/check-versions.mjs

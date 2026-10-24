@@ -1,0 +1,37 @@
+{
+  "description": "Ed25519 seed and X25519 secret to public keys and device id (b64u(SHA-256(signPub)), first 22 characters).",
+  "keys": [
+    {
+      "name": "alice",
+      "signSec": "f29e4dbfbca62fb64b51dbc3ecf2429581cc3006db6d4c31e5a00c067fa93cbf",
+      "boxSec": "6b23b2d70814d1c745ee964663d8788aaa3d45922e8c518bc24a34da87d049eb",
+      "signPub": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+      "boxPub": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+      "id": "zv5yUNkED9tj8Qn03xCtIg"
+    },
+    {
+      "name": "bob",
+      "signSec": "2cb2c1413efc14bcd9892527ea4f9b884a6fac766918ee554be947f933e19db6",
+      "boxSec": "1189bf38d048b420e33528417999d36b47656cc99794ea4f9ffc78d6aea4db5a",
+      "signPub": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+      "boxPub": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+      "id": "MktQIySOj-wiwSsggq4YCL"
+    },
+    {
+      "name": "carol",
+      "signSec": "cbb3a82374fbe2d33871c2b241bf4589453b4fbc51df7faa6eddc650390554c2",
+      "boxSec": "b01703034830127eebb6dbc1580bbc6ce85db235c3b2795b63e36447132b4ddf",
+      "signPub": "sASUvGAkhzvxKkOaRsvJ9Y1Apm5pn7C8X33bUFvHWHg",
+      "boxPub": "pqqYKnDgXrIcbjoYMTjxqC5cT1mmTo_K4CxtkVzCXXA",
+      "id": "VODr6psj58tYNEQpJFsSKy"
+    },
+    {
+      "name": "dave",
+      "signSec": "808739f1a50b9e15155d52136e6991e0f6ab36004eb71cb31f82a305061c5583",
+      "boxSec": "8211524ee7976cc9fca10b604200cbd407d358afd9cd082b122e39528ceda678",
+      "signPub": "2QO5h53aLgLg6K6eNajRQeOkKlsa-4lm2Cjsl3_-dvA",
+      "boxPub": "RLm8q5SMCoJyhH7zHNev6nWAEtOyyY2B-JOj_RixQBE",
+      "id": "yVWSwZLOr54qskDa7-gAhe"
+    }
+  ]
+}

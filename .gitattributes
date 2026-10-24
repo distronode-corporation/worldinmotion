@@ -1,0 +1,8 @@
+# Every text file checks out with LF on every platform, Windows included. Several tests
+# compare files byte for byte (the protocol vectors, the bin.ts guard), and a CRLF checkout
+# from core.autocrlf=true would fail them.
+* text=auto eol=lf
+
+# Built from packages/client by `npm run bundle -w @worldinmotion/client`; CI checks that the
+# committed copy equals a fresh build. Collapsed in GitHub's diff view.
+plugins/claude-code/dist/client.mjs linguist-generated=true

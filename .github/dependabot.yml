@@ -1,0 +1,66 @@
+version: 2
+
+# Three ecosystems, because this repository has three kinds of pin that age independently:
+# the npm lockfiles, the action SHAs, and the relay image's base-image digest. Every `uses:` in .github/workflows is pinned
+# to a full commit SHA with a `# vX.Y.Z` comment, which is right for supply-chain safety
+# and wrong for noticing a security fix: a pinned SHA never moves on its own. The
+# `github-actions` entry turns each pin into a pull request, rewriting both the SHA and
+# the version comment.
+#
+# `cooldown` holds a version update back until the release is a week old, so a
+# compromised publish that is yanked within days never reaches a pull request here. It
+# matches the 7-day rule in CONTRIBUTING.md. It does not delay SECURITY updates, which
+# Dependabot opens as soon as an advisory lands.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      # One pull request for the routine bumps. A major usually needs a workflow edit, so
+      # it is left on its own.
+      actions-minor:
+        update-types: [minor, patch]
+
+  # The root directory covers every workspace: npm workspaces share the one lockfile.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    # Exact pins stay exact: Dependabot rewrites "1.2.3" to "1.2.4", never to a range.
+    versioning-strategy: increase
+    groups:
+      # Split by dependency type so that a group's type is unambiguous.
+      # dependabot-auto-merge.yml merges only the development group's patch and minor
+      # updates; runtime dependencies (the crypto libraries above all) wait for a person.
+      npm-dev-minor:
+        dependency-type: development
+        update-types: [minor, patch]
+      npm-prod-minor:
+        dependency-type: production
+        update-types: [minor, patch]
+
+  # The Claude Code CLI that ci.yml runs the plugin's tests with. Its own lockfile, outside
+  # the workspaces, so the CLI is not installed by every `npm ci`. A runtime dependency in
+  # that package.json, so dependabot-auto-merge.yml leaves its updates to a person.
+  - package-ecosystem: npm
+    directory: /.github/claude-code
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    versioning-strategy: increase
+
+  # The relay image's base, pinned by digest on both FROM lines of the Dockerfile. A digest
+  # update is how a Debian or Node security fix reaches the next relay image. Never merged
+  # automatically: dependabot-auto-merge.yml handles npm development updates only.
+  - package-ecosystem: docker
+    directory: /packages/relay-node
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

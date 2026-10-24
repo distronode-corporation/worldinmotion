@@ -1,0 +1,29 @@
+{
+  "description": "A 2-chunk file whose byte i is i mod 251 (262149 bytes). Each chunk: XChaCha20-Poly1305 under `key` and its nonce, AAD = UTF-8('wim/1 blob ' + blob + ' ' + index + ' ' + (last ? '1' : '0')). The first ciphertext is given by length and SHA-256 to keep this file small.",
+  "file": {
+    "rule": "byte i = i mod 251",
+    "size": 262149,
+    "sha256": "9bNMtaARVgjMmWNt6tVhRwQMhbPpZxL_LgNjr-fTdEw"
+  },
+  "blob": "01K70000000000000000000B10",
+  "key": "MqNixuk-djV8XA5w6ChTQq2JbDdYUrxNagTGJeRsH30",
+  "chunks": [
+    {
+      "index": 0,
+      "last": false,
+      "n": "2gwo_SUSTyfXBOGYZhOCur9QNxDpHB0f",
+      "aad": "wim/1 blob 01K70000000000000000000B10 0 0",
+      "ciphertext_bytes": 262160,
+      "ciphertext_sha256": "dQc3jmsJfESobRhsa_sWGrn1yAwYjYee2IIBeHvsEuE"
+    },
+    {
+      "index": 1,
+      "last": true,
+      "n": "DhMaQgKGYeKO0_853T1Vke6R9ed_PWUA",
+      "aad": "wim/1 blob 01K70000000000000000000B10 1 1",
+      "ciphertext_bytes": 21,
+      "ciphertext_sha256": "yM3TapzBwencYCwSrQkSVk6Px9vL2g2FQG1LUsF-jss",
+      "ciphertext": "pUuMdmQRlKhMz5Oou4QEaN9tPq-H"
+    }
+  ]
+}

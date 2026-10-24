@@ -1,0 +1,339 @@
+{
+  "description": "alice seals a message to reviewer@bob. Bob's session (address reviewer@bob, clock `now`) opens it to `plaintext`. Each tamper case must fail with `reason`, given the same roster and the `now` and `address` shown (or the defaults).",
+  "roster": {
+    "mesh": "8yvT1IZgynsBt7R7maZTCw",
+    "seq": 2,
+    "prev": "ssMkmESqOUESIDgbriXNH6PbGkISd-iGLMPq2IZgY_I",
+    "devices": [
+      {
+        "id": "zv5yUNkED9tj8Qn03xCtIg",
+        "name": "alice",
+        "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+        "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+        "role": "admin",
+        "added": 1760000000000
+      },
+      {
+        "id": "MktQIySOj-wiwSsggq4YCL",
+        "name": "bob",
+        "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+        "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+        "role": "member",
+        "added": 1760000000000
+      }
+    ],
+    "revoked": [],
+    "by": "zv5yUNkED9tj8Qn03xCtIg",
+    "at": 1760000000000,
+    "sig": "u5477rfcCTiEBGVjsQID17DcIs8Ej6jID8ggXYVmu_T0EQyfrNG6tRP6yhmnut0EUjCJXgtTKObZRQ1qH2ZoAw"
+  },
+  "receiver": {
+    "device": "bob",
+    "address": "reviewer@bob",
+    "sid": "01K700000000000000000005D2"
+  },
+  "now": 1760000000000,
+  "frame": {
+    "t": "send",
+    "mesh": "8yvT1IZgynsBt7R7maZTCw",
+    "id": "01K700000000000000000005G1",
+    "from": {
+      "device": "zv5yUNkED9tj8Qn03xCtIg",
+      "session": "writer",
+      "sid": "01K700000000000000000005D1"
+    },
+    "to": [
+      "reviewer@bob"
+    ],
+    "seq": 1,
+    "at": 1760000000000,
+    "roster": {
+      "seq": 2,
+      "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+    },
+    "boxes": {
+      "MktQIySOj-wiwSsggq4YCL": {
+        "n": "eY4vI5AclTZLqT7-wSHMZqYT917cs1T-",
+        "c": "k2C1XM4Ku6wq99IG3Tqygx16uDoJWQt6EI3--5SkyNm28Xt05rIqNANQl2Xh09o1ie4GAyxyd6OEj_tCuwF4euKjhvXr-hQeP--35iJvw2PDsbgzxBYZJsDdP6XYVI9mfCQ51A_8iXfeAj4zm8RnTnxlCMVgaRqay_vFHYiAVAvP95uShkS77sRjrSg16k2GT29BF-BX60TQ-hHTZ5dneh90CxO25dQYrm5vmJmK_RmzKoYw3xQ9SSRYSpbK5FQRqGgJNr46kmBqY9z4QmUpfnspqVEX2mWZxF3kjhWEME0aC3pcl-QkbXIN9ocfU4YpPI23_1Qajyu3EtSz8D-0sT48uUUey6vAB3mdOkCg8hxg3IUt55HItWuUdolrcLP3ilZTkbD9WdqjH7bJ_WQqF-Xdgvr9LQ4Y"
+      }
+    },
+    "sig": "NVuugwZtL7bm27OVmVW8C00h0qv7oIxXjk-8642apTAXmbDbJUoprWlHjrZwvFDcsTuSxKGKjv6sARN1fSAJAA"
+  },
+  "plaintext": {
+    "v": 1,
+    "id": "01K700000000000000000005G1",
+    "from": {
+      "device": "zv5yUNkED9tj8Qn03xCtIg",
+      "session": "writer",
+      "sid": "01K700000000000000000005D1"
+    },
+    "to": [
+      "reviewer@bob"
+    ],
+    "at": 1760000000000,
+    "roster": {
+      "seq": 2,
+      "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+    },
+    "kind": "msg",
+    "text": "please review the diff"
+  },
+  "tampers": [
+    {
+      "why": "header changed",
+      "now": 1760000000000,
+      "address": "reviewer@bob",
+      "reason": "bad_signature",
+      "frame": {
+        "t": "send",
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "id": "01K700000000000000000005G1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "seq": 2,
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "boxes": {
+          "MktQIySOj-wiwSsggq4YCL": {
+            "n": "eY4vI5AclTZLqT7-wSHMZqYT917cs1T-",
+            "c": "k2C1XM4Ku6wq99IG3Tqygx16uDoJWQt6EI3--5SkyNm28Xt05rIqNANQl2Xh09o1ie4GAyxyd6OEj_tCuwF4euKjhvXr-hQeP--35iJvw2PDsbgzxBYZJsDdP6XYVI9mfCQ51A_8iXfeAj4zm8RnTnxlCMVgaRqay_vFHYiAVAvP95uShkS77sRjrSg16k2GT29BF-BX60TQ-hHTZ5dneh90CxO25dQYrm5vmJmK_RmzKoYw3xQ9SSRYSpbK5FQRqGgJNr46kmBqY9z4QmUpfnspqVEX2mWZxF3kjhWEME0aC3pcl-QkbXIN9ocfU4YpPI23_1Qajyu3EtSz8D-0sT48uUUey6vAB3mdOkCg8hxg3IUt55HItWuUdolrcLP3ilZTkbD9WdqjH7bJ_WQqF-Xdgvr9LQ4Y"
+          }
+        },
+        "sig": "NVuugwZtL7bm27OVmVW8C00h0qv7oIxXjk-8642apTAXmbDbJUoprWlHjrZwvFDcsTuSxKGKjv6sARN1fSAJAA"
+      }
+    },
+    {
+      "why": "header changed and re-signed",
+      "now": 1760000000000,
+      "address": "reviewer@bob",
+      "reason": "decrypt_failed",
+      "frame": {
+        "t": "send",
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "id": "01K700000000000000000005G1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "seq": 2,
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "boxes": {
+          "MktQIySOj-wiwSsggq4YCL": {
+            "n": "eY4vI5AclTZLqT7-wSHMZqYT917cs1T-",
+            "c": "k2C1XM4Ku6wq99IG3Tqygx16uDoJWQt6EI3--5SkyNm28Xt05rIqNANQl2Xh09o1ie4GAyxyd6OEj_tCuwF4euKjhvXr-hQeP--35iJvw2PDsbgzxBYZJsDdP6XYVI9mfCQ51A_8iXfeAj4zm8RnTnxlCMVgaRqay_vFHYiAVAvP95uShkS77sRjrSg16k2GT29BF-BX60TQ-hHTZ5dneh90CxO25dQYrm5vmJmK_RmzKoYw3xQ9SSRYSpbK5FQRqGgJNr46kmBqY9z4QmUpfnspqVEX2mWZxF3kjhWEME0aC3pcl-QkbXIN9ocfU4YpPI23_1Qajyu3EtSz8D-0sT48uUUey6vAB3mdOkCg8hxg3IUt55HItWuUdolrcLP3ilZTkbD9WdqjH7bJ_WQqF-Xdgvr9LQ4Y"
+          }
+        },
+        "sig": "mLATnilE5QTBDP2pHG5ChbpxjIXbTJ4-wPE_OKG7ST_nzb_y7RCHvvoUh2dNe1jwEMpeGmMaE33P6KY5tZw1DQ"
+      }
+    },
+    {
+      "why": "ciphertext altered and re-signed",
+      "now": 1760000000000,
+      "address": "reviewer@bob",
+      "reason": "decrypt_failed",
+      "frame": {
+        "t": "send",
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "id": "01K700000000000000000005G1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "seq": 1,
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "boxes": {
+          "MktQIySOj-wiwSsggq4YCL": {
+            "n": "eY4vI5AclTZLqT7-wSHMZqYT917cs1T-",
+            "c": "kmC1XM4Ku6wq99IG3Tqygx16uDoJWQt6EI3--5SkyNm28Xt05rIqNANQl2Xh09o1ie4GAyxyd6OEj_tCuwF4euKjhvXr-hQeP--35iJvw2PDsbgzxBYZJsDdP6XYVI9mfCQ51A_8iXfeAj4zm8RnTnxlCMVgaRqay_vFHYiAVAvP95uShkS77sRjrSg16k2GT29BF-BX60TQ-hHTZ5dneh90CxO25dQYrm5vmJmK_RmzKoYw3xQ9SSRYSpbK5FQRqGgJNr46kmBqY9z4QmUpfnspqVEX2mWZxF3kjhWEME0aC3pcl-QkbXIN9ocfU4YpPI23_1Qajyu3EtSz8D-0sT48uUUey6vAB3mdOkCg8hxg3IUt55HItWuUdolrcLP3ilZTkbD9WdqjH7bJ_WQqF-Xdgvr9LQ4Y"
+          }
+        },
+        "sig": "ykFLe5pDSB9S2qMCJCmFJvrbZYwnjFPAueo-mXBfhWNupmIPtPjvW-btFjaAJR0O1helaSFN9fu32Rv9cxaPBg"
+      }
+    },
+    {
+      "why": "signed by bob",
+      "now": 1760000000000,
+      "address": "reviewer@bob",
+      "reason": "bad_signature",
+      "frame": {
+        "t": "send",
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "id": "01K700000000000000000005G1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "seq": 1,
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "boxes": {
+          "MktQIySOj-wiwSsggq4YCL": {
+            "n": "eY4vI5AclTZLqT7-wSHMZqYT917cs1T-",
+            "c": "k2C1XM4Ku6wq99IG3Tqygx16uDoJWQt6EI3--5SkyNm28Xt05rIqNANQl2Xh09o1ie4GAyxyd6OEj_tCuwF4euKjhvXr-hQeP--35iJvw2PDsbgzxBYZJsDdP6XYVI9mfCQ51A_8iXfeAj4zm8RnTnxlCMVgaRqay_vFHYiAVAvP95uShkS77sRjrSg16k2GT29BF-BX60TQ-hHTZ5dneh90CxO25dQYrm5vmJmK_RmzKoYw3xQ9SSRYSpbK5FQRqGgJNr46kmBqY9z4QmUpfnspqVEX2mWZxF3kjhWEME0aC3pcl-QkbXIN9ocfU4YpPI23_1Qajyu3EtSz8D-0sT48uUUey6vAB3mdOkCg8hxg3IUt55HItWuUdolrcLP3ilZTkbD9WdqjH7bJ_WQqF-Xdgvr9LQ4Y"
+          }
+        },
+        "sig": "dW0s4WqYHneHb1BmsCiITUCr7RjbKoSDepfE4tVdkBNHFjAIAsVep1c7KHBo37q0bhceKxF_kzWVRo15rQUgCg"
+      }
+    },
+    {
+      "why": "another mesh",
+      "now": 1760000000000,
+      "address": "reviewer@bob",
+      "reason": "wrong_mesh",
+      "frame": {
+        "t": "send",
+        "mesh": "AAAAAAAAAAAAAAAAAAAAAA",
+        "id": "01K700000000000000000005G1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "seq": 1,
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "boxes": {
+          "MktQIySOj-wiwSsggq4YCL": {
+            "n": "eY4vI5AclTZLqT7-wSHMZqYT917cs1T-",
+            "c": "k2C1XM4Ku6wq99IG3Tqygx16uDoJWQt6EI3--5SkyNm28Xt05rIqNANQl2Xh09o1ie4GAyxyd6OEj_tCuwF4euKjhvXr-hQeP--35iJvw2PDsbgzxBYZJsDdP6XYVI9mfCQ51A_8iXfeAj4zm8RnTnxlCMVgaRqay_vFHYiAVAvP95uShkS77sRjrSg16k2GT29BF-BX60TQ-hHTZ5dneh90CxO25dQYrm5vmJmK_RmzKoYw3xQ9SSRYSpbK5FQRqGgJNr46kmBqY9z4QmUpfnspqVEX2mWZxF3kjhWEME0aC3pcl-QkbXIN9ocfU4YpPI23_1Qajyu3EtSz8D-0sT48uUUey6vAB3mdOkCg8hxg3IUt55HItWuUdolrcLP3ilZTkbD9WdqjH7bJ_WQqF-Xdgvr9LQ4Y"
+          }
+        },
+        "sig": "NVuugwZtL7bm27OVmVW8C00h0qv7oIxXjk-8642apTAXmbDbJUoprWlHjrZwvFDcsTuSxKGKjv6sARN1fSAJAA"
+      }
+    },
+    {
+      "why": "not addressed to this session",
+      "now": 1760000000000,
+      "address": "other@bob",
+      "reason": "not_addressed",
+      "frame": {
+        "t": "send",
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "id": "01K700000000000000000005G1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "seq": 1,
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "boxes": {
+          "MktQIySOj-wiwSsggq4YCL": {
+            "n": "eY4vI5AclTZLqT7-wSHMZqYT917cs1T-",
+            "c": "k2C1XM4Ku6wq99IG3Tqygx16uDoJWQt6EI3--5SkyNm28Xt05rIqNANQl2Xh09o1ie4GAyxyd6OEj_tCuwF4euKjhvXr-hQeP--35iJvw2PDsbgzxBYZJsDdP6XYVI9mfCQ51A_8iXfeAj4zm8RnTnxlCMVgaRqay_vFHYiAVAvP95uShkS77sRjrSg16k2GT29BF-BX60TQ-hHTZ5dneh90CxO25dQYrm5vmJmK_RmzKoYw3xQ9SSRYSpbK5FQRqGgJNr46kmBqY9z4QmUpfnspqVEX2mWZxF3kjhWEME0aC3pcl-QkbXIN9ocfU4YpPI23_1Qajyu3EtSz8D-0sT48uUUey6vAB3mdOkCg8hxg3IUt55HItWuUdolrcLP3ilZTkbD9WdqjH7bJ_WQqF-Xdgvr9LQ4Y"
+          }
+        },
+        "sig": "NVuugwZtL7bm27OVmVW8C00h0qv7oIxXjk-8642apTAXmbDbJUoprWlHjrZwvFDcsTuSxKGKjv6sARN1fSAJAA"
+      }
+    },
+    {
+      "why": "too old",
+      "now": 1760169200001,
+      "address": "reviewer@bob",
+      "reason": "too_old",
+      "frame": {
+        "t": "send",
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "id": "01K700000000000000000005G1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "seq": 1,
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "boxes": {
+          "MktQIySOj-wiwSsggq4YCL": {
+            "n": "eY4vI5AclTZLqT7-wSHMZqYT917cs1T-",
+            "c": "k2C1XM4Ku6wq99IG3Tqygx16uDoJWQt6EI3--5SkyNm28Xt05rIqNANQl2Xh09o1ie4GAyxyd6OEj_tCuwF4euKjhvXr-hQeP--35iJvw2PDsbgzxBYZJsDdP6XYVI9mfCQ51A_8iXfeAj4zm8RnTnxlCMVgaRqay_vFHYiAVAvP95uShkS77sRjrSg16k2GT29BF-BX60TQ-hHTZ5dneh90CxO25dQYrm5vmJmK_RmzKoYw3xQ9SSRYSpbK5FQRqGgJNr46kmBqY9z4QmUpfnspqVEX2mWZxF3kjhWEME0aC3pcl-QkbXIN9ocfU4YpPI23_1Qajyu3EtSz8D-0sT48uUUey6vAB3mdOkCg8hxg3IUt55HItWuUdolrcLP3ilZTkbD9WdqjH7bJ_WQqF-Xdgvr9LQ4Y"
+          }
+        },
+        "sig": "NVuugwZtL7bm27OVmVW8C00h0qv7oIxXjk-8642apTAXmbDbJUoprWlHjrZwvFDcsTuSxKGKjv6sARN1fSAJAA"
+      }
+    },
+    {
+      "why": "too new",
+      "now": 1759999399999,
+      "address": "reviewer@bob",
+      "reason": "too_new",
+      "frame": {
+        "t": "send",
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "id": "01K700000000000000000005G1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "seq": 1,
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "boxes": {
+          "MktQIySOj-wiwSsggq4YCL": {
+            "n": "eY4vI5AclTZLqT7-wSHMZqYT917cs1T-",
+            "c": "k2C1XM4Ku6wq99IG3Tqygx16uDoJWQt6EI3--5SkyNm28Xt05rIqNANQl2Xh09o1ie4GAyxyd6OEj_tCuwF4euKjhvXr-hQeP--35iJvw2PDsbgzxBYZJsDdP6XYVI9mfCQ51A_8iXfeAj4zm8RnTnxlCMVgaRqay_vFHYiAVAvP95uShkS77sRjrSg16k2GT29BF-BX60TQ-hHTZ5dneh90CxO25dQYrm5vmJmK_RmzKoYw3xQ9SSRYSpbK5FQRqGgJNr46kmBqY9z4QmUpfnspqVEX2mWZxF3kjhWEME0aC3pcl-QkbXIN9ocfU4YpPI23_1Qajyu3EtSz8D-0sT48uUUey6vAB3mdOkCg8hxg3IUt55HItWuUdolrcLP3ilZTkbD9WdqjH7bJ_WQqF-Xdgvr9LQ4Y"
+          }
+        },
+        "sig": "NVuugwZtL7bm27OVmVW8C00h0qv7oIxXjk-8642apTAXmbDbJUoprWlHjrZwvFDcsTuSxKGKjv6sARN1fSAJAA"
+      }
+    }
+  ]
+}

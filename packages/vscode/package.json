@@ -1,0 +1,321 @@
+{
+  "name": "worldinmotion",
+  "displayName": "worldinmotion",
+  "description": "See and act on your worldinmotion mesh from VS Code: devices, sessions, rooms, leases, held messages and live activity",
+  "version": "0.1.0",
+  "publisher": "distronode",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/distronode-corporation/worldinmotion.git",
+    "directory": "packages/vscode"
+  },
+  "engines": {
+    "vscode": "^1.140.0",
+    "node": ">=22.18.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "agents",
+    "messaging",
+    "end-to-end encryption"
+  ],
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "bundle": "node scripts/bundle.mjs",
+    "package": "node scripts/bundle.mjs && vsce package --no-dependencies --out worldinmotion-0.1.0.vsix",
+    "smoke": "node scripts/bundle.mjs && node test-electron/run.mjs"
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "worldinmotion",
+          "title": "worldinmotion",
+          "icon": "media/icon.svg"
+        }
+      ],
+      "panel": [
+        {
+          "id": "worldinmotion-activity",
+          "title": "worldinmotion",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "worldinmotion": [
+        {
+          "id": "worldinmotion.mesh",
+          "name": "Mesh"
+        },
+        {
+          "id": "worldinmotion.rooms",
+          "name": "Rooms"
+        },
+        {
+          "id": "worldinmotion.leases",
+          "name": "Leases"
+        },
+        {
+          "id": "worldinmotion.held",
+          "name": "Held"
+        }
+      ],
+      "worldinmotion-activity": [
+        {
+          "type": "webview",
+          "id": "worldinmotion.activity",
+          "name": "Activity"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "worldinmotion.sendSelection",
+        "title": "Send Selection to...",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.askAboutSelection",
+        "title": "Ask a Peer about the Selection...",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.sendFile",
+        "title": "Send File to...",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.openThread",
+        "title": "Open Thread",
+        "category": "worldinmotion",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "worldinmotion.approve",
+        "title": "Approve",
+        "category": "worldinmotion",
+        "icon": "$(check)"
+      },
+      {
+        "command": "worldinmotion.refuse",
+        "title": "Refuse",
+        "category": "worldinmotion",
+        "icon": "$(close)"
+      },
+      {
+        "command": "worldinmotion.trust",
+        "title": "Trust",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.trustRelayed",
+        "title": "Trust (including relayed text)",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.untrust",
+        "title": "Untrust",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.resume",
+        "title": "Resume",
+        "category": "worldinmotion",
+        "icon": "$(debug-continue)"
+      },
+      {
+        "command": "worldinmotion.refresh",
+        "title": "Refresh",
+        "category": "worldinmotion",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "worldinmotion.showActivity",
+        "title": "Show Activity",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.showLog",
+        "title": "Show Client Log",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.restart",
+        "title": "Restart Client",
+        "category": "worldinmotion"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "worldinmotion.sendSelection",
+          "when": "editorHasSelection",
+          "group": "worldinmotion@1"
+        },
+        {
+          "command": "worldinmotion.askAboutSelection",
+          "when": "editorHasSelection",
+          "group": "worldinmotion@2"
+        },
+        {
+          "command": "worldinmotion.sendFile",
+          "when": "resourceScheme == file",
+          "group": "worldinmotion@3"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "worldinmotion.sendFile",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "worldinmotion@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "worldinmotion.refresh",
+          "when": "view == worldinmotion.mesh",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "worldinmotion.approve",
+          "when": "view == worldinmotion.held && viewItem == held",
+          "group": "inline@1"
+        },
+        {
+          "command": "worldinmotion.refuse",
+          "when": "view == worldinmotion.held && viewItem == held",
+          "group": "inline@2"
+        },
+        {
+          "command": "worldinmotion.approve",
+          "when": "view == worldinmotion.held && viewItem == held",
+          "group": "decide@1"
+        },
+        {
+          "command": "worldinmotion.refuse",
+          "when": "view == worldinmotion.held && viewItem == held",
+          "group": "decide@2"
+        },
+        {
+          "command": "worldinmotion.trust",
+          "when": "view == worldinmotion.mesh && viewItem == device",
+          "group": "policy@1"
+        },
+        {
+          "command": "worldinmotion.trustRelayed",
+          "when": "view == worldinmotion.mesh && viewItem == device",
+          "group": "policy@2"
+        },
+        {
+          "command": "worldinmotion.untrust",
+          "when": "view == worldinmotion.mesh && viewItem == device",
+          "group": "policy@3"
+        },
+        {
+          "command": "worldinmotion.resume",
+          "when": "view == worldinmotion.mesh && viewItem == session.paused",
+          "group": "inline@1"
+        },
+        {
+          "command": "worldinmotion.resume",
+          "when": "view == worldinmotion.mesh && viewItem == session.paused",
+          "group": "breaker@1"
+        },
+        {
+          "command": "worldinmotion.openThread",
+          "when": "view == worldinmotion.mesh && viewItem =~ /^session/ || view == worldinmotion.rooms && viewItem == room",
+          "group": "thread@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "worldinmotion.trust",
+          "when": "false"
+        },
+        {
+          "command": "worldinmotion.trustRelayed",
+          "when": "false"
+        },
+        {
+          "command": "worldinmotion.untrust",
+          "when": "false"
+        },
+        {
+          "command": "worldinmotion.resume",
+          "when": "false"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "wim-thread",
+        "aliases": [
+          "worldinmotion thread"
+        ],
+        "extensions": [
+          ".wimthread"
+        ]
+      }
+    ],
+    "configurationDefaults": {
+      "[wim-thread]": {
+        "editor.links": false,
+        "editor.wordWrap": "on",
+        "editor.unicodeHighlight.invisibleCharacters": true,
+        "editor.unicodeHighlight.ambiguousCharacters": true
+      }
+    },
+    "configuration": {
+      "title": "worldinmotion",
+      "properties": {
+        "worldinmotion.sessionName": {
+          "type": "string",
+          "default": "vscode",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "scope": "machine",
+          "description": "The session name this window uses on the mesh (lowercase letters, digits and hyphens, up to 32). Peers reach it as <name>@<device>."
+        },
+        "worldinmotion.wimPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Path to another wim client to run instead of the one bundled with the extension. A .mjs or .js file runs on VS Code's own Node; anything else runs as an executable. User or remote settings only, never workspace settings."
+        },
+        "worldinmotion.notifyOnMessage": {
+          "type": "boolean",
+          "default": true,
+          "scope": "machine",
+          "description": "Show a notification when a message arrives for this window's own session. The notification names the sender only, never the text."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/vscode": "1.140.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0",
+    "@worldinmotion/protocol": "0.1.0",
+    "esbuild": "0.28.2"
+  }
+}

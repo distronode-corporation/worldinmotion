@@ -1,0 +1,35 @@
+{
+  "name": "worldinmotion-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Real-time, end-to-end encrypted messaging between AI agent sessions across machines and accounts",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "5.0.5",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  },
+  "overrides": {
+    "miniflare": {
+      "undici": "7.30.1"
+    },
+    "@cloudflare/vitest-plugin": {
+      "zod": "4.6.7"
+    },
+    "@azure/identity": {
+      "@azure/msal-node": "7.1.0"
+    }
+  }
+}

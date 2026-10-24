@@ -1,0 +1,79 @@
+{
+  "description": "base64url without padding; decoders accept only the canonical form.",
+  "valid": [
+    {
+      "hex": "",
+      "b64u": ""
+    },
+    {
+      "hex": "66",
+      "b64u": "Zg"
+    },
+    {
+      "hex": "666f",
+      "b64u": "Zm8"
+    },
+    {
+      "hex": "666f6f",
+      "b64u": "Zm9v"
+    },
+    {
+      "hex": "666f6f62",
+      "b64u": "Zm9vYg"
+    },
+    {
+      "hex": "666f6f6261",
+      "b64u": "Zm9vYmE"
+    },
+    {
+      "hex": "666f6f626172",
+      "b64u": "Zm9vYmFy"
+    },
+    {
+      "hex": "fbff",
+      "b64u": "-_8"
+    },
+    {
+      "hex": "00",
+      "b64u": "AA"
+    },
+    {
+      "hex": "ffffffff",
+      "b64u": "_____w"
+    }
+  ],
+  "invalid": [
+    {
+      "b64u": "Z",
+      "reason": "impossible length"
+    },
+    {
+      "b64u": "Zg==",
+      "reason": "padding"
+    },
+    {
+      "b64u": "Zm+v",
+      "reason": "standard alphabet character"
+    },
+    {
+      "b64u": "Zm/v",
+      "reason": "standard alphabet character"
+    },
+    {
+      "b64u": "Zh",
+      "reason": "non-zero trailing bits"
+    },
+    {
+      "b64u": "Zm9",
+      "reason": "non-zero trailing bits"
+    },
+    {
+      "b64u": " Zg",
+      "reason": "whitespace"
+    },
+    {
+      "b64u": "Zg\n",
+      "reason": "whitespace"
+    }
+  ]
+}

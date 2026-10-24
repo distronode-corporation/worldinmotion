@@ -1,0 +1,9 @@
+{
+  "name": "worldinmotion-ci-claude-code",
+  "private": true,
+  "description": "The Claude Code CLI that ci.yml runs `claude plugin test` with, pinned through this lockfile.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.302"
+  }
+}

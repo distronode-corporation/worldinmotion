@@ -1,0 +1,31 @@
+{
+  "description": "One box: X25519(alice box secret, bob box public), HKDF-SHA256(salt = mesh id, info = 'wim/1 box ' + sender id + ' ' + recipient id), XChaCha20-Poly1305 with AAD = SHA-256(canon(header)).",
+  "sender": "alice",
+  "recipient": "bob",
+  "mesh": "8yvT1IZgynsBt7R7maZTCw",
+  "header": {
+    "t": "send",
+    "mesh": "8yvT1IZgynsBt7R7maZTCw",
+    "id": "01K70000000000000000000B01",
+    "from": {
+      "device": "zv5yUNkED9tj8Qn03xCtIg",
+      "session": "writer",
+      "sid": "01K700000000000000000005D1"
+    },
+    "to": [
+      "reviewer@bob"
+    ],
+    "seq": 1,
+    "at": 1760000000000,
+    "roster": {
+      "seq": 1,
+      "hash": "78PCosnJmAFTqaAAB1KYDVlD-QsV96Q2VAGmNsl2v_E"
+    }
+  },
+  "nonce": "KtoR1WuMw1nMShCrQ6ALs9e1i94gi5mU",
+  "shared_secret": "P4fmLhiRjV6q97kenoBh_OKVLV2tv4g0fu_zkcUP7Gg",
+  "box_key": "EmMtkIydKBDZjyt1Mo8AvGiBq8P4uP6hrapW8CTCHgU",
+  "aad": "u_-NsM0ah18f6162rppoLqyGfln0-VDCoNHy5KgubxU",
+  "plaintext": "{\"at\":1760000000000,\"from\":{\"device\":\"zv5yUNkED9tj8Qn03xCtIg\",\"session\":\"writer\",\"sid\":\"01K700000000000000000005D1\"},\"id\":\"01K70000000000000000000B01\",\"kind\":\"msg\",\"roster\":{\"hash\":\"78PCosnJmAFTqaAAB1KYDVlD-QsV96Q2VAGmNsl2v_E\",\"seq\":1},\"text\":\"hello\",\"to\":[\"reviewer@bob\"],\"v\":1}",
+  "ciphertext": "aM0Q3tFdswPMtZc7GLGsHgeMLlt6gInV0tKAuIQfzCJfiXjigkKW8UWu80r88UqV_EyDBgq2KDQkONxKtUIG0q5mS7La3tTbwMWqL5WxOWVx_G160C849bAypFno9vCfiFJMjQh0JueZVmNzXjEOG7Zft4PvrfsT0UprBANLiwM0GYBu3t8kkgBqze8Vxg8RwFxLPVZpXvSgkG6R5qwj8ih8BF8choVVk128fowOyHrxcW7m4yfCNgy1Iaj9_YWQeAx3NzJ-BJ1DEY3GWFthl0iOHq4azAsFQqGKdTkAyfT7rEJFwqJ-4uHZm5ILVAtd-hKLMYDv5hjtT9MUSbLKgtDZgKZ0u_pqMKr69-kVf3kQwbbL8dlV4EVQM2c3D29mpovCSLn5aQ"
+}

@@ -1,0 +1,338 @@
+name: Release
+
+# Fires on a `vX.Y.Z` tag and produces two things:
+#   (a) a GitHub Release carrying the single-file client, wim.mjs, built in this run from the
+#       tagged sources, with a SHA256SUMS file and a build provenance attestation on wim.mjs;
+#   (b) the self-hosted relay image, ghcr.io/distronode-corporation/worldinmotion-relay,
+#       with BuildKit provenance and an SBOM, plus a GitHub attestation on its digest.
+# The Claude Code plugin is not a release asset: the marketplace installs it from the
+# repository at the tag. The .vsix is not one either; it is packaged in CI and never
+# published from it.
+#
+# Jobs, in order. Each needs the one before it, so nothing leaves the run until everything
+# before it has passed:
+#   guard    refuses a tag that should not be built (not on main, a version string that
+#            disagrees with the tag) and extracts the release notes once.
+#   test     ci.yml itself, called as a reusable workflow on the tagged commit, with no
+#            npm cache.
+#   client   builds wim.mjs and SHA256SUMS. Read-only token; runs dependency code, uploads
+#            only to this run's artifact store.
+#   draft    attests wim.mjs and creates the release as a DRAFT holding exactly the two
+#            assets. It sees the built files, never source.
+#   image    builds, pushes and attests the relay image. Holds `packages: write`. It runs
+#            only once the draft exists, so a failed asset build never ships an image.
+#   publish  makes the draft public, once the image is pushed.
+# A run that fails before `publish` leaves at most a draft release, which a re-run
+# rebuilds, and an image job that fails leaves no public release.
+#
+# The assets: wim.mjs (run it with Node 22.18 or later) and SHA256SUMS. `draft` checks
+# the built set and the uploaded set against exactly those two names. Verifying a download:
+#   sha256sum -c SHA256SUMS
+#   gh attestation verify wim.mjs --repo distronode-corporation/worldinmotion
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+# Never cancel a release in flight: a cancelled run can leave a draft release or a pushed
+# image without its attestation.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/distronode-corporation/worldinmotion-relay
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      body: ${{ steps.notes.outputs.body }}
+      have_notes: ${{ steps.notes.outputs.have_notes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Needed by the ancestry check below: a shallow clone has no merge base.
+          fetch-depth: 0
+          # The repository is public, so the fetch below needs no credential.
+          persist-credentials: false
+
+      # CI runs on pushes to main and on pull requests, not on tags, so a tag on a commit
+      # that never reached main would be released without CI having run on it.
+      - name: The tagged commit is on main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not an ancestor of origin/main."
+            exit 1
+          fi
+          echo "$GITHUB_SHA is on main"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      # Every version string in the repository (each package.json, the lockfile, the plugin
+      # and marketplace manifests, the versions typed in source) must equal the tag. The
+      # script lists what it checked.
+      - name: The version agrees with the tag
+        id: version
+        run: |
+          set -euo pipefail
+          want="${GITHUB_REF_NAME#v}"
+          node .github/scripts/check-versions.mjs "$want"
+          echo "version=$want" >> "$GITHUB_OUTPUT"
+
+      # The matching section of CHANGELOG.md becomes the release body, so the two cannot
+      # drift. Falls back to GitHub's generated notes when the tag has no entry.
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          awk -v tag="## [${version}]" '
+            index($0, tag)==1 {cap=1; next}
+            index($0, "## [")==1 && cap==1 {cap=0}
+            substr($0,1,1)=="[" && cap==1 {exit}
+            cap {print}
+          ' CHANGELOG.md > release-notes.md
+          if [ -s release-notes.md ]; then
+            echo "have_notes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_notes=false" >> "$GITHUB_OUTPUT"
+          fi
+          # Random delimiter, so a CHANGELOG line cannot end the heredoc early.
+          delim="body_$(openssl rand -hex 16)"
+          {
+            echo "body<<${delim}"
+            cat release-notes.md
+            echo "${delim}"
+          } >> "$GITHUB_OUTPUT"
+
+  # The whole CI gate (every platform, the engines floor, workerd, the VS Code smoke test,
+  # the plugin tests, the image build, the bundle and version checks), not a copy of it.
+  test:
+    needs: guard
+    permissions:
+      contents: read
+    # `./` is the documented form for a workflow in the same repository, at the same commit.
+    # zizmor proposes `$/`, which actionlint (and this repository's tooling) does not
+    # accept yet.
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
+    with:
+      no_cache: true
+
+  client:
+    needs: [guard, test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No caches anywhere in this workflow. A tag run can restore caches written by any
+      # main-branch run, and a restored node_modules is build input nobody reviewed in
+      # this run.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - run: npm ci
+
+      # Writes packages/client/dist/wim.mjs and its copy, plugins/claude-code/dist/client.mjs.
+      - name: Build wim.mjs from the tagged sources
+        run: npm run bundle -w @worldinmotion/client
+
+      # The plugin users install from the repository at this tag carries the committed copy;
+      # it must be the same bytes as the file this release attaches.
+      - name: The committed plugin bundle equals this build
+        run: git diff --exit-code --stat plugins/claude-code/dist/client.mjs
+
+      - name: Stage wim.mjs and SHA256SUMS
+        run: |
+          set -euo pipefail
+          mkdir -p staging
+          cp packages/client/dist/wim.mjs staging/wim.mjs
+          (cd staging && sha256sum wim.mjs > SHA256SUMS && sha256sum -c SHA256SUMS)
+          cat staging/SHA256SUMS
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: client
+          path: staging/
+          if-no-files-found: error
+
+  draft:
+    needs: [guard, client]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      # Creating the release and uploading its assets.
+      contents: write
+      # The attestation on wim.mjs.
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # This job never checks out the repository, so `gh` is told which one to use.
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: client
+          path: assets
+
+      - name: The release assets are exactly what was expected
+        run: |
+          set -euo pipefail
+          expected="$(printf '%s\n' SHA256SUMS wim.mjs | sort)"
+          actual="$(cd assets && find . -type f -printf '%f\n' | sort)"
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::built assets do not match what a release must carry"
+            diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
+            exit 1
+          fi
+          (cd assets && sha256sum -c SHA256SUMS)
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: assets/wim.mjs
+
+      # Draft first, so nothing is visible until the image is pushed too.
+      - name: Create the draft release
+        env:
+          NOTES: ${{ needs.guard.outputs.body }}
+          HAVE_NOTES: ${{ needs.guard.outputs.have_notes }}
+        run: |
+          set -euo pipefail
+          # A leftover draft from a failed run is rebuilt; a public release is never touched.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = "true" ]; then
+              gh release delete "$TAG" --yes
+            else
+              echo "::error::$TAG is already published. Refusing to modify a public release."
+              exit 1
+            fi
+          fi
+          # Pre-1.0 releases are marked as prereleases.
+          if [ "$HAVE_NOTES" = "true" ]; then
+            printf '%s\n' "$NOTES" > release-notes.md
+            gh release create "$TAG" --draft --prerelease --title "worldinmotion $TAG" \
+              --notes-file release-notes.md assets/*
+          else
+            gh release create "$TAG" --draft --prerelease --title "worldinmotion $TAG" \
+              --generate-notes assets/*
+          fi
+
+      - name: GitHub holds the assets
+        run: |
+          set -euo pipefail
+          expected="$(printf '%s\n' SHA256SUMS wim.mjs | sort)"
+          actual="$(gh release view "$TAG" --json assets --jq '.assets[].name' | sort)"
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::the draft release does not hold the expected assets; leaving it as a draft"
+            exit 1
+          fi
+
+  image:
+    needs: [guard, draft]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # Push to ghcr.io.
+      packages: write
+      # The attestation on the image digest: OIDC for Sigstore, and storing the result.
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Semver tags only (0.1.2 and 0.1), never `latest` from a pre-1.0 line.
+      - name: Image tags and labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # A version is pushed once. Re-running a release whose image is already out would
+      # otherwise move the version tag to a different digest.
+      - name: The version is not in the registry yet
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          set -euo pipefail
+          if docker buildx imagetools inspect "${IMAGE}:${VERSION}" >/dev/null 2>&1; then
+            echo "::error::${IMAGE}:${VERSION} already exists. Refusing to overwrite it."
+            exit 1
+          fi
+
+      # packages/relay-node/Dockerfile builds from the repository root as context (ci.yml
+      # builds it on every change). linux/amd64 only for now; arm64 would add
+      # docker/setup-qemu-action.
+      # The registry credential stays in the runner's docker config and is not part of
+      # the build context, so the Dockerfile's own `npm ci` cannot read it.
+      # No `cache-from`/`cache-to`, for the same reason this workflow has no npm cache.
+      - name: Build and push the relay image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: packages/relay-node/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+
+      # Verifiable with:
+      #   gh attestation verify oci://ghcr.io/distronode-corporation/worldinmotion-relay:<version> \
+      #     --repo distronode-corporation/worldinmotion
+      - name: Attest the image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  publish:
+    needs: [draft, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      # Turning the draft into a public release.
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Publish
+        run: gh release edit "$TAG" --draft=false

@@ -1,0 +1,33 @@
+// The worldinmotion relay on Cloudflare: a Worker routing each mesh to its own Durable Object.
+// This file is the generic, public template. To run your own relay, copy it (see README.md),
+// add your account id and a route or custom domain, and set WIM_RELAY_URLS to your public URL.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "worldinmotion-relay",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "durable_objects": {
+    "bindings": [
+      { "name": "MESH", "class_name": "MeshDurableObject" },
+      { "name": "SOURCES", "class_name": "SourceLimiter" },
+      { "name": "REGISTRY", "class_name": "MeshRegistry" }
+    ]
+  },
+  "migrations": [
+    // Both classes keep their state in Durable Object SQLite.
+    { "tag": "v1", "new_sqlite_classes": ["MeshDurableObject", "SourceLimiter"] },
+    // The mesh count for WIM_MAX_MESHES (one object for the whole Worker).
+    { "tag": "v2", "new_sqlite_classes": ["MeshRegistry"] }
+  ],
+  "vars": {
+    // The exact public base URL(s) clients dial, comma-separated. An `auth` signs this URL and the
+    // relay compares it byte for byte, so it must match your invites. Replace the placeholder.
+    "WIM_RELAY_URLS": "wss://relay.example.com"
+  },
+  // Mesh creation is refused until you choose: set WIM_CREATE_KEY as a secret
+  // (`wrangler secret put WIM_CREATE_KEY`) so `create` needs that key, or add
+  // "WIM_OPEN_CREATE": "1" to vars to let anyone create a mesh. An empty key refuses creation.
+  // The guardrails (WIM_MAX_MESHES, WIM_IDLE_MESH_DAYS, WIM_BLOB_BYTES_*) and WIM_OFFER are vars
+  // too; unset, there is no cap, no expiry and the protocol's limits (see README.md).
+  "observability": { "enabled": false }
+}

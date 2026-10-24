@@ -1,0 +1,23 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/protocol" },
+    { "path": "./packages/protocol/test" },
+    { "path": "./packages/bot" },
+    { "path": "./packages/bot/test" },
+    { "path": "./packages/ci" },
+    { "path": "./packages/ci/test" },
+    { "path": "./packages/a2a" },
+    { "path": "./packages/a2a/test" },
+    { "path": "./packages/relay-core" },
+    { "path": "./packages/relay-core/test" },
+    { "path": "./packages/relay-node" },
+    { "path": "./packages/relay-node/test" },
+    { "path": "./packages/relay-cloudflare" },
+    { "path": "./packages/relay-cloudflare/test-workers" },
+    { "path": "./packages/client" },
+    { "path": "./packages/client/test" },
+    { "path": "./packages/vscode" },
+    { "path": "./packages/vscode/test" }
+  ]
+}

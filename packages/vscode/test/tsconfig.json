@@ -1,0 +1,19 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "rootDir": "../..",
+    "types": ["node", "vscode"]
+  },
+  // contract.test.ts runs the real client against the extension's copy of its contract, so the
+  // client's source and test helpers are checked here too.
+  "include": ["**/*.ts", "../src/**/*.ts", "../../client/src/**/*.ts", "../../client/test/helpers.ts"],
+  "references": [
+    { "path": "../../protocol" },
+    { "path": "../../bot" },
+    { "path": "../../ci" },
+    { "path": "../../a2a" },
+    { "path": "../../relay-core" }
+  ]
+}

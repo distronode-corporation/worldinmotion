@@ -1,0 +1,36 @@
+{
+  "name": "@worldinmotion/client",
+  "version": "0.1.0",
+  "description": "wim: the worldinmotion CLI, client library and MCP server",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "wim": "./dist/wim.mjs"
+  },
+  "files": [
+    "src",
+    "dist/wim.mjs"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "bundle": "node scripts/bundle.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@worldinmotion/a2a": "0.1.0",
+    "@worldinmotion/bot": "0.1.0",
+    "@worldinmotion/ci": "0.1.0",
+    "@worldinmotion/protocol": "0.1.0",
+    "ws": "8.22.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.1",
+    "esbuild": "0.28.2"
+  }
+}

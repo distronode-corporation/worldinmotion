@@ -1,0 +1,21 @@
+{
+  "name": "@worldinmotion/a2a",
+  "version": "0.1.0",
+  "description": "wim a2a: a gateway between the worldinmotion mesh and Agent2Agent (A2A) agents, in both directions",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "dependencies": {
+    "@worldinmotion/protocol": "0.1.0",
+    "zod": "4.6.7"
+  }
+}

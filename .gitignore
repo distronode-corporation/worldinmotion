@@ -1,0 +1,12 @@
+node_modules/
+dist/
+# The Claude Code plugin is installed straight from this repository, so its bundled client is
+# committed; CI checks it matches a fresh build.
+!plugins/claude-code/dist/
+coverage/
+*.tsbuildinfo
+.wrangler/
+.dev.vars
+*.db
+*.db-journal
+.DS_Store

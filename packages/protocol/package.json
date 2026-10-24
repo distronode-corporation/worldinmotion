@@ -1,0 +1,27 @@
+{
+  "name": "@worldinmotion/protocol",
+  "version": "0.1.0",
+  "description": "Wire protocol, crypto and frame schemas for worldinmotion (wim/1)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "vectors",
+    "README.md"
+  ],
+  "scripts": {
+    "vectors": "node scripts/write-vectors.ts"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "dependencies": {
+    "@noble/ciphers": "2.4.0",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "zod": "4.6.7"
+  }
+}

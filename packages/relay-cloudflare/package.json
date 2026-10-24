@@ -1,0 +1,33 @@
+{
+  "name": "@worldinmotion/relay-cloudflare",
+  "version": "0.1.0",
+  "description": "The worldinmotion relay as a Cloudflare Worker: one Durable Object per mesh, with WebSocket Hibernation and Durable Object SQLite",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "wrangler.jsonc",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage"
+  },
+  "dependencies": {
+    "@worldinmotion/protocol": "0.1.0",
+    "@worldinmotion/relay-core": "0.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.4",
+    "@cloudflare/workers-types": "5.20261016.1",
+    "@vitest/coverage-istanbul": "5.0.5",
+    "vitest": "5.0.5",
+    "wrangler": "4.151.1"
+  }
+}

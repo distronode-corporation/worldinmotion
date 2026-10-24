@@ -1,0 +1,10 @@
+# Read by BuildKit for this Dockerfile (it sits beside it), so the repository root needs no
+# .dockerignore. The image gets the lockfile, every workspace manifest (npm ci checks them
+# against the lockfile), and the sources of the three packages the relay runs.
+*
+!package.json
+!package-lock.json
+!packages/*/package.json
+!packages/protocol/src/**
+!packages/relay-core/src/**
+!packages/relay-node/src/**

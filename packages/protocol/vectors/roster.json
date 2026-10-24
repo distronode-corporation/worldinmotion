@@ -1,0 +1,477 @@
+{
+  "description": "A chain: genesis (alice plus a recovery record), add bob, promote bob, bob adds carol and revokes alice, the recovery identity adds dave as admin. Each invalid successor is checked against roster `prev` (a seq in the chain) and must fail with `reason`.",
+  "recovery": {
+    "code": "wimrec1_eyJib3giOiJON0FreW9SaFlnbDVmTkpQbkYtZDNBWURzMnJZOXhRQlItR2pzbGhkdE1rIiwiZ2VuZXNpcyI6IktYS0xyNWVtckRRX3dkYWkxcEh3NDZudVk0Z0RXTzlJRVZCbmowbDNnR00iLCJtZXNoIjoiOHl2VDFJWmd5bnNCdDdSN21hWlRDdyIsInNpZ24iOiJQUFJVVTB5V3l1VV9JM2ZhQzlWNC05QXRIVVd4WlhUQzdBUXRBYUNYc0hjIn0-K6JWQ4M7",
+    "record": {
+      "id": "bzIYledSiha7shi9bP08d3",
+      "name": "recovery",
+      "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+      "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+      "role": "admin",
+      "added": 1760000000000
+    }
+  },
+  "chain": [
+    {
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 1,
+        "prev": null,
+        "devices": [
+          {
+            "id": "zv5yUNkED9tj8Qn03xCtIg",
+            "name": "alice",
+            "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+            "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          }
+        ],
+        "revoked": [],
+        "by": "zv5yUNkED9tj8Qn03xCtIg",
+        "at": 1760000000000,
+        "sig": "dtKnGMw_Pcka41ja7878v0ZhFGKSaNBkcbTxQIDAuoY7XyRqlm4-osnoBSy-E4NszosvV072OkXek0kTdd_3Ag"
+      },
+      "hash": "KXKLr5emrDQ_wdai1pHw46nuY4gDWO9IEVBnj0l3gGM"
+    },
+    {
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 2,
+        "prev": "KXKLr5emrDQ_wdai1pHw46nuY4gDWO9IEVBnj0l3gGM",
+        "devices": [
+          {
+            "id": "zv5yUNkED9tj8Qn03xCtIg",
+            "name": "alice",
+            "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+            "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "member",
+            "added": 1760000000001
+          }
+        ],
+        "revoked": [],
+        "by": "zv5yUNkED9tj8Qn03xCtIg",
+        "at": 1760000000001,
+        "sig": "2DrUkvjdF67URuWQwlO793uP7zHzQ1kz4Ckyw9ZltYddinNIwNPQQUKPE8erIQ4MTh30SQQg9NqAdBbd1QMpAw"
+      },
+      "hash": "IiuHhUkODEjUjb3UC2Tk6byZLfptpksuJDeTzdXiHnY"
+    },
+    {
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 3,
+        "prev": "IiuHhUkODEjUjb3UC2Tk6byZLfptpksuJDeTzdXiHnY",
+        "devices": [
+          {
+            "id": "zv5yUNkED9tj8Qn03xCtIg",
+            "name": "alice",
+            "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+            "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          }
+        ],
+        "revoked": [],
+        "by": "zv5yUNkED9tj8Qn03xCtIg",
+        "at": 1760000000002,
+        "sig": "fhAPS2dwKzWtatHTuvDYqCh8wVBgj6NdJ4QoCJMKw3p34Z3QrXHV77WkrrR44T32m5wRbUHSs4ZHQjJP6wi7CQ"
+      },
+      "hash": "7CWlASZaXBKXdwAaZ3o479Ir0CUErBsFjEnhevkcOCE"
+    },
+    {
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 4,
+        "prev": "7CWlASZaXBKXdwAaZ3o479Ir0CUErBsFjEnhevkcOCE",
+        "devices": [
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          },
+          {
+            "id": "VODr6psj58tYNEQpJFsSKy",
+            "name": "carol",
+            "sign": "sASUvGAkhzvxKkOaRsvJ9Y1Apm5pn7C8X33bUFvHWHg",
+            "box": "pqqYKnDgXrIcbjoYMTjxqC5cT1mmTo_K4CxtkVzCXXA",
+            "role": "member",
+            "added": 1760000000003
+          }
+        ],
+        "revoked": [
+          "zv5yUNkED9tj8Qn03xCtIg"
+        ],
+        "by": "MktQIySOj-wiwSsggq4YCL",
+        "at": 1760000000003,
+        "sig": "SV16BjtKbLqzIIPvmIdjWClJ3XXfcVzyK1nUVaCToOGJekC1j7BV2wzSSeCWRl8KNhUEVJltcuKzBpV9U3LQDg"
+      },
+      "hash": "qGrSy9o85RRrm5jDcA32jkMrCCAjU8ndaTxNJjNHN4Q"
+    },
+    {
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 5,
+        "prev": "qGrSy9o85RRrm5jDcA32jkMrCCAjU8ndaTxNJjNHN4Q",
+        "devices": [
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          },
+          {
+            "id": "VODr6psj58tYNEQpJFsSKy",
+            "name": "carol",
+            "sign": "sASUvGAkhzvxKkOaRsvJ9Y1Apm5pn7C8X33bUFvHWHg",
+            "box": "pqqYKnDgXrIcbjoYMTjxqC5cT1mmTo_K4CxtkVzCXXA",
+            "role": "member",
+            "added": 1760000000003
+          },
+          {
+            "id": "yVWSwZLOr54qskDa7-gAhe",
+            "name": "dave",
+            "sign": "2QO5h53aLgLg6K6eNajRQeOkKlsa-4lm2Cjsl3_-dvA",
+            "box": "RLm8q5SMCoJyhH7zHNev6nWAEtOyyY2B-JOj_RixQBE",
+            "role": "admin",
+            "added": 1760000000004
+          }
+        ],
+        "revoked": [
+          "zv5yUNkED9tj8Qn03xCtIg"
+        ],
+        "by": "bzIYledSiha7shi9bP08d3",
+        "at": 1760000000004,
+        "sig": "2hozHWz7GLlb_x9rZGdgYJ3eOiAOPW0AzOjcUAE475XJv5GSYKmPMoi7KiZf2Gbt4HVAE4o57oNNJCeEgaW2AQ"
+      },
+      "hash": "FyUo3hceMk6yrPN0d1SZ6hT2d-b3kn3yFZ7wdN3duxE"
+    }
+  ],
+  "invalid": [
+    {
+      "prev": 3,
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 5,
+        "prev": "7CWlASZaXBKXdwAaZ3o479Ir0CUErBsFjEnhevkcOCE",
+        "devices": [
+          {
+            "id": "zv5yUNkED9tj8Qn03xCtIg",
+            "name": "alice",
+            "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+            "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          }
+        ],
+        "revoked": [],
+        "by": "MktQIySOj-wiwSsggq4YCL",
+        "at": 1760000000009,
+        "sig": "8ekB702UwcVsL3gcDdUMLXm-flxBpgf3YH_4fntbVsKerO0PRBSklwAelDB9DoGTRDbBmJgAHzZHzQPo-EYRBg"
+      },
+      "reason": "roster_wrong_seq"
+    },
+    {
+      "prev": 3,
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 4,
+        "prev": "IiuHhUkODEjUjb3UC2Tk6byZLfptpksuJDeTzdXiHnY",
+        "devices": [
+          {
+            "id": "zv5yUNkED9tj8Qn03xCtIg",
+            "name": "alice",
+            "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+            "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          }
+        ],
+        "revoked": [],
+        "by": "MktQIySOj-wiwSsggq4YCL",
+        "at": 1760000000009,
+        "sig": "9mcBMjzRv5zyXPYpJufq7XRMmUx_uEXuYUFqXdKPM4Fy0E5mG8vkvQxVUxqEi8X1KId_P6wvQEsIYP8njPvHCQ"
+      },
+      "reason": "roster_wrong_prev"
+    },
+    {
+      "prev": 3,
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 4,
+        "prev": "7CWlASZaXBKXdwAaZ3o479Ir0CUErBsFjEnhevkcOCE",
+        "devices": [
+          {
+            "id": "zv5yUNkED9tj8Qn03xCtIg",
+            "name": "alice",
+            "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+            "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          }
+        ],
+        "revoked": [],
+        "by": "VODr6psj58tYNEQpJFsSKy",
+        "at": 1760000000009,
+        "sig": "W-_63nRSQPpnu0sy1NthRqL1UK37S5g1i4VZktXYM_O9GIPjCmJxzeGl3IjpbNoHUnbYJ2n6F1ExAxlJgewPCw"
+      },
+      "reason": "roster_signer_not_admin"
+    },
+    {
+      "prev": 3,
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 4,
+        "prev": "7CWlASZaXBKXdwAaZ3o479Ir0CUErBsFjEnhevkcOCE",
+        "devices": [
+          {
+            "id": "zv5yUNkED9tj8Qn03xCtIg",
+            "name": "alice",
+            "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+            "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          }
+        ],
+        "revoked": [],
+        "by": "MktQIySOj-wiwSsggq4YCL",
+        "at": 1760000000010,
+        "sig": "ejSKDsiBi4Tiam8RS4yEgGnAx29OSG79Yh_EqC9jYYVZHYSSpPz5dSiI1t5w7TD5mX2cYlbYtLQVrjbwfFgEDA"
+      },
+      "reason": "roster_bad_signature"
+    },
+    {
+      "prev": 3,
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 4,
+        "prev": "7CWlASZaXBKXdwAaZ3o479Ir0CUErBsFjEnhevkcOCE",
+        "devices": [
+          {
+            "id": "zv5yUNkED9tj8Qn03xCtIg",
+            "name": "alice",
+            "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+            "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+            "role": "member",
+            "added": 1760000000000
+          },
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          }
+        ],
+        "revoked": [],
+        "by": "MktQIySOj-wiwSsggq4YCL",
+        "at": 1760000000009,
+        "sig": "5RBNwrR0B9oq1Gg5TvX3lwhGERrRmk9d3M_gs6E7suYu7jt07gVXHcgH2L_ja-8auxBvWqeqrDgPuQfmHOBeDg"
+      },
+      "reason": "roster_device_changed"
+    },
+    {
+      "prev": 4,
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 5,
+        "prev": "qGrSy9o85RRrm5jDcA32jkMrCCAjU8ndaTxNJjNHN4Q",
+        "devices": [
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          },
+          {
+            "id": "VODr6psj58tYNEQpJFsSKy",
+            "name": "carol",
+            "sign": "sASUvGAkhzvxKkOaRsvJ9Y1Apm5pn7C8X33bUFvHWHg",
+            "box": "pqqYKnDgXrIcbjoYMTjxqC5cT1mmTo_K4CxtkVzCXXA",
+            "role": "member",
+            "added": 1760000000003
+          }
+        ],
+        "revoked": [],
+        "by": "MktQIySOj-wiwSsggq4YCL",
+        "at": 1760000000009,
+        "sig": "ryO-ekqwr-QzuALLcEXsqNbhMV3blQ1hgod8CreIy0znvM4MGDLVW2HnS1W0S8hHUOZS313UBHdgqT_GYMkSBw"
+      },
+      "reason": "roster_revocation_undone"
+    },
+    {
+      "prev": 3,
+      "roster": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 4,
+        "prev": "7CWlASZaXBKXdwAaZ3o479Ir0CUErBsFjEnhevkcOCE",
+        "devices": [
+          {
+            "id": "bzIYledSiha7shi9bP08d3",
+            "name": "recovery",
+            "sign": "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+            "box": "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
+            "role": "admin",
+            "added": 1760000000000
+          },
+          {
+            "id": "MktQIySOj-wiwSsggq4YCL",
+            "name": "bob",
+            "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+            "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+            "role": "admin",
+            "added": 1760000000001
+          }
+        ],
+        "revoked": [],
+        "by": "MktQIySOj-wiwSsggq4YCL",
+        "at": 1760000000009,
+        "sig": "kpXPHYHT5SOv_Osj0XmrAnLPSI7uk4U43n73SMzrcI62mNWZvpjPl5Cep2z-xsRo_wqBrd3M--_8oqZp35boDQ"
+      },
+      "reason": "roster_device_dropped"
+    }
+  ]
+}

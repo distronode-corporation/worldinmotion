@@ -1,0 +1,59 @@
+name: Supply chain
+
+# Split out of ci.yml so that ci.yml can be called from release.yml as a reusable workflow:
+# a called workflow may not ask for more token scope than its caller grants, and zizmor's
+# SARIF upload needs `security-events: write`, which the release path has no reason to hold.
+#   dependency-review  (pull requests only) what a pull request adds to the dependency tree.
+#   zizmor             static analysis of the workflows themselves.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege at the top level so a job added later starts read-only. The only write
+# is zizmor's `security-events`, granted on that job alone.
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Pull requests only: fails a pull request that ADDS a dependency (npm or an action)
+  # with a known moderate-or-worse vulnerability, or under a licence this Apache-2.0
+  # project cannot ship.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later, LGPL-2.1-only, LGPL-2.1-or-later, LGPL-3.0-only, LGPL-3.0-or-later, SSPL-1.0, BUSL-1.1
+
+  # Static analysis of these workflows: template injection, over-broad token permissions,
+  # credential persistence, cache poisoning on the release path. Two modes, because SARIF
+  # mode suppresses zizmor's exit codes and a fork's pull request cannot upload SARIF:
+  #   push / dispatch   SARIF to code scanning (category `zizmor`), no gate
+  #   pull_request      annotations, and the job FAILS on a finding
+  # Suppressions are inline `# zizmor: ignore[...]` comments with a reason.
+  zizmor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Upload the SARIF to code scanning.
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          version: 1.30.1
+          advanced-security: ${{ github.event_name != 'pull_request' }}
+          annotations: ${{ github.event_name == 'pull_request' }}

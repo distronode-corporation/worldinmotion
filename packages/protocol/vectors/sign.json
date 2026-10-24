@@ -1,0 +1,93 @@
+{
+  "description": "Ed25519 over UTF-8('wim/1 ' + type + '\\n') followed by canon(object without sig). Every tampered case must fail against alice's key.",
+  "cases": [
+    {
+      "type": "roster",
+      "signer": "alice",
+      "object": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "seq": 1,
+        "prev": null,
+        "devices": [],
+        "revoked": [],
+        "by": "zv5yUNkED9tj8Qn03xCtIg",
+        "at": 1760000000000
+      },
+      "signed_bytes_utf8": "wim/1 roster\n{\"at\":1760000000000,\"by\":\"zv5yUNkED9tj8Qn03xCtIg\",\"devices\":[],\"mesh\":\"8yvT1IZgynsBt7R7maZTCw\",\"prev\":null,\"revoked\":[],\"seq\":1}",
+      "sig": "94JXxTfo9q5UceExIXli03JwtvKs3U2B2eEx6-M7FxVaCedl4guB8PXDn8A1zEjko0vOasnXnh04FmxhCsgbDw"
+    },
+    {
+      "type": "send",
+      "signer": "alice",
+      "object": {
+        "t": "send",
+        "id": "01K70000000000000000005E0D",
+        "seq": 1,
+        "at": 1760000000000
+      },
+      "signed_bytes_utf8": "wim/1 send\n{\"at\":1760000000000,\"id\":\"01K70000000000000000005E0D\",\"seq\":1,\"t\":\"send\"}",
+      "sig": "O9RBpOg8_MfZRIUtXcIgibH33-Y8ag08aUTObIyxaks5OyCoRKO6I34Ua_XABWAh2CSKOfqYXTeFU2aNT7fNCA"
+    },
+    {
+      "type": "auth",
+      "signer": "alice",
+      "object": {
+        "t": "auth",
+        "v": 1,
+        "relay": "wss://relay.example",
+        "at": 1760000000000
+      },
+      "signed_bytes_utf8": "wim/1 auth\n{\"at\":1760000000000,\"relay\":\"wss://relay.example\",\"t\":\"auth\",\"v\":1}",
+      "sig": "pEZrDaAIG8aJ4W4HULyJyc7ydN5LVjsyFzVauDVR47ffekizQ-JVgEVh3WXoPQIlFqc22xAskn-A3QZzKlKJDA"
+    },
+    {
+      "type": "join",
+      "signer": "alice",
+      "object": {
+        "t": "join",
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "invite": "AAAAAAAAAAAAAAAAAAAAAA"
+      },
+      "signed_bytes_utf8": "wim/1 join\n{\"invite\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"mesh\":\"8yvT1IZgynsBt7R7maZTCw\",\"t\":\"join\"}",
+      "sig": "-O04261COqr4OnlTkK6SjNRC7fSaCYUpsm5qkvoEi_XGIyQUBfNRh5LTEegnuCrfeOmZ0nLTcSiX-bUcOh65DA"
+    }
+  ],
+  "tampered": [
+    {
+      "type": "send",
+      "object": {
+        "t": "send",
+        "id": "01K70000000000000000005E0D",
+        "seq": 2,
+        "at": 1760000000000
+      },
+      "sig": "O9RBpOg8_MfZRIUtXcIgibH33-Y8ag08aUTObIyxaks5OyCoRKO6I34Ua_XABWAh2CSKOfqYXTeFU2aNT7fNCA",
+      "why": "object changed after signing",
+      "valid": false
+    },
+    {
+      "type": "auth",
+      "object": {
+        "t": "send",
+        "id": "01K70000000000000000005E0D",
+        "seq": 1,
+        "at": 1760000000000
+      },
+      "sig": "O9RBpOg8_MfZRIUtXcIgibH33-Y8ag08aUTObIyxaks5OyCoRKO6I34Ua_XABWAh2CSKOfqYXTeFU2aNT7fNCA",
+      "why": "signature of another type",
+      "valid": false
+    },
+    {
+      "type": "send",
+      "object": {
+        "t": "send",
+        "id": "01K70000000000000000005E0D",
+        "seq": 1,
+        "at": 1760000000000
+      },
+      "sig": "SWY42HYq8wzzyoMmZ8fMBQQYC04T8uowI4OOn9pgMQqsVnqkAhP6Yg0kaDTzhN_U_GANwVabb8JasW0J3XGkCg",
+      "why": "signed by bob, checked against alice",
+      "valid": false
+    }
+  ]
+}
