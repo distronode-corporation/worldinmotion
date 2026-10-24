@@ -70,6 +70,16 @@ export function pidAlive(pid: number, kill: (pid: number, signal: 0) => void): b
 }
 
 /**
+ * Whether an exclusive create (`open` with `wx`) goes through a symbolic link at the path and
+ * creates the link's target. POSIX `O_EXCL` refuses any name that exists, a dangling link
+ * included. Windows `CREATE_NEW` follows the link, so there a link at a lock path would make the
+ * lock a file wherever the link points.
+ */
+export function createFollowsLinks(platform: Platform): boolean {
+  return platform === "win32";
+}
+
+/**
  * Rename over an existing file. POSIX rename replaces atomically. On Windows a rename onto a
  * file that another process has open can fail with EPERM or EBUSY for a moment, so it is retried.
  */

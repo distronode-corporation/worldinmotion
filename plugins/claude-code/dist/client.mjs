@@ -30002,7 +30002,7 @@ var require_dist_cjs14 = __commonJS({
     var { createHash: createHash8, createPrivateKey, createPublicKey, sign: sign2 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname6, join: join20 } = __require("node:path");
+    var { dirname: dirname6, join: join19 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30166,10 +30166,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join20(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join19(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash8("sha256").update(loginSessionBytes).digest("hex");
-        return join20(directory, `${loginSessionSha256}.json`);
+        return join19(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -83430,7 +83430,7 @@ function fail(reason) {
 }
 
 // ../protocol/src/json.ts
-function hasDuplicateKeys(text2) {
+function scanForDuplicateKeys(text2) {
   const stack = [];
   let expectKey = false;
   let i6 = 0;
@@ -83470,7 +83470,7 @@ function parseJson(text2) {
   } catch {
     return fail("not_json");
   }
-  return hasDuplicateKeys(text2) ? fail("duplicate_key") : ok(value);
+  return scanForDuplicateKeys(text2) ? fail("duplicate_key") : ok(value);
 }
 
 // ../protocol/src/ids.ts
@@ -85704,8 +85704,8 @@ function createJoin(invite2, name, keys, nonce) {
   const signed = signObject("join", body, keys.signSec);
   return { ...signed, proof: joinProof(invite2.secret, device) };
 }
-function verifyJoin(join20, secret, nonce) {
-  const parsed = joinOrBodySchema.safeParse(join20);
+function verifyJoin(join19, secret, nonce) {
+  const parsed = joinOrBodySchema.safeParse(join19);
   if (!parsed.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -87168,18 +87168,22 @@ function openMessage(frame, ctx) {
 }
 
 // ../protocol/src/agent.ts
-var HIDDEN = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u00AD\u061C\u180E\u200B-\u200F\u2028-\u202E\u2060-\u2069\uFEFF\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]|[\uD800-\uDFFF]/gu;
+var HIDDEN = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F\u2028\u2029\p{Cf}\p{Default_Ignorable_Code_Point}]|[\uD800-\uDFFF]/gu;
+var PRESENTATION_BASE = new RegExp("\\p{Emoji}$", "u");
+function isPresentation(c5, text2, offset) {
+  return (c5 === "\uFE0E" || c5 === "\uFE0F") && PRESENTATION_BASE.test(text2.slice(Math.max(0, offset - 2), offset));
+}
 function escapeHidden(c5) {
   return `<U+${c5.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}>`;
 }
 function sanitizeForDisplay(text2) {
-  return text2.replace(HIDDEN, escapeHidden);
+  return text2.replace(HIDDEN, (c5, offset) => isPresentation(c5, text2, offset) ? c5 : escapeHidden(c5));
 }
 var EMOJI_BEFORE = new RegExp("\\p{Extended_Pictographic}[\\u{1F3FB}-\\u{1F3FF}\\uFE0F]?$", "u");
 var EMOJI_AFTER = new RegExp("^\\p{Extended_Pictographic}", "u");
 function sanitizeForAgent(text2) {
   return text2.replace(HIDDEN, (c5, offset) => {
-    const keep = c5 === "\u200D" && EMOJI_BEFORE.test(text2.slice(Math.max(0, offset - 4), offset)) && EMOJI_AFTER.test(text2.slice(offset + 1, offset + 3));
+    const keep = isPresentation(c5, text2, offset) || c5 === "\u200D" && EMOJI_BEFORE.test(text2.slice(Math.max(0, offset - 4), offset)) && EMOJI_AFTER.test(text2.slice(offset + 1, offset + 3));
     return keep ? c5 : escapeHidden(c5);
   });
 }
@@ -88251,7 +88255,7 @@ async function startGateway(config2, mesh, deps = {}) {
 
 // src/client.ts
 import { EventEmitter } from "node:events";
-import { promises as fs4 } from "node:fs";
+import { constants as fsConstants, promises as fs4 } from "node:fs";
 import { homedir } from "node:os";
 import { basename as basename4, join as join8, resolve as resolve2 } from "node:path";
 
@@ -88373,11 +88377,30 @@ function pidAlive(pid, kill) {
     return error63.code === "EPERM";
   }
 }
+function createFollowsLinks(platform2) {
+  return platform2 === "win32";
+}
 function renameRetries(platform2) {
   return platform2 === "win32" ? 10 : 0;
 }
 
 // src/fsx.ts
+function noFollow(c5) {
+  return c5.O_NOFOLLOW ?? 0;
+}
+async function openNoFollow(path2, flags) {
+  const handle = await fs.open(path2, flags).catch(() => void 0);
+  if (handle === void 0) return void 0;
+  let keep = false;
+  try {
+    const opened = await handle.stat({ bigint: true });
+    const named = await fs.lstat(path2, { bigint: true });
+    keep = !named.isSymbolicLink() && named.ino === opened.ino;
+    return keep ? handle : void 0;
+  } finally {
+    if (!keep) await handle.close();
+  }
+}
 var fsOps = {
   rename: (from, to) => fs.rename(from, to),
   link: (existing, path2) => fs.link(existing, path2),
@@ -88509,6 +88532,7 @@ async function contend(path2, env3, mine) {
   return "retry";
 }
 async function create(path2, env3) {
+  if (createFollowsLinks(env3.platform) && await lookAt(path2) !== void 0) return false;
   try {
     const handle = await fs.open(path2, "wx", 384);
     await handle.writeFile(String(env3.pid));
@@ -90672,10 +90696,18 @@ ${frameEntry(entry)}`);
     const userHome = this.o.userHome ?? homedir();
     const why = unsendable(full, await fs4.realpath(wimHome), await fs4.realpath(userHome).catch(() => resolve2(userHome)));
     if (why !== void 0) throw new ClientError(`refusing to send ${path2}: ${why}`, "forbidden");
-    const stat3 = await fs4.stat(full);
-    if (!stat3.isFile()) throw new ClientError(`not a regular file: ${path2}`, "not_found");
-    if (stat3.size > LIMITS.blobFileBytes) throw new ClientError(`the file is over ${LIMITS.blobFileBytes / 1024 / 1024} MiB`, "too_large");
-    const bytes2 = new Uint8Array(await fs4.readFile(full));
+    const flags = fsConstants.O_RDONLY | noFollow(fsConstants) | fsConstants.O_NONBLOCK;
+    const handle = await openNoFollow(full, flags);
+    if (handle === void 0) throw new ClientError(`not a regular file: ${path2}`, "not_found");
+    let bytes2;
+    try {
+      const stat3 = await handle.stat();
+      if (!stat3.isFile()) throw new ClientError(`not a regular file: ${path2}`, "not_found");
+      if (stat3.size > LIMITS.blobFileBytes) throw new ClientError(`the file is over ${LIMITS.blobFileBytes / 1024 / 1024} MiB`, "too_large");
+      bytes2 = new Uint8Array(await handle.readFile());
+    } finally {
+      await handle.close();
+    }
     const secrets = secretsInFile(bytes2);
     if (secrets.length > 0) throw new ClientError(`refusing to send ${path2}: it appears to contain a secret (${secrets.join(", ")})`, "secret");
     const sealed = sealBlob(bytes2);
@@ -114901,7 +114933,9 @@ var OllamaModel = class {
   constructor(options) {
     this.model = options.model;
     this.id = `ollama:${options.model}`;
-    this.url = `${options.baseUrl.replace(/\/+$/, "")}/api/chat`;
+    let base = options.baseUrl;
+    while (base.endsWith("/")) base = base.slice(0, -1);
+    this.url = `${base}/api/chat`;
     this.think = options.think;
   }
   async complete(request2) {
@@ -116743,13 +116777,8 @@ async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
 var EVENTS_VERSION = 1;
 var FOLLOW_READ_MAX = 1024 * 1024;
 var TIE_SLACK = 16;
-function noFollow(c5) {
-  return c5.O_NOFOLLOW ?? 0;
-}
 var READ_FLAGS = constants2.O_RDONLY | noFollow(constants2);
-function openHistory(path2) {
-  return fs8.open(path2, READ_FLAGS).catch(() => void 0);
-}
+var openHistory = (path2) => openNoFollow(path2, READ_FLAGS);
 var Request3 = external_exports.object({ v: external_exports.literal(EVENTS_VERSION), id: external_exports.string().min(1).max(200), op: external_exports.string(), args: external_exports.record(external_exports.string(), external_exports.unknown()).optional() });
 var To = external_exports.union([external_exports.string().min(1), external_exports.array(external_exports.string().min(1)).min(1)]);
 var Args = {
@@ -119170,7 +119199,6 @@ async function loadNotifier(home, now = Date.now) {
 // src/secretout.ts
 import { promises as fs9 } from "node:fs";
 import { createConnection, createServer as createServer2 } from "node:net";
-import { join as join18 } from "node:path";
 var AGENT_ENV_VARS = ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "GEMINI_CLI", "CURSOR_AGENT", "CURSOR_TRACE_ID", "OPENCODE", "AIDER_MODEL", "ANTIGRAVITY_AGENT", "WIM_AGENT"];
 var AGENT_ENV_PREFIXES = ["CODEX_"];
 function agentEnv(env3) {
@@ -119183,7 +119211,7 @@ function canShowSecret(env3, isTTY) {
 var SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 6e4;
 function showSocketPath(home, platform2) {
   if (platform2 === "win32") return `\\\\.\\pipe\\wim-recovery-${b64u.encode(sha2562(utf8(home))).slice(0, 16)}`;
-  return join18(home, "recovery.sock");
+  return pathFor(platform2).join(home, "recovery.sock");
 }
 async function holdForShow(path2, code2, ms, signal, platform2, onListening = () => void 0) {
   if (platform2 !== "win32") await fs9.rm(path2, { force: true });
@@ -119396,7 +119424,9 @@ bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
   if (!/^[a-z-]+$/.test(command5)) return void 0;
-  const lines = USAGE.split("\n").filter((l3) => new RegExp(`(^|\\| )wim ${command5}( |$)`).test(l3.trim()));
+  const needle = `wim ${command5}`;
+  const names = (form) => form === needle || form.startsWith(`${needle} `);
+  const lines = USAGE.split("\n").filter((l3) => l3.trim().split("| ").some(names));
   return lines.length === 0 ? void 0 : lines.map((l3) => l3.trim()).join("\n");
 }
 var Ctx = class {
@@ -119580,7 +119610,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join19(ctx);
+        return await join18(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -119760,7 +119790,7 @@ async function invite(ctx) {
     await s3.stop({ ended: true });
   }
 }
-async function join19(ctx) {
+async function join18(ctx) {
   const code2 = ctx.args.positional[0];
   if (code2 === void 0) throw new SetupError("usage: wim join <code>");
   const device = await ctx.home.loadDevice() ?? await ctx.home.createDevice(flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device"));

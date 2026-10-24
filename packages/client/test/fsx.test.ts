@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { claimLock, ensureDir, fsOps, listDir, lockHeld, readJson, readText, removeFile, withLock, writeAtomic, writeJson } from "../src/fsx.ts";
-import { FS, scratch } from "./helpers.ts";
+import { FS, POSIX, scratch } from "./helpers.ts";
 
 const realRename = fsOps.rename;
 const realKill = fsOps.kill;
@@ -20,8 +20,11 @@ describe("writeAtomic", () => {
     await writeAtomic(p, "one");
     await writeAtomic(p, new TextEncoder().encode("two"));
     expect(await readText(p)).toBe("two");
-    expect((await fs.stat(p)).mode & 0o777).toBe(0o600);
-    expect((await fs.stat(join(dir, "a"))).mode & 0o777).toBe(0o700);
+    // Windows has no POSIX mode bits to check.
+    if (POSIX) {
+      expect((await fs.stat(p)).mode & 0o777).toBe(0o600);
+      expect((await fs.stat(join(dir, "a"))).mode & 0o777).toBe(0o700);
+    }
     expect((await listDir(join(dir, "a"))).filter((n) => n.endsWith(".tmp"))).toEqual([]);
   });
 

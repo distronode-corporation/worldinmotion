@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Home, SetupError } from "../src/home.ts";
-import { FS, scratch } from "./helpers.ts";
+import { FS, POSIX, POSIX_VIEW, scratch } from "./helpers.ts";
 
 const uid = process.getuid?.();
 
@@ -16,7 +16,8 @@ describe("Home", () => {
     expect(await h.loadDevice()).toBeUndefined();
     await expect(h.requireDevice()).rejects.toThrow(SetupError);
     const d = await h.createDevice("laptop");
-    expect((await fs.stat(h.devicePath)).mode & 0o777).toBe(0o600);
+    // Windows has no POSIX mode bits to check.
+    if (POSIX) expect((await fs.stat(h.devicePath)).mode & 0o777).toBe(0o600);
     const back = await h.requireDevice();
     expect(back.id).toBe(d.id);
     expect(back.name).toBe("laptop");
@@ -28,8 +29,9 @@ describe("Home", () => {
     const h = await home();
     await h.createDevice("laptop");
     await fs.chmod(h.devicePath, 0o644);
-    await expect(h.loadDevice()).rejects.toThrow(/readable by group or others/);
+    await expect(new Home(h.root, { ...h.env, platform: POSIX_VIEW }).loadDevice()).rejects.toThrow(/readable by group or others/);
     await fs.chmod(h.devicePath, 0o600);
+    // A link is refused on every platform.
     await fs.rename(h.devicePath, `${h.devicePath}.real`);
     await fs.symlink(`${h.devicePath}.real`, h.devicePath);
     await expect(h.loadDevice()).rejects.toThrow(/symbolic link/);
@@ -44,9 +46,8 @@ describe("Home", () => {
   });
 
   it("rethrows unexpected stat errors", async () => {
-    const root = await scratch("home");
-    await fs.writeFile(join(root, "file"), "x");
-    const h = new Home(join(root, "file"), { ...FS, uid });
+    // A path no file system accepts fails with an error other than "not found", on every platform.
+    const h = new Home(join(await scratch("home"), "bad\0name"), { ...FS, uid });
     await expect(h.loadDevice()).rejects.toThrow();
   });
 
@@ -71,6 +72,6 @@ describe("Home", () => {
     await fs.chmod(h.root, 0o700);
     expect(await h.rootProblem()).toBeUndefined();
     await fs.chmod(h.root, 0o755);
-    expect(await h.rootProblem()).toMatch(/chmod 700/);
+    expect(await new Home(h.root, { ...h.env, platform: POSIX_VIEW }).rootProblem()).toMatch(/chmod 700/);
   });
 });

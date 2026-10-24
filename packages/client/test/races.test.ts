@@ -1,13 +1,13 @@
 // Races between concurrent callers in one process or across processes of one device: sends
 // that overlap, a wait while two items arrive, lock takeover, and two first runs at once.
 
-import { readFileSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { claimLock, EMPTY_LOCK_MS, fsOps, listFiles, readText, withLock, writeNew } from "../src/fsx.ts";
 import { Home } from "../src/home.ts";
-import { FS, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
+import { FS, POSIX, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 const real = { ...fsOps };
@@ -131,9 +131,15 @@ describe("lock edge cases", () => {
     expect(await claimLock(lock, me)).toBe(true);
     expect(await readText(lock)).toBe("111");
     await fs.rm(lock);
-    await fs.symlink(join(dir, "nowhere"), lock);
-    expect(await claimLock(lock, me)).toBe(true);
-    expect((await fs.lstat(lock)).isFile()).toBe(true);
+    // A link at the lock path is taken over and replaced, never written through: on this
+    // machine's platform, and as on Windows, where an exclusive create would follow it.
+    for (const platform of new Set([process.platform, "win32"])) {
+      await fs.symlink(join(dir, "nowhere"), lock);
+      expect(await claimLock(lock, { platform, pid: 111 })).toBe(true);
+      expect((await fs.lstat(lock)).isFile()).toBe(true);
+      expect(existsSync(join(dir, "nowhere"))).toBe(false);
+      await fs.rm(lock);
+    }
     await fs.writeFile(lock, "12abc");
     expect(await withLock(lock, async () => "in", me)).toBe("in");
   });
@@ -219,7 +225,8 @@ describe("writeNew and listFiles", () => {
     const p = join(dir, "sub", "k.json");
     await writeNew(p, "one", { platform: "linux", pid: 5 });
     expect(await readText(p)).toBe("one");
-    expect((await fs.stat(p)).mode & 0o777).toBe(0o600);
+    // Windows has no POSIX mode bits to check.
+    if (POSIX) expect((await fs.stat(p)).mode & 0o777).toBe(0o600);
     await expect(writeNew(p, "two")).rejects.toMatchObject({ code: "EEXIST" });
     fsOps.link = async () => {
       throw Object.assign(new Error("no links here"), { code: "EPERM" });
@@ -256,11 +263,10 @@ describe("first run", () => {
   it("createDevice passes on a file error that is not a lost race", async () => {
     const h = new Home(await scratch("home"), { ...FS, uid: process.getuid?.() });
     fsOps.link = async () => {
-      // The directory turns read-only, so the fallback write cannot create the file either.
-      await fs.chmod(h.root, 0o500);
+      // The directory goes away, so the fallback write cannot create the file either.
+      await fs.rm(h.root, { recursive: true, force: true, maxRetries: 5 });
       throw Object.assign(new Error("disk on fire"), { code: "EIO" });
     };
-    cleanup.push(() => fs.chmod(h.root, 0o700));
-    await expect(h.createDevice("x")).rejects.toMatchObject({ code: "EACCES" });
+    await expect(h.createDevice("x")).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

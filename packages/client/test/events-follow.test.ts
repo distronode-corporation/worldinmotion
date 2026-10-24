@@ -2,13 +2,14 @@
 // large files, and the bounded `history` request.
 
 import { ulid } from "@worldinmotion/protocol";
-import { appendFileSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, constants, renameSync, writeFileSync } from "node:fs";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../src/client.ts";
-import { FOLLOW_READ_MAX, noFollow, runEvents } from "../src/events.ts";
+import { FOLLOW_READ_MAX, runEvents } from "../src/events.ts";
+import { noFollow, openNoFollow } from "../src/fsx.ts";
 import { parseEntry } from "../src/history.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionFiles } from "../src/session.ts";
@@ -152,6 +153,19 @@ describe("the history follower, edges", () => {
   it("noFollow is 0 where the platform has no O_NOFOLLOW", () => {
     expect(noFollow({})).toBe(0);
     expect(noFollow({ O_NOFOLLOW: 0x20000 })).toBe(0x20000);
+  });
+
+  it("openNoFollow refuses a link also when the open itself would follow it, as on Windows", async () => {
+    const dir = await scratch("open");
+    const real = join(dir, "real.jsonl");
+    writeFileSync(real, entry("real"));
+    await fs.symlink(real, join(dir, "link.jsonl"));
+    // Flags without O_NOFOLLOW, as Windows has none.
+    expect(await openNoFollow(join(dir, "link.jsonl"), constants.O_RDONLY)).toBeUndefined();
+    const handle = await openNoFollow(real, constants.O_RDONLY);
+    expect(handle).toBeDefined();
+    await handle!.close();
+    expect(await openNoFollow(join(dir, "missing.jsonl"), constants.O_RDONLY)).toBeUndefined();
   });
 
   it("parseEntry accepts only entries", () => {

@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../src/client.ts";
 import { WimMcp } from "../src/mcp.ts";
-import { makeMesh, openSession, RelayHarness, sessionOpts, sleep, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, sessionOpts, sleep, until } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
@@ -69,7 +69,7 @@ describe("connection loss and takeover", () => {
     const sidA = helloA.structuredContent!["sid"];
     await first.current!.ready(3000);
     // The second process (another pid) asks for the same Claude session.
-    const second = new WimMcp({ session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", env: { platform: "linux", pid: 1 } }), channel: false, internalTools: true, version: "t" });
+    const second = new WimMcp({ session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", env: { ...FS, pid: LIVE_PID } }), channel: false, internalTools: true, version: "t" });
     open.push({ stop: () => second.close() });
     await second.start();
     const helloB = await second.call("_internal", { op: "hello", args: { claudeSessionId: "cc-live" } }, undefined, async () => undefined);
@@ -91,22 +91,24 @@ describe("connection loss and takeover", () => {
     const s = await openSession(devices[0]!, mesh, relay, { name: "x", log: (l) => logs.push(l), answerMs: 200, reconnectMs: 60_000 });
     open.push(s);
     const { promises: fs } = await import("node:fs");
-    await fs.mkdir(s.files.spoolDir, { recursive: true });
-    await fs.chmod(s.files.spoolDir, 0o500);
+    // A file where the spool directory should be: it can be neither written nor listed, on any platform.
+    await fs.rm(s.files.spoolDir, { recursive: true, force: true });
+    await fs.writeFile(s.files.spoolDir, "");
     relay.inject(mesh, JSON.stringify({ t: "notice", kind: "idle", of: "y@one" }));
     await until(() => logs.some((l) => l.startsWith("wim: notice: ")));
     // A sweep that cannot read the spool fails that pass only; the next one runs.
-    await fs.chmod(s.files.spoolDir, 0o000);
     const sweep = (s as unknown as { sweep(): Promise<void> }).sweep.bind(s);
     await expect(sweep()).rejects.toThrow();
-    await fs.chmod(s.files.spoolDir, 0o700);
+    await fs.rm(s.files.spoolDir);
+    await fs.mkdir(s.files.spoolDir);
     await sweep();
     relay.toRelay = (text) => (text.startsWith('{"t":"send"') ? undefined : text);
     await expect(s.send("x@one", "into the void")).rejects.toThrow(/did not answer in time/);
     relay.toRelay = undefined;
     relay.down = true;
     relay.dropAll(1006);
-    await sleep(20);
+    // Until the session has seen the close, so the presence below meets a link that is not open.
+    await until(() => (s as unknown as { link?: { isOpen: boolean } }).link?.isOpen !== true);
     await fs.writeFile(s.files.presencePath, "busy");
     await s.tick();
     expect(relay.sentByClients.filter((t) => t.includes('"presence"')).length).toBe(0);

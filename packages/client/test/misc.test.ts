@@ -1,5 +1,5 @@
 import { promises as fs } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { ulid, ulidTime } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { Breaker, pauseNotice } from "../src/breaker.ts";
@@ -9,7 +9,7 @@ import { frameEntry, History, renderForAgent, renderForPerson, type HistoryEntry
 import { DEFAULT_BREAKER, type MeshConfig } from "../src/mesh.ts";
 import { CommandNotifier, loadNotifier, quiet } from "../src/notify.ts";
 import { noticeText, peerLine, policyFor, policyLevel } from "../src/render.ts";
-import { scratch } from "./helpers.ts";
+import { POSIX, scratch } from "./helpers.ts";
 
 const DEV = "A".repeat(22);
 
@@ -90,7 +90,7 @@ describe("cards", () => {
   it("makes cards with the base name or the full path, and labels them safely", async () => {
     const root = await scratch("card");
     const card = await cardFor(root, false, "/elsewhere");
-    expect(card.cwd).toBe(root.split("/").at(-1));
+    expect(card.cwd).toBe(basename(root));
     expect((await cardFor(root, true, "/elsewhere")).cwd).toBe(root);
     // A session in the home directory shows no directory: its name is usually the OS user name.
     expect(await cardFor(root, false, root)).toEqual({});
@@ -107,7 +107,8 @@ describe("files", () => {
     expect(safeFileName("ID", "...")).toBe("ID-file");
     const dir = await scratch("files");
     const path = await saveReceived(join(dir, "f"), "ID", "a.sh", new Uint8Array([1]));
-    expect((await fs.stat(path)).mode & 0o777).toBe(0o600);
+    // Windows has no POSIX mode bits to check.
+    if (POSIX) expect((await fs.stat(path)).mode & 0o777).toBe(0o600);
     await expect(saveReceived(join(dir, "f"), "ID", "a.sh", new Uint8Array([1]))).rejects.toThrow();
   });
 

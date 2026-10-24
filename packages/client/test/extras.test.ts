@@ -9,7 +9,7 @@ import { MeshFiles } from "../src/mesh.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "../src/offline.ts";
 import { agentEnv, canShowSecret, fetchHeldCode, holdForShow, showSocketPath } from "../src/secretout.ts";
 import { SessionFiles } from "../src/session.ts";
-import { FS, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -125,7 +125,7 @@ describe("offline decisions", () => {
     await idle.stop();
     open.splice(open.indexOf(idle), 1);
     // The live session is held by "another process".
-    await fs.writeFile(new SessionFiles(files, live.sid, FS).liveLock, "1");
+    await fs.writeFile(new SessionFiles(files, live.sid, FS).liveLock, String(LIVE_PID));
     expect(await decideHeld(files, toLive.id, "approve", FS, Date.now)).toBe(1);
     expect(await fs.readdir(live.files.heldDir)).toContain(`${toLive.id}.approve`);
     expect(await decideHeld(files, toIdle.id, "approve", FS, Date.now)).toBe(1);
@@ -156,7 +156,7 @@ describe("offline decisions", () => {
     await until(async () => (await idle.held.list()).length === 3);
     await idle.stop();
     open.splice(open.indexOf(idle), 1);
-    await fs.writeFile(live.files.liveLock, "1");
+    await fs.writeFile(live.files.liveLock, String(LIVE_PID));
     expect(await resumeEverywhere(files, "a@one", FS, Date.now)).toBe(3);
     expect(await fs.readdir(live.files.controlDir)).toEqual(["resume-a@one"]);
     expect(await resumeEverywhere(files, "b@three", FS, Date.now)).toBe(0);
@@ -178,22 +178,26 @@ describe("secretout", () => {
   });
 
   it("hands the code over once, then closes; times out; and fails a fetch with nothing waiting", async () => {
+    // A Unix socket in the directory on POSIX, a named pipe on Windows, as the CLI uses.
     const dir = await scratch("sock");
-    const path = join(dir, "r.sock");
+    const path = showSocketPath(dir, process.platform);
     const stop = new AbortController();
-    const held = holdForShow(path, "CODE", 2000, stop.signal, "linux");
+    const held = holdForShow(path, "CODE", 2000, stop.signal, process.platform);
     await sleep(20);
     expect(await fetchHeldCode(path)).toBe("CODE");
     expect(await held).toBe(true);
     await expect(fetchHeldCode(path)).rejects.toThrow(/no recovery code is waiting/);
-    expect(await holdForShow(path, "CODE", 10, new AbortController().signal, "linux")).toBe(false);
+    expect(await holdForShow(path, "CODE", 10, new AbortController().signal, process.platform)).toBe(false);
     // A second connection at the same moment gets nothing.
-    const h2 = holdForShow(path, "C2", 2000, new AbortController().signal, "linux");
+    const h2 = holdForShow(path, "C2", 2000, new AbortController().signal, process.platform);
     await sleep(20);
     const [x, y] = await Promise.allSettled([fetchHeldCode(path), fetchHeldCode(path)]);
     expect([x.status, y.status].sort()).toEqual(["fulfilled", "rejected"]);
     await h2;
-    await expect(holdForShow(join(dir, "missing", "deep", "r.sock"), "C", 10, new AbortController().signal, "win32")).rejects.toThrow();
+    // Neither a socket in a missing directory nor (on Windows) a path that is not a pipe can listen.
+    for (const platform of ["linux", "win32"]) {
+      await expect(holdForShow(join(dir, "missing", "deep", "r.sock"), "C", 10, new AbortController().signal, platform)).rejects.toThrow();
+    }
   });
 });
 

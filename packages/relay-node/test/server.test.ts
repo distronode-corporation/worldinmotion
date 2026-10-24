@@ -107,7 +107,12 @@ describe("relay-node", () => {
     const { admin, member, roster, root } = await mesh(url);
     const writer = await session(url, member, roster, "writer");
     writer.c.ws.close();
-    await writer.c.closed;
+    // The client's close can complete before the relay has handled its side of it, so wait for
+    // the relay to report the writer offline before sending to it.
+    for (;;) {
+      const p = (await root.c.nextOf("peer"))["peer"];
+      if (p["address"] === "writer@laptop" && p["status"] === "offline") break;
+    }
     root.c.send(seal(roster, admin, root, ["writer@laptop"], 1, member.id));
     expect((await root.c.nextOf("sent"))["results"][0]["status"]).toBe("queued");
     await first.close();

@@ -5,7 +5,7 @@ import { commandUsage, SHORT_USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
 import { processIo, type Proc } from "../src/io.ts";
 import { WimMcp } from "../src/mcp.ts";
-import { makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
@@ -150,8 +150,8 @@ describe("same-project takeover", () => {
     open.push(carol);
     expect(carol.sid).not.toBe(ended.sid);
     expect(carol.address).toBe("carol@one");
-    // A session held by another live process (pid 1 always exists).
-    const held = await MeshSession.open(sessionOpts(devices[0]!, mesh, relay, { name: "dave", cwd: here, env: { platform: "linux", pid: 1 } }));
+    // A session held by another live process.
+    const held = await MeshSession.open(sessionOpts(devices[0]!, mesh, relay, { name: "dave", cwd: here, env: { ...FS, pid: LIVE_PID } }));
     const dave = await MeshSession.open(sessionOpts(devices[0]!, mesh, relay, { name: "dave", cwd: here }));
     expect(dave.sid).not.toBe(held.sid);
     await dave.stop();

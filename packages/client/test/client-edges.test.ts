@@ -249,12 +249,13 @@ describe("receiving edge cases", () => {
     await fs.mkdir(b.files.presencePath, { recursive: true });
     await until(() => logs.some((l) => l.startsWith("wim: housekeeping:")));
     await fs.rm(b.files.presencePath, { recursive: true });
-    await fs.mkdir(b.files.spoolDir, { recursive: true });
-    await fs.chmod(b.files.spoolDir, 0o500);
+    // A file where the spool directory should be: nothing can be written into it, on any platform.
+    await fs.rm(b.files.spoolDir, { recursive: true, force: true });
+    await fs.writeFile(b.files.spoolDir, "");
     await a.send("b@two", "cannot be written");
     await until(() => logs.some((l) => l.startsWith("wim: inbound:")));
     await expect(b.receive(seal(a, b))).rejects.toThrow();
-    await fs.chmod(b.files.spoolDir, 0o700);
+    await fs.rm(b.files.spoolDir);
     expect(await b.receive(seal(a, b))).toBe("accepted");
   });
 
@@ -365,9 +366,14 @@ describe("relay refusals and other answers", () => {
     expect((await b.inbox(false))[0]!.relayed).toBe(true);
     expect(await b.spool.relayed()).toEqual([]);
     b.push = async () => undefined;
-    const waiting = b.next(100);
-    await a.send("b@two", "pushed, not waited for");
+    const listening = b.listenerCount("item");
+    const waiting = b.next(1000);
+    // An item while push is set goes to the channel, not to the wait. It is emitted once the wait
+    // listens, so the check does not depend on how fast a send arrives.
+    await until(() => b.listenerCount("item") > listening);
+    b.emit("item", { cursor: 1 });
     expect(await waiting).toBeUndefined();
+    expect(b.listenerCount("item")).toBe(listening);
   });
 
   it("records room addressees, skipping peers of unknown devices", async () => {

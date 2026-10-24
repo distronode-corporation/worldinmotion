@@ -7,7 +7,7 @@ import { revokeDevice } from "../src/admin.ts";
 import { MeshSession } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
-import { FS, makeMesh, openSession, RELAY, RelayHarness, run, said, scratch, sessionOpts, term, until, rosterSeqs } from "./helpers.ts";
+import { FS, POSIX_VIEW, makeMesh, openSession, RELAY, RelayHarness, run, said, scratch, sessionOpts, term, until, rosterSeqs } from "./helpers.ts";
 
 describe("more command paths", () => {
   it("uses the real dialer when none is given, and reports what it cannot reach", async () => {
@@ -143,13 +143,16 @@ describe("more command paths", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"]);
     // Device two's pin is behind: it joined before three.
-    await fs.chmod(devices[1]!.root, 0o755);
     const files = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
     await files.updateConfig((c) => ({ ...c, tls: "R".repeat(43) }));
     const t = term(devices[1]!.root, relay);
-    expect(await run(t, "doctor")).toBe(1);
-    expect(said(t)).toMatch(/lets group or others in/);
+    expect(await run(t, "doctor")).toBe(0);
     expect(said(t)).toMatch(/caught up from/);
+    // A state directory open to group and others (as a POSIX client reads Windows' mode 666).
+    await fs.chmod(devices[1]!.root, 0o755);
+    const loose = term(devices[1]!.root, relay, { platform: POSIX_VIEW });
+    expect(await run(loose, "doctor")).toBe(1);
+    expect(said(loose)).toMatch(/lets group or others in/);
     await fs.chmod(devices[1]!.root, 0o700);
     await files.updateConfig((c) => ({ ...c, fork: { seq: 2, a: "a", b: "b", base: [], at: 1 } }));
     const f = term(devices[1]!.root, relay);

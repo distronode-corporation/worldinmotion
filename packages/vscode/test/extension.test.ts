@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,7 +36,9 @@ const requests = (): { op: string; args: Record<string, unknown> }[] =>
 
 beforeEach(() => {
   fake.reset();
-  dir = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), "wim-vscode-"));
+  // The real path: the client reports its working directory as the OS resolves it, and on macOS
+  // the temp directory is reached through a link (/var is /private/var).
+  dir = realpathSync(mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), "wim-vscode-")));
   vi.stubEnv("WIM_FAKE_LOG", join(dir, "requests.log"));
   fake.state.config.set("worldinmotion.wimPath", FIXTURE);
 });

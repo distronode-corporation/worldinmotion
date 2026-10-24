@@ -3,8 +3,33 @@
 
 import { parseJson, randomBytes, b64u } from "@worldinmotion/protocol";
 import { constants, promises as fs, type BigIntStats } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 import { dirname } from "node:path";
-import { pidAlive, renameRetries, type Platform } from "./platform.ts";
+import { createFollowsLinks, pidAlive, renameRetries, type Platform } from "./platform.ts";
+
+/** The `open` flag that refuses a symbolic link, where the platform has one (not on Windows). */
+export function noFollow(c: { O_NOFOLLOW?: number }): number {
+  return c.O_NOFOLLOW ?? 0;
+}
+
+/**
+ * Opens a file, never through a link; undefined when it is missing, a link, or cannot be opened.
+ * `flags` with O_NOFOLLOW refuse a link at the open, where the platform has it. Windows has none,
+ * so on every platform the path must also still name the very file that was opened.
+ */
+export async function openNoFollow(path: string, flags: number): Promise<FileHandle | undefined> {
+  const handle = await fs.open(path, flags).catch(() => undefined);
+  if (handle === undefined) return undefined;
+  let keep = false;
+  try {
+    const opened = await handle.stat({ bigint: true });
+    const named = await fs.lstat(path, { bigint: true });
+    keep = !named.isSymbolicLink() && named.ino === opened.ino;
+    return keep ? handle : undefined;
+  } finally {
+    if (!keep) await handle.close();
+  }
+}
 
 /** The calls that can fail in ways tests need to provoke; swapped in tests, never in production. */
 export const fsOps = {
@@ -187,6 +212,9 @@ async function contend(path: string, env: FsEnv, mine: boolean): Promise<"mine" 
 
 /** Creates the lock file with this process's pid; false when it already exists. */
 async function create(path: string, env: FsEnv): Promise<boolean> {
+  // Where the create would follow a link, anything at the path (a dangling link too) counts as
+  // an existing lock, so a link is taken over like any other stale lock and never written through.
+  if (createFollowsLinks(env.platform) && (await lookAt(path)) !== undefined) return false;
   try {
     const handle = await fs.open(path, "wx", 0o600);
     await handle.writeFile(String(env.pid));

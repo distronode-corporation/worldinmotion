@@ -29,7 +29,8 @@ describe("StateStore", () => {
     s.deployments["2"] = { phase: "success", touched: t.now() };
     await Promise.all([store.save(), store.save()]);
     expect(logs).toEqual([]);
-    expect((await stat(path)).mode & 0o777).toBe(0o600);
+    // Windows has no POSIX mode bits: there every file reads 666 whatever mode it was made with.
+    if (process.platform !== "win32") expect((await stat(path)).mode & 0o777).toBe(0o600);
     expect((await readdir(join(dir, "nested"))).filter((f) => f.endsWith(".tmp"))).toEqual([]);
 
     const again = await StateStore.open(path, t.now, () => undefined);

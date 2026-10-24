@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { createMesh, decideJoin, issueInvite, joinMesh } from "../src/admin.ts";
 import { MeshSession, type SessionOptions } from "../src/client.ts";
 import type { FsEnv } from "../src/fsx.ts";
+import type { Platform } from "../src/platform.ts";
 import { Home, type Device } from "../src/home.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
@@ -20,7 +21,24 @@ function scratchRoot(): string {
 }
 
 export const RELAY = "ws://127.0.0.1:4444";
-export const FS: FsEnv = { platform: "linux", pid: process.pid };
+/** The real platform: tests that use real files run the client as it runs on this machine. */
+export const FS: FsEnv = { platform: process.platform, pid: process.pid };
+
+/** False on Windows, which has no POSIX mode bits: there a file's mode reads 666 whatever was asked. */
+export const POSIX = process.platform !== "win32";
+
+/**
+ * A POSIX platform, for tests of the checks on real files' mode bits. On POSIX the test sets the
+ * mode itself. Windows reports every file and directory as mode 666, so a client told it runs on
+ * Linux reads them all as open to group and others.
+ */
+export const POSIX_VIEW: Platform = POSIX ? process.platform : "linux";
+
+/**
+ * A live process that is not this one, on every platform: this process's parent (the test
+ * runner). Tests write it into lock files as "another process holds this".
+ */
+export const LIVE_PID = process.ppid;
 
 const ROOT = join(scratchRoot(), "wim-client-tests");
 
@@ -247,7 +265,7 @@ export function term(home: string, relay: RelayHarness, extra: Partial<CliIO> = 
     cwd: home,
     homedir: home,
     hostname: "My Host.local",
-    platform: "linux",
+    platform: process.platform,
     uid: process.getuid?.(),
     pid: process.pid,
     now: Date.now,

@@ -5,8 +5,7 @@
 import { b64u, LIMITS, sha256, utf8 } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { createConnection, createServer } from "node:net";
-import { join } from "node:path";
-import type { Platform } from "./platform.ts";
+import { pathFor, type Platform } from "./platform.ts";
 
 /** Variables that agent CLIs set in the commands they run. */
 export const AGENT_ENV_VARS = ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "GEMINI_CLI", "CURSOR_AGENT", "CURSOR_TRACE_ID", "OPENCODE", "AIDER_MODEL", "ANTIGRAVITY_AGENT", "WIM_AGENT"];
@@ -28,7 +27,7 @@ export const SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 60_000;
 /** A Unix socket in the private state directory, or a named pipe on Windows. */
 export function showSocketPath(home: string, platform: Platform): string {
   if (platform === "win32") return `\\\\.\\pipe\\wim-recovery-${b64u.encode(sha256(utf8(home))).slice(0, 16)}`;
-  return join(home, "recovery.sock");
+  return pathFor(platform).join(home, "recovery.sock");
 }
 
 /**

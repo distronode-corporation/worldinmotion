@@ -6,19 +6,19 @@
 import type { ResultStatus as BotResultStatus } from "@worldinmotion/bot";
 import { CLOSE, RESULT_STATUSES, type ResultStatus } from "@worldinmotion/protocol";
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { FATAL_CLOSE } from "../src/wire.ts";
 
 const repo = join(import.meta.dirname, "..", "..", "..");
 
-/** Every `.ts`/`.tsx` file under `dir`, as `[path relative to the repo, lines]`. */
+/** Every `.ts`/`.tsx` file under `dir`, as `[path relative to the repo with / separators, lines]`. */
 function sources(dir: string): Array<[string, string[]]> {
   const out: Array<[string, string[]]> = [];
   for (const entry of readdirSync(join(repo, dir), { withFileTypes: true, recursive: true })) {
     if (!entry.isFile() || !/\.tsx?$/.test(entry.name)) continue;
     const path = join(entry.parentPath, entry.name);
-    out.push([relative(repo, path), readFileSync(path, "utf8").split("\n")]);
+    out.push([relative(repo, path).split(sep).join("/"), readFileSync(path, "utf8").split("\n")]);
   }
   return out;
 }

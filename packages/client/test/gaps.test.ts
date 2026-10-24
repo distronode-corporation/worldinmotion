@@ -367,12 +367,14 @@ describe("small module edges", () => {
     expect(cardLabel({ branch: "b" })).toBe("branch=b");
     const raw = { v: 1, mesh: "m", relay: RELAY, device: "d", pin: { seq: 1, hash: "h" } };
     expect(parseMeshConfig({ ...raw, breaker: { perPeerPerHour: 3, totalPerHour: -1 } }, "p").breaker).toEqual({ perPeerPerHour: 3, totalPerHour: DEFAULT_BREAKER.totalPerHour, pingPong: true });
-    // Locks in a directory that cannot be written.
-    const ro = join(root, "ro");
-    await fs.mkdir(ro, { mode: 0o500 });
-    await expect(withLock(join(ro, "l.lock"), async () => 1)).rejects.toThrow();
-    await expect(claimLock(join(ro, "c.lock"))).rejects.toThrow();
-    await fs.chmod(ro, 0o700);
+    // Locks whose file cannot be created, for a reason other than being there already: a name
+    // that no file system accepts, which fails the same way on every platform. Windows looks at
+    // the path before it creates; the others find out from the create itself.
+    for (const platform of ["linux", "win32"]) {
+      const env = { platform, pid: process.pid };
+      await expect(withLock(join(root, "l\0.lock"), async () => 1, env)).rejects.toThrow();
+      await expect(claimLock(join(root, "c\0.lock"), env)).rejects.toThrow();
+    }
     // A sibling's higher seq in memory survives a file rewritten from elsewhere.
     const path = join(root, "seq.json");
     const s = new SeqStore(path, FS);
