@@ -5,15 +5,16 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { ulid } from "@worldinmotion/protocol";
+import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MeshSession } from "../src/client.ts";
 import { WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { authRefusal, checkDialable, relayCode, relayText, RELAY_TEXT_MAX } from "../src/wire.ts";
-import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -131,8 +132,14 @@ describe("the plugin's internal tool", () => {
     const target = join(await scratch("mark"), "t");
     await fs.writeFile(target, "");
     await fs.symlink(target, join(dismiss, `${two.id}.dismiss`));
-    await fs.writeFile(join(dismiss, `${one.id.toLowerCase()}.dismiss`), "");
+    const lower = join(dismiss, `${one.id.toLowerCase()}.dismiss`);
+    await fs.writeFile(lower, "");
     await fs.writeFile(join(dismiss, "notes.txt"), "");
+    await sleep(100);
+    expect((await s.spool.relayed()).length).toBe(2);
+    // On a case-insensitive file system (macOS, Windows) the lower-case name and the real mark
+    // are one file, so the lower-case one goes before the real one is written.
+    await fs.rm(lower);
     await fs.writeFile(join(dismiss, `${one.id}.dismiss`), "");
     await until(async () => (await s.spool.relayed()).length === 1, 3000, "dismissed");
     expect((await s.spool.relayed())[0]!.id).toBe(two.id);
@@ -154,6 +161,44 @@ describe("send_file", () => {
     const s = await openSession(devices[0]!, mesh, relay, { name: "link", userHome: linkHome });
     cleanup.push(() => s.stop());
     await expect(s.sendFile("peer@two", join(linkHome, ".kube", "config"))).rejects.toThrow(/holds credentials/);
+  });
+
+  it("refuses a file swapped for a link to a credential file after the path was checked", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const home = await fs.realpath(await scratch("racehome"));
+    await fs.mkdir(join(home, ".kube"), { recursive: true });
+    await fs.writeFile(join(home, ".kube", "config"), "apiVersion: v1\n");
+    const dir = await fs.realpath(await scratch("race"));
+    const file = join(dir, "notes.txt");
+    await fs.writeFile(file, "harmless\n");
+    const s = await openSession(devices[0]!, mesh, relay, { name: "race", userHome: home });
+    cleanup.push(() => s.stop());
+    // A racer replaces the file the moment the last path is resolved, after the check has its answer.
+    const real = fs.realpath.bind(fs);
+    const spy = vi.spyOn(fs, "realpath").mockImplementation(async (p, o) => {
+      const out = await real(p, o);
+      if (p === home) {
+        await fs.rm(file);
+        await fs.symlink(join(home, ".kube", "config"), file);
+      }
+      return out;
+    });
+    try {
+      await expect(s.sendFile("peer@two", file)).rejects.toThrow(/not a regular file/);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it.skipIf(process.platform === "win32")("refuses a FIFO at once instead of waiting for a writer", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const s = await openSession(devices[0]!, mesh, relay, { name: "fifo", userHome: "/nonexistent-home" });
+    cleanup.push(() => s.stop());
+    const fifo = join(await scratch("fifo"), "pipe");
+    execFileSync("mkfifo", [fifo]);
+    await expect(s.sendFile("fifo@one", fifo)).rejects.toThrow(/not a regular file/);
   });
 });
 
@@ -179,7 +224,7 @@ describe("--allow-secret", () => {
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const peer = await openSession(devices[1]!, mesh, relay, { name: "b" });
     cleanup.push(() => peer.stop());
-    const w = await MeshSession.open({ ...sessionOpts(devices[0]!, mesh, relay, { name: "cli", kind: "cli", handover: true, env: { platform: "linux", pid: 1 } }), sessionKey: "cli:cli" });
+    const w = await MeshSession.open({ ...sessionOpts(devices[0]!, mesh, relay, { name: "cli", kind: "cli", handover: true, env: { ...FS, pid: LIVE_PID } }), sessionKey: "cli:cli" });
     cleanup.push(() => w.stop());
     w.start();
     await w.ready(3000);

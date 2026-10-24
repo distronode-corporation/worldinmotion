@@ -281,15 +281,15 @@ describe("wim events --json", () => {
     relay.toRelay = (text) => (text === '{"t":"peers"}' || text === '{"t":"lease.list"}' ? undefined : text);
     expect(await e.request("snapshot")).toMatchObject({ ok: true });
     await sleep(200);
-    // Unreadable state fails a pass (and the snapshot after a reconnect), not the process.
+    // Unreadable state fails a pass (and the snapshot after a reconnect), not the process: a file
+    // where the held directory should be cannot be listed, on any platform.
     const heldDir = join(stray, "held");
-    await fs.mkdir(heldDir);
-    await fs.chmod(heldDir, 0o000);
+    await fs.writeFile(heldDir, "");
     relay.dropAll(1006);
     await until(() => e.of("connection").filter((c) => c["state"] === "open").length === 2);
     // The snapshot first waits out the unanswered peers and lease requests (2 x 150 ms).
     await sleep(600);
-    await fs.chmod(heldDir, 0o700);
+    await fs.rm(heldDir);
     relay.toRelay = undefined;
     expect(await e.request("snapshot")).toMatchObject({ ok: true });
   });

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ClientError, MeshSession } from "../src/client.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -74,8 +74,8 @@ describe("messaging", () => {
     await until(async () => (await b2.history.query()).length === 1);
     expect((await b2.history.query()).map((e) => e.text)).toEqual(["while you were out"]);
     // A live session under the key is not taken over: a new one is opened instead.
-    // (Another process: pid 1 always exists, so the lock reads as held by a live process.)
-    const b3 = await MeshSession.open({ ...sessionOpts(devices[1]!, mesh, relay, { name: "b", env: { platform: "linux", pid: 1 } }), sessionKey: "key:b" });
+    // (Another live process opens it, so this process's lock reads as held by a live process.)
+    const b3 = await MeshSession.open({ ...sessionOpts(devices[1]!, mesh, relay, { name: "b", env: { ...FS, pid: LIVE_PID } }), sessionKey: "key:b" });
     expect(b3.sid).not.toBe(sid);
     await b3.stop();
   });

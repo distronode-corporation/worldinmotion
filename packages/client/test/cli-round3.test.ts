@@ -7,16 +7,16 @@ import { closestAddress } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { listSessions } from "../src/session.ts";
-import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
   for (const s of open.splice(0)) await s.stop().catch(() => undefined);
 });
 
-/** A `wim watch` in "another process" (pid 1 always exists), taking handed-over sends. */
+/** A `wim watch` in "another process" (a live pid that is not this one), taking handed-over sends. */
 async function watcher(d: Parameters<typeof sessionOpts>[0], mesh: string, relay: RelayHarness, name = "cli", handover = true): Promise<MeshSession> {
-  const s = await MeshSession.open({ ...sessionOpts(d, mesh, relay, { name, kind: "cli", handover, env: { platform: "linux", pid: 1 } }), sessionKey: `cli:${name}` });
+  const s = await MeshSession.open({ ...sessionOpts(d, mesh, relay, { name, kind: "cli", handover, env: { ...FS, pid: LIVE_PID } }), sessionKey: `cli:${name}` });
   open.push(s);
   s.start();
   await s.ready(3000);

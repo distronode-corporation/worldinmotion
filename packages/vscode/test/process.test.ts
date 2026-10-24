@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
@@ -283,7 +284,8 @@ describe("clientCommand", () => {
   it("runs the bundled client on VS Code's Node", () => {
     expect(clientCommand(base)).toEqual({
       cmd: "/electron",
-      args: ["/ext/dist/wim.mjs", "events", "--json", "--as", "vscode"],
+      // The bundled client sits under the extension, in this OS's path form.
+      args: [join("/ext", "dist", "wim.mjs"), "events", "--json", "--as", "vscode"],
       env: { HOME: "/h", ELECTRON_RUN_AS_NODE: "1" },
       cwd: "/work/app",
     });

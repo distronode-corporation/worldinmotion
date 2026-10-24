@@ -10,7 +10,7 @@ import type { Readable } from "node:stream";
 import { isAbsolute, join } from "node:path";
 import { z } from "zod";
 import { ClientError, MeshSession, type PeerRow } from "./client.ts";
-import type { FsEnv } from "./fsx.ts";
+import { noFollow, openNoFollow, type FsEnv } from "./fsx.ts";
 import { History, parseEntry, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
 import { setDevicePolicy, trustLevel, type MeshFiles } from "./mesh.ts";
@@ -26,17 +26,10 @@ export const FOLLOW_READ_MAX = 1024 * 1024;
 /** Extra entries asked of each session for a `history` page, for entries at the cut's own time. */
 const TIE_SLACK = 16;
 
-/** The `open` flag that refuses a symbolic link, where the platform has one (not on Windows). */
-export function noFollow(c: { O_NOFOLLOW?: number }): number {
-  return c.O_NOFOLLOW ?? 0;
-}
-
 const READ_FLAGS = constants.O_RDONLY | noFollow(constants);
 
 /** Opens a history file for reading, never through a link; undefined when it is missing or a link. */
-function openHistory(path: string): Promise<FileHandle | undefined> {
-  return fs.open(path, READ_FLAGS).catch(() => undefined);
-}
+const openHistory = (path: string) => openNoFollow(path, READ_FLAGS);
 
 export type EventsDeps = {
   /** Opened, not yet started: listeners go on before the first frame can arrive. */

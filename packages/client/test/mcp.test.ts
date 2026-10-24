@@ -8,7 +8,7 @@ import { MeshSession } from "../src/client.ts";
 import { INTERNAL_TOOLS, PUBLIC_TOOLS, WimMcp, type McpOptions } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionKeys } from "../src/session.ts";
-import { FS, makeMesh, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -183,7 +183,7 @@ describe("wim mcp", () => {
     const { call, server } = await connect({ device: devices[0]!, mesh, relay, name: "me" });
     const hello = await call("_hello", { claudeSessionId: "claude-1" });
     expect(hello.structuredContent).toMatchObject({ address: "me@one" });
-    expect(String(hello.structuredContent!["spool"])).toMatch(/sessions\/[0-9A-Z]{26}\/spool$/);
+    expect(String(hello.structuredContent!["spool"])).toMatch(/sessions[\\/][0-9A-Z]{26}[\\/]spool$/);
     const s = server.current!;
     await s.ready(3000);
     // Internal tools need the handshake token; a second handshake needs it too.
@@ -276,7 +276,7 @@ describe("wim mcp", () => {
   it("keeps a fresh session when the remembered one is live in another process", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);
-    const other = await MeshSession.open({ ...sessionOpts(devices[0]!, mesh, relay, { name: "agent", env: { platform: "linux", pid: 1 } }), sessionKey: "claude:cc-9" });
+    const other = await MeshSession.open({ ...sessionOpts(devices[0]!, mesh, relay, { name: "agent", env: { ...FS, pid: LIVE_PID } }), sessionKey: "claude:cc-9" });
     const { call, server } = await connect({ device: devices[0]!, mesh, relay, name: "agent" });
     const h = await call("_hello", { claudeSessionId: "cc-9" });
     expect(h.structuredContent!["sid"]).toBe(server.current!.sid);

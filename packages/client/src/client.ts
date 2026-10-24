@@ -37,13 +37,13 @@ import {
   type SentFrame,
 } from "@worldinmotion/protocol";
 import { EventEmitter } from "node:events";
-import { promises as fs } from "node:fs";
+import { constants as fsConstants, promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Breaker, pauseNotice } from "./breaker.ts";
 import { cardFor, sameCard } from "./cards.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
-import { ensureDir, listDir, readJson, readText, removeFile, writeJson, type FsEnv } from "./fsx.ts";
+import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, writeJson, type FsEnv } from "./fsx.ts";
 import { HeldBox, preview, takeMarks, type HeldItem, type Verdict } from "./held.ts";
 import { frameEntry, History, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
@@ -1188,10 +1188,21 @@ export class MeshSession extends EventEmitter {
     const userHome = this.o.userHome ?? homedir();
     const why = unsendable(full, await fs.realpath(wimHome), await fs.realpath(userHome).catch(() => resolve(userHome)));
     if (why !== undefined) throw new ClientError(`refusing to send ${path}: ${why}`, "forbidden");
-    const stat = await fs.stat(full);
-    if (!stat.isFile()) throw new ClientError(`not a regular file: ${path}`, "not_found");
-    if (stat.size > LIMITS.blobFileBytes) throw new ClientError(`the file is over ${LIMITS.blobFileBytes / 1024 / 1024} MiB`, "too_large");
-    const bytes = new Uint8Array(await fs.readFile(full));
+    // Opened once, refusing a link (so a path swapped for one after the check above fails), and
+    // checked and read through that one handle. Non-blocking, so a FIFO is refused, not waited on
+    // (Windows has neither flag nor FIFOs; `|` reads its missing O_NONBLOCK as 0).
+    const flags = fsConstants.O_RDONLY | noFollow(fsConstants) | fsConstants.O_NONBLOCK;
+    const handle = await openNoFollow(full, flags);
+    if (handle === undefined) throw new ClientError(`not a regular file: ${path}`, "not_found");
+    let bytes: Uint8Array;
+    try {
+      const stat = await handle.stat();
+      if (!stat.isFile()) throw new ClientError(`not a regular file: ${path}`, "not_found");
+      if (stat.size > LIMITS.blobFileBytes) throw new ClientError(`the file is over ${LIMITS.blobFileBytes / 1024 / 1024} MiB`, "too_large");
+      bytes = new Uint8Array(await handle.readFile());
+    } finally {
+      await handle.close();
+    }
     const secrets = secretsInFile(bytes);
     if (secrets.length > 0) throw new ClientError(`refusing to send ${path}: it appears to contain a secret (${secrets.join(", ")})`, "secret");
     const sealed = sealBlob(bytes);

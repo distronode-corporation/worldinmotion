@@ -1,6 +1,6 @@
 import { b64u, nextRoster, makeDeviceRecord, generateDeviceKeys, sealMessage, ulid, type Roster, type SendFrame } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { decideJoin, issueInvite, joinMesh, revokeDevice } from "../src/admin.ts";
 import { MeshSession } from "../src/client.ts";
@@ -274,7 +274,7 @@ describe("peer cards", () => {
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
     await until(async () => (await b.listPeers({ forPane: true })).filter((p) => p.card !== undefined).length === 2, 3000, "cards");
     const shown = await b.listPeers();
-    expect(shown.find((p) => p.address === "a@one")!.card).toEqual({ cwd: work.split("/").at(-1), branch: "main" });
+    expect(shown.find((p) => p.address === "a@one")!.card).toEqual({ cwd: basename(work), branch: "main" });
     expect(shown.find((p) => p.address === "c@three")!.card).toBeUndefined();
     expect(await b.route("a@one")).toEqual({ mesh: true, policy: "deliver" });
     expect(await b.route("c@three")).toEqual({ mesh: true, policy: "hold" });

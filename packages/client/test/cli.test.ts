@@ -4,7 +4,7 @@ import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { main, parseArgs, parseDuration, toName, USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
-import { makeMesh, RELAY, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
+import { makeMesh, POSIX_VIEW, RELAY, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -220,8 +220,9 @@ describe("using a mesh", () => {
     const empty = term(await scratch("cli-empty"), relay);
     expect(await run(empty, "doctor")).toBe(1);
     expect(said(empty)).toMatch(/no device keys/);
+    // A key file open to group and others (as a POSIX client reads Windows' mode 666).
     await fs.chmod(join(a.env["WIM_HOME"]!, "device.json"), 0o644);
-    expect(await run(term(a.env["WIM_HOME"]!, relay), "doctor")).toBe(1);
+    expect(await run(term(a.env["WIM_HOME"]!, relay, { platform: POSIX_VIEW }), "doctor")).toBe(1);
   }, 20_000);
 
   it("sends a test notification through notify.json", async () => {
