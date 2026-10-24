@@ -35,6 +35,42 @@ describe("sanitizeForDisplay", () => {
     ];
     for (const [input, output] of cases) expect(sanitizeForDisplay(input), output).toBe(output);
   });
+
+  it("escapes every other format and default-ignorable character", () => {
+    const cases: Array<[string, string]> = [
+      // Interlinear annotation, which can hide a run of text behind another.
+      ["\uFFF9hidden\uFFFAshown\uFFFB", "<U+FFF9>hidden<U+FFFA>shown<U+FFFB>"],
+      ["\u206A\u206F", "<U+206A><U+206F>"],
+      ["\u0600\u0605\u06DD\u070F\u0890\u08E2", "<U+0600><U+0605><U+06DD><U+070F><U+0890><U+08E2>"],
+      ["\u{110BD}\u{110CD}\u{13430}\u{1343F}", "<U+110BD><U+110CD><U+13430><U+1343F>"],
+      ["\u{1BCA0}\u{1BCA3}\u{1D173}\u{1D17A}", "<U+1BCA0><U+1BCA3><U+1D173><U+1D17A>"],
+      ["a\u034Fb", "a<U+034F>b"],
+      ["\u115F\u1160\u3164\uFFA0", "<U+115F><U+1160><U+3164><U+FFA0>"],
+      ["\u17B4\u17B5", "<U+17B4><U+17B5>"],
+      ["\u180B\u180D\u180F", "<U+180B><U+180D><U+180F>"],
+      ["\uFFF0\uFFF8", "<U+FFF0><U+FFF8>"],
+      ["\u{E0080}\u{E00FF}\u{E01F0}\u{E0FFF}", "<U+E0080><U+E00FF><U+E01F0><U+E0FFF>"],
+    ];
+    for (const [input, output] of cases) expect(sanitizeForDisplay(input), output).toBe(output);
+  });
+
+  it("escapes a run of variation selectors hiding bytes after a letter", () => {
+    // Two selectors per byte: VS1 to VS16 carry four bits each. These spell "hi".
+    const hidden = "\uFE06\uFE08\uFE06\uFE09";
+    expect(sanitizeForDisplay(`a${hidden}`)).toBe("a<U+FE06><U+FE08><U+FE06><U+FE09>");
+    expect(sanitizeForDisplay("a\uFE0Fb\uFE0E")).toBe("a<U+FE0F>b<U+FE0E>");
+  });
+
+  it("keeps one presentation selector right after an emoji, and escapes a second", () => {
+    for (const emoji of ["\u{1F600}\uFE0F", "\u2764\uFE0F", "\u2764\uFE0E", "1\uFE0F\u20E3", "\u{1F600}\uFE0F \u2764\uFE0F"]) {
+      expect(sanitizeForDisplay(emoji), emoji).toBe(emoji);
+    }
+    expect(sanitizeForDisplay("\u{1F600}\uFE0F\uFE0F")).toBe("\u{1F600}\uFE0F<U+FE0F>");
+    expect(sanitizeForDisplay("\u2764\uFE0E\uFE0F")).toBe("\u2764\uFE0E<U+FE0F>");
+    // Other selectors are escaped after an emoji too, and a selector at the start has no base.
+    expect(sanitizeForDisplay("\u{1F600}\uFE00")).toBe("\u{1F600}<U+FE00>");
+    expect(sanitizeForDisplay("\uFE0Fa")).toBe("<U+FE0F>a");
+  });
 });
 
 describe("frameForAgent", () => {
@@ -177,6 +213,10 @@ describe("frameForAgent kinds and joiners", () => {
     expect(textOf(frameForAgent({ ...base, text: "\u{1F600}\u200D\u200D\u{1F600}" }))).toBe("\u{1F600}<U+200D><U+200D>\u{1F600}");
     // Other hidden characters are escaped for agents as for display.
     expect(textOf(frameForAgent({ ...base, text: "\u{1F600}\u200B\u{1F600}" }))).toBe("\u{1F600}<U+200B>\u{1F600}");
+    // Presentation selectors follow the display rule: one after an emoji is kept, others are not.
+    expect(textOf(frameForAgent({ ...base, text: "\u{1F600}\uFE0F" }))).toBe("\u{1F600}\uFE0F");
+    expect(textOf(frameForAgent({ ...base, text: "\u{1F600}\uFE0F\uFE0F\u200D\u{1F600}" }))).toBe("\u{1F600}\uFE0F<U+FE0F><U+200D>\u{1F600}");
+    expect(textOf(frameForAgent({ ...base, text: "a\uFE06\uFE08" }))).toBe("a<U+FE06><U+FE08>");
   });
 
   it("renders a task with or without a deadline", () => {

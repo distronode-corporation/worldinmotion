@@ -5,9 +5,18 @@ import { fail, ok, type Result } from "./limits.ts";
  * duplicate, while other parsers keep the first, so two implementations could read the same signed
  * bytes differently. Keys are compared after unescaping (`"a"` and `"\u0061"` are the same key).
  *
- * The text must already be valid JSON; this is a token scan, not a parser.
+ * Throws a `SyntaxError`, as `JSON.parse` does, when the text is not valid JSON.
  */
 export function hasDuplicateKeys(text: string): boolean {
+  JSON.parse(text);
+  return scanForDuplicateKeys(text);
+}
+
+/**
+ * The scan behind `hasDuplicateKeys`, for text already known to be valid JSON: a token scan, not
+ * a parser. On text that is not JSON it may never return (an unterminated string has no end).
+ */
+function scanForDuplicateKeys(text: string): boolean {
   // One entry per open container: the keys seen so far for an object, null for an array.
   const stack: Array<Set<string> | null> = [];
   let expectKey = false;
@@ -50,5 +59,5 @@ export function parseJson(text: string): Result<unknown> {
   } catch {
     return fail("not_json");
   }
-  return hasDuplicateKeys(text) ? fail("duplicate_key") : ok(value);
+  return scanForDuplicateKeys(text) ? fail("duplicate_key") : ok(value);
 }

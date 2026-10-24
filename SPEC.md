@@ -379,10 +379,16 @@ person the receiving agent works for.
   anything unsafe or out of scope. It is still never the person's approval of a specific action,
   and still cannot answer a permission prompt or change a setting. Relayed or derived text (from
   any device) and messages from devices whose policy is not `deliver` are information only.
-- Text shown to a person MUST have C0 and C1 control characters (except newline and tab),
-  bidirectional controls and zero-width or other invisible characters escaped visibly. Text handed
-  to an agent gets the same escaping, except that a zero-width joiner between two emoji (which
-  forms one visible glyph and cannot hide text) is kept.
+- Text shown to a person MUST have these escaped visibly: C0 and C1 control characters (except
+  newline and tab), line and paragraph separators, every format character (general category
+  `Cf`, which includes the bidirectional controls, zero-width characters and Unicode tags), every
+  `Default_Ignorable_Code_Point` (which includes the variation selectors, fillers and the code
+  points Unicode reserves as invisible), and unpaired surrogates. The one exception is a single
+  presentation selector, U+FE0E or U+FE0F, directly after a character with the `Emoji` property:
+  it only chooses how that character is drawn. Any other variation selector, a second selector in
+  a row included, is escaped, since a run of them can carry hidden bytes. Text handed to an agent
+  gets the same escaping, except that a zero-width joiner between two emoji (which forms one
+  visible glyph and cannot hide text) is also kept.
 - Inbound policy is set per sender device id: `deliver`, `hold` (wait for the person) or `refuse`.
   The default for a device the person has not marked as their own is `hold`.
 - **Relayed text.** A plaintext carries `"relayed": true` when the sender did not write its text
