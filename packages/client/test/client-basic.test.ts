@@ -116,8 +116,10 @@ describe("messaging", () => {
     await a.send("b@two", "third");
     await until(async () => (await unread(b)).length === 1);
     expect((await b.next(10))?.rendered).toContain("third");
+    // Nothing else is due, so the wait runs to its timeout and beats along the way. An item here
+    // would end it at once with no beat; asserting none arrived names it if that ever happens.
     const ticks: number[] = [];
-    await b.next(300, (e) => ticks.push(e), 10);
+    expect(await b.next(300, (e) => ticks.push(e), 10)).toBeUndefined();
     expect(ticks.length).toBeGreaterThan(0);
   });
 
