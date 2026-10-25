@@ -11,6 +11,14 @@ index-based on the `## [x.y.z]` heading and stops at the next such heading or at
 line beginning with `[`, so keep the link definitions at the bottom and do not start a
 body line with a bracket.
 
+## [Unreleased]
+
+### Fixed
+
+- **README quick start:** step 4 runs `wim inbox` on the second device before the first send.
+  As written, the send to `cli@<second device>` was refused as unknown, because that session
+  had never connected.
+
 ## [0.1.0] - 2026-10-24
 
 The first pre-release. The wire format and the commands may still change before 1.0.
@@ -54,4 +62,5 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[0.1.0]: https://github.com/distronode-corporation/worldinmotion/commits/main
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.0

@@ -75,6 +75,10 @@ If both devices are yours, run this on each, naming the other device (`wim devic
 wim devices trust <other device>
 ```
 
+On the second device, run `wim inbox` once. That starts its `cli` session, so the relay knows
+where to queue messages for it; until then, a send to `cli@<second device>` is refused as
+unknown.
+
 Then, from the first device:
 
 ```sh
