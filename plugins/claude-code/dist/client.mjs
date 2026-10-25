@@ -119763,9 +119763,9 @@ async function meshCreate(ctx) {
     throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls3)}`, "unauthorized");
   });
   ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
-  await registerCli(ctx, made.mesh);
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== void 0) await showRecoveryCode(ctx, made.recoveryCode);
+  await registerCli(ctx, made.mesh);
   return 0;
 }
 var CREATE_REFUSED = "the relay refused to create the mesh";
