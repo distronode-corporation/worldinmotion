@@ -13,6 +13,10 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-25
+
+A fix for the first message of the quick start.
+
 ### Fixed
 
 - **A first send to a new device answered `unknown`.** Following the quick start (init, invite,
@@ -69,5 +73,6 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.1
 [0.1.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.0
