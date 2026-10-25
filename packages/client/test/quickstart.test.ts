@@ -48,6 +48,21 @@ describe("the README quick start", () => {
     expect(said(a)).toContain("hi back");
   }, 30_000);
 
+  it("shows the recovery code before it registers the cli session, so a slow relay cannot delay or lose it", async () => {
+    const relay = new RelayHarness();
+    const a = term(await scratch("qs-a"), relay, { isTTY: true });
+    // For each sign-in the relay accepts, whether the recovery code was already on screen.
+    const shownAtReady: boolean[] = [];
+    relay.toClient = (text) => {
+      if (text.includes('"t":"ready"')) shownAtReady.push(a.out.some((l) => l.startsWith("Recovery code")));
+      return text;
+    };
+    expect(await run(a, "init", "--name", "qs-a", "--relay", RELAY)).toBe(0);
+    expect(said(a)).toMatch(/Recovery code \(shown once/);
+    // The last sign-in is the cli registration: by then the code had been shown.
+    expect(shownAtReady.at(-1)).toBe(true);
+  }, 30_000);
+
   it("still joins when the relay cannot be reached again to register the cli session, and says what that means", async () => {
     const relay = new RelayHarness();
     const a = term(await scratch("qs-a"), relay);

@@ -484,9 +484,10 @@ async function meshCreate(ctx: Ctx): Promise<number> {
     throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls)}`, "unauthorized");
   });
   ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
-  await registerCli(ctx, made.mesh);
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== undefined) await showRecoveryCode(ctx, made.recoveryCode);
+  // After the recovery code, which exists only in memory: a slow relay here must not delay it.
+  await registerCli(ctx, made.mesh);
   return 0;
 }
 
