@@ -219,9 +219,10 @@ class Ctx {
     return this.io.dialer ?? wsDialer;
   }
 
-  async mesh(): Promise<{ device: Device; files: MeshFiles }> {
+  /** The device and a mesh: `meshId` when given, else the one `--mesh`, `WIM_MESH` or the only mesh names. */
+  async mesh(meshId?: string): Promise<{ device: Device; files: MeshFiles }> {
     const device = await this.home.requireDevice();
-    const id = await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]);
+    const id = meshId ?? (await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]));
     return { device, files: new MeshFiles(this.home.meshDir(id), this.fsEnv) };
   }
 
@@ -231,8 +232,8 @@ class Ctx {
   }
 
   /** `verbose` sends every log line to stderr (for `wim mcp`, whose stderr is the host's MCP log). */
-  async sessionOptions(name: string, kind: string, verbose = false): Promise<Omit<SessionOptions, "sessionKey">> {
-    const { device, files } = await this.mesh();
+  async sessionOptions(name: string, kind: string, verbose = false, meshId?: string): Promise<Omit<SessionOptions, "sessionKey">> {
+    const { device, files } = await this.mesh(meshId);
     const notifier = await this.notifier();
     return {
       device,
@@ -254,8 +255,8 @@ class Ctx {
    * command with that name (or one taking over an earlier one's name) reads what arrived. Only
    * `wim watch` publishes a card and takes handed-over sends.
    */
-  async session(name: string, opts: { keyed?: boolean; card?: boolean; handover?: boolean } = {}): Promise<MeshSession> {
-    const base = await this.sessionOptions(name, "cli");
+  async session(name: string, opts: { keyed?: boolean; card?: boolean; handover?: boolean; mesh?: string } = {}): Promise<MeshSession> {
+    const base = await this.sessionOptions(name, "cli", false, opts.mesh);
     // While another live command holds this name (a `wim watch`), a short command takes a
     // throwaway session instead of a `cli-N` that would linger: it ends for good when done.
     const ephemeral = opts.keyed !== false && (await liveWatcher(base.mesh, name, this.fsEnv)) !== undefined;
@@ -483,6 +484,7 @@ async function meshCreate(ctx: Ctx): Promise<number> {
     throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls)}`, "unauthorized");
   });
   ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
+  await registerCli(ctx, made.mesh);
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== undefined) await showRecoveryCode(ctx, made.recoveryCode);
   return 0;
@@ -622,7 +624,25 @@ async function join(ctx: Ctx): Promise<number> {
     },
   });
   ctx.io.out(`Joined mesh ${joined.mesh}. Peers' messages are held for approval until you trust their devices: wim devices trust <name>`);
+  await registerCli(ctx, joined.mesh);
   return 0;
+}
+
+/**
+ * Connects this device's default CLI session (`cli`, or `WIM_NAME`) to a mesh it just created or
+ * joined, then leaves it offline, not ended. A relay knows a session only once it has connected,
+ * so without this a first `wim send cli@<this device>` from another device answers `unknown`
+ * until this device runs `wim inbox` or `wim watch`. Now it answers `queued`, and the next
+ * `wim inbox` here reads it. Like any offline session, the relay forgets it after 24 hours with
+ * an empty queue. The mesh is already set up when this runs, so a failure only warns.
+ */
+async function registerCli(ctx: Ctx, mesh: string): Promise<void> {
+  const name = nameFor(ctx, "cli");
+  try {
+    await ctx.finish(await ctx.session(name, { mesh }));
+  } catch (error) {
+    ctx.io.err(`wim: could not register ${name} with the relay (${(error as Error).message}). Until \`wim inbox\` or \`wim watch\` runs on this device, sends to ${name} here answer \`unknown\`.`);
+  }
 }
 
 function deviceRows(r: Roster, config: { device: string; policy: Record<string, string> }): string[] {

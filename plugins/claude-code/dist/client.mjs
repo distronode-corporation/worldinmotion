@@ -119523,9 +119523,10 @@ var Ctx = class {
   get dialer() {
     return this.io.dialer ?? wsDialer;
   }
-  async mesh() {
+  /** The device and a mesh: `meshId` when given, else the one `--mesh`, `WIM_MESH` or the only mesh names. */
+  async mesh(meshId) {
     const device = await this.home.requireDevice();
-    const id = await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]);
+    const id = meshId ?? await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]);
     return { device, files: new MeshFiles(this.home.meshDir(id), this.fsEnv) };
   }
   async notifier() {
@@ -119533,8 +119534,8 @@ var Ctx = class {
     return n3 === void 0 ? void 0 : quiet(n3, this.io.err);
   }
   /** `verbose` sends every log line to stderr (for `wim mcp`, whose stderr is the host's MCP log). */
-  async sessionOptions(name, kind, verbose = false) {
-    const { device, files } = await this.mesh();
+  async sessionOptions(name, kind, verbose = false, meshId) {
+    const { device, files } = await this.mesh(meshId);
     const notifier = await this.notifier();
     return {
       device,
@@ -119556,7 +119557,7 @@ var Ctx = class {
    * `wim watch` publishes a card and takes handed-over sends.
    */
   async session(name, opts = {}) {
-    const base = await this.sessionOptions(name, "cli");
+    const base = await this.sessionOptions(name, "cli", false, opts.mesh);
     const ephemeral = opts.keyed !== false && await liveWatcher(base.mesh, name, this.fsEnv) !== void 0;
     const keyed = opts.keyed !== false && !ephemeral;
     if (keyed) await adoptByName(base.mesh, name, this.fsEnv, this.io.now);
@@ -119762,6 +119763,7 @@ async function meshCreate(ctx) {
     throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls3)}`, "unauthorized");
   });
   ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
+  await registerCli(ctx, made.mesh);
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== void 0) await showRecoveryCode(ctx, made.recoveryCode);
   return 0;
@@ -119885,7 +119887,16 @@ async function join18(ctx) {
     }
   });
   ctx.io.out(`Joined mesh ${joined.mesh}. Peers' messages are held for approval until you trust their devices: wim devices trust <name>`);
+  await registerCli(ctx, joined.mesh);
   return 0;
+}
+async function registerCli(ctx, mesh) {
+  const name = nameFor(ctx, "cli");
+  try {
+    await ctx.finish(await ctx.session(name, { mesh }));
+  } catch (error63) {
+    ctx.io.err(`wim: could not register ${name} with the relay (${error63.message}). Until \`wim inbox\` or \`wim watch\` runs on this device, sends to ${name} here answer \`unknown\`.`);
+  }
 }
 function deviceRows(r6, config2) {
   return r6.devices.map((d5) => {
