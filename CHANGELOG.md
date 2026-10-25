@@ -15,6 +15,13 @@ body line with a bracket.
 
 ### Fixed
 
+- **A first send to a new device answered `unknown`.** Following the quick start (init, invite,
+  join, trust), `wim send cli@<second device> hello` failed with `cli@<second device>: unknown`
+  until the second device had run `wim inbox` once, because a relay knows a session only after it
+  has connected. `wim join`, `wim init --relay` and `wim mesh create` now connect the device's
+  default `cli` session (or `WIM_NAME`) once and leave it offline, so a first send answers
+  `queued` and the next `wim inbox` there reads it. The wire protocol is unchanged. If the relay
+  cannot be reached for that step, the command still succeeds and says so.
 - **README quick start:** step 4 runs `wim inbox` on the second device before the first send.
   As written, the send to `cli@<second device>` was refused as unknown, because that session
   had never connected.
