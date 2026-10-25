@@ -32,7 +32,7 @@ describe("flags", () => {
     expect(await run(t, "held", "--all")).toBe(2);
     expect(t.err.at(-1)).toMatch(/^wim: unknown flag --all for wim held\n/);
     expect(await run(t, "--bogus")).toBe(2);
-    expect(t.err.at(-1)).toMatch(/^wim: unknown flag --bogus\n\nwim 0\.1\.0: end-to-end/);
+    expect(t.err.at(-1)).toMatch(new RegExp(`^wim: unknown flag --bogus\\n\\nwim ${VERSION.replaceAll(".", "\\.")}: end-to-end`));
     expect(await run(t, "peers", "--all=yes")).toBe(2);
     expect(t.err.at(-1)).toBe("--all takes no value");
   });

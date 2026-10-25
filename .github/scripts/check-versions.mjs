@@ -25,6 +25,7 @@ const json = (path) => JSON.parse(read(path));
 const SOURCE_CONSTANTS = [
   { file: "packages/client/src/cli.ts", pattern: /export const VERSION = "([^"]+)";/ },
   { file: "packages/a2a/src/inbound.ts", pattern: /const GATEWAY_VERSION = "([^"]+)";/ },
+  { file: "packages/relay-core/src/host.ts", pattern: /export const RELAY_VERSION = "([^"]+)";/ },
 ];
 
 const want = process.argv[2] ?? json("package.json").version;
