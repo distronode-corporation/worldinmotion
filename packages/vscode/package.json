@@ -4,6 +4,12 @@
   "description": "See and act on your worldinmotion mesh from VS Code: devices, sessions, rooms, leases, held messages and live activity",
   "version": "0.1.1",
   "publisher": "distronode",
+  "icon": "media/marketplace-icon.png",
+  "preview": true,
+  "galleryBanner": {
+    "color": "#16263d",
+    "theme": "dark"
+  },
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
@@ -11,6 +17,10 @@
     "type": "git",
     "url": "https://github.com/distronode-corporation/worldinmotion.git",
     "directory": "packages/vscode"
+  },
+  "homepage": "https://github.com/distronode-corporation/worldinmotion/tree/main/packages/vscode#readme",
+  "bugs": {
+    "url": "https://github.com/distronode-corporation/worldinmotion/issues"
   },
   "engines": {
     "vscode": "^1.140.0",
@@ -40,7 +50,7 @@
   ],
   "scripts": {
     "bundle": "node scripts/bundle.mjs",
-    "package": "node scripts/bundle.mjs && vsce package --no-dependencies --out worldinmotion-0.1.1.vsix",
+    "package": "node scripts/bundle.mjs && vsce package --no-dependencies --pre-release --out worldinmotion-0.1.1.vsix",
     "smoke": "node scripts/bundle.mjs && node test-electron/run.mjs"
   },
   "contributes": {
