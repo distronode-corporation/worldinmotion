@@ -87,15 +87,14 @@ export class Home {
     }
     const sealed = file.sealed;
     const signPub = b64u.decode(sealed.signPub);
-    const endpoint = await agentEndpoint(this.root, this.env, false);
     const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in your own terminal`;
-    if (endpoint === undefined) throw new SetupError(notRunning);
-    const client = new SignerClient({ endpoint, expect: signPub });
+    // Found again for each connection: the session outlives a signer restart.
+    const client = new SignerClient({ endpoint: () => agentEndpoint(this.root, this.env, false), expect: signPub });
     let hello;
     try {
       hello = await client.hello();
     } catch (error) {
-      throw new SetupError((error as SignerError).code === "unavailable" ? notRunning : (error as Error).message);
+      throw new SetupError((error as Partial<SignerError>).code === "unavailable" ? notRunning : (error as Error).message);
     }
     if (hello.locked) {
       client.close();

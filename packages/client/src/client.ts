@@ -589,11 +589,17 @@ export class MeshSession extends EventEmitter {
    * is then not acknowledged, and the relay delivers it again.
    */
   private async openFresh(msg: SendFrame, history = false) {
-    const first = await this.open(msg, history);
-    if (first.ok || first.reason !== "key_expired") return first;
-    // A sibling session may have rotated since this one read the device's prekeys.
-    await this.prekeys.reload();
-    return this.open(msg, history);
+    return this.retryOpen(await this.open(msg, history), msg, history);
+  }
+
+  /**
+   * Tried again after reading the device's prekeys afresh: a box for a prekey a sibling session
+   * made since (`key_expired`), or one whose sealed secret this session holds from before the key
+   * file was decrypted and encrypted again, under a new data key (`decrypt_failed`).
+   */
+  private retryOpen(first: Awaited<ReturnType<MeshSession["open"]>>, msg: SendFrame, history: boolean) {
+    if (first.ok || (first.reason !== "key_expired" && first.reason !== "decrypt_failed")) return Promise.resolve(first);
+    return this.prekeys.reload().then(() => this.open(msg, history));
   }
 
   /** Sends a frame if connected; while offline it is dropped (acks and receipts are not resent). */
@@ -621,9 +627,13 @@ export class MeshSession extends EventEmitter {
       return;
     }
     this.log(`wim: inbound: ${(error as Error).message}`);
-    if (!(error instanceof SignerError && error.transient)) return;
+    // Whatever the failure, nothing more is acked on this connection: a later ack would take
+    // this frame with it. The relay delivers it again on the next connection.
     this.heldLink = this.link;
-    this.link?.close(CLOSE.bye, "the device's signer did not answer");
+    // When the signer could not answer, or what answers is not the signer, the connection goes
+    // now: the next one authenticates only once the real signer answers. Any other failure keeps
+    // it (a reconnect would only bring the same frame back at once).
+    if (error instanceof SignerError && (error.transient || error.code === "mismatch")) this.link?.close(CLOSE.bye, "the device's signer did not answer");
   }
 
   /**

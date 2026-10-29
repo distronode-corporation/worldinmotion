@@ -21,12 +21,13 @@ import {
   type Prekey,
   type SignType,
 } from "@worldinmotion/protocol";
-import { createPrivateKey, sign as edSign } from "node:crypto";
+import { createPrivateKey, sign as edSign, type KeyObject } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { z } from "zod";
 import type { EndpointFiles } from "./agentpath.ts";
-import { MAX_LINE, helloBytes } from "./signer.ts";
+import { channelFor, ephemeral, helloTranscript, type Channel } from "./channel.ts";
+import { MAX_LINE, unseal } from "./signer.ts";
 import { openPrekeySecret, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "./vault.ts";
 
 /** A refusal with a code the client maps to a SignerError. */
@@ -111,7 +112,7 @@ const openArgs = z.strictObject({ ...boxArgs, senderBox: bytes(32), box: boxSche
 const open2Args = openArgs.extend({ entry: z.strictObject({ prekey: prekeySchema, sealed: z.string() }) });
 const signArgs = z.strictObject({ type: z.string(), obj: z.record(z.string(), z.unknown()) });
 const ARGS = {
-  hello: z.strictObject({ nonce: bytes(32) }),
+  hello: z.strictObject({ nonce: bytes(32), epub: bytes(32) }),
   status: z.strictObject({}),
   sign: signArgs,
   seal: sealArgs,
@@ -136,10 +137,32 @@ const OWNER: Record<string, (o: Record<string, unknown>) => unknown> = {
   join: (o) => (o["device"] as { id?: unknown } | undefined)?.id,
 };
 
-/** An Ed25519 private key as Node's crypto takes it (PKCS#8 DER around the 32-byte seed). */
-function ed25519Private(seed: Uint8Array) {
-  return createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), seed]), format: "der", type: "pkcs8" });
+/**
+ * An Ed25519 private key as Node's crypto takes it, made once per unlock. The PKCS#8 DER around the
+ * seed is built in a buffer of its own (Buffer.concat would copy the seed into Node's shared pool,
+ * where nothing zeroes it) and zeroed once the key object holds it.
+ */
+function ed25519Private(seed: Uint8Array): KeyObject {
+  const prefix = Buffer.from("302e020100300506032b657004220420", "hex");
+  const der = Buffer.alloc(prefix.length + seed.length);
+  prefix.copy(der);
+  der.set(seed, prefix.length);
+  try {
+    return createPrivateKey({ key: der, format: "der", type: "pkcs8" });
+  } finally {
+    der.fill(0);
+  }
 }
+
+/**
+ * How far an `auth` or `send` object's `at` may be from the signer's clock. Receivers take a
+ * message up to its freshness window old, so what the signer signs while unlocked stays usable
+ * after a lock for that long (SECURITY-MODEL 5.8); it does not sign for later than this.
+ */
+export const SIGN_SKEW_MS = 5 * 60_000;
+
+/** Present on a `hello` answer whose signer opened a channel; JSON.stringify leaves symbol keys out. */
+export const CHANNEL: unique symbol = Symbol("channel");
 
 export type SignerOptions = {
   file: SealedKeyFile;
@@ -158,6 +181,7 @@ export class Signer {
   readonly file: SealedKeyFile;
   readonly started: number;
   private keys: Unlocked | undefined;
+  private signKey: KeyObject | undefined;
   private readonly bucket: TokenBucket;
   private readonly counts: Record<string, number> = {};
   private refused = 0;
@@ -168,6 +192,7 @@ export class Signer {
     this.o = o;
     this.file = o.file;
     this.keys = o.unlocked;
+    this.signKey = ed25519Private(o.unlocked.keys.signSec);
     this.started = o.now();
     const rate = o.rate ?? AGENT_RATE;
     this.bucket = new TokenBucket(rate.perSecond, rate.burst, o.now);
@@ -177,12 +202,22 @@ export class Signer {
     return this.keys === undefined;
   }
 
-  /** Wipes the keys from memory (as far as JavaScript can: the byte arrays are zeroed). */
+  /**
+   * Wipes the keys from memory as far as JavaScript can: the byte arrays are zeroed, and the key
+   * object is dropped (OpenSSL frees its copy when it is collected; JavaScript cannot zero it).
+   */
   lock(): void {
     const k = this.keys;
     this.keys = undefined;
+    this.signKey = undefined;
     if (k === undefined) return;
     for (const b of [k.keys.signSec, k.keys.boxSec, k.data]) b.fill(0);
+  }
+
+  /** Its endpoint now names another socket (renamed or replaced): locked, and logged. */
+  replaced(): void {
+    this.lock();
+    this.o.log({ at: this.o.now(), op: "replaced", ok: false, code: "replaced" });
   }
 
   /** Answers one request, or throws an AgentError. Every answer is logged. */
@@ -211,7 +246,7 @@ export class Signer {
     const a = parsed.data as Record<string, unknown>;
     switch (op as Op) {
       case "hello":
-        return this.hello(b64u.decode(a["nonce"] as string));
+        return this.hello(b64u.decode(a["nonce"] as string), b64u.decode(a["epub"] as string));
       case "status":
         return { id: this.file.id, name: this.file.name, locked: this.locked, pid: this.o.pid, started: this.started, ops: { ...this.counts }, refused: this.refused, limited: this.limited };
       case "lock":
@@ -226,18 +261,24 @@ export class Signer {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
     }
-    return this.keyOp(op as Exclude<Op, "hello" | "status" | "lock" | "stop">, a, keys, entry);
+    return this.keyOp(op as Exclude<Op, "hello" | "status" | "lock" | "stop">, a, keys, this.signKey!, entry);
   }
 
-  private hello(nonce: Uint8Array): Record<string, unknown> {
+  /**
+   * Locked: who it is, nothing it could prove. Unlocked: its own channel key and a signature over
+   * the client's nonce and both channel keys, with the channel (CHANNEL) for the server to use.
+   */
+  private hello(nonce: Uint8Array, clientPub: Uint8Array): Record<string | symbol, unknown> {
     const f = this.file;
     const base = { id: f.id, name: f.name, signPub: f.signPub, boxPub: f.boxPub, locked: this.locked, pid: this.o.pid };
-    if (this.keys === undefined) return base;
-    const proof = edSign(null, helloBytes(nonce), ed25519Private(this.keys.keys.signSec));
-    return { ...base, proof: b64u.encode(proof) };
+    if (this.signKey === undefined) return base;
+    const mine = ephemeral();
+    const transcript = helloTranscript(nonce, clientPub, mine.pub);
+    const channel = channelFor("signer", mine.privateKey, clientPub, transcript);
+    return { ...base, epub: b64u.encode(mine.pub), proof: b64u.encode(edSign(null, transcript, this.signKey)), [CHANNEL]: channel };
   }
 
-  private keyOp(op: "sign" | "seal" | "open" | "open2" | "prekey" | "adopt", a: Record<string, unknown>, k: Unlocked, entry: LogEntry): Record<string, unknown> {
+  private keyOp(op: "sign" | "seal" | "open" | "open2" | "prekey" | "adopt", a: Record<string, unknown>, k: Unlocked, signKey: KeyObject, entry: LogEntry): Record<string, unknown> {
     const me = this.file.id;
     const refuse = (why: string): never => {
       throw new AgentError("refused", why);
@@ -251,11 +292,14 @@ export class Signer {
         const owner = OWNER[type];
         if (owner === undefined) throw new AgentError("bad_request", `no signature type ${JSON.stringify(type)}`);
         if (owner(obj) !== me) refuse(`this ${type} object is not this device's`);
+        if ((type === "auth" || type === "send") && !(typeof obj["at"] === "number" && Math.abs(obj["at"] - this.o.now()) <= SIGN_SKEW_MS)) {
+          refuse(`this ${type} object's time is not within ${SIGN_SKEW_MS / 60_000} minutes of the signer's clock`);
+        }
         entry.mesh = typeof obj["mesh"] === "string" ? obj["mesh"] : undefined;
         // The same bytes signObject signs: the type label, then the canonical object without sig.
         const { sig: _sig, ...rest } = obj;
         const message = Buffer.concat([Buffer.from(`wim/1 ${type}\n`, "utf8"), canonBytes(rest)]);
-        return { sig: b64u.encode(edSign(null, message, ed25519Private(k.keys.signSec))) };
+        return { sig: b64u.encode(edSign(null, message, signKey)) };
       }
       case "seal": {
         const req = a as z.infer<typeof sealArgs>;
@@ -333,17 +377,24 @@ export function answers(endpoint: string): Promise<boolean> {
 
 /**
  * The signer's socket. Each connection's requests are answered in order, one at a time; separate
- * connections run side by side. `stop` answers, then closes everything.
+ * connections run side by side. After an unlocked signer's `hello`, a connection's lines are
+ * sealed on its channel. `stop` answers, then closes everything.
+ *
+ * The signer holds its endpoint's identity (POSIX: the socket file's inode) from the moment it
+ * listens. If the path comes to name anything else (renamed away, or a process put its own socket
+ * there), the signer locks and stops: checked before every request, and every `watchMs`.
  */
 export class AgentServer {
   private server: Server | undefined;
   private readonly sockets = new Set<Socket>();
   private stopping = false;
+  private identity: string | undefined;
+  private watcher: NodeJS.Timeout | undefined;
   readonly stopped: Promise<void>;
   private resolveStopped!: () => void;
-  private readonly o: { signer: Signer; endpoint: string; files: EndpointFiles };
+  private readonly o: { signer: Signer; endpoint: string; files: EndpointFiles; watchMs?: number };
 
-  constructor(o: { signer: Signer; endpoint: string; files: EndpointFiles }) {
+  constructor(o: { signer: Signer; endpoint: string; files: EndpointFiles; watchMs?: number }) {
     this.o = o;
     this.stopped = new Promise((r) => (this.resolveStopped = r));
   }
@@ -358,7 +409,25 @@ export class AgentServer {
       server.listen(this.o.endpoint, () => resolve());
     });
     await this.o.files.secure(this.o.endpoint);
+    this.identity = await this.o.files.id(this.o.endpoint);
     this.server = server;
+    this.watcher = setInterval(() => void this.watch(), this.o.watchMs ?? 2000);
+    this.watcher.unref();
+  }
+
+  /** Whether the endpoint still names this signer's own socket. */
+  private async owned(): Promise<boolean> {
+    return (await this.o.files.id(this.o.endpoint)) === this.identity;
+  }
+
+  /** Locks and stops when the endpoint is no longer this signer's own. */
+  async watch(): Promise<void> {
+    if (!(await this.owned())) this.replacedNow();
+  }
+
+  private replacedNow(): void {
+    this.o.signer.replaced();
+    void this.close();
   }
 
   private serve(socket: Socket): void {
@@ -366,6 +435,7 @@ export class AgentServer {
     socket.setEncoding("utf8");
     let buffered = "";
     let queue: Promise<void> = Promise.resolve();
+    const state: { channel?: Channel } = {};
     socket.on("error", () => undefined);
     socket.on("close", () => this.sockets.delete(socket));
     socket.on("data", (chunk: string) => {
@@ -378,35 +448,65 @@ export class AgentServer {
       for (let nl = buffered.indexOf("\n"); nl !== -1; nl = buffered.indexOf("\n")) {
         const line = buffered.slice(0, nl);
         buffered = buffered.slice(nl + 1);
-        queue = queue.then(() => this.request(socket, line));
+        queue = queue.then(() => this.request(socket, line, state));
       }
     });
   }
 
-  private async request(socket: Socket, line: string): Promise<void> {
+  private async request(socket: Socket, line: string, state: { channel?: Channel }): Promise<void> {
+    return this.dispatch(socket, line, state, await this.owned());
+  }
+
+  /** Someone else's socket at the path: nothing is answered, and the signer locks and stops. */
+  private dispatch(socket: Socket, line: string, state: { channel?: Channel }, owned: boolean): Promise<void> {
+    if (!owned) {
+      socket.destroy();
+      this.replacedNow();
+      return Promise.resolve();
+    }
+    return this.handleLine(line, state).then((handled) => this.answerLine(socket, state, handled));
+  }
+
+  /** The answer to one line, or undefined for a sealed line that does not open (the connection then ends). */
+  private async handleLine(line: string, state: { channel?: Channel }): Promise<{ op: string; answer: Answer } | undefined> {
+    const text = state.channel === undefined ? line : unseal(state.channel, line);
+    if (text === undefined) return undefined;
     let i: unknown = 0;
     let op = "";
-    let answer: { i: unknown; r?: Record<string, unknown>; e?: { code: string; message: string } };
     try {
-      const req = JSON.parse(line) as { i?: unknown; op?: unknown; a?: unknown };
+      const req = JSON.parse(text) as { i?: unknown; op?: unknown; a?: unknown };
       i = req.i;
       op = String(req.op);
-      answer = { i, r: await this.o.signer.handle(op, req.a ?? {}) };
+      return { op, answer: { i, r: await this.o.signer.handle(op, req.a ?? {}) } };
     } catch (error) {
-      answer = { i, e: { code: error instanceof AgentError ? error.code : "bad_request", message: (error as Error).message } };
+      return { op, answer: { i, e: { code: error instanceof AgentError ? error.code : "bad_request", message: (error as Error).message } } };
     }
-    const line2 = `${JSON.stringify(answer)}\n`;
-    if (op !== "stop" || answer.r === undefined) {
+  }
+
+  /**
+   * Writes an answer (sealed on the channel when there is one), takes up the channel a `hello`
+   * opened, and acts on `stop`. Kept synchronous: every branch after the awaits is here.
+   */
+  private answerLine(socket: Socket, state: { channel?: Channel }, handled: { op: string; answer: Answer } | undefined): void {
+    if (handled === undefined) {
+      socket.destroy();
+      return;
+    }
+    const text = JSON.stringify(handled.answer);
+    const out = `${state.channel === undefined ? text : JSON.stringify({ x: state.channel.seal(text) })}\n`;
+    const opened = handled.answer.r?.[CHANNEL] as Channel | undefined;
+    if (opened !== undefined) state.channel = opened;
+    if (handled.op !== "stop" || handled.answer.r === undefined) {
       // A connection that went away meanwhile drops the answer (its error is ignored above).
-      socket.write(line2);
+      socket.write(out);
       return;
     }
     // Stopped listening before the answer goes out, so a client that has the answer finds the
     // endpoint closed (`wim agent unlock` relies on that to tell a signer from an impostor). The
     // answer is flushed, then this connection is closed like every other.
     this.server!.close();
-    socket.end(line2, () => socket.destroy());
-    await this.close(socket);
+    socket.end(out, () => socket.destroy());
+    void this.close(socket);
   }
 
   /**
@@ -417,9 +517,12 @@ export class AgentServer {
   async close(answering?: Socket): Promise<void> {
     if (this.stopping) return this.stopped;
     this.stopping = true;
+    clearInterval(this.watcher);
     this.o.signer.lock();
     for (const s of this.sockets) if (s !== answering) s.destroy();
     await new Promise<void>((resolve) => (this.server === undefined ? resolve() : this.server.close(() => resolve())));
     this.resolveStopped();
   }
 }
+
+type Answer = { i: unknown; r?: Record<string | symbol, unknown>; e?: { code: string; message: string } };

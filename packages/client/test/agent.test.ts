@@ -19,8 +19,9 @@ import {
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AgentError, AgentLog, Signer, TokenBucket, type LogEntry } from "../src/agent.ts";
-import { ed25519Public, helloBytes } from "../src/signer.ts";
+import { AgentError, AgentLog, CHANNEL, Signer, SIGN_SKEW_MS, TokenBucket, type LogEntry } from "../src/agent.ts";
+import { ed25519Public } from "../src/signer.ts";
+import { channelFor, ephemeral, helloTranscript, type Channel } from "../src/channel.ts";
 import { openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "../src/vault.ts";
 import { scratch } from "./helpers.ts";
 import { verify } from "node:crypto";
@@ -100,26 +101,50 @@ describe("AgentLog", () => {
 });
 
 describe("Signer", () => {
-  it("proves it holds the signing key in hello, and says nothing it cannot prove when locked", async () => {
+  it("proves it holds the signing key in hello, over the client's nonce and both channel keys, and says nothing it cannot prove when locked", async () => {
     const m = await made();
     const nonce = randomBytes(32);
-    const hello = await m.signer.handle("hello", { nonce: b64u.encode(nonce) });
+    const client = ephemeral();
+    const hello = (await m.signer.handle("hello", { nonce: b64u.encode(nonce), epub: b64u.encode(client.pub) })) as Record<string | symbol, unknown>;
     expect(hello).toMatchObject({ id: m.file.id, name: "laptop", signPub: m.file.signPub, locked: false, pid: 42 });
-    expect(verify(null, helloBytes(nonce), ed25519Public(m.keys.signPub), b64u.decode(hello["proof"] as string))).toBe(true);
+    const theirs = b64u.decode(hello["epub"] as string);
+    const transcript = helloTranscript(nonce, client.pub, theirs);
+    expect(verify(null, transcript, ed25519Public(m.keys.signPub), b64u.decode(hello["proof"] as string))).toBe(true);
+    // The channel it opened is the one the client derives: what one seals, the other opens.
+    const mine = channelFor("client", client.privateKey, theirs, transcript);
+    const signerSide = hello[CHANNEL] as Channel;
+    expect(signerSide.open(mine.seal("to the signer"))).toBe("to the signer");
+    expect(mine.open(signerSide.seal("to the client"))).toBe("to the client");
+    // Signed for another client key, the proof does not verify: a relayed hello is worthless.
+    expect(verify(null, helloTranscript(nonce, ephemeral().pub, theirs), ed25519Public(m.keys.signPub), b64u.decode(hello["proof"] as string))).toBe(false);
     m.signer.lock();
     m.signer.lock();
-    const locked = await m.signer.handle("hello", { nonce: b64u.encode(nonce) });
+    const locked = await m.signer.handle("hello", { nonce: b64u.encode(nonce), epub: b64u.encode(client.pub) });
     expect(locked["locked"]).toBe(true);
     expect(locked["proof"]).toBeUndefined();
+  });
+
+  it("signs auth and send objects only for a time near its own clock", async () => {
+    const m = await made();
+    const me = m.file.id;
+    const send = (at: unknown) => m.signer.handle("sign", { type: "send", obj: { mesh: MESH, from: { device: me }, at } });
+    expect(await code(send(T))).toBe("ok");
+    expect(await code(send(T + SIGN_SKEW_MS))).toBe("ok");
+    expect(await code(send(T + SIGN_SKEW_MS + 1))).toBe("refused");
+    expect(await code(send(T - SIGN_SKEW_MS - 1))).toBe("refused");
+    expect(await code(send("soon"))).toBe("refused");
+    expect(await code(m.signer.handle("sign", { type: "auth", obj: { device: me } }))).toBe("refused");
+    // A roster's or a join's time is not a freshness claim: signed as given.
+    expect(await code(m.signer.handle("sign", { type: "roster", obj: { mesh: MESH, by: me, at: 1 } }))).toBe("ok");
   });
 
   it("signs exactly what signObject signs, for this device's objects only, and never a prekey", async () => {
     const m = await made();
     const me = m.file.id;
     const objects: Array<[string, Record<string, unknown>]> = [
-      ["auth", { t: "auth", mesh: MESH, device: me, nonce: "n" }],
+      ["auth", { t: "auth", mesh: MESH, device: me, nonce: "n", at: T }],
       ["roster", { mesh: MESH, seq: 2, by: me }],
-      ["send", { mesh: MESH, from: { device: me, session: "a", sid: "s" }, sig: "old" }],
+      ["send", { mesh: MESH, from: { device: me, session: "a", sid: "s" }, at: T, sig: "old" }],
       ["join", { t: "join", mesh: MESH, device: { id: me } }],
     ];
     for (const [type, obj] of objects) {
@@ -134,7 +159,7 @@ describe("Signer", () => {
     expect(await code(m.signer.handle("sign", { type: "join", obj: {} }))).toBe("refused");
     expect(await code(m.signer.handle("sign", { type: "blob", obj: {} }))).toBe("bad_request");
     // An object of this device with no mesh is signed, and logged without one.
-    await m.signer.handle("sign", { type: "auth", obj: { device: me } });
+    await m.signer.handle("sign", { type: "auth", obj: { device: me, at: T } });
     expect(m.log.at(-1)).toMatchObject({ op: "sign", ok: true, type: "auth" });
     expect(m.log.at(-1)!.mesh).toBeUndefined();
   });
@@ -203,8 +228,10 @@ describe("Signer", () => {
     const m = await made();
     expect(await code(m.signer.handle("export", {}))).toBe("bad_request");
     expect(await code(m.signer.handle("hasOwnProperty", {}))).toBe("bad_request");
-    expect(await code(m.signer.handle("hello", { nonce: "short" }))).toBe("bad_request");
-    expect(await code(m.signer.handle("hello", { nonce: "!!!" }))).toBe("bad_request");
+    expect(await code(m.signer.handle("hello", { nonce: "short", epub: b64u.encode(randomBytes(32)) }))).toBe("bad_request");
+    expect(await code(m.signer.handle("hello", { nonce: "!!!", epub: b64u.encode(randomBytes(32)) }))).toBe("bad_request");
+    // A low-order channel key fails the exchange: a bad request, not a crash.
+    expect(await code(m.signer.handle("hello", { nonce: b64u.encode(randomBytes(32)), epub: b64u.encode(new Uint8Array(32)) }))).toBe("bad_request");
     expect(await code(m.signer.handle("status", { extra: 1 }))).toBe("bad_request");
     expect(m.log.every((e) => !e.ok && e.code === "bad_request")).toBe(true);
   });

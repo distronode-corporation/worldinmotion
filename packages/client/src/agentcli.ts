@@ -6,10 +6,10 @@ import { b64u, encodeKeys, prekeySchema, randomBytes, type Prekey } from "@world
 import { spawn as nodeSpawn } from "node:child_process";
 import { join } from "node:path";
 import { AgentLog, AgentServer, answers, Signer } from "./agent.ts";
-import { agentEndpoint, agentLogPath, endpointFiles, readAgentSettings, writeAgentSettings } from "./agentpath.ts";
+import { agentDir, agentEndpoint, agentLogPath, endpointFiles, readAgentSettings, retireEndpoint, startLockPath, writeAgentSettings } from "./agentpath.ts";
 import type { CliIO } from "./cli.ts";
 import { SetupError } from "./errors.ts";
-import { readJson, withLock, writeAtomic, writeJson } from "./fsx.ts";
+import { ensureDir, readJson, withLock, writeAtomic, writeJson } from "./fsx.ts";
 import type { Home } from "./home.ts";
 import { canShowSecret } from "./secretout.ts";
 import { SignerClient } from "./signer.ts";
@@ -122,12 +122,13 @@ export async function agentCommand(ctx: AgentCtx): Promise<number> {
 }
 
 /**
- * Runs the signer in this process until `stop`, Ctrl-C or a kill. `ready` is told once it
- * listens (with this pid) or why it could not start.
+ * Runs the signer in this process until `stop`, Ctrl-C, a kill or its endpoint being taken. `ready`
+ * is told once it listens (`ready <pid> <endpoint>`) or why it could not start. Checking for a
+ * running signer and binding happen under the start lock, so two starts never both bind (the
+ * second would remove the first's socket and leave it unreachable).
  */
 async function runSigner(ctx: AgentCtx, passphrase: string, ready: (line: string) => void): Promise<number> {
   const file = await sealedFile(ctx);
-  const at = (await endpoint(ctx, true))!;
   let unlocked;
   try {
     unlocked = await openKeyFile(file, passphrase);
@@ -135,44 +136,75 @@ async function runSigner(ctx: AgentCtx, passphrase: string, ready: (line: string
     ready(`error ${(error as Error).message}`);
     return 1;
   }
-  const log = new AgentLog(agentLogPath(ctx.home.root));
+  const { root, env } = ctx.home;
+  const log = new AgentLog(agentLogPath(root));
   const signer = new Signer({ file, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e) => log.write(e) });
-  const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(ctx.home.env.platform) });
+  let bound: { server: AgentServer; at: string };
   try {
-    await server.listen();
+    await ensureDir(agentDir(root));
+    bound = await withLock(
+      startLockPath(root),
+      async () => {
+        const before = await agentEndpoint(root, env, false);
+        if (before !== undefined && (await answers(before))) throw new SetupError(`a signer is already running at ${before}`);
+        const at = (await agentEndpoint(root, env, true))!;
+        const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(env.platform) });
+        await server.listen();
+        return { server, at };
+      },
+      env,
+    );
   } catch (error) {
     signer.lock();
     ready(`error ${(error as Error).message}`);
     return 1;
   }
   log.write({ at: ctx.io.now(), op: "start", ok: true });
-  ready(`ready ${ctx.io.pid}`);
-  const onAbort = (): void => void server.close();
+  ready(`ready ${ctx.io.pid} ${bound.at}`);
+  const onAbort = (): void => void bound.server.close();
   ctx.io.signal.addEventListener("abort", onAbort, { once: true });
-  await server.stopped;
+  await bound.server.stopped;
   ctx.io.signal.removeEventListener("abort", onAbort);
+  await retireEndpoint(root, env, bound.at);
   log.write({ at: ctx.io.now(), op: "exit", ok: true });
   await log.flushed();
   return 0;
 }
 
-async function start(ctx: AgentCtx): Promise<number> {
-  await sealedFile(ctx);
-  const at = (await endpoint(ctx, true))!;
-  if (await answers(at)) {
-    ctx.io.out(`A signer is already running at ${at}. \`wim agent status\` says whether it is locked; \`wim agent unlock\` restarts a locked one.`);
-    return 0;
+/**
+ * What answers at `at`, checked: a signer that proved it holds this device's key, or one that says
+ * it is locked (it then has no key to prove anything with). Anything else is not this device's
+ * signer, and is reported as such.
+ */
+async function verified(ctx: AgentCtx, at: string): Promise<{ client: SignerClient; locked: boolean }> {
+  const client = new SignerClient({ endpoint: at, expect: b64u.decode((await sealedFile(ctx)).signPub) });
+  try {
+    return { client, locked: (await client.hello()).locked };
+  } catch (error) {
+    client.close();
+    throw new SetupError(`something answers at ${at} but is not this device's signer (${(error as Error).message}): end that process, then run \`wim agent start\``);
   }
-  return launch(ctx, at, await readPassphrase(ctx, PROMPT));
 }
 
-/** Starts the signer at `at`: in this process with --foreground, else detached. */
-async function launch(ctx: AgentCtx, at: string, passphrase: string): Promise<number> {
+async function start(ctx: AgentCtx): Promise<number> {
+  await sealedFile(ctx);
+  const at = await endpoint(ctx, false);
+  if (at !== undefined && (await answers(at))) {
+    const { client, locked } = await verified(ctx, at);
+    client.close();
+    ctx.io.out(locked ? `A signer answers at ${at} and says it is locked (unverified: a locked signer holds no key to prove itself with). \`wim agent unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it holds this device's key).`);
+    return 0;
+  }
+  return launch(ctx, await readPassphrase(ctx, PROMPT));
+}
+
+/** Starts the signer: in this process with --foreground, else detached. */
+async function launch(ctx: AgentCtx, passphrase: string): Promise<number> {
   if (ctx.flags.get("foreground") === true) {
     let failed: string | undefined;
     const code = await runSigner(ctx, passphrase, (line) => {
       if (line.startsWith("error ")) failed = line.slice(6);
-      else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${at}. Ctrl-C or \`wim agent stop\` stops it.`);
+      else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${line.split(" ").slice(2).join(" ")}. Ctrl-C or \`wim agent stop\` stops it.`);
     });
     if (failed !== undefined) throw new SetupError(failed);
     ctx.io.out("Signer stopped.");
@@ -181,7 +213,8 @@ async function launch(ctx: AgentCtx, at: string, passphrase: string): Promise<nu
   if (ctx.io.startAgent === undefined) throw new SetupError("this program cannot start a background signer: use --foreground");
   const line = await ctx.io.startAgent(passphrase);
   if (!line.startsWith("ready ")) throw new SetupError(line.replace(/^error /, ""));
-  ctx.io.out(`Signer started (pid ${line.slice(6)}) at ${at}. Sessions now sign and open through it.`);
+  const [, pid, ...at] = line.split(" ");
+  ctx.io.out(`Signer started (pid ${pid}) at ${at.join(" ")}. Sessions now sign and open through it.`);
   ctx.io.out("`wim agent lock` wipes the keys from its memory; `wim agent stop` ends it.");
   return 0;
 }
@@ -203,9 +236,11 @@ async function status(ctx: AgentCtx): Promise<number> {
     return 3;
   }
   try {
+    // Unlocked, it proved it holds the key named in the key file; locked, what it says is a claim.
+    const locked = (await client.hello()).locked;
     const s = await client.call("status");
     const ops = Object.entries(s["ops"] as Record<string, number>).map(([op, n]) => `${op} ${n}`);
-    ctx.io.out(`signer: running (pid ${String(s["pid"])}), ${s["locked"] === true ? "locked" : "unlocked"}, device ${String(s["name"])} (${String(s["id"])})`);
+    ctx.io.out(`signer: running (pid ${String(s["pid"])}), ${locked ? "locked (unverified: a locked signer cannot prove itself)" : "unlocked (verified)"}, device ${String(s["name"])} (${String(s["id"])})`);
     ctx.io.out(`since ${new Date(s["started"] as number).toISOString()}: ${ops.length === 0 ? "no operations" : ops.join(", ")}; refused ${String(s["refused"])}, rate limited ${String(s["limited"])}`);
     ctx.io.out(`log: ${agentLogPath(ctx.home.root)}`);
     return 0;
@@ -214,6 +249,10 @@ async function status(ctx: AgentCtx): Promise<number> {
   }
 }
 
+/**
+ * `lock` goes to a signer that proved itself, over its channel; one that says it is locked already
+ * is told nothing. `stop` is checked afterwards: the endpoint must have stopped answering.
+ */
 async function simple(ctx: AgentCtx, action: "lock" | "stop"): Promise<number> {
   const client = await running(ctx);
   if (client === undefined) {
@@ -221,9 +260,17 @@ async function simple(ctx: AgentCtx, action: "lock" | "stop"): Promise<number> {
     return action === "stop" ? 0 : 3;
   }
   try {
+    const locked = (await client.hello()).locked;
+    if (action === "lock" && locked) {
+      ctx.io.out("The signer says it is locked already (unverified: a locked signer cannot prove itself).");
+      return 0;
+    }
     await client.call(action);
   } finally {
     client.close();
+  }
+  if (action === "stop" && (await answers(client.endpoint))) {
+    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts. End that process`);
   }
   ctx.io.out(action === "lock" ? "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase." : "Signer stopped.");
   return 0;
@@ -259,7 +306,7 @@ async function unlock(ctx: AgentCtx): Promise<number> {
   if (await answers(client.endpoint)) {
     throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
   }
-  return launch(ctx, client.endpoint, passphrase);
+  return launch(ctx, passphrase);
 }
 
 /** Each mesh's `prekeys.json`, rewritten entry by entry under its lock. */

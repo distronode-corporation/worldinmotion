@@ -2288,7 +2288,7 @@ var require_websocket = __commonJS({
     var http3 = __require("http");
     var net = __require("net");
     var tls3 = __require("tls");
-    var { randomBytes: randomBytes5, createHash: createHash8 } = __require("crypto");
+    var { randomBytes: randomBytes5, createHash: createHash9 } = __require("crypto");
     var { Duplex, Readable: Readable8 } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -2969,7 +2969,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest2 = createHash8("sha1").update(key2 + GUID).digest("base64");
+        const digest2 = createHash9("sha1").update(key2 + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest2) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -3338,7 +3338,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter2 = __require("events");
     var http3 = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash8 } = __require("crypto");
+    var { createHash: createHash9 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -3604,8 +3604,8 @@ var require_websocket_server = __commonJS({
             req
           };
           if (this.options.verifyClient.length === 2) {
-            this.options.verifyClient(info, (verified, code2, message2, headers) => {
-              if (!verified) {
+            this.options.verifyClient(info, (verified2, code2, message2, headers) => {
+              if (!verified2) {
                 return abortHandshake(socket, code2 || 401, message2, headers);
               }
               this.completeUpgrade(
@@ -3645,7 +3645,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest2 = createHash8("sha1").update(key2 + GUID).digest("base64");
+        const digest2 = createHash9("sha1").update(key2 + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -7581,14 +7581,14 @@ var init_getProfileName = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js
-import { createHash as createHash3 } from "node:crypto";
+import { createHash as createHash4 } from "node:crypto";
 import { join as join9 } from "node:path";
 var getSSOTokenFilepath;
 var init_getSSOTokenFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js"() {
     init_getHomeDir();
     getSSOTokenFilepath = (id) => {
-      const hasher = createHash3("sha1");
+      const hasher = createHash4("sha1");
       const cacheName = hasher.update(id).digest("hex");
       return join9(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
     };
@@ -9786,7 +9786,7 @@ var init_serdePlugin = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/serde/hash-node/hash-node.js
-import { createHash as createHash4, createHmac } from "node:crypto";
+import { createHash as createHash5, createHmac } from "node:crypto";
 function castSourceData(toCast, encoding) {
   if (Buffer.isBuffer(toCast)) {
     return toCast;
@@ -9820,7 +9820,7 @@ var init_hash_node = __esm({
         return Promise.resolve(this.hash.digest());
       }
       reset() {
-        this.hash = this.secret ? createHmac(this.algorithmIdentifier, castSourceData(this.secret)) : createHash4(this.algorithmIdentifier);
+        this.hash = this.secret ? createHmac(this.algorithmIdentifier, castSourceData(this.secret)) : createHash5(this.algorithmIdentifier);
       }
     };
   }
@@ -11039,11 +11039,11 @@ var init_Md5Js = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/checksum/md5/Md5Node.js
-import { createHash as createHash5 } from "node:crypto";
+import { createHash as createHash6 } from "node:crypto";
 function buildNativeClass() {
   return class Md5Node {
     digestLength = 16;
-    hash = createHash5("md5");
+    hash = createHash6("md5");
     update(data) {
       this.hash.update(toUint8Array(data));
     }
@@ -11052,7 +11052,7 @@ function buildNativeClass() {
       return new Uint8Array(buf2.buffer, buf2.byteOffset, buf2.byteLength);
     }
     reset() {
-      this.hash = createHash5("md5");
+      this.hash = createHash6("md5");
     }
   };
 }
@@ -11063,7 +11063,7 @@ var init_Md5Node = __esm({
     init_Md5Js();
     hasNativeCrypto = (() => {
       try {
-        createHash5("md5");
+        createHash6("md5");
         return true;
       } catch {
         return false;
@@ -11380,7 +11380,7 @@ var init_Sha256Js = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/checksum/sha256/Sha256Node.js
-import { createHash as createHash6, createHmac as createHmac2 } from "node:crypto";
+import { createHash as createHash7, createHmac as createHmac2 } from "node:crypto";
 function buildNativeClass3() {
   return class Sha256Node {
     digestLength = 32;
@@ -11414,7 +11414,7 @@ function buildNativeClass3() {
       this.finished = false;
     }
     createHash() {
-      return this.secret ? createHmac2("sha256", toBuffer(this.secret)) : createHash6("sha256");
+      return this.secret ? createHmac2("sha256", toBuffer(this.secret)) : createHash7("sha256");
     }
   };
 }
@@ -11433,7 +11433,7 @@ var init_Sha256Node = __esm({
     init_Sha256Js();
     hasNativeCrypto2 = (() => {
       try {
-        createHash6("sha256");
+        createHash7("sha256");
         return true;
       } catch {
         return false;
@@ -29999,7 +29999,7 @@ var require_dist_cjs14 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2 } = (init_config2(), __toCommonJS(config_exports));
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
-    var { createHash: createHash8, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign2 } = __require("node:crypto");
+    var { createHash: createHash9, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey3, sign: sign2 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
     var { dirname: dirname6, join: join21 } = __require("node:path");
@@ -30168,7 +30168,7 @@ var require_dist_cjs14 = __commonJS({
       getTokenFilePath() {
         const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join21(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
-        const loginSessionSha256 = createHash8("sha256").update(loginSessionBytes).digest("hex");
+        const loginSessionSha256 = createHash9("sha256").update(loginSessionBytes).digest("hex");
         return join21(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
@@ -30218,7 +30218,7 @@ var require_dist_cjs14 = __commonJS({
             format: "pem",
             type: "sec1"
           });
-          const publicKey = createPublicKey2(privateKey);
+          const publicKey = createPublicKey3(privateKey);
           const publicDer = publicKey.export({ format: "der", type: "spki" });
           let pointStart = -1;
           for (let i6 = 0; i6 < publicDer.length; i6++) {
@@ -47946,8 +47946,8 @@ var require_oauth2client = __commonJS({
         if (envelope.alg === "ES256") {
           signature = formatEcdsa.joseToDer(signature, "ES256").toString("base64");
         }
-        const verified = await crypto2.verify(cert, signed, signature);
-        if (!verified) {
+        const verified2 = await crypto2.verify(cert, signed, signature);
+        if (!verified2) {
           throw new Error("Invalid token signature: " + jwt2);
         }
         if (!payload2.iat) {
@@ -86400,8 +86400,8 @@ function genesisBody(opts) {
   return { mesh, seq: 1, prev: null, devices: devices2, revoked: [], by: device.id, at: opts.now };
 }
 function checkGenesis(roster) {
-  const verified = verifyGenesisRoster(roster);
-  if (!verified.ok) throw new TypeError(`createGenesisRoster: ${verified.reason}`);
+  const verified2 = verifyGenesisRoster(roster);
+  if (!verified2.ok) throw new TypeError(`createGenesisRoster: ${verified2.reason}`);
   return roster;
 }
 function adminSigner(roster, id) {
@@ -89757,10 +89757,66 @@ function localDeviceKeyring(keys) {
 }
 
 // src/signer.ts
-import { createPublicKey, verify } from "node:crypto";
+import { createPublicKey as createPublicKey2, verify } from "node:crypto";
+
+// src/channel.ts
+import { createCipheriv, createDecipheriv, createHash as createHash3, createPublicKey, diffieHellman, generateKeyPairSync, hkdfSync } from "node:crypto";
+var HELLO_LABEL = "wim-agent/2 hello\n";
+var X25519_SPKI = Buffer.from("302a300506032b656e032100", "hex");
+function ephemeral() {
+  const { privateKey, publicKey } = generateKeyPairSync("x25519");
+  return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(X25519_SPKI.length)) };
+}
+function helloTranscript(nonce, clientPub, serverPub) {
+  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce, clientPub, serverPub]);
+}
+var Channel = class _Channel {
+  sendKey;
+  recvKey;
+  sent = 0;
+  received = 0;
+  constructor(sendKey, recvKey) {
+    this.sendKey = sendKey;
+    this.recvKey = recvKey;
+  }
+  static nonce(n3) {
+    const nonce = Buffer.alloc(12);
+    nonce.writeUIntBE(n3, 6, 6);
+    return nonce;
+  }
+  /** Seals one line's text: b64u of ciphertext and tag. */
+  seal(text2) {
+    const cipher = createCipheriv("chacha20-poly1305", this.sendKey, _Channel.nonce(this.sent++), { authTagLength: 16 });
+    return b64u.encode(Buffer.concat([cipher.update(text2, "utf8"), cipher.final(), cipher.getAuthTag()]));
+  }
+  /** Opens what the other end sealed next; undefined for anything else. */
+  open(sealed) {
+    try {
+      const bytes3 = Buffer.from(b64u.decode(sealed));
+      const decipher = createDecipheriv("chacha20-poly1305", this.recvKey, _Channel.nonce(this.received), { authTagLength: 16 });
+      decipher.setAuthTag(bytes3.subarray(bytes3.length - 16));
+      const text2 = Buffer.concat([decipher.update(bytes3.subarray(0, bytes3.length - 16)), decipher.final()]).toString("utf8");
+      this.received++;
+      return text2;
+    } catch {
+      return void 0;
+    }
+  }
+};
+function channelFor(side, mine, theirPub, transcript) {
+  const shared = diffieHellman({ privateKey: mine, publicKey: createPublicKey({ key: Buffer.concat([X25519_SPKI, theirPub]), format: "der", type: "spki" }) });
+  const salt = createHash3("sha256").update(transcript).digest();
+  const keys = new Uint8Array(hkdfSync("sha256", shared, salt, "wim-agent/2 channel", 64));
+  shared.fill(0);
+  const toSigner = keys.slice(0, 32);
+  const toClient = keys.slice(32);
+  keys.fill(0);
+  return side === "client" ? new Channel(toSigner, toClient) : new Channel(toClient, toSigner);
+}
+
+// src/signer.ts
 import { createConnection } from "node:net";
 var MAX_LINE = 4 * 1024 * 1024;
-var HELLO_LABEL = "wim-agent/1 hello\n";
 var SignerError = class extends Error {
   name = "SignerError";
   code;
@@ -89773,11 +89829,8 @@ var SignerError = class extends Error {
     return ["locked", "unavailable", "timeout", "rate_limited"].includes(this.code);
   }
 };
-function helloBytes(nonce) {
-  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce]);
-}
 function ed25519Public(pub) {
-  return createPublicKey({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), pub]), format: "der", type: "spki" });
+  return createPublicKey2({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), pub]), format: "der", type: "spki" });
 }
 function encodeSeal(req) {
   return {
@@ -89796,6 +89849,15 @@ function encodeOpen(req) {
 function isObject2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+function unseal(channel, line) {
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  return isObject2(value) ? channel.open(value["x"]) : void 0;
+}
 function parseAnswer(line) {
   let value;
   try {
@@ -89810,15 +89872,23 @@ function parseAnswer(line) {
 }
 var UNPROVEN_OPS = /* @__PURE__ */ new Set(["hello", "status", "lock", "stop"]);
 var SignerClient = class {
+  /** The endpoint last connected to (or given). */
   endpoint;
+  where;
   expect;
   timeoutMs;
   connect;
   conn;
   opening;
   next = 0;
+  /**
+   * `endpoint` is the signer's address, or a function that finds it again for each new connection
+   * (a session outlives a signer restart, and on Windows each start has a new pipe name).
+   */
   constructor(o3) {
-    this.endpoint = o3.endpoint;
+    const at = o3.endpoint;
+    this.endpoint = typeof at === "string" ? at : "";
+    this.where = typeof at === "string" ? async () => at : at;
     this.expect = o3.expect;
     this.timeoutMs = o3.timeoutMs ?? 3e4;
     this.connect = o3.connect ?? ((endpoint2) => createConnection(endpoint2));
@@ -89831,9 +89901,9 @@ var SignerClient = class {
     }
     return this.send(conn, op2, a5);
   }
-  /** `hello` on a connection of its own choosing: the signer's state, checked against `expect`. */
+  /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
   async hello() {
-    return this.greet(await this.connected());
+    return (await this.connected()).hello;
   }
   /** Drops the connection; its pending calls fail as `unavailable`. */
   close() {
@@ -89849,7 +89919,8 @@ var SignerClient = class {
       }, this.timeoutMs);
       conn.pending.set(i6, { resolve: resolve3, reject, timer });
       conn.socket.ref();
-      conn.socket.write(`${JSON.stringify({ i: i6, op: op2, a: a5 })}
+      const text2 = JSON.stringify({ i: i6, op: op2, a: a5 });
+      conn.socket.write(`${conn.channel === void 0 ? text2 : JSON.stringify({ x: conn.channel.seal(text2) })}
 `);
     });
   }
@@ -89861,9 +89932,14 @@ var SignerClient = class {
     this.opening ??= this.open().finally(() => this.opening = void 0);
     return this.opening;
   }
-  open() {
+  async open() {
+    return this.connectTo(await this.where());
+  }
+  connectTo(at) {
+    if (at === void 0) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in your own terminal"));
+    this.endpoint = at;
     return new Promise((resolve3, reject) => {
-      const socket = this.connect(this.endpoint);
+      const socket = this.connect(at);
       const conn = { socket, pending: /* @__PURE__ */ new Map(), buffered: "", proven: false };
       socket.setEncoding("utf8");
       socket.on("error", (error63) => {
@@ -89887,15 +89963,27 @@ var SignerClient = class {
   }
   async greet(conn) {
     const nonce = randomBytes2(32);
-    const hello = await this.send(conn, "hello", { nonce: b64u.encode(nonce) });
+    const mine = ephemeral();
+    const hello = await this.send(conn, "hello", { nonce: b64u.encode(nonce), epub: b64u.encode(mine.pub) });
+    this.check(conn, hello, nonce, mine);
+    return hello;
+  }
+  /** Checks a hello and, for an unlocked signer that proved itself, opens the channel. Any malformed field is a mismatch. */
+  check(conn, hello, nonce, mine) {
     if (this.expect !== void 0 && hello.signPub !== b64u.encode(this.expect)) {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
     }
-    if (!hello.locked && (hello.proof === void 0 || !verify(null, helloBytes(nonce), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.proof)))) {
+    conn.hello = hello;
+    if (hello.locked) return;
+    try {
+      const theirs = b64u.decode(hello.epub);
+      const transcript = helloTranscript(nonce, mine.pub, theirs);
+      if (!verify(null, transcript, ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.proof))) throw new Error("bad proof");
+      conn.channel = channelFor("client", mine.privateKey, theirs, transcript);
+    } catch {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it holds its device's signing key`);
     }
-    conn.proven = !hello.locked;
-    return hello;
+    conn.proven = true;
   }
   take(conn, chunk) {
     conn.buffered += chunk;
@@ -89906,7 +89994,7 @@ var SignerClient = class {
     for (let nl = conn.buffered.indexOf("\n"); nl !== -1; nl = conn.buffered.indexOf("\n")) {
       const line = conn.buffered.slice(0, nl);
       conn.buffered = conn.buffered.slice(nl + 1);
-      const answer = parseAnswer(line);
+      const answer = parseAnswer(conn.channel === void 0 ? line : unseal(conn.channel, line) ?? "");
       if (answer === void 0) {
         conn.socket.destroy();
         return;
@@ -90884,10 +90972,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * is then not acknowledged, and the relay delivers it again.
    */
   async openFresh(msg, history2 = false) {
-    const first = await this.open(msg, history2);
-    if (first.ok || first.reason !== "key_expired") return first;
-    await this.prekeys.reload();
-    return this.open(msg, history2);
+    return this.retryOpen(await this.open(msg, history2), msg, history2);
+  }
+  /**
+   * Tried again after reading the device's prekeys afresh: a box for a prekey a sibling session
+   * made since (`key_expired`), or one whose sealed secret this session holds from before the key
+   * file was decrypted and encrypted again, under a new data key (`decrypt_failed`).
+   */
+  retryOpen(first, msg, history2) {
+    if (first.ok || first.reason !== "key_expired" && first.reason !== "decrypt_failed") return Promise.resolve(first);
+    return this.prekeys.reload().then(() => this.open(msg, history2));
   }
   /** Sends a frame if connected; while offline it is dropped (acks and receipts are not resent). */
   sendIfOpen(frame) {
@@ -90911,9 +91005,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       return;
     }
     this.log(`wim: inbound: ${error63.message}`);
-    if (!(error63 instanceof SignerError && error63.transient)) return;
     this.heldLink = this.link;
-    this.link?.close(CLOSE.bye, "the device's signer did not answer");
+    if (error63 instanceof SignerError && (error63.transient || error63.code === "mismatch")) this.link?.close(CLOSE.bye, "the device's signer did not answer");
   }
   /**
    * Acks a frame on the connection it came on, `via`. Acks are cumulative, so a frame from an
@@ -116115,7 +116208,7 @@ ${text2}`;
 };
 
 // ../bot/src/guards.ts
-import { createHash as createHash7 } from "node:crypto";
+import { createHash as createHash8 } from "node:crypto";
 var MAX_TEXT_BYTES = 32 * 1024;
 var DUPLICATE_MS = 6e4;
 var HOUR_MS = 36e5;
@@ -116137,7 +116230,7 @@ var Guards = class {
       if (now - at >= DUPLICATE_MS) this.recent.delete(key3);
     }
     const key2 = `${item.from}
-${createHash7("sha256").update(item.text).digest("hex")}`;
+${createHash8("sha256").update(item.text).digest("hex")}`;
     if (this.recent.has(key2)) return { ok: false, reason: "duplicate" };
     this.recent.set(key2, now);
     const times = (this.replies.get(item.from) ?? []).filter((t2) => now - t2 < HOUR_MS);
@@ -117311,10 +117404,17 @@ async function agentEndpoint(root5, env3, create2) {
   return endpoint2;
 }
 async function pipeToken(path2, env3, create2) {
-  const kept = (await readText(path2))?.trim();
-  if (kept !== void 0 || !create2) return kept;
-  await writeNew(path2, b64u.encode(randomBytes2(16)), env3).catch(() => void 0);
-  return (await readText(path2)).trim();
+  if (!create2) return (await readText(path2))?.trim();
+  const token = b64u.encode(randomBytes2(16));
+  await writeAtomic(path2, token, env3);
+  return token;
+}
+function startLockPath(root5) {
+  return join13(agentDir(root5), "start.lock");
+}
+async function retireEndpoint(root5, env3, endpoint2) {
+  if (env3.platform !== "win32") return;
+  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs7.rm(join13(agentDir(root5), "pipe"), { force: true });
 }
 async function readAgentSettings(root5) {
   const raw = await readJson(settingsPath(root5));
@@ -117324,15 +117424,21 @@ async function writeAgentSettings(root5, settings, env3) {
   await writeJson(settingsPath(root5), settings, env3);
 }
 function endpointFiles(platform2) {
-  if (platform2 === "win32") return { clear: async () => void 0, secure: async () => void 0 };
-  return { clear: (endpoint2) => fs7.rm(endpoint2, { force: true }), secure: (endpoint2) => fs7.chmod(endpoint2, 384) };
+  if (platform2 === "win32") return { clear: async () => void 0, secure: async () => void 0, id: async () => "pipe" };
+  return {
+    clear: (endpoint2) => fs7.rm(endpoint2, { force: true }),
+    secure: (endpoint2) => fs7.chmod(endpoint2, 384),
+    id: (endpoint2) => fs7.lstat(endpoint2, { bigint: true }).then((s3) => `${s3.dev}:${s3.ino}`, () => void 0)
+  };
 }
 
 // src/vault.ts
-import { createCipheriv, createDecipheriv, scrypt } from "node:crypto";
+import { createCipheriv as createCipheriv2, createDecipheriv as createDecipheriv2, scrypt } from "node:crypto";
 import { promisify as promisify2 } from "node:util";
 var DEFAULT_KDF = { N: 2 ** 17, r: 8, p: 1 };
-var MAX_N = 2 ** 20;
+var MAX_N = 2 ** 18;
+var MAX_R = 8;
+var MAX_P = 4;
 var BadPassphrase = class extends Error {
   name = "BadPassphrase";
   constructor() {
@@ -117349,14 +117455,14 @@ function concat2(a5, b5) {
 }
 function aeadSeal(key2, aad, plaintext) {
   const nonce = randomBytes2(12);
-  const cipher = createCipheriv("chacha20-poly1305", key2, nonce, { authTagLength: 16 });
+  const cipher = createCipheriv2("chacha20-poly1305", key2, nonce, { authTagLength: 16 });
   cipher.setAAD(aad, { plaintextLength: plaintext.length });
   const body = Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
   return { nonce, sealed: new Uint8Array(body) };
 }
 function aeadOpen(key2, nonce, aad, sealed) {
   try {
-    const decipher = createDecipheriv("chacha20-poly1305", key2, nonce, { authTagLength: 16 });
+    const decipher = createDecipheriv2("chacha20-poly1305", key2, nonce, { authTagLength: 16 });
     decipher.setAAD(aad, { plaintextLength: sealed.length - 16 });
     decipher.setAuthTag(sealed.subarray(sealed.length - 16));
     return new Uint8Array(Buffer.concat([decipher.update(sealed.subarray(0, sealed.length - 16)), decipher.final()]));
@@ -117386,7 +117492,7 @@ function parseSealedKeyFile(raw) {
   const str = (v) => typeof v === "string" && v !== "";
   const kdf = raw["kdf"];
   const int2 = (v, max) => Number.isSafeInteger(v) && v > 0 && v <= max;
-  const ok2 = raw["v"] === 2 && str(raw["id"]) && isName(raw["name"]) && str(raw["signPub"]) && str(raw["boxPub"]) && str(raw["nonce"]) && str(raw["sealed"]) && typeof kdf === "object" && kdf !== null && kdf.alg === "scrypt" && int2(kdf.N, MAX_N) && int2(kdf.r, 32) && int2(kdf.p, 16) && str(kdf.salt);
+  const ok2 = raw["v"] === 2 && str(raw["id"]) && isName(raw["name"]) && str(raw["signPub"]) && str(raw["boxPub"]) && str(raw["nonce"]) && str(raw["sealed"]) && typeof kdf === "object" && kdf !== null && kdf.alg === "scrypt" && int2(kdf.N, MAX_N) && int2(kdf.r, MAX_R) && int2(kdf.p, MAX_P) && str(kdf.salt);
   if (!ok2) throw new TypeError("the encrypted key file is malformed");
   const file2 = raw;
   if (deviceIdFromSignPub(b64u.decode(file2.signPub)) !== file2.id) throw new TypeError("the encrypted key file's id does not match its signing key");
@@ -117400,7 +117506,11 @@ async function openKeyFile(file2, passphrase) {
   const secrets = JSON.parse(fromUtf8(bytes3));
   bytes3.fill(0);
   const decode3 = (name) => b64u.decode(secrets[name]);
-  const keys = deviceKeysFromSecrets(decode3("signSec"), decode3("boxSec"));
+  const signSec = decode3("signSec");
+  const boxSec = decode3("boxSec");
+  const keys = deviceKeysFromSecrets(signSec, boxSec);
+  signSec.fill(0);
+  boxSec.fill(0);
   if (b64u.encode(keys.signPub) !== file2.signPub || b64u.encode(keys.boxPub) !== file2.boxPub) throw new TypeError("the encrypted key file's public keys do not match its secrets");
   return { keys, data: decode3("data") };
 }
@@ -117481,10 +117591,8 @@ var Home = class {
     }
     const sealed = file2.sealed;
     const signPub = b64u.decode(sealed.signPub);
-    const endpoint2 = await agentEndpoint(this.root, this.env, false);
     const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in your own terminal`;
-    if (endpoint2 === void 0) throw new SetupError(notRunning);
-    const client = new SignerClient({ endpoint: endpoint2, expect: signPub });
+    const client = new SignerClient({ endpoint: () => agentEndpoint(this.root, this.env, false), expect: signPub });
     let hello;
     try {
       hello = await client.hello();
@@ -117783,9 +117891,9 @@ async function recoverMesh(o3) {
         from = chain2.at(-1).seq + 1;
         if (!page.more || from > ready.roster.seq) break;
       }
-      const verified = verifyRecoveryChain(o3.code, chain2);
-      if (!verified.ok) throw new ClientError(`the roster chain does not match this recovery code (${verified.reason})`, verified.reason);
-      const current = verified.value;
+      const verified2 = verifyRecoveryChain(o3.code, chain2);
+      if (!verified2.ok) throw new ClientError(`the roster chain does not match this recovery code (${verified2.reason})`, verified2.reason);
+      const current = verified2.value;
       if (!await o3.confirm(recoverySummary(chain2))) throw new ClientError("recovery cancelled; nothing was signed", "cancelled");
       const revoke = [recId];
       for (const name of o3.revoke) {
@@ -120495,7 +120603,7 @@ var openArgs = external_exports.strictObject({ ...boxArgs, senderBox: bytes2(32)
 var open2Args = openArgs.extend({ entry: external_exports.strictObject({ prekey: prekeySchema, sealed: external_exports.string() }) });
 var signArgs = external_exports.strictObject({ type: external_exports.string(), obj: external_exports.record(external_exports.string(), external_exports.unknown()) });
 var ARGS = {
-  hello: external_exports.strictObject({ nonce: bytes2(32) }),
+  hello: external_exports.strictObject({ nonce: bytes2(32), epub: bytes2(32) }),
   status: external_exports.strictObject({}),
   sign: signArgs,
   seal: sealArgs,
@@ -120513,12 +120621,23 @@ var OWNER = {
   join: (o3) => o3["device"]?.id
 };
 function ed25519Private(seed) {
-  return createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), seed]), format: "der", type: "pkcs8" });
+  const prefix = Buffer.from("302e020100300506032b657004220420", "hex");
+  const der = Buffer.alloc(prefix.length + seed.length);
+  prefix.copy(der);
+  der.set(seed, prefix.length);
+  try {
+    return createPrivateKey({ key: der, format: "der", type: "pkcs8" });
+  } finally {
+    der.fill(0);
+  }
 }
+var SIGN_SKEW_MS = 5 * 6e4;
+var CHANNEL = /* @__PURE__ */ Symbol("channel");
 var Signer = class {
   file;
   started;
   keys;
+  signKey;
   bucket;
   counts = {};
   refused = 0;
@@ -120528,6 +120647,7 @@ var Signer = class {
     this.o = o3;
     this.file = o3.file;
     this.keys = o3.unlocked;
+    this.signKey = ed25519Private(o3.unlocked.keys.signSec);
     this.started = o3.now();
     const rate = o3.rate ?? AGENT_RATE;
     this.bucket = new TokenBucket(rate.perSecond, rate.burst, o3.now);
@@ -120535,12 +120655,21 @@ var Signer = class {
   get locked() {
     return this.keys === void 0;
   }
-  /** Wipes the keys from memory (as far as JavaScript can: the byte arrays are zeroed). */
+  /**
+   * Wipes the keys from memory as far as JavaScript can: the byte arrays are zeroed, and the key
+   * object is dropped (OpenSSL frees its copy when it is collected; JavaScript cannot zero it).
+   */
   lock() {
     const k5 = this.keys;
     this.keys = void 0;
+    this.signKey = void 0;
     if (k5 === void 0) return;
     for (const b5 of [k5.keys.signSec, k5.keys.boxSec, k5.data]) b5.fill(0);
+  }
+  /** Its endpoint now names another socket (renamed or replaced): locked, and logged. */
+  replaced() {
+    this.lock();
+    this.o.log({ at: this.o.now(), op: "replaced", ok: false, code: "replaced" });
   }
   /** Answers one request, or throws an AgentError. Every answer is logged. */
   async handle(op2, raw) {
@@ -120566,7 +120695,7 @@ var Signer = class {
     const a5 = parsed2.data;
     switch (op2) {
       case "hello":
-        return this.hello(b64u.decode(a5["nonce"]));
+        return this.hello(b64u.decode(a5["nonce"]), b64u.decode(a5["epub"]));
       case "status":
         return { id: this.file.id, name: this.file.name, locked: this.locked, pid: this.o.pid, started: this.started, ops: { ...this.counts }, refused: this.refused, limited: this.limited };
       case "lock":
@@ -120581,16 +120710,22 @@ var Signer = class {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
     }
-    return this.keyOp(op2, a5, keys, entry);
+    return this.keyOp(op2, a5, keys, this.signKey, entry);
   }
-  hello(nonce) {
+  /**
+   * Locked: who it is, nothing it could prove. Unlocked: its own channel key and a signature over
+   * the client's nonce and both channel keys, with the channel (CHANNEL) for the server to use.
+   */
+  hello(nonce, clientPub) {
     const f7 = this.file;
     const base = { id: f7.id, name: f7.name, signPub: f7.signPub, boxPub: f7.boxPub, locked: this.locked, pid: this.o.pid };
-    if (this.keys === void 0) return base;
-    const proof = edSign(null, helloBytes(nonce), ed25519Private(this.keys.keys.signSec));
-    return { ...base, proof: b64u.encode(proof) };
+    if (this.signKey === void 0) return base;
+    const mine = ephemeral();
+    const transcript = helloTranscript(nonce, clientPub, mine.pub);
+    const channel = channelFor("signer", mine.privateKey, clientPub, transcript);
+    return { ...base, epub: b64u.encode(mine.pub), proof: b64u.encode(edSign(null, transcript, this.signKey)), [CHANNEL]: channel };
   }
-  keyOp(op2, a5, k5, entry) {
+  keyOp(op2, a5, k5, signKey, entry) {
     const me = this.file.id;
     const refuse = (why) => {
       throw new AgentError("refused", why);
@@ -120604,11 +120739,14 @@ var Signer = class {
         const owner = OWNER[type];
         if (owner === void 0) throw new AgentError("bad_request", `no signature type ${JSON.stringify(type)}`);
         if (owner(obj) !== me) refuse(`this ${type} object is not this device's`);
+        if ((type === "auth" || type === "send") && !(typeof obj["at"] === "number" && Math.abs(obj["at"] - this.o.now()) <= SIGN_SKEW_MS)) {
+          refuse(`this ${type} object's time is not within ${SIGN_SKEW_MS / 6e4} minutes of the signer's clock`);
+        }
         entry.mesh = typeof obj["mesh"] === "string" ? obj["mesh"] : void 0;
         const { sig: _sig, ...rest } = obj;
         const message2 = Buffer.concat([Buffer.from(`wim/1 ${type}
 `, "utf8"), canonBytes(rest)]);
-        return { sig: b64u.encode(edSign(null, message2, ed25519Private(k5.keys.signSec))) };
+        return { sig: b64u.encode(edSign(null, message2, signKey)) };
       }
       case "seal": {
         const req = a5;
@@ -120683,6 +120821,8 @@ var AgentServer = class {
   server;
   sockets = /* @__PURE__ */ new Set();
   stopping = false;
+  identity;
+  watcher;
   stopped;
   resolveStopped;
   o;
@@ -120700,13 +120840,29 @@ var AgentServer = class {
       server.listen(this.o.endpoint, () => resolve3());
     });
     await this.o.files.secure(this.o.endpoint);
+    this.identity = await this.o.files.id(this.o.endpoint);
     this.server = server;
+    this.watcher = setInterval(() => void this.watch(), this.o.watchMs ?? 2e3);
+    this.watcher.unref();
+  }
+  /** Whether the endpoint still names this signer's own socket. */
+  async owned() {
+    return await this.o.files.id(this.o.endpoint) === this.identity;
+  }
+  /** Locks and stops when the endpoint is no longer this signer's own. */
+  async watch() {
+    if (!await this.owned()) this.replacedNow();
+  }
+  replacedNow() {
+    this.o.signer.replaced();
+    void this.close();
   }
   serve(socket) {
     this.sockets.add(socket);
     socket.setEncoding("utf8");
     let buffered = "";
     let queue = Promise.resolve();
+    const state2 = {};
     socket.on("error", () => void 0);
     socket.on("close", () => this.sockets.delete(socket));
     socket.on("data", (chunk) => {
@@ -120718,31 +120874,58 @@ var AgentServer = class {
       for (let nl = buffered.indexOf("\n"); nl !== -1; nl = buffered.indexOf("\n")) {
         const line = buffered.slice(0, nl);
         buffered = buffered.slice(nl + 1);
-        queue = queue.then(() => this.request(socket, line));
+        queue = queue.then(() => this.request(socket, line, state2));
       }
     });
   }
-  async request(socket, line) {
+  async request(socket, line, state2) {
+    return this.dispatch(socket, line, state2, await this.owned());
+  }
+  /** Someone else's socket at the path: nothing is answered, and the signer locks and stops. */
+  dispatch(socket, line, state2, owned) {
+    if (!owned) {
+      socket.destroy();
+      this.replacedNow();
+      return Promise.resolve();
+    }
+    return this.handleLine(line, state2).then((handled) => this.answerLine(socket, state2, handled));
+  }
+  /** The answer to one line, or undefined for a sealed line that does not open (the connection then ends). */
+  async handleLine(line, state2) {
+    const text2 = state2.channel === void 0 ? line : unseal(state2.channel, line);
+    if (text2 === void 0) return void 0;
     let i6 = 0;
     let op2 = "";
-    let answer;
     try {
-      const req = JSON.parse(line);
+      const req = JSON.parse(text2);
       i6 = req.i;
       op2 = String(req.op);
-      answer = { i: i6, r: await this.o.signer.handle(op2, req.a ?? {}) };
+      return { op: op2, answer: { i: i6, r: await this.o.signer.handle(op2, req.a ?? {}) } };
     } catch (error63) {
-      answer = { i: i6, e: { code: error63 instanceof AgentError ? error63.code : "bad_request", message: error63.message } };
+      return { op: op2, answer: { i: i6, e: { code: error63 instanceof AgentError ? error63.code : "bad_request", message: error63.message } } };
     }
-    const line2 = `${JSON.stringify(answer)}
+  }
+  /**
+   * Writes an answer (sealed on the channel when there is one), takes up the channel a `hello`
+   * opened, and acts on `stop`. Kept synchronous: every branch after the awaits is here.
+   */
+  answerLine(socket, state2, handled) {
+    if (handled === void 0) {
+      socket.destroy();
+      return;
+    }
+    const text2 = JSON.stringify(handled.answer);
+    const out = `${state2.channel === void 0 ? text2 : JSON.stringify({ x: state2.channel.seal(text2) })}
 `;
-    if (op2 !== "stop" || answer.r === void 0) {
-      socket.write(line2);
+    const opened2 = handled.answer.r?.[CHANNEL];
+    if (opened2 !== void 0) state2.channel = opened2;
+    if (handled.op !== "stop" || handled.answer.r === void 0) {
+      socket.write(out);
       return;
     }
     this.server.close();
-    socket.end(line2, () => socket.destroy());
-    await this.close(socket);
+    socket.end(out, () => socket.destroy());
+    void this.close(socket);
   }
   /**
    * Stops listening, closes every connection (but `answering`, which closes itself once its
@@ -120752,6 +120935,7 @@ var AgentServer = class {
   async close(answering) {
     if (this.stopping) return this.stopped;
     this.stopping = true;
+    clearInterval(this.watcher);
     this.o.signer.lock();
     for (const s3 of this.sockets) if (s3 !== answering) s3.destroy();
     await new Promise((resolve3) => this.server === void 0 ? resolve3() : this.server.close(() => resolve3()));
@@ -120841,7 +121025,6 @@ async function agentCommand(ctx) {
 }
 async function runSigner(ctx, passphrase, ready) {
   const file2 = await sealedFile(ctx);
-  const at = await endpoint(ctx, true);
   let unlocked;
   try {
     unlocked = await openKeyFile(file2, passphrase);
@@ -120849,41 +121032,66 @@ async function runSigner(ctx, passphrase, ready) {
     ready(`error ${error63.message}`);
     return 1;
   }
-  const log = new AgentLog(agentLogPath(ctx.home.root));
+  const { root: root5, env: env3 } = ctx.home;
+  const log = new AgentLog(agentLogPath(root5));
   const signer = new Signer({ file: file2, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e6) => log.write(e6) });
-  const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(ctx.home.env.platform) });
+  let bound;
   try {
-    await server.listen();
+    await ensureDir(agentDir(root5));
+    bound = await withLock(
+      startLockPath(root5),
+      async () => {
+        const before = await agentEndpoint(root5, env3, false);
+        if (before !== void 0 && await answers(before)) throw new SetupError(`a signer is already running at ${before}`);
+        const at = await agentEndpoint(root5, env3, true);
+        const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(env3.platform) });
+        await server.listen();
+        return { server, at };
+      },
+      env3
+    );
   } catch (error63) {
     signer.lock();
     ready(`error ${error63.message}`);
     return 1;
   }
   log.write({ at: ctx.io.now(), op: "start", ok: true });
-  ready(`ready ${ctx.io.pid}`);
-  const onAbort = () => void server.close();
+  ready(`ready ${ctx.io.pid} ${bound.at}`);
+  const onAbort = () => void bound.server.close();
   ctx.io.signal.addEventListener("abort", onAbort, { once: true });
-  await server.stopped;
+  await bound.server.stopped;
   ctx.io.signal.removeEventListener("abort", onAbort);
+  await retireEndpoint(root5, env3, bound.at);
   log.write({ at: ctx.io.now(), op: "exit", ok: true });
   await log.flushed();
   return 0;
 }
+async function verified(ctx, at) {
+  const client = new SignerClient({ endpoint: at, expect: b64u.decode((await sealedFile(ctx)).signPub) });
+  try {
+    return { client, locked: (await client.hello()).locked };
+  } catch (error63) {
+    client.close();
+    throw new SetupError(`something answers at ${at} but is not this device's signer (${error63.message}): end that process, then run \`wim agent start\``);
+  }
+}
 async function start(ctx) {
   await sealedFile(ctx);
-  const at = await endpoint(ctx, true);
-  if (await answers(at)) {
-    ctx.io.out(`A signer is already running at ${at}. \`wim agent status\` says whether it is locked; \`wim agent unlock\` restarts a locked one.`);
+  const at = await endpoint(ctx, false);
+  if (at !== void 0 && await answers(at)) {
+    const { client, locked } = await verified(ctx, at);
+    client.close();
+    ctx.io.out(locked ? `A signer answers at ${at} and says it is locked (unverified: a locked signer holds no key to prove itself with). \`wim agent unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it holds this device's key).`);
     return 0;
   }
-  return launch(ctx, at, await readPassphrase(ctx, PROMPT));
+  return launch(ctx, await readPassphrase(ctx, PROMPT));
 }
-async function launch(ctx, at, passphrase) {
+async function launch(ctx, passphrase) {
   if (ctx.flags.get("foreground") === true) {
     let failed;
     const code2 = await runSigner(ctx, passphrase, (line2) => {
       if (line2.startsWith("error ")) failed = line2.slice(6);
-      else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${at}. Ctrl-C or \`wim agent stop\` stops it.`);
+      else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${line2.split(" ").slice(2).join(" ")}. Ctrl-C or \`wim agent stop\` stops it.`);
     });
     if (failed !== void 0) throw new SetupError(failed);
     ctx.io.out("Signer stopped.");
@@ -120892,7 +121100,8 @@ async function launch(ctx, at, passphrase) {
   if (ctx.io.startAgent === void 0) throw new SetupError("this program cannot start a background signer: use --foreground");
   const line = await ctx.io.startAgent(passphrase);
   if (!line.startsWith("ready ")) throw new SetupError(line.replace(/^error /, ""));
-  ctx.io.out(`Signer started (pid ${line.slice(6)}) at ${at}. Sessions now sign and open through it.`);
+  const [, pid, ...at] = line.split(" ");
+  ctx.io.out(`Signer started (pid ${pid}) at ${at.join(" ")}. Sessions now sign and open through it.`);
   ctx.io.out("`wim agent lock` wipes the keys from its memory; `wim agent stop` ends it.");
   return 0;
 }
@@ -120911,9 +121120,10 @@ async function status(ctx) {
     return 3;
   }
   try {
+    const locked = (await client.hello()).locked;
     const s3 = await client.call("status");
     const ops = Object.entries(s3["ops"]).map(([op2, n3]) => `${op2} ${n3}`);
-    ctx.io.out(`signer: running (pid ${String(s3["pid"])}), ${s3["locked"] === true ? "locked" : "unlocked"}, device ${String(s3["name"])} (${String(s3["id"])})`);
+    ctx.io.out(`signer: running (pid ${String(s3["pid"])}), ${locked ? "locked (unverified: a locked signer cannot prove itself)" : "unlocked (verified)"}, device ${String(s3["name"])} (${String(s3["id"])})`);
     ctx.io.out(`since ${new Date(s3["started"]).toISOString()}: ${ops.length === 0 ? "no operations" : ops.join(", ")}; refused ${String(s3["refused"])}, rate limited ${String(s3["limited"])}`);
     ctx.io.out(`log: ${agentLogPath(ctx.home.root)}`);
     return 0;
@@ -120928,9 +121138,17 @@ async function simple(ctx, action) {
     return action === "stop" ? 0 : 3;
   }
   try {
+    const locked = (await client.hello()).locked;
+    if (action === "lock" && locked) {
+      ctx.io.out("The signer says it is locked already (unverified: a locked signer cannot prove itself).");
+      return 0;
+    }
     await client.call(action);
   } finally {
     client.close();
+  }
+  if (action === "stop" && await answers(client.endpoint)) {
+    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts. End that process`);
   }
   ctx.io.out(action === "lock" ? "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase." : "Signer stopped.");
   return 0;
@@ -120957,7 +121175,7 @@ async function unlock(ctx) {
   if (await answers(client.endpoint)) {
     throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
   }
-  return launch(ctx, client.endpoint, passphrase);
+  return launch(ctx, passphrase);
 }
 async function eachPrekeyFile(home, rewrite) {
   for (const mesh of await home.meshIds()) {
@@ -121200,8 +121418,8 @@ var Ctx = class {
    */
   async session(name, opts = {}) {
     const base = await this.sessionOptions(name, "cli", false, opts.mesh);
-    const ephemeral = opts.keyed !== false && await liveWatcher(base.mesh, name, this.fsEnv) !== void 0;
-    const keyed = opts.keyed !== false && !ephemeral;
+    const ephemeral2 = opts.keyed !== false && await liveWatcher(base.mesh, name, this.fsEnv) !== void 0;
+    const keyed = opts.keyed !== false && !ephemeral2;
     if (keyed) await adoptByName(base.mesh, name, this.fsEnv, this.io.now);
     let last;
     const o3 = {
@@ -121215,7 +121433,7 @@ var Ctx = class {
     };
     if (opts.card !== true) delete o3.cwd;
     const s3 = await MeshSession.open({ ...o3, ...keyed ? { sessionKey: `cli:${name}` } : {} });
-    if (ephemeral) this.ephemeral.add(s3);
+    if (ephemeral2) this.ephemeral.add(s3);
     s3.start();
     try {
       await s3.ready(this.io.connectMs ?? 15e3);

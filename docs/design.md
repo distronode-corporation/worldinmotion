@@ -81,13 +81,19 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
 - `wim agent encrypt` encrypts `device.json` (version 2), seals every mesh's prekey secrets and sets
   `require_signer`. A session already running keeps the plaintext keys it read; once it reads a
   sealed prekey it cannot open, it acknowledges nothing more on that connection and says once that
-  it needs a restart, and the relay delivers those messages again to the restarted session. The key file is replaced by one atomic rename, so the identity survives an
-  interruption; a prekey left in the clear is sealed by the signer on the next schedule.
+  it needs a restart, and the relay delivers those messages again to the restarted session. The
+  key file is replaced by one atomic rename, so the identity survives an interruption; a prekey
+  left in the clear is sealed by the signer on the next schedule. A session that read sealed
+  prekeys before a `decrypt` and a new `encrypt` (a new data key) reads the file again when a box
+  does not open, and opens it then.
   `wim agent decrypt` (signer stopped) writes the same keys back in the clear, opens the sealed
   prekeys and clears `require_signer`.
 - `wim agent start` asks for the passphrase (only at an interactive terminal not driven by an
   agent, or from stdin with `--passphrase-stdin`) and starts `wim agent serve` detached from the
-  terminal; the child reads the passphrase on stdin and prints `ready <pid>` or `error <why>`.
+  terminal; the child reads the passphrase on stdin and prints `ready <pid> <endpoint>` or
+  `error <why>`. It checks for a running signer and binds under `agent/start.lock`, so two starts
+  never both bind. On Windows each start writes a new pipe token to `agent/pipe` and a clean stop
+  removes it. `start` and `status` say whether what answers proved itself (a locked signer cannot).
   `--foreground` runs it in the command itself, for systemd, launchd or CI. It is never started
   automatically: the passphrase needs the person, and a signer started from an agent's session
   would be that agent's descendant, which an OS may let it debug.
@@ -99,19 +105,26 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   `require_signer` is set or `WIM_REQUIRE_SIGNER=1`). An encrypted one gives a keyring that calls
   the signer; with no signer, or a locked one, the command says which `wim agent` command to run.
 - The socket speaks JSON lines: `{ "i", "op", "a" }`, answered `{ "i", "r" }` or
-  `{ "i", "e": { "code", "message" } }`. Operations: `hello` (with a proof, an Ed25519 signature
-  over `wim-agent/1 hello\n` and the client's nonce, checked against the key file's public part on
-  every new connection), `status`, `sign` (auth, send, roster, join; only objects that name this
-  device; never a prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey
+  `{ "i", "e": { "code", "message" } }`. Operations: `hello` (the client sends a nonce and an
+  X25519 key; an unlocked signer answers with its own X25519 key and an Ed25519 signature over
+  `wim-agent/2 hello\n`, the nonce and both keys, checked against the key file's public part on
+  every new connection; from then on each line on that connection is `{ "x" }`, the JSON sealed
+  with ChaCha20-Poly1305 under keys both sides derive with HKDF from the exchange, a counter as
+  nonce each way), `status`, `sign` (auth, send, roster, join; only objects that name this device;
+  `auth` and `send` only with an `at` within 5 minutes of the signer's clock; never a prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey
   entry; refused past its deletion time), `prekey` (makes one: public half and sealed secret),
   `adopt` (seals a clear prekey secret of this device's), `lock`, `stop` (the signer stops
-  listening before it answers, then closes every connection without waiting for its client). Key operations are rate limited (100 a second, burst 1000).
+  listening before it answers, then closes every connection without waiting for its client).
+  Before answering any request, and every 2 seconds, the signer checks that its endpoint still
+  names its own socket (device and inode); if not, it locks and stops. Key operations are rate
+  limited (100 a second, burst 1000).
   Requests on one connection are answered in order. A client sends a connection whose signer has
   not proved the key (a locked one, or an impostor) only `hello`, `status`, `lock` and `stop`, and
   keeps each connection's calls to itself, so a connection that closes late fails only its own.
 - A signer that is locked or gone makes a send fail with the reason. A delivered message that cannot
-  be opened for that reason is not acknowledged, nothing later is acknowledged on that connection
-  (acks are cumulative), and the session drops the connection; the next one authenticates once the
+  be handled, for any reason, is not acknowledged, and nothing later is acknowledged on that
+  connection (acks are cumulative). When the reason is the signer (locked, gone, slow, or what
+  answers is not the signer), the session also drops the connection; the next one authenticates once the
   signer answers, and the relay delivers everything after the last ack again. A frame is only ever
   acked on the connection it came on, so one still queued from an earlier connection never acks
   past a frame that failed. A retry of parked messages that fails takes the same path.

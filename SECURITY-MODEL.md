@@ -300,11 +300,23 @@ What it stops:
 - **Taking the keys away.** No file holds a secret key in the clear. A copy of `device.json` and
   `prekeys.json` is worth an offline guessing attack on the passphrase and nothing more, so the
   passphrase must be a strong one.
-- **Use after the signer is locked or stopped.** `wim agent lock` zeroes the key bytes in the
-  signer's memory and it refuses every key operation from then on; `wim agent stop` ends it.
-  Nothing on disk lets a process act for the device meanwhile, and nothing it learned while the
-  signer was unlocked lets it go on doing so: the signer hands out signatures and opened boxes,
-  never a key.
+- **New use after the signer is locked or stopped.** `wim agent lock` wipes the keys from the
+  signer's memory (as far as JavaScript can, below) and it refuses every key operation from then
+  on; `wim agent stop` ends it. Nothing on disk lets a process act for the device meanwhile: the
+  signer hands out signatures and opened boxes, never a key. What it signed while unlocked stays
+  valid, though (below, "Signatures made while unlocked").
+- **A process in the middle of the socket.** An unlocked signer's `hello` answer signs the client's
+  fresh nonce and both sides' X25519 keys for this connection, and both sides derive the
+  connection's keys from that exchange; every later line is sealed with ChaCha20-Poly1305, one key
+  and a message counter each way. A process that relays the hello (a proxy put at the socket path,
+  say) can read nothing after it and can neither change nor forge a line: a forged answer ends the
+  connection. Swapping in its own key breaks the signature. `lock` and `stop` to a signer that says
+  it is unlocked travel the same way, so they cannot be swallowed and answered by something else.
+- **Moving the signer's socket aside.** The signer records its socket's identity (device and inode)
+  when it listens. If the path comes to name anything else (the socket renamed away and another
+  put in its place, or nothing there), it locks and stops: checked before it answers any request,
+  and every 2 seconds. A held connection to a renamed signer therefore gets nothing more either.
+  A Windows pipe cannot be renamed; its name is new for each start (below).
 - **Collecting the passphrase by posing as a locked signer.** The device's public key is in the
   key file for anyone of the user to read, so a process could bind the endpoint (after `wim agent
   stop`, which any process of the user may send) and answer `hello` as a locked signer, which has
@@ -314,8 +326,14 @@ What it stops:
   answers), and starts a new signer from that command, handing the passphrase only to the process
   it started, over that process's own stdin. If something still answers at the endpoint after
   `stop`, the command says so and sends it nothing more. Sessions likewise send a connection
-  whose signer has not proved it holds the device's key (by signing the session's fresh nonce)
-  nothing but `hello`, `status`, `lock` and `stop`: never a plaintext and never an object to sign.
+  whose signer has not proved it holds the device's key (above) nothing but `hello`, `status`,
+  `lock` and `stop`: never a plaintext and never an object to sign. `wim agent start`, `status` and
+  `lock` say whether what answers proved itself: a signer that says it is locked is reported as
+  unverified, and something that claims to be unlocked without the proof is refused as not this
+  device's signer. `stop` checks afterwards that the endpoint stopped answering. Two `start`s at
+  once take a lock file while they check for a running signer and bind, so one binds and the
+  other says one is running (without it, the second removed the first's socket and left it
+  running unreachable).
 - **Prekeys with a secret the caller holds.** The signer signs no `prekey` object for a caller. It
   makes each prekey itself and returns the public half and the sealed secret. Otherwise a caller
   could publish a prekey whose secret it kept and read the device's incoming traffic offline for 48
@@ -336,18 +354,32 @@ What it does not stop:
   logs every request to `agent/log.jsonl` (operation, signature type, mesh and peer device; never a
   key or a plaintext), and rate limits key operations to 100 a second with a burst of 1000, which
   slows a bulk misuse and does not prevent one.
+- **Signatures made while unlocked.** What the signer signed stays valid after a lock or a stop: a
+  `send` frame is accepted by receivers until it is 47 hours old by its `at` (SPEC section 6), an
+  `auth` frame within the relay's 5-minute window, and a roster for good. A process that asks for
+  signatures while the signer is unlocked can use them later, offline. The signer signs `send`
+  and `auth` objects only with an `at` within 5 minutes of its own clock, so nothing is dated
+  ahead to last longer than that.
 - **Telling sessions from other processes.** Node exposes no peer credentials on a local socket
   (no `SO_PEERCRED` or `getpeereid`, and no `GetNamedPipeClientProcessId` on Windows), so the
   signer cannot see who connected. Other users are kept out by the operating system instead: on
   Linux and macOS the socket is `agent/sock` in a directory the signer and every client require to
   be the user's own with mode 0700 (the socket itself is 0600), which the kernel checks on every
   connect; on Windows it is a named pipe whose name carries a random token kept in `agent/pipe`
-  inside the user's own profile, so another user can neither find it nor open that name first. The
-  pipe is created with Windows' default named-pipe security, which by Microsoft's documentation
-  gives write access only to the creating user, administrators and SYSTEM; no test here checks
-  that on a Windows machine. Each client also asks a new connection to prove, with a signature over
-  a fresh nonce, that it holds the signing key named in the key file's public part, so nothing
-  else can pose as the signer and collect plaintexts (see the passphrase above).
+  inside the user's own profile. Another user cannot read that file, but can list the names in
+  `\\.\pipe\` while the signer runs; so the token is new for each start and removed on a clean
+  stop, and a name seen while one signer ran is never used by the next. After a crash the file
+  keeps the old name until the next start; something another user put on that name then answers
+  clients that still use it, and is refused because it cannot prove the device's key (`start`
+  reports it). The pipe is created with Windows' default named-pipe security, which by Microsoft's
+  documentation gives write access only to the creating user, administrators and SYSTEM; Node
+  offers no way to set an explicit DACL, and no test here checks the default on a Windows machine.
+  Node's client also opens a pipe without asking for the identification impersonation level
+  (libuv sets no `SECURITY_SQOS_PRESENT`), which Node does not expose: a process that answers on a
+  name a client uses and holds `SeImpersonatePrivilege` (a service, an administrator) could act as
+  the connecting user in Windows. Such a process is already more powerful than the user. Each
+  client also asks a new connection to prove that it holds the signing key named in the key
+  file's public part (above), so nothing else can pose as the signer and collect plaintexts.
 - **Stopping or squatting the signer.** Any process of the user can stop the signer, or take its
   endpoint while it is stopped. That denies the device's sessions their keys (they report it), and
   `wim agent unlock` and `wim agent start` report something that answers and is not the signer;
@@ -357,8 +389,11 @@ What it does not stop:
   an ancestor of the signer can), on Windows by default, on macOS only with debugging rights. That
   is why the signer is started by the person in their own terminal, never by an agent or a
   session: started from an agent's session, it would be the agent's descendant. JavaScript cannot
-  lock memory, so the keys can reach swap and core dumps; locking zeroes the key bytes, but copies
-  the runtime made (encoded strings in transit) remain until it frees them.
+  lock memory, so the keys can reach swap and core dumps. Locking zeroes the key bytes JavaScript
+  holds (the seeds, the data key, the decoded copies made while unlocking) and drops the signing
+  key's OpenSSL object, whose own copy OpenSSL frees when the object is collected; JavaScript cannot
+  zero it. Strings remain until the runtime frees them: the passphrase as typed, and the key file's
+  decrypted JSON while it is parsed.
 - **The passphrase at the keyboard.** A keylogger running as the person sees it. `wim agent start`,
   `unlock`, `encrypt` and `decrypt` ask for it only at an interactive terminal with no agent's
   variables set, or from stdin with `--passphrase-stdin` (for a service manager or CI), and keep it

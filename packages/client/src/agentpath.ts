@@ -5,7 +5,7 @@ import { b64u, randomBytes } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { SetupError } from "./errors.ts";
-import { ensureDir, readJson, readText, writeJson, writeNew, type FsEnv } from "./fsx.ts";
+import { ensureDir, readJson, readText, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { agentDirProblem, agentEndpointFor, endpointProblem, type Platform } from "./platform.ts";
 
 export type AgentEnv = FsEnv & { uid: number | undefined };
@@ -24,8 +24,10 @@ function settingsPath(root: string): string {
 }
 
 /**
- * The signer's endpoint. `create` (the signer starting) makes the directory and, on Windows, the
- * pipe token; otherwise undefined means no signer was ever set up here. Throws a SetupError when
+ * The signer's endpoint. `create` (a signer starting, under the start lock) makes the directory
+ * and, on Windows, a fresh pipe token: pipe names are global and listable, so a name is never
+ * reused after a signer stops, and one that was seen cannot be taken over for the next start.
+ * Otherwise undefined means no signer was ever set up here (or the last one stopped cleanly). Throws a SetupError when
  * the directory is not private, so nothing connects through a directory another user controls.
  */
 export async function agentEndpoint(root: string, env: AgentEnv, create: boolean): Promise<string | undefined> {
@@ -47,13 +49,27 @@ export async function agentEndpoint(root: string, env: AgentEnv, create: boolean
   return endpoint;
 }
 
-/** The random part of the pipe name, made once (by the first signer) and kept. */
+/** The random part of the pipe name: the kept one, or with `create` a new one, written in its place. */
 async function pipeToken(path: string, env: FsEnv, create: boolean): Promise<string | undefined> {
-  const kept = (await readText(path))?.trim();
-  if (kept !== undefined || !create) return kept;
-  // Two signers starting at once: one write wins, and both read what it wrote.
-  await writeNew(path, b64u.encode(randomBytes(16)), env).catch(() => undefined);
-  return (await readText(path))!.trim();
+  if (!create) return (await readText(path))?.trim();
+  const token = b64u.encode(randomBytes(16));
+  await writeAtomic(path, token, env);
+  return token;
+}
+
+/** The lock a starting signer holds while it checks for a running one and binds, so two cannot both bind. */
+export function startLockPath(root: string): string {
+  return join(agentDir(root), "start.lock");
+}
+
+/**
+ * After a signer stops: on Windows its pipe token goes, unless a newer signer already wrote its
+ * own (clients then find no endpoint rather than a stale name). A POSIX socket file is removed by
+ * Node when the server closes.
+ */
+export async function retireEndpoint(root: string, env: AgentEnv, endpoint: string): Promise<void> {
+  if (env.platform !== "win32") return;
+  if ((await agentEndpoint(root, env, false)) === endpoint) await fs.rm(join(agentDir(root), "pipe"), { force: true });
 }
 
 /** The device-wide signer settings (`agent/config.json`). */
@@ -68,14 +84,27 @@ export async function writeAgentSettings(root: string, settings: AgentSettings, 
   await writeJson(settingsPath(root), settings, env);
 }
 
-/** What the signer does with its endpoint's file before and after it listens. */
-export type EndpointFiles = { clear: (endpoint: string) => Promise<void>; secure: (endpoint: string) => Promise<void> };
+/**
+ * What the signer does with its endpoint's file before and after it listens, and how it tells its
+ * own endpoint from anything else at that path (`id`: undefined when nothing is there).
+ */
+export type EndpointFiles = {
+  clear: (endpoint: string) => Promise<void>;
+  secure: (endpoint: string) => Promise<void>;
+  id: (endpoint: string) => Promise<string | undefined>;
+};
 
 /**
- * POSIX: a stale socket file from a signer that died is removed before listening, and the new
- * socket is made 0600 (inside the 0700 directory). A Windows pipe is no file: nothing to do.
+ * POSIX: a stale socket file from a signer that died is removed before listening, the new socket
+ * is made 0600 (inside the 0700 directory), and its inode is its identity: a socket renamed away,
+ * or another put in its place, has another (or none). A Windows pipe is no file and cannot be
+ * renamed; its name is fresh for each start (agentEndpoint).
  */
 export function endpointFiles(platform: Platform): EndpointFiles {
-  if (platform === "win32") return { clear: async () => undefined, secure: async () => undefined };
-  return { clear: (endpoint) => fs.rm(endpoint, { force: true }), secure: (endpoint) => fs.chmod(endpoint, 0o600) };
+  if (platform === "win32") return { clear: async () => undefined, secure: async () => undefined, id: async () => "pipe" };
+  return {
+    clear: (endpoint) => fs.rm(endpoint, { force: true }),
+    secure: (endpoint) => fs.chmod(endpoint, 0o600),
+    id: (endpoint) => fs.lstat(endpoint, { bigint: true }).then((s) => `${s.dev}:${s.ino}`, () => undefined),
+  };
 }

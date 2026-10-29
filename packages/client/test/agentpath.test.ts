@@ -4,17 +4,12 @@
 
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { agentDir, agentEndpoint, endpointFiles, readAgentSettings, writeAgentSettings } from "../src/agentpath.ts";
-import { fsOps } from "../src/fsx.ts";
+import { describe, expect, it } from "vitest";
+import { agentDir, agentEndpoint, endpointFiles, readAgentSettings, retireEndpoint, writeAgentSettings } from "../src/agentpath.ts";
 import { agentDirProblem, agentEndpointFor, endpointProblem, SOCKET_PATH_MAX } from "../src/platform.ts";
 import { FS, POSIX, POSIX_VIEW, scratch } from "./helpers.ts";
 
 const ENV = { ...FS, uid: process.getuid?.() };
-const realLink = fsOps.link;
-afterEach(() => {
-  fsOps.link = realLink;
-});
 
 describe("agentDirProblem", () => {
   const dir = { mode: 0o40700, uid: 501, isDirectory: true, isSymlink: false };
@@ -53,7 +48,7 @@ describe("agentEndpoint", () => {
     if (POSIX) expect((await fs.stat(agentDir(root))).mode & 0o777).toBe(0o700);
   });
 
-  it("on Windows keeps a random pipe token in the directory, made once", async () => {
+  it("on Windows names the pipe by a random token in the directory, fresh for each start, and retires it", async () => {
     const root = await scratch("ep");
     const win = { ...ENV, platform: "win32" as const };
     await fs.mkdir(agentDir(root), { recursive: true, mode: 0o700 });
@@ -61,17 +56,16 @@ describe("agentEndpoint", () => {
     const first = await agentEndpoint(root, win, true);
     expect(first).toMatch(/^\\\\\.\\pipe\\wim-agent-[A-Za-z0-9_-]{22}$/);
     expect(await agentEndpoint(root, win, false)).toBe(first);
-    expect(await agentEndpoint(root, win, true)).toBe(first);
-  });
-
-  it("takes the token another signer wrote first when two start at once", async () => {
-    const root = await scratch("ep");
-    const win = { ...ENV, platform: "win32" as const };
-    fsOps.link = async (_existing, path) => {
-      await fs.writeFile(path, "theirs");
-      throw Object.assign(new Error("exists"), { code: "EEXIST" });
-    };
-    expect(await agentEndpoint(root, win, true)).toBe("\\\\.\\pipe\\wim-agent-theirs");
+    // A new start never reuses a name another process may have seen in the pipe listing.
+    const second = await agentEndpoint(root, win, true);
+    expect(second).not.toBe(first);
+    // The first signer stopping leaves the second's token alone; the second's own retires it.
+    await retireEndpoint(root, win, first!);
+    expect(await agentEndpoint(root, win, false)).toBe(second);
+    await retireEndpoint(root, win, second!);
+    expect(await agentEndpoint(root, win, false)).toBeUndefined();
+    // A Unix socket file is removed by Node when the server closes: nothing to retire.
+    await retireEndpoint(root, ENV, "anything");
   });
 
   it("refuses a directory others can enter, and a socket path too long to bind", async () => {
@@ -95,8 +89,18 @@ describe("endpointFiles", () => {
     await fs.chmod(path, 0o644);
     await endpointFiles("linux").secure(path);
     if (POSIX) expect((await fs.stat(path)).mode & 0o777).toBe(0o600);
+    // POSIX identity is the file's device and inode: the same file keeps it, another file differs.
+    const id = await endpointFiles("linux").id(path);
+    expect(id).toMatch(/^\d+:\d+$/);
+    expect(await endpointFiles("linux").id(path)).toBe(id);
+    await fs.rename(path, `${path}.moved`);
+    await fs.writeFile(path, "another");
+    expect(await endpointFiles("linux").id(path)).not.toBe(id);
     await endpointFiles("linux").clear(path);
     await expect(fs.stat(path)).rejects.toThrow();
+    expect(await endpointFiles("linux").id(path)).toBeUndefined();
+    // A pipe is no file and cannot be renamed: its name is its identity.
+    expect(await endpointFiles("win32").id(path)).toBe("pipe");
   });
 });
 

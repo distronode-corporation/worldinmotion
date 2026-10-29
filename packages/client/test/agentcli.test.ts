@@ -64,7 +64,7 @@ describe("wim agent", () => {
     const fg = await foreground(d.root);
     const s = at(d.root);
     expect(await run(s, "agent", "status")).toBe(0);
-    expect(said(s)).toMatch(/\(encrypted\); the signer is required\nsigner: running \(pid \d+\), unlocked, device cli \(.{22}\)\nsince .*: no operations; refused 0, rate limited 0\nlog: /);
+    expect(said(s)).toMatch(/\(encrypted\); the signer is required\nsigner: running \(pid \d+\), unlocked \(verified\), device cli \(.{22}\)\nsince .*: no operations; refused 0, rate limited 0\nlog: /);
     const doc = at(d.root);
     expect(await run(doc, "doctor")).toBe(0);
     expect(said(doc)).toContain("keys held by the signer (wim agent)");
@@ -74,7 +74,11 @@ describe("wim agent", () => {
     expect(said(lock)).toMatch(/Signer locked/);
     const st = at(d.root);
     await run(st, "agent", "status");
-    expect(said(st)).toMatch(/locked, device cli.*\n.*lock 1/);
+    expect(said(st)).toMatch(/locked \(unverified: a locked signer cannot prove itself\), device cli.*\n.*lock 1/);
+    // Locking again tells a locked signer nothing: it says so.
+    const relock = at(d.root);
+    expect(await run(relock, "agent", "lock")).toBe(0);
+    expect(said(relock)).toMatch(/says it is locked already/);
     // A wrong passphrase is caught here, and the locked signer is left as it was.
     const wrong = at(d.root, {}, {}, "not it");
     expect(await run(wrong, "agent", "unlock", "--passphrase-stdin")).toBe(1);
@@ -116,7 +120,7 @@ describe("wim agent", () => {
     expect(said(t)).toMatch(/Signer started \(pid \d+\)/);
     const again = at(d.root);
     expect(await run(again, "agent", "start")).toBe(0);
-    expect(said(again)).toMatch(/already running/);
+    expect(said(again)).toMatch(/already running at .* \(verified: it proved it holds this device's key\)/);
     // A second serve on the same endpoint says why it cannot run.
     const second = at(d.root, {}, {}, PASS);
     expect(await run(second, "agent", "serve")).toBe(1);
@@ -147,11 +151,59 @@ describe("wim agent", () => {
       const t = at(d.root, {}, {}, PASS);
       expect(await run(t, "agent", "unlock", "--passphrase-stdin")).toBe(1);
       expect(said(t)).toMatch(/still answers after it was asked to stop.*nothing was sent to it/);
-      expect(lines.map((l) => (JSON.parse(l) as { op: string }).op)).toEqual(["hello", "hello", "stop"]);
+      expect(lines.map((l) => (JSON.parse(l) as { op: string }).op)).toEqual(["hello", "stop"]);
       expect(lines.join("\n")).not.toContain(PASS);
+      // `start` reports what it says as unverified; `stop` checks it went, and it did not.
+      const st = at(d.root);
+      expect(await run(st, "agent", "start")).toBe(0);
+      expect(said(st)).toMatch(/says it is locked \(unverified/);
+      const stop = at(d.root);
+      expect(await run(stop, "agent", "stop")).toBe(1);
+      expect(said(stop)).toMatch(/still answers after it was asked to stop/);
     } finally {
       await new Promise<void>((r) => impostor.close(() => r()));
     }
+  });
+
+  it("start refuses what answers at the endpoint but cannot prove it is this device's signer", async () => {
+    const d = await newDevice("fake");
+    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    const endpoint = (await agentEndpoint(d.root, d.home.env, true))!;
+    // Claims to be unlocked, with no proof.
+    const impostor = createServer((socket) => {
+      socket.setEncoding("utf8");
+      socket.on("error", () => undefined);
+      socket.on("data", (chunk: string) => {
+        const { i } = JSON.parse(chunk.split("\n")[0]!) as { i: number };
+        socket.write(`${JSON.stringify({ i, r: { id: "x", name: "fake", signPub: "x", boxPub: "x", locked: false, pid: 1 } })}\n`);
+      });
+    });
+    await new Promise<void>((r) => impostor.listen(endpoint, () => r()));
+    try {
+      const t = at(d.root, {}, {}, PASS);
+      expect(await run(t, "agent", "start", "--foreground", "--passphrase-stdin")).toBe(1);
+      expect(said(t)).toMatch(/something answers at .* but is not this device's signer/);
+    } finally {
+      await new Promise<void>((r) => impostor.close(() => r()));
+    }
+  });
+
+  it("two signers starting at once: one binds, the other says one is running", async () => {
+    const d = await newDevice("race");
+    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    const one = at(d.root, {}, {}, PASS);
+    const two = at(d.root, {}, {}, PASS);
+    const runs = [run(one, "agent", "serve"), run(two, "agent", "serve")];
+    running.push(...runs);
+    terms.push(at(d.root));
+    const line = (t: Term): string | undefined => t.out.find((l) => /^(ready|error) /.test(l));
+    await until(() => line(one) !== undefined && line(two) !== undefined, undefined, "both to say how it went");
+    expect([line(one), line(two)].filter((l) => l!.startsWith("ready "))).toHaveLength(1);
+    expect([line(one), line(two)].filter((l) => l!.startsWith("error a signer is already running"))).toHaveLength(1);
+    // The one that bound is reachable and answers as this device's signer.
+    const st = at(d.root);
+    expect(await run(st, "agent", "status")).toBe(0);
+    expect(said(st)).toMatch(/unlocked \(verified\)/);
   });
 
   it("starts only on an encrypted key file, and only in the background where it can", async () => {

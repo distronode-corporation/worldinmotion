@@ -4,18 +4,17 @@
 //
 // Wire: one JSON object per line. A request is `{ "i": n, "op": "...", "a": { ... } }`, the
 // answer `{ "i": n, "r": { ... } }` or `{ "i": n, "e": { "code": "...", "message": "..." } }`.
-// Bytes travel as b64u.
+// Bytes travel as b64u. After an unlocked signer's `hello`, each line is `{ "x": "..." }`, the
+// same JSON sealed on the connection's channel (channel.ts).
 
 import { b64u, randomBytes, type Box, type OpenRequest, type Opened, type Prekey, type SealRequest, type SignType } from "@worldinmotion/protocol";
 import { createPublicKey, verify } from "node:crypto";
+import { channelFor, ephemeral, helloTranscript, type Channel } from "./channel.ts";
 import { createConnection, type Socket } from "node:net";
 import { openWithClearPrekey, type DeviceKeyring, type PrekeyEntry } from "./keyring.ts";
 
 /** The longest line either side accepts: a send frame (1 MiB) to sign, in JSON, with room to spare. */
 export const MAX_LINE = 4 * 1024 * 1024;
-
-/** The label of the signer's proof that it holds this device's signing key (never a `wim/1` type). */
-export const HELLO_LABEL = "wim-agent/1 hello\n";
 
 /** Why the signer could not do what was asked. `unavailable`: no signer answers at the endpoint. */
 export type SignerCode = "unavailable" | "locked" | "rate_limited" | "refused" | "bad_request" | "bad_passphrase" | "timeout" | "mismatch";
@@ -34,13 +33,11 @@ export class SignerError extends Error {
   }
 }
 
-/** What `hello` tells: the device the signer holds, whether it is locked, and its process. */
-export type Hello = { id: string; name: string; signPub: string; boxPub: string; locked: boolean; pid: number; proof?: string };
-
-/** The bytes the signer signs to prove it holds the signing key: the label and the client's nonce. */
-export function helloBytes(nonce: Uint8Array): Uint8Array {
-  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce]);
-}
+/**
+ * What `hello` tells: the device the signer holds, whether it is locked, and its process; when
+ * unlocked, its X25519 key for the channel and its proof, a signature over helloTranscript.
+ */
+export type Hello = { id: string; name: string; signPub: string; boxPub: string; locked: boolean; pid: number; epub?: string; proof?: string };
 
 /** An Ed25519 public key as Node's crypto takes it (SPKI DER around the 32 raw bytes). */
 export function ed25519Public(pub: Uint8Array) {
@@ -71,6 +68,17 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 type Answer = { i: unknown; r: Record<string, unknown> } | { i: unknown; e: { code: SignerCode; message: string } };
 
+/** The text of a sealed line `{ "x": "..." }`, or undefined for anything else. */
+export function unseal(channel: Channel, line: string): string | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+  return isObject(value) ? channel.open(value["x"]) : undefined;
+}
+
 /**
  * One line from the signer, or undefined when it is not an answer: a JSON object with either `e`,
  * an object whose `code` and `message` are strings, or (without `e`) `r`, an object.
@@ -96,7 +104,7 @@ type Pending = { resolve: (r: Record<string, unknown>) => void; reject: (e: Erro
  * one that closes late (a Windows pipe reports its close later than a Unix socket) fails only its
  * own calls, never those of the connection that replaced it.
  */
-type Conn = { socket: Socket; pending: Map<number, Pending>; buffered: string; proven: boolean };
+type Conn = { socket: Socket; pending: Map<number, Pending>; buffered: string; proven: boolean; channel?: Channel; hello?: Hello };
 
 /**
  * What may go to a signer that has not proved it holds the key: a locked one, or anything else
@@ -106,14 +114,18 @@ const UNPROVEN_OPS: ReadonlySet<string> = new Set(["hello", "status", "lock", "s
 
 /**
  * One connection to the signer, made on first use and again after it drops. Each new connection
- * starts with `hello`, and the signer must prove, by signing the client's fresh nonce, that it
- * holds `expect` (the device's signing key, from the key file's public part). Until a connection's
- * signer has proved that, only `hello`, `status`, `lock` and `stop` go to it: a locked signer, or
- * a process posing as one, is never sent a plaintext or a request to sign. (The passphrase never
- * crosses this socket at all: `wim agent unlock` restarts the signer.)
+ * starts with `hello`, and an unlocked signer must prove, by signing the client's fresh nonce and
+ * both sides' channel keys, that it holds `expect` (the device's signing key, from the key file's
+ * public part). Everything after that goes over the connection's sealed channel, so a proof relayed
+ * by a process in the middle gets that process nothing. Until a connection's signer has proved
+ * itself, only `hello`, `status`, `lock` and `stop` go to it: a locked signer, or a process posing
+ * as one, is never sent a plaintext or a request to sign. (The passphrase never crosses this
+ * socket: `wim agent unlock` restarts the signer.)
  */
 export class SignerClient {
-  readonly endpoint: string;
+  /** The endpoint last connected to (or given). */
+  endpoint: string;
+  private readonly where: () => Promise<string | undefined>;
   private readonly expect: Uint8Array | undefined;
   private readonly timeoutMs: number;
   private readonly connect: (endpoint: string) => Socket;
@@ -121,8 +133,14 @@ export class SignerClient {
   private opening: Promise<Conn> | undefined;
   private next = 0;
 
-  constructor(o: { endpoint: string; expect?: Uint8Array; timeoutMs?: number; connect?: (endpoint: string) => Socket }) {
-    this.endpoint = o.endpoint;
+  /**
+   * `endpoint` is the signer's address, or a function that finds it again for each new connection
+   * (a session outlives a signer restart, and on Windows each start has a new pipe name).
+   */
+  constructor(o: { endpoint: string | (() => Promise<string | undefined>); expect?: Uint8Array; timeoutMs?: number; connect?: (endpoint: string) => Socket }) {
+    const at = o.endpoint;
+    this.endpoint = typeof at === "string" ? at : "";
+    this.where = typeof at === "string" ? async () => at : at;
     this.expect = o.expect;
     this.timeoutMs = o.timeoutMs ?? 30_000;
     this.connect = o.connect ?? ((endpoint) => createConnection(endpoint));
@@ -137,9 +155,9 @@ export class SignerClient {
     return this.send(conn, op, a);
   }
 
-  /** `hello` on a connection of its own choosing: the signer's state, checked against `expect`. */
+  /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
   async hello(): Promise<Hello> {
-    return this.greet(await this.connected());
+    return (await this.connected()).hello!;
   }
 
   /** Drops the connection; its pending calls fail as `unavailable`. */
@@ -158,7 +176,8 @@ export class SignerClient {
       conn.pending.set(i, { resolve, reject, timer });
       // A connection with calls in flight keeps the process alive; an idle one does not.
       conn.socket.ref();
-      conn.socket.write(`${JSON.stringify({ i, op, a })}\n`);
+      const text = JSON.stringify({ i, op, a });
+      conn.socket.write(`${conn.channel === undefined ? text : JSON.stringify({ x: conn.channel.seal(text) })}\n`);
     });
   }
 
@@ -172,9 +191,15 @@ export class SignerClient {
     return this.opening;
   }
 
-  private open(): Promise<Conn> {
+  private async open(): Promise<Conn> {
+    return this.connectTo(await this.where());
+  }
+
+  private connectTo(at: string | undefined): Promise<Conn> {
+    if (at === undefined) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in your own terminal"));
+    this.endpoint = at;
     return new Promise<Conn>((resolve, reject) => {
-      const socket = this.connect(this.endpoint);
+      const socket = this.connect(at);
       const conn: Conn = { socket, pending: new Map(), buffered: "", proven: false };
       socket.setEncoding("utf8");
       // Before the connection: no signer there. After it: the close that follows fails what is pending.
@@ -200,16 +225,29 @@ export class SignerClient {
 
   private async greet(conn: Conn): Promise<Hello> {
     const nonce = randomBytes(32);
-    const hello = (await this.send(conn, "hello", { nonce: b64u.encode(nonce) })) as Hello;
+    const mine = ephemeral();
+    const hello = (await this.send(conn, "hello", { nonce: b64u.encode(nonce), epub: b64u.encode(mine.pub) })) as Hello;
+    this.check(conn, hello, nonce, mine);
+    return hello;
+  }
+
+  /** Checks a hello and, for an unlocked signer that proved itself, opens the channel. Any malformed field is a mismatch. */
+  private check(conn: Conn, hello: Hello, nonce: Uint8Array, mine: ReturnType<typeof ephemeral>): void {
     if (this.expect !== undefined && hello.signPub !== b64u.encode(this.expect)) {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
     }
-    // Locked, it holds no key to prove: the connection stays unproven (see call).
-    if (!hello.locked && (hello.proof === undefined || !verify(null, helloBytes(nonce), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.proof)))) {
+    conn.hello = hello;
+    // Locked, it holds no key to prove: the connection stays unproven and in the clear (see call).
+    if (hello.locked) return;
+    try {
+      const theirs = b64u.decode(hello.epub!);
+      const transcript = helloTranscript(nonce, mine.pub, theirs);
+      if (!verify(null, transcript, ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.proof!))) throw new Error("bad proof");
+      conn.channel = channelFor("client", mine.privateKey, theirs, transcript);
+    } catch {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it holds its device's signing key`);
     }
-    conn.proven = !hello.locked;
-    return hello;
+    conn.proven = true;
   }
 
   private take(conn: Conn, chunk: string): void {
@@ -221,7 +259,7 @@ export class SignerClient {
     for (let nl = conn.buffered.indexOf("\n"); nl !== -1; nl = conn.buffered.indexOf("\n")) {
       const line = conn.buffered.slice(0, nl);
       conn.buffered = conn.buffered.slice(nl + 1);
-      const answer = parseAnswer(line);
+      const answer = parseAnswer(conn.channel === undefined ? line : (unseal(conn.channel, line) ?? ""));
       if (answer === undefined) {
         // A protocol error ends this connection only: what it had pending fails, the next call connects again.
         conn.socket.destroy();

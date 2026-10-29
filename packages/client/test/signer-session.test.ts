@@ -151,25 +151,36 @@ describe("sessions through the signer", () => {
     expect(inner.cardAt).toBeGreaterThanOrEqual(sentAt);
   });
 
-  it("a failure without a connection, or not the signer's, only logs", async () => {
+  it("any failure holds acks on its connection; one about the signer also drops it", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);
     const logs: string[] = [];
     const a = await openSession(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
     const inner = a as unknown as { inboundFailed(error: unknown): void; ack(cursor: number, via: unknown): void; state: { cursor: number }; heldLink: unknown };
-    inner.inboundFailed(new Error("disk full"));
-    // A frame that waits for the signer: the connection is dropped, and until it is gone nothing
-    // more is acknowledged on it, so the relay delivers that frame again.
     const acks = (): number => relay.sentByClients.filter((t) => t.startsWith('{"t":"ack"')).length;
     const before = { acks: acks(), cursor: inner.state.cursor };
-    const held = a.link;
+    const newLink = async (old: unknown): Promise<void> => until(() => a.link !== undefined && a.link.isOpen && a.link !== old, undefined, "a new connection");
+    // Not about the signer (a full disk): nothing more is acked on this connection, which stays.
+    const first = a.link!;
+    inner.inboundFailed(new Error("disk full"));
+    inner.ack(before.cursor + 5, first);
+    expect(acks()).toBe(before.acks);
+    expect(a.link).toBe(first);
+    expect(first.isOpen).toBe(true);
+    // What answers is not the signer: held, and dropped, so the next connection authenticates afresh.
+    inner.inboundFailed(new SignerError("mismatch", "what answers is not the signer"));
+    await newLink(first);
+    inner.ack(before.cursor + 5, first);
+    expect(acks()).toBe(before.acks);
+    // The signer could not answer: the same.
+    const second = a.link!;
     inner.inboundFailed(new SignerError("timeout", "the signer did not answer"));
-    inner.ack(before.cursor + 5, held);
+    inner.ack(before.cursor + 5, second);
     expect(acks()).toBe(before.acks);
     expect(inner.state.cursor).toBe(before.cursor);
     // The next connection acknowledges again, but only what came on it.
-    await until(() => a.link !== undefined && a.link.isOpen && a.link !== inner.heldLink, undefined, "a new connection");
-    inner.ack(before.cursor + 5, held);
+    await newLink(second);
+    inner.ack(before.cursor + 5, second);
     expect(acks()).toBe(before.acks);
     inner.ack(before.cursor + 5, a.link);
     expect(acks()).toBe(before.acks + 1);
@@ -181,7 +192,7 @@ describe("sessions through the signer", () => {
     expect(inner.state.cursor).toBe(before.cursor + 5);
     await a.stop();
     inner.inboundFailed(new SignerError("locked", "the signer is locked"));
-    expect(logs.filter((l) => l.startsWith("wim: inbound: "))).toEqual(["wim: inbound: disk full", "wim: inbound: the signer did not answer", "wim: inbound: the signer is locked"]);
+    expect(logs.filter((l) => l.startsWith("wim: inbound: "))).toEqual(["wim: inbound: disk full", "wim: inbound: what answers is not the signer", "wim: inbound: the signer did not answer", "wim: inbound: the signer is locked"]);
   });
 
   it("a frame that came on an earlier connection is not acked on the next one; the relay delivers it again", async () => {
@@ -294,7 +305,27 @@ describe("sessions through the signer", () => {
     const texts = (await after.spool.unread()).map((i) => i.rendered).join("\n");
     expect(texts).toContain("sealed after the encrypt");
     expect(texts).toContain("and another");
-  });
+  }, 20_000);
+
+  it("a session that read its prekeys before a decrypt and a new encrypt reads them again, and opens what arrives", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const one = devices[0]!;
+    const { device, server } = await underSigner(one);
+    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    const a = await session(one, mesh, relay, { name: "a", device });
+    await b.send("a@one", "before");
+    await until(async () => (await a.spool.unread()).length === 1);
+    // The key file goes back to plaintext and is encrypted again: a new data key seals the prekeys.
+    await server.close();
+    await decryptDevice(one.home, PASS);
+    await encryptDevice(one.home, PASS, KDF);
+    await serve(one);
+    // The session still holds the entries sealed under the old data key: the first open fails,
+    // the second, after reading the file again, opens.
+    await b.send("a@one", "after the new encrypt");
+    await until(async () => (await a.spool.unread()).length === 2, undefined, "the message after the new encrypt");
+  }, 20_000);
 
   it("signs roster changes for an admin device", async () => {
     const relay = new RelayHarness();

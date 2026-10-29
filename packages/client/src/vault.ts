@@ -13,8 +13,13 @@ import { promisify } from "node:util";
 /** scrypt with N = 2^17, r = 8, p = 1: 128 MiB and about half a second per guess on a laptop. */
 export const DEFAULT_KDF = { N: 2 ** 17, r: 8, p: 1 } as const;
 
-/** The largest scrypt cost a key file may ask for: a hostile file must not exhaust memory. */
-const MAX_N = 2 ** 20;
+/**
+ * The largest scrypt cost a key file may ask for, so a hostile file cannot make the signer use more
+ * than 256 MiB (scrypt takes 128 * N * r bytes): N up to 2^18 with r up to 8, p up to 4.
+ */
+const MAX_N = 2 ** 18;
+const MAX_R = 8;
+const MAX_P = 4;
 
 export type KdfParams = { alg: "scrypt"; N: number; r: number; p: number; salt: string };
 
@@ -114,8 +119,8 @@ export function parseSealedKeyFile(raw: Record<string, unknown>): SealedKeyFile 
     kdf !== null &&
     kdf.alg === "scrypt" &&
     int(kdf.N, MAX_N) &&
-    int(kdf.r, 32) &&
-    int(kdf.p, 16) &&
+    int(kdf.r, MAX_R) &&
+    int(kdf.p, MAX_P) &&
     str(kdf.salt);
   if (!ok) throw new TypeError("the encrypted key file is malformed");
   const file = raw as SealedKeyFile;
@@ -133,7 +138,12 @@ export async function openKeyFile(file: SealedKeyFile, passphrase: string): Prom
   const secrets = JSON.parse(fromUtf8(bytes)) as Record<"signSec" | "boxSec" | "data", string>;
   bytes.fill(0);
   const decode = (name: keyof typeof secrets): Uint8Array => b64u.decode(secrets[name]);
-  const keys = deviceKeysFromSecrets(decode("signSec"), decode("boxSec"));
+  const signSec = decode("signSec");
+  const boxSec = decode("boxSec");
+  // deviceKeysFromSecrets keeps copies: these are zeroed (the JSON strings cannot be; see SECURITY-MODEL 5.8).
+  const keys = deviceKeysFromSecrets(signSec, boxSec);
+  signSec.fill(0);
+  boxSec.fill(0);
   if (b64u.encode(keys.signPub) !== file.signPub || b64u.encode(keys.boxPub) !== file.boxPub) throw new TypeError("the encrypted key file's public keys do not match its secrets");
   return { keys, data: decode("data") };
 }

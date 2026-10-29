@@ -17,8 +17,9 @@ import {
 import { createServer, type Server, type Socket } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentServer, answers, Signer, type LogEntry } from "../src/agent.ts";
-import { agentEndpoint, endpointFiles } from "../src/agentpath.ts";
+import { agentEndpoint, endpointFiles, type EndpointFiles } from "../src/agentpath.ts";
 import { parseAnswer, SignerClient, signerKeyring, SignerError } from "../src/signer.ts";
+import { ephemeral } from "../src/channel.ts";
 import { sealKeyFile } from "../src/vault.ts";
 import { FS, scratch } from "./helpers.ts";
 
@@ -39,14 +40,14 @@ async function endpoint(): Promise<string> {
 
 type Running = { server: AgentServer; signer: Signer; keys: DeviceKeys; at: string; id: string; client: SignerClient };
 
-async function running(log: LogEntry[] = []): Promise<Running> {
+async function running(log: LogEntry[] = [], files: EndpointFiles = endpointFiles(process.platform), watchMs?: number): Promise<Running> {
   const keys = generateDeviceKeys();
   const data = randomBytes(32);
   const file = await sealKeyFile({ name: "laptop", keys, passphrase: "pass phrase", data, kdf: KDF });
   const unlocked = { keys: { ...keys, signSec: keys.signSec.slice(), boxSec: keys.boxSec.slice() }, data };
   const signer = new Signer({ file, unlocked, now: Date.now, pid: process.pid, log: (e) => log.push(e) });
   const at = await endpoint();
-  const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(process.platform) });
+  const server = new AgentServer({ signer, endpoint: at, files, ...(watchMs === undefined ? {} : { watchMs }) });
   await server.listen();
   cleanup.push(() => server.close());
   const client = new SignerClient({ endpoint: at, expect: keys.signPub });
@@ -89,7 +90,7 @@ describe("the signer's socket", () => {
     const r = await running();
     const hello = await r.client.hello();
     expect(hello).toMatchObject({ id: r.id, locked: false, signPub: b64u.encode(r.keys.signPub) });
-    const obj = { device: r.id, mesh: MESH };
+    const obj = { device: r.id, mesh: MESH, at: Date.now() };
     expect((await r.client.call("sign", { type: "auth", obj }))["sig"]).toBe(signObject("auth", obj, r.keys.signSec).sig);
     // A second client with the wrong expectation is refused before it asks anything.
     const wrong = new SignerClient({ endpoint: r.at, expect: generateDeviceKeys().signPub });
@@ -199,6 +200,16 @@ describe("the signer's socket", () => {
     await raw.closed;
   });
 
+  it("after an unlocked hello, a line that is not sealed on the channel ends the connection", async () => {
+    const r = await running();
+    const raw = await rawConnection(r.at);
+    raw.send(JSON.stringify({ i: 1, op: "hello", a: { nonce: b64u.encode(randomBytes(32)), epub: b64u.encode(ephemeral().pub) } }));
+    expect(await raw.next()).toMatchObject({ i: 1, r: { locked: false } });
+    raw.send(JSON.stringify({ i: 2, op: "status" }));
+    await raw.closed;
+    expect(r.signer.locked).toBe(false);
+  });
+
   it("drops the answer to a connection that went away before it", async () => {
     let entered = false;
     let release!: () => void;
@@ -228,6 +239,134 @@ async function turns(done: () => boolean): Promise<void> {
   for (let i = 0; i < 10_000 && !done(); i++) await new Promise((r) => setImmediate(r));
   if (!done()) throw new Error("never happened");
 }
+
+/**
+ * A process in the middle: listens at its own endpoint and passes every line on to `to`, after
+ * `edit` (which may change a line, answer it itself, or keep it). What it saw is in `seen`.
+ */
+async function proxy(to: string, edit: (line: string, fromClient: boolean, answer: (text: string) => void) => string | undefined = (l) => l) {
+  const at = await endpoint();
+  const seen: string[] = [];
+  const { createConnection } = await import("node:net");
+  const server = createServer((client) => {
+    const upstream = createConnection(to);
+    const relay = (from: Socket, into: Socket, fromClient: boolean): void => {
+      from.setEncoding("utf8");
+      let buf = "";
+      from.on("error", () => undefined);
+      from.on("close", () => into.destroy());
+      from.on("data", (d: string) => {
+        buf += d;
+        for (let nl = buf.indexOf("\n"); nl !== -1; nl = buf.indexOf("\n")) {
+          const line = buf.slice(0, nl);
+          buf = buf.slice(nl + 1);
+          seen.push(line);
+          const out = edit(line, fromClient, (text) => from.write(`${text}\n`));
+          if (out !== undefined) into.write(`${out}\n`);
+        }
+      });
+    };
+    relay(client, upstream, true);
+    relay(upstream, client, false);
+  });
+  await new Promise<void>((r) => server.listen(at, () => r()));
+  cleanup.push(() => new Promise<void>((r) => server.close(() => r())));
+  return { at, seen };
+}
+
+describe("a process in the middle (independent review, finding 1)", () => {
+  it("relaying the hello gets it nothing: every later line is sealed, and one it forges ends the connection", async () => {
+    const r = await running();
+    let forge = false;
+    const p = await proxy(r.at, (line, fromClient, answer) => {
+      if (!(fromClient && forge)) return line;
+      // It cannot read the request, so it answers it blind, in the clear, as if it were a `lock`.
+      answer(JSON.stringify({ i: 2, r: {} }));
+      return undefined;
+    });
+    const client = new SignerClient({ endpoint: p.at, expect: r.keys.signPub });
+    cleanup.push(() => client.close());
+    const ring = signerKeyring(client, { signPub: r.keys.signPub, boxPub: r.keys.boxPub });
+    const peer = generateDeviceKeys();
+    const box = await ring.seal({ mesh: MESH, sender: r.id, recipient: deviceIdFromSignPub(peer.signPub), aad: randomBytes(32), recipientBox: peer.boxPub, plaintext: utf8("the plan") });
+    expect("c" in box).toBe(true);
+    const wire = p.seen.join("\n");
+    expect(wire).not.toContain(b64u.encode(utf8("the plan")));
+    expect(p.seen.slice(2).every((l) => Object.keys(JSON.parse(l) as object).join() === "x")).toBe(true);
+    forge = true;
+    expect((await failure(client.call("lock"))).code).toBe("unavailable");
+    expect(r.signer.locked).toBe(false);
+  });
+
+  it("swapping in its own channel key breaks the proof", async () => {
+    const r = await running();
+    const mine = ephemeral();
+    const p = await proxy(r.at, (line, fromClient) => {
+      const msg = JSON.parse(line) as { op?: string; a?: Record<string, unknown> };
+      if (fromClient && msg.op === "hello") return JSON.stringify({ ...msg, a: { ...msg.a, epub: b64u.encode(mine.pub) } });
+      return line;
+    });
+    const client = new SignerClient({ endpoint: p.at, expect: r.keys.signPub });
+    cleanup.push(() => client.close());
+    expect((await failure(client.call("status"))).code).toBe("mismatch");
+  });
+
+  it("a signer whose endpoint names something else locks and stops, before answering anything", async () => {
+    let id: string | undefined = "mine";
+    const files: EndpointFiles = { ...endpointFiles(process.platform), id: async () => id };
+    const log: LogEntry[] = [];
+    const r = await running(log, files);
+    // A connection the agent opened while the endpoint was the signer's own.
+    await r.client.call("status");
+    id = "a proxy's socket";
+    expect((await failure(r.client.call("sign", { type: "auth", obj: { device: r.id, at: Date.now() } }))).code).toBe("unavailable");
+    await r.server.stopped;
+    expect(r.signer.locked).toBe(true);
+    expect(log.map((e) => e.op)).toContain("replaced");
+  });
+
+  it("checks its endpoint on its own as well, every watchMs", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let id: string | undefined = "mine";
+    const r = await running([], { ...endpointFiles(process.platform), id: async () => id }, 1000);
+    await r.server.watch();
+    expect(r.signer.locked).toBe(false);
+    id = undefined;
+    vi.advanceTimersByTime(1000);
+    await r.server.stopped;
+    expect(r.signer.locked).toBe(true);
+  });
+
+  it.skipIf(process.platform === "win32")("the reported attack: the socket renamed away, a proxy at its path; `wim agent lock` cannot be faked", async () => {
+    const r = await running();
+    const { promises: fsp } = await import("node:fs");
+    const real = `${r.at}.real`;
+    await fsp.rename(r.at, real);
+    // The proxy listens at the signer's old path and forwards to the renamed socket.
+    const { createConnection } = await import("node:net");
+    const forwarded: string[] = [];
+    const server = createServer((c) => {
+      const up = createConnection(real);
+      c.on("error", () => undefined);
+      up.on("error", () => undefined);
+      c.on("data", (d) => {
+        forwarded.push(String(d));
+        up.write(d);
+      });
+      up.on("data", (d) => c.write(d));
+      up.on("close", () => c.destroy());
+    });
+    await new Promise<void>((done) => server.listen(r.at, () => done()));
+    cleanup.push(() => new Promise<void>((done) => server.close(() => done())));
+    const victim = new SignerClient({ endpoint: r.at, expect: r.keys.signPub });
+    cleanup.push(() => victim.close());
+    // The first request through the proxy reaches a signer that no longer owns its path.
+    expect((await failure(victim.call("lock"))).code).toBe("unavailable");
+    await r.server.stopped;
+    expect(r.signer.locked).toBe(true);
+    expect(forwarded.length).toBeGreaterThan(0);
+  });
+});
 
 /** A connection that speaks the line protocol by hand. */
 async function rawConnection(at: string) {
@@ -415,7 +554,7 @@ describe("signerKeyring", () => {
     const r = await running();
     const ring = signerKeyring(r.client, { signPub: r.keys.signPub, boxPub: r.keys.boxPub });
     expect(ring.kind).toBe("signer");
-    const obj = { device: r.id, mesh: MESH };
+    const obj = { device: r.id, mesh: MESH, at: Date.now() };
     expect(await ring.sign("auth", obj)).toBe(signObject("auth", obj, r.keys.signSec).sig);
     const peer = generateDeviceKeys();
     const peerId = deviceIdFromSignPub(peer.signPub);
