@@ -3,6 +3,7 @@ import { fitsUtf8 } from "./encoding.ts";
 import { blobChunkFields } from "./blob.ts";
 import { joinBodySchema } from "./invite.ts";
 import { parseJson } from "./json.ts";
+import { prekeySchema } from "./prekey.ts";
 import { fail, LIMITS, ok, WIRE_VERSION, type Result } from "./limits.ts";
 import {
   addressSchema,
@@ -12,6 +13,7 @@ import {
   deviceIdSchema,
   fromSchema,
   inviteIdSchema,
+  keySchema,
   meshIdSchema,
   nameSchema,
   relayUrlSchema,
@@ -46,11 +48,28 @@ const nonceSchema = secret32Schema;
 
 // ---- shared pieces ----
 
-export const boxSchema = z.strictObject({
+/**
+ * A scheme 1 box (SPEC section 6): the v0.1 static-static box, which carries no `s`. Accepted, and
+ * sent to devices with no current prekey, only during the migration window.
+ */
+export const legacyBoxSchema = z.strictObject({
   n: b64uBytes(24),
   // At least the 16-byte Poly1305 tag; at most what a frame can carry.
   c: b64uRange(16, LIMITS.frameBytes),
 });
+
+/**
+ * A scheme 2 box (SPEC section 6b): HPKE mode_auth to the recipient device's prekey `p`, with the
+ * ephemeral public key `e`. The nonce comes from the HPKE key schedule, so there is no `n`.
+ */
+export const prekeyBoxSchema = z.strictObject({
+  s: z.literal(2),
+  p: deviceIdSchema,
+  e: keySchema,
+  c: b64uRange(16, LIMITS.frameBytes),
+});
+
+export const boxSchema = z.union([prekeyBoxSchema, legacyBoxSchema]);
 
 export const sendFrameSchema = z.strictObject({
   t: z.literal("send"),
@@ -63,6 +82,8 @@ export const sendFrameSchema = z.strictObject({
   at: timeSchema,
   /** The sender's newest verified roster when it sent. */
   roster: rosterRefSchema,
+  /** The sender device's current signed prekey (SPEC section 6b), so receivers can seal to it. */
+  pk: prekeySchema.optional(),
   boxes: z.record(deviceIdSchema, boxSchema).refine((b) => Object.keys(b).length > 0, {
     message: "at least one box",
   }),
@@ -408,6 +429,8 @@ export const relayFrameSchema = z.discriminatedUnion("t", [
 // ---- types ----
 
 export type Box = z.infer<typeof boxSchema>;
+export type LegacyBox = z.infer<typeof legacyBoxSchema>;
+export type PrekeyBox = z.infer<typeof prekeyBoxSchema>;
 export type SendFrame = z.infer<typeof sendFrameSchema>;
 export type AuthFrame = z.infer<typeof authFrameSchema>;
 export type AckFrame = z.infer<typeof ackFrameSchema>;

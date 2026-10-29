@@ -122,6 +122,19 @@ export const LIMITS = {
    * (`messageMaxAgeMs` + `messageMaxFutureMs`), so an id is never forgotten while still acceptable.
    */
   dedupeRetentionMs: 48 * HOUR + 10 * MINUTE,
+  /** A device publishes a new prekey when its newest is this old (SPEC section 6b). */
+  prekeyRotateMs: DAY,
+  /** `until - at` of a prekey: senders may seal to it this long. A longer window is refused. */
+  prekeyLifetimeMs: 2 * DAY,
+  /**
+   * A device deletes a prekey's secret at `at` plus this, so nothing sealed to that prekey opens
+   * afterwards, with any key file. Equal to the room history lifetime the relay keeps.
+   */
+  prekeyRetentionMs: 3 * DAY,
+  /** Senders stop sealing to a prekey this long before its `until`, for clock skew. */
+  prekeySendMarginMs: 10 * MINUTE,
+  /** Signed prekeys a device keeps at once (rotation daily, retention 72 hours, plus one spare). */
+  prekeysKept: 4,
 } as const;
 
 /** Outcome of a check that must not throw. `reason` is a stable, machine-readable string. */
