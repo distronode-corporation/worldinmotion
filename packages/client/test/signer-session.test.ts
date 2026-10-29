@@ -185,6 +185,17 @@ describe("sessions through the signer", () => {
     const before = await openSession(one, mesh, relay, { name: "a", sessionKey: "agent-a", log: (l) => logs.push(l) });
     await b.send("a@one", "before");
     await until(async () => (await before.spool.unread()).length === 1);
+    // Every frame handed over is on the session's inbound queue; wait for the queue to drain (the
+    // ack of "before" follows its spooling, and on a slow machine comes later than it).
+    const inner = before as unknown as { inbound: Promise<void> };
+    const drained = async (): Promise<void> => {
+      for (let seen: Promise<void> | undefined; seen !== inner.inbound; ) {
+        seen = inner.inbound;
+        await seen;
+        await new Promise((r) => setImmediate(r));
+      }
+    };
+    await drained();
     await encryptDevice(one.home, PASS, KDF);
     // It reads the prekey file again (a sibling's rotation, its own schedule): now sealed.
     await (before as unknown as { prekeys: { reload(): Promise<void> } }).prekeys.reload();
@@ -198,13 +209,7 @@ describe("sessions through the signer", () => {
     await b.send("a@one", "sealed after the encrypt");
     await b.send("a@one", "and another");
     await until(() => delivered === 2, undefined, "both delivered to the session");
-    // Every frame handed over is on the session's inbound queue; wait for the queue to drain.
-    const inner = before as unknown as { inbound: Promise<void> };
-    for (let seen: Promise<void> | undefined; seen !== inner.inbound; ) {
-      seen = inner.inbound;
-      await seen;
-      await new Promise((r) => setImmediate(r));
-    }
+    await drained();
     relay.toClient = undefined;
     // Both are refused alike, said once, and neither is acknowledged or dropped.
     expect(logs.filter((l) => l.includes("while this session was running"))).toHaveLength(1);
