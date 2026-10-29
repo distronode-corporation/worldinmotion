@@ -6,7 +6,7 @@ import { promises as fs } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import { decideJoin, issueInvite, publishRoster, recoverMesh } from "../src/admin.ts";
 import { MeshFiles } from "../src/mesh.ts";
-import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, keysOf } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -51,7 +51,7 @@ describe("published test-vector keys", () => {
     const s = await openSession(devices[0]!, mesh, relay, { name: "agent" });
     cleanup.push(() => s.stop());
     const record = makeDeviceRecord("alice", ALICE, "member", Date.now());
-    await publishRoster(s, (current) => nextRoster(current, { add: [record] }, { keys: s.device.keys }, Date.now()));
+    await publishRoster(s, (current) => nextRoster(current, { add: [record] }, { keys: keysOf(s.device) }, Date.now()));
     const frame = sealMessage({
       roster: s.roster,
       sender: { deviceId: record.id, keys: ALICE },

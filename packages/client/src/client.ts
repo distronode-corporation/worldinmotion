@@ -2,6 +2,7 @@
 // everything a session can do (send, ask, rooms, leases, files, presence).
 
 import {
+  CLOSE,
   dedupeExpiry,
   isRecoveryName,
   isRoom,
@@ -9,13 +10,13 @@ import {
   leaseKey,
   LIMITS,
   openBlob,
-  openMessage,
+  openMessageWith,
   relayDialUrl,
   rosterRef,
   sealBlob,
-  sealMessage,
+  sealMessageWith,
   sessionAddressSchema,
-  signAuth,
+  signAuthWith,
   ulid,
   ulidTime,
   type BlobChunkFrame,
@@ -55,8 +56,24 @@ import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { noticeText, policyFor, policyLevel } from "./render.ts";
 import { SeenStore, SeqStore } from "./replay.ts";
 import { listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
+import { NeedsSigner } from "./keyring.ts";
+import { SignerError } from "./signer.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
+
+/** How many times a delivered frame may fail for a reason of its own before it is let go. */
+const FRAME_ATTEMPTS = 3;
+
+/** The backoff before a held frame is brought again (inboundFailed): first, and at most. */
+const RETRY_FIRST_MS = 1000;
+const RETRY_MAX_MS = 5 * 60_000;
+
+/** Error codes that are the machine's fault, not a frame's: retried, never given up on. */
+const LOCAL_FAULTS: ReadonlySet<string> = new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", "EACCES", "EPERM", "EBUSY", "EMFILE", "ENFILE", "EAGAIN", "ENOTDIR", "EISDIR", "ENOENT", "ELOOP"]);
+
+function localFault(error: unknown): boolean {
+  return LOCAL_FAULTS.has(String((error as NodeJS.ErrnoException).code));
+}
 
 /** A refusal the caller should show as it is: a secret in the text, an unknown peer, a limit. */
 export class ClientError extends Error {
@@ -205,6 +222,17 @@ export class MeshSession extends EventEmitter {
   private readonly answerMs: number;
   private conn!: Connection;
   private inbound: Promise<void> = Promise.resolve();
+  /** The connection on which a delivered frame waits for the signer; nothing more is acked on it. */
+  private heldLink: Link | undefined;
+  /** Whether this session said it must be restarted to use the signer (inboundFailed). */
+  private toldRestart = false;
+  /** Frames that failed for a reason of their own, by id: how many times (inboundFailed). */
+  private readonly failures = new Map<string, number>();
+  /** The pending drop that brings held frames again, and the backoff before the next one (retryLater). */
+  private retryTimer: NodeJS.Timeout | undefined;
+  private retryDelay = RETRY_FIRST_MS;
+  /** Peer cards, opened one at a time in the order they came. */
+  private cardsOpened: Promise<void> = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
   private sending: Promise<void> = Promise.resolve();
   /** Spool writes, one at a time, so items are numbered and announced in order. */
@@ -341,7 +369,7 @@ export class MeshSession extends EventEmitter {
       url: relayDialUrl(this.config.relay, this.config.mesh),
       ...(this.config.tls === undefined ? {} : { tlsPin: this.config.tls }),
       auth: (hello) =>
-        signAuth(
+        signAuthWith(
           {
             relay: this.config.relay,
             mesh: this.config.mesh,
@@ -351,7 +379,7 @@ export class MeshSession extends EventEmitter {
             resume: { cursor: this.state.cursor },
             pin: this.book.ref,
           },
-          this.device.keys,
+          this.device.keyring,
         ),
       onReady: (ready, link) => this.onReady(ready, link),
       onFrame: (f) => this.onFrame(f),
@@ -392,6 +420,7 @@ export class MeshSession extends EventEmitter {
     if (this.stopped) return;
     this.stopped = true;
     clearInterval(this.ticker);
+    clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
     await this.inbound;
     if (opts.ended === true) this.state = { ...this.state, ended: true };
@@ -422,7 +451,16 @@ export class MeshSession extends EventEmitter {
     this.cardsIn = new Promise((resolve) => (this.gotCards = resolve));
     this.emit("ready", this.address);
     void this.sendCard(link, true);
-    this.inbound = this.inbound.then(() => this.retryParked());
+    this.retryParkedLater();
+  }
+
+  /**
+   * Retries parked messages after the frames already queued. Each parked message's own failure is
+   * kept to it (retryParked); anything else is logged. Never left as a rejection on the inbound
+   * queue, where it would be unhandled, or skip the next frame's handler.
+   */
+  private retryParkedLater(): void {
+    this.inbound = this.inbound.then(() => this.retryParked()).catch((e: unknown) => this.log(`wim: parked: ${(e as Error).message}`));
   }
 
   /** Fetches roster pages from the newest verified one until `upto` (or the relay's newest). */
@@ -464,9 +502,12 @@ export class MeshSession extends EventEmitter {
 
   private onFrame(f: RelayFrame): void {
     switch (f.t) {
-      case "deliver":
-        this.inbound = this.inbound.then(() => this.handleDeliver(f.cursor, f.msg)).catch((e: unknown) => this.log(`wim: inbound: ${(e as Error).message}`));
+      case "deliver": {
+        // The connection it came on: only that one acks it (see ack).
+        const via = this.link;
+        this.inbound = this.inbound.then(() => this.handleDeliver(f.cursor, f.msg, via)).catch((e: unknown) => this.inboundFailed(e, f.msg.id));
         return;
+      }
       case "roster":
         this.inbound = this.inbound.then(() => this.onRosterPush(f.chain)).catch((e: unknown) => this.log(`wim: roster: ${(e as Error).message}`));
         return;
@@ -514,13 +555,16 @@ export class MeshSession extends EventEmitter {
     this.peerKeys.offer(pk, this.roster).catch((e: unknown) => this.log(`wim: prekey not stored: ${(e as Error).message}`));
   }
 
-  /** A card's header carries its device's prekey; its labels annotate the session's peer row. */
+  /**
+   * A card's header carries its device's prekey, known at once; its labels annotate the session's
+   * peer row once it is opened, in the order cards came.
+   */
   private takeCard(frame: SendFrame): void {
     this.learn(frame.pk);
-    const opened = this.open(frame, true);
-    // Sealed to a prekey a sibling session made since this one read the device's prekeys.
-    if (!opened.ok && opened.reason === "key_expired") void this.prekeys.reload().then(() => this.annotate(this.open(frame, true)));
-    else this.annotate(opened);
+    this.cardsOpened = this.cardsOpened
+      .then(() => this.openFresh(frame, true))
+      .then((opened) => this.annotate(opened))
+      .catch((e: unknown) => this.log(`wim: peer card not read: ${(e as Error).message}`));
   }
 
   private annotate(opened: Result<Plaintext>): void {
@@ -547,25 +591,34 @@ export class MeshSession extends EventEmitter {
   private receiver() {
     return {
       deviceId: this.device.id,
-      keys: this.device.keys,
+      keyring: this.prekeys.opener(),
       address: this.address,
       sid: this.state.sid,
       rooms: this.state.rooms,
-      prekey: (id: string) => this.prekeys.secret(id),
     };
   }
 
   private open(msg: SendFrame, history = false) {
-    return openMessage(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history });
+    return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history });
   }
 
-  /** Opens a frame; a box for a prekey this session has not read yet is tried again after a reload. */
+  /**
+   * Opens a frame; a box for a prekey this session has not read yet is tried again after a reload.
+   * Rejects when the device's keyring cannot answer (the signer is locked or stopped): the frame
+   * is then not acknowledged, and the relay delivers it again.
+   */
   private async openFresh(msg: SendFrame, history = false) {
-    const first = this.open(msg, history);
-    if (first.ok || first.reason !== "key_expired") return first;
-    // A sibling session may have rotated since this one read the device's prekeys.
-    await this.prekeys.reload();
-    return this.open(msg, history);
+    return this.retryOpen(await this.open(msg, history), msg, history);
+  }
+
+  /**
+   * Tried again after reading the device's prekeys afresh: a box for a prekey a sibling session
+   * made since (`key_expired`), or one whose sealed secret this session holds from before the key
+   * file was decrypted and encrypted again, under a new data key (`decrypt_failed`).
+   */
+  private retryOpen(first: Awaited<ReturnType<MeshSession["open"]>>, msg: SendFrame, history: boolean) {
+    if (first.ok || (first.reason !== "key_expired" && first.reason !== "decrypt_failed")) return Promise.resolve(first);
+    return this.prekeys.reload().then(() => this.open(msg, history));
   }
 
   /** Sends a frame if connected; while offline it is dropped (acks and receipts are not resent). */
@@ -576,18 +629,90 @@ export class MeshSession extends EventEmitter {
     return true;
   }
 
-  private ack(cursor: number): void {
+  /**
+   * A delivered frame that could not be handled is not acknowledged. When the device's signer
+   * could not answer (locked, stopped, slow), nothing more is acknowledged on this connection and
+   * it is dropped: acks are cumulative, so acking a later frame would tell the relay this one was
+   * taken. The next connection authenticates only once the signer answers, and the relay then
+   * delivers everything after the last ack again.
+   */
+  /** How many times this frame has failed for a reason of its own, this one included (the last 64 frames are remembered). */
+  private failedAgain(id: string): number {
+    const n = (this.failures.get(id) ?? 0) + 1;
+    this.failures.delete(id);
+    this.failures.set(id, n);
+    if (this.failures.size > 64) this.failures.delete(this.failures.keys().next().value!);
+    return n;
+  }
+
+  private inboundFailed(error: unknown, id?: string): void {
+    // The key file was encrypted under this session: no reconnect helps (this process will never
+    // open it), so nothing more is acked on this connection and the person is told once to restart.
+    if (error instanceof NeedsSigner) {
+      this.heldLink = this.link;
+      if (!this.toldRestart) this.log(`wim: ${error.message}`);
+      this.toldRestart = true;
+      return;
+    }
+    this.log(`wim: inbound: ${(error as Error).message}`);
+    // When the signer could not answer, or what answers is not the signer, nothing more is acked
+    // on this connection and it goes now: the next one authenticates only once the real signer
+    // answers, and the relay delivers this frame again then. Never given up on.
+    if (error instanceof SignerError && (error.transient || error.code === "mismatch")) {
+      this.heldLink = this.link;
+      this.link?.close(CLOSE.bye, "the device's signer did not answer");
+      return;
+    }
+    // A frame that fails for a reason of its own (a signer's `refused` or `bad_request`, a bad
+    // file) the third time it comes is let go: logged, not held, so the next ack passes it. A
+    // local fault (a full disk, an I/O error, a permission) is the machine's, not the frame's:
+    // never counted, retried until it clears.
+    if (id !== undefined && !localFault(error) && this.failedAgain(id) >= FRAME_ATTEMPTS) {
+      this.log(`wim: inbound: giving up on message ${id} after ${FRAME_ATTEMPTS} attempts; it will not be delivered`);
+      return;
+    }
+    // Otherwise nothing more is acked on this connection (a later ack would take this frame with
+    // it), and the connection is dropped after a backoff, so the relay delivers it again.
+    this.heldLink = this.link;
+    this.retryLater();
+  }
+
+  /**
+   * Drops the connection after the current backoff (1 s, doubling to 5 min, back to 1 s once a
+   * frame is acked), so a held frame is delivered again without waiting for a reconnect.
+   */
+  private retryLater(): void {
+    if (this.retryTimer !== undefined) return;
+    const delay = this.retryDelay;
+    this.retryDelay = Math.min(RETRY_MAX_MS, delay * 2);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = undefined;
+      this.link?.close(CLOSE.bye, "trying a message that could not be handled again");
+    }, delay);
+    this.retryTimer.unref();
+  }
+
+  /**
+   * Acks a frame on the connection it came on, `via`. Acks are cumulative, so a frame from an
+   * earlier connection, handled after a reconnect, is not acked on the new one (it could ack past
+   * a frame that failed); the relay delivers it again there, and dedupe drops the copy. Nothing
+   * is acked on a connection on which a frame waits for the signer (inboundFailed).
+   */
+  private ack(cursor: number, via: Link | undefined): void {
+    if (via !== this.link || via === this.heldLink) return;
     // The relay redelivers anything not acked, and dedupe drops the copy.
-    if (this.sendIfOpen({ t: "ack", cursor })) this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor) };
+    if (!this.sendIfOpen({ t: "ack", cursor })) return;
+    this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor) };
+    this.retryDelay = RETRY_FIRST_MS;
   }
 
   private receipt(id: string, status: "delivered" | "held" | "refused"): void {
     this.sendIfOpen({ t: "receipt", id, to: this.address, status });
   }
 
-  private async handleDeliver(cursor: number, msg: SendFrame): Promise<void> {
+  private async handleDeliver(cursor: number, msg: SendFrame, via: Link | undefined): Promise<void> {
     await this.check(msg);
-    this.ack(cursor);
+    this.ack(cursor, via);
     await this.save({});
   }
 
@@ -670,14 +795,25 @@ export class MeshSession extends EventEmitter {
     if (page?.t === "roster") await this.forkFrom(page.chain[0]!, link);
   }
 
+  /**
+   * Checks parked messages again. One that fails (a locked signer, a full disk) stays parked for
+   * the next retry (each ready and each roster change), and its failure is its own: it never
+   * counts against the frame whose check started this retry.
+   */
   private async retryParked(): Promise<void> {
     for (const name of await listDir(this.files.behindDir)) {
       const path = join(this.files.behindDir, name);
       const msg = (await readJson(path).catch(() => undefined)) as SendFrame | undefined;
-      const outcome = msg === undefined ? "dropped" : await this.check(msg, true);
+      const outcome = msg === undefined ? "dropped" : await this.check(msg, true).catch((e: unknown) => this.parkedFailed(name, e));
       // Checked again on a later retry if it cannot be removed yet; a repeat is dropped as seen.
       if (outcome !== "behind") await tryRemove(path, this.o.env);
     }
+  }
+
+  /** A parked message that could not be checked now: logged, and left parked ("behind") for the next retry. */
+  private parkedFailed(name: string, error: unknown): "behind" {
+    this.log(`wim: parked message ${name} kept for the next retry: ${(error as Error).message}`);
+    return "behind";
   }
 
   private fromAddress(p: Plaintext): string {
@@ -874,28 +1010,43 @@ export class MeshSession extends EventEmitter {
    */
   private async sendCard(link: Link, force: boolean): Promise<void> {
     const pk = this.prekeys.current()?.id;
-    const rotated = pk !== this.cardPk;
-    // Claimed before any await, so the housekeeping pass and `ready` do not both publish a rotation.
+    const before = this.cardPk;
+    const rotated = pk !== before;
+    // Claimed before any await, so the housekeeping pass and `ready` do not both publish a
+    // rotation; given back if the card is not sent (publishCard), so the next pass tries again.
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
     const card = this.o.cwd === undefined || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    this.publishCard(link, force || rotated, card);
+    this.publishCard(link, card, await this.cardFrame(force || rotated, card), before);
   }
 
   /**
-   * The part of sendCard after its await, kept synchronous: V8 counts a branch that follows an
+   * The card frame to send, or undefined when the card is unchanged and nothing forces it. Not
+   * async: the decision is taken before the seal (which may wait on the signer) and a seal that
+   * fails comes back as its error, so no branch follows an await (see publishCard).
+   */
+  private cardFrame(always: boolean, card: Card): Promise<SendFrame | Error | undefined> {
+    if (!always && sameCard(this.myCard, card)) return Promise.resolve(undefined);
+    const ids = this.roster.devices.map((d) => d.id);
+    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids }).catch((error: unknown) => error as Error);
+  }
+
+  /**
+   * The part of sendCard after its awaits, kept synchronous: V8 counts a branch that follows an
    * await in an async function by subtraction, and on Windows that count came out negative, so
    * the coverage gate reported a branch the tests do run as never taken.
    */
-  private publishCard(link: Link, always: boolean, card: Card): void {
-    if (!always && sameCard(this.myCard, card)) return;
-    this.cardAt = this.now();
-    this.myCard = card;
+  private publishCard(link: Link, card: Card, frame: SendFrame | Error | undefined, before: string | undefined): void {
+    if (frame === undefined) return;
     try {
-      const ids = this.roster.devices.map((d) => d.id);
-      const frame = sealMessage({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids });
+      if (frame instanceof Error) throw frame;
+      // A link that closed meanwhile throws too.
       link.send({ t: "card.set", msg: frame });
+      // Recorded only once sent: a card that was not (a locked signer) goes again on the next pass.
+      this.cardAt = this.now();
+      this.myCard = card;
     } catch (error) {
+      this.cardPk = before;
       this.log(`wim: peer card not sent: ${(error as Error).message}`);
     }
   }
@@ -998,7 +1149,7 @@ export class MeshSession extends EventEmitter {
   private sealBase(to: string[]) {
     return {
       roster: this.roster,
-      sender: { deviceId: this.device.id, keys: this.device.keys },
+      sender: { deviceId: this.device.id, keyring: this.device.keyring },
       session: this.state.name,
       sid: this.state.sid,
       to,
@@ -1125,7 +1276,7 @@ export class MeshSession extends EventEmitter {
     const derived = await this.isDerived();
     const { keys, missing } = this.keysFor(ids);
     try {
-      const frame = sealMessage({
+      const frame = await sealMessageWith({
         ...this.sealBase(routed),
         ...keys,
         id,

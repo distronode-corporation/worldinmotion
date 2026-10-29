@@ -35,9 +35,12 @@ describe("adapters", () => {
     await trustRelayed(devices[1]!, mesh, [devices[0]!.device.id]);
     const io = botIO(bot);
     const got: Array<{ kind: string; fromKind: string; reply_to?: string; deadline?: number }> = [];
+    // Each echo is awaited before the test ends: one still in flight when the sessions stop would
+    // wait for a reconnect that never comes and reject after the test (seen on Windows CI).
+    const echoes: Array<Promise<void>> = [];
     io.onItem((item) => {
       got.push(item);
-      void io.send(item.from, `echo ${item.text}`, item.kind === "task" ? { kind: "result", reply_to: item.id, status: "done" } : {});
+      echoes.push(io.send(item.from, `echo ${item.text}`, item.kind === "task" ? { kind: "result", reply_to: item.id, status: "done" } : {}));
     });
     await user.send("bot@one", "hi");
     await user.send("bot@one", "do it", { kind: "task", deadline: Date.now() + 60_000 });
@@ -51,6 +54,8 @@ describe("adapters", () => {
     await until(() => got.length === 3);
     expect(got[2]!.reply_to).toBe(items[0]!.id);
     await until(async () => (await bot.spool.unread()).length === 0);
+    await Promise.all(echoes);
+    expect(echoes).toHaveLength(3);
   });
 
   it("ciIO joins its room once and posts relayed lines", async () => {
@@ -208,7 +213,7 @@ describe("processIo", () => {
     const stderr = new PassThrough();
     const handlers = new Map<string, () => void>();
     const proc: Proc = { stdin, stdout, stderr, platform: "linux", pid: 7, ppid: process.pid, getuid: () => 5, cwd: () => "/w", once: (s, cb) => handlers.set(s, cb), on: () => undefined };
-    const io = processIo(proc, { homedir: () => "/home/u", hostname: () => "host", kill: () => undefined });
+    const io = processIo(proc, { homedir: () => "/home/u", hostname: () => "host", kill: () => undefined, wim: () => [] });
     expect(io).toMatchObject({ cwd: "/w", homedir: "/home/u", hostname: "host", platform: "linux", uid: 5, pid: 7, isTTY: true });
     let out = "";
     stdout.on("data", (d: Buffer) => (out += d.toString()));

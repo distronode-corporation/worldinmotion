@@ -6,7 +6,7 @@ import { decideJoin, issueInvite, joinMesh, revokeDevice } from "../src/admin.ts
 import { MeshSession } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, until, type TestDevice } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, until, type TestDevice, keysOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -62,7 +62,7 @@ describe("receiving checks", () => {
     await c.send("b@two", "before");
     await until(async () => (await unread(b)).length === 1);
     const old = sentFrames(relay).at(-1)!;
-    const later = sealMessage({ roster: c.roster, sender: { deviceId: c.device.id, keys: c.device.keys }, session: "c", sid: c.sid, to: ["b@two"], seq: 99, at: Date.now(), text: "after", recipients: [b.device.id] });
+    const later = sealMessage({ roster: c.roster, sender: { deviceId: c.device.id, keys: keysOf(c.device) }, session: "c", sid: c.sid, to: ["b@two"], seq: 99, at: Date.now(), text: "after", recipients: [b.device.id] });
     await revokeDevice(admin, "three", Date.now);
     expect(await fatal).toMatch(/revoked/);
     await until(() => b.roster.revoked.includes(c.device.id));
@@ -104,7 +104,7 @@ describe("receiving checks", () => {
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
     const prev = (await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).loadRoster(b.roster.seq - 1))!;
-    const rival: Roster = nextRoster(prev, { add: [makeDeviceRecord("rival", generateDeviceKeys(), "member", Date.now())] }, { keys: devices[0]!.device.keys }, Date.now());
+    const rival: Roster = nextRoster(prev, { add: [makeDeviceRecord("rival", generateDeviceKeys(), "member", Date.now())] }, { keys: keysOf(devices[0]!.device) }, Date.now());
     relay.inject(mesh, JSON.stringify({ t: "roster", chain: [rival], more: false }));
     await until(() => b.book.fork !== undefined, 3000, "fork");
     await until(async () => (await unread(b)).some((i) => i.kind === "notice" && i.rendered.includes("forked")));
@@ -127,7 +127,7 @@ describe("receiving checks", () => {
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
-    const frame = sealMessage({ roster: { ...a.roster, at: a.roster.at + 1 }, sender: { deviceId: a.device.id, keys: a.device.keys }, session: "a", sid: a.sid, to: ["b@two"], seq: 50, at: Date.now(), text: "x", recipients: [b.device.id] });
+    const frame = sealMessage({ roster: { ...a.roster, at: a.roster.at + 1 }, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "a", sid: a.sid, to: ["b@two"], seq: 50, at: Date.now(), text: "x", recipients: [b.device.id] });
     expect(await b.receive(frame)).toBe("dropped");
     expect(b.book.fork).toBeUndefined();
   });

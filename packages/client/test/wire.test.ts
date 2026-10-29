@@ -1,15 +1,13 @@
-import { execFileSync } from "node:child_process";
 import { X509Certificate } from "node:crypto";
-import { promises as fs } from "node:fs";
 import { createServer as createHttps } from "node:https";
 import { createServer as createHttp } from "node:http";
 import type { AddressInfo } from "node:net";
-import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { b64u, CLOSE, generateDeviceKeys, signAuth, ulid, type HelloFrame } from "@worldinmotion/protocol";
 import { checkDialable, Connection, errorFor, isPrivateAddress, Link, pinnedConnect, spkiHash, WireError, wsDialer, type Dialer, type WireSocket } from "../src/wire.ts";
-import { scratch, sleep, until } from "./helpers.ts";
+import { selfSignedCert } from "@worldinmotion/relay-node";
+import { sleep, until } from "./helpers.ts";
 
 const NONCE = b64u.encode(new Uint8Array(32).fill(1));
 const HELLO = JSON.stringify({ t: "hello", v: 1, nonce: NONCE, at: 1 });
@@ -280,10 +278,10 @@ describe("wsDialer", () => {
   });
 
   it("checks a pinned certificate instead of the CA, and the CA without a pin", async () => {
-    const dir = await scratch("tls");
-    execFileSync("openssl", ["req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes", "-keyout", join(dir, "k.pem"), "-out", join(dir, "c.pem"), "-days", "2", "-subj", "/CN=relay.lan"], { stdio: "ignore" });
-    const cert = await fs.readFile(join(dir, "c.pem"));
-    const server = createHttps({ key: await fs.readFile(join(dir, "k.pem")), cert });
+    // Made in this process: the openssl CLI blocked a test process for about 30 s on Windows CI.
+    const made = selfSignedCert(["relay.lan"], new Date());
+    const cert = Buffer.from(made.cert);
+    const server = createHttps({ key: made.key, cert });
     const wss = new WebSocketServer({ server });
     wss.on("connection", (ws) => ws.send(HELLO));
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));

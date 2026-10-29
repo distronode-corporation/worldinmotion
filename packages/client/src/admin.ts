@@ -5,22 +5,23 @@ import {
   admitJoin,
   b64u,
   CLOSE,
-  createGenesisRoster,
+  createGenesisRosterWith,
   createRecoveryIdentity,
   createRecoveryKeys,
   recoveryCode as makeRecoveryCode,
   verifyRecoveryChain,
   parseRecoveryCode,
   createInvite,
-  createJoin,
+  createJoinWith,
   hash,
   nextRoster,
   parseInvite,
   randomBytes,
   relayDialUrl,
   rosterRef,
+  nextRosterWith,
   sasFor,
-  signAuth,
+  signAuthWith,
   signRecoverAuth,
   ulid,
   verifyJoin,
@@ -63,9 +64,9 @@ function newConfig(mesh: string, relay: string, device: string, roster: Roster, 
 
 /** A session `auth` for a one-off connection that only proves this device can connect, then says bye. */
 function probeAuth(o: { relay: string; mesh: string; nonce: string; now: number; pin: Roster; device: Device }) {
-  return signAuth(
+  return signAuthWith(
     { relay: o.relay, mesh: o.mesh, nonce: o.nonce, at: o.now, session: { name: "create", kind: "cli", sid: ulid(), resume: b64u.encode(randomBytes(32)) }, pin: rosterRef(o.pin) },
-    o.device.keys,
+    o.device.keyring,
   );
 }
 
@@ -89,12 +90,12 @@ export async function createMesh(o: {
   const meshId = b64u.encode(randomBytes(16));
   // The recovery identity (SPEC section 4a): its code is returned once and never written down here.
   const recovery = o.recovery === false ? undefined : createRecoveryKeys(meshId, { now: o.now() });
-  const genesis = createGenesisRoster({ name: o.device.name, keys: o.device.keys, now: o.now(), meshId, ...(recovery === undefined ? {} : { recovery: recovery.record }) });
+  const genesis = await createGenesisRosterWith({ name: o.device.name, keyring: o.device.keyring, now: o.now(), meshId, ...(recovery === undefined ? {} : { recovery: recovery.record }) });
   const { link, hello } = await Link.open(o.dialer, relayDialUrl(o.relay, genesis.mesh), o.tls === undefined ? {} : { tlsPin: o.tls });
   try {
     const answer = await link.request({ t: "create", roster: genesis, ...(o.key === undefined ? {} : { key: o.key }) }, (f) => f.t === "roster" || errorFor("create")(f), 15_000);
     if (answer.t === "error") throw relayRefusal("the relay refused to create the mesh", answer);
-    const auth = probeAuth({ relay: o.relay, mesh: genesis.mesh, nonce: hello.nonce, now: o.now(), pin: genesis, device: o.device });
+    const auth = await probeAuth({ relay: o.relay, mesh: genesis.mesh, nonce: hello.nonce, now: o.now(), pin: genesis, device: o.device });
     const ready = await link.request(auth, (f) => f.t === "ready" || errorFor("auth")(f), 15_000);
     if (ready.t !== "ready") {
       throw new ClientError(`the relay created the mesh but refused this device's authentication: ${authRefusal(ready as ErrorFrame) ?? `code ${relayCode((ready as ErrorFrame).code)}`}. Nothing was saved on this device`, "auth_refused");
@@ -201,16 +202,16 @@ export async function decideJoin(session: MeshSession, body: JoinBody, confirm: 
   if (roster.devices.some((d) => d.id === device.id) || roster.revoked.includes(device.id)) return { outcome: "refused", reason: "that device is already known" };
   const prompt = { name: device.name, id: device.id, sas: sasFor(device) };
   if (!record.auto && !(await confirm(prompt))) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
-  await publishRoster(session, (current) => nextRoster(current, { add: [admitJoin(device, now())] }, { keys: session.device.keys }, now()));
+  await publishRoster(session, (current) => nextRosterWith(current, { add: [admitJoin(device, now())] }, session.device.keyring, now()));
   await invites.markUsed(record.id);
   return { outcome: "admitted", name: device.name };
 }
 
 /** Signs and publishes the next roster under the device's signing lock (SPEC section 4). */
-export async function publishRoster(session: MeshSession, make: (current: Roster) => Roster): Promise<Roster> {
+export async function publishRoster(session: MeshSession, make: (current: Roster) => Roster | Promise<Roster>): Promise<Roster> {
   return withLock(session.mesh.rosterLock, async () => {
     await session.book.reload();
-    const next = make(session.roster);
+    const next = await make(session.roster);
     const h = hash(next);
     const link = await session.ready();
     const answer = (await link.request(
@@ -230,7 +231,7 @@ export async function revokeDevice(session: MeshSession, name: string, now: () =
   const target = session.roster.devices.find((d) => d.name === name);
   if (target === undefined) throw new ClientError(`no device named ${name}`, "not_found");
   if (target.id === session.device.id) throw new ClientError("a device cannot revoke itself", "invalid");
-  return publishRoster(session, (current) => nextRoster(current, { revoke: [target.id] }, { keys: session.device.keys }, now()));
+  return publishRoster(session, (current) => nextRosterWith(current, { revoke: [target.id] }, session.device.keyring, now()));
 }
 
 /**
@@ -253,7 +254,7 @@ export async function joinMesh(o: {
   if ((await o.home.meshIds()).includes(invite.mesh)) throw new SetupError("this device is already in that mesh");
   const { link, hello } = await Link.open(o.dialer, relayDialUrl(invite.relay, invite.mesh), tls === undefined ? {} : { tlsPin: tls });
   try {
-    const frame = createJoin(invite, o.device.name, o.device.keys, hello.nonce);
+    const frame = await createJoinWith(invite, o.device.name, o.device.keyring, hello.nonce);
     o.showSas(sasFor(frame.device));
     const wait = Math.max(1000, Math.min(o.waitMs ?? Infinity, invite.exp - o.now()));
     const answer = (await link.request(frame, (f) => f.t === "joined" || errorFor("join")(f), wait)) as RelayFrame;
@@ -283,7 +284,7 @@ async function walkAuthenticated(
   chain: Roster[],
   newest: Roster,
 ): Promise<Roster> {
-  const auth = signAuth(
+  const auth = await signAuthWith(
     {
       relay: invite.relay,
       mesh: invite.mesh,
@@ -292,7 +293,7 @@ async function walkAuthenticated(
       session: { name: "join", kind: "cli", sid: ulid(), resume: b64u.encode(randomBytes(32)) },
       pin: rosterRef(newest),
     },
-    o.device.keys,
+    o.device.keyring,
   );
   const ready = await link.request(auth, (f) => f.t === "ready" || errorFor("auth")(f), 15_000);
   if (ready.t !== "ready") throw new ClientError("the relay refused this device after admitting it", "auth");
@@ -332,7 +333,7 @@ export async function rotateRecovery(session: MeshSession, now: () => number): P
   try {
     const roster = await publishRoster(session, (current) => {
       const old = current.devices.filter((d) => isRecoveryName(d.name)).map((d) => d.id);
-      return nextRoster(current, { add: [fresh.record], revoke: old }, { keys: session.device.keys }, now());
+      return nextRosterWith(current, { add: [fresh.record], revoke: old }, session.device.keyring, now());
     });
     return { roster, recoveryCode: fresh.code };
   } finally {
@@ -346,7 +347,7 @@ export async function promoteDevice(session: MeshSession, name: string, now: () 
   const target = session.roster.devices.find((d) => d.name === name);
   if (target === undefined) throw new ClientError(`no device named ${name}`, "not_found");
   if (target.role === "admin") throw new ClientError(`${name} is already an admin`, "invalid");
-  return publishRoster(session, (current) => nextRoster(current, { promote: [target.id] }, { keys: session.device.keys }, now()));
+  return publishRoster(session, (current) => nextRosterWith(current, { promote: [target.id] }, session.device.keyring, now()));
 }
 
 /**
@@ -411,7 +412,7 @@ export async function recoverMesh(o: {
         if (d.id !== recId) revoke.push(d.id);
       }
       const fresh = createRecoveryIdentity(rec.mesh, { name: nextRecoveryName(current), now: o.now(), genesis: rec.genesis });
-      const me = { ...admitJoin({ id: o.device.id, name: o.device.name, sign: b64u.encode(o.device.keys.signPub), box: b64u.encode(o.device.keys.boxPub) }, o.now()), role: "admin" as const };
+      const me = { ...admitJoin({ id: o.device.id, name: o.device.name, sign: b64u.encode(o.device.keyring.signPub), box: b64u.encode(o.device.keyring.boxPub) }, o.now()), role: "admin" as const };
       const next = nextRoster(current, { add: [me, fresh.record], revoke }, { keys: rec }, o.now());
       // The relay may confirm with the new roster, and then closes the connection with 4000.
       const answer = await link

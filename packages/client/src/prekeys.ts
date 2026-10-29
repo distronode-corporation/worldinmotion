@@ -2,12 +2,14 @@
 // rotated daily and deleted on a fixed schedule, and the newest verified prekey of each peer
 // device. Both files are per mesh and shared by every session of the device.
 
-import { b64u, createPrekey, isVectorKey, LIMITS, prekeyDeleteAt, prekeySchema, prekeyUsable, verifyPrekey, type Prekey, type Roster } from "@worldinmotion/protocol";
+import { b64u, isVectorKey, LIMITS, prekeyDeleteAt, prekeySchema, prekeyUsable, verifyPrekey, type Keyring, type Prekey, type Roster } from "@worldinmotion/protocol";
 import { readJson, withLock, writeJson, type FsEnv } from "./fsx.ts";
 import type { Device } from "./home.ts";
+import type { PrekeyEntry } from "./keyring.ts";
 
-type Held = { prekey: Prekey; secret: Uint8Array };
-type OwnFile = { v: 1; keys: Array<{ prekey: Prekey; secret: string }> };
+type Held = PrekeyEntry;
+/** An entry holds `secret` (b64u, in the clear) or `sealed` (opened only by the signer). */
+type OwnFile = { v: 1; keys: Array<{ prekey: Prekey; secret: string } | { prekey: Prekey; sealed: string }> };
 type PeerFile = { v: 1; prekeys: Record<string, Prekey> };
 
 function decode32(text: unknown): Uint8Array {
@@ -50,9 +52,11 @@ export class PrekeyStore {
 
   private async read(): Promise<Held[]> {
     const raw = (await readJson(this.path)) as Partial<OwnFile> | undefined;
-    return parsed(raw?.v === 1 ? raw.keys : undefined, (k) => {
-      const entry = k as { prekey?: unknown; secret?: unknown };
-      return { prekey: prekeySchema.parse(entry.prekey), secret: decode32(entry.secret) };
+    return parsed(raw?.v === 1 ? raw.keys : undefined, (k): Held => {
+      const entry = k as { prekey?: unknown; secret?: unknown; sealed?: unknown };
+      const prekey = prekeySchema.parse(entry.prekey);
+      if (typeof entry.sealed === "string" && entry.sealed !== "") return { prekey, sealed: entry.sealed };
+      return { prekey, secret: decode32(entry.secret) };
     });
   }
 
@@ -61,10 +65,25 @@ export class PrekeyStore {
     this.held = await this.read().catch(() => this.held);
   }
 
-  /** The secret of one of this device's prekeys, while it is kept (never past its deletion time). */
-  secret(id: string): Uint8Array | undefined {
+  /** One of this device's prekeys with its secret, while it is kept (never past its deletion time). */
+  entry(id: string): PrekeyEntry | undefined {
     const now = this.now();
-    return this.held.find((h) => h.prekey.id === id && prekeyDeleteAt(h.prekey) > now)?.secret;
+    return this.held.find((h) => h.prekey.id === id && prekeyDeleteAt(h.prekey) > now);
+  }
+
+  /**
+   * The device's keyring for opening: a scheme 2 box opens with the entry of the prekey it names
+   * (`key_expired` once that is deleted), a scheme 1 box with the device's box key.
+   */
+  opener(): Pick<Keyring, "open"> {
+    const keyring = this.device.keyring;
+    return {
+      open: async (req) => {
+        if (!("s" in req.box)) return keyring.open(req);
+        const entry = this.entry(req.box.p);
+        return entry === undefined ? "key_expired" : keyring.openPrekey(entry, req);
+      },
+    };
   }
 
   /** The newest prekey senders may use now: the one this device publishes. Its own, so only its time is checked. */
@@ -88,13 +107,16 @@ export class PrekeyStore {
     return withLock(`${this.path}.lock`, async () => {
       const now = this.now();
       const before = await this.read();
-      const kept = before.filter((h) => prekeyDeleteAt(h.prekey) > now);
+      const alive = before.filter((h) => prekeyDeleteAt(h.prekey) > now);
+      // A signer seals any secret a process holding the plaintext keys left in the clear.
+      const kept = await Promise.all(alive.map((h) => this.device.keyring.adopt(h)));
+      const adopted = kept.some((h, i) => h !== alive[i]);
       const newest = kept.filter((h) => prekeyUsable(h.prekey, now)).sort((a, b) => b.prekey.at - a.prekey.at)[0];
       const rotate = newest === undefined || now - newest.prekey.at >= LIMITS.prekeyRotateMs;
-      if (rotate) kept.push(createPrekey({ mesh: this.mesh, deviceId: this.device.id, signSec: this.device.keys.signSec, at: now }));
+      if (rotate) kept.push(await this.device.keyring.newPrekey(this.mesh, now));
       const next = kept.sort((a, b) => b.prekey.at - a.prekey.at).slice(0, LIMITS.prekeysKept);
-      if (rotate || next.length !== before.length) {
-        const file: OwnFile = { v: 1, keys: next.map((h) => ({ prekey: h.prekey, secret: b64u.encode(h.secret) })) };
+      if (rotate || adopted || next.length !== before.length) {
+        const file: OwnFile = { v: 1, keys: next.map((h) => ("sealed" in h ? { prekey: h.prekey, sealed: h.sealed } : { prekey: h.prekey, secret: b64u.encode(h.secret) })) };
         await writeJson(this.path, file, this.env);
       }
       this.held = next;

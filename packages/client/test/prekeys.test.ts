@@ -25,7 +25,13 @@ import { MeshSession } from "../src/client.ts";
 import { writeJson } from "../src/fsx.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { PeerPrekeys, PrekeyStore } from "../src/prekeys.ts";
-import { FS, makeMesh, newDevice, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until, type TestDevice, keysOf } from "./helpers.ts";
+
+/** The clear secret a store holds for a prekey, if it holds one. */
+function secretOf(store: PrekeyStore, id: string): Uint8Array | undefined {
+  const entry = store.entry(id);
+  return entry !== undefined && "secret" in entry ? entry.secret : undefined;
+}
 
 const HOUR = 3_600_000;
 const T = 1_790_000_000_000;
@@ -55,7 +61,7 @@ const vectors = JSON.parse(readFileSync(new URL("../../protocol/vectors/prekey.j
 async function solo(): Promise<{ d: TestDevice; roster: Roster; dir: string }> {
   const d = await newDevice("solo");
   const { createGenesisRoster } = await import("@worldinmotion/protocol");
-  const roster = createGenesisRoster({ name: "solo", keys: d.device.keys, now: T });
+  const roster = createGenesisRoster({ name: "solo", keys: keysOf(d.device), now: T });
   return { d, roster, dir: await scratch("prekeys") };
 }
 
@@ -69,7 +75,7 @@ describe("PrekeyStore: store, rotate, delete", () => {
     expect(await store.maintain()).toBe(true);
     const first = store.current()!;
     expect(first).toMatchObject({ device: d.device.id, at: T, until: T + LIMITS.prekeyLifetimeMs });
-    expect(store.secret(first.id)).toHaveLength(32);
+    expect(secretOf(store, first.id)).toHaveLength(32);
     expect(store.due).toBe(T + LIMITS.prekeyRotateMs);
     // The same day: nothing to do, and the file is not rewritten.
     const mtime = (await fs.stat(path)).mtimeMs;
@@ -81,7 +87,7 @@ describe("PrekeyStore: store, rotate, delete", () => {
     expect(await store.maintain()).toBe(true);
     const second = store.current()!;
     expect(second.id).not.toBe(first.id);
-    expect(store.secret(first.id)).toBeDefined();
+    expect(secretOf(store, first.id)).toBeDefined();
     // Daily for a week: the first secret goes at until + 72 hours, and at most six live at once.
     const ids = [first.id, second.id];
     for (let day = 2; day <= 7; day++) {
@@ -90,7 +96,7 @@ describe("PrekeyStore: store, rotate, delete", () => {
       ids.push(store.current()!.id);
     }
     expect(prekeyDeleteAt(first)).toBe(T + 120 * HOUR);
-    expect(store.secret(first.id)).toBeUndefined();
+    expect(secretOf(store, first.id)).toBeUndefined();
     const file = await fs.readFile(path, "utf8");
     expect(file).not.toContain(first.id);
     expect((JSON.parse(file) as { keys: unknown[] }).keys.length).toBeLessThanOrEqual(6);
@@ -104,9 +110,9 @@ describe("PrekeyStore: store, rotate, delete", () => {
     await store.maintain();
     const pk = store.current()!;
     now = prekeyDeleteAt(pk) - 1;
-    expect(store.secret(pk.id)).toBeDefined();
+    expect(secretOf(store, pk.id)).toBeDefined();
     now = prekeyDeleteAt(pk);
-    expect(store.secret(pk.id)).toBeUndefined();
+    expect(secretOf(store, pk.id)).toBeUndefined();
   });
 
   it("a sibling's rotation is read on reload; one prekey a day across siblings", async () => {
@@ -120,9 +126,9 @@ describe("PrekeyStore: store, rotate, delete", () => {
     now += LIMITS.prekeyRotateMs;
     await one.maintain();
     const fresh = one.current()!;
-    expect(two.secret(fresh.id)).toBeUndefined();
+    expect(secretOf(two, fresh.id)).toBeUndefined();
     await two.reload();
-    expect(two.secret(fresh.id)).toEqual(one.secret(fresh.id));
+    expect(secretOf(two, fresh.id)).toEqual(secretOf(one, fresh.id));
   });
 
   it("a clock set back rotates once, not on every pass, and the count stays capped", async () => {
@@ -137,11 +143,11 @@ describe("PrekeyStore: store, rotate, delete", () => {
     expect(await store.maintain()).toBe(false);
     expect(store.current()!.at).toBe(T);
     // Nine valid prekeys written by hand (a misbehaving clock): the store keeps the newest eight.
-    const nine = Array.from({ length: 9 }, (_, i) => createPrekey({ mesh: roster.mesh, deviceId: d.device.id, signSec: d.device.keys.signSec, at: T + i }));
+    const nine = Array.from({ length: 9 }, (_, i) => createPrekey({ mesh: roster.mesh, deviceId: d.device.id, signSec: keysOf(d.device).signSec, at: T + i }));
     await writeJson(path, { v: 1, keys: nine.map((h) => ({ prekey: h.prekey, secret: b64u.encode(h.secret) })) }, FS);
     expect(await store.maintain()).toBe(false);
-    expect(store.secret(nine[0]!.prekey.id)).toBeUndefined();
-    expect(store.secret(nine[8]!.prekey.id)).toBeDefined();
+    expect(secretOf(store, nine[0]!.prekey.id)).toBeUndefined();
+    expect(secretOf(store, nine[8]!.prekey.id)).toBeDefined();
   });
 
   it("an unreadable file on reload keeps the secrets already held", async () => {
@@ -153,24 +159,24 @@ describe("PrekeyStore: store, rotate, delete", () => {
     await fs.rm(path);
     await fs.mkdir(path);
     await store.reload();
-    expect(store.secret(pk.id)).toBeDefined();
+    expect(secretOf(store, pk.id)).toBeDefined();
   });
 
   it("skips anything in the file that is not a prekey with its secret", async () => {
     const { d, roster, dir } = await solo();
     const path = join(dir, "p.json");
     const store = new PrekeyStore({ path, env: FS, device: d.device, mesh: roster.mesh, now: () => T });
-    const good = createPrekey({ mesh: roster.mesh, deviceId: d.device.id, signSec: d.device.keys.signSec, at: T });
+    const good = createPrekey({ mesh: roster.mesh, deviceId: d.device.id, signSec: keysOf(d.device).signSec, at: T });
     await writeJson(path, { v: 2, keys: [{ prekey: good.prekey, secret: b64u.encode(good.secret) }] }, FS);
     await store.reload();
-    expect(store.secret(good.prekey.id)).toBeUndefined();
+    expect(secretOf(store, good.prekey.id)).toBeUndefined();
     await writeJson(path, { v: 1, keys: "nope" }, FS);
     await store.reload();
     expect(store.current()).toBeUndefined();
     const short = b64u.encode(new Uint8Array(16));
     await writeJson(path, { v: 1, keys: [null, { prekey: { x: 1 }, secret: b64u.encode(good.secret) }, { prekey: good.prekey, secret: short }, { prekey: good.prekey, secret: b64u.encode(good.secret) }] }, FS);
     await store.reload();
-    expect(store.secret(good.prekey.id)).toEqual(good.secret);
+    expect(secretOf(store, good.prekey.id)).toEqual(good.secret);
   });
 });
 
@@ -179,9 +185,9 @@ describe("PeerPrekeys: the newest verified prekey per peer device", () => {
     const a = await newDevice("a");
     const b = await newDevice("b");
     const { createGenesisRoster } = await import("@worldinmotion/protocol");
-    const genesis = createGenesisRoster({ name: "a", keys: a.device.keys, now: T });
-    const roster = nextRoster(genesis, { add: [makeDeviceRecord("b", b.device.keys, "member", T)] }, { keys: a.device.keys }, T);
-    const make = (at: number) => createPrekey({ mesh: roster.mesh, deviceId: b.device.id, signSec: b.device.keys.signSec, at }).prekey;
+    const genesis = createGenesisRoster({ name: "a", keys: keysOf(a.device), now: T });
+    const roster = nextRoster(genesis, { add: [makeDeviceRecord("b", keysOf(b.device), "member", T)] }, { keys: keysOf(a.device) }, T);
+    const make = (at: number) => createPrekey({ mesh: roster.mesh, deviceId: b.device.id, signSec: keysOf(b.device).signSec, at }).prekey;
     return { a, b, roster, genesis, make, dir: await scratch("peer-prekeys") };
   }
 
@@ -197,7 +203,7 @@ describe("PeerPrekeys: the newest verified prekey per peer device", () => {
     expect(await peers.offer(p0, roster)).toBe(false);
     expect(await peers.offer(p1, roster)).toBe(false);
     expect(await peers.offer(undefined, roster)).toBe(false);
-    const forged = { ...make(T + 1), sig: createPrekey({ mesh: roster.mesh, deviceId: a.device.id, signSec: a.device.keys.signSec, at: T + 1 }).prekey.sig };
+    const forged = { ...make(T + 1), sig: createPrekey({ mesh: roster.mesh, deviceId: a.device.id, signSec: keysOf(a.device).signSec, at: T + 1 }).prekey.sig };
     expect(await peers.offer(forged, roster)).toBe(false);
     // The published test vectors' prekey verifies, but its secret is public.
     expect(await peers.offer(vectors.prekeys.bob.prekey, vectors.roster)).toBe(false);
@@ -225,7 +231,7 @@ describe("PeerPrekeys: the newest verified prekey per peer device", () => {
     const peers = new PeerPrekeys({ path: join(dir, "peer.json"), env: FS, now: () => now });
     const pk = make(T);
     await peers.offer(pk, roster);
-    const revoked = nextRoster(roster, { revoke: [b.device.id] }, { keys: a.device.keys }, T + 1);
+    const revoked = nextRoster(roster, { revoke: [b.device.id] }, { keys: keysOf(a.device) }, T + 1);
     expect(peers.forSend(revoked, [b.device.id])).toEqual({});
     now = pk.until - LIMITS.prekeySendMarginMs;
     expect(peers.forSend(roster, [b.device.id])).toEqual({});
@@ -318,11 +324,11 @@ describe("cards and sibling rotation", () => {
     // A sibling on two adds a prekey to the device's file; b has not read it.
     const files = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
     const raw = JSON.parse(await fs.readFile(files.prekeysPath, "utf8")) as { v: 1; keys: unknown[] };
-    const fresh = createPrekey({ mesh, deviceId: devices[1]!.device.id, signSec: devices[1]!.device.keys.signSec, at: Date.now() });
+    const fresh = createPrekey({ mesh, deviceId: devices[1]!.device.id, signSec: keysOf(devices[1]!.device).signSec, at: Date.now() });
     await writeJson(files.prekeysPath, { v: 1, keys: [{ prekey: fresh.prekey, secret: b64u.encode(fresh.secret) }, ...raw.keys] }, FS);
     const card = sealMessage({
       roster: a.roster,
-      sender: { deviceId: devices[0]!.device.id, keys: devices[0]!.device.keys },
+      sender: { deviceId: devices[0]!.device.id, keys: keysOf(devices[0]!.device) },
       session: "a",
       sid: a.sid,
       to: ["*"],
@@ -402,9 +408,9 @@ describe("the migration window and failure modes", () => {
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     // A prekey of two's that two no longer holds (its file was lost, or the secret deleted).
-    const gone = createPrekey({ mesh, deviceId: devices[1]!.device.id, signSec: devices[1]!.device.keys.signSec, at: Date.now() - HOUR }).prekey;
+    const gone = createPrekey({ mesh, deviceId: devices[1]!.device.id, signSec: keysOf(devices[1]!.device).signSec, at: Date.now() - HOUR }).prekey;
     const frameTo = (text: string) =>
-      sealMessage({ roster: a.roster, sender: { deviceId: devices[0]!.device.id, keys: devices[0]!.device.keys }, session: "a", sid: a.sid, to: ["b@two"], seq: 1000 + text.length, at: Date.now(), text, recipients: [devices[1]!.device.id], prekeys: { [devices[1]!.device.id]: gone } });
+      sealMessage({ roster: a.roster, sender: { deviceId: devices[0]!.device.id, keys: keysOf(devices[0]!.device) }, session: "a", sid: a.sid, to: ["b@two"], seq: 1000 + text.length, at: Date.now(), text, recipients: [devices[1]!.device.id], prekeys: { [devices[1]!.device.id]: gone } });
     expect(await b.receive(frameTo("one"))).toBe("dropped");
     expect(await b.receive(frameTo("second"))).toBe("dropped");
     const notices = (await b.spool.unread()).filter((i) => i.kind === "notice");
@@ -452,7 +458,7 @@ describe("a stolen key file", () => {
     await until(async () => !(await fs.readFile(files.prekeysPath, "utf8")).includes(used), 3000, "the used secret deleted");
     const thief = new PrekeyStore({ path: files.prekeysPath, env: FS, device: devices[1]!.device, mesh, now: clock });
     await thief.reload();
-    const me = { deviceId: devices[1]!.device.id, keys: devices[1]!.device.keys, address: "b@two", sid: b.sid, prekey: (id: string) => thief.secret(id) };
+    const me = { deviceId: devices[1]!.device.id, keys: keysOf(devices[1]!.device), address: "b@two", sid: b.sid, prekey: (id: string) => secretOf(thief, id) };
     expect(openMessage(recorded, { roster: b.roster, me, now, history: true })).toEqual({ ok: false, reason: "key_expired" });
   });
 });

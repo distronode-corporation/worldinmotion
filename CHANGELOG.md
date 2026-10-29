@@ -13,6 +13,39 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **`wim agent`, a signer that keeps the device keys out of agents' reach** (`SECURITY-MODEL.md`
+  section 5.8), the ssh-agent model, optional. `wim agent encrypt` encrypts `device.json` under a
+  passphrase (scrypt, ChaCha20-Poly1305) and seals every prekey secret; `wim agent start`, run in
+  your own terminal, asks for the passphrase once and starts a signer process that holds the keys.
+  Sessions then sign, seal and open through it over a Unix socket in a 0700 directory (a named
+  pipe with a secret name on Windows) and never read the keys. `wim agent lock` wipes them from its
+  memory, and `wim agent unlock` starts a new signer with the passphrase, which never goes over the
+  socket; `wim agent status` and `wim agent stop`; `wim agent decrypt` goes back to the plaintext
+  file with the same identity. The signer never signs a prekey for a caller, refuses a prekey
+  past its deletion time, logs every request and rate limits key operations. A process running as
+  you can still ask the unlocked signer to act for the device; section 5.8 says what it stops and
+  what it does not. The wire is unchanged.
+- **The signer's socket is a sealed channel** after the signer's `hello`, which signs the client's
+  nonce and both sides' X25519 keys: a process relaying the hello (a proxy at the socket path)
+  reads and forges nothing. The signer locks and stops when its socket path comes to name
+  anything else, two starts at once cannot both bind, a Windows pipe name is new for each start,
+  and every command needs the signer to prove itself, locked or not, with a run key the device key
+  certified at start: `lock` and `stop` cannot be answered by anything else.
+- **`require_signer`**: set by `wim agent encrypt` (or `WIM_REQUIRE_SIGNER=1`), clients refuse a
+  plaintext key file. Without it, and without an encrypted key file, nothing changes.
+- **Keyring variants in the protocol package**: `sealMessageWith`, `openMessageWith`,
+  `signAuthWith`, `createGenesisRosterWith`, `nextRosterWith` and `createJoinWith` take a `Keyring`
+  (`sign`, `seal`, `open`) instead of raw keys, so an implementation can keep its keys in another
+  process; `localKeyring` is the in-memory one.
+
+### Changed
+
+- **Client library: a `Device` carries a `keyring`, not its raw `keys`.** A device read from a
+  plaintext key file is a `LocalDevice`, which still has `keys`; one whose keys are in the signer
+  has none. Peer cards are opened one at a time in arrival order.
+
 ## [0.1.3] - 2026-10-29
 
 ### Added
