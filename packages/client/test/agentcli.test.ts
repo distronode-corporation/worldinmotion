@@ -3,12 +3,16 @@
 
 import { PassThrough } from "node:stream";
 import { promises as fs } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createServer } from "node:net";
 import { agentEndpoint } from "../src/agentpath.ts";
 import { spawnDetached, wimCommand } from "../src/agentcli.ts";
 import { processIo, type Proc } from "../src/io.ts";
-import { newDevice, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
+import { keysOf, newDevice, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
+import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type Channel } from "../src/channel.ts";
+import { b64u, type DeviceKeys } from "@worldinmotion/protocol";
+import { createPrivateKey, sign as edSign } from "node:crypto";
 import type { CliIO } from "../src/cli.ts";
 
 const PASS = "pass phrase";
@@ -50,6 +54,75 @@ function inProcess(root: string): CliIO["startAgent"] {
   };
 }
 
+/**
+ * A process at `at` that knows the device's public key (the key file says it), answers every
+ * request as a locked signer would but with nothing to prove, and records what it was sent.
+ */
+async function impostor(d: { home: { readKeyFile(): Promise<unknown> } }, at: string) {
+  const file = (await d.home.readKeyFile()) as { sealed: { signPub: string } };
+  const signPub = file.sealed.signPub;
+  const lines: string[] = [];
+  const server = createServer((socket) => {
+    socket.setEncoding("utf8");
+    socket.on("error", () => undefined);
+    socket.on("data", (chunk: string) => {
+      for (const line of chunk.split("\n").filter((l) => l !== "")) {
+        lines.push(line);
+        const { i } = JSON.parse(line) as { i: number };
+        socket.write(`${JSON.stringify({ i, r: { id: "x", name: "imp", signPub, boxPub: signPub, locked: true, pid: 1 } })}\n`);
+      }
+    });
+  });
+  await new Promise<void>((r) => server.listen(at, () => r()));
+  return {
+    lines,
+    get ops(): string[] {
+      return lines.map((l) => (JSON.parse(l) as { op: string }).op);
+    },
+    close: () => new Promise<void>((r) => server.close(() => r())),
+  };
+}
+
+/**
+ * A process at `at` holding the device's real keys (a test can): it proves itself like the signer,
+ * says it is `locked` or not, answers every request with `{}`, and keeps listening after `stop`.
+ */
+async function stubbornSigner(keys: DeviceKeys, locked: boolean, at: string) {
+  const device = createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), keys.signSec]), format: "der", type: "pkcs8" });
+  const run = runKey();
+  const cert = { pub: b64u.encode(run.pub), sig: b64u.encode(edSign(null, certBytes(run.pub), device)) };
+  const ops: string[] = [];
+  const server = createServer((socket) => {
+    socket.setEncoding("utf8");
+    socket.on("error", () => undefined);
+    let channel: Channel | undefined;
+    let buf = "";
+    socket.on("data", (d: string) => {
+      buf += d;
+      for (let nl = buf.indexOf("\n"); nl !== -1; nl = buf.indexOf("\n")) {
+        const line = buf.slice(0, nl);
+        buf = buf.slice(nl + 1);
+        if (channel === undefined) {
+          const { i, a } = JSON.parse(line) as { i: number; a: { nonce: string; epub: string } };
+          ops.push("hello");
+          const mine = ephemeral();
+          const theirs = b64u.decode(a.epub);
+          const transcript = helloTranscript(b64u.decode(a.nonce), theirs, mine.pub);
+          const hello = { id: "x", name: "x", signPub: b64u.encode(keys.signPub), boxPub: b64u.encode(keys.boxPub), locked, pid: 1, epub: b64u.encode(mine.pub), cert, proof: b64u.encode(edSign(null, transcript, run.privateKey)) };
+          socket.write(`${JSON.stringify({ i, r: hello })}\n`);
+          channel = channelFor("signer", mine.privateKey, theirs, transcript);
+          continue;
+        }
+        const req = JSON.parse(channel.open(JSON.parse(line).x)!) as { i: number; op: string };
+        ops.push(req.op);
+        socket.write(`${JSON.stringify({ x: channel.seal(JSON.stringify({ i: req.i, r: {} })) })}\n`);
+      }
+    });
+  });
+  await new Promise<void>((r) => server.listen(at, () => r()));
+  return { ops, close: () => new Promise<void>((r) => server.close(() => r())) };
+}
+
 describe("wim agent", () => {
   it("encrypts, runs, locks, unlocks, stops and decrypts, keeping the device's identity", async () => {
     const d = await newDevice("cli");
@@ -74,11 +147,14 @@ describe("wim agent", () => {
     expect(said(lock)).toMatch(/Signer locked/);
     const st = at(d.root);
     await run(st, "agent", "status");
-    expect(said(st)).toMatch(/locked \(unverified: a locked signer cannot prove itself\), device cli.*\n.*lock 1/);
-    // Locking again tells a locked signer nothing: it says so.
+    expect(said(st)).toMatch(/locked \(verified\), device cli.*\n.*lock 1/);
+    // Locking again: the locked signer still proves itself, and says it is locked already.
     const relock = at(d.root);
     expect(await run(relock, "agent", "lock")).toBe(0);
-    expect(said(relock)).toMatch(/says it is locked already/);
+    expect(said(relock)).toMatch(/locked already \(verified\)/);
+    const restart = at(d.root);
+    expect(await run(restart, "agent", "start")).toBe(0);
+    expect(said(restart)).toMatch(/already running at .*, locked \(verified\): `wim agent unlock` restarts it/);
     // A wrong passphrase is caught here, and the locked signer is left as it was.
     const wrong = at(d.root, {}, {}, "not it");
     expect(await run(wrong, "agent", "unlock", "--passphrase-stdin")).toBe(1);
@@ -120,71 +196,94 @@ describe("wim agent", () => {
     expect(said(t)).toMatch(/Signer started \(pid \d+\)/);
     const again = at(d.root);
     expect(await run(again, "agent", "start")).toBe(0);
-    expect(said(again)).toMatch(/already running at .* \(verified: it proved it holds this device's key\)/);
+    expect(said(again)).toMatch(/already running at .* \(verified: it proved it is this device's signer\)/);
     // A second serve on the same endpoint says why it cannot run.
     const second = at(d.root, {}, {}, PASS);
     expect(await run(second, "agent", "serve")).toBe(1);
     expect(second.out.find((l) => l !== "")).toMatch(/^error a signer is already running/);
   });
 
-  it("unlock sends no passphrase to an impostor at the endpoint, and refuses one that does not stop", async () => {
+  it("lock, stop and unlock fail loudly against an impostor that claims to be locked, and send it no passphrase", async () => {
     const d = await newDevice("imp");
     await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
-    const file = await d.home.readKeyFile();
-    const signPub = file !== undefined && "sealed" in file ? file.sealed.signPub : "";
     const endpoint = (await agentEndpoint(d.root, d.home.env, true))!;
-    const lines: string[] = [];
-    // It knows the public key from the key file and claims to be locked; it ignores `stop`.
-    const impostor = createServer((socket) => {
-      socket.setEncoding("utf8");
-      socket.on("error", () => undefined);
-      socket.on("data", (chunk: string) => {
-        for (const line of chunk.split("\n").filter((l) => l !== "")) {
-          lines.push(line);
-          const { i } = JSON.parse(line) as { i: number };
-          socket.write(`${JSON.stringify({ i, r: { id: "x", name: "imp", signPub, boxPub: signPub, locked: true, pid: 1 } })}\n`);
-        }
-      });
-    });
-    await new Promise<void>((r) => impostor.listen(endpoint, () => r()));
+    const imp = await impostor(d, endpoint);
     try {
-      const t = at(d.root, {}, {}, PASS);
-      expect(await run(t, "agent", "unlock", "--passphrase-stdin")).toBe(1);
-      expect(said(t)).toMatch(/still answers after it was asked to stop.*nothing was sent to it/);
-      expect(lines.map((l) => (JSON.parse(l) as { op: string }).op)).toEqual(["hello", "stop"]);
-      expect(lines.join("\n")).not.toContain(PASS);
-      // `start` reports what it says as unverified; `stop` checks it went, and it did not.
-      const st = at(d.root);
-      expect(await run(st, "agent", "start")).toBe(0);
-      expect(said(st)).toMatch(/says it is locked \(unverified/);
-      const stop = at(d.root);
-      expect(await run(stop, "agent", "stop")).toBe(1);
-      expect(said(stop)).toMatch(/still answers after it was asked to stop/);
+      for (const [args, input] of [[["unlock", "--passphrase-stdin"], PASS], [["lock"], ""], [["stop"], ""]] as const) {
+        const t = at(d.root, {}, {}, input);
+        expect(await run(t, "agent", ...args), args[0]).toBe(1);
+        expect(said(t)).toMatch(/could not prove it is this device's signer/);
+        expect(said(t)).not.toMatch(/Signer (stopped|locked|unlocked)/);
+      }
+      // Each command asked for its hello and nothing more.
+      expect(imp.ops).toEqual(["hello", "hello", "hello"]);
+      expect(imp.lines.join("\n")).not.toContain(PASS);
     } finally {
-      await new Promise<void>((r) => impostor.close(() => r()));
+      await imp.close();
     }
   });
 
-  it("start refuses what answers at the endpoint but cannot prove it is this device's signer", async () => {
+  it("stop and unlock report something that still answers after a stop it acknowledged", async () => {
+    const d = await newDevice("stays");
+    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    const endpoint = (await agentEndpoint(d.root, d.home.env, true))!;
+    for (const locked of [false, true]) {
+      const stays = await stubbornSigner(keysOf(d.device), locked, endpoint);
+      try {
+        const t = at(d.root, {}, {}, PASS);
+        expect(await run(t, "agent", ...(locked ? ["unlock", "--passphrase-stdin"] : ["stop"]))).toBe(1);
+        expect(said(t)).toMatch(/still answers after it was asked to stop/);
+        expect(stays.ops).toEqual(["hello", "stop"]);
+      } finally {
+        await stays.close();
+      }
+    }
+  });
+
+  it("a brief swap of the socket cannot fake a stop or a lock (independent re-review, N1)", async () => {
+    const d = await newDevice("swap");
+    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    await foreground(d.root);
+    const endpoint = (await agentEndpoint(d.root, d.home.env, false))!;
+    // The attack: the real socket moved aside (on Windows, the pipe token pointed elsewhere), an
+    // impostor that answers `hello` as locked and `stop` in its place, the CLI run, then the swap undone.
+    const tokenPath = join(d.root, "agent", "pipe");
+    const saved = process.platform === "win32" ? await fs.readFile(tokenPath, "utf8") : "";
+    const aside = `${endpoint}.real`;
+    const target = process.platform === "win32" ? (await agentEndpoint(d.root, d.home.env, true))! : endpoint;
+    if (process.platform !== "win32") await fs.rename(endpoint, aside);
+    const imp = await impostor(d, target);
+    try {
+      const stop = at(d.root);
+      expect(await run(stop, "agent", "stop")).toBe(1);
+      expect(said(stop)).not.toContain("Signer stopped.");
+      const lock = at(d.root);
+      expect(await run(lock, "agent", "lock")).toBe(1);
+      expect(said(lock)).not.toMatch(/locked already|Signer locked/);
+      expect(imp.ops).toEqual(["hello", "hello"]);
+    } finally {
+      await imp.close();
+      if (process.platform === "win32") await fs.writeFile(tokenPath, saved);
+      else await fs.rename(aside, endpoint).catch(() => undefined);
+    }
+  });
+
+  it("start takes the place of something that answers at the endpoint but cannot prove it is this device's signer (re-review, N3)", async () => {
     const d = await newDevice("fake");
     await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
     const endpoint = (await agentEndpoint(d.root, d.home.env, true))!;
-    // Claims to be unlocked, with no proof.
-    const impostor = createServer((socket) => {
-      socket.setEncoding("utf8");
-      socket.on("error", () => undefined);
-      socket.on("data", (chunk: string) => {
-        const { i } = JSON.parse(chunk.split("\n")[0]!) as { i: number };
-        socket.write(`${JSON.stringify({ i, r: { id: "x", name: "fake", signPub: "x", boxPub: "x", locked: false, pid: 1 } })}\n`);
-      });
-    });
-    await new Promise<void>((r) => impostor.listen(endpoint, () => r()));
+    const imp = await impostor(d, endpoint);
     try {
       const t = at(d.root, {}, {}, PASS);
-      expect(await run(t, "agent", "start", "--foreground", "--passphrase-stdin")).toBe(1);
-      expect(said(t)).toMatch(/something answers at .* but is not this device's signer/);
+      running.push(run(t, "agent", "start", "--foreground", "--passphrase-stdin"));
+      terms.push(at(d.root));
+      await until(() => said(t).includes("Signer running"), undefined, "the signer to start past the impostor");
+      expect(said(t)).toMatch(/cannot prove it is this device's signer; starting a signer in its place/);
+      const st = at(d.root);
+      expect(await run(st, "agent", "status")).toBe(0);
+      expect(said(st)).toMatch(/unlocked \(verified\)/);
     } finally {
-      await new Promise<void>((r) => impostor.close(() => r()));
+      await imp.close();
     }
   });
 

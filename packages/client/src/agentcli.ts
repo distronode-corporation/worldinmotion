@@ -146,7 +146,13 @@ async function runSigner(ctx: AgentCtx, passphrase: string, ready: (line: string
       startLockPath(root),
       async () => {
         const before = await agentEndpoint(root, env, false);
-        if (before !== undefined && (await answers(before))) throw new SetupError(`a signer is already running at ${before}`);
+        if (before !== undefined && (await answers(before))) {
+          if ((await proven(before, b64u.decode(file.signPub))) !== undefined) throw new SetupError(`a signer is already running at ${before}`);
+          // Not this device's signer (a squatter on a name left by a crash, or a process of the
+          // user): it does not block the start. A POSIX socket file is replaced; on Windows the
+          // signer takes a fresh pipe name below.
+          await endpointFiles(env.platform).clear(before);
+        }
         const at = (await agentEndpoint(root, env, true))!;
         const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(env.platform) });
         await server.listen();
@@ -172,28 +178,30 @@ async function runSigner(ctx: AgentCtx, passphrase: string, ready: (line: string
 }
 
 /**
- * What answers at `at`, checked: a signer that proved it holds this device's key, or one that says
- * it is locked (it then has no key to prove anything with). Anything else is not this device's
- * signer, and is reported as such.
+ * Whether what answers at `at` proves it is this device's signer (by its run key, which the device
+ * key certified), and if so whether it is locked; undefined for anything that cannot.
  */
-async function verified(ctx: AgentCtx, at: string): Promise<{ client: SignerClient; locked: boolean }> {
-  const client = new SignerClient({ endpoint: at, expect: b64u.decode((await sealedFile(ctx)).signPub) });
+async function proven(at: string, expect: Uint8Array): Promise<{ locked: boolean } | undefined> {
+  const client = new SignerClient({ endpoint: at, expect });
   try {
-    return { client, locked: (await client.hello()).locked };
-  } catch (error) {
+    return { locked: (await client.hello()).locked };
+  } catch {
+    return undefined;
+  } finally {
     client.close();
-    throw new SetupError(`something answers at ${at} but is not this device's signer (${(error as Error).message}): end that process, then run \`wim agent start\``);
   }
 }
 
 async function start(ctx: AgentCtx): Promise<number> {
-  await sealedFile(ctx);
+  const file = await sealedFile(ctx);
   const at = await endpoint(ctx, false);
   if (at !== undefined && (await answers(at))) {
-    const { client, locked } = await verified(ctx, at);
-    client.close();
-    ctx.io.out(locked ? `A signer answers at ${at} and says it is locked (unverified: a locked signer holds no key to prove itself with). \`wim agent unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it holds this device's key).`);
-    return 0;
+    const found = await proven(at, b64u.decode(file.signPub));
+    if (found !== undefined) {
+      ctx.io.out(found.locked ? `A signer is already running at ${at}, locked (verified): \`wim agent unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it is this device's signer).`);
+      return 0;
+    }
+    ctx.io.err(`wim: something answers at ${at} but cannot prove it is this device's signer; starting a signer in its place`);
   }
   return launch(ctx, await readPassphrase(ctx, PROMPT));
 }
@@ -236,11 +244,11 @@ async function status(ctx: AgentCtx): Promise<number> {
     return 3;
   }
   try {
-    // Unlocked, it proved it holds the key named in the key file; locked, what it says is a claim.
+    // The hello proved it is this device's signer, locked or not; anything else fails here.
     const locked = (await client.hello()).locked;
     const s = await client.call("status");
     const ops = Object.entries(s["ops"] as Record<string, number>).map(([op, n]) => `${op} ${n}`);
-    ctx.io.out(`signer: running (pid ${String(s["pid"])}), ${locked ? "locked (unverified: a locked signer cannot prove itself)" : "unlocked (verified)"}, device ${String(s["name"])} (${String(s["id"])})`);
+    ctx.io.out(`signer: running (pid ${String(s["pid"])}), ${locked ? "locked" : "unlocked"} (verified), device ${String(s["name"])} (${String(s["id"])})`);
     ctx.io.out(`since ${new Date(s["started"] as number).toISOString()}: ${ops.length === 0 ? "no operations" : ops.join(", ")}; refused ${String(s["refused"])}, rate limited ${String(s["limited"])}`);
     ctx.io.out(`log: ${agentLogPath(ctx.home.root)}`);
     return 0;
@@ -250,8 +258,9 @@ async function status(ctx: AgentCtx): Promise<number> {
 }
 
 /**
- * `lock` goes to a signer that proved itself, over its channel; one that says it is locked already
- * is told nothing. `stop` is checked afterwards: the endpoint must have stopped answering.
+ * `lock` and `stop` go only to a signer that proved itself, over its channel; anything else fails
+ * the command (the hello throws). `stop` is checked afterwards: the endpoint must have stopped
+ * answering.
  */
 async function simple(ctx: AgentCtx, action: "lock" | "stop"): Promise<number> {
   const client = await running(ctx);
@@ -262,7 +271,7 @@ async function simple(ctx: AgentCtx, action: "lock" | "stop"): Promise<number> {
   try {
     const locked = (await client.hello()).locked;
     if (action === "lock" && locked) {
-      ctx.io.out("The signer says it is locked already (unverified: a locked signer cannot prove itself).");
+      ctx.io.out("The signer is locked already (verified).");
       return 0;
     }
     await client.call(action);

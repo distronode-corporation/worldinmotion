@@ -18,8 +18,9 @@ import { createServer, type Server, type Socket } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentServer, answers, Signer, type LogEntry } from "../src/agent.ts";
 import { agentEndpoint, endpointFiles, type EndpointFiles } from "../src/agentpath.ts";
-import { parseAnswer, SignerClient, signerKeyring, SignerError } from "../src/signer.ts";
-import { ephemeral } from "../src/channel.ts";
+import { parseAnswer, SignerClient, signerKeyring, SignerError, unseal } from "../src/signer.ts";
+import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type Channel } from "../src/channel.ts";
+import { createPrivateKey, sign as edSign } from "node:crypto";
 import { sealKeyFile } from "../src/vault.ts";
 import { FS, scratch } from "./helpers.ts";
 
@@ -55,19 +56,50 @@ async function running(log: LogEntry[] = [], files: EndpointFiles = endpointFile
   return { server, signer, keys, at, id: file.id, client };
 }
 
+type Answerer = { sealed(text: string): void; raw(text: string): void };
+
+/**
+ * A signer stand-in that holds a real device key and does the real handshake, so the client's
+ * own checks pass; after the hello, `reply` answers each request, sealed or (to test the client)
+ * in the clear.
+ */
+async function trustedFake(reply: (req: { i: number; op: string }, answer: Answerer) => void): Promise<{ at: string; signPub: Uint8Array }> {
+  const keys = generateDeviceKeys();
+  const device = createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), keys.signSec]), format: "der", type: "pkcs8" });
+  const run = runKey();
+  const cert = { pub: b64u.encode(run.pub), sig: b64u.encode(edSign(null, certBytes(run.pub), device)) };
+  const { at } = await fake((line, socket, state) => {
+    if (state.channel === undefined) {
+      const { i, a } = JSON.parse(line) as { i: number; a: { nonce: string; epub: string } };
+      const mine = ephemeral();
+      const theirs = b64u.decode(a.epub);
+      const transcript = helloTranscript(b64u.decode(a.nonce), theirs, mine.pub);
+      const hello = { id: "fake", name: "fake", signPub: b64u.encode(keys.signPub), boxPub: b64u.encode(keys.boxPub), locked: false, pid: 1, epub: b64u.encode(mine.pub), cert, proof: b64u.encode(edSign(null, transcript, run.privateKey)) };
+      socket.write(`${JSON.stringify({ i, r: hello })}\n`);
+      state.channel = channelFor("signer", mine.privateKey, theirs, transcript);
+      return;
+    }
+    const channel = state.channel;
+    const req = JSON.parse(unseal(channel, line)!) as { i: number; op: string };
+    reply(req, { sealed: (text) => socket.write(`${JSON.stringify({ x: channel.seal(text) })}\n`), raw: (text) => socket.write(`${text}\n`) });
+  });
+  return { at, signPub: keys.signPub };
+}
+
 /** A stand-in signer that answers with `reply` (or not at all). */
-async function fake(reply: (line: string, socket: Socket) => void): Promise<{ at: string; server: Server }> {
+async function fake(reply: (line: string, socket: Socket, state: { channel?: Channel }) => void): Promise<{ at: string; server: Server }> {
   const at = await endpoint();
   const server = createServer((socket) => {
     socket.setEncoding("utf8");
     let buf = "";
+    const state: { channel?: Channel } = {};
     socket.on("error", () => undefined);
     socket.on("data", (d: string) => {
       buf += d;
       for (let nl = buf.indexOf("\n"); nl !== -1; nl = buf.indexOf("\n")) {
         const line = buf.slice(0, nl);
         buf = buf.slice(nl + 1);
-        reply(line, socket);
+        reply(line, socket, state);
       }
     });
   });
@@ -110,7 +142,7 @@ describe("the signer's socket", () => {
     expect(b["sealed"]).toBeTypeOf("string");
   });
 
-  it("a locked signer proves nothing, and is sent nothing but hello, status, lock and stop", async () => {
+  it("a locked signer still proves itself with its run key, and refuses key operations itself", async () => {
     const log: LogEntry[] = [];
     const r = await running(log);
     await r.client.call("lock");
@@ -118,21 +150,19 @@ describe("the signer's socket", () => {
     cleanup.push(() => fresh.close());
     expect(await fresh.hello()).toMatchObject({ locked: true });
     expect(await fresh.call("status")).toMatchObject({ locked: true });
-    const seen = log.length;
-    for (const [op, a] of [["prekey", { mesh: MESH, at: 1 }], ["sign", { type: "auth", obj: { device: r.id } }], ["seal", { plaintext: "cGxhaW50ZXh0" }]] as const) {
+    for (const [op, a] of [["prekey", { mesh: MESH, at: 1 }], ["sign", { type: "auth", obj: { device: r.id, at: Date.now() } }]] as const) {
       expect((await failure(fresh.call(op, a))).code).toBe("locked");
     }
-    // Refused here, before anything was written to the socket.
-    expect(log.length).toBe(seen);
+    expect(log.filter((e) => e.code === "locked")).toHaveLength(2);
     await fresh.call("stop");
     await r.server.stopped;
   });
 
-  it("an impostor that claims to be a locked signer gets no plaintext and no request to sign", async () => {
+  it("an impostor that claims to be a locked signer is refused at the hello, and sent nothing more", async () => {
     const keys = generateDeviceKeys();
     const pub = b64u.encode(keys.signPub);
     const lines: string[] = [];
-    // It knows the device's public key (the key file's public part says it), but not the secret.
+    // It knows the device's public key (the key file's public part says it), but no key to prove with.
     const { at } = await fake((line, socket) => {
       lines.push(line);
       const { i } = JSON.parse(line) as { i: number };
@@ -142,9 +172,10 @@ describe("the signer's socket", () => {
     cleanup.push(() => client.close());
     const ring = signerKeyring(client, { signPub: keys.signPub, boxPub: keys.boxPub });
     const peer = generateDeviceKeys();
-    await expect(ring.seal({ mesh: MESH, sender: "a".repeat(22), recipient: "b".repeat(22), aad: randomBytes(32), recipientBox: peer.boxPub, plaintext: utf8("the plan") })).rejects.toThrow(/locked/);
-    await expect(ring.sign("send", { mesh: MESH })).rejects.toThrow(/locked/);
-    expect(lines.map((l) => (JSON.parse(l) as { op: string }).op)).toEqual(["hello"]);
+    await expect(ring.seal({ mesh: MESH, sender: "a".repeat(22), recipient: "b".repeat(22), aad: randomBytes(32), recipientBox: peer.boxPub, plaintext: utf8("the plan") })).rejects.toThrow(/could not prove/);
+    expect((await failure(client.call("lock"))).code).toBe("mismatch");
+    expect((await failure(client.call("stop"))).code).toBe("mismatch");
+    expect(lines.map((l) => (JSON.parse(l) as { op: string }).op)).toEqual(["hello", "hello", "hello"]);
     expect(lines.join("\n")).not.toContain(b64u.encode(utf8("the plan")));
   });
 
@@ -173,6 +204,36 @@ describe("the signer's socket", () => {
     await r.client.call("stop");
     await r.server.stopped;
     expect(r.signer.locked).toBe(true);
+  });
+
+  it("a request that comes before the endpoint's identity is recorded waits for it (re-review, N4)", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const real = endpointFiles(process.platform);
+    // The listener is up, but the step before the identity is recorded is held.
+    const files: EndpointFiles = { ...real, secure: async (e) => gate.then(() => real.secure(e)) };
+    const keys = generateDeviceKeys();
+    const file = await sealKeyFile({ name: "laptop", keys, passphrase: "pass phrase", kdf: KDF });
+    const signer = new Signer({ file, unlocked: { keys, data: randomBytes(32) }, now: Date.now, pid: 1, log: () => undefined });
+    const at = await endpoint();
+    const server = new AgentServer({ signer, endpoint: at, files });
+    cleanup.push(() => server.close());
+    const listening = server.listen();
+    let up = false;
+    for (let n = 0; n < 1000 && !up; n++) up = await answers(at);
+    expect(up).toBe(true);
+    const raw = await rawConnection(at);
+    raw.send(JSON.stringify({ i: 1, op: "hello", a: { nonce: b64u.encode(randomBytes(32)), epub: b64u.encode(ephemeral().pub) } }));
+    let answered = false;
+    const answer = raw.next().then((a) => ((answered = true), a));
+    for (let n = 0; n < 50; n++) await new Promise((r) => setImmediate(r));
+    // Not answered yet, and not taken for a replaced endpoint either.
+    expect(answered).toBe(false);
+    expect(signer.locked).toBe(false);
+    release();
+    await listening;
+    expect(await answer).toMatchObject({ i: 1, r: { locked: false } });
+    expect(signer.locked).toBe(false);
   });
 
   it("refuses to start where a signer already answers; close before listening is fine", async () => {
@@ -476,13 +537,9 @@ describe("SignerClient", () => {
   });
 
   it("times out on a signer that does not answer, and ignores an answer that comes too late", async () => {
-    const held: Array<{ line: string; socket: Socket }> = [];
-    const { at } = await fake((line, socket) => {
-      const { i, op } = JSON.parse(line) as { i: number; op: string };
-      if (op === "hello") socket.write(`${JSON.stringify({ i, r: { locked: true, signPub: "", id: "x", name: "x", boxPub: "", pid: 1 } })}\n`);
-      else held.push({ line, socket });
-    });
-    const client = new SignerClient({ endpoint: at, timeoutMs: 1000 });
+    const held: Array<{ i: number; answer: Answerer }> = [];
+    const f = await trustedFake((req, answer) => void held.push({ i: req.i, answer }));
+    const client = new SignerClient({ endpoint: f.at, expect: f.signPub, timeoutMs: 1000 });
     cleanup.push(() => client.close());
     await client.hello();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -493,11 +550,10 @@ describe("SignerClient", () => {
     expect(e.code).toBe("timeout");
     vi.useRealTimers();
     // The late answer matches nothing pending; the next call is answered as usual.
-    const late = held[0]!;
-    late.socket.write(`${JSON.stringify({ i: (JSON.parse(late.line) as { i: number }).i, r: {} })}\n`);
+    held[0]!.answer.sealed(JSON.stringify({ i: held[0]!.i, r: {} }));
     const next = client.call("status");
     await turns(() => held.length === 2);
-    held[1]!.socket.write(`${JSON.stringify({ i: (JSON.parse(held[1]!.line) as { i: number }).i, e: { code: "refused", message: "no" } })}\n`);
+    held[1]!.answer.sealed(JSON.stringify({ i: held[1]!.i, e: { code: "refused", message: "no" } }));
     expect((await failure(next)).code).toBe("refused");
   });
 
@@ -518,29 +574,29 @@ describe("SignerClient", () => {
       '{"i":ID,"e":{"code":"refused"}}',
     ];
     let mode = 0;
-    const { at } = await fake((line, socket) => {
-      const { i, op } = JSON.parse(line) as { i: number; op: string };
-      if (op === "hello") return void socket.write(`${JSON.stringify({ i, r: { locked: true, signPub: "", id: "x", name: "x", boxPub: "", pid: 1 } })}\n`);
+    // Sealed on the channel, so each one reaches the answer's own checks.
+    const f = await trustedFake((req, answer) => {
       const next = hostile[mode++];
-      socket.write(`${next === undefined ? JSON.stringify({ i, r: { fine: true } }) : next.replace("ID", String(i))}\n`);
+      answer.sealed(next === undefined ? JSON.stringify({ i: req.i, r: { fine: true } }) : next.replace("ID", String(req.i)));
     });
-    const client = new SignerClient({ endpoint: at });
+    const client = new SignerClient({ endpoint: f.at, expect: f.signPub });
     cleanup.push(() => client.close());
     for (const h of hostile) expect((await failure(client.call("status"))).code, h).toBe("unavailable");
     expect(await client.call("status")).toEqual({ fine: true });
   });
 
-  it("drops a connection that sends garbage or too much, failing what was pending, and reconnects", async () => {
-    let mode: "garbage" | "flood" | "ok" = "garbage";
-    const { at } = await fake((line, socket) => {
-      const { i, op } = JSON.parse(line) as { i: number; op: string };
-      if (op === "hello") return void socket.write(`${JSON.stringify({ i, r: { locked: true, signPub: "", id: "x", name: "x", boxPub: "", pid: 1 } })}\n`);
-      if (mode === "garbage") socket.write("{not json\n");
-      else if (mode === "flood") socket.write("x".repeat(4 * 1024 * 1024 + 10));
-      else socket.write(`${JSON.stringify({ i, r: { fine: true } })}\n`);
+  it("drops a connection that sends garbage, a line not sealed, or too much, failing what was pending, and reconnects", async () => {
+    let mode: "garbage" | "clear" | "flood" | "ok" = "garbage";
+    const f = await trustedFake((req, answer) => {
+      if (mode === "garbage") answer.raw("{not json");
+      else if (mode === "clear") answer.raw(JSON.stringify({ i: req.i, r: { forged: true } }));
+      else if (mode === "flood") answer.raw("x".repeat(4 * 1024 * 1024 + 10));
+      else answer.sealed(JSON.stringify({ i: req.i, r: { fine: true } }));
     });
-    const client = new SignerClient({ endpoint: at });
+    const client = new SignerClient({ endpoint: f.at, expect: f.signPub });
     cleanup.push(() => client.close());
+    expect((await failure(client.call("status"))).code).toBe("unavailable");
+    mode = "clear";
     expect((await failure(client.call("status"))).code).toBe("unavailable");
     mode = "flood";
     expect((await failure(client.call("status"))).code).toBe("unavailable");

@@ -61,6 +61,9 @@ import { SignerError } from "./signer.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
 
+/** How many times a delivered frame may fail for a reason of its own before it is let go. */
+const FRAME_ATTEMPTS = 3;
+
 /** A refusal the caller should show as it is: a secret in the text, an unknown peer, a limit. */
 export class ClientError extends Error {
   override readonly name = "ClientError";
@@ -212,6 +215,8 @@ export class MeshSession extends EventEmitter {
   private heldLink: Link | undefined;
   /** Whether this session said it must be restarted to use the signer (inboundFailed). */
   private toldRestart = false;
+  /** Frames that failed for a reason of their own, by id: how many times (inboundFailed). */
+  private readonly failures = new Map<string, number>();
   /** Peer cards, opened one at a time in the order they came. */
   private cardsOpened: Promise<void> = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
@@ -486,7 +491,7 @@ export class MeshSession extends EventEmitter {
       case "deliver": {
         // The connection it came on: only that one acks it (see ack).
         const via = this.link;
-        this.inbound = this.inbound.then(() => this.handleDeliver(f.cursor, f.msg, via)).catch((e: unknown) => this.inboundFailed(e));
+        this.inbound = this.inbound.then(() => this.handleDeliver(f.cursor, f.msg, via)).catch((e: unknown) => this.inboundFailed(e, f.msg.id));
         return;
       }
       case "roster":
@@ -617,7 +622,16 @@ export class MeshSession extends EventEmitter {
    * taken. The next connection authenticates only once the signer answers, and the relay then
    * delivers everything after the last ack again.
    */
-  private inboundFailed(error: unknown): void {
+  /** How many times this frame has failed for a reason of its own, this one included (the last 64 frames are remembered). */
+  private failedAgain(id: string): number {
+    const n = (this.failures.get(id) ?? 0) + 1;
+    this.failures.delete(id);
+    this.failures.set(id, n);
+    if (this.failures.size > 64) this.failures.delete(this.failures.keys().next().value!);
+    return n;
+  }
+
+  private inboundFailed(error: unknown, id?: string): void {
     // The key file was encrypted under this session: no reconnect helps (this process will never
     // open it), so nothing more is acked on this connection and the person is told once to restart.
     if (error instanceof NeedsSigner) {
@@ -627,8 +641,15 @@ export class MeshSession extends EventEmitter {
       return;
     }
     this.log(`wim: inbound: ${(error as Error).message}`);
-    // Whatever the failure, nothing more is acked on this connection: a later ack would take
-    // this frame with it. The relay delivers it again on the next connection.
+    // A frame that fails for a reason of its own (not the signer's) the third time it comes is let
+    // go: logged, not held, so the next ack passes it. Holding it for good would stall the cursor
+    // and bring everything after it again on every connection.
+    if (id !== undefined && !(error instanceof SignerError) && this.failedAgain(id) >= FRAME_ATTEMPTS) {
+      this.log(`wim: inbound: giving up on message ${id} after ${FRAME_ATTEMPTS} attempts; it will not be delivered`);
+      return;
+    }
+    // Otherwise nothing more is acked on this connection: a later ack would take this frame with
+    // it. The relay delivers it again on the next connection.
     this.heldLink = this.link;
     // When the signer could not answer, or what answers is not the signer, the connection goes
     // now: the next one authenticates only once the real signer answers. Any other failure keeps

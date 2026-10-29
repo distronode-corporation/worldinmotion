@@ -305,18 +305,24 @@ What it stops:
   on; `wim agent stop` ends it. Nothing on disk lets a process act for the device meanwhile: the
   signer hands out signatures and opened boxes, never a key. What it signed while unlocked stays
   valid, though (below, "Signatures made while unlocked").
-- **A process in the middle of the socket.** An unlocked signer's `hello` answer signs the client's
-  fresh nonce and both sides' X25519 keys for this connection, and both sides derive the
-  connection's keys from that exchange; every later line is sealed with ChaCha20-Poly1305, one key
-  and a message counter each way. A process that relays the hello (a proxy put at the socket path,
-  say) can read nothing after it and can neither change nor forge a line: a forged answer ends the
-  connection. Swapping in its own key breaks the signature. `lock` and `stop` to a signer that says
-  it is unlocked travel the same way, so they cannot be swallowed and answered by something else.
-- **Moving the signer's socket aside.** The signer records its socket's identity (device and inode)
-  when it listens. If the path comes to name anything else (the socket renamed away and another
-  put in its place, or nothing there), it locks and stops: checked before it answers any request,
-  and every 2 seconds. A held connection to a renamed signer therefore gets nothing more either.
-  A Windows pipe cannot be renamed; its name is new for each start (below).
+- **A process in the middle of the socket, or in its place.** When the signer starts (unlocked),
+  it makes an Ed25519 key of its own for that run and the device key signs it; it keeps that run
+  key and its certificate through a lock (it signs nothing but hellos). Every `hello` answer,
+  locked or not, carries the certificate and the run key's signature over the client's fresh nonce
+  and both sides' X25519 keys for this connection; both sides derive the connection's keys from
+  that exchange, and every later line is sealed with ChaCha20-Poly1305, one key and a message
+  counter each way. A client sends nothing but the hello to what cannot prove itself, and `wim
+  agent lock`, `stop`, `unlock` and `status` fail (non-zero) against it. So a process that relays
+  the hello (a proxy put at the socket path) reads nothing and can neither change nor forge a line,
+  swapping in its own key breaks the signature, and one put in the signer's place for a moment
+  (the socket renamed aside and back, too fast for any check by the signer) cannot fake a `lock` or
+  a `stop`: it has no run key to prove itself with.
+- **Moving the signer's socket aside.** The signer also records its socket's identity (device and
+  inode) when it listens, before it answers anything. If the path comes to name anything else (the
+  socket renamed away and another put in its place, or nothing there), it locks and stops: checked
+  before it answers any request, and every 2 seconds. A held connection to a renamed signer
+  therefore gets nothing more either. A swap that is undone between two checks is not seen here;
+  the proof above is what stops it.
 - **Collecting the passphrase by posing as a locked signer.** The device's public key is in the
   key file for anyone of the user to read, so a process could bind the endpoint (after `wim agent
   stop`, which any process of the user may send) and answer `hello` as a locked signer, which has
@@ -325,15 +331,13 @@ What it stops:
   against the key file there, asks the locked signer to stop (a signer stops listening before it
   answers), and starts a new signer from that command, handing the passphrase only to the process
   it started, over that process's own stdin. If something still answers at the endpoint after
-  `stop`, the command says so and sends it nothing more. Sessions likewise send a connection
-  whose signer has not proved it holds the device's key (above) nothing but `hello`, `status`,
-  `lock` and `stop`: never a plaintext and never an object to sign. `wim agent start`, `status` and
-  `lock` say whether what answers proved itself: a signer that says it is locked is reported as
-  unverified, and something that claims to be unlocked without the proof is refused as not this
-  device's signer. `stop` checks afterwards that the endpoint stopped answering. Two `start`s at
-  once take a lock file while they check for a running signer and bind, so one binds and the
-  other says one is running (without it, the second removed the first's socket and left it
-  running unreachable).
+  `stop`, the command says so and sends it nothing more. Sessions likewise send a connection whose
+  signer has not proved itself (above) nothing but the hello. `stop` checks afterwards that the
+  endpoint stopped answering. `wim agent start` does not let something that answers without the
+  proof stop it: it says so and starts a signer in its place (a POSIX socket file is replaced; on
+  Windows the new signer takes a fresh pipe name). Two `start`s at once take a lock file while they
+  check for a running signer and bind, so one binds and the other says one is running (without it,
+  the second removed the first's socket and left it running unreachable).
 - **Prekeys with a secret the caller holds.** The signer signs no `prekey` object for a caller. It
   makes each prekey itself and returns the public half and the sealed secret. Otherwise a caller
   could publish a prekey whose secret it kept and read the device's incoming traffic offline for 48
@@ -368,18 +372,21 @@ What it does not stop:
   connect; on Windows it is a named pipe whose name carries a random token kept in `agent/pipe`
   inside the user's own profile. Another user cannot read that file, but can list the names in
   `\\.\pipe\` while the signer runs; so the token is new for each start and removed on a clean
-  stop, and a name seen while one signer ran is never used by the next. After a crash the file
-  keeps the old name until the next start; something another user put on that name then answers
-  clients that still use it, and is refused because it cannot prove the device's key (`start`
-  reports it). The pipe is created with Windows' default named-pipe security, which by Microsoft's
-  documentation gives write access only to the creating user, administrators and SYSTEM; Node
-  offers no way to set an explicit DACL, and no test here checks the default on a Windows machine.
-  Node's client also opens a pipe without asking for the identification impersonation level
-  (libuv sets no `SECURITY_SQOS_PRESENT`), which Node does not expose: a process that answers on a
-  name a client uses and holds `SeImpersonatePrivilege` (a service, an administrator) could act as
-  the connecting user in Windows. Such a process is already more powerful than the user. Each
-  client also asks a new connection to prove that it holds the signing key named in the key
-  file's public part (above), so nothing else can pose as the signer and collect plaintexts.
+  stop, and a name seen while one signer ran is never used by the next. libuv creates the signer's
+  first instance with `FILE_FLAG_FIRST_PIPE_INSTANCE`, so the signer cannot bind a name someone
+  already holds. A pipe cannot be renamed, but a process of the same user may create more
+  instances of the signer's name under the default security, and a client may connect to one of
+  those; it cannot prove itself (above), so the client sends it nothing and the command fails.
+  After a crash `agent/pipe` keeps the old name until the next start; something another user put
+  on that name answers clients that still use it and is refused the same way, and `start` takes a
+  fresh name in its place. The pipe is created with Windows' default named-pipe security, which by
+  Microsoft's documentation gives write access and new instances only to the creating user,
+  administrators and SYSTEM; Node offers no way to set an explicit DACL, and no test here checks
+  the default on a Windows machine. Node's client (libuv) opens a pipe with `CreateFileW` and no
+  `SECURITY_SQOS_PRESENT` flag, so it does not limit the server to identifying the user, and Node
+  does not expose a way to: a process that answers on a name a client uses and holds
+  `SeImpersonatePrivilege` (a service, an administrator) could act as the connecting user in
+  Windows. Such a process is already more powerful than the user.
 - **Stopping or squatting the signer.** Any process of the user can stop the signer, or take its
   endpoint while it is stopped. That denies the device's sessions their keys (they report it), and
   `wim agent unlock` and `wim agent start` report something that answers and is not the signer;

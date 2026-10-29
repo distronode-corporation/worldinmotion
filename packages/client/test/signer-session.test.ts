@@ -195,6 +195,37 @@ describe("sessions through the signer", () => {
     expect(logs.filter((l) => l.startsWith("wim: inbound: "))).toEqual(["wim: inbound: disk full", "wim: inbound: what answers is not the signer", "wim: inbound: the signer did not answer", "wim: inbound: the signer is locked"]);
   });
 
+  it("a frame that keeps failing for a reason of its own is let go on its third attempt (re-review, N5)", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const logs: string[] = [];
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
+    const inner = a as unknown as { inboundFailed(error: unknown, id?: string): void; ack(cursor: number, via: unknown): void; failedAgain(id: string): number; state: { cursor: number } };
+    const acks = (): number => relay.sentByClients.filter((t) => t.startsWith('{"t":"ack"')).length;
+    const before = acks();
+    // Each attempt comes on a new connection (the relay delivers it again after a reconnect).
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const link = a.link;
+      inner.inboundFailed(new Error("spool write failed"), "01FRAME");
+      inner.ack(inner.state.cursor + 1, link);
+      expect(acks()).toBe(before);
+      relay.dropAll();
+      await until(() => a.link !== undefined && a.link.isOpen && a.link !== link, undefined, "a new connection");
+    }
+    inner.inboundFailed(new Error("spool write failed"), "01FRAME");
+    expect(logs.at(-1)).toMatch(/giving up on message 01FRAME after 3 attempts/);
+    inner.ack(inner.state.cursor + 1, a.link);
+    expect(acks()).toBe(before + 1);
+    // A signer failure is never let go: it is the signer's to answer, not the frame's fault.
+    for (let i = 0; i < 3; i++) inner.inboundFailed(new SignerError("refused", "not now"), "03SIGNER");
+    expect(logs.some((l) => l.includes("giving up on message 03SIGNER"))).toBe(false);
+    expect(inner.failedAgain("02OTHER")).toBe(1);
+    // Only the last 64 frames are remembered.
+    for (let i = 0; i < 64; i++) inner.failedAgain(`f${i}`);
+    expect(inner.failedAgain("02OTHER")).toBe(1);
+    await a.stop();
+  });
+
   it("a frame that came on an earlier connection is not acked on the next one; the relay delivers it again", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);

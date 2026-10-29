@@ -27,11 +27,12 @@ body line with a bracket.
   past its deletion time, logs every request and rate limits key operations. A process running as
   you can still ask the unlocked signer to act for the device; section 5.8 says what it stops and
   what it does not. The wire is unchanged.
-- **The signer's socket is a sealed channel** after an unlocked signer's `hello`, which signs the
-  client's nonce and both sides' X25519 keys: a process relaying the hello (a proxy at the socket
-  path) reads and forges nothing. The signer locks and stops when its socket path comes to name
+- **The signer's socket is a sealed channel** after the signer's `hello`, which signs the client's
+  nonce and both sides' X25519 keys: a process relaying the hello (a proxy at the socket path)
+  reads and forges nothing. The signer locks and stops when its socket path comes to name
   anything else, two starts at once cannot both bind, a Windows pipe name is new for each start,
-  and `start`, `status` and `lock` say whether what answers proved itself.
+  and every command needs the signer to prove itself, locked or not, with a run key the device key
+  certified at start: `lock` and `stop` cannot be answered by anything else.
 - **`require_signer`**: set by `wim agent encrypt` (or `WIM_REQUIRE_SIGNER=1`), clients refuse a
   plaintext key file. Without it, and without an encrypted key file, nothing changes.
 - **Keyring variants in the protocol package**: `sealMessageWith`, `openMessageWith`,

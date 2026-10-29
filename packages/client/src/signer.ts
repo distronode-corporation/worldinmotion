@@ -8,8 +8,8 @@
 // same JSON sealed on the connection's channel (channel.ts).
 
 import { b64u, randomBytes, type Box, type OpenRequest, type Opened, type Prekey, type SealRequest, type SignType } from "@worldinmotion/protocol";
-import { createPublicKey, verify } from "node:crypto";
-import { channelFor, ephemeral, helloTranscript, type Channel } from "./channel.ts";
+import { verify } from "node:crypto";
+import { certBytes, channelFor, ed25519Public, ephemeral, helloTranscript, type Channel } from "./channel.ts";
 import { createConnection, type Socket } from "node:net";
 import { openWithClearPrekey, type DeviceKeyring, type PrekeyEntry } from "./keyring.ts";
 
@@ -34,15 +34,12 @@ export class SignerError extends Error {
 }
 
 /**
- * What `hello` tells: the device the signer holds, whether it is locked, and its process; when
- * unlocked, its X25519 key for the channel and its proof, a signature over helloTranscript.
+ * What `hello` tells: the device the signer holds, whether it is locked, and its process; its
+ * X25519 key for the channel; its key for this run (`cert.pub`) with the device key's signature
+ * over it (`cert.sig`, made at unlock); and `proof`, that run key's signature over helloTranscript.
  */
-export type Hello = { id: string; name: string; signPub: string; boxPub: string; locked: boolean; pid: number; epub?: string; proof?: string };
+export type Hello = { id: string; name: string; signPub: string; boxPub: string; locked: boolean; pid: number; epub: string; cert: { pub: string; sig: string }; proof: string };
 
-/** An Ed25519 public key as Node's crypto takes it (SPKI DER around the 32 raw bytes). */
-export function ed25519Public(pub: Uint8Array) {
-  return createPublicKey({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), pub]), format: "der", type: "spki" });
-}
 
 /** Encodes a seal request for the wire. */
 export function encodeSeal(req: SealRequest): Record<string, unknown> {
@@ -104,23 +101,16 @@ type Pending = { resolve: (r: Record<string, unknown>) => void; reject: (e: Erro
  * one that closes late (a Windows pipe reports its close later than a Unix socket) fails only its
  * own calls, never those of the connection that replaced it.
  */
-type Conn = { socket: Socket; pending: Map<number, Pending>; buffered: string; proven: boolean; channel?: Channel; hello?: Hello };
-
-/**
- * What may go to a signer that has not proved it holds the key: a locked one, or anything else
- * that answers at the endpoint. None of these carries a plaintext or a secret.
- */
-const UNPROVEN_OPS: ReadonlySet<string> = new Set(["hello", "status", "lock", "stop"]);
+type Conn = { socket: Socket; pending: Map<number, Pending>; buffered: string; channel?: Channel; hello?: Hello };
 
 /**
  * One connection to the signer, made on first use and again after it drops. Each new connection
- * starts with `hello`, and an unlocked signer must prove, by signing the client's fresh nonce and
- * both sides' channel keys, that it holds `expect` (the device's signing key, from the key file's
- * public part). Everything after that goes over the connection's sealed channel, so a proof relayed
- * by a process in the middle gets that process nothing. Until a connection's signer has proved
- * itself, only `hello`, `status`, `lock` and `stop` go to it: a locked signer, or a process posing
- * as one, is never sent a plaintext or a request to sign. (The passphrase never crosses this
- * socket: `wim agent unlock` restarts the signer.)
+ * starts with `hello`, and the signer must prove, locked or not, that it is the signer `expect`
+ * (the device's signing key, from the key file's public part) certified when it was unlocked: its
+ * run key signs the client's fresh nonce and both sides' channel keys. Nothing else is sent to
+ * anything that cannot, and everything after the hello goes over the connection's sealed channel,
+ * so a proof relayed by a process in the middle gets that process nothing. (The passphrase never
+ * crosses this socket: `wim agent unlock` restarts the signer.)
  */
 export class SignerClient {
   /** The endpoint last connected to (or given). */
@@ -148,11 +138,7 @@ export class SignerClient {
 
   /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
   async call(op: string, a: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-    const conn = await this.connected();
-    if (!conn.proven && !UNPROVEN_OPS.has(op)) {
-      throw new SignerError("locked", "the signer is locked (or what answers has not proved it holds this device's key): run `wim agent unlock` in your own terminal");
-    }
-    return this.send(conn, op, a);
+    return this.send(await this.connected(), op, a);
   }
 
   /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
@@ -200,7 +186,7 @@ export class SignerClient {
     this.endpoint = at;
     return new Promise<Conn>((resolve, reject) => {
       const socket = this.connect(at);
-      const conn: Conn = { socket, pending: new Map(), buffered: "", proven: false };
+      const conn: Conn = { socket, pending: new Map(), buffered: "" };
       socket.setEncoding("utf8");
       // Before the connection: no signer there. After it: the close that follows fails what is pending.
       socket.on("error", (error: NodeJS.ErrnoException) => {
@@ -231,23 +217,25 @@ export class SignerClient {
     return hello;
   }
 
-  /** Checks a hello and, for an unlocked signer that proved itself, opens the channel. Any malformed field is a mismatch. */
+  /**
+   * Checks a hello and opens the channel: the run key certified by the device key, and the run
+   * key's signature over this connection's transcript. Any missing or malformed field is a mismatch.
+   */
   private check(conn: Conn, hello: Hello, nonce: Uint8Array, mine: ReturnType<typeof ephemeral>): void {
     if (this.expect !== undefined && hello.signPub !== b64u.encode(this.expect)) {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
     }
-    conn.hello = hello;
-    // Locked, it holds no key to prove: the connection stays unproven and in the clear (see call).
-    if (hello.locked) return;
     try {
-      const theirs = b64u.decode(hello.epub!);
+      const runPub = b64u.decode(hello.cert.pub);
+      const theirs = b64u.decode(hello.epub);
       const transcript = helloTranscript(nonce, mine.pub, theirs);
-      if (!verify(null, transcript, ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.proof!))) throw new Error("bad proof");
+      const certified = verify(null, certBytes(runPub), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.cert.sig));
+      if (!certified || !verify(null, transcript, ed25519Public(runPub), b64u.decode(hello.proof))) throw new Error("bad proof");
       conn.channel = channelFor("client", mine.privateKey, theirs, transcript);
     } catch {
-      throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it holds its device's signing key`);
+      throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it is this device's signer`);
     }
-    conn.proven = true;
+    conn.hello = hello;
   }
 
   private take(conn: Conn, chunk: string): void {

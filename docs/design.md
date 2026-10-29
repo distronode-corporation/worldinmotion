@@ -93,7 +93,8 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   terminal; the child reads the passphrase on stdin and prints `ready <pid> <endpoint>` or
   `error <why>`. It checks for a running signer and binds under `agent/start.lock`, so two starts
   never both bind. On Windows each start writes a new pipe token to `agent/pipe` and a clean stop
-  removes it. `start` and `status` say whether what answers proved itself (a locked signer cannot).
+  removes it. Every command checks that what answers proves itself (a locked signer does too), and
+  `start` takes the place of something that cannot.
   `--foreground` runs it in the command itself, for systemd, launchd or CI. It is never started
   automatically: the passphrase needs the person, and a signer started from an agent's session
   would be that agent's descendant, which an OS may let it debug.
@@ -106,11 +107,13 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   the signer; with no signer, or a locked one, the command says which `wim agent` command to run.
 - The socket speaks JSON lines: `{ "i", "op", "a" }`, answered `{ "i", "r" }` or
   `{ "i", "e": { "code", "message" } }`. Operations: `hello` (the client sends a nonce and an
-  X25519 key; an unlocked signer answers with its own X25519 key and an Ed25519 signature over
-  `wim-agent/2 hello\n`, the nonce and both keys, checked against the key file's public part on
-  every new connection; from then on each line on that connection is `{ "x" }`, the JSON sealed
-  with ChaCha20-Poly1305 under keys both sides derive with HKDF from the exchange, a counter as
-  nonce each way), `status`, `sign` (auth, send, roster, join; only objects that name this device;
+  X25519 key; the signer, locked or not, answers with its own X25519 key, its run key with the
+  device key's signature over `wim-agent/2 signer\n` and that key (made at start, kept through a
+  lock), and the run key's signature over `wim-agent/2 hello\n`, the nonce and both X25519 keys;
+  the client checks both against the key file's public part on every new connection and sends
+  nothing more to what fails; from then on each line on that connection is `{ "x" }`, the JSON
+  sealed with ChaCha20-Poly1305 under keys both sides derive with HKDF from the exchange, a counter
+  as nonce each way), `status`, `sign` (auth, send, roster, join; only objects that name this device;
   `auth` and `send` only with an `at` within 5 minutes of the signer's clock; never a prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey
   entry; refused past its deletion time), `prekey` (makes one: public half and sealed secret),
   `adopt` (seals a clear prekey secret of this device's), `lock`, `stop` (the signer stops
@@ -123,7 +126,9 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   keeps each connection's calls to itself, so a connection that closes late fails only its own.
 - A signer that is locked or gone makes a send fail with the reason. A delivered message that cannot
   be handled, for any reason, is not acknowledged, and nothing later is acknowledged on that
-  connection (acks are cumulative). When the reason is the signer (locked, gone, slow, or what
+  connection (acks are cumulative). A frame that fails for a reason of its own (not the signer's)
+  the third time it is delivered is let go, with a log line, so one bad frame cannot stall the
+  cursor for good. When the reason is the signer (locked, gone, slow, or what
   answers is not the signer), the session also drops the connection; the next one authenticates once the
   signer answers, and the relay delivers everything after the last ack again. A frame is only ever
   acked on the connection it came on, so one still queued from an earlier connection never acks

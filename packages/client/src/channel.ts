@@ -1,6 +1,7 @@
-// The channel between a session and an unlocked signer. `hello` carries an X25519 key from each
-// side; the signer signs the client's nonce and both keys with the device's signing key, and both
-// derive two ChaCha20-Poly1305 keys from the exchange. Every later line on that connection is
+// The channel between a session and the signer. `hello` carries an X25519 key from each side; the
+// signer signs the client's nonce and both keys with its own key for this run, which the device's
+// signing key certified when the signer was unlocked (so a locked signer still proves itself), and
+// both derive two ChaCha20-Poly1305 keys from the exchange. Every later line on that connection is
 // sealed. A process in the middle (a proxy on the socket path) can relay the hello, but it holds
 // neither secret: it can read nothing after it, and forge or change nothing.
 
@@ -9,6 +10,27 @@ import { createCipheriv, createDecipheriv, createHash, createPublicKey, diffieHe
 
 /** The label of the signer's proof (never a `wim/1` signature type). */
 export const HELLO_LABEL = "wim-agent/2 hello\n";
+
+/** The label under which the device key certifies a signer's key for one run. */
+export const CERT_LABEL = "wim-agent/2 signer\n";
+
+const ED25519_SPKI = Buffer.from("302a300506032b6570032100", "hex");
+
+/** What the device key signs to certify a signer's key for one run: the label and the raw public key. */
+export function certBytes(certPub: Uint8Array): Uint8Array {
+  return Buffer.concat([Buffer.from(CERT_LABEL, "utf8"), certPub]);
+}
+
+/** A fresh Ed25519 key for one signer run: the private key object and the raw 32-byte public key. */
+export function runKey(): { privateKey: KeyObject; pub: Uint8Array } {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(ED25519_SPKI.length)) };
+}
+
+/** An Ed25519 public key as Node's crypto takes it (SPKI DER around the 32 raw bytes). */
+export function ed25519Public(pub: Uint8Array): KeyObject {
+  return createPublicKey({ key: Buffer.concat([ED25519_SPKI, pub]), format: "der", type: "spki" });
+}
 
 const X25519_SPKI = Buffer.from("302a300506032b656e032100", "hex");
 

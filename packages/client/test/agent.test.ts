@@ -20,8 +20,8 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AgentError, AgentLog, CHANNEL, Signer, SIGN_SKEW_MS, TokenBucket, type LogEntry } from "../src/agent.ts";
-import { ed25519Public } from "../src/signer.ts";
-import { channelFor, ephemeral, helloTranscript, type Channel } from "../src/channel.ts";
+import { ed25519Public } from "../src/channel.ts";
+import { certBytes, channelFor, ephemeral, helloTranscript, type Channel } from "../src/channel.ts";
 import { openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "../src/vault.ts";
 import { scratch } from "./helpers.ts";
 import { verify } from "node:crypto";
@@ -101,27 +101,32 @@ describe("AgentLog", () => {
 });
 
 describe("Signer", () => {
-  it("proves it holds the signing key in hello, over the client's nonce and both channel keys, and says nothing it cannot prove when locked", async () => {
+  it("proves in hello, locked or not, that it is this device's signer: a run key the device key certified signs the nonce and both channel keys", async () => {
     const m = await made();
     const nonce = randomBytes(32);
     const client = ephemeral();
-    const hello = (await m.signer.handle("hello", { nonce: b64u.encode(nonce), epub: b64u.encode(client.pub) })) as Record<string | symbol, unknown>;
+    const ask = async () => (await m.signer.handle("hello", { nonce: b64u.encode(nonce), epub: b64u.encode(client.pub) })) as Record<string | symbol, unknown> & { cert: { pub: string; sig: string } };
+    const hello = await ask();
     expect(hello).toMatchObject({ id: m.file.id, name: "laptop", signPub: m.file.signPub, locked: false, pid: 42 });
+    const runPub = b64u.decode(hello.cert.pub);
+    expect(verify(null, certBytes(runPub), ed25519Public(m.keys.signPub), b64u.decode(hello.cert.sig))).toBe(true);
     const theirs = b64u.decode(hello["epub"] as string);
     const transcript = helloTranscript(nonce, client.pub, theirs);
-    expect(verify(null, transcript, ed25519Public(m.keys.signPub), b64u.decode(hello["proof"] as string))).toBe(true);
+    expect(verify(null, transcript, ed25519Public(runPub), b64u.decode(hello["proof"] as string))).toBe(true);
     // The channel it opened is the one the client derives: what one seals, the other opens.
     const mine = channelFor("client", client.privateKey, theirs, transcript);
     const signerSide = hello[CHANNEL] as Channel;
     expect(signerSide.open(mine.seal("to the signer"))).toBe("to the signer");
     expect(mine.open(signerSide.seal("to the client"))).toBe("to the client");
     // Signed for another client key, the proof does not verify: a relayed hello is worthless.
-    expect(verify(null, helloTranscript(nonce, ephemeral().pub, theirs), ed25519Public(m.keys.signPub), b64u.decode(hello["proof"] as string))).toBe(false);
+    expect(verify(null, helloTranscript(nonce, ephemeral().pub, theirs), ed25519Public(runPub), b64u.decode(hello["proof"] as string))).toBe(false);
+    // Locked, the device key is gone but the run key and its certificate remain: the same proof.
     m.signer.lock();
     m.signer.lock();
-    const locked = await m.signer.handle("hello", { nonce: b64u.encode(nonce), epub: b64u.encode(client.pub) });
+    const locked = await ask();
     expect(locked["locked"]).toBe(true);
-    expect(locked["proof"]).toBeUndefined();
+    expect(locked.cert).toEqual(hello.cert);
+    expect(verify(null, helloTranscript(nonce, client.pub, b64u.decode(locked["epub"] as string)), ed25519Public(runPub), b64u.decode(locked["proof"] as string))).toBe(true);
   });
 
   it("signs auth and send objects only for a time near its own clock", async () => {

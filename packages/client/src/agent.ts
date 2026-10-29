@@ -26,7 +26,7 @@ import { promises as fs } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { z } from "zod";
 import type { EndpointFiles } from "./agentpath.ts";
-import { channelFor, ephemeral, helloTranscript, type Channel } from "./channel.ts";
+import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type Channel } from "./channel.ts";
 import { MAX_LINE, unseal } from "./signer.ts";
 import { openPrekeySecret, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "./vault.ts";
 
@@ -182,6 +182,12 @@ export class Signer {
   readonly started: number;
   private keys: Unlocked | undefined;
   private signKey: KeyObject | undefined;
+  /**
+   * This run's own key, certified by the device key at unlock and kept through a lock, so a locked
+   * signer still proves it is this device's signer (and `lock` and `stop` need that proof). It
+   * signs nothing but hellos.
+   */
+  private readonly run: { privateKey: KeyObject; pub: string; sig: string };
   private readonly bucket: TokenBucket;
   private readonly counts: Record<string, number> = {};
   private refused = 0;
@@ -193,6 +199,8 @@ export class Signer {
     this.file = o.file;
     this.keys = o.unlocked;
     this.signKey = ed25519Private(o.unlocked.keys.signSec);
+    const run = runKey();
+    this.run = { privateKey: run.privateKey, pub: b64u.encode(run.pub), sig: b64u.encode(edSign(null, certBytes(run.pub), this.signKey)) };
     this.started = o.now();
     const rate = o.rate ?? AGENT_RATE;
     this.bucket = new TokenBucket(rate.perSecond, rate.burst, o.now);
@@ -265,17 +273,27 @@ export class Signer {
   }
 
   /**
-   * Locked: who it is, nothing it could prove. Unlocked: its own channel key and a signature over
-   * the client's nonce and both channel keys, with the channel (CHANNEL) for the server to use.
+   * Who it is and whether it is locked, its own channel key, its run key with the device key's
+   * certificate, and the run key's signature over the client's nonce and both channel keys; with
+   * the channel (CHANNEL) for the server to use. The same locked or unlocked.
    */
   private hello(nonce: Uint8Array, clientPub: Uint8Array): Record<string | symbol, unknown> {
     const f = this.file;
-    const base = { id: f.id, name: f.name, signPub: f.signPub, boxPub: f.boxPub, locked: this.locked, pid: this.o.pid };
-    if (this.signKey === undefined) return base;
     const mine = ephemeral();
     const transcript = helloTranscript(nonce, clientPub, mine.pub);
     const channel = channelFor("signer", mine.privateKey, clientPub, transcript);
-    return { ...base, epub: b64u.encode(mine.pub), proof: b64u.encode(edSign(null, transcript, this.signKey)), [CHANNEL]: channel };
+    return {
+      id: f.id,
+      name: f.name,
+      signPub: f.signPub,
+      boxPub: f.boxPub,
+      locked: this.locked,
+      pid: this.o.pid,
+      epub: b64u.encode(mine.pub),
+      cert: { pub: this.run.pub, sig: this.run.sig },
+      proof: b64u.encode(edSign(null, transcript, this.run.privateKey)),
+      [CHANNEL]: channel,
+    };
   }
 
   private keyOp(op: "sign" | "seal" | "open" | "open2" | "prekey" | "adopt", a: Record<string, unknown>, k: Unlocked, signKey: KeyObject, entry: LogEntry): Record<string, unknown> {
@@ -399,21 +417,31 @@ export class AgentServer {
     this.stopped = new Promise((r) => (this.resolveStopped = r));
   }
 
-  /** Listens. Refuses when a signer already answers there; a stale socket file is replaced. */
+  /**
+   * Listens. Refuses when a signer already answers there; a stale socket file is replaced. A
+   * request that comes in before the endpoint's identity is recorded waits for it (`bound`), and
+   * the listener is this server's from the start, so a close at any point closes it.
+   */
   async listen(): Promise<void> {
     if (await answers(this.o.endpoint)) throw new AgentError("running", `a signer is already running at ${this.o.endpoint}`);
     await this.o.files.clear(this.o.endpoint);
+    let markBound!: () => void;
+    this.bound = new Promise<void>((resolve) => (markBound = resolve));
     const server = createServer((socket) => this.serve(socket));
+    this.server = server;
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
       server.listen(this.o.endpoint, () => resolve());
     });
     await this.o.files.secure(this.o.endpoint);
     this.identity = await this.o.files.id(this.o.endpoint);
-    this.server = server;
+    markBound();
     this.watcher = setInterval(() => void this.watch(), this.o.watchMs ?? 2000);
     this.watcher.unref();
   }
+
+  /** Resolves once listen() has recorded the endpoint's identity. */
+  private bound: Promise<void> = Promise.resolve();
 
   /** Whether the endpoint still names this signer's own socket. */
   private async owned(): Promise<boolean> {
@@ -454,6 +482,7 @@ export class AgentServer {
   }
 
   private async request(socket: Socket, line: string, state: { channel?: Channel }): Promise<void> {
+    await this.bound;
     return this.dispatch(socket, line, state, await this.owned());
   }
 
