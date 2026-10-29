@@ -215,18 +215,20 @@ describe("session edges", () => {
     const { mesh, devices } = await makeMesh(relay, ["one"]);
     let now = Date.now();
     const work = await scratch("card-time");
-    const a = await session(devices[0]!, mesh, relay, { name: "a", cwd: work, now: () => now });
+    // The timer never fires: each pass is driven by hand, so the "a minute on, same card" branch
+    // runs on every platform instead of whenever a 20 ms tick lands inside a sleep.
+    const a = await session(devices[0]!, mesh, relay, { name: "a", cwd: work, now: () => now, tickMs: 3_600_000 });
     // Session a's cards only: the device's setup session publishes one too, empty, for its prekey.
     const cards = () => relay.sentByClients.filter((t) => t.startsWith('{"t":"card.set"') && t.includes('"session":"a"')).length;
     await until(() => cards() === 1);
     now += 61_000;
-    await sleep(60);
+    await a.tick();
     expect(cards()).toBe(1);
     await fs.mkdir(join(work, ".git"));
     await fs.writeFile(join(work, ".git", "HEAD"), "ref: refs/heads/dev\n");
     now += 61_000;
+    await a.tick();
     await until(() => cards() === 2);
-    void a;
   });
 
   it("reports results without status or reply_to defensively, and unknown peer kinds", async () => {
