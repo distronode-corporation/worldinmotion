@@ -65,7 +65,7 @@ describe("agentEndpoint", () => {
     await retireEndpoint(root, win, second!);
     expect(await agentEndpoint(root, win, false)).toBeUndefined();
     // A Unix socket file is removed by Node when the server closes: nothing to retire.
-    await retireEndpoint(root, ENV, "anything");
+    await retireEndpoint(root, { ...ENV, platform: "linux" }, "anything");
   });
 
   it("refuses a directory others can enter, and a socket path too long to bind", async () => {
