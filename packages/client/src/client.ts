@@ -9,13 +9,13 @@ import {
   leaseKey,
   LIMITS,
   openBlob,
-  openMessage,
+  openMessageWith,
   relayDialUrl,
   rosterRef,
   sealBlob,
-  sealMessage,
+  sealMessageWith,
   sessionAddressSchema,
-  signAuth,
+  signAuthWith,
   ulid,
   ulidTime,
   type BlobChunkFrame,
@@ -198,6 +198,8 @@ export class MeshSession extends EventEmitter {
   private readonly answerMs: number;
   private conn!: Connection;
   private inbound: Promise<void> = Promise.resolve();
+  /** Peer cards, opened one at a time in the order they came. */
+  private cardsOpened: Promise<void> = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
   private sending: Promise<void> = Promise.resolve();
   /** Spool writes, one at a time, so items are numbered and announced in order. */
@@ -334,7 +336,7 @@ export class MeshSession extends EventEmitter {
       url: relayDialUrl(this.config.relay, this.config.mesh),
       ...(this.config.tls === undefined ? {} : { tlsPin: this.config.tls }),
       auth: (hello) =>
-        signAuth(
+        signAuthWith(
           {
             relay: this.config.relay,
             mesh: this.config.mesh,
@@ -344,7 +346,7 @@ export class MeshSession extends EventEmitter {
             resume: { cursor: this.state.cursor },
             pin: this.book.ref,
           },
-          this.device.keys,
+          this.device.keyring,
         ),
       onReady: (ready, link) => this.onReady(ready, link),
       onFrame: (f) => this.onFrame(f),
@@ -507,13 +509,16 @@ export class MeshSession extends EventEmitter {
     this.peerKeys.offer(pk, this.roster).catch((e: unknown) => this.log(`wim: prekey not stored: ${(e as Error).message}`));
   }
 
-  /** A card's header carries its device's prekey; its labels annotate the session's peer row. */
+  /**
+   * A card's header carries its device's prekey, known at once; its labels annotate the session's
+   * peer row once it is opened, in the order cards came.
+   */
   private takeCard(frame: SendFrame): void {
     this.learn(frame.pk);
-    const opened = this.open(frame, true);
-    // Sealed to a prekey a sibling session made since this one read the device's prekeys.
-    if (!opened.ok && opened.reason === "key_expired") void this.prekeys.reload().then(() => this.annotate(this.open(frame, true)));
-    else this.annotate(opened);
+    this.cardsOpened = this.cardsOpened
+      .then(() => this.openFresh(frame, true))
+      .then((opened) => this.annotate(opened))
+      .catch((e: unknown) => this.log(`wim: peer card not read: ${(e as Error).message}`));
   }
 
   private annotate(opened: Result<Plaintext>): void {
@@ -540,21 +545,24 @@ export class MeshSession extends EventEmitter {
   private receiver() {
     return {
       deviceId: this.device.id,
-      keys: this.device.keys,
+      keyring: this.prekeys.opener(),
       address: this.address,
       sid: this.state.sid,
       rooms: this.state.rooms,
-      prekey: (id: string) => this.prekeys.secret(id),
     };
   }
 
   private open(msg: SendFrame, history = false) {
-    return openMessage(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history });
+    return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history });
   }
 
-  /** Opens a frame; a box for a prekey this session has not read yet is tried again after a reload. */
+  /**
+   * Opens a frame; a box for a prekey this session has not read yet is tried again after a reload.
+   * Rejects when the device's keyring cannot answer (the signer is locked or stopped): the frame
+   * is then not acknowledged, and the relay delivers it again.
+   */
   private async openFresh(msg: SendFrame, history = false) {
-    const first = this.open(msg, history);
+    const first = await this.open(msg, history);
     if (first.ok || first.reason !== "key_expired") return first;
     // A sibling session may have rotated since this one read the device's prekeys.
     await this.prekeys.reload();
@@ -876,7 +884,7 @@ export class MeshSession extends EventEmitter {
     this.myCard = card;
     try {
       const ids = this.roster.devices.map((d) => d.id);
-      const frame = sealMessage({ ...this.sealBase(["*"]), ...this.keysFor(ids), kind: "card", card, recipients: ids });
+      const frame = await sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids), kind: "card", card, recipients: ids });
       link.send({ t: "card.set", msg: frame });
     } catch (error) {
       this.log(`wim: peer card not sent: ${(error as Error).message}`);
@@ -981,7 +989,7 @@ export class MeshSession extends EventEmitter {
   private sealBase(to: string[]) {
     return {
       roster: this.roster,
-      sender: { deviceId: this.device.id, keys: this.device.keys },
+      sender: { deviceId: this.device.id, keyring: this.device.keyring },
       session: this.state.name,
       sid: this.state.sid,
       to,
@@ -1095,7 +1103,7 @@ export class MeshSession extends EventEmitter {
   private async seal(id: string, routed: string[], ids: string[], text: string | undefined, opts: SendOptions): Promise<SendFrame> {
     const derived = await this.isDerived();
     try {
-      return sealMessage({
+      return await sealMessageWith({
         ...this.sealBase(routed),
         ...this.keysFor(ids),
         id,

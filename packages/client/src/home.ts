@@ -4,9 +4,18 @@ import { decodeKeys, deviceIdFromSignPub, encodeKeys, generateDeviceKeys, isName
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { ensureDir, listDir, readJson, writeNew, type FsEnv } from "./fsx.ts";
+import { localDeviceKeyring, type DeviceKeyring } from "./keyring.ts";
 import { dirProblem, keyFileProblem } from "./platform.ts";
 
-export type Device = { name: string; id: string; keys: DeviceKeys };
+/** This device: its roster name, its id, and the keyring that holds (or reaches) its secret keys. */
+export type Device = { name: string; id: string; keyring: DeviceKeyring };
+
+/** A device whose keys are in this process: its key file is plaintext. */
+export type LocalDevice = Device & { keys: DeviceKeys };
+
+function localDevice(name: string, keys: DeviceKeys): LocalDevice {
+  return { name, id: deviceIdFromSignPub(keys.signPub), keys, keyring: localDeviceKeyring(keys) };
+}
 
 /** Raised for a problem the person has to fix (a missing setup, unsafe permissions). */
 export class SetupError extends Error {
@@ -53,7 +62,7 @@ export class Home {
     if (!isName(name)) throw new SetupError(`${this.devicePath}: the device name is missing or invalid`);
     // The published test vectors' secrets are public (SPEC section 16).
     if ([keys.signPub, keys.boxPub].some(isVectorKey)) throw new SetupError(`refusing to use ${this.devicePath}: it holds a published test-vector key`);
-    return { name, id: deviceIdFromSignPub(keys.signPub), keys };
+    return localDevice(name, keys);
   }
 
   async requireDevice(): Promise<Device> {
@@ -66,7 +75,7 @@ export class Home {
   }
 
   /** Generates this device's keys. Refuses to replace an existing key file, also against a concurrent first run. */
-  async createDevice(name: string): Promise<Device> {
+  async createDevice(name: string): Promise<LocalDevice> {
     if (!isName(name)) throw new SetupError(`invalid device name ${JSON.stringify(name)}: use 1 to 32 of a-z, 0-9 and -`);
     const exists = new SetupError(`${this.devicePath} already exists`);
     if ((await this.loadDevice()) !== undefined) throw exists;
@@ -76,7 +85,7 @@ export class Home {
     await writeNew(this.devicePath, `${JSON.stringify({ ...encoded, name })}\n`, this.env).catch((error: unknown) => {
       throw (error as NodeJS.ErrnoException).code === "EEXIST" ? exists : error;
     });
-    return { name, id: deviceIdFromSignPub(keys.signPub), keys };
+    return localDevice(name, keys);
   }
 
   /** Problems with the state directory's own permissions, for `wim doctor`. */

@@ -9,7 +9,8 @@ import { createMesh, decideJoin, issueInvite, joinMesh } from "../src/admin.ts";
 import { MeshSession, type SessionOptions } from "../src/client.ts";
 import type { FsEnv } from "../src/fsx.ts";
 import type { Platform } from "../src/platform.ts";
-import { Home, type Device } from "../src/home.ts";
+import { Home, type Device, type LocalDevice } from "../src/home.ts";
+import type { DeviceKeys } from "@worldinmotion/protocol";
 import { MeshFiles } from "../src/mesh.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
 import { main, type CliIO } from "../src/cli.ts";
@@ -182,7 +183,14 @@ export async function rosterSeqs(files: MeshFiles): Promise<number[]> {
     .sort((x, y) => x - y);
 }
 
-export type TestDevice = { home: Home; device: Device; root: string };
+export type TestDevice = { home: Home; device: LocalDevice; root: string };
+
+/** The secret keys of a device made by `newDevice` (a plaintext key file), for tests that sign or seal by hand. */
+export function keysOf(device: Device): DeviceKeys {
+  const keys = (device as Partial<LocalDevice>).keys;
+  if (keys === undefined) throw new Error("this device's keys are in a signer");
+  return keys;
+}
 
 export async function newDevice(name: string): Promise<TestDevice> {
   const root = await scratch(name);

@@ -22,7 +22,7 @@ import { createMesh, decideJoin, Invites, issueInvite, joinMesh, promoteDevice, 
 import { MeshSession } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
-import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, sleep, until, rosterSeqs } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, sleep, until, rosterSeqs, keysOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -126,7 +126,7 @@ describe("invites and joining", () => {
     expect((await decideJoin(admin, { ...body("ok"), proof: b64u.encode(new Uint8Array(32)) }, async () => true, now)).reason).toBe("join_bad_proof");
     expect((await decideJoin(admin, body("taken"), async () => true, now)).reason).toMatch(/is taken/);
     expect((await decideJoin(admin, body("recovery-9"), async () => true, now)).reason).toMatch(/reserved/);
-    expect((await decideJoin(admin, body("again", devices[1]!.device.keys), async () => true, now)).reason).toMatch(/already known/);
+    expect((await decideJoin(admin, body("again", keysOf(devices[1]!.device)), async () => true, now)).reason).toMatch(/already known/);
     expect(await decideJoin(admin, body("fresh"), async () => true, now)).toMatchObject({ outcome: "admitted" });
     expect((await decideJoin(admin, body("second"), async () => true, now)).reason).toMatch(/already used/);
     // An expired record loses its secret the first time it is read.
@@ -178,7 +178,7 @@ describe("invites and joining", () => {
     // 70 more rosters after the invite's pin make the joined page say `more`.
     for (let i = 0; i < 70; i++) {
       const d = await newDevice(`d${i}`);
-      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord(d.device.name, d.device.keys, "member", Date.now())] }, { keys: admin.device.keys }, Date.now()));
+      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord(d.device.name, keysOf(d.device), "member", Date.now())] }, { keys: keysOf(admin.device) }, Date.now()));
     }
     const joiner = await newDevice("late");
     admin.once("join", (body) => void decideJoin(admin, body, async () => true, Date.now));

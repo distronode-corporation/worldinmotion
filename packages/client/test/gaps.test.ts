@@ -27,7 +27,7 @@ import { SeqStore } from "../src/replay.ts";
 import { fetchHeldCode, showSocketPath } from "../src/secretout.ts";
 import { SessionFiles, newSessionState } from "../src/session.ts";
 import { Connection, Link, type Dialer, type WireSocket } from "../src/wire.ts";
-import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sessionOpts, sleep, until, rosterSeqs } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sessionOpts, sleep, until, rosterSeqs, keysOf } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
@@ -71,7 +71,7 @@ describe("admin edges", () => {
     const admin = await session(devices[0]!, mesh, relay, { name: "a" });
     await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, fork: { seq: 9, a: "a", b: "b", base: [], at: 1 } }));
     const d = await newDevice("x");
-    await expect(publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord("x", d.device.keys, "member", 1)] }, { keys: admin.device.keys }, Date.now()))).rejects.toThrow(/did not verify here: forked/);
+    await expect(publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord("x", keysOf(d.device), "member", 1)] }, { keys: keysOf(admin.device) }, Date.now()))).rejects.toThrow(/did not verify here: forked/);
   });
 
   it("joins through a pinned relay and walks a paged chain, refusing bad answers on the way", async () => {
@@ -81,10 +81,10 @@ describe("admin edges", () => {
     const joiner = await newDevice("j");
     for (let i = 0; i < 3; i++) {
       const d = await newDevice(`m${i}`);
-      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord(d.device.name, d.device.keys, "member", 1)] }, { keys: admin.device.keys }, Date.now()));
+      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord(d.device.name, keysOf(d.device), "member", 1)] }, { keys: keysOf(admin.device) }, Date.now()));
     }
     const chain = await chainOf(devices[0]!, mesh);
-    const withMe = nextRoster(chain.at(-1)!, { add: [makeDeviceRecord("j", joiner.device.keys, "member", 1)] }, { keys: admin.device.keys }, Date.now());
+    const withMe = nextRoster(chain.at(-1)!, { add: [makeDeviceRecord("j", keysOf(joiner.device), "member", 1)] }, { keys: keysOf(admin.device) }, Date.now());
     const full = [...chain, withMe];
     const pin = chain[0]!;
     const inv = createInvite({ relay: RELAY, mesh, pin: rosterRef(pin), now: Date.now(), tls: "U".repeat(43) });
@@ -119,7 +119,7 @@ describe("admin edges", () => {
     const { mesh, devices, recoveryCode } = await makeMesh(relay, ["lost"]);
     const admin = await session(devices[0]!, mesh, relay, { name: "a" });
     const spare = generateDeviceKeys();
-    await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord("recovery-2", spare, "admin", 1)] }, { keys: admin.device.keys }, Date.now()));
+    await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord("recovery-2", spare, "admin", 1)] }, { keys: keysOf(admin.device) }, Date.now()));
     const chain = await chainOf(devices[0]!, mesh);
     let published: Roster | undefined;
     const pins: Array<string | undefined> = [];
@@ -157,7 +157,7 @@ describe("session edges", () => {
     const admin = await session(devices[0]!, mesh, relay, { name: "a" });
     for (let i = 0; i < 66; i++) {
       const keys = generateDeviceKeys();
-      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord(`d${i}`, keys, "member", 1)] }, { keys: admin.device.keys }, Date.now()));
+      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord(`d${i}`, keys, "member", 1)] }, { keys: keysOf(admin.device) }, Date.now()));
     }
     const b = await MeshSession.open(sessionOpts(devices[1]!, mesh, relay, { name: "b" }));
     open.push(b);
@@ -172,7 +172,7 @@ describe("session edges", () => {
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const b = await session(devices[1]!, mesh, relay, { name: "b", answerMs: 100 });
     relay.toClient = (text) => (text.startsWith('{"t":"roster"') ? undefined : text);
-    const frame = (await import("@worldinmotion/protocol")).sealMessage({ roster: { ...a.roster, at: a.roster.at + 1 }, sender: { deviceId: a.device.id, keys: a.device.keys }, session: "a", sid: ulid(), to: ["b@two"], seq: 1, at: Date.now(), text: "x", recipients: [b.device.id] });
+    const frame = (await import("@worldinmotion/protocol")).sealMessage({ roster: { ...a.roster, at: a.roster.at + 1 }, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "a", sid: ulid(), to: ["b@two"], seq: 1, at: Date.now(), text: "x", recipients: [b.device.id] });
     expect(await b.receive(frame)).toBe("dropped");
   });
 
@@ -323,7 +323,7 @@ describe("last corners", () => {
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
     const { sealMessage } = await import("@worldinmotion/protocol");
-    const ahead = sealMessage({ roster: { ...a.roster, seq: 77 }, sender: { deviceId: a.device.id, keys: a.device.keys }, session: "a", sid: ulid(), to: ["b@two"], seq: 1, at: Date.now(), text: "x", recipients: [b.device.id] });
+    const ahead = sealMessage({ roster: { ...a.roster, seq: 77 }, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "a", sid: ulid(), to: ["b@two"], seq: 1, at: Date.now(), text: "x", recipients: [b.device.id] });
     await fs.mkdir(b.files.behindDir, { recursive: true });
     await fs.writeFile(join(b.files.behindDir, `${ahead.id}.json`), JSON.stringify(ahead));
     const holder = b as unknown as { conn: unknown; retryParked(): Promise<void> };
