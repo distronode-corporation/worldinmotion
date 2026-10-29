@@ -879,7 +879,16 @@ export class MeshSession extends EventEmitter {
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
     const card = this.o.cwd === undefined || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    if (!force && !rotated && sameCard(this.myCard, card)) return;
+    this.publishCard(link, force || rotated, card);
+  }
+
+  /**
+   * The part of sendCard after its await, kept synchronous: V8 counts a branch that follows an
+   * await in an async function by subtraction, and on Windows that count came out negative, so
+   * the coverage gate reported a branch the tests do run as never taken.
+   */
+  private publishCard(link: Link, always: boolean, card: Card): void {
+    if (!always && sameCard(this.myCard, card)) return;
     this.cardAt = this.now();
     this.myCard = card;
     try {
