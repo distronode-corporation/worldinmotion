@@ -87681,7 +87681,7 @@ function isVectorKey(pub) {
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
 var MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
-var GATEWAY_VERSION = "0.1.2";
+var GATEWAY_VERSION = "0.1.3";
 var EARLY_RESULTS = 64;
 var WimMetadata = external_exports.looseObject({
   to: external_exports.string().optional(),
@@ -119861,7 +119861,7 @@ function describeInfo(info) {
 }
 
 // src/cli.ts
-var VERSION = "0.1.2";
+var VERSION = "0.1.3";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls"]);
 var COMMON_FLAGS = ["mesh", "help"];

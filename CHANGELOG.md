@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-29
+
 ### Added
 
 - **Forward secrecy, bounded** (`SPEC.md` section 6b, `SECURITY-MODEL.md` section 6.14). Each
@@ -146,7 +148,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.3
 [0.1.2]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.2
 [0.1.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.1
 [0.1.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.0
