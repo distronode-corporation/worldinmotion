@@ -48,6 +48,16 @@ body line with a bracket.
   the prekey file) is dropped, and the session gets one notice per sender device asking for it to
   be sent again.
 
+## [0.1.2] - 2026-10-29
+
+### Added
+
+- **Install channels.** `npx worldinmotion` (a standalone package that is the bundled `wim`), the
+  VS Code Marketplace listing as a pre-release under the `distronode` publisher, and gated release
+  jobs for npm and Open VSX. `packaging/README.md` lists every channel.
+
+### Changed
+
 - **Relays keep room history for 72 hours, not 7 days**, to match the prekey retention planned for
   forward secrecy. 72 hours is now the ceiling for everything a relay holds for delivery: room
   history (72 hours), queued messages for an offline session (24 hours, so an undelivered direct
@@ -60,6 +70,12 @@ body line with a bracket.
   second, in turn); before, their expired queues, history and files waited for the next dial. A
   Cloudflare relay object deletes its older history on its next alarm, at most 4 days after the
   deploy for an object nobody dials.
+
+### Security
+
+- **The release tools pin `@azure/msal-node` 7.1.1** (GHSA-xcx6-jx8p-x3h5): `@vscode/vsce` pulls
+  `@azure/identity`, which still asks for an affected 6.x. The publish jobs never used the
+  affected flow. `@vscode/vsce` is 4.1.0, the first with `--oidc` trusted publishing.
 
 ## [0.1.1] - 2026-10-25
 
@@ -121,6 +137,7 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.2
 [0.1.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.1
 [0.1.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.0
