@@ -17,7 +17,13 @@ import { localDeviceKeyring, NeedsSigner } from "../src/keyring.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SignerError } from "../src/signer.ts";
 import { openKeyFile, sealKeyFile } from "../src/vault.ts";
-import { FS, keysOf, makeMesh, newDevice, openSession, RelayHarness, until, type TestDevice } from "./helpers.ts";
+import { FS, keysOf, makeMesh, newDevice, openSession, RelayHarness, until as untilEvent, type TestDevice } from "./helpers.ts";
+
+// Every wait here is for an event (a delivery, a reconnect) polled every 5 ms, never a fixed sleep.
+// These tests run real meshes, signers and key files, so a loaded machine (seen on the iMac) can
+// take seconds for one: they get a budget that only a real hang exhausts.
+vi.setConfig({ testTimeout: 60_000 });
+const until = (check: () => boolean | Promise<boolean>, ms?: number, what?: string): Promise<void> => untilEvent(check, ms ?? 30_000, what);
 
 const KDF = { N: 1024, r: 8, p: 1 };
 const PASS = "pass phrase";
@@ -378,7 +384,7 @@ describe("sessions through the signer", () => {
     const texts = (await after.spool.unread()).map((i) => i.rendered).join("\n");
     expect(texts).toContain("sealed after the encrypt");
     expect(texts).toContain("and another");
-  }, 20_000);
+  });
 
   it("a session that read its prekeys before a decrypt and a new encrypt reads them again, and opens what arrives", async () => {
     const relay = new RelayHarness();
@@ -398,7 +404,7 @@ describe("sessions through the signer", () => {
     // the second, after reading the file again, opens.
     await b.send("a@one", "after the new encrypt");
     await until(async () => (await a.spool.unread()).length === 2, undefined, "the message after the new encrypt");
-  }, 20_000);
+  });
 
   it("signs roster changes for an admin device", async () => {
     const relay = new RelayHarness();

@@ -113,7 +113,8 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   X25519 keys and those fields in canonical JSON: nothing the client acts on travels unsigned.
   The certificate is the device key's signature over `wim-agent/2 signer\n` and the canonical
   `{ pub, locked, issued, expires, pid }`; it holds for 24 hours. An unlocked signer issues a new
-  run key at 12 hours; `lock` issues a locked one before the device key goes, and a locked signer
+  run key at 12 hours, or at once when its certificate is from the clock's future (a clock set
+  back); `lock` issues a locked one before the device key goes, and a locked signer
   stops when that runs out. The client checks the certificate against the key file's public part,
   that it is current and matches the hello's `locked` and `pid`, and the signature; it sends
   nothing more to what fails. From then on each line on that connection is `{ "x" }`, the JSON
@@ -139,7 +140,7 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
     session drops the connection at once; the next one authenticates once the signer answers,
     and the relay delivers everything after the last ack again. Never given up on.
   - A local fault (`ENOSPC`, `EDQUOT`, `EIO`, `EROFS`, `EACCES`, `EPERM`, `EBUSY`, `EMFILE`,
-    `ENFILE`, `EAGAIN`): the session drops the connection after a backoff (1 s, doubling to 5
+    `ENFILE`, `EAGAIN`, `ENOTDIR`, `EISDIR`, `ENOENT`, `ELOOP`): the session drops the connection after a backoff (1 s, doubling to 5
     minutes, back to 1 s at the next ack), so the frame comes again. Never given up on.
   - Anything else, the frame's own (including the signer's `refused` or `bad_request` for it):
     the same backoff, and on its third failure the frame is let go with a log line, so one bad

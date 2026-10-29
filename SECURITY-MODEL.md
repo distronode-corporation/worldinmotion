@@ -323,11 +323,17 @@ What it stops:
   aside and back) cannot fake a `lock` or a `stop`: it has no run key to prove itself with. `lock`
   is always sent and reports the signer's sealed answer, and `status` the sealed status, never the
   hello's flag.
-- **A run key read from memory.** A process that reads the signer's memory (below) gets at most a
-  run key: one that can pose as an unlocked signer to collect plaintexts until its certificate runs
-  out (24 hours at most, and only while the device key is unlocked to have issued it), or, taken
-  after a lock, one whose certificate says "locked", which clients never send a plaintext or a
-  request to sign.
+- **A run key read from memory.** A process that reads the signer's memory (below) can take run
+  keys. The one a signer is using after a lock has a certificate that says "locked", which clients
+  never send a plaintext or a request to sign. But the unlocked run keys it used before are only
+  dropped, not wiped: Node has no way to zero the key material inside a `KeyObject`, which stays in
+  memory until it is collected. So a read after a lock can still yield an unlocked run key whose
+  certificate holds for the rest of its 24 hours, enough to pose as an unlocked signer and collect
+  plaintexts from sessions that connect to it in that time. Locking ends that within 24 hours, not
+  at once. A clock set back makes an unlocked signer issue a new run key at once (clients refuse a
+  certificate issued more than 5 minutes in their future); a locked signer cannot, so after such a
+  step it cannot prove itself, and `lock`, `stop` and `status` fail, until the clock catches up
+  with its certificate or the certificate runs out and it stops.
 - **Moving the signer's socket aside.** The signer also records its socket's identity (device and
   inode) when it listens, before it answers anything. If the path comes to name anything else (the
   socket renamed away and another put in its place, or nothing there), it locks and stops: checked

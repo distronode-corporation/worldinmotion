@@ -69,7 +69,7 @@ const RETRY_FIRST_MS = 1000;
 const RETRY_MAX_MS = 5 * 60_000;
 
 /** Error codes that are the machine's fault, not a frame's: retried, never given up on. */
-const LOCAL_FAULTS: ReadonlySet<string> = new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", "EACCES", "EPERM", "EBUSY", "EMFILE", "ENFILE", "EAGAIN"]);
+const LOCAL_FAULTS: ReadonlySet<string> = new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", "EACCES", "EPERM", "EBUSY", "EMFILE", "ENFILE", "EAGAIN", "ENOTDIR", "EISDIR", "ENOENT", "ELOOP"]);
 
 function localFault(error: unknown): boolean {
   return LOCAL_FAULTS.has(String((error as NodeJS.ErrnoException).code));

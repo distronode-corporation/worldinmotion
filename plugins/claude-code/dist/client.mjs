@@ -90596,7 +90596,7 @@ var Connection = class {
 var FRAME_ATTEMPTS = 3;
 var RETRY_FIRST_MS = 1e3;
 var RETRY_MAX_MS = 5 * 6e4;
-var LOCAL_FAULTS = /* @__PURE__ */ new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", "EACCES", "EPERM", "EBUSY", "EMFILE", "ENFILE", "EAGAIN"]);
+var LOCAL_FAULTS = /* @__PURE__ */ new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", "EACCES", "EPERM", "EBUSY", "EMFILE", "ENFILE", "EAGAIN", "ENOTDIR", "EISDIR", "ENOENT", "ELOOP"]);
 function localFault(error63) {
   return LOCAL_FAULTS.has(String(error63.code));
 }
@@ -120756,6 +120756,16 @@ var Signer = class {
     const body = { pub: b64u.encode(key2.pub), locked, issued: now, expires: now + RUN_LIFETIME_MS, pid: this.o.pid };
     this.run = { privateKey: key2.privateKey, body, sig: b64u.encode(edSign(null, certBytes(body), signKey)) };
   }
+  /**
+   * An unlocked signer issues a new run key when its certificate is half spent, or was issued
+   * after the clock's now: a clock set back (NTP, a resumed VM) would otherwise leave clients
+   * refusing a certificate from their future until the clock caught up. Run at every hello and on
+   * the server's watch. A locked signer has no device key to issue with (SECURITY-MODEL 5.8).
+   */
+  refresh() {
+    const age = this.o.now() - this.run.body.issued;
+    if (this.signKey !== void 0 && (age < 0 || age >= RUN_LIFETIME_MS / 2)) this.issue(false, this.signKey);
+  }
   /** A locked signer whose certificate ran out: it can no longer prove itself, and stops. */
   get spent() {
     return this.locked && this.o.now() >= this.run.body.expires;
@@ -120815,7 +120825,7 @@ var Signer = class {
    * whose certificate is half spent issues a new run key first.
    */
   hello(nonce, clientPub) {
-    if (this.signKey !== void 0 && this.o.now() - this.run.body.issued >= RUN_LIFETIME_MS / 2) this.issue(false, this.signKey);
+    this.refresh();
     const f7 = this.file;
     const info = { id: f7.id, name: f7.name, signPub: f7.signPub, boxPub: f7.boxPub, locked: this.locked, pid: this.o.pid };
     const mine = ephemeral();
@@ -120965,6 +120975,7 @@ var AgentServer = class {
   afterWatch(owned) {
     if (!owned) this.replacedNow();
     else if (this.o.signer.spent) void this.close();
+    else this.o.signer.refresh();
   }
   replacedNow() {
     this.o.signer.replaced();

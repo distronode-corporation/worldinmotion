@@ -206,6 +206,33 @@ describe("the signer's socket", () => {
     expect(r.signer.locked).toBe(true);
   });
 
+  it("a clock set back makes an unlocked signer issue a new run key, so clients still accept it (F1)", async () => {
+    let now = Date.now();
+    const keys = generateDeviceKeys();
+    const file = await sealKeyFile({ name: "laptop", keys, passphrase: "pass phrase", kdf: KDF });
+    const signer = new Signer({ file, unlocked: { keys, data: randomBytes(32) }, now: () => now, pid: 1, log: () => undefined });
+    const at = await endpoint();
+    const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(process.platform) });
+    await server.listen();
+    cleanup.push(() => server.close());
+    const connect = async () => {
+      const client = new SignerClient({ endpoint: at, expect: keys.signPub, now: () => now });
+      cleanup.push(() => client.close());
+      return client.hello();
+    };
+    const first = await connect();
+    // The clock steps back an hour (NTP, a resumed VM): the certificate is from the client's future.
+    now -= 60 * 60_000;
+    const after = await connect();
+    expect(after.cert.issued).toBe(now);
+    expect(after.cert.pub).not.toBe(first.cert.pub);
+    // The watch does the same without waiting for a hello.
+    now -= 60 * 60_000;
+    await server.watch();
+    expect((signer as unknown as { run: { body: { issued: number } } }).run.body.issued).toBe(now);
+    expect((await connect()).cert.issued).toBe(now);
+  });
+
   it("a locked signer whose run key's certificate ran out stops by itself (round 3)", async () => {
     let now = Date.now();
     const keys = generateDeviceKeys();

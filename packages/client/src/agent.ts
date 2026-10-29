@@ -237,6 +237,17 @@ export class Signer {
     this.run = { privateKey: key.privateKey, body, sig: b64u.encode(edSign(null, certBytes(body), signKey)) };
   }
 
+  /**
+   * An unlocked signer issues a new run key when its certificate is half spent, or was issued
+   * after the clock's now: a clock set back (NTP, a resumed VM) would otherwise leave clients
+   * refusing a certificate from their future until the clock caught up. Run at every hello and on
+   * the server's watch. A locked signer has no device key to issue with (SECURITY-MODEL 5.8).
+   */
+  refresh(): void {
+    const age = this.o.now() - this.run.body.issued;
+    if (this.signKey !== undefined && (age < 0 || age >= RUN_LIFETIME_MS / 2)) this.issue(false, this.signKey);
+  }
+
   /** A locked signer whose certificate ran out: it can no longer prove itself, and stops. */
   get spent(): boolean {
     return this.locked && this.o.now() >= this.run.body.expires;
@@ -302,7 +313,7 @@ export class Signer {
    * whose certificate is half spent issues a new run key first.
    */
   private hello(nonce: Uint8Array, clientPub: Uint8Array): Record<string | symbol, unknown> {
-    if (this.signKey !== undefined && this.o.now() - this.run.body.issued >= RUN_LIFETIME_MS / 2) this.issue(false, this.signKey);
+    this.refresh();
     const f = this.file;
     const info: HelloInfo = { id: f.id, name: f.name, signPub: f.signPub, boxPub: f.boxPub, locked: this.locked, pid: this.o.pid };
     const mine = ephemeral();
@@ -474,6 +485,7 @@ export class AgentServer {
   private afterWatch(owned: boolean): void {
     if (!owned) this.replacedNow();
     else if (this.o.signer.spent) void this.close();
+    else this.o.signer.refresh();
   }
 
   private replacedNow(): void {
