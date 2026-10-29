@@ -297,16 +297,18 @@ export class MemoryStore implements MeshStore {
     this.historyRows = this.historyRows.filter((h) => h.room !== row.room || h.cur >= cutoff);
   }
 
-  history(room: string, before: number, limit: number): HistoryRow[] {
+  history(room: string, before: number, limit: number, since: number): HistoryRow[] {
     return this.historyRows
-      .filter((h) => h.room === room && h.cur < before)
+      .filter((h) => h.room === room && h.cur < before && h.at > since)
       .sort((a, b) => b.cur - a.cur)
       .slice(0, limit)
       .map(copy);
   }
 
-  pruneHistory(before: number): void {
-    this.historyRows = this.historyRows.filter((h) => h.at > before);
+  pruneHistory(before: number, limit: number): number {
+    let deleted = 0;
+    this.historyRows = this.historyRows.filter((h) => h.at > before || ++deleted > limit);
+    return Math.min(deleted, limit);
   }
 
   historyBytes(): number {

@@ -212,6 +212,19 @@ describe.each(KINDS)("receipts and expiry (%s store)", (kind) => {
     expect(a.conn.last()).toEqual({ t: "receipt", id, to: "reviewer@server", status: "expired" });
   });
 
+  it("never holds a box for an offline device past the 72-hour retention, even when a host raises the queue lifetime", () => {
+    // The queue lifetime (24 hours by default) is a box's whole life on the relay: an undelivered
+    // direct box goes with its expired receipt and never outlives the recipient's prekey secret.
+    const { h, a, b } = pair(kind, { limits: { queueLifetimeMs: 7 * DAY } });
+    h.drop(b.conn);
+    const id = a.send([b.address])["id"];
+    h.advance(72 * HOUR - 1);
+    expect(h.store.queueCount(b.sid)).toBe(1);
+    h.advance(1);
+    expect(h.store.queueCount(b.sid)).toBe(0);
+    expect(a.conn.last()).toEqual({ t: "receipt", id, to: "reviewer@server", status: "expired" });
+  });
+
   it("drops the expired receipt when the sender is offline or gone", () => {
     const { h, a, b, root } = pair(kind);
     h.drop(b.conn);

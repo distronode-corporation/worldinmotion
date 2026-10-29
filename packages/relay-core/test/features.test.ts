@@ -1,5 +1,6 @@
-import { leaseKey, sealBlob, ulid } from "@worldinmotion/protocol";
+import { LIMITS, leaseKey, sealBlob, ulid } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
+import { HISTORY_SWEEP_BATCH, RETENTION_MS } from "../src/index.ts";
 import { Client, KINDS, MESH, publish, world } from "./helpers.ts";
 
 const MIN = 60_000;
@@ -68,14 +69,60 @@ describe.each(KINDS)("rooms (%s store)", (kind) => {
     expect(a.frame({ t: "room.history", room: "#ops", before: 2, limit: 5 })[0]).toMatchObject({ msgs: [{ cursor: 1 }], more: false });
   });
 
-  it("keeps the last 100 messages for 7 days, then forgets an empty room", () => {
+  it("keeps the last 100 messages for 72 hours, then forgets an empty room", () => {
     const { h, a } = trio(kind, { limits: { roomHistoryMessages: 2, broadcastsPerMinute: 60 } });
     a.frame({ t: "room.join", room: "#log" });
     for (let i = 0; i < 4; i++) a.send(["#log"]);
     expect(a.frame({ t: "room.history", room: "#log" })[0]!["msgs"].map((m: { cursor: number }) => m.cursor)).toEqual([3, 4]);
     a.frame({ t: "room.leave", room: "#log" });
-    h.advance(7 * DAY);
+    // One millisecond short of 72 hours the history is kept and served; at 72 hours it is gone.
+    h.advance(72 * HOUR - 1);
+    expect(h.store.getRoom("#log")).toBeDefined();
+    expect(a.frame({ t: "room.history", room: "#log" })[0]!["msgs"]).toHaveLength(2);
+    h.advance(1);
+    expect(h.store.history("#log", Number.MAX_SAFE_INTEGER, 10, 0)).toEqual([]);
     expect(h.store.getRoom("#log")).toBeUndefined();
+  });
+
+  it("holds every relay-held ciphertext to the 72-hour retention, which a relay may lower but not raise", () => {
+    expect(RETENTION_MS).toBe(72 * HOUR);
+    expect(LIMITS.roomHistoryLifetimeMs).toBe(RETENTION_MS);
+    // Undelivered direct boxes and files are kept 24 hours, inside the retention.
+    expect(LIMITS.queueLifetimeMs).toBe(DAY);
+    expect(LIMITS.blobLifetimeMs).toBe(DAY);
+    const raised = trio(kind, { limits: { roomHistoryLifetimeMs: 7 * DAY, queueLifetimeMs: 7 * DAY, blobLifetimeMs: 7 * DAY } });
+    expect(raised.h.relay.limits).toMatchObject({ roomHistoryLifetimeMs: RETENTION_MS, queueLifetimeMs: RETENTION_MS, blobLifetimeMs: RETENTION_MS });
+    const lowered = trio(kind, { limits: { roomHistoryLifetimeMs: HOUR } });
+    expect(lowered.h.relay.limits).toMatchObject({ roomHistoryLifetimeMs: HOUR, queueLifetimeMs: DAY, blobLifetimeMs: DAY });
+  });
+
+  it("sweeps a large expired backlog in bounded batches, and never serves it meanwhile", () => {
+    const { h, a } = trio(kind, { limits: { broadcastsPerMinute: 60 } });
+    a.frame({ t: "room.join", room: "#log" });
+    a.send(["#log"]);
+    // A store written under the old 7-day retention: more expired rows than one sweep deletes,
+    // spread over rooms, as a relay finds them on its first sweep after the upgrade.
+    const old = h.now - 4 * DAY;
+    const backlog = HISTORY_SWEEP_BATCH * 2 + 10;
+    for (let i = 0; i < backlog; i++) h.store.addHistory({ room: `#r${i % 8}`, cur: 1000 + i, at: old + i, msg: "{}" }, 1000);
+    h.store.addHistory({ room: "#log", cur: 0, at: old, msg: "{}" }, 1000);
+    const count = () => {
+      let n = 0;
+      for (let r = 0; r < 8; r++) n += h.store.history(`#r${r}`, Number.MAX_SAFE_INTEGER, 1000, 0).length;
+      return n + h.store.history("#log", Number.MAX_SAFE_INTEGER, 1000, 0).length;
+    };
+    expect(count()).toBe(backlog + 2);
+    // Before any sweep, the expired row in #log is not served, and `more` does not point at it.
+    expect(a.frame({ t: "room.history", room: "#log" })[0]).toMatchObject({ msgs: [{ cursor: 1 }], more: false });
+    h.advance(1);
+    expect(count()).toBe(backlog + 2 - HISTORY_SWEEP_BATCH);
+    h.advance(1);
+    expect(count()).toBe(backlog + 2 - 2 * HISTORY_SWEEP_BATCH);
+    h.advance(1);
+    // The rest of the backlog is gone; the live message stays.
+    expect(count()).toBe(1);
+    h.advance(1);
+    expect(count()).toBe(1);
   });
 
   it("leaves a room, and leaves every room on bye", () => {
