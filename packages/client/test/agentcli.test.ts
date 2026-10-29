@@ -9,7 +9,7 @@ import { createServer } from "node:net";
 import { agentEndpoint } from "../src/agentpath.ts";
 import { spawnDetached, wimCommand } from "../src/agentcli.ts";
 import { processIo, type Proc } from "../src/io.ts";
-import { keysOf, newDevice, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
+import { keysOf, makeMesh, newDevice, RELAY, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
 import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type Channel } from "../src/channel.ts";
 import { b64u, type DeviceKeys } from "@worldinmotion/protocol";
 import { createPrivateKey, sign as edSign } from "node:crypto";
@@ -428,6 +428,36 @@ describe("spawnDetached", () => {
 
   it("wimCommand is this Node running this program", () => {
     expect(wimCommand()[0]).toBe(process.execPath);
+  });
+});
+
+/** The real prompts of processIo over a stdin that is already closed (`< /dev/null`, an empty pipe). */
+function closedStdin(): Pick<CliIO, "prompt" | "promptSecret"> {
+  const stdin = new PassThrough();
+  stdin.end();
+  const proc: Proc = { stdin, stdout: new PassThrough(), stderr: new PassThrough(), platform: process.platform, pid: 1, ppid: process.pid, cwd: () => "/", once: () => undefined, on: () => undefined };
+  const io = processIo(proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined, wim: () => [] });
+  return { prompt: io.prompt, promptSecret: io.promptSecret! };
+}
+
+describe("prompts on a stdin that closes before a line", () => {
+  it("give an empty answer instead of never settling", async () => {
+    const io = closedStdin();
+    expect(await io.prompt("Question? ")).toBe("");
+    expect(await io.promptSecret!("Passphrase: ")).toBe("");
+  });
+
+  it("a passphrase read so is none given (exit 1), and a confirmation read so is a no", async () => {
+    const d = await newDevice("eof");
+    const t = at(d.root, closedStdin());
+    expect(await run(t, "agent", "encrypt", "--passphrase-stdin")).toBe(1);
+    expect(said(t)).toMatch(/no passphrase given/);
+    expect(await fs.readFile(d.home.devicePath, "utf8")).toMatch(/signSec/);
+    const relay = new RelayHarness();
+    const { recoveryCode } = await makeMesh(relay, ["lost"]);
+    const r = term(await scratch("eof-recover"), relay, closedStdin());
+    expect(await run(r, "recover", recoveryCode!, "--relay", RELAY, "--revoke", "lost")).toBe(1);
+    expect(said(r)).toMatch(/recovery cancelled; nothing was signed/);
   });
 });
 

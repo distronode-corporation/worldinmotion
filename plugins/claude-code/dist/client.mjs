@@ -118219,9 +118219,9 @@ async function runEvents(d5) {
         break;
       }
     }
-    const ask = { limit: want + TIE_SLACK, max: want + TIE_SLACK, ...until === void 0 ? {} : { before: until + 1 }, ...a5.peer === void 0 ? {} : { peer: a5.peer } };
+    const ask2 = { limit: want + TIE_SLACK, max: want + TIE_SLACK, ...until === void 0 ? {} : { before: until + 1 }, ...a5.peer === void 0 ? {} : { peer: a5.peer } };
     const all = [];
-    for (const { address, history: h6 } of sessions) for (const e6 of await h6.query(ask)) all.push(messageRow(e6, address));
+    for (const { address, history: h6 } of sessions) for (const e6 of await h6.query(ask2)) all.push(messageRow(e6, address));
     all.sort((x2, y) => x2.at - y.at);
     const cut = a5.before === void 0 ? -1 : all.findIndex((e6) => e6.id === a5.before);
     const upto = cut === -1 ? all : all.slice(0, cut);
@@ -122202,6 +122202,14 @@ async function notifyTest(ctx) {
 import { homedir as homedir3, hostname as hostname3 } from "node:os";
 import { createInterface as createInterface2 } from "node:readline/promises";
 import { Writable as Writable4 } from "node:stream";
+function ask(input2, open3, question) {
+  if (input2.readableEnded) return Promise.resolve("");
+  const rl = open3();
+  return new Promise((resolve3) => {
+    rl.once("close", () => resolve3(""));
+    void rl.question(question).then(resolve3);
+  }).finally(() => rl.close());
+}
 function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kill: (pid, s3) => void process.kill(pid, s3), wim: wimCommand }) {
   const stop = new AbortController();
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) proc.once(signal, () => stop.abort());
@@ -122214,24 +122222,13 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     // `wim mcp` owns stdout for the protocol, so diagnostics always go to stderr.
     err: (line) => void proc.stderr.write(`${line}
 `),
-    prompt: async (question) => {
-      const rl = createInterface2({ input: proc.stdin, output: proc.stderr });
-      try {
-        return await rl.question(question);
-      } finally {
-        rl.close();
-      }
-    },
+    prompt: (question) => ask(proc.stdin, () => createInterface2({ input: proc.stdin, output: proc.stderr }), question),
     // The question goes to stderr; what is typed is echoed nowhere (readline writes it to a sink).
     promptSecret: async (question) => {
       proc.stderr.write(question);
-      const rl = createInterface2({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true });
-      try {
-        return await rl.question("");
-      } finally {
-        rl.close();
-        proc.stderr.write("\n");
-      }
+      const answer = await ask(proc.stdin, () => createInterface2({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "");
+      proc.stderr.write("\n");
+      return answer;
     },
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
     signal: stop.signal,
