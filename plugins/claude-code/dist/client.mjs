@@ -89788,6 +89788,18 @@ function encodeOpen(req) {
 function isObject2(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+function parseAnswer(line) {
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  if (!isObject2(value)) return void 0;
+  const { i: i6, r: r6, e: e6 } = value;
+  if (e6 !== void 0) return isObject2(e6) && typeof e6["code"] === "string" && typeof e6["message"] === "string" ? { i: i6, e: { code: e6["code"], message: e6["message"] } } : void 0;
+  return isObject2(r6) ? { i: i6, r: r6 } : void 0;
+}
 var UNPROVEN_OPS = /* @__PURE__ */ new Set(["hello", "status", "lock", "stop"]);
 var SignerClient = class {
   endpoint;
@@ -89886,11 +89898,8 @@ var SignerClient = class {
     for (let nl = conn.buffered.indexOf("\n"); nl !== -1; nl = conn.buffered.indexOf("\n")) {
       const line = conn.buffered.slice(0, nl);
       conn.buffered = conn.buffered.slice(nl + 1);
-      let answer;
-      try {
-        answer = JSON.parse(line);
-        if (!isObject2(answer) || !(isObject2(answer.r) || isObject2(answer.e))) throw new TypeError("not an answer");
-      } catch {
+      const answer = parseAnswer(line);
+      if (answer === void 0) {
         conn.socket.destroy();
         return;
       }
@@ -89899,7 +89908,7 @@ var SignerClient = class {
       conn.pending.delete(answer.i);
       clearTimeout(waiting2.timer);
       this.idle(conn);
-      if (answer.e !== void 0) waiting2.reject(new SignerError(answer.e.code, answer.e.message));
+      if ("e" in answer) waiting2.reject(new SignerError(answer.e.code, answer.e.message));
       else waiting2.resolve(answer.r);
     }
   }
@@ -90880,7 +90889,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.link?.close(CLOSE.bye, "the device's signer did not answer");
   }
   ack(cursor2) {
-    if (this.link === this.heldLink) return;
+    if (this.heldLink !== void 0 && this.link === this.heldLink) return;
     if (this.sendIfOpen({ t: "ack", cursor: cursor2 })) this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor2) };
   }
   receipt(id, status2) {

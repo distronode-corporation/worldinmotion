@@ -156,11 +156,23 @@ describe("sessions through the signer", () => {
     const { mesh, devices } = await makeMesh(relay, ["one"]);
     const logs: string[] = [];
     const a = await openSession(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
-    const inner = a as unknown as { inboundFailed(error: unknown): void };
+    const inner = a as unknown as { inboundFailed(error: unknown): void; ack(cursor: number): void; state: { cursor: number }; heldLink: unknown };
     inner.inboundFailed(new Error("disk full"));
+    // A frame that waits for the signer: the connection is dropped, and until it is gone nothing
+    // more is acknowledged on it, so the relay delivers that frame again.
+    const acks = (): number => relay.sentByClients.filter((t) => t.startsWith('{"t":"ack"')).length;
+    const before = { acks: acks(), cursor: inner.state.cursor };
+    inner.inboundFailed(new SignerError("timeout", "the signer did not answer"));
+    inner.ack(before.cursor + 5);
+    expect(acks()).toBe(before.acks);
+    expect(inner.state.cursor).toBe(before.cursor);
+    // The next connection acknowledges again.
+    await until(() => a.link !== undefined && a.link.isOpen && a.link !== inner.heldLink, undefined, "a new connection");
+    inner.ack(before.cursor + 5);
+    expect(acks()).toBe(before.acks + 1);
     await a.stop();
     inner.inboundFailed(new SignerError("locked", "the signer is locked"));
-    expect(logs.filter((l) => l.startsWith("wim: inbound: "))).toEqual(["wim: inbound: disk full", "wim: inbound: the signer is locked"]);
+    expect(logs.filter((l) => l.startsWith("wim: inbound: "))).toEqual(["wim: inbound: disk full", "wim: inbound: the signer did not answer", "wim: inbound: the signer is locked"]);
   });
 
   it("signs roster changes for an admin device", async () => {
@@ -214,6 +226,8 @@ describe("loading the device: fallback and require_signer", () => {
     await encryptDevice(d.home, PASS, KDF);
     await expect(d.home.createDevice("again")).rejects.toThrow(/already exists/);
     await expect(encryptDevice(d.home, PASS, KDF)).rejects.toThrow(/already encrypted/);
+    // The endpoint is known (on Windows: the pipe token exists) and nothing listens there.
+    await agentEndpoint(d.home.root, d.home.env, true);
     await expect(d.home.loadDevice()).rejects.toThrow(/no signer is running: run `wim agent start`/);
     await fs.rm(agentDir(d.home.root), { recursive: true });
     await expect(d.home.loadDevice()).rejects.toThrow(/no signer is running/);

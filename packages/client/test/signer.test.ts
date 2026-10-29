@@ -18,7 +18,7 @@ import { createServer, type Server, type Socket } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentServer, answers, Signer, type LogEntry } from "../src/agent.ts";
 import { agentEndpoint, endpointFiles } from "../src/agentpath.ts";
-import { SignerClient, signerKeyring, SignerError } from "../src/signer.ts";
+import { parseAnswer, SignerClient, signerKeyring, SignerError } from "../src/signer.ts";
 import { sealKeyFile } from "../src/vault.ts";
 import { FS, scratch } from "./helpers.ts";
 
@@ -190,6 +190,11 @@ describe("the signer's socket", () => {
     expect(await raw.next()).toMatchObject({ i: 0, e: { code: "bad_request" } });
     expect(await raw.next()).toMatchObject({ i: 5, r: { id: r.id } });
     expect(await raw.next()).toMatchObject({ e: { code: "bad_request" } });
+    // A connection error (a reset, a broken pipe) is the close's business, never a crash.
+    const sockets = (r.server as unknown as { sockets: Set<Socket> }).sockets;
+    for (const socket of sockets) socket.emit("error", new Error("reset"));
+    raw.send(JSON.stringify({ i: 6, op: "status" }));
+    expect(await raw.next()).toMatchObject({ i: 6 });
     raw.socket.write("x".repeat(4 * 1024 * 1024 + 10));
     await raw.closed;
   });
@@ -253,6 +258,14 @@ async function rawConnection(at: string) {
     next: async () => JSON.parse(lines.shift() ?? (await new Promise<string>((r) => waiters.push(r)))) as Record<string, unknown>,
   };
 }
+
+describe("parseAnswer", () => {
+  it("takes an object with an error of string code and message, or else a result object", () => {
+    expect(parseAnswer('{"i":1,"r":{"a":1}}')).toEqual({ i: 1, r: { a: 1 } });
+    expect(parseAnswer('{"i":2,"e":{"code":"locked","message":"no"}}')).toEqual({ i: 2, e: { code: "locked", message: "no" } });
+    for (const bad of ["{", "null", '{"e":null,"r":{}}', '{"e":{"code":"x","message":2}}', '{"r":null}']) expect(parseAnswer(bad), bad).toBeUndefined();
+  });
+});
 
 describe("SignerClient", () => {
   it("says no signer answers when nothing listens, with the error's code or message", async () => {
@@ -350,7 +363,21 @@ describe("SignerClient", () => {
   });
 
   it("takes an answer that is not an object with r or e as a protocol error on that connection only", async () => {
-    const hostile = ["null", "5", "[]", '"text"', '{"i":ID}', '{"i":ID,"r":"x"}', '{"i":ID,"e":null}', '{"i":ID,"r":[]}'];
+    const hostile = [
+      "null",
+      "5",
+      "[]",
+      '"text"',
+      '{"i":ID}',
+      '{"i":ID,"r":"x"}',
+      '{"i":ID,"r":[]}',
+      '{"i":ID,"e":null}',
+      '{"i":ID,"r":{},"e":null}',
+      '{"i":ID,"e":5}',
+      '{"i":ID,"e":{}}',
+      '{"i":ID,"e":{"code":1,"message":"m"}}',
+      '{"i":ID,"e":{"code":"refused"}}',
+    ];
     let mode = 0;
     const { at } = await fake((line, socket) => {
       const { i, op } = JSON.parse(line) as { i: number; op: string };

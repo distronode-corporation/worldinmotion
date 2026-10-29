@@ -604,7 +604,7 @@ export class MeshSession extends EventEmitter {
 
   private ack(cursor: number): void {
     // Nothing is acked on a connection on which a frame waits for the signer (inboundFailed).
-    if (this.link === this.heldLink) return;
+    if (this.heldLink !== undefined && this.link === this.heldLink) return;
     // The relay redelivers anything not acked, and dedupe drops the copy.
     if (this.sendIfOpen({ t: "ack", cursor })) this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor) };
   }

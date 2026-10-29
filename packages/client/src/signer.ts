@@ -69,6 +69,25 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+type Answer = { i: unknown; r: Record<string, unknown> } | { i: unknown; e: { code: SignerCode; message: string } };
+
+/**
+ * One line from the signer, or undefined when it is not an answer: a JSON object with either `e`,
+ * an object whose `code` and `message` are strings, or (without `e`) `r`, an object.
+ */
+export function parseAnswer(line: string): Answer | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+  if (!isObject(value)) return undefined;
+  const { i, r, e } = value;
+  if (e !== undefined) return isObject(e) && typeof e["code"] === "string" && typeof e["message"] === "string" ? { i, e: { code: e["code"] as SignerCode, message: e["message"] } } : undefined;
+  return isObject(r) ? { i, r } : undefined;
+}
+
 type Pending = { resolve: (r: Record<string, unknown>) => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
 
 /**
@@ -202,13 +221,9 @@ export class SignerClient {
     for (let nl = conn.buffered.indexOf("\n"); nl !== -1; nl = conn.buffered.indexOf("\n")) {
       const line = conn.buffered.slice(0, nl);
       conn.buffered = conn.buffered.slice(nl + 1);
-      let answer: { i?: unknown; r?: Record<string, unknown>; e?: { code: SignerCode; message: string } };
-      try {
-        answer = JSON.parse(line) as typeof answer;
-        // An answer is an object with `r` or `e`, each an object; anything else is a protocol error.
-        if (!isObject(answer) || !(isObject(answer.r) || isObject(answer.e))) throw new TypeError("not an answer");
-      } catch {
-        // Ends this connection only: what it had pending fails, the next call connects again.
+      const answer = parseAnswer(line);
+      if (answer === undefined) {
+        // A protocol error ends this connection only: what it had pending fails, the next call connects again.
         conn.socket.destroy();
         return;
       }
@@ -217,8 +232,8 @@ export class SignerClient {
       conn.pending.delete(answer.i as number);
       clearTimeout(waiting.timer);
       this.idle(conn);
-      if (answer.e !== undefined) waiting.reject(new SignerError(answer.e.code, answer.e.message));
-      else waiting.resolve(answer.r as Record<string, unknown>);
+      if ("e" in answer) waiting.reject(new SignerError(answer.e.code, answer.e.message));
+      else waiting.resolve(answer.r);
     }
   }
 
