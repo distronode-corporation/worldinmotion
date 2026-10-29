@@ -11,7 +11,7 @@ Please report privately, not in a public issue, discussion or pull request.
 - **Preferred:** GitHub's private vulnerability reporting. Open the repository's
   **Security** tab and choose **Report a vulnerability**, or go straight to
   <https://github.com/distronode-corporation/worldinmotion/security/advisories/new>.
-- **Fallback:** email **distronode@distronode.com** if you cannot use GitHub.
+- **Fallback:** email **opensource@distronode.com** if you cannot use GitHub.
 
 Include what you did, what happened, and what you expected. A proof of concept is welcome
 but not required. Never include a real device key, invite code or operator key; if one
