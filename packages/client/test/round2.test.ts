@@ -94,6 +94,7 @@ describe("clean ends of wim mcp", () => {
       kill: () => {
         if (!alive) throw Object.assign(new Error("gone"), { code: "ESRCH" });
       },
+      wim: () => [],
     });
     expect(io.parentGone()).toBe(false);
     alive = false;
@@ -108,7 +109,7 @@ describe("clean ends of wim mcp", () => {
     expect(processIo({ ...proc, once: () => undefined } as unknown as Proc).parentGone()).toBe(true);
     let err = "";
     (proc.stderr as PassThrough).on("data", (d: Buffer) => (err += d.toString()));
-    processIo(proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined });
+    processIo(proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined, wim: () => [] });
     await sleep(10);
     expect(err).toContain("wim: unexpected error: stray\nwim: unexpected error: plain\n");
   });

@@ -208,7 +208,7 @@ describe("processIo", () => {
     const stderr = new PassThrough();
     const handlers = new Map<string, () => void>();
     const proc: Proc = { stdin, stdout, stderr, platform: "linux", pid: 7, ppid: process.pid, getuid: () => 5, cwd: () => "/w", once: (s, cb) => handlers.set(s, cb), on: () => undefined };
-    const io = processIo(proc, { homedir: () => "/home/u", hostname: () => "host", kill: () => undefined });
+    const io = processIo(proc, { homedir: () => "/home/u", hostname: () => "host", kill: () => undefined, wim: () => [] });
     expect(io).toMatchObject({ cwd: "/w", homedir: "/home/u", hostname: "host", platform: "linux", uid: 5, pid: 7, isTTY: true });
     let out = "";
     stdout.on("data", (d: Buffer) => (out += d.toString()));

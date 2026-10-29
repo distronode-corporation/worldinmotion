@@ -96,3 +96,38 @@ export function busyRetries(platform: Platform): number {
 export function momentarilyBusy(code: string | undefined, platform: Platform): boolean {
   return platform === "win32" && (code === "EPERM" || code === "EBUSY");
 }
+
+/** The fields of an `fs.Stats` the signer's directory check reads. */
+export type DirFacts = { mode: number; uid: number; isDirectory: boolean; isSymlink: boolean };
+
+/**
+ * Why the signer's directory (`agent/` under the state directory) must not be used, or undefined.
+ * Node cannot ask a Unix socket who connected (no SO_PEERCRED or getpeereid), so the directory is
+ * the check: on POSIX a real directory owned by this user with no group or other bits, which the
+ * kernel enforces on every connect. Windows has no mode bits; there the pipe's name is the guard.
+ */
+export function agentDirProblem(facts: DirFacts, platform: Platform, myUid: number | undefined): string | undefined {
+  if (facts.isSymlink) return "it is a symbolic link";
+  if (!facts.isDirectory) return "it is not a directory";
+  if (platform === "win32") return undefined;
+  if (myUid !== undefined && facts.uid !== myUid) return "it is owned by another user";
+  return dirProblem(facts.mode, platform);
+}
+
+/**
+ * The signer's address. POSIX: the Unix socket `sock` in its directory. Windows: a named pipe,
+ * whose names are global, so it carries a random token kept in the directory: another user cannot
+ * read it, so cannot open the pipe first and pose as the signer.
+ */
+export function agentEndpointFor(dir: string, platform: Platform, token: string): string {
+  return platform === "win32" ? `\\\\.\\pipe\\wim-agent-${token}` : pathFor(platform).join(dir, "sock");
+}
+
+/** macOS refuses a Unix socket path over 103 bytes (104 with the terminator); Linux allows 107. */
+export const SOCKET_PATH_MAX = 103;
+
+/** Why a signer endpoint cannot be used, or undefined. Only Unix socket paths have a length limit. */
+export function endpointProblem(endpoint: string, platform: Platform): string | undefined {
+  if (platform === "win32" || Buffer.byteLength(endpoint) <= SOCKET_PATH_MAX) return undefined;
+  return `the socket path ${endpoint} is over ${SOCKET_PATH_MAX} bytes: set WIM_HOME to a shorter directory`;
+}

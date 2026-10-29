@@ -1,11 +1,15 @@
 // The device: its key file under WIM_HOME and the meshes it belongs to.
 
-import { decodeKeys, deviceIdFromSignPub, encodeKeys, generateDeviceKeys, isName, isVectorKey, type DeviceKeys } from "@worldinmotion/protocol";
+import { b64u, decodeKeys, deviceIdFromSignPub, encodeKeys, generateDeviceKeys, isName, isVectorKey, type DeviceKeys } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
+import { agentEndpoint, readAgentSettings } from "./agentpath.ts";
+import { SetupError } from "./errors.ts";
 import { ensureDir, listDir, readJson, writeNew, type FsEnv } from "./fsx.ts";
 import { localDeviceKeyring, type DeviceKeyring } from "./keyring.ts";
 import { dirProblem, keyFileProblem } from "./platform.ts";
+import { SignerClient, signerKeyring, type SignerError } from "./signer.ts";
+import { parseSealedKeyFile, type SealedKeyFile } from "./vault.ts";
 
 /** This device: its roster name, its id, and the keyring that holds (or reaches) its secret keys. */
 export type Device = { name: string; id: string; keyring: DeviceKeyring };
@@ -17,12 +21,10 @@ function localDevice(name: string, keys: DeviceKeys): LocalDevice {
   return { name, id: deviceIdFromSignPub(keys.signPub), keys, keyring: localDeviceKeyring(keys) };
 }
 
-/** Raised for a problem the person has to fix (a missing setup, unsafe permissions). */
-export class SetupError extends Error {
-  override readonly name = "SetupError";
-}
+export { SetupError };
 
-export type HomeEnv = FsEnv & { uid: number | undefined };
+/** `requireSigner`: refuse a plaintext key file (`WIM_REQUIRE_SIGNER=1`, or `require_signer` in `agent/config.json`). */
+export type HomeEnv = FsEnv & { uid: number | undefined; requireSigner?: boolean };
 
 /** The `WIM_HOME` tree (design.md, state on disk). */
 export class Home {
@@ -41,8 +43,11 @@ export class Home {
     return join(this.root, "meshes", mesh);
   }
 
-  /** The device keys, refusing a key file that other users could read. */
-  async loadDevice(): Promise<Device | undefined> {
+  /**
+   * The key file as it is on disk, refusing one that other users could read: a plaintext one
+   * (version 1) as a device with its keys, an encrypted one (version 2) as its public part.
+   */
+  async readKeyFile(): Promise<{ plain: LocalDevice } | { sealed: SealedKeyFile } | undefined> {
     let facts;
     try {
       facts = await fs.lstat(this.devicePath);
@@ -57,12 +62,46 @@ export class Home {
     );
     if (problem !== undefined) throw new SetupError(`refusing to use ${this.devicePath}: ${problem}`);
     const raw = (await readJson(this.devicePath)) as Record<string, unknown>;
+    if (raw["v"] === 2) return { sealed: parseSealedKeyFile(raw) };
     const keys = decodeKeys(raw);
     const name = raw["name"];
     if (!isName(name)) throw new SetupError(`${this.devicePath}: the device name is missing or invalid`);
     // The published test vectors' secrets are public (SPEC section 16).
     if ([keys.signPub, keys.boxPub].some(isVectorKey)) throw new SetupError(`refusing to use ${this.devicePath}: it holds a published test-vector key`);
-    return localDevice(name, keys);
+    return { plain: localDevice(name, keys) };
+  }
+
+  /**
+   * This device. With a plaintext key file, its keys are read here (unless the signer is required).
+   * With an encrypted one, the running, unlocked signer holds them, and every secret-key operation
+   * goes to it: this process never reads them.
+   */
+  async loadDevice(): Promise<Device | undefined> {
+    const file = await this.readKeyFile();
+    if (file === undefined) return undefined;
+    if ("plain" in file) {
+      if (this.env.requireSigner === true || (await readAgentSettings(this.root)).require_signer === true) {
+        throw new SetupError(`${this.devicePath} is not encrypted, and this device requires the signer: run \`wim agent encrypt\`, then \`wim agent start\``);
+      }
+      return file.plain;
+    }
+    const sealed = file.sealed;
+    const signPub = b64u.decode(sealed.signPub);
+    const endpoint = await agentEndpoint(this.root, this.env, false);
+    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in your own terminal`;
+    if (endpoint === undefined) throw new SetupError(notRunning);
+    const client = new SignerClient({ endpoint, expect: signPub });
+    let hello;
+    try {
+      hello = await client.hello();
+    } catch (error) {
+      throw new SetupError((error as SignerError).code === "unavailable" ? notRunning : (error as Error).message);
+    }
+    if (hello.locked) {
+      client.close();
+      throw new SetupError("the signer is locked: run `wim agent unlock` in your own terminal");
+    }
+    return { name: sealed.name, id: sealed.id, keyring: signerKeyring(client, { signPub, boxPub: b64u.decode(sealed.boxPub) }) };
   }
 
   async requireDevice(): Promise<Device> {
@@ -78,7 +117,7 @@ export class Home {
   async createDevice(name: string): Promise<LocalDevice> {
     if (!isName(name)) throw new SetupError(`invalid device name ${JSON.stringify(name)}: use 1 to 32 of a-z, 0-9 and -`);
     const exists = new SetupError(`${this.devicePath} already exists`);
-    if ((await this.loadDevice()) !== undefined) throw exists;
+    if ((await this.readKeyFile()) !== undefined) throw exists;
     await ensureDir(this.root);
     const keys = generateDeviceKeys();
     const encoded = JSON.parse(encodeKeys(keys)) as Record<string, unknown>;

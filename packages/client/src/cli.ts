@@ -29,6 +29,7 @@ import { LIMITS } from "@worldinmotion/protocol";
 import { agentEnv, canShowSecret, fetchHeldCode, holdForShow, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
+import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 
 export const VERSION = "0.1.2";
 
@@ -56,6 +57,12 @@ export type CliIO = {
   handoverMs?: number;
   /** How long a command waits to be connected to the relay (15 s). */
   connectMs?: number;
+  /** Asks for a passphrase without echoing it (an interactive terminal only). */
+  promptSecret?: (question: string) => Promise<string>;
+  /** Starts `wim agent serve` detached, hands it the passphrase, and returns its first line. */
+  startAgent?: (passphrase: string) => Promise<string>;
+  /** scrypt cost for `wim agent encrypt` (tests pass a small one; default 2^17). */
+  agentKdfN?: number;
   /** HTTP for `wim ci` and `wim a2a`. */
   fetch: typeof fetch;
   /** True once the process that started this one is gone (`wim mcp` then ends its session). */
@@ -67,7 +74,7 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json"]);
+const BOOLEAN_FLAGS = new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin"]);
 const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls"]);
 
 /** Flags every command takes. */
@@ -90,6 +97,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   ci: ["as"],
   a2a: ["as"],
   recover: ["relay", "tls", "revoke", "name"],
+  agent: ["foreground", "passphrase-stdin"],
 };
 
 /**
@@ -179,13 +187,14 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim recovery show | wim recovery rotate
   wim doctor
   wim notify-test
+  ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
 Commands: init, mesh create, invite, join, devices, peers, send, watch, held, history, mcp,
-bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test.
+bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -212,7 +221,7 @@ class Ctx {
     this.io = io;
     this.args = args;
     this.fsEnv = { platform: io.platform, pid: io.pid };
-    this.home = new Home(defaultHome(env, io.platform, io.homedir), { ...this.fsEnv, uid: io.uid });
+    this.home = new Home(defaultHome(env, io.platform, io.homedir), { ...this.fsEnv, uid: io.uid, requireSigner: env["WIM_REQUIRE_SIGNER"] === "1" });
   }
 
   get dialer(): Dialer {
@@ -439,6 +448,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await doctor(ctx);
       case "notify-test":
         return await notifyTest(ctx);
+      case "agent":
+        return await agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
       default:
         io.err(`unknown command ${JSON.stringify(command)}\n\n${USAGE}`);
         return 2;
@@ -1033,7 +1044,7 @@ async function doctor(ctx: Ctx): Promise<number> {
   try {
     device = await ctx.home.loadDevice();
     if (device === undefined) bad(`no device keys at ${ctx.home.devicePath}: run wim init`);
-    else ok(`device ${device.name} (${device.id}); key file permissions are private`);
+    else ok(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim agent)" : "key file permissions are private"}`);
   } catch (error) {
     bad((error as Error).message);
   }
