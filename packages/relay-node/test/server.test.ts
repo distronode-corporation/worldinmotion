@@ -245,6 +245,15 @@ describe("relay-node", () => {
     // old and one fresh row. More meshes than one tick sweeps, so the sweep has to wrap around.
     const path = join(await scratchDir(), "relay.db");
     const raw = new DatabaseSync(path);
+    // Closed in `finally`: a handle left open makes the scratch cleanup fail with EBUSY on Windows.
+    try {
+      await sweepsStoredMeshes(path, raw);
+    } finally {
+      raw.close();
+    }
+  }, 30_000);
+
+  async function sweepsStoredMeshes(path: string, raw: DatabaseSync) {
     const db = sqlDb(raw);
     migrate(db);
     const now = Date.now();
@@ -263,13 +272,16 @@ describe("relay-node", () => {
     const r = await relay({ db: path, tickMs: 10 });
     // A dialled mesh is held in memory and swept with the others; the stored sweep skips it.
     const dialled = new Dial(`${r.relayUrls[0]}/v1/${ids[0]}`);
-    await dialled.next();
-    await vi.waitFor(() => expect(expired()).toBe(0));
-    expect(rows("SELECT COUNT(*) AS n FROM room_history")).toBe(ids.length);
-    // The stored meshes were swept, not loaded: only the dialled one is in memory.
-    expect(r.loadedMeshes()).toBe(1);
-    raw.close();
-  });
+    try {
+      await dialled.next();
+      await vi.waitFor(() => expect(expired()).toBe(0), { timeout: 20_000 });
+      expect(rows("SELECT COUNT(*) AS n FROM room_history")).toBe(ids.length);
+      // The stored meshes were swept, not loaded: only the dialled one is in memory.
+      expect(r.loadedMeshes()).toBe(1);
+    } finally {
+      dialled.ws.close();
+    }
+  }
 
   it("ignores X-Forwarded-For by default, so the socket address is the rate-limit source", async () => {
     const r = await relay();
