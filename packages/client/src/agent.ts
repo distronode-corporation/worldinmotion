@@ -393,21 +393,30 @@ export class AgentServer {
     } catch (error) {
       answer = { i, e: { code: error instanceof AgentError ? error.code : "bad_request", message: (error as Error).message } };
     }
-    const stopping = op === "stop" && answer.r !== undefined;
+    const line2 = `${JSON.stringify(answer)}\n`;
+    if (op !== "stop" || answer.r === undefined) {
+      // A connection that went away meanwhile drops the answer (its error is ignored above).
+      socket.write(line2);
+      return;
+    }
     // Stopped listening before the answer goes out, so a client that has the answer finds the
-    // endpoint closed (`wim agent unlock` relies on that to tell a signer from an impostor).
-    if (stopping) this.server!.close();
-    // A connection that went away meanwhile drops the answer (its error is ignored above).
-    socket.write(`${JSON.stringify(answer)}\n`);
-    if (stopping) await this.close();
+    // endpoint closed (`wim agent unlock` relies on that to tell a signer from an impostor). The
+    // answer is flushed, then this connection is closed like every other.
+    this.server!.close();
+    socket.end(line2, () => socket.destroy());
+    await this.close(socket);
   }
 
-  /** Stops listening, ends every connection, wipes the keys. */
-  async close(): Promise<void> {
+  /**
+   * Stops listening, closes every connection (but `answering`, which closes itself once its
+   * answer is out) and wipes the keys. It waits for no client: one that keeps its end of a
+   * connection open, or a Windows pipe slow to report its close, does not keep it running.
+   */
+  async close(answering?: Socket): Promise<void> {
     if (this.stopping) return this.stopped;
     this.stopping = true;
     this.o.signer.lock();
-    for (const s of this.sockets) s.end();
+    for (const s of this.sockets) if (s !== answering) s.destroy();
     await new Promise<void>((resolve) => (this.server === undefined ? resolve() : this.server.close(() => resolve())));
     this.resolveStopped();
   }

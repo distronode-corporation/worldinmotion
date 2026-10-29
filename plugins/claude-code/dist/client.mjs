@@ -14120,9 +14120,9 @@ var init_JsonShapeDeserializer2 = __esm({
         return this._read(schema, data);
       }
       _read(schema, value) {
-        const isObject2 = value !== null && typeof value === "object";
+        const isObject3 = value !== null && typeof value === "object";
         const ns = NormalizedSchema.of(schema);
-        if (isObject2) {
+        if (isObject3) {
           if (ns.isStructSchema()) {
             return this._readStruct(ns, value);
           }
@@ -14201,7 +14201,7 @@ var init_JsonShapeDeserializer2 = __esm({
           return value;
         }
         if (ns.isDocumentSchema()) {
-          if (isObject2) {
+          if (isObject3) {
             if (Array.isArray(value)) {
               for (let i6 = 0; i6 < value.length; ++i6) {
                 const v = value[i6];
@@ -14637,7 +14637,7 @@ var init_JsonShapeSerializer2 = __esm({
           return;
         }
         const ns = NormalizedSchema.of(schema);
-        const isObject2 = typeof value === "object";
+        const isObject3 = typeof value === "object";
         if (ns.isStringSchema()) {
           const mediaType = ns.getMergedTraits().mediaType;
           if (mediaType) {
@@ -14653,7 +14653,7 @@ var init_JsonShapeSerializer2 = __esm({
           this.writeAsciiQuoted(asString);
           return;
         }
-        if (isObject2) {
+        if (isObject3) {
           if (ns.isStructSchema()) {
             this.writeStruct(ns, value);
             return;
@@ -15078,9 +15078,9 @@ var init_JsonShapeDeserializer = __esm({
         return this._read(schema, data);
       }
       _read(schema, value) {
-        const isObject2 = value !== null && typeof value === "object";
+        const isObject3 = value !== null && typeof value === "object";
         const ns = NormalizedSchema.of(schema);
-        if (isObject2) {
+        if (isObject3) {
           if (ns.isStructSchema()) {
             const record2 = value;
             const union2 = ns.isUnionSchema();
@@ -15194,7 +15194,7 @@ var init_JsonShapeDeserializer = __esm({
           return value;
         }
         if (ns.isDocumentSchema()) {
-          if (isObject2) {
+          if (isObject3) {
             const out = Array.isArray(value) ? [] : {};
             for (const k5 in value) {
               if (!hasOwn(value, k5))
@@ -15317,9 +15317,9 @@ var init_JsonShapeSerializer = __esm({
         }
       }
       _write(schema, value, container) {
-        const isObject2 = value !== null && typeof value === "object";
+        const isObject3 = value !== null && typeof value === "object";
         const ns = NormalizedSchema.of(schema);
-        if (isObject2) {
+        if (isObject3) {
           if (ns.isStructSchema()) {
             const record2 = value;
             const out = {};
@@ -15447,7 +15447,7 @@ var init_JsonShapeSerializer = __esm({
           this.useReplacer = true;
         }
         if (ns.isDocumentSchema()) {
-          if (isObject2) {
+          if (isObject3) {
             if (value instanceof Uint8Array) {
               return (this.serdeContext?.base64Encoder ?? toBase64)(value);
             }
@@ -22584,8 +22584,8 @@ function writeValue(ns, value, container, serdeContext) {
     encodeHeader(majorMap, 0);
     return;
   }
-  const isObject2 = typeof value === "object";
-  if (isObject2) {
+  const isObject3 = typeof value === "object";
+  if (isObject3) {
     if (ns.isBlobSchema()) {
       if (value instanceof Uint8Array) {
         writeBytes(value);
@@ -37135,11 +37135,11 @@ var require_ponyfill_es2018 = __commonJS({
           throw new TypeError(`${context} is not a function.`);
         }
       }
-      function isObject2(x2) {
+      function isObject3(x2) {
         return typeof x2 === "object" && x2 !== null || typeof x2 === "function";
       }
       function assertObject(x2, context) {
-        if (!isObject2(x2)) {
+        if (!isObject3(x2)) {
           throw new TypeError(`${context} is not an object.`);
         }
       }
@@ -48640,11 +48640,11 @@ var require_verify_stream = __commonJS({
     var toString = require_tostring();
     var util = __require("util");
     var JWS_REGEX = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;
-    function isObject2(thing) {
+    function isObject3(thing) {
       return Object.prototype.toString.call(thing) === "[object Object]";
     }
     function safeJsonParse(thing) {
-      if (isObject2(thing))
+      if (isObject3(thing))
         return thing;
       try {
         return JSON.parse(thing);
@@ -64306,7 +64306,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
     }
     return propValues;
   });
-  const isObject2 = isObject;
+  const isObject3 = isObject;
   const catchall = def.catchall;
   let value;
   const memo2 = globalConfig.memoizer;
@@ -64314,7 +64314,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
   inst._zod.parse = (payload2, ctx) => {
     value ?? (value = _normalized.value);
     const input2 = payload2.value;
-    if (!isObject2(input2)) {
+    if (!isObject3(input2)) {
       payload2.issues.push({
         expected: "object",
         code: "invalid_type",
@@ -64450,7 +64450,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     return doc.compile();
   };
   let fastpass;
-  const isObject2 = isObject;
+  const isObject3 = isObject;
   const jit = !globalConfig.jitless;
   const allowsEval2 = allowsEval;
   const fastEnabled = jit && allowsEval2.value;
@@ -64459,7 +64459,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
   inst._zod.parse = (payload2, ctx) => {
     value ?? (value = _normalized.value);
     const input2 = payload2.value;
-    if (!isObject2(input2)) {
+    if (!isObject3(input2)) {
       payload2.issues.push({
         expected: "object",
         code: "invalid_type",
@@ -89785,6 +89785,9 @@ function encodeSeal(req) {
 function encodeOpen(req) {
   return { mesh: req.mesh, sender: req.sender, recipient: req.recipient, aad: b64u.encode(req.aad), senderBox: b64u.encode(req.senderBox), box: req.box };
 }
+function isObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 var UNPROVEN_OPS = /* @__PURE__ */ new Set(["hello", "status", "lock", "stop"]);
 var SignerClient = class {
   endpoint;
@@ -89886,6 +89889,7 @@ var SignerClient = class {
       let answer;
       try {
         answer = JSON.parse(line);
+        if (!isObject2(answer) || !(isObject2(answer.r) || isObject2(answer.e))) throw new TypeError("not an answer");
       } catch {
         conn.socket.destroy();
         return;
@@ -91131,11 +91135,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async sendCard(link, force) {
     const pk = this.prekeys.current()?.id;
-    const rotated = pk !== this.cardPk;
+    const before = this.cardPk;
+    const rotated = pk !== before;
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
     const card = this.o.cwd === void 0 || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    this.publishCard(link, card, await this.cardFrame(force || rotated, card));
+    this.publishCard(link, card, await this.cardFrame(force || rotated, card), before);
   }
   /**
    * The card frame to send, or undefined when the card is unchanged and nothing forces it. Not
@@ -91152,14 +91157,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * await in an async function by subtraction, and on Windows that count came out negative, so
    * the coverage gate reported a branch the tests do run as never taken.
    */
-  publishCard(link, card, frame) {
+  publishCard(link, card, frame, before) {
     if (frame === void 0) return;
-    this.cardAt = this.now();
-    this.myCard = card;
     try {
       if (frame instanceof Error) throw frame;
       link.send({ t: "card.set", msg: frame });
+      this.cardAt = this.now();
+      this.myCard = card;
     } catch (error63) {
+      this.cardPk = before;
       this.log(`wim: peer card not sent: ${error63.message}`);
     }
   }
@@ -120685,18 +120691,26 @@ var AgentServer = class {
     } catch (error63) {
       answer = { i: i6, e: { code: error63 instanceof AgentError ? error63.code : "bad_request", message: error63.message } };
     }
-    const stopping = op2 === "stop" && answer.r !== void 0;
-    if (stopping) this.server.close();
-    socket.write(`${JSON.stringify(answer)}
-`);
-    if (stopping) await this.close();
+    const line2 = `${JSON.stringify(answer)}
+`;
+    if (op2 !== "stop" || answer.r === void 0) {
+      socket.write(line2);
+      return;
+    }
+    this.server.close();
+    socket.end(line2, () => socket.destroy());
+    await this.close(socket);
   }
-  /** Stops listening, ends every connection, wipes the keys. */
-  async close() {
+  /**
+   * Stops listening, closes every connection (but `answering`, which closes itself once its
+   * answer is out) and wipes the keys. It waits for no client: one that keeps its end of a
+   * connection open, or a Windows pipe slow to report its close, does not keep it running.
+   */
+  async close(answering) {
     if (this.stopping) return this.stopped;
     this.stopping = true;
     this.o.signer.lock();
-    for (const s3 of this.sockets) s3.end();
+    for (const s3 of this.sockets) if (s3 !== answering) s3.destroy();
     await new Promise((resolve3) => this.server === void 0 ? resolve3() : this.server.close(() => resolve3()));
     this.resolveStopped();
   }
@@ -120881,25 +120895,26 @@ async function simple(ctx, action) {
 async function unlock(ctx) {
   const client = await running(ctx);
   if (client === void 0) throw new SetupError("no signer is running: `wim agent start` starts one");
+  let passphrase;
   try {
     if (!(await client.hello()).locked) {
       ctx.io.out("The signer is not locked.");
       return 0;
     }
     const file2 = await sealedFile(ctx);
-    const passphrase = await readPassphrase(ctx, PROMPT);
+    passphrase = await readPassphrase(ctx, PROMPT);
     const checked = await openKeyFile(file2, passphrase).catch((error63) => {
       throw new SetupError(error63.message);
     });
     for (const b5 of [checked.keys.signSec, checked.keys.boxSec, checked.data]) b5.fill(0);
     await client.call("stop");
-    if (await answers(client.endpoint)) {
-      throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
-    }
-    return await launch(ctx, client.endpoint, passphrase);
   } finally {
     client.close();
   }
+  if (await answers(client.endpoint)) {
+    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
+  }
+  return launch(ctx, client.endpoint, passphrase);
 }
 async function eachPrekeyFile(home, rewrite) {
   for (const mesh of await home.meshIds()) {

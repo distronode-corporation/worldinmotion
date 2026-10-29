@@ -239,26 +239,27 @@ async function simple(ctx: AgentCtx, action: "lock" | "stop"): Promise<number> {
 async function unlock(ctx: AgentCtx): Promise<number> {
   const client = await running(ctx);
   if (client === undefined) throw new SetupError("no signer is running: `wim agent start` starts one");
+  let passphrase: string;
   try {
     if (!(await client.hello()).locked) {
       ctx.io.out("The signer is not locked.");
       return 0;
     }
     const file = await sealedFile(ctx);
-    const passphrase = await readPassphrase(ctx, PROMPT);
+    passphrase = await readPassphrase(ctx, PROMPT);
     const checked = await openKeyFile(file, passphrase).catch((error: unknown) => {
       throw new SetupError((error as Error).message);
     });
     for (const b of [checked.keys.signSec, checked.keys.boxSec, checked.data]) b.fill(0);
     await client.call("stop");
-    // A signer stops listening before it answers `stop`.
-    if (await answers(client.endpoint)) {
-      throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
-    }
-    return await launch(ctx, client.endpoint, passphrase);
   } finally {
     client.close();
   }
+  // A signer stops listening before it answers `stop`.
+  if (await answers(client.endpoint)) {
+    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
+  }
+  return launch(ctx, client.endpoint, passphrase);
 }
 
 /** Each mesh's `prekeys.json`, rewritten entry by entry under its lock. */

@@ -125,6 +125,32 @@ describe("sessions through the signer", () => {
     for (const t of ["first while locked", "second while locked", "after the unlock"]) expect(got).toContain(t);
   });
 
+  it("a card the locked signer could not seal is not recorded as sent, and goes on the next pass", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const { device, signer, server } = await underSigner(devices[0]!);
+    const a = await session(devices[0]!, mesh, relay, { name: "a", device, tickMs: 3_600_000 });
+    type CardState = { cardAt: number; cardPk: string | undefined; sendCard(link: Awaited<ReturnType<typeof a.ready>>, force: boolean): Promise<void> };
+    const inner = a as unknown as CardState;
+    const cards = (): number => relay.sentByClients.filter((t) => t.startsWith('{"t":"card.set"') && t.includes('"session":"a"')).length;
+    await until(() => cards() === 1, undefined, "the first card");
+    const sentAt = inner.cardAt;
+    const pk = inner.cardPk;
+    // As if the prekey had just rotated: the card must go out.
+    inner.cardPk = "an older prekey";
+    signer.lock();
+    await inner.sendCard(await a.ready(3000), false);
+    expect(cards()).toBe(1);
+    expect(inner.cardAt).toBe(sentAt);
+    expect(inner.cardPk).toBe("an older prekey");
+    await server.close();
+    await serve(devices[0]!);
+    await inner.sendCard(await a.ready(3000), false);
+    expect(cards()).toBe(2);
+    expect(inner.cardPk).toBe(pk);
+    expect(inner.cardAt).toBeGreaterThanOrEqual(sentAt);
+  });
+
   it("a failure without a connection, or not the signer's, only logs", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);

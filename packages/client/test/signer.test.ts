@@ -160,6 +160,20 @@ describe("the signer's socket", () => {
     await r.server.close();
   });
 
+  it("stops without waiting for a client that keeps its end of a connection open", async () => {
+    // On Windows the client of `wim agent unlock` was still connected when the old signer
+    // stopped, and the old signer waited for it. Here a client that never closes its end.
+    const r = await running();
+    const { createConnection } = await import("node:net");
+    const stubborn = createConnection({ path: r.at, allowHalfOpen: true });
+    stubborn.on("error", () => undefined);
+    cleanup.push(() => void stubborn.destroy());
+    await new Promise<void>((done) => stubborn.once("connect", () => done()));
+    await r.client.call("stop");
+    await r.server.stopped;
+    expect(r.signer.locked).toBe(true);
+  });
+
   it("refuses to start where a signer already answers; close before listening is fine", async () => {
     const r = await running();
     const second = new AgentServer({ signer: r.signer, endpoint: r.at, files: endpointFiles(process.platform) });
@@ -333,6 +347,21 @@ describe("SignerClient", () => {
     await turns(() => held.length === 2);
     held[1]!.socket.write(`${JSON.stringify({ i: (JSON.parse(held[1]!.line) as { i: number }).i, e: { code: "refused", message: "no" } })}\n`);
     expect((await failure(next)).code).toBe("refused");
+  });
+
+  it("takes an answer that is not an object with r or e as a protocol error on that connection only", async () => {
+    const hostile = ["null", "5", "[]", '"text"', '{"i":ID}', '{"i":ID,"r":"x"}', '{"i":ID,"e":null}', '{"i":ID,"r":[]}'];
+    let mode = 0;
+    const { at } = await fake((line, socket) => {
+      const { i, op } = JSON.parse(line) as { i: number; op: string };
+      if (op === "hello") return void socket.write(`${JSON.stringify({ i, r: { locked: true, signPub: "", id: "x", name: "x", boxPub: "", pid: 1 } })}\n`);
+      const next = hostile[mode++];
+      socket.write(`${next === undefined ? JSON.stringify({ i, r: { fine: true } }) : next.replace("ID", String(i))}\n`);
+    });
+    const client = new SignerClient({ endpoint: at });
+    cleanup.push(() => client.close());
+    for (const h of hostile) expect((await failure(client.call("status"))).code, h).toBe("unavailable");
+    expect(await client.call("status")).toEqual({ fine: true });
   });
 
   it("drops a connection that sends garbage or too much, failing what was pending, and reconnects", async () => {

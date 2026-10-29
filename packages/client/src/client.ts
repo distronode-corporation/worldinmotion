@@ -902,12 +902,14 @@ export class MeshSession extends EventEmitter {
    */
   private async sendCard(link: Link, force: boolean): Promise<void> {
     const pk = this.prekeys.current()?.id;
-    const rotated = pk !== this.cardPk;
-    // Claimed before any await, so the housekeeping pass and `ready` do not both publish a rotation.
+    const before = this.cardPk;
+    const rotated = pk !== before;
+    // Claimed before any await, so the housekeeping pass and `ready` do not both publish a
+    // rotation; given back if the card is not sent (publishCard), so the next pass tries again.
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
     const card = this.o.cwd === undefined || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    this.publishCard(link, card, await this.cardFrame(force || rotated, card));
+    this.publishCard(link, card, await this.cardFrame(force || rotated, card), before);
   }
 
   /**
@@ -926,15 +928,17 @@ export class MeshSession extends EventEmitter {
    * await in an async function by subtraction, and on Windows that count came out negative, so
    * the coverage gate reported a branch the tests do run as never taken.
    */
-  private publishCard(link: Link, card: Card, frame: SendFrame | Error | undefined): void {
+  private publishCard(link: Link, card: Card, frame: SendFrame | Error | undefined, before: string | undefined): void {
     if (frame === undefined) return;
-    this.cardAt = this.now();
-    this.myCard = card;
     try {
       if (frame instanceof Error) throw frame;
-      // A link that closed meanwhile throws too; the next connection sends the card again.
+      // A link that closed meanwhile throws too.
       link.send({ t: "card.set", msg: frame });
+      // Recorded only once sent: a card that was not (a locked signer) goes again on the next pass.
+      this.cardAt = this.now();
+      this.myCard = card;
     } catch (error) {
+      this.cardPk = before;
       this.log(`wim: peer card not sent: ${(error as Error).message}`);
     }
   }

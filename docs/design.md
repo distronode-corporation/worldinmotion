@@ -103,7 +103,7 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   device; never a prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey
   entry; refused past its deletion time), `prekey` (makes one: public half and sealed secret),
   `adopt` (seals a clear prekey secret of this device's), `lock`, `stop` (the signer stops
-  listening before it answers). Key operations are rate limited (100 a second, burst 1000).
+  listening before it answers, then closes every connection without waiting for its client). Key operations are rate limited (100 a second, burst 1000).
   Requests on one connection are answered in order. A client sends a connection whose signer has
   not proved the key (a locked one, or an impostor) only `hello`, `status`, `lock` and `stop`, and
   keeps each connection's calls to itself, so a connection that closes late fails only its own.

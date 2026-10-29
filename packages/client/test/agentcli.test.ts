@@ -84,7 +84,8 @@ describe("wim agent", () => {
     const right = at(d.root, {}, {}, PASS);
     running.push(run(right, "agent", "unlock", "--foreground", "--passphrase-stdin"));
     await until(() => said(right).includes("Signer running"), undefined, "the new signer");
-    expect(said(fg)).toContain("Signer stopped.");
+    // The old signer's command ends on its own schedule: another process, in effect.
+    await until(() => said(fg).includes("Signer stopped."), undefined, "the old signer to end");
     const again = at(d.root);
     expect(await run(again, "agent", "unlock")).toBe(0);
     expect(said(again)).toContain("The signer is not locked.");

@@ -65,6 +65,10 @@ export function encodeOpen(req: OpenRequest): Record<string, unknown> {
   return { mesh: req.mesh, sender: req.sender, recipient: req.recipient, aad: b64u.encode(req.aad), senderBox: b64u.encode(req.senderBox), box: req.box };
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 type Pending = { resolve: (r: Record<string, unknown>) => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
 
 /**
@@ -201,7 +205,10 @@ export class SignerClient {
       let answer: { i?: unknown; r?: Record<string, unknown>; e?: { code: SignerCode; message: string } };
       try {
         answer = JSON.parse(line) as typeof answer;
+        // An answer is an object with `r` or `e`, each an object; anything else is a protocol error.
+        if (!isObject(answer) || !(isObject(answer.r) || isObject(answer.e))) throw new TypeError("not an answer");
       } catch {
+        // Ends this connection only: what it had pending fails, the next call connects again.
         conn.socket.destroy();
         return;
       }
