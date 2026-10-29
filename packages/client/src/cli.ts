@@ -12,7 +12,7 @@ import { basename, join as pathJoin } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { createMesh, decideJoin, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery } from "./admin.ts";
 import { botIO, ciIO } from "./adapters.ts";
-import { accepted, ClientError, MeshSession, type Inbound, type SessionOptions } from "./client.ts";
+import { accepted, ClientError, MeshSession, unprotectedNote, type Inbound, type SessionOptions } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { Home, SetupError, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
@@ -30,7 +30,7 @@ import { agentEnv, canShowSecret, fetchHeldCode, holdForShow, showSocketPath, SH
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 
-export const VERSION = "0.1.2";
+export const VERSION = "0.1.3";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {
@@ -724,7 +724,7 @@ async function send(ctx: Ctx): Promise<number> {
   const { files } = await ctx.mesh();
   // The override is never handed over: it would travel in a file any process of this user can write.
   const watcher = allowSecrets ? undefined : await liveWatcher(files, name, ctx.fsEnv);
-  let out: { id: string; results: Array<{ to: string; status: string }>; live: string[]; unprotected?: string[] };
+  let out: { id: string; results: Array<{ to: string; status: string }>; live: string[]; unprotected?: string[]; no_prekey?: string[] };
   if (watcher !== undefined) {
     // A `wim watch` holds this name: it sends, so replies come back to where the person reads.
     const answered = await handOver(ctx, watcher, { to, text });
@@ -748,10 +748,9 @@ async function send(ctx: Ctx): Promise<number> {
     const hint = r.status === "unknown" ? closestAddress(r.to, out.live) : undefined;
     ctx.io.out(`${r.to}: ${r.status}${hint === undefined ? "" : ` (did you mean ${hint}?)`}`);
   }
-  // The migration window (SPEC section 6b): a device with no current prekey got a v0.1 box.
-  if (out.unprotected !== undefined) {
-    ctx.io.out(`Sent without forward secrecy to ${out.unprotected.join(", ")}: no current prekey (a v0.1 client, or offline for over 48 hours).`);
-  }
+  // The migration window (SPEC section 6b): a device with no current prekey made the whole send
+  // v0.1. A watch from before `no_prekey` existed reports only `unprotected`.
+  if (out.unprotected !== undefined) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
   ctx.io.out(`id ${out.id}`);
   return out.results.every((r) => accepted(r.status)) ? 0 : 1;
 }
@@ -764,20 +763,20 @@ async function handOver(
   ctx: Ctx,
   watcher: SessionFiles,
   request: { to: string; text: string },
-): Promise<{ id: string; results: Array<{ to: string; status: string }>; live: string[]; unprotected?: string[] } | undefined> {
+): Promise<{ id: string; results: Array<{ to: string; status: string }>; live: string[]; unprotected?: string[]; no_prekey?: string[] } | undefined> {
   const id = ulid(ctx.io.now());
   await writeAtomic(pathJoin(watcher.controlDir, `send-${id}.json`), JSON.stringify(request), ctx.fsEnv);
   const answerPath = pathJoin(watcher.controlDir, `send-${id}.done.json`);
   const until = Date.now() + (ctx.io.handoverMs ?? 15_000);
   for (;;) {
     const answer = (await whileBusy(() => readJson(answerPath), ctx.fsEnv.platform)) as
-      | { ok: boolean; error?: string; id: string; results: Array<{ to: string; status: string }>; live?: string[]; unprotected?: string[] }
+      | { ok: boolean; error?: string; id: string; results: Array<{ to: string; status: string }>; live?: string[]; unprotected?: string[]; no_prekey?: string[] }
       | undefined;
     if (answer !== undefined) {
       // Left for the watch to clear later if it cannot go now.
       await tryRemove(answerPath, ctx.fsEnv);
       if (!answer.ok) throw new ClientError(answer.error!, "refused");
-      return { id: answer.id, results: answer.results, live: answer.live!, unprotected: answer.unprotected };
+      return { id: answer.id, results: answer.results, live: answer.live!, unprotected: answer.unprotected, no_prekey: answer.no_prekey };
     }
     if (Date.now() > until) {
       const requestPath = pathJoin(watcher.controlDir, `send-${id}.json`);

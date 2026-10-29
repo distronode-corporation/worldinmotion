@@ -87681,7 +87681,7 @@ function isVectorKey(pub) {
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
 var MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
-var GATEWAY_VERSION = "0.1.2";
+var GATEWAY_VERSION = "0.1.3";
 var EARLY_RESULTS = 64;
 var WimMetadata = external_exports.looseObject({
   to: external_exports.string().optional(),
@@ -88128,7 +88128,7 @@ var RemoteAgent = class {
     }
     let taskId;
     try {
-      const sent = SendMessageResponseSchema.safeParse(
+      const sent2 = SendMessageResponseSchema.safeParse(
         await this.call(ep, "SendMessage", {
           message: {
             messageId: randomUUID2(),
@@ -88138,9 +88138,9 @@ var RemoteAgent = class {
           configuration: { returnImmediately: true, acceptedOutputModes: ["text/plain"], historyLength: 0 }
         })
       );
-      if (!sent.success) throw new Error("SendMessage answered with neither a task nor a message");
-      if (sent.data.message !== void 0) return { status: "done", text: render(sent.data.message.parts) };
-      let task = sent.data.task;
+      if (!sent2.success) throw new Error("SendMessage answered with neither a task nor a message");
+      if (sent2.data.message !== void 0) return { status: "done", text: render(sent2.data.message.parts) };
+      let task = sent2.data.task;
       taskId = task.id;
       let wait = this.o.pollIntervalMs;
       for (; ; ) {
@@ -90198,6 +90198,9 @@ function relayRefusal(what, frame) {
 function accepted(status) {
   return status === "routed" || status === "queued";
 }
+function unprotectedNote(unprotected, noPrekey) {
+  return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
+}
 var CARD_EVERY_MS = 6e4;
 var PARKED_MAX = 64;
 var ANSWER_KEEP_MS = 5 * 6e4;
@@ -90813,7 +90816,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
   /**
    * Sends this session's card after ready, when it changes (at most once a minute) and when the
    * device's prekey rotates. Every session sends one, empty when cards are off: its header is how
-   * peers learn the device's prekey (SPEC section 6b).
+   * peers learn the device's prekey (SPEC section 6b). It carries the prekey even in a mesh with
+   * v0.1 devices, which drop it (see keysFor).
    */
   async sendCard(link, force) {
     const pk = this.prekeys.current()?.id;
@@ -90821,12 +90825,20 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
     const card = this.o.cwd === void 0 || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    if (!force && !rotated && sameCard(this.myCard, card)) return;
+    this.publishCard(link, force || rotated, card);
+  }
+  /**
+   * The part of sendCard after its await, kept synchronous: V8 counts a branch that follows an
+   * await in an async function by subtraction, and on Windows that count came out negative, so
+   * the coverage gate reported a branch the tests do run as never taken.
+   */
+  publishCard(link, always, card) {
+    if (!always && sameCard(this.myCard, card)) return;
     this.cardAt = this.now();
     this.myCard = card;
     try {
       const ids = this.roster.devices.map((d5) => d5.id);
-      const frame = sealMessage({ ...this.sealBase(["*"]), ...this.keysFor(ids), kind: "card", card, recipients: ids });
+      const frame = sealMessage({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids });
       link.send({ t: "card.set", msg: frame });
     } catch (error63) {
       this.log(`wim: peer card not sent: ${error63.message}`);
@@ -90926,16 +90938,28 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /**
    * What to seal with (SPEC section 6b): the newest usable prekey of each recipient device, this
-   * device's own for its sibling sessions, and the own one again as the header's `pk`. A device
-   * with none gets a scheme 1 box: the client keeps the migration window open (the protocol's
-   * default `legacy`), and the send reports it as `unprotected`.
+   * device's own for its sibling sessions, and the own one again as the header's `pk`. `missing`
+   * lists the recipient devices (recovery records aside, which get no box) with no usable prekey:
+   * a v0.1 client, or one offline for over 48 hours.
+   *
+   * When any device is missing, a message goes in the v0.1 format for everyone: no `pk` and only
+   * scheme 1 boxes. A v0.1 client parses the whole frame strictly and drops it for a `pk` or for
+   * any scheme 2 box, its own box being a v0.1 one or not, so a mixed frame would never reach it.
+   * One frame per format is not possible: the frame is signed over every box, and receivers drop
+   * a second frame with the same id or seq as a replay. The send reports it as `unprotected`.
+   *
+   * A card always carries the prekeys (`card`): cards are how upgraded devices learn each other's
+   * prekeys, and a downgraded card would leave a mixed mesh with no forward secrecy at all. A v0.1
+   * client drops such a card, so it misses that session's labels and nothing else.
    */
-  keysFor(ids) {
+  keysFor(ids, card = false) {
     const own2 = this.prekeys.current();
     const prekeys = this.peerKeys.forSend(this.roster, ids);
-    if (own2 === void 0) return { prekeys };
-    if (ids.includes(this.device.id)) prekeys[this.device.id] = own2;
-    return { prekeys, prekey: own2 };
+    if (own2 !== void 0 && ids.includes(this.device.id)) prekeys[this.device.id] = own2;
+    const acting = new Set(this.roster.devices.filter((d5) => !isRecoveryName(d5.name)).map((d5) => d5.id));
+    const missing = ids.filter((id) => acting.has(id) && !Object.hasOwn(prekeys, id));
+    if (missing.length > 0 && !card) return { keys: { prekeys: {} }, missing };
+    return { keys: own2 === void 0 ? { prekeys } : { prekeys, prekey: own2 }, missing };
   }
   /** Recipient device ids that a frame seals to without forward secrecy (scheme 1 boxes). */
   legacyIds(frame) {
@@ -90972,24 +90996,23 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const id = opts.id ?? ulid3(this.now());
     const routed = to.filter((a5) => !unknown2.includes(a5));
     if (routed.length === 0) return { id, results: local };
-    const { frame, answer: answering } = await this.serially(async () => {
+    const { frame, missing, answer: answering } = await this.serially(async () => {
       let sealed = await this.seal(id, routed, ids, text2, opts);
       const link = await this.ready(this.answerMs);
-      const missing = this.legacyIds(sealed);
-      if (missing.length > 0) {
+      if (sealed.missing.length > 0) {
         await this.peerKeys.reload();
         let timer;
         await Promise.race([this.cardsIn, new Promise((resolve3) => timer = setTimeout(resolve3, this.answerMs))]);
         clearTimeout(timer);
-        if (Object.keys(this.peerKeys.forSend(this.roster, missing)).length > 0) sealed = await this.seal(id, routed, ids, text2, opts);
+        if (Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id, routed, ids, text2, opts);
       }
-      await this.save({ seq: sealed.seq });
+      await this.save({ seq: sealed.frame.seq });
       if (opts.kind === "task") await this.recordSentTask(id, routed);
-      return { frame: sealed, answer: this.sendFrame(link, sealed, id) };
+      return { frame: sealed.frame, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame, id) };
     });
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
-    const sent = answer;
+    const sent2 = answer;
     for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.breaker.noteSent(this.pairOf(a5).split("/")[0], (text2 ?? "").length);
     await this.history.append({
       dir: "out",
@@ -91003,8 +91026,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
       ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },
       ...opts.relayed === true ? { relayed: true } : {}
     });
-    const unprotected = this.legacyIds(frame).map((d5) => this.roster.devices.find((r6) => r6.id === d5).name);
-    return { id, results: [...local, ...sent.results], ...unprotected.length > 0 ? { unprotected } : {} };
+    const name = (d5) => this.roster.devices.find((r6) => r6.id === d5).name;
+    const unprotected = this.legacyIds(frame).map(name);
+    return { id, results: [...local, ...sent2.results], ...unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {} };
   }
   serially(fn) {
     const run = this.sending.then(fn);
@@ -91014,10 +91038,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
   /** Seals a message at the next seq; the secrets check and the protocol limits refuse here. */
   async seal(id, routed, ids, text2, opts) {
     const derived3 = await this.isDerived();
+    const { keys, missing } = this.keysFor(ids);
     try {
-      return sealMessage({
+      const frame = sealMessage({
         ...this.sealBase(routed),
-        ...this.keysFor(ids),
+        ...keys,
         id,
         kind: opts.kind ?? "msg",
         ...text2 === void 0 ? {} : { text: text2 },
@@ -91030,6 +91055,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         ...derived3 ? { derived: true } : {},
         ...opts.allowSecrets === true ? { allowSecrets: true } : {}
       });
+      return { frame, missing };
     } catch (error63) {
       const message2 = error63.message.replace(/^sealMessage: /, "");
       throw new ClientError(`refused: ${message2}`, /secret/.test(message2) ? "secret" : "invalid");
@@ -91058,13 +91084,13 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const waiter = (p3, from) => resolveResult({ from, device: p3.from.device, at: p3.at, status: p3.status, text: p3.text, id: p3.id });
     this.askWaiters.set(id, waiter);
     try {
-      const sent = await this.send(to, task, { kind: "task", id });
-      if (!sent.results.some((r6) => accepted(r6.status))) return { task_id: id, results: sent.results, pending: true };
+      const sent2 = await this.send(to, task, { kind: "task", id });
+      if (!sent2.results.some((r6) => accepted(r6.status))) return { task_id: id, results: sent2.results, pending: true };
       let timer;
       const timeout = new Promise((r6) => timer = setTimeout(() => r6(void 0), timeoutMs));
       const result = await Promise.race([got, timeout]);
       clearTimeout(timer);
-      return result === void 0 ? { task_id: id, results: sent.results, pending: true } : { task_id: id, results: sent.results, result };
+      return result === void 0 ? { task_id: id, results: sent2.results, pending: true } : { task_id: id, results: sent2.results, result };
     } finally {
       this.askWaiters.delete(id);
     }
@@ -119455,6 +119481,7 @@ var Inputs = {
 };
 var text = (t2) => ({ content: [{ type: "text", text: t2 }] });
 var json3 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
+var sent = (o3) => json3(o3.unprotected === void 0 ? o3 : { ...o3, note: unprotectedNote(o3.unprotected, o3.no_prekey) });
 var fail3 = (t2) => ({ content: [{ type: "text", text: t2 }], isError: true });
 function failure2(error63) {
   const quote = error63.quote;
@@ -119590,7 +119617,7 @@ var WimMcp = class {
         const i6 = a5;
         const out = await s3.send(i6.to, i6.text, i6.reply_to === void 0 ? {} : { reply_to: i6.reply_to });
         if (i6.notify_when_idle === true) s3.notifyWhenIdle(MeshSession.parseTo(i6.to));
-        return json3(out);
+        return sent(out);
       }
       case "ask": {
         const i6 = a5;
@@ -119602,7 +119629,7 @@ var WimMcp = class {
       }
       case "reply": {
         const i6 = a5;
-        return json3(await s3.reply(i6.task_id, i6.status, i6.text));
+        return sent(await s3.reply(i6.task_id, i6.status, i6.text));
       }
       case "inbox": {
         const items = await s3.inbox(a5.peek === true);
@@ -119623,7 +119650,7 @@ var WimMcp = class {
         return this.lease(s3, a5);
       case "send_file": {
         const i6 = a5;
-        return json3(await s3.sendFile(i6.to, i6.path, i6.caption));
+        return sent(await s3.sendFile(i6.to, i6.path, i6.caption));
       }
       case "history": {
         const i6 = a5;
@@ -119842,7 +119869,7 @@ function describeInfo(info) {
 }
 
 // src/cli.ts
-var VERSION = "0.1.2";
+var VERSION = "0.1.3";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls"]);
 var COMMON_FLAGS = ["mesh", "help"];
@@ -120416,8 +120443,8 @@ async function send(ctx) {
   } else {
     const s3 = await ctx.session(name);
     try {
-      const sent = await s3.send(to, text2, allowSecrets ? { allowSecrets: true } : {});
-      out = { ...sent, live: [...s3.peers.values()].filter((p3) => p3.status !== "offline").map((p3) => p3.address) };
+      const sent2 = await s3.send(to, text2, allowSecrets ? { allowSecrets: true } : {});
+      out = { ...sent2, live: [...s3.peers.values()].filter((p3) => p3.status !== "offline").map((p3) => p3.address) };
     } finally {
       await ctx.finish(s3);
     }
@@ -120426,9 +120453,7 @@ async function send(ctx) {
     const hint = r6.status === "unknown" ? closestAddress(r6.to, out.live) : void 0;
     ctx.io.out(`${r6.to}: ${r6.status}${hint === void 0 ? "" : ` (did you mean ${hint}?)`}`);
   }
-  if (out.unprotected !== void 0) {
-    ctx.io.out(`Sent without forward secrecy to ${out.unprotected.join(", ")}: no current prekey (a v0.1 client, or offline for over 48 hours).`);
-  }
+  if (out.unprotected !== void 0) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
   ctx.io.out(`id ${out.id}`);
   return out.results.every((r6) => accepted(r6.status)) ? 0 : 1;
 }
@@ -120442,7 +120467,7 @@ async function handOver(ctx, watcher, request2) {
     if (answer !== void 0) {
       await tryRemove(answerPath, ctx.fsEnv);
       if (!answer.ok) throw new ClientError(answer.error, "refused");
-      return { id: answer.id, results: answer.results, live: answer.live, unprotected: answer.unprotected };
+      return { id: answer.id, results: answer.results, live: answer.live, unprotected: answer.unprotected, no_prekey: answer.no_prekey };
     }
     if (Date.now() > until) {
       const requestPath = pathJoin(watcher.controlDir, `send-${id}.json`);

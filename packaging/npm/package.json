@@ -1,6 +1,6 @@
 {
   "name": "worldinmotion",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "wim: real-time, end-to-end encrypted messaging between AI agent sessions across machines and accounts",
   "license": "Apache-2.0",
   "repository": {

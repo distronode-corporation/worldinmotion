@@ -307,6 +307,8 @@ A session sends:
 
 - The **header** is the send object without `boxes` and `sig`, whatever other fields it holds.
   `pk`, optional, is the sending device's current prekey (section 6b), so receivers learn it.
+  During the migration window a message with any recipient device that has no current prekey
+  carries no `pk` and only scheme 1 boxes (section 6b).
 - Each box carries its **scheme**. Scheme 2, `{ "s": 2, "p", "e", "c" }`, is HPKE to the
   recipient device's prekey `p`, with the ephemeral public key `e` (section 6b). A box without `s`
   is scheme 1, the v0.1 box `{ "n", "c" }`: `XChaCha20-Poly1305(key(sender, recipient device),
@@ -496,18 +498,30 @@ own current prekey.
 
 **The migration window.** Until wire version 1.0:
 
-- A sender with no current prekey for a recipient device (a v0.1 client, which publishes none, or
-  a device offline for more than 48 hours) seals that device a scheme 1 box. The reference client
-  says so (`wim send` prints "Sent without forward secrecy to ..."). Before falling back, it reads
-  the prekeys its sibling sessions learned and waits for the first `cards` page of its
-  connection, at most the send's answer timeout.
+- A v0.1 client parses relay frames strictly, so it drops, silently, any frame holding a `send`
+  frame with a `pk` or a scheme 2 box, even when its own box is scheme 1 (a `cards` page or room
+  history page with one such message is dropped whole). A v0.1 relay refuses such frames as
+  malformed, so relays upgrade first.
+- So a message with any recipient device that has no current prekey (a v0.1 client, which
+  publishes none, or a device offline for more than 48 hours) goes in the v0.1 format for every
+  recipient: no `pk`, and a scheme 1 box for every device, those with a prekey included. That
+  message has no forward secrecy for anyone in it. In a mesh with a v0.1 device this covers every
+  broadcast and room message, and every direct message naming that device. It is one frame, not
+  one per format: the signature covers every box, and receivers drop a second frame with the same
+  id or seq. The reference client says so: `wim send` prints "Sent without forward secrecy to
+  <every device in the send>: no current prekey for <the devices without one> ...", and the
+  outcome lists both (`unprotected`, `no_prekey`). Before falling back, it reads the prekeys its
+  sibling sessions learned and waits for the first `cards` page of its connection, at most the
+  send's answer timeout.
+- A message whose every recipient device has a current prekey is sealed as above (`pk`, scheme 2
+  boxes), mesh with v0.1 devices or not.
+- A peer card always carries `pk` and scheme 2 boxes for the devices with a prekey, since cards
+  are how upgraded devices learn each other's prekeys. A v0.1 client drops it and misses that
+  session's labels, and the labels of every card in a `cards` page it drops; nothing else.
 - Receivers open scheme 1 boxes, so v0.1 senders, and messages queued or kept in history from
   before an upgrade, still read.
-- A v0.1 client parses `send` frames strictly, so it drops a frame that holds a scheme 2 box or a
-  `pk`, even when its own box is scheme 1. Upgrade every device of a mesh; a v0.1 relay refuses
-  such frames as malformed, so relays upgrade first.
 - A hostile relay can force the downgrade during the window by withholding cards and stripping
-  `pk`: the sender then seals scheme 1 boxes and says so.
+  `pk`: the sender then seals scheme 1 boxes to every recipient of the message and says so.
 
 From 1.0, scheme 1 boxes are refused (`legacy_box`), senders never fall back to the static box, a
 broadcast or room send carries a box for every device that has a current prekey, and a direct send

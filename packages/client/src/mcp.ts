@@ -6,7 +6,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { b64u, bytesEqual, frameForAgent, isName, LIMITS, randomBytes, RESULT_STATUSES, sanitizeForDisplay, utf8 } from "@worldinmotion/protocol";
 import { z } from "zod";
-import { ClientError, MeshSession, type PeerRow, type SessionOptions } from "./client.ts";
+import { ClientError, MeshSession, unprotectedNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
 import { HISTORY_MAX, renderForAgent } from "./history.ts";
 import { isStalePeer, peerLine } from "./render.ts";
 import { SessionFiles, SessionKeys } from "./session.ts";
@@ -112,6 +112,8 @@ type In<K extends keyof typeof PUBLIC> = z.infer<(typeof PUBLIC)[K]["input"]>;
 
 const text = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }] });
 const json = (v: Record<string, unknown>): CallToolResult => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
+/** A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b). */
+const sent = (o: SendOutcome): CallToolResult => json(o.unprotected === undefined ? o : { ...o, note: unprotectedNote(o.unprotected, o.no_prekey!) });
 const fail = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }], isError: true });
 
 /** A refusal as the model reads it: text the relay wrote is quoted and labelled as the relay's. */
@@ -286,7 +288,7 @@ export class WimMcp {
         const i = a as In<"send">;
         const out = await s.send(i.to, i.text, i.reply_to === undefined ? {} : { reply_to: i.reply_to });
         if (i.notify_when_idle === true) s.notifyWhenIdle(MeshSession.parseTo(i.to));
-        return json(out);
+        return sent(out);
       }
       case "ask": {
         const i = a as In<"ask">;
@@ -298,7 +300,7 @@ export class WimMcp {
       }
       case "reply": {
         const i = a as In<"reply">;
-        return json(await s.reply(i.task_id, i.status, i.text));
+        return sent(await s.reply(i.task_id, i.status, i.text));
       }
       case "inbox": {
         const items = await s.inbox((a as { peek?: boolean }).peek === true);
@@ -319,7 +321,7 @@ export class WimMcp {
         return this.lease(s, a as In<"lease">);
       case "send_file": {
         const i = a as In<"send_file">;
-        return json(await s.sendFile(i.to, i.path, i.caption));
+        return sent(await s.sendFile(i.to, i.path, i.caption));
       }
       case "history": {
         const i = a as In<"history">;
