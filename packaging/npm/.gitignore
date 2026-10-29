@@ -1,0 +1,6 @@
+# Staged by the release workflow (and by hand for `npm pack --dry-run`) from the built client
+# and the root licence files; see ../README.md.
+wim.mjs
+LICENSE
+NOTICE
+*.tgz

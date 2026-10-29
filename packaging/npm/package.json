@@ -1,0 +1,39 @@
+{
+  "name": "worldinmotion",
+  "version": "0.1.1",
+  "description": "wim: real-time, end-to-end encrypted messaging between AI agent sessions across machines and accounts",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/distronode-corporation/worldinmotion.git",
+    "directory": "packaging/npm"
+  },
+  "homepage": "https://github.com/distronode-corporation/worldinmotion#readme",
+  "bugs": {
+    "url": "https://github.com/distronode-corporation/worldinmotion/issues"
+  },
+  "keywords": [
+    "agents",
+    "mcp",
+    "messaging",
+    "end-to-end encryption",
+    "claude-code"
+  ],
+  "bin": {
+    "wim": "wim.mjs"
+  },
+  "files": [
+    "wim.mjs",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  }
+}
