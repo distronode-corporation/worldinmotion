@@ -13,7 +13,40 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **Forward secrecy, bounded** (`SPEC.md` section 6b, `SECURITY-MODEL.md` section 6.14). Each
+  device makes a signed X25519 prekey per mesh every day (signed by its own key, valid 48 hours)
+  and deletes each prekey's secret 72 hours after it expires. Every box is sealed to the
+  recipient device's current prekey with a fresh ephemeral key: RFC 9180 HPKE in auth mode,
+  DHKEM(X25519, HKDF-SHA256), HKDF-SHA256 and ChaCha20-Poly1305, built on the noble libraries the
+  protocol already used (no new dependency) and checked against the RFC's test vectors. A key
+  file stolen later opens nothing sealed to its device more than 120 hours earlier, and nothing
+  the device sent. Sibling sessions still read one box per device, redelivery and dedupe work as
+  before, and revocation needs no rekey.
+- **A scheme field on every new box** (`"s": 2`), so a later scheme, such as an MLS room mode as
+  `wim/2`, is added without breaking this one. A box without `s` is a v0.1 box.
+- **Prekeys travel in headers**, as `pk` in every `send` frame and peer card. No relay frame was
+  added, and a relay needs no code change, only the new protocol package.
+- New test vectors in `packages/protocol/vectors/prekey.json`; `sign.json` covers the `prekey`
+  signature type.
+
 ### Changed
+
+- **The wire format changes.** A v0.1 client drops any frame that holds a new box or a `pk`, and a
+  v0.1 relay refuses such frames as malformed: upgrade relays first, then every device of a mesh.
+- **The migration window, until 1.0.** Clients still open v0.1 boxes, so v0.1 senders and messages
+  queued or kept in history from before an upgrade still read. A sender with no current prekey for
+  a device (a v0.1 client, or one offline for over 48 hours) seals that device a v0.1 box, without
+  forward secrecy, and `wim send` prints "Sent without forward secrecy to ...". A hostile relay
+  can force that downgrade during the window by withholding cards. From 1.0, v0.1 boxes are
+  refused and senders never fall back.
+- **Every session now publishes a peer card**, with no labels when cards are off or it has no
+  working directory, because the card's header carries the device's prekey. Listings show no
+  labels for an empty card, as before.
+- **A message sealed to a prekey this device no longer holds** (deleted on schedule, or lost with
+  the prekey file) is dropped, and the session gets one notice per sender device asking for it to
+  be sent again.
 
 - **Relays keep room history for 72 hours, not 7 days**, to match the prekey retention planned for
   forward secrecy. 72 hours is now the ceiling for everything a relay holds for delivery: room
