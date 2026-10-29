@@ -188,7 +188,8 @@ Can:
   older prekey: receivers keep the newest by `at`.
 - Withhold cards, or strip `pk`, so senders keep using an older prekey (forward secrecy then
   stretches to that prekey's window, never further) or, during the migration window, fall back to
-  scheme 1 boxes for a device they know no prekey for. The sender says so when it falls back.
+  scheme 1 boxes for every recipient of a message that names a device they know no prekey for.
+  The sender says so when it falls back.
 - Keep every ciphertext it ever relayed, whatever lifetimes it advertises, and wait for a key file
   to leak; it then reads only what that device's prekey secrets still open (section 6.14).
 - Delay a roster update for a client until some other member's message reveals it.
@@ -512,11 +513,16 @@ ephemeral key (HPKE, mode_auth). So:
 Limits:
 
 - **Not per message.** Everything sealed to one prekey shares its fate for up to 120 hours.
-- **The migration window.** Until wire 1.0, a device with no current prekey (a v0.1 client, or one
-  offline over 48 hours) gets a scheme 1 box with no forward secrecy, and receivers still open
-  scheme 1 boxes. A relay can force that downgrade by withholding cards and stripping `pk`; the
-  sender says so (`wim send` prints "Sent without forward secrecy to ..."). Every scheme 1 box ever
-  recorded opens with the static key.
+- **The migration window.** Until wire 1.0, a message with any recipient device that has no
+  current prekey (a v0.1 client, or one offline over 48 hours) goes in the v0.1 format to every
+  recipient: no `pk` and scheme 1 boxes only, with no forward secrecy for anyone in it, because a
+  v0.1 client drops any frame holding a `pk` or a scheme 2 box. In a mesh with a v0.1 device
+  that is every broadcast and room message, and every direct message naming that device; messages
+  among upgraded devices alone keep forward secrecy. Receivers still open scheme 1 boxes. A relay
+  can force the downgrade by withholding cards and stripping `pk` for one device, and so strip
+  forward secrecy from every message that names it; the sender says so (`wim send` prints "Sent
+  without forward secrecy to ...: no current prekey for ...", and the outcome lists both). Every
+  scheme 1 box ever recorded opens with the static key.
 - **Deletion is a file rewrite.** It runs whenever a wim process for the mesh runs; a device that is
   switched off keeps what it held until a wim process next runs. Rewriting a file does not erase
   the old bytes from an SSD, a journaling or copy-on-write file system, a snapshot or a backup. A
