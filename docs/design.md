@@ -28,7 +28,15 @@ accounts on one OS user are two devices.
 
 ```
 $WIM_HOME/
-  device.json            0600  device keys (protocol encodeKeys) + device name
+  device.json            0600  device keys (protocol encodeKeys) + device name; or, after
+                               `wim agent encrypt`, version 2: the public keys and name in the
+                               clear and the secret keys and a data key encrypted (scrypt,
+                               ChaCha20-Poly1305) under the passphrase
+  agent/                 0700  the signer (`wim agent`), when one was ever started here
+    sock                 0600  its Unix socket (Windows: a named pipe `\\.\pipe\wim-agent-<token>`)
+    pipe                 0600  Windows only: the pipe's random token
+    config.json          0600  `require_signer`: refuse a plaintext key file
+    log.jsonl            0600  one line per request: operation, type, mesh, peer device, outcome
   meshes/<mesh>/
     mesh.json            0600  relay URL, pinned roster {seq, hash}, my device id, policy
     rosters/<seq>.json         every verified roster
@@ -36,7 +44,9 @@ $WIM_HOME/
     seen.json                  dedupe ids with expiry (H3), per device, shared by sessions (locked writes)
     seq.json                   SeqTracker state (M3)
     prekeys.json         0600  this device's prekeys and their secrets: rotated daily, each secret
-                               deleted at until + 72 h (SPEC section 6b), shared by sessions (locked writes)
+                               deleted at until + 72 h (SPEC section 6b), shared by sessions (locked writes);
+                               each secret in the clear (`secret`) or, with the signer, sealed under the
+                               key file's data key (`sealed`), which only the signer opens
     peer-prekeys.json          the newest verified prekey of each peer device (public, a cache)
     sessions/<sid>/
       session.json             name, kind, resume secret (0600), cursor, rooms
@@ -61,6 +71,82 @@ same working directory in its `session.json`, did not end (`bye { ended: true }`
 process holds its liveness lock. A session from another directory keeps its name, and the new one
 gets `name-N`. `wim mcp` ends its session cleanly (`bye { ended: true }`) when stdin closes, on
 SIGINT, SIGTERM or SIGHUP, and when its parent process goes away (checked every 5 seconds).
+
+## The signer (`wim agent`)
+
+Optional, and off until `wim agent encrypt`. The ssh-agent model: one process per device holds the
+device keys and the data key that seals prekey secrets, and sessions ask it for every operation
+that needs a secret key. What it does and does not protect is SECURITY-MODEL section 5.8.
+
+- `wim agent encrypt` encrypts `device.json` (version 2), seals every mesh's prekey secrets and sets
+  `require_signer`. A session already running keeps the plaintext keys it read; once it reads a
+  sealed prekey it cannot open, it acknowledges nothing more on that connection and says once that
+  it needs a restart, and the relay delivers those messages again to the restarted session. The
+  key file is replaced by one atomic rename, so the identity survives an interruption; a prekey
+  left in the clear is sealed by the signer on the next schedule. A session that read sealed
+  prekeys before a `decrypt` and a new `encrypt` (a new data key) reads the file again when a box
+  does not open, and opens it then.
+  `wim agent decrypt` (signer stopped) writes the same keys back in the clear, opens the sealed
+  prekeys and clears `require_signer`.
+- `wim agent start` asks for the passphrase (only at an interactive terminal not driven by an
+  agent, or from stdin with `--passphrase-stdin`) and starts `wim agent serve` detached from the
+  terminal; the child reads the passphrase on stdin and prints `ready <pid> <endpoint>` or
+  `error <why>`. It checks for a running signer and binds under `agent/start.lock`, so two starts
+  never both bind. On Windows each start writes a new pipe token to `agent/pipe` and a clean stop
+  removes it. Every command checks that what answers proves itself (a locked signer does too), and
+  `start` takes the place of something that cannot.
+  `--foreground` runs it in the command itself, for systemd, launchd or CI. It is never started
+  automatically: the passphrase needs the person, and a signer started from an agent's session
+  would be that agent's descendant, which an OS may let it debug.
+- `wim agent status`, `lock` and `stop` talk to the running signer. A lock is for good: `wim agent
+  unlock` reads the passphrase, checks it against the key file, asks the locked signer to stop
+  and starts a new one (`--foreground` as for `start`). The passphrase never goes over the socket,
+  and the command sends nothing more to something that still answers after `stop`.
+- A session's device: a plaintext key file gives a keyring in the process, as before (refused when
+  `require_signer` is set or `WIM_REQUIRE_SIGNER=1`). An encrypted one gives a keyring that calls
+  the signer; with no signer, or a locked one, the command says which `wim agent` command to run.
+- The socket speaks JSON lines: `{ "i", "op", "a" }`, answered `{ "i", "r" }` or
+  `{ "i", "e": { "code", "message" } }`.
+- `hello`: the client sends a nonce and an X25519 key. The signer, locked or not, answers with
+  what it is (`id`, `name`, `signPub`, `boxPub`, `locked`, `pid`), its own X25519 key, its run
+  key's certificate, and the run key's signature over `wim-agent/2 hello\n`, the nonce, both
+  X25519 keys and those fields in canonical JSON: nothing the client acts on travels unsigned.
+  The certificate is the device key's signature over `wim-agent/2 signer\n` and the canonical
+  `{ pub, locked, issued, expires, pid }`; it holds for 24 hours. An unlocked signer issues a new
+  run key at 12 hours, or at once when its certificate is from the clock's future (a clock set
+  back); `lock` issues a locked one before the device key goes, and a locked signer
+  stops when that runs out. The client checks the certificate against the key file's public part,
+  that it is current and matches the hello's `locked` and `pid`, and the signature; it sends
+  nothing more to what fails. From then on each line on that connection is `{ "x" }`, the JSON
+  sealed with ChaCha20-Poly1305 under keys both sides derive with HKDF from the exchange, a
+  counter as nonce each way. A connection to a signer that proved it is locked carries only
+  `status`, `lock` and `stop`.
+- The other operations: `status`, `sign` (auth, send, roster, join; only objects that name this
+  device; `auth` and `send` only with an `at` within 5 minutes of the signer's clock; never a
+  prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey entry; refused past
+  its deletion time), `prekey` (makes one, dated within 5 minutes of the signer's clock: public
+  half and sealed secret), `adopt` (seals a clear prekey secret of this device's), `lock` (answers
+  `{ was }`, whether it was locked already, sealed: `wim agent lock` reports that, never the
+  hello's flag), `stop` (the signer stops listening before it answers, then closes every connection
+  without waiting for its client). Before answering any request, and every 2 seconds, the signer
+  checks that its endpoint still names its own socket (device and inode); if not, it locks and
+  stops. Key operations are rate limited (100 a second, burst 1000). Requests on one connection
+  are answered in order, and a client keeps each connection's calls to itself, so a connection
+  that closes late fails only its own.
+- A signer that is locked or gone makes a send fail with the reason. A delivered message that
+  cannot be handled is not acknowledged, and nothing later is acknowledged on that connection
+  (acks are cumulative); a frame is only ever acked on the connection it came on.
+  - The signer could not answer (locked, gone, slow), or what answers is not the signer: the
+    session drops the connection at once; the next one authenticates once the signer answers,
+    and the relay delivers everything after the last ack again. Never given up on.
+  - A local fault (`ENOSPC`, `EDQUOT`, `EIO`, `EROFS`, `EACCES`, `EPERM`, `EBUSY`, `EMFILE`,
+    `ENFILE`, `EAGAIN`, `ENOTDIR`, `EISDIR`, `ENOENT`, `ELOOP`): the session drops the connection after a backoff (1 s, doubling to 5
+    minutes, back to 1 s at the next ack), so the frame comes again. Never given up on.
+  - Anything else, the frame's own (including the signer's `refused` or `bad_request` for it):
+    the same backoff, and on its third failure the frame is let go with a log line, so one bad
+    frame cannot stall the cursor for good.
+  - A parked message that fails when retried stays parked for the next retry (each ready and each
+    roster change); its failure is its own and never counts against another frame.
 
 ## The MCP server (`wim mcp`)
 

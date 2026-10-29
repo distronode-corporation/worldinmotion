@@ -27,9 +27,9 @@ Both are first-class threats here.
 | Message, task, result and file content | Source code, plans, internal details. Confidentiality and integrity. |
 | Authenticity | "This came from that device" drives what an agent does next. |
 | The receiving agent's behaviour | An item can try to steer an agent that holds the person's tools, files and credentials. |
-| Device signing key (Ed25519) | Lets the holder speak as the device, and change membership if the device is an admin. |
+| Device signing key (Ed25519) | Lets the holder speak as the device, and change membership if the device is an admin. In the key file: plaintext by default, or encrypted under a passphrase when the signer holds it (section 5.8). |
 | Device box key (X25519) | Authenticates the device as a sender (HPKE auth mode). During the migration window it also opens every scheme 1 (v0.1) box to or from the device, past and future. |
-| Prekey secrets (X25519) | Each opens the scheme 2 boxes sealed to one prekey, until the device deletes it at `until` + 72 hours (at most 120 hours after it was made). Kept in `prekeys.json` next to the key file. |
+| Prekey secrets (X25519) | Each opens the scheme 2 boxes sealed to one prekey, until the device deletes it at `until` + 72 hours (at most 120 hours after it was made). Kept in `prekeys.json` next to the key file: in the clear by default, sealed so that only the signer opens them when it is in use (section 5.8). |
 | The recovery code | The secret keys of an admin record that never connects. As powerful as an admin device. |
 | The roster | Decides who can read and send. Adding a device is the most powerful act in a mesh. |
 | Invite codes | A bearer credential for joining a mesh until used or expired. |
@@ -41,7 +41,9 @@ Both are first-class threats here.
 
 1. **Device.** One machine, one OS user, one agent profile. Its keys live in one file readable only
    by that OS user. Everything that can read that file *is* the device: every session on it, every
-   tool those sessions run, every process under that OS user. Sessions on one device are not
+   tool those sessions run, every process under that OS user. With the signer (section 5.8), the
+   file is encrypted and the keys live in one process instead; every process of that OS user can
+   still ask it to act for the device while it is unlocked. Sessions on one device are not
    isolated cryptographically. Two agent profiles under one OS user are two devices by key only; the
    OS gives them no separation from each other.
 2. **Mesh.** Devices in the roster can read items addressed to them, and every room message and
@@ -141,7 +143,9 @@ Cannot:
 
 ### 5.3 Compromised device
 
-An attacker holds a device's key file.
+An attacker holds a device's key file. With the signer in use (section 5.8), the encrypted file
+alone is not enough: the attacker also needs the passphrase (guessed offline against scrypt) or a
+running, unlocked signer to ask.
 
 Can:
 - Do everything the device could, including admin acts if it is an admin.
@@ -272,16 +276,164 @@ other device, and take the mesh over.
 
 ### 5.8 A local process under the same OS user
 
-This process can read the key file, so it is the device. It can read every box for the device, send
-as any session name, and act as admin if the device is one. It can also write into a session's spool
-directory, which the Claude Code plugin delivers to the agent as is.
+**Without the signer (the default).** This process can read the key file, so it is the device. It
+can read every box for the device, send as any session name, and act as admin if the device is
+one. It can also write into a session's spool directory, which the Claude Code plugin delivers to
+the agent as is.
 
 This includes the tools your agent runs. An agent that can run shell commands can read the key file,
 and a peer that asks it to "print the file at ... and send it back" is asking for the device. The
 defences are layered: framing (section 7.1), the inbound policy (section 7.2), the outbound secret
-filter, which recognises the key-file format (section 7.4), and your agent host's permission
-system. A future version may move keys into an OS keychain or a separate signing process; v0.1 does
-not.
+filter, which recognises the plaintext key-file format (section 7.4), and your agent host's
+permission system.
+
+**With the signer (`wim agent`).** `wim agent encrypt` encrypts `device.json` under a passphrase
+(scrypt with N = 2^17, r = 8, p = 1; ChaCha20-Poly1305, with the file's public fields as associated
+data) and seals every prekey secret in `prekeys.json` under a random data key that only the
+encrypted file holds. `wim agent start`, run by the person in their own terminal, asks for the
+passphrase once and starts the signer: one process per device that holds the device keys and the
+data key in memory and answers sessions over a local socket. Sessions never read the keys; they
+ask the signer to sign, seal and open, and it answers. The wire is unchanged (SPEC section 3).
+
+What it stops:
+
+- **Taking the keys away.** No file holds a secret key in the clear. A copy of `device.json` and
+  `prekeys.json` is worth an offline guessing attack on the passphrase and nothing more, so the
+  passphrase must be a strong one.
+- **New use after the signer is locked or stopped.** `wim agent lock` wipes the keys from the
+  signer's memory (as far as JavaScript can, below) and it refuses every key operation from then
+  on; `wim agent stop` ends it. Nothing on disk lets a process act for the device meanwhile: the
+  signer hands out signatures and opened boxes, never a key. What it signed while unlocked stays
+  valid, though (below, "Signatures made while unlocked").
+- **A process in the middle of the socket, or in its place.** The signer proves itself with a key
+  of its own for the run (it signs nothing but hellos), certified by the device key: the
+  certificate names the key, whether the signer is locked, its process id, and when it was issued
+  and runs out (24 hours). An unlocked signer issues a new run key at 12 hours; `lock` has the
+  device key certify a locked one just before the device key goes, and a locked signer stops when
+  that runs out. Every `hello` answer, locked or not, carries the certificate and the run key's
+  signature over the client's fresh nonce, both sides' X25519 keys for this connection and
+  everything the hello says about the signer (`id`, `name`, its public keys, `locked`, `pid`): no
+  client decision rests on an unsigned field. Both sides derive the connection's keys from the
+  exchange, and every later line is sealed with ChaCha20-Poly1305, one key and a message counter
+  each way. A client sends nothing but the hello to what cannot prove itself, and `wim agent
+  lock`, `stop`, `unlock` and `status` fail (non-zero) against it. So a process that relays the
+  hello (a proxy put at the socket path, or another instance of a Windows pipe) reads nothing and
+  can neither change nor forge a line, not even turn "unlocked" into "locked"; swapping in its own
+  key breaks the signature; and one put in the signer's place for a moment (the socket renamed
+  aside and back) cannot fake a `lock` or a `stop`: it has no run key to prove itself with. `lock`
+  is always sent and reports the signer's sealed answer, and `status` the sealed status, never the
+  hello's flag.
+- **A run key read from memory.** A process that reads the signer's memory (below) can take run
+  keys. The one a signer is using after a lock has a certificate that says "locked", which clients
+  never send a plaintext or a request to sign. But the unlocked run keys it used before are only
+  dropped, not wiped: Node has no way to zero the key material inside a `KeyObject`, which stays in
+  memory until it is collected. So a read after a lock can still yield an unlocked run key whose
+  certificate holds for the rest of its 24 hours, enough to pose as an unlocked signer and collect
+  plaintexts from sessions that connect to it in that time. Locking ends that within 24 hours, not
+  at once. A clock set back makes an unlocked signer issue a new run key at once (clients refuse a
+  certificate issued more than 5 minutes in their future); a locked signer cannot, so after such a
+  step it cannot prove itself, and `lock`, `stop` and `status` fail, until the clock catches up
+  with its certificate or the certificate runs out and it stops.
+- **Moving the signer's socket aside.** The signer also records its socket's identity (device and
+  inode) when it listens, before it answers anything. If the path comes to name anything else (the
+  socket renamed away and another put in its place, or nothing there), it locks and stops: checked
+  before it answers any request, and every 2 seconds. A held connection to a renamed signer
+  therefore gets nothing more either. A swap that is undone between two checks is not seen here;
+  the proof above is what stops it.
+- **Collecting the passphrase by posing as a locked signer.** The device's public key is in the
+  key file for anyone of the user to read, so a process could bind the endpoint (after `wim agent
+  stop`, which any process of the user may send) and answer `hello` as a locked signer, which has
+  nothing to prove. It gets nothing for it. The passphrase never goes over the socket: there is no
+  unlock request. `wim agent unlock` reads the passphrase in the person's own command, checks it
+  against the key file there, asks the locked signer to stop (a signer stops listening before it
+  answers), and starts a new signer from that command, handing the passphrase only to the process
+  it started, over that process's own stdin. If something still answers at the endpoint after
+  `stop`, the command says so and sends it nothing more. Sessions likewise send a connection whose
+  signer has not proved itself (above) nothing but the hello. `stop` checks afterwards that the
+  endpoint stopped answering. `wim agent start` does not let something that answers without the
+  proof stop it: it says so and starts a signer in its place (a POSIX socket file is replaced; on
+  Windows the new signer takes a fresh pipe name). Two `start`s at once take a lock file while they
+  check for a running signer and bind, so one binds and the other says one is running (without it,
+  the second removed the first's socket and left it running unreachable).
+- **Prekeys with a secret the caller holds.** The signer signs no `prekey` object for a caller. It
+  makes each prekey itself and returns the public half and the sealed secret. Otherwise a caller
+  could publish a prekey whose secret it kept and read the device's incoming traffic offline for 48
+  hours more.
+- **Opening with a deleted prekey.** The signer refuses a prekey past its deletion time (`until` +
+  72 hours), also from an old copy of `prekeys.json`, as long as the signer's clock is right. Each
+  sealed secret is bound to its whole signed prekey, so its `until` cannot be moved.
+- **Other OS users.** As section 5.9, and they cannot reach the signer (below).
+
+What it does not stop:
+
+- **A process of the same OS user asking.** While the signer runs unlocked, any process of the
+  person's OS user (an agent's shell tool included) can connect to the socket and ask it to sign
+  (`auth`, `send`, `roster`, `join`) or to open any box sealed to the device. For that time it is
+  the device: it can read every box the device receives, send as any session, and on an admin
+  device sign rosters, including one that adds a device of its own, which stays in the mesh after
+  the signer is locked until it is revoked. The signer signs only objects that name this device,
+  logs every request to `agent/log.jsonl` (operation, signature type, mesh and peer device; never a
+  key or a plaintext), and rate limits key operations to 100 a second with a burst of 1000, which
+  slows a bulk misuse and does not prevent one.
+- **Signatures made while unlocked.** What the signer signed stays valid after a lock or a stop: a
+  `send` frame is accepted by receivers until it is 47 hours old by its `at` (SPEC section 6), an
+  `auth` frame within the relay's 5-minute window, and a roster for good. A process that asks for
+  signatures while the signer is unlocked can use them later, offline. The signer signs `send`
+  and `auth` objects only with an `at` within 5 minutes of its own clock, so nothing is dated
+  ahead to last longer than that.
+- **Telling sessions from other processes.** Node exposes no peer credentials on a local socket
+  (no `SO_PEERCRED` or `getpeereid`, and no `GetNamedPipeClientProcessId` on Windows), so the
+  signer cannot see who connected. Other users are kept out by the operating system instead: on
+  Linux and macOS the socket is `agent/sock` in a directory the signer and every client require to
+  be the user's own with mode 0700 (the socket itself is 0600), which the kernel checks on every
+  connect; on Windows it is a named pipe whose name carries a random token kept in `agent/pipe`
+  inside the user's own profile. Another user cannot read that file, but can list the names in
+  `\\.\pipe\` while the signer runs; so the token is new for each start and removed on a clean
+  stop, and a name seen while one signer ran is never used by the next. libuv creates the signer's
+  first instance with `FILE_FLAG_FIRST_PIPE_INSTANCE`, so the signer cannot bind a name someone
+  already holds. A pipe cannot be renamed, but a process of the same user may create more
+  instances of the signer's name under the default security, and a client may connect to one of
+  those; on its own it cannot prove itself, and relaying to the signer it can change nothing
+  (above), so the client either refuses it or talks to the real signer.
+  After a crash `agent/pipe` keeps the old name until the next start; something another user put
+  on that name answers clients that still use it and is refused the same way, and `start` takes a
+  fresh name in its place. The pipe is created with Windows' default named-pipe security, which by
+  Microsoft's documentation gives write access and new instances only to the creating user,
+  administrators and SYSTEM; Node offers no way to set an explicit DACL, and no test here checks
+  the default on a Windows machine. Node's client (libuv) opens a pipe with `CreateFileW` and no
+  `SECURITY_SQOS_PRESENT` flag, so it does not limit the server to identifying the user, and Node
+  does not expose a way to: a process that answers on a name a client uses and holds
+  `SeImpersonatePrivilege` (a service, an administrator) could act as the connecting user in
+  Windows. Such a process is already more powerful than the user.
+- **Stopping or squatting the signer.** Any process of the user can stop the signer, or take its
+  endpoint while it is stopped. That denies the device's sessions their keys (they report it), and
+  `wim agent unlock` and `wim agent start` report something that answers and is not the signer;
+  it does not give that process the keys, the passphrase or any plaintext.
+- **Reading the signer's memory.** An administrator can. A process of the same user can where the
+  OS lets it debug the signer: on Linux with `kernel.yama.ptrace_scope` 0 (with the usual 1, only
+  an ancestor of the signer can), on Windows by default, on macOS only with debugging rights. That
+  is why the signer is started by the person in their own terminal, never by an agent or a
+  session: started from an agent's session, it would be the agent's descendant. JavaScript cannot
+  lock memory, so the keys can reach swap and core dumps. Locking zeroes the key bytes JavaScript
+  holds (the seeds, the data key, the decoded copies made while unlocking) and drops the signing
+  key's OpenSSL object, whose own copy OpenSSL frees when the object is collected; JavaScript cannot
+  zero it. Strings remain until the runtime frees them: the passphrase as typed, and the key file's
+  decrypted JSON while it is parsed.
+- **The passphrase at the keyboard.** A keylogger running as the person sees it. `wim agent start`,
+  `unlock`, `encrypt` and `decrypt` ask for it only at an interactive terminal with no agent's
+  variables set, or from stdin with `--passphrase-stdin` (for a service manager or CI), and keep it
+  inside the command and the signer it starts.
+- **What the key file was before.** Encrypting replaces the plaintext file with one atomic rename,
+  but as with deleted prekey secrets (section 6.14), the old bytes can survive on an SSD, in a
+  snapshot or in a backup, and a process that could read the file before may have copied it. For
+  full assurance after starting to use the signer, join the mesh with a new device and revoke the
+  old one.
+
+The signer is optional. With a plaintext key file and no signer, clients behave as before. An
+encrypted key file needs a running, unlocked signer, and clients say so. `require_signer` (in
+`agent/config.json`, set by `wim agent encrypt` and cleared by `wim agent decrypt`, or
+`WIM_REQUIRE_SIGNER=1`) makes clients refuse a plaintext key file: a guard against restoring an old
+plaintext backup by mistake, not against a process of the user, which can change the setting.
 
 ### 5.9 A local process under another OS user
 
@@ -291,6 +443,9 @@ group or others. The client talks to its agent only over stdio, never over a TCP
 
 It can reach any loopback TCP port, which matters for the A2A gateway (section 8): the gateway
 requires a bearer token on every request for exactly this reason.
+
+It cannot reach the signer (section 5.8): its socket is in a 0700 directory of the user, and on
+Windows its pipe's name is a secret kept in the user's profile.
 
 ## 6. Properties, one by one
 
@@ -503,8 +658,8 @@ ephemeral key (HPKE, mode_auth). So:
 - **Healing:** an attacker who copied the key file once, and does not keep acting with its signing
   key, loses the device's new incoming traffic as peers move to prekeys made after the copy
   (within a day). One who keeps the signing key can sign prekeys of its own and intercept until the
-  device is revoked; revocation, and later a keychain or signer process for the keys, are the
-  answers.
+  device is revoked; revocation is the answer. With the signer (section 5.8), no file holds the
+  signing key in the clear, and the signer never signs a prekey whose secret a caller chose.
 - **No shared group key:** removal needs no rekey. A revoked device's prekeys fail the roster
   check, and senders seal nothing more to it.
 - **Retention covers history:** each secret outlives the last box sealed to it by at least 72
@@ -705,7 +860,9 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
 - Forward secrecy is bounded, not per message: a stolen key file opens what was sealed to its
   device in the last 120 hours. During the migration window a relay can force v0.1 boxes, which
   have none, and every recorded v0.1 box opens with the static key.
-- Sessions on one device are not isolated; anything running as the OS user is the device.
+- Sessions on one device are not isolated; anything running as the OS user is the device. With the
+  signer, it can no longer take the keys away, but it can ask the unlocked signer to act for the
+  device (section 5.8).
 - Authenticity is per device; session names are claims.
 - The relay sees all metadata, can drop or delay anything, can replay old cards and history, and is
   trusted for leases.

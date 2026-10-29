@@ -24,8 +24,8 @@ afterEach(async () => {
 type Result = { content: Array<{ text: string }>; isError?: boolean; structuredContent?: Record<string, unknown> };
 
 /** An MCP client on a server for device 0 of `mesh`, with the plugin's internal tool on. */
-async function mcpFor(relay: RelayHarness, mesh: string, d: Parameters<typeof sessionOpts>[0], internalTools: boolean) {
-  const server = new WimMcp({ channel: false, internalTools, version: "t", session: sessionOpts(d, mesh, relay, { name: "agent", kind: internalTools ? "claude-code" : "mcp" }) });
+async function mcpFor(relay: RelayHarness, mesh: string, d: Parameters<typeof sessionOpts>[0], internalTools: boolean, extra: { tickMs?: number } = {}) {
+  const server = new WimMcp({ channel: false, internalTools, version: "t", session: sessionOpts(d, mesh, relay, { name: "agent", kind: internalTools ? "claude-code" : "mcp", ...extra }) });
   const [a, b] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "model", version: "1" });
   await server.server.connect(b);
@@ -119,7 +119,8 @@ describe("the plugin's internal tool", () => {
     await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, policy: { [devices[1]!.device.id]: "deliver-relayed" } }));
     const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
     cleanup.push(() => peer.stop());
-    const { internal, server } = await mcpFor(relay, mesh, devices[0]!, true);
+    // Housekeeping runs only when the test says: every pass below is one explicit tick().
+    const { internal, server } = await mcpFor(relay, mesh, devices[0]!, true, { tickMs: 3_600_000 });
     const { dismiss } = (await internal("hello", { claudeSessionId: "c" })).structuredContent as { dismiss: string };
     const s = server.current!;
     await s.ready(3000);
@@ -129,23 +130,29 @@ describe("the plugin's internal tool", () => {
     await s.take((await s.spool.unread()).at(-1)!.cursor);
     // Counted as files in the box: a count needs no read, which antivirus can hold up on Windows.
     const boxed = async (): Promise<number> => (await fs.readdir(s.spool.relayedDir)).filter((n) => /^\d{12}\.json$/.test(n)).length;
-    await until(async () => (await boxed()) === 2);
-    // A link named like a mark, a lower-case id and a stray file are not marks.
+    expect(await boxed()).toBe(2);
+    // A link named like a mark, a lower-case id and a stray file are not marks. File names keep
+    // their case on every file system here, so the lower-case one never matches the id pattern.
     const target = join(await scratch("mark"), "t");
     await fs.writeFile(target, "");
-    await fs.symlink(target, join(dismiss, `${two.id}.dismiss`));
+    const link = join(dismiss, `${two.id}.dismiss`);
+    await fs.symlink(target, link);
     const lower = join(dismiss, `${one.id.toLowerCase()}.dismiss`);
     await fs.writeFile(lower, "");
     await fs.writeFile(join(dismiss, "notes.txt"), "");
-    await sleep(100);
+    await s.tick();
     expect(await boxed()).toBe(2);
+    // None was taken: each is still there, under its own name.
+    expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+    expect(await fs.readdir(dismiss)).toEqual(expect.arrayContaining([`${one.id.toLowerCase()}.dismiss`, "notes.txt"]));
     // On a case-insensitive file system (macOS, Windows) the lower-case name and the real mark
     // are one file, so the lower-case one goes before the real one is written.
     await fs.rm(lower);
     await fs.writeFile(join(dismiss, `${one.id}.dismiss`), "");
-    await until(async () => (await boxed()) === 1, 3000, "dismissed");
-    await until(async () => (await s.spool.relayed())[0]?.id === two.id, 3000, "the one left");
-    await sleep(60);
+    await s.tick();
+    expect(await boxed()).toBe(1);
+    expect((await s.spool.relayed()).map((i) => i.id)).toEqual([two.id]);
+    await s.tick();
     expect(await boxed()).toBe(1);
     expect(await fs.readFile(target, "utf8")).toBe("");
   });

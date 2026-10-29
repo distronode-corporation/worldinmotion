@@ -78,7 +78,7 @@ var require_buffer_util = __commonJS({
     "use strict";
     var { EMPTY_BUFFER: EMPTY_BUFFER2 } = require_constants();
     var FastBuffer = Buffer[Symbol.species];
-    function concat2(list2, totalLength) {
+    function concat3(list2, totalLength) {
       if (list2.length === 0) return EMPTY_BUFFER2;
       if (list2.length === 1) return list2[0];
       const target = Buffer.allocUnsafe(totalLength);
@@ -124,7 +124,7 @@ var require_buffer_util = __commonJS({
       return buf2;
     }
     module.exports = {
-      concat: concat2,
+      concat: concat3,
       mask: _mask,
       toArrayBuffer,
       toBuffer: toBuffer2,
@@ -465,9 +465,9 @@ var require_permessage_deflate = __commonJS({
        * @private
        */
       _decompress(data, fin, callback) {
-        const endpoint = this._isServer ? "client" : "server";
+        const endpoint2 = this._isServer ? "client" : "server";
         if (!this._inflate) {
-          const key2 = `${endpoint}_max_window_bits`;
+          const key2 = `${endpoint2}_max_window_bits`;
           const windowBits = typeof this.params[key2] !== "number" ? zlib3.Z_DEFAULT_WINDOWBITS : this.params[key2];
           this._inflate = zlib3.createInflateRaw({
             ...this._options.zlibInflateOptions,
@@ -500,7 +500,7 @@ var require_permessage_deflate = __commonJS({
           } else {
             this._inflate[kTotalLength] = 0;
             this._inflate[kBuffers] = [];
-            if (fin && this.params[`${endpoint}_no_context_takeover`]) {
+            if (fin && this.params[`${endpoint2}_no_context_takeover`]) {
               this._inflate.reset();
             }
           }
@@ -516,9 +516,9 @@ var require_permessage_deflate = __commonJS({
        * @private
        */
       _compress(data, fin, callback) {
-        const endpoint = this._isServer ? "server" : "client";
+        const endpoint2 = this._isServer ? "server" : "client";
         if (!this._deflate) {
-          const key2 = `${endpoint}_max_window_bits`;
+          const key2 = `${endpoint2}_max_window_bits`;
           const windowBits = typeof this.params[key2] !== "number" ? zlib3.Z_DEFAULT_WINDOWBITS : this.params[key2];
           this._deflate = zlib3.createDeflateRaw({
             ...this._options.zlibDeflateOptions,
@@ -544,7 +544,7 @@ var require_permessage_deflate = __commonJS({
           this._deflate[kCallback] = null;
           this._deflate[kTotalLength] = 0;
           this._deflate[kBuffers] = [];
-          if (fin && this.params[`${endpoint}_no_context_takeover`]) {
+          if (fin && this.params[`${endpoint2}_no_context_takeover`]) {
             this._deflate.reset();
           }
           callback(null, data2);
@@ -785,7 +785,7 @@ var require_validation = __commonJS({
 var require_receiver = __commonJS({
   "../../node_modules/ws/lib/receiver.js"(exports, module) {
     "use strict";
-    var { Writable: Writable4 } = __require("stream");
+    var { Writable: Writable5 } = __require("stream");
     var PerMessageDeflate2 = require_permessage_deflate();
     var {
       BINARY_TYPES,
@@ -793,7 +793,7 @@ var require_receiver = __commonJS({
       kStatusCode,
       kWebSocket
     } = require_constants();
-    var { concat: concat2, toArrayBuffer, unmask } = require_buffer_util();
+    var { concat: concat3, toArrayBuffer, unmask } = require_buffer_util();
     var { isValidStatusCode, isValidUTF8 } = require_validation();
     var FastBuffer = Buffer[Symbol.species];
     var GET_INFO = 0;
@@ -803,7 +803,7 @@ var require_receiver = __commonJS({
     var GET_DATA = 4;
     var INFLATING = 5;
     var DEFER_EVENT = 6;
-    var Receiver2 = class extends Writable4 {
+    var Receiver2 = class extends Writable5 {
       /**
        * Creates a Receiver instance.
        *
@@ -1270,9 +1270,9 @@ var require_receiver = __commonJS({
         if (this._opcode === 2) {
           let data;
           if (this._binaryType === "nodebuffer") {
-            data = concat2(fragments, messageLength);
+            data = concat3(fragments, messageLength);
           } else if (this._binaryType === "arraybuffer") {
-            data = toArrayBuffer(concat2(fragments, messageLength));
+            data = toArrayBuffer(concat3(fragments, messageLength));
           } else if (this._binaryType === "blob") {
             data = new Blob(fragments);
           } else {
@@ -1290,7 +1290,7 @@ var require_receiver = __commonJS({
             });
           }
         } else {
-          const buf2 = concat2(fragments, messageLength);
+          const buf2 = concat3(fragments, messageLength);
           if (!this._skipUTF8Validation && !isValidUTF8(buf2)) {
             const error63 = this.createError(
               Error,
@@ -2143,7 +2143,7 @@ var require_extension = __commonJS({
       let inQuotes = false;
       let extensionName;
       let paramName;
-      let start = -1;
+      let start2 = -1;
       let code2 = -1;
       let end2 = -1;
       let i6 = 0;
@@ -2151,45 +2151,45 @@ var require_extension = __commonJS({
         code2 = header2.charCodeAt(i6);
         if (extensionName === void 0) {
           if (end2 === -1 && tokenChars[code2] === 1) {
-            if (start === -1) start = i6;
+            if (start2 === -1) start2 = i6;
           } else if (i6 !== 0 && (code2 === 32 || code2 === 9)) {
-            if (end2 === -1 && start !== -1) end2 = i6;
+            if (end2 === -1 && start2 !== -1) end2 = i6;
           } else if (code2 === 59 || code2 === 44) {
-            if (start === -1) {
+            if (start2 === -1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
-            const name = header2.slice(start, end2);
+            const name = header2.slice(start2, end2);
             if (code2 === 44) {
               push(offers, name, params);
               params = /* @__PURE__ */ Object.create(null);
             } else {
               extensionName = name;
             }
-            start = end2 = -1;
+            start2 = end2 = -1;
           } else {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
         } else if (paramName === void 0) {
           if (end2 === -1 && tokenChars[code2] === 1) {
-            if (start === -1) start = i6;
+            if (start2 === -1) start2 = i6;
           } else if (code2 === 32 || code2 === 9) {
-            if (end2 === -1 && start !== -1) end2 = i6;
+            if (end2 === -1 && start2 !== -1) end2 = i6;
           } else if (code2 === 59 || code2 === 44) {
-            if (start === -1) {
+            if (start2 === -1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
-            push(params, header2.slice(start, end2), true);
+            push(params, header2.slice(start2, end2), true);
             if (code2 === 44) {
               push(offers, extensionName, params);
               params = /* @__PURE__ */ Object.create(null);
               extensionName = void 0;
             }
-            start = end2 = -1;
-          } else if (code2 === 61 && start !== -1 && end2 === -1) {
-            paramName = header2.slice(start, i6);
-            start = end2 = -1;
+            start2 = end2 = -1;
+          } else if (code2 === 61 && start2 !== -1 && end2 === -1) {
+            paramName = header2.slice(start2, i6);
+            start2 = end2 = -1;
           } else {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
@@ -2198,13 +2198,13 @@ var require_extension = __commonJS({
             if (tokenChars[code2] !== 1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
-            if (start === -1) start = i6;
+            if (start2 === -1) start2 = i6;
             else if (!mustUnescape) mustUnescape = true;
             isEscaping = false;
           } else if (inQuotes) {
             if (tokenChars[code2] === 1) {
-              if (start === -1) start = i6;
-            } else if (code2 === 34 && start !== -1) {
+              if (start2 === -1) start2 = i6;
+            } else if (code2 === 34 && start2 !== -1) {
               inQuotes = false;
               end2 = i6;
             } else if (code2 === 92) {
@@ -2215,15 +2215,15 @@ var require_extension = __commonJS({
           } else if (code2 === 34 && header2.charCodeAt(i6 - 1) === 61) {
             inQuotes = true;
           } else if (end2 === -1 && tokenChars[code2] === 1) {
-            if (start === -1) start = i6;
-          } else if (start !== -1 && (code2 === 32 || code2 === 9)) {
+            if (start2 === -1) start2 = i6;
+          } else if (start2 !== -1 && (code2 === 32 || code2 === 9)) {
             if (end2 === -1) end2 = i6;
           } else if (code2 === 59 || code2 === 44) {
-            if (start === -1) {
+            if (start2 === -1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
-            let value = header2.slice(start, end2);
+            let value = header2.slice(start2, end2);
             if (mustUnescape) {
               value = value.replace(/\\/g, "");
               mustUnescape = false;
@@ -2235,17 +2235,17 @@ var require_extension = __commonJS({
               extensionName = void 0;
             }
             paramName = void 0;
-            start = end2 = -1;
+            start2 = end2 = -1;
           } else {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
         }
       }
-      if (start === -1 || inQuotes || code2 === 32 || code2 === 9) {
+      if (start2 === -1 || inQuotes || code2 === 32 || code2 === 9) {
         throw new SyntaxError("Unexpected end of input");
       }
       if (end2 === -1) end2 = i6;
-      const token = header2.slice(start, end2);
+      const token = header2.slice(start2, end2);
       if (extensionName === void 0) {
         push(offers, token, params);
       } else {
@@ -2288,7 +2288,7 @@ var require_websocket = __commonJS({
     var http3 = __require("http");
     var net = __require("net");
     var tls3 = __require("tls");
-    var { randomBytes: randomBytes5, createHash: createHash8 } = __require("crypto");
+    var { randomBytes: randomBytes5, createHash: createHash9 } = __require("crypto");
     var { Duplex, Readable: Readable8 } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -2969,7 +2969,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest2 = createHash8("sha1").update(key2 + GUID).digest("base64");
+        const digest2 = createHash9("sha1").update(key2 + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest2) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -3293,34 +3293,34 @@ var require_subprotocol = __commonJS({
     var { tokenChars } = require_validation();
     function parse4(header2) {
       const protocols = /* @__PURE__ */ new Set();
-      let start = -1;
+      let start2 = -1;
       let end2 = -1;
       let i6 = 0;
       for (i6; i6 < header2.length; i6++) {
         const code2 = header2.charCodeAt(i6);
         if (end2 === -1 && tokenChars[code2] === 1) {
-          if (start === -1) start = i6;
+          if (start2 === -1) start2 = i6;
         } else if (i6 !== 0 && (code2 === 32 || code2 === 9)) {
-          if (end2 === -1 && start !== -1) end2 = i6;
+          if (end2 === -1 && start2 !== -1) end2 = i6;
         } else if (code2 === 44) {
-          if (start === -1) {
+          if (start2 === -1) {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
           if (end2 === -1) end2 = i6;
-          const protocol2 = header2.slice(start, end2);
+          const protocol2 = header2.slice(start2, end2);
           if (protocols.has(protocol2)) {
             throw new SyntaxError(`The "${protocol2}" subprotocol is duplicated`);
           }
           protocols.add(protocol2);
-          start = end2 = -1;
+          start2 = end2 = -1;
         } else {
           throw new SyntaxError(`Unexpected character at index ${i6}`);
         }
       }
-      if (start === -1 || end2 !== -1) {
+      if (start2 === -1 || end2 !== -1) {
         throw new SyntaxError("Unexpected end of input");
       }
-      const protocol = header2.slice(start, i6);
+      const protocol = header2.slice(start2, i6);
       if (protocols.has(protocol)) {
         throw new SyntaxError(`The "${protocol}" subprotocol is duplicated`);
       }
@@ -3338,7 +3338,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter2 = __require("events");
     var http3 = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash8 } = __require("crypto");
+    var { createHash: createHash9 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -3645,7 +3645,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest2 = createHash8("sha1").update(key2 + GUID).digest("base64");
+        const digest2 = createHash9("sha1").update(key2 + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -4376,23 +4376,23 @@ var init_toEndpointV1 = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/transport/toEndpointV1.js"() {
     init_hasOwn();
     init_parseUrl();
-    toEndpointV1 = (endpoint) => {
-      if (typeof endpoint === "object") {
-        if ("url" in endpoint) {
-          const v1Endpoint = parseUrl(endpoint.url);
-          if (endpoint.headers) {
+    toEndpointV1 = (endpoint2) => {
+      if (typeof endpoint2 === "object") {
+        if ("url" in endpoint2) {
+          const v1Endpoint = parseUrl(endpoint2.url);
+          if (endpoint2.headers) {
             v1Endpoint.headers = {};
-            for (const name in endpoint.headers) {
-              if (!hasOwn(endpoint.headers, name))
+            for (const name in endpoint2.headers) {
+              if (!hasOwn(endpoint2.headers, name))
                 continue;
-              v1Endpoint.headers[name.toLowerCase()] = endpoint.headers[name].join(", ");
+              v1Endpoint.headers[name.toLowerCase()] = endpoint2.headers[name].join(", ");
             }
           }
           return v1Endpoint;
         }
-        return endpoint;
+        return endpoint2;
       }
-      return parseUrl(endpoint);
+      return parseUrl(endpoint2);
     };
   }
 });
@@ -4561,15 +4561,15 @@ var init_poller = __esm({
       }
     };
     createMessageFromResponse = (reason) => {
-      const status = reason?.$response?.statusCode ?? reason?.$metadata?.httpStatusCode;
+      const status2 = reason?.$response?.statusCode ?? reason?.$metadata?.httpStatusCode;
       if (reason?.$responseBodyText) {
-        return `${status ? status + ": " : ""}Deserialization error for body: ${reason.$responseBodyText}`;
+        return `${status2 ? status2 + ": " : ""}Deserialization error for body: ${reason.$responseBodyText}`;
       }
-      if (status) {
+      if (status2) {
         if (reason?.$response || reason?.message) {
-          return `${status ?? "Unknown"}: ${reason?.message}`;
+          return `${status2 ?? "Unknown"}: ${reason?.message}`;
         }
-        return `${status}: OK`;
+        return `${status2}: OK`;
       }
       return String(reason?.message ?? JSON.stringify(reason, getCircularReplacer()) ?? "Unknown");
     };
@@ -4822,11 +4822,11 @@ var init_schemaSerializationMiddleware = __esm({
     schemaSerializationMiddleware = (config2) => (next, context) => async (args) => {
       const { operationSchema } = getSmithyContext(context);
       const [, ns, n3, t2, i6, o3] = operationSchema ?? [];
-      const endpoint = context.endpointV2 ? async () => toEndpointV1(context.endpointV2) : config2.endpoint;
+      const endpoint2 = context.endpointV2 ? async () => toEndpointV1(context.endpointV2) : config2.endpoint;
       const request2 = await config2.protocol.serializeRequest(operation(ns, n3, t2, i6, o3), args.input, {
         ...config2,
         ...context,
-        endpoint
+        endpoint: endpoint2
       });
       return next({
         ...args,
@@ -7199,10 +7199,10 @@ function fromHex(encoded) {
   }
   return out;
 }
-function toHex(bytes2) {
+function toHex(bytes3) {
   let out = "";
-  for (let i6 = 0; i6 < bytes2.byteLength; i6++) {
-    out += SHORT_TO_HEX[bytes2[i6]];
+  for (let i6 = 0; i6 < bytes3.byteLength; i6++) {
+    out += SHORT_TO_HEX[bytes3[i6]];
   }
   return out;
 }
@@ -7275,8 +7275,8 @@ var init_toUint8Array = __esm({
 function concatBytes3(arrays, length) {
   if (length === void 0) {
     length = 0;
-    for (const bytes2 of arrays) {
-      length += bytes2.byteLength;
+    for (const bytes3 of arrays) {
+      length += bytes3.byteLength;
     }
   }
   const result = new Uint8Array(length);
@@ -7581,14 +7581,14 @@ var init_getProfileName = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js
-import { createHash as createHash3 } from "node:crypto";
+import { createHash as createHash4 } from "node:crypto";
 import { join as join9 } from "node:path";
 var getSSOTokenFilepath;
 var init_getSSOTokenFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js"() {
     init_getHomeDir();
     getSSOTokenFilepath = (id) => {
-      const hasher = createHash3("sha1");
+      const hasher = createHash4("sha1");
       const cacheName = hasher.update(id).digest("hex");
       return join9(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
     };
@@ -8003,10 +8003,10 @@ var init_resolveCustomEndpointsConfig = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/config-resolver/endpointsConfig/resolveCustomEndpointsConfig.js"() {
     init_client2();
     resolveCustomEndpointsConfig = (input2) => {
-      const { tls: tls3, endpoint, urlParser, useDualstackEndpoint } = input2;
+      const { tls: tls3, endpoint: endpoint2, urlParser, useDualstackEndpoint } = input2;
       return Object.assign(input2, {
         tls: tls3 ?? true,
-        endpoint: normalizeProvider(typeof endpoint === "string" ? urlParser(endpoint) : endpoint),
+        endpoint: normalizeProvider(typeof endpoint2 === "string" ? urlParser(endpoint2) : endpoint2),
         isCustomEndpoint: true,
         useDualstackEndpoint: normalizeProvider(useDualstackEndpoint ?? false)
       });
@@ -8044,11 +8044,11 @@ var init_resolveEndpointsConfig = __esm({
     init_getEndpointFromRegion();
     resolveEndpointsConfig = (input2) => {
       const useDualstackEndpoint = normalizeProvider(input2.useDualstackEndpoint ?? false);
-      const { endpoint, useFipsEndpoint, urlParser, tls: tls3 } = input2;
+      const { endpoint: endpoint2, useFipsEndpoint, urlParser, tls: tls3 } = input2;
       return Object.assign(input2, {
         tls: tls3 ?? true,
-        endpoint: endpoint ? normalizeProvider(typeof endpoint === "string" ? urlParser(endpoint) : endpoint) : () => getEndpointFromRegion({ ...input2, useDualstackEndpoint, useFipsEndpoint }),
-        isCustomEndpoint: !!endpoint,
+        endpoint: endpoint2 ? normalizeProvider(typeof endpoint2 === "string" ? urlParser(endpoint2) : endpoint2) : () => getEndpointFromRegion({ ...input2, useDualstackEndpoint, useFipsEndpoint }),
+        isCustomEndpoint: !!endpoint2,
         useDualstackEndpoint
       });
     };
@@ -8087,9 +8087,9 @@ var init_getInstanceMetadataRegion = __esm({
         return void 0;
       }
       try {
-        const endpoint = resolveImdsEndpoint();
+        const endpoint2 = resolveImdsEndpoint();
         const token = (await imdsRequest({
-          ...endpoint,
+          ...endpoint2,
           path: IMDS_TOKEN_PATH,
           method: "PUT",
           headers: {
@@ -8097,7 +8097,7 @@ var init_getInstanceMetadataRegion = __esm({
           }
         })).toString();
         const region = (await imdsRequest({
-          ...endpoint,
+          ...endpoint2,
           path: IMDS_REGION_PATH,
           method: "GET",
           headers: {
@@ -8641,17 +8641,17 @@ var init_createConfigValueProvider = __esm({
           if (config2.isCustomEndpoint === false) {
             return void 0;
           }
-          const endpoint = await configProvider();
-          if (endpoint && typeof endpoint === "object") {
-            if ("url" in endpoint) {
-              return endpoint.url.href;
+          const endpoint2 = await configProvider();
+          if (endpoint2 && typeof endpoint2 === "object") {
+            if ("url" in endpoint2) {
+              return endpoint2.url.href;
             }
-            if ("hostname" in endpoint) {
-              const { protocol, hostname: hostname4, port, path: path2 } = endpoint;
+            if ("hostname" in endpoint2) {
+              const { protocol, hostname: hostname4, port, path: path2 } = endpoint2;
               return `${protocol}//${hostname4}${port ? ":" + port : ""}${path2}`;
             }
           }
-          return endpoint;
+          return endpoint2;
         };
       }
       return configProvider;
@@ -8686,17 +8686,17 @@ function bindGetEndpointFromInstructions(getEndpointFromConfig2) {
     if (typeof clientConfig.endpointProvider !== "function") {
       throw new Error("config.endpointProvider is not set.");
     }
-    const endpoint = clientConfig.endpointProvider(endpointParams, context);
+    const endpoint2 = clientConfig.endpointProvider(endpointParams, context);
     if (clientConfig.isCustomEndpoint && clientConfig.endpoint) {
       const customEndpoint = await clientConfig.endpoint();
       if (customEndpoint?.headers) {
-        endpoint.headers ??= {};
+        endpoint2.headers ??= {};
         for (const [name, value] of Object.entries(customEndpoint.headers)) {
-          endpoint.headers[name] = Array.isArray(value) ? value : [value];
+          endpoint2.headers[name] = Array.isArray(value) ? value : [value];
         }
       }
     }
-    return endpoint;
+    return endpoint2;
   };
 }
 var resolveParams;
@@ -8754,13 +8754,13 @@ function bindEndpointMiddleware(getEndpointFromConfig2) {
       if (config2.isCustomEndpoint) {
         setFeature(context, "ENDPOINT_OVERRIDE", "N");
       }
-      const endpoint = await getEndpointFromInstructions2(args.input, {
+      const endpoint2 = await getEndpointFromInstructions2(args.input, {
         getEndpointParameterInstructions() {
           return instructions;
         }
       }, { ...config2 }, context);
-      context.endpointV2 = endpoint;
-      context.authSchemes = endpoint.properties?.authSchemes;
+      context.endpointV2 = endpoint2;
+      context.authSchemes = endpoint2.properties?.authSchemes;
       const authScheme = context.authSchemes?.[0];
       if (authScheme) {
         context["signing_region"] = authScheme.signingRegion;
@@ -8827,9 +8827,9 @@ var init_getEndpointPlugin = __esm({
 function bindResolveEndpointConfig(getEndpointFromConfig2) {
   return (input2) => {
     const tls3 = input2.tls ?? true;
-    const { endpoint, useDualstackEndpoint, useFipsEndpoint } = input2;
-    const customEndpointProvider = endpoint != null ? async () => toEndpointV1(await normalizeProvider(endpoint)()) : void 0;
-    const isCustomEndpoint = !!endpoint;
+    const { endpoint: endpoint2, useDualstackEndpoint, useFipsEndpoint } = input2;
+    const customEndpointProvider = endpoint2 != null ? async () => toEndpointV1(await normalizeProvider(endpoint2)()) : void 0;
+    const isCustomEndpoint = !!endpoint2;
     const resolvedConfig = Object.assign(input2, {
       endpoint: customEndpointProvider,
       tls: tls3,
@@ -9187,14 +9187,14 @@ var init_stringEquals = __esm({
 var substring;
 var init_substring = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/endpoints/util-endpoints/lib/substring.js"() {
-    substring = (input2, start, stop, reverse) => {
-      if (input2 == null || start >= stop || input2.length < stop || /[^\u0000-\u007f]/.test(input2)) {
+    substring = (input2, start2, stop, reverse) => {
+      if (input2 == null || start2 >= stop || input2.length < stop || /[^\u0000-\u007f]/.test(input2)) {
         return null;
       }
       if (!reverse) {
-        return input2.substring(start, stop);
+        return input2.substring(start2, stop);
       }
-      return input2.substring(input2.length - stop, input2.length - start);
+      return input2.substring(input2.length - stop, input2.length - start2);
     };
   }
 });
@@ -9543,7 +9543,7 @@ var init_evaluateEndpointRule = __esm({
     init_getEndpointProperties();
     init_getEndpointUrl();
     evaluateEndpointRule = (endpointRule, options) => {
-      const { conditions, endpoint } = endpointRule;
+      const { conditions, endpoint: endpoint2 } = endpointRule;
       const { result, referenceRecord } = evaluateConditions(conditions, options);
       if (!result) {
         return;
@@ -9552,8 +9552,8 @@ var init_evaluateEndpointRule = __esm({
         ...options,
         referenceRecord: { ...options.referenceRecord, ...referenceRecord }
       } : options;
-      const { url: url2, properties, headers } = endpoint;
-      options.logger?.debug?.(`${debugId} Resolving endpoint from template: ${toDebugString(endpoint)}`);
+      const { url: url2, properties, headers } = endpoint2;
+      options.logger?.debug?.(`${debugId} Resolving endpoint from template: ${toDebugString(endpoint2)}`);
       const endpointToReturn = { url: getEndpointUrl(url2, endpointRuleOptions) };
       if (headers != null) {
         endpointToReturn.headers = getEndpointHeaders(headers, endpointRuleOptions);
@@ -9664,9 +9664,9 @@ var init_resolveEndpoint = __esm({
           throw new EndpointError(`Missing required parameter: '${paramKey}'`);
         }
       }
-      const endpoint = evaluateRules(rules, { endpointParams, logger: logger2, referenceRecord: {} });
-      options.logger?.debug?.(`${debugId} Resolved endpoint: ${toDebugString(endpoint)}`);
-      return endpoint;
+      const endpoint2 = evaluateRules(rules, { endpointParams, logger: logger2, referenceRecord: {} });
+      options.logger?.debug?.(`${debugId} Resolved endpoint: ${toDebugString(endpoint2)}`);
+      return endpoint2;
     };
   }
 });
@@ -9676,8 +9676,8 @@ var resolveEndpointRequiredConfig;
 var init_resolveEndpointRequiredConfig = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/endpoints/middleware-endpoint/resolveEndpointRequiredConfig.js"() {
     resolveEndpointRequiredConfig = (input2) => {
-      const { endpoint } = input2;
-      if (endpoint === void 0) {
+      const { endpoint: endpoint2 } = input2;
+      if (endpoint2 === void 0) {
         input2.endpoint = async () => {
           throw new Error("@smithy/middleware-endpoint: (default endpointRuleSet) endpoint is not set - you must configure an endpoint.");
         };
@@ -9743,11 +9743,11 @@ var init_serializerMiddleware = __esm({
     init_endpoints();
     serializerMiddleware = (options, serializer) => (next, context) => async (args) => {
       const endpointConfig = options;
-      const endpoint = context.endpointV2 ? async () => toEndpointV1(context.endpointV2) : endpointConfig.endpoint;
-      if (!endpoint) {
+      const endpoint2 = context.endpointV2 ? async () => toEndpointV1(context.endpointV2) : endpointConfig.endpoint;
+      if (!endpoint2) {
         throw new Error("No valid endpoint provider available.");
       }
-      const request2 = await serializer(args.input, { ...options, endpoint });
+      const request2 = await serializer(args.input, { ...options, endpoint: endpoint2 });
       return next({
         ...args,
         request: request2
@@ -9786,7 +9786,7 @@ var init_serdePlugin = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/serde/hash-node/hash-node.js
-import { createHash as createHash4, createHmac } from "node:crypto";
+import { createHash as createHash5, createHmac } from "node:crypto";
 function castSourceData(toCast, encoding) {
   if (Buffer.isBuffer(toCast)) {
     return toCast;
@@ -9820,7 +9820,7 @@ var init_hash_node = __esm({
         return Promise.resolve(this.hash.digest());
       }
       reset() {
-        this.hash = this.secret ? createHmac(this.algorithmIdentifier, castSourceData(this.secret)) : createHash4(this.algorithmIdentifier);
+        this.hash = this.secret ? createHmac(this.algorithmIdentifier, castSourceData(this.secret)) : createHash5(this.algorithmIdentifier);
       }
     };
   }
@@ -10065,16 +10065,16 @@ var init_ByteArrayCollector = __esm({
       }
       flush() {
         if (this.byteArrays.length === 1) {
-          const bytes2 = this.byteArrays[0];
+          const bytes3 = this.byteArrays[0];
           this.reset();
-          return bytes2;
+          return bytes3;
         }
         const aggregation = this.allocByteArray(this.byteLength);
         let cursor2 = 0;
         for (let i6 = 0; i6 < this.byteArrays.length; ++i6) {
-          const bytes2 = this.byteArrays[i6];
-          aggregation.set(bytes2, cursor2);
-          cursor2 += bytes2.byteLength;
+          const bytes3 = this.byteArrays[i6];
+          aggregation.set(bytes3, cursor2);
+          cursor2 += bytes3.byteLength;
         }
         this.reset();
         return aggregation;
@@ -10343,7 +10343,7 @@ var init_getAwsChunkedEncodingStream = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/serde/util-stream/headStream.browser.js
-async function headStream(stream, bytes2) {
+async function headStream(stream, bytes3) {
   let byteLengthCounter = 0;
   const chunks = [];
   const reader = stream.getReader();
@@ -10354,13 +10354,13 @@ async function headStream(stream, bytes2) {
       chunks.push(value);
       byteLengthCounter += value?.byteLength ?? 0;
     }
-    if (byteLengthCounter >= bytes2) {
+    if (byteLengthCounter >= bytes3) {
       break;
     }
     isDone = done;
   }
   reader.releaseLock();
-  const collected = new Uint8Array(Math.min(bytes2, byteLengthCounter));
+  const collected = new Uint8Array(Math.min(bytes3, byteLengthCounter));
   let offset = 0;
   for (const chunk of chunks) {
     if (chunk.byteLength > collected.byteLength - offset) {
@@ -10386,13 +10386,13 @@ var init_headStream = __esm({
     init_concatBytes();
     init_headStream_browser();
     init_stream_type_check();
-    headStream2 = (stream, bytes2) => {
+    headStream2 = (stream, bytes3) => {
       if (isReadableStream(stream)) {
-        return headStream(stream, bytes2);
+        return headStream(stream, bytes3);
       }
       return new Promise((resolve3, reject) => {
         const collector = new Collector();
-        collector.limit = bytes2;
+        collector.limit = bytes3;
         stream.pipe(collector);
         stream.on("error", (err) => {
           collector.end();
@@ -10400,8 +10400,8 @@ var init_headStream = __esm({
         });
         collector.on("error", reject);
         collector.on("finish", function() {
-          const bytes3 = concatBytes3(this.buffers);
-          resolve3(bytes3);
+          const bytes4 = concatBytes3(this.buffers);
+          resolve3(bytes4);
         });
       });
     };
@@ -10563,8 +10563,8 @@ var init_stream_collector = __esm({
         });
         collector.on("error", reject);
         collector.on("finish", function() {
-          const bytes2 = concatBytes3(this.bufferedBytes);
-          resolve3(bytes2);
+          const bytes3 = concatBytes3(this.bufferedBytes);
+          resolve3(bytes3);
         });
       });
     };
@@ -11039,11 +11039,11 @@ var init_Md5Js = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/checksum/md5/Md5Node.js
-import { createHash as createHash5 } from "node:crypto";
+import { createHash as createHash6 } from "node:crypto";
 function buildNativeClass() {
   return class Md5Node {
     digestLength = 16;
-    hash = createHash5("md5");
+    hash = createHash6("md5");
     update(data) {
       this.hash.update(toUint8Array(data));
     }
@@ -11052,7 +11052,7 @@ function buildNativeClass() {
       return new Uint8Array(buf2.buffer, buf2.byteOffset, buf2.byteLength);
     }
     reset() {
-      this.hash = createHash5("md5");
+      this.hash = createHash6("md5");
     }
   };
 }
@@ -11063,7 +11063,7 @@ var init_Md5Node = __esm({
     init_Md5Js();
     hasNativeCrypto = (() => {
       try {
-        createHash5("md5");
+        createHash6("md5");
         return true;
       } catch {
         return false;
@@ -11380,7 +11380,7 @@ var init_Sha256Js = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/checksum/sha256/Sha256Node.js
-import { createHash as createHash6, createHmac as createHmac2 } from "node:crypto";
+import { createHash as createHash7, createHmac as createHmac2 } from "node:crypto";
 function buildNativeClass3() {
   return class Sha256Node {
     digestLength = 32;
@@ -11414,7 +11414,7 @@ function buildNativeClass3() {
       this.finished = false;
     }
     createHash() {
-      return this.secret ? createHmac2("sha256", toBuffer(this.secret)) : createHash6("sha256");
+      return this.secret ? createHmac2("sha256", toBuffer(this.secret)) : createHash7("sha256");
     }
   };
 }
@@ -11433,7 +11433,7 @@ var init_Sha256Node = __esm({
     init_Sha256Js();
     hasNativeCrypto2 = (() => {
       try {
-        createHash6("sha256");
+        createHash7("sha256");
         return true;
       } catch {
         return false;
@@ -11554,13 +11554,13 @@ var init_checksum2 = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/event-streams/eventstream-codec/Int64.js
-function negate(bytes2) {
+function negate(bytes3) {
   for (let i6 = 0; i6 < 8; i6++) {
-    bytes2[i6] ^= 255;
+    bytes3[i6] ^= 255;
   }
   for (let i6 = 7; i6 > -1; i6--) {
-    bytes2[i6]++;
-    if (bytes2[i6] !== 0)
+    bytes3[i6]++;
+    if (bytes3[i6] !== 0)
       break;
   }
 }
@@ -11570,9 +11570,9 @@ var init_Int64 = __esm({
     init_serde();
     Int64 = class _Int64 {
       bytes;
-      constructor(bytes2) {
-        this.bytes = bytes2;
-        if (bytes2.byteLength !== 8) {
+      constructor(bytes3) {
+        this.bytes = bytes3;
+        if (bytes3.byteLength !== 8) {
           throw new Error("Int64 buffers must be exactly 8 bytes");
         }
       }
@@ -11580,22 +11580,22 @@ var init_Int64 = __esm({
         if (number4 > 9223372036854776e3 || number4 < -9223372036854776e3) {
           throw new Error(`${number4} is too large (or, if negative, too small) to represent as an Int64`);
         }
-        const bytes2 = new Uint8Array(8);
+        const bytes3 = new Uint8Array(8);
         for (let i6 = 7, remaining = Math.abs(Math.round(number4)); i6 > -1 && remaining > 0; i6--, remaining /= 256) {
-          bytes2[i6] = remaining;
+          bytes3[i6] = remaining;
         }
         if (number4 < 0) {
-          negate(bytes2);
+          negate(bytes3);
         }
-        return new _Int64(bytes2);
+        return new _Int64(bytes3);
       }
       valueOf() {
-        const bytes2 = this.bytes.slice(0);
-        const negative = bytes2[0] & 128;
+        const bytes3 = this.bytes.slice(0);
+        const negative = bytes3[0] & 128;
         if (negative) {
-          negate(bytes2);
+          negate(bytes3);
         }
-        return parseInt(toHex(bytes2), 16) * (negative ? -1 : 1);
+        return parseInt(toHex(bytes3), 16) * (negative ? -1 : 1);
       }
       toString() {
         return String(this.valueOf());
@@ -11623,13 +11623,13 @@ var init_HeaderMarshaller = __esm({
         for (const headerName in headers) {
           if (!hasOwn(headers, headerName))
             continue;
-          const bytes2 = this.fromUtf8(headerName);
-          if (bytes2.byteLength > 255) {
-            throw new Error(`@smithy/core/event-streams - header name exceeds 255 bytes: ${bytes2.byteLength}`);
+          const bytes3 = this.fromUtf8(headerName);
+          if (bytes3.byteLength > 255) {
+            throw new Error(`@smithy/core/event-streams - header name exceeds 255 bytes: ${bytes3.byteLength}`);
           }
-          chunks.push(Uint8Array.from([bytes2.byteLength]), bytes2, this.formatHeaderValue(headers[headerName]));
+          chunks.push(Uint8Array.from([bytes3.byteLength]), bytes3, this.formatHeaderValue(headers[headerName]));
         }
-        const out = new Uint8Array(chunks.reduce((carry, bytes2) => carry + bytes2.byteLength, 0));
+        const out = new Uint8Array(chunks.reduce((carry, bytes3) => carry + bytes3.byteLength, 0));
         let position = 0;
         for (const chunk of chunks) {
           out.set(chunk, position);
@@ -11932,8 +11932,8 @@ var init_MessageDecoderStream = __esm({
         return this.asyncIterator();
       }
       async *asyncIterator() {
-        for await (const bytes2 of this.options.inputStream) {
-          const decoded = this.options.decoder.decode(bytes2);
+        for await (const bytes3 of this.options.inputStream) {
+          const decoded = this.options.decoder.decode(bytes3);
           yield decoded;
         }
       }
@@ -12615,42 +12615,42 @@ var init_HttpProtocol = __esm({
           this.getPayloadCodec().setSerdeContext(serdeContext);
         }
       }
-      updateServiceEndpoint(request2, endpoint) {
-        if ("url" in endpoint) {
-          request2.protocol = endpoint.url.protocol;
-          request2.hostname = endpoint.url.hostname;
-          request2.port = endpoint.url.port ? Number(endpoint.url.port) : void 0;
-          request2.path = endpoint.url.pathname;
-          request2.fragment = endpoint.url.hash || void 0;
-          request2.username = endpoint.url.username || void 0;
-          request2.password = endpoint.url.password || void 0;
+      updateServiceEndpoint(request2, endpoint2) {
+        if ("url" in endpoint2) {
+          request2.protocol = endpoint2.url.protocol;
+          request2.hostname = endpoint2.url.hostname;
+          request2.port = endpoint2.url.port ? Number(endpoint2.url.port) : void 0;
+          request2.path = endpoint2.url.pathname;
+          request2.fragment = endpoint2.url.hash || void 0;
+          request2.username = endpoint2.url.username || void 0;
+          request2.password = endpoint2.url.password || void 0;
           if (!request2.query) {
             request2.query = {};
           }
-          for (const [k5, v] of endpoint.url.searchParams.entries()) {
+          for (const [k5, v] of endpoint2.url.searchParams.entries()) {
             request2.query[k5] = v;
           }
-          if (endpoint.headers) {
-            for (const name in endpoint.headers) {
-              if (!hasOwn(endpoint.headers, name))
+          if (endpoint2.headers) {
+            for (const name in endpoint2.headers) {
+              if (!hasOwn(endpoint2.headers, name))
                 continue;
-              request2.headers[name] = endpoint.headers[name].join(", ");
+              request2.headers[name] = endpoint2.headers[name].join(", ");
             }
           }
           return request2;
         } else {
-          request2.protocol = endpoint.protocol;
-          request2.hostname = endpoint.hostname;
-          request2.port = endpoint.port ? Number(endpoint.port) : void 0;
-          request2.path = endpoint.path;
+          request2.protocol = endpoint2.protocol;
+          request2.hostname = endpoint2.hostname;
+          request2.port = endpoint2.port ? Number(endpoint2.port) : void 0;
+          request2.path = endpoint2.path;
           request2.query = {
-            ...endpoint.query
+            ...endpoint2.query
           };
-          if (endpoint.headers) {
-            for (const name in endpoint.headers) {
-              if (!hasOwn(endpoint.headers, name))
+          if (endpoint2.headers) {
+            for (const name in endpoint2.headers) {
+              if (!hasOwn(endpoint2.headers, name))
                 continue;
-              request2.headers[name] = endpoint.headers[name];
+              request2.headers[name] = endpoint2.headers[name];
             }
           }
           return request2;
@@ -12802,7 +12802,7 @@ var init_HttpBindingProtocol = __esm({
         const serializer = this.serializer;
         const query = {};
         const headers = {};
-        const endpoint = await context.endpoint();
+        const endpoint2 = await context.endpoint();
         const ns = NormalizedSchema.of(operationSchema?.input);
         const payloadMemberNames = [];
         const payloadMemberSchemas = [];
@@ -12818,8 +12818,8 @@ var init_HttpBindingProtocol = __esm({
           headers,
           body: void 0
         });
-        if (endpoint) {
-          this.updateServiceEndpoint(request2, endpoint);
+        if (endpoint2) {
+          this.updateServiceEndpoint(request2, endpoint2);
           this.setHostPrefix(request2, operationSchema, input2);
           const opTraits = translateTraits(operationSchema.traits);
           if (opTraits.http) {
@@ -12959,9 +12959,9 @@ var init_HttpBindingProtocol = __esm({
         const ns = NormalizedSchema.of(operationSchema.output);
         const dataObject = {};
         if (response.statusCode >= 300) {
-          const bytes2 = await collectBody(response.body, context);
-          if (bytes2.byteLength > 0) {
-            Object.assign(dataObject, await deserializer.read(15, bytes2));
+          const bytes3 = await collectBody(response.body, context);
+          if (bytes3.byteLength > 0) {
+            Object.assign(dataObject, await deserializer.read(15, bytes3));
           }
           await this.handleError(operationSchema, context, response, dataObject, this.deserializeMetadata(response));
           throw new Error("@smithy/core/protocols - HTTP Protocol error handler failed to throw.");
@@ -12975,9 +12975,9 @@ var init_HttpBindingProtocol = __esm({
         }
         const nonHttpBindingMembers = await this.deserializeHttpMessage(ns, context, response, dataObject);
         if (nonHttpBindingMembers.length) {
-          const bytes2 = await collectBody(response.body, context);
-          if (bytes2.byteLength > 0) {
-            const dataFromBody = await deserializer.read(ns, bytes2);
+          const bytes3 = await collectBody(response.body, context);
+          if (bytes3.byteLength > 0) {
+            const dataFromBody = await deserializer.read(ns, bytes3);
             for (const member2 of nonHttpBindingMembers) {
               if (dataFromBody[member2] != null) {
                 dataObject[member2] = dataFromBody[member2];
@@ -13017,9 +13017,9 @@ var init_HttpBindingProtocol = __esm({
                 dataObject[memberName] = sdkStreamMixin2(response.body);
               }
             } else if (response.body) {
-              const bytes2 = await collectBody(response.body, context);
-              if (bytes2.byteLength > 0) {
-                dataObject[memberName] = await deserializer.read(memberSchema, bytes2);
+              const bytes3 = await collectBody(response.body, context);
+              if (bytes3.byteLength > 0) {
+                dataObject[memberName] = await deserializer.read(memberSchema, bytes3);
               }
             }
           } else if (memberTraits.httpHeader) {
@@ -13083,7 +13083,7 @@ var init_RpcProtocol = __esm({
         const serializer = this.serializer;
         const query = {};
         const headers = {};
-        const endpoint = await context.endpoint();
+        const endpoint2 = await context.endpoint();
         const ns = NormalizedSchema.of(operationSchema?.input);
         const schema = ns.getSchema();
         let payload2;
@@ -13098,8 +13098,8 @@ var init_RpcProtocol = __esm({
           headers,
           body: void 0
         });
-        if (endpoint) {
-          this.updateServiceEndpoint(request2, endpoint);
+        if (endpoint2) {
+          this.updateServiceEndpoint(request2, endpoint2);
           this.setHostPrefix(request2, operationSchema, input2);
         }
         if (input2) {
@@ -13134,9 +13134,9 @@ var init_RpcProtocol = __esm({
         const ns = NormalizedSchema.of(operationSchema.output);
         const dataObject = {};
         if (response.statusCode >= 300) {
-          const bytes2 = await collectBody(response.body, context);
-          if (bytes2.byteLength > 0) {
-            Object.assign(dataObject, await deserializer.read(15, bytes2));
+          const bytes3 = await collectBody(response.body, context);
+          if (bytes3.byteLength > 0) {
+            Object.assign(dataObject, await deserializer.read(15, bytes3));
           }
           await this.handleError(operationSchema, context, response, dataObject, this.deserializeMetadata(response));
           throw new Error("@smithy/core/protocols - RPC Protocol error handler failed to throw.");
@@ -13156,9 +13156,9 @@ var init_RpcProtocol = __esm({
             initialResponseContainer: dataObject
           });
         } else {
-          const bytes2 = await collectBody(response.body, context);
-          if (bytes2.byteLength > 0) {
-            Object.assign(dataObject, await deserializer.read(ns, bytes2));
+          const bytes3 = await collectBody(response.body, context);
+          if (bytes3.byteLength > 0) {
+            Object.assign(dataObject, await deserializer.read(ns, bytes3));
           }
         }
         dataObject.$metadata = this.deserializeMetadata(response);
@@ -14120,9 +14120,9 @@ var init_JsonShapeDeserializer2 = __esm({
         return this._read(schema, data);
       }
       _read(schema, value) {
-        const isObject2 = value !== null && typeof value === "object";
+        const isObject3 = value !== null && typeof value === "object";
         const ns = NormalizedSchema.of(schema);
-        if (isObject2) {
+        if (isObject3) {
           if (ns.isStructSchema()) {
             return this._readStruct(ns, value);
           }
@@ -14201,7 +14201,7 @@ var init_JsonShapeDeserializer2 = __esm({
           return value;
         }
         if (ns.isDocumentSchema()) {
-          if (isObject2) {
+          if (isObject3) {
             if (Array.isArray(value)) {
               for (let i6 = 0; i6 < value.length; ++i6) {
                 const v = value[i6];
@@ -14293,12 +14293,12 @@ var init_JsonBytesStringAdapter = __esm({
     init_serde();
     JsonBytesStringAdapter = class _JsonBytesStringAdapter extends Uint8Array {
       string = null;
-      static allocUnsafe(bytes2) {
+      static allocUnsafe(bytes3) {
         if (typeof Buffer === "function") {
-          const buffer = Buffer.allocUnsafe(bytes2);
+          const buffer = Buffer.allocUnsafe(bytes3);
           return new _JsonBytesStringAdapter(buffer.buffer, buffer.byteOffset, buffer.byteLength);
         }
-        return new _JsonBytesStringAdapter(bytes2);
+        return new _JsonBytesStringAdapter(bytes3);
       }
       toString() {
         return this.s();
@@ -14346,8 +14346,8 @@ var init_JsonBytesStringAdapter = __esm({
       split(separator, limit2) {
         return this.s().split(separator, limit2);
       }
-      substring(start, end2) {
-        return this.s().substring(start, end2);
+      substring(start2, end2) {
+        return this.s().substring(start2, end2);
       }
       trim() {
         return this.s().trim();
@@ -14637,7 +14637,7 @@ var init_JsonShapeSerializer2 = __esm({
           return;
         }
         const ns = NormalizedSchema.of(schema);
-        const isObject2 = typeof value === "object";
+        const isObject3 = typeof value === "object";
         if (ns.isStringSchema()) {
           const mediaType = ns.getMergedTraits().mediaType;
           if (mediaType) {
@@ -14653,7 +14653,7 @@ var init_JsonShapeSerializer2 = __esm({
           this.writeAsciiQuoted(asString);
           return;
         }
-        if (isObject2) {
+        if (isObject3) {
           if (ns.isStructSchema()) {
             this.writeStruct(ns, value);
             return;
@@ -15078,9 +15078,9 @@ var init_JsonShapeDeserializer = __esm({
         return this._read(schema, data);
       }
       _read(schema, value) {
-        const isObject2 = value !== null && typeof value === "object";
+        const isObject3 = value !== null && typeof value === "object";
         const ns = NormalizedSchema.of(schema);
-        if (isObject2) {
+        if (isObject3) {
           if (ns.isStructSchema()) {
             const record2 = value;
             const union2 = ns.isUnionSchema();
@@ -15194,7 +15194,7 @@ var init_JsonShapeDeserializer = __esm({
           return value;
         }
         if (ns.isDocumentSchema()) {
-          if (isObject2) {
+          if (isObject3) {
             const out = Array.isArray(value) ? [] : {};
             for (const k5 in value) {
               if (!hasOwn(value, k5))
@@ -15317,9 +15317,9 @@ var init_JsonShapeSerializer = __esm({
         }
       }
       _write(schema, value, container) {
-        const isObject2 = value !== null && typeof value === "object";
+        const isObject3 = value !== null && typeof value === "object";
         const ns = NormalizedSchema.of(schema);
-        if (isObject2) {
+        if (isObject3) {
           if (ns.isStructSchema()) {
             const record2 = value;
             const out = {};
@@ -15447,7 +15447,7 @@ var init_JsonShapeSerializer = __esm({
           this.useReplacer = true;
         }
         if (ns.isDocumentSchema()) {
-          if (isObject2) {
+          if (isObject3) {
             if (value instanceof Uint8Array) {
               return (this.serdeContext?.base64Encoder ?? toBase64)(value);
             }
@@ -19008,8 +19008,8 @@ var init_resolveDefaultAwsRegionalEndpointsConfig = __esm({
       if (typeof input2.endpointProvider !== "function") {
         throw new Error("@aws-sdk/util-endpoint - endpointProvider and endpoint missing in config for this client.");
       }
-      const { endpoint } = input2;
-      if (endpoint === void 0) {
+      const { endpoint: endpoint2 } = input2;
+      if (endpoint2 === void 0) {
         input2.endpoint = async () => {
           return toEndpointV12(input2.endpointProvider({
             Region: typeof input2.region === "function" ? await input2.region() : input2.region,
@@ -19021,7 +19021,7 @@ var init_resolveDefaultAwsRegionalEndpointsConfig = __esm({
       }
       return input2;
     };
-    toEndpointV12 = (endpoint) => parseUrl(endpoint.url);
+    toEndpointV12 = (endpoint2) => parseUrl(endpoint2.url);
   }
 });
 
@@ -20154,10 +20154,10 @@ var require_dist_cjs5 = __commonJS({
         for (const headerName in headers) {
           if (!hasOwn4(headers, headerName))
             continue;
-          const bytes2 = fromUtf84(headerName);
-          chunks.push(Uint8Array.from([bytes2.byteLength]), bytes2, this.formatHeaderValue(headers[headerName]));
+          const bytes3 = fromUtf84(headerName);
+          chunks.push(Uint8Array.from([bytes3.byteLength]), bytes3, this.formatHeaderValue(headers[headerName]));
         }
-        const out = new Uint8Array(chunks.reduce((carry, bytes2) => carry + bytes2.byteLength, 0));
+        const out = new Uint8Array(chunks.reduce((carry, bytes3) => carry + bytes3.byteLength, 0));
         let position = 0;
         for (const chunk of chunks) {
           out.set(chunk, position);
@@ -20233,9 +20233,9 @@ var require_dist_cjs5 = __commonJS({
     var UUID_PATTERN2 = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
     var Int642 = class _Int64 {
       bytes;
-      constructor(bytes2) {
-        this.bytes = bytes2;
-        if (bytes2.byteLength !== 8) {
+      constructor(bytes3) {
+        this.bytes = bytes3;
+        if (bytes3.byteLength !== 8) {
           throw new Error("Int64 buffers must be exactly 8 bytes");
         }
       }
@@ -20243,34 +20243,34 @@ var require_dist_cjs5 = __commonJS({
         if (number4 > 9223372036854776e3 || number4 < -9223372036854776e3) {
           throw new Error(`${number4} is too large (or, if negative, too small) to represent as an Int64`);
         }
-        const bytes2 = new Uint8Array(8);
+        const bytes3 = new Uint8Array(8);
         for (let i6 = 7, remaining = Math.abs(Math.round(number4)); i6 > -1 && remaining > 0; i6--, remaining /= 256) {
-          bytes2[i6] = remaining;
+          bytes3[i6] = remaining;
         }
         if (number4 < 0) {
-          negate2(bytes2);
+          negate2(bytes3);
         }
-        return new _Int64(bytes2);
+        return new _Int64(bytes3);
       }
       valueOf() {
-        const bytes2 = this.bytes.slice(0);
-        const negative = bytes2[0] & 128;
+        const bytes3 = this.bytes.slice(0);
+        const negative = bytes3[0] & 128;
         if (negative) {
-          negate2(bytes2);
+          negate2(bytes3);
         }
-        return parseInt(toHex2(bytes2), 16) * (negative ? -1 : 1);
+        return parseInt(toHex2(bytes3), 16) * (negative ? -1 : 1);
       }
       toString() {
         return String(this.valueOf());
       }
     };
-    function negate2(bytes2) {
+    function negate2(bytes3) {
       for (let i6 = 0; i6 < 8; i6++) {
-        bytes2[i6] ^= 255;
+        bytes3[i6] ^= 255;
       }
       for (let i6 = 7; i6 > -1; i6--) {
-        bytes2[i6]++;
-        if (bytes2[i6] !== 0)
+        bytes3[i6]++;
+        if (bytes3[i6] !== 0)
           break;
       }
     }
@@ -21213,14 +21213,14 @@ For more information, please visit: ` + STATIC_STABILITY_DOC_URL);
         }, maxRetries2);
       };
       return async () => {
-        const endpoint = await getInstanceMetadataEndpoint();
+        const endpoint2 = await getInstanceMetadataEndpoint();
         if (disableFetchToken) {
           logger2?.debug("AWS SDK Instance Metadata", "using v1 fallback (no token fetch)");
-          return getCredentials(maxRetries, { ...endpoint, timeout });
+          return getCredentials(maxRetries, { ...endpoint2, timeout });
         } else {
           let token;
           try {
-            token = (await getMetadataToken({ ...endpoint, timeout })).toString();
+            token = (await getMetadataToken({ ...endpoint2, timeout })).toString();
           } catch (error63) {
             if (error63?.statusCode === 400) {
               throw Object.assign(error63, {
@@ -21230,10 +21230,10 @@ For more information, please visit: ` + STATIC_STABILITY_DOC_URL);
               disableFetchToken = true;
             }
             logger2?.debug("AWS SDK Instance Metadata", "using v1 fallback (initial)");
-            return getCredentials(maxRetries, { ...endpoint, timeout });
+            return getCredentials(maxRetries, { ...endpoint2, timeout });
           }
           return getCredentials(maxRetries, {
-            ...endpoint,
+            ...endpoint2,
             headers: {
               [X_AWS_EC2_METADATA_TOKEN2]: token
             },
@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs11 = __require("node:fs/promises");
+    var fs13 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs11.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs13.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -22584,8 +22584,8 @@ function writeValue(ns, value, container, serdeContext) {
     encodeHeader(majorMap, 0);
     return;
   }
-  const isObject2 = typeof value === "object";
-  if (isObject2) {
+  const isObject3 = typeof value === "object";
+  if (isObject3) {
     if (ns.isBlobSchema()) {
       if (value instanceof Uint8Array) {
         writeBytes(value);
@@ -22644,8 +22644,8 @@ function writeValue(ns, value, container, serdeContext) {
   }
   if (typeof value === "string") {
     if (ns.isBlobSchema()) {
-      const bytes2 = (serdeContext?.base64Decoder ?? fromBase64)(value);
-      writeBytes(bytes2);
+      const bytes3 = (serdeContext?.base64Decoder ?? fromBase64)(value);
+      writeBytes(bytes3);
       return;
     }
     writeString(value);
@@ -22927,10 +22927,10 @@ function writeString(s3) {
       cached2.epoch = encodeCacheEpoch;
       return;
     }
-    const start = cursor;
+    const start2 = cursor;
     writeStringUncached(s3, len);
     const end2 = cursor;
-    const bytes2 = Uint8Array.prototype.slice.call(buf, start, end2);
+    const bytes3 = Uint8Array.prototype.slice.call(buf, start2, end2);
     if (stringEncodeCache.size >= STRING_CACHE_MAX) {
       if (encodeCacheSaturated) {
         return;
@@ -22951,7 +22951,7 @@ function writeString(s3) {
       }
     }
     if (stringEncodeCache.size < STRING_CACHE_MAX) {
-      stringEncodeCache.set(s3, { epoch: encodeCacheEpoch, bytes: bytes2 });
+      stringEncodeCache.set(s3, { epoch: encodeCacheEpoch, bytes: bytes3 });
     }
     return;
   }
@@ -23307,9 +23307,9 @@ function readUtf8StringIndefinite() {
       }
       return textDecoder.decode(combined);
     }
-    const bytes2 = readByteString();
-    chunks.push(bytes2);
-    totalLen += bytes2.length;
+    const bytes3 = readByteString();
+    chunks.push(bytes3);
+    totalLen += bytes3.length;
   }
   throw new Error("expected break marker.");
 }
@@ -23328,9 +23328,9 @@ function readByteStringIndefinite() {
       }
       return combined;
     }
-    const bytes2 = readByteString();
-    chunks.push(bytes2);
-    totalLen += bytes2.length;
+    const bytes3 = readByteString();
+    chunks.push(bytes3);
+    totalLen += bytes3.length;
   }
   throw new Error("expected break marker.");
 }
@@ -23500,24 +23500,24 @@ function readByteString() {
   if (end - pos < length) {
     overflow(length);
   }
-  const start = pos;
+  const start2 = pos;
   pos += length;
-  return payload.subarray(start, start + length);
+  return payload.subarray(start2, start2 + length);
 }
 function readUtf8String() {
   const length = decodeCount();
   if (end - pos < length) {
     overflow(length);
   }
-  const start = pos;
+  const start2 = pos;
   pos += length;
   if (length < 24) {
-    return decodeUtf8Cached(start, length);
+    return decodeUtf8Cached(start2, length);
   }
   if (isBuffer) {
-    return payload.toString("utf-8", start, start + length);
+    return payload.toString("utf-8", start2, start2 + length);
   }
-  return textDecoder.decode(payload.subarray(start, start + length));
+  return textDecoder.decode(payload.subarray(start2, start2 + length));
 }
 function decodeUtf8Cached(at, length) {
   let h6 = length;
@@ -23721,12 +23721,12 @@ var init_CborShapeDeserializer2 = __esm({
     init_cbor_types();
     init_CborShapeSerializer2();
     CborShapeDeserializer2 = class extends SerdeContext {
-      read(schema, bytes2) {
-        payload = bytes2;
-        isBuffer = USE_BUFFER2 && bytes2 instanceof Buffer;
-        dataView = new DataView(bytes2.buffer, bytes2.byteOffset, bytes2.byteLength);
+      read(schema, bytes3) {
+        payload = bytes3;
+        isBuffer = USE_BUFFER2 && bytes3 instanceof Buffer;
+        dataView = new DataView(bytes3.buffer, bytes3.byteOffset, bytes3.byteLength);
         pos = 0;
-        end = bytes2.length;
+        end = bytes3.length;
         cacheEpoch = cacheEpoch + 1 & 65535;
         return readValue(NormalizedSchema.of(schema));
       }
@@ -24746,7 +24746,7 @@ var init_XmlShapeDeserializer = __esm({
         this.serdeContext = serdeContext;
         this.stringDeserializer.setSerdeContext(serdeContext);
       }
-      read(schema, bytes2, key2) {
+      read(schema, bytes3, key2) {
         const ns = NormalizedSchema.of(schema);
         const memberSchemas = ns.getMemberSchemas();
         const isEventPayload = ns.isStructSchema() && ns.isMemberSchema() && !!Object.values(memberSchemas).find((memberNs) => {
@@ -24757,13 +24757,13 @@ var init_XmlShapeDeserializer = __esm({
           const memberName = Object.keys(memberSchemas)[0];
           const eventMemberSchema = memberSchemas[memberName];
           if (eventMemberSchema.isBlobSchema()) {
-            output2[memberName] = bytes2;
+            output2[memberName] = bytes3;
           } else {
-            output2[memberName] = this.read(memberSchemas[memberName], bytes2);
+            output2[memberName] = this.read(memberSchemas[memberName], bytes3);
           }
           return output2;
         }
-        const xmlString = (this.serdeContext?.utf8Encoder ?? toUtf8)(bytes2);
+        const xmlString = (this.serdeContext?.utf8Encoder ?? toUtf8)(bytes3);
         const parsedObject = this.parseXml(xmlString);
         return this.readSchema(schema, key2 ? parsedObject[key2] : parsedObject);
       }
@@ -25123,9 +25123,9 @@ var init_AwsQueryProtocol = __esm({
         const ns = NormalizedSchema.of(operationSchema.output);
         const dataObject = {};
         if (response.statusCode >= 300) {
-          const bytes3 = await collectBody(response.body, context);
-          if (bytes3.byteLength > 0) {
-            Object.assign(dataObject, await deserializer.read(15, bytes3));
+          const bytes4 = await collectBody(response.body, context);
+          if (bytes4.byteLength > 0) {
+            Object.assign(dataObject, await deserializer.read(15, bytes4));
           }
           await this.handleError(operationSchema, context, response, dataObject, this.deserializeMetadata(response));
         }
@@ -25136,9 +25136,9 @@ var init_AwsQueryProtocol = __esm({
         }
         const shortName = operationSchema.name.split("#")[1] ?? operationSchema.name;
         const awsQueryResultKey = ns.isStructSchema() && this.useNestedResult() ? shortName + "Result" : void 0;
-        const bytes2 = await collectBody(response.body, context);
-        if (bytes2.byteLength > 0) {
-          Object.assign(dataObject, await deserializer.read(ns, bytes2, awsQueryResultKey));
+        const bytes3 = await collectBody(response.body, context);
+        if (bytes3.byteLength > 0) {
+          Object.assign(dataObject, await deserializer.read(ns, bytes3, awsQueryResultKey));
         }
         dataObject.$metadata = this.deserializeMetadata(response);
         return dataObject;
@@ -25324,9 +25324,9 @@ var init_XmlShapeSerializer = __esm({
       }
       flush() {
         if (this.byteBuffer !== void 0) {
-          const bytes2 = this.byteBuffer;
+          const bytes3 = this.byteBuffer;
           delete this.byteBuffer;
-          return bytes2;
+          return bytes3;
         }
         if (this.stringBuffer !== void 0) {
           const str = this.stringBuffer;
@@ -28110,8 +28110,8 @@ var init_httpAuthSchemeProvider3 = __esm({
     defaultSTSHttpAuthSchemeParametersProvider = createEndpointRuleSetHttpAuthSchemeParametersProvider(_defaultSTSHttpAuthSchemeParametersProvider);
     createEndpointRuleSetHttpAuthSchemeProvider = (defaultEndpointResolver5, defaultHttpAuthSchemeResolver, createHttpAuthOptionFunctions) => {
       const endpointRuleSetHttpAuthSchemeProvider = (authParameters) => {
-        const endpoint = defaultEndpointResolver5(authParameters);
-        const authSchemes = endpoint.properties?.authSchemes;
+        const endpoint2 = defaultEndpointResolver5(authParameters);
+        const authSchemes = endpoint2.properties?.authSchemes;
         if (!authSchemes) {
           return defaultHttpAuthSchemeResolver(authParameters);
         }
@@ -29999,10 +29999,10 @@ var require_dist_cjs14 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2 } = (init_config2(), __toCommonJS(config_exports));
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
-    var { createHash: createHash8, createPrivateKey, createPublicKey, sign: sign2 } = __require("node:crypto");
+    var { createHash: createHash9, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign2 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname6, join: join19 } = __require("node:path");
+    var { dirname: dirname6, join: join21 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30166,10 +30166,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join19(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join21(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
-        const loginSessionSha256 = createHash8("sha256").update(loginSessionBytes).digest("hex");
-        return join19(directory, `${loginSessionSha256}.json`);
+        const loginSessionSha256 = createHash9("sha256").update(loginSessionBytes).digest("hex");
+        return join21(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -30210,15 +30210,15 @@ var require_dist_cjs14 = __commonJS({
           override: true
         });
       }
-      async generateDpop(method = "POST", endpoint) {
+      async generateDpop(method = "POST", endpoint2) {
         const token = await this.loadToken();
         try {
-          const privateKey = createPrivateKey({
+          const privateKey = createPrivateKey2({
             key: token.dpopKey,
             format: "pem",
             type: "sec1"
           });
-          const publicKey = createPublicKey(privateKey);
+          const publicKey = createPublicKey2(privateKey);
           const publicDer = publicKey.export({ format: "der", type: "spki" });
           let pointStart = -1;
           for (let i6 = 0; i6 < publicDer.length; i6++) {
@@ -30242,7 +30242,7 @@ var require_dist_cjs14 = __commonJS({
           const payload2 = {
             jti: crypto.randomUUID(),
             htm: method,
-            htu: endpoint,
+            htu: endpoint2,
             iat: Math.floor(Date.now() / 1e3)
           };
           const headerB64 = Buffer.from(JSON.stringify(header2)).toString("base64url");
@@ -30283,7 +30283,7 @@ var require_dist_cjs15 = __commonJS({
   "../../node_modules/@aws-sdk/credential-provider-process/dist-cjs/index.js"(exports) {
     var { externalDataInterceptor: externalDataInterceptor2, CredentialsProviderError: CredentialsProviderError2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2 } = (init_config2(), __toCommonJS(config_exports));
     var { exec } = __require("node:child_process");
-    var { promisify: promisify2 } = __require("node:util");
+    var { promisify: promisify3 } = __require("node:util");
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var getValidatedProcessCredentials = (profileName, data, profiles) => {
       if (data.Version !== 1) {
@@ -30319,7 +30319,7 @@ var require_dist_cjs15 = __commonJS({
       if (profiles[profileName]) {
         const credentialProcess = profile["credential_process"];
         if (credentialProcess !== void 0) {
-          const execPromise = promisify2(externalDataInterceptor2?.getTokenRecord?.().exec ?? exec);
+          const execPromise = promisify3(externalDataInterceptor2?.getTokenRecord?.().exec ?? exec);
           try {
             const { stdout } = await execPromise(credentialProcess);
             let data;
@@ -35336,7 +35336,7 @@ var require_common = __commonJS({
           }
           if (typeof res.data.error === "object") {
             message2 = "message" in res.data.error && typeof res.data.error.message === "string" ? res.data.error.message : message2;
-            const status = "status" in res.data.error && typeof res.data.error.status === "string" ? res.data.error.status : res.statusText;
+            const status2 = "status" in res.data.error && typeof res.data.error.status === "string" ? res.data.error.status : res.statusText;
             const code2 = "code" in res.data.error && typeof res.data.error.code === "number" ? res.data.error.code : res.status;
             if ("errors" in res.data.error && Array.isArray(res.data.error.errors)) {
               const errorMessages = [];
@@ -35348,13 +35348,13 @@ var require_common = __commonJS({
               return Object.assign({
                 message: errorMessages.join("\n") || message2,
                 code: code2,
-                status
+                status: status2
               }, res.data.error);
             }
             return Object.assign({
               message: message2,
               code: code2,
-              status
+              status: status2
             }, res.data.error);
           }
         }
@@ -35520,8 +35520,8 @@ var require_retry3 = __commonJS({
       if (err.response && err.response.status) {
         let isInRange = false;
         for (const [min, max] of config2.statusCodesToRetry) {
-          const status = err.response.status;
-          if (status >= min && status <= max) {
+          const status2 = err.response.status;
+          if (status2 >= min && status2 <= max) {
             isInRange = true;
             break;
           }
@@ -36986,11 +36986,11 @@ var require_ponyfill_es2018 = __commonJS({
           throw new TypeError(`${context} is not a function.`);
         }
       }
-      function isObject2(x2) {
+      function isObject3(x2) {
         return typeof x2 === "object" && x2 !== null || typeof x2 === "function";
       }
       function assertObject(x2, context) {
-        if (!isObject2(x2)) {
+        if (!isObject3(x2)) {
           throw new TypeError(`${context} is not an object.`);
         }
       }
@@ -38348,13 +38348,13 @@ var require_ponyfill_es2018 = __commonJS({
         assertDictionary(original, context);
         const abort = original === null || original === void 0 ? void 0 : original.abort;
         const close = original === null || original === void 0 ? void 0 : original.close;
-        const start = original === null || original === void 0 ? void 0 : original.start;
+        const start2 = original === null || original === void 0 ? void 0 : original.start;
         const type = original === null || original === void 0 ? void 0 : original.type;
         const write = original === null || original === void 0 ? void 0 : original.write;
         return {
           abort: abort === void 0 ? void 0 : convertUnderlyingSinkAbortCallback(abort, original, `${context} has member 'abort' that`),
           close: close === void 0 ? void 0 : convertUnderlyingSinkCloseCallback(close, original, `${context} has member 'close' that`),
-          start: start === void 0 ? void 0 : convertUnderlyingSinkStartCallback(start, original, `${context} has member 'start' that`),
+          start: start2 === void 0 ? void 0 : convertUnderlyingSinkStartCallback(start2, original, `${context} has member 'start' that`),
           write: write === void 0 ? void 0 : convertUnderlyingSinkWriteCallback(write, original, `${context} has member 'write' that`),
           type
         };
@@ -40145,13 +40145,13 @@ var require_ponyfill_es2018 = __commonJS({
         const autoAllocateChunkSize = original === null || original === void 0 ? void 0 : original.autoAllocateChunkSize;
         const cancel = original === null || original === void 0 ? void 0 : original.cancel;
         const pull = original === null || original === void 0 ? void 0 : original.pull;
-        const start = original === null || original === void 0 ? void 0 : original.start;
+        const start2 = original === null || original === void 0 ? void 0 : original.start;
         const type = original === null || original === void 0 ? void 0 : original.type;
         return {
           autoAllocateChunkSize: autoAllocateChunkSize === void 0 ? void 0 : convertUnsignedLongLongWithEnforceRange(autoAllocateChunkSize, `${context} has member 'autoAllocateChunkSize' that`),
           cancel: cancel === void 0 ? void 0 : convertUnderlyingSourceCancelCallback(cancel, original, `${context} has member 'cancel' that`),
           pull: pull === void 0 ? void 0 : convertUnderlyingSourcePullCallback(pull, original, `${context} has member 'pull' that`),
-          start: start === void 0 ? void 0 : convertUnderlyingSourceStartCallback(start, original, `${context} has member 'start' that`),
+          start: start2 === void 0 ? void 0 : convertUnderlyingSourceStartCallback(start2, original, `${context} has member 'start' that`),
           type: type === void 0 ? void 0 : convertReadableStreamType(type, `${context} has member 'type' that`)
         };
       }
@@ -40578,14 +40578,14 @@ var require_ponyfill_es2018 = __commonJS({
         const cancel = original === null || original === void 0 ? void 0 : original.cancel;
         const flush2 = original === null || original === void 0 ? void 0 : original.flush;
         const readableType = original === null || original === void 0 ? void 0 : original.readableType;
-        const start = original === null || original === void 0 ? void 0 : original.start;
+        const start2 = original === null || original === void 0 ? void 0 : original.start;
         const transform2 = original === null || original === void 0 ? void 0 : original.transform;
         const writableType = original === null || original === void 0 ? void 0 : original.writableType;
         return {
           cancel: cancel === void 0 ? void 0 : convertTransformerCancelCallback(cancel, original, `${context} has member 'cancel' that`),
           flush: flush2 === void 0 ? void 0 : convertTransformerFlushCallback(flush2, original, `${context} has member 'flush' that`),
           readableType,
-          start: start === void 0 ? void 0 : convertTransformerStartCallback(start, original, `${context} has member 'start' that`),
+          start: start2 === void 0 ? void 0 : convertTransformerStartCallback(start2, original, `${context} has member 'start' that`),
           transform: transform2 === void 0 ? void 0 : convertTransformerTransformCallback(transform2, original, `${context} has member 'transform' that`),
           writableType
         };
@@ -41207,9 +41207,9 @@ var init_fetch_blob = __esm({
        * @param {number} [end]
        * @param {string} [type]
        */
-      slice(start = 0, end2 = this.size, type = "") {
+      slice(start2 = 0, end2 = this.size, type = "") {
         const { size } = this;
-        let relativeStart = start < 0 ? Math.max(size + start, 0) : Math.min(start, size);
+        let relativeStart = start2 < 0 ? Math.max(size + start2, 0) : Math.min(start2, size);
         let relativeEnd = end2 < 0 ? Math.max(size + end2, 0) : Math.min(end2, size);
         const span = Math.max(relativeEnd - relativeStart, 0);
         const parts = this.#parts;
@@ -41523,12 +41523,12 @@ var init_from = __esm({
        * Slicing arguments is first validated and formatted
        * to not be out of range by Blob.prototype.slice
        */
-      slice(start, end2) {
+      slice(start2, end2) {
         return new _BlobDataItem({
           path: this.#path,
           lastModified: this.lastModified,
-          size: end2 - start,
-          start: this.#start + start
+          size: end2 - start2,
+          start: this.#start + start2
         });
       }
       async *stream() {
@@ -41717,9 +41717,9 @@ var init_multipart_parser = __esm({
         const clear = (name) => {
           delete this[name + "Mark"];
         };
-        const callback = (callbackSymbol, start, end2, ui8a) => {
-          if (start === void 0 || start !== end2) {
-            this[callbackSymbol](ui8a && ui8a.subarray(start, end2));
+        const callback = (callbackSymbol, start2, end2, ui8a) => {
+          if (start2 === void 0 || start2 !== end2) {
+            this[callbackSymbol](ui8a && ui8a.subarray(start2, end2));
           }
         };
         const dataCallback = (name, clear2) => {
@@ -42381,7 +42381,7 @@ var init_response = __esm({
     Response2 = class _Response extends Body {
       constructor(body = null, options = {}) {
         super(body, options);
-        const status = options.status != null ? options.status : 200;
+        const status2 = options.status != null ? options.status : 200;
         const headers = new Headers2(options.headers);
         if (body !== null && !headers.has("Content-Type")) {
           const contentType = extractContentType(body, this);
@@ -42392,7 +42392,7 @@ var init_response = __esm({
         this[INTERNALS2] = {
           type: "default",
           url: options.url,
-          status,
+          status: status2,
           statusText: options.statusText || "",
           headers,
           counter: options.counter,
@@ -42449,15 +42449,15 @@ var init_response = __esm({
        * @param {number} status An optional status code for the response (e.g., 302.)
        * @returns {Response}    A Response object.
        */
-      static redirect(url2, status = 302) {
-        if (!isRedirect(status)) {
+      static redirect(url2, status2 = 302) {
+        if (!isRedirect(status2)) {
           throw new RangeError('Failed to execute "redirect" on "response": Invalid status code');
         }
         return new _Response(null, {
           headers: {
             location: new URL(url2).toString()
           },
-          status
+          status: status2
         });
       }
       static error() {
@@ -43538,8 +43538,8 @@ var require_gaxios = __commonJS({
        * By default, throw for any non-2xx status code
        * @param status status code from the HTTP response
        */
-      validateStatus(status) {
-        return status >= 200 && status < 300;
+      validateStatus(status2) {
+        return status2 >= 200 && status2 < 300;
       }
       /**
        * Attempts to parse a response by looking at the Content-Type header.
@@ -46203,10 +46203,10 @@ var require_base64_js = __commonJS({
     function tripletToBase64(num) {
       return lookup[num >> 18 & 63] + lookup[num >> 12 & 63] + lookup[num >> 6 & 63] + lookup[num & 63];
     }
-    function encodeChunk(uint8, start, end2) {
+    function encodeChunk(uint8, start2, end2) {
       var tmp;
       var output2 = [];
-      for (var i7 = start; i7 < end2; i7 += 3) {
+      for (var i7 = start2; i7 < end2; i7 += 3) {
         tmp = (uint8[i7] << 16 & 16711680) + (uint8[i7 + 1] << 8 & 65280) + (uint8[i7 + 2] & 255);
         output2.push(tripletToBase64(tmp));
       }
@@ -46619,12 +46619,12 @@ var require_ecdsa_sig_formatter = __commonJS({
       dst = base64Url(dst);
       return dst;
     }
-    function countPadding(buf2, start, stop) {
+    function countPadding(buf2, start2, stop) {
       var padding = 0;
-      while (start + padding < stop && buf2[start + padding] === 0) {
+      while (start2 + padding < stop && buf2[start2 + padding] === 0) {
         ++padding;
       }
-      var needsSign = buf2[start + padding] >= MAX_OCTET;
+      var needsSign = buf2[start2 + padding] >= MAX_OCTET;
       if (needsSign) {
         --padding;
       }
@@ -46688,7 +46688,7 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs11 = __require("fs");
+    var fs13 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
@@ -46776,7 +46776,7 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs11.promises.lstat(filePath);
+        const stats = await fs13.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -48287,7 +48287,7 @@ var require_jwa = __commonJS({
       return bufferEqual(a5, b5);
     };
     function createHmacVerifier(bits) {
-      return function verify(thing, signature, secret) {
+      return function verify2(thing, signature, secret) {
         var computedSig = createHmacSigner(bits)(thing, secret);
         return timingSafeEqual2(Buffer4.from(signature), Buffer4.from(computedSig));
       };
@@ -48302,7 +48302,7 @@ var require_jwa = __commonJS({
       };
     }
     function createKeyVerifier(bits) {
-      return function verify(thing, signature, publicKey) {
+      return function verify2(thing, signature, publicKey) {
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase643(signature);
@@ -48325,7 +48325,7 @@ var require_jwa = __commonJS({
       };
     }
     function createPSSKeyVerifier(bits) {
-      return function verify(thing, signature, publicKey) {
+      return function verify2(thing, signature, publicKey) {
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase643(signature);
@@ -48348,7 +48348,7 @@ var require_jwa = __commonJS({
     }
     function createECDSAVerifer(bits) {
       var inner = createKeyVerifier(bits);
-      return function verify(thing, signature, publicKey) {
+      return function verify2(thing, signature, publicKey) {
         signature = formatEcdsa.joseToDer(signature, "ES" + bits).toString("base64");
         var result = inner(thing, signature, publicKey);
         return result;
@@ -48360,7 +48360,7 @@ var require_jwa = __commonJS({
       };
     }
     function createNoneVerifier() {
-      return function verify(thing, signature) {
+      return function verify2(thing, signature) {
         return signature === "";
       };
     }
@@ -48491,11 +48491,11 @@ var require_verify_stream = __commonJS({
     var toString = require_tostring();
     var util = __require("util");
     var JWS_REGEX = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;
-    function isObject2(thing) {
+    function isObject3(thing) {
       return Object.prototype.toString.call(thing) === "[object Object]";
     }
     function safeJsonParse(thing) {
-      if (isObject2(thing))
+      if (isObject3(thing))
         return thing;
       try {
         return JSON.parse(thing);
@@ -48574,7 +48574,7 @@ var require_verify_stream = __commonJS({
       }.bind(this));
     }
     util.inherits(VerifyStream, Stream4);
-    VerifyStream.prototype.verify = function verify() {
+    VerifyStream.prototype.verify = function verify2() {
       try {
         var valid = jwsVerify(this.signature.buffer, this.algorithm, this.key.buffer);
         var obj = jwsDecode(this.signature.buffer, this.encoding);
@@ -48731,10 +48731,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs11 = __require("fs");
+    var fs13 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile6 = fs11.readFile ? (0, util_1.promisify)(fs11.readFile) : async () => {
+    var readFile6 = fs13.readFile ? (0, util_1.promisify)(fs13.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -49742,14 +49742,14 @@ var require_impersonated = __commonJS({
         } catch (error63) {
           if (!(error63 instanceof Error))
             throw error63;
-          let status = 0;
+          let status2 = 0;
           let message2 = "";
           if (error63 instanceof gaxios_1.GaxiosError) {
-            status = error63?.response?.data?.error?.status;
+            status2 = error63?.response?.data?.error?.status;
             message2 = error63?.response?.data?.error?.message;
           }
-          if (status && message2) {
-            error63.message = `${status}: unable to impersonate: ${message2}`;
+          if (status2 && message2) {
+            error63.message = `${status2}: unable to impersonate: ${message2}`;
             throw error63;
           } else {
             error63.message = `unable to impersonate: ${error63}`;
@@ -50411,12 +50411,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs11 = __require("fs");
-    var readFile6 = (0, util_1.promisify)(fs11.readFile ?? (() => {
+    var fs13 = __require("fs");
+    var readFile6 = (0, util_1.promisify)(fs13.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs11.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs13.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs11.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs13.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50534,7 +50534,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs11 = __require("fs");
+    var fs13 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50628,7 +50628,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs11.promises.readFile(configPath, "utf8");
+          fileContents = await fs13.promises.readFile(configPath, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -50653,14 +50653,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key2;
         try {
-          cert = await fs11.promises.readFile(certPath);
+          cert = await fs13.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key2 = await fs11.promises.readFile(keyPath);
+          key2 = await fs13.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key2);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
@@ -50679,7 +50679,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs11.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs13.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51381,7 +51381,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs11 = __require("fs");
+    var fs13 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51466,14 +51466,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs11.promises.realpath(this.outputFile);
+          filePath = await fs13.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs11.promises.lstat(filePath)).isFile()) {
+        if (!(await fs13.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs11.promises.readFile(filePath, {
+        const responseString = await fs13.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -51884,7 +51884,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs11 = __require("fs");
+    var fs13 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52107,7 +52107,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs11.promises.readFile(currentPath);
+            const ca = await fs13.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52167,7 +52167,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs11 = __require("fs");
+    var fs13 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52469,7 +52469,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs11.existsSync(location)) {
+        if (!fs13.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52486,8 +52486,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs11.realpathSync(filePath);
-          if (!fs11.lstatSync(filePath).isFile()) {
+          filePath = fs13.realpathSync(filePath);
+          if (!fs13.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52496,7 +52496,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs11.createReadStream(filePath);
+        const readStream = fs13.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52805,10 +52805,10 @@ var require_googleauth = __commonJS({
           const client = await this.#pendingAuthClient;
           if (client instanceof gdchclient_1.GdchClient && !client.apiAudience) {
             const opts = this.clientOptions;
-            const endpoint = opts.apiEndpoint || opts.servicePath;
-            if (endpoint) {
-              const scheme = endpoint.startsWith("http") ? "" : "https://";
-              const formattedAudience = `${scheme}${endpoint}`.replace(/\/+$/, "");
+            const endpoint2 = opts.apiEndpoint || opts.servicePath;
+            if (endpoint2) {
+              const scheme = endpoint2.startsWith("http") ? "" : "https://";
+              const formattedAudience = `${scheme}${endpoint2}`.replace(/\/+$/, "");
               const newClient = client.createWithGdchAudience(formattedAudience);
               this.cachedCredential = newClient;
               return newClient;
@@ -52824,7 +52824,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs11.createReadStream(filePath);
+          const stream = fs13.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -52929,10 +52929,10 @@ var require_googleauth = __commonJS({
        * sign('data', 'https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/');
        * ```
        */
-      async sign(data, endpoint) {
+      async sign(data, endpoint2) {
         const client = await this.getClient();
         const universe = await this.getUniverseDomain();
-        endpoint = endpoint || `https://iamcredentials.${universe}/v1/projects/-/serviceAccounts/`;
+        endpoint2 = endpoint2 || `https://iamcredentials.${universe}/v1/projects/-/serviceAccounts/`;
         if (client instanceof impersonated_1.Impersonated) {
           const signed = await client.sign(data);
           return signed.signedBlob;
@@ -52946,10 +52946,10 @@ var require_googleauth = __commonJS({
         if (!creds.client_email) {
           throw new Error("Cannot sign data without `client_email`.");
         }
-        return this.signBlob(crypto2, creds.client_email, data, endpoint);
+        return this.signBlob(crypto2, creds.client_email, data, endpoint2);
       }
-      async signBlob(crypto2, emailOrUniqueId, data, endpoint) {
-        const url2 = new URL(endpoint + `${emailOrUniqueId}:signBlob`);
+      async signBlob(crypto2, emailOrUniqueId, data, endpoint2) {
+        const url2 = new URL(endpoint2 + `${emailOrUniqueId}:signBlob`);
         const res = await this.request({
           method: "POST",
           url: url2.href,
@@ -60579,12 +60579,12 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list2, fs11, exportName) {
+    function addFormats(ajv, list2, fs13, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list2)
-        ajv.addFormat(f7, fs11[f7]);
+        ajv.addFormat(f7, fs13[f7]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -61305,9 +61305,9 @@ function nullish(input2) {
   return input2 === null || input2 === void 0;
 }
 function cleanRegex(source2) {
-  const start = source2.startsWith("^") ? 1 : 0;
+  const start2 = source2.startsWith("^") ? 1 : 0;
   const end2 = source2.endsWith("$") ? source2.length - 1 : source2.length;
-  return source2.slice(start, end2);
+  return source2.slice(start2, end2);
 }
 function floatSafeRemainder(val, step) {
   const ratio = val / step;
@@ -61778,9 +61778,9 @@ function sizeCaps(defChecks) {
   }
   return caps;
 }
-function attachSchema(issues, start, inst) {
+function attachSchema(issues, start2, inst) {
   var _a5;
-  for (let i6 = start; i6 < issues.length; i6++) {
+  for (let i6 = start2; i6 < issues.length; i6++) {
     (_a5 = issues[i6]).schema ?? (_a5.schema = inst);
   }
 }
@@ -61878,16 +61878,16 @@ function cleanEnum(obj) {
 }
 function base64ToUint8Array(base643) {
   const binaryString = atob(base643);
-  const bytes2 = new Uint8Array(binaryString.length);
+  const bytes3 = new Uint8Array(binaryString.length);
   for (let i6 = 0; i6 < binaryString.length; i6++) {
-    bytes2[i6] = binaryString.charCodeAt(i6);
+    bytes3[i6] = binaryString.charCodeAt(i6);
   }
-  return bytes2;
+  return bytes3;
 }
-function uint8ArrayToBase64(bytes2) {
+function uint8ArrayToBase64(bytes3) {
   let binaryString = "";
-  for (let i6 = 0; i6 < bytes2.length; i6++) {
-    binaryString += String.fromCharCode(bytes2[i6]);
+  for (let i6 = 0; i6 < bytes3.length; i6++) {
+    binaryString += String.fromCharCode(bytes3[i6]);
   }
   return btoa(binaryString);
 }
@@ -61896,22 +61896,22 @@ function base64urlToUint8Array(base64url3) {
   const padding = "=".repeat((4 - base643.length % 4) % 4);
   return base64ToUint8Array(base643 + padding);
 }
-function uint8ArrayToBase64url(bytes2) {
-  return uint8ArrayToBase64(bytes2).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+function uint8ArrayToBase64url(bytes3) {
+  return uint8ArrayToBase64(bytes3).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 function hexToUint8Array(hex3) {
   const cleanHex = hex3.replace(/^0x/, "");
   if (cleanHex.length % 2 !== 0) {
     throw new Error("Invalid hex string length");
   }
-  const bytes2 = new Uint8Array(cleanHex.length / 2);
+  const bytes3 = new Uint8Array(cleanHex.length / 2);
   for (let i6 = 0; i6 < cleanHex.length; i6 += 2) {
-    bytes2[i6 / 2] = Number.parseInt(cleanHex.slice(i6, i6 + 2), 16);
+    bytes3[i6 / 2] = Number.parseInt(cleanHex.slice(i6, i6 + 2), 16);
   }
-  return bytes2;
+  return bytes3;
 }
-function uint8ArrayToHex(bytes2) {
-  return Array.from(bytes2).map((b5) => b5.toString(16).padStart(2, "0")).join("");
+function uint8ArrayToHex(bytes3) {
+  return Array.from(bytes3).map((b5) => b5.toString(16).padStart(2, "0")).join("");
 }
 var Class = class {
   constructor(..._args) {
@@ -63965,10 +63965,10 @@ function capSize(inst, size) {
     if (n3 > cap && !ctx?.skipChecks && ctx?.direction !== "backward") {
       for (const [max, ch] of sizeCaps(inst._zod.def.checks)) {
         if (n3 > max && ch._zod.def.when(payload2)) {
-          const start = payload2.issues.length;
+          const start2 = payload2.issues.length;
           ch._zod.check(payload2);
-          payload2.issues[start].continue = false;
-          attachSchema(payload2.issues, start, inst);
+          payload2.issues[start2].continue = false;
+          attachSchema(payload2.issues, start2, inst);
           return payload2;
         }
       }
@@ -64157,7 +64157,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
     }
     return propValues;
   });
-  const isObject2 = isObject;
+  const isObject3 = isObject;
   const catchall = def.catchall;
   let value;
   const memo2 = globalConfig.memoizer;
@@ -64165,7 +64165,7 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
   inst._zod.parse = (payload2, ctx) => {
     value ?? (value = _normalized.value);
     const input2 = payload2.value;
-    if (!isObject2(input2)) {
+    if (!isObject3(input2)) {
       payload2.issues.push({
         expected: "object",
         code: "invalid_type",
@@ -64301,7 +64301,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     return doc.compile();
   };
   let fastpass;
-  const isObject2 = isObject;
+  const isObject3 = isObject;
   const jit = !globalConfig.jitless;
   const allowsEval2 = allowsEval;
   const fastEnabled = jit && allowsEval2.value;
@@ -64310,7 +64310,7 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
   inst._zod.parse = (payload2, ctx) => {
     value ?? (value = _normalized.value);
     const input2 = payload2.value;
-    if (!isObject2(input2)) {
+    if (!isObject3(input2)) {
       payload2.issues.push({
         expected: "object",
         code: "invalid_type",
@@ -82343,11 +82343,11 @@ function abytes(value, length, title = "") {
     return value;
   if (length !== void 0)
     anumber(length, "length");
-  const bytes2 = isBytes(value);
+  const bytes3 = isBytes(value);
   const ofLen = length !== void 0 ? ` of length ${length}` : "";
-  const got = bytes2 ? `length=${value.length}` : `type=${typeof value}`;
+  const got = bytes3 ? `length=${value.length}` : `type=${typeof value}`;
   const message2 = atitle(title) + "expected Uint8Array" + ofLen + ", got " + got;
-  if (!bytes2)
+  if (!bytes3)
     throw new TypeError(message2);
   throw new RangeError(message2);
 }
@@ -82400,13 +82400,13 @@ var hasHexBuiltin = /* @__PURE__ */ (() => (
   typeof Uint8Array.from([]).toHex === "function" && typeof Uint8Array.fromHex === "function"
 ))();
 var hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i6) => i6.toString(16).padStart(2, "0"));
-function bytesToHex(bytes2) {
-  abytes(bytes2);
+function bytesToHex(bytes3) {
+  abytes(bytes3);
   if (hasHexBuiltin)
-    return bytes2.toHex();
+    return bytes3.toHex();
   let hex3 = "";
-  for (let i6 = 0; i6 < bytes2.length; i6++) {
-    hex3 += hexes[bytes2[i6]];
+  for (let i6 = 0; i6 < bytes3.length; i6++) {
+    hex3 += hexes[bytes3[i6]];
   }
   return hex3;
 }
@@ -83086,8 +83086,8 @@ var strictDecoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 function utf8(str) {
   return encoder.encode(str);
 }
-function fromUtf8(bytes2) {
-  return strictDecoder.decode(bytes2);
+function fromUtf8(bytes3) {
+  return strictDecoder.decode(bytes3);
 }
 function fitsUtf8(str, limit2) {
   return str.length <= limit2 && encoder.encode(str).length <= limit2;
@@ -83098,20 +83098,20 @@ for (let i6 = 0; i6 < ALPHABET.length; i6++) LOOKUP[ALPHABET.charCodeAt(i6)] = i
 var CODES = Uint8Array.from(ALPHABET, (c5) => c5.charCodeAt(0));
 var asciiDecoder = new TextDecoder();
 var b64u = {
-  encode(bytes2) {
-    const out = new Uint8Array(Math.ceil(bytes2.length * 4 / 3));
+  encode(bytes3) {
+    const out = new Uint8Array(Math.ceil(bytes3.length * 4 / 3));
     let i6 = 0;
     let j5 = 0;
-    for (; i6 + 2 < bytes2.length; i6 += 3) {
-      const n3 = bytes2[i6] << 16 | bytes2[i6 + 1] << 8 | bytes2[i6 + 2];
+    for (; i6 + 2 < bytes3.length; i6 += 3) {
+      const n3 = bytes3[i6] << 16 | bytes3[i6 + 1] << 8 | bytes3[i6 + 2];
       out[j5++] = CODES[n3 >> 18];
       out[j5++] = CODES[n3 >> 12 & 63];
       out[j5++] = CODES[n3 >> 6 & 63];
       out[j5++] = CODES[n3 & 63];
     }
-    const rest = bytes2.length - i6;
+    const rest = bytes3.length - i6;
     if (rest > 0) {
-      const n3 = bytes2[i6] << 16 | (rest === 2 ? bytes2[i6 + 1] << 8 : 0);
+      const n3 = bytes3[i6] << 16 | (rest === 2 ? bytes3[i6 + 1] << 8 : 0);
       out[j5++] = CODES[n3 >> 18];
       out[j5++] = CODES[n3 >> 12 & 63];
       if (rest === 2) out[j5++] = CODES[n3 >> 6 & 63];
@@ -83140,8 +83140,8 @@ var b64u = {
     return out;
   }
 };
-function sha2562(bytes2) {
-  return sha256(bytes2);
+function sha2562(bytes3) {
+  return sha256(bytes3);
 }
 function hash2(value) {
   return b64u.encode(sha2562(canonBytes(value)));
@@ -83373,13 +83373,13 @@ function ulid3(now = Date.now()) {
   }
   return encodeTime(lastTime) + encodeRandom(lastRandom);
 }
-function increment(bytes2) {
-  for (let i6 = bytes2.length - 1; i6 >= 0; i6--) {
-    if (bytes2[i6] !== 255) {
-      bytes2[i6] = bytes2[i6] + 1;
+function increment(bytes3) {
+  for (let i6 = bytes3.length - 1; i6 >= 0; i6--) {
+    if (bytes3[i6] !== 255) {
+      bytes3[i6] = bytes3[i6] + 1;
       return true;
     }
-    bytes2[i6] = 0;
+    bytes3[i6] = 0;
   }
   return false;
 }
@@ -83391,9 +83391,9 @@ function encodeTime(time4) {
   }
   return out;
 }
-function encodeRandom(bytes2) {
+function encodeRandom(bytes3) {
   let n3 = 0n;
-  for (const b5 of bytes2) n3 = n3 << 8n | BigInt(b5);
+  for (const b5 of bytes3) n3 = n3 << 8n | BigInt(b5);
   let out = "";
   for (let i6 = 0; i6 < 16; i6++) {
     out = CROCKFORD[Number(n3 & 31n)] + out;
@@ -83486,11 +83486,11 @@ function hexToNumber(hex3) {
     throw new TypeError("hex string expected, got " + typeof hex3);
   return hex3 === "" ? _0n : BigInt("0x" + hex3);
 }
-function bytesToNumberBE(bytes2) {
-  return hexToNumber(bytesToHex(bytes2));
+function bytesToNumberBE(bytes3) {
+  return hexToNumber(bytesToHex(bytes3));
 }
-function bytesToNumberLE(bytes2) {
-  return hexToNumber(bytesToHex(copyBytes(abytes(bytes2)).reverse()));
+function bytesToNumberLE(bytes3) {
+  return hexToNumber(bytesToHex(copyBytes(abytes(bytes3)).reverse()));
 }
 function numberToBytesBE(n3, len) {
   anumber(len);
@@ -83506,8 +83506,8 @@ function numberToBytesBE(n3, len) {
 function numberToBytesLE(n3, len) {
   return numberToBytesBE(n3, len).reverse();
 }
-function copyBytes(bytes2) {
-  return Uint8Array.from(abytes2(bytes2));
+function copyBytes(bytes3) {
+  return Uint8Array.from(abytes2(bytes3));
 }
 function isPosBig(n3) {
   return typeof n3 === "bigint" && _0n <= n3;
@@ -83940,20 +83940,20 @@ var _Field = class {
   toBytes(num) {
     return this.isLE ? numberToBytesLE(num, this.BYTES) : numberToBytesBE(num, this.BYTES);
   }
-  fromBytes(bytes2, skipValidation = false) {
-    abytes2(bytes2);
+  fromBytes(bytes3, skipValidation = false) {
+    abytes2(bytes3);
     const { _lengths: allowedLengths, BYTES, isLE: isLE2, ORDER, _mod: modFromBytes } = this;
     if (allowedLengths) {
-      if (bytes2.length < 1 || !allowedLengths.includes(bytes2.length) || bytes2.length > BYTES) {
-        throw new Error("Field.fromBytes: expected " + allowedLengths + " bytes, got " + bytes2.length);
+      if (bytes3.length < 1 || !allowedLengths.includes(bytes3.length) || bytes3.length > BYTES) {
+        throw new Error("Field.fromBytes: expected " + allowedLengths + " bytes, got " + bytes3.length);
       }
       const padded = new Uint8Array(BYTES);
-      padded.set(bytes2, isLE2 ? 0 : padded.length - bytes2.length);
-      bytes2 = padded;
+      padded.set(bytes3, isLE2 ? 0 : padded.length - bytes3.length);
+      bytes3 = padded;
     }
-    if (bytes2.length !== BYTES)
-      throw new Error("Field.fromBytes: expected " + BYTES + " bytes, got " + bytes2.length);
-    let scalar = isLE2 ? bytesToNumberLE(bytes2) : bytesToNumberBE(bytes2);
+    if (bytes3.length !== BYTES)
+      throw new Error("Field.fromBytes: expected " + BYTES + " bytes, got " + bytes3.length);
+    let scalar = isLE2 ? bytesToNumberLE(bytes3) : bytesToNumberBE(bytes3);
     if (modFromBytes)
       scalar = mod(scalar, ORDER);
     if (!skipValidation) {
@@ -84009,9 +84009,9 @@ function validateW(W, bits, min = 1) {
     throw new Error("invalid window size, expected [" + min + ".." + bits + "], got W=" + W);
 }
 function validateTableBytes(numPoints, fpBytes) {
-  const bytes2 = numPoints * (4 * fpBytes + 128);
-  if (bytes2 > TABLE_BYTES_MAX)
-    throw new Error("invalid window size: table would need ~" + Math.ceil(bytes2 / 2 ** 20) + " MiB, max " + TABLE_BYTES_MAX / 2 ** 20 + " MiB");
+  const bytes3 = numPoints * (4 * fpBytes + 128);
+  if (bytes3 > TABLE_BYTES_MAX)
+    throw new Error("invalid window size: table would need ~" + Math.ceil(bytes3 / 2 ** 20) + " MiB, max " + TABLE_BYTES_MAX / 2 ** 20 + " MiB");
 }
 function probeRandomBytes(randomBytes5, length) {
   if (randomBytes5 === void 0)
@@ -84167,14 +84167,14 @@ var ScalarMultiplier = class {
     let f7 = this.BASE;
     for (let w = 0; w < windows; w++) {
       const digit = digits[w];
-      const start = w * half;
+      const start2 = w * half;
       const idx = Math.abs(digit) - 1;
-      let sel = comp[start];
+      let sel = comp[start2];
       for (let i6 = 1; i6 < half; i6++)
-        sel = i6 === idx ? comp[start + i6] : sel;
+        sel = i6 === idx ? comp[start2 + i6] : sel;
       const neg = sel.negate();
       if (digit === 0)
-        f7 = f7.add(comp[start]);
+        f7 = f7.add(comp[start2]);
       else
         p3 = p3.add(digit < 0 ? neg : sel);
     }
@@ -84449,13 +84449,13 @@ function edwards(params, extraOpts = {}) {
       return new Point(x2, y, Fp2.ONE, Fp2.mul(x2, y));
     }
     // Uses algo from RFC8032 5.1.3.
-    static fromBytes(bytes2, zip215 = false) {
+    static fromBytes(bytes3, zip215 = false) {
       const len = Fp2.BYTES;
       const { a: a5, d: d5 } = CURVE;
-      bytes2 = copyBytes(abytes2(bytes2, len, "point"));
+      bytes3 = copyBytes(abytes2(bytes3, len, "point"));
       abool(zip215, "zip215");
-      const normed = copyBytes(bytes2);
-      const lastByte = bytes2[len - 1];
+      const normed = copyBytes(bytes3);
+      const lastByte = bytes3[len - 1];
       normed[len - 1] = lastByte & ~128;
       const y = bytesToNumberLE(normed);
       const max = zip215 ? MASK : Fp2.ORDER;
@@ -84639,9 +84639,9 @@ function edwards(params, extraOpts = {}) {
     }
     toBytes() {
       const { x: x2, y } = this.toAffine();
-      const bytes2 = Fp2.toBytes(y);
-      bytes2[bytes2.length - 1] |= isOdd(x2) ? 128 : 0;
-      return bytes2;
+      const bytes3 = Fp2.toBytes(y);
+      bytes3[bytes3.length - 1] |= isOdd(x2) ? 128 : 0;
+      return bytes3;
     }
     toHex() {
       return bytesToHex2(this.toBytes());
@@ -84686,7 +84686,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
   const randomBytes5 = opts.randomBytes === void 0 ? randomBytes3 : opts.randomBytes;
   const toMontgomery2 = opts.toMontgomery;
   const toMontgomerySecret2 = opts.toMontgomerySecret;
-  const adjustScalarBytes2 = opts.adjustScalarBytes === void 0 ? (bytes2) => bytes2 : opts.adjustScalarBytes;
+  const adjustScalarBytes2 = opts.adjustScalarBytes === void 0 ? (bytes3) => bytes3 : opts.adjustScalarBytes;
   const domain2 = opts.domain === void 0 ? (data, ctx, phflag) => {
     abool(phflag, "phflag");
     if (ctx.length || phflag)
@@ -84736,7 +84736,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
   const verifyOpts = {
     zip215: opts.zip215
   };
-  function verify(sig, msg, publicKey, options = verifyOpts) {
+  function verify2(sig, msg, publicKey, options = verifyOpts) {
     validateObject(options);
     const { context } = options;
     const zip215 = options.zip215 === void 0 ? !!verifyOpts.zip215 : options.zip215;
@@ -84809,7 +84809,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
     keygen: createKeygen(randomSecretKey, getPublicKey),
     getPublicKey,
     sign: sign2,
-    verify,
+    verify: verify2,
     utils,
     Point,
     lengths
@@ -84997,11 +84997,11 @@ function ed25519_pow_2_252_3(x2) {
   const pow_p_5_8 = pow2(b250, _2n4, P) * x2 % P;
   return { pow_p_5_8, b2: b22 };
 }
-function adjustScalarBytes(bytes2) {
-  bytes2[0] &= 248;
-  bytes2[31] &= 127;
-  bytes2[31] |= 64;
-  return bytes2;
+function adjustScalarBytes(bytes3) {
+  bytes3[0] &= 248;
+  bytes3[31] &= 127;
+  bytes3[31] |= 64;
+  return bytes3;
 }
 var ED25519_SQRT_M1 = /* @__PURE__ */ BigInt("19681161376707505956807079304988542015446066515923890162744021073123829784752");
 function uvRatio(u, v) {
@@ -85102,9 +85102,9 @@ function decodeKeys(json4) {
   const field = (name) => {
     const value = r6[name];
     if (typeof value !== "string") throw new TypeError(`decodeKeys: ${name} is missing`);
-    const bytes2 = b64u.decode(value);
-    if (bytes2.length !== 32) throw new TypeError(`decodeKeys: ${name} must be 32 bytes`);
-    return bytes2;
+    const bytes3 = b64u.decode(value);
+    if (bytes3.length !== 32) throw new TypeError(`decodeKeys: ${name} must be 32 bytes`);
+    return bytes3;
   };
   const keys = {
     signPub: field("signPub"),
@@ -85159,8 +85159,8 @@ function verifyObject(type, obj, signPub) {
 // ../protocol/src/schema.ts
 function decodes(s3, length) {
   try {
-    const bytes2 = b64u.decode(s3);
-    return length === void 0 || bytes2.length === length;
+    const bytes3 = b64u.decode(s3);
+    return length === void 0 || bytes3.length === length;
   } catch {
     return false;
   }
@@ -85236,411 +85236,6 @@ var rosterSchema = external_exports.strictObject({
   sig: sigSchema
 });
 
-// ../protocol/src/roster.ts
-function makeDeviceRecord(name, keys, role, added) {
-  const record2 = {
-    id: deviceIdFromSignPub(keys.signPub),
-    name,
-    sign: b64u.encode(keys.signPub),
-    box: b64u.encode(keys.boxPub),
-    role,
-    added
-  };
-  const parsed2 = deviceRecordSchema.safeParse(record2);
-  if (!parsed2.success) throw new TypeError(`makeDeviceRecord: ${parsed2.error.issues[0].message}`);
-  return record2;
-}
-function isRecoveryName(name) {
-  return name.startsWith("recovery");
-}
-function createGenesisRoster(opts) {
-  if (isRecoveryName(opts.name)) throw new TypeError("createGenesisRoster: names starting with recovery are reserved");
-  const mesh = opts.meshId ?? b64u.encode(randomBytes2(16));
-  if (!meshIdSchema.safeParse(mesh).success) throw new TypeError("createGenesisRoster: invalid mesh id");
-  const device = makeDeviceRecord(opts.name, opts.keys, "admin", opts.now);
-  const devices2 = opts.recovery === void 0 ? [device] : [device, { ...opts.recovery }];
-  const roster = signObject(
-    "roster",
-    { mesh, seq: 1, prev: null, devices: devices2, revoked: [], by: device.id, at: opts.now },
-    opts.keys.signSec
-  );
-  const verified = verifyGenesisRoster(roster);
-  if (!verified.ok) throw new TypeError(`createGenesisRoster: ${verified.reason}`);
-  return roster;
-}
-function adminSigner(roster, id) {
-  if (roster.revoked.includes(id)) return void 0;
-  return roster.devices.find((d5) => d5.id === id && d5.role === "admin");
-}
-function nextRoster(prev, change, signer, now) {
-  const signerId = deviceIdFromSignPub(signer.keys.signPub);
-  if (!adminSigner(prev, signerId)) throw new Error("nextRoster: signer is not an unrevoked admin");
-  const revoke = change.revoke ?? [];
-  if (new Set(revoke).size !== revoke.length) throw new Error("nextRoster: duplicate id in revoke");
-  for (const id of revoke) {
-    if (!prev.devices.some((d5) => d5.id === id)) throw new Error(`nextRoster: ${id} is not a current device`);
-  }
-  const devices2 = prev.devices.filter((d5) => !revoke.includes(d5.id)).map((d5) => ({ ...d5 }));
-  const revoked = [...prev.revoked, ...revoke];
-  const promote = change.promote ?? [];
-  if (new Set(promote).size !== promote.length) throw new Error("nextRoster: duplicate id in promote");
-  for (const id of promote) {
-    const device = devices2.find((d5) => d5.id === id);
-    if (!device) throw new Error(`nextRoster: ${id} is not a current device`);
-    if (device.role !== "member") throw new Error(`nextRoster: ${id} is already an admin`);
-    device.role = "admin";
-  }
-  for (const device of change.add ?? []) {
-    const parsed2 = deviceRecordSchema.safeParse(device);
-    if (!parsed2.success) throw new Error(`nextRoster: invalid device record: ${parsed2.error.issues[0].message}`);
-    if (deviceIdFromSignPub(b64u.decode(device.sign)) !== device.id) {
-      throw new Error("nextRoster: device id does not match its signing key");
-    }
-    if (revoked.includes(device.id)) throw new Error(`nextRoster: ${device.id} was revoked and cannot return`);
-    if (devices2.some((d5) => d5.id === device.id)) throw new Error(`nextRoster: duplicate device id ${device.id}`);
-    if (devices2.some((d5) => d5.name === device.name)) throw new Error(`nextRoster: duplicate device name ${device.name}`);
-    if (isRecoveryName(device.name) && device.role !== "admin") {
-      throw new Error("nextRoster: names starting with recovery are reserved for recovery records");
-    }
-    devices2.push({ ...device });
-  }
-  if (!devices2.some((d5) => d5.role === "admin")) throw new Error("nextRoster: the mesh would have no admin");
-  return signObject(
-    "roster",
-    { mesh: prev.mesh, seq: prev.seq + 1, prev: hash2(prev), devices: devices2, revoked, by: signerId, at: now },
-    signer.keys.signSec
-  );
-}
-function checkShape(roster) {
-  const parsed2 = rosterSchema.safeParse(roster);
-  if (!parsed2.success) return fail("roster_malformed");
-  const r6 = parsed2.data;
-  const ids = /* @__PURE__ */ new Set();
-  const names = /* @__PURE__ */ new Set();
-  for (const d5 of r6.devices) {
-    if (deviceIdFromSignPub(b64u.decode(d5.sign)) !== d5.id) return fail("roster_bad_device_id");
-    if (ids.has(d5.id)) return fail("roster_duplicate_id");
-    if (names.has(d5.name)) return fail("roster_duplicate_name");
-    if (isRecoveryName(d5.name) && d5.role !== "admin") return fail("roster_recovery_not_admin");
-    ids.add(d5.id);
-    names.add(d5.name);
-  }
-  const revoked = new Set(r6.revoked);
-  if (revoked.size !== r6.revoked.length) return fail("roster_duplicate_revoked");
-  if (r6.devices.some((d5) => revoked.has(d5.id))) return fail("roster_revoked_present");
-  return ok(r6);
-}
-function verifyGenesisRoster(roster) {
-  const shape = checkShape(roster);
-  if (!shape.ok) return shape;
-  const r6 = shape.value;
-  if (r6.seq !== 1 || r6.prev !== null) return fail("genesis_not_first");
-  const [creator, recovery2, ...rest] = r6.devices;
-  if (creator === void 0 || creator.role !== "admin" || rest.length > 0 || r6.revoked.length !== 0) {
-    return fail("genesis_bad_devices");
-  }
-  if (isRecoveryName(creator.name)) return fail("genesis_reserved_name");
-  if (recovery2 !== void 0 && !isRecoveryName(recovery2.name)) return fail("genesis_bad_devices");
-  if (r6.by !== creator.id) return fail("genesis_wrong_signer");
-  if (!verifyObject("roster", r6, b64u.decode(creator.sign))) return fail("roster_bad_signature");
-  return ok(r6);
-}
-function verifyNextRoster(prev, next) {
-  const shape = checkShape(next);
-  if (!shape.ok) return shape;
-  const n3 = shape.value;
-  if (n3.mesh !== prev.mesh) return fail("roster_wrong_mesh");
-  if (n3.seq !== prev.seq + 1) return fail("roster_wrong_seq");
-  if (n3.prev !== hash2(prev)) return fail("roster_wrong_prev");
-  const signer = adminSigner(prev, n3.by);
-  if (!signer) return fail("roster_signer_not_admin");
-  if (!verifyObject("roster", n3, b64u.decode(signer.sign))) return fail("roster_bad_signature");
-  if (prev.revoked.some((id, i6) => n3.revoked[i6] !== id)) return fail("roster_revocation_undone");
-  const revokedNow = new Set(n3.revoked);
-  const kept = new Map(n3.devices.map((d5) => [d5.id, d5]));
-  for (const old of prev.devices) {
-    const now = kept.get(old.id);
-    if (now === void 0) {
-      if (!revokedNow.has(old.id)) return fail("roster_device_dropped");
-    } else if (hash2(now) !== hash2(old) && !isPromotion(old, now)) {
-      return fail("roster_device_changed");
-    }
-  }
-  if (!n3.devices.some((d5) => d5.role === "admin")) return fail("roster_no_admin");
-  return ok(n3);
-}
-function isPromotion(old, now) {
-  return old.role === "member" && now.role === "admin" && hash2({ ...now, role: "member" }) === hash2(old);
-}
-function verifyRosterChain(pinned, chain2) {
-  if (!Array.isArray(chain2) || chain2.length === 0) return fail("chain_empty");
-  const first = checkShape(chain2[0]);
-  if (!first.ok) return first;
-  if (first.value.seq !== pinned.seq) return fail("chain_wrong_start");
-  if (hash2(first.value) !== pinned.hash) return fail("chain_pin_mismatch");
-  let current = first.value;
-  for (const next of chain2.slice(1)) {
-    const step = verifyNextRoster(current, next);
-    if (!step.ok) return step;
-    current = step.value;
-  }
-  return ok(current);
-}
-function rosterRef(roster) {
-  return { seq: roster.seq, hash: hash2(roster) };
-}
-function detectFork(a5, b5) {
-  return a5.mesh === b5.mesh && a5.seq === b5.seq && hash2(a5) !== hash2(b5);
-}
-
-// ../../node_modules/@noble/hashes/hmac.js
-var _HMAC = class {
-  oHash;
-  iHash;
-  blockLen;
-  outputLen;
-  canXOF = false;
-  finished = false;
-  destroyed = false;
-  constructor(hash3, key2) {
-    ahash(hash3);
-    abytes(key2, void 0, "key");
-    this.iHash = hash3.create();
-    if (typeof this.iHash.update !== "function")
-      throw new Error("expected Hash instance");
-    this.blockLen = this.iHash.blockLen;
-    this.outputLen = this.iHash.outputLen;
-    const blockLen = this.blockLen;
-    const pad = new Uint8Array(blockLen);
-    pad.set(key2.length > blockLen ? hash3.create().update(key2).digest() : key2);
-    for (let i6 = 0; i6 < pad.length; i6++)
-      pad[i6] ^= 54;
-    this.iHash.update(pad);
-    this.oHash = hash3.create();
-    for (let i6 = 0; i6 < pad.length; i6++)
-      pad[i6] ^= 54 ^ 92;
-    this.oHash.update(pad);
-    clean(pad);
-  }
-  update(buf2) {
-    aexists(this);
-    this.iHash.update(buf2);
-    return this;
-  }
-  digestInto(out) {
-    aexists(this);
-    aoutput(out, this);
-    this.finished = true;
-    const buf2 = out.subarray(0, this.outputLen);
-    this.iHash.digestInto(buf2);
-    this.oHash.update(buf2);
-    this.oHash.digestInto(buf2);
-    this.destroy();
-  }
-  digest() {
-    const out = new Uint8Array(this.oHash.outputLen);
-    this.digestInto(out);
-    return out;
-  }
-  _cloneInto(to) {
-    to ||= Object.create(Object.getPrototypeOf(this), {});
-    const { oHash, iHash, finished: finished2, destroyed, blockLen, outputLen, canXOF } = this;
-    to = to;
-    to.finished = finished2;
-    to.destroyed = destroyed;
-    to.blockLen = blockLen;
-    to.outputLen = outputLen;
-    to.canXOF = canXOF;
-    to.oHash = oHash._cloneInto(to.oHash);
-    to.iHash = iHash._cloneInto(to.iHash);
-    return to;
-  }
-  clone() {
-    return this._cloneInto();
-  }
-  destroy() {
-    this.destroyed = true;
-    this.oHash.destroy();
-    this.iHash.destroy();
-  }
-};
-var hmac = /* @__PURE__ */ (() => {
-  const hmac_ = ((hash3, key2, message2) => new _HMAC(hash3, key2).update(message2).digest());
-  hmac_.create = (hash3, key2) => new _HMAC(hash3, key2);
-  return hmac_;
-})();
-
-// ../protocol/src/invite.ts
-var PREFIX = "wim1_";
-var inviteBodySchema = external_exports.strictObject({
-  relay: relayUrlSchema,
-  mesh: meshIdSchema,
-  secret: secret32Schema,
-  pin: rosterRefSchema,
-  exp: timeSchema,
-  /** Optional relay certificate pin: b64u SHA-256 of its SubjectPublicKeyInfo (SPEC section 5). */
-  tls: b64uBytes(32).optional()
-});
-function spkiPin(spkiDer) {
-  if (!(spkiDer instanceof Uint8Array) || spkiDer.length === 0) throw new TypeError("spkiPin: expected DER bytes");
-  return b64u.encode(sha2562(spkiDer));
-}
-function inviteIdFromSecret(secret) {
-  if (!(secret instanceof Uint8Array) || secret.length !== 32) {
-    throw new TypeError("inviteIdFromSecret: expected a 32-byte secret");
-  }
-  return b64u.encode(sha2562(utf8(`${PROTOCOL} invite ${b64u.encode(secret)}`))).slice(0, 22);
-}
-function createInvite(opts) {
-  const now = opts.now ?? Date.now();
-  const exp = opts.exp ?? now + LIMITS.inviteDefaultTtlMs;
-  if (!Number.isSafeInteger(now) || !Number.isSafeInteger(exp) || exp <= now) {
-    throw new RangeError("createInvite: exp must be an integer time after now");
-  }
-  if (exp - now > LIMITS.inviteMaxTtlMs) throw new RangeError("createInvite: exp is more than 7 days away");
-  const secret = randomBytes2(32);
-  const body = { relay: opts.relay, mesh: opts.mesh, secret: b64u.encode(secret), pin: opts.pin, exp, tls: opts.tls };
-  const parsed2 = inviteBodySchema.safeParse(body);
-  if (!parsed2.success) throw new TypeError(`createInvite: ${describe3(parsed2.error)}`);
-  return { code: PREFIX + b64u.encode(canonBytes(body)), secret, inviteId: inviteIdFromSecret(secret), exp };
-}
-function describe3(error63) {
-  const issue2 = error63.issues[0];
-  return `${issue2.path.join(".") || "invite"}: ${issue2.message}`;
-}
-function parseInvite(code2) {
-  const text2 = typeof code2 === "string" ? code2.trim() : "";
-  if (!text2.startsWith(PREFIX)) throw new Error("invalid invite code: it must start with wim1_");
-  let json4;
-  try {
-    json4 = fromUtf8(b64u.decode(text2.slice(PREFIX.length)));
-  } catch {
-    throw new Error("invalid invite code: it is damaged or incomplete");
-  }
-  const body = parseJson(json4);
-  if (!body.ok) throw new Error("invalid invite code: it is damaged or incomplete");
-  const parsed2 = inviteBodySchema.safeParse(body.value);
-  if (!parsed2.success) throw new Error(`invalid invite code: ${describe3(parsed2.error)}`);
-  const secret = b64u.decode(parsed2.data.secret);
-  return { ...parsed2.data, secret, inviteId: inviteIdFromSecret(secret) };
-}
-function joinFields(device) {
-  return { id: device.id, name: device.name, sign: device.sign, box: device.box };
-}
-function joinProof(secret, device) {
-  return b64u.encode(hmac(sha256, secret, canonBytes(joinFields(device))));
-}
-function verifyJoinProof(secret, device, proof) {
-  try {
-    return bytesEqual(hmac(sha256, secret, canonBytes(joinFields(device))), b64u.decode(proof));
-  } catch {
-    return false;
-  }
-}
-var CROCKFORD2 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-function sasFor(device) {
-  const label = utf8(`${PROTOCOL} sas `);
-  const body = canonBytes(joinFields(device));
-  const input2 = new Uint8Array(label.length + body.length);
-  input2.set(label);
-  input2.set(body, label.length);
-  const h6 = sha2562(input2);
-  let bits = 0n;
-  for (const b5 of h6.subarray(0, 7)) bits = bits << 8n | BigInt(b5);
-  bits >>= 6n;
-  let out = "";
-  for (let i6 = 0; i6 < 10; i6++) out = CROCKFORD2[Number(bits >> BigInt(5 * i6) & 31n)] + out;
-  return `${out.slice(0, 5)}-${out.slice(5)}`;
-}
-var joinBodySchema = external_exports.strictObject({
-  mesh: meshIdSchema,
-  invite: inviteIdSchema,
-  device: joinDeviceSchema,
-  /** The `hello` nonce of the connection the join is sent on; signed, so a join cannot be replayed. */
-  nonce: secret32Schema,
-  proof: b64uBytes(32),
-  sig: sigSchema
-});
-var joinOrBodySchema = joinBodySchema.extend({ t: external_exports.literal("join").optional() });
-function createJoin(invite2, name, keys, nonce) {
-  const device = {
-    id: deviceIdFromSignPub(keys.signPub),
-    name,
-    sign: b64u.encode(keys.signPub),
-    box: b64u.encode(keys.boxPub)
-  };
-  if (!joinDeviceSchema.safeParse(device).success) throw new TypeError("createJoin: invalid device name");
-  if (device.name.startsWith("recovery")) throw new TypeError("createJoin: names starting with recovery are reserved");
-  if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
-  const body = { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce };
-  const signed = signObject("join", body, keys.signSec);
-  return { ...signed, proof: joinProof(invite2.secret, device) };
-}
-function verifyJoin(join19, secret, nonce) {
-  const parsed2 = joinOrBodySchema.safeParse(join19);
-  if (!parsed2.success) return fail("join_malformed");
-  const { t: _t, ...j5 } = parsed2.data;
-  if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
-  if (nonce !== void 0 && j5.nonce !== nonce) return fail("join_wrong_nonce");
-  const signPub = b64u.decode(j5.device.sign);
-  if (deviceIdFromSignPub(signPub) !== j5.device.id) return fail("join_bad_device_id");
-  const signed = { t: "join", mesh: j5.mesh, invite: j5.invite, device: j5.device, nonce: j5.nonce, sig: j5.sig };
-  if (!verifyObject("join", signed, signPub)) return fail("join_bad_signature");
-  if (secret !== void 0 && !verifyJoinProof(secret, j5.device, j5.proof)) return fail("join_bad_proof");
-  return ok(j5);
-}
-function admitJoin(device, now) {
-  const record2 = { ...joinFields(device), role: "member", added: now };
-  const parsed2 = deviceRecordSchema.safeParse(record2);
-  if (!parsed2.success || record2.name.startsWith("recovery")) throw new TypeError("admitJoin: invalid device, reserved name or bad time");
-  return record2;
-}
-
-// ../protocol/src/replay.ts
-function checkFreshness(at, now) {
-  if (at < now - LIMITS.messageMaxAgeMs) return fail("too_old");
-  if (at > now + LIMITS.messageMaxFutureMs) return fail("too_new");
-  return ok(true);
-}
-function dedupeExpiry(at) {
-  return at + LIMITS.dedupeRetentionMs;
-}
-var SeqTracker = class _SeqTracker {
-  #highest = /* @__PURE__ */ new Map();
-  #key(device, sid) {
-    if (typeof device !== "string" || typeof sid !== "string") throw new TypeError("SeqTracker: device and sid are strings");
-    return JSON.stringify([device, sid]);
-  }
-  observe(device, sid, seq) {
-    const key2 = this.#key(device, sid);
-    if (!Number.isSafeInteger(seq) || seq < 1) throw new RangeError("SeqTracker: seq must be a positive integer");
-    const last = this.#highest.get(key2)?.seq ?? 0;
-    if (seq <= last) return "dup";
-    this.#highest.set(key2, { device, sid, seq });
-    return "ok";
-  }
-  /** The highest seq seen for a sender session, or 0. */
-  highest(device, sid) {
-    return this.#highest.get(this.#key(device, sid))?.seq ?? 0;
-  }
-  toJSON() {
-    return { v: 1, entries: [...this.#highest.values()].map((e6) => [e6.device, e6.sid, e6.seq]) };
-  }
-  static fromJSON(json4) {
-    const data = json4;
-    if (typeof data !== "object" || data === null || data.v !== 1 || !Array.isArray(data.entries)) {
-      throw new TypeError("SeqTracker.fromJSON: not a tracker");
-    }
-    const tracker = new _SeqTracker();
-    for (const row of data.entries) {
-      if (!Array.isArray(row) || row.length !== 3) throw new TypeError("SeqTracker.fromJSON: bad row");
-      const [device, sid, seq] = row;
-      tracker.observe(device, sid, seq);
-    }
-    return tracker;
-  }
-};
-
 // ../../node_modules/@noble/ciphers/utils.js
 function isBytes3(a5) {
   return a5 instanceof Uint8Array || ArrayBuffer.isView(a5) && a5.constructor.name === "Uint8Array" && "BYTES_PER_ELEMENT" in a5 && a5.BYTES_PER_ELEMENT === 1;
@@ -85663,11 +85258,11 @@ function abytes3(value, length, title = "") {
     return value;
   if (length !== void 0)
     anumber3(length, "length");
-  const bytes2 = isBytes3(value);
+  const bytes3 = isBytes3(value);
   const ofLen = length !== void 0 ? ` of length ${length}` : "";
-  const got = bytes2 ? `length=${value.length}` : `type=${typeof value}`;
+  const got = bytes3 ? `length=${value.length}` : `type=${typeof value}`;
   const message2 = atitle3(title) + "expected Uint8Array" + ofLen + ", got " + got;
-  if (!bytes2)
+  if (!bytes3)
     throw new TypeError(message2);
   throw new RangeError(message2);
 }
@@ -85812,11 +85407,11 @@ function u64Lengths(dataLength, aadLength, isLE2) {
   view2.setBigUint64(8, BigInt(dataLength), isLE2);
   return num;
 }
-function isAligned32(bytes2) {
-  return bytes2.byteOffset % 4 === 0;
+function isAligned32(bytes3) {
+  return bytes3.byteOffset % 4 === 0;
 }
-function copyBytes2(bytes2) {
-  return Uint8Array.from(abytes3(bytes2));
+function copyBytes2(bytes3) {
+  return Uint8Array.from(abytes3(bytes3));
 }
 
 // ../../node_modules/@noble/ciphers/_arx.js
@@ -86380,6 +85975,83 @@ var xchacha20poly1305 = /* @__PURE__ */ wrapCipher(
   /* @__PURE__ */ _poly1305_aead(xchacha20)
 );
 
+// ../../node_modules/@noble/hashes/hmac.js
+var _HMAC = class {
+  oHash;
+  iHash;
+  blockLen;
+  outputLen;
+  canXOF = false;
+  finished = false;
+  destroyed = false;
+  constructor(hash3, key2) {
+    ahash(hash3);
+    abytes(key2, void 0, "key");
+    this.iHash = hash3.create();
+    if (typeof this.iHash.update !== "function")
+      throw new Error("expected Hash instance");
+    this.blockLen = this.iHash.blockLen;
+    this.outputLen = this.iHash.outputLen;
+    const blockLen = this.blockLen;
+    const pad = new Uint8Array(blockLen);
+    pad.set(key2.length > blockLen ? hash3.create().update(key2).digest() : key2);
+    for (let i6 = 0; i6 < pad.length; i6++)
+      pad[i6] ^= 54;
+    this.iHash.update(pad);
+    this.oHash = hash3.create();
+    for (let i6 = 0; i6 < pad.length; i6++)
+      pad[i6] ^= 54 ^ 92;
+    this.oHash.update(pad);
+    clean(pad);
+  }
+  update(buf2) {
+    aexists(this);
+    this.iHash.update(buf2);
+    return this;
+  }
+  digestInto(out) {
+    aexists(this);
+    aoutput(out, this);
+    this.finished = true;
+    const buf2 = out.subarray(0, this.outputLen);
+    this.iHash.digestInto(buf2);
+    this.oHash.update(buf2);
+    this.oHash.digestInto(buf2);
+    this.destroy();
+  }
+  digest() {
+    const out = new Uint8Array(this.oHash.outputLen);
+    this.digestInto(out);
+    return out;
+  }
+  _cloneInto(to) {
+    to ||= Object.create(Object.getPrototypeOf(this), {});
+    const { oHash, iHash, finished: finished2, destroyed, blockLen, outputLen, canXOF } = this;
+    to = to;
+    to.finished = finished2;
+    to.destroyed = destroyed;
+    to.blockLen = blockLen;
+    to.outputLen = outputLen;
+    to.canXOF = canXOF;
+    to.oHash = oHash._cloneInto(to.oHash);
+    to.iHash = iHash._cloneInto(to.iHash);
+    return to;
+  }
+  clone() {
+    return this._cloneInto();
+  }
+  destroy() {
+    this.destroyed = true;
+    this.oHash.destroy();
+    this.iHash.destroy();
+  }
+};
+var hmac = /* @__PURE__ */ (() => {
+  const hmac_ = ((hash3, key2, message2) => new _HMAC(hash3, key2).update(message2).digest());
+  hmac_.create = (hash3, key2) => new _HMAC(hash3, key2);
+  return hmac_;
+})();
+
 // ../../node_modules/@noble/hashes/hkdf.js
 function extract(hash3, ikm, salt) {
   ahash(hash3);
@@ -86445,6 +86117,442 @@ var hkdf = (hash3, ikm, salt, info, length) => {
     salt = new Uint8Array(hash3.outputLen);
   const HMAC = hmac.create(hash3, salt).update(ikm);
   return expand(hash3, HMAC.digest(), info, length, HMAC);
+};
+
+// ../protocol/src/hpke.ts
+var MODE_AUTH = 2;
+var KEM_ID = 32;
+var KDF_ID = 1;
+var AEAD_ID = 3;
+var i2osp2 = (n3) => Uint8Array.of(n3 >> 8, n3 & 255);
+function concat(...parts) {
+  const out = new Uint8Array(parts.reduce((n3, p3) => n3 + p3.length, 0));
+  let at = 0;
+  for (const p3 of parts) {
+    out.set(p3, at);
+    at += p3.length;
+  }
+  return out;
+}
+var KEM_SUITE = concat(utf8("KEM"), i2osp2(KEM_ID));
+var HPKE_SUITE = concat(utf8("HPKE"), i2osp2(KEM_ID), i2osp2(KDF_ID), i2osp2(AEAD_ID));
+var V1 = utf8("HPKE-v1");
+function labeledExtract(suite, salt, label, ikm) {
+  return extract(sha256, concat(V1, suite, utf8(label), ikm), salt);
+}
+function labeledExpand(suite, prk, label, info, length) {
+  return expand(sha256, prk, concat(i2osp2(length), V1, suite, utf8(label), info), length);
+}
+function kemSecret(dh, kemContext) {
+  const prk = labeledExtract(KEM_SUITE, new Uint8Array(0), "eae_prk", dh);
+  return labeledExpand(KEM_SUITE, prk, "shared_secret", kemContext, 32);
+}
+function keySchedule(sharedSecret, info) {
+  const empty = new Uint8Array(0);
+  const pskIdHash = labeledExtract(HPKE_SUITE, empty, "psk_id_hash", empty);
+  const infoHash = labeledExtract(HPKE_SUITE, empty, "info_hash", info);
+  const context = concat(Uint8Array.of(MODE_AUTH), pskIdHash, infoHash);
+  const secret = labeledExtract(HPKE_SUITE, sharedSecret, "secret", empty);
+  return {
+    key: labeledExpand(HPKE_SUITE, secret, "key", context, 32),
+    nonce: labeledExpand(HPKE_SUITE, secret, "base_nonce", context, 12)
+  };
+}
+function hpkeSealAuth(opts) {
+  const skE = opts.ephemeral ?? randomBytes2(32);
+  const enc = x25519.getPublicKey(skE);
+  const dh = concat(x25519.getSharedSecret(skE, opts.pkR), x25519.getSharedSecret(opts.skS, opts.pkR));
+  const sharedSecret = kemSecret(dh, concat(enc, opts.pkR, x25519.getPublicKey(opts.skS)));
+  const { key: key2, nonce } = keySchedule(sharedSecret, opts.info);
+  const ciphertext = chacha20poly1305(key2, nonce, opts.aad).encrypt(opts.plaintext);
+  return { enc, sharedSecret, key: key2, nonce, ciphertext };
+}
+function hpkeOpenAuth(opts) {
+  const dh = concat(x25519.getSharedSecret(opts.skR, opts.enc), x25519.getSharedSecret(opts.skR, opts.pkS));
+  const sharedSecret = kemSecret(dh, concat(opts.enc, x25519.getPublicKey(opts.skR), opts.pkS));
+  const { key: key2, nonce } = keySchedule(sharedSecret, opts.info);
+  return chacha20poly1305(key2, nonce, opts.aad).decrypt(opts.ciphertext);
+}
+
+// ../protocol/src/keyring.ts
+function boxKey(meshId, mySec, theirPub, senderId, recipientId) {
+  const shared = x25519.getSharedSecret(mySec, theirPub);
+  return hkdf(sha256, shared, utf8(meshId), utf8(`${PROTOCOL} box ${senderId} ${recipientId}`), 32);
+}
+function box2Info(meshId, senderId, recipientId, prekeyId2) {
+  return utf8(`${PROTOCOL} box2 ${meshId} ${senderId} ${recipientId} ${prekeyId2}`);
+}
+function sealBox(boxSec, req) {
+  if (req.prekey !== void 0) {
+    const info = box2Info(req.mesh, req.sender, req.recipient, req.prekey.id);
+    const sealed = hpkeSealAuth({ pkR: req.prekey.pub, skS: boxSec, info, aad: req.aad, plaintext: req.plaintext });
+    return { s: 2, p: req.prekey.id, e: b64u.encode(sealed.enc), c: b64u.encode(sealed.ciphertext) };
+  }
+  const key2 = boxKey(req.mesh, boxSec, req.recipientBox, req.sender, req.recipient);
+  const nonce = randomBytes2(24);
+  return { n: b64u.encode(nonce), c: b64u.encode(xchacha20poly1305(key2, nonce, req.aad).encrypt(req.plaintext)) };
+}
+function openBox(boxSec, prekeySecret, req) {
+  const box = req.box;
+  try {
+    if ("s" in box) {
+      const secret = prekeySecret(box.p);
+      if (secret === void 0) return "key_expired";
+      const info = box2Info(req.mesh, req.sender, req.recipient, box.p);
+      return hpkeOpenAuth({ enc: b64u.decode(box.e), skR: secret, pkS: req.senderBox, info, aad: req.aad, ciphertext: b64u.decode(box.c) });
+    }
+    if (boxSec === void 0) return "decrypt_failed";
+    const key2 = boxKey(req.mesh, boxSec, req.senderBox, req.sender, req.recipient);
+    return xchacha20poly1305(key2, b64u.decode(box.n), req.aad).decrypt(b64u.decode(box.c));
+  } catch {
+    return "decrypt_failed";
+  }
+}
+function localKeyring(keys, prekeySecret = () => void 0) {
+  return {
+    signPub: keys.signPub,
+    boxPub: keys.boxPub,
+    sign: async (type, obj) => signObject(type, obj, keys.signSec).sig,
+    seal: async (req) => sealBox(keys.boxSec, req),
+    open: async (req) => openBox(keys.boxSec, prekeySecret, req)
+  };
+}
+async function signObjectWith(type, obj, keyring) {
+  const { sig: _sig, ...rest } = obj;
+  return { ...rest, sig: await keyring.sign(type, rest) };
+}
+
+// ../protocol/src/roster.ts
+function makeDeviceRecord(name, keys, role, added) {
+  const record2 = {
+    id: deviceIdFromSignPub(keys.signPub),
+    name,
+    sign: b64u.encode(keys.signPub),
+    box: b64u.encode(keys.boxPub),
+    role,
+    added
+  };
+  const parsed2 = deviceRecordSchema.safeParse(record2);
+  if (!parsed2.success) throw new TypeError(`makeDeviceRecord: ${parsed2.error.issues[0].message}`);
+  return record2;
+}
+function isRecoveryName(name) {
+  return name.startsWith("recovery");
+}
+async function createGenesisRosterWith(opts) {
+  return checkGenesis(await signObjectWith("roster", genesisBody({ ...opts, keys: opts.keyring }), opts.keyring));
+}
+function genesisBody(opts) {
+  if (isRecoveryName(opts.name)) throw new TypeError("createGenesisRoster: names starting with recovery are reserved");
+  const mesh = opts.meshId ?? b64u.encode(randomBytes2(16));
+  if (!meshIdSchema.safeParse(mesh).success) throw new TypeError("createGenesisRoster: invalid mesh id");
+  const device = makeDeviceRecord(opts.name, opts.keys, "admin", opts.now);
+  const devices2 = opts.recovery === void 0 ? [device] : [device, { ...opts.recovery }];
+  return { mesh, seq: 1, prev: null, devices: devices2, revoked: [], by: device.id, at: opts.now };
+}
+function checkGenesis(roster) {
+  const verified = verifyGenesisRoster(roster);
+  if (!verified.ok) throw new TypeError(`createGenesisRoster: ${verified.reason}`);
+  return roster;
+}
+function adminSigner(roster, id) {
+  if (roster.revoked.includes(id)) return void 0;
+  return roster.devices.find((d5) => d5.id === id && d5.role === "admin");
+}
+function nextRoster(prev, change, signer, now) {
+  return signObject("roster", nextRosterBody(prev, change, signer.keys.signPub, now), signer.keys.signSec);
+}
+async function nextRosterWith(prev, change, keyring, now) {
+  return signObjectWith("roster", nextRosterBody(prev, change, keyring.signPub, now), keyring);
+}
+function nextRosterBody(prev, change, signPub, now) {
+  const signerId = deviceIdFromSignPub(signPub);
+  if (!adminSigner(prev, signerId)) throw new Error("nextRoster: signer is not an unrevoked admin");
+  const revoke = change.revoke ?? [];
+  if (new Set(revoke).size !== revoke.length) throw new Error("nextRoster: duplicate id in revoke");
+  for (const id of revoke) {
+    if (!prev.devices.some((d5) => d5.id === id)) throw new Error(`nextRoster: ${id} is not a current device`);
+  }
+  const devices2 = prev.devices.filter((d5) => !revoke.includes(d5.id)).map((d5) => ({ ...d5 }));
+  const revoked = [...prev.revoked, ...revoke];
+  const promote = change.promote ?? [];
+  if (new Set(promote).size !== promote.length) throw new Error("nextRoster: duplicate id in promote");
+  for (const id of promote) {
+    const device = devices2.find((d5) => d5.id === id);
+    if (!device) throw new Error(`nextRoster: ${id} is not a current device`);
+    if (device.role !== "member") throw new Error(`nextRoster: ${id} is already an admin`);
+    device.role = "admin";
+  }
+  for (const device of change.add ?? []) {
+    const parsed2 = deviceRecordSchema.safeParse(device);
+    if (!parsed2.success) throw new Error(`nextRoster: invalid device record: ${parsed2.error.issues[0].message}`);
+    if (deviceIdFromSignPub(b64u.decode(device.sign)) !== device.id) {
+      throw new Error("nextRoster: device id does not match its signing key");
+    }
+    if (revoked.includes(device.id)) throw new Error(`nextRoster: ${device.id} was revoked and cannot return`);
+    if (devices2.some((d5) => d5.id === device.id)) throw new Error(`nextRoster: duplicate device id ${device.id}`);
+    if (devices2.some((d5) => d5.name === device.name)) throw new Error(`nextRoster: duplicate device name ${device.name}`);
+    if (isRecoveryName(device.name) && device.role !== "admin") {
+      throw new Error("nextRoster: names starting with recovery are reserved for recovery records");
+    }
+    devices2.push({ ...device });
+  }
+  if (!devices2.some((d5) => d5.role === "admin")) throw new Error("nextRoster: the mesh would have no admin");
+  return { mesh: prev.mesh, seq: prev.seq + 1, prev: hash2(prev), devices: devices2, revoked, by: signerId, at: now };
+}
+function checkShape(roster) {
+  const parsed2 = rosterSchema.safeParse(roster);
+  if (!parsed2.success) return fail("roster_malformed");
+  const r6 = parsed2.data;
+  const ids = /* @__PURE__ */ new Set();
+  const names = /* @__PURE__ */ new Set();
+  for (const d5 of r6.devices) {
+    if (deviceIdFromSignPub(b64u.decode(d5.sign)) !== d5.id) return fail("roster_bad_device_id");
+    if (ids.has(d5.id)) return fail("roster_duplicate_id");
+    if (names.has(d5.name)) return fail("roster_duplicate_name");
+    if (isRecoveryName(d5.name) && d5.role !== "admin") return fail("roster_recovery_not_admin");
+    ids.add(d5.id);
+    names.add(d5.name);
+  }
+  const revoked = new Set(r6.revoked);
+  if (revoked.size !== r6.revoked.length) return fail("roster_duplicate_revoked");
+  if (r6.devices.some((d5) => revoked.has(d5.id))) return fail("roster_revoked_present");
+  return ok(r6);
+}
+function verifyGenesisRoster(roster) {
+  const shape = checkShape(roster);
+  if (!shape.ok) return shape;
+  const r6 = shape.value;
+  if (r6.seq !== 1 || r6.prev !== null) return fail("genesis_not_first");
+  const [creator, recovery2, ...rest] = r6.devices;
+  if (creator === void 0 || creator.role !== "admin" || rest.length > 0 || r6.revoked.length !== 0) {
+    return fail("genesis_bad_devices");
+  }
+  if (isRecoveryName(creator.name)) return fail("genesis_reserved_name");
+  if (recovery2 !== void 0 && !isRecoveryName(recovery2.name)) return fail("genesis_bad_devices");
+  if (r6.by !== creator.id) return fail("genesis_wrong_signer");
+  if (!verifyObject("roster", r6, b64u.decode(creator.sign))) return fail("roster_bad_signature");
+  return ok(r6);
+}
+function verifyNextRoster(prev, next) {
+  const shape = checkShape(next);
+  if (!shape.ok) return shape;
+  const n3 = shape.value;
+  if (n3.mesh !== prev.mesh) return fail("roster_wrong_mesh");
+  if (n3.seq !== prev.seq + 1) return fail("roster_wrong_seq");
+  if (n3.prev !== hash2(prev)) return fail("roster_wrong_prev");
+  const signer = adminSigner(prev, n3.by);
+  if (!signer) return fail("roster_signer_not_admin");
+  if (!verifyObject("roster", n3, b64u.decode(signer.sign))) return fail("roster_bad_signature");
+  if (prev.revoked.some((id, i6) => n3.revoked[i6] !== id)) return fail("roster_revocation_undone");
+  const revokedNow = new Set(n3.revoked);
+  const kept = new Map(n3.devices.map((d5) => [d5.id, d5]));
+  for (const old of prev.devices) {
+    const now = kept.get(old.id);
+    if (now === void 0) {
+      if (!revokedNow.has(old.id)) return fail("roster_device_dropped");
+    } else if (hash2(now) !== hash2(old) && !isPromotion(old, now)) {
+      return fail("roster_device_changed");
+    }
+  }
+  if (!n3.devices.some((d5) => d5.role === "admin")) return fail("roster_no_admin");
+  return ok(n3);
+}
+function isPromotion(old, now) {
+  return old.role === "member" && now.role === "admin" && hash2({ ...now, role: "member" }) === hash2(old);
+}
+function verifyRosterChain(pinned, chain2) {
+  if (!Array.isArray(chain2) || chain2.length === 0) return fail("chain_empty");
+  const first = checkShape(chain2[0]);
+  if (!first.ok) return first;
+  if (first.value.seq !== pinned.seq) return fail("chain_wrong_start");
+  if (hash2(first.value) !== pinned.hash) return fail("chain_pin_mismatch");
+  let current = first.value;
+  for (const next of chain2.slice(1)) {
+    const step = verifyNextRoster(current, next);
+    if (!step.ok) return step;
+    current = step.value;
+  }
+  return ok(current);
+}
+function rosterRef(roster) {
+  return { seq: roster.seq, hash: hash2(roster) };
+}
+function detectFork(a5, b5) {
+  return a5.mesh === b5.mesh && a5.seq === b5.seq && hash2(a5) !== hash2(b5);
+}
+
+// ../protocol/src/invite.ts
+var PREFIX = "wim1_";
+var inviteBodySchema = external_exports.strictObject({
+  relay: relayUrlSchema,
+  mesh: meshIdSchema,
+  secret: secret32Schema,
+  pin: rosterRefSchema,
+  exp: timeSchema,
+  /** Optional relay certificate pin: b64u SHA-256 of its SubjectPublicKeyInfo (SPEC section 5). */
+  tls: b64uBytes(32).optional()
+});
+function spkiPin(spkiDer) {
+  if (!(spkiDer instanceof Uint8Array) || spkiDer.length === 0) throw new TypeError("spkiPin: expected DER bytes");
+  return b64u.encode(sha2562(spkiDer));
+}
+function inviteIdFromSecret(secret) {
+  if (!(secret instanceof Uint8Array) || secret.length !== 32) {
+    throw new TypeError("inviteIdFromSecret: expected a 32-byte secret");
+  }
+  return b64u.encode(sha2562(utf8(`${PROTOCOL} invite ${b64u.encode(secret)}`))).slice(0, 22);
+}
+function createInvite(opts) {
+  const now = opts.now ?? Date.now();
+  const exp = opts.exp ?? now + LIMITS.inviteDefaultTtlMs;
+  if (!Number.isSafeInteger(now) || !Number.isSafeInteger(exp) || exp <= now) {
+    throw new RangeError("createInvite: exp must be an integer time after now");
+  }
+  if (exp - now > LIMITS.inviteMaxTtlMs) throw new RangeError("createInvite: exp is more than 7 days away");
+  const secret = randomBytes2(32);
+  const body = { relay: opts.relay, mesh: opts.mesh, secret: b64u.encode(secret), pin: opts.pin, exp, tls: opts.tls };
+  const parsed2 = inviteBodySchema.safeParse(body);
+  if (!parsed2.success) throw new TypeError(`createInvite: ${describe3(parsed2.error)}`);
+  return { code: PREFIX + b64u.encode(canonBytes(body)), secret, inviteId: inviteIdFromSecret(secret), exp };
+}
+function describe3(error63) {
+  const issue2 = error63.issues[0];
+  return `${issue2.path.join(".") || "invite"}: ${issue2.message}`;
+}
+function parseInvite(code2) {
+  const text2 = typeof code2 === "string" ? code2.trim() : "";
+  if (!text2.startsWith(PREFIX)) throw new Error("invalid invite code: it must start with wim1_");
+  let json4;
+  try {
+    json4 = fromUtf8(b64u.decode(text2.slice(PREFIX.length)));
+  } catch {
+    throw new Error("invalid invite code: it is damaged or incomplete");
+  }
+  const body = parseJson(json4);
+  if (!body.ok) throw new Error("invalid invite code: it is damaged or incomplete");
+  const parsed2 = inviteBodySchema.safeParse(body.value);
+  if (!parsed2.success) throw new Error(`invalid invite code: ${describe3(parsed2.error)}`);
+  const secret = b64u.decode(parsed2.data.secret);
+  return { ...parsed2.data, secret, inviteId: inviteIdFromSecret(secret) };
+}
+function joinFields(device) {
+  return { id: device.id, name: device.name, sign: device.sign, box: device.box };
+}
+function joinProof(secret, device) {
+  return b64u.encode(hmac(sha256, secret, canonBytes(joinFields(device))));
+}
+function verifyJoinProof(secret, device, proof) {
+  try {
+    return bytesEqual(hmac(sha256, secret, canonBytes(joinFields(device))), b64u.decode(proof));
+  } catch {
+    return false;
+  }
+}
+var CROCKFORD2 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+function sasFor(device) {
+  const label = utf8(`${PROTOCOL} sas `);
+  const body = canonBytes(joinFields(device));
+  const input2 = new Uint8Array(label.length + body.length);
+  input2.set(label);
+  input2.set(body, label.length);
+  const h6 = sha2562(input2);
+  let bits = 0n;
+  for (const b5 of h6.subarray(0, 7)) bits = bits << 8n | BigInt(b5);
+  bits >>= 6n;
+  let out = "";
+  for (let i6 = 0; i6 < 10; i6++) out = CROCKFORD2[Number(bits >> BigInt(5 * i6) & 31n)] + out;
+  return `${out.slice(0, 5)}-${out.slice(5)}`;
+}
+var joinBodySchema = external_exports.strictObject({
+  mesh: meshIdSchema,
+  invite: inviteIdSchema,
+  device: joinDeviceSchema,
+  /** The `hello` nonce of the connection the join is sent on; signed, so a join cannot be replayed. */
+  nonce: secret32Schema,
+  proof: b64uBytes(32),
+  sig: sigSchema
+});
+var joinOrBodySchema = joinBodySchema.extend({ t: external_exports.literal("join").optional() });
+async function createJoinWith(invite2, name, keyring, nonce) {
+  const { body, device } = joinBody(invite2, name, keyring, nonce);
+  return { ...await signObjectWith("join", body, keyring), proof: joinProof(invite2.secret, device) };
+}
+function joinBody(invite2, name, keys, nonce) {
+  const device = {
+    id: deviceIdFromSignPub(keys.signPub),
+    name,
+    sign: b64u.encode(keys.signPub),
+    box: b64u.encode(keys.boxPub)
+  };
+  if (!joinDeviceSchema.safeParse(device).success) throw new TypeError("createJoin: invalid device name");
+  if (device.name.startsWith("recovery")) throw new TypeError("createJoin: names starting with recovery are reserved");
+  if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
+  return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
+}
+function verifyJoin(join21, secret, nonce) {
+  const parsed2 = joinOrBodySchema.safeParse(join21);
+  if (!parsed2.success) return fail("join_malformed");
+  const { t: _t, ...j5 } = parsed2.data;
+  if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
+  if (nonce !== void 0 && j5.nonce !== nonce) return fail("join_wrong_nonce");
+  const signPub = b64u.decode(j5.device.sign);
+  if (deviceIdFromSignPub(signPub) !== j5.device.id) return fail("join_bad_device_id");
+  const signed = { t: "join", mesh: j5.mesh, invite: j5.invite, device: j5.device, nonce: j5.nonce, sig: j5.sig };
+  if (!verifyObject("join", signed, signPub)) return fail("join_bad_signature");
+  if (secret !== void 0 && !verifyJoinProof(secret, j5.device, j5.proof)) return fail("join_bad_proof");
+  return ok(j5);
+}
+function admitJoin(device, now) {
+  const record2 = { ...joinFields(device), role: "member", added: now };
+  const parsed2 = deviceRecordSchema.safeParse(record2);
+  if (!parsed2.success || record2.name.startsWith("recovery")) throw new TypeError("admitJoin: invalid device, reserved name or bad time");
+  return record2;
+}
+
+// ../protocol/src/replay.ts
+function checkFreshness(at, now) {
+  if (at < now - LIMITS.messageMaxAgeMs) return fail("too_old");
+  if (at > now + LIMITS.messageMaxFutureMs) return fail("too_new");
+  return ok(true);
+}
+function dedupeExpiry(at) {
+  return at + LIMITS.dedupeRetentionMs;
+}
+var SeqTracker = class _SeqTracker {
+  #highest = /* @__PURE__ */ new Map();
+  #key(device, sid) {
+    if (typeof device !== "string" || typeof sid !== "string") throw new TypeError("SeqTracker: device and sid are strings");
+    return JSON.stringify([device, sid]);
+  }
+  observe(device, sid, seq) {
+    const key2 = this.#key(device, sid);
+    if (!Number.isSafeInteger(seq) || seq < 1) throw new RangeError("SeqTracker: seq must be a positive integer");
+    const last = this.#highest.get(key2)?.seq ?? 0;
+    if (seq <= last) return "dup";
+    this.#highest.set(key2, { device, sid, seq });
+    return "ok";
+  }
+  /** The highest seq seen for a sender session, or 0. */
+  highest(device, sid) {
+    return this.#highest.get(this.#key(device, sid))?.seq ?? 0;
+  }
+  toJSON() {
+    return { v: 1, entries: [...this.#highest.values()].map((e6) => [e6.device, e6.sid, e6.seq]) };
+  }
+  static fromJSON(json4) {
+    const data = json4;
+    if (typeof data !== "object" || data === null || data.v !== 1 || !Array.isArray(data.entries)) {
+      throw new TypeError("SeqTracker.fromJSON: not a tracker");
+    }
+    const tracker = new _SeqTracker();
+    for (const row of data.entries) {
+      if (!Array.isArray(row) || row.length !== 3) throw new TypeError("SeqTracker.fromJSON: bad row");
+      const [device, sid, seq] = row;
+      tracker.observe(device, sid, seq);
+    }
+    return tracker;
+  }
 };
 
 // ../protocol/src/blob.ts
@@ -86914,61 +87022,6 @@ function parseRelayFrame(text2) {
   return parseWith(text2, relaySchemas, LIMITS.receiveFrameBytes);
 }
 
-// ../protocol/src/hpke.ts
-var MODE_AUTH = 2;
-var KEM_ID = 32;
-var KDF_ID = 1;
-var AEAD_ID = 3;
-var i2osp2 = (n3) => Uint8Array.of(n3 >> 8, n3 & 255);
-function concat(...parts) {
-  const out = new Uint8Array(parts.reduce((n3, p3) => n3 + p3.length, 0));
-  let at = 0;
-  for (const p3 of parts) {
-    out.set(p3, at);
-    at += p3.length;
-  }
-  return out;
-}
-var KEM_SUITE = concat(utf8("KEM"), i2osp2(KEM_ID));
-var HPKE_SUITE = concat(utf8("HPKE"), i2osp2(KEM_ID), i2osp2(KDF_ID), i2osp2(AEAD_ID));
-var V1 = utf8("HPKE-v1");
-function labeledExtract(suite, salt, label, ikm) {
-  return extract(sha256, concat(V1, suite, utf8(label), ikm), salt);
-}
-function labeledExpand(suite, prk, label, info, length) {
-  return expand(sha256, prk, concat(i2osp2(length), V1, suite, utf8(label), info), length);
-}
-function kemSecret(dh, kemContext) {
-  const prk = labeledExtract(KEM_SUITE, new Uint8Array(0), "eae_prk", dh);
-  return labeledExpand(KEM_SUITE, prk, "shared_secret", kemContext, 32);
-}
-function keySchedule(sharedSecret, info) {
-  const empty = new Uint8Array(0);
-  const pskIdHash = labeledExtract(HPKE_SUITE, empty, "psk_id_hash", empty);
-  const infoHash = labeledExtract(HPKE_SUITE, empty, "info_hash", info);
-  const context = concat(Uint8Array.of(MODE_AUTH), pskIdHash, infoHash);
-  const secret = labeledExtract(HPKE_SUITE, sharedSecret, "secret", empty);
-  return {
-    key: labeledExpand(HPKE_SUITE, secret, "key", context, 32),
-    nonce: labeledExpand(HPKE_SUITE, secret, "base_nonce", context, 12)
-  };
-}
-function hpkeSealAuth(opts) {
-  const skE = opts.ephemeral ?? randomBytes2(32);
-  const enc = x25519.getPublicKey(skE);
-  const dh = concat(x25519.getSharedSecret(skE, opts.pkR), x25519.getSharedSecret(opts.skS, opts.pkR));
-  const sharedSecret = kemSecret(dh, concat(enc, opts.pkR, x25519.getPublicKey(opts.skS)));
-  const { key: key2, nonce } = keySchedule(sharedSecret, opts.info);
-  const ciphertext = chacha20poly1305(key2, nonce, opts.aad).encrypt(opts.plaintext);
-  return { enc, sharedSecret, key: key2, nonce, ciphertext };
-}
-function hpkeOpenAuth(opts) {
-  const dh = concat(x25519.getSharedSecret(opts.skR, opts.enc), x25519.getSharedSecret(opts.skR, opts.pkS));
-  const sharedSecret = kemSecret(dh, concat(opts.enc, x25519.getPublicKey(opts.skR), opts.pkS));
-  const { key: key2, nonce } = keySchedule(sharedSecret, opts.info);
-  return chacha20poly1305(key2, nonce, opts.aad).decrypt(opts.ciphertext);
-}
-
 // ../protocol/src/message.ts
 var textSchema = external_exports.string().refine((s3) => fitsUtf8(s3, LIMITS.textBytes), { message: "text is over 256 KiB" });
 var cardSchema = external_exports.strictObject({
@@ -87031,21 +87084,22 @@ var plaintextSchema = external_exports.discriminatedUnion("kind", [
   (p3) => p3.kind !== "task" || p3.deadline === void 0 || p3.deadline > p3.at && p3.deadline - p3.at <= LIMITS.taskDeadlineMaxMs,
   { message: "deadline must be after at and at most 24 hours after it", path: ["deadline"] }
 );
-function boxKey(meshId, mySec, theirPub, senderId, recipientId) {
-  const shared = x25519.getSharedSecret(mySec, theirPub);
-  return hkdf(sha256, shared, utf8(meshId), utf8(`${PROTOCOL} box ${senderId} ${recipientId}`), 32);
-}
-function box2Info(meshId, senderId, recipientId, prekeyId2) {
-  return utf8(`${PROTOCOL} box2 ${meshId} ${senderId} ${recipientId} ${prekeyId2}`);
-}
 function headerAad(frame) {
   const { boxes: _boxes, sig: _sig, ...header2 } = frame;
   return sha2562(canonBytes(header2));
 }
-function sealMessage(opts) {
+async function sealMessageWith(opts) {
+  const { keyring } = opts.sender;
+  const plan = planSeal(opts, keyring.signPub);
+  const boxes = {};
+  for (const req of plan.requests) boxes[req.recipient] = await keyring.seal(req);
+  const body = { ...plan.header, boxes };
+  return finishSeal(plan, { ...body, sig: await keyring.sign("send", body) });
+}
+function planSeal(opts, signPub) {
   const { roster, sender } = opts;
   const kind = opts.kind ?? "msg";
-  if (deviceIdFromSignPub(sender.keys.signPub) !== sender.deviceId) {
+  if (deviceIdFromSignPub(signPub) !== sender.deviceId) {
     throw new TypeError("sealMessage: sender.deviceId does not match the signing key");
   }
   if (!roster.devices.some((d5) => d5.id === sender.deviceId)) {
@@ -87132,21 +87186,15 @@ function sealMessage(opts) {
   }
   const plaintext = canonBytes(body);
   const aad = headerAad(header2);
-  const boxes = {};
-  for (const r6 of recipients) {
+  const requests = recipients.map((r6) => {
     const pk = prekeys[r6.id];
-    if (pk !== void 0) {
-      const sealed = hpkeSealAuth({ pkR: b64u.decode(pk.pub), skS: sender.keys.boxSec, info: box2Info(roster.mesh, sender.deviceId, r6.id, pk.id), aad, plaintext });
-      boxes[r6.id] = { s: 2, p: pk.id, e: b64u.encode(sealed.enc), c: b64u.encode(sealed.ciphertext) };
-      continue;
-    }
-    const key2 = boxKey(roster.mesh, sender.keys.boxSec, b64u.decode(r6.box), sender.deviceId, r6.id);
-    const nonce = randomBytes2(24);
-    const c5 = xchacha20poly1305(key2, nonce, aad).encrypt(plaintext);
-    boxes[r6.id] = { n: b64u.encode(nonce), c: b64u.encode(c5) };
-  }
-  const frame = signObject("send", { ...header2, boxes }, sender.keys.signSec);
-  const limit2 = kind === "card" ? LIMITS.cardFrameBytes : LIMITS.frameBytes;
+    const base = { mesh: roster.mesh, sender: sender.deviceId, recipient: r6.id, recipientBox: b64u.decode(r6.box), aad, plaintext };
+    return pk === void 0 ? base : { ...base, prekey: { id: pk.id, pub: b64u.decode(pk.pub) } };
+  });
+  return { kind, header: header2, requests };
+}
+function finishSeal(plan, frame) {
+  const limit2 = plan.kind === "card" ? LIMITS.cardFrameBytes : LIMITS.frameBytes;
   if (!fitsUtf8(canon(frame), limit2)) throw new RangeError(`sealMessage: frame would be over ${limit2} bytes`);
   const parsed2 = sendFrameSchema.safeParse(frame);
   if (!parsed2.success) {
@@ -87161,7 +87209,12 @@ function dropUndefined(obj) {
 function sameTo(a5, b5) {
   return a5.length === b5.length && a5.every((x2, i6) => x2 === b5[i6]);
 }
-function openMessage(frame, ctx) {
+async function openMessageWith(frame, ctx) {
+  const checked = checkFrame(frame, ctx);
+  if (!checked.ok) return checked;
+  return checkPlaintext(checked.value.f, await ctx.me.keyring.open(checked.value.req));
+}
+function checkFrame(frame, ctx) {
   const parsed2 = sendFrameSchema.safeParse(frame);
   if (!parsed2.success) return fail("malformed");
   const f7 = parsed2.data;
@@ -87183,33 +87236,24 @@ function openMessage(frame, ctx) {
   if (!fresh.ok) return fresh;
   const box = Object.hasOwn(f7.boxes, me.deviceId) ? f7.boxes[me.deviceId] : void 0;
   if (box === void 0) return fail("no_box");
-  let open3;
-  if ("s" in box) {
-    const secret = me.prekey?.(box.p);
-    if (secret === void 0) return fail("key_expired");
-    const info = box2Info(roster.mesh, sender.id, me.deviceId, box.p);
-    open3 = () => hpkeOpenAuth({ enc: b64u.decode(box.e), skR: secret, pkS: b64u.decode(sender.box), info, aad: headerAad(f7), ciphertext: b64u.decode(box.c) });
-  } else {
-    if (ctx.legacy === false) return fail("legacy_box");
-    open3 = () => {
-      const key2 = boxKey(roster.mesh, me.keys.boxSec, b64u.decode(sender.box), sender.id, me.deviceId);
-      return xchacha20poly1305(key2, b64u.decode(box.n), headerAad(f7)).decrypt(b64u.decode(box.c));
-    };
-  }
-  let bytes2;
+  if (!("s" in box) && ctx.legacy === false) return fail("legacy_box");
+  return ok({ f: f7, req: { mesh: roster.mesh, sender: sender.id, recipient: me.deviceId, senderBox: b64u.decode(sender.box), box, aad: headerAad(f7) } });
+}
+function checkPlaintext(f7, opened2) {
+  if (typeof opened2 === "string") return fail(opened2);
   let text2;
   try {
-    bytes2 = open3();
-    text2 = fromUtf8(bytes2);
+    text2 = fromUtf8(opened2);
   } catch {
     return fail("decrypt_failed");
   }
+  const bytes3 = opened2;
   const json4 = parseJson(text2);
   if (!json4.ok) return fail("plaintext_malformed");
   const result = plaintextSchema.safeParse(json4.value);
   if (!result.success) return fail("plaintext_malformed");
   const body = result.data;
-  if (!bytesEqual(canonBytes(body), bytes2)) return fail("plaintext_malformed");
+  if (!bytesEqual(canonBytes(body), bytes3)) return fail("plaintext_malformed");
   if (body.kind === "card" !== (f7.seq === 0)) return fail("seq_kind_mismatch");
   if (body.id !== f7.id) return fail("id_mismatch");
   if (canon(body.from) !== canon(f7.from)) return fail("from_mismatch");
@@ -87449,12 +87493,17 @@ function recoverySummary(chain2) {
 }
 
 // ../protocol/src/auth.ts
-function signAuth(fields, keys) {
-  const device = deviceIdFromSignPub(keys.signPub);
+async function signAuthWith(fields, keyring) {
+  return checkAuth(await signObjectWith("auth", authBody(fields, keyring.signPub), keyring));
+}
+function authBody(fields, signPub) {
+  const device = deviceIdFromSignPub(signPub);
   if (fields.device !== void 0 && fields.device !== device) {
     throw new TypeError("signAuth: device does not match the signing key");
   }
-  const frame = signObject("auth", { ...fields, t: "auth", v: WIRE_VERSION, device }, keys.signSec);
+  return { ...fields, t: "auth", v: WIRE_VERSION, device };
+}
+function checkAuth(frame) {
   const parsed2 = authFrameSchema.safeParse(frame);
   if (!parsed2.success) {
     const issue2 = parsed2.error.issues[0];
@@ -87864,18 +87913,18 @@ var InboundGateway = class {
     const all = this.store.values().filter(
       (r6) => (p3.contextId === void 0 || r6.task.contextId === p3.contextId) && (p3.status === void 0 || r6.task.status.state === p3.status) && r6.statusMs >= after
     ).sort((a5, b5) => b5.statusMs - a5.statusMs || Number(a5.task.id < b5.task.id) - Number(a5.task.id > b5.task.id));
-    let start = 0;
+    let start2 = 0;
     if (p3.pageToken !== void 0 && p3.pageToken !== "") {
       const cursor2 = decodeCursor(p3.pageToken);
-      start = all.findIndex(
+      start2 = all.findIndex(
         (r6) => r6.statusMs < cursor2.ms || r6.statusMs === cursor2.ms && r6.task.id < cursor2.id
       );
-      if (start === -1) start = all.length;
+      if (start2 === -1) start2 = all.length;
     }
     const pageSize = p3.pageSize ?? 50;
-    const page = all.slice(start, start + pageSize);
+    const page = all.slice(start2, start2 + pageSize);
     const last = page.at(-1);
-    const more = start + page.length < all.length;
+    const more = start2 + page.length < all.length;
     return {
       tasks: page.map((r6) => {
         const t2 = this.view(r6, p3.historyLength);
@@ -87923,8 +87972,8 @@ function decodeCursor(token) {
     throw invalid("Invalid parameters: pageToken is not a token this server issued");
   }
 }
-function reply(res, status, body, headers = {}) {
-  res.writeHead(status, { "content-type": "application/json", ...headers });
+function reply(res, status2, body, headers = {}) {
+  res.writeHead(status2, { "content-type": "application/json", ...headers });
   res.end(JSON.stringify(body));
 }
 async function readBody(req) {
@@ -88440,6 +88489,21 @@ function busyRetries(platform2) {
 function momentarilyBusy(code2, platform2) {
   return platform2 === "win32" && (code2 === "EPERM" || code2 === "EBUSY");
 }
+function agentDirProblem(facts, platform2, myUid) {
+  if (facts.isSymlink) return "it is a symbolic link";
+  if (!facts.isDirectory) return "it is not a directory";
+  if (platform2 === "win32") return void 0;
+  if (myUid !== void 0 && facts.uid !== myUid) return "it is owned by another user";
+  return dirProblem(facts.mode, platform2);
+}
+function agentEndpointFor(dir, platform2, token) {
+  return platform2 === "win32" ? `\\\\.\\pipe\\wim-agent-${token}` : pathFor(platform2).join(dir, "sock");
+}
+var SOCKET_PATH_MAX = 103;
+function endpointProblem(endpoint2, platform2) {
+  if (platform2 === "win32" || Buffer.byteLength(endpoint2) <= SOCKET_PATH_MAX) return void 0;
+  return `the socket path ${endpoint2} is over ${SOCKET_PATH_MAX} bytes: set WIM_HOME to a shorter directory`;
+}
 
 // src/fsx.ts
 function noFollow(c5) {
@@ -88450,9 +88514,9 @@ async function openNoFollow(path2, flags) {
   if (handle === void 0) return void 0;
   let keep = false;
   try {
-    const opened = await handle.stat({ bigint: true });
+    const opened2 = await handle.stat({ bigint: true });
     const named = await fs.lstat(path2, { bigint: true });
-    keep = !named.isSymbolicLink() && named.ino === opened.ino;
+    keep = !named.isSymbolicLink() && named.ino === opened2.ino;
     return keep ? handle : void 0;
   } finally {
     if (!keep) await handle.close();
@@ -88696,10 +88760,10 @@ function safeFileName(id, name) {
   const reduced = name.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._-]+/, "").slice(0, 80);
   return `${id}-${reduced === "" ? "file" : reduced}`;
 }
-async function saveReceived(dir, id, name, bytes2) {
+async function saveReceived(dir, id, name, bytes3) {
   await ensureDir(dir);
   const path2 = join2(dir, safeFileName(id, name));
-  await fs2.writeFile(path2, bytes2, { mode: 384, flag: "wx" });
+  await fs2.writeFile(path2, bytes3, { mode: 384, flag: "wx" });
   return path2;
 }
 var MIME = {
@@ -88745,9 +88809,9 @@ function unsendable(path2, wimHome, userHome) {
   if (/^id_[a-z0-9_-]+$/.test(name) || /^id_[a-z0-9_-]+\.pub$/.test(name)) return "it looks like an SSH key";
   return void 0;
 }
-function secretsInFile(bytes2) {
-  if (bytes2.subarray(0, 8192).includes(0)) return [];
-  return findSecrets(new TextDecoder("utf-8", { fatal: false }).decode(bytes2));
+function secretsInFile(bytes3) {
+  if (bytes3.subarray(0, 8192).includes(0)) return [];
+  return findSecrets(new TextDecoder("utf-8", { fatal: false }).decode(bytes3));
 }
 
 // src/held.ts
@@ -89141,9 +89205,9 @@ function trustLevel(action, relayed2) {
 
 // src/prekeys.ts
 function decode32(text2) {
-  const bytes2 = b64u.decode(text2);
-  if (bytes2.length !== 32) throw new TypeError("not 32 bytes");
-  return bytes2;
+  const bytes3 = b64u.decode(text2);
+  if (bytes3.length !== 32) throw new TypeError("not 32 bytes");
+  return bytes3;
 }
 function parsed(list2, parse4) {
   return (Array.isArray(list2) ? list2 : []).flatMap((item) => {
@@ -89172,17 +89236,33 @@ var PrekeyStore = class {
     const raw = await readJson(this.path);
     return parsed(raw?.v === 1 ? raw.keys : void 0, (k5) => {
       const entry = k5;
-      return { prekey: prekeySchema.parse(entry.prekey), secret: decode32(entry.secret) };
+      const prekey = prekeySchema.parse(entry.prekey);
+      if (typeof entry.sealed === "string" && entry.sealed !== "") return { prekey, sealed: entry.sealed };
+      return { prekey, secret: decode32(entry.secret) };
     });
   }
   /** Reads the file again: a sibling session may have rotated since. An unreadable file keeps what is held. */
   async reload() {
     this.held = await this.read().catch(() => this.held);
   }
-  /** The secret of one of this device's prekeys, while it is kept (never past its deletion time). */
-  secret(id) {
+  /** One of this device's prekeys with its secret, while it is kept (never past its deletion time). */
+  entry(id) {
     const now = this.now();
-    return this.held.find((h6) => h6.prekey.id === id && prekeyDeleteAt(h6.prekey) > now)?.secret;
+    return this.held.find((h6) => h6.prekey.id === id && prekeyDeleteAt(h6.prekey) > now);
+  }
+  /**
+   * The device's keyring for opening: a scheme 2 box opens with the entry of the prekey it names
+   * (`key_expired` once that is deleted), a scheme 1 box with the device's box key.
+   */
+  opener() {
+    const keyring = this.device.keyring;
+    return {
+      open: async (req) => {
+        if (!("s" in req.box)) return keyring.open(req);
+        const entry = this.entry(req.box.p);
+        return entry === void 0 ? "key_expired" : keyring.openPrekey(entry, req);
+      }
+    };
   }
   /** The newest prekey senders may use now: the one this device publishes. Its own, so only its time is checked. */
   current() {
@@ -89203,13 +89283,15 @@ var PrekeyStore = class {
     return withLock(`${this.path}.lock`, async () => {
       const now = this.now();
       const before = await this.read();
-      const kept = before.filter((h6) => prekeyDeleteAt(h6.prekey) > now);
+      const alive = before.filter((h6) => prekeyDeleteAt(h6.prekey) > now);
+      const kept = await Promise.all(alive.map((h6) => this.device.keyring.adopt(h6)));
+      const adopted = kept.some((h6, i6) => h6 !== alive[i6]);
       const newest = kept.filter((h6) => prekeyUsable(h6.prekey, now)).sort((a5, b5) => b5.prekey.at - a5.prekey.at)[0];
       const rotate = newest === void 0 || now - newest.prekey.at >= LIMITS.prekeyRotateMs;
-      if (rotate) kept.push(createPrekey({ mesh: this.mesh, deviceId: this.device.id, signSec: this.device.keys.signSec, at: now }));
+      if (rotate) kept.push(await this.device.keyring.newPrekey(this.mesh, now));
       const next = kept.sort((a5, b5) => b5.prekey.at - a5.prekey.at).slice(0, LIMITS.prekeysKept);
-      if (rotate || next.length !== before.length) {
-        const file2 = { v: 1, keys: next.map((h6) => ({ prekey: h6.prekey, secret: b64u.encode(h6.secret) })) };
+      if (rotate || adopted || next.length !== before.length) {
+        const file2 = { v: 1, keys: next.map((h6) => "sealed" in h6 ? { prekey: h6.prekey, sealed: h6.sealed } : { prekey: h6.prekey, secret: b64u.encode(h6.secret) }) };
         await writeJson(this.path, file2, this.env);
       }
       this.held = next;
@@ -89493,6 +89575,337 @@ var SessionKeys = class {
     }
   }
 };
+
+// src/keyring.ts
+function openWithClearPrekey(entry, req) {
+  return openBox(void 0, () => entry.secret, req);
+}
+var NeedsSigner = class extends Error {
+  name = "NeedsSigner";
+  constructor() {
+    super("this device's keys were encrypted (wim agent encrypt) while this session was running: restart it so it uses the signer; messages it cannot open meanwhile are not acknowledged, and the relay delivers them again");
+  }
+};
+function localDeviceKeyring(keys) {
+  const ring = localKeyring(keys);
+  const deviceId = deviceIdFromSignPub(keys.signPub);
+  return {
+    kind: "local",
+    signPub: ring.signPub,
+    boxPub: ring.boxPub,
+    sign: ring.sign,
+    seal: ring.seal,
+    open: ring.open,
+    newPrekey: async (mesh, at) => createPrekey({ mesh, deviceId, signSec: keys.signSec, at }),
+    // A sealed entry opens only in the signer, which this process is not using: the key file
+    // was encrypted while it ran. Not "key_expired", which would drop the message for good.
+    openPrekey: async (entry, req) => {
+      if ("sealed" in entry) throw new NeedsSigner();
+      return openWithClearPrekey(entry, req);
+    },
+    adopt: async (entry) => entry
+  };
+}
+
+// src/signer.ts
+import { verify } from "node:crypto";
+
+// src/channel.ts
+import { createCipheriv, createDecipheriv, createHash as createHash3, createPublicKey, diffieHellman, generateKeyPairSync, hkdfSync } from "node:crypto";
+var HELLO_LABEL = "wim-agent/2 hello\n";
+var CERT_LABEL = "wim-agent/2 signer\n";
+var ED25519_SPKI = Buffer.from("302a300506032b6570032100", "hex");
+function certBytes(body) {
+  return Buffer.concat([Buffer.from(CERT_LABEL, "utf8"), canonBytes(body)]);
+}
+function runKey() {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(ED25519_SPKI.length)) };
+}
+function ed25519Public(pub) {
+  return createPublicKey({ key: Buffer.concat([ED25519_SPKI, pub]), format: "der", type: "spki" });
+}
+var X25519_SPKI = Buffer.from("302a300506032b656e032100", "hex");
+function ephemeral() {
+  const { privateKey, publicKey } = generateKeyPairSync("x25519");
+  return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(X25519_SPKI.length)) };
+}
+function helloTranscript(nonce, clientPub, serverPub, info) {
+  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce, clientPub, serverPub, canonBytes(info)]);
+}
+var Channel = class _Channel {
+  sendKey;
+  recvKey;
+  sent = 0;
+  received = 0;
+  constructor(sendKey, recvKey) {
+    this.sendKey = sendKey;
+    this.recvKey = recvKey;
+  }
+  static nonce(n3) {
+    const nonce = Buffer.alloc(12);
+    nonce.writeUIntBE(n3, 6, 6);
+    return nonce;
+  }
+  /** Seals one line's text: b64u of ciphertext and tag. */
+  seal(text2) {
+    const cipher = createCipheriv("chacha20-poly1305", this.sendKey, _Channel.nonce(this.sent++), { authTagLength: 16 });
+    return b64u.encode(Buffer.concat([cipher.update(text2, "utf8"), cipher.final(), cipher.getAuthTag()]));
+  }
+  /** Opens what the other end sealed next; undefined for anything else. */
+  open(sealed) {
+    try {
+      const bytes3 = Buffer.from(b64u.decode(sealed));
+      const decipher = createDecipheriv("chacha20-poly1305", this.recvKey, _Channel.nonce(this.received), { authTagLength: 16 });
+      decipher.setAuthTag(bytes3.subarray(bytes3.length - 16));
+      const text2 = Buffer.concat([decipher.update(bytes3.subarray(0, bytes3.length - 16)), decipher.final()]).toString("utf8");
+      this.received++;
+      return text2;
+    } catch {
+      return void 0;
+    }
+  }
+};
+function channelFor(side, mine, theirPub, transcript) {
+  const shared = diffieHellman({ privateKey: mine, publicKey: createPublicKey({ key: Buffer.concat([X25519_SPKI, theirPub]), format: "der", type: "spki" }) });
+  const salt = createHash3("sha256").update(transcript).digest();
+  const keys = new Uint8Array(hkdfSync("sha256", shared, salt, "wim-agent/2 channel", 64));
+  shared.fill(0);
+  const toSigner = keys.slice(0, 32);
+  const toClient = keys.slice(32);
+  keys.fill(0);
+  return side === "client" ? new Channel(toSigner, toClient) : new Channel(toClient, toSigner);
+}
+
+// src/signer.ts
+import { createConnection } from "node:net";
+var MAX_LINE = 4 * 1024 * 1024;
+var SignerError = class extends Error {
+  name = "SignerError";
+  code;
+  constructor(code2, message2) {
+    super(message2);
+    this.code = code2;
+  }
+  /** The signer could not answer now (locked, gone, slow or busy); the same request may work later. */
+  get transient() {
+    return ["locked", "unavailable", "timeout", "rate_limited"].includes(this.code);
+  }
+};
+var LOCKED_OPS = /* @__PURE__ */ new Set(["status", "lock", "stop"]);
+var CERT_SKEW_MS = 5 * 6e4;
+function encodeSeal(req) {
+  return {
+    mesh: req.mesh,
+    sender: req.sender,
+    recipient: req.recipient,
+    aad: b64u.encode(req.aad),
+    recipientBox: b64u.encode(req.recipientBox),
+    plaintext: b64u.encode(req.plaintext),
+    ...req.prekey === void 0 ? {} : { prekey: { id: req.prekey.id, pub: b64u.encode(req.prekey.pub) } }
+  };
+}
+function encodeOpen(req) {
+  return { mesh: req.mesh, sender: req.sender, recipient: req.recipient, aad: b64u.encode(req.aad), senderBox: b64u.encode(req.senderBox), box: req.box };
+}
+function isObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function unseal(channel, line) {
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  return isObject2(value) ? channel.open(value["x"]) : void 0;
+}
+function parseAnswer(line) {
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  if (!isObject2(value)) return void 0;
+  const { i: i6, r: r6, e: e6 } = value;
+  if (e6 !== void 0) return isObject2(e6) && typeof e6["code"] === "string" && typeof e6["message"] === "string" ? { i: i6, e: { code: e6["code"], message: e6["message"] } } : void 0;
+  return isObject2(r6) ? { i: i6, r: r6 } : void 0;
+}
+var SignerClient = class {
+  /** The endpoint last connected to (or given). */
+  endpoint;
+  where;
+  expect;
+  timeoutMs;
+  connect;
+  now;
+  conn;
+  opening;
+  next = 0;
+  /**
+   * `endpoint` is the signer's address, or a function that finds it again for each new connection
+   * (a session outlives a signer restart, and on Windows each start has a new pipe name).
+   */
+  constructor(o3) {
+    this.now = o3.now ?? Date.now;
+    const at = o3.endpoint;
+    this.endpoint = typeof at === "string" ? at : "";
+    this.where = typeof at === "string" ? async () => at : at;
+    this.expect = o3.expect;
+    this.timeoutMs = o3.timeoutMs ?? 3e4;
+    this.connect = o3.connect ?? ((endpoint2) => createConnection(endpoint2));
+  }
+  /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
+  async call(op2, a5 = {}) {
+    const conn = await this.connected();
+    if (conn.hello.locked && !LOCKED_OPS.has(op2)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in your own terminal");
+    return this.send(conn, op2, a5);
+  }
+  /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
+  async hello() {
+    return (await this.connected()).hello;
+  }
+  /** Drops the connection; its pending calls fail as `unavailable`. */
+  close() {
+    this.conn?.socket.destroy();
+  }
+  send(conn, op2, a5) {
+    const i6 = ++this.next;
+    return new Promise((resolve3, reject) => {
+      const timer = setTimeout(() => {
+        conn.pending.delete(i6);
+        this.idle(conn);
+        reject(new SignerError("timeout", `the signer did not answer ${op2} in ${this.timeoutMs} ms`));
+      }, this.timeoutMs);
+      conn.pending.set(i6, { resolve: resolve3, reject, timer });
+      conn.socket.ref();
+      const text2 = JSON.stringify({ i: i6, op: op2, a: a5 });
+      conn.socket.write(`${conn.channel === void 0 ? text2 : JSON.stringify({ x: conn.channel.seal(text2) })}
+`);
+    });
+  }
+  idle(conn) {
+    if (conn.pending.size === 0) conn.socket.unref();
+  }
+  connected() {
+    if (this.conn !== void 0) return Promise.resolve(this.conn);
+    this.opening ??= this.open().finally(() => this.opening = void 0);
+    return this.opening;
+  }
+  async open() {
+    return this.connectTo(await this.where());
+  }
+  connectTo(at) {
+    if (at === void 0) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in your own terminal"));
+    this.endpoint = at;
+    return new Promise((resolve3, reject) => {
+      const socket = this.connect(at);
+      const conn = { socket, pending: /* @__PURE__ */ new Map(), buffered: "" };
+      socket.setEncoding("utf8");
+      socket.on("error", (error63) => {
+        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error63.code ?? error63.message}): run \`wim agent start\` in your own terminal`));
+      });
+      socket.once("connect", () => {
+        socket.on("data", (chunk) => this.take(conn, chunk));
+        socket.once("close", () => this.dropped(conn));
+        this.greet(conn).then(
+          () => {
+            this.conn = conn;
+            resolve3(conn);
+          },
+          (error63) => {
+            socket.destroy();
+            reject(error63);
+          }
+        );
+      });
+    });
+  }
+  async greet(conn) {
+    const nonce = randomBytes2(32);
+    const mine = ephemeral();
+    const hello = await this.send(conn, "hello", { nonce: b64u.encode(nonce), epub: b64u.encode(mine.pub) });
+    this.check(conn, hello, nonce, mine);
+    return hello;
+  }
+  /**
+   * Checks a hello and opens the channel: the run key certified by the device key, and the run
+   * key's signature over this connection's transcript. Any missing or malformed field is a mismatch.
+   */
+  check(conn, hello, nonce, mine) {
+    if (this.expect !== void 0 && hello.signPub !== b64u.encode(this.expect)) {
+      throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
+    }
+    try {
+      const { sig, ...body } = hello.cert;
+      const info = { id: hello.id, name: hello.name, signPub: hello.signPub, boxPub: hello.boxPub, locked: hello.locked, pid: hello.pid };
+      const theirs = b64u.decode(hello.epub);
+      const transcript = helloTranscript(nonce, mine.pub, theirs, info);
+      const now = this.now();
+      const certified = verify(null, certBytes(body), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(sig));
+      const current = body.locked === hello.locked && body.pid === hello.pid && body.issued <= now + CERT_SKEW_MS && now < body.expires;
+      if (!certified || !current || !verify(null, transcript, ed25519Public(b64u.decode(body.pub)), b64u.decode(hello.proof))) throw new Error("bad proof");
+      conn.channel = channelFor("client", mine.privateKey, theirs, transcript);
+    } catch {
+      throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it is this device's signer`);
+    }
+    conn.hello = hello;
+  }
+  take(conn, chunk) {
+    conn.buffered += chunk;
+    if (conn.buffered.length > MAX_LINE) {
+      conn.socket.destroy();
+      return;
+    }
+    for (let nl = conn.buffered.indexOf("\n"); nl !== -1; nl = conn.buffered.indexOf("\n")) {
+      const line = conn.buffered.slice(0, nl);
+      conn.buffered = conn.buffered.slice(nl + 1);
+      const answer = parseAnswer(conn.channel === void 0 ? line : unseal(conn.channel, line) ?? "");
+      if (answer === void 0) {
+        conn.socket.destroy();
+        return;
+      }
+      const waiting2 = conn.pending.get(answer.i);
+      if (waiting2 === void 0) continue;
+      conn.pending.delete(answer.i);
+      clearTimeout(waiting2.timer);
+      this.idle(conn);
+      if ("e" in answer) waiting2.reject(new SignerError(answer.e.code, answer.e.message));
+      else waiting2.resolve(answer.r);
+    }
+  }
+  dropped(conn) {
+    if (this.conn === conn) this.conn = void 0;
+    for (const [i6, waiting2] of conn.pending) {
+      conn.pending.delete(i6);
+      clearTimeout(waiting2.timer);
+      waiting2.reject(new SignerError("unavailable", "the signer closed the connection"));
+    }
+  }
+};
+function signerKeyring(client, pub) {
+  const opened2 = (r6) => typeof r6["opened"] === "string" ? b64u.decode(r6["opened"]) : r6["reason"];
+  return {
+    kind: "signer",
+    signPub: pub.signPub,
+    boxPub: pub.boxPub,
+    sign: async (type, obj) => (await client.call("sign", { type, obj }))["sig"],
+    seal: async (req) => (await client.call("seal", encodeSeal(req)))["box"],
+    // Only scheme 1 opens with the device key; a scheme 2 box needs its prekey's entry (openPrekey).
+    open: async (req) => "s" in req.box ? "key_expired" : opened2(await client.call("open", encodeOpen(req))),
+    openPrekey: async (entry, req) => "secret" in entry ? openWithClearPrekey(entry, req) : opened2(await client.call("open2", { ...encodeOpen(req), entry })),
+    newPrekey: async (mesh, at) => {
+      const r6 = await client.call("prekey", { mesh, at });
+      return { prekey: r6["prekey"], sealed: r6["sealed"] };
+    },
+    adopt: async (entry) => {
+      if ("sealed" in entry) return entry;
+      const r6 = await client.call("adopt", { prekey: entry.prekey, secret: b64u.encode(entry.secret) });
+      return { prekey: entry.prekey, sealed: r6["sealed"] };
+    }
+  };
+}
 
 // src/spool.ts
 import { join as join7 } from "node:path";
@@ -89931,9 +90344,9 @@ var Connection = class {
     this.o.log(`wim: connecting to ${this.o.debug === true ? this.o.url : redactUrl(this.o.url)} (attempt ${this.attempt + 1})`);
     this.o.onState?.("connecting");
     try {
-      const opened = await Link.open(this.o.dialer, this.o.url, this.o.tlsPin === void 0 ? {} : { tlsPin: this.o.tlsPin });
-      link = opened.link;
-      const hello = opened.hello;
+      const opened2 = await Link.open(this.o.dialer, this.o.url, this.o.tlsPin === void 0 ? {} : { tlsPin: this.o.tlsPin });
+      link = opened2.link;
+      const hello = opened2.hello;
       if (this.stopped) return link.close();
       const early = [];
       let live = false;
@@ -89942,7 +90355,7 @@ var Connection = class {
         if (live) this.o.onFrame(f7);
         else if (f7.t !== "ready") early.push(f7);
       });
-      const ready = await link.request(this.o.auth(hello), (f7) => f7.t === "ready" || errorFor("auth")(f7), 1e4);
+      const ready = await link.request(await this.o.auth(hello), (f7) => f7.t === "ready" || errorFor("auth")(f7), 1e4);
       if (ready.t !== "ready") {
         this.refusal = authRefusal(ready);
         throw new WireError(`the relay refused auth${this.refusal === void 0 ? ` (${relayCode(ready.code)})` : `: ${this.refusal}`}`, "auth");
@@ -90031,6 +90444,13 @@ var Connection = class {
 };
 
 // src/client.ts
+var FRAME_ATTEMPTS = 3;
+var RETRY_FIRST_MS = 1e3;
+var RETRY_MAX_MS = 5 * 6e4;
+var LOCAL_FAULTS = /* @__PURE__ */ new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", "EACCES", "EPERM", "EBUSY", "EMFILE", "ENFILE", "EAGAIN", "ENOTDIR", "EISDIR", "ENOENT", "ELOOP"]);
+function localFault(error63) {
+  return LOCAL_FAULTS.has(String(error63.code));
+}
 var ClientError = class extends Error {
   name = "ClientError";
   code;
@@ -90046,8 +90466,8 @@ function relayRefusal(what, frame) {
   const said = relayText(frame.message);
   return new ClientError(`${what}: ${said}`, relayCode(frame.code), { what, said });
 }
-function accepted(status) {
-  return status === "routed" || status === "queued";
+function accepted(status2) {
+  return status2 === "routed" || status2 === "queued";
 }
 function unprotectedNote(unprotected, noPrekey) {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
@@ -90094,6 +90514,17 @@ var MeshSession = class _MeshSession extends EventEmitter {
   answerMs;
   conn;
   inbound = Promise.resolve();
+  /** The connection on which a delivered frame waits for the signer; nothing more is acked on it. */
+  heldLink;
+  /** Whether this session said it must be restarted to use the signer (inboundFailed). */
+  toldRestart = false;
+  /** Frames that failed for a reason of their own, by id: how many times (inboundFailed). */
+  failures = /* @__PURE__ */ new Map();
+  /** The pending drop that brings held frames again, and the backoff before the next one (retryLater). */
+  retryTimer;
+  retryDelay = RETRY_FIRST_MS;
+  /** Peer cards, opened one at a time in the order they came. */
+  cardsOpened = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
   sending = Promise.resolve();
   /** Spool writes, one at a time, so items are numbered and announced in order. */
@@ -90214,7 +90645,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       dialer: this.o.dialer,
       url: relayDialUrl(this.config.relay, this.config.mesh),
       ...this.config.tls === void 0 ? {} : { tlsPin: this.config.tls },
-      auth: (hello) => signAuth(
+      auth: (hello) => signAuthWith(
         {
           relay: this.config.relay,
           mesh: this.config.mesh,
@@ -90224,7 +90655,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
           resume: { cursor: this.state.cursor },
           pin: this.book.ref
         },
-        this.device.keys
+        this.device.keyring
       ),
       onReady: (ready, link) => this.onReady(ready, link),
       onFrame: (f7) => this.onFrame(f7),
@@ -90261,6 +90692,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (this.stopped) return;
     this.stopped = true;
     clearInterval(this.ticker);
+    clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
     await this.inbound;
     if (opts.ended === true) this.state = { ...this.state, ended: true };
@@ -90286,7 +90718,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.cardsIn = new Promise((resolve3) => this.gotCards = resolve3);
     this.emit("ready", this.address);
     void this.sendCard(link, true);
-    this.inbound = this.inbound.then(() => this.retryParked());
+    this.retryParkedLater();
+  }
+  /**
+   * Retries parked messages after the frames already queued. Each parked message's own failure is
+   * kept to it (retryParked); anything else is logged. Never left as a rejection on the inbound
+   * queue, where it would be unhandled, or skip the next frame's handler.
+   */
+  retryParkedLater() {
+    this.inbound = this.inbound.then(() => this.retryParked()).catch((e6) => this.log(`wim: parked: ${e6.message}`));
   }
   /** Fetches roster pages from the newest verified one until `upto` (or the relay's newest). */
   async walk(link, upto) {
@@ -90322,9 +90762,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   onFrame(f7) {
     switch (f7.t) {
-      case "deliver":
-        this.inbound = this.inbound.then(() => this.handleDeliver(f7.cursor, f7.msg)).catch((e6) => this.log(`wim: inbound: ${e6.message}`));
+      case "deliver": {
+        const via = this.link;
+        this.inbound = this.inbound.then(() => this.handleDeliver(f7.cursor, f7.msg, via)).catch((e6) => this.inboundFailed(e6, f7.msg.id));
         return;
+      }
       case "roster":
         this.inbound = this.inbound.then(() => this.onRosterPush(f7.chain)).catch((e6) => this.log(`wim: roster: ${e6.message}`));
         return;
@@ -90367,19 +90809,20 @@ var MeshSession = class _MeshSession extends EventEmitter {
   learn(pk) {
     this.peerKeys.offer(pk, this.roster).catch((e6) => this.log(`wim: prekey not stored: ${e6.message}`));
   }
-  /** A card's header carries its device's prekey; its labels annotate the session's peer row. */
+  /**
+   * A card's header carries its device's prekey, known at once; its labels annotate the session's
+   * peer row once it is opened, in the order cards came.
+   */
   takeCard(frame) {
     this.learn(frame.pk);
-    const opened = this.open(frame, true);
-    if (!opened.ok && opened.reason === "key_expired") void this.prekeys.reload().then(() => this.annotate(this.open(frame, true)));
-    else this.annotate(opened);
+    this.cardsOpened = this.cardsOpened.then(() => this.openFresh(frame, true)).then((opened2) => this.annotate(opened2)).catch((e6) => this.log(`wim: peer card not read: ${e6.message}`));
   }
-  annotate(opened) {
-    if (!opened.ok || opened.value.kind !== "card") return;
-    const from = opened.value.from;
+  annotate(opened2) {
+    if (!opened2.ok || opened2.value.kind !== "card") return;
+    const from = opened2.value.from;
     const key2 = `${from.device}/${from.sid}`;
-    if (Object.keys(opened.value.card).length === 0) this.cards.delete(key2);
-    else this.cards.set(key2, opened.value.card);
+    if (Object.keys(opened2.value.card).length === 0) this.cards.delete(key2);
+    else this.cards.set(key2, opened2.value.card);
     this.emit("peers");
   }
   async onRosterPush(chain2) {
@@ -90393,22 +90836,31 @@ var MeshSession = class _MeshSession extends EventEmitter {
   receiver() {
     return {
       deviceId: this.device.id,
-      keys: this.device.keys,
+      keyring: this.prekeys.opener(),
       address: this.address,
       sid: this.state.sid,
-      rooms: this.state.rooms,
-      prekey: (id) => this.prekeys.secret(id)
+      rooms: this.state.rooms
     };
   }
   open(msg, history2 = false) {
-    return openMessage(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history: history2 });
+    return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history: history2 });
   }
-  /** Opens a frame; a box for a prekey this session has not read yet is tried again after a reload. */
+  /**
+   * Opens a frame; a box for a prekey this session has not read yet is tried again after a reload.
+   * Rejects when the device's keyring cannot answer (the signer is locked or stopped): the frame
+   * is then not acknowledged, and the relay delivers it again.
+   */
   async openFresh(msg, history2 = false) {
-    const first = this.open(msg, history2);
-    if (first.ok || first.reason !== "key_expired") return first;
-    await this.prekeys.reload();
-    return this.open(msg, history2);
+    return this.retryOpen(await this.open(msg, history2), msg, history2);
+  }
+  /**
+   * Tried again after reading the device's prekeys afresh: a box for a prekey a sibling session
+   * made since (`key_expired`), or one whose sealed secret this session holds from before the key
+   * file was decrypted and encrypted again, under a new data key (`decrypt_failed`).
+   */
+  retryOpen(first, msg, history2) {
+    if (first.ok || first.reason !== "key_expired" && first.reason !== "decrypt_failed") return Promise.resolve(first);
+    return this.prekeys.reload().then(() => this.open(msg, history2));
   }
   /** Sends a frame if connected; while offline it is dropped (acks and receipts are not resent). */
   sendIfOpen(frame) {
@@ -90417,15 +90869,73 @@ var MeshSession = class _MeshSession extends EventEmitter {
     link.send(frame);
     return true;
   }
-  ack(cursor2) {
-    if (this.sendIfOpen({ t: "ack", cursor: cursor2 })) this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor2) };
+  /**
+   * A delivered frame that could not be handled is not acknowledged. When the device's signer
+   * could not answer (locked, stopped, slow), nothing more is acknowledged on this connection and
+   * it is dropped: acks are cumulative, so acking a later frame would tell the relay this one was
+   * taken. The next connection authenticates only once the signer answers, and the relay then
+   * delivers everything after the last ack again.
+   */
+  /** How many times this frame has failed for a reason of its own, this one included (the last 64 frames are remembered). */
+  failedAgain(id) {
+    const n3 = (this.failures.get(id) ?? 0) + 1;
+    this.failures.delete(id);
+    this.failures.set(id, n3);
+    if (this.failures.size > 64) this.failures.delete(this.failures.keys().next().value);
+    return n3;
   }
-  receipt(id, status) {
-    this.sendIfOpen({ t: "receipt", id, to: this.address, status });
+  inboundFailed(error63, id) {
+    if (error63 instanceof NeedsSigner) {
+      this.heldLink = this.link;
+      if (!this.toldRestart) this.log(`wim: ${error63.message}`);
+      this.toldRestart = true;
+      return;
+    }
+    this.log(`wim: inbound: ${error63.message}`);
+    if (error63 instanceof SignerError && (error63.transient || error63.code === "mismatch")) {
+      this.heldLink = this.link;
+      this.link?.close(CLOSE.bye, "the device's signer did not answer");
+      return;
+    }
+    if (id !== void 0 && !localFault(error63) && this.failedAgain(id) >= FRAME_ATTEMPTS) {
+      this.log(`wim: inbound: giving up on message ${id} after ${FRAME_ATTEMPTS} attempts; it will not be delivered`);
+      return;
+    }
+    this.heldLink = this.link;
+    this.retryLater();
   }
-  async handleDeliver(cursor2, msg) {
+  /**
+   * Drops the connection after the current backoff (1 s, doubling to 5 min, back to 1 s once a
+   * frame is acked), so a held frame is delivered again without waiting for a reconnect.
+   */
+  retryLater() {
+    if (this.retryTimer !== void 0) return;
+    const delay3 = this.retryDelay;
+    this.retryDelay = Math.min(RETRY_MAX_MS, delay3 * 2);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = void 0;
+      this.link?.close(CLOSE.bye, "trying a message that could not be handled again");
+    }, delay3);
+    this.retryTimer.unref();
+  }
+  /**
+   * Acks a frame on the connection it came on, `via`. Acks are cumulative, so a frame from an
+   * earlier connection, handled after a reconnect, is not acked on the new one (it could ack past
+   * a frame that failed); the relay delivers it again there, and dedupe drops the copy. Nothing
+   * is acked on a connection on which a frame waits for the signer (inboundFailed).
+   */
+  ack(cursor2, via) {
+    if (via !== this.link || via === this.heldLink) return;
+    if (!this.sendIfOpen({ t: "ack", cursor: cursor2 })) return;
+    this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor2) };
+    this.retryDelay = RETRY_FIRST_MS;
+  }
+  receipt(id, status2) {
+    this.sendIfOpen({ t: "receipt", id, to: this.address, status: status2 });
+  }
+  async handleDeliver(cursor2, msg, via) {
     await this.check(msg);
-    this.ack(cursor2);
+    this.ack(cursor2, via);
     await this.save({});
   }
   /** Runs a frame through the receiving checks on the inbound queue, one frame at a time. */
@@ -90497,13 +91007,23 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const page = await link.request({ t: "roster.get", from: seq }, (f7) => f7.t === "roster" || errorFor("roster.get")(f7), this.answerMs).catch(() => void 0);
     if (page?.t === "roster") await this.forkFrom(page.chain[0], link);
   }
+  /**
+   * Checks parked messages again. One that fails (a locked signer, a full disk) stays parked for
+   * the next retry (each ready and each roster change), and its failure is its own: it never
+   * counts against the frame whose check started this retry.
+   */
   async retryParked() {
     for (const name of await listDir(this.files.behindDir)) {
       const path2 = join8(this.files.behindDir, name);
       const msg = await readJson(path2).catch(() => void 0);
-      const outcome = msg === void 0 ? "dropped" : await this.check(msg, true);
+      const outcome = msg === void 0 ? "dropped" : await this.check(msg, true).catch((e6) => this.parkedFailed(name, e6));
       if (outcome !== "behind") await tryRemove(path2, this.o.env);
     }
+  }
+  /** A parked message that could not be checked now: logged, and left parked ("behind") for the next retry. */
+  parkedFailed(name, error63) {
+    this.log(`wim: parked message ${name} kept for the next retry: ${error63.message}`);
+    return "behind";
   }
   fromAddress(p3) {
     const name = this.roster.devices.find((d5) => d5.id === p3.from.device).name;
@@ -90672,26 +91192,37 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async sendCard(link, force) {
     const pk = this.prekeys.current()?.id;
-    const rotated = pk !== this.cardPk;
+    const before = this.cardPk;
+    const rotated = pk !== before;
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
     const card = this.o.cwd === void 0 || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    this.publishCard(link, force || rotated, card);
+    this.publishCard(link, card, await this.cardFrame(force || rotated, card), before);
   }
   /**
-   * The part of sendCard after its await, kept synchronous: V8 counts a branch that follows an
+   * The card frame to send, or undefined when the card is unchanged and nothing forces it. Not
+   * async: the decision is taken before the seal (which may wait on the signer) and a seal that
+   * fails comes back as its error, so no branch follows an await (see publishCard).
+   */
+  cardFrame(always, card) {
+    if (!always && sameCard(this.myCard, card)) return Promise.resolve(void 0);
+    const ids = this.roster.devices.map((d5) => d5.id);
+    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids }).catch((error63) => error63);
+  }
+  /**
+   * The part of sendCard after its awaits, kept synchronous: V8 counts a branch that follows an
    * await in an async function by subtraction, and on Windows that count came out negative, so
    * the coverage gate reported a branch the tests do run as never taken.
    */
-  publishCard(link, always, card) {
-    if (!always && sameCard(this.myCard, card)) return;
-    this.cardAt = this.now();
-    this.myCard = card;
+  publishCard(link, card, frame, before) {
+    if (frame === void 0) return;
     try {
-      const ids = this.roster.devices.map((d5) => d5.id);
-      const frame = sealMessage({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids });
+      if (frame instanceof Error) throw frame;
       link.send({ t: "card.set", msg: frame });
+      this.cardAt = this.now();
+      this.myCard = card;
     } catch (error63) {
+      this.cardPk = before;
       this.log(`wim: peer card not sent: ${error63.message}`);
     }
   }
@@ -90779,7 +91310,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   sealBase(to) {
     return {
       roster: this.roster,
-      sender: { deviceId: this.device.id, keys: this.device.keys },
+      sender: { deviceId: this.device.id, keyring: this.device.keyring },
       session: this.state.name,
       sid: this.state.sid,
       to,
@@ -90891,7 +91422,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const derived3 = await this.isDerived();
     const { keys, missing } = this.keysFor(ids);
     try {
-      const frame = sealMessage({
+      const frame = await sealMessageWith({
         ...this.sealBase(routed),
         ...keys,
         id,
@@ -90947,10 +91478,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
   }
   /** Sends the result of a task this session received. */
-  async reply(taskId, status, text2) {
+  async reply(taskId, status2, text2) {
     const task = (await this.tasks())[taskId];
     if (task === void 0) throw new ClientError(`no task ${taskId} was received by this session`, "not_found");
-    return this.send(task.from, text2, { kind: "result", reply_to: taskId, status });
+    return this.send(task.from, text2, { kind: "result", reply_to: taskId, status: status2 });
   }
   /** Arms one idle notice for each session address. */
   notifyWhenIdle(addresses) {
@@ -91093,18 +91624,18 @@ ${frameEntry(entry)}`);
     const flags = fsConstants.O_RDONLY | noFollow(fsConstants) | fsConstants.O_NONBLOCK;
     const handle = await openNoFollow(full, flags);
     if (handle === void 0) throw new ClientError(`not a regular file: ${path2}`, "not_found");
-    let bytes2;
+    let bytes3;
     try {
       const stat3 = await handle.stat();
       if (!stat3.isFile()) throw new ClientError(`not a regular file: ${path2}`, "not_found");
       if (stat3.size > LIMITS.blobFileBytes) throw new ClientError(`the file is over ${LIMITS.blobFileBytes / 1024 / 1024} MiB`, "too_large");
-      bytes2 = new Uint8Array(await handle.readFile());
+      bytes3 = new Uint8Array(await handle.readFile());
     } finally {
       await handle.close();
     }
-    const secrets = secretsInFile(bytes2);
+    const secrets = secretsInFile(bytes3);
     if (secrets.length > 0) throw new ClientError(`refusing to send ${path2}: it appears to contain a secret (${secrets.join(", ")})`, "secret");
-    const sealed = sealBlob(bytes2);
+    const sealed = sealBlob(bytes3);
     const link = await this.ready();
     for (const c5 of sealed.chunks) {
       const answer = await link.request(
@@ -91139,9 +91670,9 @@ ${frameEntry(entry)}`);
       const c5 = answer;
       chunks.push({ index: c5.index, last: c5.last, n: c5.n, data: c5.data });
     }
-    const opened = openBlob({ blob: file2.blob, key: file2.key, sha256: file2.sha256, size: file2.size, chunks });
-    if (!opened.ok) throw new ClientError(opened.reason, opened.reason);
-    return saveReceived(this.files.filesDir, id, file2.name, opened.value);
+    const opened2 = openBlob({ blob: file2.blob, key: file2.key, sha256: file2.sha256, size: file2.size, chunks });
+    if (!opened2.ok) throw new ClientError(opened2.reason, opened2.reason);
+    return saveReceived(this.files.filesDir, id, file2.name, opened2.value);
   }
   // ---- reading ----
   /**
@@ -91261,8 +91792,8 @@ function meshPort(s3) {
         if (m4.kind === "task") cb({ id: m4.id, to: s3.address, from: m4.peer, text: m4.text, ...m4.deadline === void 0 ? {} : { deadline: m4.deadline } });
       });
     },
-    async sendResult(to, taskId, status, text2) {
-      requireDelivered(await s3.send(to, text2, { kind: "result", reply_to: taskId, status, relayed: true }), to);
+    async sendResult(to, taskId, status2, text2) {
+      requireDelivered(await s3.send(to, text2, { kind: "result", reply_to: taskId, status: status2, relayed: true }), to);
     },
     onMessage(cb) {
       onInbound(s3, (m4) => {
@@ -91282,8 +91813,8 @@ var ModelRefusedError = class extends Error {
   name = "ModelRefusedError";
 };
 var REFUSED_STATUSES = /* @__PURE__ */ new Set([400, 401, 403, 404, 429]);
-function refusedStatus(status) {
-  return REFUSED_STATUSES.has(status);
+function refusedStatus(status2) {
+  return REFUSED_STATUSES.has(status2);
 }
 function refused(provider, err) {
   return new ModelRefusedError(`${provider}: ${err.name}: ${err.message}`, { cause: err });
@@ -93217,8 +93748,8 @@ function tCachedContentName(apiClient, name) {
   }
   return resourceName(apiClient, name, "cachedContents");
 }
-function tTuningJobStatus(status) {
-  switch (status) {
+function tTuningJobStatus(status2) {
+  switch (status2) {
     case "STATE_UNSPECIFIED":
       return "JOB_STATE_UNSPECIFIED";
     case "CREATING":
@@ -93228,7 +93759,7 @@ function tTuningJobStatus(status) {
     case "FAILED":
       return "JOB_STATE_FAILED";
     default:
-      return status;
+      return status2;
   }
 }
 function tBytes(fromImageBytes) {
@@ -102782,9 +103313,9 @@ var ApiClient = class {
             const chunkJson = JSON.parse(chunkString);
             if ("error" in chunkJson) {
               const errorJson = JSON.parse(JSON.stringify(chunkJson["error"]));
-              const status = errorJson["status"];
+              const status2 = errorJson["status"];
               const code2 = errorJson["code"];
-              const errorMessage = `got status: ${status}. ${JSON.stringify(chunkJson)}`;
+              const errorMessage = `got status: ${status2}. ${JSON.stringify(chunkJson)}`;
               if (code2 >= 400 && code2 < 600) {
                 const apiError = new ApiError({
                   message: errorMessage,
@@ -103023,7 +103554,7 @@ async function throwErrorIfNotOK(response) {
     throw new Error("response is undefined");
   }
   if (!response.ok) {
-    const status = response.status;
+    const status2 = response.status;
     let errorBody;
     if ((_a5 = response.headers.get("content-type")) === null || _a5 === void 0 ? void 0 : _a5.includes("application/json")) {
       errorBody = await response.json();
@@ -103037,10 +103568,10 @@ async function throwErrorIfNotOK(response) {
       };
     }
     const errorMessage = JSON.stringify(errorBody);
-    if (status >= 400 && status < 600) {
+    if (status2 >= 400 && status2 < 600) {
       const apiError = new ApiError({
         message: errorMessage,
-        status
+        status: status2
       });
       throw apiError;
     }
@@ -107143,12 +107674,12 @@ var GoogleGenAiError = class extends Error {
 var GeminiNextGenAPIClientError = class extends Error {
 };
 var APIError = class _APIError extends GeminiNextGenAPIClientError {
-  constructor(status, error63, message2, headers) {
-    super(_APIError.makeMessage(status, error63, message2));
-    this.status = status;
+  constructor(status2, error63, message2, headers) {
+    super(_APIError.makeMessage(status2, error63, message2));
+    this.status = status2;
     this.headers = headers;
     this.error = error63;
-    this.statusCode = status;
+    this.statusCode = status2;
     this.body = stringifyErrorBody(error63);
     this.contentType = (headers === null || headers === void 0 ? void 0 : headers.get("content-type")) || "";
     this.rawResponse = void 0;
@@ -107156,46 +107687,46 @@ var APIError = class _APIError extends GeminiNextGenAPIClientError {
     this.name = this.constructor.name;
     Object.setPrototypeOf(this, new.target.prototype);
   }
-  static makeMessage(status, error63, message2) {
+  static makeMessage(status2, error63, message2) {
     var _a5;
     const errorMessage = error63 && isPlainObject$2(error63) && typeof error63["message"] === "string" ? error63["message"] : void 0;
     const errorBody = stringifyErrorBody(error63);
     const msg = (_a5 = errorMessage !== null && errorMessage !== void 0 ? errorMessage : message2) !== null && _a5 !== void 0 ? _a5 : errorBody || "An error occurred";
-    const statusText = status ? `${status} ` : "";
+    const statusText = status2 ? `${status2} ` : "";
     return `${statusText}${msg}`;
   }
-  static generate(status, errorResponse, message2, headers) {
-    if (!status || !headers) {
+  static generate(status2, errorResponse, message2, headers) {
+    if (!status2 || !headers) {
       return new APIConnectionError({
         message: message2,
         cause: errorResponse instanceof Error ? errorResponse : void 0
       });
     }
-    if (status === 400) {
-      return new BadRequestError(status, errorResponse, message2, headers);
+    if (status2 === 400) {
+      return new BadRequestError(status2, errorResponse, message2, headers);
     }
-    if (status === 401) {
-      return new AuthenticationError(status, errorResponse, message2, headers);
+    if (status2 === 401) {
+      return new AuthenticationError(status2, errorResponse, message2, headers);
     }
-    if (status === 403) {
-      return new PermissionDeniedError(status, errorResponse, message2, headers);
+    if (status2 === 403) {
+      return new PermissionDeniedError(status2, errorResponse, message2, headers);
     }
-    if (status === 404) {
-      return new NotFoundError(status, errorResponse, message2, headers);
+    if (status2 === 404) {
+      return new NotFoundError(status2, errorResponse, message2, headers);
     }
-    if (status === 409) {
-      return new ConflictError(status, errorResponse, message2, headers);
+    if (status2 === 409) {
+      return new ConflictError(status2, errorResponse, message2, headers);
     }
-    if (status === 422) {
-      return new UnprocessableEntityError(status, errorResponse, message2, headers);
+    if (status2 === 422) {
+      return new UnprocessableEntityError(status2, errorResponse, message2, headers);
     }
-    if (status === 429) {
-      return new RateLimitError(status, errorResponse, message2, headers);
+    if (status2 === 429) {
+      return new RateLimitError(status2, errorResponse, message2, headers);
     }
-    if (status >= 500) {
-      return new InternalServerError(status, errorResponse, message2, headers);
+    if (status2 >= 500) {
+      return new InternalServerError(status2, errorResponse, message2, headers);
     }
-    return new _APIError(status, errorResponse, message2, headers);
+    return new _APIError(status2, errorResponse, message2, headers);
   }
 };
 var APIUserAbortError = class extends APIError {
@@ -107936,7 +108467,7 @@ function isRetryableResponse(res, statusCodes) {
 }
 async function retryBackoff(fn, strategy) {
   const { maxElapsedTime, initialInterval, exponent, maxInterval } = strategy;
-  const start = Date.now();
+  const start2 = Date.now();
   let x2 = 0;
   while (true) {
     try {
@@ -107946,7 +108477,7 @@ async function retryBackoff(fn, strategy) {
       if (err instanceof PermanentError) {
         throw err.cause;
       }
-      const elapsed = Date.now() - start;
+      const elapsed = Date.now() - start2;
       if (elapsed > maxElapsedTime) {
         if (err instanceof TemporaryError) {
           return err.response;
@@ -112555,8 +113086,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs11 = req("fs");
-          buffer = fs11.readFileSync(params.file);
+          const fs13 = req("fs");
+          buffer = fs13.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -112564,8 +113095,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs11 = mod2("fs");
-            buffer = fs11.readFileSync(params.file);
+            const fs13 = mod2("fs");
+            buffer = fs13.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -115270,7 +115801,7 @@ var VertexGeminiModel = class {
         }
       );
     });
-    const opened = step(
+    const opened2 = step(
       this.ai.models.generateContentStream({
         model: this.model,
         contents: request2.messages.map((m4) => ({
@@ -115285,7 +115816,7 @@ var VertexGeminiModel = class {
         }
       })
     );
-    const stream = await opened.catch((err) => {
+    const stream = await opened2.catch((err) => {
       throw err instanceof ApiError && refusedStatus(err.status) ? refused("vertex", err) : err;
     });
     let text2 = "";
@@ -115599,7 +116130,7 @@ ${text2}`;
 };
 
 // ../bot/src/guards.ts
-import { createHash as createHash7 } from "node:crypto";
+import { createHash as createHash8 } from "node:crypto";
 var MAX_TEXT_BYTES = 32 * 1024;
 var DUPLICATE_MS = 6e4;
 var HOUR_MS = 36e5;
@@ -115621,7 +116152,7 @@ var Guards = class {
       if (now - at >= DUPLICATE_MS) this.recent.delete(key3);
     }
     const key2 = `${item.from}
-${createHash7("sha256").update(item.text).digest("hex")}`;
+${createHash8("sha256").update(item.text).digest("hex")}`;
     if (this.recent.has(key2)) return { ok: false, reason: "duplicate" };
     this.recent.set(key2, now);
     const times = (this.replies.get(item.from) ?? []).filter((t2) => now - t2 < HOUR_MS);
@@ -115820,9 +116351,9 @@ ${item.text}`
     await this.reply(item, res.text === "" ? "(empty reply)" : res.text, "done");
   }
   /** A task is answered with a `result`; a message with a `msg` threaded to it. */
-  reply(item, text2, status) {
+  reply(item, text2, status2) {
     if (item.kind === "task") {
-      return this.o.io.send(item.from, text2, { reply_to: item.id, kind: "result", status });
+      return this.o.io.send(item.from, text2, { reply_to: item.id, kind: "result", status: status2 });
     }
     return this.o.io.send(item.from, text2, { reply_to: item.id, kind: "msg" });
   }
@@ -116069,8 +116600,8 @@ function jobList(names, what) {
   const noun = unique.length === 1 ? "job" : "jobs";
   return `${unique.length} ${noun} ${what}: ${shown}${more}`;
 }
-function between(start, end2) {
-  const a5 = Date.parse(start ?? "");
+function between(start2, end2) {
+  const a5 = Date.parse(start2 ?? "");
   const b5 = Date.parse(end2 ?? "");
   return Number.isNaN(a5) || Number.isNaN(b5) ? void 0 : b5 - a5;
 }
@@ -116083,10 +116614,10 @@ var CiHttpError = class extends Error {
   status;
   /** How long the server asked us to wait, when it said. */
   retryAfterMs;
-  constructor(message2, status, retryAfterMs) {
+  constructor(message2, status2, retryAfterMs) {
     super(message2);
     this.name = "CiHttpError";
-    this.status = status;
+    this.status = status2;
     this.retryAfterMs = retryAfterMs;
   }
 };
@@ -116334,8 +116865,8 @@ var TERMINAL2 = /* @__PURE__ */ new Set(["success", "failed", "canceled", "skipp
 var CHILD_REPORT = /* @__PURE__ */ new Set(["failed", "canceled", "manual"]);
 var REPOLL_MS = 24 * 36e5;
 var OVERLAP_MS = 6e4;
-function gitlabPhase(status) {
-  switch (status) {
+function gitlabPhase(status2) {
+  switch (status2) {
     case "waiting_for_resource":
     case "preparing":
     case "pending":
@@ -116344,7 +116875,7 @@ function gitlabPhase(status) {
     case "canceling":
       return "canceled";
     default:
-      return status;
+      return status2;
   }
 }
 var GitLabWatcher = class {
@@ -116634,11 +117165,11 @@ var GitHubWatcher = class {
         st.deployments[key2] = { phase: "inactive", touched: this.ctx.now() };
         continue;
       }
-      const [status] = await this.get(external_exports.array(Status), `/deployments/${d5.id}/statuses?per_page=1`);
-      const phase = status?.state ?? "created";
+      const [status2] = await this.get(external_exports.array(Status), `/deployments/${d5.id}/statuses?per_page=1`);
+      const phase = status2?.state ?? "created";
       if (known?.phase === phase) continue;
-      if (mode === "announce" && status !== void 0 && phase !== "inactive") {
-        const url2 = status.log_url || `https://github.com/${this.source.owner}/${this.source.repo}/deployments`;
+      if (mode === "announce" && status2 !== void 0 && phase !== "inactive") {
+        const url2 = status2.log_url || `https://github.com/${this.source.owner}/${this.source.repo}/deployments`;
         const sha = d5.sha.slice(0, 7);
         await this.ctx.post(`${this.name} deploy ${d5.environment} ${d5.ref} ${sha} ${WORDS[phase] ?? phase} ${url2}`);
       }
@@ -116747,18 +117278,186 @@ async function runCi(config2, io, deps = {}) {
 }
 
 // src/cli.ts
-import { promises as fs10 } from "node:fs";
+import { promises as fs12 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
 // src/admin.ts
-import { join as join14 } from "node:path";
+import { join as join15 } from "node:path";
 
 // src/home.ts
+import { promises as fs8 } from "node:fs";
+import { join as join14 } from "node:path";
+
+// src/agentpath.ts
 import { promises as fs7 } from "node:fs";
 import { join as join13 } from "node:path";
+
+// src/errors.ts
 var SetupError = class extends Error {
   name = "SetupError";
 };
+
+// src/agentpath.ts
+function agentDir(root5) {
+  return join13(root5, "agent");
+}
+function agentLogPath(root5) {
+  return join13(agentDir(root5), "log.jsonl");
+}
+function settingsPath(root5) {
+  return join13(agentDir(root5), "config.json");
+}
+async function agentEndpoint(root5, env3, create2) {
+  const dir = agentDir(root5);
+  if (create2) await ensureDir(dir);
+  let stat3;
+  try {
+    stat3 = await fs7.lstat(dir);
+  } catch {
+    return void 0;
+  }
+  const token = env3.platform === "win32" ? await pipeToken(join13(dir, "pipe"), env3, create2) : "";
+  if (token === void 0) return void 0;
+  const endpoint2 = agentEndpointFor(dir, env3.platform, token);
+  const tooLong = endpointProblem(endpoint2, env3.platform);
+  if (tooLong !== void 0) throw new SetupError(tooLong);
+  const problem = agentDirProblem({ mode: stat3.mode, uid: stat3.uid, isDirectory: stat3.isDirectory(), isSymlink: stat3.isSymbolicLink() }, env3.platform, env3.uid);
+  if (problem !== void 0) throw new SetupError(`refusing to use ${dir}: ${problem}`);
+  return endpoint2;
+}
+async function pipeToken(path2, env3, create2) {
+  if (!create2) return (await readText(path2))?.trim();
+  const token = b64u.encode(randomBytes2(16));
+  await writeAtomic(path2, token, env3);
+  return token;
+}
+function startLockPath(root5) {
+  return join13(agentDir(root5), "start.lock");
+}
+async function retireEndpoint(root5, env3, endpoint2) {
+  if (env3.platform !== "win32") return;
+  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs7.rm(join13(agentDir(root5), "pipe"), { force: true });
+}
+async function readAgentSettings(root5) {
+  const raw = await readJson(settingsPath(root5));
+  return { require_signer: raw?.require_signer === true };
+}
+async function writeAgentSettings(root5, settings, env3) {
+  await writeJson(settingsPath(root5), settings, env3);
+}
+function endpointFiles(platform2) {
+  if (platform2 === "win32") return { clear: async () => void 0, secure: async () => void 0, id: async () => "pipe" };
+  return {
+    clear: (endpoint2) => fs7.rm(endpoint2, { force: true }),
+    secure: (endpoint2) => fs7.chmod(endpoint2, 384),
+    id: (endpoint2) => fs7.lstat(endpoint2, { bigint: true }).then((s3) => `${s3.dev}:${s3.ino}`, () => void 0)
+  };
+}
+
+// src/vault.ts
+import { createCipheriv as createCipheriv2, createDecipheriv as createDecipheriv2, scrypt } from "node:crypto";
+import { promisify as promisify2 } from "node:util";
+var DEFAULT_KDF = { N: 2 ** 17, r: 8, p: 1 };
+var MAX_N = 2 ** 18;
+var MAX_R = 8;
+var MAX_P = 4;
+var BadPassphrase = class extends Error {
+  name = "BadPassphrase";
+  constructor() {
+    super("the passphrase does not open this key file");
+  }
+};
+var FILE_LABEL = "wim-agent/1 key file\n";
+var PREKEY_LABEL = "wim-agent/1 prekey\n";
+function concat2(a5, b5) {
+  const out = new Uint8Array(a5.length + b5.length);
+  out.set(a5);
+  out.set(b5, a5.length);
+  return out;
+}
+function aeadSeal(key2, aad, plaintext) {
+  const nonce = randomBytes2(12);
+  const cipher = createCipheriv2("chacha20-poly1305", key2, nonce, { authTagLength: 16 });
+  cipher.setAAD(aad, { plaintextLength: plaintext.length });
+  const body = Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
+  return { nonce, sealed: new Uint8Array(body) };
+}
+function aeadOpen(key2, nonce, aad, sealed) {
+  try {
+    const decipher = createDecipheriv2("chacha20-poly1305", key2, nonce, { authTagLength: 16 });
+    decipher.setAAD(aad, { plaintextLength: sealed.length - 16 });
+    decipher.setAuthTag(sealed.subarray(sealed.length - 16));
+    return new Uint8Array(Buffer.concat([decipher.update(sealed.subarray(0, sealed.length - 16)), decipher.final()]));
+  } catch {
+    return void 0;
+  }
+}
+var scryptAsync = promisify2(scrypt);
+async function derive(passphrase, kdf) {
+  const opts = { N: kdf.N, r: kdf.r, p: kdf.p, maxmem: 256 * kdf.N * kdf.r + 1024 * 1024 };
+  return new Uint8Array(await scryptAsync(passphrase.normalize("NFC"), b64u.decode(kdf.salt), 32, opts));
+}
+function fileAad(file2) {
+  return concat2(utf8(FILE_LABEL), canonBytes({ v: file2.v, id: file2.id, name: file2.name, signPub: file2.signPub, boxPub: file2.boxPub, kdf: file2.kdf }));
+}
+async function sealKeyFile(o3) {
+  const kdf = { alg: "scrypt", ...o3.kdf ?? DEFAULT_KDF, salt: b64u.encode(randomBytes2(16)) };
+  const pub = { v: 2, id: deviceIdFromSignPub(o3.keys.signPub), name: o3.name, signPub: b64u.encode(o3.keys.signPub), boxPub: b64u.encode(o3.keys.boxPub), kdf };
+  const key2 = await derive(o3.passphrase, kdf);
+  const secrets = canonBytes({ signSec: b64u.encode(o3.keys.signSec), boxSec: b64u.encode(o3.keys.boxSec), data: b64u.encode(o3.data ?? randomBytes2(32)) });
+  const { nonce, sealed } = aeadSeal(key2, fileAad(pub), secrets);
+  key2.fill(0);
+  secrets.fill(0);
+  return { ...pub, nonce: b64u.encode(nonce), sealed: b64u.encode(sealed) };
+}
+function parseSealedKeyFile(raw) {
+  const str = (v) => typeof v === "string" && v !== "";
+  const kdf = raw["kdf"];
+  const int2 = (v, max) => Number.isSafeInteger(v) && v > 0 && v <= max;
+  const ok2 = raw["v"] === 2 && str(raw["id"]) && isName(raw["name"]) && str(raw["signPub"]) && str(raw["boxPub"]) && str(raw["nonce"]) && str(raw["sealed"]) && typeof kdf === "object" && kdf !== null && kdf.alg === "scrypt" && int2(kdf.N, MAX_N) && int2(kdf.r, MAX_R) && int2(kdf.p, MAX_P) && str(kdf.salt);
+  if (!ok2) throw new TypeError("the encrypted key file is malformed");
+  const file2 = raw;
+  if (deviceIdFromSignPub(b64u.decode(file2.signPub)) !== file2.id) throw new TypeError("the encrypted key file's id does not match its signing key");
+  return { v: 2, id: file2.id, name: file2.name, signPub: file2.signPub, boxPub: file2.boxPub, kdf: { alg: "scrypt", N: kdf.N, r: kdf.r, p: kdf.p, salt: kdf.salt }, nonce: file2.nonce, sealed: file2.sealed };
+}
+async function openKeyFile(file2, passphrase) {
+  const key2 = await derive(passphrase, file2.kdf);
+  const bytes3 = aeadOpen(key2, b64u.decode(file2.nonce), fileAad(file2), b64u.decode(file2.sealed));
+  key2.fill(0);
+  if (bytes3 === void 0) throw new BadPassphrase();
+  const secrets = JSON.parse(fromUtf8(bytes3));
+  bytes3.fill(0);
+  const decode3 = (name) => b64u.decode(secrets[name]);
+  const signSec = decode3("signSec");
+  const boxSec = decode3("boxSec");
+  const keys = deviceKeysFromSecrets(signSec, boxSec);
+  signSec.fill(0);
+  boxSec.fill(0);
+  if (b64u.encode(keys.signPub) !== file2.signPub || b64u.encode(keys.boxPub) !== file2.boxPub) throw new TypeError("the encrypted key file's public keys do not match its secrets");
+  return { keys, data: decode3("data") };
+}
+function prekeyAad(prekey) {
+  return concat2(utf8(PREKEY_LABEL), canonBytes(prekey));
+}
+function sealPrekeySecret(data, prekey, secret) {
+  const { nonce, sealed } = aeadSeal(data, prekeyAad(prekey), secret);
+  return b64u.encode(concat2(nonce, sealed));
+}
+function openPrekeySecret(data, prekey, sealed) {
+  let bytes3;
+  try {
+    bytes3 = b64u.decode(sealed);
+  } catch {
+    return void 0;
+  }
+  if (bytes3.length !== 12 + 32 + 16) return void 0;
+  return aeadOpen(data, bytes3.subarray(0, 12), prekeyAad(prekey), bytes3.subarray(12));
+}
+
+// src/home.ts
+function localDevice(name, keys) {
+  return { name, id: deviceIdFromSignPub(keys.signPub), keys, keyring: localDeviceKeyring(keys) };
+}
 var Home = class {
   root;
   env;
@@ -116767,16 +117466,19 @@ var Home = class {
     this.env = env3;
   }
   get devicePath() {
-    return join13(this.root, "device.json");
+    return join14(this.root, "device.json");
   }
   meshDir(mesh) {
-    return join13(this.root, "meshes", mesh);
+    return join14(this.root, "meshes", mesh);
   }
-  /** The device keys, refusing a key file that other users could read. */
-  async loadDevice() {
+  /**
+   * The key file as it is on disk, refusing one that other users could read: a plaintext one
+   * (version 1) as a device with its keys, an encrypted one (version 2) as its public part.
+   */
+  async readKeyFile() {
     let facts;
     try {
-      facts = await fs7.lstat(this.devicePath);
+      facts = await fs8.lstat(this.devicePath);
     } catch (error63) {
       if (error63.code === "ENOENT") return void 0;
       throw error63;
@@ -116788,11 +117490,42 @@ var Home = class {
     );
     if (problem !== void 0) throw new SetupError(`refusing to use ${this.devicePath}: ${problem}`);
     const raw = await readJson(this.devicePath);
+    if (raw["v"] === 2) return { sealed: parseSealedKeyFile(raw) };
     const keys = decodeKeys(raw);
     const name = raw["name"];
     if (!isName(name)) throw new SetupError(`${this.devicePath}: the device name is missing or invalid`);
     if ([keys.signPub, keys.boxPub].some(isVectorKey)) throw new SetupError(`refusing to use ${this.devicePath}: it holds a published test-vector key`);
-    return { name, id: deviceIdFromSignPub(keys.signPub), keys };
+    return { plain: localDevice(name, keys) };
+  }
+  /**
+   * This device. With a plaintext key file, its keys are read here (unless the signer is required).
+   * With an encrypted one, the running, unlocked signer holds them, and every secret-key operation
+   * goes to it: this process never reads them.
+   */
+  async loadDevice() {
+    const file2 = await this.readKeyFile();
+    if (file2 === void 0) return void 0;
+    if ("plain" in file2) {
+      if (this.env.requireSigner === true || (await readAgentSettings(this.root)).require_signer === true) {
+        throw new SetupError(`${this.devicePath} is not encrypted, and this device requires the signer: run \`wim agent encrypt\`, then \`wim agent start\``);
+      }
+      return file2.plain;
+    }
+    const sealed = file2.sealed;
+    const signPub = b64u.decode(sealed.signPub);
+    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in your own terminal`;
+    const client = new SignerClient({ endpoint: () => agentEndpoint(this.root, this.env, false), expect: signPub });
+    let hello;
+    try {
+      hello = await client.hello();
+    } catch (error63) {
+      throw new SetupError(error63.code === "unavailable" ? notRunning : error63.message);
+    }
+    if (hello.locked) {
+      client.close();
+      throw new SetupError("the signer is locked: run `wim agent unlock` in your own terminal");
+    }
+    return { name: sealed.name, id: sealed.id, keyring: signerKeyring(client, { signPub, boxPub: b64u.decode(sealed.boxPub) }) };
   }
   async requireDevice() {
     const device = await this.loadDevice();
@@ -116805,7 +117538,7 @@ var Home = class {
   async createDevice(name) {
     if (!isName(name)) throw new SetupError(`invalid device name ${JSON.stringify(name)}: use 1 to 32 of a-z, 0-9 and -`);
     const exists = new SetupError(`${this.devicePath} already exists`);
-    if (await this.loadDevice() !== void 0) throw exists;
+    if (await this.readKeyFile() !== void 0) throw exists;
     await ensureDir(this.root);
     const keys = generateDeviceKeys();
     const encoded = JSON.parse(encodeKeys(keys));
@@ -116813,18 +117546,18 @@ var Home = class {
 `, this.env).catch((error63) => {
       throw error63.code === "EEXIST" ? exists : error63;
     });
-    return { name, id: deviceIdFromSignPub(keys.signPub), keys };
+    return localDevice(name, keys);
   }
   /** Problems with the state directory's own permissions, for `wim doctor`. */
   async rootProblem() {
-    const stat3 = await fs7.stat(this.root);
+    const stat3 = await fs8.stat(this.root);
     return dirProblem(stat3.mode, this.env.platform);
   }
   async meshIds() {
-    const names = await listDir(join13(this.root, "meshes"));
+    const names = await listDir(join14(this.root, "meshes"));
     const ids = [];
     for (const name of names.sort()) {
-      if (await readJson(join13(this.root, "meshes", name, "mesh.json")) !== void 0) ids.push(name);
+      if (await readJson(join14(this.root, "meshes", name, "mesh.json")) !== void 0) ids.push(name);
     }
     return ids;
   }
@@ -116846,21 +117579,21 @@ function newConfig(mesh, relay, device, roster, tls3) {
   return { v: 1, mesh, relay, device, pin: rosterRef(roster), policy: {}, breaker: DEFAULT_BREAKER, share_cards: true, ...tls3 === void 0 ? {} : { tls: tls3 } };
 }
 function probeAuth(o3) {
-  return signAuth(
+  return signAuthWith(
     { relay: o3.relay, mesh: o3.mesh, nonce: o3.nonce, at: o3.now, session: { name: "create", kind: "cli", sid: ulid3(), resume: b64u.encode(randomBytes2(32)) }, pin: rosterRef(o3.pin) },
-    o3.device.keys
+    o3.device.keyring
   );
 }
 async function createMesh(o3) {
   checkDialable(o3.relay, o3.tls);
   const meshId = b64u.encode(randomBytes2(16));
   const recovery2 = o3.recovery === false ? void 0 : createRecoveryKeys(meshId, { now: o3.now() });
-  const genesis = createGenesisRoster({ name: o3.device.name, keys: o3.device.keys, now: o3.now(), meshId, ...recovery2 === void 0 ? {} : { recovery: recovery2.record } });
+  const genesis = await createGenesisRosterWith({ name: o3.device.name, keyring: o3.device.keyring, now: o3.now(), meshId, ...recovery2 === void 0 ? {} : { recovery: recovery2.record } });
   const { link, hello } = await Link.open(o3.dialer, relayDialUrl(o3.relay, genesis.mesh), o3.tls === void 0 ? {} : { tlsPin: o3.tls });
   try {
     const answer = await link.request({ t: "create", roster: genesis, ...o3.key === void 0 ? {} : { key: o3.key } }, (f7) => f7.t === "roster" || errorFor("create")(f7), 15e3);
     if (answer.t === "error") throw relayRefusal("the relay refused to create the mesh", answer);
-    const auth = probeAuth({ relay: o3.relay, mesh: genesis.mesh, nonce: hello.nonce, now: o3.now(), pin: genesis, device: o3.device });
+    const auth = await probeAuth({ relay: o3.relay, mesh: genesis.mesh, nonce: hello.nonce, now: o3.now(), pin: genesis, device: o3.device });
     const ready = await link.request(auth, (f7) => f7.t === "ready" || errorFor("auth")(f7), 15e3);
     if (ready.t !== "ready") {
       throw new ClientError(`the relay created the mesh but refused this device's authentication: ${authRefusal(ready) ?? `code ${relayCode(ready.code)}`}. Nothing was saved on this device`, "auth_refused");
@@ -116884,7 +117617,7 @@ var Invites = class {
     this.now = now;
   }
   path(id) {
-    return join14(this.files.invitesDir, `${id}.json`);
+    return join15(this.files.invitesDir, `${id}.json`);
   }
   async get(id) {
     if (!/^[A-Za-z0-9_-]{22}$/.test(id)) return void 0;
@@ -116946,14 +117679,14 @@ async function decideJoin(session, body, confirm, now) {
   if (roster.devices.some((d5) => d5.id === device.id) || roster.revoked.includes(device.id)) return { outcome: "refused", reason: "that device is already known" };
   const prompt = { name: device.name, id: device.id, sas: sasFor(device) };
   if (!record2.auto && !await confirm(prompt)) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
-  await publishRoster(session, (current) => nextRoster(current, { add: [admitJoin(device, now())] }, { keys: session.device.keys }, now()));
+  await publishRoster(session, (current) => nextRosterWith(current, { add: [admitJoin(device, now())] }, session.device.keyring, now()));
   await invites.markUsed(record2.id);
   return { outcome: "admitted", name: device.name };
 }
 async function publishRoster(session, make) {
   return withLock(session.mesh.rosterLock, async () => {
     await session.book.reload();
-    const next = make(session.roster);
+    const next = await make(session.roster);
     const h6 = hash2(next);
     const link = await session.ready();
     const answer = await link.request(
@@ -116971,7 +117704,7 @@ async function revokeDevice(session, name, now) {
   const target = session.roster.devices.find((d5) => d5.name === name);
   if (target === void 0) throw new ClientError(`no device named ${name}`, "not_found");
   if (target.id === session.device.id) throw new ClientError("a device cannot revoke itself", "invalid");
-  return publishRoster(session, (current) => nextRoster(current, { revoke: [target.id] }, { keys: session.device.keys }, now()));
+  return publishRoster(session, (current) => nextRosterWith(current, { revoke: [target.id] }, session.device.keyring, now()));
 }
 async function joinMesh(o3) {
   const invite2 = parseInvite(o3.code);
@@ -116980,7 +117713,7 @@ async function joinMesh(o3) {
   if ((await o3.home.meshIds()).includes(invite2.mesh)) throw new SetupError("this device is already in that mesh");
   const { link, hello } = await Link.open(o3.dialer, relayDialUrl(invite2.relay, invite2.mesh), tls3 === void 0 ? {} : { tlsPin: tls3 });
   try {
-    const frame = createJoin(invite2, o3.device.name, o3.device.keys, hello.nonce);
+    const frame = await createJoinWith(invite2, o3.device.name, o3.device.keyring, hello.nonce);
     o3.showSas(sasFor(frame.device));
     const wait = Math.max(1e3, Math.min(o3.waitMs ?? Infinity, invite2.exp - o3.now()));
     const answer = await link.request(frame, (f7) => f7.t === "joined" || errorFor("join")(f7), wait);
@@ -117001,7 +117734,7 @@ async function joinMesh(o3) {
   }
 }
 async function walkAuthenticated(link, nonce, o3, invite2, chain2, newest) {
-  const auth = signAuth(
+  const auth = await signAuthWith(
     {
       relay: invite2.relay,
       mesh: invite2.mesh,
@@ -117010,7 +117743,7 @@ async function walkAuthenticated(link, nonce, o3, invite2, chain2, newest) {
       session: { name: "join", kind: "cli", sid: ulid3(), resume: b64u.encode(randomBytes2(32)) },
       pin: rosterRef(newest)
     },
-    o3.device.keys
+    o3.device.keyring
   );
   const ready = await link.request(auth, (f7) => f7.t === "ready" || errorFor("auth")(f7), 15e3);
   if (ready.t !== "ready") throw new ClientError("the relay refused this device after admitting it", "auth");
@@ -117042,7 +117775,7 @@ async function rotateRecovery(session, now) {
   try {
     const roster = await publishRoster(session, (current) => {
       const old = current.devices.filter((d5) => isRecoveryName(d5.name)).map((d5) => d5.id);
-      return nextRoster(current, { add: [fresh.record], revoke: old }, { keys: session.device.keys }, now());
+      return nextRosterWith(current, { add: [fresh.record], revoke: old }, session.device.keyring, now());
     });
     return { roster, recoveryCode: fresh.code };
   } finally {
@@ -117054,7 +117787,7 @@ async function promoteDevice(session, name, now) {
   const target = session.roster.devices.find((d5) => d5.name === name);
   if (target === void 0) throw new ClientError(`no device named ${name}`, "not_found");
   if (target.role === "admin") throw new ClientError(`${name} is already an admin`, "invalid");
-  return publishRoster(session, (current) => nextRoster(current, { promote: [target.id] }, { keys: session.device.keys }, now()));
+  return publishRoster(session, (current) => nextRosterWith(current, { promote: [target.id] }, session.device.keyring, now()));
 }
 async function recoverMesh(o3) {
   const answerMs = o3.answerMs ?? 15e3;
@@ -117091,7 +117824,7 @@ async function recoverMesh(o3) {
         if (d5.id !== recId) revoke.push(d5.id);
       }
       const fresh = createRecoveryIdentity(rec.mesh, { name: nextRecoveryName(current), now: o3.now(), genesis: rec.genesis });
-      const me = { ...admitJoin({ id: o3.device.id, name: o3.device.name, sign: b64u.encode(o3.device.keys.signPub), box: b64u.encode(o3.device.keys.boxPub) }, o3.now()), role: "admin" };
+      const me = { ...admitJoin({ id: o3.device.id, name: o3.device.name, sign: b64u.encode(o3.device.keyring.signPub), box: b64u.encode(o3.device.keyring.boxPub) }, o3.now()), role: "admin" };
       const next = nextRoster(current, { add: [me, fresh.record], revoke }, { keys: rec }, o3.now());
       const answer = await link.request({ t: "roster.publish", roster: next }, (f7) => f7.t === "roster" && f7.chain.some((r6) => hash2(r6) === hash2(next)) || errorFor("roster.publish")(f7), answerMs).catch(async () => link.isOpen ? void 0 : await link.closed);
       if (answer === void 0) throw new ClientError("the relay did not confirm the recovery roster", "unconfirmed");
@@ -117110,12 +117843,12 @@ async function recoverMesh(o3) {
 }
 
 // src/events.ts
-import { constants as constants2, promises as fs8 } from "node:fs";
+import { constants as constants2, promises as fs9 } from "node:fs";
 import { createInterface } from "node:readline";
-import { isAbsolute as isAbsolute3, join as join16 } from "node:path";
+import { isAbsolute as isAbsolute3, join as join17 } from "node:path";
 
 // src/offline.ts
-import { join as join15 } from "node:path";
+import { join as join16 } from "node:path";
 async function listAllHeld(mesh, env3) {
   const rows = [];
   for (const sid of await listSessions(mesh)) {
@@ -117153,7 +117886,7 @@ async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
   for (const sid of (await listSessions(mesh)).filter((s3) => s3 !== skipSid)) {
     const files = new SessionFiles(mesh, sid, env3);
     if (await files.isLiveElsewhere()) {
-      await writeAtomic(join15(files.controlDir, `resume-${peer}`), "", env3);
+      await writeAtomic(join16(files.controlDir, `resume-${peer}`), "", env3);
       continue;
     }
     const box = new HeldBox(files.heldDir, env3);
@@ -117294,24 +118027,24 @@ async function runEvents(d5) {
     if (state2?.address !== void 0) addresses.set(sid, address);
     return address;
   }
-  async function readLines(handle2, start, size, sid) {
-    const buf2 = Buffer.alloc(Math.min(size - start, FOLLOW_READ_MAX));
-    const { bytesRead } = await handle2.read(buf2, 0, buf2.length, start);
+  async function readLines(handle2, start2, size, sid) {
+    const buf2 = Buffer.alloc(Math.min(size - start2, FOLLOW_READ_MAX));
+    const { bytesRead } = await handle2.read(buf2, 0, buf2.length, start2);
     const end2 = buf2.subarray(0, bytesRead).lastIndexOf(10) + 1;
     if (end2 === 0) {
-      return bytesRead === FOLLOW_READ_MAX ? start + bytesRead : start;
+      return bytesRead === FOLLOW_READ_MAX ? start2 + bytesRead : start2;
     }
     const address = await addressOf(sid);
     for (const line of buf2.subarray(0, end2).toString("utf8").split("\n")) {
       const entry = parseEntry(line);
       if (entry !== void 0) emit("message", messageRow(entry, address));
     }
-    return start + end2;
+    return start2 + end2;
   }
   async function drainRotated(files, was, sid) {
-    for (const name of await fs8.readdir(files.dir)) {
+    for (const name of await fs9.readdir(files.dir)) {
       if (!/^history-[0-9A-Z]{26}\.jsonl$/.test(name)) continue;
-      const handle2 = await openHistory(join16(files.dir, name));
+      const handle2 = await openHistory(join17(files.dir, name));
       if (handle2 === void 0) continue;
       try {
         const st = await handle2.stat({ bigint: true });
@@ -117330,10 +118063,10 @@ async function runEvents(d5) {
       const size = Number(st.size);
       const was = followed.get(sid);
       if (initial) return void followed.set(sid, { ino: st.ino, offset: size });
-      let start = 0;
+      let start2 = 0;
       if (was !== void 0 && was.ino !== st.ino) await drainRotated(files, was, sid);
-      else if (was !== void 0 && was.offset <= size) start = was.offset;
-      followed.set(sid, { ino: st.ino, offset: start === size ? start : await readLines(handle2, start, size, sid) });
+      else if (was !== void 0 && was.offset <= size) start2 = was.offset;
+      followed.set(sid, { ino: st.ino, offset: start2 === size ? start2 : await readLines(handle2, start2, size, sid) });
     } finally {
       await handle2.close();
     }
@@ -117386,9 +118119,9 @@ async function runEvents(d5) {
         break;
       }
     }
-    const ask = { limit: want + TIE_SLACK, max: want + TIE_SLACK, ...until === void 0 ? {} : { before: until + 1 }, ...a5.peer === void 0 ? {} : { peer: a5.peer } };
+    const ask2 = { limit: want + TIE_SLACK, max: want + TIE_SLACK, ...until === void 0 ? {} : { before: until + 1 }, ...a5.peer === void 0 ? {} : { peer: a5.peer } };
     const all = [];
-    for (const { address, history: h6 } of sessions) for (const e6 of await h6.query(ask)) all.push(messageRow(e6, address));
+    for (const { address, history: h6 } of sessions) for (const e6 of await h6.query(ask2)) all.push(messageRow(e6, address));
     all.sort((x2, y) => x2.at - y.at);
     const cut = a5.before === void 0 ? -1 : all.findIndex((e6) => e6.id === a5.before);
     const upto = cut === -1 ? all : all.slice(0, cut);
@@ -117572,8 +118305,8 @@ function getLiteralValue(schema) {
 }
 
 // ../../node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
-function isTerminal2(status) {
-  return status === "completed" || status === "failed" || status === "cancelled";
+function isTerminal2(status2) {
+  return status2 === "completed" || status2 === "failed" || status2 === "cancelled";
 }
 
 // ../../node_modules/zod-to-json-schema/dist/esm/parsers/string.js
@@ -118513,8 +119246,8 @@ var Protocol = class {
         }
         return task;
       },
-      storeTaskResult: async (taskId, status, result) => {
-        await taskStore.storeTaskResult(taskId, status, result, sessionId);
+      storeTaskResult: async (taskId, status2, result) => {
+        await taskStore.storeTaskResult(taskId, status2, result, sessionId);
         const task = await taskStore.getTask(taskId, sessionId);
         if (task) {
           const notification = TaskStatusNotificationSchema.parse({
@@ -118530,15 +119263,15 @@ var Protocol = class {
       getTaskResult: (taskId) => {
         return taskStore.getTaskResult(taskId, sessionId);
       },
-      updateTaskStatus: async (taskId, status, statusMessage) => {
+      updateTaskStatus: async (taskId, status2, statusMessage) => {
         const task = await taskStore.getTask(taskId, sessionId);
         if (!task) {
           throw new McpError(ErrorCode.InvalidParams, `Task "${taskId}" not found - it may have been cleaned up`);
         }
         if (isTerminal2(task.status)) {
-          throw new McpError(ErrorCode.InvalidParams, `Cannot update task "${taskId}" from terminal status "${task.status}" to "${status}". Terminal states (completed, failed, cancelled) cannot transition to other states.`);
+          throw new McpError(ErrorCode.InvalidParams, `Cannot update task "${taskId}" from terminal status "${task.status}" to "${status2}". Terminal states (completed, failed, cancelled) cannot transition to other states.`);
         }
-        await taskStore.updateTaskStatus(taskId, status, statusMessage, sessionId);
+        await taskStore.updateTaskStatus(taskId, status2, statusMessage, sessionId);
         const updatedTask = await taskStore.getTask(taskId, sessionId);
         if (updatedTask) {
           const notification = TaskStatusNotificationSchema.parse({
@@ -119552,7 +120285,7 @@ var WimMcp = class {
 
 // src/notify.ts
 import { execFile } from "node:child_process";
-import { join as join17 } from "node:path";
+import { join as join18 } from "node:path";
 var CommandNotifier = class {
   last = Number.NEGATIVE_INFINITY;
   command;
@@ -119585,15 +120318,15 @@ function quiet(n3, log) {
   return { notify: (text2) => n3.notify(text2).catch((e6) => log(`wim: notification failed: ${e6.message}`)) };
 }
 async function loadNotifier(home, now = Date.now) {
-  const raw = await readJson(join17(home, "notify.json"));
+  const raw = await readJson(join18(home, "notify.json"));
   if (raw === void 0) return void 0;
   if (raw.provider !== "command" || !Array.isArray(raw.command)) throw new Error('notify.json: provider must be "command" with a command list');
   return new CommandNotifier(raw.command, raw.minIntervalMs ?? 6e4, now);
 }
 
 // src/secretout.ts
-import { promises as fs9 } from "node:fs";
-import { createConnection, createServer as createServer2 } from "node:net";
+import { promises as fs10 } from "node:fs";
+import { createConnection as createConnection2, createServer as createServer2 } from "node:net";
 var AGENT_ENV_VARS = ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "GEMINI_CLI", "CURSOR_AGENT", "CURSOR_TRACE_ID", "OPENCODE", "AIDER_MODEL", "ANTIGRAVITY_AGENT", "WIM_AGENT"];
 var AGENT_ENV_PREFIXES = ["CODEX_"];
 function agentEnv(env3) {
@@ -119609,7 +120342,7 @@ function showSocketPath(home, platform2) {
   return pathFor(platform2).join(home, "recovery.sock");
 }
 async function holdForShow(path2, code2, ms, signal, platform2, onListening = () => void 0) {
-  if (platform2 !== "win32") await fs9.rm(path2, { force: true });
+  if (platform2 !== "win32") await fs10.rm(path2, { force: true });
   return new Promise((resolve3, reject) => {
     const server = createServer2((socket) => {
       finish(true);
@@ -119632,7 +120365,7 @@ async function holdForShow(path2, code2, ms, signal, platform2, onListening = ()
 function fetchHeldCode(path2) {
   return new Promise((resolve3, reject) => {
     let text2 = "";
-    const socket = createConnection(path2);
+    const socket = createConnection2(path2);
     socket.setEncoding("utf8");
     socket.on("data", (d5) => text2 += d5);
     socket.once("error", () => reject(new Error(`no recovery code is waiting (it is offered for ${SHOW_WINDOW_MINUTES} minutes after it is made)`)));
@@ -119719,9 +120452,796 @@ function describeInfo(info) {
   ];
 }
 
+// src/agentcli.ts
+import { spawn as nodeSpawn } from "node:child_process";
+import { join as join19 } from "node:path";
+
+// src/agent.ts
+import { createPrivateKey, sign as edSign } from "node:crypto";
+import { promises as fs11 } from "node:fs";
+import { createConnection as createConnection3, createServer as createServer3 } from "node:net";
+var AgentError = class extends Error {
+  code;
+  constructor(code2, message2) {
+    super(message2);
+    this.code = code2;
+  }
+};
+var AGENT_RATE = { perSecond: 100, burst: 1e3 };
+var TokenBucket = class {
+  tokens;
+  last;
+  perSecond;
+  burst;
+  now;
+  constructor(perSecond, burst, now) {
+    this.perSecond = perSecond;
+    this.burst = burst;
+    this.now = now;
+    this.tokens = burst;
+    this.last = now();
+  }
+  take() {
+    const now = this.now();
+    const elapsed = Math.max(0, now - this.last);
+    this.tokens = Math.min(this.burst, this.tokens + elapsed * this.perSecond / 1e3);
+    this.last = now;
+    if (this.tokens < 1) return false;
+    this.tokens -= 1;
+    return true;
+  }
+};
+var AgentLog = class {
+  chain = Promise.resolve();
+  path;
+  maxBytes;
+  constructor(path2, maxBytes = 1024 * 1024) {
+    this.path = path2;
+    this.maxBytes = maxBytes;
+  }
+  write(entry) {
+    this.chain = this.chain.then(async () => {
+      await fs11.appendFile(this.path, `${JSON.stringify(entry)}
+`, { mode: 384 });
+      if ((await fs11.stat(this.path)).size > this.maxBytes) await fs11.rename(this.path, `${this.path}.1`);
+    }).catch(() => void 0);
+  }
+  /** Resolves once every write so far is on disk (or failed). */
+  flushed() {
+    return this.chain;
+  }
+};
+var bytes2 = (n3) => external_exports.string().refine((s3) => {
+  try {
+    return n3 === void 0 || b64u.decode(s3).length === n3;
+  } catch {
+    return false;
+  }
+}, "expected b64u bytes");
+var id22 = external_exports.string().length(22);
+var boxArgs = { mesh: external_exports.string().refine(isMeshId, "expected a mesh id"), sender: id22, recipient: id22, aad: bytes2(32) };
+var sealArgs = external_exports.strictObject({ ...boxArgs, recipientBox: bytes2(32), plaintext: bytes2(), prekey: external_exports.strictObject({ id: id22, pub: bytes2(32) }).optional() });
+var openArgs = external_exports.strictObject({ ...boxArgs, senderBox: bytes2(32), box: boxSchema });
+var open2Args = openArgs.extend({ entry: external_exports.strictObject({ prekey: prekeySchema, sealed: external_exports.string() }) });
+var signArgs = external_exports.strictObject({ type: external_exports.string(), obj: external_exports.record(external_exports.string(), external_exports.unknown()) });
+var ARGS = {
+  hello: external_exports.strictObject({ nonce: bytes2(32), epub: bytes2(32) }),
+  status: external_exports.strictObject({}),
+  sign: signArgs,
+  seal: sealArgs,
+  open: openArgs,
+  open2: open2Args,
+  prekey: external_exports.strictObject({ mesh: boxArgs.mesh, at: external_exports.int().min(0) }),
+  adopt: external_exports.strictObject({ prekey: prekeySchema, secret: bytes2(32) }),
+  lock: external_exports.strictObject({}),
+  stop: external_exports.strictObject({})
+};
+var OWNER = {
+  auth: (o3) => o3["device"],
+  roster: (o3) => o3["by"],
+  send: (o3) => o3["from"]?.device,
+  join: (o3) => o3["device"]?.id
+};
+function ed25519Private(seed) {
+  const prefix = Buffer.from("302e020100300506032b657004220420", "hex");
+  const der = Buffer.alloc(prefix.length + seed.length);
+  prefix.copy(der);
+  der.set(seed, prefix.length);
+  try {
+    return createPrivateKey({ key: der, format: "der", type: "pkcs8" });
+  } finally {
+    der.fill(0);
+  }
+}
+var SIGN_SKEW_MS = 5 * 6e4;
+var RUN_LIFETIME_MS = 24 * 60 * 6e4;
+var CHANNEL = /* @__PURE__ */ Symbol("channel");
+var Signer = class {
+  file;
+  started;
+  keys;
+  signKey;
+  /**
+   * This run's own key and its certificate from the device key, so the signer proves it is this
+   * device's signer, locked or not (`lock` and `stop` need that proof). It signs nothing but
+   * hellos. The certificate says whether the signer is locked and holds for RUN_LIFETIME_MS: an
+   * unlocked signer issues a new one at half of that, and `lock` issues a locked one (whose key can
+   * only ever pose as a locked signer) before the device key goes; a locked signer stops when its
+   * certificate runs out.
+   */
+  run;
+  bucket;
+  counts = {};
+  refused = 0;
+  limited = 0;
+  o;
+  constructor(o3) {
+    this.o = o3;
+    this.file = o3.file;
+    this.keys = o3.unlocked;
+    this.signKey = ed25519Private(o3.unlocked.keys.signSec);
+    this.issue(false, this.signKey);
+    this.started = o3.now();
+    const rate = o3.rate ?? AGENT_RATE;
+    this.bucket = new TokenBucket(rate.perSecond, rate.burst, o3.now);
+  }
+  get locked() {
+    return this.keys === void 0;
+  }
+  /**
+   * Wipes the keys from memory as far as JavaScript can: the byte arrays are zeroed, and the key
+   * object is dropped (OpenSSL frees its copy when it is collected; JavaScript cannot zero it).
+   */
+  lock() {
+    const k5 = this.keys;
+    if (k5 === void 0) return;
+    this.issue(true, this.signKey);
+    this.keys = void 0;
+    this.signKey = void 0;
+    for (const b5 of [k5.keys.signSec, k5.keys.boxSec, k5.data]) b5.fill(0);
+  }
+  /** A new run key and its certificate, signed with the device key. */
+  issue(locked, signKey) {
+    const key2 = runKey();
+    const now = this.o.now();
+    const body = { pub: b64u.encode(key2.pub), locked, issued: now, expires: now + RUN_LIFETIME_MS, pid: this.o.pid };
+    this.run = { privateKey: key2.privateKey, body, sig: b64u.encode(edSign(null, certBytes(body), signKey)) };
+  }
+  /**
+   * An unlocked signer issues a new run key when its certificate is half spent, or was issued
+   * after the clock's now: a clock set back (NTP, a resumed VM) would otherwise leave clients
+   * refusing a certificate from their future until the clock caught up. Run at every hello and on
+   * the server's watch. A locked signer has no device key to issue with (SECURITY-MODEL 5.8).
+   */
+  refresh() {
+    const age = this.o.now() - this.run.body.issued;
+    if (this.signKey !== void 0 && (age < 0 || age >= RUN_LIFETIME_MS / 2)) this.issue(false, this.signKey);
+  }
+  /** A locked signer whose certificate ran out: it can no longer prove itself, and stops. */
+  get spent() {
+    return this.locked && this.o.now() >= this.run.body.expires;
+  }
+  /** Its endpoint now names another socket (renamed or replaced): locked, and logged. */
+  replaced() {
+    this.lock();
+    this.o.log({ at: this.o.now(), op: "replaced", ok: false, code: "replaced" });
+  }
+  /** Answers one request, or throws an AgentError. Every answer is logged. */
+  async handle(op2, raw) {
+    const entry = { at: this.o.now(), op: op2, ok: false };
+    try {
+      const result = await this.answer(op2, raw, entry);
+      entry.ok = true;
+      if (op2 !== "hello" && op2 !== "status") this.counts[op2] = (this.counts[op2] ?? 0) + 1;
+      return result;
+    } catch (error63) {
+      const code2 = error63 instanceof AgentError ? error63.code : "bad_request";
+      entry.code = code2;
+      if (code2 === "refused") this.refused++;
+      throw error63 instanceof AgentError ? error63 : new AgentError("bad_request", error63.message);
+    } finally {
+      this.o.log(entry);
+    }
+  }
+  async answer(op2, raw, entry) {
+    if (!Object.hasOwn(ARGS, op2)) throw new AgentError("bad_request", `no operation ${JSON.stringify(op2)}`);
+    const parsed2 = ARGS[op2].safeParse(raw);
+    if (!parsed2.success) throw new AgentError("bad_request", `${op2}: ${parsed2.error.issues[0].message}`);
+    const a5 = parsed2.data;
+    switch (op2) {
+      case "hello":
+        return this.hello(b64u.decode(a5["nonce"]), b64u.decode(a5["epub"]));
+      case "status":
+        return { id: this.file.id, name: this.file.name, locked: this.locked, pid: this.o.pid, started: this.started, ops: { ...this.counts }, refused: this.refused, limited: this.limited };
+      case "lock": {
+        const was = this.locked;
+        this.lock();
+        return { was };
+      }
+      case "stop":
+        return {};
+    }
+    const keys = this.keys;
+    if (keys === void 0) throw new AgentError("locked", "the signer is locked: run `wim agent unlock` in your own terminal");
+    if (!this.bucket.take()) {
+      this.limited++;
+      throw new AgentError("rate_limited", "too many signer operations; slow down");
+    }
+    return this.keyOp(op2, a5, keys, this.signKey, entry);
+  }
+  /**
+   * Who it is and whether it is locked (HelloInfo), its own channel key, its run key's certificate,
+   * and the run key's signature over the client's nonce, both channel keys and the HelloInfo; with
+   * the channel (CHANNEL) for the server to use. The same locked or unlocked. An unlocked signer
+   * whose certificate is half spent issues a new run key first.
+   */
+  hello(nonce, clientPub) {
+    this.refresh();
+    const f7 = this.file;
+    const info = { id: f7.id, name: f7.name, signPub: f7.signPub, boxPub: f7.boxPub, locked: this.locked, pid: this.o.pid };
+    const mine = ephemeral();
+    const transcript = helloTranscript(nonce, clientPub, mine.pub, info);
+    const channel = channelFor("signer", mine.privateKey, clientPub, transcript);
+    return { ...info, epub: b64u.encode(mine.pub), cert: { ...this.run.body, sig: this.run.sig }, proof: b64u.encode(edSign(null, transcript, this.run.privateKey)), [CHANNEL]: channel };
+  }
+  keyOp(op2, a5, k5, signKey, entry) {
+    const me = this.file.id;
+    const refuse = (why) => {
+      throw new AgentError("refused", why);
+    };
+    switch (op2) {
+      case "sign": {
+        const type = a5["type"];
+        const obj = a5["obj"];
+        entry.type = type;
+        if (type === "prekey") refuse("prekeys are made by the signer itself (the prekey operation)");
+        const owner = OWNER[type];
+        if (owner === void 0) throw new AgentError("bad_request", `no signature type ${JSON.stringify(type)}`);
+        if (owner(obj) !== me) refuse(`this ${type} object is not this device's`);
+        if ((type === "auth" || type === "send") && !(typeof obj["at"] === "number" && Math.abs(obj["at"] - this.o.now()) <= SIGN_SKEW_MS)) {
+          refuse(`this ${type} object's time is not within ${SIGN_SKEW_MS / 6e4} minutes of the signer's clock`);
+        }
+        entry.mesh = typeof obj["mesh"] === "string" ? obj["mesh"] : void 0;
+        const { sig: _sig, ...rest } = obj;
+        const message2 = Buffer.concat([Buffer.from(`wim/1 ${type}
+`, "utf8"), canonBytes(rest)]);
+        return { sig: b64u.encode(edSign(null, message2, signKey)) };
+      }
+      case "seal": {
+        const req = a5;
+        Object.assign(entry, { mesh: req.mesh, peer: req.recipient });
+        if (req.sender !== me) refuse("a box from another device");
+        const box = sealBox(k5.keys.boxSec, {
+          mesh: req.mesh,
+          sender: req.sender,
+          recipient: req.recipient,
+          aad: b64u.decode(req.aad),
+          recipientBox: b64u.decode(req.recipientBox),
+          plaintext: b64u.decode(req.plaintext),
+          ...req.prekey === void 0 ? {} : { prekey: { id: req.prekey.id, pub: b64u.decode(req.prekey.pub) } }
+        });
+        return { box };
+      }
+      case "open":
+      case "open2": {
+        const req = a5;
+        Object.assign(entry, { mesh: req.mesh, peer: req.sender });
+        if (req.recipient !== me) refuse("a box to another device");
+        const open3 = { mesh: req.mesh, sender: req.sender, recipient: req.recipient, aad: b64u.decode(req.aad), senderBox: b64u.decode(req.senderBox), box: req.box };
+        if (op2 === "open") return opened(openBox(k5.keys.boxSec, () => void 0, open3));
+        return opened(this.openPrekeyBox(req.entry, open3, k5));
+      }
+      case "prekey": {
+        const mesh = a5["mesh"];
+        entry.mesh = mesh;
+        const at = a5["at"];
+        if (Math.abs(at - this.o.now()) > SIGN_SKEW_MS) refuse(`a prekey's time must be within ${SIGN_SKEW_MS / 6e4} minutes of the signer's clock`);
+        const made = createPrekey({ mesh, deviceId: me, signSec: k5.keys.signSec, at });
+        const sealed = sealPrekeySecret(k5.data, made.prekey, made.secret);
+        made.secret.fill(0);
+        return { prekey: made.prekey, sealed };
+      }
+      case "adopt": {
+        const prekey = a5["prekey"];
+        entry.mesh = prekey.mesh;
+        if (prekey.device !== me || !verifyObject("prekey", prekey, b64u.decode(this.file.signPub))) refuse("not one of this device's prekeys");
+        return { sealed: sealPrekeySecret(k5.data, prekey, b64u.decode(a5["secret"])) };
+      }
+    }
+  }
+  /**
+   * A scheme 2 box, opened with a sealed prekey secret from `prekeys.json`. The signer keeps the
+   * deletion schedule itself: past `until` + 72 hours a prekey is gone, even in a copy of the file.
+   */
+  openPrekeyBox(e6, req, k5) {
+    if (e6.prekey.device !== this.file.id || prekeyDeleteAt(e6.prekey) <= this.o.now()) return "key_expired";
+    if (!("s" in req.box) || req.box.p !== e6.prekey.id) return "decrypt_failed";
+    const secret = openPrekeySecret(k5.data, e6.prekey, e6.sealed);
+    if (secret === void 0) return "decrypt_failed";
+    try {
+      return openBox(void 0, () => secret, req);
+    } finally {
+      secret.fill(0);
+    }
+  }
+};
+function opened(o3) {
+  return typeof o3 === "string" ? { reason: o3 } : { opened: b64u.encode(o3) };
+}
+function answers(endpoint2) {
+  return new Promise((resolve3) => {
+    const socket = createConnection3(endpoint2);
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve3(true);
+    });
+    socket.once("error", () => resolve3(false));
+  });
+}
+var AgentServer = class {
+  server;
+  sockets = /* @__PURE__ */ new Set();
+  stopping = false;
+  identity;
+  watcher;
+  stopped;
+  resolveStopped;
+  o;
+  constructor(o3) {
+    this.o = o3;
+    this.stopped = new Promise((r6) => this.resolveStopped = r6);
+  }
+  /**
+   * Listens. Refuses when a signer already answers there; a stale socket file is replaced. A
+   * request that comes in before the endpoint's identity is recorded waits for it (`bound`), and
+   * the listener is this server's from the start, so a close at any point closes it.
+   */
+  async listen() {
+    if (await answers(this.o.endpoint)) throw new AgentError("running", `a signer is already running at ${this.o.endpoint}`);
+    await this.o.files.clear(this.o.endpoint);
+    let markBound;
+    this.bound = new Promise((resolve3) => markBound = resolve3);
+    const server = createServer3((socket) => this.serve(socket));
+    this.server = server;
+    await new Promise((resolve3, reject) => {
+      server.once("error", reject);
+      server.listen(this.o.endpoint, () => resolve3());
+    });
+    await this.o.files.secure(this.o.endpoint);
+    this.identity = await this.o.files.id(this.o.endpoint);
+    markBound();
+    this.watcher = setInterval(() => void this.watch(), this.o.watchMs ?? 2e3);
+    this.watcher.unref();
+  }
+  /** Resolves once listen() has recorded the endpoint's identity. */
+  bound = Promise.resolve();
+  /** Whether the endpoint still names this signer's own socket. */
+  async owned() {
+    return await this.o.files.id(this.o.endpoint) === this.identity;
+  }
+  /** Locks and stops when the endpoint is no longer this signer's own; stops when it is locked and its certificate ran out. */
+  async watch() {
+    this.afterWatch(await this.owned());
+  }
+  afterWatch(owned) {
+    if (!owned) this.replacedNow();
+    else if (this.o.signer.spent) void this.close();
+    else this.o.signer.refresh();
+  }
+  replacedNow() {
+    this.o.signer.replaced();
+    void this.close();
+  }
+  serve(socket) {
+    this.sockets.add(socket);
+    socket.setEncoding("utf8");
+    let buffered = "";
+    let queue = Promise.resolve();
+    const state2 = {};
+    socket.on("error", () => void 0);
+    socket.on("close", () => this.sockets.delete(socket));
+    socket.on("data", (chunk) => {
+      buffered += chunk;
+      if (buffered.length > MAX_LINE) {
+        socket.destroy();
+        return;
+      }
+      for (let nl = buffered.indexOf("\n"); nl !== -1; nl = buffered.indexOf("\n")) {
+        const line = buffered.slice(0, nl);
+        buffered = buffered.slice(nl + 1);
+        queue = queue.then(() => this.request(socket, line, state2));
+      }
+    });
+  }
+  async request(socket, line, state2) {
+    await this.bound;
+    return this.dispatch(socket, line, state2, await this.owned());
+  }
+  /** Someone else's socket at the path: nothing is answered, and the signer locks and stops. */
+  dispatch(socket, line, state2, owned) {
+    if (!owned) {
+      socket.destroy();
+      this.replacedNow();
+      return Promise.resolve();
+    }
+    return this.handleLine(line, state2).then((handled) => this.answerLine(socket, state2, handled));
+  }
+  /** The answer to one line, or undefined for a sealed line that does not open (the connection then ends). */
+  async handleLine(line, state2) {
+    const text2 = state2.channel === void 0 ? line : unseal(state2.channel, line);
+    if (text2 === void 0) return void 0;
+    let i6 = 0;
+    let op2 = "";
+    try {
+      const req = JSON.parse(text2);
+      i6 = req.i;
+      op2 = String(req.op);
+      return { op: op2, answer: { i: i6, r: await this.o.signer.handle(op2, req.a ?? {}) } };
+    } catch (error63) {
+      return { op: op2, answer: { i: i6, e: { code: error63 instanceof AgentError ? error63.code : "bad_request", message: error63.message } } };
+    }
+  }
+  /**
+   * Writes an answer (sealed on the channel when there is one), takes up the channel a `hello`
+   * opened, and acts on `stop`. Kept synchronous: every branch after the awaits is here.
+   */
+  answerLine(socket, state2, handled) {
+    if (handled === void 0) {
+      socket.destroy();
+      return;
+    }
+    const text2 = JSON.stringify(handled.answer);
+    const out = `${state2.channel === void 0 ? text2 : JSON.stringify({ x: state2.channel.seal(text2) })}
+`;
+    const opened2 = handled.answer.r?.[CHANNEL];
+    if (opened2 !== void 0) state2.channel = opened2;
+    if (handled.op !== "stop" || handled.answer.r === void 0) {
+      socket.write(out);
+      return;
+    }
+    this.server.close();
+    socket.end(out, () => socket.destroy());
+    void this.close(socket);
+  }
+  /**
+   * Stops listening, closes every connection (but `answering`, which closes itself once its
+   * answer is out) and wipes the keys. It waits for no client: one that keeps its end of a
+   * connection open, or a Windows pipe slow to report its close, does not keep it running.
+   */
+  async close(answering) {
+    if (this.stopping) return this.stopped;
+    this.stopping = true;
+    clearInterval(this.watcher);
+    this.o.signer.lock();
+    for (const s3 of this.sockets) if (s3 !== answering) s3.destroy();
+    await new Promise((resolve3) => this.server === void 0 ? resolve3() : this.server.close(() => resolve3()));
+    this.resolveStopped();
+  }
+};
+
+// src/agentcli.ts
+var AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin]
+  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin] | wim agent stop
+  wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]`;
+var MIN_PASSPHRASE = 8;
+var PROMPT = "Passphrase for this device's keys: ";
+function wimCommand() {
+  return [process.execPath, ...process.execArgv, process.argv[1]];
+}
+function spawnDetached(command5, input2, spawn = nodeSpawn) {
+  return new Promise((resolve3, reject) => {
+    const child = spawn(command5[0], command5.slice(1), { detached: true, stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
+    let out = "";
+    child.once("error", reject);
+    child.once("close", (code2) => reject(new Error(`the signer exited before it was ready (code ${code2})`)));
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      out += chunk;
+      const nl = out.indexOf("\n");
+      if (nl === -1) return;
+      child.removeAllListeners("close");
+      child.stdout.destroy();
+      child.unref();
+      resolve3(out.slice(0, nl));
+    });
+    child.stdin.on("error", reject);
+    child.stdin.end(`${input2}
+`);
+  });
+}
+async function readPassphrase(ctx, question) {
+  let passphrase;
+  if (ctx.flags.get("passphrase-stdin") === true) passphrase = await ctx.io.prompt("");
+  else {
+    if (!canShowSecret(ctx.env, ctx.io.isTTY) || ctx.io.promptSecret === void 0) {
+      throw new SetupError("the passphrase is asked for only in your own interactive terminal, not through an agent or a pipe (a service manager can pass --passphrase-stdin)");
+    }
+    passphrase = await ctx.io.promptSecret(question);
+  }
+  if (passphrase === "") throw new SetupError("no passphrase given");
+  return passphrase;
+}
+async function sealedFile(ctx) {
+  const file2 = await ctx.home.readKeyFile();
+  if (file2 === void 0) throw new SetupError(`no device keys at ${ctx.home.devicePath}: run \`wim init\` first`);
+  if ("plain" in file2) throw new SetupError(`${ctx.home.devicePath} is not encrypted: run \`wim agent encrypt\` first`);
+  return file2.sealed;
+}
+async function endpoint(ctx, create2) {
+  return agentEndpoint(ctx.home.root, ctx.home.env, create2);
+}
+async function running(ctx) {
+  const at = await endpoint(ctx, false);
+  if (at === void 0 || !await answers(at)) return void 0;
+  const file2 = await ctx.home.readKeyFile();
+  const expect = file2 !== void 0 && "sealed" in file2 ? b64u.decode(file2.sealed.signPub) : void 0;
+  return new SignerClient({ endpoint: at, ...expect === void 0 ? {} : { expect } });
+}
+async function agentCommand(ctx) {
+  const [action] = ctx.args;
+  switch (action) {
+    case "start":
+      return start(ctx);
+    case "serve":
+      return serve(ctx);
+    case "status":
+      return status(ctx);
+    case "lock":
+    case "stop":
+      return simple(ctx, action);
+    case "unlock":
+      return unlock(ctx);
+    case "encrypt":
+      return encrypt(ctx);
+    case "decrypt":
+      return decrypt(ctx);
+    default:
+      throw new SetupError(`usage: ${AGENT_USAGE}`);
+  }
+}
+async function runSigner(ctx, passphrase, ready) {
+  const file2 = await sealedFile(ctx);
+  let unlocked;
+  try {
+    unlocked = await openKeyFile(file2, passphrase);
+  } catch (error63) {
+    ready(`error ${error63.message}`);
+    return 1;
+  }
+  const { root: root5, env: env3 } = ctx.home;
+  const log = new AgentLog(agentLogPath(root5));
+  const signer = new Signer({ file: file2, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e6) => log.write(e6) });
+  let bound;
+  try {
+    await ensureDir(agentDir(root5));
+    bound = await withLock(
+      startLockPath(root5),
+      async () => {
+        const before = await agentEndpoint(root5, env3, false);
+        if (before !== void 0 && await answers(before)) {
+          if (await proven(before, b64u.decode(file2.signPub)) !== void 0) throw new SetupError(`a signer is already running at ${before}`);
+          await endpointFiles(env3.platform).clear(before);
+        }
+        const at = await agentEndpoint(root5, env3, true);
+        const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(env3.platform) });
+        await server.listen();
+        return { server, at };
+      },
+      env3
+    );
+  } catch (error63) {
+    signer.lock();
+    ready(`error ${error63.message}`);
+    return 1;
+  }
+  log.write({ at: ctx.io.now(), op: "start", ok: true });
+  ready(`ready ${ctx.io.pid} ${bound.at}`);
+  const onAbort = () => void bound.server.close();
+  ctx.io.signal.addEventListener("abort", onAbort, { once: true });
+  if (ctx.io.signal.aborted) onAbort();
+  await bound.server.stopped;
+  ctx.io.signal.removeEventListener("abort", onAbort);
+  await retireEndpoint(root5, env3, bound.at);
+  log.write({ at: ctx.io.now(), op: "exit", ok: true });
+  await log.flushed();
+  return 0;
+}
+async function proven(at, expect) {
+  const client = new SignerClient({ endpoint: at, expect });
+  try {
+    return { locked: (await client.hello()).locked };
+  } catch {
+    return void 0;
+  } finally {
+    client.close();
+  }
+}
+async function start(ctx) {
+  const file2 = await sealedFile(ctx);
+  const at = await endpoint(ctx, false);
+  if (at !== void 0 && await answers(at)) {
+    const found = await proven(at, b64u.decode(file2.signPub));
+    if (found !== void 0) {
+      ctx.io.out(found.locked ? `A signer is already running at ${at}, locked (verified): \`wim agent unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it is this device's signer).`);
+      return 0;
+    }
+    ctx.io.err(`wim: something answers at ${at} but cannot prove it is this device's signer; starting a signer in its place`);
+  }
+  return launch(ctx, await readPassphrase(ctx, PROMPT));
+}
+async function launch(ctx, passphrase) {
+  if (ctx.flags.get("foreground") === true) {
+    let failed;
+    const code2 = await runSigner(ctx, passphrase, (line2) => {
+      if (line2.startsWith("error ")) failed = line2.slice(6);
+      else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${line2.split(" ").slice(2).join(" ")}. Ctrl-C or \`wim agent stop\` stops it.`);
+    });
+    if (failed !== void 0) throw new SetupError(failed);
+    ctx.io.out("Signer stopped.");
+    return code2;
+  }
+  if (ctx.io.startAgent === void 0) throw new SetupError("this program cannot start a background signer: use --foreground");
+  const line = await ctx.io.startAgent(passphrase);
+  if (!line.startsWith("ready ")) throw new SetupError(line.replace(/^error /, ""));
+  const [, pid, ...at] = line.split(" ");
+  ctx.io.out(`Signer started (pid ${pid}) at ${at.join(" ")}. Sessions now sign and open through it.`);
+  ctx.io.out("`wim agent lock` wipes the keys from its memory; `wim agent stop` ends it.");
+  return 0;
+}
+async function serve(ctx) {
+  const passphrase = await ctx.io.prompt("");
+  return runSigner(ctx, passphrase, (line) => ctx.io.out(line));
+}
+async function status(ctx) {
+  const file2 = await ctx.home.readKeyFile();
+  const settings = await readAgentSettings(ctx.home.root);
+  const kind = file2 === void 0 ? "no key file" : "plain" in file2 ? "plaintext" : "encrypted";
+  ctx.io.out(`key file: ${ctx.home.devicePath} (${kind})${settings.require_signer === true ? "; the signer is required" : ""}`);
+  const client = await running(ctx);
+  if (client === void 0) {
+    ctx.io.out("signer: not running");
+    return 3;
+  }
+  try {
+    const s3 = await client.call("status");
+    const ops = Object.entries(s3["ops"]).map(([op2, n3]) => `${op2} ${n3}`);
+    ctx.io.out(`signer: running (pid ${String(s3["pid"])}), ${s3["locked"] === true ? "locked" : "unlocked"} (verified), device ${String(s3["name"])} (${String(s3["id"])})`);
+    ctx.io.out(`since ${new Date(s3["started"]).toISOString()}: ${ops.length === 0 ? "no operations" : ops.join(", ")}; refused ${String(s3["refused"])}, rate limited ${String(s3["limited"])}`);
+    ctx.io.out(`log: ${agentLogPath(ctx.home.root)}`);
+    return 0;
+  } finally {
+    client.close();
+  }
+}
+async function simple(ctx, action) {
+  const client = await running(ctx);
+  if (client === void 0) {
+    ctx.io.out("No signer is running.");
+    return action === "stop" ? 0 : 3;
+  }
+  let answer;
+  try {
+    answer = await client.call(action);
+  } finally {
+    client.close();
+  }
+  if (action === "stop" && await answers(client.endpoint)) {
+    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts. End that process`);
+  }
+  if (action === "stop") ctx.io.out("Signer stopped.");
+  else ctx.io.out(answer["was"] === true ? "The signer was locked already (verified)." : "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase.");
+  return 0;
+}
+async function unlock(ctx) {
+  const client = await running(ctx);
+  if (client === void 0) throw new SetupError("no signer is running: `wim agent start` starts one");
+  let passphrase;
+  try {
+    if (!(await client.hello()).locked) {
+      ctx.io.out("The signer is not locked.");
+      return 0;
+    }
+    const file2 = await sealedFile(ctx);
+    passphrase = await readPassphrase(ctx, PROMPT);
+    const checked = await openKeyFile(file2, passphrase).catch((error63) => {
+      throw new SetupError(error63.message);
+    });
+    for (const b5 of [checked.keys.signSec, checked.keys.boxSec, checked.data]) b5.fill(0);
+    await client.call("stop");
+  } finally {
+    client.close();
+  }
+  if (await answers(client.endpoint)) {
+    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
+  }
+  return launch(ctx, passphrase);
+}
+async function eachPrekeyFile(home, rewrite) {
+  for (const mesh of await home.meshIds()) {
+    const path2 = join19(home.meshDir(mesh), "prekeys.json");
+    await withLock(`${path2}.lock`, async () => {
+      const raw = await readJson(path2).catch(() => void 0);
+      if (raw?.v !== 1 || !Array.isArray(raw.keys)) return;
+      const keys = raw.keys.flatMap((e6) => {
+        try {
+          const next = rewrite({ ...e6, prekey: prekeySchema.parse(e6["prekey"]) });
+          return next === void 0 ? [] : [next];
+        } catch {
+          return [];
+        }
+      });
+      await writeJson(path2, { v: 1, keys }, home.env);
+    }, home.env);
+  }
+}
+async function encryptDevice(home, passphrase, kdf) {
+  const file2 = await home.readKeyFile();
+  if (file2 === void 0) throw new SetupError(`no device keys at ${home.devicePath}: run \`wim init\` first`);
+  if (!("plain" in file2)) throw new SetupError(`${home.devicePath} is already encrypted`);
+  const { name, keys } = file2.plain;
+  const data = randomBytes2(32);
+  const sealed = await sealKeyFile({ name, keys, passphrase, data, ...kdf === void 0 ? {} : { kdf } });
+  await writeAtomic(home.devicePath, `${JSON.stringify(sealed, null, 1)}
+`, home.env);
+  await writeAgentSettings(home.root, { require_signer: true }, home.env);
+  await eachPrekeyFile(home, (e6) => {
+    if (typeof e6["secret"] !== "string") return e6;
+    return { prekey: e6["prekey"], sealed: sealPrekeySecret(data, e6["prekey"], b64u.decode(e6["secret"])) };
+  });
+  keys.signSec.fill(0);
+  keys.boxSec.fill(0);
+  data.fill(0);
+  return sealed;
+}
+async function decryptDevice(home, passphrase) {
+  const file2 = await home.readKeyFile();
+  if (file2 === void 0) throw new SetupError(`no device keys at ${home.devicePath}: run \`wim init\` first`);
+  if ("plain" in file2) throw new SetupError(`${home.devicePath} is not encrypted`);
+  const at = await agentEndpoint(home.root, home.env, false);
+  if (at !== void 0 && await answers(at)) throw new SetupError("a signer is running: `wim agent stop` first");
+  let unlocked;
+  try {
+    unlocked = await openKeyFile(file2.sealed, passphrase);
+  } catch (error63) {
+    throw error63 instanceof BadPassphrase ? new SetupError(error63.message) : error63;
+  }
+  const { keys, data } = unlocked;
+  await eachPrekeyFile(home, (e6) => {
+    if (typeof e6["sealed"] !== "string") return e6;
+    const secret = openPrekeySecret(data, e6["prekey"], e6["sealed"]);
+    return secret === void 0 ? void 0 : { prekey: e6["prekey"], secret: b64u.encode(secret) };
+  });
+  const encoded = JSON.parse(encodeKeys(keys));
+  await writeAtomic(home.devicePath, `${JSON.stringify({ ...encoded, name: file2.sealed.name })}
+`, home.env);
+  await writeAgentSettings(home.root, { require_signer: false }, home.env);
+  keys.signSec.fill(0);
+  keys.boxSec.fill(0);
+  data.fill(0);
+}
+async function encrypt(ctx) {
+  const file2 = await ctx.home.readKeyFile();
+  if (file2 !== void 0 && !("plain" in file2)) throw new SetupError(`${ctx.home.devicePath} is already encrypted`);
+  const passphrase = await readPassphrase(ctx, "New passphrase for this device's keys: ");
+  if (passphrase.length < MIN_PASSPHRASE) throw new SetupError(`use a passphrase of at least ${MIN_PASSPHRASE} characters`);
+  if (ctx.flags.get("passphrase-stdin") !== true && await readPassphrase(ctx, "Again: ") !== passphrase) throw new SetupError("the two passphrases differ; nothing was changed");
+  await encryptDevice(ctx.home, passphrase, ctx.kdfN === void 0 ? void 0 : { N: ctx.kdfN, r: 8, p: 1 });
+  ctx.io.out(`Encrypted ${ctx.home.devicePath}. Sessions now need the signer: run \`wim agent start\`.`);
+  ctx.io.out("Without the passphrase this device's keys are gone: it would have to join its meshes again as a new device.");
+  ctx.io.out("Restart running sessions so they use the signer. `wim agent decrypt` undoes this.");
+  return 0;
+}
+async function decrypt(ctx) {
+  await sealedFile(ctx);
+  const passphrase = await readPassphrase(ctx, PROMPT);
+  await decryptDevice(ctx.home, passphrase);
+  ctx.io.out(`Decrypted ${ctx.home.devicePath}: the keys are in the clear again, and sessions read them without a signer.`);
+  return 0;
+}
+
 // src/cli.ts
 var VERSION = "0.1.3";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
@@ -119739,7 +121259,8 @@ var COMMAND_FLAGS = {
   bot: ["as"],
   ci: ["as"],
   a2a: ["as"],
-  recover: ["relay", "tls", "revoke", "name"]
+  recover: ["relay", "tls", "revoke", "name"],
+  agent: ["foreground", "passphrase-stdin"]
 };
 function parseArgs(argv) {
   const positional = [];
@@ -119810,12 +121331,13 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim recovery show | wim recovery rotate
   wim doctor
   wim notify-test
+  ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
 Commands: init, mesh create, invite, join, devices, peers, send, watch, held, history, mcp,
-bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test.
+bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
   if (!/^[a-z-]+$/.test(command5)) return void 0;
@@ -119835,7 +121357,7 @@ var Ctx = class {
     this.io = io;
     this.args = args;
     this.fsEnv = { platform: io.platform, pid: io.pid };
-    this.home = new Home(defaultHome(env3, io.platform, io.homedir), { ...this.fsEnv, uid: io.uid });
+    this.home = new Home(defaultHome(env3, io.platform, io.homedir), { ...this.fsEnv, uid: io.uid, requireSigner: env3["WIM_REQUIRE_SIGNER"] === "1" });
   }
   get dialer() {
     return this.io.dialer ?? wsDialer;
@@ -119875,8 +121397,8 @@ var Ctx = class {
    */
   async session(name, opts = {}) {
     const base = await this.sessionOptions(name, "cli", false, opts.mesh);
-    const ephemeral = opts.keyed !== false && await liveWatcher(base.mesh, name, this.fsEnv) !== void 0;
-    const keyed = opts.keyed !== false && !ephemeral;
+    const ephemeral2 = opts.keyed !== false && await liveWatcher(base.mesh, name, this.fsEnv) !== void 0;
+    const keyed = opts.keyed !== false && !ephemeral2;
     if (keyed) await adoptByName(base.mesh, name, this.fsEnv, this.io.now);
     let last;
     const o3 = {
@@ -119890,7 +121412,7 @@ var Ctx = class {
     };
     if (opts.card !== true) delete o3.cwd;
     const s3 = await MeshSession.open({ ...o3, ...keyed ? { sessionKey: `cli:${name}` } : {} });
-    if (ephemeral) this.ephemeral.add(s3);
+    if (ephemeral2) this.ephemeral.add(s3);
     s3.start();
     try {
       await s3.ready(this.io.connectMs ?? 15e3);
@@ -120006,7 +121528,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join18(ctx);
+        return await join20(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -120037,6 +121559,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
         return await doctor(ctx);
       case "notify-test":
         return await notifyTest(ctx);
+      case "agent":
+        return await agentCommand({ home: ctx.home, io, env: env3, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
       default:
         io.err(`unknown command ${JSON.stringify(command5)}
 
@@ -120187,7 +121711,7 @@ async function invite(ctx) {
     await s3.stop({ ended: true });
   }
 }
-async function join18(ctx) {
+async function join20(ctx) {
   const code2 = ctx.args.positional[0];
   if (code2 === void 0) throw new SetupError("usage: wim join <code>");
   const device = await ctx.home.loadDevice() ?? await ctx.home.createDevice(flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device"));
@@ -120475,7 +121999,7 @@ async function mcp(ctx) {
 }
 async function readConfig(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs10.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs12.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
@@ -120547,7 +122071,7 @@ async function doctor(ctx) {
   try {
     device = await ctx.home.loadDevice();
     if (device === void 0) bad(`no device keys at ${ctx.home.devicePath}: run wim init`);
-    else ok2(`device ${device.name} (${device.id}); key file permissions are private`);
+    else ok2(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim agent)" : "key file permissions are private"}`);
   } catch (error63) {
     bad(error63.message);
   }
@@ -120599,8 +122123,18 @@ async function notifyTest(ctx) {
 
 // src/io.ts
 import { homedir as homedir3, hostname as hostname3 } from "node:os";
-import { createInterface as createInterface2 } from "node:readline/promises";
-function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kill: (pid, s3) => void process.kill(pid, s3) }) {
+import { createInterface as createInterface2 } from "node:readline";
+import { Writable as Writable4 } from "node:stream";
+function ask(input2, open3, question) {
+  if (input2.readableEnded) return Promise.resolve("");
+  const rl = open3();
+  return new Promise((resolve3) => {
+    rl.question(question, resolve3);
+    rl.once("line", resolve3);
+    rl.once("close", () => resolve3(""));
+  }).finally(() => rl.close());
+}
+function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kill: (pid, s3) => void process.kill(pid, s3), wim: wimCommand }) {
   const stop = new AbortController();
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) proc.once(signal, () => stop.abort());
   const parent = proc.ppid;
@@ -120612,14 +122146,15 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     // `wim mcp` owns stdout for the protocol, so diagnostics always go to stderr.
     err: (line) => void proc.stderr.write(`${line}
 `),
-    prompt: async (question) => {
-      const rl = createInterface2({ input: proc.stdin, output: proc.stderr });
-      try {
-        return await rl.question(question);
-      } finally {
-        rl.close();
-      }
+    prompt: (question) => ask(proc.stdin, () => createInterface2({ input: proc.stdin, output: proc.stderr }), question),
+    // The question goes to stderr; what is typed is echoed nowhere (readline writes it to a sink).
+    promptSecret: async (question) => {
+      proc.stderr.write(question);
+      const answer = await ask(proc.stdin, () => createInterface2({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "");
+      proc.stderr.write("\n");
+      return answer;
     },
+    startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
     signal: stop.signal,
     cwd: proc.cwd(),
     homedir: machine.homedir(),

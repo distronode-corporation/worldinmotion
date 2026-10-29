@@ -1,10 +1,10 @@
-import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { request as httpsRequest } from "node:https";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { selfSignedCert } from "@worldinmotion/relay-node";
 import { onTestFinished } from "vitest";
 import type {
   MeshMessage,
@@ -189,9 +189,11 @@ export interface TlsFiles {
 }
 
 /**
- * A throwaway self-signed certificate for localhost and 127.0.0.1, made with the openssl CLI
- * under the user's cache (never the shared temp directory) and removed when the test ends.
- * Call only from inside a test.
+ * A throwaway self-signed certificate for localhost and 127.0.0.1, made in this process (the
+ * relay's own LAN certificate code) under the user's cache (never the shared temp directory) and
+ * removed when the test ends. Call only from inside a test. It used the openssl CLI, which blocked
+ * the test process for about 30 s on its first run on Windows CI: a synchronous call that no test
+ * timeout can interrupt.
  */
 export function selfSignedTls(): TlsFiles {
   const root = scratchRoot();
@@ -200,15 +202,9 @@ export function selfSignedTls(): TlsFiles {
   onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
   const certPath = join(dir, "cert.pem");
   const keyPath = join(dir, "key.pem");
-  execFileSync(
-    "openssl",
-    [
-      "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes",
-      "-keyout", keyPath, "-out", certPath, "-days", "1", "-subj", "/CN=localhost",
-      "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1",
-    ],
-    { stdio: "ignore" },
-  );
+  const made = selfSignedCert(["localhost", "127.0.0.1"], new Date());
+  writeFileSync(keyPath, made.key, { mode: 0o600 });
+  writeFileSync(certPath, made.cert);
   return { certPath, keyPath, cert: readFileSync(certPath), key: readFileSync(keyPath) };
 }
 

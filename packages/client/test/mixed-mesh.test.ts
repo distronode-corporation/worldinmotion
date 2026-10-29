@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { MeshSession } from "../src/client.ts";
+import { writeJson } from "../src/fsx.ts";
 import { WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
@@ -251,7 +252,8 @@ describe("the downgrade is visible to the sender", () => {
     let request: string | undefined;
     await until(async () => (request = (await fs.readdir(w.files.controlDir).catch(() => [] as string[])).find((n) => /^send-[0-9A-Z]{26}\.json$/.test(n))) !== undefined, undefined, "the handed-over request");
     const id = ulid();
-    await fs.writeFile(join(w.files.controlDir, request!.replace(".json", ".done.json")), JSON.stringify({ ok: true, id, results: [{ to: "o@old", status: "routed" }], live: [], unprotected: ["old"] }));
+    // Written whole (as a watch writes it): `wim send` polls for this file and must never read half of it.
+    await writeJson(join(w.files.controlDir, request!.replace(".json", ".done.json")), { ok: true, id, results: [{ to: "o@old", status: "routed" }], live: [], unprotected: ["old"] }, FS);
     expect(await sending).toBe(0);
     expect(said(t2)).toContain("Sent without forward secrecy to old: no current prekey for old (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.");
   }, LONG);

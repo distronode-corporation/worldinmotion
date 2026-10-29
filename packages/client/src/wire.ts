@@ -318,8 +318,8 @@ export type ConnectionOptions = {
   dialer: Dialer;
   url: string;
   tlsPin?: string;
-  /** Signs the `auth` answer to this connection's `hello`. */
-  auth: (hello: HelloFrame) => AuthFrame;
+  /** Signs the `auth` answer to this connection's `hello` (through the signer when one holds the keys). */
+  auth: (hello: HelloFrame) => AuthFrame | Promise<AuthFrame>;
   /** Runs once per successful `ready`, before any other frame of that connection is handled. */
   onReady: (ready: ReadyFrame, link: Link, hello: HelloFrame) => Promise<void>;
   onFrame: (f: RelayFrame) => void;
@@ -416,7 +416,7 @@ export class Connection {
         if (live) this.o.onFrame(f);
         else if (f.t !== "ready") early.push(f);
       });
-      const ready = (await link.request(this.o.auth(hello), (f) => f.t === "ready" || errorFor("auth")(f), 10_000)) as RelayFrame;
+      const ready = (await link.request(await this.o.auth(hello), (f) => f.t === "ready" || errorFor("auth")(f), 10_000)) as RelayFrame;
       if (ready.t !== "ready") {
         this.refusal = authRefusal(ready as ErrorFrame);
         throw new WireError(`the relay refused auth${this.refusal === undefined ? ` (${relayCode((ready as ErrorFrame).code)})` : `: ${this.refusal}`}`, "auth");

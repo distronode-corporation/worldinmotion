@@ -156,6 +156,13 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   device more than 120 hours earlier, and nothing the device sent. Until 1.0, a device that
   publishes no prekey (a v0.1 client) still gets a v0.1 box without forward secrecy, and
   `wim send` says so. Details: SECURITY-MODEL.md section 6.14.
+- **Optional: keep the keys out of your agent's reach.** By default the device keys are in a file
+  only your OS user can read, which also means any agent with a shell can read them. `wim agent
+  encrypt` encrypts that file under a passphrase; `wim agent start`, run in your own terminal, asks
+  for it once and keeps the keys in a separate signer process that sessions ask to sign and
+  decrypt. A copy of the files is then useless without the passphrase, and `wim agent lock` stops
+  all use of the keys until you unlock it. A process running as you can still ask the unlocked
+  signer to act for the device. Details: SECURITY-MODEL.md section 5.8.
 
 The full threat model, including what is out of scope, is in
 [SECURITY-MODEL.md](SECURITY-MODEL.md). To report a vulnerability, see

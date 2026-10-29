@@ -17,7 +17,7 @@ import { MeshSession, PARKED_MAX } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionKeys } from "../src/session.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { FS, makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice, rosterSeqs } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice, rosterSeqs, keysOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -35,7 +35,7 @@ const unread = (s: MeshSession): Promise<SpoolItem[]> => s.spool.unread();
 function seal(from: MeshSession, to: MeshSession, extra: Partial<Parameters<typeof sealMessage>[0]> = {}): SendFrame {
   return sealMessage({
     roster: from.roster,
-    sender: { deviceId: from.device.id, keys: from.device.keys },
+    sender: { deviceId: from.device.id, keys: keysOf(from.device) },
     session: from.state.name,
     // Its own sender session, so crafted frames never move the real session's seq.
     sid: ulid(),
@@ -96,7 +96,7 @@ describe("rosters from the relay", () => {
     const files = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
     const pin = (await files.loadConfig()).pin;
     const prev = (await files.loadRoster(pin.seq - 1))!;
-    const rival = nextRoster(prev, { add: [makeDeviceRecord("rival", generateDeviceKeys(), "member", 1)] }, { keys: devices[0]!.device.keys }, Date.now());
+    const rival = nextRoster(prev, { add: [makeDeviceRecord("rival", generateDeviceKeys(), "member", 1)] }, { keys: keysOf(devices[0]!.device) }, Date.now());
     rewriteOnce(relay, (f) => f["t"] === "ready", (f) => ({ ...f, roster: rival }));
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
     await until(() => b.book.fork !== undefined);
@@ -109,7 +109,7 @@ describe("rosters from the relay", () => {
       const admin = await session(devices[0]!, mesh, relay, { name: "admin" });
       // Roster 3 on top, while the member is offline.
       const extra = await newDevice("three");
-      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord("three", extra.device.keys, "member", Date.now())] }, { keys: admin.device.keys }, Date.now()));
+      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord("three", keysOf(extra.device), "member", Date.now())] }, { keys: keysOf(admin.device) }, Date.now()));
       const files = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
       const pin = (await files.loadConfig()).pin;
       const pinned = (await files.loadRoster(pin.seq))!;
@@ -119,7 +119,7 @@ describe("rosters from the relay", () => {
         const chain = f["chain"] as Roster[];
         if (mode === "bad") return { ...f, chain: [chain[0], { ...chain[1]!, at: 1 }] };
         if (mode === "stall") return { ...f, chain: [pinned], more: true };
-        return { ...f, chain: [nextRoster(prev, { add: [makeDeviceRecord("rival", generateDeviceKeys(), "member", 1)] }, { keys: devices[0]!.device.keys }, 5)] };
+        return { ...f, chain: [nextRoster(prev, { add: [makeDeviceRecord("rival", generateDeviceKeys(), "member", 1)] }, { keys: keysOf(devices[0]!.device) }, 5)] };
       });
       const logs: string[] = [];
       const b = await MeshSession.open(sessionOpts(devices[1]!, mesh, relay, { name: "b", log: (l) => logs.push(l) }));
@@ -149,7 +149,7 @@ describe("rosters from the relay", () => {
     for (const n of ["x1", "x2"]) {
       const d = await newDevice(n);
       added.push(d);
-      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord(n, d.device.keys, "member", Date.now())] }, { keys: admin.device.keys }, Date.now()));
+      await publishRoster(admin, (cur) => nextRoster(cur, { add: [makeDeviceRecord(n, keysOf(d.device), "member", Date.now())] }, { keys: keysOf(admin.device) }, Date.now()));
     }
     relay.toClient = undefined;
     const files = new MeshFiles(devices[0]!.home.meshDir(mesh), FS);
@@ -176,8 +176,8 @@ describe("rosters from the relay", () => {
 
   it("pages through cards", async () => {
     const { a, b, relay, mesh } = await pair();
-    const card = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: a.device.keys }, session: "a", sid: a.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: { cwd: "w" }, recipients: a.roster.devices.map((d) => d.id) });
-    const unknownCard = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: a.device.keys }, session: "ghost", sid: ulid(), to: ["*"], seq: 0, at: Date.now(), kind: "card", card: { cwd: "g" }, recipients: a.roster.devices.map((d) => d.id) });
+    const card = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "a", sid: a.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: { cwd: "w" }, recipients: a.roster.devices.map((d) => d.id) });
+    const unknownCard = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "ghost", sid: ulid(), to: ["*"], seq: 0, at: Date.now(), kind: "card", card: { cwd: "g" }, recipients: a.roster.devices.map((d) => d.id) });
     relay.inject(mesh, JSON.stringify({ t: "cards", cards: [card, unknownCard], more: true }));
     relay.inject(mesh, JSON.stringify({ t: "cards", cards: [], more: true }));
     relay.inject(mesh, JSON.stringify({ t: "card", msg: { ...card, sig: b64u.encode(new Uint8Array(64)) } }));
@@ -190,7 +190,7 @@ describe("rosters from the relay", () => {
 describe("receiving edge cases", () => {
   it("drops a card or a seq replay delivered as a message, and parks at most 64", async () => {
     const { a, b } = await pair();
-    const card = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: a.device.keys }, session: "a", sid: a.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: {}, recipients: a.roster.devices.map((d) => d.id) });
+    const card = sealMessage({ roster: a.roster, sender: { deviceId: a.device.id, keys: keysOf(a.device) }, session: "a", sid: a.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: {}, recipients: a.roster.devices.map((d) => d.id) });
     expect(await b.receive(card)).toBe("dropped");
     const sid = ulid();
     const one = seal(a, b, { seq: 5, sid });
@@ -327,7 +327,7 @@ describe("relay refusals and other answers", () => {
     let block = true;
     relay.toClient = (text, conn) => (block && text.startsWith('{"t":"roster","chain":[') && conn === connOf(relay, mesh, b.sid) ? undefined : text);
     const d = await newDevice("three");
-    await publishRoster(a, (cur) => nextRoster(cur, { add: [makeDeviceRecord("three", d.device.keys, "member", Date.now())] }, { keys: a.device.keys }, Date.now()));
+    await publishRoster(a, (cur) => nextRoster(cur, { add: [makeDeviceRecord("three", keysOf(d.device), "member", Date.now())] }, { keys: keysOf(a.device) }, Date.now()));
     const filesD = new MeshFiles(d.home.meshDir(mesh), FS);
     const filesA = new MeshFiles(devices[0]!.home.meshDir(mesh), FS);
     const chain: Roster[] = [];
