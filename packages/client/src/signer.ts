@@ -27,6 +27,11 @@ export class SignerError extends Error {
     super(message);
     this.code = code;
   }
+
+  /** The signer could not answer now (locked, gone, slow or busy); the same request may work later. */
+  get transient(): boolean {
+    return ["locked", "unavailable", "timeout", "rate_limited"].includes(this.code);
+  }
 }
 
 /** What `hello` tells: the device the signer holds, whether it is locked, and its process. */
@@ -63,20 +68,35 @@ export function encodeOpen(req: OpenRequest): Record<string, unknown> {
 type Pending = { resolve: (r: Record<string, unknown>) => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
 
 /**
+ * One connection's own state: its calls in flight, its unread bytes, and whether the signer at
+ * the other end proved it holds the device's signing key. A connection keeps all of it to itself:
+ * one that closes late (a Windows pipe reports its close later than a Unix socket) fails only its
+ * own calls, never those of the connection that replaced it.
+ */
+type Conn = { socket: Socket; pending: Map<number, Pending>; buffered: string; proven: boolean };
+
+/**
+ * What may go to a signer that has not proved it holds the key: a locked one, or anything else
+ * that answers at the endpoint. None of these carries a plaintext or a secret.
+ */
+const UNPROVEN_OPS: ReadonlySet<string> = new Set(["hello", "status", "lock", "stop"]);
+
+/**
  * One connection to the signer, made on first use and again after it drops. Each new connection
- * starts with `hello`: when the signer is unlocked it must prove it holds `expect` (the device's
- * signing key, from the key file's public part), so no other process can stand in for it.
+ * starts with `hello`, and the signer must prove, by signing the client's fresh nonce, that it
+ * holds `expect` (the device's signing key, from the key file's public part). Until a connection's
+ * signer has proved that, only `hello`, `status`, `lock` and `stop` go to it: a locked signer, or
+ * a process posing as one, is never sent a plaintext or a request to sign. (The passphrase never
+ * crosses this socket at all: `wim agent unlock` restarts the signer.)
  */
 export class SignerClient {
   readonly endpoint: string;
   private readonly expect: Uint8Array | undefined;
   private readonly timeoutMs: number;
   private readonly connect: (endpoint: string) => Socket;
-  private socket: Socket | undefined;
-  private opening: Promise<Socket> | undefined;
+  private conn: Conn | undefined;
+  private opening: Promise<Conn> | undefined;
   private next = 0;
-  private readonly pending = new Map<number, Pending>();
-  private buffered = "";
 
   constructor(o: { endpoint: string; expect?: Uint8Array; timeoutMs?: number; connect?: (endpoint: string) => Socket }) {
     this.endpoint = o.endpoint;
@@ -87,61 +107,64 @@ export class SignerClient {
 
   /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
   async call(op: string, a: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-    const socket = await this.connected();
-    return this.send(socket, op, a);
+    const conn = await this.connected();
+    if (!conn.proven && !UNPROVEN_OPS.has(op)) {
+      throw new SignerError("locked", "the signer is locked (or what answers has not proved it holds this device's key): run `wim agent unlock` in your own terminal");
+    }
+    return this.send(conn, op, a);
   }
 
   /** `hello` on a connection of its own choosing: the signer's state, checked against `expect`. */
   async hello(): Promise<Hello> {
-    const socket = await this.connected();
-    return this.greet(socket);
+    return this.greet(await this.connected());
   }
 
-  /** Drops the connection; pending calls fail as `unavailable`. */
+  /** Drops the connection; its pending calls fail as `unavailable`. */
   close(): void {
-    this.socket?.destroy();
+    this.conn?.socket.destroy();
   }
 
-  private send(socket: Socket, op: string, a: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private send(conn: Conn, op: string, a: Record<string, unknown>): Promise<Record<string, unknown>> {
     const i = ++this.next;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.pending.delete(i);
-        this.idle(socket);
+        conn.pending.delete(i);
+        this.idle(conn);
         reject(new SignerError("timeout", `the signer did not answer ${op} in ${this.timeoutMs} ms`));
       }, this.timeoutMs);
-      this.pending.set(i, { resolve, reject, timer });
+      conn.pending.set(i, { resolve, reject, timer });
       // A connection with calls in flight keeps the process alive; an idle one does not.
-      socket.ref();
-      socket.write(`${JSON.stringify({ i, op, a })}\n`);
+      conn.socket.ref();
+      conn.socket.write(`${JSON.stringify({ i, op, a })}\n`);
     });
   }
 
-  private idle(socket: Socket): void {
-    if (this.pending.size === 0) socket.unref();
+  private idle(conn: Conn): void {
+    if (conn.pending.size === 0) conn.socket.unref();
   }
 
-  private connected(): Promise<Socket> {
-    if (this.socket !== undefined) return Promise.resolve(this.socket);
+  private connected(): Promise<Conn> {
+    if (this.conn !== undefined) return Promise.resolve(this.conn);
     this.opening ??= this.open().finally(() => (this.opening = undefined));
     return this.opening;
   }
 
-  private open(): Promise<Socket> {
-    return new Promise<Socket>((resolve, reject) => {
+  private open(): Promise<Conn> {
+    return new Promise<Conn>((resolve, reject) => {
       const socket = this.connect(this.endpoint);
+      const conn: Conn = { socket, pending: new Map(), buffered: "", proven: false };
       socket.setEncoding("utf8");
       // Before the connection: no signer there. After it: the close that follows fails what is pending.
       socket.on("error", (error: NodeJS.ErrnoException) => {
         reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error.code ?? error.message}): run \`wim agent start\` in your own terminal`));
       });
       socket.once("connect", () => {
-        socket.on("data", (chunk: string) => this.take(socket, chunk));
-        socket.once("close", () => this.dropped(socket));
-        this.greet(socket).then(
+        socket.on("data", (chunk: string) => this.take(conn, chunk));
+        socket.once("close", () => this.dropped(conn));
+        this.greet(conn).then(
           () => {
-            this.socket = socket;
-            resolve(socket);
+            this.conn = conn;
+            resolve(conn);
           },
           (error: unknown) => {
             socket.destroy();
@@ -152,50 +175,50 @@ export class SignerClient {
     });
   }
 
-  private async greet(socket: Socket): Promise<Hello> {
+  private async greet(conn: Conn): Promise<Hello> {
     const nonce = randomBytes(32);
-    const hello = (await this.send(socket, "hello", { nonce: b64u.encode(nonce) })) as Hello;
+    const hello = (await this.send(conn, "hello", { nonce: b64u.encode(nonce) })) as Hello;
     if (this.expect !== undefined && hello.signPub !== b64u.encode(this.expect)) {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
     }
-    // Locked, it holds no key to prove; it can then only be unlocked or asked for its status.
+    // Locked, it holds no key to prove: the connection stays unproven (see call).
     if (!hello.locked && (hello.proof === undefined || !verify(null, helloBytes(nonce), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.proof)))) {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it holds its device's signing key`);
     }
+    conn.proven = !hello.locked;
     return hello;
   }
 
-  private take(socket: Socket, chunk: string): void {
-    this.buffered += chunk;
-    if (this.buffered.length > MAX_LINE) {
-      socket.destroy();
+  private take(conn: Conn, chunk: string): void {
+    conn.buffered += chunk;
+    if (conn.buffered.length > MAX_LINE) {
+      conn.socket.destroy();
       return;
     }
-    for (let nl = this.buffered.indexOf("\n"); nl !== -1; nl = this.buffered.indexOf("\n")) {
-      const line = this.buffered.slice(0, nl);
-      this.buffered = this.buffered.slice(nl + 1);
+    for (let nl = conn.buffered.indexOf("\n"); nl !== -1; nl = conn.buffered.indexOf("\n")) {
+      const line = conn.buffered.slice(0, nl);
+      conn.buffered = conn.buffered.slice(nl + 1);
       let answer: { i?: unknown; r?: Record<string, unknown>; e?: { code: SignerCode; message: string } };
       try {
         answer = JSON.parse(line) as typeof answer;
       } catch {
-        socket.destroy();
+        conn.socket.destroy();
         return;
       }
-      const waiting = this.pending.get(answer.i as number);
+      const waiting = conn.pending.get(answer.i as number);
       if (waiting === undefined) continue;
-      this.pending.delete(answer.i as number);
+      conn.pending.delete(answer.i as number);
       clearTimeout(waiting.timer);
-      this.idle(socket);
+      this.idle(conn);
       if (answer.e !== undefined) waiting.reject(new SignerError(answer.e.code, answer.e.message));
       else waiting.resolve(answer.r as Record<string, unknown>);
     }
   }
 
-  private dropped(socket: Socket): void {
-    if (this.socket === socket) this.socket = undefined;
-    this.buffered = "";
-    for (const [i, waiting] of this.pending) {
-      this.pending.delete(i);
+  private dropped(conn: Conn): void {
+    if (this.conn === conn) this.conn = undefined;
+    for (const [i, waiting] of conn.pending) {
+      conn.pending.delete(i);
       clearTimeout(waiting.timer);
       waiting.reject(new SignerError("unavailable", "the signer closed the connection"));
     }

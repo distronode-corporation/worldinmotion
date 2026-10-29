@@ -1,7 +1,8 @@
 // The signer (`wim agent`), the ssh-agent model: one long-running process per device holds the
 // device's secret keys and the data key that seals its prekey secrets, and answers sessions over a
 // local socket. It signs, seals and opens; it never hands out a key. Locking wipes the keys from
-// its memory until the person unlocks it again with the passphrase.
+// its memory for good: `wim agent unlock` starts a new signer, so the passphrase is never sent
+// over the socket, where something posing as a locked signer could collect it.
 //
 // What it stops and what it does not is in SECURITY-MODEL section 5.8.
 
@@ -26,7 +27,7 @@ import { createConnection, createServer, type Server, type Socket } from "node:n
 import { z } from "zod";
 import type { EndpointFiles } from "./agentpath.ts";
 import { MAX_LINE, helloBytes } from "./signer.ts";
-import { openKeyFile, openPrekeySecret, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "./vault.ts";
+import { openPrekeySecret, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "./vault.ts";
 
 /** A refusal with a code the client maps to a SignerError. */
 export class AgentError extends Error {
@@ -117,7 +118,6 @@ const ARGS = {
   prekey: z.strictObject({ mesh: boxArgs.mesh, at: z.int().min(0) }),
   adopt: z.strictObject({ prekey: prekeySchema, secret: bytes(32) }),
   lock: z.strictObject({}),
-  unlock: z.strictObject({ passphrase: z.string().min(1).max(1024) }),
   stop: z.strictObject({}),
 };
 type Op = keyof typeof ARGS;
@@ -146,13 +146,11 @@ export type SignerOptions = {
   pid: number;
   log: (entry: LogEntry) => void;
   rate?: { perSecond: number; burst: number };
-  /** Opens the key file for `unlock` (openKeyFile); tests pass a faster or a slower one. */
-  unlock?: (file: SealedKeyFile, passphrase: string) => Promise<Unlocked>;
 };
 
 /**
  * The signer's state and its answer to each request, apart from any socket. Locked, it holds no
- * key and answers only `hello`, `status`, `unlock`, `lock` and `stop`.
+ * key and answers only `hello`, `status`, `lock` and `stop`. There is no unlock over the socket.
  */
 export class Signer {
   readonly file: SealedKeyFile;
@@ -217,8 +215,6 @@ export class Signer {
       case "lock":
         this.lock();
         return {};
-      case "unlock":
-        return this.unlock(a["passphrase"] as string);
       case "stop":
         return {};
     }
@@ -228,7 +224,7 @@ export class Signer {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
     }
-    return this.keyOp(op as Exclude<Op, "hello" | "status" | "lock" | "unlock" | "stop">, a, keys, entry);
+    return this.keyOp(op as Exclude<Op, "hello" | "status" | "lock" | "stop">, a, keys, entry);
   }
 
   private hello(nonce: Uint8Array): Record<string, unknown> {
@@ -237,16 +233,6 @@ export class Signer {
     if (this.keys === undefined) return base;
     const proof = edSign(null, helloBytes(nonce), ed25519Private(this.keys.keys.signSec));
     return { ...base, proof: b64u.encode(proof) };
-  }
-
-  private async unlock(passphrase: string): Promise<Record<string, unknown>> {
-    if (this.keys !== undefined) return {};
-    try {
-      this.keys = await (this.o.unlock ?? openKeyFile)(this.file, passphrase);
-    } catch {
-      throw new AgentError("bad_passphrase", "the passphrase does not open the key file");
-    }
-    return {};
   }
 
   private keyOp(op: "sign" | "seal" | "open" | "open2" | "prekey" | "adopt", a: Record<string, unknown>, k: Unlocked, entry: LogEntry): Record<string, unknown> {
@@ -407,9 +393,13 @@ export class AgentServer {
     } catch (error) {
       answer = { i, e: { code: error instanceof AgentError ? error.code : "bad_request", message: (error as Error).message } };
     }
+    const stopping = op === "stop" && answer.r !== undefined;
+    // Stopped listening before the answer goes out, so a client that has the answer finds the
+    // endpoint closed (`wim agent unlock` relies on that to tell a signer from an impostor).
+    if (stopping) this.server!.close();
     // A connection that went away meanwhile drops the answer (its error is ignored above).
     socket.write(`${JSON.stringify(answer)}\n`);
-    if (op === "stop" && answer.r !== undefined) await this.close();
+    if (stopping) await this.close();
   }
 
   /** Stops listening, ends every connection, wipes the keys. */

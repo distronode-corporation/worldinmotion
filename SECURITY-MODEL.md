@@ -301,10 +301,21 @@ What it stops:
   `prekeys.json` is worth an offline guessing attack on the passphrase and nothing more, so the
   passphrase must be a strong one.
 - **Use after the signer is locked or stopped.** `wim agent lock` zeroes the key bytes in the
-  signer's memory and it refuses every key operation until `wim agent unlock` (the passphrase
-  again); `wim agent stop` ends it. Nothing on disk lets a process act for the device meanwhile,
-  and nothing it learned while the signer was unlocked lets it go on doing so: the signer hands out
-  signatures and opened boxes, never a key.
+  signer's memory and it refuses every key operation from then on; `wim agent stop` ends it.
+  Nothing on disk lets a process act for the device meanwhile, and nothing it learned while the
+  signer was unlocked lets it go on doing so: the signer hands out signatures and opened boxes,
+  never a key.
+- **Collecting the passphrase by posing as a locked signer.** The device's public key is in the
+  key file for anyone of the user to read, so a process could bind the endpoint (after `wim agent
+  stop`, which any process of the user may send) and answer `hello` as a locked signer, which has
+  nothing to prove. It gets nothing for it. The passphrase never goes over the socket: there is no
+  unlock request. `wim agent unlock` reads the passphrase in the person's own command, checks it
+  against the key file there, asks the locked signer to stop (a signer stops listening before it
+  answers), and starts a new signer from that command, handing the passphrase only to the process
+  it started, over that process's own stdin. If something still answers at the endpoint after
+  `stop`, the command says so and sends it nothing more. Sessions likewise send a connection
+  whose signer has not proved it holds the device's key (by signing the session's fresh nonce)
+  nothing but `hello`, `status`, `lock` and `stop`: never a plaintext and never an object to sign.
 - **Prekeys with a secret the caller holds.** The signer signs no `prekey` object for a caller. It
   makes each prekey itself and returns the public half and the sealed secret. Otherwise a caller
   could publish a prekey whose secret it kept and read the device's incoming traffic offline for 48
@@ -336,7 +347,11 @@ What it does not stop:
   gives write access only to the creating user, administrators and SYSTEM; no test here checks
   that on a Windows machine. Each client also asks a new connection to prove, with a signature over
   a fresh nonce, that it holds the signing key named in the key file's public part, so nothing
-  else can pose as the signer and collect plaintexts or the passphrase.
+  else can pose as the signer and collect plaintexts (see the passphrase above).
+- **Stopping or squatting the signer.** Any process of the user can stop the signer, or take its
+  endpoint while it is stopped. That denies the device's sessions their keys (they report it), and
+  `wim agent unlock` and `wim agent start` report something that answers and is not the signer;
+  it does not give that process the keys, the passphrase or any plaintext.
 - **Reading the signer's memory.** An administrator can. A process of the same user can where the
   OS lets it debug the signer: on Linux with `kernel.yama.ptrace_scope` 0 (with the usual 1, only
   an ancestor of the signer can), on Windows by default, on macOS only with debugging rights. That
@@ -346,7 +361,8 @@ What it does not stop:
   the runtime made (encoded strings in transit) remain until it frees them.
 - **The passphrase at the keyboard.** A keylogger running as the person sees it. `wim agent start`,
   `unlock`, `encrypt` and `decrypt` ask for it only at an interactive terminal with no agent's
-  variables set, or from stdin with `--passphrase-stdin` (for a service manager or CI).
+  variables set, or from stdin with `--passphrase-stdin` (for a service manager or CI), and keep it
+  inside the command and the signer it starts.
 - **What the key file was before.** Encrypting replaces the plaintext file with one atomic rename,
   but as with deleted prekey secrets (section 6.14), the old bytes can survive on an SSD, in a
   snapshot or in a backup, and a process that could read the file before may have copied it. For

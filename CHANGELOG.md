@@ -21,11 +21,12 @@ body line with a bracket.
   your own terminal, asks for the passphrase once and starts a signer process that holds the keys.
   Sessions then sign, seal and open through it over a Unix socket in a 0700 directory (a named
   pipe with a secret name on Windows) and never read the keys. `wim agent lock` wipes them from its
-  memory until `wim agent unlock`; `wim agent status` and `wim agent stop`; `wim agent decrypt`
-  goes back to the plaintext file with the same identity. The signer never signs a prekey for a
-  caller, refuses a prekey past its deletion time, logs every request and rate limits key
-  operations. A process running as you can still ask the unlocked signer to act for the device;
-  section 5.8 says what it stops and what it does not. The wire is unchanged.
+  memory, and `wim agent unlock` starts a new signer with the passphrase, which never goes over the
+  socket; `wim agent status` and `wim agent stop`; `wim agent decrypt` goes back to the plaintext
+  file with the same identity. The signer never signs a prekey for a caller, refuses a prekey
+  past its deletion time, logs every request and rate limits key operations. A process running as
+  you can still ask the unlocked signer to act for the device; section 5.8 says what it stops and
+  what it does not. The wire is unchanged.
 - **`require_signer`**: set by `wim agent encrypt` (or `WIM_REQUIRE_SIGNER=1`), clients refuse a
   plaintext key file. Without it, and without an encrypted key file, nothing changes.
 - **Keyring variants in the protocol package**: `sealMessageWith`, `openMessageWith`,

@@ -89,7 +89,10 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   `--foreground` runs it in the command itself, for systemd, launchd or CI. It is never started
   automatically: the passphrase needs the person, and a signer started from an agent's session
   would be that agent's descendant, which an OS may let it debug.
-- `wim agent status`, `lock`, `unlock` and `stop` talk to the running signer.
+- `wim agent status`, `lock` and `stop` talk to the running signer. A lock is for good: `wim agent
+  unlock` reads the passphrase, checks it against the key file, asks the locked signer to stop
+  and starts a new one (`--foreground` as for `start`). The passphrase never goes over the socket,
+  and the command sends nothing more to something that still answers after `stop`.
 - A session's device: a plaintext key file gives a keyring in the process, as before (refused when
   `require_signer` is set or `WIM_REQUIRE_SIGNER=1`). An encrypted one gives a keyring that calls
   the signer; with no signer, or a locked one, the command says which `wim agent` command to run.
@@ -99,11 +102,15 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   every new connection), `status`, `sign` (auth, send, roster, join; only objects that name this
   device; never a prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey
   entry; refused past its deletion time), `prekey` (makes one: public half and sealed secret),
-  `adopt` (seals a clear prekey secret of this device's), `lock`, `unlock`, `stop`. Key
-  operations are rate limited (100 a second, burst 1000). Requests on one connection are answered
-  in order.
-- A signer that is locked or gone makes a send fail with the reason, and a delivered message stays
-  unacknowledged, so the relay delivers it again on the session's next connection.
+  `adopt` (seals a clear prekey secret of this device's), `lock`, `stop` (the signer stops
+  listening before it answers). Key operations are rate limited (100 a second, burst 1000).
+  Requests on one connection are answered in order. A client sends a connection whose signer has
+  not proved the key (a locked one, or an impostor) only `hello`, `status`, `lock` and `stop`, and
+  keeps each connection's calls to itself, so a connection that closes late fails only its own.
+- A signer that is locked or gone makes a send fail with the reason. A delivered message that cannot
+  be opened for that reason is not acknowledged, nothing later is acknowledged on that connection
+  (acks are cumulative), and the session drops the connection; the next one authenticates once the
+  signer answers, and the relay delivers everything after the last ack again.
 
 ## The MCP server (`wim mcp`)
 

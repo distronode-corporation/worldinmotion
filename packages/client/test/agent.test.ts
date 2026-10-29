@@ -196,17 +196,17 @@ describe("Signer", () => {
     expect(m.log.every((e) => !e.ok && e.code === "bad_request")).toBe(true);
   });
 
-  it("locks: wipes the keys, refuses key operations, and unlocks only with the passphrase", async () => {
+  it("locks for good: refuses key operations, and takes no passphrase over its socket", async () => {
     const m = await made();
-    m.signer.lock();
+    expect(await code(m.signer.handle("prekey", { mesh: MESH, at: T }))).toBe("ok");
+    await m.signer.handle("lock", {});
     expect(m.signer.locked).toBe(true);
     expect(await code(m.signer.handle("prekey", { mesh: MESH, at: T }))).toBe("locked");
-    expect(await code(m.signer.handle("unlock", { passphrase: "wrong" }))).toBe("bad_passphrase");
-    expect(await m.signer.handle("unlock", { passphrase: "pass phrase" })).toEqual({});
-    expect(await m.signer.handle("unlock", { passphrase: "anything: already unlocked" })).toEqual({});
-    expect(await code(m.signer.handle("prekey", { mesh: MESH, at: T }))).toBe("ok");
+    // Unlocking is a new signer (`wim agent unlock` restarts it): there is no such operation.
+    expect(await code(m.signer.handle("unlock", { passphrase: "pass phrase" }))).toBe("bad_request");
+    expect(m.signer.locked).toBe(true);
     const s = await m.signer.handle("status", {});
-    expect(s).toMatchObject({ id: m.file.id, name: "laptop", locked: false, pid: 42, started: T, ops: { prekey: 1, unlock: 2 }, refused: 0, limited: 0 });
+    expect(s).toMatchObject({ id: m.file.id, name: "laptop", locked: true, pid: 42, started: T, ops: { prekey: 1, lock: 1 }, refused: 0, limited: 0 });
     expect(m.log.filter((e) => e.code === "locked")).toHaveLength(1);
   });
 
@@ -231,26 +231,5 @@ describe("Signer", () => {
     m.clock.now += 10_000;
     await code(m.signer.handle("sign", { type: "prekey", obj: {} }));
     expect(await m.signer.handle("status", {})).toMatchObject({ refused: 1 });
-  });
-
-  it("passes the unlock function's result through, and its failure as a bad passphrase", async () => {
-    const f = await fixture();
-    let calls = 0;
-    const signer = new Signer({
-      file: f.file,
-      unlocked: f.unlocked(),
-      now: () => T,
-      pid: 1,
-      log: () => undefined,
-      unlock: async () => {
-        calls++;
-        if (calls === 1) throw new Error("disk on fire");
-        return f.unlocked();
-      },
-    });
-    signer.lock();
-    expect(await code(signer.handle("unlock", { passphrase: "x" }))).toBe("bad_passphrase");
-    expect(await code(signer.handle("unlock", { passphrase: "x" }))).toBe("ok");
-    expect(signer.locked).toBe(false);
   });
 });

@@ -4,6 +4,8 @@
 import { PassThrough } from "node:stream";
 import { promises as fs } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
+import { createServer } from "node:net";
+import { agentEndpoint } from "../src/agentpath.ts";
 import { spawnDetached, wimCommand } from "../src/agentcli.ts";
 import { processIo, type Proc } from "../src/io.ts";
 import { newDevice, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
@@ -73,20 +75,26 @@ describe("wim agent", () => {
     const st = at(d.root);
     await run(st, "agent", "status");
     expect(said(st)).toMatch(/locked, device cli.*\n.*lock 1/);
+    // A wrong passphrase is caught here, and the locked signer is left as it was.
     const wrong = at(d.root, {}, {}, "not it");
     expect(await run(wrong, "agent", "unlock", "--passphrase-stdin")).toBe(1);
     expect(said(wrong)).toMatch(/does not open/);
+    expect(said(fg)).not.toContain("Signer stopped.");
+    // Unlocking restarts it: the locked one stops, a new one starts from this command.
     const right = at(d.root, {}, {}, PASS);
-    expect(await run(right, "agent", "unlock", "--passphrase-stdin")).toBe(0);
-    expect(said(right)).toContain("Signer unlocked.");
+    running.push(run(right, "agent", "unlock", "--foreground", "--passphrase-stdin"));
+    await until(() => said(right).includes("Signer running"), undefined, "the new signer");
+    expect(said(fg)).toContain("Signer stopped.");
+    const again = at(d.root);
+    expect(await run(again, "agent", "unlock")).toBe(0);
+    expect(said(again)).toContain("The signer is not locked.");
 
     // Decrypting needs the signer stopped.
     expect(await run(at(d.root, {}, {}, PASS), "agent", "decrypt", "--passphrase-stdin")).toBe(1);
     const stop = at(d.root);
     expect(await run(stop, "agent", "stop")).toBe(0);
     expect(said(stop)).toContain("Signer stopped.");
-    expect(await running.pop()).toBe(0);
-    expect(said(fg)).toContain("Signer stopped.");
+    expect(await Promise.all(running.splice(0))).toEqual([0, 0]);
     terms.splice(0);
 
     const back = at(d.root, {}, {}, PASS);
@@ -112,6 +120,37 @@ describe("wim agent", () => {
     const second = at(d.root, {}, {}, PASS);
     expect(await run(second, "agent", "serve")).toBe(1);
     expect(second.out.find((l) => l !== "")).toMatch(/^error a signer is already running/);
+  });
+
+  it("unlock sends no passphrase to an impostor at the endpoint, and refuses one that does not stop", async () => {
+    const d = await newDevice("imp");
+    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    const file = await d.home.readKeyFile();
+    const signPub = file !== undefined && "sealed" in file ? file.sealed.signPub : "";
+    const endpoint = (await agentEndpoint(d.root, d.home.env, true))!;
+    const lines: string[] = [];
+    // It knows the public key from the key file and claims to be locked; it ignores `stop`.
+    const impostor = createServer((socket) => {
+      socket.setEncoding("utf8");
+      socket.on("error", () => undefined);
+      socket.on("data", (chunk: string) => {
+        for (const line of chunk.split("\n").filter((l) => l !== "")) {
+          lines.push(line);
+          const { i } = JSON.parse(line) as { i: number };
+          socket.write(`${JSON.stringify({ i, r: { id: "x", name: "imp", signPub, boxPub: signPub, locked: true, pid: 1 } })}\n`);
+        }
+      });
+    });
+    await new Promise<void>((r) => impostor.listen(endpoint, () => r()));
+    try {
+      const t = at(d.root, {}, {}, PASS);
+      expect(await run(t, "agent", "unlock", "--passphrase-stdin")).toBe(1);
+      expect(said(t)).toMatch(/still answers after it was asked to stop.*nothing was sent to it/);
+      expect(lines.map((l) => (JSON.parse(l) as { op: string }).op)).toEqual(["hello", "hello", "stop"]);
+      expect(lines.join("\n")).not.toContain(PASS);
+    } finally {
+      await new Promise<void>((r) => impostor.close(() => r()));
+    }
   });
 
   it("starts only on an encrypted key file, and only in the background where it can", async () => {

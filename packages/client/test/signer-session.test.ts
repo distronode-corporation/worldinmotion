@@ -15,6 +15,7 @@ import { fsOps } from "../src/fsx.ts";
 import { Home, type Device } from "../src/home.ts";
 import { localDeviceKeyring } from "../src/keyring.ts";
 import { MeshFiles } from "../src/mesh.ts";
+import { SignerError } from "../src/signer.ts";
 import { openKeyFile, sealKeyFile } from "../src/vault.ts";
 import { FS, keysOf, makeMesh, newDevice, openSession, RelayHarness, until, type TestDevice } from "./helpers.ts";
 
@@ -32,17 +33,23 @@ async function session(...args: Parameters<typeof openSession>): Promise<MeshSes
   return s;
 }
 
-/** Encrypts a test device's key file and runs a signer for it in this process. */
-async function underSigner(d: TestDevice): Promise<{ device: Device; signer: Signer; log: LogEntry[]; server: AgentServer }> {
-  await encryptDevice(d.home, PASS, KDF);
+/** Runs a signer in this process for a test device whose key file is encrypted. */
+async function serve(d: TestDevice, log: LogEntry[] = []): Promise<{ signer: Signer; server: AgentServer }> {
   const file = await d.home.readKeyFile();
   if (file === undefined || !("sealed" in file)) throw new Error("not encrypted");
-  const log: LogEntry[] = [];
   const signer = new Signer({ file: file.sealed, unlocked: await openKeyFile(file.sealed, PASS), now: Date.now, pid: process.pid, log: (e) => log.push(e) });
   const at = (await agentEndpoint(d.home.root, d.home.env, true))!;
   const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(process.platform) });
   await server.listen();
   cleanup.push(() => server.close());
+  return { signer, server };
+}
+
+/** Encrypts a test device's key file and runs a signer for it in this process. */
+async function underSigner(d: TestDevice): Promise<{ device: Device; signer: Signer; log: LogEntry[]; server: AgentServer }> {
+  await encryptDevice(d.home, PASS, KDF);
+  const log: LogEntry[] = [];
+  const { signer, server } = await serve(d, log);
   const device = (await d.home.loadDevice())!;
   return { device, signer, log, server };
 }
@@ -85,10 +92,10 @@ describe("sessions through the signer", () => {
     expect(log.every((e) => e.ok || e.code !== undefined)).toBe(true);
   });
 
-  it("locked: sends are refused and arriving messages wait at the relay until it is unlocked", async () => {
+  it("locked: sends are refused, and every message that arrives meanwhile is delivered once it is unlocked", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
-    const { device, signer } = await underSigner(devices[0]!);
+    const { device, signer, server } = await underSigner(devices[0]!);
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
     const logs: string[] = [];
     const a = await session(devices[0]!, mesh, relay, { name: "a", device, log: (l) => logs.push(l) });
@@ -99,17 +106,35 @@ describe("sessions through the signer", () => {
     const inner = a as unknown as { sendCard(link: Awaited<ReturnType<typeof a.ready>>, force: boolean): Promise<void> };
     await inner.sendCard(await a.ready(3000), true);
     expect(logs.some((l) => /peer card not sent: .*locked/.test(l))).toBe(true);
-    await b.send("a@one", "for later");
-    await until(() => logs.some((l) => /inbound: .*locked/.test(l)), undefined, "the refused open");
     // A card that arrives meanwhile is not read either.
     const card = sealMessage({ roster: b.roster, sender: { deviceId: devices[1]!.device.id, keys: keysOf(devices[1]!.device) }, session: "b", sid: b.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: {}, recipients: b.roster.devices.map((d) => d.id) });
     relay.inject(mesh, JSON.stringify({ t: "card", msg: card }));
     await until(() => logs.some((l) => /peer card not read: .*locked/.test(l)), undefined, "the unread card");
+    // Two messages arrive while it is locked: neither opens, neither is acknowledged.
+    await b.send("a@one", "first while locked");
+    await b.send("a@one", "second while locked");
+    await until(() => logs.some((l) => /inbound: .*locked/.test(l)), undefined, "the refused open");
     expect(await a.spool.unread()).toHaveLength(0);
-    await signer.handle("unlock", { passphrase: PASS });
-    // Not acknowledged, so the relay delivers it again on the next connection.
-    relay.dropAll();
-    await until(async () => (await a.spool.unread()).length === 1, undefined, "the redelivered message");
+    // Unlocking is a new signer at the same endpoint. Nothing here drops a's relay connection.
+    await server.close();
+    await serve(devices[0]!);
+    await b.send("a@one", "after the unlock");
+    const texts = async () => (await a.spool.unread()).map((i) => i.rendered);
+    await until(async () => (await texts()).length === 3, undefined, "all three messages");
+    const got = (await texts()).join("\n");
+    for (const t of ["first while locked", "second while locked", "after the unlock"]) expect(got).toContain(t);
+  });
+
+  it("a failure without a connection, or not the signer's, only logs", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const logs: string[] = [];
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
+    const inner = a as unknown as { inboundFailed(error: unknown): void };
+    inner.inboundFailed(new Error("disk full"));
+    await a.stop();
+    inner.inboundFailed(new SignerError("locked", "the signer is locked"));
+    expect(logs.filter((l) => l.startsWith("wim: inbound: "))).toEqual(["wim: inbound: disk full", "wim: inbound: the signer is locked"]);
   });
 
   it("signs roster changes for an admin device", async () => {

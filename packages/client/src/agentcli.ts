@@ -12,11 +12,11 @@ import { SetupError } from "./errors.ts";
 import { readJson, withLock, writeAtomic, writeJson } from "./fsx.ts";
 import type { Home } from "./home.ts";
 import { canShowSecret } from "./secretout.ts";
-import { SignerClient, SignerError } from "./signer.ts";
+import { SignerClient } from "./signer.ts";
 import { BadPassphrase, openKeyFile, openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile } from "./vault.ts";
 
 export const AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin]
-  wim agent status | wim agent lock | wim agent unlock [--passphrase-stdin] | wim agent stop
+  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin] | wim agent stop
   wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]`;
 
 /** What `wim agent` needs from the CLI. */
@@ -31,6 +31,7 @@ export type AgentCtx = {
 };
 
 const MIN_PASSPHRASE = 8;
+const PROMPT = "Passphrase for this device's keys: ";
 
 /** The command line of `wim` itself, to start the signer as a detached child. */
 export function wimCommand(): string[] {
@@ -159,10 +160,14 @@ async function start(ctx: AgentCtx): Promise<number> {
   await sealedFile(ctx);
   const at = (await endpoint(ctx, true))!;
   if (await answers(at)) {
-    ctx.io.out(`A signer is already running at ${at}.`);
+    ctx.io.out(`A signer is already running at ${at}. \`wim agent status\` says whether it is locked; \`wim agent unlock\` restarts a locked one.`);
     return 0;
   }
-  const passphrase = await readPassphrase(ctx, "Passphrase for this device's keys: ");
+  return launch(ctx, at, await readPassphrase(ctx, PROMPT));
+}
+
+/** Starts the signer at `at`: in this process with --foreground, else detached. */
+async function launch(ctx: AgentCtx, at: string, passphrase: string): Promise<number> {
   if (ctx.flags.get("foreground") === true) {
     let failed: string | undefined;
     const code = await runSigner(ctx, passphrase, (line) => {
@@ -220,23 +225,40 @@ async function simple(ctx: AgentCtx, action: "lock" | "stop"): Promise<number> {
   } finally {
     client.close();
   }
-  ctx.io.out(action === "lock" ? "Signer locked: the keys are wiped from its memory until `wim agent unlock`." : "Signer stopped.");
+  ctx.io.out(action === "lock" ? "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase." : "Signer stopped.");
   return 0;
 }
 
+/**
+ * Unlocking is a restart. The passphrase is read here and checked against the key file in this
+ * process; then the locked signer is asked to stop, and a new one is started from this command,
+ * which hands the passphrase only to the signer it starts. The passphrase never goes over the
+ * socket, so nothing posing as a locked signer at the endpoint can collect it, and something that
+ * still answers there after `stop` is sent nothing more.
+ */
 async function unlock(ctx: AgentCtx): Promise<number> {
   const client = await running(ctx);
   if (client === undefined) throw new SetupError("no signer is running: `wim agent start` starts one");
   try {
-    const passphrase = await readPassphrase(ctx, "Passphrase for this device's keys: ");
-    await client.call("unlock", { passphrase }).catch((error: unknown) => {
-      throw new SetupError((error as SignerError).message);
+    if (!(await client.hello()).locked) {
+      ctx.io.out("The signer is not locked.");
+      return 0;
+    }
+    const file = await sealedFile(ctx);
+    const passphrase = await readPassphrase(ctx, PROMPT);
+    const checked = await openKeyFile(file, passphrase).catch((error: unknown) => {
+      throw new SetupError((error as Error).message);
     });
+    for (const b of [checked.keys.signSec, checked.keys.boxSec, checked.data]) b.fill(0);
+    await client.call("stop");
+    // A signer stops listening before it answers `stop`.
+    if (await answers(client.endpoint)) {
+      throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
+    }
+    return await launch(ctx, client.endpoint, passphrase);
   } finally {
     client.close();
   }
-  ctx.io.out("Signer unlocked.");
-  return 0;
 }
 
 /** Each mesh's `prekeys.json`, rewritten entry by entry under its lock. */
@@ -330,7 +352,7 @@ async function encrypt(ctx: AgentCtx): Promise<number> {
 
 async function decrypt(ctx: AgentCtx): Promise<number> {
   await sealedFile(ctx);
-  const passphrase = await readPassphrase(ctx, "Passphrase for this device's keys: ");
+  const passphrase = await readPassphrase(ctx, PROMPT);
   await decryptDevice(ctx.home, passphrase);
   ctx.io.out(`Decrypted ${ctx.home.devicePath}: the keys are in the clear again, and sessions read them without a signer.`);
   return 0;

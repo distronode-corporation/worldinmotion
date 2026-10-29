@@ -89725,6 +89725,212 @@ var SessionKeys = class {
   }
 };
 
+// src/signer.ts
+import { createPublicKey, verify } from "node:crypto";
+import { createConnection } from "node:net";
+
+// src/keyring.ts
+function openWithClearPrekey(entry, req) {
+  return openBox(void 0, () => entry.secret, req);
+}
+function localDeviceKeyring(keys) {
+  const ring = localKeyring(keys);
+  const deviceId = deviceIdFromSignPub(keys.signPub);
+  return {
+    kind: "local",
+    signPub: ring.signPub,
+    boxPub: ring.boxPub,
+    sign: ring.sign,
+    seal: ring.seal,
+    open: ring.open,
+    newPrekey: async (mesh, at) => createPrekey({ mesh, deviceId, signSec: keys.signSec, at }),
+    // A sealed entry opens only in the signer, which this process is not using.
+    openPrekey: async (entry, req) => "secret" in entry ? openWithClearPrekey(entry, req) : "key_expired",
+    adopt: async (entry) => entry
+  };
+}
+
+// src/signer.ts
+var MAX_LINE = 4 * 1024 * 1024;
+var HELLO_LABEL = "wim-agent/1 hello\n";
+var SignerError = class extends Error {
+  name = "SignerError";
+  code;
+  constructor(code2, message2) {
+    super(message2);
+    this.code = code2;
+  }
+  /** The signer could not answer now (locked, gone, slow or busy); the same request may work later. */
+  get transient() {
+    return ["locked", "unavailable", "timeout", "rate_limited"].includes(this.code);
+  }
+};
+function helloBytes(nonce) {
+  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce]);
+}
+function ed25519Public(pub) {
+  return createPublicKey({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), pub]), format: "der", type: "spki" });
+}
+function encodeSeal(req) {
+  return {
+    mesh: req.mesh,
+    sender: req.sender,
+    recipient: req.recipient,
+    aad: b64u.encode(req.aad),
+    recipientBox: b64u.encode(req.recipientBox),
+    plaintext: b64u.encode(req.plaintext),
+    ...req.prekey === void 0 ? {} : { prekey: { id: req.prekey.id, pub: b64u.encode(req.prekey.pub) } }
+  };
+}
+function encodeOpen(req) {
+  return { mesh: req.mesh, sender: req.sender, recipient: req.recipient, aad: b64u.encode(req.aad), senderBox: b64u.encode(req.senderBox), box: req.box };
+}
+var UNPROVEN_OPS = /* @__PURE__ */ new Set(["hello", "status", "lock", "stop"]);
+var SignerClient = class {
+  endpoint;
+  expect;
+  timeoutMs;
+  connect;
+  conn;
+  opening;
+  next = 0;
+  constructor(o3) {
+    this.endpoint = o3.endpoint;
+    this.expect = o3.expect;
+    this.timeoutMs = o3.timeoutMs ?? 3e4;
+    this.connect = o3.connect ?? ((endpoint2) => createConnection(endpoint2));
+  }
+  /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
+  async call(op2, a5 = {}) {
+    const conn = await this.connected();
+    if (!conn.proven && !UNPROVEN_OPS.has(op2)) {
+      throw new SignerError("locked", "the signer is locked (or what answers has not proved it holds this device's key): run `wim agent unlock` in your own terminal");
+    }
+    return this.send(conn, op2, a5);
+  }
+  /** `hello` on a connection of its own choosing: the signer's state, checked against `expect`. */
+  async hello() {
+    return this.greet(await this.connected());
+  }
+  /** Drops the connection; its pending calls fail as `unavailable`. */
+  close() {
+    this.conn?.socket.destroy();
+  }
+  send(conn, op2, a5) {
+    const i6 = ++this.next;
+    return new Promise((resolve3, reject) => {
+      const timer = setTimeout(() => {
+        conn.pending.delete(i6);
+        this.idle(conn);
+        reject(new SignerError("timeout", `the signer did not answer ${op2} in ${this.timeoutMs} ms`));
+      }, this.timeoutMs);
+      conn.pending.set(i6, { resolve: resolve3, reject, timer });
+      conn.socket.ref();
+      conn.socket.write(`${JSON.stringify({ i: i6, op: op2, a: a5 })}
+`);
+    });
+  }
+  idle(conn) {
+    if (conn.pending.size === 0) conn.socket.unref();
+  }
+  connected() {
+    if (this.conn !== void 0) return Promise.resolve(this.conn);
+    this.opening ??= this.open().finally(() => this.opening = void 0);
+    return this.opening;
+  }
+  open() {
+    return new Promise((resolve3, reject) => {
+      const socket = this.connect(this.endpoint);
+      const conn = { socket, pending: /* @__PURE__ */ new Map(), buffered: "", proven: false };
+      socket.setEncoding("utf8");
+      socket.on("error", (error63) => {
+        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error63.code ?? error63.message}): run \`wim agent start\` in your own terminal`));
+      });
+      socket.once("connect", () => {
+        socket.on("data", (chunk) => this.take(conn, chunk));
+        socket.once("close", () => this.dropped(conn));
+        this.greet(conn).then(
+          () => {
+            this.conn = conn;
+            resolve3(conn);
+          },
+          (error63) => {
+            socket.destroy();
+            reject(error63);
+          }
+        );
+      });
+    });
+  }
+  async greet(conn) {
+    const nonce = randomBytes2(32);
+    const hello = await this.send(conn, "hello", { nonce: b64u.encode(nonce) });
+    if (this.expect !== void 0 && hello.signPub !== b64u.encode(this.expect)) {
+      throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
+    }
+    if (!hello.locked && (hello.proof === void 0 || !verify(null, helloBytes(nonce), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.proof)))) {
+      throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it holds its device's signing key`);
+    }
+    conn.proven = !hello.locked;
+    return hello;
+  }
+  take(conn, chunk) {
+    conn.buffered += chunk;
+    if (conn.buffered.length > MAX_LINE) {
+      conn.socket.destroy();
+      return;
+    }
+    for (let nl = conn.buffered.indexOf("\n"); nl !== -1; nl = conn.buffered.indexOf("\n")) {
+      const line = conn.buffered.slice(0, nl);
+      conn.buffered = conn.buffered.slice(nl + 1);
+      let answer;
+      try {
+        answer = JSON.parse(line);
+      } catch {
+        conn.socket.destroy();
+        return;
+      }
+      const waiting2 = conn.pending.get(answer.i);
+      if (waiting2 === void 0) continue;
+      conn.pending.delete(answer.i);
+      clearTimeout(waiting2.timer);
+      this.idle(conn);
+      if (answer.e !== void 0) waiting2.reject(new SignerError(answer.e.code, answer.e.message));
+      else waiting2.resolve(answer.r);
+    }
+  }
+  dropped(conn) {
+    if (this.conn === conn) this.conn = void 0;
+    for (const [i6, waiting2] of conn.pending) {
+      conn.pending.delete(i6);
+      clearTimeout(waiting2.timer);
+      waiting2.reject(new SignerError("unavailable", "the signer closed the connection"));
+    }
+  }
+};
+function signerKeyring(client, pub) {
+  const opened2 = (r6) => typeof r6["opened"] === "string" ? b64u.decode(r6["opened"]) : r6["reason"];
+  return {
+    kind: "signer",
+    signPub: pub.signPub,
+    boxPub: pub.boxPub,
+    sign: async (type, obj) => (await client.call("sign", { type, obj }))["sig"],
+    seal: async (req) => (await client.call("seal", encodeSeal(req)))["box"],
+    // Only scheme 1 opens with the device key; a scheme 2 box needs its prekey's entry (openPrekey).
+    open: async (req) => "s" in req.box ? "key_expired" : opened2(await client.call("open", encodeOpen(req))),
+    openPrekey: async (entry, req) => "secret" in entry ? openWithClearPrekey(entry, req) : opened2(await client.call("open2", { ...encodeOpen(req), entry })),
+    newPrekey: async (mesh, at) => {
+      const r6 = await client.call("prekey", { mesh, at });
+      return { prekey: r6["prekey"], sealed: r6["sealed"] };
+    },
+    adopt: async (entry) => {
+      if ("sealed" in entry) return entry;
+      const r6 = await client.call("adopt", { prekey: entry.prekey, secret: b64u.encode(entry.secret) });
+      return { prekey: entry.prekey, sealed: r6["sealed"] };
+    }
+  };
+}
+
 // src/spool.ts
 import { join as join7 } from "node:path";
 var NAME2 = /^(\d{12})\.json$/;
@@ -90325,6 +90531,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
   answerMs;
   conn;
   inbound = Promise.resolve();
+  /** The connection on which a delivered frame waits for the signer; nothing more is acked on it. */
+  heldLink;
   /** Peer cards, opened one at a time in the order they came. */
   cardsOpened = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
@@ -90556,7 +90764,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   onFrame(f7) {
     switch (f7.t) {
       case "deliver":
-        this.inbound = this.inbound.then(() => this.handleDeliver(f7.cursor, f7.msg)).catch((e6) => this.log(`wim: inbound: ${e6.message}`));
+        this.inbound = this.inbound.then(() => this.handleDeliver(f7.cursor, f7.msg)).catch((e6) => this.inboundFailed(e6));
         return;
       case "roster":
         this.inbound = this.inbound.then(() => this.onRosterPush(f7.chain)).catch((e6) => this.log(`wim: roster: ${e6.message}`));
@@ -90654,7 +90862,21 @@ var MeshSession = class _MeshSession extends EventEmitter {
     link.send(frame);
     return true;
   }
+  /**
+   * A delivered frame that could not be handled is not acknowledged. When the device's signer
+   * could not answer (locked, stopped, slow), nothing more is acknowledged on this connection and
+   * it is dropped: acks are cumulative, so acking a later frame would tell the relay this one was
+   * taken. The next connection authenticates only once the signer answers, and the relay then
+   * delivers everything after the last ack again.
+   */
+  inboundFailed(error63) {
+    this.log(`wim: inbound: ${error63.message}`);
+    if (!(error63 instanceof SignerError && error63.transient)) return;
+    this.heldLink = this.link;
+    this.link?.close(CLOSE.bye, "the device's signer did not answer");
+  }
   ack(cursor2) {
+    if (this.link === this.heldLink) return;
     if (this.sendIfOpen({ t: "ack", cursor: cursor2 })) this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor2) };
   }
   receipt(id, status2) {
@@ -117058,204 +117280,6 @@ function endpointFiles(platform2) {
   return { clear: (endpoint2) => fs7.rm(endpoint2, { force: true }), secure: (endpoint2) => fs7.chmod(endpoint2, 384) };
 }
 
-// src/keyring.ts
-function openWithClearPrekey(entry, req) {
-  return openBox(void 0, () => entry.secret, req);
-}
-function localDeviceKeyring(keys) {
-  const ring = localKeyring(keys);
-  const deviceId = deviceIdFromSignPub(keys.signPub);
-  return {
-    kind: "local",
-    signPub: ring.signPub,
-    boxPub: ring.boxPub,
-    sign: ring.sign,
-    seal: ring.seal,
-    open: ring.open,
-    newPrekey: async (mesh, at) => createPrekey({ mesh, deviceId, signSec: keys.signSec, at }),
-    // A sealed entry opens only in the signer, which this process is not using.
-    openPrekey: async (entry, req) => "secret" in entry ? openWithClearPrekey(entry, req) : "key_expired",
-    adopt: async (entry) => entry
-  };
-}
-
-// src/signer.ts
-import { createPublicKey, verify } from "node:crypto";
-import { createConnection } from "node:net";
-var MAX_LINE = 4 * 1024 * 1024;
-var HELLO_LABEL = "wim-agent/1 hello\n";
-var SignerError = class extends Error {
-  name = "SignerError";
-  code;
-  constructor(code2, message2) {
-    super(message2);
-    this.code = code2;
-  }
-};
-function helloBytes(nonce) {
-  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce]);
-}
-function ed25519Public(pub) {
-  return createPublicKey({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), pub]), format: "der", type: "spki" });
-}
-function encodeSeal(req) {
-  return {
-    mesh: req.mesh,
-    sender: req.sender,
-    recipient: req.recipient,
-    aad: b64u.encode(req.aad),
-    recipientBox: b64u.encode(req.recipientBox),
-    plaintext: b64u.encode(req.plaintext),
-    ...req.prekey === void 0 ? {} : { prekey: { id: req.prekey.id, pub: b64u.encode(req.prekey.pub) } }
-  };
-}
-function encodeOpen(req) {
-  return { mesh: req.mesh, sender: req.sender, recipient: req.recipient, aad: b64u.encode(req.aad), senderBox: b64u.encode(req.senderBox), box: req.box };
-}
-var SignerClient = class {
-  endpoint;
-  expect;
-  timeoutMs;
-  connect;
-  socket;
-  opening;
-  next = 0;
-  pending = /* @__PURE__ */ new Map();
-  buffered = "";
-  constructor(o3) {
-    this.endpoint = o3.endpoint;
-    this.expect = o3.expect;
-    this.timeoutMs = o3.timeoutMs ?? 3e4;
-    this.connect = o3.connect ?? ((endpoint2) => createConnection(endpoint2));
-  }
-  /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
-  async call(op2, a5 = {}) {
-    const socket = await this.connected();
-    return this.send(socket, op2, a5);
-  }
-  /** `hello` on a connection of its own choosing: the signer's state, checked against `expect`. */
-  async hello() {
-    const socket = await this.connected();
-    return this.greet(socket);
-  }
-  /** Drops the connection; pending calls fail as `unavailable`. */
-  close() {
-    this.socket?.destroy();
-  }
-  send(socket, op2, a5) {
-    const i6 = ++this.next;
-    return new Promise((resolve3, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(i6);
-        this.idle(socket);
-        reject(new SignerError("timeout", `the signer did not answer ${op2} in ${this.timeoutMs} ms`));
-      }, this.timeoutMs);
-      this.pending.set(i6, { resolve: resolve3, reject, timer });
-      socket.ref();
-      socket.write(`${JSON.stringify({ i: i6, op: op2, a: a5 })}
-`);
-    });
-  }
-  idle(socket) {
-    if (this.pending.size === 0) socket.unref();
-  }
-  connected() {
-    if (this.socket !== void 0) return Promise.resolve(this.socket);
-    this.opening ??= this.open().finally(() => this.opening = void 0);
-    return this.opening;
-  }
-  open() {
-    return new Promise((resolve3, reject) => {
-      const socket = this.connect(this.endpoint);
-      socket.setEncoding("utf8");
-      socket.on("error", (error63) => {
-        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error63.code ?? error63.message}): run \`wim agent start\` in your own terminal`));
-      });
-      socket.once("connect", () => {
-        socket.on("data", (chunk) => this.take(socket, chunk));
-        socket.once("close", () => this.dropped(socket));
-        this.greet(socket).then(
-          () => {
-            this.socket = socket;
-            resolve3(socket);
-          },
-          (error63) => {
-            socket.destroy();
-            reject(error63);
-          }
-        );
-      });
-    });
-  }
-  async greet(socket) {
-    const nonce = randomBytes2(32);
-    const hello = await this.send(socket, "hello", { nonce: b64u.encode(nonce) });
-    if (this.expect !== void 0 && hello.signPub !== b64u.encode(this.expect)) {
-      throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
-    }
-    if (!hello.locked && (hello.proof === void 0 || !verify(null, helloBytes(nonce), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.proof)))) {
-      throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it holds its device's signing key`);
-    }
-    return hello;
-  }
-  take(socket, chunk) {
-    this.buffered += chunk;
-    if (this.buffered.length > MAX_LINE) {
-      socket.destroy();
-      return;
-    }
-    for (let nl = this.buffered.indexOf("\n"); nl !== -1; nl = this.buffered.indexOf("\n")) {
-      const line = this.buffered.slice(0, nl);
-      this.buffered = this.buffered.slice(nl + 1);
-      let answer;
-      try {
-        answer = JSON.parse(line);
-      } catch {
-        socket.destroy();
-        return;
-      }
-      const waiting2 = this.pending.get(answer.i);
-      if (waiting2 === void 0) continue;
-      this.pending.delete(answer.i);
-      clearTimeout(waiting2.timer);
-      this.idle(socket);
-      if (answer.e !== void 0) waiting2.reject(new SignerError(answer.e.code, answer.e.message));
-      else waiting2.resolve(answer.r);
-    }
-  }
-  dropped(socket) {
-    if (this.socket === socket) this.socket = void 0;
-    this.buffered = "";
-    for (const [i6, waiting2] of this.pending) {
-      this.pending.delete(i6);
-      clearTimeout(waiting2.timer);
-      waiting2.reject(new SignerError("unavailable", "the signer closed the connection"));
-    }
-  }
-};
-function signerKeyring(client, pub) {
-  const opened2 = (r6) => typeof r6["opened"] === "string" ? b64u.decode(r6["opened"]) : r6["reason"];
-  return {
-    kind: "signer",
-    signPub: pub.signPub,
-    boxPub: pub.boxPub,
-    sign: async (type, obj) => (await client.call("sign", { type, obj }))["sig"],
-    seal: async (req) => (await client.call("seal", encodeSeal(req)))["box"],
-    // Only scheme 1 opens with the device key; a scheme 2 box needs its prekey's entry (openPrekey).
-    open: async (req) => "s" in req.box ? "key_expired" : opened2(await client.call("open", encodeOpen(req))),
-    openPrekey: async (entry, req) => "secret" in entry ? openWithClearPrekey(entry, req) : opened2(await client.call("open2", { ...encodeOpen(req), entry })),
-    newPrekey: async (mesh, at) => {
-      const r6 = await client.call("prekey", { mesh, at });
-      return { prekey: r6["prekey"], sealed: r6["sealed"] };
-    },
-    adopt: async (entry) => {
-      if ("sealed" in entry) return entry;
-      const r6 = await client.call("adopt", { prekey: entry.prekey, secret: b64u.encode(entry.secret) });
-      return { prekey: entry.prekey, sealed: r6["sealed"] };
-    }
-  };
-}
-
 // src/vault.ts
 import { createCipheriv, createDecipheriv, scrypt } from "node:crypto";
 import { promisify as promisify2 } from "node:util";
@@ -120431,7 +120455,6 @@ var ARGS = {
   prekey: external_exports.strictObject({ mesh: boxArgs.mesh, at: external_exports.int().min(0) }),
   adopt: external_exports.strictObject({ prekey: prekeySchema, secret: bytes2(32) }),
   lock: external_exports.strictObject({}),
-  unlock: external_exports.strictObject({ passphrase: external_exports.string().min(1).max(1024) }),
   stop: external_exports.strictObject({})
 };
 var OWNER = {
@@ -120500,8 +120523,6 @@ var Signer = class {
       case "lock":
         this.lock();
         return {};
-      case "unlock":
-        return this.unlock(a5["passphrase"]);
       case "stop":
         return {};
     }
@@ -120519,15 +120540,6 @@ var Signer = class {
     if (this.keys === void 0) return base;
     const proof = edSign(null, helloBytes(nonce), ed25519Private(this.keys.keys.signSec));
     return { ...base, proof: b64u.encode(proof) };
-  }
-  async unlock(passphrase) {
-    if (this.keys !== void 0) return {};
-    try {
-      this.keys = await (this.o.unlock ?? openKeyFile)(this.file, passphrase);
-    } catch {
-      throw new AgentError("bad_passphrase", "the passphrase does not open the key file");
-    }
-    return {};
   }
   keyOp(op2, a5, k5, entry) {
     const me = this.file.id;
@@ -120673,9 +120685,11 @@ var AgentServer = class {
     } catch (error63) {
       answer = { i: i6, e: { code: error63 instanceof AgentError ? error63.code : "bad_request", message: error63.message } };
     }
+    const stopping = op2 === "stop" && answer.r !== void 0;
+    if (stopping) this.server.close();
     socket.write(`${JSON.stringify(answer)}
 `);
-    if (op2 === "stop" && answer.r !== void 0) await this.close();
+    if (stopping) await this.close();
   }
   /** Stops listening, ends every connection, wipes the keys. */
   async close() {
@@ -120690,9 +120704,10 @@ var AgentServer = class {
 
 // src/agentcli.ts
 var AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin]
-  wim agent status | wim agent lock | wim agent unlock [--passphrase-stdin] | wim agent stop
+  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin] | wim agent stop
   wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]`;
 var MIN_PASSPHRASE = 8;
+var PROMPT = "Passphrase for this device's keys: ";
 function wimCommand() {
   return [process.execPath, ...process.execArgv, process.argv[1]];
 }
@@ -120801,10 +120816,12 @@ async function start(ctx) {
   await sealedFile(ctx);
   const at = await endpoint(ctx, true);
   if (await answers(at)) {
-    ctx.io.out(`A signer is already running at ${at}.`);
+    ctx.io.out(`A signer is already running at ${at}. \`wim agent status\` says whether it is locked; \`wim agent unlock\` restarts a locked one.`);
     return 0;
   }
-  const passphrase = await readPassphrase(ctx, "Passphrase for this device's keys: ");
+  return launch(ctx, at, await readPassphrase(ctx, PROMPT));
+}
+async function launch(ctx, at, passphrase) {
   if (ctx.flags.get("foreground") === true) {
     let failed;
     const code2 = await runSigner(ctx, passphrase, (line2) => {
@@ -120858,22 +120875,31 @@ async function simple(ctx, action) {
   } finally {
     client.close();
   }
-  ctx.io.out(action === "lock" ? "Signer locked: the keys are wiped from its memory until `wim agent unlock`." : "Signer stopped.");
+  ctx.io.out(action === "lock" ? "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase." : "Signer stopped.");
   return 0;
 }
 async function unlock(ctx) {
   const client = await running(ctx);
   if (client === void 0) throw new SetupError("no signer is running: `wim agent start` starts one");
   try {
-    const passphrase = await readPassphrase(ctx, "Passphrase for this device's keys: ");
-    await client.call("unlock", { passphrase }).catch((error63) => {
+    if (!(await client.hello()).locked) {
+      ctx.io.out("The signer is not locked.");
+      return 0;
+    }
+    const file2 = await sealedFile(ctx);
+    const passphrase = await readPassphrase(ctx, PROMPT);
+    const checked = await openKeyFile(file2, passphrase).catch((error63) => {
       throw new SetupError(error63.message);
     });
+    for (const b5 of [checked.keys.signSec, checked.keys.boxSec, checked.data]) b5.fill(0);
+    await client.call("stop");
+    if (await answers(client.endpoint)) {
+      throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
+    }
+    return await launch(ctx, client.endpoint, passphrase);
   } finally {
     client.close();
   }
-  ctx.io.out("Signer unlocked.");
-  return 0;
 }
 async function eachPrekeyFile(home, rewrite) {
   for (const mesh of await home.meshIds()) {
@@ -120952,7 +120978,7 @@ async function encrypt(ctx) {
 }
 async function decrypt(ctx) {
   await sealedFile(ctx);
-  const passphrase = await readPassphrase(ctx, "Passphrase for this device's keys: ");
+  const passphrase = await readPassphrase(ctx, PROMPT);
   await decryptDevice(ctx.home, passphrase);
   ctx.io.out(`Decrypted ${ctx.home.devicePath}: the keys are in the clear again, and sessions read them without a signer.`);
   return 0;

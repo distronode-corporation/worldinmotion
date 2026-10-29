@@ -2,6 +2,7 @@
 // everything a session can do (send, ask, rooms, leases, files, presence).
 
 import {
+  CLOSE,
   dedupeExpiry,
   isRecoveryName,
   isRoom,
@@ -55,6 +56,7 @@ import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { noticeText, policyFor, policyLevel } from "./render.ts";
 import { SeenStore, SeqStore } from "./replay.ts";
 import { listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
+import { SignerError } from "./signer.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
 
@@ -205,6 +207,8 @@ export class MeshSession extends EventEmitter {
   private readonly answerMs: number;
   private conn!: Connection;
   private inbound: Promise<void> = Promise.resolve();
+  /** The connection on which a delivered frame waits for the signer; nothing more is acked on it. */
+  private heldLink: Link | undefined;
   /** Peer cards, opened one at a time in the order they came. */
   private cardsOpened: Promise<void> = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
@@ -467,7 +471,7 @@ export class MeshSession extends EventEmitter {
   private onFrame(f: RelayFrame): void {
     switch (f.t) {
       case "deliver":
-        this.inbound = this.inbound.then(() => this.handleDeliver(f.cursor, f.msg)).catch((e: unknown) => this.log(`wim: inbound: ${(e as Error).message}`));
+        this.inbound = this.inbound.then(() => this.handleDeliver(f.cursor, f.msg)).catch((e: unknown) => this.inboundFailed(e));
         return;
       case "roster":
         this.inbound = this.inbound.then(() => this.onRosterPush(f.chain)).catch((e: unknown) => this.log(`wim: roster: ${(e as Error).message}`));
@@ -584,7 +588,23 @@ export class MeshSession extends EventEmitter {
     return true;
   }
 
+  /**
+   * A delivered frame that could not be handled is not acknowledged. When the device's signer
+   * could not answer (locked, stopped, slow), nothing more is acknowledged on this connection and
+   * it is dropped: acks are cumulative, so acking a later frame would tell the relay this one was
+   * taken. The next connection authenticates only once the signer answers, and the relay then
+   * delivers everything after the last ack again.
+   */
+  private inboundFailed(error: unknown): void {
+    this.log(`wim: inbound: ${(error as Error).message}`);
+    if (!(error instanceof SignerError && error.transient)) return;
+    this.heldLink = this.link;
+    this.link?.close(CLOSE.bye, "the device's signer did not answer");
+  }
+
   private ack(cursor: number): void {
+    // Nothing is acked on a connection on which a frame waits for the signer (inboundFailed).
+    if (this.link === this.heldLink) return;
     // The relay redelivers anything not acked, and dedupe drops the copy.
     if (this.sendIfOpen({ t: "ack", cursor })) this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor) };
   }

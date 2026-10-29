@@ -16,10 +16,10 @@ import {
 } from "@worldinmotion/protocol";
 import { createServer, type Server, type Socket } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AgentServer, answers, Signer } from "../src/agent.ts";
+import { AgentServer, answers, Signer, type LogEntry } from "../src/agent.ts";
 import { agentEndpoint, endpointFiles } from "../src/agentpath.ts";
 import { SignerClient, signerKeyring, SignerError } from "../src/signer.ts";
-import { sealKeyFile, type Unlocked } from "../src/vault.ts";
+import { sealKeyFile } from "../src/vault.ts";
 import { FS, scratch } from "./helpers.ts";
 
 const KDF = { N: 1024, r: 8, p: 1 };
@@ -39,12 +39,12 @@ async function endpoint(): Promise<string> {
 
 type Running = { server: AgentServer; signer: Signer; keys: DeviceKeys; at: string; id: string; client: SignerClient };
 
-async function running(o: { unlock?: (f: unknown, p: string) => Promise<Unlocked> } = {}): Promise<Running> {
+async function running(log: LogEntry[] = []): Promise<Running> {
   const keys = generateDeviceKeys();
   const data = randomBytes(32);
   const file = await sealKeyFile({ name: "laptop", keys, passphrase: "pass phrase", data, kdf: KDF });
   const unlocked = { keys: { ...keys, signSec: keys.signSec.slice(), boxSec: keys.boxSec.slice() }, data };
-  const signer = new Signer({ file, unlocked, now: Date.now, pid: process.pid, log: () => undefined, ...(o.unlock === undefined ? {} : { unlock: o.unlock as never }) });
+  const signer = new Signer({ file, unlocked, now: Date.now, pid: process.pid, log: (e) => log.push(e) });
   const at = await endpoint();
   const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(process.platform) });
   await server.listen();
@@ -109,16 +109,42 @@ describe("the signer's socket", () => {
     expect(b["sealed"]).toBeTypeOf("string");
   });
 
-  it("locked, it holds no key to prove; the client may still unlock it", async () => {
-    const r = await running();
+  it("a locked signer proves nothing, and is sent nothing but hello, status, lock and stop", async () => {
+    const log: LogEntry[] = [];
+    const r = await running(log);
     await r.client.call("lock");
     const fresh = new SignerClient({ endpoint: r.at, expect: r.keys.signPub });
     cleanup.push(() => fresh.close());
     expect(await fresh.hello()).toMatchObject({ locked: true });
-    expect((await failure(fresh.call("prekey", { mesh: MESH, at: 1 }))).code).toBe("locked");
-    expect((await failure(fresh.call("unlock", { passphrase: "nope" }))).code).toBe("bad_passphrase");
-    await fresh.call("unlock", { passphrase: "pass phrase" });
-    expect((await fresh.hello()).locked).toBe(false);
+    expect(await fresh.call("status")).toMatchObject({ locked: true });
+    const seen = log.length;
+    for (const [op, a] of [["prekey", { mesh: MESH, at: 1 }], ["sign", { type: "auth", obj: { device: r.id } }], ["seal", { plaintext: "cGxhaW50ZXh0" }]] as const) {
+      expect((await failure(fresh.call(op, a))).code).toBe("locked");
+    }
+    // Refused here, before anything was written to the socket.
+    expect(log.length).toBe(seen);
+    await fresh.call("stop");
+    await r.server.stopped;
+  });
+
+  it("an impostor that claims to be a locked signer gets no plaintext and no request to sign", async () => {
+    const keys = generateDeviceKeys();
+    const pub = b64u.encode(keys.signPub);
+    const lines: string[] = [];
+    // It knows the device's public key (the key file's public part says it), but not the secret.
+    const { at } = await fake((line, socket) => {
+      lines.push(line);
+      const { i } = JSON.parse(line) as { i: number };
+      socket.write(`${JSON.stringify({ i, r: { id: "x", name: "x", signPub: pub, boxPub: pub, locked: true, pid: 1 } })}\n`);
+    });
+    const client = new SignerClient({ endpoint: at, expect: keys.signPub });
+    cleanup.push(() => client.close());
+    const ring = signerKeyring(client, { signPub: keys.signPub, boxPub: keys.boxPub });
+    const peer = generateDeviceKeys();
+    await expect(ring.seal({ mesh: MESH, sender: "a".repeat(22), recipient: "b".repeat(22), aad: randomBytes(32), recipientBox: peer.boxPub, plaintext: utf8("the plan") })).rejects.toThrow(/locked/);
+    await expect(ring.sign("send", { mesh: MESH })).rejects.toThrow(/locked/);
+    expect(lines.map((l) => (JSON.parse(l) as { op: string }).op)).toEqual(["hello"]);
+    expect(lines.join("\n")).not.toContain(b64u.encode(utf8("the plan")));
   });
 
   it("stop answers, then closes every connection and stops listening", async () => {
@@ -158,16 +184,18 @@ describe("the signer's socket", () => {
     let entered = false;
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
-    const r = await running({
-      unlock: async () => {
+    const r = await running();
+    const handle = r.signer.handle.bind(r.signer);
+    // A request that is still being answered when its connection goes away.
+    r.signer.handle = async (op, a) => {
+      if (op === "lock") {
         entered = true;
         await gate;
-        throw new Error("no");
-      },
-    });
-    await r.client.call("lock");
+      }
+      return handle(op, a);
+    };
     const raw = await rawConnection(r.at);
-    raw.send(JSON.stringify({ i: 1, op: "unlock", a: { passphrase: "x" } }));
+    raw.send(JSON.stringify({ i: 1, op: "lock", a: {} }));
     await turns(() => entered);
     raw.socket.destroy();
     await raw.closed;
@@ -242,6 +270,43 @@ describe("SignerClient", () => {
     cleanup.push(() => client.close());
     expect((await failure(client.call("status"))).code).toBe("mismatch");
     expect((await failure(client.call("status"))).code).toBe("mismatch");
+  });
+
+  it("a connection that closes late fails only its own calls, not those of the next connection", async () => {
+    // On Windows a destroyed pipe reports its close later than a Unix socket does: by then the
+    // next connection's hello is in flight. Here the first connection's close is held back.
+    const keys = generateDeviceKeys();
+    const pub = b64u.encode(keys.signPub);
+    let hellos = 0;
+    const { at } = await fake((line, socket) => {
+      const { i } = JSON.parse(line) as { i: number };
+      hellos++;
+      socket.write(`${JSON.stringify({ i, r: { id: "x", name: "x", signPub: pub, boxPub: pub, locked: false, pid: 1, ...(hellos === 1 ? {} : { proof: b64u.encode(randomBytes(64)) }) } })}\n`);
+    });
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let first = true;
+    const { createConnection } = await import("node:net");
+    const client = new SignerClient({
+      endpoint: at,
+      expect: keys.signPub,
+      connect: (endpoint) => {
+        const socket = createConnection(endpoint);
+        if (first) {
+          first = false;
+          const once = socket.once.bind(socket);
+          socket.once = ((event: string, fn: (...args: unknown[]) => void) => once(event, event === "close" ? (...args: unknown[]) => void held.then(() => fn(...args)) : fn)) as typeof socket.once;
+        }
+        return socket;
+      },
+    });
+    cleanup.push(() => client.close());
+    expect((await failure(client.call("status"))).code).toBe("mismatch");
+    const second = failure(client.call("status"));
+    await turns(() => hellos === 2);
+    release();
+    // The second connection's own answer decides: a proof that does not verify.
+    expect((await second).code).toBe("mismatch");
   });
 
   it("times out on a signer that does not answer, and ignores an answer that comes too late", async () => {
