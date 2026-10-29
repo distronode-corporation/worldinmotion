@@ -79,7 +79,9 @@ device keys and the data key that seals prekey secrets, and sessions ask it for 
 that needs a secret key. What it does and does not protect is SECURITY-MODEL section 5.8.
 
 - `wim agent encrypt` encrypts `device.json` (version 2), seals every mesh's prekey secrets and sets
-  `require_signer`. The key file is replaced by one atomic rename, so the identity survives an
+  `require_signer`. A session already running keeps the plaintext keys it read; once it reads a
+  sealed prekey it cannot open, it acknowledges nothing more on that connection and says once that
+  it needs a restart, and the relay delivers those messages again to the restarted session. The key file is replaced by one atomic rename, so the identity survives an
   interruption; a prekey left in the clear is sealed by the signer on the next schedule.
   `wim agent decrypt` (signer stopped) writes the same keys back in the clear, opens the sealed
   prekeys and clears `require_signer`.

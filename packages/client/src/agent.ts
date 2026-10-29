@@ -58,7 +58,9 @@ export class TokenBucket {
 
   take(): boolean {
     const now = this.now();
-    this.tokens = Math.min(this.burst, this.tokens + ((now - this.last) * this.perSecond) / 1000);
+    // A clock set back gives no time: never a negative refill, which would starve the bucket.
+    const elapsed = Math.max(0, now - this.last);
+    this.tokens = Math.min(this.burst, this.tokens + (elapsed * this.perSecond) / 1000);
     this.last = now;
     if (this.tokens < 1) return false;
     this.tokens -= 1;

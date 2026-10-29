@@ -89725,14 +89725,16 @@ var SessionKeys = class {
   }
 };
 
-// src/signer.ts
-import { createPublicKey, verify } from "node:crypto";
-import { createConnection } from "node:net";
-
 // src/keyring.ts
 function openWithClearPrekey(entry, req) {
   return openBox(void 0, () => entry.secret, req);
 }
+var NeedsSigner = class extends Error {
+  name = "NeedsSigner";
+  constructor() {
+    super("this device's keys were encrypted (wim agent encrypt) while this session was running: restart it so it uses the signer; messages it cannot open meanwhile are not acknowledged, and the relay delivers them again");
+  }
+};
 function localDeviceKeyring(keys) {
   const ring = localKeyring(keys);
   const deviceId = deviceIdFromSignPub(keys.signPub);
@@ -89744,13 +89746,19 @@ function localDeviceKeyring(keys) {
     seal: ring.seal,
     open: ring.open,
     newPrekey: async (mesh, at) => createPrekey({ mesh, deviceId, signSec: keys.signSec, at }),
-    // A sealed entry opens only in the signer, which this process is not using.
-    openPrekey: async (entry, req) => "secret" in entry ? openWithClearPrekey(entry, req) : "key_expired",
+    // A sealed entry opens only in the signer, which this process is not using: the key file
+    // was encrypted while it ran. Not "key_expired", which would drop the message for good.
+    openPrekey: async (entry, req) => {
+      if ("sealed" in entry) throw new NeedsSigner();
+      return openWithClearPrekey(entry, req);
+    },
     adopt: async (entry) => entry
   };
 }
 
 // src/signer.ts
+import { createPublicKey, verify } from "node:crypto";
+import { createConnection } from "node:net";
 var MAX_LINE = 4 * 1024 * 1024;
 var HELLO_LABEL = "wim-agent/1 hello\n";
 var SignerError = class extends Error {
@@ -90546,6 +90554,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
   inbound = Promise.resolve();
   /** The connection on which a delivered frame waits for the signer; nothing more is acked on it. */
   heldLink;
+  /** Whether this session said it must be restarted to use the signer (inboundFailed). */
+  toldRestart = false;
   /** Peer cards, opened one at a time in the order they came. */
   cardsOpened = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
@@ -90883,6 +90893,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * delivers everything after the last ack again.
    */
   inboundFailed(error63) {
+    if (error63 instanceof NeedsSigner) {
+      this.heldLink = this.link;
+      if (!this.toldRestart) this.log(`wim: ${error63.message}`);
+      this.toldRestart = true;
+      return;
+    }
     this.log(`wim: inbound: ${error63.message}`);
     if (!(error63 instanceof SignerError && error63.transient)) return;
     this.heldLink = this.link;
@@ -120420,7 +120436,8 @@ var TokenBucket = class {
   }
   take() {
     const now = this.now();
-    this.tokens = Math.min(this.burst, this.tokens + (now - this.last) * this.perSecond / 1e3);
+    const elapsed = Math.max(0, now - this.last);
+    this.tokens = Math.min(this.burst, this.tokens + elapsed * this.perSecond / 1e3);
     this.last = now;
     if (this.tokens < 1) return false;
     this.tokens -= 1;

@@ -13,7 +13,7 @@ import { promoteDevice } from "../src/admin.ts";
 import type { MeshSession } from "../src/client.ts";
 import { fsOps } from "../src/fsx.ts";
 import { Home, type Device } from "../src/home.ts";
-import { localDeviceKeyring } from "../src/keyring.ts";
+import { localDeviceKeyring, NeedsSigner } from "../src/keyring.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SignerError } from "../src/signer.ts";
 import { openKeyFile, sealKeyFile } from "../src/vault.ts";
@@ -175,6 +175,52 @@ describe("sessions through the signer", () => {
     expect(logs.filter((l) => l.startsWith("wim: inbound: "))).toEqual(["wim: inbound: disk full", "wim: inbound: the signer did not answer", "wim: inbound: the signer is locked"]);
   });
 
+  it("a session running when the key file is encrypted acks nothing it cannot open, and a restart through the signer delivers it", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const one = devices[0]!;
+    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    const logs: string[] = [];
+    // A session on the plaintext key file, taken back after its restart by the same key.
+    const before = await openSession(one, mesh, relay, { name: "a", sessionKey: "agent-a", log: (l) => logs.push(l) });
+    await b.send("a@one", "before");
+    await until(async () => (await before.spool.unread()).length === 1);
+    await encryptDevice(one.home, PASS, KDF);
+    // It reads the prekey file again (a sibling's rotation, its own schedule): now sealed.
+    await (before as unknown as { prekeys: { reload(): Promise<void> } }).prekeys.reload();
+    const acks = (): number => relay.sentByClients.filter((t) => t.startsWith('{"t":"ack"')).length;
+    const acked = acks();
+    let delivered = 0;
+    relay.toClient = (text) => {
+      if (text.startsWith('{"t":"deliver"')) delivered++;
+      return text;
+    };
+    await b.send("a@one", "sealed after the encrypt");
+    await b.send("a@one", "and another");
+    await until(() => delivered === 2, undefined, "both delivered to the session");
+    // Every frame handed over is on the session's inbound queue; wait for the queue to drain.
+    const inner = before as unknown as { inbound: Promise<void> };
+    for (let seen: Promise<void> | undefined; seen !== inner.inbound; ) {
+      seen = inner.inbound;
+      await seen;
+      await new Promise((r) => setImmediate(r));
+    }
+    relay.toClient = undefined;
+    // Both are refused alike, said once, and neither is acknowledged or dropped.
+    expect(logs.filter((l) => l.includes("while this session was running"))).toHaveLength(1);
+    expect(acks()).toBe(acked);
+    expect(await before.spool.unread()).toHaveLength(1);
+    await before.stop();
+    await serve(one);
+    const device = (await one.home.loadDevice())!;
+    const after = await session(one, mesh, relay, { name: "a", sessionKey: "agent-a", device });
+    expect(after.sid).toBe(before.sid);
+    await until(async () => (await after.spool.unread()).length === 3, undefined, "both messages, delivered again");
+    const texts = (await after.spool.unread()).map((i) => i.rendered).join("\n");
+    expect(texts).toContain("sealed after the encrypt");
+    expect(texts).toContain("and another");
+  });
+
   it("signs roster changes for an admin device", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
@@ -308,7 +354,8 @@ describe("loading the device: fallback and require_signer", () => {
     const pk = await ring.newPrekey(b64u.encode(randomBytes(16)), Date.now());
     const box = { s: 2 as const, p: pk.prekey.id, e: b64u.encode(randomBytes(32)), c: b64u.encode(randomBytes(40)) };
     const req = { mesh: pk.prekey.mesh, sender: "s".repeat(22), recipient: pk.prekey.device, aad: randomBytes(32), senderBox: keys.boxPub, box };
-    expect(await ring.openPrekey({ prekey: pk.prekey, sealed: "x" }, req)).toBe("key_expired");
+    // Not "key_expired" (the message would be dropped): this process needs a restart.
+    await expect(ring.openPrekey({ prekey: pk.prekey, sealed: "x" }, req)).rejects.toBeInstanceOf(NeedsSigner);
     expect(await ring.adopt(pk)).toBe(pk);
   });
 

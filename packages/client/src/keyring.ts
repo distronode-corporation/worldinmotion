@@ -30,6 +30,18 @@ export function openWithClearPrekey(entry: { secret: Uint8Array }, req: OpenRequ
   return openBox(undefined, () => entry.secret, req);
 }
 
+/**
+ * Thrown by a process holding the plaintext keys for a prekey the signer sealed: the device's key
+ * file was encrypted (`wim agent encrypt`) while this process ran, and only a restart, through the
+ * signer, opens what was sealed to that prekey.
+ */
+export class NeedsSigner extends Error {
+  override readonly name = "NeedsSigner";
+  constructor() {
+    super("this device's keys were encrypted (wim agent encrypt) while this session was running: restart it so it uses the signer; messages it cannot open meanwhile are not acknowledged, and the relay delivers them again");
+  }
+}
+
 /** The keyring of a device whose key file is plaintext: the keys are in this process. */
 export function localDeviceKeyring(keys: DeviceKeys): DeviceKeyring {
   const ring = localKeyring(keys);
@@ -42,8 +54,12 @@ export function localDeviceKeyring(keys: DeviceKeys): DeviceKeyring {
     seal: ring.seal,
     open: ring.open,
     newPrekey: async (mesh, at) => createPrekey({ mesh, deviceId, signSec: keys.signSec, at }),
-    // A sealed entry opens only in the signer, which this process is not using.
-    openPrekey: async (entry, req) => ("secret" in entry ? openWithClearPrekey(entry, req) : "key_expired"),
+    // A sealed entry opens only in the signer, which this process is not using: the key file
+    // was encrypted while it ran. Not "key_expired", which would drop the message for good.
+    openPrekey: async (entry, req) => {
+      if ("sealed" in entry) throw new NeedsSigner();
+      return openWithClearPrekey(entry, req);
+    },
     adopt: async (entry) => entry,
   };
 }

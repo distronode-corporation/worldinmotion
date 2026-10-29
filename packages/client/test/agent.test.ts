@@ -68,6 +68,19 @@ describe("TokenBucket", () => {
   });
 });
 
+describe("TokenBucket and a clock set back", () => {
+  it("takes no time from a step back, so the bucket never goes below empty", () => {
+    let now = 100_000;
+    const b = new TokenBucket(2, 2, () => now);
+    expect([b.take(), b.take(), b.take()]).toEqual([true, true, false]);
+    now -= 10_000;
+    expect(b.take()).toBe(false);
+    // Half a second on from where the clock now is: one token, as if it had never stepped back.
+    now += 500;
+    expect([b.take(), b.take()]).toEqual([true, false]);
+  });
+});
+
 describe("AgentLog", () => {
   it("appends JSON lines, moves the file aside past its size, and never throws", async () => {
     const dir = await scratch("log");

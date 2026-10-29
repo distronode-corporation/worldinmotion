@@ -56,6 +56,7 @@ import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { noticeText, policyFor, policyLevel } from "./render.ts";
 import { SeenStore, SeqStore } from "./replay.ts";
 import { listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
+import { NeedsSigner } from "./keyring.ts";
 import { SignerError } from "./signer.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
@@ -209,6 +210,8 @@ export class MeshSession extends EventEmitter {
   private inbound: Promise<void> = Promise.resolve();
   /** The connection on which a delivered frame waits for the signer; nothing more is acked on it. */
   private heldLink: Link | undefined;
+  /** Whether this session said it must be restarted to use the signer (inboundFailed). */
+  private toldRestart = false;
   /** Peer cards, opened one at a time in the order they came. */
   private cardsOpened: Promise<void> = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
@@ -596,6 +599,14 @@ export class MeshSession extends EventEmitter {
    * delivers everything after the last ack again.
    */
   private inboundFailed(error: unknown): void {
+    // The key file was encrypted under this session: no reconnect helps (this process will never
+    // open it), so nothing more is acked on this connection and the person is told once to restart.
+    if (error instanceof NeedsSigner) {
+      this.heldLink = this.link;
+      if (!this.toldRestart) this.log(`wim: ${error.message}`);
+      this.toldRestart = true;
+      return;
+    }
     this.log(`wim: inbound: ${(error as Error).message}`);
     if (!(error instanceof SignerError && error.transient)) return;
     this.heldLink = this.link;
