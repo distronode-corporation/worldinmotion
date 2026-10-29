@@ -64,8 +64,12 @@ export const LIMITS = {
   roomsPerSession: 16,
   /** Messages a relay keeps per room for `room.history`. */
   roomHistoryMessages: 100,
-  /** How long a relay keeps room history. */
-  roomHistoryLifetimeMs: 7 * DAY,
+  /**
+   * How long a relay keeps room history: 72 hours, the prekey retention forward secrecy promises
+   * (SPEC section 9). It is also the longest a relay keeps a queued message or a blob chunk, so the
+   * queue and blob lifetimes never exceed it (SPEC section 13).
+   */
+  roomHistoryLifetimeMs: 72 * HOUR,
   /** Messages in one `room.history` page. */
   roomHistoryPageMax: 50,
   /** Shortest and longest lease time to live. */

@@ -1,4 +1,4 @@
-export { MeshRelay, type Conn, type ConnState, type Limits, type RelayConfig, type RelayHost } from "./relay.ts";
+export { HISTORY_SWEEP_BATCH, MeshRelay, RETENTION_MS, type Conn, type ConnState, type Limits, type RelayConfig, type RelayHost } from "./relay.ts";
 export {
   CREATE_CLOSED,
   CREATE_MISCONFIGURED,

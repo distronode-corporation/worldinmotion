@@ -607,7 +607,7 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | task deadline | at most 24 hours after `at` |
 | rooms per mesh | 64 |
 | rooms per session | 16 |
-| room history | last 100 messages, kept 7 days, 50 per page |
+| room history | last 100 messages, kept 72 hours, 50 per page |
 | lease time to live | 1 second to 1 hour |
 | leases per mesh | 256 |
 | leases held per session | 16 |
@@ -730,9 +730,12 @@ each adds its own:
   hint, not a confidentiality boundary inside a mesh. Receivers apply the rules of section 6, where
   "`to` contains a room the receiving session is a member of" counts as addressed. A room send
   counts as a broadcast for rate limits (6 a minute per session) and against the fan-out budget.
-- The relay keeps each room's last 100 messages for 7 days for `room.history`, and at most 64 MiB of
-  history per mesh, dropping the oldest first. A device added after
-  a message was sent has no box in it and cannot read it; that is expected. A client reading history
+- The relay keeps each room's last 100 messages for 72 hours for `room.history`, and at most 64 MiB
+  of history per mesh, dropping the oldest first. It never serves an entry older than 72 hours,
+  even one a sweep has not deleted yet. 72 hours is also the longest a relay keeps a queued
+  message, a history entry or a blob chunk: a relay MAY shorten those lifetimes, but never
+  lengthen one past it. A device added after a message was sent has no box in it and cannot read
+  it; that is expected. A client reading history
   applies every receiving check of section 6 except freshness and the dedupe store (history is
   older than the freshness window by design), and except the rule in step 5 that drops the
   receiving session's own `*` or room sends: history includes the reader's own messages, so a

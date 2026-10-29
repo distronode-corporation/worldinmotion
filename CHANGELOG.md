@@ -13,6 +13,21 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Changed
+
+- **Relays keep room history for 72 hours, not 7 days**, to match the prekey retention planned for
+  forward secrecy. 72 hours is now the ceiling for everything a relay holds for delivery: room
+  history (72 hours), queued messages for an offline session (24 hours, so an undelivered direct
+  box never outlives it) and files (24 hours). A relay may lower these lifetimes but no longer
+  raise one past 72 hours, and it never serves a history entry older than 72 hours, even before
+  its sweep has deleted it. `SPEC.md` sections 9 and 13 say so.
+- **Upgrading a relay needs no step.** The first sweeps after the upgrade delete the older
+  history in batches of at most 256 entries per mesh, so a large mesh or Durable Object never runs
+  one long sweep. relay-node now also sweeps meshes nobody has dialled since it started (8 a
+  second, in turn); before, their expired queues, history and files waited for the next dial. A
+  Cloudflare relay object deletes its older history on its next alarm, at most 4 days after the
+  deploy for an object nobody dials.
+
 ## [0.1.1] - 2026-10-25
 
 A fix for the first message of the quick start.

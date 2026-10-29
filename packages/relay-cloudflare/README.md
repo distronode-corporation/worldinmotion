@@ -30,6 +30,11 @@ The worldinmotion relay as a Cloudflare Worker with one Durable Object per mesh.
 - **Alarm.** Expiry sweeps (`MeshRelay.tick`) run from the object's alarm, never a timer. It is armed
   for the next due expiry (a pre-auth deadline, a lease end, a queued message's lifetime, an
   invite's expiry and so on), and every 60 seconds while any socket is open.
+- **Retention.** Room history is deleted 72 hours after each message, queued messages and files
+  after 24 hours; 72 hours is the ceiling for all three (SPEC section 13). A history entry past
+  72 hours is never served, even before the alarm deletes it. One alarm deletes at most 256
+  history entries, so an object with a large backlog clears it over a few alarms a second apart
+  and no alarm runs long.
 - **`SourceLimiter`**, one per hashed client address: the `create` and `join` limit (10 an hour)
   across every mesh, as relay-node keeps one limiter per process. Addresses are counted per IPv4
   address and per IPv6 /64 (an IPv4-mapped IPv6 address counts as IPv4). An alarm deletes an idle
@@ -67,6 +72,12 @@ The byte limits take a byte count or a number with `KiB`, `MiB` or `GiB` (`25MiB
 lower the protocol's limits, never raise them; a chunk past one is refused with
 `error { code: "blob_quota" }`. Any guardrail value that is not valid is a misconfiguration as
 above: creation is refused, `/healthz` answers 503, and that setting keeps its safe default.
+
+**Upgrading from 0.1.1 or earlier**, which kept room history for 7 days: nothing to run, and no
+storage migration. After the deploy no object serves history older than 72 hours. An object
+deletes its older history from its next alarm on: within a second of any dial, within a minute for
+a mesh with a socket open, and otherwise when the alarm the old version armed fires, at most 4 days
+after the deploy (when its oldest history entry turns 7 days old).
 
 **Idle meshes are deleted** when `WIM_IDLE_MESH_DAYS` is set. When the last authenticated session
 leaves a mesh, the object records the time and arms its alarm for the expiry; the next session
