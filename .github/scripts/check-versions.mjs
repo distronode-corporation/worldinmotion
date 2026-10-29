@@ -6,6 +6,8 @@
 // What it reads:
 //   - package.json (the root) and every packages/*/package.json: `version`;
 //   - in those, every dependency on another workspace package (they are pinned exactly);
+//   - packaging/npm/package.json (the published `worldinmotion` CLI, outside the workspaces):
+//     `version`;
 //   - package-lock.json: the root and every workspace entry's `version`;
 //   - plugins/claude-code/.claude-plugin/plugin.json: `version`;
 //   - .claude-plugin/marketplace.json: any `version` field (top level, `metadata`, each
@@ -57,6 +59,8 @@ for (const [dir, pkg] of manifests) {
     }
   }
 }
+
+check("packaging/npm/package.json version", json("packaging/npm/package.json").version);
 
 const lock = json("package-lock.json");
 check("package-lock.json root version", lock.version);
