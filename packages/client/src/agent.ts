@@ -155,7 +155,7 @@ function ed25519Private(seed: Uint8Array): KeyObject {
 }
 
 /**
- * How far an `auth` or `send` object's `at` may be from the signer's clock. Receivers take a
+ * How far an `auth` or `send` object's `at`, or a new prekey's, may be from the signer's clock. Receivers take a
  * message up to its freshness window old, so what the signer signs while unlocked stays usable
  * after a lock for that long (SECURITY-MODEL 5.8); it does not sign for later than this.
  */
@@ -346,7 +346,10 @@ export class Signer {
       case "prekey": {
         const mesh = a["mesh"] as string;
         entry.mesh = mesh;
-        const made = createPrekey({ mesh, deviceId: me, signSec: k.keys.signSec, at: a["at"] as number });
+        const at = a["at"] as number;
+        // A prekey dated far ahead would sort first in the device's store and push current ones out.
+        if (Math.abs(at - this.o.now()) > SIGN_SKEW_MS) refuse(`a prekey's time must be within ${SIGN_SKEW_MS / 60_000} minutes of the signer's clock`);
+        const made = createPrekey({ mesh, deviceId: me, signSec: k.keys.signSec, at });
         const sealed = sealPrekeySecret(k.data, made.prekey, made.secret);
         made.secret.fill(0);
         return { prekey: made.prekey, sealed };

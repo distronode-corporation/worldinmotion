@@ -115,7 +115,7 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   sealed with ChaCha20-Poly1305 under keys both sides derive with HKDF from the exchange, a counter
   as nonce each way), `status`, `sign` (auth, send, roster, join; only objects that name this device;
   `auth` and `send` only with an `at` within 5 minutes of the signer's clock; never a prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey
-  entry; refused past its deletion time), `prekey` (makes one: public half and sealed secret),
+  entry; refused past its deletion time), `prekey` (makes one, dated within 5 minutes of the signer's clock: public half and sealed secret),
   `adopt` (seals a clear prekey secret of this device's), `lock`, `stop` (the signer stops
   listening before it answers, then closes every connection without waiting for its client).
   Before answering any request, and every 2 seconds, the signer checks that its endpoint still

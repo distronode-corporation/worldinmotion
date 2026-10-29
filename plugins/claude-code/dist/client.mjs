@@ -120815,7 +120815,9 @@ var Signer = class {
       case "prekey": {
         const mesh = a5["mesh"];
         entry.mesh = mesh;
-        const made = createPrekey({ mesh, deviceId: me, signSec: k5.keys.signSec, at: a5["at"] });
+        const at = a5["at"];
+        if (Math.abs(at - this.o.now()) > SIGN_SKEW_MS) refuse(`a prekey's time must be within ${SIGN_SKEW_MS / 6e4} minutes of the signer's clock`);
+        const made = createPrekey({ mesh, deviceId: me, signSec: k5.keys.signSec, at });
         const sealed = sealPrekeySecret(k5.data, made.prekey, made.secret);
         made.secret.fill(0);
         return { prekey: made.prekey, sealed };

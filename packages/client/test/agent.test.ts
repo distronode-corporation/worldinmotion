@@ -139,6 +139,10 @@ describe("Signer", () => {
     expect(await code(send(T - SIGN_SKEW_MS - 1))).toBe("refused");
     expect(await code(send("soon"))).toBe("refused");
     expect(await code(m.signer.handle("sign", { type: "auth", obj: { device: me } }))).toBe("refused");
+    // Nor does it make a prekey dated far from its clock: it would push current ones out of the store.
+    expect(await code(m.signer.handle("prekey", { mesh: MESH, at: T + SIGN_SKEW_MS }))).toBe("ok");
+    expect(await code(m.signer.handle("prekey", { mesh: MESH, at: T + SIGN_SKEW_MS + 1 }))).toBe("refused");
+    expect(await code(m.signer.handle("prekey", { mesh: MESH, at: T - SIGN_SKEW_MS - 1 }))).toBe("refused");
     // A roster's or a join's time is not a freshness claim: signed as given.
     expect(await code(m.signer.handle("sign", { type: "roster", obj: { mesh: MESH, by: me, at: 1 } }))).toBe("ok");
   });
