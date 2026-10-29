@@ -99,9 +99,37 @@ describe.each(KINDS)("store contract (%s)", (kind) => {
     expect(["#members", "#history", "#empty"].map((r) => s.getRoom(r) !== undefined)).toEqual([true, true, false]);
     expect(s.roomCount()).toBe(2);
     expect(s.members("#members")).toEqual(["A"]);
-    s.pruneHistory(5);
+    expect(s.pruneHistory(5, 10)).toBe(1);
     s.pruneRooms();
     expect(s.getRoom("#history")).toBeUndefined();
+  });
+
+  it("prunes history at the boundary, oldest first, at most `limit` rows a call", () => {
+    const s = makeStore(kind);
+    // Rows at 1..5 in #a and 2..6 in #b, appended in time order as the relay does.
+    for (let i = 1; i <= 5; i++) {
+      s.addHistory({ room: "#a", cur: i, at: i, msg: `"a${i}"` }, 100);
+      s.addHistory({ room: "#b", cur: i, at: i + 1, msg: `"b${i}"` }, 100);
+    }
+    const left = () => [...s.history("#a", 99, 99, 0), ...s.history("#b", 99, 99, 0)].map((h) => h.at).sort((x, y) => x - y);
+    // Seven rows are at or before 4 (a1..a4, b1..b3); a call deletes at most four, the oldest.
+    expect(s.pruneHistory(4, 4)).toBe(4);
+    expect(left()).toEqual([3, 4, 4, 5, 5, 6]);
+    expect(s.pruneHistory(4, 4)).toBe(3);
+    expect(left()).toEqual([5, 5, 6]);
+    // Nothing left at or before the cutoff: a row exactly one past it stays.
+    expect(s.pruneHistory(4, 4)).toBe(0);
+    expect(s.pruneHistory(5, 0)).toBe(0);
+    expect(left()).toEqual([5, 5, 6]);
+  });
+
+  it("reads history only after `since`, so an expired row waiting for a sweep is never served", () => {
+    const s = makeStore(kind);
+    for (let i = 1; i <= 4; i++) s.addHistory({ room: "#a", cur: i, at: 10 * i, msg: "{}" }, 100);
+    expect(s.history("#a", 99, 99, 20).map((h) => h.cur)).toEqual([4, 3]);
+    expect(s.history("#a", 4, 99, 20).map((h) => h.cur)).toEqual([3]);
+    expect(s.history("#a", 3, 99, 20)).toEqual([]);
+    expect(s.history("#a", 99, 1, 0).map((h) => h.cur)).toEqual([4]);
   });
 
   it("prunes watches, idle subscriptions, buckets and messages by time", () => {

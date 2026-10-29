@@ -1,7 +1,8 @@
 # Build output: the bundled extension, the bundled client, the webview script, the copied
-# licence files and the packaged extension.
+# licence files and changelog, and the packaged extension.
 media/activity.js
 LICENSE
 NOTICE
+CHANGELOG.md
 *.vsix
 .vscode-test/

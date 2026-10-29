@@ -45,7 +45,9 @@ await build({
 
 await mkdir(join(pkg, "dist"), { recursive: true });
 await copyFile(client, join(pkg, "dist", "wim.mjs"));
-// The packaged extension carries the project's licence and notice.
+// The packaged extension carries the project's licence and notice, and the changelog the
+// Marketplace and Open VSX show on the listing's Changelog tab.
 await copyFile(join(root, "LICENSE"), join(pkg, "LICENSE"));
 await copyFile(join(root, "NOTICE"), join(pkg, "NOTICE"));
+await copyFile(join(root, "CHANGELOG.md"), join(pkg, "CHANGELOG.md"));
 console.log("wrote dist/extension.js, media/activity.js and dist/wim.mjs");

@@ -1,0 +1,10 @@
+{
+  "name": "worldinmotion-release-publish",
+  "private": true,
+  "description": "The publishing CLIs that release.yml's marketplace and openvsx jobs run, pinned through this lockfile.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@vscode/vsce": "4.0.0",
+    "ovsx": "1.3.0"
+  }
+}

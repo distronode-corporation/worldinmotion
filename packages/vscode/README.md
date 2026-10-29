@@ -4,8 +4,14 @@ See and act on your [worldinmotion](https://github.com/distronode-corporation/wo
 sessions on it, their rooms and leases, the messages held for you, and a live view of who is
 talking to whom.
 
-> **Status: v0.1 in development.** Not on the Marketplace yet. The `publisher` field in
-> `package.json` is a placeholder.
+> **Status: preview, v0.1.** Published as a pre-release. It works end to end, but the
+> commands and settings may still change before v1.0.
+
+## Install
+
+Search for **worldinmotion** in the Extensions view, or run
+`code --install-extension distronode.worldinmotion --pre-release`. To build it yourself instead,
+see [Building and testing](#building-and-testing).
 
 ## What it shows
 
@@ -141,7 +147,7 @@ npm run bundle -w @worldinmotion/client   # the client this extension bundles
 npm run bundle -w worldinmotion           # dist/extension.js, media/activity.js, dist/wim.mjs
 npx vitest run packages/vscode --coverage --coverage.include='packages/vscode/src/**/*.ts'   # unit tests, 100% per file
 xvfb-run -a node packages/vscode/test-electron/run.mjs   # smoke test in a downloaded VS Code
-npm run package -w worldinmotion          # worldinmotion-0.1.0.vsix
+npm run package -w worldinmotion          # worldinmotion-<version>.vsix, marked pre-release
 ```
 
 The unit tests run against a typed fake of the VS Code API (`test/fake-vscode.ts`), and both
