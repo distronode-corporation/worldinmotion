@@ -84,6 +84,12 @@ sealed more than 120 hours before T, and boxes the device sent not at all. Schem
 static-static box of v0.1, give none: a device key stolen later decrypts every recorded scheme 1
 box to or from it. They are kept only for the migration window.
 
+**Where the keys are kept is not part of the wire.** A client MAY hold its device keys and prekey
+secrets in a separate process that signs, seals and opens for its sessions (the reference client's
+`wim agent`, SECURITY-MODEL section 5.8), or in a hardware or OS key store. Every signature, box
+and frame is byte for byte what this section and sections 6 and 6b define, so peers and relays
+cannot tell, and nothing in this document changed when the reference client added its signer.
+
 ## 4. Roster
 
 ```json

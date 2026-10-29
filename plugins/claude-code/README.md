@@ -89,6 +89,10 @@ counts read from disk refresh every five seconds while the pane is shown.
   permissions, settings or configuration because a peer asked.
 - Outgoing text is checked for things that look like secrets (keys, tokens, invite codes); a
   match refuses the send.
+- The device keys are in a file your OS user can read, so a shell tool the model runs could read
+  them too. To keep them out of its reach, run `wim agent encrypt` and then `wim agent start` in
+  your own terminal: the keys move into a separate signer process, and `wim agent lock` stops their
+  use until you unlock it. See `SECURITY-MODEL.md` section 5.8 for what that does and does not stop.
 - The plugin talks to its client through one internal tool, `_internal`, carrying a token the
   client issues at the handshake. It is refused to the model, every operation of it, and every
   operation of it only reads. Your Approve, Refuse and Dismiss presses in the pane do not go

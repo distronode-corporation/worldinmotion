@@ -8,7 +8,7 @@ export { main, parseArgs, parseDuration, toName, USAGE, VERSION, type CliIO } fr
 export { ClientError, MeshSession, type Inbound, type PeerRow, type SendOptions, type SendOutcome, type SessionOptions } from "./client.ts";
 export { HeldBox, preview, type HeldItem } from "./held.ts";
 export { History, renderForAgent, renderForPerson, type HistoryEntry } from "./history.ts";
-export { Home, SetupError, type Device } from "./home.ts";
+export { Home, SetupError, type Device, type LocalDevice } from "./home.ts";
 export { INTERNAL_TOOLS, PUBLIC_TOOLS, WimMcp } from "./mcp.ts";
 export { DEFAULT_BREAKER, MeshFiles, RosterBook, type MeshConfig, type Policy } from "./mesh.ts";
 export { CommandNotifier, loadNotifier, type Notifier } from "./notify.ts";

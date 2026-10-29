@@ -28,7 +28,15 @@ accounts on one OS user are two devices.
 
 ```
 $WIM_HOME/
-  device.json            0600  device keys (protocol encodeKeys) + device name
+  device.json            0600  device keys (protocol encodeKeys) + device name; or, after
+                               `wim agent encrypt`, version 2: the public keys and name in the
+                               clear and the secret keys and a data key encrypted (scrypt,
+                               ChaCha20-Poly1305) under the passphrase
+  agent/                 0700  the signer (`wim agent`), when one was ever started here
+    sock                 0600  its Unix socket (Windows: a named pipe `\\.\pipe\wim-agent-<token>`)
+    pipe                 0600  Windows only: the pipe's random token
+    config.json          0600  `require_signer`: refuse a plaintext key file
+    log.jsonl            0600  one line per request: operation, type, mesh, peer device, outcome
   meshes/<mesh>/
     mesh.json            0600  relay URL, pinned roster {seq, hash}, my device id, policy
     rosters/<seq>.json         every verified roster
@@ -36,7 +44,9 @@ $WIM_HOME/
     seen.json                  dedupe ids with expiry (H3), per device, shared by sessions (locked writes)
     seq.json                   SeqTracker state (M3)
     prekeys.json         0600  this device's prekeys and their secrets: rotated daily, each secret
-                               deleted at until + 72 h (SPEC section 6b), shared by sessions (locked writes)
+                               deleted at until + 72 h (SPEC section 6b), shared by sessions (locked writes);
+                               each secret in the clear (`secret`) or, with the signer, sealed under the
+                               key file's data key (`sealed`), which only the signer opens
     peer-prekeys.json          the newest verified prekey of each peer device (public, a cache)
     sessions/<sid>/
       session.json             name, kind, resume secret (0600), cursor, rooms
@@ -61,6 +71,39 @@ same working directory in its `session.json`, did not end (`bye { ended: true }`
 process holds its liveness lock. A session from another directory keeps its name, and the new one
 gets `name-N`. `wim mcp` ends its session cleanly (`bye { ended: true }`) when stdin closes, on
 SIGINT, SIGTERM or SIGHUP, and when its parent process goes away (checked every 5 seconds).
+
+## The signer (`wim agent`)
+
+Optional, and off until `wim agent encrypt`. The ssh-agent model: one process per device holds the
+device keys and the data key that seals prekey secrets, and sessions ask it for every operation
+that needs a secret key. What it does and does not protect is SECURITY-MODEL section 5.8.
+
+- `wim agent encrypt` encrypts `device.json` (version 2), seals every mesh's prekey secrets and sets
+  `require_signer`. The key file is replaced by one atomic rename, so the identity survives an
+  interruption; a prekey left in the clear is sealed by the signer on the next schedule.
+  `wim agent decrypt` (signer stopped) writes the same keys back in the clear, opens the sealed
+  prekeys and clears `require_signer`.
+- `wim agent start` asks for the passphrase (only at an interactive terminal not driven by an
+  agent, or from stdin with `--passphrase-stdin`) and starts `wim agent serve` detached from the
+  terminal; the child reads the passphrase on stdin and prints `ready <pid>` or `error <why>`.
+  `--foreground` runs it in the command itself, for systemd, launchd or CI. It is never started
+  automatically: the passphrase needs the person, and a signer started from an agent's session
+  would be that agent's descendant, which an OS may let it debug.
+- `wim agent status`, `lock`, `unlock` and `stop` talk to the running signer.
+- A session's device: a plaintext key file gives a keyring in the process, as before (refused when
+  `require_signer` is set or `WIM_REQUIRE_SIGNER=1`). An encrypted one gives a keyring that calls
+  the signer; with no signer, or a locked one, the command says which `wim agent` command to run.
+- The socket speaks JSON lines: `{ "i", "op", "a" }`, answered `{ "i", "r" }` or
+  `{ "i", "e": { "code", "message" } }`. Operations: `hello` (with a proof, an Ed25519 signature
+  over `wim-agent/1 hello\n` and the client's nonce, checked against the key file's public part on
+  every new connection), `status`, `sign` (auth, send, roster, join; only objects that name this
+  device; never a prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey
+  entry; refused past its deletion time), `prekey` (makes one: public half and sealed secret),
+  `adopt` (seals a clear prekey secret of this device's), `lock`, `unlock`, `stop`. Key
+  operations are rate limited (100 a second, burst 1000). Requests on one connection are answered
+  in order.
+- A signer that is locked or gone makes a send fail with the reason, and a delivered message stays
+  unacknowledged, so the relay delivers it again on the session's next connection.
 
 ## The MCP server (`wim mcp`)
 
