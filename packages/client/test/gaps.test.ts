@@ -223,6 +223,8 @@ describe("session edges", () => {
     // so a pass counts only when it logs nothing; the error text is kept for the assertion message.
     const cleanTick = async (): Promise<void> => {
       for (let i = 0; i < 5; i++) {
+        // The card step runs only on an open link: wait out a reconnect first.
+        await a.ready(5000);
         const before = logs.length;
         await a.tick();
         if (logs.length === before) return;
