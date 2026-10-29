@@ -1,14 +1,16 @@
 import { b64u } from "./encoding.ts";
 
 /**
- * Public keys (b64u, signing and box) of every fixed key in the published test vectors (SPEC
- * section 16). Their secrets are public, so a client SHOULD refuse any of them as a device or
- * recovery key. A test keeps this list equal to what the vector generator produces.
+ * Public keys (b64u, signing and box, and the two prekeys) of every fixed key in the published
+ * test vectors (SPEC section 16). Their secrets are public, so a client SHOULD refuse any of them
+ * as a device or recovery key, or as a peer's prekey. A test keeps this list equal to what the vector generator produces.
  */
 export const VECTOR_SEED_PUBLIC_KEYS: readonly string[] = Object.freeze([
   "2QO5h53aLgLg6K6eNajRQeOkKlsa-4lm2Cjsl3_-dvA",
   "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+  "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
   "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+  "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
   "RLm8q5SMCoJyhH7zHNev6nWAEtOyyY2B-JOj_RixQBE",
   "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
   "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",

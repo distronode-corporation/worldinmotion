@@ -90,6 +90,9 @@ type Mesh = { relay: MeshRelay; sockets: Map<string, Socket>; idle?: boolean };
 
 const DAY = 86_400_000;
 
+/** Stored meshes not held in memory that one tick sweeps (see `sweepStored`). */
+export const STORED_SWEEP_MESHES = 8;
+
 /** node:sqlite behind the relay's minimal SQL surface. */
 export function sqlDb(db: DatabaseSync): SqlDb {
   return {
@@ -202,11 +205,8 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
 
   // The mesh id is valid (parseDialPath checked it) and so are the relay URLs (checked above), so
   // the MeshRelay constructor has nothing left to refuse.
-  const meshFor = (id: string): Mesh => {
-    const known = meshes.get(id);
-    if (known) return known;
-    const sockets = new Map<string, Socket>();
-    const relay = new MeshRelay(
+  const relayFor = (id: string, sockets: Map<string, Socket>): MeshRelay =>
+    new MeshRelay(
       { meshId: id, relayUrls, createKey: config.createKey, createRefused: config.createRefused, limits: config.limits },
       {
         store: new SqlStore(db, id),
@@ -219,9 +219,27 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
         admitMesh: () => config.maxMeshes === undefined || meshCount(db) < config.maxMeshes,
       },
     );
-    const mesh = { relay, sockets };
+  const meshFor = (id: string): Mesh => {
+    const known = meshes.get(id);
+    if (known) return known;
+    const sockets = new Map<string, Socket>();
+    const mesh = { relay: relayFor(id, sockets), sockets };
     meshes.set(id, mesh);
     return mesh;
+  };
+
+  // A mesh is held in memory only once a socket dials it, so a mesh nobody dialled since start
+  // would keep its expired queue, history and files until someone did. Each tick also sweeps a
+  // few of those stored meshes in turn (by mesh id, wrapping around), through a relay built for
+  // that sweep and dropped after it. With the per-mesh history bound, one tick stays short.
+  let sweptThrough = "";
+  const sweepStored = (now: number): void => {
+    const rows = db.all("SELECT mesh FROM rosters WHERE seq = 1 AND mesh > ? ORDER BY mesh LIMIT ?", sweptThrough, STORED_SWEEP_MESHES);
+    for (const row of rows) {
+      const id = String(row["mesh"]);
+      if (!meshes.has(id)) relayFor(id, new Map()).tick(now);
+    }
+    sweptThrough = rows.length < STORED_SWEEP_MESHES ? "" : String(rows.at(-1)!["mesh"]);
   };
 
   const sourceOf = (req: IncomingMessage): string => {
@@ -274,6 +292,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
     // Expired meshes go first, so their sockets are closed as expired rather than swept.
     if (idleDays !== undefined) expireIdle(idleDays, now);
     for (const m of meshes.values()) m.relay.tick(now);
+    sweepStored(now);
     for (const [k, b] of sources) if (b.at <= now - HOUR) sources.delete(k);
   }, config.tickMs ?? 1000);
   const heartbeat = setInterval(() => {

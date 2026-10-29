@@ -286,13 +286,17 @@ describe("peer cards", () => {
     void c;
   });
 
-  it("sends no card when the mesh turns cards off", async () => {
+  it("sends a card with no labels when the mesh turns cards off: only its prekey", async () => {
     const relay = new RelayHarness();
-    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, share_cards: false }));
     await session(devices[0]!, mesh, relay, { name: "a", cwd: "/" });
+    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    await until(() => relay.sentByClients.some((t) => t.startsWith('{"t":"card.set"') && t.includes(`"device":"${devices[0]!.device.id}"`)), 3000, "a's card");
+    const card = JSON.parse(relay.sentByClients.find((t) => t.startsWith('{"t":"card.set"') && t.includes(`"session":"a"`))!) as { msg: SendFrame };
+    expect(card.msg.pk?.device).toBe(devices[0]!.device.id);
     await sleep(30);
-    expect(relay.sentByClients.some((t) => t.startsWith('{"t":"card.set"'))).toBe(false);
+    expect((await b.listPeers({ forPane: true })).find((p) => p.address === "a@one")!.card).toBeUndefined();
     void RELAY;
   });
 });

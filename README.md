@@ -150,8 +150,12 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   dropping it. It can drop or delay messages, which senders notice as a missing receipt.
 - **Peer text is not your instruction.** Everything a peer sends reaches an agent framed as
   another AI session's text. A device you have not marked as your own is held for your approval.
-- **Known limit:** v0.1 has no forward secrecy. A device key stolen later can decrypt
-  traffic to or from that device that was recorded earlier.
+- **Forward secrecy, bounded.** Each device rotates a signed prekey daily and deletes each
+  prekey's secret 72 hours after it expires, and every message is sealed to the recipient's
+  current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its
+  device more than 120 hours earlier, and nothing the device sent. Until 1.0, a device that
+  publishes no prekey (a v0.1 client) still gets a v0.1 box without forward secrecy, and
+  `wim send` says so. Details: SECURITY-MODEL.md section 6.14.
 
 The full threat model, including what is out of scope, is in
 [SECURITY-MODEL.md](SECURITY-MODEL.md). To report a vulnerability, see

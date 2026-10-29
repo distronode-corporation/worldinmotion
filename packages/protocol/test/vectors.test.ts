@@ -14,6 +14,7 @@ import {
   parseJson,
   parseRecoveryCode,
   verifyObject,
+  verifyPrekey,
   verifyRosterChain,
   type SignType,
 } from "../src/index.ts";
@@ -72,5 +73,18 @@ describe("test vectors", { timeout: 60_000 }, () => {
     for (const t of message.tampers) {
       expect(openMessage(t.frame, { roster: message.roster, me: { ...me, address: t.address }, now: t.now })).toEqual({ ok: false, reason: t.reason });
     }
+    const pk = load("prekey.json");
+    const bobPk = { ...me, roster: pk.roster };
+    const held = (ids: string[]) => (id: string) =>
+      ids.includes(id) ? b64u.decode(id === pk.prekeys.bob.prekey.id ? pk.prekeys.bob.secret : pk.prekeys.alice.secret) : undefined;
+    expect(verifyPrekey(pk.prekeys.bob.prekey, pk.roster, pk.message.now).ok).toBe(true);
+    expect(openMessage(pk.message.frame, { roster: pk.roster, me: { ...bobPk, ...pk.message.receiver, prekey: held([pk.prekeys.bob.prekey.id]) }, now: pk.message.now })).toEqual({
+      ok: true,
+      value: pk.message.plaintext,
+    });
+    for (const t of pk.message.tampers) {
+      expect(openMessage(t.frame, { roster: pk.roster, me: { ...bobPk, ...pk.message.receiver, prekey: held(t.held) }, now: pk.message.now })).toEqual({ ok: false, reason: t.reason });
+    }
+    for (const v of pk.invalid_prekeys) expect(verifyPrekey(v.prekey, pk.roster, v.now)).toEqual({ ok: false, reason: v.reason });
   });
 });

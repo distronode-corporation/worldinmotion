@@ -13,6 +13,81 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-29
+
+### Added
+
+- **Forward secrecy, bounded** (`SPEC.md` section 6b, `SECURITY-MODEL.md` section 6.14). Each
+  device makes a signed X25519 prekey per mesh every day (signed by its own key, valid 48 hours)
+  and deletes each prekey's secret 72 hours after it expires. Every box is sealed to the
+  recipient device's current prekey with a fresh ephemeral key: RFC 9180 HPKE in auth mode,
+  DHKEM(X25519, HKDF-SHA256), HKDF-SHA256 and ChaCha20-Poly1305, built on the noble libraries the
+  protocol already used (no new dependency) and checked against the RFC's test vectors. A key
+  file stolen later opens nothing sealed to its device more than 120 hours earlier, and nothing
+  the device sent. Sibling sessions still read one box per device, redelivery and dedupe work as
+  before, and revocation needs no rekey.
+- **A scheme field on every new box** (`"s": 2`), so a later scheme, such as an MLS room mode as
+  `wim/2`, is added without breaking this one. A box without `s` is a v0.1 box.
+- **Prekeys travel in headers**, as `pk` in every `send` frame and peer card. No relay frame was
+  added, and a relay needs no code change, only the new protocol package.
+- New test vectors in `packages/protocol/vectors/prekey.json`; `sign.json` covers the `prekey`
+  signature type.
+
+### Changed
+
+- **The wire format changes.** A v0.1 client drops any frame that holds a new box or a `pk`, and a
+  v0.1 relay refuses such frames as malformed: upgrade relays first. Devices can then upgrade one
+  at a time: an upgraded client sends a v0.1 device only frames it reads (below).
+- **The migration window, until 1.0.** Clients still open v0.1 boxes, so v0.1 senders and messages
+  queued or kept in history from before an upgrade still read. A message with any recipient
+  device that has no current prekey (a v0.1 client, or one offline for over 48 hours) goes in the
+  v0.1 format for every recipient: no `pk` and v0.1 boxes only, so a v0.1 device in the send reads
+  it. It has no forward secrecy for anyone in it: `wim send` prints "Sent without forward secrecy
+  to <every device in the send>: no current prekey for <the devices without one> ...", and the MCP
+  `send`, `reply` and `send_file` results carry `unprotected`, `no_prekey` and that sentence as
+  `note`. In a mesh with a v0.1 device that is every room and broadcast message; upgraded devices
+  still learn each other's prekeys from cards, so messages among them alone keep forward secrecy.
+  A hostile relay can force that downgrade during the window by withholding cards. From 1.0, v0.1
+  boxes are refused and senders never fall back.
+- **Peer cards keep `pk` in a mixed mesh**, since they are how upgraded devices learn prekeys. A
+  v0.1 client drops them and loses peer labels (the labels of a whole `cards` page holding one),
+  nothing else.
+- **Every session now publishes a peer card**, with no labels when cards are off or it has no
+  working directory, because the card's header carries the device's prekey. Listings show no
+  labels for an empty card, as before.
+- **A message sealed to a prekey this device no longer holds** (deleted on schedule, or lost with
+  the prekey file) is dropped, and the session gets one notice per sender device asking for it to
+  be sent again.
+
+## [0.1.2] - 2026-10-29
+
+### Added
+
+- **Install channels.** `npx worldinmotion` (a standalone package that is the bundled `wim`), the
+  VS Code Marketplace listing as a pre-release under the `distronode` publisher, and gated release
+  jobs for npm and Open VSX. `packaging/README.md` lists every channel.
+
+### Changed
+
+- **Relays keep room history for 72 hours, not 7 days**, to match the prekey retention planned for
+  forward secrecy. 72 hours is now the ceiling for everything a relay holds for delivery: room
+  history (72 hours), queued messages for an offline session (24 hours, so an undelivered direct
+  box never outlives it) and files (24 hours). A relay may lower these lifetimes but no longer
+  raise one past 72 hours, and it never serves a history entry older than 72 hours, even before
+  its sweep has deleted it. `SPEC.md` sections 9 and 13 say so.
+- **Upgrading a relay needs no step.** The first sweeps after the upgrade delete the older
+  history in batches of at most 256 entries per mesh, so a large mesh or Durable Object never runs
+  one long sweep. relay-node now also sweeps meshes nobody has dialled since it started (8 a
+  second, in turn); before, their expired queues, history and files waited for the next dial. A
+  Cloudflare relay object deletes its older history on its next alarm, at most 4 days after the
+  deploy for an object nobody dials.
+
+### Security
+
+- **The release tools pin `@azure/msal-node` 7.1.1** (GHSA-xcx6-jx8p-x3h5): `@vscode/vsce` pulls
+  `@azure/identity`, which still asks for an affected 6.x. The publish jobs never used the
+  affected flow. `@vscode/vsce` is 4.1.0, the first with `--oidc` trusted publishing.
+
 ## [0.1.1] - 2026-10-25
 
 A fix for the first message of the quick start.
@@ -73,6 +148,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.3
+[0.1.2]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.2
 [0.1.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.1
 [0.1.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.0

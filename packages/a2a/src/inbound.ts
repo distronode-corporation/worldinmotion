@@ -32,7 +32,7 @@ export const MAX_REQUEST_BYTES = 1024 * 1024;
 /** The largest task text: the mesh's message text limit, since the text travels as one. */
 export const MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
 
-const GATEWAY_VERSION = "0.1.1";
+const GATEWAY_VERSION = "0.1.3";
 const EARLY_RESULTS = 64;
 
 export interface InboundOptions {

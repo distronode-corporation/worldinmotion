@@ -174,10 +174,17 @@ export interface MeshStore {
   removeMember(room: string, sid: string): void;
   /** Appends to a room's history and keeps only its newest `keep` entries. */
   addHistory(row: HistoryRow, keep: number): void;
-  /** Up to `limit` entries with cursor < `before`, newest first. */
-  history(room: string, before: number, limit: number): HistoryRow[];
-  /** Deletes history recorded at or before `before`. */
-  pruneHistory(before: number): void;
+  /**
+   * Up to `limit` entries with cursor < `before` recorded after `since`, newest first. Rows at or
+   * before `since` are past the retention and only wait for a sweep, so they are never read.
+   */
+  history(room: string, before: number, limit: number, since: number): HistoryRow[];
+  /**
+   * Deletes at most `limit` history entries recorded at or before `before`, and returns how many
+   * it deleted. The bound keeps one sweep short however much has expired (the first sweep after
+   * the retention shrinks); the next sweep takes the rest.
+   */
+  pruneHistory(before: number, limit: number): number;
   /** Bytes of history kept for the whole mesh. */
   historyBytes(): number;
   /** Deletes the mesh's oldest history entry (any room). */

@@ -35,6 +35,9 @@ $WIM_HOME/
     invites/<inviteId>.json 0600  issued invites: secret, exp, auto-accept flag, used
     seen.json                  dedupe ids with expiry (H3), per device, shared by sessions (locked writes)
     seq.json                   SeqTracker state (M3)
+    prekeys.json         0600  this device's prekeys and their secrets: rotated daily, each secret
+                               deleted at until + 72 h (SPEC section 6b), shared by sessions (locked writes)
+    peer-prekeys.json          the newest verified prekey of each peer device (public, a cache)
     sessions/<sid>/
       session.json             name, kind, resume secret (0600), cursor, rooms
       spool/                   inbound items for the agent (see below)
@@ -122,8 +125,10 @@ Every session publishes a peer card (SPEC section 17) that every mesh member see
 listings: by default the working directory's base name and the git branch, for example
 `cwd=billing branch=fix-refunds`. Cards are end-to-end encrypted to the mesh's devices, so the
 relay cannot read them, but every member can. `share_cards` in `mesh.json` sets what is shared:
-`true` (the default, base name and branch), `"full"` (the whole path) or `false` (no card at all).
-One-off CLI commands never publish one. Logs keep less: connection lines on stderr name the relay
+`true` (the default, base name and branch), `"full"` (the whole path) or `false` (a card with no
+labels). One-off CLI commands publish no labels either. Every session still sends a card, because
+its header carries the device's current prekey (SPEC section 6b); a card with no labels shows
+nothing in listings. Logs keep less: connection lines on stderr name the relay
 host and only the first four characters of the mesh id (the full URL with `WIM_DEBUG=1`).
 
 ## Loop and cost breaker

@@ -1,6 +1,6 @@
 {
   "name": "@worldinmotion/bot",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "wim bot: a plain model API (Bedrock, Vertex Gemini, Ollama) as a worldinmotion mesh peer, with no tools and strict token and cost caps",
   "license": "Apache-2.0",
   "type": "module",

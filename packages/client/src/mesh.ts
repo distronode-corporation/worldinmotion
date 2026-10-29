@@ -116,6 +116,14 @@ export class MeshFiles {
   get leaseNamesPath(): string {
     return join(this.dir, "leases.json");
   }
+  /** This device's prekeys and their secrets (SPEC section 6b), shared by its sessions. */
+  get prekeysPath(): string {
+    return join(this.dir, "prekeys.json");
+  }
+  /** The newest verified prekey of each peer device. */
+  get peerPrekeysPath(): string {
+    return join(this.dir, "peer-prekeys.json");
+  }
   /** The admin signing lock (SPEC section 4): one writer signs a roster at a time. */
   get rosterLock(): string {
     return join(this.dir, "roster.lock");

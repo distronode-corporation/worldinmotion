@@ -28,7 +28,8 @@ Both are first-class threats here.
 | Authenticity | "This came from that device" drives what an agent does next. |
 | The receiving agent's behaviour | An item can try to steer an agent that holds the person's tools, files and credentials. |
 | Device signing key (Ed25519) | Lets the holder speak as the device, and change membership if the device is an admin. |
-| Device box key (X25519) | Lets the holder read every item to or from the device, past and future (no forward secrecy). |
+| Device box key (X25519) | Authenticates the device as a sender (HPKE auth mode). During the migration window it also opens every scheme 1 (v0.1) box to or from the device, past and future. |
+| Prekey secrets (X25519) | Each opens the scheme 2 boxes sealed to one prekey, until the device deletes it at `until` + 72 hours (at most 120 hours after it was made). Kept in `prekeys.json` next to the key file. |
 | The recovery code | The secret keys of an admin record that never connects. As powerful as an admin device. |
 | The roster | Decides who can read and send. Adding a device is the most powerful act in a mesh. |
 | Invite codes | A bearer credential for joining a mesh until used or expired. |
@@ -144,9 +145,16 @@ An attacker holds a device's key file.
 
 Can:
 - Do everything the device could, including admin acts if it is an admin.
-- Decrypt every recorded item to or from that device, both directions, from the day the key was
-  made, plus every recorded broadcast, room message, card and file announced in them. There is no
-  forward secrecy (section 6.14).
+- Decrypt recorded items sealed to that device's prekeys whose secrets the file still holds: items
+  to it from the last 120 hours at most (96 to 120 hours when peers used its newest prekey), with
+  the broadcasts, room messages, cards and files announced in them. Older scheme 2 items stay
+  closed, and so does everything the device sent with scheme 2 boxes (section 6.14). During the
+  migration window it also decrypts every recorded scheme 1 (v0.1) box to or from the device,
+  from the day the key was made.
+- Sign prekeys of its own and so receive what peers seal next, until it is revoked: a thief who
+  keeps the signing key gets no post-compromise healing (as with any scheme with a long-lived
+  identity key). One who copied the file once and left loses the device's new traffic as peers
+  move to prekeys made after the copy, within a day.
 - Keep acting until peers see a roster revoking it.
 - If the person marked it as their own on their other devices: **assign work to every session on
   every one of those devices**, which those agents carry out within their normal permissions
@@ -176,12 +184,21 @@ Can:
   notices, lease grants, errors.
 - Grant one lease to two holders at once (section 6.11).
 - Replay an old peer card for a session (cards have no freshness check), or replay old room messages
-  through room history (shown only as history).
+  through room history (shown only as history). A replayed card cannot roll a device back to an
+  older prekey: receivers keep the newest by `at`.
+- Withhold cards, or strip `pk`, so senders keep using an older prekey (forward secrecy then
+  stretches to that prekey's window, never further) or, during the migration window, fall back to
+  scheme 1 boxes for every recipient of a message that names a device they know no prekey for.
+  The sender says so when it falls back.
+- Keep every ciphertext it ever relayed, whatever lifetimes it advertises, and wait for a key file
+  to leak; it then reads only what that device's prekey secrets still open (section 6.14).
 - Delay a roster update for a client until some other member's message reveals it.
 - Refuse service entirely.
 
 Cannot:
-- Read any content. It holds no box keys and never sees file keys.
+- Read any content. It holds no box or prekey secrets and never sees file keys.
+- Forge a prekey: each is signed by its device's own key, and receivers check it against the
+  roster.
 - Forge or alter an item so the receiver accepts it.
 - Replay a live message: outside the 47-hour freshness window it is stale, inside it the durable id
   store and sequence check catch it, across a client restart too.
@@ -279,12 +296,16 @@ requires a bearer token on every request for exactly this reason.
 
 ### 6.1 Confidentiality
 
-Fine against the relay, the network and non-member devices. Each box is sealed under a key only the
-sender and recipient device can derive. XChaCha20-Poly1305 with random 24-byte nonces is safe for
-any volume a device pair will send under one static key. Directions are separated by the order of
-device ids in the HKDF label, meshes by the mesh-id salt.
+Fine against the relay, the network and non-member devices. Each scheme 2 box is HPKE (RFC 9180,
+mode_auth) to the recipient device's current prekey with a fresh ephemeral key, so only that device
+can open it, and only while it keeps that prekey's secret; the sender's roster box key
+authenticates it. The HPKE info binds the mesh, both device ids in sender-to-recipient order and
+the prekey id. Scheme 1 boxes (the migration window) are sealed under a static key only the sender
+and recipient device can derive, with XChaCha20-Poly1305 and random 24-byte nonces, directions
+separated by the order of device ids in the HKDF label and meshes by the mesh-id salt.
 
-Not hidden: message length (ciphertext is plaintext plus 16 bytes), all metadata (section 6.10),
+Not hidden: message length (ciphertext is plaintext plus 16 bytes, plus about 100 bytes of box
+fields), all metadata (section 6.10),
 and content from other devices of the mesh whenever it is a broadcast, a room message, a card or a
 file announced in one. Sibling sessions on the recipient device read the same box, by design.
 
@@ -401,7 +422,8 @@ To the relay: mesh ids, device ids and names, session names and kinds, presence 
 room names and membership, lease keys (a hash of mesh id and lease name, recoverable for guessable
 names), lease holders and timing, blob ids, sizes and timing, the full sender and recipient list of
 every message, timestamps, sizes, and receipt outcomes (which reveal when a person's policy held or
-refused an item). Message kinds, file names and card contents are inside the encryption.
+refused an item), and each device's prekeys with their rotation times (they travel in clear
+headers). Message kinds, file names and card contents are inside the encryption.
 
 To every member: every session's name, kind, presence and rooms, and every session's peer card,
 which by default carries its working directory (often containing a user name and project name) and
@@ -452,7 +474,10 @@ hostile member can still block a lease that others need for that long. Leases su
 ### 6.13 Peer cards
 
 A card is a sealed, signed `*` message of kind `card` with a session's working directory, branch and
-title, stored by the relay (newest per session) and served to every session. The relay cannot read
+title, stored by the relay (newest per session) and served to every session. Every session sends
+one, with no labels when it shares none, because the card's header carries its device's current
+prekey (SPEC section 6b); receivers take the prekey after verifying its own signature, whether or
+not they can open the card. The relay cannot read
 or forge a card, but it can replay an older card for the same session, since cards have no
 freshness. Card fields are labels from a mesh member: escaped for display and never trusted. The
 person's pane shows every card. Agents see peer listings too (the `peers` tool, and the plugin adds
@@ -464,9 +489,47 @@ matched to rows; a relay could still attach a card's labels to the wrong row of 
 
 ### 6.14 Forward secrecy
 
-None in v0.1. Box keys are static. A device key stolen at any time decrypts every recorded item to
-or from that device, and the relay keeps queued ciphertext for 24 hours, room history for 7 days and
-blobs for 24 hours (and could keep anything longer).
+Bounded, from signed prekeys (SPEC section 6b). Each device makes a new X25519 prekey every day per
+mesh, signed by its own key and usable by senders for 48 hours, and deletes each prekey's secret at
+`until` + 72 hours. Senders seal every box to the recipient device's current prekey with a fresh
+ephemeral key (HPKE, mode_auth). So:
+
+- **A key file stolen at time T** opens no box sealed more than 120 hours before T (96 to 120 hours
+  when peers used the device's newest prekey, the usual case). The relay keeps queued ciphertext
+  24 hours, room history and blobs at most 72 hours, but a hostile or subpoenaed relay could keep
+  everything; what it kept beyond that is closed to the stolen file all the same.
+- **Sent traffic:** a box a device sent does not open with its own key file at all, at any time:
+  the ephemeral secret existed only while sealing.
+- **Healing:** an attacker who copied the key file once, and does not keep acting with its signing
+  key, loses the device's new incoming traffic as peers move to prekeys made after the copy
+  (within a day). One who keeps the signing key can sign prekeys of its own and intercept until the
+  device is revoked; revocation, and later a keychain or signer process for the keys, are the
+  answers.
+- **No shared group key:** removal needs no rekey. A revoked device's prekeys fail the roster
+  check, and senders seal nothing more to it.
+- **Retention covers history:** each secret outlives the last box sealed to it by at least 72
+  hours, the longest the relay keeps a queued message, a history entry or a blob chunk.
+
+Limits:
+
+- **Not per message.** Everything sealed to one prekey shares its fate for up to 120 hours.
+- **The migration window.** Until wire 1.0, a message with any recipient device that has no
+  current prekey (a v0.1 client, or one offline over 48 hours) goes in the v0.1 format to every
+  recipient: no `pk` and scheme 1 boxes only, with no forward secrecy for anyone in it, because a
+  v0.1 client drops any frame holding a `pk` or a scheme 2 box. In a mesh with a v0.1 device
+  that is every broadcast and room message, and every direct message naming that device; messages
+  among upgraded devices alone keep forward secrecy. Receivers still open scheme 1 boxes. A relay
+  can force the downgrade by withholding cards and stripping `pk` for one device, and so strip
+  forward secrecy from every message that names it; the sender says so (`wim send` prints "Sent
+  without forward secrecy to ...: no current prekey for ...", and the outcome lists both). Every
+  scheme 1 box ever recorded opens with the static key.
+- **Deletion is a file rewrite.** It runs whenever a wim process for the mesh runs; a device that is
+  switched off keeps what it held until a wim process next runs. Rewriting a file does not erase
+  the old bytes from an SSD, a journaling or copy-on-write file system, a snapshot or a backup. A
+  backup of the wim home defeats forward secrecy for whatever it holds.
+- **Plaintext at rest.** Each session keeps its history as plaintext for 30 days and received files
+  in its downloads folder. Forward secrecy protects recorded ciphertext, not what a thief of the
+  whole disk reads there.
 
 ### 6.15 Denial of service
 
@@ -639,7 +702,9 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
 
 ## 9. Known limits in v0.1
 
-- No forward secrecy; a stolen device key decrypts its recorded history.
+- Forward secrecy is bounded, not per message: a stolen key file opens what was sealed to its
+  device in the last 120 hours. During the migration window a relay can force v0.1 boxes, which
+  have none, and every recorded v0.1 box opens with the static key.
 - Sessions on one device are not isolated; anything running as the OS user is the device.
 - Authenticity is per device; session names are claims.
 - The relay sees all metadata, can drop or delay anything, can replay old cards and history, and is

@@ -4,7 +4,10 @@
   "description": "The publishing CLIs that release.yml's marketplace and openvsx jobs run, pinned through this lockfile.",
   "license": "Apache-2.0",
   "dependencies": {
-    "@vscode/vsce": "4.0.0",
+    "@vscode/vsce": "4.1.0",
     "ovsx": "1.3.0"
+  },
+  "overrides": {
+    "@azure/msal-node": "7.1.1"
   }
 }

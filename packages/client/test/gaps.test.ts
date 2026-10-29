@@ -215,17 +215,28 @@ describe("session edges", () => {
     const { mesh, devices } = await makeMesh(relay, ["one"]);
     let now = Date.now();
     const work = await scratch("card-time");
-    const a = await session(devices[0]!, mesh, relay, { name: "a", cwd: work, now: () => now });
-    const cards = () => relay.sentByClients.filter((t) => t.startsWith('{"t":"card.set"')).length;
+    // The timer never fires, and the card step is called directly: a housekeeping pass can skip it
+    // (a reconnect, or a file the OS holds on Windows), which left the "a minute on, same card"
+    // return unreached on Windows CI while the test still passed.
+    const a = await session(devices[0]!, mesh, relay, { name: "a", cwd: work, now: () => now, tickMs: 3_600_000 });
+    type CardState = { cardAt: number; sendCard(link: Awaited<ReturnType<typeof a.ready>>, force: boolean): Promise<void> };
+    const inner = a as unknown as CardState;
+    // Session a's cards only: the device's setup session publishes one too, empty, for its prekey.
+    const cards = () => relay.sentByClients.filter((t) => t.startsWith('{"t":"card.set"') && t.includes('"session":"a"')).length;
     await until(() => cards() === 1);
+    const sentAt = inner.cardAt;
     now += 61_000;
-    await sleep(60);
+    // A minute on with the same card: past the rate limit, then the "same card" return.
+    expect(now - inner.cardAt).toBeGreaterThanOrEqual(60_000);
+    await inner.sendCard(await a.ready(5000), false);
     expect(cards()).toBe(1);
+    expect(inner.cardAt).toBe(sentAt);
     await fs.mkdir(join(work, ".git"));
     await fs.writeFile(join(work, ".git", "HEAD"), "ref: refs/heads/dev\n");
     now += 61_000;
+    await inner.sendCard(await a.ready(5000), false);
     await until(() => cards() === 2);
-    void a;
+    expect(inner.cardAt).toBe(now);
   });
 
   it("reports results without status or reply_to defensively, and unknown peer kinds", async () => {

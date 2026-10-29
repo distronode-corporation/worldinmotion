@@ -50,6 +50,19 @@
       },
       "signed_bytes_utf8": "wim/1 join\n{\"invite\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"mesh\":\"8yvT1IZgynsBt7R7maZTCw\",\"t\":\"join\"}",
       "sig": "-O04261COqr4OnlTkK6SjNRC7fSaCYUpsm5qkvoEi_XGIyQUBfNRh5LTEegnuCrfeOmZ0nLTcSiX-bUcOh65DA"
+    },
+    {
+      "type": "prekey",
+      "signer": "alice",
+      "object": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "zv5yUNkED9tj8Qn03xCtIg",
+        "id": "AAAAAAAAAAAAAAAAAAAAAA",
+        "at": 1760000000000,
+        "until": 1760172800000
+      },
+      "signed_bytes_utf8": "wim/1 prekey\n{\"at\":1760000000000,\"device\":\"zv5yUNkED9tj8Qn03xCtIg\",\"id\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"mesh\":\"8yvT1IZgynsBt7R7maZTCw\",\"until\":1760172800000}",
+      "sig": "Urtpw6QlozOSUxwqJQLT7psFg9Uc5YRQM6hi8HVNSuiggHLAZsnc9bnCxuSdq6xRRTjqOSociHB5EY1nzdbkAg"
     }
   ],
   "tampered": [

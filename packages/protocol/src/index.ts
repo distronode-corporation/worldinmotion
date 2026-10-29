@@ -76,6 +76,7 @@ export {
   type ResultStatus,
   type SendHeader,
 } from "./message.ts";
+export { createPrekey, prekeyDeleteAt, prekeyId, prekeySchema, prekeyUsable, verifyPrekey, type Prekey } from "./prekey.ts";
 export { signAuth, signRecoverAuth, verifyAuth, verifyRecoverAuth, type AuthFields } from "./auth.ts";
 export { CLOSE } from "./close.ts";
 export * from "./frames.ts";

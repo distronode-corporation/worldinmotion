@@ -39,11 +39,16 @@ import {
   verifyNextRoster,
   verifyObject,
   verifyRecoveryChain,
+  createPrekey,
+  prekeyId,
+  verifyPrekey,
   type DeviceKeys,
+  type Prekey,
   type Roster,
   type SendFrame,
   type SignType,
 } from "../src/index.ts";
+import { hpkeSealAuth } from "../src/hpke.ts";
 import { withRandomSource } from "../src/ids.ts";
 
 const T = 1760000000000;
@@ -195,6 +200,7 @@ function signVectors() {
     send: { t: "send", id: "01K70000000000000000005E0D", seq: 1, at: T },
     auth: { t: "auth", v: 1, relay: "wss://relay.example", at: T },
     join: { t: "join", mesh: MESH, invite: "AAAAAAAAAAAAAAAAAAAAAA" },
+    prekey: { mesh: MESH, device: id(alice), id: "AAAAAAAAAAAAAAAAAAAAAA", at: T, until: T + 2 * 86400000 },
   };
   const cases = (Object.keys(objects) as SignType[]).map((type) => {
     const signed = signObject(type, objects[type]!, alice.signSec);
@@ -352,7 +358,7 @@ function messageVectors() {
       check(!result.ok && result.reason === v.reason, `message tamper ${v.why}`);
     }
     return {
-      description: "alice seals a message to reviewer@bob. Bob's session (address reviewer@bob, clock `now`) opens it to `plaintext`. Each tamper case must fail with `reason`, given the same roster and the `now` and `address` shown (or the defaults).",
+      description: "alice seals a scheme 1 (v0.1, static-static) message to reviewer@bob, as receivers still accept during the migration window (SPEC section 6b). Bob's session (address reviewer@bob, clock `now`) opens it to `plaintext`. Each tamper case must fail with `reason`, given the same roster and the `now` and `address` shown (or the defaults).",
       roster,
       receiver: { device: "bob", address: me.address, sid: me.sid },
       now: T,
@@ -361,6 +367,125 @@ function messageVectors() {
       tampers: tampers.map((v) => ({ why: v.why, now: v.now ?? T, address: v.address ?? me.address, reason: v.reason, frame: v.frame })),
     };
   });
+}
+
+const HOUR = 3600000;
+
+/** Alice's and bob's prekeys for the vectors: made an hour before T, from a fixed stream. */
+function vectorPrekeys(): { alice: { prekey: Prekey; secret: Uint8Array }; bob: { prekey: Prekey; secret: Uint8Array } } {
+  return withRandomSource(stream("wim vectors prekey"), () => ({
+    alice: createPrekey({ mesh: MESH, deviceId: id(alice), signSec: alice.signSec, at: T - HOUR }),
+    bob: createPrekey({ mesh: MESH, deviceId: id(bob), signSec: bob.signSec, at: T - HOUR }),
+  }));
+}
+
+function prekeyVectors() {
+  const pks = vectorPrekeys();
+  const genesis = createGenesisRoster({ name: "alice", keys: alice, now: T, meshId: MESH });
+  const roster = nextRoster(genesis, { add: [makeDeviceRecord("bob", bob, "member", T)] }, { keys: alice }, T);
+  check(verifyPrekey(pks.bob.prekey, roster, T).ok, "bob's prekey verifies");
+
+  // One box by hand, with every intermediate value.
+  const header = {
+    t: "send",
+    mesh: MESH,
+    id: "01K70000000000000000000B02",
+    from: { device: id(alice), session: "writer", sid: "01K700000000000000000005D1" },
+    to: ["reviewer@bob"],
+    seq: 1,
+    at: T,
+    roster: { seq: 2, hash: hash(roster) },
+  };
+  const plaintext = canon({ v: 1, kind: "msg", id: header.id, from: header.from, to: header.to, at: T, roster: header.roster, text: "hello" });
+  const info = `wim/1 box2 ${MESH} ${id(alice)} ${id(bob)} ${pks.bob.prekey.id}`;
+  const aad = sha256(canonBytes(header));
+  const ephemeral = sha256(utf8("wim vectors box2 ephemeral"));
+  const trace = hpkeSealAuth({ pkR: b64u.decode(pks.bob.prekey.pub), skS: alice.boxSec, info: utf8(info), aad, plaintext: utf8(plaintext), ephemeral });
+
+  // A whole frame, as sealMessage makes it.
+  const message = withRandomSource(stream("wim vectors message2"), () => {
+    const frame = sealMessage({
+      roster,
+      sender: { deviceId: id(alice), keys: alice },
+      session: "writer",
+      sid: "01K700000000000000000005D1",
+      to: ["reviewer@bob"],
+      seq: 1,
+      at: T,
+      id: "01K700000000000000000005G2",
+      text: "please review the diff",
+      recipients: [id(bob)],
+      prekeys: { [id(bob)]: pks.bob.prekey },
+      prekey: pks.alice.prekey,
+    });
+    const me = { deviceId: id(bob), keys: bob, address: "reviewer@bob", sid: "01K700000000000000000005D2" };
+    const lookup = (pid: string) => (pid === pks.bob.prekey.id ? pks.bob.secret : undefined);
+    const opened = openMessage(frame, { roster, me: { ...me, prekey: lookup }, now: T });
+    check(opened.ok, "message2 opens");
+    const box = frame.boxes[id(bob)] as { s: 2; p: string; e: string; c: string };
+    const resigned = (f: Record<string, unknown>) => signObject("send", f, alice.signSec) as SendFrame;
+    const otherE = b64u.encode(x25519.getPublicKey(sha256(utf8("wim vectors other ephemeral"))));
+    const tampers: Array<{ why: string; frame: unknown; reason: string; held: string[]; legacy?: boolean }> = [
+      { why: "bob no longer holds the prekey secret (deleted 72 hours after until)", frame, reason: "key_expired", held: [] },
+      { why: "ephemeral key replaced and re-signed", frame: resigned({ ...frame, boxes: { [id(bob)]: { ...box, e: otherE } } }), reason: "decrypt_failed", held: [pks.bob.prekey.id] },
+      { why: "header changed and re-signed", frame: resigned({ ...frame, seq: 2 }), reason: "decrypt_failed", held: [pks.bob.prekey.id] },
+      { why: "box names another prekey bob holds", frame: resigned({ ...frame, boxes: { [id(bob)]: { ...box, p: pks.alice.prekey.id } } }), reason: "decrypt_failed", held: [pks.bob.prekey.id, pks.alice.prekey.id] },
+      { why: "re-signed by bob, who is not the sender", frame: signObject("send", frame, bob.signSec), reason: "bad_signature", held: [pks.bob.prekey.id] },
+    ];
+    for (const v of tampers) {
+      const held = (pid: string) => (v.held.includes(pid) ? (pid === pks.bob.prekey.id ? pks.bob.secret : pks.alice.secret) : undefined);
+      const result = openMessage(v.frame, { roster, me: { ...me, prekey: held }, now: T });
+      check(!result.ok && result.reason === v.reason, `message2 tamper ${v.why}`);
+    }
+    return { frame, me, plaintext: (opened as { value: unknown }).value, tampers };
+  });
+
+  const forged = signObject("prekey", { ...pks.bob.prekey, pub: pks.alice.prekey.pub, id: pks.alice.prekey.id }, alice.signSec);
+  const invalid: Array<{ why: string; prekey: unknown; now: number; reason: string }> = [
+    { why: "signed by alice, published as bob's", prekey: forged, now: T, reason: "bad_signature" },
+    { why: "id not derived from pub", prekey: { ...pks.bob.prekey, id: pks.alice.prekey.id }, now: T, reason: "bad_id" },
+    { why: "replayed into another mesh", prekey: { ...pks.bob.prekey, mesh: b64u.encode(new Uint8Array(16)) }, now: T, reason: "wrong_mesh" },
+    { why: "validity longer than 48 hours", prekey: signObject("prekey", { ...pks.bob.prekey, until: pks.bob.prekey.at + 48 * HOUR + 1 }, bob.signSec), now: T, reason: "bad_window" },
+    { why: "expired: fewer than 10 minutes before until", prekey: pks.bob.prekey, now: pks.bob.prekey.until - 10 * 60000, reason: "expired" },
+    { why: "made more than 10 minutes in the future", prekey: pks.bob.prekey, now: pks.bob.prekey.at - 10 * 60000 - 1, reason: "not_yet" },
+  ];
+  for (const v of invalid) {
+    const r = verifyPrekey(v.prekey, roster, v.now);
+    check(!r.ok && r.reason === v.reason, `prekey invalid ${v.why}`);
+  }
+
+  return {
+    description:
+      "Scheme 2 boxes (SPEC section 6b). `prekeys` are alice's and bob's signed prekeys (type prekey, signed by each device's own sign key) with their secrets. `box` is one box by hand: RFC 9180 HPKE mode_auth, DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, ChaCha20-Poly1305, to bob's prekey, authenticated by alice's roster box key, with a fixed ephemeral secret, info as given and AAD = SHA-256(canon(header)). `message` is a whole frame from sealMessage carrying alice's prekey as `pk`; bob opens it to `plaintext` while he holds his prekey secret, and each tamper must fail with `reason` when he holds only the prekey ids listed in `held`. Each `invalid_prekeys` entry must fail verifyPrekey at `now` with `reason`.",
+    roster,
+    prekeys: {
+      alice: { prekey: pks.alice.prekey, secret: b64u.encode(pks.alice.secret), id_rule: "b64u(SHA-256(pub)) cut to 22", id: prekeyId(b64u.decode(pks.alice.prekey.pub)) },
+      bob: { prekey: pks.bob.prekey, secret: b64u.encode(pks.bob.secret), id_rule: "b64u(SHA-256(pub)) cut to 22", id: prekeyId(b64u.decode(pks.bob.prekey.pub)) },
+    },
+    box: {
+      sender: "alice",
+      recipient: "bob",
+      header,
+      info,
+      aad: b64u.encode(aad),
+      ephemeral_secret: b64u.encode(ephemeral),
+      enc: b64u.encode(trace.enc),
+      shared_secret: b64u.encode(trace.sharedSecret),
+      key: b64u.encode(trace.key),
+      base_nonce: b64u.encode(trace.nonce),
+      plaintext,
+      ciphertext: b64u.encode(trace.ciphertext),
+      box: { s: 2, p: pks.bob.prekey.id, e: b64u.encode(trace.enc), c: b64u.encode(trace.ciphertext) },
+    },
+    message: {
+      receiver: { device: "bob", address: message.me.address, sid: message.me.sid },
+      now: T,
+      frame: message.frame,
+      plaintext: message.plaintext,
+      tampers: message.tampers.map((v) => ({ why: v.why, held: v.held, reason: v.reason, frame: v.frame })),
+    },
+    invalid_prekeys: invalid,
+  };
 }
 
 function blobVectors() {
@@ -390,7 +515,11 @@ function blobVectors() {
 /** Public keys (b64u) of every fixed key in the vectors, signing and box, sorted. */
 export function vectorPublicKeys(): string[] {
   const recovery = withRandomSource(stream("wim vectors roster"), () => createRecoveryKeys(MESH, { now: T }).keys);
-  return [alice, bob, carol, dave, recovery].flatMap((k) => [b64u.encode(k.signPub), b64u.encode(k.boxPub)]).sort();
+  const pks = vectorPrekeys();
+  return [alice, bob, carol, dave, recovery]
+    .flatMap((k) => [b64u.encode(k.signPub), b64u.encode(k.boxPub)])
+    .concat([pks.alice.prekey.pub, pks.bob.prekey.pub])
+    .sort();
 }
 
 /** Every vectors file, by name, as the exact text to commit. */
@@ -404,6 +533,7 @@ export function buildVectors(): Record<string, string> {
     "roster.json": json(rosterVectors()),
     "invite.json": json(inviteVectors()),
     "message.json": json(messageVectors()),
+    "prekey.json": json(prekeyVectors()),
     "blob.json": json(blobVectors()),
   };
 }

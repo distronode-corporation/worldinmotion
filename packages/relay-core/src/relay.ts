@@ -108,6 +108,26 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+/**
+ * The longest any relay keeps a room history entry, a queued message or a blob chunk. It is the
+ * protocol's room history lifetime (72 hours, the prekey retention that forward secrecy
+ * promises). Relay-side limits may lower each of those lifetimes but never raise one past this.
+ * Peer cards are not covered: the relay keeps a session's newest card while the session exists,
+ * and clients re-seal cards themselves.
+ */
+export const RETENTION_MS: number = LIMITS.roomHistoryLifetimeMs;
+
+/**
+ * The most room history rows one sweep (`tick`) deletes per mesh. History is bounded (100 per
+ * room, 64 MiB per mesh), so this only matters when much expires at once, as on the first sweep
+ * after the retention shrank from 7 days: the backlog then goes over a few sweeps, each short
+ * enough for a Durable Object alarm, and expired rows are never served in the meantime.
+ */
+export const HISTORY_SWEEP_BATCH = 256;
+
+/** The lifetimes of relay-held ciphertext, which `RETENTION_MS` caps. */
+const RETAINED = ["roomHistoryLifetimeMs", "queueLifetimeMs", "blobLifetimeMs"] as const;
+
 // Every client frame type the protocol defines, so a pre-auth `send` can be told apart from a
 // type that does not exist at all (the first is `unauthorized`, the second `unknown_type`).
 const CLIENT_TYPES: ReadonlySet<string> = new Set(clientFrameSchema.options.map((o) => o.shape.t.value));
@@ -140,6 +160,7 @@ export class MeshRelay {
     this.config = config;
     this.host = host;
     this.limits = { ...LIMITS, ...config.limits };
+    for (const k of RETAINED) this.limits[k] = Math.min(this.limits[k], RETENTION_MS);
     this.store = host.store;
     this.reconcile();
   }
@@ -239,7 +260,7 @@ export class MeshRelay {
     for (const l of this.store.expiredLeases(now)) this.free(l, "expired", now);
     this.store.pruneWatches(now);
 
-    this.store.pruneHistory(now - L.roomHistoryLifetimeMs);
+    this.store.pruneHistory(now - L.roomHistoryLifetimeMs, HISTORY_SWEEP_BATCH);
     this.store.pruneRooms();
     this.store.pruneChunks(now - L.blobLifetimeMs);
     // The slowest bucket (blob bytes per device) refills completely within a day.
@@ -889,7 +910,9 @@ export class MeshRelay {
 
   private roomHistory(conn: Conn, room: string, before: number | undefined, limit: number | undefined): void {
     const max = Math.min(limit ?? this.limits.roomHistoryPageMax, this.limits.roomHistoryPageMax);
-    const rows = this.store.history(room, before ?? Number.MAX_SAFE_INTEGER, max);
+    // Rows past the retention that a sweep has not reached yet are never served.
+    const since = this.host.now() - this.limits.roomHistoryLifetimeMs;
+    const rows = this.store.history(room, before ?? Number.MAX_SAFE_INTEGER, max, since);
     // A page also has to fit in one relay frame, so it stops early when the messages are large.
     const parts: string[] = [];
     let bytes = 0;
@@ -901,7 +924,7 @@ export class MeshRelay {
       oldest = h.cur;
     }
     // An empty page has nothing older than `before` (the store returned no row before it).
-    const more = parts.length > 0 && this.store.history(room, oldest, 1).length > 0;
+    const more = parts.length > 0 && this.store.history(room, oldest, 1, since).length > 0;
     conn.send(`{"t":"room.history","room":${JSON.stringify(room)},"msgs":[${parts.join(",")}],"more":${more}}`);
   }
 

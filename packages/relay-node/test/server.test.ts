@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { request } from "node:http";
+import { DatabaseSync } from "node:sqlite";
 import {
   b64u,
   createGenesisRoster,
@@ -16,8 +17,10 @@ import {
   type Roster,
 } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RELAY_VERSION } from "@worldinmotion/relay-core";
-import { runUntilSignal, start, type RunningRelay } from "../src/index.ts";
+import { hash, LIMITS } from "@worldinmotion/protocol";
+import { migrate, RELAY_VERSION, SqlStore } from "@worldinmotion/relay-core";
+import { runUntilSignal, sqlDb, start, type RunningRelay } from "../src/index.ts";
+import { STORED_SWEEP_MESHES } from "../src/server.ts";
 import { Dial, scratchDir } from "./helpers.ts";
 
 const running: RunningRelay[] = [];
@@ -236,6 +239,49 @@ describe("relay-node", () => {
     c.ws.close();
     return f["t"] === "roster" ? "ok" : (f["code"] as string);
   };
+
+  it("sweeps stored meshes nobody dialled since start, a few a tick, so their expired history goes", async () => {
+    // A database an older relay wrote under the 7-day history: every mesh holds one row 4 days
+    // old and one fresh row. More meshes than one tick sweeps, so the sweep has to wrap around.
+    const path = join(await scratchDir(), "relay.db");
+    const raw = new DatabaseSync(path);
+    // Closed in `finally`: a handle left open makes the scratch cleanup fail with EBUSY on Windows.
+    try {
+      await sweepsStoredMeshes(path, raw);
+    } finally {
+      raw.close();
+    }
+  }, 30_000);
+
+  async function sweepsStoredMeshes(path: string, raw: DatabaseSync) {
+    const db = sqlDb(raw);
+    migrate(db);
+    const now = Date.now();
+    const ids: string[] = [];
+    for (let i = 0; i < STORED_SWEEP_MESHES * 2 + 1; i++) {
+      const g = createGenesisRoster({ name: "admin", keys: generateDeviceKeys(), now });
+      const store = new SqlStore(db, g.mesh);
+      store.insertRoster({ seq: 1, hash: hash(g), json: JSON.stringify(g) });
+      store.addHistory({ room: "#log", cur: 1, at: now - 4 * 86_400_000, msg: "{}" }, 100);
+      store.addHistory({ room: "#log", cur: 2, at: now, msg: "{}" }, 100);
+      ids.push(g.mesh);
+    }
+    const rows = (sql: string, ...params: number[]) => Number(db.one(sql, ...params)!["n"]);
+    const expired = () => rows("SELECT COUNT(*) AS n FROM room_history WHERE at <= ?", Date.now() - LIMITS.roomHistoryLifetimeMs);
+    expect(expired()).toBe(ids.length);
+    const r = await relay({ db: path, tickMs: 10 });
+    // A dialled mesh is held in memory and swept with the others; the stored sweep skips it.
+    const dialled = new Dial(`${r.relayUrls[0]}/v1/${ids[0]}`);
+    try {
+      await dialled.next();
+      await vi.waitFor(() => expect(expired()).toBe(0), { timeout: 20_000 });
+      expect(rows("SELECT COUNT(*) AS n FROM room_history")).toBe(ids.length);
+      // The stored meshes were swept, not loaded: only the dialled one is in memory.
+      expect(r.loadedMeshes()).toBe(1);
+    } finally {
+      dialled.ws.close();
+    }
+  }
 
   it("ignores X-Forwarded-For by default, so the socket address is the rate-limit source", async () => {
     const r = await relay();
