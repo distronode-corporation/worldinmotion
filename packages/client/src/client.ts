@@ -64,6 +64,17 @@ import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, typ
 /** How many times a delivered frame may fail for a reason of its own before it is let go. */
 const FRAME_ATTEMPTS = 3;
 
+/** The backoff before a held frame is brought again (inboundFailed): first, and at most. */
+const RETRY_FIRST_MS = 1000;
+const RETRY_MAX_MS = 5 * 60_000;
+
+/** Error codes that are the machine's fault, not a frame's: retried, never given up on. */
+const LOCAL_FAULTS: ReadonlySet<string> = new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", "EACCES", "EPERM", "EBUSY", "EMFILE", "ENFILE", "EAGAIN"]);
+
+function localFault(error: unknown): boolean {
+  return LOCAL_FAULTS.has(String((error as NodeJS.ErrnoException).code));
+}
+
 /** A refusal the caller should show as it is: a secret in the text, an unknown peer, a limit. */
 export class ClientError extends Error {
   override readonly name = "ClientError";
@@ -217,6 +228,9 @@ export class MeshSession extends EventEmitter {
   private toldRestart = false;
   /** Frames that failed for a reason of their own, by id: how many times (inboundFailed). */
   private readonly failures = new Map<string, number>();
+  /** The pending drop that brings held frames again, and the backoff before the next one (retryLater). */
+  private retryTimer: NodeJS.Timeout | undefined;
+  private retryDelay = RETRY_FIRST_MS;
   /** Peer cards, opened one at a time in the order they came. */
   private cardsOpened: Promise<void> = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
@@ -406,6 +420,7 @@ export class MeshSession extends EventEmitter {
     if (this.stopped) return;
     this.stopped = true;
     clearInterval(this.ticker);
+    clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
     await this.inbound;
     if (opts.ended === true) this.state = { ...this.state, ended: true };
@@ -440,13 +455,12 @@ export class MeshSession extends EventEmitter {
   }
 
   /**
-   * Retries parked messages after the frames already queued. A failure takes the delivered-frame
-   * path (inboundFailed): a signer that cannot answer holds acks and drops the connection, and the
-   * parked files stay for the next ready. Never left as a rejection on the inbound queue, where it
-   * would be unhandled, or skip the next frame's handler.
+   * Retries parked messages after the frames already queued. Each parked message's own failure is
+   * kept to it (retryParked); anything else is logged. Never left as a rejection on the inbound
+   * queue, where it would be unhandled, or skip the next frame's handler.
    */
   private retryParkedLater(): void {
-    this.inbound = this.inbound.then(() => this.retryParked()).catch((e: unknown) => this.inboundFailed(e));
+    this.inbound = this.inbound.then(() => this.retryParked()).catch((e: unknown) => this.log(`wim: parked: ${(e as Error).message}`));
   }
 
   /** Fetches roster pages from the newest verified one until `upto` (or the relay's newest). */
@@ -641,20 +655,41 @@ export class MeshSession extends EventEmitter {
       return;
     }
     this.log(`wim: inbound: ${(error as Error).message}`);
-    // A frame that fails for a reason of its own (not the signer's) the third time it comes is let
-    // go: logged, not held, so the next ack passes it. Holding it for good would stall the cursor
-    // and bring everything after it again on every connection.
-    if (id !== undefined && !(error instanceof SignerError) && this.failedAgain(id) >= FRAME_ATTEMPTS) {
+    // When the signer could not answer, or what answers is not the signer, nothing more is acked
+    // on this connection and it goes now: the next one authenticates only once the real signer
+    // answers, and the relay delivers this frame again then. Never given up on.
+    if (error instanceof SignerError && (error.transient || error.code === "mismatch")) {
+      this.heldLink = this.link;
+      this.link?.close(CLOSE.bye, "the device's signer did not answer");
+      return;
+    }
+    // A frame that fails for a reason of its own (a signer's `refused` or `bad_request`, a bad
+    // file) the third time it comes is let go: logged, not held, so the next ack passes it. A
+    // local fault (a full disk, an I/O error, a permission) is the machine's, not the frame's:
+    // never counted, retried until it clears.
+    if (id !== undefined && !localFault(error) && this.failedAgain(id) >= FRAME_ATTEMPTS) {
       this.log(`wim: inbound: giving up on message ${id} after ${FRAME_ATTEMPTS} attempts; it will not be delivered`);
       return;
     }
-    // Otherwise nothing more is acked on this connection: a later ack would take this frame with
-    // it. The relay delivers it again on the next connection.
+    // Otherwise nothing more is acked on this connection (a later ack would take this frame with
+    // it), and the connection is dropped after a backoff, so the relay delivers it again.
     this.heldLink = this.link;
-    // When the signer could not answer, or what answers is not the signer, the connection goes
-    // now: the next one authenticates only once the real signer answers. Any other failure keeps
-    // it (a reconnect would only bring the same frame back at once).
-    if (error instanceof SignerError && (error.transient || error.code === "mismatch")) this.link?.close(CLOSE.bye, "the device's signer did not answer");
+    this.retryLater();
+  }
+
+  /**
+   * Drops the connection after the current backoff (1 s, doubling to 5 min, back to 1 s once a
+   * frame is acked), so a held frame is delivered again without waiting for a reconnect.
+   */
+  private retryLater(): void {
+    if (this.retryTimer !== undefined) return;
+    const delay = this.retryDelay;
+    this.retryDelay = Math.min(RETRY_MAX_MS, delay * 2);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = undefined;
+      this.link?.close(CLOSE.bye, "trying a message that could not be handled again");
+    }, delay);
+    this.retryTimer.unref();
   }
 
   /**
@@ -666,7 +701,9 @@ export class MeshSession extends EventEmitter {
   private ack(cursor: number, via: Link | undefined): void {
     if (via !== this.link || via === this.heldLink) return;
     // The relay redelivers anything not acked, and dedupe drops the copy.
-    if (this.sendIfOpen({ t: "ack", cursor })) this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor) };
+    if (!this.sendIfOpen({ t: "ack", cursor })) return;
+    this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor) };
+    this.retryDelay = RETRY_FIRST_MS;
   }
 
   private receipt(id: string, status: "delivered" | "held" | "refused"): void {
@@ -758,14 +795,25 @@ export class MeshSession extends EventEmitter {
     if (page?.t === "roster") await this.forkFrom(page.chain[0]!, link);
   }
 
+  /**
+   * Checks parked messages again. One that fails (a locked signer, a full disk) stays parked for
+   * the next retry (each ready and each roster change), and its failure is its own: it never
+   * counts against the frame whose check started this retry.
+   */
   private async retryParked(): Promise<void> {
     for (const name of await listDir(this.files.behindDir)) {
       const path = join(this.files.behindDir, name);
       const msg = (await readJson(path).catch(() => undefined)) as SendFrame | undefined;
-      const outcome = msg === undefined ? "dropped" : await this.check(msg, true);
+      const outcome = msg === undefined ? "dropped" : await this.check(msg, true).catch((e: unknown) => this.parkedFailed(name, e));
       // Checked again on a later retry if it cannot be removed yet; a repeat is dropped as seen.
       if (outcome !== "behind") await tryRemove(path, this.o.env);
     }
+  }
+
+  /** A parked message that could not be checked now: logged, and left parked ("behind") for the next retry. */
+  private parkedFailed(name: string, error: unknown): "behind" {
+    this.log(`wim: parked message ${name} kept for the next retry: ${(error as Error).message}`);
+    return "behind";
   }
 
   private fromAddress(p: Plaintext): string {

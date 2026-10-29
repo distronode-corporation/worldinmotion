@@ -305,18 +305,29 @@ What it stops:
   on; `wim agent stop` ends it. Nothing on disk lets a process act for the device meanwhile: the
   signer hands out signatures and opened boxes, never a key. What it signed while unlocked stays
   valid, though (below, "Signatures made while unlocked").
-- **A process in the middle of the socket, or in its place.** When the signer starts (unlocked),
-  it makes an Ed25519 key of its own for that run and the device key signs it; it keeps that run
-  key and its certificate through a lock (it signs nothing but hellos). Every `hello` answer,
-  locked or not, carries the certificate and the run key's signature over the client's fresh nonce
-  and both sides' X25519 keys for this connection; both sides derive the connection's keys from
-  that exchange, and every later line is sealed with ChaCha20-Poly1305, one key and a message
-  counter each way. A client sends nothing but the hello to what cannot prove itself, and `wim
-  agent lock`, `stop`, `unlock` and `status` fail (non-zero) against it. So a process that relays
-  the hello (a proxy put at the socket path) reads nothing and can neither change nor forge a line,
-  swapping in its own key breaks the signature, and one put in the signer's place for a moment
-  (the socket renamed aside and back, too fast for any check by the signer) cannot fake a `lock` or
-  a `stop`: it has no run key to prove itself with.
+- **A process in the middle of the socket, or in its place.** The signer proves itself with a key
+  of its own for the run (it signs nothing but hellos), certified by the device key: the
+  certificate names the key, whether the signer is locked, its process id, and when it was issued
+  and runs out (24 hours). An unlocked signer issues a new run key at 12 hours; `lock` has the
+  device key certify a locked one just before the device key goes, and a locked signer stops when
+  that runs out. Every `hello` answer, locked or not, carries the certificate and the run key's
+  signature over the client's fresh nonce, both sides' X25519 keys for this connection and
+  everything the hello says about the signer (`id`, `name`, its public keys, `locked`, `pid`): no
+  client decision rests on an unsigned field. Both sides derive the connection's keys from the
+  exchange, and every later line is sealed with ChaCha20-Poly1305, one key and a message counter
+  each way. A client sends nothing but the hello to what cannot prove itself, and `wim agent
+  lock`, `stop`, `unlock` and `status` fail (non-zero) against it. So a process that relays the
+  hello (a proxy put at the socket path, or another instance of a Windows pipe) reads nothing and
+  can neither change nor forge a line, not even turn "unlocked" into "locked"; swapping in its own
+  key breaks the signature; and one put in the signer's place for a moment (the socket renamed
+  aside and back) cannot fake a `lock` or a `stop`: it has no run key to prove itself with. `lock`
+  is always sent and reports the signer's sealed answer, and `status` the sealed status, never the
+  hello's flag.
+- **A run key read from memory.** A process that reads the signer's memory (below) gets at most a
+  run key: one that can pose as an unlocked signer to collect plaintexts until its certificate runs
+  out (24 hours at most, and only while the device key is unlocked to have issued it), or, taken
+  after a lock, one whose certificate says "locked", which clients never send a plaintext or a
+  request to sign.
 - **Moving the signer's socket aside.** The signer also records its socket's identity (device and
   inode) when it listens, before it answers anything. If the path comes to name anything else (the
   socket renamed away and another put in its place, or nothing there), it locks and stops: checked
@@ -376,7 +387,8 @@ What it does not stop:
   first instance with `FILE_FLAG_FIRST_PIPE_INSTANCE`, so the signer cannot bind a name someone
   already holds. A pipe cannot be renamed, but a process of the same user may create more
   instances of the signer's name under the default security, and a client may connect to one of
-  those; it cannot prove itself (above), so the client sends it nothing and the command fails.
+  those; on its own it cannot prove itself, and relaying to the signer it can change nothing
+  (above), so the client either refuses it or talks to the real signer.
   After a crash `agent/pipe` keeps the old name until the next start; something another user put
   on that name answers clients that still use it and is refused the same way, and `start` takes a
   fresh name in its place. The pipe is created with Windows' default named-pipe security, which by

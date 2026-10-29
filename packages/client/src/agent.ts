@@ -26,7 +26,7 @@ import { promises as fs } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { z } from "zod";
 import type { EndpointFiles } from "./agentpath.ts";
-import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type Channel } from "./channel.ts";
+import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type CertBody, type Channel, type HelloInfo } from "./channel.ts";
 import { MAX_LINE, unseal } from "./signer.ts";
 import { openPrekeySecret, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "./vault.ts";
 
@@ -161,6 +161,9 @@ function ed25519Private(seed: Uint8Array): KeyObject {
  */
 export const SIGN_SKEW_MS = 5 * 60_000;
 
+/** How long a run key's certificate holds (see Signer.run). */
+export const RUN_LIFETIME_MS = 24 * 60 * 60_000;
+
 /** Present on a `hello` answer whose signer opened a channel; JSON.stringify leaves symbol keys out. */
 export const CHANNEL: unique symbol = Symbol("channel");
 
@@ -183,11 +186,14 @@ export class Signer {
   private keys: Unlocked | undefined;
   private signKey: KeyObject | undefined;
   /**
-   * This run's own key, certified by the device key at unlock and kept through a lock, so a locked
-   * signer still proves it is this device's signer (and `lock` and `stop` need that proof). It
-   * signs nothing but hellos.
+   * This run's own key and its certificate from the device key, so the signer proves it is this
+   * device's signer, locked or not (`lock` and `stop` need that proof). It signs nothing but
+   * hellos. The certificate says whether the signer is locked and holds for RUN_LIFETIME_MS: an
+   * unlocked signer issues a new one at half of that, and `lock` issues a locked one (whose key can
+   * only ever pose as a locked signer) before the device key goes; a locked signer stops when its
+   * certificate runs out.
    */
-  private readonly run: { privateKey: KeyObject; pub: string; sig: string };
+  private run!: { privateKey: KeyObject; body: CertBody; sig: string };
   private readonly bucket: TokenBucket;
   private readonly counts: Record<string, number> = {};
   private refused = 0;
@@ -199,8 +205,7 @@ export class Signer {
     this.file = o.file;
     this.keys = o.unlocked;
     this.signKey = ed25519Private(o.unlocked.keys.signSec);
-    const run = runKey();
-    this.run = { privateKey: run.privateKey, pub: b64u.encode(run.pub), sig: b64u.encode(edSign(null, certBytes(run.pub), this.signKey)) };
+    this.issue(false, this.signKey);
     this.started = o.now();
     const rate = o.rate ?? AGENT_RATE;
     this.bucket = new TokenBucket(rate.perSecond, rate.burst, o.now);
@@ -216,10 +221,25 @@ export class Signer {
    */
   lock(): void {
     const k = this.keys;
+    if (k === undefined) return;
+    // The last thing the device key signs: a run key that can only say "locked".
+    this.issue(true, this.signKey!);
     this.keys = undefined;
     this.signKey = undefined;
-    if (k === undefined) return;
     for (const b of [k.keys.signSec, k.keys.boxSec, k.data]) b.fill(0);
+  }
+
+  /** A new run key and its certificate, signed with the device key. */
+  private issue(locked: boolean, signKey: KeyObject): void {
+    const key = runKey();
+    const now = this.o.now();
+    const body: CertBody = { pub: b64u.encode(key.pub), locked, issued: now, expires: now + RUN_LIFETIME_MS, pid: this.o.pid };
+    this.run = { privateKey: key.privateKey, body, sig: b64u.encode(edSign(null, certBytes(body), signKey)) };
+  }
+
+  /** A locked signer whose certificate ran out: it can no longer prove itself, and stops. */
+  get spent(): boolean {
+    return this.locked && this.o.now() >= this.run.body.expires;
   }
 
   /** Its endpoint now names another socket (renamed or replaced): locked, and logged. */
@@ -257,9 +277,12 @@ export class Signer {
         return this.hello(b64u.decode(a["nonce"] as string), b64u.decode(a["epub"] as string));
       case "status":
         return { id: this.file.id, name: this.file.name, locked: this.locked, pid: this.o.pid, started: this.started, ops: { ...this.counts }, refused: this.refused, limited: this.limited };
-      case "lock":
+      case "lock": {
+        // The answer, sealed on the channel, says whether it was locked already: never the hello's flag.
+        const was = this.locked;
         this.lock();
-        return {};
+        return { was };
+      }
       case "stop":
         return {};
     }
@@ -273,27 +296,19 @@ export class Signer {
   }
 
   /**
-   * Who it is and whether it is locked, its own channel key, its run key with the device key's
-   * certificate, and the run key's signature over the client's nonce and both channel keys; with
-   * the channel (CHANNEL) for the server to use. The same locked or unlocked.
+   * Who it is and whether it is locked (HelloInfo), its own channel key, its run key's certificate,
+   * and the run key's signature over the client's nonce, both channel keys and the HelloInfo; with
+   * the channel (CHANNEL) for the server to use. The same locked or unlocked. An unlocked signer
+   * whose certificate is half spent issues a new run key first.
    */
   private hello(nonce: Uint8Array, clientPub: Uint8Array): Record<string | symbol, unknown> {
+    if (this.signKey !== undefined && this.o.now() - this.run.body.issued >= RUN_LIFETIME_MS / 2) this.issue(false, this.signKey);
     const f = this.file;
+    const info: HelloInfo = { id: f.id, name: f.name, signPub: f.signPub, boxPub: f.boxPub, locked: this.locked, pid: this.o.pid };
     const mine = ephemeral();
-    const transcript = helloTranscript(nonce, clientPub, mine.pub);
+    const transcript = helloTranscript(nonce, clientPub, mine.pub, info);
     const channel = channelFor("signer", mine.privateKey, clientPub, transcript);
-    return {
-      id: f.id,
-      name: f.name,
-      signPub: f.signPub,
-      boxPub: f.boxPub,
-      locked: this.locked,
-      pid: this.o.pid,
-      epub: b64u.encode(mine.pub),
-      cert: { pub: this.run.pub, sig: this.run.sig },
-      proof: b64u.encode(edSign(null, transcript, this.run.privateKey)),
-      [CHANNEL]: channel,
-    };
+    return { ...info, epub: b64u.encode(mine.pub), cert: { ...this.run.body, sig: this.run.sig }, proof: b64u.encode(edSign(null, transcript, this.run.privateKey)), [CHANNEL]: channel };
   }
 
   private keyOp(op: "sign" | "seal" | "open" | "open2" | "prekey" | "adopt", a: Record<string, unknown>, k: Unlocked, signKey: KeyObject, entry: LogEntry): Record<string, unknown> {
@@ -451,9 +466,14 @@ export class AgentServer {
     return (await this.o.files.id(this.o.endpoint)) === this.identity;
   }
 
-  /** Locks and stops when the endpoint is no longer this signer's own. */
+  /** Locks and stops when the endpoint is no longer this signer's own; stops when it is locked and its certificate ran out. */
   async watch(): Promise<void> {
-    if (!(await this.owned())) this.replacedNow();
+    this.afterWatch(await this.owned());
+  }
+
+  private afterWatch(owned: boolean): void {
+    if (!owned) this.replacedNow();
+    else if (this.o.signer.spent) void this.close();
   }
 
   private replacedNow(): void {

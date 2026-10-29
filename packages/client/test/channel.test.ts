@@ -8,7 +8,7 @@ import { unseal } from "../src/signer.ts";
 function pair() {
   const client = ephemeral();
   const signer = ephemeral();
-  const transcript = helloTranscript(new Uint8Array(32).fill(7), client.pub, signer.pub);
+  const transcript = helloTranscript(new Uint8Array(32).fill(7), client.pub, signer.pub, { id: "i", name: "n", signPub: "s", boxPub: "b", locked: false, pid: 1 });
   return { client: channelFor("client", client.privateKey, signer.pub, transcript), signer: channelFor("signer", signer.privateKey, client.pub, transcript) };
 }
 

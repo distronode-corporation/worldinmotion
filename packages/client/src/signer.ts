@@ -9,7 +9,7 @@
 
 import { b64u, randomBytes, type Box, type OpenRequest, type Opened, type Prekey, type SealRequest, type SignType } from "@worldinmotion/protocol";
 import { verify } from "node:crypto";
-import { certBytes, channelFor, ed25519Public, ephemeral, helloTranscript, type Channel } from "./channel.ts";
+import { certBytes, channelFor, ed25519Public, ephemeral, helloTranscript, type CertBody, type Channel, type HelloInfo } from "./channel.ts";
 import { createConnection, type Socket } from "node:net";
 import { openWithClearPrekey, type DeviceKeyring, type PrekeyEntry } from "./keyring.ts";
 
@@ -38,7 +38,13 @@ export class SignerError extends Error {
  * X25519 key for the channel; its key for this run (`cert.pub`) with the device key's signature
  * over it (`cert.sig`, made at unlock); and `proof`, that run key's signature over helloTranscript.
  */
-export type Hello = { id: string; name: string; signPub: string; boxPub: string; locked: boolean; pid: number; epub: string; cert: { pub: string; sig: string }; proof: string };
+export type Hello = HelloInfo & { epub: string; cert: CertBody & { sig: string }; proof: string };
+
+/** What a connection to a signer that proved itself locked may still carry. */
+const LOCKED_OPS: ReadonlySet<string> = new Set(["status", "lock", "stop"]);
+
+/** How far ahead of this clock a run key's certificate may say it was issued. */
+const CERT_SKEW_MS = 5 * 60_000;
 
 
 /** Encodes a seal request for the wire. */
@@ -119,6 +125,7 @@ export class SignerClient {
   private readonly expect: Uint8Array | undefined;
   private readonly timeoutMs: number;
   private readonly connect: (endpoint: string) => Socket;
+  private readonly now: () => number;
   private conn: Conn | undefined;
   private opening: Promise<Conn> | undefined;
   private next = 0;
@@ -127,7 +134,8 @@ export class SignerClient {
    * `endpoint` is the signer's address, or a function that finds it again for each new connection
    * (a session outlives a signer restart, and on Windows each start has a new pipe name).
    */
-  constructor(o: { endpoint: string | (() => Promise<string | undefined>); expect?: Uint8Array; timeoutMs?: number; connect?: (endpoint: string) => Socket }) {
+  constructor(o: { endpoint: string | (() => Promise<string | undefined>); expect?: Uint8Array; timeoutMs?: number; connect?: (endpoint: string) => Socket; now?: () => number }) {
+    this.now = o.now ?? Date.now;
     const at = o.endpoint;
     this.endpoint = typeof at === "string" ? at : "";
     this.where = typeof at === "string" ? async () => at : at;
@@ -138,7 +146,10 @@ export class SignerClient {
 
   /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
   async call(op: string, a: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-    return this.send(await this.connected(), op, a);
+    const conn = await this.connected();
+    // A signer that proved it is locked is sent nothing a locked signer could not answer.
+    if (conn.hello!.locked && !LOCKED_OPS.has(op)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in your own terminal");
+    return this.send(conn, op, a);
   }
 
   /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
@@ -226,11 +237,17 @@ export class SignerClient {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
     }
     try {
-      const runPub = b64u.decode(hello.cert.pub);
+      // Everything the client acts on is signed: the certificate (by the device key) and the
+      // HelloInfo (by the run key, in the transcript). A certificate holds only while it is
+      // current and for the lock state and process it names.
+      const { sig, ...body } = hello.cert;
+      const info: HelloInfo = { id: hello.id, name: hello.name, signPub: hello.signPub, boxPub: hello.boxPub, locked: hello.locked, pid: hello.pid };
       const theirs = b64u.decode(hello.epub);
-      const transcript = helloTranscript(nonce, mine.pub, theirs);
-      const certified = verify(null, certBytes(runPub), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.cert.sig));
-      if (!certified || !verify(null, transcript, ed25519Public(runPub), b64u.decode(hello.proof))) throw new Error("bad proof");
+      const transcript = helloTranscript(nonce, mine.pub, theirs, info);
+      const now = this.now();
+      const certified = verify(null, certBytes(body), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(sig));
+      const current = body.locked === hello.locked && body.pid === hello.pid && body.issued <= now + CERT_SKEW_MS && now < body.expires;
+      if (!certified || !current || !verify(null, transcript, ed25519Public(b64u.decode(body.pub)), b64u.decode(hello.proof))) throw new Error("bad proof");
       conn.channel = channelFor("client", mine.privateKey, theirs, transcript);
     } catch {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it is this device's signer`);

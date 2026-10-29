@@ -248,11 +248,10 @@ async function status(ctx: AgentCtx): Promise<number> {
     return 3;
   }
   try {
-    // The hello proved it is this device's signer, locked or not; anything else fails here.
-    const locked = (await client.hello()).locked;
+    // The answer comes sealed on the channel of a signer that proved itself; anything else fails here.
     const s = await client.call("status");
     const ops = Object.entries(s["ops"] as Record<string, number>).map(([op, n]) => `${op} ${n}`);
-    ctx.io.out(`signer: running (pid ${String(s["pid"])}), ${locked ? "locked" : "unlocked"} (verified), device ${String(s["name"])} (${String(s["id"])})`);
+    ctx.io.out(`signer: running (pid ${String(s["pid"])}), ${s["locked"] === true ? "locked" : "unlocked"} (verified), device ${String(s["name"])} (${String(s["id"])})`);
     ctx.io.out(`since ${new Date(s["started"] as number).toISOString()}: ${ops.length === 0 ? "no operations" : ops.join(", ")}; refused ${String(s["refused"])}, rate limited ${String(s["limited"])}`);
     ctx.io.out(`log: ${agentLogPath(ctx.home.root)}`);
     return 0;
@@ -272,20 +271,18 @@ async function simple(ctx: AgentCtx, action: "lock" | "stop"): Promise<number> {
     ctx.io.out("No signer is running.");
     return action === "stop" ? 0 : 3;
   }
+  let answer: Record<string, unknown>;
   try {
-    const locked = (await client.hello()).locked;
-    if (action === "lock" && locked) {
-      ctx.io.out("The signer is locked already (verified).");
-      return 0;
-    }
-    await client.call(action);
+    // Always sent: the hello's own `locked` is not what this command reports.
+    answer = await client.call(action);
   } finally {
     client.close();
   }
   if (action === "stop" && (await answers(client.endpoint))) {
     throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts. End that process`);
   }
-  ctx.io.out(action === "lock" ? "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase." : "Signer stopped.");
+  if (action === "stop") ctx.io.out("Signer stopped.");
+  else ctx.io.out(answer["was"] === true ? "The signer was locked already (verified)." : "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase.");
   return 0;
 }
 

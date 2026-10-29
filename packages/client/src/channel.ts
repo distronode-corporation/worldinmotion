@@ -5,7 +5,7 @@
 // sealed. A process in the middle (a proxy on the socket path) can relay the hello, but it holds
 // neither secret: it can read nothing after it, and forge or change nothing.
 
-import { b64u } from "@worldinmotion/protocol";
+import { b64u, canonBytes } from "@worldinmotion/protocol";
 import { createCipheriv, createDecipheriv, createHash, createPublicKey, diffieHellman, generateKeyPairSync, hkdfSync, type KeyObject } from "node:crypto";
 
 /** The label of the signer's proof (never a `wim/1` signature type). */
@@ -16,9 +16,15 @@ export const CERT_LABEL = "wim-agent/2 signer\n";
 
 const ED25519_SPKI = Buffer.from("302a300506032b6570032100", "hex");
 
-/** What the device key signs to certify a signer's key for one run: the label and the raw public key. */
-export function certBytes(certPub: Uint8Array): Uint8Array {
-  return Buffer.concat([Buffer.from(CERT_LABEL, "utf8"), certPub]);
+/**
+ * A run key's certificate body: the key (b64u), whether it is a locked signer's, when it was issued
+ * and until when it holds (ms), and the signer's process id. The device key signs certBytes(body).
+ */
+export type CertBody = { pub: string; locked: boolean; issued: number; expires: number; pid: number };
+
+/** What the device key signs to certify a run key: the label and the canonical certificate body. */
+export function certBytes(body: CertBody): Uint8Array {
+  return Buffer.concat([Buffer.from(CERT_LABEL, "utf8"), canonBytes(body)]);
 }
 
 /** A fresh Ed25519 key for one signer run: the private key object and the raw 32-byte public key. */
@@ -40,9 +46,15 @@ export function ephemeral(): { privateKey: KeyObject; pub: Uint8Array } {
   return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(X25519_SPKI.length)) };
 }
 
-/** What the signer signs in `hello`: the label, the client's nonce, the client's key, then its own. */
-export function helloTranscript(nonce: Uint8Array, clientPub: Uint8Array, serverPub: Uint8Array): Uint8Array {
-  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce, clientPub, serverPub]);
+/** What a hello says about the signer, all of it signed (helloTranscript): nothing a client acts on travels unsigned. */
+export type HelloInfo = { id: string; name: string; signPub: string; boxPub: string; locked: boolean; pid: number };
+
+/**
+ * What the signer signs in `hello`: the label, the client's nonce, the client's key, its own, then
+ * the canonical HelloInfo, so a process in the middle can change none of it (not even `locked`).
+ */
+export function helloTranscript(nonce: Uint8Array, clientPub: Uint8Array, serverPub: Uint8Array, info: HelloInfo): Uint8Array {
+  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce, clientPub, serverPub, canonBytes(info)]);
 }
 
 /**

@@ -19,9 +19,9 @@ import {
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AgentError, AgentLog, CHANNEL, Signer, SIGN_SKEW_MS, TokenBucket, type LogEntry } from "../src/agent.ts";
+import { AgentError, AgentLog, CHANNEL, RUN_LIFETIME_MS, Signer, SIGN_SKEW_MS, TokenBucket, type LogEntry } from "../src/agent.ts";
 import { ed25519Public } from "../src/channel.ts";
-import { certBytes, channelFor, ephemeral, helloTranscript, type Channel } from "../src/channel.ts";
+import { certBytes, channelFor, ephemeral, helloTranscript, type CertBody, type Channel, type HelloInfo } from "../src/channel.ts";
 import { openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "../src/vault.ts";
 import { scratch } from "./helpers.ts";
 import { verify } from "node:crypto";
@@ -101,32 +101,54 @@ describe("AgentLog", () => {
 });
 
 describe("Signer", () => {
-  it("proves in hello, locked or not, that it is this device's signer: a run key the device key certified signs the nonce and both channel keys", async () => {
+  it("proves in hello, locked or not, that it is this device's signer, and signs everything the hello says", async () => {
     const m = await made();
     const nonce = randomBytes(32);
     const client = ephemeral();
-    const ask = async () => (await m.signer.handle("hello", { nonce: b64u.encode(nonce), epub: b64u.encode(client.pub) })) as Record<string | symbol, unknown> & { cert: { pub: string; sig: string } };
+    type Answer = Record<string | symbol, unknown> & HelloInfo & { epub: string; proof: string; cert: CertBody & { sig: string } };
+    const ask = async () => (await m.signer.handle("hello", { nonce: b64u.encode(nonce), epub: b64u.encode(client.pub) })) as Answer;
+    const check = (hello: Answer) => {
+      const { sig, ...body } = hello.cert;
+      expect(verify(null, certBytes(body), ed25519Public(m.keys.signPub), b64u.decode(sig))).toBe(true);
+      const info: HelloInfo = { id: hello.id, name: hello.name, signPub: hello.signPub, boxPub: hello.boxPub, locked: hello.locked, pid: hello.pid };
+      const theirs = b64u.decode(hello.epub);
+      const transcript = helloTranscript(nonce, client.pub, theirs, info);
+      expect(verify(null, transcript, ed25519Public(b64u.decode(body.pub)), b64u.decode(hello.proof))).toBe(true);
+      // `locked` is signed: the same hello claiming the other state does not verify.
+      expect(verify(null, helloTranscript(nonce, client.pub, theirs, { ...info, locked: !info.locked }), ed25519Public(b64u.decode(body.pub)), b64u.decode(hello.proof))).toBe(false);
+      return { transcript, theirs, body };
+    };
     const hello = await ask();
     expect(hello).toMatchObject({ id: m.file.id, name: "laptop", signPub: m.file.signPub, locked: false, pid: 42 });
-    const runPub = b64u.decode(hello.cert.pub);
-    expect(verify(null, certBytes(runPub), ed25519Public(m.keys.signPub), b64u.decode(hello.cert.sig))).toBe(true);
-    const theirs = b64u.decode(hello["epub"] as string);
-    const transcript = helloTranscript(nonce, client.pub, theirs);
-    expect(verify(null, transcript, ed25519Public(runPub), b64u.decode(hello["proof"] as string))).toBe(true);
+    expect(hello.cert).toMatchObject({ locked: false, pid: 42, issued: T, expires: T + RUN_LIFETIME_MS });
+    const { transcript, theirs, body } = check(hello);
     // The channel it opened is the one the client derives: what one seals, the other opens.
     const mine = channelFor("client", client.privateKey, theirs, transcript);
     const signerSide = hello[CHANNEL] as Channel;
     expect(signerSide.open(mine.seal("to the signer"))).toBe("to the signer");
     expect(mine.open(signerSide.seal("to the client"))).toBe("to the client");
     // Signed for another client key, the proof does not verify: a relayed hello is worthless.
-    expect(verify(null, helloTranscript(nonce, ephemeral().pub, theirs), ed25519Public(runPub), b64u.decode(hello["proof"] as string))).toBe(false);
-    // Locked, the device key is gone but the run key and its certificate remain: the same proof.
+    const info: HelloInfo = { id: hello.id, name: hello.name, signPub: hello.signPub, boxPub: hello.boxPub, locked: hello.locked, pid: hello.pid };
+    expect(verify(null, helloTranscript(nonce, ephemeral().pub, theirs, info), ed25519Public(b64u.decode(body.pub)), b64u.decode(hello.proof))).toBe(false);
+    // Half way through its life, an unlocked signer's run key is replaced.
+    m.clock.now = T + RUN_LIFETIME_MS / 2;
+    const renewed = await ask();
+    expect(renewed.cert.pub).not.toBe(hello.cert.pub);
+    expect(renewed.cert.issued).toBe(m.clock.now);
+    check(renewed);
+    // Locked, the last thing the device key signed is a run key that can only say "locked".
     m.signer.lock();
     m.signer.lock();
     const locked = await ask();
-    expect(locked["locked"]).toBe(true);
-    expect(locked.cert).toEqual(hello.cert);
-    expect(verify(null, helloTranscript(nonce, client.pub, b64u.decode(locked["epub"] as string)), ed25519Public(runPub), b64u.decode(locked["proof"] as string))).toBe(true);
+    expect(locked.locked).toBe(true);
+    expect(locked.cert).toMatchObject({ locked: true, issued: m.clock.now, expires: m.clock.now + RUN_LIFETIME_MS });
+    expect(locked.cert.pub).not.toBe(renewed.cert.pub);
+    check(locked);
+    // Not renewed while locked; spent once it runs out.
+    expect(m.signer.spent).toBe(false);
+    m.clock.now += RUN_LIFETIME_MS;
+    expect((await ask()).cert.pub).toBe(locked.cert.pub);
+    expect(m.signer.spent).toBe(true);
   });
 
   it("signs auth and send objects only for a time near its own clock", async () => {

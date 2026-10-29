@@ -10,7 +10,9 @@ import { MeshSession, type SessionOptions } from "../src/client.ts";
 import type { FsEnv } from "../src/fsx.ts";
 import type { Platform } from "../src/platform.ts";
 import { Home, type Device, type LocalDevice } from "../src/home.ts";
-import type { DeviceKeys } from "@worldinmotion/protocol";
+import { b64u, deviceIdFromSignPub, type DeviceKeys } from "@worldinmotion/protocol";
+import { createPrivateKey, sign as edSign } from "node:crypto";
+import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type CertBody, type Channel } from "../src/channel.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
 import { main, type CliIO } from "../src/cli.ts";
@@ -296,3 +298,28 @@ export function term(home: string, relay: RelayHarness, extra: Partial<CliIO> = 
 export const run = (t: Term, ...argv: string[]): Promise<number> => main(argv, t.env, t.io);
 export const said = (t: Term): string => [...t.out, ...t.err].join("\n");
 
+
+/**
+ * A signer's `hello` answer made by hand with a device's real keys, as a test stand-in needs it:
+ * the run key's certificate (with `cert` overriding its fields), the signed HelloInfo, and the
+ * channel the stand-in then speaks on.
+ */
+export function handHello(
+  keys: DeviceKeys,
+  ask: { nonce: string; epub: string },
+  o: { locked?: boolean; pid?: number; now?: number; cert?: Partial<CertBody> } = {},
+): { hello: Record<string, unknown>; channel: Channel } {
+  const device = createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), keys.signSec]), format: "der", type: "pkcs8" });
+  const run = runKey();
+  const now = o.now ?? Date.now();
+  const locked = o.locked ?? false;
+  const pid = o.pid ?? 1;
+  const body: CertBody = { pub: b64u.encode(run.pub), locked, issued: now, expires: now + 60_000, pid, ...o.cert };
+  const cert = { ...body, sig: b64u.encode(edSign(null, certBytes(body), device)) };
+  const info = { id: deviceIdFromSignPub(keys.signPub), name: "stand-in", signPub: b64u.encode(keys.signPub), boxPub: b64u.encode(keys.boxPub), locked, pid };
+  const mine = ephemeral();
+  const theirs = b64u.decode(ask.epub);
+  const transcript = helloTranscript(b64u.decode(ask.nonce), theirs, mine.pub, info);
+  const hello = { ...info, epub: b64u.encode(mine.pub), cert, proof: b64u.encode(edSign(null, transcript, run.privateKey)) };
+  return { hello, channel: channelFor("signer", mine.privateKey, theirs, transcript) };
+}

@@ -89764,8 +89764,8 @@ import { createCipheriv, createDecipheriv, createHash as createHash3, createPubl
 var HELLO_LABEL = "wim-agent/2 hello\n";
 var CERT_LABEL = "wim-agent/2 signer\n";
 var ED25519_SPKI = Buffer.from("302a300506032b6570032100", "hex");
-function certBytes(certPub) {
-  return Buffer.concat([Buffer.from(CERT_LABEL, "utf8"), certPub]);
+function certBytes(body) {
+  return Buffer.concat([Buffer.from(CERT_LABEL, "utf8"), canonBytes(body)]);
 }
 function runKey() {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
@@ -89779,8 +89779,8 @@ function ephemeral() {
   const { privateKey, publicKey } = generateKeyPairSync("x25519");
   return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(X25519_SPKI.length)) };
 }
-function helloTranscript(nonce, clientPub, serverPub) {
-  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce, clientPub, serverPub]);
+function helloTranscript(nonce, clientPub, serverPub, info) {
+  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce, clientPub, serverPub, canonBytes(info)]);
 }
 var Channel = class _Channel {
   sendKey;
@@ -89841,6 +89841,8 @@ var SignerError = class extends Error {
     return ["locked", "unavailable", "timeout", "rate_limited"].includes(this.code);
   }
 };
+var LOCKED_OPS = /* @__PURE__ */ new Set(["status", "lock", "stop"]);
+var CERT_SKEW_MS = 5 * 6e4;
 function encodeSeal(req) {
   return {
     mesh: req.mesh,
@@ -89886,6 +89888,7 @@ var SignerClient = class {
   expect;
   timeoutMs;
   connect;
+  now;
   conn;
   opening;
   next = 0;
@@ -89894,6 +89897,7 @@ var SignerClient = class {
    * (a session outlives a signer restart, and on Windows each start has a new pipe name).
    */
   constructor(o3) {
+    this.now = o3.now ?? Date.now;
     const at = o3.endpoint;
     this.endpoint = typeof at === "string" ? at : "";
     this.where = typeof at === "string" ? async () => at : at;
@@ -89903,7 +89907,9 @@ var SignerClient = class {
   }
   /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
   async call(op2, a5 = {}) {
-    return this.send(await this.connected(), op2, a5);
+    const conn = await this.connected();
+    if (conn.hello.locked && !LOCKED_OPS.has(op2)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in your own terminal");
+    return this.send(conn, op2, a5);
   }
   /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
   async hello() {
@@ -89981,11 +89987,14 @@ var SignerClient = class {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
     }
     try {
-      const runPub = b64u.decode(hello.cert.pub);
+      const { sig, ...body } = hello.cert;
+      const info = { id: hello.id, name: hello.name, signPub: hello.signPub, boxPub: hello.boxPub, locked: hello.locked, pid: hello.pid };
       const theirs = b64u.decode(hello.epub);
-      const transcript = helloTranscript(nonce, mine.pub, theirs);
-      const certified = verify(null, certBytes(runPub), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(hello.cert.sig));
-      if (!certified || !verify(null, transcript, ed25519Public(runPub), b64u.decode(hello.proof))) throw new Error("bad proof");
+      const transcript = helloTranscript(nonce, mine.pub, theirs, info);
+      const now = this.now();
+      const certified = verify(null, certBytes(body), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(sig));
+      const current = body.locked === hello.locked && body.pid === hello.pid && body.issued <= now + CERT_SKEW_MS && now < body.expires;
+      if (!certified || !current || !verify(null, transcript, ed25519Public(b64u.decode(body.pub)), b64u.decode(hello.proof))) throw new Error("bad proof");
       conn.channel = channelFor("client", mine.privateKey, theirs, transcript);
     } catch {
       throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it is this device's signer`);
@@ -90585,6 +90594,12 @@ var Connection = class {
 
 // src/client.ts
 var FRAME_ATTEMPTS = 3;
+var RETRY_FIRST_MS = 1e3;
+var RETRY_MAX_MS = 5 * 6e4;
+var LOCAL_FAULTS = /* @__PURE__ */ new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", "EACCES", "EPERM", "EBUSY", "EMFILE", "ENFILE", "EAGAIN"]);
+function localFault(error63) {
+  return LOCAL_FAULTS.has(String(error63.code));
+}
 var ClientError = class extends Error {
   name = "ClientError";
   code;
@@ -90654,6 +90669,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
   toldRestart = false;
   /** Frames that failed for a reason of their own, by id: how many times (inboundFailed). */
   failures = /* @__PURE__ */ new Map();
+  /** The pending drop that brings held frames again, and the backoff before the next one (retryLater). */
+  retryTimer;
+  retryDelay = RETRY_FIRST_MS;
   /** Peer cards, opened one at a time in the order they came. */
   cardsOpened = Promise.resolve();
   /** Sends from seal to wire, one at a time, so frames leave in seq order (SPEC section 6). */
@@ -90823,6 +90841,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (this.stopped) return;
     this.stopped = true;
     clearInterval(this.ticker);
+    clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
     await this.inbound;
     if (opts.ended === true) this.state = { ...this.state, ended: true };
@@ -90851,13 +90870,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.retryParkedLater();
   }
   /**
-   * Retries parked messages after the frames already queued. A failure takes the delivered-frame
-   * path (inboundFailed): a signer that cannot answer holds acks and drops the connection, and the
-   * parked files stay for the next ready. Never left as a rejection on the inbound queue, where it
-   * would be unhandled, or skip the next frame's handler.
+   * Retries parked messages after the frames already queued. Each parked message's own failure is
+   * kept to it (retryParked); anything else is logged. Never left as a rejection on the inbound
+   * queue, where it would be unhandled, or skip the next frame's handler.
    */
   retryParkedLater() {
-    this.inbound = this.inbound.then(() => this.retryParked()).catch((e6) => this.inboundFailed(e6));
+    this.inbound = this.inbound.then(() => this.retryParked()).catch((e6) => this.log(`wim: parked: ${e6.message}`));
   }
   /** Fetches roster pages from the newest verified one until `upto` (or the relay's newest). */
   async walk(link, upto) {
@@ -91023,12 +91041,31 @@ var MeshSession = class _MeshSession extends EventEmitter {
       return;
     }
     this.log(`wim: inbound: ${error63.message}`);
-    if (id !== void 0 && !(error63 instanceof SignerError) && this.failedAgain(id) >= FRAME_ATTEMPTS) {
+    if (error63 instanceof SignerError && (error63.transient || error63.code === "mismatch")) {
+      this.heldLink = this.link;
+      this.link?.close(CLOSE.bye, "the device's signer did not answer");
+      return;
+    }
+    if (id !== void 0 && !localFault(error63) && this.failedAgain(id) >= FRAME_ATTEMPTS) {
       this.log(`wim: inbound: giving up on message ${id} after ${FRAME_ATTEMPTS} attempts; it will not be delivered`);
       return;
     }
     this.heldLink = this.link;
-    if (error63 instanceof SignerError && (error63.transient || error63.code === "mismatch")) this.link?.close(CLOSE.bye, "the device's signer did not answer");
+    this.retryLater();
+  }
+  /**
+   * Drops the connection after the current backoff (1 s, doubling to 5 min, back to 1 s once a
+   * frame is acked), so a held frame is delivered again without waiting for a reconnect.
+   */
+  retryLater() {
+    if (this.retryTimer !== void 0) return;
+    const delay3 = this.retryDelay;
+    this.retryDelay = Math.min(RETRY_MAX_MS, delay3 * 2);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = void 0;
+      this.link?.close(CLOSE.bye, "trying a message that could not be handled again");
+    }, delay3);
+    this.retryTimer.unref();
   }
   /**
    * Acks a frame on the connection it came on, `via`. Acks are cumulative, so a frame from an
@@ -91038,7 +91075,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   ack(cursor2, via) {
     if (via !== this.link || via === this.heldLink) return;
-    if (this.sendIfOpen({ t: "ack", cursor: cursor2 })) this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor2) };
+    if (!this.sendIfOpen({ t: "ack", cursor: cursor2 })) return;
+    this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor2) };
+    this.retryDelay = RETRY_FIRST_MS;
   }
   receipt(id, status2) {
     this.sendIfOpen({ t: "receipt", id, to: this.address, status: status2 });
@@ -91117,13 +91156,23 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const page = await link.request({ t: "roster.get", from: seq }, (f7) => f7.t === "roster" || errorFor("roster.get")(f7), this.answerMs).catch(() => void 0);
     if (page?.t === "roster") await this.forkFrom(page.chain[0], link);
   }
+  /**
+   * Checks parked messages again. One that fails (a locked signer, a full disk) stays parked for
+   * the next retry (each ready and each roster change), and its failure is its own: it never
+   * counts against the frame whose check started this retry.
+   */
   async retryParked() {
     for (const name of await listDir(this.files.behindDir)) {
       const path2 = join8(this.files.behindDir, name);
       const msg = await readJson(path2).catch(() => void 0);
-      const outcome = msg === void 0 ? "dropped" : await this.check(msg, true);
+      const outcome = msg === void 0 ? "dropped" : await this.check(msg, true).catch((e6) => this.parkedFailed(name, e6));
       if (outcome !== "behind") await tryRemove(path2, this.o.env);
     }
+  }
+  /** A parked message that could not be checked now: logged, and left parked ("behind") for the next retry. */
+  parkedFailed(name, error63) {
+    this.log(`wim: parked message ${name} kept for the next retry: ${error63.message}`);
+    return "behind";
   }
   fromAddress(p3) {
     const name = this.roster.devices.find((d5) => d5.id === p3.from.device).name;
@@ -120654,6 +120703,7 @@ function ed25519Private(seed) {
   }
 }
 var SIGN_SKEW_MS = 5 * 6e4;
+var RUN_LIFETIME_MS = 24 * 60 * 6e4;
 var CHANNEL = /* @__PURE__ */ Symbol("channel");
 var Signer = class {
   file;
@@ -120661,9 +120711,12 @@ var Signer = class {
   keys;
   signKey;
   /**
-   * This run's own key, certified by the device key at unlock and kept through a lock, so a locked
-   * signer still proves it is this device's signer (and `lock` and `stop` need that proof). It
-   * signs nothing but hellos.
+   * This run's own key and its certificate from the device key, so the signer proves it is this
+   * device's signer, locked or not (`lock` and `stop` need that proof). It signs nothing but
+   * hellos. The certificate says whether the signer is locked and holds for RUN_LIFETIME_MS: an
+   * unlocked signer issues a new one at half of that, and `lock` issues a locked one (whose key can
+   * only ever pose as a locked signer) before the device key goes; a locked signer stops when its
+   * certificate runs out.
    */
   run;
   bucket;
@@ -120676,8 +120729,7 @@ var Signer = class {
     this.file = o3.file;
     this.keys = o3.unlocked;
     this.signKey = ed25519Private(o3.unlocked.keys.signSec);
-    const run = runKey();
-    this.run = { privateKey: run.privateKey, pub: b64u.encode(run.pub), sig: b64u.encode(edSign(null, certBytes(run.pub), this.signKey)) };
+    this.issue(false, this.signKey);
     this.started = o3.now();
     const rate = o3.rate ?? AGENT_RATE;
     this.bucket = new TokenBucket(rate.perSecond, rate.burst, o3.now);
@@ -120691,10 +120743,22 @@ var Signer = class {
    */
   lock() {
     const k5 = this.keys;
+    if (k5 === void 0) return;
+    this.issue(true, this.signKey);
     this.keys = void 0;
     this.signKey = void 0;
-    if (k5 === void 0) return;
     for (const b5 of [k5.keys.signSec, k5.keys.boxSec, k5.data]) b5.fill(0);
+  }
+  /** A new run key and its certificate, signed with the device key. */
+  issue(locked, signKey) {
+    const key2 = runKey();
+    const now = this.o.now();
+    const body = { pub: b64u.encode(key2.pub), locked, issued: now, expires: now + RUN_LIFETIME_MS, pid: this.o.pid };
+    this.run = { privateKey: key2.privateKey, body, sig: b64u.encode(edSign(null, certBytes(body), signKey)) };
+  }
+  /** A locked signer whose certificate ran out: it can no longer prove itself, and stops. */
+  get spent() {
+    return this.locked && this.o.now() >= this.run.body.expires;
   }
   /** Its endpoint now names another socket (renamed or replaced): locked, and logged. */
   replaced() {
@@ -120728,9 +120792,11 @@ var Signer = class {
         return this.hello(b64u.decode(a5["nonce"]), b64u.decode(a5["epub"]));
       case "status":
         return { id: this.file.id, name: this.file.name, locked: this.locked, pid: this.o.pid, started: this.started, ops: { ...this.counts }, refused: this.refused, limited: this.limited };
-      case "lock":
+      case "lock": {
+        const was = this.locked;
         this.lock();
-        return {};
+        return { was };
+      }
       case "stop":
         return {};
     }
@@ -120743,27 +120809,19 @@ var Signer = class {
     return this.keyOp(op2, a5, keys, this.signKey, entry);
   }
   /**
-   * Who it is and whether it is locked, its own channel key, its run key with the device key's
-   * certificate, and the run key's signature over the client's nonce and both channel keys; with
-   * the channel (CHANNEL) for the server to use. The same locked or unlocked.
+   * Who it is and whether it is locked (HelloInfo), its own channel key, its run key's certificate,
+   * and the run key's signature over the client's nonce, both channel keys and the HelloInfo; with
+   * the channel (CHANNEL) for the server to use. The same locked or unlocked. An unlocked signer
+   * whose certificate is half spent issues a new run key first.
    */
   hello(nonce, clientPub) {
+    if (this.signKey !== void 0 && this.o.now() - this.run.body.issued >= RUN_LIFETIME_MS / 2) this.issue(false, this.signKey);
     const f7 = this.file;
+    const info = { id: f7.id, name: f7.name, signPub: f7.signPub, boxPub: f7.boxPub, locked: this.locked, pid: this.o.pid };
     const mine = ephemeral();
-    const transcript = helloTranscript(nonce, clientPub, mine.pub);
+    const transcript = helloTranscript(nonce, clientPub, mine.pub, info);
     const channel = channelFor("signer", mine.privateKey, clientPub, transcript);
-    return {
-      id: f7.id,
-      name: f7.name,
-      signPub: f7.signPub,
-      boxPub: f7.boxPub,
-      locked: this.locked,
-      pid: this.o.pid,
-      epub: b64u.encode(mine.pub),
-      cert: { pub: this.run.pub, sig: this.run.sig },
-      proof: b64u.encode(edSign(null, transcript, this.run.privateKey)),
-      [CHANNEL]: channel
-    };
+    return { ...info, epub: b64u.encode(mine.pub), cert: { ...this.run.body, sig: this.run.sig }, proof: b64u.encode(edSign(null, transcript, this.run.privateKey)), [CHANNEL]: channel };
   }
   keyOp(op2, a5, k5, signKey, entry) {
     const me = this.file.id;
@@ -120900,9 +120958,13 @@ var AgentServer = class {
   async owned() {
     return await this.o.files.id(this.o.endpoint) === this.identity;
   }
-  /** Locks and stops when the endpoint is no longer this signer's own. */
+  /** Locks and stops when the endpoint is no longer this signer's own; stops when it is locked and its certificate ran out. */
   async watch() {
-    if (!await this.owned()) this.replacedNow();
+    this.afterWatch(await this.owned());
+  }
+  afterWatch(owned) {
+    if (!owned) this.replacedNow();
+    else if (this.o.signer.spent) void this.close();
   }
   replacedNow() {
     this.o.signer.replaced();
@@ -121179,10 +121241,9 @@ async function status(ctx) {
     return 3;
   }
   try {
-    const locked = (await client.hello()).locked;
     const s3 = await client.call("status");
     const ops = Object.entries(s3["ops"]).map(([op2, n3]) => `${op2} ${n3}`);
-    ctx.io.out(`signer: running (pid ${String(s3["pid"])}), ${locked ? "locked" : "unlocked"} (verified), device ${String(s3["name"])} (${String(s3["id"])})`);
+    ctx.io.out(`signer: running (pid ${String(s3["pid"])}), ${s3["locked"] === true ? "locked" : "unlocked"} (verified), device ${String(s3["name"])} (${String(s3["id"])})`);
     ctx.io.out(`since ${new Date(s3["started"]).toISOString()}: ${ops.length === 0 ? "no operations" : ops.join(", ")}; refused ${String(s3["refused"])}, rate limited ${String(s3["limited"])}`);
     ctx.io.out(`log: ${agentLogPath(ctx.home.root)}`);
     return 0;
@@ -121196,20 +121257,17 @@ async function simple(ctx, action) {
     ctx.io.out("No signer is running.");
     return action === "stop" ? 0 : 3;
   }
+  let answer;
   try {
-    const locked = (await client.hello()).locked;
-    if (action === "lock" && locked) {
-      ctx.io.out("The signer is locked already (verified).");
-      return 0;
-    }
-    await client.call(action);
+    answer = await client.call(action);
   } finally {
     client.close();
   }
   if (action === "stop" && await answers(client.endpoint)) {
     throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts. End that process`);
   }
-  ctx.io.out(action === "lock" ? "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase." : "Signer stopped.");
+  if (action === "stop") ctx.io.out("Signer stopped.");
+  else ctx.io.out(answer["was"] === true ? "The signer was locked already (verified)." : "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase.");
   return 0;
 }
 async function unlock(ctx) {

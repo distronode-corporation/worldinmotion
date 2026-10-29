@@ -5,7 +5,7 @@
 import { b64u, createPrekey, generateDeviceKeys, randomBytes, sealMessage, type PrekeyBox, type SendFrame } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentServer, Signer, type LogEntry } from "../src/agent.ts";
 import { agentDir, agentEndpoint, endpointFiles, writeAgentSettings } from "../src/agentpath.ts";
 import { decryptDevice, encryptDevice } from "../src/agentcli.ts";
@@ -195,35 +195,66 @@ describe("sessions through the signer", () => {
     expect(logs.filter((l) => l.startsWith("wim: inbound: "))).toEqual(["wim: inbound: disk full", "wim: inbound: what answers is not the signer", "wim: inbound: the signer did not answer", "wim: inbound: the signer is locked"]);
   });
 
-  it("a frame that keeps failing for a reason of its own is let go on its third attempt (re-review, N5)", async () => {
+  it("a held frame comes again after a backoff; one that fails for its own reason is let go on its third attempt, a local fault never (N5, round 3)", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);
     const logs: string[] = [];
     const a = await openSession(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
-    const inner = a as unknown as { inboundFailed(error: unknown, id?: string): void; ack(cursor: number, via: unknown): void; failedAgain(id: string): number; state: { cursor: number } };
+    const inner = a as unknown as { inboundFailed(error: unknown, id?: string): void; ack(cursor: number, via: unknown): void; failedAgain(id: string): number; state: { cursor: number }; retryDelay: number };
     const acks = (): number => relay.sentByClients.filter((t) => t.startsWith('{"t":"ack"')).length;
+    const turns = async (done: () => boolean): Promise<void> => {
+      for (let n = 0; n < 2000 && !done(); n++) await new Promise((r) => setImmediate(r));
+      expect(done()).toBe(true);
+    };
+    const bad = Object.assign(new Error("the frame's file name is not usable here"), { code: "EINVAL" });
+    const full = Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
     const before = acks();
-    // Each attempt comes on a new connection (the relay delivers it again after a reconnect).
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      const link = a.link;
-      inner.inboundFailed(new Error("spool write failed"), "01FRAME");
-      inner.ack(inner.state.cursor + 1, link);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      // Attempt 1: held, and the connection is dropped after 1 s (no earlier), so the frame comes again.
+      const first = a.link!;
+      inner.inboundFailed(bad, "01FRAME");
+      inner.ack(inner.state.cursor + 1, first);
       expect(acks()).toBe(before);
-      relay.dropAll();
-      await until(() => a.link !== undefined && a.link.isOpen && a.link !== link, undefined, "a new connection");
+      vi.advanceTimersByTime(999);
+      expect(first.isOpen).toBe(true);
+      vi.advanceTimersByTime(1);
+      await turns(() => !first.isOpen && a.link === undefined);
+      // Attempt 2: held again, the next drop due after 2 s; attempt 3: let go.
+      inner.inboundFailed(bad, "01FRAME");
+      expect(inner.retryDelay).toBe(4000);
+      inner.inboundFailed(bad, "01FRAME");
+      expect(logs.at(-1)).toMatch(/giving up on message 01FRAME after 3 attempts/);
+      // A full disk is the machine's fault: held and tried again later and later, never given up on.
+      for (let n = 0; n < 4; n++) {
+        vi.advanceTimersByTime(inner.retryDelay);
+        inner.inboundFailed(full, "02DISK");
+      }
+      expect(inner.retryDelay).toBe(64_000);
+      expect(logs.some((l) => l.includes("giving up on message 02DISK"))).toBe(false);
+      // A drop due while there is no connection has nothing to drop.
+      vi.advanceTimersByTime(inner.retryDelay);
+      expect(a.link).toBeUndefined();
+      // A signer's refusal of this very frame counts like any other failure of its own.
+      for (let n = 0; n < 3; n++) inner.inboundFailed(new SignerError("refused", "not this one"), "03REFUSED");
+      expect(logs.some((l) => l.includes("giving up on message 03REFUSED after 3 attempts"))).toBe(true);
+      // Let the reconnect that was waiting run, then go back to real time.
+      vi.runOnlyPendingTimers();
+    } finally {
+      vi.useRealTimers();
     }
-    inner.inboundFailed(new Error("spool write failed"), "01FRAME");
-    expect(logs.at(-1)).toMatch(/giving up on message 01FRAME after 3 attempts/);
+    await until(() => a.link !== undefined && a.link.isOpen, undefined, "a new connection");
+    // The new connection acks again, and an ack resets the backoff.
     inner.ack(inner.state.cursor + 1, a.link);
     expect(acks()).toBe(before + 1);
-    // A signer failure is never let go: it is the signer's to answer, not the frame's fault.
-    for (let i = 0; i < 3; i++) inner.inboundFailed(new SignerError("refused", "not now"), "03SIGNER");
-    expect(logs.some((l) => l.includes("giving up on message 03SIGNER"))).toBe(false);
-    expect(inner.failedAgain("02OTHER")).toBe(1);
-    // Only the last 64 frames are remembered.
-    for (let i = 0; i < 64; i++) inner.failedAgain(`f${i}`);
-    expect(inner.failedAgain("02OTHER")).toBe(1);
+    expect(inner.retryDelay).toBe(1000);
+    // A drop still pending when the session stops is cancelled with it.
+    inner.inboundFailed(full, "05STOP");
     await a.stop();
+    // Only the last 64 frames are remembered.
+    expect(inner.failedAgain("06OTHER")).toBe(1);
+    for (let n = 0; n < 64; n++) inner.failedAgain(`f${n}`);
+    expect(inner.failedAgain("06OTHER")).toBe(1);
   });
 
   it("a frame that came on an earlier connection is not acked on the next one; the relay delivers it again", async () => {
@@ -274,15 +305,26 @@ describe("sessions through the signer", () => {
     await fs.mkdir(a.files.behindDir, { recursive: true });
     await fs.writeFile(parked, JSON.stringify(frame));
     signer.lock();
-    const inner = a as unknown as { retryParkedLater(): void; inbound: Promise<void> };
+    const inner = a as unknown as { retryParkedLater(): void; retryParked(): Promise<void>; inbound: Promise<void> };
     inner.retryParkedLater();
     await inner.inbound;
-    // Refused for want of the signer: logged, the file kept, the connection given up.
-    expect(logs.some((l) => /inbound: .*locked/.test(l))).toBe(true);
+    // Refused for want of the signer: logged as the parked message's own, and the file kept.
+    expect(logs.some((l) => new RegExp(`parked message ${frame.id}\\.json kept for the next retry: .*locked`).test(l))).toBe(true);
     expect(await fs.readFile(parked, "utf8")).toContain(frame.id);
+    // A retry started inside another frame's check does not hand that frame the parked one's failure.
+    await expect(inner.retryParked()).resolves.toBeUndefined();
+    // A listing that fails is logged, not left unhandled.
+    await fs.rename(a.files.behindDir, `${a.files.behindDir}.aside`);
+    await fs.writeFile(a.files.behindDir, "not a directory");
+    inner.retryParkedLater();
+    await inner.inbound;
+    expect(logs.some((l) => l.startsWith("wim: parked: "))).toBe(true);
+    await fs.rm(a.files.behindDir);
+    await fs.rename(`${a.files.behindDir}.aside`, a.files.behindDir);
     // Unlocked (a new signer): the next connection's ready retries it.
     await server.close();
     await serve(one);
+    relay.dropAll();
     await until(async () => (await a.spool.unread()).some((i) => i.rendered.includes("parked")), undefined, "the parked message");
     await until(async () => !(await fs.stat(parked).then(() => true, () => false)), undefined, "the parked file to go");
   });

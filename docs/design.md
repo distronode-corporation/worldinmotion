@@ -106,33 +106,46 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   `require_signer` is set or `WIM_REQUIRE_SIGNER=1`). An encrypted one gives a keyring that calls
   the signer; with no signer, or a locked one, the command says which `wim agent` command to run.
 - The socket speaks JSON lines: `{ "i", "op", "a" }`, answered `{ "i", "r" }` or
-  `{ "i", "e": { "code", "message" } }`. Operations: `hello` (the client sends a nonce and an
-  X25519 key; the signer, locked or not, answers with its own X25519 key, its run key with the
-  device key's signature over `wim-agent/2 signer\n` and that key (made at start, kept through a
-  lock), and the run key's signature over `wim-agent/2 hello\n`, the nonce and both X25519 keys;
-  the client checks both against the key file's public part on every new connection and sends
-  nothing more to what fails; from then on each line on that connection is `{ "x" }`, the JSON
-  sealed with ChaCha20-Poly1305 under keys both sides derive with HKDF from the exchange, a counter
-  as nonce each way), `status`, `sign` (auth, send, roster, join; only objects that name this device;
-  `auth` and `send` only with an `at` within 5 minutes of the signer's clock; never a prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey
-  entry; refused past its deletion time), `prekey` (makes one, dated within 5 minutes of the signer's clock: public half and sealed secret),
-  `adopt` (seals a clear prekey secret of this device's), `lock`, `stop` (the signer stops
-  listening before it answers, then closes every connection without waiting for its client).
-  Before answering any request, and every 2 seconds, the signer checks that its endpoint still
-  names its own socket (device and inode); if not, it locks and stops. Key operations are rate
-  limited (100 a second, burst 1000).
-  Requests on one connection are answered in order. A client sends a connection whose signer has
-  not proved the key (a locked one, or an impostor) only `hello`, `status`, `lock` and `stop`, and
-  keeps each connection's calls to itself, so a connection that closes late fails only its own.
-- A signer that is locked or gone makes a send fail with the reason. A delivered message that cannot
-  be handled, for any reason, is not acknowledged, and nothing later is acknowledged on that
-  connection (acks are cumulative). A frame that fails for a reason of its own (not the signer's)
-  the third time it is delivered is let go, with a log line, so one bad frame cannot stall the
-  cursor for good. When the reason is the signer (locked, gone, slow, or what
-  answers is not the signer), the session also drops the connection; the next one authenticates once the
-  signer answers, and the relay delivers everything after the last ack again. A frame is only ever
-  acked on the connection it came on, so one still queued from an earlier connection never acks
-  past a frame that failed. A retry of parked messages that fails takes the same path.
+  `{ "i", "e": { "code", "message" } }`.
+- `hello`: the client sends a nonce and an X25519 key. The signer, locked or not, answers with
+  what it is (`id`, `name`, `signPub`, `boxPub`, `locked`, `pid`), its own X25519 key, its run
+  key's certificate, and the run key's signature over `wim-agent/2 hello\n`, the nonce, both
+  X25519 keys and those fields in canonical JSON: nothing the client acts on travels unsigned.
+  The certificate is the device key's signature over `wim-agent/2 signer\n` and the canonical
+  `{ pub, locked, issued, expires, pid }`; it holds for 24 hours. An unlocked signer issues a new
+  run key at 12 hours; `lock` issues a locked one before the device key goes, and a locked signer
+  stops when that runs out. The client checks the certificate against the key file's public part,
+  that it is current and matches the hello's `locked` and `pid`, and the signature; it sends
+  nothing more to what fails. From then on each line on that connection is `{ "x" }`, the JSON
+  sealed with ChaCha20-Poly1305 under keys both sides derive with HKDF from the exchange, a
+  counter as nonce each way. A connection to a signer that proved it is locked carries only
+  `status`, `lock` and `stop`.
+- The other operations: `status`, `sign` (auth, send, roster, join; only objects that name this
+  device; `auth` and `send` only with an `at` within 5 minutes of the signer's clock; never a
+  prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey entry; refused past
+  its deletion time), `prekey` (makes one, dated within 5 minutes of the signer's clock: public
+  half and sealed secret), `adopt` (seals a clear prekey secret of this device's), `lock` (answers
+  `{ was }`, whether it was locked already, sealed: `wim agent lock` reports that, never the
+  hello's flag), `stop` (the signer stops listening before it answers, then closes every connection
+  without waiting for its client). Before answering any request, and every 2 seconds, the signer
+  checks that its endpoint still names its own socket (device and inode); if not, it locks and
+  stops. Key operations are rate limited (100 a second, burst 1000). Requests on one connection
+  are answered in order, and a client keeps each connection's calls to itself, so a connection
+  that closes late fails only its own.
+- A signer that is locked or gone makes a send fail with the reason. A delivered message that
+  cannot be handled is not acknowledged, and nothing later is acknowledged on that connection
+  (acks are cumulative); a frame is only ever acked on the connection it came on.
+  - The signer could not answer (locked, gone, slow), or what answers is not the signer: the
+    session drops the connection at once; the next one authenticates once the signer answers,
+    and the relay delivers everything after the last ack again. Never given up on.
+  - A local fault (`ENOSPC`, `EDQUOT`, `EIO`, `EROFS`, `EACCES`, `EPERM`, `EBUSY`, `EMFILE`,
+    `ENFILE`, `EAGAIN`): the session drops the connection after a backoff (1 s, doubling to 5
+    minutes, back to 1 s at the next ack), so the frame comes again. Never given up on.
+  - Anything else, the frame's own (including the signer's `refused` or `bad_request` for it):
+    the same backoff, and on its third failure the frame is let go with a log line, so one bad
+    frame cannot stall the cursor for good.
+  - A parked message that fails when retried stays parked for the next retry (each ready and each
+    roster change); its failure is its own and never counts against another frame.
 
 ## The MCP server (`wim mcp`)
 

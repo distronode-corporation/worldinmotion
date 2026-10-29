@@ -16,13 +16,12 @@ import {
 } from "@worldinmotion/protocol";
 import { createServer, type Server, type Socket } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AgentServer, answers, Signer, type LogEntry } from "../src/agent.ts";
+import { AgentServer, answers, RUN_LIFETIME_MS, Signer, type LogEntry } from "../src/agent.ts";
 import { agentEndpoint, endpointFiles, type EndpointFiles } from "../src/agentpath.ts";
 import { parseAnswer, SignerClient, signerKeyring, SignerError, unseal } from "../src/signer.ts";
-import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type Channel } from "../src/channel.ts";
-import { createPrivateKey, sign as edSign } from "node:crypto";
+import { ephemeral, type Channel } from "../src/channel.ts";
 import { sealKeyFile } from "../src/vault.ts";
-import { FS, scratch } from "./helpers.ts";
+import { FS, handHello, scratch } from "./helpers.ts";
 
 const KDF = { N: 1024, r: 8, p: 1 };
 const MESH = b64u.encode(randomBytes(16));
@@ -63,20 +62,14 @@ type Answerer = { sealed(text: string): void; raw(text: string): void };
  * own checks pass; after the hello, `reply` answers each request, sealed or (to test the client)
  * in the clear.
  */
-async function trustedFake(reply: (req: { i: number; op: string }, answer: Answerer) => void): Promise<{ at: string; signPub: Uint8Array }> {
+async function trustedFake(reply: (req: { i: number; op: string }, answer: Answerer) => void, o: Parameters<typeof handHello>[2] = {}): Promise<{ at: string; signPub: Uint8Array }> {
   const keys = generateDeviceKeys();
-  const device = createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), keys.signSec]), format: "der", type: "pkcs8" });
-  const run = runKey();
-  const cert = { pub: b64u.encode(run.pub), sig: b64u.encode(edSign(null, certBytes(run.pub), device)) };
   const { at } = await fake((line, socket, state) => {
     if (state.channel === undefined) {
       const { i, a } = JSON.parse(line) as { i: number; a: { nonce: string; epub: string } };
-      const mine = ephemeral();
-      const theirs = b64u.decode(a.epub);
-      const transcript = helloTranscript(b64u.decode(a.nonce), theirs, mine.pub);
-      const hello = { id: "fake", name: "fake", signPub: b64u.encode(keys.signPub), boxPub: b64u.encode(keys.boxPub), locked: false, pid: 1, epub: b64u.encode(mine.pub), cert, proof: b64u.encode(edSign(null, transcript, run.privateKey)) };
+      const { hello, channel } = handHello(keys, a, o);
       socket.write(`${JSON.stringify({ i, r: hello })}\n`);
-      state.channel = channelFor("signer", mine.privateKey, theirs, transcript);
+      state.channel = channel;
       return;
     }
     const channel = state.channel;
@@ -150,10 +143,17 @@ describe("the signer's socket", () => {
     cleanup.push(() => fresh.close());
     expect(await fresh.hello()).toMatchObject({ locked: true });
     expect(await fresh.call("status")).toMatchObject({ locked: true });
+    const before = log.length;
     for (const [op, a] of [["prekey", { mesh: MESH, at: 1 }], ["sign", { type: "auth", obj: { device: r.id, at: Date.now() } }]] as const) {
       expect((await failure(fresh.call(op, a))).code).toBe("locked");
     }
-    expect(log.filter((e) => e.code === "locked")).toHaveLength(2);
+    // Refused here: a signer that proved it is locked is not asked.
+    expect(log.length).toBe(before);
+    // One connected while it was unlocked still asks, and the signer refuses.
+    expect((await failure(r.client.call("prekey", { mesh: MESH, at: Date.now() }))).code).toBe("locked");
+    expect(log.at(-1)).toMatchObject({ op: "prekey", code: "locked" });
+    // `lock` says what it found, sealed on the channel.
+    expect(await fresh.call("lock")).toEqual({ was: true });
     await fresh.call("stop");
     await r.server.stopped;
   });
@@ -204,6 +204,26 @@ describe("the signer's socket", () => {
     await r.client.call("stop");
     await r.server.stopped;
     expect(r.signer.locked).toBe(true);
+  });
+
+  it("a locked signer whose run key's certificate ran out stops by itself (round 3)", async () => {
+    let now = Date.now();
+    const keys = generateDeviceKeys();
+    const file = await sealKeyFile({ name: "laptop", keys, passphrase: "pass phrase", kdf: KDF });
+    const signer = new Signer({ file, unlocked: { keys, data: randomBytes(32) }, now: () => now, pid: 1, log: () => undefined });
+    const server = new AgentServer({ signer, endpoint: await endpoint(), files: endpointFiles(process.platform) });
+    await server.listen();
+    cleanup.push(() => server.close());
+    // Unlocked, a run key is renewed at half its life and never runs out.
+    now += RUN_LIFETIME_MS;
+    await server.watch();
+    signer.lock();
+    now += RUN_LIFETIME_MS - 1;
+    await server.watch();
+    expect(signer.spent).toBe(false);
+    now += 1;
+    await server.watch();
+    await server.stopped;
   });
 
   it("a request that comes before the endpoint's identity is recorded waits for it (re-review, N4)", async () => {
@@ -484,6 +504,28 @@ describe("SignerClient", () => {
       },
     });
     expect((await failure(odd.call("status"))).message).toMatch(/odd failure/);
+  });
+
+  it("refuses a certificate that does not match the hello or is not current, and a hello changed on the way (round 3)", async () => {
+    const now = Date.now();
+    for (const o of [
+      { locked: true, cert: { locked: false } },
+      { cert: { pid: 2 } },
+      { cert: { issued: now + 10 * 60_000, expires: now + 20 * 60_000 } },
+      { cert: { expires: now - 1 } },
+    ]) {
+      const f = await trustedFake((req, answer) => answer.sealed(JSON.stringify({ i: req.i, r: {} })), { now, ...o });
+      const client = new SignerClient({ endpoint: f.at, expect: f.signPub, now: () => now });
+      cleanup.push(() => client.close());
+      expect((await failure(client.call("status"))).code, JSON.stringify(o)).toBe("mismatch");
+    }
+    // A process in the middle that flips `locked` in a relayed hello breaks the proof.
+    const r = await running();
+    const p = await proxy(r.at, (line, fromClient) => (fromClient ? line : line.replace('"locked":false', '"locked":true')));
+    const client = new SignerClient({ endpoint: p.at, expect: r.keys.signPub });
+    cleanup.push(() => client.close());
+    expect((await failure(client.call("lock"))).code).toBe("mismatch");
+    expect(r.signer.locked).toBe(false);
   });
 
   it("refuses a stand-in that cannot prove it holds the key", async () => {

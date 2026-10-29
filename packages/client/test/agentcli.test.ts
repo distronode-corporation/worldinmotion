@@ -9,10 +9,9 @@ import { createServer } from "node:net";
 import { agentEndpoint } from "../src/agentpath.ts";
 import { spawnDetached, wimCommand } from "../src/agentcli.ts";
 import { processIo, type Proc } from "../src/io.ts";
-import { keysOf, makeMesh, newDevice, RELAY, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
-import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type Channel } from "../src/channel.ts";
-import { b64u, type DeviceKeys } from "@worldinmotion/protocol";
-import { createPrivateKey, sign as edSign } from "node:crypto";
+import { handHello, keysOf, makeMesh, newDevice, RELAY, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
+import type { Channel } from "../src/channel.ts";
+import type { DeviceKeys } from "@worldinmotion/protocol";
 import type { CliIO } from "../src/cli.ts";
 
 const PASS = "pass phrase";
@@ -88,9 +87,6 @@ async function impostor(d: { home: { readKeyFile(): Promise<unknown> } }, at: st
  * says it is `locked` or not, answers every request with `{}`, and keeps listening after `stop`.
  */
 async function stubbornSigner(keys: DeviceKeys, locked: boolean, at: string) {
-  const device = createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), keys.signSec]), format: "der", type: "pkcs8" });
-  const run = runKey();
-  const cert = { pub: b64u.encode(run.pub), sig: b64u.encode(edSign(null, certBytes(run.pub), device)) };
   const ops: string[] = [];
   const server = createServer((socket) => {
     socket.setEncoding("utf8");
@@ -105,12 +101,9 @@ async function stubbornSigner(keys: DeviceKeys, locked: boolean, at: string) {
         if (channel === undefined) {
           const { i, a } = JSON.parse(line) as { i: number; a: { nonce: string; epub: string } };
           ops.push("hello");
-          const mine = ephemeral();
-          const theirs = b64u.decode(a.epub);
-          const transcript = helloTranscript(b64u.decode(a.nonce), theirs, mine.pub);
-          const hello = { id: "x", name: "x", signPub: b64u.encode(keys.signPub), boxPub: b64u.encode(keys.boxPub), locked, pid: 1, epub: b64u.encode(mine.pub), cert, proof: b64u.encode(edSign(null, transcript, run.privateKey)) };
-          socket.write(`${JSON.stringify({ i, r: hello })}\n`);
-          channel = channelFor("signer", mine.privateKey, theirs, transcript);
+          const made = handHello(keys, a, { locked });
+          socket.write(`${JSON.stringify({ i, r: made.hello })}\n`);
+          channel = made.channel;
           continue;
         }
         const req = JSON.parse(channel.open(JSON.parse(line).x)!) as { i: number; op: string };
