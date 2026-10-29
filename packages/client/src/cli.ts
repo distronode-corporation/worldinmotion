@@ -31,7 +31,7 @@ import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 
-export const VERSION = "0.1.3";
+export const VERSION = "0.1.4";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {

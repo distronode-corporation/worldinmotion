@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-29
+
 ### Added
 
 - **`wim agent`, a signer that keeps the device keys out of agents' reach** (`SECURITY-MODEL.md`
@@ -45,6 +47,12 @@ body line with a bracket.
 - **Client library: a `Device` carries a `keyring`, not its raw `keys`.** A device read from a
   plaintext key file is a `LocalDevice`, which still has `keys`; one whose keys are in the signer
   has none. Peer cards are opened one at a time in arrival order.
+- **Prompts on a closed stdin answer empty** instead of leaving the process to exit with Node's
+  "unsettled top-level await" warning: `--passphrase-stdin` with no input fails with "no
+  passphrase given", and a confirmation (`wim invite`, `wim recover`) reads as no. A last line
+  without a newline still counts as the answer.
+- **Dependencies**: `@aws-sdk/client-bedrock-runtime` 3.1155.0; the GitHub Actions the workflows
+  pin move to their latest minor versions.
 
 ## [0.1.3] - 2026-10-29
 
@@ -181,7 +189,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.4
 [0.1.3]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.3
 [0.1.2]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.2
 [0.1.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.1
