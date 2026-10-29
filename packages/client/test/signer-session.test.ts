@@ -95,6 +95,10 @@ describe("sessions through the signer", () => {
     await a.send("b@two", "warm up");
     signer.lock();
     await expect(a.send("b@two", "while locked")).rejects.toThrow(/locked/);
+    // Its card cannot be sealed either: said in the log, and sent again once it can be.
+    const inner = a as unknown as { sendCard(link: Awaited<ReturnType<typeof a.ready>>, force: boolean): Promise<void> };
+    await inner.sendCard(await a.ready(3000), true);
+    expect(logs.some((l) => /peer card not sent: .*locked/.test(l))).toBe(true);
     await b.send("a@one", "for later");
     await until(() => logs.some((l) => /inbound: .*locked/.test(l)), undefined, "the refused open");
     // A card that arrives meanwhile is not read either.

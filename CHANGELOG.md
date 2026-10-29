@@ -15,21 +15,6 @@ body line with a bracket.
 
 ### Added
 
-- **Forward secrecy, bounded** (`SPEC.md` section 6b, `SECURITY-MODEL.md` section 6.14). Each
-  device makes a signed X25519 prekey per mesh every day (signed by its own key, valid 48 hours)
-  and deletes each prekey's secret 72 hours after it expires. Every box is sealed to the
-  recipient device's current prekey with a fresh ephemeral key: RFC 9180 HPKE in auth mode,
-  DHKEM(X25519, HKDF-SHA256), HKDF-SHA256 and ChaCha20-Poly1305, built on the noble libraries the
-  protocol already used (no new dependency) and checked against the RFC's test vectors. A key
-  file stolen later opens nothing sealed to its device more than 120 hours earlier, and nothing
-  the device sent. Sibling sessions still read one box per device, redelivery and dedupe work as
-  before, and revocation needs no rekey.
-- **A scheme field on every new box** (`"s": 2`), so a later scheme, such as an MLS room mode as
-  `wim/2`, is added without breaking this one. A box without `s` is a v0.1 box.
-- **Prekeys travel in headers**, as `pk` in every `send` frame and peer card. No relay frame was
-  added, and a relay needs no code change, only the new protocol package.
-- New test vectors in `packages/protocol/vectors/prekey.json`; `sign.json` covers the `prekey`
-  signature type.
 - **`wim agent`, a signer that keeps the device keys out of agents' reach** (`SECURITY-MODEL.md`
   section 5.8), the ssh-agent model, optional. `wim agent encrypt` encrypts `device.json` under a
   passphrase (scrypt, ChaCha20-Poly1305) and seals every prekey secret; `wim agent start`, run in
@@ -50,23 +35,55 @@ body line with a bracket.
 
 ### Changed
 
+- **Client library: a `Device` carries a `keyring`, not its raw `keys`.** A device read from a
+  plaintext key file is a `LocalDevice`, which still has `keys`; one whose keys are in the signer
+  has none. Peer cards are opened one at a time in arrival order.
+
+## [0.1.3] - 2026-10-29
+
+### Added
+
+- **Forward secrecy, bounded** (`SPEC.md` section 6b, `SECURITY-MODEL.md` section 6.14). Each
+  device makes a signed X25519 prekey per mesh every day (signed by its own key, valid 48 hours)
+  and deletes each prekey's secret 72 hours after it expires. Every box is sealed to the
+  recipient device's current prekey with a fresh ephemeral key: RFC 9180 HPKE in auth mode,
+  DHKEM(X25519, HKDF-SHA256), HKDF-SHA256 and ChaCha20-Poly1305, built on the noble libraries the
+  protocol already used (no new dependency) and checked against the RFC's test vectors. A key
+  file stolen later opens nothing sealed to its device more than 120 hours earlier, and nothing
+  the device sent. Sibling sessions still read one box per device, redelivery and dedupe work as
+  before, and revocation needs no rekey.
+- **A scheme field on every new box** (`"s": 2`), so a later scheme, such as an MLS room mode as
+  `wim/2`, is added without breaking this one. A box without `s` is a v0.1 box.
+- **Prekeys travel in headers**, as `pk` in every `send` frame and peer card. No relay frame was
+  added, and a relay needs no code change, only the new protocol package.
+- New test vectors in `packages/protocol/vectors/prekey.json`; `sign.json` covers the `prekey`
+  signature type.
+
+### Changed
+
 - **The wire format changes.** A v0.1 client drops any frame that holds a new box or a `pk`, and a
-  v0.1 relay refuses such frames as malformed: upgrade relays first, then every device of a mesh.
+  v0.1 relay refuses such frames as malformed: upgrade relays first. Devices can then upgrade one
+  at a time: an upgraded client sends a v0.1 device only frames it reads (below).
 - **The migration window, until 1.0.** Clients still open v0.1 boxes, so v0.1 senders and messages
-  queued or kept in history from before an upgrade still read. A sender with no current prekey for
-  a device (a v0.1 client, or one offline for over 48 hours) seals that device a v0.1 box, without
-  forward secrecy, and `wim send` prints "Sent without forward secrecy to ...". A hostile relay
-  can force that downgrade during the window by withholding cards. From 1.0, v0.1 boxes are
-  refused and senders never fall back.
+  queued or kept in history from before an upgrade still read. A message with any recipient
+  device that has no current prekey (a v0.1 client, or one offline for over 48 hours) goes in the
+  v0.1 format for every recipient: no `pk` and v0.1 boxes only, so a v0.1 device in the send reads
+  it. It has no forward secrecy for anyone in it: `wim send` prints "Sent without forward secrecy
+  to <every device in the send>: no current prekey for <the devices without one> ...", and the MCP
+  `send`, `reply` and `send_file` results carry `unprotected`, `no_prekey` and that sentence as
+  `note`. In a mesh with a v0.1 device that is every room and broadcast message; upgraded devices
+  still learn each other's prekeys from cards, so messages among them alone keep forward secrecy.
+  A hostile relay can force that downgrade during the window by withholding cards. From 1.0, v0.1
+  boxes are refused and senders never fall back.
+- **Peer cards keep `pk` in a mixed mesh**, since they are how upgraded devices learn prekeys. A
+  v0.1 client drops them and loses peer labels (the labels of a whole `cards` page holding one),
+  nothing else.
 - **Every session now publishes a peer card**, with no labels when cards are off or it has no
   working directory, because the card's header carries the device's prekey. Listings show no
   labels for an empty card, as before.
 - **A message sealed to a prekey this device no longer holds** (deleted on schedule, or lost with
   the prekey file) is dropped, and the session gets one notice per sender device asking for it to
   be sent again.
-- **Client library: a `Device` carries a `keyring`, not its raw `keys`.** A device read from a
-  plaintext key file is a `LocalDevice`, which still has `keys`; one whose keys are in the signer
-  has none. Peer cards are opened one at a time in arrival order.
 
 ## [0.1.2] - 2026-10-29
 
@@ -157,7 +174,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.3
 [0.1.2]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.2
 [0.1.1]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.1
 [0.1.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.0
