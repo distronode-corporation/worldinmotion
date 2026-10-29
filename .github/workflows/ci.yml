@@ -7,8 +7,11 @@ name: CI
 #                      with coverage, whose thresholds in vitest.config.ts fail the job below
 #                      100 percent.
 #   relay-cloudflare   the Workers relay's suite inside workerd.
-#   vscode-extension   the extension's smoke test in a real VS Code, its packaging, and the
-#                      check that the committed plugin bundle equals a fresh build.
+#   vscode-extension   the extension's smoke test in a real VS Code, its packaging as a
+#                      pre-release .vsix, and the check that the committed plugin bundle
+#                      equals a fresh build. Called from release.yml with `vsix_artifact`,
+#                      it also uploads that .vsix, which release.yml's gated marketplace and
+#                      openvsx jobs publish.
 #   claude-code-plugin the Claude Code plugin's own tests.
 #   relay-image        a no-push build of the relay's Dockerfile.
 #   versions           every version string in the repository agrees.
@@ -29,6 +32,13 @@ on:
           Install with no npm cache. release.yml sets it: a tag run could restore a cache
           written by any main-branch run, and a restored cache is build input nobody
           reviewed in that run.
+        type: boolean
+        default: false
+      vsix_artifact:
+        description: >-
+          Upload the packaged .vsix as the artifact `vsix`. release.yml sets it, so the
+          extension it publishes is the one this run tested and packaged; on pushes and
+          pull requests nothing is uploaded.
         type: boolean
         default: false
 
@@ -150,10 +160,21 @@ jobs:
       - name: smoke test in VS Code
         run: xvfb-run -a node packages/vscode/test-electron/run.mjs
 
-      # vsce names the file from the manifest (worldinmotion-<version>.vsix).
-      - name: package the .vsix (never published from CI)
+      # vsce names the file from the manifest (worldinmotion-<version>.vsix). Packaged as a
+      # pre-release, like every release before 1.0: vsce refuses to publish with
+      # --pre-release a .vsix that was not packaged with it.
+      - name: package the .vsix (pre-release)
         working-directory: packages/vscode
-        run: npx vsce package --no-dependencies
+        run: npx vsce package --no-dependencies --pre-release
+
+      # Only when release.yml asks; nothing is published from this workflow.
+      - name: upload the .vsix for release.yml
+        if: inputs.vsix_artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vsix
+          path: packages/vscode/*.vsix
+          if-no-files-found: error
 
   # plugins/claude-code (the hooks module and its tests) runs inside Claude Code, not Node, so
   # it is outside the vitest suite and `tsc -b`. `claude plugin test` runs its *.test.tsx

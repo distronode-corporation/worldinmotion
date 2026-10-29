@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 128 128">
+  <!--
+    The Marketplace listing icon: the activity-bar glyph (icon.svg) on a solid tile, because the
+    listing icon must be a PNG of at least 128 px and is shown on light and dark pages alike.
+    marketplace-icon.png is this file rendered at 256 x 256 with @resvg/resvg-js 2.6.2:
+      new Resvg(svg, { fitTo: { mode: "width", value: 256 } }).render().asPng()
+    Re-render it whenever this file changes.
+  -->
+  <rect width="128" height="128" rx="24" fill="#16263d"/>
+  <g transform="translate(16 16) scale(4)" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round">
+    <circle cx="5" cy="6" r="2.5"/>
+    <circle cx="19" cy="6" r="2.5"/>
+    <circle cx="12" cy="18" r="2.5"/>
+    <path d="M7.5 6h9M6.3 8.2l4.4 7.6M17.7 8.2l-4.4 7.6"/>
+  </g>
+</svg>

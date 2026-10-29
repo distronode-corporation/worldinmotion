@@ -61,6 +61,18 @@ updates:
       default-days: 7
     versioning-strategy: increase
 
+  # vsce and ovsx, which release.yml's marketplace and openvsx jobs publish with. Their own
+  # lockfile, so a publishing job installs only them, never the workspaces. Runtime
+  # dependencies in that package.json, so dependabot-auto-merge.yml leaves every update
+  # to a person: these run with an OIDC token that can publish the extension.
+  - package-ecosystem: npm
+    directory: /.github/publish
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    versioning-strategy: increase
+
   # The relay image's base, pinned by digest on both FROM lines of the Dockerfile. A digest
   # update is how a Debian or Node security fix reaches the next relay image. Never merged
   # automatically: dependabot-auto-merge.yml handles npm development updates only.
