@@ -90,8 +90,16 @@ export function verifyPrekey(raw: unknown, roster: Roster, now: number): Result<
     return fail("bad_key");
   }
   if (pk.at > now + LIMITS.messageMaxFutureMs) return fail("not_yet");
-  if (now + LIMITS.prekeySendMarginMs >= pk.until) return fail("expired");
+  if (!prekeyUsable(pk, now)) return fail("expired");
   return ok(pk);
+}
+
+/**
+ * The time rule alone, for a prekey already verified: not more than 10 minutes ahead of `now`,
+ * and at least 10 minutes before its `until`. Senders seal only to a prekey that passes it.
+ */
+export function prekeyUsable(pk: { at: number; until: number }, now: number): boolean {
+  return pk.at <= now + LIMITS.messageMaxFutureMs && now + LIMITS.prekeySendMarginMs < pk.until;
 }
 
 /**

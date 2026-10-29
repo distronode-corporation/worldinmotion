@@ -29,6 +29,7 @@ import {
   type Plaintext,
   type ReadyFrame,
   type RelayFrame,
+  type Result,
   type ResultStatus,
   type RoomHistoryFrame,
   type RoomJoinedFrame,
@@ -211,9 +212,12 @@ export class MeshSession extends EventEmitter {
   private cardPk: string | undefined;
   private prekeys!: PrekeyStore;
   private peerKeys!: PeerPrekeys;
-  /** Settles when the first `cards` page after `ready` has been read: peers' prekeys are known then. */
-  private cardsIn: Promise<void> = new Promise(() => undefined);
-  private gotCards: () => void = () => undefined;
+  /**
+   * Settles when the first `cards` page after `ready` has been read: peers' prekeys are known
+   * then. Set by every `ready`, before any frame of that connection is handled or any send waits.
+   */
+  private cardsIn!: Promise<void>;
+  private gotCards!: () => void;
   /** Sender devices already told about once: a message this device could no longer read. */
   private readonly unreadable = new Set<string>();
   private stopped = false;
@@ -297,7 +301,7 @@ export class MeshSession extends EventEmitter {
     this.spool = await Spool.open(this.files.spoolDir, this.o.env, this.state.spool);
     this.prekeys = new PrekeyStore({ path: this.o.mesh.prekeysPath, env: this.o.env, device: this.device, mesh: this.config.mesh, now: this.now });
     // Store, rotate, delete: every process that opens the mesh runs the schedule once (SPEC section 6b).
-    await this.prekeys.maintain(this.roster);
+    await this.prekeys.maintain();
     this.peerKeys = new PeerPrekeys({ path: this.o.mesh.peerPrekeysPath, env: this.o.env, now: this.now });
     await this.peerKeys.reload();
   }
@@ -484,27 +488,35 @@ export class MeshSession extends EventEmitter {
         return;
       // Cards (SPEC section 17) only annotate peer rows: never spooled, never a wake.
       case "cards": {
-        this.inbound = this.inbound
-          .then(async () => {
-            for (const c of f.cards) await this.takeCard(c);
-          })
-          .catch((e: unknown) => this.log(`wim: cards: ${(e as Error).message}`))
-          .finally(() => this.gotCards());
+        for (const c of f.cards) this.takeCard(c);
+        // Peers' prekeys from this page are known now (sends wait for the first page).
+        this.gotCards();
         // Pages are in sid order; the next one starts after the last card of this one.
         const last = f.cards.at(-1);
         if (f.more && last !== undefined) this.sendIfOpen({ t: "cards.get", after: last.from.sid });
         return;
       }
       case "card":
-        this.inbound = this.inbound.then(() => this.takeCard(f.msg)).catch((e: unknown) => this.log(`wim: card: ${(e as Error).message}`));
+        this.takeCard(f.msg);
         return;
     }
   }
 
+  /** Takes a prekey from a card or message header: known at once, written for siblings in the background. */
+  private learn(pk: unknown): void {
+    this.peerKeys.offer(pk, this.roster).catch((e: unknown) => this.log(`wim: prekey not stored: ${(e as Error).message}`));
+  }
+
   /** A card's header carries its device's prekey; its labels annotate the session's peer row. */
-  private async takeCard(frame: SendFrame): Promise<void> {
-    await this.peerKeys.offer(frame.pk, this.roster);
-    const opened = await this.openFresh(frame, true);
+  private takeCard(frame: SendFrame): void {
+    this.learn(frame.pk);
+    const opened = this.open(frame, true);
+    // Sealed to a prekey a sibling session made since this one read the device's prekeys.
+    if (!opened.ok && opened.reason === "key_expired") void this.prekeys.reload().then(() => this.annotate(this.open(frame, true)));
+    else this.annotate(opened);
+  }
+
+  private annotate(opened: Result<Plaintext>): void {
     if (!opened.ok || opened.value.kind !== "card") return;
     // A card belongs to its sending session: device id and sid, never the relay's name label.
     const from = opened.value.from;
@@ -605,7 +617,7 @@ export class MeshSession extends EventEmitter {
       this.log(`wim: dropped ${msg.id}: ${r.reason}`);
       return "dropped";
     }
-    await this.peerKeys.offer(msg.pk, this.roster);
+    this.learn(msg.pk);
     const fork = this.book.fork;
     if (fork !== undefined && !fork.base.includes(msg.from.device)) {
       this.log(`wim: dropped ${msg.id}: its sender was added after the roster fork`);
@@ -829,7 +841,7 @@ export class MeshSession extends EventEmitter {
       }
       await this.book.reload();
       // Rotation and deletion on schedule; a new prekey goes out with the card below.
-      if (this.now() >= this.prekeys.due) await this.prekeys.maintain(this.roster);
+      if (this.now() >= this.prekeys.due) await this.prekeys.maintain();
       if (this.link !== undefined) await this.sendCard(this.link, false);
     } catch (error) {
       this.log(`wim: housekeeping: ${(error as Error).message}`);
@@ -853,7 +865,7 @@ export class MeshSession extends EventEmitter {
    * peers learn the device's prekey (SPEC section 6b).
    */
   private async sendCard(link: Link, force: boolean): Promise<void> {
-    const pk = this.prekeys.current(this.roster)?.id;
+    const pk = this.prekeys.current()?.id;
     const rotated = pk !== this.cardPk;
     // Claimed before any await, so the housekeeping pass and `ready` do not both publish a rotation.
     this.cardPk = pk;
@@ -985,18 +997,18 @@ export class MeshSession extends EventEmitter {
    * default `legacy`), and the send reports it as `unprotected`.
    */
   private keysFor(ids: readonly string[]): { prekeys: Record<string, Prekey>; prekey?: Prekey } {
-    const own = this.prekeys.current(this.roster);
+    const own = this.prekeys.current();
     const prekeys = this.peerKeys.forSend(this.roster, ids);
     if (own === undefined) return { prekeys };
     if (ids.includes(this.device.id)) prekeys[this.device.id] = own;
     return { prekeys, prekey: own };
   }
 
-  /** Recipient devices, by name, that a frame seals to without forward secrecy (scheme 1 boxes). */
-  private unprotected(frame: SendFrame): string[] {
+  /** Recipient device ids that a frame seals to without forward secrecy (scheme 1 boxes). */
+  private legacyIds(frame: SendFrame): string[] {
     return Object.entries(frame.boxes)
       .filter(([, box]) => !("s" in box))
-      .map(([id]) => this.roster.devices.find((d) => d.id === id)!.name);
+      .map(([id]) => id);
   }
 
   /** The device ids a send needs boxes for, and the addresses no device in the roster answers to. */
@@ -1038,15 +1050,15 @@ export class MeshSession extends EventEmitter {
     const { frame, answer: answering } = await this.serially(async () => {
       let sealed = await this.seal(id, routed, ids, text, opts);
       const link = await this.ready(this.answerMs);
-      if (this.unprotected(sealed).length > 0) {
+      const missing = this.legacyIds(sealed);
+      if (missing.length > 0) {
         // A device with no prekey may only be unknown so far: read what sibling sessions learned
         // and the first cards page of this connection, then seal again (same id and seq).
-        const known = Object.keys(this.peerKeys.forSend(this.roster, ids)).length;
         await this.peerKeys.reload();
         let timer: NodeJS.Timeout | undefined;
         await Promise.race([this.cardsIn, new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);
         clearTimeout(timer);
-        if (Object.keys(this.peerKeys.forSend(this.roster, ids)).length > known) sealed = await this.seal(id, routed, ids, text, opts);
+        if (Object.keys(this.peerKeys.forSend(this.roster, missing)).length > 0) sealed = await this.seal(id, routed, ids, text, opts);
       }
       await this.save({ seq: sealed.seq });
       // Recorded before sending, so a quick answer already finds its task.
@@ -1069,7 +1081,7 @@ export class MeshSession extends EventEmitter {
       ...(opts.file === undefined ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } }),
       ...(opts.relayed === true ? { relayed: true as const } : {}),
     });
-    const unprotected = this.unprotected(frame);
+    const unprotected = this.legacyIds(frame).map((d) => this.roster.devices.find((r) => r.id === d)!.name);
     return { id, results: [...local, ...sent.results], ...(unprotected.length > 0 ? { unprotected } : {}) };
   }
 

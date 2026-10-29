@@ -10,6 +10,7 @@ import {
   openMessage,
   prekeyDeleteAt,
   prekeyId,
+  prekeyUsable,
   sealMessage,
   sha256,
   signObject,
@@ -110,6 +111,10 @@ describe("verifyPrekey (hostile prekeys)", () => {
       [good, roster, good.until - LIMITS.prekeySendMarginMs, "expired"],
     ];
     for (const [pk, r, now, reason] of cases) expect(verifyPrekey(pk, r, now), reason).toEqual({ ok: false, reason });
+    // The time rule alone, as senders apply it to prekeys already verified.
+    expect(prekeyUsable(good, good.at - LIMITS.messageMaxFutureMs)).toBe(true);
+    expect(prekeyUsable(good, good.at - LIMITS.messageMaxFutureMs - 1)).toBe(false);
+    expect(prekeyUsable(good, good.until - LIMITS.prekeySendMarginMs)).toBe(false);
     // The edges that are still fine.
     expect(verifyPrekey(good, roster, good.at - LIMITS.messageMaxFutureMs).ok).toBe(true);
     expect(verifyPrekey(good, roster, good.until - LIMITS.prekeySendMarginMs - 1).ok).toBe(true);
@@ -227,8 +232,9 @@ describe("retention covers the room history, and no more", () => {
     const lastSeal = pk.prekey.until - LIMITS.prekeySendMarginMs - 1;
     expect(verifyPrekey(pk.prekey, roster, lastSeal).ok).toBe(true);
     const frame = seal({ at: lastSeal, prekeys: { [server.id]: pk.prekey } });
-    // The room history keeps an entry 72 hours (relay branch feat/relay-history-72h); the queue 24.
-    const history = 72 * HOUR;
+    // The relay keeps a room history entry 72 hours and a queued message 24.
+    const history = LIMITS.roomHistoryLifetimeMs;
+    expect(history).toBe(72 * HOUR);
     expect(LIMITS.prekeyRetentionMs).toBeGreaterThanOrEqual(history);
     expect(LIMITS.prekeyRetentionMs).toBeGreaterThanOrEqual(LIMITS.queueLifetimeMs);
     expect(prekeyDeleteAt(pk.prekey) - lastSeal).toBeGreaterThanOrEqual(history);
