@@ -216,7 +216,8 @@ describe("session edges", () => {
     let now = Date.now();
     const work = await scratch("card-time");
     const a = await session(devices[0]!, mesh, relay, { name: "a", cwd: work, now: () => now });
-    const cards = () => relay.sentByClients.filter((t) => t.startsWith('{"t":"card.set"')).length;
+    // Session a's cards only: the device's setup session publishes one too, empty, for its prekey.
+    const cards = () => relay.sentByClients.filter((t) => t.startsWith('{"t":"card.set"') && t.includes('"session":"a"')).length;
     await until(() => cards() === 1);
     now += 61_000;
     await sleep(60);
