@@ -121009,13 +121009,13 @@ function spawnDetached(command5, input2, spawn = nodeSpawn) {
     const child = spawn(command5[0], command5.slice(1), { detached: true, stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
     let out = "";
     child.once("error", reject);
-    child.once("exit", (code2) => reject(new Error(`the signer exited before it was ready (code ${code2})`)));
+    child.once("close", (code2) => reject(new Error(`the signer exited before it was ready (code ${code2})`)));
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
       out += chunk;
       const nl = out.indexOf("\n");
       if (nl === -1) return;
-      child.removeAllListeners("exit");
+      child.removeAllListeners("close");
       child.stdout.destroy();
       child.unref();
       resolve3(out.slice(0, nl));

@@ -48,13 +48,15 @@ export function spawnDetached(command: string[], input: string, spawn: typeof no
     const child = spawn(command[0]!, command.slice(1), { detached: true, stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
     let out = "";
     child.once("error", reject);
-    child.once("exit", (code) => reject(new Error(`the signer exited before it was ready (code ${code})`)));
+    // `close`, not `exit`: it comes after the child's stdout is drained, so a line the child wrote
+    // just before exiting (`error <why>`) is read first rather than lost to a race.
+    child.once("close", (code) => reject(new Error(`the signer exited before it was ready (code ${code})`)));
     child.stdout!.setEncoding("utf8");
     child.stdout!.on("data", (chunk: string) => {
       out += chunk;
       const nl = out.indexOf("\n");
       if (nl === -1) return;
-      child.removeAllListeners("exit");
+      child.removeAllListeners("close");
       child.stdout!.destroy();
       child.unref();
       resolve(out.slice(0, nl));

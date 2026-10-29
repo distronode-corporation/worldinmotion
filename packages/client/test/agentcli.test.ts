@@ -433,6 +433,11 @@ describe("spawnDetached", () => {
     expect(line).toBe("ready 6");
   });
 
+  it("reads the line a child writes just before it exits", async () => {
+    // A signer that cannot start writes `error <why>` and exits at once: the line is not lost.
+    expect(await spawnDetached(script(`process.stdout.write("error the passphrase does not open this key file\\n",()=>process.exit(1))`), "x")).toBe("error the passphrase does not open this key file");
+  });
+
   it("fails when the child exits first or cannot start", async () => {
     await expect(spawnDetached(script("process.exit(4)"), "x")).rejects.toThrow(/exited before it was ready \(code 4\)/);
     await expect(spawnDetached(["wim-no-such-program-here"], "x")).rejects.toThrow(/ENOENT/);
