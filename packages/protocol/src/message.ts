@@ -1,18 +1,14 @@
-import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
-import { x25519 } from "@noble/curves/ed25519.js";
-import { hkdf } from "@noble/hashes/hkdf.js";
-import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js";
 import { z } from "zod";
 import { findSecrets } from "./agent.ts";
 import { b64u, bytesEqual, canon, canonBytes, fitsUtf8, fromUtf8, hash, sha256, utf8 } from "./encoding.ts";
 import { sendFrameSchema, type Box, type SendFrame } from "./frames.ts";
-import { deviceIdFromSignPub, randomBytes, ulid } from "./ids.ts";
+import { deviceIdFromSignPub, ulid } from "./ids.ts";
 import { parseJson } from "./json.ts";
 import type { DeviceKeys } from "./keys.ts";
-import { fail, LIMITS, ok, PROTOCOL, WIRE_VERSION, type Result } from "./limits.ts";
+import { openBox, sealBox, type Keyring, type Opened, type OpenRequest, type SealRequest } from "./keyring.ts";
+import { fail, LIMITS, ok, WIRE_VERSION, type Result } from "./limits.ts";
 import { checkFreshness } from "./replay.ts";
 import { fileSchema, type FileInfo } from "./blob.ts";
-import { hpkeOpenAuth, hpkeSealAuth } from "./hpke.ts";
 import { verifyPrekey, type Prekey } from "./prekey.ts";
 import { fromSchema, isRoom, rosterRefSchema, timeSchema, toSchema, ulidSchema, type Roster } from "./schema.ts";
 import { isRecoveryName } from "./roster.ts";
@@ -112,26 +108,6 @@ export type MessageKind = Plaintext["kind"];
 export type SendHeader = Omit<SendFrame, "boxes" | "sig">;
 
 /**
- * The symmetric key for one sender device and one recipient device: HKDF-SHA256 over the X25519
- * shared secret, salted with the mesh id, labelled with both device ids in sender-to-recipient
- * order, so the two directions between a pair of devices use different keys. X25519 refuses
- * low-order public keys, which would otherwise give an all-zero, predictable shared secret.
- */
-function boxKey(meshId: string, mySec: Uint8Array, theirPub: Uint8Array, senderId: string, recipientId: string) {
-  const shared = x25519.getSharedSecret(mySec, theirPub);
-  return hkdf(nobleSha256, shared, utf8(meshId), utf8(`${PROTOCOL} box ${senderId} ${recipientId}`), 32);
-}
-
-/**
- * The HPKE `info` of a scheme 2 box (SPEC section 6b): the mesh, both device ids in
- * sender-to-recipient order, and the prekey id, so a box cannot be moved to another mesh, pair
- * or prekey.
- */
-function box2Info(meshId: string, senderId: string, recipientId: string, prekeyId: string): Uint8Array {
-  return utf8(`${PROTOCOL} box2 ${meshId} ${senderId} ${recipientId} ${prekeyId}`);
-}
-
-/**
  * Every box's AAD: `H(canon(header))`, where the header is whatever the frame holds apart from
  * `boxes` and `sig`. Computed generically so a new header field can never be left out.
  */
@@ -151,9 +127,8 @@ function headerAad(frame: object): Uint8Array {
  * `allowSecrets: true` skips the credential check. A client offers it only to a person at its own
  * command line, never to an agent or through a tool interface (SPEC section 6a).
  */
-export function sealMessage(opts: {
+export type SealOptions = {
   roster: Roster;
-  sender: { deviceId: string; keys: DeviceKeys };
   session: string;
   sid: string;
   to: string[];
@@ -192,10 +167,36 @@ export function sealMessage(opts: {
    * send that names one is refused.
    */
   legacy?: boolean;
-}): SendFrame {
+};
+
+export function sealMessage(opts: SealOptions & { sender: { deviceId: string; keys: DeviceKeys } }): SendFrame {
+  const { keys } = opts.sender;
+  const plan = planSeal(opts, keys.signPub);
+  const boxes: Record<string, Box> = {};
+  for (const req of plan.requests) boxes[req.recipient] = sealBox(keys.boxSec, req);
+  return finishSeal(plan, signObject("send", { ...plan.header, boxes }, keys.signSec));
+}
+
+/**
+ * `sealMessage` with the device's keys behind a keyring (SPEC section 3), for a client whose keys
+ * live in a signer process. Same checks, same frame, same `sealMessage:` errors.
+ */
+export async function sealMessageWith(opts: SealOptions & { sender: { deviceId: string; keyring: Keyring } }): Promise<SendFrame> {
+  const { keyring } = opts.sender;
+  const plan = planSeal(opts, keyring.signPub);
+  const boxes: Record<string, Box> = {};
+  for (const req of plan.requests) boxes[req.recipient] = await keyring.seal(req);
+  const body = { ...plan.header, boxes };
+  return finishSeal(plan, { ...body, sig: await keyring.sign("send", body) });
+}
+
+type SealPlan = { kind: MessageKind; header: Omit<SendFrame, "boxes" | "sig">; requests: SealRequest[] };
+
+/** Every check and the header and plaintext of a seal; what is left needs the device's secret keys. */
+function planSeal(opts: SealOptions & { sender: { deviceId: string } }, signPub: Uint8Array): SealPlan {
   const { roster, sender } = opts;
   const kind = opts.kind ?? "msg";
-  if (deviceIdFromSignPub(sender.keys.signPub) !== sender.deviceId) {
+  if (deviceIdFromSignPub(signPub) !== sender.deviceId) {
     throw new TypeError("sealMessage: sender.deviceId does not match the signing key");
   }
   if (!roster.devices.some((d) => d.id === sender.deviceId)) {
@@ -286,31 +287,24 @@ export function sealMessage(opts: {
   }
   const plaintext = canonBytes(body);
   const aad = headerAad(header);
-  const boxes: Record<string, Box> = {};
-  for (const r of recipients) {
+  const requests = recipients.map((r): SealRequest => {
     const pk = prekeys[r.id];
-    if (pk !== undefined) {
-      // Scheme 2: the ephemeral secret exists only inside this call, so this device's key file,
-      // stolen later, cannot reopen the box (SPEC section 6b).
-      const sealed = hpkeSealAuth({ pkR: b64u.decode(pk.pub), skS: sender.keys.boxSec, info: box2Info(roster.mesh, sender.deviceId, r.id, pk.id), aad, plaintext });
-      boxes[r.id] = { s: 2, p: pk.id, e: b64u.encode(sealed.enc), c: b64u.encode(sealed.ciphertext) };
-      continue;
-    }
-    const key = boxKey(roster.mesh, sender.keys.boxSec, b64u.decode(r.box), sender.deviceId, r.id);
-    const nonce = randomBytes(24);
-    const c = xchacha20poly1305(key, nonce, aad).encrypt(plaintext);
-    boxes[r.id] = { n: b64u.encode(nonce), c: b64u.encode(c) };
-  }
+    const base = { mesh: roster.mesh, sender: sender.deviceId, recipient: r.id, recipientBox: b64u.decode(r.box), aad, plaintext };
+    return pk === undefined ? base : { ...base, prekey: { id: pk.id, pub: b64u.decode(pk.pub) } };
+  });
+  return { kind, header, requests };
+}
 
-  const frame = signObject("send", { ...header, boxes }, sender.keys.signSec);
-  const limit = kind === "card" ? LIMITS.cardFrameBytes : LIMITS.frameBytes;
+/** The size and shape checks of a signed frame. */
+function finishSeal(plan: SealPlan, frame: object): SendFrame {
+  const limit = plan.kind === "card" ? LIMITS.cardFrameBytes : LIMITS.frameBytes;
   if (!fitsUtf8(canon(frame), limit)) throw new RangeError(`sealMessage: frame would be over ${limit} bytes`);
   const parsed = sendFrameSchema.safeParse(frame);
   if (!parsed.success) {
     const issue = parsed.error.issues[0]!;
     throw new TypeError(`sealMessage: ${issue.path.join(".")}: ${issue.message}`);
   }
-  return frame;
+  return frame as SendFrame;
 }
 
 function dropUndefined(obj: Record<string, unknown>): Record<string, unknown> {
@@ -365,6 +359,37 @@ export function openMessage(
   frame: unknown,
   ctx: { roster: Roster; me: Receiver; now: number; history?: boolean; legacy?: boolean },
 ): Result<Plaintext> {
+  const checked = checkFrame(frame, ctx);
+  if (!checked.ok) return checked;
+  const { me } = ctx;
+  return checkPlaintext(checked.value.f, openBox(me.keys.boxSec, me.prekey ?? (() => undefined), checked.value.req));
+}
+
+/**
+ * The receiving session for `openMessageWith`: as `Receiver`, with the device's keys behind a
+ * keyring, which also finds the secret of the prekey a scheme 2 box names.
+ */
+export type KeyringReceiver = Omit<Receiver, "keys" | "prekey"> & { keyring: Pick<Keyring, "open"> };
+
+/**
+ * `openMessage` with the device's keys behind a keyring (SPEC section 3). Same checks and reasons.
+ * When the keyring cannot answer (a signer that is locked or gone) this rejects instead of
+ * returning a reason, so the caller can keep the frame and try again rather than drop it.
+ */
+export async function openMessageWith(
+  frame: unknown,
+  ctx: { roster: Roster; me: KeyringReceiver; now: number; history?: boolean; legacy?: boolean },
+): Promise<Result<Plaintext>> {
+  const checked = checkFrame(frame, ctx);
+  if (!checked.ok) return checked;
+  return checkPlaintext(checked.value.f, await ctx.me.keyring.open(checked.value.req));
+}
+
+/** Every check before decryption, in SPEC order; on success, the box to open. */
+function checkFrame(
+  frame: unknown,
+  ctx: { roster: Roster; me: Omit<Receiver, "keys" | "prekey">; now: number; history?: boolean; legacy?: boolean },
+): Result<{ f: SendFrame; req: OpenRequest }> {
   const parsed = sendFrameSchema.safeParse(frame);
   if (!parsed.success) return fail("malformed");
   const f = parsed.data;
@@ -393,28 +418,20 @@ export function openMessage(
 
   const box: Box | undefined = Object.hasOwn(f.boxes, me.deviceId) ? f.boxes[me.deviceId] : undefined;
   if (box === undefined) return fail("no_box");
+  if (!("s" in box) && ctx.legacy === false) return fail("legacy_box");
+  return ok({ f, req: { mesh: roster.mesh, sender: sender.id, recipient: me.deviceId, senderBox: b64u.decode(sender.box), box, aad: headerAad(f) } });
+}
 
-  let open: () => Uint8Array;
-  if ("s" in box) {
-    const secret = me.prekey?.(box.p);
-    if (secret === undefined) return fail("key_expired");
-    const info = box2Info(roster.mesh, sender.id, me.deviceId, box.p);
-    open = () => hpkeOpenAuth({ enc: b64u.decode(box.e), skR: secret, pkS: b64u.decode(sender.box), info, aad: headerAad(f), ciphertext: b64u.decode(box.c) });
-  } else {
-    if (ctx.legacy === false) return fail("legacy_box");
-    open = () => {
-      const key = boxKey(roster.mesh, me.keys.boxSec, b64u.decode(sender.box), sender.id, me.deviceId);
-      return xchacha20poly1305(key, b64u.decode(box.n), headerAad(f)).decrypt(b64u.decode(box.c));
-    };
-  }
-  let bytes: Uint8Array;
+/** The checks after decryption: the plaintext is canonical and repeats the header's fields. */
+function checkPlaintext(f: SendFrame, opened: Opened): Result<Plaintext> {
+  if (typeof opened === "string") return fail(opened);
   let text: string;
   try {
-    bytes = open();
-    text = fromUtf8(bytes);
+    text = fromUtf8(opened);
   } catch {
     return fail("decrypt_failed");
   }
+  const bytes = opened;
 
   const json = parseJson(text);
   if (!json.ok) return fail("plaintext_malformed");

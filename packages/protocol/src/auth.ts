@@ -2,6 +2,7 @@ import { b64u, hash } from "./encoding.ts";
 import { authFrameSchema, recoverAuthFrameSchema, type AuthFrame, type RecoverAuthFrame } from "./frames.ts";
 import { deviceIdFromSignPub } from "./ids.ts";
 import type { DeviceKeys } from "./keys.ts";
+import { signObjectWith, type Keyring } from "./keyring.ts";
 import { fail, LIMITS, ok, WIRE_VERSION, type Result } from "./limits.ts";
 import { isRecoveryName } from "./roster.ts";
 import type { DeviceRecord, Roster } from "./schema.ts";
@@ -12,11 +13,23 @@ export type AuthFields = Omit<AuthFrame, "t" | "v" | "sig" | "device"> & { devic
 
 /** Builds and signs the `auth` answer to a relay's `hello` (SPEC section 8). */
 export function signAuth(fields: AuthFields, keys: DeviceKeys): AuthFrame {
-  const device = deviceIdFromSignPub(keys.signPub);
+  return checkAuth(signObject("auth", authBody(fields, keys.signPub), keys.signSec));
+}
+
+/** `signAuth` with the device's keys behind a keyring (SPEC section 3). */
+export async function signAuthWith(fields: AuthFields, keyring: Pick<Keyring, "signPub" | "sign">): Promise<AuthFrame> {
+  return checkAuth(await signObjectWith("auth", authBody(fields, keyring.signPub), keyring));
+}
+
+function authBody(fields: AuthFields, signPub: Uint8Array) {
+  const device = deviceIdFromSignPub(signPub);
   if (fields.device !== undefined && fields.device !== device) {
     throw new TypeError("signAuth: device does not match the signing key");
   }
-  const frame = signObject("auth", { ...fields, t: "auth" as const, v: WIRE_VERSION, device }, keys.signSec);
+  return { ...fields, t: "auth" as const, v: WIRE_VERSION, device };
+}
+
+function checkAuth(frame: object): AuthFrame {
   const parsed = authFrameSchema.safeParse(frame);
   if (!parsed.success) {
     const issue = parsed.error.issues[0]!;

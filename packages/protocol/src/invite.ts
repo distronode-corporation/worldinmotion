@@ -5,6 +5,7 @@ import { b64u, bytesEqual, canonBytes, fromUtf8, sha256, utf8 } from "./encoding
 import { deviceIdFromSignPub, randomBytes } from "./ids.ts";
 import { parseJson } from "./json.ts";
 import type { DeviceKeys } from "./keys.ts";
+import { signObjectWith, type Keyring } from "./keyring.ts";
 import { fail, LIMITS, ok, PROTOCOL, type Result } from "./limits.ts";
 import {
   deviceRecordSchema,
@@ -187,6 +188,17 @@ const joinOrBodySchema = joinBodySchema.extend({ t: z.literal("join").optional()
  * A re-sent join on a new connection is built again with that connection's nonce.
  */
 export function createJoin(invite: InviteCode, name: string, keys: DeviceKeys, nonce: string): JoinBody & { t: "join" } {
+  const { body, device } = joinBody(invite, name, keys, nonce);
+  return { ...signObject("join", body, keys.signSec), proof: joinProof(invite.secret, device) };
+}
+
+/** `createJoin` with the joiner's keys behind a keyring (SPEC section 3). */
+export async function createJoinWith(invite: InviteCode, name: string, keyring: Pick<Keyring, "signPub" | "boxPub" | "sign">, nonce: string): Promise<JoinBody & { t: "join" }> {
+  const { body, device } = joinBody(invite, name, keyring, nonce);
+  return { ...(await signObjectWith("join", body, keyring)), proof: joinProof(invite.secret, device) };
+}
+
+function joinBody(invite: InviteCode, name: string, keys: { signPub: Uint8Array; boxPub: Uint8Array }, nonce: string) {
   const device = {
     id: deviceIdFromSignPub(keys.signPub),
     name,
@@ -196,9 +208,7 @@ export function createJoin(invite: InviteCode, name: string, keys: DeviceKeys, n
   if (!joinDeviceSchema.safeParse(device).success) throw new TypeError("createJoin: invalid device name");
   if (device.name.startsWith("recovery")) throw new TypeError("createJoin: names starting with recovery are reserved");
   if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
-  const body = { t: "join" as const, mesh: invite.mesh, invite: invite.inviteId, device, nonce };
-  const signed = signObject("join", body, keys.signSec);
-  return { ...signed, proof: joinProof(invite.secret, device) };
+  return { body: { t: "join" as const, mesh: invite.mesh, invite: invite.inviteId, device, nonce }, device };
 }
 
 /**

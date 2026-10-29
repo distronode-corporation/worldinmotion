@@ -1,14 +1,18 @@
 import { b64u, hash } from "./encoding.ts";
 import { deviceIdFromSignPub, randomBytes } from "./ids.ts";
 import type { DeviceKeys } from "./keys.ts";
+import { signObjectWith, type Keyring } from "./keyring.ts";
 import { fail, ok, type Result } from "./limits.ts";
 import { deviceRecordSchema, meshIdSchema, rosterSchema, type DeviceRecord, type Roster, type RosterRef } from "./schema.ts";
 import { signObject, verifyObject } from "./sign.ts";
 
+/** A device's two public keys, as a key set or a keyring holds them. */
+export type PublicKeys = { signPub: Uint8Array; boxPub: Uint8Array };
+
 /** Builds the public device record for a key set. */
 export function makeDeviceRecord(
   name: string,
-  keys: DeviceKeys,
+  keys: PublicKeys,
   role: DeviceRecord["role"],
   added: number,
 ): DeviceRecord {
@@ -34,23 +38,27 @@ export function isRecoveryName(name: string): boolean {
  * The genesis roster: seq 1, no prev, the creating admin device that signs it, and optionally the
  * mesh's recovery record (an admin named `recovery...`, from `createRecoveryIdentity`).
  */
-export function createGenesisRoster(opts: {
-  name: string;
-  keys: DeviceKeys;
-  now: number;
-  meshId?: string;
-  recovery?: DeviceRecord;
-}): Roster {
+export function createGenesisRoster(opts: GenesisOptions & { keys: DeviceKeys }): Roster {
+  return checkGenesis(signObject("roster", genesisBody(opts), opts.keys.signSec));
+}
+
+/** `createGenesisRoster` with the device's keys behind a keyring (SPEC section 3). */
+export async function createGenesisRosterWith(opts: GenesisOptions & { keyring: Pick<Keyring, "signPub" | "boxPub" | "sign"> }): Promise<Roster> {
+  return checkGenesis(await signObjectWith("roster", genesisBody({ ...opts, keys: opts.keyring }), opts.keyring));
+}
+
+type GenesisOptions = { name: string; now: number; meshId?: string; recovery?: DeviceRecord };
+
+function genesisBody(opts: GenesisOptions & { keys: PublicKeys }) {
   if (isRecoveryName(opts.name)) throw new TypeError("createGenesisRoster: names starting with recovery are reserved");
   const mesh = opts.meshId ?? b64u.encode(randomBytes(16));
   if (!meshIdSchema.safeParse(mesh).success) throw new TypeError("createGenesisRoster: invalid mesh id");
   const device = makeDeviceRecord(opts.name, opts.keys, "admin", opts.now);
   const devices = opts.recovery === undefined ? [device] : [device, { ...opts.recovery }];
-  const roster = signObject(
-    "roster",
-    { mesh, seq: 1, prev: null, devices, revoked: [], by: device.id, at: opts.now },
-    opts.keys.signSec,
-  );
+  return { mesh, seq: 1, prev: null, devices, revoked: [], by: device.id, at: opts.now };
+}
+
+function checkGenesis(roster: Roster): Roster {
   const verified = verifyGenesisRoster(roster);
   if (!verified.ok) throw new TypeError(`createGenesisRoster: ${verified.reason}`);
   return roster;
@@ -69,13 +77,20 @@ function adminSigner(roster: Roster, id: string): DeviceRecord | undefined {
  * not a current device, if a promoted device is already an admin, if a `recovery...` name is
  * added as a member, or if the change would leave the mesh with no admin.
  */
-export function nextRoster(
-  prev: Roster,
-  change: { add?: DeviceRecord[]; revoke?: string[]; promote?: string[] },
-  signer: { keys: DeviceKeys },
-  now: number,
-): Roster {
-  const signerId = deviceIdFromSignPub(signer.keys.signPub);
+export function nextRoster(prev: Roster, change: RosterChange, signer: { keys: DeviceKeys }, now: number): Roster {
+  return signObject("roster", nextRosterBody(prev, change, signer.keys.signPub, now), signer.keys.signSec);
+}
+
+/** `nextRoster` with the signing admin's keys behind a keyring (SPEC section 3). */
+export async function nextRosterWith(prev: Roster, change: RosterChange, keyring: Pick<Keyring, "signPub" | "sign">, now: number): Promise<Roster> {
+  return signObjectWith("roster", nextRosterBody(prev, change, keyring.signPub, now), keyring);
+}
+
+/** A roster change: devices to add, ids to revoke, members to promote to admin. */
+export type RosterChange = { add?: DeviceRecord[]; revoke?: string[]; promote?: string[] };
+
+function nextRosterBody(prev: Roster, change: RosterChange, signPub: Uint8Array, now: number) {
+  const signerId = deviceIdFromSignPub(signPub);
   if (!adminSigner(prev, signerId)) throw new Error("nextRoster: signer is not an unrevoked admin");
 
   const revoke = change.revoke ?? [];
@@ -110,12 +125,7 @@ export function nextRoster(
     devices.push({ ...device });
   }
   if (!devices.some((d) => d.role === "admin")) throw new Error("nextRoster: the mesh would have no admin");
-
-  return signObject(
-    "roster",
-    { mesh: prev.mesh, seq: prev.seq + 1, prev: hash(prev), devices, revoked, by: signerId, at: now },
-    signer.keys.signSec,
-  );
+  return { mesh: prev.mesh, seq: prev.seq + 1, prev: hash(prev), devices, revoked, by: signerId, at: now };
 }
 
 /** Rules that hold for every roster on its own: ids derived from keys, unique names and ids. */

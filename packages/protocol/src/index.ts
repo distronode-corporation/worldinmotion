@@ -25,20 +25,25 @@ export {
 } from "./schema.ts";
 export {
   createGenesisRoster,
+  createGenesisRosterWith,
   detectFork,
   findDevice,
   isRecoveryName,
   makeDeviceRecord,
   nextRoster,
+  nextRosterWith,
   rosterRef,
   verifyGenesisRoster,
   verifyNextRoster,
   verifyRosterChain,
+  type PublicKeys,
+  type RosterChange,
 } from "./roster.ts";
 export {
   admitJoin,
   createInvite,
   createJoin,
+  createJoinWith,
   inviteIdFromSecret,
   spkiPin,
   joinBodySchema,
@@ -66,9 +71,13 @@ export { createRecoveryIdentity, createRecoveryKeys, parseRecoveryCode, recovery
 export {
   cardSchema,
   openMessage,
+  openMessageWith,
   plaintextSchema,
   RESULT_STATUSES,
   sealMessage,
+  sealMessageWith,
+  type KeyringReceiver,
+  type SealOptions,
   type Card,
   type MessageKind,
   type Plaintext,
@@ -77,7 +86,8 @@ export {
   type SendHeader,
 } from "./message.ts";
 export { createPrekey, prekeyDeleteAt, prekeyId, prekeySchema, prekeyUsable, verifyPrekey, type Prekey } from "./prekey.ts";
-export { signAuth, signRecoverAuth, verifyAuth, verifyRecoverAuth, type AuthFields } from "./auth.ts";
+export { signAuth, signAuthWith, signRecoverAuth, verifyAuth, verifyRecoverAuth, type AuthFields } from "./auth.ts";
 export { CLOSE } from "./close.ts";
+export { localKeyring, openBox, sealBox, signObjectWith, type BoxRequest, type Keyring, type Opened, type OpenRequest, type SealRequest } from "./keyring.ts";
 export * from "./frames.ts";
 export { isVectorKey, VECTOR_SEED_PUBLIC_KEYS } from "./vector-keys.ts";
