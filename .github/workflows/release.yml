@@ -5,9 +5,34 @@ name: Release
 #       tagged sources, with a SHA256SUMS file and a build provenance attestation on wim.mjs;
 #   (b) the self-hosted relay image, ghcr.io/distronode-corporation/worldinmotion-relay,
 #       with BuildKit provenance and an SBOM, plus a GitHub attestation on its digest.
+# Once the release is public, three gated jobs can publish the same build elsewhere:
+#   (c) wim.mjs to npm as the `worldinmotion` package (`npx worldinmotion`), with npm
+#       provenance;
+#   (d) the .vsix that `test` packaged to the Visual Studio Marketplace, as a pre-release;
+#   (e) the same .vsix to Open VSX.
 # The Claude Code plugin is not a release asset: the marketplace installs it from the
-# repository at the tag. The .vsix is not one either; it is packaged in CI and never
-# published from it.
+# repository at the tag. The .vsix is not one either; it goes to the two extension
+# registries only.
+#
+# THE THREE PUBLISH JOBS ARE OFF until a repository variable turns each one on, because
+# each registry needs a one-time setup outside this repository first. Each authenticates
+# with this workflow's OIDC token through a trusted publisher that names this repository
+# and this file, release.yml, with no environment (Open VSX only from its second
+# version); renaming the file or adding an environment breaks them until each
+# registry's entry is changed to match.
+#   npm          vars.NPM_PUBLISH == 'true', after the `worldinmotion` package exists
+#                on npm and its trusted publisher names this workflow. npm requires the
+#                first publish under a new trusted publisher within 2 days of creating it.
+#   marketplace  vars.MARKETPLACE_PUBLISH == 'true', after the Marketplace publisher
+#                (the `publisher` in packages/vscode/package.json) has a Trusted
+#                Publishing policy naming this workflow, and once .github/publish pins a
+#                vsce that has `--oidc` (4.1.0 or later; the job checks).
+#   openvsx      vars.OPENVSX_PUBLISH == 'true', after the namespace exists on Open VSX.
+#                Its first version must be published with a token (secret OVSX_PAT);
+#                once a trusted publisher is registered, deleting the secret switches the
+#                job to OIDC. It runs only after `marketplace`, so it cannot go first.
+# The CLIs those jobs run (vsce, ovsx) are pinned by .github/publish/package-lock.json and
+# installed with --ignore-scripts; npm is the one bundled with the Node in .nvmrc.
 #
 # Jobs, in order. Each needs the one before it, so nothing leaves the run until everything
 # before it has passed:
@@ -22,8 +47,16 @@ name: Release
 #   image    builds, pushes and attests the relay image. Holds `packages: write`. It runs
 #            only once the draft exists, so a failed asset build never ships an image.
 #   publish  makes the draft public, once the image is pushed.
+# Then, each gated by a repository variable (see above):
+#   npm          needs `publish`; publishes wim.mjs, the bytes `client` built, as
+#                `worldinmotion`.
+#   marketplace  needs `publish`; publishes the .vsix to the Visual Studio Marketplace.
+#   openvsx      needs `marketplace`; publishes the same .vsix to Open VSX.
 # A run that fails before `publish` leaves at most a draft release, which a re-run
-# rebuilds, and an image job that fails leaves no public release.
+# rebuilds, and an image job that fails leaves no public release. The registry jobs run
+# only after `publish`, so nothing reaches a registry without its GitHub Release; a
+# registry job that fails leaves the release public and can be re-run on its own
+# (`Re-run failed jobs`). Each refuses a version its registry already holds.
 #
 # The assets: wim.mjs (run it with Node 22.18 or later) and SHA256SUMS. `draft` checks
 # the built set and the uploaded set against exactly those two names. Verifying a download:
@@ -127,6 +160,8 @@ jobs:
     uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
     with:
       no_cache: true
+      # The .vsix the marketplace and openvsx jobs publish, as the artifact `vsix`.
+      vsix_artifact: true
 
   client:
     needs: [guard, test]
@@ -336,3 +371,207 @@ jobs:
     steps:
       - name: Publish
         run: gh release edit "$TAG" --draft=false
+
+  # npm: `npx worldinmotion` and `npm install --global worldinmotion` (which installs `wim`).
+  # The package is packaging/npm: wim.mjs and nothing else to run, no dependencies, because
+  # the workspace packages export TypeScript sources, which Node refuses to strip inside
+  # node_modules. The file is the one `client` built and `draft` attested, checked against
+  # SHA256SUMS again here. Trusted publishing: npm exchanges this job's OIDC token for a
+  # one-time publish token (npm 11.5.1 or later) and adds the provenance attestation itself.
+  npm:
+    needs: [guard, client, publish]
+    if: vars.NPM_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      # The checkout.
+      contents: read
+      # The OIDC token npm exchanges for the publish, and signs the provenance with.
+      id-token: write
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # registry-url as npm's trusted publishing guide has it. No cache, as everywhere here.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: client
+          path: assets
+
+      - name: Stage the package
+        run: |
+          set -euo pipefail
+          (cd assets && sha256sum -c SHA256SUMS)
+          cp assets/wim.mjs packaging/npm/wim.mjs
+          cp LICENSE NOTICE packaging/npm/
+          have="$(node -p 'require("./packaging/npm/package.json").version')"
+          if [ "$have" != "$VERSION" ]; then
+            echo "::error::packaging/npm/package.json is $have, the tag is $VERSION."
+            exit 1
+          fi
+
+      # Older npm has no trusted publishing and would fail with an authentication error.
+      - name: npm supports trusted publishing
+        run: |
+          set -euo pipefail
+          have="$(npm --version)"
+          echo "npm $have"
+          if [ "$(printf '%s\n' 11.5.1 "$have" | sort -V | head -n 1)" != "11.5.1" ]; then
+            echo "::error::npm $have predates trusted publishing (11.5.1)."
+            exit 1
+          fi
+
+      # Asked of the registry without credentials: 404 means not published, 200 means it is,
+      # anything else is an answer this job cannot read.
+      - name: The version is not on npm yet
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/worldinmotion/$VERSION")"
+          case "$status" in
+            404) echo "worldinmotion@$VERSION is not on npm yet" ;;
+            200) echo "::error::worldinmotion@$VERSION is already on npm. Refusing to publish it again."; exit 1 ;;
+            *) echo "::error::the npm registry answered $status for worldinmotion@$VERSION"; exit 1 ;;
+          esac
+
+      - name: Publish to npm
+        working-directory: packaging/npm
+        run: |
+          set -euo pipefail
+          npm pack --dry-run
+          npm publish --provenance --access public
+
+  # The Visual Studio Marketplace, as a pre-release (`preview` in the manifest, and the
+  # .vsix packaged with --pre-release). The .vsix is the one `test` packaged and
+  # smoke-tested on this commit. `vsce publish --oidc` exchanges this job's OIDC token
+  # (audience marketplace.visualstudio.com) for a Marketplace credential through the
+  # publisher's Trusted Publishing policy, and never falls back to a PAT.
+  marketplace:
+    needs: [guard, publish]
+    if: vars.MARKETPLACE_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      # The checkout.
+      contents: read
+      # The OIDC token vsce exchanges.
+      id-token: write
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      # Only the publishing CLIs, from their own lockfile, and no install scripts.
+      - name: Install vsce
+        working-directory: .github/publish
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: vsce has --oidc
+        working-directory: .github/publish
+        run: |
+          set -euo pipefail
+          npx --no -- vsce --version
+          if ! npx --no -- vsce publish --help | grep -q -- '--oidc'; then
+            echo "::error::the vsce in .github/publish/package-lock.json has no --oidc; pin @vscode/vsce 4.1.0 or later there."
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: vsix
+          path: vsix
+
+      - name: The .vsix is this version's
+        run: |
+          set -euo pipefail
+          expected="worldinmotion-$VERSION.vsix"
+          actual="$(cd vsix && find . -type f -printf '%f\n')"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::expected exactly $expected in the vsix artifact, found: $actual"
+            exit 1
+          fi
+          sha256sum "vsix/$expected"
+
+      # --pre-release makes vsce check that the .vsix was packaged as one.
+      - name: Publish to the Marketplace
+        working-directory: .github/publish
+        run: npx --no -- vsce publish --oidc --pre-release --packagePath "$GITHUB_WORKSPACE/vsix/worldinmotion-$VERSION.vsix"
+
+  # Open VSX, the registry Cursor, VSCodium and other VS Code builds install from. Same
+  # .vsix. The first version of an extension must be published with a token, so while the
+  # secret OVSX_PAT exists this job uses it; once a trusted publisher is registered for the
+  # namespace, deleting the secret switches it to OIDC (`--trusted-publishing`, which fails
+  # rather than falling back when there is no ID token). ovsx reads the pre-release flag
+  # from the .vsix itself.
+  openvsx:
+    needs: [guard, marketplace]
+    if: vars.OPENVSX_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      # The checkout.
+      contents: read
+      # The OIDC token for trusted publishing, once OVSX_PAT is gone.
+      id-token: write
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Install ovsx
+        working-directory: .github/publish
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: vsix
+          path: vsix
+
+      - name: The .vsix is this version's
+        run: |
+          set -euo pipefail
+          expected="worldinmotion-$VERSION.vsix"
+          actual="$(cd vsix && find . -type f -printf '%f\n')"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::expected exactly $expected in the vsix artifact, found: $actual"
+            exit 1
+          fi
+          sha256sum "vsix/$expected"
+
+      - name: Publish to Open VSX
+        working-directory: .github/publish
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          set -euo pipefail
+          vsix="$GITHUB_WORKSPACE/vsix/worldinmotion-$VERSION.vsix"
+          npx --no -- ovsx --version
+          if [ -n "$OVSX_PAT" ]; then
+            echo "Publishing with the OVSX_PAT token."
+            npx --no -- ovsx publish "$vsix"
+          else
+            echo "No OVSX_PAT: publishing through Open VSX trusted publishing."
+            env -u OVSX_PAT npx --no -- ovsx publish "$vsix" --trusted-publishing
+          fi

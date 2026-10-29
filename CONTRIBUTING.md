@@ -24,6 +24,8 @@ packages/a2a/              `wim a2a`: the Agent2Agent gateway.
 packages/vscode/           The VS Code extension.
 plugins/claude-code/       The Claude Code plugin. Its `dist/client.mjs` is the client bundle,
                            committed, because the marketplace installs straight from the repo.
+packaging/                 The npm package `worldinmotion` (the bundled `wim`) and the draft
+                           Homebrew formula. packaging/README.md lists every install channel.
 test/                      Repository-wide tests.
 ```
 
@@ -76,7 +78,7 @@ npm run bundle --workspace=@worldinmotion/client                   # wim.mjs and
 npm run bundle --workspace=worldinmotion                           # the VS Code extension
 git diff --exit-code --stat plugins/claude-code/dist/client.mjs    # the committed bundle equals the build
 xvfb-run -a node packages/vscode/test-electron/run.mjs             # the extension's smoke test
-(cd packages/vscode && npx vsce package --no-dependencies)         # the .vsix packages
+(cd packages/vscode && npx vsce package --no-dependencies --pre-release)  # the .vsix packages
 claude plugin test plugins/claude-code                             # the plugin's own tests
 docker build --file packages/relay-node/Dockerfile --tag wim-relay:ci .
 node .github/scripts/check-versions.mjs                            # every version string agrees
