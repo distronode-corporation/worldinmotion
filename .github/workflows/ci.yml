@@ -92,7 +92,13 @@ jobs:
       # Invoked directly rather than through `npm test` so this step does not depend on a
       # script name, and with --coverage so the thresholds are enforced.
       - name: vitest (with coverage)
-        run: npx vitest run --coverage
+        run: npx vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=json
+
+      # TEMPORARY DIAGNOSTIC (removed before merge): the branch counts around client.ts:880-882.
+      - name: diagnostic, client.ts branches 878-884
+        if: always()
+        shell: bash
+        run: node -e 'const d=require("./coverage/coverage-final.json");const k=Object.keys(d).find(k=>k.replace(/\\/g,"/").endsWith("packages/client/src/client.ts"));const f=d[k];for(const [id,b] of Object.entries(f.branchMap)){const l=b.loc.start.line;if(l>=878&&l<=884)console.log(id,l,b.type,JSON.stringify(b.locations.map(x=>[x.start.column,x.end.column])),JSON.stringify(f.b[id]))}'
 
   # packages/relay-cloudflare runs its tests inside the Workers runtime (workerd, through
   # @cloudflare/vitest-plugin) with its own vitest config, which the root config excludes.
