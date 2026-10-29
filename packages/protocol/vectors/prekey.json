@@ -1,0 +1,469 @@
+{
+  "description": "Scheme 2 boxes (SPEC section 6b). `prekeys` are alice's and bob's signed prekeys (type prekey, signed by each device's own sign key) with their secrets. `box` is one box by hand: RFC 9180 HPKE mode_auth, DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, ChaCha20-Poly1305, to bob's prekey, authenticated by alice's roster box key, with a fixed ephemeral secret, info as given and AAD = SHA-256(canon(header)). `message` is a whole frame from sealMessage carrying alice's prekey as `pk`; bob opens it to `plaintext` while he holds his prekey secret, and each tamper must fail with `reason` when he holds only the prekey ids listed in `held`. Each `invalid_prekeys` entry must fail verifyPrekey at `now` with `reason`.",
+  "roster": {
+    "mesh": "8yvT1IZgynsBt7R7maZTCw",
+    "seq": 2,
+    "prev": "ssMkmESqOUESIDgbriXNH6PbGkISd-iGLMPq2IZgY_I",
+    "devices": [
+      {
+        "id": "zv5yUNkED9tj8Qn03xCtIg",
+        "name": "alice",
+        "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+        "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+        "role": "admin",
+        "added": 1760000000000
+      },
+      {
+        "id": "MktQIySOj-wiwSsggq4YCL",
+        "name": "bob",
+        "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+        "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+        "role": "member",
+        "added": 1760000000000
+      }
+    ],
+    "revoked": [],
+    "by": "zv5yUNkED9tj8Qn03xCtIg",
+    "at": 1760000000000,
+    "sig": "u5477rfcCTiEBGVjsQID17DcIs8Ej6jID8ggXYVmu_T0EQyfrNG6tRP6yhmnut0EUjCJXgtTKObZRQ1qH2ZoAw"
+  },
+  "prekeys": {
+    "alice": {
+      "prekey": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "zv5yUNkED9tj8Qn03xCtIg",
+        "id": "QShAMsIibsspvJk-sGiNUO",
+        "pub": "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "1nwP3JHjFHuCrvtjCoy1-bzqVL36GRLWVP_nMHzT1T9TuIvVNiF_IFzLnGKNEGYZKRwXVqQM18qo0hm-bX7gCA"
+      },
+      "secret": "t94UHi36wDpK2STFAUqg6uAaUUTw9YqRryHZfXKSqJw",
+      "id_rule": "b64u(SHA-256(pub)) cut to 22",
+      "id": "QShAMsIibsspvJk-sGiNUO"
+    },
+    "bob": {
+      "prekey": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "CH0jPGmpY8ZrU6R5Donoxb",
+        "pub": "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "yIg0dgw-Q2XX7bYpWWsCiBCiyakTfnVIVkHW94Tu98VwnPXOa9hsQ92D_gnr-_bFgebMgm9BDpbFLlcI53rMBw"
+      },
+      "secret": "sjjTmZUEJl6h8UmJuU8x1w7HGMny8AvIL35ZrR4_-vw",
+      "id_rule": "b64u(SHA-256(pub)) cut to 22",
+      "id": "CH0jPGmpY8ZrU6R5Donoxb"
+    }
+  },
+  "box": {
+    "sender": "alice",
+    "recipient": "bob",
+    "header": {
+      "t": "send",
+      "mesh": "8yvT1IZgynsBt7R7maZTCw",
+      "id": "01K70000000000000000000B02",
+      "from": {
+        "device": "zv5yUNkED9tj8Qn03xCtIg",
+        "session": "writer",
+        "sid": "01K700000000000000000005D1"
+      },
+      "to": [
+        "reviewer@bob"
+      ],
+      "seq": 1,
+      "at": 1760000000000,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      }
+    },
+    "info": "wim/1 box2 8yvT1IZgynsBt7R7maZTCw zv5yUNkED9tj8Qn03xCtIg MktQIySOj-wiwSsggq4YCL CH0jPGmpY8ZrU6R5Donoxb",
+    "aad": "wO-r0Z9gEf_GzQZAkZmFSdRYNlNfefPtLo_Vkgr63ik",
+    "ephemeral_secret": "BBmwNUmaY87sm_3wZn4oChrdn6Oz0rYxbscREQLAtsY",
+    "enc": "_jcWLhEWZOIDTOg86fktm7YbuY5TGtbVYfOcEQVQXBY",
+    "shared_secret": "N7GLXQcRJ5xd21kxagLtFXKA6VjHmIqbwCaPzXf7dd4",
+    "key": "VYyWLZ31jXrDa8kqp2xxvoXJlctgsCfpMOILgSEG7GY",
+    "base_nonce": "OcKii8HG6jAPl2e3",
+    "plaintext": "{\"at\":1760000000000,\"from\":{\"device\":\"zv5yUNkED9tj8Qn03xCtIg\",\"session\":\"writer\",\"sid\":\"01K700000000000000000005D1\"},\"id\":\"01K70000000000000000000B02\",\"kind\":\"msg\",\"roster\":{\"hash\":\"ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us\",\"seq\":2},\"text\":\"hello\",\"to\":[\"reviewer@bob\"],\"v\":1}",
+    "ciphertext": "FmpvIxvotyrY17qctX2BKRlTVn8I8GlV4tHh20vZKsIsUvrdW9nO1bRcLseRsaYQPaCQuwb1m-dYlfD36wYC7rjLaikdx44YeXcVoMHaGuDEE6p2lD8-PPjzePuj52RAii4cBlbHM66c1HoyjsLh6nl1BL8j53MwsPYzypzWtqp1SsUag44qtdjO2hPPk6ExJFlNra7i6Kdg4cD7iXkdjysQHDI0cR_Whp8gmDHd-hDamwdGyO27xmKd-OjVN8hMmk66M-0ejPJZu-oMf-BQupl1mxtmo2sZi7tOIJnFkI6wnkhdLKTEfIjnpsgYm_vhXg0TRC7EpO1MSxuhfMkKqhp5GtvDwJC559L00qJeZWWTXrjCrHM_OdQQb8LsFo5fhpkygSwcvg",
+    "box": {
+      "s": 2,
+      "p": "CH0jPGmpY8ZrU6R5Donoxb",
+      "e": "_jcWLhEWZOIDTOg86fktm7YbuY5TGtbVYfOcEQVQXBY",
+      "c": "FmpvIxvotyrY17qctX2BKRlTVn8I8GlV4tHh20vZKsIsUvrdW9nO1bRcLseRsaYQPaCQuwb1m-dYlfD36wYC7rjLaikdx44YeXcVoMHaGuDEE6p2lD8-PPjzePuj52RAii4cBlbHM66c1HoyjsLh6nl1BL8j53MwsPYzypzWtqp1SsUag44qtdjO2hPPk6ExJFlNra7i6Kdg4cD7iXkdjysQHDI0cR_Whp8gmDHd-hDamwdGyO27xmKd-OjVN8hMmk66M-0ejPJZu-oMf-BQupl1mxtmo2sZi7tOIJnFkI6wnkhdLKTEfIjnpsgYm_vhXg0TRC7EpO1MSxuhfMkKqhp5GtvDwJC559L00qJeZWWTXrjCrHM_OdQQb8LsFo5fhpkygSwcvg"
+    }
+  },
+  "message": {
+    "receiver": {
+      "device": "bob",
+      "address": "reviewer@bob",
+      "sid": "01K700000000000000000005D2"
+    },
+    "now": 1760000000000,
+    "frame": {
+      "t": "send",
+      "mesh": "8yvT1IZgynsBt7R7maZTCw",
+      "id": "01K700000000000000000005G2",
+      "from": {
+        "device": "zv5yUNkED9tj8Qn03xCtIg",
+        "session": "writer",
+        "sid": "01K700000000000000000005D1"
+      },
+      "to": [
+        "reviewer@bob"
+      ],
+      "seq": 1,
+      "at": 1760000000000,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "pk": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "zv5yUNkED9tj8Qn03xCtIg",
+        "id": "QShAMsIibsspvJk-sGiNUO",
+        "pub": "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "1nwP3JHjFHuCrvtjCoy1-bzqVL36GRLWVP_nMHzT1T9TuIvVNiF_IFzLnGKNEGYZKRwXVqQM18qo0hm-bX7gCA"
+      },
+      "boxes": {
+        "MktQIySOj-wiwSsggq4YCL": {
+          "s": 2,
+          "p": "CH0jPGmpY8ZrU6R5Donoxb",
+          "e": "zhV3H2JLaSucWBe_xnZnjF2RHh6poNwKa2ULaA5Yum4",
+          "c": "swGQUDNMQBRW2DOmswv0sXAzULS0ln3uT9UbQlW6vVki1pNjt8gp-424zHMbYG86zRyddYZvVtKrdBhNB0zzDkosBqYEX9I5gqfjg4wSIM7yFM-9b9d2cGPdCx3A8eP6wcJeljGeA3Mr2U3UP1GMQgNg2VdZQaitLStqpl8bYWJueU5_E_v5c9F8KMZ0iCXvJVvXfgNtF4OvVTl9U9I3cgOmLZCLm-WUm43Dh4Omi8cgUrvWs4sc6rZLb6sVXlDHCA_hS-uhjNFLqDcZ-_CirSRSuo8DrFDBUvumDUe82sFVYtJyA93fJzzS-0JjheAXvSKRFLrA7ooHV9bK_7V-SSENFeA1XdCCE9viofNYAhPX-AR4hgpyGV-npqXm0lYtTjcQ60K52MFiTW6dE0Zbw7qVuigANkgX"
+        }
+      },
+      "sig": "FKTvxxqU1U8PsTbSmSIBMZ4NT9iF9GYcxwYPvT4pOFFSPdctp5IJkRNNC4OL3Pr8tOsXa6KAt5sf9PIGbTIjAA"
+    },
+    "plaintext": {
+      "v": 1,
+      "id": "01K700000000000000000005G2",
+      "from": {
+        "device": "zv5yUNkED9tj8Qn03xCtIg",
+        "session": "writer",
+        "sid": "01K700000000000000000005D1"
+      },
+      "to": [
+        "reviewer@bob"
+      ],
+      "at": 1760000000000,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "kind": "msg",
+      "text": "please review the diff"
+    },
+    "tampers": [
+      {
+        "why": "bob no longer holds the prekey secret (deleted 72 hours after until)",
+        "held": [],
+        "reason": "key_expired",
+        "frame": {
+          "t": "send",
+          "mesh": "8yvT1IZgynsBt7R7maZTCw",
+          "id": "01K700000000000000000005G2",
+          "from": {
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "session": "writer",
+            "sid": "01K700000000000000000005D1"
+          },
+          "to": [
+            "reviewer@bob"
+          ],
+          "seq": 1,
+          "at": 1760000000000,
+          "roster": {
+            "seq": 2,
+            "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+          },
+          "pk": {
+            "mesh": "8yvT1IZgynsBt7R7maZTCw",
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "id": "QShAMsIibsspvJk-sGiNUO",
+            "pub": "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
+            "at": 1759996400000,
+            "until": 1760169200000,
+            "sig": "1nwP3JHjFHuCrvtjCoy1-bzqVL36GRLWVP_nMHzT1T9TuIvVNiF_IFzLnGKNEGYZKRwXVqQM18qo0hm-bX7gCA"
+          },
+          "boxes": {
+            "MktQIySOj-wiwSsggq4YCL": {
+              "s": 2,
+              "p": "CH0jPGmpY8ZrU6R5Donoxb",
+              "e": "zhV3H2JLaSucWBe_xnZnjF2RHh6poNwKa2ULaA5Yum4",
+              "c": "swGQUDNMQBRW2DOmswv0sXAzULS0ln3uT9UbQlW6vVki1pNjt8gp-424zHMbYG86zRyddYZvVtKrdBhNB0zzDkosBqYEX9I5gqfjg4wSIM7yFM-9b9d2cGPdCx3A8eP6wcJeljGeA3Mr2U3UP1GMQgNg2VdZQaitLStqpl8bYWJueU5_E_v5c9F8KMZ0iCXvJVvXfgNtF4OvVTl9U9I3cgOmLZCLm-WUm43Dh4Omi8cgUrvWs4sc6rZLb6sVXlDHCA_hS-uhjNFLqDcZ-_CirSRSuo8DrFDBUvumDUe82sFVYtJyA93fJzzS-0JjheAXvSKRFLrA7ooHV9bK_7V-SSENFeA1XdCCE9viofNYAhPX-AR4hgpyGV-npqXm0lYtTjcQ60K52MFiTW6dE0Zbw7qVuigANkgX"
+            }
+          },
+          "sig": "FKTvxxqU1U8PsTbSmSIBMZ4NT9iF9GYcxwYPvT4pOFFSPdctp5IJkRNNC4OL3Pr8tOsXa6KAt5sf9PIGbTIjAA"
+        }
+      },
+      {
+        "why": "ephemeral key replaced and re-signed",
+        "held": [
+          "CH0jPGmpY8ZrU6R5Donoxb"
+        ],
+        "reason": "decrypt_failed",
+        "frame": {
+          "t": "send",
+          "mesh": "8yvT1IZgynsBt7R7maZTCw",
+          "id": "01K700000000000000000005G2",
+          "from": {
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "session": "writer",
+            "sid": "01K700000000000000000005D1"
+          },
+          "to": [
+            "reviewer@bob"
+          ],
+          "seq": 1,
+          "at": 1760000000000,
+          "roster": {
+            "seq": 2,
+            "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+          },
+          "pk": {
+            "mesh": "8yvT1IZgynsBt7R7maZTCw",
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "id": "QShAMsIibsspvJk-sGiNUO",
+            "pub": "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
+            "at": 1759996400000,
+            "until": 1760169200000,
+            "sig": "1nwP3JHjFHuCrvtjCoy1-bzqVL36GRLWVP_nMHzT1T9TuIvVNiF_IFzLnGKNEGYZKRwXVqQM18qo0hm-bX7gCA"
+          },
+          "boxes": {
+            "MktQIySOj-wiwSsggq4YCL": {
+              "s": 2,
+              "p": "CH0jPGmpY8ZrU6R5Donoxb",
+              "e": "OD4YR7e1ZrwQgvowiRIKma0ZPRmEkp3Bl5WKkQHnvTc",
+              "c": "swGQUDNMQBRW2DOmswv0sXAzULS0ln3uT9UbQlW6vVki1pNjt8gp-424zHMbYG86zRyddYZvVtKrdBhNB0zzDkosBqYEX9I5gqfjg4wSIM7yFM-9b9d2cGPdCx3A8eP6wcJeljGeA3Mr2U3UP1GMQgNg2VdZQaitLStqpl8bYWJueU5_E_v5c9F8KMZ0iCXvJVvXfgNtF4OvVTl9U9I3cgOmLZCLm-WUm43Dh4Omi8cgUrvWs4sc6rZLb6sVXlDHCA_hS-uhjNFLqDcZ-_CirSRSuo8DrFDBUvumDUe82sFVYtJyA93fJzzS-0JjheAXvSKRFLrA7ooHV9bK_7V-SSENFeA1XdCCE9viofNYAhPX-AR4hgpyGV-npqXm0lYtTjcQ60K52MFiTW6dE0Zbw7qVuigANkgX"
+            }
+          },
+          "sig": "3Y0UzDhXWSEcbX-DgndtUbqsr0ua8ZV2t3kiPWRHcyg_YSqXRZ3WWitDLSCj1l-oUPFzGmJSZtF73gOHuQBhBg"
+        }
+      },
+      {
+        "why": "header changed and re-signed",
+        "held": [
+          "CH0jPGmpY8ZrU6R5Donoxb"
+        ],
+        "reason": "decrypt_failed",
+        "frame": {
+          "t": "send",
+          "mesh": "8yvT1IZgynsBt7R7maZTCw",
+          "id": "01K700000000000000000005G2",
+          "from": {
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "session": "writer",
+            "sid": "01K700000000000000000005D1"
+          },
+          "to": [
+            "reviewer@bob"
+          ],
+          "seq": 2,
+          "at": 1760000000000,
+          "roster": {
+            "seq": 2,
+            "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+          },
+          "pk": {
+            "mesh": "8yvT1IZgynsBt7R7maZTCw",
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "id": "QShAMsIibsspvJk-sGiNUO",
+            "pub": "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
+            "at": 1759996400000,
+            "until": 1760169200000,
+            "sig": "1nwP3JHjFHuCrvtjCoy1-bzqVL36GRLWVP_nMHzT1T9TuIvVNiF_IFzLnGKNEGYZKRwXVqQM18qo0hm-bX7gCA"
+          },
+          "boxes": {
+            "MktQIySOj-wiwSsggq4YCL": {
+              "s": 2,
+              "p": "CH0jPGmpY8ZrU6R5Donoxb",
+              "e": "zhV3H2JLaSucWBe_xnZnjF2RHh6poNwKa2ULaA5Yum4",
+              "c": "swGQUDNMQBRW2DOmswv0sXAzULS0ln3uT9UbQlW6vVki1pNjt8gp-424zHMbYG86zRyddYZvVtKrdBhNB0zzDkosBqYEX9I5gqfjg4wSIM7yFM-9b9d2cGPdCx3A8eP6wcJeljGeA3Mr2U3UP1GMQgNg2VdZQaitLStqpl8bYWJueU5_E_v5c9F8KMZ0iCXvJVvXfgNtF4OvVTl9U9I3cgOmLZCLm-WUm43Dh4Omi8cgUrvWs4sc6rZLb6sVXlDHCA_hS-uhjNFLqDcZ-_CirSRSuo8DrFDBUvumDUe82sFVYtJyA93fJzzS-0JjheAXvSKRFLrA7ooHV9bK_7V-SSENFeA1XdCCE9viofNYAhPX-AR4hgpyGV-npqXm0lYtTjcQ60K52MFiTW6dE0Zbw7qVuigANkgX"
+            }
+          },
+          "sig": "YyPTYvwUS5IxtgTWmUxmAEtBjDxZAdonEGN6ZOwlxauv3H2LQnDZYydF_qy0GLNMHG634M_kqdjMX6V256E5Cw"
+        }
+      },
+      {
+        "why": "box names another prekey bob holds",
+        "held": [
+          "CH0jPGmpY8ZrU6R5Donoxb",
+          "QShAMsIibsspvJk-sGiNUO"
+        ],
+        "reason": "decrypt_failed",
+        "frame": {
+          "t": "send",
+          "mesh": "8yvT1IZgynsBt7R7maZTCw",
+          "id": "01K700000000000000000005G2",
+          "from": {
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "session": "writer",
+            "sid": "01K700000000000000000005D1"
+          },
+          "to": [
+            "reviewer@bob"
+          ],
+          "seq": 1,
+          "at": 1760000000000,
+          "roster": {
+            "seq": 2,
+            "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+          },
+          "pk": {
+            "mesh": "8yvT1IZgynsBt7R7maZTCw",
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "id": "QShAMsIibsspvJk-sGiNUO",
+            "pub": "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
+            "at": 1759996400000,
+            "until": 1760169200000,
+            "sig": "1nwP3JHjFHuCrvtjCoy1-bzqVL36GRLWVP_nMHzT1T9TuIvVNiF_IFzLnGKNEGYZKRwXVqQM18qo0hm-bX7gCA"
+          },
+          "boxes": {
+            "MktQIySOj-wiwSsggq4YCL": {
+              "s": 2,
+              "p": "QShAMsIibsspvJk-sGiNUO",
+              "e": "zhV3H2JLaSucWBe_xnZnjF2RHh6poNwKa2ULaA5Yum4",
+              "c": "swGQUDNMQBRW2DOmswv0sXAzULS0ln3uT9UbQlW6vVki1pNjt8gp-424zHMbYG86zRyddYZvVtKrdBhNB0zzDkosBqYEX9I5gqfjg4wSIM7yFM-9b9d2cGPdCx3A8eP6wcJeljGeA3Mr2U3UP1GMQgNg2VdZQaitLStqpl8bYWJueU5_E_v5c9F8KMZ0iCXvJVvXfgNtF4OvVTl9U9I3cgOmLZCLm-WUm43Dh4Omi8cgUrvWs4sc6rZLb6sVXlDHCA_hS-uhjNFLqDcZ-_CirSRSuo8DrFDBUvumDUe82sFVYtJyA93fJzzS-0JjheAXvSKRFLrA7ooHV9bK_7V-SSENFeA1XdCCE9viofNYAhPX-AR4hgpyGV-npqXm0lYtTjcQ60K52MFiTW6dE0Zbw7qVuigANkgX"
+            }
+          },
+          "sig": "HNBAh5j-9mUUB-SbEciJJeXHMraa5v1gaAsnIOWkm3PHboTY9T5Ab9wx7BawRWXDLsmniRSwwzXJGfu2oILECw"
+        }
+      },
+      {
+        "why": "re-signed by bob, who is not the sender",
+        "held": [
+          "CH0jPGmpY8ZrU6R5Donoxb"
+        ],
+        "reason": "bad_signature",
+        "frame": {
+          "t": "send",
+          "mesh": "8yvT1IZgynsBt7R7maZTCw",
+          "id": "01K700000000000000000005G2",
+          "from": {
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "session": "writer",
+            "sid": "01K700000000000000000005D1"
+          },
+          "to": [
+            "reviewer@bob"
+          ],
+          "seq": 1,
+          "at": 1760000000000,
+          "roster": {
+            "seq": 2,
+            "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+          },
+          "pk": {
+            "mesh": "8yvT1IZgynsBt7R7maZTCw",
+            "device": "zv5yUNkED9tj8Qn03xCtIg",
+            "id": "QShAMsIibsspvJk-sGiNUO",
+            "pub": "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
+            "at": 1759996400000,
+            "until": 1760169200000,
+            "sig": "1nwP3JHjFHuCrvtjCoy1-bzqVL36GRLWVP_nMHzT1T9TuIvVNiF_IFzLnGKNEGYZKRwXVqQM18qo0hm-bX7gCA"
+          },
+          "boxes": {
+            "MktQIySOj-wiwSsggq4YCL": {
+              "s": 2,
+              "p": "CH0jPGmpY8ZrU6R5Donoxb",
+              "e": "zhV3H2JLaSucWBe_xnZnjF2RHh6poNwKa2ULaA5Yum4",
+              "c": "swGQUDNMQBRW2DOmswv0sXAzULS0ln3uT9UbQlW6vVki1pNjt8gp-424zHMbYG86zRyddYZvVtKrdBhNB0zzDkosBqYEX9I5gqfjg4wSIM7yFM-9b9d2cGPdCx3A8eP6wcJeljGeA3Mr2U3UP1GMQgNg2VdZQaitLStqpl8bYWJueU5_E_v5c9F8KMZ0iCXvJVvXfgNtF4OvVTl9U9I3cgOmLZCLm-WUm43Dh4Omi8cgUrvWs4sc6rZLb6sVXlDHCA_hS-uhjNFLqDcZ-_CirSRSuo8DrFDBUvumDUe82sFVYtJyA93fJzzS-0JjheAXvSKRFLrA7ooHV9bK_7V-SSENFeA1XdCCE9viofNYAhPX-AR4hgpyGV-npqXm0lYtTjcQ60K52MFiTW6dE0Zbw7qVuigANkgX"
+            }
+          },
+          "sig": "ZAerBTKpu2VAwt4JyUcZoYDJeb2QJ0772onjuvQQemcZDNJdTujRhEJHUUBC3MSvU7SR8MxDvqOEKtTJWLQ_DA"
+        }
+      }
+    ]
+  },
+  "invalid_prekeys": [
+    {
+      "why": "signed by alice, published as bob's",
+      "prekey": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "QShAMsIibsspvJk-sGiNUO",
+        "pub": "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "hAJ5Wop6HoOg6OBMkedIvk3cg0FyHnP94A3TSsToVvFfYFS8DbaJQdxLMopKOS5ILgzPD6OvIFulPbZZAD-YCw"
+      },
+      "now": 1760000000000,
+      "reason": "bad_signature"
+    },
+    {
+      "why": "id not derived from pub",
+      "prekey": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "QShAMsIibsspvJk-sGiNUO",
+        "pub": "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "yIg0dgw-Q2XX7bYpWWsCiBCiyakTfnVIVkHW94Tu98VwnPXOa9hsQ92D_gnr-_bFgebMgm9BDpbFLlcI53rMBw"
+      },
+      "now": 1760000000000,
+      "reason": "bad_id"
+    },
+    {
+      "why": "replayed into another mesh",
+      "prekey": {
+        "mesh": "AAAAAAAAAAAAAAAAAAAAAA",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "CH0jPGmpY8ZrU6R5Donoxb",
+        "pub": "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "yIg0dgw-Q2XX7bYpWWsCiBCiyakTfnVIVkHW94Tu98VwnPXOa9hsQ92D_gnr-_bFgebMgm9BDpbFLlcI53rMBw"
+      },
+      "now": 1760000000000,
+      "reason": "wrong_mesh"
+    },
+    {
+      "why": "validity longer than 48 hours",
+      "prekey": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "CH0jPGmpY8ZrU6R5Donoxb",
+        "pub": "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
+        "at": 1759996400000,
+        "until": 1760169200001,
+        "sig": "9muBgh76mexGe9xwqfom8UPWuMV-hzHg76-iYaXvWGqTWpV-JAGD8woZqUxX6PyKLp1hHTu50SP_sJ216FdjAA"
+      },
+      "now": 1760000000000,
+      "reason": "bad_window"
+    },
+    {
+      "why": "expired: fewer than 10 minutes before until",
+      "prekey": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "CH0jPGmpY8ZrU6R5Donoxb",
+        "pub": "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "yIg0dgw-Q2XX7bYpWWsCiBCiyakTfnVIVkHW94Tu98VwnPXOa9hsQ92D_gnr-_bFgebMgm9BDpbFLlcI53rMBw"
+      },
+      "now": 1760168600000,
+      "reason": "expired"
+    },
+    {
+      "why": "made more than 10 minutes in the future",
+      "prekey": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "CH0jPGmpY8ZrU6R5Donoxb",
+        "pub": "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "yIg0dgw-Q2XX7bYpWWsCiBCiyakTfnVIVkHW94Tu98VwnPXOa9hsQ92D_gnr-_bFgebMgm9BDpbFLlcI53rMBw"
+      },
+      "now": 1759995799999,
+      "reason": "not_yet"
+    }
+  ]
+}

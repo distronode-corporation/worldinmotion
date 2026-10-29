@@ -9,6 +9,9 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 - A **device** is one machine plus one OS user plus one agent profile. It owns two key pairs:
   an Ed25519 signing pair and an X25519 encryption pair, kept in a file only its owner can read.
+  It also makes a short-lived X25519 **prekey** each day per mesh, signed by its signing key
+  (section 6b); senders seal to the prekey, and the device deletes each prekey's secret on a
+  fixed schedule.
 - A **mesh** is a set of devices that trust each other. Its membership is a **roster** that admin
   devices sign. A relay stores the roster and passes messages, but it cannot add a device, read a
   message, or forge one.
@@ -64,10 +67,9 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 | purpose | algorithm |
 |---|---|
-| signatures | Ed25519 (RFC 8032) over `UTF-8("wim/1 " + type + "\n") \|\| canonBytes(object without its sig field)`, where `type` is `roster`, `send`, `auth` or `join` |
-| key agreement | X25519 (RFC 7748) between the sender's and recipient's static box keys |
-| key derivation | HKDF-SHA256, salt = UTF-8 mesh id, info = `"wim/1 box " + senderDeviceId + " " + recipientDeviceId` (UTF-8), 32 bytes |
-| encryption | XChaCha20-Poly1305, 24-byte random nonce, AAD = `H(canon(header))` (section 6) |
+| signatures | Ed25519 (RFC 8032) over `UTF-8("wim/1 " + type + "\n") \|\| canonBytes(object without its sig field)`, where `type` is `roster`, `send`, `auth`, `join` or `prekey` |
+| box, scheme 2 | RFC 9180 HPKE, mode_auth, DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, ChaCha20-Poly1305, single shot: to the recipient device's prekey, with a fresh ephemeral key, authenticated by the sender's roster box key; info = `"wim/1 box2 " + meshId + " " + senderDeviceId + " " + recipientDeviceId + " " + prekeyId` (UTF-8), AAD = `H(canon(header))` (section 6b) |
+| box, scheme 1 (v0.1) | X25519 (RFC 7748) between the sender's and recipient's static box keys; HKDF-SHA256, salt = UTF-8 mesh id, info = `"wim/1 box " + senderDeviceId + " " + recipientDeviceId` (UTF-8), 32 bytes; XChaCha20-Poly1305, 24-byte random nonce, AAD = `H(canon(header))`. Only during the migration window (section 6b) |
 | invite proof | HMAC-SHA256 keyed with the invite secret (section 5) |
 | short authentication string | first 50 bits of `H(UTF-8("wim/1 sas ") \|\| canonBytes(join device record))` (section 5) |
 
@@ -77,9 +79,10 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
   encoded, and small-order public keys refused. A signature therefore has one accepted encoding.
 - X25519 MUST refuse a low-order public key and an all-zero shared secret.
 
-Static-static key agreement authenticates the sender's device but gives no forward secrecy: a
-device key stolen later can decrypt recorded traffic to or from it, including traffic recorded
-before the device was revoked. This is a known v0.1 limit.
+Scheme 2 boxes give bounded forward secrecy (section 6b): a key file stolen at time T opens no box
+sealed more than 120 hours before T, and boxes the device sent not at all. Scheme 1 boxes, the
+static-static box of v0.1, give none: a device key stolen later decrypts every recorded scheme 1
+box to or from it. They are kept only for the migration window.
 
 ## 4. Roster
 
@@ -296,19 +299,26 @@ A session sends:
   "seq": 17,
   "at": 1760000000000,
   "roster": { "seq": 4, "hash": "<hash of roster 4>" },
-  "boxes": { "<recipient device id>": { "n": "<b64u nonce>", "c": "<b64u ciphertext>" } },
+  "pk": { "mesh": "...", "device": "...", "id": "...", "pub": "...", "at": 1759996400000, "until": 1760169200000, "sig": "..." },
+  "boxes": { "<recipient device id>": { "s": 2, "p": "<prekey id>", "e": "<b64u ephemeral X25519 public key>", "c": "<b64u ciphertext>" } },
   "sig": "<b64u signature, type send>"
 }
 ```
 
 - The **header** is the send object without `boxes` and `sig`, whatever other fields it holds.
-  Each box is `XChaCha20-Poly1305(key(sender, recipient device), nonce, plaintext, AAD =
-  H(canon(header)))`.
+  `pk`, optional, is the sending device's current prekey (section 6b), so receivers learn it.
+- Each box carries its **scheme**. Scheme 2, `{ "s": 2, "p", "e", "c" }`, is HPKE to the
+  recipient device's prekey `p`, with the ephemeral public key `e` (section 6b). A box without `s`
+  is scheme 1, the v0.1 box `{ "n", "c" }`: `XChaCha20-Poly1305(key(sender, recipient device),
+  nonce, plaintext, AAD = H(canon(header)))`, accepted only during the migration window. Every
+  scheme after 1 carries `s`; scheme numbers from 3 up are reserved (for example a future `wim/2`
+  room mode on MLS), and a frame holding a box of an unknown scheme is malformed.
 - `sig` signs the whole object without `sig` (boxes included) with the sender's device key.
 - `roster` is a reference to the newest roster the sender has verified.
 - There is one box per recipient **device**, not per session: sibling sessions on one device read
-  the same box. A broadcast (`"to": ["*"]`) carries a box for every device in the roster, the
-  sender's own device included.
+  the same box, and opening it changes no state, so every sibling and every redelivery opens it
+  alike. A broadcast (`"to": ["*"]`) carries a box for every device in the roster, the sender's own
+  device included (after the migration window: every such device that has a current prekey).
 - `seq` 0 is reserved for peer cards (section 17), which have their own seq space. Otherwise `seq`
   increases by one per message from a session (`from.sid`), across all of its recipients,
   starting at 1 for each new sid.
@@ -340,7 +350,10 @@ A session sends:
    (same device and sid). History (section 13) keeps the receiving session's own messages.
 6. **Freshness.** `at` is no more than 47 hours before the receiver's clock and no more than 10
    minutes after it.
-7. **Decryption** of its device's box.
+7. **Decryption** of its device's box: a scheme 2 box with the secret of the prekey it names, and
+   the sender's roster `box` key as the HPKE sender key. A box for a prekey whose secret the
+   device no longer holds fails as `key_expired` (section 6b); a scheme 1 box after the migration
+   window fails as `legacy_box`.
 8. **Plaintext.** It parses (no duplicate keys), matches the schema for its `kind` (an unknown
    kind is dropped), and its bytes equal
    `canonBytes` of the parsed value. `seq` is 0 exactly when the kind is `card`. Its `id`, `from`,
@@ -360,7 +373,7 @@ A session sends:
 MUST refuse a send that would not fit, before sending, by measuring the actual frame. The text
 that fits is often less than 256 KiB: in the plaintext a control character can grow to 6 bytes
 (`\u0001`), the ciphertext adds 16 bytes, base64 adds a third, and a broadcast repeats all of it
-once per device.
+once per device (a scheme 2 box adds about 100 bytes of `s`, `p` and `e` on top).
 
 ## 6a. Delivering messages to an agent
 
@@ -419,6 +432,108 @@ person the receiving agent works for.
   message, and not through any setting an agent can change.
 - Tasks, results and files (section 12) are messages too, and everything in this section applies
   to them. A task is a peer's request, never the person's instruction.
+
+## 6b. Prekeys and forward secrecy
+
+Each device seals nothing to its long-term box key any more. Instead it publishes a short-lived,
+signed X25519 **prekey** per mesh, senders seal every box to the recipient device's current
+prekey with a fresh ephemeral key, and the device deletes each prekey's secret on a fixed
+schedule. Recorded ciphertext is then unreadable to a key file stolen after that schedule ran.
+
+**The prekey object.**
+
+```json
+{ "mesh": "<mesh id>", "device": "<device id>", "id": "<prekey id>", "pub": "<b64u X25519 public key>",
+  "at": 1760000000000, "until": 1760172800000, "sig": "<b64u signature, type prekey>" }
+```
+
+- `id` is `b64u(H(pub))` truncated to 22 characters. `at` is when the device made it and `until`
+  the last moment a sender may seal to it: more than `at`, and at most 48 hours after it.
+- `sig` is the device's own Ed25519 signature, type `prekey`, with its roster `sign` key. No admin
+  signs a prekey and the roster does not change: a device rotates its prekeys on its own.
+  Recovery records never publish one.
+- **Verifying.** A receiver of a prekey MUST check, in this order: the shape, the mesh, that the
+  device is in its newest verified roster (not revoked, not a recovery record), that `id` derives
+  from `pub`, the signature, the window (`until` after `at`, at most 48 hours), that `pub` is not a
+  low-order point, that `at` is at most 10 minutes ahead of its clock, and that its clock is at
+  least 10 minutes before `until`. A client SHOULD also refuse a prekey whose `pub` is a test-vector
+  key (section 16).
+
+**Publishing.** A device publishes its current prekey in the header of what its sessions send, as
+`pk` (section 6): in every `send` frame, and in each session's peer card (section 17), which the
+relay stores and serves to every session after `ready` and pushes when it changes. So every
+session sends a card, one with no labels when it shares none, and sends it again at once when the
+device's prekey rotates. A receiver keeps, per peer device, the newest prekey that verifies, by
+`at`: an older one (a replayed card) never replaces a newer one. No relay frame is added for
+prekeys.
+
+**Rotating and deleting (the device's schedule).**
+
+| step | rule |
+|---|---|
+| store | prekey secrets are kept in a file next to the device's keys, readable only by its owner, shared by its sessions |
+| rotate | a new prekey when no kept prekey passes the time checks, or the newest is 24 hours old; under a lock, so sibling sessions make one |
+| delete | each secret at `until` + 72 hours (so at most 120 hours after `at`), by rewriting the file without it |
+| cap | at most 8 prekeys kept |
+
+Every process of the reference client that opens the mesh runs the schedule, and every running
+session runs it again when the next rotation or deletion falls due.
+
+- Retention covers delivery and history: a box sealed at the last moment a sender may use a
+  prekey (`until` - 10 minutes) still opens 72 hours later, the longest a relay keeps a queued
+  message, a history entry or a blob chunk (section 13).
+- **Forward secrecy, bounded.** A box opens only while the recipient device keeps the prekey's
+  secret, so a key file stolen at time T opens no box sealed more than 120 hours before T (96 to
+  120 hours for a box sealed to the newest prekey of a device online every day). A box a device
+  sent does not open with its own key file at all: the ephemeral secret existed only while
+  sealing. A thief who copied the key file once loses the device's incoming traffic as peers move
+  to prekeys made after the copy, within a day for a device that rotates daily.
+
+**Sending.** A sender seals to the newest prekey of each recipient device that passes the checks
+by its own clock, including the 10-minute margin before `until`. It MUST verify every prekey it
+seals to as above, and seals its own device's box (for sibling sessions, in a broadcast) to its
+own current prekey.
+
+**The migration window.** Until wire version 1.0:
+
+- A sender with no current prekey for a recipient device (a v0.1 client, which publishes none, or
+  a device offline for more than 48 hours) seals that device a scheme 1 box. The reference client
+  says so (`wim send` prints "Sent without forward secrecy to ..."). Before falling back, it reads
+  the prekeys its sibling sessions learned and waits for the first `cards` page of its
+  connection, at most the send's answer timeout.
+- Receivers open scheme 1 boxes, so v0.1 senders, and messages queued or kept in history from
+  before an upgrade, still read.
+- A v0.1 client parses `send` frames strictly, so it drops a frame that holds a scheme 2 box or a
+  `pk`, even when its own box is scheme 1. Upgrade every device of a mesh; a v0.1 relay refuses
+  such frames as malformed, so relays upgrade first.
+- A hostile relay can force the downgrade during the window by withholding cards and stripping
+  `pk`: the sender then seals scheme 1 boxes and says so.
+
+From 1.0, scheme 1 boxes are refused (`legacy_box`), senders never fall back to the static box, a
+broadcast or room send carries a box for every device that has a current prekey, and a direct send
+to a device without one is refused before it is sent.
+
+**Failure modes.**
+
+- **A stale prekey at the sender.** A sender that missed a rotation seals to an older prekey; that
+  is fine while it passes the checks, because the device keeps every secret 72 hours past its
+  `until`. A relay that withholds new cards can hold a sender on an older prekey, which weakens
+  forward secrecy to that prekey's window, never further.
+- **A recipient offline longer than the retention.** Nothing waits for it: the relay expires a
+  queued message after 24 hours and sends the sender the `expired` receipt (section 7), which is
+  sooner than any secret it needs is deleted. After 48 hours offline its last prekey has expired,
+  and senders fall back (window) or refuse (after 1.0) at send time, so the sender is told then.
+  A room history entry sealed to a prekey the device no longer holds fails as `key_expired` and
+  is skipped, like any history entry that does not open.
+- **Lost prekey secrets** (a key file restored without its prekey file): live boxes for the lost
+  prekeys fail as `key_expired`. The device makes and publishes a new prekey at once. The reference
+  client tells its person once per sender device. The relay has no frame to tell the sender.
+- **Clock skew.** The 10-minute margins above match the message freshness window (section 6). A
+  device whose clock runs more than 10 minutes fast has its prekeys refused as `not_yet`, as its
+  messages are refused as `too_new`. A clock set back leaves the newest prekey in the future: the
+  device rotates once, then uses the new one.
+- **Revocation** is unchanged: senders seal only to devices in their newest verified roster, a
+  revoked device's prekeys fail the roster check, and there is no group key to rotate.
 
 ## 7. Delivery
 
@@ -629,6 +744,11 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | recovery connections per mesh | 5 an hour |
 | pending join connections | 1 per invite, 16 per mesh |
 | `derived` window after an information-only item | 10 minutes |
+| prekey rotation | daily (a new one when the newest is 24 hours old) |
+| prekey validity (`until` - `at`) | at most 48 hours |
+| prekey secret kept | until `until` + 72 hours |
+| senders stop using a prekey | 10 minutes before its `until` |
+| prekeys kept per device and mesh | 8 |
 
 ## 10. What the relay can and cannot see
 
@@ -641,8 +761,11 @@ of a newer roster from the first message sent after it and fetches the chain bef
 sender. A relay that serves two different rosters for one seq is caught when the forks meet
 (section 4).
 
-Room names and membership (section 13), lease keys and holders (section 14), and blob sizes and
-timing (section 15) are relay-visible metadata; message kinds and file names and contents are not.
+Room names and membership (section 13), lease keys and holders (section 14), blob sizes and
+timing (section 15), and each device's prekeys with their times of rotation (section 6b) are
+relay-visible metadata; message kinds and file names and contents are not. A relay that records
+ciphertext and later obtains a device's key file reads only what that device's prekey secrets
+still open (section 6b).
 Leases are different from everything else here: they are advisory, and the relay is trusted for
 them. A hostile or faulty relay can grant one lease to two holders at once, so a lease MUST NOT be
 the only thing protecting work that would be unsafe to run twice. The fencing token lets a holder,
@@ -735,7 +858,9 @@ each adds its own:
   even one a sweep has not deleted yet. 72 hours is also the longest a relay keeps a queued
   message, a history entry or a blob chunk: a relay MAY shorten those lifetimes, but never
   lengthen one past it. A device added after a message was sent has no box in it and cannot read
-  it; that is expected. A client reading history
+  it; that is expected. A device keeps every prekey secret at least 72 hours after the last box
+  sealed to it (section 6b), so every history entry stays readable for as long as the relay keeps
+  it. A client reading history
   applies every receiving check of section 6 except freshness and the dedupe store (history is
   older than the freshness window by design), and except the rule in step 5 that drops the
   receiving session's own `*` or room sends: history includes the reader's own messages, so a
@@ -823,15 +948,17 @@ escape.
 | `canon.json` | JSON inputs and their canon output (key order by UTF-16 code unit, escapes, non-ASCII, `-0`, no Unicode normalisation), and inputs that MUST be refused |
 | `b64u.json` | encodings, and non-canonical inputs that MUST be refused |
 | `keys.json` | fixed secrets to public keys and device ids |
-| `sign.json` | for each signature type, the object, the signed bytes and the signature; tampered cases that MUST fail |
-| `box.json` | one box: keys, mesh id, header, nonce, shared secret, box key, AAD, plaintext and ciphertext |
+| `sign.json` | for each signature type (`prekey` included), the object, the signed bytes and the signature; tampered cases that MUST fail |
+| `box.json` | one scheme 1 box: keys, mesh id, header, nonce, shared secret, box key, AAD, plaintext and ciphertext |
 | `roster.json` | a chain (genesis with a recovery record, a member add, a promotion, a revocation, a recovery add), its recovery code, and invalid successors with their failure reasons |
 | `invite.json` | an invite code with a TLS pin, its secret and id, and a join with its proof, signature and short authentication string |
-| `message.json` | a sealed send frame, the plaintext one recipient opens, and tamper cases with their reasons |
+| `message.json` | a sealed send frame with a scheme 1 box, the plaintext one recipient opens, and tamper cases with their reasons |
+| `prekey.json` | two signed prekeys with their secrets; one scheme 2 box by hand with every HPKE value (info, AAD, ephemeral secret, enc, shared secret, key, base nonce, ciphertext); a whole frame carrying `pk`, its plaintext, and tamper cases (`key_expired`, `decrypt_failed`, `bad_signature`) with the prekeys held; prekeys that MUST fail verification, with their reasons |
 | `blob.json` | a 2-chunk file with a fixed key and nonces |
 
 An implementation is conformant for a primitive only if it reproduces that primitive's vectors
-exactly.
+exactly. The HPKE core is also checked against RFC 9180 Appendix A.2.3 (the same suite, mode_auth)
+in `packages/protocol/test/hpke.test.ts`.
 
 The vectors' secret keys are public. Clients SHOULD refuse any device or recovery key equal to
 one of them; `VECTOR_SEED_PUBLIC_KEYS` lists their public keys, and `isVectorKey` checks one.
@@ -846,7 +973,10 @@ A card tells the other sessions of a mesh what a session is working on, for thei
   `to` is invalid. Its `seq` is always 0: cards have their own seq space and never collide with
   message seqs.
 - The client sends it as `card.set { msg: <send frame> }` after `ready` and whenever a field
-  changes, at most once a minute. The relay stores only the newest card per session, replacing the
+  changes, at most once a minute, and at once when its device's prekey rotates. Every session sends
+  one, with an empty `card` when it shares no labels, because the card's header carries the
+  device's current prekey as `pk` (section 6b). A receiver takes the `pk` whether or not it can
+  open the card, and lists no labels for an empty card. The relay stores only the newest card per session, replacing the
   previous one, and never treats it as a message: no `deliver`, no queue, no receipts, no wake.
 - After `ready` the relay sends `cards { cards: [<send frame>], more }` with the stored card of
   every session in the mesh that has not ended (online or offline), in pages of at most 512 KiB and

@@ -126,6 +126,23 @@ export const LIMITS = {
    * (`messageMaxAgeMs` + `messageMaxFutureMs`), so an id is never forgotten while still acceptable.
    */
   dedupeRetentionMs: 48 * HOUR + 10 * MINUTE,
+  /** A device publishes a new prekey when its newest is this old (SPEC section 6b). */
+  prekeyRotateMs: DAY,
+  /** `until - at` of a prekey: senders may seal to it this long. A longer window is refused. */
+  prekeyLifetimeMs: 2 * DAY,
+  /**
+   * A device deletes a prekey's secret this long after the prekey's `until`, so every box sealed
+   * to it opens for at least 72 hours (a room history entry's whole life at the relay) and none
+   * opens later than `until` plus 72 hours, with any key file.
+   */
+  prekeyRetentionMs: 72 * HOUR,
+  /** Senders stop sealing to a prekey this long before its `until`, for clock skew. */
+  prekeySendMarginMs: 10 * MINUTE,
+  /**
+   * Prekey secrets a device keeps at most. Daily rotation and deletion 120 hours after `at` keep
+   * six alive at most; the cap only bounds the file when a clock misbehaves.
+   */
+  prekeysKept: 8,
 } as const;
 
 /** Outcome of a check that must not throw. `reason` is a stable, machine-readable string. */

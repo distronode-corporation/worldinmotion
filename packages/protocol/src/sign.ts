@@ -3,9 +3,9 @@ import { b64u, canonBytes, utf8 } from "./encoding.ts";
 import { PROTOCOL } from "./limits.ts";
 
 /** What a signature is for. Each type signs under its own label, so one can never pass as another. */
-export type SignType = "roster" | "send" | "auth" | "join";
+export type SignType = "roster" | "send" | "auth" | "join" | "prekey";
 
-const SIGN_TYPES: ReadonlySet<string> = new Set<SignType>(["roster", "send", "auth", "join"]);
+const SIGN_TYPES: ReadonlySet<string> = new Set<SignType>(["roster", "send", "auth", "join", "prekey"]);
 
 function withoutSig(obj: object): Record<string, unknown> {
   const { sig: _sig, ...rest } = obj as Record<string, unknown>;

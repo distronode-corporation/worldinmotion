@@ -17,6 +17,7 @@ import {
   signObject,
   ulid,
   utf8,
+  type LegacyBox,
   type Roster,
   type SendFrame,
   type SendHeader,
@@ -95,7 +96,7 @@ describe("seal and open", () => {
     expect(frame).toMatchObject({ mesh: roster.mesh, roster: { seq: roster.seq, hash: hash(roster) } });
     expect(frame.from).toEqual({ device: laptop.id, session: "writer", sid: laptopSid });
     expect(Object.keys(frame.boxes)).toEqual([server.id]);
-    expect(b64u.decode(frame.boxes[server.id]!.n)).toHaveLength(24);
+    expect(b64u.decode((frame.boxes[server.id] as LegacyBox).n)).toHaveLength(24);
     expect(open(frame, server)).toEqual({
       ok: true,
       value: {
@@ -214,7 +215,7 @@ describe("tampering", () => {
   });
 
   it("refuses altered ciphertext and nonce", () => {
-    const box = frame.boxes[server.id]!;
+    const box = frame.boxes[server.id] as LegacyBox;
     const c = b64u.decode(box.c);
     c[0]! ^= 1;
     const n = b64u.decode(box.n);

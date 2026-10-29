@@ -5,13 +5,15 @@ import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js";
 import { z } from "zod";
 import { findSecrets } from "./agent.ts";
 import { b64u, bytesEqual, canon, canonBytes, fitsUtf8, fromUtf8, hash, sha256, utf8 } from "./encoding.ts";
-import { sendFrameSchema, type SendFrame } from "./frames.ts";
+import { sendFrameSchema, type Box, type SendFrame } from "./frames.ts";
 import { deviceIdFromSignPub, randomBytes, ulid } from "./ids.ts";
 import { parseJson } from "./json.ts";
 import type { DeviceKeys } from "./keys.ts";
 import { fail, LIMITS, ok, PROTOCOL, WIRE_VERSION, type Result } from "./limits.ts";
 import { checkFreshness } from "./replay.ts";
 import { fileSchema, type FileInfo } from "./blob.ts";
+import { hpkeOpenAuth, hpkeSealAuth } from "./hpke.ts";
+import { verifyPrekey, type Prekey } from "./prekey.ts";
 import { fromSchema, isRoom, rosterRefSchema, timeSchema, toSchema, ulidSchema, type Roster } from "./schema.ts";
 import { isRecoveryName } from "./roster.ts";
 import { signObject, verifyObject } from "./sign.ts";
@@ -121,6 +123,15 @@ function boxKey(meshId: string, mySec: Uint8Array, theirPub: Uint8Array, senderI
 }
 
 /**
+ * The HPKE `info` of a scheme 2 box (SPEC section 6b): the mesh, both device ids in
+ * sender-to-recipient order, and the prekey id, so a box cannot be moved to another mesh, pair
+ * or prekey.
+ */
+function box2Info(meshId: string, senderId: string, recipientId: string, prekeyId: string): Uint8Array {
+  return utf8(`${PROTOCOL} box2 ${meshId} ${senderId} ${recipientId} ${prekeyId}`);
+}
+
+/**
  * Every box's AAD: `H(canon(header))`, where the header is whatever the frame holds apart from
  * `boxes` and `sig`. Computed generically so a new header field can never be left out.
  */
@@ -167,6 +178,20 @@ export function sealMessage(opts: {
   relayed?: boolean;
   /** Written while handling another agent's information-only item (SPEC section 6a). */
   derived?: boolean;
+  /**
+   * Current prekeys of recipient devices, by device id (SPEC section 6b). Each must pass
+   * `verifyPrekey` at `at` for the device it is listed under, else the seal is refused. A device
+   * listed here gets a scheme 2 box, sealed to its prekey with a fresh ephemeral key.
+   */
+  prekeys?: Readonly<Record<string, Prekey>>;
+  /** The sender device's own current prekey, carried in the header as `pk` for receivers to use. */
+  prekey?: Prekey;
+  /**
+   * The migration window (SPEC section 6b, default true): a recipient with no prekey in `prekeys`
+   * gets a scheme 1 box. With `false`, a broadcast or room send skips such a device and any other
+   * send that names one is refused.
+   */
+  legacy?: boolean;
 }): SendFrame {
   const { roster, sender } = opts;
   const kind = opts.kind ?? "msg";
@@ -198,10 +223,31 @@ export function sealMessage(opts: {
   if (!group && named.some((d) => isRecoveryName(d.name))) {
     throw new TypeError("sealMessage: a recovery record cannot receive messages");
   }
-  const recipients = named.filter((d) => !isRecoveryName(d.name));
   const acting = roster.devices.filter((d) => !isRecoveryName(d.name));
-  if (group && recipients.length !== acting.length) {
+  if (group && named.filter((d) => !isRecoveryName(d.name)).length !== acting.length) {
     throw new TypeError("sealMessage: a broadcast or room send needs a box for every device in the roster");
+  }
+  const prekeys = opts.prekeys ?? {};
+  for (const [deviceId, pk] of Object.entries(prekeys)) {
+    const checked = verifyPrekey(pk, roster, opts.at);
+    if (!checked.ok || pk.device !== deviceId) {
+      throw new TypeError(`sealMessage: the prekey for ${deviceId} is not usable (${checked.ok ? "another device's" : checked.reason})`);
+    }
+  }
+  const legacy = opts.legacy !== false;
+  const keyed = (d: { id: string }): boolean => Object.hasOwn(prekeys, d.id);
+  const missing = named.filter((d) => !isRecoveryName(d.name) && !keyed(d));
+  if (!legacy && !group && missing.length > 0) {
+    throw new TypeError(`sealMessage: no current prekey for ${missing.map((d) => d.id).join(", ")}`);
+  }
+  // Without the migration window, a broadcast or room send reaches every device that has a prekey.
+  const recipients = named.filter((d) => !isRecoveryName(d.name) && (legacy || keyed(d)));
+  if (recipients.length === 0) throw new TypeError("sealMessage: no device to seal to has a current prekey");
+  if (opts.prekey !== undefined) {
+    const own = verifyPrekey(opts.prekey, roster, opts.at);
+    if (!own.ok || opts.prekey.device !== sender.deviceId) {
+      throw new TypeError(`sealMessage: the sender's prekey is not usable (${own.ok ? "another device's" : own.reason})`);
+    }
   }
 
   const header = {
@@ -214,6 +260,7 @@ export function sealMessage(opts: {
     seq: kind === "card" ? 0 : opts.seq,
     at: opts.at,
     roster: { seq: roster.seq, hash: hash(roster) },
+    ...(opts.prekey === undefined ? {} : { pk: opts.prekey }),
   };
   const body = dropUndefined({
     v: WIRE_VERSION,
@@ -239,8 +286,16 @@ export function sealMessage(opts: {
   }
   const plaintext = canonBytes(body);
   const aad = headerAad(header);
-  const boxes: Record<string, { n: string; c: string }> = {};
+  const boxes: Record<string, Box> = {};
   for (const r of recipients) {
+    const pk = prekeys[r.id];
+    if (pk !== undefined) {
+      // Scheme 2: the ephemeral secret exists only inside this call, so this device's key file,
+      // stolen later, cannot reopen the box (SPEC section 6b).
+      const sealed = hpkeSealAuth({ pkR: b64u.decode(pk.pub), skS: sender.keys.boxSec, info: box2Info(roster.mesh, sender.deviceId, r.id, pk.id), aad, plaintext });
+      boxes[r.id] = { s: 2, p: pk.id, e: b64u.encode(sealed.enc), c: b64u.encode(sealed.ciphertext) };
+      continue;
+    }
     const key = boxKey(roster.mesh, sender.keys.boxSec, b64u.decode(r.box), sender.deviceId, r.id);
     const nonce = randomBytes(24);
     const c = xchacha20poly1305(key, nonce, aad).encrypt(plaintext);
@@ -266,8 +321,19 @@ function sameTo(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
-/** The receiving session: its device keys, its current address, its session id and its rooms. */
-export type Receiver = { deviceId: string; keys: DeviceKeys; address: string; sid: string; rooms?: readonly string[] };
+/**
+ * The receiving session: its device keys, its current address, its session id and its rooms, and
+ * `prekey`, which returns the secret of one of its device's prekeys by id, or undefined once the
+ * device has deleted it (SPEC section 6b).
+ */
+export type Receiver = {
+  deviceId: string;
+  keys: DeviceKeys;
+  address: string;
+  sid: string;
+  rooms?: readonly string[];
+  prekey?: (id: string) => Uint8Array | undefined;
+};
 
 /**
  * Verifies and decrypts a received `send` frame for this session (SPEC section 6). `roster` is
@@ -284,7 +350,9 @@ export type Receiver = { deviceId: string; keys: DeviceKeys; address: string; si
  * - `not_addressed` (no matching address, `*` or joined room), `own_broadcast` (a `*` or room
  *   send from this very session, outside history)
  * - `too_old`, `too_new` (the clock window)
- * - `no_box`, `decrypt_failed`, `plaintext_malformed` (including duplicate keys or bytes that are
+ * - `no_box`; `key_expired` (a scheme 2 box for a prekey whose secret this device no longer
+ *   holds: deleted on schedule, or lost); `legacy_box` (a scheme 1 box with `legacy: false`, once
+ *   the migration window is closed); `decrypt_failed`, `plaintext_malformed` (including duplicate keys or bytes that are
  *   not canonical), `seq_kind_mismatch` (seq 0 is for cards only, and every card has seq 0),
  *   then `id_mismatch`, `from_mismatch`, `to_mismatch`, `at_mismatch`, `roster_mismatch`
  *
@@ -295,7 +363,7 @@ export type Receiver = { deviceId: string; keys: DeviceKeys; address: string; si
  */
 export function openMessage(
   frame: unknown,
-  ctx: { roster: Roster; me: Receiver; now: number; history?: boolean },
+  ctx: { roster: Roster; me: Receiver; now: number; history?: boolean; legacy?: boolean },
 ): Result<Plaintext> {
   const parsed = sendFrameSchema.safeParse(frame);
   if (!parsed.success) return fail("malformed");
@@ -323,14 +391,26 @@ export function openMessage(
   const fresh = ctx.history === true ? ok(true) : checkFreshness(f.at, ctx.now);
   if (!fresh.ok) return fresh;
 
-  const box = Object.hasOwn(f.boxes, me.deviceId) ? f.boxes[me.deviceId] : undefined;
+  const box: Box | undefined = Object.hasOwn(f.boxes, me.deviceId) ? f.boxes[me.deviceId] : undefined;
   if (box === undefined) return fail("no_box");
 
+  let open: () => Uint8Array;
+  if ("s" in box) {
+    const secret = me.prekey?.(box.p);
+    if (secret === undefined) return fail("key_expired");
+    const info = box2Info(roster.mesh, sender.id, me.deviceId, box.p);
+    open = () => hpkeOpenAuth({ enc: b64u.decode(box.e), skR: secret, pkS: b64u.decode(sender.box), info, aad: headerAad(f), ciphertext: b64u.decode(box.c) });
+  } else {
+    if (ctx.legacy === false) return fail("legacy_box");
+    open = () => {
+      const key = boxKey(roster.mesh, me.keys.boxSec, b64u.decode(sender.box), sender.id, me.deviceId);
+      return xchacha20poly1305(key, b64u.decode(box.n), headerAad(f)).decrypt(b64u.decode(box.c));
+    };
+  }
   let bytes: Uint8Array;
   let text: string;
   try {
-    const key = boxKey(roster.mesh, me.keys.boxSec, b64u.decode(sender.box), sender.id, me.deviceId);
-    bytes = xchacha20poly1305(key, b64u.decode(box.n), headerAad(f)).decrypt(b64u.decode(box.c));
+    bytes = open();
     text = fromUtf8(bytes);
   } catch {
     return fail("decrypt_failed");

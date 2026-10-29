@@ -108,14 +108,15 @@ describe("one-off sends", () => {
     expect(await fs.readdir(w.files.controlDir)).toContain(fresh);
   });
 
-  it("without a watch, use the cli session, publish no card, end offline, and replies wait for wim inbox", async () => {
+  it("without a watch, use the cli session, publish no labels, end offline, and replies wait for wim inbox", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const b = await openSession(devices[1]!, mesh, relay, { name: "b" });
     open.push(b);
     const t = term(devices[0]!.root, relay);
     expect(await run(t, "send", "b@two", "ping")).toBe(0);
-    expect(relay.sentByClients.some((x) => x.startsWith('{"t":"card.set"'))).toBe(false);
+    // The cli session's card, if it went out before the session ended, carries its prekey and no labels.
+    for (const c of relay.sentByClients.filter((x) => x.startsWith('{"t":"card.set"'))) expect(c).not.toMatch(/"cwd"|"branch"/);
     expect(relay.sentByClients).toContain('{"t":"bye","ended":false}');
     await until(async () => (await b.spool.unread()).length === 1);
     expect((await b.send("cli@one", "pong")).results[0]!.status).toBe("queued");

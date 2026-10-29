@@ -1,5 +1,5 @@
 {
-  "description": "alice seals a message to reviewer@bob. Bob's session (address reviewer@bob, clock `now`) opens it to `plaintext`. Each tamper case must fail with `reason`, given the same roster and the `now` and `address` shown (or the defaults).",
+  "description": "alice seals a scheme 1 (v0.1, static-static) message to reviewer@bob, as receivers still accept during the migration window (SPEC section 6b). Bob's session (address reviewer@bob, clock `now`) opens it to `plaintext`. Each tamper case must fail with `reason`, given the same roster and the `now` and `address` shown (or the defaults).",
   "roster": {
     "mesh": "8yvT1IZgynsBt7R7maZTCw",
     "seq": 2,

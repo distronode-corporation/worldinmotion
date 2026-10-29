@@ -78,7 +78,7 @@ var require_buffer_util = __commonJS({
     "use strict";
     var { EMPTY_BUFFER: EMPTY_BUFFER2 } = require_constants();
     var FastBuffer = Buffer[Symbol.species];
-    function concat(list2, totalLength) {
+    function concat2(list2, totalLength) {
       if (list2.length === 0) return EMPTY_BUFFER2;
       if (list2.length === 1) return list2[0];
       const target = Buffer.allocUnsafe(totalLength);
@@ -124,7 +124,7 @@ var require_buffer_util = __commonJS({
       return buf2;
     }
     module.exports = {
-      concat,
+      concat: concat2,
       mask: _mask,
       toArrayBuffer,
       toBuffer: toBuffer2,
@@ -793,7 +793,7 @@ var require_receiver = __commonJS({
       kStatusCode,
       kWebSocket
     } = require_constants();
-    var { concat, toArrayBuffer, unmask } = require_buffer_util();
+    var { concat: concat2, toArrayBuffer, unmask } = require_buffer_util();
     var { isValidStatusCode, isValidUTF8 } = require_validation();
     var FastBuffer = Buffer[Symbol.species];
     var GET_INFO = 0;
@@ -1270,9 +1270,9 @@ var require_receiver = __commonJS({
         if (this._opcode === 2) {
           let data;
           if (this._binaryType === "nodebuffer") {
-            data = concat(fragments, messageLength);
+            data = concat2(fragments, messageLength);
           } else if (this._binaryType === "arraybuffer") {
-            data = toArrayBuffer(concat(fragments, messageLength));
+            data = toArrayBuffer(concat2(fragments, messageLength));
           } else if (this._binaryType === "blob") {
             data = new Blob(fragments);
           } else {
@@ -1290,7 +1290,7 @@ var require_receiver = __commonJS({
             });
           }
         } else {
-          const buf2 = concat(fragments, messageLength);
+          const buf2 = concat2(fragments, messageLength);
           if (!this._skipUTF8Validation && !isValidUTF8(buf2)) {
             const error63 = this.createError(
               Error,
@@ -4757,13 +4757,13 @@ var init_schemaDeserializationMiddleware = __esm({
       const { operationSchema } = getSmithyContext(context);
       const [, ns, n3, t2, i6, o3] = operationSchema ?? [];
       try {
-        const parsed = await config2.protocol.deserializeResponse(operation(ns, n3, t2, i6, o3), {
+        const parsed2 = await config2.protocol.deserializeResponse(operation(ns, n3, t2, i6, o3), {
           ...config2,
           ...context
         }, response);
         return {
           response,
-          output: parsed
+          output: parsed2
         };
       } catch (error63) {
         Object.defineProperty(error63, "$response", {
@@ -6550,12 +6550,12 @@ var init_parse_utils = __esm({
         return void 0;
       }
       if (typeof value === "string") {
-        const parsed = parseFloat(value);
-        if (!Number.isNaN(parsed)) {
-          if (String(parsed) !== String(value)) {
+        const parsed2 = parseFloat(value);
+        if (!Number.isNaN(parsed2)) {
+          if (String(parsed2) !== String(value)) {
             logger.warn(stackTraceWarning(`Expected number but observed string: ${value}`));
           }
-          return parsed;
+          return parsed2;
         }
       }
       if (typeof value === "number") {
@@ -7300,10 +7300,10 @@ var init_deserializerMiddleware = __esm({
     deserializerMiddleware = (options, deserializer) => (next, context) => async (args) => {
       const { response } = await next(args);
       try {
-        const parsed = await deserializer(response, options);
+        const parsed2 = await deserializer(response, options);
         return {
           response,
-          output: parsed
+          output: parsed2
         };
       } catch (error63) {
         Object.defineProperty(error63, "$response", {
@@ -14099,22 +14099,22 @@ var init_JsonShapeDeserializer2 = __esm({
       }
       async read(schema, data) {
         const reviver = needsReviver(schema) ? jsonReviver : void 0;
-        let parsed;
+        let parsed2;
         if (typeof data === "string") {
           if (data.length === 0) {
             return {};
           }
-          parsed = JSON.parse(data, reviver);
+          parsed2 = JSON.parse(data, reviver);
         } else if (data instanceof Uint8Array && detectBufferParsing()) {
           if (data.byteLength === 0) {
             return {};
           }
           const buf2 = Buffer.isBuffer(data) ? data : Buffer.from(data.buffer, data.byteOffset, data.byteLength);
-          parsed = JSON.parse(buf2, reviver);
+          parsed2 = JSON.parse(buf2, reviver);
         } else {
-          parsed = await parseJsonBody(data, this.serdeContext, schema);
+          parsed2 = await parseJsonBody(data, this.serdeContext, schema);
         }
-        return this._read(schema, parsed);
+        return this._read(schema, parsed2);
       }
       readObject(schema, data) {
         return this._read(schema, data);
@@ -21030,29 +21030,29 @@ var require_dist_cjs7 = __commonJS({
         };
       }
       if (process.env[ENV_CMDS_FULL_URI]) {
-        let parsed;
+        let parsed2;
         try {
-          parsed = new URL(process.env[ENV_CMDS_FULL_URI]);
+          parsed2 = new URL(process.env[ENV_CMDS_FULL_URI]);
         } catch {
           throw new CredentialsProviderError2(`${process.env[ENV_CMDS_FULL_URI]} is not a valid container metadata service URL`, { tryNextLink: false, logger: logger2 });
         }
-        if (!parsed.hostname || !GREENGRASS_HOSTS.has(parsed.hostname)) {
-          throw new CredentialsProviderError2(`${parsed.hostname} is not a valid container metadata service hostname`, {
+        if (!parsed2.hostname || !GREENGRASS_HOSTS.has(parsed2.hostname)) {
+          throw new CredentialsProviderError2(`${parsed2.hostname} is not a valid container metadata service hostname`, {
             tryNextLink: false,
             logger: logger2
           });
         }
-        if (!parsed.protocol || !GREENGRASS_PROTOCOLS.has(parsed.protocol)) {
-          throw new CredentialsProviderError2(`${parsed.protocol} is not a valid container metadata service protocol`, {
+        if (!parsed2.protocol || !GREENGRASS_PROTOCOLS.has(parsed2.protocol)) {
+          throw new CredentialsProviderError2(`${parsed2.protocol} is not a valid container metadata service protocol`, {
             tryNextLink: false,
             logger: logger2
           });
         }
         return {
-          protocol: parsed.protocol,
-          hostname: parsed.hostname,
-          path: parsed.pathname + parsed.search,
-          port: parsed.port ? parseInt(parsed.port, 10) : void 0
+          protocol: parsed2.protocol,
+          hostname: parsed2.hostname,
+          path: parsed2.pathname + parsed2.search,
+          port: parsed2.port ? parseInt(parsed2.port, 10) : void 0
         };
       }
       throw new CredentialsProviderError2(`The container metadata credential provider cannot be used unless the ${ENV_CMDS_RELATIVE_URI} or ${ENV_CMDS_FULL_URI} environment variable is set`, {
@@ -22158,15 +22158,15 @@ var require_dist_cjs9 = __commonJS({
       const stream = sdkStreamMixin3(response.body);
       const str = await stream.transformToString();
       if (response.statusCode === 200) {
-        const parsed = JSON.parse(str);
-        if (typeof parsed.AccessKeyId !== "string" || typeof parsed.SecretAccessKey !== "string" || typeof parsed.Token !== "string" || typeof parsed.Expiration !== "string") {
+        const parsed2 = JSON.parse(str);
+        if (typeof parsed2.AccessKeyId !== "string" || typeof parsed2.SecretAccessKey !== "string" || typeof parsed2.Token !== "string" || typeof parsed2.Expiration !== "string") {
           throw new CredentialsProviderError2("HTTP credential provider response not of the required format, an object matching: { AccessKeyId: string, SecretAccessKey: string, Token: string, Expiration: string(rfc3339) }", { logger: logger2 });
         }
         return {
-          accessKeyId: parsed.AccessKeyId,
-          secretAccessKey: parsed.SecretAccessKey,
-          sessionToken: parsed.Token,
-          expiration: parseRfc3339DateTime2(parsed.Expiration)
+          accessKeyId: parsed2.AccessKeyId,
+          secretAccessKey: parsed2.SecretAccessKey,
+          sessionToken: parsed2.Token,
+          expiration: parseRfc3339DateTime2(parsed2.Expiration)
         };
       }
       if (response.statusCode >= 400 && response.statusCode < 500) {
@@ -57528,11 +57528,11 @@ var require_fast_uri = __commonJS({
     var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
     var AUTHORITY_PREFIX = /^(?:[^#/:?]+:)?\/\/([^/?#]*)/;
     var AUTHORITY_INTRODUCER_REGION = /^(?:[^#/:?]+:)?([/\\\t\n\r]*)/;
-    function getParseError(parsed, matches) {
-      if (matches[2] !== void 0 && parsed.path && parsed.path[0] !== "/") {
+    function getParseError(parsed2, matches) {
+      if (matches[2] !== void 0 && parsed2.path && parsed2.path[0] !== "/") {
         return 'URI path must start with "/" when authority is present.';
       }
-      if (typeof parsed.port === "number" && (parsed.port < 0 || parsed.port > 65535)) {
+      if (typeof parsed2.port === "number" && (parsed2.port < 0 || parsed2.port > 65535)) {
         return "URI port is malformed.";
       }
       return void 0;
@@ -57555,30 +57555,30 @@ var require_fast_uri = __commonJS({
       const host = matches[4];
       return hasMalformedPercentEncoding(matches[3]) || host !== void 0 && !isIPLiteral(host) && hasMalformedPercentEncoding(host) || hasMalformedPercentEncoding(matches[6]) || hasMalformedPercentEncoding(matches[7]) || hasMalformedPercentEncoding(matches[8]);
     }
-    function canonicalizeHost(parsed, options, schemeHandler, isIP5) {
-      if (hasForbiddenDomainHost(parsed, options, schemeHandler, isIP5)) {
-        parsed.error = parsed.error || MALFORMED_HOST_ERROR;
+    function canonicalizeHost(parsed2, options, schemeHandler, isIP5) {
+      if (hasForbiddenDomainHost(parsed2, options, schemeHandler, isIP5)) {
+        parsed2.error = parsed2.error || MALFORMED_HOST_ERROR;
         return true;
       }
-      if (!options.unicodeSupport && (!schemeHandler || !schemeHandler.unicodeSupport) && parsed.host && !isIPLiteral(parsed.host) && (options.domainHost || schemeHandler && schemeHandler.domainHost) && isIP5 === false && nonSimpleDomain(parsed.host)) {
+      if (!options.unicodeSupport && (!schemeHandler || !schemeHandler.unicodeSupport) && parsed2.host && !isIPLiteral(parsed2.host) && (options.domainHost || schemeHandler && schemeHandler.domainHost) && isIP5 === false && nonSimpleDomain(parsed2.host)) {
         let url2;
         try {
-          url2 = new URL("http://" + parsed.host);
+          url2 = new URL("http://" + parsed2.host);
         } catch (e6) {
-          parsed.error = parsed.error || "Host's domain name can not be converted to ASCII: " + e6;
+          parsed2.error = parsed2.error || "Host's domain name can not be converted to ASCII: " + e6;
           return true;
         }
         if (!isHostOnlyURL(url2)) {
-          parsed.error = parsed.error || MALFORMED_HOST_ERROR;
+          parsed2.error = parsed2.error || MALFORMED_HOST_ERROR;
           return true;
         }
-        parsed.host = url2.hostname;
+        parsed2.host = url2.hostname;
       }
       return false;
     }
-    function hasForbiddenDomainHost(parsed, options, schemeHandler, isIP5) {
+    function hasForbiddenDomainHost(parsed2, options, schemeHandler, isIP5) {
       return Boolean(
-        parsed.host && isIP5 === false && !isIPLiteral(parsed.host) && (options.domainHost || schemeHandler && schemeHandler.domainHost) && FORBIDDEN_DOMAIN_HOST_CHARACTER.test(parsed.host)
+        parsed2.host && isIP5 === false && !isIPLiteral(parsed2.host) && (options.domainHost || schemeHandler && schemeHandler.domainHost) && FORBIDDEN_DOMAIN_HOST_CHARACTER.test(parsed2.host)
       );
     }
     function isHostOnlyURL(url2) {
@@ -57586,7 +57586,7 @@ var require_fast_uri = __commonJS({
     }
     function parseWithStatus(uri, opts) {
       const options = Object.assign({}, opts);
-      const parsed = {
+      const parsed2 = {
         scheme: void 0,
         userinfo: void 0,
         host: "",
@@ -57611,7 +57611,7 @@ var require_fast_uri = __commonJS({
       }
       const authorityMatch = uri.match(AUTHORITY_PREFIX);
       if (authorityMatch !== null && authorityMatch[1].indexOf("\\") !== -1) {
-        parsed.error = "URI authority must not contain a literal backslash.";
+        parsed2.error = "URI authority must not contain a literal backslash.";
         malformedAuthorityOrPort = true;
       }
       const introducerMatch = uri.match(AUTHORITY_INTRODUCER_REGION);
@@ -57620,104 +57620,104 @@ var require_fast_uri = __commonJS({
         const normalizedRegion = region.replace(/[\t\n\r]/g, "");
         if (normalizedRegion.length >= 2) {
           if (normalizedRegion.slice(0, 2) !== "//") {
-            parsed.error = parsed.error || "URI authority must not contain a literal backslash.";
+            parsed2.error = parsed2.error || "URI authority must not contain a literal backslash.";
             malformedAuthorityOrPort = true;
           } else if (region.length !== normalizedRegion.length) {
-            parsed.error = parsed.error || "URI authority introducer must not contain whitespace.";
+            parsed2.error = parsed2.error || "URI authority introducer must not contain whitespace.";
             malformedAuthorityOrPort = true;
           }
         }
       }
       const matches = uri.match(URI_PARSE);
       if (matches) {
-        parsed.scheme = matches[1];
-        parsed.userinfo = matches[3];
-        parsed.host = matches[4];
-        parsed.port = parseInt(matches[5], 10);
-        parsed.path = matches[6] || "";
-        parsed.query = matches[7];
-        parsed.fragment = matches[8];
-        if (parsed.scheme !== void 0) {
-          if (VALID_SCHEME.test(parsed.scheme)) {
-            parsed.scheme = parsed.scheme.toLowerCase();
+        parsed2.scheme = matches[1];
+        parsed2.userinfo = matches[3];
+        parsed2.host = matches[4];
+        parsed2.port = parseInt(matches[5], 10);
+        parsed2.path = matches[6] || "";
+        parsed2.query = matches[7];
+        parsed2.fragment = matches[8];
+        if (parsed2.scheme !== void 0) {
+          if (VALID_SCHEME.test(parsed2.scheme)) {
+            parsed2.scheme = parsed2.scheme.toLowerCase();
           } else {
-            parsed.error = parsed.error || MALFORMED_SCHEME_ERROR;
+            parsed2.error = parsed2.error || MALFORMED_SCHEME_ERROR;
             malformedScheme = true;
           }
         }
         malformedPercentEncoding = hasMalformedComponentPercentEncoding(matches);
         if (malformedPercentEncoding) {
-          parsed.error = parsed.error || "URI contains malformed percent-encoding.";
+          parsed2.error = parsed2.error || "URI contains malformed percent-encoding.";
         }
-        if (isNaN(parsed.port)) {
-          parsed.port = matches[5];
+        if (isNaN(parsed2.port)) {
+          parsed2.port = matches[5];
         }
-        const parseError = getParseError(parsed, matches);
+        const parseError = getParseError(parsed2, matches);
         if (parseError !== void 0) {
-          parsed.error = parsed.error || parseError;
+          parsed2.error = parsed2.error || parseError;
           malformedAuthorityOrPort = true;
         }
-        if (parsed.host) {
-          const ipv4result = isIPv4(parsed.host);
+        if (parsed2.host) {
+          const ipv4result = isIPv4(parsed2.host);
           if (ipv4result === false) {
-            const bracketedIPLiteral = isIPLiteral(parsed.host);
-            const hasIPLiteralBracket = parsed.host.indexOf("[") !== -1 || parsed.host.indexOf("]") !== -1;
-            const ipv6result = normalizeIPv6(parsed.host);
+            const bracketedIPLiteral = isIPLiteral(parsed2.host);
+            const hasIPLiteralBracket = parsed2.host.indexOf("[") !== -1 || parsed2.host.indexOf("]") !== -1;
+            const ipv6result = normalizeIPv6(parsed2.host);
             isIP5 = ipv6result.isIPV6 || ipv6result.isIPVFuture === true;
             malformedIPLiteral = hasIPLiteralBracket && (!bracketedIPLiteral || ipv6result.error === true);
-            parsed.host = isIP5 ? ipv6result.host : ipv6result.host.toLowerCase();
+            parsed2.host = isIP5 ? ipv6result.host : ipv6result.host.toLowerCase();
             if (malformedIPLiteral) {
-              parsed.error = parsed.error || MALFORMED_HOST_ERROR;
+              parsed2.error = parsed2.error || MALFORMED_HOST_ERROR;
               malformedAuthorityOrPort = true;
             }
           } else {
             isIP5 = true;
           }
         }
-        if (parsed.scheme === void 0 && parsed.userinfo === void 0 && parsed.host === void 0 && parsed.port === void 0 && parsed.query === void 0 && !parsed.path) {
-          parsed.reference = "same-document";
-        } else if (parsed.scheme === void 0) {
-          parsed.reference = "relative";
-        } else if (parsed.fragment === void 0) {
-          parsed.reference = "absolute";
+        if (parsed2.scheme === void 0 && parsed2.userinfo === void 0 && parsed2.host === void 0 && parsed2.port === void 0 && parsed2.query === void 0 && !parsed2.path) {
+          parsed2.reference = "same-document";
+        } else if (parsed2.scheme === void 0) {
+          parsed2.reference = "relative";
+        } else if (parsed2.fragment === void 0) {
+          parsed2.reference = "absolute";
         } else {
-          parsed.reference = "uri";
+          parsed2.reference = "uri";
         }
-        if (options.reference && options.reference !== "suffix" && options.reference !== parsed.reference) {
-          parsed.error = parsed.error || "URI is not a " + options.reference + " reference.";
+        if (options.reference && options.reference !== "suffix" && options.reference !== parsed2.reference) {
+          parsed2.error = parsed2.error || "URI is not a " + options.reference + " reference.";
         }
-        const schemeHandler = getSchemeHandler(options.scheme || parsed.scheme);
+        const schemeHandler = getSchemeHandler(options.scheme || parsed2.scheme);
         if (!malformedIPLiteral) {
-          malformedHost = canonicalizeHost(parsed, options, schemeHandler, isIP5);
+          malformedHost = canonicalizeHost(parsed2, options, schemeHandler, isIP5);
         }
-        if (uri.indexOf("%") !== -1 && parsed.host !== void 0 && !malformedIPLiteral) {
-          let host = isIP5 ? parsed.host : normalizePercentEncoding(parsed.host, true);
+        if (uri.indexOf("%") !== -1 && parsed2.host !== void 0 && !malformedIPLiteral) {
+          let host = isIP5 ? parsed2.host : normalizePercentEncoding(parsed2.host, true);
           if (!isIP5) {
             host = normalizePercentEncoding(host.toLowerCase());
           }
-          parsed.host = isIP5 || options.scheme !== "null" ? reescapeHostDelimiters(host, isIP5) : host;
+          parsed2.host = isIP5 || options.scheme !== "null" ? reescapeHostDelimiters(host, isIP5) : host;
         }
         if (!schemeHandler || schemeHandler && !schemeHandler.skipNormalize) {
-          if (parsed.path) {
-            parsed.path = normalizePathEncoding(parsed.path);
+          if (parsed2.path) {
+            parsed2.path = normalizePathEncoding(parsed2.path);
           }
-          if (parsed.query) {
-            parsed.query = normalizeQueryFragmentEncoding(parsed.query);
+          if (parsed2.query) {
+            parsed2.query = normalizeQueryFragmentEncoding(parsed2.query);
           }
-          if (parsed.fragment) {
-            parsed.fragment = normalizeQueryFragmentEncoding(parsed.fragment);
+          if (parsed2.fragment) {
+            parsed2.fragment = normalizeQueryFragmentEncoding(parsed2.fragment);
           }
         }
         if (schemeHandler && schemeHandler.parse) {
-          schemeHandler.parse(parsed, options);
-          if (schemeHandler === SCHEMES.urn && parsed.nid === void 0) {
+          schemeHandler.parse(parsed2, options);
+          if (schemeHandler === SCHEMES.urn && parsed2.nid === void 0) {
             malformedSchemeSpecific = true;
           }
         }
       } else {
-        parsed.error = parsed.error || "URI can not be parsed.";
+        parsed2.error = parsed2.error || "URI can not be parsed.";
       }
-      return { parsed, malformedAuthorityOrPort, malformedPercentEncoding, malformedSchemeSpecific, malformedHost, malformedScheme };
+      return { parsed: parsed2, malformedAuthorityOrPort, malformedPercentEncoding, malformedSchemeSpecific, malformedHost, malformedScheme };
     }
     function parse4(uri, opts) {
       return parseWithStatus(uri, opts).parsed;
@@ -57726,9 +57726,9 @@ var require_fast_uri = __commonJS({
       return normalizeStringWithStatus(uri, opts).normalized;
     }
     function normalizeStringWithStatus(uri, opts) {
-      const { parsed, malformedAuthorityOrPort, malformedPercentEncoding, malformedSchemeSpecific, malformedHost, malformedScheme } = parseWithStatus(uri, opts);
+      const { parsed: parsed2, malformedAuthorityOrPort, malformedPercentEncoding, malformedSchemeSpecific, malformedHost, malformedScheme } = parseWithStatus(uri, opts);
       return {
-        normalized: malformedAuthorityOrPort || malformedPercentEncoding || malformedSchemeSpecific || malformedHost || malformedScheme ? uri : serialize(parsed, opts),
+        normalized: malformedAuthorityOrPort || malformedPercentEncoding || malformedSchemeSpecific || malformedHost || malformedScheme ? uri : serialize(parsed2, opts),
         malformedAuthorityOrPort,
         malformedPercentEncoding,
         malformedSchemeSpecific,
@@ -83424,7 +83424,24 @@ var LIMITS = {
    * A receiver remembers an accepted message id until `at` plus this. It exceeds the accept window
    * (`messageMaxAgeMs` + `messageMaxFutureMs`), so an id is never forgotten while still acceptable.
    */
-  dedupeRetentionMs: 48 * HOUR + 10 * MINUTE
+  dedupeRetentionMs: 48 * HOUR + 10 * MINUTE,
+  /** A device publishes a new prekey when its newest is this old (SPEC section 6b). */
+  prekeyRotateMs: DAY,
+  /** `until - at` of a prekey: senders may seal to it this long. A longer window is refused. */
+  prekeyLifetimeMs: 2 * DAY,
+  /**
+   * A device deletes a prekey's secret this long after the prekey's `until`, so every box sealed
+   * to it opens for at least 72 hours (a room history entry's whole life at the relay) and none
+   * opens later than `until` plus 72 hours, with any key file.
+   */
+  prekeyRetentionMs: 72 * HOUR,
+  /** Senders stop sealing to a prekey this long before its `until`, for clock skew. */
+  prekeySendMarginMs: 10 * MINUTE,
+  /**
+   * Prekey secrets a device keeps at most. Daily rotation and deletion 120 hours after `at` keep
+   * six alive at most; the cap only bounds the file when a clock misbehaves.
+   */
+  prekeysKept: 8
 };
 function ok(value) {
   return { ok: true, value };
@@ -85224,9 +85241,9 @@ function encodeKeys(keys) {
 function decodeKeys(json4) {
   let raw = json4;
   if (typeof json4 === "string") {
-    const parsed = parseJson(json4);
-    if (!parsed.ok) throw new TypeError(`decodeKeys: ${parsed.reason === "duplicate_key" ? "duplicate key" : "not JSON"}`);
-    raw = parsed.value;
+    const parsed2 = parseJson(json4);
+    if (!parsed2.ok) throw new TypeError(`decodeKeys: ${parsed2.reason === "duplicate_key" ? "duplicate key" : "not JSON"}`);
+    raw = parsed2.value;
   }
   if (typeof raw !== "object" || raw === null) throw new TypeError("decodeKeys: not an object");
   const r6 = raw;
@@ -85257,7 +85274,7 @@ function decodeKeys(json4) {
 }
 
 // ../protocol/src/sign.ts
-var SIGN_TYPES = /* @__PURE__ */ new Set(["roster", "send", "auth", "join"]);
+var SIGN_TYPES = /* @__PURE__ */ new Set(["roster", "send", "auth", "join", "prekey"]);
 function withoutSig(obj) {
   const { sig: _sig, ...rest } = obj;
   return rest;
@@ -85378,8 +85395,8 @@ function makeDeviceRecord(name, keys, role, added) {
     role,
     added
   };
-  const parsed = deviceRecordSchema.safeParse(record2);
-  if (!parsed.success) throw new TypeError(`makeDeviceRecord: ${parsed.error.issues[0].message}`);
+  const parsed2 = deviceRecordSchema.safeParse(record2);
+  if (!parsed2.success) throw new TypeError(`makeDeviceRecord: ${parsed2.error.issues[0].message}`);
   return record2;
 }
 function isRecoveryName(name) {
@@ -85423,8 +85440,8 @@ function nextRoster(prev, change, signer, now) {
     device.role = "admin";
   }
   for (const device of change.add ?? []) {
-    const parsed = deviceRecordSchema.safeParse(device);
-    if (!parsed.success) throw new Error(`nextRoster: invalid device record: ${parsed.error.issues[0].message}`);
+    const parsed2 = deviceRecordSchema.safeParse(device);
+    if (!parsed2.success) throw new Error(`nextRoster: invalid device record: ${parsed2.error.issues[0].message}`);
     if (deviceIdFromSignPub(b64u.decode(device.sign)) !== device.id) {
       throw new Error("nextRoster: device id does not match its signing key");
     }
@@ -85444,9 +85461,9 @@ function nextRoster(prev, change, signer, now) {
   );
 }
 function checkShape(roster) {
-  const parsed = rosterSchema.safeParse(roster);
-  if (!parsed.success) return fail("roster_malformed");
-  const r6 = parsed.data;
+  const parsed2 = rosterSchema.safeParse(roster);
+  if (!parsed2.success) return fail("roster_malformed");
+  const r6 = parsed2.data;
   const ids = /* @__PURE__ */ new Set();
   const names = /* @__PURE__ */ new Set();
   for (const d5 of r6.devices) {
@@ -85632,8 +85649,8 @@ function createInvite(opts) {
   if (exp - now > LIMITS.inviteMaxTtlMs) throw new RangeError("createInvite: exp is more than 7 days away");
   const secret = randomBytes2(32);
   const body = { relay: opts.relay, mesh: opts.mesh, secret: b64u.encode(secret), pin: opts.pin, exp, tls: opts.tls };
-  const parsed = inviteBodySchema.safeParse(body);
-  if (!parsed.success) throw new TypeError(`createInvite: ${describe3(parsed.error)}`);
+  const parsed2 = inviteBodySchema.safeParse(body);
+  if (!parsed2.success) throw new TypeError(`createInvite: ${describe3(parsed2.error)}`);
   return { code: PREFIX + b64u.encode(canonBytes(body)), secret, inviteId: inviteIdFromSecret(secret), exp };
 }
 function describe3(error63) {
@@ -85651,10 +85668,10 @@ function parseInvite(code2) {
   }
   const body = parseJson(json4);
   if (!body.ok) throw new Error("invalid invite code: it is damaged or incomplete");
-  const parsed = inviteBodySchema.safeParse(body.value);
-  if (!parsed.success) throw new Error(`invalid invite code: ${describe3(parsed.error)}`);
-  const secret = b64u.decode(parsed.data.secret);
-  return { ...parsed.data, secret, inviteId: inviteIdFromSecret(secret) };
+  const parsed2 = inviteBodySchema.safeParse(body.value);
+  if (!parsed2.success) throw new Error(`invalid invite code: ${describe3(parsed2.error)}`);
+  const secret = b64u.decode(parsed2.data.secret);
+  return { ...parsed2.data, secret, inviteId: inviteIdFromSecret(secret) };
 }
 function joinFields(device) {
   return { id: device.id, name: device.name, sign: device.sign, box: device.box };
@@ -85709,9 +85726,9 @@ function createJoin(invite2, name, keys, nonce) {
   return { ...signed, proof: joinProof(invite2.secret, device) };
 }
 function verifyJoin(join19, secret, nonce) {
-  const parsed = joinOrBodySchema.safeParse(join19);
-  if (!parsed.success) return fail("join_malformed");
-  const { t: _t, ...j5 } = parsed.data;
+  const parsed2 = joinOrBodySchema.safeParse(join19);
+  if (!parsed2.success) return fail("join_malformed");
+  const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
   if (nonce !== void 0 && j5.nonce !== nonce) return fail("join_wrong_nonce");
   const signPub = b64u.decode(j5.device.sign);
@@ -85723,8 +85740,8 @@ function verifyJoin(join19, secret, nonce) {
 }
 function admitJoin(device, now) {
   const record2 = { ...joinFields(device), role: "member", added: now };
-  const parsed = deviceRecordSchema.safeParse(record2);
-  if (!parsed.success || record2.name.startsWith("recovery")) throw new TypeError("admitJoin: invalid device, reserved name or bad time");
+  const parsed2 = deviceRecordSchema.safeParse(record2);
+  if (!parsed2.success || record2.name.startsWith("recovery")) throw new TypeError("admitJoin: invalid device, reserved name or bad time");
   return record2;
 }
 
@@ -86440,6 +86457,11 @@ function hchacha(s3, k5, i6, out) {
     clean2(s22, k22, i22);
   clean2(t2);
 }
+var chacha20 = /* @__PURE__ */ createCipher(chachaCore, {
+  counterRight: false,
+  counterLength: 4,
+  allowShortKeys: false
+});
 var xchacha20 = /* @__PURE__ */ createCipher(chachaCore, {
   counterRight: false,
   counterLength: 8,
@@ -86498,12 +86520,22 @@ var _poly1305_aead = (xorStream) => (key2, nonce, AAD) => {
     }
   };
 };
+var chacha20poly1305 = /* @__PURE__ */ wrapCipher(
+  { blockSize: 64, nonceLength: 12, tagLength: 16, withAAD: true },
+  /* @__PURE__ */ _poly1305_aead(chacha20)
+);
 var xchacha20poly1305 = /* @__PURE__ */ wrapCipher(
   { blockSize: 64, nonceLength: 24, tagLength: 16, withAAD: true },
   /* @__PURE__ */ _poly1305_aead(xchacha20)
 );
 
 // ../../node_modules/@noble/hashes/hkdf.js
+function extract(hash3, ikm, salt) {
+  ahash(hash3);
+  if (salt === void 0)
+    salt = new Uint8Array(hash3.outputLen);
+  return hmac(hash3, salt, ikm);
+}
 var HKDF_COUNTER = /* @__PURE__ */ Uint8Array.of(0);
 var EMPTY_BUFFER = /* @__PURE__ */ Uint8Array.of();
 function expand(hash3, prk, info, length = 32, _recycled) {
@@ -86651,14 +86683,80 @@ function openBlob(input2) {
   return ok(out);
 }
 
+// ../protocol/src/prekey.ts
+var prekeySchema = external_exports.strictObject({
+  mesh: meshIdSchema,
+  device: deviceIdSchema,
+  id: deviceIdSchema,
+  pub: keySchema,
+  at: timeSchema,
+  until: timeSchema,
+  sig: sigSchema
+});
+function prekeyId(pub) {
+  return deviceIdFromSignPub(pub);
+}
+function createPrekey(opts) {
+  if (deviceIdFromSignPub(ed25519.getPublicKey(opts.signSec)) !== opts.deviceId) {
+    throw new TypeError("createPrekey: deviceId does not match the signing key");
+  }
+  const secret = randomBytes2(32);
+  const pub = x25519.getPublicKey(secret);
+  const body = {
+    mesh: opts.mesh,
+    device: opts.deviceId,
+    id: prekeyId(pub),
+    pub: b64u.encode(pub),
+    at: opts.at,
+    until: opts.at + LIMITS.prekeyLifetimeMs
+  };
+  return { prekey: signObject("prekey", body, opts.signSec), secret };
+}
+var PROBE = sha2562(utf8("wim/1 prekey probe"));
+function verifyPrekey(raw, roster, now) {
+  const parsed2 = prekeySchema.safeParse(raw);
+  if (!parsed2.success) return fail("malformed");
+  const pk = parsed2.data;
+  if (pk.mesh !== roster.mesh) return fail("wrong_mesh");
+  if (roster.revoked.includes(pk.device)) return fail("revoked_device");
+  const device = roster.devices.find((d5) => d5.id === pk.device);
+  if (device === void 0) return fail("unknown_device");
+  if (isRecoveryName(device.name)) return fail("recovery_device");
+  const pub = b64u.decode(pk.pub);
+  if (prekeyId(pub) !== pk.id) return fail("bad_id");
+  if (!verifyObject("prekey", pk, b64u.decode(device.sign))) return fail("bad_signature");
+  if (pk.until <= pk.at || pk.until - pk.at > LIMITS.prekeyLifetimeMs) return fail("bad_window");
+  try {
+    x25519.getSharedSecret(PROBE, pub);
+  } catch {
+    return fail("bad_key");
+  }
+  if (pk.at > now + LIMITS.messageMaxFutureMs) return fail("not_yet");
+  if (!prekeyUsable(pk, now)) return fail("expired");
+  return ok(pk);
+}
+function prekeyUsable(pk, now) {
+  return pk.at <= now + LIMITS.messageMaxFutureMs && now + LIMITS.prekeySendMarginMs < pk.until;
+}
+function prekeyDeleteAt(pk) {
+  return pk.until + LIMITS.prekeyRetentionMs;
+}
+
 // ../protocol/src/frames.ts
 var kindSchema = nameSchema;
 var nonceSchema = secret32Schema;
-var boxSchema = external_exports.strictObject({
+var legacyBoxSchema = external_exports.strictObject({
   n: b64uBytes(24),
   // At least the 16-byte Poly1305 tag; at most what a frame can carry.
   c: b64uRange(16, LIMITS.frameBytes)
 });
+var prekeyBoxSchema = external_exports.strictObject({
+  s: external_exports.literal(2),
+  p: deviceIdSchema,
+  e: keySchema,
+  c: b64uRange(16, LIMITS.frameBytes)
+});
+var boxSchema = external_exports.union([prekeyBoxSchema, legacyBoxSchema]);
 var sendFrameSchema = external_exports.strictObject({
   t: external_exports.literal("send"),
   mesh: meshIdSchema,
@@ -86670,6 +86768,8 @@ var sendFrameSchema = external_exports.strictObject({
   at: timeSchema,
   /** The sender's newest verified roster when it sent. */
   roster: rosterRefSchema,
+  /** The sender device's current signed prekey (SPEC section 6b), so receivers can seal to it. */
+  pk: prekeySchema.optional(),
   boxes: external_exports.record(deviceIdSchema, boxSchema).refine((b5) => Object.keys(b5).length > 0, {
     message: "at least one box"
   }),
@@ -86956,11 +87056,66 @@ function parseWith(text2, schemas, maxBytes) {
   const schema = Object.hasOwn(schemas, t2) ? schemas[t2] : void 0;
   if (schema === void 0) return fail("unknown_type");
   if ((t2 === "card.set" || t2 === "card") && !fitsUtf8(text2, LIMITS.cardFrameBytes)) return fail("too_large");
-  const parsed = schema.safeParse(value);
-  return parsed.success ? ok(parsed.data) : fail("malformed");
+  const parsed2 = schema.safeParse(value);
+  return parsed2.success ? ok(parsed2.data) : fail("malformed");
 }
 function parseRelayFrame(text2) {
   return parseWith(text2, relaySchemas, LIMITS.receiveFrameBytes);
+}
+
+// ../protocol/src/hpke.ts
+var MODE_AUTH = 2;
+var KEM_ID = 32;
+var KDF_ID = 1;
+var AEAD_ID = 3;
+var i2osp2 = (n3) => Uint8Array.of(n3 >> 8, n3 & 255);
+function concat(...parts) {
+  const out = new Uint8Array(parts.reduce((n3, p3) => n3 + p3.length, 0));
+  let at = 0;
+  for (const p3 of parts) {
+    out.set(p3, at);
+    at += p3.length;
+  }
+  return out;
+}
+var KEM_SUITE = concat(utf8("KEM"), i2osp2(KEM_ID));
+var HPKE_SUITE = concat(utf8("HPKE"), i2osp2(KEM_ID), i2osp2(KDF_ID), i2osp2(AEAD_ID));
+var V1 = utf8("HPKE-v1");
+function labeledExtract(suite, salt, label, ikm) {
+  return extract(sha256, concat(V1, suite, utf8(label), ikm), salt);
+}
+function labeledExpand(suite, prk, label, info, length) {
+  return expand(sha256, prk, concat(i2osp2(length), V1, suite, utf8(label), info), length);
+}
+function kemSecret(dh, kemContext) {
+  const prk = labeledExtract(KEM_SUITE, new Uint8Array(0), "eae_prk", dh);
+  return labeledExpand(KEM_SUITE, prk, "shared_secret", kemContext, 32);
+}
+function keySchedule(sharedSecret, info) {
+  const empty = new Uint8Array(0);
+  const pskIdHash = labeledExtract(HPKE_SUITE, empty, "psk_id_hash", empty);
+  const infoHash = labeledExtract(HPKE_SUITE, empty, "info_hash", info);
+  const context = concat(Uint8Array.of(MODE_AUTH), pskIdHash, infoHash);
+  const secret = labeledExtract(HPKE_SUITE, sharedSecret, "secret", empty);
+  return {
+    key: labeledExpand(HPKE_SUITE, secret, "key", context, 32),
+    nonce: labeledExpand(HPKE_SUITE, secret, "base_nonce", context, 12)
+  };
+}
+function hpkeSealAuth(opts) {
+  const skE = opts.ephemeral ?? randomBytes2(32);
+  const enc = x25519.getPublicKey(skE);
+  const dh = concat(x25519.getSharedSecret(skE, opts.pkR), x25519.getSharedSecret(opts.skS, opts.pkR));
+  const sharedSecret = kemSecret(dh, concat(enc, opts.pkR, x25519.getPublicKey(opts.skS)));
+  const { key: key2, nonce } = keySchedule(sharedSecret, opts.info);
+  const ciphertext = chacha20poly1305(key2, nonce, opts.aad).encrypt(opts.plaintext);
+  return { enc, sharedSecret, key: key2, nonce, ciphertext };
+}
+function hpkeOpenAuth(opts) {
+  const dh = concat(x25519.getSharedSecret(opts.skR, opts.enc), x25519.getSharedSecret(opts.skR, opts.pkS));
+  const sharedSecret = kemSecret(dh, concat(opts.enc, x25519.getPublicKey(opts.skR), opts.pkS));
+  const { key: key2, nonce } = keySchedule(sharedSecret, opts.info);
+  return chacha20poly1305(key2, nonce, opts.aad).decrypt(opts.ciphertext);
 }
 
 // ../protocol/src/message.ts
@@ -87029,6 +87184,9 @@ function boxKey(meshId, mySec, theirPub, senderId, recipientId) {
   const shared = x25519.getSharedSecret(mySec, theirPub);
   return hkdf(sha256, shared, utf8(meshId), utf8(`${PROTOCOL} box ${senderId} ${recipientId}`), 32);
 }
+function box2Info(meshId, senderId, recipientId, prekeyId2) {
+  return utf8(`${PROTOCOL} box2 ${meshId} ${senderId} ${recipientId} ${prekeyId2}`);
+}
 function headerAad(frame) {
   const { boxes: _boxes, sig: _sig, ...header2 } = frame;
   return sha2562(canonBytes(header2));
@@ -87062,10 +87220,30 @@ function sealMessage(opts) {
   if (!group4 && named.some((d5) => isRecoveryName(d5.name))) {
     throw new TypeError("sealMessage: a recovery record cannot receive messages");
   }
-  const recipients = named.filter((d5) => !isRecoveryName(d5.name));
   const acting = roster.devices.filter((d5) => !isRecoveryName(d5.name));
-  if (group4 && recipients.length !== acting.length) {
+  if (group4 && named.filter((d5) => !isRecoveryName(d5.name)).length !== acting.length) {
     throw new TypeError("sealMessage: a broadcast or room send needs a box for every device in the roster");
+  }
+  const prekeys = opts.prekeys ?? {};
+  for (const [deviceId, pk] of Object.entries(prekeys)) {
+    const checked2 = verifyPrekey(pk, roster, opts.at);
+    if (!checked2.ok || pk.device !== deviceId) {
+      throw new TypeError(`sealMessage: the prekey for ${deviceId} is not usable (${checked2.ok ? "another device's" : checked2.reason})`);
+    }
+  }
+  const legacy = opts.legacy !== false;
+  const keyed = (d5) => Object.hasOwn(prekeys, d5.id);
+  const missing = named.filter((d5) => !isRecoveryName(d5.name) && !keyed(d5));
+  if (!legacy && !group4 && missing.length > 0) {
+    throw new TypeError(`sealMessage: no current prekey for ${missing.map((d5) => d5.id).join(", ")}`);
+  }
+  const recipients = named.filter((d5) => !isRecoveryName(d5.name) && (legacy || keyed(d5)));
+  if (recipients.length === 0) throw new TypeError("sealMessage: no device to seal to has a current prekey");
+  if (opts.prekey !== void 0) {
+    const own2 = verifyPrekey(opts.prekey, roster, opts.at);
+    if (!own2.ok || opts.prekey.device !== sender.deviceId) {
+      throw new TypeError(`sealMessage: the sender's prekey is not usable (${own2.ok ? "another device's" : own2.reason})`);
+    }
   }
   const header2 = {
     t: "send",
@@ -87076,7 +87254,8 @@ function sealMessage(opts) {
     // Cards have their own seq space: always 0, never a message seq (SPEC section 17).
     seq: kind === "card" ? 0 : opts.seq,
     at: opts.at,
-    roster: { seq: roster.seq, hash: hash2(roster) }
+    roster: { seq: roster.seq, hash: hash2(roster) },
+    ...opts.prekey === void 0 ? {} : { pk: opts.prekey }
   };
   const body = dropUndefined({
     v: WIRE_VERSION,
@@ -87104,6 +87283,12 @@ function sealMessage(opts) {
   const aad = headerAad(header2);
   const boxes = {};
   for (const r6 of recipients) {
+    const pk = prekeys[r6.id];
+    if (pk !== void 0) {
+      const sealed = hpkeSealAuth({ pkR: b64u.decode(pk.pub), skS: sender.keys.boxSec, info: box2Info(roster.mesh, sender.deviceId, r6.id, pk.id), aad, plaintext });
+      boxes[r6.id] = { s: 2, p: pk.id, e: b64u.encode(sealed.enc), c: b64u.encode(sealed.ciphertext) };
+      continue;
+    }
     const key2 = boxKey(roster.mesh, sender.keys.boxSec, b64u.decode(r6.box), sender.deviceId, r6.id);
     const nonce = randomBytes2(24);
     const c5 = xchacha20poly1305(key2, nonce, aad).encrypt(plaintext);
@@ -87112,9 +87297,9 @@ function sealMessage(opts) {
   const frame = signObject("send", { ...header2, boxes }, sender.keys.signSec);
   const limit2 = kind === "card" ? LIMITS.cardFrameBytes : LIMITS.frameBytes;
   if (!fitsUtf8(canon(frame), limit2)) throw new RangeError(`sealMessage: frame would be over ${limit2} bytes`);
-  const parsed = sendFrameSchema.safeParse(frame);
-  if (!parsed.success) {
-    const issue2 = parsed.error.issues[0];
+  const parsed2 = sendFrameSchema.safeParse(frame);
+  if (!parsed2.success) {
+    const issue2 = parsed2.error.issues[0];
     throw new TypeError(`sealMessage: ${issue2.path.join(".")}: ${issue2.message}`);
   }
   return frame;
@@ -87126,9 +87311,9 @@ function sameTo(a5, b5) {
   return a5.length === b5.length && a5.every((x2, i6) => x2 === b5[i6]);
 }
 function openMessage(frame, ctx) {
-  const parsed = sendFrameSchema.safeParse(frame);
-  if (!parsed.success) return fail("malformed");
-  const f7 = parsed.data;
+  const parsed2 = sendFrameSchema.safeParse(frame);
+  if (!parsed2.success) return fail("malformed");
+  const f7 = parsed2.data;
   const { roster, me } = ctx;
   if (f7.mesh !== roster.mesh) return fail("wrong_mesh");
   if (roster.revoked.includes(f7.from.device)) return fail("sender_revoked");
@@ -87147,11 +87332,23 @@ function openMessage(frame, ctx) {
   if (!fresh.ok) return fresh;
   const box = Object.hasOwn(f7.boxes, me.deviceId) ? f7.boxes[me.deviceId] : void 0;
   if (box === void 0) return fail("no_box");
+  let open3;
+  if ("s" in box) {
+    const secret = me.prekey?.(box.p);
+    if (secret === void 0) return fail("key_expired");
+    const info = box2Info(roster.mesh, sender.id, me.deviceId, box.p);
+    open3 = () => hpkeOpenAuth({ enc: b64u.decode(box.e), skR: secret, pkS: b64u.decode(sender.box), info, aad: headerAad(f7), ciphertext: b64u.decode(box.c) });
+  } else {
+    if (ctx.legacy === false) return fail("legacy_box");
+    open3 = () => {
+      const key2 = boxKey(roster.mesh, me.keys.boxSec, b64u.decode(sender.box), sender.id, me.deviceId);
+      return xchacha20poly1305(key2, b64u.decode(box.n), headerAad(f7)).decrypt(b64u.decode(box.c));
+    };
+  }
   let bytes2;
   let text2;
   try {
-    const key2 = boxKey(roster.mesh, me.keys.boxSec, b64u.decode(sender.box), sender.id, me.deviceId);
-    bytes2 = xchacha20poly1305(key2, b64u.decode(box.n), headerAad(f7)).decrypt(b64u.decode(box.c));
+    bytes2 = open3();
     text2 = fromUtf8(bytes2);
   } catch {
     return fail("decrypt_failed");
@@ -87361,27 +87558,27 @@ function parseRecoveryCode(code2, meshId) {
     throw new Error("invalid recovery code: it is damaged");
   }
   const parsedJson = parseJson(json4);
-  const parsed = parsedJson.ok ? bodySchema.safeParse(parsedJson.value) : void 0;
-  if (!parsed?.success) throw new Error("invalid recovery code: it is damaged");
-  if (meshId !== void 0 && parsed.data.mesh !== meshId) throw new Error("invalid recovery code: it belongs to another mesh");
-  const keys = deviceKeysFromSecrets(b64u.decode(parsed.data.sign), b64u.decode(parsed.data.box));
-  return { ...keys, mesh: parsed.data.mesh, genesis: parsed.data.genesis };
+  const parsed2 = parsedJson.ok ? bodySchema.safeParse(parsedJson.value) : void 0;
+  if (!parsed2?.success) throw new Error("invalid recovery code: it is damaged");
+  if (meshId !== void 0 && parsed2.data.mesh !== meshId) throw new Error("invalid recovery code: it belongs to another mesh");
+  const keys = deviceKeysFromSecrets(b64u.decode(parsed2.data.sign), b64u.decode(parsed2.data.box));
+  return { ...keys, mesh: parsed2.data.mesh, genesis: parsed2.data.genesis };
 }
 function verifyRecoveryChain(code2, chain2) {
-  let parsed;
+  let parsed2;
   try {
-    parsed = parseRecoveryCode(code2);
+    parsed2 = parseRecoveryCode(code2);
   } catch {
     return fail("recovery_code_invalid");
   }
   if (!Array.isArray(chain2) || chain2.length === 0) return fail("chain_empty");
   const genesis = verifyGenesisRoster(chain2[0]);
   if (!genesis.ok) return genesis;
-  if (hash2(genesis.value) !== parsed.genesis) return fail("recovery_genesis_mismatch");
-  if (genesis.value.mesh !== parsed.mesh) return fail("recovery_wrong_mesh");
-  const newest = verifyRosterChain({ seq: 1, hash: parsed.genesis }, chain2);
+  if (hash2(genesis.value) !== parsed2.genesis) return fail("recovery_genesis_mismatch");
+  if (genesis.value.mesh !== parsed2.mesh) return fail("recovery_wrong_mesh");
+  const newest = verifyRosterChain({ seq: 1, hash: parsed2.genesis }, chain2);
   if (!newest.ok) return newest;
-  const id = deviceIdFromSignPub(parsed.signPub);
+  const id = deviceIdFromSignPub(parsed2.signPub);
   const record2 = newest.value.devices.find((d5) => d5.id === id);
   if (record2 === void 0 || record2.role !== "admin") return fail("recovery_not_admin");
   return ok(newest.value);
@@ -87407,12 +87604,12 @@ function signAuth(fields, keys) {
     throw new TypeError("signAuth: device does not match the signing key");
   }
   const frame = signObject("auth", { ...fields, t: "auth", v: WIRE_VERSION, device }, keys.signSec);
-  const parsed = authFrameSchema.safeParse(frame);
-  if (!parsed.success) {
-    const issue2 = parsed.error.issues[0];
+  const parsed2 = authFrameSchema.safeParse(frame);
+  if (!parsed2.success) {
+    const issue2 = parsed2.error.issues[0];
     throw new TypeError(`signAuth: ${issue2.path.join(".")}: ${issue2.message}`);
   }
-  return parsed.data;
+  return parsed2.data;
 }
 function signRecoverAuth(fields, keys) {
   const body = {
@@ -87427,12 +87624,12 @@ function signRecoverAuth(fields, keys) {
     pin: { seq: 1, hash: fields.genesis }
   };
   const frame = signObject("auth", body, keys.signSec);
-  const parsed = recoverAuthFrameSchema.safeParse(frame);
-  if (!parsed.success) {
-    const issue2 = parsed.error.issues[0];
+  const parsed2 = recoverAuthFrameSchema.safeParse(frame);
+  if (!parsed2.success) {
+    const issue2 = parsed2.error.issues[0];
     throw new TypeError(`signRecoverAuth: ${issue2.path.join(".")}: ${issue2.message}`);
   }
-  return parsed.data;
+  return parsed2.data;
 }
 
 // ../protocol/src/close.ts
@@ -87465,7 +87662,9 @@ var CLOSE = {
 var VECTOR_SEED_PUBLIC_KEYS = Object.freeze([
   "2QO5h53aLgLg6K6eNajRQeOkKlsa-4lm2Cjsl3_-dvA",
   "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+  "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
   "OK7WeyfczvI48ifJFH3VcMGtsyxSESxYghViZcVGjiE",
+  "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
   "RLm8q5SMCoJyhH7zHNev6nWAEtOyyY2B-JOj_RixQBE",
   "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
   "nqg65P-4zxYgqPm6yl7FX9TlEkJL0dB2uv5mlWyq0wM",
@@ -87614,13 +87813,13 @@ var InboundGateway = class {
     return peers2.filter((p3) => p3.status !== "offline" && p3.kind !== "a2a");
   }
   async rpc(raw, version2, res) {
-    let parsed;
+    let parsed2;
     try {
-      parsed = JSON.parse(raw);
+      parsed2 = JSON.parse(raw);
     } catch {
       return rpcError(null, ErrorCode2.parse, "Invalid JSON payload");
     }
-    const req = RpcRequestSchema.safeParse(parsed);
+    const req = RpcRequestSchema.safeParse(parsed2);
     if (!req.success) return rpcError(null, ErrorCode2.invalidRequest, "Request payload validation error");
     const { id, method, params } = req.data;
     try {
@@ -88476,9 +88675,9 @@ async function readText(path2) {
 async function readJson(path2) {
   const text2 = await readText(path2);
   if (text2 === void 0) return void 0;
-  const parsed = parseJson(text2);
-  if (!parsed.ok) throw new Error(`${path2}: ${parsed.reason === "duplicate_key" ? "duplicate key" : "not valid JSON"}`);
-  return parsed.value;
+  const parsed2 = parseJson(text2);
+  if (!parsed2.ok) throw new Error(`${path2}: ${parsed2.reason === "duplicate_key" ? "duplicate key" : "not valid JSON"}`);
+  return parsed2.value;
 }
 async function writeJson(path2, value, env3 = realFsEnv) {
   await writeAtomic(path2, `${JSON.stringify(value, null, 1)}
@@ -88947,6 +89146,14 @@ var MeshFiles = class {
   get leaseNamesPath() {
     return join5(this.dir, "leases.json");
   }
+  /** This device's prekeys and their secrets (SPEC section 6b), shared by its sessions. */
+  get prekeysPath() {
+    return join5(this.dir, "prekeys.json");
+  }
+  /** The newest verified prekey of each peer device. */
+  get peerPrekeysPath() {
+    return join5(this.dir, "peer-prekeys.json");
+  }
   /** The admin signing lock (SPEC section 4): one writer signs a roster at a time. */
   get rosterLock() {
     return join5(this.dir, "roster.lock");
@@ -88977,9 +89184,9 @@ var MeshFiles = class {
   async loadRoster(seq) {
     const raw = await readJson(join5(this.rostersDir, `${seq}.json`));
     if (raw === void 0) return void 0;
-    const parsed = rosterSchema.safeParse(raw);
-    if (!parsed.success) throw new Error(`${this.rostersDir}/${seq}.json is not a roster`);
-    return parsed.data;
+    const parsed2 = rosterSchema.safeParse(raw);
+    if (!parsed2.success) throw new Error(`${this.rostersDir}/${seq}.json is not a roster`);
+    return parsed2.data;
   }
   async saveForkEvidence(a5, b5) {
     await writeJson(join5(this.rostersDir, `fork-${a5.seq}.json`), { a: a5, b: b5 }, this.env);
@@ -89080,6 +89287,139 @@ async function setDevicePolicy(files, deviceId, level) {
 function trustLevel(action, relayed2) {
   return action === "untrust" ? "hold" : relayed2 ? "deliver-relayed" : "deliver";
 }
+
+// src/prekeys.ts
+function decode32(text2) {
+  const bytes2 = b64u.decode(text2);
+  if (bytes2.length !== 32) throw new TypeError("not 32 bytes");
+  return bytes2;
+}
+function parsed(list2, parse4) {
+  return (Array.isArray(list2) ? list2 : []).flatMap((item) => {
+    try {
+      return [parse4(item)];
+    } catch {
+      return [];
+    }
+  });
+}
+var PrekeyStore = class {
+  held = [];
+  path;
+  env;
+  device;
+  mesh;
+  now;
+  constructor(opts) {
+    this.path = opts.path;
+    this.env = opts.env;
+    this.device = opts.device;
+    this.mesh = opts.mesh;
+    this.now = opts.now;
+  }
+  async read() {
+    const raw = await readJson(this.path);
+    return parsed(raw?.v === 1 ? raw.keys : void 0, (k5) => {
+      const entry = k5;
+      return { prekey: prekeySchema.parse(entry.prekey), secret: decode32(entry.secret) };
+    });
+  }
+  /** Reads the file again: a sibling session may have rotated since. An unreadable file keeps what is held. */
+  async reload() {
+    this.held = await this.read().catch(() => this.held);
+  }
+  /** The secret of one of this device's prekeys, while it is kept (never past its deletion time). */
+  secret(id) {
+    const now = this.now();
+    return this.held.find((h6) => h6.prekey.id === id && prekeyDeleteAt(h6.prekey) > now)?.secret;
+  }
+  /** The newest prekey senders may use now: the one this device publishes. Its own, so only its time is checked. */
+  current() {
+    const now = this.now();
+    return this.held.filter((h6) => prekeyUsable(h6.prekey, now)).sort((a5, b5) => b5.prekey.at - a5.prekey.at)[0]?.prekey;
+  }
+  /** When `maintain` next has work: the newest prekey's rotation time, or the next deletion. */
+  get due() {
+    const newest = Math.max(...this.held.map((h6) => h6.prekey.at));
+    return Math.min(newest + LIMITS.prekeyRotateMs, ...this.held.map((h6) => prekeyDeleteAt(h6.prekey)));
+  }
+  /**
+   * Store, rotate, delete (SPEC section 6b): drops every secret past its deletion time, makes a new
+   * prekey when none is usable or the newest is a day old, and keeps at most 8. Returns whether a
+   * new prekey was made, so the caller publishes it.
+   */
+  async maintain() {
+    return withLock(`${this.path}.lock`, async () => {
+      const now = this.now();
+      const before = await this.read();
+      const kept = before.filter((h6) => prekeyDeleteAt(h6.prekey) > now);
+      const newest = kept.filter((h6) => prekeyUsable(h6.prekey, now)).sort((a5, b5) => b5.prekey.at - a5.prekey.at)[0];
+      const rotate = newest === void 0 || now - newest.prekey.at >= LIMITS.prekeyRotateMs;
+      if (rotate) kept.push(createPrekey({ mesh: this.mesh, deviceId: this.device.id, signSec: this.device.keys.signSec, at: now }));
+      const next = kept.sort((a5, b5) => b5.prekey.at - a5.prekey.at).slice(0, LIMITS.prekeysKept);
+      if (rotate || next.length !== before.length) {
+        const file2 = { v: 1, keys: next.map((h6) => ({ prekey: h6.prekey, secret: b64u.encode(h6.secret) })) };
+        await writeJson(this.path, file2, this.env);
+      }
+      this.held = next;
+      return rotate;
+    }, this.env);
+  }
+};
+var PeerPrekeys = class {
+  known = /* @__PURE__ */ new Map();
+  path;
+  env;
+  now;
+  constructor(opts) {
+    this.path = opts.path;
+    this.env = opts.env;
+    this.now = opts.now;
+  }
+  async read() {
+    const raw = await readJson(this.path).catch(() => void 0);
+    const list2 = parsed(Object.values(Object(raw?.v === 1 ? raw.prekeys : void 0)), (pk) => prekeySchema.parse(pk));
+    return new Map(list2.map((pk) => [pk.device, pk]));
+  }
+  /** Reads what sibling sessions and earlier processes learned. */
+  async reload() {
+    for (const pk of (await this.read()).values()) this.keep(pk);
+  }
+  keep(pk) {
+    const had = this.known.get(pk.device);
+    if (had !== void 0 && had.at >= pk.at) return false;
+    this.known.set(pk.device, pk);
+    return true;
+  }
+  /**
+   * Takes a prekey from a card or a message header. Kept, and written for sibling sessions, when it
+   * verifies (signed by its device, current roster, not expired), is not a published test-vector
+   * key, and is newer than the one known for that device.
+   */
+  async offer(raw, roster) {
+    const checked = verifyPrekey(raw, roster, this.now());
+    if (!checked.ok || isVectorKey(checked.value.pub) || !this.keep(checked.value)) return false;
+    await withLock(`${this.path}.lock`, async () => {
+      const merged = await this.read();
+      for (const pk of this.known.values()) if ((merged.get(pk.device)?.at ?? -1) < pk.at) merged.set(pk.device, pk);
+      await writeJson(this.path, { v: 1, prekeys: Object.fromEntries(merged) }, this.env);
+    }, this.env);
+    return true;
+  }
+  /**
+   * The prekey to seal to for each listed device that is in the roster and has a usable one now.
+   * Each was verified when it was taken; the seal verifies it once more.
+   */
+  forSend(roster, ids) {
+    const now = this.now();
+    const out = {};
+    for (const id of ids) {
+      const pk = this.known.get(id);
+      if (pk !== void 0 && prekeyUsable(pk, now) && roster.devices.some((d5) => d5.id === id)) out[id] = pk;
+    }
+    return out;
+  }
+};
 
 // src/render.ts
 function noticeText(line) {
@@ -89625,9 +89965,9 @@ var Link = class _Link {
     return !this.isClosed;
   }
   receive(text2) {
-    const parsed = parseRelayFrame(text2);
-    if (!parsed.ok) return;
-    const frame = parsed.value;
+    const parsed2 = parseRelayFrame(text2);
+    if (!parsed2.ok) return;
+    const frame = parsed2.value;
     for (const w of [...this.waiters]) {
       if (!w.match(frame)) continue;
       this.waiters.delete(w);
@@ -89910,6 +90250,18 @@ var MeshSession = class _MeshSession extends EventEmitter {
   askWaiters = /* @__PURE__ */ new Map();
   myCard;
   cardAt = 0;
+  /** The prekey id the last card carried, so a rotation is published at once. */
+  cardPk;
+  prekeys;
+  peerKeys;
+  /**
+   * Settles when the first `cards` page after `ready` has been read: peers' prekeys are known
+   * then. Set by every `ready`, before any frame of that connection is handled or any send waits.
+   */
+  cardsIn;
+  gotCards;
+  /** Sender devices already told about once: a message this device could no longer read. */
+  unreadable = /* @__PURE__ */ new Set();
   stopped = false;
   derivedUntil = 0;
   sweeping = Promise.resolve();
@@ -89981,6 +90333,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.config = await this.o.mesh.loadConfig();
     this.book = await RosterBook.open(this.o.mesh);
     this.spool = await Spool.open(this.files.spoolDir, this.o.env, this.state.spool);
+    this.prekeys = new PrekeyStore({ path: this.o.mesh.prekeysPath, env: this.o.env, device: this.device, mesh: this.config.mesh, now: this.now });
+    await this.prekeys.maintain();
+    this.peerKeys = new PeerPrekeys({ path: this.o.mesh.peerPrekeysPath, env: this.o.env, now: this.now });
+    await this.peerKeys.reload();
   }
   get mesh() {
     return this.o.mesh;
@@ -90073,6 +90429,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     for (const p3 of ready.peers) this.peers.set(p3.address, p3);
     this.emit("peers");
     this.sentPresence = void 0;
+    this.cardsIn = new Promise((resolve3) => this.gotCards = resolve3);
     this.emit("ready", this.address);
     void this.sendCard(link, true);
     this.inbound = this.inbound.then(() => this.retryParked());
@@ -90142,6 +90499,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       // Cards (SPEC section 17) only annotate peer rows: never spooled, never a wake.
       case "cards": {
         for (const c5 of f7.cards) this.takeCard(c5);
+        this.gotCards();
         const last = f7.cards.at(-1);
         if (f7.more && last !== void 0) this.sendIfOpen({ t: "cards.get", after: last.from.sid });
         return;
@@ -90151,11 +90509,23 @@ var MeshSession = class _MeshSession extends EventEmitter {
         return;
     }
   }
+  /** Takes a prekey from a card or message header: known at once, written for siblings in the background. */
+  learn(pk) {
+    this.peerKeys.offer(pk, this.roster).catch((e6) => this.log(`wim: prekey not stored: ${e6.message}`));
+  }
+  /** A card's header carries its device's prekey; its labels annotate the session's peer row. */
   takeCard(frame) {
-    const opened = openMessage(frame, { roster: this.roster, me: this.receiver(), now: this.now(), history: true });
+    this.learn(frame.pk);
+    const opened = this.open(frame, true);
+    if (!opened.ok && opened.reason === "key_expired") void this.prekeys.reload().then(() => this.annotate(this.open(frame, true)));
+    else this.annotate(opened);
+  }
+  annotate(opened) {
     if (!opened.ok || opened.value.kind !== "card") return;
     const from = opened.value.from;
-    this.cards.set(`${from.device}/${from.sid}`, opened.value.card);
+    const key2 = `${from.device}/${from.sid}`;
+    if (Object.keys(opened.value.card).length === 0) this.cards.delete(key2);
+    else this.cards.set(key2, opened.value.card);
     this.emit("peers");
   }
   async onRosterPush(chain2) {
@@ -90167,10 +90537,24 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   // ---- receiving ----
   receiver() {
-    return { deviceId: this.device.id, keys: this.device.keys, address: this.address, sid: this.state.sid, rooms: this.state.rooms };
+    return {
+      deviceId: this.device.id,
+      keys: this.device.keys,
+      address: this.address,
+      sid: this.state.sid,
+      rooms: this.state.rooms,
+      prekey: (id) => this.prekeys.secret(id)
+    };
   }
   open(msg, history2 = false) {
     return openMessage(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history: history2 });
+  }
+  /** Opens a frame; a box for a prekey this session has not read yet is tried again after a reload. */
+  async openFresh(msg, history2 = false) {
+    const first = this.open(msg, history2);
+    if (first.ok || first.reason !== "key_expired") return first;
+    await this.prekeys.reload();
+    return this.open(msg, history2);
   }
   /** Sends a frame if connected; while offline it is dropped (acks and receipts are not resent). */
   sendIfOpen(frame) {
@@ -90198,12 +90582,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** The receiving checks of SPEC section 6, in order, then policy, the breaker and the spool. */
   async check(msg, parked = false) {
-    let r6 = this.open(msg);
+    let r6 = await this.openFresh(msg);
     if (!r6.ok && r6.reason === "roster_behind" && this.link !== void 0) {
       const before = this.roster.seq;
       await this.walk(this.link, msg.roster.seq).catch((e6) => this.log(`wim: ${e6.message}`));
       if (!parked && this.roster.seq > before) await this.retryParked();
-      r6 = this.open(msg);
+      r6 = await this.openFresh(msg);
     }
     if (!r6.ok && r6.reason === "roster_behind") {
       if (!parked) {
@@ -90215,9 +90599,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
     if (!r6.ok) {
       if (r6.reason === "roster_fork" && this.link !== void 0) await this.probeFork(this.link, msg.roster.seq);
+      if (r6.reason === "key_expired") await this.unreadableFrom(msg);
       this.log(`wim: dropped ${msg.id}: ${r6.reason}`);
       return "dropped";
     }
+    this.learn(msg.pk);
     const fork = this.book.fork;
     if (fork !== void 0 && !fork.base.includes(msg.from.device)) {
       this.log(`wim: dropped ${msg.id}: its sender was added after the roster fork`);
@@ -90237,6 +90623,20 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await this.seen.add(p3.id, address, dedupeExpiry(p3.at), this.now());
     await this.seqs.record(address, msg.from.device, msg.from.sid, msg.seq);
     return "accepted";
+  }
+  /**
+   * A live message sealed to a prekey this device no longer holds (SPEC section 6b): deleted on
+   * schedule, or lost with the prekey file. The relay offers no way to tell the sender, so the
+   * session is told, once per sender device, and the message is dropped like any unreadable one.
+   */
+  async unreadableFrom(msg) {
+    if (this.unreadable.has(msg.from.device)) return;
+    this.unreadable.add(msg.from.device);
+    const name = this.roster.devices.find((d5) => d5.id === msg.from.device).name;
+    await this.notice(
+      `${msg.from.session}@${name}`,
+      `A message from ${msg.from.session}@${name} could not be read: it was sealed to a prekey this device no longer holds (deleted 72 hours after it expired, or lost with this device's prekey file). Ask the sender to send it again.`
+    );
   }
   /** A message whose roster ref has our seq but another hash: ask the relay which roster it holds. */
   async probeFork(link, seq) {
@@ -90395,6 +90795,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         if (req !== null && this.o.handover === true) await this.handOverSend(req[1], body);
       }
       await this.book.reload();
+      if (this.now() >= this.prekeys.due) await this.prekeys.maintain();
       if (this.link !== void 0) await this.sendCard(this.link, false);
     } catch (error63) {
       this.log(`wim: housekeeping: ${error63.message}`);
@@ -90409,16 +90810,23 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (this.sentPresence === text2) return;
     if (this.sendIfOpen({ t: "presence", status: text2 })) this.sentPresence = text2;
   }
-  /** Sends this session's card after ready and when it changes, at most once a minute. */
+  /**
+   * Sends this session's card after ready, when it changes (at most once a minute) and when the
+   * device's prekey rotates. Every session sends one, empty when cards are off: its header is how
+   * peers learn the device's prekey (SPEC section 6b).
+   */
   async sendCard(link, force) {
-    if (this.o.cwd === void 0 || !this.config.share_cards) return;
-    if (!force && this.now() - this.cardAt < CARD_EVERY_MS) return;
-    const card = await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    if (!force && sameCard(this.myCard, card)) return;
+    const pk = this.prekeys.current()?.id;
+    const rotated = pk !== this.cardPk;
+    this.cardPk = pk;
+    if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
+    const card = this.o.cwd === void 0 || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
+    if (!force && !rotated && sameCard(this.myCard, card)) return;
     this.cardAt = this.now();
     this.myCard = card;
     try {
-      const frame = sealMessage({ ...this.sealBase(["*"]), kind: "card", card, recipients: this.roster.devices.map((d5) => d5.id) });
+      const ids = this.roster.devices.map((d5) => d5.id);
+      const frame = sealMessage({ ...this.sealBase(["*"]), ...this.keysFor(ids), kind: "card", card, recipients: ids });
       link.send({ t: "card.set", msg: frame });
     } catch (error63) {
       this.log(`wim: peer card not sent: ${error63.message}`);
@@ -90516,6 +90924,23 @@ var MeshSession = class _MeshSession extends EventEmitter {
       at: this.now()
     };
   }
+  /**
+   * What to seal with (SPEC section 6b): the newest usable prekey of each recipient device, this
+   * device's own for its sibling sessions, and the own one again as the header's `pk`. A device
+   * with none gets a scheme 1 box: the client keeps the migration window open (the protocol's
+   * default `legacy`), and the send reports it as `unprotected`.
+   */
+  keysFor(ids) {
+    const own2 = this.prekeys.current();
+    const prekeys = this.peerKeys.forSend(this.roster, ids);
+    if (own2 === void 0) return { prekeys };
+    if (ids.includes(this.device.id)) prekeys[this.device.id] = own2;
+    return { prekeys, prekey: own2 };
+  }
+  /** Recipient device ids that a frame seals to without forward secrecy (scheme 1 boxes). */
+  legacyIds(frame) {
+    return Object.entries(frame.boxes).filter(([, box]) => !("s" in box)).map(([id]) => id);
+  }
   /** The device ids a send needs boxes for, and the addresses no device in the roster answers to. */
   recipients(to) {
     if (GROUP(to)) return { ids: this.roster.devices.map((d5) => d5.id), unknown: [] };
@@ -90548,8 +90973,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const routed = to.filter((a5) => !unknown2.includes(a5));
     if (routed.length === 0) return { id, results: local };
     const { frame, answer: answering } = await this.serially(async () => {
-      const sealed = await this.seal(id, routed, ids, text2, opts);
+      let sealed = await this.seal(id, routed, ids, text2, opts);
       const link = await this.ready(this.answerMs);
+      const missing = this.legacyIds(sealed);
+      if (missing.length > 0) {
+        await this.peerKeys.reload();
+        let timer;
+        await Promise.race([this.cardsIn, new Promise((resolve3) => timer = setTimeout(resolve3, this.answerMs))]);
+        clearTimeout(timer);
+        if (Object.keys(this.peerKeys.forSend(this.roster, missing)).length > 0) sealed = await this.seal(id, routed, ids, text2, opts);
+      }
       await this.save({ seq: sealed.seq });
       if (opts.kind === "task") await this.recordSentTask(id, routed);
       return { frame: sealed, answer: this.sendFrame(link, sealed, id) };
@@ -90570,7 +91003,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },
       ...opts.relayed === true ? { relayed: true } : {}
     });
-    return { id, results: [...local, ...sent.results] };
+    const unprotected = this.legacyIds(frame).map((d5) => this.roster.devices.find((r6) => r6.id === d5).name);
+    return { id, results: [...local, ...sent.results], ...unprotected.length > 0 ? { unprotected } : {} };
   }
   serially(fn) {
     const run = this.sending.then(fn);
@@ -90583,6 +91017,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     try {
       return sealMessage({
         ...this.sealBase(routed),
+        ...this.keysFor(ids),
         id,
         kind: opts.kind ?? "msg",
         ...text2 === void 0 ? {} : { text: text2 },
@@ -90712,7 +91147,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (top > this.roster.seq) await this.walk(link, top).catch(() => void 0);
     const items = [];
     for (const { cursor: cursor2, msg } of page.msgs) {
-      const r6 = this.open(msg, true);
+      const r6 = await this.openFresh(msg, true);
       if (!r6.ok) continue;
       const p3 = r6.value;
       const entry = entryOf(p3, this.fromAddress(p3));
@@ -106960,9 +107395,9 @@ function getErrorPayload(error63) {
     return data;
   }
   try {
-    const parsed = JSON.parse(error63.body);
-    if (parsed && typeof parsed === "object") {
-      return parsed;
+    const parsed2 = JSON.parse(error63.body);
+    if (parsed2 && typeof parsed2 === "object") {
+      return parsed2;
     }
   } catch (_a5) {
   }
@@ -109671,10 +110106,10 @@ var Files2 = class extends ClientSDK {
     return unwrapAsAPIPromise(environmentsFilesList(this, environment, path2, params === null || params === void 0 ? void 0 : params.api_version, params === null || params === void 0 ? void 0 : params.page_size, params === null || params === void 0 ? void 0 : params.page_token, params === null || params === void 0 ? void 0 : params.recursive, options));
   }
 };
-function environmentsInternalStartUpload(client, environment, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract, overwrite, options) {
-  return new APIPromise($do$m(client, environment, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract, overwrite, options));
+function environmentsInternalStartUpload(client, environment, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract2, overwrite, options) {
+  return new APIPromise($do$m(client, environment, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract2, overwrite, options));
 }
-async function $do$m(client, environment, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract, overwrite, options) {
+async function $do$m(client, environment, path2, x_goog_upload_command, x_goog_upload_header_content_length, x_goog_upload_header_content_type, x_goog_upload_protocol, api_version, extract2, overwrite, options) {
   var _a5, _b, _c5;
   const input2 = {
     environment,
@@ -109684,7 +110119,7 @@ async function $do$m(client, environment, path2, x_goog_upload_command, x_goog_u
     "X-Goog-Upload-Header-Content-Type": x_goog_upload_header_content_type,
     "X-Goog-Upload-Protocol": x_goog_upload_protocol,
     api_version,
-    extract,
+    extract: extract2,
     overwrite
   };
   const payload2 = input2;
@@ -115054,14 +115489,14 @@ var OllamaModel = class {
     } catch {
       throw new Error("ollama: response is not JSON");
     }
-    const parsed = ChatReply.safeParse(json4);
-    if (!parsed.success) {
+    const parsed2 = ChatReply.safeParse(json4);
+    if (!parsed2.success) {
       throw new Error("ollama: response is not a chat reply");
     }
     return {
-      text: visibleReply(parsed.data.message.content),
-      usage: { inputTokens: parsed.data.prompt_eval_count, outputTokens: parsed.data.eval_count },
-      stopReason: parsed.data.done_reason
+      text: visibleReply(parsed2.data.message.content),
+      usage: { inputTokens: parsed2.data.prompt_eval_count, outputTokens: parsed2.data.eval_count },
+      stopReason: parsed2.data.done_reason
     };
   }
 };
@@ -115127,14 +115562,14 @@ var Budget = class _Budget {
       if (err.code !== "ENOENT") throw err;
     }
     if (raw === void 0) return new _Budget(options, { v: 1, days: {} });
-    let parsed;
+    let parsed2;
     try {
-      parsed = Ledger.safeParse(JSON.parse(raw));
+      parsed2 = Ledger.safeParse(JSON.parse(raw));
     } catch {
       throw new Error(`ledger ${options.path} is not JSON; refusing to start`);
     }
-    if (!parsed.success) throw new Error(`ledger ${options.path} is not valid; refusing to start`);
-    return new _Budget(options, parsed.data);
+    if (!parsed2.success) throw new Error(`ledger ${options.path} is not valid; refusing to start`);
+    return new _Budget(options, parsed2.data);
   }
   /** Today's totals (UTC), not counting calls still in flight. */
   today() {
@@ -115600,13 +116035,13 @@ var ConfigSchema2 = external_exports.strictObject({
 });
 function loadConfig3(json4) {
   const value = typeof json4 === "string" ? JSON.parse(json4) : json4;
-  const parsed = ConfigSchema2.safeParse(value);
-  if (!parsed.success) {
-    const lines = parsed.error.issues.map((i6) => `${i6.path.join(".") || "(root)"}: ${i6.message}`);
+  const parsed2 = ConfigSchema2.safeParse(value);
+  if (!parsed2.success) {
+    const lines = parsed2.error.issues.map((i6) => `${i6.path.join(".") || "(root)"}: ${i6.message}`);
     throw new Error(`invalid bot config:
 ${lines.join("\n")}`);
   }
-  return parsed.data;
+  return parsed2.data;
 }
 function createModel(config2) {
   const spec = parseModelSpec(config2.model);
@@ -115732,13 +116167,13 @@ function sourceKey(source2) {
 }
 function loadConfig4(json4) {
   const value = typeof json4 === "string" ? JSON.parse(json4) : json4;
-  const parsed = ConfigSchema3.safeParse(value);
-  if (!parsed.success) {
-    const lines = parsed.error.issues.map((i6) => `${i6.path.join(".") || "(root)"}: ${i6.message}`);
+  const parsed2 = ConfigSchema3.safeParse(value);
+  if (!parsed2.success) {
+    const lines = parsed2.error.issues.map((i6) => `${i6.path.join(".") || "(root)"}: ${i6.message}`);
     throw new Error(`invalid ci config:
 ${lines.join("\n")}`);
   }
-  return parsed.data;
+  return parsed2.data;
 }
 
 // ../ci/src/format.ts
@@ -115924,13 +116359,13 @@ var StateStore = class _StateStore {
       }
       return new _StateStore(path2, { version: 1, sources: {} }, now);
     }
-    let parsed;
+    let parsed2;
     try {
-      parsed = StateFile.parse(JSON.parse(text2));
+      parsed2 = StateFile.parse(JSON.parse(text2));
     } catch {
       log(`ci: state ${path2} is not valid; starting fresh`);
     }
-    return new _StateStore(path2, parsed ?? { version: 1, sources: {} }, now);
+    return new _StateStore(path2, parsed2 ?? { version: 1, sources: {} }, now);
   }
   source(key2) {
     let s3 = this.data.sources[key2];
@@ -115970,9 +116405,9 @@ var StateStore = class _StateStore {
 // ../ci/src/watcher.ts
 var RECENT_MS = 36e5;
 function parseBody(schema, body, url2) {
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) throw new CiHttpError(`GET ${url2} returned an unexpected shape`);
-  return parsed.data;
+  const parsed2 = schema.safeParse(body);
+  if (!parsed2.success) throw new CiHttpError(`GET ${url2} returned an unexpected shape`);
+  return parsed2.data;
 }
 function modeFor(ctx, updatedAt) {
   if (ctx.state.seeded) return "announce";
@@ -118063,8 +118498,8 @@ var Protocol = class {
     const method = getMethodLiteral(requestSchema);
     this.assertRequestHandlerCapability(method);
     this._requestHandlers.set(method, (request2, extra) => {
-      const parsed = parseWithCompat(requestSchema, request2);
-      return Promise.resolve(handler(parsed, extra));
+      const parsed2 = parseWithCompat(requestSchema, request2);
+      return Promise.resolve(handler(parsed2, extra));
     });
   }
   /**
@@ -118089,8 +118524,8 @@ var Protocol = class {
   setNotificationHandler(notificationSchema, handler) {
     const method = getMethodLiteral(notificationSchema);
     this._notificationHandlers.set(method, (notification) => {
-      const parsed = parseWithCompat(notificationSchema, notification);
-      return Promise.resolve(handler(parsed));
+      const parsed2 = parseWithCompat(notificationSchema, notification);
+      return Promise.resolve(handler(parsed2));
     });
   }
   /**
@@ -119130,10 +119565,10 @@ var WimMcp = class {
   }
   async callTool(name, args, progressToken, notify, internal) {
     if (!Object.hasOwn(Inputs, name) || name.startsWith("_") !== internal) return fail3(`unknown tool ${name}`);
-    const parsed = Inputs[name].safeParse(args);
-    if (!parsed.success) return fail3(`invalid input: ${parsed.error.issues.map((i6) => `${i6.path.join(".") || "input"}: ${i6.message}`).join("; ")}`);
+    const parsed2 = Inputs[name].safeParse(args);
+    if (!parsed2.success) return fail3(`invalid input: ${parsed2.error.issues.map((i6) => `${i6.path.join(".") || "input"}: ${i6.message}`).join("; ")}`);
     try {
-      return await this.run(name, parsed.data, progressToken, notify);
+      return await this.run(name, parsed2.data, progressToken, notify);
     } catch (error63) {
       return failure2(error63);
     }
@@ -119381,8 +119816,8 @@ async function fetchRelayInfo(relay, fetcher, opts = {}) {
     if (res.status !== 200) return void 0;
     const body = await res.text();
     if (body.length > INFO_MAX_BYTES) return void 0;
-    const parsed = InfoSchema.safeParse(JSON.parse(body));
-    return parsed.success ? parsed.data : void 0;
+    const parsed2 = InfoSchema.safeParse(JSON.parse(body));
+    return parsed2.success ? parsed2.data : void 0;
   } catch {
     return void 0;
   }
@@ -119991,6 +120426,9 @@ async function send(ctx) {
     const hint = r6.status === "unknown" ? closestAddress(r6.to, out.live) : void 0;
     ctx.io.out(`${r6.to}: ${r6.status}${hint === void 0 ? "" : ` (did you mean ${hint}?)`}`);
   }
+  if (out.unprotected !== void 0) {
+    ctx.io.out(`Sent without forward secrecy to ${out.unprotected.join(", ")}: no current prekey (a v0.1 client, or offline for over 48 hours).`);
+  }
   ctx.io.out(`id ${out.id}`);
   return out.results.every((r6) => accepted(r6.status)) ? 0 : 1;
 }
@@ -120004,7 +120442,7 @@ async function handOver(ctx, watcher, request2) {
     if (answer !== void 0) {
       await tryRemove(answerPath, ctx.fsEnv);
       if (!answer.ok) throw new ClientError(answer.error, "refused");
-      return { id: answer.id, results: answer.results, live: answer.live };
+      return { id: answer.id, results: answer.results, live: answer.live, unprotected: answer.unprotected };
     }
     if (Date.now() > until) {
       const requestPath = pathJoin(watcher.controlDir, `send-${id}.json`);
@@ -120161,9 +120599,9 @@ async function mcp(ctx) {
 }
 async function readConfig(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed = parseJson(await fs10.readFile(path2, "utf8"));
-  if (!parsed.ok) throw new SetupError(`${path2}: not valid JSON (${parsed.reason})`);
-  return parsed.value;
+  const parsed2 = parseJson(await fs10.readFile(path2, "utf8"));
+  if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
+  return parsed2.value;
 }
 async function service(ctx, which) {
   const raw = await readConfig(ctx.args.positional[0]);
