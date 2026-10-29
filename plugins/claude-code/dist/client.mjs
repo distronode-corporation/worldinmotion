@@ -122203,14 +122203,15 @@ async function notifyTest(ctx) {
 
 // src/io.ts
 import { homedir as homedir3, hostname as hostname3 } from "node:os";
-import { createInterface as createInterface2 } from "node:readline/promises";
+import { createInterface as createInterface2 } from "node:readline";
 import { Writable as Writable4 } from "node:stream";
 function ask(input2, open3, question) {
   if (input2.readableEnded) return Promise.resolve("");
   const rl = open3();
   return new Promise((resolve3) => {
+    rl.question(question, resolve3);
+    rl.once("line", resolve3);
     rl.once("close", () => resolve3(""));
-    void rl.question(question).then(resolve3);
   }).finally(() => rl.close());
 }
 function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kill: (pid, s3) => void process.kill(pid, s3), wim: wimCommand }) {

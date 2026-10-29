@@ -457,7 +457,25 @@ function closedStdin(): Pick<CliIO, "prompt" | "promptSecret"> {
   return { prompt: io.prompt, promptSecret: io.promptSecret! };
 }
 
+/** The real prompts of processIo over a stdin that holds `text` and then ends. */
+function stdinWith(text: string): Pick<CliIO, "prompt" | "promptSecret"> {
+  const stdin = new PassThrough();
+  stdin.end(text);
+  const proc: Proc = { stdin, stdout: new PassThrough(), stderr: new PassThrough(), platform: process.platform, pid: 1, ppid: process.pid, cwd: () => "/", once: () => undefined, on: () => undefined };
+  const io = processIo(proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined, wim: () => [] });
+  return { prompt: io.prompt, promptSecret: io.promptSecret! };
+}
+
 describe("prompts on a stdin that closes before a line", () => {
+  it("take a last line that has no newline (printf 'pass' | wim ...)", async () => {
+    expect(await stdinWith("correct horse").prompt("")).toBe("correct horse");
+    expect(await stdinWith("correct horse").promptSecret!("Passphrase: ")).toBe("correct horse");
+    const d = await newDevice("nonl");
+    const t = at(d.root, stdinWith("correct horse battery"));
+    expect(await run(t, "agent", "encrypt", "--passphrase-stdin")).toBe(0);
+    expect(await fs.readFile(d.home.devicePath, "utf8")).not.toMatch(/signSec/);
+  });
+
   it("give an empty answer instead of never settling", async () => {
     const io = closedStdin();
     expect(await io.prompt("Question? ")).toBe("");

@@ -1,24 +1,27 @@
 // The real process as the CLI sees it: output, prompts, Ctrl-C, and the facts about the machine.
 
 import { homedir, hostname } from "node:os";
-import { createInterface, type Interface } from "node:readline/promises";
+import { createInterface, type Interface } from "node:readline";
 import { Writable, type Readable } from "node:stream";
 import { spawnDetached, wimCommand } from "./agentcli.ts";
 import type { CliIO } from "./cli.ts";
 import { pidAlive } from "./platform.ts";
 
 /**
- * One answer line. Input that ends before a line (stdin closed, or empty) gives "", which a
- * confirmation reads as no and a passphrase prompt as none given: readline's own question would
- * never settle then, and the process would end with Node's "unsettled top-level await" instead.
+ * One answer line. Input that ends with a last line and no newline gives that line. Input that
+ * ends before any line (stdin closed, or empty) gives "", which a confirmation reads as no and a
+ * passphrase prompt as none given: a question alone would never settle then, and the process
+ * would end with Node's "unsettled top-level await" instead. A line ended by a newline answers
+ * the question; a last line without one comes as readline's `line` event, before its `close`.
  */
 function ask(input: Readable, open: () => Interface, question: string): Promise<string> {
   // A stream that already ended (an earlier prompt read it to the end) never says so again.
   if (input.readableEnded) return Promise.resolve("");
   const rl = open();
   return new Promise<string>((resolve) => {
+    rl.question(question, resolve);
+    rl.once("line", resolve);
     rl.once("close", () => resolve(""));
-    void rl.question(question).then(resolve);
   }).finally(() => rl.close());
 }
 
