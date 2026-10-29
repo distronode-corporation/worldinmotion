@@ -553,17 +553,25 @@ export class SqlStore implements MeshStore {
     );
   }
 
-  history(room: string, before: number, limit: number): HistoryRow[] {
+  history(room: string, before: number, limit: number, since: number): HistoryRow[] {
     return this.all(
-      "SELECT room, cur, at, msg FROM room_history WHERE mesh = ? AND room = ? AND cur < ? ORDER BY cur DESC LIMIT ?",
+      "SELECT room, cur, at, msg FROM room_history WHERE mesh = ? AND room = ? AND cur < ? AND at > ? ORDER BY cur DESC LIMIT ?",
       room,
       before,
+      since,
       limit,
     ).map(toHistory);
   }
 
-  pruneHistory(before: number): void {
-    this.run("DELETE FROM room_history WHERE mesh = ? AND at <= ?", before);
+  pruneHistory(before: number, limit: number): number {
+    const n = this.count("SELECT COUNT(*) AS n FROM (SELECT 1 FROM room_history WHERE mesh = ? AND at <= ? LIMIT ?)", before, limit);
+    // The oldest go first, so a sweep that stops at the bound leaves the newest of what expired.
+    this.run(
+      "DELETE FROM room_history WHERE mesh = ?1 AND rowid IN (SELECT rowid FROM room_history WHERE mesh = ?1 AND at <= ?2 ORDER BY at, rowid LIMIT ?3)",
+      before,
+      limit,
+    );
+    return n;
   }
 
   historyBytes(): number {
