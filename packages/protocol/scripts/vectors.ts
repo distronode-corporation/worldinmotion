@@ -426,7 +426,7 @@ function prekeyVectors() {
     const resigned = (f: Record<string, unknown>) => signObject("send", f, alice.signSec) as SendFrame;
     const otherE = b64u.encode(x25519.getPublicKey(sha256(utf8("wim vectors other ephemeral"))));
     const tampers: Array<{ why: string; frame: unknown; reason: string; held: string[]; legacy?: boolean }> = [
-      { why: "bob no longer holds the prekey secret (deleted after 72 hours)", frame, reason: "key_expired", held: [] },
+      { why: "bob no longer holds the prekey secret (deleted 72 hours after until)", frame, reason: "key_expired", held: [] },
       { why: "ephemeral key replaced and re-signed", frame: resigned({ ...frame, boxes: { [id(bob)]: { ...box, e: otherE } } }), reason: "decrypt_failed", held: [pks.bob.prekey.id] },
       { why: "header changed and re-signed", frame: resigned({ ...frame, seq: 2 }), reason: "decrypt_failed", held: [pks.bob.prekey.id] },
       { why: "box names another prekey bob holds", frame: resigned({ ...frame, boxes: { [id(bob)]: { ...box, p: pks.alice.prekey.id } } }), reason: "decrypt_failed", held: [pks.bob.prekey.id, pks.alice.prekey.id] },

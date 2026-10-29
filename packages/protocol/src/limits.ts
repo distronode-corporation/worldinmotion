@@ -127,14 +127,18 @@ export const LIMITS = {
   /** `until - at` of a prekey: senders may seal to it this long. A longer window is refused. */
   prekeyLifetimeMs: 2 * DAY,
   /**
-   * A device deletes a prekey's secret at `at` plus this, so nothing sealed to that prekey opens
-   * afterwards, with any key file. Equal to the room history lifetime the relay keeps.
+   * A device deletes a prekey's secret this long after the prekey's `until`, so every box sealed
+   * to it opens for at least 72 hours (a room history entry's whole life at the relay) and none
+   * opens later than `until` plus 72 hours, with any key file.
    */
-  prekeyRetentionMs: 3 * DAY,
+  prekeyRetentionMs: 72 * HOUR,
   /** Senders stop sealing to a prekey this long before its `until`, for clock skew. */
   prekeySendMarginMs: 10 * MINUTE,
-  /** Signed prekeys a device keeps at once (rotation daily, retention 72 hours, plus one spare). */
-  prekeysKept: 4,
+  /**
+   * Prekey secrets a device keeps at most. Daily rotation and deletion 120 hours after `at` keep
+   * six alive at most; the cap only bounds the file when a clock misbehaves.
+   */
+  prekeysKept: 8,
 } as const;
 
 /** Outcome of a check that must not throw. `reason` is a stable, machine-readable string. */

@@ -35,7 +35,7 @@ export function prekeyId(pub: Uint8Array): string {
 
 /**
  * Makes and signs a new prekey for this device. Returns the published object and its 32-byte
- * secret, which the device keeps until `at` + 72 hours (SPEC section 6b) and then deletes.
+ * secret, which the device keeps until `until` + 72 hours (SPEC section 6b) and then deletes.
  * Throws when `deviceId` is not the id of `signSec`'s public key.
  */
 export function createPrekey(opts: { mesh: string; deviceId: string; signSec: Uint8Array; at: number }): { prekey: Prekey; secret: Uint8Array } {
@@ -94,7 +94,10 @@ export function verifyPrekey(raw: unknown, roster: Roster, now: number): Result<
   return ok(pk);
 }
 
-/** When a device deletes a prekey's secret: `at` + 72 hours (SPEC section 6b). */
-export function prekeyDeleteAt(pk: { at: number }): number {
-  return pk.at + LIMITS.prekeyRetentionMs;
+/**
+ * When a device deletes a prekey's secret: `until` + 72 hours (SPEC section 6b), so a box sealed
+ * at the last moment a sender may use the prekey still opens for the whole 72-hour room history.
+ */
+export function prekeyDeleteAt(pk: { until: number }): number {
+  return pk.until + LIMITS.prekeyRetentionMs;
 }

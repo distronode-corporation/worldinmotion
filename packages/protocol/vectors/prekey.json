@@ -160,7 +160,7 @@
     },
     "tampers": [
       {
-        "why": "bob no longer holds the prekey secret (deleted after 72 hours)",
+        "why": "bob no longer holds the prekey secret (deleted 72 hours after until)",
         "held": [],
         "reason": "key_expired",
         "frame": {

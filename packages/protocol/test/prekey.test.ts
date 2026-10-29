@@ -67,7 +67,7 @@ describe("createPrekey", () => {
     expect(prekey.pub).toBe(b64u.encode(x25519.getPublicKey(secret)));
     expect(prekey.id).toBe(prekeyId(x25519.getPublicKey(secret)));
     expect(verifyPrekey(prekey, roster, T0)).toEqual({ ok: true, value: prekey });
-    expect(prekeyDeleteAt(prekey)).toBe(T0 + 72 * HOUR);
+    expect(prekeyDeleteAt(prekey)).toBe(T0 + 120 * HOUR);
     // Every prekey is new: the secret never repeats.
     expect(make(server, T0).prekey.id).not.toBe(prekey.id);
   });
@@ -221,6 +221,24 @@ describe("the migration window (scheme 1 boxes)", () => {
   });
 });
 
+describe("retention covers the room history, and no more", () => {
+  it("a box sealed at the last moment a sender may use a prekey opens for the whole 72-hour history", () => {
+    const pk = make(server, T0);
+    const lastSeal = pk.prekey.until - LIMITS.prekeySendMarginMs - 1;
+    expect(verifyPrekey(pk.prekey, roster, lastSeal).ok).toBe(true);
+    const frame = seal({ at: lastSeal, prekeys: { [server.id]: pk.prekey } });
+    // The room history keeps an entry 72 hours (relay branch feat/relay-history-72h); the queue 24.
+    const history = 72 * HOUR;
+    expect(LIMITS.prekeyRetentionMs).toBeGreaterThanOrEqual(history);
+    expect(LIMITS.prekeyRetentionMs).toBeGreaterThanOrEqual(LIMITS.queueLifetimeMs);
+    expect(prekeyDeleteAt(pk.prekey) - lastSeal).toBeGreaterThanOrEqual(history);
+    expect(open(frame, server, [pk], { history: true, now: lastSeal + history })).toMatchObject({ ok: true, value: { text: "hello" } });
+    // A box sealed with the prekey when new is readable at most validity + retention: 120 hours.
+    expect(prekeyDeleteAt(pk.prekey) - pk.prekey.at).toBe(LIMITS.prekeyLifetimeMs + LIMITS.prekeyRetentionMs);
+    expect(LIMITS.prekeyLifetimeMs + LIMITS.prekeyRetentionMs).toBe(120 * HOUR);
+  });
+});
+
 describe("a stolen key file opens nothing older than the retention", () => {
   it("traffic sealed to a deleted prekey stays closed to every key the thief holds", () => {
     // Day 0: laptop sends to server under server's prekey of the day; the relay (or anyone on
@@ -230,8 +248,8 @@ describe("a stolen key file opens nothing older than the retention", () => {
     // Within the retention the device itself still reads it (queue, history).
     expect(open(recorded, server, [day0], { history: true, now: T0 + 24 * HOUR })).toMatchObject({ ok: true, value: { text: "the day-0 plan" } });
 
-    // Server rotates daily and deletes each secret at `at` + 72 hours.
-    const later = [make(server, T0 + 23 * HOUR), make(server, T0 + 47 * HOUR), make(server, T0 + 71 * HOUR)];
+    // Server rotates daily and deletes each secret at `until` + 72 hours (`at` + 120 hours).
+    const later = [23, 47, 71, 95, 119].map((h) => make(server, T0 + h * HOUR));
     const theftAt = prekeyDeleteAt(day0.prekey) + 1;
     const kept = [day0, ...later].filter((h) => prekeyDeleteAt(h.prekey) > theftAt);
     expect(kept).not.toContain(day0);
