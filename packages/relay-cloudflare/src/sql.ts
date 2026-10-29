@@ -49,6 +49,8 @@ export function nextStoreDue(db: SqlDb, mesh: string, L: Limits): number | undef
     ["SELECT MIN(exp) AS due FROM lease_waiters WHERE mesh = ?", mesh],
     ["SELECT MIN(until) AS due FROM leases WHERE mesh = ?", mesh],
     ["SELECT MIN(exp) AS due FROM lease_watches WHERE mesh = ?", mesh],
+    // A sweep deletes a bounded batch of history (HISTORY_SWEEP_BATCH); when more had expired,
+    // what is left is already due, so the alarm comes back after MIN_ALARM_MS for the rest.
     ["SELECT MIN(at) + ? AS due FROM room_history WHERE mesh = ?", L.roomHistoryLifetimeMs, mesh],
     ["SELECT MIN(at) + ? AS due FROM chunks WHERE mesh = ?", L.blobLifetimeMs, mesh],
     // Buckets are pruned a day after their last use (the slowest one refills within a day).

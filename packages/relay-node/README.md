@@ -90,6 +90,27 @@ Rate limits for `create` and `join` (10 an hour) are kept per client address: pe
 and per /64 for IPv6, so a client cannot draw a fresh budget by moving inside its /64. An
 IPv4-mapped IPv6 address (`::ffff:192.0.2.1`) counts as the IPv4 address.
 
+### What the relay keeps, and for how long
+
+The relay holds only ciphertext and the metadata it routes by. It deletes:
+
+- **room history** 72 hours after each message (and keeps at most 100 messages per room, 64 MiB
+  per mesh). An entry past 72 hours is never served, even before the sweep deletes it;
+- **queued messages** for an offline session 24 hours after they were queued, with an `expired`
+  receipt to the sender. An undelivered direct box never outlives the 72 hours below;
+- **files** (blob chunks) 24 hours after they were stored.
+
+72 hours is the ceiling for all three, matching the prekey retention of forward secrecy (SPEC
+section 13): a relay may lower these lifetimes, never raise one past it. Expiry sweeps run every
+second, over every mesh in the database, including meshes nobody has dialled since the relay
+started (8 of those a second, in turn). One sweep deletes at most 256 history entries per mesh, so
+a large backlog goes over several seconds and never blocks the relay for long.
+
+**Upgrading from 0.1.1 or earlier**, which kept room history for 7 days: nothing to run. History
+older than 72 hours is never served after the upgrade, and the sweeps delete it from the start: a
+mesh in use loses up to 256 entries a second, and every other mesh as many on each pass over the
+database (one pass takes about `meshes / 8` seconds).
+
 ### Idle meshes are deleted
 
 With `WIM_IDLE_MESH_DAYS` set, the relay deletes every mesh that has had no authenticated session
