@@ -11,6 +11,9 @@ export default defineConfig({
     include: ["packages/*/test/**/*.test.ts", "test/**/*.test.ts"],
     // The Cloudflare relay's tests run inside the Workers runtime with their own config.
     exclude: ["**/node_modules/**", "packages/relay-cloudflare/**"],
+    // windows-2025 runners are slower at file and socket work (antivirus scans each new file), and
+    // different relay and client tests ran past the 5 s default from run to run there.
+    testTimeout: process.platform === "win32" ? 20_000 : 5_000,
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**/*.ts"],

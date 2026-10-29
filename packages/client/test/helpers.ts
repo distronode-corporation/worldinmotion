@@ -51,7 +51,10 @@ export async function scratch(prefix = "t"): Promise<string> {
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** Polls until `check` is true, or fails after `ms`. */
-export async function until(check: () => boolean | Promise<boolean>, ms = 3000, what = "condition"): Promise<void> {
+// Windows CI is slower at file work (antivirus scans each new file), so its default wait is longer.
+const UNTIL_DEFAULT_MS = process.platform === "win32" ? 10_000 : 3000;
+
+export async function until(check: () => boolean | Promise<boolean>, ms = UNTIL_DEFAULT_MS, what = "condition"): Promise<void> {
   const end = Date.now() + ms;
   while (!(await check())) {
     if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
