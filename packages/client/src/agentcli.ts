@@ -169,6 +169,8 @@ async function runSigner(ctx: AgentCtx, passphrase: string, ready: (line: string
   ready(`ready ${ctx.io.pid} ${bound.at}`);
   const onAbort = (): void => void bound.server.close();
   ctx.io.signal.addEventListener("abort", onAbort, { once: true });
+  // Ctrl-C or a kill that came while it was starting: the event has passed, so it stops now.
+  if (ctx.io.signal.aborted) onAbort();
   await bound.server.stopped;
   ctx.io.signal.removeEventListener("abort", onAbort);
   await retireEndpoint(root, env, bound.at);

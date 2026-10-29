@@ -402,6 +402,18 @@ describe("wim agent", () => {
     expect(said(fg)).toContain("Signer stopped.");
   });
 
+  it("a foreground signer told to stop while it was starting stops once it has started", async () => {
+    const d = await newDevice("early");
+    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    const t = at(d.root, {}, {}, PASS);
+    // Ctrl-C before the signer has bound: the abort event is long gone when it gets there.
+    t.stop.abort();
+    expect(await run(t, "agent", "start", "--foreground", "--passphrase-stdin")).toBe(0);
+    expect(said(t)).toMatch(/Signer running[\s\S]*Signer stopped\./);
+    const st = at(d.root);
+    expect(await run(st, "agent", "status")).toBe(3);
+  });
+
   it("WIM_REQUIRE_SIGNER refuses a plaintext key file", async () => {
     const d = await newDevice("req");
     const t = at(d.root, {}, { WIM_REQUIRE_SIGNER: "1" });

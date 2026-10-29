@@ -121112,6 +121112,7 @@ async function runSigner(ctx, passphrase, ready) {
   ready(`ready ${ctx.io.pid} ${bound.at}`);
   const onAbort = () => void bound.server.close();
   ctx.io.signal.addEventListener("abort", onAbort, { once: true });
+  if (ctx.io.signal.aborted) onAbort();
   await bound.server.stopped;
   ctx.io.signal.removeEventListener("abort", onAbort);
   await retireEndpoint(root5, env3, bound.at);
