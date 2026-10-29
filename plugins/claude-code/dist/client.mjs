@@ -91147,7 +91147,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (top > this.roster.seq) await this.walk(link, top).catch(() => void 0);
     const items = [];
     for (const { cursor: cursor2, msg } of page.msgs) {
-      const r6 = this.open(msg, true);
+      const r6 = await this.openFresh(msg, true);
       if (!r6.ok) continue;
       const p3 = r6.value;
       const entry = entryOf(p3, this.fromAddress(p3));

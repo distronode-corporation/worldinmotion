@@ -1239,7 +1239,7 @@ export class MeshSession extends EventEmitter {
     if (top > this.roster.seq) await this.walk(link, top).catch(() => undefined);
     const items: string[] = [];
     for (const { cursor, msg } of page.msgs) {
-      const r = this.open(msg, true);
+      const r = await this.openFresh(msg, true);
       if (!r.ok) continue;
       // A card is addressed to `*` only (the plaintext schema), so a room never holds one.
       const p = r.value as Exclude<Plaintext, { kind: "card" }>;
