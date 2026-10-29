@@ -26676,9 +26676,9 @@ var init_sso_oidc = __esm({
   }
 });
 
-// ../../node_modules/@aws-sdk/credential-provider-sso/node_modules/@aws-sdk/token-providers/dist-cjs/index.js
+// ../../node_modules/@aws-sdk/token-providers/dist-cjs/index.js
 var require_dist_cjs11 = __commonJS({
-  "../../node_modules/@aws-sdk/credential-provider-sso/node_modules/@aws-sdk/token-providers/dist-cjs/index.js"(exports) {
+  "../../node_modules/@aws-sdk/token-providers/dist-cjs/index.js"(exports) {
     var { setTokenFeature: setTokenFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { getBearerTokenEnvKey: getBearerTokenEnvKey2 } = (init_httpAuthSchemes2(), __toCommonJS(httpAuthSchemes_exports));
     var { TokenProviderError: TokenProviderError2, getSSOTokenFilepath: getSSOTokenFilepath2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2, loadSsoSessionData: loadSsoSessionData2, getSSOTokenFromFile: getSSOTokenFromFile2, memoize: memoize2, chain: chain2 } = (init_config2(), __toCommonJS(config_exports));
@@ -30885,157 +30885,8 @@ var require_dist_cjs19 = __commonJS({
   }
 });
 
-// ../../node_modules/@aws-sdk/token-providers/dist-cjs/index.js
-var require_dist_cjs20 = __commonJS({
-  "../../node_modules/@aws-sdk/token-providers/dist-cjs/index.js"(exports) {
-    var { setTokenFeature: setTokenFeature2 } = (init_client3(), __toCommonJS(client_exports2));
-    var { getBearerTokenEnvKey: getBearerTokenEnvKey2 } = (init_httpAuthSchemes2(), __toCommonJS(httpAuthSchemes_exports));
-    var { TokenProviderError: TokenProviderError2, getSSOTokenFilepath: getSSOTokenFilepath2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2, loadSsoSessionData: loadSsoSessionData2, getSSOTokenFromFile: getSSOTokenFromFile2, memoize: memoize2, chain: chain2 } = (init_config2(), __toCommonJS(config_exports));
-    var { promises } = __require("node:fs");
-    var fromEnvSigningName = ({ logger: logger2, signingName } = {}) => async () => {
-      logger2?.debug?.("@aws-sdk/token-providers - fromEnvSigningName");
-      if (!signingName) {
-        throw new TokenProviderError2("Please pass 'signingName' to compute environment variable key", { logger: logger2 });
-      }
-      const bearerTokenKey = getBearerTokenEnvKey2(signingName);
-      if (!(bearerTokenKey in process.env)) {
-        throw new TokenProviderError2(`Token not present in '${bearerTokenKey}' environment variable`, { logger: logger2 });
-      }
-      const token = { token: process.env[bearerTokenKey] };
-      setTokenFeature2(token, "BEARER_SERVICE_ENV_VARS", "3");
-      return token;
-    };
-    var EXPIRE_WINDOW_MS = 5 * 60 * 1e3;
-    var REFRESH_MESSAGE = `To refresh this SSO session run 'aws sso login' with the corresponding profile.`;
-    var getSsoOidcClient = async (ssoRegion, init2 = {}, callerClientConfig) => {
-      const { SSOOIDCClient: SSOOIDCClient2 } = (init_sso_oidc(), __toCommonJS(sso_oidc_exports));
-      const coalesce2 = (prop) => init2.clientConfig?.[prop] ?? init2.parentClientConfig?.[prop] ?? callerClientConfig?.[prop];
-      const ssoOidcClient = new SSOOIDCClient2(Object.assign({}, init2.clientConfig ?? {}, {
-        region: ssoRegion ?? init2.clientConfig?.region,
-        logger: coalesce2("logger"),
-        userAgentAppId: coalesce2("userAgentAppId")
-      }));
-      return ssoOidcClient;
-    };
-    var getNewSsoOidcToken = async (ssoToken, ssoRegion, init2 = {}, callerClientConfig) => {
-      const { CreateTokenCommand: CreateTokenCommand2 } = (init_sso_oidc(), __toCommonJS(sso_oidc_exports));
-      const ssoOidcClient = await getSsoOidcClient(ssoRegion, init2, callerClientConfig);
-      return ssoOidcClient.send(new CreateTokenCommand2({
-        clientId: ssoToken.clientId,
-        clientSecret: ssoToken.clientSecret,
-        refreshToken: ssoToken.refreshToken,
-        grantType: "refresh_token"
-      }));
-    };
-    var validateTokenExpiry = (token) => {
-      if (token.expiration && token.expiration.getTime() < Date.now()) {
-        throw new TokenProviderError2(`Token is expired. ${REFRESH_MESSAGE}`, false);
-      }
-    };
-    var validateTokenKey = (key2, value, forRefresh = false) => {
-      if (typeof value === "undefined") {
-        throw new TokenProviderError2(`Value not present for '${key2}' in SSO Token${forRefresh ? ". Cannot refresh" : ""}. ${REFRESH_MESSAGE}`, false);
-      }
-    };
-    var { writeFile: writeFile4 } = promises;
-    var writeSSOTokenToFile = (id, ssoToken) => {
-      const tokenFilepath = getSSOTokenFilepath2(id);
-      const tokenString = JSON.stringify(ssoToken, null, 2);
-      return writeFile4(tokenFilepath, tokenString);
-    };
-    var lastRefreshAttemptTimes = /* @__PURE__ */ new Map();
-    var fromSso = (init2 = {}) => async ({ callerClientConfig } = {}) => {
-      init2.logger?.debug("@aws-sdk/token-providers - fromSso");
-      const profiles = await parseKnownFiles2(init2);
-      const profileName = getProfileName2({
-        profile: init2.profile ?? callerClientConfig?.profile
-      });
-      const profile = profiles[profileName];
-      if (!profile) {
-        throw new TokenProviderError2(`Profile '${profileName}' could not be found in shared credentials file.`, false);
-      } else if (!profile["sso_session"]) {
-        throw new TokenProviderError2(`Profile '${profileName}' is missing required property 'sso_session'.`);
-      }
-      const ssoSessionName = profile["sso_session"];
-      const ssoSessions = await loadSsoSessionData2(init2);
-      const ssoSession = ssoSessions[ssoSessionName];
-      if (!ssoSession) {
-        throw new TokenProviderError2(`Sso session '${ssoSessionName}' could not be found in shared credentials file.`, false);
-      }
-      for (const ssoSessionRequiredKey of ["sso_start_url", "sso_region"]) {
-        if (!ssoSession[ssoSessionRequiredKey]) {
-          throw new TokenProviderError2(`Sso session '${ssoSessionName}' is missing required property '${ssoSessionRequiredKey}'.`, false);
-        }
-      }
-      ssoSession["sso_start_url"];
-      const ssoRegion = ssoSession["sso_region"];
-      let ssoToken;
-      try {
-        ssoToken = await getSSOTokenFromFile2(ssoSessionName);
-      } catch (e6) {
-        throw new TokenProviderError2(`The SSO session token associated with profile=${profileName} was not found or is invalid. ${REFRESH_MESSAGE}`, false);
-      }
-      validateTokenKey("accessToken", ssoToken.accessToken);
-      validateTokenKey("expiresAt", ssoToken.expiresAt);
-      const { accessToken, expiresAt } = ssoToken;
-      const existingToken = {
-        token: accessToken,
-        expiration: new Date(expiresAt)
-      };
-      if (existingToken.expiration.getTime() - Date.now() > EXPIRE_WINDOW_MS) {
-        return existingToken;
-      }
-      const lastRefreshAttemptTime = lastRefreshAttemptTimes.get(ssoSessionName) ?? 0;
-      if (Date.now() - lastRefreshAttemptTime < 30 * 1e3) {
-        validateTokenExpiry(existingToken);
-        return existingToken;
-      }
-      validateTokenKey("clientId", ssoToken.clientId, true);
-      validateTokenKey("clientSecret", ssoToken.clientSecret, true);
-      validateTokenKey("refreshToken", ssoToken.refreshToken, true);
-      try {
-        lastRefreshAttemptTimes.set(ssoSessionName, Date.now());
-        const newSsoOidcToken = await getNewSsoOidcToken(ssoToken, ssoRegion, init2, callerClientConfig);
-        validateTokenKey("accessToken", newSsoOidcToken.accessToken);
-        validateTokenKey("expiresIn", newSsoOidcToken.expiresIn);
-        const newTokenExpiration = new Date(Date.now() + newSsoOidcToken.expiresIn * 1e3);
-        try {
-          await writeSSOTokenToFile(ssoSessionName, {
-            ...ssoToken,
-            accessToken: newSsoOidcToken.accessToken,
-            expiresAt: newTokenExpiration.toISOString(),
-            refreshToken: newSsoOidcToken.refreshToken
-          });
-        } catch (error63) {
-        }
-        return {
-          token: newSsoOidcToken.accessToken,
-          expiration: newTokenExpiration
-        };
-      } catch (error63) {
-        validateTokenExpiry(existingToken);
-        return existingToken;
-      }
-    };
-    var fromStatic2 = ({ token, logger: logger2 }) => async () => {
-      logger2?.debug("@aws-sdk/token-providers - fromStatic");
-      if (!token || !token.token) {
-        throw new TokenProviderError2(`Please pass a valid token to fromStatic`, false);
-      }
-      return token;
-    };
-    var nodeProvider = (init2 = {}) => memoize2(chain2(fromSso(init2), async () => {
-      throw new TokenProviderError2("Could not load token from any providers", false);
-    }), (token) => token.expiration !== void 0 && token.expiration.getTime() - Date.now() < 3e5, (token) => token.expiration !== void 0);
-    exports.fromEnvSigningName = fromEnvSigningName;
-    exports.fromSso = fromSso;
-    exports.fromStatic = fromStatic2;
-    exports.nodeProvider = nodeProvider;
-  }
-});
-
 // ../../node_modules/@aws-sdk/client-bedrock-runtime/dist-cjs/index.js
-var require_dist_cjs21 = __commonJS({
+var require_dist_cjs20 = __commonJS({
   "../../node_modules/@aws-sdk/client-bedrock-runtime/dist-cjs/index.js"(exports) {
     var { awsEndpointFunctions: awsEndpointFunctions2, emitWarningIfUnsupportedVersion: emitWarningIfUnsupportedVersion$1, createDefaultUserAgentProvider: createDefaultUserAgentProvider2, NODE_APP_ID_CONFIG_OPTIONS: NODE_APP_ID_CONFIG_OPTIONS2, getAwsRegionExtensionConfiguration: getAwsRegionExtensionConfiguration2, resolveAwsRegionExtensionConfiguration: resolveAwsRegionExtensionConfiguration2, resolveUserAgentConfig: resolveUserAgentConfig2, resolveHostHeaderConfig: resolveHostHeaderConfig2, getUserAgentPlugin: getUserAgentPlugin2, getHostHeaderPlugin: getHostHeaderPlugin2, getLoggerPlugin: getLoggerPlugin2, getRecursionDetectionPlugin: getRecursionDetectionPlugin2 } = (init_client3(), __toCommonJS(client_exports2));
     var { resolveEventStreamConfig, getEventStreamPlugin } = require_dist_cjs2();
@@ -31054,7 +30905,7 @@ var require_dist_cjs21 = __commonJS({
     var { resolveAwsSdkSigV4Config: resolveAwsSdkSigV4Config2, AwsSdkSigV4Signer: AwsSdkSigV4Signer2, NODE_AUTH_SCHEME_PREFERENCE_OPTIONS: NODE_AUTH_SCHEME_PREFERENCE_OPTIONS2 } = (init_httpAuthSchemes2(), __toCommonJS(httpAuthSchemes_exports));
     var { defaultProvider } = require_dist_cjs18();
     var { eventStreamPayloadHandlerProvider } = require_dist_cjs19();
-    var { fromEnvSigningName, nodeProvider } = require_dist_cjs20();
+    var { fromEnvSigningName, nodeProvider } = require_dist_cjs11();
     var { toUtf8: toUtf83, fromUtf8: fromUtf84, toBase64: toBase643, fromBase64: fromBase642, calculateBodyLength: calculateBodyLength2 } = (init_serde(), __toCommonJS(serde_exports));
     var { streamCollector: streamCollector7, NodeHttp2Handler } = require_dist_cjs8();
     var { AwsRestJsonProtocol: AwsRestJsonProtocol2 } = (init_protocols2(), __toCommonJS(protocols_exports2));
@@ -31126,7 +30977,7 @@ var require_dist_cjs21 = __commonJS({
       Region: { type: "builtInParams", name: "region" },
       UseDualStack: { type: "builtInParams", name: "useDualstackEndpoint" }
     };
-    var version2 = "3.1151.0";
+    var version2 = "3.1154.0";
     var packageInfo = {
       version: version2
     };
@@ -91449,7 +91300,7 @@ function parseModelSpec(spec) {
 }
 
 // ../bot/src/bedrock.ts
-var import_client_bedrock_runtime = __toESM(require_dist_cjs21(), 1);
+var import_client_bedrock_runtime = __toESM(require_dist_cjs20(), 1);
 var BedrockConverseModel = class {
   id;
   modelId;
