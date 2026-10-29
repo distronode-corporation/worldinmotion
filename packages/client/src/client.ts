@@ -431,7 +431,17 @@ export class MeshSession extends EventEmitter {
     this.cardsIn = new Promise((resolve) => (this.gotCards = resolve));
     this.emit("ready", this.address);
     void this.sendCard(link, true);
-    this.inbound = this.inbound.then(() => this.retryParked());
+    this.retryParkedLater();
+  }
+
+  /**
+   * Retries parked messages after the frames already queued. A failure takes the delivered-frame
+   * path (inboundFailed): a signer that cannot answer holds acks and drops the connection, and the
+   * parked files stay for the next ready. Never left as a rejection on the inbound queue, where it
+   * would be unhandled, or skip the next frame's handler.
+   */
+  private retryParkedLater(): void {
+    this.inbound = this.inbound.then(() => this.retryParked()).catch((e: unknown) => this.inboundFailed(e));
   }
 
   /** Fetches roster pages from the newest verified one until `upto` (or the relay's newest). */
@@ -473,9 +483,12 @@ export class MeshSession extends EventEmitter {
 
   private onFrame(f: RelayFrame): void {
     switch (f.t) {
-      case "deliver":
-        this.inbound = this.inbound.then(() => this.handleDeliver(f.cursor, f.msg)).catch((e: unknown) => this.inboundFailed(e));
+      case "deliver": {
+        // The connection it came on: only that one acks it (see ack).
+        const via = this.link;
+        this.inbound = this.inbound.then(() => this.handleDeliver(f.cursor, f.msg, via)).catch((e: unknown) => this.inboundFailed(e));
         return;
+      }
       case "roster":
         this.inbound = this.inbound.then(() => this.onRosterPush(f.chain)).catch((e: unknown) => this.log(`wim: roster: ${(e as Error).message}`));
         return;
@@ -613,9 +626,14 @@ export class MeshSession extends EventEmitter {
     this.link?.close(CLOSE.bye, "the device's signer did not answer");
   }
 
-  private ack(cursor: number): void {
-    // Nothing is acked on a connection on which a frame waits for the signer (inboundFailed).
-    if (this.heldLink !== undefined && this.link === this.heldLink) return;
+  /**
+   * Acks a frame on the connection it came on, `via`. Acks are cumulative, so a frame from an
+   * earlier connection, handled after a reconnect, is not acked on the new one (it could ack past
+   * a frame that failed); the relay delivers it again there, and dedupe drops the copy. Nothing
+   * is acked on a connection on which a frame waits for the signer (inboundFailed).
+   */
+  private ack(cursor: number, via: Link | undefined): void {
+    if (via !== this.link || via === this.heldLink) return;
     // The relay redelivers anything not acked, and dedupe drops the copy.
     if (this.sendIfOpen({ t: "ack", cursor })) this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor) };
   }
@@ -624,9 +642,9 @@ export class MeshSession extends EventEmitter {
     this.sendIfOpen({ t: "receipt", id, to: this.address, status });
   }
 
-  private async handleDeliver(cursor: number, msg: SendFrame): Promise<void> {
+  private async handleDeliver(cursor: number, msg: SendFrame, via: Link | undefined): Promise<void> {
     await this.check(msg);
-    this.ack(cursor);
+    this.ack(cursor, via);
     await this.save({});
   }
 

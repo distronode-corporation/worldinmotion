@@ -156,23 +156,93 @@ describe("sessions through the signer", () => {
     const { mesh, devices } = await makeMesh(relay, ["one"]);
     const logs: string[] = [];
     const a = await openSession(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
-    const inner = a as unknown as { inboundFailed(error: unknown): void; ack(cursor: number): void; state: { cursor: number }; heldLink: unknown };
+    const inner = a as unknown as { inboundFailed(error: unknown): void; ack(cursor: number, via: unknown): void; state: { cursor: number }; heldLink: unknown };
     inner.inboundFailed(new Error("disk full"));
     // A frame that waits for the signer: the connection is dropped, and until it is gone nothing
     // more is acknowledged on it, so the relay delivers that frame again.
     const acks = (): number => relay.sentByClients.filter((t) => t.startsWith('{"t":"ack"')).length;
     const before = { acks: acks(), cursor: inner.state.cursor };
+    const held = a.link;
     inner.inboundFailed(new SignerError("timeout", "the signer did not answer"));
-    inner.ack(before.cursor + 5);
+    inner.ack(before.cursor + 5, held);
     expect(acks()).toBe(before.acks);
     expect(inner.state.cursor).toBe(before.cursor);
-    // The next connection acknowledges again.
+    // The next connection acknowledges again, but only what came on it.
     await until(() => a.link !== undefined && a.link.isOpen && a.link !== inner.heldLink, undefined, "a new connection");
-    inner.ack(before.cursor + 5);
+    inner.ack(before.cursor + 5, held);
+    expect(acks()).toBe(before.acks);
+    inner.ack(before.cursor + 5, a.link);
     expect(acks()).toBe(before.acks + 1);
+    // A connection that closed and is not yet cleared: the ack goes nowhere and counts for nothing.
+    const closing = a.link!;
+    Object.defineProperty(closing, "isOpen", { get: () => false });
+    inner.ack(before.cursor + 9, closing);
+    expect(acks()).toBe(before.acks + 1);
+    expect(inner.state.cursor).toBe(before.cursor + 5);
     await a.stop();
     inner.inboundFailed(new SignerError("locked", "the signer is locked"));
     expect(logs.filter((l) => l.startsWith("wim: inbound: "))).toEqual(["wim: inbound: disk full", "wim: inbound: the signer did not answer", "wim: inbound: the signer is locked"]);
+  });
+
+  it("a frame that came on an earlier connection is not acked on the next one; the relay delivers it again", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    const inner = a as unknown as { inbound: Promise<void> };
+    // The inbound queue waits at a gate: frames pile up behind it, as behind a slow signer.
+    let release!: () => void;
+    inner.inbound = new Promise<void>((r) => (release = r));
+    const delivered: string[] = [];
+    relay.toClient = (text, conn) => {
+      if (text.startsWith('{"t":"deliver"')) delivered.push(conn);
+      return text;
+    };
+    await b.send("a@one", "once");
+    await until(() => delivered.length === 1, undefined, "the first delivery");
+    const first = a.link;
+    relay.dropAll();
+    // The relay delivers it again on the new connection, since it was never acked.
+    await until(() => delivered.length === 2 && a.link !== undefined && a.link !== first, undefined, "the delivery on the new connection");
+    expect(delivered[1]).not.toBe(delivered[0]);
+    const acks = (): string[] => relay.sentByClients.filter((t) => t.startsWith('{"t":"ack"'));
+    const before = acks().length;
+    release();
+    for (let seen: Promise<void> | undefined; seen !== inner.inbound; ) {
+      seen = inner.inbound;
+      await seen;
+      await new Promise((r) => setImmediate(r));
+    }
+    // Two copies were handled: the old connection's acks nothing, the new one's (a repeat, dropped) acks once.
+    expect(acks().length - before).toBe(1);
+    expect((await a.spool.unread()).filter((i) => i.rendered.includes("once"))).toHaveLength(1);
+  });
+
+  it("a parked retry the locked signer refuses is neither lost nor left unhandled", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const one = devices[0]!;
+    const { device, server, signer } = await underSigner(one);
+    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    const logs: string[] = [];
+    const a = await session(one, mesh, relay, { name: "a", device, log: (l) => logs.push(l) });
+    // A frame parked earlier (behind a roster this session had not seen then).
+    const frame = sealMessage({ roster: b.roster, sender: { deviceId: devices[1]!.device.id, keys: keysOf(devices[1]!.device) }, session: "b", sid: b.sid, to: ["a@one"], seq: 900, at: Date.now(), text: "parked", recipients: [one.device.id] });
+    const parked = join(a.files.behindDir, `${frame.id}.json`);
+    await fs.mkdir(a.files.behindDir, { recursive: true });
+    await fs.writeFile(parked, JSON.stringify(frame));
+    signer.lock();
+    const inner = a as unknown as { retryParkedLater(): void; inbound: Promise<void> };
+    inner.retryParkedLater();
+    await inner.inbound;
+    // Refused for want of the signer: logged, the file kept, the connection given up.
+    expect(logs.some((l) => /inbound: .*locked/.test(l))).toBe(true);
+    expect(await fs.readFile(parked, "utf8")).toContain(frame.id);
+    // Unlocked (a new signer): the next connection's ready retries it.
+    await server.close();
+    await serve(one);
+    await until(async () => (await a.spool.unread()).some((i) => i.rendered.includes("parked")), undefined, "the parked message");
+    await until(async () => !(await fs.stat(parked).then(() => true, () => false)), undefined, "the parked file to go");
   });
 
   it("a session running when the key file is encrypted acks nothing it cannot open, and a restart through the signer delivers it", async () => {

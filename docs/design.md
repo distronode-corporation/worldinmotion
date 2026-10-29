@@ -112,7 +112,9 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
 - A signer that is locked or gone makes a send fail with the reason. A delivered message that cannot
   be opened for that reason is not acknowledged, nothing later is acknowledged on that connection
   (acks are cumulative), and the session drops the connection; the next one authenticates once the
-  signer answers, and the relay delivers everything after the last ack again.
+  signer answers, and the relay delivers everything after the last ack again. A frame is only ever
+  acked on the connection it came on, so one still queued from an earlier connection never acks
+  past a frame that failed. A retry of parked messages that fails takes the same path.
 
 ## The MCP server (`wim mcp`)
 
