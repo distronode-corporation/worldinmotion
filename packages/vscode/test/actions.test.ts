@@ -51,6 +51,36 @@ describe("pickTarget", () => {
   });
 });
 
+describe("sendMessage", () => {
+  it("sends a typed line to a picked target, and stops when either is not given", async () => {
+    const { d, calls } = deps();
+    fake.state.quickPickAnswers.push(pick("coder@buildbox"));
+    fake.state.inputAnswers.push("hello there");
+    await actions.sendMessage(d);
+    expect(calls).toEqual([{ op: "send", args: { to: "coder@buildbox", text: "hello there", kind: "msg" }, timeoutMs: undefined }]);
+    expect(last()).toMatchObject({ level: "info", message: "worldinmotion: sent. coder@buildbox: routed" });
+    expect(fake.state.quickPicks[0]!.options).toMatchObject({ title: "Send a message to" });
+    // No target, no text, or blank text: nothing is sent.
+    await actions.sendMessage(d);
+    fake.state.quickPickAnswers.push(pick("coder@buildbox"));
+    await actions.sendMessage(d);
+    fake.state.quickPickAnswers.push(pick("coder@buildbox"));
+    fake.state.inputAnswers.push("   ");
+    await actions.sendMessage(d);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("reports a failed send", async () => {
+    const { d } = deps(mesh(), async () => {
+      throw new RequestError("refused", "secret");
+    });
+    fake.state.quickPickAnswers.push(pick("coder@buildbox"));
+    fake.state.inputAnswers.push("sk-ant-x");
+    await actions.sendMessage(d);
+    expect(last()!.message).toMatch(/the text looks like it holds a secret/);
+  });
+});
+
 describe("selectionText", () => {
   it("names the path and lines; a selection ending at a line start excludes that line", () => {
     expect(actions.selectionText(editor("a\nb\nc", sel(0, 0, 2, 0)) as never)).toBe("src/a.ts:1-2\na\nb\n");

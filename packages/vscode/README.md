@@ -9,7 +9,8 @@ talking to whom.
 
 ## Install
 
-Search for **worldinmotion** in the Extensions view, or run
+[VS Code] It is `distronode.worldinmotion` on the Visual Studio Marketplace and on Open VSX:
+search for **worldinmotion** in the Extensions view, or run
 `code --install-extension distronode.worldinmotion --pre-release`. To build it yourself instead,
 see [Building and testing](#building-and-testing).
 
@@ -41,6 +42,7 @@ Commands, in the editor and explorer context menus and the command palette:
 
 | Command | What it does |
 |---|---|
+| Send Message... | Sends a line you type to a session or room you pick (also a button on the Mesh view). |
 | Send Selection to... | Sends the selected text, headed with `path:startLine-endLine`, to a session or room you pick. |
 | Ask a Peer about the Selection... | Sends it as a `task`, with an optional question first. |
 | Send File to... | Sends a file from this machine with `send_file`. |
@@ -52,17 +54,22 @@ Commands, in the editor and explorer context menus and the command palette:
 
 ## Set up this device
 
-The extension needs a device that is already on a mesh. Setting one up is a terminal step, and
-the extension does not put a `wim` command on your `PATH`:
+The extension needs a device that is already on a mesh. Setting one up is a terminal step, in a
+terminal you opened yourself (Terminal > New Terminal), and the extension does not put a `wim`
+command on your `PATH`:
 
-1. Download `wim.mjs` from the [GitHub Release](https://github.com/distronode-corporation/worldinmotion/releases)
-   and check its SHA-256 against the one published with it (`sha256sum wim.mjs`).
-2. Install it as `wim`, for example `install -m 755 wim.mjs ~/.local/bin/wim`, or run it as
-   `node wim.mjs` (Node.js 22.18 or newer).
-3. Run `wim init --relay <url>` for a new mesh, or `wim init` and then `wim join <invite code>`
-   to join one, then run **Restart Client**.
+1. [Terminal] Install `wim` (Node.js 22.18 or newer): `npm install --global worldinmotion`. If
+   `wim` is then not found, npm's global bin is not on your `PATH`:
+   `export PATH="$(npm prefix -g)/bin:$PATH"` (and add that line to your shell's profile).
+   Without npm, download `wim.mjs` from the [GitHub Release](https://github.com/distronode-corporation/worldinmotion/releases),
+   check it against `SHA256SUMS`, and run it as `node wim.mjs`.
+2. [Terminal] Run `wim init --name <device> --relay <url>` for a new mesh, or
+   `wim join <invite code>` to join one.
+3. [VS Code] Run **worldinmotion: Restart Client** from the command palette.
 
-Until then the Mesh view says the device is not set up, with these steps.
+Until then the Mesh view says the device is not set up, with these steps. The repository's
+[README](https://github.com/distronode-corporation/worldinmotion#first-run-three-machines-one-person)
+walks through three machines end to end.
 
 ## How it works
 
@@ -71,6 +78,11 @@ over stdio ([docs/events.md](https://github.com/distronode-corporation/worldinmo
 mesh, named `vscode` unless you change `worldinmotion.sessionName`, so peers can message you in
 VS Code and replies to what you send come back there. The extension never reads key files and
 never connects to the relay; keys and encryption stay in the client.
+
+That `vscode@<device>` session is the extension's own. A Claude Code chat open in VS Code (with
+the worldinmotion plugin) is a separate session, `<folder>@<device>`, and messages for it go into
+that chat, not into this extension's notifications unless you turn on
+`worldinmotion.notifyForClaudeTabs`.
 
 The client runs in the window's first workspace folder (or your home directory when there is
 no folder, or the folder is remote), so its card shows that folder and its git branch. Adding
@@ -102,7 +114,7 @@ client exits, the extension restarts it, waiting longer after each failure (1 s 
   show what is held and let you decide it; it cannot bypass any of them. A send the secrets
   check refuses stays refused here; sending it anyway is `wim send --allow-secret` at a
   terminal.
-- **Settings come from you, not from a workspace.** All three settings have `machine` scope,
+- **Settings come from you, not from a workspace.** All four settings have `machine` scope,
   so a repository's `.vscode/settings.json` cannot point the extension at another program or
   change its session name.
 
@@ -113,6 +125,7 @@ client exits, the extension restarts it, waiting longer after each failure (1 s 
 | `worldinmotion.sessionName` | `vscode` | The session name on the mesh: lowercase letters, digits and hyphens, up to 32. Peers reach it as `<name>@<device>`. |
 | `worldinmotion.wimPath` | (empty) | Another `wim` client to run instead of the bundled one. A `.mjs`, `.cjs` or `.js` path runs on VS Code's Node; anything else runs as an executable, without a shell. |
 | `worldinmotion.notifyOnMessage` | `true` | A notification when a message arrives for this window's session. |
+| `worldinmotion.notifyForClaudeTabs` | `false` | Also a notification when a message arrives for any Claude Code session on this device, naming the tab it went to (`<folder>@<device>`). Needs `notifyOnMessage`. |
 
 Changing `sessionName` or `wimPath` restarts the client.
 

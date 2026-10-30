@@ -232,9 +232,17 @@ export function selfFirst(self: string | undefined): (a: string, b: string) => n
   return (a, b) => rank(a) - rank(b) || a.localeCompare(b);
 }
 
-/** The message to tell the person about, if `ev` is one: an incoming message for this window's own session. */
-export function toNotify(store: Store, ev: WimEvent): MessageRow | undefined {
-  return ev.type === "message" && ev.message.dir === "in" && ev.message.session === store.self ? ev.message : undefined;
+/**
+ * The message to tell the person about, if `ev` is one: an incoming message for this window's own
+ * session, and with `claudeTabs` also one for any Claude Code session on this device (a tab's
+ * address is `<folder>@<device>`, so the person learns which tab it went to).
+ */
+export function toNotify(store: Store, ev: WimEvent, claudeTabs = false): MessageRow | undefined {
+  if (ev.type !== "message" || ev.message.dir !== "in") return undefined;
+  const m = ev.message;
+  if (m.session === store.self) return m;
+  const tab = store.sessions.get(m.session);
+  return claudeTabs && tab?.local === true && tab.kind === "claude-code" ? m : undefined;
 }
 
 /** The other side of a message: its sender, or its recipients. */

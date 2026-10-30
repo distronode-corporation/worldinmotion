@@ -63,7 +63,7 @@ describe("the client's working directory", () => {
 describe("settings", () => {
   it("has defaults", () => {
     fake.reset();
-    expect(settings()).toEqual({ sessionName: "vscode", wimPath: "", notifyOnMessage: true });
+    expect(settings()).toEqual({ sessionName: "vscode", wimPath: "", notifyOnMessage: true, notifyForClaudeTabs: false });
   });
 });
 
@@ -135,6 +135,7 @@ describe("activate", () => {
     await fake.run("worldinmotion.refuse", api!.nodes.held("vscode@laptop", "gone"));
     await fake.run("worldinmotion.openThread", api!.nodes.room("#ops"));
     await fake.run("worldinmotion.askAboutSelection");
+    await fake.run("worldinmotion.sendMessage");
     await fake.run("worldinmotion.sendFile", Uri.file(FIXTURE));
     expect(requests().map((r) => r.op)).toEqual(expect.arrayContaining(["trust", "untrust", "resume", "refuse"]));
 
@@ -176,10 +177,25 @@ describe("activate", () => {
     const mesh = fake.state.treeViews.get("worldinmotion.mesh")!;
     await waitFor(() => expect(mesh.message).toMatch(/^Not connected \(closed: exited with code 2: wim: this device is not set up/));
     expect(mesh.message).toContain(` ${SETUP_HINT}`);
-    expect(SETUP_HINT).toContain("download wim.mjs from the worldinmotion GitHub Release");
-    expect(SETUP_HINT).toContain("SHA-256");
-    expect(SETUP_HINT).toContain("install -m 755 wim.mjs ~/.local/bin/wim");
-    expect(SETUP_HINT).toContain("node wim.mjs");
+    // npm first, with the PATH fix for a global prefix that is not on the PATH.
+    expect(SETUP_HINT).toContain("npm install --global worldinmotion");
+    expect(SETUP_HINT).toContain('export PATH="$(npm prefix -g)/bin:$PATH"');
+    expect(SETUP_HINT).toContain("open a terminal yourself (Terminal > New Terminal)");
+  });
+
+  it("notifies for a message to a Claude Code tab on this device only when asked to, naming the tab", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "tab-message");
+    fake.setConfig("worldinmotion.notifyForClaudeTabs", true);
+    const { api } = start();
+    await waitFor(() => expect(fake.state.messages.map((m) => m.message)).toContain("worldinmotion: a msg from coder@buildbox to reviewer@laptop."));
+    expect(api!.store.unread).toBe(0);
+    stop();
+    // Off by default: the same message arrives quietly.
+    fake.state.config.delete("worldinmotion.notifyForClaudeTabs");
+    fake.state.messages.length = 0;
+    const quiet = start();
+    await waitFor(() => expect(quiet.api!.store.messages.some((m) => m.text === "for the tab")).toBe(true));
+    expect(fake.state.messages.filter((m) => m.message.includes("to reviewer@laptop"))).toHaveLength(0);
   });
 
   it("logs and ignores a line of a newer contract version, and keeps going", async () => {

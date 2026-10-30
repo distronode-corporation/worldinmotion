@@ -99,6 +99,12 @@
     },
     "commands": [
       {
+        "command": "worldinmotion.sendMessage",
+        "title": "Send Message...",
+        "category": "worldinmotion",
+        "icon": "$(send)"
+      },
+      {
         "command": "worldinmotion.sendSelection",
         "title": "Send Selection to...",
         "category": "worldinmotion"
@@ -200,6 +206,11 @@
         }
       ],
       "view/title": [
+        {
+          "command": "worldinmotion.sendMessage",
+          "when": "view == worldinmotion.mesh",
+          "group": "navigation@1"
+        },
         {
           "command": "worldinmotion.refresh",
           "when": "view == worldinmotion.mesh",
@@ -317,6 +328,12 @@
           "default": true,
           "scope": "machine",
           "description": "Show a notification when a message arrives for this window's own session. The notification names the sender only, never the text."
+        },
+        "worldinmotion.notifyForClaudeTabs": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine",
+          "description": "Also show a notification when a message arrives for any Claude Code session on this device. The notification names the sender and the receiving address (<folder>@<device>), never the text. Needs notifyOnMessage."
         }
       }
     }
