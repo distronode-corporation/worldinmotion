@@ -86,6 +86,8 @@ declare module 'claude-code' {
       statusShown: Shaped<string>
       /** A handshake the client kept: the link file it writes once it can open a session. */
       pendingLink: Shaped<{ file: string; token: string } | null>
+      /** The last token the client issued this tab. */
+      issuedToken: Shaped<string>
       cursor: Shaped<string>
       busy: boolean
       /** The running main-loop turn was started by the plugin with a mesh item. */

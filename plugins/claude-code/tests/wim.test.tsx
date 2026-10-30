@@ -356,7 +356,11 @@ test('a link file that holds a problem that now stands ends the wait, and the ne
   await clock.settle()
   expect(w.statuses.at(-1)).toBe(standing)
   await $.turn.start({ text: 'work', turnId: 't1' })
-  expect(w.calls.filter(call => call.tool === '_hello')).toHaveLength(2)
+  // The client accepts a repeat handshake only with the token it issued: it is kept.
+  expect(w.calls.filter(call => call.tool === '_hello')).toEqual([
+    { tool: '_hello', args: { claudeSessionId: 'claude-session-1' } },
+    { tool: '_hello', args: { claudeSessionId: 'claude-session-1', token: TOKEN } },
+  ])
 })
 
 test('a tab waiting on a link file tries the handshake again at the next prompt, as its client may have restarted', async ($, on) => {

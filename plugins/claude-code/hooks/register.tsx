@@ -95,6 +95,9 @@ const statusShown = atom({ plugin: 'worldinmotion', key: 'statusShown' } as cons
 // A handshake the client kept while it could not open a session yet: the link
 // file it writes once it can, and the token it issued.
 const pendingLink = atom({ plugin: 'worldinmotion', key: 'pendingLink' } as const, null, { shape: 'pending-link-1' })
+// The last token the client issued this tab, kept when a wait ends without a
+// link: the client accepts a repeat handshake only with it.
+const issuedToken = atom({ plugin: 'worldinmotion', key: 'issuedToken' } as const, '', { shape: 'issued-token-1' })
 const late = atom({ plugin: 'worldinmotion', key: 'late' } as const, [], { shape: 'late-1' })
 const recent = atom({ plugin: 'worldinmotion', key: 'recent' } as const, [], { shape: 'recent-1' })
 const relayed = atom({ plugin: 'worldinmotion', key: 'relayed' } as const, [], { shape: 'relayed-2' })
@@ -127,8 +130,9 @@ async function callInternalOnce(
   op: InternalOp,
   args: Record<string, unknown>,
 ): Promise<McpToolResult | undefined> {
-  // While a handshake waits on its link file, the token it was issued is the one.
-  const token = (await read($, link))?.token ?? (await read($, pendingLink))?.token
+  // While a handshake waits on its link file, the token it was issued is the one;
+  // after a wait that ended without a link, the last one issued.
+  const token = (await read($, link))?.token ?? (await read($, pendingLink))?.token ?? ((await read($, issuedToken)) || undefined)
   return callTool($, INTERNAL, { op, args, ...(token ? { token } : {}) })
 }
 
@@ -266,6 +270,7 @@ async function handshake($: EngineInterface): Promise<boolean> {
   if (waiting !== undefined) {
     // The client keeps the handshake and writes the link file once it can open a session.
     await update($, pendingLink, () => ({ file: waiting.file, token: waiting.token }))
+    await update($, issuedToken, () => waiting.token)
     await update($, link, () => null)
     await unlinked($, `${sentence(waiting.problem)} This tab links by itself once that is done.`)
     return false
@@ -281,6 +286,7 @@ async function adoptLink($: EngineInterface, answered: WimLink): Promise<boolean
   const prior = await read($, link)
   await update($, link, () => answered)
   await update($, pendingLink, () => null)
+  if (answered.token !== undefined) await update($, issuedToken, () => answered.token!)
   if (prior?.spool !== answered.spool) {
     // A new spool: start from what the client last saw taken, not from our old value.
     const onDisk = await $.fs.read(`${answered.spool}/cursor`).catch(() => '')
