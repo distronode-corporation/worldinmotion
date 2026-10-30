@@ -1,5 +1,7 @@
 // Local history of what a session sent and received (design.md, history): one JSON object a
-// line, rotated at 10 MiB, rotated files kept 30 days. It never leaves the machine.
+// line, rotated at 10 MiB, rotated files kept 30 days. It never leaves the machine. Receipts for
+// what the session sent are lines of their own (`t: "receipt"`), which readers that predate them
+// skip as damaged.
 
 import { frameForAgent, isUlid, sanitizeForDisplay, ulid, ulidTime, type ResultStatus } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
@@ -27,7 +29,28 @@ export type HistoryEntry = {
   unsolicited?: true;
   /** Written while its sender handled another agent's message (revision 8): information only. */
   derived?: true;
+  /** For `out`, the receipts recorded for it, oldest first, when a query asks for them. Never stored in the entry's own line. */
+  receipts?: Receipt[];
 };
+
+/** A recipient's receipt for a message a session sent (SPEC section 7): what its client did with it, never whether anyone read it. */
+export type Receipt = { to: string; status: string; at: number };
+
+/** A receipt line in a history file. */
+type ReceiptLine = Receipt & { t: "receipt"; id: string };
+
+/** A history line as a receipt, or undefined when it is not one. */
+export function parseReceipt(line: string): ReceiptLine | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+  const r = value as Partial<ReceiptLine> | null;
+  if (typeof r !== "object" || r === null || r.t !== "receipt") return undefined;
+  return typeof r.id === "string" && typeof r.to === "string" && typeof r.status === "string" && typeof r.at === "number" ? (r as ReceiptLine) : undefined;
+}
 
 /** A history line as an entry, or undefined when it is damaged or not an entry. */
 export function parseEntry(line: string): HistoryEntry | undefined {
@@ -58,11 +81,20 @@ export class History {
     this.rotateBytes = rotateBytes;
   }
 
-  async append(entry: HistoryEntry): Promise<void> {
+  append(entry: HistoryEntry): Promise<void> {
+    return this.appendLine(entry);
+  }
+
+  /** Records a receipt for message `id`, which this session sent. */
+  appendReceipt(id: string, r: Receipt): Promise<void> {
+    return this.appendLine({ t: "receipt", id, to: r.to, status: r.status, at: r.at } satisfies ReceiptLine);
+  }
+
+  private async appendLine(value: object): Promise<void> {
     await ensureDir(dirname(this.path));
     const size = await fs.stat(this.path).then((s) => s.size, () => 0);
     if (size >= this.rotateBytes) await this.rotate();
-    await fs.appendFile(this.path, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
+    await fs.appendFile(this.path, `${JSON.stringify(value)}\n`, { mode: 0o600 });
   }
 
   private rotated(): Promise<string[]> {
@@ -85,18 +117,49 @@ export class History {
 
   /**
    * Past items, newest last: at most `limit` (default 20, at most 200), optionally only those
-   * to or from `peer`, and only those before `before` (ms).
+   * to or from `peer`, and only those before `before` (ms). With `receipts`, each sent item
+   * carries the receipts recorded for it.
    */
-  async query(opts: { peer?: string; limit?: number; before?: number; max?: number } = {}): Promise<HistoryEntry[]> {
+  async query(opts: { peer?: string; limit?: number; before?: number; max?: number; receipts?: boolean } = {}): Promise<HistoryEntry[]> {
     const limit = Math.min(opts.max ?? HISTORY_MAX, Math.max(1, opts.limit ?? 20));
     const out: HistoryEntry[] = [];
-    await this.scan((entry) => {
-      if (opts.before !== undefined && !(entry.at < opts.before)) return false;
-      if (opts.peer !== undefined && !entry.peer.split(",").includes(opts.peer)) return false;
-      out.push(entry);
-      return out.length >= limit;
-    });
+    const receipts = new Receipts();
+    await this.scan(
+      (entry) => {
+        if (opts.before !== undefined && !(entry.at < opts.before)) return false;
+        if (opts.peer !== undefined && !entry.peer.split(",").includes(opts.peer)) return false;
+        out.push(opts.receipts === true && entry.dir === "out" ? receipts.attach(entry) : entry);
+        return out.length >= limit;
+      },
+      (r) => receipts.add(r),
+    );
     return out.reverse();
+  }
+
+  /** The current file's size: where a reader that wants only what is written later starts (receiptsFrom). */
+  size(): Promise<number> {
+    return fs.stat(this.path).then((s) => s.size, () => 0);
+  }
+
+  /**
+   * The receipts for message `id` written to the current file from byte `from` on, oldest first.
+   * Only those bytes are read, so a caller polling for a receipt (`wim send --wait`) costs little
+   * however long the history is. A file now shorter than `from` was rotated meanwhile: it is read
+   * from its start, and receipts written to the rotated file in between are not seen. A line still
+   * being written does not parse yet, and is read whole by the next call from the same `from`.
+   */
+  async receiptsFrom(id: string, from: number): Promise<Receipt[]> {
+    const handle = await fs.open(this.path, "r").catch(() => undefined);
+    if (handle === undefined) return [];
+    try {
+      const { size } = await handle.stat();
+      const start = readStart(size, from);
+      const buf = Buffer.alloc(size - start);
+      await handle.read(buf, 0, buf.length, start);
+      return receiptsIn(buf.toString("utf8"), id);
+    } finally {
+      await handle.close();
+    }
   }
 
   /** The entry with message id `id`, searching from the newest; undefined when there is none. */
@@ -109,16 +172,59 @@ export class History {
     return found;
   }
 
-  /** Visits entries newest first, damaged lines skipped, until `visit` returns true. */
-  private async scan(visit: (entry: HistoryEntry) => boolean): Promise<void> {
+  /** Visits entries (and receipts, to `receipt`) newest first, damaged lines skipped, until `visit` returns true. */
+  private async scan(visit: (entry: HistoryEntry) => boolean, receipt: (r: ReceiptLine) => void = () => undefined): Promise<void> {
     const files = [...(await this.rotated()).map((n) => join(dirname(this.path), n)), this.path];
     for (const file of files.reverse()) {
       const lines = ((await readText(file)) ?? "").split("\n").filter((l) => l !== "").reverse();
-      for (const line of lines) {
-        const entry = parseEntry(line);
-        if (entry !== undefined && visit(entry)) return;
-      }
+      if (visitLines(lines, visit, receipt)) return;
     }
+  }
+}
+
+function readStart(size: number, from: number): number {
+  return size < from ? 0 : from;
+}
+
+function receiptsIn(text: string, id: string): Receipt[] {
+  return text
+    .split("\n")
+    .map(parseReceipt)
+    .filter((r) => r?.id === id)
+    .map((r) => ({ to: r!.to, status: r!.status, at: r!.at }));
+}
+
+/** Visits one file's lines, newest first; true once `visit` says to stop. */
+function visitLines(lines: string[], visit: (entry: HistoryEntry) => boolean, receipt: (r: ReceiptLine) => void): boolean {
+  for (const line of lines) {
+    const entry = parseEntry(line);
+    if (entry !== undefined && visit(entry)) return true;
+    const r = entry === undefined ? parseReceipt(line) : undefined;
+    if (r !== undefined) receipt(r);
+  }
+  return false;
+}
+
+/**
+ * Receipts met while scanning newest first, matched to the sent entries they name. A receipt is
+ * normally written after its entry, so it is met first; one written before it (it came while the
+ * send was still being recorded) is added to the entry already returned.
+ */
+class Receipts {
+  private readonly waiting = new Map<string, Receipt[]>();
+  private readonly entries = new Map<string, HistoryEntry>();
+
+  add(r: ReceiptLine): void {
+    const one = { to: r.to, status: r.status, at: r.at };
+    const entry = this.entries.get(r.id);
+    if (entry !== undefined) entry.receipts!.unshift(one);
+    else this.waiting.set(r.id, [one, ...(this.waiting.get(r.id) ?? [])]);
+  }
+
+  attach(entry: HistoryEntry): HistoryEntry {
+    const withReceipts = { ...entry, receipts: this.waiting.get(entry.id) ?? [] };
+    this.entries.set(entry.id, withReceipts);
+    return withReceipts;
   }
 }
 
@@ -155,12 +261,23 @@ export function renderForAgent(e: HistoryEntry): string {
     }
   }
   const what = e.kind === "result" ? `result (${e.status ?? "done"}) for ${e.reply_to ?? "?"}` : e.kind;
-  return `(history: you sent a ${what} to ${e.peer} at ${new Date(e.at).toISOString()}, id ${e.id})\n${sanitizeForDisplay(e.text)}`;
+  const receipts = e.receipts === undefined ? "" : `; ${receiptNote(e.receipts)}`;
+  return `(history: you sent a ${what} to ${e.peer} at ${new Date(e.at).toISOString()}, id ${e.id}${receipts})\n${sanitizeForDisplay(e.text)}`;
+}
+
+/**
+ * The receipts of a sent item in plain words. None recorded means only that no receipt came while
+ * the sending session was connected: the relay drops a receipt for a session that is offline.
+ */
+export function receiptNote(receipts: readonly Receipt[]): string {
+  if (receipts.length === 0) return "no receipt recorded";
+  return `receipts: ${receipts.map((r) => `${sanitizeForDisplay(r.to)} ${sanitizeForDisplay(r.status)}`).join(", ")}`;
 }
 
 /** One history entry for a person at a terminal. */
 export function renderForPerson(e: HistoryEntry): string {
   const arrow = e.dir === "in" ? "<-" : "->";
   const extra = e.file === undefined ? "" : ` [file ${sanitizeForDisplay(e.file.name)} ${e.file.size} bytes]`;
-  return `${new Date(e.at).toISOString()} ${arrow} ${sanitizeForDisplay(e.peer)} ${e.kind}${extra}: ${sanitizeForDisplay(e.text)}`;
+  const receipts = e.receipts === undefined ? "" : ` [${receiptNote(e.receipts)}]`;
+  return `${new Date(e.at).toISOString()} ${arrow} ${sanitizeForDisplay(e.peer)} ${e.kind}${extra}${receipts}: ${sanitizeForDisplay(e.text)}`;
 }

@@ -37,7 +37,7 @@ emit time, so a UI can sort and measure by it.
 
 | `type` | Fields | When |
 |---|---|---|
-| `hello` | `version` (client version), `device` `{ name, id }`, `session` (this process's address), `relay` (host only), `mesh` (first 4 characters of the mesh id, then `…`) | First line, once. |
+| `hello` | `version` (client version), `device` `{ name, id }`, `keys`: `local` (the key file is plaintext and this process holds the keys) or `signer` (they are in the signer, `wim agent`), `session` (this process's address), `relay` (host only), `mesh` (first 4 characters of the mesh id, then `…`) | First line, once. A client whose keys are encrypted and whose signer is not running, or locked, exits before `hello`, saying so on stderr. |
 | `connection` | `state`: `connecting`, `open` or `closed`; `detail?` (the last reason, as in CLI errors) | On every change. |
 | `snapshot` | `devices`, `sessions`, `rooms`, `leases`, `held`, `breakers`, `joins` (shapes below) | After each `open`, and in answer to a `snapshot` request. Replaces everything the UI holds. |
 | `device` | one device row, or `{ name, id, removed: true }` | A roster or policy change, or a device revoked from the roster. |

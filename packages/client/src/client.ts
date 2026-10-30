@@ -177,6 +177,11 @@ export type SendOptions = {
  */
 export type SendOutcome = { id: string; results: SendResult[]; unprotected?: string[]; no_prekey?: string[] };
 
+/** The notice for a `held` receipt: the message waits for the recipient device's person. */
+export function heldReceiptLine(to: string, id: string): string {
+  return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
+}
+
 /** What a person or an agent is told about a send that went without forward secrecy. */
 export function unprotectedNote(unprotected: readonly string[], noPrekey: readonly string[]): string {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
@@ -331,6 +336,9 @@ export class MeshSession extends EventEmitter {
     const files = new SessionFiles(o.mesh, state.sid, o.env);
     // A new session's directory is new, so this claim cannot find another holder.
     await files.claim();
+    // Whether this holder takes handed-over sends, so a one-off command neither hands a send to
+    // a session that does not take them nor mistakes that session for a watch.
+    await files.markHandover(o.handover === true);
     // The plugin's pane writes its marks here, so both exist from the start.
     await ensureDir(files.heldDir);
     await ensureDir(files.dismissDir);
@@ -553,6 +561,7 @@ export class MeshSession extends EventEmitter {
         list.push({ to: f.to, status: f.status });
         this.receipts.set(f.id, list);
         this.emit("receipt", f);
+        void this.recordReceipt(f).catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`));
         return;
       }
       case "notice":
@@ -994,8 +1003,22 @@ export class MeshSession extends EventEmitter {
   }
 
   /** A notice for the agent or the person, written to the spool like any item. */
-  async notice(from: string, line: string, held?: number): Promise<void> {
-    await this.deliver({ kind: "notice", from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line), ...(held === undefined ? {} : { held }) }, undefined);
+  async notice(from: string, line: string, held?: number, heldBy?: string): Promise<void> {
+    await this.deliver(
+      { kind: "notice", from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line), ...(held === undefined ? {} : { held }), ...(heldBy === undefined ? {} : { heldBy }) },
+      undefined,
+    );
+  }
+
+  /**
+   * Records a receipt in history. A `held` one is also a notice, so whoever sent the message (the
+   * person through the plugin's toast, or the agent) learns that it waits for the recipient's
+   * person and is not delivered. Branches before any await (see AgentServer.answerLine).
+   */
+  private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
+    const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
+    if (f.status !== "held") return recorded;
+    return recorded.then(() => this.notice(f.to, heldReceiptLine(f.to, f.id), undefined, f.to));
   }
 
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
@@ -1701,36 +1724,50 @@ export class MeshSession extends EventEmitter {
   }
 
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */
-  async next(timeoutMs: number, onTick?: (elapsed: number) => void, tickMs = 30_000): Promise<SpoolItem | undefined> {
+  next(timeoutMs: number, onTick?: (elapsed: number) => void, tickMs = 30_000): Promise<SpoolItem | undefined> {
     const started = this.now();
-    const first = (await this.spool.unread())[0];
-    if (first !== undefined) {
-      await this.take(first.cursor);
-      this.informed([first]);
-      return first;
-    }
-    return new Promise((resolve) => {
-      const done = (item: SpoolItem | undefined): void => {
+    return new Promise((resolve, reject) => {
+      // Set once the wait has its item, has failed or has run out: nothing is taken after that.
+      let over = false;
+      let timer: NodeJS.Timeout | undefined;
+      const finish = (): void => {
+        over = true;
         clearTimeout(timer);
         clearInterval(beat);
         this.off("item", onItem);
-        resolve(item);
       };
-      // The first item only: the listener goes before anything is awaited, so a second item
-      // delivered while this one is taken stays unread for the next call.
-      // An item's event can arrive after the scan above already took it (the event follows the
-      // write, and the scan can see the file first); one at or below the cursor is not new.
+      const fail = (error: unknown): void => {
+        finish();
+        reject(error);
+      };
+      // The oldest unread item, taken by the first look that sees one: a second item delivered
+      // meanwhile stays unread for the next call.
+      const takeFirst = (items: SpoolItem[]): void => {
+        const first = items[0];
+        if (over || first === undefined) return;
+        finish();
+        this.take(first.cursor).then(() => {
+          this.informed([first]);
+          resolve(first);
+        }, reject);
+      };
+      const look = (): void => void this.spool.unread().then(takeFirst, fail);
+      // The time counts from the end of the first look, so an item already unread is returned
+      // however slow the look (a Windows runner) and however short the wait.
+      const firstLook = (items: SpoolItem[]): void => {
+        takeFirst(items);
+        if (!over) timer = setTimeout(() => (finish(), resolve(undefined)), timeoutMs);
+      };
+      // An item's event starts a look. One at or below the cursor is not new: its event came after
+      // a look already took it. With push set, items go to the channel instead.
       const onItem = (item: SpoolItem): void => {
-        if (this.push !== undefined || item.cursor <= this.spool.taken) return;
-        this.off("item", onItem);
-        void this.take(item.cursor).then(() => {
-          this.informed([item]);
-          done(item);
-        });
+        if (this.push === undefined && item.cursor > this.spool.taken) look();
       };
-      const timer = setTimeout(() => done(undefined), timeoutMs);
       const beat = setInterval(() => onTick?.(this.now() - started), tickMs);
+      // Listening starts before the first look: an item written after that look listed the spool,
+      // whose event came before a listener was there, would otherwise wait out the timeout unseen.
       this.on("item", onItem);
+      void this.spool.unread().then(firstLook, fail);
     });
   }
 }

@@ -123,22 +123,30 @@ describe("ping and pong", () => {
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const lines: string[] = [];
     await session(devices[1]!, mesh, relay, { name: "b", answerMs: 100, log: (l) => void lines.push(l) });
-    const other = await session(devices[1]!, mesh, relay, { name: "other" });
+    await session(devices[1]!, mesh, relay, { name: "other" });
     const third = await session(devices[1]!, mesh, relay, { name: "third" });
     const postAs = (s: MeshSession) => (s as unknown as { post: (to: string, text: undefined, o: object) => Promise<unknown> }).post.bind(s);
     // b's pong never reaches the relay.
     relay.toRelay = (text) => (text.startsWith('{"t":"send"') && text.includes('"session":"b"') ? undefined : text);
-    const pinging = a.ping(["b@two", "other@two"], 400);
-    await until(() => sendsOf(relay).some((t) => t.includes('"session":"a"')));
-    const id = (JSON.parse(sendsOf(relay).find((t) => t.includes('"session":"a"'))!) as { id: string }).id;
-    await until(() => sendsOf(relay).some((t) => t.includes('"session":"other"')));
-    // A second pong from `other`, one from `third` (never pinged), and one for no ping at all: all dropped.
-    await postAs(other)("a@one", undefined, { kind: "pong", reply_to: id });
-    await postAs(third)("a@one", undefined, { kind: "pong", reply_to: id });
-    await postAs(third)("a@one", undefined, { kind: "pong", reply_to: "01K70000000000000000000B02" });
+    // No time budget: the wait ends as soon as the relay has answered. The ping's pong waiter is in
+    // place before ping() first awaits, so the pongs are fed to it by hand before the ping is even
+    // sent: other's, then other's again and one from third (never pinged), both dropped.
+    const pinging = a.ping(["b@two", "other@two"], 0);
+    const waiters = (a as unknown as { pongWaiters: Map<string, (device: string, session: string) => void> }).pongWaiters;
+    const [id, pong] = [...waiters][0]!;
+    const two = devices[1]!.device.id;
+    pong(two, "other");
+    pong(two, "other");
+    pong(two, "third");
     const rows = await pinging;
     expect(rows[0]).toEqual({ to: "b@two", status: "routed" });
     expect(rows[1]).toMatchObject({ to: "other@two", status: "routed", ms: expect.any(Number) });
+    expect(waiters.has(id)).toBe(false);
+    // A pong for no ping at all is dropped too. a handles what arrives in order, so once the
+    // message third sends after it is in a's spool, the pong has been handled.
+    await postAs(third)("a@one", undefined, { kind: "pong", reply_to: "01K70000000000000000000B02" });
+    await third.send("a@one", "after the stray pong");
+    await until(async () => (await a.spool.unread()).some((i) => i.rendered.includes("after the stray pong")));
     await until(() => lines.some((l) => l.startsWith("wim: no pong sent to a@one")));
     relay.toRelay = undefined;
   }, 20_000);

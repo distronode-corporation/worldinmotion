@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activate, deactivate, JOIN_HINT, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
-import { ExtensionMode, fake, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
+import { ExtensionMode, fake, FakeTerminal, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
 
 const PKG = fileURLToPath(new URL("..", import.meta.url));
 const FIXTURE = fileURLToPath(new URL("./fixtures/fake-wim.mjs", import.meta.url));
@@ -152,6 +152,41 @@ describe("activate", () => {
     api!.store.apply({ type: "connection", at: 1, state: "closed" });
     stop();
     deactivate();
+  });
+
+  it("starts the signer in a terminal, and restarts the client when that terminal closes", async () => {
+    const { api } = start();
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    const starts = () => fake.state.output.filter((l) => l.startsWith("starting ")).length;
+    expect(starts()).toBe(1);
+    await fake.run("worldinmotion.startSigner");
+    const first = fake.state.terminals[0]!;
+    expect(first.options).toEqual({ name: "worldinmotion signer", shellPath: process.execPath, shellArgs: [FIXTURE, "agent", "start"], env: { ELECTRON_RUN_AS_NODE: "1" }, cwd: homedir() });
+    expect(first.shown).toBe(1);
+    fake.closeTerminal(first, 0);
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`." });
+    expect(starts()).toBe(2);
+
+    await fake.run("worldinmotion.startSigner");
+    fake.closeTerminal(fake.state.terminals[1]!, 1);
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "warning", message: expect.stringMatching(/^worldinmotion: the signer did not start \(exit code 1\)\. Run worldinmotion: Start Signer again/) });
+    expect(starts()).toBe(3);
+
+    // Closed by the person before it exited: no message, and the client still restarts.
+    const shown = fake.state.messages.length;
+    await fake.run("worldinmotion.startSigner");
+    fake.closeTerminal(fake.state.terminals[2]!, undefined);
+    expect(fake.state.messages.length).toBe(shown);
+    expect(starts()).toBe(4);
+    // Another terminal closing changes nothing, nor does the signer's terminal closing twice.
+    fake.closeTerminal(new FakeTerminal(first.options), 0);
+    fake.closeTerminal(fake.state.terminals[2]!, 0);
+    expect(starts()).toBe(4);
+
+    // A locked signer is unlocked rather than started.
+    api!.store.exited("exited with code 1: wim: the signer is locked: run `wim agent unlock` in your own terminal");
+    await fake.run("worldinmotion.startSigner");
+    expect(fake.state.terminals[3]!.options.shellArgs).toEqual([FIXTURE, "agent", "unlock"]);
   });
 
   it("returns nothing outside test mode, and survives a client that exits", async () => {

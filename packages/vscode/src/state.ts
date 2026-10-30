@@ -8,6 +8,7 @@ import type {
   DeviceRow,
   HeldRow,
   JoinRow,
+  KeysAt,
   LeaseRow,
   MessageRow,
   ReceiptStatus,
@@ -36,7 +37,7 @@ export function joinKey(j: { invite: string; id: string }): string {
 }
 
 export type ConnectionState = "starting" | "connecting" | "open" | "closed";
-export type Hello = { version: string; device: { name: string; id: string }; session: string; relay: string; mesh: string };
+export type Hello = { version: string; device: { name: string; id: string }; keys?: KeysAt; session: string; relay: string; mesh: string };
 export type Receipt = { to: string; status: ReceiptStatus; at: number };
 
 export class Store {
@@ -95,7 +96,7 @@ export class Store {
   apply(ev: WimEvent): void {
     switch (ev.type) {
       case "hello":
-        this.hello = { version: ev.version, device: ev.device, session: ev.session, relay: ev.relay, mesh: ev.mesh };
+        this.hello = { version: ev.version, device: ev.device, ...(ev.keys === undefined ? {} : { keys: ev.keys }), session: ev.session, relay: ev.relay, mesh: ev.mesh };
         break;
       case "connection":
         this.connection = ev.detail === undefined ? { state: ev.state } : { state: ev.state, detail: ev.detail };

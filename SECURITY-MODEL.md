@@ -459,14 +459,63 @@ What it does not stop:
   zero it. Strings remain until the runtime frees them: the passphrase as typed, and the key file's
   decrypted JSON while it is parsed.
 - **The passphrase at the keyboard.** A keylogger running as the person sees it. `wim agent start`,
-  `unlock`, `encrypt` and `decrypt` ask for it only at an interactive terminal with no agent's
-  variables set, or from stdin with `--passphrase-stdin` (for a service manager or CI), and keep it
-  inside the command and the signer it starts.
+  `unlock`, `encrypt` and `decrypt` ask for it at an interactive terminal with no agent's variables
+  set, and keep it inside the command and the signer it starts. The other sources (stdin, a native
+  dialog, the OS keyring) are below, under "Starting the signer, and where the passphrase comes
+  from".
 - **What the key file was before.** Encrypting replaces the plaintext file with one atomic rename,
   but as with deleted prekey secrets (section 6.14), the old bytes can survive on an SSD, in a
   snapshot or in a backup, and a process that could read the file before may have copied it. For
   full assurance after starting to use the signer, join the mesh with a new device and revoke the
   old one.
+
+**Starting the signer, and where the passphrase comes from.** `wim agent start` runs the signer
+detached from the command (its own session on POSIX, no console window on Windows), so it keeps
+running after the terminal or VS Code that started it closes. It ends at log out or restart, or
+with `wim agent stop`; nothing restarts it unless the person sets that up, and `wim agent status`
+says whether one runs. The passphrase reaches it in one of these ways:
+
+- **The person's own terminal** (the default): typed without echo, where no agent's variable is
+  set.
+- **A native dialog** (`--ask-gui`, for `start` and `unlock`): osascript on macOS, zenity or
+  kdialog on Linux, the Windows PowerShell credential dialog on Windows. `start` asks again, up to
+  three times, while what was typed does not open the key file.
+- **At each log in** (`wim agent autostart enable`): a login item (a launchd agent on macOS, an
+  XDG autostart entry on Linux, a logon task on Windows) runs `wim agent start --foreground
+  --ask-gui` with the state directory pinned in `WIM_HOME`. This is the default way to start it
+  without typing in a terminal: the dialog belongs to a process the login session started, so the
+  person types the passphrase into something that is not an agent's descendant, and the signer
+  that holds it is not one either (above, "Reading the signer's memory"). A process of the user can
+  still put up a look-alike dialog of its own; a dialog that comes at any time other than log in,
+  or after a `start` the person ran, is not the signer's.
+- **The OS keyring** (`--keyring`, opt-in, set up with `wim agent autostart enable --keyring` at
+  the person's own terminal): the login item reads the passphrase from the keyring, so nobody types
+  it. `wim agent autostart disable`, or `enable` without `--keyring`, removes the stored passphrase.
+  What that exposes depends on the keyring, and enabling it says so first:
+  - macOS: the login keychain, in an item added with no trusted application (`security
+    add-generic-password -T ""`, the passphrase given over stdin, never on a command line), so
+    macOS asks the person every time something reads it, the signer at log in included. A process
+    of the user that asks gets the same prompt; one answered "Always Allow" is trusted from then
+    on, silently, so the prompt says never to choose it. Nothing in this repository's tests reads
+    a real keychain.
+  - Linux: libsecret (`secret-tool`), which hands the stored secret to any process of the user
+    while the keyring is unlocked, which is the whole time the person is logged in. An agent or a
+    tool it runs can read the passphrase and, with `device.json`, decrypt the keys offline and act
+    as the device for good. That undoes what the signer protects against, so enabling it prints
+    that and needs a typed `yes`.
+  - Windows: not offered. Credential Manager gives a stored secret to any process of the user with
+    no prompt and no locked state.
+- **stdin** (`--passphrase-stdin`, for a service manager or CI).
+
+Under an agent's variables (`CLAUDECODE` and the others `wim recovery show` checks), `--passphrase-stdin`,
+`--ask-gui` and `--keyring` are refused, and the refusal names the opt-in, `--allow-agent-passphrase`,
+which prints a one-line warning and proceeds. That is for a person who chooses to have an agent
+start the signer, from a passphrase source the agent can reach (a secret manager it may read, say).
+Then anything the agent can run can read that source too, and so decrypt the keys offline; the
+signer still keeps the keys out of the files and still logs and rate limits what it is asked, but
+it no longer protects the keys from agents. The opt-in is not a barrier (an agent can pass it as
+easily as the person); it makes that choice explicit and visible. Service managers and login items
+set no agent variable, so they need no opt-in.
 
 The signer is optional. With a plaintext key file and no signer, clients behave as before. An
 encrypted key file needs a running, unlocked signer, and clients say so. `require_signer` (in

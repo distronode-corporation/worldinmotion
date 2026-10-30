@@ -467,6 +467,8 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   emit("hello", {
     version: d.version,
     device: { name: d.device.name, id: d.device.id },
+    // Where the device keys are: in this process (`local`), or in the signer (`signer`).
+    keys: d.device.keyring.kind,
     session: s.address,
     relay: relayHost(s.config.relay),
     mesh: `${s.config.mesh.slice(0, 4)}…`,

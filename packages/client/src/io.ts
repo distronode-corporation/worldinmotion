@@ -4,6 +4,7 @@ import { homedir, hostname } from "node:os";
 import { createInterface, type Interface } from "node:readline";
 import { Writable, type Readable } from "node:stream";
 import { spawnDetached, wimCommand } from "./agentcli.ts";
+import { runProgram } from "./autostart.ts";
 import type { CliIO } from "./cli.ts";
 import { pidAlive } from "./platform.ts";
 
@@ -63,6 +64,7 @@ export function processIo(
       return answer;
     },
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
+    programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
     signal: stop.signal,
     cwd: proc.cwd(),
     homedir: machine.homedir(),

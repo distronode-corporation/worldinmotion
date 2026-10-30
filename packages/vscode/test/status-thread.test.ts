@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Store } from "../src/state.ts";
-import { StatusItem, statusText } from "../src/status.ts";
+import { signerState, StatusItem, statusText } from "../src/status.ts";
 import { LANGUAGE, parseThreadUri, renderThread, showThread, ThreadProvider, threadUri, type Requester } from "../src/thread.ts";
 import { fake, ThemeColor, Uri } from "./fake-vscode.ts";
-import { heldRow, mesh, message, NOW } from "./helpers.ts";
+import { heldRow, hello, mesh, message, NOW } from "./helpers.ts";
+import type { WimEvent } from "../src/protocol.ts";
 
 beforeEach(() => fake.reset());
 
@@ -15,6 +16,7 @@ describe("status", () => {
       text: "$(broadcast) wim  $(mail) 1  $(inbox) 1",
       tooltip: "worldinmotion: connected\nvscode@laptop via relay.example, mesh abcd\n1 unread, 1 held for you\nClick to open the activity view.",
       warn: true,
+      command: "worldinmotion.showActivity",
     });
   });
 
@@ -25,7 +27,31 @@ describe("status", () => {
       text: "$(debug-disconnect) wim",
       tooltip: "worldinmotion: closed\nLast reason: exited with code 1\n0 unread, 0 held for you\nClick to open the activity view.",
       warn: false,
+      command: "worldinmotion.showActivity",
     });
+  });
+
+  it("shows the signer: running from hello, stopped or locked from the client's last words", () => {
+    const s = mesh();
+    expect(signerState(s)).toBeUndefined();
+    s.apply({ ...hello(), keys: "signer" } as WimEvent);
+    expect(signerState(s)).toBe("running");
+    expect(statusText(s)).toMatchObject({ text: "$(broadcast) wim  $(key)  $(inbox) 1", command: "worldinmotion.showActivity" });
+    expect(statusText(s).tooltip).toContain("Signer: running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`.");
+    s.exited("exited with code 1: wim: the device keys in /h/device.json are encrypted and no signer is running: run `wim agent start` in your own terminal");
+    expect(signerState(s)).toBe("stopped");
+    const stopped = statusText(s);
+    expect(stopped).toMatchObject({ text: "$(debug-disconnect) wim  $(key) signer stopped  $(inbox) 1", warn: true, command: "worldinmotion.startSigner" });
+    expect(stopped.tooltip).toContain("Signer: not running.");
+    expect(stopped.tooltip).not.toContain("Click to open the activity view.");
+    s.apply({ type: "connection", at: NOW, state: "closed", detail: "no signer answers at /h/agent/sock (ECONNREFUSED): run `wim agent start` in your own terminal" });
+    expect(signerState(s)).toBe("stopped");
+    s.exited("exited with code 1: wim: the signer is locked: run `wim agent unlock` in your own terminal");
+    expect(statusText(s)).toMatchObject({ text: "$(debug-disconnect) wim  $(lock) signer locked  $(inbox) 1", command: "worldinmotion.startSigner" });
+    expect(statusText(s).tooltip).toContain("Signer: locked. Click to unlock it in a terminal");
+    const quiet = new Store();
+    quiet.exited("exited with code 1: wim: the signer is locked: run `wim agent unlock` in your own terminal");
+    expect(statusText(quiet)).toMatchObject({ warn: true, command: "worldinmotion.startSigner" });
   });
 
   it("drives a status bar item that opens the activity view", () => {
