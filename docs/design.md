@@ -78,7 +78,10 @@ through a stable key (the Claude Code session id from the `_internal` op `hello`
 `meshes/<mesh>/claude/`, 7 days), or the earlier session on this device has the same name and the
 same working directory in its `session.json`, did not end (`bye { ended: true }`), and no live
 process holds its liveness lock. A session from another directory keeps its name, and the new one
-gets `name-N`. `wim mcp` ends its session cleanly (`bye { ended: true }`) when stdin closes, on
+gets `name-N`. A terminal command (`wim inbox`, `wim send`, `wim watch`) never takes a `name-N`
+that way when the name belongs to a session of another kind on this device (a Claude Code tab,
+say): it ends the registration at once and refuses, naming that session, since the name's
+messages go to it. `wim mcp` ends its session cleanly (`bye { ended: true }`) when stdin closes, on
 SIGINT, SIGTERM or SIGHUP, and when its parent process goes away (checked every 5 seconds).
 
 ## The signer (`wim agent`)

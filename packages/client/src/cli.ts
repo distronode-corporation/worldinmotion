@@ -327,6 +327,7 @@ class Ctx {
       // The connection logs "connecting" before anything else, so `last` is always set here.
       throw new SetupError(`${(error as Error).message} (${last!})`);
     }
+    if (keyed) await refuseHeldName(s, name);
     // Later, while a long command runs.
     s.on("fatal", (reason: string) => this.io.err(`wim: ${reason}`));
     return s;
@@ -382,6 +383,22 @@ async function liveHolder(mesh: MeshFiles, name: string, env: FsEnv, watch = fal
     if (state?.name === name && state.kind === "cli" && (await (watch ? files.takesHandoverElsewhere() : files.isLiveElsewhere()))) return files;
   }
   return undefined;
+}
+
+/**
+ * A terminal command asked for a name that a session of another kind holds on this device (a
+ * Claude Code tab, say), so the relay gave it `<name>-2`. Its messages go to that session, and a
+ * `<name>-2` would only linger in peers: the throwaway registration ends at once and the command
+ * is refused. A name another terminal session holds keeps today's behaviour.
+ */
+async function refuseHeldName(s: MeshSession, name: string): Promise<void> {
+  const wanted = `${name}@${s.address.slice(s.address.indexOf("@") + 1)}`;
+  const holder = s.knownPeers().find((p) => p.address === wanted && p.kind !== "cli");
+  if (holder === undefined) return;
+  await s.stop({ ended: true });
+  throw new SetupError(
+    `${wanted} is a ${holder.kind} session on this device (${holder.status}): its messages go to that session, not to a terminal. \`wim history --session ${name}\` shows what it received; for a terminal session of your own, pick another name with --as <name>.`,
+  );
 }
 
 /** A `wim watch` running now on this device under `name`, if any. */

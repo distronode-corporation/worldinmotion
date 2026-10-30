@@ -24,6 +24,13 @@ body line with a bracket.
   "Failed Installing Extensions". The README and the extension's README now say why the command
   needs `--pre-release` (or `@<version>`), and a test keeps every documented install command
   that way. (#35)
+- **`wim inbox --as <name>`, where `<name>` is a live Claude Code session, registered `<name>-2`
+  and read its empty inbox.** A terminal command whose name belongs to a session of another kind
+  on this device now ends that registration at once, so no `<name>-2` lingers in peers, and says
+  so: "distronode-2@latitude is a claude-code session on this device (idle): its messages go to
+  that session, not to a terminal. `wim history --session distronode-2` shows what it received;
+  for a terminal session of your own, pick another name with --as <name>." The same holds for
+  `wim send` and `wim watch`. (#38)
 
 ## [0.1.5] - 2026-10-30
 

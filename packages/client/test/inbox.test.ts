@@ -83,6 +83,29 @@ describe("wim inbox", () => {
     expect((await inboxRun(root, relay)).printed).toHaveLength(0);
   }, 30_000);
 
+  it("--as the name of a live Claude Code session refuses, and registers no <name>-2 (issue #38)", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const tab = await openSession(devices[0]!, mesh, relay, { name: "distronode-2", kind: "claude-code" });
+    open.push(tab);
+    const watcher = await openSession(devices[1]!, mesh, relay, { name: "watcher" });
+    open.push(watcher);
+    const t = term(devices[0]!.root, relay);
+    expect(await run(t, "inbox", "--as", "distronode-2")).toBe(1);
+    expect(t.err.at(-1)).toBe(
+      "wim: distronode-2@one is a claude-code session on this device (idle): its messages go to that session, not to a terminal. `wim history --session distronode-2` shows what it received; for a terminal session of your own, pick another name with --as <name>.",
+    );
+    expect(said(t)).not.toContain("Nothing new");
+    // The throwaway registration ended at once: no distronode-2-2 lingers in peers.
+    await until(async () => !(await watcher.listPeers()).some((p) => p.address.startsWith("distronode-2-")));
+    // The same name for a terminal session of its own works as before once it is free.
+    await tab.stop({ ended: true });
+    open.splice(open.indexOf(tab), 1);
+    const again = term(devices[0]!.root, relay);
+    expect(await run(again, "inbox", "--as", "distronode-2")).toBe(0);
+    expect(said(again)).toContain("Nothing new for distronode-2@one.");
+  }, 30_000);
+
   it("lists --peek in its usage", async () => {
     const t = term("/nonexistent", new RelayHarness());
     expect(await run(t, "help", "inbox")).toBe(0);

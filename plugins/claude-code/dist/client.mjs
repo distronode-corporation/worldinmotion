@@ -122614,6 +122614,7 @@ var Ctx = class {
       if (error63 instanceof WireError && error63.code === "fatal") throw new SetupError(error63.message);
       throw new SetupError(`${error63.message} (${last})`);
     }
+    if (keyed) await refuseHeldName(s3, name);
     s3.on("fatal", (reason) => this.io.err(`wim: ${reason}`));
     return s3;
   }
@@ -122652,6 +122653,15 @@ async function liveHolder(mesh, name, env3, watch2 = false) {
     if (state2?.name === name && state2.kind === "cli" && await (watch2 ? files.takesHandoverElsewhere() : files.isLiveElsewhere())) return files;
   }
   return void 0;
+}
+async function refuseHeldName(s3, name) {
+  const wanted = `${name}@${s3.address.slice(s3.address.indexOf("@") + 1)}`;
+  const holder = s3.knownPeers().find((p3) => p3.address === wanted && p3.kind !== "cli");
+  if (holder === void 0) return;
+  await s3.stop({ ended: true });
+  throw new SetupError(
+    `${wanted} is a ${holder.kind} session on this device (${holder.status}): its messages go to that session, not to a terminal. \`wim history --session ${name}\` shows what it received; for a terminal session of your own, pick another name with --as <name>.`
+  );
 }
 function liveWatcher(mesh, name, env3) {
   return liveHolder(mesh, name, env3, true);
