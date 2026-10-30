@@ -34,6 +34,8 @@ The relay sees metadata only:
 - device ids, and the session names, kinds and presence your devices publish;
 - message sizes and times, and who sent to whom;
 - room membership;
+- that a short invite code exists, which admin device stored it, its size, and when it is fetched,
+  for at most an hour; never the code or the invite sealed inside it;
 - a hashed form of each connection's source address, used for rate limits. The raw address is
   never stored by the relay.
 

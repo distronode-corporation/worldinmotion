@@ -231,7 +231,8 @@ export async function addDevice(d: Deps): Promise<void> {
     void vscode.window.showWarningMessage("worldinmotion: this device is in no mesh yet. Join one first (worldinmotion: Join a Mesh...).");
     return;
   }
-  let made: { code: string; invite: string; exp: number };
+  // With a short code, `code` is it and `full` the full code, for a device on wim 0.1.4 or older.
+  let made: { code: string; invite: string; exp: number; full?: string };
   try {
     made = (await d.client.request("invite")) as typeof made;
   } catch (e) {
@@ -239,14 +240,21 @@ export async function addDevice(d: Deps): Promise<void> {
     return;
   }
   d.invited.add(made.invite);
+  const older = made.full === undefined ? "" : " A device on wim 0.1.4 or older needs the full code instead.";
   const choice = await vscode.window.showInformationMessage(
     "worldinmotion: an invite for the new device is ready.",
     {
       modal: true,
-      detail: `On the new device, in a terminal: wim join <code> (or there in VS Code: worldinmotion: Join a Mesh...). The code works once, until ${stamp(made.exp)}. Give it over a channel you trust, never through an agent or a message. When the device asks to join, you type the comparison code it shows.`,
+      detail: `On the new device, in a terminal: wim join <code> (or there in VS Code: worldinmotion: Join a Mesh...). The code works once, until ${stamp(made.exp)}. Give it over a channel you trust, never through an agent or a message. When the device asks to join, you type the comparison code it shows.${older}`,
     },
     "Copy Invite Code",
+    ...(made.full === undefined ? [] : ["Copy Full Code"]),
   );
+  if (choice === "Copy Full Code") {
+    await vscode.env.clipboard.writeText(made.full!);
+    void vscode.window.showInformationMessage("worldinmotion: full invite code copied.");
+    return;
+  }
   if (choice !== "Copy Invite Code") return;
   await vscode.env.clipboard.writeText(made.code);
   void vscode.window.showInformationMessage("worldinmotion: invite code copied.");
@@ -335,10 +343,10 @@ export async function joinMesh(d: Deps): Promise<void> {
   }
   const code = await vscode.window.showInputBox({
     title: "Join a mesh",
-    prompt: "Paste the invite code from the admin device (wim invite there, or its Add a Device...)",
+    prompt: "Paste or type the invite code from the admin device (wim invite there, or its Add a Device...)",
     password: true,
     ignoreFocusOut: true,
-    validateInput: (v: string) => (v.trim().startsWith("wim1_") ? undefined : "An invite code starts with wim1_"),
+    validateInput: (v: string) => (/^(wim1_|wim2-)/i.test(v.trim()) ? undefined : "An invite code starts with wim2- (or wim1_)"),
   });
   if (code === undefined) return;
   let r: { device: { name: string }; code: string };

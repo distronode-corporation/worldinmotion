@@ -67,6 +67,19 @@ export {
   type FileInfo,
 } from "./blob.ts";
 export { leaseKey } from "./lease.ts";
+export {
+  formatShortCode,
+  isShortCode,
+  newShortKey,
+  openRdv,
+  parseShortCode,
+  rdvAnswerSchema,
+  rdvId,
+  rdvKey,
+  sealRdv,
+  SHORT_CODE_RELAY,
+  type RdvAnswer,
+} from "./shortcode.ts";
 export { createRecoveryIdentity, createRecoveryKeys, parseRecoveryCode, recoveryCode, verifyRecoveryChain, recoverySummary } from "./recovery.ts";
 export {
   cardSchema,

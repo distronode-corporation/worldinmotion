@@ -40,6 +40,14 @@ import {
   verifyObject,
   verifyRecoveryChain,
   createPrekey,
+  formatShortCode,
+  newShortKey,
+  openRdv,
+  parseShortCode,
+  rdvId,
+  rdvKey,
+  sealRdv,
+  SHORT_CODE_RELAY,
   prekeyId,
   verifyPrekey,
   plaintextSchema,
@@ -321,6 +329,59 @@ function inviteVectors() {
   });
 }
 
+function rdvVectors() {
+  // The full code is invite.json's; its own random stream is restarted so the code is the same.
+  const full = inviteVectors().code;
+  return withRandomSource(stream("wim vectors rdv"), () => {
+    const k = newShortKey();
+    const box = sealRdv(k, full);
+    const nonce = b64u.decode(box.n);
+    const code = formatShortCode(k, "wss://relay.example");
+    check(parseShortCode(code).k === k, "short code reads back");
+    check(openRdv(k, { v: 1, exp: T + 3600000, ...box }).ok, "rdv box opens");
+    const valid = [
+      { code: formatShortCode(k, SHORT_CODE_RELAY), relay: SHORT_CODE_RELAY },
+      { code, relay: "wss://relay.example" },
+      { code: `${code.toLowerCase().replace(/-/g, " ").replace("wim2 ", "wim2-")}`, relay: "wss://relay.example" },
+      { code: formatShortCode(k, "ws://127.0.0.1:8787"), relay: "ws://127.0.0.1:8787" },
+    ];
+    for (const v of valid) check(parseShortCode(v.code).relay === v.relay && parseShortCode(v.code).k === k, `short code ${v.code}`);
+    const body = code.slice("wim2-".length, code.indexOf("@"));
+    const invalid = [
+      { code: full, reason: "not a short code: no wim2- prefix" },
+      { code: `wim2-${body.slice(0, -5)}`, reason: "fewer than 24 characters" },
+      { code: `wim2-${body.replace(/^./, (c) => (c === "0" ? "1" : "0"))}`, reason: "the check does not match (one character changed)" },
+      { code: `wim2-${body}U`, reason: "U is not in the alphabet" },
+      { code: `wim2-${body}@ws://relay.example`, reason: "ws:// to a host that is not loopback" },
+    ];
+    for (const v of invalid) {
+      let refused = false;
+      try {
+        parseShortCode(v.code);
+      } catch {
+        refused = true;
+      }
+      check(refused, `short code refused: ${v.reason}`);
+    }
+    return {
+      description:
+        "A short invite code (SPEC section 5) for invite.json's full code. k is 100 bits as 20 Crockford base32 characters; the code is wim2- and k with its 4-character check (the first 20 bits of SHA-256(UTF-8('wim/1 short code ' + k))) in six groups of four, then @ and the relay without wss:// unless it is the hosted relay. rdv = first 22 characters of b64u(SHA-256(UTF-8('wim/1 rdv id ' + k))); key = HKDF-SHA256(UTF-8(k), empty salt, info 'wim/1 rdv key', 32 bytes); the box is XChaCha20-Poly1305(key, nonce, AAD = UTF-8('wim/1 rdv ' + rdv)) over UTF-8 of the full code. Each valid code reads back as k and its relay; each invalid one MUST be refused.",
+      k,
+      check: code.slice(-4 - "@relay.example".length, -"@relay.example".length),
+      code,
+      rdv: rdvId(k),
+      key_hex: hex(rdvKey(k)),
+      aad: `wim/1 rdv ${box.rdv}`,
+      nonce_hex: hex(nonce),
+      plaintext: full,
+      c: box.c,
+      answer: { v: 1, rdv: box.rdv, exp: T + 3600000, n: box.n, c: box.c },
+      valid,
+      invalid,
+    };
+  });
+}
+
 function messageVectors() {
   return withRandomSource(stream("wim vectors message"), () => {
     const genesis = createGenesisRoster({ name: "alice", keys: alice, now: T, meshId: MESH });
@@ -595,6 +656,7 @@ export function buildVectors(): Record<string, string> {
     "box.json": json(boxVectors()),
     "roster.json": json(rosterVectors()),
     "invite.json": json(inviteVectors()),
+    "rdv.json": json(rdvVectors()),
     "message.json": json(messageVectors()),
     "prekey.json": json(prekeyVectors()),
     "ping.json": json(pingVectors()),

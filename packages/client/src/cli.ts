@@ -31,6 +31,7 @@ import { LIMITS } from "@worldinmotion/protocol";
 import { agentEnv, canConfirm, canShowSecret, fetchHeldCode, holdForShow, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
+import { resolveInvite } from "./shortcode.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 
 export const VERSION = "0.1.4";
@@ -78,7 +79,7 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin"]);
 const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls"]);
 
 /** Flags every command takes. */
@@ -88,7 +89,7 @@ const COMMON_FLAGS = ["mesh", "help"];
 const COMMAND_FLAGS: Record<string, readonly string[]> = {
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
   mesh: ["relay", "key-env", "tls", "no-recovery"],
-  invite: ["exp", "auto"],
+  invite: ["exp", "auto", "full"],
   join: ["name"],
   devices: ["relayed", "all"],
   peers: ["all", "as"],
@@ -176,7 +177,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
 
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
-  wim invite [--exp 1h] [--auto]
+  wim invite [--exp 1h] [--auto] [--full]
   wim join <code> [--name <device>]
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
@@ -606,11 +607,16 @@ async function invite(ctx: Ctx): Promise<number> {
       joins.push(body);
       wake?.();
     });
-    const made = await issueInvite(s, { ttlMs: ttl, auto, now: ctx.io.now });
+    const full = ctx.args.flags.get("full") === true;
+    const made = await issueInvite(s, { ttlMs: ttl, auto, now: ctx.io.now, short: !full });
     const until = new Date(made.exp).toISOString();
     ctx.io.out("Invite code (single use; give it to the other device over a channel you trust, never through an agent):");
-    ctx.io.out(`  ${made.code}`);
+    ctx.io.out(`  ${made.short?.code ?? made.code}`);
     ctx.io.out("On the new device, in a terminal: `wim join <code>`");
+    // A short code lives at most an hour at the relay; the invite itself may live longer.
+    if (made.short !== undefined && made.short.exp < made.exp) ctx.io.out(`The short code works until ${new Date(made.short.exp).toISOString()}.`);
+    if (made.short !== undefined) ctx.io.out("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
+    if (made.shortRefused !== undefined) ctx.io.out(`This is the full code: no short code, because ${made.shortRefused}.`);
     ctx.io.out(`It expires at ${until}. Waiting for the device to join (Ctrl-C to stop)...`);
     for (;;) {
       if (ctx.io.signal.aborted || ctx.io.now() >= made.exp) {
@@ -682,8 +688,10 @@ async function askTrust(ctx: Ctx, files: MeshFiles, devices: ReadonlyArray<{ nam
 }
 
 async function join(ctx: Ctx): Promise<number> {
-  const code = ctx.args.positional[0];
-  if (code === undefined) throw new SetupError("usage: wim join <code>");
+  const typed = ctx.args.positional[0];
+  if (typed === undefined) throw new SetupError("usage: wim join <code>");
+  // A short code is resolved through its relay first, so a mistyped one leaves no device behind.
+  const code = await resolveInvite(typed, ctx.io.fetch);
   const device = (await ctx.home.loadDevice()) ?? (await ctx.home.createDevice(flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device")));
   const joined = await joinMesh({
     home: ctx.home,
@@ -994,7 +1002,7 @@ async function events(ctx: Ctx): Promise<number> {
   // A device in no mesh yet: the UI can join one (setup mode); any other problem is said as usual.
   if ((await ctx.home.loadDevice()) === undefined || (await ctx.home.meshIds()).length === 0) {
     const io = ctx.io;
-    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, ...(agent === undefined ? {} : { agent }) });
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, ...(agent === undefined ? {} : { agent }) });
     return 0;
   }
   const o = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);

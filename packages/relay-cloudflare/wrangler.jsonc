@@ -10,14 +10,17 @@
     "bindings": [
       { "name": "MESH", "class_name": "MeshDurableObject" },
       { "name": "SOURCES", "class_name": "SourceLimiter" },
-      { "name": "REGISTRY", "class_name": "MeshRegistry" }
+      { "name": "REGISTRY", "class_name": "MeshRegistry" },
+      { "name": "RDV", "class_name": "RendezvousStore" }
     ]
   },
   "migrations": [
     // Both classes keep their state in Durable Object SQLite.
     { "tag": "v1", "new_sqlite_classes": ["MeshDurableObject", "SourceLimiter"] },
     // The mesh count for WIM_MAX_MESHES (one object for the whole Worker).
-    { "tag": "v2", "new_sqlite_classes": ["MeshRegistry"] }
+    { "tag": "v2", "new_sqlite_classes": ["MeshRegistry"] },
+    // The boxes of short invite codes, for every mesh (one object for the whole Worker).
+    { "tag": "v3", "new_sqlite_classes": ["RendezvousStore"] }
   ],
   "vars": {
     // The exact public base URL(s) clients dial, comma-separated. An `auth` signs this URL and the

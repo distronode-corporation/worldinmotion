@@ -8197,8 +8197,8 @@ var init_checkRegion = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/config-resolver/regionConfig/checkRegion.js"() {
     init_transport();
     validRegions = /* @__PURE__ */ new Set();
-    checkRegion = (region, check2 = isValidHostLabel) => {
-      if (!validRegions.has(region) && !check2(region)) {
+    checkRegion = (region, check3 = isValidHostLabel) => {
+      if (!validRegions.has(region) && !check3(region)) {
         if (region === "*") {
           console.warn(`@smithy/config-resolver WARN - Please use the caller region instead of "*". See "sigv4a" in https://github.com/aws/aws-sdk-js-v3/blob/main/supplemental-docs/CLIENTS.md.`);
         } else {
@@ -65670,7 +65670,7 @@ function isRecursive(inst, stack, resolve3) {
     return PROVEN;
   stack.add(inst);
   let result = NONE;
-  const check2 = (child) => {
+  const check3 = (child) => {
     if (result !== PROVEN && child?._zod) {
       const answer = isRecursive(child, stack, resolve3);
       if (answer > result)
@@ -65699,32 +65699,32 @@ function isRecursive(inst, stack, resolve3) {
     case "object": {
       const raw = rawShape(def);
       merge3(raw ? shape(raw, true) : ASSUMED);
-      check2(def.catchall);
+      check3(def.catchall);
       break;
     }
     case "array":
-      check2(def.element);
+      check3(def.element);
       break;
     case "tuple":
       for (const el of def.items)
-        check2(el);
-      check2(def.rest);
+        check3(el);
+      check3(def.rest);
       break;
     case "record":
     case "map":
-      check2(def.keyType);
-      check2(def.valueType);
+      check3(def.keyType);
+      check3(def.valueType);
       break;
     case "set":
-      check2(def.valueType);
+      check3(def.valueType);
       break;
     case "union":
       for (const el of def.options)
-        check2(el);
+        check3(el);
       break;
     case "intersection":
-      check2(def.left);
-      check2(def.right);
+      check3(def.left);
+      check3(def.right);
       break;
     case "optional":
     case "nullable":
@@ -65735,15 +65735,15 @@ function isRecursive(inst, stack, resolve3) {
     case "nonoptional":
     case "promise":
     case "success":
-      check2(def.innerType);
+      check3(def.innerType);
       break;
     case "pipe":
-      check2(def.in);
-      check2(def.out);
+      check3(def.in);
+      check3(def.out);
       break;
     case "function":
-      check2(def.input);
-      check2(def.output);
+      check3(def.input);
+      check3(def.output);
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
@@ -65784,10 +65784,10 @@ function isRecursive(inst, stack, resolve3) {
         if (!value || typeof value !== "object")
           continue;
         if (value._zod)
-          check2(value);
+          check3(value);
         else if (Array.isArray(value))
           for (const el of value)
-            check2(el);
+            check3(el);
       }
     }
   }
@@ -73733,8 +73733,8 @@ function generateChecks(doc, ctx, schema, accessor) {
   if (!schemaChecks || schemaChecks.length === 0)
     return accessor;
   let currentAccessor = accessor;
-  for (const check2 of schemaChecks) {
-    const def = check2._zod.def;
+  for (const check3 of schemaChecks) {
+    const def = check3._zod.def;
     if (def.when && !WHEN_DEFAULTED_CHECKS.has(def.check)) {
       throw new ZodCompileUnsupportedError(`check with a custom "when" condition`);
     }
@@ -73782,7 +73782,7 @@ function generateChecks(doc, ctx, schema, accessor) {
         currentAccessor = generateStringFormatCheck(doc, ctx, def, currentAccessor);
         break;
       case "custom":
-        currentAccessor = generateCustomRefineCheck(doc, ctx, check2, currentAccessor);
+        currentAccessor = generateCustomRefineCheck(doc, ctx, check3, currentAccessor);
         break;
       case "bigint_format":
         generateBigIntFormatCheck(doc, def, currentAccessor);
@@ -73798,7 +73798,7 @@ function generateChecks(doc, ctx, schema, accessor) {
         break;
       case "overwrite": {
         const newAccessor = newVar(ctx);
-        generateOverwriteCheck(doc, ctx, check2, currentAccessor, newAccessor);
+        generateOverwriteCheck(doc, ctx, check3, currentAccessor, newAccessor);
         currentAccessor = newAccessor;
         break;
       }
@@ -73921,8 +73921,8 @@ function generatePropertyCheck(doc, ctx, def, accessor) {
   const propAccessor = `${accessor}[${JSON.stringify(def.property)}]`;
   generateCheck(doc, ctx, def.schema, propAccessor);
 }
-function generateOverwriteCheck(doc, ctx, check2, currentAccessor, newAccessor) {
-  const tx = check2._zod.def.tx;
+function generateOverwriteCheck(doc, ctx, check3, currentAccessor, newAccessor) {
+  const tx = check3._zod.def.tx;
   if (!tx) {
     throw new ZodCompileUnsupportedError("overwrite check without a transform function");
   }
@@ -73938,8 +73938,8 @@ function throwAsync() {
 function pushIssue(issue2) {
   this.issues.push(issue2);
 }
-function generateCustomRefineCheck(doc, ctx, check2, accessor) {
-  const def = check2._zod.def;
+function generateCustomRefineCheck(doc, ctx, check3, accessor) {
+  const def = check3._zod.def;
   if (def.fn) {
     if (isAsyncFunction(def.fn)) {
       throw new ZodCompileAsyncError("z.compile: async .refine() predicates are not supported");
@@ -73952,11 +73952,11 @@ function generateCustomRefineCheck(doc, ctx, check2, accessor) {
     doc.write(`if (!${resVar}) return INVALID;`);
     return accessor;
   }
-  if (check2._zod.check) {
-    if (isAsyncFunction(check2._zod.check)) {
+  if (check3._zod.check) {
+    if (isAsyncFunction(check3._zod.check)) {
       throw new ZodCompileAsyncError("z.compile: async .superRefine() / check functions are not supported");
     }
-    const checkFn = check2._zod.check;
+    const checkFn = check3._zod.check;
     const helperFn = (value) => {
       const fakePayload = { value, issues: [], addIssue: pushIssue };
       const result = checkFn(fakePayload);
@@ -74578,8 +74578,8 @@ function generateNullableCheck(doc, ctx, schema, accessor, buildsValue = true) {
   return outputVar;
 }
 function generateSizeGate(doc, schema, size) {
-  for (const [max, check2] of sizeCaps(schema._zod.def.checks)) {
-    doc.write(`if (${size} > ${numericOperand(max, check2._zod.def.check)}) return INVALID;`);
+  for (const [max, check3] of sizeCaps(schema._zod.def.checks)) {
+    doc.write(`if (${size} > ${numericOperand(max, check3._zod.def.check)}) return INVALID;`);
   }
 }
 function generateArrayCheck(doc, ctx, schema, accessor, buildsValue = true) {
@@ -77879,8 +77879,8 @@ var ZodType = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
     reg.add(this, meta3);
     return this;
   },
-  refine(check2, params) {
-    return this.check(refine(check2, params));
+  refine(check3, params) {
+    return this.check(refine(check3, params));
   },
   superRefine(refinement, params) {
     return this.check(superRefine(refinement, params));
@@ -83204,6 +83204,20 @@ var LIMITS = {
   inviteDefaultTtlMs: HOUR,
   /** Longest invite lifetime. */
   inviteMaxTtlMs: 7 * DAY,
+  /** Longest a relay keeps a short invite code's box: an hour, and never past the invite (SPEC section 5). */
+  rdvLifetimeMs: HOUR,
+  /** Largest box ciphertext in bytes; a full invite code is at most about 3 KiB. */
+  rdvBoxBytes: 4 * KiB,
+  /** Times a relay hands out one box; it deletes the box with the last. */
+  rdvGetsPerBox: 3,
+  /** Box fetches per source address per hour, found or not. */
+  rdvGetsPerSourcePerHour: 30,
+  /** Boxes stored per admin device, per mesh and per source address, per hour. */
+  rdvPutsPerDevicePerHour: 16,
+  rdvPutsPerMeshPerHour: 64,
+  rdvPutsPerSourcePerHour: 64,
+  /** Boxes a relay holds at once, across every mesh. */
+  rdvBoxesPerRelay: 1e4,
   /** Rosters in one `roster` page. */
   rosterPageMax: 64,
   /** Bytes of rosters in one `roster` page. */
@@ -86642,6 +86656,94 @@ function openBlob(input2) {
   return ok(out);
 }
 
+// ../protocol/src/shortcode.ts
+var PREFIX2 = "wim2-";
+var CROCKFORD3 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+var K_CHARS = 20;
+var CHECK_CHARS = 4;
+var K_RE = /^[0-9A-HJKMNP-TV-Z]{20}$/;
+var SHORT_CODE_RELAY = "wss://worldinmotion.distronode.com";
+function crockford(bytes3, chars2) {
+  let bits = 0n;
+  for (const b5 of bytes3) bits = bits << 8n | BigInt(b5);
+  bits >>= BigInt(bytes3.length * 8 - chars2 * 5);
+  let out = "";
+  for (let i6 = 0; i6 < chars2; i6++) out = CROCKFORD3[Number(bits >> BigInt(5 * i6) & 31n)] + out;
+  return out;
+}
+function check2(k5) {
+  return crockford(sha2562(utf8(`${PROTOCOL} short code ${k5}`)).subarray(0, 3), CHECK_CHARS);
+}
+function assertK(k5, where) {
+  if (typeof k5 !== "string" || !K_RE.test(k5)) throw new TypeError(`${where}: k must be 20 Crockford base32 characters`);
+}
+function newShortKey() {
+  return crockford(randomBytes2(13), K_CHARS);
+}
+function formatShortCode(k5, relay) {
+  assertK(k5, "formatShortCode");
+  if (!isRelayUrl(relay)) throw new TypeError("formatShortCode: invalid relay URL");
+  const groups = `${k5}${check2(k5)}`.match(/.{4}/g).join("-");
+  const where = relay === SHORT_CODE_RELAY ? "" : `@${relay.startsWith("wss://") ? relay.slice("wss://".length) : relay}`;
+  return `${PREFIX2}${groups}${where}`;
+}
+function isShortCode(code2) {
+  return typeof code2 === "string" && code2.trim().toLowerCase().startsWith(PREFIX2);
+}
+function parseShortCode(code2) {
+  const text2 = typeof code2 === "string" ? code2.trim() : "";
+  if (!isShortCode(text2)) throw new Error("invalid short invite code: it must start with wim2-");
+  const at = text2.indexOf("@");
+  const body = (at < 0 ? text2.slice(PREFIX2.length) : text2.slice(PREFIX2.length, at)).replace(/[\s-]/g, "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
+  if (!/^[0-9A-HJKMNP-TV-Z]{24}$/.test(body)) throw new Error("invalid short invite code: it must have 24 letters and digits after wim2-");
+  const k5 = body.slice(0, K_CHARS);
+  if (body.slice(K_CHARS) !== check2(k5)) throw new Error("invalid short invite code: the check does not match (look for a typing mistake)");
+  const where = at < 0 ? void 0 : text2.slice(at + 1);
+  const relay = where === void 0 ? SHORT_CODE_RELAY : /^wss?:\/\//.test(where) ? where : `wss://${where}`;
+  if (!isRelayUrl(relay)) throw new Error("invalid short invite code: the part after @ is not a relay address");
+  return { k: k5, relay };
+}
+function rdvId(k5) {
+  assertK(k5, "rdvId");
+  return b64u.encode(sha2562(utf8(`${PROTOCOL} rdv id ${k5}`))).slice(0, 22);
+}
+function rdvKey(k5) {
+  assertK(k5, "rdvKey");
+  return hkdf(sha256, utf8(k5), new Uint8Array(0), utf8(`${PROTOCOL} rdv key`), 32);
+}
+function rdvAad(rdv) {
+  return utf8(`${PROTOCOL} rdv ${rdv}`);
+}
+var rdvBoxFields = {
+  rdv: deviceIdSchema,
+  exp: timeSchema,
+  n: b64uBytes(24),
+  // The tag alone is 16 bytes; a full invite code is never near the cap.
+  c: b64uRange(16, LIMITS.rdvBoxBytes)
+};
+var rdvAnswerSchema = external_exports.looseObject({ v: external_exports.literal(1), ...rdvBoxFields });
+function sealRdv(k5, fullCode) {
+  const rdv = rdvId(k5);
+  const plain = utf8(fullCode);
+  if (plain.length === 0 || plain.length + 16 > LIMITS.rdvBoxBytes) throw new RangeError("sealRdv: the code does not fit a box");
+  const nonce = randomBytes2(24);
+  const c5 = xchacha20poly1305(rdvKey(k5), nonce, rdvAad(rdv)).encrypt(plain);
+  return { rdv, n: b64u.encode(nonce), c: b64u.encode(c5) };
+}
+function openRdv(k5, box) {
+  assertK(k5, "openRdv");
+  const parsed2 = rdvAnswerSchema.safeParse(box);
+  if (!parsed2.success) return fail("rdv_malformed");
+  const rdv = rdvId(k5);
+  if (parsed2.data.rdv !== rdv) return fail("rdv_wrong_id");
+  try {
+    const plain = xchacha20poly1305(rdvKey(k5), b64u.decode(parsed2.data.n), rdvAad(rdv)).decrypt(b64u.decode(parsed2.data.c));
+    return ok(fromUtf8(plain));
+  } catch {
+    return fail("rdv_decrypt_failed");
+  }
+}
+
 // ../protocol/src/prekey.ts
 var prekeySchema = external_exports.strictObject({
   mesh: meshIdSchema,
@@ -86827,6 +86929,7 @@ var createFrameSchema = external_exports.strictObject({
   key: external_exports.string().min(1).max(512).optional()
 });
 var joinFrameSchema = external_exports.strictObject({ t: external_exports.literal("join"), ...joinBodySchema.shape });
+var rdvPutFrameSchema = external_exports.strictObject({ t: external_exports.literal("rdv.put"), ...rdvBoxFields });
 var clientFrameSchema = external_exports.discriminatedUnion("t", [
   authFrameSchema,
   sendFrameSchema,
@@ -86852,6 +86955,7 @@ var clientFrameSchema = external_exports.discriminatedUnion("t", [
   blobGetFrameSchema,
   cardSetFrameSchema,
   cardsGetFrameSchema,
+  rdvPutFrameSchema,
   pingFrameSchema,
   byeFrameSchema,
   createFrameSchema,
@@ -86953,6 +87057,7 @@ var cardsFrameSchema = external_exports.looseObject({
   more: external_exports.boolean().optional()
 });
 var cardFrameSchema = external_exports.looseObject({ t: external_exports.literal("card"), msg: sendFrameSchema });
+var rdvStoredFrameSchema = external_exports.looseObject({ t: external_exports.literal("rdv.stored"), rdv: rdvBoxFields.rdv });
 var relaySchemas = {
   hello: helloFrameSchema,
   ready: readyFrameSchema,
@@ -86976,7 +87081,8 @@ var relaySchemas = {
   "blob.stored": blobStoredFrameSchema,
   "blob.chunk": blobChunkFrameSchema,
   cards: cardsFrameSchema,
-  card: cardFrameSchema
+  card: cardFrameSchema,
+  "rdv.stored": rdvStoredFrameSchema
 };
 var relayFrameSchema = external_exports.discriminatedUnion("t", [
   helloFrameSchema,
@@ -87001,7 +87107,8 @@ var relayFrameSchema = external_exports.discriminatedUnion("t", [
   blobStoredFrameSchema,
   blobChunkFrameSchema,
   cardsFrameSchema,
-  cardFrameSchema
+  cardFrameSchema,
+  rdvStoredFrameSchema
 ]);
 function parseWith(text2, schemas, maxBytes) {
   if (typeof text2 !== "string") return fail("not_text");
@@ -87385,6 +87492,8 @@ var START = "(?<![A-Za-z0-9_-])";
 var END = "(?![A-Za-z0-9_-])";
 var SECRET_PATTERNS = [
   ["wim_invite_code", new RegExp(`${START}wim1_[A-Za-z0-9_-]{60,}`)],
+  // A short invite code (SPEC section 5) as printed, in any case: six groups of four after wim2-.
+  ["wim_short_invite_code", new RegExp(`${START}wim2-(?:[0-9a-z]{4}-){5}[0-9a-z]{4}${END}`, "i")],
   ["wim_recovery_code", new RegExp(`${START}wimrec1_[A-Za-z0-9_-]{60,}-[0-9A-Za-z]{8}`)],
   ["wim_key_file", /"(?:signSec|boxSec)"\s*:\s*"[A-Za-z0-9_-]{43}"/],
   ["pem_private_key", /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----/],
@@ -87412,15 +87521,15 @@ function leaseKey(meshId, name) {
 }
 
 // ../protocol/src/recovery.ts
-var PREFIX2 = "wimrec1_";
-var CROCKFORD3 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+var PREFIX3 = "wimrec1_";
+var CROCKFORD4 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 var bodySchema = external_exports.strictObject({ mesh: meshIdSchema, genesis: hashSchema, sign: secret32Schema, box: secret32Schema });
 function checksum(body) {
   const h6 = sha2562(utf8(body));
   let bits = 0n;
   for (const b5 of h6.subarray(0, 5)) bits = bits << 8n | BigInt(b5);
   let out = "";
-  for (let i6 = 0; i6 < 8; i6++) out = CROCKFORD3[Number(bits >> BigInt(5 * i6) & 31n)] + out;
+  for (let i6 = 0; i6 < 8; i6++) out = CROCKFORD4[Number(bits >> BigInt(5 * i6) & 31n)] + out;
   return out;
 }
 function createRecoveryKeys(meshId, opts = {}) {
@@ -87436,7 +87545,7 @@ function recoveryCode(keys, pin) {
   const body = b64u.encode(
     canonBytes({ mesh: pin.mesh, genesis: pin.genesis, sign: b64u.encode(keys.signSec), box: b64u.encode(keys.boxSec) })
   );
-  return `${PREFIX2}${body}-${checksum(body)}`;
+  return `${PREFIX3}${body}-${checksum(body)}`;
 }
 function createRecoveryIdentity(meshId, opts = {}) {
   if (opts.genesis === void 0) {
@@ -87448,10 +87557,10 @@ function createRecoveryIdentity(meshId, opts = {}) {
 function parseRecoveryCode(code2, meshId) {
   const text2 = typeof code2 === "string" ? code2.trim() : "";
   const dash = text2.lastIndexOf("-");
-  if (!text2.startsWith(PREFIX2) || dash < PREFIX2.length) {
+  if (!text2.startsWith(PREFIX3) || dash < PREFIX3.length) {
     throw new Error("invalid recovery code: it must look like wimrec1_...-XXXXXXXX");
   }
-  const body = text2.slice(PREFIX2.length, dash);
+  const body = text2.slice(PREFIX3.length, dash);
   const given = text2.slice(dash + 1).toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
   if (given !== checksum(body)) {
     throw new Error("invalid recovery code: the checksum does not match (check for typing mistakes)");
@@ -91667,17 +91776,17 @@ var MeshSession = class _MeshSession extends EventEmitter {
     let answered;
     const all = new Promise((resolve3) => answered = resolve3);
     let waiting2 = to;
-    const check2 = () => waiting2.every((a5) => pongs.has(a5)) ? answered() : void 0;
+    const check3 = () => waiting2.every((a5) => pongs.has(a5)) ? answered() : void 0;
     this.pongWaiters.set(id, (device, session) => {
       const address = asked.get(`${device}/${session}`);
       if (address === void 0 || pongs.has(address)) return;
       pongs.set(address, this.now() - started);
-      check2();
+      check3();
     });
     try {
       const results = pingResults(await this.post(to, void 0, { kind: "ping", id }));
       waiting2 = results.filter((r6) => r6.status === "routed").map((r6) => r6.to);
-      check2();
+      check3();
       let timer;
       await Promise.race([all, new Promise((resolve3) => timer = setTimeout(resolve3, waitMs))]);
       clearTimeout(timer);
@@ -117845,6 +117954,54 @@ var Home = class {
   }
 };
 
+// src/shortcode.ts
+var RDV_ANSWER_MAX_BYTES = 16 * 1024;
+function rdvUrl(relay, rdv) {
+  return `${relay.replace(/^ws/, "http")}/v1/rdv/${rdv}`;
+}
+async function storeShortCode(link, relay, fullCode, inviteExp, now) {
+  const k5 = newShortKey();
+  const box = sealRdv(k5, fullCode);
+  const exp = Math.min(inviteExp, now + LIMITS.rdvLifetimeMs);
+  const answer = await link.request({ t: "rdv.put", ...box, exp }, (f7) => f7.t === "rdv.stored" && f7.rdv === box.rdv || errorFor("rdv.put")(f7), 1e4).catch((error63) => error63);
+  return shortOutcome(answer, formatShortCode(k5, relay), exp);
+}
+function shortOutcome(answer, code2, exp) {
+  if (answer instanceof Error) return { shortRefused: `the relay did not store it (${answer.message})` };
+  if (answer.t !== "error") return { short: { code: code2, exp } };
+  if (answer.code === "unknown_type" || answer.code === "unsupported") return { shortRefused: "this relay does not keep short codes" };
+  return { shortRefused: relayRefusal("the relay refused it", answer).message };
+}
+async function resolveInvite(code2, fetcher, opts = {}) {
+  if (!isShortCode(code2)) return code2;
+  const short = readShort(code2);
+  const url2 = rdvUrl(short.relay, rdvId(short.k));
+  const read = await fetcher(url2, { signal: AbortSignal.timeout(opts.timeoutMs ?? 15e3), redirect: "error", headers: { accept: "application/json" } }).then(async (res) => ({ status: res.status, body: await res.text() })).catch((error63) => error63);
+  return openAnswer(short, read);
+}
+function readShort(code2) {
+  try {
+    return parseShortCode(code2);
+  } catch (error63) {
+    throw new SetupError(error63.message);
+  }
+}
+function openAnswer(short, read) {
+  if (read instanceof Error) throw new ClientError(`could not read the short invite code from ${short.relay}: ${read.message}`, "unreachable");
+  if (read.status === 404) {
+    throw new ClientError("the relay has no invite under this short code: it was used, it expired, it was mistyped, or the relay keeps no short codes. Ask the admin device for a new one", "not_found");
+  }
+  if (read.status === 429) throw new ClientError("the relay refused: too many short code lookups from this address. Wait a while and try again", "limited");
+  if (read.status !== 200 || read.body.length > RDV_ANSWER_MAX_BYTES) throw new ClientError(`the relay's answer to the short code is not a box (HTTP ${read.status})`, "relay_error");
+  const json4 = parseJson(read.body);
+  const opened2 = openRdv(short.k, json4.ok ? json4.value : void 0);
+  if (!opened2.ok) throw new ClientError(`the relay's box for this short code does not open (${opened2.reason}). Ask the admin device for a new code`, opened2.reason);
+  if (parseInvite(opened2.value).relay.toLowerCase() !== short.relay.toLowerCase()) {
+    throw new ClientError("the short code's invite is for another relay than the one the code names", "wrong_relay");
+  }
+  return opened2.value;
+}
+
 // src/admin.ts
 function newConfig(mesh, relay, device, roster, tls3) {
   return { v: 1, mesh, relay, device, pin: rosterRef(roster), policy: {}, breaker: DEFAULT_BREAKER, share_cards: true, ...tls3 === void 0 ? {} : { tls: tls3 } };
@@ -117896,7 +118053,10 @@ async function issueInvite(session, o3) {
     await invites.remove(invite2.inviteId);
     throw relayRefusal("the relay refused the invite", refused2);
   }
-  return { code: invite2.code, inviteId: invite2.inviteId, exp: invite2.exp };
+  const made = { code: invite2.code, inviteId: invite2.inviteId, exp: invite2.exp };
+  if (o3.short !== true) return made;
+  if (tls3 !== void 0) return { ...made, shortRefused: "this mesh pins its relay's certificate, which a short code cannot carry" };
+  return { ...made, ...await storeShortCode(link, session.config.relay, invite2.code, invite2.exp, o3.now()) };
 }
 async function decideJoin(session, body, confirm, now) {
   const invites = new Invites(session.mesh, session.files.env, now);
@@ -118437,8 +118597,9 @@ async function runEvents(d5) {
       }
       case "invite": {
         personOnly(d5.agent, "inviting a device");
-        const made = await issueInvite(s3, { ttlMs: a5.exp ?? 36e5, auto: false, now: d5.now });
-        return { code: made.code, invite: made.inviteId, exp: made.exp };
+        const made = await issueInvite(s3, { ttlMs: a5.exp ?? 36e5, auto: false, now: d5.now, short: true });
+        if (made.short === void 0) return { code: made.code, invite: made.inviteId, exp: made.exp };
+        return { code: made.short.code, invite: made.inviteId, exp: made.short.exp, full: made.code };
       }
       case "admit": {
         personOnly(d5.agent, "admitting a device");
@@ -118532,20 +118693,23 @@ async function runSetupEvents(d5) {
   async function join21(a5) {
     personOnly(d5.agent, "joining a mesh");
     if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
-    try {
-      parseInvite(a5.code);
-    } catch {
-      throw new RequestError("input", "not an invite code (wim1_...)");
-    }
     joining = true;
     try {
+      const code2 = await resolveInvite(a5.code, d5.fetch).catch((error63) => {
+        throw error63 instanceof SetupError ? new RequestError("input", error63.message) : error63;
+      });
+      try {
+        parseInvite(code2);
+      } catch {
+        throw new RequestError("input", "not an invite code (wim1_... or wim2-...)");
+      }
       const device = await d5.home.loadDevice() ?? await d5.home.createDevice(a5.name ?? d5.defaultName);
       return await new Promise((resolve3, reject) => {
         let answered = false;
         joinMesh({
           home: d5.home,
           device,
-          code: a5.code,
+          code: code2,
           dialer: d5.dialer,
           now: d5.now,
           showSas: (sas) => {
@@ -121607,13 +121771,13 @@ async function decrypt(ctx) {
 
 // src/cli.ts
 var VERSION = "0.1.4";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
   mesh: ["relay", "key-env", "tls", "no-recovery"],
-  invite: ["exp", "auto"],
+  invite: ["exp", "auto", "full"],
   join: ["name"],
   devices: ["relayed", "all"],
   peers: ["all", "as"],
@@ -121682,7 +121846,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
 
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
-  wim invite [--exp 1h] [--auto]
+  wim invite [--exp 1h] [--auto] [--full]
   wim join <code> [--name <device>]
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
@@ -122052,11 +122216,15 @@ async function invite(ctx) {
       joins.push(body);
       wake?.();
     });
-    const made = await issueInvite(s3, { ttlMs: ttl, auto, now: ctx.io.now });
+    const full = ctx.args.flags.get("full") === true;
+    const made = await issueInvite(s3, { ttlMs: ttl, auto, now: ctx.io.now, short: !full });
     const until = new Date(made.exp).toISOString();
     ctx.io.out("Invite code (single use; give it to the other device over a channel you trust, never through an agent):");
-    ctx.io.out(`  ${made.code}`);
+    ctx.io.out(`  ${made.short?.code ?? made.code}`);
     ctx.io.out("On the new device, in a terminal: `wim join <code>`");
+    if (made.short !== void 0 && made.short.exp < made.exp) ctx.io.out(`The short code works until ${new Date(made.short.exp).toISOString()}.`);
+    if (made.short !== void 0) ctx.io.out("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
+    if (made.shortRefused !== void 0) ctx.io.out(`This is the full code: no short code, because ${made.shortRefused}.`);
     ctx.io.out(`It expires at ${until}. Waiting for the device to join (Ctrl-C to stop)...`);
     for (; ; ) {
       if (ctx.io.signal.aborted || ctx.io.now() >= made.exp) {
@@ -122115,8 +122283,9 @@ async function askTrust(ctx, files, devices2, ask2 = true) {
   ctx.io.out(`Messages from ${list2} are held for your approval. If ${one ? "it is" : "they are"} your own: wim devices trust ${one ? list2 : "--all"}`);
 }
 async function join20(ctx) {
-  const code2 = ctx.args.positional[0];
-  if (code2 === void 0) throw new SetupError("usage: wim join <code>");
+  const typed = ctx.args.positional[0];
+  if (typed === void 0) throw new SetupError("usage: wim join <code>");
+  const code2 = await resolveInvite(typed, ctx.io.fetch);
   const device = await ctx.home.loadDevice() ?? await ctx.home.createDevice(flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device"));
   const joined = await joinMesh({
     home: ctx.home,
@@ -122365,7 +122534,7 @@ async function events(ctx) {
   const agent = agentEnv(ctx.env);
   if (await ctx.home.loadDevice() === void 0 || (await ctx.home.meshIds()).length === 0) {
     const io = ctx.io;
-    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, ...agent === void 0 ? {} : { agent } });
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, ...agent === void 0 ? {} : { agent } });
     return 0;
   }
   const o3 = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);

@@ -1,7 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
 import { CLOSE, fitsUtf8, LIMITS, parseClientFrame } from "@worldinmotion/protocol";
-import { MemoryStore, MeshRelay, migrate, SqlStore, type Conn, type ConnState, type SqlDb } from "@worldinmotion/relay-core";
+import { MemoryStore, MeshRelay, migrate, SqlStore, type Conn, type ConnState, type RdvOutcome, type SqlDb } from "@worldinmotion/relay-core";
 import { relayConfig, type CfRelayConfig, type Env } from "./config.ts";
+import { RDV_NAME } from "./rdv.ts";
 import { REGISTRY_NAME } from "./registry.ts";
 import { json } from "./route.ts";
 import { doSqlDb, nextStoreDue } from "./sql.ts";
@@ -75,6 +76,11 @@ export class MeshDurableObject extends DurableObject<Env> {
   // Events run one at a time, in arrival order. A pre-auth `create` or `join` awaits the source
   // limiter (another object), and the runtime delivers further events during that await.
   private queue: Promise<void> = Promise.resolve();
+  /**
+   * The answer to the frame's `rdv.put`, if it made one: the relay-wide store is another object,
+   * so the event awaits it before it ends, and the answer goes out in the event's turn.
+   */
+  private rdvPending: Promise<void> = Promise.resolve();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -121,6 +127,7 @@ export class MeshDurableObject extends DurableObject<Env> {
         const relay = this.relay();
         const reserved = await this.precheck(ws, message);
         relay.onMessage(conn, message);
+        await this.rdvPending;
         // A place reserved in the mesh count for a create that did not create is given back.
         if (!this.persistIfCreated() && reserved) await this.registry().release();
       }
@@ -198,6 +205,11 @@ export class MeshDurableObject extends DurableObject<Env> {
           log: (event, fields) => console.log(JSON.stringify({ event, mesh: meshId, ...fields })),
           allowSource: () => this.allowed,
           admitMesh: () => this.admitted,
+          rdvPut: (put, answer) => {
+            const stub = this.env.RDV.get(this.env.RDV.idFromName(RDV_NAME));
+            // A store that cannot be reached is answered too, so the client falls back at once.
+            this.rdvPending = stub.put(put).then(answer, () => answer("unavailable" satisfies RdvOutcome));
+          },
         },
       );
     }
