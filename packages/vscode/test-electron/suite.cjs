@@ -1,5 +1,6 @@
 // Runs inside the Extension Development Host. The extension is pointed at the fake events
-// process; this checks that the Mesh tree fills and that one Approve reaches the fake.
+// process; this checks that VS Code activates it at startup, that the Mesh tree fills and that
+// one Approve reaches the fake.
 
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
@@ -24,6 +25,10 @@ async function waitFor(what, check, ms = 20_000) {
 exports.run = async function run() {
   const ext = vscode.extensions.getExtension("distronode.worldinmotion");
   assert.ok(ext, "the extension is installed in the development host");
+  // VS Code activates it once it has started (onStartupFinished), with no view opened: the
+  // session must be online while the panel is closed.
+  await waitFor("VS Code to activate the extension at startup", () => ext.isActive);
+  console.log("smoke: VS Code activated the extension at startup");
   const api = await ext.activate();
   assert.ok(api, "test mode returns the test API");
 

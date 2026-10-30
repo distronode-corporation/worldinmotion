@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
+    "@noble/ciphers": "2.4.0",
     "@worldinmotion/a2a": "0.1.4",
     "@worldinmotion/bot": "0.1.4",
     "@worldinmotion/ci": "0.1.4",

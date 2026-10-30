@@ -7,7 +7,8 @@
 // `prekeys.json` (SPEC section 6b), so those, too, open only in the signer.
 
 import { b64u, canonBytes, deviceIdFromSignPub, deviceKeysFromSecrets, fromUtf8, isName, randomBytes, utf8, type DeviceKeys, type Prekey } from "@worldinmotion/protocol";
-import { createCipheriv, createDecipheriv, scrypt, type ScryptOptions } from "node:crypto";
+import { chacha20poly1305 } from "@noble/ciphers/chacha.js";
+import { scrypt, type ScryptOptions } from "node:crypto";
 import { promisify } from "node:util";
 
 /** scrypt with N = 2^17, r = 8, p = 1: 128 MiB and about half a second per guess on a laptop. */
@@ -56,22 +57,20 @@ function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
   return out;
 }
 
-/** ChaCha20-Poly1305 with a fresh 12-byte nonce, from Node's crypto. */
+/**
+ * ChaCha20-Poly1305 (RFC 8439, the tag after the ciphertext) with a fresh 12-byte nonce. Noble's,
+ * not node:crypto's: the signer may run on VS Code's own Node (Electron), whose BoringSSL has no
+ * such cipher. The bytes are the same either way, so key files sealed before still open.
+ */
 function aeadSeal(key: Uint8Array, aad: Uint8Array, plaintext: Uint8Array): { nonce: Uint8Array; sealed: Uint8Array } {
   const nonce = randomBytes(12);
-  const cipher = createCipheriv("chacha20-poly1305", key, nonce, { authTagLength: 16 });
-  cipher.setAAD(aad, { plaintextLength: plaintext.length });
-  const body = Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
-  return { nonce, sealed: new Uint8Array(body) };
+  return { nonce, sealed: chacha20poly1305(key, nonce, aad).encrypt(plaintext) };
 }
 
 /** Opens what `aeadSeal` sealed; undefined when the key, nonce, AAD or bytes are wrong. */
 function aeadOpen(key: Uint8Array, nonce: Uint8Array, aad: Uint8Array, sealed: Uint8Array): Uint8Array | undefined {
   try {
-    const decipher = createDecipheriv("chacha20-poly1305", key, nonce, { authTagLength: 16 });
-    decipher.setAAD(aad, { plaintextLength: sealed.length - 16 });
-    decipher.setAuthTag(sealed.subarray(sealed.length - 16));
-    return new Uint8Array(Buffer.concat([decipher.update(sealed.subarray(0, sealed.length - 16)), decipher.final()]));
+    return chacha20poly1305(key, nonce, aad).decrypt(sealed);
   } catch {
     return undefined;
   }

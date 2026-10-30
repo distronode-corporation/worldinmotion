@@ -1727,16 +1727,24 @@ export class MeshSession extends EventEmitter {
    */
   async inbox(peek: boolean): Promise<SpoolItem[]> {
     const kept = await this.spool.relayed();
-    const items = await this.spool.unread();
-    if (!peek) {
-      // Read here, so no sweep (this one or a concurrent pass) keeps them in the relayed box.
-      for (const i of items) if (i.relayed === true) this.readRelayed.add(i.id);
-      if (items.length > 0) await this.take(items.at(-1)!.cursor);
-      // A pass that was already writing one to the box when the read began is undone here.
-      await this.spool.dismissRelayed([...kept.map((i) => i.id), ...this.readRelayed]);
-    }
-    if (!peek) this.informed([...kept, ...items]);
-    return [...kept, ...items];
+    const items = [...kept, ...(await this.spool.unread())];
+    if (!peek) await this.markRead(items);
+    return items;
+  }
+
+  /**
+   * Marks items an `inbox(true)` returned as read: the spool's up to the newest of them, and the
+   * relayed ones out of the box. A caller that shows them one at a time (`wim inbox`) marks each
+   * once it is shown, so what it could not show stays unread.
+   */
+  async markRead(items: readonly SpoolItem[]): Promise<void> {
+    // Read here, so no sweep (this one or a concurrent pass) keeps them in the relayed box.
+    for (const i of items) if (i.relayed === true) this.readRelayed.add(i.id);
+    const newest = Math.max(0, ...items.map((i) => i.cursor));
+    if (newest > this.spool.taken) await this.take(newest);
+    // A pass that was already writing one to the box when the read began is undone here.
+    await this.spool.dismissRelayed([...this.readRelayed]);
+    this.informed(items);
   }
 
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */

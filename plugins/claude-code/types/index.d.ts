@@ -23,8 +23,12 @@ export type WimItem = {
   at: number
 }
 
-/** An item appended while a request was already under way, kept to re-deliver. */
-export type WimLate = { name: string; text: string }
+/**
+ * An item appended while a request was already under way. Its text is in the
+ * conversation once; at the turn's end the model is told it is there, by
+ * sender and id, and the text is not repeated.
+ */
+export type WimLate = { name: string; from: string; id: string }
 
 /**
  * An item a bot, CI or gateway relayed for a device. It never starts a turn:
@@ -95,6 +99,8 @@ declare module 'claude-code' {
       /** Mesh items submitted whose turn has not started yet. */
       pendingSubmits: Shaped<string[]>
       late: Shaped<WimLate[]>
+      /** Spool items a delivery pass claimed whose cursor has not moved past them yet. */
+      handed: Shaped<string[]>
       recent: Shaped<WimItem[]>
       panel: Shaped<WimPanel>
       relayed: Shaped<WimRelayed[]>

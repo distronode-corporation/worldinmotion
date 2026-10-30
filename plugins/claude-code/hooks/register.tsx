@@ -63,7 +63,6 @@ const TOKEN_REFUSED = 'internal operations need the token from hello'
 const SETUP_LINE =
   'Set it up in a terminal you opened yourself (not this chat): `npm install --global worldinmotion` (if `wim` is then not found: `export PATH="$(npm prefix -g)/bin:$PATH"`), then `wim init --relay <url>` for a new mesh, or `wim join <invite>` to join one. Then start a new Claude Code session.'
 const INTERNAL_DESCRIPTION = 'Internal to the worldinmotion plugin. Do not call.'
-const AGAIN ='(delivered again: it arrived as your last turn ended)'
 const PEERS_HEADING = 'worldinmotion peers (other machines; address with name@device)'
 
 const EMPTY_PANEL: WimPanel = {
@@ -98,7 +97,11 @@ const pendingLink = atom({ plugin: 'worldinmotion', key: 'pendingLink' } as cons
 // The last token the client issued this tab, kept when a wait ends without a
 // link: the client accepts a repeat handshake only with it.
 const issuedToken = atom({ plugin: 'worldinmotion', key: 'issuedToken' } as const, '', { shape: 'issued-token-1' })
-const late = atom({ plugin: 'worldinmotion', key: 'late' } as const, [], { shape: 'late-1' })
+const late = atom({ plugin: 'worldinmotion', key: 'late' } as const, [], { shape: 'late-2' })
+// Spool items a delivery pass claimed: being handed over now, or handed over
+// with the cursor not past them yet (an item before them is still to come).
+// A claimed item is never handed over again.
+const handed = atom({ plugin: 'worldinmotion', key: 'handed' } as const, [], { shape: 'handed-1' })
 const recent = atom({ plugin: 'worldinmotion', key: 'recent' } as const, [], { shape: 'recent-1' })
 const relayed = atom({ plugin: 'worldinmotion', key: 'relayed' } as const, [], { shape: 'relayed-2' })
 const teammates = atom({ plugin: 'worldinmotion', key: 'teammates' } as const, [], { shape: 'teammates-1' })
@@ -248,10 +251,29 @@ async function takeSubmit($: EngineInterface, text: string): Promise<boolean> {
   return isMesh
 }
 
-async function redeliverLate($: EngineInterface): Promise<void> {
+/**
+ * What starts a turn for items appended after the last request began. Their
+ * text is already in the conversation, so it is named, not repeated: a
+ * message reaches the session once.
+ */
+function lateLine(items: readonly WimLate[]): string {
+  const one = items.length === 1
+  const which = items.map(item => `${item.from} (id ${item.id})`).join(', ')
+  return `(worldinmotion: ${one ? 'a message' : `${items.length} messages`} from ${which} arrived as your last turn ended. ${one ? 'It is' : 'They are'} in the conversation above, not repeated here.)`
+}
+
+/** Starts a turn for the late items, if any, with `text` after the line that names them. */
+async function tellLate($: EngineInterface, text = ''): Promise<void> {
   const pending = await takeLate($)
-  if (pending.length === 0) return
-  await submit($, `${AGAIN}\n\n${pending.map(one => one.text).join('\n\n')}`)
+  if (pending.length === 0) {
+    if (text !== '') await submit($, text)
+    return
+  }
+  await submit($, text === '' ? lateLine(pending) : `${lateLine(pending)}\n\n${text}`).catch(async error => {
+    // Not told: kept for the next turn's end.
+    await update($, late, list => [...pending, ...list])
+    throw error
+  })
 }
 
 /** Inside a hook dispatch only: an MCP call from a timer raises a permission prompt. */
@@ -292,6 +314,7 @@ async function adoptLink($: EngineInterface, answered: WimLink): Promise<boolean
     const onDisk = await $.fs.read(`${answered.spool}/cursor`).catch(() => '')
     const text = typeof onDisk === 'string' ? onDisk.trim() : ''
     await update($, cursor, () => (ITEM_NAME.test(text) ? text : ''))
+    await update($, handed, () => [])
   }
   await update($, problem, () => '')
   await linkedStatus($)
@@ -325,115 +348,165 @@ async function linkFromFile($: EngineInterface): Promise<void> {
   await unlinked($, stands)
 }
 
-/** One poll of the spool: deliver every new item in order, then move the cursor. */
+/**
+ * Where delivery starts: after our cursor, or after the client's `spool/cursor`
+ * when that is further on (its `inbox` or `wait` tool, or a channel push, took
+ * the items up to it), so nothing the session already has comes again.
+ */
+async function startCursor($: EngineInterface, spool: string): Promise<string> {
+  const ours = await read($, cursor)
+  const onDisk = await $.fs.read(`${spool}/cursor`).catch(() => '')
+  const theirs = typeof onDisk === 'string' ? onDisk.trim() : ''
+  return ITEM_NAME.test(theirs) && theirs > ours ? theirs : ours
+}
+
+/** What one pass handed over: the items' pane lines, the idle batch, relayed items left for the pane. */
+type Pass = { seen: WimItem[]; batch: { name: string; text: string }[]; relaysWaiting: number }
+
+/**
+ * Claims a spool item for this pass, false when another pass has it (one still
+ * running from before a reload) or handed it over already.
+ */
+async function claim($: EngineInterface, name: string): Promise<boolean> {
+  let isOurs = false
+  await update($, handed, list => {
+    isOurs = !list.includes(name)
+    return isOurs ? [...list, name] : list
+  })
+  return isOurs
+}
+
+/** Gives back claims whose items were not handed over, for a later pass to take. */
+async function unclaim($: EngineInterface, names: readonly string[]): Promise<void> {
+  await update($, handed, list => list.filter(name => !names.includes(name)))
+}
+
+/**
+ * One poll of the spool: hands every new item over in order, exactly once.
+ * Each item is claimed in `handed` before it is handed over, and the claim is
+ * given back only when it was not, so neither a failure later in the pass nor
+ * a second pass hands an item over again; the cursor then moves past every
+ * claimed item.
+ */
 async function deliver($: EngineInterface): Promise<void> {
   const linked = await read($, link)
   if (linked === null) return
+  const after = await startCursor($, linked.spool)
   const entries = await $.fs.list(linked.spool).catch(() => [])
-  const fresh = newNames(
-    entries.filter(entry => entry.kind === 'file').map(entry => entry.name),
-    await read($, cursor),
-  )
+  const fresh = newNames(entries.filter(entry => entry.kind === 'file').map(entry => entry.name), after)
   if (fresh.length === 0) return
+  const pass: Pass = { seen: [], batch: [], relaysWaiting: 0 }
+  const claimed: string[] = []
+  const done = new Set<string>()
+  try {
+    for (const name of fresh) {
+      if (!(await claim($, name))) continue
+      claimed.push(name)
+      const text = await $.fs.read(`${linked.spool}/${name}`).catch(() => undefined)
+      // Unreadable now (the client may be replacing it): stop here, keep the order.
+      if (typeof text !== 'string') break
+      if (await handOne($, name, text, pass)) done.add(name)
+    }
+    if (pass.relaysWaiting > 0) {
+      const n = pass.relaysWaiting
+      $.ui.toast(`worldinmotion: ${n} relayed item${n === 1 ? '' : 's'} in the inbox (/wim)`)
+    }
+    await sendBatch($, pass.batch)
+    for (const one of pass.batch) done.add(one.name)
+  } finally {
+    await unclaim($, claimed.filter(name => !done.has(name)))
+    await moveCursor($, linked.spool, fresh, after, pass.seen)
+  }
+}
 
-  const toModel: WimLate[] = []
-  const relays: WimRelayed[] = []
-  const seen: WimItem[] = []
-  let last = ''
+/**
+ * The items a pass found while idle, as one turn. Idle still (the turn may have
+ * ended while the pass appended), the turn is headed by the line that names any
+ * item appended too late for the last request.
+ */
+async function sendBatch($: EngineInterface, batch: Pass['batch']): Promise<void> {
+  const text = batch.map(one => one.text).join('\n\n')
+  if (!(await read($, busy))) await tellLate($, text)
+  else if (text !== '') await submit($, text)
+}
+
+/**
+ * Hands one claimed spool item over: true once it is, false when it waits in
+ * the pass's idle batch (sent as one turn at the end of the pass).
+ */
+async function handOne($: EngineInterface, name: string, text: string, pass: Pass): Promise<boolean> {
+  const item = parseItem(text)
+  if (item === undefined) {
+    $.ui.log(`worldinmotion: skipped ${name}, not a spool item`)
+    return true
+  }
+  pass.seen.push({ name, kind: item.kind, from: item.from, line: firstLine(item.rendered), at: item.at })
+  if (item.kind === 'notice' && item.held !== undefined) {
+    // For the person, not the model: spending a turn on it would only relay it.
+    const n = item.held
+    $.ui.toast(`worldinmotion: ${n} message${n === 1 ? '' : 's'} held for your approval (/wim)`)
+  } else if (item.kind === 'notice' && item.heldBy !== undefined) {
+    // A message this session sent waits for the recipient device's person: theirs to approve.
+    $.ui.toast(`worldinmotion: ${item.heldBy} is holding your message for its person's approval; it is not delivered until they approve it there`)
+  } else if (item.kind === 'notice' && item.forPerson) {
+    // Something only the person can do (restart this session): a toast, and
+    // kept for the status line and /wim status until the session ends.
+    const line = noticeLine(item.rendered)
+    $.ui.toast(`worldinmotion: ${line}`)
+    await update($, alerts, list => [...list, line].slice(-RECENT_MAX))
+  } else if (item.relayed) {
+    const one: WimRelayed = { name, id: item.id, from: item.from, line: firstLine(item.rendered), at: item.at, text: item.rendered, isShown: false, isDismissed: false }
+    if (!(await keepRelayed($, one))) pass.relaysWaiting++
+  } else if (!(await read($, busy))) {
+    // Idle: one turn for everything the pass finds (sendBatch).
+    pass.batch.push({ name, text: item.rendered })
+    return false
+  } else {
+    const appended = await $.session.append({ message: { type: 'user', content: [{ type: 'text', text: item.rendered }] } })
+    // Refused as a row: a turn of its own instead. Appended: if the turn's last
+    // request had already begun, the turn's end names it (tellLate), once.
+    if (appended.deny !== undefined) await submit($, item.rendered)
+    else await update($, late, list => [...list, { name, from: item.from, id: item.id }])
+  }
+  return true
+}
+
+/**
+ * Moves the cursor past every fresh item claimed without a gap, never back,
+ * and drops the claims it passed. Claims beyond a gap stay, so the next pass
+ * skips them.
+ */
+async function moveCursor($: EngineInterface, spool: string, fresh: readonly string[], after: string, seen: readonly WimItem[]): Promise<void> {
+  const claimed = new Set(await read($, handed))
+  let last = after
   for (const name of fresh) {
-    const text = await $.fs.read(`${linked.spool}/${name}`).catch(() => undefined)
-    // Unreadable now (the client may be replacing it): stop here, keep the order.
-    if (typeof text !== 'string') break
+    if (!claimed.has(name)) break
     last = name
-    const item = parseItem(text)
-    if (item === undefined) {
-      $.ui.log(`worldinmotion: skipped ${name}, not a spool item`)
-      continue
-    }
-    seen.push({ name, kind: item.kind, from: item.from, line: firstLine(item.rendered), at: item.at })
-    if (item.kind === 'notice' && item.held !== undefined) {
-      // For the person, not the model: spending a turn on it would only relay it.
-      const n = item.held
-      $.ui.toast(`worldinmotion: ${n} message${n === 1 ? '' : 's'} held for your approval (/wim)`)
-      continue
-    }
-    if (item.kind === 'notice' && item.heldBy !== undefined) {
-      // A message this session sent waits for the recipient device's person: theirs to approve.
-      $.ui.toast(`worldinmotion: ${item.heldBy} is holding your message for its person's approval; it is not delivered until they approve it there`)
-      continue
-    }
-    if (item.kind === 'notice' && item.forPerson) {
-      // Something only the person can do (restart this session): a toast, and
-      // kept for the status line and /wim status until the session ends.
-      const line = noticeLine(item.rendered)
-      $.ui.toast(`worldinmotion: ${line}`)
-      await update($, alerts, list => [...list, line].slice(-RECENT_MAX))
-      continue
-    }
-    if (item.relayed) {
-      relays.push({
-        name,
-        id: item.id,
-        from: item.from,
-        line: firstLine(item.rendered),
-        at: item.at,
-        text: item.rendered,
-        isShown: false,
-        isDismissed: false,
-      })
-      continue
-    }
-    toModel.push({ name, text: item.rendered })
   }
-  if (last === '') return
-
-  if (relays.length > 0) await deliverRelayed($, relays)
-
-  if (toModel.length > 0) {
-    if (await read($, busy)) {
-      for (const one of toModel) {
-        const appended = await $.session.append({
-          message: { type: 'user', content: [{ type: 'text', text: one.text }] },
-        })
-        if (appended.deny !== undefined) {
-          await submit($, one.text)
-          continue
-        }
-        await update($, late, list => [...list, one])
-      }
-      // The turn may have ended while we appended; its re-delivery missed these.
-      if (!(await read($, busy))) await redeliverLate($)
-    } else {
-      await submit($, toModel.map(one => one.text).join('\n\n'))
-    }
-  }
-
-  await $.fs.write(`${linked.spool}/cursor`, last)
-  await update($, cursor, () => last)
-  await update($, recent, list => [...list, ...seen].slice(-RECENT_MAX))
+  await update($, handed, list => list.filter(name => name > last))
+  // What this pass handed over (its claims stand), for the pane's Recent list.
+  const shown = seen.filter(item => claimed.has(item.name))
+  if (shown.length > 0) await update($, recent, list => [...list, ...shown].slice(-RECENT_MAX))
+  if (last <= (await read($, cursor))) return
+  await update($, cursor, value => (last > value ? last : value))
+  await $.fs.write(`${spool}/cursor`, last)
 }
 
 /**
  * Relayed items reach the model only inside a turn that is already running:
  * a bot or gateway must not be able to start one. The rest wait in the pane.
+ * True when it was shown to the model.
  */
-async function deliverRelayed($: EngineInterface, relays: WimRelayed[]): Promise<void> {
-  const kept: WimRelayed[] = []
-  for (const one of relays) {
-    let isShown = false
-    if (await read($, busy)) {
-      const appended = await $.session.append({
-        message: { type: 'user', content: [{ type: 'text', text: one.text }] },
-      })
-      isShown = appended.deny === undefined
-    }
-    kept.push({ ...one, isShown })
+async function keepRelayed($: EngineInterface, one: WimRelayed): Promise<boolean> {
+  let isShown = false
+  if (await read($, busy)) {
+    const appended = await $.session.append({
+      message: { type: 'user', content: [{ type: 'text', text: one.text }] },
+    })
+    isShown = appended.deny === undefined
   }
-  await update($, relayed, list => [...list, ...kept].slice(-RECENT_MAX))
-  const waiting = kept.filter(one => !one.isShown).length
-  if (waiting > 0) {
-    $.ui.toast(`worldinmotion: ${waiting} relayed item${waiting === 1 ? '' : 's'} in the inbox (/wim)`)
-  }
+  await update($, relayed, list => [...list, { ...one, isShown }].slice(-RECENT_MAX))
+  return isShown
 }
 
 /** The person's press hands a relayed item to the session, as their own act. */
@@ -771,7 +844,7 @@ export const register: Register = on => {
     await update($, meshTurn, () => false)
     await writePresence($, 'idle')
     // Not awaited: the submitted turn starts only after this one has ended.
-    void redeliverLate($).catch(error => $.ui.log(`worldinmotion: ${String(error)}`))
+    void tellLate($).catch(error => $.ui.log(`worldinmotion: ${String(error)}`))
     return next(e)
   })
 

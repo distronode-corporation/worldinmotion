@@ -14540,8 +14540,8 @@ var init_JsonShapeSerializer2 = __esm({
             const next = j5 + 1 < z2 ? s3.charCodeAt(j5 + 1) : 0;
             if (next >= 56320 && next <= 57343) {
               this.ensure(4);
-              const { written } = encoder2.encodeInto(s3.substring(j5, j5 + 2), this.json.subarray(this.i));
-              this.i += written;
+              const { written: written2 } = encoder2.encodeInto(s3.substring(j5, j5 + 2), this.json.subarray(this.i));
+              this.i += written2;
               ++j5;
             } else {
               this.ensure(6 + (z2 - j5 - 1) * 3 + 1);
@@ -90013,7 +90013,7 @@ var PendingJoins = class {
 import { verify } from "node:crypto";
 
 // src/channel.ts
-import { createCipheriv, createDecipheriv, createHash as createHash3, createPublicKey, diffieHellman, generateKeyPairSync, hkdfSync } from "node:crypto";
+import { createHash as createHash3, createPublicKey, diffieHellman, generateKeyPairSync, hkdfSync } from "node:crypto";
 var HELLO_LABEL = "wim-agent/2 hello\n";
 var CERT_LABEL = "wim-agent/2 signer\n";
 var ED25519_SPKI = Buffer.from("302a300506032b6570032100", "hex");
@@ -90051,18 +90051,14 @@ var Channel = class _Channel {
   }
   /** Seals one line's text: b64u of ciphertext and tag. */
   seal(text2) {
-    const cipher = createCipheriv("chacha20-poly1305", this.sendKey, _Channel.nonce(this.sent++), { authTagLength: 16 });
-    return b64u.encode(Buffer.concat([cipher.update(text2, "utf8"), cipher.final(), cipher.getAuthTag()]));
+    return b64u.encode(chacha20poly1305(this.sendKey, _Channel.nonce(this.sent++)).encrypt(Buffer.from(text2, "utf8")));
   }
   /** Opens what the other end sealed next; undefined for anything else. */
   open(sealed) {
     try {
-      const bytes3 = Buffer.from(b64u.decode(sealed));
-      const decipher = createDecipheriv("chacha20-poly1305", this.recvKey, _Channel.nonce(this.received), { authTagLength: 16 });
-      decipher.setAuthTag(bytes3.subarray(bytes3.length - 16));
-      const text2 = Buffer.concat([decipher.update(bytes3.subarray(0, bytes3.length - 16)), decipher.final()]).toString("utf8");
+      const plain = chacha20poly1305(this.recvKey, _Channel.nonce(this.received)).decrypt(b64u.decode(sealed));
       this.received++;
-      return text2;
+      return Buffer.from(plain).toString("utf8");
     } catch {
       return void 0;
     }
@@ -91566,16 +91562,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   async deliverNow(item, entry) {
     this.informed([item]);
-    const written = await this.spool.write(item);
+    const written2 = await this.spool.write(item);
     await this.save({});
     if (entry !== void 0) await this.history.append(entry);
-    this.emit("item", written);
-    if (entry !== void 0) this.emit("message", { ...entry, cursor: written.cursor });
-    if (this.push !== void 0 && written.relayed !== true) {
-      await this.push(written);
-      await this.take(written.cursor);
+    this.emit("item", written2);
+    if (entry !== void 0) this.emit("message", { ...entry, cursor: written2.cursor });
+    if (this.push !== void 0 && written2.relayed !== true) {
+      await this.push(written2);
+      await this.take(written2.cursor);
     }
-    return written;
+    return written2;
   }
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
   noticeLater(from, line, forPerson = false) {
@@ -92208,14 +92204,21 @@ ${frameEntry(entry)}`);
    */
   async inbox(peek) {
     const kept = await this.spool.relayed();
-    const items = await this.spool.unread();
-    if (!peek) {
-      for (const i6 of items) if (i6.relayed === true) this.readRelayed.add(i6.id);
-      if (items.length > 0) await this.take(items.at(-1).cursor);
-      await this.spool.dismissRelayed([...kept.map((i6) => i6.id), ...this.readRelayed]);
-    }
-    if (!peek) this.informed([...kept, ...items]);
-    return [...kept, ...items];
+    const items = [...kept, ...await this.spool.unread()];
+    if (!peek) await this.markRead(items);
+    return items;
+  }
+  /**
+   * Marks items an `inbox(true)` returned as read: the spool's up to the newest of them, and the
+   * relayed ones out of the box. A caller that shows them one at a time (`wim inbox`) marks each
+   * once it is shown, so what it could not show stays unread.
+   */
+  async markRead(items) {
+    for (const i6 of items) if (i6.relayed === true) this.readRelayed.add(i6.id);
+    const newest = Math.max(0, ...items.map((i6) => i6.cursor));
+    if (newest > this.spool.taken) await this.take(newest);
+    await this.spool.dismissRelayed([...this.readRelayed]);
+    this.informed(items);
   }
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */
   next(timeoutMs, onTick, tickMs = 3e4) {
@@ -117890,7 +117893,7 @@ function endpointFiles(platform2) {
 }
 
 // src/vault.ts
-import { createCipheriv as createCipheriv2, createDecipheriv as createDecipheriv2, scrypt } from "node:crypto";
+import { scrypt } from "node:crypto";
 import { promisify as promisify2 } from "node:util";
 var DEFAULT_KDF = { N: 2 ** 17, r: 8, p: 1 };
 var MAX_N = 2 ** 18;
@@ -117912,17 +117915,11 @@ function concat2(a5, b5) {
 }
 function aeadSeal(key2, aad, plaintext) {
   const nonce = randomBytes2(12);
-  const cipher = createCipheriv2("chacha20-poly1305", key2, nonce, { authTagLength: 16 });
-  cipher.setAAD(aad, { plaintextLength: plaintext.length });
-  const body = Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
-  return { nonce, sealed: new Uint8Array(body) };
+  return { nonce, sealed: chacha20poly1305(key2, nonce, aad).encrypt(plaintext) };
 }
 function aeadOpen(key2, nonce, aad, sealed) {
   try {
-    const decipher = createDecipheriv2("chacha20-poly1305", key2, nonce, { authTagLength: 16 });
-    decipher.setAAD(aad, { plaintextLength: sealed.length - 16 });
-    decipher.setAuthTag(sealed.subarray(sealed.length - 16));
-    return new Uint8Array(Buffer.concat([decipher.update(sealed.subarray(0, sealed.length - 16)), decipher.final()]));
+    return chacha20poly1305(key2, nonce, aad).decrypt(sealed);
   } catch {
     return void 0;
   }
@@ -122420,7 +122417,7 @@ async function storeInKeyring(ctx, o3, file2) {
 
 // src/cli.ts
 var VERSION = "0.1.4";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
@@ -122433,7 +122430,7 @@ var COMMAND_FLAGS = {
   send: ["allow-secret", "as", "wait"],
   ping: ["all", "timeout"],
   watch: ["as"],
-  inbox: ["as"],
+  inbox: ["peek", "as"],
   events: ["json", "as"],
   history: ["session", "peer", "limit"],
   bot: ["as"],
@@ -122503,7 +122500,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
-  wim inbox [--as <name>]
+  wim inbox [--peek] [--as <name>]
   wim events --json [--as <name>]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
@@ -123295,13 +123292,26 @@ async function inbox(ctx) {
   try {
     await s3.listPeers();
     await s3.settled();
-    const items = await s3.inbox(false);
-    if (items.length === 0) ctx.io.out(`Nothing new for ${s3.address}.`);
-    for (const item of items) ctx.io.out(sanitizeForDisplay(item.rendered));
-    return 0;
+    return await showInbox(ctx, s3, await s3.inbox(true));
   } finally {
     await ctx.finish(s3);
   }
+}
+function showInbox(ctx, s3, items) {
+  if (items.length === 0) ctx.io.out(`Nothing new for ${s3.address}.`);
+  const print = ctx.io.print ?? ((line) => (ctx.io.out(line), Promise.resolve(true)));
+  const mark = ctx.args.flags.get("peek") === true ? () => Promise.resolve() : (item) => s3.markRead([item]);
+  return printEach(items, print, mark).then((shown) => {
+    if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
+    return 0;
+  });
+}
+function printEach(items, print, mark) {
+  const [first, ...rest] = items;
+  if (first === void 0) return Promise.resolve(0);
+  return print(sanitizeForDisplay(first.rendered)).then(
+    (took) => took ? mark(first).then(() => printEach(rest, print, mark)).then((n3) => n3 + 1) : 0
+  );
 }
 async function held(ctx) {
   const [action = "list", arg] = ctx.args.positional;
@@ -123527,15 +123537,26 @@ function ask(input2, open3, question) {
     rl.once("close", () => resolve3(""));
   }).finally(() => rl.close());
 }
+function written(out, text2) {
+  if (out.destroyed || out.writableEnded) return Promise.resolve(false);
+  return new Promise((resolve3) => void out.write(text2, (error63) => resolve3(error63 == null)));
+}
 function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kill: (pid, s3) => void process.kill(pid, s3), wim: wimCommand }) {
   const stop = new AbortController();
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) proc.once(signal, () => stop.abort());
   const parent = proc.ppid;
   proc.on("unhandledRejection", (reason) => void proc.stderr.write(`wim: unexpected error: ${reason instanceof Error ? reason.message : String(reason)}
 `));
+  let listening = false;
   return {
     out: (line) => void proc.stdout.write(`${line}
 `),
+    print: (line) => {
+      if (!listening) proc.stdout.on("error", () => void 0);
+      listening = true;
+      return written(proc.stdout, `${line}
+`);
+    },
     // `wim mcp` owns stdout for the protocol, so diagnostics always go to stderr.
     err: (line) => void proc.stderr.write(`${line}
 `),

@@ -15,6 +15,26 @@ body line with a bracket.
 
 ### Fixed
 
+- **A message that arrived as a Claude Code turn ended reached the tab twice.** The plugin appended
+  it to the running turn and, since no request of that turn had read it, submitted its text again
+  as "(delivered again: it arrived as your last turn ended)". The new turn now names it by sender
+  and id instead ("a message from reviewer@laptop (id ...) arrived as your last turn ended. It is
+  in the conversation above, not repeated here."), so its text is in the conversation once. Each
+  spool item is also claimed before the plugin hands it over and the cursor moves past it even
+  when a later item fails, so a failed submit, or a pass still running after a reload, never hands
+  an item over a second time; and items the client's `inbox` or `wait` tool already handed to the
+  session (its `spool/cursor` is past them) are not delivered again.
+- **`wim inbox | head` marked everything read, even what `head` cut off.** `wim inbox` now prints
+  one item at a time and marks each read once stdout took it; when the reader goes away (EPIPE),
+  it stops, says on stderr how many stay unread, and leaves them for the next run.
+- **The VS Code extension's session (`vscode@<device>`) never came online on a device whose keys
+  are in the signer.** The extension runs the client on VS Code's own Node (Electron), whose
+  BoringSSL has no ChaCha20-Poly1305, so the encrypted channel to the signer failed with "Unknown
+  cipher" and every connection attempt with it. The signer channel and the key file now use the
+  same cipher from `@noble/ciphers`, byte for byte as before, so signers, clients and key files of
+  0.1.4 still fit. The extension already started its session when VS Code finished starting
+  (`onStartupFinished`); the integration smoke test now checks that VS Code activates it with no
+  view opened.
 - **A Claude Code tab opened before the signer was up never heard the mesh.** `wim mcp` decided
   once, at its start, that it could not open a session ("no signer is running") and answered that
   until the tab was restarted, and the plugin handshook only at the session's start and showed a
@@ -35,6 +55,7 @@ body line with a bracket.
 
 ### Added
 
+- **`wim inbox --peek`** prints the terminal inbox and marks nothing read.
 - **`wim agent autostart enable | disable | status`**: a login item (a launchd agent on macOS, an
   XDG autostart entry on Linux, a logon task on Windows) that starts the signer at each log in with
   `wim agent start --foreground --ask-gui`, which asks for the passphrase in a native dialog; its

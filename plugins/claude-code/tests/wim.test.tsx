@@ -84,7 +84,14 @@ type World = {
  */
 function world(
   on: On,
-  options: { connected?: boolean; tools?: Record<string, Responder>; drop?: string; isWriteDenied?: (path: string) => boolean } = {},
+  options: {
+    connected?: boolean
+    tools?: Record<string, Responder>
+    drop?: string
+    isWriteDenied?: (path: string) => boolean
+    /** True for a submit the engine fails (a hook that throws). */
+    failSubmit?: () => boolean
+  } = {},
 ): World {
   const w: World = {
     token: TOKEN,
@@ -170,6 +177,7 @@ function world(
     return { result: { questions: e.questions, answers: { [question]: w.answer } } }
   })
   on('prompt.submit', (_, e) => {
+    if (options.failSubmit?.()) throw new Error('the engine could not submit')
     if (options.drop !== undefined) return { drop: options.drop }
     w.submitted.push(e.text)
     return { text: e.text }
@@ -198,6 +206,12 @@ const WIM = {
   presentation: { isFullscreen: true, columns: 160 },
 } as const
 const COMPLETE = { answer: 'done', durationMs: 5, isAborted: false, turnId: 't1', reason: 'answer' } as const
+
+/** How many times `text` reached the session: as appended rows and as submitted turns. */
+function timesShown(session: { appended: () => readonly { message: { content: unknown } }[] }, w: World, text: string): number {
+  const count = (whole: string) => whole.split(text).length - 1
+  return session.appended().reduce((n, row) => n + count(JSON.stringify(row.message.content)), 0) + w.submitted.reduce((n, one) => n + count(one), 0)
+}
 
 test('the handshake calls _hello with the Claude session id', async ($, on) => {
   mock.clock(on)
@@ -596,10 +610,10 @@ test('while busy, items are appended, and the cursor moves', async ($, on) => {
   expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000007.json')
 })
 
-test('an item appended after the last request began is delivered again once', async ($, on) => {
+test('an item appended after the last request began is named at the turn end, once, and never repeated', async ($, on) => {
   const clock = mock.clock(on)
   const w = world(on)
-  mock.session(on)
+  const session = mock.session(on)
   await $.session.start(START)
   await $.turn.start({ text: 'work', turnId: 't1' })
 
@@ -618,10 +632,13 @@ test('an item appended after the last request began is delivered again once', as
   await $.turn.complete(COMPLETE)
   await clock.settle()
 
-  expect(w.submitted).toHaveLength(1)
-  expect(w.submitted[0]).toStartWith('(delivered again: it arrived as your last turn ended)')
-  expect(w.submitted[0]).toContain('late')
-  expect(w.submitted[0]).not.toContain('early')
+  // Its text is in the conversation once, as the appended row; the turn the
+  // plugin starts names it by sender and id instead of repeating it.
+  expect(timesShown(session, w, 'late')).toBe(1)
+  expect(w.submitted).toEqual([
+    `(worldinmotion: a message from reviewer@laptop (id ${ulidOf(2)}) arrived as your last turn ended. It is in the conversation above, not repeated here.)`,
+  ])
+  expect(timesShown(session, w, 'early')).toBe(1)
   expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
 
   // Once: the next turn's end submits nothing more.
@@ -629,6 +646,126 @@ test('an item appended after the last request began is delivered again once', as
   await $.turn.complete({ ...COMPLETE, turnId: 't2' })
   await clock.settle()
   expect(w.submitted).toHaveLength(1)
+})
+
+test('a reply whose append is still under way as the turn ends reaches the session once', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  const session = mock.session(on)
+  // The engine takes 10 ms to store a row: the turn ends in between.
+  on('session.append', { door: 'note' }, async (_, e, next) => {
+    await clock.sleep(10)
+    return next(e)
+  })
+  await $.session.start(START)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  const step = $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 3 })
+  for await (const _ of step) void _
+
+  // The reply and, just behind it, a second message, in one pass.
+  w.files.set(...item(1, 'the reply'))
+  w.files.set(...item(2, 'right behind it'))
+  await clock.advance(250)
+  expect(session.appended()).toHaveLength(0)
+  await $.turn.complete(COMPLETE)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  await clock.advance(50)
+  await clock.settle()
+
+  // The reply is the appended row; the turn the plugin starts names it and
+  // carries the second message, which came after the turn had ended.
+  expect(timesShown(session, w, 'the reply')).toBe(1)
+  expect(timesShown(session, w, 'right behind it')).toBe(1)
+  expect(session.appended()).toHaveLength(1)
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toStartWith(`(worldinmotion: a message from reviewer@laptop (id ${ulidOf(1)}) arrived as your last turn ended.`)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
+
+  await clock.advance(1000)
+  expect(w.submitted).toHaveLength(1)
+  expect(session.appended()).toHaveLength(1)
+})
+
+test('items the client already took (its cursor file is past them) are not delivered again', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'read through inbox'))
+  w.files.set(...item(2, 'read through wait'))
+  w.files.set(...item(3, 'new'))
+  // The client's `inbox` or `wait` tool took the first two and moved the file.
+  w.files.set(`${SPOOL}/cursor`, '000000000002.json\n')
+  await clock.advance(250)
+  await clock.settle()
+
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('new')
+  expect(w.submitted[0]).not.toContain('read through')
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000003.json')
+})
+
+test('a failure part-way through a pass hands nothing over twice', async ($, on) => {
+  const clock = mock.clock(on)
+  let isRefusing = true
+  const w = world(on, {
+    failSubmit: () => {
+      const refuse = isRefusing
+      isRefusing = false
+      return refuse
+    },
+  })
+  const session = mock.session(on)
+  // A hook above refuses to store the second as a row, so it needs a turn of
+  // its own, and the engine fails the first submit.
+  on('session.append', { door: 'note' }, (_, e, next) =>
+    JSON.stringify(e.message.content).includes('second') ? { deny: 'not as a row' } : next(e),
+  )
+  await $.session.start(START)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  w.files.set(...item(1, 'first'))
+  w.files.set(...item(2, 'second'))
+  w.files.set(...item(3, 'third'))
+  await clock.advance(250)
+  await clock.settle()
+  // The first went; the cursor moved past it and no further.
+  expect(timesShown(session, w, 'first')).toBe(1)
+  expect(timesShown(session, w, 'second')).toBe(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+
+  await clock.advance(250)
+  await clock.settle()
+  for (const text of ['first', 'second', 'third']) expect(timesShown(session, w, text)).toBe(1)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000003.json')
+})
+
+test('an item handed over behind one that failed is not handed over again', async ($, on) => {
+  const clock = mock.clock(on)
+  let isRefusing = true
+  const w = world(on, {
+    failSubmit: () => {
+      const refuse = isRefusing
+      isRefusing = false
+      return refuse
+    },
+  })
+  await $.session.start(START)
+  w.files.set(...item(1, 'please look'))
+  w.files.set(...item(2, '', { kind: 'notice', held: 2 }))
+  await clock.advance(250)
+  await clock.settle()
+  // The notice was shown; the message's turn could not be started.
+  expect(w.toasts).toEqual(['worldinmotion: 2 messages held for your approval (/wim)'])
+  expect(w.submitted).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('please look')
+  // The notice is not shown a second time, and the cursor is past both.
+  expect(w.toasts).toHaveLength(1)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
 })
 
 test('a held notice raises a toast and does not start a turn', async ($, on) => {

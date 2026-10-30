@@ -5,8 +5,11 @@
 // sealed. A process in the middle (a proxy on the socket path) can relay the hello, but it holds
 // neither secret: it can read nothing after it, and forge or change nothing.
 
+import { chacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { b64u, canonBytes } from "@worldinmotion/protocol";
-import { createCipheriv, createDecipheriv, createHash, createPublicKey, diffieHellman, generateKeyPairSync, hkdfSync, type KeyObject } from "node:crypto";
+// Not ChaCha20-Poly1305 from node:crypto: the VS Code extension runs this client on VS Code's own
+// Node (Electron), whose BoringSSL has no such cipher ("Unknown cipher"), so the AEAD is noble's.
+import { createHash, createPublicKey, diffieHellman, generateKeyPairSync, hkdfSync, type KeyObject } from "node:crypto";
 
 /** The label of the signer's proof (never a `wim/1` signature type). */
 export const HELLO_LABEL = "wim-agent/2 hello\n";
@@ -73,7 +76,7 @@ export class Channel {
     this.recvKey = recvKey;
   }
 
-  private static nonce(n: number): Buffer {
+  private static nonce(n: number): Uint8Array {
     const nonce = Buffer.alloc(12);
     nonce.writeUIntBE(n, 6, 6);
     return nonce;
@@ -81,19 +84,15 @@ export class Channel {
 
   /** Seals one line's text: b64u of ciphertext and tag. */
   seal(text: string): string {
-    const cipher = createCipheriv("chacha20-poly1305", this.sendKey, Channel.nonce(this.sent++), { authTagLength: 16 });
-    return b64u.encode(Buffer.concat([cipher.update(text, "utf8"), cipher.final(), cipher.getAuthTag()]));
+    return b64u.encode(chacha20poly1305(this.sendKey, Channel.nonce(this.sent++)).encrypt(Buffer.from(text, "utf8")));
   }
 
   /** Opens what the other end sealed next; undefined for anything else. */
   open(sealed: unknown): string | undefined {
     try {
-      const bytes = Buffer.from(b64u.decode(sealed as string));
-      const decipher = createDecipheriv("chacha20-poly1305", this.recvKey, Channel.nonce(this.received), { authTagLength: 16 });
-      decipher.setAuthTag(bytes.subarray(bytes.length - 16));
-      const text = Buffer.concat([decipher.update(bytes.subarray(0, bytes.length - 16)), decipher.final()]).toString("utf8");
+      const plain = chacha20poly1305(this.recvKey, Channel.nonce(this.received)).decrypt(b64u.decode(sealed as string));
       this.received++;
-      return text;
+      return Buffer.from(plain).toString("utf8");
     } catch {
       return undefined;
     }
