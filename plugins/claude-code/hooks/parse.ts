@@ -159,6 +159,11 @@ export function parsePending(value: unknown): { problem: string; file: string; t
   return { problem: str(value.problem, 'the client cannot open a session yet.'), file: value.link, token: value.token }
 }
 
+/** A link file that holds the problem that now stands instead of a link. */
+export function parseStanding(value: unknown): string | undefined {
+  return isRecord(value) && typeof value.problem === 'string' && value.problem !== '' ? value.problem : undefined
+}
+
 /** A held or relayed item's id: a ULID, so a path built from it cannot leave its directory. */
 export const ULID = /^[0-9A-Z]{26}$/
 

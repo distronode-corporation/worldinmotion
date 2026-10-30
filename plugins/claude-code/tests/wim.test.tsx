@@ -325,6 +325,40 @@ test('a tab started before its signer links by itself from the link file, with n
   expect(w.calls).toContainEqual({ tool: '_peers', args: { token: TOKEN } })
 })
 
+test('/wim status in a tab waiting on its link file hands the client the token it was issued', async ($, on) => {
+  const w = world(on, {
+    tools: {
+      _hello: pendingHello(NO_SIGNER),
+      _status: () => json({ problem: NO_SIGNER, state_dir: '/home/u/.config/worldinmotion', state_dir_why: 'the default' }),
+    },
+  })
+  mock.clock(on)
+  await $.session.start(START)
+  const ran = await $.command.run({ ...WIM, args: 'status' })
+  expect(ran.text).toContain(`  problem: ${NO_SIGNER}`)
+  // The repeat handshake and the status op carry the kept token, so the client takes them as this tab's.
+  expect(w.calls).toEqual([
+    { tool: '_hello', args: { claudeSessionId: 'claude-session-1' } },
+    { tool: '_hello', args: { claudeSessionId: 'claude-session-1', token: TOKEN } },
+    { tool: '_status', args: { token: TOKEN } },
+  ])
+})
+
+test('a link file that holds a problem that now stands ends the wait, and the next prompt tries again', async ($, on) => {
+  const clock = mock.clock(on)
+  const standing = 'this device is in 2 meshes: set WIM_MESH or pass --mesh (a, b)'
+  let isPending = true
+  const w = world(on, { tools: { _hello: () => (isPending ? pendingHello(NO_SIGNER)() : { content: [{ type: 'text', text: standing }], isError: true }) } })
+  await $.session.start(START)
+  isPending = false
+  w.files.set(LINK_FILE, JSON.stringify({ problem: standing }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.statuses.at(-1)).toBe(standing)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  expect(w.calls.filter(call => call.tool === '_hello')).toHaveLength(2)
+})
+
 test('a refused token (the client restarted) runs the handshake again and the op once more', async ($, on) => {
   const w = world(on, { tools: { _peers: () => json({ peers: [{ address: 'reviewer@laptop', kind: 'claude-code', status: 'idle', rooms: [] }] }) } })
   on('tool.call', { tool: 'ListAgents' }, () => ({ result: { listing: 'none' } }))

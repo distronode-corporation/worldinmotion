@@ -150,6 +150,9 @@ function peerJson(p: PeerRow): Record<string, unknown> {
   };
 }
 
+/** This process's file environment, for the link file before any session options are known. */
+const LOCAL_FS = { platform: process.platform, pid: process.pid };
+
 /** What `retry` finds: how to open a session now, or why not and whether trying again can help. */
 export type Retried = { session: Omit<SessionOptions, "sessionKey"> } | { problem: string; again: boolean };
 
@@ -241,8 +244,7 @@ export class WimMcp {
     const pending = this.pending;
     if (pending === undefined) return s;
     const linked = await this.adopt(pending.claudeSessionId, s);
-    await ensureDir(join(pending.file, ".."));
-    await writeJson(pending.file, this.linkOf(linked), this.sessionOpts!.env);
+    await this.writeLinkFile(this.linkOf(linked));
     return linked;
   }
 
@@ -251,7 +253,7 @@ export class WimMcp {
    * or the problem is the current one.
    */
   private tryAgain(): Promise<void> {
-    this.retrying ??= this.retry!().then((r) => {
+    this.retrying ??= this.retry!().then(async (r) => {
       this.retrying = undefined;
       if ("session" in r) {
         this.sessionOpts = r.session;
@@ -263,8 +265,16 @@ export class WimMcp {
       if (r.again) return;
       this.retry = undefined;
       clearInterval(this.retryTimer);
+      // A handshake waits on the link file: it gets the problem that now stands instead.
+      if (this.pending !== undefined) await this.writeLinkFile({ problem: r.problem });
     });
     return this.retrying;
+  }
+
+  /** Writes the link file a pending handshake waits on: the link, or the problem that stands. */
+  private async writeLinkFile(body: Record<string, unknown>): Promise<void> {
+    await ensureDir(join(this.pending!.file, ".."));
+    await writeJson(this.pending!.file, body, this.sessionOpts?.env ?? LOCAL_FS);
   }
 
   private async openWith(key: string | undefined): Promise<MeshSession> {
@@ -287,7 +297,7 @@ export class WimMcp {
   async close(opts: { ended?: boolean } = {}): Promise<void> {
     clearInterval(this.retryTimer);
     this.retry = undefined;
-    if (this.pending !== undefined) await tryRemove(this.pending.file, { platform: process.platform, pid: process.pid });
+    if (this.pending !== undefined) await tryRemove(this.pending.file, LOCAL_FS);
     await this.session?.stop(opts);
     await this.server.close();
   }

@@ -26,6 +26,7 @@ import {
   parseLeases,
   parseLink,
   parsePending,
+  parseStanding,
   parseRoute,
   parsePeers,
   parseSent,
@@ -126,7 +127,8 @@ async function callInternalOnce(
   op: InternalOp,
   args: Record<string, unknown>,
 ): Promise<McpToolResult | undefined> {
-  const token = (await read($, link))?.token
+  // While a handshake waits on its link file, the token it was issued is the one.
+  const token = (await read($, link))?.token ?? (await read($, pendingLink))?.token
   return callTool($, INTERNAL, { op, args, ...(token ? { token } : {}) })
 }
 
@@ -305,7 +307,16 @@ async function linkFromFile($: EngineInterface): Promise<void> {
     return
   }
   const answered = parseLink(value)
-  if (answered !== undefined) await adoptLink($, { ...answered, token: answered.token ?? waiting.token })
+  if (answered !== undefined) {
+    await adoptLink($, { ...answered, token: answered.token ?? waiting.token })
+    return
+  }
+  // The client stopped waiting: the problem now stands (more than one mesh, a
+  // refused key file). The next prompt tries the handshake again.
+  const stands = parseStanding(value)
+  if (stands === undefined) return
+  await update($, pendingLink, () => null)
+  await unlinked($, stands)
 }
 
 /** One poll of the spool: deliver every new item in order, then move the cursor. */

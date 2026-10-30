@@ -120119,6 +120119,7 @@ function peerJson(p3) {
     ...p3.card?.branch === void 0 ? {} : { branch: sanitizeForDisplay(p3.card.branch) }
   };
 }
+var LOCAL_FS = { platform: process.platform, pid: process.pid };
 var WimMcp = class {
   server;
   session;
@@ -120174,8 +120175,7 @@ var WimMcp = class {
     const pending = this.pending;
     if (pending === void 0) return s3;
     const linked = await this.adopt(pending.claudeSessionId, s3);
-    await ensureDir(join18(pending.file, ".."));
-    await writeJson(pending.file, this.linkOf(linked), this.sessionOpts.env);
+    await this.writeLinkFile(this.linkOf(linked));
     return linked;
   }
   /**
@@ -120183,7 +120183,7 @@ var WimMcp = class {
    * or the problem is the current one.
    */
   tryAgain() {
-    this.retrying ??= this.retry().then((r6) => {
+    this.retrying ??= this.retry().then(async (r6) => {
       this.retrying = void 0;
       if ("session" in r6) {
         this.sessionOpts = r6.session;
@@ -120195,8 +120195,14 @@ var WimMcp = class {
       if (r6.again) return;
       this.retry = void 0;
       clearInterval(this.retryTimer);
+      if (this.pending !== void 0) await this.writeLinkFile({ problem: r6.problem });
     });
     return this.retrying;
+  }
+  /** Writes the link file a pending handshake waits on: the link, or the problem that stands. */
+  async writeLinkFile(body) {
+    await ensureDir(join18(this.pending.file, ".."));
+    await writeJson(this.pending.file, body, this.sessionOpts?.env ?? LOCAL_FS);
   }
   async openWith(key2) {
     const s3 = await MeshSession.open({ ...this.sessionOpts, ...key2 === void 0 ? {} : { sessionKey: key2 } });
@@ -120216,7 +120222,7 @@ var WimMcp = class {
   async close(opts = {}) {
     clearInterval(this.retryTimer);
     this.retry = void 0;
-    if (this.pending !== void 0) await tryRemove(this.pending.file, { platform: process.platform, pid: process.pid });
+    if (this.pending !== void 0) await tryRemove(this.pending.file, LOCAL_FS);
     await this.session?.stop(opts);
     await this.server.close();
   }

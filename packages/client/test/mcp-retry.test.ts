@@ -17,7 +17,7 @@ import { WimMcp, type McpOptions, type Retried } from "../src/mcp.ts";
 import { openKeyFile } from "../src/vault.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionKeys } from "../src/session.ts";
-import { FS, makeMesh, newDevice, RelayHarness, run, said, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
+import { FS, makeMesh, newDevice, RelayHarness, run, said, scratch, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
 
 const KDF = { N: 1024, r: 8, p: 1 };
 const PASS = "pass phrase";
@@ -165,6 +165,19 @@ describe("wim mcp and a signer that is not up yet", () => {
     const plain = term((await newDevice("plain-nomesh")).root, new RelayHarness());
     expect(await run(plain, "peers")).toBe(1);
     expect(said(plain)).toMatch(/this device is in no mesh/);
+  });
+
+  it("tells a waiting handshake, through its link file, when the problem turns into one that stands", async () => {
+    const dir = await scratch("standing-link");
+    const answers: Retried[] = [
+      { problem: "no signer is running", again: true },
+      { problem: "this device is in 2 meshes: set WIM_MESH", again: false },
+    ];
+    const { call } = await connect({ setupProblem: "no signer is running", retry: async () => answers.shift()!, stateDir: { path: dir, why: "WIM_HOME is set" } });
+    const pending = (await call("_hello", { claudeSessionId: "cc-4" })).structuredContent as { pending: boolean; link: string };
+    expect(pending.pending).toBe(true);
+    expect(text(await call("peers"))).toBe("this device is in 2 meshes: set WIM_MESH");
+    expect(JSON.parse(await fs.readFile(pending.link, "utf8"))).toEqual({ problem: "this device is in 2 meshes: set WIM_MESH" });
   });
 
   it("asks again on each call, stops when the problem is one that stands, and keeps asking in the background", async () => {
