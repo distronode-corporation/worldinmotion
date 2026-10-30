@@ -3,7 +3,7 @@
 
 import { b64u, isName, isUlid, randomBytes, sha256, ulid, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { claimLock, listDir, lockHeld, readJson, readText, releaseLock, removeFile, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { claimLock, listDir, lockHeld, readJson, readText, releaseLock, removeFile, whileBusy, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import type { MeshFiles } from "./mesh.ts";
 
 export type SessionState = {
@@ -150,7 +150,9 @@ export class SessionFiles {
    * a pid that no longer holds the lock.
    */
   async takesHandoverElsewhere(): Promise<boolean> {
-    const [live, marker, lock] = await Promise.all([this.isLiveElsewhere(), readText(this.handoverPath), readText(this.liveLock)]);
+    // As lockHeld reads the lock: a file being replaced just then is busy for a moment on Windows.
+    const read = (path: string): Promise<string | undefined> => whileBusy(() => readText(path), this.env.platform);
+    const [live, marker, lock] = await Promise.all([this.isLiveElsewhere(), read(this.handoverPath), read(this.liveLock)]);
     return takesSends(live, marker, lock);
   }
 }

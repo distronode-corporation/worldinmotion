@@ -89638,7 +89638,8 @@ var SessionFiles = class {
    * a pid that no longer holds the lock.
    */
   async takesHandoverElsewhere() {
-    const [live, marker, lock] = await Promise.all([this.isLiveElsewhere(), readText(this.handoverPath), readText(this.liveLock)]);
+    const read = (path2) => whileBusy(() => readText(path2), this.env.platform);
+    const [live, marker, lock] = await Promise.all([this.isLiveElsewhere(), read(this.handoverPath), read(this.liveLock)]);
     return takesSends(live, marker, lock);
   }
 };
