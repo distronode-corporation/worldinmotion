@@ -100,6 +100,20 @@ describe("the native passphrase prompt", () => {
     await expect(askGui("linux", none.run, GUI_ASK)).rejects.toThrow(/no passphrase prompt is available here.*zenity or kdialog/);
   });
 
+  it("tries the next tool when one cannot start, and says why when none could", async () => {
+    const noDisplay = failed("(zenity:4242): Gtk-WARNING **: cannot open display: \n");
+    const next = programs((cmd) => (cmd === "zenity" ? noDisplay : ok("p\n")));
+    expect(await askGui("linux", next.run, GUI_ASK)).toBe("p");
+    expect(next.calls.map((c) => c.cmd)).toEqual(["zenity", "kdialog"]);
+    const alone = programs((cmd) => (cmd === "zenity" ? noDisplay : missing()));
+    await expect(askGui("linux", alone.run, GUI_ASK)).rejects.toThrow("no passphrase prompt could be shown (zenity: (zenity:4242): Gtk-WARNING **: cannot open display:): start the signer");
+    // The last tool's failure is taken as a cancel, as is macOS's own (osascript says so on stderr).
+    const both = programs(() => noDisplay);
+    await expect(askGui("linux", both.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");
+    const mac = programs(() => failed("execution error: User canceled. (-128)"));
+    await expect(askGui("darwin", mac.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");
+  });
+
   it("refuses a cancelled prompt, and passes on a failure that is not a missing tool", async () => {
     const cancel = programs(() => failed("", 1));
     await expect(askGui("linux", cancel.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");

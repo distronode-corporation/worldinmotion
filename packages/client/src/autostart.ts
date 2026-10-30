@@ -89,18 +89,33 @@ export function guiPrompts(platform: Platform, text: string): Array<{ cmd: strin
   ];
 }
 
-/** Asks the person for the passphrase in a native dialog: the first prompt program installed. */
+/**
+ * Asks the person for the passphrase in a native dialog: the first prompt program that is
+ * installed and starts. One that fails to start (zenity with no display) says why on stderr, and
+ * the next is tried; the last one's failure, or one that exits saying nothing, is a cancel.
+ */
 export async function askGui(platform: Platform, run: Run, text: string): Promise<string> {
-  for (const p of guiPrompts(platform, text)) {
-    const r = await run(p.cmd, p.args).catch(unlessMissing);
-    if (r !== undefined) return answered(r);
+  const prompts = guiPrompts(platform, text);
+  let failure: string | undefined;
+  for (const [i, p] of prompts.entries()) {
+    const got = answered(await run(p.cmd, p.args).catch(unlessMissing), p.cmd, i === prompts.length - 1);
+    if (typeof got === "string") return got;
+    failure = got?.failed ?? failure;
   }
-  throw new SetupError("no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal");
+  throw new SetupError(
+    failure === undefined
+      ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal"
+      : `no passphrase prompt could be shown (${failure}): start the signer with \`wim agent start\` in your own terminal`,
+  );
 }
 
-function answered(r: RunResult): string {
-  if (r.code !== 0) throw new SetupError("the passphrase prompt was cancelled");
-  return r.stdout.replace(/\r?\n$/, "");
+/** What one prompt gave: the passphrase, why it could not start ({ failed }), or undefined when it is not installed. */
+function answered(r: RunResult | undefined, cmd: string, last: boolean): string | { failed: string } | undefined {
+  if (r === undefined) return undefined;
+  if (r.code === 0) return r.stdout.replace(/\r?\n$/, "");
+  const why = r.stderr.trim();
+  if (last || why === "") throw new SetupError("the passphrase prompt was cancelled");
+  return { failed: `${cmd}: ${why.slice(0, 300)}` };
 }
 
 // ---- the OS keyring (`--keyring`, opt-in) ----

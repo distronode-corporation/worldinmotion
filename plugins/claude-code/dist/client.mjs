@@ -121471,15 +121471,23 @@ function guiPrompts(platform2, text2) {
   ];
 }
 async function askGui(platform2, run, text2) {
-  for (const p3 of guiPrompts(platform2, text2)) {
-    const r6 = await run(p3.cmd, p3.args).catch(unlessMissing);
-    if (r6 !== void 0) return answered(r6);
+  const prompts = guiPrompts(platform2, text2);
+  let failure3;
+  for (const [i6, p3] of prompts.entries()) {
+    const got = answered(await run(p3.cmd, p3.args).catch(unlessMissing), p3.cmd, i6 === prompts.length - 1);
+    if (typeof got === "string") return got;
+    failure3 = got?.failed ?? failure3;
   }
-  throw new SetupError("no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal");
+  throw new SetupError(
+    failure3 === void 0 ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal" : `no passphrase prompt could be shown (${failure3}): start the signer with \`wim agent start\` in your own terminal`
+  );
 }
-function answered(r6) {
-  if (r6.code !== 0) throw new SetupError("the passphrase prompt was cancelled");
-  return r6.stdout.replace(/\r?\n$/, "");
+function answered(r6, cmd, last) {
+  if (r6 === void 0) return void 0;
+  if (r6.code === 0) return r6.stdout.replace(/\r?\n$/, "");
+  const why = r6.stderr.trim();
+  if (last || why === "") throw new SetupError("the passphrase prompt was cancelled");
+  return { failed: `${cmd}: ${why.slice(0, 300)}` };
 }
 function keyringKind(platform2) {
   if (platform2 === "darwin") return "keychain";
