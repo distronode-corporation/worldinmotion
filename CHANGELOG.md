@@ -13,6 +13,13 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A send refused for a secret did not say how to send it anyway.** The refusal (`wim send`, the
+  MCP `send` tool, `wim events`) now ends: "If the person means to send it, the person runs the
+  send themselves in a terminal they opened themselves: wim send <to> <text...> --allow-secret. An
+  agent cannot skip this check." (#34)
+
 ## [0.1.5] - 2026-10-30
 
 ### Fixed

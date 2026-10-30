@@ -78,6 +78,14 @@ function localFault(error: unknown): boolean {
   return LOCAL_FAULTS.has(String((error as NodeJS.ErrnoException).code));
 }
 
+/**
+ * Added to every refusal for a secret: how the person sends it anyway, and that it is theirs to
+ * decide. The CLI, the MCP `send` tool and `wim events` all show it, so it names the one override
+ * (`wim send --allow-secret`, a person at their own terminal: SECURITY-MODEL 7.4).
+ */
+export const SECRET_OVERRIDE =
+  "If the person means to send it, the person runs the send themselves in a terminal they opened themselves: wim send <to> <text...> --allow-secret. An agent cannot skip this check.";
+
 /** A refusal the caller should show as it is: a secret in the text, an unknown peer, a limit. */
 export class ClientError extends Error {
   override readonly name = "ClientError";
@@ -1457,7 +1465,8 @@ export class MeshSession extends EventEmitter {
       return { frame, missing };
     } catch (error) {
       const message = (error as Error).message.replace(/^sealMessage: /, "");
-      throw new ClientError(`refused: ${message}`, /secret/.test(message) ? "secret" : "invalid");
+      if (/secret/.test(message)) throw new ClientError(`refused: ${message}. ${SECRET_OVERRIDE}`, "secret");
+      throw new ClientError(`refused: ${message}`, "invalid");
     }
   }
 

@@ -211,7 +211,9 @@ an MCP call still running after 120 seconds into a background task, and Antigrav
 way (the Claude Code plugin, channels) never need `wait`.
 
 Every item the agent reads is rendered with `frameForAgent` (SPEC section 6a). Outbound text goes
-through `findSecrets` first; a match refuses the send and names the pattern, never the value.
+through `findSecrets` first; a match refuses the send and names the pattern, never the value,
+and says that only the person can send it anyway, by running `wim send <to> <text...>
+--allow-secret` themselves in a terminal they opened (SECURITY-MODEL 7.4).
 
 `send` returns `{ id, results: [{ to, status }] }` (the relay's `sent` statuses), or an error result
 naming the reason when the secrets check or a limit refuses it. `peers` returns one line per peer,

@@ -90850,6 +90850,7 @@ var LOCAL_FAULTS = /* @__PURE__ */ new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", 
 function localFault(error63) {
   return LOCAL_FAULTS.has(String(error63.code));
 }
+var SECRET_OVERRIDE = "If the person means to send it, the person runs the send themselves in a terminal they opened themselves: wim send <to> <text...> --allow-secret. An agent cannot skip this check.";
 var ClientError = class extends Error {
   name = "ClientError";
   code;
@@ -91963,7 +91964,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       return { frame, missing };
     } catch (error63) {
       const message2 = error63.message.replace(/^sealMessage: /, "");
-      throw new ClientError(`refused: ${message2}`, /secret/.test(message2) ? "secret" : "invalid");
+      if (/secret/.test(message2)) throw new ClientError(`refused: ${message2}. ${SECRET_OVERRIDE}`, "secret");
+      throw new ClientError(`refused: ${message2}`, "invalid");
     }
   }
   /**

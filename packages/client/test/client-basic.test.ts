@@ -50,6 +50,10 @@ describe("messaging", () => {
     expect((refused as ClientError).code).toBe("secret");
     expect((refused as ClientError).message).toContain("anthropic_api_key");
     expect((refused as ClientError).message).not.toContain(key);
+    // The refusal says how a person sends it anyway, and that an agent cannot (issue #34).
+    expect((refused as ClientError).message).toContain("wim send <to> <text...> --allow-secret");
+    expect((refused as ClientError).message).toMatch(/the person .* in a terminal they opened themselves/);
+    expect((refused as ClientError).message).toContain("An agent cannot skip this check.");
     await expect(a.send("agent@two", "x".repeat(300 * 1024))).rejects.toThrow(/refused/);
     // A person at the command line may override it for one send.
     expect((await a.send("agent@two", `here ${key}`, { allowSecrets: true })).results[0]!.status).toMatch(/queued|unknown/);
