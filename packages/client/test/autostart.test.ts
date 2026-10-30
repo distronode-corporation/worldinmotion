@@ -276,6 +276,8 @@ describe("the login item", () => {
     let file = "";
     const p = programs(async (_cmd, args) => {
       const [op, , name] = args;
+      // Every task, as `/Query /FO CSV /NH` lists them (with another task, to be told apart).
+      if (args[1] === "/FO") return ok([...tasks.keys(), "Other"].map((n) => `"\\${n}","N/A","Ready"\r\n`).join(""));
       if (op === "/Create") {
         file = args[4]!;
         const bytes = await fs.readFile(file);
@@ -298,6 +300,24 @@ describe("the login item", () => {
     expect(await autostartStatus(o)).toEqual({ where: item.where, source: "keyring", log: item.log });
     expect(await disableAutostart(o)).toBe(true);
     expect(tasks.size).toBe(0);
+  });
+
+  it("reports a schtasks failure on a task that is there, and nothing for one that is not", async () => {
+    const o = await options("win32", programs(() => ok()).run, { USERNAME: "sean" });
+    const name = loginItem(o, "ask-gui").where;
+    const answering = (listed: RunResult, failure: RunResult = failed("ERROR: Access is denied.")) =>
+      ({ ...o, programs: { ...o.programs, run: programs((_c, args) => (args[1] === "/FO" ? listed : failure)).run } });
+    const there = ok(`"\\${name}","N/A","Ready"\r\n`);
+    await expect(disableAutostart(answering(there))).rejects.toThrow("schtasks could not delete the logon task: ERROR: Access is denied.");
+    await expect(autostartStatus(answering(there))).rejects.toThrow("schtasks could not read the logon task: ERROR: Access is denied.");
+    await expect(autostartStatus(answering(there, failed("", 5)))).rejects.toThrow("schtasks could not read the logon task: exit code 5");
+    // A task whose name only ends like this one's is another task.
+    const other = ok(`"\\x${name}","N/A","Ready"\r\n`);
+    expect(await disableAutostart(answering(other))).toBe(false);
+    expect(await autostartStatus(answering(other))).toBeUndefined();
+    const down = failed("ERROR: The Task Scheduler service is not running.");
+    await expect(disableAutostart(answering(down))).rejects.toThrow("schtasks could not list the scheduled tasks: ERROR: The Task Scheduler service is not running.");
+    await expect(autostartStatus(answering(down))).rejects.toThrow("schtasks could not list the scheduled tasks");
   });
 
   it("says why schtasks refused, and removes the definition file anyway", async () => {

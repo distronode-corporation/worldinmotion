@@ -340,13 +340,43 @@ export async function enableAutostart(o: AutostartOptions, source: LoginSource):
 }
 
 function created(r: RunResult): void {
-  if (r.code !== 0) throw new SetupError(`schtasks could not create the logon task: ${(r.stderr.trim() || r.stdout.trim()).slice(0, 300)}`);
+  if (r.code !== 0) throw new SetupError(`schtasks could not create the logon task: ${detail(r)}`);
+}
+
+/** What schtasks said about a failure. */
+function detail(r: RunResult): string {
+  return (r.stderr.trim() || r.stdout.trim() || `exit code ${r.code}`).slice(0, 300);
+}
+
+/**
+ * Whether the logon task exists, from the list of every task: a failed `/Query /TN` or `/Delete`
+ * does not say why in a form to rely on (Windows translates its messages), so the list decides
+ * between "no such task" and a real failure, which is reported.
+ */
+async function taskExists(o: AutostartOptions, name: string): Promise<boolean> {
+  return listed(await o.programs.run("schtasks", ["/Query", "/FO", "CSV", "/NH"]), name);
+}
+
+function listed(r: RunResult, name: string): boolean {
+  if (r.code !== 0) throw new SetupError(`schtasks could not list the scheduled tasks: ${detail(r)}`);
+  return r.stdout.includes(`"\\${name}"`);
+}
+
+/** A failed schtasks call on a task that is there is an error; on one that is not, there is nothing. */
+function unlessThere(exists: boolean, what: string, r: RunResult): undefined {
+  if (exists) throw new SetupError(`schtasks could not ${what} the logon task: ${detail(r)}`);
+  return undefined;
 }
 
 /** Removes the login item; true when there was one. */
 export async function disableAutostart(o: AutostartOptions): Promise<boolean> {
   const item = loginItem(o, "ask-gui");
-  if (item.kind === "task") return (await o.programs.run("schtasks", ["/Delete", "/TN", item.where, "/F"])).code === 0;
+  if (item.kind === "task") {
+    const r = await o.programs.run("schtasks", ["/Delete", "/TN", item.where, "/F"]);
+    if (r.code === 0) return true;
+    unlessThere(await taskExists(o, item.where), "delete", r);
+    return false;
+  }
   const existed = (await readText(item.where)) !== undefined;
   await removeFile(item.where);
   return existed;
@@ -355,10 +385,11 @@ export async function disableAutostart(o: AutostartOptions): Promise<boolean> {
 /** The login item installed for this state directory, if any, and where it gets the passphrase. */
 export async function autostartStatus(o: AutostartOptions): Promise<{ where: string; source: LoginSource; log: string } | undefined> {
   const item = loginItem(o, "ask-gui");
-  const text = item.kind === "task" ? taskText(await o.programs.run("schtasks", ["/Query", "/TN", item.where, "/XML"])) : await readText(item.where);
+  const text = item.kind === "task" ? await taskText(o, item.where) : await readText(item.where);
   return text === undefined ? undefined : { where: item.where, source: text.includes("--keyring") ? "keyring" : "ask-gui", log: item.log };
 }
 
-function taskText(r: RunResult): string | undefined {
-  return r.code === 0 ? r.stdout : undefined;
+async function taskText(o: AutostartOptions, name: string): Promise<string | undefined> {
+  const r = await o.programs.run("schtasks", ["/Query", "/TN", name, "/XML"]);
+  return r.code === 0 ? r.stdout : unlessThere(await taskExists(o, name), "read", r);
 }

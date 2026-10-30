@@ -90662,9 +90662,9 @@ var Connection = class {
       for (const w of this.readyWaiters.splice(0)) w.resolve(link);
       const closed = await link.closed;
       this.link = void 0;
-      const detail = `connection closed (code ${closed.code}${closed.reason === "" ? "" : `, ${relayText(closed.reason)}`})`;
-      this.o.log(`wim: ${detail}`);
-      this.o.onState?.("closed", detail);
+      const detail2 = `connection closed (code ${closed.code}${closed.reason === "" ? "" : `, ${relayText(closed.reason)}`})`;
+      this.o.log(`wim: ${detail2}`);
+      this.o.onState?.("closed", detail2);
       this.lost(closed.code, closed.reason);
     } catch (error63) {
       link?.close();
@@ -90967,7 +90967,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         this.emit("fatal", reason);
       },
       log: this.log,
-      onState: (state2, detail) => this.emit("connection", state2, detail),
+      onState: (state2, detail2) => this.emit("connection", state2, detail2),
       random: this.o.random ?? Math.random,
       debug: this.o.debug === true,
       baseMs: this.o.reconnectMs ?? 500
@@ -117329,17 +117329,17 @@ var GitLabWatcher = class {
   async pipelines(prefix) {
     const st = this.ctx.state;
     const list2 = await this.get(external_exports.array(Pipeline2), "/pipelines", this.query(st.cursors.pipelines));
-    const listed = /* @__PURE__ */ new Set();
+    const listed2 = /* @__PURE__ */ new Set();
     for (const p3 of list2) {
       if (p3.source === "parent_pipeline") continue;
       if (!refAllowed(p3.ref, this.source.refs) || tooOld(this.ctx, p3.updated_at)) continue;
-      listed.add(String(p3.id));
+      listed2.add(String(p3.id));
       const seen = { id: p3.id, phase: gitlabPhase(p3.status), ref: p3.ref, sha: p3.sha, webUrl: p3.web_url, updatedAt: p3.updated_at };
       await this.pipeline(prefix, seen, modeFor(this.ctx, p3.updated_at));
     }
     const since = this.ctx.now() - REPOLL_MS;
     for (const [id, e6] of Object.entries(st.pipelines)) {
-      if (listed.has(id) || e6.touched < since || !hasMovingChild(e6)) continue;
+      if (listed2.has(id) || e6.touched < since || !hasMovingChild(e6)) continue;
       await this.pipeline(prefix, { id: Number(id), ...e6 }, "announce");
     }
     setCursor(st.cursors, "pipelines", list2.map((p3) => p3.updated_at));
@@ -118619,9 +118619,9 @@ async function runEvents(d5) {
     relay: relayHost(s3.config.relay),
     mesh: `${s3.config.mesh.slice(0, 4)}\u2026`
   });
-  s3.on("connection", (state2, detail) => {
+  s3.on("connection", (state2, detail2) => {
     synced = false;
-    emit("connection", { state: state2, ...detail === void 0 ? {} : { detail } });
+    emit("connection", { state: state2, ...detail2 === void 0 ? {} : { detail: detail2 } });
     if (state2 === "open") void snapshot().catch(() => void 0);
   });
   s3.on("peers", () => {
@@ -121643,22 +121643,42 @@ async function enableAutostart(o3, source2) {
   return item;
 }
 function created(r6) {
-  if (r6.code !== 0) throw new SetupError(`schtasks could not create the logon task: ${(r6.stderr.trim() || r6.stdout.trim()).slice(0, 300)}`);
+  if (r6.code !== 0) throw new SetupError(`schtasks could not create the logon task: ${detail(r6)}`);
+}
+function detail(r6) {
+  return (r6.stderr.trim() || r6.stdout.trim() || `exit code ${r6.code}`).slice(0, 300);
+}
+async function taskExists(o3, name) {
+  return listed(await o3.programs.run("schtasks", ["/Query", "/FO", "CSV", "/NH"]), name);
+}
+function listed(r6, name) {
+  if (r6.code !== 0) throw new SetupError(`schtasks could not list the scheduled tasks: ${detail(r6)}`);
+  return r6.stdout.includes(`"\\${name}"`);
+}
+function unlessThere(exists, what2, r6) {
+  if (exists) throw new SetupError(`schtasks could not ${what2} the logon task: ${detail(r6)}`);
+  return void 0;
 }
 async function disableAutostart(o3) {
   const item = loginItem(o3, "ask-gui");
-  if (item.kind === "task") return (await o3.programs.run("schtasks", ["/Delete", "/TN", item.where, "/F"])).code === 0;
+  if (item.kind === "task") {
+    const r6 = await o3.programs.run("schtasks", ["/Delete", "/TN", item.where, "/F"]);
+    if (r6.code === 0) return true;
+    unlessThere(await taskExists(o3, item.where), "delete", r6);
+    return false;
+  }
   const existed = await readText(item.where) !== void 0;
   await removeFile(item.where);
   return existed;
 }
 async function autostartStatus(o3) {
   const item = loginItem(o3, "ask-gui");
-  const text2 = item.kind === "task" ? taskText(await o3.programs.run("schtasks", ["/Query", "/TN", item.where, "/XML"])) : await readText(item.where);
+  const text2 = item.kind === "task" ? await taskText(o3, item.where) : await readText(item.where);
   return text2 === void 0 ? void 0 : { where: item.where, source: text2.includes("--keyring") ? "keyring" : "ask-gui", log: item.log };
 }
-function taskText(r6) {
-  return r6.code === 0 ? r6.stdout : void 0;
+async function taskText(o3, name) {
+  const r6 = await o3.programs.run("schtasks", ["/Query", "/TN", name, "/XML"]);
+  return r6.code === 0 ? r6.stdout : unlessThere(await taskExists(o3, name), "read", r6);
 }
 
 // src/agentcli.ts
