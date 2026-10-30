@@ -12,7 +12,8 @@ afterEach(async () => {
   for (const s of open.splice(0)) await s.stop().catch(() => undefined);
 });
 
-const byes = (relay: RelayHarness): number => relay.sentByClients.filter((t) => t === '{"t":"bye","ended":true}').length;
+// A tab that closes goes offline, not ended (issue #37): its queue waits for a resumed conversation.
+const byes = (relay: RelayHarness): number => relay.sentByClients.filter((t) => t === '{"t":"bye","ended":false}').length;
 
 describe("help", () => {
   it("prints usage for wim, --help, help and help <command>", async () => {
@@ -53,9 +54,32 @@ describe("clean ends of wim mcp", () => {
     await until(() => byes(relay) === before + 1, 2000, "bye");
   }
 
-  it("ends its session on stdin EOF", () => serve("eof"));
-  it("ends its session on a signal", () => serve("signal"));
-  it("ends its session when its parent goes away", () => serve("parent"));
+  it("goes offline on stdin EOF", () => serve("eof"));
+  it("goes offline on a signal", () => serve("signal"));
+  it("goes offline when its parent goes away", () => serve("parent"));
+
+  it("queues what arrives after the tab closed, and the resumed conversation gets it under its name (issue #37)", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const stdin = new PassThrough();
+    const env = { WIM_NAME: "tp5", WIM_KIND: "claude-code", WIM_SESSION_KEY: "conversation-1" };
+    const t = term(devices[0]!.root, relay, { stdin, closeMs: 2000 }, env);
+    const serving = run(t, "mcp");
+    await until(() => relay.sentByClients.some((x) => x.startsWith('{"t":"auth"') && x.includes('"name":"tp5"')), 5000);
+    await sleep(50);
+    stdin.end();
+    expect(await serving).toBe(0);
+    const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
+    open.push(peer);
+    // Not `ended`: the relay keeps it for the session, as for any offline one.
+    await until(async () => (await peer.listPeers()).some((p) => p.address === "tp5@one" && p.status === "offline"));
+    expect((await peer.send("tp5@one", "sent while the tab was closed")).results).toEqual([{ to: "tp5@one", status: "queued" }]);
+    // The conversation resumes: same key, same name, and the message is waiting.
+    const resumed = await openSession(devices[0]!, mesh, relay, { name: "tp5", kind: "claude-code", sessionKey: "key:conversation-1" });
+    open.push(resumed);
+    expect(resumed.address).toBe("tp5@one");
+    await until(async () => (await resumed.spool.unread()).some((i) => i.rendered.includes("sent while the tab was closed")));
+  });
 
   it("frees the name, so the next session with it is not name-2", async () => {
     const relay = new RelayHarness();

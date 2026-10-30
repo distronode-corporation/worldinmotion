@@ -22,6 +22,14 @@ body line with a bracket.
   cut one off part-way). Run `wim inbox` in a terminal to read and mark them, or add --mark-read
   to mark what this run printed." At a terminal it marks each item once printed, as before. (#33)
 
+- **A closed Claude Code tab goes offline instead of ending, so a resumed conversation gets what
+  was sent meanwhile.** `wim mcp` used to say `bye { ended: true }` when its tab closed, so senders
+  got `ended` and the messages were gone even when the person resumed the conversation
+  (`claude --continue`) under the same name. It now goes offline: the relay queues for the name
+  for 24 hours (senders see `queued`), and the resumed conversation takes the session back with
+  them. The name stays held for those 24 hours, and a new conversation in the same folder takes
+  the session over, queue included. No relay or protocol change. (#37)
+
 ### Added
 
 - **`wim inbox --mark-read`** marks what it printed even when its output is not a terminal (the

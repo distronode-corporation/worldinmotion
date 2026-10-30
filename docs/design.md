@@ -85,8 +85,22 @@ peers distronode-2@laptop; messages sent to distronode@laptop do not reach this 
 status` shows the current address. A terminal command (`wim inbox`, `wim send`, `wim watch`) never takes a `name-N`
 that way when the name belongs to a session of another kind on this device (a Claude Code tab,
 say): it ends the registration at once and refuses, naming that session, since the name's
-messages go to it. `wim mcp` ends its session cleanly (`bye { ended: true }`) when stdin closes, on
-SIGINT, SIGTERM or SIGHUP, and when its parent process goes away (checked every 5 seconds).
+messages go to it. `wim mcp` takes its session offline (`bye { ended: false }`, not `ended: true`) when stdin closes,
+on SIGINT, SIGTERM or SIGHUP, and when its parent process goes away (checked every 5 seconds). A
+closed Claude Code tab can be resumed (`claude --continue`, `claude --resume`), so its session is
+kept like any offline one:
+
+- For 24 hours after the tab closed (longer only while messages sent within 24 hours are still
+  queued) the relay holds its name: sends to it answer `queued`, not `ended`, and other sessions
+  on the device that ask for the name get `name-2`.
+- The resumed conversation takes the session back through its Claude session id, with its name,
+  the queued messages, its rooms and its history.
+- A new conversation opened in the same folder under the same name takes it over by the
+  same-project rule above, queue included, so what was sent to the closed tab reaches the new
+  one. If the old conversation is resumed while the new one holds the session, it gets
+  `name-2` and a notice saying so.
+- Leases the closed tab held are not released at close; they lapse at their TTL.
+- After 24 hours with nothing queued the relay forgets the session, and the name is free.
 
 ## The signer (`wim agent`)
 

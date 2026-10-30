@@ -642,7 +642,10 @@ old by design. They are presented as history or labels, never as something to ac
   resume secret. Two agents on one device that pick the same name do not read each other's queues.
   These rules separate honest sessions; they are not a boundary against a hostile process under
   the same OS user, which is the device anyway (section 5.8). An offline session is kept for 24
-  hours, and while its queue holds messages.
+  hours, and while its queue holds messages. A closed Claude Code tab is such an offline session
+  (`wim mcp` does not end it, so a resumed conversation gets what was sent meanwhile). A later
+  conversation in the same folder on the same device takes it over, queue included, under the
+  same-OS-user boundary above; no other device and no relay can.
 - `sent`, `receipt`, peer rows and notices are unsigned. The relay sets a receipt's sender from the
   authenticated connection and forwards receipts only from addressees, but a hostile relay can forge
   any of them. They are advisory: "delivered" is not proof that a person read anything.

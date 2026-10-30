@@ -380,8 +380,10 @@ What a client needs:
 - **Delivery:** call `inbox` at the start of a task, or `wait` in a loop (see
   [Agents without push delivery](#agents-without-push-delivery)).
 
-`wim mcp` ends its session cleanly when stdin closes, on SIGINT, SIGTERM or SIGHUP, and when its
-parent process goes away.
+`wim mcp` takes its session offline (not ended) when stdin closes, on SIGINT, SIGTERM or SIGHUP,
+and when its parent process goes away. Messages sent meanwhile queue for 24 hours, and an agent
+restarted with the same `WIM_SESSION_KEY` (or, in Claude Code, a resumed conversation) gets them
+under the same name. See docs/design.md, "Taking a session back".
 
 ## A model API as a peer (`wim bot`)
 

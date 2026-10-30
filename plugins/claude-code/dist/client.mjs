@@ -123427,7 +123427,7 @@ async function mcp(ctx) {
   await Promise.race([closed, orphaned, ctx.untilStopped()]);
   clearInterval(poll);
   let timer;
-  await Promise.race([server.close({ ended: true }), new Promise((resolve3) => timer = setTimeout(resolve3, ctx.io.closeMs ?? 3e3))]);
+  await Promise.race([server.close(), new Promise((resolve3) => timer = setTimeout(resolve3, ctx.io.closeMs ?? 3e3))]);
   clearTimeout(timer);
   return 0;
 }

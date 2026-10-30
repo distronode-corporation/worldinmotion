@@ -1318,10 +1318,12 @@ async function mcp(ctx: Ctx): Promise<number> {
   await server.start()?.catch((error: unknown) => ctx.io.err(`wim: ${(error as Error).message}`));
   await Promise.race([closed, orphaned, ctx.untilStopped()]);
   clearInterval(poll);
-  // A clean end: `bye { ended: true }` frees the name and the queue for the next session. It
-  // gets a few seconds; the process exits either way.
+  // Offline, not ended (issue #37): a closed tab can be resumed (`claude --continue`), so the
+  // relay keeps queueing for its name for 24 hours, as for any offline session, and the resumed
+  // conversation takes the session back by its key with what arrived meanwhile. It gets a few
+  // seconds; the process exits either way.
   let timer: NodeJS.Timeout | undefined;
-  await Promise.race([server.close({ ended: true }), new Promise<void>((resolve) => (timer = setTimeout(resolve, ctx.io.closeMs ?? 3000)))]);
+  await Promise.race([server.close(), new Promise<void>((resolve) => (timer = setTimeout(resolve, ctx.io.closeMs ?? 3000)))]);
   clearTimeout(timer);
   return 0;
 }
