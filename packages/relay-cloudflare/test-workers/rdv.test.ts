@@ -93,4 +93,21 @@ describe("short invite codes", () => {
     });
     expect(await root.sock.next("error")).toEqual({ t: "error", code: "unavailable", message: "the relay could not store the short invite code", ref: "rdv.put" });
   });
+
+  it("drops an answer that cannot be sent, and the same object handles the next event as usual", async () => {
+    const root = await admin();
+    const second = new Session(root.mesh, root.d, "second");
+    await second.connect(JSON.parse(JSON.stringify(root.ready!["roster"])));
+    const { frame } = put();
+    await runInDurableObject(meshStub(root.mesh), async (instance, state) => {
+      const sid = (w: WebSocket) => (w.deserializeAttachment() as Attachment).state.sid;
+      const ws = state.getWebSockets().find((w) => sid(w) === root.sid)!;
+      // The socket closes while the store answers. The object's close event waits behind this
+      // one, so the relay still holds the connection open and sending the answer throws.
+      ws.close(1000, "gone");
+      await instance.webSocketMessage(ws, JSON.stringify(frame));
+      await instance.webSocketMessage(state.getWebSockets().find((w) => sid(w) === second.sid)!, JSON.stringify({ t: "peers" }));
+    });
+    expect((await second.sock.next("peers"))["t"]).toBe("peers");
+  });
 });
