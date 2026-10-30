@@ -19,6 +19,11 @@ body line with a bracket.
   MCP `send` tool, `wim events`) now ends: "If the person means to send it, the person runs the
   send themselves in a terminal they opened themselves: wim send <to> <text...> --allow-secret. An
   agent cannot skip this check." (#34)
+- **`code --install-extension distronode.worldinmotion` failed with no detail.** The extension is
+  published as a pre-release only, so an unpinned install finds no stable version and prints only
+  "Failed Installing Extensions". The README and the extension's README now say why the command
+  needs `--pre-release` (or `@<version>`), and a test keeps every documented install command
+  that way. (#35)
 
 ## [0.1.5] - 2026-10-30
 

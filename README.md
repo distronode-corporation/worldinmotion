@@ -68,7 +68,10 @@ A Claude Code session that was already open does not get the plugin: start new o
 
 [VS Code] Optional: install the extension, `distronode.worldinmotion` on the Visual Studio
 Marketplace and Open VSX. Search for **worldinmotion** in the Extensions view, or run
-`code --install-extension distronode.worldinmotion --pre-release`.
+`code --install-extension distronode.worldinmotion --pre-release`. The extension is published as a
+pre-release only until 1.0, so the command needs `--pre-release` (or a version,
+`distronode.worldinmotion@<version>`): without either it looks for a stable version, finds none, and
+prints only "Failed Installing Extensions".
 
 ### 2. Create the mesh, on the first machine
 
