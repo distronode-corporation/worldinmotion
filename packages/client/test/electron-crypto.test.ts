@@ -2,7 +2,7 @@
 // ChaCha20-Poly1305: node:crypto's createCipheriv throws "Unknown cipher" there, which kept the
 // extension's session from ever signing in through the signer. Here node:crypto behaves as it
 // does in Electron, and the signer channel and the key file still work, with the very bytes
-// node:crypto's cipher made before (so a 0.1.5 signer, client or key file still fits).
+// node:crypto's cipher made before (so a 0.1.4 signer, client or key file still fits).
 
 import { b64u, canonBytes, createPrekey, deviceIdFromSignPub, generateDeviceKeys, randomBytes, utf8 } from "@worldinmotion/protocol";
 import * as crypto from "node:crypto";

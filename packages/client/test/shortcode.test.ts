@@ -132,7 +132,7 @@ describe("wim invite and wim join with a short code", () => {
     await until(() => a.out.some((l) => l.includes("wim2-")));
     const short = /wim2-\S+/.exec(said(a))![0];
     expect(said(a)).not.toMatch(/wim1_/);
-    expect(said(a)).toContain("A device on wim 0.1.5 or older needs a full code: `wim invite --full`.");
+    expect(said(a)).toContain("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
     expect(said(a)).not.toContain("The short code works until");
     expect(await run(b, "join", short, "--name", "server")).toBe(0);
     expect(await inviting).toBe(0);

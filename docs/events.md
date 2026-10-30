@@ -83,7 +83,7 @@ successor.
 | `trust` | `device` (name), `relayed?`: boolean | `{ policy }` |
 | `untrust` | `device` | `{ policy: "hold" }` |
 | `resume` | `peer` (address): lifts a breaker pause | `{ released }` |
-| `invite` | `exp?` (milliseconds the invite lives, 1 minute to 7 days, default 1 hour) | `{ code, invite, exp, full? }`: the invite code for the new device, its id, and when the code stops working. On a relay that keeps short codes, `code` is the short `wim2-` code (SPEC section 5), `exp` its end (at most an hour away, never past the invite's), and `full` the full `wim1_` code for a device on wim 0.1.5 or older; elsewhere `code` is the full code and there is no `full`. Never auto-accepting. |
+| `invite` | `exp?` (milliseconds the invite lives, 1 minute to 7 days, default 1 hour) | `{ code, invite, exp, full? }`: the invite code for the new device, its id, and when the code stops working. On a relay that keeps short codes, `code` is the short `wim2-` code (SPEC section 5), `exp` its end (at most an hour away, never past the invite's), and `full` the full `wim1_` code for a device on wim 0.1.4 or older; elsewhere `code` is the full code and there is no `full`. Never auto-accepting. |
 | `admit` | `device` (the waiting device's name), `code` (the comparison code the new device shows, as the person typed it) | `{ device }`; code `mismatch` when no waiting request from that name has that code, `not_found` when none waits |
 
 Unknown `op`, bad `args` and unknown `v` answer `ok: false` with code `input`. A send the secrets
