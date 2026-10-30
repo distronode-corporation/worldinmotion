@@ -121070,7 +121070,7 @@ var GUI_TITLE = "worldinmotion";
 var GUI_ASK = "Passphrase for this device's worldinmotion keys (it starts the signer):";
 var GUI_AGAIN = "That passphrase did not open the keys. Passphrase for this device's worldinmotion keys:";
 function psQuote(s3) {
-  return `'${s3.replace(/'/g, "''")}'`;
+  return `'${s3.replace(/['\u2018\u2019\u201A\u201B]/g, "$&$&")}'`;
 }
 function psEncoded(script) {
   return Buffer.from(script, "utf16le").toString("base64");

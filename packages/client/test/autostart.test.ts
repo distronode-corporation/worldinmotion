@@ -110,6 +110,7 @@ describe("the native passphrase prompt", () => {
 
   it("quotes and encodes for PowerShell", () => {
     expect(psQuote("a'b")).toBe("'a''b'");
+    expect(psQuote("C:\\Users\\O\u2019Brien \u2018x\u201A\u201B")).toBe("'C:\\Users\\O\u2019\u2019Brien \u2018\u2018x\u201A\u201A\u201B\u201B'");
     expect(Buffer.from(psEncoded("é"), "base64").toString("utf16le")).toBe("é");
   });
 });

@@ -51,9 +51,12 @@ export const GUI_TITLE = "worldinmotion";
 export const GUI_ASK = "Passphrase for this device's worldinmotion keys (it starts the signer):";
 export const GUI_AGAIN = "That passphrase did not open the keys. Passphrase for this device's worldinmotion keys:";
 
-/** A string in PowerShell's single quotes. */
+/**
+ * A string in PowerShell's single quotes. PowerShell takes the typographic single quotes
+ * (U+2018 to U+201B) as quote characters too, so each of those is doubled as well (O’Brien).
+ */
 export function psQuote(s: string): string {
-  return `'${s.replace(/'/g, "''")}'`;
+  return `'${s.replace(/['\u2018\u2019\u201A\u201B]/g, "$&$&")}'`;
 }
 
 /** A PowerShell script as `-EncodedCommand` takes it (UTF-16LE, base64): no command-line quoting to get wrong. */
