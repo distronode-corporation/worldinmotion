@@ -660,6 +660,8 @@ describe("wim agent autostart", () => {
     expect(shown.replace(/\\/g, "/")).toBe(where);
     expect(await fs.readFile(shown, "utf8")).toContain("agent start --foreground --ask-gui");
     expect(said(on)).toContain("asks for the passphrase in a dialog of its own");
+    // Enabling the dialog removes a passphrase an earlier --keyring stored.
+    expect(calls.map((c) => [c.cmd, ...c.args])).toEqual([["secret-tool", "clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)]]);
     expect(said(on)).toContain("It does not start a signer now");
     const st = at(d.root, { programs });
     expect(await run(st, "agent", "autostart", "status")).toBe(0);
@@ -667,7 +669,7 @@ describe("wim agent autostart", () => {
     const rm = at(d.root, { programs });
     expect(await run(rm, "agent", "autostart", "disable")).toBe(0);
     expect(said(rm)).toContain("Removed the login item");
-    expect(calls.map((c) => c.args[0])).toEqual(["clear"]);
+    expect(calls.map((c) => c.args[0])).toEqual(["clear", "clear"]);
     const again = at(d.root, { programs });
     expect(await run(again, "agent", "autostart", "disable")).toBe(0);
     expect(said(again)).toContain("No login item starts the signer here.");
@@ -698,6 +700,13 @@ describe("wim agent autostart", () => {
     const st = at(d.root, { programs });
     expect(await run(st, "agent", "autostart", "status")).toBe(0);
     expect(said(st)).toContain("autostart: on (the passphrase comes from the keyring)");
+    // Back to the dialog: the stored passphrase goes, and the item asks again.
+    const back = at(d.root, { programs });
+    expect(await run(back, "agent", "autostart", "enable")).toBe(0);
+    expect(calls.at(-1)).toEqual({ cmd: "secret-tool", args: ["clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: undefined });
+    const now = at(d.root, { programs });
+    expect(await run(now, "agent", "autostart", "status")).toBe(0);
+    expect(said(now)).toContain("autostart: on (it asks for the passphrase in a dialog)");
   });
 
   it("--keyring is set up only at the person's own terminal; macOS needs no yes; Windows has none", async () => {

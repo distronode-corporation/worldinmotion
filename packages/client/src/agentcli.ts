@@ -520,13 +520,16 @@ async function autostart(ctx: AgentCtx): Promise<number> {
 async function autostartEnable(ctx: AgentCtx, o: AutostartOptions): Promise<number> {
   const file = await sealedFile(ctx);
   const keyring = ctx.flags.get("keyring") === true;
+  // Without --keyring, a passphrase an earlier `enable --keyring` stored is removed: the login
+  // item no longer reads it, and kept there it would stay readable (by any process, in libsecret).
   if (keyring) await storeInKeyring(ctx, o, file);
+  else await keyringClear(o.platform, o.programs.run, keyringAccount(o.root));
   const item = await enableAutostart(o, keyring ? "keyring" : "ask-gui");
   ctx.io.out(`Installed a login item: ${item.where}`);
   ctx.io.out(
     keyring
       ? "At each log in it starts the signer with the passphrase from the keyring."
-      : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent.",
+      : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent. Any passphrase kept in the keyring for it before is removed.",
   );
   ctx.io.out("It does not start a signer now (`wim agent start` does). `wim agent autostart disable` removes it.");
   return 0;

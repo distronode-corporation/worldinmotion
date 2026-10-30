@@ -121674,10 +121674,11 @@ async function autostartEnable(ctx, o3) {
   const file2 = await sealedFile(ctx);
   const keyring = ctx.flags.get("keyring") === true;
   if (keyring) await storeInKeyring(ctx, o3, file2);
+  else await keyringClear(o3.platform, o3.programs.run, keyringAccount(o3.root));
   const item = await enableAutostart(o3, keyring ? "keyring" : "ask-gui");
   ctx.io.out(`Installed a login item: ${item.where}`);
   ctx.io.out(
-    keyring ? "At each log in it starts the signer with the passphrase from the keyring." : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent."
+    keyring ? "At each log in it starts the signer with the passphrase from the keyring." : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent. Any passphrase kept in the keyring for it before is removed."
   );
   ctx.io.out("It does not start a signer now (`wim agent start` does). `wim agent autostart disable` removes it.");
   return 0;

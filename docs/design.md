@@ -116,7 +116,8 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   (`worldinmotion signer <id>`, created by `schtasks` from a task definition, no time limit, run
   through a hidden Windows PowerShell). `<id>` is 16 hex characters of the state directory's
   SHA-256. The person types the passphrase into a dialog the login session started. It installs
-  only; `wim agent start` starts one now. `disable` removes the item and any stored passphrase;
+  only; `wim agent start` starts one now. `disable`, and `enable` without `--keyring`, remove any
+  stored passphrase (`disable` the item too);
   `status` says whether one is installed and where it gets the passphrase.
   `enable --keyring` (only at the person's own terminal) stores the passphrase, checked against
   the key file and hex-encoded, in the macOS login keychain (an item trusting no application, so

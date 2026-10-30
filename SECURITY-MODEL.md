@@ -451,7 +451,8 @@ says whether one runs. The passphrase reaches it in one of these ways:
   or after a `start` the person ran, is not the signer's.
 - **The OS keyring** (`--keyring`, opt-in, set up with `wim agent autostart enable --keyring` at
   the person's own terminal): the login item reads the passphrase from the keyring, so nobody types
-  it. What that exposes depends on the keyring, and enabling it says so first:
+  it. `wim agent autostart disable`, or `enable` without `--keyring`, removes the stored passphrase.
+  What that exposes depends on the keyring, and enabling it says so first:
   - macOS: the login keychain, in an item added with no trusted application (`security
     add-generic-password -T ""`, the passphrase given over stdin, never on a command line), so
     macOS asks the person every time something reads it, the signer at log in included. A process
