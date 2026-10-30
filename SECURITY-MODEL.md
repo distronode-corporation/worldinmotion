@@ -197,6 +197,8 @@ Can:
 - Keep every ciphertext it ever relayed, whatever lifetimes it advertises, and wait for a key file
   to leak; it then reads only what that device's prekey secrets still open (section 6.14).
 - Delay a roster update for a client until some other member's message reveals it.
+- Withhold, delete or replace a short invite code's box (section 5.6), so the joiner cannot use
+  that code; it then needs a new one or the full code.
 - Refuse service entirely.
 
 Cannot:
@@ -210,7 +212,8 @@ Cannot:
   `*`, or a room they joined is in the signed `to`.
 - Take over an offline session's name and queue for another connection: that needs the session's
   sid or its resume secret.
-- Add a device, roll a client back, or pair a joiner with the wrong mesh.
+- Add a device, roll a client back, or pair a joiner with the wrong mesh, a short code's included:
+  it never sees the code's secret, so it can neither open a box nor make one the joiner accepts.
 - Keep two forks apart for long: it can store only one roster per seq, and clients that see two
   valid rosters for one seq (in a message reference, a page or the `auth` pin) stop accepting
   roster changes and alert their person.
@@ -265,10 +268,26 @@ An invite code is a bearer credential: whoever reads it before it is used and be
   and mesh. Deliver codes over a channel you would trust with a password, never through an agent or
   a mesh message. `wim invite` says to run `wim join <code>` on the new device in a terminal, and the
   VS Code extension copies the code with a button and takes it in a password field, never showing
-  it. A shorter code that is no weaker is designed in SPEC section 5 ("Short invite codes") and not
-  implemented.
+  it.
+- **Short codes.** `wim invite` prints a short code, `wim2-` and 24 characters (SPEC section 5,
+  "Short invite codes"), which a person can read out or type. It carries a 100-bit secret `k` and
+  the relay's name, never the invite: the admin device seals the full code under a key derived from
+  `k` and stores the box at the relay under a hash of `k`, and the joiner fetches and opens it, then
+  joins with the full code as before. It is no weaker than the full code. The relay learns that an
+  invite exists, which admin device stored it, its size, and when and from which address it is
+  fetched; not `k`, the invite, or its secret. Reading the box or forging one the joiner accepts
+  (another relay, mesh or pin) needs `k`: 2^100 offline guesses against a box that lives at most
+  an hour, whose invite is worthless once used or expired. Online guessing is bounded too: 30
+  fetches an hour per address. A box is handed out three times at most, then deleted, and deleted
+  at its expiry in any case, so a short code read after the joiner used it opens nothing. A relay
+  that withholds or swaps the box only denies the join. As with the full code, whoever reads the
+  short code before the joiner can ask to join, and the typed comparison code stops them. A mesh
+  that pins its relay's certificate gets only full codes: the joiner would fetch the box before it
+  had the pin. The outbound filter refuses short codes in messages as it does full ones (section
+  7.4).
 - **What the code does not give:** it does not let anyone read past messages, become an admin, act as
-  an existing device or take a reserved `recovery` name. The relay sees only a hash of the secret.
+  an existing device or take a reserved `recovery` name. The relay sees only a hash of the secret,
+  and of a short code's `k`.
 
 Clients refuse to send invite codes in messages (section 7.4).
 
@@ -647,7 +666,8 @@ self-signed certificate. Properties:
 
 To the relay: mesh ids, device ids and names, session names and kinds, presence and idle times,
 room names and membership, lease keys (a hash of mesh id and lease name, recoverable for guessable
-names), lease holders and timing, blob ids, sizes and timing, the full sender and recipient list of
+names), lease holders and timing, blob ids, sizes and timing, that a short invite code exists with
+the admin device that stored it, its size and when and from where it is fetched (never the invite), the full sender and recipient list of
 every message, timestamps, sizes, and receipt outcomes (which reveal when a person's policy held or
 refused an item), and each device's prekeys with their rotation times (they travel in clear
 headers). Message kinds, file names and card contents are inside the encryption.
@@ -791,7 +811,10 @@ The relay can always deny service. Against members and outsiders the limits are 
 - at most 64 messages parked per mesh while a receiver fetches a newer roster, and the signature is
   checked before a message's roster reference can trigger a fetch or a fork alarm;
 - 10 pongs a minute to one device and 60 in all per session (section 6.15), and at most 16 join
-  requests kept on an admin device.
+  requests kept on an admin device;
+- short invite code boxes (section 5.6): only admin devices store them, 16 an hour per device, 64
+  per mesh and 64 per source address, at most 4 KiB each, at most an hour, 10,000 per relay in
+  all; fetches 30 an hour per source address, found or not, and three per box.
 
 On the receiving side, the loop and cost breaker (section 7.3) bounds how often peers can wake an
 agent.
@@ -894,7 +917,7 @@ limits.
 ### 7.4 Secret leakage
 
 Before sealing, the client scans outgoing text (and file captions) for high-confidence credential
-patterns: invite codes, recovery codes, the key-file format, PEM private keys, AWS access key ids, GitHub, GitLab,
+patterns: invite codes (full and short), recovery codes, the key-file format, PEM private keys, AWS access key ids, GitHub, GitLab,
 Slack, Stripe, Google, Anthropic and OpenAI keys, and JWTs. A match refuses the send and names the
 pattern, never the value. A person can override it for one send, only at the client's own command
 line; no tool, MCP call, message, local UI request or agent-writable setting can. `send_file` runs

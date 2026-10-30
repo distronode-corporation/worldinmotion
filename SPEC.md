@@ -305,35 +305,61 @@ sends:
 - An invite is single use. A second `join` on the same invite is refused, except from the device it
   admitted (above).
 
-**Short invite codes (proposed, not implemented).** An invite code is about 350 characters, too
-long to read out or type, so people paste it, and a pasted code passes through whatever holds the
-clipboard, an agent's context included. The code is also the joiner's trust anchor (its relay,
-mesh, roster pin and certificate pin; SECURITY-MODEL section 5.6), so a shorter code must not be
-a weaker one. This design is recorded for review; no client or relay implements it, and nothing
-above depends on it.
+**Short invite codes.** A full invite code is about 350 characters, too long to read out or type,
+so people paste it, and a pasted code passes through whatever holds the clipboard, an agent's
+context included. The code is also the joiner's trust anchor (its relay, mesh, roster pin and
+certificate pin; SECURITY-MODEL section 5.6), so the short code is not a weaker one: it names a
+box at the relay that only its holder can find, open or forge.
 
-- The admin device makes the full invite as today, then a short code
-  `wim2-` + 20 Crockford base32 characters (100 bits of `K`, random), shown as
-  `wim2-XXXXX-XXXXX-XXXXX-XXXXX`, plus the relay's host when it is not the joiner's default relay.
-- It derives `rdv` = `b64u(H(UTF-8("wim/1 rdv id ") || K))` cut to 22 characters and
-  `key` = HKDF-SHA256(K, salt empty, info `"wim/1 rdv key"`, 32 bytes), seals the full code with
-  XChaCha20-Poly1305 under `key` (random nonce, AAD = UTF-8 `rdv`), and stores the box at the
-  relay under `rdv` until the invite's `exp`, at most 1 hour after it is made: a new, authenticated
-  admin frame, `rdv.put { rdv, exp, n, c }`, at most 16 KiB.
-- The joiner fetches the box by `rdv` from a relay-wide endpoint that needs no mesh id
-  (`GET <relay>/v1/rdv/<rdv>`), opens it with `key`, and from then on uses the full code exactly as
-  today: every check of this section applies unchanged, the short authentication string included.
-- **Not weaker.** The relay sees `rdv` and the box, never `K`. Reading the invite out of the box,
-  or making a box the joiner would accept (another relay, mesh or pin), needs `K`: 2^100 guesses
-  offline, against an invite that lives an hour. Online, the relay answers at most 5 fetches per
-  `rdv` and 30 per source address an hour, so guessing a live `rdv` is hopeless too. A relay that
-  withholds or swaps the box only denies the join. Whoever reads the short code can use the
-  invite, as with the full code, and the short authentication string still stops them.
-- **Compatibility.** Only new frames and a new endpoint: a client that does not know `wim2-` still
-  uses the full code, which the admin device prints as well. A relay that answers `rdv.put` with
-  `unknown_type` has no rendezvous, and the admin device says so and shows only the full code.
-- Still to settle before it is built: the per-mesh relay shard (section 8) needs a relay-wide
-  store for `rdv`, and the relay's limits for it (count per device, bytes per mesh).
+```
+wim2-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX[@<relay>]
+```
+
+- **The code.** `k` is 100 random bits written as 20 Crockford base32 characters (`0-9`, `A-Z`
+  without `I L O U`), most significant first. The code is `wim2-` followed by `k` and a 4-character
+  check, the first 20 bits of `H(UTF-8("wim/1 short code " + k))` in the same alphabet, shown in six
+  groups of four. When the invite's relay is not the hosted relay `wss://worldinmotion.distronode.com`,
+  `@` and the relay URL follow, without `wss://` (a `ws://` loopback URL is written in full).
+  Readers accept any case, with or without the dashes or spaces between groups, read `I` and `L` as
+  `1` and `O` as `0`, read `@<host>[:port][/path]` as `wss://<host>[:port][/path]`, and MUST refuse a
+  code whose check does not match or whose relay is not a relay URL (section 2).
+- **Derivations.** `rdv` = `b64u(H(UTF-8("wim/1 rdv id " + k)))` cut to 22 characters, the box's
+  lookup id; `key` = HKDF-SHA256(UTF-8(`k`), salt empty, info `"wim/1 rdv key"`, 32 bytes). Here `k`
+  is the 20 canonical upper-case characters.
+- **The box.** The admin device makes the full invite as above, then seals UTF-8 of the full code
+  with XChaCha20-Poly1305 under `key`, a random 24-byte nonce `n` and AAD = UTF-8(`"wim/1 rdv " +
+  rdv`), giving `c` (at most 4 KiB). Once `invite.created` arrives it sends the authenticated frame
+  `rdv.put { rdv, exp, n, c }` with `exp` the invite's expiry or one hour from now, whichever is
+  first. The relay answers `rdv.stored { rdv }`, or `error` with `ref` `rdv.put`: `unauthorized` for a
+  device that is not an admin, `malformed` for an `exp` that is past or more than an hour and 5 minutes away (the clock skew
+  `auth` allows; the relay keeps the box at most an hour by its own clock),
+  `limited` past a rate (16 an hour per device, 64 per mesh, 64 per source address), `full` when it
+  holds 10,000 boxes, `rdv_exists` for an id it already holds, `unavailable` when its store cannot
+  be reached, and `unsupported` (or, from a relay older than this, `unknown_type`) when it keeps no
+  boxes.
+- **Fetching.** The joiner reads the box from a relay-wide endpoint that needs no mesh id: `GET
+  <relay>/v1/rdv/<rdv>`, the relay URL with `wss://` read as `https://` (`ws://` as `http://`). The
+  relay answers 200 with `{ "v": 1, "rdv", "exp", "n", "c" }` and `Cache-Control: no-store`, 404
+  when it holds no live box under that id, 400 for an id that is not 22 characters of base64url, and
+  429 past 30 fetches an hour from one source address, found or not. It hands each box out at most
+  3 times, deleting it with the third, and deletes it at `exp` in any case. The joiner opens the box
+  with `key` (refusing one stored under another `rdv`), reads the full code from it and MUST check
+  that its relay is the one the short code names (comparing without case). From then on it uses the
+  full code exactly as above: every check of this section applies unchanged, the short
+  authentication string included.
+- **Not weaker.** The relay sees `rdv` and the box, never `k`. Reading the invite out of the box, or
+  making a box the joiner would accept (another relay, mesh or pin), needs `k`: 2^100 guesses, each
+  checked offline against `rdv` with one SHA-256, against a box that lives at most an hour and
+  whose invite is worthless once used or expired. Online, 30 fetches an hour per address make
+  guessing a live `rdv` hopeless too. A relay that withholds, replaces or swaps a box only denies the
+  join. Whoever reads the short code can use the invite, as with the full code, and the short
+  authentication string still stops them.
+- **Pinned relays.** A client MUST NOT offer a short code for an invite that carries `tls`: the
+  joiner, holding only the short code, would fetch the box before it had the pin. It shows the full
+  code instead.
+- **Compatibility.** Only a new frame and a new endpoint. A client that does not know `wim2-` uses
+  the full code, which the admin device prints when asked (`wim invite --full`). An admin device on
+  a relay that answers `rdv.put` with `unknown_type` or `unsupported` shows only the full code.
 
 ## 6. Messages
 
@@ -474,7 +500,7 @@ person the receiving agent works for.
 - `kind`, session names and every relay-authored field (peer rows, `sent` results, notices) are
   unauthenticated labels: useful for display, never inputs to a trust decision.
 - Before sealing, a client MUST refuse text that matches a high-confidence credential pattern, and
-  report only the pattern's name. The patterns include at least: `wim1_` invite codes, `wimrec1_`
+  report only the pattern's name. The patterns include at least: `wim1_` and `wim2-` invite codes, `wimrec1_`
   recovery codes, the key-file format, PEM private keys, AWS access key ids, GitHub tokens (`ghp_`, `gho_`, `ghs_`,
   `github_pat_`), GitLab `glpat-`, Slack `xox[abprs]-`, Stripe `sk_live_` and `rk_live_`, Google
   API keys (`AIza`), Anthropic `sk-ant-`, OpenAI `sk-proj-` and `sk-`, and JWTs.
@@ -712,7 +738,8 @@ with a fresh nonce for every connection. The client answers within 10 seconds wi
 `room.join { room }`, `room.leave { room }`, `room.history { room, before?, limit? }` (section 13),
 `lease.acquire { key, ttl, wait? }`, `lease.renew { key, token, ttl }`, `lease.release { key, token }`,
 `lease.list`, `lease.watch { key }` (section 14), `blob.put { blob, index, last, n, data }`,
-`blob.get { blob, index }` (section 15), `card.set { msg }`, `cards.get { after? }` (section 17), `ping`, and `bye { ended: true }` when the session is
+`blob.get { blob, index }` (section 15), `card.set { msg }`, `cards.get { after? }` (section 17),
+`rdv.put { rdv, exp, n, c }` (admins; section 5, short invite codes), `ping`, and `bye { ended: true }` when the session is
 ending for good (its name is freed, it leaves its rooms, its leases end, and later sends to it get
 `ended`).
 
@@ -722,7 +749,7 @@ ending for good (its name is freed, it leaves its rooms, its leases end, and lat
 joiner), `invite.created { invite }`, `recover.ready { roster }` (section 4a), `room.joined { room, members }`, `room.history { room, msgs, more }`,
 `lease { key, status, holder?, until?, token? }`, `leases { leases }`, `blob.stored { blob, index }`,
 `blob.chunk { blob, index, last, n, data }`, `cards { cards, more }`, `card { msg }` (section 17),
-`error { code, message, ref? }`, `pong`.
+`rdv.stored { rdv }` (section 5), `error { code, message, ref? }`, `pong`.
 
 **Replies.** Besides the replies named elsewhere, the relay answers `create` with
 `roster { chain: [<genesis>], more: false }`, `invite.create` with `invite.created { invite }`, and
@@ -730,8 +757,8 @@ joiner), `invite.created { invite }`, `recover.ready { roster }` (section 4a), `
 
 **Error codes** include `unknown_type`, `malformed`, `too_large`, `duplicate_key`, `unauthorized`,
 `limited`, `roster_conflict`, `mesh_exists`, `full`, `name_taken`, `invite_used`, `room_limit`,
-`lease_limit`, `blob_missing`, `blob_quota`, `invite_unknown`, `invite_expired`, `roster_invalid`
-and `not_found`. `ref` names what the
+`lease_limit`, `blob_missing`, `blob_quota`, `invite_unknown`, `invite_expired`, `roster_invalid`,
+`not_found`, and for `rdv.put` `rdv_exists`, `unavailable` and `unsupported`. `ref` names what the
 error refers to: a message id or the `t` of the refused frame.
 
 **Close codes.** Connections close with these WebSocket close codes. The reference client stops
@@ -780,6 +807,10 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | sessions per device | 32 |
 | live invites per device | 16 |
 | invite lifetime | 1 hour by default, at most 7 days |
+| short invite code box (section 5) | at most 4 KiB, kept until the invite's expiry and at most 1 hour, handed out 3 times |
+| `rdv.put` | 16 an hour per device, 64 per mesh, 64 per source address |
+| box fetches (`GET /v1/rdv/<id>`) | 30 an hour per source address, found or not |
+| boxes per relay | 10,000 |
 | roster page | 64 rosters or 512 KiB |
 | message freshness at the receiver | 47 hours old to 10 minutes ahead |
 | message id memory at the receiver | `at` + 48 hours + 10 minutes |
@@ -828,7 +859,9 @@ sender. A relay that serves two different rosters for one seq is caught when the
 (section 4).
 
 Room names and membership (section 13), lease keys and holders (section 14), blob sizes and
-timing (section 15), and each device's prekeys with their times of rotation (section 6b) are
+timing (section 15), that a short invite code exists, which admin device stored it, its size, and
+when it is fetched and from where (section 5; never the code or the invite in it), and each
+device's prekeys with their times of rotation (section 6b) are
 relay-visible metadata; message kinds and file names and contents are not. A relay that records
 ciphertext and later obtains a device's key file reads only what that device's prekey secrets
 still open (section 6b).
@@ -1045,6 +1078,7 @@ escape.
 | `box.json` | one scheme 1 box: keys, mesh id, header, nonce, shared secret, box key, AAD, plaintext and ciphertext |
 | `roster.json` | a chain (genesis with a recovery record, a member add, a promotion, a revocation, a recovery add), its recovery code, and invalid successors with their failure reasons |
 | `invite.json` | an invite code with a TLS pin, its secret and id, and a join with its proof, signature and short authentication string |
+| `rdv.json` | a short invite code for `invite.json`'s code: `k`, the check, `rdv`, the box key, AAD, nonce and ciphertext, the relay's answer, spellings that read back, and codes that MUST be refused |
 | `message.json` | a sealed send frame with a scheme 1 box, the plaintext one recipient opens, and tamper cases with their reasons |
 | `ping.json` | a ping and its pong, each a whole frame sealed to the other device's prekey, with the plaintexts each side opens; ping and pong plaintexts that MUST be refused |
 | `prekey.json` | two signed prekeys with their secrets; one scheme 2 box by hand with every HPKE value (info, AAD, ephemeral secret, enc, shared secret, key, base nonce, ciphertext); a whole frame carrying `pk`, its plaintext, and tamper cases (`key_expired`, `decrypt_failed`, `bad_signature`) with the prekeys held; prekeys that MUST fail verification, with their reasons |

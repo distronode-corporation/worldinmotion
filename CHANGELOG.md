@@ -47,6 +47,15 @@ body line with a bracket.
   requests (`invite`, `admit`, and `join` in a new setup mode for a device in no mesh yet) and a
   `join` event (docs/events.md). The invite code is copied with a button and taken in a password
   field, never shown.
+- **Short invite codes**: `wim invite` prints `wim2-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX` (plus
+  `@relay` off the hosted relay), short enough to read out or type, and `wim join` and VS Code's
+  Join a Mesh... take it as well as a full code (SPEC section 5). The admin device seals the full
+  code under a key from the code's 100-bit secret and stores the box at the relay, which never
+  sees the secret; the box lives at most an hour and is handed out three times. New: the `rdv.put`
+  frame, `GET /v1/rdv/<id>` on both relays (a relay-wide `RendezvousStore` Durable Object and
+  `v3` migration on Cloudflare), test vectors `rdv.json`, and `wim invite --full` for a device on
+  0.1.4 or older. On a relay without it, or a mesh that pins its relay's certificate, `wim invite`
+  prints the full code and says why.
 
 ### Changed
 
@@ -66,8 +75,6 @@ body line with a bracket.
   (standard input and output) with no agent's variables set; without `--auto`, `wim invite`
   refuses to start anywhere else, before any code exists. It also prints "On the new device, in a
   terminal: `wim join <code>`". `wim join` says "comparison code" and how to admit it.
-- SPEC section 5 records a design for short invite codes that are no weaker than today's, as
-  proposed and not implemented.
 
 ## [0.1.4] - 2026-10-29
 

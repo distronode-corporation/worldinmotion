@@ -6,7 +6,9 @@ export {
   healthz,
   isInfoPath,
   parseDialPath,
+  parseRdvPath,
   parseRelayUrls,
+  RDV_HEADERS,
   RELAY_VERSION,
   relayInfo,
   relaySettings,
@@ -14,11 +16,13 @@ export {
   sourceKey,
   type CreateRule,
   type DialPath,
+  type RdvPath,
   type RelayEnv,
   type RelayInfo,
   type RelaySettings,
 } from "./host.ts";
 export { MemoryStore } from "./memory-store.ts";
+export { Rendezvous, type RdvGetAnswer, type RdvOutcome, type RdvPut } from "./rdv.ts";
 export { dropMesh, meshCount, migrate, SCHEMA_VERSION, SqlStore, type SqlDb, type SqlValue } from "./sql-store.ts";
 export type {
   BucketRow,

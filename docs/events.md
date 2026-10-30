@@ -83,7 +83,7 @@ successor.
 | `trust` | `device` (name), `relayed?`: boolean | `{ policy }` |
 | `untrust` | `device` | `{ policy: "hold" }` |
 | `resume` | `peer` (address): lifts a breaker pause | `{ released }` |
-| `invite` | `exp?` (milliseconds the invite lives, 1 minute to 7 days, default 1 hour) | `{ code, invite, exp }`: the invite code for the new device, its id, and when it expires. Never auto-accepting. |
+| `invite` | `exp?` (milliseconds the invite lives, 1 minute to 7 days, default 1 hour) | `{ code, invite, exp, full? }`: the invite code for the new device, its id, and when the code stops working. On a relay that keeps short codes, `code` is the short `wim2-` code (SPEC section 5), `exp` its end (at most an hour away, never past the invite's), and `full` the full `wim1_` code for a device on wim 0.1.4 or older; elsewhere `code` is the full code and there is no `full`. Never auto-accepting. |
 | `admit` | `device` (the waiting device's name), `code` (the comparison code the new device shows, as the person typed it) | `{ device }`; code `mismatch` when no waiting request from that name has that code, `not_found` when none waits |
 
 Unknown `op`, bad `args` and unknown `v` answer `ok: false` with code `input`. A send the secrets
@@ -105,7 +105,7 @@ its first line, instead of `hello`, and takes one request: `join`. Any other req
 
 | `op` | `args` | `result` |
 |---|---|---|
-| `join` | `code` (the invite code), `name?` (this device's name when it has no keys yet; default from the host name) | `{ device: { name, id }, code }`, as soon as the request is with the relay: `code` is this device's comparison code, which the person types on the admin device. The outcome follows as `joined` or `join_failed`. Code `input` for something that is not an invite code (and then no keys are made), `busy` while a join waits, `refused` with an agent's variables. |
+| `join` | `code` (the invite code, short `wim2-` or full `wim1_`; a short one is read from its relay first), `name?` (this device's name when it has no keys yet; default from the host name) | `{ device: { name, id }, code }`, as soon as the request is with the relay: `code` is this device's comparison code, which the person types on the admin device. The outcome follows as `joined` or `join_failed`. Code `input` for something that is not an invite code (and then no keys are made), `busy` while a join waits, `refused` with an agent's variables. |
 
 ## Safety rules
 

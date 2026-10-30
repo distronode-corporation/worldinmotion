@@ -42,6 +42,7 @@ import { Invites, PendingJoins, sameCode, screenJoin } from "./joins.ts";
 import { SetupError, type Device, type Home } from "./home.ts";
 import { DEFAULT_BREAKER, MeshFiles, type MeshConfig } from "./mesh.ts";
 import { ClientError, relayRefusal, type MeshSession } from "./client.ts";
+import { storeShortCode } from "./shortcode.ts";
 import { authRefusal, checkDialable, errorFor, Link, relayCode, type Dialer } from "./wire.ts";
 
 export type RecoverySummary = ReturnType<typeof recoverySummary>;
@@ -101,8 +102,16 @@ export async function createMesh(o: {
   }
 }
 
-/** Issues an invite from an admin session and registers its id and expiry with the relay. */
-export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto: boolean; now: () => number }): Promise<{ code: string; inviteId: string; exp: number }> {
+/** An issued invite: its full code, id and expiry, and with `short`, its short code or why there is none. */
+export type IssuedInvite = { code: string; inviteId: string; exp: number; short?: { code: string; exp: number }; shortRefused?: string };
+
+/**
+ * Issues an invite from an admin session and registers its id and expiry with the relay. With
+ * `short`, it also stores the full code at the relay as a short code's box (SPEC section 5),
+ * except for a mesh that pins its relay's certificate: a joiner holding only the short code could
+ * not check that certificate before it had the pin, which is inside the full code.
+ */
+export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto: boolean; now: () => number; short?: boolean }): Promise<IssuedInvite> {
   const me = session.roster.devices.find((d) => d.id === session.device.id);
   if (me?.role !== "admin") throw new ClientError("only an admin device can invite", "not_admin");
   const now = o.now();
@@ -120,7 +129,10 @@ export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto
     await invites.remove(invite.inviteId);
     throw relayRefusal("the relay refused the invite", refused);
   }
-  return { code: invite.code, inviteId: invite.inviteId, exp: invite.exp };
+  const made = { code: invite.code, inviteId: invite.inviteId, exp: invite.exp };
+  if (o.short !== true) return made;
+  if (tls !== undefined) return { ...made, shortRefused: "this mesh pins its relay's certificate, which a short code cannot carry" };
+  return { ...made, ...(await storeShortCode(link, session.config.relay, invite.code, invite.exp, o.now())) };
 }
 
 export type JoinPrompt = { name: string; id: string; sas: string };

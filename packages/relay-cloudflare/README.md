@@ -43,6 +43,11 @@ The worldinmotion relay as a Cloudflare Worker with one Durable Object per mesh.
   calls it only on a `create` (to reserve a place, and to give it back if that create fails) and
   when it deletes an expired mesh, never per message. It counts meshes created since it was added
   to the Worker; meshes made by an earlier version are not in the count.
+- **`RendezvousStore`**, one for the whole Worker: the boxes of short invite codes (SPEC section 5),
+  for every mesh. A mesh object calls it for an admin's `rdv.put`, and the Worker for
+  `GET <prefix>/v1/rdv/<id>` (200 with the box, 404, 400 for a bad id, or 429 past 30 fetches an
+  hour from one address, always `Cache-Control: no-store`). A box lives at most an hour, is deleted
+  with its third fetch, and the object holds at most 10,000; its alarm deletes expired boxes.
 - **Keepalives.** The object registers a WebSocket auto-response, so the runtime answers the
   client's `{"t":"ping"}` with `{"t":"pong"}` without waking the object, and Cloudflare bills it
   neither as a request nor as duration. An authenticated socket that sent nothing, not even a
@@ -120,7 +125,9 @@ refused with `unauthorized`, and the relay still serves meshes that already exis
    Keep the `durable_objects` bindings and the `migrations` entries as they are: every class uses
    Durable Object SQLite (`new_sqlite_classes`), which cannot be changed after the first deploy.
    A relay deployed before `MeshRegistry` existed gets it from the `v2` migration on its next
-   deploy; copy that binding and migration into your configuration if it does not inherit them.
+   deploy, and one deployed before `RendezvousStore` existed gets it from `v3`; copy those bindings
+   and migrations into your configuration if it does not inherit them. Until a relay has
+   `RendezvousStore`, it answers `rdv.put` with `unknown_type` and clients print full invite codes.
 2. Decide who may create meshes. Either set an operator key (recommended for a relay on the
    internet) with `npx wrangler secret put WIM_CREATE_KEY -c wrangler.production.jsonc`, which
    prompts for it, or add `"WIM_OPEN_CREATE": "1"` to `vars` for a relay anyone may create meshes

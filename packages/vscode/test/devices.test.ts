@@ -61,6 +61,21 @@ describe("Add a Device...", () => {
     expect(fake.state.clipboard).toBeUndefined();
   });
 
+  it("offers the full code too when the invite has a short one, for an older device", async () => {
+    const short = "wim2-ABCD-EFGH-JKMN-PQRS-TVWX-YZ01";
+    const { d } = deps(mesh(), async () => ({ code: short, invite: "inv-2", exp: NOW + 3_600_000, full: "wim1_secret" }));
+    fake.state.messageAnswers.push("Copy Invite Code");
+    await actions.addDevice(d);
+    expect(fake.state.messages[0]!.items).toEqual(["Copy Invite Code", "Copy Full Code"]);
+    expect(fake.state.messages[0]!.options).toMatchObject({ detail: expect.stringMatching(/older needs the full code instead\.$/) });
+    expect(fake.state.clipboard).toBe(short);
+    fake.state.messageAnswers.push("Copy Full Code");
+    await actions.addDevice(d);
+    expect(fake.state.clipboard).toBe("wim1_secret");
+    expect(messages().at(-1)).toBe("worldinmotion: full invite code copied.");
+    expect(JSON.stringify(fake.state.messages)).not.toMatch(/wim1_secret|wim2-ABCD/);
+  });
+
   it("says why it cannot invite: no mesh yet, or the client refused", async () => {
     await actions.addDevice(deps(inSetup()).d);
     expect(messages()).toEqual(["worldinmotion: this device is in no mesh yet. Join one first (worldinmotion: Join a Mesh...)."]);
@@ -151,7 +166,8 @@ describe("Join a Mesh...", () => {
     await actions.joinMesh(d);
     expect(box()).toMatchObject({ title: "Join a mesh", password: true, ignoreFocusOut: true });
     expect(box().validateInput!("wim1_x")).toBeUndefined();
-    expect(box().validateInput!("hello")).toBe("An invite code starts with wim1_");
+    expect(box().validateInput!(" WIM2-abcd")).toBeUndefined();
+    expect(box().validateInput!("hello")).toBe("An invite code starts with wim2- (or wim1_)");
     expect(calls).toEqual([{ op: "join", args: { code: "wim1_code" }, timeoutMs: actions.JOIN_TIMEOUT_MS }]);
     expect(fake.state.messages[0]).toMatchObject({
       message: "worldinmotion: this device's comparison code is ABCDE-FGHJK",

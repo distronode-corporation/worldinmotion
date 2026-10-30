@@ -1,4 +1,4 @@
-import { b64u, isMeshId, isRelayUrl, LIMITS, sanitizeForDisplay, sha256, utf8 } from "@worldinmotion/protocol";
+import { b64u, isId22, isMeshId, isRelayUrl, LIMITS, sanitizeForDisplay, sha256, utf8 } from "@worldinmotion/protocol";
 import type { Limits } from "./relay.ts";
 
 /*
@@ -30,6 +30,25 @@ export function parseDialPath(pathname: string): DialPath {
 export function isInfoPath(pathname: string): boolean {
   return /\/v1\/info$/.test(pathname);
 }
+
+// A short invite code's box (SPEC section 5): relay-wide, so its path names no mesh.
+const RDV_PATH = /\/v1\/rdv\/([^/]*)$/;
+
+/** A box path's lookup id, or the HTTP status and error a host answers with. */
+export type RdvPath = { ok: true; rdv: string } | { ok: false; status: 400; error: string };
+
+/**
+ * `<prefix>/v1/rdv/<id>`: where a joiner fetches a short invite code's box. Undefined for any
+ * other path; an id that is not 22 characters of base64url is a 400.
+ */
+export function parseRdvPath(pathname: string): RdvPath | undefined {
+  const match = RDV_PATH.exec(pathname);
+  if (match === null) return undefined;
+  return isId22(match[1]) ? { ok: true, rdv: match[1] } : { ok: false, status: 400, error: "invalid id" };
+}
+
+/** Headers of a box answer: JSON, and never kept by a cache along the way. */
+export const RDV_HEADERS: Readonly<Record<string, string>> = { "content-type": "application/json", "cache-control": "no-store" };
 
 const IPV4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const HEXTET = /^[0-9a-f]{1,4}$/;

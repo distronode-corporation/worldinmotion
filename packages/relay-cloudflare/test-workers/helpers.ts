@@ -216,7 +216,7 @@ export async function createMesh(mesh = meshId(), extra: Record<string, unknown>
 }
 
 /** The Worker's bindings without any variable, for tests that build their own environment. */
-export const bindings = { MESH: env.MESH, SOURCES: env.SOURCES, REGISTRY: env.REGISTRY } satisfies Partial<Env>;
+export const bindings = { MESH: env.MESH, SOURCES: env.SOURCES, REGISTRY: env.REGISTRY, RDV: env.RDV } satisfies Partial<Env>;
 
 /** How many meshes the registry counts. */
 export async function registered(): Promise<number> {
