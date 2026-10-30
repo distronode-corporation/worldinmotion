@@ -12,7 +12,10 @@ import {
   MeshRelay,
   migrate,
   parseDialPath,
+  parseRdvPath,
+  RDV_HEADERS,
   relayInfo,
+  Rendezvous,
   sourceKey,
   SqlStore,
   type Conn,
@@ -136,12 +139,28 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
   const server: Server = tls ? createHttpsServer({ key: tls.key, cert: tls.cert }) : createHttpServer();
   const health = healthz(config.problem);
   const info = relayInfo({ ...config, limits: config.limits ?? {} });
+  // Short invite codes' boxes (SPEC section 5), for every mesh this process serves.
+  const rendezvous = new Rendezvous(db, config.limits ?? {});
+  const sourceOf = (req: IncomingMessage): string => {
+    const forwarded = config.trustProxy === true ? req.headers["x-forwarded-for"] : undefined;
+    // The last entry is the one the trusted proxy appended; earlier ones are the client's word.
+    const addr = typeof forwarded === "string" ? forwarded.split(",").at(-1)!.trim() : req.socket.remoteAddress!;
+    return sourceKey(addr);
+  };
   server.on("request", (req, res) => {
     const get = req.method === "GET";
+    const path = new URL(req.url!, "http://relay").pathname;
+    const rdv = get ? parseRdvPath(path) : undefined;
+    if (rdv !== undefined) {
+      const answer = rdv.ok ? rendezvous.get(rdv.rdv, sourceOf(req), Date.now()) : { status: rdv.status, body: { error: rdv.error } };
+      res.writeHead(answer.status, RDV_HEADERS);
+      res.end(JSON.stringify(answer.body));
+      return;
+    }
     const answer =
       get && req.url === "/healthz"
         ? health
-        : get && isInfoPath(new URL(req.url!, "http://relay").pathname)
+        : get && isInfoPath(path)
           ? { status: 200, body: info }
           : { status: 404, body: { error: "not found" } };
     res.writeHead(answer.status, { "content-type": "application/json" });
@@ -217,6 +236,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
         log: (event, fields) => log(JSON.stringify({ event, mesh: id, ...fields })),
         allowSource,
         admitMesh: () => config.maxMeshes === undefined || meshCount(db) < config.maxMeshes,
+        rdvPut: (put, answer) => answer(rendezvous.put(put, Date.now())),
       },
     );
   const meshFor = (id: string): Mesh => {
@@ -240,13 +260,6 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
       if (!meshes.has(id)) relayFor(id, new Map()).tick(now);
     }
     sweptThrough = rows.length < STORED_SWEEP_MESHES ? "" : String(rows.at(-1)!["mesh"]);
-  };
-
-  const sourceOf = (req: IncomingMessage): string => {
-    const forwarded = config.trustProxy === true ? req.headers["x-forwarded-for"] : undefined;
-    // The last entry is the one the trusted proxy appended; earlier ones are the client's word.
-    const addr = typeof forwarded === "string" ? forwarded.split(",").at(-1)!.trim() : req.socket.remoteAddress!;
-    return sourceKey(addr);
   };
 
   server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
@@ -293,6 +306,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
     if (idleDays !== undefined) expireIdle(idleDays, now);
     for (const m of meshes.values()) m.relay.tick(now);
     sweepStored(now);
+    rendezvous.sweep(now);
     for (const [k, b] of sources) if (b.at <= now - HOUR) sources.delete(k);
   }, config.tickMs ?? 1000);
   const heartbeat = setInterval(() => {

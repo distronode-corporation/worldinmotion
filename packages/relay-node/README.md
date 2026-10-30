@@ -140,13 +140,22 @@ and joins an hour.
   `blob_bytes_per_mesh_per_day` is the effective value: the setting, or the protocol's 1 GiB.
 - `offer` is `WIM_OFFER`, or `null`.
 
+## `/v1/rdv/<id>`
+
+`GET <prefix>/v1/rdv/<id>` hands out the box of a short invite code (SPEC section 5): 200 with
+`{ "v": 1, "rdv", "exp", "n", "c" }`, 404 when there is none (never stored, expired, or already
+fetched three times), 400 for an id that is not 22 characters of base64url, and 429 past 30
+fetches an hour from one address. Answers carry `Cache-Control: no-store`. Admin devices store
+boxes with the `rdv.put` frame; they live in the same database as the meshes, at most an hour
+each and 10,000 at once, and the relay sweeps them with its other expiries.
+
 ## `/healthz`
 
 `GET /healthz` answers 200 `{"ok":true}`, or 503 `{"ok":false,"error":"<reason>"}` when a create
 setting or a guardrail is wrong (see above). A relay whose `WIM_RELAY_URLS` is missing (off loopback) or invalid
 does not start at all, so it answers nothing. The container's `HEALTHCHECK` uses this endpoint.
 
-Other paths answer 404 (except `/v1/info`, above). A WebSocket upgrade to `<prefix>/v1/<mesh id>` opens a connection to that
+Other paths answer 404 (except `/v1/info` and `/v1/rdv/<id>`, above). A WebSocket upgrade to `<prefix>/v1/<mesh id>` opens a connection to that
 mesh; a mesh id that is not 16 bytes of canonical base64url is refused with 400, any other path
 with 404, as the Cloudflare relay does.
 

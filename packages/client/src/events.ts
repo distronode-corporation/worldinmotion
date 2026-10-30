@@ -17,6 +17,8 @@ import type { Device, Home } from "./home.ts";
 import { Invites, PendingJoins } from "./joins.ts";
 import { setDevicePolicy, trustLevel, type MeshFiles } from "./mesh.ts";
 import type { Dialer } from "./wire.ts";
+import { SetupError } from "./errors.ts";
+import { resolveInvite, type BoxFetcher } from "./shortcode.ts";
 import { decideHeld, listAllHeld, resumeEverywhere, type HeldRow } from "./offline.ts";
 import { policyLevel } from "./render.ts";
 import { listSessions, SessionFiles } from "./session.ts";
@@ -417,8 +419,10 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       case "invite": {
         personOnly(d.agent, "inviting a device");
         // Never `auto`: a UI's invite is always admitted by the person, with the code they type.
-        const made = await issueInvite(s, { ttlMs: (a as z.infer<typeof Args.invite>).exp ?? 3_600_000, auto: false, now: d.now });
-        return { code: made.code, invite: made.inviteId, exp: made.exp };
+        const made = await issueInvite(s, { ttlMs: (a as z.infer<typeof Args.invite>).exp ?? 3_600_000, auto: false, now: d.now, short: true });
+        // With a short code, `code` is it and `exp` its end; `full` is the full code, for older devices.
+        if (made.short === undefined) return { code: made.code, invite: made.inviteId, exp: made.exp };
+        return { code: made.short.code, invite: made.inviteId, exp: made.short.exp, full: made.code };
       }
       case "admit": {
         personOnly(d.agent, "admitting a device");
@@ -524,6 +528,8 @@ export type SetupDeps = {
   signal: AbortSignal;
   now: () => number;
   agent?: string;
+  /** Reads a short invite code's box from its relay (`fetch`). */
+  fetch: BoxFetcher;
 };
 
 const SetupArgs = z.object({ code: z.string().min(1).max(16 * 1024), name: z.string().optional() });
@@ -545,21 +551,25 @@ export async function runSetupEvents(d: SetupDeps): Promise<void> {
   async function join(a: z.infer<typeof SetupArgs>): Promise<Row> {
     personOnly(d.agent, "joining a mesh");
     if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
-    // Read before any key is made, so a mistyped code leaves no device behind.
-    try {
-      parseInvite(a.code);
-    } catch {
-      throw new RequestError("input", "not an invite code (wim1_...)");
-    }
+    // Read before any key is made, so a mistyped code leaves no device behind. A short code is
+    // resolved through its relay (which counts the lookup), then read as a full one.
     joining = true;
     try {
+      const code = await resolveInvite(a.code, d.fetch).catch((error: unknown) => {
+        throw error instanceof SetupError ? new RequestError("input", error.message) : error;
+      });
+      try {
+        parseInvite(code);
+      } catch {
+        throw new RequestError("input", "not an invite code (wim1_... or wim2-...)");
+      }
       const device = (await d.home.loadDevice()) ?? (await d.home.createDevice(a.name ?? d.defaultName));
       return await new Promise<Row>((resolve, reject) => {
         let answered = false;
         joinMesh({
           home: d.home,
           device,
-          code: a.code,
+          code,
           dialer: d.dialer,
           now: d.now,
           showSas: (sas) => {

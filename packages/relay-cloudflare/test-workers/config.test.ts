@@ -5,7 +5,7 @@ import worker, { configProblem, MeshDurableObject, relayConfig, type Env } from 
 import { MESH_HEADER, SOURCE_HEADER } from "../src/mesh.ts";
 import { createWith, meshId, meshStub, ORIGIN, RELAY, Socket } from "./helpers.ts";
 
-const base = { MESH: env.MESH, SOURCES: env.SOURCES, REGISTRY: env.REGISTRY } satisfies Partial<Env>;
+const base = { MESH: env.MESH, SOURCES: env.SOURCES, REGISTRY: env.REGISTRY, RDV: env.RDV } satisfies Partial<Env>;
 
 afterEach(() => vi.restoreAllMocks());
 

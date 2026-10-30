@@ -10,7 +10,11 @@ import {
   isVectorKey,
   VECTOR_SEED_PUBLIC_KEYS,
   openMessage,
+  openRdv,
   parseInvite,
+  parseShortCode,
+  rdvId,
+  rdvKey,
   parseJson,
   parseRecoveryCode,
   plaintextSchema,
@@ -67,6 +71,12 @@ describe("test vectors", { timeout: 60_000 }, () => {
     expect(parseRecoveryCode(roster.recovery.code).mesh).toBe(chain[0].mesh);
     const invite = load("invite.json");
     expect(parseInvite(invite.code).inviteId).toBe(invite.invite_id);
+    const rdv = load("rdv.json");
+    expect(parseShortCode(rdv.code)).toEqual({ k: rdv.k, relay: "wss://relay.example" });
+    expect([rdvId(rdv.k), Buffer.from(rdvKey(rdv.k)).toString("hex")]).toEqual([rdv.rdv, rdv.key_hex]);
+    expect(openRdv(rdv.k, rdv.answer)).toEqual({ ok: true, value: invite.code });
+    for (const v of rdv.valid) expect(parseShortCode(v.code)).toEqual({ k: rdv.k, relay: v.relay });
+    for (const v of rdv.invalid) expect(() => parseShortCode(v.code), v.reason).toThrow();
     const message = load("message.json");
     const bob = load("keys.json").keys[1];
     const me = { ...message.receiver, deviceId: bob.id, keys: deviceKeysFromSecrets(bytes(bob.signSec), bytes(bob.boxSec)) };

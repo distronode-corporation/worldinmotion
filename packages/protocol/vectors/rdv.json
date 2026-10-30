@@ -1,0 +1,59 @@
+{
+  "description": "A short invite code (SPEC section 5) for invite.json's full code. k is 100 bits as 20 Crockford base32 characters; the code is wim2- and k with its 4-character check (the first 20 bits of SHA-256(UTF-8('wim/1 short code ' + k))) in six groups of four, then @ and the relay without wss:// unless it is the hosted relay. rdv = first 22 characters of b64u(SHA-256(UTF-8('wim/1 rdv id ' + k))); key = HKDF-SHA256(UTF-8(k), empty salt, info 'wim/1 rdv key', 32 bytes); the box is XChaCha20-Poly1305(key, nonce, AAD = UTF-8('wim/1 rdv ' + rdv)) over UTF-8 of the full code. Each valid code reads back as k and its relay; each invalid one MUST be refused.",
+  "k": "8QMPECDPK7EVGWJSH128",
+  "check": "8529",
+  "code": "wim2-8QMP-ECDP-K7EV-GWJS-H128-8529@relay.example",
+  "rdv": "Bk4VV8WqJezYOY8aqeLStA",
+  "key_hex": "96009da5b8a166c552b5d8bebf96de88522ddc706c3be43c0de40565e0472dde",
+  "aad": "wim/1 rdv Bk4VV8WqJezYOY8aqeLStA",
+  "nonce_hex": "1d9b34f07a212c039dd404959497466511455b5207bf73bb",
+  "plaintext": "wim1_eyJleHAiOjE3NjAwMDM2MDAwMDAsIm1lc2giOiI4eXZUMUlaZ3luc0J0N1I3bWFaVEN3IiwicGluIjp7Imhhc2giOiI3OFBDb3NuSm1BRlRxYUFBQjFLWURWbEQtUXNWOTZRMlZBR21Oc2wydl9FIiwic2VxIjoxfSwicmVsYXkiOiJ3c3M6Ly9yZWxheS5leGFtcGxlIiwic2VjcmV0Ijoic0RTaFAxazlMZGZFT3ZaUVlaM0d4R08zQnI1Y0RoYzBjUWt4UUNPRExqSSIsInRscyI6Ii0zR1h3cFJ4Mld3Mm9QdUxjN2FGcmlrZ0dUQmtia1d3NlRSTnJhNnNFZE0ifQ",
+  "c": "yTFdt6865xZbuS0-xItv6sC5vgMMgYpCe-qy_bsGQ5kikDQFOfKTJRkiUUNKInfoIsPBw6jIM6mAw2mzGCxmiONAZR8hd52d5iu25NvqLhpRgYdQgTmc3VF0V1RhFcX-QutSUhz33hMrwMaB-AVKEDWu9x_loAwI8jaCMln3YZWRJ_W-jfRPn2qMe21usKdnXgm6q3gVcM1fMo8XeUIlY9vx-GUvI4uHJMTb0lJHQ39QO-7t5k-vZ1aI_mw4gJRSs2ipQGEm-w9bB8Q0T_J699ADO07U9UsJnCrh1OanuQYhKTAyYxKSaANn70H9gY2GSaFRY8eQ4kumbYIK6Cy43sLTr8XQvsRYWQP1--QrklVQc4-KldclaNYyq4mkNzov1eirCfqFwC2LWXQjAbyVc1qOeXiQb4G7_AxLX-RPAybxQMIRDthQ6e45sCAE1Y2-BQwupxBZfODVfXIYOtgCk3ztk0jlybPCrdal4DVYrw",
+  "answer": {
+    "v": 1,
+    "rdv": "Bk4VV8WqJezYOY8aqeLStA",
+    "exp": 1760003600000,
+    "n": "HZs08HohLAOd1ASVlJdGZRFFW1IHv3O7",
+    "c": "yTFdt6865xZbuS0-xItv6sC5vgMMgYpCe-qy_bsGQ5kikDQFOfKTJRkiUUNKInfoIsPBw6jIM6mAw2mzGCxmiONAZR8hd52d5iu25NvqLhpRgYdQgTmc3VF0V1RhFcX-QutSUhz33hMrwMaB-AVKEDWu9x_loAwI8jaCMln3YZWRJ_W-jfRPn2qMe21usKdnXgm6q3gVcM1fMo8XeUIlY9vx-GUvI4uHJMTb0lJHQ39QO-7t5k-vZ1aI_mw4gJRSs2ipQGEm-w9bB8Q0T_J699ADO07U9UsJnCrh1OanuQYhKTAyYxKSaANn70H9gY2GSaFRY8eQ4kumbYIK6Cy43sLTr8XQvsRYWQP1--QrklVQc4-KldclaNYyq4mkNzov1eirCfqFwC2LWXQjAbyVc1qOeXiQb4G7_AxLX-RPAybxQMIRDthQ6e45sCAE1Y2-BQwupxBZfODVfXIYOtgCk3ztk0jlybPCrdal4DVYrw"
+  },
+  "valid": [
+    {
+      "code": "wim2-8QMP-ECDP-K7EV-GWJS-H128-8529",
+      "relay": "wss://worldinmotion.distronode.com"
+    },
+    {
+      "code": "wim2-8QMP-ECDP-K7EV-GWJS-H128-8529@relay.example",
+      "relay": "wss://relay.example"
+    },
+    {
+      "code": "wim2-8qmp ecdp k7ev gwjs h128 8529@relay.example",
+      "relay": "wss://relay.example"
+    },
+    {
+      "code": "wim2-8QMP-ECDP-K7EV-GWJS-H128-8529@ws://127.0.0.1:8787",
+      "relay": "ws://127.0.0.1:8787"
+    }
+  ],
+  "invalid": [
+    {
+      "code": "wim1_eyJleHAiOjE3NjAwMDM2MDAwMDAsIm1lc2giOiI4eXZUMUlaZ3luc0J0N1I3bWFaVEN3IiwicGluIjp7Imhhc2giOiI3OFBDb3NuSm1BRlRxYUFBQjFLWURWbEQtUXNWOTZRMlZBR21Oc2wydl9FIiwic2VxIjoxfSwicmVsYXkiOiJ3c3M6Ly9yZWxheS5leGFtcGxlIiwic2VjcmV0Ijoic0RTaFAxazlMZGZFT3ZaUVlaM0d4R08zQnI1Y0RoYzBjUWt4UUNPRExqSSIsInRscyI6Ii0zR1h3cFJ4Mld3Mm9QdUxjN2FGcmlrZ0dUQmtia1d3NlRSTnJhNnNFZE0ifQ",
+      "reason": "not a short code: no wim2- prefix"
+    },
+    {
+      "code": "wim2-8QMP-ECDP-K7EV-GWJS-H128",
+      "reason": "fewer than 24 characters"
+    },
+    {
+      "code": "wim2-0QMP-ECDP-K7EV-GWJS-H128-8529",
+      "reason": "the check does not match (one character changed)"
+    },
+    {
+      "code": "wim2-8QMP-ECDP-K7EV-GWJS-H128-8529U",
+      "reason": "U is not in the alphabet"
+    },
+    {
+      "code": "wim2-8QMP-ECDP-K7EV-GWJS-H128-8529@ws://relay.example",
+      "reason": "ws:// to a host that is not loopback"
+    }
+  ]
+}

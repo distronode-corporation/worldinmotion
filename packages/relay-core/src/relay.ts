@@ -27,11 +27,13 @@ import {
   type CreateFrame,
   type JoinFrame,
   type Peer,
+  type RdvPutFrame,
   type RecoverAuthFrame,
   type Roster,
   type SendFrame,
   type SendResult,
 } from "@worldinmotion/protocol";
+import type { RdvOutcome, RdvPut } from "./rdv.ts";
 import type { LeaseRow, MeshStore, RoomRow, SessionRow } from "./store.ts";
 
 /** One client connection, as the host's transport presents it. */
@@ -102,6 +104,13 @@ export type RelayHost = {
    * only for a valid `create` of a mesh that does not exist yet. Without it, there is no cap.
    */
   admitMesh?(): boolean;
+  /**
+   * The relay-wide store for short invite codes (SPEC section 5, `Rendezvous`), handed an
+   * `rdv.put` the relay has checked and the function that answers it. A host whose store is in
+   * another object answers once that object has, which may be after this call returns. Without
+   * it, `rdv.put` is answered `unsupported`.
+   */
+  rdvPut?(put: RdvPut, answer: (outcome: RdvOutcome) => void): void;
 };
 
 const MINUTE = 60_000;
@@ -140,6 +149,14 @@ const PARSE_CODES: Record<string, string> = {
 };
 
 type Target = { to: string; session: SessionRow };
+
+/** The `error` code and message for each way the relay-wide store refuses an `rdv.put`. */
+const RDV_REFUSALS: Record<Exclude<RdvOutcome, "stored">, [string, string]> = {
+  exists: ["rdv_exists", "a short invite code with that id is already stored"],
+  limited: ["limited", "too many short invite codes from this address for now; try again later"],
+  full: ["full", "this relay holds as many short invite codes as it can; try again later"],
+  unavailable: ["unavailable", "the relay could not store the short invite code"],
+};
 type LeaseStatus = "granted" | "held" | "released" | "expired" | "renewed" | "refused";
 
 /**
@@ -579,6 +596,8 @@ export class MeshRelay {
         return this.cardSet(conn, s, f.msg, now);
       case "cards.get":
         return this.sendCards(conn, f.after);
+      case "rdv.put":
+        return this.rdvPut(conn, st, s, f, now);
       case "ping":
         return this.emit(conn, { t: "pong" });
       case "bye":
@@ -1075,6 +1094,35 @@ export class MeshRelay {
     const c = this.store.getChunk(blob, index);
     if (c === undefined) return this.error(conn, "blob_missing", "no such chunk", "blob.get");
     this.emit(conn, { t: "blob.chunk", blob, index, last: c.last, n: c.n, data: c.data });
+  }
+
+  // ---- short invite codes ----
+
+  /**
+   * Checks an `rdv.put` (SPEC section 5) and hands it to the relay-wide store: only an admin
+   * device, an expiry within the next hour, and per-device and per-mesh hourly budgets, spent
+   * before the store's own per-source budget and count cap.
+   */
+  private rdvPut(conn: Conn, st: ConnState, s: SessionRow, f: RdvPutFrame, now: number): void {
+    const L = this.limits;
+    if (this.host.rdvPut === undefined) return this.error(conn, "unsupported", "this relay keeps no short invite codes", "rdv.put");
+    if (!this.isAdmin(s.device)) return this.error(conn, "unauthorized", "only admin devices store short invite codes", "rdv.put");
+    if (f.exp <= now || f.exp > now + L.rdvLifetimeMs) return this.error(conn, "malformed", "exp must be in the next hour", "rdv.put");
+    const deviceKey = `rdv:${s.device}`;
+    const device = this.level(deviceKey, L.rdvPutsPerDevicePerHour, L.rdvPutsPerDevicePerHour / HOUR, now);
+    const mesh = this.level("rdv:mesh", L.rdvPutsPerMeshPerHour, L.rdvPutsPerMeshPerHour / HOUR, now);
+    if (device < 1 || mesh < 1) return this.error(conn, "limited", "too many short invite codes for now; try again later", "rdv.put");
+    this.spend(deviceKey, device, 1, now);
+    this.spend("rdv:mesh", mesh, 1, now);
+    this.host.rdvPut({ rdv: f.rdv, exp: f.exp, n: f.n, c: f.c, source: st.source }, (outcome) => this.rdvAnswer(conn, f.rdv, outcome));
+  }
+
+  /** Answers an `rdv.put` with the store's outcome, unless the connection has closed meanwhile. */
+  private rdvAnswer(conn: Conn, rdv: string, outcome: RdvOutcome): void {
+    if (this.host.getState(conn)?.phase !== "authed") return;
+    if (outcome === "stored") return this.emit(conn, { t: "rdv.stored", rdv });
+    const [code, message] = RDV_REFUSALS[outcome];
+    this.error(conn, code, message, "rdv.put");
   }
 
   // ---- peer cards ----

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { fitsUtf8 } from "./encoding.ts";
 import { blobChunkFields } from "./blob.ts";
 import { joinBodySchema } from "./invite.ts";
+import { rdvBoxFields } from "./shortcode.ts";
 import { parseJson } from "./json.ts";
 import { prekeySchema } from "./prekey.ts";
 import { fail, LIMITS, ok, WIRE_VERSION, type Result } from "./limits.ts";
@@ -205,6 +206,9 @@ export const createFrameSchema = z.strictObject({
 });
 export const joinFrameSchema = z.strictObject({ t: z.literal("join"), ...joinBodySchema.shape });
 
+/** Stores a short invite code's box at the relay (SPEC section 5); admin devices only. */
+export const rdvPutFrameSchema = z.strictObject({ t: z.literal("rdv.put"), ...rdvBoxFields });
+
 const clientSchemas = {
   auth: authFrameSchema,
   send: sendFrameSchema,
@@ -230,6 +234,7 @@ const clientSchemas = {
   "blob.get": blobGetFrameSchema,
   "card.set": cardSetFrameSchema,
   "cards.get": cardsGetFrameSchema,
+  "rdv.put": rdvPutFrameSchema,
   ping: pingFrameSchema,
   bye: byeFrameSchema,
   create: createFrameSchema,
@@ -261,6 +266,7 @@ export const clientFrameSchema = z.discriminatedUnion("t", [
   blobGetFrameSchema,
   cardSetFrameSchema,
   cardsGetFrameSchema,
+  rdvPutFrameSchema,
   pingFrameSchema,
   byeFrameSchema,
   createFrameSchema,
@@ -373,6 +379,8 @@ export const cardsFrameSchema = z.looseObject({
   more: z.boolean().optional(),
 });
 export const cardFrameSchema = z.looseObject({ t: z.literal("card"), msg: sendFrameSchema });
+/** The relay's answer to `rdv.put`: the box is stored until its `exp`. */
+export const rdvStoredFrameSchema = z.looseObject({ t: z.literal("rdv.stored"), rdv: rdvBoxFields.rdv });
 
 const relaySchemas = {
   hello: helloFrameSchema,
@@ -398,6 +406,7 @@ const relaySchemas = {
   "blob.chunk": blobChunkFrameSchema,
   cards: cardsFrameSchema,
   card: cardFrameSchema,
+  "rdv.stored": rdvStoredFrameSchema,
 } as const;
 
 export const relayFrameSchema = z.discriminatedUnion("t", [
@@ -424,6 +433,7 @@ export const relayFrameSchema = z.discriminatedUnion("t", [
   blobChunkFrameSchema,
   cardsFrameSchema,
   cardFrameSchema,
+  rdvStoredFrameSchema,
 ]);
 
 // ---- types ----
@@ -459,6 +469,7 @@ export type BlobGetFrame = z.infer<typeof blobGetFrameSchema>;
 export type CardSetFrame = z.infer<typeof cardSetFrameSchema>;
 export type CardsGetFrame = z.infer<typeof cardsGetFrameSchema>;
 export type JoinFrame = z.infer<typeof joinFrameSchema>;
+export type RdvPutFrame = z.infer<typeof rdvPutFrameSchema>;
 export type ClientFrame = z.infer<typeof clientFrameSchema>;
 export type RecoverAuthFrame = z.infer<typeof recoverAuthFrameSchema>;
 
@@ -487,6 +498,7 @@ export type BlobStoredFrame = z.infer<typeof blobStoredFrameSchema>;
 export type BlobChunkFrame = z.infer<typeof blobChunkFrameSchema>;
 export type CardsFrame = z.infer<typeof cardsFrameSchema>;
 export type CardFrame = z.infer<typeof cardFrameSchema>;
+export type RdvStoredFrame = z.infer<typeof rdvStoredFrameSchema>;
 export type RelayFrame = z.infer<typeof relayFrameSchema>;
 
 // ---- parsing ----

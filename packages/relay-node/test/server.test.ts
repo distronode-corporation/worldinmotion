@@ -7,7 +7,10 @@ import {
   deviceIdFromSignPub,
   generateDeviceKeys,
   makeDeviceRecord,
+  newShortKey,
   nextRoster,
+  openRdv,
+  sealRdv,
   randomBytes,
   rosterRef,
   sealMessage,
@@ -157,6 +160,30 @@ describe("relay-node", () => {
     expect(await refusedUpgrade(r.port, "/nope")).toEqual({ status: 404, body: { error: "not found" } });
     expect(await refusedUpgrade(r.port, "/v1/not-a-mesh-id")).toEqual({ status: 400, body: { error: "invalid mesh id" } });
     await expect(new Dial(`${r.relayUrls[0]}/v1/not-a-mesh-id`).opened()).rejects.toThrow(/400/);
+  });
+
+  it("keeps short invite codes' boxes for every mesh and hands each out three times by GET", async () => {
+    const r = await relay();
+    const url = r.relayUrls[0]!;
+    const { root } = await mesh(url);
+    const k = newShortKey();
+    const box = sealRdv(k, "wim1_example");
+    root.c.send({ t: "rdv.put", ...box, exp: Date.now() + 60_000 });
+    expect(await root.c.nextOf("rdv.stored")).toEqual({ t: "rdv.stored", rdv: box.rdv });
+    for (let i = 0; i < LIMITS.rdvGetsPerBox; i++) {
+      const res = await fetch(`http://127.0.0.1:${r.port}/relay/v1/rdv/${box.rdv}`);
+      expect([res.status, res.headers.get("cache-control"), res.headers.get("content-type")]).toEqual([200, "no-store", "application/json"]);
+      expect(openRdv(k, await res.json())).toEqual({ ok: true, value: "wim1_example" });
+    }
+    expect(await get(r.port, `/v1/rdv/${box.rdv}`)).toEqual({ status: 404, body: { error: "not found" } });
+    expect(await get(r.port, "/v1/rdv/nope")).toEqual({ status: 400, body: { error: "invalid id" } });
+    expect(await get(r.port, `/v1/rdv/${box.rdv}`, "POST")).toEqual({ status: 404, body: { error: "not found" } });
+  });
+
+  it("limits box fetches per source address", async () => {
+    const r = await relay({ limits: { rdvGetsPerSourcePerHour: 1 } });
+    expect((await get(r.port, `/v1/rdv/${"A".repeat(22)}`)).status).toBe(404);
+    expect(await get(r.port, `/v1/rdv/${"A".repeat(22)}`)).toEqual({ status: 429, body: { error: "too many requests from this address; try again later" } });
   });
 
   it("reports a configuration problem in healthz with 503, logs it, and refuses creation", async () => {
