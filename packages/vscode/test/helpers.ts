@@ -44,8 +44,9 @@ export function mesh(extra: Partial<Extract<WimEvent, { type: "snapshot" }>> = {
     leases: [{ name: "deploy", holder: "coder@buildbox", token: 987654321, expires_at: NOW + 120_000 }],
     held: [heldRow("h1")],
     breakers: [],
+    joins: [],
     ...extra,
-  });
+  } as Extract<WimEvent, { type: "snapshot" }>);
   return s;
 }
 

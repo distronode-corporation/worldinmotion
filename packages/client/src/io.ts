@@ -27,7 +27,7 @@ function ask(input: Readable, open: () => Interface, question: string): Promise<
 
 /** The parts of `process` the CLI uses, so tests can pass a stand-in. */
 export type Proc = {
-  stdin: Readable;
+  stdin: Readable & { isTTY?: boolean };
   stdout: Writable & { isTTY?: boolean };
   stderr: Writable;
   platform: string;
@@ -74,6 +74,7 @@ export function processIo(
     stdin: proc.stdin,
     stdout: proc.stdout,
     isTTY: proc.stdout.isTTY === true,
+    inputIsTTY: proc.stdin.isTTY === true,
     fetch: globalThis.fetch,
     // Orphaned children are re-parented, so a changed ppid means the parent died.
     parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill),

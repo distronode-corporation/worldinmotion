@@ -1,10 +1,12 @@
-// Commands the person runs: send a selection or a file, ask a peer, open a thread, and the
-// person-only decisions (approve, refuse, trust, untrust, resume). The decisions run only from a
-// click in a view or a command the person invokes, and accept only nodes this extension issued;
-// nothing in a message can reach them.
+// Commands the person runs: send a selection or a file, ask a peer, open a thread, the
+// person-only decisions (approve, refuse, trust, untrust, resume), and adding a device (invite,
+// admit by the comparison code the person types, join). The decisions run only from a click in a
+// view, a command the person invokes, or a dialog this extension shows, and accept only nodes this
+// extension issued; nothing in a message can reach them.
 
 import * as vscode from "vscode";
-import { noIcons, notice, oneLine, visible } from "./display.ts";
+import { noIcons, notice, oneLine, stamp, visible } from "./display.ts";
+import type { JoinRow } from "./protocol.ts";
 import { RequestError } from "./process.ts";
 import type { Store } from "./state.ts";
 import { showThread, type Requester } from "./thread.ts";
@@ -13,7 +15,17 @@ import { POLICY_LABEL, type Nodes } from "./tree.ts";
 /** `send_file` waits for the upload, so it gets longer than a plain request. */
 export const FILE_TIMEOUT_MS = 120_000;
 
-export type Deps = { store: Store; client: Requester; nodes: Nodes; now: () => number };
+/** A `join` request waits for an admin, up to the invite's expiry (at most 7 days). */
+export const JOIN_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
+
+export type Deps = {
+  store: Store;
+  client: Requester;
+  nodes: Nodes;
+  now: () => number;
+  /** Invites this window made: a request on one asks for its comparison code at once. */
+  invited: Set<string>;
+}
 
 function failure(what: string, e: unknown): void {
   if (e instanceof RequestError && e.code === "refused") {
@@ -205,4 +217,141 @@ export async function resume(d: Deps, arg: unknown): Promise<void> {
   } catch (e) {
     failure(`resume ${node.address}`, e);
   }
+}
+
+/** A comparison code as the person may type it: 10 letters and digits, with or without the dash. */
+const CODE_RE = /^[0-9a-z]{5}[\s-]?[0-9a-z]{5}$/i;
+
+/**
+ * Add a Device...: an invite for a new device, copied with a button, never shown in a message.
+ * When the device asks to join, the person types the comparison code it shows (admitRequest).
+ */
+export async function addDevice(d: Deps): Promise<void> {
+  if (d.store.setup !== undefined) {
+    void vscode.window.showWarningMessage("worldinmotion: this device is in no mesh yet. Join one first (worldinmotion: Join a Mesh...).");
+    return;
+  }
+  let made: { code: string; invite: string; exp: number };
+  try {
+    made = (await d.client.request("invite")) as typeof made;
+  } catch (e) {
+    failure("make an invite", e);
+    return;
+  }
+  d.invited.add(made.invite);
+  const choice = await vscode.window.showInformationMessage(
+    "worldinmotion: an invite for the new device is ready.",
+    {
+      modal: true,
+      detail: `On the new device, in a terminal: wim join <code> (or there in VS Code: worldinmotion: Join a Mesh...). The code works once, until ${stamp(made.exp)}. Give it over a channel you trust, never through an agent or a message. When the device asks to join, you type the comparison code it shows.`,
+    },
+    "Copy Invite Code",
+  );
+  if (choice !== "Copy Invite Code") return;
+  await vscode.env.clipboard.writeText(made.code);
+  void vscode.window.showInformationMessage("worldinmotion: invite code copied.");
+}
+
+/** A device asks to join: on an invite this window made, its code is asked for at once; otherwise offered. */
+export async function joinRequested(d: Deps, row: JoinRow): Promise<void> {
+  if (d.invited.has(row.invite)) return admitRequest(d, row);
+  const choice = await vscode.window.showInformationMessage(notice(`worldinmotion: a device named ${row.name} asks to join the mesh.`), "Admit...");
+  if (choice === "Admit...") await admitRequest(d, row);
+}
+
+/** Admit a Device...: picks a waiting device, then admits it by its code. */
+export async function admitDevice(d: Deps): Promise<void> {
+  const rows = [...d.store.joins.values()];
+  if (rows.length === 0) {
+    void vscode.window.showInformationMessage("worldinmotion: no device is waiting to join.");
+    return;
+  }
+  const picked = await vscode.window.showQuickPick(
+    rows.map((r) => ({ label: noIcons(oneLine(r.name, 40)), description: noIcons(oneLine(r.id, 40)), detail: `Asked ${stamp(r.at)}`, row: r })),
+    { title: "Admit a device" },
+  );
+  if (picked !== undefined) await admitRequest(d, picked.row);
+}
+
+/**
+ * Asks the person for the comparison code the new device shows and admits the request only when
+ * it is that request's code (the client compares). The code is never shown here: reading it from
+ * the new device is the check.
+ */
+export async function admitRequest(d: Deps, row: JoinRow): Promise<void> {
+  const name = oneLine(row.name, 40);
+  const code = await vscode.window.showInputBox({
+    title: noIcons(`Add ${name} to the mesh`),
+    prompt: noIcons(`Type the comparison code the new device shows (device id ${oneLine(row.id, 40)}). If it shows no code, or another one, press Escape: the request is not from the device you invited.`),
+    placeHolder: "XXXXX-XXXXX",
+    ignoreFocusOut: true,
+    validateInput: (v: string) => (CODE_RE.test(v.trim()) ? undefined : "10 letters and digits, as the new device shows them"),
+  });
+  if (code === undefined) return;
+  try {
+    await d.client.request("admit", { device: row.name, code: code.trim() });
+  } catch (e) {
+    if (e instanceof RequestError && e.code === "mismatch") {
+      void vscode.window.showErrorMessage(notice(`worldinmotion: that is not the comparison code of ${name}'s request. Check it on the new device; if it shows another code, do not admit it.`));
+    } else failure(`admit ${name}`, e);
+    return;
+  }
+  d.invited.delete(row.invite);
+  void vscode.window.showInformationMessage(notice(`worldinmotion: admitted ${name}.`));
+  await askTrust(d, [row.name]);
+}
+
+/** "Is X your own device?" after an admit or a join; a yes trusts it, as the Trust action does. */
+export async function askTrust(d: Deps, names: readonly string[]): Promise<void> {
+  if (names.length === 0) return;
+  const one = names.length === 1;
+  const shown = names.map((n) => `"${visible(n)}"`);
+  const list = one ? shown[0]! : `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)!}`;
+  const choice = await vscode.window.showWarningMessage(
+    one ? `Is ${list} your own device?` : `Are ${list} your own devices?`,
+    { modal: true, detail: `Trust ${one ? "its" : "their"} messages here: ${TRUST.trust.explain} Only for a device you would let type into your own terminal.` },
+    TRUST.trust.button,
+  );
+  if (choice !== TRUST.trust.button) return;
+  for (const name of names) {
+    try {
+      await d.client.request("trust", { device: name, relayed: false });
+    } catch (e) {
+      failure(`trust ${oneLine(name, 40)}`, e);
+      return;
+    }
+  }
+  void vscode.window.showInformationMessage(notice(`worldinmotion: ${names.join(", ")} trusted.`));
+}
+
+/**
+ * Join a Mesh...: on a device in no mesh yet, joins with an invite code pasted here (never shown),
+ * then shows this device's comparison code for the person to type on the admin device.
+ */
+export async function joinMesh(d: Deps): Promise<void> {
+  if (d.store.setup === undefined) {
+    void vscode.window.showWarningMessage("worldinmotion: this device is already in a mesh. To join another, run wim join <code> in a terminal.");
+    return;
+  }
+  const code = await vscode.window.showInputBox({
+    title: "Join a mesh",
+    prompt: "Paste the invite code from the admin device (wim invite there, or its Add a Device...)",
+    password: true,
+    ignoreFocusOut: true,
+    validateInput: (v: string) => (v.trim().startsWith("wim1_") ? undefined : "An invite code starts with wim1_"),
+  });
+  if (code === undefined) return;
+  let r: { device: { name: string }; code: string };
+  try {
+    r = (await d.client.request("join", { code: code.trim() }, JOIN_TIMEOUT_MS)) as typeof r;
+  } catch (e) {
+    failure("join the mesh", e);
+    return;
+  }
+  const name = oneLine(r.device.name, 40);
+  const sas = oneLine(r.code, 20);
+  void vscode.window.showInformationMessage(notice(`worldinmotion: this device's comparison code is ${sas}`), {
+    modal: true,
+    detail: noIcons(`On the admin device, type ${sas} where wim invite asks for it, in its Add a Device... dialog, or run wim devices admit ${name} ${sas} there. This window finishes joining once the admin admits it.`),
+  });
 }

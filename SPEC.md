@@ -271,13 +271,27 @@ sends:
   invite is used or expired.
 - It verifies `proof`, `sig` and the id derivation, checks the name is free, and refuses a name
   starting with `recovery` (section 4).
-- It then MUST hold the request for its person, showing the device name, the device id and the
-  **short authentication string**: the first 50 bits of
+- It then MUST hold the request for its person, showing the device name and the device id, and
+  have the person confirm the **short authentication string**: the first 50 bits of
   `H(UTF-8("wim/1 sas ") || canonBytes(device))` as 10 Crockford base32 characters, shown as
-  `XXXXX-XXXXX`. The joiner shows the same string. The admin client signs only after the person
-  confirms that both match. A client MAY accept without asking only for an invite its operator
-  created with an explicit auto-accept option, recorded with the invite on the admin device and
-  never in the code.
+  `XXXXX-XXXXX`, which the joiner shows. The admin client signs only after the person confirms
+  that the joiner's string is this request's. A client SHOULD have the person type the string the
+  joiner shows and compare it itself (ignoring case, `-` and spaces, and reading `I` and `L` as
+  `1` and `O` as `0`), and SHOULD NOT show its own copy: then a confirmation cannot be given
+  without reading the joiner's screen, which a yes or no can. A client MUST take the confirmation
+  only from its person, never from an agent: the reference client takes it only from an
+  interactive terminal (standard input and output both terminals) with no agent's variables set
+  (the list in section 4a), or from a local user interface (SECURITY-MODEL section 7.5). A client
+  MAY accept without asking only for an invite its operator created with an explicit auto-accept
+  option, recorded with the invite on the admin device and never in the code.
+- **A request nobody is at yet.** The relay queues a `join.request` until the invite expires and
+  sends it to each admin session that authenticates meanwhile, so an admin device need not be
+  waiting for it. The reference client's sessions on an admin device keep each request that passes
+  the checks above in a file next to the invite records (never its short authentication string),
+  until the invite is used or expires, and the person admits one later by the string the joiner
+  shows (`wim devices pending`, `wim devices admit <name> <code>`). The typed string picks the
+  request: one whose string was not typed is never admitted this way, an auto-accept invite's
+  included. None of this changes the wire.
 - On acceptance it signs the next roster with the device added as `{ ...device, "role": "member",
   "added": <now> }` and publishes it (`roster.publish`). The relay verifies the chain, stores it
   (section 4, forks), marks the invite used, sends the new roster to every session, and sends
@@ -290,6 +304,36 @@ sends:
   walks the rest with `roster.get`. It MUST check that its own record is in the newest roster.
 - An invite is single use. A second `join` on the same invite is refused, except from the device it
   admitted (above).
+
+**Short invite codes (proposed, not implemented).** An invite code is about 350 characters, too
+long to read out or type, so people paste it, and a pasted code passes through whatever holds the
+clipboard, an agent's context included. The code is also the joiner's trust anchor (its relay,
+mesh, roster pin and certificate pin; SECURITY-MODEL section 5.6), so a shorter code must not be
+a weaker one. This design is recorded for review; no client or relay implements it, and nothing
+above depends on it.
+
+- The admin device makes the full invite as today, then a short code
+  `wim2-` + 20 Crockford base32 characters (100 bits of `K`, random), shown as
+  `wim2-XXXXX-XXXXX-XXXXX-XXXXX`, plus the relay's host when it is not the joiner's default relay.
+- It derives `rdv` = `b64u(H(UTF-8("wim/1 rdv id ") || K))` cut to 22 characters and
+  `key` = HKDF-SHA256(K, salt empty, info `"wim/1 rdv key"`, 32 bytes), seals the full code with
+  XChaCha20-Poly1305 under `key` (random nonce, AAD = UTF-8 `rdv`), and stores the box at the
+  relay under `rdv` until the invite's `exp`, at most 1 hour after it is made: a new, authenticated
+  admin frame, `rdv.put { rdv, exp, n, c }`, at most 16 KiB.
+- The joiner fetches the box by `rdv` from a relay-wide endpoint that needs no mesh id
+  (`GET <relay>/v1/rdv/<rdv>`), opens it with `key`, and from then on uses the full code exactly as
+  today: every check of this section applies unchanged, the short authentication string included.
+- **Not weaker.** The relay sees `rdv` and the box, never `K`. Reading the invite out of the box,
+  or making a box the joiner would accept (another relay, mesh or pin), needs `K`: 2^100 guesses
+  offline, against an invite that lives an hour. Online, the relay answers at most 5 fetches per
+  `rdv` and 30 per source address an hour, so guessing a live `rdv` is hopeless too. A relay that
+  withholds or swaps the box only denies the join. Whoever reads the short code can use the
+  invite, as with the full code, and the short authentication string still stops them.
+- **Compatibility.** Only new frames and a new endpoint: a client that does not know `wim2-` still
+  uses the full code, which the admin device prints as well. A relay that answers `rdv.put` with
+  `unknown_type` has no rendezvous, and the admin device says so and shows only the full code.
+- Still to settle before it is built: the per-mesh relay shard (section 8) needs a relay-wide
+  store for `rdv`, and the relay's limits for it (count per device, bytes per mesh).
 
 ## 6. Messages
 
@@ -769,6 +813,8 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | prekey secret kept | until `until` + 72 hours |
 | senders stop using a prekey | 10 minutes before its `until` |
 | prekeys kept per device and mesh | 8 |
+| pongs a session sends | 10 a minute to one device, 60 a minute in all |
+| oldest ping still answered | 60 seconds |
 
 ## 10. What the relay can and cannot see
 
@@ -827,9 +873,9 @@ document holds no secret and no live count. A client MUST NOT depend on it to co
 
 ## 12. Message kinds
 
-The plaintext `kind` is one of `msg`, `task`, `result`, `file` or `card` (section 17). All kinds
-carry the fields of section 6 (`v`, `id`, `from`, `to`, `at`, `roster`) and may carry `reply_to`;
-each adds its own:
+The plaintext `kind` is one of `msg`, `task`, `result`, `file`, `card` (section 17), `ping` or
+`pong`. All kinds carry the fields of section 6 (`v`, `id`, `from`, `to`, `at`, `roster`); the
+message kinds may carry `reply_to`, and each adds its own:
 
 | kind | `text` | adds |
 |---|---|---|
@@ -837,6 +883,8 @@ each adds its own:
 | `task` | required: the task | `deadline` (time, optional): after `at` and at most 24 hours after it |
 | `result` | required: the result body | `reply_to` is REQUIRED and names the task id; `status`: `done`, `failed`, `declined` or `timeout` |
 | `file` | optional: a caption | `file`, below |
+| `ping` | none | nothing; `to` names sessions only, never `*` or a room |
+| `pong` | none | `reply_to` is REQUIRED and names the ping id; `to` is exactly one session |
 
 ```json
 "file": { "blob": "<ULID>", "name": "notes.txt", "size": 9, "mime": "text/plain",
@@ -856,6 +904,31 @@ each adds its own:
 - A `result` answers a task only if its sender device and session were among the task's resolved
   addressees: named directly, a member of an addressed room when the task was sent, or anyone for
   `*`. Any other result is presented as an ordinary message, labelled as an unsolicited result.
+
+**Ping and pong.** A `ping` asks whether a session is there; the receiving client answers it
+itself, never an agent. Both are sealed and signed like every message, so one pong proves both
+directions between two devices, encryption included: the pinging device sealed the ping and the
+other opened it, and the other sealed the pong and the pinging device opened it.
+
+- `ping` and `pong` carry no `text`, and no `relayed` or `derived`. A ping names one or more
+  sessions in `to`; a pong is addressed to the one session that sent the ping, and its `reply_to` is
+  the ping's id.
+- A receiver runs every check of section 6, dedupe and seq included, then answers a ping with a
+  pong, at once, unless: its person's inbound policy for the sender device is `refuse`; the ping's
+  `at` is more than 60 seconds before its clock (it waited in a queue); or the receiving session
+  has sent 10 pongs to that device, or 60 in all, in the last minute. It answers from the session
+  that received the ping, as a new message of that session (its own next `seq`).
+- A ping or pong is never spooled, kept in history, receipted (section 7) or shown to an agent,
+  starts no agent turn, and counts against no breaker (SECURITY-MODEL section 7.3). Inbound policy
+  `hold` does not hold it: the answer shows only that the session is online and that its device
+  can open what is sealed to it, and every member already sees presence in peer rows.
+- A pong counts only for a ping its session sent and still waits on, and only from a session that
+  ping named; the client drops any other.
+- A client older than these kinds drops them as `plaintext_malformed` (section 6, step 8), so a
+  ping to it gets no pong. The sender cannot tell that from a session that is not reading.
+- The reference client's `wim ping <address,...>` and `wim ping --all` ping sessions the relay
+  lists as online (an offline one would only collect a queued ping), wait 5 seconds by default, and
+  print one row per session and one per device.
 
 ## 13. Rooms
 
@@ -973,6 +1046,7 @@ escape.
 | `roster.json` | a chain (genesis with a recovery record, a member add, a promotion, a revocation, a recovery add), its recovery code, and invalid successors with their failure reasons |
 | `invite.json` | an invite code with a TLS pin, its secret and id, and a join with its proof, signature and short authentication string |
 | `message.json` | a sealed send frame with a scheme 1 box, the plaintext one recipient opens, and tamper cases with their reasons |
+| `ping.json` | a ping and its pong, each a whole frame sealed to the other device's prekey, with the plaintexts each side opens; ping and pong plaintexts that MUST be refused |
 | `prekey.json` | two signed prekeys with their secrets; one scheme 2 box by hand with every HPKE value (info, AAD, ephemeral secret, enc, shared secret, key, base nonce, ciphertext); a whole frame carrying `pk`, its plaintext, and tamper cases (`key_expired`, `decrypt_failed`, `bad_signature`) with the prekeys held; prekeys that MUST fail verification, with their reasons |
 | `blob.json` | a 2-chunk file with a fixed key and nonces |
 

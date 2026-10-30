@@ -101,6 +101,10 @@ export class MeshFiles {
   get invitesDir(): string {
     return join(this.dir, "invites");
   }
+  /** Join requests this admin device keeps for its person (`wim devices pending`). */
+  get joinsDir(): string {
+    return join(this.dir, "joins");
+  }
   get sessionsDir(): string {
     return join(this.dir, "sessions");
   }

@@ -88,8 +88,8 @@ Both are first-class threats here.
   different roster at that seq has found a fork.
 - **Joining.** A one-time invite code carries a secret, the relay URL, the mesh id, a roster pin and
   optionally a relay certificate pin. The joiner proves the secret with an HMAC and its own keys with
-  a signature. The admin's person compares a 50-bit short authentication string on both screens
-  before the admin signs.
+  a signature. The admin's person types the 50-bit short authentication string the joiner shows,
+  and the admin client signs only when it is the request's own.
 - **Recovery.** A recovery record is an admin that never acts as a device: it has no sessions, is
   sent no boxes, and connects only on a recovery connection that can fetch the chain and publish one
   roster. Its code pins the genesis roster.
@@ -234,11 +234,28 @@ Between a client and the relay.
 An invite code is a bearer credential: whoever reads it before it is used and before it expires can
 *ask* to join as a member.
 
-- **Theft and race.** The admin's person must approve each join after comparing a short
-  authentication string (50 bits, shown `XXXXX-XXXXX`) on the admin and on the joiner. An attacker who submits first shows a
-  different string, which the person refuses; it still consumes the invite, so a new one is needed.
-  Auto-accept exists only when the operator created that invite with it explicitly, and is meant for
-  unattended bots on networks you control.
+- **Theft and race.** The admin's person must approve each join by typing the short
+  authentication string (50 bits, shown `XXXXX-XXXXX`) that the joining device shows; the admin
+  client compares it with the request's own and does not show its copy, so a confirmation cannot be
+  given without reading the joiner's screen. An attacker who submits first has a different string,
+  which the person's typed one does not match; it still holds the invite at the relay, so a new one
+  is needed. Auto-accept exists only when the operator created that invite with it explicitly
+  (`wim invite --auto`), and is meant for unattended bots on networks you control.
+- **Only the person confirms.** An agent that answers the confirmation for its person (on
+  2026-10-29 one typed `y` into `wim invite` through a fifo, before this rule) turns the check into
+  nothing. The client takes the typed string only from an interactive terminal, standard input and
+  output both, with no agent's variables set (the rule for a passphrase, section 5.8, plus the
+  input); `wim invite` without `--auto` refuses to start anywhere else, before any code exists, and
+  `wim devices admit` refuses too. A local user interface may take it as well (section 7.5). This
+  is a same-user boundary like every other here: a process of the OS user that fakes a terminal
+  can type into one.
+- **Requests that wait.** The relay queues a join request until its invite expires, and every
+  session of an admin device keeps one that passes the client's checks on disk, without its
+  string, for `wim devices admit <name> <code>`. The typed string picks the request: a request
+  from a device that took the same name, or one on an auto-accept invite, is never admitted unless
+  its own string is typed. The file holds the device's public keys and the invite id, nothing
+  secret; whoever can write it is the device anyway (section 5.8), and the request is checked again
+  against the invite's secret when it is admitted.
 - **After use or expiry.** The admin client records each invite, refuses a join for one already used
   or past its expiry by its own clock, and deletes the secret. A relay that ignores "used" gains
   nothing.
@@ -246,7 +263,10 @@ An invite code is a bearer credential: whoever reads it before it is used and be
 - **Substituted codes.** The code is the joiner's trust anchor: its relay URL, mesh, roster pin and
   certificate pin. Whoever can change the code in transit can point the joiner at a different relay
   and mesh. Deliver codes over a channel you would trust with a password, never through an agent or
-  a mesh message.
+  a mesh message. `wim invite` says to run `wim join <code>` on the new device in a terminal, and the
+  VS Code extension copies the code with a button and takes it in a password field, never showing
+  it. A shorter code that is no weaker is designed in SPEC section 5 ("Short invite codes") and not
+  implemented.
 - **What the code does not give:** it does not let anyone read past messages, become an admin, act as
   an existing device or take a reserved `recovery` name. The relay sees only a hash of the secret.
 
@@ -477,7 +497,10 @@ The proof is an HMAC under the invite's 32-byte secret over the joiner's four-fi
 can neither alter the record nor make a proof of its own. The admin sets `role` (member) and `added`
 itself; a joiner cannot ask for admin or claim a `recovery` name. The short authentication string
 (50 bits, shown `XXXXX-XXXXX`) lets the person confirm that the request the admin sees is the one the
-joiner made. The joiner verifies the chain from its pin and checks its own record is in the newest
+joiner made: the person types the string the joiner shows, at a terminal with no agent's
+variables or in a local user interface, and the admin client compares it with the request's own
+(section 5.6). After an admit or a join, the client asks whether the other device is the person's
+own; a yes trusts it (section 7.2), and only from such a terminal. The joiner verifies the chain from its pin and checks its own record is in the newest
 roster.
 
 ### 6.4 Roster chain, forks, promotion and rollback
@@ -686,7 +709,20 @@ Limits:
   in its downloads folder. Forward secrecy protects recorded ciphertext, not what a thief of the
   whole disk reads there.
 
-### 6.15 Denial of service
+### 6.15 Ping
+
+`wim ping` (SPEC section 12) sends a sealed, signed `ping` that the receiving client answers itself
+with a `pong`. It proves that a session is online and that the two devices can seal and open for
+each other, and nothing more: every member already sees which sessions are online in peer rows, so
+a pong tells a member nothing new. A pong carries no text and is never shown to an agent, spooled,
+kept in history or receipted, so a ping cannot inject anything or start a turn. It is answered for
+a held device too (that only shows presence) and not for a device the person refuses. A session
+sends at most 10 pongs a minute to one device and 60 in all, and does not answer a ping older than
+60 seconds, so a queued ping is not answered hours later. To the relay a ping and a pong are small
+sends like any other: their kind is inside the encryption, though their size and timing make
+them easy to guess. A client older than ping drops it, so it gives no pong.
+
+### 6.16 Denial of service
 
 The relay can always deny service. Against members and outsiders the limits are (SPEC section 9):
 - a queue holds 50 messages, at most 10 from any one sender device, for 24 hours;
@@ -704,7 +740,9 @@ The relay can always deny service. Against members and outsiders the limits are 
 - 25 MiB per file, 200 MiB of chunks per device per day, 1 GiB per mesh;
 - one card update a minute per session, 64 KiB per card, 256 KiB of cards per device, paged;
 - at most 64 messages parked per mesh while a receiver fetches a newer roster, and the signature is
-  checked before a message's roster reference can trigger a fetch or a fork alarm.
+  checked before a message's roster reference can trigger a fetch or a fork alarm;
+- 10 pongs a minute to one device and 60 in all per session (section 6.15), and at most 16 join
+  requests kept on an admin device.
 
 On the receiving side, the loop and cost breaker (section 7.3) bounds how often peers can wake an
 agent.
@@ -757,9 +795,12 @@ Policy is per sender device id: `deliver`, `deliver-relayed`, `hold` (wait for t
 `refuse`. Sessions on the same device, and devices the person marks as their own, are `deliver`;
 every other device is `hold`. Held items wait until the person approves them in the pane, in a
 local UI or at the command line. Only the person changes policy: at the command line (`wim devices
-trust` and `untrust`), or with the trust and untrust actions of a local UI such as the VS Code
-extension, which asks the person to confirm the new policy first (section 7.5). No message, tool
-call or MCP request can change it.
+trust` and `untrust`, one device or `--all`, and the "Is it your own device?" question that
+`wim invite`, `wim devices admit` and `wim join` ask at an interactive terminal), or with the trust
+and untrust actions of a local UI such as the VS Code extension, which asks the person to confirm
+the new policy first (section 7.5). No message, tool call or MCP request can change it.
+`wim devices trust --all` trusts every device in the mesh, other people's included; it is for a
+mesh of your own devices.
 
 **Trusted devices can assign work.** An item from a `deliver` device, other than relayed text, is
 framed as a work assignment from a device the person trusts: the agent may carry it out within its
@@ -824,10 +865,14 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   show held items and decide them; it cannot bypass any of the three, and it has no way to skip
   the secret filter.
 - **The person's actions.** `approve`, `refuse`, `trust`, `untrust` and `resume` change what reaches
-  the agents, so they are the person's. Only the process that started `wim events` holds its stdio,
-  so only that UI can send them. The VS Code extension runs them only from a click in its own views
-  or a command the person runs, accepts only items from its own views as arguments, and asks the
-  person to confirm a trust change in a dialog that names the device and the new policy.
+  the agents, and `invite`, `admit` and (on a device in no mesh yet) `join` change the mesh, so
+  they are the person's. Only the process that started `wim events` holds its stdio, so only that
+  UI can send them. The VS Code extension runs them only from a click in its own views, a command
+  the person runs, or a dialog it shows, accepts only items from its own views as arguments, and
+  asks the person to confirm a trust change in a dialog that names the device and the new policy.
+  It admits a device only with the comparison code the person types from the new device's screen,
+  and copies an invite code with a button, never showing it. An events process started with an
+  agent's variables (section 5.6) refuses `invite`, `admit` and `join`.
 - **Peer text stays text.** Message text, previews, addresses, card fields and file names are
   another agent's text. The extension shows them as plain text only (no HTML, Markdown, links or
   command links), makes hidden and reordering characters visible, and names only the sender and
@@ -880,6 +925,9 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
 - The outbound secret filter is best effort, and does not look inside binary files.
 - Approval marks and policy are files under the OS user: a local process, or an agent allowed to
   write files unprompted, can change them.
+- The rule that only a person admits a device (an interactive terminal with no agent's variables,
+  or a local UI) stops an agent that answers a prompt for its person by accident or habit; a
+  process of the OS user that runs a terminal of its own can still type into it.
 - Card working directories are shared with every member by default.
 
 ## 10. Reporting

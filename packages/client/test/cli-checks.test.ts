@@ -58,7 +58,9 @@ describe("flags", () => {
     }
     expect(await run(t, "history", "--limit", "5")).toBe(0);
     expect(await run(t, "devices", "foo")).toBe(1);
-    expect(t.err.at(-1)).toBe('wim: unknown devices action "foo"\nwim devices [list | trust <name> [--relayed] | untrust <name> | revoke <name> | promote <name>]');
+    expect(t.err.at(-1)).toBe(
+      'wim: unknown devices action "foo"\nwim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]\nwim devices pending | wim devices admit <name> <code>',
+    );
   });
 });
 
