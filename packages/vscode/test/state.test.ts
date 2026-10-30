@@ -27,7 +27,7 @@ describe("Store: events", () => {
     expect(s.rooms.get("#ops")).toEqual(["reviewer@laptop", "coder@buildbox"]);
     expect(s.leases.has("deploy")).toBe(true);
     expect(s.held.has(heldKey(heldRow("h1")))).toBe(true);
-    s.apply({ type: "snapshot", at: NOW, devices: [], sessions: [], rooms: [], leases: [], held: [], breakers: [{ peer: "x@y", at: NOW }] });
+    s.apply({ type: "snapshot", at: NOW, devices: [], sessions: [], rooms: [], leases: [], held: [], breakers: [{ peer: "x@y", at: NOW }], joins: [] });
     expect(s.devices.size + s.sessions.size + s.rooms.size + s.leases.size + s.held.size).toBe(0);
     expect(s.breakers.has("x@y")).toBe(true);
   });
@@ -123,6 +123,21 @@ describe("Store: events", () => {
     expect(s.pause("coder@buildbox", NOW + PAUSE_MS)).toBeUndefined();
     s.apply({ type: "breaker", at: NOW, peer: "coder@buildbox", state: "resumed" });
     expect(s.pause("coder@buildbox", NOW + 1)).toBeUndefined();
+  });
+
+  it("keeps waiting join requests and setup mode, and a reset forgets both", () => {
+    const s = mesh({ joins: [{ name: "a", id: "d1", invite: "i1", at: 1, exp: 2 }] });
+    expect([...s.joins.keys()]).toEqual(["i1/d1"]);
+    s.apply({ type: "join", at: NOW, op: "add", request: { name: "b", id: "d2", invite: "i1", at: 1, exp: 2 } });
+    s.apply({ type: "join", at: NOW, op: "remove", request: { name: "a", id: "d1", invite: "i1", at: 1, exp: 2 } });
+    expect([...s.joins.keys()]).toEqual(["i1/d2"]);
+    s.apply({ type: "setup", at: NOW, version: "1" });
+    expect(s.setup).toEqual({});
+    s.apply({ type: "setup", at: NOW, version: "1", device: { name: "x", id: "y" } });
+    expect(s.setup).toEqual({ device: { name: "x", id: "y" } });
+    s.reset();
+    expect(s.setup).toBeUndefined();
+    expect(s.joins.size).toBe(0);
   });
 
   it("resets for a new process, and marks an exit as closed", () => {

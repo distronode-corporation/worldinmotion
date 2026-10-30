@@ -6,27 +6,29 @@ import { runGateway } from "./run-a2a.ts";
 import { loadConfig as loadGatewayConfig } from "@worldinmotion/a2a";
 import { loadConfig as loadBotConfig, runBot } from "@worldinmotion/bot";
 import { loadConfig as loadCiConfig, runCi } from "@worldinmotion/ci";
-import { isName, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
+import { isName, isRecoveryName, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { basename, join as pathJoin } from "node:path";
 import type { Readable, Writable } from "node:stream";
-import { createMesh, decideJoin, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery } from "./admin.ts";
+import { admitPending, createMesh, decideJoin, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
+import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
 import { accepted, ClientError, MeshSession, unprotectedNote, type Inbound, type SessionOptions } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { Home, SetupError, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
-import { runEvents } from "./events.ts";
+import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp } from "./mcp.ts";
 import { MeshFiles, RosterBook, setDevicePolicy, trustLevel } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
 import { defaultHome, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine } from "./render.ts";
+import { PING, pingReport } from "./ping.ts";
 import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
-import { agentEnv, canShowSecret, fetchHeldCode, holdForShow, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
+import { agentEnv, canConfirm, canShowSecret, fetchHeldCode, holdForShow, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
@@ -54,6 +56,8 @@ export type CliIO = {
   stdout: Writable;
   /** Whether stdout is an interactive terminal (recovery codes are shown only there). */
   isTTY: boolean;
+  /** Whether stdin is one too: a confirmation is taken only from a person typing (canConfirm). */
+  inputIsTTY: boolean;
   /** How long `wim send` waits for a running `wim watch` to take a handed-over send (15 s). */
   handoverMs?: number;
   /** How long a command waits to be connected to the relay (15 s). */
@@ -78,7 +82,7 @@ export type CliIO = {
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
 const BOOLEAN_FLAGS = new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]);
-const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls", "wait"]);
+const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -89,9 +93,10 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   mesh: ["relay", "key-env", "tls", "no-recovery"],
   invite: ["exp", "auto"],
   join: ["name"],
-  devices: ["relayed"],
+  devices: ["relayed", "all"],
   peers: ["all", "as"],
   send: ["allow-secret", "as", "wait"],
+  ping: ["all", "timeout"],
   watch: ["as"],
   inbox: ["as"],
   events: ["json", "as"],
@@ -176,9 +181,11 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
   wim invite [--exp 1h] [--auto]
   wim join <code> [--name <device>]
-  wim devices [list | trust <name> [--relayed] | untrust <name> | revoke <name> | promote <name>]
+  wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
+  wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
   wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
+  wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
   wim inbox [--as <name>]
   wim events --json [--as <name>]
@@ -196,7 +203,7 @@ Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: init, mesh create, invite, join, devices, peers, send, watch, held, history, mcp,
+Commands: init, mesh create, invite, join, devices, peers, send, ping, watch, held, history, mcp,
 bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
@@ -439,6 +446,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await peers(ctx);
       case "send":
         return await send(ctx);
+      case "ping":
+        return await ping(ctx);
       case "watch":
         return await watch(ctx);
       case "inbox":
@@ -576,9 +585,34 @@ async function recoveryRotate(ctx: Ctx): Promise<number> {
   }
 }
 
+/** Why a confirmation cannot be taken here, for the error that refuses it. */
+function noPerson(ctx: Ctx): string {
+  return agentEnv(ctx.env) === undefined ? "this is not an interactive terminal" : "an agent is running this command";
+}
+
+/**
+ * Asks the person for the comparison code the new device shows (SPEC section 5) and compares it
+ * with this request's, so a person cannot confirm without reading the other screen. Three tries;
+ * an empty answer refuses.
+ */
+async function typedCode(ctx: Ctx, p: JoinPrompt): Promise<boolean> {
+  ctx.io.out(`A device named ${p.name} (id ${p.id}) asks to join.`);
+  for (let tries = 0; tries < 3; tries++) {
+    const typed = (await ctx.io.prompt("Type the comparison code the new device shows (Enter to refuse): ")).trim();
+    if (typed === "") return false;
+    if (sameCode(typed, p.sas)) return true;
+    ctx.io.err("wim: that is not this request's code. Read it again on the new device.");
+  }
+  return false;
+}
+
 async function invite(ctx: Ctx): Promise<number> {
   const ttl = parseDuration(flag(ctx.args, "exp") ?? "1h");
   const auto = ctx.args.flags.get("auto") === true;
+  // Refused before an invite exists: its code would otherwise land where no person can admit with it.
+  if (!auto && !canConfirm(ctx.env, ctx.io)) {
+    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code`);
+  }
   const s = await ctx.session("invite", { keyed: false });
   try {
     const joins: unknown[] = [];
@@ -588,12 +622,18 @@ async function invite(ctx: Ctx): Promise<number> {
       wake?.();
     });
     const made = await issueInvite(s, { ttlMs: ttl, auto, now: ctx.io.now });
-    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust):");
+    const until = new Date(made.exp).toISOString();
+    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust, never through an agent):");
     ctx.io.out(`  ${made.code}`);
-    ctx.io.out(`It expires at ${new Date(made.exp).toISOString()}. Waiting for the device to join (Ctrl-C to stop)...`);
+    ctx.io.out("On the new device, in a terminal: `wim join <code>`");
+    ctx.io.out(`It expires at ${until}. Waiting for the device to join (Ctrl-C to stop)...`);
     for (;;) {
       if (ctx.io.signal.aborted || ctx.io.now() >= made.exp) {
-        ctx.io.err("wim: the invite was not used.");
+        ctx.io.err(
+          ctx.io.signal.aborted
+            ? `wim: stopped waiting. The invite stays valid until ${until}: \`wim devices pending\` lists a device that asks to join, and \`wim devices admit <name> <code>\` admits it.`
+            : "wim: the invite expired unused.",
+        );
         return 1;
       }
       const body = joins.shift();
@@ -611,27 +651,49 @@ async function invite(ctx: Ctx): Promise<number> {
         });
         continue;
       }
-      const decision = await decideJoin(
-        s,
-        body as Parameters<typeof decideJoin>[1],
-        async (p) => {
-          ctx.io.out(`Join request: device ${p.name} (id ${p.id}), code ${p.sas}.`);
-          const answer = await ctx.io.prompt("Does the joining device show the same code? [y/N] ");
-          return /^y(es)?$/i.test(answer.trim());
-        },
-        ctx.io.now,
-      );
+      const decision = await decideJoin(s, body as Parameters<typeof decideJoin>[1], (p) => typedCode(ctx, p), ctx.io.now);
       if (decision.outcome === "ignored") continue;
       if (decision.outcome === "admitted") {
-        ctx.io.out(`Admitted ${decision.name}. To deliver its messages without holding them: wim devices trust ${decision.name}`);
+        ctx.io.out(`Admitted ${decision.name}.`);
+        // `--auto` is the unattended path: nobody is asked anything.
+        await askTrust(ctx, s.mesh, s.roster.devices.filter((d) => d.name === decision.name), !auto);
         return 0;
       }
       ctx.io.err(`wim: refused the join: ${decision.reason}.`);
-      if (decision.reason === "the person did not confirm") return 1;
+      if (decision.reason === "the person did not confirm") {
+        // Kept nowhere: a request whose code the person would not confirm is never admitted later.
+        // This session keeps requests too, after the frames before them: those go first.
+        const refused = body as { invite: string; device: { id: string } };
+        await s.settled();
+        await new PendingJoins(s.mesh, ctx.fsEnv).remove(refused.invite, refused.device.id);
+        ctx.io.err("wim: if the new device showed another code, someone else used the invite: make a new one.");
+        return 1;
+      }
     }
   } finally {
     await s.stop({ ended: true });
   }
+}
+
+/**
+ * "Is X your own device?" after an admit or a join: a yes trusts it (policy `deliver`), as
+ * `wim devices trust` would. Asked only of a person at the terminal (canConfirm); everyone else is
+ * told the command.
+ */
+async function askTrust(ctx: Ctx, files: MeshFiles, devices: ReadonlyArray<{ name: string; id: string }>, ask = true): Promise<void> {
+  // Never empty: the device just admitted, or every device of the mesh just joined (an admin at least).
+  const names = devices.map((d) => d.name);
+  const one = names.length === 1;
+  const list = one ? names[0]! : `${names.slice(0, -1).join(", ")} and ${names.at(-1)!}`;
+  if (ask && canConfirm(ctx.env, ctx.io)) {
+    const question = one ? `Is ${list} your own device? Trust its messages here? [y/N] ` : `Are ${list} your own devices? Trust their messages here? [y/N] `;
+    if (/^y(es)?$/i.test((await ctx.io.prompt(question)).trim())) {
+      for (const d of devices) await setDevicePolicy(files, d.id, "deliver");
+      ctx.io.out(`Messages from ${list} are delivered here; text ${one ? "it relays" : "they relay"} from others is still held.`);
+      return;
+    }
+  }
+  ctx.io.out(`Messages from ${list} are held for your approval. If ${one ? "it is" : "they are"} your own: wim devices trust ${one ? list : "--all"}`);
 }
 
 async function join(ctx: Ctx): Promise<number> {
@@ -646,11 +708,13 @@ async function join(ctx: Ctx): Promise<number> {
     now: ctx.io.now,
     showSas: (sas) => {
       ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
-      ctx.io.out(`Its code is ${sas}. Check that the admin device shows the same code, then confirm there.`);
+      ctx.io.out(`Its comparison code is ${sas}. Type it on the admin device, where \`wim invite\` asks for it, or run \`wim devices admit ${device.name} ${sas}\` there.`);
       ctx.io.out("Waiting for an admin to admit this device...");
     },
   });
-  ctx.io.out(`Joined mesh ${joined.mesh}. Peers' messages are held for approval until you trust their devices: wim devices trust <name>`);
+  ctx.io.out(`Joined mesh ${joined.mesh}.`);
+  const others = joined.roster.devices.filter((d) => d.id !== device.id && !isRecoveryName(d.name));
+  await askTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), others);
   await registerCli(ctx, joined.mesh);
   return 0;
 }
@@ -679,11 +743,13 @@ function deviceRows(r: Roster, config: { device: string; policy: Record<string, 
   });
 }
 
-const DEVICE_ACTIONS = ["list", "trust", "untrust", "revoke", "promote"];
+const DEVICE_ACTIONS = ["list", "trust", "untrust", "revoke", "promote", "pending", "admit"];
 
 async function devices(ctx: Ctx): Promise<number> {
-  const [action = "list", name] = ctx.args.positional;
+  const [action = "list", name, code] = ctx.args.positional;
   if (!DEVICE_ACTIONS.includes(action)) throw new SetupError(`unknown devices action ${JSON.stringify(action)}\n${commandUsage("devices")!}`);
+  if (action === "pending") return pending(ctx);
+  if (action === "admit") return admit(ctx, name, code);
   const { files } = await ctx.mesh();
   const book = await RosterBook.open(files);
   const config = await files.loadConfig();
@@ -691,19 +757,15 @@ async function devices(ctx: Ctx): Promise<number> {
     for (const line of deviceRows(book.current, config)) ctx.io.out(line);
     return 0;
   }
-  if (name === undefined) throw new SetupError(`usage: wim devices ${action} <name>`);
+  const trusting = action === "trust" || action === "untrust";
+  const all = ctx.args.flags.get("all") === true;
+  if (all && trusting && name === undefined) return trustAll(ctx, files, book.current, config.device, action);
+  if (name === undefined || all) throw new SetupError(`usage: wim devices ${action} <name>${trusting ? " | --all" : ""}`);
   const target = book.current.devices.find((d) => d.name === name);
   if (target === undefined) throw new SetupError(`no device named ${name}`);
-  if (action === "trust" || action === "untrust") {
+  if (trusting) {
     const relayed = ctx.args.flags.get("relayed") === true;
-    const level = await setDevicePolicy(files, target.id, trustLevel(action, relayed));
-    ctx.io.out(
-      level === "hold"
-        ? `Messages from ${name} are held for approval.`
-        : relayed
-          ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).`
-          : `Messages from ${name} are delivered; text it relays from others is still held.`,
-    );
+    ctx.io.out(trustLine(name, await setDevicePolicy(files, target.id, trustLevel(action, relayed)), relayed));
     return 0;
   }
   const s = await ctx.session("admin", { keyed: false });
@@ -715,6 +777,62 @@ async function devices(ctx: Ctx): Promise<number> {
       const r = await promoteDevice(s, name, ctx.io.now);
       ctx.io.out(`Promoted ${name} to admin. The roster is now at seq ${r.seq}.`);
     }
+    return 0;
+  } finally {
+    await s.stop({ ended: true });
+  }
+}
+
+function trustLine(name: string, level: string, relayed: boolean): string {
+  if (level === "hold") return `Messages from ${name} are held for approval.`;
+  return relayed ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).` : `Messages from ${name} are delivered; text it relays from others is still held.`;
+}
+
+/** `wim devices trust --all` and `untrust --all`: every device but this one (recovery records never act). */
+async function trustAll(ctx: Ctx, files: MeshFiles, roster: Roster, self: string, action: "trust" | "untrust"): Promise<number> {
+  const relayed = ctx.args.flags.get("relayed") === true;
+  const others = roster.devices.filter((d) => d.id !== self && !isRecoveryName(d.name));
+  if (others.length === 0) ctx.io.out("No other devices in the mesh.");
+  for (const d of others) ctx.io.out(trustLine(d.name, await setDevicePolicy(files, d.id, trustLevel(action, relayed)), relayed));
+  return 0;
+}
+
+/**
+ * A short session as this device, so the relay hands over the join requests it queued while no
+ * admin session was online; once the frames before an answer are handled, they are on disk.
+ */
+async function joinsSession(ctx: Ctx): Promise<MeshSession> {
+  const s = await ctx.session("admin", { keyed: false });
+  await s.listPeers();
+  await s.settled();
+  return s;
+}
+
+/** `wim devices pending`: the devices waiting to join, without their codes (the person types those). */
+async function pending(ctx: Ctx): Promise<number> {
+  const s = await joinsSession(ctx);
+  try {
+    const rows = await new PendingJoins(s.mesh, ctx.fsEnv).list(s.roster, new Invites(s.mesh, ctx.fsEnv, ctx.io.now), ctx.io.now());
+    if (s.roster.devices.find((d) => d.id === s.device.id)!.role !== "admin") ctx.io.out("This device is not an admin, so no join requests come here.");
+    else if (rows.length === 0) ctx.io.out("No device is waiting to join.");
+    for (const r of rows) ctx.io.out(`${r.name}  ${r.id}  asked ${new Date(r.at).toISOString()}  invite expires ${new Date(r.exp).toISOString()}`);
+    if (rows.length > 0) ctx.io.out("In your own terminal, admit one with the comparison code it shows: wim devices admit <name> <code>");
+    return 0;
+  } finally {
+    await s.stop({ ended: true });
+  }
+}
+
+/** `wim devices admit <name> <code>`: the person admits a waiting device by the code it shows. */
+async function admit(ctx: Ctx, name: string | undefined, code: string | undefined): Promise<number> {
+  if (name === undefined || code === undefined) throw new SetupError("usage: wim devices admit <name> <code>");
+  if (!canConfirm(ctx.env, ctx.io)) throw new SetupError(`run \`wim devices admit\` in your own terminal: admitting a device is the person's decision, and ${noPerson(ctx)}`);
+  const s = await joinsSession(ctx);
+  try {
+    const decision = await admitPending(s, name, code, ctx.io.now);
+    if (decision.outcome !== "admitted") throw new SetupError(`could not admit ${name}: ${decision.reason!}`);
+    ctx.io.out(`Admitted ${name}. The new device finishes joining when \`wim join\` runs there (it may be waiting already).`);
+    await askTrust(ctx, s.mesh, s.roster.devices.filter((d) => d.name === name));
     return 0;
   } finally {
     await s.stop({ ended: true });
@@ -861,6 +979,36 @@ function reportReceipts(ctx: Ctx, out: SendAnswer, took: readonly string[], got:
 }
 
 /**
+ * `wim ping`: pings sessions, each answered by the client on the other end with a pong (SPEC
+ * section 12), and prints one row per session and one per device. A pong proves both directions,
+ * encryption included. `--all` pings every live session on the mesh; offline sessions are not
+ * pinged, so no ping waits in a queue for them.
+ */
+async function ping(ctx: Ctx): Promise<number> {
+  const all = ctx.args.flags.get("all") === true;
+  const named = ctx.args.positional[0];
+  if (all === (named !== undefined)) throw new SetupError("usage: wim ping <address,...> | --all");
+  const waitMs = parseDuration(flag(ctx.args, "timeout") ?? `${PING.waitMs}`);
+  const s = await ctx.session("ping", { keyed: false });
+  try {
+    const live = (await s.listPeers()).filter((p) => p.address !== s.address);
+    const offline = new Set(live.filter((p) => p.status === "offline").map((p) => p.address));
+    const targets = all ? live.map((p) => p.address).filter((a) => !offline.has(a)) : MeshSession.parseTo(named!);
+    if (targets.length === 0) {
+      ctx.io.out("No other live sessions to ping.");
+      return 0;
+    }
+    const asked = targets.filter((a) => !offline.has(a));
+    const rows = asked.length === 0 ? [] : await s.ping(asked, waitMs);
+    const report = targets.map((a) => rows.find((r) => r.to === a) ?? { to: a, status: "offline" });
+    for (const line of pingReport(report, s.address, waitMs)) ctx.io.out(line);
+    return report.every((r) => r.ms !== undefined) ? 0 : 1;
+  } finally {
+    await s.stop({ ended: true });
+  }
+}
+
+/**
  * Hands a send to the live watcher through its control directory and waits for its answer.
  * Undefined when the watch took the request but did not answer in time: the outcome is unknown.
  */
@@ -937,10 +1085,17 @@ async function events(ctx: Ctx): Promise<number> {
   if (ctx.args.flags.get("json") !== true) throw new SetupError("usage: wim events --json [--as <name>]");
   const name = nameFor(ctx, "vscode");
   const envKind = ctx.env["WIM_KIND"];
+  const agent = agentEnv(ctx.env);
+  // A device in no mesh yet: the UI can join one (setup mode); any other problem is said as usual.
+  if ((await ctx.home.loadDevice()) === undefined || (await ctx.home.meshIds()).length === 0) {
+    const io = ctx.io;
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, ...(agent === undefined ? {} : { agent }) });
+    return 0;
+  }
   const o = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);
   const s = await MeshSession.open({ ...o, sessionKey: `events:${name}` });
   try {
-    await runEvents({ session: s, mesh: o.mesh, env: ctx.fsEnv, device: o.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now });
+    await runEvents({ session: s, mesh: o.mesh, env: ctx.fsEnv, device: o.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, ...(agent === undefined ? {} : { agent }) });
     return 0;
   } finally {
     await s.stop();

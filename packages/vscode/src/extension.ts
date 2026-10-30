@@ -26,6 +26,10 @@ export const TICK_MS = 15_000;
 export const SETUP_HINT =
   "To set up this device, download wim.mjs from the worldinmotion GitHub Release and check its SHA-256 against the one published with it. Install it as wim (for example install -m 755 wim.mjs ~/.local/bin/wim), or run it as node wim.mjs. Then run wim init --relay <url> for a new mesh, or wim init and then wim join <invite> to join one, and restart the client.";
 
+/** Shown while the client runs in setup mode: the device is in no mesh yet. */
+export const JOIN_HINT =
+  "This device is in no mesh yet. Run worldinmotion: Join a Mesh... with an invite code from an admin device, or start a new mesh with wim init --relay <url> in a terminal and restart the client.";
+
 export type Settings = { sessionName: string; wimPath: string; notifyOnMessage: boolean };
 
 export function settings(): Settings {
@@ -50,7 +54,9 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   // Filled in below; the views and providers only call it after activation.
   let proc: EventsProcess | undefined;
   const client: Requester = { request: (op, args, timeoutMs) => proc!.request(op, args, timeoutMs) };
-  const deps: actions.Deps = { store, client, nodes, now };
+  const deps: actions.Deps = { store, client, nodes, now, invited: new Set() };
+  /** The devices to ask about once the client runs in the mesh this device just joined. */
+  let trustAfterJoin: string[] | undefined;
 
   const mesh = new MeshView(store, nodes, now);
   const rooms = new RoomsView(store, nodes, now);
@@ -96,7 +102,12 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     heldTree.message = n === 0 ? "Nothing is held for you." : undefined;
     const { state, detail } = store.connection;
     const setup = detail?.includes("not set up") === true ? ` ${SETUP_HINT}` : "";
-    meshTree.message = state === "open" || store.sessions.size > 0 ? undefined : `Not connected (${state}${detail === undefined ? "" : `: ${oneLine(detail, 200)}`}).${setup}`;
+    meshTree.message =
+      store.setup !== undefined
+        ? JOIN_HINT
+        : state === "open" || store.sessions.size > 0
+          ? undefined
+          : `Not connected (${state}${detail === undefined ? "" : `: ${oneLine(detail, 200)}`}).${setup}`;
     roomsTree.message = store.rooms.size === 0 ? "No rooms." : undefined;
     leasesTree.message = store.leases.size === 0 ? "No leases." : undefined;
   };
@@ -131,6 +142,18 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     onEvent: (ev) => {
       store.apply(ev);
       if (ev.type === "hello") loadHistory();
+      if (ev.type === "join" && ev.op === "add") void actions.joinRequested(deps, ev.request);
+      if (ev.type === "join_failed") void vscode.window.showErrorMessage(notice(`worldinmotion: joining the mesh failed: ${ev.message}`));
+      if (ev.type === "joined") {
+        // The client ends after joining; started again, it runs in the mesh, and its first
+        // snapshot is when the person is asked about the other devices.
+        trustAfterJoin = ev.devices.map((x) => x.name);
+        proc!.restart();
+      }
+      if (ev.type === "snapshot" && trustAfterJoin !== undefined) {
+        void actions.askTrust(deps, trustAfterJoin);
+        trustAfterJoin = undefined;
+      }
       if (ev.type === "message") threads.messageArrived(ev.message);
       const m = toNotify(store, ev);
       if (m !== undefined && settings().notifyOnMessage) notify(m);
@@ -188,6 +211,9 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     command("worldinmotion.trustRelayed", (arg) => actions.setTrust(deps, arg, "trustRelayed")),
     command("worldinmotion.untrust", (arg) => actions.setTrust(deps, arg, "untrust")),
     command("worldinmotion.resume", (arg) => actions.resume(deps, arg)),
+    command("worldinmotion.addDevice", () => actions.addDevice(deps)),
+    command("worldinmotion.admitDevice", () => actions.admitDevice(deps)),
+    command("worldinmotion.joinMesh", () => actions.joinMesh(deps)),
     command("worldinmotion.refresh", () =>
       client.request("snapshot").catch((e: Error) => vscode.window.showErrorMessage(notice(`worldinmotion: could not refresh: ${e.message}`))),
     ),

@@ -63,8 +63,12 @@ you trust, then on the second device:
 wim join <code>
 ```
 
-Both screens now show a short code like `7KQ2M-X4D9P`. Check that they are the same, then answer
-`y` on the first device. A different code means someone else used the invite: answer `n`.
+The second device shows a short comparison code like `7KQ2M-X4D9P`. Type it on the first device,
+where `wim invite` asks for it: the first device never shows its own copy, so typing it is the
+check that the request came from your second device. Run both commands in your own terminal, not
+through an agent. Each device then asks whether the other is your own; answer `y` for your own
+devices, and their messages are delivered rather than held. (`wim devices pending` and
+`wim devices admit <name> <code>` admit a device later, if `wim invite` was no longer running.)
 
 ### 4. Send a message
 

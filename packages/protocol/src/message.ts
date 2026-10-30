@@ -91,9 +91,21 @@ export const plaintextSchema = z
       relayed,
       derived,
     }),
+    // A liveness probe (SPEC section 12): the receiving client answers it itself with a `pong`,
+    // never an agent. Neither carries text, and neither is relayed or derived.
+    z.strictObject({ ...common, kind: z.literal("ping"), text: z.undefined().optional() }),
+    z.strictObject({ ...common, kind: z.literal("pong"), text: z.undefined().optional(), reply_to: ulidSchema }),
   ])
   .refine((p) => p.kind !== "card" || (p.to.length === 1 && p.to[0] === "*"), {
     message: "a card is sent to * only",
+    path: ["to"],
+  })
+  .refine((p) => p.kind !== "ping" || p.to.every((a) => a !== "*" && !isRoom(a)), {
+    message: "a ping names sessions, never * or a room",
+    path: ["to"],
+  })
+  .refine((p) => p.kind !== "pong" || (p.to.length === 1 && p.to[0] !== "*" && !isRoom(p.to[0]!)), {
+    message: "a pong answers one session",
     path: ["to"],
   })
   .refine(
@@ -136,7 +148,7 @@ export type SealOptions = {
   at: number;
   id?: string;
   kind?: MessageKind;
-  /** Required for `msg`, `task` and `result`; an optional caption for `file`; absent for `card`. */
+  /** Required for `msg`, `task` and `result`; an optional caption for `file`; absent for `card`, `ping` and `pong`. */
   text?: string;
   card?: Card;
   reply_to?: string;
@@ -202,7 +214,7 @@ function planSeal(opts: SealOptions & { sender: { deviceId: string } }, signPub:
   if (!roster.devices.some((d) => d.id === sender.deviceId)) {
     throw new TypeError("sealMessage: the sender is not a current device in the roster");
   }
-  const noCaption = (kind === "file" || kind === "card") && opts.text === undefined;
+  const noCaption = (kind === "file" || kind === "card" || kind === "ping" || kind === "pong") && opts.text === undefined;
   if (!noCaption && (typeof opts.text !== "string" || !fitsUtf8(opts.text, LIMITS.textBytes))) {
     throw new RangeError(`sealMessage: text must be a string of at most ${LIMITS.textBytes} UTF-8 bytes`);
   }

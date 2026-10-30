@@ -56,6 +56,9 @@ export type LeaseRow = { name: string; holder: string; token: number; expires_at
 export type BreakerReason = "peer" | "total" | "pingpong";
 export type BreakerRow = { peer: string; reason?: BreakerReason; at: number };
 export type ReceiptStatus = "delivered" | "held" | "refused" | "expired";
+/** A device waiting to join (an admin device only): never its comparison code, which the person types. */
+export type JoinRow = { name: string; id: string; invite: string; at: number; exp: number };
+export type DeviceRef = { name: string; id: string };
 /** Where the device keys are: in the client (a plaintext key file) or in the signer (`wim agent`). */
 export type KeysAt = "local" | "signer";
 
@@ -71,6 +74,7 @@ export type WimEvent =
       leases: LeaseRow[];
       held: HeldRow[];
       breakers: BreakerRow[];
+      joins: JoinRow[];
     }
   | { type: "device"; at: number; device: DeviceRow }
   | { type: "device-removed"; at: number; name: string; id: string }
@@ -81,7 +85,11 @@ export type WimEvent =
   | { type: "held"; at: number; op: "add" | "remove"; item: HeldRow }
   | { type: "lease"; at: number; lease: LeaseRow }
   | { type: "lease-released"; at: number; name: string }
-  | { type: "breaker"; at: number; peer: string; state: "tripped" | "resumed"; reason?: BreakerReason };
+  | { type: "breaker"; at: number; peer: string; state: "tripped" | "resumed"; reason?: BreakerReason }
+  | { type: "join"; at: number; op: "add" | "remove"; request: JoinRow }
+  | { type: "setup"; at: number; version: string; device?: DeviceRef }
+  | { type: "joined"; at: number; mesh: string; devices: DeviceRef[] }
+  | { type: "join_failed"; at: number; message: string };
 
 export type WimResponse = { id: string; ok: true; result: unknown } | { id: string; ok: false; error: { code: string; message: string } };
 
@@ -238,6 +246,16 @@ function breakerRow(x: unknown): BreakerRow {
   return compact<BreakerRow>({ peer: str(o, "peer"), reason: opt(o, "reason", (o, k) => oneOf(o, k, REASONS)), at: num(o, "at") });
 }
 
+function joinRow(x: unknown): JoinRow {
+  const o = obj(x, "join");
+  return { name: str(o, "name"), id: str(o, "id"), invite: str(o, "invite"), at: num(o, "at"), exp: num(o, "exp") };
+}
+
+function deviceRef(x: unknown): DeviceRef {
+  const o = obj(x, "device");
+  return { name: str(o, "name"), id: str(o, "id") };
+}
+
 function event(o: Obj, type: string, at: number): WimEvent | undefined {
   switch (type) {
     case "hello": {
@@ -266,6 +284,8 @@ function event(o: Obj, type: string, at: number): WimEvent | undefined {
         leases: list(o, "leases", leaseRow),
         held: list(o, "held", heldRow),
         breakers: list(o, "breakers", breakerRow),
+        // A client from before devices could be added here sends none.
+        joins: opt(o, "joins", (o, k) => list(o, k, joinRow)) ?? [],
       };
     case "device":
       return o.removed === true ? { type: "device-removed", at, name: str(o, "name"), id: str(o, "id") } : { type, at, device: deviceRow(o) };
@@ -281,6 +301,14 @@ function event(o: Obj, type: string, at: number): WimEvent | undefined {
       return o.released === true ? { type: "lease-released", at, name: str(o, "name") } : { type, at, lease: leaseRow(o) };
     case "breaker":
       return compact({ type, at, peer: str(o, "peer"), state: oneOf(o, "state", ["tripped", "resumed"] as const), reason: opt(o, "reason", (o, k) => oneOf(o, k, REASONS)) });
+    case "join":
+      return { type, at, op: oneOf(o, "op", ["add", "remove"]), request: joinRow(o.request) };
+    case "setup":
+      return compact({ type, at, version: str(o, "version"), device: o.device === null ? undefined : deviceRef(o.device) });
+    case "joined":
+      return { type, at, mesh: str(o, "mesh"), devices: list(o, "devices", deviceRef) };
+    case "join_failed":
+      return { type, at, message: str(o, "message") };
     default:
       return undefined;
   }

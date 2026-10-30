@@ -7453,19 +7453,19 @@ var init_memoize = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/property-provider/memoize.js"() {
     memoize = (provider, isExpired, requiresRefresh) => {
       let resolved;
-      let pending;
+      let pending2;
       let hasResult;
       let isConstant = false;
       const coalesceProvider = async () => {
-        if (!pending) {
-          pending = provider();
+        if (!pending2) {
+          pending2 = provider();
         }
         try {
-          resolved = await pending;
+          resolved = await pending2;
           hasResult = true;
           isConstant = false;
         } finally {
-          pending = void 0;
+          pending2 = void 0;
         }
         return resolved;
       };
@@ -7582,7 +7582,7 @@ var init_getProfileName = __esm({
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js
 import { createHash as createHash4 } from "node:crypto";
-import { join as join9 } from "node:path";
+import { join as join10 } from "node:path";
 var getSSOTokenFilepath;
 var init_getSSOTokenFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js"() {
@@ -7590,7 +7590,7 @@ var init_getSSOTokenFilepath = __esm({
     getSSOTokenFilepath = (id) => {
       const hasher = createHash4("sha1");
       const cacheName = hasher.update(id).digest("hex");
-      return join9(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
+      return join10(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
     };
   }
 });
@@ -7645,24 +7645,24 @@ var init_getConfigData = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getConfigFilepath.js
-import { join as join10 } from "node:path";
+import { join as join11 } from "node:path";
 var ENV_CONFIG_PATH, getConfigFilepath;
 var init_getConfigFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getConfigFilepath.js"() {
     init_getHomeDir();
     ENV_CONFIG_PATH = "AWS_CONFIG_FILE";
-    getConfigFilepath = () => process.env[ENV_CONFIG_PATH] || join10(getHomeDir(), ".aws", "config");
+    getConfigFilepath = () => process.env[ENV_CONFIG_PATH] || join11(getHomeDir(), ".aws", "config");
   }
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getCredentialsFilepath.js
-import { join as join11 } from "node:path";
+import { join as join12 } from "node:path";
 var ENV_CREDENTIALS_PATH, getCredentialsFilepath;
 var init_getCredentialsFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getCredentialsFilepath.js"() {
     init_getHomeDir();
     ENV_CREDENTIALS_PATH = "AWS_SHARED_CREDENTIALS_FILE";
-    getCredentialsFilepath = () => process.env[ENV_CREDENTIALS_PATH] || join11(getHomeDir(), ".aws", "credentials");
+    getCredentialsFilepath = () => process.env[ENV_CREDENTIALS_PATH] || join12(getHomeDir(), ".aws", "credentials");
   }
 });
 
@@ -7742,7 +7742,7 @@ var init_readFile = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/loadSharedConfigFiles.js
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 var swallowError, loadSharedConfigFiles;
 var init_loadSharedConfigFiles = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/loadSharedConfigFiles.js"() {
@@ -7760,11 +7760,11 @@ var init_loadSharedConfigFiles = __esm({
       const relativeHomeDirPrefix = "~/";
       let resolvedFilepath = filepath;
       if (filepath.startsWith(relativeHomeDirPrefix)) {
-        resolvedFilepath = join12(homeDir, filepath.slice(2));
+        resolvedFilepath = join13(homeDir, filepath.slice(2));
       }
       let resolvedConfigFilepath = configFilepath;
       if (configFilepath.startsWith(relativeHomeDirPrefix)) {
-        resolvedConfigFilepath = join12(homeDir, configFilepath.slice(2));
+        resolvedConfigFilepath = join13(homeDir, configFilepath.slice(2));
       }
       const parsedFiles = await Promise.all([
         readFile3(resolvedConfigFilepath, {
@@ -17310,19 +17310,19 @@ var init_memoizeIdentityProvider = __esm({
       }
       const normalizedProvider = typeof provider !== "function" ? async () => Promise.resolve(provider) : provider;
       let resolved;
-      let pending;
+      let pending2;
       let hasResult;
       let isConstant = false;
       const coalesceProvider = async (options) => {
-        if (!pending) {
-          pending = normalizedProvider(options);
+        if (!pending2) {
+          pending2 = normalizedProvider(options);
         }
         try {
-          resolved = await pending;
+          resolved = await pending2;
           hasResult = true;
           isConstant = false;
         } finally {
-          pending = void 0;
+          pending2 = void 0;
         }
         return resolved;
       };
@@ -77288,13 +77288,13 @@ var recordProcessor = (schema, ctx, _json2, params) => {
         ...params,
         path: [...params.path, "propertyNames"]
       });
-      let pending = pendingRecords.get(ctx);
-      if (!pending) {
-        pending = [];
-        pendingRecords.set(ctx, pending);
+      let pending2 = pendingRecords.get(ctx);
+      if (!pending2) {
+        pending2 = [];
+        pendingRecords.set(ctx, pending2);
         ctx.deferred.push(() => rewriteKeyNames(ctx));
       }
-      pending.push(schema);
+      pending2.push(schema);
     }
     json4.additionalProperties = processSchema(def.valueType, ctx, {
       ...params,
@@ -87076,9 +87076,19 @@ var plaintextSchema = external_exports.discriminatedUnion("kind", [
     reply_to: ulidSchema.optional(),
     relayed,
     derived: derived2
-  })
+  }),
+  // A liveness probe (SPEC section 12): the receiving client answers it itself with a `pong`,
+  // never an agent. Neither carries text, and neither is relayed or derived.
+  external_exports.strictObject({ ...common, kind: external_exports.literal("ping"), text: external_exports.undefined().optional() }),
+  external_exports.strictObject({ ...common, kind: external_exports.literal("pong"), text: external_exports.undefined().optional(), reply_to: ulidSchema })
 ]).refine((p3) => p3.kind !== "card" || p3.to.length === 1 && p3.to[0] === "*", {
   message: "a card is sent to * only",
+  path: ["to"]
+}).refine((p3) => p3.kind !== "ping" || p3.to.every((a5) => a5 !== "*" && !isRoom(a5)), {
+  message: "a ping names sessions, never * or a room",
+  path: ["to"]
+}).refine((p3) => p3.kind !== "pong" || p3.to.length === 1 && p3.to[0] !== "*" && !isRoom(p3.to[0]), {
+  message: "a pong answers one session",
   path: ["to"]
 }).refine(
   (p3) => p3.kind !== "task" || p3.deadline === void 0 || p3.deadline > p3.at && p3.deadline - p3.at <= LIMITS.taskDeadlineMaxMs,
@@ -87105,7 +87115,7 @@ function planSeal(opts, signPub) {
   if (!roster.devices.some((d5) => d5.id === sender.deviceId)) {
     throw new TypeError("sealMessage: the sender is not a current device in the roster");
   }
-  const noCaption = (kind === "file" || kind === "card") && opts.text === void 0;
+  const noCaption = (kind === "file" || kind === "card" || kind === "ping" || kind === "pong") && opts.text === void 0;
   if (!noCaption && (typeof opts.text !== "string" || !fitsUtf8(opts.text, LIMITS.textBytes))) {
     throw new RangeError(`sealMessage: text must be a string of at most ${LIMITS.textBytes} UTF-8 bytes`);
   }
@@ -88058,9 +88068,9 @@ var RemoteAgent = class {
         task = got.data;
       }
     } catch (err) {
-      const what = err instanceof RemoteError ? "answered with an error" : "failed";
+      const what2 = err instanceof RemoteError ? "answered with an error" : "failed";
       const msg = clip(err.message, MAX_ERROR_CHARS);
-      return { status: "failed", text: `${this.name} ${what}: ${msg}${taskId === void 0 ? "" : ` (task ${taskId})`}` };
+      return { status: "failed", text: `${this.name} ${what2}: ${msg}${taskId === void 0 ? "" : ` (task ${taskId})`}` };
     }
   }
   /** The JSON-RPC endpoint from the agent card, fetched again once `cardTtlMs` has passed. */
@@ -88360,7 +88370,7 @@ async function startGateway(config2, mesh, deps = {}) {
 import { EventEmitter } from "node:events";
 import { constants as fsConstants, promises as fs4 } from "node:fs";
 import { homedir } from "node:os";
-import { basename as basename4, join as join8, resolve as resolve2 } from "node:path";
+import { basename as basename4, join as join9, resolve as resolve2 } from "node:path";
 
 // src/breaker.ts
 var HOUR2 = 36e5;
@@ -89057,9 +89067,9 @@ ${frameEntry(e6)}`;
       return `(history: an unreadable entry ${sanitizeForDisplay(String(e6.id))})`;
     }
   }
-  const what = e6.kind === "result" ? `result (${e6.status ?? "done"}) for ${e6.reply_to ?? "?"}` : e6.kind;
+  const what2 = e6.kind === "result" ? `result (${e6.status ?? "done"}) for ${e6.reply_to ?? "?"}` : e6.kind;
   const receipts = e6.receipts === void 0 ? "" : `; ${receiptNote(e6.receipts)}`;
-  return `(history: you sent a ${what} to ${e6.peer} at ${new Date(e6.at).toISOString()}, id ${e6.id}${receipts})
+  return `(history: you sent a ${what2} to ${e6.peer} at ${new Date(e6.at).toISOString()}, id ${e6.id}${receipts})
 ${sanitizeForDisplay(e6.text)}`;
 }
 function receiptNote(receipts) {
@@ -89081,8 +89091,8 @@ function isPolicy(v) {
 }
 function parseMeshConfig(raw, path2) {
   const c5 = raw;
-  const bad = (what) => {
-    throw new Error(`${path2}: ${what}`);
+  const bad = (what2) => {
+    throw new Error(`${path2}: ${what2}`);
   };
   if (typeof c5 !== "object" || c5 === null || c5.v !== 1) return bad("not a mesh file");
   if (typeof c5.mesh !== "string" || typeof c5.device !== "string") return bad("mesh or device missing");
@@ -89125,6 +89135,10 @@ var MeshFiles = class {
   }
   get invitesDir() {
     return join5(this.dir, "invites");
+  }
+  /** Join requests this admin device keeps for its person (`wim devices pending`). */
+  get joinsDir() {
+    return join5(this.dir, "joins");
   }
   get sessionsDir() {
     return join5(this.dir, "sessions");
@@ -89713,6 +89727,173 @@ function localDeviceKeyring(keys) {
   };
 }
 
+// src/ping.ts
+var PING = {
+  /** A ping older than this is not answered: one that waited in an offline session's queue is stale. */
+  freshMs: 6e4,
+  /** Pongs a session sends to one device, and to all devices together, in a sliding minute. */
+  perDevicePerMinute: 10,
+  perSessionPerMinute: 60,
+  /** How long `wim ping` waits for pongs by default. */
+  waitMs: 5e3
+};
+var MINUTE2 = 6e4;
+var PongBudget = class {
+  byDevice = /* @__PURE__ */ new Map();
+  total = [];
+  /** Whether a ping from `device`, sent at `at`, is answered now; counts it when it is. */
+  allow(device, at, now) {
+    if (now - at > PING.freshMs) return false;
+    const recent = (times) => (times ?? []).filter((t2) => now - t2 < MINUTE2);
+    const mine = recent(this.byDevice.get(device));
+    this.total = recent(this.total);
+    if (mine.length >= PING.perDevicePerMinute || this.total.length >= PING.perSessionPerMinute) {
+      this.byDevice.set(device, mine);
+      return false;
+    }
+    mine.push(now);
+    this.total.push(now);
+    this.byDevice.set(device, mine);
+    return true;
+  }
+};
+var deviceOf = (address) => address.slice(address.indexOf("@") + 1);
+function what(r6, waitMs) {
+  if (r6.ms !== void 0) return `pong in ${r6.ms} ms`;
+  if (r6.status === "routed") return `no pong in ${waitMs / 1e3} s (an older client, or a session that is not reading)`;
+  if (r6.status === "offline") return "offline, not pinged";
+  if (r6.status === "queued") return "offline: the relay queued it, so no pong now";
+  return r6.status;
+}
+function pingReport(rows, from, waitMs) {
+  const width = Math.max(...rows.map((r6) => r6.to.length));
+  const lines = [`Pinged from ${from}:`, ...rows.map((r6) => `  ${r6.to.padEnd(width)}  ${what(r6, waitMs)}`)];
+  const devices2 = /* @__PURE__ */ new Map();
+  for (const r6 of rows) {
+    const d5 = devices2.get(deviceOf(r6.to)) ?? { asked: 0, answered: 0 };
+    d5.asked++;
+    if (r6.ms !== void 0) d5.answered++;
+    devices2.set(deviceOf(r6.to), d5);
+  }
+  const here = deviceOf(from);
+  lines.push(`Devices (a pong means ${here} -> device and device -> ${here} both work, encryption included):`);
+  const nameWidth = Math.max(...[...devices2.keys()].map((n3) => n3.length));
+  for (const [name, d5] of devices2) {
+    const verdict = d5.answered > 0 ? `both directions ok (${d5.answered} of ${d5.asked} answered)` : "no answer";
+    lines.push(`  ${name.padEnd(nameWidth)}  ${verdict}`);
+  }
+  return lines;
+}
+
+// src/joins.ts
+import { join as join7 } from "node:path";
+var Invites = class {
+  files;
+  env;
+  now;
+  constructor(files, env3, now) {
+    this.files = files;
+    this.env = env3;
+    this.now = now;
+  }
+  path(id) {
+    return join7(this.files.invitesDir, `${id}.json`);
+  }
+  async get(id) {
+    if (!/^[A-Za-z0-9_-]{22}$/.test(id)) return void 0;
+    const raw = await readJson(this.path(id));
+    if (raw === void 0) return void 0;
+    if (raw.exp <= this.now() && raw.secret !== void 0) {
+      const { secret: _s5, ...rest } = raw;
+      await writeJson(this.path(id), rest, this.env);
+      return rest;
+    }
+    return raw;
+  }
+  async put(r6) {
+    await writeJson(this.path(r6.id), r6, this.env);
+  }
+  /** Marks an invite used and deletes its secret (SPEC section 5). */
+  async markUsed(id) {
+    const r6 = await this.get(id);
+    if (r6 === void 0) return;
+    const { secret: _s5, ...rest } = r6;
+    await this.put({ ...rest, used: true });
+  }
+  async remove(id) {
+    await removeFile(this.path(id));
+  }
+};
+async function screenJoin(invites, roster, body, now) {
+  const record2 = await invites.get(body.invite);
+  if (record2 === void 0) return { outcome: "ignored", reason: "not an invite this device issued" };
+  if (record2.used) return { outcome: "refused", reason: "the invite was already used" };
+  if (record2.exp <= now || record2.secret === void 0) return { outcome: "refused", reason: "the invite has expired" };
+  const v = verifyJoin(body, b64u.decode(record2.secret));
+  if (!v.ok) return { outcome: "refused", reason: v.reason };
+  const device = v.value.device;
+  if ([device.sign, device.box].some(isVectorKey)) return { outcome: "refused", reason: "the device holds a published test-vector key" };
+  if (roster.devices.some((d5) => d5.name === device.name)) return { outcome: "refused", reason: `the name ${device.name} is taken` };
+  if (roster.devices.some((d5) => d5.id === device.id) || roster.revoked.includes(device.id)) return { outcome: "refused", reason: "that device is already known" };
+  return { outcome: "ok", record: record2, device, sas: sasFor(device) };
+}
+function sameCode(typed, sas) {
+  const norm = (s3) => s3.toUpperCase().replace(/[\s-]/g, "").replace(/[IL]/g, "1").replace(/O/g, "0");
+  return norm(typed) === norm(sas);
+}
+var PENDING_MAX = 16;
+var PendingJoins = class {
+  files;
+  env;
+  constructor(files, env3) {
+    this.files = files;
+    this.env = env3;
+  }
+  path(invite2, device) {
+    return join7(this.files.joinsDir, `${invite2}.${device}.json`);
+  }
+  /** Keeps a screened request. True when it was not kept before. */
+  async save(body, exp, now) {
+    const path2 = this.path(body.invite, body.device.id);
+    const fresh = await readJson(path2).catch(() => void 0) === void 0;
+    await writeJson(path2, { v: 1, at: now, exp, body }, this.env);
+    const names = (await this.entries()).sort((x2, y) => x2.file.at - y.file.at).map((e6) => e6.name);
+    for (const name of names.slice(0, Math.max(0, names.length - PENDING_MAX))) await tryRemove(join7(this.files.joinsDir, name), this.env);
+    return fresh;
+  }
+  async entries() {
+    const out = [];
+    for (const name of await listFiles(this.files.joinsDir)) {
+      if (!name.endsWith(".json")) continue;
+      const file2 = await readJson(join7(this.files.joinsDir, name)).catch(() => void 0);
+      if (typeof file2?.at !== "number" || typeof file2.exp !== "number" || verifyJoin(file2.body).ok !== true) await tryRemove(join7(this.files.joinsDir, name), this.env);
+      else out.push({ name, file: file2 });
+    }
+    return out;
+  }
+  /**
+   * The requests still waiting, oldest first, with their bodies. Dropped as they are found: one
+   * whose invite expired or was used, and one whose device the roster already lists or revoked.
+   */
+  async list(roster, invites, now) {
+    const rows = [];
+    for (const { name, file: file2 } of await this.entries()) {
+      const d5 = file2.body.device;
+      const known = roster.devices.some((x2) => x2.id === d5.id) || roster.revoked.includes(d5.id);
+      const live = file2.exp > now && (await invites.get(file2.body.invite))?.used === false;
+      if (known || !live) await tryRemove(join7(this.files.joinsDir, name), this.env);
+      else rows.push({ name: d5.name, id: d5.id, invite: file2.body.invite, at: file2.at, exp: file2.exp, body: file2.body });
+    }
+    return rows.sort((x2, y) => x2.at - y.at);
+  }
+  /** Drops every request on an invite (it was used), or one device's request on it. */
+  async remove(invite2, device) {
+    for (const name of await listFiles(this.files.joinsDir)) {
+      if (name.startsWith(`${invite2}.${device ?? ""}`)) await tryRemove(join7(this.files.joinsDir, name), this.env);
+    }
+  }
+};
+
 // src/signer.ts
 import { verify } from "node:crypto";
 
@@ -90014,7 +90195,7 @@ function signerKeyring(client, pub) {
 }
 
 // src/spool.ts
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 var NAME2 = /^(\d{12})\.json$/;
 var itemName = (cursor2) => `${String(cursor2).padStart(12, "0")}.json`;
 var BUSY = /* @__PURE__ */ Symbol("busy");
@@ -90036,12 +90217,12 @@ var Spool = class _Spool {
   env;
   constructor(dir, env3, last) {
     this.dir = dir;
-    this.relayedDir = join7(dir, "..", "relayed");
+    this.relayedDir = join8(dir, "..", "relayed");
     this.env = env3;
     this.last = last;
   }
   get cursorPath() {
-    return join7(this.dir, "cursor");
+    return join8(this.dir, "cursor");
   }
   /** Opens a spool, numbering after the highest of `last`, any item on disk and the cursor. */
   static async open(dir, env3, last) {
@@ -90070,7 +90251,7 @@ var Spool = class _Spool {
   async write(item) {
     const cursor2 = ++this.last;
     const full = { cursor: cursor2, ...item };
-    await writeJson(join7(this.dir, itemName(cursor2)), full, this.env);
+    await writeJson(join8(this.dir, itemName(cursor2)), full, this.env);
     return full;
   }
   /**
@@ -90083,7 +90264,7 @@ var Spool = class _Spool {
     const out = [];
     for (const name of await this.names()) {
       if (Number(NAME2.exec(name)[1]) <= after) continue;
-      const item = await this.read(join7(this.dir, name));
+      const item = await this.read(join8(this.dir, name));
       if (item === BUSY) break;
       if (item !== void 0) out.push(item);
     }
@@ -90125,13 +90306,13 @@ var Spool = class _Spool {
     const gone = [];
     for (const name of await this.names()) {
       if (Number(NAME2.exec(name)[1]) > upto) break;
-      const item = await this.read(join7(this.dir, name));
+      const item = await this.read(join8(this.dir, name));
       if (item === BUSY) continue;
       if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
-        await writeJson(join7(this.relayedDir, name), item, this.env);
+        await writeJson(join8(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }
-      if (!await tryRemove(join7(this.dir, name), this.env)) continue;
+      if (!await tryRemove(join8(this.dir, name), this.env)) continue;
       if (item !== void 0) gone.push(item);
     }
     return gone;
@@ -90145,7 +90326,7 @@ var Spool = class _Spool {
     const items = [];
     let busy = false;
     for (const name of (await listDir(this.relayedDir)).filter((n3) => NAME2.test(n3)).sort()) {
-      const item = await this.read(join7(this.relayedDir, name));
+      const item = await this.read(join8(this.relayedDir, name));
       if (item === BUSY) busy = true;
       else if (item !== void 0) items.push(item);
     }
@@ -90162,7 +90343,7 @@ var Spool = class _Spool {
     const left = [];
     for (const item of items) {
       if (ids !== void 0 && !ids.includes(item.id)) continue;
-      if (await tryRemove(join7(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
+      if (await tryRemove(join8(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
       else left.push(item.id);
     }
     if (busy) {
@@ -90309,9 +90490,9 @@ var Link = class _Link {
       this.isClosed = true;
       for (const w of this.waiters) {
         clearTimeout(w.timer);
-        const what = `the relay closed the connection (${code2})`;
-        const quote = reason === "" ? void 0 : { what, said: relayText(reason) };
-        w.reject(new WireError(quote === void 0 ? what : `the relay closed the connection (${code2} ${quote.said})`, "closed", quote));
+        const what2 = `the relay closed the connection (${code2})`;
+        const quote = reason === "" ? void 0 : { what: what2, said: relayText(reason) };
+        w.reject(new WireError(quote === void 0 ? what2 : `the relay closed the connection (${code2} ${quote.said})`, "closed", quote));
       }
       this.waiters.clear();
       done({ code: code2, reason });
@@ -90568,12 +90749,20 @@ var ClientError = class extends Error {
     this.quote = quote;
   }
 };
-function relayRefusal(what, frame) {
+function relayRefusal(what2, frame) {
   const said = relayText(frame.message);
-  return new ClientError(`${what}: ${said}`, relayCode(frame.code), { what, said });
+  return new ClientError(`${what2}: ${said}`, relayCode(frame.code), { what: what2, said });
 }
 function accepted(status2) {
   return status2 === "routed" || status2 === "queued";
+}
+function pingResults(out) {
+  return [...out.local, ...out.sent === void 0 ? [] : out.sent.results];
+}
+function pingRow(address, results, pongs) {
+  const status2 = results.find((r6) => r6.to === address).status;
+  const ms = pongs.get(address);
+  return ms === void 0 ? { to: address, status: status2 } : { to: address, status: status2, ms };
 }
 function heldReceiptLine(to, id) {
   return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
@@ -90661,6 +90850,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
   sweeping = Promise.resolve();
   /** Relayed items an agent read through `inbox`, so they are not kept for later. */
   readRelayed = /* @__PURE__ */ new Set();
+  /** How many pings this session answers (SPEC section 12). */
+  pongBudget = new PongBudget();
+  /** Pings this session sent and still waits on, by id: each takes the pongs that answer it. */
+  pongWaiters = /* @__PURE__ */ new Map();
   /** Delivery through MCP channel notifications instead of leaving items for the plugin. */
   push;
   constructor(o3, files, state2) {
@@ -90843,9 +91036,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
     while (this.roster.seq < upto) {
       const page = await link.request({ t: "roster.get", from: this.roster.seq }, (f7) => f7.t === "roster" || errorFor("roster.get")(f7), this.answerMs);
       if (page.t !== "roster") {
-        const what = "the relay would not serve the roster chain";
+        const what2 = "the relay would not serve the roster chain";
         const said = relayText(page.message);
-        throw new WireError(`${what}: ${said}`, "roster", { what, said });
+        throw new WireError(`${what2}: ${said}`, "roster", { what: what2, said });
       }
       const result = await this.book.accept(page.chain);
       if (!result.ok) {
@@ -90902,6 +91095,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         return;
       case "join.request":
         this.emit("join", f7.join);
+        this.inbound = this.inbound.then(() => this.keepJoin(f7.join)).catch((e6) => this.log(`wim: join request not kept: ${e6.message}`));
         return;
       // Cards (SPEC section 17) only annotate peer rows: never spooled, never a wake.
       case "cards": {
@@ -90915,6 +91109,22 @@ var MeshSession = class _MeshSession extends EventEmitter {
         this.takeCard(f7.msg);
         return;
     }
+  }
+  /**
+   * Keeps a join request for the person (SPEC section 5): only one for an invite this device
+   * issued that passes every check a person is not needed for. Its comparison code is not kept:
+   * the person types it from the new device's screen.
+   */
+  keepJoin(body) {
+    return screenJoin(new Invites(this.o.mesh, this.o.env, this.now), this.roster, body, this.now()).then((screened) => {
+      if (screened.outcome !== "ok") return void 0;
+      return new PendingJoins(this.o.mesh, this.o.env).save(body, screened.record.exp, this.now()).then((fresh) => this.announceJoin(fresh, screened.device.name));
+    });
+  }
+  /** Tells the person about a join request kept for the first time; one kept before is not news. */
+  announceJoin(fresh, name) {
+    if (!fresh) return void 0;
+    return this.o.notifier?.notify(`worldinmotion: a device named ${name} asks to join the mesh (wim devices pending)`);
   }
   /** Takes a prekey from a card or message header: known at once, written for siblings in the background. */
   learn(pk) {
@@ -91067,8 +91277,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (!r6.ok && r6.reason === "roster_behind") {
       if (!parked) {
         const waiting2 = (await listDir(this.files.behindDir)).sort();
-        for (const name of waiting2.slice(0, Math.max(0, waiting2.length - (PARKED_MAX - 1)))) await removeFile(join8(this.files.behindDir, name));
-        await writeJson(join8(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
+        for (const name of waiting2.slice(0, Math.max(0, waiting2.length - (PARKED_MAX - 1)))) await removeFile(join9(this.files.behindDir, name));
+        await writeJson(join9(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
       }
       return "behind";
     }
@@ -91125,7 +91335,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async retryParked() {
     for (const name of await listDir(this.files.behindDir)) {
-      const path2 = join8(this.files.behindDir, name);
+      const path2 = join9(this.files.behindDir, name);
       const msg = await readJson(path2).catch(() => void 0);
       const outcome = msg === void 0 ? "dropped" : await this.check(msg, true).catch((e6) => this.parkedFailed(name, e6));
       if (outcome !== "behind") await tryRemove(path2, this.o.env);
@@ -91141,6 +91351,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     return `${p3.from.session}@${name}`;
   }
   async accept(p3) {
+    if (p3.kind === "ping" || p3.kind === "pong") return this.probe(p3);
     const from = this.fromAddress(p3);
     this.config = await this.o.mesh.loadConfig();
     const policy = policyFor(this.config, p3.from.device, p3.relayed === true);
@@ -91177,6 +91388,21 @@ var MeshSession = class _MeshSession extends EventEmitter {
       return;
     }
     await this.release(held2, p3.kind === "file" ? p3.file : void 0);
+  }
+  /**
+   * A ping is answered here, by the client, with a pong to the session that sent it; a pong goes
+   * to the ping this session is waiting on. Neither is spooled, kept in history, receipted or
+   * shown to an agent (SPEC section 12). A device the person refuses gets no answer, and the
+   * budget bounds how many pongs any device can draw.
+   */
+  probe(p3) {
+    if (p3.kind === "pong") return Promise.resolve(void this.pongWaiters.get(p3.reply_to)?.(p3.from.device, p3.from.session));
+    return this.o.mesh.loadConfig().then((config2) => {
+      this.config = config2;
+      if (policyLevel(config2, p3.from.device) === "refuse" || !this.pongBudget.allow(p3.from.device, p3.at, this.now())) return;
+      const to = this.fromAddress(p3);
+      void this.post(to, void 0, { kind: "pong", reply_to: p3.id }).catch((e6) => this.log(`wim: no pong sent to ${to}: ${e6.message}`));
+    });
   }
   /** Fetches a file if there is one, renders the frame and puts the item in the spool. */
   async release(item, file2) {
@@ -91274,19 +91500,19 @@ var MeshSession = class _MeshSession extends EventEmitter {
       const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m4) => m4.id);
       if (dismissed.length > 0) {
         const { left } = await this.spool.dismissRelayed(dismissed);
-        for (const id of left) await writeAtomic(join8(this.files.dismissDir, `${id}.dismiss`), "", this.o.env);
+        for (const id of left) await writeAtomic(join9(this.files.dismissDir, `${id}.dismiss`), "", this.o.env);
       }
       for (const name of await listDir(this.files.controlDir)) {
         if (name.endsWith(".tmp")) continue;
         const done = /^send-([0-9A-Z]{26})\.done\.json$/.exec(name);
         if (done !== null) {
-          if (ulidTime(done[1]) < this.now() - ANSWER_KEEP_MS) await removeFile(join8(this.files.controlDir, name));
+          if (ulidTime(done[1]) < this.now() - ANSWER_KEEP_MS) await removeFile(join9(this.files.controlDir, name));
           continue;
         }
         const m4 = /^resume-(.+)$/.exec(name);
         const req = /^send-([0-9A-Z]{26})\.json$/.exec(name);
         if (req !== null && this.o.handover !== true) continue;
-        const path2 = join8(this.files.controlDir, name);
+        const path2 = join9(this.files.controlDir, name);
         const body = req === null ? void 0 : await readJson(path2).catch(() => void 0);
         if (!await tryRemove(path2, this.o.env)) continue;
         if (m4 !== null) await this.resumePeer(m4[1]);
@@ -91370,7 +91596,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async handOverSend(id, body) {
     const r6 = body;
-    const answer = join8(this.files.controlDir, `send-${id}.done.json`);
+    const answer = join9(this.files.controlDir, `send-${id}.done.json`);
     try {
       if (typeof r6?.to !== "string" || typeof r6.text !== "string") throw new ClientError("malformed send request", "malformed");
       const out = await this.send(r6.to, r6.text);
@@ -91496,12 +91722,42 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Seals and sends, then waits briefly for the relay's per-recipient statuses. */
   async send(toInput, text2, opts = {}) {
+    return this.recordSend(await this.post(toInput, text2, opts), text2, opts);
+  }
+  /** What a sent message adds to the post: the breaker's count and history. Not async (see publishCard). */
+  recordSend(out, text2, opts) {
+    if (out.sent === void 0) return Promise.resolve({ id: out.id, results: out.local });
+    const { id, routed, frame, missing, sent: sent2 } = out;
+    for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.breaker.noteSent(this.pairOf(a5).split("/")[0], (text2 ?? "").length);
+    const name = (d5) => this.roster.devices.find((r6) => r6.id === d5).name;
+    const unprotected = this.legacyIds(frame).map(name);
+    const outcome = { id, results: [...out.local, ...sent2.results], ...unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {} };
+    return this.history.append({
+      dir: "out",
+      peer: routed.join(","),
+      id,
+      kind: opts.kind ?? "msg",
+      at: frame.at,
+      text: text2 ?? "",
+      ...opts.reply_to === void 0 ? {} : { reply_to: opts.reply_to },
+      ...opts.status === void 0 ? {} : { status: opts.status },
+      ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },
+      ...opts.relayed === true ? { relayed: true } : {}
+    }).then(() => outcome);
+  }
+  /**
+   * Seals one frame, puts it on the wire and waits for the relay's `sent`. `local` holds the
+   * addresses no roster device answers to; `sent` is absent when nothing was left to send. What a
+   * message adds on top (history, the breaker's count) is `send`'s; pings and pongs go through
+   * here alone.
+   */
+  async post(toInput, text2, opts) {
     const to = _MeshSession.parseTo(toInput);
     const { ids, unknown: unknown2 } = this.recipients(to);
     const local = unknown2.map((a5) => ({ to: a5, status: "unknown" }));
     const id = opts.id ?? ulid3(this.now());
     const routed = to.filter((a5) => !unknown2.includes(a5));
-    if (routed.length === 0) return { id, results: local };
+    if (routed.length === 0) return { id, local };
     const { frame, missing, answer: answering } = await this.serially(async () => {
       let sealed = await this.seal(id, routed, ids, text2, opts);
       const link = await this.ready(this.answerMs);
@@ -91518,23 +91774,41 @@ var MeshSession = class _MeshSession extends EventEmitter {
     });
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
-    const sent2 = answer;
-    for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.breaker.noteSent(this.pairOf(a5).split("/")[0], (text2 ?? "").length);
-    await this.history.append({
-      dir: "out",
-      peer: routed.join(","),
-      id,
-      kind: opts.kind ?? "msg",
-      at: frame.at,
-      text: text2 ?? "",
-      ...opts.reply_to === void 0 ? {} : { reply_to: opts.reply_to },
-      ...opts.status === void 0 ? {} : { status: opts.status },
-      ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },
-      ...opts.relayed === true ? { relayed: true } : {}
+    return { id, local, routed, frame, missing, sent: answer };
+  }
+  /**
+   * Pings sessions (`wim ping`, SPEC section 12) and waits up to `waitMs` for their pongs. Each
+   * row is a pinged address with the relay's status for it and, when its pong came back, the round
+   * trip in milliseconds. Only sessions: a ping is never sent to `*` or a room.
+   */
+  async ping(targets, waitMs) {
+    const to = _MeshSession.parseTo(targets);
+    if (to.some((a5) => a5 === "*" || isRoom(a5))) throw new ClientError("a ping names sessions (name@device), never * or a room", "bad_address");
+    const id = ulid3(this.now());
+    const asked = new Map(to.map((a5) => [this.pairOf(a5), a5]));
+    const pongs = /* @__PURE__ */ new Map();
+    const started = this.now();
+    let answered2;
+    const all = new Promise((resolve3) => answered2 = resolve3);
+    let waiting2 = to;
+    const check2 = () => waiting2.every((a5) => pongs.has(a5)) ? answered2() : void 0;
+    this.pongWaiters.set(id, (device, session) => {
+      const address = asked.get(`${device}/${session}`);
+      if (address === void 0 || pongs.has(address)) return;
+      pongs.set(address, this.now() - started);
+      check2();
     });
-    const name = (d5) => this.roster.devices.find((r6) => r6.id === d5).name;
-    const unprotected = this.legacyIds(frame).map(name);
-    return { id, results: [...local, ...sent2.results], ...unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {} };
+    try {
+      const results = pingResults(await this.post(to, void 0, { kind: "ping", id }));
+      waiting2 = results.filter((r6) => r6.status === "routed").map((r6) => r6.to);
+      check2();
+      let timer;
+      await Promise.race([all, new Promise((resolve3) => timer = setTimeout(resolve3, waitMs))]);
+      clearTimeout(timer);
+      return to.map((a5) => pingRow(a5, results, pongs));
+    } finally {
+      this.pongWaiters.delete(id);
+    }
   }
   serially(fn) {
     const run = this.sending.then(fn);
@@ -91543,7 +91817,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Seals a message at the next seq; the secrets check and the protocol limits refuse here. */
   async seal(id, routed, ids, text2, opts) {
-    const derived3 = await this.isDerived();
+    const derived3 = opts.kind === "ping" || opts.kind === "pong" ? false : await this.isDerived();
     const { keys, missing } = this.keysFor(ids);
     try {
       const frame = await sealMessageWith({
@@ -116717,12 +116991,12 @@ function formatDuration(ms) {
   const h6 = Math.floor(m4 / 60);
   return m4 % 60 === 0 ? `${h6}h` : `${h6}h ${m4 % 60}m`;
 }
-function jobList(names, what) {
+function jobList(names, what2) {
   const unique = [...new Set(names)];
   const shown = unique.slice(0, 5).join(", ");
   const more = unique.length > 5 ? ` and ${unique.length - 5} more` : "";
   const noun = unique.length === 1 ? "job" : "jobs";
-  return `${unique.length} ${noun} ${what}: ${shown}${more}`;
+  return `${unique.length} ${noun} ${what2}: ${shown}${more}`;
 }
 function between(start2, end2) {
   const a5 = Date.parse(start2 ?? "");
@@ -117150,10 +117424,10 @@ var GitLabWatcher = class {
       const key2 = String(d5.id);
       if (st.deployments[key2]?.phase === d5.status) continue;
       if (modeFor(this.ctx, d5.updated_at) === "announce") {
-        const what = d5.status === "blocked" ? "blocked, waiting for approval" : d5.status;
+        const what2 = d5.status === "blocked" ? "blocked, waiting for approval" : d5.status;
         const url2 = d5.deployable?.web_url ?? `${webUrl}/-/environments`;
         await this.ctx.post(
-          `${prefix} deploy ${d5.environment.name} #${d5.iid} ${d5.ref} ${d5.sha.slice(0, 8)} ${what} ${url2}`
+          `${prefix} deploy ${d5.environment.name} #${d5.iid} ${d5.ref} ${d5.sha.slice(0, 8)} ${what2} ${url2}`
         );
       }
       st.deployments[key2] = { phase: d5.status, touched: this.ctx.now() };
@@ -117405,16 +117679,13 @@ async function runCi(config2, io, deps = {}) {
 import { promises as fs13 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
-// src/admin.ts
-import { join as join15 } from "node:path";
-
 // src/home.ts
 import { promises as fs8 } from "node:fs";
-import { join as join14 } from "node:path";
+import { join as join15 } from "node:path";
 
 // src/agentpath.ts
 import { promises as fs7 } from "node:fs";
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 
 // src/errors.ts
 var SetupError = class extends Error {
@@ -117423,13 +117694,13 @@ var SetupError = class extends Error {
 
 // src/agentpath.ts
 function agentDir(root5) {
-  return join13(root5, "agent");
+  return join14(root5, "agent");
 }
 function agentLogPath(root5) {
-  return join13(agentDir(root5), "log.jsonl");
+  return join14(agentDir(root5), "log.jsonl");
 }
 function settingsPath(root5) {
-  return join13(agentDir(root5), "config.json");
+  return join14(agentDir(root5), "config.json");
 }
 async function agentEndpoint(root5, env3, create2) {
   const dir = agentDir(root5);
@@ -117440,7 +117711,7 @@ async function agentEndpoint(root5, env3, create2) {
   } catch {
     return void 0;
   }
-  const token = env3.platform === "win32" ? await pipeToken(join13(dir, "pipe"), env3, create2) : "";
+  const token = env3.platform === "win32" ? await pipeToken(join14(dir, "pipe"), env3, create2) : "";
   if (token === void 0) return void 0;
   const endpoint2 = agentEndpointFor(dir, env3.platform, token);
   const tooLong = endpointProblem(endpoint2, env3.platform);
@@ -117456,11 +117727,11 @@ async function pipeToken(path2, env3, create2) {
   return token;
 }
 function startLockPath(root5) {
-  return join13(agentDir(root5), "start.lock");
+  return join14(agentDir(root5), "start.lock");
 }
 async function retireEndpoint(root5, env3, endpoint2) {
   if (env3.platform !== "win32") return;
-  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs7.rm(join13(agentDir(root5), "pipe"), { force: true });
+  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs7.rm(join14(agentDir(root5), "pipe"), { force: true });
 }
 async function readAgentSettings(root5) {
   const raw = await readJson(settingsPath(root5));
@@ -117590,10 +117861,10 @@ var Home = class {
     this.env = env3;
   }
   get devicePath() {
-    return join14(this.root, "device.json");
+    return join15(this.root, "device.json");
   }
   meshDir(mesh) {
-    return join14(this.root, "meshes", mesh);
+    return join15(this.root, "meshes", mesh);
   }
   /**
    * The key file as it is on disk, refusing one that other users could read: a plaintext one
@@ -117678,10 +117949,10 @@ var Home = class {
     return dirProblem(stat3.mode, this.env.platform);
   }
   async meshIds() {
-    const names = await listDir(join14(this.root, "meshes"));
+    const names = await listDir(join15(this.root, "meshes"));
     const ids = [];
     for (const name of names.sort()) {
-      if (await readJson(join14(this.root, "meshes", name, "mesh.json")) !== void 0) ids.push(name);
+      if (await readJson(join15(this.root, "meshes", name, "mesh.json")) !== void 0) ids.push(name);
     }
     return ids;
   }
@@ -117731,43 +118002,6 @@ async function createMesh(o3) {
     link.close();
   }
 }
-var Invites = class {
-  files;
-  env;
-  now;
-  constructor(files, env3, now) {
-    this.files = files;
-    this.env = env3;
-    this.now = now;
-  }
-  path(id) {
-    return join15(this.files.invitesDir, `${id}.json`);
-  }
-  async get(id) {
-    if (!/^[A-Za-z0-9_-]{22}$/.test(id)) return void 0;
-    const raw = await readJson(this.path(id));
-    if (raw === void 0) return void 0;
-    if (raw.exp <= this.now() && raw.secret !== void 0) {
-      const { secret: _s5, ...rest } = raw;
-      await writeJson(this.path(id), rest, this.env);
-      return rest;
-    }
-    return raw;
-  }
-  async put(r6) {
-    await writeJson(this.path(r6.id), r6, this.env);
-  }
-  /** Marks an invite used and deletes its secret (SPEC section 5). */
-  async markUsed(id) {
-    const r6 = await this.get(id);
-    if (r6 === void 0) return;
-    const { secret: _s5, ...rest } = r6;
-    await this.put({ ...rest, used: true });
-  }
-  async remove(id) {
-    await removeFile(this.path(id));
-  }
-};
 async function issueInvite(session, o3) {
   const me = session.roster.devices.find((d5) => d5.id === session.device.id);
   if (me?.role !== "admin") throw new ClientError("only an admin device can invite", "not_admin");
@@ -117790,22 +118024,27 @@ async function issueInvite(session, o3) {
 }
 async function decideJoin(session, body, confirm, now) {
   const invites = new Invites(session.mesh, session.files.env, now);
-  const record2 = await invites.get(body.invite);
-  if (record2 === void 0) return { outcome: "ignored", reason: "not an invite this device issued" };
-  if (record2.used) return { outcome: "refused", reason: "the invite was already used" };
-  if (record2.exp <= now() || record2.secret === void 0) return { outcome: "refused", reason: "the invite has expired" };
-  const v = verifyJoin(body, b64u.decode(record2.secret));
-  if (!v.ok) return { outcome: "refused", reason: v.reason };
-  const device = v.value.device;
-  if ([device.sign, device.box].some(isVectorKey)) return { outcome: "refused", reason: "the device holds a published test-vector key" };
-  const roster = session.roster;
-  if (roster.devices.some((d5) => d5.name === device.name)) return { outcome: "refused", reason: `the name ${device.name} is taken` };
-  if (roster.devices.some((d5) => d5.id === device.id) || roster.revoked.includes(device.id)) return { outcome: "refused", reason: "that device is already known" };
-  const prompt = { name: device.name, id: device.id, sas: sasFor(device) };
-  if (!record2.auto && !await confirm(prompt)) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
+  const screened = await screenJoin(invites, session.roster, body, now());
+  if (screened.outcome !== "ok") return screened;
+  const { record: record2, device, sas } = screened;
+  if (!record2.auto && !await confirm({ name: device.name, id: device.id, sas })) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
   await publishRoster(session, (current) => nextRosterWith(current, { add: [admitJoin(device, now())] }, session.device.keyring, now()));
   await invites.markUsed(record2.id);
+  await new PendingJoins(session.mesh, session.files.env).remove(record2.id);
   return { outcome: "admitted", name: device.name };
+}
+async function admitPending(session, name, typed, now) {
+  const invites = new Invites(session.mesh, session.files.env, now);
+  const waiting2 = (await new PendingJoins(session.mesh, session.files.env).list(session.roster, invites, now())).filter((p3) => p3.name === name);
+  if (waiting2.length === 0) throw new ClientError(`no device named ${name} is waiting to join`, "not_found");
+  const match2 = waiting2.find((p3) => sameCode(typed, sasFor(p3.body.device)));
+  if (match2 === void 0) {
+    throw new ClientError(
+      `that is not the comparison code of ${name}'s request. Check the code on the new device; if it shows another one, the request is not from it, so do not admit it`,
+      "mismatch"
+    );
+  }
+  return decideJoin(session, match2.body, async () => true, now);
 }
 async function publishRoster(session, make) {
   return withLock(session.mesh.rosterLock, async () => {
@@ -118041,7 +118280,9 @@ var Args = {
   refuse: external_exports.object({ held: external_exports.string() }),
   trust: external_exports.object({ device: external_exports.string(), relayed: external_exports.boolean().optional() }),
   untrust: external_exports.object({ device: external_exports.string() }),
-  resume: external_exports.object({ peer: external_exports.string() })
+  resume: external_exports.object({ peer: external_exports.string() }),
+  invite: external_exports.object({ exp: external_exports.number().int().min(6e4).max(LIMITS.inviteMaxTtlMs).optional() }),
+  admit: external_exports.object({ device: external_exports.string(), code: external_exports.string().min(1).max(64) })
 };
 var RequestError = class extends Error {
   code;
@@ -118065,6 +118306,9 @@ function heldRow(h6, session) {
     reason: h6.reason,
     ...h6.entry.file === void 0 ? {} : { file: h6.entry.file }
   };
+}
+function personOnly(agent, what2) {
+  if (agent !== void 0) throw new RequestError("refused", `${what2} is the person's: this events process runs with an agent's variables (${agent})`);
 }
 async function runEvents(d5) {
   const s3 = d5.session;
@@ -118093,6 +118337,7 @@ async function runEvents(d5) {
   let peers2 = /* @__PURE__ */ new Map();
   let held2 = /* @__PURE__ */ new Map();
   let leases = /* @__PURE__ */ new Map();
+  let joins = /* @__PURE__ */ new Map();
   const followed = /* @__PURE__ */ new Map();
   let synced = false;
   const paused = /* @__PURE__ */ new Map();
@@ -118104,6 +118349,24 @@ async function runEvents(d5) {
   };
   const addresses = /* @__PURE__ */ new Map();
   const remember = (rows, key2) => new Map(rows.map((r6) => [key2(r6), JSON.stringify(r6)]));
+  async function joinsNow() {
+    const rows = await new PendingJoins(d5.mesh, d5.env).list(s3.roster, new Invites(d5.mesh, d5.env, d5.now), d5.now());
+    return rows.map((r6) => ({ name: r6.name, id: r6.id, invite: r6.invite, at: r6.at, exp: r6.exp }));
+  }
+  const joinKey = (r6) => `${r6["invite"]}/${r6["id"]}`;
+  let joinsQueue = Promise.resolve();
+  function joinsPass() {
+    const run2 = joinsQueue.then(joinsPassNow);
+    joinsQueue = run2.catch(() => void 0);
+    return run2;
+  }
+  async function joinsPassNow() {
+    const rows = await joinsNow();
+    const next = remember(rows, joinKey);
+    for (const r6 of rows) if (!joins.has(joinKey(r6))) emit("join", { op: "add", request: r6 });
+    for (const [k5, text2] of joins) if (!next.has(k5)) emit("join", { op: "remove", request: JSON.parse(text2) });
+    joins = next;
+  }
   async function heldNow() {
     const out = /* @__PURE__ */ new Map();
     for (const h6 of await listAllHeld(d5.mesh, d5.env)) {
@@ -118118,6 +118381,8 @@ async function runEvents(d5) {
     const leaseRows = online ? await s3.listLeases().catch(() => []) : [];
     held2 = await heldNow();
     const heldRows = [...held2.values()].map((h6) => h6.row);
+    const joinRows = await joinsNow();
+    joins = remember(joinRows, joinKey);
     const devs = deviceRows2();
     devices2 = remember(devs, (r6) => r6["id"]);
     peers2 = remember(rows.map(sessionRow), (r6) => r6["address"]);
@@ -118127,7 +118392,7 @@ async function runEvents(d5) {
       if (h6.row["reason"] === "breaker" && !paused.has(peer)) paused.set(peer, { peer, at: h6.row["at"] });
     }
     synced = true;
-    emit("snapshot", { devices: devs, sessions: rows.map(sessionRow), rooms: roomsOf(rows), leases: leaseRows, held: heldRows, breakers: [...paused.values()] });
+    emit("snapshot", { devices: devs, sessions: rows.map(sessionRow), rooms: roomsOf(rows), leases: leaseRows, held: heldRows, breakers: [...paused.values()], joins: joinRows });
   }
   function diff(kind, rows, key2, last, gone) {
     const next = /* @__PURE__ */ new Map();
@@ -118216,6 +118481,7 @@ async function runEvents(d5) {
   async function poll() {
     await follow(false);
     await heldPass();
+    await joinsPass();
     devices2 = diff("device", deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
   }
   async function leasePass() {
@@ -118293,6 +118559,20 @@ async function runEvents(d5) {
         const released = await s3.resumePeer(peer) + await resumeEverywhere(d5.mesh, peer, d5.env, d5.now, s3.sid);
         return { released };
       }
+      case "invite": {
+        personOnly(d5.agent, "inviting a device");
+        const made = await issueInvite(s3, { ttlMs: a5.exp ?? 36e5, auto: false, now: d5.now });
+        return { code: made.code, invite: made.inviteId, exp: made.exp };
+      }
+      case "admit": {
+        personOnly(d5.agent, "admitting a device");
+        const i6 = a5;
+        const decision = await admitPending(s3, i6.device, i6.code, d5.now);
+        if (decision.outcome !== "admitted") throw new RequestError("refused", `could not admit ${sanitizeForDisplay(i6.device)}: ${decision.reason}`);
+        await joinsPass();
+        devices2 = diff("device", deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
+        return { device: i6.device };
+      }
     }
   }
   async function handle(line) {
@@ -118343,6 +118623,7 @@ async function runEvents(d5) {
   s3.on("breaker", (b5) => breaker2(b5));
   await follow(true);
   held2 = await heldNow();
+  joins = remember(await joinsNow(), joinKey);
   devices2 = remember(deviceRows2(), (r6) => r6["id"]);
   s3.start();
   let busy = false;
@@ -118365,6 +118646,88 @@ async function runEvents(d5) {
   clearInterval(leaseTick);
   lines.close();
   await queue;
+}
+var SetupArgs = external_exports.object({ code: external_exports.string().min(1).max(16 * 1024), name: external_exports.string().optional() });
+async function runSetupEvents(d5) {
+  const emit = (type, fields = {}) => d5.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d5.now(), ...fields }));
+  const known = await d5.home.loadDevice();
+  emit("setup", { version: d5.version, device: known === void 0 ? null : { name: known.name, id: known.id } });
+  let joining = false;
+  let finish;
+  const joined = new Promise((resolve3) => finish = resolve3);
+  async function join21(a5) {
+    personOnly(d5.agent, "joining a mesh");
+    if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
+    try {
+      parseInvite(a5.code);
+    } catch {
+      throw new RequestError("input", "not an invite code (wim1_...)");
+    }
+    joining = true;
+    try {
+      const device = await d5.home.loadDevice() ?? await d5.home.createDevice(a5.name ?? d5.defaultName);
+      return await new Promise((resolve3, reject) => {
+        let answered2 = false;
+        joinMesh({
+          home: d5.home,
+          device,
+          code: a5.code,
+          dialer: d5.dialer,
+          now: d5.now,
+          showSas: (sas) => {
+            answered2 = true;
+            resolve3({ device: { name: device.name, id: device.id }, code: sas });
+          }
+        }).then(
+          (done) => {
+            const others = done.roster.devices.filter((x2) => x2.id !== device.id && !isRecoveryName(x2.name)).map((x2) => ({ name: x2.name, id: x2.id }));
+            emit("joined", { mesh: `${done.mesh.slice(0, 4)}\u2026`, devices: others });
+            finish();
+          },
+          (error63) => {
+            joining = false;
+            if (!answered2) return reject(error63);
+            emit("join_failed", { message: sanitizeForDisplay(error63.message) });
+          }
+        );
+      });
+    } catch (error63) {
+      joining = false;
+      throw error63;
+    }
+  }
+  async function handle(line) {
+    let id;
+    try {
+      const raw = (() => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          throw new RequestError("input", "not JSON");
+        }
+      })();
+      const req = Request3.safeParse(raw);
+      if (!req.success) throw new RequestError("input", "a request is { v: 1, id, op, args? }");
+      id = req.data.id;
+      if (req.data.op !== "join") throw new RequestError("setup", "this device is in no mesh yet: join one first");
+      const args = SetupArgs.safeParse(req.data.args ?? {});
+      if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
+      emit("response", { id, ok: true, result: await join21(args.data) });
+    } catch (error63) {
+      const code2 = error63 instanceof RequestError ? error63.code : "error";
+      emit("response", { ...id === void 0 ? {} : { id }, ok: false, error: { code: code2, message: sanitizeForDisplay(error63.message) } });
+    }
+  }
+  let queue = Promise.resolve();
+  const lines = createInterface({ input: d5.input });
+  lines.on("line", (line) => {
+    if (line.trim() === "") return;
+    queue = queue.then(() => handle(line));
+  });
+  const ended = new Promise((resolve3) => lines.once("close", resolve3));
+  const aborted2 = new Promise((resolve3) => d5.signal.aborted ? resolve3() : d5.signal.addEventListener("abort", () => resolve3(), { once: true }));
+  await Promise.race([ended, aborted2, joined]);
+  lines.close();
 }
 
 // ../../node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
@@ -120462,6 +120825,9 @@ function agentEnv(env3) {
 function canShowSecret(env3, isTTY) {
   return isTTY && agentEnv(env3) === void 0;
 }
+function canConfirm(env3, io) {
+  return io.inputIsTTY && canShowSecret(env3, io.isTTY);
+}
 var SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 6e4;
 function showSocketPath(home, platform2) {
   if (platform2 === "win32") return `\\\\.\\pipe\\wim-recovery-${b64u.encode(sha2562(utf8(home))).slice(0, 16)}`;
@@ -121657,17 +122023,17 @@ async function decrypt(ctx) {
   return 0;
 }
 async function autostart(ctx) {
-  const what = ctx.args[1];
+  const what2 = ctx.args[1];
   const p3 = programs(ctx);
   const o3 = { platform: p3.platform, homedir: ctx.io.homedir, env: ctx.env, root: ctx.home.root, programs: p3, fsEnv: { platform: ctx.io.platform, pid: ctx.io.pid } };
-  if (what === "enable") return autostartEnable(ctx, o3);
-  if (what === "disable") {
+  if (what2 === "enable") return autostartEnable(ctx, o3);
+  if (what2 === "disable") {
     const removed = await disableAutostart(o3);
     await keyringClear(o3.platform, o3.programs.run, keyringAccount(o3.root));
     ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim agent stop`." : "No login item starts the signer here.");
     return 0;
   }
-  if (what !== "status") throw new SetupError("usage: wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status");
+  if (what2 !== "status") throw new SetupError("usage: wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status");
   const found = await autostartStatus(o3);
   if (found === void 0) {
     ctx.io.out("autostart: off. `wim agent autostart enable` starts the signer at each log in.");
@@ -121708,16 +122074,17 @@ async function storeInKeyring(ctx, o3, file2) {
 // src/cli.ts
 var VERSION = "0.1.4";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls", "wait"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
   mesh: ["relay", "key-env", "tls", "no-recovery"],
   invite: ["exp", "auto"],
   join: ["name"],
-  devices: ["relayed"],
+  devices: ["relayed", "all"],
   peers: ["all", "as"],
   send: ["allow-secret", "as", "wait"],
+  ping: ["all", "timeout"],
   watch: ["as"],
   inbox: ["as"],
   events: ["json", "as"],
@@ -121783,9 +122150,11 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
   wim invite [--exp 1h] [--auto]
   wim join <code> [--name <device>]
-  wim devices [list | trust <name> [--relayed] | untrust <name> | revoke <name> | promote <name>]
+  wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
+  wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
   wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
+  wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
   wim inbox [--as <name>]
   wim events --json [--as <name>]
@@ -121802,7 +122171,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: init, mesh create, invite, join, devices, peers, send, watch, held, history, mcp,
+Commands: init, mesh create, invite, join, devices, peers, send, ping, watch, held, history, mcp,
 bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
@@ -122005,6 +122374,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
         return await peers(ctx);
       case "send":
         return await send(ctx);
+      case "ping":
+        return await ping(ctx);
       case "watch":
         return await watch(ctx);
       case "inbox":
@@ -122124,9 +122495,25 @@ async function recoveryRotate(ctx) {
     await s3.stop({ ended: true });
   }
 }
+function noPerson(ctx) {
+  return agentEnv(ctx.env) === void 0 ? "this is not an interactive terminal" : "an agent is running this command";
+}
+async function typedCode(ctx, p3) {
+  ctx.io.out(`A device named ${p3.name} (id ${p3.id}) asks to join.`);
+  for (let tries = 0; tries < 3; tries++) {
+    const typed = (await ctx.io.prompt("Type the comparison code the new device shows (Enter to refuse): ")).trim();
+    if (typed === "") return false;
+    if (sameCode(typed, p3.sas)) return true;
+    ctx.io.err("wim: that is not this request's code. Read it again on the new device.");
+  }
+  return false;
+}
 async function invite(ctx) {
   const ttl = parseDuration(flag(ctx.args, "exp") ?? "1h");
   const auto = ctx.args.flags.get("auto") === true;
+  if (!auto && !canConfirm(ctx.env, ctx.io)) {
+    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code`);
+  }
   const s3 = await ctx.session("invite", { keyed: false });
   try {
     const joins = [];
@@ -122136,12 +122523,16 @@ async function invite(ctx) {
       wake?.();
     });
     const made = await issueInvite(s3, { ttlMs: ttl, auto, now: ctx.io.now });
-    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust):");
+    const until = new Date(made.exp).toISOString();
+    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust, never through an agent):");
     ctx.io.out(`  ${made.code}`);
-    ctx.io.out(`It expires at ${new Date(made.exp).toISOString()}. Waiting for the device to join (Ctrl-C to stop)...`);
+    ctx.io.out("On the new device, in a terminal: `wim join <code>`");
+    ctx.io.out(`It expires at ${until}. Waiting for the device to join (Ctrl-C to stop)...`);
     for (; ; ) {
       if (ctx.io.signal.aborted || ctx.io.now() >= made.exp) {
-        ctx.io.err("wim: the invite was not used.");
+        ctx.io.err(
+          ctx.io.signal.aborted ? `wim: stopped waiting. The invite stays valid until ${until}: \`wim devices pending\` lists a device that asks to join, and \`wim devices admit <name> <code>\` admits it.` : "wim: the invite expired unused."
+        );
         return 1;
       }
       const body = joins.shift();
@@ -122159,27 +122550,39 @@ async function invite(ctx) {
         });
         continue;
       }
-      const decision = await decideJoin(
-        s3,
-        body,
-        async (p3) => {
-          ctx.io.out(`Join request: device ${p3.name} (id ${p3.id}), code ${p3.sas}.`);
-          const answer = await ctx.io.prompt("Does the joining device show the same code? [y/N] ");
-          return /^y(es)?$/i.test(answer.trim());
-        },
-        ctx.io.now
-      );
+      const decision = await decideJoin(s3, body, (p3) => typedCode(ctx, p3), ctx.io.now);
       if (decision.outcome === "ignored") continue;
       if (decision.outcome === "admitted") {
-        ctx.io.out(`Admitted ${decision.name}. To deliver its messages without holding them: wim devices trust ${decision.name}`);
+        ctx.io.out(`Admitted ${decision.name}.`);
+        await askTrust(ctx, s3.mesh, s3.roster.devices.filter((d5) => d5.name === decision.name), !auto);
         return 0;
       }
       ctx.io.err(`wim: refused the join: ${decision.reason}.`);
-      if (decision.reason === "the person did not confirm") return 1;
+      if (decision.reason === "the person did not confirm") {
+        const refused2 = body;
+        await s3.settled();
+        await new PendingJoins(s3.mesh, ctx.fsEnv).remove(refused2.invite, refused2.device.id);
+        ctx.io.err("wim: if the new device showed another code, someone else used the invite: make a new one.");
+        return 1;
+      }
     }
   } finally {
     await s3.stop({ ended: true });
   }
+}
+async function askTrust(ctx, files, devices2, ask2 = true) {
+  const names = devices2.map((d5) => d5.name);
+  const one = names.length === 1;
+  const list2 = one ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+  if (ask2 && canConfirm(ctx.env, ctx.io)) {
+    const question = one ? `Is ${list2} your own device? Trust its messages here? [y/N] ` : `Are ${list2} your own devices? Trust their messages here? [y/N] `;
+    if (/^y(es)?$/i.test((await ctx.io.prompt(question)).trim())) {
+      for (const d5 of devices2) await setDevicePolicy(files, d5.id, "deliver");
+      ctx.io.out(`Messages from ${list2} are delivered here; text ${one ? "it relays" : "they relay"} from others is still held.`);
+      return;
+    }
+  }
+  ctx.io.out(`Messages from ${list2} are held for your approval. If ${one ? "it is" : "they are"} your own: wim devices trust ${one ? list2 : "--all"}`);
 }
 async function join20(ctx) {
   const code2 = ctx.args.positional[0];
@@ -122193,11 +122596,13 @@ async function join20(ctx) {
     now: ctx.io.now,
     showSas: (sas) => {
       ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
-      ctx.io.out(`Its code is ${sas}. Check that the admin device shows the same code, then confirm there.`);
+      ctx.io.out(`Its comparison code is ${sas}. Type it on the admin device, where \`wim invite\` asks for it, or run \`wim devices admit ${device.name} ${sas}\` there.`);
       ctx.io.out("Waiting for an admin to admit this device...");
     }
   });
-  ctx.io.out(`Joined mesh ${joined.mesh}. Peers' messages are held for approval until you trust their devices: wim devices trust <name>`);
+  ctx.io.out(`Joined mesh ${joined.mesh}.`);
+  const others = joined.roster.devices.filter((d5) => d5.id !== device.id && !isRecoveryName(d5.name));
+  await askTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), others);
   await registerCli(ctx, joined.mesh);
   return 0;
 }
@@ -122215,11 +122620,13 @@ function deviceRows(r6, config2) {
     return `${d5.name}  ${d5.role}  ${d5.id}  ${policy}`;
   });
 }
-var DEVICE_ACTIONS = ["list", "trust", "untrust", "revoke", "promote"];
+var DEVICE_ACTIONS = ["list", "trust", "untrust", "revoke", "promote", "pending", "admit"];
 async function devices(ctx) {
-  const [action = "list", name] = ctx.args.positional;
+  const [action = "list", name, code2] = ctx.args.positional;
   if (!DEVICE_ACTIONS.includes(action)) throw new SetupError(`unknown devices action ${JSON.stringify(action)}
 ${commandUsage("devices")}`);
+  if (action === "pending") return pending(ctx);
+  if (action === "admit") return admit(ctx, name, code2);
   const { files } = await ctx.mesh();
   const book = await RosterBook.open(files);
   const config2 = await files.loadConfig();
@@ -122227,15 +122634,15 @@ ${commandUsage("devices")}`);
     for (const line of deviceRows(book.current, config2)) ctx.io.out(line);
     return 0;
   }
-  if (name === void 0) throw new SetupError(`usage: wim devices ${action} <name>`);
+  const trusting = action === "trust" || action === "untrust";
+  const all = ctx.args.flags.get("all") === true;
+  if (all && trusting && name === void 0) return trustAll(ctx, files, book.current, config2.device, action);
+  if (name === void 0 || all) throw new SetupError(`usage: wim devices ${action} <name>${trusting ? " | --all" : ""}`);
   const target = book.current.devices.find((d5) => d5.name === name);
   if (target === void 0) throw new SetupError(`no device named ${name}`);
-  if (action === "trust" || action === "untrust") {
+  if (trusting) {
     const relayed2 = ctx.args.flags.get("relayed") === true;
-    const level = await setDevicePolicy(files, target.id, trustLevel(action, relayed2));
-    ctx.io.out(
-      level === "hold" ? `Messages from ${name} are held for approval.` : relayed2 ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).` : `Messages from ${name} are delivered; text it relays from others is still held.`
-    );
+    ctx.io.out(trustLine(name, await setDevicePolicy(files, target.id, trustLevel(action, relayed2)), relayed2));
     return 0;
   }
   const s3 = await ctx.session("admin", { keyed: false });
@@ -122247,6 +122654,50 @@ ${commandUsage("devices")}`);
       const r6 = await promoteDevice(s3, name, ctx.io.now);
       ctx.io.out(`Promoted ${name} to admin. The roster is now at seq ${r6.seq}.`);
     }
+    return 0;
+  } finally {
+    await s3.stop({ ended: true });
+  }
+}
+function trustLine(name, level, relayed2) {
+  if (level === "hold") return `Messages from ${name} are held for approval.`;
+  return relayed2 ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).` : `Messages from ${name} are delivered; text it relays from others is still held.`;
+}
+async function trustAll(ctx, files, roster, self2, action) {
+  const relayed2 = ctx.args.flags.get("relayed") === true;
+  const others = roster.devices.filter((d5) => d5.id !== self2 && !isRecoveryName(d5.name));
+  if (others.length === 0) ctx.io.out("No other devices in the mesh.");
+  for (const d5 of others) ctx.io.out(trustLine(d5.name, await setDevicePolicy(files, d5.id, trustLevel(action, relayed2)), relayed2));
+  return 0;
+}
+async function joinsSession(ctx) {
+  const s3 = await ctx.session("admin", { keyed: false });
+  await s3.listPeers();
+  await s3.settled();
+  return s3;
+}
+async function pending(ctx) {
+  const s3 = await joinsSession(ctx);
+  try {
+    const rows = await new PendingJoins(s3.mesh, ctx.fsEnv).list(s3.roster, new Invites(s3.mesh, ctx.fsEnv, ctx.io.now), ctx.io.now());
+    if (s3.roster.devices.find((d5) => d5.id === s3.device.id).role !== "admin") ctx.io.out("This device is not an admin, so no join requests come here.");
+    else if (rows.length === 0) ctx.io.out("No device is waiting to join.");
+    for (const r6 of rows) ctx.io.out(`${r6.name}  ${r6.id}  asked ${new Date(r6.at).toISOString()}  invite expires ${new Date(r6.exp).toISOString()}`);
+    if (rows.length > 0) ctx.io.out("In your own terminal, admit one with the comparison code it shows: wim devices admit <name> <code>");
+    return 0;
+  } finally {
+    await s3.stop({ ended: true });
+  }
+}
+async function admit(ctx, name, code2) {
+  if (name === void 0 || code2 === void 0) throw new SetupError("usage: wim devices admit <name> <code>");
+  if (!canConfirm(ctx.env, ctx.io)) throw new SetupError(`run \`wim devices admit\` in your own terminal: admitting a device is the person's decision, and ${noPerson(ctx)}`);
+  const s3 = await joinsSession(ctx);
+  try {
+    const decision = await admitPending(s3, name, code2, ctx.io.now);
+    if (decision.outcome !== "admitted") throw new SetupError(`could not admit ${name}: ${decision.reason}`);
+    ctx.io.out(`Admitted ${name}. The new device finishes joining when \`wim join\` runs there (it may be waiting already).`);
+    await askTrust(ctx, s3.mesh, s3.roster.devices.filter((d5) => d5.name === name));
     return 0;
   } finally {
     await s3.stop({ ended: true });
@@ -122362,6 +122813,29 @@ function reportReceipts(ctx, out, took, got, code2) {
   }
   return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code2;
 }
+async function ping(ctx) {
+  const all = ctx.args.flags.get("all") === true;
+  const named = ctx.args.positional[0];
+  if (all === (named !== void 0)) throw new SetupError("usage: wim ping <address,...> | --all");
+  const waitMs = parseDuration(flag(ctx.args, "timeout") ?? `${PING.waitMs}`);
+  const s3 = await ctx.session("ping", { keyed: false });
+  try {
+    const live = (await s3.listPeers()).filter((p3) => p3.address !== s3.address);
+    const offline = new Set(live.filter((p3) => p3.status === "offline").map((p3) => p3.address));
+    const targets = all ? live.map((p3) => p3.address).filter((a5) => !offline.has(a5)) : MeshSession.parseTo(named);
+    if (targets.length === 0) {
+      ctx.io.out("No other live sessions to ping.");
+      return 0;
+    }
+    const asked = targets.filter((a5) => !offline.has(a5));
+    const rows = asked.length === 0 ? [] : await s3.ping(asked, waitMs);
+    const report = targets.map((a5) => rows.find((r6) => r6.to === a5) ?? { to: a5, status: "offline" });
+    for (const line of pingReport(report, s3.address, waitMs)) ctx.io.out(line);
+    return report.every((r6) => r6.ms !== void 0) ? 0 : 1;
+  } finally {
+    await s3.stop({ ended: true });
+  }
+}
 async function handOver(ctx, watcher, request2) {
   const id = ulid3(ctx.io.now());
   await writeAtomic(pathJoin(watcher.controlDir, `send-${id}.json`), JSON.stringify(request2), ctx.fsEnv);
@@ -122419,10 +122893,16 @@ async function events(ctx) {
   if (ctx.args.flags.get("json") !== true) throw new SetupError("usage: wim events --json [--as <name>]");
   const name = nameFor(ctx, "vscode");
   const envKind = ctx.env["WIM_KIND"];
+  const agent = agentEnv(ctx.env);
+  if (await ctx.home.loadDevice() === void 0 || (await ctx.home.meshIds()).length === 0) {
+    const io = ctx.io;
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, ...agent === void 0 ? {} : { agent } });
+    return 0;
+  }
   const o3 = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);
   const s3 = await MeshSession.open({ ...o3, sessionKey: `events:${name}` });
   try {
-    await runEvents({ session: s3, mesh: o3.mesh, env: ctx.fsEnv, device: o3.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now });
+    await runEvents({ session: s3, mesh: o3.mesh, env: ctx.fsEnv, device: o3.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, ...agent === void 0 ? {} : { agent } });
     return 0;
   } finally {
     await s3.stop();
@@ -122702,6 +123182,7 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     stdin: proc.stdin,
     stdout: proc.stdout,
     isTTY: proc.stdout.isTTY === true,
+    inputIsTTY: proc.stdin.isTTY === true,
     fetch: globalThis.fetch,
     // Orphaned children are re-parented, so a changed ppid means the parent died.
     parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill)

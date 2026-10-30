@@ -13,6 +13,7 @@ import {
   parseInvite,
   parseJson,
   parseRecoveryCode,
+  plaintextSchema,
   verifyObject,
   verifyPrekey,
   verifyRosterChain,
@@ -86,5 +87,13 @@ describe("test vectors", { timeout: 60_000 }, () => {
       expect(openMessage(t.frame, { roster: pk.roster, me: { ...bobPk, ...pk.message.receiver, prekey: held(t.held) }, now: pk.message.now })).toEqual({ ok: false, reason: t.reason });
     }
     for (const v of pk.invalid_prekeys) expect(verifyPrekey(v.prekey, pk.roster, v.now)).toEqual({ ok: false, reason: v.reason });
+    const ping = load("ping.json");
+    const aliceKeys = deviceKeysFromSecrets(bytes(alice.signSec), bytes(alice.boxSec));
+    const atBob = { ...ping.ping.receiver, deviceId: bob.id, keys: me.keys, prekey: held([pk.prekeys.bob.prekey.id]) };
+    const atAlice = { ...ping.pong.receiver, deviceId: alice.id, keys: aliceKeys, prekey: held([pk.prekeys.alice.prekey.id]) };
+    expect(openMessage(ping.ping.frame, { roster: ping.roster, me: atBob, now: ping.ping.now })).toEqual({ ok: true, value: ping.ping.plaintext });
+    expect(openMessage(ping.pong.frame, { roster: ping.roster, me: atAlice, now: ping.pong.now })).toEqual({ ok: true, value: ping.pong.plaintext });
+    expect(ping.pong.plaintext.reply_to).toBe(ping.ping.plaintext.id);
+    for (const v of ping.invalid_plaintexts) expect(plaintextSchema.safeParse(v.plaintext).success, v.why).toBe(false);
   });
 });

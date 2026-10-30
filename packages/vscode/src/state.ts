@@ -7,6 +7,7 @@ import type {
   BreakerRow,
   DeviceRow,
   HeldRow,
+  JoinRow,
   KeysAt,
   LeaseRow,
   MessageRow,
@@ -30,6 +31,11 @@ export function heldKey(h: { session: string; id: string }): string {
   return `${h.session}\n${h.id}`;
 }
 
+/** The key of a waiting join request: one device on one invite. */
+export function joinKey(j: { invite: string; id: string }): string {
+  return `${j.invite}/${j.id}`;
+}
+
 export type ConnectionState = "starting" | "connecting" | "open" | "closed";
 export type Hello = { version: string; device: { name: string; id: string }; keys?: KeysAt; session: string; relay: string; mesh: string };
 export type Receipt = { to: string; status: ReceiptStatus; at: number };
@@ -45,6 +51,10 @@ export class Store {
   readonly held = new Map<string, HeldRow>();
   readonly breakers = new Map<string, BreakerRow>();
   readonly receipts = new Map<string, Receipt[]>();
+  /** Devices waiting to join, by `invite/id` (an admin device only). */
+  readonly joins = new Map<string, JoinRow>();
+  /** Set while the events process runs in setup mode: this device is in no mesh yet. */
+  setup: { device?: { name: string; id: string } } | undefined;
   messages: MessageRow[] = [];
   unread = 0;
   private readonly seen = new Set<string>();
@@ -68,8 +78,9 @@ export class Store {
   /** A new events process is starting: nothing from the previous one still holds. */
   reset(): void {
     this.hello = undefined;
+    this.setup = undefined;
     this.connection = { state: "starting" };
-    for (const m of [this.devices, this.sessions, this.rooms, this.leases, this.held, this.breakers, this.receipts]) m.clear();
+    for (const m of [this.devices, this.sessions, this.rooms, this.leases, this.held, this.breakers, this.receipts, this.joins]) m.clear();
     this.messages = [];
     this.seen.clear();
     this.unread = 0;
@@ -98,6 +109,14 @@ export class Store {
         this.replace(this.leases, ev.leases, (l) => l.name);
         this.replace(this.held, ev.held, heldKey);
         this.replace(this.breakers, ev.breakers, (b) => b.peer);
+        this.replace(this.joins, ev.joins, joinKey);
+        break;
+      case "join":
+        if (ev.op === "add") this.joins.set(joinKey(ev.request), ev.request);
+        else this.joins.delete(joinKey(ev.request));
+        break;
+      case "setup":
+        this.setup = ev.device === undefined ? {} : { device: ev.device };
         break;
       case "device":
         this.devices.set(ev.device.name, ev.device);
