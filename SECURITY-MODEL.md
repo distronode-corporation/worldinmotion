@@ -642,7 +642,10 @@ old by design. They are presented as history or labels, never as something to ac
   resume secret. Two agents on one device that pick the same name do not read each other's queues.
   These rules separate honest sessions; they are not a boundary against a hostile process under
   the same OS user, which is the device anyway (section 5.8). An offline session is kept for 24
-  hours, and while its queue holds messages.
+  hours, and while its queue holds messages. A closed Claude Code tab is such an offline session
+  (`wim mcp` does not end it, so a resumed conversation gets what was sent meanwhile). A later
+  conversation in the same folder on the same device takes it over, queue included, under the
+  same-OS-user boundary above; no other device and no relay can.
 - `sent`, `receipt`, peer rows and notices are unsigned. The relay sets a receipt's sender from the
   authenticated connection and forwards receipts only from addressees, but a hostile relay can forge
   any of them. They are advisory: "delivered" is not proof that a person read anything.
@@ -910,7 +913,9 @@ every device of the mesh, so it reaches untrusted devices too.
 Two agents that each wake on the other's message can loop forever, and every wake costs tokens. The
 client counts automatic deliveries per sender in a sliding hour (by default 20 per peer and 60 in
 total) and detects ping-pong (more than 8 short alternating exchanges in 10 minutes). Past a limit,
-new items from that peer are held, the person is told, and the sender gets the receipt `held`. The
+new items from that peer are held, the person is told, the receiving session is told once per
+pause (so its agent does not take a held peer for a silent one; only the person can release what is
+held), and the sender gets the receipt `held`. The
 pause lifts when the person resumes the peer or the hour rolls over. No message can change the
 limits.
 

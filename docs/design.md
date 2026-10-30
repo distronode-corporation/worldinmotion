@@ -78,8 +78,29 @@ through a stable key (the Claude Code session id from the `_internal` op `hello`
 `meshes/<mesh>/claude/`, 7 days), or the earlier session on this device has the same name and the
 same working directory in its `session.json`, did not end (`bye { ended: true }`), and no live
 process holds its liveness lock. A session from another directory keeps its name, and the new one
-gets `name-N`. `wim mcp` ends its session cleanly (`bye { ended: true }`) when stdin closes, on
-SIGINT, SIGTERM or SIGHUP, and when its parent process goes away (checked every 5 seconds).
+gets `name-N`. Whenever the relay assigns a session another address than the one it had (or, for a
+new session, asked for), the client writes it one `notice` for the agent: "this session's address
+is distronode-2@laptop, not distronode@laptop: another session on this device holds that name. Give
+peers distronode-2@laptop; messages sent to distronode@laptop do not reach this session." `/wim
+status` shows the current address. A terminal command (`wim inbox`, `wim send`, `wim watch`) never takes a `name-N`
+that way when the name belongs to a session of another kind on this device (a Claude Code tab,
+say): it ends the registration at once and refuses, naming that session, since the name's
+messages go to it. `wim mcp` takes its session offline (`bye { ended: false }`, not `ended: true`) when stdin closes,
+on SIGINT, SIGTERM or SIGHUP, and when its parent process goes away (checked every 5 seconds). A
+closed Claude Code tab can be resumed (`claude --continue`, `claude --resume`), so its session is
+kept like any offline one:
+
+- For 24 hours after the tab closed (longer only while messages sent within 24 hours are still
+  queued) the relay holds its name: sends to it answer `queued`, not `ended`, and other sessions
+  on the device that ask for the name get `name-2`.
+- The resumed conversation takes the session back through its Claude session id, with its name,
+  the queued messages, its rooms and its history.
+- A new conversation opened in the same folder under the same name takes it over by the
+  same-project rule above, queue included, so what was sent to the closed tab reaches the new
+  one. If the old conversation is resumed while the new one holds the session, it gets
+  `name-2` and a notice saying so.
+- Leases the closed tab held are not released at close; they lapse at their TTL.
+- After 24 hours with nothing queued the relay forgets the session, and the name is free.
 
 ## The signer (`wim agent`)
 
@@ -211,7 +232,9 @@ an MCP call still running after 120 seconds into a background task, and Antigrav
 way (the Claude Code plugin, channels) never need `wait`.
 
 Every item the agent reads is rendered with `frameForAgent` (SPEC section 6a). Outbound text goes
-through `findSecrets` first; a match refuses the send and names the pattern, never the value.
+through `findSecrets` first; a match refuses the send and names the pattern, never the value,
+and says that only the person can send it anyway, by running `wim send <to> <text...>
+--allow-secret` themselves in a terminal they opened (SECURITY-MODEL 7.4).
 
 `send` returns `{ id, results: [{ to, status }] }` (the relay's `sent` statuses), or an error result
 naming the reason when the secrets check or a limit refuses it. `peers` returns one line per peer,
@@ -261,7 +284,12 @@ Two agents that each wake on the other's message can loop forever, and every wak
 The client counts automatic deliveries per sender address in a sliding hour. Defaults: 20 wakes
 per peer per hour and 60 in total. Past either limit, new items from that peer go to `held/`
 instead of the spool, a `notice` tells the person ("worldinmotion paused <peer>: 20 messages in
-an hour; /wim to resume"), and the sender gets the receipt `held`. A held peer resumes when the
+an hour; /wim to resume"), and the sender gets the receipt `held`. The session itself gets one
+`notice` per pause, without a `held` count so that it reaches the agent: the peer is paused, its
+messages are held from now on and not delivered, only the person can release them (`wim held
+resume <peer>` in a terminal they opened themselves, or the pane), and the peer has not gone
+silent. Later holds from the paused peer raise no further turn, so the pause cannot itself become
+a loop. A held peer resumes when the
 person approves (the pane, `wim held resume <peer>`) or after the hour rolls over, whichever is
 first. A ping-pong detector also pauses a pair early: more than 8 alternating exchanges in
 10 minutes in which every message is under 200 characters. Limits live in `mesh.json`
@@ -288,12 +316,20 @@ is busy (try again, or `--as` another name). `wim history` and the
 
 What each status means, as the CLI, the `send` tool and the plugin word it: `routed`, handed to a
 live session; `queued`, that session is offline and the relay keeps it 24 hours. Neither means
-delivered or read. Receipts: `delivered`, the recipient session took the item (its client's spool
+delivered or read. "Live" is the relay's view: a session whose process is frozen but whose
+connection is still open stays `busy` or `idle` and gets `routed` until the relay closes the socket
+(up to about 6 minutes on the Cloudflare relay; SPEC section 8, keepalives and liveness), and it
+receives the message when it runs again. Receipts: `delivered`, the recipient session took the item (its client's spool
 sweep, or a waiting `ask`); `held`, it waits for the approval of that device's person (`/wim` in
 Claude Code, the Held view in VS Code, or `wim held approve <id>`); `refused`, that device's inbound
 policy; `expired`, nothing took it within 24 hours. None means a person or an agent read it. A
 `held` receipt also becomes a notice in the sending session's spool (with `heldBy`), which the
-Claude Code plugin shows as a toast instead of a turn.
+Claude Code plugin shows as a toast instead of a turn. Because the agent would otherwise go on
+believing its `routed` message arrived, the first `held` receipt from a recipient also writes a
+notice for the agent ("<to> is holding your message <id> for its person's approval: it is not
+delivered until they approve it on that device. Tell your person; resending will not get it
+through."). Later holds from that recipient say nothing more to the agent until a `delivered`
+receipt from it arrives.
 
 ## Distribution
 
@@ -327,7 +363,8 @@ Claude Code plugin shows as a toast instead of a turn.
   with five optional fields. A `notice` item carries `held: <count>` when it reports messages
   waiting for approval, or `heldBy: "<address>"` when a message this session sent is held for the
   approval of that address's person (a `held` receipt); the plugin shows either as a toast and
-  does not pass it to the model.
+  does not pass it to the model. A notice with none of the three flags is for the model, like a
+  message (the breaker's once-per-pause notice is one).
   `forPerson: true` marks a notice only the person can act on (this session must be restarted
   to use the signer): the plugin shows it as a toast and on its status line, never as a turn.
   `relayed: true` marks text the sender passed on from a bot, CI or gateway: it never starts a

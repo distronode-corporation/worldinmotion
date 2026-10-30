@@ -89,13 +89,30 @@ export class Breaker {
   }
 }
 
+type TripReason = "peer" | "total" | "pingpong";
+
+function pauseWhy(reason: TripReason, limits: BreakerLimits): string {
+  return reason === "peer"
+    ? `${limits.perPeerPerHour} messages in an hour`
+    : reason === "total"
+      ? `${limits.totalPerHour} messages in an hour from all peers`
+      : "a fast exchange of short messages";
+}
+
 /** The notice a pause raises, for the person (design.md wording). */
-export function pauseNotice(peer: string, reason: "peer" | "total" | "pingpong", limits: BreakerLimits): string {
-  const why =
-    reason === "peer"
-      ? `${limits.perPeerPerHour} messages in an hour`
-      : reason === "total"
-        ? `${limits.totalPerHour} messages in an hour from all peers`
-        : "a fast exchange of short messages";
-  return `worldinmotion paused ${peer}: ${why}; /wim to resume`;
+export function pauseNotice(peer: string, reason: TripReason, limits: BreakerLimits): string {
+  return `worldinmotion paused ${peer}: ${pauseWhy(reason, limits)}; /wim to resume`;
+}
+
+/**
+ * The notice a pause raises for the session itself, once per pause: without it the agent sees a
+ * peer go quiet and draws the wrong conclusion (issue #40). It names what only the person can run;
+ * no tool the agent can call releases a held message.
+ */
+export function pauseNoticeForAgent(peer: string, reason: TripReason, limits: BreakerLimits): string {
+  return (
+    `this device's loop breaker paused ${peer} (${pauseWhy(reason, limits)}): its messages to this session are held from now on, not delivered to you, until your person releases them. ` +
+    `Only the person can: \`wim held resume ${peer}\` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). ` +
+    `The pause lifts after an hour; what was held stays held until the person decides. If you are waiting on ${peer}, tell your person; it has not gone silent.`
+  );
 }

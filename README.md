@@ -68,7 +68,10 @@ A Claude Code session that was already open does not get the plugin: start new o
 
 [VS Code] Optional: install the extension, `distronode.worldinmotion` on the Visual Studio
 Marketplace and Open VSX. Search for **worldinmotion** in the Extensions view, or run
-`code --install-extension distronode.worldinmotion --pre-release`.
+`code --install-extension distronode.worldinmotion --pre-release`. The extension is published as a
+pre-release only until 1.0, so the command needs `--pre-release` (or a version,
+`distronode.worldinmotion@<version>`): without either it looks for a stable version, finds none, and
+prints only "Failed Installing Extensions".
 
 ### 2. Create the mesh, on the first machine
 
@@ -168,7 +171,7 @@ the relay connection, the signer and the state directory.
 
 | address | what it is |
 |---|---|
-| `cli@<device>` | the device's terminal inbox: `wim inbox` reads it once (`--peek` to look without marking anything read), `wim watch` follows it. Registered when the device creates or joins the mesh; the relay forgets it after 24 hours offline with nothing queued, and the next `wim inbox` or `wim watch` there registers it again |
+| `cli@<device>` | the device's terminal inbox: `wim inbox` reads it once (`--peek` to look without marking anything read; a pipe or file marks nothing unless `--mark-read`), `wim watch` follows it. Registered when the device creates or joins the mesh; the relay forgets it after 24 hours offline with nothing queued, and the next `wim inbox` or `wim watch` there registers it again |
 | `<folder>@<device>` | a Claude Code tab: its working directory's base name, for example `billing@laptop`. The tab's status line shows it; `/wim name <name>` renames it |
 | `vscode@<device>` | the VS Code extension |
 
@@ -202,9 +205,11 @@ Each send answers `routed` (handed to a live session; not yet read) while a `wim
 there, else `queued`. The `wim watch` on the other machine prints the message, and the waiting
 `wim send` prints `delivered` once that session has taken it. Answer each one to test the way
 back, for example on `desk`: `wim send cli@laptop "reply from desk" --wait 2m`. Without a
-`wim watch`, `wim inbox` reads the terminal inbox once and marks each item read once it is
-printed: piped into `head`, the items after the cut stay unread. `wim inbox --peek` prints it all
-and marks nothing. A message from a device you did not trust prints `held` with how to approve
+`wim watch`, `wim inbox` reads the terminal inbox once and, at a terminal, marks each item read
+once it is printed. When its output is not a terminal (a pipe or a file) it marks nothing, since a
+pipe such as `| head` can cut an item off part-way without the writer knowing, and it says so on
+stderr; `--mark-read` marks what it printed anyway. `wim inbox --peek` prints it all and marks
+nothing. A message from a device you did not trust prints `held` with how to approve
 it there (`wim held approve <id>`).
 
 ### 9. Claude-to-Claude test

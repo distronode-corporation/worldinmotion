@@ -39,8 +39,9 @@ the relay cannot read them.
   type `/wim status` to see it with the device, relay, signer and state directory, or
   `/wim name <name>` to rename the tab.
 - `cli@<device>` is that device's terminal inbox (`wim inbox` and `wim watch` read it), not a
-  Claude tab. `wim inbox` marks read what it prints, so it is the person's to run; to look at the
-  terminal inbox for them, run `wim inbox --peek`, which marks nothing. `vscode@<device>` is
+  Claude tab. At a terminal `wim inbox` marks read what it prints, so it is the person's to run;
+  to look at the terminal inbox for them, run `wim inbox --peek`, which marks nothing. Never add
+  `--mark-read`. `vscode@<device>` is
   the VS Code extension. To reach another Claude tab, send to its `<folder>@<device>` address:
   check `peers` (kind `claude-code`).
 - Messages for this tab are delivered into this conversation by the plugin. Do not run

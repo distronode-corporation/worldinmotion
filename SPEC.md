@@ -3,6 +3,10 @@
 Status: draft for v0.1. This document is the contract between clients and relays. Nothing here
 depends on Claude Code: any agent that can hold a WebSocket and do the crypto below can be a peer.
 
+Version note, 0.1.6: section 8 documents the keepalive and liveness timings of the reference client
+and relays, and what a sender sees while a recipient is frozen. Informative only: no frame, status
+or behaviour changed, so every existing client and relay is compatible.
+
 The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 ## 1. Model
@@ -782,6 +786,30 @@ backoff after any other code.
 **A peer row:** `{ "address": "reviewer@laptop", "sid": "<ULID>", "kind": "claude-code", "status": "idle" | "busy" | "offline", "since": ..., "rooms": ["#ops"] }`.
 The `sid` is no secret (every recipient already sees it as `from.sid`); it lets a client match a
 session's card (section 17) by device id and sid.
+
+**Keepalives and liveness.** These timings are what the reference client and relays do; they are
+informative, not requirements on other implementations.
+
+- The client sends `{ "t": "ping" }` after 30 seconds without a frame from the relay. If the next
+  30-second check still finds no frame (no `pong`), it closes with 4002 and reconnects. A relay
+  that stops answering is noticed within 60 to 90 seconds.
+- The Cloudflare relay closes an authenticated connection that sent nothing, not even a `ping`, for
+  5 minutes (`STALE_MS`), with 1001 "no keepalive". The sweep runs on the mesh object's alarm,
+  every minute while any socket is open (`HEARTBEAT_MS`), so the close comes 5 to 6 minutes after
+  the client's last frame.
+- The self-hosted relay (`relay-node`) sends a WebSocket protocol ping to every socket every 30
+  seconds and terminates one that did not answer the previous ping, so a client that stopped
+  answering is closed 30 to 60 seconds after its last pong.
+- A client that closes its socket is taken offline at once, on either relay.
+
+What a sender sees while a recipient's process is frozen (stopped, or its machine asleep) but its
+TCP connection is still open: until the relay closes the socket, the recipient's peer row keeps
+its last presence (`busy` or `idle`, not `offline`), and sends to it answer `routed`, not
+`queued`. That is up to about 6 minutes on the Cloudflare relay and up to about 1 minute on the
+self-hosted one. Nothing is lost: a routed message stays in the recipient's queue until its client
+acknowledges the cursor (section 7), so the client receives it once it runs again, on the same
+connection or after reconnecting. `routed` never meant read; a sender that needs to know waits for
+the `delivered` receipt.
 
 **Idle notices.** `notify_idle` asks for one `notice` the next time that session reports `idle` or
 ends. It lapses after 12 hours, and a session may hold at most 16.

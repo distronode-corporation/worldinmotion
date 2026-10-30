@@ -88551,9 +88551,14 @@ var Breaker = class {
     this.talk.delete(peer);
   }
 };
+function pauseWhy(reason, limits) {
+  return reason === "peer" ? `${limits.perPeerPerHour} messages in an hour` : reason === "total" ? `${limits.totalPerHour} messages in an hour from all peers` : "a fast exchange of short messages";
+}
 function pauseNotice(peer, reason, limits) {
-  const why = reason === "peer" ? `${limits.perPeerPerHour} messages in an hour` : reason === "total" ? `${limits.totalPerHour} messages in an hour from all peers` : "a fast exchange of short messages";
-  return `worldinmotion paused ${peer}: ${why}; /wim to resume`;
+  return `worldinmotion paused ${peer}: ${pauseWhy(reason, limits)}; /wim to resume`;
+}
+function pauseNoticeForAgent(peer, reason, limits) {
+  return `this device's loop breaker paused ${peer} (${pauseWhy(reason, limits)}): its messages to this session are held from now on, not delivered to you, until your person releases them. Only the person can: \`wim held resume ${peer}\` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). The pause lifts after an hour; what was held stays held until the person decides. If you are waiting on ${peer}, tell your person; it has not gone silent.`;
 }
 
 // src/cards.ts
@@ -90850,6 +90855,7 @@ var LOCAL_FAULTS = /* @__PURE__ */ new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", 
 function localFault(error63) {
   return LOCAL_FAULTS.has(String(error63.code));
 }
+var SECRET_OVERRIDE = "If the person means to send it, the person runs the send themselves in a terminal they opened themselves: wim send <to> <text...> --allow-secret. An agent cannot skip this check.";
 var ClientError = class extends Error {
   name = "ClientError";
   code;
@@ -90878,6 +90884,12 @@ function pingRow(address, results, pongs) {
 }
 function heldReceiptLine(to, id) {
   return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
+}
+function heldForAgentLine(to, id) {
+  return `${to} is holding your message ${id} for its person's approval: it is not delivered until they approve it on that device. Tell your person; resending will not get it through. Only the person on that device can approve it.`;
+}
+function renamedLine(was, now) {
+  return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
 }
 function unprotectedNote(unprotected, noPrekey) {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
@@ -91125,7 +91137,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (roster.seq > pin.seq) await this.walk(link, roster.seq);
     else if (roster.seq === pin.seq && rosterRef(roster).hash !== pin.hash) await this.forkFrom(roster, link);
     const address = `${ready.name}@${this.device.name}`;
+    const was = this.state.address ?? `${this.state.name}@${this.device.name}`;
     await this.save({ name: ready.name, address, cursor: Math.max(this.state.cursor, ready.cursor) });
+    if (address !== was) this.noticeLater(this.address, renamedLine(was, address));
     this.peers.clear();
     for (const p3 of ready.peers) this.peers.set(p3.address, p3);
     this.emit("peers");
@@ -91491,9 +91505,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (policy === "hold") return this.hold({ ...held2, reason: "policy" });
     const admitted = this.breaker.admit(p3.from.device, entry.text.length);
     if (!admitted.ok) {
-      const line = admitted.newly ? pauseNotice(from, admitted.reason, this.config.breaker) : void 0;
+      const reason = admitted.reason;
+      const pause = admitted.newly ? { person: pauseNotice(from, reason, this.config.breaker), agent: pauseNoticeForAgent(from, reason, this.config.breaker) } : void 0;
       if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
-      return this.hold({ ...held2, reason: "breaker" }, line);
+      return this.hold({ ...held2, reason: "breaker" }, pause);
     }
     const waiter = p3.kind === "result" && !unsolicited ? this.askWaiters.get(p3.reply_to) : void 0;
     if (waiter !== void 0 && p3.kind === "result") {
@@ -91529,12 +91544,14 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const flags = { ...entry.relayed ? { relayed: true } : {}, ...trust === "inform" ? { informs: true } : {} };
     await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, rendered, ...flags }, entry);
   }
-  async hold(item, pauseLine) {
+  /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
+  async hold(item, pause) {
     await this.held.add(item);
     this.receipt(item.id, "held");
     const count = (await this.held.list()).length;
-    const line = pauseLine ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
+    const line = pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
     await this.notice(item.from, line, count);
+    if (pause !== void 0) await this.notice(item.from, pause.agent);
     await this.o.notifier?.notify(`worldinmotion: ${count} message${count === 1 ? "" : "s"} held for approval`);
     this.emit("held", item);
   }
@@ -91595,9 +91612,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   recordReceipt(f7) {
     const recorded = this.history.appendReceipt(f7.id, { to: f7.to, status: f7.status, at: this.now() });
+    if (f7.status === "delivered") this.heldTold.delete(f7.to);
     if (f7.status !== "held") return recorded;
-    return recorded.then(() => this.notice(f7.to, heldReceiptLine(f7.to, f7.id), void 0, f7.to));
+    const tell = !this.heldTold.has(f7.to);
+    this.heldTold.add(f7.to);
+    const person = recorded.then(() => this.notice(f7.to, heldReceiptLine(f7.to, f7.id), void 0, f7.to));
+    return tell ? person.then(() => this.notice(f7.to, heldForAgentLine(f7.to, f7.id))) : person;
   }
+  /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
+  heldTold = /* @__PURE__ */ new Set();
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
     await this.spool.take(cursor2);
@@ -91963,7 +91986,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       return { frame, missing };
     } catch (error63) {
       const message2 = error63.message.replace(/^sealMessage: /, "");
-      throw new ClientError(`refused: ${message2}`, /secret/.test(message2) ? "secret" : "invalid");
+      if (/secret/.test(message2)) throw new ClientError(`refused: ${message2}. ${SECRET_OVERRIDE}`, "secret");
+      throw new ClientError(`refused: ${message2}`, "invalid");
     }
   }
   /**
@@ -122417,7 +122441,7 @@ async function storeInKeyring(ctx, o3, file2) {
 
 // src/cli.ts
 var VERSION = "0.1.5";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
@@ -122430,7 +122454,7 @@ var COMMAND_FLAGS = {
   send: ["allow-secret", "as", "wait"],
   ping: ["all", "timeout"],
   watch: ["as"],
-  inbox: ["peek", "as"],
+  inbox: ["peek", "mark-read", "as"],
   events: ["json", "as"],
   history: ["session", "peer", "limit"],
   bot: ["as"],
@@ -122500,7 +122524,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
-  wim inbox [--peek] [--as <name>]
+  wim inbox [--peek | --mark-read] [--as <name>]
   wim events --json [--as <name>]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
@@ -122612,6 +122636,7 @@ var Ctx = class {
       if (error63 instanceof WireError && error63.code === "fatal") throw new SetupError(error63.message);
       throw new SetupError(`${error63.message} (${last})`);
     }
+    if (keyed) await refuseHeldName(s3, name);
     s3.on("fatal", (reason) => this.io.err(`wim: ${reason}`));
     return s3;
   }
@@ -122650,6 +122675,15 @@ async function liveHolder(mesh, name, env3, watch2 = false) {
     if (state2?.name === name && state2.kind === "cli" && await (watch2 ? files.takesHandoverElsewhere() : files.isLiveElsewhere())) return files;
   }
   return void 0;
+}
+async function refuseHeldName(s3, name) {
+  const wanted = `${name}@${s3.address.slice(s3.address.indexOf("@") + 1)}`;
+  const holder = s3.knownPeers().find((p3) => p3.address === wanted && p3.kind !== "cli");
+  if (holder === void 0) return;
+  await s3.stop({ ended: true });
+  throw new SetupError(
+    `${wanted} is a ${holder.kind} session on this device (${holder.status}): its messages go to that session, not to a terminal. \`wim history --session ${name}\` shows what it received; for a terminal session of your own, pick another name with --as <name>.`
+  );
 }
 function liveWatcher(mesh, name, env3) {
   return liveHolder(mesh, name, env3, true);
@@ -123278,6 +123312,9 @@ async function events(ctx) {
   }
 }
 async function inbox(ctx) {
+  if (ctx.args.flags.get("peek") === true && ctx.args.flags.get("mark-read") === true) {
+    throw new SetupError("--peek marks nothing and --mark-read marks what is printed: use one");
+  }
   const name = nameFor(ctx, "cli");
   const { files } = await ctx.mesh();
   if (await liveWatcher(files, name, ctx.fsEnv) !== void 0) {
@@ -123300,11 +123337,18 @@ async function inbox(ctx) {
 function showInbox(ctx, s3, items) {
   if (items.length === 0) ctx.io.out(`Nothing new for ${s3.address}.`);
   const print = ctx.io.print ?? ((line) => (ctx.io.out(line), Promise.resolve(true)));
-  const mark = ctx.args.flags.get("peek") === true ? () => Promise.resolve() : (item) => s3.markRead([item]);
+  const peek = ctx.args.flags.get("peek") === true;
+  const unmarked = !peek && !ctx.io.isTTY && ctx.args.flags.get("mark-read") !== true;
+  const mark = peek || unmarked ? () => Promise.resolve() : (item) => s3.markRead([item]);
   return printEach(items, print, mark).then((shown) => {
-    if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
+    if (unmarked && items.length > 0) ctx.io.err(unmarkedLine(items.length));
+    else if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
     return 0;
   });
+}
+function unmarkedLine(n3) {
+  const [items, them] = n3 === 1 ? ["this item stays", "it"] : [`these ${n3} items stay`, "them"];
+  return `wim: stdout is not a terminal, so ${items} unread (a pipe such as \`| head\` can cut one off part-way). Run \`wim inbox\` in a terminal to read and mark ${them}, or add --mark-read to mark what this run printed.`;
 }
 function printEach(items, print, mark) {
   const [first, ...rest] = items;
@@ -123392,7 +123436,7 @@ async function mcp(ctx) {
   await Promise.race([closed, orphaned, ctx.untilStopped()]);
   clearInterval(poll);
   let timer;
-  await Promise.race([server.close({ ended: true }), new Promise((resolve3) => timer = setTimeout(resolve3, ctx.io.closeMs ?? 3e3))]);
+  await Promise.race([server.close(), new Promise((resolve3) => timer = setTimeout(resolve3, ctx.io.closeMs ?? 3e3))]);
   clearTimeout(timer);
   return 0;
 }

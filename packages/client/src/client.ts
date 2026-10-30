@@ -44,7 +44,7 @@ import { EventEmitter } from "node:events";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { Breaker, pauseNotice } from "./breaker.ts";
+import { Breaker, pauseNotice, pauseNoticeForAgent } from "./breaker.ts";
 import { cardFor, sameCard } from "./cards.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
@@ -77,6 +77,14 @@ const LOCAL_FAULTS: ReadonlySet<string> = new Set(["ENOSPC", "EDQUOT", "EIO", "E
 function localFault(error: unknown): boolean {
   return LOCAL_FAULTS.has(String((error as NodeJS.ErrnoException).code));
 }
+
+/**
+ * Added to every refusal for a secret: how the person sends it anyway, and that it is theirs to
+ * decide. The CLI, the MCP `send` tool and `wim events` all show it, so it names the one override
+ * (`wim send --allow-secret`, a person at their own terminal: SECURITY-MODEL 7.4).
+ */
+export const SECRET_OVERRIDE =
+  "If the person means to send it, the person runs the send themselves in a terminal they opened themselves: wim send <to> <text...> --allow-secret. An agent cannot skip this check.";
 
 /** A refusal the caller should show as it is: a secret in the text, an unknown peer, a limit. */
 export class ClientError extends Error {
@@ -180,6 +188,19 @@ export type SendOutcome = { id: string; results: SendResult[]; unprotected?: str
 /** The notice for a `held` receipt: the message waits for the recipient device's person. */
 export function heldReceiptLine(to: string, id: string): string {
   return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
+}
+
+/**
+ * The notice that tells the sending agent its message is held (issue #42). The `heldBy` notice is
+ * the person's toast; this one reaches the model, once per recipient until something gets through.
+ */
+export function heldForAgentLine(to: string, id: string): string {
+  return `${to} is holding your message ${id} for its person's approval: it is not delivered until they approve it on that device. Tell your person; resending will not get it through. Only the person on that device can approve it.`;
+}
+
+/** The notice for a session the relay gave another name than the one it had or asked for. */
+export function renamedLine(was: string, now: string): string {
+  return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
 }
 
 /** What a person or an agent is told about a send that went without forward secrecy. */
@@ -479,7 +500,12 @@ export class MeshSession extends EventEmitter {
     else if (roster.seq === pin.seq && rosterRef(roster).hash !== pin.hash) await this.forkFrom(roster, link);
     // A device keeps the name it joined with; the roster has no rename (SPEC section 4).
     const address = `${ready.name}@${this.device.name}`;
+    // The address this session had, or for a new one the address it asked for.
+    const was = this.state.address ?? `${this.state.name}@${this.device.name}`;
     await this.save({ name: ready.name, address, cursor: Math.max(this.state.cursor, ready.cursor) });
+    // The relay gave another name (another session on this device holds the one asked for): the
+    // agent must learn its own address, or it gives peers one that does not reach it (issue #36).
+    if (address !== was) this.noticeLater(this.address, renamedLine(was, address));
     this.peers.clear();
     for (const p of ready.peers) this.peers.set(p.address, p);
     this.emit("peers");
@@ -911,9 +937,10 @@ export class MeshSession extends EventEmitter {
 
     const admitted = this.breaker.admit(p.from.device, entry.text.length);
     if (!admitted.ok) {
-      const line = admitted.newly ? pauseNotice(from, admitted.reason as "peer", this.config.breaker) : undefined;
+      const reason = admitted.reason as "peer";
+      const pause = admitted.newly ? { person: pauseNotice(from, reason, this.config.breaker), agent: pauseNoticeForAgent(from, reason, this.config.breaker) } : undefined;
       if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
-      return this.hold({ ...held, reason: "breaker" }, line);
+      return this.hold({ ...held, reason: "breaker" }, pause);
     }
     const waiter = p.kind === "result" && !unsolicited ? this.askWaiters.get(p.reply_to) : undefined;
     if (waiter !== undefined && p.kind === "result") {
@@ -955,12 +982,14 @@ export class MeshSession extends EventEmitter {
     await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, rendered, ...flags }, entry);
   }
 
-  private async hold(item: HeldItem, pauseLine?: string): Promise<void> {
+  /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
+  private async hold(item: HeldItem, pause?: { person: string; agent: string }): Promise<void> {
     await this.held.add(item);
     this.receipt(item.id, "held");
     const count = (await this.held.list()).length;
-    const line = pauseLine ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
+    const line = pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
     await this.notice(item.from, line, count);
+    if (pause !== undefined) await this.notice(item.from, pause.agent);
     await this.o.notifier?.notify(`worldinmotion: ${count} message${count === 1 ? "" : "s"} held for approval`);
     this.emit("held", item);
   }
@@ -1030,9 +1059,19 @@ export class MeshSession extends EventEmitter {
    */
   private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
     const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
+    // Something got through to that recipient: a later hold there is news again.
+    if (f.status === "delivered") this.heldTold.delete(f.to);
     if (f.status !== "held") return recorded;
-    return recorded.then(() => this.notice(f.to, heldReceiptLine(f.to, f.id), undefined, f.to));
+    // The agent is told once per recipient (not per message), so a peer that holds everything
+    // cannot wake the sender over and over.
+    const tell = !this.heldTold.has(f.to);
+    this.heldTold.add(f.to);
+    const person = recorded.then(() => this.notice(f.to, heldReceiptLine(f.to, f.id), undefined, f.to));
+    return tell ? person.then(() => this.notice(f.to, heldForAgentLine(f.to, f.id))) : person;
   }
+
+  /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
+  private readonly heldTold = new Set<string>();
 
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor: number): Promise<void> {
@@ -1457,7 +1496,8 @@ export class MeshSession extends EventEmitter {
       return { frame, missing };
     } catch (error) {
       const message = (error as Error).message.replace(/^sealMessage: /, "");
-      throw new ClientError(`refused: ${message}`, /secret/.test(message) ? "secret" : "invalid");
+      if (/secret/.test(message)) throw new ClientError(`refused: ${message}. ${SECRET_OVERRIDE}`, "secret");
+      throw new ClientError(`refused: ${message}`, "invalid");
     }
   }
 

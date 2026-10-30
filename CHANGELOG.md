@@ -13,6 +13,79 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Changed
+
+- **`wim inbox` marks nothing read when its output is not a terminal.** Piped into `head`, an item
+  cut off part-way still counted as read, and the writer cannot know how much of a pipe's buffer
+  the reader took. Into a pipe or a file, `wim inbox` now marks nothing (as `--peek` does) and says
+  on stderr: "stdout is not a terminal, so these 2 items stay unread (a pipe such as `| head` can
+  cut one off part-way). Run `wim inbox` in a terminal to read and mark them, or add --mark-read
+  to mark what this run printed." At a terminal it marks each item once printed, as before. (#33)
+
+- **A closed Claude Code tab goes offline instead of ending, so a resumed conversation gets what
+  was sent meanwhile.** `wim mcp` used to say `bye { ended: true }` when its tab closed, so senders
+  got `ended` and the messages were gone even when the person resumed the conversation
+  (`claude --continue`) under the same name. It now goes offline: the relay queues for the name
+  for 24 hours (senders see `queued`), and the resumed conversation takes the session back with
+  them. The name stays held for those 24 hours, and a new conversation in the same folder takes
+  the session over, queue included. No relay or protocol change. (#37)
+
+### Documentation
+
+- **Keepalive and liveness timings are in SPEC.md section 8.** The client pings after 30 s of
+  quiet; the Cloudflare relay closes a socket silent for 5 minutes (`STALE_MS`) on a 1-minute alarm
+  (`HEARTBEAT_MS`); the self-hosted relay closes one that missed a 30 s protocol ping. So a frozen
+  recipient (stopped, or asleep with its connection open) stays `busy` or `idle` in peers, and sends
+  to it answer `routed`, for up to about 6 minutes on the Cloudflare relay. Nothing is lost: it
+  receives them when it runs again. No code change. (#39)
+
+### Added
+
+- **`wim inbox --mark-read`** marks what it printed even when its output is not a terminal (the
+  0.1.5 behaviour, for a script that keeps what it reads). (#33)
+
+### Fixed
+
+- **A session the relay renamed `<name>-2` was not told its new address.** After a Claude Code
+  plugin reinstall the same conversation came back as `distronode-2@latitude` while the chat kept
+  giving peers its old address. Whenever the relay assigns a session another address than the one
+  it had or asked for, the client now writes it one notice that reaches the agent: "this session's
+  address is distronode-2@latitude, not distronode@latitude: another session on this device holds
+  that name. Give peers distronode-2@latitude; messages sent to distronode@latitude do not reach
+  this session." (#36)
+
+- **A send refused for a secret did not say how to send it anyway.** The refusal (`wim send`, the
+  MCP `send` tool, `wim events`) now ends: "If the person means to send it, the person runs the
+  send themselves in a terminal they opened themselves: wim send <to> <text...> --allow-secret. An
+  agent cannot skip this check." (#34)
+- **`code --install-extension distronode.worldinmotion` failed with no detail.** The extension is
+  published as a pre-release only, so an unpinned install finds no stable version and prints only
+  "Failed Installing Extensions". The README and the extension's README now say why the command
+  needs `--pre-release` (or `@<version>`), and a test keeps every documented install command
+  that way. (#35)
+- **`wim inbox --as <name>`, where `<name>` is a live Claude Code session, registered `<name>-2`
+  and read its empty inbox.** A terminal command whose name belongs to a session of another kind
+  on this device now ends that registration at once, so no `<name>-2` lingers in peers, and says
+  so: "distronode-2@latitude is a claude-code session on this device (idle): its messages go to
+  that session, not to a terminal. `wim history --session distronode-2` shows what it received;
+  for a terminal session of your own, pick another name with --as <name>." The same holds for
+  `wim send` and `wim watch`. (#38)
+- **The loop breaker held a peer's messages without telling the receiving session.** Only the
+  person got a toast, so an agent waiting on that peer concluded it had dropped the work. When the
+  breaker pauses a peer, the session now also gets one notice that reaches the agent: the peer is
+  paused, its messages are held from now on and not delivered, only the person can release them
+  (`wim held resume <peer>` in a terminal they opened themselves, or Approve in /wim or the Held
+  view in VS Code), and it has not gone silent. One per pause, so the pause cannot become a loop
+  of its own. (#40)
+- **A sender's agent never learned that its message was held.** The `send` result says `routed`,
+  and the later `held` receipt reached the person only as a toast, so the agent went on assuming
+  the message had arrived. The first `held` receipt from a recipient now also gives the sending
+  agent one notice: "<to> is holding your message <id> for its person's approval: it is not
+  delivered until they approve it on that device. Tell your person; resending will not get it
+  through. Only the person on that device can approve it." Once per recipient, until something to
+  that recipient is delivered, so a recipient that holds everything cannot wake the sender over and
+  over. (#42)
+
 ## [0.1.5] - 2026-10-30
 
 ### Fixed

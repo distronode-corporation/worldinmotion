@@ -14,6 +14,10 @@ search for **worldinmotion** in the Extensions view, or run
 `code --install-extension distronode.worldinmotion --pre-release`. To build it yourself instead,
 see [Building and testing](#building-and-testing).
 
+It is published as a pre-release only until 1.0, so the command needs `--pre-release` or a
+version (`code --install-extension distronode.worldinmotion@<version>`). Without either, `code` looks
+for a stable version, finds none, and prints only "Failed Installing Extensions".
+
 ## What it shows
 
 An activity bar container, **worldinmotion**, with four views:

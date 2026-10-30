@@ -89,7 +89,7 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read"]);
 const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 
 /** Flags every command takes. */
@@ -106,7 +106,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   send: ["allow-secret", "as", "wait"],
   ping: ["all", "timeout"],
   watch: ["as"],
-  inbox: ["peek", "as"],
+  inbox: ["peek", "mark-read", "as"],
   events: ["json", "as"],
   history: ["session", "peer", "limit"],
   bot: ["as"],
@@ -195,7 +195,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
-  wim inbox [--peek] [--as <name>]
+  wim inbox [--peek | --mark-read] [--as <name>]
   wim events --json [--as <name>]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
@@ -327,6 +327,7 @@ class Ctx {
       // The connection logs "connecting" before anything else, so `last` is always set here.
       throw new SetupError(`${(error as Error).message} (${last!})`);
     }
+    if (keyed) await refuseHeldName(s, name);
     // Later, while a long command runs.
     s.on("fatal", (reason: string) => this.io.err(`wim: ${reason}`));
     return s;
@@ -382,6 +383,22 @@ async function liveHolder(mesh: MeshFiles, name: string, env: FsEnv, watch = fal
     if (state?.name === name && state.kind === "cli" && (await (watch ? files.takesHandoverElsewhere() : files.isLiveElsewhere()))) return files;
   }
   return undefined;
+}
+
+/**
+ * A terminal command asked for a name that a session of another kind holds on this device (a
+ * Claude Code tab, say), so the relay gave it `<name>-2`. Its messages go to that session, and a
+ * `<name>-2` would only linger in peers: the throwaway registration ends at once and the command
+ * is refused. A name another terminal session holds keeps today's behaviour.
+ */
+async function refuseHeldName(s: MeshSession, name: string): Promise<void> {
+  const wanted = `${name}@${s.address.slice(s.address.indexOf("@") + 1)}`;
+  const holder = s.knownPeers().find((p) => p.address === wanted && p.kind !== "cli");
+  if (holder === undefined) return;
+  await s.stop({ ended: true });
+  throw new SetupError(
+    `${wanted} is a ${holder.kind} session on this device (${holder.status}): its messages go to that session, not to a terminal. \`wim history --session ${name}\` shows what it received; for a terminal session of your own, pick another name with --as <name>.`,
+  );
 }
 
 /** A `wim watch` running now on this device under `name`, if any. */
@@ -1145,11 +1162,16 @@ async function events(ctx: Ctx): Promise<number> {
 }
 
 /**
- * `wim inbox`: what arrived for this CLI session while nothing was watching. Each item is marked
- * read once stdout took it, so what a closed pipe (`wim inbox | head`) cut off stays unread;
- * `--peek` prints and marks nothing.
+ * `wim inbox`: what arrived for this CLI session while nothing was watching. At a terminal each
+ * item is marked read once stdout took it, so what a closed output cut off stays unread. When
+ * stdout is not a terminal (a pipe or a file) nothing is marked, as with `--peek`: a pipe's buffer
+ * hides how much the reader took, so `wim inbox | head` could cut an item part-way and still have
+ * it count as read (issue #33). `--mark-read` marks what was printed anyway.
  */
 async function inbox(ctx: Ctx): Promise<number> {
+  if (ctx.args.flags.get("peek") === true && ctx.args.flags.get("mark-read") === true) {
+    throw new SetupError("--peek marks nothing and --mark-read marks what is printed: use one");
+  }
   const name = nameFor(ctx, "cli");
   const { files } = await ctx.mesh();
   if ((await liveWatcher(files, name, ctx.fsEnv)) !== undefined) {
@@ -1175,11 +1197,21 @@ async function inbox(ctx: Ctx): Promise<number> {
 function showInbox(ctx: Ctx, s: MeshSession, items: readonly SpoolItem[]): Promise<number> {
   if (items.length === 0) ctx.io.out(`Nothing new for ${s.address}.`);
   const print = ctx.io.print ?? ((line: string) => (ctx.io.out(line), Promise.resolve(true)));
-  const mark = ctx.args.flags.get("peek") === true ? () => Promise.resolve() : (item: SpoolItem) => s.markRead([item]);
+  const peek = ctx.args.flags.get("peek") === true;
+  // Not a terminal and not asked to mark: the reader's take is unknowable, so nothing is marked.
+  const unmarked = !peek && !ctx.io.isTTY && ctx.args.flags.get("mark-read") !== true;
+  const mark = peek || unmarked ? () => Promise.resolve() : (item: SpoolItem) => s.markRead([item]);
   return printEach(items, print, mark).then((shown) => {
-    if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
+    if (unmarked && items.length > 0) ctx.io.err(unmarkedLine(items.length));
+    else if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
     return 0;
   });
+}
+
+/** Said when `wim inbox` wrote to something other than a terminal and so marked nothing. */
+function unmarkedLine(n: number): string {
+  const [items, them] = n === 1 ? ["this item stays", "it"] : [`these ${n} items stay`, "them"];
+  return `wim: stdout is not a terminal, so ${items} unread (a pipe such as \`| head\` can cut one off part-way). Run \`wim inbox\` in a terminal to read and mark ${them}, or add --mark-read to mark what this run printed.`;
 }
 
 /**
@@ -1286,10 +1318,12 @@ async function mcp(ctx: Ctx): Promise<number> {
   await server.start()?.catch((error: unknown) => ctx.io.err(`wim: ${(error as Error).message}`));
   await Promise.race([closed, orphaned, ctx.untilStopped()]);
   clearInterval(poll);
-  // A clean end: `bye { ended: true }` frees the name and the queue for the next session. It
-  // gets a few seconds; the process exits either way.
+  // Offline, not ended (issue #37): a closed tab can be resumed (`claude --continue`), so the
+  // relay keeps queueing for its name for 24 hours, as for any offline session, and the resumed
+  // conversation takes the session back by its key with what arrived meanwhile. It gets a few
+  // seconds; the process exits either way.
   let timer: NodeJS.Timeout | undefined;
-  await Promise.race([server.close({ ended: true }), new Promise<void>((resolve) => (timer = setTimeout(resolve, ctx.io.closeMs ?? 3000)))]);
+  await Promise.race([server.close(), new Promise<void>((resolve) => (timer = setTimeout(resolve, ctx.io.closeMs ?? 3000)))]);
   clearTimeout(timer);
   return 0;
 }

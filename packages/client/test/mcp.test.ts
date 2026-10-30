@@ -114,7 +114,7 @@ describe("wim mcp", () => {
     expect(text(await call("peers"))).toMatch(/^peer@two {2}mcp {2}idle {2}-$/m);
     const sent = await call("send", { to: "peer@two", text: "hi", notify_when_idle: true });
     expect(sent.structuredContent).toMatchObject({ results: [{ to: "peer@two", status: "routed" }] });
-    expect(text(await call("send", { to: "peer@two", text: `sk-ant-${"x".repeat(40)}` }))).toMatch(/refused: text appears to contain a secret \(anthropic_api_key\)/);
+    expect(text(await call("send", { to: "peer@two", text: `sk-ant-${"x".repeat(40)}` }))).toMatch(/refused: text appears to contain a secret \(anthropic_api_key\)\. If the person means to send it, .*--allow-secret.*An agent cannot skip this check\./);
     expect((await call("send", { to: "Bad", text: "x" })).isError).toBe(true);
     // ask, answered by the peer
     peer.on("message", (m: { kind: string; id: string }) => {
