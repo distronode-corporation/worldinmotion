@@ -198,7 +198,7 @@ block of JSON):
 
 | op | args | output |
 |---|---|---|
-| `hello` | `{ claudeSessionId }` | `{ spool, sid, address, token, held, dismiss }`, where `held` and `dismiss` are the absolute paths of the session's mark directories (below). While no session can open yet for a reason that clears on its own (the signer is not running or is locked, or the device has no keys or no mesh yet), `{ pending: true, problem, link, token }`: the server keeps asking every 5 s, and once a session opens it maps this Claude session to it and writes `link` (an absolute path under `<state dir>/links/`) with the same fields as a linked answer; if the problem turns into one that stands, it writes `{ problem }` there instead and stops asking. A repeat `hello` carries the token of the pending answer. Any other problem is an error result |
+| `hello` | `{ claudeSessionId }` | `{ spool, sid, address, token, held, dismiss }`, where `held` and `dismiss` are the absolute paths of the session's mark directories (below). While no session can open yet for a reason that clears on its own (the signer is not running or is locked, or the device has no keys or no mesh yet), `{ pending: true, problem, link, token }`: the server keeps asking every 5 s, and once a session opens it maps this Claude session to it and writes `link` (an absolute path under `<state dir>/links/`) with the same fields as a linked answer; if the problem turns into one that stands, or the session fails to open (the next call tries again), it writes `{ problem }` there instead. A repeat `hello` carries the token of the pending answer. Any other problem is an error result |
 | `peers` | `{ forPane? }` | `{ peers: [{ address, kind, status, rooms, cwd?, branch? }] }` (card fields of untrusted devices only with `forPane`) |
 | `route` | `{ to }` | `{ mesh, policy }`: whether `to` is a mesh address, and its device's policy (`deliver` for a room only when every device is) |
 | `held` | `{}` | `{ held: [{ id, from, kind, at, preview }] }` |
@@ -264,8 +264,9 @@ compacted. History is local only and never leaves the machine.
   the mod's own `tool.check` is skipped as re-entry and the person is asked to allow
   `_internal` (seen live in Claude Code 2.1.312). So a tab never retries `hello` from a timer:
   when `hello` answers `pending`, the mod keeps the token and reads the `link` file every 250 ms
-  (a file read, no MCP), and links when the server writes it. A tab whose `hello` failed for good
-  tries again at the person's next prompt (`turn.start`, a dispatch). An internal op refused for
+  (a file read, no MCP), and links when the server writes it. A tab that is not linked, waiting
+  or not, tries `hello` again at the person's next prompt (`turn.start`, a dispatch): its server
+  may have restarted, and a new one never writes the file the old one named. An internal op refused for
   its token (the server restarted, so it has issued none yet) runs `hello` again and the op once
   more.
 - The server writes each inbound item as `spool/<cursor zero-padded to 12 digits>.json`:

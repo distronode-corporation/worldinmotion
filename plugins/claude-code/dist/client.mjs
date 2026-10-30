@@ -120166,7 +120166,11 @@ var WimMcp = class {
       return void 0;
     }
     clearInterval(this.retryTimer);
-    this.opening ??= this.openFirst();
+    this.opening ??= this.openFirst().catch(async (error63) => {
+      this.opening = void 0;
+      if (this.pending !== void 0) await this.writeLinkFile({ problem: error63.message });
+      throw error63;
+    });
     return this.opening;
   }
   /** The first session; when a handshake waits for it, that Claude session's own, and its link file. */

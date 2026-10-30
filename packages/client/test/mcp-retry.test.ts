@@ -180,6 +180,28 @@ describe("wim mcp and a signer that is not up yet", () => {
     expect(JSON.parse(await fs.readFile(pending.link, "utf8"))).toEqual({ problem: "this device is in 2 meshes: set WIM_MESH" });
   });
 
+  it("does not keep a failed open: a waiting handshake is told why, and the next call opens it", async () => {
+    const dir = await scratch("failed-open");
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const meshJson = join(devices[0]!.home.meshDir(mesh), "mesh.json");
+    const answers: Retried[] = [{ problem: "no signer is running", again: true }, { session: sessionOpts(devices[0]!, mesh, relay, { name: "agent", kind: "claude-code" }) }];
+    const { call, server } = await connect({ setupProblem: "no signer is running", retry: async () => answers.shift()!, stateDir: { path: dir, why: "WIM_HOME is set" } });
+    const pending = (await call("_hello", { claudeSessionId: "cc-5" })).structuredContent as { pending: boolean; link: string };
+    expect(pending.pending).toBe(true);
+    // The options come back, but the session cannot open: its mesh file is gone for a moment.
+    await fs.rename(meshJson, `${meshJson}.away`);
+    const failed = await call("peers");
+    expect(failed.isError).toBe(true);
+    expect(text(failed)).toMatch(/mesh\.json does not exist/);
+    expect(JSON.parse(await fs.readFile(pending.link, "utf8"))).toEqual({ problem: expect.stringMatching(/mesh\.json does not exist/) });
+    // Back again: the next call opens the session, and the waiting handshake gets its link.
+    await fs.rename(`${meshJson}.away`, meshJson);
+    expect((await call("peers")).isError).toBeUndefined();
+    expect(server.current).toBeDefined();
+    expect(JSON.parse(await fs.readFile(pending.link, "utf8"))).toMatchObject({ address: "agent@one" });
+  });
+
   it("asks again on each call, stops when the problem is one that stands, and keeps asking in the background", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);

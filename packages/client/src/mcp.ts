@@ -234,7 +234,12 @@ export class WimMcp {
       return undefined;
     }
     clearInterval(this.retryTimer);
-    this.opening ??= this.openFirst();
+    this.opening ??= this.openFirst().catch(async (error: unknown) => {
+      // Not kept: the next call tries to open it again. A waiting handshake is told why.
+      this.opening = undefined;
+      if (this.pending !== undefined) await this.writeLinkFile({ problem: (error as Error).message });
+      throw error;
+    });
     return this.opening;
   }
 

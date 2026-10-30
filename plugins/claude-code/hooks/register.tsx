@@ -729,9 +729,10 @@ export const register: Register = on => {
 
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
-      // Inside a dispatch, so allowed: a tab that is neither linked nor waiting
-      // on a link file (the client was not running, or set up since) tries again.
-      if ((await read($, link)) === null && (await read($, pendingLink)) === null) {
+      // Inside a dispatch, so allowed: a tab that is not linked tries again,
+      // waiting on a link file or not. Its client may have restarted since,
+      // and a new one never writes the file the old one named.
+      if ((await read($, link)) === null) {
         await handshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
       }
       const isMesh = await takeSubmit($, e.text)

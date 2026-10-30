@@ -359,6 +359,27 @@ test('a link file that holds a problem that now stands ends the wait, and the ne
   expect(w.calls.filter(call => call.tool === '_hello')).toHaveLength(2)
 })
 
+test('a tab waiting on a link file tries the handshake again at the next prompt, as its client may have restarted', async ($, on) => {
+  let isRestarted = false
+  const w = world(on, {
+    tools: {
+      _hello: () =>
+        isRestarted ? json({ spool: SPOOL, sid: 's1', address: 'builder@desk', token: TOKEN, held: HELD_DIR, dismiss: DISMISS_DIR }) : pendingHello(NO_SIGNER)(),
+    },
+  })
+  mock.clock(on)
+  await $.session.start(START)
+  // A new client never writes the file the old one named: the person's next prompt links the tab.
+  isRestarted = true
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  expect(w.calls.filter(call => call.tool === '_hello')).toEqual([
+    { tool: '_hello', args: { claudeSessionId: 'claude-session-1' } },
+    { tool: '_hello', args: { claudeSessionId: 'claude-session-1', token: TOKEN } },
+  ])
+  expect(w.statuses.at(-1)).toBe('builder@desk, 0 held')
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy')
+})
+
 test('a refused token (the client restarted) runs the handshake again and the op once more', async ($, on) => {
   const w = world(on, { tools: { _peers: () => json({ peers: [{ address: 'reviewer@laptop', kind: 'claude-code', status: 'idle', rooms: [] }] }) } })
   on('tool.call', { tool: 'ListAgents' }, () => ({ result: { listing: 'none' } }))
