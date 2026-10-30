@@ -23,7 +23,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { hash, LIMITS } from "@worldinmotion/protocol";
 import { migrate, RELAY_VERSION, SqlStore } from "@worldinmotion/relay-core";
 import { runUntilSignal, sqlDb, start, type RunningRelay } from "../src/index.ts";
-import { STORED_SWEEP_MESHES } from "../src/server.ts";
+import { pathOf, STORED_SWEEP_MESHES } from "../src/server.ts";
 import { Dial, scratchDir } from "./helpers.ts";
 
 const running: RunningRelay[] = [];
@@ -178,6 +178,14 @@ describe("relay-node", () => {
     expect(await get(r.port, `/v1/rdv/${box.rdv}`)).toEqual({ status: 404, body: { error: "not found" } });
     expect(await get(r.port, "/v1/rdv/nope")).toEqual({ status: 400, body: { error: "invalid id" } });
     expect(await get(r.port, `/v1/rdv/${box.rdv}`, "POST")).toEqual({ status: 404, body: { error: "not found" } });
+  });
+
+  it("answers a request target the URL parser refuses with 404 instead of crashing", async () => {
+    const r = await relay();
+    expect(pathOf("//")).toBe("");
+    for (const method of ["GET", "POST"]) expect(await get(r.port, "//", method)).toEqual({ status: 404, body: { error: "not found" } });
+    expect(await refusedUpgrade(r.port, "//")).toEqual({ status: 404, body: { error: "not found" } });
+    expect(await get(r.port, "/healthz")).toEqual({ status: 200, body: { ok: true } });
   });
 
   it("limits box fetches per source address", async () => {

@@ -331,7 +331,8 @@ wim2-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX[@<relay>]
   rdv`), giving `c` (at most 4 KiB). Once `invite.created` arrives it sends the authenticated frame
   `rdv.put { rdv, exp, n, c }` with `exp` the invite's expiry or one hour from now, whichever is
   first. The relay answers `rdv.stored { rdv }`, or `error` with `ref` `rdv.put`: `unauthorized` for a
-  device that is not an admin, `malformed` for an `exp` that is past or more than an hour away,
+  device that is not an admin, `malformed` for an `exp` that is past or more than an hour and 5 minutes away (the clock skew
+  `auth` allows; the relay keeps the box at most an hour by its own clock),
   `limited` past a rate (16 an hour per device, 64 per mesh, 64 per source address), `full` when it
   holds 10,000 boxes, `rdv_exists` for an id it already holds, `unavailable` when its store cannot
   be reached, and `unsupported` (or, from a relay older than this, `unknown_type`) when it keeps no

@@ -145,14 +145,16 @@ describe.each(KINDS)("rdv.put (%s store)", (kind) => {
     expect(w.puts).toEqual([{ rdv: f.rdv, exp: f.exp, n: f.n, c: f.c, source: "src-1" }]);
   });
 
-  it("refuses a member, and an expiry that is past or more than an hour away", () => {
+  it("refuses a member, and an expiry that is past or more than an hour and the auth skew away", () => {
     const w = rdvWorld(kind);
     expect(w.member.frame(frame(w))).toEqual([{ t: "error", code: "unauthorized", message: "only admin devices store short invite codes", ref: "rdv.put" }]);
     const bad = { t: "error", code: "malformed", message: "exp must be in the next hour", ref: "rdv.put" };
     expect(w.root.frame(frame(w, w.h.now))).toEqual([bad]);
-    expect(w.root.frame(frame(w, w.h.now + HOUR + 1))).toEqual([bad]);
-    expect(w.root.frame(frame(w, w.h.now + HOUR))[0]!["t"]).toBe("rdv.stored");
-    expect(w.puts).toHaveLength(1);
+    expect(w.root.frame(frame(w, w.h.now + HOUR + LIMITS.authSkewMs + 1))).toEqual([bad]);
+    expect(w.root.frame(frame(w, w.h.now + 10 * 60_000))[0]!["t"]).toBe("rdv.stored");
+    // An admin whose clock runs ahead: accepted, and kept an hour by the relay's clock.
+    expect(w.root.frame(frame(w, w.h.now + HOUR + LIMITS.authSkewMs))[0]!["t"]).toBe("rdv.stored");
+    expect(w.puts.map((p) => p.exp)).toEqual([w.h.now + 10 * 60_000, w.h.now + HOUR]);
   });
 
   it("limits puts per device and per mesh, refilling over the hour", () => {

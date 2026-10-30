@@ -105,6 +105,18 @@ export function sqlDb(db: DatabaseSync): SqlDb {
   };
 }
 
+/**
+ * The path of a request target, or "" for one the URL parser refuses (`//` reads as a host-less
+ * authority and throws), which every route then answers as not found rather than crashing.
+ */
+export function pathOf(target: string): string {
+  try {
+    return new URL(target, "http://relay").pathname;
+  } catch {
+    return "";
+  }
+}
+
 /** The parts of `process` that `runUntilSignal` uses, so a test can pass its own. */
 export type SignalTarget = { once(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown; exit(code: number): unknown };
 
@@ -149,7 +161,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
   };
   server.on("request", (req, res) => {
     const get = req.method === "GET";
-    const path = new URL(req.url!, "http://relay").pathname;
+    const path = pathOf(req.url!);
     const rdv = get ? parseRdvPath(path) : undefined;
     if (rdv !== undefined) {
       const answer = rdv.ok ? rendezvous.get(rdv.rdv, sourceOf(req), Date.now()) : { status: rdv.status, body: { error: rdv.error } };
@@ -263,7 +275,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
   };
 
   server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
-    const dial = parseDialPath(new URL(req.url!, "http://relay").pathname);
+    const dial = parseDialPath(pathOf(req.url!));
     if (!dial.ok) {
       const body = JSON.stringify({ error: dial.error });
       const reason = dial.status === 400 ? "Bad Request" : "Not Found";

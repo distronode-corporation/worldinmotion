@@ -1107,14 +1107,17 @@ export class MeshRelay {
     const L = this.limits;
     if (this.host.rdvPut === undefined) return this.error(conn, "unsupported", "this relay keeps no short invite codes", "rdv.put");
     if (!this.isAdmin(s.device)) return this.error(conn, "unauthorized", "only admin devices store short invite codes", "rdv.put");
-    if (f.exp <= now || f.exp > now + L.rdvLifetimeMs) return this.error(conn, "malformed", "exp must be in the next hour", "rdv.put");
+    // The admin's clock may run ahead by as much as `auth` allows; the box still ends within the
+    // hour by this relay's clock.
+    if (f.exp <= now || f.exp > now + L.rdvLifetimeMs + L.authSkewMs) return this.error(conn, "malformed", "exp must be in the next hour", "rdv.put");
+    const exp = Math.min(f.exp, now + L.rdvLifetimeMs);
     const deviceKey = `rdv:${s.device}`;
     const device = this.level(deviceKey, L.rdvPutsPerDevicePerHour, L.rdvPutsPerDevicePerHour / HOUR, now);
     const mesh = this.level("rdv:mesh", L.rdvPutsPerMeshPerHour, L.rdvPutsPerMeshPerHour / HOUR, now);
     if (device < 1 || mesh < 1) return this.error(conn, "limited", "too many short invite codes for now; try again later", "rdv.put");
     this.spend(deviceKey, device, 1, now);
     this.spend("rdv:mesh", mesh, 1, now);
-    this.host.rdvPut({ rdv: f.rdv, exp: f.exp, n: f.n, c: f.c, source: st.source }, (outcome) => this.rdvAnswer(conn, f.rdv, outcome));
+    this.host.rdvPut({ rdv: f.rdv, exp, n: f.n, c: f.c, source: st.source }, (outcome) => this.rdvAnswer(conn, f.rdv, outcome));
   }
 
   /** Answers an `rdv.put` with the store's outcome, unless the connection has closed meanwhile. */
