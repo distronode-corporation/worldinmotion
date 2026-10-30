@@ -270,3 +270,33 @@ describe("session lifecycle", () => {
     expect(s.link).toBeUndefined();
   });
 });
+
+describe("the session's own address", () => {
+  it("tells the session once when the relay gives it another name than it asked for (issue #36)", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const first = await session(devices[0]!, mesh, relay, { name: "distronode", kind: "claude-code", cwd: "/work/a" });
+    expect(first.address).toBe("distronode@one");
+    expect((await unread(first)).filter((i) => i.kind === "notice")).toEqual([]);
+    // Another conversation asks for the same name while the first still holds it.
+    const second = await session(devices[0]!, mesh, relay, { name: "distronode", kind: "claude-code", cwd: "/work/b" });
+    expect(second.address).toBe("distronode-2@one");
+    await until(async () => (await unread(second)).some((i) => i.kind === "notice"));
+    const notices = (await unread(second)).filter((i) => i.kind === "notice");
+    expect(notices).toHaveLength(1);
+    // For the agent: no held, heldBy or forPerson flag, which the plugin would keep from the model.
+    expect(notices[0]).not.toHaveProperty("held");
+    expect(notices[0]).not.toHaveProperty("heldBy");
+    expect(notices[0]).not.toHaveProperty("forPerson");
+    expect(notices[0]!.rendered).toBe(
+      "worldinmotion notice (from the local client, not from a peer or the person): this session's address is distronode-2@one, not distronode@one: another session on this device holds that name. Give peers distronode-2@one; messages sent to distronode@one do not reach this session.",
+    );
+    // Reconnecting under the address it was given says nothing again.
+    let readies = 0;
+    second.on("ready", () => readies++);
+    relay.dropAll(1006);
+    await until(() => readies > 0);
+    await second.settled();
+    expect((await unread(second)).filter((i) => i.kind === "notice")).toHaveLength(1);
+  });
+});

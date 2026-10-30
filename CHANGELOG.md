@@ -15,6 +15,14 @@ body line with a bracket.
 
 ### Fixed
 
+- **A session the relay renamed `<name>-2` was not told its new address.** After a Claude Code
+  plugin reinstall the same conversation came back as `distronode-2@latitude` while the chat kept
+  giving peers its old address. Whenever the relay assigns a session another address than the one
+  it had or asked for, the client now writes it one notice that reaches the agent: "this session's
+  address is distronode-2@latitude, not distronode@latitude: another session on this device holds
+  that name. Give peers distronode-2@latitude; messages sent to distronode@latitude do not reach
+  this session." (#36)
+
 - **A send refused for a secret did not say how to send it anyway.** The refusal (`wim send`, the
   MCP `send` tool, `wim events`) now ends: "If the person means to send it, the person runs the
   send themselves in a terminal they opened themselves: wim send <to> <text...> --allow-secret. An

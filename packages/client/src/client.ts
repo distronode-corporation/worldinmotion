@@ -190,6 +190,11 @@ export function heldReceiptLine(to: string, id: string): string {
   return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
 }
 
+/** The notice for a session the relay gave another name than the one it had or asked for. */
+export function renamedLine(was: string, now: string): string {
+  return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
+}
+
 /** What a person or an agent is told about a send that went without forward secrecy. */
 export function unprotectedNote(unprotected: readonly string[], noPrekey: readonly string[]): string {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
@@ -487,7 +492,12 @@ export class MeshSession extends EventEmitter {
     else if (roster.seq === pin.seq && rosterRef(roster).hash !== pin.hash) await this.forkFrom(roster, link);
     // A device keeps the name it joined with; the roster has no rename (SPEC section 4).
     const address = `${ready.name}@${this.device.name}`;
+    // The address this session had, or for a new one the address it asked for.
+    const was = this.state.address ?? `${this.state.name}@${this.device.name}`;
     await this.save({ name: ready.name, address, cursor: Math.max(this.state.cursor, ready.cursor) });
+    // The relay gave another name (another session on this device holds the one asked for): the
+    // agent must learn its own address, or it gives peers one that does not reach it (issue #36).
+    if (address !== was) this.noticeLater(this.address, renamedLine(was, address));
     this.peers.clear();
     for (const p of ready.peers) this.peers.set(p.address, p);
     this.emit("peers");

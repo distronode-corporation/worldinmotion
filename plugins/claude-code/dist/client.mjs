@@ -90885,6 +90885,9 @@ function pingRow(address, results, pongs) {
 function heldReceiptLine(to, id) {
   return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
 }
+function renamedLine(was, now) {
+  return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
+}
 function unprotectedNote(unprotected, noPrekey) {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
 }
@@ -91131,7 +91134,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (roster.seq > pin.seq) await this.walk(link, roster.seq);
     else if (roster.seq === pin.seq && rosterRef(roster).hash !== pin.hash) await this.forkFrom(roster, link);
     const address = `${ready.name}@${this.device.name}`;
+    const was = this.state.address ?? `${this.state.name}@${this.device.name}`;
     await this.save({ name: ready.name, address, cursor: Math.max(this.state.cursor, ready.cursor) });
+    if (address !== was) this.noticeLater(this.address, renamedLine(was, address));
     this.peers.clear();
     for (const p3 of ready.peers) this.peers.set(p3.address, p3);
     this.emit("peers");
