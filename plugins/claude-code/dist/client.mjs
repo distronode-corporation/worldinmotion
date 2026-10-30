@@ -92093,6 +92093,7 @@ ${frameEntry(entry)}`);
     const started = this.now();
     return new Promise((resolve3, reject) => {
       let over = false;
+      let timer;
       const finish = () => {
         over = true;
         clearTimeout(timer);
@@ -92113,16 +92114,16 @@ ${frameEntry(entry)}`);
         }, reject);
       };
       const look = () => void this.spool.unread().then(takeFirst, fail4);
+      const firstLook = (items) => {
+        takeFirst(items);
+        if (!over) timer = setTimeout(() => (finish(), resolve3(void 0)), timeoutMs);
+      };
       const onItem = (item) => {
         if (this.push === void 0 && item.cursor > this.spool.taken) look();
       };
-      const timer = setTimeout(() => {
-        finish();
-        resolve3(void 0);
-      }, timeoutMs);
       const beat = setInterval(() => onTick?.(this.now() - started), tickMs);
       this.on("item", onItem);
-      look();
+      void this.spool.unread().then(firstLook, fail4);
     });
   }
 };

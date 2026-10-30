@@ -80,6 +80,27 @@ describe("wait", () => {
     expect((await waiting)?.rendered).toContain("late");
   });
 
+  it("returns an item already unread however long the first look takes, even past a short wait", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const b = await openSession(devices[0]!, mesh, relay, { name: "b" });
+    cleanup.push(() => b.stop());
+    await b.notice("x@one", "already here");
+    const list = b.spool.unread.bind(b.spool);
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    b.spool.unread = async () => {
+      const items = await list();
+      await held;
+      return items;
+    };
+    const waiting = b.next(10);
+    // Longer than the wait itself, as a slow Windows look was.
+    await sleep(50);
+    release();
+    expect((await waiting)?.rendered).toContain("already here");
+  });
+
   it("fails when the spool cannot be read, and stops listening", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);

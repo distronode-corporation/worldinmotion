@@ -1729,6 +1729,7 @@ export class MeshSession extends EventEmitter {
     return new Promise((resolve, reject) => {
       // Set once the wait has its item, has failed or has run out: nothing is taken after that.
       let over = false;
+      let timer: NodeJS.Timeout | undefined;
       const finish = (): void => {
         over = true;
         clearTimeout(timer);
@@ -1751,20 +1752,22 @@ export class MeshSession extends EventEmitter {
         }, reject);
       };
       const look = (): void => void this.spool.unread().then(takeFirst, fail);
+      // The time counts from the end of the first look, so an item already unread is returned
+      // however slow the look (a Windows runner) and however short the wait.
+      const firstLook = (items: SpoolItem[]): void => {
+        takeFirst(items);
+        if (!over) timer = setTimeout(() => (finish(), resolve(undefined)), timeoutMs);
+      };
       // An item's event starts a look. One at or below the cursor is not new: its event came after
       // a look already took it. With push set, items go to the channel instead.
       const onItem = (item: SpoolItem): void => {
         if (this.push === undefined && item.cursor > this.spool.taken) look();
       };
-      const timer = setTimeout(() => {
-        finish();
-        resolve(undefined);
-      }, timeoutMs);
       const beat = setInterval(() => onTick?.(this.now() - started), tickMs);
       // Listening starts before the first look: an item written after that look listed the spool,
       // whose event came before a listener was there, would otherwise wait out the timeout unseen.
       this.on("item", onItem);
-      look();
+      void this.spool.unread().then(firstLook, fail);
     });
   }
 }
