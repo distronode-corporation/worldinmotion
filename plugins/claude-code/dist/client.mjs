@@ -122432,7 +122432,7 @@ async function storeInKeyring(ctx, o3, file2) {
 
 // src/cli.ts
 var VERSION = "0.1.5";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
@@ -122445,7 +122445,7 @@ var COMMAND_FLAGS = {
   send: ["allow-secret", "as", "wait"],
   ping: ["all", "timeout"],
   watch: ["as"],
-  inbox: ["peek", "as"],
+  inbox: ["peek", "mark-read", "as"],
   events: ["json", "as"],
   history: ["session", "peer", "limit"],
   bot: ["as"],
@@ -122515,7 +122515,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
-  wim inbox [--peek] [--as <name>]
+  wim inbox [--peek | --mark-read] [--as <name>]
   wim events --json [--as <name>]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
@@ -123303,6 +123303,9 @@ async function events(ctx) {
   }
 }
 async function inbox(ctx) {
+  if (ctx.args.flags.get("peek") === true && ctx.args.flags.get("mark-read") === true) {
+    throw new SetupError("--peek marks nothing and --mark-read marks what is printed: use one");
+  }
   const name = nameFor(ctx, "cli");
   const { files } = await ctx.mesh();
   if (await liveWatcher(files, name, ctx.fsEnv) !== void 0) {
@@ -123325,11 +123328,18 @@ async function inbox(ctx) {
 function showInbox(ctx, s3, items) {
   if (items.length === 0) ctx.io.out(`Nothing new for ${s3.address}.`);
   const print = ctx.io.print ?? ((line) => (ctx.io.out(line), Promise.resolve(true)));
-  const mark = ctx.args.flags.get("peek") === true ? () => Promise.resolve() : (item) => s3.markRead([item]);
+  const peek = ctx.args.flags.get("peek") === true;
+  const unmarked = !peek && !ctx.io.isTTY && ctx.args.flags.get("mark-read") !== true;
+  const mark = peek || unmarked ? () => Promise.resolve() : (item) => s3.markRead([item]);
   return printEach(items, print, mark).then((shown) => {
-    if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
+    if (unmarked && items.length > 0) ctx.io.err(unmarkedLine(items.length));
+    else if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
     return 0;
   });
+}
+function unmarkedLine(n3) {
+  const [items, them] = n3 === 1 ? ["this item stays", "it"] : [`these ${n3} items stay`, "them"];
+  return `wim: stdout is not a terminal, so ${items} unread (a pipe such as \`| head\` can cut one off part-way). Run \`wim inbox\` in a terminal to read and mark ${them}, or add --mark-read to mark what this run printed.`;
 }
 function printEach(items, print, mark) {
   const [first, ...rest] = items;

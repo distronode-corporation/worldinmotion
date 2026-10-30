@@ -28,9 +28,13 @@ async function inboxWith(texts: string[]) {
 }
 
 /** What one `wim inbox` run printed, item by item, with a stdout that takes `takes` items and then closes. */
-async function inboxRun(root: string, relay: RelayHarness, takes = Infinity, ...flags: string[]) {
+async function inboxRun(root: string, relay: RelayHarness, takes = Infinity, ...rest: Array<string | boolean>) {
   const printed: string[] = [];
+  // A leading boolean is whether stdout is a terminal (it is unless said otherwise).
+  const isTTY = typeof rest[0] === "boolean" ? (rest.shift() as boolean) : true;
+  const flags = rest as string[];
   const t = term(root, relay, {
+    isTTY,
     print: async (line) => {
       if (printed.length >= takes) return false;
       printed.push(line);
@@ -106,10 +110,48 @@ describe("wim inbox", () => {
     expect(said(again)).toContain("Nothing new for distronode-2@one.");
   }, 30_000);
 
-  it("lists --peek in its usage", async () => {
+  it("marks nothing when stdout is not a terminal, says how to mark them, and --mark-read marks them (issue #33)", async () => {
+    const { relay, root } = await inboxWith(["one\ntwo\nthree", "four"]);
+    // A pipe or a file: `wim inbox | head` can cut an item part-way, and the writer cannot know.
+    const piped = await inboxRun(root, relay, Infinity, false);
+    expect(piped.printed).toHaveLength(2);
+    expect(piped.t.err).toEqual([
+      "wim: stdout is not a terminal, so these 2 items stay unread (a pipe such as `| head` can cut one off part-way). Run `wim inbox` in a terminal to read and mark them, or add --mark-read to mark what this run printed.",
+    ]);
+    // A pipe that closes early marks nothing either, and says the same.
+    const cut = await inboxRun(root, relay, 1, false);
+    expect(cut.printed).toHaveLength(1);
+    expect(cut.t.err).toEqual([piped.t.err[0]]);
+    expect((await inboxRun(root, relay, Infinity, false)).printed).toHaveLength(2);
+    // --peek says nothing about marking: it never marks.
+    expect((await inboxRun(root, relay, Infinity, false, "--peek")).t.err).toEqual([]);
+    const marked = await inboxRun(root, relay, Infinity, false, "--mark-read");
+    expect(marked.printed).toHaveLength(2);
+    expect(marked.t.err).toEqual([]);
+    expect((await inboxRun(root, relay)).printed).toHaveLength(0);
+  }, 30_000);
+
+  it("names a single unmarked item in the singular", async () => {
+    const { relay, root } = await inboxWith(["only"]);
+    expect((await inboxRun(root, relay, Infinity, false)).t.err).toEqual([
+      "wim: stdout is not a terminal, so this item stays unread (a pipe such as `| head` can cut one off part-way). Run `wim inbox` in a terminal to read and mark it, or add --mark-read to mark what this run printed.",
+    ]);
+    // Nothing waiting: nothing to say about marking.
+    const { relay: r2, root: root2 } = await inboxWith([]);
+    expect((await inboxRun(root2, r2, Infinity, false)).t.err).toEqual([]);
+  }, 30_000);
+
+  it("refuses --peek with --mark-read", async () => {
+    const { relay, root } = await inboxWith([]);
+    const t = term(root, relay);
+    expect(await run(t, "inbox", "--peek", "--mark-read")).toBe(1);
+    expect(t.err.at(-1)).toBe("wim: --peek marks nothing and --mark-read marks what is printed: use one");
+  }, 30_000);
+
+  it("lists --peek and --mark-read in its usage", async () => {
     const t = term("/nonexistent", new RelayHarness());
     expect(await run(t, "help", "inbox")).toBe(0);
-    expect(t.out.at(-1)).toBe("wim inbox [--peek] [--as <name>]");
+    expect(t.out.at(-1)).toBe("wim inbox [--peek | --mark-read] [--as <name>]");
   });
 });
 

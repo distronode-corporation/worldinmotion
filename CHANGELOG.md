@@ -13,6 +13,20 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Changed
+
+- **`wim inbox` marks nothing read when its output is not a terminal.** Piped into `head`, an item
+  cut off part-way still counted as read, and the writer cannot know how much of a pipe's buffer
+  the reader took. Into a pipe or a file, `wim inbox` now marks nothing (as `--peek` does) and says
+  on stderr: "stdout is not a terminal, so these 2 items stay unread (a pipe such as `| head` can
+  cut one off part-way). Run `wim inbox` in a terminal to read and mark them, or add --mark-read
+  to mark what this run printed." At a terminal it marks each item once printed, as before. (#33)
+
+### Added
+
+- **`wim inbox --mark-read`** marks what it printed even when its output is not a terminal (the
+  0.1.5 behaviour, for a script that keeps what it reads). (#33)
+
 ### Fixed
 
 - **A session the relay renamed `<name>-2` was not told its new address.** After a Claude Code

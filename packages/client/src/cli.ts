@@ -89,7 +89,7 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read"]);
 const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 
 /** Flags every command takes. */
@@ -106,7 +106,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   send: ["allow-secret", "as", "wait"],
   ping: ["all", "timeout"],
   watch: ["as"],
-  inbox: ["peek", "as"],
+  inbox: ["peek", "mark-read", "as"],
   events: ["json", "as"],
   history: ["session", "peer", "limit"],
   bot: ["as"],
@@ -195,7 +195,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
-  wim inbox [--peek] [--as <name>]
+  wim inbox [--peek | --mark-read] [--as <name>]
   wim events --json [--as <name>]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
@@ -1162,11 +1162,16 @@ async function events(ctx: Ctx): Promise<number> {
 }
 
 /**
- * `wim inbox`: what arrived for this CLI session while nothing was watching. Each item is marked
- * read once stdout took it, so what a closed pipe (`wim inbox | head`) cut off stays unread;
- * `--peek` prints and marks nothing.
+ * `wim inbox`: what arrived for this CLI session while nothing was watching. At a terminal each
+ * item is marked read once stdout took it, so what a closed output cut off stays unread. When
+ * stdout is not a terminal (a pipe or a file) nothing is marked, as with `--peek`: a pipe's buffer
+ * hides how much the reader took, so `wim inbox | head` could cut an item part-way and still have
+ * it count as read (issue #33). `--mark-read` marks what was printed anyway.
  */
 async function inbox(ctx: Ctx): Promise<number> {
+  if (ctx.args.flags.get("peek") === true && ctx.args.flags.get("mark-read") === true) {
+    throw new SetupError("--peek marks nothing and --mark-read marks what is printed: use one");
+  }
   const name = nameFor(ctx, "cli");
   const { files } = await ctx.mesh();
   if ((await liveWatcher(files, name, ctx.fsEnv)) !== undefined) {
@@ -1192,11 +1197,21 @@ async function inbox(ctx: Ctx): Promise<number> {
 function showInbox(ctx: Ctx, s: MeshSession, items: readonly SpoolItem[]): Promise<number> {
   if (items.length === 0) ctx.io.out(`Nothing new for ${s.address}.`);
   const print = ctx.io.print ?? ((line: string) => (ctx.io.out(line), Promise.resolve(true)));
-  const mark = ctx.args.flags.get("peek") === true ? () => Promise.resolve() : (item: SpoolItem) => s.markRead([item]);
+  const peek = ctx.args.flags.get("peek") === true;
+  // Not a terminal and not asked to mark: the reader's take is unknowable, so nothing is marked.
+  const unmarked = !peek && !ctx.io.isTTY && ctx.args.flags.get("mark-read") !== true;
+  const mark = peek || unmarked ? () => Promise.resolve() : (item: SpoolItem) => s.markRead([item]);
   return printEach(items, print, mark).then((shown) => {
-    if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
+    if (unmarked && items.length > 0) ctx.io.err(unmarkedLine(items.length));
+    else if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
     return 0;
   });
+}
+
+/** Said when `wim inbox` wrote to something other than a terminal and so marked nothing. */
+function unmarkedLine(n: number): string {
+  const [items, them] = n === 1 ? ["this item stays", "it"] : [`these ${n} items stay`, "them"];
+  return `wim: stdout is not a terminal, so ${items} unread (a pipe such as \`| head\` can cut one off part-way). Run \`wim inbox\` in a terminal to read and mark ${them}, or add --mark-read to mark what this run printed.`;
 }
 
 /**
