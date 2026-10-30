@@ -239,7 +239,15 @@ class Ctx {
   /** The device and a mesh: `meshId` when given, else the one `--mesh`, `WIM_MESH` or the only mesh names. */
   async mesh(meshId?: string): Promise<{ device: Device; files: MeshFiles }> {
     const device = await this.home.requireDevice();
-    const id = meshId ?? (await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]));
+    let id: string;
+    try {
+      id = meshId ?? (await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]));
+    } catch (error) {
+      // No mesh to use the device in: let go of its signer connection, which `wim mcp` would
+      // otherwise open again on every retry.
+      device.keyring.close();
+      throw error;
+    }
     return { device, files: new MeshFiles(this.home.meshDir(id), this.fsEnv) };
   }
 

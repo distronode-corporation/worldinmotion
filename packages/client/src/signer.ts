@@ -315,5 +315,6 @@ export function signerKeyring(client: SignerClient, pub: { signPub: Uint8Array; 
       const r = await client.call("adopt", { prekey: entry.prekey, secret: b64u.encode(entry.secret) });
       return { prekey: entry.prekey, sealed: r["sealed"] as string };
     },
+    close: () => client.close(),
   };
 }

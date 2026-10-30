@@ -20,6 +20,8 @@ export interface DeviceKeyring extends Keyring {
   openPrekey(entry: PrekeyEntry, req: OpenRequest): Promise<Opened>;
   /** The entry as this keyring stores it: a signer seals a secret in the clear; a local keyring keeps it. */
   adopt(entry: PrekeyEntry): Promise<PrekeyEntry>;
+  /** Lets go of what the keyring holds open (a signer's connection); it reconnects if used again. */
+  close(): void;
 }
 
 /**
@@ -61,5 +63,7 @@ export function localDeviceKeyring(keys: DeviceKeys): DeviceKeyring {
       return openWithClearPrekey(entry, req);
     },
     adopt: async (entry) => entry,
+    // Nothing is held open: the keys are in this process.
+    close: () => undefined,
   };
 }

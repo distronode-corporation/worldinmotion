@@ -89607,7 +89607,9 @@ function localDeviceKeyring(keys) {
       if ("sealed" in entry) throw new NeedsSigner();
       return openWithClearPrekey(entry, req);
     },
-    adopt: async (entry) => entry
+    adopt: async (entry) => entry,
+    // Nothing is held open: the keys are in this process.
+    close: () => void 0
   };
 }
 
@@ -89907,7 +89909,8 @@ function signerKeyring(client, pub) {
       if ("sealed" in entry) return entry;
       const r6 = await client.call("adopt", { prekey: entry.prekey, secret: b64u.encode(entry.secret) });
       return { prekey: entry.prekey, sealed: r6["sealed"] };
-    }
+    },
+    close: () => client.close()
   };
 }
 
@@ -121503,7 +121506,13 @@ var Ctx = class {
   /** The device and a mesh: `meshId` when given, else the one `--mesh`, `WIM_MESH` or the only mesh names. */
   async mesh(meshId) {
     const device = await this.home.requireDevice();
-    const id = meshId ?? await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]);
+    let id;
+    try {
+      id = meshId ?? await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]);
+    } catch (error63) {
+      device.keyring.close();
+      throw error63;
+    }
     return { device, files: new MeshFiles(this.home.meshDir(id), this.fsEnv) };
   }
   async notifier() {

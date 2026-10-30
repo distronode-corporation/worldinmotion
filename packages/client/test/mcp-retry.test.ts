@@ -17,7 +17,7 @@ import { WimMcp, type McpOptions, type Retried } from "../src/mcp.ts";
 import { openKeyFile } from "../src/vault.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionKeys } from "../src/session.ts";
-import { FS, makeMesh, newDevice, RelayHarness, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
+import { FS, makeMesh, newDevice, RelayHarness, run, said, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
 
 const KDF = { N: 1024, r: 8, p: 1 };
 const PASS = "pass phrase";
@@ -150,6 +150,21 @@ describe("wim mcp and a signer that is not up yet", () => {
     expect(text(answer.result)).toMatch(/is not encrypted, and this device requires the signer/);
     stdin.end();
     expect(await serving).toBe(0);
+  });
+
+  it("lets go of the signer connection when the device has no mesh yet, so retries hold none open", async () => {
+    const d = await newDevice("nomesh");
+    await encryptDevice(d.home, PASS, KDF);
+    const { server } = await serve(d);
+    const sockets = (server as unknown as { sockets: Set<unknown> }).sockets;
+    const t = term(d.root, new RelayHarness());
+    for (let i = 0; i < 3; i++) expect(await run(t, "peers")).toBe(1);
+    expect(said(t)).toMatch(/this device is in no mesh/);
+    await until(() => sockets.size === 0, 3000, "the signer connections closed");
+    // A plaintext key file holds nothing open, and says the same.
+    const plain = term((await newDevice("plain-nomesh")).root, new RelayHarness());
+    expect(await run(plain, "peers")).toBe(1);
+    expect(said(plain)).toMatch(/this device is in no mesh/);
   });
 
   it("asks again on each call, stops when the problem is one that stands, and keeps asking in the background", async () => {

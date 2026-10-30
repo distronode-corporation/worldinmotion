@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { revokeDevice } from "../src/admin.ts";
 import { MeshSession } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
+import { homeChoice } from "../src/platform.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
 import { FS, POSIX_VIEW, makeMesh, openSession, RELAY, RelayHarness, run, said, scratch, sessionOpts, term, until, rosterSeqs } from "./helpers.ts";
 
@@ -24,7 +25,7 @@ describe("more command paths", () => {
     const { devices } = await makeMesh(relay, ["one"]);
     const home = await scratch("doc-dirs");
     // Two more devices under this user's config directory: the default one and a Claude profile's.
-    const base = join(home, ".config", "worldinmotion");
+    const base = homeChoice({}, process.platform, home).base;
     await fs.mkdir(join(base, "profiles", "abcdefabcdef"), { recursive: true });
     await fs.mkdir(join(base, "profiles", "nodevice"), { recursive: true });
     await fs.writeFile(join(base, "device.json"), "{}");
