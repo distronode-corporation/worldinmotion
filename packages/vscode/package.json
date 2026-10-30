@@ -172,6 +172,11 @@
         "command": "worldinmotion.restart",
         "title": "Restart Client",
         "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.startSigner",
+        "title": "Start Signer",
+        "category": "worldinmotion"
       }
     ],
     "menus": {

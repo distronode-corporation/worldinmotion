@@ -66,6 +66,10 @@ describe("parseLine: events", () => {
       relay: "r",
       mesh: "m",
     });
+    // Where the keys are: read when it is a value this extension knows, ignored otherwise.
+    expect(ev({ type: "hello", version: "1", device: { name: "d", id: "i" }, keys: "signer", session: "a@d", relay: "r", mesh: "m" })).toMatchObject({ keys: "signer" });
+    expect(ev({ type: "hello", version: "1", device: { name: "d", id: "i" }, keys: "local", session: "a@d", relay: "r", mesh: "m" })).toMatchObject({ keys: "local" });
+    expect(ev({ type: "hello", version: "1", device: { name: "d", id: "i" }, keys: "tpm", session: "a@d", relay: "r", mesh: "m" })).not.toHaveProperty("keys");
   });
 
   it("parses connection with and without detail, and refuses an unknown state", () => {

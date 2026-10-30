@@ -56,9 +56,11 @@ export type LeaseRow = { name: string; holder: string; token: number; expires_at
 export type BreakerReason = "peer" | "total" | "pingpong";
 export type BreakerRow = { peer: string; reason?: BreakerReason; at: number };
 export type ReceiptStatus = "delivered" | "held" | "refused" | "expired";
+/** Where the device keys are: in the client (a plaintext key file) or in the signer (`wim agent`). */
+export type KeysAt = "local" | "signer";
 
 export type WimEvent =
-  | { type: "hello"; at: number; version: string; device: { name: string; id: string }; session: string; relay: string; mesh: string }
+  | { type: "hello"; at: number; version: string; device: { name: string; id: string }; keys?: KeysAt; session: string; relay: string; mesh: string }
   | { type: "connection"; at: number; state: "connecting" | "open" | "closed"; detail?: string }
   | {
       type: "snapshot";
@@ -240,15 +242,17 @@ function event(o: Obj, type: string, at: number): WimEvent | undefined {
   switch (type) {
     case "hello": {
       const device = obj(o.device, "device");
-      return {
+      return compact({
         type,
         at,
         version: str(o, "version"),
         device: { name: str(device, "name"), id: str(device, "id") },
+        // Added later, so optional; a value this extension does not know is ignored.
+        keys: o.keys === "local" || o.keys === "signer" ? (o.keys as KeysAt) : undefined,
         session: str(o, "session"),
         relay: str(o, "relay"),
         mesh: str(o, "mesh"),
-      };
+      });
     }
     case "connection":
       return compact({ type, at, state: oneOf(o, "state", ["connecting", "open", "closed"] as const), detail: opt(o, "detail", str) });

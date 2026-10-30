@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { clock } from "../src/display.ts";
 import { counterparts, toNotify, edges, groups, heldKey, MESSAGE_CAP, PAUSE_MS, RECEIPT_CAP, Store, TEXT_CHARS, timeline } from "../src/state.ts";
 import { device, heldRow, hello, mesh, message, NOW, session } from "./helpers.ts";
+import type { WimEvent } from "../src/protocol.ts";
 
 describe("Store: events", () => {
   it("starts empty and records hello and connection", () => {
@@ -10,6 +11,9 @@ describe("Store: events", () => {
     expect(s.connection).toEqual({ state: "starting" });
     s.apply(hello());
     expect(s.self).toBe("vscode@laptop");
+    expect(s.hello).not.toHaveProperty("keys");
+    s.apply({ ...hello(), keys: "signer" } as WimEvent);
+    expect(s.hello?.keys).toBe("signer");
     s.apply({ type: "connection", at: NOW, state: "closed", detail: "relay gone" });
     expect(s.connection).toEqual({ state: "closed", detail: "relay gone" });
     s.apply({ type: "connection", at: NOW, state: "open" });

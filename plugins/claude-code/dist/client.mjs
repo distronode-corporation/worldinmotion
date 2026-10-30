@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs13 = __require("node:fs/promises");
+    var fs14 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs13.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs14.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -24432,8 +24432,8 @@ var require_dist_cjs10 = __commonJS({
     function writeKey3(obj) {
       Object.defineProperty(obj, "__proto__", { value: void 0, writable: true, enumerable: true, configurable: true });
     }
-    function parseXML3(xml) {
-      const state2 = new AwsXmlParser(xml);
+    function parseXML3(xml2) {
+      const state2 = new AwsXmlParser(xml2);
       return state2.parse();
     }
     var AwsXmlParser = class _AwsXmlParser {
@@ -24851,15 +24851,15 @@ var init_XmlShapeDeserializer = __esm({
         }
         return this.stringDeserializer.read(ns, value);
       }
-      parseXml(xml) {
-        if (xml.length) {
+      parseXml(xml2) {
+        if (xml2.length) {
           let parsedObj;
           try {
-            parsedObj = (0, import_xml_builder.parseXML)(xml);
+            parsedObj = (0, import_xml_builder.parseXML)(xml2);
           } catch (e6) {
             if (e6 && typeof e6 === "object") {
               Object.defineProperty(e6, "$responseBodyText", {
-                value: xml
+                value: xml2
               });
             }
             throw e6;
@@ -46688,7 +46688,7 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
@@ -46776,7 +46776,7 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs13.promises.lstat(filePath);
+        const stats = await fs14.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -48731,10 +48731,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile6 = fs13.readFile ? (0, util_1.promisify)(fs13.readFile) : async () => {
+    var readFile6 = fs14.readFile ? (0, util_1.promisify)(fs14.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -50411,12 +50411,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs13 = __require("fs");
-    var readFile6 = (0, util_1.promisify)(fs13.readFile ?? (() => {
+    var fs14 = __require("fs");
+    var readFile6 = (0, util_1.promisify)(fs14.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs13.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs14.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs13.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs14.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50534,7 +50534,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50628,7 +50628,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs13.promises.readFile(configPath, "utf8");
+          fileContents = await fs14.promises.readFile(configPath, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -50653,14 +50653,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key2;
         try {
-          cert = await fs13.promises.readFile(certPath);
+          cert = await fs14.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key2 = await fs13.promises.readFile(keyPath);
+          key2 = await fs14.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key2);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
@@ -50679,7 +50679,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs13.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs14.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51381,7 +51381,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51466,14 +51466,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs13.promises.realpath(this.outputFile);
+          filePath = await fs14.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs13.promises.lstat(filePath)).isFile()) {
+        if (!(await fs14.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs13.promises.readFile(filePath, {
+        const responseString = await fs14.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -51884,7 +51884,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52107,7 +52107,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs13.promises.readFile(currentPath);
+            const ca = await fs14.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52167,7 +52167,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52469,7 +52469,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs13.existsSync(location)) {
+        if (!fs14.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52486,8 +52486,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs13.realpathSync(filePath);
-          if (!fs13.lstatSync(filePath).isFile()) {
+          filePath = fs14.realpathSync(filePath);
+          if (!fs14.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52496,7 +52496,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs13.createReadStream(filePath);
+        const readStream = fs14.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52824,7 +52824,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs13.createReadStream(filePath);
+          const stream = fs14.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -60579,12 +60579,12 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list2, fs13, exportName) {
+    function addFormats(ajv, list2, fs14, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list2)
-        ajv.addFormat(f7, fs13[f7]);
+        ajv.addFormat(f7, fs14[f7]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -88874,6 +88874,17 @@ async function takeMarks(dir, marks, env3) {
 // src/history.ts
 import { promises as fs3 } from "node:fs";
 import { basename as basename3, dirname as dirname3, join as join4 } from "node:path";
+function parseReceipt(line) {
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  const r6 = value;
+  if (typeof r6 !== "object" || r6 === null || r6.t !== "receipt") return void 0;
+  return typeof r6.id === "string" && typeof r6.to === "string" && typeof r6.status === "string" && typeof r6.at === "number" ? r6 : void 0;
+}
 function parseEntry(line) {
   let value;
   try {
@@ -88898,11 +88909,18 @@ var History = class {
     this.now = now;
     this.rotateBytes = rotateBytes;
   }
-  async append(entry) {
+  append(entry) {
+    return this.appendLine(entry);
+  }
+  /** Records a receipt for message `id`, which this session sent. */
+  appendReceipt(id, r6) {
+    return this.appendLine({ t: "receipt", id, to: r6.to, status: r6.status, at: r6.at });
+  }
+  async appendLine(value) {
     await ensureDir(dirname3(this.path));
     const size = await fs3.stat(this.path).then((s3) => s3.size, () => 0);
     if (size >= this.rotateBytes) await this.rotate();
-    await fs3.appendFile(this.path, `${JSON.stringify(entry)}
+    await fs3.appendFile(this.path, `${JSON.stringify(value)}
 `, { mode: 384 });
   }
   rotated() {
@@ -88922,18 +88940,34 @@ var History = class {
   }
   /**
    * Past items, newest last: at most `limit` (default 20, at most 200), optionally only those
-   * to or from `peer`, and only those before `before` (ms).
+   * to or from `peer`, and only those before `before` (ms). With `receipts`, each sent item
+   * carries the receipts recorded for it.
    */
   async query(opts = {}) {
     const limit2 = Math.min(opts.max ?? HISTORY_MAX, Math.max(1, opts.limit ?? 20));
     const out = [];
-    await this.scan((entry) => {
-      if (opts.before !== void 0 && !(entry.at < opts.before)) return false;
-      if (opts.peer !== void 0 && !entry.peer.split(",").includes(opts.peer)) return false;
-      out.push(entry);
-      return out.length >= limit2;
-    });
+    const receipts = new Receipts();
+    await this.scan(
+      (entry) => {
+        if (opts.before !== void 0 && !(entry.at < opts.before)) return false;
+        if (opts.peer !== void 0 && !entry.peer.split(",").includes(opts.peer)) return false;
+        out.push(opts.receipts === true && entry.dir === "out" ? receipts.attach(entry) : entry);
+        return out.length >= limit2;
+      },
+      (r6) => receipts.add(r6)
+    );
     return out.reverse();
+  }
+  /** The receipts recorded for message `id`, oldest first. */
+  async receipts(id) {
+    const found = [];
+    await this.scan(
+      () => false,
+      (r6) => {
+        if (r6.id === id) found.unshift({ to: r6.to, status: r6.status, at: r6.at });
+      }
+    );
+    return found;
   }
   /** The entry with message id `id`, searching from the newest; undefined when there is none. */
   async find(id) {
@@ -88944,16 +88978,37 @@ var History = class {
     });
     return found;
   }
-  /** Visits entries newest first, damaged lines skipped, until `visit` returns true. */
-  async scan(visit2) {
+  /** Visits entries (and receipts, to `receipt`) newest first, damaged lines skipped, until `visit` returns true. */
+  async scan(visit2, receipt = () => void 0) {
     const files = [...(await this.rotated()).map((n3) => join4(dirname3(this.path), n3)), this.path];
     for (const file2 of files.reverse()) {
       const lines = (await readText(file2) ?? "").split("\n").filter((l3) => l3 !== "").reverse();
-      for (const line of lines) {
-        const entry = parseEntry(line);
-        if (entry !== void 0 && visit2(entry)) return;
-      }
+      if (visitLines(lines, visit2, receipt)) return;
     }
+  }
+};
+function visitLines(lines, visit2, receipt) {
+  for (const line of lines) {
+    const entry = parseEntry(line);
+    if (entry !== void 0 && visit2(entry)) return true;
+    const r6 = entry === void 0 ? parseReceipt(line) : void 0;
+    if (r6 !== void 0) receipt(r6);
+  }
+  return false;
+}
+var Receipts = class {
+  waiting = /* @__PURE__ */ new Map();
+  entries = /* @__PURE__ */ new Map();
+  add(r6) {
+    const one = { to: r6.to, status: r6.status, at: r6.at };
+    const entry = this.entries.get(r6.id);
+    if (entry !== void 0) entry.receipts.unshift(one);
+    else this.waiting.set(r6.id, [one, ...this.waiting.get(r6.id) ?? []]);
+  }
+  attach(entry) {
+    const withReceipts = { ...entry, receipts: this.waiting.get(entry.id) ?? [] };
+    this.entries.set(entry.id, withReceipts);
+    return withReceipts;
   }
 };
 function frameEntry(e6, trust = "inform") {
@@ -88984,13 +89039,19 @@ ${frameEntry(e6)}`;
     }
   }
   const what = e6.kind === "result" ? `result (${e6.status ?? "done"}) for ${e6.reply_to ?? "?"}` : e6.kind;
-  return `(history: you sent a ${what} to ${e6.peer} at ${new Date(e6.at).toISOString()}, id ${e6.id})
+  const receipts = e6.receipts === void 0 ? "" : `; ${receiptNote(e6.receipts)}`;
+  return `(history: you sent a ${what} to ${e6.peer} at ${new Date(e6.at).toISOString()}, id ${e6.id}${receipts})
 ${sanitizeForDisplay(e6.text)}`;
+}
+function receiptNote(receipts) {
+  if (receipts.length === 0) return "no receipt recorded";
+  return `receipts: ${receipts.map((r6) => `${sanitizeForDisplay(r6.to)} ${sanitizeForDisplay(r6.status)}`).join(", ")}`;
 }
 function renderForPerson(e6) {
   const arrow = e6.dir === "in" ? "<-" : "->";
   const extra = e6.file === void 0 ? "" : ` [file ${sanitizeForDisplay(e6.file.name)} ${e6.file.size} bytes]`;
-  return `${new Date(e6.at).toISOString()} ${arrow} ${sanitizeForDisplay(e6.peer)} ${e6.kind}${extra}: ${sanitizeForDisplay(e6.text)}`;
+  const receipts = e6.receipts === void 0 ? "" : ` [${receiptNote(e6.receipts)}]`;
+  return `${new Date(e6.at).toISOString()} ${arrow} ${sanitizeForDisplay(e6.peer)} ${e6.kind}${extra}${receipts}: ${sanitizeForDisplay(e6.text)}`;
 }
 
 // src/mesh.ts
@@ -90469,6 +90530,9 @@ function relayRefusal(what, frame) {
 function accepted(status2) {
   return status2 === "routed" || status2 === "queued";
 }
+function heldReceiptLine(to, id) {
+  return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
+}
 function unprotectedNote(unprotected, noPrekey) {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
 }
@@ -90784,6 +90848,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         list2.push({ to: f7.to, status: f7.status });
         this.receipts.set(f7.id, list2);
         this.emit("receipt", f7);
+        void this.recordReceipt(f7).catch((e6) => this.log(`wim: receipt: ${e6.message}`));
         return;
       }
       case "notice":
@@ -91122,8 +91187,21 @@ var MeshSession = class _MeshSession extends EventEmitter {
     return written;
   }
   /** A notice for the agent or the person, written to the spool like any item. */
-  async notice(from, line, held2) {
-    await this.deliver({ kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line), ...held2 === void 0 ? {} : { held: held2 } }, void 0);
+  async notice(from, line, held2, heldBy) {
+    await this.deliver(
+      { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line), ...held2 === void 0 ? {} : { held: held2 }, ...heldBy === void 0 ? {} : { heldBy } },
+      void 0
+    );
+  }
+  /**
+   * Records a receipt in history. A `held` one is also a notice, so whoever sent the message (the
+   * person through the plugin's toast, or the agent) learns that it waits for the recipient's
+   * person and is not delivered. Branches before any await (see AgentServer.answerLine).
+   */
+  recordReceipt(f7) {
+    const recorded = this.history.appendReceipt(f7.id, { to: f7.to, status: f7.status, at: this.now() });
+    if (f7.status !== "held") return recorded;
+    return recorded.then(() => this.notice(f7.to, heldReceiptLine(f7.to, f7.id), void 0, f7.to));
   }
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
@@ -93682,9 +93760,9 @@ function tLiveSpeechConfig(speechConfig) {
   }
   return speechConfig;
 }
-function tTool(tool) {
-  if (tool.functionDeclarations) {
-    for (const functionDeclaration of tool.functionDeclarations) {
+function tTool(tool2) {
+  if (tool2.functionDeclarations) {
+    for (const functionDeclaration of tool2.functionDeclarations) {
       if (functionDeclaration.parameters) {
         if (!Object.keys(functionDeclaration.parameters).includes("$schema")) {
           functionDeclaration.parameters = processJsonSchema(functionDeclaration.parameters);
@@ -93707,7 +93785,7 @@ function tTool(tool) {
       }
     }
   }
-  return tool;
+  return tool2;
 }
 function tTools(tools) {
   if (tools === void 0 || tools === null) {
@@ -93717,8 +93795,8 @@ function tTools(tools) {
     throw new Error("tools is required and must be an array of Tools");
   }
   const result = [];
-  for (const tool of tools) {
-    result.push(tool);
+  for (const tool2 of tools) {
+    result.push(tool2);
   }
   return result;
 }
@@ -100930,9 +101008,9 @@ function generateVideosParametersToMldev(apiClient, fromObject, rootObject) {
   if (fromVideo != null) {
     setValueByPath(toObject, ["instances[0]", "video"], videoToMldev(fromVideo));
   }
-  const fromSource = getValueByPath(fromObject, ["source"]);
-  if (fromSource != null) {
-    generateVideosSourceToMldev(fromSource, toObject);
+  const fromSource2 = getValueByPath(fromObject, ["source"]);
+  if (fromSource2 != null) {
+    generateVideosSourceToMldev(fromSource2, toObject);
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
   if (fromConfig != null) {
@@ -100958,9 +101036,9 @@ function generateVideosParametersToVertex(apiClient, fromObject, rootObject) {
   if (fromVideo != null) {
     setValueByPath(toObject, ["instances[0]", "video"], videoToVertex(fromVideo));
   }
-  const fromSource = getValueByPath(fromObject, ["source"]);
-  if (fromSource != null) {
-    generateVideosSourceToVertex(fromSource, toObject);
+  const fromSource2 = getValueByPath(fromObject, ["source"]);
+  if (fromSource2 != null) {
+    generateVideosSourceToVertex(fromSource2, toObject);
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
   if (fromConfig != null) {
@@ -101951,9 +102029,9 @@ function recontextImageParametersToVertex(apiClient, fromObject, rootObject) {
   if (fromModel != null) {
     setValueByPath(toObject, ["_url", "model"], tModel(apiClient, fromModel));
   }
-  const fromSource = getValueByPath(fromObject, ["source"]);
-  if (fromSource != null) {
-    recontextImageSourceToVertex(fromSource, toObject);
+  const fromSource2 = getValueByPath(fromObject, ["source"]);
+  if (fromSource2 != null) {
+    recontextImageSourceToVertex(fromSource2, toObject);
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
   if (fromConfig != null) {
@@ -102150,9 +102228,9 @@ function segmentImageParametersToVertex(apiClient, fromObject, rootObject) {
   if (fromModel != null) {
     setValueByPath(toObject, ["_url", "model"], tModel(apiClient, fromModel));
   }
-  const fromSource = getValueByPath(fromObject, ["source"]);
-  if (fromSource != null) {
-    segmentImageSourceToVertex(fromSource, toObject);
+  const fromSource2 = getValueByPath(fromObject, ["source"]);
+  if (fromSource2 != null) {
+    segmentImageSourceToVertex(fromSource2, toObject);
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
   if (fromConfig != null) {
@@ -103625,11 +103703,11 @@ function includeExtraBodyToRequestInit(requestInit, extraBody) {
 var MCP_LABEL = "mcp_used/unknown";
 var hasMcpToolUsageFromMcpToTool = false;
 function hasMcpToolUsage(tools) {
-  for (const tool of tools) {
-    if (isMcpCallableTool(tool)) {
+  for (const tool2 of tools) {
+    if (isMcpCallableTool(tool2)) {
       return true;
     }
-    if (typeof tool === "object" && "inputSchema" in tool) {
+    if (typeof tool2 === "object" && "inputSchema" in tool2) {
       return true;
     }
   }
@@ -103649,8 +103727,8 @@ function listAllTools(mcpClient_1) {
     let numTools = 0;
     while (numTools < maxTools) {
       const t2 = yield __await(mcpClient.listTools({ cursor: cursor2 }));
-      for (const tool of t2.tools) {
-        yield yield __await(tool);
+      for (const tool2 of t2.tools) {
+        yield yield __await(tool2);
         numTools++;
       }
       if (!t2.nextCursor) {
@@ -104112,12 +104190,12 @@ var Live = class {
     }
     const inputTools = (_f = (_e5 = params.config) === null || _e5 === void 0 ? void 0 : _e5.tools) !== null && _f !== void 0 ? _f : [];
     const convertedTools = [];
-    for (const tool of inputTools) {
-      if (this.isCallableTool(tool)) {
-        const callableTool = tool;
+    for (const tool2 of inputTools) {
+      if (this.isCallableTool(tool2)) {
+        const callableTool = tool2;
         convertedTools.push(await callableTool.tool());
       } else {
-        convertedTools.push(tool);
+        convertedTools.push(tool2);
       }
     }
     if (convertedTools.length > 0) {
@@ -104144,8 +104222,8 @@ var Live = class {
     return session;
   }
   // TODO: b/416041229 - Abstract this method to a common place.
-  isCallableTool(tool) {
-    return "callTool" in tool && typeof tool.callTool === "function";
+  isCallableTool(tool2) {
+    return "callTool" in tool2 && typeof tool2.callTool === "function";
   }
 };
 var defaultLiveSendClientContentParamerters = {
@@ -104359,8 +104437,8 @@ function shouldDisableAfc(config2) {
     return true;
   }
   let callableToolsPresent = false;
-  for (const tool of (_b = config2 === null || config2 === void 0 ? void 0 : config2.tools) !== null && _b !== void 0 ? _b : []) {
-    if (isCallableTool(tool)) {
+  for (const tool2 of (_b = config2 === null || config2 === void 0 ? void 0 : config2.tools) !== null && _b !== void 0 ? _b : []) {
+    if (isCallableTool(tool2)) {
       callableToolsPresent = true;
       break;
     }
@@ -104375,12 +104453,12 @@ function shouldDisableAfc(config2) {
   }
   return false;
 }
-function isCallableTool(tool) {
-  return "callTool" in tool && typeof tool.callTool === "function";
+function isCallableTool(tool2) {
+  return "callTool" in tool2 && typeof tool2.callTool === "function";
 }
 function hasCallableTools(params) {
   var _a5, _b, _c5;
-  return (_c5 = (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) === null || _b === void 0 ? void 0 : _b.some((tool) => isCallableTool(tool))) !== null && _c5 !== void 0 ? _c5 : false;
+  return (_c5 = (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) === null || _b === void 0 ? void 0 : _b.some((tool2) => isCallableTool(tool2))) !== null && _c5 !== void 0 ? _c5 : false;
 }
 function findAfcIncompatibleToolIndexes(params) {
   var _a5;
@@ -104388,11 +104466,11 @@ function findAfcIncompatibleToolIndexes(params) {
   if (!((_a5 = params === null || params === void 0 ? void 0 : params.config) === null || _a5 === void 0 ? void 0 : _a5.tools)) {
     return afcIncompatibleToolIndexes;
   }
-  params.config.tools.forEach((tool, index) => {
-    if (isCallableTool(tool)) {
+  params.config.tools.forEach((tool2, index) => {
+    if (isCallableTool(tool2)) {
       return;
     }
-    const geminiTool = tool;
+    const geminiTool = tool2;
     if (geminiTool.functionDeclarations && geminiTool.functionDeclarations.length > 0) {
       afcIncompatibleToolIndexes.push(index);
     }
@@ -104859,9 +104937,9 @@ var Models = class _Models extends BaseModule {
         }
         const responseContent = response.candidates[0].content;
         const functionResponseParts = [];
-        for (const tool of (_e5 = (_d = params.config) === null || _d === void 0 ? void 0 : _d.tools) !== null && _e5 !== void 0 ? _e5 : []) {
-          if (isCallableTool(tool)) {
-            const callableTool = tool;
+        for (const tool2 of (_e5 = (_d = params.config) === null || _d === void 0 ? void 0 : _d.tools) !== null && _e5 !== void 0 ? _e5 : []) {
+          if (isCallableTool(tool2)) {
+            const callableTool = tool2;
             const parts = await callableTool.callTool(response.functionCalls);
             functionResponseParts.push(...parts);
           }
@@ -105104,12 +105182,12 @@ var Models = class _Models extends BaseModule {
     if (!tools) {
       return params;
     }
-    const transformedTools = await Promise.all(tools.map(async (tool) => {
-      if (isCallableTool(tool)) {
-        const callableTool = tool;
+    const transformedTools = await Promise.all(tools.map(async (tool2) => {
+      if (isCallableTool(tool2)) {
+        const callableTool = tool2;
         return await callableTool.tool();
       }
-      return tool;
+      return tool2;
     }));
     const newParams = {
       model: params.model,
@@ -105131,9 +105209,9 @@ var Models = class _Models extends BaseModule {
   async initAfcToolsMap(params) {
     var _a5, _b, _c5;
     const afcTools = /* @__PURE__ */ new Map();
-    for (const tool of (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) !== null && _b !== void 0 ? _b : []) {
-      if (isCallableTool(tool)) {
-        const callableTool = tool;
+    for (const tool2 of (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) !== null && _b !== void 0 ? _b : []) {
+      if (isCallableTool(tool2)) {
+        const callableTool = tool2;
         const toolDeclaration = await callableTool.tool();
         for (const declaration of (_c5 = toolDeclaration.functionDeclarations) !== null && _c5 !== void 0 ? _c5 : []) {
           if (!declaration.name) {
@@ -113086,8 +113164,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs13 = req("fs");
-          buffer = fs13.readFileSync(params.file);
+          const fs14 = req("fs");
+          buffer = fs14.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -113095,8 +113173,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs13 = mod2("fs");
-            buffer = fs13.readFileSync(params.file);
+            const fs14 = mod2("fs");
+            buffer = fs14.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -117278,7 +117356,7 @@ async function runCi(config2, io, deps = {}) {
 }
 
 // src/cli.ts
-import { promises as fs12 } from "node:fs";
+import { promises as fs13 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
 // src/admin.ts
@@ -118200,6 +118278,8 @@ async function runEvents(d5) {
   emit("hello", {
     version: d5.version,
     device: { name: d5.device.name, id: d5.device.id },
+    // Where the device keys are: in this process (`local`), or in the signer (`signer`).
+    keys: d5.device.keyring.kind,
     session: s3.address,
     relay: relayHost(s3.config.relay),
     mesh: `${s3.config.mesh.slice(0, 4)}\u2026`
@@ -120017,7 +120097,7 @@ var Status2 = external_exports.enum(RESULT_STATUSES);
 var PUBLIC = {
   peers: { description: "List mesh sessions: address, kind, status, rooms, one per line. all: include long-offline ones.", input: external_exports.object({ all: external_exports.boolean().optional() }) },
   send: {
-    description: "Send a message to name@device, #room, * or a list. Returns each recipient's status.",
+    description: "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session) or queued (that session is offline; the relay keeps it 24 h). Neither means delivered or read; history shows receipts that come back (delivered, held for its person's approval).",
     input: external_exports.object({ to: To2, text: external_exports.string(), reply_to: external_exports.string().optional(), notify_when_idle: external_exports.boolean().optional() })
   },
   ask: {
@@ -120238,7 +120318,7 @@ var WimMcp = class {
       }
       case "history": {
         const i6 = a5;
-        const entries = await s3.history.query({ ...i6.peer === void 0 ? {} : { peer: i6.peer }, ...i6.limit === void 0 ? {} : { limit: i6.limit }, ...i6.before === void 0 ? {} : { before: i6.before } });
+        const entries = await s3.history.query({ receipts: true, ...i6.peer === void 0 ? {} : { peer: i6.peer }, ...i6.limit === void 0 ? {} : { limit: i6.limit }, ...i6.before === void 0 ? {} : { before: i6.before } });
         if (entries.some((e6) => e6.dir === "in")) s3.informed();
         return text(entries.length === 0 ? "No history." : entries.map(renderForAgent).join("\n\n"));
       }
@@ -120453,7 +120533,7 @@ function describeInfo(info) {
 }
 
 // src/agentcli.ts
-import { spawn as nodeSpawn } from "node:child_process";
+import { spawn as nodeSpawn2 } from "node:child_process";
 import { join as join19 } from "node:path";
 
 // src/agent.ts
@@ -120919,16 +120999,253 @@ var AgentServer = class {
   }
 };
 
+// src/autostart.ts
+import { spawn as nodeSpawn } from "node:child_process";
+import { promises as fs12 } from "node:fs";
+function runProgram(cmd, args, input2 = "", spawn = nodeSpawn) {
+  return new Promise((resolve3, reject) => {
+    const child = spawn(cmd, [...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    child.once("error", reject);
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (d5) => stdout += d5);
+    child.stderr.on("data", (d5) => stderr += d5);
+    child.once("close", (code2) => resolve3({ code: code2, stdout, stderr }));
+    child.stdin.on("error", () => void 0);
+    child.stdin.end(input2);
+  });
+}
+function unlessMissing(error63) {
+  if (error63.code === "ENOENT") return void 0;
+  throw error63;
+}
+var GUI_TITLE = "worldinmotion";
+var GUI_ASK = "Passphrase for this device's worldinmotion keys (it starts the signer):";
+var GUI_AGAIN = "That passphrase did not open the keys. Passphrase for this device's worldinmotion keys:";
+function psQuote(s3) {
+  return `'${s3.replace(/'/g, "''")}'`;
+}
+function psEncoded(script) {
+  return Buffer.from(script, "utf16le").toString("base64");
+}
+function guiPrompts(platform2, text2) {
+  if (platform2 === "darwin") {
+    const dialog = `display dialog "${text2}" default answer "" with hidden answer with title "${GUI_TITLE}" buttons {"Cancel", "OK"} default button "OK"`;
+    return [{ cmd: "osascript", args: ["-e", dialog, "-e", "text returned of result"] }];
+  }
+  if (platform2 === "win32") {
+    const script = [
+      "[Console]::OutputEncoding = [Text.Encoding]::UTF8",
+      `$c = Get-Credential -UserName ${psQuote(GUI_TITLE)} -Message ${psQuote(text2)}`,
+      "if ($null -eq $c) { exit 1 }",
+      "[Console]::Out.Write($c.GetNetworkCredential().Password)"
+    ].join("; ");
+    return [{ cmd: "powershell.exe", args: ["-NoProfile", "-EncodedCommand", psEncoded(script)] }];
+  }
+  return [
+    { cmd: "zenity", args: ["--entry", "--hide-text", `--title=${GUI_TITLE}`, `--text=${text2}`] },
+    { cmd: "kdialog", args: ["--title", GUI_TITLE, "--password", text2] }
+  ];
+}
+async function askGui(platform2, run, text2) {
+  for (const p3 of guiPrompts(platform2, text2)) {
+    const r6 = await run(p3.cmd, p3.args).catch(unlessMissing);
+    if (r6 !== void 0) return answered(r6);
+  }
+  throw new SetupError("no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal");
+}
+function answered(r6) {
+  if (r6.code !== 0) throw new SetupError("the passphrase prompt was cancelled");
+  return r6.stdout.replace(/\r?\n$/, "");
+}
+function keyringKind(platform2) {
+  if (platform2 === "darwin") return "keychain";
+  return platform2 === "win32" ? void 0 : "libsecret";
+}
+var NO_KEYRING = "--keyring is not offered on Windows: Credential Manager gives a stored passphrase to any program you run, agents included, without asking. Use the passphrase dialog instead (`wim agent autostart enable`)";
+var KEYRING_WARNING = {
+  keychain: [
+    "The passphrase goes into your login keychain in an item that trusts no program, so macOS asks you each time something reads it, the signer included.",
+    "Choose Allow when the signer starts at log in. Never choose Always Allow: that lets any program read it silently from then on, agents included. A prompt you did not expect means something else asked: choose Deny."
+  ],
+  libsecret: [
+    "WARNING: your keyring (libsecret) gives this passphrase to any program you run while the keyring is unlocked, which is all the time you are logged in. That includes agents and the tools they run.",
+    "An agent that reads it can decrypt device.json offline and act as this device: this undoes the protection the signer gives against agents. The passphrase dialog (`wim agent autostart enable` without --keyring) does not."
+  ]
+};
+var SERVICE = "worldinmotion-signer";
+function keyringAccount(root5) {
+  return Buffer.from(sha2562(utf8(root5))).toString("hex").slice(0, 16);
+}
+function keyringOf(platform2) {
+  const kind = keyringKind(platform2);
+  if (kind === void 0) throw new SetupError(NO_KEYRING);
+  return kind;
+}
+function tool(cmd) {
+  return (error63) => {
+    unlessMissing(error63);
+    throw new SetupError(`${cmd} is not installed${cmd === "secret-tool" ? " (the libsecret-tools package)" : ""}`);
+  };
+}
+async function keyringStore(platform2, run, account, passphrase) {
+  const kind = keyringOf(platform2);
+  const hex3 = Buffer.from(passphrase, "utf8").toString("hex");
+  if (kind === "keychain") {
+    await run("security", ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security"));
+    await run("security", ["-i"], `add-generic-password -a ${account} -s ${SERVICE} -l ${SERVICE} -T "" -w ${hex3}
+`).catch(tool("security"));
+    stored(await run("security", ["find-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security")));
+    return;
+  }
+  stored(await run("secret-tool", ["store", `--label=${SERVICE}`, "service", SERVICE, "account", account], hex3).catch(tool("secret-tool")));
+}
+function stored(r6) {
+  if (r6.code !== 0) throw new SetupError(`the keyring did not store the passphrase: ${(r6.stderr.trim() || `exit code ${r6.code}`).slice(0, 300)}`);
+}
+async function keyringRead(platform2, run, account) {
+  const r6 = keyringOf(platform2) === "keychain" ? await run("security", ["find-generic-password", "-a", account, "-s", SERVICE, "-w"]).catch(tool("security")) : await run("secret-tool", ["lookup", "service", SERVICE, "account", account]).catch(tool("secret-tool"));
+  return decodeStored(r6);
+}
+function decodeStored(r6) {
+  const hex3 = r6.stdout.trim();
+  if (r6.code !== 0 || !/^(?:[0-9a-f]{2})+$/.test(hex3)) {
+    throw new SetupError("no passphrase could be read from the keyring (not stored, or the read was denied): `wim agent autostart enable --keyring` stores it");
+  }
+  return Buffer.from(hex3, "hex").toString("utf8");
+}
+async function keyringClear(platform2, run, account) {
+  const kind = keyringKind(platform2);
+  if (kind === "keychain") await run("security", ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(unlessMissing);
+  else if (kind === "libsecret") await run("secret-tool", ["clear", "service", SERVICE, "account", account]).catch(unlessMissing);
+}
+function xml(s3) {
+  return s3.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function execArg(a5) {
+  if (/[\n\r]/.test(a5)) throw new SetupError(`a login item cannot run a path with a line break in it: ${JSON.stringify(a5)}`);
+  const quoted = /^[A-Za-z0-9_\-./=:@+,]+$/.test(a5) ? a5 : `"${a5.replace(/["`$\\]/g, "\\$&")}"`;
+  return quoted.replace(/\\/g, "\\\\").replace(/%/g, "%%");
+}
+function windowsUser(env3) {
+  const user = env3["USERNAME"];
+  if (user === void 0 || user === "") throw new SetupError("USERNAME is not set, so the logon task cannot name its user");
+  const domain2 = env3["USERDOMAIN"];
+  return domain2 === void 0 || domain2 === "" ? user : `${domain2}\\${user}`;
+}
+function loginItem(o3, source2) {
+  const path2 = pathFor(o3.platform);
+  const id = keyringAccount(o3.root);
+  const command5 = [...o3.programs.wim, "agent", "start", "--foreground", `--${source2}`];
+  if (o3.platform === "darwin") {
+    const label = `worldinmotion.signer.${id}`;
+    const strings = (items) => items.map((s3) => `    <string>${xml(s3)}</string>`).join("\n");
+    const text3 = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+      '<plist version="1.0">',
+      "<dict>",
+      `  <key>Label</key><string>${label}</string>`,
+      "  <key>ProgramArguments</key>",
+      "  <array>",
+      strings(command5),
+      "  </array>",
+      `  <key>EnvironmentVariables</key><dict><key>WIM_HOME</key><string>${xml(o3.root)}</string></dict>`,
+      "  <key>RunAtLoad</key><true/>",
+      "  <key>ProcessType</key><string>Interactive</string>",
+      "</dict>",
+      "</plist>",
+      ""
+    ].join("\n");
+    return { kind: "launchd", where: path2.join(o3.homedir, "Library", "LaunchAgents", `${label}.plist`), text: text3 };
+  }
+  if (o3.platform === "win32") {
+    const user = xml(windowsUser(o3.env));
+    const script = `$env:WIM_HOME = ${psQuote(o3.root)}; & ${command5.map(psQuote).join(" ")}; exit $LASTEXITCODE`;
+    const text3 = [
+      '<?xml version="1.0" encoding="UTF-16"?>',
+      '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
+      `  <RegistrationInfo><Description>Starts the worldinmotion signer at log on: wim agent start --foreground --${source2}</Description></RegistrationInfo>`,
+      `  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>${user}</UserId></LogonTrigger></Triggers>`,
+      `  <Principals><Principal id="Author"><UserId>${user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>`,
+      "  <Settings>",
+      "    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>",
+      "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>",
+      "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>",
+      // The signer runs for the whole session: no time limit, which would otherwise end it after 72 hours.
+      "    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>",
+      "    <Enabled>true</Enabled>",
+      "  </Settings>",
+      `  <Actions Context="Author"><Exec><Command>powershell.exe</Command><Arguments>-NoProfile -WindowStyle Hidden -EncodedCommand ${psEncoded(script)}</Arguments></Exec></Actions>`,
+      "</Task>",
+      ""
+    ].join("\r\n");
+    return { kind: "task", where: `worldinmotion signer ${id}`, text: text3 };
+  }
+  const config2 = o3.env["XDG_CONFIG_HOME"] || path2.join(o3.homedir, ".config");
+  const text2 = [
+    "[Desktop Entry]",
+    "Type=Application",
+    "Name=worldinmotion signer",
+    "Comment=Starts the worldinmotion signer, which asks for the passphrase of this device's keys",
+    `Exec=${["env", `WIM_HOME=${o3.root}`, ...command5].map(execArg).join(" ")}`,
+    "Terminal=false",
+    "NoDisplay=true",
+    "X-GNOME-Autostart-enabled=true",
+    ""
+  ].join("\n");
+  return { kind: "xdg", where: path2.join(config2, "autostart", `worldinmotion-signer-${id}.desktop`), text: text2 };
+}
+async function enableAutostart(o3, source2) {
+  const item = loginItem(o3, source2);
+  const here = pathFor(o3.fsEnv.platform);
+  if (item.kind !== "task") {
+    await ensureDir(here.dirname(item.where));
+    await writeAtomic(item.where, item.text, o3.fsEnv);
+    return item;
+  }
+  const file2 = here.join(o3.root, "agent", "autostart-task.xml");
+  await ensureDir(here.dirname(file2));
+  await fs12.writeFile(file2, Buffer.concat([Buffer.from([255, 254]), Buffer.from(item.text, "utf16le")]), { mode: 384 });
+  try {
+    created(await o3.programs.run("schtasks", ["/Create", "/TN", item.where, "/XML", file2, "/F"]));
+  } finally {
+    await removeFile(file2);
+  }
+  return item;
+}
+function created(r6) {
+  if (r6.code !== 0) throw new SetupError(`schtasks could not create the logon task: ${(r6.stderr.trim() || r6.stdout.trim()).slice(0, 300)}`);
+}
+async function disableAutostart(o3) {
+  const item = loginItem(o3, "ask-gui");
+  if (item.kind === "task") return (await o3.programs.run("schtasks", ["/Delete", "/TN", item.where, "/F"])).code === 0;
+  const existed = await readText(item.where) !== void 0;
+  await removeFile(item.where);
+  return existed;
+}
+async function autostartStatus(o3) {
+  const item = loginItem(o3, "ask-gui");
+  const text2 = item.kind === "task" ? taskText(await o3.programs.run("schtasks", ["/Query", "/TN", item.where, "/XML"])) : await readText(item.where);
+  return text2 === void 0 ? void 0 : { where: item.where, source: text2.includes("--keyring") ? "keyring" : "ask-gui" };
+}
+function taskText(r6) {
+  return r6.code === 0 ? r6.stdout : void 0;
+}
+
 // src/agentcli.ts
-var AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin]
-  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin] | wim agent stop
-  wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]`;
+var AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin | --ask-gui | --keyring] [--allow-agent-passphrase]
+  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin | --ask-gui | --keyring] | wim agent stop
+  wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]
+  wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status`;
 var MIN_PASSPHRASE = 8;
 var PROMPT = "Passphrase for this device's keys: ";
 function wimCommand() {
   return [process.execPath, ...process.execArgv, process.argv[1]];
 }
-function spawnDetached(command5, input2, spawn = nodeSpawn) {
+function spawnDetached(command5, input2, spawn = nodeSpawn2) {
   return new Promise((resolve3, reject) => {
     const child = spawn(command5[0], command5.slice(1), { detached: true, stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
     let out = "";
@@ -120949,9 +121266,53 @@ function spawnDetached(command5, input2, spawn = nodeSpawn) {
 `);
   });
 }
-async function readPassphrase(ctx, question) {
+var SOURCES = { "passphrase-stdin": ["start", "unlock", "encrypt", "decrypt"], "ask-gui": ["start", "unlock"], keyring: ["start", "unlock", "autostart"] };
+var GUI_TRIES = 3;
+function otherSource(ctx) {
+  const given = Object.keys(SOURCES).filter((s3) => ctx.flags.get(s3) === true);
+  if (given.length > 1) throw new SetupError(`use one of --${given.join(", --")}, not several`);
+  const from = given[0];
+  const agent = agentEnv(ctx.env);
+  if (from === void 0 || agent === void 0) return from;
+  if (ctx.flags.get("allow-agent-passphrase") !== true) {
+    throw new SetupError(
+      `${agent} is set, so an agent is running this command, and --${from} is refused there: an agent that can reach the passphrase's source can read it and decrypt the keys, which defeats the signer. Start the signer in your own terminal, or, if you mean the agent to, add --allow-agent-passphrase (SECURITY-MODEL 5.8)`
+    );
+  }
+  ctx.io.err(`wim: warning: --allow-agent-passphrase: ${agent} is set, so an agent runs this command; whatever can read the passphrase's source can decrypt this device's keys, which defeats the signer's protection against agents (SECURITY-MODEL 5.8)`);
+  return from;
+}
+function programs(ctx) {
+  if (ctx.io.programs === void 0) throw new SetupError("this program cannot run a passphrase dialog, a keyring or a login item");
+  return ctx.io.programs;
+}
+async function askUntilOpens(ctx, opens) {
+  const { platform: platform2, run } = programs(ctx);
+  for (let i6 = 0; i6 < GUI_TRIES; i6++) {
+    const passphrase = await askGui(platform2, run, i6 === 0 ? GUI_ASK : GUI_AGAIN);
+    if (opens === void 0 || await opens(passphrase)) return passphrase;
+  }
+  throw new SetupError(`the passphrase did not open this device's keys in ${GUI_TRIES} tries`);
+}
+function fromSource(ctx, from, opens) {
+  if (from === "passphrase-stdin") return ctx.io.prompt("");
+  if (from === "ask-gui") return askUntilOpens(ctx, opens);
+  const p3 = programs(ctx);
+  return keyringRead(p3.platform, p3.run, keyringAccount(ctx.home.root));
+}
+function opensFile(file2) {
+  return (passphrase) => openKeyFile(file2, passphrase).then(
+    (u) => {
+      for (const b5 of [u.keys.signSec, u.keys.boxSec, u.data]) b5.fill(0);
+      return true;
+    },
+    () => false
+  );
+}
+async function readPassphrase(ctx, question, opens) {
   let passphrase;
-  if (ctx.flags.get("passphrase-stdin") === true) passphrase = await ctx.io.prompt("");
+  const from = otherSource(ctx);
+  if (from !== void 0) passphrase = await fromSource(ctx, from, opens);
   else {
     if (!canShowSecret(ctx.env, ctx.io.isTTY) || ctx.io.promptSecret === void 0) {
       throw new SetupError("the passphrase is asked for only in your own interactive terminal, not through an agent or a pipe (a service manager can pass --passphrase-stdin)");
@@ -120979,6 +121340,9 @@ async function running(ctx) {
 }
 async function agentCommand(ctx) {
   const [action] = ctx.args;
+  for (const s3 of Object.keys(SOURCES)) {
+    if (ctx.flags.get(s3) === true && !SOURCES[s3].includes(action ?? "")) throw new SetupError(`--${s3} is for wim agent ${SOURCES[s3].join(", ")}`);
+  }
   switch (action) {
     case "start":
       return start(ctx);
@@ -120995,6 +121359,8 @@ async function agentCommand(ctx) {
       return encrypt(ctx);
     case "decrypt":
       return decrypt(ctx);
+    case "autostart":
+      return autostart(ctx);
     default:
       throw new SetupError(`usage: ${AGENT_USAGE}`);
   }
@@ -121067,7 +121433,7 @@ async function start(ctx) {
     }
     ctx.io.err(`wim: something answers at ${at} but cannot prove it is this device's signer; starting a signer in its place`);
   }
-  return launch(ctx, await readPassphrase(ctx, PROMPT));
+  return launch(ctx, await readPassphrase(ctx, PROMPT, opensFile(file2)));
 }
 async function launch(ctx, passphrase) {
   if (ctx.flags.get("foreground") === true) {
@@ -121085,7 +121451,8 @@ async function launch(ctx, passphrase) {
   if (!line.startsWith("ready ")) throw new SetupError(line.replace(/^error /, ""));
   const [, pid, ...at] = line.split(" ");
   ctx.io.out(`Signer started (pid ${pid}) at ${at.join(" ")}. Sessions now sign and open through it.`);
-  ctx.io.out("`wim agent lock` wipes the keys from its memory; `wim agent stop` ends it.");
+  ctx.io.out("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim agent stop`.");
+  ctx.io.out("`wim agent lock` wipes the keys from its memory. `wim agent autostart enable` starts it at each log in.");
   return 0;
 }
 async function serve(ctx) {
@@ -121099,7 +121466,7 @@ async function status(ctx) {
   ctx.io.out(`key file: ${ctx.home.devicePath} (${kind})${settings.require_signer === true ? "; the signer is required" : ""}`);
   const client = await running(ctx);
   if (client === void 0) {
-    ctx.io.out("signer: not running");
+    ctx.io.out(`signer: not running. Start it with \`wim agent start\` in a terminal you opened yourself (not one an agent runs), or have it start at each log in: \`wim agent autostart enable\`.`);
     return 3;
   }
   try {
@@ -121238,11 +121605,56 @@ async function decrypt(ctx) {
   ctx.io.out(`Decrypted ${ctx.home.devicePath}: the keys are in the clear again, and sessions read them without a signer.`);
   return 0;
 }
+async function autostart(ctx) {
+  const what = ctx.args[1];
+  const p3 = programs(ctx);
+  const o3 = { platform: p3.platform, homedir: ctx.io.homedir, env: ctx.env, root: ctx.home.root, programs: p3, fsEnv: { platform: ctx.io.platform, pid: ctx.io.pid } };
+  if (what === "enable") return autostartEnable(ctx, o3);
+  if (what === "disable") {
+    const removed = await disableAutostart(o3);
+    await keyringClear(o3.platform, o3.programs.run, keyringAccount(o3.root));
+    ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim agent stop`." : "No login item starts the signer here.");
+    return 0;
+  }
+  if (what !== "status") throw new SetupError("usage: wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status");
+  const found = await autostartStatus(o3);
+  if (found === void 0) {
+    ctx.io.out("autostart: off. `wim agent autostart enable` starts the signer at each log in.");
+    return 3;
+  }
+  ctx.io.out(`autostart: on (${found.source === "keyring" ? "the passphrase comes from the keyring" : "it asks for the passphrase in a dialog"}): ${found.where}`);
+  return 0;
+}
+async function autostartEnable(ctx, o3) {
+  const file2 = await sealedFile(ctx);
+  const keyring = ctx.flags.get("keyring") === true;
+  if (keyring) await storeInKeyring(ctx, o3, file2);
+  const item = await enableAutostart(o3, keyring ? "keyring" : "ask-gui");
+  ctx.io.out(`Installed a login item: ${item.where}`);
+  ctx.io.out(
+    keyring ? "At each log in it starts the signer with the passphrase from the keyring." : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent."
+  );
+  ctx.io.out("It does not start a signer now (`wim agent start` does). `wim agent autostart disable` removes it.");
+  return 0;
+}
+async function storeInKeyring(ctx, o3, file2) {
+  const kind = keyringKind(o3.platform);
+  if (kind === void 0) throw new SetupError(NO_KEYRING);
+  if (!canShowSecret(ctx.env, ctx.io.isTTY) || ctx.io.promptSecret === void 0) {
+    throw new SetupError("the passphrase goes into the keyring only from your own interactive terminal, not through an agent or a pipe");
+  }
+  for (const line of KEYRING_WARNING[kind]) ctx.io.out(line);
+  if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
+  const passphrase = await ctx.io.promptSecret(PROMPT);
+  if (!await opensFile(file2)(passphrase)) throw new SetupError("that passphrase does not open this device's keys; nothing was stored or installed");
+  await keyringStore(o3.platform, o3.programs.run, keyringAccount(o3.root), passphrase);
+  ctx.io.out("Stored the passphrase in the keyring.");
+}
 
 // src/cli.ts
 var VERSION = "0.1.4";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls", "wait"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
@@ -121251,7 +121663,7 @@ var COMMAND_FLAGS = {
   join: ["name"],
   devices: ["relayed"],
   peers: ["all", "as"],
-  send: ["allow-secret", "as"],
+  send: ["allow-secret", "as", "wait"],
   watch: ["as"],
   inbox: ["as"],
   events: ["json", "as"],
@@ -121260,7 +121672,7 @@ var COMMAND_FLAGS = {
   ci: ["as"],
   a2a: ["as"],
   recover: ["relay", "tls", "revoke", "name"],
-  agent: ["foreground", "passphrase-stdin"]
+  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]
 };
 function parseArgs(argv) {
   const positional = [];
@@ -121319,7 +121731,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim join <code> [--name <device>]
   wim devices [list | trust <name> [--relayed] | untrust <name> | revoke <name> | promote <name>]
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name>]
+  wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
   wim watch [--as <name>]
   wim inbox [--as <name>]
   wim events --json [--as <name>]
@@ -121796,41 +122208,100 @@ async function peers(ctx) {
     await ctx.finish(s3);
   }
 }
+var SENT_MEANING = {
+  routed: "handed to a live session; not yet taken or read",
+  queued: "that session is offline; the relay keeps it 24 h"
+};
+var WAIT_MAX_MS = 36e5;
+function receiptLine(to, status2, id) {
+  switch (status2) {
+    case "delivered":
+      return `${to}: delivered (the session took it; that does not mean anyone read it)`;
+    case "held":
+      return `${to}: held for the approval of that device's person. It is not delivered until they approve it there: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\``;
+    case "refused":
+      return `${to}: refused by that device's inbound policy`;
+    case "expired":
+      return `${to}: expired (no session took it within 24 hours)`;
+    default:
+      return `${to}: ${sanitizeForDisplay(status2)}`;
+  }
+}
+function lastReceipts(receipts) {
+  return new Map(receipts.map((r6) => [r6.to, r6.status]));
+}
+async function waitForReceipts(ctx, read, wanted, ms) {
+  const until = Date.now() + ms;
+  for (; ; ) {
+    const got = lastReceipts(await read());
+    if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
+    await new Promise((r6) => setTimeout(r6, 25));
+  }
+}
+function waitedEnough(got, wanted, until, signal) {
+  return wanted.every((to) => got.has(to)) || Date.now() > until || signal.aborted;
+}
 async function send(ctx) {
   const [to, ...words] = ctx.args.positional;
   if (to === void 0 || words.length === 0) throw new SetupError("usage: wim send <to> <text...>");
   const name = nameFor(ctx, "cli");
   const text2 = words.join(" ");
+  const waitText = flag(ctx.args, "wait");
+  const waitMs = waitText === void 0 ? void 0 : parseDuration(waitText);
+  if (waitMs !== void 0 && (waitMs === 0 || waitMs > WAIT_MAX_MS)) throw new SetupError("--wait takes a duration from 1ms to 1h, such as 30s");
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
   if (allowSecrets && !canShowSecret(ctx.env, ctx.io.isTTY)) {
     throw new SetupError("--allow-secret is only for a person at an interactive terminal, not for an agent or a pipe");
   }
   const { files } = await ctx.mesh();
   const watcher = allowSecrets ? void 0 : await liveWatcher(files, name, ctx.fsEnv);
-  let out;
-  if (watcher !== void 0) {
-    const answered = await handOver(ctx, watcher, { to, text: text2 });
-    if (answered === void 0) {
-      ctx.io.out(`The running \`wim watch\` took the send but did not report back in time, so whether it went out is unknown. Check \`wim history --session ${name}\` before sending it again.`);
-      return 3;
-    }
-    out = answered;
-  } else {
-    const s3 = await ctx.session(name);
-    try {
+  const s3 = watcher === void 0 ? await ctx.session(name) : void 0;
+  try {
+    let out;
+    let receipts;
+    if (watcher !== void 0) {
+      const answered2 = await handOver(ctx, watcher, { to, text: text2 });
+      if (answered2 === void 0) {
+        ctx.io.out(`The running \`wim watch\` took the send but did not report back in time, so whether it went out is unknown. Check \`wim history --session ${name}\` before sending it again.`);
+        return 3;
+      }
+      out = answered2;
+      const h6 = new History(watcher.historyPath, ctx.io.now);
+      receipts = () => h6.receipts(answered2.id);
+    } else {
       const sent2 = await s3.send(to, text2, allowSecrets ? { allowSecrets: true } : {});
       out = { ...sent2, live: [...s3.peers.values()].filter((p3) => p3.status !== "offline").map((p3) => p3.address) };
-    } finally {
-      await ctx.finish(s3);
+      receipts = async () => s3.receipts.get(sent2.id) ?? [];
     }
+    for (const r6 of out.results) {
+      const hint = r6.status === "unknown" ? closestAddress(r6.to, out.live) : void 0;
+      const meaning = SENT_MEANING[r6.status];
+      ctx.io.out(`${r6.to}: ${r6.status}${meaning === void 0 ? "" : ` (${meaning})`}${hint === void 0 ? "" : ` (did you mean ${hint}?)`}`);
+    }
+    if (out.unprotected !== void 0) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
+    ctx.io.out(`id ${out.id}`);
+    const took = out.results.filter((r6) => accepted(r6.status)).map((r6) => r6.to);
+    const code2 = took.length === out.results.length ? 0 : 1;
+    if (took.length === 0) return code2;
+    if (waitMs === void 0) {
+      ctx.io.out("Neither routed nor queued means it was read. `wim send --wait 30s` waits for each recipient's receipt.");
+      return code2;
+    }
+    ctx.io.out(`Waiting up to ${waitText} for receipts (Ctrl-C stops waiting; the message stays sent)...`);
+    const got = await waitForReceipts(ctx, receipts, took, waitMs);
+    return reportReceipts(ctx, out, took, got, code2);
+  } finally {
+    if (s3 !== void 0) await ctx.finish(s3);
   }
-  for (const r6 of out.results) {
-    const hint = r6.status === "unknown" ? closestAddress(r6.to, out.live) : void 0;
-    ctx.io.out(`${r6.to}: ${r6.status}${hint === void 0 ? "" : ` (did you mean ${hint}?)`}`);
+}
+function reportReceipts(ctx, out, took, got, code2) {
+  const statusOf = new Map(out.results.map((r6) => [r6.to, r6.status]));
+  for (const to of took) {
+    const status2 = got.get(to);
+    if (status2 !== void 0) ctx.io.out(receiptLine(to, status2, out.id));
+    else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)]})`);
   }
-  if (out.unprotected !== void 0) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
-  ctx.io.out(`id ${out.id}`);
-  return out.results.every((r6) => accepted(r6.status)) ? 0 : 1;
+  return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code2;
 }
 async function handOver(ctx, watcher, request2) {
   const id = ulid3(ctx.io.now());
@@ -121952,7 +122423,7 @@ async function history(ctx) {
     const sf = new SessionFiles(files, sid, ctx.fsEnv);
     const state2 = await sf.load();
     if (state2 === void 0 || wanted !== void 0 && state2.name !== wanted) continue;
-    const entries = await new History(sf.historyPath, ctx.io.now).query({ limit: limit2, ...peer === void 0 ? {} : { peer } });
+    const entries = await new History(sf.historyPath, ctx.io.now).query({ limit: limit2, receipts: true, ...peer === void 0 ? {} : { peer } });
     if (entries.length === 0) continue;
     ctx.io.out(`== ${state2.address ?? state2.name} (${sid})`);
     for (const e6 of entries) ctx.io.out(renderForPerson(e6));
@@ -121999,7 +122470,7 @@ async function mcp(ctx) {
 }
 async function readConfig(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs12.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs13.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
@@ -122155,6 +122626,7 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
       return answer;
     },
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
+    programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
     signal: stop.signal,
     cwd: proc.cwd(),
     homedir: machine.homedir(),

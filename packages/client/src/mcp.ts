@@ -44,7 +44,8 @@ const Status = z.enum(RESULT_STATUSES);
 const PUBLIC = {
   peers: { description: "List mesh sessions: address, kind, status, rooms, one per line. all: include long-offline ones.", input: z.object({ all: z.boolean().optional() }) },
   send: {
-    description: "Send a message to name@device, #room, * or a list. Returns each recipient's status.",
+    description:
+      "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session) or queued (that session is offline; the relay keeps it 24 h). Neither means delivered or read; history shows receipts that come back (delivered, held for its person's approval).",
     input: z.object({ to: To, text: z.string(), reply_to: z.string().optional(), notify_when_idle: z.boolean().optional() }),
   },
   ask: {
@@ -325,7 +326,7 @@ export class WimMcp {
       }
       case "history": {
         const i = a as In<"history">;
-        const entries = await s.history.query({ ...(i.peer === undefined ? {} : { peer: i.peer }), ...(i.limit === undefined ? {} : { limit: i.limit }), ...(i.before === undefined ? {} : { before: i.before }) });
+        const entries = await s.history.query({ receipts: true, ...(i.peer === undefined ? {} : { peer: i.peer }), ...(i.limit === undefined ? {} : { limit: i.limit }), ...(i.before === undefined ? {} : { before: i.before }) });
         // History is rendered as information only, so reading any received item opens the window.
         if (entries.some((e) => e.dir === "in")) s.informed();
         return text(entries.length === 0 ? "No history." : entries.map(renderForAgent).join("\n\n"));

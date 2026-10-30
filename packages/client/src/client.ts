@@ -159,6 +159,11 @@ export type SendOptions = {
  */
 export type SendOutcome = { id: string; results: SendResult[]; unprotected?: string[]; no_prekey?: string[] };
 
+/** The notice for a `held` receipt: the message waits for the recipient device's person. */
+export function heldReceiptLine(to: string, id: string): string {
+  return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
+}
+
 /** What a person or an agent is told about a send that went without forward secrecy. */
 export function unprotectedNote(unprotected: readonly string[], noPrekey: readonly string[]): string {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
@@ -525,6 +530,7 @@ export class MeshSession extends EventEmitter {
         list.push({ to: f.to, status: f.status });
         this.receipts.set(f.id, list);
         this.emit("receipt", f);
+        void this.recordReceipt(f).catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`));
         return;
       }
       case "notice":
@@ -927,8 +933,22 @@ export class MeshSession extends EventEmitter {
   }
 
   /** A notice for the agent or the person, written to the spool like any item. */
-  async notice(from: string, line: string, held?: number): Promise<void> {
-    await this.deliver({ kind: "notice", from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line), ...(held === undefined ? {} : { held }) }, undefined);
+  async notice(from: string, line: string, held?: number, heldBy?: string): Promise<void> {
+    await this.deliver(
+      { kind: "notice", from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line), ...(held === undefined ? {} : { held }), ...(heldBy === undefined ? {} : { heldBy }) },
+      undefined,
+    );
+  }
+
+  /**
+   * Records a receipt in history. A `held` one is also a notice, so whoever sent the message (the
+   * person through the plugin's toast, or the agent) learns that it waits for the recipient's
+   * person and is not delivered. Branches before any await (see AgentServer.answerLine).
+   */
+  private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
+    const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
+    if (f.status !== "held") return recorded;
+    return recorded.then(() => this.notice(f.to, heldReceiptLine(f.to, f.id), undefined, f.to));
   }
 
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */

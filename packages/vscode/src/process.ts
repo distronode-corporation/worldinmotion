@@ -268,22 +268,41 @@ export class EventsProcess {
   }
 }
 
+/** What runs the client: the bundled one, or `wimPath` (see clientCommand). */
+type ClientOptions = { extensionPath: string; wimPath: string; execPath: string; env: NodeJS.ProcessEnv };
+
 /**
- * The command for `wim events`: the bundled client on VS Code's own Node (Electron run as
- * Node), or `wimPath` instead. A `.mjs`, `.cjs` or `.js` path also runs on VS Code's Node;
- * anything else runs as an executable, without a shell.
+ * A command line of the client: the bundled client on VS Code's own Node (Electron run as Node),
+ * or `wimPath` instead. A `.mjs`, `.cjs` or `.js` path also runs on VS Code's Node; anything else
+ * runs as an executable, without a shell.
  */
-export function clientCommand(o: { extensionPath: string; wimPath: string; sessionName: string; execPath: string; env: NodeJS.ProcessEnv; cwd: string }): Command {
-  if (!NAME_RE.test(o.sessionName)) {
-    throw new Error(`worldinmotion.sessionName must be lowercase letters, digits and hyphens (up to 32), not ${JSON.stringify(o.sessionName)}`);
-  }
-  const rest = ["events", "--json", "--as", o.sessionName];
+function wimInvocation(o: ClientOptions, rest: string[]): { cmd: string; args: string[]; env: NodeJS.ProcessEnv; script: boolean } {
   const env = { ...o.env };
   delete env.ELECTRON_RUN_AS_NODE;
   const path = o.wimPath.trim();
-  if (path !== "" && !/\.[cm]?js$/i.test(path)) return { cmd: path, args: rest, env, cwd: o.cwd };
+  if (path !== "" && !/\.[cm]?js$/i.test(path)) return { cmd: path, args: rest, env, script: false };
   const script = path === "" ? join(o.extensionPath, "dist", "wim.mjs") : path;
-  return { cmd: o.execPath, args: [script, ...rest], env: { ...env, ELECTRON_RUN_AS_NODE: "1" }, cwd: o.cwd };
+  return { cmd: o.execPath, args: [script, ...rest], env: { ...env, ELECTRON_RUN_AS_NODE: "1" }, script: true };
+}
+
+/** The command for `wim events`. */
+export function clientCommand(o: ClientOptions & { sessionName: string; cwd: string }): Command {
+  if (!NAME_RE.test(o.sessionName)) {
+    throw new Error(`worldinmotion.sessionName must be lowercase letters, digits and hyphens (up to 32), not ${JSON.stringify(o.sessionName)}`);
+  }
+  const { cmd, args, env } = wimInvocation(o, ["events", "--json", "--as", o.sessionName]);
+  return { cmd, args, env, cwd: o.cwd };
+}
+
+/**
+ * The integrated terminal that starts the signer (`wim agent start`, or `unlock` when it is
+ * locked) with the same client as `wim events`. The person types the passphrase there, in a
+ * terminal they opened by running the command, not in one an agent drives. The terminal adds its
+ * `env` to VS Code's own, so only Electron's run-as-Node switch is set (or cleared).
+ */
+export function signerTerminal(o: ClientOptions & { locked: boolean; cwd: string }): { name: string; shellPath: string; shellArgs: string[]; env: Record<string, string | null>; cwd: string } {
+  const run = wimInvocation(o, ["agent", o.locked ? "unlock" : "start"]);
+  return { name: "worldinmotion signer", shellPath: run.cmd, shellArgs: run.args, env: { ELECTRON_RUN_AS_NODE: run.script ? "1" : null }, cwd: o.cwd };
 }
 
 /**

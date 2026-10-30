@@ -6,10 +6,10 @@ import * as actions from "./actions.ts";
 import { VIEW_ID, ActivityView } from "./activity/view.ts";
 import { notice, oneLine } from "./display.ts";
 import { homedir } from "node:os";
-import { clientCommand, clientCwd, EventsProcess } from "./process.ts";
+import { clientCommand, clientCwd, EventsProcess, signerTerminal } from "./process.ts";
 import { historyRows, type MessageRow } from "./protocol.ts";
 import { Store, toNotify } from "./state.ts";
-import { StatusItem } from "./status.ts";
+import { signerState, StatusItem } from "./status.ts";
 import { SCHEME, showThread, ThreadProvider, type Requester } from "./thread.ts";
 import { HeldView, LeasesView, MeshView, Nodes, RoomsView } from "./tree.ts";
 
@@ -140,6 +140,28 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   });
   const stopStore = store.onChange(schedule);
 
+  /**
+   * Opens a terminal running `wim agent start` (or `unlock`) with this window's client. When it
+   * closes, the client is restarted at once instead of waiting out its backoff.
+   */
+  let signer: vscode.Terminal | undefined;
+  const startSigner = (): void => {
+    const s = settings();
+    const t = vscode.window.createTerminal(
+      signerTerminal({ extensionPath: context.extensionPath, wimPath: s.wimPath, execPath: process.execPath, env: process.env, locked: signerState(store) === "locked", cwd: homedir() }),
+    );
+    signer = t;
+    t.show();
+  };
+  const signerClosed = (t: vscode.Terminal): void => {
+    if (t !== signer) return;
+    signer = undefined;
+    const code = t.exitStatus?.code;
+    if (code === 0) vscode.window.showInformationMessage("worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`.");
+    else if (code !== undefined) vscode.window.showWarningMessage(`worldinmotion: the signer did not start (exit code ${code}). Run worldinmotion: Start Signer again, or \`wim agent status\` in a terminal.`);
+    proc!.restart();
+  };
+
   const command = (id: string, fn: (arg: unknown) => unknown): vscode.Disposable => vscode.commands.registerCommand(id, fn);
   context.subscriptions.push(
     out,
@@ -175,6 +197,8 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     }),
     command("worldinmotion.showLog", () => out.show(true)),
     command("worldinmotion.restart", () => proc!.restart()),
+    command("worldinmotion.startSigner", startSigner),
+    vscode.window.onDidCloseTerminal(signerClosed),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("worldinmotion.sessionName") || e.affectsConfiguration("worldinmotion.wimPath")) proc!.restart();
     }),
