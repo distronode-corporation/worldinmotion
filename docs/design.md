@@ -24,7 +24,9 @@ Packages are written against it; change it here first.
 `WIM_HOME` defaults to `$XDG_CONFIG_HOME/worldinmotion` (`~/.config/worldinmotion`), or
 `%APPDATA%\worldinmotion` on Windows. When `CLAUDE_CONFIG_DIR` is set and `WIM_HOME` is not, the
 default is `<that base>/profiles/<first 12 chars of b64u(H(CLAUDE_CONFIG_DIR))>`, so two Claude
-accounts on one OS user are two devices.
+accounts on one OS user are two devices. `wim doctor` says which directory it uses and why, and
+lists the other device directories it finds under the default one (each is a different device,
+with its own keys and signer); `/wim status` in a Claude Code tab shows the plugin's.
 
 ```
 $WIM_HOME/
@@ -37,6 +39,9 @@ $WIM_HOME/
     pipe                 0600  Windows only: the pipe's random token
     config.json          0600  `require_signer`: refuse a plaintext key file
     log.jsonl            0600  one line per request: operation, type, mesh, peer device, outcome
+  links/<random>.json  0600  a `wim mcp` whose plugin handshake came before a session could open
+                               (the signer not up yet) writes the link here once it opens; the
+                               plugin reads it (removed when that server ends)
   meshes/<mesh>/
     mesh.json            0600  relay URL, pinned roster {seq, hash}, my device id, policy
     rosters/<seq>.json         every verified roster
@@ -185,17 +190,20 @@ address first.
 The plugin's own calls go through one internal tool, `_internal { op, args?, token? }`, described
 as "Internal to the worldinmotion plugin. Do not call." and offered only with `WIM_KIND=claude-code`
 (Claude Code cannot hide a tool from the model, so there is one, and the plugin's `tool.check`
-refuses it to the model). `hello` returns a random `token`, once per process; every other op must
-carry it, and a second `hello` must carry it too. Each op answers JSON (structuredContent, or one
-text block of JSON):
+refuses it to the model). `hello` returns a random `token`, once per process; every other op but
+`status` must carry it, and a second `hello` must carry it too. `status` answers without it, because
+a tab whose handshake failed has no token and `status` is what says why; it reads only facts the
+person may see (addresses, states, paths). Each op answers JSON (structuredContent, or one text
+block of JSON):
 
 | op | args | output |
 |---|---|---|
-| `hello` | `{ claudeSessionId }` | `{ spool, sid, address, token, held, dismiss }`, where `held` and `dismiss` are the absolute paths of the session's mark directories (below); an error result when the device is not set up |
+| `hello` | `{ claudeSessionId }` | `{ spool, sid, address, token, held, dismiss }`, where `held` and `dismiss` are the absolute paths of the session's mark directories (below). While no session can open yet for a reason that clears on its own (the signer is not running or is locked, or the device has no keys or no mesh yet), `{ pending: true, problem, link, token }`: the server keeps asking every 5 s, and once a session opens it maps this Claude session to it and writes `link` (an absolute path under `<state dir>/links/`) with the same fields as a linked answer. Any other problem is an error result |
 | `peers` | `{ forPane? }` | `{ peers: [{ address, kind, status, rooms, cwd?, branch? }] }` (card fields of untrusted devices only with `forPane`) |
 | `route` | `{ to }` | `{ mesh, policy }`: whether `to` is a mesh address, and its device's policy (`deliver` for a room only when every device is) |
 | `held` | `{}` | `{ held: [{ id, from, kind, at, preview }] }` |
 | `leases` | `{}` | `{ leases: [{ name, holder, expires_at }] }` (`expires_at` in ms; `name` is the plain name when this device knows it, else the key) |
+| `status` | `{}` | `{ address, device, mesh, relay, signer, held, state_dir, state_dir_why }` for an open session (`relay` is `connected` or `connecting`; `signer` says whether the keys are in the signer), else `{ problem, state_dir, state_dir_why }`. `/wim status` prints it |
 | (no op) | | The person's decisions are never an op: the plugin's pane writes an empty mark file, `<held>/<id>.approve`, `<held>/<id>.refuse` or `<dismiss>/<id>.dismiss` (a relayed item), and the session applies it on its next housekeeping pass. Only regular files named exactly `<ULID>.approve`, `.refuse` or `.dismiss` count; links are ignored |
 
 ## Inbound policy
@@ -239,8 +247,10 @@ compacted. History is local only and never leaves the machine.
 
 ## Distribution
 
-- `wim` is bundled with esbuild into one file, `wim.mjs` (Node >= 22.18, no install step), attached
-  to every GitHub Release with its SHA-256, and the same bundle is the plugin's `dist/client.mjs`.
+- `wim` is bundled with esbuild into one file, `wim.mjs` (Node >= 22.18), published to npm as
+  `worldinmotion` (`npm install --global worldinmotion` installs it as `wim`), attached to every
+  GitHub Release with its SHA-256, and the same bundle is the plugin's `dist/client.mjs`. The VS
+  Code extension is `distronode.worldinmotion` on the Visual Studio Marketplace and Open VSX.
 - Platforms: Linux, macOS and Windows. Platform differences (key-file permissions, which on Windows
   are ACLs and not mode bits; paths; file locking) live in one module that takes the platform as a
   parameter, so its tests cover every platform on any machine.
@@ -250,11 +260,21 @@ compacted. History is local only and never leaves the machine.
 - On `session.start` the mod calls `_internal { op: "hello", args: { claudeSessionId } }`. The
   server answers `{ spool, sid, address, token, held, dismiss }`: the absolute spool path for this
   session, the token every later op carries, and the mark directories (see the op table above).
+- The mod makes MCP calls only inside a hook dispatch. A call from a timer is not inside one, so
+  the mod's own `tool.check` is skipped as re-entry and the person is asked to allow
+  `_internal` (seen live in Claude Code 2.1.312). So a tab never retries `hello` from a timer:
+  when `hello` answers `pending`, the mod keeps the token and reads the `link` file every 250 ms
+  (a file read, no MCP), and links when the server writes it. A tab whose `hello` failed for good
+  tries again at the person's next prompt (`turn.start`, a dispatch). An internal op refused for
+  its token (the server restarted, so it has issued none yet) runs `hello` again and the op once
+  more.
 - The server writes each inbound item as `spool/<cursor zero-padded to 12 digits>.json`:
   `{ "cursor": 42, "kind": "msg" | "task" | "result" | "file" | "notice", "from": "<address>",
   "device": "<device id>", "id": "<ULID>", "at": <ms>, "rendered": "<frameForAgent output>" }`,
-  with three optional fields. A `notice` item carries `held: <count>` when it reports messages
+  with four optional fields. A `notice` item carries `held: <count>` when it reports messages
   waiting for approval; the plugin shows it as a toast and does not pass it to the model.
+  `forPerson: true` marks a notice only the person can act on (this session must be restarted
+  to use the signer): the plugin shows it as a toast and on its status line, never as a turn.
   `relayed: true` marks text the sender passed on from a bot, CI or gateway: it never starts a
   turn. `informs: true` marks an item framed as information only; handing it to the agent starts
   the client's `derived` window, during which what the session sends is marked as derived from it. Delivery is at least once (a reload

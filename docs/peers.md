@@ -20,18 +20,27 @@ session of that agent listed peers and sent a message that arrived at another pe
 
 ## Before you start
 
-1. Get `wim.mjs` from the GitHub Release (one file, Node 22.18 or later, no install step), check
-   it against the release's `SHA256SUMS` (see [Get `wim`](../README.md#1-get-wim)), and put it
-   somewhere stable, for example `~/.local/share/worldinmotion/wim.mjs`. The examples
-   below write that path as `/path/to/wim.mjs`. Use the absolute path: most agents do not expand
-   `~` in their config.
-2. Add this machine to your mesh once, from a terminal: `node /path/to/wim.mjs join <code>` with
-   an invite code from a device already in the mesh (`wim invite`). For a new mesh, run
-   `node /path/to/wim.mjs init --relay wss://relay.example.com` on the first device (see the
-   [quick start](../README.md#quick-start)). The relay URL is `wss://` with no trailing slash, and
-   must match one of the relay's `WIM_RELAY_URLS` exactly; the client refuses `https://`, and
-   accepts `ws://` only to loopback. `node /path/to/wim.mjs doctor` checks the result.
-3. Add the MCP server to your agent as shown below, then start a new session.
+1. [Terminal] Install `wim` (Node.js 22.18 or later) with `npm install --global worldinmotion`.
+   If `wim` is then not found, npm's global bin is not on your `PATH`:
+   `export PATH="$(npm prefix -g)/bin:$PATH"`, and add that line to your shell's profile. The
+   package is one file, `wim.mjs`; the examples below run it as `node /path/to/wim.mjs`, with
+   `/path/to/wim.mjs` the absolute path npm installed it at:
+   `"$(npm prefix -g)/lib/node_modules/worldinmotion/wim.mjs"` on Linux and macOS,
+   `%APPDATA%\npm\node_modules\worldinmotion\wim.mjs` on Windows (`npm prefix -g` prints the
+   prefix). Use the absolute path: most agents do not expand `~` or `$(...)` in their config.
+   Without npm, get `wim.mjs` from the GitHub Release, check it against the release's
+   `SHA256SUMS`, and put it somewhere stable, for example
+   `~/.local/share/worldinmotion/wim.mjs`.
+2. [Terminal] Add this machine to your mesh once, from a terminal you opened yourself (not
+   through an agent): `wim join <code>` with an invite code from a device already in the mesh
+   (`wim invite`). For a new mesh, run `wim init --relay wss://relay.example.com` on the first
+   device (see the [first-run guide](../README.md#first-run-three-machines-one-person)). The
+   relay URL is `wss://` with no trailing slash, and must match one of the relay's
+   `WIM_RELAY_URLS` exactly; the client refuses `https://`, and accepts `ws://` only to loopback.
+   `wim doctor` checks the result.
+3. Add the MCP server to your agent as shown below, then start a new session. A session started
+   before the device was set up, or before its signer (`wim agent start`), keeps trying and joins
+   the mesh by itself once it can.
 
 Every agent session gets its own address, `name@device`. The name comes from `WIM_NAME`, or the
 working directory's base name when `WIM_NAME` is not set.
@@ -60,7 +69,8 @@ CLAUDE_CONFIG_DIR>`, so each Claude account is its own device. The Claude Code p
 runs with Claude Code's environment, so run `wim init`, `wim join` and `wim doctor` in a terminal
 with the same `WIM_HOME`, and the same `CLAUDE_CONFIG_DIR` when one is set. Otherwise the terminal
 writes keys to one directory and the agent looks in another, and reports that the device is not
-set up. `wim doctor` prints the state directory it uses.
+set up. `wim doctor` prints the state directory it uses and why, and lists the other device
+directories it finds; in Claude Code, `/wim status` prints the plugin's.
 
 ### The tools
 
