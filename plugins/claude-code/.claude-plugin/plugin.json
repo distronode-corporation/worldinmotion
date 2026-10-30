@@ -1,6 +1,6 @@
 {
   "name": "worldinmotion",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "End-to-end encrypted messages between AI agent sessions across machines and accounts: peers, SendMessage to name@device, a pane for held messages.",
   "author": { "name": "Distronode Corporation" },
   "license": "Apache-2.0",

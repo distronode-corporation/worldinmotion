@@ -35,7 +35,7 @@ import { resolveInvite } from "./shortcode.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
 
-export const VERSION = "0.1.5";
+export const VERSION = "0.1.6";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {

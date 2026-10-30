@@ -1,6 +1,6 @@
 {
   "name": "@worldinmotion/a2a",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "wim a2a: a gateway between the worldinmotion mesh and Agent2Agent (A2A) agents, in both directions",
   "license": "Apache-2.0",
   "type": "module",
@@ -15,7 +15,7 @@
     "node": ">=22.18.0"
   },
   "dependencies": {
-    "@worldinmotion/protocol": "0.1.5",
+    "@worldinmotion/protocol": "0.1.6",
     "zod": "4.6.7"
   }
 }
