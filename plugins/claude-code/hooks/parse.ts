@@ -20,6 +20,8 @@ export type SpoolItem = {
   held?: number
   /** Sent on a device's behalf by a bot, CI or gateway: never starts a turn. */
   relayed?: true
+  /** A notice for the person (a restart only they can do), never for the model. */
+  forPerson?: true
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -56,7 +58,34 @@ export function parseItem(text: string): SpoolItem | undefined {
     rendered: value.rendered,
     ...(typeof held === 'number' && held > 0 ? { held } : {}),
     ...(value.relayed === true ? { relayed: true as const } : {}),
+    ...(value.forPerson === true ? { forPerson: true as const } : {}),
   }
+}
+
+/** A client notice's own line, without the frame that tells the model where it came from. */
+export function noticeLine(rendered: string): string {
+  return rendered.replace(/^worldinmotion notice \([^)]*\): /, '').split(/\r?\n/, 1)[0] ?? ''
+}
+
+/**
+ * What `_internal { op: "status" }` answers, as /wim status prints it: one
+ * fact per line, the client's problem first when it has one.
+ */
+export function statusLines(value: unknown): string[] {
+  if (!isRecord(value)) return ['The client gave no status.']
+  const line = (label: string, v: unknown): string[] =>
+    typeof v === 'string' && v !== '' ? [`${label}: ${v}`] : typeof v === 'number' ? [`${label}: ${v}`] : []
+  return [
+    ...line('problem', value.problem),
+    ...line('address', value.address),
+    ...line('device', value.device),
+    ...line('mesh', value.mesh),
+    ...line('relay', value.relay),
+    ...line('signer', value.signer),
+    ...line('held', value.held),
+    ...line('state directory', value.state_dir),
+    ...line('why that directory', value.state_dir_why),
+  ]
 }
 
 /**
@@ -117,6 +146,17 @@ export function parseLink(value: unknown): WimLink | undefined {
     ...(isAbsolute(held) ? { held } : {}),
     ...(isAbsolute(dismiss) ? { dismiss } : {}),
   }
+}
+
+/**
+ * What `hello` answers while the client cannot open a session yet (its signer
+ * not up): why, the token, and the absolute path of the link file it writes
+ * once it can.
+ */
+export function parsePending(value: unknown): { problem: string; file: string; token: string } | undefined {
+  if (!isRecord(value) || value.pending !== true || !isAbsolute(value.link)) return undefined
+  if (typeof value.token !== 'string' || value.token === '') return undefined
+  return { problem: str(value.problem, 'the client cannot open a session yet.'), file: value.link, token: value.token }
 }
 
 /** A held or relayed item's id: a ULID, so a path built from it cannot leave its directory. */

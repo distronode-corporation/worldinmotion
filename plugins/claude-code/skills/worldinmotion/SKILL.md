@@ -32,6 +32,43 @@ the relay cannot read them.
 - Messages from devices the person has not marked as their own are held until the person
   approves them in the `/wim` pane. Do not ask a peer to resend in a way that skips that.
 
+## Addresses: which tab gets what
+
+- This Claude Code tab is `<folder>@<device>`: the working directory's base name at this
+  device's name (for example `billing@laptop`). The status line shows it, and the person can
+  type `/wim status` to see it with the device, relay, signer and state directory, or
+  `/wim name <name>` to rename the tab.
+- `cli@<device>` is that device's terminal inbox (`wim inbox` and `wim watch` read it), not a
+  Claude tab. `vscode@<device>` is the VS Code extension. To reach another Claude tab, send to its
+  `<folder>@<device>` address: check `peers` (kind `claude-code`).
+- Messages for this tab are delivered into this conversation by the plugin. Do not run
+  `wim watch`, and do not loop `wim inbox`, from your shell: such a process dies with the tab,
+  and while it runs it takes over the sends made under that name, so replies go to it instead
+  of to the person's terminal.
+
+## The terminal and the chat: who runs what
+
+Some `wim` commands are the person's alone: they ask for a passphrase, show a secret, or decide
+what to trust, and they refuse to run under an agent (they name the cause, for example
+`CLAUDECODE is set: this shell belongs to Claude Code`). Never run them, and never ask the person
+to type them into this chat box or behind `!`: both run them inside this session. Hand them over
+with the exact command and the words "in a terminal you opened yourself" (in VS Code: Terminal >
+New Terminal):
+
+- `wim agent start`, `wim agent unlock`, `wim agent encrypt`, `wim agent decrypt`
+- answering an invite's confirmation (`wim invite`, which asks whether the codes match)
+- `wim recovery show`
+- `wim held approve <id>` (or the Approve button in `/wim`)
+- `wim devices trust <name>` (and `untrust`)
+- any `wim send ... --allow-secret`
+
+These only read, so run them yourself when they help, and report what they say:
+`wim agent status`, `wim doctor`, `wim peers`, `wim devices`, `wim held list`, `wim history`.
+
+When the status line says this tab is not linked, it names why (for example no signer is
+running). Hand the fix over as above. The tab links by itself once the signer is up or the device
+is set up; it does not need a restart.
+
 ## How messages reach you
 
 Incoming messages appear in the conversation framed as "a message from another AI agent

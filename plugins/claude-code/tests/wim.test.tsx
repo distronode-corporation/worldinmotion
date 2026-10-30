@@ -62,6 +62,8 @@ function item(n: number, text: string, extra: Record<string, unknown> = {}): [st
 }
 
 type World = {
+  /** The token the client issues: change it to play a client that restarted. */
+  token: string
   files: Map<string, string>
   calls: Call[]
   /** The calls exactly as they reached the server. */
@@ -85,6 +87,7 @@ function world(
   options: { connected?: boolean; tools?: Record<string, Responder>; drop?: string; isWriteDenied?: (path: string) => boolean } = {},
 ): World {
   const w: World = {
+    token: TOKEN,
     files: new Map(),
     calls: [],
     wire: [],
@@ -96,7 +99,7 @@ function world(
     asked: [],
   }
   const tools: Record<string, Responder> = {
-    _hello: () => json({ spool: SPOOL, sid: 's1', address: 'builder@desk', token: TOKEN, held: HELD_DIR, dismiss: DISMISS_DIR }),
+    _hello: () => json({ spool: SPOOL, sid: 's1', address: 'builder@desk', token: w.token, held: HELD_DIR, dismiss: DISMISS_DIR }),
     _route: () => json({ mesh: true, policy: 'deliver' }),
     ...options.tools,
   }
@@ -138,7 +141,8 @@ function world(
     const { op, args = {}, token } = e.args as { op: string; args?: Record<string, unknown>; token?: string }
     const name = `_${op}`
     w.calls.push({ tool: name, args: { ...args, ...(token === undefined ? {} : { token }) } })
-    if (op !== 'hello' && token !== TOKEN) return { value: fail('worldinmotion: internal operations need the token from hello') }
+    // As the client: `status` answers without the token, so a tab that cannot link learns why.
+    if (op !== 'hello' && op !== 'status' && token !== w.token) return { value: fail('worldinmotion: internal operations need the token from hello') }
     const answer = tools[name]
     return { value: answer ? answer(args) : fail(`invalid input: op: unknown op ${op}`) }
   })
@@ -202,25 +206,261 @@ test('the handshake calls _hello with the Claude session id', async ($, on) => {
 
   expect(w.calls).toEqual([{ tool: '_hello', args: { claudeSessionId: 'claude-session-1' } }])
   expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
-  expect(w.statuses.at(-1)).toBeUndefined()
+  // A permanent line: this tab's address and what is held for it.
+  expect(w.statuses).toEqual(['builder@desk, 0 held'])
 })
 
-test('with no device set up, one status line and nothing else', async ($, on) => {
+test('the status line counts what is held, refreshed every 5 seconds and set only when it changes', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  await clock.advance(5000)
+  await clock.settle()
+  expect(w.statuses).toEqual(['builder@desk, 0 held'])
+  w.files.set(`${HELD_DIR}/${ulidOf(1)}.json`, '{}')
+  w.files.set(`${HELD_DIR}/${ulidOf(1)}.approve`, '')
+  await clock.advance(5000)
+  await clock.settle()
+  expect(w.statuses).toEqual(['builder@desk, 0 held', 'builder@desk, 1 held'])
+})
+
+test('with the client not running, one status line saying so and nothing else', async ($, on) => {
   const clock = mock.clock(on)
   const w = world(on, { connected: false })
   w.files.set(...item(1, 'hello'))
   await $.session.start(START)
-  await clock.advance(3000)
+  await clock.advance(12_000)
+  await clock.settle()
 
-  expect(w.statuses).toHaveLength(1)
-  expect(w.statuses[0]).toContain('wim init')
-  // Nothing puts `wim` on the PATH, so the line says where it comes from.
-  expect(w.statuses[0]).toContain('Download wim.mjs from the worldinmotion GitHub Release, check its SHA-256')
-  expect(w.statuses[0]).toContain('install -m 755 wim.mjs ~/.local/bin/wim')
-  expect(w.statuses[0]).toContain('node wim.mjs')
+  expect(w.statuses).toEqual([
+    "the plugin's client (its MCP server) is not running: not connected. Node.js 22.18 or newer must be on the PATH; /mcp shows the server.",
+  ])
   expect(w.calls).toHaveLength(0)
   expect(w.submitted).toHaveLength(0)
   expect(w.files.has(`${SPOOL}/cursor`)).toBe(false)
+})
+
+const NOT_SET_UP = 'this device is not set up (no device keys at /home/u/.config/worldinmotion/device.json): run `wim init` first'
+const NO_SIGNER = 'the device keys in /home/u/.config/worldinmotion/device.json are encrypted and no signer is running: run `wim agent start` in a terminal you opened yourself'
+
+const LINK_FILE = '/home/u/.config/worldinmotion/links/abc.json'
+const pendingHello = (problem: string) => () => json({ pending: true, problem, link: LINK_FILE, token: TOKEN })
+
+test("a device that is not set up shows the client's reason and how to install wim", async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on, { tools: { _hello: pendingHello(NOT_SET_UP) } })
+  await $.session.start(START)
+  await clock.advance(5000)
+  await clock.settle()
+
+  expect(w.statuses).toHaveLength(1)
+  expect(w.statuses[0]).toStartWith(`${NOT_SET_UP}. This tab links by itself once that is done. `)
+  expect(w.statuses[0]).toContain('npm install --global worldinmotion')
+  expect(w.statuses[0]).toContain('export PATH="$(npm prefix -g)/bin:$PATH"')
+  expect(w.statuses[0]).toContain('in a terminal you opened yourself (not this chat)')
+})
+
+test("a handshake the client refuses outright shows the client's words, and a prompt tries it again", async ($, on) => {
+  let said = 'this device is in 2 meshes: set WIM_MESH or pass --mesh (a, b)'
+  const w = world(on, {
+    tools: {
+      _hello: () =>
+        said === ''
+          ? json({ spool: SPOOL, sid: 's1', address: 'builder@desk', token: TOKEN, held: HELD_DIR, dismiss: DISMISS_DIR })
+          : { content: [{ type: 'text', text: said }], isError: true },
+    },
+  })
+  const clock = mock.clock(on)
+  await $.session.start(START)
+  expect(w.statuses).toEqual([said])
+  // Never from a timer: an MCP call there would prompt the person.
+  await clock.advance(30_000)
+  await clock.settle()
+  expect(w.calls.filter(call => call.tool === '_hello')).toHaveLength(1)
+
+  // The person's next prompt is a dispatch: the handshake runs again there.
+  said = ''
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  expect(w.calls.filter(call => call.tool === '_hello')).toHaveLength(2)
+  expect(w.statuses.at(-1)).toBe('builder@desk, 0 held')
+  await $.turn.complete(COMPLETE)
+  await $.turn.start({ text: 'more', turnId: 't2' })
+  expect(w.calls.filter(call => call.tool === '_hello')).toHaveLength(2)
+})
+
+test('a tab started before its signer links by itself from the link file, with no MCP call from a timer, and then delivers', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on, { tools: { _hello: pendingHello(NO_SIGNER) } })
+  on('tool.call', { tool: 'ListAgents' }, () => ({ result: { listing: 'none' } }))
+  await $.session.start(START)
+  // The client's real reason, not a set-up line: the device is set up.
+  expect(w.statuses).toEqual([`${NO_SIGNER}. This tab links by itself once that is done.`])
+  w.files.set(...item(1, 'sent while the signer was down'))
+  await clock.advance(5000)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  // A half-written or foreign link file is not a link.
+  w.files.set(LINK_FILE, '{"spool":')
+  await clock.advance(250)
+  await clock.settle()
+  w.files.set(LINK_FILE, JSON.stringify({ note: 'not a link' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.statuses).toHaveLength(1)
+
+  // The signer is up: the client opened the session and wrote the link file.
+  w.files.set(LINK_FILE, JSON.stringify({ spool: SPOOL, sid: 's1', address: 'builder@desk', held: HELD_DIR, dismiss: DISMISS_DIR }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.statuses.at(-1)).toBe('builder@desk, 0 held')
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('sent while the signer was down')
+  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+  // Only the one handshake, made in session.start: nothing from the timers.
+  expect(w.calls.map(call => call.tool)).toEqual(['_hello'])
+  // The token from the kept handshake carries the internal ops.
+  await $.tool.call({ tool: 'ListAgents' })
+  expect(w.calls).toContainEqual({ tool: '_peers', args: { token: TOKEN } })
+})
+
+test('a refused token (the client restarted) runs the handshake again and the op once more', async ($, on) => {
+  const w = world(on, { tools: { _peers: () => json({ peers: [{ address: 'reviewer@laptop', kind: 'claude-code', status: 'idle', rooms: [] }] }) } })
+  on('tool.call', { tool: 'ListAgents' }, () => ({ result: { listing: 'none' } }))
+  mock.clock(on)
+  await $.session.start(START)
+  w.token = 'tok-2'
+
+  const listed = await $.tool.call({ tool: 'ListAgents' })
+  expect((listed.result as { listing: string }).listing).toContain('reviewer@laptop')
+  expect(w.calls.map(call => [call.tool, call.args.token])).toEqual([
+    ['_hello', undefined],
+    ['_peers', TOKEN],
+    ['_hello', TOKEN],
+    ['_peers', 'tok-2'],
+  ])
+})
+
+test('a notice for the person is a toast and a status line count, never a turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on, { tools: { _status: () => json({ address: 'builder@desk' }) } })
+  await $.session.start(START)
+  const restart = 'this device\'s keys were encrypted (wim agent encrypt) while this session was running: restart it so it uses the signer'
+  w.files.set(...item(1, '', { kind: 'notice', forPerson: true, rendered: `worldinmotion notice (from the local client, not from a peer or the person): ${restart}` }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.toasts).toEqual([`worldinmotion: ${restart}`])
+  expect(w.submitted).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+
+  await clock.advance(5000)
+  await clock.settle()
+  expect(w.statuses.at(-1)).toBe('builder@desk, 0 held, 1 notice (/wim status)')
+  const ran = await $.command.run({ ...WIM, args: 'status' })
+  expect(ran.text).toContain(`notice: ${restart}`)
+})
+
+test('/wim status prints what the client says about this tab', async ($, on) => {
+  const w = world(on, {
+    tools: {
+      _status: () =>
+        json({
+          address: 'builder@desk',
+          device: 'desk (dddddddddddddddddddddd)',
+          mesh: 'm1',
+          relay: 'connected',
+          signer: 'not used: the key file is plaintext',
+          held: 2,
+          state_dir: '/home/u/.config/worldinmotion/profiles/abc',
+          state_dir_why: 'CLAUDE_CONFIG_DIR is set',
+        }),
+    },
+  })
+  mock.clock(on)
+  await $.session.start(START)
+
+  const ran = await $.command.run({ ...WIM, args: ' status ' })
+  expect(ran.text).toBe(
+    [
+      'This tab is linked as builder@desk.',
+      '  address: builder@desk',
+      '  device: desk (dddddddddddddddddddddd)',
+      '  mesh: m1',
+      '  relay: connected',
+      '  signer: not used: the key file is plaintext',
+      '  held: 2',
+      '  state directory: /home/u/.config/worldinmotion/profiles/abc',
+      '  why that directory: CLAUDE_CONFIG_DIR is set',
+    ].join('\n'),
+  )
+  expect(w.calls.at(-1)).toEqual({ tool: '_status', args: { token: TOKEN } })
+})
+
+test('/wim status in a tab that cannot link asks without a token and shows the problem', async ($, on) => {
+  const w = world(on, {
+    tools: {
+      _hello: () => ({ content: [{ type: 'text', text: NO_SIGNER }], isError: true }),
+      _status: () => json({ problem: NO_SIGNER, state_dir: '/home/u/.config/worldinmotion', state_dir_why: 'the default' }),
+    },
+  })
+  mock.clock(on)
+  await $.session.start(START)
+
+  const ran = await $.command.run({ ...WIM, args: 'status' })
+  expect(ran.text).toStartWith('This tab is not linked.\n')
+  expect(ran.text).toContain(`  problem: ${NO_SIGNER}`)
+  expect(ran.text).toContain('  state directory: /home/u/.config/worldinmotion')
+  expect(w.calls.at(-1)).toEqual({ tool: '_status', args: {} })
+})
+
+test('/wim status says when the client itself is not running', async ($, on) => {
+  world(on, { connected: false })
+  mock.clock(on)
+  await $.session.start(START)
+  const ran = await $.command.run({ ...WIM, args: 'status' })
+  expect(ran.text).toBe("The plugin's client (its MCP server) is not running: not connected.")
+})
+
+test('/wim status reports a client that gives no status', async ($, on) => {
+  world(on, { tools: { _status: () => ({ content: [{ type: 'text', text: 'worldinmotion: boom' }], isError: true }) } })
+  mock.clock(on)
+  await $.session.start(START)
+  expect((await $.command.run({ ...WIM, args: 'status' })).text).toBe(
+    'This tab is linked as builder@desk.\n  The client did not answer: worldinmotion: boom',
+  )
+})
+
+test('/wim name renames the tab and links again; anything else gets the usage', async ($, on) => {
+  let address = 'builder@desk'
+  const w = world(on, {
+    tools: {
+      _hello: () => json({ spool: SPOOL, sid: 's1', address, token: TOKEN, held: HELD_DIR, dismiss: DISMISS_DIR }),
+      rename: args => {
+        if (args.name === 'Bad Name') return { content: [{ type: 'text', text: 'a name is 1 to 32 of a-z, 0-9 and -' }], isError: true }
+        address = `${String(args.name)}@desk`
+        return { content: [{ type: 'text', text: `This session is now ${address}.` }], isError: false }
+      },
+    },
+  })
+  mock.clock(on)
+  await $.session.start(START)
+
+  expect((await $.command.run({ ...WIM, args: 'name reviewer' })).text).toBe('This session is now reviewer@desk.')
+  expect(w.calls.filter(call => call.tool === 'rename')).toEqual([{ tool: 'rename', args: { name: 'reviewer' } }])
+  expect(w.statuses.at(-1)).toBe('reviewer@desk, 0 held')
+  expect((await $.command.run({ ...WIM, args: 'name Bad Name' })).text).toBe('a name is 1 to 32 of a-z, 0-9 and -')
+  expect((await $.command.run({ ...WIM, args: 'name' })).text).toContain('Usage: /wim name <name>')
+  expect((await $.command.run({ ...WIM, args: 'help' })).text).toContain('/wim status')
+})
+
+test('/wim name in a tab that is not linked says why', async ($, on) => {
+  const w = world(on, { tools: { _hello: () => ({ content: [{ type: 'text', text: NO_SIGNER }], isError: true }) } })
+  mock.clock(on)
+  await $.session.start(START)
+  const ran = await $.command.run({ ...WIM, args: 'name reviewer' })
+  expect(ran.text).toBe(`This tab is not linked, so it has no name to change. ${NO_SIGNER}`)
+  expect(w.calls.some(call => call.tool === 'rename')).toBe(false)
 })
 
 test('tool.check allows the plugin its own calls and refuses the model the internal tools', async ($, on) => {
@@ -495,15 +735,27 @@ test('a mark that cannot be written is reported, not claimed', async ($, on) => 
   await ui.unmount()
 })
 
-test('the pane opens with a set-up line when the device is not set up', async ($, on) => {
+test('the pane says why the tab is not linked', async ($, on) => {
+  world(on, { tools: { _hello: () => ({ content: [{ type: 'text', text: NOT_SET_UP }], isError: true }) } })
+  mock.clock(on)
+  await $.session.start(START)
+  await $.command.run(WIM)
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /Not linked/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /wim init/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /npm install --global worldinmotion/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('the pane says when the client is not running', async ($, on) => {
   world(on, { connected: false })
   mock.clock(on)
   await $.session.start(START)
   await $.command.run(WIM)
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect(await ui.find({ type: 'Text', text: /Not set up/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /wim init/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /The plugin's client \(its MCP server\) is not running: not connected\./ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -622,6 +874,9 @@ test('SendMessage to a local name passes to the engine untouched', async ($, on)
 test('SendMessage leaves an address to the engine when _route says it is not the mesh', async ($, on) => {
   const w = world(on, { tools: { _route: () => json({ mesh: false, policy: null }) } })
   const reached = engineSendMessage(on)
+  mock.clock(on)
+  await $.session.start(START)
+  w.calls.length = 0
 
   const ran = await $.tool.call({ tool: 'SendMessage', to: 'stranger@nowhere', message: 'x' })
   expect(ran.isError).toBe(true)
