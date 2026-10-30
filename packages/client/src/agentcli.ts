@@ -11,7 +11,7 @@ import type { CliIO } from "./cli.ts";
 import { SetupError } from "./errors.ts";
 import { ensureDir, readJson, withLock, writeAtomic, writeJson } from "./fsx.ts";
 import type { Home } from "./home.ts";
-import { canShowSecret } from "./secretout.ts";
+import { notAPerson, personOnly } from "./secretout.ts";
 import { SignerClient } from "./signer.ts";
 import { BadPassphrase, openKeyFile, openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile } from "./vault.ts";
 
@@ -71,10 +71,12 @@ async function readPassphrase(ctx: AgentCtx, question: string): Promise<string> 
   let passphrase: string;
   if (ctx.flags.get("passphrase-stdin") === true) passphrase = await ctx.io.prompt("");
   else {
-    if (!canShowSecret(ctx.env, ctx.io.isTTY) || ctx.io.promptSecret === undefined) {
-      throw new SetupError("the passphrase is asked for only in your own interactive terminal, not through an agent or a pipe (a service manager can pass --passphrase-stdin)");
+    const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === undefined ? "this program cannot ask for a passphrase without showing it" : undefined);
+    if (why !== undefined) {
+      // The passphrase is asked for only by a person at their own terminal. A service manager can pass --passphrase-stdin.
+      throw new SetupError(`${personOnly(why, `wim agent ${ctx.args[0]!}`)} (a service manager can pass --passphrase-stdin instead)`);
     }
-    passphrase = await ctx.io.promptSecret(question);
+    passphrase = await ctx.io.promptSecret!(question);
   }
   if (passphrase === "") throw new SetupError("no passphrase given");
   return passphrase;

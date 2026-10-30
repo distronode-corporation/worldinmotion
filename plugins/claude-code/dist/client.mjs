@@ -30002,7 +30002,7 @@ var require_dist_cjs14 = __commonJS({
     var { createHash: createHash9, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign2 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname6, join: join21 } = __require("node:path");
+    var { dirname: dirname6, join: join22 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30166,10 +30166,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join21(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join22(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash9("sha256").update(loginSessionBytes).digest("hex");
-        return join21(directory, `${loginSessionSha256}.json`);
+        return join22(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -86490,8 +86490,8 @@ function joinBody(invite2, name, keys, nonce) {
   if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
   return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
 }
-function verifyJoin(join21, secret, nonce) {
-  const parsed2 = joinOrBodySchema.safeParse(join21);
+function verifyJoin(join22, secret, nonce) {
+  const parsed2 = joinOrBodySchema.safeParse(join22);
   if (!parsed2.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -88449,15 +88449,19 @@ import { posix, win32 } from "node:path";
 function pathFor(platform2) {
   return platform2 === "win32" ? win32 : posix;
 }
-function defaultHome(env3, platform2, homedir4) {
+function homeChoice(env3, platform2, homedir4) {
   const path2 = pathFor(platform2);
-  const explicit = env3["WIM_HOME"];
-  if (explicit !== void 0 && explicit !== "") return explicit;
   const config2 = platform2 === "win32" ? env3["APPDATA"] ?? path2.join(homedir4, "AppData", "Roaming") : env3["XDG_CONFIG_HOME"] ?? path2.join(homedir4, ".config");
   const base = path2.join(config2, "worldinmotion");
+  const explicit = env3["WIM_HOME"];
+  if (explicit !== void 0 && explicit !== "") return { root: explicit, why: "WIM_HOME is set", base };
   const claude = env3["CLAUDE_CONFIG_DIR"];
-  if (claude === void 0 || claude === "") return base;
-  return path2.join(base, "profiles", b64u.encode(sha2562(utf8(claude))).slice(0, 12));
+  if (claude === void 0 || claude === "") return { root: base, why: "the default (neither WIM_HOME nor CLAUDE_CONFIG_DIR is set)", base };
+  return {
+    root: path2.join(base, "profiles", b64u.encode(sha2562(utf8(claude))).slice(0, 12)),
+    why: `CLAUDE_CONFIG_DIR is set (${claude}), so this is that Claude profile's own device, not the one a shell without it uses`,
+    base
+  };
 }
 function keyFileProblem(facts, platform2, myUid) {
   if (facts.isSymlink) return "it is a symbolic link";
@@ -89759,7 +89763,7 @@ var SignerClient = class {
   /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
   async call(op2, a5 = {}) {
     const conn = await this.connected();
-    if (conn.hello.locked && !LOCKED_OPS.has(op2)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in your own terminal");
+    if (conn.hello.locked && !LOCKED_OPS.has(op2)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
     return this.send(conn, op2, a5);
   }
   /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
@@ -89797,14 +89801,14 @@ var SignerClient = class {
     return this.connectTo(await this.where());
   }
   connectTo(at) {
-    if (at === void 0) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in your own terminal"));
+    if (at === void 0) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in a terminal you opened yourself"));
     this.endpoint = at;
     return new Promise((resolve3, reject) => {
       const socket = this.connect(at);
       const conn = { socket, pending: /* @__PURE__ */ new Map(), buffered: "" };
       socket.setEncoding("utf8");
       socket.on("error", (error63) => {
-        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error63.code ?? error63.message}): run \`wim agent start\` in your own terminal`));
+        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error63.code ?? error63.message}): run \`wim agent start\` in a terminal you opened yourself`));
       });
       socket.once("connect", () => {
         socket.on("data", (chunk) => this.take(conn, chunk));
@@ -90787,7 +90791,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         return;
       }
       case "notice":
-        void this.notice(f7.of, `${f7.of} is now idle (or has ended).`).catch((e6) => this.log(`wim: notice: ${e6.message}`));
+        this.noticeLater(f7.of, `${f7.of} is now idle (or has ended).`);
         return;
       case "join.request":
         this.emit("join", f7.join);
@@ -90887,7 +90891,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
   inboundFailed(error63, id) {
     if (error63 instanceof NeedsSigner) {
       this.heldLink = this.link;
-      if (!this.toldRestart) this.log(`wim: ${error63.message}`);
+      if (!this.toldRestart) {
+        this.log(`wim: ${error63.message}`);
+        this.noticeLater(this.address, error63.message, true);
+      }
       this.toldRestart = true;
       return;
     }
@@ -91121,9 +91128,14 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
     return written;
   }
-  /** A notice for the agent or the person, written to the spool like any item. */
-  async notice(from, line, held2) {
-    await this.deliver({ kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line), ...held2 === void 0 ? {} : { held: held2 } }, void 0);
+  /** A notice from a handler that does not wait for it: a failure to write it is logged. */
+  noticeLater(from, line, forPerson = false) {
+    void this.notice(from, line, void 0, forPerson).catch((e6) => this.log(`wim: notice: ${e6.message}`));
+  }
+  /** A notice for the agent or the person (`forPerson`: only the person can act on it), written to the spool like any item. */
+  async notice(from, line, held2, forPerson = false) {
+    const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line) };
+    await this.deliver({ ...item, ...held2 === void 0 ? {} : { held: held2 }, ...forPerson ? { forPerson: true } : {} }, void 0);
   }
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
@@ -91250,8 +91262,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     try {
       if (typeof r6?.to !== "string" || typeof r6.text !== "string") throw new ClientError("malformed send request", "malformed");
       const out = await this.send(r6.to, r6.text);
-      const live = [...this.peers.values()].filter((p3) => p3.status !== "offline").map((p3) => p3.address);
-      await writeJson(answer, { ok: true, ...out, live }, this.o.env);
+      const peers2 = [...this.peers.values()].filter((p3) => p3.status !== "offline");
+      const live = peers2.map((p3) => p3.address);
+      const claude = peers2.filter((p3) => p3.kind === "claude-code").map((p3) => p3.address);
+      await writeJson(answer, { ok: true, ...out, live, claude }, this.o.env);
     } catch (error63) {
       await writeJson(answer, { ok: false, error: error63.message }, this.o.env);
     }
@@ -117296,6 +117310,8 @@ import { join as join13 } from "node:path";
 var SetupError = class extends Error {
   name = "SetupError";
 };
+var NotReadyYet = class extends SetupError {
+};
 
 // src/agentpath.ts
 function agentDir(root5) {
@@ -117455,6 +117471,14 @@ function openPrekeySecret(data, prekey, sealed) {
 }
 
 // src/home.ts
+async function deviceDirs(base) {
+  const candidates = [base, ...(await listDir(join14(base, "profiles"))).sort().map((p3) => join14(base, "profiles", p3))];
+  const found = [];
+  for (const dir of candidates) {
+    if (await fs8.lstat(join14(dir, "device.json")).then(() => true, () => false)) found.push(dir);
+  }
+  return found;
+}
 function localDevice(name, keys) {
   return { name, id: deviceIdFromSignPub(keys.signPub), keys, keyring: localDeviceKeyring(keys) };
 }
@@ -117513,24 +117537,25 @@ var Home = class {
     }
     const sealed = file2.sealed;
     const signPub = b64u.decode(sealed.signPub);
-    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in your own terminal`;
+    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in a terminal you opened yourself`;
     const client = new SignerClient({ endpoint: () => agentEndpoint(this.root, this.env, false), expect: signPub });
     let hello;
     try {
       hello = await client.hello();
     } catch (error63) {
-      throw new SetupError(error63.code === "unavailable" ? notRunning : error63.message);
+      if (error63.code === "unavailable") throw new NotReadyYet(notRunning);
+      throw new SetupError(error63.message);
     }
     if (hello.locked) {
       client.close();
-      throw new SetupError("the signer is locked: run `wim agent unlock` in your own terminal");
+      throw new NotReadyYet("the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
     }
     return { name: sealed.name, id: sealed.id, keyring: signerKeyring(client, { signPub, boxPub: b64u.decode(sealed.boxPub) }) };
   }
   async requireDevice() {
     const device = await this.loadDevice();
     if (device === void 0) {
-      throw new SetupError(`this device is not set up (no device keys at ${this.devicePath}): run \`wim init\` first, with the same WIM_HOME and CLAUDE_CONFIG_DIR as the agent`);
+      throw new NotReadyYet(`this device is not set up (no device keys at ${this.devicePath}): run \`wim init\` first, with the same WIM_HOME and CLAUDE_CONFIG_DIR as the agent`);
     }
     return device;
   }
@@ -117568,7 +117593,7 @@ var Home = class {
       if (!ids.includes(wanted)) throw new SetupError(`this device is not in mesh ${wanted}`);
       return wanted;
     }
-    if (ids.length === 0) throw new SetupError("this device is in no mesh: run `wim mesh create` or `wim join <code>`");
+    if (ids.length === 0) throw new NotReadyYet("this device is in no mesh: run `wim mesh create` or `wim join <code>`");
     if (ids.length > 1) throw new SetupError(`this device is in ${ids.length} meshes: set WIM_MESH or pass --mesh (${ids.join(", ")})`);
     return ids[0];
   }
@@ -119998,6 +120023,7 @@ var Server = class extends Protocol {
 };
 
 // src/mcp.ts
+import { join as join18 } from "node:path";
 var WAIT_DEFAULT_S = 110;
 var WAIT_MAX_S = 300;
 var INSTRUCTIONS = [
@@ -120051,7 +120077,7 @@ var PUBLIC = {
   rename: { description: "Change this session's name.", input: external_exports.object({ name: external_exports.string() }) }
 };
 var PUBLIC_TOOLS = Object.entries(PUBLIC).map(([name, t2]) => ({ name, description: t2.description, inputSchema: jsonSchema(t2.input) }));
-var INTERNAL_OPS = ["hello", "peers", "route", "held", "leases"];
+var INTERNAL_OPS = ["hello", "peers", "route", "held", "leases", "status"];
 var InternalCall = external_exports.object({ op: external_exports.enum(INTERNAL_OPS), args: external_exports.record(external_exports.string(), external_exports.unknown()).optional(), token: external_exports.string().optional() });
 var INTERNAL_TOOLS = [{ name: "_internal", description: "Internal to the worldinmotion plugin. Do not call.", inputSchema: jsonSchema(InternalCall) }];
 var PUBLIC_INPUTS = Object.fromEntries(Object.entries(PUBLIC).map(([name, t2]) => [name, t2.input]));
@@ -120061,7 +120087,8 @@ var Inputs = {
   _peers: external_exports.object({ forPane: external_exports.boolean().optional(), token: external_exports.string() }),
   _route: external_exports.object({ to: external_exports.string().min(1).max(256), token: external_exports.string() }),
   _held: external_exports.object({ token: external_exports.string() }),
-  _leases: external_exports.object({ token: external_exports.string() })
+  _leases: external_exports.object({ token: external_exports.string() }),
+  _status: external_exports.object({ token: external_exports.string().optional() })
 };
 var text = (t2) => ({ content: [{ type: "text", text: t2 }] });
 var json3 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
@@ -120096,8 +120123,19 @@ var WimMcp = class {
   opening;
   /** Handed out by the first `hello`; every other internal op must carry it. */
   token;
+  /** The session options, once known (at the start, or later through `retry`). */
+  sessionOpts;
+  problem;
+  retry;
+  retrying;
+  retryTimer;
+  /** A handshake that came before a session could open: its Claude session and the link file it waits on. */
+  pending;
   constructor(o3) {
     this.o = o3;
+    this.sessionOpts = o3.session;
+    this.problem = o3.setupProblem;
+    this.retry = o3.retry;
     this.server = new Server(
       { name: "worldinmotion", version: o3.version },
       {
@@ -120114,14 +120152,51 @@ var WimMcp = class {
   get current() {
     return this.session;
   }
-  /** Opens the session (with `WIM_SESSION_KEY` when given) and starts it. */
+  /**
+   * Opens the session (with `WIM_SESSION_KEY` when given) and starts it. While a problem that
+   * clears on its own stands, keeps asking in the background instead, and opens it once it clears.
+   */
   start() {
-    if (this.o.session === void 0) return void 0;
-    this.opening ??= this.openWith(this.o.sessionKey === void 0 ? void 0 : `key:${this.o.sessionKey}`);
+    if (this.sessionOpts === void 0) {
+      if (this.retry !== void 0) this.retryTimer ??= setInterval(() => void this.need().catch(() => void 0), this.o.retryMs ?? 5e3);
+      return void 0;
+    }
+    clearInterval(this.retryTimer);
+    this.opening ??= this.openFirst();
     return this.opening;
   }
+  /** The first session; when a handshake waits for it, that Claude session's own, and its link file. */
+  async openFirst() {
+    const s3 = await this.openWith(this.o.sessionKey === void 0 ? void 0 : `key:${this.o.sessionKey}`);
+    const pending = this.pending;
+    if (pending === void 0) return s3;
+    const linked = await this.adopt(pending.claudeSessionId, s3);
+    await ensureDir(join18(pending.file, ".."));
+    await writeJson(pending.file, this.linkOf(linked), this.sessionOpts.env);
+    return linked;
+  }
+  /**
+   * Asks `retry` once (one ask at a time; `retry` never rejects); afterwards the options are known,
+   * or the problem is the current one.
+   */
+  tryAgain() {
+    this.retrying ??= this.retry().then((r6) => {
+      this.retrying = void 0;
+      if ("session" in r6) {
+        this.sessionOpts = r6.session;
+        this.problem = void 0;
+        this.retry = void 0;
+        return;
+      }
+      this.problem = r6.problem;
+      if (r6.again) return;
+      this.retry = void 0;
+      clearInterval(this.retryTimer);
+    });
+    return this.retrying;
+  }
   async openWith(key2) {
-    const s3 = await MeshSession.open({ ...this.o.session, ...key2 === void 0 ? {} : { sessionKey: key2 } });
+    const s3 = await MeshSession.open({ ...this.sessionOpts, ...key2 === void 0 ? {} : { sessionKey: key2 } });
     if (this.o.channel) s3.push = (item) => this.pushChannel(item);
     s3.start();
     this.session = s3;
@@ -120136,12 +120211,50 @@ var WimMcp = class {
   }
   /** Stops the session (with `ended`, it tells the relay the session is gone) and the server. */
   async close(opts = {}) {
+    clearInterval(this.retryTimer);
+    this.retry = void 0;
+    if (this.pending !== void 0) await tryRemove(this.pending.file, { platform: process.platform, pid: process.pid });
     await this.session?.stop(opts);
     await this.server.close();
   }
   async need() {
+    if (this.session === void 0 && this.sessionOpts === void 0 && this.retry !== void 0) await this.tryAgain();
     const s3 = this.session ?? await this.start();
-    if (s3 === void 0) throw new ClientError(this.o.setupProblem ?? "worldinmotion is not set up on this device: run `wim init` and `wim join <code>`", "setup");
+    if (s3 === void 0) throw new ClientError(this.problem ?? "worldinmotion is not set up on this device: run `wim init` and `wim join <code>`", "setup");
+    return s3;
+  }
+  /** The `status` op: what this tab is, where its state lives, and what stops it if anything. */
+  async status() {
+    const s3 = await this.need().catch((error63) => error63.message);
+    const dir = this.o.stateDir === void 0 ? {} : { state_dir: this.o.stateDir.path, state_dir_why: this.o.stateDir.why };
+    if (typeof s3 === "string") return json3({ problem: s3, ...dir });
+    return json3({
+      address: s3.address,
+      device: `${s3.device.name} (${s3.device.id})`,
+      mesh: s3.config.mesh,
+      relay: s3.link?.isOpen === true ? "connected" : "connecting",
+      signer: s3.device.keyring.kind === "signer" ? "in use: the keys are in the signer (wim agent)" : "not used: the key file is plaintext",
+      held: (await s3.held.list()).length,
+      ...dir
+    });
+  }
+  /** What the plugin links to: the session's spool, address and token, and its mark directories. */
+  linkOf(s3) {
+    return { spool: s3.files.spoolDir, sid: s3.sid, address: s3.address, token: this.token, held: s3.files.heldDir, dismiss: s3.files.dismissDir };
+  }
+  /** Takes back the session `claudeSessionId` had before, if any, in place of `s`; else maps it to `s`. */
+  async adopt(claudeSessionId, s3) {
+    const key2 = `claude:${claudeSessionId}`;
+    const o3 = this.sessionOpts;
+    const keys = new SessionKeys(o3.mesh, o3.env, o3.now ?? Date.now);
+    const known = await keys.lookup(key2);
+    if (known !== void 0 && known.sid !== s3.sid && !await new SessionFiles(o3.mesh, known.sid, o3.env).isLiveElsewhere()) {
+      await s3.stop({ ended: true });
+      const next = this.openWith(key2);
+      this.opening = next;
+      return next;
+    }
+    await keys.remember(key2, s3.sid, s3.state.resume);
     return s3;
   }
   /** The plugin's handshake: take back the session this Claude Code session had before, if any. */
@@ -120149,21 +120262,17 @@ var WimMcp = class {
     if (this.token !== void 0 && (input2.token === void 0 || !sameToken(input2.token, this.token))) {
       return fail3("worldinmotion: this server already completed its handshake with another caller");
     }
-    const claudeSessionId = input2.claudeSessionId;
-    let s3 = await this.need();
-    const key2 = `claude:${claudeSessionId}`;
-    const o3 = this.o.session;
-    const keys = new SessionKeys(o3.mesh, o3.env, o3.now ?? Date.now);
-    const known = await keys.lookup(key2);
-    if (known !== void 0 && known.sid !== s3.sid && !await new SessionFiles(o3.mesh, known.sid, o3.env).isLiveElsewhere()) {
-      await s3.stop({ ended: true });
-      this.opening = this.openWith(key2);
-      s3 = await this.opening;
-    } else {
-      await keys.remember(key2, s3.sid, s3.state.resume);
+    let s3;
+    try {
+      s3 = await this.need();
+    } catch (error63) {
+      if (this.retry === void 0 || this.o.stateDir === void 0) throw error63;
+      this.token ??= b64u.encode(randomBytes2(32));
+      this.pending ??= { claudeSessionId: input2.claudeSessionId, file: join18(this.o.stateDir.path, "links", `${b64u.encode(randomBytes2(12))}.json`) };
+      return json3({ pending: true, problem: error63.message, link: this.pending.file, token: this.token });
     }
     this.token ??= b64u.encode(randomBytes2(32));
-    return json3({ spool: s3.files.spoolDir, sid: s3.sid, address: s3.address, token: this.token, held: s3.files.heldDir, dismiss: s3.files.dismissDir });
+    return json3(this.linkOf(await this.adopt(input2.claudeSessionId, s3)));
   }
   async call(name, args, progressToken, notify) {
     if (name === "_internal" && this.o.internalTools) {
@@ -120187,6 +120296,7 @@ var WimMcp = class {
   // `a` was validated against Inputs[name] by `call`, so each branch reads it as that shape.
   async run(name, a5, progressToken, notify) {
     if (name === "_hello") return this.hello(a5);
+    if (name === "_status") return this.status();
     if (name.startsWith("_") && (this.token === void 0 || !sameToken(a5.token, this.token))) {
       return fail3("worldinmotion: internal operations need the token from hello");
     }
@@ -120285,7 +120395,7 @@ var WimMcp = class {
 
 // src/notify.ts
 import { execFile } from "node:child_process";
-import { join as join18 } from "node:path";
+import { join as join19 } from "node:path";
 var CommandNotifier = class {
   last = Number.NEGATIVE_INFINITY;
   command;
@@ -120318,7 +120428,7 @@ function quiet(n3, log) {
   return { notify: (text2) => n3.notify(text2).catch((e6) => log(`wim: notification failed: ${e6.message}`)) };
 }
 async function loadNotifier(home, now = Date.now) {
-  const raw = await readJson(join18(home, "notify.json"));
+  const raw = await readJson(join19(home, "notify.json"));
   if (raw === void 0) return void 0;
   if (raw.provider !== "command" || !Array.isArray(raw.command)) throw new Error('notify.json: provider must be "command" with a command list');
   return new CommandNotifier(raw.command, raw.minIntervalMs ?? 6e4, now);
@@ -120333,8 +120443,29 @@ function agentEnv(env3) {
   for (const k5 of AGENT_ENV_VARS) if (env3[k5] !== void 0 && env3[k5] !== "") return k5;
   return Object.keys(env3).find((k5) => AGENT_ENV_PREFIXES.some((p3) => k5.startsWith(p3)) && env3[k5] !== "");
 }
+var AGENT_NAMES = {
+  CLAUDECODE: "Claude Code",
+  CLAUDE_CODE_ENTRYPOINT: "Claude Code",
+  GEMINI_CLI: "Gemini CLI",
+  CURSOR_AGENT: "Cursor",
+  CURSOR_TRACE_ID: "Cursor",
+  OPENCODE: "opencode",
+  AIDER_MODEL: "Aider",
+  ANTIGRAVITY_AGENT: "Antigravity"
+};
+function notAPerson(env3, isTTY) {
+  const agent = agentEnv(env3);
+  if (agent !== void 0) {
+    const who = AGENT_NAMES[agent] ?? (agent.startsWith("CODEX_") ? "Codex" : "an AI agent");
+    return `${agent} is set: this shell belongs to ${who}`;
+  }
+  return isTTY ? void 0 : "this command's output is not an interactive terminal (it is piped or redirected)";
+}
+function personOnly(why, command5) {
+  return `${why}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`${command5}\` there`;
+}
 function canShowSecret(env3, isTTY) {
-  return isTTY && agentEnv(env3) === void 0;
+  return notAPerson(env3, isTTY) === void 0;
 }
 var SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 6e4;
 function showSocketPath(home, platform2) {
@@ -120454,7 +120585,7 @@ function describeInfo(info) {
 
 // src/agentcli.ts
 import { spawn as nodeSpawn } from "node:child_process";
-import { join as join19 } from "node:path";
+import { join as join20 } from "node:path";
 
 // src/agent.ts
 import { createPrivateKey, sign as edSign } from "node:crypto";
@@ -120662,7 +120793,7 @@ var Signer = class {
         return {};
     }
     const keys = this.keys;
-    if (keys === void 0) throw new AgentError("locked", "the signer is locked: run `wim agent unlock` in your own terminal");
+    if (keys === void 0) throw new AgentError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
     if (!this.bucket.take()) {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
@@ -120953,8 +121084,9 @@ async function readPassphrase(ctx, question) {
   let passphrase;
   if (ctx.flags.get("passphrase-stdin") === true) passphrase = await ctx.io.prompt("");
   else {
-    if (!canShowSecret(ctx.env, ctx.io.isTTY) || ctx.io.promptSecret === void 0) {
-      throw new SetupError("the passphrase is asked for only in your own interactive terminal, not through an agent or a pipe (a service manager can pass --passphrase-stdin)");
+    const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === void 0 ? "this program cannot ask for a passphrase without showing it" : void 0);
+    if (why !== void 0) {
+      throw new SetupError(`${personOnly(why, `wim agent ${ctx.args[0]}`)} (a service manager can pass --passphrase-stdin instead)`);
     }
     passphrase = await ctx.io.promptSecret(question);
   }
@@ -121158,7 +121290,7 @@ async function unlock(ctx) {
 }
 async function eachPrekeyFile(home, rewrite) {
   for (const mesh of await home.meshIds()) {
-    const path2 = join19(home.meshDir(mesh), "prekeys.json");
+    const path2 = join20(home.meshDir(mesh), "prekeys.json");
     await withLock(`${path2}.lock`, async () => {
       const raw = await readJson(path2).catch(() => void 0);
       if (raw?.v !== 1 || !Array.isArray(raw.keys)) return;
@@ -121352,12 +121484,18 @@ var Ctx = class {
   io;
   args;
   fsEnv;
+  /** Why this state directory, and the config directory whose default and profiles hold devices. */
+  homeWhy;
+  homeBase;
   constructor(env3, io, args) {
     this.env = env3;
     this.io = io;
     this.args = args;
     this.fsEnv = { platform: io.platform, pid: io.pid };
-    this.home = new Home(defaultHome(env3, io.platform, io.homedir), { ...this.fsEnv, uid: io.uid, requireSigner: env3["WIM_REQUIRE_SIGNER"] === "1" });
+    const choice = homeChoice(env3, io.platform, io.homedir);
+    this.homeWhy = choice.why;
+    this.homeBase = choice.base;
+    this.home = new Home(choice.root, { ...this.fsEnv, uid: io.uid, requireSigner: env3["WIM_REQUIRE_SIGNER"] === "1" });
   }
   get dialer() {
     return this.io.dialer ?? wsDialer;
@@ -121528,7 +121666,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join20(ctx);
+        return await join21(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -121625,10 +121763,10 @@ async function showRecoveryCode(ctx, code2) {
     ctx.io.out("");
     return;
   }
-  const why = agentEnv(ctx.env) === void 0 ? "this output is not a terminal" : "an agent is running this command";
+  const why = notAPerson(ctx.env, ctx.io.isTTY);
   const handed = await holdForShow(showSocketPath(ctx.home.root, ctx.io.platform), code2, LIMITS.recoveryShowWindowMs, ctx.io.signal, ctx.io.platform, () => {
-    ctx.io.out(`The recovery code is not shown here because ${why}.`);
-    ctx.io.out(`Run \`wim recovery show\` in your own terminal within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only.`);
+    ctx.io.out(`The recovery code is not shown here: ${why}.`);
+    ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim recovery show\` there within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only; keep it out of any agent's chat.`);
     ctx.io.out("(A scripted `wim mesh create` that needs no recovery code can pass --no-recovery.)");
   });
   ctx.io.out(handed ? "The recovery code was shown." : "The recovery code was not collected and is gone; make a new one from an admin device with `wim recovery rotate`.");
@@ -121637,7 +121775,8 @@ async function recovery(ctx) {
   const action = ctx.args.positional[0];
   if (action === "rotate") return recoveryRotate(ctx);
   if (action !== "show") throw new SetupError("usage: wim recovery show | wim recovery rotate");
-  if (!canShowSecret(ctx.env, ctx.io.isTTY)) throw new SetupError("run this in your own interactive terminal, not through an agent or a pipe");
+  const notHere = notAPerson(ctx.env, ctx.io.isTTY);
+  if (notHere !== void 0) throw new SetupError(personOnly(notHere, "wim recovery show"));
   const code2 = await fetchHeldCode(showSocketPath(ctx.home.root, ctx.io.platform));
   ctx.io.out("Recovery code (shown once; keep it offline, it is as powerful as an admin device):");
   ctx.io.out(`  ${code2}`);
@@ -121711,7 +121850,7 @@ async function invite(ctx) {
     await s3.stop({ ended: true });
   }
 }
-async function join20(ctx) {
+async function join21(ctx) {
   const code2 = ctx.args.positional[0];
   if (code2 === void 0) throw new SetupError("usage: wim join <code>");
   const device = await ctx.home.loadDevice() ?? await ctx.home.createDevice(flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device"));
@@ -121802,8 +121941,9 @@ async function send(ctx) {
   const name = nameFor(ctx, "cli");
   const text2 = words.join(" ");
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
-  if (allowSecrets && !canShowSecret(ctx.env, ctx.io.isTTY)) {
-    throw new SetupError("--allow-secret is only for a person at an interactive terminal, not for an agent or a pipe");
+  const notHere = allowSecrets ? notAPerson(ctx.env, ctx.io.isTTY) : void 0;
+  if (notHere !== void 0) {
+    throw new SetupError(`--allow-secret is only for a person at their own terminal: ${personOnly(notHere, `wim send ${to} <text> --allow-secret`)}`);
   }
   const { files } = await ctx.mesh();
   const watcher = allowSecrets ? void 0 : await liveWatcher(files, name, ctx.fsEnv);
@@ -121819,7 +121959,8 @@ async function send(ctx) {
     const s3 = await ctx.session(name);
     try {
       const sent2 = await s3.send(to, text2, allowSecrets ? { allowSecrets: true } : {});
-      out = { ...sent2, live: [...s3.peers.values()].filter((p3) => p3.status !== "offline").map((p3) => p3.address) };
+      const live = [...s3.peers.values()].filter((p3) => p3.status !== "offline");
+      out = { ...sent2, live: live.map((p3) => p3.address), claude: live.filter((p3) => p3.kind === "claude-code").map((p3) => p3.address) };
     } finally {
       await ctx.finish(s3);
     }
@@ -121827,6 +121968,11 @@ async function send(ctx) {
   for (const r6 of out.results) {
     const hint = r6.status === "unknown" ? closestAddress(r6.to, out.live) : void 0;
     ctx.io.out(`${r6.to}: ${r6.status}${hint === void 0 ? "" : ` (did you mean ${hint}?)`}`);
+    if (r6.status === "queued") {
+      const device = r6.to.slice(r6.to.indexOf("@") + 1);
+      const tabs = (out.claude ?? []).filter((a5) => a5 !== r6.to && a5.endsWith(`@${device}`));
+      if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a5) => `${a5} (claude-code)`).join(", ")}`);
+    }
   }
   if (out.unprotected !== void 0) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
   ctx.io.out(`id ${out.id}`);
@@ -121842,7 +121988,7 @@ async function handOver(ctx, watcher, request2) {
     if (answer !== void 0) {
       await tryRemove(answerPath, ctx.fsEnv);
       if (!answer.ok) throw new ClientError(answer.error, "refused");
-      return { id: answer.id, results: answer.results, live: answer.live, unprotected: answer.unprotected, no_prekey: answer.no_prekey };
+      return { id: answer.id, results: answer.results, live: answer.live, claude: answer.claude, unprotected: answer.unprotected, no_prekey: answer.no_prekey };
     }
     if (Date.now() > until) {
       const requestPath = pathJoin(watcher.controlDir, `send-${id}.json`);
@@ -121966,17 +122112,19 @@ async function mcp(ctx) {
   const envName2 = ctx.env["WIM_NAME"];
   const kind = isName(envKind) ? envKind : "mcp";
   const name = isName(envName2) ? envName2 : toName(basename7(ctx.io.cwd), "agent");
-  let session;
-  let setupProblem;
-  try {
-    session = await ctx.sessionOptions(name, kind, true);
-  } catch (error63) {
-    setupProblem = error63.message;
-  }
+  const attempt = async () => {
+    try {
+      return { session: await ctx.sessionOptions(name, kind, true) };
+    } catch (error63) {
+      return { problem: error63.message, again: error63 instanceof NotReadyYet };
+    }
+  };
+  const first = await attempt();
   const key2 = ctx.env["WIM_SESSION_KEY"];
   const server = new WimMcp({
-    ...session === void 0 ? {} : { session },
-    ...setupProblem === void 0 ? {} : { setupProblem },
+    ..."session" in first ? { session: first.session } : { setupProblem: first.problem, ...first.again ? { retry: attempt } : {} },
+    stateDir: { path: ctx.home.root, why: ctx.homeWhy },
+    ...ctx.io.retryMs === void 0 ? {} : { retryMs: ctx.io.retryMs },
     ...key2 === void 0 || key2 === "" ? {} : { sessionKey: key2 },
     channel: ctx.env["WIM_CHANNEL"] === "1",
     internalTools: kind === "claude-code",
@@ -122067,6 +122215,10 @@ async function doctor(ctx) {
     problems++;
     ctx.io.out(`problem  ${line}`);
   };
+  info(`state directory ${ctx.home.root}: ${ctx.homeWhy}`);
+  for (const dir of await deviceDirs(ctx.homeBase)) {
+    if (dir !== ctx.home.root) info(`another device on this machine: ${dir} (its own keys and signer; a shell or agent that resolves it is not this device)`);
+  }
   let device;
   try {
     device = await ctx.home.loadDevice();

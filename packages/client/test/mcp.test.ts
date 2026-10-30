@@ -81,7 +81,7 @@ describe("wim mcp", () => {
     expect(byName["wait"]!.description).toBe("Block until the next item arrives (default 110 s, max 300).");
     expect(byName["send_file"]!.description).toContain("at most 25 MiB");
     for (const t of [...PUBLIC_TOOLS, ...INTERNAL_TOOLS]) expect(t.inputSchema["$schema"]).toBeUndefined();
-    expect((INTERNAL_TOOLS[0]!.inputSchema["properties"] as Record<string, { enum?: string[] }>)["op"]!.enum).toEqual(["hello", "peers", "route", "held", "leases"]);
+    expect((INTERNAL_TOOLS[0]!.inputSchema["properties"] as Record<string, { enum?: string[] }>)["op"]!.enum).toEqual(["hello", "peers", "route", "held", "leases", "status"]);
   });
 
   it("reports a failure that is neither a refusal nor the relay's as the client's own", async () => {

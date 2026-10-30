@@ -374,13 +374,17 @@ describe("sessions through the signer", () => {
     // Both are refused alike, said once, and neither is acknowledged or dropped.
     expect(logs.filter((l) => l.includes("while this session was running"))).toHaveLength(1);
     expect(acks()).toBe(acked);
-    expect(await before.spool.unread()).toHaveLength(1);
+    // The person is told too, once: a notice for them in the spool, beside the one message.
+    await until(async () => (await before.spool.unread()).length === 2, undefined, "the restart notice");
+    const notice = (await before.spool.unread())[1]!;
+    expect(notice).toMatchObject({ kind: "notice", forPerson: true, from: "a@one" });
+    expect(notice.rendered).toContain("restart it so it uses the signer");
     await before.stop();
     await serve(one);
     const device = (await one.home.loadDevice())!;
     const after = await session(one, mesh, relay, { name: "a", sessionKey: "agent-a", device });
     expect(after.sid).toBe(before.sid);
-    await until(async () => (await after.spool.unread()).length === 3, undefined, "both messages, delivered again");
+    await until(async () => (await after.spool.unread()).length === 4, undefined, "both messages, delivered again");
     const texts = (await after.spool.unread()).map((i) => i.rendered).join("\n");
     expect(texts).toContain("sealed after the encrypt");
     expect(texts).toContain("and another");

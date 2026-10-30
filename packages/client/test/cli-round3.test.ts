@@ -63,6 +63,52 @@ describe("one-off sends", () => {
     expect((await fs.readdir(w.files.controlDir)).filter((n) => n.endsWith(".done.json")).length).toBe(2);
   });
 
+  it("name a live Claude Code tab on a device whose terminal inbox a send was queued for", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    // cli@two is known and offline (its queue holds what is sent); a Claude tab on two is live.
+    const inbox = await openSession(devices[1]!, mesh, relay, { name: "cli", kind: "cli" });
+    await inbox.ready(3000);
+    await inbox.stop();
+    const tab = await openSession(devices[1]!, mesh, relay, { name: "proj", kind: "claude-code" });
+    open.push(tab);
+    await tab.ready(3000);
+    const t = term(devices[0]!.root, relay);
+    expect(await run(t, "send", "cli@two", "hello")).toBe(0);
+    expect(t.out).toContain("cli@two: queued");
+    expect(t.out).toContain("  live on two now: proj@two (claude-code)");
+    // The same through a running `wim watch`.
+    const w = await watcher(devices[0]!, mesh, relay);
+    await until(() => w.peers.get("proj@two")?.status === "idle");
+    const viaWatch = term(devices[0]!.root, relay);
+    const before = sendsFrom(relay, w.sid);
+    expect(await run(viaWatch, "send", "cli@two", "again")).toBe(0);
+    expect(sendsFrom(relay, w.sid)).toBe(before + 1);
+    expect(viaWatch.out).toContain("  live on two now: proj@two (claude-code)");
+    // A tab is never suggested for a send that reached it, or a send that was not queued.
+    const direct = term(devices[0]!.root, relay);
+    expect(await run(direct, "send", "proj@two", "hi")).toBe(0);
+    expect(said(direct)).not.toMatch(/live on two now/);
+  });
+
+  it("name no tab when a watch from before that answer existed takes the send", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const w = await watcher(devices[0]!, mesh, relay, "cli", false);
+    const t = term(devices[0]!.root, relay);
+    const sending = run(t, "send", "cli@two", "hi");
+    // Plays an older watch: it answers with no `claude` field.
+    const requests = async (): Promise<string[]> => (await fs.readdir(w.files.controlDir).catch(() => [])).filter((n) => /^send-[0-9A-Z]{26}\.json$/.test(n));
+    await until(async () => (await requests()).length === 1);
+    const request = (await requests())[0]!;
+    await fs.rm(join(w.files.controlDir, request));
+    const answer = { ok: true, id: ulid(), results: [{ to: "cli@two", status: "queued" }], live: ["proj@two"] };
+    await fs.writeFile(join(w.files.controlDir, request.replace(/\.json$/, ".done.json")), JSON.stringify(answer));
+    expect(await sending).toBe(0);
+    expect(t.out).toContain("cli@two: queued");
+    expect(said(t)).not.toMatch(/live on/);
+  });
+
   it("say so when the running watch does not take the send", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);

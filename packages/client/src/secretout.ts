@@ -17,8 +17,38 @@ export function agentEnv(env: Record<string, string | undefined>): string | unde
   return Object.keys(env).find((k) => AGENT_ENV_PREFIXES.some((p) => k.startsWith(p)) && env[k] !== "");
 }
 
+/** Who sets each agent variable, for saying whose shell a command runs in. */
+const AGENT_NAMES: Record<string, string> = {
+  CLAUDECODE: "Claude Code",
+  CLAUDE_CODE_ENTRYPOINT: "Claude Code",
+  GEMINI_CLI: "Gemini CLI",
+  CURSOR_AGENT: "Cursor",
+  CURSOR_TRACE_ID: "Cursor",
+  OPENCODE: "opencode",
+  AIDER_MODEL: "Aider",
+  ANTIGRAVITY_AGENT: "Antigravity",
+};
+
+/**
+ * Why this command is not a person at their own interactive terminal, or undefined when it is.
+ * An agent's variable comes first: it says whose shell this is, which is the cause to fix.
+ */
+export function notAPerson(env: Record<string, string | undefined>, isTTY: boolean): string | undefined {
+  const agent = agentEnv(env);
+  if (agent !== undefined) {
+    const who = AGENT_NAMES[agent] ?? (agent.startsWith("CODEX_") ? "Codex" : "an AI agent");
+    return `${agent} is set: this shell belongs to ${who}`;
+  }
+  return isTTY ? undefined : "this command's output is not an interactive terminal (it is piped or redirected)";
+}
+
+/** The refusal for a person-only step: the cause, then where and what to run instead. */
+export function personOnly(why: string, command: string): string {
+  return `${why}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`${command}\` there`;
+}
+
 export function canShowSecret(env: Record<string, string | undefined>, isTTY: boolean): boolean {
-  return isTTY && agentEnv(env) === undefined;
+  return notAPerson(env, isTTY) === undefined;
 }
 
 /** The recovery code display window, in minutes, for messages. */

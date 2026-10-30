@@ -23,6 +23,8 @@ export type SpoolItem = {
   relayed?: true;
   /** Framed as information only; handing it to the agent starts the `derived` window. */
   informs?: true;
+  /** A notice only the person can act on (restart this session): the plugin shows it, never starts a turn. */
+  forPerson?: true;
 };
 
 const NAME = /^(\d{12})\.json$/;

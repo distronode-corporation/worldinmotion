@@ -114,9 +114,10 @@ describe("setting up", () => {
     const creating = run(agent, "mesh", "create", "--relay", RELAY);
     await until(() => agent.out.some((l) => l.includes("wim recovery show")), 5000);
     expect(said(agent)).not.toMatch(/wimrec1_/);
-    expect(said(agent)).toMatch(/an agent is running this command/);
+    expect(said(agent)).toMatch(/not shown here: CLAUDECODE is set: this shell belongs to Claude Code\./);
     // The agent itself cannot collect it.
     expect(await run(agent, "recovery", "show")).toBe(1);
+    expect(said(agent)).toContain("CLAUDECODE is set: this shell belongs to Claude Code. Open a terminal yourself (VS Code: Terminal > New Terminal) and run `wim recovery show` there");
     const person = term(home, relay);
     expect(await run(person, "recovery", "nope")).toBe(1);
     expect(await run(person, "recovery", "show")).toBe(0);
@@ -128,7 +129,7 @@ describe("setting up", () => {
     const piped = term(await scratch("cli-pipe"), relay, { isTTY: false });
     await run(piped, "init", "--name", "pipe");
     const making = run(piped, "mesh", "create", "--relay", RELAY);
-    await until(() => piped.out.some((l) => l.includes("not a terminal")), 5000);
+    await until(() => piped.out.some((l) => l.includes("not an interactive terminal (it is piped or redirected)")), 5000);
     piped.stop.abort();
     expect(await making).toBe(0);
     expect(said(piped)).toMatch(/was not collected/);

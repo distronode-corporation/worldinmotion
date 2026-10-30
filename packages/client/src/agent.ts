@@ -298,7 +298,7 @@ export class Signer {
         return {};
     }
     const keys = this.keys;
-    if (keys === undefined) throw new AgentError("locked", "the signer is locked: run `wim agent unlock` in your own terminal");
+    if (keys === undefined) throw new AgentError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
     if (!this.bucket.take()) {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");

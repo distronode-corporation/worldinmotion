@@ -19,6 +19,34 @@ describe("more command paths", () => {
     expect(said(t)).toMatch(/relay ws:\/\/127\.0\.0\.1:1: /);
   });
 
+  it("doctor says which state directory it uses and why, and lists the other devices on this machine", async () => {
+    const relay = new RelayHarness();
+    const { devices } = await makeMesh(relay, ["one"]);
+    const home = await scratch("doc-dirs");
+    // Two more devices under this user's config directory: the default one and a Claude profile's.
+    const base = join(home, ".config", "worldinmotion");
+    await fs.mkdir(join(base, "profiles", "abcdefabcdef"), { recursive: true });
+    await fs.mkdir(join(base, "profiles", "nodevice"), { recursive: true });
+    await fs.writeFile(join(base, "device.json"), "{}");
+    await fs.writeFile(join(base, "profiles", "abcdefabcdef", "device.json"), "{}");
+    const t = term(devices[0]!.root, relay, { homedir: home });
+    expect(await run(t, "doctor")).toBe(0);
+    expect(t.out).toContain(`info     state directory ${devices[0]!.root}: WIM_HOME is set`);
+    expect(t.out).toContain(`info     another device on this machine: ${base} (its own keys and signer; a shell or agent that resolves it is not this device)`);
+    expect(said(t)).toContain(`another device on this machine: ${join(base, "profiles", "abcdefabcdef")} `);
+    expect(said(t)).not.toMatch(/nodevice/);
+    // With CLAUDE_CONFIG_DIR and no WIM_HOME: that profile's own directory, with no device in it.
+    const claude = term(devices[0]!.root, relay, { homedir: home }, { WIM_HOME: "", CLAUDE_CONFIG_DIR: "/home/u/.claude-work" });
+    expect(await run(claude, "doctor")).toBe(1);
+    expect(said(claude)).toMatch(/state directory .*profiles.*: CLAUDE_CONFIG_DIR is set \(\/home\/u\/\.claude-work\), so this is that Claude profile's own device, not the one a shell without it uses/);
+    expect(claude.out).toContain(`info     another device on this machine: ${base} (its own keys and signer; a shell or agent that resolves it is not this device)`);
+    // The default directory names no other device than itself.
+    const plain = term(devices[0]!.root, relay, { homedir: home }, { WIM_HOME: "" });
+    expect(await run(plain, "doctor")).toBe(1);
+    expect(plain.out).toContain(`info     state directory ${base}: the default (neither WIM_HOME nor CLAUDE_CONFIG_DIR is set)`);
+    expect(plain.out.filter((l) => l.includes("another device"))).toEqual([expect.stringContaining("abcdefabcdef")]);
+  });
+
   it("logs with WIM_DEBUG, notifies through notify.json, and says when there are no peers", async () => {
     const relay = new RelayHarness();
     const { devices } = await makeMesh(relay, ["one"]);
