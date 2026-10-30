@@ -30,6 +30,15 @@ body line with a bracket.
   them. The name stays held for those 24 hours, and a new conversation in the same folder takes
   the session over, queue included. No relay or protocol change. (#37)
 
+### Documentation
+
+- **Keepalive and liveness timings are in SPEC.md section 8.** The client pings after 30 s of
+  quiet; the Cloudflare relay closes a socket silent for 5 minutes (`STALE_MS`) on a 1-minute alarm
+  (`HEARTBEAT_MS`); the self-hosted relay closes one that missed a 30 s protocol ping. So a frozen
+  recipient (stopped, or asleep with its connection open) stays `busy` or `idle` in peers, and sends
+  to it answer `routed`, for up to about 6 minutes on the Cloudflare relay. Nothing is lost: it
+  receives them when it runs again. No code change. (#39)
+
 ### Added
 
 - **`wim inbox --mark-read`** marks what it printed even when its output is not a terminal (the

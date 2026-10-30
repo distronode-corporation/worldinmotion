@@ -316,7 +316,10 @@ is busy (try again, or `--as` another name). `wim history` and the
 
 What each status means, as the CLI, the `send` tool and the plugin word it: `routed`, handed to a
 live session; `queued`, that session is offline and the relay keeps it 24 hours. Neither means
-delivered or read. Receipts: `delivered`, the recipient session took the item (its client's spool
+delivered or read. "Live" is the relay's view: a session whose process is frozen but whose
+connection is still open stays `busy` or `idle` and gets `routed` until the relay closes the socket
+(up to about 6 minutes on the Cloudflare relay; SPEC section 8, keepalives and liveness), and it
+receives the message when it runs again. Receipts: `delivered`, the recipient session took the item (its client's spool
 sweep, or a waiting `ask`); `held`, it waits for the approval of that device's person (`/wim` in
 Claude Code, the Held view in VS Code, or `wim held approve <id>`); `refused`, that device's inbound
 policy; `expired`, nothing took it within 24 hours. None means a person or an agent read it. A
