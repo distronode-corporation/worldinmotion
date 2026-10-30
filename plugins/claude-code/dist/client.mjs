@@ -121649,9 +121649,8 @@ async function askGui(platform2, run, text2) {
 function answered(r6, cmd, last) {
   if (r6 === void 0) return void 0;
   if (r6.code === 0) return r6.stdout.replace(/\r?\n$/, "");
-  const why = r6.stderr.trim();
-  if (last || why === "") throw new SetupError("the passphrase prompt was cancelled");
-  return { failed: `${cmd}: ${why.slice(0, 300)}` };
+  if (last || !/(cannot|failed to) open display/i.test(r6.stderr)) throw new SetupError("the passphrase prompt was cancelled");
+  return { failed: `${cmd}: ${r6.stderr.trim().slice(0, 300)}` };
 }
 function keyringKind(platform2) {
   if (platform2 === "darwin") return "keychain";

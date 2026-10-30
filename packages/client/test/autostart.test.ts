@@ -112,6 +112,13 @@ describe("the native passphrase prompt", () => {
     await expect(askGui("linux", both.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");
     const mac = programs(() => failed("execution error: User canceled. (-128)"));
     await expect(askGui("darwin", mac.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");
+    // zenity cancelled in a working dialog exits 1 too, with GTK's warnings on stderr: a cancel, no second dialog.
+    const noisy = programs(() => failed("(zenity:4242): Gtk-WARNING **: Trying to measure GtkLabel 0x5a5d for height of 9, but it needs at least 24\n"));
+    await expect(askGui("linux", noisy.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");
+    expect(noisy.calls.map((c) => c.cmd)).toEqual(["zenity"]);
+    // GTK 4 words it "Failed to open display" (zenity 4.2, measured).
+    const gtk4 = programs((cmd) => (cmd === "zenity" ? failed("(zenity:414040): Gtk-WARNING **: 23:07:26.318: Failed to open display\n") : ok("q\n")));
+    expect(await askGui("linux", gtk4.run, GUI_ASK)).toBe("q");
   });
 
   it("refuses a cancelled prompt, and passes on a failure that is not a missing tool", async () => {

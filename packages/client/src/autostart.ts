@@ -91,8 +91,10 @@ export function guiPrompts(platform: Platform, text: string): Array<{ cmd: strin
 
 /**
  * Asks the person for the passphrase in a native dialog: the first prompt program that is
- * installed and starts. One that fails to start (zenity with no display) says why on stderr, and
- * the next is tried; the last one's failure, or one that exits saying nothing, is a cancel.
+ * installed and reaches a display. zenity exits 1 both on Cancel and when it cannot open a
+ * display, and GTK prints warnings on stderr even in a dialog that works, so only GTK's own
+ * (untranslated) "cannot open display" or "Failed to open display" passes over to the next tool;
+ * any other failure is a cancel.
  */
 export async function askGui(platform: Platform, run: Run, text: string): Promise<string> {
   const prompts = guiPrompts(platform, text);
@@ -113,9 +115,8 @@ export async function askGui(platform: Platform, run: Run, text: string): Promis
 function answered(r: RunResult | undefined, cmd: string, last: boolean): string | { failed: string } | undefined {
   if (r === undefined) return undefined;
   if (r.code === 0) return r.stdout.replace(/\r?\n$/, "");
-  const why = r.stderr.trim();
-  if (last || why === "") throw new SetupError("the passphrase prompt was cancelled");
-  return { failed: `${cmd}: ${why.slice(0, 300)}` };
+  if (last || !/(cannot|failed to) open display/i.test(r.stderr)) throw new SetupError("the passphrase prompt was cancelled");
+  return { failed: `${cmd}: ${r.stderr.trim().slice(0, 300)}` };
 }
 
 // ---- the OS keyring (`--keyring`, opt-in) ----
