@@ -51,6 +51,15 @@ export function canShowSecret(env: Record<string, string | undefined>, isTTY: bo
   return notAPerson(env, isTTY) === undefined;
 }
 
+/**
+ * Whether a person can answer a confirmation here: admitting a device by its comparison code, or
+ * trusting one (SECURITY-MODEL section 5.6). The rule for a passphrase, plus input from the
+ * terminal too: an agent that pipes an answer in (a fifo, a here-string) is not the person.
+ */
+export function canConfirm(env: Record<string, string | undefined>, io: { isTTY: boolean; inputIsTTY: boolean }): boolean {
+  return io.inputIsTTY && canShowSecret(env, io.isTTY);
+}
+
 /** The recovery code display window, in minutes, for messages. */
 export const SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 60_000;
 

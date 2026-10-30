@@ -2,18 +2,23 @@
 // session of its own; the UI sees what the device's sessions do and acts through it, without
 // ever touching keys or the relay itself.
 
-import { isRecoveryName, isUlid, sanitizeForDisplay } from "@worldinmotion/protocol";
+import { isRecoveryName, isUlid, LIMITS, parseInvite, sanitizeForDisplay } from "@worldinmotion/protocol";
 import { constants, promises as fs } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
 import { isAbsolute, join } from "node:path";
 import { z } from "zod";
+import { admitPending, issueInvite, joinMesh } from "./admin.ts";
 import { ClientError, MeshSession, type PeerRow } from "./client.ts";
 import { noFollow, openNoFollow, type FsEnv } from "./fsx.ts";
 import { History, parseEntry, type HistoryEntry } from "./history.ts";
-import type { Device } from "./home.ts";
+import type { Device, Home } from "./home.ts";
+import { Invites, PendingJoins } from "./joins.ts";
 import { setDevicePolicy, trustLevel, type MeshFiles } from "./mesh.ts";
+import type { Dialer } from "./wire.ts";
+import { SetupError } from "./errors.ts";
+import { resolveInvite, type BoxFetcher } from "./shortcode.ts";
 import { decideHeld, listAllHeld, resumeEverywhere, type HeldRow } from "./offline.ts";
 import { policyLevel } from "./render.ts";
 import { listSessions, SessionFiles } from "./session.ts";
@@ -47,6 +52,11 @@ export type EventsDeps = {
   pollMs?: number;
   /** How often leases are asked for while connected (5 s; each is a relay round trip). */
   leasePollMs?: number;
+  /**
+   * The agent variable in this process's environment, if any (`agentEnv`). Adding a device is the
+   * person's (SECURITY-MODEL section 5.6), so `invite` and `admit` are refused when one is set.
+   */
+  agent?: string;
 };
 
 type Row = Record<string, unknown>;
@@ -63,6 +73,8 @@ const Args = {
   trust: z.object({ device: z.string(), relayed: z.boolean().optional() }),
   untrust: z.object({ device: z.string() }),
   resume: z.object({ peer: z.string() }),
+  invite: z.object({ exp: z.number().int().min(60_000).max(LIMITS.inviteMaxTtlMs).optional() }),
+  admit: z.object({ device: z.string(), code: z.string().min(1).max(64) }),
 } as const;
 
 type Op = keyof typeof Args;
@@ -95,6 +107,14 @@ function heldRow(h: HeldRow, session: string): Row {
   };
 }
 
+/** A join request as the UI sees it: never its comparison code, which the person types from the new device. */
+type JoinRow = { name: string; id: string; invite: string; at: number; exp: number };
+
+/** Refuses a person's device action in an events process an agent started. */
+function personOnly(agent: string | undefined, what: string): void {
+  if (agent !== undefined) throw new RequestError("refused", `${what} is the person's: this events process runs with an agent's variables (${agent})`);
+}
+
 /** Runs the events process until stdin closes or the signal aborts. */
 export async function runEvents(d: EventsDeps): Promise<void> {
   const s = d.session;
@@ -125,6 +145,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   let peers = new Map<string, string>();
   let held = new Map<string, { sid: string; row: Row }>();
   let leases = new Map<string, string>();
+  let joins = new Map<string, string>();
   /** Per session: the history file being followed (by inode) and how far it was read. */
   const followed = new Map<string, { ino: bigint; offset: number }>();
   /** Whether a snapshot went out since the last connection change: peer changes count only then. */
@@ -140,6 +161,29 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   const addresses = new Map<string, string>();
 
   const remember = <T>(rows: T[], key: (r: T) => string): Map<string, string> => new Map(rows.map((r) => [key(r), JSON.stringify(r)]));
+
+  /** The join requests waiting on this device, as the UI sees them. */
+  async function joinsNow(): Promise<JoinRow[]> {
+    const rows = await new PendingJoins(d.mesh, d.env).list(s.roster, new Invites(d.mesh, d.env, d.now), d.now());
+    return rows.map((r) => ({ name: r.name, id: r.id, invite: r.invite, at: r.at, exp: r.exp }));
+  }
+  const joinKey = (r: Row | JoinRow): string => `${r["invite"] as string}/${r["id"] as string}`;
+
+  /** One pass at a time (the poll and an admit), so a request is announced once. */
+  let joinsQueue: Promise<void> = Promise.resolve();
+  function joinsPass(): Promise<void> {
+    const run = joinsQueue.then(joinsPassNow);
+    joinsQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  async function joinsPassNow(): Promise<void> {
+    const rows = await joinsNow();
+    const next = remember(rows, joinKey);
+    for (const r of rows) if (!joins.has(joinKey(r))) emit("join", { op: "add", request: r });
+    for (const [k, text] of joins) if (!next.has(k)) emit("join", { op: "remove", request: JSON.parse(text) as Row });
+    joins = next;
+  }
 
   /** Every held item on this device, keyed by holding session and id. */
   async function heldNow(): Promise<Map<string, { sid: string; row: Row }>> {
@@ -158,6 +202,8 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     const leaseRows = online ? await s.listLeases().catch(() => []) : [];
     held = await heldNow();
     const heldRows = [...held.values()].map((h) => h.row);
+    const joinRows = await joinsNow();
+    joins = remember(joinRows, joinKey);
     const devs = deviceRows();
     devices = remember(devs, (r) => r["id"] as string);
     peers = remember(rows.map(sessionRow), (r) => r["address"] as string);
@@ -168,7 +214,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       if (h.row["reason"] === "breaker" && !paused.has(peer)) paused.set(peer, { peer, at: h.row["at"] });
     }
     synced = true;
-    emit("snapshot", { devices: devs, sessions: rows.map(sessionRow), rooms: roomsOf(rows), leases: leaseRows, held: heldRows, breakers: [...paused.values()] });
+    emit("snapshot", { devices: devs, sessions: rows.map(sessionRow), rooms: roomsOf(rows), leases: leaseRows, held: heldRows, breakers: [...paused.values()], joins: joinRows });
   }
 
   /** Emits rows that are new or changed since the last look, and `removed` for rows now gone. */
@@ -283,6 +329,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   async function poll(): Promise<void> {
     await follow(false);
     await heldPass();
+    await joinsPass();
     devices = diff("device", deviceRows(), (r) => r["id"] as string, devices, deviceGone);
   }
 
@@ -369,6 +416,23 @@ export async function runEvents(d: EventsDeps): Promise<void> {
         const released = (await s.resumePeer(peer)) + (await resumeEverywhere(d.mesh, peer, d.env, d.now, s.sid));
         return { released };
       }
+      case "invite": {
+        personOnly(d.agent, "inviting a device");
+        // Never `auto`: a UI's invite is always admitted by the person, with the code they type.
+        const made = await issueInvite(s, { ttlMs: (a as z.infer<typeof Args.invite>).exp ?? 3_600_000, auto: false, now: d.now, short: true });
+        // With a short code, `code` is it and `exp` its end; `full` is the full code, for older devices.
+        if (made.short === undefined) return { code: made.code, invite: made.inviteId, exp: made.exp };
+        return { code: made.short.code, invite: made.inviteId, exp: made.short.exp, full: made.code };
+      }
+      case "admit": {
+        personOnly(d.agent, "admitting a device");
+        const i = a as z.infer<typeof Args.admit>;
+        const decision = await admitPending(s, i.device, i.code, d.now);
+        if (decision.outcome !== "admitted") throw new RequestError("refused", `could not admit ${sanitizeForDisplay(i.device)}: ${decision.reason!}`);
+        await joinsPass();
+        devices = diff("device", deviceRows(), (r) => r["id"] as string, devices, deviceGone);
+        return { device: i.device };
+      }
     }
   }
 
@@ -403,6 +467,8 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   emit("hello", {
     version: d.version,
     device: { name: d.device.name, id: d.device.id },
+    // Where the device keys are: in this process (`local`), or in the signer (`signer`).
+    keys: d.device.keyring.kind,
     session: s.address,
     relay: relayHost(s.config.relay),
     mesh: `${s.config.mesh.slice(0, 4)}…`,
@@ -422,6 +488,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
 
   await follow(true);
   held = await heldNow();
+  joins = remember(await joinsNow(), joinKey);
   // Devices are part of the first snapshot, not changes before it.
   devices = remember(deviceRows(), (r) => r["id"] as string);
   s.start();
@@ -450,4 +517,118 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   clearInterval(leaseTick);
   lines.close();
   await queue;
+}
+
+export type SetupDeps = {
+  home: Home;
+  /** The name a new device takes when the request names none (the CLI's, from the host name). */
+  defaultName: string;
+  dialer: Dialer;
+  version: string;
+  write: (line: string) => void;
+  input: Readable;
+  signal: AbortSignal;
+  now: () => number;
+  agent?: string;
+  /** Reads a short invite code's box from its relay (`fetch`). */
+  fetch: BoxFetcher;
+};
+
+const SetupArgs = z.object({ code: z.string().min(1).max(16 * 1024), name: z.string().optional() });
+
+/**
+ * `wim events --json` on a device in no mesh yet (docs/events.md, setup mode): a `setup` event
+ * instead of `hello`, and one request, `join`, answered once the comparison code is known. The
+ * outcome follows as a `joined` or `join_failed` event; after `joined` the process ends, and the UI
+ * starts it again, now in the mesh.
+ */
+export async function runSetupEvents(d: SetupDeps): Promise<void> {
+  const emit = (type: string, fields: Row = {}): void => d.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d.now(), ...fields }));
+  const known = await d.home.loadDevice();
+  emit("setup", { version: d.version, device: known === undefined ? null : { name: known.name, id: known.id } });
+  let joining = false;
+  let finish!: () => void;
+  const joined = new Promise<void>((resolve) => (finish = resolve));
+
+  async function join(a: z.infer<typeof SetupArgs>): Promise<Row> {
+    personOnly(d.agent, "joining a mesh");
+    if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
+    // Read before any key is made, so a mistyped code leaves no device behind. A short code is
+    // resolved through its relay (which counts the lookup), then read as a full one.
+    joining = true;
+    try {
+      const code = await resolveInvite(a.code, d.fetch).catch((error: unknown) => {
+        throw error instanceof SetupError ? new RequestError("input", error.message) : error;
+      });
+      try {
+        parseInvite(code);
+      } catch {
+        throw new RequestError("input", "not an invite code (wim1_... or wim2-...)");
+      }
+      const device = (await d.home.loadDevice()) ?? (await d.home.createDevice(a.name ?? d.defaultName));
+      return await new Promise<Row>((resolve, reject) => {
+        let answered = false;
+        joinMesh({
+          home: d.home,
+          device,
+          code,
+          dialer: d.dialer,
+          now: d.now,
+          showSas: (sas) => {
+            answered = true;
+            resolve({ device: { name: device.name, id: device.id }, code: sas });
+          },
+        }).then(
+          (done) => {
+            const others = done.roster.devices.filter((x) => x.id !== device.id && !isRecoveryName(x.name)).map((x) => ({ name: x.name, id: x.id }));
+            emit("joined", { mesh: `${done.mesh.slice(0, 4)}…`, devices: others });
+            finish();
+          },
+          (error: unknown) => {
+            joining = false;
+            if (!answered) return reject(error);
+            emit("join_failed", { message: sanitizeForDisplay((error as Error).message) });
+          },
+        );
+      });
+    } catch (error) {
+      joining = false;
+      throw error;
+    }
+  }
+
+  async function handle(line: string): Promise<void> {
+    let id: string | undefined;
+    try {
+      const raw = (() => {
+        try {
+          return JSON.parse(line) as unknown;
+        } catch {
+          throw new RequestError("input", "not JSON");
+        }
+      })();
+      const req = Request.safeParse(raw);
+      if (!req.success) throw new RequestError("input", "a request is { v: 1, id, op, args? }");
+      id = req.data.id;
+      if (req.data.op !== "join") throw new RequestError("setup", "this device is in no mesh yet: join one first");
+      const args = SetupArgs.safeParse(req.data.args ?? {});
+      if (!args.success) throw new RequestError("input", args.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
+      emit("response", { id, ok: true, result: await join(args.data) });
+    } catch (error) {
+      // The client's own errors before the code was shown (a dial that failed, the device already in that mesh) are `error`.
+      const code = error instanceof RequestError ? error.code : "error";
+      emit("response", { ...(id === undefined ? {} : { id }), ok: false, error: { code, message: sanitizeForDisplay((error as Error).message) } });
+    }
+  }
+
+  let queue = Promise.resolve();
+  const lines = createInterface({ input: d.input });
+  lines.on("line", (line) => {
+    if (line.trim() === "") return;
+    queue = queue.then(() => handle(line));
+  });
+  const ended = new Promise<void>((resolve) => lines.once("close", resolve));
+  const aborted = new Promise<void>((resolve) => (d.signal.aborted ? resolve() : d.signal.addEventListener("abort", () => resolve(), { once: true })));
+  await Promise.race([ended, aborted, joined]);
+  lines.close();
 }

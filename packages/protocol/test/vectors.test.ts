@@ -10,9 +10,14 @@ import {
   isVectorKey,
   VECTOR_SEED_PUBLIC_KEYS,
   openMessage,
+  openRdv,
   parseInvite,
+  parseShortCode,
+  rdvId,
+  rdvKey,
   parseJson,
   parseRecoveryCode,
+  plaintextSchema,
   verifyObject,
   verifyPrekey,
   verifyRosterChain,
@@ -66,6 +71,12 @@ describe("test vectors", { timeout: 60_000 }, () => {
     expect(parseRecoveryCode(roster.recovery.code).mesh).toBe(chain[0].mesh);
     const invite = load("invite.json");
     expect(parseInvite(invite.code).inviteId).toBe(invite.invite_id);
+    const rdv = load("rdv.json");
+    expect(parseShortCode(rdv.code)).toEqual({ k: rdv.k, relay: "wss://relay.example" });
+    expect([rdvId(rdv.k), Buffer.from(rdvKey(rdv.k)).toString("hex")]).toEqual([rdv.rdv, rdv.key_hex]);
+    expect(openRdv(rdv.k, rdv.answer)).toEqual({ ok: true, value: invite.code });
+    for (const v of rdv.valid) expect(parseShortCode(v.code)).toEqual({ k: rdv.k, relay: v.relay });
+    for (const v of rdv.invalid) expect(() => parseShortCode(v.code), v.reason).toThrow();
     const message = load("message.json");
     const bob = load("keys.json").keys[1];
     const me = { ...message.receiver, deviceId: bob.id, keys: deviceKeysFromSecrets(bytes(bob.signSec), bytes(bob.boxSec)) };
@@ -86,5 +97,13 @@ describe("test vectors", { timeout: 60_000 }, () => {
       expect(openMessage(t.frame, { roster: pk.roster, me: { ...bobPk, ...pk.message.receiver, prekey: held(t.held) }, now: pk.message.now })).toEqual({ ok: false, reason: t.reason });
     }
     for (const v of pk.invalid_prekeys) expect(verifyPrekey(v.prekey, pk.roster, v.now)).toEqual({ ok: false, reason: v.reason });
+    const ping = load("ping.json");
+    const aliceKeys = deviceKeysFromSecrets(bytes(alice.signSec), bytes(alice.boxSec));
+    const atBob = { ...ping.ping.receiver, deviceId: bob.id, keys: me.keys, prekey: held([pk.prekeys.bob.prekey.id]) };
+    const atAlice = { ...ping.pong.receiver, deviceId: alice.id, keys: aliceKeys, prekey: held([pk.prekeys.alice.prekey.id]) };
+    expect(openMessage(ping.ping.frame, { roster: ping.roster, me: atBob, now: ping.ping.now })).toEqual({ ok: true, value: ping.ping.plaintext });
+    expect(openMessage(ping.pong.frame, { roster: ping.roster, me: atAlice, now: ping.pong.now })).toEqual({ ok: true, value: ping.pong.plaintext });
+    expect(ping.pong.plaintext.reply_to).toBe(ping.ping.plaintext.id);
+    for (const v of ping.invalid_plaintexts) expect(plaintextSchema.safeParse(v.plaintext).success, v.why).toBe(false);
   });
 });

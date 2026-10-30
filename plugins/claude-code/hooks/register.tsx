@@ -351,6 +351,11 @@ async function deliver($: EngineInterface): Promise<void> {
       $.ui.toast(`worldinmotion: ${n} message${n === 1 ? '' : 's'} held for your approval (/wim)`)
       continue
     }
+    if (item.kind === 'notice' && item.heldBy !== undefined) {
+      // A message this session sent waits for the recipient device's person: theirs to approve.
+      $.ui.toast(`worldinmotion: ${item.heldBy} is holding your message for its person's approval; it is not delivered until they approve it there`)
+      continue
+    }
     if (item.kind === 'notice' && item.forPerson) {
       // Something only the person can do (restart this session): a toast, and
       // kept for the status line and /wim status until the session ends.
@@ -559,6 +564,9 @@ async function peerRows($: EngineInterface): Promise<{ lines: string[]; rows: Pe
 }
 
 const FAILED = 'worldinmotion: the send failed in the plugin.'
+// What a send's statuses mean, said with them so no one is told "delivered" for a queued send.
+const SENT_MEANING =
+  'routed: handed to a live session; queued: that session is offline and the relay keeps it 24 h. Neither means delivered or read, so say "sent".'
 
 /** A room, or exactly one name@device: the only recipients the bridge considers. */
 function isMeshShaped(to: string): boolean {
@@ -598,8 +606,8 @@ async function bridgeSend(
   const named = statuses.map(one => `${one.to}: ${one.status}`).join(', ')
   const isSent = statuses.every(one => one.status === 'routed' || one.status === 'queued')
   return isSent
-    ? { isSent: true, text: `Delivered through worldinmotion (${named}).` }
-    : { isSent: false, text: `worldinmotion: not delivered (${named}).` }
+    ? { isSent: true, text: `Sent through worldinmotion (${named}). ${SENT_MEANING}` }
+    : { isSent: false, text: `worldinmotion: not sent (${named}).` }
 }
 
 /** Records every local agent name and address seen, so none is ever bridged. */

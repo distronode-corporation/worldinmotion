@@ -3,8 +3,8 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { activate, deactivate, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
-import { ExtensionMode, fake, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
+import { activate, deactivate, JOIN_HINT, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
+import { ExtensionMode, fake, FakeTerminal, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
 
 const PKG = fileURLToPath(new URL("..", import.meta.url));
 const FIXTURE = fileURLToPath(new URL("./fixtures/fake-wim.mjs", import.meta.url));
@@ -155,6 +155,41 @@ describe("activate", () => {
     deactivate();
   });
 
+  it("starts the signer in a terminal, and restarts the client when that terminal closes", async () => {
+    const { api } = start();
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    const starts = () => fake.state.output.filter((l) => l.startsWith("starting ")).length;
+    expect(starts()).toBe(1);
+    await fake.run("worldinmotion.startSigner");
+    const first = fake.state.terminals[0]!;
+    expect(first.options).toEqual({ name: "worldinmotion signer", shellPath: process.execPath, shellArgs: [FIXTURE, "agent", "start"], env: { ELECTRON_RUN_AS_NODE: "1" }, cwd: homedir() });
+    expect(first.shown).toBe(1);
+    fake.closeTerminal(first, 0);
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`." });
+    expect(starts()).toBe(2);
+
+    await fake.run("worldinmotion.startSigner");
+    fake.closeTerminal(fake.state.terminals[1]!, 1);
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "warning", message: expect.stringMatching(/^worldinmotion: the signer did not start \(exit code 1\)\. Run worldinmotion: Start Signer again/) });
+    expect(starts()).toBe(3);
+
+    // Closed by the person before it exited: no message, and the client still restarts.
+    const shown = fake.state.messages.length;
+    await fake.run("worldinmotion.startSigner");
+    fake.closeTerminal(fake.state.terminals[2]!, undefined);
+    expect(fake.state.messages.length).toBe(shown);
+    expect(starts()).toBe(4);
+    // Another terminal closing changes nothing, nor does the signer's terminal closing twice.
+    fake.closeTerminal(new FakeTerminal(first.options), 0);
+    fake.closeTerminal(fake.state.terminals[2]!, 0);
+    expect(starts()).toBe(4);
+
+    // A locked signer is unlocked rather than started.
+    api!.store.exited("exited with code 1: wim: the signer is locked: run `wim agent unlock` in your own terminal");
+    await fake.run("worldinmotion.startSigner");
+    expect(fake.state.terminals[3]!.options.shellArgs).toEqual([FIXTURE, "agent", "unlock"]);
+  });
+
   it("returns nothing outside test mode, and survives a client that exits", async () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "exit-after-hello");
     const { api } = start(ExtensionMode.Production);
@@ -196,6 +231,42 @@ describe("activate", () => {
     const quiet = start();
     await waitFor(() => expect(quiet.api!.store.messages.some((m) => m.text === "for the tab")).toBe(true));
     expect(fake.state.messages.filter((m) => m.message.includes("to reviewer@laptop"))).toHaveLength(0);
+  });
+
+  it("joins a mesh in setup mode, asks about trust once in it, and adds a device by its code", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    const { api } = start();
+    const meshView = fake.state.treeViews.get("worldinmotion.mesh")!;
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    await waitFor(() => expect(meshView.message).toBe(JOIN_HINT));
+    // The comparison code's dialog has no buttons; the trust question that follows does.
+    fake.state.inputAnswers.push("wim1_fake");
+    fake.state.messageAnswers.push("Trust");
+    await fake.run("worldinmotion.joinMesh");
+    await waitFor(() => expect(fake.state.messages.some((m) => m.message === "worldinmotion: this device's comparison code is ABCDE-FGHJK")).toBe(true));
+    // Joined: the client starts again in the mesh, and its first snapshot brings the question.
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    await waitFor(() => expect(requests().find((r) => r.op === "trust")?.args).toEqual({ device: "buildbox", relayed: false }));
+    expect(fake.state.messages.filter((m) => m.message === 'Is "buildbox" your own device?').length).toBe(1);
+    // Add a Device...: the invite is copied, and the request on it asks for its code at once.
+    fake.state.messageAnswers.push("Copy Invite Code");
+    fake.state.inputAnswers.push("abcde-fghjk");
+    await fake.run("worldinmotion.addDevice");
+    await waitFor(() => expect(api!.store.devices.has("newbox")).toBe(true));
+    expect(fake.state.clipboard).toMatch(/^wim1_fakeinv-/);
+    expect(requests().find((r) => r.op === "admit")!.args).toEqual({ device: "newbox", code: "abcde-fghjk" });
+    await waitFor(() => expect(api!.store.joins.size).toBe(0));
+    await fake.run("worldinmotion.admitDevice");
+    expect(fake.state.messages.at(-1)!.message).toBe("worldinmotion: no device is waiting to join.");
+  });
+
+  it("says when joining a mesh fails after the code was shown", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup-fail");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.inputAnswers.push("wim1_fake");
+    await fake.run("worldinmotion.joinMesh");
+    await waitFor(() => expect(fake.state.messages.at(-1)!.message).toBe("worldinmotion: joining the mesh failed: the relay went away"));
   });
 
   it("logs and ignores a line of a newer contract version, and keeps going", async () => {

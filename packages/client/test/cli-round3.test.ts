@@ -17,10 +17,14 @@ afterEach(async () => {
   for (const s of open.splice(0)) await s.stop().catch(() => undefined);
 });
 
-/** A `wim watch` in "another process" (a live pid that is not this one), taking handed-over sends. */
+/**
+ * A `wim watch` in "another process" (a live pid that is not this one): it says it takes
+ * handed-over sends, and does unless `handover` is false (a watch that stopped taking them).
+ */
 async function watcher(d: Parameters<typeof sessionOpts>[0], mesh: string, relay: RelayHarness, name = "cli", handover = true): Promise<MeshSession> {
   const s = await MeshSession.open({ ...sessionOpts(d, mesh, relay, { name, kind: "cli", handover, env: { ...FS, pid: LIVE_PID } }), sessionKey: `cli:${name}` });
   open.push(s);
+  await s.files.markHandover(true);
   s.start();
   await s.ready(3000);
   return s;
@@ -75,7 +79,7 @@ describe("one-off sends", () => {
     await tab.ready(3000);
     const t = term(devices[0]!.root, relay);
     expect(await run(t, "send", "cli@two", "hello")).toBe(0);
-    expect(t.out).toContain("cli@two: queued");
+    expect(t.out).toContain("cli@two: queued (that session is offline; the relay keeps it 24 h)");
     expect(t.out).toContain("  live on two now: proj@two (claude-code)");
     // The same through a running `wim watch`.
     const w = await watcher(devices[0]!, mesh, relay);
@@ -105,7 +109,7 @@ describe("one-off sends", () => {
     const answer = { ok: true, id: ulid(), results: [{ to: "cli@two", status: "queued" }], live: ["proj@two"] };
     await fs.writeFile(join(w.files.controlDir, request.replace(/\.json$/, ".done.json")), JSON.stringify(answer));
     expect(await sending).toBe(0);
-    expect(t.out).toContain("cli@two: queued");
+    expect(t.out).toContain("cli@two: queued (that session is offline; the relay keeps it 24 h)");
     expect(said(t)).not.toMatch(/live on/);
   });
 
@@ -115,7 +119,7 @@ describe("one-off sends", () => {
     await watcher(devices[0]!, mesh, relay, "cli", false);
     const t = term(devices[0]!.root, relay, { handoverMs: 100 });
     expect(await run(t, "send", "cli@one", "hi")).toBe(1);
-    expect(said(t)).toMatch(/did not take the send\. Is it still connected\? A `wim watch` started before this version of wim does not take sends: restart it\./);
+    expect(said(t)).toMatch(/did not take the send\. Is it still connected\? Restart it if it is stuck\./);
   });
 
   it("says the outcome is unknown when the request it would withdraw is busy, as when the watch is taking it", async () => {

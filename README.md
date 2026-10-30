@@ -94,9 +94,10 @@ Do this once for `desk` and once for `build`, with a new invite each time.
 wim invite
 ```
 
-It prints a single-use invite code and waits. Move the code to the other machine yourself: a
-password manager, AirDrop, a file on a USB stick. Never through Claude or another agent, and not
-over the mesh.
+It prints a single-use short invite code, `wim2-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`, and waits. Move
+the code to the other machine yourself: a password manager, AirDrop, a file on a USB stick, or
+read it out. Never through Claude or another agent, and not over the mesh. (A machine on wim
+0.1.4 or older needs the full code: `wim invite --full`.)
 
 [Terminal on `desk`]
 
@@ -104,44 +105,55 @@ over the mesh.
 wim join <code> --name desk
 ```
 
-Both terminals now show a check code like `7KQ2M-X4D9P`. Compare the two yourself. If they are
-the same, answer `y` on `laptop`; if they differ, someone else used the invite: answer `n`.
-(A later version asks you to type the check code on `laptop` instead of answering `y`; the
-comparison is the same.)
+`desk` shows a comparison code like `7KQ2M-X4D9P`. Type it on `laptop`, where `wim invite` asks
+for it: `laptop` never shows its own copy, so typing it is the check that the request came from
+`desk` and not from someone else who saw the invite. A code that does not match is refused: make
+a new invite. Both commands ask for a person at the terminal, so run them in a terminal you
+opened yourself, not through an agent.
 
-`wim join` makes the device's keys too, so a new machine needs no `wim init`.
+`wim join` makes the device's keys too, so a new machine needs no `wim init`. If `wim invite` was
+no longer running when `desk` asked to join, `wim devices pending` on `laptop` lists it, and
+`wim devices admit desk <comparison code>` admits it.
 
 ### 4. Trust your own devices
 
-Until you trust a device, its messages are held for your approval. For three machines that is
-six trusts, two on each:
+Until you trust a device, its messages are held for your approval. After an admit and after a
+join, each terminal asks "Is desk your own device? Trust its messages here?": answer `y` for your
+own devices. For three machines that is six trusts, two on each machine. Any you skipped, on each
+machine:
 
-[Terminal on `laptop`] `wim devices trust desk` and `wim devices trust build`
+[Terminal on `laptop`, `desk` and `build`]
 
-[Terminal on `desk`] `wim devices trust laptop` and `wim devices trust build`
+```sh
+wim devices trust --all
+```
 
-[Terminal on `build`] `wim devices trust laptop` and `wim devices trust desk`
-
-`wim devices` lists the devices and what this one does with each one's messages.
+`wim devices trust <name>` trusts one device, and `wim devices` lists the devices and what this
+one does with each one's messages.
 
 ### 5. Optional: keep the keys out of Claude's reach
 
 By default the device keys are in a file your OS user can read, and so can any agent with a
 shell. The signer keeps them in a separate process instead.
 
-[Terminal] Once per machine, then after each restart:
+[Terminal] Once per machine:
 
 ```sh
 wim agent encrypt   # once: encrypts the key file under a passphrase you choose
 wim agent start     # asks for the passphrase and starts the signer in the background
 ```
 
+The signer keeps running after you close the terminal or VS Code, and stops when you log out,
+restart or run `wim agent stop`. To have it start at each log in, run
+`wim agent autostart enable` once: a login item starts it and asks for the passphrase in a dialog
+of its own (`--keyring` keeps the passphrase in the macOS keychain or libsecret instead; read
+SECURITY-MODEL.md section 5.8 first). Without autostart, run `wim agent start` again after each
+restart.
+
 Start it before you open Claude when you can. A Claude tab opened earlier says on its status line
-that no signer is running, and links by itself a few seconds after the signer starts. The signer
-keeps running when you close the terminal or VS Code, but not across logging out or restarting:
-run `wim agent start` again after each restart. `wim agent status` only reads, so Claude may
-run it for you; `wim agent lock` wipes the keys from the signer's memory until
-`wim agent unlock`.
+that no signer is running, and links by itself a few seconds after the signer starts.
+`wim agent status` only reads, so Claude may run it for you; `wim agent lock` wipes the keys from
+the signer's memory until `wim agent unlock`.
 
 ### 6. Check each machine
 
@@ -165,32 +177,33 @@ When a Claude tab is live there, `wim send` says so: `live on desk now: billing@
 
 ### 8. Terminal test: all six routes
 
-[Terminal on each machine] Send to the other two:
+[Terminal on each machine] Leave `wim watch` running in one terminal, so each machine has a live
+session. Then, in another terminal on each machine:
+
+```sh
+wim ping --all
+```
+
+It pings every live session, and each device's client answers with a pong by itself (no agent,
+no inbox). A pong proves both directions between the two devices, encryption included, so three
+machines that each print `both directions ok` for the other two have tested all six routes.
+
+To test real messages as well, send to the other two from each machine and wait for the
+receipts:
 
 ```sh
 # on laptop
-wim send cli@desk "hello from laptop"
-wim send cli@build "hello from laptop"
-# on desk
-wim send cli@laptop "hello from desk"
-wim send cli@build "hello from desk"
-# on build
-wim send cli@laptop "hello from build"
-wim send cli@desk "hello from build"
+wim send cli@desk "hello from laptop" --wait 2m
+wim send cli@build "hello from laptop" --wait 2m
+# on desk, then on build: the same to the other two
 ```
 
-Each should answer `queued` (or `routed` while a `wim watch` reads there). Then on each machine,
-`wim inbox` shows the two messages sent to it. Answer each one to test the way back, for example
-on `desk`:
-
-```sh
-wim send cli@laptop "reply from desk"
-wim send cli@build "reply from desk"
-```
-
-and `wim inbox` on each machine shows the two replies. (A later version adds `wim ping`, which
-runs this round trip for you.) A message from a device you did not trust waits in
-`wim held list` until `wim held approve <id>`.
+Each send answers `routed` (handed to a live session; not yet read) while a `wim watch` reads
+there, else `queued`. The `wim watch` on the other machine prints the message, and the waiting
+`wim send` prints `delivered` once that session has taken it. Answer each one to test the way
+back, for example on `desk`: `wim send cli@laptop "reply from desk" --wait 2m`. Without a
+`wim watch`, `wim inbox` reads the terminal inbox once. A message from a device you did not
+trust prints `held` with how to approve it there (`wim held approve <id>`).
 
 ### 9. Claude-to-Claude test
 

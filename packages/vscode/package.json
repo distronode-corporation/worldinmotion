@@ -159,6 +159,22 @@
         "icon": "$(debug-continue)"
       },
       {
+        "command": "worldinmotion.addDevice",
+        "title": "Add a Device...",
+        "category": "worldinmotion",
+        "icon": "$(add)"
+      },
+      {
+        "command": "worldinmotion.admitDevice",
+        "title": "Admit a Device...",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.joinMesh",
+        "title": "Join a Mesh...",
+        "category": "worldinmotion"
+      },
+      {
         "command": "worldinmotion.refresh",
         "title": "Refresh",
         "category": "worldinmotion",
@@ -177,6 +193,11 @@
       {
         "command": "worldinmotion.restart",
         "title": "Restart Client",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.startSigner",
+        "title": "Start Signer",
         "category": "worldinmotion"
       }
     ],
@@ -207,14 +228,19 @@
       ],
       "view/title": [
         {
-          "command": "worldinmotion.sendMessage",
+          "command": "worldinmotion.addDevice",
           "when": "view == worldinmotion.mesh",
           "group": "navigation@1"
         },
         {
+          "command": "worldinmotion.sendMessage",
+          "when": "view == worldinmotion.mesh",
+          "group": "navigation@2"
+        },
+        {
           "command": "worldinmotion.refresh",
           "when": "view == worldinmotion.mesh",
-          "group": "navigation"
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [

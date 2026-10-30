@@ -4,6 +4,7 @@ import { homedir, hostname } from "node:os";
 import { createInterface, type Interface } from "node:readline";
 import { Writable, type Readable } from "node:stream";
 import { spawnDetached, wimCommand } from "./agentcli.ts";
+import { runProgram } from "./autostart.ts";
 import type { CliIO } from "./cli.ts";
 import { pidAlive } from "./platform.ts";
 
@@ -27,7 +28,7 @@ function ask(input: Readable, open: () => Interface, question: string): Promise<
 
 /** The parts of `process` the CLI uses, so tests can pass a stand-in. */
 export type Proc = {
-  stdin: Readable;
+  stdin: Readable & { isTTY?: boolean };
   stdout: Writable & { isTTY?: boolean };
   stderr: Writable;
   platform: string;
@@ -63,6 +64,7 @@ export function processIo(
       return answer;
     },
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
+    programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
     signal: stop.signal,
     cwd: proc.cwd(),
     homedir: machine.homedir(),
@@ -74,6 +76,7 @@ export function processIo(
     stdin: proc.stdin,
     stdout: proc.stdout,
     isTTY: proc.stdout.isTTY === true,
+    inputIsTTY: proc.stdin.isTTY === true,
     fetch: globalThis.fetch,
     // Orphaned children are re-parented, so a changed ppid means the parent died.
     parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill),

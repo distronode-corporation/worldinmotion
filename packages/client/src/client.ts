@@ -23,6 +23,7 @@ import {
   type ErrorFrame,
   type Card,
   type FileInfo,
+  type JoinBody,
   type LeaseFrame,
   type Prekey,
   type LeasesFrame,
@@ -57,6 +58,8 @@ import { noticeText, policyFor, policyLevel } from "./render.ts";
 import { SeenStore, SeqStore } from "./replay.ts";
 import { listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
 import { NeedsSigner } from "./keyring.ts";
+import { PongBudget, type PingRow } from "./ping.ts";
+import { Invites, PendingJoins, screenJoin } from "./joins.ts";
 import { SignerError } from "./signer.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
@@ -136,6 +139,21 @@ export type PeerRow = Peer & { card?: Card };
 /** A delivered item's verified fields, for in-process consumers. */
 export type Inbound = HistoryEntry & { cursor: number };
 
+/** What `post` sends: a message, or a ping or pong of the client's own (SPEC section 12). */
+type Outgoing = Omit<SendOptions, "kind"> & { kind?: SendOptions["kind"] | "ping" | "pong" };
+
+/** Every address's status for a ping: the ones no roster device answers to, then the relay's. */
+function pingResults(out: { local: SendResult[]; sent?: SentFrame }): SendResult[] {
+  return [...out.local, ...(out.sent === undefined ? [] : out.sent.results)];
+}
+
+/** A ping's row for one address: the relay's status, and the round trip once its pong came back. */
+function pingRow(address: string, results: readonly SendResult[], pongs: ReadonlyMap<string, number>): PingRow {
+  const status = results.find((r) => r.to === address)!.status;
+  const ms = pongs.get(address);
+  return ms === undefined ? { to: address, status } : { to: address, status, ms };
+}
+
 export type SendOptions = {
   kind?: "msg" | "task" | "result" | "file";
   reply_to?: string;
@@ -159,6 +177,11 @@ export type SendOptions = {
  */
 export type SendOutcome = { id: string; results: SendResult[]; unprotected?: string[]; no_prekey?: string[] };
 
+/** The notice for a `held` receipt: the message waits for the recipient device's person. */
+export function heldReceiptLine(to: string, id: string): string {
+  return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
+}
+
 /** What a person or an agent is told about a send that went without forward secrecy. */
 export function unprotectedNote(unprotected: readonly string[], noPrekey: readonly string[]): string {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
@@ -181,8 +204,14 @@ export const PARKED_MAX = 64;
 export const ANSWER_KEEP_MS = 5 * 60_000;
 const GROUP = (to: readonly string[]): boolean => to.some((a) => a === "*" || isRoom(a));
 
+/** A plaintext that is a message to someone: neither a card nor a ping or pong (SPEC section 12). */
+type Message = Exclude<Plaintext, { kind: "card" | "ping" | "pong" }>;
+
+/** A ping or a pong: answered or taken by the client itself, never spooled or shown to an agent. */
+type Probe = Extract<Plaintext, { kind: "ping" | "pong" }>;
+
 /** The verified fields of a received plaintext, as history and the agent frame read them. */
-function entryOf(p: Exclude<Plaintext, { kind: "card" }>, from: string): HistoryEntry {
+function entryOf(p: Message, from: string): HistoryEntry {
   return {
     dir: "in",
     peer: from,
@@ -260,6 +289,10 @@ export class MeshSession extends EventEmitter {
   private sweeping: Promise<void> = Promise.resolve();
   /** Relayed items an agent read through `inbox`, so they are not kept for later. */
   private readonly readRelayed = new Set<string>();
+  /** How many pings this session answers (SPEC section 12). */
+  private readonly pongBudget = new PongBudget();
+  /** Pings this session sent and still waits on, by id: each takes the pongs that answer it. */
+  private readonly pongWaiters = new Map<string, (device: string, session: string) => void>();
   /** Delivery through MCP channel notifications instead of leaving items for the plugin. */
   push: ((item: SpoolItem) => Promise<void>) | undefined;
 
@@ -303,6 +336,9 @@ export class MeshSession extends EventEmitter {
     const files = new SessionFiles(o.mesh, state.sid, o.env);
     // A new session's directory is new, so this claim cannot find another holder.
     await files.claim();
+    // Whether this holder takes handed-over sends, so a one-off command neither hands a send to
+    // a session that does not take them nor mistakes that session for a watch.
+    await files.markHandover(o.handover === true);
     // The plugin's pane writes its marks here, so both exist from the start.
     await ensureDir(files.heldDir);
     await ensureDir(files.dismissDir);
@@ -525,14 +561,17 @@ export class MeshSession extends EventEmitter {
         list.push({ to: f.to, status: f.status });
         this.receipts.set(f.id, list);
         this.emit("receipt", f);
+        void this.recordReceipt(f).catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`));
         return;
       }
       case "notice":
         this.noticeLater(f.of, `${f.of} is now idle (or has ended).`);
         return;
       case "join.request":
-        // Only `wim invite` acts on these; a session without a listener ignores them (a refusal).
+        // `wim invite` decides these as they come; every session of an admin device also keeps
+        // one that passes the checks for `wim devices admit`, after the frames before it.
         this.emit("join", f.join);
+        this.inbound = this.inbound.then(() => this.keepJoin(f.join)).catch((e: unknown) => this.log(`wim: join request not kept: ${(e as Error).message}`));
         return;
       // Cards (SPEC section 17) only annotate peer rows: never spooled, never a wake.
       case "cards": {
@@ -548,6 +587,25 @@ export class MeshSession extends EventEmitter {
         this.takeCard(f.msg);
         return;
     }
+  }
+
+  /**
+   * Keeps a join request for the person (SPEC section 5): only one for an invite this device
+   * issued that passes every check a person is not needed for. Its comparison code is not kept:
+   * the person types it from the new device's screen.
+   */
+  private keepJoin(body: JoinBody): Promise<void> {
+    // Chained rather than awaited, so each decision sits in a plain function (see publishCard).
+    return screenJoin(new Invites(this.o.mesh, this.o.env, this.now), this.roster, body, this.now()).then((screened) => {
+      if (screened.outcome !== "ok") return undefined;
+      return new PendingJoins(this.o.mesh, this.o.env).save(body, screened.record.exp, this.now()).then((fresh) => this.announceJoin(fresh, screened.device.name));
+    });
+  }
+
+  /** Tells the person about a join request kept for the first time; one kept before is not news. */
+  private announceJoin(fresh: boolean, name: string): Promise<void> | undefined {
+    if (!fresh) return undefined;
+    return this.o.notifier?.notify(`worldinmotion: a device named ${name} asks to join the mesh (wim devices pending)`);
   }
 
   /** Takes a prekey from a card or message header: known at once, written for siblings in the background. */
@@ -826,6 +884,7 @@ export class MeshSession extends EventEmitter {
   }
 
   private async accept(p: Exclude<Plaintext, { kind: "card" }>): Promise<void> {
+    if (p.kind === "ping" || p.kind === "pong") return this.probe(p);
     const from = this.fromAddress(p);
     this.config = await this.o.mesh.loadConfig();
     const policy = policyFor(this.config, p.from.device, p.relayed === true);
@@ -865,6 +924,23 @@ export class MeshSession extends EventEmitter {
       return;
     }
     await this.release(held, p.kind === "file" ? p.file : undefined);
+  }
+
+  /**
+   * A ping is answered here, by the client, with a pong to the session that sent it; a pong goes
+   * to the ping this session is waiting on. Neither is spooled, kept in history, receipted or
+   * shown to an agent (SPEC section 12). A device the person refuses gets no answer, and the
+   * budget bounds how many pongs any device can draw.
+   */
+  private probe(p: Probe): Promise<void> {
+    if (p.kind === "pong") return Promise.resolve(void this.pongWaiters.get(p.reply_to)?.(p.from.device, p.from.session));
+    // The person's newest policy, as for any message.
+    return this.o.mesh.loadConfig().then((config) => {
+      this.config = config;
+      if (policyLevel(config, p.from.device) === "refuse" || !this.pongBudget.allow(p.from.device, p.at, this.now())) return;
+      const to = this.fromAddress(p);
+      void this.post(to, undefined, { kind: "pong", reply_to: p.id }).catch((e: unknown) => this.log(`wim: no pong sent to ${to}: ${(e as Error).message}`));
+    });
   }
 
   /** Fetches a file if there is one, renders the frame and puts the item in the spool. */
@@ -932,13 +1008,30 @@ export class MeshSession extends EventEmitter {
 
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
   private noticeLater(from: string, line: string, forPerson = false): void {
-    void this.notice(from, line, undefined, forPerson).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
+    void this.notice(from, line, undefined, undefined, forPerson).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
   }
 
-  /** A notice for the agent or the person (`forPerson`: only the person can act on it), written to the spool like any item. */
-  async notice(from: string, line: string, held?: number, forPerson = false): Promise<void> {
+  /**
+   * A notice for the agent or the person, written to the spool like any item. `forPerson`: only
+   * the person can act on it (restart this session).
+   */
+  async notice(from: string, line: string, held?: number, heldBy?: string, forPerson = false): Promise<void> {
     const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line) };
-    await this.deliver({ ...item, ...(held === undefined ? {} : { held }), ...(forPerson ? { forPerson: true as const } : {}) }, undefined);
+    await this.deliver(
+      { ...item, ...(held === undefined ? {} : { held }), ...(heldBy === undefined ? {} : { heldBy }), ...(forPerson ? { forPerson: true as const } : {}) },
+      undefined,
+    );
+  }
+
+  /**
+   * Records a receipt in history. A `held` one is also a notice, so whoever sent the message (the
+   * person through the plugin's toast, or the agent) learns that it waits for the recipient's
+   * person and is not delivered. Branches before any await (see AgentServer.answerLine).
+   */
+  private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
+    const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
+    if (f.status !== "held") return recorded;
+    return recorded.then(() => this.notice(f.to, heldReceiptLine(f.to, f.id), undefined, f.to));
   }
 
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
@@ -1231,12 +1324,48 @@ export class MeshSession extends EventEmitter {
 
   /** Seals and sends, then waits briefly for the relay's per-recipient statuses. */
   async send(toInput: string | readonly string[], text: string | undefined, opts: SendOptions = {}): Promise<SendOutcome> {
+    return this.recordSend(await this.post(toInput, text, opts), text, opts);
+  }
+
+  /** What a sent message adds to the post: the breaker's count and history. Not async (see publishCard). */
+  private recordSend(out: Awaited<ReturnType<MeshSession["post"]>>, text: string | undefined, opts: SendOptions): Promise<SendOutcome> {
+    if (out.sent === undefined) return Promise.resolve({ id: out.id, results: out.local });
+    const { id, routed, frame, missing, sent } = out;
+    for (const a of routed) if (!isRoom(a) && a !== "*") this.breaker.noteSent(this.pairOf(a).split("/")[0]!, (text ?? "").length);
+    const name = (d: string): string => this.roster.devices.find((r) => r.id === d)!.name;
+    const unprotected = this.legacyIds(frame).map(name);
+    const outcome: SendOutcome = { id, results: [...out.local, ...sent.results], ...(unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {}) };
+    return this.history.append({
+      dir: "out",
+      peer: routed.join(","),
+      id,
+      kind: opts.kind ?? "msg",
+      at: frame.at,
+      text: text ?? "",
+      ...(opts.reply_to === undefined ? {} : { reply_to: opts.reply_to }),
+      ...(opts.status === undefined ? {} : { status: opts.status }),
+      ...(opts.file === undefined ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } }),
+      ...(opts.relayed === true ? { relayed: true as const } : {}),
+    }).then(() => outcome);
+  }
+
+  /**
+   * Seals one frame, puts it on the wire and waits for the relay's `sent`. `local` holds the
+   * addresses no roster device answers to; `sent` is absent when nothing was left to send. What a
+   * message adds on top (history, the breaker's count) is `send`'s; pings and pongs go through
+   * here alone.
+   */
+  private async post(
+    toInput: string | readonly string[],
+    text: string | undefined,
+    opts: Outgoing,
+  ): Promise<{ id: string; local: SendResult[]; sent?: undefined } | { id: string; local: SendResult[]; routed: string[]; frame: SendFrame; missing: string[]; sent: SentFrame }> {
     const to = MeshSession.parseTo(toInput);
     const { ids, unknown } = this.recipients(to);
     const local = unknown.map((a) => ({ to: a, status: "unknown" as const }));
     const id = opts.id ?? ulid(this.now());
     const routed = to.filter((a) => !unknown.includes(a));
-    if (routed.length === 0) return { id, results: local };
+    if (routed.length === 0) return { id, local };
     // From seal to wire, one send at a time: the seq is read when sealing and saved before the
     // frame goes out, so an overlapping send would reuse it or overtake it, and the receiver
     // would drop one as a replay.
@@ -1259,23 +1388,43 @@ export class MeshSession extends EventEmitter {
     });
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
-    const sent = answer as SentFrame;
-    for (const a of routed) if (!isRoom(a) && a !== "*") this.breaker.noteSent(this.pairOf(a).split("/")[0]!, (text ?? "").length);
-    await this.history.append({
-      dir: "out",
-      peer: routed.join(","),
-      id,
-      kind: opts.kind ?? "msg",
-      at: frame.at,
-      text: text ?? "",
-      ...(opts.reply_to === undefined ? {} : { reply_to: opts.reply_to }),
-      ...(opts.status === undefined ? {} : { status: opts.status }),
-      ...(opts.file === undefined ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } }),
-      ...(opts.relayed === true ? { relayed: true as const } : {}),
+    return { id, local, routed, frame, missing, sent: answer as SentFrame };
+  }
+
+  /**
+   * Pings sessions (`wim ping`, SPEC section 12) and waits up to `waitMs` for their pongs. Each
+   * row is a pinged address with the relay's status for it and, when its pong came back, the round
+   * trip in milliseconds. Only sessions: a ping is never sent to `*` or a room.
+   */
+  async ping(targets: string | readonly string[], waitMs: number): Promise<PingRow[]> {
+    const to = MeshSession.parseTo(targets);
+    if (to.some((a) => a === "*" || isRoom(a))) throw new ClientError("a ping names sessions (name@device), never * or a room", "bad_address");
+    const id = ulid(this.now());
+    const asked = new Map(to.map((a) => [this.pairOf(a), a]));
+    const pongs = new Map<string, number>();
+    const started = this.now();
+    let answered!: () => void;
+    const all = new Promise<void>((resolve) => (answered = resolve));
+    // Until the relay says which pings it routed, every pinged session is waited on.
+    let waiting: readonly string[] = to;
+    const check = (): void => (waiting.every((a) => pongs.has(a)) ? answered() : undefined);
+    this.pongWaiters.set(id, (device, session) => {
+      const address = asked.get(`${device}/${session}`);
+      if (address === undefined || pongs.has(address)) return;
+      pongs.set(address, this.now() - started);
+      check();
     });
-    const name = (d: string): string => this.roster.devices.find((r) => r.id === d)!.name;
-    const unprotected = this.legacyIds(frame).map(name);
-    return { id, results: [...local, ...sent.results], ...(unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {}) };
+    try {
+      const results = pingResults(await this.post(to, undefined, { kind: "ping", id }));
+      waiting = results.filter((r) => r.status === "routed").map((r) => r.to);
+      check();
+      let timer: NodeJS.Timeout | undefined;
+      await Promise.race([all, new Promise<void>((resolve) => (timer = setTimeout(resolve, waitMs)))]);
+      clearTimeout(timer);
+      return to.map((a) => pingRow(a, results, pongs));
+    } finally {
+      this.pongWaiters.delete(id);
+    }
   }
 
   private serially<T>(fn: () => Promise<T>): Promise<T> {
@@ -1285,8 +1434,9 @@ export class MeshSession extends EventEmitter {
   }
 
   /** Seals a message at the next seq; the secrets check and the protocol limits refuse here. */
-  private async seal(id: string, routed: string[], ids: string[], text: string | undefined, opts: SendOptions): Promise<{ frame: SendFrame; missing: string[] }> {
-    const derived = await this.isDerived();
+  private async seal(id: string, routed: string[], ids: string[], text: string | undefined, opts: Outgoing): Promise<{ frame: SendFrame; missing: string[] }> {
+    // A pong is the client's own answer, never written while handling anything (SPEC section 6a).
+    const derived = opts.kind === "ping" || opts.kind === "pong" ? false : await this.isDerived();
     const { keys, missing } = this.keysFor(ids);
     try {
       const frame = await sealMessageWith({
@@ -1436,8 +1586,9 @@ export class MeshSession extends EventEmitter {
     for (const { cursor, msg } of page.msgs) {
       const r = await this.openFresh(msg, true);
       if (!r.ok) continue;
-      // A card is addressed to `*` only (the plaintext schema), so a room never holds one.
-      const p = r.value as Exclude<Plaintext, { kind: "card" }>;
+      // A card is addressed to `*` only, and a ping or pong to sessions only (the plaintext
+      // schema), so a room never holds one.
+      const p = r.value as Message;
       const entry = entryOf(p, this.fromAddress(p));
       if (p.kind === "file") entry.savedTo = "(not fetched: an earlier file from room history)";
       items.push(`(room history, cursor ${cursor}: an earlier message, not a new one to act on)\n${frameEntry(entry)}`);
@@ -1589,36 +1740,50 @@ export class MeshSession extends EventEmitter {
   }
 
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */
-  async next(timeoutMs: number, onTick?: (elapsed: number) => void, tickMs = 30_000): Promise<SpoolItem | undefined> {
+  next(timeoutMs: number, onTick?: (elapsed: number) => void, tickMs = 30_000): Promise<SpoolItem | undefined> {
     const started = this.now();
-    const first = (await this.spool.unread())[0];
-    if (first !== undefined) {
-      await this.take(first.cursor);
-      this.informed([first]);
-      return first;
-    }
-    return new Promise((resolve) => {
-      const done = (item: SpoolItem | undefined): void => {
+    return new Promise((resolve, reject) => {
+      // Set once the wait has its item, has failed or has run out: nothing is taken after that.
+      let over = false;
+      let timer: NodeJS.Timeout | undefined;
+      const finish = (): void => {
+        over = true;
         clearTimeout(timer);
         clearInterval(beat);
         this.off("item", onItem);
-        resolve(item);
       };
-      // The first item only: the listener goes before anything is awaited, so a second item
-      // delivered while this one is taken stays unread for the next call.
-      // An item's event can arrive after the scan above already took it (the event follows the
-      // write, and the scan can see the file first); one at or below the cursor is not new.
+      const fail = (error: unknown): void => {
+        finish();
+        reject(error);
+      };
+      // The oldest unread item, taken by the first look that sees one: a second item delivered
+      // meanwhile stays unread for the next call.
+      const takeFirst = (items: SpoolItem[]): void => {
+        const first = items[0];
+        if (over || first === undefined) return;
+        finish();
+        this.take(first.cursor).then(() => {
+          this.informed([first]);
+          resolve(first);
+        }, reject);
+      };
+      const look = (): void => void this.spool.unread().then(takeFirst, fail);
+      // The time counts from the end of the first look, so an item already unread is returned
+      // however slow the look (a Windows runner) and however short the wait.
+      const firstLook = (items: SpoolItem[]): void => {
+        takeFirst(items);
+        if (!over) timer = setTimeout(() => (finish(), resolve(undefined)), timeoutMs);
+      };
+      // An item's event starts a look. One at or below the cursor is not new: its event came after
+      // a look already took it. With push set, items go to the channel instead.
       const onItem = (item: SpoolItem): void => {
-        if (this.push !== undefined || item.cursor <= this.spool.taken) return;
-        this.off("item", onItem);
-        void this.take(item.cursor).then(() => {
-          this.informed([item]);
-          done(item);
-        });
+        if (this.push === undefined && item.cursor > this.spool.taken) look();
       };
-      const timer = setTimeout(() => done(undefined), timeoutMs);
       const beat = setInterval(() => onTick?.(this.now() - started), tickMs);
+      // Listening starts before the first look: an item written after that look listed the spool,
+      // whose event came before a listener was there, would otherwise wait out the timeout unseen.
       this.on("item", onItem);
+      void this.spool.unread().then(firstLook, fail);
     });
   }
 }

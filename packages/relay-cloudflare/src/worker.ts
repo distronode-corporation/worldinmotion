@@ -1,6 +1,7 @@
-import { healthz, isInfoPath, parseDialPath, relayInfo, relaySettings, sourceKey } from "@worldinmotion/relay-core";
+import { healthz, isInfoPath, parseDialPath, parseRdvPath, RDV_HEADERS, relayInfo, relaySettings, sourceKey } from "@worldinmotion/relay-core";
 import { configProblem, type Env } from "./config.ts";
 import { MESH_HEADER, SOURCE_HEADER } from "./mesh.ts";
+import { RDV_NAME } from "./rdv.ts";
 import { json } from "./route.ts";
 
 // The Worker's entry module (wrangler.jsonc `main`). The runtime reads every export of it as a
@@ -8,6 +9,15 @@ import { json } from "./route.ts";
 export { MeshDurableObject } from "./mesh.ts";
 export { SourceLimiter } from "./limiter.ts";
 export { MeshRegistry } from "./registry.ts";
+export { RendezvousStore } from "./rdv.ts";
+
+/**
+ * The rate-limit key of the client's address. Cloudflare sets CF-Connecting-IP itself and
+ * overwrites any client copy.
+ */
+function sourceOf(request: Request): string {
+  return sourceKey(request.headers.get("cf-connecting-ip") ?? "");
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -20,15 +30,21 @@ export default {
     if (request.method !== "GET") return json(404, { error: "not found" });
     // The public description (no secret, no live count); it needs no Durable Object either.
     if (isInfoPath(url.pathname)) return json(200, relayInfo(relaySettings(env)));
+    // A short invite code's box (SPEC section 5), from the one rendezvous object, by hashed address.
+    const rdv = parseRdvPath(url.pathname);
+    if (rdv !== undefined) {
+      if (!rdv.ok) return json(rdv.status, { error: rdv.error }, RDV_HEADERS);
+      const answer = await env.RDV.get(env.RDV.idFromName(RDV_NAME)).get(rdv.rdv, sourceOf(request));
+      return json(answer.status, answer.body, RDV_HEADERS);
+    }
     const dial = parseDialPath(url.pathname);
     if (!dial.ok) return json(dial.status, { error: dial.error });
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") return json(426, { error: "expected a WebSocket upgrade" });
     // A fresh header set: nothing the client sent reaches the object except the upgrade, so a
-    // client cannot supply its own source key or mesh header. Cloudflare sets CF-Connecting-IP
-    // itself and overwrites any client copy.
+    // client cannot supply its own source key or mesh header.
     const headers = new Headers({
       upgrade: "websocket",
-      [SOURCE_HEADER]: sourceKey(request.headers.get("cf-connecting-ip") ?? ""),
+      [SOURCE_HEADER]: sourceOf(request),
       [MESH_HEADER]: dial.meshId,
     });
     const stub = env.MESH.get(env.MESH.idFromName(dial.meshId));

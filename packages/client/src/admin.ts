@@ -24,7 +24,6 @@ import {
   signAuthWith,
   signRecoverAuth,
   ulid,
-  verifyJoin,
   verifyRosterChain,
   recoverySummary,
   deviceIdFromSignPub as deviceIdOf,
@@ -38,25 +37,17 @@ import {
   type Roster,
 } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { readJson, removeFile, withLock, writeJson, type FsEnv } from "./fsx.ts";
+import { withLock } from "./fsx.ts";
+import { Invites, PendingJoins, sameCode, screenJoin } from "./joins.ts";
 import { SetupError, type Device, type Home } from "./home.ts";
 import { DEFAULT_BREAKER, MeshFiles, type MeshConfig } from "./mesh.ts";
 import { ClientError, relayRefusal, type MeshSession } from "./client.ts";
+import { storeShortCode } from "./shortcode.ts";
 import { authRefusal, checkDialable, errorFor, Link, relayCode, type Dialer } from "./wire.ts";
 
 export type RecoverySummary = ReturnType<typeof recoverySummary>;
 
-export type InviteRecord = {
-  v: 1;
-  id: string;
-  exp: number;
-  /** Recorded on this device only, never in the code (SPEC section 5). */
-  auto: boolean;
-  used: boolean;
-  created: number;
-  /** b64u; deleted once the invite is used or expired. */
-  secret?: string;
-};
+export { Invites, type InviteRecord } from "./joins.ts";
 
 function newConfig(mesh: string, relay: string, device: string, roster: Roster, tls?: string): MeshConfig {
   return { v: 1, mesh, relay, device, pin: rosterRef(roster), policy: {}, breaker: DEFAULT_BREAKER, share_cards: true, ...(tls === undefined ? {} : { tls }) };
@@ -111,52 +102,16 @@ export async function createMesh(o: {
   }
 }
 
-/** The invite records of a mesh, with expired secrets deleted as they are found. */
-export class Invites {
-  private readonly files: MeshFiles;
-  private readonly env: FsEnv;
-  private readonly now: () => number;
-  constructor(files: MeshFiles, env: FsEnv, now: () => number) {
-    this.files = files;
-    this.env = env;
-    this.now = now;
-  }
+/** An issued invite: its full code, id and expiry, and with `short`, its short code or why there is none. */
+export type IssuedInvite = { code: string; inviteId: string; exp: number; short?: { code: string; exp: number }; shortRefused?: string };
 
-  private path(id: string): string {
-    return join(this.files.invitesDir, `${id}.json`);
-  }
-
-  async get(id: string): Promise<InviteRecord | undefined> {
-    if (!/^[A-Za-z0-9_-]{22}$/.test(id)) return undefined;
-    const raw = (await readJson(this.path(id))) as InviteRecord | undefined;
-    if (raw === undefined) return undefined;
-    if (raw.exp <= this.now() && raw.secret !== undefined) {
-      const { secret: _s, ...rest } = raw;
-      await writeJson(this.path(id), rest, this.env);
-      return rest;
-    }
-    return raw;
-  }
-
-  async put(r: InviteRecord): Promise<void> {
-    await writeJson(this.path(r.id), r, this.env);
-  }
-
-  /** Marks an invite used and deletes its secret (SPEC section 5). */
-  async markUsed(id: string): Promise<void> {
-    const r = await this.get(id);
-    if (r === undefined) return;
-    const { secret: _s, ...rest } = r;
-    await this.put({ ...rest, used: true });
-  }
-
-  async remove(id: string): Promise<void> {
-    await removeFile(this.path(id));
-  }
-}
-
-/** Issues an invite from an admin session and registers its id and expiry with the relay. */
-export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto: boolean; now: () => number }): Promise<{ code: string; inviteId: string; exp: number }> {
+/**
+ * Issues an invite from an admin session and registers its id and expiry with the relay. With
+ * `short`, it also stores the full code at the relay as a short code's box (SPEC section 5),
+ * except for a mesh that pins its relay's certificate: a joiner holding only the short code could
+ * not check that certificate before it had the pin, which is inside the full code.
+ */
+export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto: boolean; now: () => number; short?: boolean }): Promise<IssuedInvite> {
   const me = session.roster.devices.find((d) => d.id === session.device.id);
   if (me?.role !== "admin") throw new ClientError("only an admin device can invite", "not_admin");
   const now = o.now();
@@ -174,7 +129,10 @@ export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto
     await invites.remove(invite.inviteId);
     throw relayRefusal("the relay refused the invite", refused);
   }
-  return { code: invite.code, inviteId: invite.inviteId, exp: invite.exp };
+  const made = { code: invite.code, inviteId: invite.inviteId, exp: invite.exp };
+  if (o.short !== true) return made;
+  if (tls !== undefined) return { ...made, shortRefused: "this mesh pins its relay's certificate, which a short code cannot carry" };
+  return { ...made, ...(await storeShortCode(link, session.config.relay, invite.code, invite.exp, o.now())) };
 }
 
 export type JoinPrompt = { name: string; id: string; sas: string };
@@ -188,23 +146,35 @@ export type JoinDecision = { outcome: "admitted" | "refused" | "ignored"; reason
  */
 export async function decideJoin(session: MeshSession, body: JoinBody, confirm: (p: JoinPrompt) => Promise<boolean>, now: () => number): Promise<JoinDecision> {
   const invites = new Invites(session.mesh, session.files.env, now);
-  const record = await invites.get(body.invite);
-  if (record === undefined) return { outcome: "ignored", reason: "not an invite this device issued" };
-  if (record.used) return { outcome: "refused", reason: "the invite was already used" };
-  if (record.exp <= now() || record.secret === undefined) return { outcome: "refused", reason: "the invite has expired" };
-  const v = verifyJoin(body, b64u.decode(record.secret));
-  if (!v.ok) return { outcome: "refused", reason: v.reason };
-  const device = v.value.device;
-  // The published test vectors' secrets are public (SPEC section 16).
-  if ([device.sign, device.box].some(isVectorKey)) return { outcome: "refused", reason: "the device holds a published test-vector key" };
-  const roster = session.roster;
-  if (roster.devices.some((d) => d.name === device.name)) return { outcome: "refused", reason: `the name ${device.name} is taken` };
-  if (roster.devices.some((d) => d.id === device.id) || roster.revoked.includes(device.id)) return { outcome: "refused", reason: "that device is already known" };
-  const prompt = { name: device.name, id: device.id, sas: sasFor(device) };
-  if (!record.auto && !(await confirm(prompt))) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
+  const screened = await screenJoin(invites, session.roster, body, now());
+  if (screened.outcome !== "ok") return screened;
+  const { record, device, sas } = screened;
+  if (!record.auto && !(await confirm({ name: device.name, id: device.id, sas }))) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
   await publishRoster(session, (current) => nextRosterWith(current, { add: [admitJoin(device, now())] }, session.device.keyring, now()));
   await invites.markUsed(record.id);
+  // Other requests on this invite (someone else's who also held the code) can never be admitted now.
+  await new PendingJoins(session.mesh, session.files.env).remove(record.id);
   return { outcome: "admitted", name: device.name };
+}
+
+/**
+ * Admits a device waiting to join (`wim devices admit`, a local UI's `admit`): the request from a
+ * device named `name` whose comparison code is the one the person typed, read from the new
+ * device's screen. The typed code picks the request, so one from a device that only took the same
+ * name is never admitted, and an invite made with `--auto` gets no exception here.
+ */
+export async function admitPending(session: MeshSession, name: string, typed: string, now: () => number): Promise<JoinDecision> {
+  const invites = new Invites(session.mesh, session.files.env, now);
+  const waiting = (await new PendingJoins(session.mesh, session.files.env).list(session.roster, invites, now())).filter((p) => p.name === name);
+  if (waiting.length === 0) throw new ClientError(`no device named ${name} is waiting to join`, "not_found");
+  const match = waiting.find((p) => sameCode(typed, sasFor(p.body.device)));
+  if (match === undefined) {
+    throw new ClientError(
+      `that is not the comparison code of ${name}'s request. Check the code on the new device; if it shows another one, the request is not from it, so do not admit it`,
+      "mismatch",
+    );
+  }
+  return decideJoin(session, match.body, async () => true, now);
 }
 
 /** Signs and publishes the next roster under the device's signing lock (SPEC section 4). */

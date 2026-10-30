@@ -7453,19 +7453,19 @@ var init_memoize = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/property-provider/memoize.js"() {
     memoize = (provider, isExpired, requiresRefresh) => {
       let resolved;
-      let pending;
+      let pending2;
       let hasResult;
       let isConstant = false;
       const coalesceProvider = async () => {
-        if (!pending) {
-          pending = provider();
+        if (!pending2) {
+          pending2 = provider();
         }
         try {
-          resolved = await pending;
+          resolved = await pending2;
           hasResult = true;
           isConstant = false;
         } finally {
-          pending = void 0;
+          pending2 = void 0;
         }
         return resolved;
       };
@@ -7582,7 +7582,7 @@ var init_getProfileName = __esm({
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js
 import { createHash as createHash4 } from "node:crypto";
-import { join as join9 } from "node:path";
+import { join as join10 } from "node:path";
 var getSSOTokenFilepath;
 var init_getSSOTokenFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js"() {
@@ -7590,7 +7590,7 @@ var init_getSSOTokenFilepath = __esm({
     getSSOTokenFilepath = (id) => {
       const hasher = createHash4("sha1");
       const cacheName = hasher.update(id).digest("hex");
-      return join9(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
+      return join10(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
     };
   }
 });
@@ -7645,24 +7645,24 @@ var init_getConfigData = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getConfigFilepath.js
-import { join as join10 } from "node:path";
+import { join as join11 } from "node:path";
 var ENV_CONFIG_PATH, getConfigFilepath;
 var init_getConfigFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getConfigFilepath.js"() {
     init_getHomeDir();
     ENV_CONFIG_PATH = "AWS_CONFIG_FILE";
-    getConfigFilepath = () => process.env[ENV_CONFIG_PATH] || join10(getHomeDir(), ".aws", "config");
+    getConfigFilepath = () => process.env[ENV_CONFIG_PATH] || join11(getHomeDir(), ".aws", "config");
   }
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getCredentialsFilepath.js
-import { join as join11 } from "node:path";
+import { join as join12 } from "node:path";
 var ENV_CREDENTIALS_PATH, getCredentialsFilepath;
 var init_getCredentialsFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getCredentialsFilepath.js"() {
     init_getHomeDir();
     ENV_CREDENTIALS_PATH = "AWS_SHARED_CREDENTIALS_FILE";
-    getCredentialsFilepath = () => process.env[ENV_CREDENTIALS_PATH] || join11(getHomeDir(), ".aws", "credentials");
+    getCredentialsFilepath = () => process.env[ENV_CREDENTIALS_PATH] || join12(getHomeDir(), ".aws", "credentials");
   }
 });
 
@@ -7742,7 +7742,7 @@ var init_readFile = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/loadSharedConfigFiles.js
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 var swallowError, loadSharedConfigFiles;
 var init_loadSharedConfigFiles = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/loadSharedConfigFiles.js"() {
@@ -7760,11 +7760,11 @@ var init_loadSharedConfigFiles = __esm({
       const relativeHomeDirPrefix = "~/";
       let resolvedFilepath = filepath;
       if (filepath.startsWith(relativeHomeDirPrefix)) {
-        resolvedFilepath = join12(homeDir, filepath.slice(2));
+        resolvedFilepath = join13(homeDir, filepath.slice(2));
       }
       let resolvedConfigFilepath = configFilepath;
       if (configFilepath.startsWith(relativeHomeDirPrefix)) {
-        resolvedConfigFilepath = join12(homeDir, configFilepath.slice(2));
+        resolvedConfigFilepath = join13(homeDir, configFilepath.slice(2));
       }
       const parsedFiles = await Promise.all([
         readFile3(resolvedConfigFilepath, {
@@ -8197,8 +8197,8 @@ var init_checkRegion = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/config-resolver/regionConfig/checkRegion.js"() {
     init_transport();
     validRegions = /* @__PURE__ */ new Set();
-    checkRegion = (region, check2 = isValidHostLabel) => {
-      if (!validRegions.has(region) && !check2(region)) {
+    checkRegion = (region, check3 = isValidHostLabel) => {
+      if (!validRegions.has(region) && !check3(region)) {
         if (region === "*") {
           console.warn(`@smithy/config-resolver WARN - Please use the caller region instead of "*". See "sigv4a" in https://github.com/aws/aws-sdk-js-v3/blob/main/supplemental-docs/CLIENTS.md.`);
         } else {
@@ -17310,19 +17310,19 @@ var init_memoizeIdentityProvider = __esm({
       }
       const normalizedProvider = typeof provider !== "function" ? async () => Promise.resolve(provider) : provider;
       let resolved;
-      let pending;
+      let pending2;
       let hasResult;
       let isConstant = false;
       const coalesceProvider = async (options) => {
-        if (!pending) {
-          pending = normalizedProvider(options);
+        if (!pending2) {
+          pending2 = normalizedProvider(options);
         }
         try {
-          resolved = await pending;
+          resolved = await pending2;
           hasResult = true;
           isConstant = false;
         } finally {
-          pending = void 0;
+          pending2 = void 0;
         }
         return resolved;
       };
@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs13 = __require("node:fs/promises");
+    var fs14 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs13.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs14.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -24432,8 +24432,8 @@ var require_dist_cjs10 = __commonJS({
     function writeKey3(obj) {
       Object.defineProperty(obj, "__proto__", { value: void 0, writable: true, enumerable: true, configurable: true });
     }
-    function parseXML3(xml) {
-      const state2 = new AwsXmlParser(xml);
+    function parseXML3(xml2) {
+      const state2 = new AwsXmlParser(xml2);
       return state2.parse();
     }
     var AwsXmlParser = class _AwsXmlParser {
@@ -24851,15 +24851,15 @@ var init_XmlShapeDeserializer = __esm({
         }
         return this.stringDeserializer.read(ns, value);
       }
-      parseXml(xml) {
-        if (xml.length) {
+      parseXml(xml2) {
+        if (xml2.length) {
           let parsedObj;
           try {
-            parsedObj = (0, import_xml_builder.parseXML)(xml);
+            parsedObj = (0, import_xml_builder.parseXML)(xml2);
           } catch (e6) {
             if (e6 && typeof e6 === "object") {
               Object.defineProperty(e6, "$responseBodyText", {
-                value: xml
+                value: xml2
               });
             }
             throw e6;
@@ -46688,7 +46688,7 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
@@ -46776,7 +46776,7 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs13.promises.lstat(filePath);
+        const stats = await fs14.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -48731,10 +48731,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile6 = fs13.readFile ? (0, util_1.promisify)(fs13.readFile) : async () => {
+    var readFile6 = fs14.readFile ? (0, util_1.promisify)(fs14.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -50411,12 +50411,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs13 = __require("fs");
-    var readFile6 = (0, util_1.promisify)(fs13.readFile ?? (() => {
+    var fs14 = __require("fs");
+    var readFile6 = (0, util_1.promisify)(fs14.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs13.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs14.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs13.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs14.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50534,7 +50534,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50628,7 +50628,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs13.promises.readFile(configPath, "utf8");
+          fileContents = await fs14.promises.readFile(configPath, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -50653,14 +50653,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key2;
         try {
-          cert = await fs13.promises.readFile(certPath);
+          cert = await fs14.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key2 = await fs13.promises.readFile(keyPath);
+          key2 = await fs14.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key2);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
@@ -50679,7 +50679,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs13.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs14.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51381,7 +51381,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51466,14 +51466,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs13.promises.realpath(this.outputFile);
+          filePath = await fs14.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs13.promises.lstat(filePath)).isFile()) {
+        if (!(await fs14.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs13.promises.readFile(filePath, {
+        const responseString = await fs14.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -51884,7 +51884,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52107,7 +52107,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs13.promises.readFile(currentPath);
+            const ca = await fs14.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52167,7 +52167,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs13 = __require("fs");
+    var fs14 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52469,7 +52469,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs13.existsSync(location)) {
+        if (!fs14.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52486,8 +52486,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs13.realpathSync(filePath);
-          if (!fs13.lstatSync(filePath).isFile()) {
+          filePath = fs14.realpathSync(filePath);
+          if (!fs14.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52496,7 +52496,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs13.createReadStream(filePath);
+        const readStream = fs14.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52824,7 +52824,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs13.createReadStream(filePath);
+          const stream = fs14.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -60579,12 +60579,12 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list2, fs13, exportName) {
+    function addFormats(ajv, list2, fs14, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list2)
-        ajv.addFormat(f7, fs13[f7]);
+        ajv.addFormat(f7, fs14[f7]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -65670,7 +65670,7 @@ function isRecursive(inst, stack, resolve3) {
     return PROVEN;
   stack.add(inst);
   let result = NONE;
-  const check2 = (child) => {
+  const check3 = (child) => {
     if (result !== PROVEN && child?._zod) {
       const answer = isRecursive(child, stack, resolve3);
       if (answer > result)
@@ -65699,32 +65699,32 @@ function isRecursive(inst, stack, resolve3) {
     case "object": {
       const raw = rawShape(def);
       merge3(raw ? shape(raw, true) : ASSUMED);
-      check2(def.catchall);
+      check3(def.catchall);
       break;
     }
     case "array":
-      check2(def.element);
+      check3(def.element);
       break;
     case "tuple":
       for (const el of def.items)
-        check2(el);
-      check2(def.rest);
+        check3(el);
+      check3(def.rest);
       break;
     case "record":
     case "map":
-      check2(def.keyType);
-      check2(def.valueType);
+      check3(def.keyType);
+      check3(def.valueType);
       break;
     case "set":
-      check2(def.valueType);
+      check3(def.valueType);
       break;
     case "union":
       for (const el of def.options)
-        check2(el);
+        check3(el);
       break;
     case "intersection":
-      check2(def.left);
-      check2(def.right);
+      check3(def.left);
+      check3(def.right);
       break;
     case "optional":
     case "nullable":
@@ -65735,15 +65735,15 @@ function isRecursive(inst, stack, resolve3) {
     case "nonoptional":
     case "promise":
     case "success":
-      check2(def.innerType);
+      check3(def.innerType);
       break;
     case "pipe":
-      check2(def.in);
-      check2(def.out);
+      check3(def.in);
+      check3(def.out);
       break;
     case "function":
-      check2(def.input);
-      check2(def.output);
+      check3(def.input);
+      check3(def.output);
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
@@ -65784,10 +65784,10 @@ function isRecursive(inst, stack, resolve3) {
         if (!value || typeof value !== "object")
           continue;
         if (value._zod)
-          check2(value);
+          check3(value);
         else if (Array.isArray(value))
           for (const el of value)
-            check2(el);
+            check3(el);
       }
     }
   }
@@ -73733,8 +73733,8 @@ function generateChecks(doc, ctx, schema, accessor) {
   if (!schemaChecks || schemaChecks.length === 0)
     return accessor;
   let currentAccessor = accessor;
-  for (const check2 of schemaChecks) {
-    const def = check2._zod.def;
+  for (const check3 of schemaChecks) {
+    const def = check3._zod.def;
     if (def.when && !WHEN_DEFAULTED_CHECKS.has(def.check)) {
       throw new ZodCompileUnsupportedError(`check with a custom "when" condition`);
     }
@@ -73782,7 +73782,7 @@ function generateChecks(doc, ctx, schema, accessor) {
         currentAccessor = generateStringFormatCheck(doc, ctx, def, currentAccessor);
         break;
       case "custom":
-        currentAccessor = generateCustomRefineCheck(doc, ctx, check2, currentAccessor);
+        currentAccessor = generateCustomRefineCheck(doc, ctx, check3, currentAccessor);
         break;
       case "bigint_format":
         generateBigIntFormatCheck(doc, def, currentAccessor);
@@ -73798,7 +73798,7 @@ function generateChecks(doc, ctx, schema, accessor) {
         break;
       case "overwrite": {
         const newAccessor = newVar(ctx);
-        generateOverwriteCheck(doc, ctx, check2, currentAccessor, newAccessor);
+        generateOverwriteCheck(doc, ctx, check3, currentAccessor, newAccessor);
         currentAccessor = newAccessor;
         break;
       }
@@ -73921,8 +73921,8 @@ function generatePropertyCheck(doc, ctx, def, accessor) {
   const propAccessor = `${accessor}[${JSON.stringify(def.property)}]`;
   generateCheck(doc, ctx, def.schema, propAccessor);
 }
-function generateOverwriteCheck(doc, ctx, check2, currentAccessor, newAccessor) {
-  const tx = check2._zod.def.tx;
+function generateOverwriteCheck(doc, ctx, check3, currentAccessor, newAccessor) {
+  const tx = check3._zod.def.tx;
   if (!tx) {
     throw new ZodCompileUnsupportedError("overwrite check without a transform function");
   }
@@ -73938,8 +73938,8 @@ function throwAsync() {
 function pushIssue(issue2) {
   this.issues.push(issue2);
 }
-function generateCustomRefineCheck(doc, ctx, check2, accessor) {
-  const def = check2._zod.def;
+function generateCustomRefineCheck(doc, ctx, check3, accessor) {
+  const def = check3._zod.def;
   if (def.fn) {
     if (isAsyncFunction(def.fn)) {
       throw new ZodCompileAsyncError("z.compile: async .refine() predicates are not supported");
@@ -73952,11 +73952,11 @@ function generateCustomRefineCheck(doc, ctx, check2, accessor) {
     doc.write(`if (!${resVar}) return INVALID;`);
     return accessor;
   }
-  if (check2._zod.check) {
-    if (isAsyncFunction(check2._zod.check)) {
+  if (check3._zod.check) {
+    if (isAsyncFunction(check3._zod.check)) {
       throw new ZodCompileAsyncError("z.compile: async .superRefine() / check functions are not supported");
     }
-    const checkFn = check2._zod.check;
+    const checkFn = check3._zod.check;
     const helperFn = (value) => {
       const fakePayload = { value, issues: [], addIssue: pushIssue };
       const result = checkFn(fakePayload);
@@ -74578,8 +74578,8 @@ function generateNullableCheck(doc, ctx, schema, accessor, buildsValue = true) {
   return outputVar;
 }
 function generateSizeGate(doc, schema, size) {
-  for (const [max, check2] of sizeCaps(schema._zod.def.checks)) {
-    doc.write(`if (${size} > ${numericOperand(max, check2._zod.def.check)}) return INVALID;`);
+  for (const [max, check3] of sizeCaps(schema._zod.def.checks)) {
+    doc.write(`if (${size} > ${numericOperand(max, check3._zod.def.check)}) return INVALID;`);
   }
 }
 function generateArrayCheck(doc, ctx, schema, accessor, buildsValue = true) {
@@ -77288,13 +77288,13 @@ var recordProcessor = (schema, ctx, _json2, params) => {
         ...params,
         path: [...params.path, "propertyNames"]
       });
-      let pending = pendingRecords.get(ctx);
-      if (!pending) {
-        pending = [];
-        pendingRecords.set(ctx, pending);
+      let pending2 = pendingRecords.get(ctx);
+      if (!pending2) {
+        pending2 = [];
+        pendingRecords.set(ctx, pending2);
         ctx.deferred.push(() => rewriteKeyNames(ctx));
       }
-      pending.push(schema);
+      pending2.push(schema);
     }
     json4.additionalProperties = processSchema(def.valueType, ctx, {
       ...params,
@@ -77879,8 +77879,8 @@ var ZodType = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
     reg.add(this, meta3);
     return this;
   },
-  refine(check2, params) {
-    return this.check(refine(check2, params));
+  refine(check3, params) {
+    return this.check(refine(check3, params));
   },
   superRefine(refinement, params) {
     return this.check(superRefine(refinement, params));
@@ -83204,6 +83204,20 @@ var LIMITS = {
   inviteDefaultTtlMs: HOUR,
   /** Longest invite lifetime. */
   inviteMaxTtlMs: 7 * DAY,
+  /** Longest a relay keeps a short invite code's box: an hour, and never past the invite (SPEC section 5). */
+  rdvLifetimeMs: HOUR,
+  /** Largest box ciphertext in bytes; a full invite code is at most about 3 KiB. */
+  rdvBoxBytes: 4 * KiB,
+  /** Times a relay hands out one box; it deletes the box with the last. */
+  rdvGetsPerBox: 3,
+  /** Box fetches per source address per hour, found or not. */
+  rdvGetsPerSourcePerHour: 30,
+  /** Boxes stored per admin device, per mesh and per source address, per hour. */
+  rdvPutsPerDevicePerHour: 16,
+  rdvPutsPerMeshPerHour: 64,
+  rdvPutsPerSourcePerHour: 64,
+  /** Boxes a relay holds at once, across every mesh. */
+  rdvBoxesPerRelay: 1e4,
   /** Rosters in one `roster` page. */
   rosterPageMax: 64,
   /** Bytes of rosters in one `roster` page. */
@@ -86642,6 +86656,94 @@ function openBlob(input2) {
   return ok(out);
 }
 
+// ../protocol/src/shortcode.ts
+var PREFIX2 = "wim2-";
+var CROCKFORD3 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+var K_CHARS = 20;
+var CHECK_CHARS = 4;
+var K_RE = /^[0-9A-HJKMNP-TV-Z]{20}$/;
+var SHORT_CODE_RELAY = "wss://worldinmotion.distronode.com";
+function crockford(bytes3, chars2) {
+  let bits = 0n;
+  for (const b5 of bytes3) bits = bits << 8n | BigInt(b5);
+  bits >>= BigInt(bytes3.length * 8 - chars2 * 5);
+  let out = "";
+  for (let i6 = 0; i6 < chars2; i6++) out = CROCKFORD3[Number(bits >> BigInt(5 * i6) & 31n)] + out;
+  return out;
+}
+function check2(k5) {
+  return crockford(sha2562(utf8(`${PROTOCOL} short code ${k5}`)).subarray(0, 3), CHECK_CHARS);
+}
+function assertK(k5, where) {
+  if (typeof k5 !== "string" || !K_RE.test(k5)) throw new TypeError(`${where}: k must be 20 Crockford base32 characters`);
+}
+function newShortKey() {
+  return crockford(randomBytes2(13), K_CHARS);
+}
+function formatShortCode(k5, relay) {
+  assertK(k5, "formatShortCode");
+  if (!isRelayUrl(relay)) throw new TypeError("formatShortCode: invalid relay URL");
+  const groups = `${k5}${check2(k5)}`.match(/.{4}/g).join("-");
+  const where = relay === SHORT_CODE_RELAY ? "" : `@${relay.startsWith("wss://") ? relay.slice("wss://".length) : relay}`;
+  return `${PREFIX2}${groups}${where}`;
+}
+function isShortCode(code2) {
+  return typeof code2 === "string" && code2.trim().toLowerCase().startsWith(PREFIX2);
+}
+function parseShortCode(code2) {
+  const text2 = typeof code2 === "string" ? code2.trim() : "";
+  if (!isShortCode(text2)) throw new Error("invalid short invite code: it must start with wim2-");
+  const at = text2.indexOf("@");
+  const body = (at < 0 ? text2.slice(PREFIX2.length) : text2.slice(PREFIX2.length, at)).replace(/[\s-]/g, "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
+  if (!/^[0-9A-HJKMNP-TV-Z]{24}$/.test(body)) throw new Error("invalid short invite code: it must have 24 letters and digits after wim2-");
+  const k5 = body.slice(0, K_CHARS);
+  if (body.slice(K_CHARS) !== check2(k5)) throw new Error("invalid short invite code: the check does not match (look for a typing mistake)");
+  const where = at < 0 ? void 0 : text2.slice(at + 1);
+  const relay = where === void 0 ? SHORT_CODE_RELAY : /^wss?:\/\//.test(where) ? where : `wss://${where}`;
+  if (!isRelayUrl(relay)) throw new Error("invalid short invite code: the part after @ is not a relay address");
+  return { k: k5, relay };
+}
+function rdvId(k5) {
+  assertK(k5, "rdvId");
+  return b64u.encode(sha2562(utf8(`${PROTOCOL} rdv id ${k5}`))).slice(0, 22);
+}
+function rdvKey(k5) {
+  assertK(k5, "rdvKey");
+  return hkdf(sha256, utf8(k5), new Uint8Array(0), utf8(`${PROTOCOL} rdv key`), 32);
+}
+function rdvAad(rdv) {
+  return utf8(`${PROTOCOL} rdv ${rdv}`);
+}
+var rdvBoxFields = {
+  rdv: deviceIdSchema,
+  exp: timeSchema,
+  n: b64uBytes(24),
+  // The tag alone is 16 bytes; a full invite code is never near the cap.
+  c: b64uRange(16, LIMITS.rdvBoxBytes)
+};
+var rdvAnswerSchema = external_exports.looseObject({ v: external_exports.literal(1), ...rdvBoxFields });
+function sealRdv(k5, fullCode) {
+  const rdv = rdvId(k5);
+  const plain = utf8(fullCode);
+  if (plain.length === 0 || plain.length + 16 > LIMITS.rdvBoxBytes) throw new RangeError("sealRdv: the code does not fit a box");
+  const nonce = randomBytes2(24);
+  const c5 = xchacha20poly1305(rdvKey(k5), nonce, rdvAad(rdv)).encrypt(plain);
+  return { rdv, n: b64u.encode(nonce), c: b64u.encode(c5) };
+}
+function openRdv(k5, box) {
+  assertK(k5, "openRdv");
+  const parsed2 = rdvAnswerSchema.safeParse(box);
+  if (!parsed2.success) return fail("rdv_malformed");
+  const rdv = rdvId(k5);
+  if (parsed2.data.rdv !== rdv) return fail("rdv_wrong_id");
+  try {
+    const plain = xchacha20poly1305(rdvKey(k5), b64u.decode(parsed2.data.n), rdvAad(rdv)).decrypt(b64u.decode(parsed2.data.c));
+    return ok(fromUtf8(plain));
+  } catch {
+    return fail("rdv_decrypt_failed");
+  }
+}
+
 // ../protocol/src/prekey.ts
 var prekeySchema = external_exports.strictObject({
   mesh: meshIdSchema,
@@ -86827,6 +86929,7 @@ var createFrameSchema = external_exports.strictObject({
   key: external_exports.string().min(1).max(512).optional()
 });
 var joinFrameSchema = external_exports.strictObject({ t: external_exports.literal("join"), ...joinBodySchema.shape });
+var rdvPutFrameSchema = external_exports.strictObject({ t: external_exports.literal("rdv.put"), ...rdvBoxFields });
 var clientFrameSchema = external_exports.discriminatedUnion("t", [
   authFrameSchema,
   sendFrameSchema,
@@ -86852,6 +86955,7 @@ var clientFrameSchema = external_exports.discriminatedUnion("t", [
   blobGetFrameSchema,
   cardSetFrameSchema,
   cardsGetFrameSchema,
+  rdvPutFrameSchema,
   pingFrameSchema,
   byeFrameSchema,
   createFrameSchema,
@@ -86953,6 +87057,7 @@ var cardsFrameSchema = external_exports.looseObject({
   more: external_exports.boolean().optional()
 });
 var cardFrameSchema = external_exports.looseObject({ t: external_exports.literal("card"), msg: sendFrameSchema });
+var rdvStoredFrameSchema = external_exports.looseObject({ t: external_exports.literal("rdv.stored"), rdv: rdvBoxFields.rdv });
 var relaySchemas = {
   hello: helloFrameSchema,
   ready: readyFrameSchema,
@@ -86976,7 +87081,8 @@ var relaySchemas = {
   "blob.stored": blobStoredFrameSchema,
   "blob.chunk": blobChunkFrameSchema,
   cards: cardsFrameSchema,
-  card: cardFrameSchema
+  card: cardFrameSchema,
+  "rdv.stored": rdvStoredFrameSchema
 };
 var relayFrameSchema = external_exports.discriminatedUnion("t", [
   helloFrameSchema,
@@ -87001,7 +87107,8 @@ var relayFrameSchema = external_exports.discriminatedUnion("t", [
   blobStoredFrameSchema,
   blobChunkFrameSchema,
   cardsFrameSchema,
-  cardFrameSchema
+  cardFrameSchema,
+  rdvStoredFrameSchema
 ]);
 function parseWith(text2, schemas, maxBytes) {
   if (typeof text2 !== "string") return fail("not_text");
@@ -87076,9 +87183,19 @@ var plaintextSchema = external_exports.discriminatedUnion("kind", [
     reply_to: ulidSchema.optional(),
     relayed,
     derived: derived2
-  })
+  }),
+  // A liveness probe (SPEC section 12): the receiving client answers it itself with a `pong`,
+  // never an agent. Neither carries text, and neither is relayed or derived.
+  external_exports.strictObject({ ...common, kind: external_exports.literal("ping"), text: external_exports.undefined().optional() }),
+  external_exports.strictObject({ ...common, kind: external_exports.literal("pong"), text: external_exports.undefined().optional(), reply_to: ulidSchema })
 ]).refine((p3) => p3.kind !== "card" || p3.to.length === 1 && p3.to[0] === "*", {
   message: "a card is sent to * only",
+  path: ["to"]
+}).refine((p3) => p3.kind !== "ping" || p3.to.every((a5) => a5 !== "*" && !isRoom(a5)), {
+  message: "a ping names sessions, never * or a room",
+  path: ["to"]
+}).refine((p3) => p3.kind !== "pong" || p3.to.length === 1 && p3.to[0] !== "*" && !isRoom(p3.to[0]), {
+  message: "a pong answers one session",
   path: ["to"]
 }).refine(
   (p3) => p3.kind !== "task" || p3.deadline === void 0 || p3.deadline > p3.at && p3.deadline - p3.at <= LIMITS.taskDeadlineMaxMs,
@@ -87105,7 +87222,7 @@ function planSeal(opts, signPub) {
   if (!roster.devices.some((d5) => d5.id === sender.deviceId)) {
     throw new TypeError("sealMessage: the sender is not a current device in the roster");
   }
-  const noCaption = (kind === "file" || kind === "card") && opts.text === void 0;
+  const noCaption = (kind === "file" || kind === "card" || kind === "ping" || kind === "pong") && opts.text === void 0;
   if (!noCaption && (typeof opts.text !== "string" || !fitsUtf8(opts.text, LIMITS.textBytes))) {
     throw new RangeError(`sealMessage: text must be a string of at most ${LIMITS.textBytes} UTF-8 bytes`);
   }
@@ -87375,6 +87492,8 @@ var START = "(?<![A-Za-z0-9_-])";
 var END = "(?![A-Za-z0-9_-])";
 var SECRET_PATTERNS = [
   ["wim_invite_code", new RegExp(`${START}wim1_[A-Za-z0-9_-]{60,}`)],
+  // A short invite code (SPEC section 5) as printed, in any case: six groups of four after wim2-.
+  ["wim_short_invite_code", new RegExp(`${START}wim2-(?:[0-9a-z]{4}-){5}[0-9a-z]{4}${END}`, "i")],
   ["wim_recovery_code", new RegExp(`${START}wimrec1_[A-Za-z0-9_-]{60,}-[0-9A-Za-z]{8}`)],
   ["wim_key_file", /"(?:signSec|boxSec)"\s*:\s*"[A-Za-z0-9_-]{43}"/],
   ["pem_private_key", /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----/],
@@ -87402,15 +87521,15 @@ function leaseKey(meshId, name) {
 }
 
 // ../protocol/src/recovery.ts
-var PREFIX2 = "wimrec1_";
-var CROCKFORD3 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+var PREFIX3 = "wimrec1_";
+var CROCKFORD4 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 var bodySchema = external_exports.strictObject({ mesh: meshIdSchema, genesis: hashSchema, sign: secret32Schema, box: secret32Schema });
 function checksum(body) {
   const h6 = sha2562(utf8(body));
   let bits = 0n;
   for (const b5 of h6.subarray(0, 5)) bits = bits << 8n | BigInt(b5);
   let out = "";
-  for (let i6 = 0; i6 < 8; i6++) out = CROCKFORD3[Number(bits >> BigInt(5 * i6) & 31n)] + out;
+  for (let i6 = 0; i6 < 8; i6++) out = CROCKFORD4[Number(bits >> BigInt(5 * i6) & 31n)] + out;
   return out;
 }
 function createRecoveryKeys(meshId, opts = {}) {
@@ -87426,7 +87545,7 @@ function recoveryCode(keys, pin) {
   const body = b64u.encode(
     canonBytes({ mesh: pin.mesh, genesis: pin.genesis, sign: b64u.encode(keys.signSec), box: b64u.encode(keys.boxSec) })
   );
-  return `${PREFIX2}${body}-${checksum(body)}`;
+  return `${PREFIX3}${body}-${checksum(body)}`;
 }
 function createRecoveryIdentity(meshId, opts = {}) {
   if (opts.genesis === void 0) {
@@ -87438,10 +87557,10 @@ function createRecoveryIdentity(meshId, opts = {}) {
 function parseRecoveryCode(code2, meshId) {
   const text2 = typeof code2 === "string" ? code2.trim() : "";
   const dash = text2.lastIndexOf("-");
-  if (!text2.startsWith(PREFIX2) || dash < PREFIX2.length) {
+  if (!text2.startsWith(PREFIX3) || dash < PREFIX3.length) {
     throw new Error("invalid recovery code: it must look like wimrec1_...-XXXXXXXX");
   }
-  const body = text2.slice(PREFIX2.length, dash);
+  const body = text2.slice(PREFIX3.length, dash);
   const given = text2.slice(dash + 1).toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
   if (given !== checksum(body)) {
     throw new Error("invalid recovery code: the checksum does not match (check for typing mistakes)");
@@ -88058,9 +88177,9 @@ var RemoteAgent = class {
         task = got.data;
       }
     } catch (err) {
-      const what = err instanceof RemoteError ? "answered with an error" : "failed";
+      const what2 = err instanceof RemoteError ? "answered with an error" : "failed";
       const msg = clip(err.message, MAX_ERROR_CHARS);
-      return { status: "failed", text: `${this.name} ${what}: ${msg}${taskId === void 0 ? "" : ` (task ${taskId})`}` };
+      return { status: "failed", text: `${this.name} ${what2}: ${msg}${taskId === void 0 ? "" : ` (task ${taskId})`}` };
     }
   }
   /** The JSON-RPC endpoint from the agent card, fetched again once `cardTtlMs` has passed. */
@@ -88360,7 +88479,7 @@ async function startGateway(config2, mesh, deps = {}) {
 import { EventEmitter } from "node:events";
 import { constants as fsConstants, promises as fs4 } from "node:fs";
 import { homedir } from "node:os";
-import { basename as basename4, join as join8, resolve as resolve2 } from "node:path";
+import { basename as basename4, join as join9, resolve as resolve2 } from "node:path";
 
 // src/breaker.ts
 var HOUR2 = 36e5;
@@ -88878,6 +88997,17 @@ async function takeMarks(dir, marks, env3) {
 // src/history.ts
 import { promises as fs3 } from "node:fs";
 import { basename as basename3, dirname as dirname3, join as join4 } from "node:path";
+function parseReceipt(line) {
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  const r6 = value;
+  if (typeof r6 !== "object" || r6 === null || r6.t !== "receipt") return void 0;
+  return typeof r6.id === "string" && typeof r6.to === "string" && typeof r6.status === "string" && typeof r6.at === "number" ? r6 : void 0;
+}
 function parseEntry(line) {
   let value;
   try {
@@ -88902,11 +89032,18 @@ var History = class {
     this.now = now;
     this.rotateBytes = rotateBytes;
   }
-  async append(entry) {
+  append(entry) {
+    return this.appendLine(entry);
+  }
+  /** Records a receipt for message `id`, which this session sent. */
+  appendReceipt(id, r6) {
+    return this.appendLine({ t: "receipt", id, to: r6.to, status: r6.status, at: r6.at });
+  }
+  async appendLine(value) {
     await ensureDir(dirname3(this.path));
     const size = await fs3.stat(this.path).then((s3) => s3.size, () => 0);
     if (size >= this.rotateBytes) await this.rotate();
-    await fs3.appendFile(this.path, `${JSON.stringify(entry)}
+    await fs3.appendFile(this.path, `${JSON.stringify(value)}
 `, { mode: 384 });
   }
   rotated() {
@@ -88926,18 +89063,47 @@ var History = class {
   }
   /**
    * Past items, newest last: at most `limit` (default 20, at most 200), optionally only those
-   * to or from `peer`, and only those before `before` (ms).
+   * to or from `peer`, and only those before `before` (ms). With `receipts`, each sent item
+   * carries the receipts recorded for it.
    */
   async query(opts = {}) {
     const limit2 = Math.min(opts.max ?? HISTORY_MAX, Math.max(1, opts.limit ?? 20));
     const out = [];
-    await this.scan((entry) => {
-      if (opts.before !== void 0 && !(entry.at < opts.before)) return false;
-      if (opts.peer !== void 0 && !entry.peer.split(",").includes(opts.peer)) return false;
-      out.push(entry);
-      return out.length >= limit2;
-    });
+    const receipts = new Receipts();
+    await this.scan(
+      (entry) => {
+        if (opts.before !== void 0 && !(entry.at < opts.before)) return false;
+        if (opts.peer !== void 0 && !entry.peer.split(",").includes(opts.peer)) return false;
+        out.push(opts.receipts === true && entry.dir === "out" ? receipts.attach(entry) : entry);
+        return out.length >= limit2;
+      },
+      (r6) => receipts.add(r6)
+    );
     return out.reverse();
+  }
+  /** The current file's size: where a reader that wants only what is written later starts (receiptsFrom). */
+  size() {
+    return fs3.stat(this.path).then((s3) => s3.size, () => 0);
+  }
+  /**
+   * The receipts for message `id` written to the current file from byte `from` on, oldest first.
+   * Only those bytes are read, so a caller polling for a receipt (`wim send --wait`) costs little
+   * however long the history is. A file now shorter than `from` was rotated meanwhile: it is read
+   * from its start, and receipts written to the rotated file in between are not seen. A line still
+   * being written does not parse yet, and is read whole by the next call from the same `from`.
+   */
+  async receiptsFrom(id, from) {
+    const handle = await fs3.open(this.path, "r").catch(() => void 0);
+    if (handle === void 0) return [];
+    try {
+      const { size } = await handle.stat();
+      const start2 = readStart(size, from);
+      const buf2 = Buffer.alloc(size - start2);
+      await handle.read(buf2, 0, buf2.length, start2);
+      return receiptsIn(buf2.toString("utf8"), id);
+    } finally {
+      await handle.close();
+    }
   }
   /** The entry with message id `id`, searching from the newest; undefined when there is none. */
   async find(id) {
@@ -88948,16 +89114,43 @@ var History = class {
     });
     return found;
   }
-  /** Visits entries newest first, damaged lines skipped, until `visit` returns true. */
-  async scan(visit2) {
+  /** Visits entries (and receipts, to `receipt`) newest first, damaged lines skipped, until `visit` returns true. */
+  async scan(visit2, receipt = () => void 0) {
     const files = [...(await this.rotated()).map((n3) => join4(dirname3(this.path), n3)), this.path];
     for (const file2 of files.reverse()) {
       const lines = (await readText(file2) ?? "").split("\n").filter((l3) => l3 !== "").reverse();
-      for (const line of lines) {
-        const entry = parseEntry(line);
-        if (entry !== void 0 && visit2(entry)) return;
-      }
+      if (visitLines(lines, visit2, receipt)) return;
     }
+  }
+};
+function readStart(size, from) {
+  return size < from ? 0 : from;
+}
+function receiptsIn(text2, id) {
+  return text2.split("\n").map(parseReceipt).filter((r6) => r6?.id === id).map((r6) => ({ to: r6.to, status: r6.status, at: r6.at }));
+}
+function visitLines(lines, visit2, receipt) {
+  for (const line of lines) {
+    const entry = parseEntry(line);
+    if (entry !== void 0 && visit2(entry)) return true;
+    const r6 = entry === void 0 ? parseReceipt(line) : void 0;
+    if (r6 !== void 0) receipt(r6);
+  }
+  return false;
+}
+var Receipts = class {
+  waiting = /* @__PURE__ */ new Map();
+  entries = /* @__PURE__ */ new Map();
+  add(r6) {
+    const one = { to: r6.to, status: r6.status, at: r6.at };
+    const entry = this.entries.get(r6.id);
+    if (entry !== void 0) entry.receipts.unshift(one);
+    else this.waiting.set(r6.id, [one, ...this.waiting.get(r6.id) ?? []]);
+  }
+  attach(entry) {
+    const withReceipts = { ...entry, receipts: this.waiting.get(entry.id) ?? [] };
+    this.entries.set(entry.id, withReceipts);
+    return withReceipts;
   }
 };
 function frameEntry(e6, trust = "inform") {
@@ -88987,14 +89180,20 @@ ${frameEntry(e6)}`;
       return `(history: an unreadable entry ${sanitizeForDisplay(String(e6.id))})`;
     }
   }
-  const what = e6.kind === "result" ? `result (${e6.status ?? "done"}) for ${e6.reply_to ?? "?"}` : e6.kind;
-  return `(history: you sent a ${what} to ${e6.peer} at ${new Date(e6.at).toISOString()}, id ${e6.id})
+  const what2 = e6.kind === "result" ? `result (${e6.status ?? "done"}) for ${e6.reply_to ?? "?"}` : e6.kind;
+  const receipts = e6.receipts === void 0 ? "" : `; ${receiptNote(e6.receipts)}`;
+  return `(history: you sent a ${what2} to ${e6.peer} at ${new Date(e6.at).toISOString()}, id ${e6.id}${receipts})
 ${sanitizeForDisplay(e6.text)}`;
+}
+function receiptNote(receipts) {
+  if (receipts.length === 0) return "no receipt recorded";
+  return `receipts: ${receipts.map((r6) => `${sanitizeForDisplay(r6.to)} ${sanitizeForDisplay(r6.status)}`).join(", ")}`;
 }
 function renderForPerson(e6) {
   const arrow = e6.dir === "in" ? "<-" : "->";
   const extra = e6.file === void 0 ? "" : ` [file ${sanitizeForDisplay(e6.file.name)} ${e6.file.size} bytes]`;
-  return `${new Date(e6.at).toISOString()} ${arrow} ${sanitizeForDisplay(e6.peer)} ${e6.kind}${extra}: ${sanitizeForDisplay(e6.text)}`;
+  const receipts = e6.receipts === void 0 ? "" : ` [${receiptNote(e6.receipts)}]`;
+  return `${new Date(e6.at).toISOString()} ${arrow} ${sanitizeForDisplay(e6.peer)} ${e6.kind}${extra}${receipts}: ${sanitizeForDisplay(e6.text)}`;
 }
 
 // src/mesh.ts
@@ -89005,8 +89204,8 @@ function isPolicy(v) {
 }
 function parseMeshConfig(raw, path2) {
   const c5 = raw;
-  const bad = (what) => {
-    throw new Error(`${path2}: ${what}`);
+  const bad = (what2) => {
+    throw new Error(`${path2}: ${what2}`);
   };
   if (typeof c5 !== "object" || c5 === null || c5.v !== 1) return bad("not a mesh file");
   if (typeof c5.mesh !== "string" || typeof c5.device !== "string") return bad("mesh or device missing");
@@ -89049,6 +89248,10 @@ var MeshFiles = class {
   }
   get invitesDir() {
     return join5(this.dir, "invites");
+  }
+  /** Join requests this admin device keeps for its person (`wim devices pending`). */
+  get joinsDir() {
+    return join5(this.dir, "joins");
   }
   get sessionsDir() {
     return join5(this.dir, "sessions");
@@ -89527,6 +89730,10 @@ var SessionFiles = class {
   get liveLock() {
     return join6(this.dir, "live.lock");
   }
+  /** Written by a session that takes handed-over sends (`wim watch`): the pid of its process. */
+  get handoverPath() {
+    return join6(this.dir, "handover");
+  }
   async load() {
     return parseSessionState(await readJson(this.statePath));
   }
@@ -89543,7 +89750,29 @@ var SessionFiles = class {
   isLiveElsewhere() {
     return lockHeld(this.liveLock, this.env);
   }
+  /**
+   * Says whether this process's session takes handed-over sends (`wim watch`): the handover file
+   * names this pid, or is removed. Written after the liveness claim, by its holder.
+   */
+  async markHandover(takes) {
+    if (takes) await writeAtomic(this.handoverPath, String(this.env.pid), this.env);
+    else await removeFile(this.handoverPath);
+  }
+  /**
+   * Whether another live process runs this session and takes handed-over sends: it holds the
+   * liveness lock and the handover file names the same pid. Any other holder (a `wim send --wait`,
+   * a `wim inbox`) holds the name without taking sends, and a file left by a watch that died names
+   * a pid that no longer holds the lock.
+   */
+  async takesHandoverElsewhere() {
+    const read = (path2) => whileBusy(() => readText(path2), this.env.platform);
+    const [live, marker, lock] = await Promise.all([this.isLiveElsewhere(), read(this.handoverPath), read(this.liveLock)]);
+    return takesSends(live, marker, lock);
+  }
 };
+function takesSends(live, marker, lock) {
+  return live && marker !== void 0 && marker.trim() === (lock ?? "").trim();
+}
 async function listSessions(mesh) {
   return (await listDir(mesh.sessionsDir)).filter(isUlid).sort();
 }
@@ -89612,6 +89841,173 @@ function localDeviceKeyring(keys) {
     close: () => void 0
   };
 }
+
+// src/ping.ts
+var PING = {
+  /** A ping older than this is not answered: one that waited in an offline session's queue is stale. */
+  freshMs: 6e4,
+  /** Pongs a session sends to one device, and to all devices together, in a sliding minute. */
+  perDevicePerMinute: 10,
+  perSessionPerMinute: 60,
+  /** How long `wim ping` waits for pongs by default. */
+  waitMs: 5e3
+};
+var MINUTE2 = 6e4;
+var PongBudget = class {
+  byDevice = /* @__PURE__ */ new Map();
+  total = [];
+  /** Whether a ping from `device`, sent at `at`, is answered now; counts it when it is. */
+  allow(device, at, now) {
+    if (now - at > PING.freshMs) return false;
+    const recent = (times) => (times ?? []).filter((t2) => now - t2 < MINUTE2);
+    const mine = recent(this.byDevice.get(device));
+    this.total = recent(this.total);
+    if (mine.length >= PING.perDevicePerMinute || this.total.length >= PING.perSessionPerMinute) {
+      this.byDevice.set(device, mine);
+      return false;
+    }
+    mine.push(now);
+    this.total.push(now);
+    this.byDevice.set(device, mine);
+    return true;
+  }
+};
+var deviceOf = (address) => address.slice(address.indexOf("@") + 1);
+function what(r6, waitMs) {
+  if (r6.ms !== void 0) return `pong in ${r6.ms} ms`;
+  if (r6.status === "routed") return `no pong in ${waitMs / 1e3} s (an older client, or a session that is not reading)`;
+  if (r6.status === "offline") return "offline, not pinged";
+  if (r6.status === "queued") return "offline: the relay queued it, so no pong now";
+  return r6.status;
+}
+function pingReport(rows, from, waitMs) {
+  const width = Math.max(...rows.map((r6) => r6.to.length));
+  const lines = [`Pinged from ${from}:`, ...rows.map((r6) => `  ${r6.to.padEnd(width)}  ${what(r6, waitMs)}`)];
+  const devices2 = /* @__PURE__ */ new Map();
+  for (const r6 of rows) {
+    const d5 = devices2.get(deviceOf(r6.to)) ?? { asked: 0, answered: 0 };
+    d5.asked++;
+    if (r6.ms !== void 0) d5.answered++;
+    devices2.set(deviceOf(r6.to), d5);
+  }
+  const here = deviceOf(from);
+  lines.push(`Devices (a pong means ${here} -> device and device -> ${here} both work, encryption included):`);
+  const nameWidth = Math.max(...[...devices2.keys()].map((n3) => n3.length));
+  for (const [name, d5] of devices2) {
+    const verdict = d5.answered > 0 ? `both directions ok (${d5.answered} of ${d5.asked} answered)` : "no answer";
+    lines.push(`  ${name.padEnd(nameWidth)}  ${verdict}`);
+  }
+  return lines;
+}
+
+// src/joins.ts
+import { join as join7 } from "node:path";
+var Invites = class {
+  files;
+  env;
+  now;
+  constructor(files, env3, now) {
+    this.files = files;
+    this.env = env3;
+    this.now = now;
+  }
+  path(id) {
+    return join7(this.files.invitesDir, `${id}.json`);
+  }
+  async get(id) {
+    if (!/^[A-Za-z0-9_-]{22}$/.test(id)) return void 0;
+    const raw = await readJson(this.path(id));
+    if (raw === void 0) return void 0;
+    if (raw.exp <= this.now() && raw.secret !== void 0) {
+      const { secret: _s5, ...rest } = raw;
+      await writeJson(this.path(id), rest, this.env);
+      return rest;
+    }
+    return raw;
+  }
+  async put(r6) {
+    await writeJson(this.path(r6.id), r6, this.env);
+  }
+  /** Marks an invite used and deletes its secret (SPEC section 5). */
+  async markUsed(id) {
+    const r6 = await this.get(id);
+    if (r6 === void 0) return;
+    const { secret: _s5, ...rest } = r6;
+    await this.put({ ...rest, used: true });
+  }
+  async remove(id) {
+    await removeFile(this.path(id));
+  }
+};
+async function screenJoin(invites, roster, body, now) {
+  const record2 = await invites.get(body.invite);
+  if (record2 === void 0) return { outcome: "ignored", reason: "not an invite this device issued" };
+  if (record2.used) return { outcome: "refused", reason: "the invite was already used" };
+  if (record2.exp <= now || record2.secret === void 0) return { outcome: "refused", reason: "the invite has expired" };
+  const v = verifyJoin(body, b64u.decode(record2.secret));
+  if (!v.ok) return { outcome: "refused", reason: v.reason };
+  const device = v.value.device;
+  if ([device.sign, device.box].some(isVectorKey)) return { outcome: "refused", reason: "the device holds a published test-vector key" };
+  if (roster.devices.some((d5) => d5.name === device.name)) return { outcome: "refused", reason: `the name ${device.name} is taken` };
+  if (roster.devices.some((d5) => d5.id === device.id) || roster.revoked.includes(device.id)) return { outcome: "refused", reason: "that device is already known" };
+  return { outcome: "ok", record: record2, device, sas: sasFor(device) };
+}
+function sameCode(typed, sas) {
+  const norm = (s3) => s3.toUpperCase().replace(/[\s-]/g, "").replace(/[IL]/g, "1").replace(/O/g, "0");
+  return norm(typed) === norm(sas);
+}
+var PENDING_MAX = 16;
+var PendingJoins = class {
+  files;
+  env;
+  constructor(files, env3) {
+    this.files = files;
+    this.env = env3;
+  }
+  path(invite2, device) {
+    return join7(this.files.joinsDir, `${invite2}.${device}.json`);
+  }
+  /** Keeps a screened request. True when it was not kept before. */
+  async save(body, exp, now) {
+    const path2 = this.path(body.invite, body.device.id);
+    const fresh = await readJson(path2).catch(() => void 0) === void 0;
+    await writeJson(path2, { v: 1, at: now, exp, body }, this.env);
+    const names = (await this.entries()).sort((x2, y) => x2.file.at - y.file.at).map((e6) => e6.name);
+    for (const name of names.slice(0, Math.max(0, names.length - PENDING_MAX))) await tryRemove(join7(this.files.joinsDir, name), this.env);
+    return fresh;
+  }
+  async entries() {
+    const out = [];
+    for (const name of await listFiles(this.files.joinsDir)) {
+      if (!name.endsWith(".json")) continue;
+      const file2 = await readJson(join7(this.files.joinsDir, name)).catch(() => void 0);
+      if (typeof file2?.at !== "number" || typeof file2.exp !== "number" || verifyJoin(file2.body).ok !== true) await tryRemove(join7(this.files.joinsDir, name), this.env);
+      else out.push({ name, file: file2 });
+    }
+    return out;
+  }
+  /**
+   * The requests still waiting, oldest first, with their bodies. Dropped as they are found: one
+   * whose invite expired or was used, and one whose device the roster already lists or revoked.
+   */
+  async list(roster, invites, now) {
+    const rows = [];
+    for (const { name, file: file2 } of await this.entries()) {
+      const d5 = file2.body.device;
+      const known = roster.devices.some((x2) => x2.id === d5.id) || roster.revoked.includes(d5.id);
+      const live = file2.exp > now && (await invites.get(file2.body.invite))?.used === false;
+      if (known || !live) await tryRemove(join7(this.files.joinsDir, name), this.env);
+      else rows.push({ name: d5.name, id: d5.id, invite: file2.body.invite, at: file2.at, exp: file2.exp, body: file2.body });
+    }
+    return rows.sort((x2, y) => x2.at - y.at);
+  }
+  /** Drops every request on an invite (it was used), or one device's request on it. */
+  async remove(invite2, device) {
+    for (const name of await listFiles(this.files.joinsDir)) {
+      if (name.startsWith(`${invite2}.${device ?? ""}`)) await tryRemove(join7(this.files.joinsDir, name), this.env);
+    }
+  }
+};
 
 // src/signer.ts
 import { verify } from "node:crypto";
@@ -89915,7 +90311,7 @@ function signerKeyring(client, pub) {
 }
 
 // src/spool.ts
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 var NAME2 = /^(\d{12})\.json$/;
 var itemName = (cursor2) => `${String(cursor2).padStart(12, "0")}.json`;
 var BUSY = /* @__PURE__ */ Symbol("busy");
@@ -89937,12 +90333,12 @@ var Spool = class _Spool {
   env;
   constructor(dir, env3, last) {
     this.dir = dir;
-    this.relayedDir = join7(dir, "..", "relayed");
+    this.relayedDir = join8(dir, "..", "relayed");
     this.env = env3;
     this.last = last;
   }
   get cursorPath() {
-    return join7(this.dir, "cursor");
+    return join8(this.dir, "cursor");
   }
   /** Opens a spool, numbering after the highest of `last`, any item on disk and the cursor. */
   static async open(dir, env3, last) {
@@ -89971,7 +90367,7 @@ var Spool = class _Spool {
   async write(item) {
     const cursor2 = ++this.last;
     const full = { cursor: cursor2, ...item };
-    await writeJson(join7(this.dir, itemName(cursor2)), full, this.env);
+    await writeJson(join8(this.dir, itemName(cursor2)), full, this.env);
     return full;
   }
   /**
@@ -89984,7 +90380,7 @@ var Spool = class _Spool {
     const out = [];
     for (const name of await this.names()) {
       if (Number(NAME2.exec(name)[1]) <= after) continue;
-      const item = await this.read(join7(this.dir, name));
+      const item = await this.read(join8(this.dir, name));
       if (item === BUSY) break;
       if (item !== void 0) out.push(item);
     }
@@ -90026,13 +90422,13 @@ var Spool = class _Spool {
     const gone = [];
     for (const name of await this.names()) {
       if (Number(NAME2.exec(name)[1]) > upto) break;
-      const item = await this.read(join7(this.dir, name));
+      const item = await this.read(join8(this.dir, name));
       if (item === BUSY) continue;
       if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
-        await writeJson(join7(this.relayedDir, name), item, this.env);
+        await writeJson(join8(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }
-      if (!await tryRemove(join7(this.dir, name), this.env)) continue;
+      if (!await tryRemove(join8(this.dir, name), this.env)) continue;
       if (item !== void 0) gone.push(item);
     }
     return gone;
@@ -90046,7 +90442,7 @@ var Spool = class _Spool {
     const items = [];
     let busy = false;
     for (const name of (await listDir(this.relayedDir)).filter((n3) => NAME2.test(n3)).sort()) {
-      const item = await this.read(join7(this.relayedDir, name));
+      const item = await this.read(join8(this.relayedDir, name));
       if (item === BUSY) busy = true;
       else if (item !== void 0) items.push(item);
     }
@@ -90063,7 +90459,7 @@ var Spool = class _Spool {
     const left = [];
     for (const item of items) {
       if (ids !== void 0 && !ids.includes(item.id)) continue;
-      if (await tryRemove(join7(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
+      if (await tryRemove(join8(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
       else left.push(item.id);
     }
     if (busy) {
@@ -90210,9 +90606,9 @@ var Link = class _Link {
       this.isClosed = true;
       for (const w of this.waiters) {
         clearTimeout(w.timer);
-        const what = `the relay closed the connection (${code2})`;
-        const quote = reason === "" ? void 0 : { what, said: relayText(reason) };
-        w.reject(new WireError(quote === void 0 ? what : `the relay closed the connection (${code2} ${quote.said})`, "closed", quote));
+        const what2 = `the relay closed the connection (${code2})`;
+        const quote = reason === "" ? void 0 : { what: what2, said: relayText(reason) };
+        w.reject(new WireError(quote === void 0 ? what2 : `the relay closed the connection (${code2} ${quote.said})`, "closed", quote));
       }
       this.waiters.clear();
       done({ code: code2, reason });
@@ -90382,9 +90778,9 @@ var Connection = class {
       for (const w of this.readyWaiters.splice(0)) w.resolve(link);
       const closed = await link.closed;
       this.link = void 0;
-      const detail = `connection closed (code ${closed.code}${closed.reason === "" ? "" : `, ${relayText(closed.reason)}`})`;
-      this.o.log(`wim: ${detail}`);
-      this.o.onState?.("closed", detail);
+      const detail2 = `connection closed (code ${closed.code}${closed.reason === "" ? "" : `, ${relayText(closed.reason)}`})`;
+      this.o.log(`wim: ${detail2}`);
+      this.o.onState?.("closed", detail2);
       this.lost(closed.code, closed.reason);
     } catch (error63) {
       link?.close();
@@ -90469,12 +90865,23 @@ var ClientError = class extends Error {
     this.quote = quote;
   }
 };
-function relayRefusal(what, frame) {
+function relayRefusal(what2, frame) {
   const said = relayText(frame.message);
-  return new ClientError(`${what}: ${said}`, relayCode(frame.code), { what, said });
+  return new ClientError(`${what2}: ${said}`, relayCode(frame.code), { what: what2, said });
 }
 function accepted(status2) {
   return status2 === "routed" || status2 === "queued";
+}
+function pingResults(out) {
+  return [...out.local, ...out.sent === void 0 ? [] : out.sent.results];
+}
+function pingRow(address, results, pongs) {
+  const status2 = results.find((r6) => r6.to === address).status;
+  const ms = pongs.get(address);
+  return ms === void 0 ? { to: address, status: status2 } : { to: address, status: status2, ms };
+}
+function heldReceiptLine(to, id) {
+  return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
 }
 function unprotectedNote(unprotected, noPrekey) {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
@@ -90559,6 +90966,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
   sweeping = Promise.resolve();
   /** Relayed items an agent read through `inbox`, so they are not kept for later. */
   readRelayed = /* @__PURE__ */ new Set();
+  /** How many pings this session answers (SPEC section 12). */
+  pongBudget = new PongBudget();
+  /** Pings this session sent and still waits on, by id: each takes the pongs that answer it. */
+  pongWaiters = /* @__PURE__ */ new Map();
   /** Delivery through MCP channel notifications instead of leaving items for the plugin. */
   push;
   constructor(o3, files, state2) {
@@ -90597,6 +91008,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (o3.cwd !== void 0) state2 = { ...state2, cwd: o3.cwd };
     const files = new SessionFiles(o3.mesh, state2.sid, o3.env);
     await files.claim();
+    await files.markHandover(o3.handover === true);
     await ensureDir(files.heldDir);
     await ensureDir(files.dismissDir);
     await files.save(state2);
@@ -90671,7 +91083,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         this.emit("fatal", reason);
       },
       log: this.log,
-      onState: (state2, detail) => this.emit("connection", state2, detail),
+      onState: (state2, detail2) => this.emit("connection", state2, detail2),
       random: this.o.random ?? Math.random,
       debug: this.o.debug === true,
       baseMs: this.o.reconnectMs ?? 500
@@ -90740,9 +91152,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
     while (this.roster.seq < upto) {
       const page = await link.request({ t: "roster.get", from: this.roster.seq }, (f7) => f7.t === "roster" || errorFor("roster.get")(f7), this.answerMs);
       if (page.t !== "roster") {
-        const what = "the relay would not serve the roster chain";
+        const what2 = "the relay would not serve the roster chain";
         const said = relayText(page.message);
-        throw new WireError(`${what}: ${said}`, "roster", { what, said });
+        throw new WireError(`${what2}: ${said}`, "roster", { what: what2, said });
       }
       const result = await this.book.accept(page.chain);
       if (!result.ok) {
@@ -90791,6 +91203,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         list2.push({ to: f7.to, status: f7.status });
         this.receipts.set(f7.id, list2);
         this.emit("receipt", f7);
+        void this.recordReceipt(f7).catch((e6) => this.log(`wim: receipt: ${e6.message}`));
         return;
       }
       case "notice":
@@ -90798,6 +91211,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         return;
       case "join.request":
         this.emit("join", f7.join);
+        this.inbound = this.inbound.then(() => this.keepJoin(f7.join)).catch((e6) => this.log(`wim: join request not kept: ${e6.message}`));
         return;
       // Cards (SPEC section 17) only annotate peer rows: never spooled, never a wake.
       case "cards": {
@@ -90811,6 +91225,22 @@ var MeshSession = class _MeshSession extends EventEmitter {
         this.takeCard(f7.msg);
         return;
     }
+  }
+  /**
+   * Keeps a join request for the person (SPEC section 5): only one for an invite this device
+   * issued that passes every check a person is not needed for. Its comparison code is not kept:
+   * the person types it from the new device's screen.
+   */
+  keepJoin(body) {
+    return screenJoin(new Invites(this.o.mesh, this.o.env, this.now), this.roster, body, this.now()).then((screened) => {
+      if (screened.outcome !== "ok") return void 0;
+      return new PendingJoins(this.o.mesh, this.o.env).save(body, screened.record.exp, this.now()).then((fresh) => this.announceJoin(fresh, screened.device.name));
+    });
+  }
+  /** Tells the person about a join request kept for the first time; one kept before is not news. */
+  announceJoin(fresh, name) {
+    if (!fresh) return void 0;
+    return this.o.notifier?.notify(`worldinmotion: a device named ${name} asks to join the mesh (wim devices pending)`);
   }
   /** Takes a prekey from a card or message header: known at once, written for siblings in the background. */
   learn(pk) {
@@ -90966,8 +91396,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (!r6.ok && r6.reason === "roster_behind") {
       if (!parked) {
         const waiting2 = (await listDir(this.files.behindDir)).sort();
-        for (const name of waiting2.slice(0, Math.max(0, waiting2.length - (PARKED_MAX - 1)))) await removeFile(join8(this.files.behindDir, name));
-        await writeJson(join8(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
+        for (const name of waiting2.slice(0, Math.max(0, waiting2.length - (PARKED_MAX - 1)))) await removeFile(join9(this.files.behindDir, name));
+        await writeJson(join9(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
       }
       return "behind";
     }
@@ -91024,7 +91454,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async retryParked() {
     for (const name of await listDir(this.files.behindDir)) {
-      const path2 = join8(this.files.behindDir, name);
+      const path2 = join9(this.files.behindDir, name);
       const msg = await readJson(path2).catch(() => void 0);
       const outcome = msg === void 0 ? "dropped" : await this.check(msg, true).catch((e6) => this.parkedFailed(name, e6));
       if (outcome !== "behind") await tryRemove(path2, this.o.env);
@@ -91040,6 +91470,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     return `${p3.from.session}@${name}`;
   }
   async accept(p3) {
+    if (p3.kind === "ping" || p3.kind === "pong") return this.probe(p3);
     const from = this.fromAddress(p3);
     this.config = await this.o.mesh.loadConfig();
     const policy = policyFor(this.config, p3.from.device, p3.relayed === true);
@@ -91076,6 +91507,21 @@ var MeshSession = class _MeshSession extends EventEmitter {
       return;
     }
     await this.release(held2, p3.kind === "file" ? p3.file : void 0);
+  }
+  /**
+   * A ping is answered here, by the client, with a pong to the session that sent it; a pong goes
+   * to the ping this session is waiting on. Neither is spooled, kept in history, receipted or
+   * shown to an agent (SPEC section 12). A device the person refuses gets no answer, and the
+   * budget bounds how many pongs any device can draw.
+   */
+  probe(p3) {
+    if (p3.kind === "pong") return Promise.resolve(void this.pongWaiters.get(p3.reply_to)?.(p3.from.device, p3.from.session));
+    return this.o.mesh.loadConfig().then((config2) => {
+      this.config = config2;
+      if (policyLevel(config2, p3.from.device) === "refuse" || !this.pongBudget.allow(p3.from.device, p3.at, this.now())) return;
+      const to = this.fromAddress(p3);
+      void this.post(to, void 0, { kind: "pong", reply_to: p3.id }).catch((e6) => this.log(`wim: no pong sent to ${to}: ${e6.message}`));
+    });
   }
   /** Fetches a file if there is one, renders the frame and puts the item in the spool. */
   async release(item, file2) {
@@ -91133,12 +91579,28 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
   noticeLater(from, line, forPerson = false) {
-    void this.notice(from, line, void 0, forPerson).catch((e6) => this.log(`wim: notice: ${e6.message}`));
+    void this.notice(from, line, void 0, void 0, forPerson).catch((e6) => this.log(`wim: notice: ${e6.message}`));
   }
-  /** A notice for the agent or the person (`forPerson`: only the person can act on it), written to the spool like any item. */
-  async notice(from, line, held2, forPerson = false) {
+  /**
+   * A notice for the agent or the person, written to the spool like any item. `forPerson`: only
+   * the person can act on it (restart this session).
+   */
+  async notice(from, line, held2, heldBy, forPerson = false) {
     const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line) };
-    await this.deliver({ ...item, ...held2 === void 0 ? {} : { held: held2 }, ...forPerson ? { forPerson: true } : {} }, void 0);
+    await this.deliver(
+      { ...item, ...held2 === void 0 ? {} : { held: held2 }, ...heldBy === void 0 ? {} : { heldBy }, ...forPerson ? { forPerson: true } : {} },
+      void 0
+    );
+  }
+  /**
+   * Records a receipt in history. A `held` one is also a notice, so whoever sent the message (the
+   * person through the plugin's toast, or the agent) learns that it waits for the recipient's
+   * person and is not delivered. Branches before any await (see AgentServer.answerLine).
+   */
+  recordReceipt(f7) {
+    const recorded = this.history.appendReceipt(f7.id, { to: f7.to, status: f7.status, at: this.now() });
+    if (f7.status !== "held") return recorded;
+    return recorded.then(() => this.notice(f7.to, heldReceiptLine(f7.to, f7.id), void 0, f7.to));
   }
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
@@ -91165,19 +91627,19 @@ var MeshSession = class _MeshSession extends EventEmitter {
       const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m4) => m4.id);
       if (dismissed.length > 0) {
         const { left } = await this.spool.dismissRelayed(dismissed);
-        for (const id of left) await writeAtomic(join8(this.files.dismissDir, `${id}.dismiss`), "", this.o.env);
+        for (const id of left) await writeAtomic(join9(this.files.dismissDir, `${id}.dismiss`), "", this.o.env);
       }
       for (const name of await listDir(this.files.controlDir)) {
         if (name.endsWith(".tmp")) continue;
         const done = /^send-([0-9A-Z]{26})\.done\.json$/.exec(name);
         if (done !== null) {
-          if (ulidTime(done[1]) < this.now() - ANSWER_KEEP_MS) await removeFile(join8(this.files.controlDir, name));
+          if (ulidTime(done[1]) < this.now() - ANSWER_KEEP_MS) await removeFile(join9(this.files.controlDir, name));
           continue;
         }
         const m4 = /^resume-(.+)$/.exec(name);
         const req = /^send-([0-9A-Z]{26})\.json$/.exec(name);
         if (req !== null && this.o.handover !== true) continue;
-        const path2 = join8(this.files.controlDir, name);
+        const path2 = join9(this.files.controlDir, name);
         const body = req === null ? void 0 : await readJson(path2).catch(() => void 0);
         if (!await tryRemove(path2, this.o.env)) continue;
         if (m4 !== null) await this.resumePeer(m4[1]);
@@ -91261,7 +91723,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async handOverSend(id, body) {
     const r6 = body;
-    const answer = join8(this.files.controlDir, `send-${id}.done.json`);
+    const answer = join9(this.files.controlDir, `send-${id}.done.json`);
     try {
       if (typeof r6?.to !== "string" || typeof r6.text !== "string") throw new ClientError("malformed send request", "malformed");
       const out = await this.send(r6.to, r6.text);
@@ -91389,12 +91851,42 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Seals and sends, then waits briefly for the relay's per-recipient statuses. */
   async send(toInput, text2, opts = {}) {
+    return this.recordSend(await this.post(toInput, text2, opts), text2, opts);
+  }
+  /** What a sent message adds to the post: the breaker's count and history. Not async (see publishCard). */
+  recordSend(out, text2, opts) {
+    if (out.sent === void 0) return Promise.resolve({ id: out.id, results: out.local });
+    const { id, routed, frame, missing, sent: sent2 } = out;
+    for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.breaker.noteSent(this.pairOf(a5).split("/")[0], (text2 ?? "").length);
+    const name = (d5) => this.roster.devices.find((r6) => r6.id === d5).name;
+    const unprotected = this.legacyIds(frame).map(name);
+    const outcome = { id, results: [...out.local, ...sent2.results], ...unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {} };
+    return this.history.append({
+      dir: "out",
+      peer: routed.join(","),
+      id,
+      kind: opts.kind ?? "msg",
+      at: frame.at,
+      text: text2 ?? "",
+      ...opts.reply_to === void 0 ? {} : { reply_to: opts.reply_to },
+      ...opts.status === void 0 ? {} : { status: opts.status },
+      ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },
+      ...opts.relayed === true ? { relayed: true } : {}
+    }).then(() => outcome);
+  }
+  /**
+   * Seals one frame, puts it on the wire and waits for the relay's `sent`. `local` holds the
+   * addresses no roster device answers to; `sent` is absent when nothing was left to send. What a
+   * message adds on top (history, the breaker's count) is `send`'s; pings and pongs go through
+   * here alone.
+   */
+  async post(toInput, text2, opts) {
     const to = _MeshSession.parseTo(toInput);
     const { ids, unknown: unknown2 } = this.recipients(to);
     const local = unknown2.map((a5) => ({ to: a5, status: "unknown" }));
     const id = opts.id ?? ulid3(this.now());
     const routed = to.filter((a5) => !unknown2.includes(a5));
-    if (routed.length === 0) return { id, results: local };
+    if (routed.length === 0) return { id, local };
     const { frame, missing, answer: answering } = await this.serially(async () => {
       let sealed = await this.seal(id, routed, ids, text2, opts);
       const link = await this.ready(this.answerMs);
@@ -91411,23 +91903,41 @@ var MeshSession = class _MeshSession extends EventEmitter {
     });
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
-    const sent2 = answer;
-    for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.breaker.noteSent(this.pairOf(a5).split("/")[0], (text2 ?? "").length);
-    await this.history.append({
-      dir: "out",
-      peer: routed.join(","),
-      id,
-      kind: opts.kind ?? "msg",
-      at: frame.at,
-      text: text2 ?? "",
-      ...opts.reply_to === void 0 ? {} : { reply_to: opts.reply_to },
-      ...opts.status === void 0 ? {} : { status: opts.status },
-      ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },
-      ...opts.relayed === true ? { relayed: true } : {}
+    return { id, local, routed, frame, missing, sent: answer };
+  }
+  /**
+   * Pings sessions (`wim ping`, SPEC section 12) and waits up to `waitMs` for their pongs. Each
+   * row is a pinged address with the relay's status for it and, when its pong came back, the round
+   * trip in milliseconds. Only sessions: a ping is never sent to `*` or a room.
+   */
+  async ping(targets, waitMs) {
+    const to = _MeshSession.parseTo(targets);
+    if (to.some((a5) => a5 === "*" || isRoom(a5))) throw new ClientError("a ping names sessions (name@device), never * or a room", "bad_address");
+    const id = ulid3(this.now());
+    const asked = new Map(to.map((a5) => [this.pairOf(a5), a5]));
+    const pongs = /* @__PURE__ */ new Map();
+    const started = this.now();
+    let answered2;
+    const all = new Promise((resolve3) => answered2 = resolve3);
+    let waiting2 = to;
+    const check3 = () => waiting2.every((a5) => pongs.has(a5)) ? answered2() : void 0;
+    this.pongWaiters.set(id, (device, session) => {
+      const address = asked.get(`${device}/${session}`);
+      if (address === void 0 || pongs.has(address)) return;
+      pongs.set(address, this.now() - started);
+      check3();
     });
-    const name = (d5) => this.roster.devices.find((r6) => r6.id === d5).name;
-    const unprotected = this.legacyIds(frame).map(name);
-    return { id, results: [...local, ...sent2.results], ...unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {} };
+    try {
+      const results = pingResults(await this.post(to, void 0, { kind: "ping", id }));
+      waiting2 = results.filter((r6) => r6.status === "routed").map((r6) => r6.to);
+      check3();
+      let timer;
+      await Promise.race([all, new Promise((resolve3) => timer = setTimeout(resolve3, waitMs))]);
+      clearTimeout(timer);
+      return to.map((a5) => pingRow(a5, results, pongs));
+    } finally {
+      this.pongWaiters.delete(id);
+    }
   }
   serially(fn) {
     const run = this.sending.then(fn);
@@ -91436,7 +91946,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Seals a message at the next seq; the secrets check and the protocol limits refuse here. */
   async seal(id, routed, ids, text2, opts) {
-    const derived3 = await this.isDerived();
+    const derived3 = opts.kind === "ping" || opts.kind === "pong" ? false : await this.isDerived();
     const { keys, missing } = this.keysFor(ids);
     try {
       const frame = await sealMessageWith({
@@ -91708,32 +92218,41 @@ ${frameEntry(entry)}`);
     return [...kept, ...items];
   }
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */
-  async next(timeoutMs, onTick, tickMs = 3e4) {
+  next(timeoutMs, onTick, tickMs = 3e4) {
     const started = this.now();
-    const first = (await this.spool.unread())[0];
-    if (first !== void 0) {
-      await this.take(first.cursor);
-      this.informed([first]);
-      return first;
-    }
-    return new Promise((resolve3) => {
-      const done = (item) => {
+    return new Promise((resolve3, reject) => {
+      let over = false;
+      let timer;
+      const finish = () => {
+        over = true;
         clearTimeout(timer);
         clearInterval(beat);
         this.off("item", onItem);
-        resolve3(item);
+      };
+      const fail4 = (error63) => {
+        finish();
+        reject(error63);
+      };
+      const takeFirst = (items) => {
+        const first = items[0];
+        if (over || first === void 0) return;
+        finish();
+        this.take(first.cursor).then(() => {
+          this.informed([first]);
+          resolve3(first);
+        }, reject);
+      };
+      const look = () => void this.spool.unread().then(takeFirst, fail4);
+      const firstLook = (items) => {
+        takeFirst(items);
+        if (!over) timer = setTimeout(() => (finish(), resolve3(void 0)), timeoutMs);
       };
       const onItem = (item) => {
-        if (this.push !== void 0 || item.cursor <= this.spool.taken) return;
-        this.off("item", onItem);
-        void this.take(item.cursor).then(() => {
-          this.informed([item]);
-          done(item);
-        });
+        if (this.push === void 0 && item.cursor > this.spool.taken) look();
       };
-      const timer = setTimeout(() => done(void 0), timeoutMs);
       const beat = setInterval(() => onTick?.(this.now() - started), tickMs);
       this.on("item", onItem);
+      void this.spool.unread().then(firstLook, fail4);
     });
   }
 };
@@ -93699,9 +94218,9 @@ function tLiveSpeechConfig(speechConfig) {
   }
   return speechConfig;
 }
-function tTool(tool) {
-  if (tool.functionDeclarations) {
-    for (const functionDeclaration of tool.functionDeclarations) {
+function tTool(tool2) {
+  if (tool2.functionDeclarations) {
+    for (const functionDeclaration of tool2.functionDeclarations) {
       if (functionDeclaration.parameters) {
         if (!Object.keys(functionDeclaration.parameters).includes("$schema")) {
           functionDeclaration.parameters = processJsonSchema(functionDeclaration.parameters);
@@ -93724,7 +94243,7 @@ function tTool(tool) {
       }
     }
   }
-  return tool;
+  return tool2;
 }
 function tTools(tools) {
   if (tools === void 0 || tools === null) {
@@ -93734,8 +94253,8 @@ function tTools(tools) {
     throw new Error("tools is required and must be an array of Tools");
   }
   const result = [];
-  for (const tool of tools) {
-    result.push(tool);
+  for (const tool2 of tools) {
+    result.push(tool2);
   }
   return result;
 }
@@ -100947,9 +101466,9 @@ function generateVideosParametersToMldev(apiClient, fromObject, rootObject) {
   if (fromVideo != null) {
     setValueByPath(toObject, ["instances[0]", "video"], videoToMldev(fromVideo));
   }
-  const fromSource = getValueByPath(fromObject, ["source"]);
-  if (fromSource != null) {
-    generateVideosSourceToMldev(fromSource, toObject);
+  const fromSource2 = getValueByPath(fromObject, ["source"]);
+  if (fromSource2 != null) {
+    generateVideosSourceToMldev(fromSource2, toObject);
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
   if (fromConfig != null) {
@@ -100975,9 +101494,9 @@ function generateVideosParametersToVertex(apiClient, fromObject, rootObject) {
   if (fromVideo != null) {
     setValueByPath(toObject, ["instances[0]", "video"], videoToVertex(fromVideo));
   }
-  const fromSource = getValueByPath(fromObject, ["source"]);
-  if (fromSource != null) {
-    generateVideosSourceToVertex(fromSource, toObject);
+  const fromSource2 = getValueByPath(fromObject, ["source"]);
+  if (fromSource2 != null) {
+    generateVideosSourceToVertex(fromSource2, toObject);
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
   if (fromConfig != null) {
@@ -101968,9 +102487,9 @@ function recontextImageParametersToVertex(apiClient, fromObject, rootObject) {
   if (fromModel != null) {
     setValueByPath(toObject, ["_url", "model"], tModel(apiClient, fromModel));
   }
-  const fromSource = getValueByPath(fromObject, ["source"]);
-  if (fromSource != null) {
-    recontextImageSourceToVertex(fromSource, toObject);
+  const fromSource2 = getValueByPath(fromObject, ["source"]);
+  if (fromSource2 != null) {
+    recontextImageSourceToVertex(fromSource2, toObject);
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
   if (fromConfig != null) {
@@ -102167,9 +102686,9 @@ function segmentImageParametersToVertex(apiClient, fromObject, rootObject) {
   if (fromModel != null) {
     setValueByPath(toObject, ["_url", "model"], tModel(apiClient, fromModel));
   }
-  const fromSource = getValueByPath(fromObject, ["source"]);
-  if (fromSource != null) {
-    segmentImageSourceToVertex(fromSource, toObject);
+  const fromSource2 = getValueByPath(fromObject, ["source"]);
+  if (fromSource2 != null) {
+    segmentImageSourceToVertex(fromSource2, toObject);
   }
   const fromConfig = getValueByPath(fromObject, ["config"]);
   if (fromConfig != null) {
@@ -103642,11 +104161,11 @@ function includeExtraBodyToRequestInit(requestInit, extraBody) {
 var MCP_LABEL = "mcp_used/unknown";
 var hasMcpToolUsageFromMcpToTool = false;
 function hasMcpToolUsage(tools) {
-  for (const tool of tools) {
-    if (isMcpCallableTool(tool)) {
+  for (const tool2 of tools) {
+    if (isMcpCallableTool(tool2)) {
       return true;
     }
-    if (typeof tool === "object" && "inputSchema" in tool) {
+    if (typeof tool2 === "object" && "inputSchema" in tool2) {
       return true;
     }
   }
@@ -103666,8 +104185,8 @@ function listAllTools(mcpClient_1) {
     let numTools = 0;
     while (numTools < maxTools) {
       const t2 = yield __await(mcpClient.listTools({ cursor: cursor2 }));
-      for (const tool of t2.tools) {
-        yield yield __await(tool);
+      for (const tool2 of t2.tools) {
+        yield yield __await(tool2);
         numTools++;
       }
       if (!t2.nextCursor) {
@@ -104129,12 +104648,12 @@ var Live = class {
     }
     const inputTools = (_f = (_e5 = params.config) === null || _e5 === void 0 ? void 0 : _e5.tools) !== null && _f !== void 0 ? _f : [];
     const convertedTools = [];
-    for (const tool of inputTools) {
-      if (this.isCallableTool(tool)) {
-        const callableTool = tool;
+    for (const tool2 of inputTools) {
+      if (this.isCallableTool(tool2)) {
+        const callableTool = tool2;
         convertedTools.push(await callableTool.tool());
       } else {
-        convertedTools.push(tool);
+        convertedTools.push(tool2);
       }
     }
     if (convertedTools.length > 0) {
@@ -104161,8 +104680,8 @@ var Live = class {
     return session;
   }
   // TODO: b/416041229 - Abstract this method to a common place.
-  isCallableTool(tool) {
-    return "callTool" in tool && typeof tool.callTool === "function";
+  isCallableTool(tool2) {
+    return "callTool" in tool2 && typeof tool2.callTool === "function";
   }
 };
 var defaultLiveSendClientContentParamerters = {
@@ -104376,8 +104895,8 @@ function shouldDisableAfc(config2) {
     return true;
   }
   let callableToolsPresent = false;
-  for (const tool of (_b = config2 === null || config2 === void 0 ? void 0 : config2.tools) !== null && _b !== void 0 ? _b : []) {
-    if (isCallableTool(tool)) {
+  for (const tool2 of (_b = config2 === null || config2 === void 0 ? void 0 : config2.tools) !== null && _b !== void 0 ? _b : []) {
+    if (isCallableTool(tool2)) {
       callableToolsPresent = true;
       break;
     }
@@ -104392,12 +104911,12 @@ function shouldDisableAfc(config2) {
   }
   return false;
 }
-function isCallableTool(tool) {
-  return "callTool" in tool && typeof tool.callTool === "function";
+function isCallableTool(tool2) {
+  return "callTool" in tool2 && typeof tool2.callTool === "function";
 }
 function hasCallableTools(params) {
   var _a5, _b, _c5;
-  return (_c5 = (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) === null || _b === void 0 ? void 0 : _b.some((tool) => isCallableTool(tool))) !== null && _c5 !== void 0 ? _c5 : false;
+  return (_c5 = (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) === null || _b === void 0 ? void 0 : _b.some((tool2) => isCallableTool(tool2))) !== null && _c5 !== void 0 ? _c5 : false;
 }
 function findAfcIncompatibleToolIndexes(params) {
   var _a5;
@@ -104405,11 +104924,11 @@ function findAfcIncompatibleToolIndexes(params) {
   if (!((_a5 = params === null || params === void 0 ? void 0 : params.config) === null || _a5 === void 0 ? void 0 : _a5.tools)) {
     return afcIncompatibleToolIndexes;
   }
-  params.config.tools.forEach((tool, index) => {
-    if (isCallableTool(tool)) {
+  params.config.tools.forEach((tool2, index) => {
+    if (isCallableTool(tool2)) {
       return;
     }
-    const geminiTool = tool;
+    const geminiTool = tool2;
     if (geminiTool.functionDeclarations && geminiTool.functionDeclarations.length > 0) {
       afcIncompatibleToolIndexes.push(index);
     }
@@ -104876,9 +105395,9 @@ var Models = class _Models extends BaseModule {
         }
         const responseContent = response.candidates[0].content;
         const functionResponseParts = [];
-        for (const tool of (_e5 = (_d = params.config) === null || _d === void 0 ? void 0 : _d.tools) !== null && _e5 !== void 0 ? _e5 : []) {
-          if (isCallableTool(tool)) {
-            const callableTool = tool;
+        for (const tool2 of (_e5 = (_d = params.config) === null || _d === void 0 ? void 0 : _d.tools) !== null && _e5 !== void 0 ? _e5 : []) {
+          if (isCallableTool(tool2)) {
+            const callableTool = tool2;
             const parts = await callableTool.callTool(response.functionCalls);
             functionResponseParts.push(...parts);
           }
@@ -105121,12 +105640,12 @@ var Models = class _Models extends BaseModule {
     if (!tools) {
       return params;
     }
-    const transformedTools = await Promise.all(tools.map(async (tool) => {
-      if (isCallableTool(tool)) {
-        const callableTool = tool;
+    const transformedTools = await Promise.all(tools.map(async (tool2) => {
+      if (isCallableTool(tool2)) {
+        const callableTool = tool2;
         return await callableTool.tool();
       }
-      return tool;
+      return tool2;
     }));
     const newParams = {
       model: params.model,
@@ -105148,9 +105667,9 @@ var Models = class _Models extends BaseModule {
   async initAfcToolsMap(params) {
     var _a5, _b, _c5;
     const afcTools = /* @__PURE__ */ new Map();
-    for (const tool of (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) !== null && _b !== void 0 ? _b : []) {
-      if (isCallableTool(tool)) {
-        const callableTool = tool;
+    for (const tool2 of (_b = (_a5 = params.config) === null || _a5 === void 0 ? void 0 : _a5.tools) !== null && _b !== void 0 ? _b : []) {
+      if (isCallableTool(tool2)) {
+        const callableTool = tool2;
         const toolDeclaration = await callableTool.tool();
         for (const declaration of (_c5 = toolDeclaration.functionDeclarations) !== null && _c5 !== void 0 ? _c5 : []) {
           if (!declaration.name) {
@@ -113103,8 +113622,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs13 = req("fs");
-          buffer = fs13.readFileSync(params.file);
+          const fs14 = req("fs");
+          buffer = fs14.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -113112,8 +113631,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs13 = mod2("fs");
-            buffer = fs13.readFileSync(params.file);
+            const fs14 = mod2("fs");
+            buffer = fs14.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -116610,12 +117129,12 @@ function formatDuration(ms) {
   const h6 = Math.floor(m4 / 60);
   return m4 % 60 === 0 ? `${h6}h` : `${h6}h ${m4 % 60}m`;
 }
-function jobList(names, what) {
+function jobList(names, what2) {
   const unique = [...new Set(names)];
   const shown = unique.slice(0, 5).join(", ");
   const more = unique.length > 5 ? ` and ${unique.length - 5} more` : "";
   const noun = unique.length === 1 ? "job" : "jobs";
-  return `${unique.length} ${noun} ${what}: ${shown}${more}`;
+  return `${unique.length} ${noun} ${what2}: ${shown}${more}`;
 }
 function between(start2, end2) {
   const a5 = Date.parse(start2 ?? "");
@@ -116939,17 +117458,17 @@ var GitLabWatcher = class {
   async pipelines(prefix) {
     const st = this.ctx.state;
     const list2 = await this.get(external_exports.array(Pipeline2), "/pipelines", this.query(st.cursors.pipelines));
-    const listed = /* @__PURE__ */ new Set();
+    const listed2 = /* @__PURE__ */ new Set();
     for (const p3 of list2) {
       if (p3.source === "parent_pipeline") continue;
       if (!refAllowed(p3.ref, this.source.refs) || tooOld(this.ctx, p3.updated_at)) continue;
-      listed.add(String(p3.id));
+      listed2.add(String(p3.id));
       const seen = { id: p3.id, phase: gitlabPhase(p3.status), ref: p3.ref, sha: p3.sha, webUrl: p3.web_url, updatedAt: p3.updated_at };
       await this.pipeline(prefix, seen, modeFor(this.ctx, p3.updated_at));
     }
     const since = this.ctx.now() - REPOLL_MS;
     for (const [id, e6] of Object.entries(st.pipelines)) {
-      if (listed.has(id) || e6.touched < since || !hasMovingChild(e6)) continue;
+      if (listed2.has(id) || e6.touched < since || !hasMovingChild(e6)) continue;
       await this.pipeline(prefix, { id: Number(id), ...e6 }, "announce");
     }
     setCursor(st.cursors, "pipelines", list2.map((p3) => p3.updated_at));
@@ -117043,10 +117562,10 @@ var GitLabWatcher = class {
       const key2 = String(d5.id);
       if (st.deployments[key2]?.phase === d5.status) continue;
       if (modeFor(this.ctx, d5.updated_at) === "announce") {
-        const what = d5.status === "blocked" ? "blocked, waiting for approval" : d5.status;
+        const what2 = d5.status === "blocked" ? "blocked, waiting for approval" : d5.status;
         const url2 = d5.deployable?.web_url ?? `${webUrl}/-/environments`;
         await this.ctx.post(
-          `${prefix} deploy ${d5.environment.name} #${d5.iid} ${d5.ref} ${d5.sha.slice(0, 8)} ${what} ${url2}`
+          `${prefix} deploy ${d5.environment.name} #${d5.iid} ${d5.ref} ${d5.sha.slice(0, 8)} ${what2} ${url2}`
         );
       }
       st.deployments[key2] = { phase: d5.status, touched: this.ctx.now() };
@@ -117295,19 +117814,16 @@ async function runCi(config2, io, deps = {}) {
 }
 
 // src/cli.ts
-import { promises as fs12 } from "node:fs";
+import { promises as fs13 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
-
-// src/admin.ts
-import { join as join15 } from "node:path";
 
 // src/home.ts
 import { promises as fs8 } from "node:fs";
-import { join as join14 } from "node:path";
+import { join as join15 } from "node:path";
 
 // src/agentpath.ts
 import { promises as fs7 } from "node:fs";
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 
 // src/errors.ts
 var SetupError = class extends Error {
@@ -117318,13 +117834,13 @@ var NotReadyYet = class extends SetupError {
 
 // src/agentpath.ts
 function agentDir(root5) {
-  return join13(root5, "agent");
+  return join14(root5, "agent");
 }
 function agentLogPath(root5) {
-  return join13(agentDir(root5), "log.jsonl");
+  return join14(agentDir(root5), "log.jsonl");
 }
 function settingsPath(root5) {
-  return join13(agentDir(root5), "config.json");
+  return join14(agentDir(root5), "config.json");
 }
 async function agentEndpoint(root5, env3, create2) {
   const dir = agentDir(root5);
@@ -117335,7 +117851,7 @@ async function agentEndpoint(root5, env3, create2) {
   } catch {
     return void 0;
   }
-  const token = env3.platform === "win32" ? await pipeToken(join13(dir, "pipe"), env3, create2) : "";
+  const token = env3.platform === "win32" ? await pipeToken(join14(dir, "pipe"), env3, create2) : "";
   if (token === void 0) return void 0;
   const endpoint2 = agentEndpointFor(dir, env3.platform, token);
   const tooLong = endpointProblem(endpoint2, env3.platform);
@@ -117351,11 +117867,11 @@ async function pipeToken(path2, env3, create2) {
   return token;
 }
 function startLockPath(root5) {
-  return join13(agentDir(root5), "start.lock");
+  return join14(agentDir(root5), "start.lock");
 }
 async function retireEndpoint(root5, env3, endpoint2) {
   if (env3.platform !== "win32") return;
-  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs7.rm(join13(agentDir(root5), "pipe"), { force: true });
+  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs7.rm(join14(agentDir(root5), "pipe"), { force: true });
 }
 async function readAgentSettings(root5) {
   const raw = await readJson(settingsPath(root5));
@@ -117475,10 +117991,10 @@ function openPrekeySecret(data, prekey, sealed) {
 
 // src/home.ts
 async function deviceDirs(base) {
-  const candidates = [base, ...(await listDir(join14(base, "profiles"))).sort().map((p3) => join14(base, "profiles", p3))];
+  const candidates = [base, ...(await listDir(join15(base, "profiles"))).sort().map((p3) => join15(base, "profiles", p3))];
   const found = [];
   for (const dir of candidates) {
-    if (await fs8.lstat(join14(dir, "device.json")).then(() => true, () => false)) found.push(dir);
+    if (await fs8.lstat(join15(dir, "device.json")).then(() => true, () => false)) found.push(dir);
   }
   return found;
 }
@@ -117493,10 +118009,10 @@ var Home = class {
     this.env = env3;
   }
   get devicePath() {
-    return join14(this.root, "device.json");
+    return join15(this.root, "device.json");
   }
   meshDir(mesh) {
-    return join14(this.root, "meshes", mesh);
+    return join15(this.root, "meshes", mesh);
   }
   /**
    * The key file as it is on disk, refusing one that other users could read: a plaintext one
@@ -117582,10 +118098,10 @@ var Home = class {
     return dirProblem(stat3.mode, this.env.platform);
   }
   async meshIds() {
-    const names = await listDir(join14(this.root, "meshes"));
+    const names = await listDir(join15(this.root, "meshes"));
     const ids = [];
     for (const name of names.sort()) {
-      if (await readJson(join14(this.root, "meshes", name, "mesh.json")) !== void 0) ids.push(name);
+      if (await readJson(join15(this.root, "meshes", name, "mesh.json")) !== void 0) ids.push(name);
     }
     return ids;
   }
@@ -117601,6 +118117,54 @@ var Home = class {
     return ids[0];
   }
 };
+
+// src/shortcode.ts
+var RDV_ANSWER_MAX_BYTES = 16 * 1024;
+function rdvUrl(relay, rdv) {
+  return `${relay.replace(/^ws/, "http")}/v1/rdv/${rdv}`;
+}
+async function storeShortCode(link, relay, fullCode, inviteExp, now) {
+  const k5 = newShortKey();
+  const box = sealRdv(k5, fullCode);
+  const exp = Math.min(inviteExp, now + LIMITS.rdvLifetimeMs);
+  const answer = await link.request({ t: "rdv.put", ...box, exp }, (f7) => f7.t === "rdv.stored" && f7.rdv === box.rdv || errorFor("rdv.put")(f7), 1e4).catch((error63) => error63);
+  return shortOutcome(answer, formatShortCode(k5, relay), exp);
+}
+function shortOutcome(answer, code2, exp) {
+  if (answer instanceof Error) return { shortRefused: `the relay did not store it (${answer.message})` };
+  if (answer.t !== "error") return { short: { code: code2, exp } };
+  if (answer.code === "unknown_type" || answer.code === "unsupported") return { shortRefused: "this relay does not keep short codes" };
+  return { shortRefused: relayRefusal("the relay refused it", answer).message };
+}
+async function resolveInvite(code2, fetcher, opts = {}) {
+  if (!isShortCode(code2)) return code2;
+  const short = readShort(code2);
+  const url2 = rdvUrl(short.relay, rdvId(short.k));
+  const read = await fetcher(url2, { signal: AbortSignal.timeout(opts.timeoutMs ?? 15e3), redirect: "error", headers: { accept: "application/json" } }).then(async (res) => ({ status: res.status, body: await res.text() })).catch((error63) => error63);
+  return openAnswer(short, read);
+}
+function readShort(code2) {
+  try {
+    return parseShortCode(code2);
+  } catch (error63) {
+    throw new SetupError(error63.message);
+  }
+}
+function openAnswer(short, read) {
+  if (read instanceof Error) throw new ClientError(`could not read the short invite code from ${short.relay}: ${read.message}`, "unreachable");
+  if (read.status === 404) {
+    throw new ClientError("the relay has no invite under this short code: it was used, it expired, it was mistyped, or the relay keeps no short codes. Ask the admin device for a new one", "not_found");
+  }
+  if (read.status === 429) throw new ClientError("the relay refused: too many short code lookups from this address. Wait a while and try again", "limited");
+  if (read.status !== 200 || read.body.length > RDV_ANSWER_MAX_BYTES) throw new ClientError(`the relay's answer to the short code is not a box (HTTP ${read.status})`, "relay_error");
+  const json4 = parseJson(read.body);
+  const opened2 = openRdv(short.k, json4.ok ? json4.value : void 0);
+  if (!opened2.ok) throw new ClientError(`the relay's box for this short code does not open (${opened2.reason}). Ask the admin device for a new code`, opened2.reason);
+  if (parseInvite(opened2.value).relay.toLowerCase() !== short.relay.toLowerCase()) {
+    throw new ClientError("the short code's invite is for another relay than the one the code names", "wrong_relay");
+  }
+  return opened2.value;
+}
 
 // src/admin.ts
 function newConfig(mesh, relay, device, roster, tls3) {
@@ -117635,43 +118199,6 @@ async function createMesh(o3) {
     link.close();
   }
 }
-var Invites = class {
-  files;
-  env;
-  now;
-  constructor(files, env3, now) {
-    this.files = files;
-    this.env = env3;
-    this.now = now;
-  }
-  path(id) {
-    return join15(this.files.invitesDir, `${id}.json`);
-  }
-  async get(id) {
-    if (!/^[A-Za-z0-9_-]{22}$/.test(id)) return void 0;
-    const raw = await readJson(this.path(id));
-    if (raw === void 0) return void 0;
-    if (raw.exp <= this.now() && raw.secret !== void 0) {
-      const { secret: _s5, ...rest } = raw;
-      await writeJson(this.path(id), rest, this.env);
-      return rest;
-    }
-    return raw;
-  }
-  async put(r6) {
-    await writeJson(this.path(r6.id), r6, this.env);
-  }
-  /** Marks an invite used and deletes its secret (SPEC section 5). */
-  async markUsed(id) {
-    const r6 = await this.get(id);
-    if (r6 === void 0) return;
-    const { secret: _s5, ...rest } = r6;
-    await this.put({ ...rest, used: true });
-  }
-  async remove(id) {
-    await removeFile(this.path(id));
-  }
-};
 async function issueInvite(session, o3) {
   const me = session.roster.devices.find((d5) => d5.id === session.device.id);
   if (me?.role !== "admin") throw new ClientError("only an admin device can invite", "not_admin");
@@ -117690,26 +118217,34 @@ async function issueInvite(session, o3) {
     await invites.remove(invite2.inviteId);
     throw relayRefusal("the relay refused the invite", refused2);
   }
-  return { code: invite2.code, inviteId: invite2.inviteId, exp: invite2.exp };
+  const made = { code: invite2.code, inviteId: invite2.inviteId, exp: invite2.exp };
+  if (o3.short !== true) return made;
+  if (tls3 !== void 0) return { ...made, shortRefused: "this mesh pins its relay's certificate, which a short code cannot carry" };
+  return { ...made, ...await storeShortCode(link, session.config.relay, invite2.code, invite2.exp, o3.now()) };
 }
 async function decideJoin(session, body, confirm, now) {
   const invites = new Invites(session.mesh, session.files.env, now);
-  const record2 = await invites.get(body.invite);
-  if (record2 === void 0) return { outcome: "ignored", reason: "not an invite this device issued" };
-  if (record2.used) return { outcome: "refused", reason: "the invite was already used" };
-  if (record2.exp <= now() || record2.secret === void 0) return { outcome: "refused", reason: "the invite has expired" };
-  const v = verifyJoin(body, b64u.decode(record2.secret));
-  if (!v.ok) return { outcome: "refused", reason: v.reason };
-  const device = v.value.device;
-  if ([device.sign, device.box].some(isVectorKey)) return { outcome: "refused", reason: "the device holds a published test-vector key" };
-  const roster = session.roster;
-  if (roster.devices.some((d5) => d5.name === device.name)) return { outcome: "refused", reason: `the name ${device.name} is taken` };
-  if (roster.devices.some((d5) => d5.id === device.id) || roster.revoked.includes(device.id)) return { outcome: "refused", reason: "that device is already known" };
-  const prompt = { name: device.name, id: device.id, sas: sasFor(device) };
-  if (!record2.auto && !await confirm(prompt)) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
+  const screened = await screenJoin(invites, session.roster, body, now());
+  if (screened.outcome !== "ok") return screened;
+  const { record: record2, device, sas } = screened;
+  if (!record2.auto && !await confirm({ name: device.name, id: device.id, sas })) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
   await publishRoster(session, (current) => nextRosterWith(current, { add: [admitJoin(device, now())] }, session.device.keyring, now()));
   await invites.markUsed(record2.id);
+  await new PendingJoins(session.mesh, session.files.env).remove(record2.id);
   return { outcome: "admitted", name: device.name };
+}
+async function admitPending(session, name, typed, now) {
+  const invites = new Invites(session.mesh, session.files.env, now);
+  const waiting2 = (await new PendingJoins(session.mesh, session.files.env).list(session.roster, invites, now())).filter((p3) => p3.name === name);
+  if (waiting2.length === 0) throw new ClientError(`no device named ${name} is waiting to join`, "not_found");
+  const match2 = waiting2.find((p3) => sameCode(typed, sasFor(p3.body.device)));
+  if (match2 === void 0) {
+    throw new ClientError(
+      `that is not the comparison code of ${name}'s request. Check the code on the new device; if it shows another one, the request is not from it, so do not admit it`,
+      "mismatch"
+    );
+  }
+  return decideJoin(session, match2.body, async () => true, now);
 }
 async function publishRoster(session, make) {
   return withLock(session.mesh.rosterLock, async () => {
@@ -117945,7 +118480,9 @@ var Args = {
   refuse: external_exports.object({ held: external_exports.string() }),
   trust: external_exports.object({ device: external_exports.string(), relayed: external_exports.boolean().optional() }),
   untrust: external_exports.object({ device: external_exports.string() }),
-  resume: external_exports.object({ peer: external_exports.string() })
+  resume: external_exports.object({ peer: external_exports.string() }),
+  invite: external_exports.object({ exp: external_exports.number().int().min(6e4).max(LIMITS.inviteMaxTtlMs).optional() }),
+  admit: external_exports.object({ device: external_exports.string(), code: external_exports.string().min(1).max(64) })
 };
 var RequestError = class extends Error {
   code;
@@ -117969,6 +118506,9 @@ function heldRow(h6, session) {
     reason: h6.reason,
     ...h6.entry.file === void 0 ? {} : { file: h6.entry.file }
   };
+}
+function personOnly(agent, what2) {
+  if (agent !== void 0) throw new RequestError("refused", `${what2} is the person's: this events process runs with an agent's variables (${agent})`);
 }
 async function runEvents(d5) {
   const s3 = d5.session;
@@ -117997,6 +118537,7 @@ async function runEvents(d5) {
   let peers2 = /* @__PURE__ */ new Map();
   let held2 = /* @__PURE__ */ new Map();
   let leases = /* @__PURE__ */ new Map();
+  let joins = /* @__PURE__ */ new Map();
   const followed = /* @__PURE__ */ new Map();
   let synced = false;
   const paused = /* @__PURE__ */ new Map();
@@ -118008,6 +118549,24 @@ async function runEvents(d5) {
   };
   const addresses = /* @__PURE__ */ new Map();
   const remember = (rows, key2) => new Map(rows.map((r6) => [key2(r6), JSON.stringify(r6)]));
+  async function joinsNow() {
+    const rows = await new PendingJoins(d5.mesh, d5.env).list(s3.roster, new Invites(d5.mesh, d5.env, d5.now), d5.now());
+    return rows.map((r6) => ({ name: r6.name, id: r6.id, invite: r6.invite, at: r6.at, exp: r6.exp }));
+  }
+  const joinKey = (r6) => `${r6["invite"]}/${r6["id"]}`;
+  let joinsQueue = Promise.resolve();
+  function joinsPass() {
+    const run2 = joinsQueue.then(joinsPassNow);
+    joinsQueue = run2.catch(() => void 0);
+    return run2;
+  }
+  async function joinsPassNow() {
+    const rows = await joinsNow();
+    const next = remember(rows, joinKey);
+    for (const r6 of rows) if (!joins.has(joinKey(r6))) emit("join", { op: "add", request: r6 });
+    for (const [k5, text2] of joins) if (!next.has(k5)) emit("join", { op: "remove", request: JSON.parse(text2) });
+    joins = next;
+  }
   async function heldNow() {
     const out = /* @__PURE__ */ new Map();
     for (const h6 of await listAllHeld(d5.mesh, d5.env)) {
@@ -118022,6 +118581,8 @@ async function runEvents(d5) {
     const leaseRows = online ? await s3.listLeases().catch(() => []) : [];
     held2 = await heldNow();
     const heldRows = [...held2.values()].map((h6) => h6.row);
+    const joinRows = await joinsNow();
+    joins = remember(joinRows, joinKey);
     const devs = deviceRows2();
     devices2 = remember(devs, (r6) => r6["id"]);
     peers2 = remember(rows.map(sessionRow), (r6) => r6["address"]);
@@ -118031,7 +118592,7 @@ async function runEvents(d5) {
       if (h6.row["reason"] === "breaker" && !paused.has(peer)) paused.set(peer, { peer, at: h6.row["at"] });
     }
     synced = true;
-    emit("snapshot", { devices: devs, sessions: rows.map(sessionRow), rooms: roomsOf(rows), leases: leaseRows, held: heldRows, breakers: [...paused.values()] });
+    emit("snapshot", { devices: devs, sessions: rows.map(sessionRow), rooms: roomsOf(rows), leases: leaseRows, held: heldRows, breakers: [...paused.values()], joins: joinRows });
   }
   function diff(kind, rows, key2, last, gone) {
     const next = /* @__PURE__ */ new Map();
@@ -118120,6 +118681,7 @@ async function runEvents(d5) {
   async function poll() {
     await follow(false);
     await heldPass();
+    await joinsPass();
     devices2 = diff("device", deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
   }
   async function leasePass() {
@@ -118197,6 +118759,21 @@ async function runEvents(d5) {
         const released = await s3.resumePeer(peer) + await resumeEverywhere(d5.mesh, peer, d5.env, d5.now, s3.sid);
         return { released };
       }
+      case "invite": {
+        personOnly(d5.agent, "inviting a device");
+        const made = await issueInvite(s3, { ttlMs: a5.exp ?? 36e5, auto: false, now: d5.now, short: true });
+        if (made.short === void 0) return { code: made.code, invite: made.inviteId, exp: made.exp };
+        return { code: made.short.code, invite: made.inviteId, exp: made.short.exp, full: made.code };
+      }
+      case "admit": {
+        personOnly(d5.agent, "admitting a device");
+        const i6 = a5;
+        const decision = await admitPending(s3, i6.device, i6.code, d5.now);
+        if (decision.outcome !== "admitted") throw new RequestError("refused", `could not admit ${sanitizeForDisplay(i6.device)}: ${decision.reason}`);
+        await joinsPass();
+        devices2 = diff("device", deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
+        return { device: i6.device };
+      }
     }
   }
   async function handle(line) {
@@ -118228,13 +118805,15 @@ async function runEvents(d5) {
   emit("hello", {
     version: d5.version,
     device: { name: d5.device.name, id: d5.device.id },
+    // Where the device keys are: in this process (`local`), or in the signer (`signer`).
+    keys: d5.device.keyring.kind,
     session: s3.address,
     relay: relayHost(s3.config.relay),
     mesh: `${s3.config.mesh.slice(0, 4)}\u2026`
   });
-  s3.on("connection", (state2, detail) => {
+  s3.on("connection", (state2, detail2) => {
     synced = false;
-    emit("connection", { state: state2, ...detail === void 0 ? {} : { detail } });
+    emit("connection", { state: state2, ...detail2 === void 0 ? {} : { detail: detail2 } });
     if (state2 === "open") void snapshot().catch(() => void 0);
   });
   s3.on("peers", () => {
@@ -118245,6 +118824,7 @@ async function runEvents(d5) {
   s3.on("breaker", (b5) => breaker2(b5));
   await follow(true);
   held2 = await heldNow();
+  joins = remember(await joinsNow(), joinKey);
   devices2 = remember(deviceRows2(), (r6) => r6["id"]);
   s3.start();
   let busy = false;
@@ -118267,6 +118847,91 @@ async function runEvents(d5) {
   clearInterval(leaseTick);
   lines.close();
   await queue;
+}
+var SetupArgs = external_exports.object({ code: external_exports.string().min(1).max(16 * 1024), name: external_exports.string().optional() });
+async function runSetupEvents(d5) {
+  const emit = (type, fields = {}) => d5.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d5.now(), ...fields }));
+  const known = await d5.home.loadDevice();
+  emit("setup", { version: d5.version, device: known === void 0 ? null : { name: known.name, id: known.id } });
+  let joining = false;
+  let finish;
+  const joined = new Promise((resolve3) => finish = resolve3);
+  async function join22(a5) {
+    personOnly(d5.agent, "joining a mesh");
+    if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
+    joining = true;
+    try {
+      const code2 = await resolveInvite(a5.code, d5.fetch).catch((error63) => {
+        throw error63 instanceof SetupError ? new RequestError("input", error63.message) : error63;
+      });
+      try {
+        parseInvite(code2);
+      } catch {
+        throw new RequestError("input", "not an invite code (wim1_... or wim2-...)");
+      }
+      const device = await d5.home.loadDevice() ?? await d5.home.createDevice(a5.name ?? d5.defaultName);
+      return await new Promise((resolve3, reject) => {
+        let answered2 = false;
+        joinMesh({
+          home: d5.home,
+          device,
+          code: code2,
+          dialer: d5.dialer,
+          now: d5.now,
+          showSas: (sas) => {
+            answered2 = true;
+            resolve3({ device: { name: device.name, id: device.id }, code: sas });
+          }
+        }).then(
+          (done) => {
+            const others = done.roster.devices.filter((x2) => x2.id !== device.id && !isRecoveryName(x2.name)).map((x2) => ({ name: x2.name, id: x2.id }));
+            emit("joined", { mesh: `${done.mesh.slice(0, 4)}\u2026`, devices: others });
+            finish();
+          },
+          (error63) => {
+            joining = false;
+            if (!answered2) return reject(error63);
+            emit("join_failed", { message: sanitizeForDisplay(error63.message) });
+          }
+        );
+      });
+    } catch (error63) {
+      joining = false;
+      throw error63;
+    }
+  }
+  async function handle(line) {
+    let id;
+    try {
+      const raw = (() => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          throw new RequestError("input", "not JSON");
+        }
+      })();
+      const req = Request3.safeParse(raw);
+      if (!req.success) throw new RequestError("input", "a request is { v: 1, id, op, args? }");
+      id = req.data.id;
+      if (req.data.op !== "join") throw new RequestError("setup", "this device is in no mesh yet: join one first");
+      const args = SetupArgs.safeParse(req.data.args ?? {});
+      if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
+      emit("response", { id, ok: true, result: await join22(args.data) });
+    } catch (error63) {
+      const code2 = error63 instanceof RequestError ? error63.code : "error";
+      emit("response", { ...id === void 0 ? {} : { id }, ok: false, error: { code: code2, message: sanitizeForDisplay(error63.message) } });
+    }
+  }
+  let queue = Promise.resolve();
+  const lines = createInterface({ input: d5.input });
+  lines.on("line", (line) => {
+    if (line.trim() === "") return;
+    queue = queue.then(() => handle(line));
+  });
+  const ended = new Promise((resolve3) => lines.once("close", resolve3));
+  const aborted2 = new Promise((resolve3) => d5.signal.aborted ? resolve3() : d5.signal.addEventListener("abort", () => resolve3(), { once: true }));
+  await Promise.race([ended, aborted2, joined]);
+  lines.close();
 }
 
 // ../../node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
@@ -120046,7 +120711,7 @@ var Status2 = external_exports.enum(RESULT_STATUSES);
 var PUBLIC = {
   peers: { description: "List mesh sessions: address, kind, status, rooms, one per line. all: include long-offline ones.", input: external_exports.object({ all: external_exports.boolean().optional() }) },
   send: {
-    description: "Send a message to name@device, #room, * or a list. Returns each recipient's status.",
+    description: "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session) or queued (that session is offline; the relay keeps it 24 h). Neither means delivered or read; history shows receipts that come back (delivered, held for its person's approval).",
     input: external_exports.object({ to: To2, text: external_exports.string(), reply_to: external_exports.string().optional(), notify_when_idle: external_exports.boolean().optional() })
   },
   ask: {
@@ -120176,9 +120841,9 @@ var WimMcp = class {
   /** The first session; when a handshake waits for it, that Claude session's own, and its link file. */
   async openFirst() {
     const s3 = await this.openWith(this.o.sessionKey === void 0 ? void 0 : `key:${this.o.sessionKey}`);
-    const pending = this.pending;
-    if (pending === void 0) return s3;
-    const linked = await this.adopt(pending.claudeSessionId, s3);
+    const pending2 = this.pending;
+    if (pending2 === void 0) return s3;
+    const linked = await this.adopt(pending2.claudeSessionId, s3);
     await this.writeLinkFile(this.linkOf(linked));
     return linked;
   }
@@ -120361,7 +121026,7 @@ var WimMcp = class {
       }
       case "history": {
         const i6 = a5;
-        const entries = await s3.history.query({ ...i6.peer === void 0 ? {} : { peer: i6.peer }, ...i6.limit === void 0 ? {} : { limit: i6.limit }, ...i6.before === void 0 ? {} : { before: i6.before } });
+        const entries = await s3.history.query({ receipts: true, ...i6.peer === void 0 ? {} : { peer: i6.peer }, ...i6.limit === void 0 ? {} : { limit: i6.limit }, ...i6.before === void 0 ? {} : { before: i6.before } });
         if (entries.some((e6) => e6.dir === "in")) s3.informed();
         return text(entries.length === 0 ? "No history." : entries.map(renderForAgent).join("\n\n"));
       }
@@ -120474,11 +121139,14 @@ function notAPerson(env3, isTTY) {
   }
   return isTTY ? void 0 : "this command's output is not an interactive terminal (it is piped or redirected)";
 }
-function personOnly(why, command5) {
+function personOnly2(why, command5) {
   return `${why}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`${command5}\` there`;
 }
 function canShowSecret(env3, isTTY) {
   return notAPerson(env3, isTTY) === void 0;
+}
+function canConfirm(env3, io) {
+  return io.inputIsTTY && canShowSecret(env3, io.isTTY);
 }
 var SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 6e4;
 function showSocketPath(home, platform2) {
@@ -120597,7 +121265,7 @@ function describeInfo(info) {
 }
 
 // src/agentcli.ts
-import { spawn as nodeSpawn } from "node:child_process";
+import { spawn as nodeSpawn2 } from "node:child_process";
 import { join as join20 } from "node:path";
 
 // src/agent.ts
@@ -121063,16 +121731,285 @@ var AgentServer = class {
   }
 };
 
+// src/autostart.ts
+import { spawn as nodeSpawn } from "node:child_process";
+import { promises as fs12 } from "node:fs";
+function runProgram(cmd, args, input2 = "", spawn = nodeSpawn) {
+  return new Promise((resolve3, reject) => {
+    const child = spawn(cmd, [...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    child.once("error", reject);
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (d5) => stdout += d5);
+    child.stderr.on("data", (d5) => stderr += d5);
+    child.once("close", (code2) => resolve3({ code: code2, stdout, stderr }));
+    child.stdin.on("error", () => void 0);
+    child.stdin.end(input2);
+  });
+}
+function unlessMissing(error63) {
+  if (error63.code === "ENOENT") return void 0;
+  throw error63;
+}
+var GUI_TITLE = "worldinmotion";
+var GUI_ASK = "Passphrase for this device's worldinmotion keys (it starts the signer):";
+var GUI_AGAIN = "That passphrase did not open the keys. Passphrase for this device's worldinmotion keys:";
+function psQuote(s3) {
+  return `'${s3.replace(/['\u2018\u2019\u201A\u201B]/g, "$&$&")}'`;
+}
+function psEncoded(script) {
+  return Buffer.from(script, "utf16le").toString("base64");
+}
+function guiPrompts(platform2, text2) {
+  if (platform2 === "darwin") {
+    const dialog = `display dialog "${text2}" default answer "" with hidden answer with title "${GUI_TITLE}" buttons {"Cancel", "OK"} default button "OK"`;
+    return [{ cmd: "osascript", args: ["-e", dialog, "-e", "text returned of result"] }];
+  }
+  if (platform2 === "win32") {
+    const script = [
+      "[Console]::OutputEncoding = [Text.Encoding]::UTF8",
+      `$c = Get-Credential -UserName ${psQuote(GUI_TITLE)} -Message ${psQuote(text2)}`,
+      "if ($null -eq $c) { exit 1 }",
+      "[Console]::Out.Write($c.GetNetworkCredential().Password)"
+    ].join("; ");
+    return [{ cmd: "powershell.exe", args: ["-NoProfile", "-EncodedCommand", psEncoded(script)] }];
+  }
+  return [
+    { cmd: "zenity", args: ["--entry", "--hide-text", `--title=${GUI_TITLE}`, `--text=${text2}`] },
+    { cmd: "kdialog", args: ["--title", GUI_TITLE, "--password", text2] }
+  ];
+}
+async function askGui(platform2, run, text2) {
+  const prompts = guiPrompts(platform2, text2);
+  let failure3;
+  for (const [i6, p3] of prompts.entries()) {
+    const got = answered(await run(p3.cmd, p3.args).catch(unlessMissing), p3.cmd, i6 === prompts.length - 1);
+    if (typeof got === "string") return got;
+    failure3 = got?.failed ?? failure3;
+  }
+  throw new SetupError(
+    failure3 === void 0 ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal" : `no passphrase prompt could be shown (${failure3}): start the signer with \`wim agent start\` in your own terminal`
+  );
+}
+function answered(r6, cmd, last) {
+  if (r6 === void 0) return void 0;
+  if (r6.code === 0) return r6.stdout.replace(/\r?\n$/, "");
+  if (last || !/(cannot|failed to) open display/i.test(r6.stderr)) throw new SetupError("the passphrase prompt was cancelled");
+  return { failed: `${cmd}: ${r6.stderr.trim().slice(0, 300)}` };
+}
+function keyringKind(platform2) {
+  if (platform2 === "darwin") return "keychain";
+  return platform2 === "win32" ? void 0 : "libsecret";
+}
+var NO_KEYRING = "--keyring is not offered on Windows: Credential Manager gives a stored passphrase to any program you run, agents included, without asking. Use the passphrase dialog instead (`wim agent autostart enable`)";
+var KEYRING_WARNING = {
+  keychain: [
+    "The passphrase goes into your login keychain in an item that trusts no program, so macOS asks you each time something reads it, the signer included.",
+    "Choose Allow when the signer starts at log in. Never choose Always Allow: that lets any program read it silently from then on, agents included. A prompt you did not expect means something else asked: choose Deny."
+  ],
+  libsecret: [
+    "WARNING: your keyring (libsecret) gives this passphrase to any program you run while the keyring is unlocked, which is all the time you are logged in. That includes agents and the tools they run.",
+    "An agent that reads it can decrypt device.json offline and act as this device: this undoes the protection the signer gives against agents. The passphrase dialog (`wim agent autostart enable` without --keyring) does not."
+  ]
+};
+var SERVICE = "worldinmotion-signer";
+function keyringAccount(root5) {
+  return Buffer.from(sha2562(utf8(root5))).toString("hex").slice(0, 16);
+}
+function keyringOf(platform2) {
+  const kind = keyringKind(platform2);
+  if (kind === void 0) throw new SetupError(NO_KEYRING);
+  return kind;
+}
+function tool(cmd) {
+  return (error63) => {
+    unlessMissing(error63);
+    throw new SetupError(`${cmd} is not installed${cmd === "secret-tool" ? " (the libsecret-tools package)" : ""}`);
+  };
+}
+async function keyringStore(platform2, run, account, passphrase) {
+  const kind = keyringOf(platform2);
+  const hex3 = Buffer.from(passphrase, "utf8").toString("hex");
+  if (kind === "keychain") {
+    await run("security", ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security"));
+    await run("security", ["-i"], `add-generic-password -a ${account} -s ${SERVICE} -l ${SERVICE} -T "" -w ${hex3}
+`).catch(tool("security"));
+    stored(await run("security", ["find-generic-password", "-a", account, "-s", SERVICE]).catch(tool("security")));
+    return;
+  }
+  stored(await run("secret-tool", ["store", `--label=${SERVICE}`, "service", SERVICE, "account", account], hex3).catch(tool("secret-tool")));
+}
+function stored(r6) {
+  if (r6.code !== 0) throw new SetupError(`the keyring did not store the passphrase: ${(r6.stderr.trim() || `exit code ${r6.code}`).slice(0, 300)}`);
+}
+async function keyringRead(platform2, run, account) {
+  const r6 = keyringOf(platform2) === "keychain" ? await run("security", ["find-generic-password", "-a", account, "-s", SERVICE, "-w"]).catch(tool("security")) : await run("secret-tool", ["lookup", "service", SERVICE, "account", account]).catch(tool("secret-tool"));
+  return decodeStored(r6);
+}
+function decodeStored(r6) {
+  const hex3 = r6.stdout.trim();
+  if (r6.code !== 0 || !/^(?:[0-9a-f]{2})+$/.test(hex3)) {
+    throw new SetupError("no passphrase could be read from the keyring (not stored, or the read was denied): `wim agent autostart enable --keyring` stores it");
+  }
+  return Buffer.from(hex3, "hex").toString("utf8");
+}
+async function keyringClear(platform2, run, account) {
+  const kind = keyringKind(platform2);
+  if (kind === "keychain") await run("security", ["delete-generic-password", "-a", account, "-s", SERVICE]).catch(unlessMissing);
+  else if (kind === "libsecret") await run("secret-tool", ["clear", "service", SERVICE, "account", account]).catch(unlessMissing);
+}
+function xml(s3) {
+  return s3.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function execArg(a5) {
+  if (/[\n\r]/.test(a5)) throw new SetupError(`a login item cannot run a path with a line break in it: ${JSON.stringify(a5)}`);
+  const quoted = /^[A-Za-z0-9_\-./=:@+,]+$/.test(a5) ? a5 : `"${a5.replace(/["`$\\]/g, "\\$&")}"`;
+  return quoted.replace(/\\/g, "\\\\").replace(/%/g, "%%");
+}
+function windowsUser(env3) {
+  const user = env3["USERNAME"];
+  if (user === void 0 || user === "") throw new SetupError("USERNAME is not set, so the logon task cannot name its user");
+  const domain2 = env3["USERDOMAIN"];
+  return domain2 === void 0 || domain2 === "" ? user : `${domain2}\\${user}`;
+}
+function loginItem(o3, source2) {
+  const path2 = pathFor(o3.platform);
+  const id = keyringAccount(o3.root);
+  const command5 = [...o3.programs.wim, "agent", "start", "--foreground", `--${source2}`];
+  const log = path2.join(o3.root, "agent", "autostart.log");
+  if (o3.platform === "darwin") {
+    const label = `worldinmotion.signer.${id}`;
+    const strings = (items) => items.map((s3) => `    <string>${xml(s3)}</string>`).join("\n");
+    const text3 = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+      '<plist version="1.0">',
+      "<dict>",
+      `  <key>Label</key><string>${label}</string>`,
+      "  <key>ProgramArguments</key>",
+      "  <array>",
+      strings(command5),
+      "  </array>",
+      `  <key>EnvironmentVariables</key><dict><key>WIM_HOME</key><string>${xml(o3.root)}</string></dict>`,
+      `  <key>StandardOutPath</key><string>${xml(log)}</string>`,
+      `  <key>StandardErrorPath</key><string>${xml(log)}</string>`,
+      "  <key>RunAtLoad</key><true/>",
+      "  <key>ProcessType</key><string>Interactive</string>",
+      "</dict>",
+      "</plist>",
+      ""
+    ].join("\n");
+    return { kind: "launchd", where: path2.join(o3.homedir, "Library", "LaunchAgents", `${label}.plist`), text: text3, log };
+  }
+  if (o3.platform === "win32") {
+    const user = xml(windowsUser(o3.env));
+    const script = `$env:WIM_HOME = ${psQuote(o3.root)}; & ${command5.map(psQuote).join(" ")} *>> ${psQuote(log)}; exit $LASTEXITCODE`;
+    const text3 = [
+      '<?xml version="1.0" encoding="UTF-16"?>',
+      '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
+      `  <RegistrationInfo><Description>Starts the worldinmotion signer at log on: wim agent start --foreground --${source2}</Description></RegistrationInfo>`,
+      `  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>${user}</UserId></LogonTrigger></Triggers>`,
+      `  <Principals><Principal id="Author"><UserId>${user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>`,
+      "  <Settings>",
+      "    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>",
+      "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>",
+      "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>",
+      // The signer runs for the whole session: no time limit, which would otherwise end it after 72 hours.
+      "    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>",
+      "    <Enabled>true</Enabled>",
+      "  </Settings>",
+      `  <Actions Context="Author"><Exec><Command>powershell.exe</Command><Arguments>-NoProfile -WindowStyle Hidden -EncodedCommand ${psEncoded(script)}</Arguments></Exec></Actions>`,
+      "</Task>",
+      ""
+    ].join("\r\n");
+    return { kind: "task", where: `worldinmotion signer ${id}`, text: text3, log };
+  }
+  const config2 = o3.env["XDG_CONFIG_HOME"] || path2.join(o3.homedir, ".config");
+  const text2 = [
+    "[Desktop Entry]",
+    "Type=Application",
+    "Name=worldinmotion signer",
+    "Comment=Starts the worldinmotion signer, which asks for the passphrase of this device's keys",
+    // sh appends the command's output to the log; the paths reach it as arguments, never as script text.
+    `Exec=${["env", `WIM_HOME=${o3.root}`, "sh", "-c", 'log="$1"; shift; exec "$@" >>"$log" 2>&1', "sh", log, ...command5].map(execArg).join(" ")}`,
+    "Terminal=false",
+    "NoDisplay=true",
+    "X-GNOME-Autostart-enabled=true",
+    ""
+  ].join("\n");
+  return { kind: "xdg", where: path2.join(config2, "autostart", `worldinmotion-signer-${id}.desktop`), text: text2, log };
+}
+async function enableAutostart(o3, source2) {
+  const item = loginItem(o3, source2);
+  const here = pathFor(o3.fsEnv.platform);
+  await ensureDir(here.join(o3.root, "agent"));
+  if (item.kind !== "task") {
+    await ensureDir(here.dirname(item.where));
+    await writeAtomic(item.where, item.text, o3.fsEnv);
+    return item;
+  }
+  const file2 = here.join(o3.root, "agent", "autostart-task.xml");
+  await ensureDir(here.dirname(file2));
+  await fs12.writeFile(file2, Buffer.concat([Buffer.from([255, 254]), Buffer.from(item.text, "utf16le")]), { mode: 384 });
+  try {
+    created(await o3.programs.run("schtasks", ["/Create", "/TN", item.where, "/XML", file2, "/F"]));
+  } finally {
+    await removeFile(file2);
+  }
+  return item;
+}
+function created(r6) {
+  if (r6.code !== 0) throw new SetupError(`schtasks could not create the logon task: ${detail(r6)}`);
+}
+function detail(r6) {
+  return (r6.stderr.trim() || r6.stdout.trim() || `exit code ${r6.code}`).slice(0, 300);
+}
+async function taskExists(o3, name) {
+  return listed(await o3.programs.run("schtasks", ["/Query", "/FO", "CSV", "/NH"]), name);
+}
+function listed(r6, name) {
+  if (r6.code !== 0) throw new SetupError(`schtasks could not list the scheduled tasks: ${detail(r6)}`);
+  return r6.stdout.includes(`"\\${name}"`);
+}
+function unlessThere(exists, what2, r6) {
+  if (exists) throw new SetupError(`schtasks could not ${what2} the logon task: ${detail(r6)}`);
+  return void 0;
+}
+async function disableAutostart(o3) {
+  const item = loginItem(o3, "ask-gui");
+  if (item.kind === "task") {
+    const r6 = await o3.programs.run("schtasks", ["/Delete", "/TN", item.where, "/F"]);
+    if (r6.code === 0) return true;
+    unlessThere(await taskExists(o3, item.where), "delete", r6);
+    return false;
+  }
+  const existed = await readText(item.where) !== void 0;
+  await removeFile(item.where);
+  return existed;
+}
+async function autostartStatus(o3) {
+  const item = loginItem(o3, "ask-gui");
+  const text2 = item.kind === "task" ? await taskText(o3, item.where) : await readText(item.where);
+  return text2 === void 0 ? void 0 : { where: item.where, source: text2.includes("--keyring") ? "keyring" : "ask-gui", log: item.log };
+}
+async function taskText(o3, name) {
+  const r6 = await o3.programs.run("schtasks", ["/Query", "/TN", name, "/XML"]);
+  return r6.code === 0 ? r6.stdout : unlessThere(await taskExists(o3, name), "read", r6);
+}
+
 // src/agentcli.ts
-var AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin]
-  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin] | wim agent stop
-  wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]`;
+var AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin | --ask-gui | --keyring] [--allow-agent-passphrase]
+  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin | --ask-gui | --keyring] | wim agent stop
+  wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]
+  wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status`;
 var MIN_PASSPHRASE = 8;
 var PROMPT = "Passphrase for this device's keys: ";
 function wimCommand() {
   return [process.execPath, ...process.execArgv, process.argv[1]];
 }
-function spawnDetached(command5, input2, spawn = nodeSpawn) {
+function spawnDetached(command5, input2, spawn = nodeSpawn2) {
   return new Promise((resolve3, reject) => {
     const child = spawn(command5[0], command5.slice(1), { detached: true, stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
     let out = "";
@@ -121093,13 +122030,57 @@ function spawnDetached(command5, input2, spawn = nodeSpawn) {
 `);
   });
 }
-async function readPassphrase(ctx, question) {
+var SOURCES = { "passphrase-stdin": ["start", "unlock", "encrypt", "decrypt"], "ask-gui": ["start", "unlock"], keyring: ["start", "unlock", "autostart"] };
+var GUI_TRIES = 3;
+function otherSource(ctx) {
+  const given = Object.keys(SOURCES).filter((s3) => ctx.flags.get(s3) === true);
+  if (given.length > 1) throw new SetupError(`use one of --${given.join(", --")}, not several`);
+  const from = given[0];
+  const agent = agentEnv(ctx.env);
+  if (from === void 0 || agent === void 0) return from;
+  if (ctx.flags.get("allow-agent-passphrase") !== true) {
+    throw new SetupError(
+      `${agent} is set, so an agent is running this command, and --${from} is refused there: an agent that can reach the passphrase's source can read it and decrypt the keys, which defeats the signer. Start the signer in your own terminal, or, if you mean the agent to, add --allow-agent-passphrase (SECURITY-MODEL 5.8)`
+    );
+  }
+  ctx.io.err(`wim: warning: --allow-agent-passphrase: ${agent} is set, so an agent runs this command; whatever can read the passphrase's source can decrypt this device's keys, which defeats the signer's protection against agents (SECURITY-MODEL 5.8)`);
+  return from;
+}
+function programs(ctx) {
+  if (ctx.io.programs === void 0) throw new SetupError("this program cannot run a passphrase dialog, a keyring or a login item");
+  return ctx.io.programs;
+}
+async function askUntilOpens(ctx, opens) {
+  const { platform: platform2, run } = programs(ctx);
+  for (let i6 = 0; i6 < GUI_TRIES; i6++) {
+    const passphrase = await askGui(platform2, run, i6 === 0 ? GUI_ASK : GUI_AGAIN);
+    if (opens === void 0 || await opens(passphrase)) return passphrase;
+  }
+  throw new SetupError(`the passphrase did not open this device's keys in ${GUI_TRIES} tries`);
+}
+function fromSource(ctx, from, opens) {
+  if (from === "passphrase-stdin") return ctx.io.prompt("");
+  if (from === "ask-gui") return askUntilOpens(ctx, opens);
+  const p3 = programs(ctx);
+  return keyringRead(p3.platform, p3.run, keyringAccount(ctx.home.root));
+}
+function opensFile(file2) {
+  return (passphrase) => openKeyFile(file2, passphrase).then(
+    (u) => {
+      for (const b5 of [u.keys.signSec, u.keys.boxSec, u.data]) b5.fill(0);
+      return true;
+    },
+    () => false
+  );
+}
+async function readPassphrase(ctx, question, opens) {
   let passphrase;
-  if (ctx.flags.get("passphrase-stdin") === true) passphrase = await ctx.io.prompt("");
+  const from = otherSource(ctx);
+  if (from !== void 0) passphrase = await fromSource(ctx, from, opens);
   else {
     const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === void 0 ? "this program cannot ask for a passphrase without showing it" : void 0);
     if (why !== void 0) {
-      throw new SetupError(`${personOnly(why, `wim agent ${ctx.args[0]}`)} (a service manager can pass --passphrase-stdin instead)`);
+      throw new SetupError(`${personOnly2(why, `wim agent ${ctx.args[0]}`)} (a service manager can pass --passphrase-stdin instead)`);
     }
     passphrase = await ctx.io.promptSecret(question);
   }
@@ -121124,6 +122105,9 @@ async function running(ctx) {
 }
 async function agentCommand(ctx) {
   const [action] = ctx.args;
+  for (const s3 of Object.keys(SOURCES)) {
+    if (ctx.flags.get(s3) === true && !SOURCES[s3].includes(action ?? "")) throw new SetupError(`--${s3} is for wim agent ${SOURCES[s3].join(", ")}`);
+  }
   switch (action) {
     case "start":
       return start(ctx);
@@ -121140,6 +122124,8 @@ async function agentCommand(ctx) {
       return encrypt(ctx);
     case "decrypt":
       return decrypt(ctx);
+    case "autostart":
+      return autostart(ctx);
     default:
       throw new SetupError(`usage: ${AGENT_USAGE}`);
   }
@@ -121212,7 +122198,7 @@ async function start(ctx) {
     }
     ctx.io.err(`wim: something answers at ${at} but cannot prove it is this device's signer; starting a signer in its place`);
   }
-  return launch(ctx, await readPassphrase(ctx, PROMPT));
+  return launch(ctx, await readPassphrase(ctx, PROMPT, opensFile(file2)));
 }
 async function launch(ctx, passphrase) {
   if (ctx.flags.get("foreground") === true) {
@@ -121230,7 +122216,8 @@ async function launch(ctx, passphrase) {
   if (!line.startsWith("ready ")) throw new SetupError(line.replace(/^error /, ""));
   const [, pid, ...at] = line.split(" ");
   ctx.io.out(`Signer started (pid ${pid}) at ${at.join(" ")}. Sessions now sign and open through it.`);
-  ctx.io.out("`wim agent lock` wipes the keys from its memory; `wim agent stop` ends it.");
+  ctx.io.out("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim agent stop`.");
+  ctx.io.out("`wim agent lock` wipes the keys from its memory. `wim agent autostart enable` starts it at each log in.");
   return 0;
 }
 async function serve(ctx) {
@@ -121244,7 +122231,7 @@ async function status(ctx) {
   ctx.io.out(`key file: ${ctx.home.devicePath} (${kind})${settings.require_signer === true ? "; the signer is required" : ""}`);
   const client = await running(ctx);
   if (client === void 0) {
-    ctx.io.out("signer: not running");
+    ctx.io.out(`signer: not running. Start it with \`wim agent start\` in a terminal you opened yourself (not one an agent runs), or have it start at each log in: \`wim agent autostart enable\`.`);
     return 3;
   }
   try {
@@ -121383,20 +122370,68 @@ async function decrypt(ctx) {
   ctx.io.out(`Decrypted ${ctx.home.devicePath}: the keys are in the clear again, and sessions read them without a signer.`);
   return 0;
 }
+async function autostart(ctx) {
+  const what2 = ctx.args[1];
+  const p3 = programs(ctx);
+  const o3 = { platform: p3.platform, homedir: ctx.io.homedir, env: ctx.env, root: ctx.home.root, programs: p3, fsEnv: { platform: ctx.io.platform, pid: ctx.io.pid } };
+  if (what2 === "enable") return autostartEnable(ctx, o3);
+  if (what2 === "disable") {
+    const removed = await disableAutostart(o3);
+    await keyringClear(o3.platform, o3.programs.run, keyringAccount(o3.root));
+    ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim agent stop`." : "No login item starts the signer here.");
+    return 0;
+  }
+  if (what2 !== "status") throw new SetupError("usage: wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status");
+  const found = await autostartStatus(o3);
+  if (found === void 0) {
+    ctx.io.out("autostart: off. `wim agent autostart enable` starts the signer at each log in.");
+    return 3;
+  }
+  ctx.io.out(`autostart: on (${found.source === "keyring" ? "the passphrase comes from the keyring" : "it asks for the passphrase in a dialog"}): ${found.where}`);
+  ctx.io.out(`log: ${found.log}`);
+  return 0;
+}
+async function autostartEnable(ctx, o3) {
+  const file2 = await sealedFile(ctx);
+  const keyring = ctx.flags.get("keyring") === true;
+  if (keyring) await storeInKeyring(ctx, o3, file2);
+  else await keyringClear(o3.platform, o3.programs.run, keyringAccount(o3.root));
+  const item = await enableAutostart(o3, keyring ? "keyring" : "ask-gui");
+  ctx.io.out(`Installed a login item: ${item.where}`);
+  ctx.io.out(
+    keyring ? "At each log in it starts the signer with the passphrase from the keyring." : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent. Any passphrase kept in the keyring for it before is removed."
+  );
+  ctx.io.out(`What it prints, errors included, is appended to ${item.log}.`);
+  ctx.io.out("It does not start a signer now (`wim agent start` does). `wim agent autostart disable` removes it.");
+  return 0;
+}
+async function storeInKeyring(ctx, o3, file2) {
+  const kind = keyringKind(o3.platform);
+  if (kind === void 0) throw new SetupError(NO_KEYRING);
+  const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === void 0 ? "this program cannot ask for a passphrase without showing it" : void 0);
+  if (why !== void 0) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly2(why, "wim agent autostart enable --keyring")}`);
+  for (const line of KEYRING_WARNING[kind]) ctx.io.out(line);
+  if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
+  const passphrase = await ctx.io.promptSecret(PROMPT);
+  if (!await opensFile(file2)(passphrase)) throw new SetupError("that passphrase does not open this device's keys; nothing was stored or installed");
+  await keyringStore(o3.platform, o3.programs.run, keyringAccount(o3.root), passphrase);
+  ctx.io.out("Stored the passphrase in the keyring.");
+}
 
 // src/cli.ts
 var VERSION = "0.1.4";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
   mesh: ["relay", "key-env", "tls", "no-recovery"],
-  invite: ["exp", "auto"],
+  invite: ["exp", "auto", "full"],
   join: ["name"],
-  devices: ["relayed"],
+  devices: ["relayed", "all"],
   peers: ["all", "as"],
-  send: ["allow-secret", "as"],
+  send: ["allow-secret", "as", "wait"],
+  ping: ["all", "timeout"],
   watch: ["as"],
   inbox: ["as"],
   events: ["json", "as"],
@@ -121405,7 +122440,7 @@ var COMMAND_FLAGS = {
   ci: ["as"],
   a2a: ["as"],
   recover: ["relay", "tls", "revoke", "name"],
-  agent: ["foreground", "passphrase-stdin"]
+  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]
 };
 function parseArgs(argv) {
   const positional = [];
@@ -121460,11 +122495,13 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
 
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
-  wim invite [--exp 1h] [--auto]
+  wim invite [--exp 1h] [--auto] [--full]
   wim join <code> [--name <device>]
-  wim devices [list | trust <name> [--relayed] | untrust <name> | revoke <name> | promote <name>]
+  wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
+  wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name>]
+  wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
+  wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
   wim inbox [--as <name>]
   wim events --json [--as <name>]
@@ -121481,7 +122518,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: init, mesh create, invite, join, devices, peers, send, watch, held, history, mcp,
+Commands: init, mesh create, invite, join, devices, peers, send, ping, watch, held, history, mcp,
 bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
@@ -121554,7 +122591,7 @@ var Ctx = class {
    */
   async session(name, opts = {}) {
     const base = await this.sessionOptions(name, "cli", false, opts.mesh);
-    const ephemeral2 = opts.keyed !== false && await liveWatcher(base.mesh, name, this.fsEnv) !== void 0;
+    const ephemeral2 = opts.keyed !== false && await liveHolder(base.mesh, name, this.fsEnv) !== void 0;
     const keyed = opts.keyed !== false && !ephemeral2;
     if (keyed) await adoptByName(base.mesh, name, this.fsEnv, this.io.now);
     let last;
@@ -121609,14 +122646,18 @@ async function adoptByName(mesh, name, env3, now) {
     return;
   }
 }
-async function liveWatcher(mesh, name, env3) {
+async function liveHolder(mesh, name, env3, watch2 = false) {
   for (const sid of await listSessions(mesh)) {
     const files = new SessionFiles(mesh, sid, env3);
     const state2 = await files.load();
-    if (state2?.name === name && state2.kind === "cli" && await files.isLiveElsewhere()) return files;
+    if (state2?.name === name && state2.kind === "cli" && await (watch2 ? files.takesHandoverElsewhere() : files.isLiveElsewhere())) return files;
   }
   return void 0;
 }
+function liveWatcher(mesh, name, env3) {
+  return liveHolder(mesh, name, env3, true);
+}
+var busyName = (name) => `${name} is busy with another wim command on this device (a \`wim send --wait\`, say): try again when it ends, or use --as <name>`;
 function distance(a5, b5) {
   let prev = Array.from({ length: b5.length + 1 }, (_, j5) => j5);
   for (let i6 = 1; i6 <= a5.length; i6++) {
@@ -121692,6 +122733,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
         return await peers(ctx);
       case "send":
         return await send(ctx);
+      case "ping":
+        return await ping(ctx);
       case "watch":
         return await watch(ctx);
       case "inbox":
@@ -121795,7 +122838,7 @@ async function recovery(ctx) {
   if (action === "rotate") return recoveryRotate(ctx);
   if (action !== "show") throw new SetupError("usage: wim recovery show | wim recovery rotate");
   const notHere = notAPerson(ctx.env, ctx.io.isTTY);
-  if (notHere !== void 0) throw new SetupError(personOnly(notHere, "wim recovery show"));
+  if (notHere !== void 0) throw new SetupError(personOnly2(notHere, "wim recovery show"));
   const code2 = await fetchHeldCode(showSocketPath(ctx.home.root, ctx.io.platform));
   ctx.io.out("Recovery code (shown once; keep it offline, it is as powerful as an admin device):");
   ctx.io.out(`  ${code2}`);
@@ -121812,9 +122855,25 @@ async function recoveryRotate(ctx) {
     await s3.stop({ ended: true });
   }
 }
+function noPerson(ctx) {
+  return agentEnv(ctx.env) === void 0 ? "this is not an interactive terminal" : "an agent is running this command";
+}
+async function typedCode(ctx, p3) {
+  ctx.io.out(`A device named ${p3.name} (id ${p3.id}) asks to join.`);
+  for (let tries = 0; tries < 3; tries++) {
+    const typed = (await ctx.io.prompt("Type the comparison code the new device shows (Enter to refuse): ")).trim();
+    if (typed === "") return false;
+    if (sameCode(typed, p3.sas)) return true;
+    ctx.io.err("wim: that is not this request's code. Read it again on the new device.");
+  }
+  return false;
+}
 async function invite(ctx) {
   const ttl = parseDuration(flag(ctx.args, "exp") ?? "1h");
   const auto = ctx.args.flags.get("auto") === true;
+  if (!auto && !canConfirm(ctx.env, ctx.io)) {
+    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code`);
+  }
   const s3 = await ctx.session("invite", { keyed: false });
   try {
     const joins = [];
@@ -121823,13 +122882,21 @@ async function invite(ctx) {
       joins.push(body);
       wake?.();
     });
-    const made = await issueInvite(s3, { ttlMs: ttl, auto, now: ctx.io.now });
-    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust):");
-    ctx.io.out(`  ${made.code}`);
-    ctx.io.out(`It expires at ${new Date(made.exp).toISOString()}. Waiting for the device to join (Ctrl-C to stop)...`);
+    const full = ctx.args.flags.get("full") === true;
+    const made = await issueInvite(s3, { ttlMs: ttl, auto, now: ctx.io.now, short: !full });
+    const until = new Date(made.exp).toISOString();
+    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust, never through an agent):");
+    ctx.io.out(`  ${made.short?.code ?? made.code}`);
+    ctx.io.out("On the new device, in a terminal: `wim join <code>`");
+    if (made.short !== void 0 && made.short.exp < made.exp) ctx.io.out(`The short code works until ${new Date(made.short.exp).toISOString()}.`);
+    if (made.short !== void 0) ctx.io.out("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
+    if (made.shortRefused !== void 0) ctx.io.out(`This is the full code: no short code, because ${made.shortRefused}.`);
+    ctx.io.out(`It expires at ${until}. Waiting for the device to join (Ctrl-C to stop)...`);
     for (; ; ) {
       if (ctx.io.signal.aborted || ctx.io.now() >= made.exp) {
-        ctx.io.err("wim: the invite was not used.");
+        ctx.io.err(
+          ctx.io.signal.aborted ? `wim: stopped waiting. The invite stays valid until ${until}: \`wim devices pending\` lists a device that asks to join, and \`wim devices admit <name> <code>\` admits it.` : "wim: the invite expired unused."
+        );
         return 1;
       }
       const body = joins.shift();
@@ -121847,31 +122914,44 @@ async function invite(ctx) {
         });
         continue;
       }
-      const decision = await decideJoin(
-        s3,
-        body,
-        async (p3) => {
-          ctx.io.out(`Join request: device ${p3.name} (id ${p3.id}), code ${p3.sas}.`);
-          const answer = await ctx.io.prompt("Does the joining device show the same code? [y/N] ");
-          return /^y(es)?$/i.test(answer.trim());
-        },
-        ctx.io.now
-      );
+      const decision = await decideJoin(s3, body, (p3) => typedCode(ctx, p3), ctx.io.now);
       if (decision.outcome === "ignored") continue;
       if (decision.outcome === "admitted") {
-        ctx.io.out(`Admitted ${decision.name}. To deliver its messages without holding them: wim devices trust ${decision.name}`);
+        ctx.io.out(`Admitted ${decision.name}.`);
+        await askTrust(ctx, s3.mesh, s3.roster.devices.filter((d5) => d5.name === decision.name), !auto);
         return 0;
       }
       ctx.io.err(`wim: refused the join: ${decision.reason}.`);
-      if (decision.reason === "the person did not confirm") return 1;
+      if (decision.reason === "the person did not confirm") {
+        const refused2 = body;
+        await s3.settled();
+        await new PendingJoins(s3.mesh, ctx.fsEnv).remove(refused2.invite, refused2.device.id);
+        ctx.io.err("wim: if the new device showed another code, someone else used the invite: make a new one.");
+        return 1;
+      }
     }
   } finally {
     await s3.stop({ ended: true });
   }
 }
+async function askTrust(ctx, files, devices2, ask2 = true) {
+  const names = devices2.map((d5) => d5.name);
+  const one = names.length === 1;
+  const list2 = one ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+  if (ask2 && canConfirm(ctx.env, ctx.io)) {
+    const question = one ? `Is ${list2} your own device? Trust its messages here? [y/N] ` : `Are ${list2} your own devices? Trust their messages here? [y/N] `;
+    if (/^y(es)?$/i.test((await ctx.io.prompt(question)).trim())) {
+      for (const d5 of devices2) await setDevicePolicy(files, d5.id, "deliver");
+      ctx.io.out(`Messages from ${list2} are delivered here; text ${one ? "it relays" : "they relay"} from others is still held.`);
+      return;
+    }
+  }
+  ctx.io.out(`Messages from ${list2} are held for your approval. If ${one ? "it is" : "they are"} your own: wim devices trust ${one ? list2 : "--all"}`);
+}
 async function join21(ctx) {
-  const code2 = ctx.args.positional[0];
-  if (code2 === void 0) throw new SetupError("usage: wim join <code>");
+  const typed = ctx.args.positional[0];
+  if (typed === void 0) throw new SetupError("usage: wim join <code>");
+  const code2 = await resolveInvite(typed, ctx.io.fetch);
   const device = await ctx.home.loadDevice() ?? await ctx.home.createDevice(flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device"));
   const joined = await joinMesh({
     home: ctx.home,
@@ -121881,11 +122961,13 @@ async function join21(ctx) {
     now: ctx.io.now,
     showSas: (sas) => {
       ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
-      ctx.io.out(`Its code is ${sas}. Check that the admin device shows the same code, then confirm there.`);
+      ctx.io.out(`Its comparison code is ${sas}. Type it on the admin device, where \`wim invite\` asks for it, or run \`wim devices admit ${device.name} ${sas}\` there.`);
       ctx.io.out("Waiting for an admin to admit this device...");
     }
   });
-  ctx.io.out(`Joined mesh ${joined.mesh}. Peers' messages are held for approval until you trust their devices: wim devices trust <name>`);
+  ctx.io.out(`Joined mesh ${joined.mesh}.`);
+  const others = joined.roster.devices.filter((d5) => d5.id !== device.id && !isRecoveryName(d5.name));
+  await askTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), others);
   await registerCli(ctx, joined.mesh);
   return 0;
 }
@@ -121903,11 +122985,13 @@ function deviceRows(r6, config2) {
     return `${d5.name}  ${d5.role}  ${d5.id}  ${policy}`;
   });
 }
-var DEVICE_ACTIONS = ["list", "trust", "untrust", "revoke", "promote"];
+var DEVICE_ACTIONS = ["list", "trust", "untrust", "revoke", "promote", "pending", "admit"];
 async function devices(ctx) {
-  const [action = "list", name] = ctx.args.positional;
+  const [action = "list", name, code2] = ctx.args.positional;
   if (!DEVICE_ACTIONS.includes(action)) throw new SetupError(`unknown devices action ${JSON.stringify(action)}
 ${commandUsage("devices")}`);
+  if (action === "pending") return pending(ctx);
+  if (action === "admit") return admit(ctx, name, code2);
   const { files } = await ctx.mesh();
   const book = await RosterBook.open(files);
   const config2 = await files.loadConfig();
@@ -121915,15 +122999,15 @@ ${commandUsage("devices")}`);
     for (const line of deviceRows(book.current, config2)) ctx.io.out(line);
     return 0;
   }
-  if (name === void 0) throw new SetupError(`usage: wim devices ${action} <name>`);
+  const trusting = action === "trust" || action === "untrust";
+  const all = ctx.args.flags.get("all") === true;
+  if (all && trusting && name === void 0) return trustAll(ctx, files, book.current, config2.device, action);
+  if (name === void 0 || all) throw new SetupError(`usage: wim devices ${action} <name>${trusting ? " | --all" : ""}`);
   const target = book.current.devices.find((d5) => d5.name === name);
   if (target === void 0) throw new SetupError(`no device named ${name}`);
-  if (action === "trust" || action === "untrust") {
+  if (trusting) {
     const relayed2 = ctx.args.flags.get("relayed") === true;
-    const level = await setDevicePolicy(files, target.id, trustLevel(action, relayed2));
-    ctx.io.out(
-      level === "hold" ? `Messages from ${name} are held for approval.` : relayed2 ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).` : `Messages from ${name} are delivered; text it relays from others is still held.`
-    );
+    ctx.io.out(trustLine(name, await setDevicePolicy(files, target.id, trustLevel(action, relayed2)), relayed2));
     return 0;
   }
   const s3 = await ctx.session("admin", { keyed: false });
@@ -121935,6 +123019,50 @@ ${commandUsage("devices")}`);
       const r6 = await promoteDevice(s3, name, ctx.io.now);
       ctx.io.out(`Promoted ${name} to admin. The roster is now at seq ${r6.seq}.`);
     }
+    return 0;
+  } finally {
+    await s3.stop({ ended: true });
+  }
+}
+function trustLine(name, level, relayed2) {
+  if (level === "hold") return `Messages from ${name} are held for approval.`;
+  return relayed2 ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).` : `Messages from ${name} are delivered; text it relays from others is still held.`;
+}
+async function trustAll(ctx, files, roster, self2, action) {
+  const relayed2 = ctx.args.flags.get("relayed") === true;
+  const others = roster.devices.filter((d5) => d5.id !== self2 && !isRecoveryName(d5.name));
+  if (others.length === 0) ctx.io.out("No other devices in the mesh.");
+  for (const d5 of others) ctx.io.out(trustLine(d5.name, await setDevicePolicy(files, d5.id, trustLevel(action, relayed2)), relayed2));
+  return 0;
+}
+async function joinsSession(ctx) {
+  const s3 = await ctx.session("admin", { keyed: false });
+  await s3.listPeers();
+  await s3.settled();
+  return s3;
+}
+async function pending(ctx) {
+  const s3 = await joinsSession(ctx);
+  try {
+    const rows = await new PendingJoins(s3.mesh, ctx.fsEnv).list(s3.roster, new Invites(s3.mesh, ctx.fsEnv, ctx.io.now), ctx.io.now());
+    if (s3.roster.devices.find((d5) => d5.id === s3.device.id).role !== "admin") ctx.io.out("This device is not an admin, so no join requests come here.");
+    else if (rows.length === 0) ctx.io.out("No device is waiting to join.");
+    for (const r6 of rows) ctx.io.out(`${r6.name}  ${r6.id}  asked ${new Date(r6.at).toISOString()}  invite expires ${new Date(r6.exp).toISOString()}`);
+    if (rows.length > 0) ctx.io.out("In your own terminal, admit one with the comparison code it shows: wim devices admit <name> <code>");
+    return 0;
+  } finally {
+    await s3.stop({ ended: true });
+  }
+}
+async function admit(ctx, name, code2) {
+  if (name === void 0 || code2 === void 0) throw new SetupError("usage: wim devices admit <name> <code>");
+  if (!canConfirm(ctx.env, ctx.io)) throw new SetupError(`run \`wim devices admit\` in your own terminal: admitting a device is the person's decision, and ${noPerson(ctx)}`);
+  const s3 = await joinsSession(ctx);
+  try {
+    const decision = await admitPending(s3, name, code2, ctx.io.now);
+    if (decision.outcome !== "admitted") throw new SetupError(`could not admit ${name}: ${decision.reason}`);
+    ctx.io.out(`Admitted ${name}. The new device finishes joining when \`wim join\` runs there (it may be waiting already).`);
+    await askTrust(ctx, s3.mesh, s3.roster.devices.filter((d5) => d5.name === name));
     return 0;
   } finally {
     await s3.stop({ ended: true });
@@ -121954,48 +123082,131 @@ async function peers(ctx) {
     await ctx.finish(s3);
   }
 }
+var SENT_MEANING = {
+  routed: "handed to a live session; not yet taken or read",
+  queued: "that session is offline; the relay keeps it 24 h"
+};
+var WAIT_MAX_MS = 36e5;
+function receiptLine(to, status2, id) {
+  switch (status2) {
+    case "delivered":
+      return `${to}: delivered (the session took it; that does not mean anyone read it)`;
+    case "held":
+      return `${to}: held for the approval of that device's person. It is not delivered until they approve it there: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\``;
+    case "refused":
+      return `${to}: refused by that device's inbound policy`;
+    case "expired":
+      return `${to}: expired (no session took it within 24 hours)`;
+    default:
+      return `${to}: ${sanitizeForDisplay(status2)}`;
+  }
+}
+function lastReceipts(receipts) {
+  return new Map(receipts.map((r6) => [r6.to, r6.status]));
+}
+async function waitForReceipts(ctx, read, wanted, ms) {
+  const until = Date.now() + ms;
+  for (; ; ) {
+    const got = lastReceipts(await read());
+    if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
+    await new Promise((r6) => setTimeout(r6, 100));
+  }
+}
+function waitedEnough(got, wanted, until, signal) {
+  return wanted.every((to) => got.has(to)) || Date.now() > until || signal.aborted;
+}
 async function send(ctx) {
   const [to, ...words] = ctx.args.positional;
   if (to === void 0 || words.length === 0) throw new SetupError("usage: wim send <to> <text...>");
   const name = nameFor(ctx, "cli");
   const text2 = words.join(" ");
+  const waitText = flag(ctx.args, "wait");
+  const waitMs = waitText === void 0 ? void 0 : parseDuration(waitText);
+  if (waitMs !== void 0 && (waitMs === 0 || waitMs > WAIT_MAX_MS)) throw new SetupError("--wait takes a duration from 1ms to 1h, such as 30s");
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
   const notHere = allowSecrets ? notAPerson(ctx.env, ctx.io.isTTY) : void 0;
   if (notHere !== void 0) {
-    throw new SetupError(`--allow-secret is only for a person at their own terminal: ${personOnly(notHere, `wim send ${to} <text> --allow-secret`)}`);
+    throw new SetupError(`--allow-secret is only for a person at their own terminal: ${personOnly2(notHere, `wim send ${to} <text> --allow-secret`)}`);
   }
   const { files } = await ctx.mesh();
   const watcher = allowSecrets ? void 0 : await liveWatcher(files, name, ctx.fsEnv);
-  let out;
-  if (watcher !== void 0) {
-    const answered = await handOver(ctx, watcher, { to, text: text2 });
-    if (answered === void 0) {
-      ctx.io.out(`The running \`wim watch\` took the send but did not report back in time, so whether it went out is unknown. Check \`wim history --session ${name}\` before sending it again.`);
-      return 3;
-    }
-    out = answered;
-  } else {
-    const s3 = await ctx.session(name);
-    try {
+  const s3 = watcher === void 0 ? await ctx.session(name) : void 0;
+  try {
+    let out;
+    let receipts;
+    if (watcher !== void 0) {
+      const h6 = new History(watcher.historyPath, ctx.io.now);
+      const from = await h6.size();
+      const answered2 = await handOver(ctx, watcher, { to, text: text2 });
+      if (answered2 === void 0) {
+        ctx.io.out(`The running \`wim watch\` took the send but did not report back in time, so whether it went out is unknown. Check \`wim history --session ${name}\` before sending it again.`);
+        return 3;
+      }
+      out = answered2;
+      receipts = () => h6.receiptsFrom(answered2.id, from);
+    } else {
       const sent2 = await s3.send(to, text2, allowSecrets ? { allowSecrets: true } : {});
       const live = [...s3.peers.values()].filter((p3) => p3.status !== "offline");
       out = { ...sent2, live: live.map((p3) => p3.address), claude: live.filter((p3) => p3.kind === "claude-code").map((p3) => p3.address) };
-    } finally {
-      await ctx.finish(s3);
+      receipts = async () => s3.receipts.get(sent2.id) ?? [];
     }
-  }
-  for (const r6 of out.results) {
-    const hint = r6.status === "unknown" ? closestAddress(r6.to, out.live) : void 0;
-    ctx.io.out(`${r6.to}: ${r6.status}${hint === void 0 ? "" : ` (did you mean ${hint}?)`}`);
-    if (r6.status === "queued") {
-      const device = r6.to.slice(r6.to.indexOf("@") + 1);
-      const tabs = (out.claude ?? []).filter((a5) => a5 !== r6.to && a5.endsWith(`@${device}`));
-      if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a5) => `${a5} (claude-code)`).join(", ")}`);
+    for (const r6 of out.results) {
+      const hint = r6.status === "unknown" ? closestAddress(r6.to, out.live) : void 0;
+      const meaning = SENT_MEANING[r6.status];
+      ctx.io.out(`${r6.to}: ${r6.status}${meaning === void 0 ? "" : ` (${meaning})`}${hint === void 0 ? "" : ` (did you mean ${hint}?)`}`);
+      if (r6.status === "queued") {
+        const device = r6.to.slice(r6.to.indexOf("@") + 1);
+        const tabs = (out.claude ?? []).filter((a5) => a5 !== r6.to && a5.endsWith(`@${device}`));
+        if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a5) => `${a5} (claude-code)`).join(", ")}`);
+      }
     }
+    if (out.unprotected !== void 0) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
+    ctx.io.out(`id ${out.id}`);
+    const took = out.results.filter((r6) => accepted(r6.status)).map((r6) => r6.to);
+    const code2 = took.length === out.results.length ? 0 : 1;
+    if (took.length === 0) return code2;
+    if (waitMs === void 0) {
+      ctx.io.out("Neither routed nor queued means it was read. `wim send --wait 30s` waits for each recipient's receipt.");
+      return code2;
+    }
+    ctx.io.out(`Waiting up to ${waitText} for receipts (Ctrl-C stops waiting; the message stays sent)...`);
+    const got = await waitForReceipts(ctx, receipts, took, waitMs);
+    return reportReceipts(ctx, out, took, got, code2);
+  } finally {
+    if (s3 !== void 0) await ctx.finish(s3);
   }
-  if (out.unprotected !== void 0) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
-  ctx.io.out(`id ${out.id}`);
-  return out.results.every((r6) => accepted(r6.status)) ? 0 : 1;
+}
+function reportReceipts(ctx, out, took, got, code2) {
+  const statusOf = new Map(out.results.map((r6) => [r6.to, r6.status]));
+  for (const to of took) {
+    const status2 = got.get(to);
+    if (status2 !== void 0) ctx.io.out(receiptLine(to, status2, out.id));
+    else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)]})`);
+  }
+  return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code2;
+}
+async function ping(ctx) {
+  const all = ctx.args.flags.get("all") === true;
+  const named = ctx.args.positional[0];
+  if (all === (named !== void 0)) throw new SetupError("usage: wim ping <address,...> | --all");
+  const waitMs = parseDuration(flag(ctx.args, "timeout") ?? `${PING.waitMs}`);
+  const s3 = await ctx.session("ping", { keyed: false });
+  try {
+    const live = (await s3.listPeers()).filter((p3) => p3.address !== s3.address);
+    const offline = new Set(live.filter((p3) => p3.status === "offline").map((p3) => p3.address));
+    const targets = all ? live.map((p3) => p3.address).filter((a5) => !offline.has(a5)) : MeshSession.parseTo(named);
+    if (targets.length === 0) {
+      ctx.io.out("No other live sessions to ping.");
+      return 0;
+    }
+    const asked = targets.filter((a5) => !offline.has(a5));
+    const rows = asked.length === 0 ? [] : await s3.ping(asked, waitMs);
+    const report = targets.map((a5) => rows.find((r6) => r6.to === a5) ?? { to: a5, status: "offline" });
+    for (const line of pingReport(report, s3.address, waitMs)) ctx.io.out(line);
+    return report.every((r6) => r6.ms !== void 0) ? 0 : 1;
+  } finally {
+    await s3.stop({ ended: true });
+  }
 }
 async function handOver(ctx, watcher, request2) {
   const id = ulid3(ctx.io.now());
@@ -122013,7 +123224,7 @@ async function handOver(ctx, watcher, request2) {
       const requestPath = pathJoin(watcher.controlDir, `send-${id}.json`);
       if (await whileBusy(() => readText(requestPath), ctx.fsEnv.platform) !== void 0 && await tryRemove(requestPath, ctx.fsEnv)) {
         throw new SetupError(
-          "the running `wim watch` did not take the send. Is it still connected? A `wim watch` started before this version of wim does not take sends: restart it."
+          "the running `wim watch` did not take the send. Is it still connected? Restart it if it is stuck."
         );
       }
       return void 0;
@@ -122027,6 +123238,7 @@ async function watch(ctx) {
   if (await liveWatcher(files, name, ctx.fsEnv) !== void 0) {
     throw new SetupError(`a \`wim watch\` is already reading as ${name} on this device; use --as <name> for another`);
   }
+  if (await liveHolder(files, name, ctx.fsEnv) !== void 0) throw new SetupError(busyName(name));
   const s3 = await ctx.session(name, { card: true, handover: true });
   const show = (item) => {
     if (item.kind === "notice") ctx.io.out(sanitizeForDisplay(item.rendered));
@@ -122053,10 +123265,16 @@ async function events(ctx) {
   if (ctx.args.flags.get("json") !== true) throw new SetupError("usage: wim events --json [--as <name>]");
   const name = nameFor(ctx, "vscode");
   const envKind = ctx.env["WIM_KIND"];
+  const agent = agentEnv(ctx.env);
+  if (await ctx.home.loadDevice() === void 0 || (await ctx.home.meshIds()).length === 0) {
+    const io = ctx.io;
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, ...agent === void 0 ? {} : { agent } });
+    return 0;
+  }
   const o3 = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);
   const s3 = await MeshSession.open({ ...o3, sessionKey: `events:${name}` });
   try {
-    await runEvents({ session: s3, mesh: o3.mesh, env: ctx.fsEnv, device: o3.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now });
+    await runEvents({ session: s3, mesh: o3.mesh, env: ctx.fsEnv, device: o3.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, ...agent === void 0 ? {} : { agent } });
     return 0;
   } finally {
     await s3.stop();
@@ -122068,6 +123286,10 @@ async function inbox(ctx) {
   if (await liveWatcher(files, name, ctx.fsEnv) !== void 0) {
     ctx.io.out(`A \`wim watch\` is reading as ${name} on this device: its output shows what arrives.`);
     return 0;
+  }
+  if (await liveHolder(files, name, ctx.fsEnv) !== void 0) {
+    ctx.io.out(`${busyName(name)}.`);
+    return 3;
   }
   const s3 = await ctx.session(name);
   try {
@@ -122117,7 +123339,7 @@ async function history(ctx) {
     const sf = new SessionFiles(files, sid, ctx.fsEnv);
     const state2 = await sf.load();
     if (state2 === void 0 || wanted !== void 0 && state2.name !== wanted) continue;
-    const entries = await new History(sf.historyPath, ctx.io.now).query({ limit: limit2, ...peer === void 0 ? {} : { peer } });
+    const entries = await new History(sf.historyPath, ctx.io.now).query({ limit: limit2, receipts: true, ...peer === void 0 ? {} : { peer } });
     if (entries.length === 0) continue;
     ctx.io.out(`== ${state2.address ?? state2.name} (${sid})`);
     for (const e6 of entries) ctx.io.out(renderForPerson(e6));
@@ -122166,7 +123388,7 @@ async function mcp(ctx) {
 }
 async function readConfig(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs12.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs13.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
@@ -122326,6 +123548,7 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
       return answer;
     },
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
+    programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
     signal: stop.signal,
     cwd: proc.cwd(),
     homedir: machine.homedir(),
@@ -122337,6 +123560,7 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     stdin: proc.stdin,
     stdout: proc.stdout,
     isTTY: proc.stdout.isTTY === true,
+    inputIsTTY: proc.stdin.isTTY === true,
     fetch: globalThis.fetch,
     // Orphaned children are re-parented, so a changed ppid means the parent died.
     parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill)

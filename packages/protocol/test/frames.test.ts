@@ -16,6 +16,7 @@ import {
   randomBytes,
   relayFrameSchema,
   sealMessage,
+  sealRdv,
   signAuth,
   ulid,
 } from "../src/index.ts";
@@ -55,6 +56,7 @@ const peer = { address: "writer@laptop", sid: ulid(), kind: "claude-code", statu
 const blob = sealBlob(new Uint8Array([1, 2, 3]));
 const chunk = blob.chunks[0]!;
 const lkey = leaseKey(roster.mesh, "deploy");
+const box = { ...sealRdv("0123456789ABCDEFGHJK", invite.code), exp: T0 };
 
 /** For each frame type: a valid example and invalid variants. */
 const clientCases: Array<[string, object, object[]]> = [
@@ -117,6 +119,17 @@ const clientCases: Array<[string, object, object[]]> = [
     [{ t: "blob.put", blob: blob.blob, ...chunk, index: 100 }, { t: "blob.put", blob: blob.blob, ...chunk, n: "short" }, { t: "blob.put", blob: "x", ...chunk }],
   ],
   ["blob.get", { t: "blob.get", blob: blob.blob, index: 0 }, [{ t: "blob.get", blob: blob.blob, index: -1 }]],
+  [
+    "rdv.put",
+    { t: "rdv.put", ...box },
+    [
+      { t: "rdv.put", ...box, rdv: "x" },
+      { t: "rdv.put", ...box, n: "short" },
+      { t: "rdv.put", ...box, c: "A".repeat(20) },
+      { t: "rdv.put", ...box, c: b64u.encode(new Uint8Array(LIMITS.rdvBoxBytes + 1)) },
+      { t: "rdv.put", ...box, exp: undefined },
+    ],
+  ],
   ["roster.get", { t: "roster.get", from: 1 }, [{ t: "roster.get", from: 0 }, { t: "roster.get" }]],
   ["roster.fork", { t: "roster.fork", a: forkA, b: forkB }, [{ t: "roster.fork", a: forkA }]],
   ["ping", { t: "ping" }, [{ t: "ping", x: 1 }]],
@@ -208,6 +221,7 @@ const relayCases: Array<[string, object, object[]]> = [
   ],
   ["recover.ready", { t: "recover.ready", roster }, [{ t: "recover.ready" }, { t: "recover.ready", roster: { ...roster, seq: 0 } }]],
   ["invite.created", { t: "invite.created", invite: invite.inviteId }, [{ t: "invite.created", invite: "x" }, { t: "invite.created" }]],
+  ["rdv.stored", { t: "rdv.stored", rdv: box.rdv }, [{ t: "rdv.stored" }, { t: "rdv.stored", rdv: "x" }]],
   // pong has no fields to get wrong; unknown keys are kept like on every relay frame.
   ["pong", { t: "pong" }, []],
 ];

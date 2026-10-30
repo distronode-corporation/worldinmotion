@@ -203,6 +203,8 @@ const END = "(?![A-Za-z0-9_-])";
 
 const SECRET_PATTERNS: ReadonlyArray<[string, RegExp]> = [
   ["wim_invite_code", new RegExp(`${START}wim1_[A-Za-z0-9_-]{60,}`)],
+  // A short invite code (SPEC section 5) as printed, in any case: six groups of four after wim2-.
+  ["wim_short_invite_code", new RegExp(`${START}wim2-(?:[0-9a-z]{4}-){5}[0-9a-z]{4}${END}`, "i")],
   ["wim_recovery_code", new RegExp(`${START}wimrec1_[A-Za-z0-9_-]{60,}-[0-9A-Za-z]{8}`)],
   ["wim_key_file", /"(?:signSec|boxSec)"\s*:\s*"[A-Za-z0-9_-]{43}"/],
   ["pem_private_key", /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----/],

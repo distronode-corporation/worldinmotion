@@ -100,7 +100,7 @@ describe("source keys", () => {
 
 describe("the entry module", () => {
   it("exports only the handler and the Durable Object classes (the runtime refuses anything else)", () => {
-    expect(Object.keys(entry).sort()).toEqual(["MeshDurableObject", "MeshRegistry", "SourceLimiter", "default"]);
+    expect(Object.keys(entry).sort()).toEqual(["MeshDurableObject", "MeshRegistry", "RendezvousStore", "SourceLimiter", "default"]);
   });
 });
 

@@ -39,6 +39,7 @@ $WIM_HOME/
     pipe                 0600  Windows only: the pipe's random token
     config.json          0600  `require_signer`: refuse a plaintext key file
     log.jsonl            0600  one line per request: operation, type, mesh, peer device, outcome
+    autostart.log              what the login item (`wim agent autostart`) prints, errors included
   links/<random>.json  0600  a `wim mcp` whose plugin handshake came before a session could open
                                (the signer not up yet) writes the link here once it opens; the
                                plugin reads it (removed when that server ends)
@@ -62,6 +63,9 @@ $WIM_HOME/
       held/                    messages held for the person's approval (and approve/refuse marks)
       dismiss/                 dismiss marks for relayed items
       files/                   received files (safe names)
+      live.lock                the pid of the process running the session now
+      handover                 the same pid while that process takes handed-over sends (`wim watch`)
+      control/                 sends handed to that watch by one-off `wim send`s, and its answers
     roster.lock                admin signing lock (H1)
 ```
 
@@ -93,16 +97,42 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   does not open, and opens it then.
   `wim agent decrypt` (signer stopped) writes the same keys back in the clear, opens the sealed
   prekeys and clears `require_signer`.
-- `wim agent start` asks for the passphrase (only at an interactive terminal not driven by an
-  agent, or from stdin with `--passphrase-stdin`) and starts `wim agent serve` detached from the
+- `wim agent start` asks for the passphrase and starts `wim agent serve` detached from the
   terminal; the child reads the passphrase on stdin and prints `ready <pid> <endpoint>` or
-  `error <why>`. It checks for a running signer and binds under `agent/start.lock`, so two starts
+  `error <why>`. Detached, it keeps running after the terminal or VS Code closes, and ends at log
+  out, restart or `wim agent stop`; the command says so, and `wim agent status` says where to
+  start one when none runs. The passphrase comes from the person's interactive terminal (no
+  agent's variable set), or from `--passphrase-stdin` (a service manager, CI), `--ask-gui` (a
+  native dialog: osascript, zenity or kdialog, the Windows PowerShell credential dialog; `start`
+  asks again up to three times while it does not open the key file) or `--keyring` (opt-in, below).
+  Under an agent's variables those three are refused unless `--allow-agent-passphrase` is given,
+  which warns on stderr and proceeds: an agent that can read the passphrase's source can decrypt
+  the keys (SECURITY-MODEL 5.8). It checks for a running signer and binds under `agent/start.lock`, so two starts
   never both bind. On Windows each start writes a new pipe token to `agent/pipe` and a clean stop
   removes it. Every command checks that what answers proves itself (a locked signer does too), and
   `start` takes the place of something that cannot.
-  `--foreground` runs it in the command itself, for systemd, launchd or CI. It is never started
-  automatically: the passphrase needs the person, and a signer started from an agent's session
-  would be that agent's descendant, which an OS may let it debug.
+  `--foreground` runs it in the command itself, for systemd, launchd or CI. Nothing starts it
+  unless the person sets that up: the passphrase needs the person, and a signer started from an
+  agent's session would be that agent's descendant, which an OS may let it debug.
+- `wim agent autostart enable` installs a login item for the state directory (pinned as
+  `WIM_HOME`) that runs `wim agent start --foreground --ask-gui` at each log in: a launchd agent
+  (`~/Library/LaunchAgents/worldinmotion.signer.<id>.plist`), an XDG autostart entry
+  (`$XDG_CONFIG_HOME/autostart/worldinmotion-signer-<id>.desktop`; XDG rather than a systemd user
+  unit, because the dialog needs the desktop session's display), or a Windows logon task
+  (`worldinmotion signer <id>`, created by `schtasks` from a task definition, no time limit, run
+  through a hidden Windows PowerShell). `<id>` is 16 hex characters of the state directory's
+  SHA-256. What the item prints, errors included, is appended to `agent/autostart.log` (launchd's
+  `StandardOutPath` and `StandardErrorPath`; `sh` in the XDG entry; PowerShell's `*>>` in the
+  task), so a start that fails before the signer runs says why. The person types the passphrase
+  into a dialog the login session started. It installs
+  only; `wim agent start` starts one now. `disable`, and `enable` without `--keyring`, remove any
+  stored passphrase (`disable` the item too);
+  `status` says whether one is installed and where it gets the passphrase.
+  `enable --keyring` (only at the person's own terminal) stores the passphrase, checked against
+  the key file and hex-encoded, in the macOS login keychain (an item trusting no application, so
+  every read prompts) or libsecret (`secret-tool`, after a warning and a typed `yes`: any process
+  of the user can read it while the keyring is unlocked), and the item then runs `--keyring`
+  instead of `--ask-gui`. Not offered on Windows. SECURITY-MODEL 5.8 has the trade-offs.
 - `wim agent status`, `lock` and `stop` talk to the running signer. A lock is for good: `wim agent
   unlock` reads the passphrase, checks it against the key file, asks the locked signer to stop
   and starts a new one (`--foreground` as for `start`). The passphrase never goes over the socket,
@@ -245,6 +275,26 @@ The `history` tool (`{ peer?, limit? (default 20, max 200), before? }`) returns 
 rendered with `frameForAgent`, so an agent can re-read a conversation after its context was
 compacted. History is local only and never leaves the machine.
 
+Receipts for what a session sent are recorded there too, as lines of their own (`{ "t": "receipt",
+id, to, status, at }`, which older readers skip), when they reach the session. The relay forwards a
+receipt only to a sending session that is online and drops it otherwise (SPEC section 7), so a
+command that sends and goes offline (`wim send`) learns nothing unless it waits: `wim send --wait
+30s` stays connected that long and prints each recipient's receipt. While it waits it holds the
+CLI session's name like any running command: only a session whose `handover` file names the
+process holding `live.lock` counts as a `wim watch`, so a second `wim send` meanwhile sends on a
+throwaway session of its own instead of handing over, and `wim watch` and `wim inbox` say the name
+is busy (try again, or `--as` another name). `wim history` and the
+`history` tool show a sent item's receipts with it.
+
+What each status means, as the CLI, the `send` tool and the plugin word it: `routed`, handed to a
+live session; `queued`, that session is offline and the relay keeps it 24 hours. Neither means
+delivered or read. Receipts: `delivered`, the recipient session took the item (its client's spool
+sweep, or a waiting `ask`); `held`, it waits for the approval of that device's person (`/wim` in
+Claude Code, the Held view in VS Code, or `wim held approve <id>`); `refused`, that device's inbound
+policy; `expired`, nothing took it within 24 hours. None means a person or an agent read it. A
+`held` receipt also becomes a notice in the sending session's spool (with `heldBy`), which the
+Claude Code plugin shows as a toast instead of a turn.
+
 ## Distribution
 
 - `wim` is bundled with esbuild into one file, `wim.mjs` (Node >= 22.18), published to npm as
@@ -272,8 +322,10 @@ compacted. History is local only and never leaves the machine.
 - The server writes each inbound item as `spool/<cursor zero-padded to 12 digits>.json`:
   `{ "cursor": 42, "kind": "msg" | "task" | "result" | "file" | "notice", "from": "<address>",
   "device": "<device id>", "id": "<ULID>", "at": <ms>, "rendered": "<frameForAgent output>" }`,
-  with four optional fields. A `notice` item carries `held: <count>` when it reports messages
-  waiting for approval; the plugin shows it as a toast and does not pass it to the model.
+  with five optional fields. A `notice` item carries `held: <count>` when it reports messages
+  waiting for approval, or `heldBy: "<address>"` when a message this session sent is held for the
+  approval of that address's person (a `held` receipt); the plugin shows either as a toast and
+  does not pass it to the model.
   `forPerson: true` marks a notice only the person can act on (this session must be restarted
   to use the signer): the plugin shows it as a toast and on its status line, never as a turn.
   `relayed: true` marks text the sender passed on from a bot, CI or gateway: it never starts a

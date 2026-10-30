@@ -32,6 +32,47 @@ body line with a bracket.
 
 ### Added
 
+- **`wim agent autostart enable | disable | status`**: a login item (a launchd agent on macOS, an
+  XDG autostart entry on Linux, a logon task on Windows) that starts the signer at each log in with
+  `wim agent start --foreground --ask-gui`, which asks for the passphrase in a native dialog; its
+  output and errors go to `agent/autostart.log`.
+  `enable --keyring` (opt-in) keeps the passphrase in the macOS login keychain, which asks on
+  every read, or in libsecret on Linux after a plain warning; not offered on Windows
+  (`SECURITY-MODEL.md` section 5.8).
+- **`wim agent start` and `unlock` take `--ask-gui` and `--keyring`**, and say that the signer keeps
+  running after the terminal or VS Code closes and stops at log out, restart or `wim agent stop`.
+- **VS Code: the signer in the status bar**, and the command "worldinmotion: Start Signer", which
+  runs `wim agent start` (or `unlock`) in an integrated terminal. `wim events` hello carries
+  `keys: local | signer`.
+- **`wim send --wait <30s>`** stays connected and prints each recipient's receipt: delivered,
+  held (with how to approve it on that device), refused or expired.
+- **Receipts are recorded in history**, and `wim history` and the `history` tool show them with
+  what was sent. A `held` receipt becomes a notice, which the Claude Code plugin shows as a toast.
+- **`wim ping <address,...>` and `wim ping --all`**: a new message kind that the receiving client
+  answers itself with a `pong` (SPEC section 12), never an agent: nothing is spooled, kept in
+  history or receipted, and no turn starts. One pong proves both directions between two devices,
+  encryption included; the command prints a row per session and a verdict per device. Pongs are
+  rate limited per sender device, a ping older than a minute is not answered, and a device the
+  person refuses gets no answer. Older clients drop the new kind and show as "no pong". New test
+  vectors: `ping.json`.
+- **Adding a device later**: every session of an admin device keeps a join request that passes
+  the checks (never its comparison code), so `wim devices pending` lists waiting devices and
+  `wim devices admit <name> <code>` admits one after `wim invite` has stopped.
+- **`wim devices trust --all`** (and `untrust --all`), and after an admit or a join the question
+  "Is X your own device? Trust its messages here?" at an interactive terminal.
+- **VS Code: Add a Device..., Admit a Device... and Join a Mesh...**, through new `wim events`
+  requests (`invite`, `admit`, and `join` in a new setup mode for a device in no mesh yet) and a
+  `join` event (docs/events.md). The invite code is copied with a button and taken in a password
+  field, never shown.
+- **Short invite codes**: `wim invite` prints `wim2-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX` (plus
+  `@relay` off the hosted relay), short enough to read out or type, and `wim join` and VS Code's
+  Join a Mesh... take it as well as a full code (SPEC section 5). The admin device seals the full
+  code under a key from the code's 100-bit secret and stores the box at the relay, which never
+  sees the secret; the box lives at most an hour and is handed out three times. New: the `rdv.put`
+  frame, `GET /v1/rdv/<id>` on both relays (a relay-wide `RendezvousStore` Durable Object and
+  `v3` migration on Cloudflare), test vectors `rdv.json`, and `wim invite --full` for a device on
+  0.1.4 or older. On a relay without it, or a mesh that pins its relay's certificate, `wim invite`
+  prints the full code and says why.
 - `/wim status` in Claude Code: the tab's address, device, mesh, relay connection, signer, held
   count and state directory (with why it is that one), from a new read-only internal op, `status`.
   `/wim name <name>` renames the tab.
@@ -47,7 +88,23 @@ body line with a bracket.
 
 ### Changed
 
-- Refusals of person-only steps (`wim agent start`, `unlock`, `encrypt`, `decrypt`,
+- **`--passphrase-stdin`, `--ask-gui` and `--keyring` are refused under an agent's variables**
+  unless `--allow-agent-passphrase` is given, which warns that an agent able to read the
+  passphrase's source defeats the signer's protection against agents. A signer started from an
+  agent shell with `--passphrase-stdin` needs the new flag.
+- **`routed` and `queued` are said in plain words** (handed to a live session; that session is
+  offline and the relay keeps it 24 h), and that neither means read. The Claude Code plugin says
+  "Sent through worldinmotion", no longer "Delivered".
+- **Only a `wim watch` takes a one-off send's handover**: a session now records that it takes them
+  (`handover`), so a `wim send --wait` holding the name is not mistaken for a watch, and `wim watch`
+  and `wim inbox` say the name is busy instead.
+- **No more y/N when adding a device.** `wim invite` asks the person to type the comparison code
+  the new device shows, compared without case or dashes, and no longer shows its own copy
+  (SECURITY-MODEL section 5.6). The confirmation is taken only from an interactive terminal
+  (standard input and output) with no agent's variables set; without `--auto`, `wim invite`
+  refuses to start anywhere else, before any code exists. It also prints "On the new device, in a
+  terminal: `wim join <code>`". `wim join` says "comparison code" and how to admit it.
+- Refusals of person-only steps (`wim agent start`, `unlock`, `encrypt`, `decrypt`, `autostart enable --keyring`,
   `wim recovery show`, `--allow-secret`) name the cause (`CLAUDECODE is set: this shell belongs to
   Claude Code`, or that the output is not an interactive terminal) and say to open a terminal
   yourself and run the exact command there.

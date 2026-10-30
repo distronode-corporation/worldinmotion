@@ -45,7 +45,7 @@ describe("flags", () => {
     expect(await run(t, "-h")).toBe(0);
     expect(t.out.at(-1)).toBe(USAGE);
     expect(await run(t, "send", "-h")).toBe(0);
-    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name>]");
+    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]");
   });
 
   it("refuses a --limit that is not a positive whole number, and an unknown devices action", async () => {
@@ -58,7 +58,9 @@ describe("flags", () => {
     }
     expect(await run(t, "history", "--limit", "5")).toBe(0);
     expect(await run(t, "devices", "foo")).toBe(1);
-    expect(t.err.at(-1)).toBe('wim: unknown devices action "foo"\nwim devices [list | trust <name> [--relayed] | untrust <name> | revoke <name> | promote <name>]');
+    expect(t.err.at(-1)).toBe(
+      'wim: unknown devices action "foo"\nwim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]\nwim devices pending | wim devices admit <name> <code>',
+    );
   });
 });
 

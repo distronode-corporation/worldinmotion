@@ -19,6 +19,8 @@ export type SpoolItem = {
   rendered: string;
   /** On a notice about held messages: how many wait for the person. */
   held?: number;
+  /** On a notice about a `held` receipt: the address holding a message this session sent, for its person's approval. */
+  heldBy?: string;
   /** The sender did not write this text itself (revision 4, H1): never start a turn for it. */
   relayed?: true;
   /** Framed as information only; handing it to the agent starts the `derived` window. */

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { BACKOFF_MS, clientCommand, clientCwd, EventsProcess, LineSplitter, MAX_LINE, REQUEST_TIMEOUT_MS, RequestError, STABLE_MS, type Child, type SpawnFn, type Timers } from "../src/process.ts";
+import { BACKOFF_MS, clientCommand, clientCwd, signerTerminal, EventsProcess, LineSplitter, MAX_LINE, REQUEST_TIMEOUT_MS, RequestError, STABLE_MS, type Child, type SpawnFn, type Timers } from "../src/process.ts";
 import type { WimEvent } from "../src/protocol.ts";
 import { flush } from "./helpers.ts";
 
@@ -316,5 +316,24 @@ describe("clientCwd", () => {
     expect(clientCwd([], "/home/me")).toBe("/home/me");
     // A remote folder is not a path on this machine.
     expect(clientCwd([{ scheme: "vscode-remote", fsPath: "/srv/app" }], "/home/me")).toBe("/home/me");
+  });
+});
+
+describe("signerTerminal", () => {
+  const base = { extensionPath: "/ext", wimPath: "", execPath: "/electron", env: { HOME: "/h" }, cwd: "/h", locked: false };
+
+  it("runs the bundled client's wim agent start on VS Code's Node, or unlock when the signer is locked", () => {
+    expect(signerTerminal(base)).toEqual({
+      name: "worldinmotion signer",
+      shellPath: "/electron",
+      shellArgs: [join("/ext", "dist", "wim.mjs"), "agent", "start"],
+      env: { ELECTRON_RUN_AS_NODE: "1" },
+      cwd: "/h",
+    });
+    expect(signerTerminal({ ...base, locked: true }).shellArgs.slice(1)).toEqual(["agent", "unlock"]);
+  });
+
+  it("runs an executable wimPath as itself, with Electron's switch cleared", () => {
+    expect(signerTerminal({ ...base, wimPath: "/usr/local/bin/wim" })).toMatchObject({ shellPath: "/usr/local/bin/wim", shellArgs: ["agent", "start"], env: { ELECTRON_RUN_AS_NODE: null } });
   });
 });

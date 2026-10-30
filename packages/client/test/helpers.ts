@@ -1,8 +1,9 @@
 // Test helpers: scratch directories, an in-process relay (relay-core) behind a Dialer, and
 // devices and meshes built through the real create, invite and join flows.
 
-import { MemoryStore, MeshRelay, type Conn, type ConnState } from "@worldinmotion/relay-core";
+import { MemoryStore, MeshRelay, Rendezvous, type Conn, type ConnState, type RdvOutcome, type RdvPut } from "@worldinmotion/relay-core";
 import { promises as fs } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createMesh, decideJoin, issueInvite, joinMesh } from "../src/admin.ts";
@@ -80,10 +81,31 @@ export class RelayHarness {
   readonly sentByClients: string[] = [];
   private next = 0;
   readonly createKey: string | undefined;
+  /** With `rdv`, the relay keeps short invite codes' boxes, as relay-node does. */
+  readonly rendezvous: Rendezvous | undefined;
 
-  constructor(opts: { createKey?: string } = {}) {
+  constructor(opts: { createKey?: string; rdv?: boolean } = {}) {
     this.createKey = opts.createKey;
+    if (opts.rdv === true) {
+      const db = new DatabaseSync(":memory:");
+      this.rendezvous = new Rendezvous({
+        exec: (sql, ...p) => void db.prepare(sql).run(...p),
+        all: (sql, ...p) => db.prepare(sql).all(...p) as Record<string, string | number | null>[],
+        one: (sql, ...p) => db.prepare(sql).get(...p) as Record<string, string | number | null> | undefined,
+      });
+    }
   }
+
+  /**
+   * `fetch` for this relay's `GET /v1/rdv/<id>` (SPEC section 5), answered by its rendezvous store
+   * as relay-node answers it. Anything else fails, as the test terminals' fetch does.
+   */
+  readonly fetch = (async (url: string) => {
+    const m = /^http:\/\/127\.0\.0\.1:4444\/v1\/rdv\/([^/]*)$/.exec(url);
+    if (m === null || this.rendezvous === undefined) throw new Error("no network in tests");
+    const answer = this.rendezvous.get(m[1]!, "test", this.now());
+    return new Response(JSON.stringify(answer.body), { status: answer.status });
+  }) as unknown as typeof fetch;
 
   private meshFor(mesh: string) {
     let m = this.relays.get(mesh);
@@ -100,6 +122,7 @@ export class RelayHarness {
         getState: (c) => states.get(c.id),
         setState: (c, s) => void states.set(c.id, s),
         log: () => undefined,
+        ...(this.rendezvous === undefined ? {} : { rdvPut: (put: RdvPut, answer: (o: RdvOutcome) => void) => answer(this.rendezvous!.put(put, this.now())) }),
       },
     );
     m = { relay, conns, states };
@@ -260,19 +283,23 @@ export async function makeMesh(relay: RelayHarness, names: string[], opts: { tru
   return { mesh: made.mesh, devices, recoveryCode: made.recoveryCode };
 }
 
-export type Term = { io: CliIO; out: string[]; err: string[]; answers: string[]; stop: AbortController; env: Record<string, string | undefined> };
+/** An answer to a prompt: a line, or one read when the question comes (a code another terminal printed). */
+export type Answer = string | (() => string);
+
+export type Term = { io: CliIO; out: string[]; err: string[]; answers: Answer[]; stop: AbortController; env: Record<string, string | undefined> };
 
 export function term(home: string, relay: RelayHarness, extra: Partial<CliIO> = {}, env: Record<string, string | undefined> = {}): Term {
   const out: string[] = [];
   const err: string[] = [];
-  const answers: string[] = [];
+  const answers: Answer[] = [];
   const stop = new AbortController();
   const io: CliIO = {
     out: (l) => void out.push(l),
     err: (l) => void err.push(l),
     prompt: async (q) => {
       out.push(q);
-      return answers.shift() ?? "";
+      const a = answers.shift() ?? "";
+      return typeof a === "string" ? a : a();
     },
     signal: stop.signal,
     cwd: home,
@@ -284,6 +311,7 @@ export function term(home: string, relay: RelayHarness, extra: Partial<CliIO> = 
     now: Date.now,
     dialer: relay.dialer,
     isTTY: true,
+    inputIsTTY: true,
     stdin: new PassThrough(),
     stdout: new PassThrough(),
     fetch: (async () => {
@@ -296,6 +324,16 @@ export function term(home: string, relay: RelayHarness, extra: Partial<CliIO> = 
 }
 
 export const run = (t: Term, ...argv: string[]): Promise<number> => main(argv, t.env, t.io);
+
+/** The comparison code a `wim join` in `t` printed (SPEC section 5). */
+export function sasOf(t: Term): string {
+  return /Its comparison code is (\S+)\./.exec(said(t))![1]!;
+}
+
+/** The invite code a `wim invite` in `t` printed. */
+export function inviteCodeOf(t: Term): string {
+  return /wim1_\S+/.exec(said(t))![0];
+}
 export const said = (t: Term): string => [...t.out, ...t.err].join("\n");
 
 

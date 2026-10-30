@@ -247,6 +247,8 @@ describe("the downgrade is visible to the sender", () => {
     open.push(w);
     w.start();
     await w.ready(3000);
+    // The test answers its requests by hand, so the session says it takes them, as a watch does.
+    await w.files.markHandover(true);
     const t2 = term(devices[0]!.root, relay);
     const sending = run(t2, "send", "o@old", "through an older watch");
     let request: string | undefined;

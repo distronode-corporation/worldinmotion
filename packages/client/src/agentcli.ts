@@ -1,6 +1,8 @@
-// `wim agent`: start, stop, lock and unlock the signer, show its status, and move the key file
-// between plaintext and encrypted. The passphrase is asked for only at the person's own
-// interactive terminal (or read from stdin with --passphrase-stdin, for a service manager or CI).
+// `wim agent`: start, stop, lock and unlock the signer, show its status, start it at each log in,
+// and move the key file between plaintext and encrypted. The passphrase is asked for at the
+// person's own interactive terminal, or comes from stdin (--passphrase-stdin, for a service manager
+// or CI), a native dialog (--ask-gui) or the OS keyring (--keyring); none of those three is taken
+// from a command an agent runs unless the person says so (--allow-agent-passphrase).
 
 import { b64u, encodeKeys, prekeySchema, randomBytes, type Prekey } from "@worldinmotion/protocol";
 import { spawn as nodeSpawn } from "node:child_process";
@@ -11,13 +13,15 @@ import type { CliIO } from "./cli.ts";
 import { SetupError } from "./errors.ts";
 import { ensureDir, readJson, withLock, writeAtomic, writeJson } from "./fsx.ts";
 import type { Home } from "./home.ts";
-import { notAPerson, personOnly } from "./secretout.ts";
+import { agentEnv, notAPerson, personOnly } from "./secretout.ts";
+import { askGui, autostartStatus, disableAutostart, enableAutostart, GUI_AGAIN, GUI_ASK, KEYRING_WARNING, keyringAccount, keyringClear, keyringKind, keyringRead, keyringStore, NO_KEYRING, type AutostartOptions, type Programs } from "./autostart.ts";
 import { SignerClient } from "./signer.ts";
 import { BadPassphrase, openKeyFile, openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile } from "./vault.ts";
 
-export const AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin]
-  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin] | wim agent stop
-  wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]`;
+export const AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin | --ask-gui | --keyring] [--allow-agent-passphrase]
+  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin | --ask-gui | --keyring] | wim agent stop
+  wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]
+  wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status`;
 
 /** What `wim agent` needs from the CLI. */
 export type AgentCtx = {
@@ -67,9 +71,72 @@ export function spawnDetached(command: string[], input: string, spawn: typeof no
   });
 }
 
-async function readPassphrase(ctx: AgentCtx, question: string): Promise<string> {
+/** The passphrase sources other than the person's terminal, and the commands each is for. */
+const SOURCES = { "passphrase-stdin": ["start", "unlock", "encrypt", "decrypt"], "ask-gui": ["start", "unlock"], keyring: ["start", "unlock", "autostart"] } as const;
+type Source = keyof typeof SOURCES;
+
+/** How many times the dialog asks again when what was typed does not open the keys. */
+const GUI_TRIES = 3;
+
+/**
+ * The passphrase source a command was given other than the terminal, if any. Under an agent's
+ * variables each is refused unless the person opted in with --allow-agent-passphrase: whatever
+ * the agent can run can read that source too (SECURITY-MODEL 5.8). Service managers and login
+ * items set no agent variable.
+ */
+function otherSource(ctx: AgentCtx): Source | undefined {
+  const given = (Object.keys(SOURCES) as Source[]).filter((s) => ctx.flags.get(s) === true);
+  if (given.length > 1) throw new SetupError(`use one of --${given.join(", --")}, not several`);
+  const from = given[0];
+  const agent = agentEnv(ctx.env);
+  if (from === undefined || agent === undefined) return from;
+  if (ctx.flags.get("allow-agent-passphrase") !== true) {
+    throw new SetupError(
+      `${agent} is set, so an agent is running this command, and --${from} is refused there: an agent that can reach the passphrase's source can read it and decrypt the keys, which defeats the signer. Start the signer in your own terminal, or, if you mean the agent to, add --allow-agent-passphrase (SECURITY-MODEL 5.8)`,
+    );
+  }
+  ctx.io.err(`wim: warning: --allow-agent-passphrase: ${agent} is set, so an agent runs this command; whatever can read the passphrase's source can decrypt this device's keys, which defeats the signer's protection against agents (SECURITY-MODEL 5.8)`);
+  return from;
+}
+
+function programs(ctx: AgentCtx): Programs {
+  if (ctx.io.programs === undefined) throw new SetupError("this program cannot run a passphrase dialog, a keyring or a login item");
+  return ctx.io.programs;
+}
+
+/** Asks in the native dialog, again (up to GUI_TRIES) while what was typed does not pass `opens`. */
+async function askUntilOpens(ctx: AgentCtx, opens: ((passphrase: string) => Promise<boolean>) | undefined): Promise<string> {
+  const { platform, run } = programs(ctx);
+  for (let i = 0; i < GUI_TRIES; i++) {
+    const passphrase = await askGui(platform, run, i === 0 ? GUI_ASK : GUI_AGAIN);
+    if (opens === undefined || (await opens(passphrase))) return passphrase;
+  }
+  throw new SetupError(`the passphrase did not open this device's keys in ${GUI_TRIES} tries`);
+}
+
+function fromSource(ctx: AgentCtx, from: Source, opens: ((passphrase: string) => Promise<boolean>) | undefined): Promise<string> {
+  if (from === "passphrase-stdin") return ctx.io.prompt("");
+  if (from === "ask-gui") return askUntilOpens(ctx, opens);
+  const p = programs(ctx);
+  return keyringRead(p.platform, p.run, keyringAccount(ctx.home.root));
+}
+
+/** Whether `passphrase` opens the key file (the copies made to check are wiped). */
+function opensFile(file: SealedKeyFile): (passphrase: string) => Promise<boolean> {
+  return (passphrase) =>
+    openKeyFile(file, passphrase).then(
+      (u) => {
+        for (const b of [u.keys.signSec, u.keys.boxSec, u.data]) b.fill(0);
+        return true;
+      },
+      () => false,
+    );
+}
+
+async function readPassphrase(ctx: AgentCtx, question: string, opens?: (passphrase: string) => Promise<boolean>): Promise<string> {
   let passphrase: string;
-  if (ctx.flags.get("passphrase-stdin") === true) passphrase = await ctx.io.prompt("");
+  const from = otherSource(ctx);
+  if (from !== undefined) passphrase = await fromSource(ctx, from, opens);
   else {
     const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === undefined ? "this program cannot ask for a passphrase without showing it" : undefined);
     if (why !== undefined) {
@@ -104,6 +171,9 @@ async function running(ctx: AgentCtx): Promise<SignerClient | undefined> {
 
 export async function agentCommand(ctx: AgentCtx): Promise<number> {
   const [action] = ctx.args;
+  for (const s of Object.keys(SOURCES) as Source[]) {
+    if (ctx.flags.get(s) === true && !(SOURCES[s] as readonly string[]).includes(action ?? "")) throw new SetupError(`--${s} is for wim agent ${SOURCES[s].join(", ")}`);
+  }
   switch (action) {
     case "start":
       return start(ctx);
@@ -120,6 +190,8 @@ export async function agentCommand(ctx: AgentCtx): Promise<number> {
       return encrypt(ctx);
     case "decrypt":
       return decrypt(ctx);
+    case "autostart":
+      return autostart(ctx);
     default:
       throw new SetupError(`usage: ${AGENT_USAGE}`);
   }
@@ -209,7 +281,7 @@ async function start(ctx: AgentCtx): Promise<number> {
     }
     ctx.io.err(`wim: something answers at ${at} but cannot prove it is this device's signer; starting a signer in its place`);
   }
-  return launch(ctx, await readPassphrase(ctx, PROMPT));
+  return launch(ctx, await readPassphrase(ctx, PROMPT, opensFile(file)));
 }
 
 /** Starts the signer: in this process with --foreground, else detached. */
@@ -229,7 +301,8 @@ async function launch(ctx: AgentCtx, passphrase: string): Promise<number> {
   if (!line.startsWith("ready ")) throw new SetupError(line.replace(/^error /, ""));
   const [, pid, ...at] = line.split(" ");
   ctx.io.out(`Signer started (pid ${pid}) at ${at.join(" ")}. Sessions now sign and open through it.`);
-  ctx.io.out("`wim agent lock` wipes the keys from its memory; `wim agent stop` ends it.");
+  ctx.io.out("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim agent stop`.");
+  ctx.io.out("`wim agent lock` wipes the keys from its memory. `wim agent autostart enable` starts it at each log in.");
   return 0;
 }
 
@@ -246,7 +319,7 @@ async function status(ctx: AgentCtx): Promise<number> {
   ctx.io.out(`key file: ${ctx.home.devicePath} (${kind})${settings.require_signer === true ? "; the signer is required" : ""}`);
   const client = await running(ctx);
   if (client === undefined) {
-    ctx.io.out("signer: not running");
+    ctx.io.out(`signer: not running. Start it with \`wim agent start\` in a terminal you opened yourself (not one an agent runs), or have it start at each log in: \`wim agent autostart enable\`.`);
     return 3;
   }
   try {
@@ -416,4 +489,65 @@ async function decrypt(ctx: AgentCtx): Promise<number> {
   await decryptDevice(ctx.home, passphrase);
   ctx.io.out(`Decrypted ${ctx.home.devicePath}: the keys are in the clear again, and sessions read them without a signer.`);
   return 0;
+}
+
+/** `wim agent autostart enable | disable | status`: the login item that starts the signer at each log in. */
+async function autostart(ctx: AgentCtx): Promise<number> {
+  const what = ctx.args[1];
+  const p = programs(ctx);
+  const o: AutostartOptions = { platform: p.platform, homedir: ctx.io.homedir, env: ctx.env, root: ctx.home.root, programs: p, fsEnv: { platform: ctx.io.platform, pid: ctx.io.pid } };
+  if (what === "enable") return autostartEnable(ctx, o);
+  if (what === "disable") {
+    const removed = await disableAutostart(o);
+    await keyringClear(o.platform, o.programs.run, keyringAccount(o.root));
+    ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim agent stop`." : "No login item starts the signer here.");
+    return 0;
+  }
+  if (what !== "status") throw new SetupError("usage: wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status");
+  const found = await autostartStatus(o);
+  if (found === undefined) {
+    ctx.io.out("autostart: off. `wim agent autostart enable` starts the signer at each log in.");
+    return 3;
+  }
+  ctx.io.out(`autostart: on (${found.source === "keyring" ? "the passphrase comes from the keyring" : "it asks for the passphrase in a dialog"}): ${found.where}`);
+  ctx.io.out(`log: ${found.log}`);
+  return 0;
+}
+
+/**
+ * Installs the login item. By default it asks for the passphrase in a native dialog at each log
+ * in: the person types it into a process the login session started, not an agent's descendant.
+ * With --keyring the passphrase is stored now, typed at this terminal, after the warning for the
+ * platform's keyring; libsecret's needs a typed "yes".
+ */
+async function autostartEnable(ctx: AgentCtx, o: AutostartOptions): Promise<number> {
+  const file = await sealedFile(ctx);
+  const keyring = ctx.flags.get("keyring") === true;
+  // Without --keyring, a passphrase an earlier `enable --keyring` stored is removed: the login
+  // item no longer reads it, and kept there it would stay readable (by any process, in libsecret).
+  if (keyring) await storeInKeyring(ctx, o, file);
+  else await keyringClear(o.platform, o.programs.run, keyringAccount(o.root));
+  const item = await enableAutostart(o, keyring ? "keyring" : "ask-gui");
+  ctx.io.out(`Installed a login item: ${item.where}`);
+  ctx.io.out(
+    keyring
+      ? "At each log in it starts the signer with the passphrase from the keyring."
+      : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent. Any passphrase kept in the keyring for it before is removed.",
+  );
+  ctx.io.out(`What it prints, errors included, is appended to ${item.log}.`);
+  ctx.io.out("It does not start a signer now (`wim agent start` does). `wim agent autostart disable` removes it.");
+  return 0;
+}
+
+async function storeInKeyring(ctx: AgentCtx, o: AutostartOptions, file: SealedKeyFile): Promise<void> {
+  const kind = keyringKind(o.platform);
+  if (kind === undefined) throw new SetupError(NO_KEYRING);
+  const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === undefined ? "this program cannot ask for a passphrase without showing it" : undefined);
+  if (why !== undefined) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly(why, "wim agent autostart enable --keyring")}`);
+  for (const line of KEYRING_WARNING[kind]) ctx.io.out(line);
+  if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
+  const passphrase = await ctx.io.promptSecret!(PROMPT);
+  if (!(await opensFile(file)(passphrase))) throw new SetupError("that passphrase does not open this device's keys; nothing was stored or installed");
+  await keyringStore(o.platform, o.programs.run, keyringAccount(o.root), passphrase);
+  ctx.io.out("Stored the passphrase in the keyring.");
 }

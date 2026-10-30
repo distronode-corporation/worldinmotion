@@ -3,7 +3,7 @@
 import { start, type RunningRelay } from "@worldinmotion/relay-node";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { RelayHarness, run, said, scratch, term, until } from "./helpers.ts";
+import { inviteCodeOf, RelayHarness, run, said, sasOf, scratch, term, until } from "./helpers.ts";
 
 const relays: RunningRelay[] = [];
 afterEach(async () => {
@@ -17,17 +17,21 @@ async function relayNode(lan: boolean): Promise<RunningRelay> {
   return r;
 }
 
-/** Two devices set up through the CLI against a real relay: create, invite, confirm, join, trust. */
+/**
+ * Two devices set up through the CLI against a real relay: create, invite, confirm, join, trust.
+ * The joiner reads a short code's box over real HTTP; a pinned relay gets the full code.
+ */
 async function twoDevices(url: string, tls?: string) {
   const unused = new RelayHarness();
   const a = term(await scratch("rn-a"), unused, { dialer: undefined });
-  const b = term(await scratch("rn-b"), unused, { dialer: undefined });
+  const b = term(await scratch("rn-b"), unused, { dialer: undefined, fetch: globalThis.fetch });
   expect(await run(a, "init", "--name", "laptop")).toBe(0);
   expect(await run(a, "mesh", "create", "--relay", url, "--no-recovery", ...(tls === undefined ? [] : ["--tls", tls]))).toBe(0);
-  a.answers.push("y");
+  a.answers.push(() => sasOf(b));
   const inviting = run(a, "invite");
-  await until(() => a.out.some((l) => l.includes("wim1_")), 5000);
-  const code = a.out.find((l) => l.includes("wim1_"))!.trim();
+  await until(() => a.out.some((l) => /wim1_|wim2-/.test(l)), 5000);
+  const code = tls === undefined ? /wim2-\S+/.exec(said(a))![0] : inviteCodeOf(a);
+  if (tls !== undefined) expect(said(a)).toContain("no short code, because this mesh pins its relay's certificate");
   expect(await run(b, "join", code, "--name", "server")).toBe(0);
   expect(await inviting).toBe(0);
   expect(await run(a, "devices", "trust", "server")).toBe(0);

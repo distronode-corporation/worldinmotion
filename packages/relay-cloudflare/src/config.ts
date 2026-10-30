@@ -1,6 +1,7 @@
 import { parseRelayUrls, relaySettings, type RelaySettings } from "@worldinmotion/relay-core";
 import type { MeshDurableObject } from "./mesh.ts";
 import type { MeshRegistry } from "./registry.ts";
+import type { RendezvousStore } from "./rdv.ts";
 import type { SourceLimiter } from "./limiter.ts";
 
 /** The Worker's bindings and variables (see wrangler.jsonc and README.md). */
@@ -11,6 +12,8 @@ export type Env = {
   SOURCES: DurableObjectNamespace<SourceLimiter>;
   /** One Durable Object for the whole Worker: the mesh count for `WIM_MAX_MESHES`. */
   REGISTRY: DurableObjectNamespace<MeshRegistry>;
+  /** One Durable Object for the whole Worker: the boxes of short invite codes (SPEC section 5). */
+  RDV: DurableObjectNamespace<RendezvousStore>;
   /** Comma-separated exact public base URLs clients use, for example `wss://relay.example.com`. */
   WIM_RELAY_URLS?: string;
   /** When set (as a Worker secret), `create` must carry this operator key. Empty is a misconfiguration. */

@@ -54,6 +54,20 @@ export const LIMITS = {
   inviteDefaultTtlMs: HOUR,
   /** Longest invite lifetime. */
   inviteMaxTtlMs: 7 * DAY,
+  /** Longest a relay keeps a short invite code's box: an hour, and never past the invite (SPEC section 5). */
+  rdvLifetimeMs: HOUR,
+  /** Largest box ciphertext in bytes; a full invite code is at most about 3 KiB. */
+  rdvBoxBytes: 4 * KiB,
+  /** Times a relay hands out one box; it deletes the box with the last. */
+  rdvGetsPerBox: 3,
+  /** Box fetches per source address per hour, found or not. */
+  rdvGetsPerSourcePerHour: 30,
+  /** Boxes stored per admin device, per mesh and per source address, per hour. */
+  rdvPutsPerDevicePerHour: 16,
+  rdvPutsPerMeshPerHour: 64,
+  rdvPutsPerSourcePerHour: 64,
+  /** Boxes a relay holds at once, across every mesh. */
+  rdvBoxesPerRelay: 10_000,
   /** Rosters in one `roster` page. */
   rosterPageMax: 64,
   /** Bytes of rosters in one `roster` page. */

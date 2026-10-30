@@ -18,6 +18,8 @@ export type SpoolItem = {
   rendered: string
   /** On a `notice`: how many messages wait in `held/` for the person. */
   held?: number
+  /** On a `notice` about a `held` receipt: the address holding a message this session sent. */
+  heldBy?: string
   /** Sent on a device's behalf by a bot, CI or gateway: never starts a turn. */
   relayed?: true
   /** A notice for the person (a restart only they can do), never for the model. */
@@ -57,6 +59,7 @@ export function parseItem(text: string): SpoolItem | undefined {
     at: num(value.at),
     rendered: value.rendered,
     ...(typeof held === 'number' && held > 0 ? { held } : {}),
+    ...(typeof value.heldBy === 'string' && value.heldBy !== '' ? { heldBy: value.heldBy } : {}),
     ...(value.relayed === true ? { relayed: true as const } : {}),
     ...(value.forPerson === true ? { forPerson: true as const } : {}),
   }

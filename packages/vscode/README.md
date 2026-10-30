@@ -43,6 +43,8 @@ Commands, in the editor and explorer context menus and the command palette:
 | Command | What it does |
 |---|---|
 | Send Message... | Sends a line you type to a session or room you pick (also a button on the Mesh view). |
+| Add a Device... / Admit a Device... / Join a Mesh... | Makes an invite, admits a device that asked to join (you type its comparison code), or joins this device to a mesh with a code. |
+| Start Signer | Runs `wim agent start` (or `unlock`) in a terminal. |
 | Send Selection to... | Sends the selected text, headed with `path:startLine-endLine`, to a session or room you pick. |
 | Ask a Peer about the Selection... | Sends it as a `task`, with an optional question first. |
 | Send File to... | Sends a file from this machine with `send_file`. |
@@ -64,7 +66,8 @@ command on your `PATH`:
    Without npm, download `wim.mjs` from the [GitHub Release](https://github.com/distronode-corporation/worldinmotion/releases),
    check it against `SHA256SUMS`, and run it as `node wim.mjs`.
 2. [Terminal] Run `wim init --name <device> --relay <url>` for a new mesh, or
-   `wim join <invite code>` to join one.
+   `wim join <invite code>` to join one. [VS Code] To join, **worldinmotion: Join a Mesh...**
+   takes the invite code in a password field instead.
 3. [VS Code] Run **worldinmotion: Restart Client** from the command palette.
 
 Until then the Mesh view says the device is not set up, with these steps. The repository's

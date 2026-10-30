@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createServer } from "node:net";
 import { agentEndpoint } from "../src/agentpath.ts";
 import { spawnDetached, wimCommand } from "../src/agentcli.ts";
+import { GUI_AGAIN, GUI_ASK, keyringAccount, NO_KEYRING, type Programs, type RunResult } from "../src/autostart.ts";
 import { processIo, type Proc } from "../src/io.ts";
 import { handHello, keysOf, makeMesh, newDevice, RELAY, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
 import type { Channel } from "../src/channel.ts";
@@ -121,7 +122,7 @@ describe("wim agent", () => {
     const d = await newDevice("cli");
     const t = at(d.root, {}, {}, PASS);
     expect(await run(t, "agent", "status")).toBe(3);
-    expect(said(t)).toMatch(/\(plaintext\)\nsigner: not running/);
+    expect(said(t)).toMatch(/\(plaintext\)\nsigner: not running\. Start it with `wim agent start` in a terminal you opened yourself \(not one an agent runs\), or have it start at each log in: `wim agent autostart enable`\./);
     expect(await run(t, "agent", "encrypt", "--passphrase-stdin")).toBe(0);
     expect(said(t)).toMatch(/Encrypted .*wim agent start/);
     expect(await fs.readFile(d.home.devicePath, "utf8")).not.toMatch(/signSec/);
@@ -187,6 +188,7 @@ describe("wim agent", () => {
     expect(await run(t, "agent", "start", "--passphrase-stdin")).toBe(0);
     terms.push(at(d.root));
     expect(said(t)).toMatch(/Signer started \(pid \d+\)/);
+    expect(said(t)).toContain("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim agent stop`.");
     const again = at(d.root);
     expect(await run(again, "agent", "start")).toBe(0);
     expect(said(again)).toMatch(/already running at .* \(verified: it proved it is this device's signer\)/);
@@ -368,7 +370,8 @@ describe("wim agent", () => {
     expect(said(usage)).toMatch(/usage: wim agent start/);
     const help = at(d.root);
     expect(await run(help, "help", "agent")).toBe(0);
-    expect(said(help)).toMatch(/wim agent start \[--foreground\] \[--passphrase-stdin\]\nwim agent status/);
+    expect(said(help)).toMatch(/wim agent start \[--foreground\] \[--passphrase-stdin \| --ask-gui \| --keyring\] \[--allow-agent-passphrase\]\nwim agent status/);
+    expect(said(help)).toMatch(/\nwim agent autostart enable \[--keyring\] \| wim agent autostart disable \| wim agent autostart status$/);
     const flag = at(d.root);
     expect(await run(flag, "agent", "start", "--forground")).toBe(2);
     expect(said(flag)).toMatch(/did you mean --foreground/);
@@ -515,5 +518,226 @@ describe("processIo for wim agent", () => {
     expect(err).toBe("Passphrase: \n");
     expect(await io.startAgent!("x")).toBe("ready agent serve");
     expect(asked[0]).toBe(process.execPath);
+  });
+});
+
+/** Programs for `platform` that answer each call with `answer` and record it. */
+function fakePrograms(platform: string, answer: (cmd: string, args: readonly string[], input: string | undefined) => RunResult): { programs: Programs; calls: Array<{ cmd: string; args: readonly string[]; input: string | undefined }> } {
+  const calls: Array<{ cmd: string; args: readonly string[]; input: string | undefined }> = [];
+  return {
+    calls,
+    programs: {
+      platform,
+      wim: ["/usr/bin/node", "/opt/wim.mjs"],
+      run: async (cmd, args, input) => {
+        calls.push({ cmd, args, input });
+        return answer(cmd, args, input);
+      },
+    },
+  };
+}
+
+const hexOf = (s: string): string => Buffer.from(s, "utf8").toString("hex");
+const typed = (...answers: string[]): CliIO["promptSecret"] => async () => answers.shift() ?? "";
+
+/** An encrypted device under `name`. */
+async function encrypted(name: string) {
+  const d = await newDevice(name);
+  expect(await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin")).toBe(0);
+  return d;
+}
+
+describe("where the passphrase comes from", () => {
+  it("refuses stdin, the dialog and the keyring under an agent, naming the opt-in", async () => {
+    const d = await encrypted("agentpass");
+    const { programs } = fakePrograms("linux", () => ({ code: 0, stdout: `${PASS}\n`, stderr: "" }));
+    for (const source of ["--passphrase-stdin", "--ask-gui", "--keyring"]) {
+      const t = at(d.root, { programs }, { CLAUDECODE: "1" }, PASS);
+      expect(await run(t, "agent", "start", "--foreground", source)).toBe(1);
+      expect(said(t)).toMatch(new RegExp(`CLAUDECODE is set, so an agent is running this command, and ${source} is refused there.*add --allow-agent-passphrase \\(SECURITY-MODEL 5\\.8\\)`));
+    }
+    const codex = at((await newDevice("codex")).root, {}, { CODEX_SANDBOX: "seatbelt" }, PASS);
+    expect(await run(codex, "agent", "encrypt", "--passphrase-stdin")).toBe(1);
+    expect(said(codex)).toMatch(/CODEX_SANDBOX is set/);
+  });
+
+  it("takes stdin under an agent with --allow-agent-passphrase, and warns once", async () => {
+    const d = await encrypted("optin");
+    const t = at(d.root, {}, { CLAUDECODE: "1" }, PASS);
+    running.push(run(t, "agent", "start", "--foreground", "--passphrase-stdin", "--allow-agent-passphrase"));
+    terms.push(at(d.root));
+    await until(() => said(t).includes("Signer running"), undefined, "the signer to listen");
+    expect(t.err).toEqual([expect.stringMatching(/^wim: warning: --allow-agent-passphrase: CLAUDECODE is set, so an agent runs this command; .*defeats the signer's protection against agents \(SECURITY-MODEL 5\.8\)$/)]);
+    // Without an agent's variables the opt-in changes nothing and says nothing.
+    const plain = at(d.root, {}, {}, PASS);
+    expect(await run(plain, "agent", "start", "--passphrase-stdin", "--allow-agent-passphrase")).toBe(0);
+    expect(plain.err).toEqual([]);
+  });
+
+  it("takes one source at a time, each only for the commands it is for", async () => {
+    const d = await encrypted("which");
+    const two = at(d.root, {}, {}, PASS);
+    expect(await run(two, "agent", "start", "--passphrase-stdin", "--ask-gui")).toBe(1);
+    expect(said(two)).toContain("use one of --passphrase-stdin, --ask-gui, not several");
+    for (const [args, why] of [
+      [["encrypt", "--ask-gui"], "--ask-gui is for wim agent start, unlock"],
+      [["status", "--keyring"], "--keyring is for wim agent start, unlock, autostart"],
+      [["lock", "--passphrase-stdin"], "--passphrase-stdin is for wim agent start, unlock, encrypt, decrypt"],
+      [["--keyring"], "--keyring is for wim agent start, unlock, autostart"],
+    ] as Array<[string[], string]>) {
+      const t = at(d.root);
+      expect(await run(t, "agent", ...args)).toBe(1);
+      expect(said(t)).toContain(why);
+    }
+    const none = at(d.root);
+    expect(await run(none, "agent", "start", "--ask-gui")).toBe(1);
+    expect(said(none)).toContain("this program cannot run a passphrase dialog, a keyring or a login item");
+  });
+
+  it("--ask-gui asks in a dialog, again while what was typed does not open the keys", async () => {
+    const d = await encrypted("gui");
+    const typedIn = ["not it", "still not", PASS];
+    const asked = fakePrograms("linux", () => ({ code: 0, stdout: `${typedIn.shift()}\n`, stderr: "" }));
+    const t = at(d.root, { programs: asked.programs });
+    running.push(run(t, "agent", "start", "--foreground", "--ask-gui"));
+    terms.push(at(d.root));
+    await until(() => said(t).includes("Signer running"), undefined, "the signer to listen");
+    expect(asked.calls.map((c) => c.args.at(-1))).toEqual([`--text=${GUI_ASK}`, `--text=${GUI_AGAIN}`, `--text=${GUI_AGAIN}`]);
+    await run(at(d.root), "agent", "stop");
+    await Promise.all(running.splice(0));
+    terms.splice(0);
+
+    const never = fakePrograms("darwin", () => ({ code: 0, stdout: "wrong\n", stderr: "" }));
+    const no = at(d.root, { programs: never.programs });
+    expect(await run(no, "agent", "start", "--foreground", "--ask-gui")).toBe(1);
+    expect(said(no)).toContain("the passphrase did not open this device's keys in 3 tries");
+    expect(never.calls.map((c) => c.cmd)).toEqual(["osascript", "osascript", "osascript"]);
+    const cancel = at(d.root, { programs: fakePrograms("win32", () => ({ code: 1, stdout: "", stderr: "" })).programs });
+    expect(await run(cancel, "agent", "start", "--ask-gui")).toBe(1);
+    expect(said(cancel)).toContain("the passphrase prompt was cancelled");
+  });
+
+  it("unlock --ask-gui asks once and restarts the locked signer", async () => {
+    const d = await encrypted("guiunlock");
+    const fg = await foreground(d.root);
+    expect(await run(at(d.root), "agent", "lock")).toBe(0);
+    const asked = fakePrograms("linux", () => ({ code: 0, stdout: `${PASS}\n`, stderr: "" }));
+    const u = at(d.root, { programs: asked.programs });
+    running.push(run(u, "agent", "unlock", "--foreground", "--ask-gui"));
+    await until(() => said(u).includes("Signer running"), undefined, "the new signer");
+    await until(() => said(fg).includes("Signer stopped."), undefined, "the old signer to end");
+    expect(asked.calls).toHaveLength(1);
+  });
+
+  it("--keyring reads the stored passphrase; Windows has no keyring here", async () => {
+    const d = await encrypted("keyread");
+    const win = at(d.root, { programs: fakePrograms("win32", () => ({ code: 0, stdout: "", stderr: "" })).programs });
+    expect(await run(win, "agent", "start", "--keyring")).toBe(1);
+    expect(said(win)).toContain(NO_KEYRING);
+    const ring = fakePrograms("linux", () => ({ code: 0, stdout: hexOf(PASS), stderr: "" }));
+    const t = at(d.root, { programs: ring.programs });
+    running.push(run(t, "agent", "start", "--foreground", "--keyring"));
+    terms.push(at(d.root));
+    await until(() => said(t).includes("Signer running"), undefined, "the signer to listen");
+    expect(ring.calls).toEqual([{ cmd: "secret-tool", args: ["lookup", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: undefined }]);
+  });
+});
+
+describe("wim agent autostart", () => {
+  it("installs a login item that asks in a dialog, reports it and removes it", async () => {
+    const plain = await newDevice("asplain");
+    const p0 = fakePrograms("linux", () => ({ code: 0, stdout: "", stderr: "" }));
+    const refused = at(plain.root, { programs: p0.programs });
+    expect(await run(refused, "agent", "autostart", "enable")).toBe(1);
+    expect(said(refused)).toMatch(/is not encrypted: run `wim agent encrypt` first/);
+
+    const d = await encrypted("asgui");
+    const { programs, calls } = fakePrograms("linux", () => ({ code: 0, stdout: "", stderr: "" }));
+    const off = at(d.root, { programs });
+    expect(await run(off, "agent", "autostart", "status")).toBe(3);
+    expect(said(off)).toContain("autostart: off. `wim agent autostart enable` starts the signer at each log in.");
+    const on = at(d.root, { programs });
+    expect(await run(on, "agent", "autostart", "enable")).toBe(0);
+    const where = join(d.root, ".config", "autostart", `worldinmotion-signer-${keyringAccount(d.root)}.desktop`).replace(/\\/g, "/");
+    const shown = on.out.find((l) => l.startsWith("Installed a login item: "))!.slice("Installed a login item: ".length);
+    expect(shown.replace(/\\/g, "/")).toBe(where);
+    expect(await fs.readFile(shown, "utf8")).toContain("agent start --foreground --ask-gui");
+    expect(said(on)).toContain("asks for the passphrase in a dialog of its own");
+    // Enabling the dialog removes a passphrase an earlier --keyring stored.
+    expect(calls.map((c) => [c.cmd, ...c.args])).toEqual([["secret-tool", "clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)]]);
+    expect(said(on)).toContain("It does not start a signer now");
+    const st = at(d.root, { programs });
+    expect(await run(st, "agent", "autostart", "status")).toBe(0);
+    // Paths compared with one separator: on Windows the Linux item's paths mix both.
+    const slash = (x: string): string => x.replace(/\\/g, "/");
+    const log = slash(join(d.root, "agent", "autostart.log"));
+    expect(slash(said(st))).toContain(`autostart: on (it asks for the passphrase in a dialog): ${slash(shown)}\nlog: ${log}`);
+    expect(slash(said(on))).toContain(`What it prints, errors included, is appended to ${log}.`);
+    const rm = at(d.root, { programs });
+    expect(await run(rm, "agent", "autostart", "disable")).toBe(0);
+    expect(said(rm)).toContain("Removed the login item");
+    expect(calls.map((c) => c.args[0])).toEqual(["clear", "clear"]);
+    const again = at(d.root, { programs });
+    expect(await run(again, "agent", "autostart", "disable")).toBe(0);
+    expect(said(again)).toContain("No login item starts the signer here.");
+    const usage = at(d.root, { programs });
+    expect(await run(usage, "agent", "autostart")).toBe(1);
+    expect(said(usage)).toContain("usage: wim agent autostart enable [--keyring]");
+    const none = at(d.root);
+    expect(await run(none, "agent", "autostart", "status")).toBe(1);
+    expect(said(none)).toContain("this program cannot run");
+  });
+
+  it("--keyring on Linux warns, needs a typed yes and the right passphrase, then stores it", async () => {
+    const d = await encrypted("asring");
+    const { programs, calls } = fakePrograms("linux", () => ({ code: 0, stdout: "", stderr: "" }));
+    const no = at(d.root, { programs, promptSecret: typed(PASS) }, {}, "no");
+    expect(await run(no, "agent", "autostart", "enable", "--keyring")).toBe(1);
+    expect(said(no)).toMatch(/WARNING: your keyring \(libsecret\) gives this passphrase to any program you run/);
+    expect(said(no)).toContain("nothing was stored or installed");
+    const wrong = at(d.root, { programs, promptSecret: typed("not it") }, {}, "yes");
+    expect(await run(wrong, "agent", "autostart", "enable", "--keyring")).toBe(1);
+    expect(said(wrong)).toContain("that passphrase does not open this device's keys; nothing was stored or installed");
+    expect(calls).toEqual([]);
+    const yes = at(d.root, { programs, promptSecret: typed(PASS) }, {}, " yes ");
+    expect(await run(yes, "agent", "autostart", "enable", "--keyring")).toBe(0);
+    expect(calls).toEqual([{ cmd: "secret-tool", args: ["store", "--label=worldinmotion-signer", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: hexOf(PASS) }]);
+    expect(said(yes)).toContain("Stored the passphrase in the keyring.");
+    expect(said(yes)).toContain("At each log in it starts the signer with the passphrase from the keyring.");
+    const st = at(d.root, { programs });
+    expect(await run(st, "agent", "autostart", "status")).toBe(0);
+    expect(said(st)).toContain("autostart: on (the passphrase comes from the keyring)");
+    // Back to the dialog: the stored passphrase goes, and the item asks again.
+    const back = at(d.root, { programs });
+    expect(await run(back, "agent", "autostart", "enable")).toBe(0);
+    expect(calls.at(-1)).toEqual({ cmd: "secret-tool", args: ["clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: undefined });
+    const now = at(d.root, { programs });
+    expect(await run(now, "agent", "autostart", "status")).toBe(0);
+    expect(said(now)).toContain("autostart: on (it asks for the passphrase in a dialog)");
+  });
+
+  it("--keyring is set up only at the person's own terminal; macOS needs no yes; Windows has none", async () => {
+    const d = await encrypted("asmac");
+    const mac = fakePrograms("darwin", () => ({ code: 0, stdout: "", stderr: "" }));
+    for (const [extra, env, cause] of [
+      [{ promptSecret: typed(PASS) }, { CLAUDECODE: "1" }, "CLAUDECODE is set: this shell belongs to Claude Code"],
+      [{ promptSecret: typed(PASS), isTTY: false }, {}, "this command's output is not an interactive terminal (it is piped or redirected)"],
+      [{}, {}, "this program cannot ask for a passphrase without showing it"],
+    ] as Array<[Partial<CliIO>, Record<string, string>, string]>) {
+      const t = at(d.root, { programs: mac.programs, ...extra }, env);
+      expect(await run(t, "agent", "autostart", "enable", "--keyring")).toBe(1);
+      expect(said(t)).toContain(`the passphrase goes into the keyring only from your own terminal: ${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim agent autostart enable --keyring\` there`);
+    }
+    const ok = at(d.root, { programs: mac.programs, promptSecret: typed(PASS) });
+    expect(await run(ok, "agent", "autostart", "enable", "--keyring")).toBe(0);
+    expect(said(ok)).toContain("Never choose Always Allow");
+    expect(ok.out).not.toContain("Type yes to store it anyway: ");
+    expect(mac.calls.map((c) => c.args[0])).toEqual(["delete-generic-password", "-i", "find-generic-password"]);
+    const shown = ok.out.find((l) => l.startsWith("Installed a login item: "))!.slice("Installed a login item: ".length);
+    expect(shown.replace(/\\/g, "/")).toMatch(/\/Library\/LaunchAgents\/worldinmotion\.signer\.[0-9a-f]{16}\.plist$/);
+    expect(await fs.readFile(shown, "utf8")).toContain("<string>--keyring</string>");
+    const win = at(d.root, { programs: fakePrograms("win32", () => ({ code: 0, stdout: "", stderr: "" })).programs, promptSecret: typed(PASS) });
+    expect(await run(win, "agent", "autostart", "enable", "--keyring")).toBe(1);
+    expect(said(win)).toContain(NO_KEYRING);
   });
 });

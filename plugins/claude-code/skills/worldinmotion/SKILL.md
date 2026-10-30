@@ -55,15 +55,18 @@ to type them into this chat box or behind `!`: both run them inside this session
 with the exact command and the words "in a terminal you opened yourself" (in VS Code: Terminal >
 New Terminal):
 
-- `wim agent start`, `wim agent unlock`, `wim agent encrypt`, `wim agent decrypt`
-- answering an invite's confirmation (`wim invite`, which asks whether the codes match)
+- `wim agent start`, `wim agent unlock`, `wim agent encrypt`, `wim agent decrypt`,
+  `wim agent autostart enable`
+- `wim invite` (it asks the person to type the new device's comparison code), `wim join`, and
+  `wim devices admit <name> <code>`
 - `wim recovery show`
 - `wim held approve <id>` (or the Approve button in `/wim`)
-- `wim devices trust <name>` (and `untrust`)
+- `wim devices trust <name>` or `--all` (and `untrust`)
 - any `wim send ... --allow-secret`
 
 These only read, so run them yourself when they help, and report what they say:
-`wim agent status`, `wim doctor`, `wim peers`, `wim devices`, `wim held list`, `wim history`.
+`wim agent status`, `wim agent autostart status`, `wim doctor`, `wim peers`, `wim devices`,
+`wim devices pending`, `wim held list`, `wim history`.
 
 When the status line says this tab is not linked, it names why (for example no signer is
 running). Hand the fix over as above. The tab links by itself once the signer is up or the device
@@ -89,7 +92,7 @@ Reply with `send` (and `reply_to` set to the message id) or, for a task, with `r
 | tool | use it to |
 |---|---|
 | `peers` | list sessions: address, kind, status (`idle`, `busy`, `offline`), rooms. Check it before assuming someone is online. |
-| `send` | send text to an address, a `#room`, `*` (everyone) or a list. Returns each recipient's status: `routed` (handed to a live session; not yet read), `queued` (the session is offline; it gets it when it returns), or a failure. Set `notify_when_idle` to be told when the recipient next goes idle. |
+| `send` | send text to an address, a `#room`, `*` (everyone) or a list. Returns each recipient's status: `routed` (handed to a live session; not yet read), `queued` (that session is offline; the relay keeps it 24 h), or a failure. Neither means read: say "sent". If the recipient's device holds it for its person's approval, a notice says so later. Set `notify_when_idle` to be told when the recipient next goes idle. |
 | `ask` | send a task and wait for its result (default 110 s, at most 300 s). If it comes back `pending`, carry on and pick the result up later from `inbox`; do not loop on `ask`. |
 | `reply` | send the result of a task you received: `task_id`, `status`, `text`. |
 | `rooms` | `join`, `leave`, `list`, or read `history` of a room. |

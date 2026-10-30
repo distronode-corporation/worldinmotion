@@ -3,21 +3,22 @@
 // session before that device has run anything else.
 
 import { describe, expect, it } from "vitest";
-import { RELAY, RelayHarness, run, said, scratch, term, until } from "./helpers.ts";
+import { inviteCodeOf, RELAY, RelayHarness, run, said, sasOf, scratch, term, until } from "./helpers.ts";
 
 async function quickStart(): Promise<{ a: ReturnType<typeof term>; b: ReturnType<typeof term> }> {
   const relay = new RelayHarness();
   const a = term(await scratch("qs-a"), relay);
   const b = term(await scratch("qs-b"), relay);
   expect(await run(a, "init", "--name", "qs-a", "--relay", RELAY, "--no-recovery")).toBe(0);
-  a.answers.push("y");
+  // The person types the code the new device shows, and trusts each device as their own when asked.
+  a.answers.push(() => sasOf(b), "y");
+  b.answers.push("y");
   const inviting = run(a, "invite");
   await until(() => a.out.some((l) => l.includes("wim1_")));
-  const code = a.out.find((l) => l.includes("wim1_"))!.trim();
-  expect(await run(b, "join", code, "--name", "qs-b")).toBe(0);
+  expect(await run(b, "join", inviteCodeOf(a), "--name", "qs-b")).toBe(0);
   expect(await inviting).toBe(0);
-  expect(await run(a, "devices", "trust", "qs-b")).toBe(0);
-  expect(await run(b, "devices", "trust", "qs-a")).toBe(0);
+  expect(said(a)).toContain("Messages from qs-b are delivered here");
+  expect(said(b)).toContain("Messages from qs-a are delivered here");
   return { a, b };
 }
 
@@ -68,10 +69,10 @@ describe("the README quick start", () => {
     const a = term(await scratch("qs-a"), relay);
     const b = term(await scratch("qs-b"), relay, { connectMs: 200 });
     expect(await run(a, "init", "--name", "qs-a", "--relay", RELAY, "--no-recovery")).toBe(0);
-    a.answers.push("y");
+    a.answers.push(() => sasOf(b));
     const inviting = run(a, "invite");
     await until(() => a.out.some((l) => l.includes("wim1_")));
-    const code = a.out.find((l) => l.includes("wim1_"))!.trim();
+    const code = inviteCodeOf(a);
     // The relay goes away right after it admits the device: the join's own connection still
     // finishes, and the next dial (the registration) fails.
     relay.toClient = (text) => {

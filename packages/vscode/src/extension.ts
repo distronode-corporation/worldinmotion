@@ -6,10 +6,10 @@ import * as actions from "./actions.ts";
 import { VIEW_ID, ActivityView } from "./activity/view.ts";
 import { notice, oneLine } from "./display.ts";
 import { homedir } from "node:os";
-import { clientCommand, clientCwd, EventsProcess } from "./process.ts";
+import { clientCommand, clientCwd, EventsProcess, signerTerminal } from "./process.ts";
 import { historyRows, type MessageRow } from "./protocol.ts";
 import { Store, toNotify } from "./state.ts";
-import { StatusItem } from "./status.ts";
+import { signerState, StatusItem } from "./status.ts";
 import { SCHEME, showThread, ThreadProvider, type Requester } from "./thread.ts";
 import { HeldView, LeasesView, MeshView, Nodes, RoomsView } from "./tree.ts";
 
@@ -25,6 +25,10 @@ export const TICK_MS = 15_000;
  */
 export const SETUP_HINT =
   'To set up this device, open a terminal yourself (Terminal > New Terminal) and install wim: npm install --global worldinmotion (if wim is then not found: export PATH="$(npm prefix -g)/bin:$PATH"). Then run wim init --relay <url> for a new mesh, or wim join <invite> to join one, and run Restart Client.';
+
+/** Shown while the client runs in setup mode: the device is in no mesh yet. */
+export const JOIN_HINT =
+  "This device is in no mesh yet. Run worldinmotion: Join a Mesh... with an invite code from an admin device, or start a new mesh with wim init --relay <url> in a terminal and restart the client.";
 
 export type Settings = { sessionName: string; wimPath: string; notifyOnMessage: boolean; notifyForClaudeTabs: boolean };
 
@@ -51,7 +55,9 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   // Filled in below; the views and providers only call it after activation.
   let proc: EventsProcess | undefined;
   const client: Requester = { request: (op, args, timeoutMs) => proc!.request(op, args, timeoutMs) };
-  const deps: actions.Deps = { store, client, nodes, now };
+  const deps: actions.Deps = { store, client, nodes, now, invited: new Set() };
+  /** The devices to ask about once the client runs in the mesh this device just joined. */
+  let trustAfterJoin: string[] | undefined;
 
   const mesh = new MeshView(store, nodes, now);
   const rooms = new RoomsView(store, nodes, now);
@@ -97,7 +103,12 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     heldTree.message = n === 0 ? "Nothing is held for you." : undefined;
     const { state, detail } = store.connection;
     const setup = detail?.includes("not set up") === true ? ` ${SETUP_HINT}` : "";
-    meshTree.message = state === "open" || store.sessions.size > 0 ? undefined : `Not connected (${state}${detail === undefined ? "" : `: ${oneLine(detail, 200)}`}).${setup}`;
+    meshTree.message =
+      store.setup !== undefined
+        ? JOIN_HINT
+        : state === "open" || store.sessions.size > 0
+          ? undefined
+          : `Not connected (${state}${detail === undefined ? "" : `: ${oneLine(detail, 200)}`}).${setup}`;
     roomsTree.message = store.rooms.size === 0 ? "No rooms." : undefined;
     leasesTree.message = store.leases.size === 0 ? "No leases." : undefined;
   };
@@ -134,6 +145,18 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     onEvent: (ev) => {
       store.apply(ev);
       if (ev.type === "hello") loadHistory();
+      if (ev.type === "join" && ev.op === "add") void actions.joinRequested(deps, ev.request);
+      if (ev.type === "join_failed") void vscode.window.showErrorMessage(notice(`worldinmotion: joining the mesh failed: ${ev.message}`));
+      if (ev.type === "joined") {
+        // The client ends after joining; started again, it runs in the mesh, and its first
+        // snapshot is when the person is asked about the other devices.
+        trustAfterJoin = ev.devices.map((x) => x.name);
+        proc!.restart();
+      }
+      if (ev.type === "snapshot" && trustAfterJoin !== undefined) {
+        void actions.askTrust(deps, trustAfterJoin);
+        trustAfterJoin = undefined;
+      }
       if (ev.type === "message") threads.messageArrived(ev.message);
       const s = settings();
       const m = toNotify(store, ev, s.notifyForClaudeTabs);
@@ -143,6 +166,28 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     log,
   });
   const stopStore = store.onChange(schedule);
+
+  /**
+   * Opens a terminal running `wim agent start` (or `unlock`) with this window's client. When it
+   * closes, the client is restarted at once instead of waiting out its backoff.
+   */
+  let signer: vscode.Terminal | undefined;
+  const startSigner = (): void => {
+    const s = settings();
+    const t = vscode.window.createTerminal(
+      signerTerminal({ extensionPath: context.extensionPath, wimPath: s.wimPath, execPath: process.execPath, env: process.env, locked: signerState(store) === "locked", cwd: homedir() }),
+    );
+    signer = t;
+    t.show();
+  };
+  const signerClosed = (t: vscode.Terminal): void => {
+    if (t !== signer) return;
+    signer = undefined;
+    const code = t.exitStatus?.code;
+    if (code === 0) vscode.window.showInformationMessage("worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`.");
+    else if (code !== undefined) vscode.window.showWarningMessage(`worldinmotion: the signer did not start (exit code ${code}). Run worldinmotion: Start Signer again, or \`wim agent status\` in a terminal.`);
+    proc!.restart();
+  };
 
   const command = (id: string, fn: (arg: unknown) => unknown): vscode.Disposable => vscode.commands.registerCommand(id, fn);
   context.subscriptions.push(
@@ -171,6 +216,9 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     command("worldinmotion.trustRelayed", (arg) => actions.setTrust(deps, arg, "trustRelayed")),
     command("worldinmotion.untrust", (arg) => actions.setTrust(deps, arg, "untrust")),
     command("worldinmotion.resume", (arg) => actions.resume(deps, arg)),
+    command("worldinmotion.addDevice", () => actions.addDevice(deps)),
+    command("worldinmotion.admitDevice", () => actions.admitDevice(deps)),
+    command("worldinmotion.joinMesh", () => actions.joinMesh(deps)),
     command("worldinmotion.refresh", () =>
       client.request("snapshot").catch((e: Error) => vscode.window.showErrorMessage(notice(`worldinmotion: could not refresh: ${e.message}`))),
     ),
@@ -180,6 +228,8 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     }),
     command("worldinmotion.showLog", () => out.show(true)),
     command("worldinmotion.restart", () => proc!.restart()),
+    command("worldinmotion.startSigner", startSigner),
+    vscode.window.onDidCloseTerminal(signerClosed),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("worldinmotion.sessionName") || e.affectsConfiguration("worldinmotion.wimPath")) proc!.restart();
     }),

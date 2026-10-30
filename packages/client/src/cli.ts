@@ -6,30 +6,34 @@ import { runGateway } from "./run-a2a.ts";
 import { loadConfig as loadGatewayConfig } from "@worldinmotion/a2a";
 import { loadConfig as loadBotConfig, runBot } from "@worldinmotion/bot";
 import { loadConfig as loadCiConfig, runCi } from "@worldinmotion/ci";
-import { isName, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
+import { isName, isRecoveryName, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { basename, join as pathJoin } from "node:path";
 import type { Readable, Writable } from "node:stream";
-import { createMesh, decideJoin, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery } from "./admin.ts";
+import { admitPending, createMesh, decideJoin, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
+import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
 import { accepted, ClientError, MeshSession, unprotectedNote, type Inbound, type SessionOptions } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
-import { runEvents } from "./events.ts";
+import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp, type Retried } from "./mcp.ts";
 import { MeshFiles, RosterBook, setDevicePolicy, trustLevel } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
 import { homeChoice, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine } from "./render.ts";
+import { PING, pingReport } from "./ping.ts";
 import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
-import { canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
+import { agentEnv, canConfirm, canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
+import { resolveInvite } from "./shortcode.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
+import type { Programs } from "./autostart.ts";
 
 export const VERSION = "0.1.4";
 
@@ -53,6 +57,8 @@ export type CliIO = {
   stdout: Writable;
   /** Whether stdout is an interactive terminal (recovery codes are shown only there). */
   isTTY: boolean;
+  /** Whether stdin is one too: a confirmation is taken only from a person typing (canConfirm). */
+  inputIsTTY: boolean;
   /** How long `wim send` waits for a running `wim watch` to take a handed-over send (15 s). */
   handoverMs?: number;
   /** How long a command waits to be connected to the relay (15 s). */
@@ -63,6 +69,8 @@ export type CliIO = {
   startAgent?: (passphrase: string) => Promise<string>;
   /** scrypt cost for `wim agent encrypt` (tests pass a small one; default 2^17). */
   agentKdfN?: number;
+  /** Runs another program (the login item and passphrase prompts of `wim agent`), and wim's own command line. */
+  programs?: Programs;
   /** HTTP for `wim ci` and `wim a2a`. */
   fetch: typeof fetch;
   /** True once the process that started this one is gone (`wim mcp` then ends its session). */
@@ -76,8 +84,8 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin"]);
-const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "tls"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]);
+const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -86,11 +94,12 @@ const COMMON_FLAGS = ["mesh", "help"];
 const COMMAND_FLAGS: Record<string, readonly string[]> = {
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
   mesh: ["relay", "key-env", "tls", "no-recovery"],
-  invite: ["exp", "auto"],
+  invite: ["exp", "auto", "full"],
   join: ["name"],
-  devices: ["relayed"],
+  devices: ["relayed", "all"],
   peers: ["all", "as"],
-  send: ["allow-secret", "as"],
+  send: ["allow-secret", "as", "wait"],
+  ping: ["all", "timeout"],
   watch: ["as"],
   inbox: ["as"],
   events: ["json", "as"],
@@ -99,7 +108,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   ci: ["as"],
   a2a: ["as"],
   recover: ["relay", "tls", "revoke", "name"],
-  agent: ["foreground", "passphrase-stdin"],
+  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
 };
 
 /**
@@ -173,11 +182,13 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
 
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
-  wim invite [--exp 1h] [--auto]
+  wim invite [--exp 1h] [--auto] [--full]
   wim join <code> [--name <device>]
-  wim devices [list | trust <name> [--relayed] | untrust <name> | revoke <name> | promote <name>]
+  wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
+  wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name>]
+  wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
+  wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
   wim inbox [--as <name>]
   wim events --json [--as <name>]
@@ -195,7 +206,7 @@ Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: init, mesh create, invite, join, devices, peers, send, watch, held, history, mcp,
+Commands: init, mesh create, invite, join, devices, peers, send, ping, watch, held, history, mcp,
 bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
@@ -284,7 +295,7 @@ class Ctx {
     const base = await this.sessionOptions(name, "cli", false, opts.mesh);
     // While another live command holds this name (a `wim watch`), a short command takes a
     // throwaway session instead of a `cli-N` that would linger: it ends for good when done.
-    const ephemeral = opts.keyed !== false && (await liveWatcher(base.mesh, name, this.fsEnv)) !== undefined;
+    const ephemeral = opts.keyed !== false && (await liveHolder(base.mesh, name, this.fsEnv)) !== undefined;
     const keyed = opts.keyed !== false && !ephemeral;
     if (keyed) await adoptByName(base.mesh, name, this.fsEnv, this.io.now);
     let last: string | undefined;
@@ -354,15 +365,27 @@ async function adoptByName(mesh: MeshFiles, name: string, env: FsEnv, now: () =>
   }
 }
 
-/** A `wim watch` running now on this device under `name`, if any. */
-async function liveWatcher(mesh: MeshFiles, name: string, env: FsEnv): Promise<SessionFiles | undefined> {
+/**
+ * A CLI session under `name` that another live process runs now (a `wim watch`, a `wim send
+ * --wait`, any command while it lasts) and, with `watch`, only one that takes handed-over sends:
+ * a `wim watch`.
+ */
+async function liveHolder(mesh: MeshFiles, name: string, env: FsEnv, watch = false): Promise<SessionFiles | undefined> {
   for (const sid of await listSessions(mesh)) {
     const files = new SessionFiles(mesh, sid, env);
     const state = await files.load();
-    if (state?.name === name && state.kind === "cli" && (await files.isLiveElsewhere())) return files;
+    if (state?.name === name && state.kind === "cli" && (await (watch ? files.takesHandoverElsewhere() : files.isLiveElsewhere()))) return files;
   }
   return undefined;
 }
+
+/** A `wim watch` running now on this device under `name`, if any. */
+function liveWatcher(mesh: MeshFiles, name: string, env: FsEnv): Promise<SessionFiles | undefined> {
+  return liveHolder(mesh, name, env, true);
+}
+
+/** Said when another command, not a watch, holds the name. */
+const busyName = (name: string): string => `${name} is busy with another wim command on this device (a \`wim send --wait\`, say): try again when it ends, or use --as <name>`;
 
 /** Edit distance, for suggesting an address that exists. */
 function distance(a: string, b: string): number {
@@ -440,6 +463,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await peers(ctx);
       case "send":
         return await send(ctx);
+      case "ping":
+        return await ping(ctx);
       case "watch":
         return await watch(ctx);
       case "inbox":
@@ -579,9 +604,34 @@ async function recoveryRotate(ctx: Ctx): Promise<number> {
   }
 }
 
+/** Why a confirmation cannot be taken here, for the error that refuses it. */
+function noPerson(ctx: Ctx): string {
+  return agentEnv(ctx.env) === undefined ? "this is not an interactive terminal" : "an agent is running this command";
+}
+
+/**
+ * Asks the person for the comparison code the new device shows (SPEC section 5) and compares it
+ * with this request's, so a person cannot confirm without reading the other screen. Three tries;
+ * an empty answer refuses.
+ */
+async function typedCode(ctx: Ctx, p: JoinPrompt): Promise<boolean> {
+  ctx.io.out(`A device named ${p.name} (id ${p.id}) asks to join.`);
+  for (let tries = 0; tries < 3; tries++) {
+    const typed = (await ctx.io.prompt("Type the comparison code the new device shows (Enter to refuse): ")).trim();
+    if (typed === "") return false;
+    if (sameCode(typed, p.sas)) return true;
+    ctx.io.err("wim: that is not this request's code. Read it again on the new device.");
+  }
+  return false;
+}
+
 async function invite(ctx: Ctx): Promise<number> {
   const ttl = parseDuration(flag(ctx.args, "exp") ?? "1h");
   const auto = ctx.args.flags.get("auto") === true;
+  // Refused before an invite exists: its code would otherwise land where no person can admit with it.
+  if (!auto && !canConfirm(ctx.env, ctx.io)) {
+    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code`);
+  }
   const s = await ctx.session("invite", { keyed: false });
   try {
     const joins: unknown[] = [];
@@ -590,13 +640,24 @@ async function invite(ctx: Ctx): Promise<number> {
       joins.push(body);
       wake?.();
     });
-    const made = await issueInvite(s, { ttlMs: ttl, auto, now: ctx.io.now });
-    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust):");
-    ctx.io.out(`  ${made.code}`);
-    ctx.io.out(`It expires at ${new Date(made.exp).toISOString()}. Waiting for the device to join (Ctrl-C to stop)...`);
+    const full = ctx.args.flags.get("full") === true;
+    const made = await issueInvite(s, { ttlMs: ttl, auto, now: ctx.io.now, short: !full });
+    const until = new Date(made.exp).toISOString();
+    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust, never through an agent):");
+    ctx.io.out(`  ${made.short?.code ?? made.code}`);
+    ctx.io.out("On the new device, in a terminal: `wim join <code>`");
+    // A short code lives at most an hour at the relay; the invite itself may live longer.
+    if (made.short !== undefined && made.short.exp < made.exp) ctx.io.out(`The short code works until ${new Date(made.short.exp).toISOString()}.`);
+    if (made.short !== undefined) ctx.io.out("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
+    if (made.shortRefused !== undefined) ctx.io.out(`This is the full code: no short code, because ${made.shortRefused}.`);
+    ctx.io.out(`It expires at ${until}. Waiting for the device to join (Ctrl-C to stop)...`);
     for (;;) {
       if (ctx.io.signal.aborted || ctx.io.now() >= made.exp) {
-        ctx.io.err("wim: the invite was not used.");
+        ctx.io.err(
+          ctx.io.signal.aborted
+            ? `wim: stopped waiting. The invite stays valid until ${until}: \`wim devices pending\` lists a device that asks to join, and \`wim devices admit <name> <code>\` admits it.`
+            : "wim: the invite expired unused.",
+        );
         return 1;
       }
       const body = joins.shift();
@@ -614,32 +675,56 @@ async function invite(ctx: Ctx): Promise<number> {
         });
         continue;
       }
-      const decision = await decideJoin(
-        s,
-        body as Parameters<typeof decideJoin>[1],
-        async (p) => {
-          ctx.io.out(`Join request: device ${p.name} (id ${p.id}), code ${p.sas}.`);
-          const answer = await ctx.io.prompt("Does the joining device show the same code? [y/N] ");
-          return /^y(es)?$/i.test(answer.trim());
-        },
-        ctx.io.now,
-      );
+      const decision = await decideJoin(s, body as Parameters<typeof decideJoin>[1], (p) => typedCode(ctx, p), ctx.io.now);
       if (decision.outcome === "ignored") continue;
       if (decision.outcome === "admitted") {
-        ctx.io.out(`Admitted ${decision.name}. To deliver its messages without holding them: wim devices trust ${decision.name}`);
+        ctx.io.out(`Admitted ${decision.name}.`);
+        // `--auto` is the unattended path: nobody is asked anything.
+        await askTrust(ctx, s.mesh, s.roster.devices.filter((d) => d.name === decision.name), !auto);
         return 0;
       }
       ctx.io.err(`wim: refused the join: ${decision.reason}.`);
-      if (decision.reason === "the person did not confirm") return 1;
+      if (decision.reason === "the person did not confirm") {
+        // Kept nowhere: a request whose code the person would not confirm is never admitted later.
+        // This session keeps requests too, after the frames before them: those go first.
+        const refused = body as { invite: string; device: { id: string } };
+        await s.settled();
+        await new PendingJoins(s.mesh, ctx.fsEnv).remove(refused.invite, refused.device.id);
+        ctx.io.err("wim: if the new device showed another code, someone else used the invite: make a new one.");
+        return 1;
+      }
     }
   } finally {
     await s.stop({ ended: true });
   }
 }
 
+/**
+ * "Is X your own device?" after an admit or a join: a yes trusts it (policy `deliver`), as
+ * `wim devices trust` would. Asked only of a person at the terminal (canConfirm); everyone else is
+ * told the command.
+ */
+async function askTrust(ctx: Ctx, files: MeshFiles, devices: ReadonlyArray<{ name: string; id: string }>, ask = true): Promise<void> {
+  // Never empty: the device just admitted, or every device of the mesh just joined (an admin at least).
+  const names = devices.map((d) => d.name);
+  const one = names.length === 1;
+  const list = one ? names[0]! : `${names.slice(0, -1).join(", ")} and ${names.at(-1)!}`;
+  if (ask && canConfirm(ctx.env, ctx.io)) {
+    const question = one ? `Is ${list} your own device? Trust its messages here? [y/N] ` : `Are ${list} your own devices? Trust their messages here? [y/N] `;
+    if (/^y(es)?$/i.test((await ctx.io.prompt(question)).trim())) {
+      for (const d of devices) await setDevicePolicy(files, d.id, "deliver");
+      ctx.io.out(`Messages from ${list} are delivered here; text ${one ? "it relays" : "they relay"} from others is still held.`);
+      return;
+    }
+  }
+  ctx.io.out(`Messages from ${list} are held for your approval. If ${one ? "it is" : "they are"} your own: wim devices trust ${one ? list : "--all"}`);
+}
+
 async function join(ctx: Ctx): Promise<number> {
-  const code = ctx.args.positional[0];
-  if (code === undefined) throw new SetupError("usage: wim join <code>");
+  const typed = ctx.args.positional[0];
+  if (typed === undefined) throw new SetupError("usage: wim join <code>");
+  // A short code is resolved through its relay first, so a mistyped one leaves no device behind.
+  const code = await resolveInvite(typed, ctx.io.fetch);
   const device = (await ctx.home.loadDevice()) ?? (await ctx.home.createDevice(flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device")));
   const joined = await joinMesh({
     home: ctx.home,
@@ -649,11 +734,13 @@ async function join(ctx: Ctx): Promise<number> {
     now: ctx.io.now,
     showSas: (sas) => {
       ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
-      ctx.io.out(`Its code is ${sas}. Check that the admin device shows the same code, then confirm there.`);
+      ctx.io.out(`Its comparison code is ${sas}. Type it on the admin device, where \`wim invite\` asks for it, or run \`wim devices admit ${device.name} ${sas}\` there.`);
       ctx.io.out("Waiting for an admin to admit this device...");
     },
   });
-  ctx.io.out(`Joined mesh ${joined.mesh}. Peers' messages are held for approval until you trust their devices: wim devices trust <name>`);
+  ctx.io.out(`Joined mesh ${joined.mesh}.`);
+  const others = joined.roster.devices.filter((d) => d.id !== device.id && !isRecoveryName(d.name));
+  await askTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), others);
   await registerCli(ctx, joined.mesh);
   return 0;
 }
@@ -682,11 +769,13 @@ function deviceRows(r: Roster, config: { device: string; policy: Record<string, 
   });
 }
 
-const DEVICE_ACTIONS = ["list", "trust", "untrust", "revoke", "promote"];
+const DEVICE_ACTIONS = ["list", "trust", "untrust", "revoke", "promote", "pending", "admit"];
 
 async function devices(ctx: Ctx): Promise<number> {
-  const [action = "list", name] = ctx.args.positional;
+  const [action = "list", name, code] = ctx.args.positional;
   if (!DEVICE_ACTIONS.includes(action)) throw new SetupError(`unknown devices action ${JSON.stringify(action)}\n${commandUsage("devices")!}`);
+  if (action === "pending") return pending(ctx);
+  if (action === "admit") return admit(ctx, name, code);
   const { files } = await ctx.mesh();
   const book = await RosterBook.open(files);
   const config = await files.loadConfig();
@@ -694,19 +783,15 @@ async function devices(ctx: Ctx): Promise<number> {
     for (const line of deviceRows(book.current, config)) ctx.io.out(line);
     return 0;
   }
-  if (name === undefined) throw new SetupError(`usage: wim devices ${action} <name>`);
+  const trusting = action === "trust" || action === "untrust";
+  const all = ctx.args.flags.get("all") === true;
+  if (all && trusting && name === undefined) return trustAll(ctx, files, book.current, config.device, action);
+  if (name === undefined || all) throw new SetupError(`usage: wim devices ${action} <name>${trusting ? " | --all" : ""}`);
   const target = book.current.devices.find((d) => d.name === name);
   if (target === undefined) throw new SetupError(`no device named ${name}`);
-  if (action === "trust" || action === "untrust") {
+  if (trusting) {
     const relayed = ctx.args.flags.get("relayed") === true;
-    const level = await setDevicePolicy(files, target.id, trustLevel(action, relayed));
-    ctx.io.out(
-      level === "hold"
-        ? `Messages from ${name} are held for approval.`
-        : relayed
-          ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).`
-          : `Messages from ${name} are delivered; text it relays from others is still held.`,
-    );
+    ctx.io.out(trustLine(name, await setDevicePolicy(files, target.id, trustLevel(action, relayed)), relayed));
     return 0;
   }
   const s = await ctx.session("admin", { keyed: false });
@@ -718,6 +803,62 @@ async function devices(ctx: Ctx): Promise<number> {
       const r = await promoteDevice(s, name, ctx.io.now);
       ctx.io.out(`Promoted ${name} to admin. The roster is now at seq ${r.seq}.`);
     }
+    return 0;
+  } finally {
+    await s.stop({ ended: true });
+  }
+}
+
+function trustLine(name: string, level: string, relayed: boolean): string {
+  if (level === "hold") return `Messages from ${name} are held for approval.`;
+  return relayed ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).` : `Messages from ${name} are delivered; text it relays from others is still held.`;
+}
+
+/** `wim devices trust --all` and `untrust --all`: every device but this one (recovery records never act). */
+async function trustAll(ctx: Ctx, files: MeshFiles, roster: Roster, self: string, action: "trust" | "untrust"): Promise<number> {
+  const relayed = ctx.args.flags.get("relayed") === true;
+  const others = roster.devices.filter((d) => d.id !== self && !isRecoveryName(d.name));
+  if (others.length === 0) ctx.io.out("No other devices in the mesh.");
+  for (const d of others) ctx.io.out(trustLine(d.name, await setDevicePolicy(files, d.id, trustLevel(action, relayed)), relayed));
+  return 0;
+}
+
+/**
+ * A short session as this device, so the relay hands over the join requests it queued while no
+ * admin session was online; once the frames before an answer are handled, they are on disk.
+ */
+async function joinsSession(ctx: Ctx): Promise<MeshSession> {
+  const s = await ctx.session("admin", { keyed: false });
+  await s.listPeers();
+  await s.settled();
+  return s;
+}
+
+/** `wim devices pending`: the devices waiting to join, without their codes (the person types those). */
+async function pending(ctx: Ctx): Promise<number> {
+  const s = await joinsSession(ctx);
+  try {
+    const rows = await new PendingJoins(s.mesh, ctx.fsEnv).list(s.roster, new Invites(s.mesh, ctx.fsEnv, ctx.io.now), ctx.io.now());
+    if (s.roster.devices.find((d) => d.id === s.device.id)!.role !== "admin") ctx.io.out("This device is not an admin, so no join requests come here.");
+    else if (rows.length === 0) ctx.io.out("No device is waiting to join.");
+    for (const r of rows) ctx.io.out(`${r.name}  ${r.id}  asked ${new Date(r.at).toISOString()}  invite expires ${new Date(r.exp).toISOString()}`);
+    if (rows.length > 0) ctx.io.out("In your own terminal, admit one with the comparison code it shows: wim devices admit <name> <code>");
+    return 0;
+  } finally {
+    await s.stop({ ended: true });
+  }
+}
+
+/** `wim devices admit <name> <code>`: the person admits a waiting device by the code it shows. */
+async function admit(ctx: Ctx, name: string | undefined, code: string | undefined): Promise<number> {
+  if (name === undefined || code === undefined) throw new SetupError("usage: wim devices admit <name> <code>");
+  if (!canConfirm(ctx.env, ctx.io)) throw new SetupError(`run \`wim devices admit\` in your own terminal: admitting a device is the person's decision, and ${noPerson(ctx)}`);
+  const s = await joinsSession(ctx);
+  try {
+    const decision = await admitPending(s, name, code, ctx.io.now);
+    if (decision.outcome !== "admitted") throw new SetupError(`could not admit ${name}: ${decision.reason!}`);
+    ctx.io.out(`Admitted ${name}. The new device finishes joining when \`wim join\` runs there (it may be waiting already).`);
+    await askTrust(ctx, s.mesh, s.roster.devices.filter((d) => d.name === name));
     return 0;
   } finally {
     await s.stop({ ended: true });
@@ -739,11 +880,61 @@ async function peers(ctx: Ctx): Promise<number> {
   }
 }
 
+/** What `routed` and `queued` mean, said where a send's statuses are shown. Neither means read. */
+export const SENT_MEANING: Readonly<Record<string, string>> = {
+  routed: "handed to a live session; not yet taken or read",
+  queued: "that session is offline; the relay keeps it 24 h",
+};
+
+/** The longest `wim send --wait`. */
+export const WAIT_MAX_MS = 3_600_000;
+
+/** One recipient's receipt for a person: what its client did with the message, never whether anyone read it. */
+export function receiptLine(to: string, status: string, id: string): string {
+  switch (status) {
+    case "delivered":
+      return `${to}: delivered (the session took it; that does not mean anyone read it)`;
+    case "held":
+      return `${to}: held for the approval of that device's person. It is not delivered until they approve it there: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\``;
+    case "refused":
+      return `${to}: refused by that device's inbound policy`;
+    case "expired":
+      return `${to}: expired (no session took it within 24 hours)`;
+    default:
+      return `${to}: ${sanitizeForDisplay(status)}`;
+  }
+}
+
+/** The receipt each address has, its last one counting (a `held` one can be followed by `delivered`). */
+function lastReceipts(receipts: ReadonlyArray<{ to: string; status: string }>): Map<string, string> {
+  return new Map(receipts.map((r) => [r.to, r.status]));
+}
+
+/**
+ * Waits until every address in `wanted` has a receipt, `ms` passes or the person stops the
+ * command; returns the last receipt of each address that has one.
+ */
+async function waitForReceipts(ctx: Ctx, read: () => Promise<ReadonlyArray<{ to: string; status: string }>>, wanted: readonly string[], ms: number): Promise<Map<string, string>> {
+  const until = Date.now() + ms;
+  for (;;) {
+    const got = lastReceipts(await read());
+    if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
+function waitedEnough(got: ReadonlyMap<string, string>, wanted: readonly string[], until: number, signal: AbortSignal): boolean {
+  return wanted.every((to) => got.has(to)) || Date.now() > until || signal.aborted;
+}
+
 async function send(ctx: Ctx): Promise<number> {
   const [to, ...words] = ctx.args.positional;
   if (to === undefined || words.length === 0) throw new SetupError("usage: wim send <to> <text...>");
   const name = nameFor(ctx, "cli");
   const text = words.join(" ");
+  const waitText = flag(ctx.args, "wait");
+  const waitMs = waitText === undefined ? undefined : parseDuration(waitText);
+  if (waitMs !== undefined && (waitMs === 0 || waitMs > WAIT_MAX_MS)) throw new SetupError("--wait takes a duration from 1ms to 1h, such as 30s");
   // The one place the secrets check can be skipped: a person, at this command line, for one send.
   // Not an agent, and not a pipe: the same rule as showing a recovery code (SECURITY-MODEL 7.4).
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
@@ -754,43 +945,100 @@ async function send(ctx: Ctx): Promise<number> {
   const { files } = await ctx.mesh();
   // The override is never handed over: it would travel in a file any process of this user can write.
   const watcher = allowSecrets ? undefined : await liveWatcher(files, name, ctx.fsEnv);
-  let out: SendAnswer;
-  if (watcher !== undefined) {
-    // A `wim watch` holds this name: it sends, so replies come back to where the person reads.
-    const answered = await handOver(ctx, watcher, { to, text });
-    if (answered === undefined) {
-      // Not a failure: the message may have gone out. Saying so keeps the person from resending it.
-      ctx.io.out(`The running \`wim watch\` took the send but did not report back in time, so whether it went out is unknown. Check \`wim history --session ${name}\` before sending it again.`);
-      return 3;
-    }
-    out = answered;
-  } else {
-    const s = await ctx.session(name);
-    try {
-      const sent = await s.send(to, text, allowSecrets ? { allowSecrets: true } : {});
-      const live = [...s.peers.values()].filter((p) => p.status !== "offline");
+  // Offline after the command, not ended: replies queue for the next `wim watch` or `wim inbox` with this name.
+  const s = watcher === undefined ? await ctx.session(name) : undefined;
+  try {
+    let out: SendAnswer;
+    let receipts: () => Promise<ReadonlyArray<{ to: string; status: string }>>;
+    if (watcher !== undefined) {
+      // A `wim watch` holds this name: it sends, so replies come back to where the person reads.
+      // Its receipts are recorded in its history: only what is written there after this point is read.
+      const h = new History(watcher.historyPath, ctx.io.now);
+      const from = await h.size();
+      const answered = await handOver(ctx, watcher, { to, text });
+      if (answered === undefined) {
+        // Not a failure: the message may have gone out. Saying so keeps the person from resending it.
+        ctx.io.out(`The running \`wim watch\` took the send but did not report back in time, so whether it went out is unknown. Check \`wim history --session ${name}\` before sending it again.`);
+        return 3;
+      }
+      out = answered;
+      receipts = () => h.receiptsFrom(answered.id, from);
+    } else {
+      const sent = await s!.send(to, text, allowSecrets ? { allowSecrets: true } : {});
+      const live = [...s!.peers.values()].filter((p) => p.status !== "offline");
       out = { ...sent, live: live.map((p) => p.address), claude: live.filter((p) => p.kind === "claude-code").map((p) => p.address) };
-    } finally {
-      // Offline, not ended: replies queue for the next `wim watch` or `wim inbox` with this name.
-      await ctx.finish(s);
+      receipts = async () => s!.receipts.get(sent.id) ?? [];
     }
-  }
-  for (const r of out.results) {
-    const hint = r.status === "unknown" ? closestAddress(r.to, out.live) : undefined;
-    ctx.io.out(`${r.to}: ${r.status}${hint === undefined ? "" : ` (did you mean ${hint}?)`}`);
-    // Queued for a terminal inbox (cli@X) that nobody reads now, while a Claude tab on X is live:
-    // the person most likely meant the tab, whose address is <folder>@X.
-    if (r.status === "queued") {
-      const device = r.to.slice(r.to.indexOf("@") + 1);
-      const tabs = (out.claude ?? []).filter((a) => a !== r.to && a.endsWith(`@${device}`));
-      if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a) => `${a} (claude-code)`).join(", ")}`);
+    for (const r of out.results) {
+      const hint = r.status === "unknown" ? closestAddress(r.to, out.live) : undefined;
+      const meaning = SENT_MEANING[r.status];
+      ctx.io.out(`${r.to}: ${r.status}${meaning === undefined ? "" : ` (${meaning})`}${hint === undefined ? "" : ` (did you mean ${hint}?)`}`);
+      // Queued for a terminal inbox (cli@X) that nobody reads now, while a Claude tab on X is live:
+      // the person most likely meant the tab, whose address is <folder>@X.
+      if (r.status === "queued") {
+        const device = r.to.slice(r.to.indexOf("@") + 1);
+        const tabs = (out.claude ?? []).filter((a) => a !== r.to && a.endsWith(`@${device}`));
+        if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a) => `${a} (claude-code)`).join(", ")}`);
+      }
     }
+    // The migration window (SPEC section 6b): a device with no current prekey made the whole send
+    // v0.1. A watch from before `no_prekey` existed reports only `unprotected`.
+    if (out.unprotected !== undefined) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
+    ctx.io.out(`id ${out.id}`);
+    const took = out.results.filter((r) => accepted(r.status)).map((r) => r.to);
+    const code = took.length === out.results.length ? 0 : 1;
+    if (took.length === 0) return code;
+    if (waitMs === undefined) {
+      ctx.io.out("Neither routed nor queued means it was read. `wim send --wait 30s` waits for each recipient's receipt.");
+      return code;
+    }
+    ctx.io.out(`Waiting up to ${waitText!} for receipts (Ctrl-C stops waiting; the message stays sent)...`);
+    const got = await waitForReceipts(ctx, receipts, took, waitMs);
+    return reportReceipts(ctx, out, took, got, code);
+  } finally {
+    if (s !== undefined) await ctx.finish(s);
   }
-  // The migration window (SPEC section 6b): a device with no current prekey made the whole send
-  // v0.1. A watch from before `no_prekey` existed reports only `unprotected`.
-  if (out.unprotected !== undefined) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
-  ctx.io.out(`id ${out.id}`);
-  return out.results.every((r) => accepted(r.status)) ? 0 : 1;
+}
+
+/** Prints each waited-for recipient's receipt, or what is known without one; refused and expired fail the command. */
+function reportReceipts(ctx: Ctx, out: SendAnswer, took: readonly string[], got: ReadonlyMap<string, string>, code: number): number {
+  const statusOf = new Map(out.results.map((r) => [r.to, r.status]));
+  for (const to of took) {
+    const status = got.get(to);
+    if (status !== undefined) ctx.io.out(receiptLine(to, status, out.id));
+    else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)!]})`);
+  }
+  return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code;
+}
+
+/**
+ * `wim ping`: pings sessions, each answered by the client on the other end with a pong (SPEC
+ * section 12), and prints one row per session and one per device. A pong proves both directions,
+ * encryption included. `--all` pings every live session on the mesh; offline sessions are not
+ * pinged, so no ping waits in a queue for them.
+ */
+async function ping(ctx: Ctx): Promise<number> {
+  const all = ctx.args.flags.get("all") === true;
+  const named = ctx.args.positional[0];
+  if (all === (named !== undefined)) throw new SetupError("usage: wim ping <address,...> | --all");
+  const waitMs = parseDuration(flag(ctx.args, "timeout") ?? `${PING.waitMs}`);
+  const s = await ctx.session("ping", { keyed: false });
+  try {
+    const live = (await s.listPeers()).filter((p) => p.address !== s.address);
+    const offline = new Set(live.filter((p) => p.status === "offline").map((p) => p.address));
+    const targets = all ? live.map((p) => p.address).filter((a) => !offline.has(a)) : MeshSession.parseTo(named!);
+    if (targets.length === 0) {
+      ctx.io.out("No other live sessions to ping.");
+      return 0;
+    }
+    const asked = targets.filter((a) => !offline.has(a));
+    const rows = asked.length === 0 ? [] : await s.ping(asked, waitMs);
+    const report = targets.map((a) => rows.find((r) => r.to === a) ?? { to: a, status: "offline" });
+    for (const line of pingReport(report, s.address, waitMs)) ctx.io.out(line);
+    return report.every((r) => r.ms !== undefined) ? 0 : 1;
+  } finally {
+    await s.stop({ ended: true });
+  }
 }
 
 /** What a send reports: `live` addresses suggest one for an unknown address; `claude` are the live Claude Code tabs. */
@@ -826,7 +1074,7 @@ async function handOver(
       // Withdrawn by removing it; one that cannot be removed is being taken just now.
       if ((await whileBusy(() => readText(requestPath), ctx.fsEnv.platform)) !== undefined && (await tryRemove(requestPath, ctx.fsEnv))) {
         throw new SetupError(
-          "the running `wim watch` did not take the send. Is it still connected? A `wim watch` started before this version of wim does not take sends: restart it.",
+          "the running `wim watch` did not take the send. Is it still connected? Restart it if it is stuck.",
         );
       }
       return undefined;
@@ -841,6 +1089,7 @@ async function watch(ctx: Ctx): Promise<number> {
   if ((await liveWatcher(files, name, ctx.fsEnv)) !== undefined) {
     throw new SetupError(`a \`wim watch\` is already reading as ${name} on this device; use --as <name> for another`);
   }
+  if ((await liveHolder(files, name, ctx.fsEnv)) !== undefined) throw new SetupError(busyName(name));
   const s = await ctx.session(name, { card: true, handover: true });
   const show = (item: SpoolItem): void => {
     if (item.kind === "notice") ctx.io.out(sanitizeForDisplay(item.rendered));
@@ -873,10 +1122,17 @@ async function events(ctx: Ctx): Promise<number> {
   if (ctx.args.flags.get("json") !== true) throw new SetupError("usage: wim events --json [--as <name>]");
   const name = nameFor(ctx, "vscode");
   const envKind = ctx.env["WIM_KIND"];
+  const agent = agentEnv(ctx.env);
+  // A device in no mesh yet: the UI can join one (setup mode); any other problem is said as usual.
+  if ((await ctx.home.loadDevice()) === undefined || (await ctx.home.meshIds()).length === 0) {
+    const io = ctx.io;
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, ...(agent === undefined ? {} : { agent }) });
+    return 0;
+  }
   const o = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);
   const s = await MeshSession.open({ ...o, sessionKey: `events:${name}` });
   try {
-    await runEvents({ session: s, mesh: o.mesh, env: ctx.fsEnv, device: o.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now });
+    await runEvents({ session: s, mesh: o.mesh, env: ctx.fsEnv, device: o.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, ...(agent === undefined ? {} : { agent }) });
     return 0;
   } finally {
     await s.stop();
@@ -890,6 +1146,10 @@ async function inbox(ctx: Ctx): Promise<number> {
   if ((await liveWatcher(files, name, ctx.fsEnv)) !== undefined) {
     ctx.io.out(`A \`wim watch\` is reading as ${name} on this device: its output shows what arrives.`);
     return 0;
+  }
+  if ((await liveHolder(files, name, ctx.fsEnv)) !== undefined) {
+    ctx.io.out(`${busyName(name)}.`);
+    return 3;
   }
   const s = await ctx.session(name);
   try {
@@ -942,7 +1202,7 @@ async function history(ctx: Ctx): Promise<number> {
     const sf = new SessionFiles(files, sid, ctx.fsEnv);
     const state = await sf.load();
     if (state === undefined || (wanted !== undefined && state.name !== wanted)) continue;
-    const entries = await new History(sf.historyPath, ctx.io.now).query({ limit, ...(peer === undefined ? {} : { peer }) });
+    const entries = await new History(sf.historyPath, ctx.io.now).query({ limit, receipts: true, ...(peer === undefined ? {} : { peer }) });
     if (entries.length === 0) continue;
     ctx.io.out(`== ${state.address ?? state.name} (${sid})`);
     for (const e of entries) ctx.io.out(renderForPerson(e));

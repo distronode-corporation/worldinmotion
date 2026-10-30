@@ -9,6 +9,8 @@ import { posix } from "node:path";
 type Listener<T> = (e: T) => unknown;
 export type Disposable = { dispose(): unknown };
 
+export type InputBoxOptions = { title?: string; prompt?: string; placeHolder?: string; password?: boolean; ignoreFocusOut?: boolean; validateInput?: (value: string) => string | undefined };
+
 export class EventEmitter<T> {
   private listeners = new Set<Listener<T>>();
   readonly event = (fn: Listener<T>): Disposable => {
@@ -190,8 +192,23 @@ const contributed = JSON.parse(readFileSync(new URL("../package.json", import.me
 };
 const VIEW_IDS = new Set(Object.values(contributed.contributes.views).flatMap((list) => list.map((v) => v.id)));
 
+/** A terminal the extension opened: what it runs, and its exit once a test closes it. */
+export class FakeTerminal {
+  readonly options: { name: string; shellPath: string; shellArgs: string[]; env: Record<string, string | null>; cwd: string };
+  shown = 0;
+  exitStatus: { code: number | undefined } | undefined;
+  constructor(options: FakeTerminal["options"]) {
+    this.options = options;
+  }
+  show(): void {
+    this.shown += 1;
+  }
+}
+
 function freshState() {
   return {
+    terminals: [] as FakeTerminal[],
+    terminalCloses: new EventEmitter<FakeTerminal>(),
     commands: new Map<string, Command>(),
     executed: [] as { id: string; args: unknown[] }[],
     config: new Map<string, unknown>(),
@@ -209,6 +226,10 @@ function freshState() {
     quickPickAnswers: [] as QuickPickAnswer[],
     quickPicks: [] as { items: readonly unknown[]; options: unknown }[],
     inputAnswers: [] as (string | undefined)[],
+    /** The options of every input box shown, in order. */
+    inputBoxes: [] as InputBoxOptions[],
+    /** What was last written to the clipboard. */
+    clipboard: undefined as string | undefined,
     shown: [] as TextDocument[],
     activeTextEditor: undefined as TextEditor | undefined,
     workspaceRoot: "/work",
@@ -221,6 +242,11 @@ export const fake = {
   state: freshState(),
   reset(): void {
     this.state = freshState();
+  },
+  /** Ends a terminal's process (code undefined: closed by the person before it exited), then closes it, as VS Code does. */
+  closeTerminal(t: FakeTerminal, code: number | undefined): void {
+    t.exitStatus = { code };
+    this.state.terminalCloses.fire(t);
   },
   /** Changes a setting the way the Settings editor does: stored, then the change event. */
   setConfig(key: string, value: unknown): void {
@@ -315,6 +341,12 @@ export const window = {
     fake.state.statusItems.push(item);
     return item;
   },
+  createTerminal(options: FakeTerminal["options"]): FakeTerminal {
+    const t = new FakeTerminal(options);
+    fake.state.terminals.push(t);
+    return t;
+  },
+  onDidCloseTerminal: (fn: Listener<FakeTerminal>) => fake.state.terminalCloses.event(fn),
   createTreeView(id: string, options: { treeDataProvider: FakeTreeView["provider"] }): FakeTreeView {
     const view: FakeTreeView = {
       id,
@@ -349,12 +381,22 @@ export const window = {
     const answer = fake.state.quickPickAnswers.shift();
     return Promise.resolve(answer === undefined ? undefined : answer(items, options));
   },
-  showInputBox(_options?: unknown): Promise<string | undefined> {
+  showInputBox(options: InputBoxOptions = {}): Promise<string | undefined> {
+    fake.state.inputBoxes.push(options);
     return Promise.resolve(fake.state.inputAnswers.shift());
   },
   showTextDocument(doc: TextDocument, _options?: unknown): Promise<{ document: TextDocument }> {
     fake.state.shown.push(doc);
     return Promise.resolve({ document: doc });
+  },
+};
+
+export const env = {
+  clipboard: {
+    writeText(text: string): Promise<void> {
+      fake.state.clipboard = text;
+      return Promise.resolve();
+    },
   },
 };
 

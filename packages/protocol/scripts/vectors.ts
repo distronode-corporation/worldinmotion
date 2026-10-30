@@ -40,8 +40,17 @@ import {
   verifyObject,
   verifyRecoveryChain,
   createPrekey,
+  formatShortCode,
+  newShortKey,
+  openRdv,
+  parseShortCode,
+  rdvId,
+  rdvKey,
+  sealRdv,
+  SHORT_CODE_RELAY,
   prekeyId,
   verifyPrekey,
+  plaintextSchema,
   type DeviceKeys,
   type Prekey,
   type Roster,
@@ -320,6 +329,59 @@ function inviteVectors() {
   });
 }
 
+function rdvVectors() {
+  // The full code is invite.json's; its own random stream is restarted so the code is the same.
+  const full = inviteVectors().code;
+  return withRandomSource(stream("wim vectors rdv"), () => {
+    const k = newShortKey();
+    const box = sealRdv(k, full);
+    const nonce = b64u.decode(box.n);
+    const code = formatShortCode(k, "wss://relay.example");
+    check(parseShortCode(code).k === k, "short code reads back");
+    check(openRdv(k, { v: 1, exp: T + 3600000, ...box }).ok, "rdv box opens");
+    const valid = [
+      { code: formatShortCode(k, SHORT_CODE_RELAY), relay: SHORT_CODE_RELAY },
+      { code, relay: "wss://relay.example" },
+      { code: `${code.toLowerCase().replace(/-/g, " ").replace("wim2 ", "wim2-")}`, relay: "wss://relay.example" },
+      { code: formatShortCode(k, "ws://127.0.0.1:8787"), relay: "ws://127.0.0.1:8787" },
+    ];
+    for (const v of valid) check(parseShortCode(v.code).relay === v.relay && parseShortCode(v.code).k === k, `short code ${v.code}`);
+    const body = code.slice("wim2-".length, code.indexOf("@"));
+    const invalid = [
+      { code: full, reason: "not a short code: no wim2- prefix" },
+      { code: `wim2-${body.slice(0, -5)}`, reason: "fewer than 24 characters" },
+      { code: `wim2-${body.replace(/^./, (c) => (c === "0" ? "1" : "0"))}`, reason: "the check does not match (one character changed)" },
+      { code: `wim2-${body}U`, reason: "U is not in the alphabet" },
+      { code: `wim2-${body}@ws://relay.example`, reason: "ws:// to a host that is not loopback" },
+    ];
+    for (const v of invalid) {
+      let refused = false;
+      try {
+        parseShortCode(v.code);
+      } catch {
+        refused = true;
+      }
+      check(refused, `short code refused: ${v.reason}`);
+    }
+    return {
+      description:
+        "A short invite code (SPEC section 5) for invite.json's full code. k is 100 bits as 20 Crockford base32 characters; the code is wim2- and k with its 4-character check (the first 20 bits of SHA-256(UTF-8('wim/1 short code ' + k))) in six groups of four, then @ and the relay without wss:// unless it is the hosted relay. rdv = first 22 characters of b64u(SHA-256(UTF-8('wim/1 rdv id ' + k))); key = HKDF-SHA256(UTF-8(k), empty salt, info 'wim/1 rdv key', 32 bytes); the box is XChaCha20-Poly1305(key, nonce, AAD = UTF-8('wim/1 rdv ' + rdv)) over UTF-8 of the full code. Each valid code reads back as k and its relay; each invalid one MUST be refused.",
+      k,
+      check: code.slice(-4 - "@relay.example".length, -"@relay.example".length),
+      code,
+      rdv: rdvId(k),
+      key_hex: hex(rdvKey(k)),
+      aad: `wim/1 rdv ${box.rdv}`,
+      nonce_hex: hex(nonce),
+      plaintext: full,
+      c: box.c,
+      answer: { v: 1, rdv: box.rdv, exp: T + 3600000, n: box.n, c: box.c },
+      valid,
+      invalid,
+    };
+  });
+}
+
 function messageVectors() {
   return withRandomSource(stream("wim vectors message"), () => {
     const genesis = createGenesisRoster({ name: "alice", keys: alice, now: T, meshId: MESH });
@@ -488,6 +550,68 @@ function prekeyVectors() {
   };
 }
 
+function pingVectors() {
+  const pks = vectorPrekeys();
+  const genesis = createGenesisRoster({ name: "alice", keys: alice, now: T, meshId: MESH });
+  const roster = nextRoster(genesis, { add: [makeDeviceRecord("bob", bob, "member", T)] }, { keys: alice }, T);
+  const writer = { session: "writer", sid: "01K700000000000000000005D1" };
+  const reviewer = { session: "reviewer", sid: "01K700000000000000000005D2" };
+  return withRandomSource(stream("wim vectors ping"), () => {
+    // alice's writer pings reviewer@bob; bob's client answers with a pong, sealed back to alice.
+    const ping = sealMessage({
+      roster,
+      sender: { deviceId: id(alice), keys: alice },
+      ...writer,
+      to: ["reviewer@bob"],
+      seq: 2,
+      at: T,
+      id: "01K700000000000000000005P1",
+      kind: "ping",
+      recipients: [id(bob)],
+      prekeys: { [id(bob)]: pks.bob.prekey },
+      prekey: pks.alice.prekey,
+    });
+    const pong = sealMessage({
+      roster,
+      sender: { deviceId: id(bob), keys: bob },
+      ...reviewer,
+      to: ["writer@alice"],
+      seq: 1,
+      at: T + 40,
+      id: "01K700000000000000000005P2",
+      kind: "pong",
+      reply_to: ping.id,
+      recipients: [id(alice)],
+      prekeys: { [id(alice)]: pks.alice.prekey },
+      prekey: pks.bob.prekey,
+    });
+    const atBob = { deviceId: id(bob), keys: bob, address: "reviewer@bob", sid: reviewer.sid, prekey: (p: string) => (p === pks.bob.prekey.id ? pks.bob.secret : undefined) };
+    const atAlice = { deviceId: id(alice), keys: alice, address: "writer@alice", sid: writer.sid, prekey: (p: string) => (p === pks.alice.prekey.id ? pks.alice.secret : undefined) };
+    const pingOpened = openMessage(ping, { roster, me: atBob, now: T + 20 });
+    const pongOpened = openMessage(pong, { roster, me: atAlice, now: T + 60 });
+    check(pingOpened.ok && pongOpened.ok, "ping and pong open");
+    const base = { v: 1, id: ping.id, from: { device: id(alice), ...writer }, to: ["reviewer@bob"], at: T, roster: { seq: 2, hash: hash(roster) } };
+    const invalid = [
+      { why: "a ping with text", plaintext: { ...base, kind: "ping", text: "hello" } },
+      { why: "a ping to *", plaintext: { ...base, kind: "ping", to: ["*"] } },
+      { why: "a ping to a room", plaintext: { ...base, kind: "ping", to: ["#ops"] } },
+      { why: "a ping marked relayed", plaintext: { ...base, kind: "ping", relayed: true } },
+      { why: "a pong without reply_to", plaintext: { ...base, kind: "pong" } },
+      { why: "a pong to two sessions", plaintext: { ...base, kind: "pong", reply_to: ping.id, to: ["reviewer@bob", "other@bob"] } },
+      { why: "a pong marked derived", plaintext: { ...base, kind: "pong", reply_to: ping.id, derived: true } },
+    ];
+    for (const v of invalid) check(!plaintextSchema.safeParse(v.plaintext).success, `ping invalid ${v.why}`);
+    return {
+      description:
+        "Ping and pong (SPEC section 12), with the roster and prekeys of prekey.json. alice's writer session sends a `ping` to reviewer@bob, sealed to bob's prekey; bob opens it at `now` to `plaintext`, and his client answers itself with a `pong` to writer@alice, sealed to alice's prekey, whose `reply_to` is the ping's id; alice opens it at its `now`. Neither carries text. Each `invalid_plaintexts` entry MUST be refused by the plaintext schema (reason `plaintext_malformed` when it arrives sealed).",
+      roster,
+      ping: { receiver: { device: "bob", address: atBob.address, sid: atBob.sid }, now: T + 20, frame: ping, plaintext: (pingOpened as { value: unknown }).value },
+      pong: { receiver: { device: "alice", address: atAlice.address, sid: atAlice.sid }, now: T + 60, frame: pong, plaintext: (pongOpened as { value: unknown }).value },
+      invalid_plaintexts: invalid,
+    };
+  });
+}
+
 function blobVectors() {
   return withRandomSource(stream("wim vectors blob"), () => {
     const size = 256 * 1024 + 5;
@@ -532,8 +656,10 @@ export function buildVectors(): Record<string, string> {
     "box.json": json(boxVectors()),
     "roster.json": json(rosterVectors()),
     "invite.json": json(inviteVectors()),
+    "rdv.json": json(rdvVectors()),
     "message.json": json(messageVectors()),
     "prekey.json": json(prekeyVectors()),
+    "ping.json": json(pingVectors()),
     "blob.json": json(blobVectors()),
   };
 }

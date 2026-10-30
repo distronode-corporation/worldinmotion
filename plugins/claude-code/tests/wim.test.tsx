@@ -640,6 +640,23 @@ test('a held notice raises a toast and does not start a turn', async ($, on) => 
   expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000003.json')
 })
 
+test('a held receipt raises a toast for the person and does not start a turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(3, 'notice', { kind: 'notice', heldBy: 'reviewer@laptop' }))
+  w.files.set(...item(4, 'blank', { kind: 'notice', heldBy: '' }))
+  await clock.advance(250)
+  await clock.settle()
+
+  expect(w.toasts).toEqual([
+    "worldinmotion: reviewer@laptop is holding your message for its person's approval; it is not delivered until they approve it there",
+  ])
+  // A notice with an empty heldBy is an ordinary notice, for the model.
+  expect(w.submitted).toHaveLength(1)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000004.json')
+})
+
 test('ListAgents falls back to the peers text when _peers is unavailable', async ($, on) => {
   world(on, {
     tools: { peers: () => ({ content: [{ type: 'text', text: 'reviewer@laptop claude-code idle #ci' }], isError: false }) },
@@ -903,8 +920,13 @@ test('SendMessage to a mesh address is taken by the bridge before the engine ref
 
   const ran = await $.tool.call({ tool: 'SendMessage', to: 'bob@laptop-b', message: 'ready for review', notify_when_idle: true })
   expect(ran.isError).toBeUndefined()
-  expect(ran.result).toEqual({ success: true, message: 'Delivered through worldinmotion (bob@laptop-b: routed).' })
-  expect(ran.text).toContain('Delivered')
+  expect(ran.result).toEqual({
+    success: true,
+    message:
+      'Sent through worldinmotion (bob@laptop-b: routed). routed: handed to a live session; queued: that session is offline and the relay keeps it 24 h. Neither means delivered or read, so say "sent".',
+  })
+  expect(ran.text).toMatch(/^Sent through worldinmotion/)
+  expect(ran.text).not.toMatch(/Delivered/)
   expect(reached).toHaveLength(0)
   expect(w.calls).toContainEqual({ tool: '_route', args: { to: 'bob@laptop-b', token: TOKEN } })
   expect(w.calls).toContainEqual({
@@ -962,8 +984,7 @@ test('SendMessage names each status when a recipient is not reached', async ($, 
   expect(ran.isError).toBe(true)
   const result = ran.result as { success: boolean; error: string }
   expect(result.success).toBe(false)
-  expect(result.error).toContain('ghost@nowhere: unknown')
-  expect(result.error).toContain('reviewer@laptop: routed')
+  expect(result.error).toBe('worldinmotion: not sent (reviewer@laptop: routed, ghost@nowhere: unknown).')
   expect(ran.text).toBe(result.error)
 })
 
