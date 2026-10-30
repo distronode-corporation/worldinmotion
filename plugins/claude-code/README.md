@@ -17,7 +17,7 @@ It carries three parts:
 
 ## Install
 
-At the Claude Code prompt:
+[Claude chat] At the Claude Code prompt:
 
 ```
 /plugin marketplace add distronode-corporation/worldinmotion
@@ -25,7 +25,9 @@ At the Claude Code prompt:
 ```
 
 It works in the Claude Code terminal and in the VS Code extension: delivery into a running
-turn, waking an idle session, and the SendMessage bridge have been checked in both.
+turn, waking an idle session, and the SendMessage bridge have been checked in both. A Claude
+Code session that was already open when you installed the plugin does not have it: start a new
+one.
 
 Node.js 22.18 or newer must be on the `PATH`: the MCP server runs with `node`.
 
@@ -36,26 +38,52 @@ and without them there is no gate: nothing refuses the model the plugin's intern
 ## Set up this device
 
 Each device (one machine, one OS user, one Claude account) has its own keys, made with the
-`wim` command in a terminal. The plugin carries its own copy of the client for its MCP server,
-but does not put `wim` on your `PATH`:
+`wim` command in a terminal you opened yourself (in VS Code: Terminal > New Terminal), never in
+the Claude chat box or behind `!`. The plugin carries its own copy of the client for its MCP
+server, but does not put `wim` on your `PATH`.
 
-1. Download `wim.mjs` from the [GitHub Release](https://github.com/distronode-corporation/worldinmotion/releases)
-   and check its SHA-256 against the one published with it (`sha256sum wim.mjs`).
-2. Install it as `wim`, for example `install -m 755 wim.mjs ~/.local/bin/wim`, or run it as
-   `node wim.mjs` in place of `wim` below.
-3. Set up the device:
+[Terminal] Install `wim`:
 
-```
-wim init --relay <url>   # first device: creates this device and a new mesh on that relay, as its admin
-wim init                 # any other device: creates this device's keys only
-wim join <invite code>   # then joins the mesh with a one-time code from an admin device
+```sh
+npm install --global worldinmotion
+wim --version
+# "wim: command not found"? npm's global bin is not on your PATH:
+export PATH="$(npm prefix -g)/bin:$PATH"   # add this line to ~/.bashrc or ~/.zshrc too
 ```
 
-Then start a new Claude Code session. Until the device is set up, the plugin shows one status
-line saying so and does nothing else.
+Without npm, download `wim.mjs` from the [GitHub Release](https://github.com/distronode-corporation/worldinmotion/releases),
+check it against the release's `SHA256SUMS`, and install it as `wim` (for example
+`install -m 755 wim.mjs ~/.local/bin/wim`) or run `node wim.mjs` in its place.
 
-Session addresses are `<name>@<device>`. The name defaults to the working directory's base
-name; set `WIM_NAME` to choose one, or ask the model to `rename`.
+[Terminal] Then set up the device:
+
+```
+wim init --name <device> --relay <url>   # first device: this device and a new mesh on that relay, as its admin
+wim join <invite code>                   # any other device: makes this device's keys and joins with a one-time code
+```
+
+[Claude chat] A tab that was open while you did this links by itself within a few seconds; you
+do not need a new session. The repository's [README](../../README.md#first-run-three-machines-one-person)
+walks through three machines end to end.
+
+## This tab: its address and status
+
+Each Claude Code tab is its own session on the mesh, at `<folder>@<device>`: the working
+directory's base name at this device's name (set `WIM_NAME` to choose another name, or rename
+it as below). `cli@<device>` is that device's terminal inbox (`wim inbox`), not a Claude tab.
+
+- The status line shows the tab's address and how many messages are held for it, for example
+  `billing@laptop, 1 held`. When the tab is not linked it says why, in the client's words: the
+  signer is not running, the device is not set up, the plugin's client is not running.
+- [Claude chat] `/wim status` prints the address, device, mesh, relay connection, signer state,
+  held count and the state directory this tab uses, with why it is that one.
+- [Claude chat] `/wim name <name>` renames the tab (its address becomes `<name>@<device>`).
+- [Claude chat] `/wim` opens the pane (below).
+
+If this tab started before the signer (`wim agent start`) or while the signer was locked, it
+says so and links by itself within a few seconds of the signer coming up. If the client says
+the keys of this session were encrypted while it ran, restart the session: it shows that as a
+notice, and on the status line.
 
 ## The pane
 
@@ -114,8 +142,10 @@ counts read from disk refresh every five seconds while the pane is shown.
 
 ## Files on disk
 
-State lives under `~/.config/worldinmotion` (or `WIM_HOME`). Each session has a spool directory
-there: the client writes each incoming item as a file, the plugin delivers it and records how
+State lives under `~/.config/worldinmotion` (or `WIM_HOME`). With `CLAUDE_CONFIG_DIR` set and
+`WIM_HOME` not set, it is a directory of its own under `profiles/`, which is a different device
+from the one a terminal without `CLAUDE_CONFIG_DIR` uses: `/wim status` and `wim doctor` both
+say which directory they use and why. Each session has a spool directory there: the client writes each incoming item as a file, the plugin delivers it and records how
 far it got in `spool/cursor`, and the client then deletes what was delivered.
 
 ## License

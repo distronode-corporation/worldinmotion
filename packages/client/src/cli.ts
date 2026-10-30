@@ -15,20 +15,20 @@ import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
 import { accepted, ClientError, MeshSession, unprotectedNote, type Inbound, type SessionOptions } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
-import { Home, SetupError, type Device } from "./home.ts";
+import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
 import { runEvents, runSetupEvents } from "./events.ts";
-import { WimMcp } from "./mcp.ts";
+import { WimMcp, type Retried } from "./mcp.ts";
 import { MeshFiles, RosterBook, setDevicePolicy, trustLevel } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
-import { defaultHome, type Platform } from "./platform.ts";
+import { homeChoice, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine } from "./render.ts";
 import { PING, pingReport } from "./ping.ts";
 import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
-import { agentEnv, canConfirm, canShowSecret, fetchHeldCode, holdForShow, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
+import { agentEnv, canConfirm, canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { resolveInvite } from "./shortcode.ts";
@@ -77,6 +77,8 @@ export type CliIO = {
   parentGone: () => boolean;
   /** How often `wim mcp` checks its parent (default 5 s) and how long a clean end may take (3 s). */
   parentPollMs?: number;
+  /** How often `wim mcp` asks again while the device is not ready yet (default 5 s). */
+  retryMs?: number;
   closeMs?: number;
 };
 
@@ -226,13 +228,19 @@ class Ctx {
   readonly io: CliIO;
   readonly args: Args;
   readonly fsEnv: FsEnv;
+  /** Why this state directory, and the config directory whose default and profiles hold devices. */
+  readonly homeWhy: string;
+  readonly homeBase: string;
 
   constructor(env: Record<string, string | undefined>, io: CliIO, args: Args) {
     this.env = env;
     this.io = io;
     this.args = args;
     this.fsEnv = { platform: io.platform, pid: io.pid };
-    this.home = new Home(defaultHome(env, io.platform, io.homedir), { ...this.fsEnv, uid: io.uid, requireSigner: env["WIM_REQUIRE_SIGNER"] === "1" });
+    const choice = homeChoice(env, io.platform, io.homedir);
+    this.homeWhy = choice.why;
+    this.homeBase = choice.base;
+    this.home = new Home(choice.root, { ...this.fsEnv, uid: io.uid, requireSigner: env["WIM_REQUIRE_SIGNER"] === "1" });
   }
 
   get dialer(): Dialer {
@@ -242,7 +250,15 @@ class Ctx {
   /** The device and a mesh: `meshId` when given, else the one `--mesh`, `WIM_MESH` or the only mesh names. */
   async mesh(meshId?: string): Promise<{ device: Device; files: MeshFiles }> {
     const device = await this.home.requireDevice();
-    const id = meshId ?? (await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]));
+    let id: string;
+    try {
+      id = meshId ?? (await this.home.pickMesh(flag(this.args, "mesh") ?? this.env["WIM_MESH"]));
+    } catch (error) {
+      // No mesh to use the device in: let go of its signer connection, which `wim mcp` would
+      // otherwise open again on every retry.
+      device.keyring.close();
+      throw error;
+    }
     return { device, files: new MeshFiles(this.home.meshDir(id), this.fsEnv) };
   }
 
@@ -553,10 +569,11 @@ async function showRecoveryCode(ctx: Ctx, code: string): Promise<void> {
     ctx.io.out("");
     return;
   }
-  const why = agentEnv(ctx.env) === undefined ? "this output is not a terminal" : "an agent is running this command";
+  // Not undefined: canShowSecret said no.
+  const why = notAPerson(ctx.env, ctx.io.isTTY)!;
   const handed = await holdForShow(showSocketPath(ctx.home.root, ctx.io.platform), code, LIMITS.recoveryShowWindowMs, ctx.io.signal, ctx.io.platform, () => {
-    ctx.io.out(`The recovery code is not shown here because ${why}.`);
-    ctx.io.out(`Run \`wim recovery show\` in your own terminal within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only.`);
+    ctx.io.out(`The recovery code is not shown here: ${why}.`);
+    ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim recovery show\` there within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only; keep it out of any agent's chat.`);
     ctx.io.out("(A scripted `wim mesh create` that needs no recovery code can pass --no-recovery.)");
   });
   ctx.io.out(handed ? "The recovery code was shown." : "The recovery code was not collected and is gone; make a new one from an admin device with `wim recovery rotate`.");
@@ -566,7 +583,8 @@ async function recovery(ctx: Ctx): Promise<number> {
   const action = ctx.args.positional[0];
   if (action === "rotate") return recoveryRotate(ctx);
   if (action !== "show") throw new SetupError("usage: wim recovery show | wim recovery rotate");
-  if (!canShowSecret(ctx.env, ctx.io.isTTY)) throw new SetupError("run this in your own interactive terminal, not through an agent or a pipe");
+  const notHere = notAPerson(ctx.env, ctx.io.isTTY);
+  if (notHere !== undefined) throw new SetupError(personOnly(notHere, "wim recovery show"));
   const code = await fetchHeldCode(showSocketPath(ctx.home.root, ctx.io.platform));
   ctx.io.out("Recovery code (shown once; keep it offline, it is as powerful as an admin device):");
   ctx.io.out(`  ${code}`);
@@ -909,8 +927,6 @@ function waitedEnough(got: ReadonlyMap<string, string>, wanted: readonly string[
   return wanted.every((to) => got.has(to)) || Date.now() > until || signal.aborted;
 }
 
-type SendAnswer = { id: string; results: Array<{ to: string; status: string }>; live: string[]; unprotected?: string[]; no_prekey?: string[] };
-
 async function send(ctx: Ctx): Promise<number> {
   const [to, ...words] = ctx.args.positional;
   if (to === undefined || words.length === 0) throw new SetupError("usage: wim send <to> <text...>");
@@ -922,8 +938,9 @@ async function send(ctx: Ctx): Promise<number> {
   // The one place the secrets check can be skipped: a person, at this command line, for one send.
   // Not an agent, and not a pipe: the same rule as showing a recovery code (SECURITY-MODEL 7.4).
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
-  if (allowSecrets && !canShowSecret(ctx.env, ctx.io.isTTY)) {
-    throw new SetupError("--allow-secret is only for a person at an interactive terminal, not for an agent or a pipe");
+  const notHere = allowSecrets ? notAPerson(ctx.env, ctx.io.isTTY) : undefined;
+  if (notHere !== undefined) {
+    throw new SetupError(`--allow-secret is only for a person at their own terminal: ${personOnly(notHere, `wim send ${to} <text> --allow-secret`)}`);
   }
   const { files } = await ctx.mesh();
   // The override is never handed over: it would travel in a file any process of this user can write.
@@ -948,13 +965,21 @@ async function send(ctx: Ctx): Promise<number> {
       receipts = () => h.receiptsFrom(answered.id, from);
     } else {
       const sent = await s!.send(to, text, allowSecrets ? { allowSecrets: true } : {});
-      out = { ...sent, live: [...s!.peers.values()].filter((p) => p.status !== "offline").map((p) => p.address) };
+      const live = [...s!.peers.values()].filter((p) => p.status !== "offline");
+      out = { ...sent, live: live.map((p) => p.address), claude: live.filter((p) => p.kind === "claude-code").map((p) => p.address) };
       receipts = async () => s!.receipts.get(sent.id) ?? [];
     }
     for (const r of out.results) {
       const hint = r.status === "unknown" ? closestAddress(r.to, out.live) : undefined;
       const meaning = SENT_MEANING[r.status];
       ctx.io.out(`${r.to}: ${r.status}${meaning === undefined ? "" : ` (${meaning})`}${hint === undefined ? "" : ` (did you mean ${hint}?)`}`);
+      // Queued for a terminal inbox (cli@X) that nobody reads now, while a Claude tab on X is live:
+      // the person most likely meant the tab, whose address is <folder>@X.
+      if (r.status === "queued") {
+        const device = r.to.slice(r.to.indexOf("@") + 1);
+        const tabs = (out.claude ?? []).filter((a) => a !== r.to && a.endsWith(`@${device}`));
+        if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a) => `${a} (claude-code)`).join(", ")}`);
+      }
     }
     // The migration window (SPEC section 6b): a device with no current prekey made the whole send
     // v0.1. A watch from before `no_prekey` existed reports only `unprotected`.
@@ -1016,6 +1041,9 @@ async function ping(ctx: Ctx): Promise<number> {
   }
 }
 
+/** What a send reports: `live` addresses suggest one for an unknown address; `claude` are the live Claude Code tabs. */
+type SendAnswer = { id: string; results: Array<{ to: string; status: string }>; live: string[]; claude?: string[]; unprotected?: string[]; no_prekey?: string[] };
+
 /**
  * Hands a send to the live watcher through its control directory and waits for its answer.
  * Undefined when the watch took the request but did not answer in time: the outcome is unknown.
@@ -1024,20 +1052,21 @@ async function handOver(
   ctx: Ctx,
   watcher: SessionFiles,
   request: { to: string; text: string },
-): Promise<{ id: string; results: Array<{ to: string; status: string }>; live: string[]; unprotected?: string[]; no_prekey?: string[] } | undefined> {
+): Promise<SendAnswer | undefined> {
   const id = ulid(ctx.io.now());
   await writeAtomic(pathJoin(watcher.controlDir, `send-${id}.json`), JSON.stringify(request), ctx.fsEnv);
   const answerPath = pathJoin(watcher.controlDir, `send-${id}.done.json`);
   const until = Date.now() + (ctx.io.handoverMs ?? 15_000);
   for (;;) {
     const answer = (await whileBusy(() => readJson(answerPath), ctx.fsEnv.platform)) as
-      | { ok: boolean; error?: string; id: string; results: Array<{ to: string; status: string }>; live?: string[]; unprotected?: string[]; no_prekey?: string[] }
+      | (SendAnswer & { ok: boolean; error?: string })
       | undefined;
     if (answer !== undefined) {
       // Left for the watch to clear later if it cannot go now.
       await tryRemove(answerPath, ctx.fsEnv);
       if (!answer.ok) throw new ClientError(answer.error!, "refused");
-      return { id: answer.id, results: answer.results, live: answer.live!, unprotected: answer.unprotected, no_prekey: answer.no_prekey };
+      // A watch from before `claude` existed names no live tabs.
+      return { id: answer.id, results: answer.results, live: answer.live, claude: answer.claude, unprotected: answer.unprotected, no_prekey: answer.no_prekey };
     }
     if (Date.now() > until) {
       const requestPath = pathJoin(watcher.controlDir, `send-${id}.json`);
@@ -1189,17 +1218,22 @@ async function mcp(ctx: Ctx): Promise<number> {
   const envName = ctx.env["WIM_NAME"];
   const kind = isName(envKind) ? envKind : "mcp";
   const name = isName(envName) ? envName : toName(basename(ctx.io.cwd), "agent");
-  let session: Omit<SessionOptions, "sessionKey"> | undefined;
-  let setupProblem: string | undefined;
-  try {
-    session = await ctx.sessionOptions(name, kind, true);
-  } catch (error) {
-    setupProblem = (error as Error).message;
-  }
+  // A signer that is not running or is locked, or a device the person is still setting up, clears
+  // without a new session: the server asks again (every tool call, and every 5 s) instead of
+  // answering "no signer is running" until the agent restarts. Any other problem stands.
+  const attempt = async (): Promise<Retried> => {
+    try {
+      return { session: await ctx.sessionOptions(name, kind, true) };
+    } catch (error) {
+      return { problem: (error as Error).message, again: error instanceof NotReadyYet };
+    }
+  };
+  const first = await attempt();
   const key = ctx.env["WIM_SESSION_KEY"];
   const server = new WimMcp({
-    ...(session === undefined ? {} : { session }),
-    ...(setupProblem === undefined ? {} : { setupProblem }),
+    ...("session" in first ? { session: first.session } : { setupProblem: first.problem, ...(first.again ? { retry: attempt } : {}) }),
+    stateDir: { path: ctx.home.root, why: ctx.homeWhy },
+    ...(ctx.io.retryMs === undefined ? {} : { retryMs: ctx.io.retryMs }),
     ...(key === undefined || key === "" ? {} : { sessionKey: key }),
     channel: ctx.env["WIM_CHANNEL"] === "1",
     internalTools: kind === "claude-code",
@@ -1301,6 +1335,11 @@ async function doctor(ctx: Ctx): Promise<number> {
     problems++;
     ctx.io.out(`problem  ${line}`);
   };
+  // A terminal and an agent are the same device only when they resolve the same directory.
+  info(`state directory ${ctx.home.root}: ${ctx.homeWhy}`);
+  for (const dir of await deviceDirs(ctx.homeBase)) {
+    if (dir !== ctx.home.root) info(`another device on this machine: ${dir} (its own keys and signer; a shell or agent that resolves it is not this device)`);
+  }
   let device: Device | undefined;
   try {
     device = await ctx.home.loadDevice();

@@ -90,6 +90,19 @@ async function sendText(d: Deps, title: string, kind: "msg" | "task", build: (se
   }
 }
 
+/** Sends a line the person types to a session or room they pick. */
+export async function sendMessage(d: Deps): Promise<void> {
+  const to = await pickTarget(d.store, "Send a message to");
+  if (to === undefined) return;
+  const text = await vscode.window.showInputBox({ title: `Message to ${oneLine(to, 80)}`, prompt: "The message", ignoreFocusOut: true });
+  if (text === undefined || text.trim() === "") return;
+  try {
+    reportSent(await d.client.request("send", { to, text, kind: "msg" }));
+  } catch (e) {
+    failure("send it", e);
+  }
+}
+
 export function sendSelection(d: Deps): Promise<void> {
   return sendText(d, "Send selection to", "msg", async (s) => s);
 }

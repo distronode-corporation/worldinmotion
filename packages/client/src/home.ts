@@ -4,12 +4,25 @@ import { b64u, decodeKeys, deviceIdFromSignPub, encodeKeys, generateDeviceKeys, 
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { agentEndpoint, readAgentSettings } from "./agentpath.ts";
-import { SetupError } from "./errors.ts";
+import { NotReadyYet, SetupError } from "./errors.ts";
 import { ensureDir, listDir, readJson, writeNew, type FsEnv } from "./fsx.ts";
 import { localDeviceKeyring, type DeviceKeyring } from "./keyring.ts";
 import { dirProblem, keyFileProblem } from "./platform.ts";
 import { SignerClient, signerKeyring, type SignerError } from "./signer.ts";
 import { parseSealedKeyFile, type SealedKeyFile } from "./vault.ts";
+
+/**
+ * The state directories under `base` (the default one and each Claude profile's) that hold a
+ * device: on one machine and OS user, each is a different device with its own keys and signer.
+ */
+export async function deviceDirs(base: string): Promise<string[]> {
+  const candidates = [base, ...(await listDir(join(base, "profiles"))).sort().map((p) => join(base, "profiles", p))];
+  const found: string[] = [];
+  for (const dir of candidates) {
+    if (await fs.lstat(join(dir, "device.json")).then(() => true, () => false)) found.push(dir);
+  }
+  return found;
+}
 
 /** This device: its roster name, its id, and the keyring that holds (or reaches) its secret keys. */
 export type Device = { name: string; id: string; keyring: DeviceKeyring };
@@ -21,7 +34,7 @@ function localDevice(name: string, keys: DeviceKeys): LocalDevice {
   return { name, id: deviceIdFromSignPub(keys.signPub), keys, keyring: localDeviceKeyring(keys) };
 }
 
-export { SetupError };
+export { NotReadyYet, SetupError };
 
 /** `requireSigner`: refuse a plaintext key file (`WIM_REQUIRE_SIGNER=1`, or `require_signer` in `agent/config.json`). */
 export type HomeEnv = FsEnv & { uid: number | undefined; requireSigner?: boolean };
@@ -87,18 +100,19 @@ export class Home {
     }
     const sealed = file.sealed;
     const signPub = b64u.decode(sealed.signPub);
-    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in your own terminal`;
+    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in a terminal you opened yourself`;
     // Found again for each connection: the session outlives a signer restart.
     const client = new SignerClient({ endpoint: () => agentEndpoint(this.root, this.env, false), expect: signPub });
     let hello;
     try {
       hello = await client.hello();
     } catch (error) {
-      throw new SetupError((error as Partial<SignerError>).code === "unavailable" ? notRunning : (error as Error).message);
+      if ((error as Partial<SignerError>).code === "unavailable") throw new NotReadyYet(notRunning);
+      throw new SetupError((error as Error).message);
     }
     if (hello.locked) {
       client.close();
-      throw new SetupError("the signer is locked: run `wim agent unlock` in your own terminal");
+      throw new NotReadyYet("the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
     }
     return { name: sealed.name, id: sealed.id, keyring: signerKeyring(client, { signPub, boxPub: b64u.decode(sealed.boxPub) }) };
   }
@@ -107,7 +121,7 @@ export class Home {
     const device = await this.loadDevice();
     if (device === undefined) {
       // The agent's server and a terminal find the same keys only with the same WIM_HOME, or the same CLAUDE_CONFIG_DIR.
-      throw new SetupError(`this device is not set up (no device keys at ${this.devicePath}): run \`wim init\` first, with the same WIM_HOME and CLAUDE_CONFIG_DIR as the agent`);
+      throw new NotReadyYet(`this device is not set up (no device keys at ${this.devicePath}): run \`wim init\` first, with the same WIM_HOME and CLAUDE_CONFIG_DIR as the agent`);
     }
     return device;
   }
@@ -148,7 +162,7 @@ export class Home {
       if (!ids.includes(wanted)) throw new SetupError(`this device is not in mesh ${wanted}`);
       return wanted;
     }
-    if (ids.length === 0) throw new SetupError("this device is in no mesh: run `wim mesh create` or `wim join <code>`");
+    if (ids.length === 0) throw new NotReadyYet("this device is in no mesh: run `wim mesh create` or `wim join <code>`");
     if (ids.length > 1) throw new SetupError(`this device is in ${ids.length} meshes: set WIM_MESH or pass --mesh (${ids.join(", ")})`);
     return ids[0]!;
   }

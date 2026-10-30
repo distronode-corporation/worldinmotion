@@ -13,6 +13,23 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A Claude Code tab opened before the signer was up never heard the mesh.** `wim mcp` decided
+  once, at its start, that it could not open a session ("no signer is running") and answered that
+  until the tab was restarted, and the plugin handshook only at the session's start and showed a
+  "not set up" line whatever the reason. Now `wim mcp` keeps asking (on every tool call and every
+  5 s) while the problem is one that clears on its own: the signer not running or locked, or the
+  device without keys or a mesh yet. The plugin's handshake is kept meanwhile, and the client
+  writes a link file once a session opens, which the plugin reads from its timer and links by
+  itself. (An MCP call from a plugin timer is not inside a hook dispatch, so Claude Code asks the
+  person to allow it; the plugin never makes one.) An internal call refused for its token (the
+  client restarted) runs the handshake again. The tab's status line shows the client's own
+  reason, or once linked its address and held count, for example `billing@laptop, 1 held`.
+- The notice that a session must be restarted to use the signer (its keys were encrypted while it
+  ran) reached only the MCP log; it is now a notice for the person, which the plugin shows as a
+  toast and on its status line.
+
 ### Added
 
 - **`wim agent autostart enable | disable | status`**: a login item (a launchd agent on macOS, an
@@ -56,6 +73,18 @@ body line with a bracket.
   `v3` migration on Cloudflare), test vectors `rdv.json`, and `wim invite --full` for a device on
   0.1.4 or older. On a relay without it, or a mesh that pins its relay's certificate, `wim invite`
   prints the full code and says why.
+- `/wim status` in Claude Code: the tab's address, device, mesh, relay connection, signer, held
+  count and state directory (with why it is that one), from a new read-only internal op, `status`.
+  `/wim name <name>` renames the tab.
+- `wim doctor` says which state directory it uses and why (`WIM_HOME`, `CLAUDE_CONFIG_DIR` or the
+  default), and lists the other device directories it finds on the machine.
+- `wim send` names a live Claude Code tab on a device whose terminal inbox a send was queued for:
+  `live on desk now: billing@desk (claude-code)`.
+- VS Code: **Send Message...**, and the setting `worldinmotion.notifyForClaudeTabs` to also notify
+  for messages to any Claude Code tab on this device, naming the tab.
+- The README's first-run guide for one person and three machines, every step labelled
+  [Terminal], [Claude chat] or [VS Code]; the skill lists the commands only the person runs and
+  the read-only ones Claude may run.
 
 ### Changed
 
@@ -75,6 +104,12 @@ body line with a bracket.
   (standard input and output) with no agent's variables set; without `--auto`, `wim invite`
   refuses to start anywhere else, before any code exists. It also prints "On the new device, in a
   terminal: `wim join <code>`". `wim join` says "comparison code" and how to admit it.
+- Refusals of person-only steps (`wim agent start`, `unlock`, `encrypt`, `decrypt`, `autostart enable --keyring`,
+  `wim recovery show`, `--allow-secret`) name the cause (`CLAUDECODE is set: this shell belongs to
+  Claude Code`, or that the output is not an interactive terminal) and say to open a terminal
+  yourself and run the exact command there.
+- Install docs put npm first (`npm install --global worldinmotion`, with the `PATH` fix for npm's
+  global bin), and say the VS Code extension is on the Marketplace and Open VSX.
 
 ## [0.1.4] - 2026-10-29
 

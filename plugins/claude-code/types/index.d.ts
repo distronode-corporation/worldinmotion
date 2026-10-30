@@ -78,6 +78,14 @@ declare module 'claude-code' {
   interface PluginState {
     worldinmotion: {
       link: Shaped<WimLink | null>
+      /** Why the tab is not linked, in the client's words; '' once it is. */
+      problem: Shaped<string>
+      /** Notices the client meant for the person, newest last. */
+      alerts: Shaped<string[]>
+      /** The status line last shown. */
+      statusShown: Shaped<string>
+      /** A handshake the client kept: the link file it writes once it can open a session. */
+      pendingLink: Shaped<{ file: string; token: string } | null>
       cursor: Shaped<string>
       busy: boolean
       /** The running main-loop turn was started by the plugin with a mesh item. */

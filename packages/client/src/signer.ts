@@ -148,7 +148,7 @@ export class SignerClient {
   async call(op: string, a: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
     const conn = await this.connected();
     // A signer that proved it is locked is sent nothing a locked signer could not answer.
-    if (conn.hello!.locked && !LOCKED_OPS.has(op)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in your own terminal");
+    if (conn.hello!.locked && !LOCKED_OPS.has(op)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
     return this.send(conn, op, a);
   }
 
@@ -193,7 +193,7 @@ export class SignerClient {
   }
 
   private connectTo(at: string | undefined): Promise<Conn> {
-    if (at === undefined) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in your own terminal"));
+    if (at === undefined) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in a terminal you opened yourself"));
     this.endpoint = at;
     return new Promise<Conn>((resolve, reject) => {
       const socket = this.connect(at);
@@ -201,7 +201,7 @@ export class SignerClient {
       socket.setEncoding("utf8");
       // Before the connection: no signer there. After it: the close that follows fails what is pending.
       socket.on("error", (error: NodeJS.ErrnoException) => {
-        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error.code ?? error.message}): run \`wim agent start\` in your own terminal`));
+        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error.code ?? error.message}): run \`wim agent start\` in a terminal you opened yourself`));
       });
       socket.once("connect", () => {
         socket.on("data", (chunk: string) => this.take(conn, chunk));
@@ -315,5 +315,6 @@ export function signerKeyring(client: SignerClient, pub: { signPub: Uint8Array; 
       const r = await client.call("adopt", { prekey: entry.prekey, secret: b64u.encode(entry.secret) });
       return { prekey: entry.prekey, sealed: r["sealed"] as string };
     },
+    close: () => client.close(),
   };
 }

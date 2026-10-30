@@ -267,4 +267,17 @@ describe("toNotify", () => {
     expect(toNotify(s, ev({ session: "reviewer@laptop" }))).toBeUndefined();
     expect(toNotify(s, hello())).toBeUndefined();
   });
+
+  it("with claudeTabs, also picks one for a Claude Code session on this device, and nothing else", () => {
+    const s = mesh();
+    const ev = (over: Parameters<typeof message>[1]) => ({ type: "message" as const, at: NOW, message: message("m", over) });
+    // reviewer@laptop is a local claude-code session; coder@buildbox is on another device.
+    expect(toNotify(s, ev({ session: "reviewer@laptop" }), true)).toEqual(message("m", { session: "reviewer@laptop" }));
+    expect(toNotify(s, ev({ session: "reviewer@laptop", dir: "out" }), true)).toBeUndefined();
+    expect(toNotify(s, ev({ session: "coder@buildbox" }), true)).toBeUndefined();
+    expect(toNotify(s, ev({ session: "gone@laptop" }), true)).toBeUndefined();
+    s.apply({ type: "peer", at: NOW, session: { address: "bot@laptop", kind: "bot", status: "idle", since: NOW, rooms: [], local: true } });
+    expect(toNotify(s, ev({ session: "bot@laptop" }), true)).toBeUndefined();
+    expect(toNotify(s, ev({}), true)).toEqual(message("m"));
+  });
 });

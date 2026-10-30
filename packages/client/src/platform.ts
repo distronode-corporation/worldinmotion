@@ -12,22 +12,30 @@ export function pathFor(platform: Platform): typeof posix {
 }
 
 /**
- * Where state lives (design.md, state on disk). `WIM_HOME` wins. Otherwise the XDG config dir
- * (or `%APPDATA%` on Windows), and under it a profile per `CLAUDE_CONFIG_DIR`, so two Claude
- * accounts for one OS user are two devices.
+ * Where state lives (design.md, state on disk), and why. `WIM_HOME` wins. Otherwise the XDG config
+ * dir (or `%APPDATA%` on Windows), and under it a profile per `CLAUDE_CONFIG_DIR`, so two Claude
+ * accounts for one OS user are two devices. `base` is that config directory's `worldinmotion`.
  */
-export function defaultHome(env: Record<string, string | undefined>, platform: Platform, homedir: string): string {
+export function homeChoice(env: Record<string, string | undefined>, platform: Platform, homedir: string): { root: string; why: string; base: string } {
   const path = pathFor(platform);
-  const explicit = env["WIM_HOME"];
-  if (explicit !== undefined && explicit !== "") return explicit;
   const config =
     platform === "win32"
       ? (env["APPDATA"] ?? path.join(homedir, "AppData", "Roaming"))
       : (env["XDG_CONFIG_HOME"] ?? path.join(homedir, ".config"));
   const base = path.join(config, "worldinmotion");
+  const explicit = env["WIM_HOME"];
+  if (explicit !== undefined && explicit !== "") return { root: explicit, why: "WIM_HOME is set", base };
   const claude = env["CLAUDE_CONFIG_DIR"];
-  if (claude === undefined || claude === "") return base;
-  return path.join(base, "profiles", b64u.encode(sha256(utf8(claude))).slice(0, 12));
+  if (claude === undefined || claude === "") return { root: base, why: "the default (neither WIM_HOME nor CLAUDE_CONFIG_DIR is set)", base };
+  return {
+    root: path.join(base, "profiles", b64u.encode(sha256(utf8(claude))).slice(0, 12)),
+    why: `CLAUDE_CONFIG_DIR is set (${claude}), so this is that Claude profile's own device, not the one a shell without it uses`,
+    base,
+  };
+}
+
+export function defaultHome(env: Record<string, string | undefined>, platform: Platform, homedir: string): string {
+  return homeChoice(env, platform, homedir).root;
 }
 
 /** The fields of an `fs.Stats` the permission checks read. */

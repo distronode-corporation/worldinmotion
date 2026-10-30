@@ -13,7 +13,7 @@ import type { CliIO } from "./cli.ts";
 import { SetupError } from "./errors.ts";
 import { ensureDir, readJson, withLock, writeAtomic, writeJson } from "./fsx.ts";
 import type { Home } from "./home.ts";
-import { agentEnv, canShowSecret } from "./secretout.ts";
+import { agentEnv, notAPerson, personOnly } from "./secretout.ts";
 import { askGui, autostartStatus, disableAutostart, enableAutostart, GUI_AGAIN, GUI_ASK, KEYRING_WARNING, keyringAccount, keyringClear, keyringKind, keyringRead, keyringStore, NO_KEYRING, type AutostartOptions, type Programs } from "./autostart.ts";
 import { SignerClient } from "./signer.ts";
 import { BadPassphrase, openKeyFile, openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile } from "./vault.ts";
@@ -138,10 +138,12 @@ async function readPassphrase(ctx: AgentCtx, question: string, opens?: (passphra
   const from = otherSource(ctx);
   if (from !== undefined) passphrase = await fromSource(ctx, from, opens);
   else {
-    if (!canShowSecret(ctx.env, ctx.io.isTTY) || ctx.io.promptSecret === undefined) {
-      throw new SetupError("the passphrase is asked for only in your own interactive terminal, not through an agent or a pipe (a service manager can pass --passphrase-stdin)");
+    const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === undefined ? "this program cannot ask for a passphrase without showing it" : undefined);
+    if (why !== undefined) {
+      // The passphrase is asked for only by a person at their own terminal. A service manager can pass --passphrase-stdin.
+      throw new SetupError(`${personOnly(why, `wim agent ${ctx.args[0]!}`)} (a service manager can pass --passphrase-stdin instead)`);
     }
-    passphrase = await ctx.io.promptSecret(question);
+    passphrase = await ctx.io.promptSecret!(question);
   }
   if (passphrase === "") throw new SetupError("no passphrase given");
   return passphrase;
@@ -540,12 +542,11 @@ async function autostartEnable(ctx: AgentCtx, o: AutostartOptions): Promise<numb
 async function storeInKeyring(ctx: AgentCtx, o: AutostartOptions, file: SealedKeyFile): Promise<void> {
   const kind = keyringKind(o.platform);
   if (kind === undefined) throw new SetupError(NO_KEYRING);
-  if (!canShowSecret(ctx.env, ctx.io.isTTY) || ctx.io.promptSecret === undefined) {
-    throw new SetupError("the passphrase goes into the keyring only from your own interactive terminal, not through an agent or a pipe");
-  }
+  const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === undefined ? "this program cannot ask for a passphrase without showing it" : undefined);
+  if (why !== undefined) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly(why, "wim agent autostart enable --keyring")}`);
   for (const line of KEYRING_WARNING[kind]) ctx.io.out(line);
   if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
-  const passphrase = await ctx.io.promptSecret(PROMPT);
+  const passphrase = await ctx.io.promptSecret!(PROMPT);
   if (!(await opensFile(file)(passphrase))) throw new SetupError("that passphrase does not open this device's keys; nothing was stored or installed");
   await keyringStore(o.platform, o.programs.run, keyringAccount(o.root), passphrase);
   ctx.io.out("Stored the passphrase in the keyring.");

@@ -221,7 +221,7 @@ describe("--allow-secret", () => {
     cleanup.push(() => peer.stop());
     const agent = term(devices[0]!.root, relay, { isTTY: true }, { CLAUDECODE: "1" });
     expect(await run(agent, "send", "b@two", secret, "--allow-secret")).toBe(1);
-    expect(said(agent)).toMatch(/--allow-secret is only for a person at an interactive terminal/);
+    expect(said(agent)).toMatch(/--allow-secret is only for a person at their own terminal: CLAUDECODE is set: this shell belongs to Claude Code\. Open a terminal yourself/);
     const piped = term(devices[0]!.root, relay, { isTTY: false });
     expect(await run(piped, "send", "b@two", secret, "--allow-secret")).toBe(1);
     await sleep(100);

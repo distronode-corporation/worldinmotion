@@ -24,13 +24,13 @@ export const TICK_MS = 15_000;
  * a device is a terminal step, and nothing here puts a `wim` command on the PATH.
  */
 export const SETUP_HINT =
-  "To set up this device, download wim.mjs from the worldinmotion GitHub Release and check its SHA-256 against the one published with it. Install it as wim (for example install -m 755 wim.mjs ~/.local/bin/wim), or run it as node wim.mjs. Then run wim init --relay <url> for a new mesh, or wim init and then wim join <invite> to join one, and restart the client.";
+  'To set up this device, open a terminal yourself (Terminal > New Terminal) and install wim: npm install --global worldinmotion (if wim is then not found: export PATH="$(npm prefix -g)/bin:$PATH"). Then run wim init --relay <url> for a new mesh, or wim join <invite> to join one, and run Restart Client.';
 
 /** Shown while the client runs in setup mode: the device is in no mesh yet. */
 export const JOIN_HINT =
   "This device is in no mesh yet. Run worldinmotion: Join a Mesh... with an invite code from an admin device, or start a new mesh with wim init --relay <url> in a terminal and restart the client.";
 
-export type Settings = { sessionName: string; wimPath: string; notifyOnMessage: boolean };
+export type Settings = { sessionName: string; wimPath: string; notifyOnMessage: boolean; notifyForClaudeTabs: boolean };
 
 export function settings(): Settings {
   const c = vscode.workspace.getConfiguration("worldinmotion");
@@ -38,6 +38,7 @@ export function settings(): Settings {
     sessionName: c.get<string>("sessionName", "vscode"),
     wimPath: c.get<string>("wimPath", ""),
     notifyOnMessage: c.get<boolean>("notifyOnMessage", true),
+    notifyForClaudeTabs: c.get<boolean>("notifyForClaudeTabs", false),
   };
 }
 
@@ -117,8 +118,10 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   const tick = setInterval(schedule, TICK_MS);
 
   const notify = (m: MessageRow): void => {
-    // The notification names the sender and the kind, never the text.
-    vscode.window.showInformationMessage(notice(`worldinmotion: a ${m.kind} from ${m.peer}.`, 120), "Open Thread").then((choice) => {
+    // The notification names the sender and the kind, never the text; for another local session
+    // (a Claude Code tab), also the address it went to.
+    const to = m.session === store.self ? "" : ` to ${m.session}`;
+    vscode.window.showInformationMessage(notice(`worldinmotion: a ${m.kind} from ${m.peer}${to}.`, 160), "Open Thread").then((choice) => {
       if (choice === "Open Thread") openThreadAs(m.peer, m.session);
     });
   };
@@ -155,8 +158,9 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
         trustAfterJoin = undefined;
       }
       if (ev.type === "message") threads.messageArrived(ev.message);
-      const m = toNotify(store, ev);
-      if (m !== undefined && settings().notifyOnMessage) notify(m);
+      const s = settings();
+      const m = toNotify(store, ev, s.notifyForClaudeTabs);
+      if (m !== undefined && s.notifyOnMessage) notify(m);
     },
     onState: (state, detail) => (state === "starting" ? store.reset() : store.exited(detail!)),
     log,
@@ -201,6 +205,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, threads),
     vscode.workspace.onDidCloseTextDocument((doc) => threads.closed(doc.uri)),
     vscode.window.registerWebviewViewProvider(VIEW_ID, activity, { webviewOptions: { retainContextWhenHidden: false } }),
+    command("worldinmotion.sendMessage", () => actions.sendMessage(deps)),
     command("worldinmotion.sendSelection", () => actions.sendSelection(deps)),
     command("worldinmotion.askAboutSelection", () => actions.askAboutSelection(deps)),
     command("worldinmotion.sendFile", (arg) => actions.sendFile(deps, arg)),

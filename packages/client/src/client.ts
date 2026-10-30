@@ -565,7 +565,7 @@ export class MeshSession extends EventEmitter {
         return;
       }
       case "notice":
-        void this.notice(f.of, `${f.of} is now idle (or has ended).`).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
+        this.noticeLater(f.of, `${f.of} is now idle (or has ended).`);
         return;
       case "join.request":
         // `wim invite` decides these as they come; every session of an admin device also keeps
@@ -708,7 +708,11 @@ export class MeshSession extends EventEmitter {
     // open it), so nothing more is acked on this connection and the person is told once to restart.
     if (error instanceof NeedsSigner) {
       this.heldLink = this.link;
-      if (!this.toldRestart) this.log(`wim: ${error.message}`);
+      if (!this.toldRestart) {
+        this.log(`wim: ${error.message}`);
+        // Also where the person looks: the plugin shows it, `wim watch` prints it.
+        this.noticeLater(this.address, error.message, true);
+      }
       this.toldRestart = true;
       return;
     }
@@ -1002,10 +1006,19 @@ export class MeshSession extends EventEmitter {
     return written;
   }
 
-  /** A notice for the agent or the person, written to the spool like any item. */
-  async notice(from: string, line: string, held?: number, heldBy?: string): Promise<void> {
+  /** A notice from a handler that does not wait for it: a failure to write it is logged. */
+  private noticeLater(from: string, line: string, forPerson = false): void {
+    void this.notice(from, line, undefined, undefined, forPerson).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
+  }
+
+  /**
+   * A notice for the agent or the person, written to the spool like any item. `forPerson`: only
+   * the person can act on it (restart this session).
+   */
+  async notice(from: string, line: string, held?: number, heldBy?: string, forPerson = false): Promise<void> {
+    const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line) };
     await this.deliver(
-      { kind: "notice", from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line), ...(held === undefined ? {} : { held }), ...(heldBy === undefined ? {} : { heldBy }) },
+      { ...item, ...(held === undefined ? {} : { held }), ...(heldBy === undefined ? {} : { heldBy }), ...(forPerson ? { forPerson: true as const } : {}) },
       undefined,
     );
   }
@@ -1167,9 +1180,12 @@ export class MeshSession extends EventEmitter {
     try {
       if (typeof r?.to !== "string" || typeof r.text !== "string") throw new ClientError("malformed send request", "malformed");
       const out = await this.send(r.to, r.text);
-      // Live addresses let the CLI suggest one for an address nobody answers to.
-      const live = [...this.peers.values()].filter((p) => p.status !== "offline").map((p) => p.address);
-      await writeJson(answer, { ok: true, ...out, live }, this.o.env);
+      // Live addresses let the CLI suggest one for an address nobody answers to, and name a live
+      // Claude Code tab on a device whose terminal inbox a send was queued for.
+      const peers = [...this.peers.values()].filter((p) => p.status !== "offline");
+      const live = peers.map((p) => p.address);
+      const claude = peers.filter((p) => p.kind === "claude-code").map((p) => p.address);
+      await writeJson(answer, { ok: true, ...out, live, claude }, this.o.env);
     } catch (error) {
       await writeJson(answer, { ok: false, error: (error as Error).message }, this.o.env);
     }

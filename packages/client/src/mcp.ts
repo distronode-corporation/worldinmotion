@@ -4,11 +4,13 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { join } from "node:path";
 import { b64u, bytesEqual, frameForAgent, isName, LIMITS, randomBytes, RESULT_STATUSES, sanitizeForDisplay, utf8 } from "@worldinmotion/protocol";
 import { z } from "zod";
 import { ClientError, MeshSession, unprotectedNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
 import { HISTORY_MAX, renderForAgent } from "./history.ts";
 import { isStalePeer, peerLine } from "./render.ts";
+import { ensureDir, tryRemove, writeJson } from "./fsx.ts";
 import { SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import type { RelayQuote } from "./wire.ts";
@@ -85,14 +87,16 @@ export const PUBLIC_TOOLS: Tool[] = Object.entries(PUBLIC).map(([name, t]) => ({
  * The internal operations (design.md). All of them read or hand over state; none decides for the
  * person: approving, refusing and dismissing are mark files that the plugin's pane writes.
  */
-export const INTERNAL_OPS = ["hello", "peers", "route", "held", "leases"] as const;
+export const INTERNAL_OPS = ["hello", "peers", "route", "held", "leases", "status"] as const;
 
 const InternalCall = z.object({ op: z.enum(INTERNAL_OPS), args: z.record(z.string(), z.unknown()).optional(), token: z.string().optional() });
 
 /**
  * The one tool the Claude Code plugin calls. Claude Code cannot hide a tool from the model, so
- * there is one, refused to the model by the plugin's `tool.check`, and every op but `hello`
- * needs the token `hello` hands out.
+ * there is one, refused to the model by the plugin's `tool.check`, and every op but `hello` and
+ * `status` needs the token `hello` hands out. `status` answers without it because a tab whose
+ * handshake fails has no token, and it is the op that says why; it reads only facts the person
+ * may see (addresses, paths, states), never message text or a secret.
  */
 export const INTERNAL_TOOLS: Tool[] = [{ name: "_internal", description: "Internal to the worldinmotion plugin. Do not call.", inputSchema: jsonSchema(InternalCall) }];
 
@@ -106,6 +110,7 @@ const Inputs = {
   _route: z.object({ to: z.string().min(1).max(256), token: z.string() }),
   _held: z.object({ token: z.string() }),
   _leases: z.object({ token: z.string() }),
+  _status: z.object({ token: z.string().optional() }),
 } satisfies Record<keyof typeof PUBLIC | `_${(typeof INTERNAL_OPS)[number]}`, z.ZodType>;
 
 type ToolName = keyof typeof Inputs;
@@ -146,10 +151,29 @@ function peerJson(p: PeerRow): Record<string, unknown> {
   };
 }
 
+/** This process's file environment, for the link file before any session options are known. */
+const LOCAL_FS = { platform: process.platform, pid: process.pid };
+
+/** What `retry` finds: how to open a session now, or why not and whether trying again can help. */
+export type Retried = { session: Omit<SessionOptions, "sessionKey"> } | { problem: string; again: boolean };
+
 export type McpOptions = {
   /** How to open a session; undefined when this device is not set up, so tools answer why. */
   session?: Omit<SessionOptions, "sessionKey">;
   setupProblem?: string;
+  /**
+   * Set while the problem is one that clears on its own (the signer not running, or locked): asked
+   * again on every tool call and every `retryMs` until a session can open. It never rejects.
+   */
+  retry?: () => Promise<Retried>;
+  /** How often `retry` is asked in the background (default 5 s), so a pushed item needs no tool call. */
+  retryMs?: number;
+  /**
+   * The state directory and why it is the one, for the `status` op. A handshake that comes while
+   * a session cannot open yet is answered with a link file under it (`links/`), written once the
+   * session opens: the plugin reads files from a timer, but may not call MCP from one.
+   */
+  stateDir?: { path: string; why: string };
   /** `WIM_SESSION_KEY`, for agents without a plugin handshake. */
   sessionKey?: string;
   /** `WIM_CHANNEL=1`: push items as Claude Code channel notifications. */
@@ -169,9 +193,20 @@ export class WimMcp {
   private opening: Promise<MeshSession> | undefined;
   /** Handed out by the first `hello`; every other internal op must carry it. */
   private token: string | undefined;
+  /** The session options, once known (at the start, or later through `retry`). */
+  private sessionOpts: Omit<SessionOptions, "sessionKey"> | undefined;
+  private problem: string | undefined;
+  private retry: (() => Promise<Retried>) | undefined;
+  private retrying: Promise<void> | undefined;
+  private retryTimer: NodeJS.Timeout | undefined;
+  /** A handshake that came before a session could open: its Claude session and the link file it waits on. */
+  private pending: { claudeSessionId: string; file: string } | undefined;
 
   constructor(o: McpOptions) {
     this.o = o;
+    this.sessionOpts = o.session;
+    this.problem = o.setupProblem;
+    this.retry = o.retry;
     this.server = new Server(
       { name: "worldinmotion", version: o.version },
       {
@@ -189,15 +224,67 @@ export class WimMcp {
     return this.session;
   }
 
-  /** Opens the session (with `WIM_SESSION_KEY` when given) and starts it. */
+  /**
+   * Opens the session (with `WIM_SESSION_KEY` when given) and starts it. While a problem that
+   * clears on its own stands, keeps asking in the background instead, and opens it once it clears.
+   */
   start(): Promise<MeshSession> | undefined {
-    if (this.o.session === undefined) return undefined;
-    this.opening ??= this.openWith(this.o.sessionKey === undefined ? undefined : `key:${this.o.sessionKey}`);
+    if (this.sessionOpts === undefined) {
+      // A failure here is the problem every tool call reports; the timer only keeps asking.
+      if (this.retry !== undefined) this.retryTimer ??= setInterval(() => void this.need().catch(() => undefined), this.o.retryMs ?? 5000);
+      return undefined;
+    }
+    clearInterval(this.retryTimer);
+    this.opening ??= this.openFirst().catch(async (error: unknown) => {
+      // Not kept: the next call tries to open it again. A waiting handshake is told why.
+      this.opening = undefined;
+      if (this.pending !== undefined) await this.writeLinkFile({ problem: (error as Error).message });
+      throw error;
+    });
     return this.opening;
   }
 
+  /** The first session; when a handshake waits for it, that Claude session's own, and its link file. */
+  private async openFirst(): Promise<MeshSession> {
+    const s = await this.openWith(this.o.sessionKey === undefined ? undefined : `key:${this.o.sessionKey}`);
+    const pending = this.pending;
+    if (pending === undefined) return s;
+    const linked = await this.adopt(pending.claudeSessionId, s);
+    await this.writeLinkFile(this.linkOf(linked));
+    return linked;
+  }
+
+  /**
+   * Asks `retry` once (one ask at a time; `retry` never rejects); afterwards the options are known,
+   * or the problem is the current one.
+   */
+  private tryAgain(): Promise<void> {
+    this.retrying ??= this.retry!().then(async (r) => {
+      this.retrying = undefined;
+      if ("session" in r) {
+        this.sessionOpts = r.session;
+        this.problem = undefined;
+        this.retry = undefined;
+        return;
+      }
+      this.problem = r.problem;
+      if (r.again) return;
+      this.retry = undefined;
+      clearInterval(this.retryTimer);
+      // A handshake waits on the link file: it gets the problem that now stands instead.
+      if (this.pending !== undefined) await this.writeLinkFile({ problem: r.problem });
+    });
+    return this.retrying;
+  }
+
+  /** Writes the link file a pending handshake waits on: the link, or the problem that stands. */
+  private async writeLinkFile(body: Record<string, unknown>): Promise<void> {
+    await ensureDir(join(this.pending!.file, ".."));
+    await writeJson(this.pending!.file, body, this.sessionOpts?.env ?? LOCAL_FS);
+  }
+
   private async openWith(key: string | undefined): Promise<MeshSession> {
-    const s = await MeshSession.open({ ...this.o.session!, ...(key === undefined ? {} : { sessionKey: key }) });
+    const s = await MeshSession.open({ ...this.sessionOpts!, ...(key === undefined ? {} : { sessionKey: key }) });
     if (this.o.channel) s.push = (item) => this.pushChannel(item);
     s.start();
     this.session = s;
@@ -214,13 +301,56 @@ export class WimMcp {
 
   /** Stops the session (with `ended`, it tells the relay the session is gone) and the server. */
   async close(opts: { ended?: boolean } = {}): Promise<void> {
+    clearInterval(this.retryTimer);
+    this.retry = undefined;
+    if (this.pending !== undefined) await tryRemove(this.pending.file, LOCAL_FS);
     await this.session?.stop(opts);
     await this.server.close();
   }
 
   private async need(): Promise<MeshSession> {
+    if (this.session === undefined && this.sessionOpts === undefined && this.retry !== undefined) await this.tryAgain();
     const s = this.session ?? (await this.start());
-    if (s === undefined) throw new ClientError(this.o.setupProblem ?? "worldinmotion is not set up on this device: run `wim init` and `wim join <code>`", "setup");
+    if (s === undefined) throw new ClientError(this.problem ?? "worldinmotion is not set up on this device: run `wim init` and `wim join <code>`", "setup");
+    return s;
+  }
+
+  /** The `status` op: what this tab is, where its state lives, and what stops it if anything. */
+  private async status(): Promise<CallToolResult> {
+    const s = await this.need().catch((error: unknown) => (error as Error).message);
+    const dir = this.o.stateDir === undefined ? {} : { state_dir: this.o.stateDir.path, state_dir_why: this.o.stateDir.why };
+    if (typeof s === "string") return json({ problem: s, ...dir });
+    return json({
+      address: s.address,
+      device: `${s.device.name} (${s.device.id})`,
+      mesh: s.config.mesh,
+      relay: s.link?.isOpen === true ? "connected" : "connecting",
+      signer: s.device.keyring.kind === "signer" ? "in use: the keys are in the signer (wim agent)" : "not used: the key file is plaintext",
+      held: (await s.held.list()).length,
+      ...dir,
+    });
+  }
+
+  /** What the plugin links to: the session's spool, address and token, and its mark directories. */
+  private linkOf(s: MeshSession): Record<string, unknown> {
+    // Where the plugin's pane leaves the person's decisions: `<held>/<id>.approve|refuse`, `<dismiss>/<id>.dismiss`.
+    return { spool: s.files.spoolDir, sid: s.sid, address: s.address, token: this.token, held: s.files.heldDir, dismiss: s.files.dismissDir };
+  }
+
+  /** Takes back the session `claudeSessionId` had before, if any, in place of `s`; else maps it to `s`. */
+  private async adopt(claudeSessionId: string, s: MeshSession): Promise<MeshSession> {
+    const key = `claude:${claudeSessionId}`;
+    const o = this.sessionOpts!;
+    const keys = new SessionKeys(o.mesh, o.env, o.now ?? Date.now);
+    const known = await keys.lookup(key);
+    if (known !== undefined && known.sid !== s.sid && !(await new SessionFiles(o.mesh, known.sid, o.env).isLiveElsewhere())) {
+      // The session this process opened is unused: end it so its name is freed for the old one.
+      await s.stop({ ended: true });
+      const next = this.openWith(key);
+      this.opening = next;
+      return next;
+    }
+    await keys.remember(key, s.sid, s.state.resume);
     return s;
   }
 
@@ -230,23 +360,19 @@ export class WimMcp {
     if (this.token !== undefined && (input.token === undefined || !sameToken(input.token, this.token))) {
       return fail("worldinmotion: this server already completed its handshake with another caller");
     }
-    const claudeSessionId = input.claudeSessionId;
-    let s = await this.need();
-    const key = `claude:${claudeSessionId}`;
-    const o = this.o.session!;
-    const keys = new SessionKeys(o.mesh, o.env, o.now ?? Date.now);
-    const known = await keys.lookup(key);
-    if (known !== undefined && known.sid !== s.sid && !(await new SessionFiles(o.mesh, known.sid, o.env).isLiveElsewhere())) {
-      // The session this process opened is unused: end it so its name is freed for the old one.
-      await s.stop({ ended: true });
-      this.opening = this.openWith(key);
-      s = await this.opening;
-    } else {
-      await keys.remember(key, s.sid, s.state.resume);
+    let s: MeshSession;
+    try {
+      s = await this.need();
+    } catch (error) {
+      // A problem that clears on its own (the signer not up yet): the handshake is kept, and the
+      // link file named here is written once the session opens, so the plugin links by itself.
+      if (this.retry === undefined || this.o.stateDir === undefined) throw error;
+      this.token ??= b64u.encode(randomBytes(32));
+      this.pending ??= { claudeSessionId: input.claudeSessionId, file: join(this.o.stateDir.path, "links", `${b64u.encode(randomBytes(12))}.json`) };
+      return json({ pending: true, problem: (error as Error).message, link: this.pending.file, token: this.token });
     }
     this.token ??= b64u.encode(randomBytes(32));
-    // Where the plugin's pane leaves the person's decisions: `<held>/<id>.approve|refuse`, `<dismiss>/<id>.dismiss`.
-    return json({ spool: s.files.spoolDir, sid: s.sid, address: s.address, token: this.token, held: s.files.heldDir, dismiss: s.files.dismissDir });
+    return json(this.linkOf(await this.adopt(input.claudeSessionId, s)));
   }
 
   async call(name: string, args: unknown, progressToken: string | number | undefined, notify: (n: never) => Promise<void>): Promise<CallToolResult> {
@@ -274,6 +400,7 @@ export class WimMcp {
   // `a` was validated against Inputs[name] by `call`, so each branch reads it as that shape.
   private async run(name: ToolName, a: any, progressToken: string | number | undefined, notify: (n: never) => Promise<void>): Promise<CallToolResult> {
     if (name === "_hello") return this.hello(a as { claudeSessionId: string; token?: string });
+    if (name === "_status") return this.status();
     // The token proves the caller is the one that did the handshake: the plugin, not the model.
     if (name.startsWith("_") && (this.token === undefined || !sameToken((a as { token: string }).token, this.token))) {
       return fail("worldinmotion: internal operations need the token from hello");

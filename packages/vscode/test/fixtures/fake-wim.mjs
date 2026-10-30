@@ -225,6 +225,8 @@ function inMesh() {
   emit("weather", { sky: "clear" });
   emit("peer", { ...sessions[2], mood: "fine" });
   if (scenario === "bad-version") process.stdout.write(`${JSON.stringify({ v: 2, type: "hello", at: Date.now() })}\n`);
+  // A message for a Claude Code tab on this device, not for this window's own session.
+  if (scenario === "tab-message") record({ id: messageId(), dir: "in", session: "reviewer@laptop", peer: "coder@buildbox", device: "dev-buildbox", kind: "msg", text: "for the tab", at: Date.now() });
 
   const rl = createInterface({ input: process.stdin });
   rl.on("line", (line) => {

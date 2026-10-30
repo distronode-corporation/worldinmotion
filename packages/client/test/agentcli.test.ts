@@ -334,14 +334,17 @@ describe("wim agent", () => {
     const none = at(d.root, { promptSecret: secret([""]) });
     expect(await run(none, "agent", "encrypt")).toBe(1);
     expect(said(none)).toMatch(/no passphrase given/);
-    for (const [extra, env] of [
-      [{ promptSecret: secret([PASS]) }, { CLAUDECODE: "1" }],
-      [{ promptSecret: secret([PASS]), isTTY: false }, {}],
-      [{}, {}],
-    ] as Array<[Partial<CliIO>, Record<string, string>]>) {
+    // Each refusal names its cause, then where to run the command instead.
+    for (const [extra, env, cause] of [
+      [{ promptSecret: secret([PASS]) }, { CLAUDECODE: "1" }, "CLAUDECODE is set: this shell belongs to Claude Code"],
+      [{ promptSecret: secret([PASS]) }, { CODEX_SANDBOX: "seatbelt" }, "CODEX_SANDBOX is set: this shell belongs to Codex"],
+      [{ promptSecret: secret([PASS]) }, { WIM_AGENT: "1" }, "WIM_AGENT is set: this shell belongs to an AI agent"],
+      [{ promptSecret: secret([PASS]), isTTY: false }, {}, "this command's output is not an interactive terminal (it is piped or redirected)"],
+      [{}, {}, "this program cannot ask for a passphrase without showing it"],
+    ] as Array<[Partial<CliIO>, Record<string, string>, string]>) {
       const t = at(d.root, extra, env);
       expect(await run(t, "agent", "encrypt")).toBe(1);
-      expect(said(t)).toMatch(/only in your own interactive terminal/);
+      expect(said(t)).toContain(`${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim agent encrypt\` there (a service manager can pass --passphrase-stdin instead)`);
     }
     const ok = at(d.root, { promptSecret: secret([PASS, PASS]) });
     expect(await run(ok, "agent", "encrypt")).toBe(0);
@@ -716,14 +719,14 @@ describe("wim agent autostart", () => {
   it("--keyring is set up only at the person's own terminal; macOS needs no yes; Windows has none", async () => {
     const d = await encrypted("asmac");
     const mac = fakePrograms("darwin", () => ({ code: 0, stdout: "", stderr: "" }));
-    for (const [extra, env] of [
-      [{ promptSecret: typed(PASS) }, { CLAUDECODE: "1" }],
-      [{ promptSecret: typed(PASS), isTTY: false }, {}],
-      [{}, {}],
-    ] as Array<[Partial<CliIO>, Record<string, string>]>) {
+    for (const [extra, env, cause] of [
+      [{ promptSecret: typed(PASS) }, { CLAUDECODE: "1" }, "CLAUDECODE is set: this shell belongs to Claude Code"],
+      [{ promptSecret: typed(PASS), isTTY: false }, {}, "this command's output is not an interactive terminal (it is piped or redirected)"],
+      [{}, {}, "this program cannot ask for a passphrase without showing it"],
+    ] as Array<[Partial<CliIO>, Record<string, string>, string]>) {
       const t = at(d.root, { programs: mac.programs, ...extra }, env);
       expect(await run(t, "agent", "autostart", "enable", "--keyring")).toBe(1);
-      expect(said(t)).toContain("the passphrase goes into the keyring only from your own interactive terminal");
+      expect(said(t)).toContain(`the passphrase goes into the keyring only from your own terminal: ${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim agent autostart enable --keyring\` there`);
     }
     const ok = at(d.root, { programs: mac.programs, promptSecret: typed(PASS) });
     expect(await run(ok, "agent", "autostart", "enable", "--keyring")).toBe(0);
