@@ -88551,9 +88551,14 @@ var Breaker = class {
     this.talk.delete(peer);
   }
 };
+function pauseWhy(reason, limits) {
+  return reason === "peer" ? `${limits.perPeerPerHour} messages in an hour` : reason === "total" ? `${limits.totalPerHour} messages in an hour from all peers` : "a fast exchange of short messages";
+}
 function pauseNotice(peer, reason, limits) {
-  const why = reason === "peer" ? `${limits.perPeerPerHour} messages in an hour` : reason === "total" ? `${limits.totalPerHour} messages in an hour from all peers` : "a fast exchange of short messages";
-  return `worldinmotion paused ${peer}: ${why}; /wim to resume`;
+  return `worldinmotion paused ${peer}: ${pauseWhy(reason, limits)}; /wim to resume`;
+}
+function pauseNoticeForAgent(peer, reason, limits) {
+  return `this device's loop breaker paused ${peer} (${pauseWhy(reason, limits)}): its messages to this session are held from now on, not delivered to you, until your person releases them. Only the person can: \`wim held resume ${peer}\` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). The pause lifts after an hour; what was held stays held until the person decides. If you are waiting on ${peer}, tell your person; it has not gone silent.`;
 }
 
 // src/cards.ts
@@ -91492,9 +91497,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (policy === "hold") return this.hold({ ...held2, reason: "policy" });
     const admitted = this.breaker.admit(p3.from.device, entry.text.length);
     if (!admitted.ok) {
-      const line = admitted.newly ? pauseNotice(from, admitted.reason, this.config.breaker) : void 0;
+      const reason = admitted.reason;
+      const pause = admitted.newly ? { person: pauseNotice(from, reason, this.config.breaker), agent: pauseNoticeForAgent(from, reason, this.config.breaker) } : void 0;
       if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
-      return this.hold({ ...held2, reason: "breaker" }, line);
+      return this.hold({ ...held2, reason: "breaker" }, pause);
     }
     const waiter = p3.kind === "result" && !unsolicited ? this.askWaiters.get(p3.reply_to) : void 0;
     if (waiter !== void 0 && p3.kind === "result") {
@@ -91530,12 +91536,14 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const flags = { ...entry.relayed ? { relayed: true } : {}, ...trust === "inform" ? { informs: true } : {} };
     await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, rendered, ...flags }, entry);
   }
-  async hold(item, pauseLine) {
+  /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
+  async hold(item, pause) {
     await this.held.add(item);
     this.receipt(item.id, "held");
     const count = (await this.held.list()).length;
-    const line = pauseLine ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
+    const line = pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
     await this.notice(item.from, line, count);
+    if (pause !== void 0) await this.notice(item.from, pause.agent);
     await this.o.notifier?.notify(`worldinmotion: ${count} message${count === 1 ? "" : "s"} held for approval`);
     this.emit("held", item);
   }

@@ -222,6 +222,13 @@ describe("inbound policy and the breaker", () => {
     const notices = (await unread(b)).filter((i) => i.kind === "notice");
     expect(notices.some((n) => n.rendered.includes("worldinmotion paused a@one: 2 messages in an hour"))).toBe(true);
     expect((await b.held.list()).every((h) => h.reason === "breaker")).toBe(true);
+    // The session itself is told once per pause, in a notice that reaches the agent (no `held`
+    // count, which the plugin shows only as a toast), with what only the person can run (issue #40).
+    const forAgent = notices.filter((n) => n.held === undefined && n.heldBy === undefined && n.forPerson === undefined);
+    expect(forAgent).toHaveLength(1);
+    expect(forAgent[0]!.rendered).toBe(
+      "worldinmotion notice (from the local client, not from a peer or the person): this device's loop breaker paused a@one (2 messages in an hour): its messages to this session are held from now on, not delivered to you, until your person releases them. Only the person can: `wim held resume a@one` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). The pause lifts after an hour; what was held stays held until the person decides. If you are waiting on a@one, tell your person; it has not gone silent.",
+    );
     expect(await b.resumePeer("x@unknown")).toBe(0);
     // The CLI leaves a resume marker; the session applies it.
     await fs.mkdir(b.files.controlDir, { recursive: true });

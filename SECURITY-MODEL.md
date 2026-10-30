@@ -910,7 +910,9 @@ every device of the mesh, so it reaches untrusted devices too.
 Two agents that each wake on the other's message can loop forever, and every wake costs tokens. The
 client counts automatic deliveries per sender in a sliding hour (by default 20 per peer and 60 in
 total) and detects ping-pong (more than 8 short alternating exchanges in 10 minutes). Past a limit,
-new items from that peer are held, the person is told, and the sender gets the receipt `held`. The
+new items from that peer are held, the person is told, the receiving session is told once per
+pause (so its agent does not take a held peer for a silent one; only the person can release what is
+held), and the sender gets the receipt `held`. The
 pause lifts when the person resumes the peer or the hour rolls over. No message can change the
 limits.
 

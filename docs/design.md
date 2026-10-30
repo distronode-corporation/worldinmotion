@@ -266,7 +266,12 @@ Two agents that each wake on the other's message can loop forever, and every wak
 The client counts automatic deliveries per sender address in a sliding hour. Defaults: 20 wakes
 per peer per hour and 60 in total. Past either limit, new items from that peer go to `held/`
 instead of the spool, a `notice` tells the person ("worldinmotion paused <peer>: 20 messages in
-an hour; /wim to resume"), and the sender gets the receipt `held`. A held peer resumes when the
+an hour; /wim to resume"), and the sender gets the receipt `held`. The session itself gets one
+`notice` per pause, without a `held` count so that it reaches the agent: the peer is paused, its
+messages are held from now on and not delivered, only the person can release them (`wim held
+resume <peer>` in a terminal they opened themselves, or the pane), and the peer has not gone
+silent. Later holds from the paused peer raise no further turn, so the pause cannot itself become
+a loop. A held peer resumes when the
 person approves (the pane, `wim held resume <peer>`) or after the hour rolls over, whichever is
 first. A ping-pong detector also pauses a pair early: more than 8 alternating exchanges in
 10 minutes in which every message is under 200 characters. Limits live in `mesh.json`
@@ -332,7 +337,8 @@ Claude Code plugin shows as a toast instead of a turn.
   with five optional fields. A `notice` item carries `held: <count>` when it reports messages
   waiting for approval, or `heldBy: "<address>"` when a message this session sent is held for the
   approval of that address's person (a `held` receipt); the plugin shows either as a toast and
-  does not pass it to the model.
+  does not pass it to the model. A notice with none of the three flags is for the model, like a
+  message (the breaker's once-per-pause notice is one).
   `forPerson: true` marks a notice only the person can act on (this session must be restarted
   to use the signer): the plugin shows it as a toast and on its status line, never as a turn.
   `relayed: true` marks text the sender passed on from a bot, CI or gateway: it never starts a

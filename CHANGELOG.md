@@ -31,6 +31,13 @@ body line with a bracket.
   that session, not to a terminal. `wim history --session distronode-2` shows what it received;
   for a terminal session of your own, pick another name with --as <name>." The same holds for
   `wim send` and `wim watch`. (#38)
+- **The loop breaker held a peer's messages without telling the receiving session.** Only the
+  person got a toast, so an agent waiting on that peer concluded it had dropped the work. When the
+  breaker pauses a peer, the session now also gets one notice that reaches the agent: the peer is
+  paused, its messages are held from now on and not delivered, only the person can release them
+  (`wim held resume <peer>` in a terminal they opened themselves, or Approve in /wim or the Held
+  view in VS Code), and it has not gone silent. One per pause, so the pause cannot become a loop
+  of its own. (#40)
 
 ## [0.1.5] - 2026-10-30
 

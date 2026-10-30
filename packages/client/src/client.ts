@@ -44,7 +44,7 @@ import { EventEmitter } from "node:events";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { Breaker, pauseNotice } from "./breaker.ts";
+import { Breaker, pauseNotice, pauseNoticeForAgent } from "./breaker.ts";
 import { cardFor, sameCard } from "./cards.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
@@ -919,9 +919,10 @@ export class MeshSession extends EventEmitter {
 
     const admitted = this.breaker.admit(p.from.device, entry.text.length);
     if (!admitted.ok) {
-      const line = admitted.newly ? pauseNotice(from, admitted.reason as "peer", this.config.breaker) : undefined;
+      const reason = admitted.reason as "peer";
+      const pause = admitted.newly ? { person: pauseNotice(from, reason, this.config.breaker), agent: pauseNoticeForAgent(from, reason, this.config.breaker) } : undefined;
       if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
-      return this.hold({ ...held, reason: "breaker" }, line);
+      return this.hold({ ...held, reason: "breaker" }, pause);
     }
     const waiter = p.kind === "result" && !unsolicited ? this.askWaiters.get(p.reply_to) : undefined;
     if (waiter !== undefined && p.kind === "result") {
@@ -963,12 +964,14 @@ export class MeshSession extends EventEmitter {
     await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, rendered, ...flags }, entry);
   }
 
-  private async hold(item: HeldItem, pauseLine?: string): Promise<void> {
+  /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
+  private async hold(item: HeldItem, pause?: { person: string; agent: string }): Promise<void> {
     await this.held.add(item);
     this.receipt(item.id, "held");
     const count = (await this.held.list()).length;
-    const line = pauseLine ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
+    const line = pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
     await this.notice(item.from, line, count);
+    if (pause !== undefined) await this.notice(item.from, pause.agent);
     await this.o.notifier?.notify(`worldinmotion: ${count} message${count === 1 ? "" : "s"} held for approval`);
     this.emit("held", item);
   }
