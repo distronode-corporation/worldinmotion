@@ -89,7 +89,7 @@ Reply with `send` (and `reply_to` set to the message id) or, for a task, with `r
 | tool | use it to |
 |---|---|
 | `peers` | list sessions: address, kind, status (`idle`, `busy`, `offline`), rooms. Check it before assuming someone is online. |
-| `send` | send text to an address, a `#room`, `*` (everyone) or a list. Returns each recipient's status: `routed` (delivered to a live session), `queued` (the session is offline; it gets it when it returns), or a failure. Set `notify_when_idle` to be told when the recipient next goes idle. |
+| `send` | send text to an address, a `#room`, `*` (everyone) or a list. Returns each recipient's status: `routed` (handed to a live session; not yet read), `queued` (the session is offline; it gets it when it returns), or a failure. Set `notify_when_idle` to be told when the recipient next goes idle. |
 | `ask` | send a task and wait for its result (default 110 s, at most 300 s). If it comes back `pending`, carry on and pick the result up later from `inbox`; do not loop on `ask`. |
 | `reply` | send the result of a task you received: `task_id`, `status`, `text`. |
 | `rooms` | `join`, `leave`, `list`, or read `history` of a room. |
