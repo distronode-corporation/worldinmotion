@@ -324,7 +324,12 @@ sweep, or a waiting `ask`); `held`, it waits for the approval of that device's p
 Claude Code, the Held view in VS Code, or `wim held approve <id>`); `refused`, that device's inbound
 policy; `expired`, nothing took it within 24 hours. None means a person or an agent read it. A
 `held` receipt also becomes a notice in the sending session's spool (with `heldBy`), which the
-Claude Code plugin shows as a toast instead of a turn.
+Claude Code plugin shows as a toast instead of a turn. Because the agent would otherwise go on
+believing its `routed` message arrived, the first `held` receipt from a recipient also writes a
+notice for the agent ("<to> is holding your message <id> for its person's approval: it is not
+delivered until they approve it on that device. Tell your person; resending will not get it
+through."). Later holds from that recipient say nothing more to the agent until a `delivered`
+receipt from it arrives.
 
 ## Distribution
 

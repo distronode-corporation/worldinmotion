@@ -90885,6 +90885,9 @@ function pingRow(address, results, pongs) {
 function heldReceiptLine(to, id) {
   return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
 }
+function heldForAgentLine(to, id) {
+  return `${to} is holding your message ${id} for its person's approval: it is not delivered until they approve it on that device. Tell your person; resending will not get it through. Only the person on that device can approve it.`;
+}
 function renamedLine(was, now) {
   return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
 }
@@ -91609,9 +91612,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   recordReceipt(f7) {
     const recorded = this.history.appendReceipt(f7.id, { to: f7.to, status: f7.status, at: this.now() });
+    if (f7.status === "delivered") this.heldTold.delete(f7.to);
     if (f7.status !== "held") return recorded;
-    return recorded.then(() => this.notice(f7.to, heldReceiptLine(f7.to, f7.id), void 0, f7.to));
+    const tell = !this.heldTold.has(f7.to);
+    this.heldTold.add(f7.to);
+    const person = recorded.then(() => this.notice(f7.to, heldReceiptLine(f7.to, f7.id), void 0, f7.to));
+    return tell ? person.then(() => this.notice(f7.to, heldForAgentLine(f7.to, f7.id))) : person;
   }
+  /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
+  heldTold = /* @__PURE__ */ new Set();
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
     await this.spool.take(cursor2);

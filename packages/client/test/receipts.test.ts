@@ -6,12 +6,12 @@ import { join } from "node:path";
 import { ulid } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { receiptLine, SENT_MEANING } from "../src/cli.ts";
-import { heldReceiptLine, MeshSession } from "../src/client.ts";
+import { heldForAgentLine, heldReceiptLine, MeshSession } from "../src/client.ts";
 import { History, parseReceipt, receiptNote, renderForAgent, renderForPerson, type HistoryEntry } from "../src/history.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionFiles, takesSends } from "../src/session.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
@@ -107,6 +107,39 @@ describe("a session's receipts", () => {
     expect(heldReceiptLine("x@y", "I")).toBe(
       "x@y is holding your message I for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or `wim held approve I`).",
     );
+  });
+
+  it("tells the sending agent once per recipient that its message is held, again only after one got through (issue #42)", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"], { trust: false });
+    const a = await openSession(devices[0]!, mesh, relay, { name: "sender" });
+    const b = await openSession(devices[1]!, mesh, relay, { name: "inbox" });
+    const c = await openSession(devices[2]!, mesh, relay, { name: "other" });
+    open.push(a, b, c);
+    // A notice for the agent carries none of the flags the plugin keeps from the model.
+    const forAgent = async () => (await a.spool.unread()).filter((i) => i.kind === "notice" && i.heldBy === undefined && i.held === undefined && i.forPerson === undefined);
+    const first = await a.send("inbox@two", "one");
+    await a.send("inbox@two", "two");
+    await a.send("other@three", "three");
+    // The agent's notice is written after the person's for the same receipt, outside the inbound queue.
+    await until(async () => (await a.spool.unread()).filter((i) => i.heldBy !== undefined).length === 3 && (await forAgent()).length === 2);
+    // Nothing more comes for the second hold at inbox@two.
+    await sleep(200);
+    const told = await forAgent();
+    expect(told.map((n) => n.from).sort()).toEqual(["inbox@two", "other@three"]);
+    expect(told.find((n) => n.from === "inbox@two")!.rendered).toBe(
+      `worldinmotion notice (from the local client, not from a peer or the person): ${heldForAgentLine("inbox@two", first.id)}`,
+    );
+    expect(heldForAgentLine("x@y", "I")).toBe(
+      "x@y is holding your message I for its person's approval: it is not delivered until they approve it on that device. Tell your person; resending will not get it through. Only the person on that device can approve it.",
+    );
+    // The person there approves one: it is delivered, and a later hold is news again.
+    b.on("item", (i: SpoolItem) => void b.take(i.cursor));
+    await b.decide(first.id, "approve");
+    await until(async () => (await a.history.receiptsFrom(first.id, 0)).some((r) => r.status === "delivered"));
+    const later = await a.send("inbox@two", "four");
+    await until(async () => (await forAgent()).length === 3);
+    expect((await forAgent()).at(-1)!.rendered).toContain(heldForAgentLine("inbox@two", later.id));
   });
 
   it("delivered is recorded with no notice; a failed history write is logged and nothing else", async () => {

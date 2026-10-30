@@ -190,6 +190,14 @@ export function heldReceiptLine(to: string, id: string): string {
   return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
 }
 
+/**
+ * The notice that tells the sending agent its message is held (issue #42). The `heldBy` notice is
+ * the person's toast; this one reaches the model, once per recipient until something gets through.
+ */
+export function heldForAgentLine(to: string, id: string): string {
+  return `${to} is holding your message ${id} for its person's approval: it is not delivered until they approve it on that device. Tell your person; resending will not get it through. Only the person on that device can approve it.`;
+}
+
 /** The notice for a session the relay gave another name than the one it had or asked for. */
 export function renamedLine(was: string, now: string): string {
   return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
@@ -1051,9 +1059,19 @@ export class MeshSession extends EventEmitter {
    */
   private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
     const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
+    // Something got through to that recipient: a later hold there is news again.
+    if (f.status === "delivered") this.heldTold.delete(f.to);
     if (f.status !== "held") return recorded;
-    return recorded.then(() => this.notice(f.to, heldReceiptLine(f.to, f.id), undefined, f.to));
+    // The agent is told once per recipient (not per message), so a peer that holds everything
+    // cannot wake the sender over and over.
+    const tell = !this.heldTold.has(f.to);
+    this.heldTold.add(f.to);
+    const person = recorded.then(() => this.notice(f.to, heldReceiptLine(f.to, f.id), undefined, f.to));
+    return tell ? person.then(() => this.notice(f.to, heldForAgentLine(f.to, f.id))) : person;
   }
+
+  /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
+  private readonly heldTold = new Set<string>();
 
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor: number): Promise<void> {

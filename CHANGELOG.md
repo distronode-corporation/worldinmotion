@@ -77,6 +77,14 @@ body line with a bracket.
   (`wim held resume <peer>` in a terminal they opened themselves, or Approve in /wim or the Held
   view in VS Code), and it has not gone silent. One per pause, so the pause cannot become a loop
   of its own. (#40)
+- **A sender's agent never learned that its message was held.** The `send` result says `routed`,
+  and the later `held` receipt reached the person only as a toast, so the agent went on assuming
+  the message had arrived. The first `held` receipt from a recipient now also gives the sending
+  agent one notice: "<to> is holding your message <id> for its person's approval: it is not
+  delivered until they approve it on that device. Tell your person; resending will not get it
+  through. Only the person on that device can approve it." Once per recipient, until something to
+  that recipient is delivered, so a recipient that holds everything cannot wake the sender over and
+  over. (#42)
 
 ## [0.1.5] - 2026-10-30
 
