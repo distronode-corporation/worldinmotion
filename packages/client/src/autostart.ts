@@ -217,8 +217,12 @@ export type AutostartOptions = {
   fsEnv: FsEnv;
 };
 
-/** A login item: a launchd agent (macOS), an XDG autostart entry (Linux and the rest) or a logon task (Windows). */
-export type LoginItem = { kind: "launchd" | "xdg" | "task"; where: string; text: string };
+/**
+ * A login item: a launchd agent (macOS), an XDG autostart entry (Linux and the rest) or a logon
+ * task (Windows); `log` is the file its output and errors are appended to, so a start that fails
+ * before the signer runs (a cancelled dialog, a missing prompt tool) says why somewhere.
+ */
+export type LoginItem = { kind: "launchd" | "xdg" | "task"; where: string; text: string; log: string };
 
 function xml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -248,6 +252,7 @@ export function loginItem(o: AutostartOptions, source: LoginSource): LoginItem {
   const path = pathFor(o.platform);
   const id = keyringAccount(o.root);
   const command = [...o.programs.wim, "agent", "start", "--foreground", `--${source}`];
+  const log = path.join(o.root, "agent", "autostart.log");
   if (o.platform === "darwin") {
     const label = `worldinmotion.signer.${id}`;
     const strings = (items: readonly string[]): string => items.map((s) => `    <string>${xml(s)}</string>`).join("\n");
@@ -262,17 +267,19 @@ export function loginItem(o: AutostartOptions, source: LoginSource): LoginItem {
       strings(command),
       "  </array>",
       `  <key>EnvironmentVariables</key><dict><key>WIM_HOME</key><string>${xml(o.root)}</string></dict>`,
+      `  <key>StandardOutPath</key><string>${xml(log)}</string>`,
+      `  <key>StandardErrorPath</key><string>${xml(log)}</string>`,
       "  <key>RunAtLoad</key><true/>",
       "  <key>ProcessType</key><string>Interactive</string>",
       "</dict>",
       "</plist>",
       "",
     ].join("\n");
-    return { kind: "launchd", where: path.join(o.homedir, "Library", "LaunchAgents", `${label}.plist`), text };
+    return { kind: "launchd", where: path.join(o.homedir, "Library", "LaunchAgents", `${label}.plist`), text, log };
   }
   if (o.platform === "win32") {
     const user = xml(windowsUser(o.env));
-    const script = `$env:WIM_HOME = ${psQuote(o.root)}; & ${command.map(psQuote).join(" ")}; exit $LASTEXITCODE`;
+    const script = `$env:WIM_HOME = ${psQuote(o.root)}; & ${command.map(psQuote).join(" ")} *>> ${psQuote(log)}; exit $LASTEXITCODE`;
     const text = [
       '<?xml version="1.0" encoding="UTF-16"?>',
       '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
@@ -291,7 +298,7 @@ export function loginItem(o: AutostartOptions, source: LoginSource): LoginItem {
       "</Task>",
       "",
     ].join("\r\n");
-    return { kind: "task", where: `worldinmotion signer ${id}`, text };
+    return { kind: "task", where: `worldinmotion signer ${id}`, text, log };
   }
   const config = o.env["XDG_CONFIG_HOME"] || path.join(o.homedir, ".config");
   const text = [
@@ -299,19 +306,22 @@ export function loginItem(o: AutostartOptions, source: LoginSource): LoginItem {
     "Type=Application",
     "Name=worldinmotion signer",
     "Comment=Starts the worldinmotion signer, which asks for the passphrase of this device's keys",
-    `Exec=${["env", `WIM_HOME=${o.root}`, ...command].map(execArg).join(" ")}`,
+    // sh appends the command's output to the log; the paths reach it as arguments, never as script text.
+    `Exec=${["env", `WIM_HOME=${o.root}`, "sh", "-c", 'log="$1"; shift; exec "$@" >>"$log" 2>&1', "sh", log, ...command].map(execArg).join(" ")}`,
     "Terminal=false",
     "NoDisplay=true",
     "X-GNOME-Autostart-enabled=true",
     "",
   ].join("\n");
-  return { kind: "xdg", where: path.join(config, "autostart", `worldinmotion-signer-${id}.desktop`), text };
+  return { kind: "xdg", where: path.join(config, "autostart", `worldinmotion-signer-${id}.desktop`), text, log };
 }
 
 /** Installs the login item, replacing any earlier one for this state directory. */
 export async function enableAutostart(o: AutostartOptions, source: LoginSource): Promise<LoginItem> {
   const item = loginItem(o, source);
   const here = pathFor(o.fsEnv.platform);
+  // The log's directory is the signer's own (0700); launchd does not create it.
+  await ensureDir(here.join(o.root, "agent"));
   if (item.kind !== "task") {
     await ensureDir(here.dirname(item.where));
     await writeAtomic(item.where, item.text, o.fsEnv);
@@ -343,10 +353,10 @@ export async function disableAutostart(o: AutostartOptions): Promise<boolean> {
 }
 
 /** The login item installed for this state directory, if any, and where it gets the passphrase. */
-export async function autostartStatus(o: AutostartOptions): Promise<{ where: string; source: LoginSource } | undefined> {
+export async function autostartStatus(o: AutostartOptions): Promise<{ where: string; source: LoginSource; log: string } | undefined> {
   const item = loginItem(o, "ask-gui");
   const text = item.kind === "task" ? taskText(await o.programs.run("schtasks", ["/Query", "/TN", item.where, "/XML"])) : await readText(item.where);
-  return text === undefined ? undefined : { where: item.where, source: text.includes("--keyring") ? "keyring" : "ask-gui" };
+  return text === undefined ? undefined : { where: item.where, source: text.includes("--keyring") ? "keyring" : "ask-gui", log: item.log };
 }
 
 function taskText(r: RunResult): string | undefined {

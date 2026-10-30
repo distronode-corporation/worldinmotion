@@ -37,6 +37,7 @@ $WIM_HOME/
     pipe                 0600  Windows only: the pipe's random token
     config.json          0600  `require_signer`: refuse a plaintext key file
     log.jsonl            0600  one line per request: operation, type, mesh, peer device, outcome
+    autostart.log              what the login item (`wim agent autostart`) prints, errors included
   meshes/<mesh>/
     mesh.json            0600  relay URL, pinned roster {seq, hash}, my device id, policy
     rosters/<seq>.json         every verified roster
@@ -115,7 +116,10 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   unit, because the dialog needs the desktop session's display), or a Windows logon task
   (`worldinmotion signer <id>`, created by `schtasks` from a task definition, no time limit, run
   through a hidden Windows PowerShell). `<id>` is 16 hex characters of the state directory's
-  SHA-256. The person types the passphrase into a dialog the login session started. It installs
+  SHA-256. What the item prints, errors included, is appended to `agent/autostart.log` (launchd's
+  `StandardOutPath` and `StandardErrorPath`; `sh` in the XDG entry; PowerShell's `*>>` in the
+  task), so a start that fails before the signer runs says why. The person types the passphrase
+  into a dialog the login session started. It installs
   only; `wim agent start` starts one now. `disable`, and `enable` without `--keyring`, remove any
   stored passphrase (`disable` the item too);
   `status` says whether one is installed and where it gets the passphrase.

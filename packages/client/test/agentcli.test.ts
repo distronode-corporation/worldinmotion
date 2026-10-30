@@ -665,7 +665,11 @@ describe("wim agent autostart", () => {
     expect(said(on)).toContain("It does not start a signer now");
     const st = at(d.root, { programs });
     expect(await run(st, "agent", "autostart", "status")).toBe(0);
-    expect(said(st)).toContain(`autostart: on (it asks for the passphrase in a dialog): ${shown}`);
+    // Paths compared with one separator: on Windows the Linux item's paths mix both.
+    const slash = (x: string): string => x.replace(/\\/g, "/");
+    const log = slash(join(d.root, "agent", "autostart.log"));
+    expect(slash(said(st))).toContain(`autostart: on (it asks for the passphrase in a dialog): ${slash(shown)}\nlog: ${log}`);
+    expect(slash(said(on))).toContain(`What it prints, errors included, is appended to ${log}.`);
     const rm = at(d.root, { programs });
     expect(await run(rm, "agent", "autostart", "disable")).toBe(0);
     expect(said(rm)).toContain("Removed the login item");

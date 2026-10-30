@@ -17,7 +17,8 @@ body line with a bracket.
 
 - **`wim agent autostart enable | disable | status`**: a login item (a launchd agent on macOS, an
   XDG autostart entry on Linux, a logon task on Windows) that starts the signer at each log in with
-  `wim agent start --foreground --ask-gui`, which asks for the passphrase in a native dialog.
+  `wim agent start --foreground --ask-gui`, which asks for the passphrase in a native dialog; its
+  output and errors go to `agent/autostart.log`.
   `enable --keyring` (opt-in) keeps the passphrase in the macOS login keychain, which asks on
   every read, or in libsecret on Linux after a plain warning; not offered on Windows
   (`SECURITY-MODEL.md` section 5.8).

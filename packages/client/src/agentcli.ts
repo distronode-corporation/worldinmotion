@@ -508,6 +508,7 @@ async function autostart(ctx: AgentCtx): Promise<number> {
     return 3;
   }
   ctx.io.out(`autostart: on (${found.source === "keyring" ? "the passphrase comes from the keyring" : "it asks for the passphrase in a dialog"}): ${found.where}`);
+  ctx.io.out(`log: ${found.log}`);
   return 0;
 }
 
@@ -531,6 +532,7 @@ async function autostartEnable(ctx: AgentCtx, o: AutostartOptions): Promise<numb
       ? "At each log in it starts the signer with the passphrase from the keyring."
       : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent. Any passphrase kept in the keyring for it before is removed.",
   );
+  ctx.io.out(`What it prints, errors included, is appended to ${item.log}.`);
   ctx.io.out("It does not start a signer now (`wim agent start` does). `wim agent autostart disable` removes it.");
   return 0;
 }

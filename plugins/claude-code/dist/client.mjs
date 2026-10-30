@@ -121185,6 +121185,7 @@ function loginItem(o3, source2) {
   const path2 = pathFor(o3.platform);
   const id = keyringAccount(o3.root);
   const command5 = [...o3.programs.wim, "agent", "start", "--foreground", `--${source2}`];
+  const log = path2.join(o3.root, "agent", "autostart.log");
   if (o3.platform === "darwin") {
     const label = `worldinmotion.signer.${id}`;
     const strings = (items) => items.map((s3) => `    <string>${xml(s3)}</string>`).join("\n");
@@ -121199,17 +121200,19 @@ function loginItem(o3, source2) {
       strings(command5),
       "  </array>",
       `  <key>EnvironmentVariables</key><dict><key>WIM_HOME</key><string>${xml(o3.root)}</string></dict>`,
+      `  <key>StandardOutPath</key><string>${xml(log)}</string>`,
+      `  <key>StandardErrorPath</key><string>${xml(log)}</string>`,
       "  <key>RunAtLoad</key><true/>",
       "  <key>ProcessType</key><string>Interactive</string>",
       "</dict>",
       "</plist>",
       ""
     ].join("\n");
-    return { kind: "launchd", where: path2.join(o3.homedir, "Library", "LaunchAgents", `${label}.plist`), text: text3 };
+    return { kind: "launchd", where: path2.join(o3.homedir, "Library", "LaunchAgents", `${label}.plist`), text: text3, log };
   }
   if (o3.platform === "win32") {
     const user = xml(windowsUser(o3.env));
-    const script = `$env:WIM_HOME = ${psQuote(o3.root)}; & ${command5.map(psQuote).join(" ")}; exit $LASTEXITCODE`;
+    const script = `$env:WIM_HOME = ${psQuote(o3.root)}; & ${command5.map(psQuote).join(" ")} *>> ${psQuote(log)}; exit $LASTEXITCODE`;
     const text3 = [
       '<?xml version="1.0" encoding="UTF-16"?>',
       '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
@@ -121228,7 +121231,7 @@ function loginItem(o3, source2) {
       "</Task>",
       ""
     ].join("\r\n");
-    return { kind: "task", where: `worldinmotion signer ${id}`, text: text3 };
+    return { kind: "task", where: `worldinmotion signer ${id}`, text: text3, log };
   }
   const config2 = o3.env["XDG_CONFIG_HOME"] || path2.join(o3.homedir, ".config");
   const text2 = [
@@ -121236,17 +121239,19 @@ function loginItem(o3, source2) {
     "Type=Application",
     "Name=worldinmotion signer",
     "Comment=Starts the worldinmotion signer, which asks for the passphrase of this device's keys",
-    `Exec=${["env", `WIM_HOME=${o3.root}`, ...command5].map(execArg).join(" ")}`,
+    // sh appends the command's output to the log; the paths reach it as arguments, never as script text.
+    `Exec=${["env", `WIM_HOME=${o3.root}`, "sh", "-c", 'log="$1"; shift; exec "$@" >>"$log" 2>&1', "sh", log, ...command5].map(execArg).join(" ")}`,
     "Terminal=false",
     "NoDisplay=true",
     "X-GNOME-Autostart-enabled=true",
     ""
   ].join("\n");
-  return { kind: "xdg", where: path2.join(config2, "autostart", `worldinmotion-signer-${id}.desktop`), text: text2 };
+  return { kind: "xdg", where: path2.join(config2, "autostart", `worldinmotion-signer-${id}.desktop`), text: text2, log };
 }
 async function enableAutostart(o3, source2) {
   const item = loginItem(o3, source2);
   const here = pathFor(o3.fsEnv.platform);
+  await ensureDir(here.join(o3.root, "agent"));
   if (item.kind !== "task") {
     await ensureDir(here.dirname(item.where));
     await writeAtomic(item.where, item.text, o3.fsEnv);
@@ -121275,7 +121280,7 @@ async function disableAutostart(o3) {
 async function autostartStatus(o3) {
   const item = loginItem(o3, "ask-gui");
   const text2 = item.kind === "task" ? taskText(await o3.programs.run("schtasks", ["/Query", "/TN", item.where, "/XML"])) : await readText(item.where);
-  return text2 === void 0 ? void 0 : { where: item.where, source: text2.includes("--keyring") ? "keyring" : "ask-gui" };
+  return text2 === void 0 ? void 0 : { where: item.where, source: text2.includes("--keyring") ? "keyring" : "ask-gui", log: item.log };
 }
 function taskText(r6) {
   return r6.code === 0 ? r6.stdout : void 0;
@@ -121669,6 +121674,7 @@ async function autostart(ctx) {
     return 3;
   }
   ctx.io.out(`autostart: on (${found.source === "keyring" ? "the passphrase comes from the keyring" : "it asks for the passphrase in a dialog"}): ${found.where}`);
+  ctx.io.out(`log: ${found.log}`);
   return 0;
 }
 async function autostartEnable(ctx, o3) {
@@ -121681,6 +121687,7 @@ async function autostartEnable(ctx, o3) {
   ctx.io.out(
     keyring ? "At each log in it starts the signer with the passphrase from the keyring." : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent. Any passphrase kept in the keyring for it before is removed."
   );
+  ctx.io.out(`What it prints, errors included, is appended to ${item.log}.`);
   ctx.io.out("It does not start a signer now (`wim agent start` does). `wim agent autostart disable` removes it.");
   return 0;
 }
