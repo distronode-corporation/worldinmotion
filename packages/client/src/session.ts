@@ -3,7 +3,7 @@
 
 import { b64u, isName, isUlid, randomBytes, sha256, ulid, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { claimLock, listDir, lockHeld, readJson, releaseLock, removeFile, writeJson, type FsEnv } from "./fsx.ts";
+import { claimLock, listDir, lockHeld, readJson, readText, releaseLock, removeFile, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import type { MeshFiles } from "./mesh.ts";
 
 export type SessionState = {
@@ -108,6 +108,10 @@ export class SessionFiles {
   get liveLock(): string {
     return join(this.dir, "live.lock");
   }
+  /** Written by a session that takes handed-over sends (`wim watch`): the pid of its process. */
+  get handoverPath(): string {
+    return join(this.dir, "handover");
+  }
 
   async load(): Promise<SessionState | undefined> {
     return parseSessionState(await readJson(this.statePath));
@@ -129,6 +133,31 @@ export class SessionFiles {
   isLiveElsewhere(): Promise<boolean> {
     return lockHeld(this.liveLock, this.env);
   }
+
+  /**
+   * Says whether this process's session takes handed-over sends (`wim watch`): the handover file
+   * names this pid, or is removed. Written after the liveness claim, by its holder.
+   */
+  async markHandover(takes: boolean): Promise<void> {
+    if (takes) await writeAtomic(this.handoverPath, String(this.env.pid), this.env);
+    else await removeFile(this.handoverPath);
+  }
+
+  /**
+   * Whether another live process runs this session and takes handed-over sends: it holds the
+   * liveness lock and the handover file names the same pid. Any other holder (a `wim send --wait`,
+   * a `wim inbox`) holds the name without taking sends, and a file left by a watch that died names
+   * a pid that no longer holds the lock.
+   */
+  async takesHandoverElsewhere(): Promise<boolean> {
+    const [live, marker, lock] = await Promise.all([this.isLiveElsewhere(), readText(this.handoverPath), readText(this.liveLock)]);
+    return takesSends(live, marker, lock);
+  }
+}
+
+/** Kept apart from the awaits above (see AgentServer.answerLine): a live holder whose pid the handover file names. */
+export function takesSends(live: boolean, marker: string | undefined, lock: string | undefined): boolean {
+  return live && marker !== undefined && marker.trim() === (lock ?? "").trim();
 }
 
 /** All session ids that have state on disk. */

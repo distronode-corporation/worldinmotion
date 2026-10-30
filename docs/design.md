@@ -57,6 +57,9 @@ $WIM_HOME/
       held/                    messages held for the person's approval (and approve/refuse marks)
       dismiss/                 dismiss marks for relayed items
       files/                   received files (safe names)
+      live.lock                the pid of the process running the session now
+      handover                 the same pid while that process takes handed-over sends (`wim watch`)
+      control/                 sends handed to that watch by one-off `wim send`s, and its answers
     roster.lock                admin signing lock (H1)
 ```
 
@@ -263,7 +266,11 @@ Receipts for what a session sent are recorded there too, as lines of their own (
 id, to, status, at }`, which older readers skip), when they reach the session. The relay forwards a
 receipt only to a sending session that is online and drops it otherwise (SPEC section 7), so a
 command that sends and goes offline (`wim send`) learns nothing unless it waits: `wim send --wait
-30s` stays connected that long and prints each recipient's receipt. `wim history` and the
+30s` stays connected that long and prints each recipient's receipt. While it waits it holds the
+CLI session's name like any running command: only a session whose `handover` file names the
+process holding `live.lock` counts as a `wim watch`, so a second `wim send` meanwhile sends on a
+throwaway session of its own instead of handing over, and `wim watch` and `wim inbox` say the name
+is busy (try again, or `--as` another name). `wim history` and the
 `history` tool show a sent item's receipts with it.
 
 What each status means, as the CLI, the `send` tool and the plugin word it: `routed`, handed to a

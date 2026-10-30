@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { receiptLine, SENT_MEANING } from "../src/cli.ts";
 import { heldReceiptLine, MeshSession } from "../src/client.ts";
 import { History, parseReceipt, receiptNote, renderForAgent, renderForPerson, type HistoryEntry } from "../src/history.ts";
+import { MeshFiles } from "../src/mesh.ts";
+import { SessionFiles, takesSends } from "../src/session.ts";
 import type { SpoolItem } from "../src/spool.ts";
 import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, term, until } from "./helpers.ts";
 
@@ -211,5 +213,60 @@ describe("wim send", () => {
 
   it("prints a receipt status it does not know as it is", () => {
     expect(receiptLine("b@two", "read\u0007", "I")).toBe("b@two: read<U+0007>");
+  });
+});
+
+describe("a name held by wim send --wait", () => {
+  it("is not taken for a watch: a second send goes on its own, watch and inbox say the name is busy", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    // Online, and takes nothing, so the first send waits for its receipt until it is stopped.
+    open.push(await openSession(devices[1]!, mesh, relay, { name: "slow" }));
+    // In "another process" (a live pid that is not this one), as a second terminal would be.
+    const first = term(devices[0]!.root, relay, { pid: LIVE_PID });
+    const waiting = run(first, "send", "slow@two", "first", "--wait", "1h");
+    await until(() => first.out.includes("Waiting up to 1h for receipts (Ctrl-C stops waiting; the message stays sent)..."), undefined, "the first send to wait");
+
+    // A short handover wait: a send wrongly handed to the waiting command would fail fast, not pass.
+    const second = term(devices[0]!.root, relay, { handoverMs: 100 });
+    expect(await run(second, "send", "slow@two", "second")).toBe(0);
+    expect(second.out).toContain(`slow@two: routed (${SENT_MEANING["routed"]})`);
+    expect(said(second)).not.toMatch(/did not take|did not report back/);
+    const busy = "cli is busy with another wim command on this device (a `wim send --wait`, say): try again when it ends, or use --as <name>";
+    const watch = term(devices[0]!.root, relay);
+    expect(await run(watch, "watch")).toBe(1);
+    expect(said(watch)).toBe(`wim: ${busy}`);
+    const inbox = term(devices[0]!.root, relay);
+    expect(await run(inbox, "inbox")).toBe(3);
+    expect(inbox.out).toEqual([`${busy}.`]);
+
+    first.stop.abort();
+    expect(await waiting).toBe(0);
+    expect(first.out.at(-1)).toMatch(/^slow@two: no receipt yet \(still routed/);
+  });
+});
+
+describe("the handover marker", () => {
+  it("names the live holder that takes sends; a marker left by another pid does not count", async () => {
+    const mesh = new MeshFiles(await scratch("handover"), FS);
+    const sid = ulid();
+    // The holder is "another process" (a live pid that is not this one); this process looks.
+    const holder = new SessionFiles(mesh, sid, { ...FS, pid: LIVE_PID });
+    const looker = new SessionFiles(mesh, sid, FS);
+    expect(await looker.takesHandoverElsewhere()).toBe(false);
+    expect(await holder.claim()).toBe(true);
+    expect(await looker.takesHandoverElsewhere()).toBe(false);
+    await holder.markHandover(true);
+    expect(await fs.readFile(holder.handoverPath, "utf8")).toBe(String(LIVE_PID));
+    expect(await looker.takesHandoverElsewhere()).toBe(true);
+    // A watch that died left its file; the name's next holder is another process.
+    await fs.writeFile(holder.handoverPath, "999999999");
+    expect(await looker.takesHandoverElsewhere()).toBe(false);
+    await holder.markHandover(false);
+    await expect(fs.stat(holder.handoverPath)).rejects.toMatchObject({ code: "ENOENT" });
+    await holder.markHandover(false);
+    expect(takesSends(true, "7", undefined)).toBe(false);
+    expect(takesSends(true, "7\n", "7")).toBe(true);
+    expect(takesSends(false, "7", "7")).toBe(false);
   });
 });

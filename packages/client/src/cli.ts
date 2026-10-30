@@ -271,7 +271,7 @@ class Ctx {
     const base = await this.sessionOptions(name, "cli", false, opts.mesh);
     // While another live command holds this name (a `wim watch`), a short command takes a
     // throwaway session instead of a `cli-N` that would linger: it ends for good when done.
-    const ephemeral = opts.keyed !== false && (await liveWatcher(base.mesh, name, this.fsEnv)) !== undefined;
+    const ephemeral = opts.keyed !== false && (await liveHolder(base.mesh, name, this.fsEnv)) !== undefined;
     const keyed = opts.keyed !== false && !ephemeral;
     if (keyed) await adoptByName(base.mesh, name, this.fsEnv, this.io.now);
     let last: string | undefined;
@@ -341,15 +341,27 @@ async function adoptByName(mesh: MeshFiles, name: string, env: FsEnv, now: () =>
   }
 }
 
-/** A `wim watch` running now on this device under `name`, if any. */
-async function liveWatcher(mesh: MeshFiles, name: string, env: FsEnv): Promise<SessionFiles | undefined> {
+/**
+ * A CLI session under `name` that another live process runs now (a `wim watch`, a `wim send
+ * --wait`, any command while it lasts) and, with `watch`, only one that takes handed-over sends:
+ * a `wim watch`.
+ */
+async function liveHolder(mesh: MeshFiles, name: string, env: FsEnv, watch = false): Promise<SessionFiles | undefined> {
   for (const sid of await listSessions(mesh)) {
     const files = new SessionFiles(mesh, sid, env);
     const state = await files.load();
-    if (state?.name === name && state.kind === "cli" && (await files.isLiveElsewhere())) return files;
+    if (state?.name === name && state.kind === "cli" && (await (watch ? files.takesHandoverElsewhere() : files.isLiveElsewhere()))) return files;
   }
   return undefined;
 }
+
+/** A `wim watch` running now on this device under `name`, if any. */
+function liveWatcher(mesh: MeshFiles, name: string, env: FsEnv): Promise<SessionFiles | undefined> {
+  return liveHolder(mesh, name, env, true);
+}
+
+/** Said when another command, not a watch, holds the name. */
+const busyName = (name: string): string => `${name} is busy with another wim command on this device (a \`wim send --wait\`, say): try again when it ends, or use --as <name>`;
 
 /** Edit distance, for suggesting an address that exists. */
 function distance(a: string, b: string): number {
@@ -877,7 +889,7 @@ async function handOver(
       // Withdrawn by removing it; one that cannot be removed is being taken just now.
       if ((await whileBusy(() => readText(requestPath), ctx.fsEnv.platform)) !== undefined && (await tryRemove(requestPath, ctx.fsEnv))) {
         throw new SetupError(
-          "the running `wim watch` did not take the send. Is it still connected? A `wim watch` started before this version of wim does not take sends: restart it.",
+          "the running `wim watch` did not take the send. Is it still connected? Restart it if it is stuck.",
         );
       }
       return undefined;
@@ -892,6 +904,7 @@ async function watch(ctx: Ctx): Promise<number> {
   if ((await liveWatcher(files, name, ctx.fsEnv)) !== undefined) {
     throw new SetupError(`a \`wim watch\` is already reading as ${name} on this device; use --as <name> for another`);
   }
+  if ((await liveHolder(files, name, ctx.fsEnv)) !== undefined) throw new SetupError(busyName(name));
   const s = await ctx.session(name, { card: true, handover: true });
   const show = (item: SpoolItem): void => {
     if (item.kind === "notice") ctx.io.out(sanitizeForDisplay(item.rendered));
@@ -941,6 +954,10 @@ async function inbox(ctx: Ctx): Promise<number> {
   if ((await liveWatcher(files, name, ctx.fsEnv)) !== undefined) {
     ctx.io.out(`A \`wim watch\` is reading as ${name} on this device: its output shows what arrives.`);
     return 0;
+  }
+  if ((await liveHolder(files, name, ctx.fsEnv)) !== undefined) {
+    ctx.io.out(`${busyName(name)}.`);
+    return 3;
   }
   const s = await ctx.session(name);
   try {

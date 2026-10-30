@@ -308,6 +308,9 @@ export class MeshSession extends EventEmitter {
     const files = new SessionFiles(o.mesh, state.sid, o.env);
     // A new session's directory is new, so this claim cannot find another holder.
     await files.claim();
+    // Whether this holder takes handed-over sends, so a one-off command neither hands a send to
+    // a session that does not take them nor mistakes that session for a watch.
+    await files.markHandover(o.handover === true);
     // The plugin's pane writes its marks here, so both exist from the start.
     await ensureDir(files.heldDir);
     await ensureDir(files.dismissDir);

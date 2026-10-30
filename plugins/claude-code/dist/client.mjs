@@ -89603,6 +89603,10 @@ var SessionFiles = class {
   get liveLock() {
     return join6(this.dir, "live.lock");
   }
+  /** Written by a session that takes handed-over sends (`wim watch`): the pid of its process. */
+  get handoverPath() {
+    return join6(this.dir, "handover");
+  }
   async load() {
     return parseSessionState(await readJson(this.statePath));
   }
@@ -89619,7 +89623,28 @@ var SessionFiles = class {
   isLiveElsewhere() {
     return lockHeld(this.liveLock, this.env);
   }
+  /**
+   * Says whether this process's session takes handed-over sends (`wim watch`): the handover file
+   * names this pid, or is removed. Written after the liveness claim, by its holder.
+   */
+  async markHandover(takes) {
+    if (takes) await writeAtomic(this.handoverPath, String(this.env.pid), this.env);
+    else await removeFile(this.handoverPath);
+  }
+  /**
+   * Whether another live process runs this session and takes handed-over sends: it holds the
+   * liveness lock and the handover file names the same pid. Any other holder (a `wim send --wait`,
+   * a `wim inbox`) holds the name without taking sends, and a file left by a watch that died names
+   * a pid that no longer holds the lock.
+   */
+  async takesHandoverElsewhere() {
+    const [live, marker, lock] = await Promise.all([this.isLiveElsewhere(), readText(this.handoverPath), readText(this.liveLock)]);
+    return takesSends(live, marker, lock);
+  }
 };
+function takesSends(live, marker, lock) {
+  return live && marker !== void 0 && marker.trim() === (lock ?? "").trim();
+}
 async function listSessions(mesh) {
   return (await listDir(mesh.sessionsDir)).filter(isUlid).sort();
 }
@@ -90673,6 +90698,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (o3.cwd !== void 0) state2 = { ...state2, cwd: o3.cwd };
     const files = new SessionFiles(o3.mesh, state2.sid, o3.env);
     await files.claim();
+    await files.markHandover(o3.handover === true);
     await ensureDir(files.heldDir);
     await ensureDir(files.dismissDir);
     await files.save(state2);
@@ -121828,7 +121854,7 @@ var Ctx = class {
    */
   async session(name, opts = {}) {
     const base = await this.sessionOptions(name, "cli", false, opts.mesh);
-    const ephemeral2 = opts.keyed !== false && await liveWatcher(base.mesh, name, this.fsEnv) !== void 0;
+    const ephemeral2 = opts.keyed !== false && await liveHolder(base.mesh, name, this.fsEnv) !== void 0;
     const keyed = opts.keyed !== false && !ephemeral2;
     if (keyed) await adoptByName(base.mesh, name, this.fsEnv, this.io.now);
     let last;
@@ -121883,14 +121909,18 @@ async function adoptByName(mesh, name, env3, now) {
     return;
   }
 }
-async function liveWatcher(mesh, name, env3) {
+async function liveHolder(mesh, name, env3, watch2 = false) {
   for (const sid of await listSessions(mesh)) {
     const files = new SessionFiles(mesh, sid, env3);
     const state2 = await files.load();
-    if (state2?.name === name && state2.kind === "cli" && await files.isLiveElsewhere()) return files;
+    if (state2?.name === name && state2.kind === "cli" && await (watch2 ? files.takesHandoverElsewhere() : files.isLiveElsewhere())) return files;
   }
   return void 0;
 }
+function liveWatcher(mesh, name, env3) {
+  return liveHolder(mesh, name, env3, true);
+}
+var busyName = (name) => `${name} is busy with another wim command on this device (a \`wim send --wait\`, say): try again when it ends, or use --as <name>`;
 function distance(a5, b5) {
   let prev = Array.from({ length: b5.length + 1 }, (_, j5) => j5);
   for (let i6 = 1; i6 <= a5.length; i6++) {
@@ -122339,7 +122369,7 @@ async function handOver(ctx, watcher, request2) {
       const requestPath = pathJoin(watcher.controlDir, `send-${id}.json`);
       if (await whileBusy(() => readText(requestPath), ctx.fsEnv.platform) !== void 0 && await tryRemove(requestPath, ctx.fsEnv)) {
         throw new SetupError(
-          "the running `wim watch` did not take the send. Is it still connected? A `wim watch` started before this version of wim does not take sends: restart it."
+          "the running `wim watch` did not take the send. Is it still connected? Restart it if it is stuck."
         );
       }
       return void 0;
@@ -122353,6 +122383,7 @@ async function watch(ctx) {
   if (await liveWatcher(files, name, ctx.fsEnv) !== void 0) {
     throw new SetupError(`a \`wim watch\` is already reading as ${name} on this device; use --as <name> for another`);
   }
+  if (await liveHolder(files, name, ctx.fsEnv) !== void 0) throw new SetupError(busyName(name));
   const s3 = await ctx.session(name, { card: true, handover: true });
   const show = (item) => {
     if (item.kind === "notice") ctx.io.out(sanitizeForDisplay(item.rendered));
@@ -122394,6 +122425,10 @@ async function inbox(ctx) {
   if (await liveWatcher(files, name, ctx.fsEnv) !== void 0) {
     ctx.io.out(`A \`wim watch\` is reading as ${name} on this device: its output shows what arrives.`);
     return 0;
+  }
+  if (await liveHolder(files, name, ctx.fsEnv) !== void 0) {
+    ctx.io.out(`${busyName(name)}.`);
+    return 3;
   }
   const s3 = await ctx.session(name);
   try {
