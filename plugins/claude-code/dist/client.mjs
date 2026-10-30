@@ -88958,16 +88958,29 @@ var History = class {
     );
     return out.reverse();
   }
-  /** The receipts recorded for message `id`, oldest first. */
-  async receipts(id) {
-    const found = [];
-    await this.scan(
-      () => false,
-      (r6) => {
-        if (r6.id === id) found.unshift({ to: r6.to, status: r6.status, at: r6.at });
-      }
-    );
-    return found;
+  /** The current file's size: where a reader that wants only what is written later starts (receiptsFrom). */
+  size() {
+    return fs3.stat(this.path).then((s3) => s3.size, () => 0);
+  }
+  /**
+   * The receipts for message `id` written to the current file from byte `from` on, oldest first.
+   * Only those bytes are read, so a caller polling for a receipt (`wim send --wait`) costs little
+   * however long the history is. A file now shorter than `from` was rotated meanwhile: it is read
+   * from its start, and receipts written to the rotated file in between are not seen. A line still
+   * being written does not parse yet, and is read whole by the next call from the same `from`.
+   */
+  async receiptsFrom(id, from) {
+    const handle = await fs3.open(this.path, "r").catch(() => void 0);
+    if (handle === void 0) return [];
+    try {
+      const { size } = await handle.stat();
+      const start2 = readStart(size, from);
+      const buf2 = Buffer.alloc(size - start2);
+      await handle.read(buf2, 0, buf2.length, start2);
+      return receiptsIn(buf2.toString("utf8"), id);
+    } finally {
+      await handle.close();
+    }
   }
   /** The entry with message id `id`, searching from the newest; undefined when there is none. */
   async find(id) {
@@ -88987,6 +89000,12 @@ var History = class {
     }
   }
 };
+function readStart(size, from) {
+  return size < from ? 0 : from;
+}
+function receiptsIn(text2, id) {
+  return text2.split("\n").map(parseReceipt).filter((r6) => r6?.id === id).map((r6) => ({ to: r6.to, status: r6.status, at: r6.at }));
+}
 function visitLines(lines, visit2, receipt) {
   for (const line of lines) {
     const entry = parseEntry(line);
@@ -122235,7 +122254,7 @@ async function waitForReceipts(ctx, read, wanted, ms) {
   for (; ; ) {
     const got = lastReceipts(await read());
     if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
-    await new Promise((r6) => setTimeout(r6, 25));
+    await new Promise((r6) => setTimeout(r6, 100));
   }
 }
 function waitedEnough(got, wanted, until, signal) {
@@ -122260,14 +122279,15 @@ async function send(ctx) {
     let out;
     let receipts;
     if (watcher !== void 0) {
+      const h6 = new History(watcher.historyPath, ctx.io.now);
+      const from = await h6.size();
       const answered2 = await handOver(ctx, watcher, { to, text: text2 });
       if (answered2 === void 0) {
         ctx.io.out(`The running \`wim watch\` took the send but did not report back in time, so whether it went out is unknown. Check \`wim history --session ${name}\` before sending it again.`);
         return 3;
       }
       out = answered2;
-      const h6 = new History(watcher.historyPath, ctx.io.now);
-      receipts = () => h6.receipts(answered2.id);
+      receipts = () => h6.receiptsFrom(answered2.id, from);
     } else {
       const sent2 = await s3.send(to, text2, allowSecrets ? { allowSecrets: true } : {});
       out = { ...sent2, live: [...s3.peers.values()].filter((p3) => p3.status !== "offline").map((p3) => p3.address) };

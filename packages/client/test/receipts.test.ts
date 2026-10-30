@@ -39,14 +39,33 @@ describe("receipts in history", () => {
     expect(plain.every((e) => e.receipts === undefined)).toBe(true);
     const withReceipts = await h.query({ receipts: true });
     expect(withReceipts.map((e) => e.receipts?.map((r) => r.status))).toEqual([["held", "delivered"], ["delivered", "refused"], undefined, []]);
-    expect(await h.receipts(a.id)).toEqual([
+    expect(await h.receiptsFrom(a.id, 0)).toEqual([
       { to: "b@two", status: "held", at: 10 },
       { to: "b@two", status: "delivered", at: 13 },
     ]);
-    expect(await h.receipts(ulid(99))).toEqual([]);
+    expect(await h.receiptsFrom(ulid(99), 0)).toEqual([]);
     expect(await h.find(b.id)).toEqual(b);
     // The receipt lines never count as entries against a limit.
     expect((await h.query({ limit: 2, receipts: true })).map((e) => e.id)).toEqual([inbound.id, c.id]);
+  });
+
+  it("are read from a point on, which a rotation resets, with a line still being written left for later", async () => {
+    const h = new History(join(await scratch("rcptfrom"), "history.jsonl"), () => 0);
+    expect(await h.size()).toBe(0);
+    expect(await h.receiptsFrom("I", 0)).toEqual([]);
+    await h.appendReceipt("I", { to: "b@two", status: "held", at: 1 });
+    const from = await h.size();
+    expect(from).toBeGreaterThan(0);
+    // Written after `from`, before the entry it is for: still found.
+    await h.appendReceipt("I", { to: "b@two", status: "delivered", at: 2 });
+    await h.append(out(3, { id: "I" }));
+    await fs.appendFile(h.path, '{"t":"receipt","id":"I","to":"c@thr');
+    expect(await h.receiptsFrom("I", from)).toEqual([{ to: "b@two", status: "delivered", at: 2 }]);
+    await fs.appendFile(h.path, 'ee","status":"held","at":4}\n');
+    expect((await h.receiptsFrom("I", from)).map((r) => r.to)).toEqual(["b@two", "c@three"]);
+    // Rotated meanwhile: the new file is shorter than `from`, so it is read whole.
+    await fs.writeFile(h.path, `${JSON.stringify({ t: "receipt", id: "I", to: "d@four", status: "refused", at: 5 })}\n`);
+    expect(await h.receiptsFrom("I", from + 1000)).toEqual([{ to: "d@four", status: "refused", at: 5 }]);
   });
 
   it("parse only well-formed receipt lines", () => {
@@ -77,8 +96,8 @@ describe("a session's receipts", () => {
     const b = await openSession(devices[1]!, mesh, relay, { name: "inbox" });
     open.push(a, b);
     const sent = await a.send("inbox@two", "hello");
-    await until(async () => (await a.history.receipts(sent.id)).length === 1);
-    expect((await a.history.receipts(sent.id))[0]).toMatchObject({ to: "inbox@two", status: "held" });
+    await until(async () => (await a.history.receiptsFrom(sent.id, 0)).length === 1);
+    expect((await a.history.receiptsFrom(sent.id, 0))[0]).toMatchObject({ to: "inbox@two", status: "held" });
     let notices: SpoolItem[] = [];
     await until(async () => (notices = (await a.spool.unread()).filter((i) => i.heldBy !== undefined)).length === 1);
     expect(notices[0]).toMatchObject({ kind: "notice", from: "inbox@two", heldBy: "inbox@two" });

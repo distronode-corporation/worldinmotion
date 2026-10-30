@@ -136,16 +136,30 @@ export class History {
     return out.reverse();
   }
 
-  /** The receipts recorded for message `id`, oldest first. */
-  async receipts(id: string): Promise<Receipt[]> {
-    const found: Receipt[] = [];
-    await this.scan(
-      () => false,
-      (r) => {
-        if (r.id === id) found.unshift({ to: r.to, status: r.status, at: r.at });
-      },
-    );
-    return found;
+  /** The current file's size: where a reader that wants only what is written later starts (receiptsFrom). */
+  size(): Promise<number> {
+    return fs.stat(this.path).then((s) => s.size, () => 0);
+  }
+
+  /**
+   * The receipts for message `id` written to the current file from byte `from` on, oldest first.
+   * Only those bytes are read, so a caller polling for a receipt (`wim send --wait`) costs little
+   * however long the history is. A file now shorter than `from` was rotated meanwhile: it is read
+   * from its start, and receipts written to the rotated file in between are not seen. A line still
+   * being written does not parse yet, and is read whole by the next call from the same `from`.
+   */
+  async receiptsFrom(id: string, from: number): Promise<Receipt[]> {
+    const handle = await fs.open(this.path, "r").catch(() => undefined);
+    if (handle === undefined) return [];
+    try {
+      const { size } = await handle.stat();
+      const start = readStart(size, from);
+      const buf = Buffer.alloc(size - start);
+      await handle.read(buf, 0, buf.length, start);
+      return receiptsIn(buf.toString("utf8"), id);
+    } finally {
+      await handle.close();
+    }
   }
 
   /** The entry with message id `id`, searching from the newest; undefined when there is none. */
@@ -166,6 +180,18 @@ export class History {
       if (visitLines(lines, visit, receipt)) return;
     }
   }
+}
+
+function readStart(size: number, from: number): number {
+  return size < from ? 0 : from;
+}
+
+function receiptsIn(text: string, id: string): Receipt[] {
+  return text
+    .split("\n")
+    .map(parseReceipt)
+    .filter((r) => r?.id === id)
+    .map((r) => ({ to: r!.to, status: r!.status, at: r!.at }));
 }
 
 /** Visits one file's lines, newest first; true once `visit` says to stop. */

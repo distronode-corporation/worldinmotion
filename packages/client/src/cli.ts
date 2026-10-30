@@ -763,7 +763,7 @@ async function waitForReceipts(ctx: Ctx, read: () => Promise<ReadonlyArray<{ to:
   for (;;) {
     const got = lastReceipts(await read());
     if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
-    await new Promise((r) => setTimeout(r, 25));
+    await new Promise((r) => setTimeout(r, 100));
   }
 }
 
@@ -797,6 +797,9 @@ async function send(ctx: Ctx): Promise<number> {
     let receipts: () => Promise<ReadonlyArray<{ to: string; status: string }>>;
     if (watcher !== undefined) {
       // A `wim watch` holds this name: it sends, so replies come back to where the person reads.
+      // Its receipts are recorded in its history: only what is written there after this point is read.
+      const h = new History(watcher.historyPath, ctx.io.now);
+      const from = await h.size();
       const answered = await handOver(ctx, watcher, { to, text });
       if (answered === undefined) {
         // Not a failure: the message may have gone out. Saying so keeps the person from resending it.
@@ -804,9 +807,7 @@ async function send(ctx: Ctx): Promise<number> {
         return 3;
       }
       out = answered;
-      // Receipts come to the watch's session, which records them in its history.
-      const h = new History(watcher.historyPath, ctx.io.now);
-      receipts = () => h.receipts(answered.id);
+      receipts = () => h.receiptsFrom(answered.id, from);
     } else {
       const sent = await s!.send(to, text, allowSecrets ? { allowSecrets: true } : {});
       out = { ...sent, live: [...s!.peers.values()].filter((p) => p.status !== "offline").map((p) => p.address) };
