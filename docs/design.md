@@ -316,7 +316,9 @@ Claude Code plugin shows as a toast instead of a turn.
   when `hello` answers `pending`, the mod keeps the token and reads the `link` file every 250 ms
   (a file read, no MCP), and links when the server writes it. A tab that is not linked, waiting
   or not, tries `hello` again at the person's next prompt (`turn.start`, a dispatch): its server
-  may have restarted, and a new one never writes the file the old one named. An internal op refused for
+  may have restarted, and a new one never writes the file the old one named. Every `hello` carries the last
+  token the server issued the tab, kept even after a wait that ended with `{ problem }`: a server
+  that issued one refuses a `hello` without it. An internal op refused for
   its token (the server restarted, so it has issued none yet) runs `hello` again and the op once
   more.
 - The server writes each inbound item as `spool/<cursor zero-padded to 12 digits>.json`:

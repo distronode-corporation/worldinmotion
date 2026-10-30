@@ -26,6 +26,9 @@ body line with a bracket.
   person to allow it; the plugin never makes one.) An internal call refused for its token (the
   client restarted) runs the handshake again. The tab's status line shows the client's own
   reason, or once linked its address and held count, for example `billing@laptop, 1 held`.
+- A Claude Code tab whose wait for a link ended with a problem that stands lost the token its client
+  had issued, so its next handshake was refused as another caller's and the tab stayed unlinked.
+  The plugin keeps the last token issued.
 - The notice that a session must be restarted to use the signer (its keys were encrypted while it
   ran) reached only the MCP log; it is now a notice for the person, which the plugin shows as a
   toast and on its status line.
