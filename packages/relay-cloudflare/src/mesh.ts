@@ -207,8 +207,13 @@ export class MeshDurableObject extends DurableObject<Env> {
           admitMesh: () => this.admitted,
           rdvPut: (put, answer) => {
             const stub = this.env.RDV.get(this.env.RDV.idFromName(RDV_NAME));
-            // A store that cannot be reached is answered too, so the client falls back at once.
-            this.rdvPending = stub.put(put).then(answer, () => answer("unavailable" satisfies RdvOutcome));
+            // A store that cannot be reached is answered too, so the client falls back at once. An
+            // answer that cannot be sent (the socket closed meanwhile) is dropped, never left as a
+            // rejection for the next event to trip on.
+            this.rdvPending = stub
+              .put(put)
+              .then(answer, () => answer("unavailable" satisfies RdvOutcome))
+              .catch(() => undefined);
           },
         },
       );
