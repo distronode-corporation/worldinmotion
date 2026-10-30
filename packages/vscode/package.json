@@ -153,6 +153,22 @@
         "icon": "$(debug-continue)"
       },
       {
+        "command": "worldinmotion.addDevice",
+        "title": "Add a Device...",
+        "category": "worldinmotion",
+        "icon": "$(add)"
+      },
+      {
+        "command": "worldinmotion.admitDevice",
+        "title": "Admit a Device...",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.joinMesh",
+        "title": "Join a Mesh...",
+        "category": "worldinmotion"
+      },
+      {
         "command": "worldinmotion.refresh",
         "title": "Refresh",
         "category": "worldinmotion",
@@ -201,9 +217,14 @@
       ],
       "view/title": [
         {
+          "command": "worldinmotion.addDevice",
+          "when": "view == worldinmotion.mesh",
+          "group": "navigation@1"
+        },
+        {
           "command": "worldinmotion.refresh",
           "when": "view == worldinmotion.mesh",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [

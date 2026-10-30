@@ -97,6 +97,24 @@ describe("parseLine: events", () => {
     expect(s.leases).toEqual([{ name: "l", holder: "x@a", token: 7, expires_at: 9 }]);
     expect(s.held[0]!.file).toEqual({ name: "f", size: 1, mime: "text/plain" });
     expect(s.breakers).toEqual([{ peer: "x@a", reason: "pingpong", at: 3 }, { peer: "y@a", at: 4 }]);
+    // A client from before devices could be added here sends no joins.
+    expect(s.joins).toEqual([]);
+  });
+
+  it("parses the joins in a snapshot, and the device events: join, setup, joined, join_failed", () => {
+    const request = { name: "newbox", id: "d1", invite: "i1", at: 3, exp: 9 };
+    const base = { type: "snapshot", devices: [], sessions: [], rooms: [], leases: [], held: [], breakers: [] };
+    const snap = ev({ ...base, joins: [{ ...request, sas: "never copied" }] });
+    expect(snap.type === "snapshot" && snap.joins).toEqual([request]);
+    expect(invalid({ ...base, joins: [{ ...request, exp: "soon" }] })).toBe("snapshot: exp is not a number");
+    expect(ev({ type: "join", op: "add", request })).toEqual({ type: "join", at: 5, op: "add", request });
+    expect(invalid({ type: "join", op: "maybe", request })).toBe("join: op is not one of add, remove");
+    expect(invalid({ type: "join", op: "add", request: 1 })).toBe("join: join is not an object");
+    expect(ev({ type: "setup", version: "1", device: null })).toEqual({ type: "setup", at: 5, version: "1" });
+    expect(ev({ type: "setup", version: "1", device: { name: "x", id: "y" } })).toEqual({ type: "setup", at: 5, version: "1", device: { name: "x", id: "y" } });
+    expect(invalid({ type: "setup", version: "1", device: "x" })).toBe("setup: device is not an object");
+    expect(ev({ type: "joined", mesh: "ab…", devices: [{ name: "x", id: "y", role: "admin" }] })).toEqual({ type: "joined", at: 5, mesh: "ab…", devices: [{ name: "x", id: "y" }] });
+    expect(ev({ type: "join_failed", message: "gone" })).toEqual({ type: "join_failed", at: 5, message: "gone" });
   });
 
   it("refuses a snapshot with a bad list or row", () => {

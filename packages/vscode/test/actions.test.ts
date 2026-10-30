@@ -15,6 +15,7 @@ function deps(store: Store = mesh(), answer: (c: Call) => Promise<unknown> = asy
     store,
     nodes: new Nodes(),
     now: () => NOW,
+    invited: new Set(),
     client: {
       request: (op, args = {}, timeoutMs) => {
         const c = { op, args, timeoutMs };

@@ -9,6 +9,8 @@ import { posix } from "node:path";
 type Listener<T> = (e: T) => unknown;
 export type Disposable = { dispose(): unknown };
 
+export type InputBoxOptions = { title?: string; prompt?: string; placeHolder?: string; password?: boolean; ignoreFocusOut?: boolean; validateInput?: (value: string) => string | undefined };
+
 export class EventEmitter<T> {
   private listeners = new Set<Listener<T>>();
   readonly event = (fn: Listener<T>): Disposable => {
@@ -209,6 +211,10 @@ function freshState() {
     quickPickAnswers: [] as QuickPickAnswer[],
     quickPicks: [] as { items: readonly unknown[]; options: unknown }[],
     inputAnswers: [] as (string | undefined)[],
+    /** The options of every input box shown, in order. */
+    inputBoxes: [] as InputBoxOptions[],
+    /** What was last written to the clipboard. */
+    clipboard: undefined as string | undefined,
     shown: [] as TextDocument[],
     activeTextEditor: undefined as TextEditor | undefined,
     workspaceRoot: "/work",
@@ -349,12 +355,22 @@ export const window = {
     const answer = fake.state.quickPickAnswers.shift();
     return Promise.resolve(answer === undefined ? undefined : answer(items, options));
   },
-  showInputBox(_options?: unknown): Promise<string | undefined> {
+  showInputBox(options: InputBoxOptions = {}): Promise<string | undefined> {
+    fake.state.inputBoxes.push(options);
     return Promise.resolve(fake.state.inputAnswers.shift());
   },
   showTextDocument(doc: TextDocument, _options?: unknown): Promise<{ document: TextDocument }> {
     fake.state.shown.push(doc);
     return Promise.resolve({ document: doc });
+  },
+};
+
+export const env = {
+  clipboard: {
+    writeText(text: string): Promise<void> {
+      fake.state.clipboard = text;
+      return Promise.resolve();
+    },
   },
 };
 

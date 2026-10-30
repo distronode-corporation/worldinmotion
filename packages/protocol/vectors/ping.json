@@ -1,0 +1,312 @@
+{
+  "description": "Ping and pong (SPEC section 12), with the roster and prekeys of prekey.json. alice's writer session sends a `ping` to reviewer@bob, sealed to bob's prekey; bob opens it at `now` to `plaintext`, and his client answers itself with a `pong` to writer@alice, sealed to alice's prekey, whose `reply_to` is the ping's id; alice opens it at its `now`. Neither carries text. Each `invalid_plaintexts` entry MUST be refused by the plaintext schema (reason `plaintext_malformed` when it arrives sealed).",
+  "roster": {
+    "mesh": "8yvT1IZgynsBt7R7maZTCw",
+    "seq": 2,
+    "prev": "ssMkmESqOUESIDgbriXNH6PbGkISd-iGLMPq2IZgY_I",
+    "devices": [
+      {
+        "id": "zv5yUNkED9tj8Qn03xCtIg",
+        "name": "alice",
+        "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+        "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+        "role": "admin",
+        "added": 1760000000000
+      },
+      {
+        "id": "MktQIySOj-wiwSsggq4YCL",
+        "name": "bob",
+        "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+        "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+        "role": "member",
+        "added": 1760000000000
+      }
+    ],
+    "revoked": [],
+    "by": "zv5yUNkED9tj8Qn03xCtIg",
+    "at": 1760000000000,
+    "sig": "u5477rfcCTiEBGVjsQID17DcIs8Ej6jID8ggXYVmu_T0EQyfrNG6tRP6yhmnut0EUjCJXgtTKObZRQ1qH2ZoAw"
+  },
+  "ping": {
+    "receiver": {
+      "device": "bob",
+      "address": "reviewer@bob",
+      "sid": "01K700000000000000000005D2"
+    },
+    "now": 1760000000020,
+    "frame": {
+      "t": "send",
+      "mesh": "8yvT1IZgynsBt7R7maZTCw",
+      "id": "01K700000000000000000005P1",
+      "from": {
+        "device": "zv5yUNkED9tj8Qn03xCtIg",
+        "session": "writer",
+        "sid": "01K700000000000000000005D1"
+      },
+      "to": [
+        "reviewer@bob"
+      ],
+      "seq": 2,
+      "at": 1760000000000,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "pk": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "zv5yUNkED9tj8Qn03xCtIg",
+        "id": "QShAMsIibsspvJk-sGiNUO",
+        "pub": "RDWiK6uKquDEN10mqlQGz8MHo34c-ckFSEP9CxG7A2U",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "1nwP3JHjFHuCrvtjCoy1-bzqVL36GRLWVP_nMHzT1T9TuIvVNiF_IFzLnGKNEGYZKRwXVqQM18qo0hm-bX7gCA"
+      },
+      "boxes": {
+        "MktQIySOj-wiwSsggq4YCL": {
+          "s": 2,
+          "p": "CH0jPGmpY8ZrU6R5Donoxb",
+          "e": "gsW2gIFBd-u7ela5TCntvwvWlq2Z35GFqUnWlxGBlmA",
+          "c": "ySBUXOKL0TG8kkJoy53dnrgVqEw81C1rjmzaQIBhnratTjxEHnh93BwU5sJ1kXPTq7orcTfE0b6HDXBqGiGQElEl8d52cHlqDOoQZKtY4On_rmHyMaAnvQVrFVV-XD92YyQIeFPM47kzaxG6qiUM8S7a2eLTIjJGVly4f8yAaQRjqbZU3jLEQDl1MDcEVq06kKJycaqPN_qU_zVF8VouugH4sMhhritvKYW0EJzEdywNohTSewaLK-f8WiIY3CWadk3f9JteGc1D5d6AF69CE8Q2r-cCZxxi8o0-P3HKxwzXmNj1GMpkZFrdhHBb3eLX318JekrVprJi4DifR_ibM5XN2uJ5PNcetnC7E1MvZvI3usR_26MJ0Ns"
+        }
+      },
+      "sig": "S_ecravojMH3TiUKQVc3Kt8Z-MNKAw3CzZmYn0jIZvR6ENH42mK0j-g1_XevMKvcQrahVIGfMWdlqVOQScqjDw"
+    },
+    "plaintext": {
+      "v": 1,
+      "id": "01K700000000000000000005P1",
+      "from": {
+        "device": "zv5yUNkED9tj8Qn03xCtIg",
+        "session": "writer",
+        "sid": "01K700000000000000000005D1"
+      },
+      "to": [
+        "reviewer@bob"
+      ],
+      "at": 1760000000000,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "kind": "ping"
+    }
+  },
+  "pong": {
+    "receiver": {
+      "device": "alice",
+      "address": "writer@alice",
+      "sid": "01K700000000000000000005D1"
+    },
+    "now": 1760000000060,
+    "frame": {
+      "t": "send",
+      "mesh": "8yvT1IZgynsBt7R7maZTCw",
+      "id": "01K700000000000000000005P2",
+      "from": {
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "session": "reviewer",
+        "sid": "01K700000000000000000005D2"
+      },
+      "to": [
+        "writer@alice"
+      ],
+      "seq": 1,
+      "at": 1760000000040,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "pk": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "CH0jPGmpY8ZrU6R5Donoxb",
+        "pub": "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "yIg0dgw-Q2XX7bYpWWsCiBCiyakTfnVIVkHW94Tu98VwnPXOa9hsQ92D_gnr-_bFgebMgm9BDpbFLlcI53rMBw"
+      },
+      "boxes": {
+        "zv5yUNkED9tj8Qn03xCtIg": {
+          "s": 2,
+          "p": "QShAMsIibsspvJk-sGiNUO",
+          "e": "vPDXVnSYDQpQqJJ56I_rjK50_3wknOC3RwoUJ9pEymU",
+          "c": "xDefOxBHYfTY8pmofjBLJt9TBhk3rxNLKNNUO4mUmZDzusrAqOSBPCYt3KT-JtBVo6dL0kg_TYUnZMjCUnFkhcEEtLWA-FiVPMk_W66Hy5s-5Ver63sHeCuQx9rdkdiGhjUmthKCHSAZbvPVuwIR8vkz-m41hJN3U5ITrf4Ij-7AETsMXy191ZtjuL5M5tc8BDBuTV1QubblBbO3aF-Vsel2U0HU_rnYD2LamqE7JqIIPdLzU7x-IM5YvrXibIYC-DMmNlOtx_syOJ70hv9TZIVy3JR-9EPUWS5CUQuYqXP6lm0txMD4BNt8heLncwU2-KaJ0XVDJ9AC-S79WQmLFKfZMWrPRtNeg5Xh-a4uFwlzfEPzr1CW4KxXGkAecvNl9M-H5E8BNHDeuWOY9j3-Qgrvykw-KWoburP8pc2Svs7L6FQ"
+        }
+      },
+      "sig": "7nkzMLC9bt0NM_MTTNxgUql43JdizOdp-IHAC5KeTE0TRHSSXjkfp9kFoyRO2E2lw-sWNUwp1jjeqlm5F0E8CQ"
+    },
+    "plaintext": {
+      "v": 1,
+      "id": "01K700000000000000000005P2",
+      "from": {
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "session": "reviewer",
+        "sid": "01K700000000000000000005D2"
+      },
+      "to": [
+        "writer@alice"
+      ],
+      "at": 1760000000040,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "kind": "pong",
+      "reply_to": "01K700000000000000000005P1"
+    }
+  },
+  "invalid_plaintexts": [
+    {
+      "why": "a ping with text",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000005P1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "ping",
+        "text": "hello"
+      }
+    },
+    {
+      "why": "a ping to *",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000005P1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "*"
+        ],
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "ping"
+      }
+    },
+    {
+      "why": "a ping to a room",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000005P1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "#ops"
+        ],
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "ping"
+      }
+    },
+    {
+      "why": "a ping marked relayed",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000005P1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "ping",
+        "relayed": true
+      }
+    },
+    {
+      "why": "a pong without reply_to",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000005P1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pong"
+      }
+    },
+    {
+      "why": "a pong to two sessions",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000005P1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob",
+          "other@bob"
+        ],
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pong",
+        "reply_to": "01K700000000000000000005P1"
+      }
+    },
+    {
+      "why": "a pong marked derived",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000005P1",
+        "from": {
+          "device": "zv5yUNkED9tj8Qn03xCtIg",
+          "session": "writer",
+          "sid": "01K700000000000000000005D1"
+        },
+        "to": [
+          "reviewer@bob"
+        ],
+        "at": 1760000000000,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pong",
+        "reply_to": "01K700000000000000000005P1",
+        "derived": true
+      }
+    }
+  ]
+}

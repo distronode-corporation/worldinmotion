@@ -13,6 +13,36 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **`wim ping <address,...>` and `wim ping --all`**: a new message kind that the receiving client
+  answers itself with a `pong` (SPEC section 12), never an agent: nothing is spooled, kept in
+  history or receipted, and no turn starts. One pong proves both directions between two devices,
+  encryption included; the command prints a row per session and a verdict per device. Pongs are
+  rate limited per sender device, a ping older than a minute is not answered, and a device the
+  person refuses gets no answer. Older clients drop the new kind and show as "no pong". New test
+  vectors: `ping.json`.
+- **Adding a device later**: every session of an admin device keeps a join request that passes
+  the checks (never its comparison code), so `wim devices pending` lists waiting devices and
+  `wim devices admit <name> <code>` admits one after `wim invite` has stopped.
+- **`wim devices trust --all`** (and `untrust --all`), and after an admit or a join the question
+  "Is X your own device? Trust its messages here?" at an interactive terminal.
+- **VS Code: Add a Device..., Admit a Device... and Join a Mesh...**, through new `wim events`
+  requests (`invite`, `admit`, and `join` in a new setup mode for a device in no mesh yet) and a
+  `join` event (docs/events.md). The invite code is copied with a button and taken in a password
+  field, never shown.
+
+### Changed
+
+- **No more y/N when adding a device.** `wim invite` asks the person to type the comparison code
+  the new device shows, compared without case or dashes, and no longer shows its own copy
+  (SECURITY-MODEL section 5.6). The confirmation is taken only from an interactive terminal
+  (standard input and output) with no agent's variables set; without `--auto`, `wim invite`
+  refuses to start anywhere else, before any code exists. It also prints "On the new device, in a
+  terminal: `wim join <code>`". `wim join` says "comparison code" and how to admit it.
+- SPEC section 5 records a design for short invite codes that are no weaker than today's, as
+  proposed and not implemented.
+
 ## [0.1.4] - 2026-10-29
 
 ### Added

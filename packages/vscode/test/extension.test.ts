@@ -3,7 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { activate, deactivate, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
+import { activate, deactivate, JOIN_HINT, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
 import { ExtensionMode, fake, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
 
 const PKG = fileURLToPath(new URL("..", import.meta.url));
@@ -180,6 +180,42 @@ describe("activate", () => {
     expect(SETUP_HINT).toContain("SHA-256");
     expect(SETUP_HINT).toContain("install -m 755 wim.mjs ~/.local/bin/wim");
     expect(SETUP_HINT).toContain("node wim.mjs");
+  });
+
+  it("joins a mesh in setup mode, asks about trust once in it, and adds a device by its code", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    const { api } = start();
+    const meshView = fake.state.treeViews.get("worldinmotion.mesh")!;
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    await waitFor(() => expect(meshView.message).toBe(JOIN_HINT));
+    // The comparison code's dialog has no buttons; the trust question that follows does.
+    fake.state.inputAnswers.push("wim1_fake");
+    fake.state.messageAnswers.push("Trust");
+    await fake.run("worldinmotion.joinMesh");
+    await waitFor(() => expect(fake.state.messages.some((m) => m.message === "worldinmotion: this device's comparison code is ABCDE-FGHJK")).toBe(true));
+    // Joined: the client starts again in the mesh, and its first snapshot brings the question.
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    await waitFor(() => expect(requests().find((r) => r.op === "trust")?.args).toEqual({ device: "buildbox", relayed: false }));
+    expect(fake.state.messages.filter((m) => m.message === 'Is "buildbox" your own device?').length).toBe(1);
+    // Add a Device...: the invite is copied, and the request on it asks for its code at once.
+    fake.state.messageAnswers.push("Copy Invite Code");
+    fake.state.inputAnswers.push("abcde-fghjk");
+    await fake.run("worldinmotion.addDevice");
+    await waitFor(() => expect(api!.store.devices.has("newbox")).toBe(true));
+    expect(fake.state.clipboard).toMatch(/^wim1_fakeinv-/);
+    expect(requests().find((r) => r.op === "admit")!.args).toEqual({ device: "newbox", code: "abcde-fghjk" });
+    await waitFor(() => expect(api!.store.joins.size).toBe(0));
+    await fake.run("worldinmotion.admitDevice");
+    expect(fake.state.messages.at(-1)!.message).toBe("worldinmotion: no device is waiting to join.");
+  });
+
+  it("says when joining a mesh fails after the code was shown", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup-fail");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.inputAnswers.push("wim1_fake");
+    await fake.run("worldinmotion.joinMesh");
+    await waitFor(() => expect(fake.state.messages.at(-1)!.message).toBe("worldinmotion: joining the mesh failed: the relay went away"));
   });
 
   it("logs and ignores a line of a newer contract version, and keeps going", async () => {

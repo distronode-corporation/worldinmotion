@@ -6,9 +6,12 @@
 //   WIM_FAKE_LOG       a file to append each request line to, so a test can see what arrived
 //   WIM_FAKE_SCENARIO  "default"; "bad-version" (also writes a v 2 line); "exit-after-hello"
 //                      (exits with code 3 after hello); "not-set-up" (exits with code 2 and the
-//                      real client's line for a device that is not set up)
+//                      real client's line for a device that is not set up); "setup" (setup mode:
+//                      a device in no mesh yet, whose `join` succeeds and ends the process, after
+//                      which it starts in the mesh); "setup-fail" (setup mode, whose join fails
+//                      after its code was shown)
 
-import { appendFileSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 
@@ -50,6 +53,9 @@ const held = new Map(
     },
   ].map((h) => [h.id, h]),
 );
+// Devices waiting to join, by invite/id; the comparison code the fake admits is FAKE_CODE.
+const joins = new Map();
+const FAKE_CODE = "ABCDE-FGHJK";
 const heldText = new Map([["01JFAKEHELD000000000000001", "Could you look at the failing test in auth.ts? It fails on main since this morning."]]);
 const history = [
   { id: "01JFAKEMSG0000000000000001", dir: "in", session: "reviewer@laptop", peer: "coder@buildbox", device: "dev-buildbox", kind: "task", text: "Review the auth change, please.", at: start - 50_000 },
@@ -71,6 +77,7 @@ const snapshot = () =>
     leases: [{ name: "deploy", holder: "coder@buildbox", token: 1, expires_at: Date.now() + 5 * 60_000 }],
     held: [...held.values()],
     breakers: [],
+    joins: [...joins.values()],
   });
 
 const record = (message) => {
@@ -148,6 +155,28 @@ function handle(line) {
     case "resume":
       emit("breaker", { peer: args.peer, state: "resumed" });
       return respond(id, { released: 0 });
+    case "invite": {
+      const invite = `inv-${nextMessage++}`;
+      respond(id, { code: `wim1_fake${invite}`, invite, exp: Date.now() + 3_600_000 });
+      // The new device asks to join soon after.
+      setTimeout(() => {
+        const request = { name: "newbox", id: "dev-newbox", invite, at: Date.now(), exp: Date.now() + 3_600_000 };
+        joins.set(`${invite}/dev-newbox`, request);
+        emit("join", { op: "add", request });
+      }, 30);
+      return;
+    }
+    case "admit": {
+      const request = [...joins.values()].find((j) => j.name === args.device);
+      if (request === undefined) return fail(id, "not_found", `no device named ${args.device} is waiting to join`);
+      if (String(args.code).toUpperCase() !== FAKE_CODE) return fail(id, "mismatch", "that is not the comparison code of this request");
+      joins.delete(`${request.invite}/${request.id}`);
+      emit("join", { op: "remove", request });
+      const d = { name: request.name, id: request.id, role: "member", policy: "hold", self: false };
+      devices.set(d.name, d);
+      emit("device", d);
+      return respond(id, { device: request.name });
+    }
     default:
       return fail(id, "input", `unknown op ${op}`);
   }
@@ -158,18 +187,48 @@ if (scenario === "not-set-up") {
   process.stderr.write("wim: this device is not set up: run `wim init` first\n");
   process.exit(2);
 }
-emit("hello", { version: "0.0.0-fake", device: { name: "laptop", id: "dev-laptop" }, session: self, relay: "relay.invalid", mesh: "f4ke…" });
-if (scenario === "exit-after-hello") process.exit(3);
-emit("connection", { state: "connecting" });
-emit("connection", { state: "open" });
-snapshot();
-// A newer client may add event types and fields; a UI ignores both.
-emit("weather", { sky: "clear" });
-emit("peer", { ...sessions[2], mood: "fine" });
-if (scenario === "bad-version") process.stdout.write(`${JSON.stringify({ v: 2, type: "hello", at: Date.now() })}\n`);
 
-const rl = createInterface({ input: process.stdin });
-rl.on("line", (line) => {
-  if (line.trim() !== "") handle(line);
-});
-rl.on("close", () => process.exit(0));
+const joinedMarker = log === undefined ? undefined : `${log}.joined`;
+if ((scenario === "setup" || scenario === "setup-fail") && (joinedMarker === undefined || !existsSync(joinedMarker))) {
+  setupMode();
+} else {
+  inMesh();
+}
+
+/** Setup mode (docs/events.md): a device in no mesh yet; only `join`. */
+function setupMode() {
+  emit("setup", { version: "0.0.0-fake", device: null });
+  const rl = createInterface({ input: process.stdin });
+  rl.on("line", (line) => {
+    if (line.trim() === "") return;
+    if (log !== undefined) appendFileSync(log, `${line}\n`);
+    const { id, op } = JSON.parse(line);
+    if (op !== "join") return fail(id, "setup", "this device is in no mesh yet: join one first");
+    respond(id, { device: { name: "fresh", id: "dev-fresh" }, code: FAKE_CODE });
+    setTimeout(() => {
+      if (scenario === "setup-fail") return emit("join_failed", { message: "the relay went away" });
+      if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
+      emit("joined", { mesh: "f4ke…", devices: [{ name: "buildbox", id: "dev-buildbox" }] });
+      process.exit(0);
+    }, 30);
+  });
+  rl.on("close", () => process.exit(0));
+}
+
+function inMesh() {
+  emit("hello", { version: "0.0.0-fake", device: { name: "laptop", id: "dev-laptop" }, session: self, relay: "relay.invalid", mesh: "f4ke…" });
+  if (scenario === "exit-after-hello") process.exit(3);
+  emit("connection", { state: "connecting" });
+  emit("connection", { state: "open" });
+  snapshot();
+  // A newer client may add event types and fields; a UI ignores both.
+  emit("weather", { sky: "clear" });
+  emit("peer", { ...sessions[2], mood: "fine" });
+  if (scenario === "bad-version") process.stdout.write(`${JSON.stringify({ v: 2, type: "hello", at: Date.now() })}\n`);
+
+  const rl = createInterface({ input: process.stdin });
+  rl.on("line", (line) => {
+    if (line.trim() !== "") handle(line);
+  });
+  rl.on("close", () => process.exit(0));
+}

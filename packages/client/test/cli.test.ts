@@ -4,7 +4,7 @@ import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { main, parseArgs, parseDuration, toName, USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
-import { makeMesh, POSIX_VIEW, RELAY, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
+import { inviteCodeOf, makeMesh, POSIX_VIEW, RELAY, RelayHarness, run, said, sasOf, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -37,7 +37,7 @@ describe("argument parsing", () => {
 });
 
 describe("setting up", () => {
-  it("init, mesh create with a recovery code on a terminal, invite with SAS confirmation, join", async () => {
+  it("init, mesh create with a recovery code on a terminal, invite with the typed comparison code, join", async () => {
     const relay = new RelayHarness();
     const a = term(await scratch("cli-a"), relay);
     expect(await run(a, "init", "--name", "laptop", "--relay", RELAY)).toBe(0);
@@ -48,16 +48,26 @@ describe("setting up", () => {
     expect(said(a)).toMatch(/already exists/);
 
     const b = term(await scratch("cli-b"), relay);
-    a.answers.push("y");
+    // A wrong code is asked again; the code typed in lower case without its dash is accepted. The
+    // admin never shows the code itself: the person reads it on the new device.
+    a.answers.push("AAAAA-AAAAA", () => sasOf(b).toLowerCase().replace("-", ""), "n");
     const inviting = run(a, "invite", "--exp", "1h");
     await until(() => a.out.some((l) => l.includes("wim1_")));
-    const code = a.out.find((l) => l.includes("wim1_"))!.trim();
-    expect(await run(b, "join", code)).toBe(0);
+    expect(said(a)).toContain("On the new device, in a terminal: `wim join <code>`");
+    expect(await run(b, "join", inviteCodeOf(a))).toBe(0);
     expect(await inviting).toBe(0);
-    const sas = /Its code is (\S+)\./.exec(said(b))![1]!;
-    expect(said(a)).toContain(`code ${sas}`);
+    const sas = sasOf(b);
+    expect(said(a)).not.toContain(sas);
+    expect(said(a)).toMatch(/A device named my-host-local \(id \S+\) asks to join/);
+    expect(said(a)).toMatch(/that is not this request's code/);
     expect(said(a)).toMatch(/Admitted my-host-local/);
+    expect(said(a)).toContain("Is my-host-local your own device? Trust its messages here? [y/N] ");
+    expect(said(a)).toContain("Messages from my-host-local are held for your approval. If it is your own: wim devices trust my-host-local");
     expect(said(b)).toMatch(/Joined mesh/);
+    expect(said(b)).toContain(`wim devices admit my-host-local ${sas}`);
+    // The joiner was asked about the admin and said nothing: held.
+    expect(said(b)).toContain("Is laptop your own device?");
+    expect(said(b)).toContain("Messages from laptop are held for your approval.");
 
     // devices: list, trust, trust --relayed, untrust, errors
     expect(await run(a, "devices")).toBe(0);
@@ -98,7 +108,7 @@ describe("setting up", () => {
     await until(() => a.out.some((l) => l.includes("wim1_")));
     a.stop.abort();
     expect(await inviting).toBe(1);
-    expect(said(a)).toMatch(/not used/);
+    expect(said(a)).toMatch(/stopped waiting\. The invite stays valid until .*`wim devices pending`/);
     expect(await run(a, "join")).toBe(1);
     expect(await run(a, "mesh", "list")).toBe(1);
     expect(await run(a, "mesh", "create")).toBe(1);

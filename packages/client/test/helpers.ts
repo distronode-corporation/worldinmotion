@@ -260,19 +260,23 @@ export async function makeMesh(relay: RelayHarness, names: string[], opts: { tru
   return { mesh: made.mesh, devices, recoveryCode: made.recoveryCode };
 }
 
-export type Term = { io: CliIO; out: string[]; err: string[]; answers: string[]; stop: AbortController; env: Record<string, string | undefined> };
+/** An answer to a prompt: a line, or one read when the question comes (a code another terminal printed). */
+export type Answer = string | (() => string);
+
+export type Term = { io: CliIO; out: string[]; err: string[]; answers: Answer[]; stop: AbortController; env: Record<string, string | undefined> };
 
 export function term(home: string, relay: RelayHarness, extra: Partial<CliIO> = {}, env: Record<string, string | undefined> = {}): Term {
   const out: string[] = [];
   const err: string[] = [];
-  const answers: string[] = [];
+  const answers: Answer[] = [];
   const stop = new AbortController();
   const io: CliIO = {
     out: (l) => void out.push(l),
     err: (l) => void err.push(l),
     prompt: async (q) => {
       out.push(q);
-      return answers.shift() ?? "";
+      const a = answers.shift() ?? "";
+      return typeof a === "string" ? a : a();
     },
     signal: stop.signal,
     cwd: home,
@@ -284,6 +288,7 @@ export function term(home: string, relay: RelayHarness, extra: Partial<CliIO> = 
     now: Date.now,
     dialer: relay.dialer,
     isTTY: true,
+    inputIsTTY: true,
     stdin: new PassThrough(),
     stdout: new PassThrough(),
     fetch: (async () => {
@@ -296,6 +301,16 @@ export function term(home: string, relay: RelayHarness, extra: Partial<CliIO> = 
 }
 
 export const run = (t: Term, ...argv: string[]): Promise<number> => main(argv, t.env, t.io);
+
+/** The comparison code a `wim join` in `t` printed (SPEC section 5). */
+export function sasOf(t: Term): string {
+  return /Its comparison code is (\S+)\./.exec(said(t))![1]!;
+}
+
+/** The invite code a `wim invite` in `t` printed. */
+export function inviteCodeOf(t: Term): string {
+  return /wim1_\S+/.exec(said(t))![0];
+}
 export const said = (t: Term): string => [...t.out, ...t.err].join("\n");
 
 

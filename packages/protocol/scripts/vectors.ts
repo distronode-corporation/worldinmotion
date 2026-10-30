@@ -42,6 +42,7 @@ import {
   createPrekey,
   prekeyId,
   verifyPrekey,
+  plaintextSchema,
   type DeviceKeys,
   type Prekey,
   type Roster,
@@ -488,6 +489,68 @@ function prekeyVectors() {
   };
 }
 
+function pingVectors() {
+  const pks = vectorPrekeys();
+  const genesis = createGenesisRoster({ name: "alice", keys: alice, now: T, meshId: MESH });
+  const roster = nextRoster(genesis, { add: [makeDeviceRecord("bob", bob, "member", T)] }, { keys: alice }, T);
+  const writer = { session: "writer", sid: "01K700000000000000000005D1" };
+  const reviewer = { session: "reviewer", sid: "01K700000000000000000005D2" };
+  return withRandomSource(stream("wim vectors ping"), () => {
+    // alice's writer pings reviewer@bob; bob's client answers with a pong, sealed back to alice.
+    const ping = sealMessage({
+      roster,
+      sender: { deviceId: id(alice), keys: alice },
+      ...writer,
+      to: ["reviewer@bob"],
+      seq: 2,
+      at: T,
+      id: "01K700000000000000000005P1",
+      kind: "ping",
+      recipients: [id(bob)],
+      prekeys: { [id(bob)]: pks.bob.prekey },
+      prekey: pks.alice.prekey,
+    });
+    const pong = sealMessage({
+      roster,
+      sender: { deviceId: id(bob), keys: bob },
+      ...reviewer,
+      to: ["writer@alice"],
+      seq: 1,
+      at: T + 40,
+      id: "01K700000000000000000005P2",
+      kind: "pong",
+      reply_to: ping.id,
+      recipients: [id(alice)],
+      prekeys: { [id(alice)]: pks.alice.prekey },
+      prekey: pks.bob.prekey,
+    });
+    const atBob = { deviceId: id(bob), keys: bob, address: "reviewer@bob", sid: reviewer.sid, prekey: (p: string) => (p === pks.bob.prekey.id ? pks.bob.secret : undefined) };
+    const atAlice = { deviceId: id(alice), keys: alice, address: "writer@alice", sid: writer.sid, prekey: (p: string) => (p === pks.alice.prekey.id ? pks.alice.secret : undefined) };
+    const pingOpened = openMessage(ping, { roster, me: atBob, now: T + 20 });
+    const pongOpened = openMessage(pong, { roster, me: atAlice, now: T + 60 });
+    check(pingOpened.ok && pongOpened.ok, "ping and pong open");
+    const base = { v: 1, id: ping.id, from: { device: id(alice), ...writer }, to: ["reviewer@bob"], at: T, roster: { seq: 2, hash: hash(roster) } };
+    const invalid = [
+      { why: "a ping with text", plaintext: { ...base, kind: "ping", text: "hello" } },
+      { why: "a ping to *", plaintext: { ...base, kind: "ping", to: ["*"] } },
+      { why: "a ping to a room", plaintext: { ...base, kind: "ping", to: ["#ops"] } },
+      { why: "a ping marked relayed", plaintext: { ...base, kind: "ping", relayed: true } },
+      { why: "a pong without reply_to", plaintext: { ...base, kind: "pong" } },
+      { why: "a pong to two sessions", plaintext: { ...base, kind: "pong", reply_to: ping.id, to: ["reviewer@bob", "other@bob"] } },
+      { why: "a pong marked derived", plaintext: { ...base, kind: "pong", reply_to: ping.id, derived: true } },
+    ];
+    for (const v of invalid) check(!plaintextSchema.safeParse(v.plaintext).success, `ping invalid ${v.why}`);
+    return {
+      description:
+        "Ping and pong (SPEC section 12), with the roster and prekeys of prekey.json. alice's writer session sends a `ping` to reviewer@bob, sealed to bob's prekey; bob opens it at `now` to `plaintext`, and his client answers itself with a `pong` to writer@alice, sealed to alice's prekey, whose `reply_to` is the ping's id; alice opens it at its `now`. Neither carries text. Each `invalid_plaintexts` entry MUST be refused by the plaintext schema (reason `plaintext_malformed` when it arrives sealed).",
+      roster,
+      ping: { receiver: { device: "bob", address: atBob.address, sid: atBob.sid }, now: T + 20, frame: ping, plaintext: (pingOpened as { value: unknown }).value },
+      pong: { receiver: { device: "alice", address: atAlice.address, sid: atAlice.sid }, now: T + 60, frame: pong, plaintext: (pongOpened as { value: unknown }).value },
+      invalid_plaintexts: invalid,
+    };
+  });
+}
+
 function blobVectors() {
   return withRandomSource(stream("wim vectors blob"), () => {
     const size = 256 * 1024 + 5;
@@ -534,6 +597,7 @@ export function buildVectors(): Record<string, string> {
     "invite.json": json(inviteVectors()),
     "message.json": json(messageVectors()),
     "prekey.json": json(prekeyVectors()),
+    "ping.json": json(pingVectors()),
     "blob.json": json(blobVectors()),
   };
 }
