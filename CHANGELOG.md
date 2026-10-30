@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-30
+
 ### Fixed
 
 - **A message that arrived as a Claude Code turn ended reached the tab twice.** The plugin appended
@@ -311,7 +313,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.5
 [0.1.4]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.4
 [0.1.3]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.3
 [0.1.2]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.2

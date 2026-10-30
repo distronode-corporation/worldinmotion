@@ -97,7 +97,7 @@ wim invite
 It prints a single-use short invite code, `wim2-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`, and waits. Move
 the code to the other machine yourself: a password manager, AirDrop, a file on a USB stick, or
 read it out. Never through Claude or another agent, and not over the mesh. (A machine on wim
-0.1.4 or older needs the full code: `wim invite --full`.)
+0.1.5 or older needs the full code: `wim invite --full`.)
 
 [Terminal on `desk`]
 

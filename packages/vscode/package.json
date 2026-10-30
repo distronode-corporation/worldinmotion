@@ -2,7 +2,7 @@
   "name": "worldinmotion",
   "displayName": "worldinmotion",
   "description": "See and act on your worldinmotion mesh from VS Code: devices, sessions, rooms, leases, held messages and live activity",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "distronode",
   "icon": "media/marketplace-icon.png",
   "preview": true,
@@ -50,7 +50,7 @@
   ],
   "scripts": {
     "bundle": "node scripts/bundle.mjs",
-    "package": "node scripts/bundle.mjs && vsce package --no-dependencies --pre-release --out worldinmotion-0.1.4.vsix",
+    "package": "node scripts/bundle.mjs && vsce package --no-dependencies --pre-release --out worldinmotion-0.1.5.vsix",
     "smoke": "node scripts/bundle.mjs && node test-electron/run.mjs"
   },
   "contributes": {
@@ -368,7 +368,7 @@
     "@types/vscode": "1.140.0",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "4.0.0",
-    "@worldinmotion/protocol": "0.1.4",
+    "@worldinmotion/protocol": "0.1.5",
     "esbuild": "0.28.2"
   }
 }
