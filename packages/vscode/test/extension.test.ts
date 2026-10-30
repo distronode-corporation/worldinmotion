@@ -60,6 +60,31 @@ describe("the client's working directory", () => {
   });
 });
 
+describe("startup", () => {
+  it("activates once VS Code has started, and its session goes online at once, before any view is shown", async () => {
+    // Activated with the window, never only by opening a view: the session must answer pings
+    // and take messages while the panel is closed.
+    const manifest = JSON.parse(readFileSync(join(PKG, "package.json"), "utf8")) as { activationEvents: string[] };
+    expect(manifest.activationEvents).toEqual(["onStartupFinished"]);
+    const { api } = start();
+    expect(fake.state.output[0]).toMatch(/events --json --as vscode$/);
+    await waitFor(() => expect(api!.store.connection.state).toBe("open"));
+    await waitFor(() => expect(api!.store.sessions.get("vscode@laptop")!.status).toBe("idle"));
+    // No view was drawn, and nothing was said to the person.
+    expect(fake.state.shown).toHaveLength(0);
+    expect(fake.state.messages).toHaveLength(0);
+  });
+
+  it("stays quiet on a device in no mesh: one process waiting to join, no notification", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    await waitFor(() => expect(fake.state.treeViews.get("worldinmotion.mesh")!.message).toBe(JOIN_HINT));
+    expect(fake.state.output.filter((l) => l.startsWith("starting ")).length).toBe(1);
+    expect(fake.state.messages).toHaveLength(0);
+  });
+});
+
 describe("settings", () => {
   it("has defaults", () => {
     fake.reset();

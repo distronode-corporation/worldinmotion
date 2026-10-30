@@ -40,6 +40,11 @@ export const VERSION = "0.1.4";
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {
   out: (line: string) => void;
+  /**
+   * Writes one line to stdout and resolves once stdout took it: false when it could not (the
+   * reader went away, as `| head` does, or stdout is closed). `out` where this is not given.
+   */
+  print?: (line: string) => Promise<boolean>;
   err: (line: string) => void;
   /** Asks the person a question and returns the answer line. */
   prompt: (question: string) => Promise<string>;
@@ -84,7 +89,7 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek"]);
 const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 
 /** Flags every command takes. */
@@ -101,7 +106,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   send: ["allow-secret", "as", "wait"],
   ping: ["all", "timeout"],
   watch: ["as"],
-  inbox: ["as"],
+  inbox: ["peek", "as"],
   events: ["json", "as"],
   history: ["session", "peer", "limit"],
   bot: ["as"],
@@ -190,7 +195,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name>]
-  wim inbox [--as <name>]
+  wim inbox [--peek] [--as <name>]
   wim events --json [--as <name>]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
@@ -1139,7 +1144,11 @@ async function events(ctx: Ctx): Promise<number> {
   }
 }
 
-/** `wim inbox`: what arrived for this CLI session while nothing was watching, then marked read. */
+/**
+ * `wim inbox`: what arrived for this CLI session while nothing was watching. Each item is marked
+ * read once stdout took it, so what a closed pipe (`wim inbox | head`) cut off stays unread;
+ * `--peek` prints and marks nothing.
+ */
 async function inbox(ctx: Ctx): Promise<number> {
   const name = nameFor(ctx, "cli");
   const { files } = await ctx.mesh();
@@ -1156,13 +1165,39 @@ async function inbox(ctx: Ctx): Promise<number> {
     // A round trip makes the relay hand over its queue first; then let it be processed.
     await s.listPeers();
     await s.settled();
-    const items = await s.inbox(false);
-    if (items.length === 0) ctx.io.out(`Nothing new for ${s.address}.`);
-    for (const item of items) ctx.io.out(sanitizeForDisplay(item.rendered));
-    return 0;
+    return await showInbox(ctx, s, await s.inbox(true));
   } finally {
     await ctx.finish(s);
   }
+}
+
+/** The part of `wim inbox` after its awaits, kept synchronous (see printEach). */
+function showInbox(ctx: Ctx, s: MeshSession, items: readonly SpoolItem[]): Promise<number> {
+  if (items.length === 0) ctx.io.out(`Nothing new for ${s.address}.`);
+  const print = ctx.io.print ?? ((line: string) => (ctx.io.out(line), Promise.resolve(true)));
+  const mark = ctx.args.flags.get("peek") === true ? () => Promise.resolve() : (item: SpoolItem) => s.markRead([item]);
+  return printEach(items, print, mark).then((shown) => {
+    if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
+    return 0;
+  });
+}
+
+/**
+ * Prints items in order, each handed to `mark` once stdout took it, and stops at the first that
+ * stdout refused. Resolves to how many were printed. Kept synchronous, the branches in callbacks:
+ * V8 counts a branch that follows an await in an async function by subtraction (see
+ * MeshSession.publishCard).
+ */
+function printEach(items: readonly SpoolItem[], print: (line: string) => Promise<boolean>, mark: (item: SpoolItem) => Promise<void>): Promise<number> {
+  const [first, ...rest] = items;
+  if (first === undefined) return Promise.resolve(0);
+  return print(sanitizeForDisplay(first.rendered)).then((took) =>
+    took
+      ? mark(first)
+          .then(() => printEach(rest, print, mark))
+          .then((n) => n + 1)
+      : 0,
+  );
 }
 
 async function held(ctx: Ctx): Promise<number> {

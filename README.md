@@ -168,7 +168,7 @@ the relay connection, the signer and the state directory.
 
 | address | what it is |
 |---|---|
-| `cli@<device>` | the device's terminal inbox: `wim inbox` reads it once, `wim watch` follows it. Registered when the device creates or joins the mesh; the relay forgets it after 24 hours offline with nothing queued, and the next `wim inbox` or `wim watch` there registers it again |
+| `cli@<device>` | the device's terminal inbox: `wim inbox` reads it once (`--peek` to look without marking anything read), `wim watch` follows it. Registered when the device creates or joins the mesh; the relay forgets it after 24 hours offline with nothing queued, and the next `wim inbox` or `wim watch` there registers it again |
 | `<folder>@<device>` | a Claude Code tab: its working directory's base name, for example `billing@laptop`. The tab's status line shows it; `/wim name <name>` renames it |
 | `vscode@<device>` | the VS Code extension |
 
@@ -202,8 +202,10 @@ Each send answers `routed` (handed to a live session; not yet read) while a `wim
 there, else `queued`. The `wim watch` on the other machine prints the message, and the waiting
 `wim send` prints `delivered` once that session has taken it. Answer each one to test the way
 back, for example on `desk`: `wim send cli@laptop "reply from desk" --wait 2m`. Without a
-`wim watch`, `wim inbox` reads the terminal inbox once. A message from a device you did not
-trust prints `held` with how to approve it there (`wim held approve <id>`).
+`wim watch`, `wim inbox` reads the terminal inbox once and marks each item read once it is
+printed: piped into `head`, the items after the cut stay unread. `wim inbox --peek` prints it all
+and marks nothing. A message from a device you did not trust prints `held` with how to approve
+it there (`wim held approve <id>`).
 
 ### 9. Claude-to-Claude test
 

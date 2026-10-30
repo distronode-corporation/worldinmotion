@@ -26,6 +26,15 @@ function ask(input: Readable, open: () => Interface, question: string): Promise<
   }).finally(() => rl.close());
 }
 
+/**
+ * Writes `text` to `out` and resolves once it took it: false when `out` is closed or the write
+ * failed (the reader went away: EPIPE, or EOF on Windows), so a command can stop there.
+ */
+export function written(out: Writable, text: string): Promise<boolean> {
+  if (out.destroyed || out.writableEnded) return Promise.resolve(false);
+  return new Promise((resolve) => void out.write(text, (error) => resolve(error == null)));
+}
+
 /** The parts of `process` the CLI uses, so tests can pass a stand-in. */
 export type Proc = {
   stdin: Readable & { isTTY?: boolean };
@@ -51,8 +60,16 @@ export function processIo(
   // A stray rejection must not take down a long-running server (an MCP server the agent relies
   // on): it is reported on stderr instead.
   proc.on("unhandledRejection", (reason) => void proc.stderr.write(`wim: unexpected error: ${reason instanceof Error ? reason.message : String(reason)}\n`));
+  // Set once `print` listens for stdout's errors: a reader that went away is then a failed write
+  // that `print` reports, never an error thrown at the process.
+  let listening = false;
   return {
     out: (line) => void proc.stdout.write(`${line}\n`),
+    print: (line) => {
+      if (!listening) proc.stdout.on("error", () => undefined);
+      listening = true;
+      return written(proc.stdout, `${line}\n`);
+    },
     // `wim mcp` owns stdout for the protocol, so diagnostics always go to stderr.
     err: (line) => void proc.stderr.write(`${line}\n`),
     prompt: (question) => ask(proc.stdin, () => createInterface({ input: proc.stdin, output: proc.stderr }), question),

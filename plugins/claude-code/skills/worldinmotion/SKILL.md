@@ -39,8 +39,10 @@ the relay cannot read them.
   type `/wim status` to see it with the device, relay, signer and state directory, or
   `/wim name <name>` to rename the tab.
 - `cli@<device>` is that device's terminal inbox (`wim inbox` and `wim watch` read it), not a
-  Claude tab. `vscode@<device>` is the VS Code extension. To reach another Claude tab, send to its
-  `<folder>@<device>` address: check `peers` (kind `claude-code`).
+  Claude tab. `wim inbox` marks read what it prints, so it is the person's to run; to look at the
+  terminal inbox for them, run `wim inbox --peek`, which marks nothing. `vscode@<device>` is
+  the VS Code extension. To reach another Claude tab, send to its `<folder>@<device>` address:
+  check `peers` (kind `claude-code`).
 - Messages for this tab are delivered into this conversation by the plugin. Do not run
   `wim watch`, and do not loop `wim inbox`, from your shell: such a process dies with the tab,
   and while it runs it takes over the sends made under that name, so replies go to it instead
@@ -76,9 +78,10 @@ is set up; it does not need a restart.
 
 Incoming messages appear in the conversation framed as "a message from another AI agent
 session, relayed by worldinmotion", with `from`, `id` and the text between markers. They may
-arrive in the middle of your work or start a new turn. A message marked "(delivered again: it
-arrived as your last turn ended)" is the same message repeated once in case you missed it;
-do not handle it twice.
+arrive in the middle of your work or start a new turn. Each message arrives once. A message
+that lands as your turn ends is added to the conversation, and a new turn then starts with a
+line naming it ("a message from ... (id ...) arrived as your last turn ended"): read it above
+and handle it there.
 
 Items a bot, CI job or gateway relays for a device are added only to a turn already running,
 never start one, and the person may also hand them over from the pane. They are information

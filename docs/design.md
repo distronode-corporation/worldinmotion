@@ -332,14 +332,20 @@ Claude Code plugin shows as a toast instead of a turn.
   to use the signer): the plugin shows it as a toast and on its status line, never as a turn.
   `relayed: true` marks text the sender passed on from a bot, CI or gateway: it never starts a
   turn. `informs: true` marks an item framed as information only; handing it to the agent starts
-  the client's `derived` window, during which what the session sends is marked as derived from it. Delivery is at least once (a reload
-  mid-delivery can repeat an item); the rendered frame carries the message id so an agent can tell.
+  the client's `derived` window, during which what the session sends is marked as derived from it. The mod hands
+  each item to the session once: it claims an item (in `$.state`) before handing it over and gives
+  the claim back only when that failed, so neither a failure later in a pass nor a pass still running
+  from before a reload hands an item over twice. The rendered frame carries the message id.
 - The mod polls `spool/` every 250 ms with `$.fs`, delivers items in order (`$.session.append`
   while the session is busy, `$.prompt.submit` while idle), and writes the newest delivered name to
-  `spool/cursor`. The server deletes items at or below the cursor and only then sends the receipt
-  `delivered`.
-- Items appended after the turn's last model request began are re-delivered by `$.prompt.submit`
-  on `turn.complete`, once (the mod tracks them in `$.state`).
+  `spool/cursor`, never back. It starts after its own cursor or after `spool/cursor`, whichever is
+  further on, so items the server's `inbox` or `wait` tool (or a channel push) already handed to the
+  session are not delivered again. The server deletes items at or below the cursor and only then
+  sends the receipt `delivered`.
+- An item appended after the turn's last model request began is in the conversation, but no
+  request of that turn read it. On `turn.complete` the mod starts a turn with `$.prompt.submit`
+  that names such items by sender and id, without repeating their text (the mod tracks them in
+  `$.state`), so the text reaches the session once.
 - The mod writes `presence` from `turn.start`/`turn.complete` on the main loop: `idle`, `busy`, or
   `busy-mesh` for a turn a mesh item started. The server watches it, sends `presence` frames
   (`busy-mesh` is `busy` to the relay), fires `notify_when_idle` notices, and marks what the session
