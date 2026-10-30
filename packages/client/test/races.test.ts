@@ -59,6 +59,37 @@ describe("wait", () => {
     const unread = await b.spool.unread();
     expect(unread.map((i) => i.rendered.includes("second"))).toEqual([true]);
   });
+
+  it("finds an item written after its first look listed the spool, whose event came before that look ended", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const b = await openSession(devices[0]!, mesh, relay, { name: "b" });
+    cleanup.push(() => b.stop());
+    // Every look lists the spool, then waits here: the first one lists it empty.
+    const list = b.spool.unread.bind(b.spool);
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    b.spool.unread = async () => {
+      const items = await list();
+      await held;
+      return items;
+    };
+    const waiting = b.next(3000);
+    await b.notice("x@one", "late");
+    release();
+    expect((await waiting)?.rendered).toContain("late");
+  });
+
+  it("fails when the spool cannot be read, and stops listening", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const b = await openSession(devices[0]!, mesh, relay, { name: "b" });
+    cleanup.push(() => b.stop());
+    const listening = b.listenerCount("item");
+    b.spool.unread = () => Promise.reject(new Error("the spool is gone"));
+    await expect(b.next(3000)).rejects.toThrow("the spool is gone");
+    expect(b.listenerCount("item")).toBe(listening);
+  });
 });
 
 describe("overlapping takes", () => {

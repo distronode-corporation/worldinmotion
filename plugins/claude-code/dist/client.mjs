@@ -92089,32 +92089,40 @@ ${frameEntry(entry)}`);
     return [...kept, ...items];
   }
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */
-  async next(timeoutMs, onTick, tickMs = 3e4) {
+  next(timeoutMs, onTick, tickMs = 3e4) {
     const started = this.now();
-    const first = (await this.spool.unread())[0];
-    if (first !== void 0) {
-      await this.take(first.cursor);
-      this.informed([first]);
-      return first;
-    }
-    return new Promise((resolve3) => {
-      const done = (item) => {
+    return new Promise((resolve3, reject) => {
+      let over = false;
+      const finish = () => {
+        over = true;
         clearTimeout(timer);
         clearInterval(beat);
         this.off("item", onItem);
-        resolve3(item);
       };
+      const fail4 = (error63) => {
+        finish();
+        reject(error63);
+      };
+      const takeFirst = (items) => {
+        const first = items[0];
+        if (over || first === void 0) return;
+        finish();
+        this.take(first.cursor).then(() => {
+          this.informed([first]);
+          resolve3(first);
+        }, reject);
+      };
+      const look = () => void this.spool.unread().then(takeFirst, fail4);
       const onItem = (item) => {
-        if (this.push !== void 0 || item.cursor <= this.spool.taken) return;
-        this.off("item", onItem);
-        void this.take(item.cursor).then(() => {
-          this.informed([item]);
-          done(item);
-        });
+        if (this.push === void 0 && item.cursor > this.spool.taken) look();
       };
-      const timer = setTimeout(() => done(void 0), timeoutMs);
+      const timer = setTimeout(() => {
+        finish();
+        resolve3(void 0);
+      }, timeoutMs);
       const beat = setInterval(() => onTick?.(this.now() - started), tickMs);
       this.on("item", onItem);
+      look();
     });
   }
 };

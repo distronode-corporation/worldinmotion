@@ -1724,36 +1724,47 @@ export class MeshSession extends EventEmitter {
   }
 
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */
-  async next(timeoutMs: number, onTick?: (elapsed: number) => void, tickMs = 30_000): Promise<SpoolItem | undefined> {
+  next(timeoutMs: number, onTick?: (elapsed: number) => void, tickMs = 30_000): Promise<SpoolItem | undefined> {
     const started = this.now();
-    const first = (await this.spool.unread())[0];
-    if (first !== undefined) {
-      await this.take(first.cursor);
-      this.informed([first]);
-      return first;
-    }
-    return new Promise((resolve) => {
-      const done = (item: SpoolItem | undefined): void => {
+    return new Promise((resolve, reject) => {
+      // Set once the wait has its item, has failed or has run out: nothing is taken after that.
+      let over = false;
+      const finish = (): void => {
+        over = true;
         clearTimeout(timer);
         clearInterval(beat);
         this.off("item", onItem);
-        resolve(item);
       };
-      // The first item only: the listener goes before anything is awaited, so a second item
-      // delivered while this one is taken stays unread for the next call.
-      // An item's event can arrive after the scan above already took it (the event follows the
-      // write, and the scan can see the file first); one at or below the cursor is not new.
+      const fail = (error: unknown): void => {
+        finish();
+        reject(error);
+      };
+      // The oldest unread item, taken by the first look that sees one: a second item delivered
+      // meanwhile stays unread for the next call.
+      const takeFirst = (items: SpoolItem[]): void => {
+        const first = items[0];
+        if (over || first === undefined) return;
+        finish();
+        this.take(first.cursor).then(() => {
+          this.informed([first]);
+          resolve(first);
+        }, reject);
+      };
+      const look = (): void => void this.spool.unread().then(takeFirst, fail);
+      // An item's event starts a look. One at or below the cursor is not new: its event came after
+      // a look already took it. With push set, items go to the channel instead.
       const onItem = (item: SpoolItem): void => {
-        if (this.push !== undefined || item.cursor <= this.spool.taken) return;
-        this.off("item", onItem);
-        void this.take(item.cursor).then(() => {
-          this.informed([item]);
-          done(item);
-        });
+        if (this.push === undefined && item.cursor > this.spool.taken) look();
       };
-      const timer = setTimeout(() => done(undefined), timeoutMs);
+      const timer = setTimeout(() => {
+        finish();
+        resolve(undefined);
+      }, timeoutMs);
       const beat = setInterval(() => onTick?.(this.now() - started), tickMs);
+      // Listening starts before the first look: an item written after that look listed the spool,
+      // whose event came before a listener was there, would otherwise wait out the timeout unseen.
       this.on("item", onItem);
+      look();
     });
   }
 }
