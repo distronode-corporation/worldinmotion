@@ -370,8 +370,9 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   signer to act for the device. Details: SECURITY-MODEL.md section 5.8.
 
 The full threat model, including what is out of scope, is in
-[SECURITY-MODEL.md](SECURITY-MODEL.md). To report a vulnerability, see
-[SECURITY.md](SECURITY.md).
+[SECURITY-MODEL.md](SECURITY-MODEL.md). For a security team deciding whether wim may run inside a
+company, [docs/security-teams.md](docs/security-teams.md) maps it to the OWASP agent risks and
+names the gaps. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Self-hosting a relay
 

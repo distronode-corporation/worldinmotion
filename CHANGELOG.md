@@ -49,6 +49,21 @@ body line with a bracket.
   yet, and the README now shows a tested `notify.json` example for a ping when a message is held.
   The same corrections are in `docs/peers.md` and the plugin's README. No code change.
 
+- **A page for security teams** (`docs/security-teams.md`), linked from the README. It maps wim to
+  the nine mitigations of OWASP ASI07 (Insecure Inter-Agent Communication) and names the gaps:
+  per-device rather than per-agent credentials, the downgrade window that closes at 1.0, no
+  metadata padding, approval marks that are files, and a held view that shows one item at a time.
+  It also names two client-side scanners as a second layer to the secret filter, Docker MCP
+  Gateway and GitGuardian's AI hooks, neither yet tested with wim.
+- **SECURITY-MODEL names agent session smuggling** (section 5.2 and the known limits in section
+  9): a request spread across harmless-looking messages, which a held view of one item at a time
+  makes easy to approve piece by piece. Until the held view shows the whole thread, it says how to
+  read the thread before approving.
+- **Running relay-node on a tailnet** (`packages/relay-node/README.md`), with LAN mode on the
+  tailnet address or Tailscale Serve in front. Marked as not yet tested.
+
+No code change.
+
 ## [0.1.6] - 2026-10-30
 
 ### Changed
