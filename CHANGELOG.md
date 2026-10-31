@@ -24,6 +24,17 @@ body line with a bracket.
   `.github/scripts/check-versions.mjs` fails CI while the pin lags the latest release or names a
   sha that is not the tag's commit.
 
+### Documentation
+
+- **The README's claims match what is true and tested.** The "Why" section said an agent session
+  cannot talk to a session on another machine; Claude Code's built-in messaging has done that on
+  one account since August 2026, so the section now says what it does not cover (other accounts,
+  other vendors, a relay that cannot read the messages). Peer text is described as framed, which reduces
+  risk and is not a guarantee, and the secret filter as best effort. Delivery is labelled push,
+  turn or pull per agent (only Claude Code wakes today), the two-account test is marked as not run
+  yet, and the README now shows a tested `notify.json` example for a ping when a message is held.
+  The same corrections are in `docs/peers.md` and the plugin's README. No code change.
+
 ## [0.1.6] - 2026-10-30
 
 ### Changed
