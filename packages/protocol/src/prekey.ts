@@ -7,7 +7,7 @@ import { z } from "zod";
 import { b64u, sha256, utf8 } from "./encoding.ts";
 import { deviceIdFromSignPub, randomBytes } from "./ids.ts";
 import { fail, LIMITS, ok, type Result } from "./limits.ts";
-import { deviceIdSchema, keySchema, meshIdSchema, sigSchema, timeSchema, type Roster } from "./schema.ts";
+import { deviceIdSchema, keySchema, meshIdSchema, safeParse, sigSchema, timeSchema, type Roster } from "./schema.ts";
 import { isRecoveryName } from "./roster.ts";
 import { signObject, verifyObject } from "./sign.ts";
 
@@ -72,7 +72,7 @@ const PROBE = sha256(utf8("wim/1 prekey probe"));
  *   `until`: a sender must not seal to it any more)
  */
 export function verifyPrekey(raw: unknown, roster: Roster, now: number): Result<Prekey> {
-  const parsed = prekeySchema.safeParse(raw);
+  const parsed = safeParse(prekeySchema, raw);
   if (!parsed.success) return fail("malformed");
   const pk = parsed.data;
   if (pk.mesh !== roster.mesh) return fail("wrong_mesh");

@@ -73,6 +73,23 @@ describe("checkDialable", () => {
 });
 
 describe("Link", () => {
+  it("ignores a hostile relay frame instead of throwing, and keeps handling later frames", async () => {
+    // A value whose length cannot convert to a primitive once made parseRelayFrame throw inside
+    // receive, so a hostile relay could raise an uncaught error in the client. It must be dropped.
+    const { dialer, socks } = fake((sent, sock) => {
+      if ((JSON.parse(sent) as { t: string }).t === "ping") {
+        sock.push(JSON.stringify({ t: "deliver", cursor: 1, msg: { mesh: { valueOf: 1, toString: 1 } } }));
+        sock.push(JSON.stringify({ t: "pong" }));
+      }
+    });
+    const { link } = await Link.open(dialer, "ws://x");
+    const seen: string[] = [];
+    link.on((f) => seen.push(f.t));
+    expect((await link.request({ t: "ping" }, (f) => f.t === "pong", 500)).t).toBe("pong");
+    expect(seen).toEqual(["pong"]);
+    link.close();
+  });
+
   it("waits for hello, answers requests, ignores bad frames, and fails waiters on close", async () => {
     const { dialer, socks } = fake((sent, sock) => {
       const f = JSON.parse(sent) as { t: string };

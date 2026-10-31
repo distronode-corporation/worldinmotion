@@ -5,6 +5,7 @@ import type { DeviceKeys } from "./keys.ts";
 import { signObjectWith, type Keyring } from "./keyring.ts";
 import { fail, LIMITS, ok, WIRE_VERSION, type Result } from "./limits.ts";
 import { isRecoveryName } from "./roster.ts";
+import { safeParse } from "./schema.ts";
 import type { DeviceRecord, Roster } from "./schema.ts";
 import { signObject, verifyObject } from "./sign.ts";
 
@@ -50,7 +51,7 @@ export function verifyAuth(
   signPub: Uint8Array,
   expect: Expect,
 ): Result {
-  const parsed = authFrameSchema.safeParse(frame);
+  const parsed = safeParse(authFrameSchema, frame);
   if (!parsed.success) return fail("malformed");
   const f = parsed.data;
   const checked = checkCommon(f, expect);
@@ -116,7 +117,7 @@ export function verifyRecoverAuth(
   mesh: { roster: Roster; genesis: Roster },
   expect: Expect,
 ): Result<DeviceRecord> {
-  const parsed = recoverAuthFrameSchema.safeParse(frame);
+  const parsed = safeParse(recoverAuthFrameSchema, frame);
   if (!parsed.success) return fail("malformed");
   const f = parsed.data;
   const checked = checkCommon(f, expect);

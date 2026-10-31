@@ -6,7 +6,7 @@ import { decideJoin, issueInvite, joinMesh, revokeDevice } from "../src/admin.ts
 import { MeshSession } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, until, type TestDevice, keysOf } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -244,15 +244,27 @@ describe("inbound policy and the breaker", () => {
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
     const c = await session(devices[2]!, mesh, relay, { name: "c" });
-    const asked = a.ask("b@two", "question", 400);
-    await until(async () => (await unread(b)).some((i) => i.kind === "task"));
-    const task = (await unread(b)).find((i) => i.kind === "task")!;
-    // c answers a task it was never given.
+    // In order, with no clock between them: c's forged result lands while a is still waiting,
+    // and only then does b answer. (A 400 ms ask once gave up before the forged result landed on
+    // a slow runner, and the spool was read before it was there.) The ask's own timeout is
+    // longer than the test's, so it never ends the wait.
+    const asked = a.ask("b@two", "question", 60_000);
+    let settled = false;
+    void asked.then(() => (settled = true), () => (settled = true));
+    const task = await spooled(b, (i) => i.kind === "task");
+    // c answers a task it was never given: it goes to a's spool as unsolicited, and the ask waits on.
+    const forged = spooled(a, (i) => i.kind === "result");
     await c.send("a@one", "forged answer", { kind: "result", reply_to: task.id, status: "done" });
-    const out = await asked;
-    expect(out.pending).toBe(true);
-    const item = (await unread(a)).find((i) => i.kind === "result")!;
+    const item = await forged;
     expect(item.rendered).toMatch(/unsolicited result/);
+    expect(item.rendered).toContain("forged answer");
+    expect(settled).toBe(false);
+    // The addressee's answer is the one the ask returns, and it is not spooled.
+    await b.send("a@one", "real answer", { kind: "result", reply_to: task.id, status: "done" });
+    const out = await asked;
+    expect(out.pending).toBeUndefined();
+    expect(out.result).toMatchObject({ from: "b@two", device: devices[1]!.device.id, text: "real answer", status: "done" });
+    expect((await unread(a)).filter((i) => i.kind === "result")).toHaveLength(1);
     // A room task may be answered by any member.
     await a.joinRoom("#r");
     await b.joinRoom("#r");

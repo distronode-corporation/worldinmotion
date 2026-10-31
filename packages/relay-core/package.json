@@ -1,6 +1,6 @@
 {
   "name": "@worldinmotion/relay-core",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "The worldinmotion relay as a transport-agnostic, per-mesh state machine behind a synchronous storage interface",
   "license": "Apache-2.0",
   "type": "module",
@@ -14,6 +14,6 @@
     "node": ">=22.18.0"
   },
   "dependencies": {
-    "@worldinmotion/protocol": "0.1.6"
+    "@worldinmotion/protocol": "0.1.7"
   }
 }
