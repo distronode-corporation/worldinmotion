@@ -379,6 +379,17 @@ receipt from it arrives.
   further on, so items the server's `inbox` or `wait` tool (or a channel push) already handed to the
   session are not delivered again. The server deletes items at or below the cursor and only then
   sends the receipt `delivered`.
+- A turn the engine drops is not a delivery. After the person stops a turn (Esc, Stop), Claude Code
+  refuses new work until their next input: `$.prompt.submit` resolves `{ drop }` and queues
+  nothing, and a prompt already queued behind the running turn is dropped too. The mod keeps each
+  item of a dropped turn (in `$.state`, with its message id), and `spool/cursor` stops before the
+  first kept item, so the server sends no `delivered` for it or anything after it. On
+  `turn.complete` the mod hands the kept items over as one turn, as the mods API docs say to retry a
+  dropped submit. A turn end before the person's next input (the interrupted turn's own) is refused
+  again and the items stay kept. Each item is kept once and marked while its submit is under way,
+  so two turn ends never both hand it over; one the session already took through `inbox` or `wait`
+  (the server's cursor is past it) is not handed over again. A turn a hook refuses is kept the same
+  way and tried once at each turn end, never from the timer.
 - An item appended after the turn's last model request began is in the conversation, but no
   request of that turn read it. On `turn.complete` the mod starts a turn with `$.prompt.submit`
   that names such items by sender and id, without repeating their text (the mod tracks them in

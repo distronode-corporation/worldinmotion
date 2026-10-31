@@ -13,7 +13,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, McpToolResult, Register } from 'claude-code'
 
-import type { WimItem, WimLate, WimLink, WimPanel, WimRelayed } from '../types'
+import type { WimItem, WimKept, WimLate, WimLink, WimPanel, WimRelayed } from '../types'
 import type { RoutePolicy } from './parse'
 import {
   firstLine,
@@ -102,6 +102,9 @@ const late = atom({ plugin: 'worldinmotion', key: 'late' } as const, [], { shape
 // with the cursor not past them yet (an item before them is still to come).
 // A claimed item is never handed over again.
 const handed = atom({ plugin: 'worldinmotion', key: 'handed' } as const, [], { shape: 'handed-1' })
+// Spool items whose turn the engine dropped: claimed, so no pass hands them
+// over again, and the cursor stays before them until a turn end hands them over.
+const kept = atom({ plugin: 'worldinmotion', key: 'kept' } as const, [], { shape: 'kept-1' })
 const recent = atom({ plugin: 'worldinmotion', key: 'recent' } as const, [], { shape: 'recent-1' })
 const relayed = atom({ plugin: 'worldinmotion', key: 'relayed' } as const, [], { shape: 'relayed-2' })
 const teammates = atom({ plugin: 'worldinmotion', key: 'teammates' } as const, [], { shape: 'teammates-1' })
@@ -213,17 +216,22 @@ async function takeLate($: EngineInterface): Promise<WimLate[]> {
   return taken
 }
 
-/** Every submit of the plugin's carries a mesh item: its turn is a mesh turn. */
-async function submit($: EngineInterface, text: string): Promise<void> {
+/**
+ * Every submit of the plugin's carries a mesh item: its turn is a mesh turn.
+ * False when the engine dropped it: after the person pressed Stop it refuses
+ * new work until their next input, and drops a prompt still queued. Nothing
+ * queues or repeats it, so the caller keeps what it carried for a turn end.
+ */
+async function submit($: EngineInterface, text: string): Promise<boolean> {
   await update($, pendingSubmits, list => [...list, text])
   const sent = await $.prompt.submit({ text }).catch(error => {
     void forgetSubmit($, text)
     throw error
   })
-  if (sent.drop !== undefined) {
-    await forgetSubmit($, text)
-    $.ui.log(`worldinmotion: a delivery was dropped: ${sent.drop}`)
-  }
+  if (sent.drop === undefined) return true
+  await forgetSubmit($, text)
+  $.ui.log(`worldinmotion: a delivery was dropped (${sent.drop}); it is tried again when a turn ends`)
+  return false
 }
 
 async function forgetSubmit($: EngineInterface, text: string): Promise<void> {
@@ -262,18 +270,64 @@ function lateLine(items: readonly WimLate[]): string {
   return `(worldinmotion: ${one ? 'a message' : `${items.length} messages`} from ${which} arrived as your last turn ended. ${one ? 'It is' : 'They are'} in the conversation above, not repeated here.)`
 }
 
-/** Starts a turn for the late items, if any, with `text` after the line that names them. */
-async function tellLate($: EngineInterface, text = ''): Promise<void> {
+/**
+ * Starts a turn for the late items, if any, with `text` after the line that
+ * names them. False when the engine dropped the turn.
+ */
+async function tellLate($: EngineInterface, text = ''): Promise<boolean> {
   const pending = await takeLate($)
-  if (pending.length === 0) {
-    if (text !== '') await submit($, text)
-    return
-  }
-  await submit($, text === '' ? lateLine(pending) : `${lateLine(pending)}\n\n${text}`).catch(async error => {
-    // Not told: kept for the next turn's end.
-    await update($, late, list => [...pending, ...list])
+  if (pending.length === 0) return text === '' || submit($, text)
+  // Not told: kept for the next turn's end.
+  const keepLate = () => update($, late, list => [...pending, ...list])
+  const entered = await submit($, text === '' ? lateLine(pending) : `${lateLine(pending)}\n\n${text}`).catch(async error => {
+    await keepLate()
     throw error
   })
+  if (!entered) await keepLate()
+  return entered
+}
+
+/** Keeps the items of a dropped turn for a turn end, one entry an item. */
+async function keep($: EngineInterface, items: readonly Omit<WimKept, 'isSending'>[]): Promise<void> {
+  await update($, kept, list => [
+    ...list,
+    ...items.filter(one => !list.some(other => other.name === one.name)).map(one => ({ ...one, isSending: false })),
+  ])
+}
+
+/**
+ * At a turn end: hands over, as one turn, the kept items the session has not
+ * taken by itself since (its `inbox` or `wait` moved the client's cursor past
+ * them, and the client sent their receipts). Each is marked as being sent
+ * first, so a second turn end at the same time takes none of them. Handed
+ * over, they are no longer kept and the next pass moves the cursor past them;
+ * dropped again (the interrupted turn's own end comes before the person's next
+ * input), they wait for the next turn end.
+ */
+async function handOverKept($: EngineInterface): Promise<void> {
+  const linked = await read($, link)
+  const taken = linked === null ? '' : await startCursor($, linked.spool)
+  let taking: WimKept[] = []
+  await update($, kept, list => {
+    const left = list.filter(one => one.name > taken)
+    taking = left.filter(one => !one.isSending).sort((a, b) => (a.name < b.name ? -1 : 1))
+    return left.map(one => (taking.includes(one) ? { ...one, isSending: true } : one))
+  })
+  const names = taking.map(one => one.name)
+  const settle = async (isEntered: boolean) => {
+    if (names.length === 0) return
+    if (!isEntered) {
+      await update($, kept, list => list.map(one => (names.includes(one.name) ? { ...one, isSending: false } : one)))
+      return
+    }
+    await update($, kept, list => list.filter(one => !names.includes(one.name)))
+    await update($, recent, list => [...list, ...taking.map(one => one.item)].slice(-RECENT_MAX))
+  }
+  const entered = await tellLate($, taking.map(one => one.text).join('\n\n')).catch(async error => {
+    await settle(false)
+    throw error
+  })
+  await settle(entered)
 }
 
 /** Inside a hook dispatch only: an MCP call from a timer raises a permission prompt. */
@@ -315,6 +369,7 @@ async function adoptLink($: EngineInterface, answered: WimLink): Promise<boolean
     const text = typeof onDisk === 'string' ? onDisk.trim() : ''
     await update($, cursor, () => (ITEM_NAME.test(text) ? text : ''))
     await update($, handed, () => [])
+    await update($, kept, () => [])
   }
   await update($, problem, () => '')
   await linkedStatus($)
@@ -361,7 +416,7 @@ async function startCursor($: EngineInterface, spool: string): Promise<string> {
 }
 
 /** What one pass handed over: the items' pane lines, the idle batch, relayed items left for the pane. */
-type Pass = { seen: WimItem[]; batch: { name: string; text: string }[]; relaysWaiting: number }
+type Pass = { seen: WimItem[]; batch: Omit<WimKept, 'isSending'>[]; relaysWaiting: number }
 
 /**
  * Claims a spool item for this pass, false when another pass has it (one still
@@ -386,7 +441,7 @@ async function unclaim($: EngineInterface, names: readonly string[]): Promise<vo
  * Each item is claimed in `handed` before it is handed over, and the claim is
  * given back only when it was not, so neither a failure later in the pass nor
  * a second pass hands an item over again; the cursor then moves past every
- * claimed item.
+ * claimed item but a kept one (its turn was dropped: the session never read it).
  */
 async function deliver($: EngineInterface): Promise<void> {
   const linked = await read($, link)
@@ -411,7 +466,9 @@ async function deliver($: EngineInterface): Promise<void> {
       const n = pass.relaysWaiting
       $.ui.toast(`worldinmotion: ${n} relayed item${n === 1 ? '' : 's'} in the inbox (/wim)`)
     }
-    await sendBatch($, pass.batch)
+    // Only a pass that claimed something: a kept item stays fresh, and a timer
+    // that told late items each tick would be dropped each tick while a Stop stands.
+    if (claimed.length > 0 && !(await sendBatch($, pass.batch))) await keep($, pass.batch)
     for (const one of pass.batch) done.add(one.name)
   } finally {
     await unclaim($, claimed.filter(name => !done.has(name)))
@@ -422,12 +479,12 @@ async function deliver($: EngineInterface): Promise<void> {
 /**
  * The items a pass found while idle, as one turn. Idle still (the turn may have
  * ended while the pass appended), the turn is headed by the line that names any
- * item appended too late for the last request.
+ * item appended too late for the last request. False when the engine dropped it.
  */
-async function sendBatch($: EngineInterface, batch: Pass['batch']): Promise<void> {
+async function sendBatch($: EngineInterface, batch: Pass['batch']): Promise<boolean> {
   const text = batch.map(one => one.text).join('\n\n')
-  if (!(await read($, busy))) await tellLate($, text)
-  else if (text !== '') await submit($, text)
+  if (!(await read($, busy))) return tellLate($, text)
+  return text === '' || submit($, text)
 }
 
 /**
@@ -440,7 +497,8 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     $.ui.log(`worldinmotion: skipped ${name}, not a spool item`)
     return true
   }
-  pass.seen.push({ name, kind: item.kind, from: item.from, line: firstLine(item.rendered), at: item.at })
+  const seen: WimItem = { name, kind: item.kind, from: item.from, line: firstLine(item.rendered), at: item.at }
+  pass.seen.push(seen)
   if (item.kind === 'notice' && item.held !== undefined) {
     // For the person, not the model: spending a turn on it would only relay it.
     const n = item.held
@@ -459,14 +517,15 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     if (!(await keepRelayed($, one))) pass.relaysWaiting++
   } else if (!(await read($, busy))) {
     // Idle: one turn for everything the pass finds (sendBatch).
-    pass.batch.push({ name, text: item.rendered })
+    pass.batch.push({ name, id: item.id, text: item.rendered, item: seen })
     return false
   } else {
     const appended = await $.session.append({ message: { type: 'user', content: [{ type: 'text', text: item.rendered }] } })
     // Refused as a row: a turn of its own instead. Appended: if the turn's last
     // request had already begun, the turn's end names it (tellLate), once.
-    if (appended.deny !== undefined) await submit($, item.rendered)
-    else await update($, late, list => [...list, { name, from: item.from, id: item.id }])
+    if (appended.deny !== undefined) {
+      if (!(await submit($, item.rendered))) await keep($, [{ name, id: item.id, text: item.rendered, item: seen }])
+    } else await update($, late, list => [...list, { name, from: item.from, id: item.id }])
   }
   return true
 }
@@ -474,10 +533,12 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
 /**
  * Moves the cursor past every fresh item claimed without a gap, never back,
  * and drops the claims it passed. Claims beyond a gap stay, so the next pass
- * skips them.
+ * skips them. A kept item is a gap: the client sends `delivered` for every
+ * item the cursor passes, and the session has not read that one.
  */
 async function moveCursor($: EngineInterface, spool: string, fresh: readonly string[], after: string, seen: readonly WimItem[]): Promise<void> {
-  const claimed = new Set(await read($, handed))
+  const waiting = new Set((await read($, kept)).map(one => one.name))
+  const claimed = new Set((await read($, handed)).filter(name => !waiting.has(name)))
   let last = after
   for (const name of fresh) {
     if (!claimed.has(name)) break
@@ -775,6 +836,9 @@ export const register: Register = on => {
     })
     // A reload keeps the atoms; the line is set afresh.
     await update($, statusShown, () => '')
+    // A turn end's submit that was under way when the module reloaded: counted
+    // as handed over, as a claim from before a reload is, so it never goes twice.
+    await update($, kept, list => list.filter(one => !one.isSending))
     await handshake($).catch(error =>
       unlinked($, `could not reach the plugin's client (${String(error)}).`),
     )
@@ -844,7 +908,8 @@ export const register: Register = on => {
     await update($, meshTurn, () => false)
     await writePresence($, 'idle')
     // Not awaited: the submitted turn starts only after this one has ended.
-    void tellLate($).catch(error => $.ui.log(`worldinmotion: ${String(error)}`))
+    // Kept items go with the late line, as the mods API docs say to retry a dropped submit.
+    void handOverKept($).catch(error => $.ui.log(`worldinmotion: ${String(error)}`))
     return next(e)
   })
 
