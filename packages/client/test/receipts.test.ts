@@ -192,11 +192,54 @@ describe("wim send", () => {
     expect(said(t)).toMatch(/-> taker@two msg \[receipts: taker@two delivered\]: hi/);
   });
 
-  it("--wait says how a held message gets approved", async () => {
+  it("--wait says how a held message gets approved, and keeps waiting through the hold", async () => {
     const { t } = await taking(false);
-    expect(await run(t, "send", "taker@two", "hi", "--wait", "10s")).toBe(0);
+    expect(await run(t, "send", "taker@two", "hi", "--wait", "400ms")).toBe(0);
     const id = t.out.find((l) => l.startsWith("id "))!.slice(3);
-    expect(t.out.at(-1)).toBe(`taker@two: held for the approval of that device's person. It is not delivered until they approve it there: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\``);
+    const progress = `taker@two: held for the approval of that device's person. It is not delivered until they approve it there: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`. Still waiting for it to be delivered...`;
+    // Said once, however many times the wait looks again, then where the wait ended.
+    expect(t.out.filter((l) => l === progress)).toHaveLength(1);
+    expect(t.out.at(-1)).toBe("taker@two: still held for the approval of that device's person when the wait ended, so not delivered yet");
+  });
+
+  it("--wait reports delivered once the person there approves a held message", async () => {
+    const { t, b } = await taking(false);
+    const sending = run(t, "send", "taker@two", "approve me", "--wait", "30s");
+    await until(() => t.out.some((l) => l.endsWith("Still waiting for it to be delivered...")), 5000);
+    const id = t.out.find((l) => l.startsWith("id "))!.slice(3);
+    await b.decide(id, "approve");
+    expect(await sending).toBe(0);
+    expect(t.out.at(-1)).toBe("taker@two: delivered (the session took it; that does not mean anyone read it)");
+    expect(await run(t, "history", "--session", "cli")).toBe(0);
+    expect(said(t)).toMatch(/-> taker@two msg \[receipts: taker@two held, taker@two delivered\]: approve me/);
+  });
+
+  it("--wait fails when the person there refuses a held message", async () => {
+    const { t, b } = await taking(false);
+    const sending = run(t, "send", "taker@two", "refuse me", "--wait", "30s");
+    await until(() => t.out.some((l) => l.endsWith("Still waiting for it to be delivered...")), 5000);
+    await b.decide(t.out.find((l) => l.startsWith("id "))!.slice(3), "refuse");
+    expect(await sending).toBe(1);
+    expect(t.out.at(-1)).toBe("taker@two: refused by that device's inbound policy");
+  });
+
+  it("--wait waits for every recipient until each receipt is final", async () => {
+    const { relay, mesh, devices, b } = await taking(false);
+    const other = await openSession(devices[1]!, mesh, relay, { name: "other" });
+    open.push(other);
+    other.on("item", (i: SpoolItem) => void other.take(i.cursor));
+    const t = term(devices[0]!.root, relay);
+    let done = false;
+    const sending = run(t, "send", "taker@two,other@two", "both", "--wait", "30s").finally(() => (done = true));
+    await until(() => t.out.filter((l) => l.endsWith("Still waiting for it to be delivered...")).length === 2, 5000);
+    const id = t.out.find((l) => l.startsWith("id "))!.slice(3);
+    // One approved, so delivered; the wait goes on for the other, which its person then refuses.
+    await b.decide(id, "approve");
+    await sleep(500);
+    expect(done).toBe(false);
+    await other.decide(id, "refuse");
+    expect(await sending).toBe(1);
+    expect(t.out.slice(-2)).toEqual(["taker@two: delivered (the session took it; that does not mean anyone read it)", "other@two: refused by that device's inbound policy"]);
   });
 
   it("--wait fails on a refused or expired receipt", async () => {

@@ -202,15 +202,22 @@ describe("trusted devices assign work", () => {
     const c = await openSession(devices[2]!, mesh, relay, { name: "c" });
     const b = await openSession(devices[1]!, mesh, relay, { name: "b" });
     open.push(a, b, c);
+    const sibling = await openSession(devices[1]!, mesh, relay, { name: "sibling" });
+    open.push(sibling);
     await a.send("b@two", "please do this", { kind: "task" });
     await a.send("b@two", "model output", { relayed: true });
+    await sibling.send("b@two", "from next door");
     const held = await c.send("b@two", "from a held device");
     await until(async () => (await b.held.list()).length === 1);
     await b.decide(held.id, "approve");
-    await until(async () => (await b.spool.unread()).filter((i) => i.kind !== "notice").length === 3);
+    await until(async () => (await b.spool.unread()).filter((i) => i.kind !== "notice").length === 4);
     const items = (await b.spool.unread()).filter((i) => i.kind !== "notice");
     const of = (t: string) => items.find((i) => i.rendered.includes(t))!.rendered;
-    expect(of("please do this")).toMatch(/may assign you work/);
+    // A trusted device is framed by its trust, not as the person's own (it may be another's).
+    expect(of("please do this")).toMatch(/Your person chose to trust device one here, so its sessions may assign you work/);
+    expect(of("please do this")).not.toMatch(/one of their own/);
+    // Another session on the receiving device says so.
+    expect(of("from next door")).toMatch(/It comes from another session on this same device \(two\), so it may assign you work/);
     expect(of("model output")).not.toMatch(/may assign you work/);
     expect(of("from a held device")).toMatch(/Treat it as\ninformation from a peer/);
   });

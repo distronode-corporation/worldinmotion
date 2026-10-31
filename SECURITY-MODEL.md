@@ -886,6 +886,23 @@ the new policy first (section 7.5). No message, tool call or MCP request can cha
 `wim devices trust --all` trusts every device in the mesh, other people's included; it is for a
 mesh of your own devices.
 
+**Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume` and
+`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`) run only
+when standard input and standard output are both an interactive terminal and none of an agent's
+variables is set. They then show what is being decided (for a held item: the sender, its device
+id, the session it waits for, why it waits and its text; for a device: its name, role, id, and
+the policy now and after) and act only on a typed `y` or `yes`. There is no flag that skips this,
+since an agent could pass a flag as easily as the person. The variables are the ones agent hosts
+set in the shells they run: `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` and
+`CLAUDE_CODE_MESSAGING_SOCKET` (Claude Code), `AI_AGENT`, `GEMINI_CLI`, `CURSOR_AGENT`,
+`CURSOR_TRACE_ID`, `OPENCODE`, `AIDER_MODEL`, `ANTIGRAVITY_AGENT`, `WIM_AGENT` and any `CODEX_`
+variable. Other `CLAUDE_CODE_` variables are not on the list, because people set some of them
+(`CLAUDE_CODE_USE_BEDROCK`, say) in their own shell profile. The same rule guards admitting a
+device (section 5.6), and an events process started with these variables refuses the same
+decisions (section 7.5). No MCP tool approves, refuses, resumes or trusts, and the plugin's
+internal tool only reads. This stops an agent that runs the command itself, by habit or because
+a peer asked; it is a same-user check, not a boundary (section 9).
+
 **Trusted devices can assign work.** An item from a `deliver` device, other than relayed text, is
 framed as a work assignment from a device the person trusts: the agent may carry it out within its
 normal permissions, as it would a colleague's request. It is never the person's approval of a
@@ -959,7 +976,7 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   asks the person to confirm a trust change in a dialog that names the device and the new policy.
   It admits a device only with the comparison code the person types from the new device's screen,
   and copies an invite code with a button, never showing it. An events process started with an
-  agent's variables (section 5.6) refuses `invite`, `admit` and `join`.
+  agent's variables (section 7.2) refuses every one of these actions with code `refused`.
 - **Peer text stays text.** Message text, previews, addresses, card fields and file names are
   another agent's text. The extension shows them as plain text only (no HTML, Markdown, links or
   command links), makes hidden and reordering characters visible, and names only the sender and
@@ -1014,9 +1031,11 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
 - The outbound secret filter is best effort, and does not look inside binary files.
 - Approval marks and policy are files under the OS user: a local process, or an agent allowed to
   write files unprompted, can change them.
-- The rule that only a person admits a device (an interactive terminal with no agent's variables,
-  or a local UI) stops an agent that answers a prompt for its person by accident or habit; a
-  process of the OS user that runs a terminal of its own can still type into it.
+- The rule that only a person admits a device, approves, refuses or releases a held item, or
+  changes a device's policy (an interactive terminal with no agent's variables, or a local UI)
+  stops an agent that runs the command or answers a prompt for its person by accident or habit. A
+  process of the OS user can unset the variables, run a terminal of its own and type into it, or
+  write the mark files and the policy directly.
 - Card working directories are shared with every member by default.
 
 ## 10. Reporting
