@@ -229,10 +229,11 @@ class Receipts {
 }
 
 /**
- * A received item in the agent frame (SPEC section 6a). `assign` is for a device the person
- * trusts to assign work; anything else, history included, only informs.
+ * A received item in the agent frame (SPEC section 6a). `self` (another session on this device)
+ * and `assign` (a device the person trusts) may assign work; anything else, history included,
+ * only informs.
  */
-export function frameEntry(e: HistoryEntry, trust: "assign" | "inform" = "inform"): string {
+export function frameEntry(e: HistoryEntry, trust: "self" | "assign" | "inform" = "inform"): string {
   return frameForAgent({
     from: e.peer,
     deviceId: e.device ?? "",
