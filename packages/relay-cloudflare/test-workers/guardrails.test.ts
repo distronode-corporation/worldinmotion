@@ -231,3 +231,20 @@ describe("lower file limits", () => {
     expect(await root.sock.next("blob.stored")).toMatchObject({ blob: sealed.blob, index: 0 });
   });
 });
+
+describe("a hostile pre-auth frame", () => {
+  it("is answered as malformed and the Durable Object keeps serving other sockets", async () => {
+    const m = await createMesh();
+    const root = new Session(m.mesh, m.admin, "root");
+    await root.connect(m.genesis);
+    const evil = await Socket.open(m.mesh);
+    await evil.next("hello");
+    // A value whose length cannot convert to a primitive once threw inside the frame parser and
+    // escaped the object's webSocketMessage event, before any authentication or rate limit.
+    evil.send({ t: "auth", mesh: { valueOf: 1, toString: 1 } });
+    expect(await evil.next("error")).toMatchObject({ code: "malformed" });
+    expect((await evil.closedWith()).code).toBe(4008);
+    // The object is still up: the authenticated session still gets its peers answer.
+    expect(await root.sock.ask({ t: "peers" }, "peers")).toMatchObject({ t: "peers" });
+  });
+});

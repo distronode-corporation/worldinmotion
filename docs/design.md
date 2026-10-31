@@ -307,7 +307,14 @@ Receipts for what a session sent are recorded there too, as lines of their own (
 id, to, status, at }`, which older readers skip), when they reach the session. The relay forwards a
 receipt only to a sending session that is online and drops it otherwise (SPEC section 7), so a
 command that sends and goes offline (`wim send`) learns nothing unless it waits: `wim send --wait
-30s` stays connected that long and prints each recipient's receipt. While it waits it holds the
+30s` stays connected that long and prints each recipient's receipt. `held` is not the end: the
+command says the message is held and keeps waiting, since the person there may approve it
+(`delivered` follows) or refuse it (`refused`). It returns once every recipient has a receipt other
+than `held`, or when the wait ends, saying for each what is known: a receipt, "still held", or "no
+receipt yet". Exit codes: 0 when every recipient was routed or queued and no receipt says
+`refused` or `expired` (still held or no receipt yet included); 1 when a recipient was not
+accepted (`unknown`, say) or a receipt says `refused` or `expired`; 3 when a running `wim watch`
+took the send but did not report back. While it waits it holds the
 CLI session's name like any running command: only a session whose `handover` file names the
 process holding `live.lock` counts as a `wim watch`, so a second `wim send` meanwhile sends on a
 throwaway session of its own instead of handing over, and `wim watch` and `wim inbox` say the name

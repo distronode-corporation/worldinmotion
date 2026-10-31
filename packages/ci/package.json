@@ -1,6 +1,6 @@
 {
   "name": "@worldinmotion/ci",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "wim ci: a worldinmotion mesh peer that watches GitLab and GitHub pipelines and deployments with a read-only token and posts state changes into a room",
   "license": "Apache-2.0",
   "type": "module",

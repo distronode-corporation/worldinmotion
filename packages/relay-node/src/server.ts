@@ -118,13 +118,30 @@ export function pathOf(target: string): string {
 }
 
 /** The parts of `process` that `runUntilSignal` uses, so a test can pass its own. */
-export type SignalTarget = { once(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown; exit(code: number): unknown };
+export type SignalTarget = {
+  once(signal: "SIGINT" | "SIGTERM", listener: () => void): unknown;
+  exit(code: number): unknown;
+  on?(event: "uncaughtException" | "unhandledRejection", listener: (err: unknown) => void): unknown;
+};
 
-/** Closes the relay cleanly (sessions offline, database closed) on SIGINT or SIGTERM, then exits. */
+/**
+ * Closes the relay cleanly (sessions offline, database closed) on SIGINT or SIGTERM, then exits.
+ *
+ * Also installs a last-resort guard: an unexpected error anywhere in the process must not take the
+ * relay down and with it every mesh it serves. Each frame is validated without throwing (the
+ * protocol's `safeParse` turns even a hostile value into an ordinary failure), so this guard should
+ * never fire; if a future bug throws outside a handler, the relay logs it to stderr and keeps
+ * serving rather than exiting, which is Node's behaviour once an `uncaughtException` listener is
+ * attached.
+ */
 export function runUntilSignal(relay: RunningRelay, proc: SignalTarget): void {
   const stop = () => void relay.close().then(() => proc.exit(0));
   proc.once("SIGINT", stop);
   proc.once("SIGTERM", stop);
+  const onError = (what: string) => (err: unknown) =>
+    console.error(JSON.stringify({ event: what, error: err instanceof Error ? err.message : String(err) }));
+  proc.on?.("uncaughtException", onError("uncaught"));
+  proc.on?.("unhandledRejection", onError("unhandled_rejection"));
 }
 
 /** Starts a relay serving many meshes from one database. Resolves once it is listening. */

@@ -10,7 +10,7 @@ import { takeMarks } from "../src/held.ts";
 import { Home } from "../src/home.ts";
 import { busyRetries } from "../src/platform.ts";
 import { Spool } from "../src/spool.ts";
-import { FS, POSIX, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
+import { FS, POSIX, makeMesh, openSession, RelayHarness, scratch, sleep, spooled, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 const real = { ...fsOps };
@@ -41,7 +41,10 @@ describe("overlapping sends", () => {
     expect(seqs.length).toBe(2);
     expect(seqs[1]).toBe(seqs[0]! + 1);
     expect(a.state.seq).toBe(seqs[1]);
-    await until(async () => (await b.spool.unread()).filter((i) => i.kind !== "notice").length === 2, 3000, "both items");
+    // Both reach b's spool (one dropped as a replay never would). Waited for as b's own events,
+    // not on a clock: a 3 s budget raced b's file work on Windows runners.
+    await Promise.all([spooled(b, (i) => i.id === task.id), spooled(b, (i) => i.id === msg.id)]);
+    expect((await b.spool.unread()).filter((i) => i.kind !== "notice").map((i) => i.id)).toEqual([task.id, msg.id]);
   });
 });
 

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { b64u, fromUtf8, sha256, utf8 } from "./encoding.ts";
 import { randomBytes } from "./ids.ts";
 import { fail, LIMITS, ok, PROTOCOL, type Result } from "./limits.ts";
-import { b64uBytes, b64uRange, deviceIdSchema, isRelayUrl, timeSchema } from "./schema.ts";
+import { b64uBytes, b64uRange, deviceIdSchema, isRelayUrl, safeParse, timeSchema } from "./schema.ts";
 
 /*
  * Short invite codes (SPEC section 5): `wim2-` and 24 Crockford base32 characters, the first 20
@@ -140,7 +140,7 @@ export function sealRdv(k: string, fullCode: string): { rdv: string; n: string; 
  */
 export function openRdv(k: string, box: unknown): Result<string> {
   assertK(k, "openRdv");
-  const parsed = rdvAnswerSchema.safeParse(box);
+  const parsed = safeParse(rdvAnswerSchema, box);
   if (!parsed.success) return fail("rdv_malformed");
   const rdv = rdvId(k);
   if (parsed.data.rdv !== rdv) return fail("rdv_wrong_id");

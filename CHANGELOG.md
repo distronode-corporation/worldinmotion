@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-31
+
 ### Changed
 
 - **The Claude Code plugin installs from the latest release, not from main.** The marketplace
@@ -37,6 +39,92 @@ body line with a bracket.
   wait with it, in order, so none of them reaches the conversation twice. A relayed item that you
   hand over from the pane while a Stop stands gets its button back instead of vanishing. Found by reading the code against the mods
   API docs; the plugin's tests reproduce it.
+- **Three client tests that failed now and then in CI no longer depend on timing.** Each one
+  raced a fixed time budget against work that takes longer on a busy runner. None of the product
+  code changed.
+  - `ping.test.ts`: the test helper that opens a session failed it with "not connected to the
+    relay" when the first connect took over 3 s (seen on Windows). The helper now waits for the
+    session's own `open` or `fatal` event.
+  - `races.test.ts`: the overlapping-sends test gave the receiver 3 s to spool both messages
+    (seen on Windows). It now waits for the receiver's `item` events for the two ids.
+  - `client-security.test.ts`: the unsolicited-result test sent a forged result during a 400 ms
+    `ask` and read the spool once the ask ended. On a slow runner the ask gave up first, so the
+    spool was read before the forged result arrived (seen on Ubuntu). The test now runs the steps
+    in order: the forged result is spooled while the ask still waits, then the addressee answers,
+    and the ask must return that answer.
+
+- **`wim send --wait` waits through `held` and reports the `delivered` that follows.** It
+  returned at the first receipt, so a send to a device that holds messages for its person printed
+  `held` and exited, and the later `delivered` (after the person approved it) showed only in
+  `wim history`, as the two-organisation test of 0.1.6 found. Now `held` is printed once as
+  progress ("Still waiting for it to be delivered...") and the command waits until every
+  recipient's receipt is `delivered`, `refused` or `expired`, or the wait ends, when it says
+  "still held". The exit codes are unchanged and now documented in `docs/design.md`: 0 when every
+  recipient was routed or queued and no receipt failed (still held included), 1 on a refused or
+  expired receipt or a recipient that was not accepted, 3 when a running `wim watch` did not report
+  back.
+
+- **A trusted peer's message no longer tells the agent the device is the person's own.** The frame
+  for a work assignment said "Your person has marked org-b as one of their own devices", but trust
+  is only a policy the person sets, and the two-organisation test of 0.1.6 trusted a device of
+  another organisation. The frame now says what the trust state is: "Your person chose to trust
+  device org-b here, so its sessions may assign you work. wim does not know whose device it is: it
+  may be one of your person's own, or a device of someone else in the same mesh." A message from
+  another session on the receiving device says "It comes from another session on this same device
+  (laptop), so it may assign you work." What may assign work is unchanged, and so is every frame
+  that only informs. The plugin's skill and README say the same.
+
+### Documentation
+
+- **The README's claims match what is true and tested.** The "Why" section said an agent session
+  cannot talk to a session on another machine; Claude Code's built-in messaging has done that on
+  one account since August 2026, so the section now says what it does not cover (other accounts,
+  other vendors, a relay that cannot read the messages). Peer text is described as framed, which reduces
+  risk and is not a guarantee, and the secret filter as best effort. Delivery is labelled push,
+  turn or pull per agent (only Claude Code wakes today), the two-account test is marked as not run
+  yet, and the README now shows a tested `notify.json` example for a ping when a message is held.
+  The same corrections are in `docs/peers.md` and the plugin's README. No code change.
+
+- **MLS for rooms is a design, not part of v0.2** (`docs/mls.md`). Rooms keep today's per-device
+  sealing. The document sets out what an MLS room mode would need before any code: one MLS
+  member per device held by the signer, the relay as the commit sequencer, eviction of devices
+  offline for 72 hours, what happens to history, and the library question. It cites the
+  agent-connect, SLIM, Marmot and Matrix MSC4268 designs it draws on. SPEC section 6 now says so
+  where it reserves the box scheme numbers. No code change.
+
+- **A page for security teams** (`docs/security-teams.md`), linked from the README. It maps wim to
+  the nine mitigations of OWASP ASI07 (Insecure Inter-Agent Communication) and names the gaps:
+  per-device rather than per-agent credentials, the downgrade window that closes at 1.0, no
+  metadata padding, approval marks that are files, and a held view that shows one item at a time.
+  It also names two client-side scanners as a second layer to the secret filter, Docker MCP
+  Gateway and GitGuardian's AI hooks, neither yet tested with wim.
+- **SECURITY-MODEL names agent session smuggling** (section 5.2 and the known limits in section
+  9): a request spread across harmless-looking messages, which a held view of one item at a time
+  makes easy to approve piece by piece. Until the held view shows the whole thread, it says how to
+  read the thread before approving.
+- **Running relay-node on a tailnet** (`packages/relay-node/README.md`), with LAN mode on the
+  tailnet address or Tailscale Serve in front. Marked as not yet tested.
+
+No code change.
+
+### Security
+
+- **Approving held messages and trusting devices now need the person at their own terminal.**
+  `wim held approve` and `wim devices trust` ran from an agent's shell: in the two-organisation
+  test of 0.1.6, an agent with `CLAUDECODE` set approved a held message and trusted a device, and
+  no person was asked, although the README said `wim` refuses the steps that decide trust. Now
+  `wim held approve`, `refuse` and `resume`, and `wim devices trust` and `untrust` (one device or
+  `--all`), run only when standard input and output are an interactive terminal and no agent's
+  variables are set, and they show what is being decided (the held message's sender, device id,
+  reason and text; each device's name, role, id and policy before and after) and act only on a
+  typed `y`. There is no flag that skips it. An events process started with an agent's variables
+  refuses `approve`, `refuse`, `resume`, `trust` and `untrust` as it already refused `invite` and
+  `admit`. The variables checked now include `CLAUDE_CODE_SESSION_ID`,
+  `CLAUDE_CODE_MESSAGING_SOCKET` and `AI_AGENT`, which Claude Code sets in its shells; other
+  `CLAUDE_CODE_` variables are not checked, because people set some in their own profile. No MCP
+  tool decides any of these, as before, and a test now pins that. This is a same-user check, not a
+  boundary: a program running as the OS user can still unset the variables or write the files
+  (SECURITY-MODEL.md sections 7.2 and 9). The README and the plugin README now say so.
 
 ## [0.1.6] - 2026-10-30
 
@@ -413,7 +501,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.7
 [0.1.6]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.6
 [0.1.5]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.5
 [0.1.4]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.4

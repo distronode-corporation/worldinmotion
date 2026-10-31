@@ -1,6 +1,6 @@
 {
   "name": "@worldinmotion/protocol",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Wire protocol, crypto and frame schemas for worldinmotion (wim/1)",
   "license": "Apache-2.0",
   "type": "module",

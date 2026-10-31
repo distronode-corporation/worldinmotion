@@ -241,6 +241,21 @@ describe("relay-node", () => {
     expect(await c.closed).toEqual({ code: 1003, reason: "text frames only" });
   });
 
+  it("answers a hostile pre-auth frame as malformed and keeps serving other sockets", async () => {
+    const r = await relay();
+    const evil = new Dial(`${r.relayUrls[0]}/v1/${b64u.encode(randomBytes(16))}`);
+    await evil.next();
+    // A value whose length cannot convert to a primitive once made the frame parser throw and
+    // took the whole relay process down before any authentication.
+    evil.send({ t: "auth", mesh: { valueOf: 1, toString: 1 } });
+    expect(await evil.nextOf("error")).toMatchObject({ code: "malformed" });
+    expect((await evil.closed).code).toBe(4008);
+    // The relay is still up: a fresh socket on another mesh still gets its hello.
+    const ok = new Dial(`${r.relayUrls[0]}/v1/${b64u.encode(randomBytes(16))}`);
+    expect(await ok.next()).toMatchObject({ t: "hello" });
+    ok.ws.close();
+  });
+
   it("drops a socket that stops answering pings", async () => {
     const r = await relay({ heartbeatMs: 50 });
     const c = new Dial(`${r.relayUrls[0]}/v1/${b64u.encode(new Uint8Array(16))}`, { autoPong: false });
@@ -469,6 +484,30 @@ describe("relay-node", () => {
       const c = new Dial(`ws://127.0.0.1:${r.port}/v1/${b64u.encode(new Uint8Array(16))}`);
       await expect(c.opened()).rejects.toThrow();
     }
+  });
+
+  it("installs a last-resort guard that logs an unexpected error and keeps serving", async () => {
+    const r = await start({ db: ":memory:", port: 0, log: () => {} });
+    running.push(r);
+    const errorHandlers = new Map<string, (err: unknown) => void>();
+    let exited = false;
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    runUntilSignal(r, {
+      once: () => {},
+      exit: () => void (exited = true),
+      on: (event, fn) => errorHandlers.set(event, fn),
+    });
+    expect([...errorHandlers.keys()]).toEqual(["uncaughtException", "unhandledRejection"]);
+    errorHandlers.get("uncaughtException")!(new Error("boom"));
+    errorHandlers.get("unhandledRejection")!("a bare string");
+    // The guard logs and does not exit: the relay stays up, and other sockets keep being served.
+    expect(exited).toBe(false);
+    expect(spy).toHaveBeenNthCalledWith(1, JSON.stringify({ event: "uncaught", error: "boom" }));
+    expect(spy).toHaveBeenNthCalledWith(2, JSON.stringify({ event: "unhandled_rejection", error: "a bare string" }));
+    spy.mockRestore();
+    const c = new Dial(`ws://127.0.0.1:${r.port}/v1/${b64u.encode(new Uint8Array(16))}`);
+    await c.opened();
+    c.ws.close();
   });
 
   it("logs to the console by default and accepts explicit relay URLs", async () => {

@@ -53,8 +53,9 @@ export type EventsDeps = {
   /** How often leases are asked for while connected (5 s; each is a relay round trip). */
   leasePollMs?: number;
   /**
-   * The agent variable in this process's environment, if any (`agentEnv`). Adding a device is the
-   * person's (SECURITY-MODEL section 5.6), so `invite` and `admit` are refused when one is set.
+   * The agent variable in this process's environment, if any (`agentEnv`). Adding a device, and
+   * deciding what reaches the agents, are the person's (SECURITY-MODEL sections 5.6 and 7.5), so
+   * `invite`, `admit`, `approve`, `refuse`, `resume`, `trust` and `untrust` are refused when one is set.
    */
   agent?: string;
 };
@@ -391,6 +392,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       }
       case "approve":
       case "refuse": {
+        personOnly(d.agent, op === "approve" ? "approving a held message" : "refusing a held message");
         const id = (a as { held: string }).held;
         if (!isUlid(id)) throw new RequestError("input", "held must be a held message id");
         const verdict = op === "approve" ? "approve" : "refuse";
@@ -403,6 +405,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       }
       case "trust":
       case "untrust": {
+        personOnly(d.agent, "changing a device's trust");
         const name = (a as { device: string }).device;
         const target = s.roster.devices.find((x) => x.name === name);
         if (target === undefined) throw new RequestError("not_found", `no device named ${sanitizeForDisplay(name)}`);
@@ -412,6 +415,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
         return { policy };
       }
       case "resume": {
+        personOnly(d.agent, "releasing what the loop breaker held");
         const peer = (a as { peer: string }).peer;
         const released = (await s.resumePeer(peer)) + (await resumeEverywhere(d.mesh, peer, d.env, d.now, s.sid));
         return { released };
