@@ -24,6 +24,20 @@ body line with a bracket.
   `.github/scripts/check-versions.mjs` fails CI while the pin lags the latest release or names a
   sha that is not the tag's commit.
 
+### Fixed
+
+- **A message that arrives after you press Stop is no longer lost behind a `delivered` receipt.**
+  After a person stops a turn, Claude Code refuses new work until their next input, and drops a
+  prompt still queued behind the stopped turn. The plugin started the message's turn with
+  `$.prompt.submit`, saw it dropped, logged a line Claude never reads, and moved `spool/cursor`
+  past the message anyway, so the client deleted it and told the sender `delivered`. The plugin
+  now keeps the message and does not move the cursor past it, so no receipt goes, and hands it over
+  when the next turn ends (after your next input), once. A message the session read meanwhile
+  through `inbox` or `wait` is not handed over again, and messages that arrive behind a kept one
+  wait with it, in order, so none of them reaches the conversation twice. A relayed item that you
+  hand over from the pane while a Stop stands gets its button back instead of vanishing. Found by reading the code against the mods
+  API docs; the plugin's tests reproduce it.
+
 ## [0.1.6] - 2026-10-30
 
 ### Changed
