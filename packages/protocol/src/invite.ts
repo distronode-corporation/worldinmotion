@@ -15,6 +15,7 @@ import {
   relayUrlSchema,
   rosterRefSchema,
   secret32Schema,
+  safeParse,
   sigSchema,
   timeSchema,
   b64uBytes,
@@ -117,7 +118,7 @@ export function parseInvite(code: string): InviteCode {
   }
   const body = parseJson(json);
   if (!body.ok) throw new Error("invalid invite code: it is damaged or incomplete");
-  const parsed = inviteBodySchema.safeParse(body.value);
+  const parsed = safeParse(inviteBodySchema, body.value);
   if (!parsed.success) throw new Error(`invalid invite code: ${describe(parsed.error)}`);
   const secret = b64u.decode(parsed.data.secret);
   return { ...parsed.data, secret, inviteId: inviteIdFromSecret(secret) };
@@ -219,7 +220,7 @@ function joinBody(invite: InviteCode, name: string, keys: { signPub: Uint8Array;
  * `join_wrong_nonce`, `join_bad_device_id`, `join_bad_signature`, `join_bad_proof`.
  */
 export function verifyJoin(join: unknown, secret?: Uint8Array, nonce?: string): Result<JoinBody> {
-  const parsed = joinOrBodySchema.safeParse(join);
+  const parsed = safeParse(joinOrBodySchema, join);
   if (!parsed.success) return fail("join_malformed");
   const { t: _t, ...j } = parsed.data;
   // Recovery records are made by an admin, never by joining (SPEC section 4a).

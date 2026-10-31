@@ -21,6 +21,7 @@ import {
   rosterRefSchema,
   roomSchema,
   rosterSchema,
+  safeParse,
   secret32Schema,
   seqSchema,
   sessionAddressSchema,
@@ -516,7 +517,7 @@ function parseWith<T>(text: unknown, schemas: Record<string, z.ZodType>, maxByte
   if (schema === undefined) return fail("unknown_type");
   // Card frames have their own, smaller limit (SPEC section 17).
   if ((t === "card.set" || t === "card") && !fitsUtf8(text, LIMITS.cardFrameBytes)) return fail("too_large");
-  const parsed = schema.safeParse(value);
+  const parsed = safeParse(schema, value);
   return parsed.success ? ok(parsed.data as T) : fail("malformed");
 }
 

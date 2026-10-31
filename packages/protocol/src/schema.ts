@@ -3,6 +3,25 @@ import { b64u } from "./encoding.ts";
 import { ADDRESS_RE, isId22, isName, isUlid, ROOM_RE } from "./ids.ts";
 import { LIMITS } from "./limits.ts";
 
+/**
+ * `schema.safeParse(value)` that never throws, whatever `value` is. zod 4 runs a string or array
+ * length check (and a set size check) on any value that carries a `length` (or `size`) property,
+ * even after the type check has already failed, and then compares that property with a number.
+ * When the property is an object with no primitive conversion, which `JSON.parse` can produce from
+ * `{"length":{"valueOf":{}}}`, the comparison throws a `TypeError`, so a bare `safeParse` throws
+ * instead of returning a failure. Validating untrusted input (a wire frame, a pasted code, a
+ * decrypted plaintext, a stored record) must never throw, so every such check goes through here:
+ * a thrown check becomes an ordinary validation failure with the same result shape callers handle.
+ */
+export function safeParse<T>(schema: z.ZodType<T>, value: unknown): ReturnType<z.ZodType<T>["safeParse"]> {
+  try {
+    return schema.safeParse(value);
+  } catch {
+    const error = new z.ZodError([{ code: "custom", path: [], message: "input could not be validated", input: value }]);
+    return { success: false, error } as ReturnType<z.ZodType<T>["safeParse"]>;
+  }
+}
+
 function decodes(s: string, length?: number): boolean {
   try {
     const bytes = b64u.decode(s);

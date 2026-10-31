@@ -10,7 +10,7 @@ import { fail, LIMITS, ok, WIRE_VERSION, type Result } from "./limits.ts";
 import { checkFreshness } from "./replay.ts";
 import { fileSchema, type FileInfo } from "./blob.ts";
 import { verifyPrekey, type Prekey } from "./prekey.ts";
-import { fromSchema, isRoom, rosterRefSchema, timeSchema, toSchema, ulidSchema, type Roster } from "./schema.ts";
+import { fromSchema, isRoom, rosterRefSchema, safeParse, timeSchema, toSchema, ulidSchema, type Roster } from "./schema.ts";
 import { isRecoveryName } from "./roster.ts";
 import { signObject, verifyObject } from "./sign.ts";
 
@@ -402,7 +402,7 @@ function checkFrame(
   frame: unknown,
   ctx: { roster: Roster; me: Omit<Receiver, "keys" | "prekey">; now: number; history?: boolean; legacy?: boolean },
 ): Result<{ f: SendFrame; req: OpenRequest }> {
-  const parsed = sendFrameSchema.safeParse(frame);
+  const parsed = safeParse(sendFrameSchema, frame);
   if (!parsed.success) return fail("malformed");
   const f = parsed.data;
   const { roster, me } = ctx;
@@ -447,7 +447,7 @@ function checkPlaintext(f: SendFrame, opened: Opened): Result<Plaintext> {
 
   const json = parseJson(text);
   if (!json.ok) return fail("plaintext_malformed");
-  const result = plaintextSchema.safeParse(json.value);
+  const result = safeParse(plaintextSchema, json.value);
   if (!result.success) return fail("plaintext_malformed");
   const body = result.data;
   // Only one byte string may encode a plaintext, so no two parsers can disagree about it.

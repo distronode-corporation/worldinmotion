@@ -3,7 +3,7 @@ import { deviceIdFromSignPub, randomBytes } from "./ids.ts";
 import type { DeviceKeys } from "./keys.ts";
 import { signObjectWith, type Keyring } from "./keyring.ts";
 import { fail, ok, type Result } from "./limits.ts";
-import { deviceRecordSchema, meshIdSchema, rosterSchema, type DeviceRecord, type Roster, type RosterRef } from "./schema.ts";
+import { deviceRecordSchema, meshIdSchema, rosterSchema, safeParse, type DeviceRecord, type Roster, type RosterRef } from "./schema.ts";
 import { signObject, verifyObject } from "./sign.ts";
 
 /** A device's two public keys, as a key set or a keyring holds them. */
@@ -130,7 +130,7 @@ function nextRosterBody(prev: Roster, change: RosterChange, signPub: Uint8Array,
 
 /** Rules that hold for every roster on its own: ids derived from keys, unique names and ids. */
 function checkShape(roster: unknown): Result<Roster> {
-  const parsed = rosterSchema.safeParse(roster);
+  const parsed = safeParse(rosterSchema, roster);
   if (!parsed.success) return fail("roster_malformed");
   const r = parsed.data;
   const ids = new Set<string>();

@@ -5,7 +5,7 @@ import { parseJson } from "./json.ts";
 import { deviceKeysFromSecrets, type DeviceKeys } from "./keys.ts";
 import { fail, ok, type Result } from "./limits.ts";
 import { isRecoveryName, makeDeviceRecord, verifyGenesisRoster, verifyRosterChain } from "./roster.ts";
-import { hashSchema, meshIdSchema, secret32Schema, type DeviceRecord, type Roster } from "./schema.ts";
+import { hashSchema, meshIdSchema, safeParse, secret32Schema, type DeviceRecord, type Roster } from "./schema.ts";
 
 const PREFIX = "wimrec1_";
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -95,7 +95,7 @@ export function parseRecoveryCode(code: string, meshId?: string): DeviceKeys & {
     throw new Error("invalid recovery code: it is damaged");
   }
   const parsedJson = parseJson(json);
-  const parsed = parsedJson.ok ? bodySchema.safeParse(parsedJson.value) : undefined;
+  const parsed = parsedJson.ok ? safeParse(bodySchema, parsedJson.value) : undefined;
   if (!parsed?.success) throw new Error("invalid recovery code: it is damaged");
   if (meshId !== undefined && parsed.data.mesh !== meshId) throw new Error("invalid recovery code: it belongs to another mesh");
   const keys = deviceKeysFromSecrets(b64u.decode(parsed.data.sign), b64u.decode(parsed.data.box));

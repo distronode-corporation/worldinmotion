@@ -85171,6 +85171,14 @@ function verifyObject(type, obj, signPub) {
 }
 
 // ../protocol/src/schema.ts
+function safeParse3(schema, value) {
+  try {
+    return schema.safeParse(value);
+  } catch {
+    const error63 = new external_exports.ZodError([{ code: "custom", path: [], message: "input could not be validated", input: value }]);
+    return { success: false, error: error63 };
+  }
+}
 function decodes(s3, length) {
   try {
     const bytes3 = b64u.decode(s3);
@@ -86315,7 +86323,7 @@ function nextRosterBody(prev, change, signPub, now) {
   return { mesh: prev.mesh, seq: prev.seq + 1, prev: hash2(prev), devices: devices2, revoked, by: signerId, at: now };
 }
 function checkShape(roster) {
-  const parsed2 = rosterSchema.safeParse(roster);
+  const parsed2 = safeParse3(rosterSchema, roster);
   if (!parsed2.success) return fail("roster_malformed");
   const r6 = parsed2.data;
   const ids = /* @__PURE__ */ new Set();
@@ -86445,7 +86453,7 @@ function parseInvite(code2) {
   }
   const body = parseJson(json4);
   if (!body.ok) throw new Error("invalid invite code: it is damaged or incomplete");
-  const parsed2 = inviteBodySchema.safeParse(body.value);
+  const parsed2 = safeParse3(inviteBodySchema, body.value);
   if (!parsed2.success) throw new Error(`invalid invite code: ${describe3(parsed2.error)}`);
   const secret = b64u.decode(parsed2.data.secret);
   return { ...parsed2.data, secret, inviteId: inviteIdFromSecret(secret) };
@@ -86505,7 +86513,7 @@ function joinBody(invite2, name, keys, nonce) {
   return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
 }
 function verifyJoin(join22, secret, nonce) {
-  const parsed2 = joinOrBodySchema.safeParse(join22);
+  const parsed2 = safeParse3(joinOrBodySchema, join22);
   if (!parsed2.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -86732,7 +86740,7 @@ function sealRdv(k5, fullCode) {
 }
 function openRdv(k5, box) {
   assertK(k5, "openRdv");
-  const parsed2 = rdvAnswerSchema.safeParse(box);
+  const parsed2 = safeParse3(rdvAnswerSchema, box);
   if (!parsed2.success) return fail("rdv_malformed");
   const rdv = rdvId(k5);
   if (parsed2.data.rdv !== rdv) return fail("rdv_wrong_id");
@@ -86775,7 +86783,7 @@ function createPrekey(opts) {
 }
 var PROBE = sha2562(utf8("wim/1 prekey probe"));
 function verifyPrekey(raw, roster, now) {
-  const parsed2 = prekeySchema.safeParse(raw);
+  const parsed2 = safeParse3(prekeySchema, raw);
   if (!parsed2.success) return fail("malformed");
   const pk = parsed2.data;
   if (pk.mesh !== roster.mesh) return fail("wrong_mesh");
@@ -87122,7 +87130,7 @@ function parseWith(text2, schemas, maxBytes) {
   const schema = Object.hasOwn(schemas, t2) ? schemas[t2] : void 0;
   if (schema === void 0) return fail("unknown_type");
   if ((t2 === "card.set" || t2 === "card") && !fitsUtf8(text2, LIMITS.cardFrameBytes)) return fail("too_large");
-  const parsed2 = schema.safeParse(value);
+  const parsed2 = safeParse3(schema, value);
   return parsed2.success ? ok(parsed2.data) : fail("malformed");
 }
 function parseRelayFrame(text2) {
@@ -87332,7 +87340,7 @@ async function openMessageWith(frame, ctx) {
   return checkPlaintext(checked.value.f, await ctx.me.keyring.open(checked.value.req));
 }
 function checkFrame(frame, ctx) {
-  const parsed2 = sendFrameSchema.safeParse(frame);
+  const parsed2 = safeParse3(sendFrameSchema, frame);
   if (!parsed2.success) return fail("malformed");
   const f7 = parsed2.data;
   const { roster, me } = ctx;
@@ -87367,7 +87375,7 @@ function checkPlaintext(f7, opened2) {
   const bytes3 = opened2;
   const json4 = parseJson(text2);
   if (!json4.ok) return fail("plaintext_malformed");
-  const result = plaintextSchema.safeParse(json4.value);
+  const result = safeParse3(plaintextSchema, json4.value);
   if (!result.success) return fail("plaintext_malformed");
   const body = result.data;
   if (!bytesEqual(canonBytes(body), bytes3)) return fail("plaintext_malformed");
@@ -87577,7 +87585,7 @@ function parseRecoveryCode(code2, meshId) {
     throw new Error("invalid recovery code: it is damaged");
   }
   const parsedJson = parseJson(json4);
-  const parsed2 = parsedJson.ok ? bodySchema.safeParse(parsedJson.value) : void 0;
+  const parsed2 = parsedJson.ok ? safeParse3(bodySchema, parsedJson.value) : void 0;
   if (!parsed2?.success) throw new Error("invalid recovery code: it is damaged");
   if (meshId !== void 0 && parsed2.data.mesh !== meshId) throw new Error("invalid recovery code: it belongs to another mesh");
   const keys = deviceKeysFromSecrets(b64u.decode(parsed2.data.sign), b64u.decode(parsed2.data.box));
@@ -118969,7 +118977,7 @@ function isZ4Schema(s3) {
   const schema = s3;
   return !!schema._zod;
 }
-function safeParse3(schema, data) {
+function safeParse4(schema, data) {
   if (isZ4Schema(schema)) {
     const result2 = safeParse(schema, data);
     return result2;
@@ -119049,7 +119057,7 @@ function getMethodLiteral(schema) {
   return value;
 }
 function parseWithCompat(schema, data) {
-  const result = safeParse3(schema, data);
+  const result = safeParse4(schema, data);
   if (!result.success) {
     throw result.error;
   }
@@ -119669,7 +119677,7 @@ var Protocol = class {
           return reject(response);
         }
         try {
-          const parseResult = safeParse3(resultSchema, response.result);
+          const parseResult = safeParse4(resultSchema, response.result);
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
@@ -120422,7 +120430,7 @@ var Server = class extends Protocol {
     const method = methodValue;
     if (method === "tools/call") {
       const wrappedHandler = async (request2, extra) => {
-        const validatedRequest = safeParse3(CallToolRequestSchema, request2);
+        const validatedRequest = safeParse4(CallToolRequestSchema, request2);
         if (!validatedRequest.success) {
           const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
           throw new McpError(ErrorCode.InvalidParams, `Invalid tools/call request: ${errorMessage}`);
@@ -120430,14 +120438,14 @@ var Server = class extends Protocol {
         const { params } = validatedRequest.data;
         const result = await Promise.resolve(handler(request2, extra));
         if (params.task) {
-          const taskValidationResult = safeParse3(CreateTaskResultSchema, result);
+          const taskValidationResult = safeParse4(CreateTaskResultSchema, result);
           if (!taskValidationResult.success) {
             const errorMessage = taskValidationResult.error instanceof Error ? taskValidationResult.error.message : String(taskValidationResult.error);
             throw new McpError(ErrorCode.InvalidParams, `Invalid task creation result: ${errorMessage}`);
           }
           return taskValidationResult.data;
         }
-        const validationResult = safeParse3(CallToolResultSchema, result);
+        const validationResult = safeParse4(CallToolResultSchema, result);
         if (!validationResult.success) {
           const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
           throw new McpError(ErrorCode.InvalidParams, `Invalid tools/call result: ${errorMessage}`);

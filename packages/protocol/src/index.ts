@@ -16,6 +16,7 @@ export {
   roomSchema,
   rosterRefSchema,
   rosterSchema,
+  safeParse,
   sessionAddressSchema,
   type DeviceRecord,
   type From,
