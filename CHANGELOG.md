@@ -49,6 +49,13 @@ body line with a bracket.
   yet, and the README now shows a tested `notify.json` example for a ping when a message is held.
   The same corrections are in `docs/peers.md` and the plugin's README. No code change.
 
+- **MLS for rooms is a design, not part of v0.2** (`docs/mls.md`). Rooms keep today's per-device
+  sealing. The document sets out what an MLS room mode would need before any code: one MLS
+  member per device held by the signer, the relay as the commit sequencer, eviction of devices
+  offline for 72 hours, what happens to history, and the library question. It cites the
+  agent-connect, SLIM, Marmot and Matrix MSC4268 designs it draws on. SPEC section 6 now says so
+  where it reserves the box scheme numbers. No code change.
+
 - **A page for security teams** (`docs/security-teams.md`), linked from the README. It maps wim to
   the nine mitigations of OWASP ASI07 (Insecure Inter-Agent Communication) and names the gaps:
   per-device rather than per-agent credentials, the downgrade window that closes at 1.0, no
