@@ -113708,8 +113708,8 @@ var GeminiNextGenEnvironmentFiles = class {
     while (offset < sizeBytes || sizeBytes === 0 && offset === 0) {
       const end2 = Math.min(offset + CHUNK_SIZE, sizeBytes);
       const chunk = blob.slice(offset, end2);
-      const isFinal = end2 >= sizeBytes;
-      const uploadCommand = isFinal ? "upload, finalize" : "upload";
+      const isFinal2 = end2 >= sizeBytes;
+      const uploadCommand = isFinal2 ? "upload, finalize" : "upload";
       uploadResponse = await apiClient.request({
         path: "",
         body: chunk,
@@ -113717,7 +113717,7 @@ var GeminiNextGenEnvironmentFiles = class {
         httpOptions: Object.assign(Object.assign({}, options === null || options === void 0 ? void 0 : options.httpOptions), { apiVersion: "", baseUrl: uploadUrl, headers: Object.assign(Object.assign({}, ((_h4 = options === null || options === void 0 ? void 0 : options.httpOptions) === null || _h4 === void 0 ? void 0 : _h4.headers) || {}), { "X-Goog-Upload-Command": uploadCommand, "X-Goog-Upload-Offset": `${offset}` }) })
       });
       offset = end2;
-      if (isFinal) {
+      if (isFinal2) {
         break;
       }
     }
@@ -123190,16 +123190,22 @@ function receiptLine(to, status2, id) {
 function lastReceipts(receipts) {
   return new Map(receipts.map((r6) => [r6.to, r6.status]));
 }
-async function waitForReceipts(ctx, read, wanted, ms) {
+var isFinal = (status2) => status2 !== void 0 && status2 !== "held";
+async function waitForReceipts(ctx, read, wanted, ms, onHeld) {
   const until = Date.now() + ms;
+  const told = /* @__PURE__ */ new Set();
   for (; ; ) {
     const got = lastReceipts(await read());
+    for (const to of wanted.filter((a5) => got.get(a5) === "held" && !told.has(a5))) {
+      told.add(to);
+      onHeld(to);
+    }
     if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
     await new Promise((r6) => setTimeout(r6, 100));
   }
 }
 function waitedEnough(got, wanted, until, signal) {
-  return wanted.every((to) => got.has(to)) || Date.now() > until || signal.aborted;
+  return wanted.every((to) => isFinal(got.get(to))) || Date.now() > until || signal.aborted;
 }
 async function send(ctx) {
   const [to, ...words] = ctx.args.positional;
@@ -123256,7 +123262,7 @@ async function send(ctx) {
       return code2;
     }
     ctx.io.out(`Waiting up to ${waitText} for receipts (Ctrl-C stops waiting; the message stays sent)...`);
-    const got = await waitForReceipts(ctx, receipts, took, waitMs);
+    const got = await waitForReceipts(ctx, receipts, took, waitMs, (to2) => ctx.io.out(`${receiptLine(to2, "held", out.id)}. Still waiting for it to be delivered...`));
     return reportReceipts(ctx, out, took, got, code2);
   } finally {
     if (s3 !== void 0) await ctx.finish(s3);
@@ -123266,7 +123272,8 @@ function reportReceipts(ctx, out, took, got, code2) {
   const statusOf = new Map(out.results.map((r6) => [r6.to, r6.status]));
   for (const to of took) {
     const status2 = got.get(to);
-    if (status2 !== void 0) ctx.io.out(receiptLine(to, status2, out.id));
+    if (status2 === "held") ctx.io.out(`${to}: still held for the approval of that device's person when the wait ended, so not delivered yet`);
+    else if (status2 !== void 0) ctx.io.out(receiptLine(to, status2, out.id));
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)]})`);
   }
   return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code2;

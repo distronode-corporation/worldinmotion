@@ -983,21 +983,36 @@ function lastReceipts(receipts: ReadonlyArray<{ to: string; status: string }>): 
   return new Map(receipts.map((r) => [r.to, r.status]));
 }
 
+/** A receipt nothing follows. `held` is not one: the person there may approve it, and `delivered` comes then. */
+const isFinal = (status: string | undefined): boolean => status !== undefined && status !== "held";
+
 /**
- * Waits until every address in `wanted` has a receipt, `ms` passes or the person stops the
- * command; returns the last receipt of each address that has one.
+ * Waits until every address in `wanted` has a final receipt, `ms` passes or the person stops the
+ * command; returns the last receipt of each address that has one. `onHeld` hears of each address
+ * once, the first time it is held, so the person sees why the wait goes on.
  */
-async function waitForReceipts(ctx: Ctx, read: () => Promise<ReadonlyArray<{ to: string; status: string }>>, wanted: readonly string[], ms: number): Promise<Map<string, string>> {
+async function waitForReceipts(
+  ctx: Ctx,
+  read: () => Promise<ReadonlyArray<{ to: string; status: string }>>,
+  wanted: readonly string[],
+  ms: number,
+  onHeld: (to: string) => void,
+): Promise<Map<string, string>> {
   const until = Date.now() + ms;
+  const told = new Set<string>();
   for (;;) {
     const got = lastReceipts(await read());
+    for (const to of wanted.filter((a) => got.get(a) === "held" && !told.has(a))) {
+      told.add(to);
+      onHeld(to);
+    }
     if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
     await new Promise((r) => setTimeout(r, 100));
   }
 }
 
 function waitedEnough(got: ReadonlyMap<string, string>, wanted: readonly string[], until: number, signal: AbortSignal): boolean {
-  return wanted.every((to) => got.has(to)) || Date.now() > until || signal.aborted;
+  return wanted.every((to) => isFinal(got.get(to))) || Date.now() > until || signal.aborted;
 }
 
 async function send(ctx: Ctx): Promise<number> {
@@ -1066,19 +1081,24 @@ async function send(ctx: Ctx): Promise<number> {
       return code;
     }
     ctx.io.out(`Waiting up to ${waitText!} for receipts (Ctrl-C stops waiting; the message stays sent)...`);
-    const got = await waitForReceipts(ctx, receipts, took, waitMs);
+    const got = await waitForReceipts(ctx, receipts, took, waitMs, (to) => ctx.io.out(`${receiptLine(to, "held", out.id)}. Still waiting for it to be delivered...`));
     return reportReceipts(ctx, out, took, got, code);
   } finally {
     if (s !== undefined) await ctx.finish(s);
   }
 }
 
-/** Prints each waited-for recipient's receipt, or what is known without one; refused and expired fail the command. */
+/**
+ * Prints each waited-for recipient's receipt, or what is known without one. The exit code is the
+ * send's (0 when every recipient was routed or queued), or 1 when a receipt says refused or
+ * expired. Still held when the wait ends is not a failure: the message waits for a person there.
+ */
 function reportReceipts(ctx: Ctx, out: SendAnswer, took: readonly string[], got: ReadonlyMap<string, string>, code: number): number {
   const statusOf = new Map(out.results.map((r) => [r.to, r.status]));
   for (const to of took) {
     const status = got.get(to);
-    if (status !== undefined) ctx.io.out(receiptLine(to, status, out.id));
+    if (status === "held") ctx.io.out(`${to}: still held for the approval of that device's person when the wait ended, so not delivered yet`);
+    else if (status !== undefined) ctx.io.out(receiptLine(to, status, out.id));
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)!]})`);
   }
   return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code;

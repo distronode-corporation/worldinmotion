@@ -38,6 +38,17 @@ body line with a bracket.
   hand over from the pane while a Stop stands gets its button back instead of vanishing. Found by reading the code against the mods
   API docs; the plugin's tests reproduce it.
 
+- **`wim send --wait` waits through `held` and reports the `delivered` that follows.** It
+  returned at the first receipt, so a send to a device that holds messages for its person printed
+  `held` and exited, and the later `delivered` (after the person approved it) showed only in
+  `wim history`, as the two-organisation test of 0.1.6 found. Now `held` is printed once as
+  progress ("Still waiting for it to be delivered...") and the command waits until every
+  recipient's receipt is `delivered`, `refused` or `expired`, or the wait ends, when it says
+  "still held". The exit codes are unchanged and now documented in `docs/design.md`: 0 when every
+  recipient was routed or queued and no receipt failed (still held included), 1 on a refused or
+  expired receipt or a recipient that was not accepted, 3 when a running `wim watch` did not report
+  back.
+
 ### Documentation
 
 - **The README's claims match what is true and tested.** The "Why" section said an agent session
