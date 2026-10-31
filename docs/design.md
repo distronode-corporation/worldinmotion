@@ -383,7 +383,9 @@ receipt from it arrives.
   refuses new work until their next input: `$.prompt.submit` resolves `{ drop }` and queues
   nothing, and a prompt already queued behind the running turn is dropped too. The mod keeps each
   item of a dropped turn (in `$.state`, with its message id), and `spool/cursor` stops before the
-  first kept item, so the server sends no `delivered` for it or anything after it. On
+  first kept item, so the server sends no `delivered` for it or anything after it. An item that
+  arrives behind a kept one waits with it, in order (a relayed one in the pane only): the cursor
+  cannot pass the kept one, so `inbox` or `wait` would hand anything past it over again. On
   `turn.complete` the mod hands the kept items over as one turn, as the mods API docs say to retry a
   dropped submit. A turn end before the person's next input (the interrupted turn's own) is refused
   again and the items stay kept. Each item is kept once and marked while its submit is under way,

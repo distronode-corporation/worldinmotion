@@ -33,7 +33,9 @@ body line with a bracket.
   past the message anyway, so the client deleted it and told the sender `delivered`. The plugin
   now keeps the message and does not move the cursor past it, so no receipt goes, and hands it over
   when the next turn ends (after your next input), once. A message the session read meanwhile
-  through `inbox` or `wait` is not handed over again. Found by reading the code against the mods
+  through `inbox` or `wait` is not handed over again, and messages that arrive behind a kept one
+  wait with it, in order, so none of them reaches the conversation twice. A relayed item that you
+  hand over from the pane while a Stop stands gets its button back instead of vanishing. Found by reading the code against the mods
   API docs; the plugin's tests reproduce it.
 
 ## [0.1.6] - 2026-10-30

@@ -1334,7 +1334,7 @@ test('a message that arrives after the person pressed Stop is kept, not receipte
   expect(timesShown(session, w, 'please review the migration')).toBe(1)
 })
 
-test('a message behind a kept one is handed over, but neither is receipted until the kept one reaches the session', async ($, on) => {
+test('a message behind a kept one waits with it, in order, so nothing in the conversation is past the cursor', async ($, on) => {
   const clock = mock.clock(on)
   let isStopped = true
   const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
@@ -1344,24 +1344,73 @@ test('a message behind a kept one is handed over, but neither is receipted until
   await clock.advance(250)
   await clock.settle()
 
-  // The person's next input ends the Stop; a message arrives during that turn and is appended.
+  // The person's next input ends the Stop; a message arrives during that turn.
   isStopped = false
   await $.turn.start({ text: 'my prompt', turnId: 't1' })
-  w.files.set(...item(2, 'second, appended'))
+  w.files.set(...item(2, 'second, behind it'))
   await clock.advance(250)
   await clock.settle()
-  expect(timesShown(session, w, 'second, appended')).toBe(1)
-  // The cursor cannot pass the first without receipting it, so it passes neither.
+  // Not appended: the cursor cannot pass the first, so `inbox` would hand the second over again.
+  expect(timesShown(session, w, 'second, behind it')).toBe(0)
   expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
 
   await $.turn.complete(COMPLETE)
   await clock.advance(250)
   await clock.settle()
   expect(w.submitted).toHaveLength(1)
-  expect(w.submitted[0]).toContain('first, dropped')
-  expect(w.submitted[0]).not.toContain('second, appended')
+  const text = w.submitted[0] ?? ''
+  expect(text.indexOf('first, dropped')).toBeGreaterThanOrEqual(0)
+  expect(text.indexOf('first, dropped')).toBeLessThan(text.indexOf('second, behind it'))
   expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
-  for (const text of ['first, dropped', 'second, appended']) expect(timesShown(session, w, text)).toBe(1)
+  for (const one of ['first, dropped', 'second, behind it']) expect(timesShown(session, w, one)).toBe(1)
+})
+
+test('a relayed item behind a kept message waits in the pane, even in a running turn', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  const session = mock.session(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'kept'))
+  await clock.advance(250)
+  await clock.settle()
+  isStopped = false
+  await $.turn.start({ text: 'my prompt', turnId: 't1' })
+  w.files.set(...item(2, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(session.appended()).toHaveLength(0)
+  expect(w.toasts).toEqual(['worldinmotion: 1 relayed item in the inbox (/wim)'])
+  await $.turn.complete(COMPLETE)
+  await clock.advance(250)
+  await clock.settle()
+  // The turn end hands over the kept message only: a relayed item never starts a turn.
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).not.toContain('pipeline 812 failed')
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
+})
+
+test("a relayed item the person hands over while a Stop stands gets its button back", async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = false
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  await $.session.start(START)
+  w.files.set(...item(4, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
+  await clock.advance(250)
+  await clock.settle()
+  isStopped = true
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'deliver:000000000004.json' })
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+  expect(await ui.find({ key: 'deliver:000000000004.json' })).toBeDefined()
+
+  isStopped = false
+  await ui.press({ key: 'deliver:000000000004.json' })
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(await ui.find({ key: 'deliver:000000000004.json' })).toBeUndefined()
+  await ui.unmount()
 })
 
 test('a turn queued behind a running one and taken out of the queue by Stop is kept and handed over at the next turn end', async ($, on) => {

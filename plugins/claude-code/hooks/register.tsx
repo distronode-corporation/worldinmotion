@@ -230,7 +230,7 @@ async function submit($: EngineInterface, text: string): Promise<boolean> {
   })
   if (sent.drop === undefined) return true
   await forgetSubmit($, text)
-  $.ui.log(`worldinmotion: a delivery was dropped (${sent.drop}); it is tried again when a turn ends`)
+  $.ui.log(`worldinmotion: a delivery was dropped: ${sent.drop}`)
   return false
 }
 
@@ -289,6 +289,8 @@ async function tellLate($: EngineInterface, text = ''): Promise<boolean> {
 
 /** Keeps the items of a dropped turn for a turn end, one entry an item. */
 async function keep($: EngineInterface, items: readonly Omit<WimKept, 'isSending'>[]): Promise<void> {
+  const n = items.length
+  $.ui.log(`worldinmotion: ${n} message${n === 1 ? '' : 's'} kept for the next turn end`)
   await update($, kept, list => [
     ...list,
     ...items.filter(one => !list.some(other => other.name === one.name)).map(one => ({ ...one, isSending: false })),
@@ -515,6 +517,11 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
   } else if (item.relayed) {
     const one: WimRelayed = { name, id: item.id, from: item.from, line: firstLine(item.rendered), at: item.at, text: item.rendered, isShown: false, isDismissed: false }
     if (!(await keepRelayed($, one))) pass.relaysWaiting++
+  } else if ((await read($, kept)).length > 0) {
+    // Behind a kept item: the cursor cannot pass it, so anything handed over
+    // now would still be unread to `inbox` and `wait`, and come again. It waits
+    // with the kept ones, in order, for the turn end.
+    await keep($, [{ name, id: item.id, text: item.rendered, item: seen }])
   } else if (!(await read($, busy))) {
     // Idle: one turn for everything the pass finds (sendBatch).
     pass.batch.push({ name, id: item.id, text: item.rendered, item: seen })
@@ -560,7 +567,8 @@ async function moveCursor($: EngineInterface, spool: string, fresh: readonly str
  */
 async function keepRelayed($: EngineInterface, one: WimRelayed): Promise<boolean> {
   let isShown = false
-  if (await read($, busy)) {
+  // Behind a kept item it stays unread to `inbox` and `wait` (see handOne): the pane only.
+  if ((await read($, busy)) && (await read($, kept)).length === 0) {
     const appended = await $.session.append({
       message: { type: 'user', content: [{ type: 'text', text: one.text }] },
     })
@@ -578,7 +586,11 @@ async function handOver($: EngineInterface, name: string): Promise<void> {
   if (await read($, busy)) {
     await $.session.append({ message: { type: 'user', content: [{ type: 'text', text: one.text }] } })
   } else {
-    void submit($, one.text).catch(() => undefined)
+    // Dropped (a Stop stands): the button comes back for the person to press again.
+    void submit($, one.text).then(
+      entered => (entered ? undefined : update($, relayed, list => list.map(item => (item.name === name ? { ...item, isShown: false } : item)))),
+      () => undefined,
+    )
   }
   await dismissInClient($, one)
 }
