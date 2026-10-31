@@ -24,6 +24,15 @@ body line with a bracket.
   `.github/scripts/check-versions.mjs` fails CI while the pin lags the latest release or names a
   sha that is not the tag's commit.
 
+### Documentation
+
+- **MLS for rooms is a design, not part of v0.2** (`docs/mls.md`). Rooms keep today's per-device
+  sealing. The document sets out what an MLS room mode would need before any code: one MLS
+  member per device held by the signer, the relay as the commit sequencer, eviction of devices
+  offline for 72 hours, what happens to history, and the library question. It cites the
+  agent-connect, SLIM, Marmot and Matrix MSC4268 designs it draws on. SPEC section 6 now says so
+  where it reserves the box scheme numbers. No code change.
+
 ## [0.1.6] - 2026-10-30
 
 ### Changed

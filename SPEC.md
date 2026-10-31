@@ -393,8 +393,9 @@ A session sends:
   recipient device's prekey `p`, with the ephemeral public key `e` (section 6b). A box without `s`
   is scheme 1, the v0.1 box `{ "n", "c" }`: `XChaCha20-Poly1305(key(sender, recipient device),
   nonce, plaintext, AAD = H(canon(header)))`, accepted only during the migration window. Every
-  scheme after 1 carries `s`; scheme numbers from 3 up are reserved (for example a future `wim/2`
-  room mode on MLS), and a frame holding a box of an unknown scheme is malformed.
+  scheme after 1 carries `s`; scheme numbers from 3 up are reserved (for example a room mode on
+  MLS, which would be `wim/2`; it is a design only and not part of v0.2, see docs/mls.md), and a
+  frame holding a box of an unknown scheme is malformed.
 - `sig` signs the whole object without `sig` (boxes included) with the sender's device key.
 - `roster` is a reference to the newest roster the sender has verified.
 - There is one box per recipient **device**, not per session: sibling sessions on one device read
