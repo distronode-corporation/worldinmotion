@@ -8,15 +8,34 @@ other messages in real time, across machines and across accounts. Messages are e
 encrypted between devices and pass through a relay that cannot read them. Each session gets an
 address like `reviewer@laptop`, and can see who is online, send, wait for a reply, and join rooms.
 
+No account required, no telemetry, sealed offline delivery.
+
 > **Status: pre-release, v0.1.** It works end to end, but the wire format and the commands may
-> still change before v1.0. Use it for work you can afford to redo.
+> still change before v1.0. Use it for work you can afford to redo. Crossing accounts is how it is
+> built (a mesh never uses a vendor account), but the formal two-account test has not run yet.
 
 ## Why
 
-An agent session today can talk to the person in front of it, and sometimes to sub-agents it
-started itself. It cannot talk to another session running on a different machine, under a
-different account or in a different tool. When two agents work on the same problem (one writing
-code on a laptop, one reviewing it on a build box), a person ends up copying text between them.
+Built-in messaging stays inside one vendor and one account, through that vendor's servers. Since
+August 2026 (Claude Code v2.1.225), Claude Code sessions on one account can message each other
+across machines, through Anthropic's servers. Beyond one machine that needs a claude.ai sign-in,
+so it does not work with an API key or on Amazon Bedrock, Google Cloud or Microsoft Foundry.
+
+worldinmotion is for what that does not cover: sessions under different accounts or
+organisations, agents from different vendors, and a path in the middle that cannot read the
+messages (each agent's own model provider still sees what that agent reads). Without it, when
+two such agents work on the same problem (one writing code under your account, one reviewing it
+under a client's), a person ends up copying text between them.
+
+What the line at the top means:
+
+- **No account required.** A mesh is a set of device keys that you create. The hosted relay needs
+  no sign-up, and no vendor account is involved.
+- **No telemetry.** The client, the Claude Code plugin and the VS Code extension send no usage
+  data. The client connects only to the relay you choose (and, for `wim bot` and `wim ci`, to the
+  provider you configure).
+- **Sealed offline delivery.** A message to a session that is offline waits on the relay for up to
+  24 hours, sealed to the recipient's device, while the sender may go offline too.
 
 ## First run: three machines, one person
 
@@ -235,10 +254,45 @@ trusted, SendMessage asks nothing; to any other device Claude asks you first.
   other. Use the same `WIM_HOME` in both, or set up that directory as its own device.
 - Held messages: `wim held list`, or `/wim` in Claude Code.
 
+### 11. Optional: a ping when a message is held
+
+A held message waits until you approve it, which is easy to miss when you are away from the
+machine. The client can run a program of your choice each time a message is held. It passes one
+short line with no message content, such as `worldinmotion: 2 messages held for approval`, and
+never the text or the sender. (The same ping also fires when a device asks to join, naming that
+device, and when the roster forks.) You still approve at the machine: the ping cannot approve
+anything.
+
+[Terminal] Write `notify.json` in the state directory that `wim doctor` names (by default
+`~/.config/worldinmotion/notify.json`). This one posts to an [ntfy](https://ntfy.sh) topic with
+curl:
+
+```json
+{ "provider": "command", "command": ["curl", "-fsS", "-H", "Title: worldinmotion", "https://ntfy.sh/<your-topic>", "-d"] }
+```
+
+The client runs the program without a shell and adds the line as its last argument, so this runs
+`curl ... -d "<line>"`. It pings at most once a minute (`"minIntervalMs"` changes that). Anyone
+who knows a public ntfy topic name can read it, so pick a long random one, or use your own ntfy
+server. Sessions read `notify.json` when they start: restart them after a change. `wim notify-test`
+sends a test line.
+
 ### Other agents
 
+How a message reaches an agent depends on the agent. These docs use three labels for it:
+
+| delivery | what it means | agents today |
+|---|---|---|
+| **push** | a message lands in the running turn, or starts a new turn in an idle session | Claude Code, through the plugin |
+| **turn** | a message is handed over at the agent's next tool call or turn end | none yet |
+| **pull** | the agent sees messages only when it calls the `inbox` or `wait` tool | every other MCP agent below |
+
+Only Claude Code wakes today. Gemini CLI and Antigravity CLI were tested on 2026-10-24: each
+listed peers and sent a message that arrived. Claude Desktop, Codex CLI and Cursor are not yet
+tested.
+
 - **Gemini CLI, Antigravity, Claude Desktop, Codex, Cursor and any other MCP client:**
-  [docs/peers.md](docs/peers.md) has the configuration for each.
+  [docs/peers.md](docs/peers.md) has the configuration and test status for each.
 - **A plain model API as a peer:** [`wim bot`](packages/bot/README.md).
 - **Claude Code:** [plugins/claude-code](plugins/claude-code/README.md) covers the plugin, its
   `/wim` pane and its status line.
@@ -292,8 +346,15 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
 - **The relay sees metadata only.** It sees which devices and sessions exist, who sends to
   whom, when, and how much. It cannot read, forge or alter a message without the receiver
   dropping it. It can drop or delay messages, which senders notice as a missing receipt.
-- **Peer text is not your instruction.** Everything a peer sends reaches an agent framed as
-  another AI session's text. A device you have not marked as your own is held for your approval.
+- **Peer text is framed as another AI session's text.** Everything a peer sends reaches an agent
+  inside a frame that says so. This reduces the risk that an agent obeys a peer, and it is not a
+  guarantee (SECURITY-MODEL.md section 7.1). A device you have marked as your own can ask your
+  agents for work, within their normal permissions. A device you have not marked as your own is
+  held for your approval.
+- **Secret filter, best effort.** Outgoing text that matches common credential formats (cloud and
+  API keys, tokens, private keys, invite and recovery codes) is refused. An encoded or unusual
+  secret gets through, so it catches accidents, not a determined agent (SECURITY-MODEL.md section
+  7.4).
 - **Forward secrecy, bounded.** Each device rotates a signed prekey daily and deletes each
   prekey's secret 72 hours after it expires, and every message is sealed to the recipient's
   current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its

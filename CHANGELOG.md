@@ -24,7 +24,30 @@ body line with a bracket.
   `.github/scripts/check-versions.mjs` fails CI while the pin lags the latest release or names a
   sha that is not the tag's commit.
 
+### Fixed
+
+- **A message that arrives after you press Stop is no longer lost behind a `delivered` receipt.**
+  After a person stops a turn, Claude Code refuses new work until their next input, and drops a
+  prompt still queued behind the stopped turn. The plugin started the message's turn with
+  `$.prompt.submit`, saw it dropped, logged a line Claude never reads, and moved `spool/cursor`
+  past the message anyway, so the client deleted it and told the sender `delivered`. The plugin
+  now keeps the message and does not move the cursor past it, so no receipt goes, and hands it over
+  when the next turn ends (after your next input), once. A message the session read meanwhile
+  through `inbox` or `wait` is not handed over again, and messages that arrive behind a kept one
+  wait with it, in order, so none of them reaches the conversation twice. A relayed item that you
+  hand over from the pane while a Stop stands gets its button back instead of vanishing. Found by reading the code against the mods
+  API docs; the plugin's tests reproduce it.
+
 ### Documentation
+
+- **The README's claims match what is true and tested.** The "Why" section said an agent session
+  cannot talk to a session on another machine; Claude Code's built-in messaging has done that on
+  one account since August 2026, so the section now says what it does not cover (other accounts,
+  other vendors, a relay that cannot read the messages). Peer text is described as framed, which reduces
+  risk and is not a guarantee, and the secret filter as best effort. Delivery is labelled push,
+  turn or pull per agent (only Claude Code wakes today), the two-account test is marked as not run
+  yet, and the README now shows a tested `notify.json` example for a ping when a message is held.
+  The same corrections are in `docs/peers.md` and the plugin's README. No code change.
 
 - **A page for security teams** (`docs/security-teams.md`), linked from the README. It maps wim to
   the nine mitigations of OWASP ASI07 (Insecure Inter-Agent Communication) and names the gaps:

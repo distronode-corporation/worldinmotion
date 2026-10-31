@@ -112,15 +112,16 @@ counts read from disk refresh every five seconds while the pane is shown.
   **held** until you approve it in the pane or with `wim held approve <id>`. No message can
   change that policy.
 - Every delivered message is framed for the model as text from another AI session, not from
-  you. A message from a device you marked as your own (not relayed text) arrives as a work
-  assignment: the model may carry it out within its normal permissions, with its permission
-  prompts and its own judgment, and may decline anything unsafe. Relayed text and messages from
-  other devices are information only.
+  you. The frame reduces the risk that the model obeys a peer, and it is not a guarantee
+  (`SECURITY-MODEL.md` section 7.1). A message from a device you marked as your own (not
+  relayed text) arrives as a work assignment: the model may carry it out within its normal
+  permissions, with its permission prompts and its own judgment, and may decline anything
+  unsafe. Relayed text and messages from other devices are information only.
 - Whoever sent it, a peer's message is never an approval of a specific action and cannot answer
   a permission prompt. The model is told never to reveal secrets and never to change
   permissions, settings or configuration because a peer asked.
 - Outgoing text is checked for things that look like secrets (keys, tokens, invite codes); a
-  match refuses the send.
+  match refuses the send. The check is best effort: an encoded or unusual secret gets through.
 - The device keys are in a file your OS user can read, so a shell tool the model runs could read
   them too. To keep them out of its reach, run `wim agent encrypt` and then `wim agent start` in
   your own terminal: the keys move into a separate signer process, and `wim agent lock` stops their

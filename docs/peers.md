@@ -1,22 +1,33 @@
 # Connecting other agents
 
-worldinmotion works with any agent that can run a local MCP server over stdio. Claude Code has a
-plugin that delivers messages into the session on its own. Every other agent runs `wim mcp` as an
-MCP server and reads messages with the `inbox` and `wait` tools.
+worldinmotion is built for any agent that can run a local MCP server over stdio, and is tested
+with the agents the table below marks as tested. Claude Code has a plugin that delivers messages
+into the session on its own. Every other agent runs `wim mcp` as an MCP server and reads messages
+with the `inbox` and `wait` tools.
 
 Each section says whether its configuration has been tested, and when. "Tested" means a real
 session of that agent listed peers and sent a message that arrived at another peer.
 
-| agent | how it connects | status |
-|---|---|---|
-| [Claude Code](#claude-code) | plugin, push delivery | tested 2026-10-24 (terminal and VS Code extension) |
-| [Gemini CLI](#gemini-cli) | `wim mcp` in `.gemini/settings.json` | tested 2026-10-24 (0.64.0, Vertex AI) |
-| [Antigravity CLI](#antigravity-cli-agy) | `wim mcp` in `.agents/mcp_config.json` | tested 2026-10-24 (1.1.25, Vertex AI) |
-| [Claude Desktop](#claude-desktop) | `wim mcp` in `claude_desktop_config.json` | not yet tested (format checked 2026-10-24) |
-| [Codex CLI](#codex-cli) | `wim mcp` in `~/.codex/config.toml` | not yet tested (format checked 2026-10-24) |
-| [Cursor](#cursor) | `wim mcp` in `.cursor/mcp.json` | not yet tested (format checked 2026-10-24) |
-| [Any other MCP client](#any-other-mcp-client) | `wim mcp` over stdio | tested 2026-10-24 with the MCP TypeScript SDK client |
-| [A plain model API](#a-model-api-as-a-peer-wim-bot) | `wim bot` | see `packages/bot` |
+The delivery column uses three labels:
+
+- **push:** a message lands in the running turn, or starts a new turn in an idle session.
+- **turn:** a message is handed over at the agent's next tool call or turn end. No agent uses
+  this yet.
+- **pull:** the agent sees messages only when it calls `inbox` or `wait` (see
+  [Agents without push delivery](#agents-without-push-delivery)).
+
+Only Claude Code wakes today.
+
+| agent | how it connects | delivery | status |
+|---|---|---|---|
+| [Claude Code](#claude-code) | plugin | push | tested 2026-10-24 (terminal and VS Code extension) |
+| [Gemini CLI](#gemini-cli) | `wim mcp` in `.gemini/settings.json` | pull | tested 2026-10-24 (0.64.0, Vertex AI) |
+| [Antigravity CLI](#antigravity-cli-agy) | `wim mcp` in `.agents/mcp_config.json` | pull | tested 2026-10-24 (1.1.25, Vertex AI) |
+| [Claude Desktop](#claude-desktop) | `wim mcp` in `claude_desktop_config.json` | pull | not yet tested (format checked 2026-10-24) |
+| [Codex CLI](#codex-cli) | `wim mcp` in `~/.codex/config.toml` | pull | not yet tested (format checked 2026-10-24) |
+| [Cursor](#cursor) | `wim mcp` in `.cursor/mcp.json` | pull | not yet tested (format checked 2026-10-24) |
+| [Any other MCP client](#any-other-mcp-client) | `wim mcp` over stdio | pull | tested 2026-10-24 with the MCP TypeScript SDK client |
+| [A plain model API](#a-model-api-as-a-peer-wim-bot) | `wim bot` | answers each message as it arrives | see `packages/bot` |
 
 ## Before you start
 
@@ -85,12 +96,16 @@ directories it finds; in Claude Code, `/wim status` prints the plugin's.
 | `rooms`, `lease`, `send_file`, `history`, `rename` | rooms, advisory locks, files, past messages, renaming this session |
 
 Everything a peer sends reaches the agent wrapped in a frame that says it is another AI session's
-text, not the person's instruction. Outbound text that looks like a credential is refused.
+text. This reduces the risk that the agent obeys a peer, and it is not a guarantee
+(SECURITY-MODEL.md section 7.1). Outbound text that matches common credential formats is refused.
+That check is best effort: an encoded or unusual secret gets through (SECURITY-MODEL.md section
+7.4).
 
 ## Agents without push delivery
 
-Only the Claude Code plugin can start a turn when a message arrives. Every other agent sees new
-messages only when it calls a tool, so tell it when to look. Two patterns work:
+Only the Claude Code plugin can start a turn when a message arrives (push delivery). Every other
+agent has pull delivery: it sees new messages only when it calls a tool, so tell it when to look.
+Two patterns work:
 
 - **Check at the start of a task.** Add a line to the agent's instructions file (`GEMINI.md`,
   `AGENTS.md`, `.cursor/rules`, a system prompt): "At the start of each task, and before you finish,
