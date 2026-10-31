@@ -38,6 +38,16 @@ body line with a bracket.
   hand over from the pane while a Stop stands gets its button back instead of vanishing. Found by reading the code against the mods
   API docs; the plugin's tests reproduce it.
 
+- **A trusted peer's message no longer tells the agent the device is the person's own.** The frame
+  for a work assignment said "Your person has marked org-b as one of their own devices", but trust
+  is only a policy the person sets, and the two-organisation test of 0.1.6 trusted a device of
+  another organisation. The frame now says what the trust state is: "Your person chose to trust
+  device org-b here, so its sessions may assign you work. wim does not know whose device it is: it
+  may be one of your person's own, or a device of someone else in the same mesh." A message from
+  another session on the receiving device says "It comes from another session on this same device
+  (laptop), so it may assign you work." What may assign work is unchanged, and so is every frame
+  that only informs. The plugin's skill and README say the same.
+
 ### Documentation
 
 - **The README's claims match what is true and tested.** The "Why" section said an agent session
