@@ -72,10 +72,14 @@ describe("setting up", () => {
     // devices: list, trust, trust --relayed, untrust, errors
     expect(await run(a, "devices")).toBe(0);
     expect(said(a)).toMatch(/my-host-local {2}member .* {2}hold/);
+    a.answers.push("y", "yes", "Y");
     expect(await run(a, "devices", "trust", "my-host-local")).toBe(0);
+    expect(said(a)).toMatch(/ {2}my-host-local {2}member {2}id \S+ {2}policy hold -> deliver/);
+    expect(said(a)).toContain("Trust my-host-local? [y/N] ");
     expect(await run(a, "devices", "trust", "my-host-local", "--relayed")).toBe(0);
     expect(said(a)).toMatch(/including text it relays/);
     expect(await run(a, "devices", "untrust", "my-host-local")).toBe(0);
+    expect(said(a)).toContain("Untrust my-host-local? [y/N] ");
     expect(await run(a, "devices", "trust")).toBe(1);
     expect(await run(a, "devices", "trust", "ghost")).toBe(1);
     expect(await run(a, "devices", "dance", "laptop")).toBe(1);
@@ -202,12 +206,23 @@ describe("using a mesh", () => {
     expect(await run(b, "held", "list")).toBe(0);
     const ids = b.out.filter((l) => / -> inbox /.test(l)).map((l) => l.split(" ")[0]!);
     expect(ids.length).toBe(2);
+    b.answers.push("y", "y");
     expect(await run(b, "held", "approve", ids[0]!)).toBe(0);
+    expect(said(b)).toContain(`Held message ${ids[0]!}:`);
+    expect(said(b)).toContain("  from     cli@one (device id ");
+    expect(said(b)).toContain("  for      inbox on this device");
+    expect(said(b)).toContain("  held     because its device's policy here is hold");
+    expect(said(b)).toContain("  text     first");
+    expect(said(b)).toContain("Approve it, delivering it to inbox? [y/N] ");
     expect(await run(b, "held", "refuse", ids[1]!)).toBe(0);
+    expect(said(b)).toContain("Refuse it? It is dropped, never delivered. [y/N] ");
     expect(await run(b, "held", "approve", ids[1]!)).toBe(1);
+    expect(said(b)).toContain(`no held message ${ids[1]!}`);
     expect(await run(b, "held", "approve")).toBe(1);
     expect(await run(b, "held", "resume", "not an address")).toBe(1);
+    b.answers.push("y");
     expect(await run(b, "held", "resume", "cli@one")).toBe(0);
+    expect(said(b)).toContain("Resuming cli@one lifts the loop breaker's pause on device one and releases what it held from there (0 now on disk):");
     expect(await run(b, "held", "shrug", "x")).toBe(1);
     const back = await MeshSession.open({ ...sessionOpts(devices[1]!, mesh, relay, { name: "inbox" }), sessionKey: "key:inbox" });
     expect((await back.spool.unread()).filter((i) => i.kind === "msg").map((i) => i.rendered.includes("first"))).toEqual([true]);

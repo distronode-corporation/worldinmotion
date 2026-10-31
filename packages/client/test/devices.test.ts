@@ -292,11 +292,18 @@ describe("wim invite, join and devices", () => {
     expect(await again).toBe(0);
     expect(said(c)).not.toContain("[y/N]");
     expect(said(c)).toContain("Messages from admin, member and third are held for your approval. If they are your own: wim devices trust --all");
+    // The agent cannot trust them either; the same device at the person's own terminal can.
+    expect(await run(c, "devices", "trust", "--all", "--relayed")).toBe(1);
+    expect(said(c)).toContain("CLAUDECODE is set: this shell belongs to Claude Code. Open a terminal yourself (VS Code: Terminal > New Terminal) and run `wim devices trust --all --relayed` there");
+    const person = term(c.env["WIM_HOME"]!, relay);
     // trust --all and untrust --all; --all with a name, or for another action, is a usage error.
-    expect(await run(c, "devices", "trust", "--all", "--relayed")).toBe(0);
-    expect(said(c)).toContain("Messages from third are delivered, including text it relays from others (bots, CI, external agents).");
-    expect(await run(c, "devices", "untrust", "--all")).toBe(0);
-    expect(said(c)).toContain("Messages from member are held for approval.");
+    person.answers.push("y", "y");
+    expect(await run(person, "devices", "trust", "--all", "--relayed")).toBe(0);
+    expect(said(person)).toContain("Changing the inbound policy of these 3 devices:");
+    expect(said(person)).toContain("Trust all 3? [y/N] ");
+    expect(said(person)).toContain("Messages from third are delivered, including text it relays from others (bots, CI, external agents).");
+    expect(await run(person, "devices", "untrust", "--all")).toBe(0);
+    expect(said(person)).toContain("Messages from member are held for approval.");
     expect(await run(c, "devices", "trust", "member", "--all")).toBe(1);
     expect(said(c)).toContain("usage: wim devices trust <name> | --all");
     expect(await run(c, "devices", "revoke", "--all")).toBe(1);

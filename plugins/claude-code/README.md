@@ -131,8 +131,9 @@ counts read from disk refresh every five seconds while the pane is shown.
   operation of it only reads. Your Approve, Refuse and Dismiss presses in the pane do not go
   through it at all: the plugin writes an empty mark file (`<id>.approve`, `<id>.refuse` or
   `<id>.dismiss`) in the directory the client named at the handshake, and the client acts on it,
-  as it does for `wim held approve`. No MCP tool can approve a held message; outside the pane it
-  takes a shell command, which goes through Claude Code's permission prompt like any other.
+  as it does for `wim held approve`. No MCP tool can approve a held message. Outside the pane it
+  takes `wim held approve <id>` in a terminal you opened yourself: run from Claude's shell, or
+  with `!`, it refuses (`CLAUDECODE is set`), and so do `wim devices trust` and `untrust`.
 - The read-only tools (`peers`, `inbox`, `wait`, `history`) run without a prompt; every other
   tool (`send`, `ask`, `reply`, `send_file`, `rooms`, `lease`, `rename`) goes through Claude
   Code's normal permission prompts.
