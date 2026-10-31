@@ -34,7 +34,9 @@ async function twoDevices(url: string, tls?: string) {
   if (tls !== undefined) expect(said(a)).toContain("no short code, because this mesh pins its relay's certificate");
   expect(await run(b, "join", code, "--name", "server")).toBe(0);
   expect(await inviting).toBe(0);
+  a.answers.push("y");
   expect(await run(a, "devices", "trust", "server")).toBe(0);
+  b.answers.push("y");
   expect(await run(b, "devices", "trust", "laptop")).toBe(0);
   return { a, b };
 }

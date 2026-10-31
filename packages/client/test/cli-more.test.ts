@@ -129,7 +129,10 @@ describe("more command paths", () => {
     for (const x of ["1", "2", "3"]) await a.send("b@two", x);
     await until(async () => (await b.held.list()).length === 2);
     await b.stop();
+    t.answers.push("y");
     expect(await run(t, "held", "resume", "a@one")).toBe(0);
+    expect(said(t)).toContain("(2 now on disk):");
+    expect(said(t)).toMatch(/ {2}\S+ {2}a@one -> b {2}msg {2}breaker /);
     expect(said(t)).toMatch(/released 2 held by the breaker/);
     await a.send("b@two", "4");
     // A never-connected session with no history, and one without an address.

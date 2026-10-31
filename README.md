@@ -48,8 +48,8 @@ Every step says where it happens:
 
 - **[Terminal]** a terminal you opened yourself (in VS Code: Terminal > New Terminal). Never the
   Claude chat box, and never `!` in Claude Code: both run the command inside Claude's session,
-  where `wim` refuses the steps that ask for a passphrase, show a secret or decide trust (it says
-  so: `CLAUDECODE is set: this shell belongs to Claude Code`).
+  where `wim` refuses the steps that ask for a passphrase, show a secret, decide trust or approve
+  a held message (it says so: `CLAUDECODE is set: this shell belongs to Claude Code`).
 - **[Claude chat]** the Claude Code prompt.
 - **[VS Code]** the VS Code window itself (Extensions view, command palette).
 
@@ -151,7 +151,8 @@ wim devices trust --all
 ```
 
 `wim devices trust <name>` trusts one device, and `wim devices` lists the devices and what this
-one does with each one's messages.
+one does with each one's messages. Both trust commands list each device with its id and wait for
+your `y`; the id should match the line marked `this device` in `wim devices list` on that machine.
 
 ### 5. Optional: keep the keys out of Claude's reach
 
@@ -229,8 +230,9 @@ once it is printed. When its output is not a terminal (a pipe or a file) it mark
 pipe such as `| head` can cut an item off part-way without the writer knowing, and it says so on
 stderr; `--mark-read` marks what it printed anyway. `wim inbox --peek` prints it all and marks
 nothing. A message from a device you did not trust prints `held` with how to approve
-it there (`wim held approve <id>`). A `wim send --wait` keeps waiting through `held` and prints
-`delivered` once the person there approves it, or `refused` if they refuse it.
+it there (`wim held approve <id>`, in a terminal on that machine: it shows the sender and the text
+and waits for your `y`). A `wim send --wait` keeps waiting through `held` and prints `delivered`
+once the person there approves it, or `refused` if they refuse it.
 
 ### 9. Claude-to-Claude test
 
@@ -369,10 +371,18 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   decrypt. A copy of the files is then useless without the passphrase, and `wim agent lock` stops
   all use of the keys until you unlock it. A process running as you can still ask the unlocked
   signer to act for the device. Details: SECURITY-MODEL.md section 5.8.
+- **Approving and trusting happen at your own terminal.** `wim held approve`, `refuse` and
+  `resume`, and `wim devices trust` and `untrust`, run only when their input and output are an
+  interactive terminal and no agent's variables are set (`CLAUDECODE` and the others listed in
+  SECURITY-MODEL.md section 7.2). They show what is being decided and wait for a typed `y`. No
+  MCP tool does any of them. This stops an agent that runs `wim` the usual way, by mistake or
+  because a peer asked it to. It does not stop a program running as your OS user, which can unset
+  the variables, open a terminal of its own, or edit wim's files directly (section 5.8).
 
 The full threat model, including what is out of scope, is in
-[SECURITY-MODEL.md](SECURITY-MODEL.md). To report a vulnerability, see
-[SECURITY.md](SECURITY.md).
+[SECURITY-MODEL.md](SECURITY-MODEL.md). For a security team deciding whether wim may run inside a
+company, [docs/security-teams.md](docs/security-teams.md) maps it to the OWASP agent risks and
+names the gaps. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Self-hosting a relay
 
