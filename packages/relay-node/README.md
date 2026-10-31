@@ -198,6 +198,40 @@ the pin when creating or joining (`wim mesh create --relay wss://192.168.1.20:87
 invites carry it to the devices that join. Keep the two `.pem` files: a new key means a new pin,
 and invites with the old pin stop working. In LAN mode every relay URL must be `wss://`.
 
+## On a tailnet
+
+Not yet tested on a tailnet. A relay for one person's devices can live on a private network such
+as a Tailscale tailnet, so that only those devices can reach it. A private network alone is not
+enough for the client: it accepts `ws://` only to loopback, so a relay on a tailnet still needs
+`wss://`. Two ways to get it, both built from the sections above:
+
+- **LAN mode on the tailnet address.** `--lan` binds the first non-internal IPv4 address it
+  finds, which may be the machine's LAN address rather than its tailnet one, so name it with
+  `WIM_HOST`:
+
+  ```sh
+  WIM_HOST="$(tailscale ip -4)" WIM_CREATE_KEY="$(cat wim-create-key)" \
+  node packages/relay-node/src/bin.ts --lan
+  ```
+
+  Then create the mesh with the URL and pin it prints, as in [LAN mode](#lan-mode). The pin is
+  what lets clients trust the relay's self-signed certificate.
+- **Tailscale Serve in front of the relay.** Run the relay on loopback and let Tailscale give it a
+  certificate for the machine's tailnet name, as in [Behind a TLS proxy](#behind-a-tls-proxy).
+  Tailscale's documentation says Serve needs HTTPS certificates turned on for the tailnet and is
+  reachable only inside it; it does not say whether it forwards WebSocket upgrades, which the
+  relay needs:
+
+  ```sh
+  WIM_RELAY_URLS=wss://<machine>.<tailnet>.ts.net WIM_CREATE_KEY="$(cat wim-create-key)" \
+  node packages/relay-node/src/bin.ts
+  tailscale serve 8787
+  ```
+
+The relay is still untrusted for message content either way, and the tailnet adds no
+cryptographic trust between devices: the signed roster does that. What the tailnet gives you is
+who can reach the relay at all.
+
 ## Docker
 
 Build the image from the repository root, then run it with a volume for the database:

@@ -117,6 +117,15 @@ A legitimate member or admin whose operator, or agent, acts against other member
 Can:
 - Send any text, task, result or file to any session, signed as itself. This is the main
   prompt-injection path (section 7).
+- Spread one request over many small messages across turns, each harmless on its own. Unit 42
+  named this **agent session smuggling** (October 2025, for A2A agents): over a series of
+  clarifying questions, a remote agent got the other agent to reveal its instructions and tools,
+  and in another test to call a tool its person never asked for. In wim it fits `ask`, `reply`
+  and any running conversation. Each held item is shown on its own, so a person who approves them
+  one at a time can miss the pattern. Before approving an item from a device you have not marked
+  as your own, read what came before: `wim held list` lists everything still held, and
+  `wim history --session <name> --peer <address>` shows that session's earlier exchange with the
+  peer. A held view that shows the whole thread with a peer is planned, not built.
 - Claim any session name on its own device. Signatures authenticate the device, not the session.
   "reviewer@laptop" means "some process holding laptop's key that calls itself reviewer".
 - Read every room message and broadcast: they carry a box for every device. Room membership is a
@@ -928,7 +937,8 @@ pattern, never the value. A person can override it for one send, only at the cli
 line; no tool, MCP call, message, local UI request or agent-writable setting can. `send_file` runs
 the same patterns over the contents of a file that reads as text, and refuses the upload on a match
 (binary files are not scanned). This catches accidents, not determined exfiltration: an agent can
-encode a secret to evade any pattern.
+encode a secret to evade any pattern. Client-side scanners that inspect an agent's tool calls can
+add a second layer; `docs/security-teams.md` names two, neither yet tested with wim.
 
 ### 7.5 Local user interfaces (`wim events` and the VS Code extension)
 
@@ -999,6 +1009,8 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   roster push; in a quiet mesh that can take time.
 - Plugin-delivered prompts carry no engine-enforced peer origin; their framing says what they are.
 - Prompt-injection defences are framing, policy, the relayed flag and the breaker, not a guarantee.
+- The held view shows each item on its own, not the thread it belongs to, so a request split across
+  several items (agent session smuggling, section 5.2) is easy to approve piece by piece.
 - The outbound secret filter is best effort, and does not look inside binary files.
 - Approval marks and policy are files under the OS user: a local process, or an agent allowed to
   write files unprompted, can change them.
