@@ -1,9 +1,13 @@
 # MLS for rooms: a design, not a plan for v0.2
 
 **Status: design only.** MLS is not part of v0.2, and nothing in this document is built. Rooms keep
-today's scheme: every room message carries a box sealed to each device's prekey (SPEC sections 6b
-and 13). This document records what an MLS room mode would need, so that a later decision to build
-one starts from the design rather than from the code.
+today's scheme: a room message carries a box sealed to each device's prekey (SPEC sections 6b
+and 13). Until wire 1.0 there is one exception, the migration window (SPEC section 6b): a message
+with any recipient device that has no current prekey (a v0.1 client, or a device offline for more
+than 48 hours) goes in the v0.1 format to every recipient, scheme 1 boxes under the static device
+keys, with no forward secrecy for anyone in it. In a mesh with a v0.1 device, that covers every
+room message. This document records what an MLS room mode would need, so that a later decision to
+build one starts from the design rather than from the code.
 
 MLS is the IETF standard for encrypted group messaging (RFC 9420, with its architecture in RFC
 9750). The words used here: a **member** holds one **leaf** in a group's ratchet tree; a
@@ -29,7 +33,7 @@ fourth, the library, is in [Library](#library).
 |---|---|---|
 | who can read a room message | every device in the mesh (membership is a routing hint) | only the room's member devices |
 | removal | revoke from the roster; nothing to rekey | revoke from the roster, then a Remove commit before anyone sends again |
-| a stolen device (its key files and state) | opens what was sealed to the device in the last 120 hours | opens the epochs the stolen state still holds, and later ones until a commit removes the device |
+| a stolen device (its key files and state) | opens what was sealed to its prekeys in the last 120 hours; during the migration window, also every recorded scheme 1 box to or from it | opens the epochs the stolen state still holds, and later ones until a commit removes the device |
 | a device offline for days | reads what is queued (24 hours) and room history (72 hours) | catches up from the commit log within 72 hours; after that it is evicted, rejoins, and reads nothing from the gap |
 | history after rejoining | 72 hours of room history | none from before its Welcome (see [History](#history)) |
 | per-message cost | one box per device | one ciphertext for the room, plus commits |
@@ -117,8 +121,15 @@ from MLS and is not affected.
 - **A device may remove itself.** Leaving a room is a self-remove, committed by the next member
   that sends.
 
-**Retention.** The relay keeps each room's commits for the eviction window below and no longer.
-That fits the existing rule that the relay keeps nothing longer than 72 hours (SPEC section 13).
+**Retention.** The relay keeps a room's commit until every leaf in the epoch the commit starts
+from has either committed since (so it has processed the commit) or been removed by a later
+commit. No member device still in the group can therefore miss a commit it needs: a commit goes
+only when the last such device has been evicted ([Eviction](#eviction)). With a member online,
+that is 72 hours after that device's last commit. In a room with no member online, it is later,
+since the Remove waits for the first member to come back, but no message is sent meanwhile
+either. Commits carry group state, not messages, but keeping one past 72 hours departs from the
+rule that the relay keeps nothing longer (SPEC section 13). SPEC would have to say so before this
+is built.
 
 ## Eviction
 
@@ -132,9 +143,20 @@ than today's 120-hour bound.
 **The design.**
 
 - **Window.** A device whose leaf has sent no commit for 72 hours (a scheduled Update counts) is
-  removed by the next member that commits. Every member can check that from the commit log. Online
-  devices update at least daily, so only devices that were away are removed. 72 hours matches the
-  relay's longest retention, so any device not yet evicted can still fetch every commit it missed.
+  due for eviction. A member online when the window runs out commits its Remove then, and one that
+  comes online later commits it before it sends anything else, so no message is sent in an epoch
+  that still holds an expired leaf. Every member can check
+  that from the commit log. Online devices update at least daily, so only devices that were away
+  are removed. Until the Remove, the relay keeps every commit the device has not processed
+  ("Retention" in [The commit log](#the-commit-log)), so a device not yet evicted can always
+  catch up.
+- **Returning.** A device that comes back fetches the commits after its last epoch. If its leaf is
+  still in the group, it applies them in order and catches up. If the log holds a Remove of its
+  leaf, it has been evicted: it deletes its state for the room, never applies a partial log, and
+  rejoins as below. A device back after more than 72 hours whose Remove nobody has committed yet
+  (no member has committed since its window ran out, so nothing was sent either) catches up the
+  same way and commits an Update at once, which starts its window again. If a member's Remove
+  reaches the relay first, the relay orders it first, and the device rejoins.
 - **Rejoining.** A returning device publishes a fresh KeyPackage, signed with its device key and
   checked against the roster, as it publishes prekeys today. Any online member re-adds it. SLIM's
   `rejoin_member` does this in one commit, a Remove of the stale leaf plus an Add of the new
