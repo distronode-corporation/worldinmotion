@@ -24,6 +24,10 @@ It carries three parts:
 /plugin install worldinmotion@worldinmotion
 ```
 
+The marketplace installs the plugin as it was at the latest release, at the tag and commit that
+[`.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json) pins, never from the
+main branch.
+
 It works in the Claude Code terminal and in the VS Code extension: delivery into a running
 turn, waking an idle session, and the SendMessage bridge have been checked in both. A Claude
 Code session that was already open when you installed the plugin does not have it: start a new

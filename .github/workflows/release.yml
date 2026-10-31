@@ -11,8 +11,9 @@ name: Release
 #   (d) the .vsix that `test` packaged to the Visual Studio Marketplace, as a pre-release;
 #   (e) the same .vsix to Open VSX.
 # The Claude Code plugin is not a release asset: the marketplace installs it from the
-# repository at the tag. The .vsix is not one either; it goes to the two extension
-# registries only.
+# repository at the release tag and commit that .claude-plugin/marketplace.json pins, and a
+# pull request after each tag moves that pin (CONTRIBUTING.md, "Releasing"). The .vsix is
+# not one either; it goes to the two extension registries only.
 #
 # THE THREE PUBLISH JOBS ARE OFF until a repository variable turns each one on, because
 # each registry needs a one-time setup outside this repository first. Each authenticates
@@ -113,7 +114,8 @@ jobs:
 
       # Every version string in the repository (each package.json, the lockfile, the plugin
       # and marketplace manifests, the versions typed in source) must equal the tag. The
-      # script lists what it checked.
+      # script lists what it checked. The marketplace's plugin pin still names the release
+      # before this one (it moves after the tag), which the script expects on a tagged commit.
       - name: The version agrees with the tag
         id: version
         run: |

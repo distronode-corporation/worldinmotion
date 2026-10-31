@@ -13,6 +13,17 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Changed
+
+- **The Claude Code plugin installs from the latest release, not from main.** The marketplace
+  listed the plugin as `./plugins/claude-code`, so `/plugin install` copied whatever the default
+  branch held, including client changes merged for a release that was not out yet. The entry is
+  now a `git-subdir` source pinned to the tag `v0.1.6` and its full commit sha, and Claude Code
+  checks out that commit. The install commands are unchanged. Each release moves the pin in a
+  pull request right after its tag (CONTRIBUTING.md, "Releasing"), and
+  `.github/scripts/check-versions.mjs` fails CI while the pin lags the latest release or names a
+  sha that is not the tag's commit.
+
 ## [0.1.6] - 2026-10-30
 
 ### Changed

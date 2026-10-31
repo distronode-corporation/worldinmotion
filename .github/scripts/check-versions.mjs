@@ -12,13 +12,20 @@
 //   - plugins/claude-code/.claude-plugin/plugin.json: `version`;
 //   - .claude-plugin/marketplace.json: any `version` field (top level, `metadata`, each
 //     plugin entry), if one is ever added;
+//   - .claude-plugin/marketplace.json's pin: the plugin entry's source names the latest
+//     release tag before this commit and that tag's commit sha (plugin-pin.mjs says why). It
+//     reads the tags with git, so it needs the history and tags (fetch-depth: 0). The tag of
+//     the commit being checked is left out: a release is tagged first and its pin moves in the
+//     pull request after it, so on the tagged commit the pin still names the release before;
 //   - the versions typed in source, below in SOURCE_CONSTANTS;
 //   - any `<name>-X.Y.Z.vsix` file name in a package.json script.
 // A constant that is no longer found is an error, so renaming one cannot turn the check off.
 // Exits 1 and lists every mismatch.
 
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { pinErrors } from "./plugin-pin.mjs";
 
 const root = join(import.meta.dirname, "..", "..");
 const read = (path) => readFileSync(join(root, path), "utf8");
@@ -75,6 +82,28 @@ if (marketplace.metadata?.version !== undefined) {
 }
 for (const plugin of marketplace.plugins ?? []) {
   if (plugin.version !== undefined) check(`.claude-plugin/marketplace.json plugins[${plugin.name}].version`, plugin.version);
+}
+
+// The release tags on commits before HEAD, each with the commit it names (`*objectname` is the
+// commit an annotated tag points at, `objectname` that of a lightweight one).
+const git = (...args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8" });
+const head = git("rev-parse", "HEAD").trim();
+const releases = git("for-each-ref", "--merged=HEAD", "--format=%(refname:strip=2) %(objectname) %(*objectname)", "refs/tags/")
+  .split("\n")
+  .filter((line) => line !== "")
+  .map((line) => {
+    const [name, object, peeled] = line.split(" ");
+    return { name, commit: peeled || object };
+  })
+  .filter((tag) => tag.commit !== head);
+if (marketplace.plugins?.length !== 1) {
+  errors.push(`.claude-plugin/marketplace.json lists ${marketplace.plugins?.length ?? 0} plugins, expected exactly one`);
+}
+const pin = pinErrors(marketplace.plugins?.[0], releases);
+errors.push(...pin);
+if (pin.length === 0) {
+  const { ref, sha } = marketplace.plugins[0].source;
+  console.log(`checked .claude-plugin/marketplace.json pins the plugin to ${ref} at ${sha}, the latest release before this commit`);
 }
 
 for (const { file, pattern } of SOURCE_CONSTANTS) {
