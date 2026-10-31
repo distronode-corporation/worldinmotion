@@ -88,8 +88,9 @@ successor.
 
 Unknown `op`, bad `args` and unknown `v` answer `ok: false` with code `input`. A send the secrets
 check refuses answers code `refused`. There is no `allow_secret` here: skipping that check stays a
-person typing `wim send --allow-secret` at a terminal. `invite` and `admit` answer `refused` when
-the events process runs with an agent's variables (`CLAUDECODE` and the others of SPEC section 4a).
+person typing `wim send --allow-secret` at a terminal. `invite`, `admit`, `approve`, `refuse`,
+`resume`, `trust` and `untrust` answer `refused` when the events process runs with an agent's
+variables (`CLAUDECODE` and the others listed in SECURITY-MODEL.md section 7.2).
 
 ## Setup mode
 

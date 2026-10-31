@@ -71,6 +71,25 @@ body line with a bracket.
 
 No code change.
 
+### Security
+
+- **Approving held messages and trusting devices now need the person at their own terminal.**
+  `wim held approve` and `wim devices trust` ran from an agent's shell: in the two-organisation
+  test of 0.1.6, an agent with `CLAUDECODE` set approved a held message and trusted a device, and
+  no person was asked, although the README said `wim` refuses the steps that decide trust. Now
+  `wim held approve`, `refuse` and `resume`, and `wim devices trust` and `untrust` (one device or
+  `--all`), run only when standard input and output are an interactive terminal and no agent's
+  variables are set, and they show what is being decided (the held message's sender, device id,
+  reason and text; each device's name, role, id and policy before and after) and act only on a
+  typed `y`. There is no flag that skips it. An events process started with an agent's variables
+  refuses `approve`, `refuse`, `resume`, `trust` and `untrust` as it already refused `invite` and
+  `admit`. The variables checked now include `CLAUDE_CODE_SESSION_ID`,
+  `CLAUDE_CODE_MESSAGING_SOCKET` and `AI_AGENT`, which Claude Code sets in its shells; other
+  `CLAUDE_CODE_` variables are not checked, because people set some in their own profile. No MCP
+  tool decides any of these, as before, and a test now pins that. This is a same-user check, not a
+  boundary: a program running as the OS user can still unset the variables or write the files
+  (SECURITY-MODEL.md sections 7.2 and 9). The README and the plugin README now say so.
+
 ## [0.1.6] - 2026-10-30
 
 ### Changed

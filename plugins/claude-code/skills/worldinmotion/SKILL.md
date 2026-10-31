@@ -63,7 +63,8 @@ New Terminal):
 - `wim invite` (it asks the person to type the new device's comparison code), `wim join`, and
   `wim devices admit <name> <code>`
 - `wim recovery show`
-- `wim held approve <id>` (or the Approve button in `/wim`)
+- `wim held approve <id>` (or the Approve button in `/wim`), `wim held refuse <id>` and
+  `wim held resume <peer>`
 - `wim devices trust <name>` or `--all` (and `untrust`)
 - any `wim send ... --allow-secret`
 
