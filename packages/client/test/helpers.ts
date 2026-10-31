@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createMesh, decideJoin, issueInvite, joinMesh } from "../src/admin.ts";
 import { MeshSession, type SessionOptions } from "../src/client.ts";
+import type { SpoolItem } from "../src/spool.ts";
 import type { FsEnv } from "../src/fsx.ts";
 import type { Platform } from "../src/platform.ts";
 import { Home, type Device, type LocalDevice } from "../src/home.ts";
@@ -243,8 +244,60 @@ export function sessionOpts(d: TestDevice, mesh: string, relay: RelayHarness, ex
 export async function openSession(d: TestDevice, mesh: string, relay: RelayHarness, extra: Partial<SessionOptions> = {}): Promise<MeshSession> {
   const s = await MeshSession.open(sessionOpts(d, mesh, relay, extra));
   s.start();
-  await s.ready(3000);
+  await connected(s);
   return s;
+}
+
+/**
+ * Resolves when the session's first connection is up, or rejects with the reason it never will
+ * be. It has no clock of its own. A fixed 3 s budget here raced the connect, which ran past it on
+ * a loaded Windows runner, and the test failed with "not connected to the relay" although nothing
+ * was wrong. The test's own timeout still bounds a connect that never completes.
+ */
+export function connected(s: MeshSession): Promise<void> {
+  if (s.link?.isOpen === true) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const done = (): void => {
+      s.off("connection", onState);
+      s.off("fatal", onFatal);
+    };
+    const onState = (state: string): void => {
+      if (state !== "open") return;
+      done();
+      resolve();
+    };
+    const onFatal = (reason: string): void => {
+      done();
+      reject(new Error(`the session will not connect: ${reason}`));
+    };
+    s.on("connection", onState);
+    s.on("fatal", onFatal);
+  });
+}
+
+/**
+ * The first item in `s`'s spool that `match` accepts, already there or still to come. No clock of
+ * its own (see `connected`): the listener is in place before the spool is read, so an item
+ * written in between is not missed.
+ */
+export function spooled(s: MeshSession, match: (i: SpoolItem) => boolean): Promise<SpoolItem> {
+  return new Promise((resolve, reject) => {
+    const onItem = (i: SpoolItem): void => {
+      if (!match(i)) return;
+      s.off("item", onItem);
+      resolve(i);
+    };
+    s.on("item", onItem);
+    s.spool.unread().then((items) => {
+      const found = items.find(match);
+      if (found === undefined) return;
+      s.off("item", onItem);
+      resolve(found);
+    }, (e: unknown) => {
+      s.off("item", onItem);
+      reject(e as Error);
+    });
+  });
 }
 
 /** A mesh with an admin device and members, built with the real create, invite and join flows. */

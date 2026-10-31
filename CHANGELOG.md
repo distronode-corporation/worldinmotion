@@ -37,6 +37,19 @@ body line with a bracket.
   wait with it, in order, so none of them reaches the conversation twice. A relayed item that you
   hand over from the pane while a Stop stands gets its button back instead of vanishing. Found by reading the code against the mods
   API docs; the plugin's tests reproduce it.
+- **Three client tests that failed now and then in CI no longer depend on timing.** Each one
+  raced a fixed time budget against work that takes longer on a busy runner. None of the product
+  code changed.
+  - `ping.test.ts`: the test helper that opens a session failed it with "not connected to the
+    relay" when the first connect took over 3 s (seen on Windows). The helper now waits for the
+    session's own `open` or `fatal` event.
+  - `races.test.ts`: the overlapping-sends test gave the receiver 3 s to spool both messages
+    (seen on Windows). It now waits for the receiver's `item` events for the two ids.
+  - `client-security.test.ts`: the unsolicited-result test sent a forged result during a 400 ms
+    `ask` and read the spool once the ask ended. On a slow runner the ask gave up first, so the
+    spool was read before the forged result arrived (seen on Ubuntu). The test now runs the steps
+    in order: the forged result is spooled while the ask still waits, then the addressee answers,
+    and the ask must return that answer.
 
 - **`wim send --wait` waits through `held` and reports the `delivered` that follows.** It
   returned at the first receipt, so a send to a device that holds messages for its person printed
