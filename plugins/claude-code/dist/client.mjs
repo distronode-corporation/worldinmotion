@@ -30885,8 +30885,174 @@ var require_dist_cjs19 = __commonJS({
   }
 });
 
-// ../../node_modules/@aws-sdk/client-bedrock-runtime/dist-cjs/index.js
+// ../../node_modules/@aws-sdk/client-bedrock-runtime/node_modules/@aws-sdk/token-providers/dist-cjs/index.js
 var require_dist_cjs20 = __commonJS({
+  "../../node_modules/@aws-sdk/client-bedrock-runtime/node_modules/@aws-sdk/token-providers/dist-cjs/index.js"(exports) {
+    var { setTokenFeature: setTokenFeature2 } = (init_client3(), __toCommonJS(client_exports2));
+    var { getBearerTokenEnvKey: getBearerTokenEnvKey2 } = (init_httpAuthSchemes2(), __toCommonJS(httpAuthSchemes_exports));
+    var { TokenProviderError: TokenProviderError2, getSSOTokenFilepath: getSSOTokenFilepath2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2, loadSsoSessionData: loadSsoSessionData2, getSSOTokenFromFile: getSSOTokenFromFile2, memoize: memoize2, chain: chain2 } = (init_config2(), __toCommonJS(config_exports));
+    var { promises } = __require("node:fs");
+    var fromEnvSigningName = ({ logger: logger2, signingName } = {}) => async () => {
+      logger2?.debug?.("@aws-sdk/token-providers - fromEnvSigningName");
+      if (!signingName) {
+        throw new TokenProviderError2("Please pass 'signingName' to compute environment variable key", { logger: logger2 });
+      }
+      const bearerTokenKey = getBearerTokenEnvKey2(signingName);
+      if (!(bearerTokenKey in process.env)) {
+        throw new TokenProviderError2(`Token not present in '${bearerTokenKey}' environment variable`, { logger: logger2 });
+      }
+      const token = { token: process.env[bearerTokenKey] };
+      setTokenFeature2(token, "BEARER_SERVICE_ENV_VARS", "3");
+      return token;
+    };
+    var EXPIRE_WINDOW_MS = 5 * 60 * 1e3;
+    var REFRESH_MESSAGE = `To refresh this SSO session run 'aws sso login' with the corresponding profile.`;
+    var getSsoOidcClient = async (ssoRegion, init2 = {}, callerClientConfig) => {
+      const { SSOOIDCClient: SSOOIDCClient2 } = (init_sso_oidc(), __toCommonJS(sso_oidc_exports));
+      const coalesce2 = (prop) => init2.clientConfig?.[prop] ?? init2.parentClientConfig?.[prop] ?? callerClientConfig?.[prop];
+      const ssoOidcClient = new SSOOIDCClient2(Object.assign({}, init2.clientConfig ?? {}, {
+        region: ssoRegion ?? init2.clientConfig?.region,
+        logger: coalesce2("logger"),
+        userAgentAppId: coalesce2("userAgentAppId")
+      }));
+      return ssoOidcClient;
+    };
+    var getNewSsoOidcToken = async (ssoToken, ssoRegion, init2 = {}, callerClientConfig) => {
+      const { CreateTokenCommand: CreateTokenCommand2 } = (init_sso_oidc(), __toCommonJS(sso_oidc_exports));
+      const ssoOidcClient = await getSsoOidcClient(ssoRegion, init2, callerClientConfig);
+      return ssoOidcClient.send(new CreateTokenCommand2({
+        clientId: ssoToken.clientId,
+        clientSecret: ssoToken.clientSecret,
+        refreshToken: ssoToken.refreshToken,
+        grantType: "refresh_token"
+      }));
+    };
+    var validateTokenExpiry = (token) => {
+      if (token.expiration && token.expiration.getTime() < Date.now()) {
+        throw new TokenProviderError2(`Token is expired. ${REFRESH_MESSAGE}`, false);
+      }
+    };
+    var validateTokenKey = (key2, value, forRefresh = false) => {
+      if (typeof value === "undefined") {
+        throw new TokenProviderError2(`Value not present for '${key2}' in SSO Token${forRefresh ? ". Cannot refresh" : ""}. ${REFRESH_MESSAGE}`, false);
+      }
+    };
+    var { writeFile: writeFile4 } = promises;
+    var writeSSOTokenToFile = (id, ssoToken) => {
+      const tokenFilepath = getSSOTokenFilepath2(id);
+      const tokenString = JSON.stringify(ssoToken, null, 2);
+      return writeFile4(tokenFilepath, tokenString);
+    };
+    var lastRefreshAttemptTimes = /* @__PURE__ */ new Map();
+    var inFlightRefreshes = /* @__PURE__ */ new Map();
+    var fromSso = (init2 = {}) => async ({ callerClientConfig } = {}) => {
+      init2.logger?.debug("@aws-sdk/token-providers - fromSso");
+      const profiles = await parseKnownFiles2(init2);
+      const profileName = getProfileName2({
+        profile: init2.profile ?? callerClientConfig?.profile
+      });
+      const profile = profiles[profileName];
+      if (!profile) {
+        throw new TokenProviderError2(`Profile '${profileName}' could not be found in shared credentials file.`, false);
+      } else if (!profile["sso_session"]) {
+        throw new TokenProviderError2(`Profile '${profileName}' is missing required property 'sso_session'.`);
+      }
+      const ssoSessionName = profile["sso_session"];
+      const inFlightRefresh = inFlightRefreshes.get(ssoSessionName);
+      if (inFlightRefresh) {
+        return await inFlightRefresh;
+      }
+      const ssoSessions = await loadSsoSessionData2(init2);
+      const ssoSession = ssoSessions[ssoSessionName];
+      if (!ssoSession) {
+        throw new TokenProviderError2(`Sso session '${ssoSessionName}' could not be found in shared credentials file.`, false);
+      }
+      for (const ssoSessionRequiredKey of ["sso_start_url", "sso_region"]) {
+        if (!ssoSession[ssoSessionRequiredKey]) {
+          throw new TokenProviderError2(`Sso session '${ssoSessionName}' is missing required property '${ssoSessionRequiredKey}'.`, false);
+        }
+      }
+      ssoSession["sso_start_url"];
+      const ssoRegion = ssoSession["sso_region"];
+      let ssoToken;
+      try {
+        ssoToken = await getSSOTokenFromFile2(ssoSessionName);
+      } catch (e6) {
+        throw new TokenProviderError2(`The SSO session token associated with profile=${profileName} was not found or is invalid. ${REFRESH_MESSAGE}`, false);
+      }
+      validateTokenKey("accessToken", ssoToken.accessToken);
+      validateTokenKey("expiresAt", ssoToken.expiresAt);
+      const { accessToken, expiresAt } = ssoToken;
+      const existingToken = {
+        token: accessToken,
+        expiration: new Date(expiresAt)
+      };
+      if (existingToken.expiration.getTime() - Date.now() > EXPIRE_WINDOW_MS) {
+        return existingToken;
+      }
+      const inFlightRefreshAfterReadingToken = inFlightRefreshes.get(ssoSessionName);
+      if (inFlightRefreshAfterReadingToken) {
+        return await inFlightRefreshAfterReadingToken;
+      }
+      const lastRefreshAttemptTime = lastRefreshAttemptTimes.get(ssoSessionName) ?? 0;
+      if (Date.now() - lastRefreshAttemptTime < 30 * 1e3) {
+        validateTokenExpiry(existingToken);
+        return existingToken;
+      }
+      validateTokenKey("clientId", ssoToken.clientId, true);
+      validateTokenKey("clientSecret", ssoToken.clientSecret, true);
+      validateTokenKey("refreshToken", ssoToken.refreshToken, true);
+      const refresh = (async () => {
+        try {
+          lastRefreshAttemptTimes.set(ssoSessionName, Date.now());
+          const newSsoOidcToken = await getNewSsoOidcToken(ssoToken, ssoRegion, init2, callerClientConfig);
+          validateTokenKey("accessToken", newSsoOidcToken.accessToken);
+          validateTokenKey("expiresIn", newSsoOidcToken.expiresIn);
+          const newTokenExpiration = new Date(Date.now() + newSsoOidcToken.expiresIn * 1e3);
+          try {
+            await writeSSOTokenToFile(ssoSessionName, {
+              ...ssoToken,
+              accessToken: newSsoOidcToken.accessToken,
+              expiresAt: newTokenExpiration.toISOString(),
+              refreshToken: newSsoOidcToken.refreshToken
+            });
+          } catch (error63) {
+          }
+          return {
+            token: newSsoOidcToken.accessToken,
+            expiration: newTokenExpiration
+          };
+        } catch (error63) {
+          validateTokenExpiry(existingToken);
+          return existingToken;
+        }
+      })();
+      inFlightRefreshes.set(ssoSessionName, refresh);
+      try {
+        return await refresh;
+      } finally {
+        inFlightRefreshes.delete(ssoSessionName);
+      }
+    };
+    var fromStatic2 = ({ token, logger: logger2 }) => async () => {
+      logger2?.debug("@aws-sdk/token-providers - fromStatic");
+      if (!token || !token.token) {
+        throw new TokenProviderError2(`Please pass a valid token to fromStatic`, false);
+      }
+      return token;
+    };
+    var nodeProvider = (init2 = {}) => memoize2(chain2(fromSso(init2), async () => {
+      throw new TokenProviderError2("Could not load token from any providers", false);
+    }), (token) => token.expiration !== void 0 && token.expiration.getTime() - Date.now() < 3e5, (token) => token.expiration !== void 0);
+    exports.fromEnvSigningName = fromEnvSigningName;
+    exports.fromSso = fromSso;
+    exports.fromStatic = fromStatic2;
+    exports.nodeProvider = nodeProvider;
+  }
+});
+
+// ../../node_modules/@aws-sdk/client-bedrock-runtime/dist-cjs/index.js
+var require_dist_cjs21 = __commonJS({
   "../../node_modules/@aws-sdk/client-bedrock-runtime/dist-cjs/index.js"(exports) {
     var { awsEndpointFunctions: awsEndpointFunctions2, emitWarningIfUnsupportedVersion: emitWarningIfUnsupportedVersion$1, createDefaultUserAgentProvider: createDefaultUserAgentProvider2, NODE_APP_ID_CONFIG_OPTIONS: NODE_APP_ID_CONFIG_OPTIONS2, getAwsRegionExtensionConfiguration: getAwsRegionExtensionConfiguration2, resolveAwsRegionExtensionConfiguration: resolveAwsRegionExtensionConfiguration2, resolveUserAgentConfig: resolveUserAgentConfig2, resolveHostHeaderConfig: resolveHostHeaderConfig2, getUserAgentPlugin: getUserAgentPlugin2, getHostHeaderPlugin: getHostHeaderPlugin2, getLoggerPlugin: getLoggerPlugin2, getRecursionDetectionPlugin: getRecursionDetectionPlugin2 } = (init_client3(), __toCommonJS(client_exports2));
     var { resolveEventStreamConfig, getEventStreamPlugin } = require_dist_cjs2();
@@ -30905,7 +31071,7 @@ var require_dist_cjs20 = __commonJS({
     var { resolveAwsSdkSigV4Config: resolveAwsSdkSigV4Config2, AwsSdkSigV4Signer: AwsSdkSigV4Signer2, NODE_AUTH_SCHEME_PREFERENCE_OPTIONS: NODE_AUTH_SCHEME_PREFERENCE_OPTIONS2 } = (init_httpAuthSchemes2(), __toCommonJS(httpAuthSchemes_exports));
     var { defaultProvider } = require_dist_cjs18();
     var { eventStreamPayloadHandlerProvider } = require_dist_cjs19();
-    var { fromEnvSigningName, nodeProvider } = require_dist_cjs11();
+    var { fromEnvSigningName, nodeProvider } = require_dist_cjs20();
     var { toUtf8: toUtf83, fromUtf8: fromUtf84, toBase64: toBase643, fromBase64: fromBase642, calculateBodyLength: calculateBodyLength2 } = (init_serde(), __toCommonJS(serde_exports));
     var { streamCollector: streamCollector7, NodeHttp2Handler } = require_dist_cjs8();
     var { AwsRestJsonProtocol: AwsRestJsonProtocol2 } = (init_protocols2(), __toCommonJS(protocols_exports2));
@@ -30977,7 +31143,7 @@ var require_dist_cjs20 = __commonJS({
       Region: { type: "builtInParams", name: "region" },
       UseDualStack: { type: "builtInParams", name: "useDualstackEndpoint" }
     };
-    var version2 = "3.1154.0";
+    var version2 = "3.1155.0";
     var packageInfo = {
       version: version2
     };
@@ -92408,7 +92574,7 @@ function parseModelSpec(spec) {
 }
 
 // ../bot/src/bedrock.ts
-var import_client_bedrock_runtime = __toESM(require_dist_cjs20(), 1);
+var import_client_bedrock_runtime = __toESM(require_dist_cjs21(), 1);
 var BedrockConverseModel = class {
   id;
   modelId;
@@ -95440,6 +95606,13 @@ function generateContentConfigToMldev$1(apiClient, fromObject, parentObject) {
   ]);
   if (parentObject !== void 0 && fromContinuationToken != null) {
     setValueByPath(parentObject, ["continuationToken"], fromContinuationToken);
+  }
+  if (getValueByPath(fromObject, ["generationOutputConfig"]) !== void 0) {
+    throw new Error("generationOutputConfig parameter is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode.");
+  }
+  const fromStore = getValueByPath(fromObject, ["store"]);
+  if (parentObject !== void 0 && fromStore != null) {
+    setValueByPath(parentObject, ["store"], fromStore);
   }
   return toObject;
 }
@@ -98732,6 +98905,62 @@ function googleSearchToMldev$2(fromObject) {
   }
   return toObject;
 }
+function liveClientContextUpdateToMldev(fromObject) {
+  const toObject = {};
+  const fromSystemInstruction = getValueByPath(fromObject, [
+    "systemInstruction"
+  ]);
+  if (fromSystemInstruction != null) {
+    setValueByPath(toObject, ["systemInstruction"], contentToMldev$2(tContent(fromSystemInstruction)));
+  }
+  const fromTools = getValueByPath(fromObject, ["tools"]);
+  if (fromTools != null) {
+    setValueByPath(toObject, ["tools"], liveClientContextUpdateToolsToMldev(fromTools));
+  }
+  return toObject;
+}
+function liveClientContextUpdateToVertex(fromObject) {
+  const toObject = {};
+  const fromSystemInstruction = getValueByPath(fromObject, [
+    "systemInstruction"
+  ]);
+  if (fromSystemInstruction != null) {
+    setValueByPath(toObject, ["systemInstruction"], contentToVertex$2(tContent(fromSystemInstruction)));
+  }
+  const fromTools = getValueByPath(fromObject, ["tools"]);
+  if (fromTools != null) {
+    setValueByPath(toObject, ["tools"], liveClientContextUpdateToolsToVertex(fromTools));
+  }
+  return toObject;
+}
+function liveClientContextUpdateToolsToMldev(fromObject) {
+  const toObject = {};
+  const fromTools = getValueByPath(fromObject, ["tools"]);
+  if (fromTools != null) {
+    let transformedList = tTools(fromTools);
+    if (Array.isArray(transformedList)) {
+      transformedList = transformedList.map((item) => {
+        return toolToMldev$2(tTool(item));
+      });
+    }
+    setValueByPath(toObject, ["tools"], transformedList);
+  }
+  return toObject;
+}
+function liveClientContextUpdateToolsToVertex(fromObject) {
+  const toObject = {};
+  const fromTools = getValueByPath(fromObject, ["tools"]);
+  if (fromTools != null) {
+    let transformedList = tTools(fromTools);
+    if (Array.isArray(transformedList)) {
+      transformedList = transformedList.map((item) => {
+        return toolToVertex$2(tTool(item));
+      });
+    }
+    setValueByPath(toObject, ["tools"], transformedList);
+  }
+  return toObject;
+}
 function liveConnectConfigToMldev$1(fromObject, parentObject) {
   const toObject = {};
   const fromGenerationConfig = getValueByPath(fromObject, [
@@ -98864,6 +99093,10 @@ function liveConnectConfigToMldev$1(fromObject, parentObject) {
   ]);
   if (parentObject !== void 0 && fromTranslationConfig != null) {
     setValueByPath(parentObject, ["setup", "generationConfig", "translationConfig"], fromTranslationConfig);
+  }
+  const fromLabels = getValueByPath(fromObject, ["labels"]);
+  if (parentObject !== void 0 && fromLabels != null) {
+    setValueByPath(parentObject, ["setup", "labels"], fromLabels);
   }
   return toObject;
 }
@@ -99002,6 +99235,10 @@ function liveConnectConfigToVertex(fromObject, parentObject) {
   ]);
   if (parentObject !== void 0 && fromTranslationConfig != null) {
     setValueByPath(parentObject, ["setup", "generationConfig", "translationConfig"], fromTranslationConfig);
+  }
+  const fromLabels = getValueByPath(fromObject, ["labels"]);
+  if (parentObject !== void 0 && fromLabels != null) {
+    setValueByPath(parentObject, ["setup", "labels"], fromLabels);
   }
   return toObject;
 }
@@ -100787,6 +101024,13 @@ function generateContentConfigToMldev(apiClient, fromObject, parentObject, rootO
   if (parentObject !== void 0 && fromContinuationToken != null) {
     setValueByPath(parentObject, ["continuationToken"], fromContinuationToken);
   }
+  if (getValueByPath(fromObject, ["generationOutputConfig"]) !== void 0) {
+    throw new Error("generationOutputConfig parameter is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode.");
+  }
+  const fromStore = getValueByPath(fromObject, ["store"]);
+  if (parentObject !== void 0 && fromStore != null) {
+    setValueByPath(parentObject, ["store"], fromStore);
+  }
   return toObject;
 }
 function generateContentConfigToVertex(apiClient, fromObject, parentObject, rootObject) {
@@ -100975,6 +101219,15 @@ function generateContentConfigToVertex(apiClient, fromObject, parentObject, root
   ]);
   if (parentObject !== void 0 && fromContinuationToken != null) {
     setValueByPath(parentObject, ["continuationToken"], fromContinuationToken);
+  }
+  const fromGenerationOutputConfig = getValueByPath(fromObject, [
+    "generationOutputConfig"
+  ]);
+  if (parentObject !== void 0 && fromGenerationOutputConfig != null) {
+    setValueByPath(parentObject, ["outputConfig"], fromGenerationOutputConfig);
+  }
+  if (getValueByPath(fromObject, ["store"]) !== void 0) {
+    throw new Error("store parameter is only supported in Gemini Developer API mode, not in Gemini Enterprise Agent Platform mode.");
   }
   return toObject;
 }
@@ -103552,7 +103805,7 @@ var CONTENT_TYPE_HEADER = "Content-Type";
 var SERVER_TIMEOUT_HEADER = "X-Server-Timeout";
 var USER_AGENT_HEADER = "User-Agent";
 var GOOGLE_API_CLIENT_HEADER = "x-goog-api-client";
-var SDK_VERSION = "2.30.0";
+var SDK_VERSION = "2.31.0";
 var LIBRARY_LABEL = `google-genai-sdk/${SDK_VERSION}`;
 var VERTEX_AI_API_DEFAULT_VERSION = "v1beta1";
 var GOOGLE_AI_API_DEFAULT_VERSION = "v1beta";
@@ -103886,27 +104139,7 @@ var ApiClient = class {
             break;
           }
           const chunkString = decoder.decode(value, { stream: true });
-          try {
-            const chunkJson = JSON.parse(chunkString);
-            if ("error" in chunkJson) {
-              const errorJson = JSON.parse(JSON.stringify(chunkJson["error"]));
-              const status2 = errorJson["status"];
-              const code2 = errorJson["code"];
-              const errorMessage = `got status: ${status2}. ${JSON.stringify(chunkJson)}`;
-              if (code2 >= 400 && code2 < 600) {
-                const apiError = new ApiError({
-                  message: errorMessage,
-                  status: code2
-                });
-                throw apiError;
-              }
-            }
-          } catch (e6) {
-            const error63 = e6;
-            if (error63.name === "ApiError") {
-              throw e6;
-            }
-          }
+          throwIfStreamErrorChunk(chunkString);
           buffer += chunkString;
           let delimiterIndex = -1;
           let delimiterLength = 0;
@@ -103928,6 +104161,7 @@ var ApiClient = class {
             const trimmedEvent = eventString.trim();
             if (trimmedEvent.startsWith(dataPrefix)) {
               const processedChunkString = trimmedEvent.substring(dataPrefix.length).trim();
+              throwIfStreamErrorChunk(processedChunkString);
               try {
                 const partialResponse = new Response(processedChunkString, {
                   headers: response === null || response === void 0 ? void 0 : response.headers,
@@ -104125,6 +104359,28 @@ var ApiClient = class {
     return uploadUrl;
   }
 };
+function throwIfStreamErrorChunk(chunkString) {
+  try {
+    const chunkJson = JSON.parse(chunkString);
+    if (chunkJson !== null && typeof chunkJson === "object" && "error" in chunkJson && chunkJson["error"] !== null && typeof chunkJson["error"] === "object") {
+      const errorJson = chunkJson["error"];
+      const status2 = errorJson["status"];
+      const code2 = errorJson["code"];
+      const errorMessage = `got status: ${status2}. ${JSON.stringify(chunkJson)}`;
+      if (typeof code2 === "number" && code2 >= 400 && code2 < 600) {
+        throw new ApiError({
+          message: errorMessage,
+          status: code2
+        });
+      }
+    }
+  } catch (e6) {
+    const error63 = e6;
+    if ((error63 === null || error63 === void 0 ? void 0 : error63.name) === "ApiError") {
+      throw e6;
+    }
+  }
+}
 async function throwErrorIfNotOK(response) {
   var _a5;
   if (response === void 0) {
@@ -104886,6 +105142,31 @@ var Session = class {
       throw new Error("Tool response parameters are required.");
     }
     const clientMessage = this.tLiveClienttToolResponse(this.apiClient, params);
+    this.conn.send(JSON.stringify(clientMessage));
+  }
+  /**
+      Send a context update message over the established connection.
+  
+      @param params - Contains properties `systemInstruction` and/or `tools`.
+  
+      @remarks
+      Updates to the context of the current session. Only fields that are set will
+      be updated. Updates are guaranteed to be processed in order with the rest of
+      the inputs.
+  
+      @experimental
+     */
+  sendContextUpdate(params) {
+    let clientMessage = {};
+    if (this.apiClient.isVertexAI()) {
+      clientMessage = {
+        "contextUpdate": liveClientContextUpdateToVertex(params)
+      };
+    } else {
+      clientMessage = {
+        "contextUpdate": liveClientContextUpdateToMldev(params)
+      };
+    }
     this.conn.send(JSON.stringify(clientMessage));
   }
   /**
@@ -107137,6 +107418,10 @@ function liveConnectConfigToMldev(fromObject, parentObject) {
   if (parentObject !== void 0 && fromTranslationConfig != null) {
     setValueByPath(parentObject, ["setup", "generationConfig", "translationConfig"], fromTranslationConfig);
   }
+  const fromLabels = getValueByPath(fromObject, ["labels"]);
+  if (parentObject !== void 0 && fromLabels != null) {
+    setValueByPath(parentObject, ["setup", "labels"], fromLabels);
+  }
   return toObject;
 }
 function liveConnectConstraintsToMldev(apiClient, fromObject) {
@@ -108246,9 +108531,15 @@ var GoogleGenAiError = class extends Error {
     this.contentType = ((_d = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response) === null || _d === void 0 ? void 0 : _d.headers.get("content-type")) || "";
     this.rawResponse = httpMeta === null || httpMeta === void 0 ? void 0 : httpMeta.response;
     this.name = "GoogleGenAiError";
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 };
 var GeminiNextGenAPIClientError = class extends Error {
+  constructor(message2) {
+    super(message2);
+    this.name = this.constructor.name;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
 };
 var APIError = class _APIError extends GeminiNextGenAPIClientError {
   constructor(status2, error63, message2, headers) {
@@ -108344,13 +108635,19 @@ function wrapSDKError(error63) {
   if (isCompatAPIErrorInstance(error63)) {
     return error63;
   }
-  if (error63 instanceof GoogleGenAiError) {
+  if (isGoogleGenAiErrorInstance(error63)) {
     return wrapAPIError(error63);
   }
   if (error63 instanceof HTTPClientError) {
     return wrapHTTPClientError(error63);
   }
   return error63;
+}
+function isGoogleGenAiErrorInstance(value) {
+  if (value instanceof GoogleGenAiError) {
+    return true;
+  }
+  return value instanceof Error && typeof value.statusCode === "number" && typeof value.body === "string";
 }
 function wrapAPIError(error63) {
   const errorPayload = getErrorPayload(error63);
@@ -109427,6 +109724,7 @@ var GoogleGenAiDefaultError = class extends GoogleGenAiError {
     message2 = message2.trim();
     super(message2, httpMeta);
     this.name = "GoogleGenAiDefaultError";
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 };
 function tryParseJson(s3) {
