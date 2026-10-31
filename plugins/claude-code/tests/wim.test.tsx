@@ -69,6 +69,8 @@ type World = {
   /** The calls exactly as they reached the server. */
   wire: Call[]
   submitted: string[]
+  /** Submits the engine dropped, with the reason it gave. */
+  dropped: { text: string; reason: string }[]
   statuses: (string | undefined)[]
   toasts: string[]
   /** What `$.agent.list()` answers: change it to add or remove teammates. */
@@ -91,6 +93,10 @@ function world(
     isWriteDenied?: (path: string) => boolean
     /** True for a submit the engine fails (a hook that throws). */
     failSubmit?: () => boolean
+    /** The engine's reason for dropping this submit (a Stop stands), or undefined to let it enter. */
+    dropWhen?: (text: string) => string | undefined
+    /** What the engine waits on before it answers a submit (starting the turn takes a while). */
+    beforeSubmit?: () => Promise<void>
   } = {},
 ): World {
   const w: World = {
@@ -99,6 +105,7 @@ function world(
     calls: [],
     wire: [],
     submitted: [],
+    dropped: [],
     statuses: [],
     toasts: [],
     agents: [],
@@ -176,9 +183,14 @@ function world(
     w.asked.push(question)
     return { result: { questions: e.questions, answers: { [question]: w.answer } } }
   })
-  on('prompt.submit', (_, e) => {
+  on('prompt.submit', async (_, e) => {
+    await options.beforeSubmit?.()
     if (options.failSubmit?.()) throw new Error('the engine could not submit')
-    if (options.drop !== undefined) return { drop: options.drop }
+    const drop = options.drop ?? options.dropWhen?.(e.text)
+    if (drop !== undefined) {
+      w.dropped.push({ text: e.text, reason: drop })
+      return { drop }
+    }
     w.submitted.push(e.text)
     return { text: e.text }
   })
@@ -1259,6 +1271,433 @@ test('a dropped mesh submit leaves no mesh turn pending', async ($, on) => {
 
   await $.turn.start({ text: 'my own prompt', turnId: 't1' })
   expect(w.files.get(`${SESSION}/presence`)).toBe('busy')
+})
+
+// The engine's reasons, as the mods API docs give them, for a submit made after
+// the person stopped a turn and for one the Stop took out of the queue.
+const STOPPED = 'the session was stopped and nobody has sent input since'
+const UNQUEUED = 'the prompt was removed from the queue before it ran'
+const ABORTED = { ...COMPLETE, isAborted: true, reason: 'aborted' } as const
+
+test('a message that arrives after the person pressed Stop is kept, not receipted, and handed over once at the next turn end', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = false
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  const session = mock.session(on)
+  await $.session.start(START)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  // Esc: the turn ends aborted, and the engine refuses new work until the person's next input.
+  isStopped = true
+  await $.turn.complete(ABORTED)
+  await clock.settle()
+
+  w.files.set(...item(1, 'please review the migration'))
+  await clock.advance(250)
+  await clock.settle()
+  // The engine dropped the turn: the session never read the message.
+  expect(w.dropped).toHaveLength(1)
+  expect(timesShown(session, w, 'please review the migration')).toBe(0)
+  // So the cursor stays before it: the client sends `delivered` only for items the cursor passes.
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+  // Kept, not retried from the timer: nothing would take it before the person's next input.
+  await clock.advance(5000)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  // A turn end that comes before that input (the interrupted turn's own) is refused again: still kept.
+  await $.turn.complete(ABORTED)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(2)
+  expect(w.submitted).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  // The person types again: the Stop is over, and that turn's end hands the message over.
+  isStopped = false
+  await $.turn.start({ text: 'back now', turnId: 't2' })
+  await $.turn.complete({ ...COMPLETE, turnId: 't2' })
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(timesShown(session, w, 'please review the migration')).toBe(1)
+  // Now it reached the session: the next pass moves the cursor past it, and the receipt goes.
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+
+  // It is a mesh turn like any other, and it is handed over once, whatever ends after it.
+  await $.turn.start({ text: w.submitted[0] ?? '', turnId: 't3' })
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+  await $.turn.complete({ ...COMPLETE, turnId: 't3' })
+  await clock.advance(1000)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(timesShown(session, w, 'please review the migration')).toBe(1)
+})
+
+test('a message behind a kept one waits with it, in order, so nothing in the conversation is past the cursor', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  const session = mock.session(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'first, dropped'))
+  await clock.advance(250)
+  await clock.settle()
+
+  // The person's next input ends the Stop; a message arrives during that turn.
+  isStopped = false
+  await $.turn.start({ text: 'my prompt', turnId: 't1' })
+  w.files.set(...item(2, 'second, behind it'))
+  await clock.advance(250)
+  await clock.settle()
+  // Not appended: the cursor cannot pass the first, so `inbox` would hand the second over again.
+  expect(timesShown(session, w, 'second, behind it')).toBe(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  await $.turn.complete(COMPLETE)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  const text = w.submitted[0] ?? ''
+  expect(text.indexOf('first, dropped')).toBeGreaterThanOrEqual(0)
+  expect(text.indexOf('first, dropped')).toBeLessThan(text.indexOf('second, behind it'))
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
+  for (const one of ['first, dropped', 'second, behind it']) expect(timesShown(session, w, one)).toBe(1)
+})
+
+test('a relayed item behind a kept message waits in the spool until the kept one goes, then reaches the pane', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  const session = mock.session(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'kept'))
+  await clock.advance(250)
+  await clock.settle()
+  isStopped = false
+  await $.turn.start({ text: 'my prompt', turnId: 't1' })
+  w.files.set(...item(2, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
+  await clock.advance(1000)
+  await clock.settle()
+  // Not in the pane yet: the client boxes a relayed item only once the cursor
+  // passes it, and a dismiss before that would be lost.
+  expect(session.appended()).toHaveLength(0)
+  expect(w.toasts).toHaveLength(0)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ key: 'dismiss:000000000002.json' })).toBeUndefined()
+  await ui.unmount()
+
+  await $.turn.complete(COMPLETE)
+  await clock.advance(500)
+  await clock.settle()
+  // The turn end hands over the kept message only: a relayed item never starts a turn.
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).not.toContain('pipeline 812 failed')
+  expect(w.toasts).toEqual(['worldinmotion: 1 relayed item in the inbox (/wim)'])
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
+  const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await after.find({ key: 'dismiss:000000000002.json' })).toBeDefined()
+  await after.unmount()
+})
+
+test("a relayed item the person hands over while a Stop stands gets its button back", async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = false
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  await $.session.start(START)
+  w.files.set(...item(4, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
+  await clock.advance(250)
+  await clock.settle()
+  isStopped = true
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'deliver:000000000004.json' })
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+  expect(await ui.find({ key: 'deliver:000000000004.json' })).toBeDefined()
+
+  isStopped = false
+  await ui.press({ key: 'deliver:000000000004.json' })
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(await ui.find({ key: 'deliver:000000000004.json' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a turn queued behind a running one and taken out of the queue by Stop is kept and handed over at the next turn end', async ($, on) => {
+  const clock = mock.clock(on)
+  let isUnqueuing = true
+  const w = world(on, { dropWhen: () => (isUnqueuing ? UNQUEUED : undefined) })
+  const session = mock.session(on)
+  // A hook above refuses to store it as a row, so it needs a turn of its own, queued behind this one.
+  on('session.append', { door: 'note' }, () => ({ deny: 'not as a row' }))
+  await $.session.start(START)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  w.files.set(...item(1, 'queued behind the turn'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped).toEqual([{ text: expect.stringContaining('queued behind the turn'), reason: UNQUEUED }])
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  isUnqueuing = false
+  await $.turn.complete(ABORTED)
+  await clock.settle()
+  expect(timesShown(session, w, 'queued behind the turn')).toBe(1)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+})
+
+test('a kept message the session took itself (inbox, wait) is not handed over again', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  const session = mock.session(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'read through inbox'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+
+  // The model's `inbox` call took it: the client moved its cursor past it and sent the receipt.
+  w.files.set(`${SPOOL}/cursor`, '000000000001.json\n')
+  isStopped = false
+  await $.turn.start({ text: 'check your inbox', turnId: 't1' })
+  await $.turn.complete(COMPLETE)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  expect(timesShown(session, w, 'read through inbox')).toBe(0)
+})
+
+test('a turn end whose naming of late items is dropped names them at the next turn end', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = false
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  const session = mock.session(on)
+  await $.session.start(START)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  const step = $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 3 })
+  for await (const _ of step) void _
+  w.files.set(...item(1, 'late'))
+  await clock.advance(250)
+  await clock.settle()
+
+  isStopped = true
+  await $.turn.complete(ABORTED)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+  isStopped = false
+  await $.turn.complete(COMPLETE)
+  await clock.settle()
+  expect(w.submitted).toEqual([
+    `(worldinmotion: a message from reviewer@laptop (id ${ulidOf(1)}) arrived as your last turn ended. It is in the conversation above, not repeated here.)`,
+  ])
+  expect(timesShown(session, w, 'late')).toBe(1)
+})
+
+test('while a Stop stands, a kept message and late items to name cost one dropped turn each, not one a tick', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = false
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  mock.session(on)
+  await $.session.start(START)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  const step = $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 3 })
+  for await (const _ of step) void _
+  w.files.set(...item(1, 'late'))
+  await clock.advance(250)
+  await clock.settle()
+  isStopped = true
+  await $.turn.complete(ABORTED)
+  await clock.settle()
+  w.files.set(...item(2, 'kept'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(2)
+
+  await clock.advance(5000)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(2)
+  // The appended one is receipted; the kept one is not.
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+})
+
+test('while a Stop stands, a relayed item waiting behind a kept one does not make each tick name late items again', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = false
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  mock.session(on)
+  await $.session.start(START)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  const step = $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 3 })
+  for await (const _ of step) void _
+  w.files.set(...item(1, 'late'))
+  await clock.advance(250)
+  await clock.settle()
+  isStopped = true
+  await $.turn.complete(ABORTED)
+  await clock.settle()
+  w.files.set(...item(2, 'kept'))
+  w.files.set(...item(3, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(2)
+
+  await clock.advance(5000)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(2)
+})
+
+test('a relayed item in the same pass as a message whose turn is dropped stays in the spool with it', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  await $.session.start(START)
+  w.files.set(...item(1, 'please look'))
+  w.files.set(...item(2, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+  // Not in the pane: the cursor is held before the message, so the client has not boxed it.
+  expect(w.toasts).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  isStopped = false
+  await $.turn.complete(COMPLETE)
+  await clock.advance(500)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).not.toContain('pipeline 812 failed')
+  expect(w.toasts).toEqual(['worldinmotion: 1 relayed item in the inbox (/wim)'])
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
+})
+
+test('two turn ends at once hand a kept message over once, and no pass receipts it while its submit is under way', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  // Once the Stop is over the engine takes 300 ms to start the turn: the second
+  // turn end and a delivery pass both run while the first submit is under way.
+  const w = world(on, {
+    dropWhen: () => (isStopped ? STOPPED : undefined),
+    beforeSubmit: () => (isStopped ? Promise.resolve() : clock.sleep(300)),
+  })
+  await $.session.start(START)
+  w.files.set(...item(1, 'only once'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+
+  isStopped = false
+  await $.turn.complete(COMPLETE)
+  await $.turn.complete(COMPLETE)
+  await clock.advance(260)
+  expect(w.submitted).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+  await clock.advance(300)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+})
+
+test('a kept message whose retry the engine fails is kept for the turn end after', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  let isFailing = false
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined), failSubmit: () => isFailing })
+  await $.session.start(START)
+  w.files.set(...item(1, 'try again'))
+  await clock.advance(250)
+  await clock.settle()
+  isStopped = false
+  isFailing = true
+  await $.turn.complete(COMPLETE)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  isFailing = false
+  await $.turn.complete(COMPLETE)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('try again')
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+})
+
+test('a turn a hook refuses is kept too, tried once at each turn end and never from the timer', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on, { drop: 'blocked' })
+  await $.session.start(START)
+  w.files.set(...item(1, 'refused by a hook'))
+  await clock.advance(2500)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+  for (const turnId of ['t1', 't2']) {
+    await $.turn.start({ text: 'my prompt', turnId })
+    await $.turn.complete({ ...COMPLETE, turnId })
+    await clock.advance(1000)
+    await clock.settle()
+  }
+  expect(w.dropped).toHaveLength(3)
+  // Never read by the session, so never receipted.
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+})
+
+test('a kept message whose retry was under way when the module reloaded counts as handed over, never twice', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  let isHanging = false
+  const w = world(on, {
+    dropWhen: () => (isStopped ? STOPPED : undefined),
+    // The reload takes the submit with it: it never answers.
+    beforeSubmit: () => (isHanging ? new Promise<void>(() => undefined) : Promise.resolve()),
+  })
+  await $.session.start(START)
+  w.files.set(...item(1, 'under way'))
+  await clock.advance(250)
+  await clock.settle()
+  isStopped = false
+  isHanging = true
+  await $.turn.complete(COMPLETE)
+  await clock.advance(250)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  await $.session.start(START)
+  isHanging = false
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+  await $.turn.complete(COMPLETE)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+})
+
+test('a tab linked again to a new spool keeps nothing from the old one', async ($, on) => {
+  const clock = mock.clock(on)
+  let spool = SPOOL
+  let isStopped = true
+  const w = world(on, {
+    dropWhen: () => (isStopped ? STOPPED : undefined),
+    tools: {
+      _hello: () => json({ spool, sid: 's1', address: 'builder@desk', token: TOKEN, held: HELD_DIR, dismiss: DISMISS_DIR }),
+      rename: () => ({ content: [{ type: 'text', text: 'This session is now reviewer@desk.' }], isError: false }),
+    },
+  })
+  await $.session.start(START)
+  w.files.set(...item(1, 'from the old spool'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+
+  spool = `${SESSION}/spool-2`
+  await $.command.run({ ...WIM, args: 'name reviewer' })
+  isStopped = false
+  await $.turn.complete(COMPLETE)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
 })
 
 test('a room send is confirmed unless _route says deliver', async ($, on) => {
