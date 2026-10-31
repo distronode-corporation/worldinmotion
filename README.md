@@ -229,7 +229,8 @@ once it is printed. When its output is not a terminal (a pipe or a file) it mark
 pipe such as `| head` can cut an item off part-way without the writer knowing, and it says so on
 stderr; `--mark-read` marks what it printed anyway. `wim inbox --peek` prints it all and marks
 nothing. A message from a device you did not trust prints `held` with how to approve
-it there (`wim held approve <id>`).
+it there (`wim held approve <id>`). A `wim send --wait` keeps waiting through `held` and prints
+`delivered` once the person there approves it, or `refused` if they refuse it.
 
 ### 9. Claude-to-Claude test
 
