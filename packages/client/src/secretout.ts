@@ -7,8 +7,27 @@ import { promises as fs } from "node:fs";
 import { createConnection, createServer } from "node:net";
 import { pathFor, type Platform } from "./platform.ts";
 
-/** Variables that agent CLIs set in the commands they run. */
-export const AGENT_ENV_VARS = ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "GEMINI_CLI", "CURSOR_AGENT", "CURSOR_TRACE_ID", "OPENCODE", "AIDER_MODEL", "ANTIGRAVITY_AGENT", "WIM_AGENT"];
+/**
+ * Variables that agent CLIs set in the commands they run. Claude Code sets several in every shell
+ * it starts (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID`, and the socket of its
+ * messaging bridge, `CLAUDE_CODE_MESSAGING_SOCKET`); `AI_AGENT` is a cross-vendor marker. There is
+ * no `CLAUDE_CODE_` prefix match: people export settings such as `CLAUDE_CODE_USE_BEDROCK` in
+ * their own shell profile, and that terminal is still theirs.
+ */
+export const AGENT_ENV_VARS = [
+  "CLAUDECODE",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "AI_AGENT",
+  "GEMINI_CLI",
+  "CURSOR_AGENT",
+  "CURSOR_TRACE_ID",
+  "OPENCODE",
+  "AIDER_MODEL",
+  "ANTIGRAVITY_AGENT",
+  "WIM_AGENT",
+];
 export const AGENT_ENV_PREFIXES = ["CODEX_"];
 
 /** The agent variable found in `env`, if any. */
@@ -21,6 +40,8 @@ export function agentEnv(env: Record<string, string | undefined>): string | unde
 const AGENT_NAMES: Record<string, string> = {
   CLAUDECODE: "Claude Code",
   CLAUDE_CODE_ENTRYPOINT: "Claude Code",
+  CLAUDE_CODE_SESSION_ID: "Claude Code",
+  CLAUDE_CODE_MESSAGING_SOCKET: "Claude Code",
   GEMINI_CLI: "Gemini CLI",
   CURSOR_AGENT: "Cursor",
   CURSOR_TRACE_ID: "Cursor",
@@ -57,7 +78,12 @@ export function canShowSecret(env: Record<string, string | undefined>, isTTY: bo
  * terminal too: an agent that pipes an answer in (a fifo, a here-string) is not the person.
  */
 export function canConfirm(env: Record<string, string | undefined>, io: { isTTY: boolean; inputIsTTY: boolean }): boolean {
-  return io.inputIsTTY && canShowSecret(env, io.isTTY);
+  return cannotConfirm(env, io) === undefined;
+}
+
+/** Why a confirmation cannot be taken here (`canConfirm`), or undefined when it can. */
+export function cannotConfirm(env: Record<string, string | undefined>, io: { isTTY: boolean; inputIsTTY: boolean }): string | undefined {
+  return notAPerson(env, io.isTTY) ?? (io.inputIsTTY ? undefined : "this command's input is not an interactive terminal (it is piped or redirected)");
 }
 
 /** The recovery code display window, in minutes, for messages. */

@@ -1,5 +1,6 @@
 // The `wim` command line. Every person-facing decision lives here: confirming a joiner's SAS,
-// trusting devices, approving held messages, and the one-send `--allow-secret` override.
+// trusting devices, approving held messages, and the one-send `--allow-secret` override. Each one
+// is taken only from a person at an interactive terminal with no agent's variables (canConfirm).
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { runGateway } from "./run-a2a.ts";
@@ -19,16 +20,16 @@ import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.t
 import { History, renderForPerson } from "./history.ts";
 import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp, type Retried } from "./mcp.ts";
-import { MeshFiles, RosterBook, setDevicePolicy, trustLevel } from "./mesh.ts";
+import { MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
 import { homeChoice, type Platform } from "./platform.ts";
-import { isStalePeer, peerLine } from "./render.ts";
+import { isStalePeer, peerLine, policyLevel } from "./render.ts";
 import { PING, pingReport } from "./ping.ts";
 import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
-import { agentEnv, canConfirm, canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
+import { agentEnv, canConfirm, cannotConfirm, canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { resolveInvite } from "./shortcode.ts";
@@ -626,6 +627,24 @@ async function recoveryRotate(ctx: Ctx): Promise<number> {
   }
 }
 
+/**
+ * Refuses a person's decision anywhere but their own interactive terminal: standard input and
+ * output both a terminal, and no agent's variables (canConfirm). There is no flag that skips it,
+ * because an agent could pass a flag as easily as the person. Called before anything changes.
+ */
+function personHere(ctx: Ctx, command: string): void {
+  const why = cannotConfirm(ctx.env, ctx.io);
+  if (why !== undefined) throw new SetupError(personOnly(why, command));
+}
+
+/** Shows the person what they are deciding, then asks; only a typed yes is a yes. */
+async function confirmed(ctx: Ctx, lines: readonly string[], question: string): Promise<boolean> {
+  for (const line of lines) ctx.io.out(line);
+  if (/^y(es)?$/i.test((await ctx.io.prompt(`${question} [y/N] `)).trim())) return true;
+  ctx.io.err("wim: nothing changed.");
+  return false;
+}
+
 /** Why a confirmation cannot be taken here, for the error that refuses it. */
 function noPerson(ctx: Ctx): string {
   return agentEnv(ctx.env) === undefined ? "this is not an interactive terminal" : "an agent is running this command";
@@ -807,13 +826,16 @@ async function devices(ctx: Ctx): Promise<number> {
   }
   const trusting = action === "trust" || action === "untrust";
   const all = ctx.args.flags.get("all") === true;
-  if (all && trusting && name === undefined) return trustAll(ctx, files, book.current, config.device, action);
+  if (all && trusting && name === undefined) return trustAll(ctx, files, book.current, config, action);
   if (name === undefined || all) throw new SetupError(`usage: wim devices ${action} <name>${trusting ? " | --all" : ""}`);
   const target = book.current.devices.find((d) => d.name === name);
   if (target === undefined) throw new SetupError(`no device named ${name}`);
   if (trusting) {
     const relayed = ctx.args.flags.get("relayed") === true;
-    ctx.io.out(trustLine(name, await setDevicePolicy(files, target.id, trustLevel(action, relayed)), relayed));
+    const level = trustLevel(action, relayed);
+    personHere(ctx, `wim devices ${action} ${name}${relayed ? " --relayed" : ""}`);
+    if (!(await confirmed(ctx, trustChange([target], config, level), `${action === "trust" ? "Trust" : "Untrust"} ${name}?`))) return 1;
+    ctx.io.out(trustLine(name, await setDevicePolicy(files, target.id, level), relayed));
     return 0;
   }
   const s = await ctx.session("admin", { keyed: false });
@@ -836,12 +858,41 @@ function trustLine(name: string, level: string, relayed: boolean): string {
   return relayed ? `Messages from ${name} are delivered, including text it relays from others (bots, CI, external agents).` : `Messages from ${name} are delivered; text it relays from others is still held.`;
 }
 
+/** What a policy level means for the agents here, for the person deciding it. */
+const LEVEL_MEANS: Readonly<Record<string, string>> = {
+  deliver: "delivered to your agents as work from a device you trust; text it relays from others is still held",
+  "deliver-relayed": "delivered to your agents as work from a device you trust, including text it relays from others (bots, CI, external agents)",
+  hold: "held until you approve each one",
+};
+
+/**
+ * The lines a person reads before a trust change: each device's name, id and role, and its policy
+ * now and after. The id is the one the device itself prints as `this device` in `wim devices list`
+ * (and when it joined), so the person can check it on that device's own screen.
+ */
+function trustChange(targets: ReadonlyArray<Roster["devices"][number]>, config: MeshConfig, level: Policy): string[] {
+  const lines = targets.map((d) => `  ${d.name}  ${d.role}  id ${d.id}  policy ${policyLevel(config, d.id)} -> ${level}`);
+  return [
+    `Changing the inbound policy of ${targets.length === 1 ? "this device" : `these ${targets.length} devices`}:`,
+    ...lines,
+    `Its messages are then ${LEVEL_MEANS[level]!}.`,
+    "Check each id against `wim devices list` on that device (its line says `this device`).",
+    ...(level === "hold" ? [] : ["Trust only devices you would let type into your own terminal; another person's device stays at hold."]),
+  ];
+}
+
 /** `wim devices trust --all` and `untrust --all`: every device but this one (recovery records never act). */
-async function trustAll(ctx: Ctx, files: MeshFiles, roster: Roster, self: string, action: "trust" | "untrust"): Promise<number> {
+async function trustAll(ctx: Ctx, files: MeshFiles, roster: Roster, config: MeshConfig, action: "trust" | "untrust"): Promise<number> {
   const relayed = ctx.args.flags.get("relayed") === true;
-  const others = roster.devices.filter((d) => d.id !== self && !isRecoveryName(d.name));
-  if (others.length === 0) ctx.io.out("No other devices in the mesh.");
-  for (const d of others) ctx.io.out(trustLine(d.name, await setDevicePolicy(files, d.id, trustLevel(action, relayed)), relayed));
+  const others = roster.devices.filter((d) => d.id !== config.device && !isRecoveryName(d.name));
+  if (others.length === 0) {
+    ctx.io.out("No other devices in the mesh.");
+    return 0;
+  }
+  const level = trustLevel(action, relayed);
+  personHere(ctx, `wim devices ${action} --all${relayed ? " --relayed" : ""}`);
+  if (!(await confirmed(ctx, trustChange(others, config, level), `${action === "trust" ? "Trust" : "Untrust"} all ${others.length}?`))) return 1;
+  for (const d of others) ctx.io.out(trustLine(d.name, await setDevicePolicy(files, d.id, level), relayed));
   return 0;
 }
 
@@ -932,21 +983,36 @@ function lastReceipts(receipts: ReadonlyArray<{ to: string; status: string }>): 
   return new Map(receipts.map((r) => [r.to, r.status]));
 }
 
+/** A receipt nothing follows. `held` is not one: the person there may approve it, and `delivered` comes then. */
+const isFinal = (status: string | undefined): boolean => status !== undefined && status !== "held";
+
 /**
- * Waits until every address in `wanted` has a receipt, `ms` passes or the person stops the
- * command; returns the last receipt of each address that has one.
+ * Waits until every address in `wanted` has a final receipt, `ms` passes or the person stops the
+ * command; returns the last receipt of each address that has one. `onHeld` hears of each address
+ * once, the first time it is held, so the person sees why the wait goes on.
  */
-async function waitForReceipts(ctx: Ctx, read: () => Promise<ReadonlyArray<{ to: string; status: string }>>, wanted: readonly string[], ms: number): Promise<Map<string, string>> {
+async function waitForReceipts(
+  ctx: Ctx,
+  read: () => Promise<ReadonlyArray<{ to: string; status: string }>>,
+  wanted: readonly string[],
+  ms: number,
+  onHeld: (to: string) => void,
+): Promise<Map<string, string>> {
   const until = Date.now() + ms;
+  const told = new Set<string>();
   for (;;) {
     const got = lastReceipts(await read());
+    for (const to of wanted.filter((a) => got.get(a) === "held" && !told.has(a))) {
+      told.add(to);
+      onHeld(to);
+    }
     if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
     await new Promise((r) => setTimeout(r, 100));
   }
 }
 
 function waitedEnough(got: ReadonlyMap<string, string>, wanted: readonly string[], until: number, signal: AbortSignal): boolean {
-  return wanted.every((to) => got.has(to)) || Date.now() > until || signal.aborted;
+  return wanted.every((to) => isFinal(got.get(to))) || Date.now() > until || signal.aborted;
 }
 
 async function send(ctx: Ctx): Promise<number> {
@@ -1015,19 +1081,24 @@ async function send(ctx: Ctx): Promise<number> {
       return code;
     }
     ctx.io.out(`Waiting up to ${waitText!} for receipts (Ctrl-C stops waiting; the message stays sent)...`);
-    const got = await waitForReceipts(ctx, receipts, took, waitMs);
+    const got = await waitForReceipts(ctx, receipts, took, waitMs, (to) => ctx.io.out(`${receiptLine(to, "held", out.id)}. Still waiting for it to be delivered...`));
     return reportReceipts(ctx, out, took, got, code);
   } finally {
     if (s !== undefined) await ctx.finish(s);
   }
 }
 
-/** Prints each waited-for recipient's receipt, or what is known without one; refused and expired fail the command. */
+/**
+ * Prints each waited-for recipient's receipt, or what is known without one. The exit code is the
+ * send's (0 when every recipient was routed or queued), or 1 when a receipt says refused or
+ * expired. Still held when the wait ends is not a failure: the message waits for a person there.
+ */
 function reportReceipts(ctx: Ctx, out: SendAnswer, took: readonly string[], got: ReadonlyMap<string, string>, code: number): number {
   const statusOf = new Map(out.results.map((r) => [r.to, r.status]));
   for (const to of took) {
     const status = got.get(to);
-    if (status !== undefined) ctx.io.out(receiptLine(to, status, out.id));
+    if (status === "held") ctx.io.out(`${to}: still held for the approval of that device's person when the wait ended, so not delivered yet`);
+    else if (status !== undefined) ctx.io.out(receiptLine(to, status, out.id));
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)!]})`);
   }
   return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code;
@@ -1238,11 +1309,16 @@ async function held(ctx: Ctx): Promise<number> {
   if (action === "list") {
     const rows = await listAllHeld(files, ctx.fsEnv);
     if (rows.length === 0) ctx.io.out("Nothing is held.");
-    for (const r of rows) ctx.io.out(`${r.id}  ${sanitizeForDisplay(r.from)} -> ${r.session}  ${r.kind}  ${r.reason}  ${new Date(r.at).toISOString()}: ${r.preview}`);
+    for (const r of rows) ctx.io.out(heldLine(r));
     return 0;
   }
   if (arg === undefined) throw new SetupError(`usage: wim held ${action} <${action === "resume" ? "peer" : "id"}>`);
   if (action === "approve" || action === "refuse") {
+    personHere(ctx, `wim held ${action} ${arg}`);
+    const rows = (await listAllHeld(files, ctx.fsEnv)).filter((r) => r.id === arg);
+    if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
+    const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
+    if (!(await confirmed(ctx, heldDetails(rows, await files.loadConfig()), question))) return 1;
     const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
     if (n === 0) throw new SetupError(`no held message ${arg}`);
     ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
@@ -1250,11 +1326,43 @@ async function held(ctx: Ctx): Promise<number> {
   }
   if (action === "resume") {
     if (!sessionAddressSchema.safeParse(arg).success) throw new SetupError("usage: wim held resume <name@device>");
+    personHere(ctx, `wim held resume ${arg}`);
+    const device = arg.split("@")[1];
+    const paused = (await listAllHeld(files, ctx.fsEnv)).filter((r) => r.reason === "breaker" && r.from.split("@")[1] === device);
+    const lines = [`Resuming ${arg} lifts the loop breaker's pause on device ${device} and releases what it held from there (${paused.length} now on disk):`, ...paused.map((r) => `  ${heldLine(r)}`)];
+    if (!(await confirmed(ctx, lines, `Resume ${arg}?`))) return 1;
     const n = await resumeEverywhere(files, arg, ctx.fsEnv, ctx.io.now);
     ctx.io.out(`Resumed ${arg}; released ${n} held by the breaker.`);
     return 0;
   }
   throw new SetupError(`unknown held action ${action}`);
+}
+
+type HeldRows = Awaited<ReturnType<typeof listAllHeld>>;
+
+/** One held item on one line, as `wim held list` shows it. */
+function heldLine(r: HeldRows[number]): string {
+  return `${r.id}  ${sanitizeForDisplay(r.from)} -> ${r.session}  ${r.kind}  ${r.reason}  ${new Date(r.at).toISOString()}: ${r.preview}`;
+}
+
+/** The sessions on this device that hold one item (a room message can be held by several). */
+function heldFor(rows: HeldRows): string {
+  return rows.map((r) => r.session).join(", ");
+}
+
+/** What the person reads before approving or refusing a held item: who sent it, why it waits, its text. */
+function heldDetails(rows: HeldRows, config: MeshConfig): string[] {
+  const r = rows[0]!;
+  const why = r.reason === "breaker" ? "the loop breaker paused that peer" : `its device's policy here is ${policyLevel(config, r.device)}`;
+  return [
+    `Held message ${r.id}:`,
+    `  from     ${sanitizeForDisplay(r.from)} (device id ${r.device})`,
+    `  for      ${heldFor(rows)} on this device`,
+    `  kind     ${r.kind}, sent ${new Date(r.at).toISOString()}`,
+    `  held     because ${why}`,
+    `  text     ${r.preview}`,
+    ...(r.fileInfo === undefined ? [] : [`  file     ${sanitizeForDisplay(r.fileInfo.name)} (${r.fileInfo.size} bytes, fetched once approved)`]),
+  ];
 }
 
 async function history(ctx: Ctx): Promise<number> {

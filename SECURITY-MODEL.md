@@ -117,6 +117,15 @@ A legitimate member or admin whose operator, or agent, acts against other member
 Can:
 - Send any text, task, result or file to any session, signed as itself. This is the main
   prompt-injection path (section 7).
+- Spread one request over many small messages across turns, each harmless on its own. Unit 42
+  named this **agent session smuggling** (October 2025, for A2A agents): over a series of
+  clarifying questions, a remote agent got the other agent to reveal its instructions and tools,
+  and in another test to call a tool its person never asked for. In wim it fits `ask`, `reply`
+  and any running conversation. Each held item is shown on its own, so a person who approves them
+  one at a time can miss the pattern. Before approving an item from a device you have not marked
+  as your own, read what came before: `wim held list` lists everything still held, and
+  `wim history --session <name> --peer <address>` shows that session's earlier exchange with the
+  peer. A held view that shows the whole thread with a peer is planned, not built.
 - Claim any session name on its own device. Signatures authenticate the device, not the session.
   "reviewer@laptop" means "some process holding laptop's key that calls itself reviewer".
 - Read every room message and broadcast: they carry a box for every device. Room membership is a
@@ -877,6 +886,23 @@ the new policy first (section 7.5). No message, tool call or MCP request can cha
 `wim devices trust --all` trusts every device in the mesh, other people's included; it is for a
 mesh of your own devices.
 
+**Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume` and
+`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`) run only
+when standard input and standard output are both an interactive terminal and none of an agent's
+variables is set. They then show what is being decided (for a held item: the sender, its device
+id, the session it waits for, why it waits and its text; for a device: its name, role, id, and
+the policy now and after) and act only on a typed `y` or `yes`. There is no flag that skips this,
+since an agent could pass a flag as easily as the person. The variables are the ones agent hosts
+set in the shells they run: `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` and
+`CLAUDE_CODE_MESSAGING_SOCKET` (Claude Code), `AI_AGENT`, `GEMINI_CLI`, `CURSOR_AGENT`,
+`CURSOR_TRACE_ID`, `OPENCODE`, `AIDER_MODEL`, `ANTIGRAVITY_AGENT`, `WIM_AGENT` and any `CODEX_`
+variable. Other `CLAUDE_CODE_` variables are not on the list, because people set some of them
+(`CLAUDE_CODE_USE_BEDROCK`, say) in their own shell profile. The same rule guards admitting a
+device (section 5.6), and an events process started with these variables refuses the same
+decisions (section 7.5). No MCP tool approves, refuses, resumes or trusts, and the plugin's
+internal tool only reads. This stops an agent that runs the command itself, by habit or because
+a peer asked; it is a same-user check, not a boundary (section 9).
+
 **Trusted devices can assign work.** An item from a `deliver` device, other than relayed text, is
 framed as a work assignment from a device the person trusts: the agent may carry it out within its
 normal permissions, as it would a colleague's request. It is never the person's approval of a
@@ -928,7 +954,8 @@ pattern, never the value. A person can override it for one send, only at the cli
 line; no tool, MCP call, message, local UI request or agent-writable setting can. `send_file` runs
 the same patterns over the contents of a file that reads as text, and refuses the upload on a match
 (binary files are not scanned). This catches accidents, not determined exfiltration: an agent can
-encode a secret to evade any pattern.
+encode a secret to evade any pattern. Client-side scanners that inspect an agent's tool calls can
+add a second layer; `docs/security-teams.md` names two, neither yet tested with wim.
 
 ### 7.5 Local user interfaces (`wim events` and the VS Code extension)
 
@@ -949,7 +976,7 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   asks the person to confirm a trust change in a dialog that names the device and the new policy.
   It admits a device only with the comparison code the person types from the new device's screen,
   and copies an invite code with a button, never showing it. An events process started with an
-  agent's variables (section 5.6) refuses `invite`, `admit` and `join`.
+  agent's variables (section 7.2) refuses every one of these actions with code `refused`.
 - **Peer text stays text.** Message text, previews, addresses, card fields and file names are
   another agent's text. The extension shows them as plain text only (no HTML, Markdown, links or
   command links), makes hidden and reordering characters visible, and names only the sender and
@@ -999,12 +1026,16 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   roster push; in a quiet mesh that can take time.
 - Plugin-delivered prompts carry no engine-enforced peer origin; their framing says what they are.
 - Prompt-injection defences are framing, policy, the relayed flag and the breaker, not a guarantee.
+- The held view shows each item on its own, not the thread it belongs to, so a request split across
+  several items (agent session smuggling, section 5.2) is easy to approve piece by piece.
 - The outbound secret filter is best effort, and does not look inside binary files.
 - Approval marks and policy are files under the OS user: a local process, or an agent allowed to
   write files unprompted, can change them.
-- The rule that only a person admits a device (an interactive terminal with no agent's variables,
-  or a local UI) stops an agent that answers a prompt for its person by accident or habit; a
-  process of the OS user that runs a terminal of its own can still type into it.
+- The rule that only a person admits a device, approves, refuses or releases a held item, or
+  changes a device's policy (an interactive terminal with no agent's variables, or a local UI)
+  stops an agent that runs the command or answers a prompt for its person by accident or habit. A
+  process of the OS user can unset the variables, run a terminal of its own and type into it, or
+  write the mark files and the policy directly.
 - Card working directories are shared with every member by default.
 
 ## 10. Reporting
