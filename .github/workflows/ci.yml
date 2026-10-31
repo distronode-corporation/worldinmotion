@@ -14,7 +14,8 @@ name: CI
 #                      openvsx jobs publish.
 #   claude-code-plugin the Claude Code plugin's own tests.
 #   relay-image        a no-push build of the relay's Dockerfile.
-#   versions           every version string in the repository agrees.
+#   versions           every version string in the repository agrees, and the marketplace
+#                      pins the plugin to the latest release.
 # The supply-chain checks on pull requests and on the workflows themselves
 # (dependency-review, zizmor) are in supply-chain.yml.
 #
@@ -149,8 +150,9 @@ jobs:
           npm run bundle --workspace=@worldinmotion/client
           npm run bundle --workspace=worldinmotion
 
-      # The Claude Code marketplace installs the plugin straight from the repository, so the
-      # committed bundle is what users run. It must be exactly what the sources build.
+      # The Claude Code marketplace installs the plugin from the repository at the release tag
+      # it pins, so the committed bundle is what users run. It must be exactly what the sources
+      # build.
       - name: the committed plugin bundle equals a fresh build
         run: git diff --exit-code --stat plugins/claude-code/dist/client.mjs
 
@@ -233,7 +235,9 @@ jobs:
         run: docker build --file packages/relay-node/Dockerfile --tag wim-relay:ci .
 
   # release.yml checks the same against the tag; checking here too means a missed bump shows
-  # on the pull request, not on the tag.
+  # on the pull request, not on the tag. The script also checks that the marketplace pins the
+  # Claude Code plugin to the latest release tag and its commit, which it reads with git, so
+  # this checkout needs the history and the tags.
   versions:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -242,6 +246,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

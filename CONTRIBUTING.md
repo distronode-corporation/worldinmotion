@@ -23,7 +23,8 @@ packages/ci/               `wim ci`: GitLab and GitHub pipeline and deployment w
 packages/a2a/              `wim a2a`: the Agent2Agent gateway.
 packages/vscode/           The VS Code extension.
 plugins/claude-code/       The Claude Code plugin. Its `dist/client.mjs` is the client bundle,
-                           committed, because the marketplace installs straight from the repo.
+                           committed, because the marketplace installs it from the repo, at
+                           the release tag that `.claude-plugin/marketplace.json` pins.
 packaging/                 The npm package `worldinmotion` (the bundled `wim`) and the draft
                            Homebrew formula. packaging/README.md lists every install channel.
 test/                      Repository-wide tests.
@@ -81,8 +82,11 @@ xvfb-run -a node packages/vscode/test-electron/run.mjs             # the extensi
 (cd packages/vscode && npx vsce package --no-dependencies --pre-release)  # the .vsix packages
 claude plugin test plugins/claude-code                             # the plugin's own tests
 docker build --file packages/relay-node/Dockerfile --tag wim-relay:ci .
-node .github/scripts/check-versions.mjs                            # every version string agrees
+node .github/scripts/check-versions.mjs                            # every version string agrees, and the plugin pin
 ```
+
+`check-versions.mjs` reads the release tags with git, so run it in a clone with the tags
+(`git fetch --tags`), not a shallow one.
 
 CI runs the `vitest` step on Linux, macOS and Windows, on the Node version in `.nvmrc` and on
 22.18. Platform-specific code takes the platform as a parameter, so its tests cover every
@@ -136,6 +140,29 @@ Every dependency is a piece of code that runs next to private keys, so:
 - Change the code and its tests in the same pull request, so the spec never describes
   behaviour the code does not have.
 - Update `SECURITY-MODEL.md` if the change affects what a relay or a peer can see or do.
+
+## Releasing
+
+A release is a `vX.Y.Z` tag on main, and `.github/workflows/release.yml` builds and publishes
+everything from it. Each release takes three steps, in this order:
+
+1. **The version bump**, as a pull request. It bumps every version string
+   (`node .github/scripts/check-versions.mjs X.Y.Z` passes), commits the rebuilt
+   `plugins/claude-code/dist/client.mjs`, and moves the CHANGELOG's Unreleased section to
+   `[X.Y.Z]`, with its link at the bottom.
+2. **The tag**, on the bump's merge commit. A release is never re-tagged: a bad one gets a new
+   patch version.
+3. **The plugin pin**, as a pull request right after the tag. The Claude Code marketplace
+   installs the plugin from the release that `.claude-plugin/marketplace.json` pins, not from
+   main, so code merged for the next release never reaches new installs before it is released.
+   The pull request sets the plugin entry's `source.ref` to `vX.Y.Z` and `source.sha` to the
+   tagged commit's full 40-character sha (`git rev-parse 'vX.Y.Z^{commit}'`), and changes
+   nothing else. Claude Code checks out the sha, so the sha is what decides what installs.
+
+Until the pin moves, the `versions` job fails on every pull request and on main: it checks that
+the pin names the latest release tag before the commit it runs on, and that tag's commit. On the
+tagged commit itself, the pin still names the release before, which is what the check expects
+there.
 
 ## Commits and pull requests
 
