@@ -1522,6 +1522,56 @@ test('while a Stop stands, a kept message and late items to name cost one droppe
   expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
 })
 
+test('while a Stop stands, a relayed item waiting behind a kept one does not make each tick name late items again', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = false
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  mock.session(on)
+  await $.session.start(START)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  const step = $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 3 })
+  for await (const _ of step) void _
+  w.files.set(...item(1, 'late'))
+  await clock.advance(250)
+  await clock.settle()
+  isStopped = true
+  await $.turn.complete(ABORTED)
+  await clock.settle()
+  w.files.set(...item(2, 'kept'))
+  w.files.set(...item(3, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(2)
+
+  await clock.advance(5000)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(2)
+})
+
+test('a relayed item in the same pass as a message whose turn is dropped stays in the spool with it', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
+  await $.session.start(START)
+  w.files.set(...item(1, 'please look'))
+  w.files.set(...item(2, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped).toHaveLength(1)
+  // Not in the pane: the cursor is held before the message, so the client has not boxed it.
+  expect(w.toasts).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  isStopped = false
+  await $.turn.complete(COMPLETE)
+  await clock.advance(500)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).not.toContain('pipeline 812 failed')
+  expect(w.toasts).toEqual(['worldinmotion: 1 relayed item in the inbox (/wim)'])
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
+})
+
 test('two turn ends at once hand a kept message over once, and no pass receipts it while its submit is under way', async ($, on) => {
   const clock = mock.clock(on)
   let isStopped = true

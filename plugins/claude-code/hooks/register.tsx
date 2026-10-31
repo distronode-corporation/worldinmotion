@@ -468,9 +468,11 @@ async function deliver($: EngineInterface): Promise<void> {
       const n = pass.relaysWaiting
       $.ui.toast(`worldinmotion: ${n} relayed item${n === 1 ? '' : 's'} in the inbox (/wim)`)
     }
-    // Only a pass that claimed something: a kept item stays fresh, and a timer
-    // that told late items each tick would be dropped each tick while a Stop stands.
-    if (claimed.length > 0 && !(await sendBatch($, pass.batch))) await keep($, pass.batch)
+    // Only a pass that handed something over: a kept item stays fresh, and a
+    // relayed one behind it is claimed and given back each tick, so a timer that
+    // told late items on every pass would be dropped each tick while a Stop stands.
+    const isHanding = pass.batch.length > 0 || claimed.some(name => done.has(name))
+    if (isHanding && !(await sendBatch($, pass.batch))) await keep($, pass.batch)
     for (const one of pass.batch) done.add(one.name)
   } finally {
     await unclaim($, claimed.filter(name => !done.has(name)))
@@ -514,10 +516,11 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     const line = noticeLine(item.rendered)
     $.ui.toast(`worldinmotion: ${line}`)
     await update($, alerts, list => [...list, line].slice(-RECENT_MAX))
-  } else if (item.relayed && (await read($, kept)).length > 0) {
-    // Behind a kept item: left in the spool, unclaimed, for a pass after the
-    // kept ones go. In the pane now, a dismiss would reach the client before
-    // the cursor let it box the item, and be lost (the item would come back).
+  } else if (item.relayed && (pass.batch.length > 0 || (await read($, kept)).length > 0)) {
+    // Behind a kept item, or one of this pass's idle batch (which may be
+    // dropped and kept): left in the spool, unclaimed, for a later pass. In the
+    // pane now, a dismiss could reach the client before the cursor let it box
+    // the item, and be lost (the item would come back).
     return false
   } else if (item.relayed) {
     const one: WimRelayed = { name, id: item.id, from: item.from, line: firstLine(item.rendered), at: item.at, text: item.rendered, isShown: false, isDismissed: false }
