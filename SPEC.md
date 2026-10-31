@@ -3,6 +3,11 @@
 Status: draft for v0.1. This document is the contract between clients and relays. Nothing here
 depends on Claude Code: any agent that can hold a WebSocket and do the crypto below can be a peer.
 
+Version note, unreleased: section 6 says that a room mode on MLS, the example for the reserved
+box scheme numbers from 3 up, would be `wim/2` and is a design only, not part of v0.2 (see
+docs/mls.md). Informative only: no frame, status or behaviour changed, so every existing client
+and relay is compatible.
+
 Version note, 0.1.6: section 8 documents the keepalive and liveness timings of the reference client
 and relays, and what a sender sees while a recipient is frozen. Informative only: no frame, status
 or behaviour changed, so every existing client and relay is compatible.
