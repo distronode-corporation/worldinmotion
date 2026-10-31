@@ -1365,7 +1365,7 @@ test('a message behind a kept one waits with it, in order, so nothing in the con
   for (const one of ['first, dropped', 'second, behind it']) expect(timesShown(session, w, one)).toBe(1)
 })
 
-test('a relayed item behind a kept message waits in the pane, even in a running turn', async ($, on) => {
+test('a relayed item behind a kept message waits in the spool until the kept one goes, then reaches the pane', async ($, on) => {
   const clock = mock.clock(on)
   let isStopped = true
   const w = world(on, { dropWhen: () => (isStopped ? STOPPED : undefined) })
@@ -1377,17 +1377,27 @@ test('a relayed item behind a kept message waits in the pane, even in a running 
   isStopped = false
   await $.turn.start({ text: 'my prompt', turnId: 't1' })
   w.files.set(...item(2, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
-  await clock.advance(250)
+  await clock.advance(1000)
   await clock.settle()
+  // Not in the pane yet: the client boxes a relayed item only once the cursor
+  // passes it, and a dismiss before that would be lost.
   expect(session.appended()).toHaveLength(0)
-  expect(w.toasts).toEqual(['worldinmotion: 1 relayed item in the inbox (/wim)'])
+  expect(w.toasts).toHaveLength(0)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ key: 'dismiss:000000000002.json' })).toBeUndefined()
+  await ui.unmount()
+
   await $.turn.complete(COMPLETE)
-  await clock.advance(250)
+  await clock.advance(500)
   await clock.settle()
   // The turn end hands over the kept message only: a relayed item never starts a turn.
   expect(w.submitted).toHaveLength(1)
   expect(w.submitted[0]).not.toContain('pipeline 812 failed')
+  expect(w.toasts).toEqual(['worldinmotion: 1 relayed item in the inbox (/wim)'])
   expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
+  const after = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await after.find({ key: 'dismiss:000000000002.json' })).toBeDefined()
+  await after.unmount()
 })
 
 test("a relayed item the person hands over while a Stop stands gets its button back", async ($, on) => {

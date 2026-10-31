@@ -514,6 +514,11 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     const line = noticeLine(item.rendered)
     $.ui.toast(`worldinmotion: ${line}`)
     await update($, alerts, list => [...list, line].slice(-RECENT_MAX))
+  } else if (item.relayed && (await read($, kept)).length > 0) {
+    // Behind a kept item: left in the spool, unclaimed, for a pass after the
+    // kept ones go. In the pane now, a dismiss would reach the client before
+    // the cursor let it box the item, and be lost (the item would come back).
+    return false
   } else if (item.relayed) {
     const one: WimRelayed = { name, id: item.id, from: item.from, line: firstLine(item.rendered), at: item.at, text: item.rendered, isShown: false, isDismissed: false }
     if (!(await keepRelayed($, one))) pass.relaysWaiting++
@@ -567,8 +572,7 @@ async function moveCursor($: EngineInterface, spool: string, fresh: readonly str
  */
 async function keepRelayed($: EngineInterface, one: WimRelayed): Promise<boolean> {
   let isShown = false
-  // Behind a kept item it stays unread to `inbox` and `wait` (see handOne): the pane only.
-  if ((await read($, busy)) && (await read($, kept)).length === 0) {
+  if (await read($, busy)) {
     const appended = await $.session.append({
       message: { type: 'user', content: [{ type: 'text', text: one.text }] },
     })
