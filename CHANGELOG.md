@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-31
+
 ### Changed
 
 - **The Claude Code plugin installs from the latest release, not from main.** The marketplace
@@ -499,7 +501,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.7
 [0.1.6]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.6
 [0.1.5]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.5
 [0.1.4]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.4

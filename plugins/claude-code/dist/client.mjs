@@ -87713,7 +87713,7 @@ function isVectorKey(pub) {
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
 var MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
-var GATEWAY_VERSION = "0.1.6";
+var GATEWAY_VERSION = "0.1.7";
 var EARLY_RESULTS = 64;
 var WimMetadata = external_exports.looseObject({
   to: external_exports.string().optional(),
@@ -122475,7 +122475,7 @@ async function storeInKeyring(ctx, o3, file2) {
 }
 
 // src/cli.ts
-var VERSION = "0.1.6";
+var VERSION = "0.1.7";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
 var COMMON_FLAGS = ["mesh", "help"];
