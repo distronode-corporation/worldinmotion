@@ -31,6 +31,22 @@ export type WimItem = {
 export type WimLate = { name: string; from: string; id: string }
 
 /**
+ * A spool item whose turn the engine dropped (a Stop stands, a hook refused
+ * it): the session never read it, so the cursor stays before it and no
+ * `delivered` receipt goes. A turn end hands it over again.
+ */
+export type WimKept = {
+  name: string
+  /** The message's id: one entry an item, so a retry never hands it over twice. */
+  id: string
+  text: string
+  /** What the pane's Recent list shows once it is handed over. */
+  item: WimItem
+  /** True while a turn end's submit of it is under way: no other takes it, no pass moves the cursor past it. */
+  isSending: boolean
+}
+
+/**
  * An item a bot, CI or gateway relayed for a device. It never starts a turn:
  * the pane lists it, and the person may hand it to the session.
  */
@@ -99,6 +115,8 @@ declare module 'claude-code' {
       /** Mesh items submitted whose turn has not started yet. */
       pendingSubmits: Shaped<string[]>
       late: Shaped<WimLate[]>
+      /** Spool items whose turn was dropped, waiting for a turn end to hand them over. */
+      kept: Shaped<WimKept[]>
       /** Spool items a delivery pass claimed whose cursor has not moved past them yet. */
       handed: Shaped<string[]>
       recent: Shaped<WimItem[]>
