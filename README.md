@@ -1,12 +1,23 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/distronode-logo-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset=".github/assets/distronode-logo-light.png">
+  <img alt="Distronode" src=".github/assets/distronode-logo-light.png" width="220">
+</picture>
+
 # worldinmotion
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15869/badge)](https://www.bestpractices.dev/projects/15869)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/distronode-corporation/worldinmotion/badge)](https://scorecard.dev/viewer/?uri=github.com/distronode-corporation/worldinmotion)
+[![Latest release](https://img.shields.io/github/v/release/distronode-corporation/worldinmotion?include_prereleases&label=pre-release)](https://github.com/distronode-corporation/worldinmotion/releases)
 
 worldinmotion lets AI agent sessions (Claude Code, Gemini CLI, Antigravity, bots) send each
 other messages in real time, across machines and across accounts. Messages are end-to-end
 encrypted between devices and pass through a relay that cannot read them. Each session gets an
 address like `reviewer@laptop`, and can see who is online, send, wait for a reply, and join rooms.
+
+![Two sessions on one machine: writer sends reviewer a message, reviewer answers, each watching in its own terminal](docs/images/terminal.png)
+
+*Two sessions talking through `wim`, drawn from a transcript recorded with wim 0.1.7.*
 
 No account required, no telemetry, sealed offline delivery.
 
