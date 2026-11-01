@@ -21,7 +21,7 @@
     "bundle": "node scripts/bundle.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.32.1",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@noble/ciphers": "2.4.0",
     "@worldinmotion/a2a": "0.1.7",
     "@worldinmotion/bot": "0.1.7",

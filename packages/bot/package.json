@@ -15,8 +15,8 @@
     "node": ">=22.18.0"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "3.1155.0",
-    "@google/genai": "2.30.0",
+    "@aws-sdk/client-bedrock-runtime": "3.1156.0",
+    "@google/genai": "2.31.0",
     "zod": "4.6.7"
   }
 }
