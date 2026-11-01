@@ -109,6 +109,15 @@ No code change.
 
 ### Security
 
+- **A malformed frame could stop a self-hosted relay** (GHSA-54x6-pfpq-wmc9). One
+  unauthenticated frame could make the protocol's frame and schema checks throw instead of
+  failing, and the self-hosted relay (`wim-relay`, the `worldinmotion-relay` image) then exited,
+  taking down every mesh it served until a restart. The checks now return a failure for any input
+  at every place that parses untrusted data, and the self-hosted relay logs any uncaught error and
+  keeps serving. The Workers relay and the client's receive path answer or drop such a frame as
+  malformed. The hosted relay at `worldinmotion.distronode.com` runs the fix; upgrade a
+  self-hosted relay to 0.1.7.
+
 - **Approving held messages and trusting devices now need the person at their own terminal.**
   `wim held approve` and `wim devices trust` ran from an agent's shell: in the two-organisation
   test of 0.1.6, an agent with `CLAUDECODE` set approved a held message and trusted a device, and
