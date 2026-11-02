@@ -49,7 +49,7 @@ import { cardFor, sameCard } from "./cards.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { HeldBox, preview, takeMarks, type HeldItem, type Verdict } from "./held.ts";
-import { frameEntry, History, type HistoryEntry } from "./history.ts";
+import { frameEntry, History, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
 import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
 import type { Notifier } from "./notify.ts";
@@ -974,14 +974,8 @@ export class MeshSession extends EventEmitter {
   private async release(item: Omit<HeldItem, "reason">, file: FileInfo | undefined): Promise<void> {
     const entry = { ...item.entry };
     if (file !== undefined) entry.savedTo = await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`);
-    // This device, or a device the person delivers from, may assign work; relayed text and held
-    // senders only inform. The frame says which, never that a trusted device is the person's own.
-    const level = policyLevel(this.config, item.device);
-    const works = (level === "deliver" || level === "deliver-relayed") && entry.relayed !== true && entry.derived !== true;
-    const trust = !works ? "inform" : item.device === this.config.device ? "self" : "assign";
-    const rendered = frameEntry(entry, trust);
-    const flags = { ...(entry.relayed ? { relayed: true as const } : {}), ...(trust === "inform" ? { informs: true as const } : {}) };
-    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, rendered, ...flags }, entry);
+    // The same trust decision as a release applied on disk (offline.ts).
+    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry);
   }
 
   /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */

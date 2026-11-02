@@ -414,6 +414,8 @@ describe("small module edges", () => {
     const id = ulid();
     await fs.writeFile(join(files.heldDir, `${id}.json`), JSON.stringify({ id, from: "a@b", device: "d", kind: "msg", at: 1, preview: "", rendered: "", reason: "policy", entry: { dir: "in", peer: "a@b", device: "D".repeat(22), id, kind: "msg", at: 1, text: "t" } }));
     expect((await listAllHeld(mesh, FS))[0]!.session).toBe("?");
+    // Releasing it reads the mesh's policy, as the live session does.
+    await fs.writeFile(mesh.configPath, JSON.stringify({ v: 1, mesh: "m", relay: RELAY, device: "d", pin: { seq: 1, hash: "h" } }));
     const { decideHeld } = await import("../src/offline.ts");
     expect(await decideHeld(mesh, id, "approve", FS, Date.now)).toBe(1);
   });
