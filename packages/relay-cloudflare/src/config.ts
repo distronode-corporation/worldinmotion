@@ -14,6 +14,12 @@ export type Env = {
   REGISTRY: DurableObjectNamespace<MeshRegistry>;
   /** One Durable Object for the whole Worker: the boxes of short invite codes (SPEC section 5). */
   RDV: DurableObjectNamespace<RendezvousStore>;
+  /**
+   * The rate limit per source key on requests that would reach a Durable Object (dials and box
+   * fetches), asked before any object is. A copy of wrangler.jsonc older than it has none: the
+   * Worker then serves those requests unlimited, as before, and logs that once per isolate.
+   */
+  DIALS?: RateLimit;
   /** Comma-separated exact public base URLs clients use, for example `wss://relay.example.com`. */
   WIM_RELAY_URLS?: string;
   /** When set (as a Worker secret), `create` must carry this operator key. Empty is a misconfiguration. */

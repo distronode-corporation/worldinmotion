@@ -19,6 +19,26 @@ function sourceOf(request: Request): string {
   return sourceKey(request.headers.get("cf-connecting-ip") ?? "");
 }
 
+/** What a source past its limit is told. A client retries it with backoff, like a lost connection. */
+const LIMITED = { error: "too many connections from this address; try again later" };
+/** The limiter counts a minute at a time (wrangler.jsonc), so a minute is always long enough. */
+const RETRY_AFTER = "60";
+
+let unlimitedLogged = false;
+
+/**
+ * Whether `source` may make a request that reaches a Durable Object now, by the `DIALS` rate
+ * limit. Asked before any object is, so a refused request costs no Durable Object request.
+ */
+async function withinLimit(env: Env, source: string): Promise<boolean> {
+  if (env.DIALS === undefined) {
+    if (!unlimitedLogged) console.warn(JSON.stringify({ event: "config", binding: "DIALS", warning: "no rate limit binding: dials are not limited per source (see README.md)" }));
+    unlimitedLogged = true;
+    return true;
+  }
+  return (await env.DIALS.limit({ key: source })).success;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -34,17 +54,21 @@ export default {
     const rdv = parseRdvPath(url.pathname);
     if (rdv !== undefined) {
       if (!rdv.ok) return json(rdv.status, { error: rdv.error }, RDV_HEADERS);
-      const answer = await env.RDV.get(env.RDV.idFromName(RDV_NAME)).get(rdv.rdv, sourceOf(request));
+      const source = sourceOf(request);
+      if (!(await withinLimit(env, source))) return json(429, LIMITED, { ...RDV_HEADERS, "retry-after": RETRY_AFTER });
+      const answer = await env.RDV.get(env.RDV.idFromName(RDV_NAME)).get(rdv.rdv, source);
       return json(answer.status, answer.body, RDV_HEADERS);
     }
     const dial = parseDialPath(url.pathname);
     if (!dial.ok) return json(dial.status, { error: dial.error });
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") return json(426, { error: "expected a WebSocket upgrade" });
+    const source = sourceOf(request);
+    if (!(await withinLimit(env, source))) return json(429, LIMITED, { "content-type": "application/json", "retry-after": RETRY_AFTER });
     // A fresh header set: nothing the client sent reaches the object except the upgrade, so a
     // client cannot supply its own source key or mesh header.
     const headers = new Headers({
       upgrade: "websocket",
-      [SOURCE_HEADER]: sourceOf(request),
+      [SOURCE_HEADER]: source,
       [MESH_HEADER]: dial.meshId,
     });
     const stub = env.MESH.get(env.MESH.idFromName(dial.meshId));

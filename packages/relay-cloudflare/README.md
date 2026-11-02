@@ -15,6 +15,17 @@ The worldinmotion relay as a Cloudflare Worker with one Durable Object per mesh.
   and `/healthz` come from `@worldinmotion/relay-core`, so relay-node answers the same way. The
   Worker hashes `CF-Connecting-IP` into a 22-character source key and builds a fresh request for
   the object, so no client header, including a forged source key, ever reaches it.
+- **Dial limit** (the `DIALS` rate limit binding in `wrangler.jsonc`). Before a dial or a short
+  invite code fetch reaches any Durable Object, the Worker counts it against its source key: 600
+  a minute (the protocol's `dialsPerSourcePerMinute`, generous enough for an office behind one
+  address reconnecting every session after a redeploy). Past it the Worker answers 429
+  `{"error":"too many connections from this address; try again later"}` with `Retry-After: 60`,
+  which costs no Durable Object request; clients retry with backoff. Cloudflare counts the limit
+  at each of its locations, so it is approximate. A Worker deployed from a copy of
+  `wrangler.jsonc` without the binding still runs, with no dial limit, and logs a `config` event
+  naming `DIALS` once per isolate. Connections that have not authenticated are not counted
+  across meshes here (relay-node caps them at 256 per address); each one is closed at its
+  10-second auth deadline by its mesh's alarm.
 - **`MeshDurableObject`**, one per mesh. It accepts sockets with the WebSocket Hibernation API and
   keeps each socket's relay connection state in its attachment. Everything else lives in the
   object's SQLite database, under relay-core's schema and migrations. When the runtime evicts an
@@ -128,6 +139,9 @@ refused with `unauthorized`, and the relay still serves meshes that already exis
    deploy, and one deployed before `RendezvousStore` existed gets it from `v3`; copy those bindings
    and migrations into your configuration if it does not inherit them. Until a relay has
    `RendezvousStore`, it answers `rdv.put` with `unknown_type` and clients print full invite codes.
+   Copy the `ratelimits` entry too (the `DIALS` dial limit); its `namespace_id` is any positive
+   integer no other rate limit binding in your account uses. Without it the relay runs with no
+   dial limit and logs that it has none.
 2. Decide who may create meshes. Either set an operator key (recommended for a relay on the
    internet) with `npx wrangler secret put WIM_CREATE_KEY -c wrangler.production.jsonc`, which
    prompts for it, or add `"WIM_OPEN_CREATE": "1"` to `vars` for a relay anyone may create meshes
