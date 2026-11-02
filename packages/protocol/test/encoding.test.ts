@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { b64u, bytesEqual, canon, canonBytes, fitsUtf8, fromUtf8, hash, sha256, utf8 } from "../src/index.ts";
+import { b64u, bytesEqual, canon, canonBytes, fitsUtf8, fromUtf8, hash, hmacSha256, sha256, utf8 } from "../src/index.ts";
 
 describe("canon", () => {
   it("encodes scalars", () => {
@@ -115,6 +115,11 @@ describe("b64u", () => {
 });
 
 describe("hashing and bytes", () => {
+  it("hmacSha256 matches the RFC 4231 vector", () => {
+    const mac = hmacSha256(utf8("Jefe"), utf8("what do ya want for nothing?"));
+    expect(Buffer.from(mac).toString("hex")).toBe("5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
+  });
+
   it("sha256 matches the FIPS 180-2 vector", () => {
     expect(b64u.encode(sha256(utf8("abc")))).toBe("ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0");
   });

@@ -3,6 +3,7 @@ import { configProblem, type Env } from "./config.ts";
 import { MESH_HEADER, SOURCE_HEADER } from "./mesh.ts";
 import { RDV_NAME } from "./rdv.ts";
 import { json } from "./route.ts";
+import { sourceSecret } from "./source.ts";
 
 // The Worker's entry module (wrangler.jsonc `main`). The runtime reads every export of it as a
 // handler or a Durable Object class, so it exports exactly those and nothing else.
@@ -12,11 +13,11 @@ export { MeshRegistry } from "./registry.ts";
 export { RendezvousStore } from "./rdv.ts";
 
 /**
- * The rate-limit key of the client's address. Cloudflare sets CF-Connecting-IP itself and
- * overwrites any client copy.
+ * The rate-limit key of the client's address, under the relay's secret. Cloudflare sets
+ * CF-Connecting-IP itself and overwrites any client copy.
  */
-function sourceOf(request: Request): string {
-  return sourceKey(request.headers.get("cf-connecting-ip") ?? "");
+async function sourceOf(request: Request, env: Env): Promise<string> {
+  return sourceKey(request.headers.get("cf-connecting-ip") ?? "", await sourceSecret(env));
 }
 
 /** What a source past its limit is told. A client retries it with backoff, like a lost connection. */
@@ -50,11 +51,11 @@ export default {
     if (request.method !== "GET") return json(404, { error: "not found" });
     // The public description (no secret, no live count); it needs no Durable Object either.
     if (isInfoPath(url.pathname)) return json(200, relayInfo(relaySettings(env)));
-    // A short invite code's box (SPEC section 5), from the one rendezvous object, by hashed address.
+    // A short invite code's box (SPEC section 5), from the one rendezvous object, by source key.
     const rdv = parseRdvPath(url.pathname);
     if (rdv !== undefined) {
       if (!rdv.ok) return json(rdv.status, { error: rdv.error }, RDV_HEADERS);
-      const source = sourceOf(request);
+      const source = await sourceOf(request, env);
       if (!(await withinLimit(env, source))) return json(429, LIMITED, { ...RDV_HEADERS, "retry-after": RETRY_AFTER });
       const answer = await env.RDV.get(env.RDV.idFromName(RDV_NAME)).get(rdv.rdv, source);
       return json(answer.status, answer.body, RDV_HEADERS);
@@ -62,7 +63,7 @@ export default {
     const dial = parseDialPath(url.pathname);
     if (!dial.ok) return json(dial.status, { error: dial.error });
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") return json(426, { error: "expected a WebSocket upgrade" });
-    const source = sourceOf(request);
+    const source = await sourceOf(request, env);
     if (!(await withinLimit(env, source))) return json(429, LIMITED, { "content-type": "application/json", "retry-after": RETRY_AFTER });
     // A fresh header set: nothing the client sent reaches the object except the upgrade, so a
     // client cannot supply its own source key or mesh header.

@@ -36,8 +36,10 @@ The relay sees metadata only:
 - room membership;
 - that a short invite code exists, which admin device stored it, its size, and when it is fetched,
   for at most an hour; never the code or the invite sealed inside it;
-- a hashed form of each connection's source address, used for rate limits. The raw address is
-  never stored by the relay.
+- each connection's source address while it is connected. For rate limits the relay keeps only
+  a keyed hash of it (per IPv4 address, or per IPv6 /64), made under a random secret the relay
+  keeps to itself, so a stored key cannot be turned back into an address by trying every
+  address. The relay does not store the raw address.
 
 It never sees message content, file content, file names or peer cards. The full list, and what a
 hostile relay could still do (drop, delay, withhold), is in [SPEC.md](../SPEC.md) section 10 and

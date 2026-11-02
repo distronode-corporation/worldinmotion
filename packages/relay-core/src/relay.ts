@@ -56,7 +56,7 @@ export type ConnState = {
   nonce: string;
   /** When a connection that has not authenticated is closed (ms), or 0 once authenticated. */
   deadline: number;
-  /** The host's key for the client's source address (for example a hashed IP), for rate limits. */
+  /** The host's key for the client's source address (`sourceKey`, a keyed hash), for rate limits. */
   source: string;
   /** The invite id a joining connection waits on, or null. */
   join: string | null;

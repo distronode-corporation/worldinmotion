@@ -6,10 +6,11 @@ const HOUR = 3_600_000;
 
 /**
  * The pre-auth limit for one source address, spent by `create`, `join` and recovery `auth` and
- * shared by every mesh (SPEC section 9: 10 an hour per source address). A new mesh id is a new mesh Durable Object, so a limit kept in
- * one mesh's storage could not stop one address creating many meshes; relay-node keeps one
- * limiter for its whole process, and this is the same token bucket with one object per address,
- * named by the hashed address (never the raw one).
+ * shared by every mesh (SPEC section 9: 10 an hour per source address). A new mesh id is a new
+ * mesh Durable Object, so a limit kept in one mesh's storage could not stop one address creating
+ * many meshes; relay-node keeps one limiter for its whole process, and this is the same token
+ * bucket with one object per address, named by the source key (a keyed hash, never the raw
+ * address).
  *
  * The bucket refills completely within an hour, so an alarm an hour after the last use deletes it:
  * an idle address leaves nothing behind.

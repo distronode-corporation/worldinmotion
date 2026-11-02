@@ -3,7 +3,7 @@ import { createServer as createHttpsServer } from "node:https";
 import type { Duplex } from "node:stream";
 import { networkInterfaces } from "node:os";
 import { DatabaseSync } from "node:sqlite";
-import { CLOSE, isRelayUrl, LIMITS } from "@worldinmotion/protocol";
+import { b64u, CLOSE, isRelayUrl, LIMITS, randomBytes } from "@worldinmotion/protocol";
 import {
   dropMesh,
   healthz,
@@ -173,6 +173,11 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
   raw.exec("PRAGMA journal_mode = WAL");
   const db = sqlDb(raw);
   migrate(db);
+  // The secret source keys are made under: random, made on the first start, kept with the
+  // database so the keys (and the limits stored under them) stay the same across restarts.
+  db.exec("CREATE TABLE IF NOT EXISTS relay_node_secret (k TEXT PRIMARY KEY, v TEXT NOT NULL)");
+  db.exec("INSERT INTO relay_node_secret (k, v) VALUES ('source', ?) ON CONFLICT (k) DO NOTHING", b64u.encode(randomBytes(32)));
+  const sourceSecret = b64u.decode(String(db.one("SELECT v FROM relay_node_secret WHERE k = 'source'")!["v"]));
 
   // LAN mode never falls back to plain ws: without a certificate it does not start.
   const tls = lan ? lanCert(config.db, [host, "localhost"], new Date()) : undefined;
@@ -185,7 +190,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
     const forwarded = config.trustProxy === true ? req.headers["x-forwarded-for"] : undefined;
     // The last entry is the one the trusted proxy appended; earlier ones are the client's word.
     const addr = typeof forwarded === "string" ? forwarded.split(",").at(-1)!.trim() : req.socket.remoteAddress!;
-    return sourceKey(addr);
+    return sourceKey(addr, sourceSecret);
   };
   server.on("request", (req, res) => {
     const get = req.method === "GET";

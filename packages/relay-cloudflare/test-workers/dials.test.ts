@@ -1,10 +1,9 @@
 import { env, SELF } from "cloudflare:test";
 import { b64u, LIMITS, randomBytes } from "@worldinmotion/protocol";
-import { sourceKey } from "@worldinmotion/relay-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import wranglerText from "../wrangler.jsonc?raw";
-import worker, { type Env } from "../src/index.ts";
-import { bindings, meshId, ORIGIN, RELAY } from "./helpers.ts";
+import worker, { sourceSecret, type Env } from "../src/index.ts";
+import { bindings, meshId, ORIGIN, RELAY, sourceKeyOf } from "./helpers.ts";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -13,8 +12,9 @@ afterEach(() => vi.restoreAllMocks());
  * refuses (the test configuration lowers the limit, so this is quick).
  */
 async function exhaust(ip: string): Promise<void> {
+  const key = await sourceKeyOf(ip);
   for (let i = 0; i < 3 * LIMITS.dialsPerSourcePerMinute; i++) {
-    if (!(await env.DIALS!.limit({ key: sourceKey(ip) })).success) return;
+    if (!(await env.DIALS!.limit({ key })).success) return;
   }
   throw new Error("the rate limiter never refused");
 }
@@ -34,7 +34,7 @@ const untouchable = new Proxy({}, {
   get(_t, key) {
     throw new Error(`the Worker reached a Durable Object (${String(key)})`);
   },
-}) as Env["MESH"];
+}) as unknown as Env["MESH"];
 
 describe("the dial limit per source address", () => {
   it("answers a dial past the limit with 429 and Retry-After, and another address still dials", async () => {
@@ -50,9 +50,10 @@ describe("the dial limit per source address", () => {
     hangUp(other);
   });
 
-  it("refuses before any Durable Object is reached", async () => {
+  it("refuses before any Durable Object is reached, once the isolate has read the source key secret", async () => {
+    await sourceSecret(env);
     const limited = { limit: () => Promise.resolve({ success: false }) };
-    const e = { ...bindings, MESH: untouchable, RDV: untouchable as unknown as Env["RDV"], WIM_RELAY_URLS: RELAY, DIALS: limited } as Env;
+    const e = { ...bindings, MESH: untouchable, RDV: untouchable as unknown as Env["RDV"], REGISTRY: untouchable as unknown as Env["REGISTRY"], WIM_RELAY_URLS: RELAY, DIALS: limited } as Env;
     const res = await worker.fetch(new Request(`${ORIGIN}/v1/${meshId()}`, { headers: { upgrade: "websocket" } }), e);
     expect(res.status).toBe(429);
     const box = await worker.fetch(new Request(`${ORIGIN}/v1/rdv/${b64u.encode(randomBytes(16))}`), e);
@@ -70,8 +71,8 @@ describe("the dial limit per source address", () => {
 
   it("still serves dials without the rate-limit binding, and logs that once", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { DIALS: _none, ...rest } = bindings;
-    const e = { ...rest, WIM_RELAY_URLS: RELAY } as Env;
+    const e = { ...bindings, WIM_RELAY_URLS: RELAY } as Env;
+    delete e.DIALS;
     for (let i = 0; i < 2; i++) {
       const res = await worker.fetch(new Request(`${ORIGIN}/v1/${meshId()}`, { headers: { upgrade: "websocket" } }), e);
       expect(res.status).toBe(101);

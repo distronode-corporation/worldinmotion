@@ -1,8 +1,7 @@
 import { env, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { b64u, createGenesisRoster, LIMITS, randomBytes, signRecoverAuth } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
-import { sourceKey } from "@worldinmotion/relay-core";
-import { createMesh, dev, meshId, RELAY, Session, Socket } from "./helpers.ts";
+import { createMesh, dev, meshId, RELAY, Session, Socket, sourceKeyOf } from "./helpers.ts";
 
 const MiB = 1024 * 1024;
 
@@ -12,12 +11,12 @@ function padded(t: string, bytes: number): string {
   return head + "a".repeat(bytes - head.length - 2) + '"}';
 }
 
-function limiter(ip: string) {
-  return env.SOURCES.get(env.SOURCES.idFromName(sourceKey(ip)));
+async function limiter(ip: string) {
+  return env.SOURCES.get(env.SOURCES.idFromName(await sourceKeyOf(ip)));
 }
 
 async function limiterRows(ip: string): Promise<unknown[]> {
-  return runInDurableObject(limiter(ip), (_o, state) => state.storage.sql.exec("SELECT name FROM sqlite_master WHERE name = 'bucket'").toArray());
+  return runInDurableObject(await limiter(ip), (_o, state) => state.storage.sql.exec("SELECT name FROM sqlite_master WHERE name = 'bucket'").toArray());
 }
 
 /** Opens a socket from `ip` on a fresh mesh and sends a create; returns the answer and the socket. */
@@ -75,7 +74,7 @@ describe("the create and join limit per source address", () => {
     expect((await createFrom("198.51.100.10")).answer).toMatchObject({ t: "roster" });
 
     // The bucket's alarm deletes it an hour after its last use; the address starts afresh.
-    expect(await runDurableObjectAlarm(limiter(ip))).toBe(true);
+    expect(await runDurableObjectAlarm(await limiter(ip))).toBe(true);
     expect(await limiterRows(ip)).toEqual([]);
     expect((await createFrom(ip)).answer).toMatchObject({ t: "roster" });
   });

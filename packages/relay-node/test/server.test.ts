@@ -21,7 +21,7 @@ import {
 } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hash, LIMITS } from "@worldinmotion/protocol";
-import { migrate, RELAY_VERSION, SqlStore } from "@worldinmotion/relay-core";
+import { migrate, RELAY_VERSION, sourceKey, SqlStore } from "@worldinmotion/relay-core";
 import { runUntilSignal, sqlDb, start, type RunningRelay } from "../src/index.ts";
 import { pathOf, STORED_SWEEP_MESHES } from "../src/server.ts";
 import { Dial, scratchDir } from "./helpers.ts";
@@ -186,6 +186,34 @@ describe("relay-node", () => {
     for (const method of ["GET", "POST"]) expect(await get(r.port, "//", method)).toEqual({ status: 404, body: { error: "not found" } });
     expect(await refusedUpgrade(r.port, "//")).toEqual({ status: 404, body: { error: "not found" } });
     expect(await get(r.port, "/healthz")).toEqual({ status: 200, body: { ok: true } });
+  });
+
+  it("keys sources with a random secret kept in its own database, the same after a restart", async () => {
+    const db = join(await scratchDir(), "relay.db");
+    const read = (file: string, sql: string) => {
+      const raw = new DatabaseSync(file);
+      try {
+        return raw.prepare(sql).all().map((row) => String(Object.values(row)[0]));
+      } finally {
+        raw.close();
+      }
+    };
+    const first = await start({ db, port: 0, log: () => {} });
+    running.push(first);
+    const [stored] = read(db, "SELECT v FROM relay_node_secret WHERE k = 'source'");
+    const secret = b64u.decode(stored!);
+    expect(secret).toHaveLength(32);
+    // What the relay keeps for a source is the keyed form of its address.
+    expect((await get(first.port, `/v1/rdv/${"A".repeat(22)}`)).status).toBe(404);
+    expect(read(db, "SELECT k FROM rdv_buckets")).toEqual([`get:${sourceKey("127.0.0.1", secret)}`]);
+    await first.close();
+    running.splice(running.indexOf(first), 1);
+    running.push(await start({ db, port: 0, log: () => {} }));
+    expect(read(db, "SELECT v FROM relay_node_secret WHERE k = 'source'")).toEqual([stored]);
+    // Another relay has a secret of its own.
+    const otherDb = join(await scratchDir(), "other.db");
+    running.push(await start({ db: otherDb, port: 0, log: () => {} }));
+    expect(read(otherDb, "SELECT v FROM relay_node_secret WHERE k = 'source'")).not.toEqual([stored]);
   });
 
   it("limits box fetches per source address", async () => {

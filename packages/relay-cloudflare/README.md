@@ -13,8 +13,9 @@ The worldinmotion relay as a Cloudflare Worker with one Durable Object per mesh.
   (`idFromName(meshId)`); a mesh id that is not 16 bytes of canonical base64url is a 400, a request
   without an upgrade a 426, anything else a 404. The dial path, the status codes, the source key
   and `/healthz` come from `@worldinmotion/relay-core`, so relay-node answers the same way. The
-  Worker hashes `CF-Connecting-IP` into a 22-character source key and builds a fresh request for
-  the object, so no client header, including a forged source key, ever reaches it.
+  Worker turns `CF-Connecting-IP` into a 22-character source key (a keyed hash under the relay's
+  own random secret, below) and builds a fresh request for the object, so no client header,
+  including a forged source key, ever reaches it.
 - **Dial limit** (the `DIALS` rate limit binding in `wrangler.jsonc`). Before a dial or a short
   invite code fetch reaches any Durable Object, the Worker counts it against its source key: 600
   a minute (the protocol's `dialsPerSourcePerMinute`, generous enough for an office behind one
@@ -46,14 +47,17 @@ The worldinmotion relay as a Cloudflare Worker with one Durable Object per mesh.
   72 hours is never served, even before the alarm deletes it. One alarm deletes at most 256
   history entries, so an object with a large backlog clears it over a few alarms a second apart
   and no alarm runs long.
-- **`SourceLimiter`**, one per hashed client address: the limit on `create`, `join` and recovery
+- **`SourceLimiter`**, one per source key: the limit on `create`, `join` and recovery
   `auth` (10 an hour, together) across every mesh, as relay-node keeps one limiter per process.
   Addresses are counted per IPv4 address and per IPv6 /64 (an IPv4-mapped IPv6 address counts as
   IPv4). An alarm deletes an idle bucket after an hour.
 - **`MeshRegistry`**, one for the whole Worker: the mesh count for `WIM_MAX_MESHES`. A mesh object
   calls it only on a `create` (to reserve a place, and to give it back if that create fails) and
   when it deletes an expired mesh, never per message. It counts meshes created since it was added
-  to the Worker; meshes made by an earlier version are not in the count.
+  to the Worker; meshes made by an earlier version are not in the count. It also holds the secret
+  source keys are made under: 32 random bytes it makes on first use and keeps, so no operator
+  setting is needed. Each Worker isolate reads it once, on its first request, and keeps it in
+  memory.
 - **`RendezvousStore`**, one for the whole Worker: the boxes of short invite codes (SPEC section 5),
   for every mesh. A mesh object calls it for an admin's `rdv.put`, and the Worker for
   `GET <prefix>/v1/rdv/<id>` (200 with the box, 404, 400 for a bad id, or 429 past 30 fetches an

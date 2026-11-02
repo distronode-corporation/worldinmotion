@@ -1,3 +1,4 @@
+import { hmac } from "@noble/hashes/hmac.js";
 import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js";
 
 /**
@@ -165,6 +166,11 @@ export const b64u = {
 /** SHA-256. */
 export function sha256(bytes: Uint8Array): Uint8Array {
   return nobleSha256(bytes);
+}
+
+/** HMAC-SHA-256 of `bytes` under `key` (RFC 2104). */
+export function hmacSha256(key: Uint8Array, bytes: Uint8Array): Uint8Array {
+  return hmac(nobleSha256, key, bytes);
 }
 
 /** `hash(x)` from SPEC section 2: `b64u(SHA-256(canon(x)))`. */

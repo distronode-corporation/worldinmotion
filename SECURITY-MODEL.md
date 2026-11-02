@@ -833,6 +833,13 @@ The relay can always deny service. Against members and outsiders the limits are 
   per mesh and 64 per source address, at most 4 KiB each, at most an hour, 10,000 per relay in
   all; fetches 30 an hour per source address, found or not, and three per box.
 
+Per-source limits are kept under a source key, never the raw address: a keyed hash (HMAC-SHA-256)
+of the address's bucket (the IPv4 address, or the IPv6 /64) under a random secret each relay makes
+for itself and keeps in its own storage (relay-node in its database, the Workers relay in its
+registry object). Without that secret a stored key cannot be matched to an address by trying every
+IPv4 address. The relay still sees each connection's address while it serves it, as any server
+does.
+
 On the receiving side, the loop and cost breaker (section 7.3) bounds how often peers can wake an
 agent.
 
