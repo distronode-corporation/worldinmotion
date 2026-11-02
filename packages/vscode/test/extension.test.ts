@@ -46,7 +46,11 @@ beforeEach(() => {
 afterEach(() => {
   stop();
   vi.unstubAllEnvs();
-  rmSync(dir, { recursive: true, force: true });
+  // The fake client is a real process that `stop` only signals. On Windows the directory stays
+  // busy (EPERM or EBUSY) until that process has exited and let go of its log and working
+  // directory, so the removal is retried: Node retries those codes with a linear backoff, here
+  // for up to 5.5 s in all, inside the 10 s hook timeout.
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 describe("the client's working directory", () => {
