@@ -1,8 +1,8 @@
 import { env, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
-import { createGenesisRoster, LIMITS } from "@worldinmotion/protocol";
+import { b64u, createGenesisRoster, LIMITS, randomBytes, signRecoverAuth } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { sourceKey } from "@worldinmotion/relay-core";
-import { createMesh, dev, meshId, Session, Socket } from "./helpers.ts";
+import { createMesh, dev, meshId, RELAY, Session, Socket } from "./helpers.ts";
 
 const MiB = 1024 * 1024;
 
@@ -78,6 +78,23 @@ describe("the create and join limit per source address", () => {
     expect(await runDurableObjectAlarm(limiter(ip))).toBe(true);
     expect(await limiterRows(ip)).toEqual([]);
     expect((await createFrom(ip)).answer).toMatchObject({ t: "roster" });
+  });
+
+  it("counts every recovery attempt from one address, before its signature is checked", async () => {
+    const ip = "198.51.100.30";
+    const m = await createMesh();
+    const recoverFrom = async (from: string): Promise<Record<string, any>> => {
+      const sock = await Socket.open(m.mesh, { "cf-connecting-ip": from });
+      const nonce = (await sock.next("hello"))["nonce"] as string;
+      sock.send(signRecoverAuth({ relay: RELAY, mesh: m.mesh, nonce, at: Date.now(), genesis: b64u.encode(randomBytes(32)) }, m.admin.keys));
+      return sock.next("error");
+    };
+    for (let i = 0; i < LIMITS.createJoinPerSourcePerHour; i++) {
+      expect(await recoverFrom(ip), `attempt ${i}`).toMatchObject({ code: "unauthorized", ref: "auth" });
+    }
+    expect(await recoverFrom(ip)).toMatchObject({ code: "limited", message: "too many recovery attempts from this address", ref: "auth" });
+    // Another address is unaffected, and its attempt is checked as usual.
+    expect(await recoverFrom("198.51.100.31")).toMatchObject({ code: "unauthorized", ref: "auth" });
   });
 
   it("spends nothing on auth, on malformed frames or after auth", async () => {

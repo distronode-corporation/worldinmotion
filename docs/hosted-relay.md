@@ -54,9 +54,9 @@ connections it carries.
   limited to 25 MiB by the protocol.
 - **A mesh with no connection for 30 days is deleted**, with its roster, queues and files. A mesh
   any of whose devices connects at least once in 30 days is kept.
-- **Rate limits per network**: creating and joining meshes is limited per source address (per IPv4
-  address, or per IPv6 /64), on top of the protocol's own limits on sends, broadcasts and
-  sessions ([SPEC.md](../SPEC.md) section 9).
+- **Rate limits per network**: creating, joining and recovering meshes is limited per source
+  address (per IPv4 address, or per IPv6 /64), on top of the protocol's own limits on sends,
+  broadcasts and sessions ([SPEC.md](../SPEC.md) section 9).
 
 The hosted relay sets these limits with the same settings any relay has: `WIM_OPEN_CREATE=1`,
 `WIM_MAX_MESHES=2000`, `WIM_IDLE_MESH_DAYS=30` and `WIM_BLOB_BYTES_PER_MESH_PER_DAY=25MiB`

@@ -8,7 +8,7 @@ import type { SourceLimiter } from "./limiter.ts";
 export type Env = {
   /** One Durable Object per mesh, named by the mesh id. */
   MESH: DurableObjectNamespace<MeshDurableObject>;
-  /** One Durable Object per hashed source address: the create and join limit across meshes. */
+  /** One Durable Object per source key: the create, join and recovery limit across meshes. */
   SOURCES: DurableObjectNamespace<SourceLimiter>;
   /** One Durable Object for the whole Worker: the mesh count for `WIM_MAX_MESHES`. */
   REGISTRY: DurableObjectNamespace<MeshRegistry>;

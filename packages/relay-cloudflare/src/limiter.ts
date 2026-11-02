@@ -5,8 +5,8 @@ import type { Env } from "./config.ts";
 const HOUR = 3_600_000;
 
 /**
- * The `create` and `join` limit for one source address, shared by every mesh (SPEC section 9:
- * 10 an hour per source address). A new mesh id is a new mesh Durable Object, so a limit kept in
+ * The pre-auth limit for one source address, spent by `create`, `join` and recovery `auth` and
+ * shared by every mesh (SPEC section 9: 10 an hour per source address). A new mesh id is a new mesh Durable Object, so a limit kept in
  * one mesh's storage could not stop one address creating many meshes; relay-node keeps one
  * limiter for its whole process, and this is the same token bucket with one object per address,
  * named by the hashed address (never the raw one).

@@ -86,9 +86,9 @@ needs none of them. A relay you offer to others can set:
 A value that is not valid is a configuration problem, as above: the relay refuses every `create`,
 reports it in `/healthz`, and keeps the safe default for that setting.
 
-Rate limits for `create` and `join` (10 an hour) are kept per client address: per IPv4 address,
-and per /64 for IPv6, so a client cannot draw a fresh budget by moving inside its /64. An
-IPv4-mapped IPv6 address (`::ffff:192.0.2.1`) counts as the IPv4 address.
+Rate limits for `create`, `join` and recovery `auth` (10 an hour, together) are kept per client
+address: per IPv4 address, and per /64 for IPv6, so a client cannot draw a fresh budget by moving
+inside its /64. An IPv4-mapped IPv6 address (`::ffff:192.0.2.1`) counts as the IPv4 address.
 
 ### What the relay keeps, and for how long
 

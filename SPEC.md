@@ -200,8 +200,10 @@ a second admin that never connects, held by the person instead of by a machine.
   roster> }`. On that connection it then allows only `roster.get` and one `roster.publish`,
   answering every other frame with `error { code: "unauthorized" }`, and closes the connection
   after the publish with WebSocket close code 4000 ("recovered"). It never creates a session for
-  it, queues nothing for it, and lists it in no peer row. Recovery connections have their own rate
-  limit, 5 an hour per mesh, separate from the per-source `create` and `join` limit.
+  it, queues nothing for it, and lists it in no peer row. Every recovery `auth` counts against the
+  per-source limit that `create` and `join` count against (section 9), before its signature is
+  checked. A verified recovery `auth` also spends from a limit of its own, 5 an hour per mesh; an
+  attempt that fails verification does not, so it cannot use up the mesh's recoveries.
 - **Using it.** On a new device the person runs recover with the code. The client rebuilds the
   recovery keys in memory and fetches the roster chain from genesis over a recovery connection
   (above). It MUST
@@ -835,7 +837,7 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | queue lifetime | 24 hours |
 | auth deadline after `hello` | 10 seconds |
 | auth clock skew | 5 minutes |
-| `create` and `join` per source address | 10 an hour, across every mesh on the relay |
+| `create`, `join` and recovery `auth` per source address | 10 an hour, together, across every mesh on the relay |
 | idle notices per session | 16, each lasting 12 hours |
 | sessions per mesh | 256 |
 | sessions per device | 32 |
@@ -870,7 +872,7 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | room history per mesh | 64 MiB |
 | parked messages per mesh (`roster_behind`) | 64 |
 | recovery code display window | 10 minutes |
-| recovery connections per mesh | 5 an hour |
+| verified recovery connections per mesh | 5 an hour |
 | pending join connections | 1 per invite, 16 per mesh |
 | `derived` window after an information-only item | 10 minutes |
 | prekey rotation | daily (a new one when the newest is 24 hours old) |

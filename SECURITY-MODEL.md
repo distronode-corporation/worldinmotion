@@ -812,8 +812,9 @@ The relay can always deny service. Against members and outsiders the limits are 
 - 32 sessions per device, 256 per mesh;
 - before `auth`, only `auth`, `join` and `create`, each at most 16 KiB, and `create` and `join` at
   most 10 an hour per source address; a mesh id already held is refused;
-- recovery connections at most 5 an hour per mesh, in their own budget apart from the per-source
-  one;
+- every recovery `auth` counts against that per-source budget too, before its signature is
+  checked, and a verified one also spends from its mesh's own budget of 5 an hour, which an
+  attempt that fails verification never touches;
 - 16 idle notices and 16 live invites per session or device; 64 rooms per mesh, 16 per session, and
   room sends count as broadcasts; room history at most 64 MiB per mesh;
 - 256 leases per mesh, 32 per device, 16 held and 16 watched per session, and no lease held

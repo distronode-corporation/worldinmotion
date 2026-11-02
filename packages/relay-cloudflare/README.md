@@ -35,10 +35,10 @@ The worldinmotion relay as a Cloudflare Worker with one Durable Object per mesh.
   72 hours is never served, even before the alarm deletes it. One alarm deletes at most 256
   history entries, so an object with a large backlog clears it over a few alarms a second apart
   and no alarm runs long.
-- **`SourceLimiter`**, one per hashed client address: the `create` and `join` limit (10 an hour)
-  across every mesh, as relay-node keeps one limiter per process. Addresses are counted per IPv4
-  address and per IPv6 /64 (an IPv4-mapped IPv6 address counts as IPv4). An alarm deletes an idle
-  bucket after an hour.
+- **`SourceLimiter`**, one per hashed client address: the limit on `create`, `join` and recovery
+  `auth` (10 an hour, together) across every mesh, as relay-node keeps one limiter per process.
+  Addresses are counted per IPv4 address and per IPv6 /64 (an IPv4-mapped IPv6 address counts as
+  IPv4). An alarm deletes an idle bucket after an hour.
 - **`MeshRegistry`**, one for the whole Worker: the mesh count for `WIM_MAX_MESHES`. A mesh object
   calls it only on a `create` (to reserve a place, and to give it back if that create fails) and
   when it deletes an expired mesh, never per message. It counts meshes created since it was added
