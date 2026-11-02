@@ -28,7 +28,7 @@ No account required, no telemetry, sealed offline delivery.
 ## Why
 
 Built-in messaging stays inside one vendor and one account, through that vendor's servers. Since
-August 2026 (Claude Code v2.1.225), Claude Code sessions on one account can message each other
+August 2026 (Claude Code v2.1.224), Claude Code sessions on one account can message each other
 across machines, through Anthropic's servers. Beyond one machine that needs a claude.ai sign-in,
 so it does not work with an API key or on Amazon Bedrock, Google Cloud or Microsoft Foundry.
 

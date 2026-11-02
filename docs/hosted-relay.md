@@ -15,7 +15,8 @@ preview, and you can stop using it at any time by moving to a relay of your own.
 
 - **Free and open during the preview.** Until v1.0, anyone may create a mesh on it. There is no
   key and no sign-up: `wim init --relay wss://worldinmotion.distronode.com` is enough.
-- **When it starts.** The relay opens for new meshes with the public launch of the project.
+- **Open now.** The relay creates new meshes for anyone today (its `GET /v1/info` reports
+  `"create": "open"`).
 - **No SLA.** It may be slow, go down, or lose queued messages. Do not build anything on it that
   must not stop.
 - **It may end.** We may end the offer with 60 days' notice.

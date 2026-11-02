@@ -18,6 +18,15 @@ body line with a bracket.
 - **Tests:** the held-code test's wrong proof always differs from the real one; it sent the real
   proof when that ended in `A`, one run in sixteen.
 
+### Documentation
+
+- **The hosted relay's terms say it is open now.** `docs/hosted-relay.md` still said the relay
+  opens for new meshes with the public launch of the project. It is open now (`/v1/info` reports
+  `"create": "open"`), and the line says so.
+- **The README names the Claude Code version that added cross-machine messaging: v2.1.224.**
+  Its changelog adds cross-session `SendMessage` across your machines in 2.1.224; 2.1.225 only
+  let a session start a conversation with a remote one by name.
+
 ## [0.1.8] - 2026-11-02
 
 ### Changed
