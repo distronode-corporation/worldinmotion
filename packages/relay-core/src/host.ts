@@ -235,7 +235,7 @@ export function relaySettings(env: RelayEnv): RelaySettings {
 }
 
 /** The relay software version `relayInfo` reports (relay-core's package version). */
-export const RELAY_VERSION = "0.1.7";
+export const RELAY_VERSION = "0.1.8";
 
 /**
  * The public `GET <prefix>/v1/info` document (format `v` 1). `null` means unlimited, or no offer.

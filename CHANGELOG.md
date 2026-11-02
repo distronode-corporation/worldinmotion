@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-11-02
+
 ### Changed
 
 - **Relays bound connection setup per source address, before anything is held for a mesh.**
@@ -64,6 +66,13 @@ body line with a bracket.
 
 - Trusted devices are described as devices the person chose to trust (`wim devices trust`),
   matching the agent frame since 0.1.7, rather than as the person's own devices.
+
+### Dependencies
+
+- **The minimatch update moves to 0.1.9.** minimatch reaches this repository only through
+  `@vscode/vsce`, the tool that packages and publishes the VS Code extension, and is in nothing a
+  release ships. Its fixed version is younger than the 7-day rule in
+  CONTRIBUTING.md allows, so it is updated in 0.1.9.
 
 ## [0.1.7] - 2026-10-31
 
@@ -562,7 +571,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.8
 [0.1.7]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.7
 [0.1.6]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.6
 [0.1.5]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.5
