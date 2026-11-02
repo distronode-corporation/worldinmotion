@@ -240,8 +240,9 @@ describe("a hostile pre-auth frame", () => {
     const evil = await Socket.open(m.mesh);
     await evil.next("hello");
     // A value whose length cannot convert to a primitive once threw inside the frame parser and
-    // escaped the object's webSocketMessage event, before any authentication or rate limit.
-    evil.send({ t: "auth", mesh: { valueOf: 1, toString: 1 } });
+    // escaped the object's webSocketMessage event, before any authentication or rate limit. JSON
+    // can carry one, as the protocol's own tests send it (packages/protocol/test/hostile-length.test.ts).
+    evil.send({ t: "auth", mesh: { length: { valueOf: 1, toString: 1 } } });
     expect(await evil.next("error")).toMatchObject({ code: "malformed" });
     expect((await evil.closedWith()).code).toBe(4008);
     // The object is still up: the authenticated session still gets its peers answer.

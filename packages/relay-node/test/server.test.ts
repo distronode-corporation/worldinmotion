@@ -246,8 +246,9 @@ describe("relay-node", () => {
     const evil = new Dial(`${r.relayUrls[0]}/v1/${b64u.encode(randomBytes(16))}`);
     await evil.next();
     // A value whose length cannot convert to a primitive once made the frame parser throw and
-    // took the whole relay process down before any authentication.
-    evil.send({ t: "auth", mesh: { valueOf: 1, toString: 1 } });
+    // took the whole relay process down before any authentication. JSON can carry one, as the
+    // protocol's own tests send it (packages/protocol/test/hostile-length.test.ts).
+    evil.send({ t: "auth", mesh: { length: { valueOf: 1, toString: 1 } } });
     expect(await evil.nextOf("error")).toMatchObject({ code: "malformed" });
     expect((await evil.closed).code).toBe(4008);
     // The relay is still up: a fresh socket on another mesh still gets its hello.
