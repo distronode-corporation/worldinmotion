@@ -290,6 +290,10 @@ describe("holding a code for a person", () => {
     await expect(fetchHeldCode(paths)).rejects.toThrow(/no invite code is waiting/);
     again.abort();
     expect(await held2).toBe(false);
+    // A proof left behind with nothing listening: the connection fails, and the fetch says so.
+    await fs.writeFile(paths.proof, "left behind");
+    await expect(fetchHeldCode(paths)).rejects.toThrow(/no invite code is waiting \(it is offered/);
+    await fs.rm(paths.proof);
     // A proof that cannot be written closes the socket or pipe again and fails the hold.
     await fs.mkdir(paths.proof);
     await expect(holdForShow(paths, "INV", { ms: 10_000, signal: new AbortController().signal, platform: process.platform })).rejects.toThrow();
