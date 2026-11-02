@@ -170,6 +170,11 @@ export class MeshRelay {
   private readonly host: RelayHost;
   private readonly store: MeshStore;
   private cached: Roster | undefined;
+  /**
+   * Set by `tick` once it found the store without this mesh. Only this instance's `create` makes
+   * the mesh exist, so later ticks need not ask the store again until it does.
+   */
+  private absent = false;
 
   constructor(config: RelayConfig, host: RelayHost) {
     if (config.relayUrls.length === 0) throw new TypeError("MeshRelay: at least one relay URL");
@@ -239,7 +244,10 @@ export class MeshRelay {
     if (st.phase === "authed") this.goOffline(this.store.getSession(st.sid!)!);
   }
 
-  /** Expiry sweeps. Call about once a second. */
+  /**
+   * Expiry sweeps. Call about once a second. Connections past their pre-auth deadline are closed
+   * first; the store sweeps run only for a mesh that exists.
+   */
   tick(now: number): void {
     const L = this.limits;
     for (const conn of this.host.connections()) {
@@ -247,6 +255,11 @@ export class MeshRelay {
       if (st.phase !== "pre" || st.deadline > now) continue;
       if (st.join !== null) this.error(conn, "invite_expired", "the invite expired before an admin answered", "join");
       this.shut(conn, st, CLOSE.authTimeout, "auth timeout");
+    }
+    // A mesh that does not exist has nothing stored to sweep, so a dialled id costs no store work.
+    if (this.absent || (this.cached === undefined && !this.exists())) {
+      this.absent = true;
+      return;
     }
 
     // Sessions first, so a sender gone for a day no longer receives receipts below.
@@ -372,6 +385,7 @@ export class MeshRelay {
     // `exists()` check above and this insert.
     this.store.insertRoster({ seq: 1, hash: hash(v.value), json: JSON.stringify(v.value) });
     this.cached = v.value;
+    this.absent = false;
     this.emit(conn, { t: "roster", chain: [v.value], more: false });
   }
 

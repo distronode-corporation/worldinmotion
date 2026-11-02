@@ -48,6 +48,13 @@ export const LIMITS = {
   sessionsPerDevice: 32,
   /** `create`, `join` and recovery `auth` frames per source address per hour, together. */
   createJoinPerSourcePerHour: 10,
+  /**
+   * WebSocket dials per source address per minute that may reach a mesh. Generous on purpose: an
+   * office behind one address reconnects every session at once after a relay restart.
+   */
+  dialsPerSourcePerMinute: 600,
+  /** Open connections per source address that have not authenticated yet. */
+  preAuthSocketsPerSource: 256,
   /** Unexpired, unused invites per admin device. */
   liveInvitesPerDevice: 16,
   /** Default invite lifetime. */

@@ -815,6 +815,10 @@ The relay can always deny service. Against members and outsiders the limits are 
 - every recovery `auth` counts against that per-source budget too, before its signature is
   checked, and a verified one also spends from its mesh's own budget of 5 an hour, which an
   attempt that fails verification never touches;
+- 600 WebSocket dials a minute per source address, refused with HTTP 429 before the handshake,
+  so a refused dial costs the relay no state for its mesh id; relay-node also holds at most 256
+  connections per source address that have not authenticated (the Workers relay closes each one
+  at its 10-second auth deadline);
 - 16 idle notices and 16 live invites per session or device; 64 rooms per mesh, 16 per session, and
   room sends count as broadcasts; room history at most 64 MiB per mesh;
 - 256 leases per mesh, 32 per device, 16 held and 16 watched per session, and no lease held

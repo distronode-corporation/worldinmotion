@@ -685,6 +685,11 @@ A client dials `<relay>/v1/<mesh id>`, where `<relay>` is the relay URL (section
 or configuration. One mesh lives behind each such URL, which lets a relay keep each mesh in its
 own shard.
 
+A relay MAY refuse a dial before the WebSocket handshake, and before it holds anything for the
+mesh, when one source address dials too often or has too many connections open that have not
+authenticated (section 9). It answers HTTP 429 with a `Retry-After` header (seconds) and a JSON
+body `{ "error": "..." }`. A client treats that as a lost connection and retries with backoff.
+
 All frames are JSON text messages with a `t` field. Unknown `t` values get an `error` and are
 otherwise ignored. A connection that sends a malformed frame MAY be closed. Relays refuse unknown
 keys in client frames, because they forward signed objects unchanged. Clients ignore unknown keys
@@ -838,6 +843,8 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | auth deadline after `hello` | 10 seconds |
 | auth clock skew | 5 minutes |
 | `create`, `join` and recovery `auth` per source address | 10 an hour, together, across every mesh on the relay |
+| WebSocket dials per source address | 600 a minute, across every mesh on the relay |
+| connections before `auth` per source address | 256 open at once |
 | idle notices per session | 16, each lasting 12 hours |
 | sessions per mesh | 256 |
 | sessions per device | 32 |
