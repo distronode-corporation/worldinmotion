@@ -29,7 +29,7 @@ import { PING, pingReport } from "./ping.ts";
 import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
-import { agentEnv, canConfirm, cannotConfirm, canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showSocketPath, SHOW_WINDOW_MINUTES } from "./secretout.ts";
+import { agentEnv, canConfirm, cannotConfirm, canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showPaths, SHOW_WINDOW_MINUTES } from "./secretout.ts";
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { resolveInvite } from "./shortcode.ts";
@@ -594,10 +594,15 @@ async function showRecoveryCode(ctx: Ctx, code: string): Promise<void> {
   }
   // Not undefined: canShowSecret said no.
   const why = notAPerson(ctx.env, ctx.io.isTTY)!;
-  const handed = await holdForShow(showSocketPath(ctx.home.root, ctx.io.platform), code, LIMITS.recoveryShowWindowMs, ctx.io.signal, ctx.io.platform, () => {
-    ctx.io.out(`The recovery code is not shown here: ${why}.`);
-    ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim recovery show\` there within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only; keep it out of any agent's chat.`);
-    ctx.io.out("(A scripted `wim mesh create` that needs no recovery code can pass --no-recovery.)");
+  const handed = await holdForShow(showPaths(ctx.home.root, ctx.io.platform), code, {
+    ms: LIMITS.recoveryShowWindowMs,
+    signal: ctx.io.signal,
+    platform: ctx.io.platform,
+    onListening: () => {
+      ctx.io.out(`The recovery code is not shown here: ${why}.`);
+      ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim recovery show\` there within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only; keep it out of any agent's chat.`);
+      ctx.io.out("(A scripted `wim mesh create` that needs no recovery code can pass --no-recovery.)");
+    },
   });
   ctx.io.out(handed ? "The recovery code was shown." : "The recovery code was not collected and is gone; make a new one from an admin device with `wim recovery rotate`.");
 }
@@ -608,7 +613,7 @@ async function recovery(ctx: Ctx): Promise<number> {
   if (action !== "show") throw new SetupError("usage: wim recovery show | wim recovery rotate");
   const notHere = notAPerson(ctx.env, ctx.io.isTTY);
   if (notHere !== undefined) throw new SetupError(personOnly(notHere, "wim recovery show"));
-  const code = await fetchHeldCode(showSocketPath(ctx.home.root, ctx.io.platform));
+  const code = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform));
   ctx.io.out("Recovery code (shown once; keep it offline, it is as powerful as an admin device):");
   ctx.io.out(`  ${code}`);
   return 0;

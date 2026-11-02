@@ -544,6 +544,18 @@ requires a bearer token on every request for exactly this reason.
 It cannot reach the signer (section 5.8): its socket is in a 0700 directory of the user, and on
 Windows its pipe's name is a secret kept in the user's profile.
 
+It cannot collect a held recovery code (section 5.7). On POSIX the code waits
+on a socket in the 0700 state directory. On Windows it waits on a named pipe whose name can be
+derived from the state directory's path, and Node cannot restrict who opens a pipe, so the pipe is
+not what protects it: the waiting process writes a random proof (32 bytes) into the state
+directory, readable only by the user (the user profile's permissions), and hands the code only to
+a connection that sends that proof first, compared in constant time. A connection with a wrong
+proof, no proof within five seconds, or too long a line is dropped without ending the window, so
+another user can neither take the code nor use up the one hand-over. The proof exists only while
+the code waits and is removed when the window ends. This holds only as far as the user profile's
+permissions do: an administrator of the machine can read the proof, as they can read the key file.
+The Windows case is tested against a second connection, not against a second account.
+
 ## 6. Properties, one by one
 
 ### 6.1 Confidentiality
