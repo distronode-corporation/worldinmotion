@@ -253,6 +253,15 @@ An invite code is a bearer credential: whoever reads it before it is used and be
   which the person's typed one does not match; it still holds the invite at the relay, so a new one
   is needed. Auto-accept exists only when the operator created that invite with it explicitly
   (`wim invite --auto`), and is meant for unattended bots on networks you control.
+- **An auto-accept code never goes to an agent.** Nobody confirms a join on an `--auto` invite, so
+  its code alone admits a device. The client prints it only where it would print a recovery code
+  (section 5.7): an interactive terminal with no agent's variables set. Run anywhere else (an
+  agent's shell, a pipe), `wim invite --auto` holds the code in memory, while the invite waits and
+  for at most ten minutes, for `wim invite show` run by the person in their own terminal, and says
+  so; if nobody collects it, the invite cannot be used and the command stops. There is no flag that
+  prints it elsewhere: the client cannot tell a script from an agent that sets no variable, so any
+  such flag would be one an agent could pass. An unattended device still joins unattended (`wim
+  join` needs no person); only the step that reads the code out of the admin device needs one.
 - **Only the person confirms.** An agent that answers the confirmation for its person (on
   2026-10-29 one typed `y` into `wim invite` through a fifo, before this rule) turns the check into
   nothing. The client takes the typed string only from an interactive terminal, standard input and
@@ -544,7 +553,7 @@ requires a bearer token on every request for exactly this reason.
 It cannot reach the signer (section 5.8): its socket is in a 0700 directory of the user, and on
 Windows its pipe's name is a secret kept in the user's profile.
 
-It cannot collect a held recovery code (section 5.7). On POSIX the code waits
+It cannot collect a held recovery or invite code (sections 5.6 and 5.7). On POSIX the code waits
 on a socket in the 0700 state directory. On Windows it waits on a named pipe whose name can be
 derived from the state directory's path, and Node cannot restrict who opens a pipe, so the pipe is
 not what protects it: the waiting process writes a random proof (32 bytes) into the state

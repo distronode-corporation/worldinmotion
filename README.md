@@ -148,6 +148,12 @@ opened yourself, not through an agent.
 no longer running when `desk` asked to join, `wim devices pending` on `laptop` lists it, and
 `wim devices admit desk <comparison code>` admits it.
 
+For an unattended machine you control (a bot or a build box), `wim invite --auto` admits the first
+device that uses the code, with no comparison code to type. Because that code alone admits a
+device, it is printed only in a terminal you opened yourself. Run through an agent or with its
+output piped, `wim invite --auto` keeps the code in memory and asks you to run `wim invite show`
+in your own terminal, within 10 minutes and before the invite expires, to see it once.
+
 ### 4. Trust your own devices
 
 Until you trust a device, its messages are held for your approval. After an admit and after a

@@ -29,7 +29,7 @@ import { PING, pingReport } from "./ping.ts";
 import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
-import { agentEnv, canConfirm, cannotConfirm, canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showPaths, SHOW_WINDOW_MINUTES } from "./secretout.ts";
+import { agentEnv, canConfirm, cannotConfirm, canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showPaths, SHOW_WINDOW_MINUTES, type ShowKind } from "./secretout.ts";
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { resolveInvite } from "./shortcode.ts";
@@ -188,7 +188,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
 
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
-  wim invite [--exp 1h] [--auto] [--full]
+  wim invite [--exp 1h] [--auto] [--full] | wim invite show
   wim join <code> [--name <device>]
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
@@ -611,11 +611,18 @@ async function recovery(ctx: Ctx): Promise<number> {
   const action = ctx.args.positional[0];
   if (action === "rotate") return recoveryRotate(ctx);
   if (action !== "show") throw new SetupError("usage: wim recovery show | wim recovery rotate");
+  return showHeld(ctx, "recovery", ["Recovery code (shown once; keep it offline, it is as powerful as an admin device):"]);
+}
+
+/**
+ * `wim recovery show` and `wim invite show`: the person, in a terminal of their own, collects a
+ * code that a command run elsewhere (by an agent, or with its output piped) holds for them.
+ */
+async function showHeld(ctx: Ctx, kind: ShowKind, before: string[], after: string[] = []): Promise<number> {
   const notHere = notAPerson(ctx.env, ctx.io.isTTY);
-  if (notHere !== undefined) throw new SetupError(personOnly(notHere, "wim recovery show"));
-  const code = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform));
-  ctx.io.out("Recovery code (shown once; keep it offline, it is as powerful as an admin device):");
-  ctx.io.out(`  ${code}`);
+  if (notHere !== undefined) throw new SetupError(personOnly(notHere, `wim ${kind} show`));
+  const code = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform, kind));
+  for (const line of [...before, `  ${code}`, ...after]) ctx.io.out(line);
   return 0;
 }
 
@@ -671,14 +678,23 @@ async function typedCode(ctx: Ctx, p: JoinPrompt): Promise<boolean> {
   return false;
 }
 
+/** What a person reads above an invite code, wherever it is shown. */
+const INVITE_CODE_TITLE = "Invite code (single use; give it to the other device over a channel you trust, never through an agent):";
+const INVITE_JOIN_LINE = "On the new device, in a terminal: `wim join <code>`";
+
 async function invite(ctx: Ctx): Promise<number> {
+  if (ctx.args.positional[0] === "show") return showHeld(ctx, "invite", [INVITE_CODE_TITLE], [INVITE_JOIN_LINE]);
+  if (ctx.args.positional.length > 0) throw new SetupError(`usage: ${commandUsage("invite")!}`);
   const ttl = parseDuration(flag(ctx.args, "exp") ?? "1h");
   const auto = ctx.args.flags.get("auto") === true;
   // Refused before an invite exists: its code would otherwise land where no person can admit with it.
   if (!auto && !canConfirm(ctx.env, ctx.io)) {
-    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code`);
+    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code, and shows that code only in a terminal of your own`);
   }
   const s = await ctx.session("invite", { keyed: false });
+  // Ends the offer of a held code when this command ends, however it ends.
+  const offerEnds = new AbortController();
+  let offering: Promise<void> | undefined;
   try {
     const joins: unknown[] = [];
     let wake: (() => void) | undefined;
@@ -689,9 +705,37 @@ async function invite(ctx: Ctx): Promise<number> {
     const full = ctx.args.flags.get("full") === true;
     const made = await issueInvite(s, { ttlMs: ttl, auto, now: ctx.io.now, short: !full });
     const until = new Date(made.exp).toISOString();
-    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust, never through an agent):");
-    ctx.io.out(`  ${made.short?.code ?? made.code}`);
-    ctx.io.out("On the new device, in a terminal: `wim join <code>`");
+    // Why the invite cannot be used any more, once the person can no longer collect its code.
+    let unusable: string | undefined;
+    const code = made.short?.code ?? made.code;
+    if (canShowSecret(ctx.env, ctx.io.isTTY)) {
+      ctx.io.out(INVITE_CODE_TITLE);
+      ctx.io.out(`  ${code}`);
+      ctx.io.out(INVITE_JOIN_LINE);
+    } else {
+      // Only `--auto` gets here (the confirming invite needs a person): the code is a bearer
+      // credential that admits a device with nobody asked, so it never goes to an agent's output.
+      // It is held for the person, as a recovery code is, while the invite waits.
+      const why = notAPerson(ctx.env, ctx.io.isTTY)!;
+      const ms = Math.min(LIMITS.recoveryShowWindowMs, made.exp - ctx.io.now());
+      offering = holdForShow(showPaths(ctx.home.root, ctx.io.platform, "invite"), code, {
+        ms,
+        signal: AbortSignal.any([ctx.io.signal, offerEnds.signal]),
+        platform: ctx.io.platform,
+        onListening: () => {
+          ctx.io.out(`The invite code is not shown here: ${why}.`);
+          ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim invite show\` there before ${new Date(ctx.io.now() + ms).toISOString()} to see it once. It is kept in memory only; give it to the new device over a channel you trust, never through an agent.`);
+        },
+      }).then(
+        (handed) => {
+          if (handed) ctx.io.out("The invite code was shown.");
+          else unusable = "the invite code was not collected and is gone, so the invite cannot be used: make a new one";
+        },
+        (error: unknown) => {
+          unusable = `the invite code could not be offered for \`wim invite show\` (${(error as Error).message}): make a new invite`;
+        },
+      ).then(() => wake?.());
+    }
     // A short code lives at most an hour at the relay; the invite itself may live longer.
     if (made.short !== undefined && made.short.exp < made.exp) ctx.io.out(`The short code works until ${new Date(made.short.exp).toISOString()}.`);
     if (made.short !== undefined) ctx.io.out("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
@@ -704,6 +748,10 @@ async function invite(ctx: Ctx): Promise<number> {
             ? `wim: stopped waiting. The invite stays valid until ${until}: \`wim devices pending\` lists a device that asks to join, and \`wim devices admit <name> <code>\` admits it.`
             : "wim: the invite expired unused.",
         );
+        return 1;
+      }
+      if (unusable !== undefined) {
+        ctx.io.err(`wim: ${unusable}.`);
         return 1;
       }
       const body = joins.shift();
@@ -741,6 +789,8 @@ async function invite(ctx: Ctx): Promise<number> {
       }
     }
   } finally {
+    offerEnds.abort();
+    await offering;
     await s.stop({ ended: true });
   }
 }

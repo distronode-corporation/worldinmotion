@@ -64,7 +64,7 @@ New Terminal):
   `wim agent autostart enable`
 - `wim invite` (it asks the person to type the new device's comparison code), `wim join`, and
   `wim devices admit <name> <code>`
-- `wim recovery show`
+- `wim recovery show` and `wim invite show`
 - `wim held approve <id>` (or the Approve button in `/wim`), `wim held refuse <id>` and
   `wim held resume <peer>`
 - `wim devices trust <name>` or `--all` (and `untrust`)
