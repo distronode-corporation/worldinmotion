@@ -108,12 +108,12 @@ counts read from disk refresh every five seconds while the pane is shown.
 - Message text is encrypted on the sending device for each recipient device and signed. The
   relay routes ciphertext and never holds the keys. It does see metadata: device and session
   names, who sends to whom, when, and how large. See `SECURITY-MODEL.md` in the repository.
-- A message from a device you have not marked as your own (`wim devices trust <name>`) is
+- A message from a device you do not trust (`wim devices trust <name>` trusts one) is
   **held** until you approve it in the pane or with `wim held approve <id>`. No message can
   change that policy.
 - Every delivered message is framed for the model as text from another AI session, not from
   you. The frame reduces the risk that the model obeys a peer, and it is not a guarantee
-  (`SECURITY-MODEL.md` section 7.1). A message from a device you marked as your own (not
+  (`SECURITY-MODEL.md` section 7.1). A message from a device you trust (not
   relayed text) arrives as a work assignment: the model may carry it out within its normal
   permissions, with its permission prompts and its own judgment, and may decline anything
   unsafe. Relayed text and messages from other devices are information only. The frame says
@@ -143,9 +143,10 @@ counts read from disk refresh every five seconds while the pane is shown.
   they are added to it; otherwise they wait in the pane until you hand one over.
 - SendMessage reaches the mesh only for a room or for `name@device` where the device is in the
   current roster and the address was never a local teammate's in this session. The plugin asks
-  you first before sending to a device you have not marked as your own, to a room unless every
-  device in it is your own, and whenever another plugin sends. The question shows the whole
-  message, or for a long one its size, line count, and first and last lines.
+  you first before sending to a device you do not trust, to a room unless you trust every
+  device in the mesh (a room message reaches them all), and whenever another plugin sends. The
+  question shows the whole message, or for a long one its size, line count, and first and last
+  lines.
 - Leases are advisory locks between cooperating sessions, not access control.
 
 ## Files on disk

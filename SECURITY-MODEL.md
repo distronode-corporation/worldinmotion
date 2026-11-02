@@ -58,8 +58,8 @@ Both are first-class threats here.
    for content or membership.
 5. **Agent.** The receiving agent's model is a separate trust domain from its person. Peer text
    reaches the model only through the client's framing and must never be taken as the person's
-   words or approval. Sessions on devices the person marked as their own may assign the agent
-   work, which it carries out within its normal permissions (section 7.2); everything else is
+   words or approval. Sessions on devices the person trusts (`wim devices trust`) may assign the
+   agent work, which it carries out within its normal permissions (section 7.2); everything else is
    information only.
 
 ## 4. Mechanisms, in one place
@@ -122,8 +122,8 @@ Can:
   clarifying questions, a remote agent got the other agent to reveal its instructions and tools,
   and in another test to call a tool its person never asked for. In wim it fits `ask`, `reply`
   and any running conversation. Each held item is shown on its own, so a person who approves them
-  one at a time can miss the pattern. Before approving an item from a device you have not marked
-  as your own, read what came before: `wim held list` lists everything still held, and
+  one at a time can miss the pattern. Before approving an item from a device you do not trust,
+  read what came before: `wim held list` lists everything still held, and
   `wim history --session <name> --peer <address>` shows that session's earlier exchange with the
   peer. A held view that shows the whole thread with a peer is planned, not built.
 - Claim any session name on its own device. Signatures authenticate the device, not the session.
@@ -146,8 +146,8 @@ Cannot:
   symmetric key of boxes addressed to it, but cannot sign as the sender.
 - Bypass the receiving person's inbound policy with message content. Policy is keyed on device id
   and changed only by the person, at their own command line or with the trust and untrust actions
-  of a local UI (section 7.5). Unless that person marked the hostile
-  device as their own, its items are held for review and, once approved, are information only:
+  of a local UI (section 7.5). Unless that person trusts the hostile
+  device, its items are held for review and, once approved, are information only:
   they never assign work. Its card fields are not shown to the person's agents.
 
 ### 5.3 Compromised device
@@ -169,9 +169,9 @@ Can:
   identity key). One who copied the file once and left loses the device's new traffic as peers
   move to prekeys made after the copy, within a day.
 - Keep acting until peers see a roster revoking it.
-- If the person marked it as their own on their other devices: **assign work to every session on
+- If the person trusts it on their other devices: **assign work to every session on
   every one of those devices**, which those agents carry out within their normal permissions
-  (section 7.2). A compromised own device can steer all of the person's trusting sessions, and
+  (section 7.2). A compromised trusted device can steer all of the person's trusting sessions, and
   through them reach whatever those sessions' tools reach.
 
 Cannot:
@@ -253,6 +253,15 @@ An invite code is a bearer credential: whoever reads it before it is used and be
   which the person's typed one does not match; it still holds the invite at the relay, so a new one
   is needed. Auto-accept exists only when the operator created that invite with it explicitly
   (`wim invite --auto`), and is meant for unattended bots on networks you control.
+- **An auto-accept code never goes to an agent.** Nobody confirms a join on an `--auto` invite, so
+  its code alone admits a device. The client prints it only where it would print a recovery code
+  (section 5.7): an interactive terminal with no agent's variables set. Run anywhere else (an
+  agent's shell, a pipe), `wim invite --auto` holds the code in memory, while the invite waits and
+  for at most ten minutes, for `wim invite show` run by the person in their own terminal, and says
+  so; if nobody collects it, the invite cannot be used and the command stops. There is no flag that
+  prints it elsewhere: the client cannot tell a script from an agent that sets no variable, so any
+  such flag would be one an agent could pass. An unattended device still joins unattended (`wim
+  join` needs no person); only the step that reads the code out of the admin device needs one.
 - **Only the person confirms.** An agent that answers the confirmation for its person (on
   2026-10-29 one typed `y` into `wim invite` through a fifo, before this rule) turns the check into
   nothing. The client takes the typed string only from an interactive terminal, standard input and
@@ -544,6 +553,18 @@ requires a bearer token on every request for exactly this reason.
 It cannot reach the signer (section 5.8): its socket is in a 0700 directory of the user, and on
 Windows its pipe's name is a secret kept in the user's profile.
 
+It cannot collect a held recovery or invite code (sections 5.6 and 5.7). On POSIX the code waits
+on a socket in the 0700 state directory. On Windows it waits on a named pipe whose name can be
+derived from the state directory's path, and Node cannot restrict who opens a pipe, so the pipe is
+not what protects it: the waiting process writes a random proof (32 bytes) into the state
+directory, readable only by the user (the user profile's permissions), and hands the code only to
+a connection that sends that proof first, compared in constant time. A connection with a wrong
+proof, no proof within five seconds, or too long a line is dropped without ending the window, so
+another user can neither take the code nor use up the one hand-over. The proof exists only while
+the code waits and is removed when the window ends. This holds only as far as the user profile's
+permissions do: an administrator of the machine can read the proof, as they can read the key file.
+The Windows case is tested against a second connection, not against a second account.
+
 ## 6. Properties, one by one
 
 ### 6.1 Confidentiality
@@ -668,7 +689,9 @@ relaying a client's handshake to another relay.
 An invite may carry a relay certificate pin: the SHA-256 of the certificate's SubjectPublicKeyInfo.
 A client with a pin accepts only that key and never falls back to CA validation; with a pin, `wss://`
 to a private or link-local address is allowed, so a relay can run on a local network with a
-self-signed certificate. Properties:
+self-signed certificate, and without a pin it is refused. Which addresses count is listed in SPEC
+section 5 (the relay certificate pin): every non-public range a local or carrier network uses, in
+any spelling, including IPv6 forms that carry an IPv4 address. Properties:
 - The pin is only as trustworthy as the invite that carried it (section 5.6).
 - Rotating the relay's key breaks every pinned client until they get the new pin, which in v0.1 means
   a new invite or a configuration change. Plan key rotation.
@@ -740,7 +763,7 @@ not they can open the card. The relay cannot read
 or forge a card, but it can replay an older card for the same session, since cards have no
 freshness. Card fields are labels from a mesh member: escaped for display and never trusted. The
 person's pane shows every card. Agents see peer listings too (the `peers` tool, and the plugin adds
-peers to ListAgents), but only with the cards of devices the person marked as their own, so a
+peers to ListAgents), but only with the cards of devices the person trusts, so a
 device whose items are held cannot reach an agent through its card. Cards are paged, at most
 64 KiB each and 256 KiB per device, and use their own sequence space, so they never interfere with
 message ordering. Peer rows carry each session's sid, which is not a secret, so that cards can be
@@ -812,8 +835,13 @@ The relay can always deny service. Against members and outsiders the limits are 
 - 32 sessions per device, 256 per mesh;
 - before `auth`, only `auth`, `join` and `create`, each at most 16 KiB, and `create` and `join` at
   most 10 an hour per source address; a mesh id already held is refused;
-- recovery connections at most 5 an hour per mesh, in their own budget apart from the per-source
-  one;
+- every recovery `auth` counts against that per-source budget too, before its signature is
+  checked, and a verified one also spends from its mesh's own budget of 5 an hour, which an
+  attempt that fails verification never touches;
+- 600 WebSocket dials a minute per source address, refused with HTTP 429 before the handshake,
+  so a refused dial costs the relay no state for its mesh id; relay-node also holds at most 256
+  connections per source address that have not authenticated (the Workers relay closes each one
+  at its 10-second auth deadline);
 - 16 idle notices and 16 live invites per session or device; 64 rooms per mesh, 16 per session, and
   room sends count as broadcasts; room history at most 64 MiB per mesh;
 - 256 leases per mesh, 32 per device, 16 held and 16 watched per session, and no lease held
@@ -828,6 +856,13 @@ The relay can always deny service. Against members and outsiders the limits are 
   per mesh and 64 per source address, at most 4 KiB each, at most an hour, 10,000 per relay in
   all; fetches 30 an hour per source address, found or not, and three per box.
 
+Per-source limits are kept under a source key, never the raw address: a keyed hash (HMAC-SHA-256)
+of the address's bucket (the IPv4 address, or the IPv6 /64) under a random secret each relay makes
+for itself and keeps in its own storage (relay-node in its database, the Workers relay in its
+registry object). Without that secret a stored key cannot be matched to an address by trying every
+IPv4 address. The relay still sees each connection's address while it serves it, as any server
+does.
+
 On the receiving side, the loop and cost breaker (section 7.3) bounds how often peers can wake an
 agent.
 
@@ -839,9 +874,10 @@ Every item is input from another AI session, even from a device you own: that se
 have read hostile content. The client:
 - hands text to an agent only inside a frame that says it came from another AI session, names the
   sender address and device id, and says it is not the person's instruction or approval. The frame
-  then says one of two things (section 7.2): that the sending device is one the person marked as
-  their own, so the agent may carry the request out within its normal permissions; or that the
-  text is information only;
+  then says one of two things (section 7.2): that the item comes from another session on the
+  same device or from a device the person chose to trust (without claiming whose device that
+  is), so the agent may carry the request out within its normal permissions; or that the text is
+  information only;
 - says, for relayed text, that a third party wrote it, not the sending session;
 - delimits the text with a fresh random boundary per item and escapes anything in the text that
   could open or close a frame;
@@ -876,7 +912,7 @@ plugin sets; outside the plugin nothing refuses it to the model.
 ### 7.2 Inbound policy and work assignment
 
 Policy is per sender device id: `deliver`, `deliver-relayed`, `hold` (wait for the person) or
-`refuse`. Sessions on the same device, and devices the person marks as their own, are `deliver`;
+`refuse`. Sessions on the same device, and devices the person trusts, are `deliver`;
 every other device is `hold`. Held items wait until the person approves them in the pane, in a
 local UI or at the command line. Only the person changes policy: at the command line (`wim devices
 trust` and `untrust`, one device or `--all`, and the "Is it your own device?" question that
@@ -910,11 +946,11 @@ specific action, cannot answer a permission prompt or change a setting, and the 
 anything unsafe or out of scope. Items from every other device, and relayed text from any device,
 are information only.
 
-The consequence: **marking a device as your own lets it steer every session on your other devices,
-within their permissions.** If that device is compromised, or its agent was injected by something
-it read, its requests arrive as trusted work everywhere you trust it. The mitigations:
-- **Trust per device, sparingly.** Mark only devices you would let type into your own terminal.
-  Never mark another person's device as your own; collaborate with `hold` and approve items.
+The consequence: **trusting a device lets it steer every session on your other devices that
+trust it, within their permissions.** If that device is compromised, or its agent was injected by
+something it read, its requests arrive as trusted work everywhere you trust it. The mitigations:
+- **Trust per device, sparingly.** Trust only devices you would let type into your own terminal.
+  Never trust another person's device; collaborate with `hold` and approve items.
 - **Cut off and revoke.** Set a suspect device to `hold` or `refuse` on your other devices (local,
   immediate), then revoke it from the roster.
 - **Relayed text never assigns work.** Clients that forward text they did not write (bots, the CI
@@ -930,15 +966,17 @@ it read, its requests arrive as trusted work everywhere you trust it. The mitiga
 **The SendMessage bridge.** The Claude Code plugin takes the model's SendMessage calls whose
 recipient is a mesh address (`#room`, or `name@device` where the device is in the roster and the
 address was never a local teammate this session) and sends them through the client. A send to a
-device that is not marked as the person's own asks the person first; a send to a trusted device or
+device the person does not trust asks the person first; a send to a trusted device or
 to a room goes without a prompt (the secret filter still applies). A room message is sealed to
 every device of the mesh, so it reaches untrusted devices too.
 
 ### 7.3 Loop and cost breaker
 
 Two agents that each wake on the other's message can loop forever, and every wake costs tokens. The
-client counts automatic deliveries per sender in a sliding hour (by default 20 per peer and 60 in
-total) and detects ping-pong (more than 8 short alternating exchanges in 10 minutes). Past a limit,
+client counts automatic deliveries per sender device in a sliding hour (by default 120 per peer
+and 300 in total) and detects ping-pong (by default more than 32 short alternating exchanges in 10
+minutes). A `mesh.json` written before 0.1.8 keeps the limits written in it (20, 60 and 8) until
+the person changes them there (docs/design.md, loop and cost breaker). Past a limit,
 new items from that peer are held, the person is told, the receiving session is told once per
 pause (so its agent does not take a held peer for a silent one; only the person can release what is
 held), and the sender gets the receipt `held`. The
@@ -1018,8 +1056,8 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
 - Receipts, delivery statuses, presence, room member lists and peer rows are unsigned and advisory.
 - Rooms do not restrict who in the mesh can read a room message.
 - Any admin, and anyone with the recovery code, can change membership for everyone, across people.
-- A device marked as your own can assign work to all of your trusting sessions; a compromised or
-  injected own device steers them within their permissions until you set it to `hold` or revoke it.
+- A device you trust can assign work to all of your trusting sessions; a compromised or injected
+  trusted device steers them within their permissions until you set it to `hold` or revoke it.
 - Relayed marking covers clients that forward text, not agents that restate what they read.
 - Room sends through the SendMessage bridge do not ask the person, and reach every device.
 - Revocation reaches a client with the next message from a peer that has seen it, or with the next

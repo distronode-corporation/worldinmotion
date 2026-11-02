@@ -13,6 +13,58 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Changed
+
+- **Relays bound connection setup per source address, before anything is held for a mesh.**
+  relay-node checks each WebSocket upgrade against a dial budget (600 a minute per source) and a
+  cap of 256 connections per source that have not authenticated, and builds mesh state only after
+  a successful handshake; its expiry sweeps skip mesh ids that do not exist. The Workers relay
+  asks a Workers Rate Limiting binding (`DIALS`, 600 a minute per source) before it reaches any
+  Durable Object, for dials and for short invite code fetches. A refused dial is answered HTTP 429
+  with `Retry-After`, which clients already treat as a lost connection and retry. If you run your
+  own Workers relay, copy the new `ratelimits` entry from `wrangler.jsonc`; without it the relay
+  keeps serving with no dial limit and logs that once.
+- **Recovery attempts count against the per-source pre-auth limit**, shared with `create` and
+  `join`, and a mesh's recovery budget (5 an hour) is spent only by a verified recovery (SPEC
+  sections 4a and 9).
+- **Per-source rate-limit keys are a keyed hash** under a random secret each relay creates in its
+  own storage on first start (relay-node: its database; Workers: the registry object). No
+  configuration is needed; existing per-source buckets start over once after the upgrade.
+- **`wim invite --auto` shows its code only in the person's own terminal.** Where an agent's
+  variable is set, or output is piped, the code is held in memory for `wim invite show`, run by
+  the person in a terminal they opened, for the shorter of 10 minutes and the invite's lifetime.
+  A script that read the code from `wim invite --auto`'s output no longer gets it.
+- **A held recovery or invite code goes only to a reader that can read this device's state
+  directory.** `wim recovery show` and `wim invite show` first send a random proof written to an
+  owner-only file in the state directory; any other connection gets nothing and does not end the
+  window. The same code runs on Linux, macOS and Windows.
+- **The private-relay pin rule covers every non-public address range, in any spelling.** A
+  `wss://` relay at an address in shared address space (`100.64.0.0/10`), `0.0.0.0/8`,
+  `198.18.0.0/15`, or an IPv6 form that carries a private IPv4 address (IPv4-mapped, NAT64, 6to4)
+  now needs a pinned certificate, as RFC 1918 addresses already did (SPEC section 5).
+- **New meshes get higher loop breaker limits** (120 messages per peer and 300 in total an hour,
+  ping-pong after 32 alternating short messages), and both pause notices name the rule that
+  tripped and its limit (#59). A `mesh.json` written before 0.1.8 keeps its written breaker; to
+  raise it, set for example `"breaker": {"perPeerPerHour": 120, "totalPerHour": 300,
+  "pingPongExchanges": 32}` (docs/design.md, the loop breaker).
+- **Dependabot auto-merge applies only to the cooldown-bound development group**, and only while
+  the base branch requires status checks and a review. Security updates and the build tools that
+  write shipped files (esbuild, @vscode/vsce, wrangler, now in their own group) wait for a person.
+
+### Fixed
+
+- **An item approved while its session is not running is framed and flagged as a live release
+  is**, so reading it opens the `derived` window and a trusted device's item is framed as work it
+  may assign, as on the live path.
+- **Tests:** the relay host tests for frames that fail validation now exercise the 0.1.7 fix, and
+  the VS Code extension tests retry removing their temporary directory while Windows still holds
+  it.
+
+### Documentation
+
+- Trusted devices are described as devices the person chose to trust (`wim devices trust`),
+  matching the agent frame since 0.1.7, rather than as the person's own devices.
+
 ## [0.1.7] - 2026-10-31
 
 ### Changed

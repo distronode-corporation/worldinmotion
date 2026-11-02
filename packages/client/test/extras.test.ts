@@ -1,3 +1,4 @@
+import { createConnection } from "node:net";
 import { PassThrough } from "node:stream";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
@@ -7,9 +8,9 @@ import type { MeshSession } from "../src/client.ts";
 import { processIo, type Proc } from "../src/io.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "../src/offline.ts";
-import { agentEnv, canShowSecret, fetchHeldCode, holdForShow, showSocketPath } from "../src/secretout.ts";
+import { agentEnv, canShowSecret, fetchHeldCode, holdForShow, showPaths } from "../src/secretout.ts";
 import { SessionFiles } from "../src/session.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, POSIX, RelayHarness, scratch, until } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -149,7 +150,7 @@ describe("offline decisions", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const files = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
-    await files.updateConfig((c) => ({ ...c, breaker: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false } }));
+    await files.updateConfig((c) => ({ ...c, breaker: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 } }));
     const a = await session(devices[0]!, mesh, relay, { name: "a", userHome: "/none" });
     const idle = await session(devices[1]!, mesh, relay, { name: "idle" });
     const live = await session(devices[1]!, mesh, relay, { name: "live" });
@@ -178,31 +179,127 @@ describe("secretout", () => {
     expect(agentEnv({ CODEX_X: "" })).toBeUndefined();
     expect(canShowSecret({}, true)).toBe(true);
     expect(canShowSecret({}, false)).toBe(false);
-    expect(showSocketPath("/h", "linux")).toBe("/h/recovery.sock");
-    expect(showSocketPath("C:\\h", "win32")).toMatch(/^\\\\\.\\pipe\\wim-recovery-/);
+    expect(showPaths("/h", "linux")).toEqual({ socket: "/h/recovery.sock", proof: "/h/recovery.proof", what: "recovery code" });
+    expect(showPaths("/h", "linux", "invite")).toEqual({ socket: "/h/invite.sock", proof: "/h/invite.proof", what: "invite code" });
+    expect(showPaths("C:\\h", "win32").socket).toMatch(/^\\\\\.\\pipe\\wim-recovery-/);
+    expect(showPaths("C:\\h", "win32", "invite")).toMatchObject({ socket: expect.stringMatching(/^\\\\\.\\pipe\\wim-invite-/), proof: "C:\\h\\invite.proof" });
   });
 
   it("hands the code over once, then closes; times out; and fails a fetch with nothing waiting", async () => {
     // A Unix socket in the directory on POSIX, a named pipe on Windows, as the CLI uses.
     const dir = await scratch("sock");
-    const path = showSocketPath(dir, process.platform);
+    const paths = showPaths(dir, process.platform);
     const stop = new AbortController();
-    const held = holdForShow(path, "CODE", 2000, stop.signal, process.platform);
-    await sleep(20);
-    expect(await fetchHeldCode(path)).toBe("CODE");
+    const hold = (code: string, ms: number, signal = new AbortController().signal) => holdForShow(paths, code, { ms, signal, platform: process.platform });
+    const held = hold("CODE", 2000, stop.signal);
+    await until(() => fs.access(paths.proof).then(() => true, () => false));
+    expect(await fetchHeldCode(paths)).toBe("CODE");
     expect(await held).toBe(true);
-    await expect(fetchHeldCode(path)).rejects.toThrow(/no recovery code is waiting/);
-    expect(await holdForShow(path, "CODE", 10, new AbortController().signal, process.platform)).toBe(false);
+    await expect(fetchHeldCode(paths)).rejects.toThrow(/no recovery code is waiting/);
+    expect(await hold("CODE", 10)).toBe(false);
     // A second connection at the same moment gets nothing.
-    const h2 = holdForShow(path, "C2", 2000, new AbortController().signal, process.platform);
-    await sleep(20);
-    const [x, y] = await Promise.allSettled([fetchHeldCode(path), fetchHeldCode(path)]);
+    const h2 = hold("C2", 2000);
+    await until(() => fs.access(paths.proof).then(() => true, () => false));
+    const [x, y] = await Promise.allSettled([fetchHeldCode(paths), fetchHeldCode(paths)]);
     expect([x.status, y.status].sort()).toEqual(["fulfilled", "rejected"]);
     await h2;
     // Neither a socket in a missing directory nor (on Windows) a path that is not a pipe can listen.
     for (const platform of ["linux", "win32"]) {
-      await expect(holdForShow(join(dir, "missing", "deep", "r.sock"), "C", 10, new AbortController().signal, platform)).rejects.toThrow();
+      await expect(holdForShow({ ...paths, socket: join(dir, "missing", "deep", "r.sock") }, "C", { ms: 10, signal: new AbortController().signal, platform })).rejects.toThrow();
     }
+  });
+});
+
+describe("holding a code for a person", () => {
+  // A raw connection to the held code's socket or pipe, sending `line`: what comes back.
+  function rawRead(path: string, line: string): Promise<string> {
+    return new Promise((resolve) => {
+      let text = "";
+      const c = createConnection(path);
+      c.setEncoding("utf8");
+      c.on("data", (d: string) => (text += d));
+      c.on("error", () => undefined);
+      c.once("close", () => resolve(text));
+      if (line !== "") c.write(line);
+    });
+  }
+  const exists = (path: string): Promise<boolean> => fs.access(path).then(() => true, () => false);
+  /**
+   * A connection that sends part of a line and waits. Resolves once the holder has taken it: a
+   * connection made after it (a wrong proof) was answered, and connections are taken in order.
+   */
+  async function sitter(path: string): Promise<{ closed: Promise<string> }> {
+    let connected = (): void => undefined;
+    const up = new Promise<void>((r) => (connected = r));
+    const c = createConnection(path, () => connected());
+    c.on("error", () => undefined);
+    const closed = new Promise<string>((resolve) => c.once("close", () => resolve("")));
+    await up;
+    c.write("partial");
+    expect(await rawRead(path, "wrong\n")).toBe("");
+    return { closed };
+  }
+
+  it("gives nothing to a reader without the proof, and still hands the code to the person", async () => {
+    const dir = await scratch("proof");
+    const paths = showPaths(dir, process.platform);
+    let listening = false;
+    const held = holdForShow(paths, "CODE", { ms: 10_000, signal: new AbortController().signal, platform: process.platform, proofWaitMs: 50, onListening: () => (listening = true) });
+    await until(() => listening);
+    const proof = await fs.readFile(paths.proof, "utf8");
+    expect(proof).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    if (POSIX) expect((await fs.stat(paths.proof)).mode & 0o777).toBe(0o600);
+    // A wrong proof, one of the wrong length, a line too long, and no proof at all (dropped after
+    // the wait): each gets nothing, and none of them ends the window.
+    expect(await rawRead(paths.socket, "not the proof\n")).toBe("");
+    expect(await rawRead(paths.socket, `${proof.slice(0, -1)}A\n`)).toBe("");
+    expect(await rawRead(paths.socket, "x".repeat(200))).toBe("");
+    expect(await rawRead(paths.socket, "")).toBe("");
+    // A reader sitting on a connection does not lock the person out.
+    const sitting = await sitter(paths.socket);
+    expect(await fetchHeldCode(paths)).toBe("CODE");
+    expect(await held).toBe(true);
+    // The window ended: the sitter is dropped and the proof is gone.
+    expect(await sitting.closed).toBe("");
+    expect(await exists(paths.proof)).toBe(false);
+    await expect(fetchHeldCode(paths)).rejects.toThrow(/no recovery code is waiting \(it is offered for at most 10 minutes/);
+  });
+
+  it("removes its proof when the window ends, but never a later holder's", async () => {
+    const dir = await scratch("proof2");
+    const paths = showPaths(dir, process.platform, "invite");
+    const stop = new AbortController();
+    let listening = false;
+    const held = holdForShow(paths, "INV", { ms: 10_000, signal: stop.signal, platform: process.platform, onListening: () => (listening = true) });
+    await until(() => listening);
+    // Another holder's proof replaced this one's: it is left in place. A reader still connected
+    // when the window ends is dropped.
+    await fs.writeFile(paths.proof, "another holder");
+    const sitting = await sitter(paths.socket);
+    stop.abort();
+    expect(await sitting.closed).toBe("");
+    expect(await held).toBe(false);
+    expect(await fs.readFile(paths.proof, "utf8")).toBe("another holder");
+    // A proof someone removed meanwhile is no error either.
+    await fs.rm(paths.proof);
+    const again = new AbortController();
+    listening = false;
+    const held2 = holdForShow(paths, "INV", { ms: 10_000, signal: again.signal, platform: process.platform, onListening: () => (listening = true) });
+    await until(() => listening);
+    await fs.rm(paths.proof);
+    await expect(fetchHeldCode(paths)).rejects.toThrow(/no invite code is waiting/);
+    again.abort();
+    expect(await held2).toBe(false);
+    // A proof left behind with nothing listening: the connection fails, and the fetch says so.
+    await fs.writeFile(paths.proof, "left behind");
+    await expect(fetchHeldCode(paths)).rejects.toThrow(/no invite code is waiting \(it is offered/);
+    await fs.rm(paths.proof);
+    // A proof that cannot be written closes the socket or pipe again and fails the hold.
+    await fs.mkdir(paths.proof);
+    await expect(holdForShow(paths, "INV", { ms: 10_000, signal: new AbortController().signal, platform: process.platform })).rejects.toThrow();
+    await fs.rmdir(paths.proof);
+    // The name is free again.
+    expect(await holdForShow(paths, "INV", { ms: 10, signal: new AbortController().signal, platform: process.platform })).toBe(false);
   });
 });
 

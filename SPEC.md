@@ -8,6 +8,19 @@ box scheme numbers from 3 up, would be `wim/2` and is a design only, not part of
 docs/mls.md). Informative only: no frame, status or behaviour changed, so every existing client
 and relay is compatible.
 
+Version note, unreleased: section 5 lists every address range that counts as private or
+link-local for the relay certificate pin rule, including IPv4-mapped and other IPv6 forms that
+carry an IPv4 address, and the shared address space `100.64.0.0/10`. No frame changed and relays
+are unaffected; a client refuses, without a pin, a `wss://` relay URL in those ranges that it
+dialled before.
+
+Version note, unreleased: section 9 adds two per-source limits a relay applies before the
+WebSocket handshake (dials a minute, and connections open before `auth`), answered with HTTP 429
+and `Retry-After` (section 8), and counts a recovery `auth` against the per-source limit that
+`create` and `join` share, while the per-mesh recovery limit is spent only by a verified recovery
+(section 4a). No frame changed. Clients already treat a refused dial as a lost connection and
+retry with backoff, so every existing client is compatible.
+
 Version note, 0.1.6: section 8 documents the keepalive and liveness timings of the reference client
 and relays, and what a sender sees while a recipient is frozen. Informative only: no frame, status
 or behaviour changed, so every existing client and relay is compatible.
@@ -200,8 +213,10 @@ a second admin that never connects, held by the person instead of by a machine.
   roster> }`. On that connection it then allows only `roster.get` and one `roster.publish`,
   answering every other frame with `error { code: "unauthorized" }`, and closes the connection
   after the publish with WebSocket close code 4000 ("recovered"). It never creates a session for
-  it, queues nothing for it, and lists it in no peer row. Recovery connections have their own rate
-  limit, 5 an hour per mesh, separate from the per-source `create` and `join` limit.
+  it, queues nothing for it, and lists it in no peer row. Every recovery `auth` counts against the
+  per-source limit that `create` and `join` count against (section 9), before its signature is
+  checked. A verified recovery `auth` also spends from a limit of its own, 5 an hour per mesh; an
+  attempt that fails verification does not, so it cannot use up the mesh's recoveries.
 - **Using it.** On a new device the person runs recover with the code. The client rebuilds the
   recovery keys in memory and fetches the roster chain from genesis over a recovery connection
   (above). It MUST
@@ -238,9 +253,17 @@ wim1_<b64u(canon({ "relay": "wss://relay.example", "mesh": "<mesh id>", "secret"
   SubjectPublicKeyInfo of the relay's TLS certificate, exactly 43 characters. A client stores it
   with the relay URL. A client that has a pin for a relay MUST check that the presented
   certificate's SPKI hashes to it and MUST NOT fall back to ordinary CA validation; without a pin,
-  ordinary CA validation applies. With a pin, `wss://` to a private or link-local address (RFC 1918,
-  RFC 4193, `169.254.0.0/16`, `fe80::/10`) is allowed, which lets a relay run on a local network
-  without a public certificate. `ws://` is still refused except to loopback. The pin is stored per
+  ordinary CA validation applies. A client MUST refuse `wss://` to a private or link-local address
+  without a pin, and with a pin it is allowed, which lets a relay run on a local network without a
+  public certificate. A private or link-local address here is an IP literal in any of: IPv4
+  `0.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10` (shared address space, RFC 6598), `169.254.0.0/16`,
+  `172.16.0.0/12`, `192.0.0.0/24`, `192.168.0.0/16`, `198.18.0.0/15`; IPv6 `::/128`, `fc00::/7`,
+  `fe80::/10`, `fec0::/10`, `64:ff9b:1::/48`; and an IPv6 address that carries an IPv4 address in
+  one of the IPv4 ranges (IPv4-mapped `::ffff:0:0/96`, IPv4-compatible `::/96`, NAT64
+  `64:ff9b::/96`, 6to4 `2002::/16`). The check applies to the address however it is spelled
+  (`[::ffff:10.0.0.1]` and `[::ffff:a00:1]` are the same address). Loopback (`127.0.0.0/8`,
+  `::1`, and their mapped forms) is not in the list. A host name is not resolved for this check.
+  `ws://` is still refused except to loopback. The pin is stored per
   mesh, and a later invite MUST NOT replace it without the person confirming; wim/1 has no pin
   rotation other than re-inviting.
 
@@ -474,7 +497,7 @@ person the receiving agent works for.
   sequence in the text that could open or close a frame MUST be escaped.
 - A message MUST NOT answer a permission prompt, approve a tool call, or change inbound policy.
 - **Trusted devices can assign work.** A message of any kind, except relayed or derived text
-  (below), from a device whose inbound policy is `deliver` (one the person marked as their own) is
+  (below), from a device whose inbound policy is `deliver` (one the person chose to trust) is
   presented to the agent as a work assignment from a device its person trusts. The agent MAY carry
   it out within its normal permissions: permission prompts and its own judgment still apply, and it may decline
   anything unsafe or out of scope. It is still never the person's approval of a specific action,
@@ -491,7 +514,7 @@ person the receiving agent works for.
   gets the same escaping, except that a zero-width joiner between two emoji (which forms one
   visible glyph and cannot hide text) is also kept.
 - Inbound policy is set per sender device id: `deliver`, `hold` (wait for the person) or `refuse`.
-  The default for a device the person has not marked as their own is `hold`.
+  The default for a device the person has not chosen to trust is `hold`.
 - **Relayed text.** A plaintext carries `"relayed": true` when the sender did not write its text
   itself: model output from a bot, CI logs and commit messages, an external agent's reply. A client
   that forwards text it did not author MUST set it. Inbound policy applies to the pair (sender
@@ -683,6 +706,11 @@ A client dials `<relay>/v1/<mesh id>`, where `<relay>` is the relay URL (section
 or configuration. One mesh lives behind each such URL, which lets a relay keep each mesh in its
 own shard.
 
+A relay MAY refuse a dial before the WebSocket handshake, and before it holds anything for the
+mesh, when one source address dials too often or has too many connections open that have not
+authenticated (section 9). It answers HTTP 429 with a `Retry-After` header (seconds) and a JSON
+body `{ "error": "..." }`. A client treats that as a lost connection and retries with backoff.
+
 All frames are JSON text messages with a `t` field. Unknown `t` values get an `error` and are
 otherwise ignored. A connection that sends a malformed frame MAY be closed. Relays refuse unknown
 keys in client frames, because they forward signed objects unchanged. Clients ignore unknown keys
@@ -835,7 +863,9 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | queue lifetime | 24 hours |
 | auth deadline after `hello` | 10 seconds |
 | auth clock skew | 5 minutes |
-| `create` and `join` per source address | 10 an hour, across every mesh on the relay |
+| `create`, `join` and recovery `auth` per source address | 10 an hour, together, across every mesh on the relay |
+| WebSocket dials per source address | 600 a minute, across every mesh on the relay |
+| connections before `auth` per source address | 256 open at once |
 | idle notices per session | 16, each lasting 12 hours |
 | sessions per mesh | 256 |
 | sessions per device | 32 |
@@ -870,7 +900,7 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | room history per mesh | 64 MiB |
 | parked messages per mesh (`roster_behind`) | 64 |
 | recovery code display window | 10 minutes |
-| recovery connections per mesh | 5 an hour |
+| verified recovery connections per mesh | 5 an hour |
 | pending join connections | 1 per invite, 16 per mesh |
 | `derived` window after an information-only item | 10 minutes |
 | prekey rotation | daily (a new one when the newest is 24 hours old) |

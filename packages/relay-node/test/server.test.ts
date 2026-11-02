@@ -21,7 +21,7 @@ import {
 } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hash, LIMITS } from "@worldinmotion/protocol";
-import { migrate, RELAY_VERSION, SqlStore } from "@worldinmotion/relay-core";
+import { migrate, RELAY_VERSION, sourceKey, SqlStore } from "@worldinmotion/relay-core";
 import { runUntilSignal, sqlDb, start, type RunningRelay } from "../src/index.ts";
 import { pathOf, STORED_SWEEP_MESHES } from "../src/server.ts";
 import { Dial, scratchDir } from "./helpers.ts";
@@ -188,6 +188,34 @@ describe("relay-node", () => {
     expect(await get(r.port, "/healthz")).toEqual({ status: 200, body: { ok: true } });
   });
 
+  it("keys sources with a random secret kept in its own database, the same after a restart", async () => {
+    const db = join(await scratchDir(), "relay.db");
+    const read = (file: string, sql: string) => {
+      const raw = new DatabaseSync(file);
+      try {
+        return raw.prepare(sql).all().map((row) => String(Object.values(row)[0]));
+      } finally {
+        raw.close();
+      }
+    };
+    const first = await start({ db, port: 0, log: () => {} });
+    running.push(first);
+    const [stored] = read(db, "SELECT v FROM relay_node_secret WHERE k = 'source'");
+    const secret = b64u.decode(stored!);
+    expect(secret).toHaveLength(32);
+    // What the relay keeps for a source is the keyed form of its address.
+    expect((await get(first.port, `/v1/rdv/${"A".repeat(22)}`)).status).toBe(404);
+    expect(read(db, "SELECT k FROM rdv_buckets")).toEqual([`get:${sourceKey("127.0.0.1", secret)}`]);
+    await first.close();
+    running.splice(running.indexOf(first), 1);
+    running.push(await start({ db, port: 0, log: () => {} }));
+    expect(read(db, "SELECT v FROM relay_node_secret WHERE k = 'source'")).toEqual([stored]);
+    // Another relay has a secret of its own.
+    const otherDb = join(await scratchDir(), "other.db");
+    running.push(await start({ db: otherDb, port: 0, log: () => {} }));
+    expect(read(otherDb, "SELECT v FROM relay_node_secret WHERE k = 'source'")).not.toEqual([stored]);
+  });
+
   it("limits box fetches per source address", async () => {
     const r = await relay({ limits: { rdvGetsPerSourcePerHour: 1 } });
     expect((await get(r.port, `/v1/rdv/${"A".repeat(22)}`)).status).toBe(404);
@@ -208,6 +236,89 @@ describe("relay-node", () => {
     expect(closed.lines).toContain("creating meshes is closed: set WIM_CREATE_KEY, or WIM_OPEN_CREATE=1 to let anyone create one");
     expect(await get(closed.port, "/healthz")).toEqual({ status: 200, body: { ok: true } });
     expect(await createFrom(closed.relayUrls[0]!, "x")).toBe("unauthorized");
+  });
+
+  /** Headers of a WebSocket upgrade the server accepts (101), plus any extra ones. */
+  const WS_UPGRADE = { connection: "upgrade", upgrade: "websocket", "sec-websocket-version": "13", "sec-websocket-key": "dGhlIHNhbXBsZSBub25jZQ==" };
+
+  /** The answer to an upgrade request: the status, headers and body text, or 101 once upgraded. */
+  const upgradeAnswer = (port: number, path: string, headers: Record<string, string>) =>
+    new Promise<{ status: number; headers: Record<string, unknown>; text: string }>((resolve) => {
+      const req = request({ host: "127.0.0.1", port, path, headers });
+      req.on("upgrade", (res, socket) => {
+        socket.destroy();
+        resolve({ status: res.statusCode!, headers: res.headers, text: "" });
+      });
+      req.on("response", (res) => {
+        let text = "";
+        res.on("data", (d: Buffer) => void (text += d.toString("utf8")));
+        res.on("end", () => resolve({ status: res.statusCode!, headers: res.headers, text }));
+      });
+      req.end();
+    });
+
+  const meshPath = () => `/v1/${b64u.encode(randomBytes(16))}`;
+
+  it("builds no mesh state for an upgrade the WebSocket server refuses, and frees its place", async () => {
+    const r = await relay({ trustProxy: true, limits: { preAuthSocketsPerSource: 1 } });
+    const from = { "x-forwarded-for": "198.51.100.40" };
+    // No Sec-WebSocket-Key: the WebSocket server refuses the handshake itself.
+    const refused = await upgradeAnswer(r.port, meshPath(), { connection: "upgrade", upgrade: "websocket", ...from });
+    expect(refused.status).toBe(400);
+    expect(r.loadedMeshes()).toBe(0);
+    // The refused handshake does not keep the source's one place before auth.
+    await vi.waitFor(async () => expect((await upgradeAnswer(r.port, meshPath(), { ...WS_UPGRADE, ...from })).status).toBe(101));
+  });
+
+  it("refuses dials past the per-source budget with 429 and Retry-After, before any mesh state, until it refills", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const r = await relay({ trustProxy: true, tickMs: 10, limits: { dialsPerSourcePerMinute: 2 } });
+      const url = r.relayUrls[0]!;
+      const from = { "x-forwarded-for": "198.51.100.41" };
+      const a = new Dial(`${url}${meshPath()}`, { headers: from });
+      const b = new Dial(`${url}${meshPath()}`, { headers: from });
+      await a.next();
+      await b.next();
+      const refused = await upgradeAnswer(r.port, meshPath(), { ...WS_UPGRADE, ...from });
+      expect(refused.status).toBe(429);
+      expect(refused.headers["retry-after"]).toBe("30");
+      expect(JSON.parse(refused.text)).toEqual({ error: "too many connections from this address; try again later" });
+      expect(r.loadedMeshes()).toBe(2);
+      // Another address has its own budget.
+      expect((await upgradeAnswer(r.port, meshPath(), { ...WS_UPGRADE, "x-forwarded-for": "198.51.100.42" })).status).toBe(101);
+      // The budget refills within a minute, and an idle address is forgotten.
+      vi.setSystemTime(Date.now() + 60_000);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect((await upgradeAnswer(r.port, meshPath(), { ...WS_UPGRADE, ...from })).status).toBe(101);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("caps the connections per source that have not authenticated", async () => {
+    const r = await relay({ trustProxy: true, limits: { preAuthSocketsPerSource: 2 } });
+    const url = r.relayUrls[0]!;
+    const { admin, roster } = await mesh(url);
+    const from = { "x-forwarded-for": "198.51.100.43" };
+    const a = new Dial(`${url}/v1/${roster.mesh}`, { headers: from });
+    const b = new Dial(`${url}${meshPath()}`, { headers: from });
+    const hello = await a.next();
+    await b.next();
+    const refused = await upgradeAnswer(r.port, meshPath(), { ...WS_UPGRADE, ...from });
+    expect(refused.status).toBe(429);
+    expect(refused.headers["retry-after"]).toBe("10");
+    expect(r.loadedMeshes()).toBe(2);
+    // Another address is not affected.
+    expect((await upgradeAnswer(r.port, meshPath(), { ...WS_UPGRADE, "x-forwarded-for": "198.51.100.44" })).status).toBe(101);
+    // A connection that authenticates no longer counts.
+    a.send(signAuth({ relay: url, mesh: roster.mesh, nonce: hello["nonce"], at: Date.now(), session: { name: "capped", kind: "cli", sid: ulid(), resume: b64u.encode(randomBytes(32)) }, pin: rosterRef(roster) }, admin.keys));
+    expect((await a.nextOf("ready"))["name"]).toBe("capped");
+    const c = new Dial(`${url}${meshPath()}`, { headers: from });
+    await c.next();
+    // Nor does one that closed.
+    b.ws.close();
+    await vi.waitFor(async () => expect((await upgradeAnswer(r.port, meshPath(), { ...WS_UPGRADE, ...from })).status).toBe(101));
   });
 
   it("keeps nothing in memory for a mesh id that was only dialled, and keeps a mesh that exists", async () => {
@@ -246,8 +357,9 @@ describe("relay-node", () => {
     const evil = new Dial(`${r.relayUrls[0]}/v1/${b64u.encode(randomBytes(16))}`);
     await evil.next();
     // A value whose length cannot convert to a primitive once made the frame parser throw and
-    // took the whole relay process down before any authentication.
-    evil.send({ t: "auth", mesh: { valueOf: 1, toString: 1 } });
+    // took the whole relay process down before any authentication. JSON can carry one, as the
+    // protocol's own tests send it (packages/protocol/test/hostile-length.test.ts).
+    evil.send({ t: "auth", mesh: { length: { valueOf: 1, toString: 1 } } });
     expect(await evil.nextOf("error")).toMatchObject({ code: "malformed" });
     expect((await evil.closed).code).toBe(4008);
     // The relay is still up: a fresh socket on another mesh still gets its hello.

@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { basename, join } from "node:path";
 import { ulid, ulidTime } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
-import { Breaker, pauseNotice } from "../src/breaker.ts";
+import { Breaker, pauseNotice, pauseNoticeForAgent } from "../src/breaker.ts";
 import { cardFor, cardLabel, readBranch, sameCard } from "../src/cards.ts";
 import { mimeFor, safeFileName, saveReceived, secretsInFile, unsendable, wireFileName } from "../src/files.ts";
 import { frameEntry, History, renderForAgent, renderForPerson, type HistoryEntry } from "../src/history.ts";
@@ -12,11 +12,13 @@ import { noticeText, peerLine, policyFor, policyLevel } from "../src/render.ts";
 import { POSIX, scratch } from "./helpers.ts";
 
 const DEV = "A".repeat(22);
+/** The breaker every mesh.json written before 0.1.8 holds, read back. */
+const BEFORE_018 = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
 
 describe("Breaker", () => {
   it("pauses a peer past its hourly limit and resumes after the hour or on request", () => {
     let now = 0;
-    const limits = { perPeerPerHour: 3, totalPerHour: 100, pingPong: false };
+    const limits = { perPeerPerHour: 3, totalPerHour: 100, pingPong: false, pingPongExchanges: 8 };
     const b = new Breaker(() => limits, () => now);
     for (let i = 0; i < 3; i++) expect(b.admit("dev1", 500)).toEqual({ ok: true });
     expect(b.admit("dev1", 500)).toEqual({ ok: false, reason: "peer", newly: true });
@@ -30,7 +32,7 @@ describe("Breaker", () => {
   });
 
   it("pauses everyone past the total", () => {
-    const b = new Breaker(() => ({ perPeerPerHour: 100, totalPerHour: 2, pingPong: false }), () => 0);
+    const b = new Breaker(() => ({ perPeerPerHour: 100, totalPerHour: 2, pingPong: false, pingPongExchanges: 8 }), () => 0);
     b.admit("a", 1);
     b.admit("b", 1);
     expect(b.admit("c", 1)).toEqual({ ok: false, reason: "total", newly: true });
@@ -38,7 +40,7 @@ describe("Breaker", () => {
 
   it("pauses a fast ping-pong of short messages, not long or one-way ones", () => {
     let now = 0;
-    const b = new Breaker(() => DEFAULT_BREAKER, () => now);
+    const b = new Breaker(() => BEFORE_018, () => now);
     for (let i = 0; i < 5; i++) {
       now += 1000;
       expect(b.admit("p", 10).ok).toBe(true);
@@ -46,7 +48,7 @@ describe("Breaker", () => {
     }
     now += 1000;
     expect(b.admit("p", 10)).toEqual({ ok: false, reason: "pingpong", newly: true });
-    const c = new Breaker(() => DEFAULT_BREAKER, () => now);
+    const c = new Breaker(() => BEFORE_018, () => now);
     for (let i = 0; i < 6; i++) {
       now += 1000;
       expect(c.admit("q", 500).ok).toBe(true);
@@ -55,10 +57,38 @@ describe("Breaker", () => {
     for (let i = 0; i < 6; i++) expect(c.admit("r", 10).ok).toBe(true);
   });
 
-  it("words its notices", () => {
-    expect(pauseNotice("a@x", "peer", DEFAULT_BREAKER)).toBe("worldinmotion paused a@x: 20 messages in an hour; /wim to resume");
-    expect(pauseNotice("a@x", "total", DEFAULT_BREAKER)).toMatch(/60 messages in an hour from all peers/);
-    expect(pauseNotice("a@x", "pingpong", DEFAULT_BREAKER)).toMatch(/fast exchange/);
+  it("counts ping-pong exchanges against the configured threshold", () => {
+    let now = 0;
+    // The default for new meshes, 32: 17 incoming short messages answered in turn make 32
+    // alternating exchanges and pass; the 18th makes 34 and trips it.
+    const b = new Breaker(() => DEFAULT_BREAKER, () => now);
+    for (let i = 0; i < 16; i++) {
+      now += 1000;
+      expect(b.admit("p", 10).ok).toBe(true);
+      b.noteSent("p", 10);
+    }
+    now += 1000;
+    expect(b.admit("p", 10).ok).toBe(true);
+    b.noteSent("p", 10);
+    now += 1000;
+    expect(b.admit("p", 10)).toEqual({ ok: false, reason: "pingpong", newly: true });
+    // A breaker that turns ping-pong off never trips on it, whatever the threshold.
+    const off = new Breaker(() => ({ ...DEFAULT_BREAKER, pingPong: false, pingPongExchanges: 1 }), () => now);
+    for (let i = 0; i < 40; i++) {
+      now += 1000;
+      expect(off.admit("q", 10).ok).toBe(true);
+      off.noteSent("q", 10);
+    }
+  });
+
+  it("words its notices with the rule that tripped and its limit", () => {
+    expect(pauseNotice("a@x", "peer", DEFAULT_BREAKER)).toBe("worldinmotion paused a@x: the per-peer limit, 120 messages in an hour; /wim to resume");
+    expect(pauseNotice("a@x", "total", DEFAULT_BREAKER)).toBe("worldinmotion paused a@x: the total limit, 300 messages in an hour from all peers; /wim to resume");
+    expect(pauseNotice("a@x", "pingpong", DEFAULT_BREAKER)).toBe(
+      "worldinmotion paused a@x: the ping-pong rule, more than 32 alternating short messages in 10 minutes; /wim to resume",
+    );
+    expect(pauseNotice("a@x", "pingpong", BEFORE_018)).toMatch(/more than 8 alternating short messages/);
+    expect(pauseNoticeForAgent("a@x", "total", BEFORE_018)).toMatch(/^this device's loop breaker paused a@x \(the total limit, 60 messages in an hour from all peers\): /);
   });
 });
 

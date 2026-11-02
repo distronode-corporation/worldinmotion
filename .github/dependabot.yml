@@ -10,7 +10,8 @@ version: 2
 # `cooldown` holds a version update back until the release is a week old, so a
 # compromised publish that is yanked within days never reaches a pull request here. It
 # matches the 7-day rule in CONTRIBUTING.md. It does not delay SECURITY updates, which
-# Dependabot opens as soon as an advisory lands.
+# Dependabot opens as soon as an advisory lands, so dependabot-auto-merge.yml never merges
+# one: those wait for a person.
 updates:
   - package-ecosystem: github-actions
     directory: /
@@ -41,11 +42,28 @@ updates:
         update-types: ["version-update:semver-major"]
     groups:
       # Split by dependency type so that a group's type is unambiguous.
-      # dependabot-auto-merge.yml merges only the development group's patch and minor
-      # updates; runtime dependencies (the crypto libraries above all) wait for a person.
+      # dependabot-auto-merge.yml merges only the npm-dev-minor group's patch and minor
+      # updates; everything else, runtime dependencies (the crypto libraries above all)
+      # included, waits for a person.
+      #
+      # None of these groups sets `applies-to`, so each covers version updates only. A
+      # security update is never grouped here: it arrives as its own pull request with no
+      # group, outside the cooldown, and dependabot-auto-merge.yml leaves it to a person.
+      #
+      # The build tools that write what users run, in their own group so that a person
+      # reads every update: esbuild writes the client bundle (packages/client/dist/wim.mjs,
+      # its copy plugins/claude-code/dist/client.mjs, and the npm package) and the
+      # extension's dist/extension.js; @vscode/vsce packages the .vsix that release.yml
+      # publishes; wrangler bundles the Worker relay when it is deployed. A dependency goes
+      # into the first group it matches, so this group comes first, and npm-dev-minor also
+      # excludes the same names in case the order is ever changed.
+      npm-build-tools:
+        patterns: [esbuild, "@vscode/vsce", wrangler]
+        update-types: [minor, patch]
       npm-dev-minor:
         dependency-type: development
         update-types: [minor, patch]
+        exclude-patterns: [esbuild, "@vscode/vsce", wrangler]
       npm-prod-minor:
         dependency-type: production
         update-types: [minor, patch]

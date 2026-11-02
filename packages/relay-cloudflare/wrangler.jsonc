@@ -22,6 +22,14 @@
     // The boxes of short invite codes, for every mesh (one object for the whole Worker).
     { "tag": "v3", "new_sqlite_classes": ["RendezvousStore"] }
   ],
+  // The rate limit per client address on dials and short invite code fetches, checked before
+  // they reach a Durable Object: 600 a minute, the protocol's dialsPerSourcePerMinute. Cloudflare
+  // counts it at each location, so it is approximate. namespace_id is any positive integer that
+  // no other rate limit binding in your account uses. Without this binding the Worker still
+  // runs, with no such limit, and logs that it has none.
+  "ratelimits": [
+    { "name": "DIALS", "namespace_id": "4170", "simple": { "limit": 600, "period": 60 } }
+  ],
   "vars": {
     // The exact public base URL(s) clients dial, comma-separated. An `auth` signs this URL and the
     // relay compares it byte for byte, so it must match your invites. Replace the placeholder.

@@ -56,7 +56,7 @@ export type ConnState = {
   nonce: string;
   /** When a connection that has not authenticated is closed (ms), or 0 once authenticated. */
   deadline: number;
-  /** The host's key for the client's source address (for example a hashed IP), for rate limits. */
+  /** The host's key for the client's source address (`sourceKey`, a keyed hash), for rate limits. */
   source: string;
   /** The invite id a joining connection waits on, or null. */
   join: string | null;
@@ -93,9 +93,10 @@ export type RelayHost = {
   /** Operational events worth an operator's attention (forks, revocation purges). */
   log(event: string, fields: Record<string, unknown>): void;
   /**
-   * The `create` and `join` limit per source address. A new mesh id means a new relay instance,
-   * so a limit kept in one mesh's store cannot stop one address creating many meshes: a host that
-   * serves several meshes passes a limiter shared by all of them. Without one, the relay keeps the
+   * The pre-auth limit per source address, spent by every `create`, `join` and recovery `auth`
+   * (an ordinary `auth` is not counted). A new mesh id means a new relay instance, so a limit
+   * kept in one mesh's store cannot stop one address creating many meshes: a host that serves
+   * several meshes passes a limiter shared by all of them. Without one, the relay keeps the
    * limit in this mesh's store.
    */
   allowSource?(source: string, now: number): boolean;
@@ -169,6 +170,11 @@ export class MeshRelay {
   private readonly host: RelayHost;
   private readonly store: MeshStore;
   private cached: Roster | undefined;
+  /**
+   * Set by `tick` once it found the store without this mesh. Only this instance's `create` makes
+   * the mesh exist, so later ticks need not ask the store again until it does.
+   */
+  private absent = false;
 
   constructor(config: RelayConfig, host: RelayHost) {
     if (config.relayUrls.length === 0) throw new TypeError("MeshRelay: at least one relay URL");
@@ -238,7 +244,10 @@ export class MeshRelay {
     if (st.phase === "authed") this.goOffline(this.store.getSession(st.sid!)!);
   }
 
-  /** Expiry sweeps. Call about once a second. */
+  /**
+   * Expiry sweeps. Call about once a second. Connections past their pre-auth deadline are closed
+   * first; the store sweeps run only for a mesh that exists.
+   */
   tick(now: number): void {
     const L = this.limits;
     for (const conn of this.host.connections()) {
@@ -246,6 +255,11 @@ export class MeshRelay {
       if (st.phase !== "pre" || st.deadline > now) continue;
       if (st.join !== null) this.error(conn, "invite_expired", "the invite expired before an admin answered", "join");
       this.shut(conn, st, CLOSE.authTimeout, "auth timeout");
+    }
+    // A mesh that does not exist has nothing stored to sweep, so a dialled id costs no store work.
+    if (this.absent || (this.cached === undefined && !this.exists())) {
+      this.absent = true;
+      return;
     }
 
     // Sessions first, so a sender gone for a day no longer receives receipts below.
@@ -317,25 +331,28 @@ export class MeshRelay {
   /**
    * A recovery record's `auth` (SPEC 4a): relay, nonce and clock checks, a genesis pin, and a
    * current recovery record as the device. It opens no session; the connection may then only read
-   * the chain and publish one roster. It has its own budget per mesh (`recoveryPerMeshPerHour`)
-   * and is not counted against the per-source create and join budget. A mesh that does not exist
-   * is refused before the budget is touched, so the attempt stores nothing.
+   * the chain and publish one roster.
+   *
+   * Every attempt is charged to its source's pre-auth budget (the one `create` and `join` spend)
+   * before anything else is checked. The mesh's own recovery budget (`recoveryPerMeshPerHour`)
+   * is spent only by an attempt whose signature verified, so attempts that fail verification
+   * never use it up. A mesh that does not exist is refused before that budget is touched.
    */
   private recoverAuth(conn: Conn, st: ConnState, f: RecoverAuthFrame): void {
     const refuse = (code: string, message: string, close: number) => {
       this.error(conn, code, message, "auth");
       this.shut(conn, st, close, code);
     };
+    if (!this.allowSource(st)) return refuse("limited", "too many recovery attempts from this address", CLOSE.limited);
     if (!this.exists()) return refuse("unauthorized", "unknown mesh", CLOSE.unauthorized);
-    // Recovery has its own budget per mesh, apart from the per-source create and join budget.
     const L = this.limits;
     const now = this.host.now();
-    const level = this.level("recover", L.recoveryPerMeshPerHour, L.recoveryPerMeshPerHour / HOUR, now);
-    if (level < 1) return refuse("limited", "too many recovery attempts for this mesh", CLOSE.limited);
-    this.spend("recover", level, 1, now);
     const genesis = JSON.parse(this.store.getRoster(1)!.json) as Roster;
     const v = verifyRecoverAuth(f, { roster: this.roster(), genesis }, { relay: this.config.relayUrls, nonce: st.nonce, now, skewMs: L.authSkewMs });
     if (!v.ok) return refuse("unauthorized", v.reason, CLOSE.unauthorized);
+    const level = this.level("recover", L.recoveryPerMeshPerHour, L.recoveryPerMeshPerHour / HOUR, now);
+    if (level < 1) return refuse("limited", "too many recovery attempts for this mesh", CLOSE.limited);
+    this.spend("recover", level, 1, now);
     this.host.setState(conn, { ...st, phase: "recover", deadline: 0, device: f.device });
     this.emit(conn, { t: "recover.ready", roster: this.roster() });
   }
@@ -368,6 +385,7 @@ export class MeshRelay {
     // `exists()` check above and this insert.
     this.store.insertRoster({ seq: 1, hash: hash(v.value), json: JSON.stringify(v.value) });
     this.cached = v.value;
+    this.absent = false;
     this.emit(conn, { t: "roster", chain: [v.value], more: false });
   }
 

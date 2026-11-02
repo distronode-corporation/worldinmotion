@@ -46,8 +46,15 @@ export const LIMITS = {
   sessionsPerMesh: 256,
   /** Sessions on one device. */
   sessionsPerDevice: 32,
-  /** `create` and `join` frames per source address per hour. */
+  /** `create`, `join` and recovery `auth` frames per source address per hour, together. */
   createJoinPerSourcePerHour: 10,
+  /**
+   * WebSocket dials per source address per minute that may reach a mesh. Generous on purpose: an
+   * office behind one address reconnects every session at once after a relay restart.
+   */
+  dialsPerSourcePerMinute: 600,
+  /** Open connections per source address that have not authenticated yet. */
+  preAuthSocketsPerSource: 256,
   /** Unexpired, unused invites per admin device. */
   liveInvitesPerDevice: 16,
   /** Default invite lifetime. */
@@ -127,7 +134,7 @@ export const LIMITS = {
   /** Pending (unauthenticated, waiting) join connections per invite and per mesh. */
   pendingJoinsPerInvite: 1,
   pendingJoinsPerMesh: 16,
-  /** Recovery connections per mesh per hour, in their own bucket. */
+  /** Verified recovery connections per mesh per hour, in their own bucket. */
   recoveryPerMeshPerHour: 5,
   /** Longest time from a task's `at` to its `deadline`. */
   taskDeadlineMaxMs: DAY,

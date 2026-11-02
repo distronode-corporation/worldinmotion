@@ -36,7 +36,45 @@ describe("parseMeshConfig", () => {
     expect(parseMeshConfig({ ...good, share_cards: false, policy: undefined }, "p").share_cards).toBe(false);
     expect(parseMeshConfig({ ...good, fork: { seq: 2, a: "x", b: "y", base: [], at: 1 } }, "p").fork?.seq).toBe(2);
     const b = parseMeshConfig({ ...good, breaker: { perPeerPerHour: 0, totalPerHour: 5, pingPong: false } }, "p").breaker;
-    expect(b).toEqual({ perPeerPerHour: 20, totalPerHour: 5, pingPong: false });
+    expect(b).toEqual({ perPeerPerHour: 20, totalPerHour: 5, pingPong: false, pingPongExchanges: 8 });
+  });
+  it("reads the breaker: absent is the new default, a written one is honoured as written", () => {
+    // New meshes (and a file with no breaker at all) get the limits of 0.1.8.
+    expect(DEFAULT_BREAKER).toEqual({ perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32 });
+    expect(parseMeshConfig({ ...good, breaker: undefined }, "p").breaker).toEqual(DEFAULT_BREAKER);
+    // The default every earlier version wrote stays in force, threshold included (it had none written).
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 20, totalPerHour: 60, pingPong: true } }, "p").breaker).toEqual({
+      perPeerPerHour: 20,
+      totalPerHour: 60,
+      pingPong: true,
+      pingPongExchanges: 8,
+    });
+    // A hand-tuned one, as the person wrote it.
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 120, totalPerHour: 300, pingPong: false } }, "p").breaker).toEqual({
+      perPeerPerHour: 120,
+      totalPerHour: 300,
+      pingPong: false,
+      pingPongExchanges: 8,
+    });
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 50, totalPerHour: 90, pingPong: true, pingPongExchanges: 16 } }, "p").breaker).toEqual({
+      perPeerPerHour: 50,
+      totalPerHour: 90,
+      pingPong: true,
+      pingPongExchanges: 16,
+    });
+    // Anything in a written breaker that is missing or not a positive whole number reads as the
+    // value files were written with before 0.1.8, never as the higher new default.
+    for (const bad of [0, -1, 1.5, "32", Number.MAX_SAFE_INTEGER + 1, null]) {
+      expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: bad, totalPerHour: bad, pingPong: true, pingPongExchanges: bad } }, "p").breaker).toEqual({
+        perPeerPerHour: 20,
+        totalPerHour: 60,
+        pingPong: true,
+        pingPongExchanges: 8,
+      });
+    }
+    for (const written of [{}, null, "fast", 7]) {
+      expect(parseMeshConfig({ ...good, breaker: written }, "p").breaker).toEqual({ perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 });
+    }
   });
   it("refuses broken files", () => {
     expect(() => parseMeshConfig(null, "p")).toThrow(/not a mesh file/);

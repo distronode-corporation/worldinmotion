@@ -3,7 +3,7 @@ import { createServer as createHttpsServer } from "node:https";
 import type { Duplex } from "node:stream";
 import { networkInterfaces } from "node:os";
 import { DatabaseSync } from "node:sqlite";
-import { CLOSE, isRelayUrl, LIMITS } from "@worldinmotion/protocol";
+import { b64u, CLOSE, isRelayUrl, LIMITS, randomBytes } from "@worldinmotion/protocol";
 import {
   dropMesh,
   healthz,
@@ -87,11 +87,22 @@ export type RunningRelay = {
   close(): Promise<void>;
 };
 
-type Socket = { conn: Conn; ws: WebSocket; state: ConnState | undefined; alive: boolean };
+/** `preAuth`: whether the socket still holds one of its source's places before auth. */
+type Socket = { conn: Conn; ws: WebSocket; state: ConnState | undefined; alive: boolean; source: string; preAuth: boolean };
 /** `idle`: whether the idle table holds a row for this mesh, once known (idle expiry only). */
 type Mesh = { relay: MeshRelay; sockets: Map<string, Socket>; idle?: boolean };
 
+const MINUTE = 60_000;
 const DAY = 86_400_000;
+
+const STATUS_TEXT = { 400: "Bad Request", 404: "Not Found", 429: "Too Many Requests" } as const;
+
+/** Ends a raw socket with an HTTP error and a JSON body, instead of a WebSocket handshake. */
+function refuseUpgrade(socket: Duplex, status: keyof typeof STATUS_TEXT, error: string, retryAfter?: number): void {
+  const body = JSON.stringify({ error });
+  const retry = retryAfter === undefined ? "" : `Retry-After: ${retryAfter}\r\n`;
+  socket.end(`HTTP/1.1 ${status} ${STATUS_TEXT[status]}\r\nContent-Type: application/json\r\nConnection: close\r\n${retry}Content-Length: ${body.length}\r\n\r\n${body}`);
+}
 
 /** Stored meshes not held in memory that one tick sweeps (see `sweepStored`). */
 export const STORED_SWEEP_MESHES = 8;
@@ -162,6 +173,11 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
   raw.exec("PRAGMA journal_mode = WAL");
   const db = sqlDb(raw);
   migrate(db);
+  // The secret source keys are made under: random, made on the first start, kept with the
+  // database so the keys (and the limits stored under them) stay the same across restarts.
+  db.exec("CREATE TABLE IF NOT EXISTS relay_node_secret (k TEXT PRIMARY KEY, v TEXT NOT NULL)");
+  db.exec("INSERT INTO relay_node_secret (k, v) VALUES ('source', ?) ON CONFLICT (k) DO NOTHING", b64u.encode(randomBytes(32)));
+  const sourceSecret = b64u.decode(String(db.one("SELECT v FROM relay_node_secret WHERE k = 'source'")!["v"]));
 
   // LAN mode never falls back to plain ws: without a certificate it does not start.
   const tls = lan ? lanCert(config.db, [host, "localhost"], new Date()) : undefined;
@@ -174,7 +190,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
     const forwarded = config.trustProxy === true ? req.headers["x-forwarded-for"] : undefined;
     // The last entry is the one the trusted proxy appended; earlier ones are the client's word.
     const addr = typeof forwarded === "string" ? forwarded.split(",").at(-1)!.trim() : req.socket.remoteAddress!;
-    return sourceKey(addr);
+    return sourceKey(addr, sourceSecret);
   };
   server.on("request", (req, res) => {
     const get = req.method === "GET";
@@ -229,6 +245,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
       for (const s of meshes.get(id)?.sockets.values() ?? []) {
         s.ws.removeAllListeners("close");
         s.ws.close(CLOSE.goingAway, "mesh expired");
+        endPreAuth(s);
       }
       meshes.delete(id);
       dropMesh(db, id);
@@ -248,6 +265,39 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
     sources.set(source, { tokens: tokens - 1, at: now });
     return true;
   };
+
+  // Before the WebSocket handshake, and so before any mesh state is built: a dial budget per
+  // address (a token bucket that refills over a minute) and a cap on its open connections that
+  // have not authenticated. A refused dial is an HTTP 429, which a client retries with backoff.
+  const dialsPerMinute = config.limits?.dialsPerSourcePerMinute ?? LIMITS.dialsPerSourcePerMinute;
+  const preAuthCap = config.limits?.preAuthSocketsPerSource ?? LIMITS.preAuthSocketsPerSource;
+  const authDeadlineMs = config.limits?.authDeadlineMs ?? LIMITS.authDeadlineMs;
+  const dials = new Map<string, { tokens: number; at: number }>();
+  const preAuth = new Map<string, number>();
+  /** Counts a dial and takes a place before auth: 0, or the seconds to wait when refused. */
+  const admitDial = (source: string, now: number): number => {
+    const open = preAuth.get(source) ?? 0;
+    if (open >= preAuthCap) return Math.ceil(authDeadlineMs / 1000);
+    const b = dials.get(source);
+    const tokens = b === undefined ? dialsPerMinute : Math.min(dialsPerMinute, b.tokens + ((now - b.at) * dialsPerMinute) / MINUTE);
+    if (tokens < 1) return Math.ceil(((1 - tokens) * MINUTE) / dialsPerMinute / 1000);
+    dials.set(source, { tokens: tokens - 1, at: now });
+    preAuth.set(source, open + 1);
+    return 0;
+  };
+  /** Gives a place before auth back to its source. */
+  const freePlace = (source: string): void => {
+    const open = preAuth.get(source)! - 1;
+    if (open === 0) preAuth.delete(source);
+    else preAuth.set(source, open);
+  };
+  /** A socket that authenticated, recovered, closed or was dropped no longer holds a place. */
+  const endPreAuth = (s: Socket): void => {
+    if (!s.preAuth) return;
+    s.preAuth = false;
+    freePlace(s.source);
+  };
+
   const wss = new WebSocketServer({ noServer: true, maxPayload: LIMITS.frameBytes });
   let next = 0;
 
@@ -261,7 +311,11 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
         now: () => Date.now(),
         connections: () => [...sockets.values()].map((s) => s.conn),
         getState: (c) => sockets.get(c.id)!.state,
-        setState: (c, st) => void (sockets.get(c.id)!.state = st),
+        setState: (c, st) => {
+          const s = sockets.get(c.id)!;
+          s.state = st;
+          if (st.phase !== "pre") endPreAuth(s);
+        },
         log: (event, fields) => log(JSON.stringify({ event, mesh: id, ...fields })),
         allowSource,
         admitMesh: () => config.maxMeshes === undefined || meshCount(db) < config.maxMeshes,
@@ -293,21 +347,27 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
 
   server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     const dial = parseDialPath(pathOf(req.url!));
-    if (!dial.ok) {
-      const body = JSON.stringify({ error: dial.error });
-      const reason = dial.status === 400 ? "Bad Request" : "Not Found";
-      socket.end(`HTTP/1.1 ${dial.status} ${reason}\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: ${body.length}\r\n\r\n${body}`);
-      return;
-    }
+    if (!dial.ok) return refuseUpgrade(socket, dial.status, dial.error);
     const meshId = dial.meshId;
-    const mesh = meshFor(meshId);
     const source = sourceOf(req);
+    const wait = admitDial(source, Date.now());
+    if (wait > 0) return refuseUpgrade(socket, 429, "too many connections from this address; try again later", wait);
+    // A handshake the WebSocket server refuses never reaches the callback; its place is freed
+    // when its socket closes, and no mesh state was built for it.
+    let upgraded = false;
+    socket.once("close", () => {
+      if (!upgraded) freePlace(source);
+    });
     wss.handleUpgrade(req, socket, head, (ws) => {
+      upgraded = true;
+      const mesh = meshFor(meshId);
       const id = `${++next}`;
       const entry: Socket = {
         ws,
         state: undefined,
         alive: true,
+        source,
+        preAuth: true,
         conn: { id, send: (text) => ws.send(text), close: (code, reason) => ws.close(code, reason) },
       };
       mesh.sockets.set(id, entry);
@@ -337,6 +397,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
     sweepStored(now);
     rendezvous.sweep(now);
     for (const [k, b] of sources) if (b.at <= now - HOUR) sources.delete(k);
+    for (const [k, b] of dials) if (b.at <= now - MINUTE) dials.delete(k);
   }, config.tickMs ?? 1000);
   const heartbeat = setInterval(() => {
     for (const m of meshes.values()) {

@@ -21,10 +21,10 @@ import { cardLabel, readBranch } from "../src/cards.ts";
 import { MeshSession } from "../src/client.ts";
 import { fsOps, withLock, claimLock } from "../src/fsx.ts";
 import { WimMcp } from "../src/mcp.ts";
-import { MeshFiles, parseMeshConfig, DEFAULT_BREAKER } from "../src/mesh.ts";
+import { MeshFiles, parseMeshConfig } from "../src/mesh.ts";
 import { listAllHeld } from "../src/offline.ts";
 import { SeqStore } from "../src/replay.ts";
-import { fetchHeldCode, showSocketPath } from "../src/secretout.ts";
+import { fetchHeldCode, showPaths } from "../src/secretout.ts";
 import { SessionFiles, newSessionState } from "../src/session.ts";
 import { Connection, Link, type Dialer, type WireSocket } from "../src/wire.ts";
 import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sessionOpts, sleep, until, rosterSeqs, keysOf } from "./helpers.ts";
@@ -377,7 +377,7 @@ describe("small module edges", () => {
     expect(await readBranch(root)).toBeUndefined();
     expect(cardLabel({ branch: "b" })).toBe("branch=b");
     const raw = { v: 1, mesh: "m", relay: RELAY, device: "d", pin: { seq: 1, hash: "h" } };
-    expect(parseMeshConfig({ ...raw, breaker: { perPeerPerHour: 3, totalPerHour: -1 } }, "p").breaker).toEqual({ perPeerPerHour: 3, totalPerHour: DEFAULT_BREAKER.totalPerHour, pingPong: true });
+    expect(parseMeshConfig({ ...raw, breaker: { perPeerPerHour: 3, totalPerHour: -1 } }, "p").breaker).toEqual({ perPeerPerHour: 3, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 });
     // Locks whose file cannot be created, for a reason other than being there already: a name
     // that no file system accepts, which fails the same way on every platform. Windows looks at
     // the path before it creates; the others find out from the create itself.
@@ -395,10 +395,12 @@ describe("small module edges", () => {
     await s.record("a@x", "D".repeat(22), "T", 1);
     expect(await new SeqStore(path, FS).isNew("a@x", "D".repeat(22), "S", 9)).toBe(false);
     // A server that hangs up without a code (a Unix socket, or a named pipe on Windows).
-    const sock = showSocketPath(root, process.platform);
-    const srv = createServer((c) => c.end());
-    await new Promise<void>((r) => srv.listen(sock, r));
-    await expect(fetchHeldCode(sock)).rejects.toThrow(/no recovery code is waiting/);
+    const paths = showPaths(root, process.platform);
+    await fs.writeFile(paths.proof, "a proof");
+    // It reads the proof first, so the reader sees an orderly end rather than a broken pipe.
+    const srv = createServer((c) => c.once("data", () => c.end()));
+    await new Promise<void>((r) => srv.listen(paths.socket, r));
+    await expect(fetchHeldCode(paths)).rejects.toThrow(/^no recovery code is waiting$/);
     srv.close();
     void fsOps;
   });
@@ -414,6 +416,8 @@ describe("small module edges", () => {
     const id = ulid();
     await fs.writeFile(join(files.heldDir, `${id}.json`), JSON.stringify({ id, from: "a@b", device: "d", kind: "msg", at: 1, preview: "", rendered: "", reason: "policy", entry: { dir: "in", peer: "a@b", device: "D".repeat(22), id, kind: "msg", at: 1, text: "t" } }));
     expect((await listAllHeld(mesh, FS))[0]!.session).toBe("?");
+    // Releasing it reads the mesh's policy, as the live session does.
+    await fs.writeFile(mesh.configPath, JSON.stringify({ v: 1, mesh: "m", relay: RELAY, device: "d", pin: { seq: 1, hash: "h" } }));
     const { decideHeld } = await import("../src/offline.ts");
     expect(await decideHeld(mesh, id, "approve", FS, Date.now)).toBe(1);
   });

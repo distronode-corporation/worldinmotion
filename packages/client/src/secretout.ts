@@ -1,10 +1,12 @@
-// Showing a recovery code (SPEC section 4a, revision 4 H2): only on an interactive terminal and
-// never where an agent is driving the command. Otherwise the code waits in this process's memory
-// for up to 10 minutes, for `wim recovery show` run by the person in their own terminal.
+// Showing a recovery code (SPEC section 4a, revision 4 H2), or an `--auto` invite code: only on
+// an interactive terminal and never where an agent is driving the command. Otherwise the code
+// waits in this process's memory for up to 10 minutes, for `wim recovery show` (or `wim invite
+// show`) run by the person in their own terminal.
 
-import { b64u, LIMITS, sha256, utf8 } from "@worldinmotion/protocol";
+import { b64u, LIMITS, randomBytes, sha256, utf8 } from "@worldinmotion/protocol";
+import { timingSafeEqual } from "node:crypto";
 import { promises as fs } from "node:fs";
-import { createConnection, createServer } from "node:net";
+import { createConnection, createServer, type Socket } from "node:net";
 import { pathFor, type Platform } from "./platform.ts";
 
 /**
@@ -89,46 +91,120 @@ export function cannotConfirm(env: Record<string, string | undefined>, io: { isT
 /** The recovery code display window, in minutes, for messages. */
 export const SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 60_000;
 
-/** A Unix socket in the private state directory, or a named pipe on Windows. */
-export function showSocketPath(home: string, platform: Platform): string {
-  if (platform === "win32") return `\\\\.\\pipe\\wim-recovery-${b64u.encode(sha256(utf8(home))).slice(0, 16)}`;
-  return pathFor(platform).join(home, "recovery.sock");
-}
+/** The codes a person collects with a show command. */
+export type ShowKind = "recovery" | "invite";
 
 /**
- * Holds `code` for one `wim recovery show` within `ms`. Resolves true when it was handed over,
- * false when the window closed or `signal` aborted. Nothing is written to disk.
+ * Where a held code is offered: a Unix socket in the private state directory, or a named pipe on
+ * Windows; and the proof file next to the state, which a reader must read and send back first.
  */
-export async function holdForShow(path: string, code: string, ms: number, signal: AbortSignal, platform: Platform, onListening: () => void = () => undefined): Promise<boolean> {
-  if (platform !== "win32") await fs.rm(path, { force: true });
-  return new Promise((resolve, reject) => {
-    const server = createServer((socket) => {
-      finish(true);
-      socket.end(`${code}\n`);
+export type ShowPaths = { socket: string; proof: string; what: string };
+
+export function showPaths(home: string, platform: Platform, kind: ShowKind = "recovery"): ShowPaths {
+  const p = pathFor(platform);
+  const socket = platform === "win32" ? `\\\\.\\pipe\\wim-${kind}-${b64u.encode(sha256(utf8(home))).slice(0, 16)}` : p.join(home, `${kind}.sock`);
+  return { socket, proof: p.join(home, `${kind}.proof`), what: `${kind} code` };
+}
+
+/** How long a connection may take to send its proof before it is dropped. */
+export const PROOF_WAIT_MS = 5_000;
+/** The longest proof line read: a proof is 43 characters. */
+const PROOF_MAX = 128;
+
+function ignore(): void {}
+/** A file that cannot be read reads as absent. */
+const absent = (): undefined => undefined;
+
+/** Removes the proof file if it is still this holder's (a later holder may have replaced it). */
+async function removeOwnProof(path: string, proof: string): Promise<void> {
+  if ((await fs.readFile(path, "utf8").catch(absent)) === proof) await fs.rm(path, { force: true });
+}
+
+export type HoldOptions = { ms: number; signal: AbortSignal; platform: Platform; onListening?: () => void; proofWaitMs?: number };
+
+/**
+ * Holds `code` for one show command within `o.ms`. Resolves true when it was handed over, false
+ * when the window closed or `o.signal` aborted. The code itself is never written to disk.
+ *
+ * Only a reader that can read the state directory gets it: a random proof is written there, owner
+ * only (the 0700 home on POSIX, the user profile on Windows), and a connection must send it back
+ * before anything is sent. That matters on Windows, where the pipe's name can be guessed and Node
+ * cannot restrict who opens it. A connection with a wrong proof, none, or too long a line is
+ * dropped without ending the window, so another user cannot use it up or lock the person out. The
+ * proof is removed when the window ends.
+ */
+export async function holdForShow(paths: ShowPaths, code: string, o: HoldOptions): Promise<boolean> {
+  if (o.platform !== "win32") await fs.rm(paths.socket, { force: true });
+  const proof = b64u.encode(randomBytes(32));
+  const expected = sha256(utf8(proof));
+  const sockets = new Set<Socket>();
+  const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+    socket.on("error", ignore);
+    socket.setTimeout(o.proofWaitMs ?? PROOF_WAIT_MS, () => socket.destroy());
+    socket.setEncoding("utf8");
+    let line = "";
+    socket.on("data", (d: string) => {
+      line += d;
+      const end = line.indexOf("\n");
+      if (end === -1) {
+        if (line.length > PROOF_MAX) socket.destroy();
+        return;
+      }
+      // Compared as hashes: equal lengths for timingSafeEqual, and in constant time.
+      if (timingSafeEqual(sha256(utf8(line.slice(0, end))), expected)) server.emit("proved", socket);
+      else socket.destroy();
     });
-    // One reader only: Node turns away any connection past the first.
-    server.maxConnections = 1;
-    const timer = setTimeout(() => finish(false), ms);
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.on("error", reject);
+    server.listen(paths.socket, resolve);
+  });
+  try {
+    // The proof exists only while this process holds the socket or pipe, so it is never sent to
+    // a listener that took the name first.
+    await fs.rm(paths.proof, { force: true });
+    await fs.writeFile(paths.proof, proof, { mode: 0o600, flag: "wx" });
+  } catch (error) {
+    await new Promise((r) => server.close(r));
+    throw error;
+  }
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => finish(false), o.ms);
     const onAbort = (): void => finish(false);
     function finish(handed: boolean): void {
       clearTimeout(timer);
-      signal.removeEventListener("abort", onAbort);
-      server.close(() => resolve(handed));
+      o.signal.removeEventListener("abort", onAbort);
+      server.removeAllListeners("proved");
+      // No reader is taken after this, even one that read the proof just before it is removed,
+      // and every other reader still connected is dropped.
+      const closed = new Promise((r) => server.close(r));
+      for (const s of sockets) s.destroy();
+      void Promise.all([closed, removeOwnProof(paths.proof, proof)]).then(() => resolve(handed));
     }
-    signal.addEventListener("abort", onAbort, { once: true });
-    server.once("error", reject);
-    server.listen(path, onListening);
+    server.once("proved", (socket: Socket) => {
+      sockets.delete(socket);
+      socket.end(`${code}\n`);
+      finish(true);
+    });
+    o.signal.addEventListener("abort", onAbort, { once: true });
+    (o.onListening ?? ignore)();
   });
 }
 
-/** Fetches a code held by `holdForShow`. */
-export function fetchHeldCode(path: string): Promise<string> {
+/** Fetches a code held by `holdForShow`, proving first that this reader can read the state directory. */
+export async function fetchHeldCode(paths: ShowPaths): Promise<string> {
+  const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
+  const proof = await fs.readFile(paths.proof, "utf8").catch(absent);
+  if (proof === undefined) throw new Error(none);
   return new Promise((resolve, reject) => {
     let text = "";
-    const socket = createConnection(path);
+    const socket = createConnection(paths.socket);
     socket.setEncoding("utf8");
     socket.on("data", (d: string) => (text += d));
-    socket.once("error", () => reject(new Error(`no recovery code is waiting (it is offered for ${SHOW_WINDOW_MINUTES} minutes after it is made)`)));
-    socket.once("end", () => (text.trim() === "" ? reject(new Error("no recovery code is waiting")) : resolve(text.trim())));
+    socket.once("error", () => reject(new Error(none)));
+    socket.once("end", () => (text.trim() === "" ? reject(new Error(`no ${paths.what} is waiting`)) : resolve(text.trim())));
+    socket.write(`${proof}\n`);
   });
 }

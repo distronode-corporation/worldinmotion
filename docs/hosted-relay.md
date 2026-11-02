@@ -36,8 +36,10 @@ The relay sees metadata only:
 - room membership;
 - that a short invite code exists, which admin device stored it, its size, and when it is fetched,
   for at most an hour; never the code or the invite sealed inside it;
-- a hashed form of each connection's source address, used for rate limits. The raw address is
-  never stored by the relay.
+- each connection's source address while it is connected. For rate limits the relay keeps only
+  a keyed hash of it (per IPv4 address, or per IPv6 /64), made under a random secret the relay
+  keeps to itself, so a stored key cannot be turned back into an address by trying every
+  address. The relay does not store the raw address.
 
 It never sees message content, file content, file names or peer cards. The full list, and what a
 hostile relay could still do (drop, delay, withhold), is in [SPEC.md](../SPEC.md) section 10 and
@@ -54,9 +56,11 @@ connections it carries.
   limited to 25 MiB by the protocol.
 - **A mesh with no connection for 30 days is deleted**, with its roster, queues and files. A mesh
   any of whose devices connects at least once in 30 days is kept.
-- **Rate limits per network**: creating and joining meshes is limited per source address (per IPv4
-  address, or per IPv6 /64), on top of the protocol's own limits on sends, broadcasts and
-  sessions ([SPEC.md](../SPEC.md) section 9).
+- **Rate limits per network**: creating, joining and recovering meshes is limited per source
+  address (per IPv4 address, or per IPv6 /64), and so are connections (600 a minute per address,
+  plenty for an office reconnecting every session at once), on top of the protocol's own limits
+  on sends, broadcasts and sessions ([SPEC.md](../SPEC.md) section 9). A connection past the limit
+  is refused for a moment and the client retries by itself.
 
 The hosted relay sets these limits with the same settings any relay has: `WIM_OPEN_CREATE=1`,
 `WIM_MAX_MESHES=2000`, `WIM_IDLE_MESH_DAYS=30` and `WIM_BLOB_BYTES_PER_MESH_PER_DAY=25MiB`
@@ -71,8 +75,8 @@ every device's configuration. When the offer ends, or whenever you want to leave
    [Cloudflare template](../packages/relay-cloudflare/README.md).
 2. On one device, create a new mesh on it: `wim mesh create --relay wss://relay.example.com`
    (with `--key-env NAME` if your relay needs an operator key).
-3. Invite each of your other devices again with `wim invite` and `wim join <code>`, and mark your
-   own devices again with `wim devices trust <name>`.
+3. Invite each of your other devices again with `wim invite` and `wim join <code>`, and trust
+   your own devices again with `wim devices trust <name>`.
 
 Each device keeps its keys, so it can be in both meshes while you move. When it is in more than
 one mesh, pass `--mesh <id>` (or set `WIM_MESH`) to pick one. Messages, rooms and leases on the

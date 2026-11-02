@@ -16,7 +16,8 @@ import {
   type Roster,
   type SendFrame,
 } from "@worldinmotion/protocol";
-import { MeshDurableObject, REGISTRY_NAME, type Env } from "../src/index.ts";
+import { sourceKey } from "@worldinmotion/relay-core";
+import { MeshDurableObject, REGISTRY_NAME, sourceSecret, type Env } from "../src/index.ts";
 
 const realNow = Date.now.bind(Date);
 
@@ -215,8 +216,13 @@ export async function createMesh(mesh = meshId(), extra: Record<string, unknown>
   return { mesh, admin, genesis, sock };
 }
 
+/** The source key the Worker gives a client address, under the relay's secret. */
+export async function sourceKeyOf(ip: string): Promise<string> {
+  return sourceKey(ip, await sourceSecret(env));
+}
+
 /** The Worker's bindings without any variable, for tests that build their own environment. */
-export const bindings = { MESH: env.MESH, SOURCES: env.SOURCES, REGISTRY: env.REGISTRY, RDV: env.RDV } satisfies Partial<Env>;
+export const bindings = { MESH: env.MESH, SOURCES: env.SOURCES, REGISTRY: env.REGISTRY, RDV: env.RDV, DIALS: env.DIALS } satisfies Partial<Env>;
 
 /** How many meshes the registry counts. */
 export async function registered(): Promise<number> {
