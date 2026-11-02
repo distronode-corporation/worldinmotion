@@ -368,9 +368,9 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   dropping it. It can drop or delay messages, which senders notice as a missing receipt.
 - **Peer text is framed as another AI session's text.** Everything a peer sends reaches an agent
   inside a frame that says so. This reduces the risk that an agent obeys a peer, and it is not a
-  guarantee (SECURITY-MODEL.md section 7.1). A device you have marked as your own can ask your
-  agents for work, within their normal permissions. A device you have not marked as your own is
-  held for your approval.
+  guarantee (SECURITY-MODEL.md section 7.1). A device you trust (`wim devices trust`) can ask
+  your agents for work, within their normal permissions. Messages from a device you do not trust
+  are held for your approval.
 - **Secret filter, best effort.** Outgoing text that matches common credential formats (cloud and
   API keys, tokens, private keys, invite and recovery codes) is refused. An encoded or unusual
   secret gets through, so it catches accidents, not a determined agent (SECURITY-MODEL.md section

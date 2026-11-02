@@ -262,7 +262,7 @@ block of JSON):
 ## Inbound policy
 
 Per sender device id: `deliver`, `hold` or `refuse`, stored in `mesh.json`. Defaults: a device the
-person marked as their own (`wim devices trust <name>`) is `deliver`; any other device is `hold`.
+person trusts (`wim devices trust <name>`) is `deliver`; any other device is `hold`.
 A held item waits in `held/` with a receipt `held`; the person approves (the pane, `wim held
 approve <id>`) and it moves to the spool. No message can change policy.
 

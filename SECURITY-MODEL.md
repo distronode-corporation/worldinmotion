@@ -58,8 +58,8 @@ Both are first-class threats here.
    for content or membership.
 5. **Agent.** The receiving agent's model is a separate trust domain from its person. Peer text
    reaches the model only through the client's framing and must never be taken as the person's
-   words or approval. Sessions on devices the person marked as their own may assign the agent
-   work, which it carries out within its normal permissions (section 7.2); everything else is
+   words or approval. Sessions on devices the person trusts (`wim devices trust`) may assign the
+   agent work, which it carries out within its normal permissions (section 7.2); everything else is
    information only.
 
 ## 4. Mechanisms, in one place
@@ -122,8 +122,8 @@ Can:
   clarifying questions, a remote agent got the other agent to reveal its instructions and tools,
   and in another test to call a tool its person never asked for. In wim it fits `ask`, `reply`
   and any running conversation. Each held item is shown on its own, so a person who approves them
-  one at a time can miss the pattern. Before approving an item from a device you have not marked
-  as your own, read what came before: `wim held list` lists everything still held, and
+  one at a time can miss the pattern. Before approving an item from a device you do not trust,
+  read what came before: `wim held list` lists everything still held, and
   `wim history --session <name> --peer <address>` shows that session's earlier exchange with the
   peer. A held view that shows the whole thread with a peer is planned, not built.
 - Claim any session name on its own device. Signatures authenticate the device, not the session.
@@ -146,8 +146,8 @@ Cannot:
   symmetric key of boxes addressed to it, but cannot sign as the sender.
 - Bypass the receiving person's inbound policy with message content. Policy is keyed on device id
   and changed only by the person, at their own command line or with the trust and untrust actions
-  of a local UI (section 7.5). Unless that person marked the hostile
-  device as their own, its items are held for review and, once approved, are information only:
+  of a local UI (section 7.5). Unless that person trusts the hostile
+  device, its items are held for review and, once approved, are information only:
   they never assign work. Its card fields are not shown to the person's agents.
 
 ### 5.3 Compromised device
@@ -169,9 +169,9 @@ Can:
   identity key). One who copied the file once and left loses the device's new traffic as peers
   move to prekeys made after the copy, within a day.
 - Keep acting until peers see a roster revoking it.
-- If the person marked it as their own on their other devices: **assign work to every session on
+- If the person trusts it on their other devices: **assign work to every session on
   every one of those devices**, which those agents carry out within their normal permissions
-  (section 7.2). A compromised own device can steer all of the person's trusting sessions, and
+  (section 7.2). A compromised trusted device can steer all of the person's trusting sessions, and
   through them reach whatever those sessions' tools reach.
 
 Cannot:
@@ -763,7 +763,7 @@ not they can open the card. The relay cannot read
 or forge a card, but it can replay an older card for the same session, since cards have no
 freshness. Card fields are labels from a mesh member: escaped for display and never trusted. The
 person's pane shows every card. Agents see peer listings too (the `peers` tool, and the plugin adds
-peers to ListAgents), but only with the cards of devices the person marked as their own, so a
+peers to ListAgents), but only with the cards of devices the person trusts, so a
 device whose items are held cannot reach an agent through its card. Cards are paged, at most
 64 KiB each and 256 KiB per device, and use their own sequence space, so they never interfere with
 message ordering. Peer rows carry each session's sid, which is not a secret, so that cards can be
@@ -874,9 +874,10 @@ Every item is input from another AI session, even from a device you own: that se
 have read hostile content. The client:
 - hands text to an agent only inside a frame that says it came from another AI session, names the
   sender address and device id, and says it is not the person's instruction or approval. The frame
-  then says one of two things (section 7.2): that the sending device is one the person marked as
-  their own, so the agent may carry the request out within its normal permissions; or that the
-  text is information only;
+  then says one of two things (section 7.2): that the item comes from another session on the
+  same device or from a device the person chose to trust (without claiming whose device that
+  is), so the agent may carry the request out within its normal permissions; or that the text is
+  information only;
 - says, for relayed text, that a third party wrote it, not the sending session;
 - delimits the text with a fresh random boundary per item and escapes anything in the text that
   could open or close a frame;
@@ -911,7 +912,7 @@ plugin sets; outside the plugin nothing refuses it to the model.
 ### 7.2 Inbound policy and work assignment
 
 Policy is per sender device id: `deliver`, `deliver-relayed`, `hold` (wait for the person) or
-`refuse`. Sessions on the same device, and devices the person marks as their own, are `deliver`;
+`refuse`. Sessions on the same device, and devices the person trusts, are `deliver`;
 every other device is `hold`. Held items wait until the person approves them in the pane, in a
 local UI or at the command line. Only the person changes policy: at the command line (`wim devices
 trust` and `untrust`, one device or `--all`, and the "Is it your own device?" question that
@@ -945,11 +946,11 @@ specific action, cannot answer a permission prompt or change a setting, and the 
 anything unsafe or out of scope. Items from every other device, and relayed text from any device,
 are information only.
 
-The consequence: **marking a device as your own lets it steer every session on your other devices,
-within their permissions.** If that device is compromised, or its agent was injected by something
-it read, its requests arrive as trusted work everywhere you trust it. The mitigations:
-- **Trust per device, sparingly.** Mark only devices you would let type into your own terminal.
-  Never mark another person's device as your own; collaborate with `hold` and approve items.
+The consequence: **trusting a device lets it steer every session on your other devices that
+trust it, within their permissions.** If that device is compromised, or its agent was injected by
+something it read, its requests arrive as trusted work everywhere you trust it. The mitigations:
+- **Trust per device, sparingly.** Trust only devices you would let type into your own terminal.
+  Never trust another person's device; collaborate with `hold` and approve items.
 - **Cut off and revoke.** Set a suspect device to `hold` or `refuse` on your other devices (local,
   immediate), then revoke it from the roster.
 - **Relayed text never assigns work.** Clients that forward text they did not write (bots, the CI
@@ -965,7 +966,7 @@ it read, its requests arrive as trusted work everywhere you trust it. The mitiga
 **The SendMessage bridge.** The Claude Code plugin takes the model's SendMessage calls whose
 recipient is a mesh address (`#room`, or `name@device` where the device is in the roster and the
 address was never a local teammate this session) and sends them through the client. A send to a
-device that is not marked as the person's own asks the person first; a send to a trusted device or
+device the person does not trust asks the person first; a send to a trusted device or
 to a room goes without a prompt (the secret filter still applies). A room message is sealed to
 every device of the mesh, so it reaches untrusted devices too.
 
@@ -1055,8 +1056,8 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
 - Receipts, delivery statuses, presence, room member lists and peer rows are unsigned and advisory.
 - Rooms do not restrict who in the mesh can read a room message.
 - Any admin, and anyone with the recovery code, can change membership for everyone, across people.
-- A device marked as your own can assign work to all of your trusting sessions; a compromised or
-  injected own device steers them within their permissions until you set it to `hold` or revoke it.
+- A device you trust can assign work to all of your trusting sessions; a compromised or injected
+  trusted device steers them within their permissions until you set it to `hold` or revoke it.
 - Relayed marking covers clients that forward text, not agents that restate what they read.
 - Room sends through the SendMessage bridge do not ask the person, and reach every device.
 - Revocation reaches a client with the next message from a peer that has seen it, or with the next

@@ -490,7 +490,7 @@ person the receiving agent works for.
   sequence in the text that could open or close a frame MUST be escaped.
 - A message MUST NOT answer a permission prompt, approve a tool call, or change inbound policy.
 - **Trusted devices can assign work.** A message of any kind, except relayed or derived text
-  (below), from a device whose inbound policy is `deliver` (one the person marked as their own) is
+  (below), from a device whose inbound policy is `deliver` (one the person chose to trust) is
   presented to the agent as a work assignment from a device its person trusts. The agent MAY carry
   it out within its normal permissions: permission prompts and its own judgment still apply, and it may decline
   anything unsafe or out of scope. It is still never the person's approval of a specific action,
@@ -507,7 +507,7 @@ person the receiving agent works for.
   gets the same escaping, except that a zero-width joiner between two emoji (which forms one
   visible glyph and cannot hide text) is also kept.
 - Inbound policy is set per sender device id: `deliver`, `hold` (wait for the person) or `refuse`.
-  The default for a device the person has not marked as their own is `hold`.
+  The default for a device the person has not chosen to trust is `hold`.
 - **Relayed text.** A plaintext carries `"relayed": true` when the sender did not write its text
   itself: model output from a bot, CI logs and commit messages, an external agent's reply. A client
   that forwards text it did not author MUST set it. Inbound policy applies to the pair (sender

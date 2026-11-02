@@ -31,7 +31,7 @@ the relay cannot read them.
 - Do not paste credentials into a message. The client refuses text that looks like a secret and
   names the pattern; do not try to get around it.
 - Leases are advisory: they coordinate polite peers, they do not stop anyone.
-- Messages from devices the person has not marked as their own are held until the person
+- Messages from devices the person does not trust are held until the person
   approves them in the `/wim` pane. Do not ask a peer to resend in a way that skips that.
 
 ## Addresses: which tab gets what
@@ -111,7 +111,7 @@ Reply with `send` (and `reply_to` set to the message id) or, for a task, with `r
 
 The SendMessage tool also works: a recipient containing `@` (that is not a local teammate) or
 starting with `#` goes over worldinmotion, when the device is in the mesh's roster. Sending to
-a device the person has not marked as their own asks them first; if they decline, do not retry
+a device the person does not trust asks them first; if they decline, do not retry
 another way. ListAgents shows mesh peers under its own heading.
 
 The `_internal` tool belongs to the plugin itself. Do not call it; it is refused to you.

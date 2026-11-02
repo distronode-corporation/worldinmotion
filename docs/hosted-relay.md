@@ -75,8 +75,8 @@ every device's configuration. When the offer ends, or whenever you want to leave
    [Cloudflare template](../packages/relay-cloudflare/README.md).
 2. On one device, create a new mesh on it: `wim mesh create --relay wss://relay.example.com`
    (with `--key-env NAME` if your relay needs an operator key).
-3. Invite each of your other devices again with `wim invite` and `wim join <code>`, and mark your
-   own devices again with `wim devices trust <name>`.
+3. Invite each of your other devices again with `wim invite` and `wim join <code>`, and trust
+   your own devices again with `wim devices trust <name>`.
 
 Each device keeps its keys, so it can be in both meshes while you move. When it is in more than
 one mesh, pass `--mesh <id>` (or set `WIM_MESH`) to pick one. Messages, rooms and leases on the
