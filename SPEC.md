@@ -14,6 +14,13 @@ carry an IPv4 address, and the shared address space `100.64.0.0/10`. No frame ch
 are unaffected; a client refuses, without a pin, a `wss://` relay URL in those ranges that it
 dialled before.
 
+Version note, unreleased: section 9 adds two per-source limits a relay applies before the
+WebSocket handshake (dials a minute, and connections open before `auth`), answered with HTTP 429
+and `Retry-After` (section 8), and counts a recovery `auth` against the per-source limit that
+`create` and `join` share, while the per-mesh recovery limit is spent only by a verified recovery
+(section 4a). No frame changed. Clients already treat a refused dial as a lost connection and
+retry with backoff, so every existing client is compatible.
+
 Version note, 0.1.6: section 8 documents the keepalive and liveness timings of the reference client
 and relays, and what a sender sees while a recipient is frozen. Informative only: no frame, status
 or behaviour changed, so every existing client and relay is compatible.

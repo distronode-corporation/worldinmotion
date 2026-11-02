@@ -8549,8 +8549,8 @@ var init_getEndpointFromConfig = __esm({
     init_getEndpointUrlConfig();
     init_getIgnoreConfiguredEndpointUrls();
     getEndpointFromConfig = async (serviceId) => {
-      const ignore = await loadConfig2(ignoreConfiguredEndpointUrlsConfigSelectors)();
-      if (ignore) {
+      const ignore2 = await loadConfig2(ignoreConfiguredEndpointUrlsConfigSelectors)();
+      if (ignore2) {
         return void 0;
       }
       return loadConfig2(getEndpointUrlConfig(serviceId ?? ""))();
@@ -48441,12 +48441,12 @@ var require_jwa = __commonJS({
       };
     }
     var bufferEqual;
-    var timingSafeEqual2 = "timingSafeEqual" in crypto2 ? function timingSafeEqual3(a5, b5) {
+    var timingSafeEqual3 = "timingSafeEqual" in crypto2 ? function timingSafeEqual4(a5, b5) {
       if (a5.byteLength !== b5.byteLength) {
         return false;
       }
       return crypto2.timingSafeEqual(a5, b5);
-    } : function timingSafeEqual3(a5, b5) {
+    } : function timingSafeEqual4(a5, b5) {
       if (!bufferEqual) {
         bufferEqual = require_buffer_equal_constant_time();
       }
@@ -48455,7 +48455,7 @@ var require_jwa = __commonJS({
     function createHmacVerifier(bits) {
       return function verify2(thing, signature, secret) {
         var computedSig = createHmacSigner(bits)(thing, secret);
-        return timingSafeEqual2(Buffer4.from(signature), Buffer4.from(computedSig));
+        return timingSafeEqual3(Buffer4.from(signature), Buffer4.from(computedSig));
       };
     }
     function createKeySigner(bits) {
@@ -82449,49 +82449,6 @@ import { createHash as createHash2, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { createServer as createTlsServer } from "node:https";
 
-// ../../node_modules/@noble/hashes/_u64.js
-var U32_MASK64 = /* @__PURE__ */ (() => BigInt(2 ** 32 - 1))();
-var _32n = /* @__PURE__ */ BigInt(32);
-function fromBig(n3, le = false) {
-  if (le)
-    return { h: Number(n3 & U32_MASK64), l: Number(n3 >> _32n & U32_MASK64) };
-  return { h: Number(n3 >> _32n & U32_MASK64) | 0, l: Number(n3 & U32_MASK64) | 0 };
-}
-function split(lst, le = false) {
-  const len = lst.length;
-  let Ah = new Uint32Array(len);
-  let Al = new Uint32Array(len);
-  for (let i6 = 0; i6 < len; i6++) {
-    const { h: h6, l: l3 } = fromBig(lst[i6], le);
-    [Ah[i6], Al[i6]] = [h6, l3];
-  }
-  return [Ah, Al];
-}
-var fromNumH = (n3) => n3 / 2 ** 32 | 0;
-var fromNumL = (n3) => n3 >>> 0;
-function setU64FromNum(view2, byteOffset, n3, isLE2) {
-  const h6 = fromNumH(n3);
-  const l3 = fromNumL(n3);
-  view2.setUint32(byteOffset, isLE2 ? l3 : h6, isLE2);
-  view2.setUint32(byteOffset + 4, isLE2 ? h6 : l3, isLE2);
-}
-var shrSH = (h6, _l, s3) => h6 >>> s3;
-var shrSL = (h6, l3, s3) => h6 << 32 - s3 | l3 >>> s3;
-var rotrSH = (h6, l3, s3) => h6 >>> s3 | l3 << 32 - s3;
-var rotrSL = (h6, l3, s3) => h6 << 32 - s3 | l3 >>> s3;
-var rotrBH = (h6, l3, s3) => h6 << 64 - s3 | l3 >>> s3 - 32;
-var rotrBL = (h6, l3, s3) => h6 >>> s3 - 32 | l3 << 64 - s3;
-function add(Ah, Al, Bh, Bl) {
-  const l3 = (Al >>> 0) + (Bl >>> 0);
-  return { h: Ah + Bh + (l3 / 2 ** 32 | 0) | 0, l: l3 | 0 };
-}
-var add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0);
-var add3H = (low, Ah, Bh, Ch) => Ah + Bh + Ch + (low / 2 ** 32 | 0) | 0;
-var add4L = (Al, Bl, Cl, Dl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0);
-var add4H = (low, Ah, Bh, Ch, Dh) => Ah + Bh + Ch + Dh + (low / 2 ** 32 | 0) | 0;
-var add5L = (Al, Bl, Cl, Dl, El) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0) + (El >>> 0);
-var add5H = (low, Ah, Bh, Ch, Dh, Eh) => Ah + Bh + Ch + Dh + Eh + (low / 2 ** 32 | 0) | 0;
-
 // ../../node_modules/@noble/hashes/utils.js
 function isBytes(a5) {
   return a5 instanceof Uint8Array || ArrayBuffer.isView(a5) && a5.constructor.name === "Uint8Array" && "BYTES_PER_ELEMENT" in a5 && a5.BYTES_PER_ELEMENT === 1;
@@ -82656,6 +82613,126 @@ var oidNist = (suffix) => ({
   // Larger suffix values would need base-128 OID encoding and a different length byte.
   oid: Uint8Array.from([6, 9, 96, 134, 72, 1, 101, 3, 4, 2, suffix])
 });
+
+// ../../node_modules/@noble/hashes/hmac.js
+var _HMAC = class {
+  oHash;
+  iHash;
+  blockLen;
+  outputLen;
+  canXOF = false;
+  finished = false;
+  destroyed = false;
+  constructor(hash3, key2) {
+    ahash(hash3);
+    abytes(key2, void 0, "key");
+    this.iHash = hash3.create();
+    if (typeof this.iHash.update !== "function")
+      throw new Error("expected Hash instance");
+    this.blockLen = this.iHash.blockLen;
+    this.outputLen = this.iHash.outputLen;
+    const blockLen = this.blockLen;
+    const pad = new Uint8Array(blockLen);
+    pad.set(key2.length > blockLen ? hash3.create().update(key2).digest() : key2);
+    for (let i6 = 0; i6 < pad.length; i6++)
+      pad[i6] ^= 54;
+    this.iHash.update(pad);
+    this.oHash = hash3.create();
+    for (let i6 = 0; i6 < pad.length; i6++)
+      pad[i6] ^= 54 ^ 92;
+    this.oHash.update(pad);
+    clean(pad);
+  }
+  update(buf2) {
+    aexists(this);
+    this.iHash.update(buf2);
+    return this;
+  }
+  digestInto(out) {
+    aexists(this);
+    aoutput(out, this);
+    this.finished = true;
+    const buf2 = out.subarray(0, this.outputLen);
+    this.iHash.digestInto(buf2);
+    this.oHash.update(buf2);
+    this.oHash.digestInto(buf2);
+    this.destroy();
+  }
+  digest() {
+    const out = new Uint8Array(this.oHash.outputLen);
+    this.digestInto(out);
+    return out;
+  }
+  _cloneInto(to) {
+    to ||= Object.create(Object.getPrototypeOf(this), {});
+    const { oHash, iHash, finished: finished2, destroyed, blockLen, outputLen, canXOF } = this;
+    to = to;
+    to.finished = finished2;
+    to.destroyed = destroyed;
+    to.blockLen = blockLen;
+    to.outputLen = outputLen;
+    to.canXOF = canXOF;
+    to.oHash = oHash._cloneInto(to.oHash);
+    to.iHash = iHash._cloneInto(to.iHash);
+    return to;
+  }
+  clone() {
+    return this._cloneInto();
+  }
+  destroy() {
+    this.destroyed = true;
+    this.oHash.destroy();
+    this.iHash.destroy();
+  }
+};
+var hmac = /* @__PURE__ */ (() => {
+  const hmac_ = ((hash3, key2, message2) => new _HMAC(hash3, key2).update(message2).digest());
+  hmac_.create = (hash3, key2) => new _HMAC(hash3, key2);
+  return hmac_;
+})();
+
+// ../../node_modules/@noble/hashes/_u64.js
+var U32_MASK64 = /* @__PURE__ */ (() => BigInt(2 ** 32 - 1))();
+var _32n = /* @__PURE__ */ BigInt(32);
+function fromBig(n3, le = false) {
+  if (le)
+    return { h: Number(n3 & U32_MASK64), l: Number(n3 >> _32n & U32_MASK64) };
+  return { h: Number(n3 >> _32n & U32_MASK64) | 0, l: Number(n3 & U32_MASK64) | 0 };
+}
+function split(lst, le = false) {
+  const len = lst.length;
+  let Ah = new Uint32Array(len);
+  let Al = new Uint32Array(len);
+  for (let i6 = 0; i6 < len; i6++) {
+    const { h: h6, l: l3 } = fromBig(lst[i6], le);
+    [Ah[i6], Al[i6]] = [h6, l3];
+  }
+  return [Ah, Al];
+}
+var fromNumH = (n3) => n3 / 2 ** 32 | 0;
+var fromNumL = (n3) => n3 >>> 0;
+function setU64FromNum(view2, byteOffset, n3, isLE2) {
+  const h6 = fromNumH(n3);
+  const l3 = fromNumL(n3);
+  view2.setUint32(byteOffset, isLE2 ? l3 : h6, isLE2);
+  view2.setUint32(byteOffset + 4, isLE2 ? h6 : l3, isLE2);
+}
+var shrSH = (h6, _l, s3) => h6 >>> s3;
+var shrSL = (h6, l3, s3) => h6 << 32 - s3 | l3 >>> s3;
+var rotrSH = (h6, l3, s3) => h6 >>> s3 | l3 << 32 - s3;
+var rotrSL = (h6, l3, s3) => h6 << 32 - s3 | l3 >>> s3;
+var rotrBH = (h6, l3, s3) => h6 << 64 - s3 | l3 >>> s3 - 32;
+var rotrBL = (h6, l3, s3) => h6 >>> s3 - 32 | l3 << 64 - s3;
+function add(Ah, Al, Bh, Bl) {
+  const l3 = (Al >>> 0) + (Bl >>> 0);
+  return { h: Ah + Bh + (l3 / 2 ** 32 | 0) | 0, l: l3 | 0 };
+}
+var add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0);
+var add3H = (low, Ah, Bh, Ch) => Ah + Bh + Ch + (low / 2 ** 32 | 0) | 0;
+var add4L = (Al, Bl, Cl, Dl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0);
+var add4H = (low, Ah, Bh, Ch, Dh) => Ah + Bh + Ch + Dh + (low / 2 ** 32 | 0) | 0;
+var add5L = (Al, Bl, Cl, Dl, El) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0) + (El >>> 0);
+var add5H = (low, Ah, Bh, Ch, Dh, Eh) => Ah + Bh + Ch + Dh + Eh + (low / 2 ** 32 | 0) | 0;
 
 // ../../node_modules/@noble/hashes/_md.js
 function Chi(a5, b5, c5) {
@@ -83362,8 +83439,15 @@ var LIMITS = {
   sessionsPerMesh: 256,
   /** Sessions on one device. */
   sessionsPerDevice: 32,
-  /** `create` and `join` frames per source address per hour. */
+  /** `create`, `join` and recovery `auth` frames per source address per hour, together. */
   createJoinPerSourcePerHour: 10,
+  /**
+   * WebSocket dials per source address per minute that may reach a mesh. Generous on purpose: an
+   * office behind one address reconnects every session at once after a relay restart.
+   */
+  dialsPerSourcePerMinute: 600,
+  /** Open connections per source address that have not authenticated yet. */
+  preAuthSocketsPerSource: 256,
   /** Unexpired, unused invites per admin device. */
   liveInvitesPerDevice: 16,
   /** Default invite lifetime. */
@@ -83443,7 +83527,7 @@ var LIMITS = {
   /** Pending (unauthenticated, waiting) join connections per invite and per mesh. */
   pendingJoinsPerInvite: 1,
   pendingJoinsPerMesh: 16,
-  /** Recovery connections per mesh per hour, in their own bucket. */
+  /** Verified recovery connections per mesh per hour, in their own bucket. */
   recoveryPerMeshPerHour: 5,
   /** Longest time from a task's `at` to its `deadline`. */
   taskDeadlineMaxMs: DAY,
@@ -86163,83 +86247,6 @@ var xchacha20poly1305 = /* @__PURE__ */ wrapCipher(
   /* @__PURE__ */ _poly1305_aead(xchacha20)
 );
 
-// ../../node_modules/@noble/hashes/hmac.js
-var _HMAC = class {
-  oHash;
-  iHash;
-  blockLen;
-  outputLen;
-  canXOF = false;
-  finished = false;
-  destroyed = false;
-  constructor(hash3, key2) {
-    ahash(hash3);
-    abytes(key2, void 0, "key");
-    this.iHash = hash3.create();
-    if (typeof this.iHash.update !== "function")
-      throw new Error("expected Hash instance");
-    this.blockLen = this.iHash.blockLen;
-    this.outputLen = this.iHash.outputLen;
-    const blockLen = this.blockLen;
-    const pad = new Uint8Array(blockLen);
-    pad.set(key2.length > blockLen ? hash3.create().update(key2).digest() : key2);
-    for (let i6 = 0; i6 < pad.length; i6++)
-      pad[i6] ^= 54;
-    this.iHash.update(pad);
-    this.oHash = hash3.create();
-    for (let i6 = 0; i6 < pad.length; i6++)
-      pad[i6] ^= 54 ^ 92;
-    this.oHash.update(pad);
-    clean(pad);
-  }
-  update(buf2) {
-    aexists(this);
-    this.iHash.update(buf2);
-    return this;
-  }
-  digestInto(out) {
-    aexists(this);
-    aoutput(out, this);
-    this.finished = true;
-    const buf2 = out.subarray(0, this.outputLen);
-    this.iHash.digestInto(buf2);
-    this.oHash.update(buf2);
-    this.oHash.digestInto(buf2);
-    this.destroy();
-  }
-  digest() {
-    const out = new Uint8Array(this.oHash.outputLen);
-    this.digestInto(out);
-    return out;
-  }
-  _cloneInto(to) {
-    to ||= Object.create(Object.getPrototypeOf(this), {});
-    const { oHash, iHash, finished: finished2, destroyed, blockLen, outputLen, canXOF } = this;
-    to = to;
-    to.finished = finished2;
-    to.destroyed = destroyed;
-    to.blockLen = blockLen;
-    to.outputLen = outputLen;
-    to.canXOF = canXOF;
-    to.oHash = oHash._cloneInto(to.oHash);
-    to.iHash = iHash._cloneInto(to.iHash);
-    return to;
-  }
-  clone() {
-    return this._cloneInto();
-  }
-  destroy() {
-    this.destroyed = true;
-    this.oHash.destroy();
-    this.iHash.destroy();
-  }
-};
-var hmac = /* @__PURE__ */ (() => {
-  const hmac_ = ((hash3, key2, message2) => new _HMAC(hash3, key2).update(message2).digest());
-  hmac_.create = (hash3, key2) => new _HMAC(hash3, key2);
-  return hmac_;
-})();
-
 // ../../node_modules/@noble/hashes/hkdf.js
 function extract(hash3, ikm, salt) {
   ahash(hash3);
@@ -88663,7 +88670,6 @@ import { basename as basename4, join as join9, resolve as resolve2 } from "node:
 // src/breaker.ts
 var HOUR2 = 36e5;
 var PING_WINDOW = 10 * 6e4;
-var PING_EXCHANGES = 8;
 var SHORT = 200;
 var Breaker = class {
   deliveries = /* @__PURE__ */ new Map();
@@ -88714,7 +88720,7 @@ var Breaker = class {
     let reason;
     if (mine.length >= limits.perPeerPerHour) reason = "peer";
     else if (total >= limits.totalPerHour) reason = "total";
-    else if (limits.pingPong && this.exchanges(peer) > PING_EXCHANGES) reason = "pingpong";
+    else if (limits.pingPong && this.exchanges(peer) > limits.pingPongExchanges) reason = "pingpong";
     if (reason !== void 0) {
       this.pausedUntil.set(peer, now + HOUR2);
       return { ok: false, reason, newly: true };
@@ -88731,7 +88737,7 @@ var Breaker = class {
   }
 };
 function pauseWhy(reason, limits) {
-  return reason === "peer" ? `${limits.perPeerPerHour} messages in an hour` : reason === "total" ? `${limits.totalPerHour} messages in an hour from all peers` : "a fast exchange of short messages";
+  return reason === "peer" ? `the per-peer limit, ${limits.perPeerPerHour} messages in an hour` : reason === "total" ? `the total limit, ${limits.totalPerHour} messages in an hour from all peers` : `the ping-pong rule, more than ${limits.pingPongExchanges} alternating short messages in 10 minutes`;
 }
 function pauseNotice(peer, reason, limits) {
   return `worldinmotion paused ${peer}: ${pauseWhy(reason, limits)}; /wim to resume`;
@@ -89181,6 +89187,33 @@ async function takeMarks(dir, marks, env3) {
 // src/history.ts
 import { promises as fs3 } from "node:fs";
 import { basename as basename3, dirname as dirname3, join as join4 } from "node:path";
+
+// src/render.ts
+function noticeText(line) {
+  return `worldinmotion notice (from the local client, not from a peer or the person): ${sanitizeForDisplay(line)}`;
+}
+function peerLine(p3) {
+  const rooms = p3.rooms.join(",");
+  const card = cardLabel(p3.card);
+  return [p3.address, sanitizeForDisplay(p3.kind), p3.status, rooms === "" ? "-" : rooms, card].filter((x2) => x2 !== "").join("  ");
+}
+function policyLevel(config2, sender) {
+  const set2 = config2.policy[sender];
+  if (sender === config2.device) return set2 === "deliver-relayed" ? set2 : "deliver";
+  return set2 ?? "hold";
+}
+function policyFor(config2, sender, relayed2) {
+  const level = policyLevel(config2, sender);
+  if (level === "deliver-relayed") return "deliver";
+  if (level === "deliver") return relayed2 ? "hold" : "deliver";
+  return level;
+}
+var STALE_PEER_MS = 60 * 6e4;
+function isStalePeer(p3, now) {
+  return p3.status === "offline" && p3.card === void 0 && now - p3.since > STALE_PEER_MS;
+}
+
+// src/history.ts
 function parseReceipt(line) {
   let value;
   try {
@@ -89355,6 +89388,12 @@ function frameEntry(e6, trust = "inform") {
     trust
   });
 }
+function releasedFrame(config2, device, entry) {
+  const level = policyLevel(config2, device);
+  const works = (level === "deliver" || level === "deliver-relayed") && entry.relayed !== true && entry.derived !== true;
+  const trust = !works ? "inform" : device === config2.device ? "self" : "assign";
+  return { rendered: frameEntry(entry, trust), ...entry.relayed === true ? { relayed: true } : {}, ...trust === "inform" ? { informs: true } : {} };
+}
 function renderForAgent(e6) {
   if (e6.dir === "in") {
     try {
@@ -89382,7 +89421,21 @@ function renderForPerson(e6) {
 
 // src/mesh.ts
 import { join as join5 } from "node:path";
-var DEFAULT_BREAKER = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true };
+var DEFAULT_BREAKER = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32 };
+var WRITTEN_BREAKER = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
+function positiveInt2(v, fallback2) {
+  return Number.isSafeInteger(v) && v > 0 ? v : fallback2;
+}
+function parseBreaker(raw) {
+  if (raw === void 0) return DEFAULT_BREAKER;
+  const b5 = typeof raw === "object" && raw !== null ? raw : {};
+  return {
+    perPeerPerHour: positiveInt2(b5.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour),
+    totalPerHour: positiveInt2(b5.totalPerHour, WRITTEN_BREAKER.totalPerHour),
+    pingPong: b5.pingPong !== false,
+    pingPongExchanges: positiveInt2(b5.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges)
+  };
+}
 function isPolicy(v) {
   return v === "deliver" || v === "deliver-relayed" || v === "hold" || v === "refuse";
 }
@@ -89397,12 +89450,7 @@ function parseMeshConfig(raw, path2) {
   if (typeof c5.pin?.seq !== "number" || typeof c5.pin.hash !== "string") return bad("pin missing");
   const policy = {};
   for (const [id, p3] of Object.entries(c5.policy ?? {})) if (isPolicy(p3)) policy[id] = p3;
-  const b5 = c5.breaker ?? DEFAULT_BREAKER;
-  const breaker2 = {
-    perPeerPerHour: Number.isSafeInteger(b5.perPeerPerHour) && b5.perPeerPerHour > 0 ? b5.perPeerPerHour : DEFAULT_BREAKER.perPeerPerHour,
-    totalPerHour: Number.isSafeInteger(b5.totalPerHour) && b5.totalPerHour > 0 ? b5.totalPerHour : DEFAULT_BREAKER.totalPerHour,
-    pingPong: b5.pingPong !== false
-  };
+  const breaker2 = parseBreaker(c5.breaker);
   if (c5.tls !== void 0 && !/^[A-Za-z0-9_-]{43}$/.test(c5.tls)) return bad("tls is not a certificate pin");
   return {
     v: 1,
@@ -89744,31 +89792,6 @@ var PeerPrekeys = class {
     return out;
   }
 };
-
-// src/render.ts
-function noticeText(line) {
-  return `worldinmotion notice (from the local client, not from a peer or the person): ${sanitizeForDisplay(line)}`;
-}
-function peerLine(p3) {
-  const rooms = p3.rooms.join(",");
-  const card = cardLabel(p3.card);
-  return [p3.address, sanitizeForDisplay(p3.kind), p3.status, rooms === "" ? "-" : rooms, card].filter((x2) => x2 !== "").join("  ");
-}
-function policyLevel(config2, sender) {
-  const set2 = config2.policy[sender];
-  if (sender === config2.device) return set2 === "deliver-relayed" ? set2 : "deliver";
-  return set2 ?? "hold";
-}
-function policyFor(config2, sender, relayed2) {
-  const level = policyLevel(config2, sender);
-  if (level === "deliver-relayed") return "deliver";
-  if (level === "deliver") return relayed2 ? "hold" : "deliver";
-  return level;
-}
-var STALE_PEER_MS = 60 * 6e4;
-function isStalePeer(p3, now) {
-  return p3.status === "offline" && p3.card === void 0 && now - p3.since > STALE_PEER_MS;
-}
 
 // src/replay.ts
 var key = (id, address) => `${id} ${address}`;
@@ -90715,13 +90738,37 @@ function whyNotRelay(relay) {
   if (relay.startsWith("ws://") && URL.canParse(relay)) return "ws:// is only for a loopback relay (127.0.0.1, [::1] or localhost); use wss://";
   return "it is not a valid URL";
 }
+function privateV4([a5, b5, c5]) {
+  return a5 === 0 || a5 === 10 || a5 === 100 && b5 >= 64 && b5 <= 127 || a5 === 169 && b5 === 254 || a5 === 172 && b5 >= 16 && b5 <= 31 || a5 === 192 && b5 === 0 && c5 === 0 || a5 === 192 && b5 === 168 || a5 === 198 && (b5 === 18 || b5 === 19);
+}
+function v6Groups(address) {
+  let s3 = address.split("%")[0];
+  const dotted = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(s3);
+  if (dotted !== null) {
+    const [p3, q3, r6, t2] = dotted.slice(1).map(Number);
+    s3 = `${s3.slice(0, dotted.index)}${(p3 * 256 + q3).toString(16)}:${(r6 * 256 + t2).toString(16)}`;
+  }
+  const groups = (part) => part === "" ? [] : part.split(":").map((g5) => parseInt(g5, 16));
+  const [head, tail] = s3.split("::");
+  if (tail === void 0) return groups(head);
+  const hi = groups(head);
+  const lo = groups(tail);
+  return [...hi, ...new Array(8 - hi.length - lo.length).fill(0), ...lo];
+}
+var octets = (x2, y) => [x2 >> 8, x2 & 255, y >> 8, y & 255];
+function privateV6(g5) {
+  const zeros = (from, to) => g5.slice(from, to).every((x2) => x2 === 0);
+  if (zeros(0, 5) && g5[5] === 65535) return privateV4(octets(g5[6], g5[7]));
+  if (zeros(0, 7) && g5[7] <= 1) return g5[7] === 0;
+  if (zeros(0, 6)) return privateV4(octets(g5[6], g5[7]));
+  if (g5[0] === 100 && g5[1] === 65435) return g5[2] === 1 || zeros(2, 6) && privateV4(octets(g5[6], g5[7]));
+  if (g5[0] === 8194) return privateV4(octets(g5[1], g5[2]));
+  return (g5[0] & 65024) === 64512 || (g5[0] & 65472) === 65152 || (g5[0] & 65472) === 65216;
+}
 function isPrivateAddress(host) {
   const h6 = host.startsWith("[") ? host.slice(1, -1).toLowerCase() : host.toLowerCase();
-  if (isIP2(h6) === 4) {
-    const [a5, b5] = h6.split(".").map(Number);
-    return a5 === 10 || a5 === 172 && b5 >= 16 && b5 <= 31 || a5 === 192 && b5 === 168 || a5 === 169 && b5 === 254;
-  }
-  if (isIP2(h6) === 6) return /^f[cd]/.test(h6) || /^fe[89ab]/.test(h6);
+  if (isIP2(h6) === 4) return privateV4(h6.split(".").map(Number));
+  if (isIP2(h6) === 6) return privateV6(v6Groups(h6));
   return false;
 }
 function checkDialable(relay, tlsPin) {
@@ -91717,12 +91764,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   async release(item, file2) {
     const entry = { ...item.entry };
     if (file2 !== void 0) entry.savedTo = await this.fetchFile(item.id, file2).catch((e6) => `(not saved: ${e6.message})`);
-    const level = policyLevel(this.config, item.device);
-    const works = (level === "deliver" || level === "deliver-relayed") && entry.relayed !== true && entry.derived !== true;
-    const trust = !works ? "inform" : item.device === this.config.device ? "self" : "assign";
-    const rendered = frameEntry(entry, trust);
-    const flags = { ...entry.relayed ? { relayed: true } : {}, ...trust === "inform" ? { informs: true } : {} };
-    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, rendered, ...flags }, entry);
+    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry);
   }
   /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
   async hold(item, pause) {
@@ -109892,11 +109934,11 @@ function parseMessage(chunk, parse4, state2, dataRequired) {
   const lines = text2.split(/\r\n|\r|\n/);
   const dataLines = [];
   const ret = {};
-  let ignore = true;
+  let ignore2 = true;
   for (const line of lines) {
     if (!line || line.startsWith(":"))
       continue;
-    ignore = false;
+    ignore2 = false;
     const i6 = line.indexOf(":");
     let field = line;
     let value = "";
@@ -109914,7 +109956,7 @@ function parseMessage(chunk, parse4, state2, dataRequired) {
       ret.retry = Number(value);
     }
   }
-  if (ignore)
+  if (ignore2)
     return;
   ret.id = state2.eventId;
   if (dataLines.length)
@@ -117235,7 +117277,7 @@ ${item.text}`
 };
 
 // ../bot/src/config.ts
-var positiveInt2 = external_exports.number().int().positive();
+var positiveInt3 = external_exports.number().int().positive();
 var Price = external_exports.strictObject({
   inputPerMillion: external_exports.number().nonnegative(),
   outputPerMillion: external_exports.number().nonnegative()
@@ -117274,21 +117316,21 @@ var ConfigSchema2 = external_exports.strictObject({
   }).optional(),
   budget: external_exports.strictObject({
     ledgerPath: external_exports.string().min(1),
-    maxTokens: positiveInt2.default(1024),
-    dailyTokens: positiveInt2.optional(),
+    maxTokens: positiveInt3.default(1024),
+    dailyTokens: positiveInt3.optional(),
     dailyUsd: external_exports.number().positive().optional(),
     prices: external_exports.record(external_exports.string(), Price).default({})
   }),
   conversations: external_exports.strictObject({
-    maxTurns: positiveInt2.default(20),
-    maxChars: positiveInt2.default(24e3),
+    maxTurns: positiveInt3.default(20),
+    maxChars: positiveInt3.default(24e3),
     idleHours: external_exports.number().positive().default(24)
   }).default({ maxTurns: 20, maxChars: 24e3, idleHours: 24 }),
   guards: external_exports.strictObject({
     replyToBots: external_exports.boolean().default(false),
-    perPeerPerHour: positiveInt2.default(30),
-    maxConcurrent: positiveInt2.default(2),
-    maxQueue: positiveInt2.default(100)
+    perPeerPerHour: positiveInt3.default(30),
+    maxConcurrent: positiveInt3.default(2),
+    maxQueue: positiveInt3.default(100)
   }).default({ replyToBots: false, perPeerPerHour: 30, maxConcurrent: 2, maxQueue: 100 })
 }).superRefine((c5, ctx) => {
   let provider;
@@ -118754,31 +118796,32 @@ async function listAllHeld(mesh, env3) {
   }
   return rows.sort((a5, b5) => a5.at - b5.at);
 }
-async function applyOffline(files, item, verdict, env3, now) {
+async function applyOffline(files, item, verdict, config2, env3, now) {
   const box = new HeldBox(files.heldDir, env3);
   await box.remove(item.id);
   if (verdict === "refuse") return;
   const state2 = await files.load();
   const spool = await Spool.open(files.spoolDir, env3, state2?.spool ?? 0);
-  const relayed2 = item.entry.relayed === true ? { relayed: true } : {};
-  await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, rendered: frameEntry(item.entry), ...relayed2 });
+  await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(config2, item.device, item.entry) });
   if (state2 !== void 0) await files.save({ ...state2, spool: spool.highest });
   await new History(files.historyPath, now).append(item.entry);
 }
 async function decideHeld(mesh, id, verdict, env3, now, skipSid) {
   let n3 = 0;
+  const config2 = await mesh.loadConfig();
   for (const row of await listAllHeld(mesh, env3)) {
     if (row.id !== id || row.sid === skipSid) continue;
     const files = new SessionFiles(mesh, row.sid, env3);
     const later = await files.isLiveElsewhere() || verdict === "approve" && row.fileInfo !== void 0;
     if (later) await new HeldBox(files.heldDir, env3).mark(id, verdict);
-    else await applyOffline(files, row, verdict, env3, now);
+    else await applyOffline(files, row, verdict, config2, env3, now);
     n3++;
   }
   return n3;
 }
 async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
   let released = 0;
+  const config2 = await mesh.loadConfig();
   for (const sid of (await listSessions(mesh)).filter((s3) => s3 !== skipSid)) {
     const files = new SessionFiles(mesh, sid, env3);
     if (await files.isLiveElsewhere()) {
@@ -118789,7 +118832,7 @@ async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
     for (const item of await box.list()) {
       if (item.from.split("@")[1] !== peer.split("@")[1] || item.reason !== "breaker") continue;
       if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
-      else await applyOffline(files, item, "approve", env3, now);
+      else await applyOffline(files, item, "approve", config2, env3, now);
       released++;
     }
   }
@@ -121449,6 +121492,7 @@ async function loadNotifier(home, now = Date.now) {
 }
 
 // src/secretout.ts
+import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
 import { promises as fs10 } from "node:fs";
 import { createConnection as createConnection2, createServer as createServer2 } from "node:net";
 var AGENT_ENV_VARS = [
@@ -121503,39 +121547,87 @@ function cannotConfirm(env3, io) {
   return notAPerson(env3, io.isTTY) ?? (io.inputIsTTY ? void 0 : "this command's input is not an interactive terminal (it is piped or redirected)");
 }
 var SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 6e4;
-function showSocketPath(home, platform2) {
-  if (platform2 === "win32") return `\\\\.\\pipe\\wim-recovery-${b64u.encode(sha2562(utf8(home))).slice(0, 16)}`;
-  return pathFor(platform2).join(home, "recovery.sock");
+function showPaths(home, platform2, kind = "recovery") {
+  const p3 = pathFor(platform2);
+  const socket = platform2 === "win32" ? `\\\\.\\pipe\\wim-${kind}-${b64u.encode(sha2562(utf8(home))).slice(0, 16)}` : p3.join(home, `${kind}.sock`);
+  return { socket, proof: p3.join(home, `${kind}.proof`), what: `${kind} code` };
 }
-async function holdForShow(path2, code2, ms, signal, platform2, onListening = () => void 0) {
-  if (platform2 !== "win32") await fs10.rm(path2, { force: true });
-  return new Promise((resolve3, reject) => {
-    const server = createServer2((socket) => {
-      finish(true);
-      socket.end(`${code2}
-`);
+var PROOF_WAIT_MS = 5e3;
+var PROOF_MAX = 128;
+function ignore() {
+}
+var absent = () => void 0;
+async function removeOwnProof(path2, proof) {
+  if (await fs10.readFile(path2, "utf8").catch(absent) === proof) await fs10.rm(path2, { force: true });
+}
+async function holdForShow(paths, code2, o3) {
+  if (o3.platform !== "win32") await fs10.rm(paths.socket, { force: true });
+  const proof = b64u.encode(randomBytes2(32));
+  const expected = sha2562(utf8(proof));
+  const sockets = /* @__PURE__ */ new Set();
+  const server = createServer2((socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+    socket.on("error", ignore);
+    socket.setTimeout(o3.proofWaitMs ?? PROOF_WAIT_MS, () => socket.destroy());
+    socket.setEncoding("utf8");
+    let line = "";
+    socket.on("data", (d5) => {
+      line += d5;
+      const end2 = line.indexOf("\n");
+      if (end2 === -1) {
+        if (line.length > PROOF_MAX) socket.destroy();
+        return;
+      }
+      if (timingSafeEqual2(sha2562(utf8(line.slice(0, end2))), expected)) server.emit("proved", socket);
+      else socket.destroy();
     });
-    server.maxConnections = 1;
-    const timer = setTimeout(() => finish(false), ms);
+  });
+  await new Promise((resolve3, reject) => {
+    server.on("error", reject);
+    server.listen(paths.socket, resolve3);
+  });
+  try {
+    await fs10.rm(paths.proof, { force: true });
+    await fs10.writeFile(paths.proof, proof, { mode: 384, flag: "wx" });
+  } catch (error63) {
+    await new Promise((r6) => server.close(r6));
+    throw error63;
+  }
+  return new Promise((resolve3) => {
+    const timer = setTimeout(() => finish(false), o3.ms);
     const onAbort = () => finish(false);
     function finish(handed) {
       clearTimeout(timer);
-      signal.removeEventListener("abort", onAbort);
-      server.close(() => resolve3(handed));
+      o3.signal.removeEventListener("abort", onAbort);
+      server.removeAllListeners("proved");
+      const closed = new Promise((r6) => server.close(r6));
+      for (const s3 of sockets) s3.destroy();
+      void Promise.all([closed, removeOwnProof(paths.proof, proof)]).then(() => resolve3(handed));
     }
-    signal.addEventListener("abort", onAbort, { once: true });
-    server.once("error", reject);
-    server.listen(path2, onListening);
+    server.once("proved", (socket) => {
+      sockets.delete(socket);
+      socket.end(`${code2}
+`);
+      finish(true);
+    });
+    o3.signal.addEventListener("abort", onAbort, { once: true });
+    (o3.onListening ?? ignore)();
   });
 }
-function fetchHeldCode(path2) {
+async function fetchHeldCode(paths) {
+  const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
+  const proof = await fs10.readFile(paths.proof, "utf8").catch(absent);
+  if (proof === void 0) throw new Error(none);
   return new Promise((resolve3, reject) => {
     let text2 = "";
-    const socket = createConnection2(path2);
+    const socket = createConnection2(paths.socket);
     socket.setEncoding("utf8");
     socket.on("data", (d5) => text2 += d5);
-    socket.once("error", () => reject(new Error(`no recovery code is waiting (it is offered for ${SHOW_WINDOW_MINUTES} minutes after it is made)`)));
-    socket.once("end", () => text2.trim() === "" ? reject(new Error("no recovery code is waiting")) : resolve3(text2.trim()));
+    socket.once("error", () => reject(new Error(none)));
+    socket.once("end", () => text2.trim() === "" ? reject(new Error(`no ${paths.what} is waiting`)) : resolve3(text2.trim()));
+    socket.write(`${proof}
+`);
   });
 }
 
@@ -122849,7 +122941,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
 
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
-  wim invite [--exp 1h] [--auto] [--full]
+  wim invite [--exp 1h] [--auto] [--full] | wim invite show
   wim join <code> [--name <device>]
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
@@ -123190,10 +123282,15 @@ async function showRecoveryCode(ctx, code2) {
     return;
   }
   const why = notAPerson(ctx.env, ctx.io.isTTY);
-  const handed = await holdForShow(showSocketPath(ctx.home.root, ctx.io.platform), code2, LIMITS.recoveryShowWindowMs, ctx.io.signal, ctx.io.platform, () => {
-    ctx.io.out(`The recovery code is not shown here: ${why}.`);
-    ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim recovery show\` there within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only; keep it out of any agent's chat.`);
-    ctx.io.out("(A scripted `wim mesh create` that needs no recovery code can pass --no-recovery.)");
+  const handed = await holdForShow(showPaths(ctx.home.root, ctx.io.platform), code2, {
+    ms: LIMITS.recoveryShowWindowMs,
+    signal: ctx.io.signal,
+    platform: ctx.io.platform,
+    onListening: () => {
+      ctx.io.out(`The recovery code is not shown here: ${why}.`);
+      ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim recovery show\` there within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only; keep it out of any agent's chat.`);
+      ctx.io.out("(A scripted `wim mesh create` that needs no recovery code can pass --no-recovery.)");
+    }
   });
   ctx.io.out(handed ? "The recovery code was shown." : "The recovery code was not collected and is gone; make a new one from an admin device with `wim recovery rotate`.");
 }
@@ -123201,11 +123298,13 @@ async function recovery(ctx) {
   const action = ctx.args.positional[0];
   if (action === "rotate") return recoveryRotate(ctx);
   if (action !== "show") throw new SetupError("usage: wim recovery show | wim recovery rotate");
+  return showHeld(ctx, "recovery", ["Recovery code (shown once; keep it offline, it is as powerful as an admin device):"]);
+}
+async function showHeld(ctx, kind, before, after = []) {
   const notHere = notAPerson(ctx.env, ctx.io.isTTY);
-  if (notHere !== void 0) throw new SetupError(personOnly2(notHere, "wim recovery show"));
-  const code2 = await fetchHeldCode(showSocketPath(ctx.home.root, ctx.io.platform));
-  ctx.io.out("Recovery code (shown once; keep it offline, it is as powerful as an admin device):");
-  ctx.io.out(`  ${code2}`);
+  if (notHere !== void 0) throw new SetupError(personOnly2(notHere, `wim ${kind} show`));
+  const code2 = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform, kind));
+  for (const line of [...before, `  ${code2}`, ...after]) ctx.io.out(line);
   return 0;
 }
 async function recoveryRotate(ctx) {
@@ -123242,13 +123341,19 @@ async function typedCode(ctx, p3) {
   }
   return false;
 }
+var INVITE_CODE_TITLE = "Invite code (single use; give it to the other device over a channel you trust, never through an agent):";
+var INVITE_JOIN_LINE = "On the new device, in a terminal: `wim join <code>`";
 async function invite(ctx) {
+  if (ctx.args.positional[0] === "show") return showHeld(ctx, "invite", [INVITE_CODE_TITLE], [INVITE_JOIN_LINE]);
+  if (ctx.args.positional.length > 0) throw new SetupError(`usage: ${commandUsage("invite")}`);
   const ttl = parseDuration(flag(ctx.args, "exp") ?? "1h");
   const auto = ctx.args.flags.get("auto") === true;
   if (!auto && !canConfirm(ctx.env, ctx.io)) {
-    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code`);
+    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code, and shows that code only in a terminal of your own`);
   }
   const s3 = await ctx.session("invite", { keyed: false });
+  const offerEnds = new AbortController();
+  let offering;
   try {
     const joins = [];
     let wake;
@@ -123259,9 +123364,33 @@ async function invite(ctx) {
     const full = ctx.args.flags.get("full") === true;
     const made = await issueInvite(s3, { ttlMs: ttl, auto, now: ctx.io.now, short: !full });
     const until = new Date(made.exp).toISOString();
-    ctx.io.out("Invite code (single use; give it to the other device over a channel you trust, never through an agent):");
-    ctx.io.out(`  ${made.short?.code ?? made.code}`);
-    ctx.io.out("On the new device, in a terminal: `wim join <code>`");
+    let unusable;
+    const code2 = made.short?.code ?? made.code;
+    if (canShowSecret(ctx.env, ctx.io.isTTY)) {
+      ctx.io.out(INVITE_CODE_TITLE);
+      ctx.io.out(`  ${code2}`);
+      ctx.io.out(INVITE_JOIN_LINE);
+    } else {
+      const why = notAPerson(ctx.env, ctx.io.isTTY);
+      const ms = Math.min(LIMITS.recoveryShowWindowMs, made.exp - ctx.io.now());
+      offering = holdForShow(showPaths(ctx.home.root, ctx.io.platform, "invite"), code2, {
+        ms,
+        signal: AbortSignal.any([ctx.io.signal, offerEnds.signal]),
+        platform: ctx.io.platform,
+        onListening: () => {
+          ctx.io.out(`The invite code is not shown here: ${why}.`);
+          ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim invite show\` there before ${new Date(ctx.io.now() + ms).toISOString()} to see it once. It is kept in memory only; give it to the new device over a channel you trust, never through an agent.`);
+        }
+      }).then(
+        (handed) => {
+          if (handed) ctx.io.out("The invite code was shown.");
+          else unusable = "the invite code was not collected and is gone, so the invite cannot be used: make a new one";
+        },
+        (error63) => {
+          unusable = `the invite code could not be offered for \`wim invite show\` (${error63.message}): make a new invite`;
+        }
+      ).then(() => wake?.());
+    }
     if (made.short !== void 0 && made.short.exp < made.exp) ctx.io.out(`The short code works until ${new Date(made.short.exp).toISOString()}.`);
     if (made.short !== void 0) ctx.io.out("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
     if (made.shortRefused !== void 0) ctx.io.out(`This is the full code: no short code, because ${made.shortRefused}.`);
@@ -123271,6 +123400,10 @@ async function invite(ctx) {
         ctx.io.err(
           ctx.io.signal.aborted ? `wim: stopped waiting. The invite stays valid until ${until}: \`wim devices pending\` lists a device that asks to join, and \`wim devices admit <name> <code>\` admits it.` : "wim: the invite expired unused."
         );
+        return 1;
+      }
+      if (unusable !== void 0) {
+        ctx.io.err(`wim: ${unusable}.`);
         return 1;
       }
       const body = joins.shift();
@@ -123305,6 +123438,8 @@ async function invite(ctx) {
       }
     }
   } finally {
+    offerEnds.abort();
+    await offering;
     await s3.stop({ ended: true });
   }
 }
