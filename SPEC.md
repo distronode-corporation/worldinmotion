@@ -8,6 +8,12 @@ box scheme numbers from 3 up, would be `wim/2` and is a design only, not part of
 docs/mls.md). Informative only: no frame, status or behaviour changed, so every existing client
 and relay is compatible.
 
+Version note, unreleased: section 5 lists every address range that counts as private or
+link-local for the relay certificate pin rule, including IPv4-mapped and other IPv6 forms that
+carry an IPv4 address, and the shared address space `100.64.0.0/10`. No frame changed and relays
+are unaffected; a client refuses, without a pin, a `wss://` relay URL in those ranges that it
+dialled before.
+
 Version note, 0.1.6: section 8 documents the keepalive and liveness timings of the reference client
 and relays, and what a sender sees while a recipient is frozen. Informative only: no frame, status
 or behaviour changed, so every existing client and relay is compatible.
@@ -240,9 +246,17 @@ wim1_<b64u(canon({ "relay": "wss://relay.example", "mesh": "<mesh id>", "secret"
   SubjectPublicKeyInfo of the relay's TLS certificate, exactly 43 characters. A client stores it
   with the relay URL. A client that has a pin for a relay MUST check that the presented
   certificate's SPKI hashes to it and MUST NOT fall back to ordinary CA validation; without a pin,
-  ordinary CA validation applies. With a pin, `wss://` to a private or link-local address (RFC 1918,
-  RFC 4193, `169.254.0.0/16`, `fe80::/10`) is allowed, which lets a relay run on a local network
-  without a public certificate. `ws://` is still refused except to loopback. The pin is stored per
+  ordinary CA validation applies. A client MUST refuse `wss://` to a private or link-local address
+  without a pin, and with a pin it is allowed, which lets a relay run on a local network without a
+  public certificate. A private or link-local address here is an IP literal in any of: IPv4
+  `0.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10` (shared address space, RFC 6598), `169.254.0.0/16`,
+  `172.16.0.0/12`, `192.0.0.0/24`, `192.168.0.0/16`, `198.18.0.0/15`; IPv6 `::/128`, `fc00::/7`,
+  `fe80::/10`, `fec0::/10`, `64:ff9b:1::/48`; and an IPv6 address that carries an IPv4 address in
+  one of the IPv4 ranges (IPv4-mapped `::ffff:0:0/96`, IPv4-compatible `::/96`, NAT64
+  `64:ff9b::/96`, 6to4 `2002::/16`). The check applies to the address however it is spelled
+  (`[::ffff:10.0.0.1]` and `[::ffff:a00:1]` are the same address). Loopback (`127.0.0.0/8`,
+  `::1`, and their mapped forms) is not in the list. A host name is not resolved for this check.
+  `ws://` is still refused except to loopback. The pin is stored per
   mesh, and a later invite MUST NOT replace it without the person confirming; wim/1 has no pin
   rotation other than re-inviting.
 

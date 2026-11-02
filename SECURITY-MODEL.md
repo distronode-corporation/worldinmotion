@@ -668,7 +668,9 @@ relaying a client's handshake to another relay.
 An invite may carry a relay certificate pin: the SHA-256 of the certificate's SubjectPublicKeyInfo.
 A client with a pin accepts only that key and never falls back to CA validation; with a pin, `wss://`
 to a private or link-local address is allowed, so a relay can run on a local network with a
-self-signed certificate. Properties:
+self-signed certificate, and without a pin it is refused. Which addresses count is listed in SPEC
+section 5 (the relay certificate pin): every non-public range a local or carrier network uses, in
+any spelling, including IPv6 forms that carry an IPv4 address. Properties:
 - The pin is only as trustworthy as the invite that carried it (section 5.6).
 - Rotating the relay's key breaks every pinned client until they get the new pin, which in v0.1 means
   a new invite or a configuration change. Plan key rotation.

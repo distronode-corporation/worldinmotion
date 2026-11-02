@@ -111,14 +111,61 @@ function whyNotRelay(relay: string): string {
   return "it is not a valid URL";
 }
 
-/** True for an IP literal in a private or link-local range (RFC 1918, RFC 4193, 169.254/16, fe80::/10). */
+/**
+ * True for an IPv4 address (as four octets) that is not public and not loopback: "this network"
+ * 0/8, RFC 1918, shared address space 100.64/10 (carrier-grade NAT), link-local 169.254/16, IETF
+ * protocol assignments 192.0.0/24 and benchmarking 198.18/15. Loopback 127/8 is left to the URL
+ * rule. Documentation and reserved ranges are never assigned to a host, so they are not listed.
+ */
+function privateV4([a, b, c]: number[]): boolean {
+  return a === 0 || a === 10 || (a === 100 && b! >= 64 && b! <= 127) || (a === 169 && b === 254) || (a === 172 && b! >= 16 && b! <= 31) || (a === 192 && b === 0 && c === 0) || (a === 192 && b === 168) || (a === 198 && (b === 18 || b === 19));
+}
+
+/** The eight 16-bit groups of an address `isIP` accepts as IPv6, in any spelling. */
+function v6Groups(address: string): number[] {
+  let s = address.split("%")[0]!;
+  const dotted = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(s);
+  if (dotted !== null) {
+    const [p, q, r, t] = dotted.slice(1).map(Number) as [number, number, number, number];
+    s = `${s.slice(0, dotted.index)}${(p * 256 + q).toString(16)}:${(r * 256 + t).toString(16)}`;
+  }
+  const groups = (part: string): number[] => (part === "" ? [] : part.split(":").map((g) => parseInt(g, 16)));
+  const [head, tail] = s.split("::") as [string, string | undefined];
+  if (tail === undefined) return groups(head);
+  const hi = groups(head);
+  const lo = groups(tail);
+  return [...hi, ...new Array<number>(8 - hi.length - lo.length).fill(0), ...lo];
+}
+
+/** The IPv4 address in two 16-bit groups, as four octets. */
+const octets = (x: number, y: number): number[] => [x >> 8, x & 255, y >> 8, y & 255];
+
+/**
+ * True for an IPv6 address that is not public and not loopback: unspecified `::`, unique local
+ * fc00::/7, link-local fe80::/10, the deprecated site-local fec0::/10, the local-use NAT64 prefix
+ * 64:ff9b:1::/48, and any form that carries an IPv4 address (IPv4-mapped ::ffff:0:0/96,
+ * IPv4-compatible ::/96, NAT64 64:ff9b::/96, 6to4 2002::/16) when that address is not public.
+ */
+function privateV6(g: number[]): boolean {
+  const zeros = (from: number, to: number): boolean => g.slice(from, to).every((x) => x === 0);
+  if (zeros(0, 5) && g[5] === 0xffff) return privateV4(octets(g[6]!, g[7]!));
+  // `::` is unspecified; `::1` is loopback, left to the URL rule like 127/8.
+  if (zeros(0, 7) && g[7]! <= 1) return g[7] === 0;
+  if (zeros(0, 6)) return privateV4(octets(g[6]!, g[7]!));
+  if (g[0] === 0x64 && g[1] === 0xff9b) return g[2] === 1 || (zeros(2, 6) && privateV4(octets(g[6]!, g[7]!)));
+  if (g[0] === 0x2002) return privateV4(octets(g[1]!, g[2]!));
+  return (g[0]! & 0xfe00) === 0xfc00 || (g[0]! & 0xffc0) === 0xfe80 || (g[0]! & 0xffc0) === 0xfec0;
+}
+
+/**
+ * True for an IP literal that is not a public address and not loopback (`privateV4`, `privateV6`),
+ * whichever way it is spelled: the URL parser rewrites `[::ffff:10.0.0.1]` as `[::ffff:a00:1]`,
+ * and both are the same private address. A host name is not resolved here.
+ */
 export function isPrivateAddress(host: string): boolean {
   const h = host.startsWith("[") ? host.slice(1, -1).toLowerCase() : host.toLowerCase();
-  if (isIP(h) === 4) {
-    const [a, b] = h.split(".").map(Number) as [number, number];
-    return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
-  }
-  if (isIP(h) === 6) return /^f[cd]/.test(h) || /^fe[89ab]/.test(h);
+  if (isIP(h) === 4) return privateV4(h.split(".").map(Number));
+  if (isIP(h) === 6) return privateV6(v6Groups(h));
   return false;
 }
 
