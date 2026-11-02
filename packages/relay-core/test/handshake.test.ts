@@ -1,6 +1,6 @@
 import { CLOSE, b64u, createGenesisRoster, generateDeviceKeys, randomBytes, rosterRef, signAuth } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
-import { MeshRelay } from "../src/index.ts";
+import { MeshRelay, type MeshStore } from "../src/index.ts";
 import { Client, dev, Harness, KINDS, makeStore, MESH, publish, RELAY, roster, T0, world } from "./helpers.ts";
 
 describe("config", () => {
@@ -283,3 +283,44 @@ describe.each(KINDS)("create (%s store)", (kind) => {
     expect(h.store.rosterHead()).toBe(0);
   });
 });
+
+/** A store that counts every call made to it. */
+function counted(store: MeshStore): { store: MeshStore; calls: string[] } {
+  const calls: string[] = [];
+  const proxy = new Proxy(store, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver) as unknown;
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]) => {
+        calls.push(String(key));
+        return (value as (...a: unknown[]) => unknown).apply(target, args);
+      };
+    },
+  });
+  return { store: proxy, calls };
+}
+
+describe.each(KINDS)("the sweep of a mesh id that does not exist (%s store)", (kind) => {
+  it("closes late connections but reads the store at most once, until a create makes the mesh", () => {
+    const { store, calls } = counted(makeStore(kind));
+    const h = new Harness(store, { limits: { authDeadlineMs: 1_000 } });
+    const late = h.open();
+    calls.length = 0;
+    h.advance(2_000);
+    expect(late.closed).toEqual({ code: CLOSE.authTimeout, reason: "auth timeout" });
+    expect(calls).toEqual(["rosterHead"]);
+    calls.length = 0;
+    h.advance(1_000);
+    h.advance(1_000);
+    expect(calls).toEqual([]);
+
+    // Once this relay creates the mesh, the sweep runs again.
+    const c = h.open();
+    h.sendFrame(c, { t: "create", roster: createGenesisRoster({ name: "admin", keys: generateDeviceKeys(), now: h.now, meshId: MESH }) });
+    expect(c.last()).toMatchObject({ t: "roster" });
+    calls.length = 0;
+    h.advance(1_000);
+    expect(calls).toContain("expiredQueue");
+  });
+});
+

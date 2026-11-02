@@ -1,10 +1,11 @@
 import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { sourceKey } from "@worldinmotion/relay-core";
 import type { Attachment } from "../src/index.ts";
 import { MESH_HEADER, SOURCE_HEADER } from "../src/mesh.ts";
 import * as entry from "../src/worker.ts";
-import { meshId, meshStub, ORIGIN, Socket } from "./helpers.ts";
+import { b64u } from "@worldinmotion/protocol";
+import { REGISTRY_NAME, sourceSecret } from "../src/index.ts";
+import { meshId, meshStub, ORIGIN, Socket, sourceKeyOf } from "./helpers.ts";
 
 async function attachments(mesh: string): Promise<Attachment[]> {
   return runInDurableObject(meshStub(mesh), (_o, state) => state.getWebSockets().map((ws) => ws.deserializeAttachment() as Attachment));
@@ -68,19 +69,27 @@ describe("source keys", () => {
     const s = await Socket.open(mesh, { "cf-connecting-ip": "203.0.113.7", [SOURCE_HEADER]: "forged", [MESH_HEADER]: "forged" });
     await s.next("hello");
     const [att] = await attachments(mesh);
-    // The relay-core hash of CF-Connecting-IP, as relay-node keys a socket address; never the raw address.
-    expect(att!.state.source).toBe(sourceKey("203.0.113.7"));
+    // The relay-core keyed hash of CF-Connecting-IP, as relay-node keys a socket address; never the raw address.
+    expect(att!.state.source).toBe(await sourceKeyOf("203.0.113.7"));
     // The object serves the mesh id from the path, not the forged header.
     expect(att!.mesh).toBe(mesh);
   });
 
-  it("uses the hash of the empty string when the runtime gives no client address", async () => {
+  it("uses the keyed hash of the empty string when the runtime gives no client address", async () => {
     const mesh = meshId();
     const res = await SELF.fetch(`${ORIGIN}/v1/${mesh}`, { headers: { upgrade: "websocket" } });
     res.webSocket!.accept();
     const [att] = await attachments(mesh);
-    expect(att!.state.source).toBe(sourceKey(""));
+    expect(att!.state.source).toBe(await sourceKeyOf(""));
     res.webSocket!.close(1000, "done");
+  });
+
+  it("keys sources with one random secret the registry keeps, read once per isolate", async () => {
+    const registry = env.REGISTRY.get(env.REGISTRY.idFromName(REGISTRY_NAME));
+    const secret = await registry.sourceSecret();
+    expect(b64u.decode(secret)).toHaveLength(32);
+    expect(await registry.sourceSecret()).toBe(secret);
+    expect(await sourceSecret(env)).toBe(await sourceSecret(env));
   });
 
   it("refuses a request to the object that did not come through the Worker", async () => {

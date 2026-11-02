@@ -86,9 +86,18 @@ needs none of them. A relay you offer to others can set:
 A value that is not valid is a configuration problem, as above: the relay refuses every `create`,
 reports it in `/healthz`, and keeps the safe default for that setting.
 
-Rate limits for `create` and `join` (10 an hour) are kept per client address: per IPv4 address,
-and per /64 for IPv6, so a client cannot draw a fresh budget by moving inside its /64. An
-IPv4-mapped IPv6 address (`::ffff:192.0.2.1`) counts as the IPv4 address.
+Rate limits for `create`, `join` and recovery `auth` (10 an hour, together) are kept per client
+address: per IPv4 address, and per /64 for IPv6, so a client cannot draw a fresh budget by moving
+inside its /64. An IPv4-mapped IPv6 address (`::ffff:192.0.2.1`) counts as the IPv4 address.
+
+Per address, too, the relay takes at most 600 WebSocket dials a minute and holds at most 256
+connections that have not authenticated; past either it answers the upgrade with HTTP 429 and
+`Retry-After`, before the handshake, and clients retry with backoff. A mesh id that was only
+dialled is held in memory only while a socket is open on it.
+
+The relay keeps those limits under a keyed hash of the address, never the address itself, made
+under a random secret it creates in its database on first start (table `relay_node_secret`) and
+keeps across restarts; there is nothing to configure.
 
 ### What the relay keeps, and for how long
 

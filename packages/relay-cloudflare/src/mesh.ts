@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { CLOSE, fitsUtf8, LIMITS, parseClientFrame } from "@worldinmotion/protocol";
+import { CLOSE, fitsUtf8, LIMITS, parseClientFrame, parseRecoverAuthFrame } from "@worldinmotion/protocol";
 import { MemoryStore, MeshRelay, migrate, SqlStore, type Conn, type ConnState, type RdvOutcome, type SqlDb } from "@worldinmotion/relay-core";
 import { relayConfig, type CfRelayConfig, type Env } from "./config.ts";
 import { RDV_NAME } from "./rdv.ts";
@@ -73,8 +73,9 @@ export class MeshDurableObject extends DurableObject<Env> {
   private settings!: CfRelayConfig;
   /** Since when no session has been online (idle expiry only): undefined until read, null for in use. */
   private idleSince: number | null | undefined;
-  // Events run one at a time, in arrival order. A pre-auth `create` or `join` awaits the source
-  // limiter (another object), and the runtime delivers further events during that await.
+  // Events run one at a time, in arrival order. A pre-auth `create`, `join` or recovery `auth`
+  // awaits the source limiter (another object), and the runtime delivers further events during
+  // that await.
   private queue: Promise<void> = Promise.resolve();
   /**
    * The answer to the frame's `rdv.put`, if it made one: the relay-wide store is another object,
@@ -254,10 +255,11 @@ export class MeshDurableObject extends DurableObject<Env> {
 
   /**
    * Before the relay handles a frame, decides what it will ask the host. For a pre-auth frame the
-   * relay counts against the source limit (a well-formed `create` or `join`), it spends a token in
-   * the source's limiter object (`allowed`). For an allowed `create` that may make a mesh here, it
-   * then reserves a place in the registry's mesh count (`admitted`), the one registry call a
-   * create makes. Returns whether a place was reserved, so a create that fails can give it back.
+   * relay counts against the source limit (a well-formed `create`, `join` or recovery `auth`), it
+   * spends a token in the source's limiter object (`allowed`). For an allowed `create` that may
+   * make a mesh here, it then reserves a place in the registry's mesh count (`admitted`), the one
+   * registry call a create makes. Returns whether a place was reserved, so a create that fails
+   * can give it back.
    */
   private async precheck(ws: WebSocket, text: string): Promise<boolean> {
     this.allowed = false;
@@ -265,10 +267,12 @@ export class MeshDurableObject extends DurableObject<Env> {
     const st = attachment(ws).state;
     if (st.phase !== "pre" || !fitsUtf8(text, LIMITS.preAuthFrameBytes)) return false;
     const parsed = parseClientFrame(text, { preAuth: true });
-    if (!parsed.ok || parsed.value.t === "auth") return false;
+    // A recovery `auth` has its own shape, so the frame parse fails on it (as in relay-core).
+    const counted = parsed.ok ? parsed.value.t !== "auth" : parseRecoverAuthFrame(text).ok;
+    if (!counted) return false;
     const limiter = this.env.SOURCES.get(this.env.SOURCES.idFromName(st.source));
     this.allowed = await limiter.take();
-    if (!this.allowed || parsed.value.t !== "create" || this.savedMesh() !== undefined || this.settings.createRefused !== undefined) return false;
+    if (!this.allowed || !parsed.ok || parsed.value.t !== "create" || this.savedMesh() !== undefined || this.settings.createRefused !== undefined) return false;
     this.admitted = await this.registry().reserve(this.settings.maxMeshes ?? null);
     return this.admitted;
   }

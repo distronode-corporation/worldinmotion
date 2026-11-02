@@ -7,6 +7,9 @@ import { frameForAgent, isUlid, sanitizeForDisplay, ulid, ulidTime, type ResultS
 import { promises as fs } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { ensureDir, listDir, readText, removeFile } from "./fsx.ts";
+import type { MeshConfig } from "./mesh.ts";
+import { policyLevel } from "./render.ts";
+import type { SpoolItem } from "./spool.ts";
 
 export type HistoryEntry = {
   dir: "in" | "out";
@@ -250,6 +253,20 @@ export function frameEntry(e: HistoryEntry, trust: "self" | "assign" | "inform" 
     ...(e.derived === true ? { derived: true } : {}),
     trust,
   });
+}
+
+/**
+ * How a received item is handed to the agent once it is released, by the live session or by a
+ * decision applied on disk to a session nobody runs (offline.ts): one rule for both. This device,
+ * or a device the person delivers from, may assign work; relayed text, derived text and held
+ * senders only inform. The frame says which, never that a trusted device is the person's own, and
+ * an item that only informs carries `informs`, so reading it starts the `derived` window.
+ */
+export function releasedFrame(config: MeshConfig, device: string, entry: HistoryEntry): Pick<SpoolItem, "rendered" | "relayed" | "informs"> {
+  const level = policyLevel(config, device);
+  const works = (level === "deliver" || level === "deliver-relayed") && entry.relayed !== true && entry.derived !== true;
+  const trust = !works ? "inform" : device === config.device ? "self" : "assign";
+  return { rendered: frameEntry(entry, trust), ...(entry.relayed === true ? { relayed: true as const } : {}), ...(trust === "inform" ? { informs: true as const } : {}) };
 }
 
 /** One history entry for the agent: received items in the agent frame, sent ones as a plain line. */

@@ -1,4 +1,4 @@
-import { b64u, isId22, isMeshId, isRelayUrl, LIMITS, sanitizeForDisplay, sha256, utf8 } from "@worldinmotion/protocol";
+import { b64u, hmacSha256, isId22, isMeshId, isRelayUrl, LIMITS, sanitizeForDisplay, utf8 } from "@worldinmotion/protocol";
 import type { Limits } from "./relay.ts";
 
 /*
@@ -94,11 +94,13 @@ export function sourceBucket(address: string): string {
 
 /**
  * The rate-limit key for a client address: the first 22 characters of
- * `b64u(SHA-256(sourceBucket(address)))`. Hosts store and pass on only this key, never the raw
- * address.
+ * `b64u(HMAC-SHA-256(secret, sourceBucket(address)))`, under a random secret each relay keeps to
+ * itself (relay-node in its database, relay-cloudflare in its registry object). Hosts store and
+ * pass on only this key, never the raw address, and without the secret a key cannot be matched
+ * to an address by trying every address.
  */
-export function sourceKey(address: string): string {
-  return b64u.encode(sha256(utf8(sourceBucket(address)))).slice(0, 22);
+export function sourceKey(address: string, secret: Uint8Array): string {
+  return b64u.encode(hmacSha256(secret, utf8(sourceBucket(address)))).slice(0, 22);
 }
 
 /** The relay settings both hosts read from their environment (each relay's README lists them). */

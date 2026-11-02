@@ -21,9 +21,37 @@ import { readJson, withLock, writeJson, type FsEnv } from "./fsx.ts";
  */
 export type Policy = "deliver" | "deliver-relayed" | "hold" | "refuse";
 
-export type BreakerLimits = { perPeerPerHour: number; totalPerHour: number; pingPong: boolean };
+/**
+ * The loop breaker's limits (design.md, loop and cost breaker), in mesh.json as `breaker`. They
+ * govern every automatic delivery: wakes per sender device and in total per sliding hour, and the
+ * ping-pong rule (more than `pingPongExchanges` alternating short messages in 10 minutes).
+ */
+export type BreakerLimits = { perPeerPerHour: number; totalPerHour: number; pingPong: boolean; pingPongExchanges: number };
 
-export const DEFAULT_BREAKER: BreakerLimits = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true };
+/** What a new mesh.json gets, and what a file with no `breaker` at all reads as. */
+export const DEFAULT_BREAKER: BreakerLimits = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32 };
+
+/**
+ * What a field missing or invalid in a WRITTEN `breaker` reads as: the values every mesh.json was
+ * written with before 0.1.8 (which had no `pingPongExchanges`). A file is honoured as written, and
+ * a gap in it never reads as the higher new default.
+ */
+const WRITTEN_BREAKER: BreakerLimits = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
+
+function positiveInt(v: unknown, fallback: number): number {
+  return Number.isSafeInteger(v) && (v as number) > 0 ? (v as number) : fallback;
+}
+
+function parseBreaker(raw: unknown): BreakerLimits {
+  if (raw === undefined) return DEFAULT_BREAKER;
+  const b = (typeof raw === "object" && raw !== null ? raw : {}) as Partial<Record<keyof BreakerLimits, unknown>>;
+  return {
+    perPeerPerHour: positiveInt(b.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour),
+    totalPerHour: positiveInt(b.totalPerHour, WRITTEN_BREAKER.totalPerHour),
+    pingPong: b.pingPong !== false,
+    pingPongExchanges: positiveInt(b.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges),
+  };
+}
 
 /** Fork state: the seq where two valid rosters met, and the devices that existed before it. */
 export type ForkState = { seq: number; a: string; b: string; base: string[]; at: number };
@@ -62,12 +90,7 @@ export function parseMeshConfig(raw: unknown, path: string): MeshConfig {
   if (typeof c.pin?.seq !== "number" || typeof c.pin.hash !== "string") return bad("pin missing");
   const policy: Record<string, Policy> = {};
   for (const [id, p] of Object.entries(c.policy ?? {})) if (isPolicy(p)) policy[id] = p;
-  const b = c.breaker ?? DEFAULT_BREAKER;
-  const breaker: BreakerLimits = {
-    perPeerPerHour: Number.isSafeInteger(b.perPeerPerHour) && b.perPeerPerHour > 0 ? b.perPeerPerHour : DEFAULT_BREAKER.perPeerPerHour,
-    totalPerHour: Number.isSafeInteger(b.totalPerHour) && b.totalPerHour > 0 ? b.totalPerHour : DEFAULT_BREAKER.totalPerHour,
-    pingPong: b.pingPong !== false,
-  };
+  const breaker = parseBreaker(c.breaker);
   if (c.tls !== undefined && !/^[A-Za-z0-9_-]{43}$/.test(c.tls)) return bad("tls is not a certificate pin");
   return {
     v: 1,

@@ -148,6 +148,12 @@ opened yourself, not through an agent.
 no longer running when `desk` asked to join, `wim devices pending` on `laptop` lists it, and
 `wim devices admit desk <comparison code>` admits it.
 
+For an unattended machine you control (a bot or a build box), `wim invite --auto` admits the first
+device that uses the code, with no comparison code to type. Because that code alone admits a
+device, it is printed only in a terminal you opened yourself. Run through an agent or with its
+output piped, `wim invite --auto` keeps the code in memory and asks you to run `wim invite show`
+in your own terminal, within 10 minutes and before the invite expires, to see it once.
+
 ### 4. Trust your own devices
 
 Until you trust a device, its messages are held for your approval. After an admit and after a
@@ -362,13 +368,20 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   dropping it. It can drop or delay messages, which senders notice as a missing receipt.
 - **Peer text is framed as another AI session's text.** Everything a peer sends reaches an agent
   inside a frame that says so. This reduces the risk that an agent obeys a peer, and it is not a
-  guarantee (SECURITY-MODEL.md section 7.1). A device you have marked as your own can ask your
-  agents for work, within their normal permissions. A device you have not marked as your own is
-  held for your approval.
+  guarantee (SECURITY-MODEL.md section 7.1). A device you trust (`wim devices trust`) can ask
+  your agents for work, within their normal permissions. Messages from a device you do not trust
+  are held for your approval.
 - **Secret filter, best effort.** Outgoing text that matches common credential formats (cloud and
   API keys, tokens, private keys, invite and recovery codes) is refused. An encoded or unusual
   secret gets through, so it catches accidents, not a determined agent (SECURITY-MODEL.md section
   7.4).
+- **Loop and cost breaker.** Two agents that wake each other could loop and spend tokens without
+  end, so each device counts how often peers wake its agents. In a new mesh the defaults are 120
+  messages per sender device and 300 in total per hour, plus a pause on a fast exchange of short
+  messages (more than 32 back and forth in 10 minutes). Past a limit, that device's messages are
+  held for you and the notice names the rule that tripped. A `mesh.json` written before 0.1.8
+  keeps the limits written in it (20, 60 and 8); docs/design.md (loop and cost breaker) shows how
+  to raise them.
 - **Forward secrecy, bounded.** Each device rotates a signed prekey daily and deletes each
   prekey's secret 72 hours after it expires, and every message is sealed to the recipient's
   current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its

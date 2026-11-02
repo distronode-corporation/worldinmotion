@@ -1,14 +1,20 @@
 name: Dependabot auto-merge
 
 # Turns on GitHub's own auto-merge for the routine part of Dependabot's weekly pull
-# requests: a patch or minor update that touches development dependencies only. The
-# merge is queued, not performed: GitHub completes it only once the branch ruleset's
-# required checks (ci.yml) have passed. Everything else (runtime dependencies, majors,
-# indirect-only lockfile updates, action bumps) waits for a person, because runtime code
-# here sits next to private keys.
+# requests: the `npm-dev-minor` group (dependabot.yml), a patch or minor version update
+# that touches development dependencies only. The merge is queued, not performed: GitHub
+# completes it only once the base branch's rules are met, and the job checks first that
+# those rules require status checks (ci.yml) and an approving review. Everything else
+# waits for a person: runtime dependencies, because runtime code here sits next to private
+# keys; the build tools that write the shipped bundles and the .vsix (`npm-build-tools`);
+# majors, indirect-only lockfile updates, action bumps; and every security update.
 #
 # dependabot.yml holds every version update back behind a 7-day cooldown, so nothing
-# here can merge a release that was yanked days after publication.
+# here can merge a release that was yanked days after publication. The cooldown does not
+# apply to security updates, which Dependabot opens at once and never puts in a group
+# (no group there sets `applies-to: security-updates`). That is why eligibility is the
+# group name and not only the dependency and update type: a security update to a
+# development dependency has the same type as a routine one, but no group.
 #
 # The trigger is `pull_request` and must never become `pull_request_target`: that event
 # runs with a write token and repository secrets in the base branch context while the
@@ -17,7 +23,8 @@ name: Dependabot auto-merge
 #
 # Two settings live outside this file: `dependabot/fetch-metadata` must be on the
 # organisation's Actions allow-list, and the repository's "Allow auto-merge" setting must
-# be on, or `gh pr merge --auto` exits non-zero.
+# be on, or `gh pr merge --auto` exits non-zero. The branch rules are a third, which is
+# why the job reads them instead of assuming them.
 on:
   pull_request:
 
@@ -37,6 +44,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     # Dependabot-triggered runs get a read-only token unless scopes are named here.
+    # Reading the branch rules needs the `metadata` scope only, which every GITHUB_TOKEN
+    # holds read-only and which cannot be named in this block.
     permissions:
       # The queued merge is a write to the base branch.
       contents: write
@@ -50,14 +59,64 @@ jobs:
       # the most privileged type (production over development over indirect), both
       # computed by the action over every updated dependency. So one major, or one
       # runtime dependency, inside a group makes the whole pull request ineligible.
+      # `dependency-group` is the group named in Dependabot's commit message, and empty
+      # for a pull request outside any group (every security update here).
       - name: Read Dependabot's metadata for this pull request
         id: metadata
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
 
-      # PR_URL goes through `env:` rather than being expanded inside `run:` (zizmor's
+      # Every value goes through `env:` rather than being expanded inside `run:` (zizmor's
       # `template-injection` remediation).
+      - name: Not eligible, left for a person
+        if: >-
+          !(steps.metadata.outputs.dependency-group == 'npm-dev-minor' &&
+            steps.metadata.outputs.dependency-type == 'direct:development' &&
+            (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+             steps.metadata.outputs.update-type == 'version-update:semver-minor'))
+        env:
+          GROUP: ${{ steps.metadata.outputs.dependency-group }}
+          DEP_TYPE: ${{ steps.metadata.outputs.dependency-type }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+        run: |
+          echo "Auto-merge is only for the npm-dev-minor group's direct:development patch and minor updates."
+          echo "This pull request: group '${GROUP:-none}', dependency type '$DEP_TYPE', update type '$UPDATE_TYPE'. Left for a person."
+
+      # GitHub completes a queued auto-merge as soon as the base branch's rules allow it,
+      # and merges at once when nothing is required, so the rules are part of what makes
+      # this safe. They are live repository settings, not in this repository, so they are
+      # read here (the active rules for the base branch, from every ruleset that applies)
+      # and auto-merge is enabled only while a required status checks rule with at least
+      # one check and a pull request rule with at least one required approval are in force.
+      - name: The base branch requires checks and a review
+        id: rules
+        if: >-
+          steps.metadata.outputs.dependency-group == 'npm-dev-minor' &&
+          steps.metadata.outputs.dependency-type == 'direct:development' &&
+          (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+           steps.metadata.outputs.update-type == 'version-update:semver-minor')
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          branch="$(jq -rn --arg b "$BASE_REF" '$b | @uri')"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/rules/branches/$branch?per_page=100" --jq '.[]' > "$RUNNER_TEMP/rules.jsonl"
+          checks="$(jq -s '[.[] | select(.type == "required_status_checks" and ((.parameters.required_status_checks // []) | length) > 0)] | length' "$RUNNER_TEMP/rules.jsonl")"
+          reviews="$(jq -s '[.[] | select(.type == "pull_request" and (.parameters.required_approving_review_count // 0) >= 1)] | length' "$RUNNER_TEMP/rules.jsonl")"
+          echo "Rules on $BASE_REF: $checks required status checks rule(s) with checks, $reviews pull request rule(s) requiring an approval."
+          if [ "$checks" -ge 1 ] && [ "$reviews" -ge 1 ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::$BASE_REF does not require both status checks and an approving review, so auto-merge would not wait for them. Left for a person."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The metadata condition is repeated so that this step never relies on another
+      # step's `if:` alone.
       - name: Enable auto-merge (squash)
         if: >-
+          steps.rules.outputs.ready == 'true' &&
+          steps.metadata.outputs.dependency-group == 'npm-dev-minor' &&
           steps.metadata.outputs.dependency-type == 'direct:development' &&
           (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
            steps.metadata.outputs.update-type == 'version-update:semver-minor')

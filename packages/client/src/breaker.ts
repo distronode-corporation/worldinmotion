@@ -1,12 +1,12 @@
 // The loop and cost breaker (design.md): two agents that wake each other can loop forever, and
-// every wake costs tokens. Automatic deliveries are counted per sender address in a sliding hour;
-// past a limit, or in a fast ping-pong of short messages, that peer is paused for the person.
+// every wake costs tokens. Automatic deliveries are counted per sender device in a sliding hour;
+// past a limit, or in a fast ping-pong of short messages, that peer is paused for the person. The
+// limits are mesh.json's `breaker` (BreakerLimits), read again for every delivery.
 
 import type { BreakerLimits } from "./mesh.ts";
 
 const HOUR = 3600_000;
 const PING_WINDOW = 10 * 60_000;
-const PING_EXCHANGES = 8;
 const SHORT = 200;
 
 type Event = { at: number; dir: "in" | "out"; short: boolean };
@@ -71,7 +71,7 @@ export class Breaker {
     let reason: "peer" | "total" | "pingpong" | undefined;
     if (mine.length >= limits.perPeerPerHour) reason = "peer";
     else if (total >= limits.totalPerHour) reason = "total";
-    else if (limits.pingPong && this.exchanges(peer) > PING_EXCHANGES) reason = "pingpong";
+    else if (limits.pingPong && this.exchanges(peer) > limits.pingPongExchanges) reason = "pingpong";
     if (reason !== undefined) {
       this.pausedUntil.set(peer, now + HOUR);
       return { ok: false, reason, newly: true };
@@ -91,12 +91,13 @@ export class Breaker {
 
 type TripReason = "peer" | "total" | "pingpong";
 
+/** Which rule tripped, with the limit it holds, in the person's and the agent's notice alike. */
 function pauseWhy(reason: TripReason, limits: BreakerLimits): string {
   return reason === "peer"
-    ? `${limits.perPeerPerHour} messages in an hour`
+    ? `the per-peer limit, ${limits.perPeerPerHour} messages in an hour`
     : reason === "total"
-      ? `${limits.totalPerHour} messages in an hour from all peers`
-      : "a fast exchange of short messages";
+      ? `the total limit, ${limits.totalPerHour} messages in an hour from all peers`
+      : `the ping-pong rule, more than ${limits.pingPongExchanges} alternating short messages in 10 minutes`;
 }
 
 /** The notice a pause raises, for the person (design.md wording). */

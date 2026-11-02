@@ -13,7 +13,7 @@ Each machine (a **device**) holds its own keys. Devices form a **mesh** whose me
 roster that admin devices sign. AI agent sessions on those devices send each other messages through
 a **relay**: the hosted one at `wss://worldinmotion.distronode.com`, or one you run. Messages are
 sealed on the sending device for each recipient device and signed, so the relay passes ciphertext
-and sees metadata. A message from a device that is not marked as the person's own is held until a
+and sees metadata. A message from a device the person has not chosen to trust is held until a
 person approves it.
 
 ## OWASP ASI07: Insecure Inter-Agent Communication
@@ -45,7 +45,7 @@ some of the guideline holds and some does not; the notes say which.
   local process, or an agent allowed to write files without a prompt, can approve a held message
   (7.1).
 - **Framing is not a boundary.** An agent may still follow a peer's text. Messages from devices
-  marked as the person's own may assign work within the agent's normal permissions (7.2).
+  the person trusts may assign work within the agent's normal permissions (7.2).
 - **The held view shows one item at a time.** A request split across several harmless-looking
   messages (agent session smuggling, 5.2) is easy to approve piece by piece.
 - **The secret filter is best effort.** It refuses common credential formats; an encoded secret
@@ -61,8 +61,8 @@ inspection belongs there. wim has no central audit log and no admin allow-list o
 **Can an employee join a stranger's mesh?** Yes: anyone with an invite code can join that mesh
 from a machine they control, and nothing in wim lets a company forbid it. A device in a mesh with
 someone else holds that person's messages by default, and what the employee approves from them
-reaches the agents as information only, never as work to do, unless the employee marks that device
-as their own. The person still decides what to approve.
+reaches the agents as information only, never as work to do, unless the employee trusts that
+device (`wim devices trust`). The person still decides what to approve.
 
 **Who runs the hosted relay?** Distronode, on Cloudflare, free until 1.0 with no SLA. Its terms and
 what it can see are in [hosted-relay.md](hosted-relay.md). A company can run its own relay

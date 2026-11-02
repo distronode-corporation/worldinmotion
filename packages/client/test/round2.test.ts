@@ -275,6 +275,65 @@ describe("derived messages (revision 8)", () => {
     expect((await a.spool.unread())[4]!.rendered).toMatch(/Derived:/);
   });
 
+  it("opens the window for an item the person approved while its session was not running", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"]);
+    const { MeshFiles } = await import("../src/mesh.ts");
+    const { decideHeld } = await import("../src/offline.ts");
+    const meshTwo = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
+    await meshTwo.updateConfig((c) => ({ ...c, policy: { [devices[0]!.device.id]: "deliver", [devices[2]!.device.id]: "hold" } }));
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    const c = await openSession(devices[2]!, mesh, relay, { name: "c" });
+    open.push(a, c);
+    const reopen = async (): Promise<MeshSession> => {
+      const s = await MeshSession.open({ ...sessionOpts(devices[1]!, mesh, relay, { name: "b" }), sessionKey: "key:b" });
+      s.start();
+      await s.ready(3000);
+      return s;
+    };
+    const b1 = await reopen();
+    const held = await c.send("b@two", "info approved offline");
+    await until(async () => (await b1.held.list()).length === 1);
+    const sid = b1.sid;
+    await b1.stop();
+    // Nobody runs the session now, so the decision is applied on disk.
+    expect(await decideHeld(meshTwo, held.id, "approve", FS, Date.now)).toBe(1);
+    const b2 = await reopen();
+    open.push(b2);
+    expect(b2.sid).toBe(sid);
+    const read = await b2.inbox(false);
+    const item = read.find((i) => i.rendered.includes("info approved offline"))!;
+    expect(item.informs).toBe(true);
+    expect(item.rendered).not.toMatch(/may assign you work/);
+    await b2.send("a@one", "after an offline approval");
+    await until(async () => (await a.spool.unread()).some((i) => i.rendered.includes("after an offline approval")));
+    expect((await a.spool.unread()).find((i) => i.rendered.includes("after an offline approval"))!.rendered).toMatch(/Derived:/);
+  });
+
+  it("frames an offline release from a trusted device as the live path does", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const { MeshFiles } = await import("../src/mesh.ts");
+    const { resumeEverywhere } = await import("../src/offline.ts");
+    const meshTwo = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
+    await meshTwo.updateConfig((c) => ({ ...c, policy: { [devices[0]!.device.id]: "deliver" }, breaker: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8 } }));
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    open.push(a);
+    const b1 = await MeshSession.open({ ...sessionOpts(devices[1]!, mesh, relay, { name: "b" }), sessionKey: "key:b" });
+    b1.start();
+    await b1.ready(3000);
+    await a.send("b@two", "first");
+    await a.send("b@two", "second, paused");
+    await until(async () => (await b1.held.list()).length === 1);
+    const files = b1.files;
+    await b1.stop();
+    expect(await resumeEverywhere(meshTwo, "a@one", FS, Date.now)).toBe(1);
+    const { Spool } = await import("../src/spool.ts");
+    const released = (await (await Spool.open(files.spoolDir, FS, 0)).unread()).find((i) => i.rendered.includes("second, paused"))!;
+    expect(released.informs).toBeUndefined();
+    expect(released.rendered).toMatch(/may assign you work/);
+  });
+
   it("opens the window from room history, and shows busy-mesh to peers as busy", async () => {
     const { a, b, c, advance } = await trio();
     await fs.writeFile(b.files.presencePath, "busy-mesh");

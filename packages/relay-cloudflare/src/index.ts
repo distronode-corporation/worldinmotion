@@ -5,4 +5,5 @@ export { HEARTBEAT_MS, MESH_HEADER, MeshDurableObject, MIN_ALARM_MS, PING, PONG,
 export { MeshRegistry, REGISTRY_NAME } from "./registry.ts";
 export { SourceLimiter } from "./limiter.ts";
 export { RDV_NAME, RendezvousStore } from "./rdv.ts";
+export { sourceSecret } from "./source.ts";
 export { doSqlDb, nextStoreDue } from "./sql.ts";

@@ -87,12 +87,45 @@ describe.each(KINDS)("recovery connection (%s store)", (kind) => {
   });
 
   it("limits recovery per mesh in its own bucket, whatever the source", () => {
-    const w = recoverable(kind, { limits: { recoveryPerMeshPerHour: 1, createJoinPerSourcePerHour: 1 } });
+    const w = recoverable(kind, { limits: { recoveryPerMeshPerHour: 1 } });
     expect(recoverConn(w, w.rec, { source: "s" }).closed).toBeUndefined();
     const second = recoverConn(w, w.rec, { source: "other" });
-    expect(second.take()[0]).toMatchObject({ code: "limited", ref: "auth" });
+    expect(second.take()[0]).toMatchObject({ code: "limited", message: "too many recovery attempts for this mesh", ref: "auth" });
     expect(second.closed?.code).toBe(CLOSE.limited);
-    // The per-source budget (one, spent by the world's create from another source) is untouched.
-    expect(w.h.store.getBucket("src:s")).toBeUndefined();
+  });
+
+  it("spends the per-mesh recovery budget only on a valid signature", () => {
+    const w = recoverable(kind, { limits: { recoveryPerMeshPerHour: 1 } });
+    for (let i = 0; i < 5; i++) {
+      const bad = recoverConn(w, w.rec, { source: `bad-${i}`, nonce: b64u.encode(randomBytes(32)) });
+      expect(bad.take()[0]).toMatchObject({ code: "unauthorized", ref: "auth" });
+    }
+    expect(w.h.store.getBucket("recover")).toBeUndefined();
+    // The record holder still recovers, and that spends the mesh's one recovery.
+    expect(recoverConn(w, w.rec, { source: "owner" }).closed).toBeUndefined();
+    expect(w.h.store.getBucket("recover")).toMatchObject({ tokens: 0 });
+  });
+
+  it("charges every recovery attempt to its source's pre-auth budget, before the signature is checked", () => {
+    const w = recoverable(kind, { limits: { createJoinPerSourcePerHour: 2 } });
+    for (let i = 0; i < 2; i++) {
+      const bad = recoverConn(w, w.rec, { source: "s", nonce: b64u.encode(randomBytes(32)) });
+      expect(bad.take()[0]).toMatchObject({ code: "unauthorized", ref: "auth" });
+    }
+    // The source's budget is spent, so even a valid recovery from it waits.
+    const third = recoverConn(w, w.rec, { source: "s" });
+    expect(third.take()[0]).toMatchObject({ code: "limited", message: "too many recovery attempts from this address", ref: "auth" });
+    expect(third.closed?.code).toBe(CLOSE.limited);
+    // Another source is unaffected, and so is the mesh's own recovery budget.
+    expect(recoverConn(w, w.rec, { source: "elsewhere" }).closed).toBeUndefined();
+  });
+
+  it("asks the host's per-source limiter for a recovery attempt", () => {
+    const asked: string[] = [];
+    const h = new Harness(makeStore(kind), {}, { allowSource: (source) => (asked.push(source), false) });
+    const c = h.open("host-src");
+    h.sendFrame(c, signRecoverAuth({ relay: RELAY, mesh: MESH, nonce: c.nonce, at: T0, genesis: b64u.encode(randomBytes(32)) }, generateDeviceKeys()));
+    expect(asked).toEqual(["host-src"]);
+    expect(c.take().at(-1)).toMatchObject({ code: "limited", ref: "auth" });
   });
 });

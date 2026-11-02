@@ -70,6 +70,36 @@ describe("checkDialable", () => {
     for (const h of ["10.0.0.1", "172.16.0.1", "172.31.9.9", "192.168.0.1", "169.254.1.1", "[fd00::1]", "[fc12::1]", "[fe80::1]", "fe80::1"]) expect(isPrivateAddress(h)).toBe(true);
     for (const h of ["8.8.8.8", "172.32.0.1", "172.15.0.1", "[2001:db8::1]", "relay.example", "127.0.0.1"]) expect(isPrivateAddress(h)).toBe(false);
   });
+  it("classifies every non-public range, in any spelling the URL parser leaves", () => {
+    // The hostname a wss:// URL carries, as the client reads it.
+    const host = (u: string): string => new URL(u).hostname;
+    const nonPublic = [
+      // Shared (carrier-grade NAT), "this network", IETF protocol assignments, benchmarking.
+      "100.64.0.1", "100.127.255.254", "0.0.0.0", "0.1.2.3", "192.0.0.8", "198.18.0.1", "198.19.255.1",
+      // IPv4 numbers in other notations are normalised by the URL parser.
+      host("wss://0x0a.0.0.1"), host("wss://167772161"),
+      // IPv4-mapped, in the dotted and the hex spelling (the URL parser turns the first into the second).
+      "[::ffff:10.0.0.1]", host("wss://[::ffff:10.0.0.1]"), host("wss://[0:0:0:0:0:ffff:c0a8:1]"), "[::ffff:100.64.0.1]",
+      // IPv4-compatible, NAT64 (well-known prefix to a private address, and the local-use prefix), 6to4.
+      "[::10.0.0.1]", host("wss://[::192.168.0.1]"), "[64:ff9b::10.0.0.1]", host("wss://[64:ff9b::a9fe:1]"), "[64:ff9b:1::1]", "[2002:a00:1::1]",
+      // Unspecified, site-local, and the full eight-group form; a zone index is ignored.
+      "[::]", "[fec0::1]", "[fd00:0:0:0:0:0:0:1]", "fe80::1%eth0", "[FE80::1]",
+    ];
+    for (const h of nonPublic) expect(isPrivateAddress(h), h).toBe(true);
+    const publicOrLoopback = [
+      "100.63.255.255", "100.128.0.1", "192.0.1.1", "192.0.2.1", "198.17.0.1", "198.20.0.1", "1.0.0.1",
+      "[::ffff:8.8.8.8]", host("wss://[::ffff:8.8.8.8]"), "[64:ff9b::8.8.8.8]", "[64:ff9b:2::1]", "[2002:808:808::1]", "[::8.8.8.8]",
+      // A first group that only starts with the same letters is not in the range.
+      "[fd::1]", "[fe8::1]", "[fc0::1]", "[2001:db8:0:0:0:0:0:1]",
+      // Loopback is unchanged: a pin is not required for it (ws:// to it is handled by the URL rule).
+      "127.0.0.1", "[::1]", "[::ffff:127.0.0.1]", host("wss://[::ffff:127.0.0.1]"),
+    ];
+    for (const h of publicOrLoopback) expect(isPrivateAddress(h), h).toBe(false);
+    expect(() => checkDialable("wss://[::ffff:10.0.0.1]", undefined)).toThrow(/needs a pinned certificate/);
+    expect(() => checkDialable("wss://100.64.0.1", undefined)).toThrow(/needs a pinned certificate/);
+    expect(() => checkDialable("wss://[64:ff9b::10.0.0.1]", "p".repeat(43))).not.toThrow();
+    expect(() => checkDialable("wss://[::ffff:127.0.0.1]", undefined)).not.toThrow();
+  });
 });
 
 describe("Link", () => {

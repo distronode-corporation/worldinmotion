@@ -6,12 +6,17 @@ import { defineConfig } from "vitest/config";
 //
 // The template leaves mesh creation closed (no WIM_CREATE_KEY, no WIM_OPEN_CREATE); the tests
 // create meshes freely, so only they open it. They also turn on idle mesh expiry (30 days) so it
-// runs through real objects. Tests of other settings build their own environment.
+// runs through real objects, and lower the per-source dial limit to 100 a minute so a test can
+// use it up quickly (test-workers/dials.test.ts checks wrangler.jsonc's own number). Tests of
+// other settings build their own environment.
 export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.jsonc" },
-      miniflare: { bindings: { WIM_OPEN_CREATE: "1", WIM_IDLE_MESH_DAYS: "30" } },
+      miniflare: {
+        bindings: { WIM_OPEN_CREATE: "1", WIM_IDLE_MESH_DAYS: "30" },
+        ratelimits: { DIALS: { namespace_id: "4170", simple: { limit: 100, period: 60 } } },
+      },
     }),
   ],
   test: {

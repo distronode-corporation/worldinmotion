@@ -1,4 +1,4 @@
-export { b64u, bytesEqual, canon, canonBytes, fitsUtf8, fromUtf8, hash, sha256, utf8 } from "./encoding.ts";
+export { b64u, bytesEqual, canon, canonBytes, fitsUtf8, fromUtf8, hash, hmacSha256, sha256, utf8 } from "./encoding.ts";
 export { hasDuplicateKeys, parseJson } from "./json.ts";
 export { deviceIdFromSignPub, isId22, isName, isUlid, randomBytes, ulid, ulidTime } from "./ids.ts";
 export { decodeKeys, deviceKeysFromSecrets, encodeKeys, generateDeviceKeys, type DeviceKeys, type EncodedKeys } from "./keys.ts";

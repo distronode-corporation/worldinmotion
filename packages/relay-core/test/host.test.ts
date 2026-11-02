@@ -1,4 +1,4 @@
-import { b64u, sha256, utf8 } from "@worldinmotion/protocol";
+import { b64u, hmacSha256, sha256, utf8 } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
 import { LIMITS } from "@worldinmotion/protocol";
 import { readFileSync } from "node:fs";
@@ -17,6 +17,8 @@ import {
   sourceKey,
 } from "../src/index.ts";
 import { MESH } from "./helpers.ts";
+
+const SECRET = new Uint8Array(32).fill(3);
 
 describe("parseDialPath", () => {
   it("takes /v1/<mesh id>, with or without a path prefix in front", () => {
@@ -38,12 +40,20 @@ describe("parseDialPath", () => {
 });
 
 describe("sourceKey", () => {
-  it("is the first 22 characters of b64u(SHA-256(address)), never the address", () => {
-    const k = sourceKey("203.0.113.7");
-    expect(k).toBe(b64u.encode(sha256(utf8("203.0.113.7"))).slice(0, 22));
+  const secret = new Uint8Array(32).fill(9);
+
+  it("is the first 22 characters of b64u(HMAC-SHA-256(secret, bucket)), never the address", () => {
+    const k = sourceKey("203.0.113.7", secret);
+    expect(k).toBe(b64u.encode(hmacSha256(secret, utf8("203.0.113.7"))).slice(0, 22));
     expect(k).toMatch(/^[A-Za-z0-9_-]{22}$/);
     expect(k).not.toContain("203");
-    expect(sourceKey("203.0.113.8")).not.toBe(k);
+    expect(sourceKey("203.0.113.8", secret)).not.toBe(k);
+  });
+
+  it("depends on the relay's secret, so a key cannot be matched to an address without it", () => {
+    const k = sourceKey("203.0.113.7", secret);
+    expect(sourceKey("203.0.113.7", new Uint8Array(32).fill(10))).not.toBe(k);
+    expect(k).not.toBe(b64u.encode(sha256(utf8("203.0.113.7"))).slice(0, 22));
   });
 });
 
@@ -53,7 +63,7 @@ describe("sourceBucket", () => {
     for (const mapped of ["::ffff:203.0.113.7", "::FFFF:203.0.113.7", "0:0:0:0:0:ffff:cb00:7107", "[::ffff:203.0.113.7]"]) {
       expect(sourceBucket(mapped), mapped).toBe("203.0.113.7");
     }
-    expect(sourceKey("::ffff:203.0.113.7")).toBe(sourceKey("203.0.113.7"));
+    expect(sourceKey("::ffff:203.0.113.7", SECRET)).toBe(sourceKey("203.0.113.7", SECRET));
   });
 
   it("buckets IPv6 by /64, however the address is spelled", () => {
@@ -61,7 +71,7 @@ describe("sourceBucket", () => {
     for (const a of ["2001:db8:1:2::1", "2001:db8:1:2:aaaa:bbbb:cccc:dddd", "2001:0DB8:0001:0002:0:0:0:ffff", "[2001:db8:1:2::9]", "2001:db8:1:2::7%eth0", "2001:db8:1:2:0:0:1.2.3.4"]) {
       expect(sourceBucket(a), a).toBe(net);
     }
-    expect(sourceKey("2001:db8:1:2::1")).toBe(sourceKey("2001:db8:1:2:ffff::1"));
+    expect(sourceKey("2001:db8:1:2::1", SECRET)).toBe(sourceKey("2001:db8:1:2:ffff::1", SECRET));
     expect(sourceBucket("2001:db8:1:3::1")).toBe("2001:db8:1:3::/64");
     expect(sourceBucket("::1")).toBe("0:0:0:0::/64");
     expect(sourceBucket("fe80::")).toBe("fe80:0:0:0::/64");

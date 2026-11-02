@@ -190,19 +190,65 @@ describe("wim invite, join and devices", () => {
     expect(said(agent)).toMatch(/usage: wim devices admit <name> <code>/);
   });
 
-  it("admits unattended with --auto, even from an agent, and asks nobody anything", async () => {
+  it("admits unattended with --auto, and asks nobody anything", async () => {
+    const relay = new RelayHarness();
+    const { devices } = await makeMesh(relay, ["admin"]);
+    const person = term(devices[0]!.root, relay);
+    const b = term(await scratch("auto-b"), relay, {}, { CLAUDECODE: "1" });
+    const inviting = run(person, "invite", "--auto");
+    await until(() => said(person).includes("wim1_"));
+    expect(said(person)).not.toContain("wim invite show");
+    expect(await run(b, "join", inviteCodeOf(person), "--name", "bot")).toBe(0);
+    expect(await inviting).toBe(0);
+    expect(said(person)).toContain("Admitted bot.");
+    expect(said(person)).not.toContain("[y/N]");
+    expect(said(person)).toContain("Messages from bot are held for your approval. If it is your own: wim devices trust bot");
+    expect(said(b)).toContain("Messages from admin are held for your approval.");
+  }, 20_000);
+
+  it("never prints an --auto invite code to an agent or a pipe: it holds it for `wim invite show`", async () => {
     const relay = new RelayHarness();
     const { devices } = await makeMesh(relay, ["admin"]);
     const agent = term(devices[0]!.root, relay, { isTTY: false }, { CLAUDECODE: "1" });
-    const b = term(await scratch("auto-b"), relay, {}, { CLAUDECODE: "1" });
+    const b = term(await scratch("auto-held"), relay);
     const inviting = run(agent, "invite", "--auto");
-    await until(() => said(agent).includes("wim1_"));
-    expect(await run(b, "join", inviteCodeOf(agent), "--name", "bot")).toBe(0);
+    await until(() => said(agent).includes("wim invite show"));
+    expect(said(agent)).not.toMatch(/wim[12][_-]/);
+    expect(said(agent)).toMatch(/The invite code is not shown here: CLAUDECODE is set: this shell belongs to Claude Code\./);
+    // The agent cannot collect it either.
+    expect(await run(agent, "invite", "show")).toBe(1);
+    expect(said(agent)).toContain("CLAUDECODE is set: this shell belongs to Claude Code. Open a terminal yourself (VS Code: Terminal > New Terminal) and run `wim invite show` there");
+    expect(said(agent)).not.toMatch(/wim[12][_-]/);
+    // The person, in their own terminal, sees it once.
+    const person = term(devices[0]!.root, relay);
+    expect(await run(person, "invite", "show")).toBe(0);
+    expect(said(person)).toContain("Invite code (single use;");
+    await until(() => said(agent).includes("The invite code was shown."));
+    expect(await run(person, "invite", "show")).toBe(1);
+    expect(said(person)).toMatch(/no invite code is waiting/);
+    expect(await run(b, "join", inviteCodeOf(person), "--name", "bot")).toBe(0);
     expect(await inviting).toBe(0);
     expect(said(agent)).toContain("Admitted bot.");
-    expect(said(agent)).not.toContain("[y/N]");
-    expect(said(agent)).toContain("Messages from bot are held for your approval. If it is your own: wim devices trust bot");
-    expect(said(b)).toContain("Messages from admin are held for your approval.");
+    expect(said(agent)).not.toMatch(/wim[12][_-]/);
+  }, 20_000);
+
+  it("refuses an --auto invite whose code cannot be held, and a stray argument", async () => {
+    const relay = new RelayHarness();
+    const { devices } = await makeMesh(relay, ["admin"]);
+    const piped = term(devices[0]!.root, relay, { isTTY: false });
+    // Something else is where the proof goes, so the code cannot be offered.
+    await fs.mkdir(join(devices[0]!.home.root, "invite.proof"));
+    expect(await run(piped, "invite", "--auto")).toBe(1);
+    expect(said(piped)).toMatch(/wim: the invite code could not be offered for `wim invite show` \(.+\): make a new invite\./);
+    expect(said(piped)).not.toMatch(/wim[12][_-]/);
+    await fs.rmdir(join(devices[0]!.home.root, "invite.proof"));
+    // A held code nobody collects before the invite expires: the invite was never usable.
+    expect(await run(piped, "invite", "--auto", "--exp", "300")).toBe(1);
+    expect(said(piped)).toContain("wim: the invite expired unused.");
+    expect(said(piped)).not.toMatch(/wim[12][_-]/);
+    expect(await fs.access(join(devices[0]!.home.root, "invite.proof")).then(() => true, () => false)).toBe(false);
+    expect(await run(piped, "invite", "shw")).toBe(1);
+    expect(said(piped)).toContain("usage: wim invite [--exp 1h] [--auto] [--full] | wim invite show");
   }, 20_000);
 
   it("says when an invite expired unused, and refuses a request whose code the person will not confirm", async () => {

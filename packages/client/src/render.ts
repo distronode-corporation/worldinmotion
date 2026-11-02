@@ -18,7 +18,7 @@ export function peerLine(p: Peer & { card?: Card }): string {
 
 /**
  * The stored policy level for a sender device (SPEC section 6a, design.md): this device's own
- * sessions are `deliver`, a device the person marked as theirs `deliver` (or `deliver-relayed`),
+ * sessions are `deliver`, a device the person trusts `deliver` (or `deliver-relayed`),
  * anything else `hold` unless set otherwise. Only the person sets it, at the command line.
  */
 export function policyLevel(config: MeshConfig, sender: string): Policy {
