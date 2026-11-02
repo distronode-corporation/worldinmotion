@@ -13,6 +13,11 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Tests:** the held-code test's wrong proof always differs from the real one; it sent the real
+  proof when that ended in `A`, one run in sixteen.
+
 ## [0.1.8] - 2026-11-02
 
 ### Changed
@@ -66,6 +71,24 @@ body line with a bracket.
 
 - Trusted devices are described as devices the person chose to trust (`wim devices trust`),
   matching the agent frame since 0.1.7, rather than as the person's own devices.
+
+### Security
+
+The advisories for the hardening above, published with this release. The hosted relay runs 0.1.8.
+
+- **Relay connection setup is bounded per source address** (GHSA-hcv3-5v65-frf3 for the Workers
+  relay, GHSA-hx2m-4mhm-8qfc for relay-node; high). Dials to mesh ids were not limited before the
+  WebSocket upgrade, and relay-node could keep state for an id whose handshake failed.
+- **Recovery attempts cannot use up a mesh's recovery budget** (GHSA-34c8-vp57-xxhc; medium).
+- **Per-source rate-limit keys are keyed hashes** (GHSA-f3v2-vx3w-2wf4; low).
+- **`wim invite --auto` keeps its code out of an agent's output** (GHSA-3hg3-r8jj-7rj4; medium).
+- **An item approved offline opens the derived window** (GHSA-28v5-87hv-58p4; medium).
+- **A held recovery code goes only to a reader that can read the state directory**, which
+  matters on Windows (GHSA-m6wf-mrjc-pqrc; medium).
+- **The private-relay pin rule covers every non-public range** (GHSA-pc36-45vc-8g74; low).
+- **Dependabot auto-merge is scoped to cooldown-bound development updates, keeps build tools for
+  a person, and needs the branch rules in force** (GHSA-w2p2-jjwf-hgmj, medium;
+  GHSA-pr5c-3c82-6qc3 and GHSA-2jhw-q579-46j4, low).
 
 ### Dependencies
 

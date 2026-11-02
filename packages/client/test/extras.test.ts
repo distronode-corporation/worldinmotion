@@ -252,7 +252,8 @@ describe("holding a code for a person", () => {
     // A wrong proof, one of the wrong length, a line too long, and no proof at all (dropped after
     // the wait): each gets nothing, and none of them ends the window.
     expect(await rawRead(paths.socket, "not the proof\n")).toBe("");
-    expect(await rawRead(paths.socket, `${proof.slice(0, -1)}A\n`)).toBe("");
+    // The real proof with its last character changed, never to the character it already has.
+    expect(await rawRead(paths.socket, `${proof.slice(0, -1)}${proof.endsWith("A") ? "B" : "A"}\n`)).toBe("");
     expect(await rawRead(paths.socket, "x".repeat(200))).toBe("");
     expect(await rawRead(paths.socket, "")).toBe("");
     // A reader sitting on a connection does not lock the person out.
