@@ -972,8 +972,10 @@ every device of the mesh, so it reaches untrusted devices too.
 ### 7.3 Loop and cost breaker
 
 Two agents that each wake on the other's message can loop forever, and every wake costs tokens. The
-client counts automatic deliveries per sender in a sliding hour (by default 20 per peer and 60 in
-total) and detects ping-pong (more than 8 short alternating exchanges in 10 minutes). Past a limit,
+client counts automatic deliveries per sender device in a sliding hour (by default 120 per peer
+and 300 in total) and detects ping-pong (by default more than 32 short alternating exchanges in 10
+minutes). A `mesh.json` written before 0.1.8 keeps the limits written in it (20, 60 and 8) until
+the person changes them there (docs/design.md, loop and cost breaker). Past a limit,
 new items from that peer are held, the person is told, the receiving session is told once per
 pause (so its agent does not take a held peer for a silent one; only the person can release what is
 held), and the sender gets the receipt `held`. The

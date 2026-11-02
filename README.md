@@ -375,6 +375,13 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   API keys, tokens, private keys, invite and recovery codes) is refused. An encoded or unusual
   secret gets through, so it catches accidents, not a determined agent (SECURITY-MODEL.md section
   7.4).
+- **Loop and cost breaker.** Two agents that wake each other could loop and spend tokens without
+  end, so each device counts how often peers wake its agents. In a new mesh the defaults are 120
+  messages per sender device and 300 in total per hour, plus a pause on a fast exchange of short
+  messages (more than 32 back and forth in 10 minutes). Past a limit, that device's messages are
+  held for you and the notice names the rule that tripped. A `mesh.json` written before 0.1.8
+  keeps the limits written in it (20, 60 and 8); docs/design.md (loop and cost breaker) shows how
+  to raise them.
 - **Forward secrecy, bounded.** Each device rotates a signed prekey daily and deletes each
   prekey's secret 72 hours after it expires, and every message is sealed to the recipient's
   current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its

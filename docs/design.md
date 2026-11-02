@@ -281,19 +281,41 @@ host and only the first four characters of the mesh id (the full URL with `WIM_D
 ## Loop and cost breaker
 
 Two agents that each wake on the other's message can loop forever, and every wake costs tokens.
-The client counts automatic deliveries per sender address in a sliding hour. Defaults: 20 wakes
-per peer per hour and 60 in total. Past either limit, new items from that peer go to `held/`
-instead of the spool, a `notice` tells the person ("worldinmotion paused <peer>: 20 messages in
-an hour; /wim to resume"), and the sender gets the receipt `held`. The session itself gets one
+The client counts automatic deliveries per sender device in a sliding hour. Defaults for a new
+mesh: 120 wakes per peer per hour and 300 in total. Past either limit, new items from that peer go
+to `held/` instead of the spool, a `notice` tells the person which rule tripped and its limit
+("worldinmotion paused <peer>: the per-peer limit, 120 messages in an hour; /wim to resume"), and
+the sender gets the receipt `held`. The session itself gets one
 `notice` per pause, without a `held` count so that it reaches the agent: the peer is paused, its
 messages are held from now on and not delivered, only the person can release them (`wim held
 resume <peer>` in a terminal they opened themselves, or the pane), and the peer has not gone
 silent. Later holds from the paused peer raise no further turn, so the pause cannot itself become
 a loop. A held peer resumes when the
 person approves (the pane, `wim held resume <peer>`) or after the hour rolls over, whichever is
-first. A ping-pong detector also pauses a pair early: more than 8 alternating exchanges in
-10 minutes in which every message is under 200 characters. Limits live in `mesh.json`
-(`breaker: { perPeerPerHour, totalPerHour, pingPong }`), and no message can change them.
+first. A ping-pong detector also pauses a pair early: more than 32 alternating exchanges (by
+default) in 10 minutes in which every message is under 200 characters. Only deliveries reach the
+breaker: an item held by inbound policy already waits for the person.
+
+The limits live in `mesh.json` as `breaker`, and no message can change them. The client reads
+the file again for every received message, so an edit applies without a restart. This is what a
+device writes when it creates, joins or recovers a mesh, and what a file with no `breaker` reads
+as:
+
+```
+"breaker": { "perPeerPerHour": 120, "totalPerHour": 300, "pingPong": true, "pingPongExchanges": 32 }
+```
+
+A mesh.json written before 0.1.8 keeps the breaker written in it, `{ "perPeerPerHour": 20,
+"totalPerHour": 60, "pingPong": true }`, with a ping-pong threshold of 8; a field missing or
+invalid in a written breaker reads as those values, never as the higher new default. To raise the
+limits, edit `breaker` in that mesh's `mesh.json` on the receiving device, for example:
+
+```
+"breaker": { "perPeerPerHour": 120, "totalPerHour": 300, "pingPong": false }
+```
+
+or keep `"pingPong": true` and add `"pingPongExchanges": 32`. Each device keeps its own limits,
+so set them on every device whose agents should accept more.
 
 ## History
 

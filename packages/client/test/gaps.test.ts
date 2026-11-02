@@ -21,7 +21,7 @@ import { cardLabel, readBranch } from "../src/cards.ts";
 import { MeshSession } from "../src/client.ts";
 import { fsOps, withLock, claimLock } from "../src/fsx.ts";
 import { WimMcp } from "../src/mcp.ts";
-import { MeshFiles, parseMeshConfig, DEFAULT_BREAKER } from "../src/mesh.ts";
+import { MeshFiles, parseMeshConfig } from "../src/mesh.ts";
 import { listAllHeld } from "../src/offline.ts";
 import { SeqStore } from "../src/replay.ts";
 import { fetchHeldCode, showPaths } from "../src/secretout.ts";
@@ -377,7 +377,7 @@ describe("small module edges", () => {
     expect(await readBranch(root)).toBeUndefined();
     expect(cardLabel({ branch: "b" })).toBe("branch=b");
     const raw = { v: 1, mesh: "m", relay: RELAY, device: "d", pin: { seq: 1, hash: "h" } };
-    expect(parseMeshConfig({ ...raw, breaker: { perPeerPerHour: 3, totalPerHour: -1 } }, "p").breaker).toEqual({ perPeerPerHour: 3, totalPerHour: DEFAULT_BREAKER.totalPerHour, pingPong: true });
+    expect(parseMeshConfig({ ...raw, breaker: { perPeerPerHour: 3, totalPerHour: -1 } }, "p").breaker).toEqual({ perPeerPerHour: 3, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 });
     // Locks whose file cannot be created, for a reason other than being there already: a name
     // that no file system accepts, which fails the same way on every platform. Windows looks at
     // the path before it creates; the others find out from the create itself.
