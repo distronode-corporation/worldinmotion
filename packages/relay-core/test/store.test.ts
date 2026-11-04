@@ -177,8 +177,40 @@ describe("sql schema", () => {
     expect(b.nextToken()).toBe(1);
     expect(a.nextToken()).toBe(1);
     expect(a.nextToken()).toBe(2);
+    expect(db.one("SELECT v FROM wim_meta WHERE k = 'reader'")!["v"]).toBe(1);
     raw.prepare("UPDATE wim_meta SET v = ? WHERE k = 'schema'").run(SCHEMA_VERSION + 1);
+    // A newer schema that needs a newer relay is refused.
+    raw.prepare("UPDATE wim_meta SET v = ? WHERE k = 'reader'").run(SCHEMA_VERSION + 1);
     expect(() => migrate(db)).toThrow(/newer than this relay/);
+    // So is a newer one that records no reader at all (written before readers existed).
+    raw.prepare("DELETE FROM wim_meta WHERE k = 'reader'").run();
+    expect(() => migrate(db)).toThrow(/newer than this relay/);
+  });
+
+  it("runs on a newer, additive schema without touching it: a relay rolled back keeps serving", () => {
+    const raw = new DatabaseSync(":memory:");
+    const db = sqlDb(raw);
+    migrate(db);
+    // What a newer relay's additive migration leaves: a new table and column, and the old reader.
+    db.exec("CREATE TABLE ci_rules (mesh TEXT NOT NULL, device TEXT NOT NULL, PRIMARY KEY (mesh, device))");
+    db.exec("ALTER TABLE queue ADD COLUMN kind TEXT NOT NULL DEFAULT 'msg'");
+    raw.prepare("UPDATE wim_meta SET v = ? WHERE k = 'schema'").run(SCHEMA_VERSION + 1);
+    expect(() => migrate(db)).not.toThrow();
+    expect(db.one("SELECT v FROM wim_meta WHERE k = 'schema'")!["v"]).toBe(SCHEMA_VERSION + 1);
+    expect(db.one("SELECT v FROM wim_meta WHERE k = 'reader'")!["v"]).toBe(1);
+    const st = new SqlStore(db, MESH);
+    st.putSession(session("A"));
+    st.enqueue({ sid: "A", cur: 1, id: "m", fromDevice: "d", queuedAt: 1, bytes: 2, msg: "{}" });
+    expect(st.queue("A", 0)).toHaveLength(1);
+  });
+
+  it("records the reader on a database migrated before readers existed", () => {
+    const raw = new DatabaseSync(":memory:");
+    const db = sqlDb(raw);
+    migrate(db);
+    raw.prepare("DELETE FROM wim_meta WHERE k = 'reader'").run();
+    migrate(db);
+    expect(db.one("SELECT v FROM wim_meta WHERE k = 'reader'")!["v"]).toBe(1);
   });
 
   it("counts meshes by their genesis roster, and deletes one mesh's rows from every table that has a mesh column", () => {

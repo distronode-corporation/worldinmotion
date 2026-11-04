@@ -24,6 +24,16 @@ body line with a bracket.
   refused; `sign.json` gains a `ci` case. Nothing sends or receives notices yet: the relays and
   the client follow.
 
+### Changed
+
+- **A relay rolled back to this release keeps serving a database a newer relay migrated, when
+  that migration was additive.** `migrate()` refused any newer schema, and the Durable Object
+  migrates on every wake, so after the first real relay migration (CI senders add one) a
+  redeploy of the previous version would have broken every mesh. Each schema version now
+  records `reader`, the oldest version that still runs correctly on it; a relay accepts a newer
+  database whose reader it meets, and still refuses one that needs a newer relay or that records
+  no reader. This release must be deployed before any release that migrates the schema.
+
 ### Fixed
 
 - **Tests:** the held-code test's wrong proof always differs from the real one; it sent the real
