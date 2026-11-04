@@ -204,6 +204,20 @@ describe("sql schema", () => {
     expect(st.queue("A", 0)).toHaveLength(1);
   });
 
+  it("runs each step as one transaction, so a step that fails part-way leaves nothing behind", () => {
+    const raw = new DatabaseSync(":memory:");
+    const db = sqlDb(raw);
+    // A table the first step creates, made beforehand, so the step fails after its first statements.
+    db.exec("CREATE TABLE IF NOT EXISTS wim_meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL)");
+    db.exec("CREATE TABLE cards (x INTEGER)");
+    expect(() => migrate(db)).toThrow(/already exists/);
+    expect(db.one("SELECT name FROM sqlite_master WHERE name = 'rosters'")).toBeUndefined();
+    expect(db.one("SELECT v FROM wim_meta WHERE k = 'schema'")).toBeUndefined();
+    db.exec("DROP TABLE cards");
+    migrate(db);
+    expect(db.one("SELECT v FROM wim_meta WHERE k = 'schema'")!["v"]).toBe(SCHEMA_VERSION);
+  });
+
   it("records the reader on a database migrated before readers existed", () => {
     const raw = new DatabaseSync(":memory:");
     const db = sqlDb(raw);

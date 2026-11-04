@@ -27,6 +27,12 @@ type SqlRow = Record<string, SqlValue>;
  */
 export interface SqlDb {
   exec(sql: string, ...params: SqlValue[]): void;
+  /**
+   * Runs `fn` as one transaction: every statement in it takes effect, or none does (it rolls back
+   * and rethrows when `fn` throws). Node runs BEGIN and COMMIT; a Durable Object, which refuses
+   * those statements, uses `transactionSync`.
+   */
+  transaction(fn: () => void): void;
   all(sql: string, ...params: SqlValue[]): SqlRow[];
   one(sql: string, ...params: SqlValue[]): SqlRow | undefined;
 }
@@ -130,9 +136,14 @@ export function migrate(db: SqlDb): void {
     }
     return;
   }
+  // Each step and its version record commit together, so a process that stops in the middle
+  // (a crash, a deploy) leaves the previous version, and the next start runs the step again from
+  // its first statement rather than failing on one that already ran.
   for (let v = current; v < SCHEMA_VERSION; v++) {
-    for (const sql of MIGRATIONS[v]!.sql) db.exec(sql);
-    db.exec(meta, "schema", v + 1);
+    db.transaction(() => {
+      for (const sql of MIGRATIONS[v]!.sql) db.exec(sql);
+      db.exec(meta, "schema", v + 1);
+    });
   }
   // Recorded on every start, so a database migrated before readers existed gets its row too.
   db.exec(meta, "reader", MIGRATIONS[SCHEMA_VERSION - 1]!.reader);
