@@ -24,6 +24,7 @@ import {
   type OpenRequest,
   type Result,
 } from "@worldinmotion/protocol";
+import { z } from "zod";
 import { readJson, writeJson, type FsEnv } from "./fsx.ts";
 import { matchRule, type CiPins, type CiRule, type GithubRule } from "./cirules.ts";
 
@@ -31,6 +32,7 @@ import { matchRule, type CiPins, type CiRule, type GithubRule } from "./cirules.
 export const fetchJwks: JwksFetch = (url) => fetch(url, { redirect: "error", signal: AbortSignal.timeout(5000) });
 
 type JwksFile = { v: 1; keys: Record<string, { text: string; at: number }> };
+const heldSchema = z.strictObject({ text: z.string(), at: z.number().int().nonnegative() });
 
 /**
  * The providers' token keys for this device: fetched by the client itself, kept 24 hours, and
@@ -44,12 +46,26 @@ export class CiKeys {
   private seeded: Promise<void> | undefined;
   private writing: Promise<void> = Promise.resolve();
   private readonly saved: Record<string, { text: string; at: number }> = {};
+  /**
+   * Whether the last JWKS fetch failed for the network's or the provider's reasons (no answer, or
+   * not 200): a key not found then is not a verdict on the token, and the notice is tried again.
+   */
+  unreachable = false;
 
   constructor(o: { path: string; env: FsEnv; fetch: JwksFetch; now: () => number }) {
     this.path = o.path;
     this.env = o.env;
     this.cache = new JwksCache({
-      fetch: o.fetch,
+      fetch: async (url) => {
+        try {
+          const res = await o.fetch(url);
+          this.unreachable = res.status !== 200;
+          return res;
+        } catch (error) {
+          this.unreachable = true;
+          throw error;
+        }
+      },
       now: o.now,
       ttlMs: LIMITS.jwksClientTtlMs,
       onFetched: (iss, text, at) => {
@@ -71,10 +87,11 @@ export class CiKeys {
       .then((raw) => {
         const file = raw as Partial<JwksFile> | undefined;
         const keys = file?.v === 1 && typeof file.keys === "object" && file.keys !== null ? file.keys : {};
-        for (const [iss, held] of Object.entries(keys)) {
-          if (typeof held?.text !== "string" || !Number.isSafeInteger(held.at)) continue;
-          this.saved[iss] = held;
-          this.cache.seed(iss, held.text, held.at);
+        for (const [iss, raw] of Object.entries(keys)) {
+          const held = heldSchema.safeParse(raw);
+          if (!held.success) continue;
+          this.saved[iss] = held.data;
+          this.cache.seed(iss, held.data.text, held.data.at);
         }
       });
     return this.seeded;
@@ -85,6 +102,18 @@ export class CiKeys {
     await this.seed();
     return this.cache.key(iss, kid);
   };
+}
+
+/**
+ * A notice whose token names a key this device could not fetch because the provider did not
+ * answer: the machine's fault, not the notice's (`EAGAIN`), so it is not acknowledged and the
+ * relay delivers it again once the connection is retried.
+ */
+export class KeysUnreachable extends Error {
+  readonly code = "EAGAIN";
+  constructor() {
+    super("a CI provider's keys could not be fetched; the notice is tried again later");
+  }
 }
 
 /** What a notice that passed every check gives the session. */

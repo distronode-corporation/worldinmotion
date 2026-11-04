@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ciNotify } from "../src/cisend.ts";
 import { loadCiRules, saveCiRules, type CiRule } from "../src/cirules.ts";
-import type { MeshSession } from "../src/client.ts";
+import type { MeshSession, SessionOptions } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { decideHeld } from "../src/offline.ts";
 import { ciWorld, gitlabClaims, type CiWorld } from "./ci-fixture.ts";
@@ -43,9 +43,9 @@ async function world(rules: CiRule[] | undefined): Promise<World> {
 }
 
 /** The phone's `agent` session, connected, its rules told to the relay. */
-async function agent(w: World, name = "agent"): Promise<MeshSession> {
+async function agent(w: World, name = "agent", extra: Partial<SessionOptions> = {}): Promise<MeshSession> {
   const before = w.relay.sentByClients.filter(isRules).length;
-  const s = await openSession(w.phone, w.mesh, w.relay, { name, jwksFetch: w.ci.jwksFetch, log: (l) => void w.logs.push(l) });
+  const s = await openSession(w.phone, w.mesh, w.relay, { name, jwksFetch: w.ci.jwksFetch, log: (l) => void w.logs.push(l), ...extra });
   open.push(s);
   if ((await loadCiRules(w.files.ciRulesPath).catch(() => [1])).length > 0) await until(() => w.relay.sentByClients.filter(isRules).length > before, undefined, "ci.rules");
   // The relay handles a frame on the next turn.
@@ -177,6 +177,31 @@ describe("a relay is not trusted", () => {
     await fs.rm(w.files.ciRulesPath);
     w.relay.inject(w.mesh, copy!);
     await dropped(w, "no_rule");
+  });
+});
+
+describe("the providers' keys", () => {
+  it("leaves a notice unacknowledged while the provider's keys cannot be fetched, and takes it once they can", async () => {
+    const w = await world([ghRule()]);
+    let down = true;
+    let shift = 0;
+    const jwksFetch = (url: string) => (down ? Promise.reject(new Error("offline")) : w.ci.jwksFetch(url));
+    const s = await agent(w, "agent", { jwksFetch, now: () => Date.now() + shift });
+    await github(w, "after the outage");
+    await until(() => w.logs.some((l) => l.includes("keys could not be fetched")), undefined, "the retry");
+    expect(w.logs.some((l) => l.includes("dropped CI notice"))).toBe(false);
+    // The network is back, and a minute has passed since the last fetch (refetches are at most one a minute).
+    down = false;
+    shift = 65_000;
+    expect((await spooled(s, fromCi)).rendered).toContain("after the outage");
+  });
+
+  it("drops a notice whose key the provider does not have", async () => {
+    const w = await world([ghRule()]);
+    const empty = async () => ({ status: 200, text: async () => '{"keys":[]}' });
+    await agent(w, "agent", { jwksFetch: empty });
+    await github(w);
+    await dropped(w, "unknown_key");
   });
 });
 
@@ -328,6 +353,10 @@ describe("telling the relay", () => {
     await saveCiRules(w.files.ciRulesPath, [], FS);
     await until(() => count().length === n + 2);
     expect(JSON.parse(count().at(-1)!)).toEqual({ t: "ci.rules", tags: [], gitlab: false });
+    // The file gone after rules were sent: none, which the relay already holds.
+    await fs.rm(w.files.ciRulesPath);
+    await s.tick();
+    expect(count().length).toBe(n + 2);
     await fs.writeFile(w.files.ciRulesPath, "{");
     await saveCiRules(w.files.ciRulesPath, [ghRule()], FS);
     await until(() => count().length === n + 3);

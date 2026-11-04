@@ -89655,6 +89655,7 @@ function ruleLine(r6) {
 
 // src/cireceive.ts
 var fetchJwks = (url2) => fetch(url2, { redirect: "error", signal: AbortSignal.timeout(5e3) });
+var heldSchema = external_exports.strictObject({ text: external_exports.string(), at: external_exports.number().int().nonnegative() });
 var CiKeys = class {
   cache;
   path;
@@ -89662,11 +89663,25 @@ var CiKeys = class {
   seeded;
   writing = Promise.resolve();
   saved = {};
+  /**
+   * Whether the last JWKS fetch failed for the network's or the provider's reasons (no answer, or
+   * not 200): a key not found then is not a verdict on the token, and the notice is tried again.
+   */
+  unreachable = false;
   constructor(o3) {
     this.path = o3.path;
     this.env = o3.env;
     this.cache = new JwksCache({
-      fetch: o3.fetch,
+      fetch: async (url2) => {
+        try {
+          const res = await o3.fetch(url2);
+          this.unreachable = res.status !== 200;
+          return res;
+        } catch (error63) {
+          this.unreachable = true;
+          throw error63;
+        }
+      },
       now: o3.now,
       ttlMs: LIMITS.jwksClientTtlMs,
       onFetched: (iss, text2, at) => {
@@ -89684,10 +89699,11 @@ var CiKeys = class {
     this.seeded ??= readJson(this.path).catch(() => void 0).then((raw) => {
       const file2 = raw;
       const keys = file2?.v === 1 && typeof file2.keys === "object" && file2.keys !== null ? file2.keys : {};
-      for (const [iss, held2] of Object.entries(keys)) {
-        if (typeof held2?.text !== "string" || !Number.isSafeInteger(held2.at)) continue;
-        this.saved[iss] = held2;
-        this.cache.seed(iss, held2.text, held2.at);
+      for (const [iss, raw2] of Object.entries(keys)) {
+        const held2 = heldSchema.safeParse(raw2);
+        if (!held2.success) continue;
+        this.saved[iss] = held2.data;
+        this.cache.seed(iss, held2.data.text, held2.data.at);
       }
     });
     return this.seeded;
@@ -89697,6 +89713,12 @@ var CiKeys = class {
     await this.seed();
     return this.cache.key(iss, kid);
   };
+};
+var KeysUnreachable = class extends Error {
+  code = "EAGAIN";
+  constructor() {
+    super("a CI provider's keys could not be fetched; the notice is tried again later");
+  }
 };
 async function checkCiNotice(raw, d5) {
   const addressed = ciOpenRequest(raw, d5.me);
@@ -92458,6 +92480,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       rules: await this.ciRulesNow() ?? [],
       now
     });
+    if (!r6.ok && r6.reason === "unknown_key" && this.ciKeys.unreachable) throw new KeysUnreachable();
     if (!r6.ok) {
       this.log(`wim: dropped CI notice ${noticeId(raw)}: ${r6.reason}`);
       return;
@@ -92493,12 +92516,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
       entry,
       ci: { rule: rule.id, ...pins === void 0 ? {} : { pins } }
     };
-    if (pins !== void 0 || rule.hold === true) return this.hold({ ...item, reason: "policy" });
     const admitted = this.ciBreaker.admit(ciBucket(claims), text2.length);
     if (!admitted.ok) {
       if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
       return this.hold({ ...item, reason: "breaker" }, admitted.newly ? ciPauseNotices(from, admitted.reason) : void 0);
     }
+    if (pins !== void 0 || rule.hold === true) return this.hold({ ...item, reason: "policy" });
     await this.release(item, void 0);
   }
   fromAddress(p3) {

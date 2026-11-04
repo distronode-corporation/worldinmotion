@@ -53,7 +53,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Breaker, pauseNotice, pauseNoticeForAgent } from "./breaker.ts";
 import { cardFor, sameCard } from "./cards.ts";
-import { checkCiNotice, CI_BREAKER, ciBucket, ciFrom, CiKeys, ciLabel, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
+import { checkCiNotice, CI_BREAKER, ciBucket, ciFrom, CiKeys, ciLabel, ciPauseNotices, fetchJwks, jtiKey, KeysUnreachable, noticeId } from "./cireceive.ts";
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
@@ -995,6 +995,7 @@ export class MeshSession extends EventEmitter {
       rules: (await this.ciRulesNow()) ?? [],
       now,
     });
+    if (!r.ok && r.reason === "unknown_key" && this.ciKeys.unreachable) throw new KeysUnreachable();
     if (!r.ok) {
       this.log(`wim: dropped CI notice ${noticeId(raw)}: ${r.reason}`);
       return;
@@ -1032,12 +1033,13 @@ export class MeshSession extends EventEmitter {
       entry,
       ci: { rule: rule.id, ...(pins === undefined ? {} : { pins }) },
     };
-    if (pins !== undefined || rule.hold === true) return this.hold({ ...item, reason: "policy" });
+    // Counted before any hold, so a held repository cannot raise held items and notices without limit.
     const admitted = this.ciBreaker.admit(ciBucket(claims), text.length);
     if (!admitted.ok) {
       if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
       return this.hold({ ...item, reason: "breaker" }, admitted.newly ? ciPauseNotices(from, admitted.reason as "peer" | "total") : undefined);
     }
+    if (pins !== undefined || rule.hold === true) return this.hold({ ...item, reason: "policy" });
     await this.release(item, undefined);
   }
 

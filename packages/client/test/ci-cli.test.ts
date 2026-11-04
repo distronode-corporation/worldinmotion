@@ -168,6 +168,8 @@ describe("wim ci list and remove", () => {
     const w = await setup();
     expect(await run(w.t, "ci", "missing-config.json")).toBe(1);
     expect(said(w.t)).toContain("missing-config.json");
+    expect(await run(w.t, "ci")).toBe(1);
+    expect(said(w.t)).toContain("a config file path is required");
   });
 });
 
