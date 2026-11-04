@@ -47,8 +47,12 @@ Both are first-class threats here.
    isolated cryptographically. Two agent profiles under one OS user are two devices by key only; the
    OS gives them no separation from each other.
 2. **Mesh.** Devices in the roster can read items addressed to them, and every room message and
-   broadcast, and can send signed items to any session in the mesh. Devices outside the roster can
-   do neither.
+   broadcast, and can send signed items to any session in the mesh. Anything outside the roster
+   can read nothing. It can send in one way only: a CI job (a CI sender, SPEC section 18) can send
+   one information-only notice to one session of a device whose person allowed that job's
+   repository, ref and workflow on that device, proving where it runs with its CI provider's ID
+   token. The receiving device checks the token and the rule itself; the relay's filter is only a
+   filter. A CI notice never assigns work and never starts a turn (sections 5.10 and 6.17).
 3. **Person.** A mesh may span several people's accounts. The protocol has one notion of
    authority, the admin role, and any admin (or the recovery code) can add, promote or revoke any
    device, including another person's. People who share a mesh trust each other's admin devices
@@ -208,6 +212,9 @@ Can:
 - Delay a roster update for a client until some other member's message reveals it.
 - Withhold, delete or replace a short invite code's box (section 5.6), so the joiner cannot use
   that code; it then needs a new one or the full code.
+- On a relay that takes CI senders: read each GitHub notice's token claims, drop, delay or replay
+  CI notices (receivers drop the replay), hand a CI sender an older valid prekey, and ignore rule
+  tags (receivers check the rule themselves).
 - Refuse service entirely.
 
 Cannot:
@@ -230,6 +237,8 @@ Cannot:
   signed relay URL is compared byte for byte with the relay's configured URLs, never with request
   headers).
 - Corrupt, reorder, swap or truncate a file's chunks without the receiver noticing (section 6.12).
+- Alter or forge a CI notice: a GitHub notice is signed by a one-time key its token binds, and a
+  GitLab notice's token is inside the box, never shown to the relay (section 6.17).
 
 ### 5.5 Network attacker
 
@@ -565,6 +574,40 @@ the code waits and is removed when the window ends. This holds only as far as th
 permissions do: an administrator of the machine can read the proof, as they can read the key file.
 The Windows case is tested against a second connection, not against a second account.
 
+### 5.10 A CI job, and anyone who can run code in one
+
+A CI sender (SPEC section 18) is a GitHub Actions or GitLab CI/CD job. It is not in the roster
+and holds no stored key. Everything that runs in the job counts as the job: every step, script
+and dependency, and on GitHub any step can ask for an ID token of its own. So does anyone who can
+push to the branch the person allowed, or change the workflow file the rule names.
+
+Can:
+- Send information-only notices to the session a rule names, on a device whose person allowed
+  its repository and ref (and, on GitHub, workflow file and event). Each arrives as relayed CI
+  text from that repository, never a work assignment, and waits in the inbox without waking the
+  session. Its text is attacker-influenced, and so are the ref, workflow and environment names in
+  its frame; they are escaped, and the derived window keeps whatever the agent writes next one hop
+  from work (section 7.2).
+- On GitLab, with the job's token (a bearer credential until the job times out): send one notice
+  as that project from anywhere, once per token. Whoever can read the job's variables can do this.
+- Learn what the recipient code says (relay URL, mesh id, the device's public signing key) and the
+  target session's name, and fetch the device's current prekey. None of it is secret.
+- Spend, within limits, the device's CI share: 60 notices a minute per repository, 10 queued per
+  repository and 20 in all per session. Anyone with the recipient code can fill the GitLab share,
+  since the relay cannot verify GitLab notices (SPEC section 18).
+
+Cannot:
+- Read anything, authenticate to the relay, or send any message other than a CI notice.
+- Send from a repository, ref, workflow or event the person did not allow: the receiving device
+  verifies the token against the provider's keys it fetches itself, and matches the whole rule
+  (ids included once pinned). A `pull_request_target` or `workflow_run` run, which a fork can
+  steer, is refused unless the rule names that event.
+- Reuse a GitHub token another job (or the relay) saw: its audience names a one-time key that
+  only the sending process holds, and that key signs the notice.
+- Send a notice twice: the device keeps the notice id and the token's `jti`.
+- Change a rule, policy or limit: rules change only at the person's terminal (section 7.2).
+- Take a real peer's place in a queue: CI has a queue share and a breaker bucket of its own.
+
 ## 6. Properties, one by one
 
 ### 6.1 Confidentiality
@@ -706,6 +749,16 @@ the admin device that stored it, its size and when and from where it is fetched 
 every message, timestamps, sizes, and receipt outcomes (which reveal when a person's policy held or
 refused an item), and each device's prekeys with their rotation times (they travel in clear
 headers). Message kinds, file names and card contents are inside the encryption.
+
+On a relay that takes CI senders (SPEC sections 10 and 18), also: each GitHub notice's ID token,
+read once to verify it and never stored, so for that moment every claim it carries (repository,
+owner and their ids and visibility, ref, workflow, event, commit, run ids, the actor's login and
+id, environment); a counting key per repository and a hash of each token's `jti` until it
+expires; each device's rule tags (hashes of mesh, device, issuer, repository and ref, which give
+away any guessable repository name) and whether it takes GitLab notices; which session takes
+notices, which device and session each notice is for, its size and time, and which prekey went to
+a request from which source key. It never sees a GitLab token, and so never a GitLab pipeline
+user's login or email address, and never a notice's text.
 
 To every member: every session's name, kind, presence and rooms, and every session's peer card,
 which by default carries its working directory (often containing a user name and project name) and
@@ -854,7 +907,14 @@ The relay can always deny service. Against members and outsiders the limits are 
   requests kept on an admin device;
 - short invite code boxes (section 5.6): only admin devices store them, 16 an hour per device, 64
   per mesh and 64 per source address, at most 4 KiB each, at most an hour, 10,000 per relay in
-  all; fetches 30 an hour per source address, found or not, and three per box.
+  all; fetches 30 an hour per source address, found or not, and three per box;
+- CI senders (section 6.17): off unless the relay's operator turns them on; 60 requests a minute
+  per source address, a 32 KiB request, an 8 KiB token and 4 KiB of text; 60 notices a minute
+  per repository (or per device's GitLab share), a CI queue of 20 per session with at most 10 per
+  repository, apart from the 50 messages; 4096 live token ids per mesh. A relay never fetches a
+  URL taken from a request, and fetches GitHub's keys for an unknown `kid` at most once a minute.
+  The relay verifies a GitHub token, an RSA check, only for a device that has rule tags; junk
+  tokens cost it that check each, within the per-source budget.
 
 Per-source limits are kept under a source key, never the raw address: a keyed hash (HMAC-SHA-256)
 of the address's bucket (the IPv4 address, or the IPv6 /64) under a random secret each relay makes
@@ -865,6 +925,37 @@ does.
 
 On the receiving side, the loop and cost breaker (section 7.3) bounds how often peers can wake an
 agent.
+
+### 6.17 CI senders
+
+A CI job sends a notice to one session (SPEC section 18) with the ID token its provider gives the
+job, sealed to the recipient device's prekey like any box.
+
+- **The receiving device decides.** It verifies the token against the provider's keys, which it
+  fetches itself from a URL compiled into the client, never one a token or the relay names. It
+  matches the person's rule exactly: repository and ref, the workflow file and event on GitHub,
+  protected refs on GitLab, and the repository's ids once pinned. Names can be recycled, so a rule
+  pins ids: read from the provider's public API for a public repository, or, for a private one,
+  from the first matching notice, which is held until the person approves it and so pins them.
+- **Bound on GitHub.** The token's audience names a one-time key, and that key signs the notice.
+  The relay sees the token, verifies it and keeps no copy; neither it nor anyone else who sees the
+  token can alter the notice or send another with it.
+- **Not bound on GitLab.** GitLab fixes the audience before the job runs, so the token is a bearer
+  credential until the job times out. It therefore travels only inside the sealed box: the relay
+  never sees it and cannot alter a GitLab notice. Anyone who can read the job's variables can send
+  one notice as that project. The relay cannot filter GitLab notices, so the device's GitLab share
+  is open to anyone with the recipient code, and only that share.
+- **Relay-visible.** See section 6.10: GitHub claims for the moment of verifying, counting keys,
+  `jti` hashes and rule tags; never a GitLab token. The tags give away guessable repository
+  names.
+- **Replay.** The device keeps each notice id and token id until both the freshness window and
+  the token's own life are over, and refuses a token that claims to live more than 24 hours.
+- **Not a member.** A CI sender cannot read, authenticate or send anything but a notice; its
+  notices never assign work and never wake a session (section 7.2).
+- **The recipient code is not a secret.** It names the relay, mesh and device's public key; a
+  public workflow shows it. The device's rules, not the code, decide what is delivered. A recipient
+  code cannot be rotated, since `wim/1` has no key change: a new one means revoking the device and
+  adding it again.
 
 ## 7. The agent edge
 
@@ -953,6 +1044,11 @@ something it read, its requests arrive as trusted work everywhere you trust it. 
   Never trust another person's device; collaborate with `hold` and approve items.
 - **Cut off and revoke.** Set a suspect device to `hold` or `refuse` on your other devices (local,
   immediate), then revoke it from the roster.
+- **CI notices are information only** (section 6.17). They come from no device, so no policy can
+  make them work: each is relayed CI text, waits in the inbox, never starts a turn, and starts the
+  derived window. Which repositories may send is the person's decision alone: `wim ci allow`,
+  `list` and `remove` run only under the rule above (an interactive terminal, no agent's
+  variables, a typed yes), and no tool, MCP call, message or local UI request reaches them.
 - **Relayed text never assigns work.** Clients that forward text they did not write (bots, the CI
   watcher, the A2A gateway) mark it relayed. A relayed item is held unless the person allowed
   relayed text from that device (`deliver-relayed`), never starts a new turn, and is always framed
@@ -982,6 +1078,10 @@ pause (so its agent does not take a held peer for a silent one; only the person 
 held), and the sender gets the receipt `held`. The
 pause lifts when the person resumes the peer or the hour rolls over. No message can change the
 limits.
+
+CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
+an hour) and for all CI together (240), never toward the peer and total limits above, so a busy
+pipeline cannot pause a real peer. Past a CI limit that repository's notices are held the same way.
 
 ### 7.4 Secret leakage
 
@@ -1075,6 +1175,11 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   process of the OS user can unset the variables, run a terminal of its own and type into it, or
   write the mark files and the policy directly.
 - Card working directories are shared with every member by default.
+- A GitLab CI notice is not bound to the job that sent it: whoever can read that job's variables
+  can send one notice as its project, and the relay cannot filter GitLab notices, so anyone with a
+  recipient code can fill that device's GitLab share. On GitHub, every step of an allowed job can
+  send as its repository. The relay sees each GitHub notice's token claims while it verifies
+  them, and every device's rule tags.
 
 ## 10. Reporting
 
