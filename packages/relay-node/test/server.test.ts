@@ -585,6 +585,19 @@ describe("relay-node", () => {
     await expect(start({ db: ":memory:", port: r.port, log: () => {} })).rejects.toThrow(/EADDRINUSE/);
   });
 
+  it("runs a transaction all or nothing, rolling back and rethrowing when it throws", () => {
+    const db = sqlDb(new DatabaseSync(":memory:"));
+    db.exec("CREATE TABLE t (v INTEGER)");
+    db.transaction(() => db.exec("INSERT INTO t (v) VALUES (1)"));
+    expect(() =>
+      db.transaction(() => {
+        db.exec("INSERT INTO t (v) VALUES (2)");
+        throw new Error("stopped");
+      }),
+    ).toThrow("stopped");
+    expect(db.all("SELECT v FROM t")).toEqual([{ v: 1 }]);
+  });
+
   it("closes on SIGINT or SIGTERM and then exits", async () => {
     for (const signal of ["SIGINT", "SIGTERM"] as const) {
       const r = await start({ db: ":memory:", port: 0, log: () => {} });

@@ -144,6 +144,16 @@ export function sqlDb(db: DatabaseSync): SqlDb {
     exec: (sql, ...params) => void db.prepare(sql).run(...params),
     all: (sql, ...params) => db.prepare(sql).all(...params) as ReturnType<SqlDb["all"]>,
     one: (sql, ...params) => db.prepare(sql).get(...params) as ReturnType<SqlDb["one"]>,
+    transaction: (fn) => {
+      db.exec("BEGIN");
+      try {
+        fn();
+        db.exec("COMMIT");
+      } catch (err) {
+        db.exec("ROLLBACK");
+        throw err;
+      }
+    },
   };
 }
 

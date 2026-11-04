@@ -87,7 +87,7 @@ export class MeshDurableObject extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.db = doSqlDb(ctx.storage.sql);
+    this.db = doSqlDb(ctx.storage);
     // Keepalives cost nothing: the runtime answers them while the object sleeps.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
   }

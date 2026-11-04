@@ -22,7 +22,7 @@ export class RendezvousStore extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.store = new Rendezvous(doSqlDb(ctx.storage.sql));
+    this.store = new Rendezvous(doSqlDb(ctx.storage));
   }
 
   put(put: RdvPut): RdvOutcome {

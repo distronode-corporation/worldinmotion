@@ -10,8 +10,10 @@ type Row = Record<string, SqlValue>;
  * relay-core never stores blobs, so no column holds an ArrayBuffer and the narrowing to
  * `SqlValue` is exact.
  */
-export function doSqlDb(sql: SqlStorage): SqlDb {
+export function doSqlDb(storage: Pick<DurableObjectStorage, "sql" | "transactionSync">): SqlDb {
+  const sql = storage.sql;
   return {
+    transaction: (fn) => storage.transactionSync(fn),
     exec: (query, ...params) => void sql.exec(query, ...params),
     all: (query, ...params) => sql.exec<Row>(query, ...params).toArray(),
     one: (query, ...params) => sql.exec<Row>(query, ...params).toArray()[0],

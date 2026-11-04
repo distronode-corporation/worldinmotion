@@ -39,6 +39,16 @@ export function sqlDb(db: DatabaseSync): SqlDb {
     exec: (sql, ...params) => void prepare(sql).run(...params),
     all: (sql, ...params) => prepare(sql).all(...params) as Record<string, string | number | null>[],
     one: (sql, ...params) => prepare(sql).get(...params) as Record<string, string | number | null> | undefined,
+    transaction: (fn) => {
+      db.exec("BEGIN");
+      try {
+        fn();
+        db.exec("COMMIT");
+      } catch (err) {
+        db.exec("ROLLBACK");
+        throw err;
+      }
+    },
   };
 }
 
