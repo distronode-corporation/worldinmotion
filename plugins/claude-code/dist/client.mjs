@@ -83556,7 +83556,43 @@ var LIMITS = {
    * Prekey secrets a device keeps at most. Daily rotation and deletion 120 hours after `at` keep
    * six alive at most; the cap only bounds the file when a clock misbehaves.
    */
-  prekeysKept: 8
+  prekeysKept: 8,
+  /** Largest body of a CI sender's HTTP request (SPEC section 18). */
+  ciRequestBytes: 32 * KiB,
+  /** Largest CI notice `text`, in UTF-8 bytes. */
+  ciTextBytes: 4 * KiB,
+  /** Largest CI ID token. */
+  ciTokenBytes: 8 * KiB,
+  /** CI requests per source address per minute, per mesh. */
+  ciRequestsPerSourcePerMinute: 60,
+  /** CI notices per counting key (a GitHub repository, or a device's GitLab share) per minute, sustained. */
+  ciSendsPerMinute: 60,
+  /** CI notices per counting key allowed in a burst. */
+  ciSendBurst: 20,
+  /** CI notices held in one recipient session's queue, apart from its messages. */
+  ciQueuePerSession: 20,
+  /** Of those, notices under any one counting key. */
+  ciQueuePerKey: 10,
+  /** Rule tags one device registers with the relay. */
+  ciRuleTags: 64,
+  /** GitHub token ids (`jti`) a relay remembers at once per mesh. */
+  ciJtisPerMesh: 4096,
+  /** Clock skew a relay allows on a CI request's `at` and on a token's times. */
+  ciSkewMs: 5 * MINUTE,
+  /** Longest a CI token may claim to live (`exp` - `iat`). */
+  ciTokenMaxLifetimeMs: DAY,
+  /** How long past a token's window (`nbf` or `iat` before, `exp` after) a notice's `at` may lie. */
+  ciTokenWindowSkewMs: 5 * MINUTE,
+  /** How long past a token's `exp` a receiver keeps its `jti`. */
+  ciJtiRetentionMs: 10 * MINUTE,
+  /** Fewest milliseconds between two JWKS fetches for a `kid` not held, per issuer. */
+  jwksRefetchMs: MINUTE,
+  /** How long a relay keeps an issuer's JWKS. */
+  jwksRelayTtlMs: HOUR,
+  /** How long a client keeps an issuer's JWKS. */
+  jwksClientTtlMs: DAY,
+  /** Largest JWKS answer. */
+  jwksBytes: 64 * KiB
 };
 function ok(value) {
   return { ok: true, value };
@@ -85389,7 +85425,7 @@ function decodeKeys(json4) {
 }
 
 // ../protocol/src/sign.ts
-var SIGN_TYPES = /* @__PURE__ */ new Set(["roster", "send", "auth", "join", "prekey"]);
+var SIGN_TYPES = /* @__PURE__ */ new Set(["roster", "send", "auth", "join", "prekey", "ci"]);
 function withoutSig(obj) {
   const { sig: _sig, ...rest } = obj;
   return rest;
@@ -86837,6 +86873,109 @@ function openBlob(input2) {
   return ok(out);
 }
 
+// ../protocol/src/prekey.ts
+var prekeySchema = external_exports.strictObject({
+  mesh: meshIdSchema,
+  device: deviceIdSchema,
+  id: deviceIdSchema,
+  pub: keySchema,
+  at: timeSchema,
+  until: timeSchema,
+  sig: sigSchema
+});
+function prekeyId(pub) {
+  return deviceIdFromSignPub(pub);
+}
+function createPrekey(opts) {
+  if (deviceIdFromSignPub(ed25519.getPublicKey(opts.signSec)) !== opts.deviceId) {
+    throw new TypeError("createPrekey: deviceId does not match the signing key");
+  }
+  const secret = randomBytes2(32);
+  const pub = x25519.getPublicKey(secret);
+  const body = {
+    mesh: opts.mesh,
+    device: opts.deviceId,
+    id: prekeyId(pub),
+    pub: b64u.encode(pub),
+    at: opts.at,
+    until: opts.at + LIMITS.prekeyLifetimeMs
+  };
+  return { prekey: signObject("prekey", body, opts.signSec), secret };
+}
+var PROBE = sha2562(utf8("wim/1 prekey probe"));
+function verifyPrekey(raw, roster, now) {
+  const parsed2 = safeParse3(prekeySchema, raw);
+  if (!parsed2.success) return fail("malformed");
+  const pk = parsed2.data;
+  if (pk.mesh !== roster.mesh) return fail("wrong_mesh");
+  if (roster.revoked.includes(pk.device)) return fail("revoked_device");
+  const device = roster.devices.find((d5) => d5.id === pk.device);
+  if (device === void 0) return fail("unknown_device");
+  if (isRecoveryName(device.name)) return fail("recovery_device");
+  const pub = b64u.decode(pk.pub);
+  if (prekeyId(pub) !== pk.id) return fail("bad_id");
+  if (!verifyObject("prekey", pk, b64u.decode(device.sign))) return fail("bad_signature");
+  if (pk.until <= pk.at || pk.until - pk.at > LIMITS.prekeyLifetimeMs) return fail("bad_window");
+  try {
+    x25519.getSharedSecret(PROBE, pub);
+  } catch {
+    return fail("bad_key");
+  }
+  if (pk.at > now + LIMITS.messageMaxFutureMs) return fail("not_yet");
+  if (!prekeyUsable(pk, now)) return fail("expired");
+  return ok(pk);
+}
+function prekeyUsable(pk, now) {
+  return pk.at <= now + LIMITS.messageMaxFutureMs && now + LIMITS.prekeySendMarginMs < pk.until;
+}
+function prekeyDeleteAt(pk) {
+  return pk.until + LIMITS.prekeyRetentionMs;
+}
+
+// ../protocol/src/ci-schema.ts
+var viaSchema = external_exports.enum(["github", "gitlab"]);
+var JWT_TEXT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+var tokenSchema = external_exports.string().max(LIMITS.ciTokenBytes).regex(JWT_TEXT);
+var ciTextSchema = external_exports.string().refine((s3) => fitsUtf8(s3, LIMITS.ciTextBytes), { message: "text is over 4 KiB" });
+var ciBoxSchema = external_exports.strictObject({ s: external_exports.literal(2), p: deviceIdSchema, e: keySchema, c: external_exports.string().min(22).max(LIMITS.ciRequestBytes) });
+var noticeFields = {
+  t: external_exports.literal("ci.send"),
+  mesh: meshIdSchema,
+  id: ulidSchema,
+  device: deviceIdSchema,
+  to: nameSchema,
+  at: timeSchema,
+  via: viaSchema,
+  otk: keySchema.optional(),
+  xk: keySchema,
+  box: ciBoxSchema,
+  sig: sigSchema.optional()
+};
+var bound = (n3) => n3.via === "github" ? n3.otk !== void 0 && n3.sig !== void 0 : n3.otk === void 0 && n3.sig === void 0;
+var ciNoticeSchema = external_exports.strictObject(noticeFields).refine(bound, { message: "a github notice has otk and sig, a gitlab one neither" });
+var ciSendRequestSchema = external_exports.strictObject({ ...noticeFields, token: tokenSchema.optional() }).refine(bound, { message: "a github notice has otk and sig, a gitlab one neither" }).refine((r6) => r6.via === "github" === (r6.token !== void 0), { message: "a github request carries its token, a gitlab one never" });
+var ciPrekeyRequestSchema = external_exports.strictObject({ t: external_exports.literal("ci.prekey"), device: deviceIdSchema, via: viaSchema });
+var ciPlaintextSchema = external_exports.strictObject({
+  v: external_exports.literal(1),
+  kind: external_exports.literal("ci"),
+  id: ulidSchema,
+  device: deviceIdSchema,
+  to: nameSchema,
+  at: timeSchema,
+  text: ciTextSchema,
+  token: tokenSchema
+});
+var ciRulesFrameSchema = external_exports.strictObject({
+  t: external_exports.literal("ci.rules"),
+  tags: external_exports.array(deviceIdSchema).max(LIMITS.ciRuleTags),
+  gitlab: external_exports.boolean()
+});
+var ciRulesAnswerSchema = external_exports.looseObject({ t: external_exports.literal("ci.rules"), count: cursorSchema });
+var ciDeliverFrameSchema = external_exports.looseObject({ t: external_exports.literal("ci.deliver"), cursor: seqSchema, msg: ciNoticeSchema });
+var ciPrekeyAnswerSchema = external_exports.looseObject({ t: external_exports.literal("ci.prekey"), prekey: prekeySchema });
+var CI_SENT_STATUSES = ["routed", "queued", "unknown", "full", "limited"];
+var ciSentSchema = external_exports.looseObject({ t: external_exports.literal("ci.sent"), id: ulidSchema, status: external_exports.enum(CI_SENT_STATUSES) });
+
 // ../protocol/src/shortcode.ts
 var PREFIX2 = "wim2-";
 var CROCKFORD3 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -86923,65 +87062,6 @@ function openRdv(k5, box) {
   } catch {
     return fail("rdv_decrypt_failed");
   }
-}
-
-// ../protocol/src/prekey.ts
-var prekeySchema = external_exports.strictObject({
-  mesh: meshIdSchema,
-  device: deviceIdSchema,
-  id: deviceIdSchema,
-  pub: keySchema,
-  at: timeSchema,
-  until: timeSchema,
-  sig: sigSchema
-});
-function prekeyId(pub) {
-  return deviceIdFromSignPub(pub);
-}
-function createPrekey(opts) {
-  if (deviceIdFromSignPub(ed25519.getPublicKey(opts.signSec)) !== opts.deviceId) {
-    throw new TypeError("createPrekey: deviceId does not match the signing key");
-  }
-  const secret = randomBytes2(32);
-  const pub = x25519.getPublicKey(secret);
-  const body = {
-    mesh: opts.mesh,
-    device: opts.deviceId,
-    id: prekeyId(pub),
-    pub: b64u.encode(pub),
-    at: opts.at,
-    until: opts.at + LIMITS.prekeyLifetimeMs
-  };
-  return { prekey: signObject("prekey", body, opts.signSec), secret };
-}
-var PROBE = sha2562(utf8("wim/1 prekey probe"));
-function verifyPrekey(raw, roster, now) {
-  const parsed2 = safeParse3(prekeySchema, raw);
-  if (!parsed2.success) return fail("malformed");
-  const pk = parsed2.data;
-  if (pk.mesh !== roster.mesh) return fail("wrong_mesh");
-  if (roster.revoked.includes(pk.device)) return fail("revoked_device");
-  const device = roster.devices.find((d5) => d5.id === pk.device);
-  if (device === void 0) return fail("unknown_device");
-  if (isRecoveryName(device.name)) return fail("recovery_device");
-  const pub = b64u.decode(pk.pub);
-  if (prekeyId(pub) !== pk.id) return fail("bad_id");
-  if (!verifyObject("prekey", pk, b64u.decode(device.sign))) return fail("bad_signature");
-  if (pk.until <= pk.at || pk.until - pk.at > LIMITS.prekeyLifetimeMs) return fail("bad_window");
-  try {
-    x25519.getSharedSecret(PROBE, pub);
-  } catch {
-    return fail("bad_key");
-  }
-  if (pk.at > now + LIMITS.messageMaxFutureMs) return fail("not_yet");
-  if (!prekeyUsable(pk, now)) return fail("expired");
-  return ok(pk);
-}
-function prekeyUsable(pk, now) {
-  return pk.at <= now + LIMITS.messageMaxFutureMs && now + LIMITS.prekeySendMarginMs < pk.until;
-}
-function prekeyDeleteAt(pk) {
-  return pk.until + LIMITS.prekeyRetentionMs;
 }
 
 // ../protocol/src/frames.ts
@@ -87137,6 +87217,7 @@ var clientFrameSchema = external_exports.discriminatedUnion("t", [
   cardSetFrameSchema,
   cardsGetFrameSchema,
   rdvPutFrameSchema,
+  ciRulesFrameSchema,
   pingFrameSchema,
   byeFrameSchema,
   createFrameSchema,
@@ -87263,7 +87344,9 @@ var relaySchemas = {
   "blob.chunk": blobChunkFrameSchema,
   cards: cardsFrameSchema,
   card: cardFrameSchema,
-  "rdv.stored": rdvStoredFrameSchema
+  "rdv.stored": rdvStoredFrameSchema,
+  "ci.rules": ciRulesAnswerSchema,
+  "ci.deliver": ciDeliverFrameSchema
 };
 var relayFrameSchema = external_exports.discriminatedUnion("t", [
   helloFrameSchema,
@@ -87289,7 +87372,9 @@ var relayFrameSchema = external_exports.discriminatedUnion("t", [
   blobChunkFrameSchema,
   cardsFrameSchema,
   cardFrameSchema,
-  rdvStoredFrameSchema
+  rdvStoredFrameSchema,
+  ciRulesAnswerSchema,
+  ciDeliverFrameSchema
 ]);
 function parseWith(text2, schemas, maxBytes) {
   if (typeof text2 !== "string") return fail("not_text");
@@ -87882,6 +87967,18 @@ var VECTOR_KEYS = new Set(VECTOR_SEED_PUBLIC_KEYS);
 function isVectorKey(pub) {
   return VECTOR_KEYS.has(typeof pub === "string" ? pub : b64u.encode(pub));
 }
+
+// ../protocol/src/jwt.ts
+var GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
+var GITLAB_ISSUER = "https://gitlab.com";
+var JWKS_URLS = {
+  [GITHUB_ISSUER]: `${GITHUB_ISSUER}/.well-known/jwks`,
+  [GITLAB_ISSUER]: `${GITLAB_ISSUER}/oauth/discovery/keys`
+};
+
+// ../protocol/src/ci.ts
+var codeBodySchema = external_exports.strictObject({ relay: relayUrlSchema, mesh: meshIdSchema, sign: keySchema });
+var PROBE2 = sha2562(utf8("wim/1 ci prekey probe"));
 
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
@@ -122588,10 +122685,10 @@ async function runSigner(ctx, passphrase, ready) {
   const { root: root5, env: env3 } = ctx.home;
   const log = new AgentLog(agentLogPath(root5));
   const signer = new Signer({ file: file2, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e6) => log.write(e6) });
-  let bound;
+  let bound2;
   try {
     await ensureDir(agentDir(root5));
-    bound = await withLock(
+    bound2 = await withLock(
       startLockPath(root5),
       async () => {
         const before = await agentEndpoint(root5, env3, false);
@@ -122612,13 +122709,13 @@ async function runSigner(ctx, passphrase, ready) {
     return 1;
   }
   log.write({ at: ctx.io.now(), op: "start", ok: true });
-  ready(`ready ${ctx.io.pid} ${bound.at}`);
-  const onAbort = () => void bound.server.close();
+  ready(`ready ${ctx.io.pid} ${bound2.at}`);
+  const onAbort = () => void bound2.server.close();
   ctx.io.signal.addEventListener("abort", onAbort, { once: true });
   if (ctx.io.signal.aborted) onAbort();
-  await bound.server.stopped;
+  await bound2.server.stopped;
   ctx.io.signal.removeEventListener("abort", onAbort);
-  await retireEndpoint(root5, env3, bound.at);
+  await retireEndpoint(root5, env3, bound2.at);
   log.write({ at: ctx.io.now(), op: "exit", ok: true });
   await log.flushed();
   return 0;
