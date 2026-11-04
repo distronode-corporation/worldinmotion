@@ -49,6 +49,26 @@ hostile relay could still do (drop, delay, withhold), is in [SPEC.md](../SPEC.md
 Cloudflare operates the infrastructure the relay runs on, and its own logs and terms apply to the
 connections it carries.
 
+### CI senders
+
+CI senders (a GitHub Actions or GitLab CI/CD job sending a notice to one of your sessions,
+[SPEC.md](../SPEC.md) section 18) are **not enabled** on the hosted relay yet: its `GET /v1/info`
+reports `"ci": false`, or leaves `ci` out. If they are enabled, this page will say so first, and
+the relay will then also see:
+
+- **a GitHub notice's ID token, once**, to verify it: for that moment, every claim it carries
+  (the repository and its owner, their ids and visibility, the ref, workflow, event, commit, run
+  ids, the actor's login and id, and the environment). It stores none of them and never the
+  token. It keeps only a counting key per repository (a hash of the repository's ids) and a hash
+  of the token's id until the token expires, which stops it being used twice;
+- **each device's rule tags**: hashes of the repositories and refs a device accepts notices from,
+  which give away a repository name that can be guessed, and whether the device accepts GitLab
+  notices;
+- which session accepts notices, and each notice's target, size and time.
+
+It will never see a GitLab token, so never a GitLab pipeline user's login or email address, and
+never a notice's text.
+
 ## Limits
 
 - **At most 2,000 meshes** on the relay in total. When it is full, `wim mesh create` says so; run

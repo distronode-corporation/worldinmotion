@@ -20,6 +20,12 @@ body line with a bracket.
 
 ### Documentation
 
+- **CI senders are specified (SPEC section 18).** A GitHub Actions or GitLab CI/CD job that is not
+  in the mesh can send one information-only notice to one session, proving where it runs with its
+  provider's OIDC ID token, under rules only the receiving device's person sets. SECURITY-MODEL
+  gains the CI job as an actor (5.10) and property 6.17, and boundary 2 of section 3 is rewritten
+  for it; the hosted relay's terms say what it would see if CI senders were enabled there. The
+  code follows in later pull requests; no relay or client does this yet.
 - **The hosted relay's terms say it is open now.** `docs/hosted-relay.md` still said the relay
   opens for new meshes with the public launch of the project. It is open now (`/v1/info` reports
   `"create": "open"`), and the line says so.
