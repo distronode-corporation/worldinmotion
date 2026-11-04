@@ -3,6 +3,18 @@
 Status: draft for v0.1. This document is the contract between clients and relays. Nothing here
 depends on Claude Code: any agent that can hold a WebSocket and do the crypto below can be a peer.
 
+Version note, unreleased: section 18 adds CI senders: a GitHub Actions or GitLab CI/CD job that is
+not a mesh member sends one notice to one session, proving where it runs with its provider's OIDC
+ID token. It adds an HTTP endpoint (`POST <relay>/v1/<mesh id>/ci`), the client frame `ci.rules`,
+the relay frames `ci.rules` and `ci.deliver`, the signature type `ci`, the box plaintext kind `ci`,
+a `ci` field in `/v1/info` (section 11), rows in sections 8, 9 and 10, and the vector file
+`ci.json` (section 16). Everything is additive: an older relay answers the endpoint 404 and
+`ci.rules` with `unknown_type`, a relay sends `ci.deliver` only to sessions that sent `ci.rules`,
+and an older client ignores relay frames it cannot parse. Every existing client and relay is
+compatible, so this is a `wim/1` change. The reference relays take CI senders only when their
+operator turns them on. The text lands for review before the code: until the protocol, relay and
+client pull requests that follow it are merged, no relay or client does any of this.
+
 Version note, unreleased: section 6 says that a room mode on MLS, the example for the reserved
 box scheme numbers from 3 up, would be `wim/2` and is a design only, not part of v0.2 (see
 docs/mls.md). Informative only: no frame, status or behaviour changed, so every existing client
@@ -44,6 +56,9 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
   (section 13).
 - Names are for people. Every trust and policy decision (inbound policy, revocation, which key
   verifies what) keys on the **device id**, never on a device or session name.
+- A **CI sender** is a CI job (GitHub Actions or GitLab CI/CD) that is not in the roster. It holds
+  no stored key, cannot authenticate to the relay and cannot read anything; it can only send one
+  notice to one session of a device whose person allowed its repository (section 18).
 
 ## 2. Encodings
 
@@ -89,7 +104,7 @@ The key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
 | purpose | algorithm |
 |---|---|
-| signatures | Ed25519 (RFC 8032) over `UTF-8("wim/1 " + type + "\n") \|\| canonBytes(object without its sig field)`, where `type` is `roster`, `send`, `auth`, `join` or `prekey` |
+| signatures | Ed25519 (RFC 8032) over `UTF-8("wim/1 " + type + "\n") \|\| canonBytes(object without its sig field)`, where `type` is `roster`, `send`, `auth`, `join`, `prekey` or `ci` (a CI sender's one-time key, section 18) |
 | box, scheme 2 | RFC 9180 HPKE, mode_auth, DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, ChaCha20-Poly1305, single shot: to the recipient device's prekey, with a fresh ephemeral key, authenticated by the sender's roster box key; info = `"wim/1 box2 " + meshId + " " + senderDeviceId + " " + recipientDeviceId + " " + prekeyId` (UTF-8), AAD = `H(canon(header))` (section 6b) |
 | box, scheme 1 (v0.1) | X25519 (RFC 7748) between the sender's and recipient's static box keys; HKDF-SHA256, salt = UTF-8 mesh id, info = `"wim/1 box " + senderDeviceId + " " + recipientDeviceId` (UTF-8), 32 bytes; XChaCha20-Poly1305, 24-byte random nonce, AAD = `H(canon(header))`. Only during the migration window (section 6b) |
 | invite proof | HMAC-SHA256 keyed with the invite secret (section 5) |
@@ -777,7 +792,8 @@ with a fresh nonce for every connection. The client answers within 10 seconds wi
 `lease.acquire { key, ttl, wait? }`, `lease.renew { key, token, ttl }`, `lease.release { key, token }`,
 `lease.list`, `lease.watch { key }` (section 14), `blob.put { blob, index, last, n, data }`,
 `blob.get { blob, index }` (section 15), `card.set { msg }`, `cards.get { after? }` (section 17),
-`rdv.put { rdv, exp, n, c }` (admins; section 5, short invite codes), `ping`, and `bye { ended: true }` when the session is
+`rdv.put { rdv, exp, n, c }` (admins; section 5, short invite codes), `ci.rules { tags, gitlab }`
+(section 18), `ping`, and `bye { ended: true }` when the session is
 ending for good (its name is freed, it leaves its rooms, its leases end, and later sends to it get
 `ended`).
 
@@ -787,7 +803,11 @@ ending for good (its name is freed, it leaves its rooms, its leases end, and lat
 joiner), `invite.created { invite }`, `recover.ready { roster }` (section 4a), `room.joined { room, members }`, `room.history { room, msgs, more }`,
 `lease { key, status, holder?, until?, token? }`, `leases { leases }`, `blob.stored { blob, index }`,
 `blob.chunk { blob, index, last, n, data }`, `cards { cards, more }`, `card { msg }` (section 17),
-`rdv.stored { rdv }` (section 5), `error { code, message, ref? }`, `pong`.
+`rdv.stored { rdv }` (section 5), `ci.rules { count }` and `ci.deliver { cursor, msg }` (section
+18), `error { code, message, ref? }`, `pong`.
+
+CI senders do not use the WebSocket: they make two HTTP requests to `<relay>/v1/<mesh id>/ci`
+(section 18).
 
 **Replies.** Besides the replies named elsewhere, the relay answers `create` with
 `roster { chain: [<genesis>], more: false }`, `invite.create` with `invite.created { invite }`, and
@@ -910,6 +930,19 @@ ends. It lapses after 12 hours, and a session may hold at most 16.
 | prekeys kept per device and mesh | 8 |
 | pongs a session sends | 10 a minute to one device, 60 a minute in all |
 | oldest ping still answered | 60 seconds |
+| CI request body (section 18) | 32 KiB |
+| CI notice `text` | 4 KiB |
+| CI ID token | 8 KiB |
+| CI requests per source address | 60 a minute, per mesh |
+| CI notices per counting key (a GitHub repository, or a device's GitLab share) | 60 a minute, bursts of 20 |
+| CI queue per recipient session | 20 notices, at most 10 per counting key, apart from the 50 messages |
+| CI rule tags per device | 64 |
+| GitHub token ids (`jti`) a relay remembers per mesh | 4096 at once, each until the token's `exp` + 5 minutes |
+| CI clock skew at the relay | 5 minutes |
+| JWKS fetches for a `kid` not cached | 1 a minute per issuer |
+| JWKS kept | 1 hour at a relay, 24 hours at a client |
+| CI token lifetime (`exp` - `iat`) | at most 24 hours |
+| CI notice id and token id memory at the receiver | the later of `at` + 48 hours + 10 minutes and `exp` + 10 minutes |
 
 ## 10. What the relay can and cannot see
 
@@ -929,6 +962,28 @@ device's prekeys with their times of rotation (section 6b) are
 relay-visible metadata; message kinds and file names and contents are not. A relay that records
 ciphertext and later obtains a device's key file reads only what that device's prekey secrets
 still open (section 6b).
+
+CI senders (section 18) add to that, on a relay that takes them:
+
+- **A GitHub notice's ID token, once.** The relay reads it in the `ci.send` request to verify it:
+  so it sees, for that moment, every claim (repository and owner, their ids and visibility, the
+  ref, workflow, event, commit sha, run ids, the actor's login and id, the environment). It stores
+  none of them and never the token: it keeps a counting key (a hash of the repository's ids), a
+  hash of the token's `jti` until the token expires, and nothing else from the token. The token
+  also travels inside the sealed box, which is the copy the receiving device verifies.
+- **Never a GitLab token.** A GitLab notice's token travels only inside the box, so the relay
+  never sees its claims (which include the pipeline user's email address) and verifies nothing.
+- **Each device's rule tags**: up to 64 hashes of (mesh, device, issuer, repository, ref), and
+  whether the device takes GitLab notices. A tag hides only a repository name that cannot be
+  guessed: one SHA-256 per candidate tests a name, and public repository names and
+  `refs/heads/main` are easy to guess.
+- **Which session takes CI notices**, which device and session each notice is for, its size and
+  time, the counting key it was counted under, and which prekey it handed to a request from which
+  source address (kept only as the keyed hash of section 9's per-source limits).
+
+A relay cannot read a notice's text. It cannot alter or forge a GitHub notice (the one-time key
+signs it and the token binds that key), nor a GitLab notice it never saw the token of. It can drop,
+delay or replay a notice, and the receiver's freshness window and id store stop a replay.
 Leases are different from everything else here: they are advisory, and the relay is trusted for
 them. A hostile or faulty relay can grant one lease to two holders at once, so a lease MUST NOT be
 the only thing protecting work that would be unsafe to run twice. The fencing token lets a holder,
@@ -959,8 +1014,11 @@ application/json` and:
 ```json
 { "v": 1, "software": "worldinmotion-relay", "version": "0.1.0", "create": "key",
   "limits": { "max_meshes": 2000, "idle_mesh_days": 90, "blob_bytes_per_mesh_per_day": 26214400 },
-  "offer": "Free hosted relay during the worldinmotion preview, until version 1.0" }
+  "offer": "Free hosted relay during the worldinmotion preview, until version 1.0", "ci": false }
 ```
+
+`ci` says whether the relay takes CI senders (section 18); a relay older than CI senders leaves
+it out, which means `false`.
 
 `create` is `key` (an operator key is required), `open` or `closed` (refused, including a relay
 whose configuration is wrong). In `limits`, `null` means unlimited; `blob_bytes_per_mesh_per_day`
@@ -1147,6 +1205,7 @@ escape.
 | `ping.json` | a ping and its pong, each a whole frame sealed to the other device's prekey, with the plaintexts each side opens; ping and pong plaintexts that MUST be refused |
 | `prekey.json` | two signed prekeys with their secrets; one scheme 2 box by hand with every HPKE value (info, AAD, ephemeral secret, enc, shared secret, key, base nonce, ciphertext); a whole frame carrying `pk`, its plaintext, and tamper cases (`key_expired`, `decrypt_failed`, `bad_signature`) with the prekeys held; prekeys that MUST fail verification, with their reasons |
 | `blob.json` | a 2-chunk file with a fixed key and nonces |
+| `ci.json` | section 18: a recipient code, both audiences, a rule tag, a CI sender id and counting key; a GitHub and a GitLab notice sealed by hand (one-time key, `xk`, prekey, HPKE values, plaintext, the `ci` signature) with a fixture RSA issuer key and its JWKS; tokens that MUST be refused, with their reasons |
 
 An implementation is conformant for a primitive only if it reproduces that primitive's vectors
 exactly. The HPKE core is also checked against RFC 9180 Appendix A.2.3 (the same suite, mode_auth)
@@ -1186,3 +1245,223 @@ A card tells the other sessions of a mesh what a session is working on, for thei
 - `card.set` and `card` frames are at most 64 KiB, which limits how many devices a card can be
   sealed to. A device's stored cards total at most 256 KiB; a `card.set` past that gets
   `error { code: "limited" }`.
+
+## 18. CI senders
+
+A CI job can send one notice to one session of a device without being a mesh member and without
+any stored key. It proves where it runs with the OpenID Connect ID token its provider gives the
+job (GitHub Actions or GitLab CI/CD), and the person decides, on the receiving device only, which
+repositories may send. A notice is relayed text (section 6a): information only, never a work
+assignment, never the start of an agent turn.
+
+The two providers differ in one way that shapes everything below. GitHub lets a job ask for a
+token at run time with an audience it chooses, so the audience can name a one-time key that the
+job then signs the notice with: a copied token is useless without that key. GitLab fixes a job's
+token audience before the job runs, so no one-time key can be in it, and its token is a bearer
+credential for the job's whole timeout. So a GitHub token is shown to the relay, which verifies
+it and filters what reaches a device, while a GitLab token travels only inside the sealed box,
+where the relay never sees it and the receiving device alone verifies it.
+
+**The recipient code.** The receiving device's `wim ci allow` prints the code that goes in a CI
+variable. It is not a secret.
+
+```
+wimci1_<b64u(canon({ "relay": "<relay URL>", "mesh": "<mesh id>", "sign": "<b64u Ed25519 public key of the device>" }))>
+```
+
+The device id is derived from `sign` (section 2), so the code names the device without trusting
+anything the relay says. A sender MUST refuse a code whose `relay` is not a relay URL (section
+2), whose `mesh` is not a mesh id, whose `sign` is not 32 bytes, or that holds any other key.
+
+**The audience.** `otk` is the b64u of the sender's one-time Ed25519 public key.
+
+| `via` | `aud` |
+|---|---|
+| `github` | `"wimci1." + b64u(H(UTF-8("wim/1 ci aud " + mesh + " " + device + " " + otk)))`, asked for at run time, one token per notice |
+| `gitlab` | `"wimci1." + mesh + "." + device`, written in the job's `id_tokens:` |
+
+A sender MUST check, before it transmits anything, that the token's `aud` is one string, starts
+with `wimci1.`, and equals the audience above for the recipient code (and, for GitHub, the
+one-time key it holds); otherwise it refuses and sends nothing. A token with any other audience
+may be a credential that a cloud provider accepts. Receivers refuse an `aud` that is an array.
+
+**The two requests.** The sender makes two HTTP `POST`s to `<relay>/v1/<mesh id>/ci`, the relay
+URL with `wss://` read as `https://` (`ws://` as `http://`), each with a JSON body of at most 32
+KiB and `content-type: application/json`. The relay answers each with JSON.
+
+1. `{ "t": "ci.prekey", "device": "<device id>", "via": "github" | "gitlab" }`, answered 200 with
+   `{ "t": "ci.prekey", "prekey": <prekey object> }`: the newest prekey (by `at`) carried in the
+   stored cards of that device's sessions (section 17). The relay answers it only for a device in
+   the roster that is not a recovery record and that takes CI notices by `via` (below). The sender
+   MUST verify the prekey against the code's `sign` key as section 6b says, the roster check
+   replaced by two: the prekey's `device` is the id derived from `sign`, and its `mesh` is the
+   code's. So a relay cannot slip in a key of its own. A device offline for more than 48 hours has
+   no usable prekey, and the sender reports that.
+2. `ci.send`:
+
+   ```json
+   { "t": "ci.send", "mesh": "<mesh id>", "id": "<ULID>", "device": "<device id>", "to": "<session name>",
+     "at": 1760000000000, "via": "github", "otk": "<b64u Ed25519 public key>", "xk": "<b64u X25519 public key>",
+     "box": { "s": 2, "p": "<prekey id>", "e": "<b64u>", "c": "<b64u>" }, "sig": "<b64u, type ci>",
+     "token": "<the GitHub ID token>" }
+   ```
+
+   A `gitlab` send carries no `otk`, `sig` or `token`. The relay answers 200 with
+   `{ "t": "ci.sent", "id": "<ULID>", "status": "..." }`, where `status` is `routed`, `queued`,
+   `unknown` (no session of that name on the device takes CI notices), `full` or `limited`.
+
+- The **notice** is the `ci.send` object without `token`: what the relay stores and delivers.
+  The **header** is the notice without `box` and `sig`.
+- `sig` is the one-time key's Ed25519 signature, type `ci` (section 3), over the notice without
+  `sig`. It covers the box, `xk`, `to` and `at`.
+- `xk` is a fresh X25519 key per notice. The **CI sender id** is
+  `b64u(H(UTF-8("wim/1 ci sender " + xk)))` cut to 22 characters. A receiver computes it from `xk`
+  and never reads one from the frame, so a relay cannot make a notice open as a member's.
+- `box` is a scheme 2 box (section 6b) to the prekey, with `xk`'s secret as the HPKE sender key
+  and the CI sender id in the sender slot of the info string:
+  `"wim/1 box2 " + mesh + " " + ciSenderId + " " + device + " " + prekeyId`. AAD is
+  `H(canon(header))`, as for a message. Scheme 1 boxes are never used for CI notices.
+- The **plaintext** is UTF-8 `canon` of
+  `{ "v": 1, "kind": "ci", "id", "device", "to", "at", "text", "token" }`: `text` at most 4 KiB
+  of UTF-8, `token` the ID token (for `github`, the same one the request carried), at most 8 KiB.
+  It is strict like every plaintext (section 6, step 8), and its `id`, `device`, `to` and `at`
+  equal the header's.
+
+**Errors.** A refused request gets an HTTP error with `{ "t": "error", "code", "message" }`:
+
+| status | `code` | when |
+|---|---|---|
+| 400 | `malformed` | the body does not parse, or a field is wrong |
+| 403 | `unauthorized` | no such mesh; the device is not in the roster, is a recovery record, or does not take CI notices by `via`; the token fails any check; its rule tag is not the device's; its `jti` was used |
+| 404 | `not_found` | the relay takes no CI senders (an older relay answers 404 too) |
+| 413 | `too_large` | the body is over 32 KiB |
+| 429 | `limited` | the source address is over its CI budget, with `Retry-After` in seconds |
+
+Every refusal in the 403 row gets the same answer, so a caller learns nothing about which check
+failed.
+
+**What the relay checks on `ci.send`**, in this order: the size and a strict parse (no unknown
+keys); `mesh` is the mesh of the path; the per-source budget; `at` within 5 minutes of its clock;
+the device (as for `ci.prekey`). Then, for `github`: the token as below by its own clock, `aud`
+equal to the audience for (`mesh`, `device`, `otk`), `sig` verifying with `otk`, the rule tag
+computed from the verified claims among the device's tags, and the token's `jti` not used before
+in this mesh (it keeps `H(UTF-8(iss + " " + jti))` until `exp` + 5 minutes). For `gitlab` there is
+nothing it can verify. Then the session `to` on that device must exist, not have ended, and take CI
+notices; then the limits; then the relay routes or queues the notice. It never stores the token.
+
+**Verifying a token.** The relay (GitHub only) and the receiving client (both providers) check:
+
+- The token is at most 8 KiB, a compact JWS of three canonical b64u parts. Its header and payload
+  are JSON objects with no duplicate key. The header has `alg` exactly `RS256`, a string `kid`, an
+  optional `typ` that is `JWT`, and none of `crit`, `jku`, `jwk`, `x5u` or `x5c`.
+- `iss` is exactly `https://token.actions.githubusercontent.com` (`github`) or
+  `https://gitlab.com` (`gitlab`). The key comes from that issuer's fixed JWKS URL,
+  `https://token.actions.githubusercontent.com/.well-known/jwks` or
+  `https://gitlab.com/oauth/discovery/keys`, never from a URL in the token: the JWK with that
+  `kid`, `kty` `RSA`, `alg` absent or `RS256`, `use` absent or `sig`, a modulus of at least 2048
+  bits and `e` 65537. The signature is RSASSA-PKCS1-v1_5 with SHA-256.
+- `aud` is a string; `iat` and `exp` are integers (seconds) with `exp` after `iat` and at most 24
+  hours after it; `nbf`, if present, is an integer; `jti` is a string. The claims the rule uses
+  are strings: for GitHub `repository`, `repository_id`, `repository_owner_id`, `ref`,
+  `workflow_ref`, `event_name`, `sha` and `run_id`; for GitLab `project_path`, `project_id`,
+  `namespace_id`, `ref`, `ref_type` and `ref_protected` (also accepted as a boolean).
+- A relay also checks the time by its own clock, with 5 minutes of skew: `exp` not passed, and
+  `nbf` (or `iat`) not ahead. A client does not (below).
+- JWKS: a relay keeps an issuer's keys at most an hour and a client at most 24 hours; for a `kid`
+  it does not hold, either fetches the issuer's JWKS again at most once a minute. A JWKS answer is
+  at most 64 KiB.
+
+**Rule tags.** A relay cannot check a rule it does not hold, and without a check anyone with a
+token from any repository could fill a person's queues. So every session of a device that has
+rules sends, after `ready` and whenever the device's rules change, `ci.rules { tags, gitlab }`:
+at most 64 tags, and `gitlab` true when the device takes GitLab notices. A tag is
+`b64u(H(UTF-8("wim/1 ci rule ") || canonBytes({ "mesh", "device", "iss", "repo", "ref" })))` cut
+to 22 characters, where `repo` is the lower-cased `repository` and `ref` the full ref. The frame
+replaces the device's tags and GitLab setting (a session is its device, so any session may), and
+marks the sending session as taking CI notices until it ends. The relay answers
+`ci.rules { count }` (the number of tags it holds for the device) and purges the tags with the
+device when it is revoked. A tag is a filter for queues and cost, not authority: the receiving
+client checks the whole rule itself. GitLab rules have no tags, since the relay sees no GitLab
+token to compare one with.
+
+**Delivery.** The relay sends `{ "t": "ci.deliver", "cursor": 42, "msg": <notice> }`, from the
+session's one queue and cursor, and the client acknowledges it with `ack` like a `deliver`. No
+receipt is sent for a notice, and the relay forwards none. A relay sends `ci.deliver` only to a
+session that sent `ci.rules`; queued notices go out in cursor order on reconnect, like messages.
+
+**Limits.** CI requests have their own per-source budget (60 a minute). Notices are counted under
+a **counting key**: for `github`, `"gh~" + b64u(H(UTF-8("wim/1 ci count " + iss + " " +
+repository_owner_id + " " + repository_id)))` cut to 22 characters, so a renamed repository keeps
+its count; for `gitlab`, `"gl~"` and the recipient device id, the device's one GitLab share. Each
+key sends at most 60 notices a minute in bursts of 20. A session's CI queue holds at most 20
+notices, at most 10 under one key, and is apart from its 50 messages, so CI never takes a real
+peer's place. A relay remembers at most 4096 live `jti`s per mesh and answers `limited` past that.
+
+**What the receiving client checks**, in this order, dropping the notice when a check fails:
+
+1. The frame parses strictly; `mesh` is its mesh, `device` its own device id and `to` its session
+   name.
+2. It computes the CI sender id from `xk`, opens the box with the prekey's secret (section 6b,
+   `key_expired` when it is gone), and checks the plaintext as above.
+3. The token verifies as above, against JWKS the client fetches itself.
+4. `via` `github`: `iss` is GitHub's, `aud` is the audience for (`mesh`, `device`, `otk`), and
+   `sig` verifies with `otk`. `via` `gitlab`: `iss` is `https://gitlab.com`, `aud` is
+   `"wimci1." + mesh + "." + device`, and there is no `otk` or `sig`.
+5. Time: `at` is at most 47 hours old and 10 minutes ahead (section 6), and lies within the
+   token's own window, from `nbf` (or `iat`) minus 5 minutes to `exp` plus 5 minutes. The client
+   never compares `exp` with its own clock, because a queued notice may arrive up to 24 hours
+   after it was sent.
+6. One of the person's rules matches (below). A notice whose token verifies but that matches no
+   rule is dropped and logged, never held, so no repository can fill the held list.
+7. Single use: the notice id and the pair (`iss`, `jti`) were not accepted before. They are kept,
+   durably, until the later of `at` + 48 hours + 10 minutes and `exp` + 10 minutes.
+
+**Rules** are the person's, on the receiving device only, and match exactly:
+
+| | GitHub | GitLab |
+|---|---|---|
+| repository | lower-cased `repository` | lower-cased `project_path` |
+| ref | `ref` | `ref_path`; when absent, `refs/heads/` or `refs/tags/` plus `ref` by `ref_type` |
+| workflow | `workflow_ref` is `<repository>/.github/workflows/<file>@<ref>` (the repository part without case) | none |
+| protection | none | `ref_protected` is `"true"` (or `true`), unless the rule allows unprotected refs |
+| event | `pull_request_target` and `workflow_run` are refused unless the rule names the event; a rule that names events takes only those | none |
+| environment | optional: `environment` equal | optional: `environment` equal and `environment_protected` `"true"` |
+| ids | `repository_id` and `repository_owner_id` equal the pinned ones | `project_id` and `namespace_id` equal the pinned ones |
+
+`workflow` (the display name) is never matched, since any workflow file can set it. Names can be
+recycled, so a rule pins the repository's ids. For a public repository the client reads them from
+the provider's public API when the rule is made. A rule whose ids could not be read (a private
+repository) is kept unpinned: the first notice that matches it by name is held for the person,
+showing the ids its token carries, and approving it pins them; nothing from that rule is
+delivered before.
+
+**Presenting.** A notice that passes is relayed text (section 6a): information only, never a
+work assignment, never a new turn; it waits in the inbox and starts the `derived` window like any
+information-only item. The frame says it is relayed CI text from the provider and repository,
+with the workflow file, ref, short commit sha, event and run id from the verified token, written
+by a CI job (anything that runs in that job), not by a person or a session. Claim values are
+attacker-influenced strings: they get the escaping of section 6a and are cut to 200 characters. A
+rule may hold every notice for the person instead. The loop and cost breaker counts notices in a
+bucket of their own, per repository and for all CI together, apart from the limits for peers
+(SECURITY-MODEL section 7.3).
+
+**Who changes rules.** Only the person, at the client's own command line, under the rule of
+section 5 for confirmations (an interactive terminal with no agent's variables, and a typed yes).
+No tool, MCP call, message, local UI request or agent-writable setting can add a rule.
+
+**What GitLab cannot have.** Anything that can read a GitLab job's variables (every line of its
+script and every dependency it runs) can send one notice as that project until the job times out,
+since the token is a bearer credential; a job should set a short `timeout:`. The relay sees no
+GitLab token, so it cannot filter GitLab notices: anyone who has a recipient code can fill that
+device's GitLab share (10 queued per session, 60 a minute), never its other queues. A device stops
+GitLab notices by removing its GitLab rules. Each GitLab token sends one notice (the `jti` is
+single use), so a job that sends two declares two `id_tokens`.
+
+**The reference relays** take CI senders only when their operator turns them on
+(`WIM_CI=1`), and report it as `"ci": true` in `/v1/info` (section 11). They fetch only GitHub's
+JWKS; no URL they fetch comes from a request.
+
+**Compatibility.** An older relay answers the endpoint 404 (the sender reports that the relay
+takes no CI senders) and `ci.rules` with `unknown_type`. An older client never sends `ci.rules`, so
+it is never sent a notice; a session that sent it and then runs an older client ignores
+`ci.deliver` frames, which do not parse there, and its next `ack` drops them.
