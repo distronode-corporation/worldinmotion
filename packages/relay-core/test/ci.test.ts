@@ -47,7 +47,7 @@ type Setup = World & { laptop: Dev; deploys: Client; pk: Prekey };
 
 /** A mesh whose laptop runs a `deploys` session that published its prekey and took CI rules. */
 function setup(kind: (typeof KINDS)[number], rules: { tags?: string[]; gitlab?: boolean } = {}, limits = {}): Setup {
-  const w = world(kind, ["laptop"], { limits });
+  const w = world(kind, ["laptop"], { limits, ci: true });
   const laptop = w.members[0]!;
   const deploys = new Client(w.h, laptop, "deploys");
   deploys.connect();
@@ -57,10 +57,13 @@ function setup(kind: (typeof KINDS)[number], rules: { tags?: string[]; gitlab?: 
   return { ...w, laptop, deploys, pk };
 }
 
-async function github(s: Setup, opts: { to?: string; over?: Record<string, unknown>; at?: number; id?: string } = {}): Promise<CiSendRequest> {
-  const otk = ciOneTimeKey();
+async function github(
+  s: Setup,
+  opts: { to?: string; over?: Record<string, unknown>; at?: number; id?: string; otk?: ReturnType<typeof ciOneTimeKey>; token?: string } = {},
+): Promise<CiSendRequest> {
+  const otk = opts.otk ?? ciOneTimeKey();
   const at = opts.at ?? s.h.now;
-  const token = await iss.mint(githubClaims(githubAudience(MESH, s.laptop.id, otk.pub), s.h.now, opts.over));
+  const token = opts.token ?? (await iss.mint(githubClaims(githubAudience(MESH, s.laptop.id, otk.pub), s.h.now, opts.over)));
   return sealCiNotice({ mesh: MESH, device: s.laptop.id, prekey: s.pk, to: opts.to ?? "deploys", text: "deployed", token, via: "github", otk, at, ...(opts.id ? { id: opts.id } : {}) }).request;
 }
 
@@ -138,14 +141,14 @@ describe.each(KINDS)("CI senders at the relay (%s store)", (kind) => {
   });
 
   it("refuses a device with rules but no card to take a prekey from, and a mesh that does not exist", async () => {
-    const w = world(kind, ["laptop"]);
+    const w = world(kind, ["laptop"], { ci: true });
     const c = new Client(w.h, w.members[0]!, "deploys");
     c.connect();
     c.frame({ t: "ci.rules", tags: [], gitlab: true });
     expect(await post(w.h, { t: "ci.prekey", device: c.d.id, via: "gitlab" })).toEqual(CI_UNAUTHORIZED);
     // Tags are what a GitHub send needs: an empty set takes none.
     expect(await post(w.h, { t: "ci.prekey", device: c.d.id, via: "github" })).toEqual(CI_UNAUTHORIZED);
-    expect(await post(new Harness(makeStore(kind)), { t: "ci.prekey", device: c.d.id, via: "gitlab" })).toEqual(CI_UNAUTHORIZED);
+    expect(await post(new Harness(makeStore(kind), { ci: true }), { t: "ci.prekey", device: c.d.id, via: "gitlab" })).toEqual(CI_UNAUTHORIZED);
   });
 
   it("routes a verified GitHub notice to its online session as ci.deliver, without the token", async () => {
@@ -166,10 +169,14 @@ describe.each(KINDS)("CI senders at the relay (%s store)", (kind) => {
 
   it("refuses a replayed GitHub token, a tag the device does not hold, and a send with no verified token", async () => {
     const s = setup(kind);
-    const req = await github(s);
+    const otk = ciOneTimeKey();
+    const req = await github(s, { otk });
     expect(await post(s.h, req)).toEqual(sent(req.id, "routed"));
-    // The same token again, in a fresh notice under the same one-time key's audience: its jti is spent.
-    expect(await post(s.h, { ...req, id: "01K7A000000000000000000001" })).toEqual(CI_UNAUTHORIZED);
+    // The same token in a fresh notice that its one-time key signed again, as the sending job
+    // could: every other check passes, and only the spent jti refuses it.
+    const replay = await github(s, { otk, token: req.token!, id: "01K7A000000000000000000001" });
+    expect(replay.id).not.toBe(req.id);
+    expect(await post(s.h, replay)).toEqual(CI_UNAUTHORIZED);
     expect(await post(s.h, await github(s, { over: { repository: "octo-org/other" } }))).toEqual(CI_UNAUTHORIZED);
     expect(await post(s.h, await github(s, { over: { ref: "refs/heads/feature" } }))).toEqual(CI_UNAUTHORIZED);
     // A host that skipped verification gets nothing through.
@@ -180,20 +187,42 @@ describe.each(KINDS)("CI senders at the relay (%s store)", (kind) => {
   it("takes a GitLab notice for a device that opted in, counted under the device's GitLab share", async () => {
     const s = setup(kind);
     const req = gitlab(s);
-    expect(await post(s.h, req)).toEqual(sent(req.id, "routed"));
+    s.deploys.conn.take();
+    // Routed to the live session, but answered `queued`: a GitLab answer never says who is online.
+    expect(await post(s.h, req)).toEqual(sent(req.id, "queued"));
+    expect(s.deploys.conn.take()).toMatchObject([{ t: "ci.deliver", msg: { id: req.id } }]);
     expect(s.h.store.queue(s.deploys.sid, 0)[0]).toMatchObject({ kind: "ci", fromDevice: gitlabCountingKey(s.laptop.id) });
     const off = setup(kind, { gitlab: false });
     expect(await post(off.h, gitlab(off))).toEqual(CI_UNAUTHORIZED);
   });
 
-  it("answers unknown for a session that is missing, ended, or never asked for CI notices", async () => {
+  it("answers a GitHub sender unknown for a session that is missing, ended, or never asked for CI notices", async () => {
     const s = setup(kind);
-    expect(await post(s.h, gitlab(s, { to: "nobody" }))).toMatchObject({ body: { status: "unknown" } });
+    expect(await post(s.h, await github(s, { to: "nobody" }))).toMatchObject({ body: { status: "unknown" } });
     const plain = new Client(s.h, s.laptop, "plain");
     plain.connect();
-    expect(await post(s.h, gitlab(s, { to: "plain" }))).toMatchObject({ body: { status: "unknown" } });
+    expect(await post(s.h, await github(s, { to: "plain" }))).toMatchObject({ body: { status: "unknown" } });
     plain.frame({ t: "bye", ended: true });
-    expect(await post(s.h, gitlab(s, { to: "plain" }))).toMatchObject({ body: { status: "unknown" } });
+    expect(await post(s.h, await github(s, { to: "plain" }))).toMatchObject({ body: { status: "unknown" } });
+  });
+
+  it("answers every GitLab notice queued, so a recipient code tells no session name or presence", async () => {
+    const s = setup(kind, {}, { ciSendBurst: 5 });
+    const plain = new Client(s.h, s.laptop, "plain");
+    plain.connect();
+    const ended = new Client(s.h, s.laptop, "ended");
+    ended.connect();
+    ended.frame({ t: "bye", ended: true });
+    // A live CI session, a missing one, one that takes no notices and an ended one read the same.
+    const answers = [];
+    for (const to of ["deploys", "nobody", "plain", "ended"]) answers.push((await post(s.h, gitlab(s, { to }))).body);
+    expect(answers.map((b) => b["status"])).toEqual(["queued", "queued", "queued", "queued"]);
+    // Only the live one got a notice; the others were dropped, after each spent the device's rate.
+    expect(s.h.store.queueCount(s.deploys.sid, "ci")).toBe(1);
+    expect(s.h.store.queueCount(plain.sid, "ci")).toBe(0);
+    expect(await post(s.h, gitlab(s, { to: "nobody" }))).toMatchObject({ body: { status: "queued" } });
+    expect(await post(s.h, gitlab(s, { to: "nobody" }))).toMatchObject({ body: { status: "limited" } });
+    expect(await post(s.h, gitlab(s))).toMatchObject({ body: { status: "limited" } });
   });
 
   it("refuses a notice for another mesh, one whose at is off by more than 5 minutes, and a used id", async () => {
@@ -236,9 +265,10 @@ describe.each(KINDS)("CI senders at the relay (%s store)", (kind) => {
     expect(await post(s.h, b)).toEqual(sent(b.id, "queued"));
     // At most 2 queued under one key.
     expect(await post(s.h, c)).toEqual(sent(c.id, "full"));
-    // GitLab is its own key: the third CI slot; then the session's CI queue is full.
+    // GitLab is its own key: the third CI slot; then the session's CI queue is full, which a
+    // GitLab sender is never told (the notice is dropped, answered queued).
     expect(await post(s.h, gitlab(s))).toMatchObject({ body: { status: "queued" } });
-    expect(await post(s.h, gitlab(s))).toMatchObject({ body: { status: "full" } });
+    expect(await post(s.h, gitlab(s))).toMatchObject({ body: { status: "queued" } });
     // The repository's burst of 3 was spent by a, b and c? No: c was refused before spending.
     const d = await github(s);
     expect(await post(s.h, d)).toEqual(sent(d.id, "full"));
@@ -304,7 +334,20 @@ describe.each(KINDS)("CI senders at the relay (%s store)", (kind) => {
     const s = setup(kind);
     s.h.hibernate();
     expect(s.h.store.getSession(s.deploys.sid)!.ci).toBe(true);
-    expect(await post(s.h, gitlab(s))).toMatchObject({ body: { status: "routed" } });
+    expect(await post(s.h, await github(s))).toMatchObject({ body: { status: "routed" } });
+  });
+
+  it("with CI senders off, answers ci.rules as an older relay does and stores no tags or mark", async () => {
+    const w = world(kind, ["laptop"]);
+    const laptop = w.members[0]!;
+    const c = new Client(w.h, laptop, "deploys");
+    c.connect();
+    expect(c.frame({ t: "ci.rules", tags: [tagFor(laptop)], gitlab: true })).toEqual([{ t: "error", code: "unknown_type", message: "unknown_type", ref: "ci.rules" }]);
+    expect(w.h.store.ciRules(laptop.id)).toBeUndefined();
+    expect(w.h.store.getSession(c.sid)!.ci).toBe(false);
+    // The socket stays open, and a relay built without CI senders answers the HTTP path 404 too.
+    expect(c.conn.closed).toBeUndefined();
+    expect(w.h.relay.ci({ t: "ci.prekey", device: laptop.id, via: "gitlab" }, { source: "s" })).toEqual(CI_NOT_FOUND);
   });
 });
 

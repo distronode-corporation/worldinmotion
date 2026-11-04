@@ -86,6 +86,11 @@ export type RelayConfig = {
   createRefused?: string;
   /** Lower relay-side limits than the protocol defaults. */
   limits?: Partial<Limits>;
+  /**
+   * Whether the relay takes CI senders (SPEC section 18, `WIM_CI=1`). Off unless set: the relay
+   * then answers `ci.rules` as an older relay does (`unknown_type`) and stores nothing.
+   */
+  ci?: boolean;
 };
 
 export type RelayHost = {
@@ -161,6 +166,9 @@ type Target = { to: string; session: SessionRow };
  * and for 429 the seconds to wait.
  */
 export type CiAnswer = { status: 200 | 400 | 403 | 404 | 413 | 429; body: Record<string, unknown>; retryAfter?: number };
+
+/** What a relay that takes no CI senders answers (an older relay answers 404 too). */
+export const CI_NOT_FOUND: CiAnswer = { status: 404, body: { t: "error", code: "not_found", message: "this relay takes no CI senders" } };
 
 /** The one answer to every refusal SPEC section 18 groups under 403, so a caller learns nothing about which check failed. */
 export const CI_UNAUTHORIZED: CiAnswer = { status: 403, body: { t: "error", code: "unauthorized", message: "not accepted" } };
@@ -635,6 +643,8 @@ export class MeshRelay {
       case "rdv.put":
         return this.rdvPut(conn, st, s, f, now);
       case "ci.rules":
+        // Off, the relay answers as one that never heard of CI senders, and keeps no tags.
+        if (this.config.ci !== true) return this.error(conn, "unknown_type", "unknown_type", f.t);
         return this.ciRules(conn, s, f.tags, f.gitlab);
       case "ping":
         return this.emit(conn, { t: "pong" });
@@ -1219,8 +1229,8 @@ export class MeshRelay {
   // ---- CI senders ----
 
   /**
-   * `ci.rules` (SPEC section 18): replaces the device's rule tags and GitLab setting, and marks
-   * this session as taking CI notices.
+   * `ci.rules` (SPEC section 18), on a relay that takes CI senders: replaces the device's rule tags
+   * and GitLab setting, and marks this session as taking CI notices.
    */
   private ciRules(conn: Conn, s: SessionRow, tags: string[], gitlab: boolean): void {
     const unique = [...new Set(tags)];
@@ -1236,11 +1246,15 @@ export class MeshRelay {
    * mesh exists, the per-source budget, the device and whether it takes notices by `via`; for a
    * prekey request the device's newest prekey from its sessions' cards; for a send `at`, the
    * verified token's rule tag and unused `jti`, the session, then the counting key's rate and the
-   * CI queue, before it routes or queues the notice. Never stores a token.
+   * CI queue, before it routes or queues the notice (for GitLab the rate comes first, and every
+   * outcome but `limited` reads `queued`). Answers 404 on a relay without CI senders. Never stores
+   * a token.
    */
   ci(req: CiRequest, ctx: { source: string; github?: GithubSeen }): CiAnswer {
     const L = this.limits;
     const now = this.host.now();
+    // The hosts answer 404 before they get here; a relay built without CI senders does too.
+    if (this.config.ci !== true) return CI_NOT_FOUND;
     if (!this.exists()) return CI_UNAUTHORIZED;
     const srcKey = `cisrc:${ctx.source}`;
     const budget = this.level(srcKey, L.ciRequestsPerSourcePerMinute, L.ciRequestsPerSourcePerMinute / MINUTE, now);
@@ -1264,11 +1278,23 @@ export class MeshRelay {
     if (this.store.getMessage(req.id) !== undefined) return { status: 400, body: { t: "error", code: "malformed", message: "notice id already used" } };
     const key = seen?.key ?? gitlabCountingKey(req.device);
     const sent = (status: string): CiAnswer => ({ status: 200, body: { t: "ci.sent", id: req.id, status } });
-    const target = this.store.sessionsOf(req.device).find((s) => s.name === req.to && s.ended === null);
-    if (target === undefined || !target.ci) return sent("unknown");
+    const found = this.store.sessionsOf(req.device).find((s) => s.name === req.to && s.ended === null);
+    const target = found?.ci === true ? found : undefined;
+    // Anyone with a recipient code can send a GitLab notice (the relay verifies nothing about its
+    // sender), so the answer to one never tells a session name or presence: a missing session, a
+    // full queue and a live session all read `queued`, each after the device's GitLab rate is
+    // spent. Only `limited`, which is per device, shows. A GitHub sender was verified, so it is
+    // told what became of its notice.
+    const opaque = req.via === "gitlab";
+    if (target === undefined && !opaque) return sent("unknown");
     const rate = this.level(`ci:${key}`, L.ciSendBurst, L.ciSendsPerMinute / MINUTE, now);
     if (rate < 1) return sent("limited");
-    if (this.store.queueCount(target.sid, "ci") >= L.ciQueuePerSession || this.store.queueCountFrom(target.sid, key) >= L.ciQueuePerKey) return sent("full");
+    const full = target === undefined || this.store.queueCount(target.sid, "ci") >= L.ciQueuePerSession || this.store.queueCountFrom(target.sid, key) >= L.ciQueuePerKey;
+    if (full && opaque) {
+      this.spend(`ci:${key}`, rate, 1, now);
+      return sent("queued");
+    }
+    if (full) return sent("full");
     if (seen !== undefined) {
       if (this.store.pruneJtis(now) >= L.ciJtisPerMesh) {
         return { status: 429, body: { t: "error", code: "limited", message: "too many CI tokens in flight for this mesh; try again later" }, retryAfter: 60 };
@@ -1277,7 +1303,7 @@ export class MeshRelay {
     }
     this.spend(`ci:${key}`, rate, 1, now);
     const msg = JSON.stringify(ciNoticeOf(req));
-    const r = target;
+    const r = target!;
     const cur = r.nextCursor++;
     this.store.enqueue({ sid: r.sid, cur, id: req.id, kind: "ci", fromDevice: key, queuedAt: now, bytes: utf8(msg).length, msg });
     // A message row with no sender session: expiry and receipts then find nobody to tell, on this
@@ -1289,7 +1315,7 @@ export class MeshRelay {
       r.delivered = cur;
     }
     this.store.putSession(r);
-    return sent(c ? "routed" : "queued");
+    return sent(c && !opaque ? "routed" : "queued");
   }
 
   /** The newest prekey (by `at`) in the stored cards of a device's sessions; the sender verifies it. */

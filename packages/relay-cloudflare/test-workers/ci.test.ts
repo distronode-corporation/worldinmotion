@@ -97,8 +97,11 @@ describe("CI senders on the Workers relay", () => {
     expect(JSON.stringify(deliver)).not.toContain(t);
     expect(fetched.length).toBeGreaterThan(0);
     expect(fetched.every((u) => u === JWKS_URLS[GITHUB_ISSUER])).toBe(true);
-    // The same token in a new notice is refused with the one 403; a GitLab notice too, for a device that did not opt in.
-    expect((await post(m.mesh, { ...request, id: "01K7A000000000000000000099" })).status).toBe(403);
+    // The same token in a new notice its one-time key signed again reaches the jti check, and is
+    // refused with the one 403; a GitLab notice too, for a device that did not opt in.
+    const replay = sealCiNotice({ mesh: m.mesh, device: m.laptop.id, prekey: m.pk, to: "deploys", text: "deployed", token: t, via: "github", otk, at: Date.now() }).request;
+    expect(replay.id).not.toBe(request.id);
+    expect((await post(m.mesh, replay)).status).toBe(403);
     const gl = sealCiNotice({ mesh: m.mesh, device: m.laptop.id, prekey: m.pk, to: "deploys", text: "x", token: "a.b.c", via: "gitlab", at: Date.now() }).request;
     expect((await post(m.mesh, gl)).status).toBe(403);
   });
@@ -154,7 +157,7 @@ describe("CI senders on the Workers relay", () => {
     const key = await sourceKeyOf("203.0.113.77");
     for (let i = 0; i < 3 * LIMITS.dialsPerSourcePerMinute && (await env.DIALS!.limit({ key })).success; i++);
     const limited = await post(meshId(), "{}", "203.0.113.77");
-    expect([limited.status, limited.headers.get("retry-after")]).toEqual([429, "60"]);
+    expect([limited.status, limited.headers.get("retry-after"), await limited.json()]).toEqual([429, "60", { t: "error", code: "limited", message: "too many requests from this address; try again later" }]);
   });
 
   // Sixty-one requests through the Worker and an object take a while under coverage.

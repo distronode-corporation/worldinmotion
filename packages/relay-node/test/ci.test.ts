@@ -1,4 +1,5 @@
 import { createServer, request } from "node:http";
+import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import {
   ciOneTimeKey,
@@ -65,8 +66,11 @@ async function session(url: string, d: Device, r: Roster, name: string) {
   return { c, sid, name };
 }
 
-/** A mesh whose laptop runs a `deploys` session with its prekey in a card and a CI rule. */
-async function ciMesh(url: string) {
+/**
+ * A mesh whose laptop runs a `deploys` session with its prekey in a card and a CI rule. On a
+ * relay without CI senders (`ci` false) the rule is answered `unknown_type` instead.
+ */
+async function ciMesh(url: string, ci = true) {
   const admin = device("admin");
   const laptop = device("laptop");
   const genesis = createGenesisRoster({ name: "admin", keys: admin.keys, now: Date.now() });
@@ -84,7 +88,8 @@ async function ciMesh(url: string) {
   const card = sealMessage({ roster: r, sender: { deviceId: laptop.id, keys: laptop.keys }, session: "deploys", sid: deploys.sid, to: ["*"], seq: 0, at: Date.now(), kind: "card", card: {}, recipients: r.devices.map((d) => d.id), prekey: pk });
   deploys.c.send({ t: "card.set", msg: card });
   deploys.c.send({ t: "ci.rules", tags: [ciRuleTag({ mesh: r.mesh, device: laptop.id, iss: GITHUB_ISSUER, repo: "octo-org/deploys", ref: "refs/heads/main" })], gitlab: false });
-  expect(await deploys.c.nextOf("ci.rules")).toEqual({ t: "ci.rules", count: 1 });
+  if (ci) expect(await deploys.c.nextOf("ci.rules")).toEqual({ t: "ci.rules", count: 1 });
+  else expect(await deploys.c.nextOf("error")).toEqual({ t: "error", code: "unknown_type", message: "unknown_type", ref: "ci.rules" });
   return { r, laptop, deploys, pk };
 }
 
@@ -101,9 +106,8 @@ function post(port: number, path: string, body: string, headers: Record<string, 
   });
 }
 
-async function githubSend(m: { r: Roster; laptop: Device; pk: Prekey }) {
-  const otk = ciOneTimeKey();
-  const token = await iss.mint(githubClaims(githubAudience(m.r.mesh, m.laptop.id, otk.pub), Date.now()));
+async function githubSend(m: { r: Roster; laptop: Device; pk: Prekey }, otk = ciOneTimeKey(), reuse?: string) {
+  const token = reuse ?? (await iss.mint(githubClaims(githubAudience(m.r.mesh, m.laptop.id, otk.pub), Date.now())));
   return sealCiNotice({ mesh: m.r.mesh, device: m.laptop.id, prekey: m.pk, to: "deploys", text: "deployed", token, via: "github", otk, at: Date.now() }).request;
 }
 
@@ -114,20 +118,40 @@ describe("relay-node CI senders", () => {
     expect(a).toMatchObject({ status: 404, json: { t: "error", code: "not_found" } });
   });
 
+  it("with CI senders off (WIM_CI unset), refuses ci.rules and stores no tags and no session mark", async () => {
+    const db = join(await scratchDir(), "relay.db");
+    const r = await relay({ ci: undefined, db });
+    const m = await ciMesh(r.relayUrls[0]!, false);
+    // The socket stays open and serves as before.
+    m.deploys.c.send({ t: "ping" });
+    expect(await m.deploys.c.nextOf("pong")).toEqual({ t: "pong" });
+    const raw = new DatabaseSync(db, { readOnly: true });
+    try {
+      expect(raw.prepare("SELECT count(*) AS n FROM ci_rules").get()).toEqual({ n: 0 });
+      expect(raw.prepare("SELECT count(*) AS n FROM sessions WHERE ci = 1").get()).toEqual({ n: 0 });
+      expect(raw.prepare("SELECT count(*) AS n FROM sessions").get()).toEqual({ n: 2 });
+    } finally {
+      raw.close();
+    }
+  });
+
   it("hands out the prekey and routes a verified GitHub notice to its session, fetching only GitHub's keys", async () => {
     const r = await relay();
     const url = r.relayUrls[0]!;
     const m = await ciMesh(url);
     const path = `/v1/${m.r.mesh}/ci`;
     expect(await post(r.port, path, JSON.stringify({ t: "ci.prekey", device: m.laptop.id, via: "github" }))).toMatchObject({ status: 200, json: { t: "ci.prekey", prekey: m.pk } });
-    const req = await githubSend(m);
+    const otk = ciOneTimeKey();
+    const req = await githubSend(m, otk);
     expect(await post(r.port, path, JSON.stringify(req))).toMatchObject({ status: 200, json: { t: "ci.sent", id: req.id, status: "routed" } });
     const deliver = await m.deploys.c.nextOf("ci.deliver");
     expect(deliver["msg"]["id"]).toBe(req.id);
     expect(deliver["msg"]["token"]).toBeUndefined();
     expect(fetched.every((u) => u === JWKS_URLS[GITHUB_ISSUER])).toBe(true);
-    // The same token again is refused, with the one 403.
-    expect(await post(r.port, path, JSON.stringify({ ...req, id: ulid() }))).toMatchObject({ status: 403, json: { code: "unauthorized" } });
+    // The same token again, in a notice its one-time key signed again, is refused by its jti, with the one 403.
+    const replay = await githubSend(m, otk, req.token!);
+    expect(replay.id).not.toBe(req.id);
+    expect(await post(r.port, path, JSON.stringify(replay))).toMatchObject({ status: 403, json: { code: "unauthorized" } });
   });
 
   it("answers 400, 413 and 403 for a bad path, body or mesh, and keeps nothing for an unknown mesh", async () => {

@@ -31,7 +31,9 @@ body line with a bracket.
   expires. Sessions send `ci.rules` (the device's hashed rule tags, and whether it takes GitLab
   notices). CI notices have their own queue share (20 per session, 10 per repository) apart from
   the 50 messages, their own rate per repository (60 a minute, bursts of 20), and a per-source
-  budget. `/v1/info` gains `ci`. Relay schema version 2 adds the tables and columns for this; it is
+  budget. A GitLab notice, whose sender the relay cannot verify, is answered only `queued` or
+  `limited`, so a recipient code tells no session name or presence. With `WIM_CI` unset a relay
+  answers `ci.rules` with `unknown_type` and stores nothing, as an older relay does. `/v1/info` gains `ci`. Relay schema version 2 adds the tables and columns for this; it is
   additive, so a relay of the previous release (with the `reader` change above) keeps serving it.
 
 ### Changed

@@ -24,6 +24,8 @@ async function sourceOf(request: Request, env: Env): Promise<string> {
 
 /** What a source past its limit is told. A client retries it with backoff, like a lost connection. */
 const LIMITED = { error: "too many connections from this address; try again later" };
+/** The same limit on a CI request, in the error shape of SPEC section 18. */
+const CI_LIMITED = { t: "error", code: "limited", message: "too many requests from this address; try again later" };
 /** The limiter counts a minute at a time (wrangler.jsonc), so a minute is always long enough. */
 const RETRY_AFTER = "60";
 
@@ -85,7 +87,7 @@ function ciResponse(a: CiAnswer): Response {
 async function ciRequest(request: Request, env: Env, meshId: string): Promise<Response> {
   if (relaySettings(env).ci !== true) return ciResponse(CI_NOT_FOUND);
   const source = await sourceOf(request, env);
-  if (!(await withinLimit(env, source))) return json(429, LIMITED, { "content-type": "application/json", "retry-after": RETRY_AFTER });
+  if (!(await withinLimit(env, source))) return json(429, CI_LIMITED, { "content-type": "application/json", "retry-after": RETRY_AFTER });
   const text = await boundedText(request, LIMITS.ciRequestBytes);
   if (text === undefined) return ciResponse({ status: 413, body: { t: "error", code: "too_large", message: "the request is over 32 KiB" } });
   const pre = await ciPrecheck(text, { enabled: true, keys: (iss, kid) => ciKeys().key(iss, kid), now: Date.now() });
