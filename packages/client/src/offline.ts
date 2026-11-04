@@ -3,6 +3,7 @@
 // nobody runs is updated on disk directly.
 
 import { join } from "node:path";
+import { isPinned, loadCiRules } from "./cirules.ts";
 import { writeAtomic, type FsEnv } from "./fsx.ts";
 import { HeldBox, type HeldItem, type Verdict } from "./held.ts";
 import { History, releasedFrame } from "./history.ts";
@@ -34,18 +35,27 @@ async function applyOffline(files: SessionFiles, item: HeldItem, verdict: Verdic
   if (verdict === "refuse") return;
   const state = await files.load();
   const spool = await Spool.open(files.spoolDir, env, state?.spool ?? 0);
-  await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(config, item.device, item.entry) });
+  // A CI notice was framed when it arrived, and only ever informs (SPEC section 18).
+  const framed = item.ci === undefined ? releasedFrame(config, item.device, item.entry) : { rendered: item.rendered, relayed: true as const, informs: true as const };
+  await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...framed });
   if (state !== undefined) await files.save({ ...state, spool: spool.highest });
   await new History(files.historyPath, now).append(item.entry);
 }
 
-/** Approves or refuses a held message wherever it is held. Returns how many sessions held it. */
+/**
+ * Approves or refuses a held message wherever it is held. Returns how many sessions held it. A CI
+ * notice whose approval pins its rule's ids is approved only once `wim held approve`, at the
+ * person's terminal, has pinned them (SPEC section 18); until then it stays held.
+ */
 export async function decideHeld(mesh: MeshFiles, id: string, verdict: Verdict, env: FsEnv, now: () => number, skipSid?: string): Promise<number> {
   let n = 0;
   const config = await mesh.loadConfig();
+  const rules = await loadCiRules(mesh.ciRulesPath).catch(() => []);
   for (const row of await listAllHeld(mesh, env)) {
     // The caller's own live session decides its items itself (it can send the receipt).
     if (row.id !== id || row.sid === skipSid) continue;
+    const pins = row.ci?.pins;
+    if (verdict === "approve" && pins !== undefined && !isPinned(rules, row.ci!.rule, pins)) continue;
     const files = new SessionFiles(mesh, row.sid, env);
     // A file is fetched by the session itself when it next runs: nothing is downloaded here.
     const later = (await files.isLiveElsewhere()) || (verdict === "approve" && row.fileInfo !== undefined);

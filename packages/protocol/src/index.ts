@@ -57,7 +57,7 @@ export {
   type JoinBody,
 } from "./invite.ts";
 export { checkFreshness, dedupeExpiry, SeqTracker, type SeqObservation, type SeqTrackerJSON } from "./replay.ts";
-export { findSecrets, frameForAgent, sanitizeForDisplay, type AgentMessage } from "./agent.ts";
+export { findSecrets, frameCiForAgent, frameForAgent, sanitizeForDisplay, type AgentMessage, type CiLabel } from "./agent.ts";
 export {
   blobChunkCount,
   fileSchema,

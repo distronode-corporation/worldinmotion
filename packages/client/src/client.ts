@@ -3,7 +3,9 @@
 
 import {
   CLOSE,
+  ciDedupeExpiry,
   dedupeExpiry,
+  frameCiForAgent,
   isRecoveryName,
   isRoom,
   isVectorKey,
@@ -22,11 +24,16 @@ import {
   type BlobChunkFrame,
   type ErrorFrame,
   type Card,
+  type CiClaims,
+  type CiNotice,
   type FileInfo,
+  type JwksFetch,
   type JoinBody,
   type LeaseFrame,
   type Prekey,
   type LeasesFrame,
+  type Opened,
+  type OpenRequest,
   type Peer,
   type Plaintext,
   type ReadyFrame,
@@ -46,6 +53,8 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Breaker, pauseNotice, pauseNoticeForAgent } from "./breaker.ts";
 import { cardFor, sameCard } from "./cards.ts";
+import { checkCiNotice, CI_BREAKER, ciBucket, ciFrom, CiKeys, ciLabel, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
+import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { HeldBox, preview, takeMarks, type HeldItem, type Verdict } from "./held.ts";
@@ -140,6 +149,8 @@ export type SessionOptions = {
   handover?: boolean;
   /** Logs full relay URLs (`WIM_DEBUG=1`). */
   debug?: boolean;
+  /** How CI providers' token keys are fetched (SPEC section 18). Default `fetchJwks`; tests pass their own. */
+  jwksFetch?: JwksFetch;
 };
 
 export type PeerRow = Peer & { card?: Card };
@@ -250,6 +261,9 @@ function entryOf(p: Message, from: string): HistoryEntry {
   };
 }
 
+/** The address under which token ids (`jti`) are kept: one store for the whole device. */
+const CI_SEEN = "ci";
+
 /** One session on one mesh. */
 export class MeshSession extends EventEmitter {
   readonly device: Device;
@@ -261,6 +275,8 @@ export class MeshSession extends EventEmitter {
   readonly held: HeldBox;
   readonly history: History;
   readonly breaker: Breaker;
+  /** The loop breaker's own bucket for CI notices, so CI never pauses a real peer (SECURITY-MODEL 7.3). */
+  readonly ciBreaker: Breaker;
   readonly peers = new Map<string, PeerRow>();
   readonly receipts = new Map<string, Array<{ to: string; status: string }>>();
   private readonly cards = new Map<string, Card>();
@@ -314,6 +330,11 @@ export class MeshSession extends EventEmitter {
   private readonly pongBudget = new PongBudget();
   /** Pings this session sent and still waits on, by id: each takes the pongs that answer it. */
   private readonly pongWaiters = new Map<string, (device: string, session: string) => void>();
+  private readonly ciKeys: CiKeys;
+  /** The `ci.rules` frame last sent on this connection, so an unchanged rules file is not sent again. */
+  private ciSent: string | undefined;
+  /** Whether a damaged rules file was already logged (housekeeping reads it every pass). */
+  private ciDamaged = false;
   /** Delivery through MCP channel notifications instead of leaving items for the plugin. */
   push: ((item: SpoolItem) => Promise<void>) | undefined;
 
@@ -331,6 +352,8 @@ export class MeshSession extends EventEmitter {
     this.seen = new SeenStore(o.mesh.seenPath, o.env);
     this.seqs = new SeqStore(o.mesh.seqPath, o.env);
     this.breaker = new Breaker(() => this.config.breaker, this.now);
+    this.ciBreaker = new Breaker(() => CI_BREAKER, this.now);
+    this.ciKeys = new CiKeys({ path: o.mesh.ciJwksPath, env: o.env, fetch: o.jwksFetch ?? fetchJwks, now: this.now });
   }
 
   /**
@@ -513,6 +536,8 @@ export class MeshSession extends EventEmitter {
     this.cardsIn = new Promise((resolve) => (this.gotCards = resolve));
     this.emit("ready", this.address);
     void this.sendCard(link, true);
+    this.ciSent = undefined;
+    void this.sendCiRules(link);
     this.retryParkedLater();
   }
 
@@ -612,6 +637,11 @@ export class MeshSession extends EventEmitter {
       case "card":
         this.takeCard(f.msg);
         return;
+      case "ci.deliver": {
+        const via = this.link;
+        this.inbound = this.inbound.then(() => this.handleCiDeliver(f.cursor, f.msg, via)).catch((e: unknown) => this.inboundFailed(e, f.msg.id));
+        return;
+      }
     }
   }
 
@@ -904,6 +934,113 @@ export class MeshSession extends EventEmitter {
     return "behind";
   }
 
+  // ---- CI notices (SPEC section 18) ----
+
+  /** The person's CI rules: undefined with no rules file; none when the file is damaged (logged once until it reads again). */
+  private ciRulesNow(): Promise<CiRule[] | undefined> {
+    return readCiRules(this.o.mesh.ciRulesPath).then(
+      (rules) => {
+        this.ciDamaged = false;
+        return rules;
+      },
+      (e: unknown) => {
+        if (!this.ciDamaged) this.log(`wim: ${(e as Error).message}; no CI notice is accepted until it is fixed`);
+        this.ciDamaged = true;
+        return [];
+      },
+    );
+  }
+
+  /**
+   * Tells the relay this device's rule tags (`ci.rules`), which also marks this session as taking
+   * CI notices: after `ready`, and whenever the rules file changes. A device with no rules file
+   * sends nothing; one whose rules are all removed (or whose file is damaged) sends none, so the
+   * relay forgets the old tags.
+   */
+  private async sendCiRules(link: Link): Promise<void> {
+    const rules = await this.ciRulesNow();
+    if (rules === undefined && this.ciSent === undefined) return;
+    const frame = rulesFrame(rules ?? [], this.config.mesh, this.device.id);
+    const text = JSON.stringify(frame);
+    if (text === this.ciSent) return;
+    try {
+      link.send(frame);
+      this.ciSent = text;
+    } catch (error) {
+      this.log(`wim: CI rules not sent: ${(error as Error).message}`);
+    }
+  }
+
+  private async handleCiDeliver(cursor: number, msg: CiNotice, via: Link | undefined): Promise<void> {
+    await this.checkCi(msg);
+    this.ack(cursor, via);
+    await this.save({});
+  }
+
+  /** Opens a notice's box; one for a prekey a sibling session made since is tried again after a reload. */
+  private async openCi(req: OpenRequest): Promise<Opened> {
+    const first = await this.prekeys.opener().open(req);
+    if (first !== "key_expired" && first !== "decrypt_failed") return first;
+    await this.prekeys.reload();
+    return this.prekeys.opener().open(req);
+  }
+
+  /** The receiving checks of SPEC section 18, then single use, the rule's hold, the CI breaker and the spool. */
+  private async checkCi(raw: CiNotice): Promise<void> {
+    const now = this.now();
+    const r = await checkCiNotice(raw, {
+      me: { mesh: this.config.mesh, device: this.device.id, name: this.state.name },
+      open: (req) => this.openCi(req),
+      keys: this.ciKeys.lookup,
+      rules: (await this.ciRulesNow()) ?? [],
+      now,
+    });
+    if (!r.ok) {
+      this.log(`wim: dropped CI notice ${noticeId(raw)}: ${r.reason}`);
+      return;
+    }
+    const { notice, plaintext, claims, rule, pins } = r.value;
+    // A token's id is single use on the whole device, a notice id per receiving address.
+    const jti = jtiKey(claims);
+    if ((await this.seen.has(notice.id, this.address, now)) || (await this.seen.has(jti, CI_SEEN, now))) {
+      this.log(`wim: dropped CI notice ${notice.id}: seen before`);
+      return;
+    }
+    await this.acceptCi(notice, plaintext.text, claims, rule, pins);
+    const until = ciDedupeExpiry(notice.at, claims.exp);
+    await this.seen.add(notice.id, this.address, until, now);
+    await this.seen.add(jti, CI_SEEN, until, now);
+  }
+
+  /**
+   * A notice that passed every check: relayed CI text, information only. Held for the person when
+   * its rule has no ids yet (approving it pins them), when the rule holds every notice, or when
+   * the CI breaker paused its repository; otherwise it waits in the inbox and never starts a turn.
+   */
+  private async acceptCi(notice: CiNotice, text: string, claims: CiClaims, rule: CiRule, pins: CiPins | undefined): Promise<void> {
+    const label = ciLabel(claims, rule);
+    const from = ciFrom(label);
+    const entry: HistoryEntry = { dir: "in", peer: from, id: notice.id, kind: "msg", at: notice.at, text, relayed: true, ci: label };
+    const item: Omit<HeldItem, "reason"> = {
+      id: notice.id,
+      from,
+      device: "",
+      kind: "msg",
+      at: notice.at,
+      preview: preview(text),
+      rendered: frameCiForAgent({ id: notice.id, at: notice.at, text, label }),
+      entry,
+      ci: { rule: rule.id, ...(pins === undefined ? {} : { pins }) },
+    };
+    if (pins !== undefined || rule.hold === true) return this.hold({ ...item, reason: "policy" });
+    const admitted = this.ciBreaker.admit(ciBucket(claims), text.length);
+    if (!admitted.ok) {
+      if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
+      return this.hold({ ...item, reason: "breaker" }, admitted.newly ? ciPauseNotices(from, admitted.reason as "peer" | "total") : undefined);
+    }
+    await this.release(item, undefined);
+  }
+
   private fromAddress(p: Plaintext): string {
     const name = this.roster.devices.find((d) => d.id === p.from.device)!.name;
     return `${p.from.session}@${name}`;
@@ -972,6 +1109,11 @@ export class MeshSession extends EventEmitter {
 
   /** Fetches a file if there is one, renders the frame and puts the item in the spool. */
   private async release(item: Omit<HeldItem, "reason">, file: FileInfo | undefined): Promise<void> {
+    // A CI notice was framed when it arrived, and is always information only.
+    if (item.ci !== undefined) {
+      await this.deliver({ kind: item.kind, from: item.from, device: "", id: item.id, at: item.at, rendered: item.rendered, relayed: true, informs: true }, item.entry);
+      return;
+    }
     const entry = { ...item.entry };
     if (file !== undefined) entry.savedTo = await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`);
     // The same trust decision as a release applied on disk (offline.ts).
@@ -981,7 +1123,8 @@ export class MeshSession extends EventEmitter {
   /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
   private async hold(item: HeldItem, pause?: { person: string; agent: string }): Promise<void> {
     await this.held.add(item);
-    this.receipt(item.id, "held");
+    // No receipt is sent for a CI notice: its sender is gone, and the relay forwards none.
+    if (item.ci === undefined) this.receipt(item.id, "held");
     const count = (await this.held.list()).length;
     const line = pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
     await this.notice(item.from, line, count);
@@ -1022,7 +1165,8 @@ export class MeshSession extends EventEmitter {
     if (entry !== undefined) await this.history.append(entry);
     this.emit("item", written);
     // In-process consumers (bot, ci, a2a adapters) read the verified fields, not the rendered frame.
-    if (entry !== undefined) this.emit("message", { ...entry, cursor: written.cursor } satisfies Inbound);
+    // A CI notice is for the agent's inbox only: in-process consumers never act on it.
+    if (entry !== undefined && entry.ci === undefined) this.emit("message", { ...entry, cursor: written.cursor } satisfies Inbound);
     // A relayed item must not start a turn, so it waits in the inbox instead of being pushed.
     if (this.push !== undefined && written.relayed !== true) {
       await this.push(written);
@@ -1078,7 +1222,8 @@ export class MeshSession extends EventEmitter {
   /** One sweep at a time: two at once could both copy a relayed item to its box, one after a dismiss. */
   private sweep(): Promise<void> {
     const run = this.sweeping.then(async () => {
-      for (const item of await this.spool.sweep(this.readRelayed)) if (item.kind !== "notice") this.receipt(item.id, "delivered");
+      // Notices are the client's own, and CI notices (no device) get no receipt.
+      for (const item of await this.spool.sweep(this.readRelayed)) if (item.kind !== "notice" && item.device !== "") this.receipt(item.id, "delivered");
     });
     this.sweeping = run.catch(() => undefined);
     return run;
@@ -1124,6 +1269,7 @@ export class MeshSession extends EventEmitter {
       // Rotation and deletion on schedule; a new prekey goes out with the card below.
       if (this.now() >= this.prekeys.due) await this.prekeys.maintain();
       if (this.link !== undefined) await this.sendCard(this.link, false);
+      if (this.link !== undefined) await this.sendCiRules(this.link);
     } catch (error) {
       this.log(`wim: housekeeping: ${(error as Error).message}`);
     } finally {
@@ -1195,9 +1341,15 @@ export class MeshSession extends EventEmitter {
   async decide(id: string, verdict: Verdict): Promise<void> {
     const item = await this.held.get(id);
     if (item === undefined) throw new ClientError(`no held message ${id}`, "not_found");
+    // Approving a notice that pins its rule's ids changes a rule: only `wim held approve` at the
+    // person's terminal pins them (SPEC section 18), and the notice is released once they are.
+    const pins = item.ci?.pins;
+    if (verdict === "approve" && pins !== undefined && !isPinned((await this.ciRulesNow()) ?? [], item.ci!.rule, pins)) {
+      throw new ClientError(`held CI notice ${id} pins its rule's ids: approve it with \`wim held approve ${id}\` in a terminal you opened yourself`, "person_only");
+    }
     await this.held.remove(id);
     if (verdict === "refuse") {
-      this.receipt(id, "refused");
+      if (item.ci === undefined) this.receipt(id, "refused");
       return;
     }
     await this.release(item, item.fileInfo);

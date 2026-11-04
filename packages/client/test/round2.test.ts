@@ -29,7 +29,13 @@ describe("help", () => {
     expect(t.out.at(-1)).toMatch(/^wim send /);
     expect(await run(t, "help", "nope")).toBe(2);
     expect(said(t)).toMatch(/no command "nope"/);
-    expect(commandUsage("ci")).toBe("wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>");
+    expect(commandUsage("ci")!.split("\n")).toEqual([
+      "wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>",
+      "wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]",
+      "wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]",
+      "wim ci list | wim ci remove <n>",
+      "wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]",
+    ]);
     expect(commandUsage("recover")).toMatch(/^wim recover <code>/);
     expect(commandUsage("recovery")).toBe("wim recovery show | wim recovery rotate");
     expect(commandUsage("a.*")).toBeUndefined();

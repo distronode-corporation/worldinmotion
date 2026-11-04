@@ -29,12 +29,14 @@ import { PING, pingReport } from "./ping.ts";
 import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
-import { agentEnv, canConfirm, cannotConfirm, canShowSecret, fetchHeldCode, holdForShow, notAPerson, personOnly, showPaths, SHOW_WINDOW_MINUTES, type ShowKind } from "./secretout.ts";
+import { agentEnv, canConfirm, canShowSecret, confirmTyped, fetchHeldCode, holdForShow, notAPerson, personOnly, requirePerson, showPaths, SHOW_WINDOW_MINUTES, type ShowKind } from "./secretout.ts";
 import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { resolveInvite } from "./shortcode.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
+import { CI_ACTIONS, ciCommand } from "./cicli.ts";
+import { loadCiRules, pinRule, saveCiRules } from "./cirules.ts";
 
 export const VERSION = "0.1.8";
 
@@ -90,8 +92,8 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read"]);
-const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected"]);
+const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -111,7 +113,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   events: ["json", "as"],
   history: ["session", "peer", "limit"],
   bot: ["as"],
-  ci: ["as"],
+  ci: ["as", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
   a2a: ["as"],
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
@@ -202,6 +204,10 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
+  wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]
+  wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]
+  wim ci list | wim ci remove <n>
+  wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
   wim recovery show | wim recovery rotate
   wim doctor
@@ -429,12 +435,21 @@ export function closestAddress(to: string, live: readonly string[]): string | un
   return same.sort((x, y) => distance(x, to) - distance(y, to))[0];
 }
 
+/** `wim ci notify`'s answer to a command line it cannot read: one line, and exit 0. */
+function notifyRefused(io: CliIO, why: string): number {
+  io.err(`wim ci notify: not sent: ${sanitizeForDisplay(why)}.`);
+  return 0;
+}
+
 /** Runs one `wim` command. Returns the process exit code. */
 export async function main(argv: readonly string[], env: Record<string, string | undefined>, io: CliIO): Promise<number> {
+  // `wim ci notify` never fails the CI job it runs in, not even on a bad flag (SPEC section 18).
+  const notifying = argv[0] === "ci" && argv[1] === "notify";
   let args: Args;
   try {
     args = parseArgs(argv);
   } catch (error) {
+    if (notifying) return notifyRefused(io, (error as Error).message);
     io.err((error as Error).message);
     return 2;
   }
@@ -458,6 +473,7 @@ export async function main(argv: readonly string[], env: Record<string, string |
     return 0;
   }
   const badFlag = unknownFlag(command, args.flags);
+  if (badFlag !== undefined && notifying) return notifyRefused(io, badFlag);
   if (badFlag !== undefined) {
     io.err(`wim: ${badFlag}\n\n${(command === undefined ? undefined : commandUsage(command)) ?? SHORT_USAGE}`);
     return 2;
@@ -500,8 +516,10 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await history(ctx);
       case "mcp":
         return await mcp(ctx);
-      case "bot":
       case "ci":
+        if (CI_ACTIONS.includes(rest[0] ?? "")) return await ciCommand({ env, io, positional: rest, flags: args.flags, mesh: () => ctx.mesh() });
+        return await service(ctx, command);
+      case "bot":
       case "a2a":
         return await service(ctx, command);
       case "recover":
@@ -639,22 +657,14 @@ async function recoveryRotate(ctx: Ctx): Promise<number> {
   }
 }
 
-/**
- * Refuses a person's decision anywhere but their own interactive terminal: standard input and
- * output both a terminal, and no agent's variables (canConfirm). There is no flag that skips it,
- * because an agent could pass a flag as easily as the person. Called before anything changes.
- */
+/** The person guard (`requirePerson`), shared with `wim ci allow|list|remove`. */
 function personHere(ctx: Ctx, command: string): void {
-  const why = cannotConfirm(ctx.env, ctx.io);
-  if (why !== undefined) throw new SetupError(personOnly(why, command));
+  requirePerson(ctx.env, ctx.io, command);
 }
 
-/** Shows the person what they are deciding, then asks; only a typed yes is a yes. */
-async function confirmed(ctx: Ctx, lines: readonly string[], question: string): Promise<boolean> {
-  for (const line of lines) ctx.io.out(line);
-  if (/^y(es)?$/i.test((await ctx.io.prompt(`${question} [y/N] `)).trim())) return true;
-  ctx.io.err("wim: nothing changed.");
-  return false;
+/** Shows the person what they are deciding, then asks; only a typed yes is a yes (`confirmTyped`). */
+function confirmed(ctx: Ctx, lines: readonly string[], question: string): Promise<boolean> {
+  return confirmTyped(ctx.io, lines, question);
 }
 
 /** Why a confirmation cannot be taken here, for the error that refuses it. */
@@ -1373,7 +1383,11 @@ async function held(ctx: Ctx): Promise<number> {
     const rows = (await listAllHeld(files, ctx.fsEnv)).filter((r) => r.id === arg);
     if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
     const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
+    // A CI notice held because its rule had no ids yet: approving it pins them (SPEC section 18).
+    const pins = action === "approve" ? rows[0]!.ci?.pins : undefined;
+    const rules = pins === undefined ? undefined : pinRule(await loadCiRules(files.ciRulesPath), rows[0]!.ci!.rule, pins);
     if (!(await confirmed(ctx, heldDetails(rows, await files.loadConfig()), question))) return 1;
+    if (rules !== undefined) await saveCiRules(files.ciRulesPath, rules, files.env);
     const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
     if (n === 0) throw new SetupError(`no held message ${arg}`);
     ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
@@ -1408,10 +1422,17 @@ function heldFor(rows: HeldRows): string {
 /** What the person reads before approving or refusing a held item: who sent it, why it waits, its text. */
 function heldDetails(rows: HeldRows, config: MeshConfig): string[] {
   const r = rows[0]!;
-  const why = r.reason === "breaker" ? "the loop breaker paused that peer" : `its device's policy here is ${policyLevel(config, r.device)}`;
+  const why =
+    r.reason === "breaker"
+      ? "the loop breaker paused that peer"
+      : r.ci === undefined
+        ? `its device's policy here is ${policyLevel(config, r.device)}`
+        : r.ci.pins === undefined
+          ? "its CI rule holds every notice"
+          : `its CI rule has no repository ids yet; approving it pins ${Object.entries(r.ci.pins).map(([k, v]) => `${k}=${v}`).join(" ")}, and only that repository can send under the rule from then on`;
   return [
     `Held message ${r.id}:`,
-    `  from     ${sanitizeForDisplay(r.from)} (device id ${r.device})`,
+    r.ci === undefined ? `  from     ${sanitizeForDisplay(r.from)} (device id ${r.device})` : `  from     ${sanitizeForDisplay(r.from)} (a CI job, information only)`,
     `  for      ${heldFor(rows)} on this device`,
     `  kind     ${r.kind}, sent ${new Date(r.at).toISOString()}`,
     `  held     because ${why}`,
