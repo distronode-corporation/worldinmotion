@@ -87,7 +87,7 @@ Frames over the protocol limits are refused by relay-core before it parses them:
 | `WIM_BLOB_BYTES_PER_DEVICE_PER_DAY` | `vars` | Unset: 200 MiB. File bytes one device may store per day. |
 | `WIM_BLOB_BYTES_PER_MESH` | `vars` | Unset: 1 GiB. File bytes one mesh may hold at once. |
 | `WIM_OFFER` | `vars` | Unset: none. One line, at most 280 printable characters, published in `/v1/info`. |
-| `WIM_CI` | `vars` | Unset: off (`POST /v1/<mesh>/ci` answers 404). `1` takes CI senders (SPEC section 18): the Worker checks each request's size, parse and GitHub token before any Durable Object is asked, fetching GitHub's token keys from its fixed JWKS URL (kept an hour per isolate). |
+| `WIM_CI` | `vars` | Unset: off (`POST /v1/<mesh>/ci` answers 404, and `ci.rules` is answered `unknown_type` with nothing stored, as an older relay does). `1` takes CI senders (SPEC section 18): the Worker checks each request's size, parse and GitHub token before any Durable Object is asked, fetching GitHub's token keys from its fixed JWKS URL (kept an hour per isolate). |
 
 The byte limits take a byte count or a number with `KiB`, `MiB` or `GiB` (`25MiB`), and may only
 lower the protocol's limits, never raise them; a chunk past one is refused with

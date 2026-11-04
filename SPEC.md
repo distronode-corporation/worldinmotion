@@ -981,6 +981,13 @@ CI senders (section 18) add to that, on a relay that takes them:
   time, the counting key it was counted under, and which prekey it handed to a request from which
   source address (kept only as the keyed hash of section 9's per-source limits).
 
+What a CI sender learns from the relay's answers: a GitHub sender, whose token the relay verified
+for a repository the device has a rule for, learns whether the session it names exists and takes
+CI notices, and whether it is online (`unknown`, `routed`, `queued`). Anyone who has a recipient
+code learns, by `ci.prekey`, whether the device takes CI notices by each provider, and the
+device's newest prekey; a GitLab send tells it only `queued` or `limited`, never a session name or
+whether a session is online (section 18).
+
 A relay cannot read a notice's text. It cannot alter or forge a GitHub notice (the one-time key
 signs it and the token binds that key), nor a GitLab notice it never saw the token of. It can drop,
 delay or replay a notice, and the receiver's freshness window and id store stop a replay.
@@ -1308,7 +1315,11 @@ KiB and `content-type: application/json`. The relay answers each with JSON.
 
    A `gitlab` send carries no `otk`, `sig` or `token`. The relay answers 200 with
    `{ "t": "ci.sent", "id": "<ULID>", "status": "..." }`, where `status` is `routed`, `queued`,
-   `unknown` (no session of that name on the device takes CI notices), `full` or `limited`.
+   `unknown` (no session of that name on the device takes CI notices), `full` or `limited`. A
+   `gitlab` send, whose sender the relay cannot verify, is answered only `queued` or `limited`:
+   `queued` also when the notice was routed, when the session is unknown and when its CI queue is
+   full (the last two drop the notice), so a recipient code never tells which session names exist
+   or which are online. `limited` is per device, so it tells neither.
 
 - The **notice** is the `ci.send` object without `token`: what the relay stores and delivers.
   The **header** is the notice without `box` and `sig`.
@@ -1335,7 +1346,7 @@ KiB and `content-type: application/json`. The relay answers each with JSON.
 | 403 | `unauthorized` | no such mesh; the device is not in the roster, is a recovery record, or does not take CI notices by `via`; the token fails any check; its rule tag is not the device's; its `jti` was used |
 | 404 | `not_found` | the relay takes no CI senders (an older relay answers 404 too) |
 | 413 | `too_large` | the body is over 32 KiB |
-| 429 | `limited` | the source address is over its CI budget, with `Retry-After` in seconds |
+| 429 | `limited` | the source address is over the relay's limit for it, or over its CI budget in the mesh, or the mesh holds as many live `jti`s as it may (below); with `Retry-After` in seconds |
 
 Every refusal in the 403 row gets the same answer, so a caller learns nothing about which check
 failed.
@@ -1344,13 +1355,16 @@ failed.
 address's rate limit, the size and a strict parse (no unknown keys), and for `github` the token as
 below by its own clock, with `aud` equal to the audience for (`mesh`, `device`, `otk`) and `sig`
 verifying with `otk`. (The reference Workers relay does all of this in the Worker, so junk costs no
-Durable Object request.) Then, in the mesh: that it exists, the per-source CI budget, the device
+Durable Object request.) The source's rate limit there is the relay's dial limit (section 9), which
+CI requests share with dials. Then, in the mesh: that it exists, the per-source CI budget, the device
 (as for `ci.prekey`), that `mesh` is the mesh of the path and `at` is within 5 minutes of its
 clock; for `github` that the rule tag computed from the verified claims is among the device's tags
 and the token's `jti` was not used before in this mesh (it keeps `H(UTF-8(iss + " " + jti))` until
 `exp` + 5 minutes); for `gitlab` there is nothing it can verify. Then the notice id must be new, the
 session `to` on that device must exist, not have ended, and take CI notices; then the counting
-key's rate and the CI queue; then the relay routes or queues the notice. It never stores the token.
+key's rate and the CI queue; then the relay routes or queues the notice. For `gitlab` the counting
+key's rate comes before the session, and a missing session or a full queue drops the notice after
+spending it, answered `queued` (above). It never stores the token.
 
 **Verifying a token.** The relay (GitHub only) and the receiving client (both providers) check:
 
@@ -1371,7 +1385,8 @@ key's rate and the CI queue; then the relay routes or queues the notice. It neve
 - A relay also checks the time by its own clock, with 5 minutes of skew: `exp` not passed, and
   `nbf` (or `iat`) not ahead. A client does not (below).
 - JWKS: a relay keeps an issuer's keys at most an hour and a client at most 24 hours; for a `kid`
-  it does not hold, either fetches the issuer's JWKS again at most once a minute. A JWKS answer is
+  it does not hold, either fetches the issuer's JWKS again at most once a minute per process (on
+  the Workers relay, per isolate, so the relay as a whole may fetch more often). A JWKS answer is
   at most 64 KiB.
 
 **Rule tags.** A relay cannot check a rule it does not hold, and without a check anyone with a
@@ -1392,7 +1407,8 @@ session's one queue and cursor, and the client acknowledges it with `ack` like a
 receipt is sent for a notice, and the relay forwards none. A relay sends `ci.deliver` only to a
 session that sent `ci.rules`; queued notices go out in cursor order on reconnect, like messages.
 
-**Limits.** CI requests have their own per-source budget (60 a minute). Notices are counted under
+**Limits.** CI requests count against the source address's dial limit (section 9), and in each
+mesh against a per-source CI budget of 60 a minute. Notices are counted under
 a **counting key**: for `github`, `"gh~" + b64u(H(UTF-8("wim/1 ci count " + iss + " " +
 repository_owner_id + " " + repository_id)))` cut to 22 characters, so a renamed repository keeps
 its count; for `gitlab`, `"gl~"` and the recipient device id, the device's one GitLab share. Each
@@ -1461,8 +1477,9 @@ GitLab notices by removing its GitLab rules. Each GitLab token sends one notice 
 single use), so a job that sends two declares two `id_tokens`.
 
 **The reference relays** take CI senders only when their operator turns them on
-(`WIM_CI=1`), and report it as `"ci": true` in `/v1/info` (section 11). They fetch only GitHub's
-JWKS; no URL they fetch comes from a request.
+(`WIM_CI=1`), and report it as `"ci": true` in `/v1/info` (section 11). Off, a relay answers the
+endpoint 404 and `ci.rules` with `unknown_type`, as an older relay does, and stores no tags and no
+session mark. They fetch only GitHub's JWKS; no URL they fetch comes from a request.
 
 **Compatibility.** An older relay answers the endpoint 404 (the sender reports that the relay
 takes no CI senders) and `ci.rules` with `unknown_type`. An older client never sends `ci.rules`, so

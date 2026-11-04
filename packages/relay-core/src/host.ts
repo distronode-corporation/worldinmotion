@@ -16,7 +16,9 @@ import {
   type GithubSeen,
   type KeyLookup,
 } from "@worldinmotion/protocol";
-import { CI_UNAUTHORIZED, type CiAnswer, type Limits } from "./relay.ts";
+import { CI_NOT_FOUND, CI_UNAUTHORIZED, type CiAnswer, type Limits } from "./relay.ts";
+
+export { CI_NOT_FOUND };
 
 /*
  * What every relay host shares around `MeshRelay`: the dial path, the rate-limit key for a client
@@ -55,9 +57,6 @@ export function parseCiPath(pathname: string): DialPath | undefined {
   if (match === null) return undefined;
   return isMeshId(match[1]) ? { ok: true, meshId: match[1] } : { ok: false, status: 400, error: "invalid mesh id" };
 }
-
-/** What a relay that takes no CI senders answers (an older relay answers 404 too). */
-export const CI_NOT_FOUND: CiAnswer = { status: 404, body: { t: "error", code: "not_found", message: "this relay takes no CI senders" } };
 
 /**
  * The host's part of a CI request (SPEC section 18), before any mesh state: the size, a strict

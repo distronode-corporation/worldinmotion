@@ -213,7 +213,7 @@ export class MeshDurableObject extends DurableObject<Env> {
       this.memory = saved === undefined ? new MemoryStore() : undefined;
       const meshId = this.meshId;
       this.relayInstance = new MeshRelay(
-        { meshId, relayUrls: config.relayUrls, createKey: config.createKey, createRefused: config.createRefused, limits: config.limits },
+        { meshId, relayUrls: config.relayUrls, createKey: config.createKey, createRefused: config.createRefused, limits: config.limits, ci: config.ci === true },
         {
           store: this.memory ?? new SqlStore(this.db, meshId),
           now: () => Date.now(),

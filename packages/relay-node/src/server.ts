@@ -381,7 +381,7 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
   // the MeshRelay constructor has nothing left to refuse.
   const relayFor = (id: string, sockets: Map<string, Socket>): MeshRelay =>
     new MeshRelay(
-      { meshId: id, relayUrls, createKey: config.createKey, createRefused: config.createRefused, limits: config.limits },
+      { meshId: id, relayUrls, createKey: config.createKey, createRefused: config.createRefused, limits: config.limits, ci: config.ci === true },
       {
         store: new SqlStore(db, id),
         now: () => Date.now(),
