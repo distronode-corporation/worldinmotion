@@ -1,4 +1,4 @@
-import { SELF } from "cloudflare:test";
+import { env, SELF } from "cloudflare:test";
 import {
   b64u,
   ciOneTimeKey,
@@ -18,7 +18,7 @@ import {
 } from "@worldinmotion/protocol";
 import { beforeAll, describe, expect, it } from "vitest";
 import worker, { jwks, resetCiKeys } from "../src/index.ts";
-import { bindings, createMesh, dev, meshId, ORIGIN, RELAY, Session, type Dev } from "./helpers.ts";
+import { bindings, createMesh, dev, meshId, ORIGIN, RELAY, Session, sourceKeyOf, type Dev } from "./helpers.ts";
 
 const ALG = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
 const KID = "workerd-test-1";
@@ -116,12 +116,45 @@ describe("CI senders on the Workers relay", () => {
     expect((await post(m, req)).status).toBe(403);
   });
 
+  it("never reads more than 32 KiB of a body: refused by its declared length, or as the bytes pass the cap", async () => {
+    const url = `${ORIGIN}/v1/${meshId()}/ci`;
+    const vars = { ...bindings, WIM_RELAY_URLS: RELAY, WIM_CI: "1" };
+    const declared = await worker.fetch(new Request(url, { method: "POST", headers: { "content-length": String(LIMITS.ciRequestBytes + 1) }, body: "{}" }), vars);
+    expect(declared.status).toBe(413);
+    // A streamed body carries no length; the reader stops once the bytes pass the cap.
+    let pulled = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(c) {
+        pulled++;
+        c.enqueue(new Uint8Array(16 * 1024).fill(0x20));
+        if (pulled > 100) c.close();
+      },
+    });
+    const streamed = await worker.fetch(new Request(url, { method: "POST", body: stream }), vars);
+    expect([streamed.status, await streamed.json()]).toEqual([413, { t: "error", code: "too_large", message: "the request is over 32 KiB" }]);
+    expect(pulled).toBeLessThan(10);
+    // No body at all is just not a request.
+    expect((await worker.fetch(new Request(url, { method: "POST" }), vars)).status).toBe(400);
+    // A body in several chunks under the cap is read whole.
+    const parts = ['{"t":"ci.pre', 'key","device":"AAAAAAAAAAAAAAAAAAAAAA","via":"gitlab"}'];
+    const chunked = new ReadableStream<Uint8Array>({
+      pull(c) {
+        const next = parts.shift();
+        if (next === undefined) c.close();
+        else c.enqueue(new TextEncoder().encode(next));
+      },
+    });
+    expect((await worker.fetch(new Request(url, { method: "POST", body: chunked }), vars)).status).toBe(403);
+  });
+
   it("answers 404 when CI senders are off, and 429 past the source's rate limit", async () => {
     const off = await worker.fetch(new Request(`${ORIGIN}/v1/${meshId()}/ci`, { method: "POST", body: "{}" }), { ...bindings, WIM_RELAY_URLS: RELAY });
     expect([off.status, await off.json()]).toEqual([404, { t: "error", code: "not_found", message: "this relay takes no CI senders" }]);
-    const statuses = new Set<number>();
-    for (let i = 0; i < 120 && !statuses.has(429); i++) statuses.add((await post(meshId(), "{}", "203.0.113.77")).status);
-    expect(statuses.has(429)).toBe(true);
+    // Spend the address's whole allowance in the Worker's rate limiter, as many requests would.
+    const key = await sourceKeyOf("203.0.113.77");
+    for (let i = 0; i < 3 * LIMITS.dialsPerSourcePerMinute && (await env.DIALS!.limit({ key })).success; i++);
+    const limited = await post(meshId(), "{}", "203.0.113.77");
+    expect([limited.status, limited.headers.get("retry-after")]).toEqual([429, "60"]);
   });
 
   // Sixty-one requests through the Worker and an object take a while under coverage.

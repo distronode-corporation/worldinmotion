@@ -1,4 +1,5 @@
 import { CI_NOT_FOUND, ciPrecheck, healthz, isInfoPath, parseCiPath, parseDialPath, parseRdvPath, RDV_HEADERS, relayInfo, relaySettings, sourceKey, type CiAnswer } from "@worldinmotion/relay-core";
+import { LIMITS } from "@worldinmotion/protocol";
 import { ciKeys } from "./ci.ts";
 import { configProblem, type Env } from "./config.ts";
 import { CI_HEADER, MESH_HEADER, SOURCE_HEADER } from "./mesh.ts";
@@ -41,6 +42,35 @@ async function withinLimit(env: Env, source: string): Promise<boolean> {
   return (await env.DIALS.limit({ key: source })).success;
 }
 
+/**
+ * A request's body as text, read only up to `max` bytes: undefined when its declared length or
+ * the bytes that arrive pass it, so an oversized body is never held in memory whole.
+ */
+async function boundedText(request: Request, max: number): Promise<string | undefined> {
+  if (Number(request.headers.get("content-length") ?? 0) > max) return undefined;
+  const reader = request.body?.getReader();
+  if (reader === undefined) return "";
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > max) {
+      await reader.cancel();
+      return undefined;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    bytes.set(c, at);
+    at += c.length;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 /** A CI answer the Worker gives itself: never a 429, whose limit is the Worker's own rate limiter. */
 function ciResponse(a: CiAnswer): Response {
   return json(a.status, a.body);
@@ -56,7 +86,8 @@ async function ciRequest(request: Request, env: Env, meshId: string): Promise<Re
   if (relaySettings(env).ci !== true) return ciResponse(CI_NOT_FOUND);
   const source = await sourceOf(request, env);
   if (!(await withinLimit(env, source))) return json(429, LIMITED, { "content-type": "application/json", "retry-after": RETRY_AFTER });
-  const text = await request.text();
+  const text = await boundedText(request, LIMITS.ciRequestBytes);
+  if (text === undefined) return ciResponse({ status: 413, body: { t: "error", code: "too_large", message: "the request is over 32 KiB" } });
   const pre = await ciPrecheck(text, { enabled: true, keys: (iss, kid) => ciKeys().key(iss, kid), now: Date.now() });
   if (!pre.ok) return ciResponse(pre.answer);
   const headers = new Headers({ [SOURCE_HEADER]: source, [MESH_HEADER]: meshId, [CI_HEADER]: JSON.stringify(pre.github ?? null) });
