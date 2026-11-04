@@ -164,6 +164,42 @@ export const LIMITS = {
    * six alive at most; the cap only bounds the file when a clock misbehaves.
    */
   prekeysKept: 8,
+  /** Largest body of a CI sender's HTTP request (SPEC section 18). */
+  ciRequestBytes: 32 * KiB,
+  /** Largest CI notice `text`, in UTF-8 bytes. */
+  ciTextBytes: 4 * KiB,
+  /** Largest CI ID token. */
+  ciTokenBytes: 8 * KiB,
+  /** CI requests per source address per minute, per mesh. */
+  ciRequestsPerSourcePerMinute: 60,
+  /** CI notices per counting key (a GitHub repository, or a device's GitLab share) per minute, sustained. */
+  ciSendsPerMinute: 60,
+  /** CI notices per counting key allowed in a burst. */
+  ciSendBurst: 20,
+  /** CI notices held in one recipient session's queue, apart from its messages. */
+  ciQueuePerSession: 20,
+  /** Of those, notices under any one counting key. */
+  ciQueuePerKey: 10,
+  /** Rule tags one device registers with the relay. */
+  ciRuleTags: 64,
+  /** GitHub token ids (`jti`) a relay remembers at once per mesh. */
+  ciJtisPerMesh: 4096,
+  /** Clock skew a relay allows on a CI request's `at` and on a token's times. */
+  ciSkewMs: 5 * MINUTE,
+  /** Longest a CI token may claim to live (`exp` - `iat`). */
+  ciTokenMaxLifetimeMs: DAY,
+  /** How long past a token's window (`nbf` or `iat` before, `exp` after) a notice's `at` may lie. */
+  ciTokenWindowSkewMs: 5 * MINUTE,
+  /** How long past a token's `exp` a receiver keeps its `jti`. */
+  ciJtiRetentionMs: 10 * MINUTE,
+  /** Fewest milliseconds between two JWKS fetches for a `kid` not held, per issuer. */
+  jwksRefetchMs: MINUTE,
+  /** How long a relay keeps an issuer's JWKS. */
+  jwksRelayTtlMs: HOUR,
+  /** How long a client keeps an issuer's JWKS. */
+  jwksClientTtlMs: DAY,
+  /** Largest JWKS answer. */
+  jwksBytes: 64 * KiB,
 } as const;
 
 /** Outcome of a check that must not throw. `reason` is a stable, machine-readable string. */

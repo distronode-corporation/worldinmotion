@@ -1,4 +1,19 @@
 import { readdirSync, readFileSync } from "node:fs";
+import {
+  checkCiPlaintext,
+  ciOpenRequest,
+  ciRecipientCode,
+  ciRuleTag,
+  ciSenderId,
+  githubAudience,
+  githubCountingKey,
+  gitlabAudience,
+  gitlabCountingKey,
+  parseCiRecipientCode,
+  verifyCiToken,
+} from "../src/ci.ts";
+import { parseJwks, type Jwk } from "../src/jwt.ts";
+import { openBox } from "../src/keyring.ts";
 import { describe, expect, it } from "vitest";
 import { buildVectors, vectorPublicKeys } from "../scripts/vectors.ts";
 import {
@@ -105,5 +120,34 @@ describe("test vectors", { timeout: 60_000 }, () => {
     expect(openMessage(ping.pong.frame, { roster: ping.roster, me: atAlice, now: ping.pong.now })).toEqual({ ok: true, value: ping.pong.plaintext });
     expect(ping.pong.plaintext.reply_to).toBe(ping.ping.plaintext.id);
     for (const v of ping.invalid_plaintexts) expect(plaintextSchema.safeParse(v.plaintext).success, v.why).toBe(false);
+  });
+
+  it("ci.json: every derivation, both notices open and verify, and each refused token fails for its reason", async () => {
+    const ci = load("ci.json");
+    const pk = load("prekey.json");
+    const r = ci.recipient;
+    expect(ciRecipientCode({ relay: r.relay, mesh: r.mesh, sign: r.sign })).toBe(r.code);
+    expect(parseCiRecipientCode(r.code)).toEqual({ ok: true, value: { relay: r.relay, mesh: r.mesh, sign: r.sign, device: r.device } });
+    const d = ci.derivations;
+    expect(githubAudience(r.mesh, r.device, d.otk)).toBe(d.github_audience);
+    expect(gitlabAudience(r.mesh, r.device)).toBe(d.gitlab_audience);
+    expect(ciRuleTag(d.rule_tag)).toBe(d.rule_tag.tag);
+    expect(githubCountingKey("https://token.actions.githubusercontent.com", "65", "74")).toBe(d.github_counting_key);
+    expect(gitlabCountingKey(r.device)).toBe(d.gitlab_counting_key);
+    const jwks = parseJwks(JSON.stringify(ci.issuer.jwks))!;
+    const keys = async (_iss: string, kid: string): Promise<Jwk | undefined> => jwks.get(kid);
+    const secret = (id: string) => (id === pk.prekeys.bob.prekey.id ? b64u.decode(pk.prekeys.bob.secret) : undefined);
+    for (const via of ["github", "gitlab"] as const) {
+      const v = ci[via];
+      expect(ciSenderId(v.notice.xk)).toBe(v.ci_sender_id);
+      const req = ciOpenRequest(v.notice, { mesh: r.mesh, device: r.device, name: "deploys" });
+      expect(req.ok).toBe(true);
+      const opened = req.ok && checkCiPlaintext(req.value.notice, openBox(undefined, secret, req.value.req));
+      expect(opened).toEqual({ ok: true, value: v.plaintext });
+      expect((await verifyCiToken(v.plaintext.token, v.notice, keys)).ok, via).toBe(true);
+    }
+    expect(ci.github.request.token).toBe(ci.github.plaintext.token);
+    expect(ci.gitlab.request.token).toBeUndefined();
+    for (const t of ci.refused_tokens) expect(await verifyCiToken(t.token, ci.github.notice, keys), t.why).toEqual({ ok: false, reason: t.reason });
   });
 });

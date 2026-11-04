@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { fitsUtf8 } from "./encoding.ts";
 import { blobChunkFields } from "./blob.ts";
+import { ciDeliverFrameSchema, ciRulesAnswerSchema, ciRulesFrameSchema } from "./ci-schema.ts";
 import { joinBodySchema } from "./invite.ts";
 import { rdvBoxFields } from "./shortcode.ts";
 import { parseJson } from "./json.ts";
@@ -236,6 +237,7 @@ const clientSchemas = {
   "card.set": cardSetFrameSchema,
   "cards.get": cardsGetFrameSchema,
   "rdv.put": rdvPutFrameSchema,
+  "ci.rules": ciRulesFrameSchema,
   ping: pingFrameSchema,
   bye: byeFrameSchema,
   create: createFrameSchema,
@@ -268,6 +270,7 @@ export const clientFrameSchema = z.discriminatedUnion("t", [
   cardSetFrameSchema,
   cardsGetFrameSchema,
   rdvPutFrameSchema,
+  ciRulesFrameSchema,
   pingFrameSchema,
   byeFrameSchema,
   createFrameSchema,
@@ -408,6 +411,8 @@ const relaySchemas = {
   cards: cardsFrameSchema,
   card: cardFrameSchema,
   "rdv.stored": rdvStoredFrameSchema,
+  "ci.rules": ciRulesAnswerSchema,
+  "ci.deliver": ciDeliverFrameSchema,
 } as const;
 
 export const relayFrameSchema = z.discriminatedUnion("t", [
@@ -435,6 +440,8 @@ export const relayFrameSchema = z.discriminatedUnion("t", [
   cardsFrameSchema,
   cardFrameSchema,
   rdvStoredFrameSchema,
+  ciRulesAnswerSchema,
+  ciDeliverFrameSchema,
 ]);
 
 // ---- types ----

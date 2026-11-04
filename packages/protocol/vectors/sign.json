@@ -63,6 +63,19 @@
       },
       "signed_bytes_utf8": "wim/1 prekey\n{\"at\":1760000000000,\"device\":\"zv5yUNkED9tj8Qn03xCtIg\",\"id\":\"AAAAAAAAAAAAAAAAAAAAAA\",\"mesh\":\"8yvT1IZgynsBt7R7maZTCw\",\"until\":1760172800000}",
       "sig": "Urtpw6QlozOSUxwqJQLT7psFg9Uc5YRQM6hi8HVNSuiggHLAZsnc9bnCxuSdq6xRRTjqOSociHB5EY1nzdbkAg"
+    },
+    {
+      "type": "ci",
+      "signer": "alice",
+      "object": {
+        "t": "ci.send",
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "id": "01K70000000000000000000C10",
+        "via": "github",
+        "at": 1760000000000
+      },
+      "signed_bytes_utf8": "wim/1 ci\n{\"at\":1760000000000,\"id\":\"01K70000000000000000000C10\",\"mesh\":\"8yvT1IZgynsBt7R7maZTCw\",\"t\":\"ci.send\",\"via\":\"github\"}",
+      "sig": "TnGxSCuvZdbew3ooDQbPx__9PfCbW4BKhnQY_w6NiSbIBTGLSLPniBcniAyhwTbbAHc_El4JWKvWSNYtMcelDQ"
     }
   ],
   "tampered": [
