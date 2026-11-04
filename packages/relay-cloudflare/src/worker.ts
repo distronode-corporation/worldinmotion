@@ -1,6 +1,7 @@
-import { healthz, isInfoPath, parseDialPath, parseRdvPath, RDV_HEADERS, relayInfo, relaySettings, sourceKey } from "@worldinmotion/relay-core";
+import { CI_NOT_FOUND, ciPrecheck, healthz, isInfoPath, parseCiPath, parseDialPath, parseRdvPath, RDV_HEADERS, relayInfo, relaySettings, sourceKey, type CiAnswer } from "@worldinmotion/relay-core";
+import { ciKeys } from "./ci.ts";
 import { configProblem, type Env } from "./config.ts";
-import { MESH_HEADER, SOURCE_HEADER } from "./mesh.ts";
+import { CI_HEADER, MESH_HEADER, SOURCE_HEADER } from "./mesh.ts";
 import { RDV_NAME } from "./rdv.ts";
 import { json } from "./route.ts";
 import { sourceSecret } from "./source.ts";
@@ -40,9 +41,34 @@ async function withinLimit(env: Env, source: string): Promise<boolean> {
   return (await env.DIALS.limit({ key: source })).success;
 }
 
+/** A CI answer the Worker gives itself: never a 429, whose limit is the Worker's own rate limiter. */
+function ciResponse(a: CiAnswer): Response {
+  return json(a.status, a.body);
+}
+
+/**
+ * `POST <prefix>/v1/<mesh>/ci` (SPEC section 18): whether the relay takes CI senders, the source's
+ * rate limit, then the size, the parse and a GitHub token's check, all before any Durable Object
+ * is asked, so junk costs no object request. Only then does the mesh's object get the request,
+ * with what the relay keeps of a verified token in a header only the Worker sets.
+ */
+async function ciRequest(request: Request, env: Env, meshId: string): Promise<Response> {
+  if (relaySettings(env).ci !== true) return ciResponse(CI_NOT_FOUND);
+  const source = await sourceOf(request, env);
+  if (!(await withinLimit(env, source))) return json(429, LIMITED, { "content-type": "application/json", "retry-after": RETRY_AFTER });
+  const text = await request.text();
+  const pre = await ciPrecheck(text, { enabled: true, keys: (iss, kid) => ciKeys().key(iss, kid), now: Date.now() });
+  if (!pre.ok) return ciResponse(pre.answer);
+  const headers = new Headers({ [SOURCE_HEADER]: source, [MESH_HEADER]: meshId, [CI_HEADER]: JSON.stringify(pre.github ?? null) });
+  const stub = env.MESH.get(env.MESH.idFromName(meshId));
+  return stub.fetch(new Request(request.url, { method: "POST", headers, body: text }));
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const ci = request.method === "POST" ? parseCiPath(url.pathname) : undefined;
+    if (ci !== undefined) return ci.ok ? ciRequest(request, env, ci.meshId) : json(ci.status, { t: "error", code: "malformed", message: ci.error });
     if (request.method === "GET" && url.pathname === "/healthz") {
       // Reads the configuration only (no Durable Object), as the mesh objects will read it.
       const health = healthz(configProblem(env));

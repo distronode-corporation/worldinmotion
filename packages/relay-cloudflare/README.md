@@ -87,6 +87,7 @@ Frames over the protocol limits are refused by relay-core before it parses them:
 | `WIM_BLOB_BYTES_PER_DEVICE_PER_DAY` | `vars` | Unset: 200 MiB. File bytes one device may store per day. |
 | `WIM_BLOB_BYTES_PER_MESH` | `vars` | Unset: 1 GiB. File bytes one mesh may hold at once. |
 | `WIM_OFFER` | `vars` | Unset: none. One line, at most 280 printable characters, published in `/v1/info`. |
+| `WIM_CI` | `vars` | Unset: off (`POST /v1/<mesh>/ci` answers 404). `1` takes CI senders (SPEC section 18): the Worker checks each request's size, parse and GitHub token before any Durable Object is asked, fetching GitHub's token keys from its fixed JWKS URL (kept an hour per isolate). |
 
 The byte limits take a byte count or a number with `KiB`, `MiB` or `GiB` (`25MiB`), and may only
 lower the protocol's limits, never raise them; a chunk past one is refused with
@@ -115,12 +116,12 @@ Object. It holds no secret and no live count:
 ```json
 { "v": 1, "software": "worldinmotion-relay", "version": "0.1.0", "create": "key",
   "limits": { "max_meshes": 2000, "idle_mesh_days": 90, "blob_bytes_per_mesh_per_day": 26214400 },
-  "offer": "Free hosted relay during the preview" }
+  "offer": "Free hosted relay during the preview", "ci": false }
 ```
 
 `create` is `key`, `open` or `closed` (also for a misconfigured relay). In `limits`, `null` means
 unlimited, and `blob_bytes_per_mesh_per_day` is the effective value. `offer` is `WIM_OFFER`, or
-`null`.
+`null`. `ci` is whether the relay takes CI senders (`WIM_CI`).
 
 Mesh creation is never open by accident. With `WIM_CREATE_KEY` set, `create` needs the key; with
 `WIM_OPEN_CREATE=1`, anyone may create; with neither (the template's default), every `create` is

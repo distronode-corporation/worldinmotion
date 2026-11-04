@@ -31,7 +31,8 @@ export type JoinRow = { invite: string; device: string; body: string; exp: numbe
  * A session. `conn` is the id of the connection holding it, or null while it is offline. `ended`
  * is when it said `bye { ended: true }` (a tombstone, so later sends get `ended`), or null.
  * `resume` is `hash(session.resume)`. Cursors: `acked` is the last acknowledged, `delivered` the
- * highest sent on any connection, `nextCursor` the one the next queued message gets.
+ * highest sent on any connection, `nextCursor` the one the next queued message gets. `ci` is
+ * whether the session sent `ci.rules` (SPEC section 18), so it takes CI notices.
  */
 export type SessionRow = {
   sid: string;
@@ -46,13 +47,19 @@ export type SessionRow = {
   acked: number;
   delivered: number;
   nextCursor: number;
+  ci: boolean;
 };
 
-/** A message waiting in a recipient session's queue, kept as the send frame's JSON text. */
+/**
+ * A message waiting in a recipient session's queue, kept as the send frame's JSON text. `kind`
+ * `ci` is a CI notice (SPEC section 18), delivered as `ci.deliver`, whose `fromDevice` holds its
+ * counting key (`gh~...` or `gl~...`, never a device id).
+ */
 export type QueueItem = {
   sid: string;
   cur: number;
   id: string;
+  kind: "msg" | "ci";
   fromDevice: string;
   queuedAt: number;
   bytes: number;
@@ -131,9 +138,10 @@ export interface MeshStore {
   rekeySession(from: string, to: string): void;
 
   enqueue(item: QueueItem): void;
-  /** Queued items for `sid` with cursor > `after`, oldest first. */
+  /** Queued items for `sid` with cursor > `after`, oldest first, of both kinds. */
   queue(sid: string, after: number): QueueItem[];
-  queueCount(sid: string): number;
+  /** Queued items of one kind for `sid`: messages and CI notices have separate limits. */
+  queueCount(sid: string, kind?: QueueItem["kind"]): number;
   queueCountFrom(sid: string, fromDevice: string): number;
   /** Deletes the items of `sid` with cursor <= `cur`. */
   dequeueThrough(sid: string, cur: number): void;
@@ -228,4 +236,14 @@ export interface MeshStore {
   deleteCard(sid: string): void;
   /** Every stored card, by session id. */
   cards(): { sid: string; msg: string }[];
+
+  /** A device's CI rule tags and GitLab setting (SPEC section 18), replacing any it had. */
+  putCiRules(device: string, tags: string[], gitlab: boolean): void;
+  ciRules(device: string): { tags: string[]; gitlab: boolean } | undefined;
+  deleteCiRules(device: string): void;
+  /** Whether a GitHub token's `jti` hash is held and not past its `exp`. */
+  hasJti(jti: string, now: number): boolean;
+  putJti(jti: string, exp: number): void;
+  /** Deletes `jti`s past their `exp`, and returns how many are left. */
+  pruneJtis(now: number): number;
 }

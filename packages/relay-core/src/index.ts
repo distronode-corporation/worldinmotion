@@ -1,10 +1,13 @@
-export { HISTORY_SWEEP_BATCH, MeshRelay, RETENTION_MS, type Conn, type ConnState, type Limits, type RelayConfig, type RelayHost } from "./relay.ts";
+export { CI_UNAUTHORIZED, HISTORY_SWEEP_BATCH, MeshRelay, RETENTION_MS, type CiAnswer, type Conn, type ConnState, type Limits, type RelayConfig, type RelayHost } from "./relay.ts";
 export {
+  CI_NOT_FOUND,
+  ciPrecheck,
   CREATE_CLOSED,
   CREATE_MISCONFIGURED,
   createRule,
   healthz,
   isInfoPath,
+  parseCiPath,
   parseDialPath,
   parseRdvPath,
   parseRelayUrls,

@@ -1340,14 +1340,17 @@ KiB and `content-type: application/json`. The relay answers each with JSON.
 Every refusal in the 403 row gets the same answer, so a caller learns nothing about which check
 failed.
 
-**What the relay checks on `ci.send`**, in this order: the size and a strict parse (no unknown
-keys); `mesh` is the mesh of the path; the per-source budget; `at` within 5 minutes of its clock;
-the device (as for `ci.prekey`). Then, for `github`: the token as below by its own clock, `aud`
-equal to the audience for (`mesh`, `device`, `otk`), `sig` verifying with `otk`, the rule tag
-computed from the verified claims among the device's tags, and the token's `jti` not used before
-in this mesh (it keeps `H(UTF-8(iss + " " + jti))` until `exp` + 5 minutes). For `gitlab` there is
-nothing it can verify. Then the session `to` on that device must exist, not have ended, and take CI
-notices; then the limits; then the relay routes or queues the notice. It never stores the token.
+**What the relay checks on `ci.send`.** First, before it touches any mesh state: the source
+address's rate limit, the size and a strict parse (no unknown keys), and for `github` the token as
+below by its own clock, with `aud` equal to the audience for (`mesh`, `device`, `otk`) and `sig`
+verifying with `otk`. (The reference Workers relay does all of this in the Worker, so junk costs no
+Durable Object request.) Then, in the mesh: that it exists, the per-source CI budget, the device
+(as for `ci.prekey`), that `mesh` is the mesh of the path and `at` is within 5 minutes of its
+clock; for `github` that the rule tag computed from the verified claims is among the device's tags
+and the token's `jti` was not used before in this mesh (it keeps `H(UTF-8(iss + " " + jti))` until
+`exp` + 5 minutes); for `gitlab` there is nothing it can verify. Then the notice id must be new, the
+session `to` on that device must exist, not have ended, and take CI notices; then the counting
+key's rate and the CI queue; then the relay routes or queues the notice. It never stores the token.
 
 **Verifying a token.** The relay (GitHub only) and the receiving client (both providers) check:
 

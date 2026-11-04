@@ -212,6 +212,7 @@ describe("relayInfo", () => {
       create: "key",
       limits: { max_meshes: 2000, idle_mesh_days: null, blob_bytes_per_mesh_per_day: 25 * 1024 * 1024 },
       offer: "Free during the preview",
+      ci: false,
     });
     expect(JSON.stringify(info)).not.toContain("s3cret");
     expect(relayInfo(relaySettings({ WIM_OPEN_CREATE: "1", WIM_IDLE_MESH_DAYS: "30" }))).toEqual({
@@ -221,7 +222,10 @@ describe("relayInfo", () => {
       create: "open",
       limits: { max_meshes: null, idle_mesh_days: 30, blob_bytes_per_mesh_per_day: LIMITS.blobBytesPerMeshPerDay },
       offer: null,
+      ci: false,
     });
+    expect(relayInfo(relaySettings({ WIM_CI: "1", WIM_OPEN_CREATE: "1" })).ci).toBe(true);
+    expect(relaySettings({ WIM_CI: "yes" }).problem).toBe("WIM_CI must be 1 or 0");
     expect(relayInfo(relaySettings({ WIM_CREATE_KEY: "" })).create).toBe("closed");
     expect(relayInfo(relaySettings({})).create).toBe("closed");
     // An offer of exactly 280 characters is taken.

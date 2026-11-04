@@ -498,12 +498,14 @@ describe("relay-node", () => {
       create: "key",
       limits: { max_meshes: 2000, idle_mesh_days: 90, blob_bytes_per_mesh_per_day: 25 * 1024 * 1024 },
       offer: "Free during the preview",
+      ci: false,
     };
     expect(await get(r.port, "/v1/info")).toEqual({ status: 200, body: info });
     expect(await get(r.port, "/wim/v1/info?x=1")).toEqual({ status: 200, body: info });
     expect(JSON.stringify(await get(r.port, "/v1/info"))).not.toContain("s3cret");
     expect((await get(r.port, "/v1/info", "POST")).status).toBe(404);
-    expect((await get((await relay()).port, "/v1/info")).body).toMatchObject({ create: "open", limits: { max_meshes: null, idle_mesh_days: null }, offer: null });
+    expect((await get((await relay()).port, "/v1/info")).body).toMatchObject({ create: "open", limits: { max_meshes: null, idle_mesh_days: null }, offer: null, ci: false });
+    expect((await get((await relay({ ci: true })).port, "/v1/info")).body).toMatchObject({ ci: true });
   });
 
   it("refuses create with full at the mesh cap, and keeps serving the meshes it holds", async () => {

@@ -38,6 +38,7 @@
   // Mesh creation is refused until you choose: set WIM_CREATE_KEY as a secret
   // (`wrangler secret put WIM_CREATE_KEY`) so `create` needs that key, or add
   // "WIM_OPEN_CREATE": "1" to vars to let anyone create a mesh. An empty key refuses creation.
+  // CI senders (WIM_CI, SPEC section 18) stay off unless you add "WIM_CI": "1" to vars.
   // The guardrails (WIM_MAX_MESHES, WIM_IDLE_MESH_DAYS, WIM_BLOB_BYTES_*) and WIM_OFFER are vars
   // too; unset, there is no cap, no expiry and the protocol's limits (see README.md).
   "observability": { "enabled": false }

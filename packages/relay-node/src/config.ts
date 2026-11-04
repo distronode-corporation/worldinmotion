@@ -6,7 +6,7 @@ import type { StartConfig } from "./server.ts";
  * `WIM_RELAY_URLS` (comma-separated exact public base URLs), `PORT` (default 8787), `WIM_HOST`,
  * `WIM_DB` (default `wim-relay.db`), `WIM_CREATE_KEY` or `WIM_OPEN_CREATE` (creation is refused
  * unless one of them opens it), the guardrails `WIM_MAX_MESHES`, `WIM_IDLE_MESH_DAYS` and the
- * `WIM_BLOB_BYTES_*` limits, `WIM_OFFER` (all read by relay-core's `relaySettings`),
+ * `WIM_BLOB_BYTES_*` limits, `WIM_OFFER` and `WIM_CI` (all read by relay-core's `relaySettings`),
  * `WIM_TRUST_PROXY` (`1` or `true`), and `--lan` (or `WIM_LAN=1`) for a self-signed wss relay on
  * the LAN address.
  */

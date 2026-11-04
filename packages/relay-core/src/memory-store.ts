@@ -45,6 +45,8 @@ export class MemoryStore implements MeshStore {
   private token = 0;
   private readonly chunks = new Map<string, ChunkRow>();
   private readonly cardRows = new Map<string, string>();
+  private readonly ciRuleRows = new Map<string, { tags: string[]; gitlab: boolean }>();
+  private readonly jtis = new Map<string, number>();
 
   rosterHead(): number {
     // Rosters are stored only as the next seq of an unbroken chain from 1.
@@ -181,8 +183,8 @@ export class MemoryStore implements MeshStore {
       .map(copy);
   }
 
-  queueCount(sid: string): number {
-    return this.items.filter((i) => i.sid === sid).length;
+  queueCount(sid: string, kind: QueueItem["kind"] = "msg"): number {
+    return this.items.filter((i) => i.sid === sid && i.kind === kind).length;
   }
 
   queueCountFrom(sid: string, fromDevice: string): number {
@@ -426,5 +428,31 @@ export class MemoryStore implements MeshStore {
 
   cards(): { sid: string; msg: string }[] {
     return [...this.cardRows].map(([sid, msg]) => ({ sid, msg }));
+  }
+
+  putCiRules(device: string, tags: string[], gitlab: boolean): void {
+    this.ciRuleRows.set(device, { tags: [...tags], gitlab });
+  }
+
+  ciRules(device: string): { tags: string[]; gitlab: boolean } | undefined {
+    const row = this.ciRuleRows.get(device);
+    return row && { tags: [...row.tags], gitlab: row.gitlab };
+  }
+
+  deleteCiRules(device: string): void {
+    this.ciRuleRows.delete(device);
+  }
+
+  hasJti(jti: string, now: number): boolean {
+    return (this.jtis.get(jti) ?? 0) > now;
+  }
+
+  putJti(jti: string, exp: number): void {
+    this.jtis.set(jti, exp);
+  }
+
+  pruneJtis(now: number): number {
+    for (const [k, exp] of this.jtis) if (exp <= now) this.jtis.delete(k);
+    return this.jtis.size;
   }
 }

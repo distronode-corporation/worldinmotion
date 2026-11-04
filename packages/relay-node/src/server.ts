@@ -1,16 +1,19 @@
-import { createServer as createHttpServer, type IncomingMessage, type Server } from "node:http";
+import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import type { Duplex } from "node:stream";
 import { networkInterfaces } from "node:os";
 import { DatabaseSync } from "node:sqlite";
-import { b64u, CLOSE, isRelayUrl, LIMITS, randomBytes } from "@worldinmotion/protocol";
+import { b64u, CLOSE, isRelayUrl, JwksCache, LIMITS, randomBytes, type JwksFetch } from "@worldinmotion/protocol";
 import {
+  CI_NOT_FOUND,
+  ciPrecheck,
   dropMesh,
   healthz,
   isInfoPath,
   meshCount,
   MeshRelay,
   migrate,
+  parseCiPath,
   parseDialPath,
   parseRdvPath,
   RDV_HEADERS,
@@ -18,6 +21,7 @@ import {
   Rendezvous,
   sourceKey,
   SqlStore,
+  type CiAnswer,
   type Conn,
   type ConnState,
   type Limits,
@@ -60,6 +64,10 @@ export type StartConfig = {
   idleMeshDays?: number;
   /** One line about the service for `/v1/info`. */
   offer?: string;
+  /** Take CI senders (SPEC section 18, `WIM_CI=1`). Off by default. */
+  ci?: boolean;
+  /** How GitHub's JWKS is fetched for CI tokens. Default `fetchJwks`; tests pass their own. */
+  jwksFetch?: JwksFetch;
   /** Read the client address from the last `X-Forwarded-For` entry (only behind a proxy you run). */
   trustProxy?: boolean;
   /** Serve wss with a self-signed certificate kept next to the database, for peers on a LAN. */
@@ -102,6 +110,29 @@ function refuseUpgrade(socket: Duplex, status: keyof typeof STATUS_TEXT, error: 
   const body = JSON.stringify({ error });
   const retry = retryAfter === undefined ? "" : `Retry-After: ${retryAfter}\r\n`;
   socket.end(`HTTP/1.1 ${status} ${STATUS_TEXT[status]}\r\nContent-Type: application/json\r\nConnection: close\r\n${retry}Content-Length: ${body.length}\r\n\r\n${body}`);
+}
+
+/**
+ * Fetches a JWKS: no redirects, 5 seconds at most. Only ever called with an issuer's fixed URL
+ * (`JWKS_URLS`), never one taken from a request.
+ */
+export const fetchJwks: JwksFetch = (url) => fetch(url, { redirect: "error", signal: AbortSignal.timeout(5000) });
+
+/** Reads a request body of at most `max` bytes; undefined when it is longer (the rest is not read). */
+function readBody(req: IncomingMessage, max: number): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > max) {
+        req.removeAllListeners("data");
+        req.resume();
+        resolve(undefined);
+      } else chunks.push(chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+  });
 }
 
 /** Stored meshes not held in memory that one tick sweeps (see `sweepStored`). */
@@ -192,9 +223,39 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
     const addr = typeof forwarded === "string" ? forwarded.split(",").at(-1)!.trim() : req.socket.remoteAddress!;
     return sourceKey(addr, sourceSecret);
   };
+  // CI senders' token keys (SPEC section 18): GitHub's JWKS, from its fixed URL only.
+  const ciKeys = new JwksCache({ fetch: config.jwksFetch ?? fetchJwks, now: () => Date.now(), ttlMs: LIMITS.jwksRelayTtlMs });
+  const answerCi = (res: ServerResponse, a: CiAnswer): void => {
+    res.writeHead(a.status, { "content-type": "application/json", ...(a.retryAfter === undefined ? {} : { "retry-after": String(a.retryAfter) }) });
+    res.end(JSON.stringify(a.body));
+  };
+  /**
+   * `POST <prefix>/v1/<mesh>/ci`: the per-source dial budget first (before the body is read), then
+   * the size, the parse and a GitHub token's check outside any mesh, then the mesh's relay.
+   */
+  const ciRequest = async (req: IncomingMessage, res: ServerResponse, meshId: string): Promise<void> => {
+    const source = sourceOf(req);
+    const wait = spendDial(source, Date.now());
+    if (wait > 0) return answerCi(res, { status: 429, body: { t: "error", code: "limited", message: "too many requests from this address; try again later" }, retryAfter: wait });
+    if (config.ci !== true) return answerCi(res, CI_NOT_FOUND);
+    const text = await readBody(req, LIMITS.ciRequestBytes);
+    if (text === undefined) return answerCi(res, { status: 413, body: { t: "error", code: "too_large", message: "the request is over 32 KiB" } });
+    const pre = await ciPrecheck(text, { enabled: true, keys: (iss, kid) => ciKeys.key(iss, kid), now: Date.now() });
+    if (!pre.ok) return answerCi(res, pre.answer);
+    const mesh = meshFor(meshId);
+    answerCi(res, mesh.relay.ci(pre.req, { source, ...(pre.github === undefined ? {} : { github: pre.github }) }));
+    // A request for a mesh id that does not exist leaves nothing behind, as a dial does not.
+    if (mesh.sockets.size === 0 && !mesh.relay.exists()) meshes.delete(meshId);
+  };
   server.on("request", (req, res) => {
     const get = req.method === "GET";
     const path = pathOf(req.url!);
+    const ci = req.method === "POST" ? parseCiPath(path) : undefined;
+    if (ci !== undefined) {
+      if (!ci.ok) return answerCi(res, { status: 400, body: { t: "error", code: "malformed", message: ci.error } });
+      void ciRequest(req, res, ci.meshId);
+      return;
+    }
     const rdv = get ? parseRdvPath(path) : undefined;
     if (rdv !== undefined) {
       const answer = rdv.ok ? rendezvous.get(rdv.rdv, sourceOf(req), Date.now()) : { status: rdv.status, body: { error: rdv.error } };
@@ -274,16 +335,21 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
   const authDeadlineMs = config.limits?.authDeadlineMs ?? LIMITS.authDeadlineMs;
   const dials = new Map<string, { tokens: number; at: number }>();
   const preAuth = new Map<string, number>();
-  /** Counts a dial and takes a place before auth: 0, or the seconds to wait when refused. */
-  const admitDial = (source: string, now: number): number => {
-    const open = preAuth.get(source) ?? 0;
-    if (open >= preAuthCap) return Math.ceil(authDeadlineMs / 1000);
+  /** Spends one from the source's dial budget (dials and CI requests share it): 0, or the seconds to wait. */
+  const spendDial = (source: string, now: number): number => {
     const b = dials.get(source);
     const tokens = b === undefined ? dialsPerMinute : Math.min(dialsPerMinute, b.tokens + ((now - b.at) * dialsPerMinute) / MINUTE);
     if (tokens < 1) return Math.ceil(((1 - tokens) * MINUTE) / dialsPerMinute / 1000);
     dials.set(source, { tokens: tokens - 1, at: now });
-    preAuth.set(source, open + 1);
     return 0;
+  };
+  /** Counts a dial and takes a place before auth: 0, or the seconds to wait when refused. */
+  const admitDial = (source: string, now: number): number => {
+    const open = preAuth.get(source) ?? 0;
+    if (open >= preAuthCap) return Math.ceil(authDeadlineMs / 1000);
+    const wait = spendDial(source, now);
+    if (wait === 0) preAuth.set(source, open + 1);
+    return wait;
   };
   /** Gives a place before auth back to its source. */
   const freePlace = (source: string): void => {
