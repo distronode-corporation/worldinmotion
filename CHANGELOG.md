@@ -13,6 +13,17 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **CI senders, protocol (SPEC section 18).** `@worldinmotion/protocol` gains the recipient code,
+  both audiences, rule tags, counting keys, sealing and opening a notice to a device's prekey with
+  a one-time key, the `ci` signature type, the `ci.*` frame schemas, and ID token checks: a strict
+  RS256 JWS parser verified through WebCrypto (no new dependency), the shared claim checks, and a
+  JWKS cache that fetches only each issuer's fixed URL, at most once a minute for an unknown key.
+  `vectors/ci.json` holds a GitHub and a GitLab notice sealed by hand and tokens that must be
+  refused; `sign.json` gains a `ci` case. Nothing sends or receives notices yet: the relays and
+  the client follow.
+
 ### Changed
 
 - **A relay rolled back to this release keeps serving a database a newer relay migrated, when

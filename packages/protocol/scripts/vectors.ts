@@ -59,6 +59,23 @@ import {
 } from "../src/index.ts";
 import { hpkeSealAuth } from "../src/hpke.ts";
 import { withRandomSource } from "../src/ids.ts";
+import { openBox } from "../src/keyring.ts";
+import {
+  checkCiPlaintext,
+  ciOpenRequest,
+  ciRecipientCode,
+  ciRuleTag,
+  ciSenderId,
+  githubAudience,
+  githubCountingKey,
+  gitlabAudience,
+  gitlabCountingKey,
+  parseCiRecipientCode,
+  sealCiNotice,
+  verifyCiPrekey,
+} from "../src/ci.ts";
+import { GITHUB_ISSUER, GITLAB_ISSUER } from "../src/jwt.ts";
+import { FIXTURE_JWKS, FIXTURE_KID, fixtureSigned, githubClaims, gitlabClaims, mintToken } from "./ci-issuer.ts";
 
 const T = 1760000000000;
 
@@ -210,6 +227,7 @@ function signVectors() {
     auth: { t: "auth", v: 1, relay: "wss://relay.example", at: T },
     join: { t: "join", mesh: MESH, invite: "AAAAAAAAAAAAAAAAAAAAAA" },
     prekey: { mesh: MESH, device: id(alice), id: "AAAAAAAAAAAAAAAAAAAAAA", at: T, until: T + 2 * 86400000 },
+    ci: { t: "ci.send", mesh: MESH, id: "01K70000000000000000000C10", via: "github", at: T },
   };
   const cases = (Object.keys(objects) as SignType[]).map((type) => {
     const signed = signObject(type, objects[type]!, alice.signSec);
@@ -636,6 +654,90 @@ function blobVectors() {
   });
 }
 
+function ciVectors() {
+  const relay = "wss://relay.example";
+  const pks = vectorPrekeys();
+  const code = ciRecipientCode({ relay, mesh: MESH, sign: b64u.encode(bob.signPub) });
+  const recipient = parseCiRecipientCode(code);
+  check(recipient.ok && recipient.value.device === id(bob), "the recipient code names bob");
+  check(verifyCiPrekey(pks.bob.prekey, { mesh: MESH, sign: b64u.encode(bob.signPub) }, T).ok, "bob's prekey verifies against the code");
+
+  const otkSec = sha256(utf8("wim vectors ci one-time key"));
+  const otk = { pub: b64u.encode(ed25519.getPublicKey(otkSec)), sec: otkSec };
+  const ghAud = githubAudience(MESH, id(bob), otk.pub);
+  const glAud = gitlabAudience(MESH, id(bob));
+  const ghToken = mintToken(githubClaims(ghAud, T));
+  const glToken = mintToken(gitlabClaims(glAud, T));
+  check(fixtureSigned(ghToken) && fixtureSigned(glToken), "the fixture issuer signed both tokens");
+
+  const seal = (via: "github" | "gitlab", token: string, label: string) =>
+    withRandomSource(stream(`wim vectors ci ${label}`), () =>
+      sealCiNotice({
+        mesh: MESH,
+        device: id(bob),
+        prekey: pks.bob.prekey,
+        to: "deploys",
+        text: `deployed e3b0c44 to production (${via})`,
+        token,
+        via,
+        ...(via === "github" ? { otk } : {}),
+        at: T,
+        // Fixed ids: `ulid` is monotonic within a process, so a generated one would drift.
+        id: via === "github" ? "01K70000000000000000000C11" : "01K70000000000000000000C12",
+      }),
+    );
+  const github = seal("github", ghToken, "github");
+  const gitlab = seal("gitlab", glToken, "gitlab");
+  const opened = (notice: object) => {
+    const r = ciOpenRequest(notice, { mesh: MESH, device: id(bob), name: "deploys" });
+    check(r.ok, "the notice is for bob's deploys session");
+    const req = (r as { value: { notice: Parameters<typeof checkCiPlaintext>[0]; req: Parameters<typeof openBox>[2] } }).value;
+    const p = checkCiPlaintext(req.notice, openBox(undefined, (k) => (k === pks.bob.prekey.id ? pks.bob.secret : undefined), req.req));
+    check(p.ok, "bob opens the notice");
+    return (p as { value: unknown }).value;
+  };
+  check(verifyObject("ci", github.notice as { sig: string }, b64u.decode(otk.pub)), "the one-time key signed the github notice");
+
+  // Tokens a receiver MUST refuse for the github notice, with the reason `verifyCiToken` gives.
+  const base = githubClaims(ghAud, T);
+  const flip = (t: string) => `${t.slice(0, -2)}${t.at(-2) === "A" ? "B" : "A"}${t.at(-1)}`;
+  const refused = [
+    { why: "alg none", token: `${mintToken(base, { alg: "none", kid: FIXTURE_KID }).split(".").slice(0, 2).join(".")}.AA`, reason: "bad_header" },
+    { why: "HS256", token: mintToken(base, { alg: "HS256", kid: FIXTURE_KID, typ: "JWT" }), reason: "bad_header" },
+    { why: "a jku header", token: mintToken(base, { alg: "RS256", kid: FIXTURE_KID, jku: "https://attacker.example/jwks" }), reason: "bad_header" },
+    { why: "a crit header", token: mintToken(base, { alg: "RS256", kid: FIXTURE_KID, crit: ["exp"] }), reason: "bad_header" },
+    { why: "another issuer", token: mintToken({ ...base, iss: "https://attacker.example" }), reason: "bad_issuer" },
+    { why: "an audience array", token: mintToken({ ...base, aud: [ghAud] }), reason: "aud_array" },
+    { why: "the audience of another one-time key", token: mintToken({ ...base, aud: githubAudience(MESH, id(bob), b64u.encode(bob.signPub)) }), reason: "wrong_audience" },
+    { why: "the audience of another device", token: mintToken({ ...base, aud: githubAudience(MESH, id(alice), otk.pub) }), reason: "wrong_audience" },
+    { why: "a GitLab-style static audience", token: mintToken({ ...base, aud: gitlabAudience(MESH, id(bob)) }), reason: "wrong_audience" },
+    { why: "claims to live over 24 hours", token: mintToken({ ...base, exp: (base["iat"] as number) + 86401 }), reason: "bad_lifetime" },
+    { why: "an unknown key id", token: mintToken(base, { alg: "RS256", kid: "not-in-the-jwks", typ: "JWT" }), reason: "unknown_key" },
+    { why: "a forged signature (one bit changed)", token: flip(ghToken), reason: "bad_signature" },
+  ];
+  for (const r of refused) check(r.why !== "a forged signature (one bit changed)" || !fixtureSigned(r.token), r.why);
+
+  return {
+    description:
+      "CI senders (SPEC section 18). The fixture issuer's RSA key is published in packages/protocol/scripts/ci-issuer.ts: its tokens prove nothing outside these vectors. Opening uses bob's prekey secret from prekey.json.",
+    recipient: { relay, mesh: MESH, sign: b64u.encode(bob.signPub), device: id(bob), code },
+    derivations: {
+      otk: otk.pub,
+      otk_secret_hex: hex(otk.sec),
+      github_audience: ghAud,
+      gitlab_audience: glAud,
+      rule_tag: { mesh: MESH, device: id(bob), iss: GITHUB_ISSUER, repo: "Octo-Org/Deploys", ref: "refs/heads/main", tag: ciRuleTag({ mesh: MESH, device: id(bob), iss: GITHUB_ISSUER, repo: "Octo-Org/Deploys", ref: "refs/heads/main" }) },
+      github_counting_key: githubCountingKey(GITHUB_ISSUER, "65", "74"),
+      gitlab_counting_key: gitlabCountingKey(id(bob)),
+    },
+    issuer: { jwks: FIXTURE_JWKS },
+    prekey: pks.bob.prekey,
+    github: { request: github.request, notice: github.notice, ci_sender_id: ciSenderId(github.notice.xk), plaintext: opened(github.notice) },
+    gitlab: { request: gitlab.request, notice: gitlab.notice, ci_sender_id: ciSenderId(gitlab.notice.xk), plaintext: opened(gitlab.notice) },
+    refused_tokens: refused.map((r) => ({ ...r, for: "github" })),
+  };
+}
+
 /** Public keys (b64u) of every fixed key in the vectors, signing and box, sorted. */
 export function vectorPublicKeys(): string[] {
   const recovery = withRandomSource(stream("wim vectors roster"), () => createRecoveryKeys(MESH, { now: T }).keys);
@@ -661,5 +763,6 @@ export function buildVectors(): Record<string, string> {
     "prekey.json": json(prekeyVectors()),
     "ping.json": json(pingVectors()),
     "blob.json": json(blobVectors()),
+    "ci.json": json(ciVectors()),
   };
 }

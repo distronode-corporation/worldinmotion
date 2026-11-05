@@ -7,7 +7,7 @@ and relays both build on it, so they agree on every byte. The contract it implem
 
 It has no Node-specific imports and runs in Node 22.18 or later, browsers and Cloudflare
 Workers. Crypto is Ed25519, X25519, HKDF-SHA256 and XChaCha20-Poly1305 from the audited
-`@noble` libraries; randomness comes from `crypto.getRandomValues`.
+`@noble` libraries, and RSA signature checks for CI ID tokens from the runtime's WebCrypto; randomness comes from `crypto.getRandomValues`.
 
 ## API
 
@@ -28,6 +28,8 @@ Workers. Crypto is Ed25519, X25519, HKDF-SHA256 and XChaCha20-Poly1305 from the 
 | agents and people | `frameForAgent`, `sanitizeForDisplay`, `findSecrets` |
 | handshake | `signAuth`, `verifyAuth`, and for recovery `signRecoverAuth`, `verifyRecoverAuth`, `parseRecoverAuthFrame` |
 | frames | a zod schema and type for every client and relay frame, `parseClientFrame`, `parseRelayFrame` |
+| CI senders (SPEC section 18) | `ciRecipientCode`, `parseCiRecipientCode`, `githubAudience`, `gitlabAudience`, `ciRuleTag`, `githubCountingKey`, `gitlabCountingKey`, `ciSenderId`, `ciOneTimeKey`, `verifyCiPrekey`, `sealCiNotice`, `ciNoticeOf`, `parseCiRequest`, `ciOpenRequest`, `checkCiPlaintext`, `verifyCiToken`, `checkCiTimes`, `ciDedupeExpiry`, `checkSendAudience`, `githubSeen`, and the `ci.*` schemas |
+| ID tokens | `parseJwt`, `unverifiedPayload`, `verifyJwtSignature` (RS256 through WebCrypto), `baseClaims`, `JwksCache` (each issuer's fixed JWKS URL only), `parseJwks`, `GITHUB_ISSUER`, `GITLAB_ISSUER` |
 | constants | `PROTOCOL`, `WIRE_VERSION`, `LIMITS`, `Result` |
 
 Functions that check untrusted input (`verify*`, `openMessage`, `parse*Frame`, `checkFreshness`)
