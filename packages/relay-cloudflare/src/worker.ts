@@ -1,6 +1,8 @@
-import { healthz, isInfoPath, parseDialPath, parseRdvPath, RDV_HEADERS, relayInfo, relaySettings, sourceKey } from "@worldinmotion/relay-core";
+import { CI_NOT_FOUND, ciPrecheck, healthz, isInfoPath, parseCiPath, parseDialPath, parseRdvPath, RDV_HEADERS, relayInfo, relaySettings, sourceKey, type CiAnswer } from "@worldinmotion/relay-core";
+import { LIMITS } from "@worldinmotion/protocol";
+import { ciKeys } from "./ci.ts";
 import { configProblem, type Env } from "./config.ts";
-import { MESH_HEADER, SOURCE_HEADER } from "./mesh.ts";
+import { CI_HEADER, MESH_HEADER, SOURCE_HEADER } from "./mesh.ts";
 import { RDV_NAME } from "./rdv.ts";
 import { json } from "./route.ts";
 import { sourceSecret } from "./source.ts";
@@ -22,6 +24,8 @@ async function sourceOf(request: Request, env: Env): Promise<string> {
 
 /** What a source past its limit is told. A client retries it with backoff, like a lost connection. */
 const LIMITED = { error: "too many connections from this address; try again later" };
+/** The same limit on a CI request, in the error shape of SPEC section 18. */
+const CI_LIMITED = { t: "error", code: "limited", message: "too many requests from this address; try again later" };
 /** The limiter counts a minute at a time (wrangler.jsonc), so a minute is always long enough. */
 const RETRY_AFTER = "60";
 
@@ -40,9 +44,64 @@ async function withinLimit(env: Env, source: string): Promise<boolean> {
   return (await env.DIALS.limit({ key: source })).success;
 }
 
+/**
+ * A request's body as text, read only up to `max` bytes: undefined when its declared length or
+ * the bytes that arrive pass it, so an oversized body is never held in memory whole.
+ */
+async function boundedText(request: Request, max: number): Promise<string | undefined> {
+  if (Number(request.headers.get("content-length") ?? 0) > max) return undefined;
+  const reader = request.body?.getReader();
+  if (reader === undefined) return "";
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > max) {
+      await reader.cancel();
+      return undefined;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    bytes.set(c, at);
+    at += c.length;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+/** A CI answer the Worker gives itself: never a 429, whose limit is the Worker's own rate limiter. */
+function ciResponse(a: CiAnswer): Response {
+  return json(a.status, a.body);
+}
+
+/**
+ * `POST <prefix>/v1/<mesh>/ci` (SPEC section 18): whether the relay takes CI senders, the source's
+ * rate limit, then the size, the parse and a GitHub token's check, all before any Durable Object
+ * is asked, so junk costs no object request. Only then does the mesh's object get the request,
+ * with what the relay keeps of a verified token in a header only the Worker sets.
+ */
+async function ciRequest(request: Request, env: Env, meshId: string): Promise<Response> {
+  if (relaySettings(env).ci !== true) return ciResponse(CI_NOT_FOUND);
+  const source = await sourceOf(request, env);
+  if (!(await withinLimit(env, source))) return json(429, CI_LIMITED, { "content-type": "application/json", "retry-after": RETRY_AFTER });
+  const text = await boundedText(request, LIMITS.ciRequestBytes);
+  if (text === undefined) return ciResponse({ status: 413, body: { t: "error", code: "too_large", message: "the request is over 32 KiB" } });
+  const pre = await ciPrecheck(text, { enabled: true, keys: (iss, kid) => ciKeys().key(iss, kid), now: Date.now() });
+  if (!pre.ok) return ciResponse(pre.answer);
+  const headers = new Headers({ [SOURCE_HEADER]: source, [MESH_HEADER]: meshId, [CI_HEADER]: JSON.stringify(pre.github ?? null) });
+  const stub = env.MESH.get(env.MESH.idFromName(meshId));
+  return stub.fetch(new Request(request.url, { method: "POST", headers, body: text }));
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const ci = request.method === "POST" ? parseCiPath(url.pathname) : undefined;
+    if (ci !== undefined) return ci.ok ? ciRequest(request, env, ci.meshId) : json(ci.status, { t: "error", code: "malformed", message: ci.error });
     if (request.method === "GET" && url.pathname === "/healthz") {
       // Reads the configuration only (no Durable Object), as the mesh objects will read it.
       const health = healthz(configProblem(env));

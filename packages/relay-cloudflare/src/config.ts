@@ -33,6 +33,8 @@ export type Env = {
   WIM_BLOB_BYTES_PER_DEVICE_PER_DAY?: string;
   WIM_BLOB_BYTES_PER_MESH?: string;
   WIM_OFFER?: string;
+  /** `1` takes CI senders (SPEC section 18). Off unless set. */
+  WIM_CI?: string;
 };
 
 export type CfRelayConfig = RelaySettings & { relayUrls: string[] };

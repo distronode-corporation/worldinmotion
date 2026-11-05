@@ -113,6 +113,19 @@ const MIGRATIONS: { reader: number; sql: string[] }[] = [
     `CREATE TABLE cards (mesh TEXT NOT NULL, sid TEXT NOT NULL, msg TEXT NOT NULL, PRIMARY KEY (mesh, sid))`,
     ],
   },
+  // CI senders (SPEC section 18). Additive, so its reader stays 1: a version 1 relay never reads
+  // the new tables or columns, and their defaults are what it would write. It delivers a queued
+  // notice as a `deliver` that clients drop, and finds no sender to tell when one expires.
+  {
+    reader: 1,
+    sql: [
+      `ALTER TABLE sessions ADD COLUMN ci INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE queue ADD COLUMN kind TEXT NOT NULL DEFAULT 'msg'`,
+      `CREATE TABLE ci_rules (mesh TEXT NOT NULL, device TEXT NOT NULL, tags TEXT NOT NULL, gitlab INTEGER NOT NULL,
+        PRIMARY KEY (mesh, device))`,
+      `CREATE TABLE ci_jtis (mesh TEXT NOT NULL, jti TEXT NOT NULL, exp INTEGER NOT NULL, PRIMARY KEY (mesh, jti))`,
+    ],
+  },
 ];
 
 /** The schema version this code writes. */
@@ -183,11 +196,13 @@ const toSession = (r: SqlRow): SessionRow => ({
   acked: num(r["acked"]),
   delivered: num(r["delivered"]),
   nextCursor: num(r["nextCursor"]),
+  ci: num(r["ci"]) === 1,
 });
 const toItem = (r: SqlRow): QueueItem => ({
   sid: str(r["sid"]),
   cur: num(r["cur"]),
   id: str(r["id"]),
+  kind: str(r["kind"]) as QueueItem["kind"],
   fromDevice: str(r["fromDevice"]),
   queuedAt: num(r["queuedAt"]),
   bytes: num(r["bytes"]),
@@ -231,8 +246,8 @@ const toChunk = (r: SqlRow): ChunkRow => ({
   at: num(r["at"]),
 });
 
-const SESSION_COLS = "sid, device, name, kind, status, since, conn, ended, resume, acked, delivered, nextCursor";
-const ITEM_COLS = "sid, cur, id, fromDevice, queuedAt, bytes, msg";
+const SESSION_COLS = "sid, device, name, kind, status, since, conn, ended, resume, acked, delivered, nextCursor, ci";
+const ITEM_COLS = "sid, cur, id, kind, fromDevice, queuedAt, bytes, msg";
 const INVITE_COLS = "id, device, exp, pinSeq, joiner";
 const WAITER_COLS = "lkey, sid, ttl, exp, rowid AS seq";
 
@@ -368,10 +383,10 @@ export class SqlStore implements MeshStore {
 
   putSession(s: SessionRow): void {
     this.run(
-      `INSERT INTO sessions (mesh, ${SESSION_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (mesh, sid) DO UPDATE SET
+      `INSERT INTO sessions (mesh, ${SESSION_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (mesh, sid) DO UPDATE SET
        device = excluded.device, name = excluded.name, kind = excluded.kind, status = excluded.status,
        since = excluded.since, conn = excluded.conn, ended = excluded.ended, resume = excluded.resume,
-       acked = excluded.acked, delivered = excluded.delivered, nextCursor = excluded.nextCursor`,
+       acked = excluded.acked, delivered = excluded.delivered, nextCursor = excluded.nextCursor, ci = excluded.ci`,
       s.sid,
       s.device,
       s.name,
@@ -384,6 +399,7 @@ export class SqlStore implements MeshStore {
       s.acked,
       s.delivered,
       s.nextCursor,
+      s.ci ? 1 : 0,
     );
   }
 
@@ -426,10 +442,11 @@ export class SqlStore implements MeshStore {
 
   enqueue(item: QueueItem): void {
     this.run(
-      `INSERT INTO queue (mesh, ${ITEM_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO queue (mesh, ${ITEM_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       item.sid,
       item.cur,
       item.id,
+      item.kind,
       item.fromDevice,
       item.queuedAt,
       item.bytes,
@@ -441,8 +458,8 @@ export class SqlStore implements MeshStore {
     return this.all(`SELECT ${ITEM_COLS} FROM queue WHERE mesh = ? AND sid = ? AND cur > ? ORDER BY cur`, sid, after).map(toItem);
   }
 
-  queueCount(sid: string): number {
-    return this.count("SELECT COUNT(*) AS n FROM queue WHERE mesh = ? AND sid = ?", sid);
+  queueCount(sid: string, kind: QueueItem["kind"] = "msg"): number {
+    return this.count("SELECT COUNT(*) AS n FROM queue WHERE mesh = ? AND sid = ? AND kind = ?", sid, kind);
   }
 
   queueCountFrom(sid: string, fromDevice: string): number {
@@ -738,5 +755,36 @@ export class SqlStore implements MeshStore {
 
   cards(): { sid: string; msg: string }[] {
     return this.all("SELECT sid, msg FROM cards WHERE mesh = ? ORDER BY sid").map((r) => ({ sid: str(r["sid"]), msg: str(r["msg"]) }));
+  }
+
+  putCiRules(device: string, tags: string[], gitlab: boolean): void {
+    this.run(
+      "INSERT INTO ci_rules (mesh, device, tags, gitlab) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, device) DO UPDATE SET tags = excluded.tags, gitlab = excluded.gitlab",
+      device,
+      JSON.stringify(tags),
+      gitlab ? 1 : 0,
+    );
+  }
+
+  ciRules(device: string): { tags: string[]; gitlab: boolean } | undefined {
+    const r = this.one("SELECT tags, gitlab FROM ci_rules WHERE mesh = ? AND device = ?", device);
+    return r && { tags: JSON.parse(str(r["tags"])) as string[], gitlab: num(r["gitlab"]) === 1 };
+  }
+
+  deleteCiRules(device: string): void {
+    this.run("DELETE FROM ci_rules WHERE mesh = ? AND device = ?", device);
+  }
+
+  hasJti(jti: string, now: number): boolean {
+    return this.count("SELECT COUNT(*) AS n FROM ci_jtis WHERE mesh = ? AND jti = ? AND exp > ?", jti, now) > 0;
+  }
+
+  putJti(jti: string, exp: number): void {
+    this.run("INSERT INTO ci_jtis (mesh, jti, exp) VALUES (?, ?, ?) ON CONFLICT (mesh, jti) DO UPDATE SET exp = excluded.exp", jti, exp);
+  }
+
+  pruneJtis(now: number): number {
+    this.run("DELETE FROM ci_jtis WHERE mesh = ? AND exp <= ?", now);
+    return this.count("SELECT COUNT(*) AS n FROM ci_jtis WHERE mesh = ?");
   }
 }

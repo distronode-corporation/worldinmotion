@@ -17,6 +17,7 @@ const session = (sid: string, device = "dev"): SessionRow => ({
   acked: 0,
   delivered: 0,
   nextCursor: 1,
+  ci: false,
 });
 
 describe.each(KINDS)("store contract (%s)", (kind) => {
@@ -61,7 +62,7 @@ describe.each(KINDS)("store contract (%s)", (kind) => {
     s.addWaiter({ key: "k", sid: "B", ttl: 1, exp: 9 });
     s.putWatch({ key: "k", sid: "A", exp: 9 });
     s.putWatch({ key: "k", sid: "B", exp: 9 });
-    s.enqueue({ sid: "A", cur: 1, id: "m", fromDevice: "d", queuedAt: 1, bytes: 1, msg: "{}" });
+    s.enqueue({ sid: "A", cur: 1, id: "m", kind: "msg", fromDevice: "d", queuedAt: 1, bytes: 1, msg: "{}" });
     s.rekeySession("A", "Z");
     expect(s.getSession("Z")!.sid).toBe("Z");
     expect(s.queue("Z", 0)).toHaveLength(1);
@@ -192,15 +193,15 @@ describe("sql schema", () => {
     const db = sqlDb(raw);
     migrate(db);
     // What a newer relay's additive migration leaves: a new table and column, and the old reader.
-    db.exec("CREATE TABLE ci_rules (mesh TEXT NOT NULL, device TEXT NOT NULL, PRIMARY KEY (mesh, device))");
-    db.exec("ALTER TABLE queue ADD COLUMN kind TEXT NOT NULL DEFAULT 'msg'");
+    db.exec("CREATE TABLE future_rows (mesh TEXT NOT NULL, k TEXT NOT NULL, PRIMARY KEY (mesh, k))");
+    db.exec("ALTER TABLE queue ADD COLUMN future TEXT NOT NULL DEFAULT ''");
     raw.prepare("UPDATE wim_meta SET v = ? WHERE k = 'schema'").run(SCHEMA_VERSION + 1);
     expect(() => migrate(db)).not.toThrow();
     expect(db.one("SELECT v FROM wim_meta WHERE k = 'schema'")!["v"]).toBe(SCHEMA_VERSION + 1);
     expect(db.one("SELECT v FROM wim_meta WHERE k = 'reader'")!["v"]).toBe(1);
     const st = new SqlStore(db, MESH);
     st.putSession(session("A"));
-    st.enqueue({ sid: "A", cur: 1, id: "m", fromDevice: "d", queuedAt: 1, bytes: 2, msg: "{}" });
+    st.enqueue({ sid: "A", cur: 1, id: "m", kind: "msg", fromDevice: "d", queuedAt: 1, bytes: 2, msg: "{}" });
     expect(st.queue("A", 0)).toHaveLength(1);
   });
 

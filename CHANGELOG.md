@@ -23,6 +23,19 @@ body line with a bracket.
   `vectors/ci.json` holds a GitHub and a GitLab notice sealed by hand and tokens that must be
   refused; `sign.json` gains a `ci` case. Nothing sends or receives notices yet: the relays and
   the client follow.
+- **CI senders, relays (SPEC section 18), off unless `WIM_CI=1`.** Both relays take
+  `POST /v1/<mesh>/ci`: a prekey request, and a notice, which goes to the named session as
+  `ci.deliver` from its own queue cursor. A GitHub notice's token is checked before any mesh state
+  (in the Worker, before any Durable Object), against GitHub's fixed JWKS URL only, and is never
+  stored: the relay keeps a counting key per repository and a hash of the token's `jti` until it
+  expires. Sessions send `ci.rules` (the device's hashed rule tags, and whether it takes GitLab
+  notices). CI notices have their own queue share (20 per session, 10 per repository) apart from
+  the 50 messages, their own rate per repository (60 a minute, bursts of 20), and a per-source
+  budget. A GitLab notice, whose sender the relay cannot verify, is answered only `queued` or
+  `limited` (a resent notice id too, which is dropped), so a recipient code tells no session name
+  or presence. With `WIM_CI` unset a relay
+  answers `ci.rules` with `unknown_type` and stores nothing, as an older relay does. `/v1/info` gains `ci`. Relay schema version 2 adds the tables and columns for this; it is
+  additive, so a relay of the previous release (with the `reader` change above) keeps serving it.
 
 ### Changed
 

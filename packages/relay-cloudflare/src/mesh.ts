@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { CLOSE, fitsUtf8, LIMITS, parseClientFrame, parseRecoverAuthFrame } from "@worldinmotion/protocol";
+import { CLOSE, fitsUtf8, LIMITS, parseCiRequest, parseClientFrame, parseRecoverAuthFrame, type CiRequest, type GithubSeen } from "@worldinmotion/protocol";
 import { MemoryStore, MeshRelay, migrate, SqlStore, type Conn, type ConnState, type RdvOutcome, type SqlDb } from "@worldinmotion/relay-core";
 import { relayConfig, type CfRelayConfig, type Env } from "./config.ts";
 import { RDV_NAME } from "./rdv.ts";
@@ -10,6 +10,8 @@ import { doSqlDb, nextStoreDue } from "./sql.ts";
 /** Headers only the Worker sets on its request to this object (it strips any client copy). */
 export const SOURCE_HEADER = "x-wim-source";
 export const MESH_HEADER = "x-wim-mesh";
+/** On a CI request: what the relay keeps of a GitHub token the Worker verified, as JSON, or `null`. */
+export const CI_HEADER = "x-wim-ci";
 
 /** How often the alarm runs while any socket is open, on top of the due expiries. */
 export const HEARTBEAT_MS = 60_000;
@@ -93,6 +95,8 @@ export class MeshDurableObject extends DurableObject<Env> {
   override async fetch(request: Request): Promise<Response> {
     const mesh = request.headers.get(MESH_HEADER);
     const source = request.headers.get(SOURCE_HEADER);
+    const ci = request.headers.get(CI_HEADER);
+    if (request.method === "POST" && ci !== null && mesh !== null && source !== null) return this.ciRequest(mesh, source, ci, await request.text());
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket" || mesh === null || source === null) {
       return json(400, { error: "expected a WebSocket upgrade from the relay Worker" });
     }
@@ -165,6 +169,25 @@ export class MeshDurableObject extends DurableObject<Env> {
     });
   }
 
+  /**
+   * A CI sender's request the Worker has checked (SPEC section 18): the body parsed again (cheap,
+   * and the object takes nothing on trust but the Worker's own header), then the relay, in turn
+   * with every other event.
+   */
+  private async ciRequest(mesh: string, source: string, header: string, text: string): Promise<Response> {
+    let answer!: Response;
+    await this.serial(async () => {
+      this.meshId ||= mesh;
+      // The Worker parsed this same body before it asked the object.
+      const req = (parseCiRequest(text) as { value: CiRequest }).value;
+      const github = JSON.parse(header) as GithubSeen | null;
+      const a = this.relay().ci(req, { source, ...(github === null ? {} : { github }) });
+      answer = json(a.status, a.body, { "content-type": "application/json", ...(a.retryAfter === undefined ? {} : { "retry-after": String(a.retryAfter) }) });
+      await this.settle();
+    });
+    return answer;
+  }
+
   // ---- the relay ----
 
   /** The answer `allowSource` gives for the frame being handled, decided before the relay runs. */
@@ -190,7 +213,7 @@ export class MeshDurableObject extends DurableObject<Env> {
       this.memory = saved === undefined ? new MemoryStore() : undefined;
       const meshId = this.meshId;
       this.relayInstance = new MeshRelay(
-        { meshId, relayUrls: config.relayUrls, createKey: config.createKey, createRefused: config.createRefused, limits: config.limits },
+        { meshId, relayUrls: config.relayUrls, createKey: config.createKey, createRefused: config.createRefused, limits: config.limits, ci: config.ci === true },
         {
           store: this.memory ?? new SqlStore(this.db, meshId),
           now: () => Date.now(),

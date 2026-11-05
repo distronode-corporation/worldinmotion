@@ -1,6 +1,9 @@
 import {
   b64u,
   bytesEqual,
+  ciAtFresh,
+  ciNoticeOf,
+  gitlabCountingKey,
   clientFrameSchema,
   CLOSE,
   detectFork,
@@ -23,6 +26,8 @@ import {
   WIRE_VERSION,
   type AuthFrame,
   type BlobPutFrame,
+  type CiRequest,
+  type GithubSeen,
   type ClientFrame,
   type CreateFrame,
   type JoinFrame,
@@ -81,6 +86,11 @@ export type RelayConfig = {
   createRefused?: string;
   /** Lower relay-side limits than the protocol defaults. */
   limits?: Partial<Limits>;
+  /**
+   * Whether the relay takes CI senders (SPEC section 18, `WIM_CI=1`). Off unless set: the relay
+   * then answers `ci.rules` as an older relay does (`unknown_type`) and stores nothing.
+   */
+  ci?: boolean;
 };
 
 export type RelayHost = {
@@ -150,6 +160,18 @@ const PARSE_CODES: Record<string, string> = {
 };
 
 type Target = { to: string; session: SessionRow };
+
+/**
+ * A relay's answer to a CI sender's HTTP request (SPEC section 18): the status, the JSON body,
+ * and for 429 the seconds to wait.
+ */
+export type CiAnswer = { status: 200 | 400 | 403 | 404 | 413 | 429; body: Record<string, unknown>; retryAfter?: number };
+
+/** What a relay that takes no CI senders answers (an older relay answers 404 too). */
+export const CI_NOT_FOUND: CiAnswer = { status: 404, body: { t: "error", code: "not_found", message: "this relay takes no CI senders" } };
+
+/** The one answer to every refusal SPEC section 18 groups under 403, so a caller learns nothing about which check failed. */
+export const CI_UNAUTHORIZED: CiAnswer = { status: 403, body: { t: "error", code: "unauthorized", message: "not accepted" } };
 
 /** The `error` code and message for each way the relay-wide store refuses an `rdv.put`. */
 const RDV_REFUSALS: Record<Exclude<RdvOutcome, "stored">, [string, string]> = {
@@ -266,7 +288,8 @@ export class MeshRelay {
     for (const s of this.store.sessions()) {
       const tombstoneDone = s.ended !== null && s.ended <= now - L.queueLifetimeMs;
       const abandoned = s.ended === null && s.conn === null && s.since <= now - L.queueLifetimeMs;
-      if (tombstoneDone || (abandoned && this.store.queueCount(s.sid) === 0)) this.store.deleteSession(s.sid);
+      const empty = this.store.queueCount(s.sid, "msg") + this.store.queueCount(s.sid, "ci") === 0;
+      if (tombstoneDone || (abandoned && empty)) this.store.deleteSession(s.sid);
     }
 
     for (const item of this.store.expiredQueue(now - L.queueLifetimeMs)) {
@@ -277,6 +300,7 @@ export class MeshRelay {
       if (sender) this.emit(sender, { t: "receipt", id: item.id, to: this.address(rcpt), status: "expired" });
     }
     this.store.pruneMessages(now - L.queueLifetimeMs);
+    this.store.pruneJtis(now);
     this.store.pruneIdle(now);
     for (const inv of this.store.expiredInvites(now)) {
       this.store.deleteInvite(inv.id);
@@ -483,7 +507,8 @@ export class MeshRelay {
       peers: this.peerRows(row.sid),
     });
     this.sendCards(conn);
-    for (const item of queued) conn.send(deliverText(item.cur, item.msg));
+    // CI notices go out in cursor order with the messages; a client that does not know them ignores them.
+    for (const item of queued) conn.send(item.kind === "ci" ? ciDeliverText(item.cur, item.msg) : deliverText(item.cur, item.msg));
     if (device.role === "admin") {
       for (const j of this.store.joins()) if (j.exp > now) conn.send(`{"t":"join.request","join":${j.body}}`);
     }
@@ -531,6 +556,7 @@ export class MeshRelay {
       acked: 0,
       delivered: 0,
       nextCursor: 1,
+      ci: false,
     };
   }
 
@@ -616,6 +642,10 @@ export class MeshRelay {
         return this.sendCards(conn, f.after);
       case "rdv.put":
         return this.rdvPut(conn, st, s, f, now);
+      case "ci.rules":
+        // Off, the relay answers as one that never heard of CI senders, and keeps no tags.
+        if (this.config.ci !== true) return this.error(conn, "unknown_type", "unknown_type", f.t);
+        return this.ciRules(conn, s, f.tags, f.gitlab);
       case "ping":
         return this.emit(conn, { t: "pong" });
       case "bye":
@@ -721,7 +751,7 @@ export class MeshRelay {
     for (const t of accepted) {
       const r = this.store.getSession(t.session.sid)!;
       const cur = r.nextCursor++;
-      this.store.enqueue({ sid: r.sid, cur, id: f.id, fromDevice: s.device, queuedAt: now, bytes, msg });
+      this.store.enqueue({ sid: r.sid, cur, id: f.id, kind: "msg", fromDevice: s.device, queuedAt: now, bytes, msg });
       const c = this.connFor(r);
       if (c) {
         c.send(deliverText(cur, msg));
@@ -897,6 +927,7 @@ export class MeshRelay {
     }
     this.store.dropQueueFrom(device);
     this.store.dropChunksFrom(device);
+    this.store.deleteCiRules(device);
     for (const inv of this.store.invitesBy(device)) {
       this.store.deleteInvite(inv.id);
       this.store.deleteJoin(inv.id);
@@ -1195,6 +1226,114 @@ export class MeshRelay {
     conn.send(`{"t":"cards","cards":[${parts.join(",")}],"more":${parts.length < cards.length}}`);
   }
 
+  // ---- CI senders ----
+
+  /**
+   * `ci.rules` (SPEC section 18), on a relay that takes CI senders: replaces the device's rule tags
+   * and GitLab setting, and marks this session as taking CI notices.
+   */
+  private ciRules(conn: Conn, s: SessionRow, tags: string[], gitlab: boolean): void {
+    const unique = [...new Set(tags)];
+    this.store.putCiRules(s.device, unique, gitlab);
+    if (!s.ci) this.store.putSession({ ...s, ci: true });
+    this.emit(conn, { t: "ci.rules", count: unique.length });
+  }
+
+  /**
+   * A CI sender's request (SPEC section 18), after the host has parsed it and, for a GitHub
+   * `ci.send`, verified its token (`github`, which the host passes only for a token that passed
+   * every check by the relay's clock). Synchronous like every other event. Checks, in order: the
+   * mesh exists, the per-source budget, the device and whether it takes notices by `via`; for a
+   * prekey request the device's newest prekey from its sessions' cards; for a send `at`, the
+   * verified token's rule tag and unused `jti`, the session, then the counting key's rate and the
+   * CI queue, before it routes or queues the notice (for GitLab the rate comes first, and every
+   * outcome but `limited`, a used notice id included, reads `queued`). Answers 404 on a relay
+   * without CI senders. Never stores a token.
+   */
+  ci(req: CiRequest, ctx: { source: string; github?: GithubSeen }): CiAnswer {
+    const L = this.limits;
+    const now = this.host.now();
+    // The hosts answer 404 before they get here; a relay built without CI senders does too.
+    if (this.config.ci !== true) return CI_NOT_FOUND;
+    if (!this.exists()) return CI_UNAUTHORIZED;
+    const srcKey = `cisrc:${ctx.source}`;
+    const budget = this.level(srcKey, L.ciRequestsPerSourcePerMinute, L.ciRequestsPerSourcePerMinute / MINUTE, now);
+    if (budget < 1) {
+      return { status: 429, body: { t: "error", code: "limited", message: "too many CI requests from this address; try again later" }, retryAfter: 60 };
+    }
+    this.spend(srcKey, budget, 1, now);
+    const device = this.roster().devices.find((d) => d.id === req.device);
+    const rules = device === undefined || isRecoveryName(device.name) ? undefined : this.store.ciRules(device.id);
+    const takes = req.via === "github" ? (rules?.tags.length ?? 0) > 0 : rules?.gitlab === true;
+    if (!takes) return CI_UNAUTHORIZED;
+    if (req.t === "ci.prekey") {
+      const prekey = this.newestPrekey(req.device);
+      return prekey === undefined ? CI_UNAUTHORIZED : { status: 200, body: { t: "ci.prekey", prekey } };
+    }
+    if (req.mesh !== this.config.meshId || !ciAtFresh(req.at, now)) {
+      return { status: 400, body: { t: "error", code: "malformed", message: "the notice is for another mesh, or its at is more than 5 minutes from the relay's clock" } };
+    }
+    const seen = ctx.github;
+    if (req.via === "github" && (seen === undefined || !rules!.tags.includes(seen.tag) || this.store.hasJti(seen.jti, now))) return CI_UNAUTHORIZED;
+    // Anyone with a recipient code can send a GitLab notice (the relay verifies nothing about its
+    // sender), so the answer to one never tells a session name or presence: a missing session, a
+    // full queue, a used id and a live session all read `queued`, each after the device's GitLab
+    // rate is spent. Only `limited`, which is per device, shows. A used id is stored only for a
+    // notice a live session took, so refusing it would tell the session exists. A GitHub sender
+    // was verified, so it is told what became of its notice.
+    const opaque = req.via === "gitlab";
+    const used = this.store.getMessage(req.id) !== undefined;
+    if (used && !opaque) return { status: 400, body: { t: "error", code: "malformed", message: "notice id already used" } };
+    const key = seen?.key ?? gitlabCountingKey(req.device);
+    const sent = (status: string): CiAnswer => ({ status: 200, body: { t: "ci.sent", id: req.id, status } });
+    const found = this.store.sessionsOf(req.device).find((s) => s.name === req.to && s.ended === null);
+    const target = found?.ci === true ? found : undefined;
+    if (target === undefined && !opaque) return sent("unknown");
+    const rate = this.level(`ci:${key}`, L.ciSendBurst, L.ciSendsPerMinute / MINUTE, now);
+    if (rate < 1) return sent("limited");
+    // A used id drops the notice like a full queue, so it is never queued twice.
+    const full = used || target === undefined || this.store.queueCount(target.sid, "ci") >= L.ciQueuePerSession || this.store.queueCountFrom(target.sid, key) >= L.ciQueuePerKey;
+    if (full && opaque) {
+      this.spend(`ci:${key}`, rate, 1, now);
+      return sent("queued");
+    }
+    if (full) return sent("full");
+    if (seen !== undefined) {
+      if (this.store.pruneJtis(now) >= L.ciJtisPerMesh) {
+        return { status: 429, body: { t: "error", code: "limited", message: "too many CI tokens in flight for this mesh; try again later" }, retryAfter: 60 };
+      }
+      this.store.putJti(seen.jti, seen.exp + L.ciSkewMs);
+    }
+    this.spend(`ci:${key}`, rate, 1, now);
+    const msg = JSON.stringify(ciNoticeOf(req));
+    const r = target!;
+    const cur = r.nextCursor++;
+    this.store.enqueue({ sid: r.sid, cur, id: req.id, kind: "ci", fromDevice: key, queuedAt: now, bytes: utf8(msg).length, msg });
+    // A message row with no sender session: expiry and receipts then find nobody to tell, on this
+    // relay and on an older one rolled back onto the same database.
+    this.store.putMessage({ id: req.id, sender: "", at: now, rcpts: [r.sid] });
+    const c = this.connFor(r);
+    if (c) {
+      c.send(ciDeliverText(cur, msg));
+      r.delivered = cur;
+    }
+    this.store.putSession(r);
+    return sent(c && !opaque ? "routed" : "queued");
+  }
+
+  /** The newest prekey (by `at`) in the stored cards of a device's sessions; the sender verifies it. */
+  private newestPrekey(device: string): unknown {
+    const sids = new Set(this.store.sessionsOf(device).map((s) => s.sid));
+    let best: { at: number } | undefined;
+    for (const card of this.store.cards()) {
+      if (!sids.has(card.sid)) continue;
+      // Stored cards passed the send frame schema, so `pk`, when present, is a prekey object.
+      const pk = (JSON.parse(card.msg) as { pk?: { at: number } }).pk;
+      if (pk !== undefined && (best === undefined || pk.at > best.at)) best = pk;
+    }
+    return best;
+  }
+
   // ---- helpers ----
 
   /** Marks sessions offline whose connection is gone (the host restarted without them). */
@@ -1328,6 +1467,11 @@ export class MeshRelay {
 /** The `deliver` envelope around a stored send frame, built without re-encoding the frame. */
 function deliverText(cursor: number, msg: string): string {
   return `{"t":"deliver","cursor":${cursor},"msg":${msg}}`;
+}
+
+/** The `ci.deliver` envelope around a stored CI notice. */
+function ciDeliverText(cursor: number, msg: string): string {
+  return `{"t":"ci.deliver","cursor":${cursor},"msg":${msg}}`;
 }
 
 /** The `t` of a frame the protocol parsed far enough to call its type unknown (so a string). */

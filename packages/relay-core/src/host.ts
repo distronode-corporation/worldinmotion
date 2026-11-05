@@ -1,5 +1,24 @@
-import { b64u, hmacSha256, isId22, isMeshId, isRelayUrl, LIMITS, sanitizeForDisplay, utf8 } from "@worldinmotion/protocol";
-import type { Limits } from "./relay.ts";
+import {
+  b64u,
+  ciNoticeOf,
+  githubSeen,
+  hmacSha256,
+  isId22,
+  isMeshId,
+  isRelayUrl,
+  LIMITS,
+  parseCiRequest,
+  sanitizeForDisplay,
+  utf8,
+  verifyCiToken,
+  type CiRequest,
+  type GithubClaims,
+  type GithubSeen,
+  type KeyLookup,
+} from "@worldinmotion/protocol";
+import { CI_NOT_FOUND, CI_UNAUTHORIZED, type CiAnswer, type Limits } from "./relay.ts";
+
+export { CI_NOT_FOUND };
 
 /*
  * What every relay host shares around `MeshRelay`: the dial path, the rate-limit key for a client
@@ -24,6 +43,43 @@ export function parseDialPath(pathname: string): DialPath {
   const meshId = match[1]!;
   if (!isMeshId(meshId)) return { ok: false, status: 400, error: "invalid mesh id" };
   return { ok: true, meshId };
+}
+
+// A CI sender's requests (SPEC section 18) go to `<relay path>/v1/<mesh id>/ci`.
+const CI_PATH = /\/v1\/([^/]*)\/ci$/;
+
+/**
+ * `<prefix>/v1/<mesh id>/ci`: where a CI sender posts. Undefined for any other path; a segment
+ * that is not a mesh id is a 400.
+ */
+export function parseCiPath(pathname: string): DialPath | undefined {
+  const match = CI_PATH.exec(pathname);
+  if (match === null) return undefined;
+  return isMeshId(match[1]) ? { ok: true, meshId: match[1] } : { ok: false, status: 400, error: "invalid mesh id" };
+}
+
+/**
+ * The host's part of a CI request (SPEC section 18), before any mesh state: the size, a strict
+ * parse, and for a GitHub `ci.send` the token, checked by the relay's clock against GitHub's keys
+ * (`keys`, a `JwksCache` that fetches only GitHub's fixed JWKS URL). A host runs it outside the
+ * mesh (the Worker before it asks the mesh's Durable Object anything), then hands the request and
+ * what the relay keeps of the token to `MeshRelay.ci`. Never throws.
+ */
+export async function ciPrecheck(
+  text: string,
+  opts: { enabled: boolean; keys: KeyLookup; now: number },
+): Promise<{ ok: true; req: CiRequest; github?: GithubSeen } | { ok: false; answer: CiAnswer }> {
+  if (!opts.enabled) return { ok: false, answer: CI_NOT_FOUND };
+  const parsed = parseCiRequest(text);
+  if (!parsed.ok) {
+    const status = parsed.reason === "too_large" ? 413 : 400;
+    return { ok: false, answer: { status, body: { t: "error", code: parsed.reason === "too_large" ? "too_large" : "malformed", message: parsed.reason } } };
+  }
+  const req = parsed.value;
+  if (req.t !== "ci.send" || req.via !== "github") return { ok: true, req };
+  const verified = await verifyCiToken(req.token!, ciNoticeOf(req), opts.keys, opts.now);
+  if (!verified.ok) return { ok: false, answer: CI_UNAUTHORIZED };
+  return { ok: true, req, github: githubSeen(verified.value as GithubClaims, req.mesh, req.device) };
 }
 
 /** `<prefix>/v1/info`: the relay's public description (`relayInfo`). */
@@ -114,6 +170,7 @@ export type RelayEnv = {
   WIM_BLOB_BYTES_PER_DEVICE_PER_DAY?: string;
   WIM_BLOB_BYTES_PER_MESH?: string;
   WIM_OFFER?: string;
+  WIM_CI?: string;
 };
 
 /**
@@ -181,6 +238,8 @@ export type RelaySettings = CreateRule & {
   limits: Partial<Limits>;
   /** `WIM_OFFER`: one line about the service, shown by clients (for example in `wim doctor`). */
   offer?: string;
+  /** `WIM_CI=1`: the relay takes CI senders (SPEC section 18). Off unless the operator says so. */
+  ci?: boolean;
 };
 
 /** The byte limits an operator may lower, by setting. */
@@ -226,6 +285,9 @@ export function relaySettings(env: RelayEnv): RelaySettings {
     if (bytes < 1 || bytes > LIMITS[key]) problems.push(`${name} must be a byte count from 1 to ${LIMITS[key]}: it may only lower the protocol limit`);
     else settings.limits[key] = bytes;
   }
+  const ci = (env.WIM_CI ?? "").trim();
+  if (ON.has(ci)) settings.ci = true;
+  else if (!OFF.has(ci)) problems.push("WIM_CI must be 1 or 0");
   const offer = (env.WIM_OFFER ?? "").trim();
   if (offer.length > 280 || /[\t\n]/.test(offer) || sanitizeForDisplay(offer) !== offer) {
     problems.push("WIM_OFFER must be one line of at most 280 printable characters");
@@ -249,6 +311,8 @@ export type RelayInfo = {
   create: "key" | "open" | "closed";
   limits: { max_meshes: number | null; idle_mesh_days: number | null; blob_bytes_per_mesh_per_day: number };
   offer: string | null;
+  /** Whether the relay takes CI senders (SPEC section 18). */
+  ci: boolean;
 };
 
 /** The `/v1/info` document for these settings. `create` is `closed` when creation is refused or misconfigured. */
@@ -264,6 +328,7 @@ export function relayInfo(s: RelaySettings): RelayInfo {
       blob_bytes_per_mesh_per_day: s.limits.blobBytesPerMeshPerDay ?? LIMITS.blobBytesPerMeshPerDay,
     },
     offer: s.offer ?? null,
+    ci: s.ci === true,
   };
 }
 
