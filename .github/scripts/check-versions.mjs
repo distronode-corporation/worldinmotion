@@ -17,7 +17,8 @@
 //     reads the tags with git, so it needs the history and tags (fetch-depth: 0). The tag of
 //     the commit being checked is left out: a release is tagged first and its pin moves in the
 //     pull request after it, so on the tagged commit the pin still names the release before;
-//   - the versions typed in source, below in SOURCE_CONSTANTS;
+//   - the versions typed in source (and the GitLab component's pinned `wim`), below in
+//     SOURCE_CONSTANTS;
 //   - any `<name>-X.Y.Z.vsix` file name in a package.json script.
 // A constant that is no longer found is an error, so renaming one cannot turn the check off.
 // Exits 1 and lists every mismatch.
@@ -35,6 +36,8 @@ const SOURCE_CONSTANTS = [
   { file: "packages/client/src/cli.ts", pattern: /export const VERSION = "([^"]+)";/ },
   { file: "packages/a2a/src/inbound.ts", pattern: /const GATEWAY_VERSION = "([^"]+)";/ },
   { file: "packages/relay-core/src/host.ts", pattern: /export const RELAY_VERSION = "([^"]+)";/ },
+  // The GitLab component runs `wim` from npm at the release it comes from.
+  { file: "packaging/gitlab-component/templates/notify.yml", pattern: /default: "worldinmotion@([^"]+)"/ },
 ];
 
 const want = process.argv[2] ?? json("package.json").version;
