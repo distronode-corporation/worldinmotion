@@ -5,7 +5,7 @@
 
 import { ciRuleTag, GITHUB_ISSUER, parseJson, type CiClaims } from "@worldinmotion/protocol";
 import { z } from "zod";
-import { readText, writeJson, type FsEnv } from "./fsx.ts";
+import { readText, withLock, writeJson, type FsEnv } from "./fsx.ts";
 
 /** At most this many rules (the relay holds at most 64 tags per device). */
 export const CI_RULES_MAX = 64;
@@ -87,6 +87,16 @@ export async function loadCiRules(path: string): Promise<CiRule[]> {
 /** Writes the rules (0600, atomically). */
 export async function saveCiRules(path: string, rules: readonly CiRule[], env: FsEnv): Promise<void> {
   await writeJson(path, fileSchema.parse({ v: 1, rules }), env);
+}
+
+/**
+ * Changes the rules on disk under their own lock: reads them again, hands them to `change` (which
+ * may throw to refuse), and writes what it returns. Every change to `ci-rules.json` goes through
+ * here, after the person's confirmation, so two commands in two terminals never write back a list
+ * the other changed in the meantime.
+ */
+export async function updateCiRules(path: string, env: FsEnv, change: (rules: CiRule[]) => CiRule[]): Promise<void> {
+  await withLock(`${path}.lock`, async () => saveCiRules(path, change(await loadCiRules(path)), env), env);
 }
 
 /** The full ref a person means by `--ref main` (a branch) or `--ref v1 --tag`; a full ref is kept. */

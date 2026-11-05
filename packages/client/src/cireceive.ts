@@ -6,9 +6,11 @@ import {
   b64u,
   checkCiPlaintext,
   checkCiTimes,
+  ciNoticeSchema,
   ciOpenRequest,
   fail,
   JwksCache,
+  JWKS_URLS,
   LIMITS,
   ok,
   sha256,
@@ -46,23 +48,28 @@ export class CiKeys {
   private seeded: Promise<void> | undefined;
   private writing: Promise<void> = Promise.resolve();
   private readonly saved: Record<string, { text: string; at: number }> = {};
+  private readonly now: () => number;
   /**
-   * Whether the last JWKS fetch failed for the network's or the provider's reasons (no answer, or
-   * not 200): a key not found then is not a verdict on the token, and the notice is tried again.
+   * The issuers whose last JWKS fetch failed for the network's or the provider's reasons (no
+   * answer, or not 200). Kept per issuer: one provider's outage says nothing about the other's.
    */
-  unreachable = false;
+  private readonly down = new Set<string>();
 
   constructor(o: { path: string; env: FsEnv; fetch: JwksFetch; now: () => number }) {
     this.path = o.path;
     this.env = o.env;
+    this.now = o.now;
     this.cache = new JwksCache({
       fetch: async (url) => {
+        // Only ever called with one of the fixed JWKS URLs.
+        const iss = Object.keys(JWKS_URLS).find((k) => JWKS_URLS[k] === url)!;
         try {
           const res = await o.fetch(url);
-          this.unreachable = res.status !== 200;
+          if (res.status === 200) this.down.delete(iss);
+          else this.down.add(iss);
           return res;
         } catch (error) {
-          this.unreachable = true;
+          this.down.add(iss);
           throw error;
         }
       },
@@ -74,6 +81,16 @@ export class CiKeys {
         this.writing = this.writing.then(() => writeJson(this.path, file, this.env)).catch(() => undefined);
       },
     });
+  }
+
+  /**
+   * Whether a key of `iss` not found is no verdict on the token: the last fetch got no answer and
+   * no fresh copy of the issuer's keys is held. With fresh keys in hand an unknown `kid` is far
+   * more likely junk than a rotation, so it is a drop, not a retry.
+   */
+  unreachable(iss: string): boolean {
+    const held = this.saved[iss];
+    return this.down.has(iss) && (held === undefined || this.now() - held.at >= LIMITS.jwksClientTtlMs);
   }
 
   /** Waits for the last write of fetched keys (tests, and a clean stop). */
@@ -89,7 +106,9 @@ export class CiKeys {
         const keys = file?.v === 1 && typeof file.keys === "object" && file.keys !== null ? file.keys : {};
         for (const [iss, raw] of Object.entries(keys)) {
           const held = heldSchema.safeParse(raw);
-          if (!held.success) continue;
+          // A copy dated in the future would never go stale: anything that can write the file
+          // could plant keys that are trusted for ever.
+          if (!held.success || held.data.at > this.now()) continue;
           this.saved[iss] = held.data;
           this.cache.seed(iss, held.data.text, held.data.at);
         }
@@ -104,15 +123,32 @@ export class CiKeys {
   };
 }
 
+/** At most this many notices wait for their provider's keys in one session (`ci-parked.json`). */
+export const CI_PARKED_MAX = 20;
+
+const parkedSchema = z.strictObject({ v: z.literal(1), notices: z.array(ciNoticeSchema).max(CI_PARKED_MAX) });
+
 /**
- * A notice whose token names a key this device could not fetch because the provider did not
- * answer: the machine's fault, not the notice's (`EAGAIN`), so it is not acknowledged and the
- * relay delivers it again once the connection is retried.
+ * `ci-parked.json`: the notices a session acknowledged while their provider's keys could not be
+ * fetched, kept to be checked again (SPEC section 18). A CI notice never holds the ack stream, so
+ * it never keeps a real peer's messages queued at the relay. A damaged file holds none.
  */
-export class KeysUnreachable extends Error {
-  readonly code = "EAGAIN";
-  constructor() {
-    super("a CI provider's keys could not be fetched; the notice is tried again later");
+export class CiParked {
+  private readonly path: string;
+  private readonly env: FsEnv;
+
+  constructor(path: string, env: FsEnv) {
+    this.path = path;
+    this.env = env;
+  }
+
+  async list(): Promise<CiNotice[]> {
+    const parsed = parkedSchema.safeParse(await readJson(this.path).catch(() => undefined));
+    return parsed.success ? parsed.data.notices : [];
+  }
+
+  async save(notices: readonly CiNotice[]): Promise<void> {
+    await writeJson(this.path, { v: 1, notices }, this.env);
   }
 }
 
@@ -188,10 +224,10 @@ export const CI_BREAKER = { perPeerPerHour: 60, totalPerHour: 240, pingPong: fal
 export function ciPauseNotices(from: string, reason: "peer" | "total"): { person: string; agent: string } {
   const why = reason === "peer" ? `${CI_BREAKER.perPeerPerHour} CI notices from it in an hour` : `${CI_BREAKER.totalPerHour} CI notices from all repositories in an hour`;
   return {
-    person: `worldinmotion paused CI notices from ${from} (${why}); they are held: wim held list`,
+    person: `worldinmotion paused CI notices from ${from} (${why}); the one that tripped it is held (wim held list), later ones are dropped until the hour rolls over`,
     agent:
-      `this device's loop breaker paused CI notices from ${from} (${why}): they are held from now on, not delivered to you, until the hour rolls over. ` +
-      "Only the person can release one: `wim held approve <id>` in a terminal they opened themselves.",
+      `this device's loop breaker paused CI notices from ${from} (${why}): later ones are dropped, not delivered to you, until the hour rolls over. ` +
+      "Only the person can release the one that is held: `wim held approve <id>` in a terminal they opened themselves.",
   };
 }
 

@@ -2,6 +2,7 @@
 // everything a session can do (send, ask, rooms, leases, files, presence).
 
 import {
+  CI_ISSUERS,
   CLOSE,
   ciDedupeExpiry,
   dedupeExpiry,
@@ -53,7 +54,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Breaker, pauseNotice, pauseNoticeForAgent } from "./breaker.ts";
 import { cardFor, sameCard } from "./cards.ts";
-import { checkCiNotice, CI_BREAKER, ciBucket, ciFrom, CiKeys, ciLabel, ciPauseNotices, fetchJwks, jtiKey, KeysUnreachable, noticeId } from "./cireceive.ts";
+import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciLabel, CiParked, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
@@ -264,6 +265,19 @@ function entryOf(p: Message, from: string): HistoryEntry {
 /** The address under which token ids (`jti`) are kept: one store for the whole device. */
 const CI_SEEN = "ci";
 
+/**
+ * Held CI notices per rule (finding 1 of the CI review): enough for the person to see and pin an
+ * unpinned rule, and a page of a `--hold` rule's; past that a notice is dropped and logged.
+ */
+const CI_HELD_UNPINNED = 5;
+const CI_HELD_PER_RULE = 20;
+
+/** The person hears about held CI notices at most once an hour per rule. */
+const CI_TELL_MS = 60 * 60_000;
+
+/** How often notices parked for their provider's keys are checked again (refetches are once a minute anyway). */
+const CI_PARKED_RETRY_MS = 60_000;
+
 /** One session on one mesh. */
 export class MeshSession extends EventEmitter {
   readonly device: Device;
@@ -335,6 +349,13 @@ export class MeshSession extends EventEmitter {
   private ciSent: string | undefined;
   /** Whether a damaged rules file was already logged (housekeeping reads it every pass). */
   private ciDamaged = false;
+  /** When the person was last told about held CI notices, per rule. */
+  private readonly ciTold = new Map<string, number>();
+  /** The paused CI buckets whose drops were logged since the breaker last tripped. */
+  private readonly ciPausedLogged = new Set<string>();
+  private readonly ciParked: CiParked;
+  /** When parked CI notices are next checked again. */
+  private ciParkedDue = 0;
   /** Delivery through MCP channel notifications instead of leaving items for the plugin. */
   push: ((item: SpoolItem) => Promise<void>) | undefined;
 
@@ -354,6 +375,7 @@ export class MeshSession extends EventEmitter {
     this.breaker = new Breaker(() => this.config.breaker, this.now);
     this.ciBreaker = new Breaker(() => CI_BREAKER, this.now);
     this.ciKeys = new CiKeys({ path: o.mesh.ciJwksPath, env: o.env, fetch: o.jwksFetch ?? fetchJwks, now: this.now });
+    this.ciParked = new CiParked(files.ciParkedPath, o.env);
   }
 
   /**
@@ -971,10 +993,43 @@ export class MeshSession extends EventEmitter {
     }
   }
 
+  /**
+   * A notice is always acknowledged once handled: one whose provider's keys cannot be fetched now
+   * is parked locally and checked again later, so it never holds the ack stream (which would keep
+   * every later message, a real peer's included, queued at the relay).
+   */
   private async handleCiDeliver(cursor: number, msg: CiNotice, via: Link | undefined): Promise<void> {
-    await this.checkCi(msg);
+    if ((await this.checkCi(msg)) === "unreachable") await this.parkCi(msg);
     this.ack(cursor, via);
     await this.save({});
+  }
+
+  private async parkCi(msg: CiNotice): Promise<void> {
+    const parked = await this.ciParked.list();
+    if (parked.length >= CI_PARKED_MAX) {
+      this.log(`wim: dropped CI notice ${msg.id}: its provider's keys could not be fetched, and ${CI_PARKED_MAX} notices already wait for them`);
+      return;
+    }
+    await this.ciParked.save([...parked, msg]);
+    this.ciParkedDue = this.now() + CI_PARKED_RETRY_MS;
+    this.log(`wim: CI notice ${msg.id}: its provider's keys could not be fetched; it is kept and checked again later`);
+  }
+
+  /**
+   * Checks parked notices again (housekeeping, once a minute): delivered, dropped, or kept while
+   * the keys are still out of reach, until the notice is too old to be delivered at all.
+   */
+  private async retryCiParked(): Promise<void> {
+    if (this.now() < this.ciParkedDue) return;
+    this.ciParkedDue = this.now() + CI_PARKED_RETRY_MS;
+    const parked = await this.ciParked.list();
+    if (parked.length === 0) return;
+    const kept: CiNotice[] = [];
+    for (const n of parked) {
+      if (this.now() - n.at > LIMITS.messageMaxAgeMs) this.log(`wim: dropped CI notice ${n.id}: its provider's keys could not be fetched before it was too old`);
+      else if ((await this.checkCi(n)) === "unreachable") kept.push(n);
+    }
+    await this.ciParked.save(kept);
   }
 
   /** Opens a notice's box; one for a prekey a sibling session made since is tried again after a reload. */
@@ -985,8 +1040,12 @@ export class MeshSession extends EventEmitter {
     return this.prekeys.opener().open(req);
   }
 
-  /** The receiving checks of SPEC section 18, then single use, the rule's hold, the CI breaker and the spool. */
-  private async checkCi(raw: CiNotice): Promise<void> {
+  /**
+   * The receiving checks of SPEC section 18, then single use, the rule's hold, the CI breaker and
+   * the spool. `unreachable` when the notice names a key of a provider whose keys could not be
+   * fetched: no verdict yet.
+   */
+  private async checkCi(raw: CiNotice): Promise<"unreachable" | undefined> {
     const now = this.now();
     const r = await checkCiNotice(raw, {
       me: { mesh: this.config.mesh, device: this.device.id, name: this.state.name },
@@ -995,28 +1054,30 @@ export class MeshSession extends EventEmitter {
       rules: (await this.ciRulesNow()) ?? [],
       now,
     });
-    if (!r.ok && r.reason === "unknown_key" && this.ciKeys.unreachable) throw new KeysUnreachable();
+    if (!r.ok && r.reason === "unknown_key" && this.ciKeys.unreachable(CI_ISSUERS[raw.via])) return "unreachable";
     if (!r.ok) {
       this.log(`wim: dropped CI notice ${noticeId(raw)}: ${r.reason}`);
-      return;
+      return undefined;
     }
     const { notice, plaintext, claims, rule, pins } = r.value;
-    // A token's id is single use on the whole device, a notice id per receiving address.
-    const jti = jtiKey(claims);
-    if ((await this.seen.has(notice.id, this.address, now)) || (await this.seen.has(jti, CI_SEEN, now))) {
+    // A token's id is single use on the whole device, a notice id per receiving address. Claimed
+    // under the device-wide lock before the notice is delivered, so two sessions given one token
+    // at once cannot both pass; a failure after the claim loses the notice, the safe side.
+    const until = ciDedupeExpiry(notice.at, claims.exp);
+    if (!(await this.seen.claim([[notice.id, this.address], [jtiKey(claims), CI_SEEN]], until, now))) {
       this.log(`wim: dropped CI notice ${notice.id}: seen before`);
-      return;
+      return undefined;
     }
     await this.acceptCi(notice, plaintext.text, claims, rule, pins);
-    const until = ciDedupeExpiry(notice.at, claims.exp);
-    await this.seen.add(notice.id, this.address, until, now);
-    await this.seen.add(jti, CI_SEEN, until, now);
+    return undefined;
   }
 
   /**
    * A notice that passed every check: relayed CI text, information only. Held for the person when
-   * its rule has no ids yet (approving it pins them), when the rule holds every notice, or when
-   * the CI breaker paused its repository; otherwise it waits in the inbox and never starts a turn.
+   * its rule has no ids yet (approving it pins them), when the rule holds every notice, or when it
+   * trips the CI breaker; otherwise it waits in the inbox and never starts a turn. Once the breaker
+   * paused its repository (or all CI), later notices are dropped, and a rule holds at most a few,
+   * so no repository can fill the held list or raise notices without limit.
    */
   private async acceptCi(notice: CiNotice, text: string, claims: CiClaims, rule: CiRule, pins: CiPins | undefined): Promise<void> {
     const label = ciLabel(claims, rule);
@@ -1033,14 +1094,29 @@ export class MeshSession extends EventEmitter {
       entry,
       ci: { rule: rule.id, ...(pins === undefined ? {} : { pins }) },
     };
-    // Counted before any hold, so a held repository cannot raise held items and notices without limit.
-    const admitted = this.ciBreaker.admit(ciBucket(claims), text.length);
-    if (!admitted.ok) {
-      if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
-      return this.hold({ ...item, reason: "breaker" }, admitted.newly ? ciPauseNotices(from, admitted.reason as "peer" | "total") : undefined);
+    // Counted before any hold, held or delivered alike. Only the notice that trips the breaker is
+    // held (with the pause notices); while it stays paused the rest are dropped, logged once a pause.
+    const bucket = ciBucket(claims);
+    const admitted = this.ciBreaker.admit(bucket, text.length);
+    if (!admitted.ok && !admitted.newly) {
+      if (!this.ciPausedLogged.has(bucket)) {
+        this.ciPausedLogged.add(bucket);
+        this.log(`wim: dropped CI notice ${notice.id}: CI notices from ${from} are paused; later ones are dropped without a line until the hour rolls over`);
+      }
+      return;
     }
-    if (pins !== undefined || rule.hold === true) return this.hold({ ...item, reason: "policy" });
-    await this.release(item, undefined);
+    const reason = admitted.ok ? "policy" : "breaker";
+    if (admitted.ok && pins === undefined && rule.hold !== true) return this.release(item, undefined);
+    const cap = pins !== undefined ? CI_HELD_UNPINNED : CI_HELD_PER_RULE;
+    if ((await this.held.list()).filter((h) => h.ci?.rule === rule.id).length >= cap) {
+      this.log(`wim: dropped CI notice ${notice.id}: ${cap} notices under its rule already wait for the person (wim held list)`);
+      return;
+    }
+    if (!admitted.ok) {
+      this.ciPausedLogged.clear();
+      this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
+    }
+    return this.hold({ ...item, reason }, admitted.ok ? undefined : ciPauseNotices(from, admitted.reason as "peer" | "total"));
   }
 
   private fromAddress(p: Plaintext): string {
@@ -1128,10 +1204,27 @@ export class MeshSession extends EventEmitter {
     // No receipt is sent for a CI notice: its sender is gone, and the relay forwards none.
     if (item.ci === undefined) this.receipt(item.id, "held");
     const count = (await this.held.list()).length;
+    if (item.ci !== undefined) return this.heldCi(item, item.ci.rule, count, pause);
     const line = pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`;
     await this.notice(item.from, line, count);
     if (pause !== undefined) await this.notice(item.from, pause.agent);
     await this.o.notifier?.notify(`worldinmotion: ${count} message${count === 1 ? "" : "s"} held for approval`);
+    this.emit("held", item);
+  }
+
+  /**
+   * Tells the person about a held CI notice: information only, so never a turn. The notices are
+   * for the person (`forPerson`: a toast in the plugin, never pushed as a channel turn), at most
+   * once an hour per rule, apart from a breaker's pause, which trips once per hour anyway.
+   */
+  private async heldCi(item: HeldItem, rule: string, count: number, pause: { person: string; agent: string } | undefined): Promise<void> {
+    const told = this.ciTold.get(rule);
+    if (pause !== undefined || told === undefined || this.now() - told >= CI_TELL_MS) {
+      this.ciTold.set(rule, this.now());
+      await this.notice(item.from, pause?.person ?? `${count} message${count === 1 ? "" : "s"} held for the person's approval (latest from ${item.from}).`, count, undefined, true);
+      if (pause !== undefined) await this.notice(item.from, pause.agent, undefined, undefined, true);
+      await this.o.notifier?.notify(`worldinmotion: ${count} message${count === 1 ? "" : "s"} held for approval`);
+    }
     this.emit("held", item);
   }
 
@@ -1169,8 +1262,9 @@ export class MeshSession extends EventEmitter {
     // In-process consumers (bot, ci, a2a adapters) read the verified fields, not the rendered frame.
     // A CI notice is for the agent's inbox only: in-process consumers never act on it.
     if (entry !== undefined && entry.ci === undefined) this.emit("message", { ...entry, cursor: written.cursor } satisfies Inbound);
-    // A relayed item must not start a turn, so it waits in the inbox instead of being pushed.
-    if (this.push !== undefined && written.relayed !== true) {
+    // A relayed item must not start a turn, so it waits in the inbox instead of being pushed; a
+    // notice for the person is not the model's either.
+    if (this.push !== undefined && written.relayed !== true && written.forPerson !== true) {
       await this.push(written);
       await this.take(written.cursor);
     }
@@ -1272,6 +1366,7 @@ export class MeshSession extends EventEmitter {
       if (this.now() >= this.prekeys.due) await this.prekeys.maintain();
       if (this.link !== undefined) await this.sendCard(this.link, false);
       if (this.link !== undefined) await this.sendCiRules(this.link);
+      await this.retryCiParked();
     } catch (error) {
       this.log(`wim: housekeeping: ${(error as Error).message}`);
     } finally {

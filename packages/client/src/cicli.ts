@@ -3,7 +3,7 @@
 // yes), and no MCP tool, message or local UI request reaches them. `notify` is the CI job's side.
 
 import { b64u, ciRecipientCode, gitlabAudience, sanitizeForDisplay, ulid } from "@worldinmotion/protocol";
-import { checkRule, CI_RULES_MAX, EVENT_NAME, fullRef, GITHUB_REPO, GITLAB_REPO, loadCiRules, PRIVILEGED_EVENTS, ruleLine, saveCiRules, WORKFLOW_FILE, type CiPins, type CiRule } from "./cirules.ts";
+import { checkRule, CI_RULES_MAX, EVENT_NAME, fullRef, GITHUB_REPO, GITLAB_REPO, loadCiRules, PRIVILEGED_EVENTS, ruleLine, updateCiRules, WORKFLOW_FILE, type CiPins, type CiRule } from "./cirules.ts";
 import { ciNotify, GITLAB_TOKEN_VAR } from "./cisend.ts";
 import { SetupError } from "./errors.ts";
 import type { Device } from "./home.ts";
@@ -146,12 +146,16 @@ async function allow(c: CiCli): Promise<number> {
   requirePerson(c.env, c.io, `wim ci allow ${c.positional.slice(1).join(" ")}`);
   const rule = ruleFrom(c);
   const { device, files } = await c.mesh();
-  const rules = await loadCiRules(files.ciRulesPath);
-  if (rules.length >= CI_RULES_MAX) throw new SetupError(`this device already has ${CI_RULES_MAX} CI rules; remove one first (wim ci list)`);
-  if (rules.some((r) => ruleKey(r) === ruleKey(rule))) throw new SetupError("this rule is already allowed (wim ci list)");
+  // Checked before the prompt, and again on the list as it is when the person has answered.
+  const room = (rules: readonly CiRule[]): void => {
+    if (rules.length >= CI_RULES_MAX) throw new SetupError(`this device already has ${CI_RULES_MAX} CI rules; remove one first (wim ci list)`);
+    if (rules.some((r) => ruleKey(r) === ruleKey(rule))) throw new SetupError("this rule is already allowed (wim ci list)");
+  };
+  room(await loadCiRules(files.ciRulesPath));
   const pins = await publicIds(c.io.fetch, rule.via, rule.repo);
   if (!(await confirmTyped(c.io, allowLines(rule, pins), "Allow it?"))) return 1;
-  await saveCiRules(files.ciRulesPath, [...rules, checkRule({ ...rule, ...(pins === undefined ? {} : { pins }) } as CiRule)], files.env);
+  const added = checkRule({ ...rule, ...(pins === undefined ? {} : { pins }) } as CiRule);
+  await updateCiRules(files.ciRulesPath, files.env, (rules) => (room(rules), [...rules, added]));
   const { code, mesh } = await recipient(files, device);
   c.io.out("Allowed. Sessions of this device that are running tell the relay now; others when they next start.");
   c.io.out(`Recipient code for the job (not a secret): ${code}`);
@@ -184,7 +188,11 @@ async function remove(c: CiCli): Promise<number> {
   const rule = rules[n - 1];
   if (rule === undefined) throw new SetupError(`no CI rule ${n} (wim ci list)`);
   if (!(await confirmTyped(c.io, ["Removing this CI rule:", `  ${ruleLine(rule)}`, "Its notices are dropped from now on; held ones stay held."], "Remove it?"))) return 1;
-  await saveCiRules(files.ciRulesPath, rules.filter((r) => r !== rule), files.env);
+  // By id, on the list as it is now: a rule another command removed meanwhile is not there to remove.
+  await updateCiRules(files.ciRulesPath, files.env, (now) => {
+    if (!now.some((r) => r.id === rule.id)) throw new SetupError("that CI rule was removed meanwhile; nothing changed (wim ci list)");
+    return now.filter((r) => r.id !== rule.id);
+  });
   c.io.out("Removed. Sessions of this device that are running tell the relay now; others when they next start.");
   return 0;
 }

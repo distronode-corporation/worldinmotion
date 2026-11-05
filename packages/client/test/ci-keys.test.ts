@@ -31,18 +31,66 @@ describe("CiKeys", () => {
   it("only costs a fetch when the file is damaged, foreign or unwritable", async () => {
     const gh = await issuer("k2");
     const dir = await scratch("cikeys");
-    const fetcher = async () => ({ status: 200, text: async () => gh.jwks });
+    let fetches = 0;
+    const fetcher = async () => (fetches++, { status: 200, text: async () => gh.jwks });
     const now = () => 5;
-    for (const text of ["{", '{"v":2,"keys":{}}', '{"v":1,"keys":null}', `{"v":1,"keys":{"${GITLAB_ISSUER}":{"text":1,"at":1},"${GITHUB_ISSUER}":null}}`, `{"v":1,"keys":{"${GITHUB_ISSUER}":{"text":"x","at":"y"}}}`]) {
-      const path = join(dir, "ci-jwks.json");
+    const cases = [
+      "{",
+      '{"v":2,"keys":{}}',
+      '{"v":1,"keys":null}',
+      `{"v":1,"keys":{"${GITLAB_ISSUER}":{"text":1,"at":1},"${GITHUB_ISSUER}":null}}`,
+      `{"v":1,"keys":{"${GITHUB_ISSUER}":{"text":"x","at":"y"}}}`,
+      // Real keys dated after now: never trusted, or they would never go stale.
+      JSON.stringify({ v: 1, keys: { [GITHUB_ISSUER]: { text: gh.jwks, at: 6 } } }),
+    ];
+    for (const [i, text] of cases.entries()) {
+      // Each case its own file, and each write of fetched keys awaited: a write still in flight
+      // from one case would otherwise replace the next case's damaged file before it is read.
+      const path = join(dir, `ci-jwks-${i}.json`);
       await fs.writeFile(path, text);
-      expect(await new CiKeys({ path, env: FS, fetch: fetcher, now }).lookup(GITHUB_ISSUER, "k2")).toMatchObject({ kid: "k2" });
+      const keys = new CiKeys({ path, env: FS, fetch: fetcher, now });
+      expect(await keys.lookup(GITHUB_ISSUER, "k2")).toMatchObject({ kid: "k2" });
+      await keys.flushed();
+      expect(fetches).toBe(i + 1);
     }
     // A directory where the file should be: the write fails quietly and the key is still served.
     const blocked = join(dir, "blocked");
     await fs.mkdir(join(blocked, "ci-jwks.json"), { recursive: true });
     const keys = new CiKeys({ path: join(blocked, "ci-jwks.json"), env: FS, fetch: fetcher, now });
     expect(await keys.lookup(GITHUB_ISSUER, "k2")).toMatchObject({ kid: "k2" });
+    await keys.flushed();
+  });
+
+  it("knows per issuer whether its keys were out of reach, and treats an unknown key as junk while fresh keys are held", async () => {
+    const gh = await issuer("k3");
+    const dir = await scratch("cikeys");
+    let t = 1_000_000;
+    let answer: "down" | 503 | 200 = "down";
+    const fetcher = async () => {
+      if (answer === "down") throw new Error("offline");
+      return { status: answer, text: async () => gh.jwks };
+    };
+    const keys = new CiKeys({ path: join(dir, "ci-jwks.json"), env: FS, fetch: fetcher, now: () => t });
+    expect(await keys.lookup(GITLAB_ISSUER, "x")).toBeUndefined();
+    // GitLab's fetch failed; GitHub's was never tried, so it is not out of reach.
+    expect([keys.unreachable(GITLAB_ISSUER), keys.unreachable(GITHUB_ISSUER)]).toEqual([true, false]);
+    answer = 503;
+    expect(await keys.lookup(GITHUB_ISSUER, "k3")).toBeUndefined();
+    expect(keys.unreachable(GITHUB_ISSUER)).toBe(true);
+    // A minute on, both answer: GitHub's keys are held fresh, GitLab's still fail.
+    t += 61_000;
+    answer = 200;
+    expect(await keys.lookup(GITHUB_ISSUER, "k3")).toMatchObject({ kid: "k3" });
+    expect(keys.unreachable(GITHUB_ISSUER)).toBe(false);
+    // Then GitHub goes down. An unknown kid with fresh keys in hand is junk, not a retry...
+    t += 61_000;
+    answer = "down";
+    expect(await keys.lookup(GITHUB_ISSUER, "junk")).toBeUndefined();
+    expect(keys.unreachable(GITHUB_ISSUER)).toBe(false);
+    // ...until the held copy is a day old.
+    t += 24 * 3_600_000;
+    expect(await keys.lookup(GITHUB_ISSUER, "junk")).toBeUndefined();
+    expect(keys.unreachable(GITHUB_ISSUER)).toBe(true);
     await keys.flushed();
   });
 

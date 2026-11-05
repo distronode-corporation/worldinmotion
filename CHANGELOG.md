@@ -44,9 +44,18 @@ body line with a bracket.
   `ci.deliver` itself: the box, the token against keys it fetches from each provider's fixed URL
   (kept 24 hours in `ci-jwks.json`), the audience and one-time key, the times, the whole rule
   (`pull_request_target` and `workflow_run` refused unless named; GitLab protected refs by
-  `ref_path`), and single use of the notice id and `jti`. A notice is relayed CI text: inbox
-  only, never pushed, never receipted, information only, and it starts the derived window. The
-  loop breaker counts CI in a bucket of its own (60 an hour per repository, 240 in all).
+  `ref_path`), and single use of the notice id and `jti`, claimed under the device-wide lock so
+  two sessions of one device accept a token once. A notice is relayed CI text: inbox only, never
+  pushed, never receipted, information only, and it starts the derived window. A notice whose
+  provider's keys cannot be fetched is acknowledged and kept on the device (at most 20 per
+  session, in `ci-parked.json`), checked again once a minute until it is too old, so it never
+  holds back a peer's acknowledgements. The loop breaker counts CI in a bucket of its own (60 an
+  hour per repository, 240 in all): the notice that trips it is held, later ones are dropped. A
+  rule keeps at most 5 held notices while unpinned and 20 when it holds every notice, and the
+  person hears about held CI notices at most once an hour per rule, by a notice for the person
+  that is never pushed as a channel turn. `wim held approve` shows every other notice held under
+  the same rule with its ids, warns when they differ, and pins on the rules as they are after the
+  typed yes; `allow`, `remove` and the pin change `ci-rules.json` under a lock.
   `wim ci notify` is the job's side: it checks that its token's audience is one `wimci1.` string
   for this recipient before it sends anything, takes a GitHub token bound to a one-time key or
   the GitLab token in `WIM_CI_ID_TOKEN` (sealed in the box, never shown to the relay), and always
@@ -75,7 +84,7 @@ body line with a bracket.
   provider's OIDC ID token, under rules only the receiving device's person sets. SECURITY-MODEL
   gains the CI job as an actor (5.10) and property 6.17, and boundary 2 of section 3 is rewritten
   for it; the hosted relay's terms say what it would see if CI senders were enabled there. The
-  code follows in later pull requests; no relay or client does this yet.
+  protocol, relay and client parts above implement it.
 - **The hosted relay's terms say it is open now.** `docs/hosted-relay.md` still said the relay
   opens for new meshes with the public launch of the project. It is open now (`/v1/info` reports
   `"create": "open"`), and the line says so.

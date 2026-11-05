@@ -9,9 +9,11 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ciNotify } from "../src/cisend.ts";
+import { CI_PARKED_MAX } from "../src/cireceive.ts";
 import { loadCiRules, saveCiRules, type CiRule } from "../src/cirules.ts";
 import type { MeshSession, SessionOptions } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
+import type { SpoolItem } from "../src/spool.ts";
 import { decideHeld } from "../src/offline.ts";
 import { ciWorld, gitlabClaims, type CiWorld } from "./ci-fixture.ts";
 import { FS, makeMesh, openSession, RELAY, RelayHarness, run, sleep, spooled, term, until, type TestDevice } from "./helpers.ts";
@@ -65,6 +67,9 @@ async function gitlab(w: World, over: Record<string, unknown> = {}, text = "pipe
 }
 
 /** A CI notice in the spool (the client's own notices about held items name the sender too). */
+/** A wait for several notices in turn, each a few file writes: generous for a slow disk. */
+const SLOW = 20_000;
+
 const fromCi = (i: { from: string; kind: string }): boolean => i.kind !== "notice" && i.from.startsWith("ci:");
 const dropped = (w: World, why: string) => until(() => w.logs.some((l) => l.includes("dropped CI notice") && l.includes(why)), undefined, `a drop for ${why}`);
 
@@ -181,19 +186,77 @@ describe("a relay is not trusted", () => {
 });
 
 describe("the providers' keys", () => {
-  it("leaves a notice unacknowledged while the provider's keys cannot be fetched, and takes it once they can", async () => {
+  it("acknowledges and parks a notice while the provider's keys cannot be fetched, and delivers it once they can", async () => {
     const w = await world([ghRule()]);
     let down = true;
     let shift = 0;
     const jwksFetch = (url: string) => (down ? Promise.reject(new Error("offline")) : w.ci.jwksFetch(url));
     const s = await agent(w, "agent", { jwksFetch, now: () => Date.now() + shift });
+    const acks = () => w.relay.sentByClients.filter((t) => t.includes('"t":"ack"')).length;
+    const before = acks();
     await github(w, "after the outage");
-    await until(() => w.logs.some((l) => l.includes("keys could not be fetched")), undefined, "the retry");
+    await until(() => w.logs.some((l) => l.includes("keys could not be fetched; it is kept")), SLOW, "the park");
+    await until(() => acks() > before, SLOW, "the ack");
     expect(w.logs.some((l) => l.includes("dropped CI notice"))).toBe(false);
+    expect(JSON.parse(await fs.readFile(s.files.ciParkedPath, "utf8")).notices).toHaveLength(1);
     // The network is back, and a minute has passed since the last fetch (refetches are at most one a minute).
     down = false;
     shift = 65_000;
     expect((await spooled(s, fromCi)).rendered).toContain("after the outage");
+    await until(async () => JSON.parse(await fs.readFile(s.files.ciParkedPath, "utf8")).notices.length === 0, SLOW, "the parked list emptied");
+  });
+
+  it("never holds a real peer's acks behind a notice whose keys cannot be fetched", async () => {
+    const w = await world([glRule()]);
+    let down = false;
+    const jwksFetch = (url: string) => (down ? Promise.reject(new Error("offline")) : w.ci.jwksFetch(url));
+    const s = await agent(w, "agent", { jwksFetch });
+    const acks = () => w.relay.sentByClients.filter((t) => t.includes('"t":"ack"')).length;
+    // A junk GitLab notice from anyone with the code, naming a key the provider does not serve,
+    // while gitlab.com cannot be reached.
+    down = true;
+    const token = await w.ci.gl.mint(gitlabClaims(gitlabAudience(w.mesh, w.phone.device.id), w.relay.now(), {}));
+    const [h, p, sg] = token.split(".") as [string, string, string];
+    const header = JSON.parse(Buffer.from(h, "base64url").toString()) as Record<string, unknown>;
+    const junk = `${Buffer.from(JSON.stringify({ ...header, kid: "junk-kid" })).toString("base64url")}.${p}.${sg}`;
+    expect((await ciNotify({ recipient: w.code, to: "agent", text: "junk" }, { env: w.ci.gitlabEnv(junk), fetch: w.ci.fetch, now: () => w.relay.now() })).sent).toBe(true);
+    await until(() => w.logs.some((l) => l.includes("keys could not be fetched")), SLOW, "the park");
+    const before = acks();
+    const lap = await openSession(w.laptop, w.mesh, w.relay, { name: "lap" });
+    open.push(lap);
+    for (let i = 0; i < 3; i++) await lap.send("agent@phone", `peer message ${i}`);
+    await spooled(s, (i) => i.rendered.includes("peer message 2"));
+    await until(() => acks() >= before + 3, SLOW, "three peer acks");
+    // The relay holds nothing for the session any more: every cursor was acknowledged.
+    const queued = [...w.relay.relays.get(w.mesh)!.relay["store"].sessions()].find((r) => r.name === "agent")!;
+    expect(queued.acked).toBe(queued.nextCursor - 1);
+  });
+
+  it("parks at most so many notices, and drops one too old to deliver", async () => {
+    const w = await world([ghRule()]);
+    let shift = 0;
+    let copy: CiNotice | undefined;
+    w.relay.toClient = (text) => {
+      if (text.startsWith('{"t":"ci.deliver"')) copy ??= (JSON.parse(text) as { msg: CiNotice }).msg;
+      return text;
+    };
+    const s = await agent(w, "agent", { jwksFetch: () => Promise.reject(new Error("offline")), now: () => Date.now() + shift });
+    await github(w, "first");
+    await until(() => copy !== undefined && w.logs.some((l) => l.includes("it is kept")), SLOW, "the first park");
+    // The list is full: the next is dropped, and logged.
+    const old = { ...copy!, at: copy!.at - 48 * 3_600_000 };
+    await fs.writeFile(s.files.ciParkedPath, JSON.stringify({ v: 1, notices: Array.from({ length: CI_PARKED_MAX }, () => old) }));
+    await github(w, "one too many");
+    await until(() => w.logs.some((l) => l.includes(`and ${CI_PARKED_MAX} notices already wait for them`)), SLOW, "the drop");
+    // A minute on, each parked copy is too old to deliver, and goes.
+    shift = 65_000;
+    await until(() => w.logs.filter((l) => l.includes("before it was too old")).length === CI_PARKED_MAX, SLOW, "the old ones dropped");
+    await until(async () => JSON.parse(await fs.readFile(s.files.ciParkedPath, "utf8")).notices.length === 0, SLOW, "an empty list");
+    // A damaged list holds none.
+    await fs.writeFile(s.files.ciParkedPath, "{");
+    shift = 130_000;
+    await s.tick();
+    expect(await fs.readFile(s.files.ciParkedPath, "utf8")).toBe("{");
   });
 
   it("drops a notice whose key the provider does not have", async () => {
@@ -306,6 +369,50 @@ describe("pin on approve", () => {
     expect(spooledItem!.rendered).toContain("offline one");
   });
 
+  it("shows the other held notices under the rule with their ids, warns when they differ, and pins on the rules as they are after the yes", async () => {
+    const rule = ghRule({ pins: undefined });
+    const w = await world([rule]);
+    const s = await agent(w);
+    const first = new Promise<{ id: string }>((resolve) => s.once("held", resolve));
+    await github(w, "the real one");
+    const item = await first;
+    w.ci.ghOver = { repository_id: "75" };
+    await github(w, "another repository that had the same name");
+    await until(async () => (await s.held.list()).length === 2, SLOW);
+    const other = (await s.held.list()).find((h) => h.id !== item.id)!;
+    // Another terminal adds a rule while the prompt is open: the pin keeps it.
+    const extra = glRule();
+    const t = term(w.phone.root, w.relay);
+    t.answers.push(async () => (await saveCiRules(w.files.ciRulesPath, [rule, extra], FS), "y"));
+    expect(await run(t, "held", "approve", item.id)).toBe(0);
+    const out = t.out.join("\n");
+    expect(out).toContain(`also     ${other.id} under this rule carries repositoryId=75 ownerId=65`);
+    expect(out).toContain("WARNING  held notices under this rule carry different ids");
+    expect(out).toContain("gh api repos/octo-org/deploys --jq '.id, .owner.id'");
+    expect(await loadCiRules(w.files.ciRulesPath)).toEqual([{ ...rule, pins: PINS_GH }, extra]);
+  });
+
+  it("writes nothing back when the rule is removed while the approval waits, and names GitLab's check", async () => {
+    const rule = glRule({ pins: undefined });
+    const w = await world([rule]);
+    const s = await agent(w);
+    const first = new Promise<{ id: string }>((resolve) => s.once("held", resolve));
+    await gitlab(w);
+    const item = await first;
+    // A held item under the rule that carries no ids (held after the rule was pinned) is not listed.
+    await s.held.add({ ...(await s.held.get(item.id))!, id: ulid(), ci: { rule: rule.id } });
+    const t = term(w.phone.root, w.relay);
+    t.answers.push(async () => (await saveCiRules(w.files.ciRulesPath, [], FS), "y"));
+    expect(await run(t, "held", "approve", item.id)).toBe(1);
+    expect(t.err.join("\n")).toContain("the rule this notice matched was removed");
+    expect(await loadCiRules(w.files.ciRulesPath)).toEqual([]);
+    expect(await s.held.get(item.id)).toBeDefined();
+    const out = t.out.join("\n");
+    expect(out).toContain(`glab api projects/${encodeURIComponent("group/app")}`);
+    expect(out).not.toContain("also ");
+    expect(out).not.toContain("WARNING");
+  });
+
   it("holds every notice under a rule that says so, and the plain approval releases it", async () => {
     const w = await world([ghRule({ hold: true } as Partial<CiRule>)]);
     const s = await agent(w);
@@ -328,14 +435,77 @@ describe("the CI breaker", () => {
     await spooled(s, (n) => n.kind === "notice" && n.rendered.includes("paused CI notices from ci:github:octo-org/deploys (60 CI notices from it in an hour)"));
     await spooled(s, (n) => n.kind === "notice" && n.rendered.includes("loop breaker paused CI notices from ci:github:octo-org/deploys"));
     expect((await s.held.list()).map((h) => h.reason)).toEqual(["breaker"]);
-    // Paused now: the next is held quietly.
-    await github(w, "still paused");
-    await until(async () => (await s.held.list()).length === 2);
+    // Paused now: later notices are dropped, not held, and the drop is logged once.
+    for (let i = 0; i < 3; i++) await github(w, `still paused ${i}`);
+    await until(() => w.logs.some((l) => l.includes("are paused")), SLOW, "the paused drop");
+    await sleep(200);
+    expect(await s.held.list()).toHaveLength(1);
+    expect(w.logs.filter((l) => l.includes("are paused"))).toHaveLength(1);
     // The peer bucket is untouched: a message from the laptop is delivered.
     const lap = await openSession(w.laptop, w.mesh, w.relay, { name: "lap" });
     open.push(lap);
     await lap.send("agent@phone", "hello from a peer");
     await spooled(s, (i) => i.rendered.includes("hello from a peer"));
+  });
+});
+
+describe("held CI notices never wake the session", () => {
+  it("in channel mode pushes no CI notice, and no notice about one, through a hold and a breaker trip", async () => {
+    const w = await world([ghRule({ pins: undefined })]);
+    const s = await agent(w);
+    const pushed: SpoolItem[] = [];
+    s.push = async (item) => void pushed.push(item);
+    const notified: string[] = [];
+    (s as unknown as { o: { notifier: unknown } }).o.notifier = { notify: async (t: string) => void notified.push(t) };
+    await github(w, "first, held to pin");
+    await until(async () => (await s.held.list()).length === 1, SLOW);
+    // The first notice counted one: 59 more fill the hour, and the next notice trips the breaker.
+    for (let i = 0; i < 59; i++) s.ciBreaker.admit("github:65/74", 10);
+    for (let i = 0; i < 4; i++) await github(w, `paused ${i}`);
+    await until(() => w.logs.some((l) => l.includes("are paused")), SLOW, "the paused drop");
+    await sleep(200);
+    // The trip held one more; the rest were dropped.
+    expect((await s.held.list()).map((h) => h.reason).sort()).toEqual(["breaker", "policy"]);
+    expect(pushed).toEqual([]);
+    const notices = (await s.spool.unread()).filter((i) => i.kind === "notice");
+    expect(notices.length).toBeGreaterThan(0);
+    expect(notices.every((n) => n.forPerson === true)).toBe(true);
+    // The person was told about the first hold and about the pause; nothing more.
+    expect(notified).toHaveLength(2);
+  });
+
+  it("keeps at most five held notices under an unpinned rule, and tells the person once an hour", async () => {
+    const w = await world([ghRule({ pins: undefined })]);
+    let shift = 0;
+    const s = await agent(w, "agent", { now: () => Date.now() + shift });
+    const told = async () => (await s.spool.unread()).filter((i) => i.kind === "notice" && i.held !== undefined).map((i) => i.held);
+    for (let i = 0; i < 2; i++) await github(w, `unpinned ${i}`);
+    await until(async () => (await s.held.list()).length === 2, SLOW);
+    expect(await told()).toEqual([1]);
+    // An hour on, the person is told again.
+    shift = 3_600_000;
+    for (let i = 2; i < 7; i++) await github(w, `unpinned ${i}`);
+    await until(() => w.logs.filter((l) => l.includes("5 notices under its rule already wait")).length === 2, SLOW, "two drops at the cap");
+    expect(await s.held.list()).toHaveLength(5);
+    expect(await told()).toEqual([1, 3]);
+  });
+});
+
+describe("single use across sessions", () => {
+  it("delivers a GitLab token to one session of the device, when two get it at once", async () => {
+    const w = await world([glRule()]);
+    const a = await agent(w, "agent");
+    const b = await agent(w, "other");
+    const token = await w.ci.gl.mint(gitlabClaims(gitlabAudience(w.mesh, w.phone.device.id), w.relay.now(), {}));
+    const io = { env: w.ci.gitlabEnv(token), fetch: w.ci.fetch, now: () => w.relay.now() };
+    const [ra, rb] = await Promise.all([ciNotify({ recipient: w.code, to: "agent", text: "to a" }, io), ciNotify({ recipient: w.code, to: "other", text: "to b" }, io)]);
+    expect(ra.sent && rb.sent).toBe(true);
+    await dropped(w, "seen before");
+    const got = async (s: MeshSession, t: string) => (await s.spool.unread()).some((i) => i.rendered.includes(t));
+    const delivered = async () => [await got(a, "to a"), await got(b, "to b")].filter(Boolean).length;
+    await until(async () => (await delivered()) > 0, SLOW, "one delivery");
+    await sleep(200);
+    expect(await delivered()).toBe(1);
   });
 });
 

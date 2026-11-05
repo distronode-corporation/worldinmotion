@@ -59,7 +59,7 @@ describe("the person guard", () => {
   it("is offered by no MCP tool and no events action", () => {
     for (const file of ["mcp.ts", "events.ts"]) {
       const src = readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8");
-      expect(src).not.toMatch(/cicli|saveCiRules|pinRule|ci-rules/);
+      expect(src).not.toMatch(/cicli|saveCiRules|updateCiRules|pinRule|ci-rules/);
     }
   });
 });
@@ -162,6 +162,32 @@ describe("wim ci list and remove", () => {
     w.t.answers.push("y");
     expect(await run(w.t, "ci", "remove", "1")).toBe(0);
     expect(await loadCiRules(w.files.ciRulesPath)).toEqual([rules[1]]);
+  });
+
+  it("changes the rules as they are once the person has answered, never a copy read before the prompt", async () => {
+    const w = await setup();
+    const a: CiRule = { id: ulid(), via: "github", repo: "o/a", ref: "refs/heads/main", workflow: "d.yml" };
+    const b: CiRule = { id: ulid(), via: "gitlab", repo: "g/b", ref: "refs/heads/main" };
+    const c: CiRule = { id: ulid(), via: "gitlab", repo: "g/c", ref: "refs/heads/main" };
+    await saveCiRules(w.files.ciRulesPath, [a, b], FS);
+    // Another terminal adds a rule while this one asks: the removal keeps it.
+    w.t.answers.push(async () => (await saveCiRules(w.files.ciRulesPath, [a, b, c], FS), "y"));
+    expect(await run(w.t, "ci", "remove", "1")).toBe(0);
+    expect(await loadCiRules(w.files.ciRulesPath)).toEqual([b, c]);
+    // Another terminal removes the very rule while this one asks: nothing is written back.
+    w.t.answers.push(async () => (await saveCiRules(w.files.ciRulesPath, [c], FS), "y"));
+    expect(await run(w.t, "ci", "remove", "1")).toBe(1);
+    expect(said(w.t)).toContain("that CI rule was removed meanwhile");
+    expect(await loadCiRules(w.files.ciRulesPath)).toEqual([c]);
+    // An allow whose rule another terminal allowed meanwhile adds no second copy.
+    w.t.answers.push(async () => {
+      w.t.answers.push("y");
+      expect(await run(w.t, ...allowGithub)).toBe(0);
+      return "y";
+    });
+    expect(await run(w.t, ...allowGithub)).toBe(1);
+    expect(said(w.t)).toContain("this rule is already allowed");
+    expect((await loadCiRules(w.files.ciRulesPath)).filter((r) => r.repo === "octo-org/deploys")).toHaveLength(1);
   });
 
   it("still reads any other first word as the polling watcher's config path", async () => {

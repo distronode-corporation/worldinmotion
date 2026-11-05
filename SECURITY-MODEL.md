@@ -582,16 +582,21 @@ and dependency, and on GitHub any step can ask for an ID token of its own. So do
 push to the branch the person allowed, or change the workflow file the rule names.
 
 Can:
-- Send information-only notices to the session a rule names, on a device whose person allowed
-  its repository and ref (and, on GitHub, workflow file and event). Each arrives as relayed CI
+- Send information-only notices to any session of a device that takes CI notices (a rule names
+  no session), once that device's person allowed its repository and ref (and, on GitHub, workflow
+  file and event). Each arrives as relayed CI
   text from that repository, never a work assignment, and waits in the inbox without waking the
   session. Its text is attacker-influenced, and so are the ref, workflow and environment names in
   its frame; they are escaped, and the derived window keeps whatever the agent writes next one hop
   from work (section 7.2).
 - On GitLab, with the job's token (a bearer credential until the job times out): send one notice
   as that project from anywhere, once per token. Whoever can read the job's variables can do this.
-- Learn what the recipient code says (relay URL, mesh id, the device's public signing key) and the
-  target session's name, and fetch the device's current prekey. None of it is secret.
+- Learn what the recipient code says (relay URL, mesh id, the device's public signing key), fetch
+  the device's current prekey, and learn by that whether the device takes CI notices from each
+  provider. None of it is secret. A GitHub sender, whose token the relay verified for an allowed
+  repository, also learns whether the session it names exists and is online; a GitLab notice's
+  answer tells neither, so a recipient code is no oracle for session names or presence (SPEC
+  section 10).
 - Spend, within limits, the device's CI share: 60 notices a minute per repository, 10 queued per
   repository and 20 in all per session. Anyone with the recipient code can fill the GitLab share,
   since the relay cannot verify GitLab notices (SPEC section 18).
@@ -606,7 +611,12 @@ Cannot:
   only the sending process holds, and that key signs the notice.
 - Send a notice twice: the device keeps the notice id and the token's `jti`.
 - Change a rule, policy or limit: rules change only at the person's terminal (section 7.2).
-- Take a real peer's place in a queue: CI has a queue share and a breaker bucket of its own.
+- Take a real peer's place in a queue: CI has a queue share and a breaker bucket of its own, and
+  a notice whose provider's keys cannot be fetched is acknowledged and kept on the device to be
+  checked again, so it never holds back the acknowledgement of a peer's messages.
+- Wake the session or fill the held list: a held CI notice, and the notice about it, are for the
+  person and never start a turn; past the CI breaker later notices are dropped, not held; and a
+  rule keeps at most 5 held notices while unpinned and 20 when it holds every notice.
 
 ## 6. Properties, one by one
 
@@ -908,13 +918,16 @@ The relay can always deny service. Against members and outsiders the limits are 
 - short invite code boxes (section 5.6): only admin devices store them, 16 an hour per device, 64
   per mesh and 64 per source address, at most 4 KiB each, at most an hour, 10,000 per relay in
   all; fetches 30 an hour per source address, found or not, and three per box;
-- CI senders (section 6.17): off unless the relay's operator turns them on; 60 requests a minute
-  per source address, a 32 KiB request, an 8 KiB token and 4 KiB of text; 60 notices a minute
-  per repository (or per device's GitLab share), a CI queue of 20 per session with at most 10 per
-  repository, apart from the 50 messages; 4096 live token ids per mesh. A relay never fetches a
-  URL taken from a request, and fetches GitHub's keys for an unknown `kid` at most once a minute.
-  The relay verifies a GitHub token, an RSA check, only for a device that has rule tags; junk
-  tokens cost it that check each, within the per-source budget.
+- CI senders (section 6.17): off unless the relay's operator turns them on (off, a relay also
+  refuses `ci.rules` and stores no rule tags); CI requests count against the per-source dial limit
+  above, and in each mesh against 60 requests a minute per source address; a 32 KiB request, an
+  8 KiB token and 4 KiB of text; 60 notices a minute per repository (or per device's GitLab share),
+  a CI queue of 20 per session with at most 10 per repository, apart from the 50 messages; 4096
+  live token ids per mesh. A relay never fetches a URL taken from a request, and fetches GitHub's
+  keys for an unknown `kid` at most once a minute per process (per isolate on the Workers relay).
+  The relay verifies every GitHub token's signature, an RSA check, before it touches any mesh
+  state, so junk tokens cost it that check each, bounded by the per-source dial limit rather than
+  by the mesh's CI budget, which is spent afterwards.
 
 Per-source limits are kept under a source key, never the raw address: a keyed hash (HMAC-SHA-256)
 of the address's bucket (the IPv4 address, or the IPv6 /64) under a random secret each relay makes
@@ -1081,7 +1094,11 @@ limits.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy
-pipeline cannot pause a real peer. Past a CI limit that repository's notices are held the same way.
+pipeline cannot pause a real peer. The notice that reaches a CI limit is held for the person; later
+ones from that repository (or all CI) are dropped, logged once, until the hour rolls over. A rule
+keeps at most 5 held notices while it is unpinned and 20 when it holds every notice, and the person
+is told about held CI notices at most once an hour per rule, by a notice for the person that never
+starts a turn.
 
 ### 7.4 Secret leakage
 
@@ -1168,7 +1185,10 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   several items (agent session smuggling, section 5.2) is easy to approve piece by piece.
 - The outbound secret filter is best effort, and does not look inside binary files.
 - Approval marks and policy are files under the OS user: a local process, or an agent allowed to
-  write files unprompted, can change them.
+  write files unprompted, can change them. So are the CI rules (`ci-rules.json`) and the
+  providers' keys a device keeps (`ci-jwks.json`): whoever writes the rules allows a repository,
+  and whoever plants keys can forge notices that match any rule until the copy is a day old (a
+  copy dated in the future is ignored).
 - The rule that only a person admits a device, approves, refuses or releases a held item, or
   changes a device's policy (an interactive terminal with no agent's variables, or a local UI)
   stops an agent that runs the command or answers a prompt for its person by accident or habit. A

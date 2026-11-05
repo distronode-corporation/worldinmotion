@@ -36,7 +36,7 @@ import { resolveInvite } from "./shortcode.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
-import { loadCiRules, pinRule, saveCiRules } from "./cirules.ts";
+import { loadCiRules, pinRule, updateCiRules, type CiRule } from "./cirules.ts";
 
 export const VERSION = "0.1.8";
 
@@ -1380,14 +1380,18 @@ async function held(ctx: Ctx): Promise<number> {
   if (arg === undefined) throw new SetupError(`usage: wim held ${action} <${action === "resume" ? "peer" : "id"}>`);
   if (action === "approve" || action === "refuse") {
     personHere(ctx, `wim held ${action} ${arg}`);
-    const rows = (await listAllHeld(files, ctx.fsEnv)).filter((r) => r.id === arg);
+    const all = await listAllHeld(files, ctx.fsEnv);
+    const rows = all.filter((r) => r.id === arg);
     if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
     const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
     // A CI notice held because its rule had no ids yet: approving it pins them (SPEC section 18).
     const pins = action === "approve" ? rows[0]!.ci?.pins : undefined;
-    const rules = pins === undefined ? undefined : pinRule(await loadCiRules(files.ciRulesPath), rows[0]!.ci!.rule, pins);
-    if (!(await confirmed(ctx, heldDetails(rows, await files.loadConfig()), question))) return 1;
-    if (rules !== undefined) await saveCiRules(files.ciRulesPath, rules, files.env);
+    const rules = pins === undefined ? undefined : await loadCiRules(files.ciRulesPath);
+    // Refused before the prompt when it cannot pin, and pinned after it on the rules as they are
+    // then (another terminal may have removed or pinned the rule meanwhile).
+    if (pins !== undefined) pinRule(rules!, rows[0]!.ci!.rule, pins);
+    if (!(await confirmed(ctx, heldDetails(rows, await files.loadConfig(), all, rules), question))) return 1;
+    if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
     const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
     if (n === 0) throw new SetupError(`no held message ${arg}`);
     ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
@@ -1420,7 +1424,7 @@ function heldFor(rows: HeldRows): string {
 }
 
 /** What the person reads before approving or refusing a held item: who sent it, why it waits, its text. */
-function heldDetails(rows: HeldRows, config: MeshConfig): string[] {
+function heldDetails(rows: HeldRows, config: MeshConfig, all: HeldRows, rules: readonly CiRule[] | undefined): string[] {
   const r = rows[0]!;
   const why =
     r.reason === "breaker"
@@ -1438,6 +1442,34 @@ function heldDetails(rows: HeldRows, config: MeshConfig): string[] {
     `  held     because ${why}`,
     `  text     ${r.preview}`,
     ...(r.fileInfo === undefined ? [] : [`  file     ${sanitizeForDisplay(r.fileInfo.name)} (${r.fileInfo.size} bytes, fetched once approved)`]),
+    ...pinCheck(r, all, rules),
+  ];
+}
+
+const pinText = (pins: Record<string, string>): string => Object.entries(pins).map(([k, v]) => `${k}=${v}`).join(" ");
+
+/**
+ * For a CI notice whose approval pins its rule: every other held notice under the same rule with
+ * the ids it carries, a warning when they differ (one of them is another repository that had the
+ * same name), and how to read the real repository's ids from the provider.
+ */
+function pinCheck(r: HeldRows[number], all: HeldRows, rules: readonly CiRule[] | undefined): string[] {
+  // `rules` is read only for an approval that pins, which pinRule has checked the rule exists for.
+  if (rules === undefined) return [];
+  const mine = pinText(r.ci!.pins!);
+  // A CI notice is for one session, so each is held once.
+  const others = all.filter((o) => o.id !== r.id && o.ci?.rule === r.ci!.rule && o.ci.pins !== undefined);
+  const lines = others.map((o) => `  also     ${o.id} under this rule carries ${pinText(o.ci!.pins!)}`);
+  const rule = rules.find((x) => x.id === r.ci!.rule)!;
+  const check =
+    rule.via === "github"
+      ? `gh api repos/${rule.repo} --jq '.id, .owner.id'`
+      : `glab api projects/${encodeURIComponent(rule.repo)} (its id and namespace.id)`;
+  const differ = others.some((o) => pinText(o.ci!.pins!) !== mine);
+  return [
+    ...lines,
+    ...(differ ? ["  WARNING  held notices under this rule carry different ids: at most one is the repository you meant, and approving pins this one's for good."] : []),
+    `  check    the repository's real ids before you approve: ${check}`,
   ];
 }
 
