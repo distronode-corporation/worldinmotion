@@ -1,0 +1,85 @@
+# The worldinmotion CI notice, as a GitLab CI/CD component (SPEC section 18).
+#
+# Two jobs in the last stage: `wim-notify-success` runs when every earlier job passed,
+# `wim-notify-failure` when one failed, so exactly one sends. Each declares its own ID token
+# with wim's audience (one token, one notice). That token travels only inside the sealed box:
+# the relay never sees it, and only the receiving device verifies it. No secret is stored.
+#
+# Anything that runs in the job can read the token until the job times out, so the job runs as
+# little as possible: no clone, no cache, no artifacts, nothing from the pipeline's `default:`,
+# and a short timeout. It never fails the pipeline (`allow_failure`).
+spec:
+  inputs:
+    recipient:
+      description: >-
+        The recipient code (`wimci1_...`) that `wim ci allow gitlab` printed on the receiving
+        device. Not a secret.
+      regex: ^wimci1_[A-Za-z0-9_-]+$
+    audience:
+      description: >-
+        The ID token audience that `wim ci allow gitlab` printed (`wimci1.<mesh>.<device>`).
+        GitLab fixes a token's audience before the job runs, so it is written here.
+      regex: ^wimci1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$
+    to:
+      description: The session on that device that gets the notice.
+      regex: ^[a-z0-9][a-z0-9-]{0,31}$
+    stage:
+      description: The stage both jobs run in. The default runs them after every other stage.
+      default: .post
+    success_text:
+      description: The notice when the pipeline passed. CI/CD variables in it are expanded.
+      default: "$CI_PROJECT_PATH: pipeline $CI_PIPELINE_IID on $CI_COMMIT_REF_NAME passed. $CI_PIPELINE_URL"
+    failure_text:
+      description: The notice when a job failed. CI/CD variables in it are expanded.
+      default: "$CI_PROJECT_PATH: pipeline $CI_PIPELINE_IID on $CI_COMMIT_REF_NAME failed. $CI_PIPELINE_URL"
+    image:
+      description: The image the jobs run in; it needs Node.js 22.18 or newer and npm.
+      default: node:24-alpine
+    wim_package:
+      description: >-
+        The npm package that provides `wim`, at an exact version. The default is the release
+        this component comes from.
+      default: "worldinmotion@0.1.8"
+    tags:
+      description: Runner tags for both jobs (they do not inherit the pipeline's `default:`).
+      type: array
+      default: []
+---
+.wim-notify:
+  stage: $[[ inputs.stage ]]
+  image: $[[ inputs.image ]]
+  tags: $[[ inputs.tags ]]
+  timeout: 5 minutes
+  allow_failure: true
+  inherit:
+    default: false
+  dependencies: []
+  cache: []
+  id_tokens:
+    WIM_CI_ID_TOKEN:
+      aud: $[[ inputs.audience ]]
+  variables:
+    GIT_STRATEGY: none
+    WIM_CI_RECIPIENT: $[[ inputs.recipient ]]
+    WIM_TO: $[[ inputs.to ]]
+    WIM_PACKAGE: $[[ inputs.wim_package ]]
+    npm_config_ignore_scripts: "true"
+    npm_config_update_notifier: "false"
+    npm_config_fund: "false"
+    npm_config_audit: "false"
+  script:
+    - npm exec --yes --package="$WIM_PACKAGE" -- wim ci notify --via=gitlab --to="$WIM_TO" --text="$WIM_TEXT"
+
+wim-notify-success:
+  extends: .wim-notify
+  rules:
+    - when: on_success
+  variables:
+    WIM_TEXT: $[[ inputs.success_text ]]
+
+wim-notify-failure:
+  extends: .wim-notify
+  rules:
+    - when: on_failure
+  variables:
+    WIM_TEXT: $[[ inputs.failure_text ]]

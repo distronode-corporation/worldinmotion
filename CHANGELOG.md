@@ -63,6 +63,11 @@ body line with a bracket.
   the GitLab token in `WIM_CI_ID_TOKEN` (sealed in the box, never shown to the relay), and always
   exits 0 with one line saying what happened. A config file named `allow`, `list`, `remove` or
   `notify` for the polling `wim ci` now needs `./` before its name.
+- **CI senders as users install them** (SPEC section 18): a GitHub Action
+  (`packaging/github-action`, running the client's own `wim ci notify` from the bundle it ships
+  with) and a GitLab CI/CD component (`packaging/gitlab-component`, two jobs in `.post`, one per
+  outcome, each with its own ID token). Neither is published yet; both run from this repository
+  at a pinned commit, and a hand-run workflow sends one notice through a relay to test them.
 
 ### Changed
 

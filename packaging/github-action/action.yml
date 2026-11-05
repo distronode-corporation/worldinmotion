@@ -1,0 +1,38 @@
+# The worldinmotion CI notice, as a GitHub Action (SPEC section 18). It runs `wim ci notify`
+# from the client bundle that ships with the action, so pinning the action's commit pins the
+# exact code that runs. The job needs `permissions: id-token: write`; nothing else, and no
+# secret. The notice is information only: it never starts work in the receiving session.
+name: worldinmotion CI notice
+description: Send one information-only notice to a worldinmotion session, proven by this job's own ID token. No stored secret.
+author: Distronode
+branding:
+  icon: send
+  color: blue
+
+inputs:
+  recipient:
+    description: >-
+      The recipient code (`wimci1_...`) that `wim ci allow github` printed on the receiving
+      device. It is not a secret; a repository or organization variable is a good place for it.
+    required: true
+  to:
+    description: >-
+      The session on that device that gets the notice: 1 to 32 of a-z, 0-9 and -, starting
+      with a letter or digit.
+    required: true
+  text:
+    description: >-
+      The notice, at most 4 KiB. When empty, one line naming the workflow, its run, the ref,
+      the status (when given) and the run's URL.
+    required: false
+    default: ""
+  status:
+    description: >-
+      The outcome the default text reports. Pass `${{ job.status }}`, and run the step with
+      `if: always()` so a failed job still reports.
+    required: false
+    default: ""
+
+runs:
+  using: node24
+  main: notify.mjs

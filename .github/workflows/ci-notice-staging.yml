@@ -1,0 +1,45 @@
+name: CI notice (staging)
+
+# Runs the GitHub Action in packaging/github-action from this checkout, by hand, to send one
+# notice through a relay that takes CI senders (the staging relay before a release). It is the
+# end-to-end check of SPEC section 18 on GitHub: the receiving device must first allow this
+# repository, this workflow file and the branch it runs on with `wim ci allow github`.
+# Nothing here is published, and the only extra permission is the job's ID token.
+on:
+  workflow_dispatch:
+    inputs:
+      recipient:
+        description: The wimci1_ code `wim ci allow github` printed on the receiving device
+        required: true
+        type: string
+      to:
+        description: The receiving session
+        required: true
+        type: string
+      text:
+        description: The notice (empty for the default line)
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  notice:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      # The notice is proven with this job's ID token, requested by `wim ci notify` with wim's
+      # own audience.
+      id-token: write
+    steps:
+      # The self-repository form loads the action from this workflow's own commit, with the
+      # repository around it (the action runs the plugin's committed bundle), so no checkout.
+      - uses: $/packaging/github-action
+        with:
+          recipient: ${{ inputs.recipient }}
+          to: ${{ inputs.to }}
+          text: ${{ inputs.text }}
+          status: ${{ job.status }}
