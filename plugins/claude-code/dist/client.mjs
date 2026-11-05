@@ -89735,6 +89735,8 @@ var parkedSchema = external_exports.strictObject({ v: external_exports.literal(1
 var CiParked = class {
   path;
   env;
+  /** The last change, so changes run one at a time (a park during a retry is never written over). */
+  changing = Promise.resolve();
   constructor(path2, env3) {
     this.path = path2;
     this.env = env3;
@@ -89743,8 +89745,11 @@ var CiParked = class {
     const parsed2 = parkedSchema.safeParse(await readJson(this.path).catch(() => void 0));
     return parsed2.success ? parsed2.data.notices : [];
   }
-  async save(notices) {
-    await writeJson(this.path, { v: 1, notices }, this.env);
+  /** Reads, changes and writes the list, after every change asked for before it. */
+  update(change) {
+    const run = this.changing.then(async () => writeJson(this.path, { v: 1, notices: change(await this.list()) }, this.env));
+    this.changing = Promise.allSettled([run]);
+    return run;
   }
 };
 async function checkCiNotice(raw, d5) {
@@ -92527,12 +92532,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await this.save({});
   }
   async parkCi(msg) {
-    const parked = await this.ciParked.list();
-    if (parked.length >= CI_PARKED_MAX) {
+    let full = false;
+    await this.ciParked.update((parked) => {
+      full = parked.length >= CI_PARKED_MAX;
+      return full ? parked : [...parked, msg];
+    });
+    if (full) {
       this.logCiDrop("parked_full", `wim: dropped CI notice ${msg.id}: its provider's keys could not be fetched, and ${CI_PARKED_MAX} notices already wait for them`);
       return;
     }
-    await this.ciParked.save([...parked, msg]);
     this.ciParkedDue = this.now() + CI_PARKED_RETRY_MS;
     this.log(`wim: CI notice ${msg.id}: its provider's keys could not be fetched; it is kept and checked again later`);
   }
@@ -92546,11 +92554,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const parked = await this.ciParked.list();
     if (parked.length === 0) return;
     const kept = [];
+    const settled = new Set(parked.map((n3) => n3.id));
     for (const n3 of parked) {
       if (this.now() - n3.at > LIMITS.messageMaxAgeMs) this.log(`wim: dropped CI notice ${n3.id}: its provider's keys could not be fetched before it was too old`);
       else if (await this.checkCi(n3) === "unreachable") kept.push(n3);
     }
-    await this.ciParked.save(kept);
+    await this.ciParked.update((now) => [...kept, ...now.filter((n3) => !settled.has(n3.id))]);
   }
   /** Logs a CI drop while this minute's lines last; past them it is only counted, by reason. */
   logCiDrop(reason, line) {

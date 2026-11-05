@@ -136,6 +136,8 @@ const parkedSchema = z.strictObject({ v: z.literal(1), notices: z.array(ciNotice
 export class CiParked {
   private readonly path: string;
   private readonly env: FsEnv;
+  /** The last change, so changes run one at a time (a park during a retry is never written over). */
+  private changing: Promise<unknown> = Promise.resolve();
 
   constructor(path: string, env: FsEnv) {
     this.path = path;
@@ -147,8 +149,11 @@ export class CiParked {
     return parsed.success ? parsed.data.notices : [];
   }
 
-  async save(notices: readonly CiNotice[]): Promise<void> {
-    await writeJson(this.path, { v: 1, notices }, this.env);
+  /** Reads, changes and writes the list, after every change asked for before it. */
+  update(change: (notices: CiNotice[]) => CiNotice[]): Promise<void> {
+    const run = this.changing.then(async () => writeJson(this.path, { v: 1, notices: change(await this.list()) }, this.env));
+    this.changing = Promise.allSettled([run]);
+    return run;
   }
 }
 

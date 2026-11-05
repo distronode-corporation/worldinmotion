@@ -1,12 +1,12 @@
 // The receiving client's CI helpers (SPEC section 18): the providers' keys it fetches itself and
 // keeps on disk, and how a notice is labelled, counted and logged.
 
-import { GITHUB_ISSUER, GITLAB_ISSUER, JWKS_URLS, type GithubClaims, type GitlabClaims } from "@worldinmotion/protocol";
+import { b64u, GITHUB_ISSUER, GITLAB_ISSUER, JWKS_URLS, ulid, type CiNotice, type GithubClaims, type GitlabClaims } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderForAgent } from "../src/history.ts";
-import { CiKeys, ciBucket, ciLabel, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "../src/cireceive.ts";
+import { CiKeys, CiParked, ciBucket, ciLabel, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "../src/cireceive.ts";
 import { issuer } from "./ci-fixture.ts";
 import { FS, scratch } from "./helpers.ts";
 
@@ -133,5 +133,25 @@ describe("labels, buckets and log lines", () => {
     expect(noticeId({ id: "01ARZ3NDEKTSV4RRFFQ69G5FAV" })).toBe("01ARZ3NDEKTSV4RRFFQ69G5FAV");
     expect(noticeId({ id: "x\n" })).toBe("(no id)");
     expect(noticeId(null)).toBe("(no id)");
+  });
+});
+
+describe("CiParked", () => {
+  const key = b64u.encode(new Uint8Array(32));
+  const id22 = b64u.encode(new Uint8Array(16));
+  const notice = (): CiNotice => ({ t: "ci.send", mesh: id22, id: ulid(), device: id22, to: "agent", at: 1, via: "gitlab", xk: key, box: { s: 2, p: id22, e: key, c: "c".repeat(22) } });
+
+  it("runs changes one at a time, so a park during a retry is never written over, and a failed change stops none after it", async () => {
+    const parked = new CiParked(join(await scratch("ciparked"), "ci-parked.json"), FS);
+    const [a, b] = [notice(), notice()];
+    await Promise.all([parked.update((n) => [...n, a]), parked.update((n) => [...n, b])]);
+    expect((await parked.list()).map((n) => n.id)).toEqual([a.id, b.id]);
+    await expect(
+      parked.update(() => {
+        throw new Error("no change");
+      }),
+    ).rejects.toThrow("no change");
+    await parked.update((n) => n.slice(1));
+    expect((await parked.list()).map((n) => n.id)).toEqual([b.id]);
   });
 });

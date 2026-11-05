@@ -1014,12 +1014,15 @@ export class MeshSession extends EventEmitter {
   }
 
   private async parkCi(msg: CiNotice): Promise<void> {
-    const parked = await this.ciParked.list();
-    if (parked.length >= CI_PARKED_MAX) {
+    let full = false;
+    await this.ciParked.update((parked) => {
+      full = parked.length >= CI_PARKED_MAX;
+      return full ? parked : [...parked, msg];
+    });
+    if (full) {
       this.logCiDrop("parked_full", `wim: dropped CI notice ${msg.id}: its provider's keys could not be fetched, and ${CI_PARKED_MAX} notices already wait for them`);
       return;
     }
-    await this.ciParked.save([...parked, msg]);
     this.ciParkedDue = this.now() + CI_PARKED_RETRY_MS;
     this.log(`wim: CI notice ${msg.id}: its provider's keys could not be fetched; it is kept and checked again later`);
   }
@@ -1034,11 +1037,13 @@ export class MeshSession extends EventEmitter {
     const parked = await this.ciParked.list();
     if (parked.length === 0) return;
     const kept: CiNotice[] = [];
+    const settled = new Set(parked.map((n) => n.id));
     for (const n of parked) {
       if (this.now() - n.at > LIMITS.messageMaxAgeMs) this.log(`wim: dropped CI notice ${n.id}: its provider's keys could not be fetched before it was too old`);
       else if ((await this.checkCi(n)) === "unreachable") kept.push(n);
     }
-    await this.ciParked.save(kept);
+    // Notices parked while these were checked stay parked.
+    await this.ciParked.update((now) => [...kept, ...now.filter((n) => !settled.has(n.id))]);
   }
 
   /** Logs a CI drop while this minute's lines last; past them it is only counted, by reason. */
