@@ -31,6 +31,9 @@
     },
     "@azure/identity": {
       "@azure/msal-node": "7.1.0"
+    },
+    "@vscode/vsce": {
+      "minimatch": "11.0.3"
     }
   }
 }
