@@ -81,7 +81,7 @@ describe("a mesh id that was only dialled", () => {
   it("deletes the tables and cf_host row an earlier version wrote on every dial", async () => {
     const mesh = meshId();
     await runInDurableObject(meshStub(mesh), (_o, state) => {
-      const db = doSqlDb(state.storage.sql);
+      const db = doSqlDb(state.storage);
       migrate(db);
       db.exec("CREATE TABLE IF NOT EXISTS cf_host (k TEXT PRIMARY KEY, v TEXT NOT NULL)");
       db.exec("INSERT INTO cf_host (k, v) VALUES ('mesh', ?)", mesh);

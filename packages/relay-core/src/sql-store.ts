@@ -27,6 +27,12 @@ type SqlRow = Record<string, SqlValue>;
  */
 export interface SqlDb {
   exec(sql: string, ...params: SqlValue[]): void;
+  /**
+   * Runs `fn` as one transaction: every statement in it takes effect, or none does (it rolls back
+   * and rethrows when `fn` throws). Node runs BEGIN and COMMIT; a Durable Object, which refuses
+   * those statements, uses `transactionSync`.
+   */
+  transaction(fn: () => void): void;
   all(sql: string, ...params: SqlValue[]): SqlRow[];
   one(sql: string, ...params: SqlValue[]): SqlRow | undefined;
 }
@@ -52,11 +58,18 @@ export function positional(sql: string, params: readonly SqlValue[]): [string, .
 
 /*
  * Schema. One database holds many meshes, so every table leads with the mesh id. Migrations are
- * append-only: entry i is the list of statements that takes the schema from version i to i + 1,
- * and `wim_meta.schema` records how many have run.
+ * append-only: entry i takes the schema from version i to i + 1 with its statements, and
+ * `wim_meta.schema` records how many have run.
+ *
+ * Each entry also names `reader`: the oldest schema version whose relay still runs correctly on a
+ * database at this version. An additive migration (a new table, or a column with a default the
+ * older code never reads) keeps the reader where it was, so a relay rolled back to an older
+ * release keeps serving a database a newer one migrated; `wim_meta.reader` records it.
  */
-const MIGRATIONS: string[][] = [
-  [
+const MIGRATIONS: { reader: number; sql: string[] }[] = [
+  {
+    reader: 1,
+    sql: [
     `CREATE TABLE rosters (mesh TEXT NOT NULL, seq INTEGER NOT NULL, hash TEXT NOT NULL, json TEXT NOT NULL,
       PRIMARY KEY (mesh, seq))`,
     `CREATE TABLE forks (mesh TEXT NOT NULL, at INTEGER NOT NULL, seq INTEGER NOT NULL, kind TEXT NOT NULL,
@@ -98,7 +111,8 @@ const MIGRATIONS: string[][] = [
       PRIMARY KEY (mesh, blob, idx))`,
     `CREATE INDEX chunks_age ON chunks (mesh, at)`,
     `CREATE TABLE cards (mesh TEXT NOT NULL, sid TEXT NOT NULL, msg TEXT NOT NULL, PRIMARY KEY (mesh, sid))`,
-  ],
+    ],
+  },
 ];
 
 /** The schema version this code writes. */
@@ -106,17 +120,33 @@ export const SCHEMA_VERSION = MIGRATIONS.length;
 
 /**
  * Brings a database up to the current schema. Idempotent; call it once per database before
- * constructing stores on it. Refuses a database written by a newer version.
+ * constructing stores on it. A database a newer relay migrated is left as it is when its
+ * `reader` says this relay still runs correctly on it (an additive change), and refused
+ * otherwise, as is a newer one that records no reader (written before readers were recorded).
  */
 export function migrate(db: SqlDb): void {
+  const meta = "INSERT INTO wim_meta (k, v) VALUES (?, ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v";
   db.exec("CREATE TABLE IF NOT EXISTS wim_meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL)");
   const row = db.one("SELECT v FROM wim_meta WHERE k = 'schema'");
   const current = row === undefined ? 0 : Number(row["v"]);
-  if (current > SCHEMA_VERSION) throw new Error(`relay database schema ${current} is newer than this relay (${SCHEMA_VERSION})`);
-  for (let v = current; v < SCHEMA_VERSION; v++) {
-    for (const sql of MIGRATIONS[v]!) db.exec(sql);
-    db.exec("INSERT INTO wim_meta (k, v) VALUES ('schema', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", v + 1);
+  if (current > SCHEMA_VERSION) {
+    const reader = db.one("SELECT v FROM wim_meta WHERE k = 'reader'");
+    if (reader === undefined || Number(reader["v"]) > SCHEMA_VERSION) {
+      throw new Error(`relay database schema ${current} is newer than this relay (${SCHEMA_VERSION}) and needs a newer relay`);
+    }
+    return;
   }
+  // Each step and its version record commit together, so a process that stops in the middle
+  // (a crash, a deploy) leaves the previous version, and the next start runs the step again from
+  // its first statement rather than failing on one that already ran.
+  for (let v = current; v < SCHEMA_VERSION; v++) {
+    db.transaction(() => {
+      for (const sql of MIGRATIONS[v]!.sql) db.exec(sql);
+      db.exec(meta, "schema", v + 1);
+    });
+  }
+  // Recorded on every start, so a database migrated before readers existed gets its row too.
+  db.exec(meta, "reader", MIGRATIONS[SCHEMA_VERSION - 1]!.reader);
 }
 
 /** How many meshes the database holds: one genesis roster each. */
