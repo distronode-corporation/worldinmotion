@@ -36,7 +36,7 @@ import { resolveInvite } from "./shortcode.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
-import { loadCiRules, pinRule, updateCiRules, type CiRule } from "./cirules.ts";
+import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 
 export const VERSION = "0.1.8";
 
@@ -1386,15 +1386,11 @@ async function held(ctx: Ctx): Promise<number> {
     const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
     // A CI notice held because its rule had no ids yet: approving it pins them (SPEC section 18).
     const pins = action === "approve" ? rows[0]!.ci?.pins : undefined;
-    // Refused before the prompt when it cannot pin (pinRule throws), and pinned after it on the
-    // rules as they are then (another terminal may have removed or pinned the rule meanwhile).
-    const rules =
-      pins === undefined
-        ? undefined
-        : await loadCiRules(files.ciRulesPath).then((loaded) => {
-            pinRule(loaded, rows[0]!.ci!.rule, pins);
-            return loaded;
-          });
+    // Refused before the prompt when it cannot pin, and pinned after it on the rules as they are
+    // then (another terminal may have removed or pinned the rule meanwhile).
+    const rules = pins === undefined ? undefined : await loadCiRules(files.ciRulesPath);
+    const refusal = rules === undefined ? undefined : pinRefusal(rules, rows[0]!.ci!.rule, pins!);
+    if (refusal !== undefined) throw refusal;
     if (!(await confirmed(ctx, heldDetails(rows, await files.loadConfig(), all, rules), question))) return 1;
     if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
     const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
@@ -1426,6 +1422,20 @@ function heldLine(r: HeldRows[number]): string {
 /** The sessions on this device that hold one item (a room message can be held by several). */
 function heldFor(rows: HeldRows): string {
   return rows.map((r) => r.session).join(", ");
+}
+
+/**
+ * Why `pinRule` refuses to pin, or undefined when it can. Thrown by the caller as its own
+ * statement: a call that throws inside an expression leaves the coverage counter unable to
+ * count the branch that follows it.
+ */
+function pinRefusal(rules: readonly CiRule[], ruleId: string, pins: CiPins): unknown {
+  try {
+    pinRule(rules, ruleId, pins);
+    return undefined;
+  } catch (error) {
+    return error;
+  }
 }
 
 /** What the person reads before approving or refusing a held item: who sent it, why it waits, its text. */

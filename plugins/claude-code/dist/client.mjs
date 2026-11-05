@@ -125143,10 +125143,9 @@ async function held(ctx) {
     if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
     const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
     const pins = action === "approve" ? rows[0].ci?.pins : void 0;
-    const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath).then((loaded) => {
-      pinRule(loaded, rows[0].ci.rule, pins);
-      return loaded;
-    });
+    const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath);
+    const refusal2 = rules === void 0 ? void 0 : pinRefusal(rules, rows[0].ci.rule, pins);
+    if (refusal2 !== void 0) throw refusal2;
     if (!await confirmed(ctx, heldDetails(rows, await files.loadConfig(), all, rules), question)) return 1;
     if (pins !== void 0) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0].ci.rule, pins));
     const n3 = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
@@ -125172,6 +125171,14 @@ function heldLine(r6) {
 }
 function heldFor(rows) {
   return rows.map((r6) => r6.session).join(", ");
+}
+function pinRefusal(rules, ruleId2, pins) {
+  try {
+    pinRule(rules, ruleId2, pins);
+    return void 0;
+  } catch (error63) {
+    return error63;
+  }
 }
 function heldDetails(rows, config2, all, rules) {
   const r6 = rows[0];

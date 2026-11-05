@@ -184,6 +184,22 @@ describe("a relay is not trusted", () => {
     await dropped(w, "no_rule");
   });
 
+  it("is not acknowledged when the device fails to handle it (a disk error), and arrives when the relay delivers it again", async () => {
+    const w = await world([glRule()]);
+    const s = await agent(w);
+    const seen = (s as unknown as { seen: { claim: (...a: unknown[]) => Promise<boolean> } }).seen;
+    const claim = seen.claim.bind(seen);
+    let failures = 0;
+    seen.claim = async (...a: unknown[]) => {
+      if (failures++ === 0) throw Object.assign(new Error("EIO: i/o error, write"), { code: "EIO" });
+      return claim(...a);
+    };
+    expect((await gitlab(w)).out.sent).toBe(true);
+    await until(() => w.logs.some((l) => l.includes("wim: inbound: EIO")), SLOW, "the failure");
+    expect((await spooled(s, fromCi)).rendered).toContain("pipeline 900 passed");
+    expect(failures).toBe(2);
+  });
+
   it("logs at most 10 drops a minute, and counts the rest by reason in one line once the minute is over", async () => {
     const w = await world([glRule()]);
     let shift = 0;
