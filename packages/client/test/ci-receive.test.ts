@@ -583,7 +583,11 @@ describe("telling the relay", () => {
     await fs.writeFile(w.files.ciRulesPath, "{");
     await until(() => w.logs.some((l) => l.includes("not a valid CI rules file")));
     await saveCiRules(w.files.ciRulesPath, [glRule()], FS);
+    // The watcher sends these rules over the live link first, and then a send of the same rules
+    // is skipped, so wait for it and forget what was sent before trying the closed link.
+    await until(() => count().at(-1) === JSON.stringify({ t: "ci.rules", tags: [], gitlab: true }));
     const closed = { send: () => { throw new Error("not connected to the relay"); } };
+    (s as unknown as { ciSent: string | undefined }).ciSent = undefined;
     await (s as unknown as { sendCiRules(l: unknown): Promise<void> }).sendCiRules(closed);
     expect(w.logs.some((l) => l.includes("CI rules not sent: not connected"))).toBe(true);
     // A damaged rules file allows nothing.
