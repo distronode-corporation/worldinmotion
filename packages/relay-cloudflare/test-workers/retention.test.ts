@@ -24,7 +24,7 @@ describe("room history retention", () => {
     const mesh = meshId();
     const at = Date.now();
     const due = await runInDurableObject(meshStub(mesh), (_o, state) => {
-      const db = doSqlDb(state.storage.sql);
+      const db = doSqlDb(state.storage);
       migrate(db);
       new SqlStore(db, mesh).addHistory({ room: "#log", cur: 1, at, msg: "{}" }, 100);
       const d = nextStoreDue(db, mesh, { ...LIMITS });
@@ -48,7 +48,7 @@ describe("room history retention", () => {
     const old = Date.now() - 4 * DAY;
     const backlog = HISTORY_SWEEP_BATCH + 10;
     await runInDurableObject(meshStub(m.mesh), (_o, state) => {
-      const store = new SqlStore(doSqlDb(state.storage.sql), m.mesh);
+      const store = new SqlStore(doSqlDb(state.storage), m.mesh);
       for (let i = 0; i < backlog; i++) store.addHistory({ room: `#r${i % 4}`, cur: 1 + i, at: old + i, msg: "{}" }, 1000);
       store.addHistory({ room: "#log", cur: 0, at: old, msg: "{}" }, 1000);
     });

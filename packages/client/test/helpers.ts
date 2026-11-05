@@ -93,6 +93,8 @@ export class RelayHarness {
         exec: (sql, ...p) => void db.prepare(sql).run(...p),
         all: (sql, ...p) => db.prepare(sql).all(...p) as Record<string, string | number | null>[],
         one: (sql, ...p) => db.prepare(sql).get(...p) as Record<string, string | number | null> | undefined,
+        // The rendezvous store runs single statements only; it never asks for a transaction.
+        transaction: (fn) => fn(),
       });
     }
   }
