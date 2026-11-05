@@ -10,6 +10,8 @@ How a release reaches each install channel. Every channel carries the same clien
 | Homebrew | `brew install distronode-corporation/tap/worldinmotion` | the npm tarball | the tap (`packaging/homebrew` is the draft) |
 | VS Code Marketplace | the extension `distronode.worldinmotion` | `packages/vscode` | `release.yml` `marketplace` (gated) |
 | Open VSX | the same extension, for Cursor, VSCodium and others | `packages/vscode` | `release.yml` `openvsx` (gated) |
+| GitHub Marketplace | the action `worldinmotion CI notice` | `packaging/github-action` + the plugin bundle | not yet: its own repository, at a release (below) |
+| GitLab CI/CD Catalog | the component `notify` | `packaging/gitlab-component` | not yet: its own project, at a release (below) |
 
 ## npm: `packaging/npm`
 
@@ -59,6 +61,24 @@ tap pull request that also:
   equals the registry's `dist.integrity` and its provenance attestation names this repository's
   `release.yml` at the matching tag, then writes the formula's `url` and `sha256` and opens
   a pull request, as `bump.yml` does for the cask.
+
+## CI senders: `packaging/github-action` and `packaging/gitlab-component`
+
+The two ways a CI job sends a notice (SPEC section 18), each laid out as the root of the
+repository or project it will be published from: a GitHub repository for the Marketplace
+(`action.yml` at its root) and a GitLab project for the CI/CD Catalog (`templates/notify.yml`).
+Until then they run from this repository at a pinned commit, as their READMEs show, and
+`.github/workflows/ci-notice-staging.yml` runs the action by hand against a relay.
+
+- **The action** is a JavaScript action on GitHub's Node.js 24. `main.mjs` (through `notify.mjs`) runs `wim ci notify`
+  from the bundle beside it (`wim.mjs` in its own repository; here, the Claude Code plugin's
+  committed bundle, which CI checks against a fresh build), so the pinned commit is the code
+  that runs and nothing is downloaded. Its own repository needs a copy of `wim.mjs` from the
+  release it follows.
+- **The component** runs `npm exec` of `worldinmotion` at the exact version in its
+  `wim_package` default, which `check-versions.mjs` holds to the release version.
+
+`test/ci-integrations.test.ts` holds both to the contract of `wim ci notify`.
 
 ## Extension registries
 
