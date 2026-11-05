@@ -278,6 +278,13 @@ const CI_TELL_MS = 60 * 60_000;
 /** How often notices parked for their provider's keys are checked again (refetches are once a minute anyway). */
 const CI_PARKED_RETRY_MS = 60_000;
 
+/**
+ * Drop lines for CI notices per minute (finding 15 of the CI review): anyone holding a GitLab code
+ * can make 60 drops a minute, so past these the drops are counted by reason, one line a minute.
+ */
+const CI_DROP_LINES = 10;
+const CI_DROP_WINDOW_MS = 60_000;
+
 /** One session on one mesh. */
 export class MeshSession extends EventEmitter {
   readonly device: Device;
@@ -356,6 +363,8 @@ export class MeshSession extends EventEmitter {
   private readonly ciParked: CiParked;
   /** When parked CI notices are next checked again. */
   private ciParkedDue = 0;
+  /** This minute's CI drop lines, and the drops past CI_DROP_LINES by reason. */
+  private ciDrops = { since: 0, lines: 0, quiet: new Map<string, number>() };
   /** Delivery through MCP channel notifications instead of leaving items for the plugin. */
   push: ((item: SpoolItem) => Promise<void>) | undefined;
 
@@ -1007,7 +1016,7 @@ export class MeshSession extends EventEmitter {
   private async parkCi(msg: CiNotice): Promise<void> {
     const parked = await this.ciParked.list();
     if (parked.length >= CI_PARKED_MAX) {
-      this.log(`wim: dropped CI notice ${msg.id}: its provider's keys could not be fetched, and ${CI_PARKED_MAX} notices already wait for them`);
+      this.logCiDrop("parked_full", `wim: dropped CI notice ${msg.id}: its provider's keys could not be fetched, and ${CI_PARKED_MAX} notices already wait for them`);
       return;
     }
     await this.ciParked.save([...parked, msg]);
@@ -1030,6 +1039,29 @@ export class MeshSession extends EventEmitter {
       else if ((await this.checkCi(n)) === "unreachable") kept.push(n);
     }
     await this.ciParked.save(kept);
+  }
+
+  /** Logs a CI drop while this minute's lines last; past them it is only counted, by reason. */
+  private logCiDrop(reason: string, line: string): void {
+    this.flushCiDrops();
+    if (this.ciDrops.lines < CI_DROP_LINES) {
+      this.ciDrops.lines += 1;
+      this.log(line);
+      return;
+    }
+    this.ciDrops.quiet.set(reason, (this.ciDrops.quiet.get(reason) ?? 0) + 1);
+  }
+
+  /** Once the minute is over (checked on each drop and in housekeeping): one line for the uncounted drops, and new lines. */
+  private flushCiDrops(): void {
+    const now = this.now();
+    if (now - this.ciDrops.since < CI_DROP_WINDOW_MS) return;
+    const quiet = [...this.ciDrops.quiet];
+    if (quiet.length > 0) {
+      const total = quiet.reduce((n, [, c]) => n + c, 0);
+      this.log(`wim: dropped ${total} more CI notices without a line in the last minute (${quiet.map(([r, c]) => `${r}: ${c}`).join(", ")})`);
+    }
+    this.ciDrops = { since: now, lines: 0, quiet: new Map() };
   }
 
   /** Opens a notice's box; one for a prekey a sibling session made since is tried again after a reload. */
@@ -1056,7 +1088,7 @@ export class MeshSession extends EventEmitter {
     });
     if (!r.ok && r.reason === "unknown_key" && this.ciKeys.unreachable(CI_ISSUERS[raw.via])) return "unreachable";
     if (!r.ok) {
-      this.log(`wim: dropped CI notice ${noticeId(raw)}: ${r.reason}`);
+      this.logCiDrop(r.reason, `wim: dropped CI notice ${noticeId(raw)}: ${r.reason}`);
       return undefined;
     }
     const { notice, plaintext, claims, rule, pins } = r.value;
@@ -1065,7 +1097,7 @@ export class MeshSession extends EventEmitter {
     // at once cannot both pass; a failure after the claim loses the notice, the safe side.
     const until = ciDedupeExpiry(notice.at, claims.exp);
     if (!(await this.seen.claim([[notice.id, this.address], [jtiKey(claims), CI_SEEN]], until, now))) {
-      this.log(`wim: dropped CI notice ${notice.id}: seen before`);
+      this.logCiDrop("seen", `wim: dropped CI notice ${notice.id}: seen before`);
       return undefined;
     }
     await this.acceptCi(notice, plaintext.text, claims, rule, pins);
@@ -1109,7 +1141,7 @@ export class MeshSession extends EventEmitter {
     if (admitted.ok && pins === undefined && rule.hold !== true) return this.release(item, undefined);
     const cap = pins !== undefined ? CI_HELD_UNPINNED : CI_HELD_PER_RULE;
     if ((await this.held.list()).filter((h) => h.ci?.rule === rule.id).length >= cap) {
-      this.log(`wim: dropped CI notice ${notice.id}: ${cap} notices under its rule already wait for the person (wim held list)`);
+      this.logCiDrop("held_full", `wim: dropped CI notice ${notice.id}: ${cap} notices under its rule already wait for the person (wim held list)`);
       return;
     }
     if (!admitted.ok) {
@@ -1367,6 +1399,7 @@ export class MeshSession extends EventEmitter {
       if (this.link !== undefined) await this.sendCard(this.link, false);
       if (this.link !== undefined) await this.sendCiRules(this.link);
       await this.retryCiParked();
+      this.flushCiDrops();
     } catch (error) {
       this.log(`wim: housekeeping: ${(error as Error).message}`);
     } finally {

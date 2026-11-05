@@ -55,7 +55,8 @@ body line with a bracket.
   person hears about held CI notices at most once an hour per rule, by a notice for the person
   that is never pushed as a channel turn. `wim held approve` shows every other notice held under
   the same rule with its ids, warns when they differ, and pins on the rules as they are after the
-  typed yes; `allow`, `remove` and the pin change `ci-rules.json` under a lock.
+  typed yes; `allow`, `remove` and the pin change `ci-rules.json` under a lock. A session logs
+  at most 10 dropped CI notices a minute; past that it counts them by reason, in one line a minute.
   `wim ci notify` is the job's side: it checks that its token's audience is one `wimci1.` string
   for this recipient before it sends anything, takes a GitHub token bound to a one-time key or
   the GitLab token in `WIM_CI_ID_TOKEN` (sealed in the box, never shown to the relay), and always

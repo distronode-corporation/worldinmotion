@@ -183,6 +183,32 @@ describe("a relay is not trusted", () => {
     w.relay.inject(w.mesh, copy!);
     await dropped(w, "no_rule");
   });
+
+  it("logs at most 10 drops a minute, and counts the rest by reason in one line once the minute is over", async () => {
+    const w = await world([glRule()]);
+    let shift = 0;
+    const s = await agent(w, "agent", { now: () => Date.now() + shift });
+    let copy: string | undefined;
+    w.relay.toClient = (text) => {
+      if (text.startsWith('{"t":"ci.deliver"')) copy ??= text;
+      return text;
+    };
+    expect((await gitlab(w)).out.sent).toBe(true);
+    await spooled(s, fromCi);
+    const lines = () => w.logs.filter((l) => l.includes("dropped CI notice")).length;
+    for (let i = 0; i < 10; i++) w.relay.inject(w.mesh, copy!);
+    await until(() => lines() === 10, SLOW, "ten drop lines");
+    for (let i = 0; i < 3; i++) w.relay.inject(w.mesh, copy!);
+    // A new minute: the next drop first reports the three that had no line, then has its own.
+    const acks = () => w.relay.sentByClients.filter((t) => t.includes('"t":"ack"')).length;
+    const before = acks();
+    await until(() => acks() >= before + 3, SLOW, "the three acks");
+    expect(lines()).toBe(10);
+    shift = 61_000;
+    w.relay.inject(w.mesh, copy!);
+    await until(() => lines() === 11, SLOW, "a line in the new minute");
+    expect(w.logs.filter((l) => l.includes("more CI notices without a line"))).toEqual(["wim: dropped 3 more CI notices without a line in the last minute (seen: 3)"]);
+  });
 });
 
 describe("the providers' keys", () => {
