@@ -288,7 +288,8 @@ export class WimMcp {
     if (this.o.channel) s.push = (item) => this.pushChannel(item);
     s.start();
     this.session = s;
-    if (this.o.channel) for (const item of await s.spool.unread()) await s.take(item.cursor).then(() => this.pushChannel(item));
+    // As MeshSession.deliver does: a relayed item, or a notice for the person, never starts a turn.
+    if (this.o.channel) for (const item of await s.spool.unread()) if (item.relayed !== true && item.forPerson !== true) await s.take(item.cursor).then(() => this.pushChannel(item));
     return s;
   }
 

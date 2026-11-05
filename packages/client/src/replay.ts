@@ -31,12 +31,24 @@ export class SeenStore {
 
   /** Records an accepted id, durably, under the device-wide lock; expired entries are dropped. */
   async add(id: string, address: string, until: number, now: number): Promise<void> {
-    await withLock(`${this.path}.lock`, async () => {
+    await this.claim([[id, address]], until, now, true);
+  }
+
+  /**
+   * Single use across every process of the device: under the device-wide lock, reads the file
+   * again and records every pair only when none of them is held yet. False when one is, and then
+   * nothing is written. Two sessions that check and then add would both pass the check (SPEC
+   * section 18, step 7); a claim lets one of them through.
+   */
+  async claim(pairs: ReadonlyArray<readonly [id: string, address: string]>, until: number, now: number, force = false): Promise<boolean> {
+    return withLock(`${this.path}.lock`, async () => {
       const seen = await this.read();
+      if (!force && pairs.some(([id, address]) => (seen[key(id, address)] ?? 0) > now)) return false;
       const kept: Record<string, number> = {};
       for (const [k, t] of Object.entries(seen)) if (t > now) kept[k] = t;
-      kept[key(id, address)] = until;
+      for (const [id, address] of pairs) kept[key(id, address)] = until;
       await writeJson(this.path, { v: 1, seen: kept } satisfies SeenFile, this.env);
+      return true;
     }, this.env);
   }
 }

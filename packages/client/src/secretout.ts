@@ -7,6 +7,7 @@ import { b64u, LIMITS, randomBytes, sha256, utf8 } from "@worldinmotion/protocol
 import { timingSafeEqual } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { createConnection, createServer, type Socket } from "node:net";
+import { SetupError } from "./errors.ts";
 import { pathFor, type Platform } from "./platform.ts";
 
 /**
@@ -86,6 +87,24 @@ export function canConfirm(env: Record<string, string | undefined>, io: { isTTY:
 /** Why a confirmation cannot be taken here (`canConfirm`), or undefined when it can. */
 export function cannotConfirm(env: Record<string, string | undefined>, io: { isTTY: boolean; inputIsTTY: boolean }): string | undefined {
   return notAPerson(env, io.isTTY) ?? (io.inputIsTTY ? undefined : "this command's input is not an interactive terminal (it is piped or redirected)");
+}
+
+/**
+ * Refuses a person's decision anywhere but their own interactive terminal: standard input and
+ * output both a terminal, and no agent's variables (canConfirm). There is no flag that skips it,
+ * because an agent could pass a flag as easily as the person. Called before anything changes.
+ */
+export function requirePerson(env: Record<string, string | undefined>, io: { isTTY: boolean; inputIsTTY: boolean }, command: string): void {
+  const why = cannotConfirm(env, io);
+  if (why !== undefined) throw new SetupError(personOnly(why, command));
+}
+
+/** Shows the person what they are deciding, then asks; only a typed yes is a yes. */
+export async function confirmTyped(io: { out: (line: string) => void; err: (line: string) => void; prompt: (q: string) => Promise<string> }, lines: readonly string[], question: string): Promise<boolean> {
+  for (const line of lines) io.out(line);
+  if (/^y(es)?$/i.test((await io.prompt(`${question} [y/N] `)).trim())) return true;
+  io.err("wim: nothing changed.");
+  return false;
 }
 
 /** The recovery code display window, in minutes, for messages. */

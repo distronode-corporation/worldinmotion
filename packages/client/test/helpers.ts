@@ -84,9 +84,12 @@ export class RelayHarness {
   readonly createKey: string | undefined;
   /** With `rdv`, the relay keeps short invite codes' boxes, as relay-node does. */
   readonly rendezvous: Rendezvous | undefined;
+  /** Whether the relay takes CI senders (`WIM_CI=1`); on unless a test turns it off. */
+  readonly ci: boolean;
 
-  constructor(opts: { createKey?: string; rdv?: boolean } = {}) {
+  constructor(opts: { createKey?: string; rdv?: boolean; ci?: boolean } = {}) {
     this.createKey = opts.createKey;
+    this.ci = opts.ci ?? true;
     if (opts.rdv === true) {
       const db = new DatabaseSync(":memory:");
       this.rendezvous = new Rendezvous({
@@ -117,7 +120,7 @@ export class RelayHarness {
     const states = new Map<string, ConnState>();
     const store = new MemoryStore();
     const relay = new MeshRelay(
-      { meshId: mesh, relayUrls: [RELAY], ...(this.createKey === undefined ? {} : { createKey: this.createKey }) },
+      { meshId: mesh, relayUrls: [RELAY], ci: this.ci, ...(this.createKey === undefined ? {} : { createKey: this.createKey }) },
       {
         store,
         now: () => this.now(),
@@ -338,8 +341,11 @@ export async function makeMesh(relay: RelayHarness, names: string[], opts: { tru
   return { mesh: made.mesh, devices, recoveryCode: made.recoveryCode };
 }
 
-/** An answer to a prompt: a line, or one read when the question comes (a code another terminal printed). */
-export type Answer = string | (() => string);
+/**
+ * An answer to a prompt: a line, or one read when the question comes (a code another terminal
+ * printed), or work another terminal does while the prompt is open before the line comes.
+ */
+export type Answer = string | (() => string | Promise<string>);
 
 export type Term = { io: CliIO; out: string[]; err: string[]; answers: Answer[]; stop: AbortController; env: Record<string, string | undefined> };
 

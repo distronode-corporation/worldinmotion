@@ -151,6 +151,14 @@ export class MeshFiles {
   get peerPrekeysPath(): string {
     return join(this.dir, "peer-prekeys.json");
   }
+  /** The person's CI sender rules (SPEC section 18): which repositories may send this device notices. */
+  get ciRulesPath(): string {
+    return join(this.dir, "ci-rules.json");
+  }
+  /** The CI providers' token keys this device fetched itself, kept at most 24 hours. */
+  get ciJwksPath(): string {
+    return join(this.dir, "ci-jwks.json");
+  }
   /** The admin signing lock (SPEC section 4): one writer signs a roster at a time. */
   get rosterLock(): string {
     return join(this.dir, "roster.lock");

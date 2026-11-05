@@ -23,6 +23,11 @@ export type HeldItem = {
   fileInfo?: FileInfo;
   /** The message's own fields, for history (and in-process listeners) once it is delivered. */
   entry: HistoryEntry;
+  /**
+   * A CI notice (SPEC section 18): framed when it arrived (`rendered`), never receipted. `pins`:
+   * its rule had no ids yet, and approving it at the person's terminal pins these.
+   */
+  ci?: { rule: string; pins?: Record<string, string> };
 };
 
 export type Verdict = "approve" | "refuse";

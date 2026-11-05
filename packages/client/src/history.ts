@@ -3,7 +3,7 @@
 // what the session sent are lines of their own (`t: "receipt"`), which readers that predate them
 // skip as damaged.
 
-import { frameForAgent, isUlid, sanitizeForDisplay, ulid, ulidTime, type ResultStatus } from "@worldinmotion/protocol";
+import { frameCiForAgent, frameForAgent, isUlid, sanitizeForDisplay, ulid, ulidTime, type CiLabel, type ResultStatus } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { ensureDir, listDir, readText, removeFile } from "./fsx.ts";
@@ -32,6 +32,8 @@ export type HistoryEntry = {
   unsolicited?: true;
   /** Written while its sender handled another agent's message (revision 8): information only. */
   derived?: true;
+  /** A CI notice (SPEC section 18): where its verified token says it comes from. Always information only. */
+  ci?: CiLabel;
   /** For `out`, the receipts recorded for it, oldest first, when a query asks for them. Never stored in the entry's own line. */
   receipts?: Receipt[];
 };
@@ -237,6 +239,7 @@ class Receipts {
  * only informs.
  */
 export function frameEntry(e: HistoryEntry, trust: "self" | "assign" | "inform" = "inform"): string {
+  if (e.ci !== undefined) return frameCiForAgent({ id: e.id, at: e.at, text: e.text, label: e.ci });
   return frameForAgent({
     from: e.peer,
     deviceId: e.device ?? "",

@@ -12,8 +12,7 @@ a `ci` field in `/v1/info` (section 11), rows in sections 8, 9 and 10, and the v
 `ci.rules` with `unknown_type`, a relay sends `ci.deliver` only to sessions that sent `ci.rules`,
 and an older client ignores relay frames it cannot parse. Every existing client and relay is
 compatible, so this is a `wim/1` change. The reference relays take CI senders only when their
-operator turns them on. The text lands for review before the code: until the protocol, relay and
-client pull requests that follow it are merged, no relay or client does any of this.
+operator turns them on.
 
 Version note, unreleased: section 6 says that a room mode on MLS, the example for the reserved
 box scheme numbers from 3 up, would be `wim/2` and is a design only, not part of v0.2 (see
@@ -1423,7 +1422,13 @@ peer's place. A relay remembers at most 4096 live `jti`s per mesh and answers `l
    name.
 2. It computes the CI sender id from `xk`, opens the box with the prekey's secret (section 6b,
    `key_expired` when it is gone), and checks the plaintext as above.
-3. The token verifies as above, against JWKS the client fetches itself.
+3. The token verifies as above, against JWKS the client fetches itself. When its key is not
+   found because the issuer's JWKS could not be fetched (no answer, or not 200) and the client
+   holds no fresh copy of that issuer's keys, the notice has no verdict yet: the client
+   acknowledges it like any other, keeps it locally (at most 20 per session) and checks it again
+   about once a minute, dropping it once `at` is 47 hours old. It never holds back its acks for a
+   CI notice, which would keep a real peer's messages queued at the relay. With a fresh copy in
+   hand, a `kid` the issuer does not serve is a drop.
 4. `via` `github`: `iss` is GitHub's, `aud` is the audience for (`mesh`, `device`, `otk`), and
    `sig` verifies with `otk`. `via` `gitlab`: `iss` is `https://gitlab.com`, `aud` is
    `"wimci1." + mesh + "." + device`, and there is no `otk` or `sig`.
@@ -1434,7 +1439,9 @@ peer's place. A relay remembers at most 4096 live `jti`s per mesh and answers `l
 6. One of the person's rules matches (below). A notice whose token verifies but that matches no
    rule is dropped and logged, never held, so no repository can fill the held list.
 7. Single use: the notice id and the pair (`iss`, `jti`) were not accepted before. They are kept,
-   durably, until the later of `at` + 48 hours + 10 minutes and `exp` + 10 minutes.
+   durably, until the later of `at` + 48 hours + 10 minutes and `exp` + 10 minutes, and claimed
+   in one step under a lock the whole device shares, before the notice is delivered, so two
+   sessions of one device given the same token accept it once.
 
 **Rules** are the person's, on the receiving device only, and match exactly:
 
@@ -1457,17 +1464,25 @@ delivered before.
 
 **Presenting.** A notice that passes is relayed text (section 6a): information only, never a
 work assignment, never a new turn; it waits in the inbox and starts the `derived` window like any
-information-only item. The frame says it is relayed CI text from the provider and repository,
+information-only item. A held CI notice never starts a turn either: the client tells the person
+about held CI notices at most once an hour per rule, by a notice for the person only. The frame says it is relayed CI text from the provider and repository,
 with the workflow file, ref, short commit sha, event and run id from the verified token, written
 by a CI job (anything that runs in that job), not by a person or a session. Claim values are
 attacker-influenced strings: they get the escaping of section 6a and are cut to 200 characters. A
 rule may hold every notice for the person instead. The loop and cost breaker counts notices in a
 bucket of their own, per repository and for all CI together, apart from the limits for peers
-(SECURITY-MODEL section 7.3).
+(SECURITY-MODEL section 7.3): the notice that reaches a limit is held, and later ones are dropped
+until the hour rolls over. A rule keeps at most 5 held notices while it is unpinned and 20 when it
+holds every notice; past that a notice is dropped and logged, so no repository can fill the held
+list.
 
 **Who changes rules.** Only the person, at the client's own command line, under the rule of
 section 5 for confirmations (an interactive terminal with no agent's variables, and a typed yes).
-No tool, MCP call, message, local UI request or agent-writable setting can add a rule.
+No tool, MCP call, message or local UI request can add a rule. The rules are a file under the OS
+user (`ci-rules.json`), as the policy is, so a process of that user, or an agent allowed to write
+files, can change them (SECURITY-MODEL section 9). A change re-reads the file under a lock after
+the confirmation, so two commands never write back each other's stale copy. Approving a held
+notice that pins a rule shows every other notice held under that rule with the ids it carries.
 
 **What GitLab cannot have.** Anything that can read a GitLab job's variables (every line of its
 script and every dependency it runs) can send one notice as that project until the job times out,

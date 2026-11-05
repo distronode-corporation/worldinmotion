@@ -255,6 +255,9 @@ describe("wim mcp", () => {
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     // Something already waiting is pushed when the server starts.
     const pre = await MeshSession.open({ ...sessionOpts(devices[0]!, mesh, relay, { name: "agent" }), sessionKey: "key:chan" });
+    // A relayed item (a CI notice) and a notice for the person wait too, and are never pushed.
+    await pre.spool.write({ kind: "msg", from: "ci:github:o/r", device: "", id: "01J00000000000000000000003", at: 1, rendered: "relayed CI text", relayed: true, informs: true });
+    await pre.spool.write({ kind: "notice", from: "ci:github:o/r", device: "", id: "01J00000000000000000000004", at: 1, rendered: "1 message held", held: 1, forPerson: true });
     await pre.spool.write({ kind: "msg", from: "x@two", device: devices[1]!.device.id, id: "01J00000000000000000000001", at: 1, rendered: "waiting already" });
     await pre.stop();
     const { server, notes, client } = await connect({ device: devices[0]!, mesh, relay, name: "agent", channel: true, sessionKey: "chan" });
@@ -268,6 +271,7 @@ describe("wim mcp", () => {
     await until(() => notes.filter((n) => n.method === "notifications/claude/channel").length === 2);
     const pushed = notes.filter((n) => n.method === "notifications/claude/channel");
     expect(pushed[0]!.params).toMatchObject({ content: "waiting already" });
+    expect(pushed.some((n) => /relayed CI text|1 message held/.test(String(n.params!["content"])))).toBe(false);
     expect(pushed[1]!.params).toMatchObject({ meta: { from: "peer@two", kind: "msg" } });
     expect(String(pushed[1]!.params!["content"])).toContain("pushed");
     await until(async () => (await server.current!.spool.unread()).length === 0);

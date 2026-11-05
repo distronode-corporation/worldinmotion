@@ -93,6 +93,10 @@ export class SessionFiles {
   get historyPath(): string {
     return join(this.dir, "history.jsonl");
   }
+  /** CI notices acknowledged while their provider's keys could not be fetched, to be checked again. */
+  get ciParkedPath(): string {
+    return join(this.dir, "ci-parked.json");
+  }
   get tasksPath(): string {
     return join(this.dir, "tasks.json");
   }
