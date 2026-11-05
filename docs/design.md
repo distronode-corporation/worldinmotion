@@ -366,10 +366,9 @@ receipt from it arrives.
 
 - `wim` is bundled with esbuild into one file, `wim.mjs` (Node >= 22.18), published to npm as
   `worldinmotion` (`npm install --global worldinmotion` installs it as `wim`), attached to every
-  GitHub Release with its SHA-256, and the same bundle is the plugin's `dist/client.mjs`, except
-  for one string: the release's `wim.mjs` (and so npm's and the extension's copy) carries the
-  crash-report address in place of `globalThis.__WIM_SENTRY_DSN__`, and the plugin's committed
-  copy has `""` there. `scripts/bundle.mjs` checks that the two differ by that string alone. The VS
+  GitHub Release with its SHA-256, and the same bytes are the plugin's `dist/client.mjs`. Every
+  copy carries the committed crash-report address (`packages/client/crash-report-dsn.txt`) in
+  place of `globalThis.__WIM_SENTRY_DSN__`, which `scripts/bundle.mjs` checks. The VS
   Code extension is `distronode.worldinmotion` on the Visual Studio Marketplace and Open VSX.
 - Platforms: Linux, macOS and Windows. Platform differences (key-file permissions, which on Windows
   are ACLs and not mode bits; paths; file locking) live in one module that takes the platform as a

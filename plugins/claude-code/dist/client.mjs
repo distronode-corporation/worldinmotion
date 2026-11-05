@@ -128345,6 +128345,7 @@ function eventFromUnknownInput(client, stackParser2, exception, hint) {
 // src/crash.ts
 var CRASH_REPORTS_FILE = "crash-reports";
 var CONSENT_MAX_BYTES = 16;
+var REPORTS_PER_PROCESS = 5;
 var REPORT_TIMEOUT_MS = 3e3;
 async function readConsent(path2) {
   let text2;
@@ -128384,7 +128385,7 @@ function isBug(error64) {
 var escape2 = (text2) => text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 var CODE_FILE = /\.(?:[cm]?js|tsx?|json)$/i;
 function scrubText(text2, known) {
-  let out = text2.replace(/"[^"]*"|'[^']*'|`[^`]*`|\u201c[^\u201d]*\u201d/g, "<quoted>").replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s<>]*/gi, "<url>").replace(/\b[a-z]:[\\/][^\s<>]*/gi, "<path>").replace(/\\\\[^\s<>]+/g, "<path>").replace(/(^|[\s(=:,[{])~?\/[^\s<>),\]}]*/g, "$1<path>");
+  let out = text2.replace(/"[^"]*"|'[^']*'|`[^`]*`|\u201c[^\u201d]*\u201d/g, "<quoted>").replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s<>]*/gi, "<url>").replace(/\b[a-z]:[\\/][^\n]*/gi, "<path>").replace(/(^|[\s(=:,[{])(?:~|\.{1,2})?[\\/][^\n]*/g, "$1<path>").replace(/[^\s<>]*\\[^\n]*/g, "<path>");
   const user = known.homedir.split(/[\\/]/).filter((p3) => p3 !== "").at(-1) ?? "";
   for (const [literal2, mark] of [
     [known.homedir, "<home>"],
@@ -128397,6 +128398,7 @@ function scrubText(text2, known) {
   }
   out = out.replace(/[\w.+-]+@[\w.-]+/g, "<address>").replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, "<ip>").replace(/\b[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}\b/gi, (m4) => m4.includes("::") || m4.split(":").length > 3 ? "<ip>" : m4).replace(/\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}\b/gi, (m4) => CODE_FILE.test(m4) ? m4 : "<host>").replace(/[A-Za-z0-9+/=_-]{16,}/g, "<id>").replace(/\d{6,}/g, "<n>");
   if (findSecrets(out).length > 0) return "<removed>";
+  out = out.replace(new RegExp("(?<![\\p{L}\\p{N}_$])\\p{Lu}[\\p{L}\\p{N}_$]*", "gu"), (m4, at, all) => all.slice(0, at).trim() === "" ? m4 : "<word>");
   return out.length > 300 ? `${out.slice(0, 300)}...` : out;
 }
 function frameFile(filename) {
@@ -128504,6 +128506,10 @@ var CrashReporter = class {
   async report(error64, where) {
     if (!isBug(error64)) return false;
     if (!(await this.allowed()).ok) return false;
+    const key2 = `${error64.name}
+${error64.message}`;
+    if (this.taken.size >= REPORTS_PER_PROCESS || this.taken.has(key2)) return false;
+    this.taken.add(key2);
     const client = this.clientFor();
     const before = this.delivered;
     client.captureException(error64, { data: { where } }, new Scope());
@@ -128511,6 +128517,8 @@ var CrashReporter = class {
     return this.delivered > before;
   }
   delivered = 0;
+  /** The type and message of every report this reporter has sent. */
+  taken = /* @__PURE__ */ new Set();
   clientFor() {
     if (this.client !== void 0) return this.client;
     const facts = { release: this.o.release, command: this.o.command, platform: this.o.platform, node: process.versions.node, known: this.o.known };
@@ -128852,7 +128860,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
   }
   const ctx = new Ctx(env3, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({
-    dsn: bakedDsn(""),
+    dsn: bakedDsn("https://8a144e08992790fa91bbd33197e4b237@o4511933949083648.ingest.de.sentry.io/4512381403856976"),
     file: pathJoin(ctx.home.root, CRASH_REPORTS_FILE),
     env: env3,
     release: `worldinmotion@${VERSION}`,
@@ -128929,14 +128937,17 @@ ${USAGE}`);
     return 1;
   }
 }
-var CRASH_SENT = "wim: sent a crash report (no message text, names, ids or paths). `wim crash-reports off` stops them.";
+var CRASH_SENT = "wim: sent a crash report (the error's type, the stack and the message with paths, ids, quoted text and capitalised words removed). `wim crash-reports off` stops them.";
 var CRASH_REPORT_TERMS = [
-  "Crash reports go to Distronode's Sentry organisation in the European Union (de.sentry.io), only from",
-  "the release builds of wim, and only when a bug ends a command or goes uncaught. A report holds the",
-  "error's type, its message with names, ids, addresses, paths, URLs, quoted text and keys removed, the",
+  "Crash reports go to Distronode's Sentry organisation in the European Union (de.sentry.io), from",
+  "any bundled wim (npm, the GitHub release, the VS Code extension, the Claude Code plugin) that uses",
+  "this state directory, and only when a bug ends a command or goes uncaught, at most 5 a process. A",
+  "report holds the error's type, its message with quoted text, paths, URLs, addresses, ids, keys,",
+  "long numbers and capitalised words removed (lowercase words the code wrote into it stay), the",
   "stack's function and file names and line numbers, the wim version, the command name, the OS family",
-  "and the Node version. It never holds messages, files, keys, the mesh, device or session ids, your",
-  "user or host name, or the working directory. `wim crash-reports off` stops them at once."
+  "and the Node version. It is never given your messages, files, keys, the mesh, device or session",
+  "ids, or the working directory, and your user and host name are removed from it. `wim crash-reports",
+  "off` stops them at once."
 ];
 async function crashReports(ctx, crash) {
   const action = ctx.args.positional[0] ?? "status";
@@ -128957,8 +128968,9 @@ async function crashReports(ctx, crash) {
     ctx.io.out(`Crash reports are ${await readConsent(file2) === "on" ? "on" : "off"}.`);
   }
   const allowed = await crash.allowed();
-  if (!allowed.ok && allowed.why === "no-address") ctx.io.out("This build of wim sends none: only the release builds (npm, the GitHub release, the VS Code extension) carry the address reports go to.");
-  if (!allowed.ok && allowed.why === "env") ctx.io.out(`${forcedOff(ctx.env)} is set, so none are sent from here.`);
+  if (!allowed.ok && allowed.why === "no-address") ctx.io.out("This build of wim sends none: it runs from source, and only the bundled builds (npm, the GitHub release, the VS Code extension, the Claude Code plugin) carry the address reports go to.");
+  const off = forcedOff(ctx.env);
+  if (off !== void 0) ctx.io.out(`${off} is set, so none are sent from here.`);
   return 0;
 }
 async function init(ctx) {

@@ -17,6 +17,7 @@ import {
   parseFrame,
   readConsent,
   REPORT_TIMEOUT_MS,
+  REPORTS_PER_PROCESS,
   scrubText,
   type Facts,
   type ReporterOptions,
@@ -172,15 +173,50 @@ describe("scrubText", () => {
       "wim2-abcd-efgh-jklm-npqr-stuv-wxyz",
       "123456789",
     ];
-    const text = `bad: /home/alice/projects/payroll/notes.md and C:\\Users\\bob\\AppData\\Roaming\\wim\\device.json and \\\\fileserver\\share\\x (~/secret/plan.txt) on alice-laptop (alice-laptop.corp.example), mesh Zx3kP9qLmN2vB7wT5yR1aQ id 01JFAKEHELD000000000000001 to reviewer@alice-laptop, mail carol@example.com, text "please deploy the payroll fix tonight", relay wss://relay.example.org/v1/mesh/xyz or relay.example.org at 10.1.2.3 / fe80::1 / 2001:db8:0:0:0:0:2:1, key deadbeefcafebabe0011223344556677, code wim2-abcd-efgh-jklm-npqr-stuv-wxyz, n=123456789 in wim.mjs at 12:30:45`;
+    // A path runs to the end of its line, so each planted value gets its own line.
+    const text = [
+      "bad: /home/alice/projects/payroll/notes.md",
+      String.raw`and C:\Users\bob\AppData\Roaming\wim\device.json`,
+      String.raw`and \\fileserver\share\x`,
+      "(~/secret/plan.txt)",
+      "on alice-laptop (alice-laptop.corp.example), mesh Zx3kP9qLmN2vB7wT5yR1aQ id 01JFAKEHELD000000000000001 to reviewer@alice-laptop, mail carol@example.com, text \"please deploy the payroll fix tonight\", relay wss://relay.example.org/v1/mesh/xyz or relay.example.org at 10.1.2.3, fe80::1, 2001:db8:0:0:0:0:2:1, key deadbeefcafebabe0011223344556677, code wim2-abcd-efgh-jklm-npqr-stuv-wxyz, n=123456789 in wim.mjs at 12:30:45",
+    ].join("\n");
     const out = scrubText(text, KNOWN);
     for (const p of planted) expect(out, p).not.toContain(p);
-    expect(out).not.toMatch(/alice|bob|carol|payroll|example/i);
+    expect(out).not.toMatch(/alice|bob|carol|payroll|example|fileserver|secret/i);
     // What a bug report needs is still there.
     expect(out).toContain("wim.mjs");
     expect(out).toContain("12:30:45");
     expect(out).toContain("<quoted>");
-    expect(out).toContain("<path>");
+    expect(out.split("\n").slice(0, 4)).toEqual(["bad: <path>", "and <path>", "and <path>", "(<path>"]);
+  });
+
+  it("removes a path to the end of its line, spaces, both separators, drive letters and ~ included", () => {
+    for (const [text, want] of [
+      ["/Users/distronode/My Documents/Plan Q4.txt", "<path>"],
+      ["open /Users/distronode/My Documents/Plan Q4.txt failed", "open <path>"],
+      [String.raw`C:\Users\Jane Doe\AppData\x`, "<path>"],
+      [String.raw`at C:\Users\Jane Doe\AppData\x`, "at <path>"],
+      ["C:/Users/Jane Doe/AppData/x", "<path>"],
+      [String.raw`d:\work\Q4 plan`, "<path>"],
+      ["~/My Notes/plan b.txt", "<path>"],
+      [String.raw`~\My Notes\plan b.txt`, "<path>"],
+      ["./notes/plan b.txt and ../up/x y", "<path>"],
+      [String.raw`Users\Jane Doe\x`, "<path>"],
+      [String.raw`\\server\share name\x`, "<path>"],
+      ["first /a b\nsecond line", "first <path>\nsecond line"],
+    ] as const) {
+      expect(scrubText(text, KNOWN), text).toBe(want);
+    }
+  });
+
+  it("removes every capitalised word after the first, so a name in unquoted text goes", () => {
+    expect(scrubText("user Jane Doe not found", KNOWN)).toBe("user <word> <word> not found");
+    expect(scrubText("Cannot find Émile in the roster", KNOWN)).toBe("Cannot find <word> in the roster");
+    expect(scrubText("  Unexpected end of input", KNOWN)).toBe("  Unexpected end of input");
+    expect(scrubText("rosterOf is not a function", KNOWN)).toBe("rosterOf is not a function");
+    // Lowercase free text the code wrote into its message unquoted is what remains.
+    expect(scrubText("cannot deliver: deploy the fix tonight", KNOWN)).toBe("cannot deliver: deploy the fix tonight");
   });
 
   it("keeps an engine's message readable", () => {
@@ -190,7 +226,7 @@ describe("scrubText", () => {
   });
 
   it("skips this machine's names when they are too short to match safely, or empty", () => {
-    expect(scrubText("ab and / here", { homedir: "/", hostname: "ab" })).toBe("ab and <path> here");
+    expect(scrubText("ab and / here", { homedir: "/", hostname: "ab" })).toBe("ab and <path>");
     expect(scrubText("plain", { homedir: "", hostname: "" })).toBe("plain");
   });
 
@@ -370,7 +406,7 @@ describe("CrashReporter: on", () => {
     const ex = (event.exception as { values: { type: string; value: string; mechanism: unknown; stacktrace: { frames: { filename: string; function: string }[] } }[] }).values;
     expect(ex).toHaveLength(1);
     expect(ex[0]!.type).toBe("TypeError");
-    expect(ex[0]!.value).toBe("Cannot read properties of undefined (reading <quoted>) for <quoted> in <path> via <url>");
+    expect(ex[0]!.value).toBe("Cannot read properties of undefined (reading <quoted>) for <quoted> in <path>");
     expect(ex[0]!.mechanism).toEqual({ type: "wim.command", handled: false });
     // Sentry orders frames oldest first.
     expect(ex[0]!.stacktrace.frames.map((f) => [f.filename, f.function])).toEqual([
@@ -395,6 +431,32 @@ describe("CrashReporter: on", () => {
   it("makes its own client when none is given", async () => {
     const { r, calls } = await reporter({ makeClient: undefined });
     expect(await r.report(new TypeError("x"), "command")).toBe(true);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("sends one report per distinct type and message, and at most REPORTS_PER_PROCESS in all", async () => {
+    expect(REPORTS_PER_PROCESS).toBe(5);
+    const { r, calls } = await reporter();
+    // The same bug again and again: one report.
+    for (let i = 0; i < 20; i++) expect(await r.report(new TypeError("recurring"), "unhandledRejection")).toBe(i === 0);
+    expect(calls).toHaveLength(1);
+    // Same message, another type, and same type, another message: each is new.
+    expect(await r.report(new RangeError("recurring"), "command")).toBe(true);
+    expect(await r.report(new TypeError("another"), "command")).toBe(true);
+    expect(calls).toHaveLength(3);
+    // Many at once cannot pass the cap between them.
+    const results = await Promise.all(Array.from({ length: 10 }, (_, i) => r.report(new TypeError(`burst ${i}`), "unhandledRejection")));
+    expect(results.filter(Boolean)).toHaveLength(2);
+    expect(calls).toHaveLength(REPORTS_PER_PROCESS);
+    expect(await r.report(new SyntaxError("later"), "command")).toBe(false);
+    expect(calls).toHaveLength(REPORTS_PER_PROCESS);
+  });
+
+  it("counts nothing it was not allowed to send", async () => {
+    const { r, calls, file } = await reporter({}, "off\n");
+    for (let i = 0; i < REPORTS_PER_PROCESS + 1; i++) expect(await r.report(new TypeError(`while off ${i}`), "command")).toBe(false);
+    await fs.writeFile(file, "on\n");
+    expect(await r.report(new TypeError("while off 0"), "command")).toBe(true);
     expect(calls).toHaveLength(1);
   });
 });
@@ -458,6 +520,12 @@ describe("wim crash-reports", () => {
     const quiet = term(home, new RelayHarness(), {}, { DO_NOT_TRACK: "1" });
     expect(await run(quiet, "crash-reports")).toBe(0);
     expect(quiet.out).toEqual(["Crash reports are on.", "DO_NOT_TRACK is set, so none are sent from here."]);
+
+    // Run from source, the variable is still named, after the missing address.
+    delete globalThis.__WIM_SENTRY_DSN__;
+    const managed = term(home, new RelayHarness(), {}, { WIM_NO_CRASH_REPORTS: "1" });
+    expect(await run(managed, "crash-reports")).toBe(0);
+    expect(managed.out).toEqual(["Crash reports are on.", expect.stringMatching(/^This build of wim sends none: it runs from source/), "WIM_NO_CRASH_REPORTS is set, so none are sent from here."]);
 
     // An agent's shell can turn them off.
     const agent = term(home, new RelayHarness(), {}, { CLAUDECODE: "1" });

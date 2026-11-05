@@ -128,6 +128,26 @@ Every dependency is a piece of code that runs next to private keys, so:
   request why a new dependency is worth its weight, and check its licence is compatible
   with Apache-2.0.
 
+## Crash reports
+
+The crash-report address (a Sentry DSN) is committed, at `packages/client/crash-report-dsn.txt`.
+That is an exception: Distronode's other repositories never commit a DSN, so that a fork's build
+or one compiled from source never sends to Distronode. The reason it is different here is that the
+Claude Code plugin ships as committed source: the marketplace installs `plugins/claude-code` from
+this repository at the release tag, so the plugin's `dist/client.mjs` can only carry the address
+if the repository does, and every bundle (npm, the GitHub Release, the extension, the plugin) is
+then the same bytes. A DSN only lets a program submit events, never read them, and the published
+packages carry it anyway. What keeps the exception safe:
+
+- Nothing is sent until a person runs `wim crash-reports on` (README, Crash reports).
+- `wim` run from source has no address: it reaches only the bundle, by `scripts/bundle.mjs`, and
+  is not a TypeScript constant.
+- CI sets `WIM_NO_CRASH_REPORTS=1` for every job (`test/crash-reports.test.ts`), so no run sends.
+- A process sends at most 5 reports, and the project's key is rate limited.
+- A fork that ships its own `wim` should put its own address in this file, or its users' reports,
+  once they say yes, come to Distronode. Changing the address is a change to this file only;
+  `bundle.mjs` refuses anything that is not one https DSN.
+
 ## The protocol specification
 
 `SPEC.md` is versioned along with the code. A pull request that changes it must:

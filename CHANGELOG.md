@@ -16,13 +16,14 @@ body line with a bracket.
 ### Added
 
 - **Crash reports, opt in and off by default.** `wim crash-reports on` (a person at their own
-  terminal only, after reading what a report holds; no is the default) lets the release builds
-  of `wim` send a report to Distronode's Sentry organisation in the EU when a bug ends a command
+  terminal only, after reading what a report holds; no is the default) lets every bundled `wim`
+  send a report to Distronode's Sentry organisation in the EU when a bug ends a command
   or goes uncaught; `wim crash-reports off` stops them at once. A report holds the error's type,
   its scrubbed message, function and file names and line numbers, the version, the command name,
   the OS family and the Node version, and never message text, keys, ids, addresses, paths or
-  names. The address is written into the release bundles from the `WIM_SENTRY_DSN` secret, so a
-  build from source and the Claude Code plugin never send. `WIM_NO_CRASH_REPORTS` and
+  names, at most 5 a process and one per distinct error. The address is committed
+  (`packages/client/crash-report-dsn.txt`) and written into every bundle, the Claude Code
+  plugin's included; `wim` run from source has none. `WIM_NO_CRASH_REPORTS` and
   `DO_NOT_TRACK` keep them off; the VS Code extension sets the first while VS Code's telemetry is
   off, and gains **Turn Crash Reports On...** and **Turn Crash Reports Off**. New dependency:
   `@sentry/core` 11.10.0 in the client (MIT), with no integrations; the bundle grows by about

@@ -566,16 +566,19 @@ export async function main(argv: readonly string[], env: Record<string, string |
 }
 
 /** Said after a report went out, so a person reading the error knows. */
-export const CRASH_SENT = "wim: sent a crash report (no message text, names, ids or paths). `wim crash-reports off` stops them.";
+export const CRASH_SENT = "wim: sent a crash report (the error's type, the stack and the message with paths, ids, quoted text and capitalised words removed). `wim crash-reports off` stops them.";
 
 /** What a person turning crash reports on is told before saying yes. */
 export const CRASH_REPORT_TERMS = [
-  "Crash reports go to Distronode's Sentry organisation in the European Union (de.sentry.io), only from",
-  "the release builds of wim, and only when a bug ends a command or goes uncaught. A report holds the",
-  "error's type, its message with names, ids, addresses, paths, URLs, quoted text and keys removed, the",
+  "Crash reports go to Distronode's Sentry organisation in the European Union (de.sentry.io), from",
+  "any bundled wim (npm, the GitHub release, the VS Code extension, the Claude Code plugin) that uses",
+  "this state directory, and only when a bug ends a command or goes uncaught, at most 5 a process. A",
+  "report holds the error's type, its message with quoted text, paths, URLs, addresses, ids, keys,",
+  "long numbers and capitalised words removed (lowercase words the code wrote into it stay), the",
   "stack's function and file names and line numbers, the wim version, the command name, the OS family",
-  "and the Node version. It never holds messages, files, keys, the mesh, device or session ids, your",
-  "user or host name, or the working directory. `wim crash-reports off` stops them at once.",
+  "and the Node version. It is never given your messages, files, keys, the mesh, device or session",
+  "ids, or the working directory, and your user and host name are removed from it. `wim crash-reports",
+  "off` stops them at once.",
 ];
 
 /** `wim crash-reports`: shows, turns on (a person only, asked first) or turns off crash reports. */
@@ -598,8 +601,10 @@ async function crashReports(ctx: Ctx, crash: CrashReporter): Promise<number> {
     ctx.io.out(`Crash reports are ${(await readConsent(file)) === "on" ? "on" : "off"}.`);
   }
   const allowed = await crash.allowed();
-  if (!allowed.ok && allowed.why === "no-address") ctx.io.out("This build of wim sends none: only the release builds (npm, the GitHub release, the VS Code extension) carry the address reports go to.");
-  if (!allowed.ok && allowed.why === "env") ctx.io.out(`${forcedOff(ctx.env)} is set, so none are sent from here.`);
+  if (!allowed.ok && allowed.why === "no-address") ctx.io.out("This build of wim sends none: it runs from source, and only the bundled builds (npm, the GitHub release, the VS Code extension, the Claude Code plugin) carry the address reports go to.");
+  // Named whatever else holds, so a person who set it sees that it is read.
+  const off = forcedOff(ctx.env);
+  if (off !== undefined) ctx.io.out(`${off} is set, so none are sent from here.`);
   return 0;
 }
 

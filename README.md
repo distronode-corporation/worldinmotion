@@ -411,8 +411,8 @@ names the gaps. To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Crash reports (opt in)
 
-The release builds of `wim` can send a crash report to Distronode's Sentry organisation in the
-European Union (de.sentry.io) when a bug ends a command. They are off until you turn them on, and
+Every bundled `wim` can send a crash report to Distronode's Sentry organisation in the European
+Union (de.sentry.io) when a bug ends a command. They are off until you turn them on, and
 nothing asks you to: run this yourself, in your own terminal.
 
 ```
@@ -426,9 +426,11 @@ terminal running the same commands with the extension's own client.
 
 - **Nothing is sent before a yes.** The answer is the file `crash-reports` in the state directory
   that `wim doctor` names, holding `on` or `off`; no file, or anything else in it, is no. No
-  environment variable or flag can turn reports on, and an agent cannot: `wim crash-reports on`
-  runs only at an interactive terminal with no agent's variables set, like `wim devices trust`
-  (anyone may turn them off). The answer is read when an error happens, so no Sentry client is set
+  environment variable or flag can turn reports on, and an agent cannot through the command: `wim
+  crash-reports on` runs only at an interactive terminal with no agent's variables set, like `wim
+  devices trust` (anyone may turn them off). The file itself is an ordinary file of yours, so any
+  program running as you, an agent's shell included, could write `on` into it; turn reports off
+  with `WIM_NO_CRASH_REPORTS=1` where that matters (SECURITY-MODEL.md, section 5.8). The answer is read when an error happens, so no Sentry client is set
   up until a report is about to go. Tests (`packages/client/test/crash.test.ts`) check that with
   the answer missing, off or misspelt, or reports turned off by the environment, a bug sets up no
   client and makes no request, and that with it on, exactly one scrubbed event is sent.
@@ -438,22 +440,28 @@ terminal running the same commands with the extension's own client.
 - **What is reported:** only a bug, that is one of JavaScript's own `TypeError`, `RangeError`,
   `ReferenceError`, `SyntaxError`, `URIError` or `EvalError`, that ends a command or that no code
   was waiting for. A refusal, a set-up problem, or a relay or network failure is never reported.
+- **At most 5 a process,** and one for each distinct error, so a bug that keeps recurring in a
+  long-running `wim mcp` sends one report, not one each time.
 - **What a report holds:** the error's type and its message after scrubbing, the stack's function
   names, file names (`wim.mjs`, never a directory) and line numbers, the wim version, the command
   name (`send`, `mcp`), the OS family (`linux`, `darwin`, `win32`) and the Node version.
 - **What it does not:** message text, files, keys, invite and recovery codes, the mesh, device and
   session ids, addresses, room names, your user name, host name and home directory, the working
-  directory, the relay URL, arguments and environment variables. Before a report leaves, the
-  message has quoted text, URLs, file paths, `name@device` and email addresses, IP addresses,
-  domain names, long ids and tokens and long numbers replaced with placeholders, and a message
-  that still looks like a credential is dropped whole. A report has no breadcrumbs, no user, no
+  directory, the relay URL, arguments and environment variables: none of these is given to the
+  report. Before a report leaves, the error's message has quoted text, URLs, file paths (each to
+  the end of its line, spaces and all), `name@device` and email addresses, IP addresses, domain
+  names, long ids and tokens, long numbers and every capitalised word after the first replaced
+  with placeholders, and a message that still looks like a credential is dropped whole. What can
+  remain is lowercase words: an engine's own wording, and anything the code wrote into the
+  message unquoted. A report has no breadcrumbs, no user, no
   host name and no request. Sentry still sees the connection's IP address, as any server does,
   and the project is set not to store it.
-- **Only the release builds can send:** the npm package, the `wim.mjs` attached to a GitHub
-  Release and the VS Code extension. The release workflow writes the reporting address into those
-  bundles (the `WIM_SENTRY_DSN` repository secret); the code does not contain it, so `wim` run
-  from source, a fork's build and the Claude Code plugin's bundle, which is committed to this
-  repository, never send. The relays have no crash reporting.
+- **Which builds can send:** every bundled `wim` (npm, the GitHub Release `wim.mjs`, the VS Code
+  extension and the Claude Code plugin) carries the reporting address, which is committed at
+  `packages/client/crash-report-dsn.txt`. A Sentry address only lets a program submit events,
+  not read them. Nothing is sent until you run `wim crash-reports on`, and your answer applies to
+  every copy of `wim` that shares the state directory. `wim` run from source carries no address.
+  The relays have no crash reporting.
 
 ## Self-hosting a relay
 

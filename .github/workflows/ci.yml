@@ -42,17 +42,17 @@ on:
           pull requests nothing is uploaded.
         type: boolean
         default: false
-    secrets:
-      WIM_SENTRY_DSN:
-        description: >-
-          The crash-report address (packages/client/src/crash.ts), which the client bundle in
-          the .vsix carries. release.yml passes it together with `vsix_artifact`; without it
-          the .vsix is built with no address and never sends a report.
-        required: false
 
 # Least privilege, and nothing here writes.
 permissions:
   contents: read
+
+# Every bundle carries the committed crash-report address (packages/client/crash-report-dsn.txt),
+# so no run here may ever send a report, whatever a test or the smoke test writes into a state
+# directory: this keeps reporting off in every job and step (packages/client/src/crash.ts,
+# forcedOff). test/crash-reports.test.ts checks it stays.
+env:
+  WIM_NO_CRASH_REPORTS: "1"
 
 # Only pull requests cancel in flight: a superseded pull request run is waste, a
 # superseded main run is history.
@@ -162,24 +162,6 @@ jobs:
       # build.
       - name: the committed plugin bundle equals a fresh build
         run: git diff --exit-code --stat plugins/claude-code/dist/client.mjs
-
-      # Crash reports: only the .vsix release.yml publishes carries the address, built again
-      # here from the same sources (bundle.mjs checks that it differs from the build above by
-      # that string alone), so the smoke test and the package below both run that bundle. An
-      # empty secret would ship an extension whose reports are silently absent, so it fails.
-      - name: carry the crash-report address (release only)
-        if: inputs.vsix_artifact
-        env:
-          WIM_SENTRY_DSN: ${{ secrets.WIM_SENTRY_DSN }}
-        run: |
-          set -euo pipefail
-          if [ -z "$WIM_SENTRY_DSN" ]; then
-            echo "::error::WIM_SENTRY_DSN is not set; this release's .vsix would carry no crash-report address"
-            exit 1
-          fi
-          npm run bundle --workspace=@worldinmotion/client
-          npm run bundle --workspace=worldinmotion
-          git diff --exit-code --stat plugins/claude-code/dist/client.mjs
 
       - name: xvfb
         run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)

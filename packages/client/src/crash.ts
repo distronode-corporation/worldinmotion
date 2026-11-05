@@ -1,21 +1,26 @@
-// Crash reports: off unless the person turned them on, and then only from a release build.
+// Crash reports: off unless the person turned them on, and then only from a bundled build.
 //
 // OFF UNLESS BOTH OF THESE HOLD, AND NOTHING IS SET UP OR SENT OTHERWISE:
-//   1. the build has an address. The release workflow bundles `wim` with WIM_SENTRY_DSN, which
-//      scripts/bundle.mjs writes into the bundle in place of `globalThis.__WIM_SENTRY_DSN__`. Run
-//      from source, a fork's build, the Claude Code plugin's committed bundle and every CI build
-//      have none, so they never report. No environment variable supplies one: the address is
-//      read from that one global, never from SENTRY_DSN or anything else in the environment;
+//   1. the build has an address. scripts/bundle.mjs writes the committed address
+//      (packages/client/crash-report-dsn.txt) into the bundle in place of
+//      `globalThis.__WIM_SENTRY_DSN__`, so every bundled `wim` has it: npm's, the GitHub release's,
+//      the VS Code extension's and the Claude Code plugin's. Run from source (tsx, the tests) there
+//      is none, so it never reports. No environment variable supplies one: the address is read
+//      from that one global, never from SENTRY_DSN or anything else in the environment;
 //   2. the person said yes: `$WIM_HOME/crash-reports` holds exactly `on`, written by `wim
 //      crash-reports on`, which only a person at their own terminal can run (requirePerson) and
-//      which asks first, with no as the default. No file, `off`, or anything else is no.
+//      which asks first, with no as the default. No file, `off`, or anything else is no. The
+//      file itself is not guarded: any process running as the person can write it, so
+//      requirePerson keeps agents from the command, not from the file (SECURITY-MODEL.md).
 // WIM_NO_CRASH_REPORTS or DO_NOT_TRACK in the environment turns reporting off whatever the file
 // says (the VS Code extension sets the first when VS Code's telemetry is off); nothing in the
 // environment can turn it on.
 //
 // The answer is read when an error happens, not at start, so a command that never fails reads
 // nothing, a Sentry client exists only for a report that is going to be sent, and `wim
-// crash-reports off` stops a running `wim mcp` from reporting at once.
+// crash-reports off` stops a running `wim mcp` from reporting at once. A process sends at most
+// REPORTS_PER_PROCESS reports, and one for each distinct error type and message, so a bug that
+// recurs in a long-running `wim mcp` cannot flood the project.
 //
 // What is reported: an error a bug causes (one of JavaScript's own TypeError, RangeError,
 // ReferenceError, SyntaxError, URIError or EvalError, isBug) that ends a command or that no code
@@ -34,7 +39,7 @@ import { findSecrets } from "@worldinmotion/protocol";
 import type { Platform } from "./platform.ts";
 
 declare global {
-  /** The crash-report address, written in by the release bundle; undefined in every other build. */
+  /** The crash-report address, written in by scripts/bundle.mjs; undefined when run from source. */
   var __WIM_SENTRY_DSN__: string | undefined;
 }
 
@@ -46,6 +51,9 @@ export type Consent = "on" | "off" | undefined;
 
 /** The longest answer file read; anything longer is no answer. */
 const CONSENT_MAX_BYTES = 16;
+
+/** The most reports one process sends, however many bugs it hits. */
+export const REPORTS_PER_PROCESS = 5;
 
 /** How long a report may take to leave before the command ends anyway. */
 export const REPORT_TIMEOUT_MS = 3000;
@@ -110,19 +118,24 @@ const CODE_FILE = /\.(?:[cm]?js|tsx?|json)$/i;
 /**
  * `text` with everything that could name a person, a machine, a mesh or what was said replaced by
  * a placeholder, cut to 300 characters. In this order: anything quoted (names, addresses and
- * message text are quoted when an error repeats them); URLs; file paths of every platform; this
- * machine's home directory, user name and host name wherever else they appear; addresses
- * (`name@device`, email); IP addresses; domain names; ids, keys, codes and tokens (any run of 16
- * or more letters, digits, `-`, `_`, `+`, `/` or `=`); numbers of 6 or more digits. Text that
- * still looks like a credential (protocol's findSecrets) is dropped whole.
+ * message text are quoted when an error repeats them); URLs; file paths of every platform (a
+ * drive letter, `\\server`, `/`, `~`, `./` or `../` at the start of a word, or any word with a
+ * backslash in it), each to the end of its line, because a path can hold spaces and nothing
+ * short of the line's end is known to end it; this machine's home directory, user name and host
+ * name wherever else they appear; addresses (`name@device`, email); IP addresses; domain names;
+ * ids, keys, codes and tokens (any run of 16 or more letters, digits, `-`, `_`, `+`, `/` or `=`);
+ * numbers of 6 or more digits; every word after the first that starts with a capital letter (a
+ * name, a title). Text that still looks like a credential (protocol's findSecrets) before that
+ * last step is dropped whole. What can remain is lowercase words, as an engine's own messages
+ * are written, and those a program wrote into its message unquoted.
  */
 export function scrubText(text: string, known: Known): string {
   let out = text
     .replace(/"[^"]*"|'[^']*'|`[^`]*`|\u201c[^\u201d]*\u201d/g, "<quoted>")
     .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s<>]*/gi, "<url>")
-    .replace(/\b[a-z]:[\\/][^\s<>]*/gi, "<path>")
-    .replace(/\\\\[^\s<>]+/g, "<path>")
-    .replace(/(^|[\s(=:,[{])~?\/[^\s<>),\]}]*/g, "$1<path>");
+    .replace(/\b[a-z]:[\\/][^\n]*/gi, "<path>")
+    .replace(/(^|[\s(=:,[{])(?:~|\.{1,2})?[\\/][^\n]*/g, "$1<path>")
+    .replace(/[^\s<>]*\\[^\n]*/g, "<path>");
   const user = known.homedir.split(/[\\/]/).filter((p) => p !== "").at(-1) ?? "";
   for (const [literal, mark] of [
     [known.homedir, "<home>"],
@@ -140,7 +153,9 @@ export function scrubText(text: string, known: Known): string {
     .replace(/\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}\b/gi, (m) => (CODE_FILE.test(m) ? m : "<host>"))
     .replace(/[A-Za-z0-9+/=_-]{16,}/g, "<id>")
     .replace(/\d{6,}/g, "<n>");
+  // Before the capitalised words go, which would hide a credential's shape (a PEM header).
   if (findSecrets(out).length > 0) return "<removed>";
+  out = out.replace(/(?<![\p{L}\p{N}_$])\p{Lu}[\p{L}\p{N}_$]*/gu, (m, at: number, all: string) => (all.slice(0, at).trim() === "" ? m : "<word>"));
   return out.length > 300 ? `${out.slice(0, 300)}...` : out;
 }
 
@@ -283,7 +298,9 @@ export type ReporterOptions = {
 
 /**
  * Reports bugs for one command, when allowed: `report` checks the address, the environment and the
- * person's answer, in that order, each time, and only then makes a client. Never throws.
+ * person's answer, in that order, each time, and only then makes a client. Never throws. main
+ * makes one per process, so its limits are the process's: at most REPORTS_PER_PROCESS reports,
+ * and one for each distinct error type and message.
  */
 export class CrashReporter {
   private readonly o: ReporterOptions;
@@ -308,6 +325,11 @@ export class CrashReporter {
   async report(error: unknown, where: Where): Promise<boolean> {
     if (!isBug(error)) return false;
     if (!(await this.allowed()).ok) return false;
+    // Checked and taken after the await, with nothing awaited between, so two errors at once
+    // cannot both take the last place.
+    const key = `${error.name}\n${error.message}`;
+    if (this.taken.size >= REPORTS_PER_PROCESS || this.taken.has(key)) return false;
+    this.taken.add(key);
     const client = this.clientFor();
     const before = this.delivered;
     client.captureException(error, { data: { where } }, new Scope());
@@ -316,6 +338,9 @@ export class CrashReporter {
   }
 
   private delivered = 0;
+
+  /** The type and message of every report this reporter has sent. */
+  private readonly taken = new Set<string>();
 
   private clientFor(): Client {
     if (this.client !== undefined) return this.client;
