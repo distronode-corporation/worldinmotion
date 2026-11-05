@@ -124,6 +124,13 @@ client exits, the extension restarts it, waiting longer after each failure (1 s 
 - **Settings come from you, not from a workspace.** All four settings have `machine` scope,
   so a repository's `.vscode/settings.json` cannot point the extension at another program or
   change its session name.
+- **Crash reports are off until you turn them on.** The extension itself never reports: it runs
+  in VS Code's extension host, which it shares with every other extension. Its bundled client
+  can, once you run **worldinmotion: Turn Crash Reports On...**, which opens a terminal running
+  `wim crash-reports on`: it shows what a report holds and asks, with no as the default.
+  **Turn Crash Reports Off** stops them. While VS Code's own telemetry setting is off, the client
+  is started with `WIM_NO_CRASH_REPORTS=1` and sends none, whatever you answered. What a report
+  holds is in the [repository's README](https://github.com/distronode-corporation/worldinmotion#crash-reports-opt-in).
 
 ## Settings
 
@@ -134,7 +141,8 @@ client exits, the extension restarts it, waiting longer after each failure (1 s 
 | `worldinmotion.notifyOnMessage` | `true` | A notification when a message arrives for this window's session. |
 | `worldinmotion.notifyForClaudeTabs` | `false` | Also a notification when a message arrives for any Claude Code session on this device, naming the tab it went to (`<folder>@<device>`). Needs `notifyOnMessage`. |
 
-Changing `sessionName` or `wimPath` restarts the client.
+Changing `sessionName` or `wimPath` restarts the client, and so does turning VS Code's telemetry
+setting on or off.
 
 ## Remote SSH, containers and WSL
 

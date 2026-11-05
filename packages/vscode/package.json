@@ -199,6 +199,16 @@
         "command": "worldinmotion.startSigner",
         "title": "Start Signer",
         "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.crashReportsOn",
+        "title": "Turn Crash Reports On...",
+        "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.crashReportsOff",
+        "title": "Turn Crash Reports Off",
+        "category": "worldinmotion"
       }
     ],
     "menus": {

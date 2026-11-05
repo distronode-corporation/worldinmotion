@@ -105,6 +105,9 @@ counts read from disk refresh every five seconds while the pane is shown.
 
 ## Privacy and safety
 
+- The plugin sends no crash reports: its bundle is committed to the repository without the
+  address reports go to, so `wim crash-reports on` changes nothing for it. The npm `wim` and the
+  VS Code extension can send them once you turn them on (repository README, Crash reports).
 - Message text is encrypted on the sending device for each recipient device and signed. The
   relay routes ciphertext and never holds the keys. It does see metadata: device and session
   names, who sends to whom, when, and how large. See `SECURITY-MODEL.md` in the repository.

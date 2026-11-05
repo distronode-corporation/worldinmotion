@@ -213,6 +213,9 @@ function freshState() {
     executed: [] as { id: string; args: unknown[] }[],
     config: new Map<string, unknown>(),
     configEvents: new EventEmitter<{ affectsConfiguration(section: string): boolean }>(),
+    /** VS Code's telemetry switch, and its change event. */
+    telemetry: true,
+    telemetryEvents: new EventEmitter<boolean>(),
     closeEvents: new EventEmitter<TextDocument>(),
     providers: new Map<string, ContentProvider>(),
     webviewProviders: new Map<string, { resolveWebviewView(view: FakeWebviewView): void }>(),
@@ -247,6 +250,11 @@ export const fake = {
   closeTerminal(t: FakeTerminal, code: number | undefined): void {
     t.exitStatus = { code };
     this.state.terminalCloses.fire(t);
+  },
+  /** Turns VS Code's telemetry on or off, then fires the change event. */
+  setTelemetry(on: boolean): void {
+    this.state.telemetry = on;
+    this.state.telemetryEvents.fire(on);
   },
   /** Changes a setting the way the Settings editor does: stored, then the change event. */
   setConfig(key: string, value: unknown): void {
@@ -392,6 +400,10 @@ export const window = {
 };
 
 export const env = {
+  get isTelemetryEnabled(): boolean {
+    return fake.state.telemetry;
+  },
+  onDidChangeTelemetryEnabled: (fn: Listener<boolean>) => fake.state.telemetryEvents.event(fn),
   clipboard: {
     writeText(text: string): Promise<void> {
       fake.state.clipboard = text;

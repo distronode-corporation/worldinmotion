@@ -41,8 +41,9 @@ name: Release
 #            disagrees with the tag) and extracts the release notes once.
 #   test     ci.yml itself, called as a reusable workflow on the tagged commit, with no
 #            npm cache.
-#   client   builds wim.mjs and SHA256SUMS. Read-only token; runs dependency code, uploads
-#            only to this run's artifact store.
+#   client   builds wim.mjs (carrying the crash-report address, secret WIM_SENTRY_DSN) and
+#            SHA256SUMS. Read-only token; runs dependency code, uploads only to this run's
+#            artifact store.
 #   draft    attests wim.mjs and creates the release as a DRAFT holding exactly the two
 #            assets. It sees the built files, never source.
 #   image    builds, pushes and attests the relay image. Holds `packages: write`. It runs
@@ -164,6 +165,10 @@ jobs:
       no_cache: true
       # The .vsix the marketplace and openvsx jobs publish, as the artifact `vsix`.
       vsix_artifact: true
+    # The crash-report address the .vsix's client carries; only the DSN, which the bundle
+    # holds for anyone to read anyway.
+    secrets:
+      WIM_SENTRY_DSN: ${{ secrets.WIM_SENTRY_DSN }}
 
   client:
     needs: [guard, test]
@@ -186,12 +191,25 @@ jobs:
 
       - run: npm ci
 
-      # Writes packages/client/dist/wim.mjs and its copy, plugins/claude-code/dist/client.mjs.
+      # Writes plugins/claude-code/dist/client.mjs, with no crash-report address, and
+      # packages/client/dist/wim.mjs carrying the address in WIM_SENTRY_DSN
+      # (packages/client/src/crash.ts). bundle.mjs checks that the two differ by that string
+      # alone. ⛔ AN EMPTY SECRET WOULD RELEASE A wim.mjs WHOSE CRASH REPORTS ARE SILENTLY
+      # ABSENT, so it fails here.
       - name: Build wim.mjs from the tagged sources
-        run: npm run bundle -w @worldinmotion/client
+        env:
+          WIM_SENTRY_DSN: ${{ secrets.WIM_SENTRY_DSN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$WIM_SENTRY_DSN" ]; then
+            echo "::error::WIM_SENTRY_DSN is not set; this release would carry no crash-report address"
+            exit 1
+          fi
+          npm run bundle -w @worldinmotion/client
 
       # The plugin users install from the repository at this tag carries the committed copy;
-      # it must be the same bytes as the file this release attaches.
+      # it must be the same bytes as the address-free build, which bundle.mjs compared with
+      # the file this release attaches.
       - name: The committed plugin bundle equals this build
         run: git diff --exit-code --stat plugins/claude-code/dist/client.mjs
 

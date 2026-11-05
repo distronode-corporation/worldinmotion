@@ -58,8 +58,12 @@ export function processIo(
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) proc.once(signal, () => stop.abort());
   const parent = proc.ppid;
   // A stray rejection must not take down a long-running server (an MCP server the agent relies
-  // on): it is reported on stderr instead.
-  proc.on("unhandledRejection", (reason) => void proc.stderr.write(`wim: unexpected error: ${reason instanceof Error ? reason.message : String(reason)}\n`));
+  // on): it is reported on stderr instead, and handed to the listeners (a crash report).
+  const unexpected: Array<(reason: unknown) => void> = [];
+  proc.on("unhandledRejection", (reason) => {
+    proc.stderr.write(`wim: unexpected error: ${reason instanceof Error ? reason.message : String(reason)}\n`);
+    for (const listener of unexpected) listener(reason);
+  });
   // Set once `print` listens for stdout's errors: a reader that went away is then a failed write
   // that `print` reports, never an error thrown at the process.
   let listening = false;
@@ -95,6 +99,7 @@ export function processIo(
     isTTY: proc.stdout.isTTY === true,
     inputIsTTY: proc.stdin.isTTY === true,
     fetch: globalThis.fetch,
+    onUnexpected: (listener) => void unexpected.push(listener),
     // Orphaned children are re-parented, so a changed ppid means the parent died.
     parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill),
   };

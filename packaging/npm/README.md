@@ -18,6 +18,9 @@ wim help
 
 This package is one file, `wim.mjs`, with no dependencies: the same bytes as the `wim.mjs`
 attached to the matching [GitHub Release](https://github.com/distronode-corporation/worldinmotion/releases).
+It can send crash reports, and does not until you run `wim crash-reports on` yourself; what a
+report holds is in the repository's
+[README](https://github.com/distronode-corporation/worldinmotion#crash-reports-opt-in).
 It is published from the release workflow with npm provenance, so the registry page links the
 exact commit and workflow run that built it. In a project that installs it, `npm audit
 signatures` verifies the registry signature and that provenance attestation.

@@ -37,6 +37,7 @@ import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
+import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
 
 export const VERSION = "0.1.8";
 
@@ -79,8 +80,13 @@ export type CliIO = {
   agentKdfN?: number;
   /** Runs another program (the login item and passphrase prompts of `wim agent`), and wim's own command line. */
   programs?: Programs;
-  /** HTTP for `wim ci` and `wim a2a`. */
+  /** HTTP for `wim ci`, `wim a2a` and crash reports. */
   fetch: typeof fetch;
+  /**
+   * Hands `listener` every rejection no code was waiting for (processIo's `unhandledRejection`),
+   * which a crash report may then send.
+   */
+  onUnexpected?: (listener: (reason: unknown) => void) => void;
   /** True once the process that started this one is gone (`wim mcp` then ends its session). */
   parentGone: () => boolean;
   /** How often `wim mcp` checks its parent (default 5 s) and how long a clean end may take (3 s). */
@@ -117,6 +123,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   a2a: ["as"],
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
+  "crash-reports": [],
 };
 
 /**
@@ -212,6 +219,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim recovery show | wim recovery rotate
   wim doctor
   wim notify-test
+  wim crash-reports [status | on | off]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -219,7 +227,7 @@ Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
 Commands: init, mesh create, invite, join, devices, peers, send, ping, watch, held, history, mcp,
-bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, agent.
+bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, crash-reports, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -479,6 +487,17 @@ export async function main(argv: readonly string[], env: Record<string, string |
     return 2;
   }
   const ctx = new Ctx(env, io, { positional: rest, flags: args.flags });
+  const crash = new CrashReporter({
+    dsn: bakedDsn(globalThis.__WIM_SENTRY_DSN__),
+    file: pathJoin(ctx.home.root, CRASH_REPORTS_FILE),
+    env,
+    release: `worldinmotion@${VERSION}`,
+    command: command ?? "",
+    platform: io.platform,
+    known: { homedir: io.homedir, hostname: io.hostname },
+    fetch: io.fetch,
+  });
+  io.onUnexpected?.((reason) => void crash.report(reason, "unhandledRejection"));
   try {
     switch (command) {
       case undefined:
@@ -530,6 +549,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await doctor(ctx);
       case "notify-test":
         return await notifyTest(ctx);
+      case "crash-reports":
+        return await crashReports(ctx, crash);
       case "agent":
         return await agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
       default:
@@ -539,8 +560,47 @@ export async function main(argv: readonly string[], env: Record<string, string |
   } catch (error) {
     // Errors can quote files and the relay: shown with controls made visible.
     io.err(`wim: ${sanitizeForDisplay((error as Error).message)}`);
+    if (await crash.report(error, "command")) io.err(CRASH_SENT);
     return 1;
   }
+}
+
+/** Said after a report went out, so a person reading the error knows. */
+export const CRASH_SENT = "wim: sent a crash report (no message text, names, ids or paths). `wim crash-reports off` stops them.";
+
+/** What a person turning crash reports on is told before saying yes. */
+export const CRASH_REPORT_TERMS = [
+  "Crash reports go to Distronode's Sentry organisation in the European Union (de.sentry.io), only from",
+  "the release builds of wim, and only when a bug ends a command or goes uncaught. A report holds the",
+  "error's type, its message with names, ids, addresses, paths, URLs, quoted text and keys removed, the",
+  "stack's function and file names and line numbers, the wim version, the command name, the OS family",
+  "and the Node version. It never holds messages, files, keys, the mesh, device or session ids, your",
+  "user or host name, or the working directory. `wim crash-reports off` stops them at once.",
+];
+
+/** `wim crash-reports`: shows, turns on (a person only, asked first) or turns off crash reports. */
+async function crashReports(ctx: Ctx, crash: CrashReporter): Promise<number> {
+  const action = ctx.args.positional[0] ?? "status";
+  const file = pathJoin(ctx.home.root, CRASH_REPORTS_FILE);
+  if (action === "off") {
+    await writeAtomic(file, "off\n", ctx.fsEnv);
+    ctx.io.out("Crash reports are off.");
+    return 0;
+  }
+  if (action === "on") {
+    requirePerson(ctx.env, ctx.io, "wim crash-reports on");
+    if (!(await confirmTyped(ctx.io, CRASH_REPORT_TERMS, "Send crash reports?"))) return 1;
+    await writeAtomic(file, "on\n", ctx.fsEnv);
+    ctx.io.out("Crash reports are on. `wim crash-reports off` turns them off.");
+  } else if (action !== "status") {
+    throw new SetupError("usage: wim crash-reports [status | on | off]");
+  } else {
+    ctx.io.out(`Crash reports are ${(await readConsent(file)) === "on" ? "on" : "off"}.`);
+  }
+  const allowed = await crash.allowed();
+  if (!allowed.ok && allowed.why === "no-address") ctx.io.out("This build of wim sends none: only the release builds (npm, the GitHub release, the VS Code extension) carry the address reports go to.");
+  if (!allowed.ok && allowed.why === "env") ctx.io.out(`${forcedOff(ctx.env)} is set, so none are sent from here.`);
+  return 0;
 }
 
 async function init(ctx: Ctx): Promise<number> {

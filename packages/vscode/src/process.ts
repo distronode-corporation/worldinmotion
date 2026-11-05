@@ -268,8 +268,15 @@ export class EventsProcess {
   }
 }
 
-/** What runs the client: the bundled one, or `wimPath` (see clientCommand). */
-type ClientOptions = { extensionPath: string; wimPath: string; execPath: string; env: NodeJS.ProcessEnv };
+/**
+ * What runs the client: the bundled one, or `wimPath` (see clientCommand). `telemetry` is VS Code's
+ * own switch (`vscode.env.isTelemetryEnabled`): while it is off, the client is told to send no
+ * crash report (WIM_NO_CRASH_REPORTS) whatever `wim crash-reports` says.
+ */
+type ClientOptions = { extensionPath: string; wimPath: string; execPath: string; env: NodeJS.ProcessEnv; telemetry: boolean };
+
+/** The variable that keeps the client's crash reports off, set while VS Code's telemetry is off. */
+const NO_CRASH_REPORTS = { WIM_NO_CRASH_REPORTS: "1" } as const;
 
 /**
  * A command line of the client: the bundled client on VS Code's own Node (Electron run as Node),
@@ -277,7 +284,7 @@ type ClientOptions = { extensionPath: string; wimPath: string; execPath: string;
  * runs as an executable, without a shell.
  */
 function wimInvocation(o: ClientOptions, rest: string[]): { cmd: string; args: string[]; env: NodeJS.ProcessEnv; script: boolean } {
-  const env = { ...o.env };
+  const env: NodeJS.ProcessEnv = { ...o.env, ...(o.telemetry ? {} : NO_CRASH_REPORTS) };
   delete env.ELECTRON_RUN_AS_NODE;
   const path = o.wimPath.trim();
   if (path !== "" && !/\.[cm]?js$/i.test(path)) return { cmd: path, args: rest, env, script: false };
@@ -300,9 +307,26 @@ export function clientCommand(o: ClientOptions & { sessionName: string; cwd: str
  * terminal they opened by running the command, not in one an agent drives. The terminal adds its
  * `env` to VS Code's own, so only Electron's run-as-Node switch is set (or cleared).
  */
-export function signerTerminal(o: ClientOptions & { locked: boolean; cwd: string }): { name: string; shellPath: string; shellArgs: string[]; env: Record<string, string | null>; cwd: string } {
-  const run = wimInvocation(o, ["agent", o.locked ? "unlock" : "start"]);
-  return { name: "worldinmotion signer", shellPath: run.cmd, shellArgs: run.args, env: { ELECTRON_RUN_AS_NODE: run.script ? "1" : null }, cwd: o.cwd };
+export function signerTerminal(o: ClientOptions & { locked: boolean; cwd: string }): TerminalSpec {
+  return clientTerminal(o, "worldinmotion signer", ["agent", o.locked ? "unlock" : "start"]);
+}
+
+/** What `vscode.window.createTerminal` is given. */
+export type TerminalSpec = { name: string; shellPath: string; shellArgs: string[]; env: Record<string, string | null>; cwd: string };
+
+/**
+ * The integrated terminal for `wim crash-reports on` or `off`, with the same client as `wim
+ * events`. Turning them on is the person's answer, typed in a terminal they opened by running the
+ * command; the client shows what a report holds and asks first.
+ */
+export function crashReportsTerminal(o: ClientOptions & { on: boolean; cwd: string }): TerminalSpec {
+  return clientTerminal(o, "worldinmotion crash reports", ["crash-reports", o.on ? "on" : "off"]);
+}
+
+/** A terminal running the client with `rest`; its `env` is added to VS Code's own. */
+function clientTerminal(o: ClientOptions & { cwd: string }, name: string, rest: string[]): TerminalSpec {
+  const run = wimInvocation(o, rest);
+  return { name, shellPath: run.cmd, shellArgs: run.args, env: { ELECTRON_RUN_AS_NODE: run.script ? "1" : null, ...(o.telemetry ? {} : NO_CRASH_REPORTS) }, cwd: o.cwd };
 }
 
 /**
