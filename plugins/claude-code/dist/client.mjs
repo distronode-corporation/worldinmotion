@@ -51,12 +51,12 @@ var __toCommonJS = (mod2) => __copyProps(__defProp({}, "__esModule", { value: tr
 
 // ../../node_modules/ws/lib/constants.js
 var require_constants = __commonJS({
-  "../../node_modules/ws/lib/constants.js"(exports, module) {
+  "../../node_modules/ws/lib/constants.js"(exports, module2) {
     "use strict";
     var BINARY_TYPES = ["nodebuffer", "arraybuffer", "fragments"];
     var hasBlob = typeof Blob !== "undefined";
     if (hasBlob) BINARY_TYPES.push("blob");
-    module.exports = {
+    module2.exports = {
       BINARY_TYPES,
       CLOSE_TIMEOUT: 3e4,
       EMPTY_BUFFER: Buffer.alloc(0),
@@ -74,7 +74,7 @@ var require_constants = __commonJS({
 
 // ../../node_modules/ws/lib/buffer-util.js
 var require_buffer_util = __commonJS({
-  "../../node_modules/ws/lib/buffer-util.js"(exports, module) {
+  "../../node_modules/ws/lib/buffer-util.js"(exports, module2) {
     "use strict";
     var { EMPTY_BUFFER: EMPTY_BUFFER2 } = require_constants();
     var FastBuffer = Buffer[Symbol.species];
@@ -123,7 +123,7 @@ var require_buffer_util = __commonJS({
       }
       return buf2;
     }
-    module.exports = {
+    module2.exports = {
       concat: concat3,
       mask: _mask,
       toArrayBuffer,
@@ -133,11 +133,11 @@ var require_buffer_util = __commonJS({
     if (!process.env.WS_NO_BUFFER_UTIL) {
       try {
         const bufferUtil = __require("bufferutil");
-        module.exports.mask = function(source2, mask, output2, offset, length) {
+        module2.exports.mask = function(source2, mask, output2, offset, length) {
           if (length < 48) _mask(source2, mask, output2, offset, length);
           else bufferUtil.mask(source2, mask, output2, offset, length);
         };
-        module.exports.unmask = function(buffer, mask) {
+        module2.exports.unmask = function(buffer, mask) {
           if (buffer.length < 32) _unmask(buffer, mask);
           else bufferUtil.unmask(buffer, mask);
         };
@@ -149,7 +149,7 @@ var require_buffer_util = __commonJS({
 
 // ../../node_modules/ws/lib/limiter.js
 var require_limiter = __commonJS({
-  "../../node_modules/ws/lib/limiter.js"(exports, module) {
+  "../../node_modules/ws/lib/limiter.js"(exports, module2) {
     "use strict";
     var kDone = /* @__PURE__ */ Symbol("kDone");
     var kRun = /* @__PURE__ */ Symbol("kRun");
@@ -193,13 +193,13 @@ var require_limiter = __commonJS({
         }
       }
     };
-    module.exports = Limiter;
+    module2.exports = Limiter;
   }
 });
 
 // ../../node_modules/ws/lib/permessage-deflate.js
 var require_permessage_deflate = __commonJS({
-  "../../node_modules/ws/lib/permessage-deflate.js"(exports, module) {
+  "../../node_modules/ws/lib/permessage-deflate.js"(exports, module2) {
     "use strict";
     var zlib3 = __require("zlib");
     var bufferUtil = require_buffer_util();
@@ -551,7 +551,7 @@ var require_permessage_deflate = __commonJS({
         });
       }
     };
-    module.exports = PerMessageDeflate2;
+    module2.exports = PerMessageDeflate2;
     function deflateOnData(chunk) {
       this[kBuffers].push(chunk);
       this[kTotalLength] += chunk.length;
@@ -582,7 +582,7 @@ var require_permessage_deflate = __commonJS({
 
 // ../../node_modules/ws/lib/validation.js
 var require_validation = __commonJS({
-  "../../node_modules/ws/lib/validation.js"(exports, module) {
+  "../../node_modules/ws/lib/validation.js"(exports, module2) {
     "use strict";
     var { isUtf8 } = __require("buffer");
     var { hasBlob } = require_constants();
@@ -759,20 +759,20 @@ var require_validation = __commonJS({
     function isBlob3(value2) {
       return hasBlob && typeof value2 === "object" && typeof value2.arrayBuffer === "function" && typeof value2.type === "string" && typeof value2.stream === "function" && (value2[Symbol.toStringTag] === "Blob" || value2[Symbol.toStringTag] === "File");
     }
-    module.exports = {
+    module2.exports = {
       isBlob: isBlob3,
       isValidStatusCode,
       isValidUTF8: _isValidUTF8,
       tokenChars
     };
     if (isUtf8) {
-      module.exports.isValidUTF8 = function(buf2) {
+      module2.exports.isValidUTF8 = function(buf2) {
         return buf2.length < 24 ? _isValidUTF8(buf2) : isUtf8(buf2);
       };
     } else if (!process.env.WS_NO_UTF_8_VALIDATE) {
       try {
         const isValidUTF8 = __require("utf-8-validate");
-        module.exports.isValidUTF8 = function(buf2) {
+        module2.exports.isValidUTF8 = function(buf2) {
           return buf2.length < 32 ? _isValidUTF8(buf2) : isValidUTF8(buf2);
         };
       } catch (e6) {
@@ -783,7 +783,7 @@ var require_validation = __commonJS({
 
 // ../../node_modules/ws/lib/receiver.js
 var require_receiver = __commonJS({
-  "../../node_modules/ws/lib/receiver.js"(exports, module) {
+  "../../node_modules/ws/lib/receiver.js"(exports, module2) {
     "use strict";
     var { Writable: Writable5 } = __require("stream");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -961,26 +961,26 @@ var require_receiver = __commonJS({
         }
         const buf2 = this.consume(2);
         if ((buf2[0] & 48) !== 0) {
-          const error63 = this.createError(
+          const error64 = this.createError(
             RangeError,
             "RSV2 and RSV3 must be clear",
             true,
             1002,
             "WS_ERR_UNEXPECTED_RSV_2_3"
           );
-          cb(error63);
+          cb(error64);
           return;
         }
         const compressed = (buf2[0] & 64) === 64;
         if (compressed && !this._extensions[PerMessageDeflate2.extensionName]) {
-          const error63 = this.createError(
+          const error64 = this.createError(
             RangeError,
             "RSV1 must be clear",
             true,
             1002,
             "WS_ERR_UNEXPECTED_RSV_1"
           );
-          cb(error63);
+          cb(error64);
           return;
         }
         this._fin = (buf2[0] & 128) === 128;
@@ -988,109 +988,109 @@ var require_receiver = __commonJS({
         this._payloadLength = buf2[1] & 127;
         if (this._opcode === 0) {
           if (compressed) {
-            const error63 = this.createError(
+            const error64 = this.createError(
               RangeError,
               "RSV1 must be clear",
               true,
               1002,
               "WS_ERR_UNEXPECTED_RSV_1"
             );
-            cb(error63);
+            cb(error64);
             return;
           }
           if (!this._fragmented) {
-            const error63 = this.createError(
+            const error64 = this.createError(
               RangeError,
               "invalid opcode 0",
               true,
               1002,
               "WS_ERR_INVALID_OPCODE"
             );
-            cb(error63);
+            cb(error64);
             return;
           }
           this._opcode = this._fragmented;
         } else if (this._opcode === 1 || this._opcode === 2) {
           if (this._fragmented) {
-            const error63 = this.createError(
+            const error64 = this.createError(
               RangeError,
               `invalid opcode ${this._opcode}`,
               true,
               1002,
               "WS_ERR_INVALID_OPCODE"
             );
-            cb(error63);
+            cb(error64);
             return;
           }
           this._compressed = compressed;
         } else if (this._opcode > 7 && this._opcode < 11) {
           if (!this._fin) {
-            const error63 = this.createError(
+            const error64 = this.createError(
               RangeError,
               "FIN must be set",
               true,
               1002,
               "WS_ERR_EXPECTED_FIN"
             );
-            cb(error63);
+            cb(error64);
             return;
           }
           if (compressed) {
-            const error63 = this.createError(
+            const error64 = this.createError(
               RangeError,
               "RSV1 must be clear",
               true,
               1002,
               "WS_ERR_UNEXPECTED_RSV_1"
             );
-            cb(error63);
+            cb(error64);
             return;
           }
           if (this._payloadLength > 125 || this._opcode === 8 && this._payloadLength === 1) {
-            const error63 = this.createError(
+            const error64 = this.createError(
               RangeError,
               `invalid payload length ${this._payloadLength}`,
               true,
               1002,
               "WS_ERR_INVALID_CONTROL_PAYLOAD_LENGTH"
             );
-            cb(error63);
+            cb(error64);
             return;
           }
         } else {
-          const error63 = this.createError(
+          const error64 = this.createError(
             RangeError,
             `invalid opcode ${this._opcode}`,
             true,
             1002,
             "WS_ERR_INVALID_OPCODE"
           );
-          cb(error63);
+          cb(error64);
           return;
         }
         if (!this._fin && !this._fragmented) this._fragmented = this._opcode;
         this._masked = (buf2[1] & 128) === 128;
         if (this._isServer) {
           if (!this._masked) {
-            const error63 = this.createError(
+            const error64 = this.createError(
               RangeError,
               "MASK must be set",
               true,
               1002,
               "WS_ERR_EXPECTED_MASK"
             );
-            cb(error63);
+            cb(error64);
             return;
           }
         } else if (this._masked) {
-          const error63 = this.createError(
+          const error64 = this.createError(
             RangeError,
             "MASK must be clear",
             true,
             1002,
             "WS_ERR_UNEXPECTED_MASK"
           );
-          cb(error63);
+          cb(error64);
           return;
         }
         if (this._payloadLength === 126) this._state = GET_PAYLOAD_LENGTH_16;
@@ -1125,14 +1125,14 @@ var require_receiver = __commonJS({
         const buf2 = this.consume(8);
         const num = buf2.readUInt32BE(0);
         if (num > Math.pow(2, 53 - 32) - 1) {
-          const error63 = this.createError(
+          const error64 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
             false,
             1009,
             "WS_ERR_UNSUPPORTED_DATA_PAYLOAD_LENGTH"
           );
-          cb(error63);
+          cb(error64);
           return;
         }
         this._payloadLength = num * Math.pow(2, 32) + buf2.readUInt32BE(4);
@@ -1148,14 +1148,14 @@ var require_receiver = __commonJS({
         if (this._payloadLength && this._opcode < 8) {
           this._totalPayloadLength += this._payloadLength;
           if (this._totalPayloadLength > this._maxPayload && this._maxPayload > 0) {
-            const error63 = this.createError(
+            const error64 = this.createError(
               RangeError,
               "Max payload size exceeded",
               false,
               1009,
               "WS_ERR_UNSUPPORTED_MESSAGE_LENGTH"
             );
-            cb(error63);
+            cb(error64);
             return;
           }
         }
@@ -1198,14 +1198,14 @@ var require_receiver = __commonJS({
           return;
         }
         if (this._maxFragments > 0 && ++this._numFragments > this._maxFragments) {
-          const error63 = this.createError(
+          const error64 = this.createError(
             RangeError,
             "Too many message fragments",
             false,
             1008,
             "WS_ERR_TOO_MANY_BUFFERED_PARTS"
           );
-          cb(error63);
+          cb(error64);
           return;
         }
         if (this._compressed) {
@@ -1233,14 +1233,14 @@ var require_receiver = __commonJS({
           if (buf2.length) {
             this._messageLength += buf2.length;
             if (this._messageLength > this._maxPayload && this._maxPayload > 0) {
-              const error63 = this.createError(
+              const error64 = this.createError(
                 RangeError,
                 "Max payload size exceeded",
                 false,
                 1009,
                 "WS_ERR_UNSUPPORTED_MESSAGE_LENGTH"
               );
-              cb(error63);
+              cb(error64);
               return;
             }
             this._fragments.push(buf2);
@@ -1292,14 +1292,14 @@ var require_receiver = __commonJS({
         } else {
           const buf2 = concat3(fragments, messageLength);
           if (!this._skipUTF8Validation && !isValidUTF8(buf2)) {
-            const error63 = this.createError(
+            const error64 = this.createError(
               Error,
               "invalid UTF-8 sequence",
               true,
               1007,
               "WS_ERR_INVALID_UTF8"
             );
-            cb(error63);
+            cb(error64);
             return;
           }
           if (this._state === INFLATING || this._allowSynchronousEvents) {
@@ -1331,14 +1331,14 @@ var require_receiver = __commonJS({
           } else {
             const code2 = data.readUInt16BE(0);
             if (!isValidStatusCode(code2)) {
-              const error63 = this.createError(
+              const error64 = this.createError(
                 RangeError,
                 `invalid status code ${code2}`,
                 true,
                 1002,
                 "WS_ERR_INVALID_CLOSE_CODE"
               );
-              cb(error63);
+              cb(error64);
               return;
             }
             const buf2 = new FastBuffer(
@@ -1347,14 +1347,14 @@ var require_receiver = __commonJS({
               data.length - 2
             );
             if (!this._skipUTF8Validation && !isValidUTF8(buf2)) {
-              const error63 = this.createError(
+              const error64 = this.createError(
                 Error,
                 "invalid UTF-8 sequence",
                 true,
                 1007,
                 "WS_ERR_INVALID_UTF8"
               );
-              cb(error63);
+              cb(error64);
               return;
             }
             this._loop = false;
@@ -1400,13 +1400,13 @@ var require_receiver = __commonJS({
         return err;
       }
     };
-    module.exports = Receiver2;
+    module2.exports = Receiver2;
   }
 });
 
 // ../../node_modules/ws/lib/sender.js
 var require_sender = __commonJS({
-  "../../node_modules/ws/lib/sender.js"(exports, module) {
+  "../../node_modules/ws/lib/sender.js"(exports, module2) {
     "use strict";
     var { Duplex } = __require("stream");
     var { randomFillSync } = __require("crypto");
@@ -1472,7 +1472,7 @@ var require_sender = __commonJS({
        */
       static frame(data, options) {
         let mask;
-        let merge3 = false;
+        let merge4 = false;
         let offset = 2;
         let skipMasking = false;
         if (options.mask) {
@@ -1505,7 +1505,7 @@ var require_sender = __commonJS({
           }
         } else {
           dataLength = data.length;
-          merge3 = options.mask && options.readOnly && !skipMasking;
+          merge4 = options.mask && options.readOnly && !skipMasking;
         }
         let payloadLength = dataLength;
         if (dataLength >= 65536) {
@@ -1515,7 +1515,7 @@ var require_sender = __commonJS({
           offset += 2;
           payloadLength = 126;
         }
-        const target = Buffer.allocUnsafe(merge3 ? dataLength + offset : offset);
+        const target = Buffer.allocUnsafe(merge4 ? dataLength + offset : offset);
         target[0] = options.fin ? options.opcode | 128 : options.opcode;
         if (options.rsv1) target[0] |= 64;
         target[1] = payloadLength;
@@ -1532,7 +1532,7 @@ var require_sender = __commonJS({
         target[offset - 2] = mask[2];
         target[offset - 1] = mask[3];
         if (skipMasking) return [target, data];
-        if (merge3) {
+        if (merge4) {
           applyMask(data, mask, target, offset, dataLength);
           return [target];
         }
@@ -1881,7 +1881,7 @@ var require_sender = __commonJS({
         }
       }
     };
-    module.exports = Sender2;
+    module2.exports = Sender2;
     function callCallbacks(sender, err, cb) {
       if (typeof cb === "function") cb(err);
       for (let i6 = 0; i6 < sender._queue.length; i6++) {
@@ -1899,7 +1899,7 @@ var require_sender = __commonJS({
 
 // ../../node_modules/ws/lib/event-target.js
 var require_event_target = __commonJS({
-  "../../node_modules/ws/lib/event-target.js"(exports, module) {
+  "../../node_modules/ws/lib/event-target.js"(exports, module2) {
     "use strict";
     var { kForOnEventAttribute, kListener } = require_constants();
     var kCode = /* @__PURE__ */ Symbol("kCode");
@@ -1910,7 +1910,7 @@ var require_event_target = __commonJS({
     var kTarget = /* @__PURE__ */ Symbol("kTarget");
     var kType = /* @__PURE__ */ Symbol("kType");
     var kWasClean = /* @__PURE__ */ Symbol("kWasClean");
-    var Event = class {
+    var Event2 = class {
       /**
        * Create a new `Event`.
        *
@@ -1934,9 +1934,9 @@ var require_event_target = __commonJS({
         return this[kType];
       }
     };
-    Object.defineProperty(Event.prototype, "target", { enumerable: true });
-    Object.defineProperty(Event.prototype, "type", { enumerable: true });
-    var CloseEvent = class extends Event {
+    Object.defineProperty(Event2.prototype, "target", { enumerable: true });
+    Object.defineProperty(Event2.prototype, "type", { enumerable: true });
+    var CloseEvent = class extends Event2 {
       /**
        * Create a new `CloseEvent`.
        *
@@ -1978,7 +1978,7 @@ var require_event_target = __commonJS({
     Object.defineProperty(CloseEvent.prototype, "code", { enumerable: true });
     Object.defineProperty(CloseEvent.prototype, "reason", { enumerable: true });
     Object.defineProperty(CloseEvent.prototype, "wasClean", { enumerable: true });
-    var ErrorEvent = class extends Event {
+    var ErrorEvent = class extends Event2 {
       /**
        * Create a new `ErrorEvent`.
        *
@@ -2008,7 +2008,7 @@ var require_event_target = __commonJS({
     };
     Object.defineProperty(ErrorEvent.prototype, "error", { enumerable: true });
     Object.defineProperty(ErrorEvent.prototype, "message", { enumerable: true });
-    var MessageEvent = class extends Event {
+    var MessageEvent = class extends Event2 {
       /**
        * Create a new `MessageEvent`.
        *
@@ -2068,17 +2068,17 @@ var require_event_target = __commonJS({
             callListener(handler, this, event);
           };
         } else if (type === "error") {
-          wrapper = function onError(error63) {
+          wrapper = function onError(error64) {
             const event = new ErrorEvent("error", {
-              error: error63,
-              message: error63.message
+              error: error64,
+              message: error64.message
             });
             event[kTarget] = this;
             callListener(handler, this, event);
           };
         } else if (type === "open") {
           wrapper = function onOpen() {
-            const event = new Event("open");
+            const event = new Event2("open");
             event[kTarget] = this;
             callListener(handler, this, event);
           };
@@ -2109,10 +2109,10 @@ var require_event_target = __commonJS({
         }
       }
     };
-    module.exports = {
+    module2.exports = {
       CloseEvent,
       ErrorEvent,
-      Event,
+      Event: Event2,
       EventTarget,
       MessageEvent
     };
@@ -2128,7 +2128,7 @@ var require_event_target = __commonJS({
 
 // ../../node_modules/ws/lib/extension.js
 var require_extension = __commonJS({
-  "../../node_modules/ws/lib/extension.js"(exports, module) {
+  "../../node_modules/ws/lib/extension.js"(exports, module2) {
     "use strict";
     var { tokenChars } = require_validation();
     function push(dest, name, elem) {
@@ -2275,13 +2275,13 @@ var require_extension = __commonJS({
         }).join(", ");
       }).join(", ");
     }
-    module.exports = { format: format2, parse: parse4 };
+    module2.exports = { format: format2, parse: parse4 };
   }
 });
 
 // ../../node_modules/ws/lib/websocket.js
 var require_websocket = __commonJS({
-  "../../node_modules/ws/lib/websocket.js"(exports, module) {
+  "../../node_modules/ws/lib/websocket.js"(exports, module2) {
     "use strict";
     var EventEmitter2 = __require("events");
     var https2 = __require("https");
@@ -2771,7 +2771,7 @@ var require_websocket = __commonJS({
     });
     WebSocket3.prototype.addEventListener = addEventListener;
     WebSocket3.prototype.removeEventListener = removeEventListener;
-    module.exports = WebSocket3;
+    module2.exports = WebSocket3;
     function initAsClient(websocket, address, protocols, options) {
       const opts = {
         allowSynchronousEvents: true,
@@ -3190,7 +3190,7 @@ var require_websocket = __commonJS({
 
 // ../../node_modules/ws/lib/stream.js
 var require_stream = __commonJS({
-  "../../node_modules/ws/lib/stream.js"(exports, module) {
+  "../../node_modules/ws/lib/stream.js"(exports, module2) {
     "use strict";
     var WebSocket3 = require_websocket();
     var { Duplex } = __require("stream");
@@ -3222,7 +3222,7 @@ var require_stream = __commonJS({
         const data = !isBinary && duplex._readableState.objectMode ? msg.toString() : msg;
         if (!duplex.push(data)) ws.pause();
       });
-      ws.once("error", function error63(err) {
+      ws.once("error", function error64(err) {
         if (duplex.destroyed) return;
         terminateOnDestroy = false;
         duplex.destroy(err);
@@ -3238,7 +3238,7 @@ var require_stream = __commonJS({
           return;
         }
         let called = false;
-        ws.once("error", function error63(err2) {
+        ws.once("error", function error64(err2) {
           called = true;
           callback(err2);
         });
@@ -3282,13 +3282,13 @@ var require_stream = __commonJS({
       duplex.on("error", duplexOnError);
       return duplex;
     }
-    module.exports = createWebSocketStream2;
+    module2.exports = createWebSocketStream2;
   }
 });
 
 // ../../node_modules/ws/lib/subprotocol.js
 var require_subprotocol = __commonJS({
-  "../../node_modules/ws/lib/subprotocol.js"(exports, module) {
+  "../../node_modules/ws/lib/subprotocol.js"(exports, module2) {
     "use strict";
     var { tokenChars } = require_validation();
     function parse4(header2) {
@@ -3327,13 +3327,13 @@ var require_subprotocol = __commonJS({
       protocols.add(protocol);
       return protocols;
     }
-    module.exports = { parse: parse4 };
+    module2.exports = { parse: parse4 };
   }
 });
 
 // ../../node_modules/ws/lib/websocket-server.js
 var require_websocket_server = __commonJS({
-  "../../node_modules/ws/lib/websocket-server.js"(exports, module) {
+  "../../node_modules/ws/lib/websocket-server.js"(exports, module2) {
     "use strict";
     var EventEmitter2 = __require("events");
     var http3 = __require("http");
@@ -3690,7 +3690,7 @@ var require_websocket_server = __commonJS({
         cb(ws, req);
       }
     };
-    module.exports = WebSocketServer2;
+    module2.exports = WebSocketServer2;
     function addListeners(server, map4) {
       for (const event of Object.keys(map4)) server.on(event, map4[event]);
       return function removeListeners() {
@@ -3894,7 +3894,7 @@ var init_MiddlewareStack = __esm({
         });
         return expandedMiddlewareList;
       };
-      const getMiddlewareList = (debug = false) => {
+      const getMiddlewareList = (debug2 = false) => {
         const normalizedAbsoluteEntries = [];
         const normalizedRelativeEntries = [];
         const normalizedEntriesNameMap = {};
@@ -3924,7 +3924,7 @@ var init_MiddlewareStack = __esm({
           if (entry.toMiddleware) {
             const toMiddleware = normalizedEntriesNameMap[entry.toMiddleware];
             if (toMiddleware === void 0) {
-              if (debug) {
+              if (debug2) {
                 return;
               }
               throw new Error(`${entry.toMiddleware} is not found when adding ${getMiddlewareNameWithAliases(entry.name, entry.aliases)} middleware ${entry.relation} ${entry.toMiddleware}`);
@@ -4765,17 +4765,17 @@ var init_schemaDeserializationMiddleware = __esm({
           response,
           output: parsed2
         };
-      } catch (error63) {
-        Object.defineProperty(error63, "$response", {
+      } catch (error64) {
+        Object.defineProperty(error64, "$response", {
           value: response,
           enumerable: false,
           writable: false,
           configurable: false
         });
-        if (!("$metadata" in error63)) {
+        if (!("$metadata" in error64)) {
           const hint = `Deserialization error: to see the raw response, inspect the hidden field {error}.$response on this object.`;
           try {
-            error63.message += "\n  " + hint;
+            error64.message += "\n  " + hint;
           } catch (ignored) {
             if (!context.logger || context.logger?.constructor?.name === "NoOpLogger") {
               console.warn(hint);
@@ -4783,16 +4783,16 @@ var init_schemaDeserializationMiddleware = __esm({
               context.logger?.warn?.(hint);
             }
           }
-          if (typeof error63.$responseBodyText !== "undefined") {
-            if (error63.$response) {
-              error63.$response.body = error63.$responseBodyText;
+          if (typeof error64.$responseBodyText !== "undefined") {
+            if (error64.$response) {
+              error64.$response.body = error64.$responseBodyText;
             }
           }
           try {
             if (HttpResponse.isInstance(response)) {
               const { headers = {}, statusCode } = response;
               const headerEntries = Object.entries(headers);
-              error63.$metadata = {
+              error64.$metadata = {
                 httpStatusCode: statusCode,
                 requestId: findHeader(/^x-[\w-]+-request-?id$/, headerEntries),
                 extendedRequestId: findHeader(/^x-[\w-]+-id-2$/, headerEntries),
@@ -4802,7 +4802,7 @@ var init_schemaDeserializationMiddleware = __esm({
           } catch (ignored) {
           }
         }
-        throw error63;
+        throw error64;
       }
     };
     findHeader = (pattern, headers) => {
@@ -5743,7 +5743,7 @@ var init_constants = __esm({
 var createAggregatedClient;
 var init_create_aggregated_client = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/client/smithy-client/create-aggregated-client.js"() {
-    createAggregatedClient = (commands5, Client2, options) => {
+    createAggregatedClient = (commands5, Client3, options) => {
       for (const [command5, CommandCtor] of Object.entries(commands5)) {
         const methodImpl = async function(args, optionsOrCb, cb) {
           const command6 = new CommandCtor(args);
@@ -5758,12 +5758,12 @@ var init_create_aggregated_client = __esm({
           }
         };
         const methodName = (command5[0].toLowerCase() + command5.slice(1)).replace(/Command$/, "");
-        Client2.prototype[methodName] = methodImpl;
+        Client3.prototype[methodName] = methodImpl;
       }
       const { paginators = {}, waiters = {} } = options ?? {};
       for (const [paginatorName, paginatorFn] of Object.entries(paginators)) {
-        if (Client2.prototype[paginatorName] === void 0) {
-          Client2.prototype[paginatorName] = function(commandInput = {}, paginationConfiguration, ...rest) {
+        if (Client3.prototype[paginatorName] === void 0) {
+          Client3.prototype[paginatorName] = function(commandInput = {}, paginationConfiguration, ...rest) {
             return paginatorFn({
               ...paginationConfiguration,
               client: this
@@ -5772,8 +5772,8 @@ var init_create_aggregated_client = __esm({
         }
       }
       for (const [waiterName, waiterFn] of Object.entries(waiters)) {
-        if (Client2.prototype[waiterName] === void 0) {
-          Client2.prototype[waiterName] = async function(commandInput = {}, waiterConfiguration, ...rest) {
+        if (Client3.prototype[waiterName] === void 0) {
+          Client3.prototype[waiterName] = async function(commandInput = {}, waiterConfiguration, ...rest) {
             let config2 = waiterConfiguration;
             if (typeof waiterConfiguration === "number") {
               config2 = {
@@ -7305,17 +7305,17 @@ var init_deserializerMiddleware = __esm({
           response,
           output: parsed2
         };
-      } catch (error63) {
-        Object.defineProperty(error63, "$response", {
+      } catch (error64) {
+        Object.defineProperty(error64, "$response", {
           value: response,
           enumerable: false,
           writable: false,
           configurable: false
         });
-        if (!("$metadata" in error63)) {
+        if (!("$metadata" in error64)) {
           const hint = `Deserialization error: to see the raw response, inspect the hidden field {error}.$response on this object.`;
           try {
-            error63.message += "\n  " + hint;
+            error64.message += "\n  " + hint;
           } catch (ignored) {
             if (!context.logger || context.logger?.constructor?.name === "NoOpLogger") {
               console.warn(hint);
@@ -7323,16 +7323,16 @@ var init_deserializerMiddleware = __esm({
               context.logger?.warn?.(hint);
             }
           }
-          if (typeof error63.$responseBodyText !== "undefined") {
-            if (error63.$response) {
-              error63.$response.body = error63.$responseBodyText;
+          if (typeof error64.$responseBodyText !== "undefined") {
+            if (error64.$response) {
+              error64.$response.body = error64.$responseBodyText;
             }
           }
           try {
             if (HttpResponse.isInstance(response)) {
               const { headers = {} } = response;
               const headerEntries = Object.entries(headers);
-              error63.$metadata = {
+              error64.$metadata = {
                 httpStatusCode: response.statusCode,
                 requestId: findHeader2(/^x-[\w-]+-request-?id$/, headerEntries),
                 extendedRequestId: findHeader2(/^x-[\w-]+-id-2$/, headerEntries),
@@ -7342,7 +7342,7 @@ var init_deserializerMiddleware = __esm({
           } catch (ignored) {
           }
         }
-        throw error63;
+        throw error64;
       }
     };
     findHeader2 = (pattern, headers) => {
@@ -7375,8 +7375,8 @@ var init_ProviderError = __esm({
         Object.setPrototypeOf(this, _ProviderError.prototype);
         logger2?.debug?.(`@smithy/property-provider ${tryNextLink ? "->" : "(!)"} ${message2}`);
       }
-      static from(error63, options = true) {
-        return Object.assign(new this(error63.message, options), error63);
+      static from(error64, options = true) {
+        return Object.assign(new this(error64.message, options), error64);
       }
     };
   }
@@ -9441,9 +9441,9 @@ var init_getEndpointUrl = __esm({
       if (typeof expression === "string") {
         try {
           return new URL(expression);
-        } catch (error63) {
-          console.error(`Failed to construct URL with ${expression}`, error63);
-          throw error63;
+        } catch (error64) {
+          console.error(`Failed to construct URL with ${expression}`, error64);
+          throw error64;
         }
       }
       throw new EndpointError(`Endpoint URL must be a string, got ${typeof expression}`);
@@ -9574,7 +9574,7 @@ var init_evaluateErrorRule = __esm({
     init_evaluateConditions();
     init_evaluateExpression();
     evaluateErrorRule = (errorRule, options) => {
-      const { conditions, error: error63 } = errorRule;
+      const { conditions, error: error64 } = errorRule;
       const { result, referenceRecord } = evaluateConditions(conditions, options);
       if (!result) {
         return;
@@ -9583,7 +9583,7 @@ var init_evaluateErrorRule = __esm({
         ...options,
         referenceRecord: { ...options.referenceRecord, ...referenceRecord }
       } : options;
-      throw new EndpointError(evaluateExpression(error63, "Error", errorRuleOptions));
+      throw new EndpointError(evaluateExpression(error64, "Error", errorRuleOptions));
     };
   }
 });
@@ -9885,8 +9885,8 @@ var init_ChecksumStream = __esm({
         }
         this.push(null);
       };
-      onSourceError = (error63) => {
-        this.destroy(error63);
+      onSourceError = (error64) => {
+        this.destroy(error64);
       };
       onSourceClose = () => {
         if (!this.destroyed && !this.source.readableEnded) {
@@ -9896,13 +9896,13 @@ var init_ChecksumStream = __esm({
       _read(_size2) {
         this.source.resume();
       }
-      _destroy(error63, callback) {
+      _destroy(error64, callback) {
         this.source?.removeListener("data", this.onSourceData);
         this.source?.removeListener("end", this.onSourceEnd);
         this.source?.removeListener("error", this.onSourceError);
         this.source?.removeListener("close", this.onSourceClose);
         this.source?.destroy();
-        callback(error63);
+        callback(error64);
       }
     };
   }
@@ -10018,8 +10018,8 @@ var init_createChecksumStream_browser = __esm({
           const digest2 = await checksum2.digest();
           const received = encoder3(digest2);
           if (expectedChecksum !== received) {
-            const error63 = new Error(`Checksum mismatch: expected "${expectedChecksum}" but received "${received}" in response header "${checksumSourceLocation}".`);
-            controller.error(error63);
+            const error64 = new Error(`Checksum mismatch: expected "${expectedChecksum}" but received "${received}" in response header "${checksumSourceLocation}".`);
+            controller.error(error64);
           } else {
             controller.terminate();
           }
@@ -12109,9 +12109,9 @@ function getMessageUnmarshaller(deserializer, toUtf83) {
       const exception = { [code2]: message2 };
       const deserializedException = await deserializer(exception);
       if (deserializedException.$unknown) {
-        const error63 = new Error(toUtf83(message2.body));
-        error63.name = code2;
-        throw error63;
+        const error64 = new Error(toUtf83(message2.body));
+        error64.name = code2;
+        throw error64;
       }
       throw deserializedException[code2];
     } else if (messageType === "event") {
@@ -15624,17 +15624,17 @@ var init_constants4 = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/retry/service-error-classification/service-error-classification.js
-function isNodeJsHttp2TransientError(error63) {
-  return error63.code === "ERR_HTTP2_STREAM_ERROR" && error63.message.includes("NGHTTP2_REFUSED_STREAM");
+function isNodeJsHttp2TransientError(error64) {
+  return error64.code === "ERR_HTTP2_STREAM_ERROR" && error64.message.includes("NGHTTP2_REFUSED_STREAM");
 }
 var isRetryableByTrait, isClockSkewError, isClockSkewCorrectedError, isBrowserNetworkError, isThrottlingError, isTransientError, isServerError;
 var init_service_error_classification = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/retry/service-error-classification/service-error-classification.js"() {
     init_constants4();
-    isRetryableByTrait = (error63) => error63?.$retryable !== void 0;
-    isClockSkewError = (error63) => CLOCK_SKEW_ERROR_CODES.includes(error63.name);
-    isClockSkewCorrectedError = (error63) => error63.$metadata?.clockSkewCorrected;
-    isBrowserNetworkError = (error63) => {
+    isRetryableByTrait = (error64) => error64?.$retryable !== void 0;
+    isClockSkewError = (error64) => CLOCK_SKEW_ERROR_CODES.includes(error64.name);
+    isClockSkewCorrectedError = (error64) => error64.$metadata?.clockSkewCorrected;
+    isBrowserNetworkError = (error64) => {
       const errorMessages = /* @__PURE__ */ new Set([
         "Failed to fetch",
         "NetworkError when attempting to fetch resource",
@@ -15642,18 +15642,18 @@ var init_service_error_classification = __esm({
         "Load failed",
         "Network request failed"
       ]);
-      const isValid = error63 && error63 instanceof TypeError;
+      const isValid = error64 && error64 instanceof TypeError;
       if (!isValid) {
         return false;
       }
-      return errorMessages.has(error63.message);
+      return errorMessages.has(error64.message);
     };
-    isThrottlingError = (error63) => error63.$metadata?.httpStatusCode === 429 || THROTTLING_ERROR_CODES.includes(error63.name) || error63.$retryable?.throttling == true;
-    isTransientError = (error63, depth = 0) => error63?.name !== "AbortError" && (isRetryableByTrait(error63) || isClockSkewCorrectedError(error63) || error63.name === "InvalidSignatureException" && error63.message?.includes("Signature expired") || TRANSIENT_ERROR_CODES.includes(error63.name) || NODEJS_TIMEOUT_ERROR_CODES.includes(error63?.code || "") || NODEJS_NETWORK_ERROR_CODES.includes(error63?.code || "") || TRANSIENT_ERROR_STATUS_CODES.includes(error63.$metadata?.httpStatusCode || 0) || isBrowserNetworkError(error63) || isNodeJsHttp2TransientError(error63) || error63.cause !== void 0 && depth <= 10 && isTransientError(error63.cause, depth + 1));
-    isServerError = (error63) => {
-      if (error63.$metadata?.httpStatusCode !== void 0) {
-        const statusCode = error63.$metadata.httpStatusCode;
-        if (500 <= statusCode && statusCode <= 599 && !isTransientError(error63)) {
+    isThrottlingError = (error64) => error64.$metadata?.httpStatusCode === 429 || THROTTLING_ERROR_CODES.includes(error64.name) || error64.$retryable?.throttling == true;
+    isTransientError = (error64, depth = 0) => error64?.name !== "AbortError" && (isRetryableByTrait(error64) || isClockSkewCorrectedError(error64) || error64.name === "InvalidSignatureException" && error64.message?.includes("Signature expired") || TRANSIENT_ERROR_CODES.includes(error64.name) || NODEJS_TIMEOUT_ERROR_CODES.includes(error64?.code || "") || NODEJS_NETWORK_ERROR_CODES.includes(error64?.code || "") || TRANSIENT_ERROR_STATUS_CODES.includes(error64.$metadata?.httpStatusCode || 0) || isBrowserNetworkError(error64) || isNodeJsHttp2TransientError(error64) || error64.cause !== void 0 && depth <= 10 && isTransientError(error64.cause, depth + 1));
+    isServerError = (error64) => {
+      if (error64.$metadata?.httpStatusCode !== void 0) {
+        const statusCode = error64.$metadata.httpStatusCode;
+        if (500 <= statusCode && statusCode <= 599 && !isTransientError(error64)) {
           return true;
         }
         return false;
@@ -15736,14 +15736,14 @@ var init_parseRetryAfterHeader = __esm({
 var asSdkError;
 var init_util = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/retry/middleware-retry/util.js"() {
-    asSdkError = (error63) => {
-      if (error63 instanceof Error)
-        return error63;
-      if (error63 instanceof Object)
-        return Object.assign(new Error(), error63);
-      if (typeof error63 === "string")
-        return new Error(error63);
-      return new Error(`AWS SDK error wrapper for ${error63}`);
+    asSdkError = (error64) => {
+      if (error64 instanceof Error)
+        return error64;
+      if (error64 instanceof Object)
+        return Object.assign(new Error(), error64);
+      if (typeof error64 === "string")
+        return new Error(error64);
+      return new Error(`AWS SDK error wrapper for ${error64}`);
     };
   }
 });
@@ -15828,23 +15828,23 @@ var init_retryMiddleware = __esm({
     init_util();
     cooldown = (ms) => new Promise((resolve3) => setTimeout(resolve3, ms));
     isRetryStrategyV2 = (retryStrategy) => typeof retryStrategy.acquireInitialRetryToken !== "undefined" && typeof retryStrategy.refreshRetryTokenForRetry !== "undefined" && typeof retryStrategy.recordSuccess !== "undefined";
-    getRetryErrorInfo = (error63, logger2) => {
+    getRetryErrorInfo = (error64, logger2) => {
       const errorInfo = {
-        error: error63,
-        errorType: getRetryErrorType(error63)
+        error: error64,
+        errorType: getRetryErrorType(error64)
       };
-      const retryAfterHint = parseRetryAfterHeader(error63.$response, logger2);
+      const retryAfterHint = parseRetryAfterHeader(error64.$response, logger2);
       if (retryAfterHint) {
         errorInfo.retryAfterHint = retryAfterHint;
       }
       return errorInfo;
     };
-    getRetryErrorType = (error63) => {
-      if (isThrottlingError(error63))
+    getRetryErrorType = (error64) => {
+      if (isThrottlingError(error64))
         return "THROTTLING";
-      if (isTransientError(error63))
+      if (isTransientError(error64))
         return "TRANSIENT";
-      if (isServerError(error63))
+      if (isServerError(error64))
         return "SERVER_ERROR";
       return "CLIENT_ERROR";
     };
@@ -16245,13 +16245,13 @@ var init_defaultRetryQuota = __esm({
       const retryCost = options?.retryCost ?? RETRY_COST;
       const timeoutRetryCost = options?.timeoutRetryCost ?? TIMEOUT_RETRY_COST;
       let availableCapacity = initialRetryTokens;
-      const getCapacityAmount = (error63) => error63.name === "TimeoutError" ? timeoutRetryCost : retryCost;
-      const hasRetryTokens = (error63) => getCapacityAmount(error63) <= availableCapacity;
-      const retrieveRetryTokens = (error63) => {
-        if (!hasRetryTokens(error63)) {
+      const getCapacityAmount = (error64) => error64.name === "TimeoutError" ? timeoutRetryCost : retryCost;
+      const hasRetryTokens = (error64) => getCapacityAmount(error64) <= availableCapacity;
+      const retrieveRetryTokens = (error64) => {
+        if (!hasRetryTokens(error64)) {
           throw new Error("No retry token available");
         }
-        const capacityAmount = getCapacityAmount(error63);
+        const capacityAmount = getCapacityAmount(error64);
         availableCapacity -= capacityAmount;
         return capacityAmount;
       };
@@ -16282,11 +16282,11 @@ var defaultRetryDecider;
 var init_retryDecider = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/retry/middleware-retry/retry-pre-sra-deprecated/retryDecider.js"() {
     init_service_error_classification();
-    defaultRetryDecider = (error63) => {
-      if (!error63) {
+    defaultRetryDecider = (error64) => {
+      if (!error64) {
         return false;
       }
-      return isRetryableByTrait(error63) || isClockSkewError(error63) || isThrottlingError(error63) || isTransientError(error63);
+      return isRetryableByTrait(error64) || isClockSkewError(error64) || isThrottlingError(error64) || isTransientError(error64);
     };
   }
 });
@@ -16316,8 +16316,8 @@ var init_StandardRetryStrategy2 = __esm({
         this.delayDecider = options?.delayDecider ?? defaultDelayDecider;
         this.retryQuota = options?.retryQuota ?? getDefaultRetryQuota(INITIAL_RETRY_TOKENS);
       }
-      shouldRetry(error63, attempts, maxAttempts) {
-        return attempts < maxAttempts && this.retryDecider(error63) && this.retryQuota.hasRetryTokens(error63);
+      shouldRetry(error64, attempts, maxAttempts) {
+        return attempts < maxAttempts && this.retryDecider(error64) && this.retryQuota.hasRetryTokens(error64);
       }
       async getMaxAttempts() {
         let maxAttempts;
@@ -16680,7 +16680,7 @@ var init_loggerMiddleware = __esm({
           metadata: $metadata
         });
         return response;
-      } catch (error63) {
+      } catch (error64) {
         const { clientName, commandName, logger: logger2, dynamoDbDocumentClientOptions = {} } = context;
         const { overrideInputFilterSensitiveLog } = dynamoDbDocumentClientOptions;
         const inputFilterSensitiveLog = overrideInputFilterSensitiveLog ?? context.inputFilterSensitiveLog;
@@ -16688,10 +16688,10 @@ var init_loggerMiddleware = __esm({
           clientName,
           commandName,
           input: inputFilterSensitiveLog(args.input),
-          error: error63,
-          metadata: error63.$metadata
+          error: error64,
+          metadata: error64.$metadata
         });
-        throw error63;
+        throw error64;
       }
     };
     loggerMiddlewareOptions = {
@@ -17066,8 +17066,8 @@ var init_httpSigningMiddleware = __esm({
   "../../node_modules/@smithy/core/dist-es/legacy-root-exports/middleware-http-signing/httpSigningMiddleware.js"() {
     init_protocols();
     init_transport();
-    defaultErrorHandler = (signingProperties) => (error63) => {
-      throw error63;
+    defaultErrorHandler = (signingProperties) => (error64) => {
+      throw error64;
     };
     defaultSuccessHandler = (httpResponse, signingProperties) => {
     };
@@ -18037,9 +18037,9 @@ var init_nodeAppIdConfigOptions = __esm({
 
 // ../../node_modules/bowser/es5.js
 var require_es5 = __commonJS({
-  "../../node_modules/bowser/es5.js"(exports, module) {
+  "../../node_modules/bowser/es5.js"(exports, module2) {
     !(function(e6, t2) {
-      "object" == typeof exports && "object" == typeof module ? module.exports = t2() : "function" == typeof define && define.amd ? define([], t2) : "object" == typeof exports ? exports.bowser = t2() : e6.bowser = t2();
+      "object" == typeof exports && "object" == typeof module2 ? module2.exports = t2() : "function" == typeof define && define.amd ? define([], t2) : "object" == typeof exports ? exports.bowser = t2() : e6.bowser = t2();
     })(exports, (function() {
       return (function(e6) {
         var t2 = {};
@@ -18856,8 +18856,8 @@ var createUserAgentStringParsingProvider;
 var init_createUserAgentStringParsingProvider = __esm({
   "../../node_modules/@aws-sdk/core/dist-es/submodules/client/util-user-agent-browser/createUserAgentStringParsingProvider.js"() {
     createUserAgentStringParsingProvider = ({ serviceId, clientVersion }) => async (config2) => {
-      const module = await Promise.resolve().then(() => __toESM(require_es5()));
-      const parse4 = module.parse ?? module.default.parse ?? (() => "");
+      const module2 = await Promise.resolve().then(() => __toESM(require_es5()));
+      const parse4 = module2.parse ?? module2.default.parse ?? (() => "");
       const parsedUA = typeof window !== "undefined" && window?.navigator?.userAgent ? parse4(window.navigator.userAgent) : void 0;
       const sections = [
         ["aws-sdk-js", clientVersion],
@@ -19826,8 +19826,8 @@ var require_dist_cjs4 = __commonJS({
                 body: chunk
               });
               controller.enqueue(serializedSigned);
-            } catch (error63) {
-              controller.error(error63);
+            } catch (error64) {
+              controller.error(error64);
             }
           }
         });
@@ -19994,8 +19994,8 @@ var init_AwsSdkSigV4Signer = __esm({
         return signedRequest;
       }
       errorHandler(signingProperties) {
-        return (error63) => {
-          const errorException = error63;
+        return (error64) => {
+          const errorException = error64;
           if (!signingProperties._skipClockSkewSampling && !signingProperties._disableClockSkewCorrection) {
             const serverTime = errorException.ServerTime ?? getDateHeader(errorException.$response);
             if (serverTime) {
@@ -20013,7 +20013,7 @@ var init_AwsSdkSigV4Signer = __esm({
               }
             }
           }
-          throw error63;
+          throw error64;
         };
       }
       successHandler(httpResponse, signingProperties) {
@@ -21221,12 +21221,12 @@ For more information, please visit: ` + STATIC_STABILITY_DOC_URL);
           let token;
           try {
             token = (await getMetadataToken({ ...endpoint2, timeout })).toString();
-          } catch (error63) {
-            if (error63?.statusCode === 400) {
-              throw Object.assign(error63, {
+          } catch (error64) {
+            if (error64?.statusCode === 400) {
+              throw Object.assign(error64, {
                 message: "EC2 Metadata token request returned error"
               });
-            } else if (error63.message === "TimeoutError" || [403, 404, 405].includes(error63.statusCode)) {
+            } else if (error64.message === "TimeoutError" || [403, 404, 405].includes(error64.statusCode)) {
               disableFetchToken = true;
             }
             logger2?.debug("AWS SDK Instance Metadata", "using v1 fallback (initial)");
@@ -21357,12 +21357,12 @@ var require_dist_cjs8 = __commonJS({
         return timing.setTimeout(() => {
           let msg = `@smithy/node-http-handler - [${throwOnRequestTimeout ? "ERROR" : "WARN"}] a request has exceeded the configured ${timeoutInMs} ms requestTimeout.`;
           if (throwOnRequestTimeout) {
-            const error63 = Object.assign(new Error(msg), {
+            const error64 = Object.assign(new Error(msg), {
               name: "TimeoutError",
               code: "ETIMEDOUT"
             });
-            req.destroy(error63);
-            reject(error63);
+            req.destroy(error64);
+            reject(error64);
           } else {
             msg += ` Init client requestHandler with throwOnRequestTimeout=true to turn this into an error.`;
             logger2?.warn?.(msg);
@@ -21450,8 +21450,8 @@ var require_dist_cjs8 = __commonJS({
       }
       if (body) {
         const isBuffer2 = Buffer.isBuffer(body);
-        const isString = typeof body === "string";
-        if (isBuffer2 || isString) {
+        const isString2 = typeof body === "string";
+        if (isBuffer2 || isString2) {
           if (isBuffer2 && body.byteLength === 0) {
             httpRequest.end();
           } else {
@@ -22071,11 +22071,11 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
               this.connectionManager.release(requestContext, ref2);
             }
             if (!fulfilled) {
-              const error63 = new Error("Unexpected error: http2 request did not get a response");
+              const error64 = new Error("Unexpected error: http2 request did not get a response");
               if (session.destroyed) {
-                error63.name = "TimeoutError";
+                error64.name = "TimeoutError";
               }
-              rejectWithDestroy(error63);
+              rejectWithDestroy(error64);
             }
           });
           writeRequestBodyPromise = writeRequestBody(clientHttp2Stream, request2, effectiveRequestTimeout);
@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs14 = __require("node:fs/promises");
+    var fs15 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22206,14 +22206,14 @@ var require_dist_cjs9 = __commonJS({
       const full = options.awsContainerCredentialsFullUri ?? process.env[AWS_CONTAINER_CREDENTIALS_FULL_URI];
       const token = options.awsContainerAuthorizationToken ?? process.env[AWS_CONTAINER_AUTHORIZATION_TOKEN];
       const tokenFile = options.awsContainerAuthorizationTokenFile ?? process.env[AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE];
-      const warn = options.logger?.constructor?.name === "NoOpLogger" || !options.logger?.warn ? console.warn : options.logger.warn.bind(options.logger);
+      const warn2 = options.logger?.constructor?.name === "NoOpLogger" || !options.logger?.warn ? console.warn : options.logger.warn.bind(options.logger);
       if (relative2 && full) {
-        warn("@aws-sdk/credential-provider-http: you have set both awsContainerCredentialsRelativeUri and awsContainerCredentialsFullUri.");
-        warn("awsContainerCredentialsRelativeUri will take precedence.");
+        warn2("@aws-sdk/credential-provider-http: you have set both awsContainerCredentialsRelativeUri and awsContainerCredentialsFullUri.");
+        warn2("awsContainerCredentialsRelativeUri will take precedence.");
       }
       if (token && tokenFile) {
-        warn("@aws-sdk/credential-provider-http: you have set both awsContainerAuthorizationToken and awsContainerAuthorizationTokenFile.");
-        warn("awsContainerAuthorizationTokenFile will take precedence.");
+        warn2("@aws-sdk/credential-provider-http: you have set both awsContainerAuthorizationToken and awsContainerAuthorizationTokenFile.");
+        warn2("awsContainerAuthorizationTokenFile will take precedence.");
       }
       if (relative2) {
         host = `${DEFAULT_LINK_LOCAL_HOST}${relative2}`;
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs14.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs15.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -23851,8 +23851,8 @@ var init_SmithyRpcV2CborProtocol = __esm({
           if (dataObject.Message) {
             dataObject.message = dataObject.Message;
           }
-          const error63 = errorMode === "synthetic" ? new ErrorCtor({ name: errorShapeName }) : new Error(errorShapeName);
-          throw Object.assign(error63, errorMetadata, dataObject);
+          const error64 = errorMode === "synthetic" ? new ErrorCtor({ name: errorShapeName }) : new Error(errorShapeName);
+          throw Object.assign(error64, errorMetadata, dataObject);
         }
         const ns = NormalizedSchema.of(errorSchema);
         const message2 = dataObject.message ?? dataObject.Message ?? "Unknown";
@@ -23964,20 +23964,20 @@ var init_ProtocolLib = __esm({
       decorateServiceException(exception, additions = {}) {
         if (this.queryCompat) {
           const msg = exception.Message ?? additions.Message;
-          const error63 = decorateServiceException(exception, additions);
+          const error64 = decorateServiceException(exception, additions);
           if (msg) {
-            error63.message = msg;
+            error64.message = msg;
           }
-          const errorObj = error63.Error ?? {};
-          errorObj.Type = error63.Error?.Type;
-          errorObj.Code = error63.Error?.Code;
-          errorObj.Message = error63.Error?.message ?? error63.Error?.Message ?? msg;
-          error63.Error = errorObj;
-          const reqId = error63.$metadata.requestId;
+          const errorObj = error64.Error ?? {};
+          errorObj.Type = error64.Error?.Type;
+          errorObj.Code = error64.Error?.Code;
+          errorObj.Message = error64.Error?.message ?? error64.Error?.Message ?? msg;
+          error64.Error = errorObj;
+          const reqId = error64.$metadata.requestId;
           if (reqId) {
-            error63.RequestId = reqId;
+            error64.RequestId = reqId;
           }
-          return error63;
+          return error64;
         }
         return decorateServiceException(exception, additions);
       }
@@ -26807,13 +26807,13 @@ var require_dist_cjs11 = __commonJS({
               expiresAt: newTokenExpiration.toISOString(),
               refreshToken: newSsoOidcToken.refreshToken
             });
-          } catch (error63) {
+          } catch (error64) {
           }
           return {
             token: newSsoOidcToken.accessToken,
             expiration: newTokenExpiration
           };
-        } catch (error63) {
+        } catch (error64) {
           validateTokenExpiry(existingToken);
           return existingToken;
         }
@@ -30103,9 +30103,9 @@ var require_dist_cjs14 = __commonJS({
           };
           await this.saveToken(updatedToken);
           return this.toCredentials(updatedToken.accessToken);
-        } catch (error63) {
-          if (error63.name === "AccessDeniedException") {
-            const errorType = error63.error;
+        } catch (error64) {
+          if (error64.name === "AccessDeniedException") {
+            const errorType = error64.error;
             let message2;
             switch (errorType) {
               case "TOKEN_EXPIRED":
@@ -30118,7 +30118,7 @@ var require_dist_cjs14 = __commonJS({
                 message2 = "Unable to refresh credentials due to insufficient permissions. You may be missing permission for the 'CreateOAuth2Token' action.";
                 break;
               default:
-                message2 = `Failed to refresh token: ${String(error63)}. Please re-authenticate using \`aws login\``;
+                message2 = `Failed to refresh token: ${String(error64)}. Please re-authenticate using \`aws login\``;
             }
             throw new CredentialsProviderError2(message2, {
               logger: this.logger,
@@ -30127,10 +30127,10 @@ var require_dist_cjs14 = __commonJS({
           }
           const tokenExpiry2 = new Date(freshToken.accessToken.expiresAt).getTime();
           if (tokenExpiry2 > Date.now()) {
-            this.logger?.warn?.(`Failed to refresh token: ${String(error63)}. Using existing token until expiry.`);
+            this.logger?.warn?.(`Failed to refresh token: ${String(error64)}. Using existing token until expiry.`);
             return this.toCredentials(freshToken.accessToken);
           }
-          throw new CredentialsProviderError2(`Failed to refresh token: ${String(error63)}. Please re-authenticate using aws login`, { logger: this.logger });
+          throw new CredentialsProviderError2(`Failed to refresh token: ${String(error64)}. Please re-authenticate using aws login`, { logger: this.logger });
         }
       }
       async loadToken() {
@@ -30149,8 +30149,8 @@ var require_dist_cjs14 = __commonJS({
             });
           }
           return token;
-        } catch (error63) {
-          throw new CredentialsProviderError2(`Failed to load token from ${tokenFilePath}: ${String(error63)}`, {
+        } catch (error64) {
+          throw new CredentialsProviderError2(`Failed to load token from ${tokenFilePath}: ${String(error64)}`, {
             logger: this.logger,
             tryNextLink: false
           });
@@ -30161,7 +30161,7 @@ var require_dist_cjs14 = __commonJS({
         const directory = dirname6(tokenFilePath);
         try {
           await promises.mkdir(directory, { recursive: true });
-        } catch (error63) {
+        } catch (error64) {
         }
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
@@ -30252,8 +30252,8 @@ var require_dist_cjs14 = __commonJS({
           const rawSignature = this.derToRawSignature(asn1Signature);
           const signatureB64 = rawSignature.toString("base64url");
           return `${message2}.${signatureB64}`;
-        } catch (error63) {
-          throw new CredentialsProviderError2(`Failed to generate Dpop proof: ${error63 instanceof Error ? error63.message : String(error63)}`, { logger: this.logger, tryNextLink: false });
+        } catch (error64) {
+          throw new CredentialsProviderError2(`Failed to generate Dpop proof: ${error64 instanceof Error ? error64.message : String(error64)}`, { logger: this.logger, tryNextLink: false });
         }
       }
     };
@@ -30329,8 +30329,8 @@ var require_dist_cjs15 = __commonJS({
               throw Error(`Profile ${profileName} credential_process returned invalid JSON.`);
             }
             return getValidatedProcessCredentials(profileName, data, profiles);
-          } catch (error63) {
-            throw new CredentialsProviderError2(error63.message, { logger: logger2 });
+          } catch (error64) {
+            throw new CredentialsProviderError2(error64.message, { logger: logger2 });
           }
         } else {
           throw new CredentialsProviderError2(`Profile ${profileName} did not contain credential_process.`, { logger: logger2 });
@@ -31016,13 +31016,13 @@ var require_dist_cjs20 = __commonJS({
               expiresAt: newTokenExpiration.toISOString(),
               refreshToken: newSsoOidcToken.refreshToken
             });
-          } catch (error63) {
+          } catch (error64) {
           }
           return {
             token: newSsoOidcToken.accessToken,
             expiration: newTokenExpiration
           };
-        } catch (error63) {
+        } catch (error64) {
           validateTokenExpiry(existingToken);
           return existingToken;
         }
@@ -31058,10 +31058,10 @@ var require_dist_cjs21 = __commonJS({
     var { resolveEventStreamConfig, getEventStreamPlugin } = require_dist_cjs2();
     var { resolveWebSocketConfig, getWebSocketPlugin } = require_dist_cjs4();
     var { memoizeIdentityProvider: memoizeIdentityProvider2, isIdentityExpired: isIdentityExpired2, doesIdentityRequireRefresh: doesIdentityRequireRefresh2, HttpBearerAuthSigner: HttpBearerAuthSigner2, getHttpAuthSchemeEndpointRuleSetPlugin: getHttpAuthSchemeEndpointRuleSetPlugin2, DefaultIdentityProviderConfig: DefaultIdentityProviderConfig2, getHttpSigningPlugin: getHttpSigningPlugin2, createPaginator: createPaginator2 } = (init_dist_es(), __toCommonJS(dist_es_exports));
-    var { normalizeProvider: normalizeProvider3, getSmithyContext: getSmithyContext2, ServiceException: ServiceException2, NoOpLogger: NoOpLogger2, emitWarningIfUnsupportedVersion: emitWarningIfUnsupportedVersion3, loadConfigsForDefaultMode: loadConfigsForDefaultMode2, getDefaultExtensionConfiguration: getDefaultExtensionConfiguration2, resolveDefaultRuntimeConfig: resolveDefaultRuntimeConfig2, Client: Client2, makeBuilder: makeBuilder2, createAggregatedClient: createAggregatedClient2 } = (init_client2(), __toCommonJS(client_exports));
+    var { normalizeProvider: normalizeProvider3, getSmithyContext: getSmithyContext2, ServiceException: ServiceException2, NoOpLogger: NoOpLogger2, emitWarningIfUnsupportedVersion: emitWarningIfUnsupportedVersion3, loadConfigsForDefaultMode: loadConfigsForDefaultMode2, getDefaultExtensionConfiguration: getDefaultExtensionConfiguration2, resolveDefaultRuntimeConfig: resolveDefaultRuntimeConfig2, Client: Client3, makeBuilder: makeBuilder2, createAggregatedClient: createAggregatedClient2 } = (init_client2(), __toCommonJS(client_exports));
     var { Command: $Command } = (init_client2(), __toCommonJS(client_exports));
     exports.$Command = $Command;
-    exports.__Client = Client2;
+    exports.__Client = Client3;
     var { resolveDefaultsModeConfig: resolveDefaultsModeConfig2, loadConfig: loadConfig5, NODE_USE_FIPS_ENDPOINT_CONFIG_OPTIONS: NODE_USE_FIPS_ENDPOINT_CONFIG_OPTIONS2, NODE_USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS: NODE_USE_DUALSTACK_ENDPOINT_CONFIG_OPTIONS2, NODE_REGION_CONFIG_OPTIONS: NODE_REGION_CONFIG_OPTIONS2, NODE_REGION_CONFIG_FILE_OPTIONS: NODE_REGION_CONFIG_FILE_OPTIONS2, resolveRegionConfig: resolveRegionConfig2 } = (init_config2(), __toCommonJS(config_exports));
     var { BinaryDecisionDiagram: BinaryDecisionDiagram2, EndpointCache: EndpointCache2, decideEndpoint: decideEndpoint2, customEndpointFunctions: customEndpointFunctions2, resolveEndpointConfig: resolveEndpointConfig2, getEndpointPlugin: getEndpointPlugin2 } = (init_endpoints(), __toCommonJS(endpoints_exports));
     var { eventStreamSerdeProvider: eventStreamSerdeProvider3, resolveEventStreamSerdeConfig: resolveEventStreamSerdeConfig2 } = (init_event_streams(), __toCommonJS(event_streams_exports));
@@ -34118,7 +34118,7 @@ var require_dist_cjs21 = __commonJS({
             identityProvider: (ipc) => ipc.getIdentityProvider("smithy.api#httpBearerAuth") || (async (idProps) => {
               try {
                 return await fromEnvSigningName({ signingName: "bedrock" })();
-              } catch (error63) {
+              } catch (error64) {
                 return await nodeProvider(idProps)(idProps);
               }
             }),
@@ -34191,7 +34191,7 @@ var require_dist_cjs21 = __commonJS({
       extensions.forEach((extension2) => extension2.configure(extensionConfiguration));
       return Object.assign(runtimeConfig, resolveAwsRegionExtensionConfiguration2(extensionConfiguration), resolveDefaultRuntimeConfig2(extensionConfiguration), resolveHttpHandlerRuntimeConfig2(extensionConfiguration), resolveHttpAuthRuntimeConfig5(extensionConfiguration));
     };
-    var BedrockRuntimeClient2 = class extends Client2 {
+    var BedrockRuntimeClient2 = class extends Client3 {
       config;
       constructor(...[configuration]) {
         const _config_0 = getRuntimeConfig9(configuration || {});
@@ -34854,7 +34854,7 @@ var require_dist_cjs21 = __commonJS({
 
 // ../../node_modules/retry/lib/retry_operation.js
 var require_retry_operation = __commonJS({
-  "../../node_modules/retry/lib/retry_operation.js"(exports, module) {
+  "../../node_modules/retry/lib/retry_operation.js"(exports, module2) {
     function RetryOperation(timeouts, options) {
       if (typeof options === "boolean") {
         options = { forever: options };
@@ -34875,7 +34875,7 @@ var require_retry_operation = __commonJS({
         this._cachedTimeouts = this._timeouts.slice(0);
       }
     }
-    module.exports = RetryOperation;
+    module2.exports = RetryOperation;
     RetryOperation.prototype.reset = function() {
       this._attempts = 1;
       this._timeouts = this._originalTimeouts.slice(0);
@@ -34973,12 +34973,12 @@ var require_retry_operation = __commonJS({
       var mainError = null;
       var mainErrorCount = 0;
       for (var i6 = 0; i6 < this._errors.length; i6++) {
-        var error63 = this._errors[i6];
-        var message2 = error63.message;
+        var error64 = this._errors[i6];
+        var message2 = error64.message;
         var count = (counts[message2] || 0) + 1;
         counts[message2] = count;
         if (count >= mainErrorCount) {
-          mainError = error63;
+          mainError = error64;
           mainErrorCount = count;
         }
       }
@@ -35075,14 +35075,14 @@ var require_retry = __commonJS({
 
 // ../../node_modules/retry/index.js
 var require_retry2 = __commonJS({
-  "../../node_modules/retry/index.js"(exports, module) {
-    module.exports = require_retry();
+  "../../node_modules/retry/index.js"(exports, module2) {
+    module2.exports = require_retry();
   }
 });
 
 // ../../node_modules/p-retry/index.js
 var require_p_retry = __commonJS({
-  "../../node_modules/p-retry/index.js"(exports, module) {
+  "../../node_modules/p-retry/index.js"(exports, module2) {
     "use strict";
     var retry2 = require_retry2();
     var networkErrorMsgs = [
@@ -35109,11 +35109,11 @@ var require_p_retry = __commonJS({
         this.message = message2;
       }
     };
-    var decorateErrorWithCounts = (error63, attemptNumber, options) => {
+    var decorateErrorWithCounts = (error64, attemptNumber, options) => {
       const retriesLeft = options.retries - (attemptNumber - 1);
-      error63.attemptNumber = attemptNumber;
-      error63.retriesLeft = retriesLeft;
-      return error63;
+      error64.attemptNumber = attemptNumber;
+      error64.retriesLeft = retriesLeft;
+      return error64;
     };
     var isNetworkError = (errorMessage) => networkErrorMsgs.includes(errorMessage);
     var pRetry2 = (input2, options) => new Promise((resolve3, reject) => {
@@ -35127,41 +35127,41 @@ var require_p_retry = __commonJS({
       operation2.attempt(async (attemptNumber) => {
         try {
           resolve3(await input2(attemptNumber));
-        } catch (error63) {
-          if (!(error63 instanceof Error)) {
-            reject(new TypeError(`Non-error was thrown: "${error63}". You should only throw errors.`));
+        } catch (error64) {
+          if (!(error64 instanceof Error)) {
+            reject(new TypeError(`Non-error was thrown: "${error64}". You should only throw errors.`));
             return;
           }
-          if (error63 instanceof AbortError2) {
+          if (error64 instanceof AbortError2) {
             operation2.stop();
-            reject(error63.originalError);
-          } else if (error63 instanceof TypeError && !isNetworkError(error63.message)) {
+            reject(error64.originalError);
+          } else if (error64 instanceof TypeError && !isNetworkError(error64.message)) {
             operation2.stop();
-            reject(error63);
+            reject(error64);
           } else {
-            decorateErrorWithCounts(error63, attemptNumber, options);
+            decorateErrorWithCounts(error64, attemptNumber, options);
             try {
-              await options.onFailedAttempt(error63);
-            } catch (error64) {
-              reject(error64);
+              await options.onFailedAttempt(error64);
+            } catch (error65) {
+              reject(error65);
               return;
             }
-            if (!operation2.retry(error63)) {
+            if (!operation2.retry(error64)) {
               reject(operation2.mainError());
             }
           }
         }
       });
     });
-    module.exports = pRetry2;
-    module.exports.default = pRetry2;
-    module.exports.AbortError = AbortError2;
+    module2.exports = pRetry2;
+    module2.exports.default = pRetry2;
+    module2.exports.AbortError = AbortError2;
   }
 });
 
 // ../../node_modules/extend/index.js
 var require_extend = __commonJS({
-  "../../node_modules/extend/index.js"(exports, module) {
+  "../../node_modules/extend/index.js"(exports, module2) {
     "use strict";
     var hasOwn4 = Object.prototype.hasOwnProperty;
     var toStr = Object.prototype.toString;
@@ -35173,7 +35173,7 @@ var require_extend = __commonJS({
       }
       return toStr.call(arr) === "[object Array]";
     };
-    var isPlainObject4 = function isPlainObject5(obj) {
+    var isPlainObject5 = function isPlainObject6(obj) {
       if (!obj || toStr.call(obj) !== "[object Object]") {
         return false;
       }
@@ -35209,7 +35209,7 @@ var require_extend = __commonJS({
       }
       return obj[name];
     };
-    module.exports = function extend2() {
+    module2.exports = function extend2() {
       var options, name, src, copy, copyIsArray, clone3;
       var target = arguments[0];
       var i6 = 1;
@@ -35230,12 +35230,12 @@ var require_extend = __commonJS({
             src = getProperty(target, name);
             copy = getProperty(options, name);
             if (target !== copy) {
-              if (deep && copy && (isPlainObject4(copy) || (copyIsArray = isArray(copy)))) {
+              if (deep && copy && (isPlainObject5(copy) || (copyIsArray = isArray(copy)))) {
                 if (copyIsArray) {
                   copyIsArray = false;
                   clone3 = src && isArray(src) ? src : [];
                 } else {
-                  clone3 = src && isPlainObject4(src) ? src : {};
+                  clone3 = src && isPlainObject5(src) ? src : {};
                 }
                 setProperty(target, { name, newValue: extend2(deep, clone3, copy) });
               } else if (typeof copy !== "undefined") {
@@ -35252,8 +35252,8 @@ var require_extend = __commonJS({
 
 // ../../node_modules/gaxios/package.json
 var require_package = __commonJS({
-  "../../node_modules/gaxios/package.json"(exports, module) {
-    module.exports = {
+  "../../node_modules/gaxios/package.json"(exports, module2) {
+    module2.exports = {
       name: "gaxios",
       version: "7.3.1",
       description: "A simple common HTTP client specifically for Google APIs and services.",
@@ -35363,10 +35363,10 @@ var require_package = __commonJS({
 
 // ../../node_modules/gaxios/build/cjs/src/util.cjs
 var require_util = __commonJS({
-  "../../node_modules/gaxios/build/cjs/src/util.cjs"(exports, module) {
+  "../../node_modules/gaxios/build/cjs/src/util.cjs"(exports, module2) {
     "use strict";
     var pkg = require_package();
-    module.exports = { pkg };
+    module2.exports = { pkg };
   }
 });
 
@@ -35731,14 +35731,14 @@ var require_interceptor = __commonJS({
 
 // ../../node_modules/ms/index.js
 var require_ms = __commonJS({
-  "../../node_modules/ms/index.js"(exports, module) {
+  "../../node_modules/ms/index.js"(exports, module2) {
     var s3 = 1e3;
     var m4 = s3 * 60;
     var h6 = m4 * 60;
     var d5 = h6 * 24;
     var w = d5 * 7;
     var y = d5 * 365.25;
-    module.exports = function(val, options) {
+    module2.exports = function(val, options) {
       options = options || {};
       var type = typeof val;
       if (type === "string" && val.length > 0) {
@@ -35847,13 +35847,13 @@ var require_ms = __commonJS({
 
 // ../../node_modules/debug/src/common.js
 var require_common2 = __commonJS({
-  "../../node_modules/debug/src/common.js"(exports, module) {
+  "../../node_modules/debug/src/common.js"(exports, module2) {
     function setup(env3) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
       createDebug.coerce = coerce;
-      createDebug.disable = disable;
-      createDebug.enable = enable;
+      createDebug.disable = disable2;
+      createDebug.enable = enable2;
       createDebug.enabled = enabled;
       createDebug.humanize = require_ms();
       createDebug.destroy = destroy;
@@ -35877,11 +35877,11 @@ var require_common2 = __commonJS({
         let enableOverride = null;
         let namespacesCache;
         let enabledCache;
-        function debug(...args) {
-          if (!debug.enabled) {
+        function debug2(...args) {
+          if (!debug2.enabled) {
             return;
           }
-          const self2 = debug;
+          const self2 = debug2;
           const curr = Number(/* @__PURE__ */ new Date());
           const ms = curr - (prevTime || curr);
           self2.diff = ms;
@@ -35911,12 +35911,12 @@ var require_common2 = __commonJS({
           const logFn = self2.log || createDebug.log;
           logFn.apply(self2, args);
         }
-        debug.namespace = namespace;
-        debug.useColors = createDebug.useColors();
-        debug.color = createDebug.selectColor(namespace);
-        debug.extend = extend2;
-        debug.destroy = createDebug.destroy;
-        Object.defineProperty(debug, "enabled", {
+        debug2.namespace = namespace;
+        debug2.useColors = createDebug.useColors();
+        debug2.color = createDebug.selectColor(namespace);
+        debug2.extend = extend2;
+        debug2.destroy = createDebug.destroy;
+        Object.defineProperty(debug2, "enabled", {
           enumerable: true,
           configurable: false,
           get: () => {
@@ -35934,16 +35934,16 @@ var require_common2 = __commonJS({
           }
         });
         if (typeof createDebug.init === "function") {
-          createDebug.init(debug);
+          createDebug.init(debug2);
         }
-        return debug;
+        return debug2;
       }
       function extend2(namespace, delimiter) {
         const newDebug = createDebug(this.namespace + (typeof delimiter === "undefined" ? ":" : delimiter) + namespace);
         newDebug.log = this.log;
         return newDebug;
       }
-      function enable(namespaces) {
+      function enable2(namespaces) {
         createDebug.save(namespaces);
         createDebug.namespaces = namespaces;
         createDebug.names = [];
@@ -35985,7 +35985,7 @@ var require_common2 = __commonJS({
         }
         return templateIndex === template.length;
       }
-      function disable() {
+      function disable2() {
         const namespaces = [
           ...createDebug.names,
           ...createDebug.skips.map((namespace) => "-" + namespace)
@@ -36018,13 +36018,13 @@ var require_common2 = __commonJS({
       createDebug.enable(createDebug.load());
       return createDebug;
     }
-    module.exports = setup;
+    module2.exports = setup;
   }
 });
 
 // ../../node_modules/debug/src/browser.js
 var require_browser = __commonJS({
-  "../../node_modules/debug/src/browser.js"(exports, module) {
+  "../../node_modules/debug/src/browser.js"(exports, module2) {
     exports.formatArgs = formatArgs;
     exports.save = save;
     exports.load = load;
@@ -36132,7 +36132,7 @@ var require_browser = __commonJS({
       typeof navigator !== "undefined" && navigator.userAgent && navigator.userAgent.toLowerCase().match(/applewebkit\/(\d+)/);
     }
     function formatArgs(args) {
-      args[0] = (this.useColors ? "%c" : "") + this.namespace + (this.useColors ? " %c" : " ") + args[0] + (this.useColors ? "%c " : " ") + "+" + module.exports.humanize(this.diff);
+      args[0] = (this.useColors ? "%c" : "") + this.namespace + (this.useColors ? " %c" : " ") + args[0] + (this.useColors ? "%c " : " ") + "+" + module2.exports.humanize(this.diff);
       if (!this.useColors) {
         return;
       }
@@ -36160,14 +36160,14 @@ var require_browser = __commonJS({
         } else {
           exports.storage.removeItem("debug");
         }
-      } catch (error63) {
+      } catch (error64) {
       }
     }
     function load() {
       let r6;
       try {
         r6 = exports.storage.getItem("debug") || exports.storage.getItem("DEBUG");
-      } catch (error63) {
+      } catch (error64) {
       }
       if (!r6 && typeof process !== "undefined" && "env" in process) {
         r6 = process.env.DEBUG;
@@ -36177,16 +36177,16 @@ var require_browser = __commonJS({
     function localstorage() {
       try {
         return localStorage;
-      } catch (error63) {
+      } catch (error64) {
       }
     }
-    module.exports = require_common2()(exports);
-    var { formatters } = module.exports;
+    module2.exports = require_common2()(exports);
+    var { formatters } = module2.exports;
     formatters.j = function(v) {
       try {
         return JSON.stringify(v);
-      } catch (error63) {
-        return "[UnexpectedJSONParseError]: " + error63.message;
+      } catch (error64) {
+        return "[UnexpectedJSONParseError]: " + error64.message;
       }
     };
   }
@@ -36194,18 +36194,18 @@ var require_browser = __commonJS({
 
 // wim-stub:supports-color
 var require_supports_color = __commonJS({
-  "wim-stub:supports-color"(exports, module) {
-    module.exports = false;
+  "wim-stub:supports-color"(exports, module2) {
+    module2.exports = false;
   }
 });
 
 // ../../node_modules/debug/src/node.js
 var require_node = __commonJS({
-  "../../node_modules/debug/src/node.js"(exports, module) {
+  "../../node_modules/debug/src/node.js"(exports, module2) {
     var tty = __require("tty");
     var util = __require("util");
     exports.init = init2;
-    exports.log = log;
+    exports.log = log2;
     exports.formatArgs = formatArgs;
     exports.save = save;
     exports.load = load;
@@ -36298,7 +36298,7 @@ var require_node = __commonJS({
           221
         ];
       }
-    } catch (error63) {
+    } catch (error64) {
     }
     exports.inspectOpts = Object.keys(process.env).filter((key2) => {
       return /^debug_/i.test(key2);
@@ -36329,7 +36329,7 @@ var require_node = __commonJS({
         const colorCode = "\x1B[3" + (c5 < 8 ? c5 : "8;5;" + c5);
         const prefix = `  ${colorCode};1m${name} \x1B[0m`;
         args[0] = prefix + args[0].split("\n").join("\n" + prefix);
-        args.push(colorCode + "m+" + module.exports.humanize(this.diff) + "\x1B[0m");
+        args.push(colorCode + "m+" + module2.exports.humanize(this.diff) + "\x1B[0m");
       } else {
         args[0] = getDate() + name + " " + args[0];
       }
@@ -36340,7 +36340,7 @@ var require_node = __commonJS({
       }
       return (/* @__PURE__ */ new Date()).toISOString() + " ";
     }
-    function log(...args) {
+    function log2(...args) {
       return process.stderr.write(util.formatWithOptions(exports.inspectOpts, ...args) + "\n");
     }
     function save(namespaces) {
@@ -36353,15 +36353,15 @@ var require_node = __commonJS({
     function load() {
       return process.env.DEBUG;
     }
-    function init2(debug) {
-      debug.inspectOpts = {};
+    function init2(debug2) {
+      debug2.inspectOpts = {};
       const keys = Object.keys(exports.inspectOpts);
       for (let i6 = 0; i6 < keys.length; i6++) {
-        debug.inspectOpts[keys[i6]] = exports.inspectOpts[keys[i6]];
+        debug2.inspectOpts[keys[i6]] = exports.inspectOpts[keys[i6]];
       }
     }
-    module.exports = require_common2()(exports);
-    var { formatters } = module.exports;
+    module2.exports = require_common2()(exports);
+    var { formatters } = module2.exports;
     formatters.o = function(v) {
       this.inspectOpts.colors = this.useColors;
       return util.inspect(v, this.inspectOpts).split("\n").map((str2) => str2.trim()).join(" ");
@@ -36375,11 +36375,11 @@ var require_node = __commonJS({
 
 // ../../node_modules/debug/src/index.js
 var require_src = __commonJS({
-  "../../node_modules/debug/src/index.js"(exports, module) {
+  "../../node_modules/debug/src/index.js"(exports, module2) {
     if (typeof process === "undefined" || process.type === "renderer" || process.browser === true || process.__nwjs) {
-      module.exports = require_browser();
+      module2.exports = require_browser();
     } else {
-      module.exports = require_node();
+      module2.exports = require_node();
     }
   }
 });
@@ -36620,7 +36620,7 @@ var require_parse_proxy_response = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.parseProxyResponse = void 0;
     var debug_1 = __importDefault(require_src());
-    var debug = (0, debug_1.default)("https-proxy-agent:parse-proxy-response");
+    var debug2 = (0, debug_1.default)("https-proxy-agent:parse-proxy-response");
     function parseProxyResponse(socket) {
       return new Promise((resolve3, reject) => {
         let buffersLength = 0;
@@ -36639,12 +36639,12 @@ var require_parse_proxy_response = __commonJS({
         }
         function onend() {
           cleanup();
-          debug("onend");
+          debug2("onend");
           reject(new Error("Proxy connection ended before receiving CONNECT response"));
         }
         function onerror(err) {
           cleanup();
-          debug("onerror %o", err);
+          debug2("onerror %o", err);
           reject(err);
         }
         function ondata(b5) {
@@ -36653,7 +36653,7 @@ var require_parse_proxy_response = __commonJS({
           const buffered = Buffer.concat(buffers, buffersLength);
           const endOfHeaders = buffered.indexOf("\r\n\r\n");
           if (endOfHeaders === -1) {
-            debug("have not received end of HTTP headers yet...");
+            debug2("have not received end of HTTP headers yet...");
             read();
             return;
           }
@@ -36686,7 +36686,7 @@ var require_parse_proxy_response = __commonJS({
               headers[key2] = value2;
             }
           }
-          debug("got proxy server response: %o %o", firstLine, headers);
+          debug2("got proxy server response: %o %o", firstLine, headers);
           cleanup();
           resolve3({
             connect: {
@@ -36749,7 +36749,7 @@ var require_dist2 = __commonJS({
     var agent_base_1 = require_dist();
     var url_1 = __require("url");
     var parse_proxy_response_1 = require_parse_proxy_response();
-    var debug = (0, debug_1.default)("https-proxy-agent");
+    var debug2 = (0, debug_1.default)("https-proxy-agent");
     var setServernameFromNonIpHost = (options) => {
       if (options.servername === void 0 && options.host && !net.isIP(options.host)) {
         return {
@@ -36765,7 +36765,7 @@ var require_dist2 = __commonJS({
         this.options = { path: void 0 };
         this.proxy = typeof proxy === "string" ? new url_1.URL(proxy) : proxy;
         this.proxyHeaders = opts?.headers ?? {};
-        debug("Creating new HttpsProxyAgent instance: %o", this.proxy.href);
+        debug2("Creating new HttpsProxyAgent instance: %o", this.proxy.href);
         const host = (this.proxy.hostname || this.proxy.host).replace(/^\[|\]$/g, "");
         const port = this.proxy.port ? parseInt(this.proxy.port, 10) : this.proxy.protocol === "https:" ? 443 : 80;
         this.connectOpts = {
@@ -36787,10 +36787,10 @@ var require_dist2 = __commonJS({
         }
         let socket;
         if (proxy.protocol === "https:") {
-          debug("Creating `tls.Socket`: %o", this.connectOpts);
+          debug2("Creating `tls.Socket`: %o", this.connectOpts);
           socket = tls3.connect(setServernameFromNonIpHost(this.connectOpts));
         } else {
-          debug("Creating `net.Socket`: %o", this.connectOpts);
+          debug2("Creating `net.Socket`: %o", this.connectOpts);
           socket = net.connect(this.connectOpts);
         }
         const headers = typeof this.proxyHeaders === "function" ? this.proxyHeaders() : { ...this.proxyHeaders };
@@ -36818,7 +36818,7 @@ var require_dist2 = __commonJS({
         if (connect3.statusCode === 200) {
           req.once("socket", resume);
           if (opts.secureEndpoint) {
-            debug("Upgrading socket connection to TLS");
+            debug2("Upgrading socket connection to TLS");
             return tls3.connect({
               ...omit2(setServernameFromNonIpHost(opts), "host", "path", "port"),
               socket
@@ -36830,7 +36830,7 @@ var require_dist2 = __commonJS({
         const fakeSocket = new net.Socket({ writable: false });
         fakeSocket.readable = true;
         req.once("socket", (s3) => {
-          debug("Replaying proxy buffer for failed request");
+          debug2("Replaying proxy buffer for failed request");
           (0, assert_1.default)(s3.listenerCount("data") > 0);
           s3.push(buffered);
           s3.push(null);
@@ -36902,9 +36902,9 @@ var init_dist = __esm({
 
 // ../../node_modules/web-streams-polyfill/dist/ponyfill.es2018.js
 var require_ponyfill_es2018 = __commonJS({
-  "../../node_modules/web-streams-polyfill/dist/ponyfill.es2018.js"(exports, module) {
+  "../../node_modules/web-streams-polyfill/dist/ponyfill.es2018.js"(exports, module2) {
     (function(global2, factory) {
-      typeof exports === "object" && typeof module !== "undefined" ? factory(exports) : typeof define === "function" && define.amd ? define(["exports"], factory) : (global2 = typeof globalThis !== "undefined" ? globalThis : global2 || self, factory(global2.WebStreamsPolyfill = {}));
+      typeof exports === "object" && typeof module2 !== "undefined" ? factory(exports) : typeof define === "function" && define.amd ? define(["exports"], factory) : (global2 = typeof globalThis !== "undefined" ? globalThis : global2 || self, factory(global2.WebStreamsPolyfill = {}));
     })(exports, (function(exports2) {
       "use strict";
       function noop2() {
@@ -38758,10 +38758,10 @@ var require_ponyfill_es2018 = __commonJS({
         });
         return promise2;
       }
-      function WritableStreamDealWithRejection(stream, error63) {
+      function WritableStreamDealWithRejection(stream, error64) {
         const state2 = stream._state;
         if (state2 === "writable") {
-          WritableStreamStartErroring(stream, error63);
+          WritableStreamStartErroring(stream, error64);
           return;
         }
         WritableStreamFinishErroring(stream);
@@ -38812,10 +38812,10 @@ var require_ponyfill_es2018 = __commonJS({
         stream._inFlightWriteRequest._resolve(void 0);
         stream._inFlightWriteRequest = void 0;
       }
-      function WritableStreamFinishInFlightWriteWithError(stream, error63) {
-        stream._inFlightWriteRequest._reject(error63);
+      function WritableStreamFinishInFlightWriteWithError(stream, error64) {
+        stream._inFlightWriteRequest._reject(error64);
         stream._inFlightWriteRequest = void 0;
-        WritableStreamDealWithRejection(stream, error63);
+        WritableStreamDealWithRejection(stream, error64);
       }
       function WritableStreamFinishInFlightClose(stream) {
         stream._inFlightCloseRequest._resolve(void 0);
@@ -38834,14 +38834,14 @@ var require_ponyfill_es2018 = __commonJS({
           defaultWriterClosedPromiseResolve(writer);
         }
       }
-      function WritableStreamFinishInFlightCloseWithError(stream, error63) {
-        stream._inFlightCloseRequest._reject(error63);
+      function WritableStreamFinishInFlightCloseWithError(stream, error64) {
+        stream._inFlightCloseRequest._reject(error64);
         stream._inFlightCloseRequest = void 0;
         if (stream._pendingAbortRequest !== void 0) {
-          stream._pendingAbortRequest._reject(error63);
+          stream._pendingAbortRequest._reject(error64);
           stream._pendingAbortRequest = void 0;
         }
-        WritableStreamDealWithRejection(stream, error63);
+        WritableStreamDealWithRejection(stream, error64);
       }
       function WritableStreamCloseQueuedOrInFlight(stream) {
         if (stream._closeRequest === void 0 && stream._inFlightCloseRequest === void 0) {
@@ -39058,18 +39058,18 @@ var require_ponyfill_es2018 = __commonJS({
         }
         return WritableStreamDefaultWriterClose(writer);
       }
-      function WritableStreamDefaultWriterEnsureClosedPromiseRejected(writer, error63) {
+      function WritableStreamDefaultWriterEnsureClosedPromiseRejected(writer, error64) {
         if (writer._closedPromiseState === "pending") {
-          defaultWriterClosedPromiseReject(writer, error63);
+          defaultWriterClosedPromiseReject(writer, error64);
         } else {
-          defaultWriterClosedPromiseResetToRejected(writer, error63);
+          defaultWriterClosedPromiseResetToRejected(writer, error64);
         }
       }
-      function WritableStreamDefaultWriterEnsureReadyPromiseRejected(writer, error63) {
+      function WritableStreamDefaultWriterEnsureReadyPromiseRejected(writer, error64) {
         if (writer._readyPromiseState === "pending") {
-          defaultWriterReadyPromiseReject(writer, error63);
+          defaultWriterReadyPromiseReject(writer, error64);
         } else {
-          defaultWriterReadyPromiseResetToRejected(writer, error63);
+          defaultWriterReadyPromiseResetToRejected(writer, error64);
         }
       }
       function WritableStreamDefaultWriterGetDesiredSize(writer) {
@@ -39304,9 +39304,9 @@ var require_ponyfill_es2018 = __commonJS({
           WritableStreamDefaultControllerProcessWrite(controller, value2);
         }
       }
-      function WritableStreamDefaultControllerErrorIfNeeded(controller, error63) {
+      function WritableStreamDefaultControllerErrorIfNeeded(controller, error64) {
         if (controller._controlledWritableStream._state === "writable") {
-          WritableStreamDefaultControllerError(controller, error63);
+          WritableStreamDefaultControllerError(controller, error64);
         }
       }
       function WritableStreamDefaultControllerProcessClose(controller) {
@@ -39349,10 +39349,10 @@ var require_ponyfill_es2018 = __commonJS({
         const desiredSize = WritableStreamDefaultControllerGetDesiredSize(controller);
         return desiredSize <= 0;
       }
-      function WritableStreamDefaultControllerError(controller, error63) {
+      function WritableStreamDefaultControllerError(controller, error64) {
         const stream = controller._controlledWritableStream;
         WritableStreamDefaultControllerClearAlgorithms(controller);
-        WritableStreamStartErroring(stream, error63);
+        WritableStreamStartErroring(stream, error64);
       }
       function streamBrandCheckException$2(name) {
         return new TypeError(`WritableStream.prototype.${name} can only be used on a WritableStream`);
@@ -39496,12 +39496,12 @@ var require_ponyfill_es2018 = __commonJS({
           let abortAlgorithm;
           if (signal !== void 0) {
             abortAlgorithm = () => {
-              const error63 = signal.reason !== void 0 ? signal.reason : new DOMException3("Aborted", "AbortError");
+              const error64 = signal.reason !== void 0 ? signal.reason : new DOMException3("Aborted", "AbortError");
               const actions = [];
               if (!preventAbort) {
                 actions.push(() => {
                   if (dest._state === "writable") {
-                    return WritableStreamAbort(dest, error63);
+                    return WritableStreamAbort(dest, error64);
                   }
                   return promiseResolvedWith(void 0);
                 });
@@ -39509,12 +39509,12 @@ var require_ponyfill_es2018 = __commonJS({
               if (!preventCancel) {
                 actions.push(() => {
                   if (source2._state === "readable") {
-                    return ReadableStreamCancel(source2, error63);
+                    return ReadableStreamCancel(source2, error64);
                   }
                   return promiseResolvedWith(void 0);
                 });
               }
-              shutdownWithAction(() => Promise.all(actions.map((action) => action())), true, error63);
+              shutdownWithAction(() => Promise.all(actions.map((action) => action())), true, error64);
             };
             if (signal.aborted) {
               abortAlgorithm();
@@ -39617,25 +39617,25 @@ var require_ponyfill_es2018 = __commonJS({
               return null;
             }
           }
-          function shutdown(isError, error63) {
+          function shutdown(isError2, error64) {
             if (shuttingDown) {
               return;
             }
             shuttingDown = true;
             if (dest._state === "writable" && !WritableStreamCloseQueuedOrInFlight(dest)) {
-              uponFulfillment(waitForWritesToFinish(), () => finalize2(isError, error63));
+              uponFulfillment(waitForWritesToFinish(), () => finalize2(isError2, error64));
             } else {
-              finalize2(isError, error63);
+              finalize2(isError2, error64);
             }
           }
-          function finalize2(isError, error63) {
+          function finalize2(isError2, error64) {
             WritableStreamDefaultWriterRelease(writer);
             ReadableStreamReaderGenericRelease(reader);
             if (signal !== void 0) {
               signal.removeEventListener("abort", abortAlgorithm);
             }
-            if (isError) {
-              reject(error63);
+            if (isError2) {
+              reject(error64);
             } else {
               resolve3(void 0);
             }
@@ -41030,8 +41030,8 @@ var require_ponyfill_es2018 = __commonJS({
         const stream = controller._controlledTransformStream;
         const readableController = stream._readable._readableStreamController;
         ReadableStreamDefaultControllerClose(readableController);
-        const error63 = new TypeError("TransformStream terminated");
-        TransformStreamErrorWritableAndUnblockWrite(stream, error63);
+        const error64 = new TypeError("TransformStream terminated");
+        TransformStreamErrorWritableAndUnblockWrite(stream, error64);
       }
       function TransformStreamDefaultSinkWriteAlgorithm(stream, chunk) {
         const controller = stream._transformStreamController;
@@ -41188,11 +41188,11 @@ var require_streams = __commonJS({
           };
           Object.assign(globalThis, __require("node:stream/web"));
           process3.emitWarning = emitWarning;
-        } catch (error63) {
+        } catch (error64) {
           process3.emitWarning = emitWarning;
-          throw error63;
+          throw error64;
         }
-      } catch (error63) {
+      } catch (error64) {
         Object.assign(globalThis, require_ponyfill_es2018());
       }
     }
@@ -41216,7 +41216,7 @@ var require_streams = __commonJS({
           });
         };
       }
-    } catch (error63) {
+    } catch (error64) {
     }
   }
 });
@@ -41637,7 +41637,7 @@ var init_is = __esm({
 
 // ../../node_modules/node-domexception/index.js
 var require_node_domexception = __commonJS({
-  "../../node_modules/node-domexception/index.js"(exports, module) {
+  "../../node_modules/node-domexception/index.js"(exports, module2) {
     if (!globalThis.DOMException) {
       try {
         const { MessageChannel } = __require("worker_threads"), port = new MessageChannel().port1, ab = new ArrayBuffer();
@@ -41646,7 +41646,7 @@ var require_node_domexception = __commonJS({
         err.constructor.name === "DOMException" && (globalThis.DOMException = err.constructor);
       }
     }
-    module.exports = globalThis.DOMException;
+    module2.exports = globalThis.DOMException;
   }
 });
 
@@ -42100,15 +42100,15 @@ async function consumeBody(data) {
   try {
     for await (const chunk of body) {
       if (data.size > 0 && accumBytes + chunk.length > data.size) {
-        const error63 = new FetchError(`content size at ${data.url} over limit: ${data.size}`, "max-size");
-        body.destroy(error63);
-        throw error63;
+        const error64 = new FetchError(`content size at ${data.url} over limit: ${data.size}`, "max-size");
+        body.destroy(error64);
+        throw error64;
       }
       accumBytes += chunk.length;
       accum.push(chunk);
     }
-  } catch (error63) {
-    const error_ = error63 instanceof FetchBaseError ? error63 : new FetchError(`Invalid response body while trying to fetch ${data.url}: ${error63.message}`, "system", error63);
+  } catch (error64) {
+    const error_ = error64 instanceof FetchBaseError ? error64 : new FetchError(`Invalid response body while trying to fetch ${data.url}: ${error64.message}`, "system", error64);
     throw error_;
   }
   if (body.readableEnded === true || body._readableState.ended === true) {
@@ -42117,8 +42117,8 @@ async function consumeBody(data) {
         return Buffer2.from(accum.join(""));
       }
       return Buffer2.concat(accum, accumBytes);
-    } catch (error63) {
-      throw new FetchError(`Could not create Buffer from response body for ${data.url}: ${error63.message}`, "system", error63);
+    } catch (error64) {
+      throw new FetchError(`Could not create Buffer from response body for ${data.url}: ${error64.message}`, "system", error64);
     }
   } else {
     throw new FetchError(`Premature close of server response while trying to fetch ${data.url}`);
@@ -42172,8 +42172,8 @@ var init_body = __esm({
         this.size = size;
         if (body instanceof Stream) {
           body.on("error", (error_) => {
-            const error63 = error_ instanceof FetchBaseError ? error_ : new FetchError(`Invalid response body while trying to fetch ${this.url}: ${error_.message}`, "system", error_);
-            this[INTERNALS].error = error63;
+            const error64 = error_ instanceof FetchBaseError ? error_ : new FetchError(`Invalid response body while trying to fetch ${this.url}: ${error_.message}`, "system", error_);
+            this[INTERNALS].error = error64;
           });
         }
       }
@@ -42360,16 +42360,16 @@ var init_headers = __esm({
   "../../node_modules/node-fetch/src/headers.js"() {
     validateHeaderName = typeof http.validateHeaderName === "function" ? http.validateHeaderName : (name) => {
       if (!/^[\^`\-\w!#$%&'*+.|~]+$/.test(name)) {
-        const error63 = new TypeError(`Header name must be a valid HTTP token [${name}]`);
-        Object.defineProperty(error63, "code", { value: "ERR_INVALID_HTTP_TOKEN" });
-        throw error63;
+        const error64 = new TypeError(`Header name must be a valid HTTP token [${name}]`);
+        Object.defineProperty(error64, "code", { value: "ERR_INVALID_HTTP_TOKEN" });
+        throw error64;
       }
     };
     validateHeaderValue = typeof http.validateHeaderValue === "function" ? http.validateHeaderValue : (name, value2) => {
       if (/[^\t\u0020-\u007E\u0080-\u00FF]/.test(value2)) {
-        const error63 = new TypeError(`Invalid character in header content ["${name}"]`);
-        Object.defineProperty(error63, "code", { value: "ERR_INVALID_CHAR" });
-        throw error63;
+        const error64 = new TypeError(`Invalid character in header content ["${name}"]`);
+        Object.defineProperty(error64, "code", { value: "ERR_INVALID_CHAR" });
+        throw error64;
       }
     };
     Headers2 = class _Headers extends URLSearchParams {
@@ -43080,15 +43080,15 @@ async function fetch2(url2, options_) {
     const { signal } = request2;
     let response = null;
     const abort = () => {
-      const error63 = new AbortError("The operation was aborted.");
-      reject(error63);
+      const error64 = new AbortError("The operation was aborted.");
+      reject(error64);
       if (request2.body && request2.body instanceof Stream2.Readable) {
-        request2.body.destroy(error63);
+        request2.body.destroy(error64);
       }
       if (!response || !response.body) {
         return;
       }
-      response.body.emit("error", error63);
+      response.body.emit("error", error64);
     };
     if (signal && signal.aborted) {
       abort();
@@ -43108,13 +43108,13 @@ async function fetch2(url2, options_) {
         signal.removeEventListener("abort", abortAndFinalize);
       }
     };
-    request_.on("error", (error63) => {
-      reject(new FetchError(`request to ${request2.url} failed, reason: ${error63.message}`, "system", error63));
+    request_.on("error", (error64) => {
+      reject(new FetchError(`request to ${request2.url} failed, reason: ${error64.message}`, "system", error64));
       finalize2();
     });
-    fixResponseChunkedTransferBadEnding(request_, (error63) => {
+    fixResponseChunkedTransferBadEnding(request_, (error64) => {
       if (response && response.body) {
-        response.body.destroy(error63);
+        response.body.destroy(error64);
       }
     });
     if (process.version < "v14") {
@@ -43125,9 +43125,9 @@ async function fetch2(url2, options_) {
         });
         s3.prependListener("close", (hadError) => {
           if (response && endedWithEventsCount < s3._eventsCount && !hadError) {
-            const error63 = new Error("Premature close");
-            error63.code = "ERR_STREAM_PREMATURE_CLOSE";
-            response.body.emit("error", error63);
+            const error64 = new Error("Premature close");
+            error64.code = "ERR_STREAM_PREMATURE_CLOSE";
+            response.body.emit("error", error64);
           }
         });
       });
@@ -43208,9 +43208,9 @@ async function fetch2(url2, options_) {
           signal.removeEventListener("abort", abortAndFinalize);
         });
       }
-      let body = pump(response_, new PassThrough3(), (error63) => {
-        if (error63) {
-          reject(error63);
+      let body = pump(response_, new PassThrough3(), (error64) => {
+        if (error64) {
+          reject(error64);
         }
       });
       if (process.version < "v12.10") {
@@ -43236,9 +43236,9 @@ async function fetch2(url2, options_) {
         finishFlush: zlib2.Z_SYNC_FLUSH
       };
       if (codings === "gzip" || codings === "x-gzip") {
-        body = pump(body, zlib2.createGunzip(zlibOptions), (error63) => {
-          if (error63) {
-            reject(error63);
+        body = pump(body, zlib2.createGunzip(zlibOptions), (error64) => {
+          if (error64) {
+            reject(error64);
           }
         });
         response = new Response2(body, responseOptions);
@@ -43246,22 +43246,22 @@ async function fetch2(url2, options_) {
         return;
       }
       if (codings === "deflate" || codings === "x-deflate") {
-        const raw = pump(response_, new PassThrough3(), (error63) => {
-          if (error63) {
-            reject(error63);
+        const raw = pump(response_, new PassThrough3(), (error64) => {
+          if (error64) {
+            reject(error64);
           }
         });
         raw.once("data", (chunk) => {
           if ((chunk[0] & 15) === 8) {
-            body = pump(body, zlib2.createInflate(), (error63) => {
-              if (error63) {
-                reject(error63);
+            body = pump(body, zlib2.createInflate(), (error64) => {
+              if (error64) {
+                reject(error64);
               }
             });
           } else {
-            body = pump(body, zlib2.createInflateRaw(), (error63) => {
-              if (error63) {
-                reject(error63);
+            body = pump(body, zlib2.createInflateRaw(), (error64) => {
+              if (error64) {
+                reject(error64);
               }
             });
           }
@@ -43277,9 +43277,9 @@ async function fetch2(url2, options_) {
         return;
       }
       if (codings === "br") {
-        body = pump(body, zlib2.createBrotliDecompress(), (error63) => {
-          if (error63) {
-            reject(error63);
+        body = pump(body, zlib2.createBrotliDecompress(), (error64) => {
+          if (error64) {
+            reject(error64);
           }
         });
         response = new Response2(body, responseOptions);
@@ -43304,9 +43304,9 @@ function fixResponseChunkedTransferBadEnding(request2, errorCallback) {
   request2.on("socket", (socket) => {
     const onSocketClose = () => {
       if (isChunkedTransfer && !properLastChunkReceived) {
-        const error63 = new Error("Premature close");
-        error63.code = "ERR_STREAM_PREMATURE_CLOSE";
-        errorCallback(error63);
+        const error64 = new Error("Premature close");
+        error64.code = "ERR_STREAM_PREMATURE_CLOSE";
+        errorCallback(error64);
       }
     };
     const onData = (buf2) => {
@@ -43858,7 +43858,7 @@ var require_src2 = __commonJS({
 
 // ../../node_modules/bignumber.js/bignumber.js
 var require_bignumber = __commonJS({
-  "../../node_modules/bignumber.js/bignumber.js"(exports, module) {
+  "../../node_modules/bignumber.js/bignumber.js"(exports, module2) {
     (function(globalObject) {
       "use strict";
       var BigNumber, isNumeric = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i, mathceil = Math.ceil, mathfloor = Math.floor, bignumberError = "[BigNumber Error] ", tooManyDigits = bignumberError + "Number primitive has more than 15 significant digits: ", BASE = 1e14, LOG_BASE = 14, MAX_SAFE_INTEGER = 9007199254740991, POWS_TEN = [1, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13], SQRT_BASE = 1e7, MAX = 1e9;
@@ -45195,8 +45195,8 @@ var require_bignumber = __commonJS({
         define(function() {
           return BigNumber;
         });
-      } else if (typeof module != "undefined" && module.exports) {
-        module.exports = BigNumber;
+      } else if (typeof module2 != "undefined" && module2.exports) {
+        module2.exports = BigNumber;
       } else {
         if (!globalObject) {
           globalObject = typeof self != "undefined" && self ? self : window;
@@ -45209,9 +45209,9 @@ var require_bignumber = __commonJS({
 
 // ../../node_modules/json-bigint/lib/stringify.js
 var require_stringify = __commonJS({
-  "../../node_modules/json-bigint/lib/stringify.js"(exports, module) {
+  "../../node_modules/json-bigint/lib/stringify.js"(exports, module2) {
     var BigNumber = require_bignumber();
-    var JSON2 = module.exports;
+    var JSON2 = module2.exports;
     (function() {
       "use strict";
       function f7(n3) {
@@ -45321,7 +45321,7 @@ var require_stringify = __commonJS({
 
 // ../../node_modules/json-bigint/lib/parse.js
 var require_parse = __commonJS({
-  "../../node_modules/json-bigint/lib/parse.js"(exports, module) {
+  "../../node_modules/json-bigint/lib/parse.js"(exports, module2) {
     var BigNumber = null;
     var suspectProtoRx = /(?:_|\\u005[Ff])(?:_|\\u005[Ff])(?:p|\\u0070)(?:r|\\u0072)(?:o|\\u006[Ff])(?:t|\\u0074)(?:o|\\u006[Ff])(?:_|\\u005[Ff])(?:_|\\u005[Ff])/;
     var suspectConstructorRx = /(?:c|\\u0063)(?:o|\\u006[Ff])(?:n|\\u006[Ee])(?:s|\\u0073)(?:t|\\u0074)(?:r|\\u0072)(?:u|\\u0075)(?:c|\\u0063)(?:t|\\u0074)(?:o|\\u006[Ff])(?:r|\\u0072)/;
@@ -45376,7 +45376,7 @@ var require_parse = __commonJS({
         n: "\n",
         r: "\r",
         t: "	"
-      }, text2, error63 = function(m4) {
+      }, text2, error64 = function(m4) {
         throw {
           name: "SyntaxError",
           message: m4,
@@ -45385,7 +45385,7 @@ var require_parse = __commonJS({
         };
       }, next = function(c5) {
         if (c5 && c5 !== ch) {
-          error63("Expected '" + c5 + "' instead of '" + ch + "'");
+          error64("Expected '" + c5 + "' instead of '" + ch + "'");
         }
         ch = text2.charAt(at);
         at += 1;
@@ -45420,7 +45420,7 @@ var require_parse = __commonJS({
         }
         number5 = +string5;
         if (!isFinite(number5)) {
-          error63("Bad number");
+          error64("Bad number");
         } else {
           if (BigNumber == null) BigNumber = require_bignumber();
           if (string5.length > 15)
@@ -45460,7 +45460,7 @@ var require_parse = __commonJS({
             }
           }
         }
-        error63("Bad string");
+        error64("Bad string");
       }, white = function() {
         while (ch && ch <= " ") {
           next();
@@ -45487,7 +45487,7 @@ var require_parse = __commonJS({
             next("l");
             return null;
         }
-        error63("Unexpected '" + ch + "'");
+        error64("Unexpected '" + ch + "'");
       }, value2, array2 = function() {
         var array3 = [];
         if (ch === "[") {
@@ -45508,7 +45508,7 @@ var require_parse = __commonJS({
             white();
           }
         }
-        error63("Bad array");
+        error64("Bad array");
       }, object3 = function() {
         var key2, object4 = /* @__PURE__ */ Object.create(null);
         if (ch === "{") {
@@ -45523,11 +45523,11 @@ var require_parse = __commonJS({
             white();
             next(":");
             if (_options.strict === true && Object.hasOwnProperty.call(object4, key2)) {
-              error63('Duplicate key "' + key2 + '"');
+              error64('Duplicate key "' + key2 + '"');
             }
             if (suspectProtoRx.test(key2) === true) {
               if (_options.protoAction === "error") {
-                error63("Object contains forbidden prototype property");
+                error64("Object contains forbidden prototype property");
               } else if (_options.protoAction === "ignore") {
                 value2();
               } else {
@@ -45535,7 +45535,7 @@ var require_parse = __commonJS({
               }
             } else if (suspectConstructorRx.test(key2) === true) {
               if (_options.constructorAction === "error") {
-                error63("Object contains forbidden constructor property");
+                error64("Object contains forbidden constructor property");
               } else if (_options.constructorAction === "ignore") {
                 value2();
               } else {
@@ -45553,7 +45553,7 @@ var require_parse = __commonJS({
             white();
           }
         }
-        error63("Bad object");
+        error64("Bad object");
       };
       value2 = function() {
         white();
@@ -45578,7 +45578,7 @@ var require_parse = __commonJS({
         result = value2();
         white();
         if (ch) {
-          error63("Syntax error");
+          error64("Syntax error");
         }
         return typeof reviver === "function" ? (function walk(holder, key2) {
           var k5, v, value3 = holder[key2];
@@ -45596,23 +45596,23 @@ var require_parse = __commonJS({
         })({ "": result }, "") : result;
       };
     };
-    module.exports = json_parse;
+    module2.exports = json_parse;
   }
 });
 
 // ../../node_modules/json-bigint/index.js
 var require_json_bigint = __commonJS({
-  "../../node_modules/json-bigint/index.js"(exports, module) {
+  "../../node_modules/json-bigint/index.js"(exports, module2) {
     var json_stringify = require_stringify().stringify;
     var json_parse = require_parse();
-    module.exports = function(options) {
+    module2.exports = function(options) {
       return {
         parse: json_parse(options),
         stringify: json_stringify
       };
     };
-    module.exports.parse = json_parse();
-    module.exports.stringify = json_stringify;
+    module2.exports.parse = json_parse();
+    module2.exports.stringify = json_stringify;
   }
 });
 
@@ -45779,7 +45779,7 @@ var require_logging_utils = __commonJS({
     exports.getDebugBackend = getDebugBackend;
     exports.getStructuredBackend = getStructuredBackend;
     exports.setBackend = setBackend;
-    exports.log = log;
+    exports.log = log2;
     var events_1 = __require("events");
     var process3 = __importStar(__require("process"));
     var util = __importStar(__require("util"));
@@ -45811,7 +45811,7 @@ var require_logging_utils = __commonJS({
         this.func.info = (...args) => this.invokeSeverity(LogSeverity.INFO, ...args);
         this.func.warn = (...args) => this.invokeSeverity(LogSeverity.WARNING, ...args);
         this.func.error = (...args) => this.invokeSeverity(LogSeverity.ERROR, ...args);
-        this.func.sublog = (namespace2) => log(namespace2, this.func);
+        this.func.sublog = (namespace2) => log2(namespace2, this.func);
       }
       invoke(fields, ...args) {
         if (this.upstream) {
@@ -45978,7 +45978,7 @@ var require_logging_utils = __commonJS({
       cachedBackend = backend;
       loggerCache.clear();
     }
-    function log(namespace, parent) {
+    function log2(namespace, parent) {
       if (!cachedBackend) {
         const enablesFlag = process3.env[exports.env.nodeEnables];
         if (!enablesFlag) {
@@ -46111,7 +46111,7 @@ var require_src4 = __commonJS({
     exports.HEADER_NAME = "Metadata-Flavor";
     exports.HEADER_VALUE = "Google";
     exports.HEADERS = Object.freeze({ [exports.HEADER_NAME]: exports.HEADER_VALUE });
-    var log = logger2.log("gcp-metadata");
+    var log2 = logger2.log("gcp-metadata");
     exports.METADATA_SERVER_DETECTION = Object.freeze({
       "assume-present": "don't try to ping the metadata server, but assume it's present",
       none: "don't try to ping the metadata server, but don't try to use it either",
@@ -46174,9 +46174,9 @@ var require_src4 = __commonJS({
         responseType: "text",
         timeout: requestTimeout()
       };
-      log.info("instance request %j", req);
+      log2.info("instance request %j", req);
       const res = await requestMethod(req);
-      log.info("instance metadata is %s", res.data);
+      log2.info("instance metadata is %s", res.data);
       const metadataFlavor = res.headers.get(exports.HEADER_NAME);
       if (metadataFlavor !== exports.HEADER_VALUE) {
         throw new RangeError(`Invalid response from metadata service: incorrect ${exports.HEADER_NAME} header. Expected '${exports.HEADER_VALUE}', got ${metadataFlavor ? `'${metadataFlavor}'` : "no header"}`);
@@ -46623,25 +46623,25 @@ var require_crypto3 = __commonJS({
 
 // ../../node_modules/safe-buffer/index.js
 var require_safe_buffer = __commonJS({
-  "../../node_modules/safe-buffer/index.js"(exports, module) {
+  "../../node_modules/safe-buffer/index.js"(exports, module2) {
     var buffer = __require("buffer");
     var Buffer4 = buffer.Buffer;
-    function copyProps(src, dst) {
+    function copyProps2(src, dst) {
       for (var key2 in src) {
         dst[key2] = src[key2];
       }
     }
     if (Buffer4.from && Buffer4.alloc && Buffer4.allocUnsafe && Buffer4.allocUnsafeSlow) {
-      module.exports = buffer;
+      module2.exports = buffer;
     } else {
-      copyProps(buffer, exports);
+      copyProps2(buffer, exports);
       exports.Buffer = SafeBuffer;
     }
     function SafeBuffer(arg, encodingOrOffset, length) {
       return Buffer4(arg, encodingOrOffset, length);
     }
     SafeBuffer.prototype = Object.create(Buffer4.prototype);
-    copyProps(Buffer4, SafeBuffer);
+    copyProps2(Buffer4, SafeBuffer);
     SafeBuffer.from = function(arg, encodingOrOffset, length) {
       if (typeof arg === "number") {
         throw new TypeError("Argument must not be a number");
@@ -46681,7 +46681,7 @@ var require_safe_buffer = __commonJS({
 
 // ../../node_modules/ecdsa-sig-formatter/src/param-bytes-for-alg.js
 var require_param_bytes_for_alg = __commonJS({
-  "../../node_modules/ecdsa-sig-formatter/src/param-bytes-for-alg.js"(exports, module) {
+  "../../node_modules/ecdsa-sig-formatter/src/param-bytes-for-alg.js"(exports, module2) {
     "use strict";
     function getParamSize(keySize) {
       var result = (keySize / 8 | 0) + (keySize % 8 === 0 ? 0 : 1);
@@ -46699,13 +46699,13 @@ var require_param_bytes_for_alg = __commonJS({
       }
       throw new Error('Unknown algorithm "' + alg + '"');
     }
-    module.exports = getParamBytesForAlg;
+    module2.exports = getParamBytesForAlg;
   }
 });
 
 // ../../node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js
 var require_ecdsa_sig_formatter = __commonJS({
-  "../../node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js"(exports, module) {
+  "../../node_modules/ecdsa-sig-formatter/src/ecdsa-sig-formatter.js"(exports, module2) {
     "use strict";
     var Buffer4 = require_safe_buffer().Buffer;
     var getParamBytesForAlg = require_param_bytes_for_alg();
@@ -46836,7 +46836,7 @@ var require_ecdsa_sig_formatter = __commonJS({
       }
       return dst;
     }
-    module.exports = {
+    module2.exports = {
       derToJose,
       joseToDer
     };
@@ -46854,7 +46854,7 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs14 = __require("fs");
+    var fs15 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
@@ -46942,7 +46942,7 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs14.promises.lstat(filePath);
+        const stats = await fs15.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -46960,8 +46960,8 @@ var require_util2 = __commonJS({
 
 // ../../node_modules/google-auth-library/package.json
 var require_package2 = __commonJS({
-  "../../node_modules/google-auth-library/package.json"(exports, module) {
-    module.exports = {
+  "../../node_modules/google-auth-library/package.json"(exports, module2) {
+    module2.exports = {
       name: "google-auth-library",
       version: "10.9.1",
       author: "Google Inc.",
@@ -47254,19 +47254,19 @@ var require_authclient = __commonJS({
           }
           return response;
         },
-        rejected: async (error63) => {
+        rejected: async (error64) => {
           try {
-            const symbols = error63.config;
+            const symbols = error64.config;
             const methodName = symbols[_AuthClient.RequestMethodNameSymbol];
             const logId = symbols[_AuthClient.RequestLogIdSymbol];
             if (methodName) {
-              _AuthClient.log.info("%s [%s] error %j", methodName, logId, error63.response?.data);
+              _AuthClient.log.info("%s [%s] error %j", methodName, logId, error64.response?.data);
             } else {
-              _AuthClient.log.error("[%s] error %j", logId, error63.response?.data);
+              _AuthClient.log.error("[%s] error %j", logId, error64.response?.data);
             }
           } catch (e6) {
           }
-          throw error63;
+          throw error64;
         }
       };
       /**
@@ -48254,7 +48254,7 @@ var require_envDetect = __commonJS({
 
 // ../../node_modules/jws/lib/data-stream.js
 var require_data_stream = __commonJS({
-  "../../node_modules/jws/lib/data-stream.js"(exports, module) {
+  "../../node_modules/jws/lib/data-stream.js"(exports, module2) {
     var Buffer4 = require_safe_buffer().Buffer;
     var Stream4 = __require("stream");
     var util = __require("util");
@@ -48296,17 +48296,17 @@ var require_data_stream = __commonJS({
       this.writable = false;
       this.readable = false;
     };
-    module.exports = DataStream;
+    module2.exports = DataStream;
   }
 });
 
 // ../../node_modules/buffer-equal-constant-time/index.js
 var require_buffer_equal_constant_time = __commonJS({
-  "../../node_modules/buffer-equal-constant-time/index.js"(exports, module) {
+  "../../node_modules/buffer-equal-constant-time/index.js"(exports, module2) {
     "use strict";
     var Buffer4 = __require("buffer").Buffer;
     var SlowBuffer = __require("buffer").SlowBuffer;
-    module.exports = bufferEq;
+    module2.exports = bufferEq;
     function bufferEq(a5, b5) {
       if (!Buffer4.isBuffer(a5) || !Buffer4.isBuffer(b5)) {
         return false;
@@ -48336,7 +48336,7 @@ var require_buffer_equal_constant_time = __commonJS({
 
 // ../../node_modules/jwa/index.js
 var require_jwa = __commonJS({
-  "../../node_modules/jwa/index.js"(exports, module) {
+  "../../node_modules/jwa/index.js"(exports, module2) {
     var Buffer4 = require_safe_buffer().Buffer;
     var crypto2 = __require("crypto");
     var formatEcdsa = require_ecdsa_sig_formatter();
@@ -48530,7 +48530,7 @@ var require_jwa = __commonJS({
         return signature === "";
       };
     }
-    module.exports = function jwa(algorithm) {
+    module2.exports = function jwa(algorithm) {
       var signerFactories = {
         hs: createHmacSigner,
         rs: createKeySigner,
@@ -48560,9 +48560,9 @@ var require_jwa = __commonJS({
 
 // ../../node_modules/jws/lib/tostring.js
 var require_tostring = __commonJS({
-  "../../node_modules/jws/lib/tostring.js"(exports, module) {
+  "../../node_modules/jws/lib/tostring.js"(exports, module2) {
     var Buffer4 = __require("buffer").Buffer;
-    module.exports = function toString(obj) {
+    module2.exports = function toString(obj) {
       if (typeof obj === "string")
         return obj;
       if (typeof obj === "number" || Buffer4.isBuffer(obj))
@@ -48574,7 +48574,7 @@ var require_tostring = __commonJS({
 
 // ../../node_modules/jws/lib/sign-stream.js
 var require_sign_stream = __commonJS({
-  "../../node_modules/jws/lib/sign-stream.js"(exports, module) {
+  "../../node_modules/jws/lib/sign-stream.js"(exports, module2) {
     var Buffer4 = require_safe_buffer().Buffer;
     var DataStream = require_data_stream();
     var jwa = require_jwa();
@@ -48643,13 +48643,13 @@ var require_sign_stream = __commonJS({
       }
     };
     SignStream.sign = jwsSign;
-    module.exports = SignStream;
+    module2.exports = SignStream;
   }
 });
 
 // ../../node_modules/jws/lib/verify-stream.js
 var require_verify_stream = __commonJS({
-  "../../node_modules/jws/lib/verify-stream.js"(exports, module) {
+  "../../node_modules/jws/lib/verify-stream.js"(exports, module2) {
     var Buffer4 = require_safe_buffer().Buffer;
     var DataStream = require_data_stream();
     var jwa = require_jwa();
@@ -48758,7 +48758,7 @@ var require_verify_stream = __commonJS({
     VerifyStream.decode = jwsDecode;
     VerifyStream.isValid = isValidJws;
     VerifyStream.verify = jwsVerify;
-    module.exports = VerifyStream;
+    module2.exports = VerifyStream;
   }
 });
 
@@ -48897,10 +48897,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs14 = __require("fs");
+    var fs15 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile6 = fs14.readFile ? (0, util_1.promisify)(fs14.readFile) : async () => {
+    var readFile6 = fs15.readFile ? (0, util_1.promisify)(fs15.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -48926,8 +48926,8 @@ var require_getCredentials = __commonJS({
         let body;
         try {
           body = JSON.parse(key2);
-        } catch (error63) {
-          const err = error63;
+        } catch (error64) {
+          const err = error64;
           throw new Error(`Invalid JSON key file: ${err.message}`);
         }
         const privateKey = body.private_key;
@@ -49905,21 +49905,21 @@ var require_impersonated = __commonJS({
             tokens: this.credentials,
             res
           };
-        } catch (error63) {
-          if (!(error63 instanceof Error))
-            throw error63;
+        } catch (error64) {
+          if (!(error64 instanceof Error))
+            throw error64;
           let status2 = 0;
           let message2 = "";
-          if (error63 instanceof gaxios_1.GaxiosError) {
-            status2 = error63?.response?.data?.error?.status;
-            message2 = error63?.response?.data?.error?.message;
+          if (error64 instanceof gaxios_1.GaxiosError) {
+            status2 = error64?.response?.data?.error?.status;
+            message2 = error64?.response?.data?.error?.message;
           }
           if (status2 && message2) {
-            error63.message = `${status2}: unable to impersonate: ${message2}`;
-            throw error63;
+            error64.message = `${status2}: unable to impersonate: ${message2}`;
+            throw error64;
           } else {
-            error63.message = `unable to impersonate: ${error63}`;
-            throw error63;
+            error64.message = `unable to impersonate: ${error64}`;
+            throw error64;
           }
         }
       }
@@ -50175,15 +50175,15 @@ var require_stscredentials = __commonJS({
           const stsSuccessfulResponse = response.data;
           stsSuccessfulResponse.res = response;
           return stsSuccessfulResponse;
-        } catch (error63) {
-          if (error63 instanceof gaxios_1.GaxiosError && error63.response) {
+        } catch (error64) {
+          if (error64 instanceof gaxios_1.GaxiosError && error64.response) {
             throw (0, oauth2common_1.getErrorFromOAuthErrorResponse)(
-              error63.response.data,
+              error64.response.data,
               // Preserve other fields from the original error.
-              error63
+              error64
             );
           }
-          throw error63;
+          throw error64;
         }
       }
     };
@@ -50577,12 +50577,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs14 = __require("fs");
-    var readFile6 = (0, util_1.promisify)(fs14.readFile ?? (() => {
+    var fs15 = __require("fs");
+    var readFile6 = (0, util_1.promisify)(fs15.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs14.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs15.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs14.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs15.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50700,7 +50700,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs14 = __require("fs");
+    var fs15 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50794,7 +50794,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs14.promises.readFile(configPath, "utf8");
+          fileContents = await fs15.promises.readFile(configPath, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -50819,14 +50819,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key2;
         try {
-          cert = await fs14.promises.readFile(certPath);
+          cert = await fs15.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key2 = await fs14.promises.readFile(keyPath);
+          key2 = await fs15.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key2);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
@@ -50845,7 +50845,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs14.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs15.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51547,7 +51547,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs14 = __require("fs");
+    var fs15 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51610,9 +51610,9 @@ var require_pluggable_auth_handler = __commonJS({
                 const responseJson = JSON.parse(output2);
                 const response = new executable_response_1.ExecutableResponse(responseJson);
                 return resolve3(response);
-              } catch (error63) {
-                if (error63 instanceof executable_response_1.ExecutableResponseError) {
-                  return reject(error63);
+              } catch (error64) {
+                if (error64 instanceof executable_response_1.ExecutableResponseError) {
+                  return reject(error64);
                 }
                 return reject(new executable_response_1.ExecutableResponseError(`The executable returned an invalid response: ${output2}`));
               }
@@ -51632,14 +51632,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs14.promises.realpath(this.outputFile);
+          filePath = await fs15.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs14.promises.lstat(filePath)).isFile()) {
+        if (!(await fs15.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs14.promises.readFile(filePath, {
+        const responseString = await fs15.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -51652,9 +51652,9 @@ var require_pluggable_auth_handler = __commonJS({
             return new executable_response_1.ExecutableResponse(responseJson);
           }
           return void 0;
-        } catch (error63) {
-          if (error63 instanceof executable_response_1.ExecutableResponseError) {
-            throw error63;
+        } catch (error64) {
+          if (error64 instanceof executable_response_1.ExecutableResponseError) {
+            throw error64;
           }
           throw new executable_response_1.ExecutableResponseError(`The output file contained an invalid response: ${responseString}`);
         }
@@ -51910,15 +51910,15 @@ var require_externalAccountAuthorizedUserClient = __commonJS({
           const tokenRefreshResponse = response.data;
           tokenRefreshResponse.res = response;
           return tokenRefreshResponse;
-        } catch (error63) {
-          if (error63 instanceof gaxios_1.GaxiosError && error63.response) {
+        } catch (error64) {
+          if (error64 instanceof gaxios_1.GaxiosError && error64.response) {
             throw (0, oauth2common_1.getErrorFromOAuthErrorResponse)(
-              error63.response.data,
+              error64.response.data,
               // Preserve other fields from the original error.
-              error63
+              error64
             );
           }
-          throw error63;
+          throw error64;
         }
       }
     };
@@ -52050,7 +52050,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs14 = __require("fs");
+    var fs15 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52273,7 +52273,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs14.promises.readFile(currentPath);
+            const ca = await fs15.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52333,7 +52333,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs14 = __require("fs");
+    var fs15 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52635,7 +52635,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs14.existsSync(location)) {
+        if (!fs15.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52652,8 +52652,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs14.realpathSync(filePath);
-          if (!fs14.lstatSync(filePath).isFile()) {
+          filePath = fs15.realpathSync(filePath);
+          if (!fs15.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52662,7 +52662,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs14.createReadStream(filePath);
+        const readStream = fs15.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52990,7 +52990,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs14.createReadStream(filePath);
+          const stream = fs15.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -53713,7 +53713,7 @@ var require_scope = __commonJS({
       let: new code_1.Name("let"),
       var: new code_1.Name("var")
     };
-    var Scope = class {
+    var Scope2 = class {
       constructor({ prefixes, parent } = {}) {
         this._names = {};
         this._prefixes = prefixes;
@@ -53737,7 +53737,7 @@ var require_scope = __commonJS({
         return this._names[prefix] = { prefix, index: 0 };
       }
     };
-    exports.Scope = Scope;
+    exports.Scope = Scope2;
     var ValueScopeName = class extends code_1.Name {
       constructor(prefix, nameStr) {
         super(nameStr);
@@ -53750,7 +53750,7 @@ var require_scope = __commonJS({
     };
     exports.ValueScopeName = ValueScopeName;
     var line = (0, code_1._)`\n`;
-    var ValueScope = class extends Scope {
+    var ValueScope = class extends Scope2 {
       constructor(opts) {
         super(opts);
         this._values = {};
@@ -53976,9 +53976,9 @@ var require_codegen = __commonJS({
       }
     };
     var Throw = class extends Node {
-      constructor(error63) {
+      constructor(error64) {
         super();
-        this.error = error63;
+        this.error = error64;
       }
       render({ _n }) {
         return `throw ${this.error};` + _n;
@@ -54215,9 +54215,9 @@ var require_codegen = __commonJS({
       }
     };
     var Catch = class extends BlockNode {
-      constructor(error63) {
+      constructor(error64) {
         super();
-        this.error = error63;
+        this.error = error64;
       }
       render(opts) {
         return `catch(${this.error})` + super.render(opts);
@@ -54408,9 +54408,9 @@ var require_codegen = __commonJS({
         this._blockNode(node2);
         this.code(tryBody);
         if (catchCode) {
-          const error63 = this.name("e");
-          this._currNode = node2.catch = new Catch(error63);
-          catchCode(error63);
+          const error64 = this.name("e");
+          this._currNode = node2.catch = new Catch(error64);
+          catchCode(error64);
         }
         if (finallyCode) {
           this._currNode = node2.finally = new Finally();
@@ -54419,8 +54419,8 @@ var require_codegen = __commonJS({
         return this._endBlockNode(Catch, Finally);
       }
       // `throw` statement
-      throw(error63) {
-        return this._leafNode(new Throw(error63));
+      throw(error64) {
+        return this._leafNode(new Throw(error64));
       }
       // start self-balancing block
       block(body, nodeCount) {
@@ -54776,10 +54776,10 @@ var require_errors = __commonJS({
     exports.keyword$DataError = {
       message: ({ keyword, schemaType }) => schemaType ? (0, codegen_1.str)`"${keyword}" keyword must be ${schemaType} ($data)` : (0, codegen_1.str)`"${keyword}" keyword is invalid ($data)`
     };
-    function reportError(cxt, error63 = exports.keywordError, errorPaths, overrideAllErrors) {
+    function reportError(cxt, error64 = exports.keywordError, errorPaths, overrideAllErrors) {
       const { it } = cxt;
       const { gen, compositeRule, allErrors } = it;
-      const errObj = errorObjectCode(cxt, error63, errorPaths);
+      const errObj = errorObjectCode(cxt, error64, errorPaths);
       if (overrideAllErrors !== null && overrideAllErrors !== void 0 ? overrideAllErrors : compositeRule || allErrors) {
         addError(gen, errObj);
       } else {
@@ -54787,10 +54787,10 @@ var require_errors = __commonJS({
       }
     }
     exports.reportError = reportError;
-    function reportExtraError(cxt, error63 = exports.keywordError, errorPaths) {
+    function reportExtraError(cxt, error64 = exports.keywordError, errorPaths) {
       const { it } = cxt;
       const { gen, compositeRule, allErrors } = it;
-      const errObj = errorObjectCode(cxt, error63, errorPaths);
+      const errObj = errorObjectCode(cxt, error64, errorPaths);
       addError(gen, errObj);
       if (!(compositeRule || allErrors)) {
         returnErrors(it, names_1.default.vErrors);
@@ -54841,19 +54841,19 @@ var require_errors = __commonJS({
       schema: new codegen_1.Name("schema"),
       parentSchema: new codegen_1.Name("parentSchema")
     };
-    function errorObjectCode(cxt, error63, errorPaths) {
+    function errorObjectCode(cxt, error64, errorPaths) {
       const { createErrors } = cxt.it;
       if (createErrors === false)
         return (0, codegen_1._)`{}`;
-      return errorObject(cxt, error63, errorPaths);
+      return errorObject(cxt, error64, errorPaths);
     }
-    function errorObject(cxt, error63, errorPaths = {}) {
+    function errorObject(cxt, error64, errorPaths = {}) {
       const { gen, it } = cxt;
       const keyValues = [
         errorInstancePath(it, errorPaths),
         errorSchemaPath(cxt, errorPaths)
       ];
-      extraErrorProps(cxt, error63, keyValues);
+      extraErrorProps(cxt, error64, keyValues);
       return gen.object(...keyValues);
     }
     function errorInstancePath({ errorPath }, { instancePath }) {
@@ -55545,9 +55545,9 @@ var require_subschema = __commonJS({
 
 // ../../node_modules/fast-deep-equal/index.js
 var require_fast_deep_equal = __commonJS({
-  "../../node_modules/fast-deep-equal/index.js"(exports, module) {
+  "../../node_modules/fast-deep-equal/index.js"(exports, module2) {
     "use strict";
-    module.exports = function equal(a5, b5) {
+    module2.exports = function equal(a5, b5) {
       if (a5 === b5) return true;
       if (a5 && b5 && typeof a5 == "object" && typeof b5 == "object") {
         if (a5.constructor !== b5.constructor) return false;
@@ -55580,9 +55580,9 @@ var require_fast_deep_equal = __commonJS({
 
 // ../../node_modules/json-schema-traverse/index.js
 var require_json_schema_traverse = __commonJS({
-  "../../node_modules/json-schema-traverse/index.js"(exports, module) {
+  "../../node_modules/json-schema-traverse/index.js"(exports, module2) {
     "use strict";
-    var traverse = module.exports = function(schema, opts, cb) {
+    var traverse = module2.exports = function(schema, opts, cb) {
       if (typeof opts == "function") {
         cb = opts;
         opts = {};
@@ -55738,8 +55738,8 @@ var require_resolve = __commonJS({
       }
       return count;
     }
-    function getFullPath(resolver, id2 = "", normalize) {
-      if (normalize !== false)
+    function getFullPath(resolver, id2 = "", normalize2) {
+      if (normalize2 !== false)
         id2 = normalizeId(id2);
       const p3 = resolver.parse(id2);
       return _getFullPath(resolver, p3);
@@ -56589,8 +56589,8 @@ var require_compile = __commonJS({
 
 // ../../node_modules/ajv/dist/refs/data.json
 var require_data = __commonJS({
-  "../../node_modules/ajv/dist/refs/data.json"(exports, module) {
-    module.exports = {
+  "../../node_modules/ajv/dist/refs/data.json"(exports, module2) {
+    module2.exports = {
       $id: "https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#",
       description: "Meta-schema for $data reference (JSON AnySchema extension proposal)",
       type: "object",
@@ -56608,7 +56608,7 @@ var require_data = __commonJS({
 
 // ../../node_modules/fast-uri/lib/utils.js
 var require_utils = __commonJS({
-  "../../node_modules/fast-uri/lib/utils.js"(exports, module) {
+  "../../node_modules/fast-uri/lib/utils.js"(exports, module2) {
     "use strict";
     var isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
     var isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u);
@@ -57118,7 +57118,7 @@ var require_utils = __commonJS({
       }
       return uriTokens.length ? uriTokens.join("") : void 0;
     }
-    module.exports = {
+    module2.exports = {
       nonSimpleDomain,
       recomposeAuthority,
       reescapeHostDelimiters,
@@ -57142,7 +57142,7 @@ var require_utils = __commonJS({
 
 // ../../node_modules/fast-uri/lib/schemes.js
 var require_schemes = __commonJS({
-  "../../node_modules/fast-uri/lib/schemes.js"(exports, module) {
+  "../../node_modules/fast-uri/lib/schemes.js"(exports, module2) {
     "use strict";
     var { isUUID } = require_utils();
     var URN_REG = /^([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-./:;=@]|%[\da-f]{2})+)$/iu;
@@ -57342,7 +57342,7 @@ var require_schemes = __commonJS({
         scheme.toLowerCase()
       ]) || void 0;
     }
-    module.exports = {
+    module2.exports = {
       wsIsSecure,
       SCHEMES,
       isValidSchemeName,
@@ -57353,7 +57353,7 @@ var require_schemes = __commonJS({
 
 // ../../node_modules/fast-uri/index.js
 var require_fast_uri = __commonJS({
-  "../../node_modules/fast-uri/index.js"(exports, module) {
+  "../../node_modules/fast-uri/index.js"(exports, module2) {
     "use strict";
     var { normalizeIPv6, removeDotSegments, removeDotSegmentsRelative, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, serializePathEncoding, normalizeQueryFragmentEncoding, encodeQuery, encodeFragment, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
@@ -57368,7 +57368,7 @@ var require_fast_uri = __commonJS({
       }
       return stringScheme;
     }
-    function normalize(uri, options) {
+    function normalize2(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
         normalizeString(uri, options);
@@ -57768,16 +57768,16 @@ var require_fast_uri = __commonJS({
     }
     var fastUri = {
       SCHEMES,
-      normalize,
+      normalize: normalize2,
       resolve: resolve3,
       resolveComponent,
       equal,
       serialize,
       parse: parse4
     };
-    module.exports = fastUri;
-    module.exports.default = fastUri;
-    module.exports.fastUri = fastUri;
+    module2.exports = fastUri;
+    module2.exports.default = fastUri;
+    module2.exports.fastUri = fastUri;
   }
 });
 
@@ -58273,11 +58273,11 @@ var require_core = __commonJS({
     Ajv2.ValidationError = validation_error_1.default;
     Ajv2.MissingRefError = ref_error_1.default;
     exports.default = Ajv2;
-    function checkOptions(checkOpts3, options, msg, log = "error") {
+    function checkOptions(checkOpts3, options, msg, log2 = "error") {
       for (const key2 in checkOpts3) {
         const opt = key2;
         if (opt in options)
-          this.logger[log](`${msg}: option ${key2}. ${checkOpts3[opt]}`);
+          this.logger[log2](`${msg}: option ${key2}. ${checkOpts3[opt]}`);
       }
     }
     function getSchEnv(keyRef) {
@@ -58574,7 +58574,7 @@ var require_limitNumber = __commonJS({
       exclusiveMaximum: { okStr: "<", ok: ops.LT, fail: ops.GTE },
       exclusiveMinimum: { okStr: ">", ok: ops.GT, fail: ops.LTE }
     };
-    var error63 = {
+    var error64 = {
       message: ({ keyword, schemaCode }) => (0, codegen_1.str)`must be ${KWDs[keyword].okStr} ${schemaCode}`,
       params: ({ keyword, schemaCode }) => (0, codegen_1._)`{comparison: ${KWDs[keyword].okStr}, limit: ${schemaCode}}`
     };
@@ -58583,7 +58583,7 @@ var require_limitNumber = __commonJS({
       type: "number",
       schemaType: "number",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { keyword, data, schemaCode } = cxt;
         cxt.fail$data((0, codegen_1._)`${data} ${KWDs[keyword].fail} ${schemaCode} || isNaN(${data})`);
@@ -58599,7 +58599,7 @@ var require_multipleOf = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error63 = {
+    var error64 = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must be multiple of ${schemaCode}`,
       params: ({ schemaCode }) => (0, codegen_1._)`{multipleOf: ${schemaCode}}`
     };
@@ -58608,7 +58608,7 @@ var require_multipleOf = __commonJS({
       type: "number",
       schemaType: "number",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, data, schemaCode, it } = cxt;
         const prec = it.opts.multipleOfPrecision;
@@ -58655,7 +58655,7 @@ var require_limitLength = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
     var ucs2length_1 = require_ucs2length();
-    var error63 = {
+    var error64 = {
       message({ keyword, schemaCode }) {
         const comp = keyword === "maxLength" ? "more" : "fewer";
         return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} characters`;
@@ -58667,7 +58667,7 @@ var require_limitLength = __commonJS({
       type: "string",
       schemaType: "number",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { keyword, data, schemaCode, it } = cxt;
         const op2 = keyword === "maxLength" ? codegen_1.operators.GT : codegen_1.operators.LT;
@@ -58687,7 +58687,7 @@ var require_pattern = __commonJS({
     var code_1 = require_code2();
     var util_1 = require_util3();
     var codegen_1 = require_codegen();
-    var error63 = {
+    var error64 = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must match pattern "${schemaCode}"`,
       params: ({ schemaCode }) => (0, codegen_1._)`{pattern: ${schemaCode}}`
     };
@@ -58696,7 +58696,7 @@ var require_pattern = __commonJS({
       type: "string",
       schemaType: "string",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, data, $data, schema, schemaCode, it } = cxt;
         const u = it.opts.unicodeRegExp ? "u" : "";
@@ -58722,7 +58722,7 @@ var require_limitProperties = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error63 = {
+    var error64 = {
       message({ keyword, schemaCode }) {
         const comp = keyword === "maxProperties" ? "more" : "fewer";
         return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} properties`;
@@ -58734,7 +58734,7 @@ var require_limitProperties = __commonJS({
       type: "object",
       schemaType: "number",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { keyword, data, schemaCode } = cxt;
         const op2 = keyword === "maxProperties" ? codegen_1.operators.GT : codegen_1.operators.LT;
@@ -58753,7 +58753,7 @@ var require_required = __commonJS({
     var code_1 = require_code2();
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
-    var error63 = {
+    var error64 = {
       message: ({ params: { missingProperty } }) => (0, codegen_1.str)`must have required property '${missingProperty}'`,
       params: ({ params: { missingProperty } }) => (0, codegen_1._)`{missingProperty: ${missingProperty}}`
     };
@@ -58762,7 +58762,7 @@ var require_required = __commonJS({
       type: "object",
       schemaType: "array",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, schema, schemaCode, data, $data, it } = cxt;
         const { opts } = it;
@@ -58833,7 +58833,7 @@ var require_limitItems = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error63 = {
+    var error64 = {
       message({ keyword, schemaCode }) {
         const comp = keyword === "maxItems" ? "more" : "fewer";
         return (0, codegen_1.str)`must NOT have ${comp} than ${schemaCode} items`;
@@ -58845,7 +58845,7 @@ var require_limitItems = __commonJS({
       type: "array",
       schemaType: "number",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { keyword, data, schemaCode } = cxt;
         const op2 = keyword === "maxItems" ? codegen_1.operators.GT : codegen_1.operators.LT;
@@ -58876,7 +58876,7 @@ var require_uniqueItems = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
     var equal_1 = require_equal();
-    var error63 = {
+    var error64 = {
       message: ({ params: { i: i6, j: j5 } }) => (0, codegen_1.str)`must NOT have duplicate items (items ## ${j5} and ${i6} are identical)`,
       params: ({ params: { i: i6, j: j5 } }) => (0, codegen_1._)`{i: ${i6}, j: ${j5}}`
     };
@@ -58885,7 +58885,7 @@ var require_uniqueItems = __commonJS({
       type: "array",
       schemaType: "boolean",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, data, $data, schema, parentSchema, schemaCode, it } = cxt;
         if (!$data && !schema)
@@ -58942,14 +58942,14 @@ var require_const = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
     var equal_1 = require_equal();
-    var error63 = {
+    var error64 = {
       message: "must be equal to constant",
       params: ({ schemaCode }) => (0, codegen_1._)`{allowedValue: ${schemaCode}}`
     };
     var def = {
       keyword: "const",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, data, $data, schemaCode, schema } = cxt;
         if ($data || schema && typeof schema == "object") {
@@ -58971,7 +58971,7 @@ var require_enum = __commonJS({
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
     var equal_1 = require_equal();
-    var error63 = {
+    var error64 = {
       message: "must be equal to one of the allowed values",
       params: ({ schemaCode }) => (0, codegen_1._)`{allowedValues: ${schemaCode}}`
     };
@@ -58979,7 +58979,7 @@ var require_enum = __commonJS({
       keyword: "enum",
       schemaType: "array",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, data, $data, schema, schemaCode, it } = cxt;
         if (!$data && schema.length === 0)
@@ -59058,7 +59058,7 @@ var require_additionalItems = __commonJS({
     exports.validateAdditionalItems = void 0;
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
-    var error63 = {
+    var error64 = {
       message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
       params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
     };
@@ -59067,7 +59067,7 @@ var require_additionalItems = __commonJS({
       type: "array",
       schemaType: ["boolean", "object"],
       before: "uniqueItems",
-      error: error63,
+      error: error64,
       code(cxt) {
         const { parentSchema, it } = cxt;
         const { items } = parentSchema;
@@ -59186,7 +59186,7 @@ var require_items2020 = __commonJS({
     var util_1 = require_util3();
     var code_1 = require_code2();
     var additionalItems_1 = require_additionalItems();
-    var error63 = {
+    var error64 = {
       message: ({ params: { len } }) => (0, codegen_1.str)`must NOT have more than ${len} items`,
       params: ({ params: { len } }) => (0, codegen_1._)`{limit: ${len}}`
     };
@@ -59195,7 +59195,7 @@ var require_items2020 = __commonJS({
       type: "array",
       schemaType: ["object", "boolean"],
       before: "uniqueItems",
-      error: error63,
+      error: error64,
       code(cxt) {
         const { schema, parentSchema, it } = cxt;
         const { prefixItems } = parentSchema;
@@ -59219,7 +59219,7 @@ var require_contains = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
-    var error63 = {
+    var error64 = {
       message: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1.str)`must contain at least ${min} valid item(s)` : (0, codegen_1.str)`must contain at least ${min} and no more than ${max} valid item(s)`,
       params: ({ params: { min, max } }) => max === void 0 ? (0, codegen_1._)`{minContains: ${min}}` : (0, codegen_1._)`{minContains: ${min}, maxContains: ${max}}`
     };
@@ -59229,7 +59229,7 @@ var require_contains = __commonJS({
       schemaType: ["object", "boolean"],
       before: "uniqueItems",
       trackErrors: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, schema, parentSchema, data, it } = cxt;
         let min;
@@ -59407,7 +59407,7 @@ var require_propertyNames = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
-    var error63 = {
+    var error64 = {
       message: "property name must be valid",
       params: ({ params }) => (0, codegen_1._)`{propertyName: ${params.propertyName}}`
     };
@@ -59415,7 +59415,7 @@ var require_propertyNames = __commonJS({
       keyword: "propertyNames",
       type: "object",
       schemaType: ["object", "boolean"],
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, schema, data, it } = cxt;
         if ((0, util_1.alwaysValidSchema)(it, schema))
@@ -59452,7 +59452,7 @@ var require_additionalProperties = __commonJS({
     var codegen_1 = require_codegen();
     var names_1 = require_names();
     var util_1 = require_util3();
-    var error63 = {
+    var error64 = {
       message: "must NOT have additional properties",
       params: ({ params }) => (0, codegen_1._)`{additionalProperty: ${params.additionalProperty}}`
     };
@@ -59462,7 +59462,7 @@ var require_additionalProperties = __commonJS({
       schemaType: ["boolean", "object"],
       allowUndefined: true,
       trackErrors: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, schema, parentSchema, data, errsCount, it } = cxt;
         if (!errsCount)
@@ -59736,7 +59736,7 @@ var require_oneOf = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
-    var error63 = {
+    var error64 = {
       message: "must match exactly one schema in oneOf",
       params: ({ params }) => (0, codegen_1._)`{passingSchemas: ${params.passing}}`
     };
@@ -59744,7 +59744,7 @@ var require_oneOf = __commonJS({
       keyword: "oneOf",
       schemaType: "array",
       trackErrors: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, schema, parentSchema, it } = cxt;
         if (!Array.isArray(schema))
@@ -59821,7 +59821,7 @@ var require_if = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
     var util_1 = require_util3();
-    var error63 = {
+    var error64 = {
       message: ({ params }) => (0, codegen_1.str)`must match "${params.ifClause}" schema`,
       params: ({ params }) => (0, codegen_1._)`{failingKeyword: ${params.ifClause}}`
     };
@@ -59829,7 +59829,7 @@ var require_if = __commonJS({
       keyword: "if",
       schemaType: ["object", "boolean"],
       trackErrors: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, parentSchema, it } = cxt;
         if (parentSchema.then === void 0 && parentSchema.else === void 0) {
@@ -59955,7 +59955,7 @@ var require_format = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var codegen_1 = require_codegen();
-    var error63 = {
+    var error64 = {
       message: ({ schemaCode }) => (0, codegen_1.str)`must match format "${schemaCode}"`,
       params: ({ schemaCode }) => (0, codegen_1._)`{format: ${schemaCode}}`
     };
@@ -59964,7 +59964,7 @@ var require_format = __commonJS({
       type: ["number", "string"],
       schemaType: "string",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt, ruleType) {
         const { gen, data, $data, schema, schemaCode, it } = cxt;
         const { opts, errSchemaPath, schemaEnv, self: self2 } = it;
@@ -60119,7 +60119,7 @@ var require_discriminator = __commonJS({
     var compile_1 = require_compile();
     var ref_error_1 = require_ref_error();
     var util_1 = require_util3();
-    var error63 = {
+    var error64 = {
       message: ({ params: { discrError, tagName } }) => discrError === types_1.DiscrError.Tag ? `tag "${tagName}" must be string` : `value of tag "${tagName}" must be in oneOf`,
       params: ({ params: { discrError, tag, tagName } }) => (0, codegen_1._)`{error: ${discrError}, tag: ${tagName}, tagValue: ${tag}}`
     };
@@ -60127,7 +60127,7 @@ var require_discriminator = __commonJS({
       keyword: "discriminator",
       type: "object",
       schemaType: "object",
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, data, schema, parentSchema, it } = cxt;
         const { oneOf } = parentSchema;
@@ -60216,8 +60216,8 @@ var require_discriminator = __commonJS({
 
 // ../../node_modules/ajv/dist/refs/json-schema-draft-07.json
 var require_json_schema_draft_07 = __commonJS({
-  "../../node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module) {
-    module.exports = {
+  "../../node_modules/ajv/dist/refs/json-schema-draft-07.json"(exports, module2) {
+    module2.exports = {
       $schema: "http://json-schema.org/draft-07/schema#",
       $id: "http://json-schema.org/draft-07/schema#",
       title: "Core schema meta-schema",
@@ -60373,7 +60373,7 @@ var require_json_schema_draft_07 = __commonJS({
 
 // ../../node_modules/ajv/dist/ajv.js
 var require_ajv = __commonJS({
-  "../../node_modules/ajv/dist/ajv.js"(exports, module) {
+  "../../node_modules/ajv/dist/ajv.js"(exports, module2) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.MissingRefError = exports.ValidationError = exports.CodeGen = exports.Name = exports.nil = exports.stringify = exports.str = exports._ = exports.KeywordCxt = exports.Ajv = void 0;
@@ -60403,8 +60403,8 @@ var require_ajv = __commonJS({
       }
     };
     exports.Ajv = Ajv2;
-    module.exports = exports = Ajv2;
-    module.exports.Ajv = Ajv2;
+    module2.exports = exports = Ajv2;
+    module2.exports.Ajv = Ajv2;
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = Ajv2;
     var validate_1 = require_validate();
@@ -60659,7 +60659,7 @@ var require_limit = __commonJS({
       formatExclusiveMaximum: { okStr: "<", ok: ops.LT, fail: ops.GTE },
       formatExclusiveMinimum: { okStr: ">", ok: ops.GT, fail: ops.LTE }
     };
-    var error63 = {
+    var error64 = {
       message: ({ keyword, schemaCode }) => (0, codegen_1.str)`should be ${KWDs[keyword].okStr} ${schemaCode}`,
       params: ({ keyword, schemaCode }) => (0, codegen_1._)`{comparison: ${KWDs[keyword].okStr}, limit: ${schemaCode}}`
     };
@@ -60668,7 +60668,7 @@ var require_limit = __commonJS({
       type: "string",
       schemaType: "string",
       $data: true,
-      error: error63,
+      error: error64,
       code(cxt) {
         const { gen, data, schemaCode, keyword, it } = cxt;
         const { opts, self: self2 } = it;
@@ -60718,7 +60718,7 @@ var require_limit = __commonJS({
 
 // ../../node_modules/ajv-formats/dist/index.js
 var require_dist3 = __commonJS({
-  "../../node_modules/ajv-formats/dist/index.js"(exports, module) {
+  "../../node_modules/ajv-formats/dist/index.js"(exports, module2) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var formats_1 = require_formats();
@@ -60745,14 +60745,14 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list3, fs14, exportName) {
+    function addFormats(ajv, list3, fs15, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list3)
-        ajv.addFormat(f7, fs14[f7]);
+        ajv.addFormat(f7, fs15[f7]);
     }
-    module.exports = exports = formatsPlugin;
+    module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = formatsPlugin;
   }
@@ -62373,10 +62373,10 @@ function node(obj, key2, make) {
   }
   return obj[key2];
 }
-function flattenError(error63, mapper = (issue2) => issue2.message) {
+function flattenError(error64, mapper = (issue2) => issue2.message) {
   const fieldErrors = {};
   const formErrors = [];
-  for (const sub of error63.issues) {
+  for (const sub of error64.issues) {
     if (sub.path.length > 0) {
       node(fieldErrors, sub.path[0], () => []).push(mapper(sub));
     } else {
@@ -62385,10 +62385,10 @@ function flattenError(error63, mapper = (issue2) => issue2.message) {
   }
   return { formErrors, fieldErrors };
 }
-function formatError(error63, mapper = (issue2) => issue2.message) {
+function formatError(error64, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error64, path2 = []) => {
-    for (const issue2 of error64.issues) {
+  const processError = (error65, path2 = []) => {
+    for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
         issue2.errors.map((issues) => processError({ issues }, [...path2, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
@@ -62430,14 +62430,14 @@ function formatError(error63, mapper = (issue2) => issue2.message) {
       }
     }
   };
-  processError(error63);
+  processError(error64);
   return fieldErrors;
 }
-function treeifyError(error63, mapper = (issue2) => issue2.message) {
+function treeifyError(error64, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error64, path2 = []) => {
+  const processError = (error65, path2 = []) => {
     var _a5;
-    for (const issue2 of error64.issues) {
+    for (const issue2 of error65.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
         issue2.errors.map((issues) => processError({ issues }, [...path2, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
@@ -62479,7 +62479,7 @@ function treeifyError(error63, mapper = (issue2) => issue2.message) {
       }
     }
   };
-  processError(error63);
+  processError(error64);
   return result;
 }
 function toDotPath(_path) {
@@ -62500,9 +62500,9 @@ function toDotPath(_path) {
   }
   return segs.join("");
 }
-function prettifyError(error63) {
+function prettifyError(error64) {
   const lines = [];
-  const issues = [...error63.issues].sort((a5, b5) => (a5.path ?? []).length - (b5.path ?? []).length);
+  const issues = [...error64.issues].sort((a5, b5) => (a5.path ?? []).length - (b5.path ?? []).length);
   for (const issue2 of issues) {
     lines.push(`\u2716 ${issue2.message}`);
     if (issue2.path?.length)
@@ -62558,19 +62558,19 @@ var _safeParse = (_Err) => (schema, value2, _ctx) => {
 };
 var safeParse = /* @__PURE__ */ _safeParse($ZodRealError);
 function failure(Err, issues, ctx) {
-  let error63;
+  let error64;
   return {
     success: false,
     get error() {
-      if (!error63) {
-        error63 = new Err(issues.map((iss) => finalizeIssue(iss, ctx, config())));
+      if (!error64) {
+        error64 = new Err(issues.map((iss) => finalizeIssue(iss, ctx, config())));
         issues = void 0;
         ctx = void 0;
       }
-      return error63;
+      return error64;
     },
     set error(e6) {
-      error63 = e6;
+      error64 = e6;
       issues = void 0;
       ctx = void 0;
     }
@@ -65855,7 +65855,7 @@ function isRecursive(inst, stack, resolve3) {
     }
     return answer;
   };
-  const merge3 = (answer) => {
+  const merge4 = (answer) => {
     if (answer > result)
       result = answer;
   };
@@ -65864,7 +65864,7 @@ function isRecursive(inst, stack, resolve3) {
   switch (kind) {
     case "object": {
       const raw = rawShape(def);
-      merge3(raw ? shape(raw, true) : ASSUMED);
+      merge4(raw ? shape(raw, true) : ASSUMED);
       check3(def.catchall);
       break;
     }
@@ -65914,7 +65914,7 @@ function isRecursive(inst, stack, resolve3) {
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
       const inner = def._cachedInner ?? (resolve3 ? inst._zod.innerType : void 0);
-      merge3(inner ? isRecursive(inner, stack, false) : ASSUMED);
+      merge4(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
     // a leaf by choice: `parts` are regex fragments, not data positions
@@ -82044,14 +82044,14 @@ var StdioServerTransport = class {
       try {
         this._readBuffer.append(chunk);
         this.processReadBuffer();
-      } catch (error63) {
-        this.onerror?.(error63);
+      } catch (error64) {
+        this.onerror?.(error64);
         this.close().catch(() => {
         });
       }
     };
-    this._onerror = (error63) => {
-      this.onerror?.(error63);
+    this._onerror = (error64) => {
+      this.onerror?.(error64);
     };
     this._readBuffer = new ReadBuffer({ maxBufferSize: options?.maxBufferSize });
   }
@@ -82074,8 +82074,8 @@ var StdioServerTransport = class {
           break;
         }
         this.onmessage?.(message2);
-      } catch (error63) {
-        this.onerror?.(error63);
+      } catch (error64) {
+        this.onerror?.(error64);
       }
     }
   }
@@ -82542,10 +82542,10 @@ function hexToBytes(hex3) {
   if (hasHexBuiltin) {
     try {
       return Uint8Array.fromHex(hex3);
-    } catch (error63) {
-      if (error63 instanceof SyntaxError)
-        throw new RangeError(error63.message);
-      throw error63;
+    } catch (error64) {
+      if (error64 instanceof SyntaxError)
+        throw new RangeError(error64.message);
+      throw error64;
     }
   }
   const hl = hex3.length;
@@ -84877,8 +84877,8 @@ function edwards(params, extraOpts = {}) {
     multiply(scalar) {
       if (!Fn.isValidNot0(scalar))
         throw new RangeError("invalid scalar: expected 1 <= sc < curve.n");
-      const { p: p3, f: f7 } = wnaf.mulSecret(this, scalar, cofactor, normalize);
-      return normalize([p3, f7])[0];
+      const { p: p3, f: f7 } = wnaf.mulSecret(this, scalar, cofactor, normalize2);
+      return normalize2([p3, f7])[0];
     }
     // Non-constant-time multiplication. Uses double-and-add algorithm.
     // It's faster, but should only be used when you don't care about
@@ -84892,7 +84892,7 @@ function edwards(params, extraOpts = {}) {
         return Point.ZERO;
       if (this.is0() || scalar === _1n4)
         return this;
-      return wnaf.mulUnsafe(this, scalar, normalize);
+      return wnaf.mulUnsafe(this, scalar, normalize2);
     }
     // Checks if point is of small order.
     // If you add something to small order point, you will have "dirty"
@@ -84950,7 +84950,7 @@ function edwards(params, extraOpts = {}) {
       return `<Point ${this.is0() ? "ZERO" : this.toHex()}>`;
     }
   }
-  const normalize = (points) => normalizeZ(Point, points);
+  const normalize2 = (points) => normalizeZ(Point, points);
   const wnaf = new ScalarMultiplier(Point, randomBytes5);
   if (wnaf.bits >= 6)
     Point.BASE.precompute(6);
@@ -85056,7 +85056,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
       A2 = Point.fromBytes(publicKey, zip215);
       R = Point.fromBytes(r6, zip215);
       SB = BASE.multiplyUnsafe(s3);
-    } catch (error63) {
+    } catch (error64) {
       return false;
     }
     if (!zip215 && A2.isSmallOrder())
@@ -85082,7 +85082,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
   function isValidPublicKey(key2, zip215) {
     try {
       return !!Point.fromBytes(key2, zip215 === void 0 ? verifyOpts.zip215 : zip215);
-    } catch (error63) {
+    } catch (error64) {
       return false;
     }
   }
@@ -85461,8 +85461,8 @@ function safeParse3(schema, value2) {
   try {
     return schema.safeParse(value2);
   } catch {
-    const error63 = new external_exports.ZodError([{ code: "custom", path: [], message: "input could not be validated", input: value2 }]);
-    return { success: false, error: error63 };
+    const error64 = new external_exports.ZodError([{ code: "custom", path: [], message: "input could not be validated", input: value2 }]);
+    return { success: false, error: error64 };
   }
 }
 function decodes(s3, length) {
@@ -86647,8 +86647,8 @@ function createInvite(opts) {
   if (!parsed2.success) throw new TypeError(`createInvite: ${describe3(parsed2.error)}`);
   return { code: PREFIX + b64u.encode(canonBytes(body)), secret, inviteId: inviteIdFromSecret(secret), exp };
 }
-function describe3(error63) {
-  const issue2 = error63.issues[0];
+function describe3(error64) {
+  const issue2 = error64.issues[0];
   return `${issue2.path.join(".") || "invite"}: ${issue2.message}`;
 }
 function parseInvite(code2) {
@@ -89260,8 +89260,8 @@ function pidAlive(pid, kill) {
   try {
     kill(pid, 0);
     return true;
-  } catch (error63) {
-    return error63.code === "EPERM";
+  } catch (error64) {
+    return error64.code === "EPERM";
   }
 }
 function createFollowsLinks(platform2) {
@@ -89317,15 +89317,15 @@ var fsOps = {
   sleep: (ms) => new Promise((resolve3) => setTimeout(resolve3, ms))
 };
 var realFsEnv = { platform: process.platform, pid: process.pid };
-function code(error63) {
-  return error63?.code;
+function code(error64) {
+  return error64?.code;
 }
 async function whileBusy(op2, platform2) {
   for (let attempt = 0; ; attempt++) {
     try {
       return await op2();
-    } catch (error63) {
-      if (!momentarilyBusy(code(error63), platform2) || attempt >= busyRetries(platform2)) throw error63;
+    } catch (error64) {
+      if (!momentarilyBusy(code(error64), platform2) || attempt >= busyRetries(platform2)) throw error64;
       await fsOps.sleep(20);
     }
   }
@@ -89345,9 +89345,9 @@ async function writeAtomic(path2, data, env3 = realFsEnv, mode = 384) {
   }
   try {
     await whileBusy(() => fsOps.rename(tmp, path2), env3.platform);
-  } catch (error63) {
+  } catch (error64) {
     await fs.rm(tmp, { force: true });
-    throw error63;
+    throw error64;
   }
 }
 async function writeNew(path2, data, env3 = realFsEnv, mode = 384) {
@@ -89356,8 +89356,8 @@ async function writeNew(path2, data, env3 = realFsEnv, mode = 384) {
   await fs.writeFile(tmp, data, { mode, flag: "wx", flush: true });
   try {
     await fsOps.link(tmp, path2);
-  } catch (error63) {
-    if (code(error63) === "EEXIST") throw error63;
+  } catch (error64) {
+    if (code(error64) === "EEXIST") throw error64;
     await fs.writeFile(path2, data, { mode, flag: "wx", flush: true });
   } finally {
     await fs.rm(tmp, { force: true });
@@ -89366,9 +89366,9 @@ async function writeNew(path2, data, env3 = realFsEnv, mode = 384) {
 async function readText(path2) {
   try {
     return await fsOps.readFile(path2);
-  } catch (error63) {
-    if (code(error63) === "ENOENT") return void 0;
-    throw error63;
+  } catch (error64) {
+    if (code(error64) === "ENOENT") return void 0;
+    throw error64;
   }
 }
 async function readJson(path2) {
@@ -89385,17 +89385,17 @@ async function writeJson(path2, value2, env3 = realFsEnv) {
 async function listDir(path2) {
   try {
     return await fs.readdir(path2);
-  } catch (error63) {
-    if (code(error63) === "ENOENT") return [];
-    throw error63;
+  } catch (error64) {
+    if (code(error64) === "ENOENT") return [];
+    throw error64;
   }
 }
 async function listFiles(path2) {
   try {
     return (await fs.readdir(path2, { withFileTypes: true })).filter((e6) => e6.isFile()).map((e6) => e6.name);
-  } catch (error63) {
-    if (code(error63) === "ENOENT") return [];
-    throw error63;
+  } catch (error64) {
+    if (code(error64) === "ENOENT") return [];
+    throw error64;
   }
 }
 async function removeFile(path2) {
@@ -89405,9 +89405,9 @@ async function tryRemove(path2, env3 = realFsEnv) {
   try {
     await fsOps.rm(path2);
     return true;
-  } catch (error63) {
-    if (momentarilyBusy(code(error63), env3.platform)) return false;
-    throw error63;
+  } catch (error64) {
+    if (momentarilyBusy(code(error64), env3.platform)) return false;
+    throw error64;
   }
 }
 async function releaseLock(path2, env3 = realFsEnv) {
@@ -89420,23 +89420,23 @@ async function lookAt(path2, env3) {
     const text2 = st.isFile() ? await whileBusy(() => fsOps.readFile(path2), env3.platform) : "(not a file)";
     const holder = /^[1-9]\d{0,15}$/.test(text2) ? Number(text2) : void 0;
     return { holder, text: text2, id: `${st.ino}:${st.mtimeNs}:${text2}`, age: Date.now() - Number(st.mtimeMs) };
-  } catch (error63) {
-    if (code(error63) === "ENOENT") return void 0;
-    throw error63;
+  } catch (error64) {
+    if (code(error64) === "ENOENT") return void 0;
+    throw error64;
   }
 }
 async function takeOver(path2, seen, env3) {
   const aside = `${path2}.${env3.pid}.${b64u.encode(randomBytes2(6))}.stale`;
   try {
     await fsOps.rename(path2, aside);
-  } catch (error63) {
-    if (code(error63) === "ENOENT") return;
-    throw error63;
+  } catch (error64) {
+    if (code(error64) === "ENOENT") return;
+    throw error64;
   }
   try {
     if ((await lookAt(aside, env3)).id !== seen) {
-      await fsOps.copyNew(aside, path2).catch((error63) => {
-        if (code(error63) !== "EEXIST") throw error63;
+      await fsOps.copyNew(aside, path2).catch((error64) => {
+        if (code(error64) !== "EEXIST") throw error64;
       });
     }
   } finally {
@@ -89459,8 +89459,8 @@ async function create(path2, env3) {
     await handle.writeFile(String(env3.pid));
     await handle.close();
     return true;
-  } catch (error63) {
-    if (code(error63) !== "EEXIST") throw error63;
+  } catch (error64) {
+    if (code(error64) !== "EEXIST") throw error64;
     return false;
   }
 }
@@ -89684,9 +89684,9 @@ var CiKeys = class {
           if (res.status === 200) this.down.delete(iss);
           else this.down.add(iss);
           return res;
-        } catch (error63) {
+        } catch (error64) {
           this.down.add(iss);
-          throw error63;
+          throw error64;
         }
       },
       now: o3.now,
@@ -90068,11 +90068,11 @@ var History = class {
     return found;
   }
   /** Visits entries (and receipts, to `receipt`) newest first, damaged lines skipped, until `visit` returns true. */
-  async scan(visit2, receipt = () => void 0) {
+  async scan(visit3, receipt = () => void 0) {
     const files = [...(await this.rotated()).map((n3) => join4(dirname3(this.path), n3)), this.path];
     for (const file2 of files.reverse()) {
       const lines = (await readText(file2) ?? "").split("\n").filter((l3) => l3 !== "").reverse();
-      if (visitLines(lines, visit2, receipt)) return;
+      if (visitLines(lines, visit3, receipt)) return;
     }
   }
 };
@@ -90082,10 +90082,10 @@ function readStart(size, from) {
 function receiptsIn(text2, id2) {
   return text2.split("\n").map(parseReceipt).filter((r6) => r6?.id === id2).map((r6) => ({ to: r6.to, status: r6.status, at: r6.at }));
 }
-function visitLines(lines, visit2, receipt) {
+function visitLines(lines, visit3, receipt) {
   for (const line of lines) {
     const entry = parseEntry(line);
-    if (entry !== void 0 && visit2(entry)) return true;
+    if (entry !== void 0 && visit3(entry)) return true;
     const r6 = entry === void 0 ? parseReceipt(line) : void 0;
     if (r6 !== void 0) receipt(r6);
   }
@@ -91168,8 +91168,8 @@ var SignerClient = class {
       const socket = this.connect(at);
       const conn = { socket, pending: /* @__PURE__ */ new Map(), buffered: "" };
       socket.setEncoding("utf8");
-      socket.on("error", (error63) => {
-        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error63.code ?? error63.message}): run \`wim agent start\` in a terminal you opened yourself`));
+      socket.on("error", (error64) => {
+        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error64.code ?? error64.message}): run \`wim agent start\` in a terminal you opened yourself`));
       });
       socket.once("connect", () => {
         socket.on("data", (chunk) => this.take(conn, chunk));
@@ -91179,9 +91179,9 @@ var SignerClient = class {
             this.conn = conn;
             resolve3(conn);
           },
-          (error63) => {
+          (error64) => {
             socket.destroy();
-            reject(error63);
+            reject(error64);
           }
         );
       });
@@ -91357,8 +91357,8 @@ var Spool = class _Spool {
     let raw;
     try {
       raw = await whileBusy(() => readJson(path2), this.env.platform);
-    } catch (error63) {
-      return momentarilyBusy(error63.code, this.env.platform) ? BUSY : void 0;
+    } catch (error64) {
+      return momentarilyBusy(error64.code, this.env.platform) ? BUSY : void 0;
     }
     return typeof raw?.rendered === "string" && typeof raw.id === "string" ? raw : void 0;
   }
@@ -91610,9 +91610,9 @@ var Link = class _Link {
     try {
       const hello = await waiting2;
       return { link, hello };
-    } catch (error63) {
+    } catch (error64) {
       link.close();
-      throw error63;
+      throw error64;
     }
   }
   get isOpen() {
@@ -91658,9 +91658,9 @@ var Link = class _Link {
     const answer = this.wait(match2, timeoutMs);
     try {
       this.send(frame);
-    } catch (error63) {
+    } catch (error64) {
       answer.catch(() => void 0);
-      throw error63;
+      throw error64;
     }
     return answer;
   }
@@ -91769,11 +91769,11 @@ var Connection = class {
       this.o.log(`wim: ${detail2}`);
       this.o.onState?.("closed", detail2);
       this.lost(closed.code, closed.reason);
-    } catch (error63) {
+    } catch (error64) {
       link?.close();
       const closed = link === void 0 ? void 0 : await link.closed;
-      this.o.log(`wim: connection failed: ${error63.message}`);
-      this.o.onState?.("closed", `connection failed: ${error63.message}`);
+      this.o.log(`wim: connection failed: ${error64.message}`);
+      this.o.onState?.("closed", `connection failed: ${error64.message}`);
       this.lost(closed?.code ?? 0, closed?.reason ?? "");
     }
   }
@@ -91838,8 +91838,8 @@ var FRAME_ATTEMPTS = 3;
 var RETRY_FIRST_MS = 1e3;
 var RETRY_MAX_MS = 5 * 6e4;
 var LOCAL_FAULTS = /* @__PURE__ */ new Set(["ENOSPC", "EDQUOT", "EIO", "EROFS", "EACCES", "EPERM", "EBUSY", "EMFILE", "ENFILE", "EAGAIN", "ENOTDIR", "EISDIR", "ENOENT", "ELOOP"]);
-function localFault(error63) {
-  return LOCAL_FAULTS.has(String(error63.code));
+function localFault(error64) {
+  return LOCAL_FAULTS.has(String(error64.code));
 }
 var SECRET_OVERRIDE = "If the person means to send it, the person runs the send themselves in a terminal they opened themselves: wim send <to> <text...> --allow-secret. An agent cannot skip this check.";
 var ClientError = class extends Error {
@@ -92350,23 +92350,23 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (this.failures.size > 64) this.failures.delete(this.failures.keys().next().value);
     return n3;
   }
-  inboundFailed(error63, id2) {
-    if (error63 instanceof NeedsSigner) {
+  inboundFailed(error64, id2) {
+    if (error64 instanceof NeedsSigner) {
       this.heldLink = this.link;
       if (!this.toldRestart) {
-        this.log(`wim: ${error63.message}`);
-        this.noticeLater(this.address, error63.message, true);
+        this.log(`wim: ${error64.message}`);
+        this.noticeLater(this.address, error64.message, true);
       }
       this.toldRestart = true;
       return;
     }
-    this.log(`wim: inbound: ${error63.message}`);
-    if (error63 instanceof SignerError && (error63.transient || error63.code === "mismatch")) {
+    this.log(`wim: inbound: ${error64.message}`);
+    if (error64 instanceof SignerError && (error64.transient || error64.code === "mismatch")) {
       this.heldLink = this.link;
       this.link?.close(CLOSE.bye, "the device's signer did not answer");
       return;
     }
-    if (id2 !== void 0 && !localFault(error63) && this.failedAgain(id2) >= FRAME_ATTEMPTS) {
+    if (id2 !== void 0 && !localFault(error64) && this.failedAgain(id2) >= FRAME_ATTEMPTS) {
       this.log(`wim: inbound: giving up on message ${id2} after ${FRAME_ATTEMPTS} attempts; it will not be delivered`);
       return;
     }
@@ -92490,8 +92490,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
   }
   /** A parked message that could not be checked now: logged, and left parked ("behind") for the next retry. */
-  parkedFailed(name, error63) {
-    this.log(`wim: parked message ${name} kept for the next retry: ${error63.message}`);
+  parkedFailed(name, error64) {
+    this.log(`wim: parked message ${name} kept for the next retry: ${error64.message}`);
     return "behind";
   }
   // ---- CI notices (SPEC section 18) ----
@@ -92524,8 +92524,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     try {
       link.send(frame);
       this.ciSent = text2;
-    } catch (error63) {
-      this.log(`wim: CI rules not sent: ${error63.message}`);
+    } catch (error64) {
+      this.log(`wim: CI rules not sent: ${error64.message}`);
     }
   }
   /**
@@ -92879,8 +92879,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       if (this.link !== void 0) await this.sendCiRules(this.link);
       await this.retryCiParked();
       this.flushCiDrops();
-    } catch (error63) {
-      this.log(`wim: housekeeping: ${error63.message}`);
+    } catch (error64) {
+      this.log(`wim: housekeeping: ${error64.message}`);
     } finally {
       this.ticking = false;
     }
@@ -92915,7 +92915,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   cardFrame(always, card) {
     if (!always && sameCard(this.myCard, card)) return Promise.resolve(void 0);
     const ids = this.roster.devices.map((d5) => d5.id);
-    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids }).catch((error63) => error63);
+    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids }).catch((error64) => error64);
   }
   /**
    * The part of sendCard after its awaits, kept synchronous: V8 counts a branch that follows an
@@ -92929,9 +92929,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
       link.send({ t: "card.set", msg: frame });
       this.cardAt = this.now();
       this.myCard = card;
-    } catch (error63) {
+    } catch (error64) {
       this.cardPk = before;
-      this.log(`wim: peer card not sent: ${error63.message}`);
+      this.log(`wim: peer card not sent: ${error64.message}`);
     }
   }
   // ---- held messages ----
@@ -92966,8 +92966,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       const live = peers2.map((p3) => p3.address);
       const claude = peers2.filter((p3) => p3.kind === "claude-code").map((p3) => p3.address);
       await writeJson(answer, { ok: true, ...out, live, claude }, this.o.env);
-    } catch (error63) {
-      await writeJson(answer, { ok: false, error: error63.message }, this.o.env);
+    } catch (error64) {
+      await writeJson(answer, { ok: false, error: error64.message }, this.o.env);
     }
   }
   /** Lifts a breaker pause on a peer (by address) and releases what it held from that device. */
@@ -93200,8 +93200,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
         ...opts.allowSecrets === true ? { allowSecrets: true } : {}
       });
       return { frame, missing };
-    } catch (error63) {
-      const message2 = error63.message.replace(/^sealMessage: /, "");
+    } catch (error64) {
+      const message2 = error64.message.replace(/^sealMessage: /, "");
       if (/secret/.test(message2)) throw new ClientError(`refused: ${message2}. ${SECRET_OVERRIDE}`, "secret");
       throw new ClientError(`refused: ${message2}`, "invalid");
     }
@@ -93215,8 +93215,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const match2 = (f7) => f7.t === "sent" && f7.id === id2 || errorFor(id2)(f7);
     try {
       return await link.request(frame, match2, this.answerMs);
-    } catch (error63) {
-      if (error63.code !== "closed") throw error63;
+    } catch (error64) {
+      if (error64.code !== "closed") throw error64;
       this.log(`wim: the connection dropped while sending ${id2}; sending again after reconnecting`);
       return (await this.ready(this.answerMs)).request(frame, match2, this.answerMs);
     }
@@ -93472,9 +93472,9 @@ ${frameEntry(entry)}`);
         clearInterval(beat);
         this.off("item", onItem);
       };
-      const fail4 = (error63) => {
+      const fail4 = (error64) => {
         finish();
-        reject(error63);
+        reject(error64);
       };
       const takeFirst = (items) => {
         const first = items[0];
@@ -93539,7 +93539,7 @@ function botIO(s3) {
     }
   };
 }
-function ciIO(s3, log) {
+function ciIO(s3, log2) {
   const joined = /* @__PURE__ */ new Set();
   return {
     async post(room, text2) {
@@ -93549,7 +93549,7 @@ function ciIO(s3, log) {
       }
       await s3.send(room, text2, { relayed: true });
     },
-    log
+    log: log2
   };
 }
 function meshPort(s3) {
@@ -93583,8 +93583,8 @@ function meshPort(s3) {
 }
 
 // src/run-a2a.ts
-async function runGateway(config2, s3, env3, log, fetcher) {
-  return startGateway(config2, meshPort(s3), { env: env3, log, fetch: fetcher });
+async function runGateway(config2, s3, env3, log2, fetcher) {
+  return startGateway(config2, meshPort(s3), { env: env3, log: log2, fetch: fetcher });
 }
 
 // ../bot/src/model.ts
@@ -93782,11 +93782,11 @@ function getValueByPath(data, keys, defaultValue = void 0) {
       }
     }
     return data;
-  } catch (error63) {
-    if (error63 instanceof TypeError) {
+  } catch (error64) {
+    if (error64 instanceof TypeError) {
       return defaultValue;
     }
-    throw error63;
+    throw error64;
   }
 }
 function moveValueByPath(data, paths) {
@@ -105411,8 +105411,8 @@ function throwIfStreamErrorChunk(chunkString) {
       }
     }
   } catch (e6) {
-    const error63 = e6;
-    if ((error63 === null || error63 === void 0 ? void 0 : error63.name) === "ApiError") {
+    const error64 = e6;
+    if ((error64 === null || error64 === void 0 ? void 0 : error64.name) === "ApiError") {
       throw e6;
     }
   }
@@ -106956,8 +106956,8 @@ var Models = class _Models extends BaseModule {
                 if (e_1) throw e_1.error;
               }
             }
-          } catch (error63) {
-            hopError = { error: error63 };
+          } catch (error64) {
+            hopError = { error: error64 };
           }
           if (!state2.endHop(hopError)) {
             return yield __await(void 0);
@@ -109578,23 +109578,23 @@ var GeminiNextGenAPIClientError = class extends Error {
   }
 };
 var APIError = class _APIError extends GeminiNextGenAPIClientError {
-  constructor(status2, error63, message2, headers) {
-    super(_APIError.makeMessage(status2, error63, message2));
+  constructor(status2, error64, message2, headers) {
+    super(_APIError.makeMessage(status2, error64, message2));
     this.status = status2;
     this.headers = headers;
-    this.error = error63;
+    this.error = error64;
     this.statusCode = status2;
-    this.body = stringifyErrorBody(error63);
+    this.body = stringifyErrorBody(error64);
     this.contentType = (headers === null || headers === void 0 ? void 0 : headers.get("content-type")) || "";
     this.rawResponse = void 0;
     this.cause = void 0;
     this.name = this.constructor.name;
     Object.setPrototypeOf(this, new.target.prototype);
   }
-  static makeMessage(status2, error63, message2) {
+  static makeMessage(status2, error64, message2) {
     var _a5;
-    const errorMessage = error63 && isPlainObject$2(error63) && typeof error63["message"] === "string" ? error63["message"] : void 0;
-    const errorBody = stringifyErrorBody(error63);
+    const errorMessage = error64 && isPlainObject$2(error64) && typeof error64["message"] === "string" ? error64["message"] : void 0;
+    const errorBody = stringifyErrorBody(error64);
     const msg = (_a5 = errorMessage !== null && errorMessage !== void 0 ? errorMessage : message2) !== null && _a5 !== void 0 ? _a5 : errorBody || "An error occurred";
     const statusText = status2 ? `${status2} ` : "";
     return `${statusText}${msg}`;
@@ -109667,17 +109667,17 @@ var RateLimitError = class extends APIError {
 };
 var InternalServerError = class extends APIError {
 };
-function wrapSDKError(error63) {
-  if (isCompatAPIErrorInstance(error63)) {
-    return error63;
+function wrapSDKError(error64) {
+  if (isCompatAPIErrorInstance(error64)) {
+    return error64;
   }
-  if (isGoogleGenAiErrorInstance(error63)) {
-    return wrapAPIError(error63);
+  if (isGoogleGenAiErrorInstance(error64)) {
+    return wrapAPIError(error64);
   }
-  if (error63 instanceof HTTPClientError) {
-    return wrapHTTPClientError(error63);
+  if (error64 instanceof HTTPClientError) {
+    return wrapHTTPClientError(error64);
   }
-  return error63;
+  return error64;
 }
 function isGoogleGenAiErrorInstance(value2) {
   if (value2 instanceof GoogleGenAiError) {
@@ -109685,53 +109685,53 @@ function isGoogleGenAiErrorInstance(value2) {
   }
   return value2 instanceof Error && typeof value2.statusCode === "number" && typeof value2.body === "string";
 }
-function wrapAPIError(error63) {
-  const errorPayload = getErrorPayload(error63);
-  const wrapped = APIError.generate(error63.statusCode, errorPayload, error63.message, error63.headers);
-  defineReadonly(wrapped, "body", error63.body);
-  defineReadonly(wrapped, "contentType", error63.contentType);
-  defineReadonly(wrapped, "rawResponse", error63.rawResponse);
-  defineReadonly(wrapped, "statusCode", error63.statusCode);
-  defineReadonly(wrapped, "cause", error63);
+function wrapAPIError(error64) {
+  const errorPayload = getErrorPayload(error64);
+  const wrapped = APIError.generate(error64.statusCode, errorPayload, error64.message, error64.headers);
+  defineReadonly(wrapped, "body", error64.body);
+  defineReadonly(wrapped, "contentType", error64.contentType);
+  defineReadonly(wrapped, "rawResponse", error64.rawResponse);
+  defineReadonly(wrapped, "statusCode", error64.statusCode);
+  defineReadonly(wrapped, "cause", error64);
   return wrapped;
 }
-function wrapHTTPClientError(error63) {
-  if (error63 instanceof RequestTimeoutError) {
-    return new APIConnectionTimeoutError({ message: error63.message });
+function wrapHTTPClientError(error64) {
+  if (error64 instanceof RequestTimeoutError) {
+    return new APIConnectionTimeoutError({ message: error64.message });
   }
-  if (error63 instanceof RequestAbortedError) {
-    return new APIUserAbortError({ message: error63.message });
+  if (error64 instanceof RequestAbortedError) {
+    return new APIUserAbortError({ message: error64.message });
   }
-  if (error63 instanceof ConnectionError) {
-    return new APIConnectionError({ message: error63.message, cause: error63 });
+  if (error64 instanceof ConnectionError) {
+    return new APIConnectionError({ message: error64.message, cause: error64 });
   }
-  return new APIConnectionError({ message: error63.message, cause: error63 });
+  return new APIConnectionError({ message: error64.message, cause: error64 });
 }
-function getErrorPayload(error63) {
-  const data = getObjectProperty(error63, "data$");
+function getErrorPayload(error64) {
+  const data = getObjectProperty(error64, "data$");
   if (data && typeof data === "object") {
     return data;
   }
   try {
-    const parsed2 = JSON.parse(error63.body);
+    const parsed2 = JSON.parse(error64.body);
     if (parsed2 && typeof parsed2 === "object") {
       return parsed2;
     }
   } catch (_a5) {
   }
-  const dataError = getObjectProperty(error63, "error");
+  const dataError = getObjectProperty(error64, "error");
   return dataError && typeof dataError === "object" ? dataError : void 0;
 }
 function getObjectProperty(value2, key2) {
   return value2 && typeof value2 === "object" ? value2[key2] : void 0;
 }
-function stringifyErrorBody(error63) {
-  if (!error63)
+function stringifyErrorBody(error64) {
+  if (!error64)
     return "";
   try {
-    return JSON.stringify(error63);
+    return JSON.stringify(error64);
   } catch (_a5) {
-    return String(error63);
+    return String(error64);
   }
 }
 function isPlainObject$2(value2) {
@@ -109982,9 +109982,9 @@ var SDKHooks = class {
     }
     return res;
   }
-  async afterError(hookCtx, response, error63) {
+  async afterError(hookCtx, response, error64) {
     let res = response;
-    let err = error63;
+    let err = error64;
     for (const hook of this.afterErrorHooks) {
       const result = await hook.afterError(hookCtx, res, err);
       res = result.response;
@@ -109996,8 +109996,8 @@ var SDKHooks = class {
 function OK(value2) {
   return { ok: true, value: value2 };
 }
-function ERR(error63) {
-  return { ok: false, error: error63 };
+function ERR(error64) {
+  return { ok: false, error: error64 };
 }
 function bytesToBase64(u8arr) {
   return btoa(String.fromCodePoint(...u8arr));
@@ -114754,8 +114754,8 @@ async function unwrapWithSdkHttpResponse(promise2) {
 async function wrapSDKCall(operation2) {
   try {
     return await operation2();
-  } catch (error63) {
-    throw wrapSDKError(error63);
+  } catch (error64) {
+    throw wrapSDKError(error64);
   }
 }
 function wrapStreamErrors(stream) {
@@ -114772,8 +114772,8 @@ function wrapStreamErrors(stream) {
           async next(...args) {
             try {
               return await iterator.next(...args);
-            } catch (error63) {
-              throw wrapSDKError(error63);
+            } catch (error64) {
+              throw wrapSDKError(error64);
             }
           },
           async return(value2) {
@@ -114782,16 +114782,16 @@ function wrapStreamErrors(stream) {
             }
             try {
               return await iterator.return(value2);
-            } catch (error63) {
-              throw wrapSDKError(error63);
+            } catch (error64) {
+              throw wrapSDKError(error64);
             }
           },
-          async throw(error63) {
+          async throw(error64) {
             if (!iterator.throw) {
-              throw wrapSDKError(error63);
+              throw wrapSDKError(error64);
             }
             try {
-              return await iterator.throw(error63);
+              return await iterator.throw(error64);
             } catch (caught) {
               throw wrapSDKError(caught);
             }
@@ -114997,8 +114997,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs14 = req("fs");
-          buffer = fs14.readFileSync(params.file);
+          const fs15 = req("fs");
+          buffer = fs15.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -115006,8 +115006,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs14 = mod2("fs");
-            buffer = fs14.readFileSync(params.file);
+            const fs15 = mod2("fs");
+            buffer = fs15.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -115256,8 +115256,8 @@ var NodeDownloader = class {
           await writeFile(params.downloadPath, response, {
             encoding: "base64"
           });
-        } catch (error63) {
-          throw new Error(`Failed to write file to ${params.downloadPath}: ${error63}`);
+        } catch (error64) {
+          throw new Error(`Failed to write file to ${params.downloadPath}: ${error64}`);
         }
       }
     }
@@ -118387,7 +118387,7 @@ function createModel(config2) {
 // ../bot/src/run.ts
 async function runBot(config2, io, deps = {}) {
   const now = deps.now ?? Date.now;
-  const log = deps.log ?? ((line) => void process.stderr.write(`${line}
+  const log2 = deps.log ?? ((line) => void process.stderr.write(`${line}
 `));
   const model = deps.model ?? createModel(config2);
   const budget = await Budget.open({
@@ -118418,7 +118418,7 @@ async function runBot(config2, io, deps = {}) {
     maxTokens: config2.budget.maxTokens,
     callTimeoutMs: config2.callTimeoutSeconds * 1e3,
     now,
-    log
+    log: log2
   });
   bot.start();
   return bot;
@@ -118668,13 +118668,13 @@ var StateStore = class _StateStore {
    * Opens the state file. A missing file starts empty; an unreadable or invalid one is reported
    * and also starts empty, which means the next poll seeds silently rather than flooding the room.
    */
-  static async open(path2, now, log) {
+  static async open(path2, now, log2) {
     let text2;
     try {
       text2 = await readFile5(path2, "utf8");
     } catch (err) {
       if (err.code !== "ENOENT") {
-        log(`ci: cannot read state ${path2} (${err.message}); starting fresh`);
+        log2(`ci: cannot read state ${path2} (${err.message}); starting fresh`);
       }
       return new _StateStore(path2, { version: 1, sources: {} }, now);
     }
@@ -118682,7 +118682,7 @@ var StateStore = class _StateStore {
     try {
       parsed2 = StateFile.parse(JSON.parse(text2));
     } catch {
-      log(`ci: state ${path2} is not valid; starting fresh`);
+      log2(`ci: state ${path2} is not valid; starting fresh`);
     }
     return new _StateStore(path2, parsed2 ?? { version: 1, sources: {} }, now);
   }
@@ -119136,8 +119136,8 @@ async function runCi(config2, io, deps = {}) {
   const intervalMs = config2.intervalSeconds * 1e3;
   const tokens = config2.sources.map((s3) => env3[s3.tokenEnv] || void 0);
   const redact = redactor(tokens.filter((t2) => t2 !== void 0));
-  const log = (line) => io.log(redact(line));
-  const state2 = await StateStore.open(config2.statePath, now, log);
+  const log2 = (line) => io.log(redact(line));
+  const state2 = await StateStore.open(config2.statePath, now, log2);
   const watchers = config2.sources.map((source2, i6) => {
     const token = tokens[i6];
     const http3 = new HttpClient({
@@ -119157,7 +119157,7 @@ async function runCi(config2, io, deps = {}) {
     };
     const watcher = source2.type === "gitlab" ? new GitLabWatcher(source2, ctx) : new GitHubWatcher(source2, ctx);
     if (token === void 0) {
-      log(`ci: ${watcher.name}: ${source2.tokenEnv} is not set; polling without a token (public projects only)`);
+      log2(`ci: ${watcher.name}: ${source2.tokenEnv} is not set; polling without a token (public projects only)`);
     }
     return watcher;
   });
@@ -119174,13 +119174,13 @@ async function runCi(config2, io, deps = {}) {
           failures += 1;
           const retryAfter = err instanceof CiHttpError ? err.retryAfterMs : void 0;
           wait = backoff(intervalMs, failures, retryAfter, random);
-          log(`ci: ${w.name}: ${message(err)}; retrying in ${formatDuration(wait)}`);
+          log2(`ci: ${w.name}: ${message(err)}; retrying in ${formatDuration(wait)}`);
         }
       }
       try {
         await state2.save();
       } catch (err) {
-        log(`ci: cannot save state: ${message(err)}`);
+        log2(`ci: cannot save state: ${message(err)}`);
       }
       await sleep3(wait, signal);
     }
@@ -119189,7 +119189,7 @@ async function runCi(config2, io, deps = {}) {
 }
 
 // src/cli.ts
-import { promises as fs13 } from "node:fs";
+import { promises as fs14 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
 // src/home.ts
@@ -119391,9 +119391,9 @@ var Home = class {
     let facts;
     try {
       facts = await fs8.lstat(this.devicePath);
-    } catch (error63) {
-      if (error63.code === "ENOENT") return void 0;
-      throw error63;
+    } catch (error64) {
+      if (error64.code === "ENOENT") return void 0;
+      throw error64;
     }
     const problem = keyFileProblem(
       { mode: facts.mode, uid: facts.uid, isFile: facts.isFile(), isSymlink: facts.isSymbolicLink() },
@@ -119430,9 +119430,9 @@ var Home = class {
     let hello;
     try {
       hello = await client.hello();
-    } catch (error63) {
-      if (error63.code === "unavailable") throw new NotReadyYet(notRunning);
-      throw new SetupError(error63.message);
+    } catch (error64) {
+      if (error64.code === "unavailable") throw new NotReadyYet(notRunning);
+      throw new SetupError(error64.message);
     }
     if (hello.locked) {
       client.close();
@@ -119456,8 +119456,8 @@ var Home = class {
     const keys = generateDeviceKeys();
     const encoded = JSON.parse(encodeKeys(keys));
     await writeNew(this.devicePath, `${JSON.stringify({ ...encoded, name })}
-`, this.env).catch((error63) => {
-      throw error63.code === "EEXIST" ? exists : error63;
+`, this.env).catch((error64) => {
+      throw error64.code === "EEXIST" ? exists : error64;
     });
     return localDevice(name, keys);
   }
@@ -119496,7 +119496,7 @@ async function storeShortCode(link, relay, fullCode, inviteExp, now) {
   const k5 = newShortKey();
   const box = sealRdv(k5, fullCode);
   const exp = Math.min(inviteExp, now + LIMITS.rdvLifetimeMs);
-  const answer = await link.request({ t: "rdv.put", ...box, exp }, (f7) => f7.t === "rdv.stored" && f7.rdv === box.rdv || errorFor("rdv.put")(f7), 1e4).catch((error63) => error63);
+  const answer = await link.request({ t: "rdv.put", ...box, exp }, (f7) => f7.t === "rdv.stored" && f7.rdv === box.rdv || errorFor("rdv.put")(f7), 1e4).catch((error64) => error64);
   return shortOutcome(answer, formatShortCode(k5, relay), exp);
 }
 function shortOutcome(answer, code2, exp) {
@@ -119509,14 +119509,14 @@ async function resolveInvite(code2, fetcher, opts = {}) {
   if (!isShortCode(code2)) return code2;
   const short = readShort(code2);
   const url2 = rdvUrl(short.relay, rdvId(short.k));
-  const read = await fetcher(url2, { signal: AbortSignal.timeout(opts.timeoutMs ?? 15e3), redirect: "error", headers: { accept: "application/json" } }).then(async (res) => ({ status: res.status, body: await res.text() })).catch((error63) => error63);
+  const read = await fetcher(url2, { signal: AbortSignal.timeout(opts.timeoutMs ?? 15e3), redirect: "error", headers: { accept: "application/json" } }).then(async (res) => ({ status: res.status, body: await res.text() })).catch((error64) => error64);
   return openAnswer(short, read);
 }
 function readShort(code2) {
   try {
     return parseShortCode(code2);
-  } catch (error63) {
-    throw new SetupError(error63.message);
+  } catch (error64) {
+    throw new SetupError(error64.message);
   }
 }
 function openAnswer(short, read) {
@@ -120174,9 +120174,9 @@ async function runEvents(d5) {
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
       const result = await run(op2, args.data);
       emit("response", { id: id2, ok: true, result });
-    } catch (error63) {
-      const code2 = error63 instanceof RequestError ? error63.code : error63 instanceof ClientError ? error63.code === "secret" ? "refused" : error63.code === "bad_address" ? "input" : error63.code : "error";
-      emit("response", { ...id2 === void 0 ? {} : { id: id2 }, ok: false, error: { code: code2, message: error63.message } });
+    } catch (error64) {
+      const code2 = error64 instanceof RequestError ? error64.code : error64 instanceof ClientError ? error64.code === "secret" ? "refused" : error64.code === "bad_address" ? "input" : error64.code : "error";
+      emit("response", { ...id2 === void 0 ? {} : { id: id2 }, ok: false, error: { code: code2, message: error64.message } });
     }
   }
   emit("hello", {
@@ -120238,8 +120238,8 @@ async function runSetupEvents(d5) {
     if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
     joining = true;
     try {
-      const code2 = await resolveInvite(a5.code, d5.fetch).catch((error63) => {
-        throw error63 instanceof SetupError ? new RequestError("input", error63.message) : error63;
+      const code2 = await resolveInvite(a5.code, d5.fetch).catch((error64) => {
+        throw error64 instanceof SetupError ? new RequestError("input", error64.message) : error64;
       });
       try {
         parseInvite(code2);
@@ -120265,16 +120265,16 @@ async function runSetupEvents(d5) {
             emit("joined", { mesh: `${done.mesh.slice(0, 4)}\u2026`, devices: others });
             finish();
           },
-          (error63) => {
+          (error64) => {
             joining = false;
-            if (!answered2) return reject(error63);
-            emit("join_failed", { message: sanitizeForDisplay(error63.message) });
+            if (!answered2) return reject(error64);
+            emit("join_failed", { message: sanitizeForDisplay(error64.message) });
           }
         );
       });
-    } catch (error63) {
+    } catch (error64) {
       joining = false;
-      throw error63;
+      throw error64;
     }
   }
   async function handle(line) {
@@ -120294,9 +120294,9 @@ async function runSetupEvents(d5) {
       const args = SetupArgs.safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
       emit("response", { id: id2, ok: true, result: await join22(args.data) });
-    } catch (error63) {
-      const code2 = error63 instanceof RequestError ? error63.code : "error";
-      emit("response", { ...id2 === void 0 ? {} : { id: id2 }, ok: false, error: { code: code2, message: sanitizeForDisplay(error63.message) } });
+    } catch (error64) {
+      const code2 = error64 instanceof RequestError ? error64.code : "error";
+      emit("response", { ...id2 === void 0 ? {} : { id: id2 }, ok: false, error: { code: code2, message: sanitizeForDisplay(error64.message) } });
     }
   }
   let queue = Promise.resolve();
@@ -120460,8 +120460,8 @@ var Protocol = class {
                     resolver(message2);
                   } else {
                     const errorMessage = message2;
-                    const error63 = new McpError(errorMessage.error.code, errorMessage.error.message, errorMessage.error.data);
-                    resolver(error63);
+                    const error64 = new McpError(errorMessage.error.code, errorMessage.error.message, errorMessage.error.data);
+                    resolver(error64);
                   }
                 } else {
                   const messageType = queuedMessage.type === "response" ? "Response" : "Error";
@@ -120505,8 +120505,8 @@ var Protocol = class {
             nextCursor,
             _meta: {}
           };
-        } catch (error63) {
-          throw new McpError(ErrorCode.InvalidParams, `Failed to list tasks: ${error63 instanceof Error ? error63.message : String(error63)}`);
+        } catch (error64) {
+          throw new McpError(ErrorCode.InvalidParams, `Failed to list tasks: ${error64 instanceof Error ? error64.message : String(error64)}`);
         }
       });
       this.setRequestHandler(CancelTaskRequestSchema, async (request2, extra) => {
@@ -120528,11 +120528,11 @@ var Protocol = class {
             _meta: {},
             ...cancelledTask
           };
-        } catch (error63) {
-          if (error63 instanceof McpError) {
-            throw error63;
+        } catch (error64) {
+          if (error64 instanceof McpError) {
+            throw error64;
           }
-          throw new McpError(ErrorCode.InvalidRequest, `Failed to cancel task: ${error63 instanceof Error ? error63.message : String(error63)}`);
+          throw new McpError(ErrorCode.InvalidRequest, `Failed to cancel task: ${error64 instanceof Error ? error64.message : String(error64)}`);
         }
       });
     }
@@ -120593,9 +120593,9 @@ var Protocol = class {
       this._onclose();
     };
     const _onerror = this.transport?.onerror;
-    this._transport.onerror = (error63) => {
-      _onerror?.(error63);
-      this._onerror(error63);
+    this._transport.onerror = (error64) => {
+      _onerror?.(error64);
+      this._onerror(error64);
     };
     const _onmessage = this._transport?.onmessage;
     this._transport.onmessage = (message2, extra) => {
@@ -120626,22 +120626,22 @@ var Protocol = class {
       controller.abort();
     }
     this._requestHandlerAbortControllers.clear();
-    const error63 = McpError.fromError(ErrorCode.ConnectionClosed, "Connection closed");
+    const error64 = McpError.fromError(ErrorCode.ConnectionClosed, "Connection closed");
     this._transport = void 0;
     this.onclose?.();
     for (const handler of responseHandlers.values()) {
-      handler(error63);
+      handler(error64);
     }
   }
-  _onerror(error63) {
-    this.onerror?.(error63);
+  _onerror(error64) {
+    this.onerror?.(error64);
   }
   _onnotification(notification) {
     const handler = this._notificationHandlers.get(notification.method) ?? this.fallbackNotificationHandler;
     if (handler === void 0) {
       return;
     }
-    Promise.resolve().then(() => handler(notification)).catch((error63) => this._onerror(new Error(`Uncaught error in notification handler: ${error63}`)));
+    Promise.resolve().then(() => handler(notification)).catch((error64) => this._onerror(new Error(`Uncaught error in notification handler: ${error64}`)));
   }
   _onrequest(request2, extra) {
     const handler = this._requestHandlers.get(request2.method) ?? this.fallbackRequestHandler;
@@ -120671,15 +120671,15 @@ var Protocol = class {
       };
       if (relatedTaskId && relatedTaskLookup) {
         const queuedError = { type: "error", message: errorResponse, timestamp: Date.now() };
-        relatedTaskLookup.then(() => this._enqueueTaskMessage(relatedTaskId, queuedError, sessionId), () => capturedTransport?.send(errorResponse)).catch((error63) => this._onerror(new Error(`Failed to send an error response: ${error63}`)));
+        relatedTaskLookup.then(() => this._enqueueTaskMessage(relatedTaskId, queuedError, sessionId), () => capturedTransport?.send(errorResponse)).catch((error64) => this._onerror(new Error(`Failed to send an error response: ${error64}`)));
       } else if (relatedTaskId && this._taskMessageQueue) {
         this._enqueueTaskMessage(relatedTaskId, {
           type: "error",
           message: errorResponse,
           timestamp: Date.now()
-        }, capturedTransport?.sessionId).catch((error63) => this._onerror(new Error(`Failed to enqueue error response: ${error63}`)));
+        }, capturedTransport?.sessionId).catch((error64) => this._onerror(new Error(`Failed to enqueue error response: ${error64}`)));
       } else {
-        capturedTransport?.send(errorResponse).catch((error63) => this._onerror(new Error(`Failed to send an error response: ${error63}`)));
+        capturedTransport?.send(errorResponse).catch((error64) => this._onerror(new Error(`Failed to send an error response: ${error64}`)));
       }
       return;
     }
@@ -120748,7 +120748,7 @@ var Protocol = class {
       } else {
         await capturedTransport?.send(response);
       }
-    }, async (error63) => {
+    }, async (error64) => {
       if (abortController.signal.aborted) {
         return;
       }
@@ -120756,9 +120756,9 @@ var Protocol = class {
         jsonrpc: "2.0",
         id: request2.id,
         error: {
-          code: Number.isSafeInteger(error63["code"]) ? error63["code"] : ErrorCode.InternalError,
-          message: error63.message ?? "Internal error",
-          ...error63["data"] !== void 0 && { data: error63["data"] }
+          code: Number.isSafeInteger(error64["code"]) ? error64["code"] : ErrorCode.InternalError,
+          message: error64.message ?? "Internal error",
+          ...error64["data"] !== void 0 && { data: error64["data"] }
         }
       };
       if (relatedTaskId && this._taskMessageQueue && relatedTaskFound) {
@@ -120770,7 +120770,7 @@ var Protocol = class {
       } else {
         await capturedTransport?.send(errorResponse);
       }
-    }).catch((error63) => this._onerror(new Error(`Failed to send response: ${error63}`))).finally(() => {
+    }).catch((error64) => this._onerror(new Error(`Failed to send response: ${error64}`))).finally(() => {
       if (this._requestHandlerAbortControllers.get(request2.id) === abortController) {
         this._requestHandlerAbortControllers.delete(request2.id);
       }
@@ -120789,11 +120789,11 @@ var Protocol = class {
     if (timeoutInfo && responseHandler && timeoutInfo.resetTimeoutOnProgress) {
       try {
         this._resetTimeout(messageId);
-      } catch (error63) {
+      } catch (error64) {
         this._responseHandlers.delete(messageId);
         this._progressHandlers.delete(messageId);
         this._cleanupTimeout(messageId);
-        responseHandler(error63);
+        responseHandler(error64);
         return;
       }
     }
@@ -120807,8 +120807,8 @@ var Protocol = class {
       if (isJSONRPCResultResponse(response)) {
         resolver(response);
       } else {
-        const error63 = new McpError(response.error.code, response.error.message, response.error.data);
-        resolver(error63);
+        const error64 = new McpError(response.error.code, response.error.message, response.error.data);
+        resolver(error64);
       }
       return;
     }
@@ -120836,8 +120836,8 @@ var Protocol = class {
     if (isJSONRPCResultResponse(response)) {
       handler(response);
     } else {
-      const error63 = McpError.fromError(response.error.code, response.error.message, response.error.data);
-      handler(error63);
+      const error64 = McpError.fromError(response.error.code, response.error.message, response.error.data);
+      handler(error64);
     }
   }
   get transport() {
@@ -120882,10 +120882,10 @@ var Protocol = class {
       try {
         const result = await this.request(request2, resultSchema, options);
         yield { type: "result", result };
-      } catch (error63) {
+      } catch (error64) {
         yield {
           type: "error",
-          error: error63 instanceof McpError ? error63 : new McpError(ErrorCode.InternalError, String(error63))
+          error: error64 instanceof McpError ? error64 : new McpError(ErrorCode.InternalError, String(error64))
         };
       }
       return;
@@ -120928,10 +120928,10 @@ var Protocol = class {
         await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
         options?.signal?.throwIfAborted();
       }
-    } catch (error63) {
+    } catch (error64) {
       yield {
         type: "error",
-        error: error63 instanceof McpError ? error63 : new McpError(ErrorCode.InternalError, String(error63))
+        error: error64 instanceof McpError ? error64 : new McpError(ErrorCode.InternalError, String(error64))
       };
     }
   }
@@ -120943,8 +120943,8 @@ var Protocol = class {
   request(request2, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
     return new Promise((resolve3, reject) => {
-      const earlyReject = (error63) => {
-        reject(error63);
+      const earlyReject = (error64) => {
+        reject(error64);
       };
       if (!this._transport) {
         earlyReject(new Error("Not connected"));
@@ -121004,9 +121004,9 @@ var Protocol = class {
             requestId: messageId,
             reason: String(reason)
           }
-        }, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error64) => this._onerror(new Error(`Failed to send cancellation: ${error64}`)));
-        const error63 = reason instanceof McpError ? reason : new McpError(ErrorCode.RequestTimeout, String(reason));
-        reject(error63);
+        }, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error65) => this._onerror(new Error(`Failed to send cancellation: ${error65}`)));
+        const error64 = reason instanceof McpError ? reason : new McpError(ErrorCode.RequestTimeout, String(reason));
+        reject(error64);
       };
       this._responseHandlers.set(messageId, (response) => {
         if (options?.signal?.aborted) {
@@ -121022,8 +121022,8 @@ var Protocol = class {
           } else {
             resolve3(parseResult.data);
           }
-        } catch (error63) {
-          reject(error63);
+        } catch (error64) {
+          reject(error64);
         }
       });
       options?.signal?.addEventListener("abort", () => {
@@ -121047,14 +121047,14 @@ var Protocol = class {
           type: "request",
           message: jsonrpcRequest,
           timestamp: Date.now()
-        }).catch((error63) => {
+        }).catch((error64) => {
           this._cleanupTimeout(messageId);
-          reject(error63);
+          reject(error64);
         });
       } else {
-        this._transport.send(jsonrpcRequest, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error63) => {
+        this._transport.send(jsonrpcRequest, { relatedRequestId, resumptionToken, onresumptiontoken }).catch((error64) => {
           this._cleanupTimeout(messageId);
-          reject(error63);
+          reject(error64);
         });
       }
     });
@@ -121147,7 +121147,7 @@ var Protocol = class {
             }
           };
         }
-        this._transport?.send(jsonrpcNotification2, options).catch((error63) => this._onerror(error63));
+        this._transport?.send(jsonrpcNotification2, options).catch((error64) => this._onerror(error64));
       });
       return;
     }
@@ -122001,11 +122001,11 @@ var Server = class extends Protocol {
             if (!validationResult.valid) {
               throw new McpError(ErrorCode.InvalidParams, `Elicitation response content does not match requested schema: ${validationResult.errorMessage}`);
             }
-          } catch (error63) {
-            if (error63 instanceof McpError) {
-              throw error63;
+          } catch (error64) {
+            if (error64 instanceof McpError) {
+              throw error64;
             }
-            throw new McpError(ErrorCode.InternalError, `Error validating elicitation response: ${error63 instanceof Error ? error63.message : String(error63)}`);
+            throw new McpError(ErrorCode.InternalError, `Error validating elicitation response: ${error64 instanceof Error ? error64.message : String(error64)}`);
           }
         }
         return result;
@@ -122139,10 +122139,10 @@ var text = (t2) => ({ content: [{ type: "text", text: t2 }] });
 var json3 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
 var sent = (o3) => json3(o3.unprotected === void 0 ? o3 : { ...o3, note: unprotectedNote(o3.unprotected, o3.no_prekey) });
 var fail3 = (t2) => ({ content: [{ type: "text", text: t2 }], isError: true });
-function failure2(error63) {
-  const quote = error63.quote;
+function failure2(error64) {
+  const quote = error64.quote;
   if (quote !== void 0) return fail3(`${quote.what}; relay said (not the person): ${JSON.stringify(quote.said)}`);
-  return fail3(error63 instanceof ClientError ? error63.message : `worldinmotion: ${error63.message}`);
+  return fail3(error64 instanceof ClientError ? error64.message : `worldinmotion: ${error64.message}`);
 }
 function sameToken(a5, b5) {
   return bytesEqual(utf8(a5), utf8(b5));
@@ -122208,10 +122208,10 @@ var WimMcp = class {
       return void 0;
     }
     clearInterval(this.retryTimer);
-    this.opening ??= this.openFirst().catch(async (error63) => {
+    this.opening ??= this.openFirst().catch(async (error64) => {
       this.opening = void 0;
-      if (this.pending !== void 0) await this.writeLinkFile({ problem: error63.message });
-      throw error63;
+      if (this.pending !== void 0) await this.writeLinkFile({ problem: error64.message });
+      throw error64;
     });
     return this.opening;
   }
@@ -122282,7 +122282,7 @@ var WimMcp = class {
   }
   /** The `status` op: what this tab is, where its state lives, and what stops it if anything. */
   async status() {
-    const s3 = await this.need().catch((error63) => error63.message);
+    const s3 = await this.need().catch((error64) => error64.message);
     const dir = this.o.stateDir === void 0 ? {} : { state_dir: this.o.stateDir.path, state_dir_why: this.o.stateDir.why };
     if (typeof s3 === "string") return json3({ problem: s3, ...dir });
     return json3({
@@ -122322,11 +122322,11 @@ var WimMcp = class {
     let s3;
     try {
       s3 = await this.need();
-    } catch (error63) {
-      if (this.retry === void 0 || this.o.stateDir === void 0) throw error63;
+    } catch (error64) {
+      if (this.retry === void 0 || this.o.stateDir === void 0) throw error64;
       this.token ??= b64u.encode(randomBytes2(32));
       this.pending ??= { claudeSessionId: input2.claudeSessionId, file: join18(this.o.stateDir.path, "links", `${b64u.encode(randomBytes2(12))}.json`) };
-      return json3({ pending: true, problem: error63.message, link: this.pending.file, token: this.token });
+      return json3({ pending: true, problem: error64.message, link: this.pending.file, token: this.token });
     }
     this.token ??= b64u.encode(randomBytes2(32));
     return json3(this.linkOf(await this.adopt(input2.claudeSessionId, s3)));
@@ -122346,8 +122346,8 @@ var WimMcp = class {
     if (!parsed2.success) return fail3(`invalid input: ${parsed2.error.issues.map((i6) => `${i6.path.join(".") || "input"}: ${i6.message}`).join("; ")}`);
     try {
       return await this.run(name, parsed2.data, progressToken, notify2);
-    } catch (error63) {
-      return failure2(error63);
+    } catch (error64) {
+      return failure2(error64);
     }
   }
   // `a` was validated against Inputs[name] by `call`, so each branch reads it as that shape.
@@ -122476,13 +122476,13 @@ var CommandNotifier = class {
         this.command[0],
         [...this.command.slice(1), line],
         { shell: false, timeout: 15e3 },
-        (error63) => error63 ? reject(error63) : resolve3()
+        (error64) => error64 ? reject(error64) : resolve3()
       );
     });
   }
 };
-function quiet(n3, log) {
-  return { notify: (text2) => n3.notify(text2).catch((e6) => log(`wim: notification failed: ${e6.message}`)) };
+function quiet(n3, log2) {
+  return { notify: (text2) => n3.notify(text2).catch((e6) => log2(`wim: notification failed: ${e6.message}`)) };
 }
 async function loadNotifier(home, now = Date.now) {
   const raw = await readJson(join19(home, "notify.json"));
@@ -122600,9 +122600,9 @@ async function holdForShow(paths, code2, o3) {
   try {
     await fs10.rm(paths.proof, { force: true });
     await fs10.writeFile(paths.proof, proof, { mode: 384, flag: "wx" });
-  } catch (error63) {
+  } catch (error64) {
     await new Promise((r6) => server.close(r6));
-    throw error63;
+    throw error64;
   }
   return new Promise((resolve3) => {
     const timer = setTimeout(() => finish(false), o3.ms);
@@ -122902,11 +122902,11 @@ var Signer = class {
       entry.ok = true;
       if (op2 !== "hello" && op2 !== "status") this.counts[op2] = (this.counts[op2] ?? 0) + 1;
       return result;
-    } catch (error63) {
-      const code2 = error63 instanceof AgentError ? error63.code : "bad_request";
+    } catch (error64) {
+      const code2 = error64 instanceof AgentError ? error64.code : "bad_request";
       entry.code = code2;
       if (code2 === "refused") this.refused++;
-      throw error63 instanceof AgentError ? error63 : new AgentError("bad_request", error63.message);
+      throw error64 instanceof AgentError ? error64 : new AgentError("bad_request", error64.message);
     } finally {
       this.o.log(entry);
     }
@@ -123145,8 +123145,8 @@ var AgentServer = class {
       i6 = req.i;
       op2 = String(req.op);
       return { op: op2, answer: { i: i6, r: await this.o.signer.handle(op2, req.a ?? {}) } };
-    } catch (error63) {
-      return { op: op2, answer: { i: i6, e: { code: error63 instanceof AgentError ? error63.code : "bad_request", message: error63.message } } };
+    } catch (error64) {
+      return { op: op2, answer: { i: i6, e: { code: error64 instanceof AgentError ? error64.code : "bad_request", message: error64.message } } };
     }
   }
   /**
@@ -123205,9 +123205,9 @@ function runProgram(cmd, args, input2 = "", spawn = nodeSpawn) {
     child.stdin.end(input2);
   });
 }
-function unlessMissing(error63) {
-  if (error63.code === "ENOENT") return void 0;
-  throw error63;
+function unlessMissing(error64) {
+  if (error64.code === "ENOENT") return void 0;
+  throw error64;
 }
 var GUI_TITLE = "worldinmotion";
 var GUI_ASK = "Passphrase for this device's worldinmotion keys (it starts the signer):";
@@ -123280,8 +123280,8 @@ function keyringOf(platform2) {
   return kind;
 }
 function tool(cmd) {
-  return (error63) => {
-    unlessMissing(error63);
+  return (error64) => {
+    unlessMissing(error64);
     throw new SetupError(`${cmd} is not installed${cmd === "secret-tool" ? " (the libsecret-tools package)" : ""}`);
   };
 }
@@ -123334,7 +123334,7 @@ function loginItem(o3, source2) {
   const path2 = pathFor(o3.platform);
   const id2 = keyringAccount(o3.root);
   const command5 = [...o3.programs.wim, "agent", "start", "--foreground", `--${source2}`];
-  const log = path2.join(o3.root, "agent", "autostart.log");
+  const log2 = path2.join(o3.root, "agent", "autostart.log");
   if (o3.platform === "darwin") {
     const label = `worldinmotion.signer.${id2}`;
     const strings = (items) => items.map((s3) => `    <string>${xml(s3)}</string>`).join("\n");
@@ -123349,19 +123349,19 @@ function loginItem(o3, source2) {
       strings(command5),
       "  </array>",
       `  <key>EnvironmentVariables</key><dict><key>WIM_HOME</key><string>${xml(o3.root)}</string></dict>`,
-      `  <key>StandardOutPath</key><string>${xml(log)}</string>`,
-      `  <key>StandardErrorPath</key><string>${xml(log)}</string>`,
+      `  <key>StandardOutPath</key><string>${xml(log2)}</string>`,
+      `  <key>StandardErrorPath</key><string>${xml(log2)}</string>`,
       "  <key>RunAtLoad</key><true/>",
       "  <key>ProcessType</key><string>Interactive</string>",
       "</dict>",
       "</plist>",
       ""
     ].join("\n");
-    return { kind: "launchd", where: path2.join(o3.homedir, "Library", "LaunchAgents", `${label}.plist`), text: text3, log };
+    return { kind: "launchd", where: path2.join(o3.homedir, "Library", "LaunchAgents", `${label}.plist`), text: text3, log: log2 };
   }
   if (o3.platform === "win32") {
     const user = xml(windowsUser(o3.env));
-    const script = `$env:WIM_HOME = ${psQuote(o3.root)}; & ${command5.map(psQuote).join(" ")} *>> ${psQuote(log)}; exit $LASTEXITCODE`;
+    const script = `$env:WIM_HOME = ${psQuote(o3.root)}; & ${command5.map(psQuote).join(" ")} *>> ${psQuote(log2)}; exit $LASTEXITCODE`;
     const text3 = [
       '<?xml version="1.0" encoding="UTF-16"?>',
       '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
@@ -123380,7 +123380,7 @@ function loginItem(o3, source2) {
       "</Task>",
       ""
     ].join("\r\n");
-    return { kind: "task", where: `worldinmotion signer ${id2}`, text: text3, log };
+    return { kind: "task", where: `worldinmotion signer ${id2}`, text: text3, log: log2 };
   }
   const config2 = o3.env["XDG_CONFIG_HOME"] || path2.join(o3.homedir, ".config");
   const text2 = [
@@ -123389,13 +123389,13 @@ function loginItem(o3, source2) {
     "Name=worldinmotion signer",
     "Comment=Starts the worldinmotion signer, which asks for the passphrase of this device's keys",
     // sh appends the command's output to the log; the paths reach it as arguments, never as script text.
-    `Exec=${["env", `WIM_HOME=${o3.root}`, "sh", "-c", 'log="$1"; shift; exec "$@" >>"$log" 2>&1', "sh", log, ...command5].map(execArg).join(" ")}`,
+    `Exec=${["env", `WIM_HOME=${o3.root}`, "sh", "-c", 'log="$1"; shift; exec "$@" >>"$log" 2>&1', "sh", log2, ...command5].map(execArg).join(" ")}`,
     "Terminal=false",
     "NoDisplay=true",
     "X-GNOME-Autostart-enabled=true",
     ""
   ].join("\n");
-  return { kind: "xdg", where: path2.join(config2, "autostart", `worldinmotion-signer-${id2}.desktop`), text: text2, log };
+  return { kind: "xdg", where: path2.join(config2, "autostart", `worldinmotion-signer-${id2}.desktop`), text: text2, log: log2 };
 }
 async function enableAutostart(o3, source2) {
   const item = loginItem(o3, source2);
@@ -123591,13 +123591,13 @@ async function runSigner(ctx, passphrase, ready) {
   let unlocked;
   try {
     unlocked = await openKeyFile(file2, passphrase);
-  } catch (error63) {
-    ready(`error ${error63.message}`);
+  } catch (error64) {
+    ready(`error ${error64.message}`);
     return 1;
   }
   const { root: root5, env: env3 } = ctx.home;
-  const log = new AgentLog(agentLogPath(root5));
-  const signer = new Signer({ file: file2, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e6) => log.write(e6) });
+  const log2 = new AgentLog(agentLogPath(root5));
+  const signer = new Signer({ file: file2, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e6) => log2.write(e6) });
   let bound2;
   try {
     await ensureDir(agentDir(root5));
@@ -123616,12 +123616,12 @@ async function runSigner(ctx, passphrase, ready) {
       },
       env3
     );
-  } catch (error63) {
+  } catch (error64) {
     signer.lock();
-    ready(`error ${error63.message}`);
+    ready(`error ${error64.message}`);
     return 1;
   }
-  log.write({ at: ctx.io.now(), op: "start", ok: true });
+  log2.write({ at: ctx.io.now(), op: "start", ok: true });
   ready(`ready ${ctx.io.pid} ${bound2.at}`);
   const onAbort = () => void bound2.server.close();
   ctx.io.signal.addEventListener("abort", onAbort, { once: true });
@@ -123629,8 +123629,8 @@ async function runSigner(ctx, passphrase, ready) {
   await bound2.server.stopped;
   ctx.io.signal.removeEventListener("abort", onAbort);
   await retireEndpoint(root5, env3, bound2.at);
-  log.write({ at: ctx.io.now(), op: "exit", ok: true });
-  await log.flushed();
+  log2.write({ at: ctx.io.now(), op: "exit", ok: true });
+  await log2.flushed();
   return 0;
 }
 async function proven(at, expect) {
@@ -123731,8 +123731,8 @@ async function unlock(ctx) {
     }
     const file2 = await sealedFile(ctx);
     passphrase = await readPassphrase(ctx, PROMPT);
-    const checked = await openKeyFile(file2, passphrase).catch((error63) => {
-      throw new SetupError(error63.message);
+    const checked = await openKeyFile(file2, passphrase).catch((error64) => {
+      throw new SetupError(error64.message);
     });
     for (const b5 of [checked.keys.signSec, checked.keys.boxSec, checked.data]) b5.fill(0);
     await client.call("stop");
@@ -123790,8 +123790,8 @@ async function decryptDevice(home, passphrase) {
   let unlocked;
   try {
     unlocked = await openKeyFile(file2.sealed, passphrase);
-  } catch (error63) {
-    throw error63 instanceof BadPassphrase ? new SetupError(error63.message) : error63;
+  } catch (error64) {
+    throw error64 instanceof BadPassphrase ? new SetupError(error64.message) : error64;
   }
   const { keys, data } = unlocked;
   await eachPrekeyFile(home, (e6) => {
@@ -123981,8 +123981,8 @@ async function send(req, io) {
 async function ciNotify(req, io) {
   try {
     return await send(req, io);
-  } catch (error63) {
-    const why = error63 instanceof NotSent ? error63.message : `an unexpected ${error63.name}`;
+  } catch (error64) {
+    const why = error64 instanceof NotSent ? error64.message : `an unexpected ${error64.name}`;
     return { sent: false, line: `wim ci notify: not sent: ${why}.` };
   }
 }
@@ -124122,6 +124122,4428 @@ async function remove(c5) {
   return 0;
 }
 
+// src/crash.ts
+import { promises as fs13 } from "node:fs";
+
+// ../../node_modules/@sentry/core/build/esm/debug-build.js
+var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
+
+// ../../node_modules/@sentry/core/build/esm/utils/worldwide.js
+var GLOBAL_OBJ = globalThis;
+
+// ../../node_modules/@sentry/core/build/esm/utils/version.js
+var SDK_VERSION2 = "11.10.0";
+
+// ../../node_modules/@sentry/core/build/esm/carrier.js
+function getMainCarrier() {
+  getSentryCarrier(GLOBAL_OBJ);
+  return GLOBAL_OBJ;
+}
+function getSentryCarrier(carrier) {
+  const __SENTRY__ = carrier.__SENTRY__ = carrier.__SENTRY__ || {};
+  __SENTRY__.version = __SENTRY__.version || SDK_VERSION2;
+  return __SENTRY__[SDK_VERSION2] = __SENTRY__[SDK_VERSION2] || {};
+}
+function getGlobalSingleton(name, creator, obj = GLOBAL_OBJ) {
+  const __SENTRY__ = obj.__SENTRY__ = obj.__SENTRY__ || {};
+  const carrier = __SENTRY__[SDK_VERSION2] = __SENTRY__[SDK_VERSION2] || {};
+  return carrier[name] || (carrier[name] = creator());
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/debug-logger.js
+var PREFIX4 = "Sentry Logger ";
+var originalConsoleMethods = {};
+function consoleSandbox(callback) {
+  if (!("console" in GLOBAL_OBJ)) {
+    return callback();
+  }
+  const console2 = GLOBAL_OBJ.console;
+  const wrappedFuncs = {};
+  const wrappedLevels = Object.keys(originalConsoleMethods);
+  wrappedLevels.forEach((level) => {
+    const originalConsoleMethod = originalConsoleMethods[level];
+    wrappedFuncs[level] = console2[level];
+    console2[level] = originalConsoleMethod;
+  });
+  try {
+    return callback();
+  } finally {
+    wrappedLevels.forEach((level) => {
+      console2[level] = wrappedFuncs[level];
+    });
+  }
+}
+function enable() {
+  _getLoggerSettings().enabled = true;
+}
+function disable() {
+  _getLoggerSettings().enabled = false;
+}
+function isEnabled() {
+  return _getLoggerSettings().enabled;
+}
+function log(...args) {
+  _maybeLog("log", ...args);
+}
+function warn(...args) {
+  _maybeLog("warn", ...args);
+}
+function error63(...args) {
+  _maybeLog("error", ...args);
+}
+function _maybeLog(level, ...args) {
+  if (!DEBUG_BUILD) {
+    return;
+  }
+  if (isEnabled()) {
+    consoleSandbox(() => {
+      GLOBAL_OBJ.console[level](`${PREFIX4}[${level}]:`, ...args);
+    });
+  }
+}
+function _getLoggerSettings() {
+  if (!DEBUG_BUILD) {
+    return { enabled: false };
+  }
+  return getGlobalSingleton("loggerSettings", () => ({ enabled: false }));
+}
+var debug = {
+  /** Enable logging. */
+  enable,
+  /** Disable logging. */
+  disable,
+  /** Check if logging is enabled. */
+  isEnabled,
+  /** Log a message. */
+  log,
+  /** Log a warning. */
+  warn,
+  /** Log an error. */
+  error: error63
+};
+
+// ../../node_modules/@sentry/core/build/esm/utils/stacktrace.js
+var STACKTRACE_FRAME_LIMIT = 50;
+var UNKNOWN_FUNCTION = "?";
+var WEBPACK_ERROR_REGEXP = /\(error: (.*)\)/;
+var STRIP_FRAME_REGEXP = /captureMessage|captureException/;
+function createStackParser(...parsers) {
+  const sortedParsers = parsers.sort((a5, b5) => a5[0] - b5[0]).map((p3) => p3[1]);
+  return (stack, skipFirstLines = 0, framesToPop = 0) => {
+    const frames = [];
+    const lines = stack.split("\n");
+    for (let i6 = skipFirstLines; i6 < lines.length; i6++) {
+      let line = lines[i6];
+      if (line.length > 1024) {
+        line = line.slice(0, 1024);
+      }
+      const cleanedLine = WEBPACK_ERROR_REGEXP.test(line) ? line.replace(WEBPACK_ERROR_REGEXP, "$1") : line;
+      if (cleanedLine.includes("Error: ")) {
+        continue;
+      }
+      for (const parser of sortedParsers) {
+        const frame = parser(cleanedLine);
+        if (frame) {
+          frames.push(frame);
+          break;
+        }
+      }
+      if (frames.length >= STACKTRACE_FRAME_LIMIT + framesToPop) {
+        break;
+      }
+    }
+    return stripSentryFramesAndReverse(frames.slice(framesToPop));
+  };
+}
+function stripSentryFramesAndReverse(stack) {
+  if (!stack.length) {
+    return [];
+  }
+  const localStack = Array.from(stack);
+  if (/sentryWrapped/.test(getLastStackFrame(localStack).function || "")) {
+    localStack.pop();
+  }
+  localStack.reverse();
+  if (STRIP_FRAME_REGEXP.test(getLastStackFrame(localStack).function || "")) {
+    localStack.pop();
+    if (STRIP_FRAME_REGEXP.test(getLastStackFrame(localStack).function || "")) {
+      localStack.pop();
+    }
+  }
+  return localStack.slice(0, STACKTRACE_FRAME_LIMIT).map((frame) => ({
+    ...frame,
+    filename: frame.filename || getLastStackFrame(localStack).filename,
+    function: frame.function || UNKNOWN_FUNCTION
+  }));
+}
+function getLastStackFrame(arr) {
+  return arr[arr.length - 1] || {};
+}
+var defaultFunctionName = "<anonymous>";
+function getFunctionName(fn) {
+  try {
+    if (!fn || typeof fn !== "function") {
+      return defaultFunctionName;
+    }
+    return fn.name || defaultFunctionName;
+  } catch {
+    return defaultFunctionName;
+  }
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/is.js
+var objectToString = Object.prototype.toString;
+function isError(wat) {
+  switch (objectToString.call(wat)) {
+    case "[object Error]":
+    case "[object Exception]":
+    case "[object DOMException]":
+    case "[object WebAssembly.Exception]":
+      return true;
+    default:
+      return isInstanceOf(wat, Error);
+  }
+}
+function isBuiltin(wat, className) {
+  return objectToString.call(wat) === `[object ${className}]`;
+}
+function isErrorEvent(wat) {
+  return isBuiltin(wat, "ErrorEvent");
+}
+function isString(wat) {
+  return isBuiltin(wat, "String");
+}
+function isParameterizedString(wat) {
+  return typeof wat === "object" && wat !== null && "__sentry_template_string__" in wat && "__sentry_template_values__" in wat;
+}
+function isPrimitive(wat) {
+  return wat === null || isParameterizedString(wat) || typeof wat !== "object" && typeof wat !== "function";
+}
+function isPlainObject4(wat) {
+  return isBuiltin(wat, "Object");
+}
+function isObjectLike(wat) {
+  return typeof wat === "object" && wat !== null;
+}
+function isEvent(wat) {
+  return typeof Event !== "undefined" && isInstanceOf(wat, Event);
+}
+function isRegExp(wat) {
+  return isBuiltin(wat, "RegExp");
+}
+function isThenable(wat) {
+  return Boolean(wat?.then && typeof wat.then === "function");
+}
+function isInstanceOf(wat, base) {
+  try {
+    return wat instanceof base;
+  } catch {
+    return false;
+  }
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/object.js
+function addNonEnumerableProperty(obj, name, value2) {
+  try {
+    Object.defineProperty(obj, name, {
+      // enumerable: false, // the default, so we can save on bundle size by not explicitly setting it
+      value: value2,
+      writable: true,
+      configurable: true
+    });
+  } catch {
+    DEBUG_BUILD && debug.log(`Failed to add non-enumerable property "${String(name)}" to object`, obj);
+  }
+}
+function convertToPlainObject(value2) {
+  if (isError(value2)) {
+    return {
+      message: value2.message,
+      name: value2.name,
+      stack: value2.stack,
+      ...getOwnProperties(value2)
+    };
+  }
+  if (isEvent(value2)) {
+    const { type, target, currentTarget, detail: detail2 } = value2;
+    return {
+      type,
+      target,
+      currentTarget,
+      ...detail2 ? { detail: detail2 } : {},
+      ...getOwnProperties(value2)
+    };
+  }
+  return value2;
+}
+function getOwnProperties(obj) {
+  if (isObjectLike(obj)) {
+    return Object.fromEntries(Object.entries(obj));
+  }
+  return {};
+}
+function extractExceptionKeysForMessage(exception) {
+  const keys = Object.keys(convertToPlainObject(exception));
+  keys.sort();
+  return !keys[0] ? "[object has no keys]" : keys.join(", ");
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/randomSafeContext.js
+var RESOLVED_RUNNER;
+function withRandomSafeContext(cb) {
+  if (RESOLVED_RUNNER !== void 0) {
+    return RESOLVED_RUNNER ? RESOLVED_RUNNER(cb) : cb();
+  }
+  const sym = /* @__PURE__ */ Symbol.for("__SENTRY_SAFE_RANDOM_ID_WRAPPER__");
+  const globalWithSymbol = GLOBAL_OBJ;
+  if (sym in globalWithSymbol && typeof globalWithSymbol[sym] === "function") {
+    RESOLVED_RUNNER = globalWithSymbol[sym];
+    return RESOLVED_RUNNER(cb);
+  }
+  RESOLVED_RUNNER = null;
+  return cb();
+}
+function safeMathRandom() {
+  return withRandomSafeContext(() => Math.random());
+}
+function safeDateNow() {
+  return withRandomSafeContext(() => Date.now());
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/normalizationHints.js
+var SENTRY_SKIP_NORMALIZATION = /* @__PURE__ */ Symbol.for("sentry.skipNormalization");
+var SENTRY_OVERRIDE_NORMALIZATION_DEPTH = /* @__PURE__ */ Symbol.for("sentry.overrideNormalizationDepth");
+function hasSkipNormalizationHint(value2) {
+  return Boolean(value2[SENTRY_SKIP_NORMALIZATION]);
+}
+function getNormalizationDepthOverrideHint(value2) {
+  const v = value2[SENTRY_OVERRIDE_NORMALIZATION_DEPTH];
+  return typeof v === "number" ? v : void 0;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/normalize.js
+var stringifier;
+function normalize(input2, depth = 100, maxProperties = Infinity) {
+  try {
+    return visit2("", input2, depth, maxProperties);
+  } catch (err) {
+    return { ERROR: `**non-serializable** (${err})` };
+  }
+}
+function normalizeToSize(object3, depth = 3, maxSize = 100 * 1024) {
+  const normalized = normalize(object3, depth);
+  if (jsonSize(normalized) > maxSize) {
+    return normalizeToSize(object3, depth - 1, maxSize);
+  }
+  return normalized;
+}
+function visit2(key2, value2, depth = Infinity, maxProperties = Infinity, memo2 = memoBuilder()) {
+  const [memoize2, unmemoize] = memo2;
+  if (value2 == null || // this matches null and undefined -> eqeq not eqeqeq
+  ["boolean", "string"].includes(typeof value2) || typeof value2 === "number" && Number.isFinite(value2)) {
+    return value2;
+  }
+  const stringified = stringifyValue(key2, value2);
+  if (!stringified.startsWith("[object ")) {
+    return stringified;
+  }
+  if (hasSkipNormalizationHint(value2)) {
+    return value2;
+  }
+  const overrideDepth = getNormalizationDepthOverrideHint(value2);
+  const remainingDepth = overrideDepth !== void 0 ? overrideDepth : depth;
+  if (remainingDepth === 0) {
+    return stringified.replace("object ", "");
+  }
+  if (memoize2(value2)) {
+    return "[Circular ~]";
+  }
+  const valueWithToJSON = value2;
+  if (valueWithToJSON && typeof valueWithToJSON.toJSON === "function") {
+    try {
+      const jsonValue = valueWithToJSON.toJSON();
+      return visit2("", jsonValue, remainingDepth - 1, maxProperties, memo2);
+    } catch {
+    }
+  }
+  const normalized = Array.isArray(value2) ? [] : {};
+  let numAdded = 0;
+  const visitable = convertToPlainObject(value2);
+  for (const visitKey in visitable) {
+    if (!Object.prototype.hasOwnProperty.call(visitable, visitKey)) {
+      continue;
+    }
+    if (numAdded >= maxProperties) {
+      normalized[visitKey] = "[MaxProperties ~]";
+      break;
+    }
+    const visitValue = visitable[visitKey];
+    normalized[visitKey] = visit2(visitKey, visitValue, remainingDepth - 1, maxProperties, memo2);
+    numAdded++;
+  }
+  unmemoize(value2);
+  return normalized;
+}
+function stringifyValue(key2, value2) {
+  try {
+    if (stringifier) {
+      const stringified = stringifier(value2);
+      if (stringified) {
+        return stringified;
+      }
+    }
+    if (typeof global !== "undefined" && value2 === global) {
+      return "[Global]";
+    }
+    if (typeof value2 === "number" && !Number.isFinite(value2)) {
+      return `[${value2}]`;
+    }
+    if (typeof value2 === "function") {
+      return `[Function: ${getFunctionName(value2)}]`;
+    }
+    if (typeof value2 === "symbol") {
+      return `[${String(value2)}]`;
+    }
+    if (typeof value2 === "bigint") {
+      return `[BigInt: ${String(value2)}]`;
+    }
+    const objName = getConstructorName(value2);
+    return `[object ${objName}]`;
+  } catch (err) {
+    return `**non-serializable** (${err})`;
+  }
+}
+function getConstructorName(value2) {
+  const prototype = Object.getPrototypeOf(value2);
+  return prototype?.constructor ? prototype.constructor.name : "null prototype";
+}
+function utf8Length(value2) {
+  return ~-encodeURI(value2).split(/%..|./).length;
+}
+function jsonSize(value2) {
+  return utf8Length(JSON.stringify(value2));
+}
+function memoBuilder() {
+  const inner = /* @__PURE__ */ new WeakSet();
+  function memoize2(obj) {
+    if (inner.has(obj)) {
+      return true;
+    }
+    inner.add(obj);
+    return false;
+  }
+  function unmemoize(obj) {
+    inner.delete(obj);
+  }
+  return [memoize2, unmemoize];
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/string.js
+function truncate(str2, max = 0) {
+  if (typeof str2 !== "string" || max === 0) {
+    return str2;
+  }
+  return str2.length <= max ? str2 : `${str2.slice(0, max)}...`;
+}
+function isMatchingPattern(value2, pattern, requireExactStringMatch = false) {
+  if (!isString(value2)) {
+    return false;
+  }
+  if (isRegExp(pattern)) {
+    return pattern.test(value2);
+  }
+  if (isString(pattern)) {
+    return requireExactStringMatch ? value2 === pattern : value2.includes(pattern);
+  }
+  if (typeof pattern === "function") {
+    return pattern(value2);
+  }
+  return false;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/misc.js
+function getCrypto() {
+  const gbl = GLOBAL_OBJ;
+  return gbl.crypto || gbl.msCrypto;
+}
+var emptyUuid;
+function getRandomByte() {
+  return safeMathRandom() * 16;
+}
+function uuid42(crypto2 = getCrypto()) {
+  try {
+    if (crypto2?.randomUUID) {
+      return withRandomSafeContext(() => crypto2.randomUUID()).replace(/-/g, "");
+    }
+  } catch {
+  }
+  if (!emptyUuid) {
+    emptyUuid = "10000000100040008000" + 1e11;
+  }
+  return emptyUuid.replace(
+    /[018]/g,
+    (c5) => (
+      // eslint-disable-next-line no-bitwise
+      (c5 ^ (getRandomByte() & 15) >> c5 / 4).toString(16)
+    )
+  );
+}
+function getFirstException(event) {
+  return event.exception?.values?.[0];
+}
+function addExceptionTypeValue(event, value2, type) {
+  const exception = event.exception = event.exception || {};
+  const values = exception.values = exception.values || [];
+  const firstException = values[0] = values[0] || {};
+  if (!firstException.value) {
+    firstException.value = value2 || "";
+  }
+  if (!firstException.type) {
+    firstException.type = type || "Error";
+  }
+}
+function addExceptionMechanism(event, newMechanism) {
+  const firstException = getFirstException(event);
+  if (!firstException) {
+    return;
+  }
+  applyExceptionMechanism(firstException, newMechanism);
+}
+function addExceptionMechanismToCapturedException(event, newMechanism) {
+  const exceptions = event.exception?.values;
+  const capturedException = exceptions?.find((exception) => exception.mechanism?.exception_id === 0) ?? exceptions?.[0];
+  if (!capturedException) {
+    return;
+  }
+  applyExceptionMechanism(capturedException, newMechanism);
+}
+function applyExceptionMechanism(exception, newMechanism) {
+  const defaultMechanism = { type: "generic", handled: true };
+  const currentMechanism = exception.mechanism;
+  exception.mechanism = { ...defaultMechanism, ...currentMechanism, ...newMechanism };
+  if (newMechanism && "data" in newMechanism) {
+    exception.mechanism.data = { ...currentMechanism?.data, ...newMechanism.data };
+  }
+}
+function checkOrSetAlreadyCaught(exception) {
+  if (isAlreadyCaptured(exception)) {
+    return true;
+  }
+  try {
+    addNonEnumerableProperty(exception, "__sentry_captured__", true);
+  } catch {
+  }
+  return false;
+}
+function isAlreadyCaptured(exception) {
+  try {
+    return exception.__sentry_captured__;
+  } catch {
+  }
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/time.js
+var ONE_SECOND_IN_MS = 1e3;
+var CLOCK_DRIFT_THRESHOLD_MS = 1e3;
+var MAX_TIME_ORIGIN_SEGMENTS = 100;
+function dateTimestampInSeconds() {
+  return safeDateNow() / ONE_SECOND_IN_MS;
+}
+var _timeOriginSegments = [];
+function createUnixTimestampInSecondsFunc() {
+  const { performance } = GLOBAL_OBJ;
+  if (!performance?.now || !performance.timeOrigin) {
+    if (performance?.now) {
+      _timeOriginSegments = [{ from: 0, origin: safeDateNow() - withRandomSafeContext(() => performance.now()) }];
+    }
+    return dateTimestampInSeconds;
+  }
+  let correctedTimeOrigin = performance.timeOrigin;
+  _timeOriginSegments = [{ from: 0, origin: correctedTimeOrigin }];
+  let isFirstCall = true;
+  let lastCheckedPerformanceNow = 0;
+  return () => {
+    return withRandomSafeContext(() => {
+      const performanceNow = performance.now();
+      const dateNow = Date.now();
+      if (Math.abs(correctedTimeOrigin + performanceNow - dateNow) > CLOCK_DRIFT_THRESHOLD_MS) {
+        correctedTimeOrigin = dateNow - performanceNow;
+        if (isFirstCall) {
+          _timeOriginSegments = [{ from: 0, origin: correctedTimeOrigin }];
+        } else {
+          _timeOriginSegments.push({ from: lastCheckedPerformanceNow, origin: correctedTimeOrigin });
+          if (_timeOriginSegments.length > MAX_TIME_ORIGIN_SEGMENTS) {
+            _timeOriginSegments.splice(1, 1);
+          }
+        }
+      }
+      isFirstCall = false;
+      lastCheckedPerformanceNow = performanceNow;
+      return (correctedTimeOrigin + performanceNow) / ONE_SECOND_IN_MS;
+    });
+  };
+}
+var _cachedTimestampInSecondsFn;
+function timestampInSeconds() {
+  const func = _cachedTimestampInSecondsFn ?? (_cachedTimestampInSecondsFn = createUnixTimestampInSecondsFunc());
+  return func();
+}
+
+// ../../node_modules/@sentry/core/build/esm/session.js
+function updateSession(session, context = {}) {
+  if (context.user) {
+    if (!session.ipAddress && context.user.ip_address) {
+      session.ipAddress = context.user.ip_address;
+    }
+    if (!session.did && !context.did) {
+      session.did = context.user.id || context.user.email || context.user.username;
+    }
+  }
+  session.timestamp = context.timestamp || timestampInSeconds();
+  if (context.abnormal_mechanism) {
+    session.abnormal_mechanism = context.abnormal_mechanism;
+  }
+  if (context.ignoreDuration) {
+    session.ignoreDuration = context.ignoreDuration;
+  }
+  if (context.sid) {
+    session.sid = context.sid.length === 32 ? context.sid : uuid42();
+  }
+  if (context.init !== void 0) {
+    session.init = context.init;
+  }
+  if (!session.did && context.did) {
+    session.did = `${context.did}`;
+  }
+  if (typeof context.started === "number") {
+    session.started = context.started;
+  }
+  if (session.ignoreDuration) {
+    session.duration = void 0;
+  } else if (typeof context.duration === "number") {
+    session.duration = context.duration;
+  } else {
+    const duration3 = session.timestamp - session.started;
+    session.duration = duration3 >= 0 ? duration3 : 0;
+  }
+  if (context.release) {
+    session.release = context.release;
+  }
+  if (context.environment) {
+    session.environment = context.environment;
+  }
+  if (!session.ipAddress && context.ipAddress) {
+    session.ipAddress = context.ipAddress;
+  }
+  if (!session.userAgent && context.userAgent) {
+    session.userAgent = context.userAgent;
+  }
+  if (typeof context.errors === "number") {
+    session.errors = context.errors;
+  }
+  if (context.status) {
+    session.status = context.status;
+  }
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/merge.js
+function merge3(initialObj, mergeObj, levels = 2) {
+  if (!mergeObj || typeof mergeObj !== "object" || levels <= 0) {
+    return mergeObj;
+  }
+  if (initialObj && Object.keys(mergeObj).length === 0) {
+    return initialObj;
+  }
+  const output2 = { ...initialObj };
+  for (const key2 in mergeObj) {
+    if (Object.prototype.hasOwnProperty.call(mergeObj, key2)) {
+      output2[key2] = merge3(output2[key2], mergeObj[key2], levels - 1);
+    }
+  }
+  return output2;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/propagationContext.js
+function generateTraceId() {
+  return uuid42();
+}
+function generateSpanId() {
+  return uuid42().substring(16);
+}
+
+// ../../node_modules/@sentry/core/build/esm/scope.js
+var DEFAULT_MAX_BREADCRUMBS = 100;
+var Scope = class _Scope {
+  // NOTE: Any field which gets added here should get added not only to the constructor but also to the `clone` method.
+  constructor() {
+    this._notifyingListeners = false;
+    this._scopeListeners = [];
+    this._eventProcessors = [];
+    this._breadcrumbs = [];
+    this._attachments = [];
+    this._user = {};
+    this._tags = {};
+    this._attributes = {};
+    this._extra = {};
+    this._contexts = {};
+    this._sdkProcessingMetadata = {};
+    addNonEnumerableProperty(this, "refs", {});
+    this._propagationContext = {
+      traceId: generateTraceId(),
+      sampleRand: safeMathRandom()
+    };
+  }
+  /**
+   * Clone all data from this scope into a new scope.
+   */
+  clone() {
+    const newScope = new _Scope();
+    newScope._breadcrumbs = [...this._breadcrumbs];
+    newScope._tags = { ...this._tags };
+    newScope._attributes = { ...this._attributes };
+    newScope._extra = { ...this._extra };
+    newScope._contexts = { ...this._contexts };
+    if (this._contexts.flags) {
+      newScope._contexts.flags = {
+        values: [...this._contexts.flags.values]
+      };
+    }
+    newScope._user = this._user;
+    newScope._level = this._level;
+    newScope._session = this._session;
+    newScope._transactionName = this._transactionName;
+    newScope._fingerprint = this._fingerprint;
+    newScope._eventProcessors = [...this._eventProcessors];
+    newScope._attachments = [...this._attachments];
+    newScope._sdkProcessingMetadata = { ...this._sdkProcessingMetadata };
+    newScope._propagationContext = { ...this._propagationContext };
+    newScope._client = this._client;
+    newScope._lastEventId = this._lastEventId;
+    newScope._conversationId = this._conversationId;
+    newScope.refs = { ...this.refs };
+    return newScope;
+  }
+  /**
+   * Update the client assigned to this scope.
+   * Note that not every scope will have a client assigned - isolation scopes & the global scope will generally not have a client,
+   * as well as manually created scopes.
+   */
+  setClient(client) {
+    this._client = client;
+  }
+  /**
+   * Set the ID of the last captured error event.
+   * This is generally only captured on the isolation scope.
+   */
+  setLastEventId(lastEventId) {
+    this._lastEventId = lastEventId;
+  }
+  /**
+   * Get the client assigned to this scope.
+   */
+  getClient() {
+    return this._client;
+  }
+  /**
+   * Get the ID of the last captured error event.
+   * This is generally only available on the isolation scope.
+   */
+  lastEventId() {
+    return this._lastEventId;
+  }
+  /**
+   * @inheritDoc
+   */
+  addScopeListener(callback) {
+    this._scopeListeners.push(callback);
+  }
+  /**
+   * Add an event processor that will be called before an event is sent.
+   */
+  addEventProcessor(callback) {
+    this._eventProcessors.push(callback);
+    return this;
+  }
+  /**
+   * Set the user for this scope.
+   * Set to `null` to unset the user.
+   */
+  setUser(user) {
+    this._user = user || {
+      email: void 0,
+      id: void 0,
+      ip_address: void 0,
+      username: void 0
+    };
+    if (this._session) {
+      updateSession(this._session, { user });
+    }
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Get the user from this scope.
+   */
+  getUser() {
+    return this._user;
+  }
+  /**
+   * Set the conversation ID for this scope.
+   * Set to `null` to unset the conversation ID.
+   */
+  setConversationId(conversationId) {
+    this._conversationId = conversationId || void 0;
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Set an object that will be merged into existing tags on the scope,
+   * and will be sent as tags data with the event.
+   */
+  setTags(tags) {
+    this._tags = {
+      ...this._tags,
+      ...tags
+    };
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Set a single tag that will be sent as tags data with the event.
+   */
+  setTag(key2, value2) {
+    return this.setTags({ [key2]: value2 });
+  }
+  /**
+   * Sets attributes onto the scope.
+   *
+   * These attributes are applied to logs, metrics and streamed spans.
+   *
+   * Supported attribute value types are `string`, `number`, `boolean`, `string[]`, `number[]` and `boolean[]`.
+   *
+   * @param newAttributes - The attributes to set on the scope, as key-value pairs.
+   *
+   * @example
+   * ```typescript
+   * scope.setAttributes({
+   *   is_admin: true,
+   *   payment_selection: 'credit_card',
+   *   render_duration: 150,
+   * });
+   * ```
+   */
+  setAttributes(newAttributes) {
+    this._attributes = {
+      ...this._attributes,
+      ...newAttributes
+    };
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Sets an attribute onto the scope.
+   *
+   * These attributes are applied to logs, metrics and streamed spans.
+   *
+   * Supported attribute value types are `string`, `number`, `boolean`, `string[]`, `number[]` and `boolean[]`.
+   *
+   * @param key - The attribute key.
+   * @param value - The attribute value.
+   *
+   * @example
+   * ```typescript
+   * scope.setAttribute('is_admin', true);
+   * scope.setAttribute('render_duration', 150);
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setAttribute(key2, value2) {
+    return this.setAttributes({ [key2]: value2 });
+  }
+  /**
+   * Removes the attribute with the given key from the scope.
+   *
+   * @param key - The attribute key.
+   *
+   * @example
+   * ```typescript
+   * scope.removeAttribute('is_admin');
+   * ```
+   */
+  removeAttribute(key2) {
+    if (key2 in this._attributes) {
+      delete this._attributes[key2];
+      this._notifyScopeListeners();
+    }
+    return this;
+  }
+  /**
+   * Set an object that will be merged into existing extra on the scope,
+   * and will be sent as extra data with the event.
+   */
+  setExtras(extras) {
+    this._extra = {
+      ...this._extra,
+      ...extras
+    };
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Set a single key:value extra entry that will be sent as extra data with the event.
+   */
+  setExtra(key2, extra) {
+    this._extra = { ...this._extra, [key2]: extra };
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Sets the fingerprint on the scope to send with the events.
+   * @param {string[]} fingerprint Fingerprint to group events in Sentry.
+   */
+  setFingerprint(fingerprint) {
+    this._fingerprint = fingerprint;
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Sets the level on the scope for future events.
+   */
+  setLevel(level) {
+    this._level = level;
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Sets the transaction name on the scope so that the name of e.g. taken server route or
+   * the page location is attached to future events.
+   *
+   * IMPORTANT: Calling this function does NOT change the name of the currently active
+   * root span. If you want to change the name of the active root span, use
+   * `Sentry.updateSpanName(rootSpan, 'new name')` instead.
+   *
+   * By default, the SDK updates the scope's transaction name automatically on sensible
+   * occasions, such as a page navigation or when handling a new request on the server.
+   */
+  setTransactionName(name) {
+    this._transactionName = name;
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Sets context data with the given name.
+   * Data passed as context will be normalized. You can also pass `null` to unset the context.
+   * Note that context data will not be merged - calling `setContext` will overwrite an existing context with the same key.
+   */
+  setContext(key2, context) {
+    if (context === null) {
+      delete this._contexts[key2];
+    } else {
+      this._contexts[key2] = context;
+    }
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Set the session for the scope.
+   */
+  setSession(session) {
+    if (!session) {
+      delete this._session;
+    } else {
+      this._session = session;
+    }
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Get the session from the scope.
+   */
+  getSession() {
+    return this._session;
+  }
+  /**
+   * Updates the scope with provided data. Can work in three variations:
+   * - plain object containing updatable attributes
+   * - Scope instance that'll extract the attributes from
+   * - callback function that'll receive the current scope as an argument and allow for modifications
+   */
+  update(captureContext) {
+    if (!captureContext) {
+      return this;
+    }
+    const scopeToMerge = typeof captureContext === "function" ? captureContext(this) : captureContext;
+    const scopeInstance = scopeToMerge instanceof _Scope ? scopeToMerge.getScopeData() : isPlainObject4(scopeToMerge) ? captureContext : void 0;
+    const {
+      tags,
+      attributes,
+      extra,
+      user,
+      contexts,
+      level,
+      fingerprint = [],
+      propagationContext,
+      conversationId
+    } = scopeInstance || {};
+    this._tags = { ...this._tags, ...tags };
+    this._attributes = { ...this._attributes, ...attributes };
+    this._extra = { ...this._extra, ...extra };
+    this._contexts = { ...this._contexts, ...contexts };
+    if (user && Object.keys(user).length) {
+      this._user = user;
+    }
+    if (level) {
+      this._level = level;
+    }
+    if (fingerprint.length) {
+      this._fingerprint = fingerprint;
+    }
+    if (propagationContext) {
+      this._propagationContext = propagationContext;
+    }
+    if (conversationId) {
+      this._conversationId = conversationId;
+    }
+    return this;
+  }
+  /**
+   * Adds a breadcrumb to the scope.
+   * By default, the last 100 breadcrumbs are kept.
+   */
+  addBreadcrumb(breadcrumb, maxBreadcrumbs) {
+    const maxCrumbs = typeof maxBreadcrumbs === "number" ? maxBreadcrumbs : DEFAULT_MAX_BREADCRUMBS;
+    if (maxCrumbs <= 0) {
+      return this;
+    }
+    const mergedBreadcrumb = {
+      timestamp: dateTimestampInSeconds(),
+      ...breadcrumb,
+      // Breadcrumb messages can theoretically be infinitely large and they're held in memory so we truncate them not to leak (too much) memory
+      message: breadcrumb.message ? truncate(breadcrumb.message, 2048) : breadcrumb.message
+    };
+    this._breadcrumbs.push(mergedBreadcrumb);
+    if (this._breadcrumbs.length > maxCrumbs) {
+      this._breadcrumbs = this._breadcrumbs.slice(-maxCrumbs);
+    }
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Get the last breadcrumb of the scope.
+   */
+  getLastBreadcrumb() {
+    return this._breadcrumbs[this._breadcrumbs.length - 1];
+  }
+  /**
+   * Clear all breadcrumbs from the scope.
+   */
+  clearBreadcrumbs() {
+    this._breadcrumbs = [];
+    this._notifyScopeListeners();
+    return this;
+  }
+  /**
+   * Add an attachment to the scope.
+   */
+  addAttachment(attachment) {
+    this._attachments.push(attachment);
+    return this;
+  }
+  /**
+   * Clear all attachments from the scope.
+   */
+  clearAttachments() {
+    this._attachments = [];
+    return this;
+  }
+  /**
+   * Get the data of this scope, which should be applied to an event during processing.
+   */
+  getScopeData() {
+    return {
+      breadcrumbs: this._breadcrumbs,
+      attachments: this._attachments,
+      contexts: this._contexts,
+      tags: this._tags,
+      attributes: this._attributes,
+      extra: this._extra,
+      user: this._user,
+      level: this._level,
+      fingerprint: this._fingerprint || [],
+      eventProcessors: this._eventProcessors,
+      propagationContext: this._propagationContext,
+      sdkProcessingMetadata: this._sdkProcessingMetadata,
+      transactionName: this._transactionName,
+      conversationId: this._conversationId
+    };
+  }
+  /**
+   * Add data which will be accessible during event processing but won't get sent to Sentry.
+   */
+  setSDKProcessingMetadata(newData) {
+    this._sdkProcessingMetadata = merge3(this._sdkProcessingMetadata, newData, 2);
+    return this;
+  }
+  /**
+   * Add propagation context to the scope, used for distributed tracing
+   */
+  setPropagationContext(context) {
+    this._propagationContext = context;
+    return this;
+  }
+  /**
+   * Get propagation context from the scope, used for distributed tracing
+   */
+  getPropagationContext() {
+    return this._propagationContext;
+  }
+  /**
+   * Capture an exception for this scope.
+   *
+   * @returns {string} The id of the captured Sentry event.
+   */
+  captureException(exception, hint) {
+    const eventId = hint?.event_id || uuid42();
+    if (!this._client) {
+      DEBUG_BUILD && debug.warn("No client configured on scope - will not capture exception!");
+      return eventId;
+    }
+    const syntheticException = new Error("Sentry syntheticException");
+    this._client.captureException(
+      exception,
+      {
+        originalException: exception,
+        syntheticException,
+        ...hint,
+        event_id: eventId
+      },
+      this
+    );
+    return eventId;
+  }
+  /**
+   * Capture a message for this scope.
+   *
+   * @returns {string} The id of the captured message.
+   */
+  captureMessage(message2, level, hint) {
+    const eventId = hint?.event_id || uuid42();
+    if (!this._client) {
+      DEBUG_BUILD && debug.warn("No client configured on scope - will not capture message!");
+      return eventId;
+    }
+    const syntheticException = hint?.syntheticException ?? new Error(message2);
+    this._client.captureMessage(
+      message2,
+      level,
+      {
+        originalException: message2,
+        syntheticException,
+        ...hint,
+        event_id: eventId
+      },
+      this
+    );
+    return eventId;
+  }
+  /**
+   * Capture a Sentry event for this scope.
+   *
+   * @returns {string} The id of the captured event.
+   */
+  captureEvent(event, hint) {
+    const eventId = event.event_id || hint?.event_id || uuid42();
+    if (!this._client) {
+      DEBUG_BUILD && debug.warn("No client configured on scope - will not capture event!");
+      return eventId;
+    }
+    this._client.captureEvent(event, { ...hint, event_id: eventId }, this);
+    return eventId;
+  }
+  /**
+   * This will be called on every set call.
+   */
+  _notifyScopeListeners() {
+    if (!this._notifyingListeners) {
+      this._notifyingListeners = true;
+      this._scopeListeners.forEach((callback) => {
+        callback(this);
+      });
+      this._notifyingListeners = false;
+    }
+  }
+};
+
+// ../../node_modules/@sentry/core/build/esm/defaultScopes.js
+function getDefaultCurrentScope() {
+  return getGlobalSingleton("defaultCurrentScope", () => new Scope());
+}
+function getDefaultIsolationScope() {
+  return getGlobalSingleton("defaultIsolationScope", () => new Scope());
+}
+
+// ../../node_modules/@sentry/core/build/esm/tracing/constants.js
+var SUPPRESS_TRACING_KEY = "__SENTRY_SUPPRESS_TRACING__";
+
+// ../../node_modules/@sentry/core/build/esm/utils/chain-and-copy-promiselike.js
+var isActualPromise = (p3) => p3 instanceof Promise && !p3[kChainedCopy];
+var kChainedCopy = /* @__PURE__ */ Symbol("chained PromiseLike");
+var chainAndCopyPromiseLike = (original, onSuccess, onError) => {
+  const chained = original.then(
+    (value2) => {
+      onSuccess(value2);
+      return value2;
+    },
+    (err) => {
+      onError(err);
+      throw err;
+    }
+  );
+  return isActualPromise(chained) && isActualPromise(original) ? chained : copyProps(original, chained);
+};
+var copyProps = (original, chained) => {
+  if (!chained) return original;
+  let mutated = false;
+  for (const key2 in original) {
+    if (key2 in chained) continue;
+    mutated = true;
+    const value2 = original[key2];
+    if (typeof value2 === "function") {
+      Object.defineProperty(chained, key2, {
+        value: (...args) => value2.apply(original, args),
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      chained[key2] = value2;
+    }
+  }
+  if (mutated) Object.assign(chained, { [kChainedCopy]: true });
+  return chained;
+};
+
+// ../../node_modules/@sentry/core/build/esm/asyncContext/stackStrategy.js
+var AsyncContextStack = class {
+  constructor(scope, isolationScope) {
+    let assignedScope;
+    if (!scope) {
+      assignedScope = new Scope();
+    } else {
+      assignedScope = scope;
+    }
+    let assignedIsolationScope;
+    if (!isolationScope) {
+      assignedIsolationScope = new Scope();
+    } else {
+      assignedIsolationScope = isolationScope;
+    }
+    this._stack = [{ scope: assignedScope }];
+    this._isolationScope = assignedIsolationScope;
+  }
+  /**
+   * Fork a scope for the stack.
+   */
+  withScope(callback) {
+    const scope = this._pushScope();
+    let maybePromiseResult;
+    try {
+      maybePromiseResult = callback(scope);
+    } catch (e6) {
+      this._popScope();
+      throw e6;
+    }
+    if (isThenable(maybePromiseResult)) {
+      return chainAndCopyPromiseLike(
+        maybePromiseResult,
+        () => this._popScope(),
+        () => this._popScope()
+      );
+    }
+    this._popScope();
+    return maybePromiseResult;
+  }
+  /**
+   * Get the client of the stack.
+   */
+  getClient() {
+    return this.getStackTop().client;
+  }
+  /**
+   * Returns the scope of the top stack.
+   */
+  getScope() {
+    return this.getStackTop().scope;
+  }
+  /**
+   * Get the isolation scope for the stack.
+   */
+  getIsolationScope() {
+    return this._isolationScope;
+  }
+  /**
+   * Returns the topmost scope layer in the order domain > local > process.
+   */
+  getStackTop() {
+    return this._stack[this._stack.length - 1];
+  }
+  /**
+   * Push a scope to the stack.
+   */
+  _pushScope() {
+    const scope = this.getScope().clone();
+    this._stack.push({
+      client: this.getClient(),
+      scope
+    });
+    return scope;
+  }
+  /**
+   * Pop a scope from the stack.
+   */
+  _popScope() {
+    if (this._stack.length <= 1) return false;
+    return !!this._stack.pop();
+  }
+};
+function getAsyncContextStack() {
+  const registry2 = getMainCarrier();
+  const sentry = getSentryCarrier(registry2);
+  return sentry.stack = sentry.stack || new AsyncContextStack(getDefaultCurrentScope(), getDefaultIsolationScope());
+}
+function withScope(callback) {
+  return getAsyncContextStack().withScope(callback);
+}
+function withSetScope(scope, callback) {
+  const stack = getAsyncContextStack();
+  return stack.withScope(() => {
+    stack.getStackTop().scope = scope;
+    return callback(scope);
+  });
+}
+function withIsolationScope(callback) {
+  return getAsyncContextStack().withScope(() => {
+    return callback(getAsyncContextStack().getIsolationScope());
+  });
+}
+function getStackAsyncContextStrategy() {
+  return {
+    suppressTracing: suppressTracingInStack,
+    withIsolationScope,
+    withScope,
+    withSetScope,
+    withSetIsolationScope: (_isolationScope, callback) => {
+      return withIsolationScope(callback);
+    },
+    getCurrentScope: () => getAsyncContextStack().getScope(),
+    getIsolationScope: () => getAsyncContextStack().getIsolationScope()
+  };
+}
+function suppressTracingInStack(callback) {
+  return withScope((scope) => {
+    scope.setSDKProcessingMetadata({ [SUPPRESS_TRACING_KEY]: true });
+    const res = callback();
+    scope.setSDKProcessingMetadata({ [SUPPRESS_TRACING_KEY]: void 0 });
+    return res;
+  });
+}
+
+// ../../node_modules/@sentry/core/build/esm/asyncContext/index.js
+function getAsyncContextStrategy(carrier) {
+  const sentry = getSentryCarrier(carrier);
+  if (sentry.acs) {
+    return sentry.acs;
+  }
+  return getStackAsyncContextStrategy();
+}
+
+// ../../node_modules/@sentry/core/build/esm/attributes.js
+function isAttributeObject(maybeObj) {
+  return typeof maybeObj === "object" && maybeObj != null && !Array.isArray(maybeObj) && Object.keys(maybeObj).includes("value");
+}
+function attributeValueToTypedAttributeValue(rawValue, useFallback) {
+  const { value: value2, unit } = isAttributeObject(rawValue) ? rawValue : { value: rawValue, unit: void 0 };
+  const attributeValue = getTypedAttributeValue(value2);
+  const checkedUnit = unit && typeof unit === "string" ? { unit } : {};
+  if (attributeValue) {
+    return { ...attributeValue, ...checkedUnit };
+  }
+  if (!useFallback || useFallback === "skip-undefined" && value2 === void 0) {
+    return;
+  }
+  let stringValue = "";
+  try {
+    stringValue = JSON.stringify(value2) ?? "";
+  } catch {
+  }
+  return {
+    value: stringValue,
+    type: "string",
+    ...checkedUnit
+  };
+}
+function serializeAttributes(attributes, fallback2 = false) {
+  const serializedAttributes = {};
+  for (const [key2, value2] of Object.entries(attributes ?? {})) {
+    const typedValue = attributeValueToTypedAttributeValue(value2, fallback2);
+    if (typedValue) {
+      serializedAttributes[key2] = typedValue;
+    }
+  }
+  return serializedAttributes;
+}
+function getTypedAttributeValue(value2) {
+  if (Array.isArray(value2)) {
+    return { value: value2, type: "array" };
+  }
+  const primitiveType = typeof value2 === "string" ? "string" : typeof value2 === "boolean" ? "boolean" : typeof value2 === "number" && !Number.isNaN(value2) ? Number.isInteger(value2) ? "integer" : "double" : null;
+  if (primitiveType) {
+    return { value: value2, type: primitiveType };
+  }
+}
+
+// ../../node_modules/@sentry/core/build/esm/currentScopes.js
+function getExternalPropagationContext() {
+  return getSentryCarrier(getMainCarrier()).externalPropagationContextProvider?.();
+}
+function getCurrentScope() {
+  const carrier = getMainCarrier();
+  const acs = getAsyncContextStrategy(carrier);
+  return acs.getCurrentScope();
+}
+function getIsolationScope() {
+  const carrier = getMainCarrier();
+  const acs = getAsyncContextStrategy(carrier);
+  return acs.getIsolationScope();
+}
+function getGlobalScope() {
+  return getGlobalSingleton("globalScope", () => new Scope());
+}
+function getClient() {
+  return getCurrentScope().getClient();
+}
+function getTraceContextFromScope(scope) {
+  const externalContext = getExternalPropagationContext();
+  if (externalContext) {
+    return { trace_id: externalContext.traceId, span_id: externalContext.spanId };
+  }
+  const propagationContext = scope.getPropagationContext();
+  const { traceId, parentSpanId, propagationSpanId } = propagationContext;
+  const traceContext = {
+    trace_id: traceId,
+    span_id: propagationSpanId || generateSpanId()
+  };
+  if (parentSpanId) {
+    traceContext.parent_span_id = parentSpanId;
+  }
+  return traceContext;
+}
+
+// ../../node_modules/@sentry/conventions/dist/attributes.mjs
+var xm = "sentry.exclusive_time";
+var eb = "sentry.op";
+var tb = "sentry.origin";
+var rb = "sentry.profile_id";
+var hb = "sentry.segment.name.source";
+
+// ../../node_modules/@sentry/core/build/esm/semanticAttributes.js
+var SEMANTIC_ATTRIBUTE_SENTRY_SAMPLE_RATE = "sentry.sample_rate";
+var SEMANTIC_ATTRIBUTE_SENTRY_PREVIOUS_TRACE_SAMPLE_RATE = "sentry.previous_trace_sample_rate";
+
+// ../../node_modules/@sentry/core/build/esm/types/spanStatus.js
+var SPAN_STATUS_TYPES = [
+  /** The operation completed successfully. */
+  "ok",
+  /** Deadline expired before operation could complete. */
+  "deadline_exceeded",
+  /** 401 Unauthorized (actually does mean unauthenticated according to RFC 7235) */
+  "unauthenticated",
+  /** 403 Forbidden */
+  "permission_denied",
+  /** 404 Not Found. Some requested entity (file or directory) was not found. */
+  "not_found",
+  /** 429 Too Many Requests */
+  "resource_exhausted",
+  /** Client specified an invalid argument. 4xx. */
+  "invalid_argument",
+  /** 501 Not Implemented */
+  "unimplemented",
+  /** 503 Service Unavailable */
+  "unavailable",
+  /** Other/generic 5xx. */
+  "internal_error",
+  /** Unknown. Any non-standard HTTP status code. */
+  "unknown_error",
+  /** The operation was cancelled (typically by the user). */
+  "cancelled",
+  /** Already exists (409) */
+  "already_exists",
+  /** Operation was rejected because the system is not in a state required for the operation's */
+  "failed_precondition",
+  /** The operation was aborted, typically due to a concurrency issue. */
+  "aborted",
+  /** Operation was attempted past the valid range. */
+  "out_of_range",
+  /** Unrecoverable data loss or corruption */
+  "data_loss"
+];
+
+// ../../node_modules/@sentry/core/build/esm/tracing/spanstatus.js
+var SPAN_STATUS_UNSET = 0;
+var SPAN_STATUS_OK = 1;
+function isStatusErrorMessageValid(message2) {
+  return message2 !== "ok" && SPAN_STATUS_TYPES.includes(message2);
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/weakRef.js
+function derefWeakRef(ref2) {
+  if (!ref2) {
+    return void 0;
+  }
+  if (typeof ref2 === "object" && "deref" in ref2 && typeof ref2.deref === "function") {
+    try {
+      return ref2.deref();
+    } catch {
+      return void 0;
+    }
+  }
+  return ref2;
+}
+
+// ../../node_modules/@sentry/core/build/esm/tracing/utils.js
+var SCOPE_ON_START_SPAN_FIELD = "_sentryScope";
+var ISOLATION_SCOPE_ON_START_SPAN_FIELD = "_sentryIsolationScope";
+function getCapturedScopesOnSpan(span) {
+  const spanWithScopes = span;
+  return {
+    scope: spanWithScopes[SCOPE_ON_START_SPAN_FIELD],
+    isolationScope: derefWeakRef(spanWithScopes[ISOLATION_SCOPE_ON_START_SPAN_FIELD])
+  };
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/baggage.js
+var SENTRY_BAGGAGE_KEY_PREFIX = "sentry-";
+function baggageHeaderToDynamicSamplingContext(baggageHeader) {
+  const baggageObject = parseBaggageHeader(baggageHeader);
+  if (!baggageObject) {
+    return void 0;
+  }
+  const dynamicSamplingContext = Object.entries(baggageObject).reduce((acc, [key2, value2]) => {
+    if (key2.startsWith(SENTRY_BAGGAGE_KEY_PREFIX)) {
+      const nonPrefixedKey = key2.slice(SENTRY_BAGGAGE_KEY_PREFIX.length);
+      acc[nonPrefixedKey] = value2;
+    }
+    return acc;
+  }, {});
+  if (Object.keys(dynamicSamplingContext).length > 0) {
+    return dynamicSamplingContext;
+  } else {
+    return void 0;
+  }
+}
+function parseBaggageHeader(baggageHeader) {
+  if (!baggageHeader || !isString(baggageHeader) && !Array.isArray(baggageHeader)) {
+    return void 0;
+  }
+  if (Array.isArray(baggageHeader)) {
+    return baggageHeader.reduce((acc, curr) => {
+      const currBaggageObject = baggageHeaderToObject(curr);
+      Object.entries(currBaggageObject).forEach(([key2, value2]) => {
+        acc[key2] = value2;
+      });
+      return acc;
+    }, {});
+  }
+  return baggageHeaderToObject(baggageHeader);
+}
+function baggageHeaderToObject(baggageHeader) {
+  return baggageHeader.split(",").map((baggageEntry) => {
+    const eqIdx = baggageEntry.indexOf("=");
+    if (eqIdx === -1) {
+      return [];
+    }
+    const key2 = baggageEntry.slice(0, eqIdx);
+    const value2 = baggageEntry.slice(eqIdx + 1);
+    return [key2, value2].map((keyOrValue) => {
+      try {
+        return decodeURIComponent(keyOrValue.trim());
+      } catch {
+        return;
+      }
+    });
+  }).reduce((acc, [key2, value2]) => {
+    if (key2 && value2) {
+      acc[key2] = value2;
+    }
+    return acc;
+  }, {});
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/dsn.js
+var ORG_ID_REGEX = /^o(\d+)\./;
+var DSN_REGEX = /^(?:(\w+):)\/\/(?:(\w+)(?::(\w+)?)?@)((?:\[[:.%\w]+\]|[\w.-]+))(?::(\d+))?\/(.+)/;
+function isValidProtocol(protocol) {
+  return protocol === "http" || protocol === "https";
+}
+function dsnToString(dsn, withPassword = false) {
+  const { host, path: path2, pass: pass2, port, projectId, protocol, publicKey } = dsn;
+  return `${protocol}://${publicKey}${withPassword && pass2 ? `:${pass2}` : ""}@${host}${port ? `:${port}` : ""}/${path2 ? `${path2}/` : path2}${projectId}`;
+}
+function dsnFromString(str2) {
+  const match2 = DSN_REGEX.exec(str2);
+  if (!match2) {
+    consoleSandbox(() => {
+      console.error(`Invalid Sentry Dsn: ${str2}`);
+    });
+    return void 0;
+  }
+  const [protocol, publicKey, pass2 = "", host = "", port = "", lastPath = ""] = match2.slice(1);
+  let path2 = "";
+  let projectId = lastPath;
+  const split3 = projectId.split("/");
+  if (split3.length > 1) {
+    path2 = split3.slice(0, -1).join("/");
+    projectId = split3.pop();
+  }
+  if (projectId) {
+    const projectMatch = projectId.match(/^\d+/);
+    if (projectMatch) {
+      projectId = projectMatch[0];
+    }
+  }
+  return dsnFromComponents({ host, pass: pass2, path: path2, projectId, port, protocol, publicKey });
+}
+function dsnFromComponents(components) {
+  return {
+    protocol: components.protocol,
+    publicKey: components.publicKey || "",
+    pass: components.pass || "",
+    host: components.host,
+    port: components.port || "",
+    path: components.path || "",
+    projectId: components.projectId
+  };
+}
+function validateDsn(dsn) {
+  if (!DEBUG_BUILD) {
+    return true;
+  }
+  const { port, projectId, protocol } = dsn;
+  const requiredComponents = ["protocol", "publicKey", "host", "projectId"];
+  const hasMissingRequiredComponent = requiredComponents.find((component) => {
+    if (!dsn[component]) {
+      debug.error(`Invalid Sentry Dsn: ${component} missing`);
+      return true;
+    }
+    return false;
+  });
+  if (hasMissingRequiredComponent) {
+    return false;
+  }
+  if (!projectId.match(/^\d+$/)) {
+    debug.error(`Invalid Sentry Dsn: Invalid projectId ${projectId}`);
+    return false;
+  }
+  if (!isValidProtocol(protocol)) {
+    debug.error(`Invalid Sentry Dsn: Invalid protocol ${protocol}`);
+    return false;
+  }
+  if (port && isNaN(parseInt(port, 10))) {
+    debug.error(`Invalid Sentry Dsn: Invalid port ${port}`);
+    return false;
+  }
+  return true;
+}
+function extractOrgIdFromDsnHost(host) {
+  const match2 = host.match(ORG_ID_REGEX);
+  return match2?.[1];
+}
+function extractOrgIdFromClient(client) {
+  const options = client.getOptions();
+  const { host } = client.getDsn() || {};
+  let org_id;
+  if (options.orgId) {
+    org_id = String(options.orgId);
+  } else if (host) {
+    org_id = extractOrgIdFromDsnHost(host);
+  }
+  return org_id;
+}
+function makeDsn(from) {
+  const components = typeof from === "string" ? dsnFromString(from) : dsnFromComponents(from);
+  if (!components || !validateDsn(components)) {
+    return void 0;
+  }
+  return components;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/parseSampleRate.js
+function parseSampleRate(sampleRate) {
+  if (typeof sampleRate === "boolean") {
+    return Number(sampleRate);
+  }
+  const rate = typeof sampleRate === "string" ? parseFloat(sampleRate) : sampleRate;
+  if (typeof rate !== "number" || isNaN(rate) || rate < 0 || rate > 1) {
+    return void 0;
+  }
+  return rate;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/spanOnScope.js
+var SCOPE_SPAN_FIELD = "span";
+function _getSpanForScope(scope) {
+  return derefWeakRef(scope.refs[SCOPE_SPAN_FIELD]);
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/spanUtils.js
+var TRACE_FLAG_SAMPLED = 1;
+function spanToTraceContext(span) {
+  const { spanId, traceId: trace_id, isRemote } = span.spanContext();
+  const parent_span_id = isRemote ? spanId : spanToStaticSpanJSON(span).parent_span_id;
+  const scope = getCapturedScopesOnSpan(span).scope;
+  const span_id = isRemote ? scope?.getPropagationContext().propagationSpanId || generateSpanId() : spanId;
+  return {
+    parent_span_id,
+    span_id,
+    trace_id
+  };
+}
+function convertSpanLinksForEnvelope(links) {
+  if (links && links.length > 0) {
+    return links.map(({ context: { spanId, traceId, traceFlags, ...restContext }, attributes }) => ({
+      span_id: spanId,
+      trace_id: traceId,
+      sampled: traceFlags === TRACE_FLAG_SAMPLED,
+      attributes,
+      ...restContext
+    }));
+  } else {
+    return void 0;
+  }
+}
+function spanTimeInputToSeconds(input2) {
+  if (typeof input2 === "number") {
+    return ensureTimestampInSeconds(input2);
+  }
+  if (Array.isArray(input2)) {
+    return input2[0] + input2[1] / 1e9;
+  }
+  if (input2 instanceof Date) {
+    return ensureTimestampInSeconds(input2.getTime());
+  }
+  return timestampInSeconds();
+}
+function ensureTimestampInSeconds(timestamp) {
+  const isMs = timestamp > 9999999999;
+  return isMs ? timestamp / 1e3 : timestamp;
+}
+function spanToStaticSpanJSON(span) {
+  if (spanIsSentrySpan(span)) {
+    return span.getStaticSpanJSON();
+  }
+  const { spanId: span_id, traceId: trace_id } = span.spanContext();
+  if (spanIsOpenTelemetrySdkTraceBaseSpan(span)) {
+    const { attributes, startTime, name, endTime, status: status2, links } = span;
+    return {
+      span_id,
+      trace_id,
+      data: attributes,
+      description: name,
+      parent_span_id: getOtelParentSpanId(span),
+      start_timestamp: spanTimeInputToSeconds(startTime),
+      // This is [0,0] by default in OTEL, in which case we want to interpret this as no end time
+      timestamp: spanTimeInputToSeconds(endTime) || void 0,
+      status: getStatusMessage(status2),
+      op: attributes[eb],
+      origin: attributes[tb],
+      links: convertSpanLinksForEnvelope(links)
+    };
+  }
+  return {
+    span_id,
+    trace_id,
+    start_timestamp: 0,
+    status: "ok",
+    data: {}
+  };
+}
+function getOtelParentSpanId(span) {
+  return "parentSpanId" in span ? span.parentSpanId : "parentSpanContext" in span ? span.parentSpanContext?.spanId : void 0;
+}
+function streamedSpanJsonToSerializedSpan(spanJson) {
+  return {
+    ...spanJson,
+    // We only ever send ended spans, but fall back to the start time (i.e. duration 0) so that
+    // sent spans always carry an end timestamp.
+    end_timestamp: spanJson.end_timestamp ?? spanJson.start_timestamp,
+    attributes: serializeAttributes(spanJson.attributes),
+    links: spanJson.links?.map((link) => ({
+      ...link,
+      attributes: serializeAttributes(link.attributes)
+    }))
+  };
+}
+function spanIsOpenTelemetrySdkTraceBaseSpan(span) {
+  const castSpan = span;
+  return !!castSpan.attributes && !!castSpan.startTime && !!castSpan.name && !!castSpan.endTime && !!castSpan.status;
+}
+function spanIsSentrySpan(span) {
+  return typeof span.getSpanJSON === "function";
+}
+function spanIsSampled(span) {
+  const { traceFlags } = span.spanContext();
+  return traceFlags === TRACE_FLAG_SAMPLED;
+}
+function getStatusMessage(status2) {
+  if (!status2 || status2.code === SPAN_STATUS_UNSET) {
+    return "ok";
+  }
+  if (status2.code === SPAN_STATUS_OK) {
+    return "ok";
+  }
+  return status2.message && isStatusErrorMessageValid(status2.message) ? status2.message : "internal_error";
+}
+var ROOT_SPAN_FIELD = "_sentryRootSpan";
+var getRootSpan = INTERNAL_getSegmentSpan;
+function INTERNAL_getSegmentSpan(span) {
+  return span[ROOT_SPAN_FIELD] || span;
+}
+function getActiveSpan(scope) {
+  const carrier = getMainCarrier();
+  const acs = getAsyncContextStrategy(carrier);
+  if (acs.getActiveSpan) {
+    return acs.getActiveSpan(scope);
+  }
+  return _getSpanForScope(scope || getCurrentScope());
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/hasSpansEnabled.js
+function hasSpansEnabled(maybeOptions) {
+  if (typeof __SENTRY_TRACING__ === "boolean" && !__SENTRY_TRACING__) {
+    return false;
+  }
+  const options = maybeOptions || getClient()?.getOptions();
+  return !!options && // Note: This check is `!= null`, meaning "nullish". `0` is not "nullish", `undefined` and `null` are. (This comment was brought to you by 15 minutes of questioning life)
+  (options.tracesSampleRate != null || !!options.tracesSampler);
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/should-ignore-span.js
+function logIgnoredSpan(droppedSpan) {
+  debug.log(`Ignoring span ${droppedSpan.op} - ${droppedSpan.description} because it matches \`ignoreSpans\`.`);
+}
+function shouldIgnoreSpan(span, ignoreSpans) {
+  if (!ignoreSpans?.length) {
+    return false;
+  }
+  for (const pattern of ignoreSpans) {
+    if (isStringOrRegExp(pattern)) {
+      if (span.description && isMatchingPattern(span.description, pattern)) {
+        DEBUG_BUILD && logIgnoredSpan(span);
+        return true;
+      }
+      continue;
+    }
+    const hasAttributes = !!pattern.attributes && Object.keys(pattern.attributes).length > 0;
+    if (!pattern.name && !pattern.op && !hasAttributes) {
+      continue;
+    }
+    const nameMatches = pattern.name ? span.description && isMatchingPattern(span.description, pattern.name) : true;
+    const opMatches = pattern.op ? span.op && isMatchingPattern(span.op, pattern.op) : true;
+    const attrsMatch = pattern.attributes ? Object.entries(pattern.attributes).every(
+      ([key2, valuePattern]) => _matchesAttributeValue(span.attributes?.[key2], valuePattern)
+    ) : true;
+    if (nameMatches && opMatches && attrsMatch) {
+      DEBUG_BUILD && logIgnoredSpan(span);
+      return true;
+    }
+  }
+  return false;
+}
+function _matchesAttributeValue(actual, pat) {
+  if (typeof actual === "string" && (typeof pat === "string" || pat instanceof RegExp)) {
+    return isMatchingPattern(actual, pat);
+  }
+  if (Array.isArray(actual) && Array.isArray(pat)) {
+    return actual.length === pat.length && actual.every((v, i6) => v === pat[i6]);
+  }
+  return actual === pat;
+}
+function reparentChildSpans(spans, dropSpan) {
+  const droppedSpanParentId = dropSpan.parent_span_id;
+  const droppedSpanId = dropSpan.span_id;
+  if (!droppedSpanParentId) {
+    return;
+  }
+  for (const span of spans) {
+    if (span.parent_span_id === droppedSpanId) {
+      span.parent_span_id = droppedSpanParentId;
+    }
+  }
+}
+function isStringOrRegExp(value2) {
+  return typeof value2 === "string" || value2 instanceof RegExp;
+}
+
+// ../../node_modules/@sentry/core/build/esm/integration.js
+var installedIntegrations = [];
+function setupIntegrations(client, integrations) {
+  const integrationIndex = {};
+  integrations.forEach((integration) => {
+    if (integration?.beforeSetup) {
+      integration.beforeSetup(client);
+    }
+  });
+  integrations.forEach((integration) => {
+    if (integration) {
+      setupIntegration(client, integration, integrationIndex);
+    }
+  });
+  return integrationIndex;
+}
+function afterSetupIntegrations(client, integrations) {
+  for (const integration of integrations) {
+    if (integration?.afterAllSetup) {
+      integration.afterAllSetup(client);
+    }
+  }
+}
+function setupIntegration(client, integration, integrationIndex) {
+  if (integrationIndex[integration.name]) {
+    DEBUG_BUILD && debug.log(`Integration skipped because it was already installed: ${integration.name}`);
+    return;
+  }
+  integrationIndex[integration.name] = integration;
+  if (!installedIntegrations.includes(integration.name) && typeof integration.setupOnce === "function") {
+    integration.setupOnce();
+    installedIntegrations.push(integration.name);
+  }
+  if (integration.setup && typeof integration.setup === "function") {
+    integration.setup(client);
+  }
+  if (typeof integration.preprocessEvent === "function") {
+    const callback = integration.preprocessEvent.bind(integration);
+    client.on("preprocessEvent", (event, hint) => callback(event, hint, client));
+  }
+  if (typeof integration.processEvent === "function") {
+    const callback = integration.processEvent.bind(integration);
+    const processor = Object.assign((event, hint) => callback(event, hint, client), {
+      id: integration.name
+    });
+    client.addEventProcessor(processor);
+  }
+  ["processSpan", "processSegmentSpan"].forEach((hook) => {
+    const callback = integration[hook];
+    if (typeof callback === "function") {
+      client.on(hook, (span) => callback.call(integration, span, client));
+    }
+  });
+  DEBUG_BUILD && debug.log(`Integration installed: ${integration.name}`);
+}
+
+// ../../node_modules/@sentry/core/build/esm/constants.js
+var DEFAULT_ENVIRONMENT = "production";
+
+// ../../node_modules/@sentry/core/build/esm/tracing/sentryNonRecordingSpan.js
+var NON_RECORDING_SPAN_FIELD = /* @__PURE__ */ Symbol.for("sentry.nonRecordingSpan");
+function spanIsNonRecordingSpan(span) {
+  return !!span && span[NON_RECORDING_SPAN_FIELD] === true;
+}
+
+// ../../node_modules/@sentry/core/build/esm/tracing/dynamicSamplingContext.js
+var FROZEN_DSC_FIELD = "_frozenDsc";
+function getDynamicSamplingContextFromClient(trace_id, client) {
+  const options = client.getOptions();
+  const { publicKey: public_key } = client.getDsn() || {};
+  const dsc = {
+    environment: options.environment || DEFAULT_ENVIRONMENT,
+    release: options.release,
+    public_key,
+    trace_id,
+    org_id: extractOrgIdFromClient(client)
+  };
+  client.emit("createDsc", dsc);
+  return dsc;
+}
+function getDynamicSamplingContextFromScope(client, scope) {
+  if (getExternalPropagationContext()) {
+    return void 0;
+  }
+  const propagationContext = scope.getPropagationContext();
+  return propagationContext.dsc || getDynamicSamplingContextFromClient(propagationContext.traceId, client);
+}
+function getDynamicSamplingContextFromSpan(span) {
+  const client = getClient();
+  if (!client) {
+    return {};
+  }
+  const rootSpan = getRootSpan(span);
+  const rootSpanJson = spanToStaticSpanJSON(rootSpan);
+  const rootSpanAttributes = rootSpanJson.data;
+  const traceState = rootSpan.spanContext().traceState;
+  const rootSpanSampleRate = traceState?.get("sentry.sample_rate") ?? rootSpanAttributes[SEMANTIC_ATTRIBUTE_SENTRY_SAMPLE_RATE] ?? rootSpanAttributes[SEMANTIC_ATTRIBUTE_SENTRY_PREVIOUS_TRACE_SAMPLE_RATE];
+  function applyLocalSampleRateToDsc(dsc2) {
+    if (typeof rootSpanSampleRate === "number" || typeof rootSpanSampleRate === "string") {
+      dsc2.sample_rate = `${rootSpanSampleRate}`;
+    }
+    return dsc2;
+  }
+  const frozenDsc = rootSpan[FROZEN_DSC_FIELD];
+  if (frozenDsc) {
+    return applyLocalSampleRateToDsc(frozenDsc);
+  }
+  const isNonRecordingRoot = spanIsNonRecordingSpan(rootSpan);
+  const isIgnoredRoot = isNonRecordingRoot && rootSpan.dropReason === "ignored";
+  if (isNonRecordingRoot && (!hasSpansEnabled(client.getOptions()) || isIgnoredRoot)) {
+    const capturedScope = getCapturedScopesOnSpan(rootSpan).scope;
+    const scopeDsc = capturedScope && getDynamicSamplingContextFromScope(client, capturedScope);
+    if (scopeDsc) {
+      const dsc2 = { ...scopeDsc };
+      if (isIgnoredRoot) {
+        dsc2.sampled = "false";
+      }
+      return applyLocalSampleRateToDsc(dsc2);
+    }
+  }
+  const traceStateDsc = traceState?.get("sentry.dsc");
+  const dscOnTraceState = traceStateDsc && baggageHeaderToDynamicSamplingContext(traceStateDsc);
+  if (dscOnTraceState) {
+    return applyLocalSampleRateToDsc(dscOnTraceState);
+  }
+  const dsc = getDynamicSamplingContextFromClient(span.spanContext().traceId, client);
+  const source2 = rootSpanAttributes[hb];
+  const name = rootSpanJson.description;
+  if (source2 !== "url" && name) {
+    dsc.transaction = name;
+  }
+  if (hasSpansEnabled()) {
+    dsc.sampled = String(spanIsSampled(rootSpan));
+    dsc.sample_rand = // In OTEL we store the sample rand on the trace state because we cannot access scopes for NonRecordingSpans
+    // The Sentry OTEL SpanSampler takes care of writing the sample rand on the root span
+    traceState?.get("sentry.sample_rand") ?? // On all other platforms we can actually get the scopes from a root span (we use this as a fallback)
+    getCapturedScopesOnSpan(rootSpan).scope?.getPropagationContext().sampleRand.toString();
+  }
+  applyLocalSampleRateToDsc(dsc);
+  client.emit("createDsc", dsc, rootSpan);
+  return dsc;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/scopeData.js
+function applyScopeDataToEvent(event, data) {
+  const { fingerprint, breadcrumbs, sdkProcessingMetadata } = data;
+  applyDataToEvent(event, data);
+  applyFingerprintToEvent(event, fingerprint);
+  applyBreadcrumbsToEvent(event, breadcrumbs);
+  applySdkMetadataToEvent(event, sdkProcessingMetadata);
+}
+function mergeScopeData(data, mergeData) {
+  const {
+    extra,
+    tags,
+    attributes,
+    user,
+    contexts,
+    level,
+    sdkProcessingMetadata,
+    breadcrumbs,
+    fingerprint,
+    eventProcessors,
+    attachments,
+    propagationContext,
+    transactionName
+  } = mergeData;
+  mergeAndOverwriteScopeData(data, "extra", extra);
+  mergeAndOverwriteScopeData(data, "tags", tags);
+  mergeAndOverwriteScopeData(data, "attributes", attributes);
+  mergeAndOverwriteScopeData(data, "user", user);
+  mergeAndOverwriteScopeData(data, "contexts", contexts);
+  data.sdkProcessingMetadata = merge3(data.sdkProcessingMetadata, sdkProcessingMetadata, 2);
+  if (level) {
+    data.level = level;
+  }
+  if (transactionName) {
+    data.transactionName = transactionName;
+  }
+  if (breadcrumbs.length) {
+    data.breadcrumbs = [...data.breadcrumbs, ...breadcrumbs];
+  }
+  if (fingerprint.length) {
+    data.fingerprint = [...data.fingerprint, ...fingerprint];
+  }
+  if (eventProcessors.length) {
+    data.eventProcessors = [...data.eventProcessors, ...eventProcessors];
+  }
+  if (attachments.length) {
+    data.attachments = [...data.attachments, ...attachments];
+  }
+  data.propagationContext = { ...data.propagationContext, ...propagationContext };
+}
+function mergeAndOverwriteScopeData(data, prop, mergeVal) {
+  data[prop] = merge3(data[prop], mergeVal, 1);
+}
+function getCombinedScopeData(isolationScope, currentScope) {
+  const scopeData = getGlobalScope().getScopeData();
+  isolationScope && mergeScopeData(scopeData, isolationScope.getScopeData());
+  currentScope && mergeScopeData(scopeData, currentScope.getScopeData());
+  return scopeData;
+}
+function applyDataToEvent(event, data) {
+  const { extra, tags, user, contexts, level, transactionName } = data;
+  if (Object.keys(extra).length) {
+    event.extra = { ...extra, ...event.extra };
+  }
+  if (Object.keys(tags).length) {
+    event.tags = { ...tags, ...event.tags };
+  }
+  if (Object.keys(user).length) {
+    event.user = { ...user, ...event.user };
+  }
+  if (Object.keys(contexts).length) {
+    event.contexts = { ...contexts, ...event.contexts };
+  }
+  if (level) {
+    event.level = level;
+  }
+  if (transactionName && event.type !== "transaction") {
+    event.transaction = transactionName;
+  }
+}
+function applyBreadcrumbsToEvent(event, breadcrumbs) {
+  const mergedBreadcrumbs = [...event.breadcrumbs || [], ...breadcrumbs];
+  event.breadcrumbs = mergedBreadcrumbs.length ? mergedBreadcrumbs : void 0;
+}
+function applySdkMetadataToEvent(event, sdkProcessingMetadata) {
+  event.sdkProcessingMetadata = {
+    ...event.sdkProcessingMetadata,
+    ...sdkProcessingMetadata
+  };
+}
+function applySpanToEvent(event, span) {
+  event.contexts = {
+    trace: spanToTraceContext(span),
+    ...event.contexts
+  };
+  event.sdkProcessingMetadata = {
+    dynamicSamplingContext: getDynamicSamplingContextFromSpan(span),
+    ...event.sdkProcessingMetadata
+  };
+  const rootSpan = getRootSpan(span);
+  const transactionName = spanToStaticSpanJSON(rootSpan).description;
+  if (transactionName && !event.transaction && event.type === "transaction") {
+    event.transaction = transactionName;
+  }
+}
+function applyFingerprintToEvent(event, fingerprint) {
+  event.fingerprint = event.fingerprint ? Array.isArray(event.fingerprint) ? event.fingerprint : [event.fingerprint] : [];
+  if (fingerprint) {
+    event.fingerprint = event.fingerprint.concat(fingerprint);
+  }
+  if (!event.fingerprint.length) {
+    delete event.fingerprint;
+  }
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/safeCallback.js
+function safeCallback(message2, fn, fallback2) {
+  let result;
+  try {
+    result = fn();
+  } catch (error64) {
+    return recover(message2, error64, fallback2);
+  }
+  if (isThenable(result)) {
+    return result.then(void 0, (error64) => recover(message2, error64, fallback2));
+  }
+  return result;
+}
+function recover(message2, error64, fallback2) {
+  DEBUG_BUILD && debug.error(message2, error64);
+  return fallback2(error64);
+}
+
+// ../../node_modules/@sentry/core/build/esm/tracing/spans/beforeSendSpan.js
+function isStaticBeforeSendSpanCallback(callback) {
+  return !!callback && typeof callback === "function" && "_static" in callback && !!callback._static;
+}
+function applyBeforeSendSpanCallback(span, beforeSendSpan) {
+  const modifiedSpan = safeCallback(
+    DEBUG_BUILD ? "The `beforeSendSpan` callback threw an error, sending the span unmodified:" : "",
+    () => beforeSendSpan(span),
+    () => span
+  );
+  return modifiedSpan || span;
+}
+
+// ../../node_modules/@sentry/core/build/esm/tracing/spans/spanJsonToStreamedSpan.js
+function spanJsonToSerializedStreamedSpan(span) {
+  const streamedSpan = {
+    trace_id: span.trace_id,
+    span_id: span.span_id,
+    parent_span_id: span.parent_span_id,
+    name: span.description || "",
+    start_timestamp: span.start_timestamp,
+    end_timestamp: span.timestamp,
+    status: !span.status || span.status === "ok" || span.status === "cancelled" ? "ok" : "error",
+    is_segment: false,
+    attributes: { ...span.data },
+    links: span.links
+  };
+  return streamedSpanJsonToSerializedSpan(streamedSpan);
+}
+
+// ../../node_modules/@sentry/core/build/esm/tracing/spans/hasSpanStreamingEnabled.js
+function hasSpanStreamingEnabled(client) {
+  return client.getOptions().traceLifecycle === "stream";
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/timer.js
+function safeUnref(timer) {
+  if (typeof timer === "object" && typeof timer.unref === "function") {
+    timer.unref();
+  }
+  return timer;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/envelope.js
+function createEnvelope(headers, items = []) {
+  return [headers, items];
+}
+function addItemToEnvelope(envelope, newItem) {
+  const [headers, items] = envelope;
+  return [headers, [...items, newItem]];
+}
+function forEachEnvelopeItem(envelope, callback) {
+  const envelopeItems = envelope[1];
+  for (const envelopeItem of envelopeItems) {
+    const envelopeItemType = envelopeItem[0].type;
+    const result = callback(envelopeItem, envelopeItemType);
+    if (result) {
+      return true;
+    }
+  }
+  return false;
+}
+function envelopeContainsItemType(envelope, types3) {
+  return forEachEnvelopeItem(envelope, (_, type) => types3.includes(type));
+}
+function encodeUTF8(input2) {
+  const carrier = getSentryCarrier(GLOBAL_OBJ);
+  return carrier.encodePolyfill ? carrier.encodePolyfill(input2) : new TextEncoder().encode(input2);
+}
+function serializeEnvelope(envelope) {
+  const [envHeaders, items] = envelope;
+  let parts = JSON.stringify(envHeaders);
+  function append(next) {
+    if (typeof parts === "string") {
+      parts = typeof next === "string" ? parts + next : [encodeUTF8(parts), next];
+    } else {
+      parts.push(typeof next === "string" ? encodeUTF8(next) : next);
+    }
+  }
+  for (const item of items) {
+    const [itemHeaders, payload2] = item;
+    append(`
+${JSON.stringify(itemHeaders)}
+`);
+    if (typeof payload2 === "string" || payload2 instanceof Uint8Array) {
+      append(payload2);
+    } else {
+      let stringifiedPayload;
+      try {
+        stringifiedPayload = JSON.stringify(payload2);
+      } catch {
+        stringifiedPayload = JSON.stringify(normalize(payload2));
+      }
+      append(stringifiedPayload);
+    }
+  }
+  return typeof parts === "string" ? parts : concatBuffers(parts);
+}
+function concatBuffers(buffers) {
+  const totalLength = buffers.reduce((acc, buf2) => acc + buf2.length, 0);
+  const merged = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const buffer of buffers) {
+    merged.set(buffer, offset);
+    offset += buffer.length;
+  }
+  return merged;
+}
+function createAttachmentEnvelopeItem(attachment) {
+  const buffer = typeof attachment.data === "string" ? encodeUTF8(attachment.data) : attachment.data;
+  return [
+    {
+      type: "attachment",
+      length: buffer.length,
+      filename: attachment.filename,
+      content_type: attachment.contentType,
+      attachment_type: attachment.attachmentType
+    },
+    buffer
+  ];
+}
+var DATA_CATEGORY_OVERRIDES = {
+  sessions: "session",
+  event: "error",
+  client_report: "internal",
+  user_report: "default",
+  profile_chunk: "profile",
+  replay_event: "replay",
+  replay_recording: "replay",
+  check_in: "monitor",
+  raw_security: "security",
+  log: "log_item",
+  metric: "trace_metric"
+};
+function _isOverriddenType(type) {
+  return type in DATA_CATEGORY_OVERRIDES;
+}
+function envelopeItemTypeToDataCategory(type) {
+  return _isOverriddenType(type) ? DATA_CATEGORY_OVERRIDES[type] : type;
+}
+function getSdkMetadataForEnvelopeHeader(metadataOrEvent) {
+  if (!metadataOrEvent?.sdk) {
+    return;
+  }
+  const { name, version: version2 } = metadataOrEvent.sdk;
+  return { name, version: version2 };
+}
+function createEventEnvelopeHeaders(event, sdkInfo, tunnel, dsn) {
+  const dynamicSamplingContext = event.sdkProcessingMetadata?.dynamicSamplingContext;
+  return {
+    event_id: event.event_id,
+    sent_at: new Date(safeDateNow()).toISOString(),
+    ...sdkInfo && { sdk: sdkInfo },
+    ...!!tunnel && dsn && { dsn: dsnToString(dsn) },
+    ...dynamicSamplingContext && {
+      trace: dynamicSamplingContext
+    }
+  };
+}
+function getDataCategoryByType(type) {
+  return type === "replay_event" ? "replay" : type || "error";
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/env.js
+function isBrowserBundle() {
+  return typeof __SENTRY_BROWSER_BUNDLE__ !== "undefined" && !!__SENTRY_BROWSER_BUNDLE__;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/node.js
+function isNodeEnv() {
+  return !isBrowserBundle() && Object.prototype.toString.call(typeof process !== "undefined" ? process : 0) === "[object process]";
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/isBrowser.js
+function isBrowser() {
+  return typeof window !== "undefined" && (!isNodeEnv() || isElectronNodeRenderer());
+}
+function isElectronNodeRenderer() {
+  const process3 = GLOBAL_OBJ.process;
+  return process3?.type === "renderer";
+}
+
+// ../../node_modules/@sentry/core/build/esm/tracing/spans/envelope.js
+function createSpanContainerItem(serializedSpans, client) {
+  const inferSetting = client.getDataCollectionOptions().userInfo ? "auto" : "never";
+  return [
+    { type: "span", item_count: serializedSpans.length, content_type: "application/vnd.sentry.items.span.v2+json" },
+    {
+      version: 2,
+      ingest_settings: isBrowser() ? { infer_ip: inferSetting, infer_user_agent: inferSetting } : void 0,
+      items: serializedSpans
+    }
+  ];
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/errorSpanAttribution.js
+var escapedSpanTraceContexts = /* @__PURE__ */ new WeakMap();
+function toWeakMapKey(error64) {
+  return isPrimitive(error64) ? void 0 : error64;
+}
+function applyEscapedErrorSpanToEvent(event, hint, scope) {
+  const key2 = toWeakMapKey(hint.originalException);
+  const traceContext = key2 && escapedSpanTraceContexts.get(key2);
+  if (!traceContext) {
+    return;
+  }
+  const eventTraceContext = event.contexts?.trace;
+  const eventTraceId = eventTraceContext?.trace_id ?? (scope && getTraceContextFromScope(scope).trace_id);
+  if (eventTraceId !== traceContext.trace_id) {
+    return;
+  }
+  event.contexts = {
+    ...event.contexts,
+    trace: {
+      ...eventTraceContext,
+      ...traceContext
+    }
+  };
+}
+
+// ../../node_modules/@sentry/core/build/esm/envelope.js
+function _enhanceEventWithSdkInfo(event, newSdkInfo) {
+  if (!newSdkInfo) {
+    return event;
+  }
+  const eventSdkInfo = event.sdk || {};
+  event.sdk = {
+    ...eventSdkInfo,
+    name: eventSdkInfo.name || newSdkInfo.name,
+    version: eventSdkInfo.version || newSdkInfo.version,
+    integrations: [...event.sdk?.integrations || [], ...newSdkInfo.integrations || []],
+    packages: [...event.sdk?.packages || [], ...newSdkInfo.packages || []],
+    settings: event.sdk?.settings || newSdkInfo.settings ? {
+      ...event.sdk?.settings,
+      ...newSdkInfo.settings
+    } : void 0
+  };
+  return event;
+}
+function createSessionEnvelope(session, dsn, metadata2, tunnel) {
+  const sdkInfo = getSdkMetadataForEnvelopeHeader(metadata2);
+  const envelopeHeaders = {
+    sent_at: new Date(safeDateNow()).toISOString(),
+    ...sdkInfo && { sdk: sdkInfo },
+    ...!!tunnel && dsn && { dsn: dsnToString(dsn) }
+  };
+  const envelopeItem = "aggregates" in session ? [{ type: "sessions" }, session] : [{ type: "session" }, session.toJSON()];
+  return createEnvelope(envelopeHeaders, [envelopeItem]);
+}
+function createEventEnvelope(event, dsn, metadata2, tunnel) {
+  const sdkInfo = getSdkMetadataForEnvelopeHeader(metadata2);
+  const eventType = event.type && event.type !== "replay_event" ? event.type : "event";
+  _enhanceEventWithSdkInfo(event, metadata2?.sdk);
+  const envelopeHeaders = createEventEnvelopeHeaders(event, sdkInfo, tunnel, dsn);
+  delete event.sdkProcessingMetadata;
+  const eventItem = [{ type: eventType }, event];
+  return createEnvelope(envelopeHeaders, [eventItem]);
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/syncpromise.js
+var STATE_PENDING = 0;
+var STATE_RESOLVED = 1;
+var STATE_REJECTED = 2;
+function resolvedSyncPromise(value2) {
+  return new SyncPromise((resolve3) => {
+    resolve3(value2);
+  });
+}
+function rejectedSyncPromise(reason) {
+  return new SyncPromise((_, reject) => {
+    reject(reason);
+  });
+}
+var SyncPromise = class _SyncPromise {
+  constructor(executor) {
+    this._state = STATE_PENDING;
+    this._handlers = [];
+    this._runExecutor(executor);
+  }
+  /** @inheritdoc */
+  then(onfulfilled, onrejected) {
+    return new _SyncPromise((resolve3, reject) => {
+      this._handlers.push([
+        false,
+        (result) => {
+          if (!onfulfilled) {
+            resolve3(result);
+          } else {
+            try {
+              resolve3(onfulfilled(result));
+            } catch (e6) {
+              reject(e6);
+            }
+          }
+        },
+        (reason) => {
+          if (!onrejected) {
+            reject(reason);
+          } else {
+            try {
+              resolve3(onrejected(reason));
+            } catch (e6) {
+              reject(e6);
+            }
+          }
+        }
+      ]);
+      this._executeHandlers();
+    });
+  }
+  /** @inheritdoc */
+  catch(onrejected) {
+    return this.then((val) => val, onrejected);
+  }
+  /** @inheritdoc */
+  finally(onfinally) {
+    return new _SyncPromise((resolve3, reject) => {
+      let val;
+      let isRejected;
+      return this.then(
+        (value2) => {
+          isRejected = false;
+          val = value2;
+          if (onfinally) {
+            onfinally();
+          }
+        },
+        (reason) => {
+          isRejected = true;
+          val = reason;
+          if (onfinally) {
+            onfinally();
+          }
+        }
+      ).then(() => {
+        if (isRejected) {
+          reject(val);
+          return;
+        }
+        resolve3(val);
+      });
+    });
+  }
+  /** Excute the resolve/reject handlers. */
+  _executeHandlers() {
+    if (this._state === STATE_PENDING) {
+      return;
+    }
+    const cachedHandlers = this._handlers.slice();
+    this._handlers = [];
+    cachedHandlers.forEach((handler) => {
+      if (handler[0]) {
+        return;
+      }
+      if (this._state === STATE_RESOLVED) {
+        handler[1](this._value);
+      }
+      if (this._state === STATE_REJECTED) {
+        handler[2](this._value);
+      }
+      handler[0] = true;
+    });
+  }
+  /** Run the executor for the SyncPromise. */
+  _runExecutor(executor) {
+    const setResult = (state2, value2) => {
+      if (this._state !== STATE_PENDING) {
+        return;
+      }
+      if (isThenable(value2)) {
+        void value2.then(resolve3, reject);
+        return;
+      }
+      this._state = state2;
+      this._value = value2;
+      this._executeHandlers();
+    };
+    const resolve3 = (value2) => {
+      setResult(STATE_RESOLVED, value2);
+    };
+    const reject = (reason) => {
+      setResult(STATE_REJECTED, reason);
+    };
+    try {
+      executor(resolve3, reject);
+    } catch (e6) {
+      reject(e6);
+    }
+  }
+};
+
+// ../../node_modules/@sentry/core/build/esm/eventProcessors.js
+function notifyEventProcessors(processors, event, hint, index = 0, onDrop) {
+  try {
+    const result = _notifyEventProcessors(event, hint, processors, index, onDrop);
+    return isThenable(result) ? result : resolvedSyncPromise(result);
+  } catch (error64) {
+    return rejectedSyncPromise(error64);
+  }
+}
+function _notifyEventProcessors(event, hint, processors, index, onDrop) {
+  const processor = processors[index];
+  if (!event || !processor) {
+    return event;
+  }
+  const processorName = `Event processor "${processor.id || "?"}"`;
+  let callbackError = false;
+  const result = safeCallback(
+    DEBUG_BUILD ? `${processorName} threw an error, dropping event:` : "",
+    () => processor({ ...event }, hint),
+    () => {
+      callbackError = true;
+      return null;
+    }
+  );
+  DEBUG_BUILD && result === null && debug.log(`${processorName} dropped event`);
+  if (isThenable(result)) {
+    return result.then((final) => {
+      if (!final) {
+        onDrop?.(callbackError ? "callback_error" : "event_processor");
+        return null;
+      }
+      return _notifyEventProcessors(final, hint, processors, index + 1, onDrop);
+    });
+  }
+  if (!result) {
+    onDrop?.(callbackError ? "callback_error" : "event_processor");
+    return null;
+  }
+  return _notifyEventProcessors(result, hint, processors, index + 1, onDrop);
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/debug-ids.js
+var parsedStackResults;
+var lastSentryKeysCount;
+var lastNativeKeysCount;
+var cachedFilenameDebugIds;
+function getFilenameToDebugIdMap(stackParser2) {
+  const sentryDebugIdMap = GLOBAL_OBJ._sentryDebugIds;
+  const nativeDebugIdMap = GLOBAL_OBJ._debugIds;
+  if (!sentryDebugIdMap && !nativeDebugIdMap) {
+    return {};
+  }
+  const sentryDebugIdKeys = sentryDebugIdMap ? Object.keys(sentryDebugIdMap) : [];
+  const nativeDebugIdKeys = nativeDebugIdMap ? Object.keys(nativeDebugIdMap) : [];
+  if (cachedFilenameDebugIds && sentryDebugIdKeys.length === lastSentryKeysCount && nativeDebugIdKeys.length === lastNativeKeysCount) {
+    return cachedFilenameDebugIds;
+  }
+  lastSentryKeysCount = sentryDebugIdKeys.length;
+  lastNativeKeysCount = nativeDebugIdKeys.length;
+  cachedFilenameDebugIds = {};
+  if (!parsedStackResults) {
+    parsedStackResults = {};
+  }
+  const processDebugIds = (debugIdKeys, debugIdMap) => {
+    for (const key2 of debugIdKeys) {
+      const debugId2 = debugIdMap[key2];
+      const result = parsedStackResults?.[key2];
+      if (result && cachedFilenameDebugIds && debugId2) {
+        cachedFilenameDebugIds[result[0]] = debugId2;
+        if (parsedStackResults) {
+          parsedStackResults[key2] = [result[0], debugId2];
+        }
+      } else if (debugId2) {
+        const parsedStack = stackParser2(key2);
+        for (let i6 = parsedStack.length - 1; i6 >= 0; i6--) {
+          const stackFrame = parsedStack[i6];
+          const filename = stackFrame?.filename;
+          if (filename && cachedFilenameDebugIds && parsedStackResults) {
+            cachedFilenameDebugIds[filename] = debugId2;
+            parsedStackResults[key2] = [filename, debugId2];
+            break;
+          }
+        }
+      }
+    }
+  };
+  if (sentryDebugIdMap) {
+    processDebugIds(sentryDebugIdKeys, sentryDebugIdMap);
+  }
+  if (nativeDebugIdMap) {
+    processDebugIds(nativeDebugIdKeys, nativeDebugIdMap);
+  }
+  return cachedFilenameDebugIds;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/eventUtils.js
+function isInternalException(hint) {
+  return hint.data?.__sentry__ === true;
+}
+function getPossibleEventMessages(event) {
+  const possibleMessages = [];
+  if (event.message) {
+    possibleMessages.push(event.message);
+  }
+  try {
+    const lastException = event.exception.values[event.exception.values.length - 1];
+    if (lastException?.value) {
+      possibleMessages.push(lastException.value);
+      if (lastException.type) {
+        possibleMessages.push(`${lastException.type}: ${lastException.value}`);
+      }
+    }
+  } catch {
+  }
+  return possibleMessages;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/prepareEvent.js
+function prepareEvent(options, event, hint, scope, client, isolationScope) {
+  const { normalizeDepth = 3, normalizeMaxBreadth = 1e3 } = options;
+  const prepared = {
+    ...event,
+    event_id: event.event_id || hint.event_id || uuid42(),
+    timestamp: event.timestamp || dateTimestampInSeconds()
+  };
+  const integrations = hint.integrations || options.integrations.map((i6) => i6.name);
+  applyClientOptions(prepared, options);
+  applyIntegrationsMetadata(prepared, integrations);
+  if (client) {
+    client.emit("applyFrameMetadata", event);
+  }
+  if (event.type === void 0) {
+    applyDebugIds(prepared, options.stackParser);
+  }
+  const finalScope = getFinalScope(scope, hint.captureContext);
+  if (hint.mechanism) {
+    addExceptionMechanismToCapturedException(prepared, hint.mechanism);
+  }
+  const clientEventProcessors = client ? client.getEventProcessors() : [];
+  const data = getCombinedScopeData(isolationScope, finalScope);
+  const attachments = [...hint.attachments || [], ...data.attachments];
+  if (attachments.length) {
+    hint.attachments = attachments;
+  }
+  applyScopeDataToEvent(prepared, data);
+  const span = getActiveSpan(finalScope);
+  if (span) {
+    applySpanToEvent(prepared, span);
+  }
+  applyEscapedErrorSpanToEvent(prepared, hint, finalScope);
+  const eventProcessors = [
+    ...clientEventProcessors,
+    // Run scope event processors _after_ all other processors
+    ...data.eventProcessors
+  ];
+  const isTransaction = event.type === "transaction";
+  const spanCountBeforeProcessing = event.spans?.length || 0;
+  const result = isInternalException(hint) ? resolvedSyncPromise(prepared) : notifyEventProcessors(eventProcessors, prepared, hint, 0, (reason) => {
+    if (!client) {
+      return;
+    }
+    client.recordDroppedEvent(reason, getDataCategoryByType(event.type));
+    if (isTransaction) {
+      client.recordDroppedEvent(reason, "span", 1 + spanCountBeforeProcessing);
+    }
+  });
+  return result.then((evt) => {
+    if (!evt) {
+      return null;
+    }
+    if (isTransaction && client) {
+      const droppedSpanCount = spanCountBeforeProcessing - (evt.spans?.length || 0);
+      if (droppedSpanCount > 0) {
+        client.recordDroppedEvent("event_processor", "span", droppedSpanCount);
+      }
+    }
+    applyDebugMeta(evt);
+    if (typeof normalizeDepth === "number" && normalizeDepth > 0) {
+      return normalizeEvent(evt, normalizeDepth, normalizeMaxBreadth);
+    }
+    return evt;
+  });
+}
+function applyClientOptions(event, options) {
+  const { environment: environment2, release: release2, dist, maxValueLength } = options;
+  event.environment = event.environment || environment2 || DEFAULT_ENVIRONMENT;
+  if (!event.release && release2) {
+    event.release = release2;
+  }
+  if (!event.dist && dist) {
+    event.dist = dist;
+  }
+  const request2 = event.request;
+  if (request2?.url && maxValueLength) {
+    request2.url = truncate(request2.url, maxValueLength);
+  }
+  if (maxValueLength) {
+    event.exception?.values?.forEach((exception) => {
+      if (exception.value) {
+        exception.value = truncate(exception.value, maxValueLength);
+      }
+    });
+  }
+}
+function applyDebugIds(event, stackParser2) {
+  const filenameDebugIdMap = getFilenameToDebugIdMap(stackParser2);
+  event.exception?.values?.forEach((exception) => {
+    exception.stacktrace?.frames?.forEach((frame) => {
+      if (frame.filename) {
+        frame.debug_id = filenameDebugIdMap[frame.filename];
+      }
+    });
+  });
+}
+function applyDebugMeta(event) {
+  const filenameDebugIdMap = {};
+  event.exception?.values?.forEach((exception) => {
+    exception.stacktrace?.frames?.forEach((frame) => {
+      if (frame.debug_id) {
+        if (frame.abs_path) {
+          filenameDebugIdMap[frame.abs_path] = frame.debug_id;
+        } else if (frame.filename) {
+          filenameDebugIdMap[frame.filename] = frame.debug_id;
+        }
+        delete frame.debug_id;
+      }
+    });
+  });
+  if (Object.keys(filenameDebugIdMap).length === 0) {
+    return;
+  }
+  event.debug_meta = event.debug_meta || {};
+  event.debug_meta.images = event.debug_meta.images || [];
+  const images = event.debug_meta.images;
+  Object.entries(filenameDebugIdMap).forEach(([filename, debug_id]) => {
+    images.push({
+      type: "sourcemap",
+      code_file: filename,
+      debug_id
+    });
+  });
+}
+function applyIntegrationsMetadata(event, integrationNames) {
+  if (integrationNames.length > 0) {
+    event.sdk = event.sdk || {};
+    event.sdk.integrations = [...event.sdk.integrations || [], ...integrationNames];
+  }
+}
+function normalizeEvent(event, depth, maxBreadth) {
+  if (!event) {
+    return null;
+  }
+  const normalized = {
+    ...event,
+    ...event.breadcrumbs && {
+      breadcrumbs: event.breadcrumbs.map((b5) => ({
+        ...b5,
+        ...b5.data && {
+          data: normalize(b5.data, depth, maxBreadth)
+        }
+      }))
+    },
+    ...event.user && {
+      user: normalize(event.user, depth, maxBreadth)
+    },
+    ...event.contexts && {
+      contexts: normalize(event.contexts, depth, maxBreadth)
+    },
+    ...event.extra && {
+      extra: normalize(event.extra, depth, maxBreadth)
+    }
+  };
+  if (event.contexts?.trace && normalized.contexts) {
+    normalized.contexts.trace = event.contexts.trace;
+    if (event.contexts.trace.data) {
+      normalized.contexts.trace.data = normalize(event.contexts.trace.data, depth, maxBreadth);
+    }
+  }
+  if (event.spans) {
+    normalized.spans = event.spans.map((span) => {
+      return {
+        ...span,
+        ...span.data && {
+          data: normalize(span.data, depth, maxBreadth)
+        }
+      };
+    });
+  }
+  if (event.contexts?.flags && normalized.contexts) {
+    normalized.contexts.flags = normalize(event.contexts.flags, 3, maxBreadth);
+  }
+  return normalized;
+}
+function getFinalScope(scope, captureContext) {
+  if (!captureContext) {
+    return scope;
+  }
+  const finalScope = scope ? scope.clone() : new Scope();
+  finalScope.update(captureContext);
+  return finalScope;
+}
+
+// ../../node_modules/@sentry/core/build/esm/api.js
+var SENTRY_API_VERSION = "7";
+function getBaseApiEndpoint(dsn) {
+  const protocol = dsn.protocol ? `${dsn.protocol}:` : "";
+  const port = dsn.port ? `:${dsn.port}` : "";
+  return `${protocol}//${dsn.host}${port}${dsn.path ? `/${dsn.path}` : ""}/api/`;
+}
+function _getIngestEndpoint(dsn) {
+  return `${getBaseApiEndpoint(dsn)}${dsn.projectId}/envelope/`;
+}
+function _encodedAuth(dsn, sdkInfo) {
+  const params = {
+    sentry_version: SENTRY_API_VERSION
+  };
+  if (dsn.publicKey) {
+    params.sentry_key = dsn.publicKey;
+  }
+  if (sdkInfo) {
+    params.sentry_client = `${sdkInfo.name}/${sdkInfo.version}`;
+  }
+  return new URLSearchParams(params).toString();
+}
+function getEnvelopeEndpointWithUrlEncodedAuth(dsn, tunnel, sdkInfo) {
+  return tunnel ? tunnel : `${_getIngestEndpoint(dsn)}?${_encodedAuth(dsn, sdkInfo)}`;
+}
+
+// ../../node_modules/@sentry/core/build/esm/logs/envelope.js
+function createLogContainerEnvelopeItem(items, inferUserData) {
+  const inferSetting = inferUserData ? "auto" : "never";
+  return [
+    {
+      type: "log",
+      item_count: items.length,
+      content_type: "application/vnd.sentry.items.log+json"
+    },
+    {
+      version: 2,
+      ...isBrowser() && {
+        ingest_settings: { infer_ip: inferSetting, infer_user_agent: inferSetting }
+      },
+      items
+    }
+  ];
+}
+function createLogEnvelope(logs, metadata2, tunnel, dsn, inferUserData) {
+  const headers = {};
+  if (metadata2?.sdk) {
+    headers.sdk = {
+      name: metadata2.sdk.name,
+      version: metadata2.sdk.version
+    };
+  }
+  if (!!tunnel && !!dsn) {
+    headers.dsn = dsnToString(dsn);
+  }
+  return createEnvelope(headers, [createLogContainerEnvelopeItem(logs, inferUserData)]);
+}
+
+// ../../node_modules/@sentry/core/build/esm/logs/internal.js
+function _INTERNAL_flushLogsBuffer(client, maybeLogBuffer) {
+  const logBuffer = maybeLogBuffer ?? _INTERNAL_getLogBuffer(client) ?? [];
+  if (logBuffer.length === 0) {
+    return;
+  }
+  const clientOptions = client.getOptions();
+  const envelope = createLogEnvelope(
+    logBuffer,
+    clientOptions._metadata,
+    clientOptions.tunnel,
+    client.getDsn(),
+    client.getDataCollectionOptions().userInfo
+  );
+  _getBufferMap().set(client, []);
+  client.emit("flushLogs");
+  client.sendEnvelope(envelope);
+}
+function _INTERNAL_getLogBuffer(client) {
+  return _getBufferMap().get(client);
+}
+function _getBufferMap() {
+  return getGlobalSingleton("clientToLogBufferMap", () => /* @__PURE__ */ new WeakMap());
+}
+
+// ../../node_modules/@sentry/core/build/esm/metrics/envelope.js
+function createMetricContainerEnvelopeItem(items, inferUserData) {
+  const inferSetting = inferUserData ? "auto" : "never";
+  return [
+    {
+      type: "trace_metric",
+      item_count: items.length,
+      content_type: "application/vnd.sentry.items.trace-metric+json"
+    },
+    {
+      version: 2,
+      ...isBrowser() && {
+        ingest_settings: { infer_ip: inferSetting, infer_user_agent: inferSetting }
+      },
+      items
+    }
+  ];
+}
+function createMetricEnvelope(metrics, metadata2, tunnel, dsn, inferUserData) {
+  const headers = {};
+  if (metadata2?.sdk) {
+    headers.sdk = {
+      name: metadata2.sdk.name,
+      version: metadata2.sdk.version
+    };
+  }
+  if (!!tunnel && !!dsn) {
+    headers.dsn = dsnToString(dsn);
+  }
+  return createEnvelope(headers, [createMetricContainerEnvelopeItem(metrics, inferUserData)]);
+}
+
+// ../../node_modules/@sentry/core/build/esm/metrics/internal.js
+function _INTERNAL_flushMetricsBuffer(client, maybeMetricBuffer) {
+  const metricBuffer = maybeMetricBuffer ?? _INTERNAL_getMetricBuffer(client) ?? [];
+  if (metricBuffer.length === 0) {
+    return;
+  }
+  const clientOptions = client.getOptions();
+  const envelope = createMetricEnvelope(
+    metricBuffer,
+    clientOptions._metadata,
+    clientOptions.tunnel,
+    client.getDsn(),
+    client.getDataCollectionOptions().userInfo
+  );
+  _getBufferMap2().set(client, []);
+  client.emit("flushMetrics");
+  client.sendEnvelope(envelope);
+}
+function _INTERNAL_getMetricBuffer(client) {
+  return _getBufferMap2().get(client);
+}
+function _getBufferMap2() {
+  return getGlobalSingleton("clientToMetricBufferMap", () => /* @__PURE__ */ new WeakMap());
+}
+
+// ../../node_modules/@sentry/core/build/esm/tracing/spans/extractGenAiSpans.js
+function extractGenAiSpansFromEvent(event, client) {
+  if (event.type !== "transaction" || !event.spans?.length || !event.sdkProcessingMetadata?.hasGenAiSpans || hasSpanStreamingEnabled(client)) {
+    return void 0;
+  }
+  const genAiSpans = [];
+  const remainingSpans = [];
+  for (const span of event.spans) {
+    if (span.op?.startsWith("gen_ai.")) {
+      genAiSpans.push(spanJsonToSerializedStreamedSpan(span));
+    } else {
+      remainingSpans.push(span);
+    }
+  }
+  if (genAiSpans.length === 0) {
+    return void 0;
+  }
+  event.spans = remainingSpans;
+  return createSpanContainerItem(genAiSpans, client);
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/promisebuffer.js
+var SENTRY_BUFFER_FULL_ERROR = /* @__PURE__ */ Symbol.for("SentryBufferFullError");
+function makePromiseBuffer(limit2 = 100) {
+  const buffer = /* @__PURE__ */ new Set();
+  function isReady() {
+    return buffer.size < limit2;
+  }
+  function remove2(task) {
+    buffer.delete(task);
+  }
+  function add2(taskProducer) {
+    if (!isReady()) {
+      return rejectedSyncPromise(SENTRY_BUFFER_FULL_ERROR);
+    }
+    const task = taskProducer();
+    buffer.add(task);
+    void task.then(
+      () => remove2(task),
+      () => remove2(task)
+    );
+    return task;
+  }
+  function drain(timeout) {
+    if (!buffer.size) {
+      return resolvedSyncPromise(true);
+    }
+    const drainPromise = Promise.allSettled(Array.from(buffer)).then(() => true);
+    if (!timeout) {
+      return drainPromise;
+    }
+    const promises = [
+      drainPromise,
+      new Promise((resolve3) => safeUnref(setTimeout(() => resolve3(false), timeout)))
+    ];
+    return Promise.race(promises);
+  }
+  return {
+    get $() {
+      return Array.from(buffer);
+    },
+    add: add2,
+    drain
+  };
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/ratelimit.js
+var DEFAULT_RETRY_AFTER = 60 * 1e3;
+function parseRetryAfterHeader2(header2, now = safeDateNow()) {
+  const headerDelay = parseInt(`${header2}`, 10);
+  if (!isNaN(headerDelay)) {
+    return headerDelay * 1e3;
+  }
+  const headerDate = Date.parse(`${header2}`);
+  if (!isNaN(headerDate)) {
+    return headerDate - now;
+  }
+  return DEFAULT_RETRY_AFTER;
+}
+function disabledUntil(limits, dataCategory) {
+  return limits[dataCategory] || limits.all || 0;
+}
+function isRateLimited(limits, dataCategory, now = safeDateNow()) {
+  return disabledUntil(limits, dataCategory) > now;
+}
+function updateRateLimits(limits, { statusCode, headers }, now = safeDateNow()) {
+  const updatedRateLimits = {
+    ...limits
+  };
+  const rateLimitHeader = headers?.["x-sentry-rate-limits"];
+  const retryAfterHeader = headers?.["retry-after"];
+  if (rateLimitHeader) {
+    for (const limit2 of rateLimitHeader.trim().split(",")) {
+      const [retryAfter, categories, , , namespaces] = limit2.split(":", 5);
+      const headerDelay = parseInt(retryAfter, 10);
+      const delay3 = (!isNaN(headerDelay) ? headerDelay : 60) * 1e3;
+      if (!categories) {
+        updatedRateLimits.all = now + delay3;
+      } else {
+        for (const category of categories.split(";")) {
+          if (category === "metric_bucket") {
+            if (!namespaces || namespaces.split(";").includes("custom")) {
+              updatedRateLimits[category] = now + delay3;
+            }
+          } else {
+            updatedRateLimits[category] = now + delay3;
+          }
+        }
+      }
+    }
+  } else if (retryAfterHeader) {
+    updatedRateLimits.all = now + parseRetryAfterHeader2(retryAfterHeader, now);
+  } else if (statusCode === 429) {
+    updatedRateLimits.all = now + 60 * 1e3;
+  }
+  return updatedRateLimits;
+}
+
+// ../../node_modules/@sentry/core/build/esm/transports/base.js
+var DEFAULT_TRANSPORT_BUFFER_SIZE = 64;
+function createTransport(options, makeRequest, buffer = makePromiseBuffer(
+  options.bufferSize || DEFAULT_TRANSPORT_BUFFER_SIZE
+)) {
+  let rateLimits = {};
+  const flush2 = (timeout) => buffer.drain(timeout);
+  function recordItemLoss(reason, [headers, payload2], type) {
+    const dataCategory = envelopeItemTypeToDataCategory(type);
+    if (type === "transaction") {
+      options.recordDroppedEvent(reason, "span", (payload2.spans?.length ?? 0) + 1);
+    }
+    options.recordDroppedEvent(reason, dataCategory, typeof headers.item_count === "number" ? headers.item_count : 1);
+  }
+  function send3(envelope) {
+    const filteredEnvelopeItems = [];
+    forEachEnvelopeItem(envelope, (item, type) => {
+      if (isRateLimited(rateLimits, envelopeItemTypeToDataCategory(type))) {
+        recordItemLoss("ratelimit_backoff", item, type);
+      } else {
+        filteredEnvelopeItems.push(item);
+      }
+    });
+    if (filteredEnvelopeItems.length === 0) {
+      return Promise.resolve({});
+    }
+    const filteredEnvelope = createEnvelope(envelope[0], filteredEnvelopeItems);
+    const recordEnvelopeLoss = (reason) => {
+      if (envelopeContainsItemType(filteredEnvelope, ["client_report"])) {
+        DEBUG_BUILD && debug.warn(`Dropping client report. Will not send outcomes (reason: ${reason}).`);
+        return;
+      }
+      forEachEnvelopeItem(filteredEnvelope, (item, type) => {
+        recordItemLoss(reason, item, type);
+      });
+    };
+    const requestTask = () => makeRequest({ body: serializeEnvelope(filteredEnvelope) }).then(
+      (response) => {
+        if (response.statusCode === 413) {
+          DEBUG_BUILD && debug.error(
+            "Sentry responded with status code 413. Envelope was discarded due to exceeding size limits."
+          );
+          recordEnvelopeLoss("send_error");
+          return response;
+        }
+        if (DEBUG_BUILD && response.statusCode !== void 0 && (response.statusCode < 200 || response.statusCode >= 300)) {
+          debug.warn(`Sentry responded with status code ${response.statusCode} to sent event.`);
+        }
+        rateLimits = updateRateLimits(rateLimits, response);
+        return response;
+      },
+      (error64) => {
+        recordEnvelopeLoss("network_error");
+        DEBUG_BUILD && debug.error("Encountered error running transport request:", error64);
+        throw error64;
+      }
+    );
+    return buffer.add(requestTask).then(
+      (result) => result,
+      (error64) => {
+        if (error64 === SENTRY_BUFFER_FULL_ERROR) {
+          DEBUG_BUILD && debug.error("Skipped sending event because buffer is full.");
+          recordEnvelopeLoss("queue_overflow");
+          return Promise.resolve({});
+        } else {
+          throw error64;
+        }
+      }
+    );
+  }
+  return {
+    send: send3,
+    flush: flush2
+  };
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/clientreport.js
+function createClientReportEnvelope(discarded_events, dsn, timestamp) {
+  const clientReportItem = [
+    { type: "client_report" },
+    {
+      timestamp: timestamp || dateTimestampInSeconds(),
+      discarded_events
+    }
+  ];
+  return createEnvelope(dsn ? { dsn } : {}, [clientReportItem]);
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/transactionEvent.js
+function convertTransactionEventToSpanJson(event) {
+  const { trace_id, parent_span_id, span_id, status: status2, origin, data, op: op2 } = event.contexts?.trace ?? {};
+  return {
+    data: data ?? {},
+    description: event.transaction,
+    op: op2,
+    parent_span_id,
+    span_id: span_id ?? "",
+    start_timestamp: event.start_timestamp ?? 0,
+    status: status2 ?? "ok",
+    timestamp: event.timestamp,
+    trace_id: trace_id ?? "",
+    origin,
+    profile_id: data?.[rb],
+    exclusive_time: data?.[xm],
+    measurements: event.measurements,
+    is_segment: true
+  };
+}
+function convertSpanJsonToTransactionEvent(span) {
+  return {
+    type: "transaction",
+    timestamp: span.timestamp,
+    start_timestamp: span.start_timestamp,
+    transaction: span.description,
+    contexts: {
+      trace: {
+        trace_id: span.trace_id,
+        span_id: span.span_id,
+        parent_span_id: span.parent_span_id,
+        op: span.op,
+        status: span.status,
+        origin: span.origin,
+        data: {
+          ...span.data,
+          ...span.profile_id && { [rb]: span.profile_id },
+          ...span.exclusive_time && { [xm]: span.exclusive_time }
+        }
+      }
+    },
+    measurements: span.measurements
+  };
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/warnAboutIgnoredTransactionOptions.js
+function maybeWarnAboutIgnoredTransactionOptions(options) {
+  if (options.traceLifecycle !== "stream" || // oxlint-disable-next-line typescript/no-deprecated
+  !(options.beforeSendTransaction || options.ignoreTransactions?.length)) {
+    return;
+  }
+  consoleSandbox(() => {
+    console.warn(
+      "[Sentry] `beforeSendTransaction` and `ignoreTransactions` are ignored with `traceLifecycle: 'stream'` (enabled by default). Use `beforeSendSpan` and `ignoreSpans` instead, or set `traceLifecycle: 'static'`."
+    );
+  });
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/data-collection/resolveDataCollectionOptions.js
+var DEFAULTS = {
+  userInfo: true,
+  cookies: true,
+  httpHeaders: { request: true, response: true },
+  httpBodies: ["incomingRequest", "outgoingRequest", "incomingResponse", "outgoingResponse"],
+  urlQueryParams: true,
+  graphQL: { document: true, variables: true },
+  genAI: { inputs: true, outputs: true },
+  mcp: { inputs: true, outputs: true },
+  databaseQueryData: true,
+  queues: true,
+  stackFrameVariables: true,
+  frameContextLines: 5
+};
+function isCollectBehavior(value2) {
+  return typeof value2 === "boolean" || "allow" in value2 || "deny" in value2;
+}
+function resolveHttpHeaders(httpHeaders) {
+  if (httpHeaders === void 0) {
+    return { ...DEFAULTS.httpHeaders };
+  }
+  if (isCollectBehavior(httpHeaders)) {
+    return { request: httpHeaders, response: httpHeaders };
+  }
+  return {
+    request: httpHeaders.request ?? DEFAULTS.httpHeaders.request,
+    response: httpHeaders.response ?? DEFAULTS.httpHeaders.response
+  };
+}
+function resolveDataCollectionOptions(options) {
+  const dc = options.dataCollection ?? {};
+  return {
+    userInfo: dc.userInfo ?? DEFAULTS.userInfo,
+    cookies: dc.cookies ?? DEFAULTS.cookies,
+    httpHeaders: resolveHttpHeaders(dc.httpHeaders),
+    httpBodies: dc.httpBodies ?? DEFAULTS.httpBodies,
+    urlQueryParams: dc.urlQueryParams ?? DEFAULTS.urlQueryParams,
+    graphQL: {
+      document: dc.graphQL?.document ?? DEFAULTS.graphQL.document,
+      variables: dc.graphQL?.variables ?? DEFAULTS.graphQL.variables
+    },
+    genAI: {
+      inputs: dc.genAI?.inputs ?? DEFAULTS.genAI.inputs,
+      outputs: dc.genAI?.outputs ?? DEFAULTS.genAI.outputs
+    },
+    mcp: {
+      inputs: dc.mcp?.inputs ?? DEFAULTS.mcp.inputs,
+      outputs: dc.mcp?.outputs ?? DEFAULTS.mcp.outputs
+    },
+    databaseQueryData: dc.databaseQueryData ?? DEFAULTS.databaseQueryData,
+    queues: dc.queues ?? DEFAULTS.queues,
+    stackFrameVariables: dc.stackFrameVariables ?? DEFAULTS.stackFrameVariables,
+    frameContextLines: dc.frameContextLines ?? DEFAULTS.frameContextLines
+  };
+}
+
+// ../../node_modules/@sentry/core/build/esm/client.js
+var ALREADY_SEEN_ERROR = "Not capturing exception because it's already been captured.";
+var MISSING_RELEASE_FOR_SESSION_ERROR = "Discarded session because of missing or non-string release";
+var INTERNAL_ERROR_SYMBOL = /* @__PURE__ */ Symbol.for("SentryInternalError");
+var DO_NOT_SEND_EVENT_SYMBOL = /* @__PURE__ */ Symbol.for("SentryDoNotSendEventError");
+var DEFAULT_FLUSH_INTERVAL = 5e3;
+var CLOSED_CLIENT_SYMBOL = /* @__PURE__ */ Symbol.for("SentryClosedClient");
+function _makeInternalError(message2) {
+  return {
+    message: message2,
+    [INTERNAL_ERROR_SYMBOL]: true
+  };
+}
+function _makeDoNotSendEventError(message2) {
+  return {
+    message: message2,
+    [DO_NOT_SEND_EVENT_SYMBOL]: true
+  };
+}
+function _makeSampledOutError(sampleRate) {
+  return _makeDoNotSendEventError(
+    `Discarding event because it's not included in the random sample (sampling rate = ${sampleRate})`
+  );
+}
+function _isInternalError(error64) {
+  return isObjectLike(error64) && INTERNAL_ERROR_SYMBOL in error64;
+}
+function _isDoNotSendEventError(error64) {
+  return isObjectLike(error64) && DO_NOT_SEND_EVENT_SYMBOL in error64;
+}
+function setupWeightBasedFlushing(client, afterCaptureHook, flushHook, estimateSizeFn, flushFn) {
+  let weight = 0;
+  let flushTimeout;
+  let isTimerActive = false;
+  client.on(flushHook, () => {
+    weight = 0;
+    clearTimeout(flushTimeout);
+    isTimerActive = false;
+  });
+  client.on(afterCaptureHook, (item) => {
+    weight += estimateSizeFn(item);
+    if (weight >= 8e5) {
+      flushFn(client);
+    } else if (!isTimerActive) {
+      const flushInterval = client.getOptions()._flushInterval ?? DEFAULT_FLUSH_INTERVAL;
+      if (flushInterval > 0) {
+        isTimerActive = true;
+        flushTimeout = safeUnref(
+          setTimeout(() => {
+            flushFn(client);
+          }, flushInterval)
+        );
+      }
+    }
+  });
+  client.on("flush", () => {
+    flushFn(client);
+  });
+}
+var Client2 = class {
+  /**
+   * Initializes this client instance.
+   *
+   * @param options Options for the client.
+   */
+  constructor(options) {
+    this._options = {
+      attachStacktrace: true,
+      ...options,
+      traceLifecycle: options.traceLifecycle === "static" ? "static" : "stream"
+    };
+    this._integrations = {};
+    this._numProcessing = 0;
+    this._outcomes = {};
+    this._hooks = {};
+    this._eventProcessors = [];
+    this._promiseBuffer = makePromiseBuffer(options.transportOptions?.bufferSize ?? DEFAULT_TRANSPORT_BUFFER_SIZE);
+    this._dataCollection = resolveDataCollectionOptions(options);
+    this._unhandledSessionStatus = "crashed";
+    if (options.dsn) {
+      this._dsn = makeDsn(options.dsn);
+    } else {
+      DEBUG_BUILD && debug.warn("No DSN provided, client will not send events.");
+    }
+    const { beforeSendSpan, traceLifecycle } = this._options;
+    if (DEBUG_BUILD && beforeSendSpan && isStaticBeforeSendSpanCallback(beforeSendSpan) !== (traceLifecycle === "static")) {
+      consoleSandbox(() => {
+        console.warn(
+          `Ignoring \`beforeSendSpan\`: ${traceLifecycle === "static" ? "wrap it with" : "remove"} \`Sentry.withStaticSpan\` to use it with \`traceLifecycle: "${traceLifecycle}"\`.`
+        );
+      });
+    }
+    if (this._dsn) {
+      const url2 = getEnvelopeEndpointWithUrlEncodedAuth(
+        this._dsn,
+        options.tunnel,
+        options._metadata ? options._metadata.sdk : void 0
+      );
+      this._transport = options.transport({
+        tunnel: this._options.tunnel,
+        recordDroppedEvent: this.recordDroppedEvent.bind(this),
+        ...options.transportOptions,
+        url: url2
+      });
+    }
+    setupWeightBasedFlushing(this, "afterCaptureLog", "flushLogs", estimateLogSizeInBytes, _INTERNAL_flushLogsBuffer);
+    setupWeightBasedFlushing(
+      this,
+      "afterCaptureMetric",
+      "flushMetrics",
+      estimateMetricSizeInBytes,
+      _INTERNAL_flushMetricsBuffer
+    );
+  }
+  /**
+   * Captures an exception event and sends it to Sentry.
+   *
+   * Unlike `captureException` exported from every SDK, this method requires that you pass it the current scope.
+   */
+  captureException(exception, hint, scope) {
+    const eventId = uuid42();
+    if (checkOrSetAlreadyCaught(exception)) {
+      DEBUG_BUILD && debug.log(ALREADY_SEEN_ERROR);
+      return eventId;
+    }
+    const hintWithEventId = {
+      event_id: eventId,
+      ...hint
+    };
+    this._process(
+      () => this.eventFromException(exception, hintWithEventId).then((event) => this._captureEvent(event, hintWithEventId, scope)).then((res) => res),
+      "error"
+    );
+    return hintWithEventId.event_id;
+  }
+  /**
+   * Captures a message event and sends it to Sentry.
+   *
+   * Unlike `captureMessage` exported from every SDK, this method requires that you pass it the current scope.
+   */
+  captureMessage(message2, level, hint, currentScope) {
+    const hintWithEventId = {
+      event_id: uuid42(),
+      ...hint
+    };
+    const eventMessage = isParameterizedString(message2) ? message2 : String(message2);
+    const isMessage = isPrimitive(message2);
+    const promisedEvent = isMessage ? this.eventFromMessage(eventMessage, level, hintWithEventId) : this.eventFromException(message2, hintWithEventId);
+    this._process(
+      () => promisedEvent.then((event) => this._captureEvent(event, hintWithEventId, currentScope)),
+      isMessage ? "unknown" : "error"
+    );
+    return hintWithEventId.event_id;
+  }
+  /**
+   * Captures a manually created event and sends it to Sentry.
+   *
+   * Unlike `captureEvent` exported from every SDK, this method requires that you pass it the current scope.
+   */
+  captureEvent(event, hint, currentScope) {
+    const eventId = uuid42();
+    if (hint?.originalException && checkOrSetAlreadyCaught(hint.originalException)) {
+      DEBUG_BUILD && debug.log(ALREADY_SEEN_ERROR);
+      return eventId;
+    }
+    const hintWithEventId = {
+      event_id: eventId,
+      ...hint
+    };
+    const sdkProcessingMetadata = event.sdkProcessingMetadata || {};
+    const capturedSpanScope = sdkProcessingMetadata.capturedSpanScope;
+    const capturedSpanIsolationScope = sdkProcessingMetadata.capturedSpanIsolationScope;
+    const dataCategory = getDataCategoryByType(event.type);
+    this._process(
+      () => this._captureEvent(event, hintWithEventId, capturedSpanScope || currentScope, capturedSpanIsolationScope),
+      dataCategory
+    );
+    return hintWithEventId.event_id;
+  }
+  /**
+   * Captures a session.
+   */
+  captureSession(session) {
+    this.sendSession(session);
+    updateSession(session, { init: false });
+  }
+  /**
+   * Get the current Dsn.
+   */
+  getDsn() {
+    return this._dsn;
+  }
+  /**
+   * Get the current options.
+   */
+  getOptions() {
+    return this._options;
+  }
+  /**
+   * Get the resolved data collection configuration.
+   */
+  getDataCollectionOptions() {
+    return this._dataCollection;
+  }
+  /**
+   * Get the SDK metadata.
+   * @see SdkMetadata
+   */
+  getSdkMetadata() {
+    return this._options._metadata;
+  }
+  /**
+   * Returns the transport that is used by the client.
+   * Please note that the transport gets lazy initialized so it will only be there once the first event has been sent.
+   */
+  getTransport() {
+    return this._transport;
+  }
+  /**
+   * Wait for all events to be sent or the timeout to expire, whichever comes first.
+   *
+   * @param timeout Maximum time in ms the client should wait for events to be flushed. Omitting this parameter will
+   *   cause the client to wait until all events are sent before resolving the promise.
+   * @returns A promise that will resolve with `true` if all events are sent before the timeout, or `false` if there are
+   * still events in the queue when the timeout is reached.
+   */
+  // @ts-expect-error - PromiseLike is a subset of Promise
+  async flush(timeout) {
+    const transport = this._transport;
+    this.emit("flush");
+    if (!transport) {
+      return true;
+    }
+    const clientFinished = await this._isClientDoneProcessing(timeout);
+    const transportFlushed = await transport.flush(timeout);
+    return clientFinished && transportFlushed;
+  }
+  /**
+   * Flush the event queue and set the client to `enabled = false`. See {@link Client.flush}.
+   *
+   * @param {number} timeout Maximum time in ms the client should wait before shutting down. Omitting this parameter will cause
+   *   the client to wait until all events are sent before disabling itself.
+   * @returns {Promise<boolean>} A promise which resolves to `true` if the flush completes successfully before the timeout, or `false` if
+   * it doesn't.
+   */
+  // @ts-expect-error - PromiseLike is a subset of Promise
+  async close(timeout) {
+    Object.defineProperty(this, CLOSED_CLIENT_SYMBOL, { value: true });
+    const result = await this.flush(timeout);
+    this.getOptions().enabled = false;
+    this.emit("close");
+    return result;
+  }
+  /**
+   * Get all installed event processors.
+   */
+  getEventProcessors() {
+    return this._eventProcessors;
+  }
+  /**
+   * Adds an event processor that applies to any event processed by this client.
+   */
+  addEventProcessor(eventProcessor) {
+    this._eventProcessors.push(eventProcessor);
+  }
+  /**
+   * Initialize this client.
+   * Call this after the client was set on a scope.
+   */
+  init() {
+    if (this._isEnabled() || // Force integrations to be setup even if no DSN was set when we have
+    // Spotlight enabled. This is particularly important for browser as we
+    // don't support the `spotlight` option there and rely on the users
+    // adding the `spotlightBrowserIntegration()` to their integrations which
+    // wouldn't get initialized with the check below when there's no DSN set.
+    this._options.integrations.some(({ name }) => name.startsWith("Spotlight"))) {
+      this._setupIntegrations();
+      maybeWarnAboutIgnoredTransactionOptions(this._options);
+    }
+  }
+  /**
+   * Gets an installed integration by its name.
+   *
+   * @returns {Integration|undefined} The installed integration or `undefined` if no integration with that `name` was installed.
+   */
+  getIntegrationByName(integrationName) {
+    return this._integrations[integrationName];
+  }
+  /**
+   * Returns the names of all installed integrations.
+   */
+  getIntegrationNames() {
+    return Object.keys(this._integrations);
+  }
+  /**
+   * Add an integration to the client.
+   * This can be used to e.g. lazy load integrations.
+   * In most cases, this should not be necessary,
+   * and you're better off just passing the integrations via `integrations: []` at initialization time.
+   * However, if you find the need to conditionally load & add an integration, you can use `addIntegration` to do so.
+   */
+  addIntegration(integration) {
+    const isAlreadyInstalled = this._integrations[integration.name];
+    if (!isAlreadyInstalled && integration.beforeSetup) {
+      integration.beforeSetup(this);
+    }
+    setupIntegration(this, integration, this._integrations);
+    if (!isAlreadyInstalled) {
+      afterSetupIntegrations(this, [integration]);
+    }
+  }
+  /**
+   * Send a fully prepared event to Sentry.
+   */
+  sendEvent(event, hint = {}) {
+    this.emit("beforeSendEvent", event, hint);
+    const genAiSpanItem = extractGenAiSpansFromEvent(event, this);
+    let env3 = createEventEnvelope(event, this._dsn, this._options._metadata, this._options.tunnel);
+    if (!isInternalException(hint)) {
+      for (const attachment of hint.attachments || []) {
+        env3 = addItemToEnvelope(env3, createAttachmentEnvelopeItem(attachment));
+      }
+    }
+    if (genAiSpanItem) {
+      env3 = addItemToEnvelope(env3, genAiSpanItem);
+    }
+    this.sendEnvelope(env3).then((sendResponse) => this.emit("afterSendEvent", event, sendResponse));
+  }
+  /**
+   * Send a session or session aggregrates to Sentry.
+   */
+  sendSession(session) {
+    const { release: clientReleaseOption, environment: clientEnvironmentOption = DEFAULT_ENVIRONMENT } = this._options;
+    if ("aggregates" in session) {
+      const sessionAttrs = session.attrs || {};
+      if (!sessionAttrs.release && !clientReleaseOption) {
+        DEBUG_BUILD && debug.warn(MISSING_RELEASE_FOR_SESSION_ERROR);
+        return;
+      }
+      sessionAttrs.release = sessionAttrs.release || clientReleaseOption;
+      sessionAttrs.environment = sessionAttrs.environment || clientEnvironmentOption;
+      session.attrs = sessionAttrs;
+    } else {
+      if (!session.release && !clientReleaseOption) {
+        DEBUG_BUILD && debug.warn(MISSING_RELEASE_FOR_SESSION_ERROR);
+        return;
+      }
+      session.release = session.release || clientReleaseOption;
+      session.environment = session.environment || clientEnvironmentOption;
+    }
+    this.emit("beforeSendSession", session);
+    const env3 = createSessionEnvelope(session, this._dsn, this._options._metadata, this._options.tunnel);
+    this.sendEnvelope(env3);
+  }
+  /**
+   * Record on the client that an event got dropped (ie, an event that will not be sent to Sentry).
+   */
+  recordDroppedEvent(reason, category, count = 1) {
+    if (this._options.sendClientReports) {
+      const key2 = `${reason}:${category}`;
+      DEBUG_BUILD && debug.log(`Recording outcome: "${key2}"${count > 1 ? ` (${count} times)` : ""}`);
+      this._outcomes[key2] = (this._outcomes[key2] || 0) + count;
+    }
+  }
+  /**
+   * Register a hook on this client.
+   */
+  on(hook, callback) {
+    const hookCallbacks = this._hooks[hook] = this._hooks[hook] || /* @__PURE__ */ new Set();
+    const uniqueCallback = (...args) => callback(...args);
+    hookCallbacks.add(uniqueCallback);
+    return () => {
+      hookCallbacks.delete(uniqueCallback);
+    };
+  }
+  /**
+   * Emit a hook that was previously registered via `on()`.
+   */
+  emit(hook, ...rest) {
+    const callbacks = this._hooks[hook];
+    if (callbacks) {
+      callbacks.forEach((callback) => callback(...rest));
+    }
+  }
+  /**
+   * Send an envelope to Sentry.
+   */
+  // @ts-expect-error - PromiseLike is a subset of Promise
+  async sendEnvelope(envelope) {
+    this.emit("beforeEnvelope", envelope);
+    if (this._isEnabled() && this._transport) {
+      try {
+        const result = await this._transport.send(envelope);
+        this.emit("afterEnvelope", envelope);
+        return result;
+      } catch (reason) {
+        DEBUG_BUILD && debug.error("Error while sending envelope:", reason);
+        return {};
+      }
+    }
+    DEBUG_BUILD && debug.error("Transport disabled");
+    return {};
+  }
+  /**
+   * Register a cleanup function to be called when the client is disposed.
+   * This is useful for integrations that need to clean up global state.
+   *
+   * NOTE: This is a no-op in the base `Client` class. Subclasses like `ServerRuntimeClient`
+   * override this method to actually register and execute cleanup callbacks.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  registerCleanup(callback) {
+  }
+  /**
+   * Disposes of the client and releases all resources.
+   *
+   * Subclasses should override this method to clean up their own resources, including invoking
+   * any callbacks registered via {@link Client.registerCleanup}. The base implementation is a
+   * no-op and does NOT execute registered cleanup callbacks.
+   *
+   * After calling dispose(), the client should not be used anymore.
+   */
+  dispose() {
+  }
+  /* eslint-enable @typescript-eslint/unified-signatures */
+  /** Setup integrations for this client. */
+  _setupIntegrations() {
+    const { integrations } = this._options;
+    this._integrations = setupIntegrations(this, integrations);
+    afterSetupIntegrations(this, integrations);
+  }
+  /** Updates existing session based on the provided event */
+  _updateSessionFromEvent(session, event) {
+    let unhandled = event.level === "fatal";
+    let errored = false;
+    const exceptions = event.exception?.values;
+    if (exceptions) {
+      errored = true;
+      unhandled = false;
+      for (const ex of exceptions) {
+        if (ex.mechanism?.handled === false) {
+          unhandled = true;
+          break;
+        }
+      }
+    }
+    const sessionNonTerminal = session.status === "ok";
+    const shouldUpdateAndSend = sessionNonTerminal && session.errors === 0 || sessionNonTerminal && unhandled;
+    if (shouldUpdateAndSend) {
+      updateSession(session, {
+        ...unhandled && { status: this._unhandledSessionStatus },
+        errors: session.errors || Number(errored || unhandled)
+      });
+      this.captureSession(session);
+    }
+  }
+  /**
+   * Determine if the client is finished processing. Returns a promise because it will wait `timeout` ms before saying
+   * "no" (resolving to `false`) in order to give the client a chance to potentially finish first.
+   *
+   * @param timeout The time, in ms, after which to resolve to `false` if the client is still busy. Passing `0` (or not
+   * passing anything) will make the promise wait as long as it takes for processing to finish before resolving to
+   * `true`.
+   * @returns A promise which will resolve to `true` if processing is already done or finishes before the timeout, and
+   * `false` otherwise
+   */
+  async _isClientDoneProcessing(timeout) {
+    let ticked = 0;
+    while (!timeout || ticked < timeout) {
+      await new Promise((resolve3) => setTimeout(resolve3, 1));
+      if (!this._numProcessing) {
+        return true;
+      }
+      ticked++;
+    }
+    return false;
+  }
+  /** Determines whether this SDK is enabled and a transport is present. */
+  _isEnabled() {
+    return this.getOptions().enabled !== false && this._transport !== void 0;
+  }
+  /**
+   * Adds common information to events.
+   *
+   * The information includes release and environment from `options`,
+   * breadcrumbs and context (extra, tags and user) from the scope.
+   *
+   * Information that is already present in the event is never overwritten. For
+   * nested objects, such as the context, keys are merged.
+   *
+   * @param event The original event.
+   * @param hint May contain additional information about the original exception.
+   * @param currentScope A scope containing event metadata.
+   * @returns A new event with more information.
+   */
+  _prepareEvent(event, hint, currentScope, isolationScope) {
+    const options = this.getOptions();
+    const integrations = this.getIntegrationNames();
+    if (!hint.integrations && integrations.length) {
+      hint.integrations = integrations;
+    }
+    this.emit("preprocessEvent", event, hint);
+    if (!event.type) {
+      isolationScope.setLastEventId(event.event_id || hint.event_id);
+    }
+    return prepareEvent(options, event, hint, currentScope, this, isolationScope).then((evt) => {
+      if (evt === null) {
+        return evt;
+      }
+      this.emit("postprocessEvent", evt, hint);
+      evt.contexts = {
+        trace: { ...evt.contexts?.trace, ...getTraceContextFromScope(currentScope) },
+        ...evt.contexts
+      };
+      const dynamicSamplingContext = getDynamicSamplingContextFromScope(this, currentScope);
+      evt.sdkProcessingMetadata = {
+        dynamicSamplingContext,
+        ...evt.sdkProcessingMetadata
+      };
+      return evt;
+    });
+  }
+  /**
+   * Processes the event and logs an error in case of rejection
+   * @param event
+   * @param hint
+   * @param scope
+   */
+  _captureEvent(event, hint = {}, currentScope = getCurrentScope(), isolationScope = getIsolationScope()) {
+    if (DEBUG_BUILD && isErrorEvent2(event)) {
+      debug.log(`Captured error event \`${getPossibleEventMessages(event)[0] || "<unknown>"}\``);
+    }
+    return this._processEvent(event, hint, currentScope, isolationScope).then(
+      (finalEvent) => {
+        return finalEvent.event_id;
+      },
+      (reason) => {
+        if (DEBUG_BUILD) {
+          if (_isDoNotSendEventError(reason)) {
+            debug.log(reason.message);
+          } else if (_isInternalError(reason)) {
+            debug.warn(reason.message);
+          } else {
+            debug.warn(reason);
+          }
+        }
+        return void 0;
+      }
+    );
+  }
+  /**
+   * Processes an event (either error or message) and sends it to Sentry.
+   *
+   * This also adds breadcrumbs and context information to the event. However,
+   * platform specific meta data (such as the User's IP address) must be added
+   * by the SDK implementor.
+   *
+   *
+   * @param event The event to send to Sentry.
+   * @param hint May contain additional information about the original exception.
+   * @param currentScope A scope containing event metadata.
+   * @returns A SyncPromise that resolves with the event or rejects in case event was/will not be send.
+   */
+  _processEvent(event, hint, currentScope, isolationScope) {
+    const options = this.getOptions();
+    const { sampleRate } = options;
+    const isTransaction = isTransactionEvent(event);
+    const isError2 = isErrorEvent2(event);
+    const eventType = event.type || "error";
+    const beforeSendLabel = `before send for type \`${eventType}\``;
+    let beforeSendDropReason = "before_send";
+    let ignoredSpanCount = 0;
+    const parsedSampleRate = typeof sampleRate === "undefined" ? void 0 : parseSampleRate(sampleRate);
+    const isSampledOut = isError2 && typeof parsedSampleRate === "number" && safeMathRandom() > parsedSampleRate;
+    const dataCategory = getDataCategoryByType(event.type);
+    let preparedSpanCount = 0;
+    const session = currentScope.getSession() || isolationScope.getSession();
+    if (isSampledOut && session?.status !== "ok") {
+      this.recordDroppedEvent("sample_rate", "error");
+      return rejectedSyncPromise(_makeSampledOutError(sampleRate));
+    }
+    return this._prepareEvent(event, hint, currentScope, isolationScope).then((prepared) => {
+      if (prepared === null) {
+        throw _makeDoNotSendEventError("An event processor returned `null`, will not send event.");
+      }
+      preparedSpanCount = prepared.spans?.length || 0;
+      if (isInternalException(hint)) {
+        return prepared;
+      }
+      return processBeforeSend(
+        options,
+        prepared,
+        hint,
+        (reason) => {
+          beforeSendDropReason = reason;
+        },
+        (count) => {
+          ignoredSpanCount = count;
+        }
+      );
+    }).then((processedEvent) => {
+      if (ignoredSpanCount) {
+        this.recordDroppedEvent("ignored", "span", ignoredSpanCount);
+      }
+      const isValidEvent = isPlainObject4(processedEvent);
+      if (!isValidEvent || processedEvent === null) {
+        this.recordDroppedEvent(beforeSendDropReason, dataCategory);
+        if (isTransaction) {
+          this.recordDroppedEvent(beforeSendDropReason, "span", 1 + preparedSpanCount - ignoredSpanCount);
+        }
+        if (processedEvent !== null) {
+          throw _makeInternalError(`${beforeSendLabel} must return \`null\` or a valid event.`);
+        }
+        const dropMessage = beforeSendDropReason === "ignored" ? "Transaction matched `ignoreSpans`" : `${beforeSendLabel} ${beforeSendDropReason === "callback_error" ? "threw an error" : "returned `null`"}`;
+        throw _makeDoNotSendEventError(`${dropMessage}, will not send event.`);
+      }
+      if (isError2 && session) {
+        this._updateSessionFromEvent(session, processedEvent);
+      }
+      if (isSampledOut) {
+        this.recordDroppedEvent("sample_rate", "error");
+        throw _makeSampledOutError(sampleRate);
+      }
+      if (isTransaction) {
+        const droppedSpanCount = preparedSpanCount - ignoredSpanCount - (processedEvent.spans?.length || 0);
+        if (droppedSpanCount > 0) {
+          this.recordDroppedEvent("before_send", "span", droppedSpanCount);
+        }
+      }
+      const transactionInfo = processedEvent.transaction_info;
+      if (isTransaction && transactionInfo && processedEvent.transaction !== event.transaction) {
+        const source2 = "custom";
+        processedEvent.transaction_info = {
+          ...transactionInfo,
+          source: source2
+        };
+      }
+      this.sendEvent(processedEvent, hint);
+      return processedEvent;
+    }).then(null, (reason) => {
+      if (_isDoNotSendEventError(reason) || _isInternalError(reason)) {
+        throw reason;
+      }
+      this.captureException(reason, {
+        mechanism: {
+          handled: false,
+          type: "internal"
+        },
+        data: {
+          __sentry__: true
+        },
+        originalException: reason
+      });
+      throw _makeInternalError(
+        `Event processing pipeline threw an error, original event will not be sent. Details have been sent as a new event.
+Reason: ${reason}`
+      );
+    });
+  }
+  /**
+   * Occupies the client with processing and event
+   */
+  _process(taskProducer, dataCategory) {
+    this._numProcessing++;
+    void this._promiseBuffer.add(taskProducer).then(
+      (value2) => {
+        this._numProcessing--;
+        return value2;
+      },
+      (reason) => {
+        this._numProcessing--;
+        if (reason === SENTRY_BUFFER_FULL_ERROR) {
+          this.recordDroppedEvent("queue_overflow", dataCategory);
+        }
+        return reason;
+      }
+    );
+  }
+  /**
+   * Clears outcomes on this client and returns them.
+   */
+  _clearOutcomes() {
+    const outcomes = this._outcomes;
+    this._outcomes = {};
+    return Object.entries(outcomes).map(([key2, quantity]) => {
+      const [reason, category] = key2.split(":");
+      return {
+        reason,
+        category,
+        quantity
+      };
+    });
+  }
+  /**
+   * Sends client reports as an envelope.
+   */
+  _flushOutcomes() {
+    DEBUG_BUILD && debug.log("Flushing outcomes...");
+    const outcomes = this._clearOutcomes();
+    if (outcomes.length === 0) {
+      DEBUG_BUILD && debug.log("No outcomes to send");
+      return;
+    }
+    if (!this._dsn) {
+      DEBUG_BUILD && debug.log("No dsn provided, will not send outcomes");
+      return;
+    }
+    DEBUG_BUILD && debug.log("Sending outcomes:", outcomes);
+    const envelope = createClientReportEnvelope(outcomes, this._options.tunnel && dsnToString(this._dsn));
+    this.sendEnvelope(envelope);
+  }
+};
+function processBeforeSend(options, event, hint, onDrop, onIgnoredSpans) {
+  const {
+    beforeSend,
+    ignoreSpans,
+    // oxlint-disable-next-line typescript/no-deprecated
+    beforeSendTransaction
+  } = options;
+  const beforeSendSpan = isStaticBeforeSendSpanCallback(options.beforeSendSpan) && options.beforeSendSpan;
+  let processedEvent = event;
+  if (isErrorEvent2(processedEvent) && beforeSend) {
+    const errorEvent = processedEvent;
+    return safeCallback(
+      DEBUG_BUILD ? "The `beforeSend` callback threw an error, dropping the event:" : "",
+      () => beforeSend(errorEvent, hint),
+      () => {
+        onDrop("callback_error");
+        return null;
+      }
+    );
+  }
+  if (isTransactionEvent(processedEvent)) {
+    if (beforeSendSpan || ignoreSpans) {
+      const rootSpanJson = convertTransactionEventToSpanJson(processedEvent);
+      if (ignoreSpans?.length && shouldIgnoreSpan(
+        { description: rootSpanJson.description, op: rootSpanJson.op, attributes: rootSpanJson.data },
+        ignoreSpans
+      )) {
+        onDrop("ignored");
+        return null;
+      }
+      if (beforeSendSpan) {
+        const processedRootSpanJson = applyBeforeSendSpanCallback(rootSpanJson, beforeSendSpan);
+        processedEvent = merge3(event, convertSpanJsonToTransactionEvent(processedRootSpanJson));
+      }
+      if (processedEvent.spans) {
+        const processedSpans = [];
+        const initialSpans = processedEvent.spans;
+        for (const span of initialSpans) {
+          if (ignoreSpans?.length && shouldIgnoreSpan({ description: span.description, op: span.op, attributes: span.data }, ignoreSpans)) {
+            reparentChildSpans(initialSpans, span);
+            continue;
+          }
+          if (beforeSendSpan) {
+            processedSpans.push(applyBeforeSendSpanCallback(span, beforeSendSpan));
+          } else {
+            processedSpans.push(span);
+          }
+        }
+        onIgnoredSpans(initialSpans.length - processedSpans.length);
+        processedEvent.spans = processedSpans;
+      }
+    }
+    if (beforeSendTransaction) {
+      return safeCallback(
+        DEBUG_BUILD ? "The `beforeSendTransaction` callback threw an error, dropping the event:" : "",
+        () => beforeSendTransaction(processedEvent, hint),
+        () => {
+          onDrop("callback_error");
+          return null;
+        }
+      );
+    }
+  }
+  return processedEvent;
+}
+function isErrorEvent2(event) {
+  return event.type === void 0;
+}
+function isTransactionEvent(event) {
+  return event.type === "transaction";
+}
+function estimateMetricSizeInBytes(metric) {
+  let weight = 0;
+  if (metric.name) {
+    weight += metric.name.length * 2;
+  }
+  weight += 8;
+  return weight + estimateAttributesSizeInBytes(metric.attributes);
+}
+function estimateLogSizeInBytes(log2) {
+  let weight = 0;
+  if (log2.message) {
+    weight += log2.message.length * 2;
+  }
+  return weight + estimateAttributesSizeInBytes(log2.attributes);
+}
+function estimateAttributesSizeInBytes(attributes) {
+  if (!attributes) {
+    return 0;
+  }
+  let weight = 0;
+  Object.values(attributes).forEach((value2) => {
+    if (Array.isArray(value2)) {
+      weight += value2.length * estimatePrimitiveSizeInBytes(value2[0]);
+    } else if (isPrimitive(value2)) {
+      weight += estimatePrimitiveSizeInBytes(value2);
+    } else {
+      weight += 100;
+    }
+  });
+  return weight;
+}
+function estimatePrimitiveSizeInBytes(value2) {
+  if (typeof value2 === "string") {
+    return value2.length * 2;
+  } else if (typeof value2 === "number") {
+    return 8;
+  } else if (typeof value2 === "boolean") {
+    return 4;
+  }
+  return 0;
+}
+
+// ../../node_modules/@sentry/core/build/esm/utils/eventbuilder.js
+function parseStackFrames(stackParser2, error64) {
+  return stackParser2(error64.stack || "", 1);
+}
+function hasSentryFetchUrlHost(error64) {
+  return isError(error64) && "__sentry_fetch_url_host__" in error64 && typeof error64.__sentry_fetch_url_host__ === "string";
+}
+function _enhanceErrorWithSentryInfo(error64) {
+  if (hasSentryFetchUrlHost(error64)) {
+    return `${error64.message} (${error64.__sentry_fetch_url_host__})`;
+  }
+  return error64.message;
+}
+function exceptionFromError(stackParser2, error64) {
+  const exception = {
+    type: error64.name || error64.constructor.name,
+    value: _enhanceErrorWithSentryInfo(error64)
+  };
+  const frames = parseStackFrames(stackParser2, error64);
+  if (frames.length) {
+    exception.stacktrace = { frames };
+  }
+  return exception;
+}
+function getErrorPropertyFromObject(obj) {
+  for (const prop in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, prop)) {
+      const value2 = obj[prop];
+      if (isError(value2)) {
+        return value2;
+      }
+    }
+  }
+  return void 0;
+}
+function getMessageForObject(exception) {
+  if ("name" in exception && typeof exception.name === "string") {
+    let message2 = `'${exception.name}' captured as exception`;
+    if ("message" in exception && typeof exception.message === "string") {
+      message2 += ` with message '${exception.message}'`;
+    }
+    return message2;
+  } else if ("message" in exception && typeof exception.message === "string") {
+    return exception.message;
+  }
+  const keys = extractExceptionKeysForMessage(exception);
+  if (isErrorEvent(exception)) {
+    return `Event \`ErrorEvent\` captured as exception with message \`${exception.message}\``;
+  }
+  const className = getObjectClassName(exception);
+  return `${className && className !== "Object" ? `'${className}'` : "Object"} captured as exception with keys: ${keys}`;
+}
+function getObjectClassName(obj) {
+  try {
+    const prototype = Object.getPrototypeOf(obj);
+    return prototype ? prototype.constructor.name : void 0;
+  } catch {
+  }
+}
+function getException(client, mechanism, exception, hint) {
+  if (isError(exception)) {
+    return [exception, void 0];
+  }
+  mechanism.synthetic = true;
+  if (isPlainObject4(exception)) {
+    const normalizeDepth = client?.getOptions().normalizeDepth;
+    const extras = { ["__serialized__"]: normalizeToSize(exception, normalizeDepth) };
+    const errorFromProp = getErrorPropertyFromObject(exception);
+    if (errorFromProp) {
+      return [errorFromProp, extras];
+    }
+    const message2 = getMessageForObject(exception);
+    const ex2 = hint?.syntheticException || new Error(message2);
+    ex2.message = message2;
+    return [ex2, extras];
+  }
+  const ex = hint?.syntheticException || new Error(exception);
+  ex.message = `${exception}`;
+  return [ex, void 0];
+}
+function eventFromUnknownInput(client, stackParser2, exception, hint) {
+  const providedMechanism = hint?.data && hint.data.mechanism;
+  const mechanism = providedMechanism || {
+    handled: true,
+    type: "generic"
+  };
+  const [ex, extras] = getException(client, mechanism, exception, hint);
+  const event = {
+    exception: {
+      values: [exceptionFromError(stackParser2, ex)]
+    }
+  };
+  if (extras) {
+    event.extra = extras;
+  }
+  addExceptionTypeValue(event, void 0, void 0);
+  addExceptionMechanism(event, mechanism);
+  return {
+    ...event,
+    event_id: hint?.event_id
+  };
+}
+
+// src/crash.ts
+var CRASH_REPORTS_FILE = "crash-reports";
+var CONSENT_MAX_BYTES = 16;
+var REPORTS_PER_PROCESS = 5;
+var REPORT_TIMEOUT_MS = 3e3;
+async function readConsent(path2) {
+  let text2;
+  try {
+    const handle = await fs13.open(path2, "r");
+    try {
+      const buf2 = Buffer.alloc(CONSENT_MAX_BYTES + 1);
+      const { bytesRead } = await handle.read(buf2, 0, buf2.length, 0);
+      if (bytesRead > CONSENT_MAX_BYTES) return void 0;
+      text2 = buf2.subarray(0, bytesRead).toString("utf8").trim();
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    return void 0;
+  }
+  return text2 === "on" || text2 === "off" ? text2 : void 0;
+}
+function bakedDsn(value2) {
+  if (typeof value2 !== "string") return void 0;
+  const dsn = value2.trim();
+  return /^https:\/\/[0-9a-f]{16,64}@[a-z0-9.-]+(:\d{1,5})?\/\d{1,20}$/.test(dsn) ? dsn : void 0;
+}
+function forcedOff(env3) {
+  if ((env3["WIM_NO_CRASH_REPORTS"] ?? "") !== "") return "WIM_NO_CRASH_REPORTS";
+  const dnt = env3["DO_NOT_TRACK"] ?? "";
+  return dnt !== "" && dnt !== "0" ? "DO_NOT_TRACK" : void 0;
+}
+var BUG_TYPES = [TypeError, RangeError, ReferenceError, SyntaxError, URIError, EvalError];
+function isBug(error64) {
+  if (typeof error64 !== "object" || error64 === null) return false;
+  const proto = Object.getPrototypeOf(error64);
+  if (!BUG_TYPES.some((type) => type.prototype === proto)) return false;
+  const e6 = error64;
+  return e6.errno === void 0 && !(proto === TypeError.prototype && e6.message === "fetch failed");
+}
+var escape2 = (text2) => text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var CODE_FILE = /\.(?:[cm]?js|tsx?|json)$/i;
+function scrubText(text2, known) {
+  let out = text2.replace(/"[^"]*"|'[^']*'|`[^`]*`|\u201c[^\u201d]*\u201d/g, "<quoted>").replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s<>]*/gi, "<url>").replace(/\b[a-z]:[\\/][^\n]*/gi, "<path>").replace(/(^|[\s(=:,[{])(?:~|\.{1,2})?[\\/][^\n]*/g, "$1<path>").replace(/[^\s<>]*\\[^\n]*/g, "<path>");
+  const user = known.homedir.split(/[\\/]/).filter((p3) => p3 !== "").at(-1) ?? "";
+  for (const [literal2, mark] of [
+    [known.homedir, "<home>"],
+    [known.hostname, "<host>"],
+    // split always has a first part.
+    [known.hostname.split(".")[0], "<host>"],
+    [user, "<user>"]
+  ]) {
+    if (literal2.length >= 3) out = out.replace(new RegExp(escape2(literal2), "gi"), mark);
+  }
+  out = out.replace(/[\w.+-]+@[\w.-]+/g, "<address>").replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, "<ip>").replace(/\b[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}\b/gi, (m4) => m4.includes("::") || m4.split(":").length > 3 ? "<ip>" : m4).replace(/\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}\b/gi, (m4) => CODE_FILE.test(m4) ? m4 : "<host>").replace(/[A-Za-z0-9+/=_-]{16,}/g, "<id>").replace(/\d{6,}/g, "<n>");
+  if (findSecrets(out).length > 0) return "<removed>";
+  out = out.replace(new RegExp("(?<![\\p{L}\\p{N}_$])\\p{Lu}[\\p{L}\\p{N}_$]*", "gu"), (m4, at, all) => all.slice(0, at).trim() === "" ? m4 : "<word>");
+  return out.length > 300 ? `${out.slice(0, 300)}...` : out;
+}
+function frameFile(filename) {
+  if (filename === void 0) return "?";
+  if (/^node:[\w-]+(?:\/[\w-]+)*$/.test(filename)) return filename;
+  const base = filename.split(/[\\/]/).at(-1);
+  return /^[\w.-]{1,64}\.(?:[cm]?js|tsx?)$/.test(base) ? base : "?";
+}
+function frameFunction(name) {
+  const kept = (name ?? "").replace(/\(.*$/, "").replace(/[^\w$.<> [\]]/g, "").trim().slice(0, 120);
+  return kept === "" ? "?" : kept;
+}
+function parseFrame(line) {
+  const m4 = /^\s*at (?:(.+?) \()?(.+?):(\d+):(\d+)\)?$/.exec(line);
+  if (m4 === null) return void 0;
+  const filename = m4[2];
+  return { function: m4[1] ?? "?", filename, lineno: Number(m4[3]), colno: Number(m4[4]), in_app: !filename.startsWith("node:") };
+}
+var stackParser = createStackParser([90, parseFrame]);
+function crashEvent(event, facts, where) {
+  const values = (event.exception?.values ?? []).slice(0, 1).map((v) => ({
+    type: /^[A-Za-z]{1,40}$/.test(v.type ?? "") ? v.type : "Error",
+    value: scrubText(v.value ?? "", facts.known),
+    mechanism: { type: where === "command" ? "wim.command" : "wim.unhandledRejection", handled: false },
+    stacktrace: {
+      frames: (v.stacktrace?.frames ?? []).slice(-50).map((f7) => ({
+        filename: frameFile(f7.filename),
+        function: frameFunction(f7.function),
+        ...f7.lineno === void 0 ? {} : { lineno: f7.lineno },
+        ...f7.colno === void 0 ? {} : { colno: f7.colno },
+        in_app: f7.in_app === true
+      }))
+    }
+  }));
+  return {
+    type: void 0,
+    event_id: event.event_id,
+    timestamp: event.timestamp,
+    platform: "node",
+    level: where === "command" ? "fatal" : "error",
+    release: facts.release,
+    environment: "production",
+    exception: { values },
+    tags: { command: /^[a-z][a-z0-9-]{0,20}$/.test(facts.command) ? facts.command : "other" },
+    contexts: { os: { name: facts.platform }, runtime: { name: "node", version: facts.node } }
+  };
+}
+var NO_DATA_COLLECTION = {
+  userInfo: false,
+  cookies: false,
+  httpHeaders: false,
+  httpBodies: [],
+  urlQueryParams: false,
+  graphQL: { document: false, variables: false },
+  genAI: { inputs: false, outputs: false },
+  mcp: { inputs: false, outputs: false },
+  databaseQueryData: false,
+  queues: false,
+  stackFrameVariables: false,
+  frameContextLines: 0
+};
+var CrashClient = class extends Client2 {
+  constructor(options) {
+    super(options);
+  }
+  eventFromException(exception) {
+    return Promise.resolve(eventFromUnknownInput(this, this._options.stackParser, exception));
+  }
+  /** Never used: a report is only ever an exception. */
+  eventFromMessage() {
+    return Promise.reject(new Error("crash reports carry exceptions only"));
+  }
+};
+function fetchTransport(fetcher, delivered, timeoutMs = REPORT_TIMEOUT_MS) {
+  return (options) => createTransport(options, async (request2) => {
+    const res = await fetcher(options.url, {
+      method: "POST",
+      body: request2.body,
+      headers: { "Content-Type": "application/x-sentry-envelope" },
+      redirect: "error",
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+    if (res.status >= 200 && res.status < 300) delivered();
+    return { statusCode: res.status, headers: { "x-sentry-rate-limits": res.headers.get("x-sentry-rate-limits"), "retry-after": res.headers.get("retry-after") } };
+  });
+}
+var whereOf = (hint) => hint.data.where;
+var CrashReporter = class {
+  o;
+  client;
+  constructor(o3) {
+    this.o = o3;
+  }
+  /** Whether reporting is allowed right now, and if not, why not. */
+  async allowed() {
+    if (this.o.dsn === void 0) return { ok: false, why: "no-address" };
+    if (forcedOff(this.o.env) !== void 0) return { ok: false, why: "env" };
+    if (await readConsent(this.o.file) !== "on") return { ok: false, why: "not-on" };
+    return { ok: true };
+  }
+  /**
+   * Sends one report of `error` when it is a bug and reporting is allowed, waiting at most
+   * REPORT_TIMEOUT_MS. True when Sentry took it (a 2xx answer).
+   */
+  async report(error64, where) {
+    if (!isBug(error64)) return false;
+    if (!(await this.allowed()).ok) return false;
+    const key2 = `${error64.name}
+${error64.message}`;
+    if (this.taken.size >= REPORTS_PER_PROCESS || this.taken.has(key2)) return false;
+    this.taken.add(key2);
+    const client = this.clientFor();
+    const before = this.delivered;
+    client.captureException(error64, { data: { where } }, new Scope());
+    await client.flush(this.o.timeoutMs ?? REPORT_TIMEOUT_MS);
+    return this.delivered > before;
+  }
+  delivered = 0;
+  /** The type and message of every report this reporter has sent. */
+  taken = /* @__PURE__ */ new Set();
+  clientFor() {
+    if (this.client !== void 0) return this.client;
+    const facts = { release: this.o.release, command: this.o.command, platform: this.o.platform, node: process.versions.node, known: this.o.known };
+    const options = {
+      dsn: this.o.dsn,
+      release: this.o.release,
+      environment: "production",
+      integrations: [],
+      stackParser,
+      transport: fetchTransport(this.o.fetch, () => void this.delivered++, this.o.timeoutMs),
+      sendClientReports: false,
+      dataCollection: NO_DATA_COLLECTION,
+      maxBreadcrumbs: 0,
+      beforeBreadcrumb: () => null,
+      attachStacktrace: false,
+      enhanceFetchErrorMessages: false,
+      sampleRate: 1,
+      beforeSend: (event, hint) => crashEvent(event, facts, whereOf(hint))
+    };
+    this.client = (this.o.makeClient ?? ((opts) => new CrashClient(opts)))(options);
+    this.client.init();
+    return this.client;
+  }
+};
+
 // src/cli.ts
 var VERSION = "0.1.8";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected"]);
@@ -124144,7 +128566,8 @@ var COMMAND_FLAGS = {
   ci: ["as", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
   a2a: ["as"],
   recover: ["relay", "tls", "revoke", "name"],
-  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"]
+  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
+  "crash-reports": []
 };
 function parseArgs(argv) {
   const positional = [];
@@ -124221,13 +128644,14 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim recovery show | wim recovery rotate
   wim doctor
   wim notify-test
+  wim crash-reports [status | on | off]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
 Commands: init, mesh create, invite, join, devices, peers, send, ping, watch, held, history, mcp,
-bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, agent.
+bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, crash-reports, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
   if (!/^[a-z-]+$/.test(command5)) return void 0;
@@ -124264,9 +128688,9 @@ var Ctx = class {
     let id2;
     try {
       id2 = meshId ?? await this.home.pickMesh(flag2(this.args, "mesh") ?? this.env["WIM_MESH"]);
-    } catch (error63) {
+    } catch (error64) {
       device.keyring.close();
-      throw error63;
+      throw error64;
     }
     return { device, files: new MeshFiles(this.home.meshDir(id2), this.fsEnv) };
   }
@@ -124318,10 +128742,10 @@ var Ctx = class {
     s3.start();
     try {
       await s3.ready(this.io.connectMs ?? 15e3);
-    } catch (error63) {
+    } catch (error64) {
       await s3.stop();
-      if (error63 instanceof WireError && error63.code === "fatal") throw new SetupError(error63.message);
-      throw new SetupError(`${error63.message} (${last})`);
+      if (error64 instanceof WireError && error64.code === "fatal") throw new SetupError(error64.message);
+      throw new SetupError(`${error64.message} (${last})`);
     }
     if (keyed) await refuseHeldName(s3, name);
     s3.on("fatal", (reason) => this.io.err(`wim: ${reason}`));
@@ -124400,9 +128824,9 @@ async function main(argv, env3, io) {
   let args;
   try {
     args = parseArgs(argv);
-  } catch (error63) {
-    if (notifying) return notifyRefused(io, error63.message);
-    io.err(error63.message);
+  } catch (error64) {
+    if (notifying) return notifyRefused(io, error64.message);
+    io.err(error64.message);
     return 2;
   }
   const [command5, ...rest] = args.positional;
@@ -124435,6 +128859,17 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
     return 2;
   }
   const ctx = new Ctx(env3, io, { positional: rest, flags: args.flags });
+  const crash = new CrashReporter({
+    dsn: bakedDsn("https://8a144e08992790fa91bbd33197e4b237@o4511933949083648.ingest.de.sentry.io/4512381403856976"),
+    file: pathJoin(ctx.home.root, CRASH_REPORTS_FILE),
+    env: env3,
+    release: `worldinmotion@${VERSION}`,
+    command: command5 ?? "",
+    platform: io.platform,
+    known: { homedir: io.homedir, hostname: io.hostname },
+    fetch: io.fetch
+  });
+  io.onUnexpected?.((reason) => void crash.report(reason, "unhandledRejection"));
   try {
     switch (command5) {
       case void 0:
@@ -124479,13 +128914,15 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "a2a":
         return await service(ctx, command5);
       case "recover":
-        return await recover(ctx);
+        return await recover2(ctx);
       case "recovery":
         return await recovery(ctx);
       case "doctor":
         return await doctor(ctx);
       case "notify-test":
         return await notifyTest(ctx);
+      case "crash-reports":
+        return await crashReports(ctx, crash);
       case "agent":
         return await agentCommand({ home: ctx.home, io, env: env3, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
       default:
@@ -124494,10 +128931,47 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
 ${USAGE}`);
         return 2;
     }
-  } catch (error63) {
-    io.err(`wim: ${sanitizeForDisplay(error63.message)}`);
+  } catch (error64) {
+    io.err(`wim: ${sanitizeForDisplay(error64.message)}`);
+    if (await crash.report(error64, "command")) io.err(CRASH_SENT);
     return 1;
   }
+}
+var CRASH_SENT = "wim: sent a crash report (the error's type, the stack and the message with paths, ids, quoted text and capitalised words removed). `wim crash-reports off` stops them.";
+var CRASH_REPORT_TERMS = [
+  "Crash reports go to Distronode's Sentry organisation in the European Union (de.sentry.io), from",
+  "any bundled wim (npm, the GitHub release, the VS Code extension, the Claude Code plugin) that uses",
+  "this state directory, and only when a bug ends a command or goes uncaught, at most 5 a process. A",
+  "report holds the error's type, its message with quoted text, paths, URLs, addresses, ids, keys,",
+  "long numbers and capitalised words removed (lowercase words the code wrote into it stay), the",
+  "stack's function and file names and line numbers, the wim version, the command name, the OS family",
+  "and the Node version. It is never given your messages, files, keys, the mesh, device or session",
+  "ids, or the working directory, and your user and host name are removed from it. `wim crash-reports",
+  "off` stops them at once."
+];
+async function crashReports(ctx, crash) {
+  const action = ctx.args.positional[0] ?? "status";
+  const file2 = pathJoin(ctx.home.root, CRASH_REPORTS_FILE);
+  if (action === "off") {
+    await writeAtomic(file2, "off\n", ctx.fsEnv);
+    ctx.io.out("Crash reports are off.");
+    return 0;
+  }
+  if (action === "on") {
+    requirePerson(ctx.env, ctx.io, "wim crash-reports on");
+    if (!await confirmTyped(ctx.io, CRASH_REPORT_TERMS, "Send crash reports?")) return 1;
+    await writeAtomic(file2, "on\n", ctx.fsEnv);
+    ctx.io.out("Crash reports are on. `wim crash-reports off` turns them off.");
+  } else if (action !== "status") {
+    throw new SetupError("usage: wim crash-reports [status | on | off]");
+  } else {
+    ctx.io.out(`Crash reports are ${await readConsent(file2) === "on" ? "on" : "off"}.`);
+  }
+  const allowed = await crash.allowed();
+  if (!allowed.ok && allowed.why === "no-address") ctx.io.out("This build of wim sends none: it runs from source, and only the bundled builds (npm, the GitHub release, the VS Code extension, the Claude Code plugin) carry the address reports go to.");
+  const off = forcedOff(ctx.env);
+  if (off !== void 0) ctx.io.out(`${off} is set, so none are sent from here.`);
+  return 0;
 }
 async function init(ctx) {
   const name = flag2(ctx.args, "name") ?? toName(ctx.io.hostname, "device");
@@ -124524,10 +128998,10 @@ async function meshCreate(ctx) {
     ...key2 === void 0 ? {} : { key: key2 },
     ...tls3 === void 0 ? {} : { tls: tls3 },
     recovery: ctx.args.flags.get("no-recovery") !== true
-  }).catch(async (error63) => {
-    if (!(error63 instanceof ClientError)) throw error63;
-    if (error63.code === "full") throw new ClientError(`${CREATE_REFUSED}: this relay has reached its limit of new meshes; run your own relay (packages/relay-node) or try another`, "full");
-    if (error63.code !== "unauthorized") throw error63;
+  }).catch(async (error64) => {
+    if (!(error64 instanceof ClientError)) throw error64;
+    if (error64.code === "full") throw new ClientError(`${CREATE_REFUSED}: this relay has reached its limit of new meshes; run your own relay (packages/relay-node) or try another`, "full");
+    if (error64.code !== "unauthorized") throw error64;
     throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls3)}`, "unauthorized");
   });
   ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
@@ -124653,8 +129127,8 @@ async function invite(ctx) {
           if (handed) ctx.io.out("The invite code was shown.");
           else unusable = "the invite code was not collected and is gone, so the invite cannot be used: make a new one";
         },
-        (error63) => {
-          unusable = `the invite code could not be offered for \`wim invite show\` (${error63.message}): make a new invite`;
+        (error64) => {
+          unusable = `the invite code could not be offered for \`wim invite show\` (${error64.message}): make a new invite`;
         }
       ).then(() => wake?.());
     }
@@ -124751,8 +129225,8 @@ async function registerCli(ctx, mesh) {
   const name = nameFor(ctx, "cli");
   try {
     await ctx.finish(await ctx.session(name, { mesh }));
-  } catch (error63) {
-    ctx.io.err(`wim: could not register ${name} with the relay (${error63.message}). Until \`wim inbox\` or \`wim watch\` runs on this device, sends to ${name} here answer \`unknown\`.`);
+  } catch (error64) {
+    ctx.io.err(`wim: could not register ${name} with the relay (${error64.message}). Until \`wim inbox\` or \`wim watch\` runs on this device, sends to ${name} here answer \`unknown\`.`);
   }
 }
 function deviceRows(r6, config2) {
@@ -125183,8 +129657,8 @@ function pinRefusal(rules, ruleId2, pins) {
   try {
     pinRule(rules, ruleId2, pins);
     return void 0;
-  } catch (error63) {
-    return error63;
+  } catch (error64) {
+    return error64;
   }
 }
 function heldDetails(rows, config2, all, rules) {
@@ -125245,8 +129719,8 @@ async function mcp(ctx) {
   const attempt = async () => {
     try {
       return { session: await ctx.sessionOptions(name, kind, true) };
-    } catch (error63) {
-      return { problem: error63.message, again: error63 instanceof NotReadyYet };
+    } catch (error64) {
+      return { problem: error64.message, again: error64 instanceof NotReadyYet };
     }
   };
   const first = await attempt();
@@ -125267,7 +129741,7 @@ async function mcp(ctx) {
     poll = setInterval(() => ctx.io.parentGone() ? resolve3() : void 0, ctx.io.parentPollMs ?? 5e3);
   });
   await server.server.connect(new StdioServerTransport(stdin, ctx.io.stdout));
-  await server.start()?.catch((error63) => ctx.io.err(`wim: ${error63.message}`));
+  await server.start()?.catch((error64) => ctx.io.err(`wim: ${error64.message}`));
   await Promise.race([closed, orphaned, ctx.untilStopped()]);
   clearInterval(poll);
   let timer;
@@ -125277,7 +129751,7 @@ async function mcp(ctx) {
 }
 async function readConfig(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs13.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs14.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
@@ -125307,7 +129781,7 @@ async function service(ctx, which) {
     await s3.stop();
   }
 }
-async function recover(ctx) {
+async function recover2(ctx) {
   const code2 = ctx.args.positional[0];
   const relay = flag2(ctx.args, "relay");
   if (code2 === void 0 || relay === void 0) throw new SetupError("usage: wim recover <code> --relay <url>");
@@ -125354,8 +129828,8 @@ async function doctor(ctx) {
     device = await ctx.home.loadDevice();
     if (device === void 0) bad(`no device keys at ${ctx.home.devicePath}: run wim init`);
     else ok2(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim agent)" : "key file permissions are private"}`);
-  } catch (error63) {
-    bad(error63.message);
+  } catch (error64) {
+    bad(error64.message);
   }
   const rootProblem = await ctx.home.rootProblem();
   if (rootProblem === void 0) ok2(`state directory ${ctx.home.root}`);
@@ -125374,8 +129848,8 @@ async function doctor(ctx) {
       for (const line of published === void 0 ? ["this relay does not publish /v1/info"] : describeInfo(published)) info(`mesh ${id2}: ${line}`);
       if (Math.abs(skew) > 6e4) bad(`mesh ${id2}: this clock is ${Math.round(skew / 1e3)} s off the relay's (auth allows 300 s; messages 600 s ahead)`);
       else ok2(`mesh ${id2}: clock within ${Math.round(Math.abs(skew) / 1e3)} s of the relay`);
-    } catch (error63) {
-      bad(`mesh ${id2}: relay ${config2.relay}: ${error63.message}`);
+    } catch (error64) {
+      bad(`mesh ${id2}: relay ${config2.relay}: ${error64.message}`);
       continue;
     }
     const before = config2.pin.seq;
@@ -125389,8 +129863,8 @@ async function doctor(ctx) {
       } finally {
         await s3.stop({ ended: true });
       }
-    } catch (error63) {
-      bad(`mesh ${id2}: ${error63.message}`);
+    } catch (error64) {
+      bad(`mesh ${id2}: ${error64.message}`);
     }
   }
   return problems === 0 ? 0 : 1;
@@ -125418,14 +129892,18 @@ function ask(input2, open3, question) {
 }
 function written(out, text2) {
   if (out.destroyed || out.writableEnded) return Promise.resolve(false);
-  return new Promise((resolve3) => void out.write(text2, (error63) => resolve3(error63 == null)));
+  return new Promise((resolve3) => void out.write(text2, (error64) => resolve3(error64 == null)));
 }
 function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kill: (pid, s3) => void process.kill(pid, s3), wim: wimCommand }) {
   const stop = new AbortController();
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) proc.once(signal, () => stop.abort());
   const parent = proc.ppid;
-  proc.on("unhandledRejection", (reason) => void proc.stderr.write(`wim: unexpected error: ${reason instanceof Error ? reason.message : String(reason)}
-`));
+  const unexpected = [];
+  proc.on("unhandledRejection", (reason) => {
+    proc.stderr.write(`wim: unexpected error: ${reason instanceof Error ? reason.message : String(reason)}
+`);
+    for (const listener of unexpected) listener(reason);
+  });
   let listening = false;
   return {
     out: (line) => void proc.stdout.write(`${line}
@@ -125462,6 +129940,7 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     isTTY: proc.stdout.isTTY === true,
     inputIsTTY: proc.stdin.isTTY === true,
     fetch: globalThis.fetch,
+    onUnexpected: (listener) => void unexpected.push(listener),
     // Orphaned children are re-parented, so a changed ppid means the parent died.
     parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill)
   };

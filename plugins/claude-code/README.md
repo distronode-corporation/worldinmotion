@@ -105,6 +105,9 @@ counts read from disk refresh every five seconds while the pane is shown.
 
 ## Privacy and safety
 
+- The plugin's `wim` sends crash reports only after you run `wim crash-reports on` yourself, in
+  your own terminal (repository README, Crash reports). The answer is shared by every `wim` that
+  uses the same state directory, so a yes given to the npm `wim` covers the plugin's too.
 - Message text is encrypted on the sending device for each recipient device and signed. The
   relay routes ciphertext and never holds the keys. It does see metadata: device and session
   names, who sends to whom, when, and how large. See `SECURITY-MODEL.md` in the repository.

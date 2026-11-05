@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { BACKOFF_MS, clientCommand, clientCwd, signerTerminal, EventsProcess, LineSplitter, MAX_LINE, REQUEST_TIMEOUT_MS, RequestError, STABLE_MS, type Child, type SpawnFn, type Timers } from "../src/process.ts";
+import { BACKOFF_MS, clientCommand, clientCwd, crashReportsTerminal, signerTerminal, EventsProcess, LineSplitter, MAX_LINE, REQUEST_TIMEOUT_MS, RequestError, STABLE_MS, type Child, type SpawnFn, type Timers } from "../src/process.ts";
 import type { WimEvent } from "../src/protocol.ts";
 import { flush } from "./helpers.ts";
 
@@ -279,7 +279,7 @@ describe("EventsProcess", () => {
 });
 
 describe("clientCommand", () => {
-  const base = { extensionPath: "/ext", wimPath: "", sessionName: "vscode", execPath: "/electron", env: { HOME: "/h", ELECTRON_RUN_AS_NODE: "0" }, cwd: "/work/app" };
+  const base = { extensionPath: "/ext", wimPath: "", sessionName: "vscode", execPath: "/electron", env: { HOME: "/h", ELECTRON_RUN_AS_NODE: "0" }, telemetry: true, cwd: "/work/app" };
 
   it("runs the bundled client on VS Code's Node", () => {
     expect(clientCommand(base)).toEqual({
@@ -302,6 +302,14 @@ describe("clientCommand", () => {
     });
   });
 
+  it("keeps the client's crash reports off while VS Code's telemetry is off, and never turns them on", () => {
+    expect(clientCommand({ ...base, telemetry: false }).env).toEqual({ HOME: "/h", ELECTRON_RUN_AS_NODE: "1", WIM_NO_CRASH_REPORTS: "1" });
+    expect(clientCommand({ ...base, wimPath: "/usr/local/bin/wim", telemetry: false }).env).toEqual({ HOME: "/h", WIM_NO_CRASH_REPORTS: "1" });
+    // Telemetry on adds nothing, and leaves a WIM_NO_CRASH_REPORTS the person set in place.
+    expect(clientCommand(base).env).not.toHaveProperty("WIM_NO_CRASH_REPORTS");
+    expect(clientCommand({ ...base, env: { WIM_NO_CRASH_REPORTS: "yes" } }).env).toEqual({ WIM_NO_CRASH_REPORTS: "yes", ELECTRON_RUN_AS_NODE: "1" });
+  });
+
   it("refuses a session name outside the client's grammar", () => {
     expect(() => clientCommand({ ...base, sessionName: "Bad Name" })).toThrow(/worldinmotion.sessionName must be/);
     expect(() => clientCommand({ ...base, sessionName: "--json" })).toThrow();
@@ -320,7 +328,7 @@ describe("clientCwd", () => {
 });
 
 describe("signerTerminal", () => {
-  const base = { extensionPath: "/ext", wimPath: "", execPath: "/electron", env: { HOME: "/h" }, cwd: "/h", locked: false };
+  const base = { extensionPath: "/ext", wimPath: "", execPath: "/electron", env: { HOME: "/h" }, telemetry: true, cwd: "/h", locked: false };
 
   it("runs the bundled client's wim agent start on VS Code's Node, or unlock when the signer is locked", () => {
     expect(signerTerminal(base)).toEqual({
@@ -335,5 +343,32 @@ describe("signerTerminal", () => {
 
   it("runs an executable wimPath as itself, with Electron's switch cleared", () => {
     expect(signerTerminal({ ...base, wimPath: "/usr/local/bin/wim" })).toMatchObject({ shellPath: "/usr/local/bin/wim", shellArgs: ["agent", "start"], env: { ELECTRON_RUN_AS_NODE: null } });
+  });
+
+  it("keeps crash reports off while VS Code's telemetry is off", () => {
+    expect(signerTerminal({ ...base, telemetry: false }).env).toEqual({ ELECTRON_RUN_AS_NODE: "1", WIM_NO_CRASH_REPORTS: "1" });
+  });
+});
+
+describe("crashReportsTerminal", () => {
+  const base = { extensionPath: "/ext", wimPath: "", execPath: "/electron", env: { HOME: "/h" }, telemetry: true, cwd: "/h" };
+
+  it("runs wim crash-reports on or off with the bundled client", () => {
+    expect(crashReportsTerminal({ ...base, on: true })).toEqual({
+      name: "worldinmotion crash reports",
+      shellPath: "/electron",
+      shellArgs: [join("/ext", "dist", "wim.mjs"), "crash-reports", "on"],
+      env: { ELECTRON_RUN_AS_NODE: "1" },
+      cwd: "/h",
+    });
+    expect(crashReportsTerminal({ ...base, on: false }).shellArgs.slice(1)).toEqual(["crash-reports", "off"]);
+  });
+
+  it("says so in the terminal's environment while VS Code's telemetry is off, so wim tells the person none are sent", () => {
+    expect(crashReportsTerminal({ ...base, on: true, telemetry: false, wimPath: "/usr/local/bin/wim" })).toMatchObject({
+      shellPath: "/usr/local/bin/wim",
+      shellArgs: ["crash-reports", "on"],
+      env: { ELECTRON_RUN_AS_NODE: null, WIM_NO_CRASH_REPORTS: "1" },
+    });
   });
 });

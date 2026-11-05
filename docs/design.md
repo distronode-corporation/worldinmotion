@@ -34,6 +34,8 @@ $WIM_HOME/
                                `wim agent encrypt`, version 2: the public keys and name in the
                                clear and the secret keys and a data key encrypted (scrypt,
                                ChaCha20-Poly1305) under the passphrase
+  crash-reports          0600  `on` or `off`, written by `wim crash-reports`: no file, or anything else,
+                               is off (README, Crash reports)
   agent/                 0700  the signer (`wim agent`), when one was ever started here
     sock                 0600  its Unix socket (Windows: a named pipe `\\.\pipe\wim-agent-<token>`)
     pipe                 0600  Windows only: the pipe's random token
@@ -364,7 +366,9 @@ receipt from it arrives.
 
 - `wim` is bundled with esbuild into one file, `wim.mjs` (Node >= 22.18), published to npm as
   `worldinmotion` (`npm install --global worldinmotion` installs it as `wim`), attached to every
-  GitHub Release with its SHA-256, and the same bundle is the plugin's `dist/client.mjs`. The VS
+  GitHub Release with its SHA-256, and the same bytes are the plugin's `dist/client.mjs`. Every
+  copy carries the committed crash-report address (`packages/client/crash-report-dsn.txt`) in
+  place of `globalThis.__WIM_SENTRY_DSN__`, which `scripts/bundle.mjs` checks. The VS
   Code extension is `distronode.worldinmotion` on the Visual Studio Marketplace and Open VSX.
 - Platforms: Linux, macOS and Windows. Platform differences (key-file permissions, which on Windows
   are ACLs and not mode bits; paths; file locking) live in one module that takes the platform as a

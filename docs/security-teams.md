@@ -64,6 +64,15 @@ someone else holds that person's messages by default, and what the employee appr
 reaches the agents as information only, never as work to do, unless the employee trusts that
 device (`wim devices trust`). The person still decides what to approve.
 
+**Does wim send anything to Distronode?** Not unless a person turns crash reports on with `wim
+crash-reports on` at their own terminal; an agent cannot. They are off by default, and
+`WIM_NO_CRASH_REPORTS=1` (or `DO_NOT_TRACK=1`) in a managed environment keeps them off whatever
+a person answers. A report goes to Sentry (de.sentry.io) and holds a bug's type, stack and
+scrubbed message: quoted text, ids, keys, addresses, paths and capitalised words are removed, and
+lowercase words the code wrote into the message can remain. The answer is a file any program
+running as the person can write, so set the variable where that matters. The README's "Crash reports
+(opt in)" lists every field.
+
 **Who runs the hosted relay?** Distronode, on Cloudflare, free until 1.0 with no SLA. Its terms and
 what it can see are in [hosted-relay.md](hosted-relay.md). A company can run its own relay
 ([relay-node](../packages/relay-node/README.md)).

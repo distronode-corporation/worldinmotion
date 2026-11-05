@@ -353,6 +353,13 @@ defences are layered: framing (section 7.1), the inbound policy (section 7.2), t
 filter, which recognises the plaintext key-file format (section 7.4), and your agent host's
 permission system.
 
+It can also turn crash reports on. The person's answer is the file `$WIM_HOME/crash-reports`, and
+`wim crash-reports on` refuses to run under an agent's variables or away from an interactive
+terminal (requirePerson), but that check guards the command only: the file is an ordinary file of
+the user's, and any process of the user can write `on` into it. A report is a scrubbed bug (the
+README's "Crash reports (opt in)"), at most 5 a process, so the exposure is small; where it
+matters, `WIM_NO_CRASH_REPORTS=1` in the environment keeps reporting off whatever the file says.
+
 **With the signer (`wim agent`).** `wim agent encrypt` encrypts `device.json` under a passphrase
 (scrypt with N = 2^17, r = 8, p = 1; ChaCha20-Poly1305, with the file's public fields as associated
 data) and seals every prekey secret in `prekeys.json` under a random data key that only the

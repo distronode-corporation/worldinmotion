@@ -44,7 +44,8 @@ What the line at the top means:
   no sign-up, and no vendor account is involved.
 - **No telemetry.** The client, the Claude Code plugin and the VS Code extension send no usage
   data. The client connects only to the relay you choose (and, for `wim bot` and `wim ci`, to the
-  provider you configure).
+  provider you configure). Crash reports are off unless you turn them on, see
+  [Crash reports (opt in)](#crash-reports-opt-in).
 - **Sealed offline delivery.** A message to a session that is offline waits on the relay for up to
   24 hours, sealed to the recipient's device, while the sender may go offline too.
 
@@ -407,6 +408,60 @@ The full threat model, including what is out of scope, is in
 [SECURITY-MODEL.md](SECURITY-MODEL.md). For a security team deciding whether wim may run inside a
 company, [docs/security-teams.md](docs/security-teams.md) maps it to the OWASP agent risks and
 names the gaps. To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
+## Crash reports (opt in)
+
+Every bundled `wim` can send a crash report to Distronode's Sentry organisation in the European
+Union (de.sentry.io) when a bug ends a command. They are off until you turn them on, and
+nothing asks you to: run this yourself, in your own terminal.
+
+```
+wim crash-reports on       # shows what a report holds, then asks; only a typed y says yes
+wim crash-reports off      # stops them at once, a running `wim mcp` included
+wim crash-reports          # says whether they are on, and whether this build can send any
+```
+
+In VS Code, **worldinmotion: Turn Crash Reports On...** and **Turn Crash Reports Off** open a
+terminal running the same commands with the extension's own client.
+
+- **Nothing is sent before a yes.** The answer is the file `crash-reports` in the state directory
+  that `wim doctor` names, holding `on` or `off`; no file, or anything else in it, is no. No
+  environment variable or flag can turn reports on, and an agent cannot through the command: `wim
+  crash-reports on` runs only at an interactive terminal with no agent's variables set, like `wim
+  devices trust` (anyone may turn them off). The file itself is an ordinary file of yours, so any
+  program running as you, an agent's shell included, could write `on` into it; turn reports off
+  with `WIM_NO_CRASH_REPORTS=1` where that matters (SECURITY-MODEL.md, section 5.8). The answer is read when an error happens, so no Sentry client is set
+  up until a report is about to go. Tests (`packages/client/test/crash.test.ts`) check that with
+  the answer missing, off or misspelt, or reports turned off by the environment, a bug sets up no
+  client and makes no request, and that with it on, exactly one scrubbed event is sent.
+- **Off whatever the file says** while `WIM_NO_CRASH_REPORTS` is set, or `DO_NOT_TRACK` is set to
+  anything but `0`. The VS Code extension sets `WIM_NO_CRASH_REPORTS` for its client while VS
+  Code's own telemetry setting is off.
+- **What is reported:** only a bug, that is one of JavaScript's own `TypeError`, `RangeError`,
+  `ReferenceError`, `SyntaxError`, `URIError` or `EvalError`, that ends a command or that no code
+  was waiting for. A refusal, a set-up problem, or a relay or network failure is never reported.
+- **At most 5 a process,** and one for each distinct error, so a bug that keeps recurring in a
+  long-running `wim mcp` sends one report, not one each time.
+- **What a report holds:** the error's type and its message after scrubbing, the stack's function
+  names, file names (`wim.mjs`, never a directory) and line numbers, the wim version, the command
+  name (`send`, `mcp`), the OS family (`linux`, `darwin`, `win32`) and the Node version.
+- **What it does not:** message text, files, keys, invite and recovery codes, the mesh, device and
+  session ids, addresses, room names, your user name, host name and home directory, the working
+  directory, the relay URL, arguments and environment variables: none of these is given to the
+  report. Before a report leaves, the error's message has quoted text, URLs, file paths (each to
+  the end of its line, spaces and all), `name@device` and email addresses, IP addresses, domain
+  names, long ids and tokens, long numbers and every capitalised word after the first replaced
+  with placeholders, and a message that still looks like a credential is dropped whole. What can
+  remain is lowercase words: an engine's own wording, and anything the code wrote into the
+  message unquoted. A report has no breadcrumbs, no user, no
+  host name and no request. Sentry still sees the connection's IP address, as any server does,
+  and the project is set not to store it.
+- **Which builds can send:** every bundled `wim` (npm, the GitHub Release `wim.mjs`, the VS Code
+  extension and the Claude Code plugin) carries the reporting address, which is committed at
+  `packages/client/crash-report-dsn.txt`. A Sentry address only lets a program submit events,
+  not read them. Nothing is sent until you run `wim crash-reports on`, and your answer applies to
+  every copy of `wim` that shares the state directory. `wim` run from source carries no address.
+  The relays have no crash reporting.
 
 ## Self-hosting a relay
 

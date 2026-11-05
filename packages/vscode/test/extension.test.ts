@@ -219,6 +219,38 @@ describe("activate", () => {
     expect(fake.state.terminals[3]!.options.shellArgs).toEqual([FIXTURE, "agent", "unlock"]);
   });
 
+  it("opens a terminal for wim crash-reports on and off, and restarts the client when VS Code's telemetry changes", async () => {
+    const { api } = start();
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    const starts = () => fake.state.output.filter((l) => l.startsWith("starting ")).length;
+    await fake.run("worldinmotion.crashReportsOn");
+    expect(fake.state.terminals[0]!.options).toEqual({ name: "worldinmotion crash reports", shellPath: process.execPath, shellArgs: [FIXTURE, "crash-reports", "on"], env: { ELECTRON_RUN_AS_NODE: "1" }, cwd: homedir() });
+    expect(fake.state.terminals[0]!.shown).toBe(1);
+    await fake.run("worldinmotion.crashReportsOff");
+    expect(fake.state.terminals[1]!.options.shellArgs).toEqual([FIXTURE, "crash-reports", "off"]);
+    // Closing either terminal is not the signer's: the client is not restarted for it. VS Code
+    // closes the terminal when the client exits, so the outcome is said again.
+    fake.closeTerminal(fake.state.terminals[0]!, 0);
+    expect(starts()).toBe(1);
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: crash reports are on. worldinmotion: Turn Crash Reports Off stops them." });
+    fake.closeTerminal(fake.state.terminals[1]!, 0);
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: crash reports are off." });
+    // A no, or a refusal, exits 1; closed before it exited, or a second close, says nothing.
+    await fake.run("worldinmotion.crashReportsOn");
+    fake.closeTerminal(fake.state.terminals[2]!, 1);
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "warning", message: "worldinmotion: crash reports were not changed (exit code 1)." });
+    const shown = fake.state.messages.length;
+    await fake.run("worldinmotion.crashReportsOff");
+    fake.closeTerminal(fake.state.terminals[3]!, undefined);
+    fake.closeTerminal(fake.state.terminals[3]!, 0);
+    expect(fake.state.messages.length).toBe(shown);
+
+    fake.setTelemetry(false);
+    expect(starts()).toBe(2);
+    await fake.run("worldinmotion.crashReportsOn");
+    expect(fake.state.terminals[4]!.options.env).toEqual({ ELECTRON_RUN_AS_NODE: "1", WIM_NO_CRASH_REPORTS: "1" });
+  });
+
   it("returns nothing outside test mode, and survives a client that exits", async () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "exit-after-hello");
     const { api } = start(ExtensionMode.Production);

@@ -47,6 +47,13 @@ on:
 permissions:
   contents: read
 
+# Every bundle carries the committed crash-report address (packages/client/crash-report-dsn.txt),
+# so no run here may ever send a report, whatever a test or the smoke test writes into a state
+# directory: this keeps reporting off in every job and step (packages/client/src/crash.ts,
+# forcedOff). test/crash-reports.test.ts checks it stays.
+env:
+  WIM_NO_CRASH_REPORTS: "1"
+
 # Only pull requests cancel in flight: a superseded pull request run is waste, a
 # superseded main run is history.
 concurrency:

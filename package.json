@@ -32,6 +32,9 @@
     "@azure/identity": {
       "@azure/msal-node": "7.1.0"
     },
+    "@sentry/core": {
+      "@sentry/conventions": "0.29.0"
+    },
     "@vscode/vsce": {
       "minimatch": "11.0.3"
     }

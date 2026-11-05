@@ -6,7 +6,7 @@ import * as actions from "./actions.ts";
 import { VIEW_ID, ActivityView } from "./activity/view.ts";
 import { notice, oneLine } from "./display.ts";
 import { homedir } from "node:os";
-import { clientCommand, clientCwd, EventsProcess, signerTerminal } from "./process.ts";
+import { clientCommand, clientCwd, crashReportsTerminal, EventsProcess, signerTerminal } from "./process.ts";
 import { historyRows, type MessageRow } from "./protocol.ts";
 import { Store, toNotify } from "./state.ts";
 import { signerState, StatusItem } from "./status.ts";
@@ -140,7 +140,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
       // client, so the card keeps the folder it started with; opening another folder reloads
       // the window, which starts a new client there.
       const cwd = clientCwd(vscode.workspace.workspaceFolders?.map((f) => f.uri), homedir());
-      return clientCommand({ extensionPath: context.extensionPath, wimPath: s.wimPath, sessionName: s.sessionName, execPath: process.execPath, env: process.env, cwd });
+      return clientCommand({ extensionPath: context.extensionPath, wimPath: s.wimPath, sessionName: s.sessionName, execPath: process.execPath, env: process.env, telemetry: vscode.env.isTelemetryEnabled, cwd });
     },
     onEvent: (ev) => {
       store.apply(ev);
@@ -175,10 +175,31 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   const startSigner = (): void => {
     const s = settings();
     const t = vscode.window.createTerminal(
-      signerTerminal({ extensionPath: context.extensionPath, wimPath: s.wimPath, execPath: process.execPath, env: process.env, locked: signerState(store) === "locked", cwd: homedir() }),
+      signerTerminal({ extensionPath: context.extensionPath, wimPath: s.wimPath, execPath: process.execPath, env: process.env, telemetry: vscode.env.isTelemetryEnabled, locked: signerState(store) === "locked", cwd: homedir() }),
     );
     signer = t;
     t.show();
+  };
+  /** The crash-reports terminals still open, and whether each turns reports on. */
+  const crashTerminals = new Map<vscode.Terminal, boolean>();
+  /** Opens a terminal running `wim crash-reports on` (which asks first) or `off`. */
+  const crashReports = (on: boolean): void => {
+    const s = settings();
+    const t = vscode.window.createTerminal(crashReportsTerminal({ extensionPath: context.extensionPath, wimPath: s.wimPath, execPath: process.execPath, env: process.env, telemetry: vscode.env.isTelemetryEnabled, on, cwd: homedir() }));
+    crashTerminals.set(t, on);
+    t.show();
+  };
+  /**
+   * VS Code closes a terminal as soon as its process exits, taking the client's last line with it,
+   * so the outcome is said again here. Closed by the person before it exited: nothing is said.
+   */
+  const crashReportsClosed = (t: vscode.Terminal): void => {
+    const on = crashTerminals.get(t);
+    if (on === undefined) return;
+    crashTerminals.delete(t);
+    const code = t.exitStatus?.code;
+    if (code === 0) vscode.window.showInformationMessage(on ? "worldinmotion: crash reports are on. worldinmotion: Turn Crash Reports Off stops them." : "worldinmotion: crash reports are off.");
+    else if (code !== undefined) vscode.window.showWarningMessage(`worldinmotion: crash reports were not changed (exit code ${code}).`);
   };
   const signerClosed = (t: vscode.Terminal): void => {
     if (t !== signer) return;
@@ -229,7 +250,12 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     command("worldinmotion.showLog", () => out.show(true)),
     command("worldinmotion.restart", () => proc!.restart()),
     command("worldinmotion.startSigner", startSigner),
+    command("worldinmotion.crashReportsOn", () => crashReports(true)),
+    command("worldinmotion.crashReportsOff", () => crashReports(false)),
+    // The client is told at start whether VS Code's telemetry is off (no crash reports then).
+    vscode.env.onDidChangeTelemetryEnabled(() => proc!.restart()),
     vscode.window.onDidCloseTerminal(signerClosed),
+    vscode.window.onDidCloseTerminal(crashReportsClosed),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("worldinmotion.sessionName") || e.affectsConfiguration("worldinmotion.wimPath")) proc!.restart();
     }),

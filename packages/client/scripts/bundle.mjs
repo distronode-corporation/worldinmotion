@@ -1,10 +1,16 @@
 // Bundles `wim` into one file, dist/wim.mjs, and copies it to the Claude Code plugin as
 // dist/client.mjs. Run with `npm run bundle -w @worldinmotion/client`.
+//
+// Crash reports (src/crash.ts): the committed address in crash-report-dsn.txt (read and checked
+// by dsn.mjs) is written into the bundle in place of `globalThis.__WIM_SENTRY_DSN__`. There is one
+// build: the plugin's committed copy, the release's wim.mjs, npm's and the extension's are the
+// same bytes, and all of them carry the address. Run from source, `wim` has none.
 
 import { build } from "esbuild";
-import { chmod, copyFile, mkdir } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readDsn } from "./dsn.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = join(here, "..");
@@ -23,7 +29,11 @@ const stubSupportsColor = {
   },
 };
 
-await build({
+const DSN_GLOBAL = "globalThis.__WIM_SENTRY_DSN__";
+
+/** dist/wim.mjs with `dsn` as the crash-report address. */
+const bundle = (dsn) => build({
+  define: { [DSN_GLOBAL]: JSON.stringify(dsn) },
   entryPoints: [join(pkg, "src", "bin.ts")],
   outfile: out,
   bundle: true,
@@ -39,7 +49,13 @@ await build({
   legalComments: "eof",
   logLevel: "warning",
 });
+
+const dsn = await readDsn(join(pkg, "crash-report-dsn.txt"));
+await bundle(dsn);
+const built = await readFile(out, "utf8");
+if (built.includes("__WIM_SENTRY_DSN__")) throw new Error(`${out} still reads ${DSN_GLOBAL}: the define did not replace it`);
+if (!built.includes(JSON.stringify(dsn))) throw new Error(`${out} does not carry the crash-report address`);
 await chmod(out, 0o755);
 await mkdir(dirname(plugin), { recursive: true });
 await copyFile(out, plugin);
-console.log(`wrote ${out} and ${plugin}`);
+console.log(`wrote ${out} and ${plugin}, carrying the crash-report address`);
