@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { renderForAgent } from "../src/history.ts";
 import { CiKeys, CiParked, ciBucket, ciLabel, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "../src/cireceive.ts";
 import { issuer } from "./ci-fixture.ts";
+import { fsOps } from "../src/fsx.ts";
 import { FS, scratch } from "./helpers.ts";
 
 describe("CiKeys", () => {
@@ -153,5 +154,31 @@ describe("CiParked", () => {
     ).rejects.toThrow("no change");
     await parked.update((n) => n.slice(1));
     expect((await parked.list()).map((n) => n.id)).toEqual([b.id]);
+  });
+
+  it("reads a missing or damaged file as none, and never writes over a file it could not read", async () => {
+    const path = join(await scratch("ciparked"), "ci-parked.json");
+    const parked = new CiParked(path, FS);
+    expect(await parked.list()).toEqual([]);
+    await fs.writeFile(path, "{");
+    expect(await parked.list()).toEqual([]);
+    await fs.writeFile(path, '{"v":1,"v":1,"notices":[]}');
+    expect(await parked.list()).toEqual([]);
+    const [a, b] = [notice(), notice()];
+    await parked.update(() => [a]);
+    // A read that fails (here EIO, once) rejects the update, and the parked notice stays.
+    const realReadFile = fsOps.readFile;
+    fsOps.readFile = async () => {
+      fsOps.readFile = realReadFile;
+      throw Object.assign(new Error("EIO: i/o error, read"), { code: "EIO" });
+    };
+    try {
+      await expect(parked.update((n) => [...n, b])).rejects.toThrow("EIO");
+    } finally {
+      fsOps.readFile = realReadFile;
+    }
+    expect((await parked.list()).map((n) => n.id)).toEqual([a.id]);
+    await parked.update((n) => [...n, b]);
+    expect((await parked.list()).map((n) => n.id)).toEqual([a.id, b.id]);
   });
 });

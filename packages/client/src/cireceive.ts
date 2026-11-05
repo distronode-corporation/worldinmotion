@@ -13,6 +13,7 @@ import {
   JWKS_URLS,
   LIMITS,
   ok,
+  parseJson,
   sha256,
   utf8,
   verifyCiToken,
@@ -27,7 +28,7 @@ import {
   type Result,
 } from "@worldinmotion/protocol";
 import { z } from "zod";
-import { readJson, writeJson, type FsEnv } from "./fsx.ts";
+import { readJson, readText, writeJson, type FsEnv } from "./fsx.ts";
 import { matchRule, type CiPins, type CiRule, type GithubRule } from "./cirules.ts";
 
 /** Fetches a provider's JWKS: no redirects, 5 seconds at most. Only ever given a fixed URL (`JWKS_URLS`). */
@@ -144,8 +145,15 @@ export class CiParked {
     this.env = env;
   }
 
+  /**
+   * The parked notices: none for a missing or damaged file. A file that cannot be read rejects, so
+   * an update never writes over notices it could not see (they were acknowledged, and the relay
+   * has no other copy); the notice being parked is then not acknowledged, and comes again.
+   */
   async list(): Promise<CiNotice[]> {
-    const parsed = parkedSchema.safeParse(await readJson(this.path).catch(() => undefined));
+    const text = await readText(this.path);
+    const raw = text === undefined ? undefined : parseJson(text);
+    const parsed = parkedSchema.safeParse(raw?.ok === true ? raw.value : undefined);
     return parsed.success ? parsed.data.notices : [];
   }
 
