@@ -1,4 +1,5 @@
-// The GitHub Action's entry point: reads the action's inputs and runs `wim ci notify` once.
+// The GitHub Action's logic: reads the action's inputs and runs `wim ci notify` once. The entry
+// point GitHub runs is main.mjs, which only wires this to the process.
 //
 // It never fails the job it reports on, like `wim ci notify` itself: every outcome is one line
 // in the job's log and exit code 0. A missing input or a missing bundle is a warning annotation,
@@ -8,9 +9,7 @@
 // worldinmotion repository, the Claude Code plugin's committed bundle (the same client build,
 // checked against a fresh build in CI). No step downloads code at run time.
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 /** Where the bundle may be, in order: the action's own repository, then the worldinmotion repository. */
 export const BUNDLES = [
@@ -78,13 +77,4 @@ export function main(env, io) {
   const result = io.run(bundle, plan.args);
   if (result.error !== undefined) io.out(`::warning title=worldinmotion CI notice::not sent: wim did not start (${result.error.message})`);
   return 0;
-}
-
-// Run as the action's entry point (not when a test imports this file).
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exitCode = main(process.env, {
-    exists: existsSync,
-    run: (bundle, args) => spawnSync(process.execPath, [bundle, ...args], { stdio: "inherit", env: process.env }),
-    out: (line) => console.log(line),
-  });
 }

@@ -35,4 +35,4 @@ inputs:
 
 runs:
   using: node24
-  main: notify.mjs
+  main: main.mjs

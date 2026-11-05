@@ -70,7 +70,7 @@ repository or project it will be published from: a GitHub repository for the Mar
 Until then they run from this repository at a pinned commit, as their READMEs show, and
 `.github/workflows/ci-notice-staging.yml` runs the action by hand against a relay.
 
-- **The action** is a JavaScript action on GitHub's Node.js 24. `notify.mjs` runs `wim ci notify`
+- **The action** is a JavaScript action on GitHub's Node.js 24. `main.mjs` (through `notify.mjs`) runs `wim ci notify`
   from the bundle beside it (`wim.mjs` in its own repository; here, the Claude Code plugin's
   committed bundle, which CI checks against a fresh build), so the pinned commit is the code
   that runs and nothing is downloaded. Its own repository needs a copy of `wim.mjs` from the

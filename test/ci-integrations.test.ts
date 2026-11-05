@@ -28,10 +28,10 @@ const github: Env = {
 const inputs = (values: Record<string, string>): Env => Object.fromEntries(Object.entries(values).map(([k, v]) => [`INPUT_${k.toUpperCase()}`, v]));
 
 describe("the GitHub Action's inputs", () => {
-  it("declares exactly the inputs notify.mjs reads, and runs it on node24", () => {
+  it("declares exactly the inputs notify.mjs reads, and runs main.mjs on node24", () => {
     const declared = [...action.matchAll(/^ {2}([a-z]+):$/gm)].map((m) => m[1]);
     expect(declared).toEqual(["recipient", "to", "text", "status"]);
-    expect(action).toMatch(/^runs:\n {2}using: node24\n {2}main: notify\.mjs\n$/m);
+    expect(action).toMatch(/^runs:\n {2}using: node24\n {2}main: main\.mjs\n$/m);
   });
 
   it("reads INPUT_<NAME>, trimmed, and empty when unset", () => {
@@ -96,9 +96,9 @@ describe("the GitHub Action never fails the job", () => {
     ]);
   });
 
-  // The process as GitHub runs it, with the bundle this repository commits.
+  // The process as GitHub runs it (main.mjs), with the bundle this repository commits.
   const runAction = (extra: Env) =>
-    spawnSync(process.execPath, [join(root, "packaging/github-action/notify.mjs")], {
+    spawnSync(process.execPath, [join(root, "packaging/github-action/main.mjs")], {
       // The test runner's own environment (Windows needs SystemRoot and the like), less any
       // action inputs or GitHub variables it may carry.
       env: { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(INPUT_|GITHUB_|ACTIONS_)/.test(k))), ...github, ...extra },
