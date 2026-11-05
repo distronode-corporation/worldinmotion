@@ -128,15 +128,15 @@ describe("the GitLab component", () => {
   });
 
   it("runs wim ci notify once per job, every value as --name=value", () => {
-    const scripts = [...template.matchAll(/^ {4}- (?!when: )(.*)$/gm)].map((m) => m[1]);
+    const scripts = [...template.matchAll(/^ {4}- (.*)$/gm)].map((m) => m[1]);
     expect(scripts).toEqual(['npm exec --yes --package="$WIM_PACKAGE" -- wim ci notify --via=gitlab --to="$WIM_TO" --text="$WIM_TEXT"']);
   });
 
   it("has one job for a passed pipeline and one for a failed one, so exactly one sends", () => {
     const jobs = [...template.matchAll(/^([.\w-]+):\n/gm)].map((m) => m[1]);
     expect(jobs).toEqual(["spec", ".wim-notify", "wim-notify-success", "wim-notify-failure"]);
-    expect(template).toMatch(/^wim-notify-success:\n {2}extends: \.wim-notify\n {2}rules:\n {4}- when: on_success\n/m);
-    expect(template).toMatch(/^wim-notify-failure:\n {2}extends: \.wim-notify\n {2}rules:\n {4}- when: on_failure\n/m);
+    expect(template).toMatch(/^wim-notify-success:\n {2}extends: \.wim-notify\n {2}when: on_success\n/m);
+    expect(template).toMatch(/^wim-notify-failure:\n {2}extends: \.wim-notify\n {2}when: on_failure\n/m);
   });
 
   it("keeps the token's job small: no clone, cache, artifacts or defaults, a short timeout, never failing the pipeline", () => {

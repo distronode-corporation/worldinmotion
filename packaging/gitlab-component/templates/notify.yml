@@ -72,14 +72,12 @@ spec:
 
 wim-notify-success:
   extends: .wim-notify
-  rules:
-    - when: on_success
+  when: on_success
   variables:
     WIM_TEXT: $[[ inputs.success_text ]]
 
 wim-notify-failure:
   extends: .wim-notify
-  rules:
-    - when: on_failure
+  when: on_failure
   variables:
     WIM_TEXT: $[[ inputs.failure_text ]]
