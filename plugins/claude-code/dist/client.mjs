@@ -89741,8 +89741,15 @@ var CiParked = class {
     this.path = path2;
     this.env = env3;
   }
+  /**
+   * The parked notices: none for a missing or damaged file. A file that cannot be read rejects, so
+   * an update never writes over notices it could not see (they were acknowledged, and the relay
+   * has no other copy); the notice being parked is then not acknowledged, and comes again.
+   */
   async list() {
-    const parsed2 = parkedSchema.safeParse(await readJson(this.path).catch(() => void 0));
+    const text2 = await readText(this.path);
+    const raw = text2 === void 0 ? void 0 : parseJson(text2);
+    const parsed2 = parkedSchema.safeParse(raw?.ok === true ? raw.value : void 0);
     return parsed2.success ? parsed2.data.notices : [];
   }
   /** Reads, changes and writes the list, after every change asked for before it. */
