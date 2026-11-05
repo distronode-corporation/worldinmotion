@@ -216,7 +216,8 @@ describe("the providers' keys", () => {
     const w = await world([ghRule()]);
     let down = true;
     let shift = 0;
-    const jwksFetch = (url: string) => (down ? Promise.reject(new Error("offline")) : w.ci.jwksFetch(url));
+    let failed = 0;
+    const jwksFetch = (url: string) => (down ? (failed++, Promise.reject(new Error("offline"))) : w.ci.jwksFetch(url));
     const s = await agent(w, "agent", { jwksFetch, now: () => Date.now() + shift });
     const acks = () => w.relay.sentByClients.filter((t) => t.includes('"t":"ack"')).length;
     const before = acks();
@@ -225,9 +226,16 @@ describe("the providers' keys", () => {
     await until(() => acks() > before, SLOW, "the ack");
     expect(w.logs.some((l) => l.includes("dropped CI notice"))).toBe(false);
     expect(JSON.parse(await fs.readFile(s.files.ciParkedPath, "utf8")).notices).toHaveLength(1);
+    // A minute on, the retry finds the keys still out of reach and keeps the notice.
+    const failedAtPark = failed;
+    shift = 65_000;
+    await until(() => failed > failedAtPark, SLOW, "a retry while the keys are out of reach");
+    await sleep(50);
+    expect(JSON.parse(await fs.readFile(s.files.ciParkedPath, "utf8")).notices).toHaveLength(1);
+    expect(w.logs.some((l) => l.includes("dropped CI notice"))).toBe(false);
     // The network is back, and a minute has passed since the last fetch (refetches are at most one a minute).
     down = false;
-    shift = 65_000;
+    shift = 130_000;
     expect((await spooled(s, fromCi)).rendered).toContain("after the outage");
     await until(async () => JSON.parse(await fs.readFile(s.files.ciParkedPath, "utf8")).notices.length === 0, SLOW, "the parked list emptied");
   });

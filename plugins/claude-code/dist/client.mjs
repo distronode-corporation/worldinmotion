@@ -125134,8 +125134,10 @@ async function held(ctx) {
     if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
     const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
     const pins = action === "approve" ? rows[0].ci?.pins : void 0;
-    const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath);
-    if (pins !== void 0) pinRule(rules, rows[0].ci.rule, pins);
+    const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath).then((loaded) => {
+      pinRule(loaded, rows[0].ci.rule, pins);
+      return loaded;
+    });
     if (!await confirmed(ctx, heldDetails(rows, await files.loadConfig(), all, rules), question)) return 1;
     if (pins !== void 0) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0].ci.rule, pins));
     const n3 = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);

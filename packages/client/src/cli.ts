@@ -1386,10 +1386,15 @@ async function held(ctx: Ctx): Promise<number> {
     const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
     // A CI notice held because its rule had no ids yet: approving it pins them (SPEC section 18).
     const pins = action === "approve" ? rows[0]!.ci?.pins : undefined;
-    const rules = pins === undefined ? undefined : await loadCiRules(files.ciRulesPath);
-    // Refused before the prompt when it cannot pin, and pinned after it on the rules as they are
-    // then (another terminal may have removed or pinned the rule meanwhile).
-    if (pins !== undefined) pinRule(rules!, rows[0]!.ci!.rule, pins);
+    // Refused before the prompt when it cannot pin (pinRule throws), and pinned after it on the
+    // rules as they are then (another terminal may have removed or pinned the rule meanwhile).
+    const rules =
+      pins === undefined
+        ? undefined
+        : await loadCiRules(files.ciRulesPath).then((loaded) => {
+            pinRule(loaded, rows[0]!.ci!.rule, pins);
+            return loaded;
+          });
     if (!(await confirmed(ctx, heldDetails(rows, await files.loadConfig(), all, rules), question))) return 1;
     if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
     const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
