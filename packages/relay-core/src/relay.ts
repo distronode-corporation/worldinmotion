@@ -1247,8 +1247,8 @@ export class MeshRelay {
    * prekey request the device's newest prekey from its sessions' cards; for a send `at`, the
    * verified token's rule tag and unused `jti`, the session, then the counting key's rate and the
    * CI queue, before it routes or queues the notice (for GitLab the rate comes first, and every
-   * outcome but `limited` reads `queued`). Answers 404 on a relay without CI senders. Never stores
-   * a token.
+   * outcome but `limited`, a used notice id included, reads `queued`). Answers 404 on a relay
+   * without CI senders. Never stores a token.
    */
   ci(req: CiRequest, ctx: { source: string; github?: GithubSeen }): CiAnswer {
     const L = this.limits;
@@ -1275,21 +1275,24 @@ export class MeshRelay {
     }
     const seen = ctx.github;
     if (req.via === "github" && (seen === undefined || !rules!.tags.includes(seen.tag) || this.store.hasJti(seen.jti, now))) return CI_UNAUTHORIZED;
-    if (this.store.getMessage(req.id) !== undefined) return { status: 400, body: { t: "error", code: "malformed", message: "notice id already used" } };
+    // Anyone with a recipient code can send a GitLab notice (the relay verifies nothing about its
+    // sender), so the answer to one never tells a session name or presence: a missing session, a
+    // full queue, a used id and a live session all read `queued`, each after the device's GitLab
+    // rate is spent. Only `limited`, which is per device, shows. A used id is stored only for a
+    // notice a live session took, so refusing it would tell the session exists. A GitHub sender
+    // was verified, so it is told what became of its notice.
+    const opaque = req.via === "gitlab";
+    const used = this.store.getMessage(req.id) !== undefined;
+    if (used && !opaque) return { status: 400, body: { t: "error", code: "malformed", message: "notice id already used" } };
     const key = seen?.key ?? gitlabCountingKey(req.device);
     const sent = (status: string): CiAnswer => ({ status: 200, body: { t: "ci.sent", id: req.id, status } });
     const found = this.store.sessionsOf(req.device).find((s) => s.name === req.to && s.ended === null);
     const target = found?.ci === true ? found : undefined;
-    // Anyone with a recipient code can send a GitLab notice (the relay verifies nothing about its
-    // sender), so the answer to one never tells a session name or presence: a missing session, a
-    // full queue and a live session all read `queued`, each after the device's GitLab rate is
-    // spent. Only `limited`, which is per device, shows. A GitHub sender was verified, so it is
-    // told what became of its notice.
-    const opaque = req.via === "gitlab";
     if (target === undefined && !opaque) return sent("unknown");
     const rate = this.level(`ci:${key}`, L.ciSendBurst, L.ciSendsPerMinute / MINUTE, now);
     if (rate < 1) return sent("limited");
-    const full = target === undefined || this.store.queueCount(target.sid, "ci") >= L.ciQueuePerSession || this.store.queueCountFrom(target.sid, key) >= L.ciQueuePerKey;
+    // A used id drops the notice like a full queue, so it is never queued twice.
+    const full = used || target === undefined || this.store.queueCount(target.sid, "ci") >= L.ciQueuePerSession || this.store.queueCountFrom(target.sid, key) >= L.ciQueuePerKey;
     if (full && opaque) {
       this.spend(`ci:${key}`, rate, 1, now);
       return sent("queued");

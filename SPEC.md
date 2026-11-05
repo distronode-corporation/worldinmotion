@@ -1317,9 +1317,10 @@ KiB and `content-type: application/json`. The relay answers each with JSON.
    `{ "t": "ci.sent", "id": "<ULID>", "status": "..." }`, where `status` is `routed`, `queued`,
    `unknown` (no session of that name on the device takes CI notices), `full` or `limited`. A
    `gitlab` send, whose sender the relay cannot verify, is answered only `queued` or `limited`:
-   `queued` also when the notice was routed, when the session is unknown and when its CI queue is
-   full (the last two drop the notice), so a recipient code never tells which session names exist
-   or which are online. `limited` is per device, so it tells neither.
+   `queued` also when the notice was routed, when the session is unknown, when its CI queue is
+   full and when its id was used before (the last three drop the notice), so a recipient code never
+   tells which session names exist or which are online. `limited` is per device, so it tells
+   neither.
 
 - The **notice** is the `ci.send` object without `token`: what the relay stores and delivers.
   The **header** is the notice without `box` and `sig`.
@@ -1363,8 +1364,8 @@ and the token's `jti` was not used before in this mesh (it keeps `H(UTF-8(iss + 
 `exp` + 5 minutes); for `gitlab` there is nothing it can verify. Then the notice id must be new, the
 session `to` on that device must exist, not have ended, and take CI notices; then the counting
 key's rate and the CI queue; then the relay routes or queues the notice. For `gitlab` the counting
-key's rate comes before the session, and a missing session or a full queue drops the notice after
-spending it, answered `queued` (above). It never stores the token.
+key's rate comes before the notice id and the session, and a used id, a missing session or a full
+queue drops the notice after spending it, answered `queued` (above). It never stores the token.
 
 **Verifying a token.** The relay (GitHub only) and the receiving client (both providers) check:
 

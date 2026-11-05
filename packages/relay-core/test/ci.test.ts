@@ -225,18 +225,48 @@ describe.each(KINDS)("CI senders at the relay (%s store)", (kind) => {
     expect(await post(s.h, gitlab(s))).toMatchObject({ body: { status: "limited" } });
   });
 
-  it("refuses a notice for another mesh, one whose at is off by more than 5 minutes, and a used id", async () => {
+  it("refuses a notice for another mesh, one whose at is off by more than 5 minutes, and a GitHub notice's used id", async () => {
     const s = setup(kind);
     const late = gitlab(s, { at: s.h.now - LIMITS.ciSkewMs - 1 });
     expect(await post(s.h, late)).toMatchObject({ status: 400, body: { code: "malformed" } });
     const other = { ...gitlab(s), mesh: b64u.encode(new Uint8Array(16).fill(9)) };
     expect(await post(s.h, other)).toMatchObject({ status: 400 });
-    const first = gitlab(s);
-    await post(s.h, first);
-    expect(await post(s.h, first)).toMatchObject({ status: 400, body: { message: "notice id already used" } });
+    // A verified GitHub sender is told its id was used, with a fresh token so the jti passes.
+    const first = await github(s);
+    expect(await post(s.h, first)).toEqual(sent(first.id, "routed"));
+    expect(await post(s.h, await github(s, { id: first.id }))).toEqual({ status: 400, body: { t: "error", code: "malformed", message: "notice id already used" } });
     // A notice id may not reuse a message's either.
     const m = s.root.send([s.deploys.address]);
-    expect(await post(s.h, { ...gitlab(s), id: m["id"] })).toMatchObject({ status: 400 });
+    expect(await post(s.h, await github(s, { id: m["id"] }))).toMatchObject({ status: 400, body: { message: "notice id already used" } });
+  });
+
+  it("answers a GitLab notice's used id queued, as for a missing session or a full queue, and queues it once", async () => {
+    const s = setup(kind, {}, { ciQueuePerSession: 2 });
+    s.deploys.conn.take();
+    // Each notice sent twice: to the live session (stored the first time), to a missing session,
+    // then, once a filler takes the second CI slot, to the full queue. A used id was the oracle:
+    // only the live session's notice is stored, so only its resend could be told apart.
+    const live = gitlab(s);
+    const missing = gitlab(s, { to: "nobody" });
+    const filler = gitlab(s);
+    const full = gitlab(s);
+    const answers: CiAnswer[] = [];
+    for (const r of [live, live, missing, missing, filler, full, full]) answers.push(await post(s.h, r));
+    const ids = [live, live, missing, missing, filler, full, full].map((r) => r.id);
+    expect(answers).toEqual(ids.map((id) => sent(id, "queued")));
+    // The live session got the notice once, and the full queue took nothing more.
+    expect(s.deploys.conn.take().filter((f) => f["t"] === "ci.deliver").map((f) => f["msg"]["id"])).toEqual([live.id, filler.id]);
+    expect(s.h.store.queue(s.deploys.sid, 0).map((q) => q.id)).toEqual([live.id, filler.id]);
+    // A message's id reads the same, and the session still holds only its two notices.
+    const m = s.root.send([s.deploys.address]);
+    expect(await post(s.h, { ...gitlab(s, { to: "nobody" }), id: m["id"] })).toEqual(sent(m["id"], "queued"));
+    expect(s.h.store.queueCount(s.deploys.sid, "ci")).toBe(2);
+    // A resend spends the device's rate like any other GitLab notice, so `limited` shows alike.
+    const tight = setup(kind, {}, { ciSendBurst: 2 });
+    const once = gitlab(tight);
+    expect(await post(tight.h, once)).toEqual(sent(once.id, "queued"));
+    expect(await post(tight.h, once)).toEqual(sent(once.id, "queued"));
+    expect(await post(tight.h, once)).toEqual(sent(once.id, "limited"));
   });
 
   it("spends a per-source budget before anything else, and answers 429 with Retry-After past it", async () => {
