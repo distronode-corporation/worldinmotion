@@ -881,6 +881,17 @@ Limits:
   forward secrecy from every message that names it; the sender says so (`wim send` prints "Sent
   without forward secrecy to ...: no current prekey for ...", and the outcome lists both). Every
   scheme 1 box ever recorded opens with the static key.
+- **Closing the window early.** `wim legacy-boxes refuse` makes a device behave as from 1.0 now
+  (SPEC section 6b): it never seals a scheme 1 box (a direct send to a device with no current
+  prekey is refused, a broadcast, room send or card skips it), and it drops every scheme 1 box it
+  receives as `legacy_box`. A relay that withholds prekeys can then deny that device's sends to
+  the device it hides, but no longer strip their forward secrecy. Anyone may turn it on, an agent
+  included, since it only makes the device stricter. Turning it off (`wim legacy-boxes accept`) is
+  the person's alone, behind the guard of `wim devices trust` (section 7.2: their own terminal and
+  a typed `y`), and no MCP tool or events op reaches it. Like every file in the state directory,
+  the guard keeps agents from the command, not from `$WIM_HOME/legacy-boxes` itself (section 9).
+  It is off by default until 1.0; `wim status` and `wim doctor` show it. A device with it on
+  cannot talk to v0.1 clients, and boxes it recorded before turning it on are unchanged.
 - **Deletion is a file rewrite.** It runs whenever a wim process for the mesh runs; a device that is
   switched off keeps what it held until a wim process next runs. Rewriting a file does not erase
   the old bytes from an SSD, a journaling or copy-on-write file system, a snapshot or a backup. A
@@ -1040,8 +1051,8 @@ the new policy first (section 7.5). No message, tool call or MCP request can cha
 mesh of your own devices.
 
 **Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume`,
-`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`), and
-`wim mesh delete` run only when standard input and standard output are both an interactive
+`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`),
+`wim legacy-boxes accept` (section 6.14), and `wim mesh delete` run only when standard input and standard output are both an interactive
 terminal and none of an agent's variables is set. They then show what is being decided (for a
 held item: the sender, its device id, the session it waits for, why it waits and its text; for a
 device: its name, role, id, and the policy now and after; for a mesh: its id, relay and every
@@ -1219,7 +1230,8 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
 
 - Forward secrecy is bounded, not per message: a stolen key file opens what was sealed to its
   device in the last 120 hours. During the migration window a relay can force v0.1 boxes, which
-  have none, and every recorded v0.1 box opens with the static key.
+  have none, and every recorded v0.1 box opens with the static key. A device can close the window
+  now with `wim legacy-boxes refuse` (section 6.14), at the cost of reaching no v0.1 client.
 - Sessions on one device are not isolated; anything running as the OS user is the device. With the
   signer, it can no longer take the keys away, but it can ask the unlocked signer to act for the
   device (section 5.8).

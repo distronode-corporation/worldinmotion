@@ -14,7 +14,7 @@ import type { Readable, Writable } from "node:stream";
 import { admitPending, createMesh, decideJoin, deleteMesh, forgetMesh, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
 import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
-import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, unprotectedNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions } from "./client.ts";
+import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, prekeyNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
@@ -40,6 +40,7 @@ import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
+import { LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
 
 export const VERSION = "0.1.9";
 
@@ -126,6 +127,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
+  "legacy-boxes": [],
 };
 
 /**
@@ -222,6 +224,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
+  wim legacy-boxes [status | refuse | accept]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -230,7 +233,7 @@ export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages betwee
 
 Commands: init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, agent.
+crash-reports, legacy-boxes, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -306,6 +309,7 @@ class Ctx {
       debug: this.env["WIM_DEBUG"] === "1",
       cwd: this.io.cwd,
       ...(notifier === undefined ? {} : { notifier }),
+      legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE),
     };
   }
 
@@ -557,6 +561,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await notifyTest(ctx);
       case "crash-reports":
         return await crashReports(ctx, crash);
+      case "legacy-boxes":
+        return await legacyBoxes(ctx);
       case "agent":
         return await agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
       default:
@@ -611,6 +617,34 @@ async function crashReports(ctx: Ctx, crash: CrashReporter): Promise<number> {
   // Named whatever else holds, so a person who set it sees that it is read.
   const off = forcedOff(ctx.env);
   if (off !== undefined) ctx.io.out(`${off} is set, so none are sent from here.`);
+  return 0;
+}
+
+/** What a person turning v0.1 boxes back on is told before saying yes. */
+export const LEGACY_ACCEPT_TERMS = [
+  "This reopens the migration window on this device (SPEC section 6b). Until 1.0, a relay that",
+  "withholds a device's prekey can then make your sends to it go without forward secrecy, and this",
+  "device again reads messages sent without it. Messages to and from v0.1 clients reach them again.",
+  "`wim legacy-boxes refuse` closes it again at any time.",
+];
+
+/**
+ * `wim legacy-boxes`: shows the setting, refuses v0.1 boxes (anyone: it only makes the device
+ * stricter), or accepts them again (a person only, asked first, since it weakens the device).
+ */
+async function legacyBoxes(ctx: Ctx): Promise<number> {
+  const action = ctx.args.positional[0] ?? "status";
+  const file = pathJoin(ctx.home.root, LEGACY_BOXES_FILE);
+  if (action === "refuse") {
+    await setLegacyBoxes(file, true, ctx.fsEnv);
+  } else if (action === "accept") {
+    requirePerson(ctx.env, ctx.io, "wim legacy-boxes accept");
+    if (!(await confirmTyped(ctx.io, LEGACY_ACCEPT_TERMS, "Accept v0.1 boxes again?"))) return 1;
+    await setLegacyBoxes(file, false, ctx.fsEnv);
+  } else if (action !== "status") {
+    throw new SetupError("usage: wim legacy-boxes [status | refuse | accept]");
+  }
+  ctx.io.out(`${legacyBoxesLine(await refusesLegacy(file))}.`);
   return 0;
 }
 
@@ -1292,9 +1326,10 @@ async function send(ctx: Ctx): Promise<number> {
         if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a) => `${a} (claude-code)`).join(", ")}`);
       }
     }
-    // The migration window (SPEC section 6b): a device with no current prekey made the whole send
-    // v0.1. A watch from before `no_prekey` existed reports only `unprotected`.
-    if (out.unprotected !== undefined) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
+    // A device with no current prekey (SPEC section 6b) made the whole send v0.1 (the window), or
+    // was skipped (this device refuses v0.1 boxes).
+    const note = prekeyNote(out);
+    if (note !== undefined) ctx.io.out(note);
     ctx.io.out(`id ${out.id}`);
     const took = out.results.filter((r) => accepted(r.status)).map((r) => r.to);
     const code = took.length === out.results.length ? 0 : 1;
@@ -1867,6 +1902,7 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   if (rootProblem === undefined) ok(`state directory ${ctx.home.root}`);
   else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
   if (device === undefined) return { meshes };
+  info(legacyBoxesLine(await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE))));
   const me = device.id;
   for (const id of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id), ctx.fsEnv);
@@ -1933,6 +1969,7 @@ async function status(ctx: Ctx): Promise<number> {
   for (const c of problems) ctx.io.out(`problem  ${c.line}`);
   if (device !== undefined) {
     ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
+    ctx.io.out(`${legacyBoxesLine(await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE)))}.`);
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m of meshes) for (const line of meshStatus(m)) ctx.io.out(line);
   }
