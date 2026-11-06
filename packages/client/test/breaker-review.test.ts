@@ -173,9 +173,9 @@ describe("F5: a restored pause is not bounded by its tier (clock moved back, or 
     expect(p!.until - Date.now(), "a cool-down of 1 minute, at most an hour").toBeLessThanOrEqual(3_600_000);
     // The bound keeps the pause's \`at\`, so its release still finds what it held (Seer, #76).
     offset = 61_000;
-    await until(async () => (await msgs(b)).length === 2);
+    // In the spool a moment before it leaves held/: wait for both.
+    await until(async () => (await msgs(b)).length === 2 && (await b.held.list()).length === 0, 10_000);
     expect(await msgs(b)).toEqual(["1", "2"]);
-    expect(await b.held.list()).toEqual([]);
   }, 30_000);
 });
 
@@ -227,7 +227,7 @@ describe("F7: a cool-down's end races the inbound queue", () => {
       return cfg;
     };
     await a.send("b@two", "3");
-    await until(async () => (await msgs(b)).length === 2 && (await b.held.list()).length === 1);
+    await until(async () => (await msgs(b)).length === 2 && (await b.held.list()).map((h) => h.entry.text).join() === "3", 10_000);
     // The release runs before "3" is admitted: "2" is delivered (the per-peer limit, 1) and counted,
     // so "3" trips again within the hour of that release and waits for the person, never a fresh
     // cool-down over the old one.

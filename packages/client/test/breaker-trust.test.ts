@@ -54,6 +54,18 @@ function forgePause(s: MeshSession, to: string, pause: PauseInfo): void {
   void (s as unknown as { post(to: string, text: undefined, o: { kind: "pause"; pause: PauseInfo }): Promise<unknown> }).post(to, undefined, { kind: "pause", pause });
 }
 
+/**
+ * Resolves once `to` has handled everything `from` sent it so far: a later message from the same
+ * session (frames from one session are handled in order) has arrived, delivered, held or refused.
+ */
+async function handled(from: MeshSession, to: MeshSession, address: string): Promise<void> {
+  const out = await from.send(address, "after");
+  await until(
+    async () => (from.receipts.get(out.id) ?? []).some((r) => r.status === "refused") || (await to.spool.unread()).some((i) => i.id === out.id) || (await to.held.list()).some((h) => h.id === out.id),
+    10_000,
+  );
+}
+
 /** Two trusted devices, with `b@two` tripping on `a@one`'s second message and a clock it can move. */
 async function pair(minutes = 1) {
   const relay = new RelayHarness();
@@ -231,7 +243,7 @@ describe("the sending side", () => {
     const { a, b, clocks, devices, mesh } = await pair(60);
     // Nothing was sent to b yet: a pause from it counts for nothing.
     forgePause(b, "a@one", { state: "paused", rule: "peer", count: 2, limit: 1, minutes: 60, until: Date.now() + 600_000, auto: true });
-    await new Promise((r) => setTimeout(r, 200));
+    await handled(b, a, "a@one");
     expect(await a.pausedBy.active()).toEqual({});
     // Sent to: now it counts, and the agent is told once.
     await a.send("b@two", "0");
@@ -256,11 +268,15 @@ describe("the sending side", () => {
     // From a device this one refuses, or an hour after this device last sent there: not taken.
     await setPolicy(devices[0]!, mesh, devices[1]!.device.id, "refuse");
     forgePause(b, "a@one", { state: "paused", rule: "peer", count: 2, limit: 1, minutes: 60, until: Date.now() + 1_200_000, auto: false });
-    await new Promise((r) => setTimeout(r, 200));
+    // A message b sends after it comes after it (one sender session's order): once a has refused
+    // that one, it has handled the pause too, whatever the runner's speed.
+    const after = await b.send("a@one", "after");
+    await until(() => (b.receipts.get(after.id) ?? []).some((r) => r.status === "refused"), 10_000);
+    expect(await a.pausedBy.active()).toEqual({});
     await setPolicy(devices[0]!, mesh, devices[1]!.device.id, "deliver");
     clocks.a += 60 * 60_000;
     forgePause(b, "a@one", { state: "paused", rule: "peer", count: 2, limit: 1, minutes: 60, until: Date.now() + 1_200_000, auto: false });
-    await new Promise((r) => setTimeout(r, 200));
+    await handled(b, a, "a@one");
     expect(await a.pausedBy.active()).toEqual({});
   }, 60_000);
 
@@ -381,8 +397,7 @@ describe("the person's decisions in the pane", () => {
     expect((await listAllPauses(new MeshFiles(devices[1]!.home.meshDir(mesh), FS), FS, Date.now())).map((p) => p.session)).toEqual(["b"]);
     const [first] = await b.held.list();
     await new HeldBox(b.files.heldDir, FS).mark(first!.id, "resume");
-    await until(async () => (await msgs(b)).length === 3);
-    expect(await b.held.list()).toEqual([]);
+    await until(async () => (await msgs(b)).length === 3 && (await b.held.list()).length === 0);
     expect(b.pausedRows()).toEqual([]);
     // The told sender hears it lifted.
     await until(async () => Object.keys(await a.pausedBy.active()).length === 0);
@@ -456,9 +471,10 @@ describe("no agent path approves or resumes (#54)", () => {
     // holder's sends report, never a resume of the holder's own pause.
     forgePause(a, "b@two", { state: "lifted" });
     forgePause(a, "b@two", { state: "paused", rule: "peer", count: 1, limit: 1, minutes: 1, until: Date.now() + 60_000, auto: true });
-    await new Promise((r) => setTimeout(r, 300));
+    // b has handled both once a message a sends after them is held there too.
+    await handled(a, b, "b@two");
     expect(b.pausedRows()).toHaveLength(1);
-    expect((await b.held.list()).map((h) => h.reason)).toEqual(["breaker"]);
+    expect((await b.held.list()).map((h) => h.reason)).toEqual(["breaker", "breaker"]);
     expect(await msgs(b)).toEqual(["1"]);
 
     // The MCP server an agent on the sending device talks to has no tool or internal op that
@@ -487,7 +503,7 @@ describe("no agent path approves or resumes (#54)", () => {
     const sent = await call("send", { to: "b@two", text: "3" });
     expect(sent).toMatch(/"status":"held"/);
     expect(sent).toMatch(/"held_note":"b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit/);
-    await until(async () => (await b.held.list()).length === 2);
+    await until(async () => (await b.held.list()).length === 3);
 
     // The approve-or-resume prompt at the command line is the person's: an agent's shell is
     // refused before it is asked anything, and nothing is released.
@@ -497,7 +513,7 @@ describe("no agent path approves or resumes (#54)", () => {
     expect(said(t)).toMatch(/CLAUDECODE is set/);
     expect(t.answers).toHaveLength(2);
     expect(b.pausedRows()).toHaveLength(1);
-    expect(await b.held.list()).toHaveLength(2);
+    expect(await b.held.list()).toHaveLength(3);
   }, 30_000);
 });
 

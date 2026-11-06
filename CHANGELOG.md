@@ -148,6 +148,11 @@ body line with a bracket.
   held approve <id>` takes `resume` as well as `y` for one, approving the item and lifting the
   pause on its device, in every session of this device, in one step. Both stay the person's: no
   MCP tool, internal op, message or `pause` approves or resumes.
+- **A held message goes to the spool before it leaves `held/`** (#76), on every path that releases
+  one: the person's approve, a resume, a cool-down's release, and `wim held approve` while no
+  process runs the session. A process that stops in between loses nothing: the next one finds the
+  item delivered (a `<id>.delivered` mark, or the item in the spool) and only takes it out of
+  `held/`, so the agent never gets it twice. Before, the entry went first, and a stop then lost it.
 - **Test vectors for `pause`** (`vectors/pause.json`, SPEC section 16): a pause with every field
   and a lift, sealed and opened, the plaintexts that must be refused, and the kinds an older
   client knows, whose schema refuses both.

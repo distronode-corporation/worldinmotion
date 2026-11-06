@@ -4,7 +4,7 @@
 
 import { isUlid, sanitizeForDisplay, type FileInfo } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { listDir, listFiles, readJson, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { listDir, listFiles, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import type { Pause } from "./breaker.ts";
 import type { HistoryEntry } from "./history.ts";
 import type { SpoolKind } from "./spool.ts";
@@ -79,6 +79,34 @@ export class HeldBox {
 
   async remove(id: string): Promise<void> {
     await removeFile(this.path(id));
+  }
+
+  /**
+   * Records that `id` is in the spool now, before its held entry goes. A process that stops between
+   * the two leaves this mark, and the next takes the entry out instead of delivering it again
+   * (`settle`); one that stops before the mark leaves the item in the spool, which the next reads.
+   */
+  async markDelivered(id: string): Promise<void> {
+    await writeAtomic(join(this.dir, `${id}.delivered`), "", this.env);
+  }
+
+  /** Whether `id` was written to the spool already (markDelivered). */
+  async wasDelivered(id: string): Promise<boolean> {
+    return (await readText(join(this.dir, `${id}.delivered`))) !== undefined;
+  }
+
+  /** Takes a delivered item out of held/: its entry first, then its mark. */
+  async settle(id: string): Promise<void> {
+    await this.remove(id);
+    await removeFile(join(this.dir, `${id}.delivered`));
+  }
+
+  /** The ids with a delivered mark, entry or not. */
+  async deliveredMarks(): Promise<string[]> {
+    return (await listFiles(this.dir)).flatMap((name) => {
+      const m = /^([0-9A-Z]{26})\.delivered$/.exec(name);
+      return m === null ? [] : [m[1]!];
+    });
   }
 
   /** Leaves a decision for the process that runs this session. */

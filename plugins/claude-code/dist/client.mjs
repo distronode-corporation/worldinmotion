@@ -90052,6 +90052,30 @@ var HeldBox = class {
   async remove(id2) {
     await removeFile(this.path(id2));
   }
+  /**
+   * Records that `id` is in the spool now, before its held entry goes. A process that stops between
+   * the two leaves this mark, and the next takes the entry out instead of delivering it again
+   * (`settle`); one that stops before the mark leaves the item in the spool, which the next reads.
+   */
+  async markDelivered(id2) {
+    await writeAtomic(join3(this.dir, `${id2}.delivered`), "", this.env);
+  }
+  /** Whether `id` was written to the spool already (markDelivered). */
+  async wasDelivered(id2) {
+    return await readText(join3(this.dir, `${id2}.delivered`)) !== void 0;
+  }
+  /** Takes a delivered item out of held/: its entry first, then its mark. */
+  async settle(id2) {
+    await this.remove(id2);
+    await removeFile(join3(this.dir, `${id2}.delivered`));
+  }
+  /** The ids with a delivered mark, entry or not. */
+  async deliveredMarks() {
+    return (await listFiles(this.dir)).flatMap((name) => {
+      const m4 = /^([0-9A-Z]{26})\.delivered$/.exec(name);
+      return m4 === null ? [] : [m4[1]];
+    });
+  }
   /** Leaves a decision for the process that runs this session. */
   async mark(id2, verdict) {
     await writeAtomic(join3(this.dir, `${id2}.${verdict}`), "", this.env);
@@ -91002,14 +91026,15 @@ async function listAllHeld(mesh, env3) {
 }
 async function applyOffline(files, item, verdict, config2, env3, now) {
   const box = new HeldBox(files.heldDir, env3);
-  await box.remove(item.id);
-  if (verdict === "refuse") return;
+  if (verdict === "refuse") return box.remove(item.id);
   const state2 = await files.load();
   const spool = await Spool.open(files.spoolDir, env3, state2?.spool ?? 0);
   const framed = item.ci === void 0 ? releasedFrame(config2, item.device, item.entry) : { rendered: item.rendered, relayed: true, informs: true };
   await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...framed });
+  await box.markDelivered(item.id);
   if (state2 !== void 0) await files.save({ ...state2, spool: spool.highest });
   await new History(files.historyPath, now).append(item.entry);
+  await box.settle(item.id);
 }
 async function decideHeld(mesh, id2, verdict, env3, now, skipSid) {
   let n3 = 0;
@@ -92436,6 +92461,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (o3.sessionKey !== void 0) await keys.remember(o3.sessionKey, state2.sid, state2.resume);
     const session = new _MeshSession(o3, files, state2);
     await session.load();
+    await session.settleDelivered();
     await session.restorePauses();
     return session;
   }
@@ -93143,14 +93169,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
     });
   }
   /** Fetches a file if there is one, renders the frame and puts the item in the spool. */
-  async release(item, file2) {
+  /** `written`: what a release from held/ records once the item is in the spool (decideNow). */
+  async release(item, file2, written2) {
     if (item.ci !== void 0) {
-      await this.deliver({ kind: item.kind, from: item.from, device: "", id: item.id, at: item.at, rendered: item.rendered, relayed: true, informs: true }, item.entry);
+      await this.deliver({ kind: item.kind, from: item.from, device: "", id: item.id, at: item.at, rendered: item.rendered, relayed: true, informs: true }, item.entry, written2);
       return;
     }
     const entry = { ...item.entry };
     if (file2 !== void 0) entry.savedTo = await this.fetchFile(item.id, file2).catch((e6) => `(not saved: ${e6.message})`);
-    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry);
+    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry, written2);
   }
   /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
   async hold(item, pause) {
@@ -93196,14 +93223,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * delivery at a time: deliveries start from the inbound queue, notices, the person's decisions
    * and resumes, and two that overlap would otherwise announce a higher item before a lower one.
    */
-  deliver(item, entry) {
-    const run = this.delivering.then(() => this.deliverNow(item, entry));
+  deliver(item, entry, written2) {
+    const run = this.delivering.then(() => this.deliverNow(item, entry, written2));
     this.delivering = run.then(() => void 0, () => void 0);
     return run;
   }
-  async deliverNow(item, entry) {
+  /** `afterWrite`: runs once the item is durably in the spool, before anything takes it from there. */
+  async deliverNow(item, entry, afterWrite) {
     this.informed([item]);
     const written2 = await this.spool.write(item);
+    if (afterWrite !== void 0) await afterWrite();
     await this.save({});
     if (entry !== void 0) await this.history.append(entry);
     this.emit("item", written2);
@@ -93378,18 +93407,28 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (verdict === "approve" && pins !== void 0 && !isPinned(await this.ciRulesNow() ?? [], item.ci.rule, pins)) {
       throw new ClientError(`held CI notice ${id2} pins its rule's ids: approve it with \`wim held approve ${id2}\` in a terminal you opened yourself`, "person_only");
     }
-    await this.held.remove(id2);
     if (verdict === "refuse") {
+      await this.held.remove(id2);
       if (item.ci === void 0) this.receipt(id2, "refused");
       return this.decided(item);
     }
-    try {
-      await this.release(item, item.fileInfo);
-    } catch (error64) {
-      await this.held.add(item);
-      throw error64;
-    }
+    if (!await this.held.wasDelivered(id2)) await this.release(item, item.fileInfo, () => this.held.markDelivered(id2));
     await this.decided(item);
+    await this.held.settle(id2);
+  }
+  /**
+   * Finishes what an earlier process of this session left half done: an item that is in the spool
+   * (or marked delivered) and still in held/ is taken out of held/, never delivered again, and a
+   * delivered mark whose entry is gone is cleared.
+   */
+  async settleDelivered() {
+    const unread = new Set((await this.spool.unread()).map((i6) => i6.id));
+    for (const item of await this.held.list()) {
+      if (!unread.has(item.id) && !await this.held.wasDelivered(item.id)) continue;
+      await this.decided(item);
+      await this.held.settle(item.id);
+    }
+    for (const id2 of await this.held.deliveredMarks()) await this.held.settle(id2);
   }
   /**
    * A held item was decided: its id is recorded as seen, so a copy the relay brings again (its

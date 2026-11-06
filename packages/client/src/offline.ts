@@ -32,15 +32,18 @@ export async function listAllHeld(mesh: MeshFiles, env: FsEnv): Promise<HeldRow[
  */
 async function applyOffline(files: SessionFiles, item: HeldItem, verdict: Verdict, config: MeshConfig, env: FsEnv, now: () => number): Promise<void> {
   const box = new HeldBox(files.heldDir, env);
-  await box.remove(item.id);
-  if (verdict === "refuse") return;
+  if (verdict === "refuse") return box.remove(item.id);
   const state = await files.load();
   const spool = await Spool.open(files.spoolDir, env, state?.spool ?? 0);
   // A CI notice was framed when it arrived, and only ever informs (SPEC section 18).
   const framed = item.ci === undefined ? releasedFrame(config, item.device, item.entry) : { rendered: item.rendered, relayed: true as const, informs: true as const };
+  // In the spool before it leaves held/, as in a live session: if this stops in between, the
+  // session's next process finds it delivered and only takes it out of held/.
   await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...framed });
+  await box.markDelivered(item.id);
   if (state !== undefined) await files.save({ ...state, spool: spool.highest });
   await new History(files.historyPath, now).append(item.entry);
+  await box.settle(item.id);
 }
 
 /**

@@ -24,6 +24,17 @@ const setPolicy = (d: TestDevice, m: string, id: string, p: Policy) => new MeshF
 function forgePause(s: MeshSession, to: string, pause: PauseInfo): void {
   void (s as unknown as { post(t: string, x: undefined, o: { kind: "pause"; pause: PauseInfo }): Promise<unknown> }).post(to, undefined, { kind: "pause", pause });
 }
+/**
+ * Resolves once `to` has handled everything `from` sent it so far: a later message from the same
+ * session (frames from one session are handled in order) has arrived, delivered, held or refused.
+ */
+async function handled(from: MeshSession, to: MeshSession, address: string): Promise<void> {
+  const out = await from.send(address, "after");
+  await until(
+    async () => (from.receipts.get(out.id) ?? []).some((r) => r.status === "refused") || (await to.spool.unread()).some((i) => i.id === out.id) || (await to.held.list()).some((h) => h.id === out.id),
+    10_000,
+  );
+}
 const enospc = () => Object.assign(new Error("ENOSPC: no space left on device"), { code: "ENOSPC" });
 
 describe("M1", () => {
@@ -60,7 +71,7 @@ describe("M2", () => {
     for (const [s, p] of [[c, "c"], [e, "e"], [a, "a"]] as const) for (const n of [3, 4, 5]) await s.send("b@two", `${p}${n}`);
     await until(async () => (await b.held.list()).length === 9);
     offset += 61_000;
-    await until(async () => (await unread(b)).filter((i) => i.kind === "notice" && i.rendered.includes("cool-down for")).length === 3);
+    await until(async () => (await unread(b)).filter((i) => i.kind === "notice" && i.rendered.includes("cool-down for")).length === 3, 15_000);
     expect((await msgs(b)).length).toBeLessThanOrEqual(4); // 8 on 069e17c
   }, 30_000);
 });
@@ -109,7 +120,7 @@ describe("L2", () => {
     const id = ulid();
     seen.add = async (...x: unknown[]) => { if (fail && x[0] === id) { fail = false; offset += 61_000; throw enospc(); } return add(...x); };
     await a.send("b@two", "3", { id });
-    await until(async () => (await msgs(b)).includes("3"), 10_000);
+    await until(async () => (await msgs(b)).includes("3") && (await b.held.list()).length === 0, 10_000);
     await sleep(1500);
     expect((await msgs(b)).filter((t) => t === "3")).toHaveLength(1);
     expect(await b.held.list()).toEqual([]);
@@ -133,7 +144,7 @@ describe("L2 (continued)", () => {
     const id = ulid();
     seen.add = async (...x: unknown[]) => { if (fail && x[0] === id) { fail = false; offset += 61_000; throw enospc(); } return add(...x); };
     await a.send("b@two", "3", { id });
-    await until(async () => (await msgs(b)).includes("3"), 10_000);
+    await until(async () => (await msgs(b)).includes("3") && (await b.held.list()).length === 0, 10_000);
     await sleep(500);
     expect((await msgs(b)).filter((t) => t === "3")).toHaveLength(1);
     expect(await b.held.list()).toEqual([]);
@@ -267,9 +278,11 @@ describe("L6", () => {
     for (const t of ["1", "2"]) await a.send("b@two", t);
     await until(async () => (await b.held.list()).length === 1);
     offset = -5 * 3_600_000;
-    await sleep(200);
+    // The session notices the clock on its next look at its pauses (a pass, or this): from then on
+    // the cool-down runs its own minute, not the 5 hours the clock now shows.
+    expect(b.pausedRows()[0]!.until - (Date.now() + offset)).toBeLessThanOrEqual(60_000);
     offset += 61_000;
-    await until(async () => (await msgs(b)).length === 2, 10_000);
+    await until(async () => (await msgs(b)).length === 2, 20_000);
     expect(await msgs(b)).toEqual(["1", "2"]);
   }, 30_000);
 });
@@ -306,8 +319,9 @@ describe("L9", () => {
     await a.send("b@two", "0");
     offset = 30 * 60_000;
     forgePause(b, "a@one", { state: "paused", rule: "peer", count: 2, limit: 1, minutes: 60, until: Date.now() + 600_000, auto: true });
-    await sleep(500);
+    await handled(b, a, "a@one");
     expect((await forModel(a)).filter((i) => i.rendered.includes("loop breaker paused messages from this device"))).toEqual([]);
+    expect(await pausedByCount(a)).toBe(0);
   }, 30_000);
 });
 

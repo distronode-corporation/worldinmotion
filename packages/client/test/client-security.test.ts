@@ -271,8 +271,7 @@ describe("inbound policy and the breaker", () => {
     await fs.mkdir(b.files.controlDir, { recursive: true });
     await fs.writeFile(join(b.files.controlDir, "resume-a@one"), "");
     await fs.writeFile(join(b.files.controlDir, "junk"), "");
-    await until(async () => (await unread(b)).filter((i) => i.kind === "msg").length === 6);
-    expect(await b.held.list()).toEqual([]);
+    await until(async () => (await unread(b)).filter((i) => i.kind === "msg").length === 6 && (await b.held.list()).length === 0);
     expect(JSON.parse(await fs.readFile(b.files.breakerPath, "utf8"))).toMatchObject({ pauses: [] });
     // Both told sessions hear it lifted, and the device's sends there are routed again.
     await until(async () => Object.keys(await a.pausedBy.active()).length === 0);

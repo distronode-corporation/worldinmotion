@@ -491,6 +491,7 @@ export class MeshSession extends EventEmitter {
     if (o.sessionKey !== undefined) await keys.remember(o.sessionKey, state.sid, state.resume);
     const session = new MeshSession(o, files, state);
     await session.load();
+    await session.settleDelivered();
     await session.restorePauses();
     return session;
   }
@@ -1313,16 +1314,17 @@ export class MeshSession extends EventEmitter {
   }
 
   /** Fetches a file if there is one, renders the frame and puts the item in the spool. */
-  private async release(item: Omit<HeldItem, "reason">, file: FileInfo | undefined): Promise<void> {
+  /** `written`: what a release from held/ records once the item is in the spool (decideNow). */
+  private async release(item: Omit<HeldItem, "reason">, file: FileInfo | undefined, written?: () => Promise<void>): Promise<void> {
     // A CI notice was framed when it arrived, and is always information only.
     if (item.ci !== undefined) {
-      await this.deliver({ kind: item.kind, from: item.from, device: "", id: item.id, at: item.at, rendered: item.rendered, relayed: true, informs: true }, item.entry);
+      await this.deliver({ kind: item.kind, from: item.from, device: "", id: item.id, at: item.at, rendered: item.rendered, relayed: true, informs: true }, item.entry, written);
       return;
     }
     const entry = { ...item.entry };
     if (file !== undefined) entry.savedTo = await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`);
     // The same trust decision as a release applied on disk (offline.ts).
-    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry);
+    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry, written);
   }
 
   /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
@@ -1374,15 +1376,17 @@ export class MeshSession extends EventEmitter {
    * delivery at a time: deliveries start from the inbound queue, notices, the person's decisions
    * and resumes, and two that overlap would otherwise announce a higher item before a lower one.
    */
-  private deliver(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined): Promise<SpoolItem> {
-    const run = this.delivering.then(() => this.deliverNow(item, entry));
+  private deliver(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined, written?: () => Promise<void>): Promise<SpoolItem> {
+    const run = this.delivering.then(() => this.deliverNow(item, entry, written));
     this.delivering = run.then(() => undefined, () => undefined);
     return run;
   }
 
-  private async deliverNow(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined): Promise<SpoolItem> {
+  /** `afterWrite`: runs once the item is durably in the spool, before anything takes it from there. */
+  private async deliverNow(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined, afterWrite?: () => Promise<void>): Promise<SpoolItem> {
     this.informed([item]);
     const written = await this.spool.write(item);
+    if (afterWrite !== undefined) await afterWrite();
     await this.save({});
     if (entry !== undefined) await this.history.append(entry);
     this.emit("item", written);
@@ -1599,19 +1603,32 @@ export class MeshSession extends EventEmitter {
     if (verdict === "approve" && pins !== undefined && !isPinned((await this.ciRulesNow()) ?? [], item.ci!.rule, pins)) {
       throw new ClientError(`held CI notice ${id} pins its rule's ids: approve it with \`wim held approve ${id}\` in a terminal you opened yourself`, "person_only");
     }
-    await this.held.remove(id);
     if (verdict === "refuse") {
+      await this.held.remove(id);
       if (item.ci === undefined) this.receipt(id, "refused");
       return this.decided(item);
     }
-    // One that cannot be delivered (a full disk) goes back to held, so nothing is lost.
-    try {
-      await this.release(item, item.fileInfo);
-    } catch (error) {
-      await this.held.add(item);
-      throw error;
-    }
+    // Written to the spool before it leaves held/, so a process that stops in between loses
+    // nothing: the next one finds it delivered (its mark, or the spool) and only takes it out of
+    // held/ (settleDelivered), and one that cannot be delivered (a full disk) simply stays held.
+    if (!(await this.held.wasDelivered(id))) await this.release(item, item.fileInfo, () => this.held.markDelivered(id));
     await this.decided(item);
+    await this.held.settle(id);
+  }
+
+  /**
+   * Finishes what an earlier process of this session left half done: an item that is in the spool
+   * (or marked delivered) and still in held/ is taken out of held/, never delivered again, and a
+   * delivered mark whose entry is gone is cleared.
+   */
+  private async settleDelivered(): Promise<void> {
+    const unread = new Set((await this.spool.unread()).map((i) => i.id));
+    for (const item of await this.held.list()) {
+      if (!unread.has(item.id) && !(await this.held.wasDelivered(item.id))) continue;
+      await this.decided(item);
+      await this.held.settle(item.id);
+    }
+    for (const id of await this.held.deliveredMarks()) await this.held.settle(id);
   }
 
   /**
