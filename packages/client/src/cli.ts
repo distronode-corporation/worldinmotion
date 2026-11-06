@@ -40,6 +40,7 @@ import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
+import { selfTest } from "./selftest.ts";
 
 export const VERSION = "0.1.9";
 
@@ -126,6 +127,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
+  test: ["json"],
 };
 
 /**
@@ -223,6 +225,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
+  wim test [--json]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -231,7 +234,7 @@ export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages betwee
 
 Commands: init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, agent.
+crash-reports, test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -489,6 +492,14 @@ export async function main(argv: readonly string[], env: Record<string, string |
   if (badFlag !== undefined) {
     io.err(`wim: ${badFlag}\n\n${(command === undefined ? undefined : commandUsage(command)) ?? SHORT_USAGE}`);
     return 2;
+  }
+  // Before this device's state directory is even worked out: the self-test never uses it.
+  if (command === "test") {
+    if (rest.length > 0 || args.flags.has("mesh")) {
+      io.err(`wim: usage: ${commandUsage("test")!}`);
+      return 2;
+    }
+    return selfTest({ main, env, io, json: args.flags.get("json") === true });
   }
   const ctx = new Ctx(env, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({

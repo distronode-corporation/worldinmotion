@@ -1213,6 +1213,39 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   start its own `wim events` and send these requests, as it could run `wim devices trust`
   (section 5.8).
 
+### 7.6 Test mode (`wim test`)
+
+`wim test` runs wim's own commands end to end on throwaway devices and prints one row per step
+(`--json` for CI). In its sandbox mode it starts a relay inside its own process on loopback
+(`127.0.0.1`, a free port, an in-memory database, mesh creation open to anyone who reaches that
+port while the run lasts) and makes its devices in a new directory under the system's temporary
+directory. Person-only steps (admitting by comparison code, trusting, approving, refusing and
+resuming held messages, deleting a mesh) are taken by a scripted terminal that plays the person.
+That is safe only because of where the script can act, so isolation is the property.
+
+- **What it touches.** Only the run's own directory and its own relay. Each device's state
+  directory is a new one inside the run's directory, refused if anything is already at its path,
+  and each device's environment is built from nothing (its own `WIM_HOME`, crash reports off), so
+  the caller's `WIM_HOME`, `CLAUDE_CONFIG_DIR`, `WIM_MESH` and agent variables never reach a
+  sandbox device. The devices dial only the run's relay URL and fetch only from that relay; any
+  other address is refused before a connection is made. Everything is removed at the end,
+  failures and Ctrl-C included, and the last row says whether that worked.
+- **Checked before every step.** Every device path is inside the run's directory, that directory
+  is its own real path, and no part of any path below it is a symbolic link; the relay is the
+  run's own on loopback. A failed check fails the step, and the rest are skipped.
+- **What it does not touch.** The caller's device and meshes: the command starts before the
+  CLI works out its state directory, and reads nothing there. It resolves that path once, only to
+  refuse a temporary directory inside it (or inside the directory that holds every profile's
+  state). A `wim watch` in the sandbox publishes its card, which reads the branch from `.git` in
+  the run's directory or the nearest parent directory, as it does for any `wim watch`.
+- **The script is reachable from nowhere else.** The scripted terminal lives in the test-mode
+  module, which only the CLI's `test` command loads. No other command, MCP tool or events request
+  reaches it, and `wim test` takes no argument that names a device, a mesh or a state directory.
+  A test checks the module's importers.
+- **The limit.** While a run lasts, any local process can reach its relay's port and create a mesh
+  there, as on any relay run with open creation. It cannot reach the run's meshes without their
+  keys, and the relay goes away with the run.
+
 ## 8. The A2A gateway
 
 `wim a2a` connects the mesh to Agent2Agent agents in both directions.

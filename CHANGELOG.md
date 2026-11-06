@@ -40,6 +40,19 @@ body line with a bracket.
   READMEs now show only the published lines, `uses: distronode-corporation/worldinmotion-notify@<full
   commit sha> # vX.Y.Z` and `component: $CI_SERVER_FQDN/distronode-corporation/worldinmotion-notify/notify@X.Y.Z`,
   and say that neither resolves until a release publishes them.
+- **`wim test`, a self-test inside wim.** It runs the real commands end to end on throwaway
+  devices against a relay it starts in its own process on loopback (relay-node on an in-memory
+  database), and removes all of it at the end, failures included. Fourteen steps: create, invite
+  and join with the comparison code, trust both ways, ping both directions, send with routed,
+  queued and delivered receipts, the offline queue, a held message from an untrusted device
+  approved and then refused, rooms, a file, a lease, ask and reply, rename, the loop breaker
+  tripped and resumed, `wim status` and `wim doctor` on a device not set up and on one in two
+  meshes, and `wim mesh delete`. One row per step (pass, fail or skip, and the time), a summary
+  line, exit 0 only when every step passed, and `--json` for CI. It plays the person for the
+  person-only steps, on its own devices only; the isolation rules and what they guard are in
+  SECURITY-MODEL section 7.6, each with a test against hostile input (the caller's real
+  `WIM_HOME` and agent variables, a temporary directory inside the caller's state, existing state
+  directories, symbolic links, any other relay address).
 
 ### Changed
 
@@ -51,6 +64,8 @@ body line with a bracket.
   sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
   where to find them.
 - A rule saved by 0.1.9 whose ref ends in * (which matched nothing then) is a ref pattern from 0.1.10.
+- **relay-node loads `node:sqlite` when a relay starts**, not when the package is imported, so the
+  client can bundle it for `wim test` without loading SQLite on every command.
 
 ### Fixed
 
