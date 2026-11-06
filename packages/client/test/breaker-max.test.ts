@@ -80,8 +80,9 @@ describe("L1", () => {
     let fail = true;
     sp.write = async (i) => { if (fail && i.kind === "msg" && /\n4\n/.test(i.rendered)) { fail = false; throw enospc(); } return write(i); };
     offset += 61_000;
-    await until(async () => (await msgs(b)).includes("3"));
-    await until(async () => (await b.held.list()).length === 2, 10_000);
+    // Checked once the release is over (its notice is written in a finally): while it runs, an item
+    // being delivered is briefly out of held/ before it is in the spool.
+    await until(async () => (await unread(b)).some((i) => i.kind === "notice" && i.rendered.includes("cool-down for a@one ended")), 10_000);
     const held = (await b.held.list()).map((h) => h.entry.text);
     expect([...(await msgs(b)), ...held].sort(), "delivered or still held").toEqual(["1", "2", "3", "4", "5"]);
     for (const t of ["6", "7"]) await a.send("b@two", t);
