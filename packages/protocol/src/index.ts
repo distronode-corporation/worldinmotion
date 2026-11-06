@@ -78,6 +78,7 @@ export {
   rdvId,
   rdvKey,
   sealRdv,
+  HOSTED_RELAY,
   SHORT_CODE_RELAY,
   type RdvAnswer,
 } from "./shortcode.ts";

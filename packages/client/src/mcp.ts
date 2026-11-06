@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { b64u, bytesEqual, frameForAgent, isName, LIMITS, randomBytes, RESULT_STATUSES, sanitizeForDisplay, utf8 } from "@worldinmotion/protocol";
 import { z } from "zod";
 import { pauseEnd, pauseRule } from "./breaker.ts";
-import { ClientError, heldSendLine, MeshSession, unprotectedNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
+import { ClientError, heldSendLine, MeshSession, prekeyNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
 import { HISTORY_MAX, renderForAgent } from "./history.ts";
 import { isStalePeer, peerLine } from "./render.ts";
 import { POINTER_LEVELS, type Ancestor } from "./ancestry.ts";
@@ -122,12 +122,14 @@ type In<K extends keyof typeof PUBLIC> = z.infer<(typeof PUBLIC)[K]["input"]>;
 const text = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }] });
 const json = (v: Record<string, unknown>): CallToolResult => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
 /**
- * A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b), and
+ * A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b) or
+ * skipped a device for it (a device that refuses v0.1 boxes), and
  * one for each recipient whose loop breaker holds this device's messages (`held`, SPEC section 12).
  */
 const sent = (o: SendOutcome): CallToolResult => {
   const held = o.results.flatMap((r) => (r.status === "held" ? [heldSendLine(r.to, r.breaker)] : []));
-  return json({ ...o, ...(o.unprotected === undefined ? {} : { note: unprotectedNote(o.unprotected, o.no_prekey!) }), ...(held.length === 0 ? {} : { held_note: held.join(" ") }) });
+  const note = prekeyNote(o);
+  return json({ ...o, ...(note === undefined ? {} : { note }), ...(held.length === 0 ? {} : { held_note: held.join(" ") }) });
 };
 const fail = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }], isError: true });
 

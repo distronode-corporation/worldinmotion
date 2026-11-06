@@ -658,6 +658,14 @@ From 1.0, scheme 1 boxes are refused (`legacy_box`), senders never fall back to 
 broadcast or room send carries a box for every device that has a current prekey, and a direct send
 to a device without one is refused before it is sent.
 
+**Closing the window early.** Before 1.0, a client MAY refuse v0.1 boxes on a device set to do
+so: it then behaves as from 1.0 for that device, on send (cards included) and on receive, and
+gives the same `legacy_box` reason. Nothing changes on the wire. A v0.1 device then reads nothing
+that device sends and its messages are dropped there; the relay reports a broadcast or room member
+it got no box for as `invalid` (section 7). The reference client keeps the choice per device in
+`$WIM_HOME/legacy-boxes` (`wim legacy-boxes refuse`, off by default until 1.0); turning it back off
+is a person's decision at their own terminal, like trusting a device (SECURITY-MODEL.md section 7.2).
+
 **Failure modes.**
 
 - **A stale prekey at the sender.** A sender that missed a rotation seals to an older prekey; that

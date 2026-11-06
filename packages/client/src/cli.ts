@@ -14,7 +14,7 @@ import type { Readable, Writable } from "node:stream";
 import { admitPending, createMesh, decideJoin, deleteMesh, forgetMesh, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
 import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
-import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, unprotectedNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions } from "./client.ts";
+import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, prekeyNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
@@ -40,8 +40,10 @@ import { resolveInvite } from "./shortcode.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
+import { RECOVERY_TITLE, runSetup, STORED_PROMPT, type ToolRun } from "./setup.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
+import { LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
 
 export const VERSION = "0.1.9";
 
@@ -84,6 +86,8 @@ export type CliIO = {
   agentKdfN?: number;
   /** Runs another program (the login item and passphrase prompts of `wim agent`), and wim's own command line. */
   programs?: Programs;
+  /** Runs `claude` and `code` for `wim setup` (setup.ts `execRunner`); without it, neither is found. */
+  tools?: ToolRun;
   /** HTTP for `wim ci`, `wim a2a` and crash reports. */
   fetch: typeof fetch;
   /**
@@ -105,6 +109,8 @@ export type CliIO = {
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
 const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected"]);
+/** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
+const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
 const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 
 /** Flags every command takes. */
@@ -112,6 +118,7 @@ const COMMON_FLAGS = ["mesh", "help"];
 
 /** The flags each command takes (USAGE lists them); any other flag is refused. */
 const COMMAND_FLAGS: Record<string, readonly string[]> = {
+  setup: ["name", "relay", "key-env"],
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
   mesh: ["relay", "key-env", "tls", "no-recovery"],
   invite: ["exp", "auto", "full"],
@@ -128,8 +135,10 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   ci: ["as", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
   a2a: ["as"],
   recover: ["relay", "tls", "revoke", "name"],
+  recovery: ["wait"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
+  "legacy-boxes": [],
 };
 
 /**
@@ -159,7 +168,8 @@ export function parseArgs(argv: readonly string[]): Args {
     if (eq !== -1 && BOOLEAN_FLAGS.has(name)) throw new SetupError(`--${name} takes no value`);
     if (eq !== -1) flags.set(name, a.slice(eq + 1));
     else if (!VALUE_FLAGS.has(name)) flags.set(name, true);
-    else if (i + 1 < argv.length) flags.set(name, argv[++i]!);
+    else if (i + 1 < argv.length && !(OPTIONAL_VALUE_FLAGS.has(name) && argv[i + 1]!.startsWith("--"))) flags.set(name, argv[++i]!);
+    else if (OPTIONAL_VALUE_FLAGS.has(name)) flags.set(name, true);
     else throw new SetupError(`--${name} needs a value`);
   }
   return { positional, flags };
@@ -201,6 +211,7 @@ export function parseDuration(text: string): number {
 
 export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
+  wim setup [--name <device>] [--relay <url>] [--key-env NAME]
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery] | wim mesh delete
   wim invite [--exp 1h] [--auto] [--full] | wim invite show
@@ -223,19 +234,20 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim ci list | wim ci remove <n>
   wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
-  wim recovery show | wim recovery rotate
+  wim recovery show [--wait] | wim recovery rotate
   wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
+  wim legacy-boxes [status | refuse | accept]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
+Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, agent.
+crash-reports, legacy-boxes, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -311,6 +323,7 @@ class Ctx {
       debug: this.env["WIM_DEBUG"] === "1",
       cwd: this.io.cwd,
       ...(notifier === undefined ? {} : { notifier }),
+      legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE),
     };
   }
 
@@ -516,6 +529,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
       case "version":
         io.out(VERSION);
         return 0;
+      case "setup":
+        return await setup(ctx);
       case "init":
         return await init(ctx);
       case "mesh":
@@ -564,6 +579,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await notifyTest(ctx);
       case "crash-reports":
         return await crashReports(ctx, crash);
+      case "legacy-boxes":
+        return await legacyBoxes(ctx);
       case "agent":
         return await agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
       default:
@@ -621,6 +638,36 @@ async function crashReports(ctx: Ctx, crash: CrashReporter): Promise<number> {
   return 0;
 }
 
+/** What a person turning v0.1 boxes back on is told before saying yes. */
+export const LEGACY_ACCEPT_TERMS = [
+  "This reopens the migration window on this device (SPEC section 6b). Until 1.0, a relay that",
+  "withholds a device's prekey can then make your sends to it go without forward secrecy, and this",
+  "device again reads messages sent without it. Messages to and from v0.1 clients reach them again.",
+  "`wim legacy-boxes refuse` closes it again at any time.",
+];
+
+/**
+ * `wim legacy-boxes`: shows the setting, refuses v0.1 boxes (anyone: it only makes the device
+ * stricter), or accepts them again (a person only, asked first, since it weakens the device).
+ */
+async function legacyBoxes(ctx: Ctx): Promise<number> {
+  const action = ctx.args.positional[0] ?? "status";
+  const file = pathJoin(ctx.home.root, LEGACY_BOXES_FILE);
+  if (action === "refuse") {
+    await setLegacyBoxes(file, true, ctx.fsEnv);
+  } else if (action === "accept") {
+    requirePerson(ctx.env, ctx.io, "wim legacy-boxes accept");
+    if (!(await confirmTyped(ctx.io, LEGACY_ACCEPT_TERMS, "Accept v0.1 boxes again?"))) return 1;
+    await setLegacyBoxes(file, false, ctx.fsEnv);
+  } else if (action !== "status") {
+    throw new SetupError("usage: wim legacy-boxes [status | refuse | accept]");
+  }
+  const now = await refusesLegacy(file);
+  ctx.io.out(`${legacyBoxesLine(now.refuse)}.`);
+  if (now.problem !== undefined) ctx.io.out(`${now.problem}.`);
+  return 0;
+}
+
 async function init(ctx: Ctx): Promise<number> {
   const name = flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device");
   const device = await ctx.home.createDevice(name);
@@ -633,27 +680,7 @@ async function init(ctx: Ctx): Promise<number> {
 async function meshCreate(ctx: Ctx): Promise<number> {
   const relay = flag(ctx.args, "relay");
   if (relay === undefined) throw new SetupError("--relay <url> is required");
-  const keyEnv = flag(ctx.args, "key-env");
-  const key = keyEnv === undefined ? undefined : ctx.env[keyEnv];
-  if (keyEnv !== undefined && (key === undefined || key === "")) throw new SetupError(`${keyEnv} is not set`);
-  const tls = flag(ctx.args, "tls");
-  const device = await ctx.home.requireDevice();
-  const made = await createMesh({
-    home: ctx.home,
-    device,
-    relay,
-    dialer: ctx.dialer,
-    now: ctx.io.now,
-    ...(key === undefined ? {} : { key }),
-    ...(tls === undefined ? {} : { tls }),
-    recovery: ctx.args.flags.get("no-recovery") !== true,
-  }).catch(async (error: unknown) => {
-    if (!(error instanceof ClientError)) throw error;
-    // In this client's words; the relay's own text is not repeated.
-    if (error.code === "full") throw new ClientError(`${CREATE_REFUSED}: this relay has reached its limit of new meshes; run your own relay (packages/relay-node) or try another`, "full");
-    if (error.code !== "unauthorized") throw error;
-    throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls)}`, "unauthorized");
-  });
+  const made = await createHere(ctx, relay, ctx.args.flags.get("no-recovery") !== true);
   ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== undefined) await showRecoveryCode(ctx, made.recoveryCode);
@@ -662,6 +689,55 @@ async function meshCreate(ctx: Ctx): Promise<number> {
   if (!ctx.io.signal.aborted) await registerCli(ctx, made.mesh);
   ctx.io.out(STATUS_LINE);
   return ctx.io.signal.aborted ? STOPPED : 0;
+}
+
+/**
+ * Creates a mesh on `relay` with this device as its admin, for `wim mesh create` and `wim setup`,
+ * with `--key-env` and `--tls` from the command line. With `name`, a device that does not exist
+ * yet is made first (after the key is checked, so a missing one leaves nothing behind).
+ */
+async function createHere(ctx: Ctx, relay: string, recovery: boolean, name?: string): Promise<{ mesh: string; recoveryCode?: string }> {
+  const keyEnv = flag(ctx.args, "key-env");
+  const key = keyEnv === undefined ? undefined : ctx.env[keyEnv];
+  if (keyEnv !== undefined && (key === undefined || key === "")) throw new SetupError(`${keyEnv} is not set`);
+  const tls = flag(ctx.args, "tls");
+  const device = name === undefined ? await ctx.home.requireDevice() : ((await ctx.home.loadDevice()) ?? (await ctx.home.createDevice(name)));
+  return createMesh({
+    home: ctx.home,
+    device,
+    relay,
+    dialer: ctx.dialer,
+    now: ctx.io.now,
+    ...(key === undefined ? {} : { key }),
+    ...(tls === undefined ? {} : { tls }),
+    recovery,
+  }).catch(async (error: unknown) => {
+    if (!(error instanceof ClientError)) throw error;
+    // In this client's words; the relay's own text is not repeated.
+    if (error.code === "full") throw new ClientError(`${CREATE_REFUSED}: this relay has reached its limit of new meshes; run your own relay (packages/relay-node) or try another`, "full");
+    if (error.code !== "unauthorized") throw error;
+    throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls)}`, "unauthorized");
+  });
+}
+
+/** `wim setup` (setup.ts), with the parts of this file it uses. */
+function setup(ctx: Ctx): Promise<number> {
+  const name = flag(ctx.args, "name");
+  const relay = flag(ctx.args, "relay");
+  return runSetup({
+    io: ctx.io,
+    env: ctx.env,
+    home: ctx.home,
+    homeWhy: ctx.homeWhy,
+    positional: ctx.args.positional,
+    ...(name === undefined ? {} : { name }),
+    ...(relay === undefined ? {} : { relay }),
+    ...(ctx.io.tools === undefined ? {} : { run: ctx.io.tools }),
+    toName: (text) => toName(text, "device"),
+    create: (at, device) => createHere(ctx, at, true, device),
+    register: (mesh) => registerCli(ctx, mesh),
+    status: () => status(ctx),
+  });
 }
 
 /** The exit code of a command a signal stopped (Ctrl-C, a kill, the terminal closing): 128 + SIGINT, what a shell reports for Ctrl-C. */
@@ -737,7 +813,7 @@ async function withoutKey(ctx: Ctx, relay: string, keyEnv: string | undefined, t
 async function showRecoveryCode(ctx: Ctx, code: string): Promise<void> {
   if (canShowSecret(ctx.env, ctx.io.isTTY)) {
     ctx.io.out("");
-    ctx.io.out("Recovery code (shown once; keep it offline, it is as powerful as an admin device):");
+    ctx.io.out(RECOVERY_TITLE);
     ctx.io.out(`  ${code}`);
     ctx.io.out("");
     return;
@@ -760,20 +836,26 @@ async function showRecoveryCode(ctx: Ctx, code: string): Promise<void> {
 
 async function recovery(ctx: Ctx): Promise<number> {
   const action = ctx.args.positional[0];
+  const wait = ctx.args.flags.get("wait");
+  // `--wait` takes no value, and only `show` waits.
+  if (wait !== undefined && (action !== "show" || wait !== true)) throw new SetupError(`usage: ${commandUsage("recovery")!}`);
   if (action === "rotate") return recoveryRotate(ctx);
-  if (action !== "show") throw new SetupError("usage: wim recovery show | wim recovery rotate");
-  return showHeld(ctx, "recovery", ["Recovery code (shown once; keep it offline, it is as powerful as an admin device):"]);
+  if (action !== "show") throw new SetupError(`usage: ${commandUsage("recovery")!}`);
+  return showHeld(ctx, "recovery", [RECOVERY_TITLE], [], wait === true);
 }
 
 /**
  * `wim recovery show` and `wim invite show`: the person, in a terminal of their own, collects a
- * code that a command run elsewhere (by an agent, or with its output piped) holds for them.
+ * code that a command run elsewhere (by an agent, or with its output piped) holds for them. With
+ * `wait` (`wim recovery show --wait`) it then waits for Enter, so a terminal that closes when its
+ * command ends (VS Code's) keeps the code on screen until the person has stored it.
  */
-async function showHeld(ctx: Ctx, kind: ShowKind, before: string[], after: string[] = []): Promise<number> {
+async function showHeld(ctx: Ctx, kind: ShowKind, before: string[], after: string[] = [], wait = false): Promise<number> {
   const notHere = notAPerson(ctx.env, ctx.io.isTTY);
   if (notHere !== undefined) throw new SetupError(personOnly(notHere, `wim ${kind} show`));
   const code = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform, kind));
   for (const line of [...before, `  ${code}`, ...after]) ctx.io.out(line);
+  if (wait) await ctx.io.prompt(STORED_PROMPT);
   return 0;
 }
 
@@ -1249,6 +1331,7 @@ async function send(ctx: Ctx): Promise<number> {
   if (to === undefined || words.length === 0) throw new SetupError("usage: wim send <to> <text...>");
   const name = nameFor(ctx, "cli");
   const text = words.join(" ");
+  if (ctx.args.flags.get("wait") === true) throw new SetupError("--wait needs a value: a duration such as 30s");
   const waitText = flag(ctx.args, "wait");
   const waitMs = waitText === undefined ? undefined : parseDuration(waitText);
   if (waitMs !== undefined && (waitMs === 0 || waitMs > WAIT_MAX_MS)) throw new SetupError("--wait takes a duration from 1ms to 1h, such as 30s");
@@ -1299,9 +1382,10 @@ async function send(ctx: Ctx): Promise<number> {
         if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a) => `${a} (claude-code)`).join(", ")}`);
       }
     }
-    // The migration window (SPEC section 6b): a device with no current prekey made the whole send
-    // v0.1. A watch from before `no_prekey` existed reports only `unprotected`.
-    if (out.unprotected !== undefined) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
+    // A device with no current prekey (SPEC section 6b) made the whole send v0.1 (the window), or
+    // was skipped (this device refuses v0.1 boxes).
+    const note = prekeyNote(out);
+    if (note !== undefined) ctx.io.out(note);
     ctx.io.out(`id ${out.id}`);
     const took = out.results.filter((r) => accepted(r.status)).map((r) => r.to);
     const code = took.length === out.results.length ? 0 : 1;
@@ -1889,6 +1973,9 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   if (rootProblem === undefined) ok(`state directory ${ctx.home.root}`);
   else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
   if (device === undefined) return { meshes };
+  const legacy = await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE));
+  info(legacyBoxesLine(legacy.refuse));
+  if (legacy.problem !== undefined) bad(legacy.problem);
   const me = device.id;
   for (const id of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id), ctx.fsEnv);
@@ -1955,6 +2042,7 @@ async function status(ctx: Ctx): Promise<number> {
   for (const c of problems) ctx.io.out(`problem  ${c.line}`);
   if (device !== undefined) {
     ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
+    ctx.io.out(`${legacyBoxesLine((await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE))).refuse)}.`);
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m of meshes) for (const line of meshStatus(m)) ctx.io.out(line);
   }

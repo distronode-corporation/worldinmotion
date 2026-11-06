@@ -49,6 +49,38 @@ What the line at the top means:
 - **Sealed offline delivery.** A message to a session that is offline waits on the relay for up to
   24 hours, sealed to the recipient's device, while the sender may go offline too.
 
+## Quick start: `wim setup`
+
+[Terminal] On the first machine, once `wim` is installed (step 1 below), in a terminal you
+opened yourself:
+
+```sh
+wim setup
+```
+
+It asks for what it needs and says what each step does before it takes it:
+
+1. Choose 1 to create a new mesh here. It offers this machine's host name as the device name and
+   the hosted relay, `wss://worldinmotion.distronode.com` ([terms](docs/hosted-relay.md)), shows
+   what the relay says it offers, and creates the mesh only after you type `y`.
+2. It shows the **recovery code** once and waits until you press Enter. Keep it offline: step 2
+   below says why.
+3. When it finds the `claude` command, it offers the Claude Code plugin and shows the two commands
+   it runs, `claude plugin marketplace add distronode-corporation/worldinmotion` and
+   `claude plugin install worldinmotion@worldinmotion`. When it finds `code`, it offers the VS
+   Code extension, `code --install-extension distronode.worldinmotion --pre-release`. Each waits
+   for a `y`. It prints the state directory and why it is that one, and warns when
+   `CLAUDE_CONFIG_DIR` is set, since a Claude Code tab without it is another device.
+4. It ends with `wim status`, problems first.
+
+Run it again whenever you like: on a machine that is set up, it skips what is done and repeats
+steps 3 and 4. In an agent's shell, or with its input or output piped, it refuses and says why.
+It never asks about crash reports, and it does not start the signer (step 5 below).
+
+Adding your other machines from `wim setup` comes in a later version: add them with `wim invite`
+and `wim join` (step 3 below). The guide below does everything by hand, and `wim init`, `wim join`
+and `wim invite --auto` stay as they are for scripts and unattended machines.
+
 ## First run: three machines, one person
 
 This guide sets up one person's three machines (here `laptop`, `desk` and `build`) on one mesh,
@@ -107,6 +139,9 @@ prints only "Failed Installing Extensions".
 
 ### 2. Create the mesh, on the first machine
 
+`wim setup` does this step and asks for the name and relay ([Quick start](#quick-start-wim-setup)).
+By hand:
+
 [Terminal on `laptop`]
 
 ```sh
@@ -121,7 +156,9 @@ Run anywhere it cannot be shown, such as through an agent or a pipe, `wim init` 
 the code to `wim recovery show` run in your own terminal, and **keeps running until you collect
 it, for up to 10 minutes**: only that process holds the code. If it is stopped before then (Ctrl-C,
 or an agent giving up on it), it exits 130, the code is gone and the mesh has none; run `wim
-recovery rotate` on this machine, in your own terminal, for a new one.
+recovery rotate` on this machine, in your own terminal, for a new one. `wim recovery show --wait`
+keeps the code on screen until you press Enter, for a terminal that closes as soon as its command
+ends.
 
 `wim devices` lists that code as a second admin named `recovery`, marked `hold`. It is not a
 machine: it is an admin record that never connects, so nothing ever comes from it.
@@ -433,7 +470,10 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its
   device more than 120 hours earlier, and nothing the device sent. Until 1.0, a device that
   publishes no prekey (a v0.1 client) still gets a v0.1 box without forward secrecy, and
-  `wim send` says so. Details: SECURITY-MODEL.md section 6.14.
+  `wim send` says so. `wim legacy-boxes refuse` closes that window on your device now: it never
+  sends or accepts a v0.1 box, so a relay that withholds prekeys cannot downgrade it, and it no
+  longer reaches v0.1 clients. Only you, at your own terminal, can turn it back off. Details:
+  SECURITY-MODEL.md section 6.14.
 - **Optional: keep the keys out of your agent's reach.** By default the device keys are in a file
   only your OS user can read, which also means any agent with a shell can read them. `wim agent
   encrypt` encrypts that file under a passphrase; `wim agent start`, run in your own terminal, asks

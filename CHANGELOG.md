@@ -13,6 +13,32 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **`wim setup`, a guided first run on one machine.** In a terminal of your own it creates the
+  device and a mesh, offering the host name as the device name and the hosted relay as the relay,
+  shows what the relay says it offers, and asks for a typed `y` before it creates anything. It
+  shows the recovery code once and waits for Enter. When the `claude` or `code` command is
+  installed, it offers the Claude Code plugin or the VS Code extension, showing the commands it
+  runs (without a shell) and waiting for a `y`; it prints the state directory and why, and warns
+  when `CLAUDE_CONFIG_DIR` is set. It ends with `wim status`, problems first. Run again on a device
+  that is set up, it skips what is done. It refuses an agent's shell and piped input or output, as
+  the other person-only commands do, never asks about crash reports and does not start the
+  signer. Adding a machine to an existing mesh from `wim setup`, and `wim setup <invite code>`,
+  come later; `wim invite` and `wim join` do that today. `wim init`, `wim join` and
+  `wim invite --auto` are unchanged.
+- **`wim recovery show --wait`** waits for Enter after showing the code, so a terminal that closes
+  when its command ends keeps the code on screen until the person has stored it.
+- **Close the downgrade window early.** `wim legacy-boxes refuse` makes a device refuse v0.1
+  boxes now, as every device will from 1.0 (SPEC section 6b): it never sends one (a direct send
+  to a device with no current prekey is refused with the reason, a broadcast, room send or card
+  skips that device and `wim send` names it), and it drops every one it receives as
+  `legacy_box`. A relay that withholds prekeys can no longer strip forward secrecy from that
+  device's sends. Anyone may turn it on; `wim legacy-boxes accept` turns it off and is the
+  person's alone (their own terminal and a typed `y`, as for `wim devices trust`), with no MCP
+  tool or events op. `wim status` and `wim doctor` show it. Off by default until 1.0. No wire
+  change.
+
 ### Fixed
 
 - **The GitHub Action did not load.** The description of its `status` input showed the
