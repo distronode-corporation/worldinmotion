@@ -52,9 +52,9 @@ connections it carries.
 ### CI senders
 
 CI senders (a GitHub Actions or GitLab CI/CD job sending a notice to one of your sessions,
-[SPEC.md](../SPEC.md) section 18) are **not enabled** on the hosted relay yet: its `GET /v1/info`
-reports `"ci": false`, or leaves `ci` out. If they are enabled, this page will say so first, and
-the relay will then also see:
+[SPEC.md](../SPEC.md) section 18) are **enabled** on the hosted relay since 2026-11-06 (relay
+0.1.9): its `GET /v1/info` reports `"ci": true`. Nothing reaches a device unless its person ran
+`wim ci allow` there. For CI notices, the relay also sees:
 
 - **a GitHub notice's ID token, once**, to verify it: for that moment, every claim it carries
   (the repository and its owner, their ids and visibility, the ref, workflow, event, commit, run
@@ -66,7 +66,7 @@ the relay will then also see:
   notices;
 - which session accepts notices, and each notice's target, size and time.
 
-It will never see a GitLab token, so never a GitLab pipeline user's login or email address, and
+It never sees a GitLab token, so never a GitLab pipeline user's login or email address, and
 never a notice's text.
 
 ## Limits

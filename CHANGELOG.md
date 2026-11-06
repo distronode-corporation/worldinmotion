@@ -22,6 +22,13 @@ body line with a bracket.
   expression in `action.yml`. Found by the first live run of `ci-notice-staging.yml`; the GitLab
   component was not affected.
 
+### Changed
+
+- **The hosted relay takes CI senders** since 2026-11-06 (relay 0.1.9, `"ci": true` in
+  `/v1/info`), and [docs/hosted-relay.md](docs/hosted-relay.md) now says so, with what the relay
+  sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
+  where to find them.
+
 ## [0.1.9] - 2026-11-06
 
 ### Added
