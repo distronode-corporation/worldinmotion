@@ -890,7 +890,9 @@ Limits:
   the person's alone, behind the guard of `wim devices trust` (section 7.2: their own terminal and
   a typed `y`), and no MCP tool or events op reaches it. Like every file in the state directory,
   the guard keeps agents from the command, not from `$WIM_HOME/legacy-boxes` itself (section 9).
-  It is off by default until 1.0; `wim status` and `wim doctor` show it. A device with it on
+  It is off by default until 1.0; `wim status` and `wim doctor` show it. A file that reads as
+  neither `refuse` nor `accept` (garbage, or one that cannot be read) counts as refuse, and
+  `wim status` reports it as a problem. A device with it on
   cannot talk to v0.1 clients, and boxes it recorded before turning it on are unchanged.
 - **Deletion is a file rewrite.** It runs whenever a wim process for the mesh runs; a device that is
   switched off keeps what it held until a wim process next runs. Rewriting a file does not erase
@@ -1052,13 +1054,13 @@ mesh of your own devices.
 
 **Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume`,
 `wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`),
-`wim legacy-boxes accept` (section 6.14), and `wim mesh delete` run only when standard input and standard output are both an interactive
-terminal and none of an agent's variables is set. They then show what is being decided (for a
-held item: the sender, its device id, the session it waits for, why it waits and its text; for a
-device: its name, role, id, and the policy now and after; for a mesh: its id, relay and every
-device it holds, and that this device's copy goes too) and act only on a typed `y` or `yes`. There is no flag that skips this,
-since an agent could pass a flag as easily as the person. The variables are the ones agent hosts
-set in the shells they run: `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` and
+`wim legacy-boxes accept` (section 6.14), and `wim mesh delete` run only when standard input and
+standard output are both an interactive terminal and none of an agent's variables is set. They
+then show what is being decided (for a held item: the sender, its device id, the session it waits
+for, why it waits and its text; for a device: its name, role, id, and the policy now and after;
+for a mesh: its id, relay and every device it holds, and that this device's copy goes too) and
+act only on a typed `y` or `yes`. There is no flag that skips this, since an agent could pass a
+flag as easily as the person. The variables are the ones agent hosts set in the shells they run: `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` and
 `CLAUDE_CODE_MESSAGING_SOCKET` (Claude Code), `AI_AGENT`, `GEMINI_CLI`, `CURSOR_AGENT`,
 `CURSOR_TRACE_ID`, `OPENCODE`, `AIDER_MODEL`, `ANTIGRAVITY_AGENT`, `WIM_AGENT` and any `CODEX_`
 variable. Other `CLAUDE_CODE_` variables are not on the list, because people set some of them

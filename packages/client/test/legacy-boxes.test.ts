@@ -251,7 +251,7 @@ describe("wim legacy-boxes", () => {
       expect(t.out).toEqual([]);
       expect(t.answers).toEqual(["y"]);
     }
-    expect(await refusesLegacy(file)).toBe(true);
+    expect(await refusesLegacy(file)).toEqual({ refuse: true });
   });
 
   it("accepts them again only on a typed yes from the person, after saying what it weakens", async () => {
@@ -264,7 +264,7 @@ describe("wim legacy-boxes", () => {
       expect(await run(t, "legacy-boxes", "accept")).toBe(1);
       expect(t.err.at(-1)).toBe("wim: nothing changed.");
     }
-    expect(await refusesLegacy(file)).toBe(true);
+    expect(await refusesLegacy(file)).toEqual({ refuse: true });
     expect(t.out).toEqual(expect.arrayContaining([...LEGACY_ACCEPT_TERMS, "Accept v0.1 boxes again? [y/N] "]));
     t.answers.push("y");
     expect(await run(t, "legacy-boxes", "accept")).toBe(0);
@@ -281,17 +281,53 @@ describe("wim legacy-boxes", () => {
     expect(said(t)).toContain("wim legacy-boxes [status | refuse | accept]");
   });
 
-  it("reads anything but exactly refuse, a missing file, or one too long as the window", async () => {
+  it("reads a missing file and accept as the window, refuse as refuse, and anything else as refuse with a problem", async () => {
     const home = await scratch("lb");
     const file = join(home, LEGACY_BOXES_FILE);
-    expect(await refusesLegacy(file)).toBe(false);
-    for (const text of ["accept\n", "refuse please", "REFUSE", `${" ".repeat(16)}refuse`, ""]) {
-      await fs.writeFile(file, text);
-      expect(await refusesLegacy(file), JSON.stringify(text)).toBe(false);
-    }
+    expect(await refusesLegacy(file)).toEqual({ refuse: false });
+    await fs.writeFile(file, "accept\n");
+    expect(await refusesLegacy(file)).toEqual({ refuse: false });
     await fs.writeFile(file, "  refuse \n");
-    expect(await refusesLegacy(file)).toBe(true);
+    expect(await refusesLegacy(file)).toEqual({ refuse: true });
+    const neither = `${file}: it says neither refuse nor accept, so this device refuses v0.1 boxes. \`wim legacy-boxes refuse\` or \`wim legacy-boxes accept\` rewrites it`;
+    for (const text of ["refuse please", "REFUSE", "off", `${" ".repeat(16)}accept`, ""]) {
+      await fs.writeFile(file, text);
+      expect(await refusesLegacy(file), JSON.stringify(text)).toEqual({ refuse: true, problem: neither });
+    }
+    // One that cannot be read (here a directory) refuses too, and names why.
+    await fs.rm(file);
+    await fs.mkdir(file);
+    expect(await refusesLegacy(file)).toEqual({ refuse: true, problem: expect.stringMatching(/: it cannot be read: EISDIR, so this device refuses v0\.1 boxes\. /) });
   });
+
+  it("an error without a code still refuses", async () => {
+    const { promises } = await import("node:fs");
+    const real = promises.readFile;
+    (promises as { readFile: unknown }).readFile = () => Promise.reject(new Error("odd"));
+    try {
+      expect(await refusesLegacy(join(await scratch("lb"), LEGACY_BOXES_FILE))).toMatchObject({ refuse: true, problem: expect.stringContaining("it cannot be read: error,") });
+    } finally {
+      (promises as { readFile: unknown }).readFile = real;
+    }
+  });
+
+  it("wim status, wim doctor and wim legacy-boxes show a garbage file as a problem, and a running session refuses", async () => {
+    const { relay, devices, a } = await mixed({ strict: false });
+    await fs.writeFile(fileOf(devices[0]!), "maybe\n");
+    await expect(a.send("o@old", "garbage refuses")).rejects.toThrow(/^refused: no current prekey for old /);
+    const t = term(devices[0]!.root, relay);
+    expect(await run(t, "status")).toBe(1);
+    expect(t.out).toContain(`${legacyBoxesLine(true)}.`);
+    expect(t.out.some((l) => l.startsWith("problem  ") && l.includes(`${fileOf(devices[0]!)}: it says neither refuse nor accept`) && l.includes("`wim legacy-boxes refuse` or `wim legacy-boxes accept` rewrites it"))).toBe(true);
+    t.out.length = 0;
+    expect(await run(t, "doctor")).toBe(1);
+    expect(t.out.some((l) => l.startsWith("problem  ") && l.includes("it says neither refuse nor accept"))).toBe(true);
+    t.out.length = 0;
+    expect(await run(t, "legacy-boxes")).toBe(0);
+    expect(t.out).toEqual([`${legacyBoxesLine(true)}.`, expect.stringMatching(/it says neither refuse nor accept, .* rewrites it\.$/)]);
+    expect(await run(t, "legacy-boxes", "refuse")).toBe(0);
+    expect(t.out.at(-1)).toBe(`${legacyBoxesLine(true)}.`);
+  }, LONG);
 });
 
 describe("wim status and wim doctor", () => {

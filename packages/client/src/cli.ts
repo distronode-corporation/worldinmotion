@@ -644,7 +644,9 @@ async function legacyBoxes(ctx: Ctx): Promise<number> {
   } else if (action !== "status") {
     throw new SetupError("usage: wim legacy-boxes [status | refuse | accept]");
   }
-  ctx.io.out(`${legacyBoxesLine(await refusesLegacy(file))}.`);
+  const now = await refusesLegacy(file);
+  ctx.io.out(`${legacyBoxesLine(now.refuse)}.`);
+  if (now.problem !== undefined) ctx.io.out(`${now.problem}.`);
   return 0;
 }
 
@@ -1902,7 +1904,9 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   if (rootProblem === undefined) ok(`state directory ${ctx.home.root}`);
   else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
   if (device === undefined) return { meshes };
-  info(legacyBoxesLine(await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE))));
+  const legacy = await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE));
+  info(legacyBoxesLine(legacy.refuse));
+  if (legacy.problem !== undefined) bad(legacy.problem);
   const me = device.id;
   for (const id of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id), ctx.fsEnv);
@@ -1969,7 +1973,7 @@ async function status(ctx: Ctx): Promise<number> {
   for (const c of problems) ctx.io.out(`problem  ${c.line}`);
   if (device !== undefined) {
     ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
-    ctx.io.out(`${legacyBoxesLine(await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE)))}.`);
+    ctx.io.out(`${legacyBoxesLine((await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE))).refuse)}.`);
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m of meshes) for (const line of meshStatus(m)) ctx.io.out(line);
   }

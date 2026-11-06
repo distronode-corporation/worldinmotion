@@ -873,8 +873,8 @@ export class MeshSession extends EventEmitter {
   }
 
   /** Whether this device refuses v0.1 boxes now (`wim legacy-boxes`): read each time, so a change reaches a running session. */
-  private refusesLegacy(): Promise<boolean> {
-    return this.o.legacyBoxesPath === undefined ? Promise.resolve(false) : refusesLegacy(this.o.legacyBoxesPath);
+  private async refusesLegacy(): Promise<boolean> {
+    return this.o.legacyBoxesPath === undefined ? false : (await refusesLegacy(this.o.legacyBoxesPath)).refuse;
   }
 
   /**

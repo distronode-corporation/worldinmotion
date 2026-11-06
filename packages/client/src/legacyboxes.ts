@@ -1,7 +1,9 @@
 // Closing the downgrade window early (SPEC section 6b, SECURITY-MODEL section 6.14): a device
 // setting that refuses v0.1 boxes before 1.0, on send and on receive. `$WIM_HOME/legacy-boxes`
-// holds `refuse` when the device refuses them; anything else, or no file, is the migration
-// window, the default until 1.0. Every session of the device reads it at each send and each
+// holds `refuse` when the device refuses them and `accept` when it does not; no file is the
+// migration window, the default until 1.0. A file that says neither (garbage, too long, or one
+// that cannot be read) counts as refuse, the safe side, and `wim status` and `wim doctor` show it
+// as a problem. Every session of the device reads it at each send and each
 // message it opens, so a change reaches running sessions at once.
 //
 // Turning it on (`wim legacy-boxes refuse`) only makes the device stricter, so anyone may. Turning
@@ -19,10 +21,29 @@ export const LEGACY_BOXES_FILE = "legacy-boxes";
 /** The longest file read; anything longer is not the setting. */
 const MAX_BYTES = 16;
 
-/** Whether the device at `path`'s state directory refuses v0.1 boxes. A missing or unreadable file is the window. */
-export async function refusesLegacy(path: string): Promise<boolean> {
-  const text = await fs.readFile(path, "utf8").catch(() => "");
-  return text.length <= MAX_BYTES && text.trim() === "refuse";
+/** The setting as read: whether the device refuses v0.1 boxes, and the problem when the file says neither. */
+export type LegacyBoxes = { refuse: boolean; problem?: string };
+
+/**
+ * Reads the setting at `path`: no file and `accept` are the window, `refuse` refuses, and anything
+ * else, including a file too long or one that cannot be read, refuses too, with the problem.
+ */
+export async function refusesLegacy(path: string): Promise<LegacyBoxes> {
+  let text: string;
+  try {
+    text = await fs.readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { refuse: false };
+    return { refuse: true, problem: unreadable(path, `it cannot be read: ${(error as NodeJS.ErrnoException).code ?? "error"}`) };
+  }
+  const said = text.length <= MAX_BYTES ? text.trim() : undefined;
+  if (said === "accept") return { refuse: false };
+  if (said === "refuse") return { refuse: true };
+  return { refuse: true, problem: unreadable(path, "it says neither refuse nor accept") };
+}
+
+function unreadable(path: string, why: string): string {
+  return `${path}: ${why}, so this device refuses v0.1 boxes. \`wim legacy-boxes refuse\` or \`wim legacy-boxes accept\` rewrites it`;
 }
 
 /** Writes the setting: `refuse` closes the window on this device, `accept` reopens it. */

@@ -91099,8 +91099,20 @@ import { promises as fs4 } from "node:fs";
 var LEGACY_BOXES_FILE = "legacy-boxes";
 var MAX_BYTES = 16;
 async function refusesLegacy(path2) {
-  const text2 = await fs4.readFile(path2, "utf8").catch(() => "");
-  return text2.length <= MAX_BYTES && text2.trim() === "refuse";
+  let text2;
+  try {
+    text2 = await fs4.readFile(path2, "utf8");
+  } catch (error64) {
+    if (error64.code === "ENOENT") return { refuse: false };
+    return { refuse: true, problem: unreadable(path2, `it cannot be read: ${error64.code ?? "error"}`) };
+  }
+  const said = text2.length <= MAX_BYTES ? text2.trim() : void 0;
+  if (said === "accept") return { refuse: false };
+  if (said === "refuse") return { refuse: true };
+  return { refuse: true, problem: unreadable(path2, "it says neither refuse nor accept") };
+}
+function unreadable(path2, why) {
+  return `${path2}: ${why}, so this device refuses v0.1 boxes. \`wim legacy-boxes refuse\` or \`wim legacy-boxes accept\` rewrites it`;
 }
 function setLegacyBoxes(path2, refuse, env3) {
   return writeAtomic(path2, refuse ? "refuse\n" : "accept\n", env3);
@@ -92790,8 +92802,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history: history2, legacy });
   }
   /** Whether this device refuses v0.1 boxes now (`wim legacy-boxes`): read each time, so a change reaches a running session. */
-  refusesLegacy() {
-    return this.o.legacyBoxesPath === void 0 ? Promise.resolve(false) : refusesLegacy(this.o.legacyBoxesPath);
+  async refusesLegacy() {
+    return this.o.legacyBoxesPath === void 0 ? false : (await refusesLegacy(this.o.legacyBoxesPath)).refuse;
   }
   /**
    * Opens a frame; a box for a prekey this session has not read yet is tried again after a reload.
@@ -129741,7 +129753,9 @@ async function legacyBoxes(ctx) {
   } else if (action !== "status") {
     throw new SetupError("usage: wim legacy-boxes [status | refuse | accept]");
   }
-  ctx.io.out(`${legacyBoxesLine(await refusesLegacy(file2))}.`);
+  const now = await refusesLegacy(file2);
+  ctx.io.out(`${legacyBoxesLine(now.refuse)}.`);
+  if (now.problem !== void 0) ctx.io.out(`${now.problem}.`);
   return 0;
 }
 async function init(ctx) {
@@ -130697,7 +130711,9 @@ async function checkup(ctx, emit) {
   if (rootProblem === void 0) ok2(`state directory ${ctx.home.root}`);
   else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
   if (device === void 0) return { meshes };
-  info(legacyBoxesLine(await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE))));
+  const legacy = await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE));
+  info(legacyBoxesLine(legacy.refuse));
+  if (legacy.problem !== void 0) bad(legacy.problem);
   const me = device.id;
   for (const id2 of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id2), ctx.fsEnv);
@@ -130754,7 +130770,7 @@ async function status2(ctx) {
   for (const c5 of problems) ctx.io.out(`problem  ${c5.line}`);
   if (device !== void 0) {
     ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
-    ctx.io.out(`${legacyBoxesLine(await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE)))}.`);
+    ctx.io.out(`${legacyBoxesLine((await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE))).refuse)}.`);
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m4 of meshes) for (const line of meshStatus(m4)) ctx.io.out(line);
   }
