@@ -92261,6 +92261,14 @@ function pingRow(address, results, pongs) {
   const ms = pongs.get(address);
   return ms === void 0 ? { to: address, status: status3 } : { to: address, status: status3, ms };
 }
+function breakerOf(e6) {
+  const { to: _to, state: _state, at: _at2, ...breaker2 } = e6;
+  return breaker2;
+}
+function pauseFrom(entries, to) {
+  const e6 = Object.values(entries).find((x2) => x2.to === to);
+  return e6 === void 0 ? void 0 : breakerOf(e6);
+}
 function heldSendLine(to, b5) {
   const after = b5.auto ? `at ${clock(b5.until)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person` : `what it holds waits for its person (the pause itself lifts at ${clock(b5.until)})`;
   return `${to}: held there, not delivered: its loop breaker paused this device on ${pauseRule("this device", b5)}; ${after}. Sending more now only adds to what it holds.`;
@@ -93807,8 +93815,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const results = outcome.results.map((r6) => {
       const e6 = r6.status === "routed" || r6.status === "queued" ? paused[this.pairOf(r6.to)] : void 0;
       if (e6 === void 0) return r6;
-      const { to: _to, state: _state, at: _at2, ...breaker2 } = e6;
-      return { to: r6.to, status: "held", relay: r6.status, breaker: breaker2 };
+      return { to: r6.to, status: "held", relay: r6.status, breaker: breakerOf(e6) };
     });
     return { ...outcome, results };
   }
@@ -130100,7 +130107,7 @@ function receiptLine(to, status3, id2) {
     case "delivered":
       return `${to}: delivered (the session took it; that does not mean anyone read it)`;
     case "held":
-      return `${to}: held for the approval of that device's person. It is not delivered until they approve it there: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id2}\``;
+      return `${to}: held for the approval of that device's person. It is not delivered until they approve it there: ${approveThere(id2)}`;
     case "refused":
       return `${to}: refused by that device's inbound policy`;
     case "expired":
@@ -130109,18 +130116,28 @@ function receiptLine(to, status3, id2) {
       return `${to}: ${sanitizeForDisplay(status3)}`;
   }
 }
+var approveThere = (id2) => `/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id2}\``;
+function heldWaitLine(to, id2, b5) {
+  if (b5 === void 0) return receiptLine(to, "held", id2);
+  return `${heldSendLine(to, b5)} Its person can approve it sooner: ${approveThere(id2)}`;
+}
+var PAUSE_GRACE_MS = 2e3;
 function lastReceipts(receipts) {
   return new Map(receipts.map((r6) => [r6.to, r6.status]));
 }
 var isFinal = (status3) => status3 !== void 0 && status3 !== "held";
-async function waitForReceipts(ctx, read, wanted, ms, onHeld) {
+async function waitForReceipts(ctx, read, wanted, ms, pause, onHeld) {
   const until = Date.now() + ms;
   const told = /* @__PURE__ */ new Set();
+  const heldAt = /* @__PURE__ */ new Map();
   for (; ; ) {
     const got = lastReceipts(await read());
     for (const to of wanted.filter((a5) => got.get(a5) === "held" && !told.has(a5))) {
+      if (!heldAt.has(to)) heldAt.set(to, Date.now());
+      const b5 = await pause(to);
+      if (b5 === void 0 && Date.now() - heldAt.get(to) < PAUSE_GRACE_MS) continue;
       told.add(to);
-      onHeld(to);
+      onHeld(to, b5);
     }
     if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
     await new Promise((r6) => setTimeout(r6, 100));
@@ -130185,17 +130202,29 @@ async function send2(ctx) {
       return code2;
     }
     ctx.io.out(`Waiting up to ${waitText} for receipts (Ctrl-C stops waiting; the message stays sent)...`);
-    const got = await waitForReceipts(ctx, receipts, took, waitMs, (to2) => ctx.io.out(`${receiptLine(to2, "held", out.id)}. Still waiting for it to be delivered...`));
-    return reportReceipts(ctx, out, took, got, code2);
+    const paused = new PausedBy(files.pausedByPath, ctx.fsEnv, ctx.io.now);
+    const pause = async (a5) => pauseFrom(await paused.active(), a5);
+    const got = await waitForReceipts(ctx, receipts, took, waitMs, pause, (a5, b5) => ctx.io.out(`${heldWaitLine(a5, out.id, b5)}. Still waiting for it to be delivered...`));
+    return reportReceipts(ctx, out, took, got, code2, await pausesOf(took, got, pause));
   } finally {
     if (s3 !== void 0) await ctx.finish(s3);
   }
 }
-function reportReceipts(ctx, out, took, got, code2) {
+async function pausesOf(took, got, pause) {
+  const out = /* @__PURE__ */ new Map();
+  for (const to of took.filter((a5) => got.get(a5) === "held")) {
+    const b5 = await pause(to);
+    if (b5 !== void 0) out.set(to, b5);
+  }
+  return out;
+}
+function reportReceipts(ctx, out, took, got, code2, pauses) {
   const statusOf = new Map(out.results.map((r6) => [r6.to, r6.status]));
   for (const to of took) {
     const status3 = got.get(to);
-    if (status3 === "held") ctx.io.out(`${to}: still held for the approval of that device's person when the wait ended, so not delivered yet`);
+    const b5 = pauses.get(to);
+    if (status3 === "held" && b5 !== void 0) ctx.io.out(`${heldSendLine(to, b5)} The wait ended first, so it is not delivered yet.`);
+    else if (status3 === "held") ctx.io.out(`${to}: still held for the approval of that device's person when the wait ended, so not delivered yet`);
     else if (status3 !== void 0) ctx.io.out(receiptLine(to, status3, out.id));
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)]})`);
   }

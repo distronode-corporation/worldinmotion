@@ -185,6 +185,14 @@ body line with a bracket.
   device's authentication"). Seen as `wim inbox --as <name>` failing right after a refused
   `--as` for a Claude Code tab's name, about one run in six on Linux and on Windows CI. A
   session now writes its state one write at a time, in the order asked.
+- **`wim send --wait` said a cool-down hold waits for the person.** For a message a trusted
+  device's loop breaker held for its cool-down, it printed "held for the approval of that
+  device's person. It is not delivered until they approve it there", and that device's client then
+  delivered it by itself when the cool-down ended. With a `pause` from that session it now prints
+  the line a `held` send row prints: the rule, and that its client delivers at the cool-down's end
+  (with the time), or, for a pause that waits for the person (a second trip within the hour),
+  that it waits for them; and that the person there can approve it sooner. A hold with no `pause`
+  after it within 2 seconds (an inbound policy hold) still says it waits for the person.
 - **Tests:** two client tests checked a result after a fixed sleep (a joined member's roster seq,
   and the deliveries after a cool-down's release); they wait for the result now.
 
