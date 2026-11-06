@@ -199,6 +199,32 @@ describe("a trusted peer's cool-down", () => {
   }, 30_000);
 });
 
+describe("an older mesh.json", () => {
+  it("with a 0.1.9 draft's `trusted` block, unknown keys and lowered limits loads, applies the lowered limits, logs nothing, and keeps them when rewritten", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const files = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
+    // Written by hand, as a person or a draft build left it.
+    const raw = JSON.parse(await fs.readFile(files.configPath, "utf8")) as Record<string, unknown>;
+    raw["breaker"] = { perPeerPerHour: 2, totalPerHour: 60, pingPong: true, pingPongExchanges: 8, perPeerPerMinute: 1, trusted: { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 60 } };
+    await fs.writeFile(files.configPath, JSON.stringify(raw));
+    const lines: string[] = [];
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    const b = await session(devices[1]!, mesh, relay, { name: "b", log: (l) => void lines.push(l) });
+    for (const t of ["1", "2", "3"]) await a.send("b@two", t);
+    // The lowered per-peer limit, 2, is the one that applies; the draft's 120 is not.
+    await until(async () => (await b.held.list()).length === 1);
+    expect(await msgs(b)).toEqual(["1", "2"]);
+    expect((await b.held.list())[0]!.pause).toMatchObject({ rule: "peer", limit: 2, auto: true });
+    expect(lines.filter((l) => /breaker|mesh\.json|refus|invalid|malformed/i.test(l))).toEqual([]);
+    // A later write of mesh.json (trusting a device here) keeps the person's values.
+    await files.updateConfig((c) => ({ ...c, policy: { ...c.policy, extra: "hold" } }));
+    const after = (await files.loadConfig()).breaker;
+    expect(after).toEqual({ perPeerPerHour: 2, totalPerHour: 60, pingPong: true, pingPongExchanges: 8, cooldownMinutes: 60 });
+    expect((JSON.parse(await fs.readFile(files.configPath, "utf8")) as { breaker: unknown }).breaker).toEqual(after);
+  }, 30_000);
+});
+
 describe("the sending side", () => {
   it("hears the pause once a session, reports held, and takes a pause only as a label from a session it sent to", async () => {
     const { a, b, clocks, devices, mesh } = await pair(60);

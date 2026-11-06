@@ -13575,8 +13575,8 @@ var init_Fields = __esm({
     Fields = class {
       entries = {};
       encoding;
-      constructor({ fields = [], encoding = "utf-8" }) {
-        fields.forEach(this.setField.bind(this));
+      constructor({ fields: fields2 = [], encoding = "utf-8" }) {
+        fields2.forEach(this.setField.bind(this));
         this.encoding = encoding;
       }
       setField(field) {
@@ -45813,15 +45813,15 @@ var require_logging_utils = __commonJS({
         this.func.error = (...args) => this.invokeSeverity(LogSeverity.ERROR, ...args);
         this.func.sublog = (namespace2) => log2(namespace2, this.func);
       }
-      invoke(fields, ...args) {
+      invoke(fields2, ...args) {
         if (this.upstream) {
           try {
-            this.upstream(fields, ...args);
+            this.upstream(fields2, ...args);
           } catch (e6) {
           }
         }
         try {
-          this.emit("log", fields, args);
+          this.emit("log", fields2, args);
         } catch (e6) {
         }
       }
@@ -45844,7 +45844,7 @@ var require_logging_utils = __commonJS({
         }
         this.filters = nodeFlag.split(",");
       }
-      log(namespace, fields, ...args) {
+      log(namespace, fields2, ...args) {
         try {
           if (!this.filtersSet) {
             this.setFilters();
@@ -45855,7 +45855,7 @@ var require_logging_utils = __commonJS({
             logger2 = this.makeLogger(namespace);
             this.cached.set(namespace, logger2);
           }
-          logger2(fields, ...args);
+          logger2(fields2, ...args);
         } catch (e6) {
           console.error(e6);
         }
@@ -45875,27 +45875,27 @@ var require_logging_utils = __commonJS({
           return () => {
           };
         }
-        return (fields, ...args) => {
+        return (fields2, ...args) => {
           var _a5;
           const nscolour = `${colours_1.Colours.green}${namespace}${colours_1.Colours.reset}`;
           const pid = `${colours_1.Colours.yellow}${process3.pid}${colours_1.Colours.reset}`;
           let level;
-          switch (fields.severity) {
+          switch (fields2.severity) {
             case LogSeverity.ERROR:
-              level = `${colours_1.Colours.red}${fields.severity}${colours_1.Colours.reset}`;
+              level = `${colours_1.Colours.red}${fields2.severity}${colours_1.Colours.reset}`;
               break;
             case LogSeverity.INFO:
-              level = `${colours_1.Colours.magenta}${fields.severity}${colours_1.Colours.reset}`;
+              level = `${colours_1.Colours.magenta}${fields2.severity}${colours_1.Colours.reset}`;
               break;
             case LogSeverity.WARNING:
-              level = `${colours_1.Colours.yellow}${fields.severity}${colours_1.Colours.reset}`;
+              level = `${colours_1.Colours.yellow}${fields2.severity}${colours_1.Colours.reset}`;
               break;
             default:
-              level = (_a5 = fields.severity) !== null && _a5 !== void 0 ? _a5 : LogSeverity.DEFAULT;
+              level = (_a5 = fields2.severity) !== null && _a5 !== void 0 ? _a5 : LogSeverity.DEFAULT;
               break;
           }
           const msg = util.formatWithOptions({ colors: colours_1.Colours.enabled }, ...args);
-          const filteredFields = Object.assign({}, fields);
+          const filteredFields = Object.assign({}, fields2);
           delete filteredFields.severity;
           const fieldsJson = Object.getOwnPropertyNames(filteredFields).length ? JSON.stringify(filteredFields) : "";
           const fieldsColour = fieldsJson ? `${colours_1.Colours.grey}${fieldsJson}${colours_1.Colours.reset}` : "";
@@ -45920,7 +45920,7 @@ var require_logging_utils = __commonJS({
       }
       makeLogger(namespace) {
         const debugLogger = this.debugPkg(namespace);
-        return (fields, ...args) => {
+        return (fields2, ...args) => {
           debugLogger(args[0], ...args.slice(1));
         };
       }
@@ -45942,16 +45942,16 @@ var require_logging_utils = __commonJS({
       makeLogger(namespace) {
         var _a5;
         const debugLogger = (_a5 = this.upstream) === null || _a5 === void 0 ? void 0 : _a5.makeLogger(namespace);
-        return (fields, ...args) => {
+        return (fields2, ...args) => {
           var _a6;
-          const severity = (_a6 = fields.severity) !== null && _a6 !== void 0 ? _a6 : LogSeverity.INFO;
+          const severity = (_a6 = fields2.severity) !== null && _a6 !== void 0 ? _a6 : LogSeverity.INFO;
           const json4 = Object.assign({
             severity,
             message: util.format(...args)
-          }, fields);
+          }, fields2);
           const jsonString = JSON.stringify(json4);
           if (debugLogger) {
-            debugLogger(fields, jsonString);
+            debugLogger(fields2, jsonString);
           } else {
             console.log("%s", jsonString);
           }
@@ -46002,7 +46002,7 @@ var require_logging_utils = __commonJS({
       }
       const logger2 = (() => {
         let previousBackend = void 0;
-        const newLogger = new AdhocDebugLogger(namespace, (fields, ...args) => {
+        const newLogger = new AdhocDebugLogger(namespace, (fields2, ...args) => {
           if (previousBackend !== cachedBackend) {
             if (cachedBackend === null) {
               return;
@@ -46011,7 +46011,7 @@ var require_logging_utils = __commonJS({
             }
             previousBackend = cachedBackend;
           }
-          cachedBackend === null || cachedBackend === void 0 ? void 0 : cachedBackend.log(namespace, fields, ...args);
+          cachedBackend === null || cachedBackend === void 0 ? void 0 : cachedBackend.log(namespace, fields2, ...args);
         });
         return newLogger;
       })();
@@ -83828,9 +83828,9 @@ var bitMask = (n3) => {
   asafenumber(n3, "n");
   return (_1n << BigInt(n3)) - _1n;
 };
-function validateObject(object3, fields = {}, optFields = {}, title = "object") {
+function validateObject(object3, fields2 = {}, optFields = {}, title = "object") {
   aobject2(object3, title);
-  aobject2(fields, "fields");
+  aobject2(fields2, "fields");
   aobject2(optFields, "optFields");
   function checkField(fieldName, expectedType, isOpt) {
     const label = title === "object" ? `param "${String(fieldName)}"` : `"${title}.${String(fieldName)}"`;
@@ -83845,7 +83845,7 @@ function validateObject(object3, fields = {}, optFields = {}, title = "object") 
       throw new TypeError(`${label} is invalid: expected ${expectedType}, got ${current}`);
   }
   const iter = (f7, isOpt) => Object.entries(f7).forEach(([k5, v]) => checkField(k5, v, isOpt));
-  iter(fields, false);
+  iter(fields2, false);
   iter(optFields, true);
 }
 
@@ -87945,15 +87945,15 @@ function recoverySummary(chain2) {
 }
 
 // ../protocol/src/auth.ts
-async function signAuthWith(fields, keyring) {
-  return checkAuth(await signObjectWith("auth", authBody(fields, keyring.signPub), keyring));
+async function signAuthWith(fields2, keyring) {
+  return checkAuth(await signObjectWith("auth", authBody(fields2, keyring.signPub), keyring));
 }
-function authBody(fields, signPub) {
+function authBody(fields2, signPub) {
   const device = deviceIdFromSignPub(signPub);
-  if (fields.device !== void 0 && fields.device !== device) {
+  if (fields2.device !== void 0 && fields2.device !== device) {
     throw new TypeError("signAuth: device does not match the signing key");
   }
-  return { ...fields, t: "auth", v: WIRE_VERSION, device };
+  return { ...fields2, t: "auth", v: WIRE_VERSION, device };
 }
 function checkAuth(frame) {
   const parsed2 = authFrameSchema.safeParse(frame);
@@ -87963,17 +87963,17 @@ function checkAuth(frame) {
   }
   return parsed2.data;
 }
-function signRecoverAuth(fields, keys) {
+function signRecoverAuth(fields2, keys) {
   const body = {
     t: "auth",
     v: WIRE_VERSION,
     purpose: "recover",
-    relay: fields.relay,
-    mesh: fields.mesh,
+    relay: fields2.relay,
+    mesh: fields2.mesh,
     device: deviceIdFromSignPub(keys.signPub),
-    nonce: fields.nonce,
-    at: fields.at,
-    pin: { seq: 1, hash: fields.genesis }
+    nonce: fields2.nonce,
+    at: fields2.at,
+    pin: { seq: 1, hash: fields2.genesis }
   };
   const frame = signObject("auth", body, keys.signSec);
   const parsed2 = recoverAuthFrameSchema.safeParse(frame);
@@ -88310,9 +88310,9 @@ function flag(v) {
 function ciClaims(via, payload2, base) {
   const p3 = payload2;
   if (via === "github") {
-    const fields2 = [p3["repository"], p3["repository_id"], p3["repository_owner_id"], p3["ref"], p3["workflow_ref"], p3["event_name"], p3["sha"], p3["run_id"]];
-    if (!fields2.every(str) || !optStr(p3["environment"])) return fail("bad_claims");
-    const [repository, repositoryId, ownerId, ref3, workflowRef, event, sha, runId] = fields2;
+    const fields3 = [p3["repository"], p3["repository_id"], p3["repository_owner_id"], p3["ref"], p3["workflow_ref"], p3["event_name"], p3["sha"], p3["run_id"]];
+    if (!fields3.every(str) || !optStr(p3["environment"])) return fail("bad_claims");
+    const [repository, repositoryId, ownerId, ref3, workflowRef, event, sha, runId] = fields3;
     return ok({
       ...base,
       via,
@@ -88327,12 +88327,12 @@ function ciClaims(via, payload2, base) {
       ...p3["environment"] === void 0 ? {} : { environment: p3["environment"] }
     });
   }
-  const fields = [p3["project_path"], p3["project_id"], p3["namespace_id"], p3["ref"], p3["ref_type"]];
+  const fields2 = [p3["project_path"], p3["project_id"], p3["namespace_id"], p3["ref"], p3["ref_type"]];
   const refProtected = flag(p3["ref_protected"]);
   const envProtected = flag(p3["environment_protected"]);
-  if (!fields.every(str) || refProtected === void 0 || ![p3["ref_path"], p3["environment"], p3["sha"], p3["pipeline_id"]].every(optStr)) return fail("bad_claims");
+  if (!fields2.every(str) || refProtected === void 0 || ![p3["ref_path"], p3["environment"], p3["sha"], p3["pipeline_id"]].every(optStr)) return fail("bad_claims");
   if (p3["environment_protected"] !== void 0 && envProtected === void 0) return fail("bad_claims");
-  const [projectPath, projectId, namespaceId, ref2, refType] = fields;
+  const [projectPath, projectId, namespaceId, ref2, refType] = fields2;
   const prefix = refType === "branch" ? "refs/heads/" : refType === "tag" ? "refs/tags/" : void 0;
   if (prefix === void 0) return fail("bad_claims");
   const opt = (k5, as) => p3[k5] === void 0 ? {} : { [as]: p3[k5] };
@@ -90290,16 +90290,20 @@ var WRITTEN_BREAKER = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pi
 function positiveInt2(v, fallback2) {
   return Number.isSafeInteger(v) && v > 0 ? v : fallback2;
 }
+var fields = (raw) => typeof raw === "object" && raw !== null ? raw : {};
 function parseBreaker(raw) {
   if (raw === void 0) return DEFAULT_BREAKER;
-  const b5 = typeof raw === "object" && raw !== null ? raw : {};
+  const b5 = fields(raw);
+  const t2 = fields(b5.trusted);
+  const stricter = (key2, value2) => Math.min(value2, positiveInt2(t2[key2], value2));
   return {
-    perPeerPerHour: positiveInt2(b5.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour),
-    totalPerHour: positiveInt2(b5.totalPerHour, WRITTEN_BREAKER.totalPerHour),
+    perPeerPerHour: stricter("perPeerPerHour", positiveInt2(b5.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour)),
+    totalPerHour: stricter("totalPerHour", positiveInt2(b5.totalPerHour, WRITTEN_BREAKER.totalPerHour)),
     pingPong: b5.pingPong !== false,
-    pingPongExchanges: positiveInt2(b5.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges),
-    // A file written before 0.1.9 has none: the default cool-down, the one new behaviour it gets.
-    cooldownMinutes: Math.min(positiveInt2(b5.cooldownMinutes, DEFAULT_BREAKER.cooldownMinutes), COOLDOWN_MAX_MINUTES)
+    pingPongExchanges: stricter("pingPongExchanges", positiveInt2(b5.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges)),
+    // A file written before 0.1.9 has none: the default cool-down, the one new behaviour it gets
+    // (or the one a 0.1.9 draft wrote in `trusted`).
+    cooldownMinutes: Math.min(positiveInt2(b5.cooldownMinutes, positiveInt2(t2.cooldownMinutes, DEFAULT_BREAKER.cooldownMinutes)), COOLDOWN_MAX_MINUTES)
   };
 }
 function isPolicy(v) {
@@ -109200,19 +109204,19 @@ function toolToMldev(fromObject) {
   return toObject;
 }
 function getFieldMasks(setup) {
-  const fields = [];
+  const fields2 = [];
   for (const key2 in setup) {
     if (Object.prototype.hasOwnProperty.call(setup, key2)) {
       const value2 = setup[key2];
       if (typeof value2 === "object" && value2 != null && Object.keys(value2).length > 0) {
         const field = Object.keys(value2).map((kk) => `${key2}.${kk}`);
-        fields.push(...field);
+        fields2.push(...field);
       } else {
-        fields.push(key2);
+        fields2.push(key2);
       }
     }
   }
-  return fields.join(",");
+  return fields2.join(",");
 }
 function convertBidiSetupToTokenSetup(requestDict, config2) {
   let setupForMaskGeneration = null;
@@ -120390,7 +120394,7 @@ function personOnly(agent, what2) {
 }
 async function runEvents(d5) {
   const s3 = d5.session;
-  const emit = (type, fields = {}) => d5.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d5.now(), ...fields }));
+  const emit = (type, fields2 = {}) => d5.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d5.now(), ...fields2 }));
   const myDevice = d5.device.id;
   const deviceRows2 = () => (
     // Recovery records never act (SPEC section 4a), so a UI has nothing to show or decide for them.
@@ -120735,7 +120739,7 @@ async function runEvents(d5) {
 }
 var SetupArgs = external_exports.object({ code: external_exports.string().min(1).max(16 * 1024), name: external_exports.string().optional() });
 async function runSetupEvents(d5) {
-  const emit = (type, fields = {}) => d5.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d5.now(), ...fields }));
+  const emit = (type, fields2 = {}) => d5.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d5.now(), ...fields2 }));
   const known = await d5.home.loadDevice();
   emit("setup", { version: d5.version, device: known === void 0 ? null : { name: known.name, id: known.id } });
   let joining = false;

@@ -84,6 +84,34 @@ describe("parseMeshConfig", () => {
       expect(parseMeshConfig({ ...good, breaker: written }, "p").breaker).toEqual({ perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8, cooldownMinutes: 10 });
     }
   });
+  it("ignores old and unknown breaker keys, never refuses them, and never raises a written limit", () => {
+    // A 0.1.9 draft wrote a `trusted` block (its tier for the devices the person trusts, the only
+    // ones the breaker counts). It loads; where it is stricter, it is honoured.
+    const draft = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, trusted: { perPeerPerHour: 5, totalPerHour: 400, pingPong: false, pingPongExchanges: 4, cooldownMinutes: 3 } };
+    expect(parseMeshConfig({ ...good, breaker: draft }, "p").breaker).toEqual({ perPeerPerHour: 5, totalPerHour: 300, pingPong: true, pingPongExchanges: 4, cooldownMinutes: 3 });
+    // A lowered top-level limit stays lowered whatever `trusted` says.
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 2, totalPerHour: 60, trusted: { perPeerPerHour: 120, totalPerHour: 300 } } }, "p").breaker).toMatchObject({ perPeerPerHour: 2, totalPerHour: 60 });
+    // A top-level cool-down wins over one in `trusted`.
+    expect(parseMeshConfig({ ...good, breaker: { cooldownMinutes: 7, trusted: { cooldownMinutes: 3 } } }, "p").breaker.cooldownMinutes).toBe(7);
+    // A `trusted` that is not an object, or holds nothing usable, changes nothing.
+    for (const trusted of ["fast", 7, null, [], { perPeerPerHour: -1, totalPerHour: "5", pingPongExchanges: 1.5, cooldownMinutes: 0 }]) {
+      expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8, trusted } }, "p").breaker).toEqual({
+        perPeerPerHour: 20,
+        totalPerHour: 60,
+        pingPong: true,
+        pingPongExchanges: 8,
+        cooldownMinutes: 10,
+      });
+    }
+    // Keys it does not know (a typo, a later version's) are ignored.
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 3, perPeerPerMinute: 1, autoRelease: false, tiers: { a: 1 } } }, "p").breaker).toEqual({
+      perPeerPerHour: 3,
+      totalPerHour: 60,
+      pingPong: true,
+      pingPongExchanges: 8,
+      cooldownMinutes: 10,
+    });
+  });
   it("refuses broken files", () => {
     expect(() => parseMeshConfig(null, "p")).toThrow(/not a mesh file/);
     expect(() => parseMeshConfig({ ...good, v: 2 }, "p")).toThrow(/not a mesh file/);

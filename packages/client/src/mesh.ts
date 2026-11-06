@@ -54,16 +54,29 @@ function positiveInt(v: unknown, fallback: number): number {
   return Number.isSafeInteger(v) && (v as number) > 0 ? (v as number) : fallback;
 }
 
+type BreakerFields = Partial<Record<keyof BreakerLimits, unknown>>;
+
+const fields = (raw: unknown): BreakerFields => (typeof raw === "object" && raw !== null ? raw : {}) as BreakerFields;
+
+/**
+ * Reads a written `breaker`. Any key it does not know is ignored, never refused. A `trusted`
+ * object, which drafts of 0.1.9 wrote for the devices the person trusts (the only ones the breaker
+ * counts), is read only where it is stricter: a lower limit there is honoured, so a person's lowered
+ * value is never raised, and nothing else in it changes anything.
+ */
 function parseBreaker(raw: unknown): BreakerLimits {
   if (raw === undefined) return DEFAULT_BREAKER;
-  const b = (typeof raw === "object" && raw !== null ? raw : {}) as Partial<Record<keyof BreakerLimits, unknown>>;
+  const b = fields(raw);
+  const t = fields((b as { trusted?: unknown }).trusted);
+  const stricter = (key: "perPeerPerHour" | "totalPerHour" | "pingPongExchanges", value: number): number => Math.min(value, positiveInt(t[key], value));
   return {
-    perPeerPerHour: positiveInt(b.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour),
-    totalPerHour: positiveInt(b.totalPerHour, WRITTEN_BREAKER.totalPerHour),
+    perPeerPerHour: stricter("perPeerPerHour", positiveInt(b.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour)),
+    totalPerHour: stricter("totalPerHour", positiveInt(b.totalPerHour, WRITTEN_BREAKER.totalPerHour)),
     pingPong: b.pingPong !== false,
-    pingPongExchanges: positiveInt(b.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges),
-    // A file written before 0.1.9 has none: the default cool-down, the one new behaviour it gets.
-    cooldownMinutes: Math.min(positiveInt(b.cooldownMinutes, DEFAULT_BREAKER.cooldownMinutes), COOLDOWN_MAX_MINUTES),
+    pingPongExchanges: stricter("pingPongExchanges", positiveInt(b.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges)),
+    // A file written before 0.1.9 has none: the default cool-down, the one new behaviour it gets
+    // (or the one a 0.1.9 draft wrote in `trusted`).
+    cooldownMinutes: Math.min(positiveInt(b.cooldownMinutes, positiveInt(t.cooldownMinutes, DEFAULT_BREAKER.cooldownMinutes)), COOLDOWN_MAX_MINUTES),
   };
 }
 

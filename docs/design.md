@@ -367,7 +367,8 @@ the value every mesh.json was written with before 0.1.8 (20, 60, 8), never as th
 default, and a missing `cooldownMinutes` as 10; one over 60 reads as 60. A mesh.json keeps the
 limits written in it, lower ones included: a file written before 0.1.8 keeps 20, 60 and 8, and the
 workaround some meshes carry, `{ "perPeerPerHour": 120, "totalPerHour": 300, "pingPong": false }`,
-keeps 120, 300 and no ping-pong. A file written before 0.1.9 gets only the cool-down. To raise the
+keeps 120, 300 and no ping-pong. A file written before 0.1.9 gets only the cool-down. A key the client does not know is ignored, never refused; a `trusted` object (which drafts of
+0.1.9 wrote) counts only where it is stricter, so a lowered limit in it still holds. To raise the
 limits, edit `breaker` in that mesh's `mesh.json` on the receiving device, for example:
 
 ```
