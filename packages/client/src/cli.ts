@@ -101,7 +101,7 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected", "take"]);
 const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 
 /** Flags every command takes. */
@@ -114,16 +114,16 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   invite: ["exp", "auto", "full"],
   join: ["name"],
   devices: ["relayed", "all"],
-  peers: ["all", "as"],
-  send: ["allow-secret", "as", "wait"],
+  peers: ["all", "as", "take"],
+  send: ["allow-secret", "as", "take", "wait"],
   ping: ["all", "timeout"],
-  watch: ["as"],
-  inbox: ["peek", "mark-read", "as"],
-  events: ["json", "as"],
+  watch: ["as", "take"],
+  inbox: ["peek", "mark-read", "as", "take"],
+  events: ["json", "as", "take"],
   history: ["session", "peer", "limit"],
-  bot: ["as"],
-  ci: ["as", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
-  a2a: ["as"],
+  bot: ["as", "take"],
+  ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
+  a2a: ["as", "take"],
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
@@ -206,11 +206,11 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
+  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
-  wim watch [--as <name>]
-  wim inbox [--peek | --mark-read] [--as <name>]
-  wim events --json [--as <name>]
+  wim watch [--as <name> [--take]]
+  wim inbox [--peek | --mark-read] [--as <name> [--take]]
+  wim events --json [--as <name> [--take]]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
@@ -310,6 +310,8 @@ class Ctx {
       cwd: this.io.cwd,
       ...(notifier === undefined ? {} : { notifier }),
       legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE),
+      // A claim of an offline session's name is only ever asked for (design.md, taking a session back).
+      ...(this.args.flags.get("take") === true || (this.env["WIM_TAKE"] === "1" && this.env["WIM_NAME"] === name) ? { take: true } : {}),
     };
   }
 

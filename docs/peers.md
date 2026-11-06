@@ -65,6 +65,7 @@ working directory's base name when `WIM_NAME` is not set.
 | `WIM_KIND` | a label other peers see in `peers` (`gemini-cli`, `antigravity`, `codex`, ...). Never set it to `claude-code` (below) | `mcp` |
 | `WIM_MESH` | which mesh, when this device is in more than one | the only mesh |
 | `WIM_SESSION_KEY` | a stable key that lets a restarted agent take its earlier session back (name, queue, rooms) | none |
+| `WIM_TAKE` | `1`: take over the offline session on this device that holds `WIM_NAME` (its queue, held items and leases), from any directory; refused while a live session holds it | off |
 
 Set these in the server's `env` block, not only in your shell. Some agents (Gemini CLI, for one)
 remove variables from the environment they pass to MCP servers.

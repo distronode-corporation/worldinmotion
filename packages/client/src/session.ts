@@ -24,6 +24,11 @@ export type SessionState = {
   leases: Record<string, number>;
   /** The address the relay assigned at the last `ready`. */
   address?: string;
+  /**
+   * The name this session asked for, kept beside the one the relay assigned: a session that got
+   * `name-N` is still taken back under `name` (design.md, taking a session back).
+   */
+  asked?: string;
   /** The working directory of the process that ran it, for same-project takeover. */
   cwd?: string;
   /** Set once the session said `bye { ended: true }`: the relay keeps it only as a tombstone. */
@@ -50,6 +55,7 @@ export function parseSessionState(raw: unknown): SessionState | undefined {
     spool: int(s.spool),
     leases: typeof s.leases === "object" && s.leases !== null ? s.leases : {},
     ...(typeof s.address === "string" ? { address: s.address } : {}),
+    ...(isName(s.asked) ? { asked: s.asked } : {}),
     ...(typeof s.cwd === "string" ? { cwd: s.cwd } : {}),
     ...(s.ended === true ? { ended: true as const } : {}),
   };

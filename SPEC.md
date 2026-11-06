@@ -787,7 +787,9 @@ with a fresh nonce for every connection. The client answers within 10 seconds wi
   new connection takes over that name and its queue only if `hash(session.resume)` matches the
   holder's (an agent restarting keeps its messages); a matching `sid` alone is not enough, since
   sids appear in peer rows. Otherwise it gets `name-N` too. A `rename` to an offline holder's name follows the same rule, so it is
-  refused with `name_taken`. The relay answers with the name actually assigned.
+  refused with `name_taken`. The relay answers with the name actually assigned. (Informative: a
+  client on the same device that holds the offline session's sid and resume secret may claim its
+  name by connecting with them; this needs no other frame.)
 - A `sid` that is already online on another connection is taken over by the new connection only
   when the resume proof also matches (`hash(session.resume)` equals the stored one); otherwise the
   new `auth` is refused with `unauthorized`.

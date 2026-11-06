@@ -15,6 +15,17 @@ body line with a bracket.
 
 ### Added
 
+- **Stable addresses: take over an offline name on the same device.** `--take` with `--as
+  <name>`, `WIM_TAKE=1` with `WIM_NAME` (also for `wim mcp`), and a `take` parameter on the MCP
+  `rename` tool claim the offline session on this device that holds the name, from any
+  directory, with its sid and resume secret: its queue, rooms, leases (same token), held items,
+  receipts and history come with it, and one notice counts what came. Only on request: `rename`
+  without `take` still answers `name_taken`, now with a hint. A name a live session holds, or a
+  session of another kind, is refused with the reason, never answered with `name-N`. The client
+  also saves the name a session asked for, so a session that got `name-N` is taken back under
+  its name when it is free. The Claude Code plugin links the tab again after the model renames
+  it. No wire or relay change.
+
 - **Close the downgrade window early.** `wim legacy-boxes refuse` makes a device refuse v0.1
   boxes now, as every device will from 1.0 (SPEC section 6b): it never sends one (a direct send
   to a device with no current prekey is refused with the reason, a broadcast, room send or card

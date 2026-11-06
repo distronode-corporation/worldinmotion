@@ -90609,6 +90609,7 @@ function parseSessionState(raw) {
     spool: int2(s3.spool),
     leases: typeof s3.leases === "object" && s3.leases !== null ? s3.leases : {},
     ...typeof s3.address === "string" ? { address: s3.address } : {},
+    ...isName(s3.asked) ? { asked: s3.asked } : {},
     ...typeof s3.cwd === "string" ? { cwd: s3.cwd } : {},
     ...s3.ended === true ? { ended: true } : {}
   };
@@ -92315,6 +92316,13 @@ function heldForAgentLine(to, id2) {
 function renamedLine(was, now) {
   return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
 }
+function reclaimedLine(was, now) {
+  return `this session's address is ${now} again, not ${was}: the name it asked for is free now. Give peers ${now}; messages sent to ${was} do not reach this session.`;
+}
+function claimLine2(address, c5) {
+  const n3 = (k5, one, many) => `${k5} ${k5 === 1 ? one : many}`;
+  return `this session took over ${address}, an offline session on this device, with its queue, rooms, history and leases. With it came ${n3(c5.unread, "unread message", "unread messages")}, ${n3(c5.held, "held item", "held items")} and ${n3(c5.leases, "lease", "leases")}. Held items wait for the person on this device to approve or refuse (/wim, the Held view, or wim held list); a claim does not decide them.`;
+}
 function unprotectedNote(unprotected, noPrekey) {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
 }
@@ -92458,6 +92466,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
   ciDrops = { since: 0, lines: 0, quiet: /* @__PURE__ */ new Map() };
   /** Delivery through MCP channel notifications instead of leaving items for the plugin. */
   push;
+  /** Whether this session was opened by a claim (`take`): it took over an offline session's address. */
+  takenOver = false;
+  /** Whether the claim notice was written (claimNotice): once, at the first `ready`. */
+  claimTold = false;
   constructor(o3, files, state2) {
     super();
     this.o = o3;
@@ -92479,14 +92491,27 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.ciParked = new CiParked(files.ciParkedPath, o3.env);
   }
   /**
-   * Opens a session: the one `sessionKey` names when its mapping is fresh and no live process
-   * holds it, else a new one. Claims the session's liveness lock.
+   * Opens a session: with `take`, the one a claim finds (claimState); else the one `sessionKey`
+   * names when its mapping is fresh and no live process holds it; else an earlier one from this
+   * directory (sameProject); else a new one. Claims the session's liveness lock.
    */
   static async open(o3) {
+    return _MeshSession.opened(o3, o3.take === true ? await _MeshSession.claimState(o3) : void 0);
+  }
+  /**
+   * A claim of the session named `o.name` (the MCP `rename` tool's `take`): opened, not started,
+   * or undefined when no session on this device has that name. Refused as `claimState` refuses.
+   */
+  static async claim(o3) {
+    const state2 = await _MeshSession.claimState(o3);
+    return state2 === void 0 ? void 0 : _MeshSession.opened(o3, state2);
+  }
+  /** `open` once a claim, if any, has found its session (`claimed`, its lock already taken). */
+  static async opened(o3, claimed) {
     const now = o3.now ?? Date.now;
     const keys = new SessionKeys(o3.mesh, o3.env, now);
-    let state2;
-    const known = o3.sessionKey === void 0 ? void 0 : await keys.lookup(o3.sessionKey);
+    let state2 = claimed;
+    const known = state2 !== void 0 || o3.sessionKey === void 0 ? void 0 : await keys.lookup(o3.sessionKey);
     if (known !== void 0) {
       const kf = new SessionFiles(o3.mesh, known.sid, o3.env);
       const saved = await kf.load();
@@ -92505,26 +92530,68 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await files.save(state2);
     if (o3.sessionKey !== void 0) await keys.remember(o3.sessionKey, state2.sid, state2.resume);
     const session = new _MeshSession(o3, files, state2);
+    session.takenOver = claimed !== void 0;
     await session.load();
     await session.settleDelivered();
     await session.restorePauses();
     return session;
   }
   /**
-   * Same-project takeover (design.md, state on disk): an earlier session on this device with the
-   * same name and working directory, not ended and run by no live process, is taken back with
-   * its sid and resume secret, so the relay hands over its name, queue and rooms by proof.
-   * Sessions from another directory keep their name; this one then gets `name-N`.
+   * Same-project takeover (design.md, state on disk): an earlier session on this device that asked
+   * for the same name from the same working directory, not ended and run by no live process, is
+   * taken back with its sid and resume secret, so the relay hands over its name, queue and rooms
+   * by proof. One that holds the name itself comes first; one the relay gave `name-N` asks for
+   * `name` again. Sessions from another directory keep their name; this one then gets `name-N`.
    */
   static async sameProject(o3) {
     if (o3.cwd === void 0) return void 0;
+    const found = [];
     for (const sid of (await listSessions(o3.mesh)).reverse()) {
       const files = new SessionFiles(o3.mesh, sid, o3.env);
       const saved = await files.load();
-      if (saved?.name !== o3.name || saved.cwd !== o3.cwd || saved.ended === true) continue;
-      if (await files.claim()) return { ...saved, kind: o3.kind };
+      if ((saved?.asked ?? saved?.name) !== o3.name || saved.cwd !== o3.cwd || saved.ended === true) continue;
+      found.push({ files, saved });
     }
+    found.sort((a5, b5) => Number(b5.saved.name === o3.name) - Number(a5.saved.name === o3.name));
+    for (const { files, saved } of found) if (await files.claim()) return { ...saved, name: o3.name, kind: o3.kind };
     return void 0;
+  }
+  /**
+   * A claim (`--take`, `WIM_TAKE=1`, the `rename` tool's `take`): the session on this device whose
+   * saved name is `o.name`, from any directory, taken with its sid and resume secret, as the
+   * same-project rule takes one (design.md, taking a session back). Only one that did not end, is
+   * of this session's kind and whose liveness lock is free. While a live process holds the name,
+   * or only a session of another kind has it, the claim is refused out loud: never a `name-N`,
+   * never a replaced connection. Undefined when no session on this device has the name.
+   */
+  static async claimState(o3) {
+    const address = `${o3.name}@${o3.device.name}`;
+    const found = [];
+    for (const sid of (await listSessions(o3.mesh)).reverse()) {
+      const files = new SessionFiles(o3.mesh, sid, o3.env);
+      const saved = await files.load();
+      if (saved?.name === o3.name && saved.ended !== true) found.push({ files, saved });
+    }
+    const mine = found.find((f7) => f7.saved.kind === o3.kind);
+    if (mine === void 0) {
+      if (found.length === 0) return void 0;
+      throw new ClientError(`cannot take ${address}: it belongs to a session of another kind on this device (${found[0].saved.kind}), so messages for that name are its own`, "name_kind");
+    }
+    const live = `cannot take ${address}: a live session on this device holds it now. A claim takes only an offline name; this one is left as it is`;
+    for (const f7 of found) if (f7 !== mine && await f7.files.isLiveElsewhere()) throw new ClientError(live, "name_live");
+    if (!await mine.files.claim()) throw new ClientError(live, "name_live");
+    return { ...mine.saved, asked: o3.name };
+  }
+  /**
+   * Whether this session holds nothing anyone could miss: nothing unread or held, no lease, no
+   * room, and nothing sent (receipts and results come back to its sid). Such a session may end
+   * for good when another takes over its process (the `rename` tool's claim, the `hello` op).
+   */
+  async holdsNothing() {
+    const st = this.state;
+    if (st.seq > 0 || st.rooms.length > 0 || Object.keys(st.leases).length > 0) return false;
+    const unread = (await this.spool.unread()).filter((i6) => i6.kind !== "notice");
+    return unread.length + (await this.held.list()).length === 0;
   }
   async load() {
     this.config = await this.o.mesh.loadConfig();
@@ -92639,8 +92706,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     else if (roster.seq === pin.seq && rosterRef(roster).hash !== pin.hash) await this.forkFrom(roster, link);
     const address = `${ready.name}@${this.device.name}`;
     const was = this.state.address ?? `${this.state.name}@${this.device.name}`;
-    await this.save({ name: ready.name, address, cursor: Math.max(this.state.cursor, ready.cursor) });
-    if (address !== was) this.noticeLater(this.address, renamedLine(was, address));
+    const asked = this.state.asked ?? this.state.name;
+    await this.save({ name: ready.name, asked, address, cursor: Math.max(this.state.cursor, ready.cursor) });
+    if (address !== was) this.noticeLater(this.address, ready.name === asked ? reclaimedLine(was, address) : renamedLine(was, address));
+    if (this.takenOver && !this.claimTold) this.claimNotice(link);
     this.peers.clear();
     for (const p3 of ready.peers) this.peers.set(p3.address, p3);
     this.emit("peers");
@@ -92651,6 +92720,21 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.ciSent = void 0;
     void this.sendCiRules(link);
     this.retryParkedLater();
+  }
+  /**
+   * Writes the claim notice once (claimLine). The relay sends what it queued for the session right
+   * after `ready` and answers a later request only after that, so once the lease list is in, every
+   * queued message is on the inbound queue; the count is taken when those are spooled.
+   */
+  claimNotice(link) {
+    this.claimTold = true;
+    void link.request({ t: "lease.list" }, (f7) => f7.t === "leases", this.answerMs).then(async (f7) => {
+      await this.inbound;
+      const unread = (await this.spool.unread()).filter((i6) => i6.kind !== "notice").length;
+      const held2 = (await this.held.list()).length;
+      const leases = f7.leases.filter((l3) => l3.holder === this.address).length;
+      await this.notice(this.address, claimLine2(this.address, { unread, held: held2, leases }));
+    }).catch((e6) => this.log(`wim: claim notice not written: ${e6.message}`));
   }
   /**
    * Retries parked messages after the frames already queued. Each parked message's own failure is
@@ -94027,7 +94111,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const want = `${name}@${me.name}`;
     const answer = await link.request({ t: "rename", name }, (f7) => f7.t === "peer" && f7.peer.address === want || errorFor("rename")(f7), this.answerMs);
     if (answer.t === "error") throw relayRefusal("rename refused", answer);
-    await this.save({ name, address: want });
+    await this.save({ name, asked: name, address: want });
     return want;
   }
   /**
@@ -122865,7 +122949,10 @@ var PUBLIC = {
     description: "Past items for this session, newest last.",
     input: external_exports.object({ peer: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(HISTORY_MAX).optional(), before: external_exports.number().int().optional() })
   },
-  rename: { description: "Change this session's name.", input: external_exports.object({ name: external_exports.string() }) }
+  rename: {
+    description: "Change this session's name. take: also take over an offline session of this device that holds the name, with its queue, held items and leases.",
+    input: external_exports.object({ name: external_exports.string(), take: external_exports.boolean().optional() })
+  }
 };
 var PUBLIC_TOOLS = Object.entries(PUBLIC).map(([name, t2]) => ({ name, description: t2.description, inputSchema: jsonSchema(t2.input) }));
 var INTERNAL_OPS = ["hello", "peers", "route", "held", "leases", "status"];
@@ -122890,9 +122977,16 @@ var sent = (o3) => {
 };
 var fail3 = (t2) => ({ content: [{ type: "text", text: t2 }], isError: true });
 function failure2(error64) {
+  return fail3(failureText(error64));
+}
+function failureText(error64) {
   const quote = error64.quote;
-  if (quote !== void 0) return fail3(`${quote.what}; relay said (not the person): ${JSON.stringify(quote.said)}`);
-  return fail3(error64 instanceof ClientError ? error64.message : `worldinmotion: ${error64.message}`);
+  if (quote !== void 0) return `${quote.what}; relay said (not the person): ${JSON.stringify(quote.said)}`;
+  return error64 instanceof ClientError ? error64.message : `worldinmotion: ${error64.message}`;
+}
+var TAKE_HINT = "If that name belongs to an offline session of this device whose role this session takes on, call rename again with take: true to take over its address, queue, held items and leases. A name a live session holds is never taken.";
+function nameTaken(error64) {
+  return error64 instanceof ClientError && error64.code === "name_taken";
 }
 function sameToken(a5, b5) {
   return bytesEqual(utf8(a5), utf8(b5));
@@ -122927,6 +123021,8 @@ var WimMcp = class {
   retryTimer;
   /** A handshake that came before a session could open: its Claude session and the link file it waits on. */
   pending;
+  /** The session keys mapped to the current session, moved with it when a claim swaps it (take). */
+  keys = /* @__PURE__ */ new Set();
   constructor(o3) {
     this.o = o3;
     this.sessionOpts = o3.session;
@@ -123002,6 +123098,11 @@ var WimMcp = class {
   }
   async openWith(key2) {
     const s3 = await MeshSession.open({ ...this.sessionOpts, ...key2 === void 0 ? {} : { sessionKey: key2 } });
+    if (key2 !== void 0) this.keys.add(key2);
+    return this.use(s3);
+  }
+  /** Makes `s` this server's session and starts it. */
+  async use(s3) {
     if (this.o.channel) s3.push = (item) => this.pushChannel(item);
     s3.start();
     this.session = s3;
@@ -123049,14 +123150,18 @@ var WimMcp = class {
   linkOf(s3) {
     return { spool: s3.files.spoolDir, sid: s3.sid, address: s3.address, token: this.token, held: s3.files.heldDir, dismiss: s3.files.dismissDir };
   }
-  /** Takes back the session `claudeSessionId` had before, if any, in place of `s`; else maps it to `s`. */
+  /**
+   * Takes back the session `claudeSessionId` had before, if any, in place of `s`; else maps it to
+   * `s`. A session `s` that a claim opened (`WIM_TAKE=1`) is kept: the person asked for its name.
+   */
   async adopt(claudeSessionId, s3) {
     const key2 = `claude:${claudeSessionId}`;
+    this.keys.add(key2);
     const o3 = this.sessionOpts;
     const keys = new SessionKeys(o3.mesh, o3.env, o3.now ?? Date.now);
     const known = await keys.lookup(key2);
-    if (known !== void 0 && known.sid !== s3.sid && !await new SessionFiles(o3.mesh, known.sid, o3.env).isLiveElsewhere()) {
-      await s3.stop({ ended: true });
+    if (!s3.takenOver && known !== void 0 && known.sid !== s3.sid && !await new SessionFiles(o3.mesh, known.sid, o3.env).isLiveElsewhere()) {
+      await s3.stop({ ended: await s3.holdsNothing() });
       const next = this.openWith(key2);
       this.opening = next;
       return next;
@@ -123160,9 +123265,15 @@ var WimMcp = class {
         return text(entries.length === 0 ? "No history." : entries.map(renderForAgent).join("\n\n"));
       }
       case "rename": {
-        const want = a5.name;
-        if (!isName(want)) return fail3("a name is 1 to 32 of a-z, 0-9 and -, starting with a letter or digit");
-        return text(`This session is now ${await s3.rename(want)}.`);
+        const i6 = a5;
+        if (!isName(i6.name)) return fail3("a name is 1 to 32 of a-z, 0-9 and -, starting with a letter or digit");
+        if (i6.take === true) return text(await this.take(s3, i6.name));
+        try {
+          return text(`This session is now ${await s3.rename(i6.name)}.`);
+        } catch (error64) {
+          if (!nameTaken(error64)) throw error64;
+          return fail3(`${failureText(error64)}. ${TAKE_HINT}`);
+        }
       }
       case "_peers":
         return json3({ peers: (await s3.listPeers({ forPane: a5.forPane === true })).map(peerJson) });
@@ -123176,6 +123287,30 @@ var WimMcp = class {
       case "_leases":
         return json3({ leases: (await s3.listLeases()).map((l3) => ({ name: sanitizeForDisplay(l3.name), holder: l3.holder, expires_at: l3.expires_at })) });
     }
+  }
+  /**
+   * `rename` with `take`: a free name is a plain rename; a name an offline session of this device
+   * holds is a claim (MeshSession.claimState), which swaps this server's session for that one. The
+   * session given up ends when it holds nothing, else stays offline; the keys move with the claim,
+   * so the plugin's next handshake and a restart find the session taken over.
+   */
+  async take(s3, name) {
+    try {
+      return `This session is now ${await s3.rename(name)}.`;
+    } catch (error64) {
+      if (!nameTaken(error64)) throw error64;
+    }
+    const o3 = this.sessionOpts;
+    const next = await MeshSession.claim({ ...o3, name });
+    if (next === void 0) {
+      throw new ClientError(`cannot take ${name}: a session holds it that this device's state directory has no record of, so there is nothing to take over`, "name_taken");
+    }
+    await s3.stop({ ended: await s3.holdsNothing() });
+    const keys = new SessionKeys(o3.mesh, o3.env, o3.now ?? Date.now);
+    for (const key2 of this.keys) await keys.remember(key2, next.sid, next.state.resume);
+    this.opening = this.use(next);
+    await this.opening;
+    return `This session is now ${next.address}: it took over that offline session. A notice follows with what came with it.`;
   }
   async rooms(s3, i6) {
     if (i6.action === "list") {
@@ -129299,7 +129434,7 @@ ${error64.message}`;
 
 // src/cli.ts
 var VERSION = "0.1.9";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected", "take"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
@@ -129308,16 +129443,16 @@ var COMMAND_FLAGS = {
   invite: ["exp", "auto", "full"],
   join: ["name"],
   devices: ["relayed", "all"],
-  peers: ["all", "as"],
-  send: ["allow-secret", "as", "wait"],
+  peers: ["all", "as", "take"],
+  send: ["allow-secret", "as", "take", "wait"],
   ping: ["all", "timeout"],
-  watch: ["as"],
-  inbox: ["peek", "mark-read", "as"],
-  events: ["json", "as"],
+  watch: ["as", "take"],
+  inbox: ["peek", "mark-read", "as", "take"],
+  events: ["json", "as", "take"],
   history: ["session", "peer", "limit"],
-  bot: ["as"],
-  ci: ["as", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
-  a2a: ["as"],
+  bot: ["as", "take"],
+  ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
+  a2a: ["as", "take"],
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
@@ -129381,11 +129516,11 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
+  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
-  wim watch [--as <name>]
-  wim inbox [--peek | --mark-read] [--as <name>]
-  wim events --json [--as <name>]
+  wim watch [--as <name> [--take]]
+  wim inbox [--peek | --mark-read] [--as <name> [--take]]
+  wim events --json [--as <name> [--take]]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
@@ -129470,7 +129605,9 @@ var Ctx = class {
       debug: this.env["WIM_DEBUG"] === "1",
       cwd: this.io.cwd,
       ...notifier === void 0 ? {} : { notifier },
-      legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE)
+      legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE),
+      // A claim of an offline session's name is only ever asked for (design.md, taking a session back).
+      ...this.args.flags.get("take") === true || this.env["WIM_TAKE"] === "1" && this.env["WIM_NAME"] === name ? { take: true } : {}
     };
   }
   /**
