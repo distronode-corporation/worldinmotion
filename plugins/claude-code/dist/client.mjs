@@ -120143,7 +120143,7 @@ var Home = class {
   /** Generates this device's keys. Refuses to replace an existing key file, also against a concurrent first run. */
   async createDevice(name) {
     if (!isName(name)) throw new SetupError(`invalid device name ${JSON.stringify(name)}: use 1 to 32 of a-z, 0-9 and -`);
-    const exists = new SetupError(`${this.devicePath} already exists`);
+    const exists = new SetupError(`${this.devicePath} already exists: this device is set up. \`wim status\` shows it and its meshes; \`wim mesh create --relay <url>\` or \`wim join <code>\` adds a mesh`);
     if (await this.readKeyFile() !== void 0) throw exists;
     await ensureDir(this.root);
     const keys = generateDeviceKeys();
@@ -120154,10 +120154,18 @@ var Home = class {
     });
     return localDevice(name, keys);
   }
-  /** Problems with the state directory's own permissions, for `wim doctor`. */
+  /**
+   * Problems with the state directory itself, for `wim doctor`: its permissions, or why it cannot
+   * be read. Null when it does not exist yet, on a device where `wim init` or `wim join` never ran.
+   */
   async rootProblem() {
-    const stat3 = await fs8.stat(this.root);
-    return dirProblem(stat3.mode, this.env.platform);
+    let mode;
+    try {
+      mode = (await fs8.stat(this.root)).mode;
+    } catch (error64) {
+      return error64.code === "ENOENT" ? null : `cannot be read: ${error64.message}`;
+    }
+    return dirProblem(mode, this.env.platform);
   }
   async meshIds() {
     const names = await listDir(join16(this.root, "meshes"));
@@ -129674,10 +129682,11 @@ async function meshCreate(ctx) {
   ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== void 0) await showRecoveryCode(ctx, made.recoveryCode);
-  await registerCli(ctx, made.mesh);
+  if (!ctx.io.signal.aborted) await registerCli(ctx, made.mesh);
   ctx.io.out(STATUS_LINE);
-  return 0;
+  return ctx.io.signal.aborted ? STOPPED : 0;
 }
+var STOPPED = 130;
 var CREATE_REFUSED = "the relay refused to create the mesh";
 var STATUS_LINE = "Check this device and its mesh at any time with `wim status`.";
 async function meshDelete(ctx) {
@@ -130560,14 +130569,14 @@ async function checkup(ctx, emit) {
   let device;
   try {
     device = await ctx.home.loadDevice();
-    if (device === void 0) bad(`no device keys at ${ctx.home.devicePath}: run wim init`);
+    if (device === void 0) bad(`not set up yet, no device keys at ${ctx.home.devicePath}: run \`wim init\`, or \`wim join <code>\` with an invite`);
     else ok2(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim agent)" : "key file permissions are private"}`);
   } catch (error64) {
     bad(error64.message);
   }
   const rootProblem = await ctx.home.rootProblem();
   if (rootProblem === void 0) ok2(`state directory ${ctx.home.root}`);
-  else bad(`state directory ${ctx.home.root}: ${rootProblem}`);
+  else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
   if (device === void 0) return { meshes };
   const me = device.id;
   for (const id2 of await ctx.home.meshIds()) {
@@ -130592,7 +130601,7 @@ async function checkup(ctx, emit) {
     }
     const before = config2.pin.seq;
     try {
-      const s3 = await MeshSession.open({ ...await ctx.sessionOptions("doctor", "cli"), mesh: files });
+      const s3 = await MeshSession.open({ ...await ctx.sessionOptions("doctor", "cli", false, id2), mesh: files });
       s3.start();
       try {
         await s3.ready(15e3);

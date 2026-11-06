@@ -145,7 +145,7 @@ describe("setting up", () => {
     const making = run(piped, "mesh", "create", "--relay", RELAY);
     await until(() => piped.out.some((l) => l.includes("not an interactive terminal (it is piped or redirected)")), 5000);
     piped.stop.abort();
-    expect(await making).toBe(0);
+    expect(await making).toBe(130);
     expect(said(piped)).toMatch(/was not collected/);
   }, 20_000);
 });

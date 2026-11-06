@@ -651,10 +651,14 @@ async function meshCreate(ctx: Ctx): Promise<number> {
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== undefined) await showRecoveryCode(ctx, made.recoveryCode);
   // After the recovery code, which exists only in memory: a slow relay here must not delay it.
-  await registerCli(ctx, made.mesh);
+  // A person who stopped the command (Ctrl-C while the code waited) gets no new connection.
+  if (!ctx.io.signal.aborted) await registerCli(ctx, made.mesh);
   ctx.io.out(STATUS_LINE);
-  return 0;
+  return ctx.io.signal.aborted ? STOPPED : 0;
 }
+
+/** The exit code of a command a signal stopped (Ctrl-C, a kill, the terminal closing): 128 + SIGINT, what a shell reports for Ctrl-C. */
+const STOPPED = 130;
 
 const CREATE_REFUSED = "the relay refused to create the mesh";
 
@@ -1811,15 +1815,15 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   let device: Device | undefined;
   try {
     device = await ctx.home.loadDevice();
-    if (device === undefined) bad(`no device keys at ${ctx.home.devicePath}: run wim init`);
+    if (device === undefined) bad(`not set up yet, no device keys at ${ctx.home.devicePath}: run \`wim init\`, or \`wim join <code>\` with an invite`);
     else ok(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim agent)" : "key file permissions are private"}`);
   } catch (error) {
     bad((error as Error).message);
   }
-  // The key file loaded, so the directory holding it exists.
+  // A directory that does not exist yet is the device not set up, the problem above.
   const rootProblem = await ctx.home.rootProblem();
   if (rootProblem === undefined) ok(`state directory ${ctx.home.root}`);
-  else bad(`state directory ${ctx.home.root}: ${rootProblem}`);
+  else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
   if (device === undefined) return { meshes };
   const me = device.id;
   for (const id of await ctx.home.meshIds()) {
@@ -1844,7 +1848,9 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
     }
     const before = config.pin.seq;
     try {
-      const s = await MeshSession.open({ ...(await ctx.sessionOptions("doctor", "cli")), mesh: files });
+      // This mesh's id: with no id the session needs WIM_MESH or the only mesh, and a device in
+      // several would have every one refused.
+      const s = await MeshSession.open({ ...(await ctx.sessionOptions("doctor", "cli", false, id)), mesh: files });
       s.start();
       try {
         await s.ready(15_000);

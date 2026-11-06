@@ -120,8 +120,8 @@ as an admin device. Never paste it into a Claude chat or send it over the mesh.
 Run anywhere it cannot be shown, such as through an agent or a pipe, `wim init` says why, offers
 the code to `wim recovery show` run in your own terminal, and **keeps running until you collect
 it, for up to 10 minutes**: only that process holds the code. If it is stopped before then (Ctrl-C,
-or an agent giving up on it), the code is gone and the mesh has none; run `wim recovery rotate` on
-this machine, in your own terminal, for a new one.
+or an agent giving up on it), it exits 130, the code is gone and the mesh has none; run `wim
+recovery rotate` on this machine, in your own terminal, for a new one.
 
 `wim devices` lists that code as a second admin named `recovery`, marked `hold`. It is not a
 machine: it is an admin record that never connects, so nothing ever comes from it.
@@ -214,7 +214,9 @@ the signer's memory until `wim agent unlock`.
 an admin, how many other devices and live sessions there are, how long the relay keeps a mesh
 nobody uses, and any problem in full. `wim doctor` shows every check behind it: the keys, the
 state directory (and why it is the one: `WIM_HOME`, `CLAUDE_CONFIG_DIR` or the default), the
-relay, the clock and the roster, and any other device directory on the machine.
+relay, the clock and the roster, and any other device directory on the machine. Both check every
+mesh the device is in, and on a machine not set up yet they say so and name `wim init` and `wim
+join`. Either exits 1 when it finds a problem.
 
 [Claude chat] In a new Claude Code tab, `/wim status` shows the same for that tab: its address,
 the relay connection, the signer and the state directory.

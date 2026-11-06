@@ -129,7 +129,7 @@ export class Home {
   /** Generates this device's keys. Refuses to replace an existing key file, also against a concurrent first run. */
   async createDevice(name: string): Promise<LocalDevice> {
     if (!isName(name)) throw new SetupError(`invalid device name ${JSON.stringify(name)}: use 1 to 32 of a-z, 0-9 and -`);
-    const exists = new SetupError(`${this.devicePath} already exists`);
+    const exists = new SetupError(`${this.devicePath} already exists: this device is set up. \`wim status\` shows it and its meshes; \`wim mesh create --relay <url>\` or \`wim join <code>\` adds a mesh`);
     if ((await this.readKeyFile()) !== undefined) throw exists;
     await ensureDir(this.root);
     const keys = generateDeviceKeys();
@@ -140,10 +140,18 @@ export class Home {
     return localDevice(name, keys);
   }
 
-  /** Problems with the state directory's own permissions, for `wim doctor`. */
-  async rootProblem(): Promise<string | undefined> {
-    const stat = await fs.stat(this.root);
-    return dirProblem(stat.mode, this.env.platform);
+  /**
+   * Problems with the state directory itself, for `wim doctor`: its permissions, or why it cannot
+   * be read. Null when it does not exist yet, on a device where `wim init` or `wim join` never ran.
+   */
+  async rootProblem(): Promise<string | undefined | null> {
+    let mode;
+    try {
+      mode = (await fs.stat(this.root)).mode;
+    } catch (error) {
+      return (error as NodeJS.ErrnoException).code === "ENOENT" ? null : `cannot be read: ${(error as Error).message}`;
+    }
+    return dirProblem(mode, this.env.platform);
   }
 
   async meshIds(): Promise<string[]> {
