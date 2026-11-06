@@ -12,7 +12,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ClientError, MeshSession } from "../src/client.ts";
 import { LEGACY_ACCEPT_TERMS } from "../src/cli.ts";
-import { LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes, skippedNote } from "../src/legacyboxes.ts";
+import { countDropped, droppedCount, droppedLine, droppedNotice, droppedPath, LEGACY_BOXES_FILE, LEGACY_DROPPED_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes, skippedNote } from "../src/legacyboxes.ts";
+import { noticeText } from "../src/render.ts";
 import { INTERNAL_OPS, PUBLIC_TOOLS, WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { AGENT_ENV_VARS } from "../src/secretout.ts";
@@ -153,6 +154,69 @@ describe("a device that refuses v0.1 boxes, receiving", () => {
     await b.send("a@one", "from two");
     await until(() => has(a, /from two/), undefined, "one reads two");
   }, LONG);
+});
+
+describe("a dropped v0.1 box, told and counted", () => {
+  const notices = async (s: MeshSession): Promise<string[]> => (await s.spool.unread()).map((i) => i.rendered).filter((r) => r.includes("old box format"));
+  const drops = (logs: string[]): number => logs.filter((l) => / legacy_box$/.test(l)).length;
+
+  it("tells the session once per sender, with no message text, and counts every drop for wim status", async () => {
+    const { relay, mesh, devices, a, old, logs } = await mixed();
+    await old.send("a@one", "first secret words");
+    await old.send("a@one", "second secret words");
+    await until(async () => drops(logs) === 2, undefined, "one drops both");
+    // A second drop from the same sender adds no notice.
+    expect(await notices(a)).toEqual([noticeText(droppedNotice("o@old"))]);
+    expect(noticeText(droppedNotice("o@old"))).toContain("A message from o@old was dropped because it used the old box format");
+    // A different sender, even on the same device, gets its own.
+    const other = await session(devices[2]!, mesh, relay, { name: "p", ...HAND });
+    await other.send("a@one", "third secret words");
+    await until(async () => drops(logs) === 3, undefined, "one drops the third");
+    expect(await notices(a)).toEqual([noticeText(droppedNotice("o@old")), noticeText(droppedNotice("p@old"))]);
+    // No notice, nor the count, carries anything of what was sent.
+    const items = await a.spool.unread();
+    expect(items.some((i) => /secret words/.test(JSON.stringify(i)))).toBe(false);
+    const countFile = join(devices[0]!.root, LEGACY_DROPPED_FILE);
+    expect(await fs.readFile(countFile, "utf8")).toBe("3\n");
+    const t = term(devices[0]!.root, relay);
+    expect(await run(t, "status")).toBe(0);
+    expect(t.out).toContain(droppedLine(3));
+  }, LONG);
+
+  it("does nothing while the device accepts v0.1 boxes", async () => {
+    const { relay, devices, a, old, logs } = await mixed({ strict: false });
+    await old.send("a@one", "read in the window");
+    await until(() => has(a, /read in the window/), undefined, "one reads it");
+    expect(drops(logs)).toBe(0);
+    expect(await notices(a)).toEqual([]);
+    const countFile = join(devices[0]!.root, LEGACY_DROPPED_FILE);
+    await expect(fs.stat(countFile)).rejects.toMatchObject({ code: "ENOENT" });
+    const t = term(devices[0]!.root, relay);
+    expect(await run(t, "status")).toBe(0);
+    expect(t.out.some((l) => l.includes("dropped on this device"))).toBe(false);
+    // A count from before the window was reopened is still shown.
+    await fs.writeFile(countFile, "2\n");
+    t.out.length = 0;
+    expect(await run(t, "status")).toBe(0);
+    expect(t.out).toContain(droppedLine(2));
+  }, LONG);
+
+  it("keeps the count beside the setting, counts concurrent drops once each, and reads a file without a count as none", async () => {
+    const home = await scratch("lb");
+    const path = droppedPath(join(home, LEGACY_BOXES_FILE));
+    expect(path).toBe(join(home, LEGACY_DROPPED_FILE));
+    expect(await droppedCount(path)).toBe(0);
+    await Promise.all(Array.from({ length: 5 }, () => countDropped(path, FS)));
+    expect(await droppedCount(path)).toBe(5);
+    await fs.writeFile(path, " 7\n");
+    expect(await droppedCount(path)).toBe(7);
+    for (const text of ["many", "-1", "1.5", "1e400", "9007199254740993"]) {
+      await fs.writeFile(path, text);
+      expect(await droppedCount(path), text).toBe(0);
+    }
+    await countDropped(path, FS);
+    expect(await droppedCount(path)).toBe(1);
+  });
 });
 
 describe("a hostile relay that withholds prekeys", () => {
@@ -337,12 +401,15 @@ describe("wim status and wim doctor", () => {
     const t = term(devices[0]!.root, relay);
     expect(await run(t, "status")).toBe(0);
     expect(t.out).toContain(`${legacyBoxesLine(false)}.`);
+    expect(t.out.some((l) => l.includes("dropped on this device"))).toBe(false);
     expect(await run(t, "doctor")).toBe(0);
     expect(t.out).toContain(`info     ${legacyBoxesLine(false)}`);
     expect(legacyBoxesLine(false)).toContain("`wim legacy-boxes refuse` closes that on this device");
     await refuse(devices[0]!);
     t.out.length = 0;
     expect(await run(t, "status")).toBe(0);
+    // While the device refuses, the count shows even at none.
+    expect(t.out).toContain(droppedLine(0));
     expect(await run(t, "doctor")).toBe(0);
     expect(t.out).toContain(`${legacyBoxesLine(true)}.`);
     expect(t.out).toContain(`info     ${legacyBoxesLine(true)}`);

@@ -13,10 +13,17 @@
 // not from the file (SECURITY-MODEL section 9).
 
 import { promises as fs } from "node:fs";
-import { writeAtomic, type FsEnv } from "./fsx.ts";
+import { dirname, join } from "node:path";
+import { readText, withLock, writeAtomic, type FsEnv } from "./fsx.ts";
 
 /** The setting's file, in the state directory. */
 export const LEGACY_BOXES_FILE = "legacy-boxes";
+
+/**
+ * How many v0.1 boxes this device has dropped, beside the setting: every session of the device adds
+ * to it, under a lock, and `wim status` shows it. It holds a count only, never a sender or any text.
+ */
+export const LEGACY_DROPPED_FILE = "legacy-boxes-dropped";
 
 /** The longest file read; anything longer is not the setting. */
 const MAX_BYTES = 16;
@@ -49,6 +56,35 @@ function unreadable(path: string, why: string): string {
 /** Writes the setting: `refuse` closes the window on this device, `accept` reopens it. */
 export function setLegacyBoxes(path: string, refuse: boolean, env: FsEnv): Promise<void> {
   return writeAtomic(path, refuse ? "refuse\n" : "accept\n", env);
+}
+
+/** The count's file, beside the setting's file at `settingPath`. */
+export function droppedPath(settingPath: string): string {
+  return join(dirname(settingPath), LEGACY_DROPPED_FILE);
+}
+
+/** The count at `path`: none when there is no file, and none when the file holds no count. */
+export async function droppedCount(path: string): Promise<number> {
+  const n = Number((await readText(path)) ?? "0");
+  return Number.isSafeInteger(n) && n >= 0 ? n : 0;
+}
+
+/** Adds one dropped v0.1 box to the count at `path`. */
+export function countDropped(path: string, env: FsEnv): Promise<void> {
+  return withLock(`${path}.lock`, async () => writeAtomic(path, `${(await droppedCount(path)) + 1}\n`, env), env);
+}
+
+/** What `wim status` says of the count. */
+export function droppedLine(n: number): string {
+  return `v0.1 boxes dropped on this device: ${n} (each a message from a v0.1 client, not delivered).`;
+}
+
+/**
+ * The local notice for a message dropped as `legacy_box`, once per sender per session. It names
+ * the sender only: the message was never opened, so there is no text to carry.
+ */
+export function droppedNotice(address: string): string {
+  return `A message from ${address} was dropped because it used the old box format (v0.1, no forward secrecy), which this device refuses (\`wim legacy-boxes\`). Its text was not read. The sender's device needs a current client.`;
 }
 
 /** One line on the setting, for `wim status` and `wim doctor`. */

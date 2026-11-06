@@ -435,8 +435,9 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   publishes no prekey (a v0.1 client) still gets a v0.1 box without forward secrecy, and
   `wim send` says so. `wim legacy-boxes refuse` closes that window on your device now: it never
   sends or accepts a v0.1 box, so a relay that withholds prekeys cannot downgrade it, and it no
-  longer reaches v0.1 clients. Only you, at your own terminal, can turn it back off. Details:
-  SECURITY-MODEL.md section 6.14.
+  longer reaches v0.1 clients. A message it drops for that is not silent: the session gets one
+  notice per sender saying so, and `wim status` counts them. Only you, at your own terminal, can
+  turn it back off. Details: SECURITY-MODEL.md section 6.14.
 - **Optional: keep the keys out of your agent's reach.** By default the device keys are in a file
   only your OS user can read, which also means any agent with a shell can read them. `wim agent
   encrypt` encrypts that file under a passphrase; `wim agent start`, run in your own terminal, asks

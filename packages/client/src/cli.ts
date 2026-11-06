@@ -40,7 +40,7 @@ import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
-import { LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
+import { droppedCount, droppedLine, droppedPath, LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
 
 export const VERSION = "0.1.9";
 
@@ -1973,7 +1973,12 @@ async function status(ctx: Ctx): Promise<number> {
   for (const c of problems) ctx.io.out(`problem  ${c.line}`);
   if (device !== undefined) {
     ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
-    ctx.io.out(`${legacyBoxesLine((await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE))).refuse)}.`);
+    const setting = pathJoin(ctx.home.root, LEGACY_BOXES_FILE);
+    const refuse = (await refusesLegacy(setting)).refuse;
+    ctx.io.out(`${legacyBoxesLine(refuse)}.`);
+    // Shown while the device refuses, and after, while there is a count to show.
+    const dropped = await droppedCount(droppedPath(setting));
+    if (refuse || dropped > 0) ctx.io.out(droppedLine(dropped));
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m of meshes) for (const line of meshStatus(m)) ctx.io.out(line);
   }

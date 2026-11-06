@@ -24,6 +24,10 @@ body line with a bracket.
   person's alone (their own terminal and a typed `y`, as for `wim devices trust`), with no MCP
   tool or events op. `wim status` and `wim doctor` show it. Off by default until 1.0. No wire
   change.
+- **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
+  dropped as `legacy_box` gives the session a local notice, once per sender per session, that
+  names the sender and carries none of the message, and `wim status` shows how many this device
+  has dropped.
 
 ### Fixed
 

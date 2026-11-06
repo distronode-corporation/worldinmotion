@@ -893,7 +893,13 @@ Limits:
   It is off by default until 1.0; `wim status` and `wim doctor` show it. A file that reads as
   neither `refuse` nor `accept` (garbage, or one that cannot be read) counts as refuse, and
   `wim status` reports it as a problem. A device with it on
-  cannot talk to v0.1 clients, and boxes it recorded before turning it on are unchanged.
+  cannot talk to v0.1 clients, and boxes it recorded before turning it on are unchanged. A drop is
+  not silent: the receiving session gets a local notice (labelled as the client's, never a peer's)
+  once per sender address per session, naming the sender and carrying none of the message, since
+  the box was never opened; and every drop adds one to `$WIM_HOME/legacy-boxes-dropped`, a bare
+  count that `wim status` shows. A sender in the roster, or a relay delivering its frames again, can
+  make the count grow, nothing more: the notice is once per address per session, so neither can
+  flood the spool.
 - **Deletion is a file rewrite.** It runs whenever a wim process for the mesh runs; a device that is
   switched off keeps what it held until a wim process next runs. Rewriting a file does not erase
   the old bytes from an SSD, a journaling or copy-on-write file system, a snapshot or a backup. A
