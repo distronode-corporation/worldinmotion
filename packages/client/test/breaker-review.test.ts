@@ -328,7 +328,7 @@ describe("F8: a pause tripped by a room message never reaches the sender", () =>
     await b.joinRoom("#ops");
     for (const t of ["1", "2"]) await a.send("#ops", t);
     await until(async () => (await b.held.list()).length === 1);
-    await sleep(500);
+    await until(async () => (await pausedByCount(a)) === 1, 10_000, "a@one takes the pause b@two sent it");
     expect(await pausedByCount(a), "a@one took the pause b@two sent it").toBe(1);
   }, 30_000);
 });

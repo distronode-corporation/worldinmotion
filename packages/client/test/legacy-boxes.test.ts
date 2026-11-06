@@ -149,6 +149,8 @@ describe("a device that refuses v0.1 boxes, receiving", () => {
     await old.send("#ops", "old in the room");
     await until(() => has(b, /old in the room/), undefined, "two, in the window, reads it");
     await until(() => logs.some((l) => l === `wim: dropped ${direct.id}: legacy_box`), undefined, "one drops the direct one");
+    // The room box is a frame of its own, dropped after the direct one.
+    await until(() => logs.filter((l) => / legacy_box$/.test(l)).length >= 2, undefined, "one drops the room one too");
     expect(logs.filter((l) => / legacy_box$/.test(l)).length).toBe(2);
     expect(await has(a, /old to one|old in the room/)).toBe(false);
     // An upgraded sender's message still reads.

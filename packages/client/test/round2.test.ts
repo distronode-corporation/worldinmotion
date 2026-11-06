@@ -141,7 +141,7 @@ describe("clean ends of wim mcp", () => {
     let err = "";
     (proc.stderr as PassThrough).on("data", (d: Buffer) => (err += d.toString()));
     processIo(proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined, wim: () => [] });
-    await sleep(10);
+    await until(() => err.includes("wim: unexpected error: plain\n"), undefined, "both errors on stderr");
     expect(err).toContain("wim: unexpected error: stray\nwim: unexpected error: plain\n");
   });
 });
