@@ -89675,8 +89675,8 @@ async function readBranch(cwd) {
 }
 async function cardFor(cwd, full, home) {
   const branch = await readBranch(cwd);
-  const shown = full ? cwd : basename(resolve(cwd));
-  return { ...resolve(cwd) === resolve(home) ? {} : { cwd: shown.slice(0, CARD_LIMITS.cwd) }, ...branch === void 0 ? {} : { branch } };
+  const shown2 = full ? cwd : basename(resolve(cwd));
+  return { ...resolve(cwd) === resolve(home) ? {} : { cwd: shown2.slice(0, CARD_LIMITS.cwd) }, ...branch === void 0 ? {} : { branch } };
 }
 function sameCard(a5, b5) {
   return a5 !== void 0 && a5.cwd === b5.cwd && a5.branch === b5.branch && a5.title === b5.title;
@@ -90603,7 +90603,10 @@ async function recentTakeovers(mesh, env3, now) {
     const state2 = await new SessionFiles(mesh, sid, env3).load();
     for (const c5 of state2?.claims ?? []) if (now - c5.at < CLAIM_SHOWN_MS) found.push(c5);
   }
-  return found.sort((a5, b5) => b5.at - a5.at).map((c5) => `${c5.address} was taken over ${ago(now - c5.at)} ago by a session ${c5.cwd === void 0 ? "with no working directory" : `in ${c5.cwd}`}`);
+  return found.sort((a5, b5) => b5.at - a5.at).map((c5) => `${shown(c5.address)} was taken over ${ago(now - c5.at)} ago by a session ${c5.cwd === void 0 ? "with no working directory" : `in ${shown(c5.cwd)}`}`);
+}
+function shown(text2) {
+  return sanitizeForDisplay(text2).replace(/\n/g, "<U+000A>").replace(/\t/g, " ");
 }
 function ago(ms) {
   const min = Math.max(0, Math.floor(ms / 6e4));
@@ -119426,10 +119429,10 @@ function formatDuration(ms) {
 }
 function jobList(names, what2) {
   const unique = [...new Set(names)];
-  const shown = unique.slice(0, 5).join(", ");
+  const shown2 = unique.slice(0, 5).join(", ");
   const more = unique.length > 5 ? ` and ${unique.length - 5} more` : "";
   const noun = unique.length === 1 ? "job" : "jobs";
-  return `${unique.length} ${noun} ${what2}: ${shown}${more}`;
+  return `${unique.length} ${noun} ${what2}: ${shown2}${more}`;
 }
 function between(start2, end2) {
   const a5 = Date.parse(start2 ?? "");
@@ -120969,11 +120972,11 @@ async function runEvents(d5) {
       if (a5.session !== void 0 && a5.session !== address) continue;
       sessions.push({ address, history: new History(new SessionFiles(d5.mesh, sid, d5.env).historyPath, d5.now) });
     }
-    const shown = (e6) => a5.peer === void 0 || e6.peer.split(",").includes(a5.peer);
+    const shown2 = (e6) => a5.peer === void 0 || e6.peer.split(",").includes(a5.peer);
     let until;
     for (const { history: h6 } of a5.before === void 0 ? [] : sessions) {
       const cut2 = await h6.find(a5.before);
-      if (cut2 !== void 0 && shown(cut2)) {
+      if (cut2 !== void 0 && shown2(cut2)) {
         until = cut2.at;
         break;
       }
@@ -123523,8 +123526,8 @@ var WimMcp = class {
     switch (name) {
       case "peers": {
         const rows = await s3.listPeers();
-        const shown = a5.all === true ? rows : rows.filter((p3) => !isStalePeer(p3, Date.now()));
-        return text(shown.map(peerLine).join("\n"));
+        const shown2 = a5.all === true ? rows : rows.filter((p3) => !isStalePeer(p3, Date.now()));
+        return text(shown2.map(peerLine).join("\n"));
       }
       case "send": {
         const i6 = a5;
@@ -131111,9 +131114,9 @@ function showInbox(ctx, s3, items) {
   const peek = ctx.args.flags.get("peek") === true;
   const unmarked = !peek && !ctx.io.isTTY && ctx.args.flags.get("mark-read") !== true;
   const mark = peek || unmarked ? () => Promise.resolve() : (item) => s3.markRead([item]);
-  return printEach(items, print, mark).then((shown) => {
+  return printEach(items, print, mark).then((shown2) => {
     if (unmarked && items.length > 0) ctx.io.err(unmarkedLine(items.length));
-    else if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
+    else if (shown2 < items.length) ctx.io.err(`wim: the output closed after ${shown2} of ${items.length} items; the other ${items.length - shown2} stay unread.`);
     return 0;
   });
 }
@@ -131243,7 +131246,7 @@ async function history(ctx) {
   const limitText = flag2(ctx.args, "limit") ?? "20";
   if (!/^[1-9]\d{0,5}$/.test(limitText)) throw new SetupError("--limit must be a positive whole number");
   const limit2 = Number(limitText);
-  let shown = 0;
+  let shown2 = 0;
   for (const sid of await listSessions(files)) {
     const sf = new SessionFiles(files, sid, ctx.fsEnv);
     const state2 = await sf.load();
@@ -131252,9 +131255,9 @@ async function history(ctx) {
     if (entries.length === 0) continue;
     ctx.io.out(`== ${state2.address ?? state2.name} (${sid})`);
     for (const e6 of entries) ctx.io.out(renderForPerson(e6));
-    shown += entries.length;
+    shown2 += entries.length;
   }
-  if (shown === 0) ctx.io.out("No history.");
+  if (shown2 === 0) ctx.io.out("No history.");
   return 0;
 }
 async function hook(rest, env3, io) {
