@@ -113,11 +113,11 @@ describe("activate", () => {
     expect(fake.state.statusItems[0]!.text).toBe("$(broadcast) wim  $(inbox) 1");
     expect(fake.state.output[0]).toMatch(/^starting .*fake-wim\.mjs events --json --as vscode$/);
 
-    // Approve: one click, and the delivered message notifies, naming the sender only.
-    fake.state.messageAnswers.push("Open Thread");
+    // Approve: the modal shows the set, and the delivered message notifies, naming the sender only.
+    fake.state.messageAnswers.push("Approve all 1", "Open Thread");
     await fake.run("worldinmotion.approve", api!.nodes.held("vscode@laptop", HELD));
     await waitFor(() => expect(fake.state.shown.length).toBe(1));
-    expect(requests().find((r) => r.op === "approve")!.args).toEqual({ held: HELD });
+    expect(requests().find((r) => r.op === "approve")!.args).toEqual({ held: HELD, set: [HELD] });
     expect(fake.state.messages.find((m) => m.items.includes("Open Thread"))!.message).toBe("worldinmotion: a msg from coder@buildbox.");
     expect(fake.state.shown[0]!.getText()).toContain("    Could you look at the failing test in auth.ts? It fails on main");
     await waitFor(() => expect(t.get("worldinmotion.held")!.message).toBe("Nothing is held for you."));
@@ -166,7 +166,9 @@ describe("activate", () => {
     await fake.run("worldinmotion.askAboutSelection");
     await fake.run("worldinmotion.sendMessage");
     await fake.run("worldinmotion.sendFile", Uri.file(FIXTURE));
-    expect(requests().map((r) => r.op)).toEqual(expect.arrayContaining(["trust", "untrust", "resume", "refuse"]));
+    expect(requests().map((r) => r.op)).toEqual(expect.arrayContaining(["trust", "untrust", "resume"]));
+    // A held row decided meanwhile is no longer shown, so nothing is sent for it.
+    expect(requests().map((r) => r.op)).not.toContain("refuse");
 
     // A session name or client change restarts the client; other settings do not.
     const starts = () => fake.state.output.filter((l) => l.startsWith("starting ")).length;

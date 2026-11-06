@@ -48,15 +48,28 @@ exports.run = async function run() {
   await vscode.commands.executeCommand("worldinmotion.showActivity");
 
   // One Approve round trip: the click's command reaches the fake, which removes the held item.
+  // Approve opens a modal listing the whole set, which nothing here can click: its answer is
+  // stubbed for this one call, and what it was asked to show is checked.
   assert.equal(api.store.held.size, 1);
-  await vscode.commands.executeCommand("worldinmotion.approve", api.nodes.held("vscode@laptop", HELD));
+  const asked = [];
+  const original = vscode.window.showWarningMessage;
+  vscode.window.showWarningMessage = (message, options, ...items) => (asked.push({ message, options, items }), Promise.resolve(items[0]));
+  try {
+    await vscode.commands.executeCommand("worldinmotion.approve", api.nodes.held("vscode@laptop", HELD));
+  } finally {
+    vscode.window.showWarningMessage = original;
+  }
+  assert.equal(asked.length, 1, "Approve asked through a modal");
+  assert.equal(asked[0].options.modal, true);
+  assert.deepEqual(asked[0].items, ["Approve all 1", "Approve only this one"]);
+  assert.match(asked[0].options.detail, /^1 message held from coder@buildbox, at /);
   await waitFor("the held item to go", () => api.store.held.size === 0);
   const log = readFileSync(process.env.WIM_FAKE_LOG, "utf8")
     .split("\n")
     .filter((l) => l !== "")
     .map((l) => JSON.parse(l));
   const approve = log.find((r) => r.op === "approve");
-  assert.deepEqual(approve && approve.args, { held: HELD });
+  assert.deepEqual(approve && approve.args, { held: HELD, set: [HELD] });
   await waitFor("the approved message to arrive", () => api.store.messages.some((m) => m.dir === "in" && m.text.startsWith("Could you look")));
   console.log("smoke: Approve reached the fake and the message was delivered");
 };

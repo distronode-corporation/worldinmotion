@@ -933,6 +933,69 @@ test('the pane lists peers, pauses and the held queue, and its buttons write app
   await ui.unmount()
 })
 
+test('the pane shows a set per sending device and Approve all marks exactly the ids it showed', async ($, on) => {
+  const [a1, a2, a3, late, c1, p1, p2] = [ulidOf(911), ulidOf(912), ulidOf(913), ulidOf(914), ulidOf(915), ulidOf(916), ulidOf(917)]
+  const one = { set: 'device:D1', set_title: 'device one (device id D1)', from: 'a@one', kind: 'msg' }
+  const ci = { set: 'ci:R1', set_title: 'CI rule github  o/r', from: 'ci:github:o/r', kind: 'msg', ci: 'github, o/r, refs/heads/main' }
+  let held: Array<Record<string, unknown>> = [
+    { ...one, id: a2, at: 1000, preview: 'step two 3 of 3  x@y' },
+    { ...one, id: a1, at: 1000, preview: 'step one', reason: 'breaker' },
+    { ...one, id: a3, at: 2000, preview: 'step three' },
+    { set: 'device:D3', set_title: 'device three (device id D3)', id: c1, from: 'c@three', kind: 'msg', at: 1500, preview: 'From device one: 9 messages' },
+    { ...ci, id: p1, at: 3000, preview: 'pins', pins: 'repositoryId=1 ownerId=2' },
+    { ...ci, id: p2, at: 4000, preview: 'plain' },
+  ]
+  const w = world(on, { tools: { _peers: () => json({ peers: [] }), _held: () => json({ held }), _leases: () => json({ leases: [] }) } })
+  mock.clock(on)
+  await $.session.start(START)
+  await $.command.run(WIM)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^From device one/ }))?.text).toMatch(/^From device one \(device id D1\): 3 messages, \S+ to \S+ ago\. Read them together: they are decided as one\.$/)
+  expect((await ui.find({ type: 'Text', text: /^From device three/ }))?.text).toMatch(/^From device three \(device id D3\): 1 message, \S+ ago\./)
+  expect(await ui.find({ type: 'Text', text: /^1 of 3 {2}a@one {2}msg .*step one$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^2 of 3 {2}a@one {2}msg .*step two 3 of 3 {2}x@y$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /pause stays on after Approve all/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'CI: github, o/r, refs/heads/main' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: `Approve on its own, in a terminal: it pins repositoryId=1 ownerId=2 (wim held approve ${p1})` })).toBeDefined()
+  expect(await ui.find({ key: `approve:${p1}` })).toBeUndefined()
+  // A fourth arrives after the pane drew the set: Approve all does not cover it.
+  held = [...held, { ...one, id: late, at: 5000, preview: 'late' }]
+  const before = w.wire.length
+  await ui.press({ key: 'approveSet:device:D1' })
+  expect([a1, a2, a3].map(id => w.files.get(`${HELD_DIR}/${id}.approve`))).toEqual(['', '', ''])
+  expect(w.files.has(`${HELD_DIR}/${late}.approve`)).toBe(false)
+  expect(w.files.has(`${HELD_DIR}/${c1}.approve`)).toBe(false)
+  expect(w.wire.length).toBe(before)
+  expect(await ui.find({ type: 'Text', text: /^3 marked approved\. Anything held after the pane drew them stays held\./ })).toBeDefined()
+  expect(await ui.find({ key: 'approveSet:device:D1' })).toBeUndefined()
+  // A CI set: Approve all leaves out the notice that pins ids; Refuse all covers it.
+  await ui.press({ key: 'approveSet:ci:R1' })
+  expect(w.files.get(`${HELD_DIR}/${p2}.approve`)).toBe('')
+  expect(w.files.has(`${HELD_DIR}/${p1}.approve`)).toBe(false)
+  await ui.press({ key: 'refuseSet:ci:R1' })
+  expect(w.files.get(`${HELD_DIR}/${p1}.refuse`)).toBe('')
+  await ui.press({ key: 'refuseSet:device:D3' })
+  expect(w.files.get(`${HELD_DIR}/${c1}.refuse`)).toBe('')
+  expect(await ui.find({ type: 'Text', text: /Held for your approval \(0\)/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a set mark that cannot be written is reported, not claimed', async ($, on) => {
+  const held = [{ id: ulidOf(921), set: 'device:D', set_title: 'device d (device id D)', from: 'a@d', kind: 'msg', at: 0, preview: 'y' }, { id: ulidOf(922), set: 'device:D', from: 'b@d', kind: 'msg', at: 0, preview: 'z' }]
+  world(on, {
+    tools: { _peers: () => json({ peers: [] }), _held: () => json({ held }), _leases: () => json({ leases: [] }) },
+    isWriteDenied: path => path.endsWith(`${ulidOf(922)}.refuse`),
+  })
+  mock.clock(on)
+  await $.session.start(START)
+  await $.command.run(WIM)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'refuseSet:device:D' })
+  expect(await ui.find({ type: 'Text', text: `Could not mark ${ulidOf(922)} refused; 1 marked.` })).toBeDefined()
+  expect(await ui.find({ key: `refuse:${ulidOf(922)}` })).toBeDefined()
+  await ui.unmount()
+})
+
 test('a held id that is not a ULID, or a client that names no held directory, writes no mark', async ($, on) => {
   let hello: Record<string, unknown> = { spool: SPOOL, sid: 's1', address: 'builder@desk', token: TOKEN, held: HELD_DIR }
   const w = world(on, {

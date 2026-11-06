@@ -48,8 +48,11 @@ some of the guideline holds and some does not; the notes say which.
   (7.1).
 - **Framing is not a boundary.** An agent may still follow a peer's text. Messages from devices
   the person trusts may assign work within the agent's normal permissions (7.2).
-- **The held view shows one item at a time.** A request split across several harmless-looking
-  messages (agent session smuggling, 5.2) is easy to approve piece by piece.
+- **Held messages are decided a set at a time, not a thread.** Since 0.1.11 every approve and refuse
+  surface shows everything held from one sending device (or under one CI rule) together, in order,
+  with its count and time span, and the decision covers exactly the ids shown, so a request split
+  across several messages from one device (agent session smuggling, 5.2) is read as one (7.2). A
+  request split across two devices, or across a set already approved and a later one, still is not.
 - **The secret filter is best effort.** It refuses common credential formats; an encoded secret
   gets through (7.4).
 

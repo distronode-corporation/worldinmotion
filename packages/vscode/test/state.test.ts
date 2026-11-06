@@ -285,3 +285,16 @@ describe("toNotify", () => {
     expect(toNotify(s, ev({}), true)).toEqual(message("m"));
   });
 });
+
+describe("heldSets", () => {
+  it("orders items of one millisecond by id, keeps a room copy's id once, and sets apart a row with no set", () => {
+    const s = mesh({ held: [heldRow("b", { set: "k" }), heldRow("a", { set: "k" }), heldRow("c", { set: "k" }), heldRow("b", { set: "k", session: "agent@laptop" }), heldRow("z")] });
+    const sets = s.heldSets();
+    expect(sets.map((x) => [x.key, x.ids])).toEqual([
+      ["k", ["a", "b", "c"]],
+      ["one\nvscode@laptop\nz", ["z"]],
+    ]);
+    expect(sets[0]!.rows).toHaveLength(4);
+    expect(sets[1]!.title).toBe("coder@buildbox");
+  });
+});

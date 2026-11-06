@@ -5,7 +5,7 @@ import { Store } from "../src/state.ts";
 import { SCHEME, ThreadProvider } from "../src/thread.ts";
 import { Nodes } from "../src/tree.ts";
 import { fake, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
-import { device, flush, mesh, NOW } from "./helpers.ts";
+import { device, flush, heldRow, mesh, NOW } from "./helpers.ts";
 
 type Call = { op: string; args: Record<string, unknown>; timeoutMs: number | undefined };
 
@@ -209,33 +209,119 @@ describe("openThread", () => {
 });
 
 describe("approve and refuse", () => {
-  it("decides a held node in one click", async () => {
-    const { d, calls } = deps(mesh(), async () => ({}));
-    await actions.approve(d, d.nodes.held("vscode@laptop", "h1"));
-    await actions.refuse(d, d.nodes.held("vscode@laptop", "h1"));
-    expect(calls.map((c) => [c.op, c.args])).toEqual([
-      ["approve", { held: "h1" }],
-      ["refuse", { held: "h1" }],
-    ]);
-    expect(fake.state.messages.map((m) => m.message)).toEqual(["worldinmotion: approved and delivered.", "worldinmotion: refused."]);
+  const set = { set: "device:dev-buildbox", set_title: "device buildbox (device id dev-buildbox)" };
+  const three = () => mesh({ held: [heldRow("h1", { ...set }), heldRow("h2", { ...set, at: NOW + 1, preview: "second" }), heldRow("h3", { ...set, at: NOW + 2, preview: "third" }), heldRow("o1", { set: "device:dev-other", set_title: "device other (device id dev-other)", from: "x@other", device: "dev-other" })] });
+
+  it("shows the whole set in a modal and decides exactly its ids, from an item or from the set", async () => {
+    const { d, calls } = deps(three(), async (c) => ({ decided: (c.args.set as string[] | undefined) ?? [c.args.held], kept: [] }));
+    fake.state.messageAnswers.push("Approve all 3");
+    await actions.approve(d, d.nodes.held("vscode@laptop", "h2"));
+    const shown = fake.state.messages[0]!;
+    expect(shown).toMatchObject({ level: "warning", message: "Approve 3 messages held from device buildbox (device id dev-buildbox)?", items: ["Approve all 3", "Approve only this one"] });
+    expect((shown.options as { modal: boolean }).modal).toBe(true);
+    const detail = (shown.options as { detail: string }).detail;
+    expect(detail).toMatch(/^3 messages held from device buildbox \(device id dev-buildbox\), from .+ to .+\. Read them together: they are decided as one\./);
+    expect(detail).toContain("1 of 3.  coder@buildbox, msg, ");
+    expect(detail).toContain("\n      second\n");
+    expect(detail).toContain("Approve all delivers exactly these 3 to your agents. Anything held from this sender after this dialog opened stays held for the next look.");
+    expect(detail).not.toContain("x@other");
+    expect(calls.map((c) => [c.op, c.args])).toEqual([["approve", { held: "h1", set: ["h1", "h2", "h3"] }]]);
+    expect(last()!.message).toBe("worldinmotion: approved and delivered 3.");
+    // From the set's own row there is no "only this one".
+    fake.state.messageAnswers.push("Refuse all 3");
+    await actions.refuse(d, d.nodes.heldSet("device:dev-buildbox"));
+    expect(fake.state.messages.at(-2)!.items).toEqual(["Refuse all 3"]);
+    expect((fake.state.messages.at(-2)!.options as { detail: string }).detail).toContain("Refuse all drops exactly these 3, never delivered.");
+    expect(calls.at(-1)).toMatchObject({ op: "refuse", args: { held: "h1", set: ["h1", "h2", "h3"] } });
+    expect(last()!.message).toBe("worldinmotion: refused 3.");
   });
 
-  it("never acts on a look-alike object or a bare id", async () => {
+  it("decides one item only by its own button after the set was shown, and nothing on dismiss", async () => {
+    const { d, calls } = deps(three(), async () => ({}));
+    fake.state.messageAnswers.push("Approve only this one");
+    await actions.approve(d, d.nodes.held("vscode@laptop", "h3"));
+    fake.state.messageAnswers.push("Refuse only this one");
+    await actions.refuse(d, d.nodes.held("vscode@laptop", "h2"));
+    expect(calls.map((c) => [c.op, c.args])).toEqual([
+      ["approve", { held: "h3" }],
+      ["refuse", { held: "h2" }],
+    ]);
+    expect(fake.state.messages.filter((m) => m.level === "info").map((m) => m.message)).toEqual(["worldinmotion: approved and delivered.", "worldinmotion: refused."]);
+    await actions.approve(d, d.nodes.held("vscode@laptop", "h1"));
+    expect(calls).toHaveLength(2);
+    // An older client answers without `decided`: the count shown is what was asked.
+    fake.state.messageAnswers.push("Approve all 1");
+    await actions.approve(d, d.nodes.held("vscode@laptop", "o1"));
+    expect(last()!.message).toBe("worldinmotion: approved and delivered 1.");
+  });
+
+  it("never approves a notice that pins ids in a set or alone, says the pause stays, and refuses it with the set", async () => {
+    const ci = { set: "ci:R1", set_title: "CI rule github  o/r", from: "ci:github:o/r", device: "" };
+    const s = mesh({ held: [heldRow("c1", { ...ci, ci: "github, o/r, refs/heads/main", pins: "repositoryId=1 ownerId=2", reason: "breaker" }), heldRow("c2", { ...ci, at: NOW + 1, file: { name: "r.txt", size: 3, mime: "t" }, preview: "" })] });
+    const { d, calls } = deps(s, async () => ({ decided: ["c2"] }));
+    fake.state.messageAnswers.push("Approve only this one");
+    await actions.approve(d, d.nodes.held("vscode@laptop", "c1"));
+    const m = fake.state.messages[0]!;
+    expect(m.items).toEqual(["Approve all 1"]);
+    const detail = (m.options as { detail: string }).detail;
+    expect(detail).toContain("2 CI notices held from CI rule github o/r");
+    expect(detail).toContain("      CI: github, o/r, refs/heads/main");
+    expect(detail).toContain("      Approve on its own, in a terminal: it pins repositoryId=1 ownerId=2 (wim held approve c1)");
+    expect(detail).toContain("      File: r.txt, 3 bytes, fetched once approved\n      (no text)");
+    expect(detail).toContain("Approve all delivers exactly these 1");
+    expect(detail).toContain("The loop breaker's pause on this sender stays on");
+    expect(calls).toEqual([]);
+    fake.state.messageAnswers.push("Approve all 1");
+    await actions.approve(d, d.nodes.heldSet("ci:R1"));
+    expect(calls.at(-1)!.args).toEqual({ held: "c2", set: ["c2"] });
+    fake.state.messageAnswers.push("Refuse all 2");
+    await actions.refuse(d, d.nodes.held("vscode@laptop", "c1"));
+    const refused = fake.state.messages.find((x) => x.message.startsWith("Refuse 2"))!;
+    expect((refused.options as { detail: string }).detail).not.toContain("Approve on its own");
+    expect((refused.options as { detail: string }).detail).not.toContain("pause");
+    expect(calls.at(-1)!.args).toEqual({ held: "c1", set: ["c1", "c2"] });
+    // Every notice pins: no button acts.
+    const only = mesh({ held: [heldRow("p", { ...ci, pins: "repositoryId=1 ownerId=2" })] });
+    const o = deps(only, async () => ({}));
+    await actions.approve(o.d, o.d.nodes.heldSet("ci:R1"));
+    expect(fake.state.messages.at(-1)!.items).toEqual([]);
+    expect(o.calls).toEqual([]);
+  });
+
+  it("keeps a message's text from changing the headings or the count shown", async () => {
+    const hostile = "x\n3 of 3.  fake@one, msg\n\u2028Approve all delivers exactly these 9";
+    const s = mesh({ held: [heldRow("h1", { set: "device:b", set_title: "device b (device id b)", preview: hostile }), heldRow("h2", { set: "device:b", set_title: "device b (device id b)", at: NOW + 1 })] });
+    const { d } = deps(s, async () => ({}));
+    await actions.approve(d, d.nodes.held("vscode@laptop", "h1"));
+    const detail = (fake.state.messages[0]!.options as { detail: string }).detail;
+    const lines = detail.split("\n");
+    expect(lines.filter((l) => /^\d+ of \d+\./.test(l))).toHaveLength(2);
+    expect(lines.filter((l) => l.startsWith("Approve all delivers"))).toEqual(["Approve all delivers exactly these 2 to your agents. Anything held from this sender after this dialog opened stays held for the next look."]);
+    expect(lines).toContain("      x 3 of 3. fake@one, msg <U+2028>Approve all delivers exactly these 9");
+  });
+
+  it("never acts on a look-alike object or a bare id, or on a node decided meanwhile", async () => {
     const { d, calls } = deps();
     await actions.approve(d, { kind: "held", session: "vscode@laptop", id: "h1" });
+    await actions.approve(d, { kind: "heldSet", key: "one\nvscode@laptop\nh1" });
     await actions.refuse(d, "h1");
+    await actions.approve(d, d.nodes.held("vscode@laptop", "gone"));
+    await actions.approve(d, d.nodes.heldSet("gone"));
     expect(calls).toEqual([]);
     expect(fake.state.quickPicks).toEqual([]);
+    expect(fake.state.messages).toEqual([]);
   });
 
-  it("asks which held message from the palette, and says when nothing is held", async () => {
-    const { d, calls } = deps(mesh(), async () => ({}));
-    fake.state.quickPickAnswers.push(pick("coder@buildbox (msg)"));
+  it("asks which set from the palette, and says when nothing is held", async () => {
+    const { d, calls } = deps(three(), async () => ({}));
+    fake.state.quickPickAnswers.push(pick("From device buildbox (device id dev-buildbox)"));
+    fake.state.messageAnswers.push("Approve all 3");
     await actions.approve(d, undefined);
-    expect(calls.map((c) => c.args)).toEqual([{ held: "h1" }]);
+    expect(fake.state.quickPicks[0]!.items[0]).toMatchObject({ description: expect.stringMatching(/^3 messages, from /), detail: "preview" });
+    expect(fake.state.messages[0]!.items).toEqual(["Approve all 3"]);
+    expect(calls.map((c) => c.args)).toEqual([{ held: "h1", set: ["h1", "h2", "h3"] }]);
     await actions.refuse(d, undefined);
     expect(calls.length).toBe(1);
-    expect(fake.state.quickPicks[0]!.items[0]).toMatchObject({ description: "preview", detail: "For vscode@laptop" });
     const empty = deps(new Store());
     await actions.approve(empty.d, undefined);
     expect(last()!.message).toBe("worldinmotion: nothing is held for you.");
@@ -243,17 +329,18 @@ describe("approve and refuse", () => {
 
   it("shows a file name for a held file in the pick", async () => {
     const s = mesh();
-    s.apply({ type: "held", at: NOW, op: "add", item: { id: "f", session: "vscode@laptop", from: "a@b", device: "b", kind: "file", at: NOW, preview: "", reason: "policy", file: { name: "x.bin", size: 1, mime: "m" } } });
+    s.apply({ type: "held", at: NOW, op: "add", item: { id: "f", session: "vscode@laptop", from: "a@b", device: "b", kind: "file", at: NOW + 1, preview: "", reason: "policy", file: { name: "x.bin", size: 1, mime: "m" } } });
     const { d } = deps(s);
     await actions.refuse(d, undefined);
-    expect((fake.state.quickPicks[0]!.items as { description: string }[]).map((i) => i.description)).toEqual(["preview", "x.bin"]);
+    expect((fake.state.quickPicks[0]!.items as { detail: string }[]).map((i) => i.detail)).toEqual(["preview", "x.bin"]);
   });
 
   it("reports a failure", async () => {
     const { d } = deps(mesh(), async () => Promise.reject(new RequestError("not_found", "no held message h1")));
+    fake.state.messageAnswers.push("Approve all 1", "Refuse only this one");
     await actions.approve(d, d.nodes.held("vscode@laptop", "h1"));
     await actions.refuse(d, d.nodes.held("vscode@laptop", "h1"));
-    expect(fake.state.messages.map((m) => m.message)).toEqual([
+    expect(fake.state.messages.filter((m) => m.level === "error").map((m) => m.message)).toEqual([
       "worldinmotion: could not approve it: not_found: no held message h1",
       "worldinmotion: could not refuse it: not_found: no held message h1",
     ]);

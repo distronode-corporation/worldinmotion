@@ -93027,6 +93027,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     return "behind";
   }
   // ---- CI notices (SPEC section 18) ----
+  /** The CI rules as they are, for grouping held notices into sets (none when the file is missing or damaged). */
+  async ciRules() {
+    return await this.ciRulesNow() ?? [];
+  }
   /** The person's CI rules: undefined with no rules file; none when the file is damaged (logged once until it reads again). */
   ciRulesNow() {
     return readCiRules(this.o.mesh.ciRulesPath).then(
@@ -120613,6 +120617,74 @@ async function recoverMesh(o3) {
 import { constants as constants2, promises as fs10 } from "node:fs";
 import { createInterface } from "node:readline";
 import { isAbsolute as isAbsolute3, join as join18 } from "node:path";
+
+// src/heldsets.ts
+function setKey(item, rules) {
+  if (item.ci === void 0) return `device:${item.device}`;
+  return rules.some((r6) => r6.id === item.ci.rule) ? `ci:${item.ci.rule}` : `ci-removed:${item.id}`;
+}
+function groupHeld(rows, rules) {
+  const sets = /* @__PURE__ */ new Map();
+  for (const row of [...rows].sort(byArrival)) {
+    const key2 = setKey(row, rules);
+    const set2 = sets.get(key2) ?? { key: key2, rows: [], ids: [], first: row.at, last: row.at };
+    set2.rows.push(row);
+    if (!set2.ids.includes(row.id)) set2.ids.push(row.id);
+    set2.last = row.at;
+    sets.set(key2, set2);
+  }
+  return [...sets.values()];
+}
+function byArrival(a5, b5) {
+  return a5.at - b5.at || (a5.id < b5.id ? -1 : a5.id > b5.id ? 1 : 0);
+}
+function setOf(rows, rules, id2) {
+  return groupHeld(rows, rules).find((s3) => s3.ids.includes(id2));
+}
+function pinsIds(item) {
+  return item.ci?.pins !== void 0;
+}
+function approvableIds(set2) {
+  return set2.ids.filter((id2) => !pinsIds(set2.rows.find((r6) => r6.id === id2)));
+}
+function countText(set2) {
+  const ci = set2.rows[0].ci !== void 0;
+  const n3 = set2.ids.length;
+  return `${n3} ${ci ? "CI notice" : "message"}${n3 === 1 ? "" : "s"}`;
+}
+function spanText(set2) {
+  const first = new Date(set2.first).toISOString();
+  return set2.first === set2.last ? `at ${first}` : `from ${first} to ${new Date(set2.last).toISOString()}`;
+}
+function setTitle(row, rules) {
+  if (row.ci === void 0) {
+    const name = sanitizeForDisplay(row.from.slice(row.from.lastIndexOf("@") + 1));
+    return `device ${name} (device id ${row.device})`;
+  }
+  const rule = rules.find((r6) => r6.id === row.ci.rule);
+  return rule === void 0 ? "a CI rule removed while this notice was held" : `CI rule ${ruleLine(rule)}`;
+}
+function ciText(entry) {
+  const c5 = entry.ci;
+  const parts = [c5.via, c5.repo, c5.ref];
+  if (c5.workflow !== void 0) parts.push(`workflow ${c5.workflow}`);
+  if (c5.event !== void 0) parts.push(`event ${c5.event}`);
+  if (c5.environment !== void 0) parts.push(`environment ${c5.environment}`);
+  return sanitizeForDisplay(parts.join(", ")).replace(/\s+/g, " ");
+}
+function pinText(pins) {
+  return Object.entries(pins).map(([k5, v]) => `${k5}=${v}`).join(" ");
+}
+function setFields(item, rules) {
+  return {
+    set: setKey(item, rules),
+    set_title: setTitle(item, rules),
+    ...item.ci === void 0 ? {} : { ci: ciText(item.entry) },
+    ...item.ci?.pins === void 0 ? {} : { pins: pinText(item.ci.pins) }
+  };
+}
+
+// src/events.ts
 var EVENTS_VERSION = 1;
 var FOLLOW_READ_MAX = 1024 * 1024;
 var TIE_SLACK = 16;
@@ -120625,8 +120697,10 @@ var Args = {
   history: external_exports.object({ session: external_exports.string().optional(), peer: external_exports.string().optional(), before: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(500).optional() }),
   send: external_exports.object({ to: To, text: external_exports.string(), reply_to: external_exports.string().optional(), kind: external_exports.enum(["msg", "task"]).optional() }),
   send_file: external_exports.object({ to: To, path: external_exports.string().min(1) }),
-  approve: external_exports.object({ held: external_exports.string() }),
-  refuse: external_exports.object({ held: external_exports.string() }),
+  // `set`: the ids of the set the person was shown (a UI draws one set per sending device or CI
+  // rule); the decision covers exactly those. Without it, `held` alone is decided.
+  approve: external_exports.object({ held: external_exports.string(), set: external_exports.array(external_exports.string()).min(1).max(1e3).optional() }),
+  refuse: external_exports.object({ held: external_exports.string(), set: external_exports.array(external_exports.string()).min(1).max(1e3).optional() }),
   trust: external_exports.object({ device: external_exports.string(), relayed: external_exports.boolean().optional() }),
   untrust: external_exports.object({ device: external_exports.string() }),
   resume: external_exports.object({ peer: external_exports.string() }),
@@ -120643,7 +120717,7 @@ var RequestError = class extends Error {
 function relayHost(relay) {
   return new URL(relay).host;
 }
-function heldRow(h6, session) {
+function heldRow(h6, session, rules) {
   return {
     id: h6.id,
     session,
@@ -120653,6 +120727,7 @@ function heldRow(h6, session) {
     at: h6.at,
     preview: h6.preview,
     reason: h6.reason,
+    ...setFields(h6, rules),
     ...h6.entry.file === void 0 ? {} : { file: h6.entry.file },
     ...h6.pause === void 0 ? {} : { pause: h6.pause }
   };
@@ -120721,11 +120796,37 @@ async function runEvents(d5) {
     for (const [k5, text2] of joins) if (!next.has(k5)) emit("join", { op: "remove", request: JSON.parse(text2) });
     joins = next;
   }
+  async function decideOne2(id2, verdict) {
+    const mine = await s3.held.get(id2) !== void 0;
+    if (mine) await s3.decide(id2, verdict);
+    const others = await decideHeld(d5.mesh, id2, verdict, d5.env, d5.now, s3.sid);
+    return mine || others > 0;
+  }
+  async function decideSet2(held3, ids, verdict) {
+    if (!ids.includes(held3) || !ids.every(isUlid)) throw new RequestError("input", "set must be the held ids shown, held among them");
+    const rules = await loadCiRules(d5.mesh.ciRulesPath).catch(() => []);
+    const rows = await listAllHeld(d5.mesh, d5.env);
+    const first = rows.find((r6) => r6.id === held3);
+    if (first === void 0) throw new RequestError("not_found", `no held message ${held3}`);
+    const key2 = setKey(first, rules);
+    const now = [...new Set(ids)].flatMap((id2) => rows.filter((r6) => r6.id === id2).slice(0, 1));
+    const stranger = now.find((r6) => setKey(r6, rules) !== key2);
+    if (stranger !== void 0) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held3}: each set is decided on its own`);
+    const decided = [];
+    const kept = [];
+    for (const r6 of now) {
+      if (verdict === "approve" && pinsIds(r6)) kept.push(r6.id);
+      else decided.push(r6.id);
+    }
+    for (const id2 of decided) await decideOne2(id2, verdict);
+    return { decided, kept };
+  }
   async function heldNow() {
     const out = /* @__PURE__ */ new Map();
+    const rules = await loadCiRules(d5.mesh.ciRulesPath).catch(() => []);
     for (const h6 of await listAllHeld(d5.mesh, d5.env)) {
       const address = await addressOf(h6.sid);
-      out.set(`${h6.sid}/${h6.id}`, { sid: h6.sid, row: heldRow(h6, address) });
+      out.set(`${h6.sid}/${h6.id}`, { sid: h6.sid, row: heldRow(h6, address, rules) });
     }
     return out;
   }
@@ -120824,8 +120925,10 @@ async function runEvents(d5) {
     const next = await heldNow();
     const pausedIn = new Set([...held2.values()].filter((o3) => o3.row["reason"] === "breaker").map((o3) => `${o3.sid} ${o3.row["from"]}`));
     for (const [k5, h6] of next) {
-      if (held2.has(k5)) continue;
+      const was = held2.get(k5);
+      if (was !== void 0 && was.row["set"] === h6.row["set"]) continue;
       emit("held", { op: "add", item: h6.row });
+      if (was !== void 0) continue;
       const pair = `${h6.sid} ${h6.row["from"]}`;
       if (h6.row["reason"] === "breaker" && h6.sid !== s3.sid && !pausedIn.has(pair)) {
         pausedIn.add(pair);
@@ -120894,13 +120997,11 @@ async function runEvents(d5) {
       case "approve":
       case "refuse": {
         personOnly(d5.agent, op2 === "approve" ? "approving a held message" : "refusing a held message");
-        const id2 = a5.held;
-        if (!isUlid(id2)) throw new RequestError("input", "held must be a held message id");
+        const i6 = a5;
+        if (!isUlid(i6.held)) throw new RequestError("input", "held must be a held message id");
         const verdict = op2 === "approve" ? "approve" : "refuse";
-        const mine = await s3.held.get(id2) !== void 0;
-        if (mine) await s3.decide(id2, verdict);
-        const others = await decideHeld(d5.mesh, id2, verdict, d5.env, d5.now, s3.sid);
-        if (!mine && others === 0) throw new RequestError("not_found", `no held message ${id2}`);
+        if (i6.set !== void 0) return decideSet2(i6.held, i6.set, verdict);
+        if (!await decideOne2(i6.held, verdict)) throw new RequestError("not_found", `no held message ${i6.held}`);
         return {};
       }
       case "trust":
@@ -123208,7 +123309,19 @@ var WimMcp = class {
         return json3(await s3.route(a5.to));
       case "_held":
         return json3({
-          held: (await s3.held.list()).map((h6) => ({ id: h6.id, from: h6.from, kind: h6.kind, at: h6.at, preview: h6.preview, reason: h6.reason })),
+          // `set`: the items decided together (one per sending device or CI rule), and who it is from.
+          held: await s3.ciRules().then(
+            async (rules) => (await s3.held.list()).map((h6) => ({
+              id: h6.id,
+              from: h6.from,
+              device: h6.device,
+              kind: h6.kind,
+              at: h6.at,
+              preview: h6.preview,
+              reason: h6.reason,
+              ...setFields(h6, rules)
+            }))
+          ),
           paused: s3.pausedRows().map((p3) => ({ from: p3.from, rule: p3.rule, until: p3.until, auto: p3.auto, why: pauseRule(p3.from, p3), ends: pauseEnd(p3) }))
         });
       case "_leases":
@@ -130727,29 +130840,22 @@ async function held(ctx) {
     const pauses = await listAllPauses(files, ctx.fsEnv, ctx.io.now());
     if (rows.length === 0 && pauses.length === 0) ctx.io.out("Nothing is held.");
     for (const p3 of pauses) ctx.io.out(`paused  ${sanitizeForDisplay(p3.from)}'s device -> ${p3.session}  breaker: ${pauseRule(sanitizeForDisplay(p3.from), p3)}; ${pauseEnd(p3)}`);
-    for (const r6 of rows) ctx.io.out(heldLine(r6));
+    const rules = await heldRules(files);
+    for (const set2 of groupHeld(rows, rules)) {
+      ctx.io.out(`held from ${setTitle(set2.rows[0], rules)}: ${countText(set2)}, ${spanText(set2)}`);
+      for (const r6 of set2.rows) ctx.io.out(`  ${heldLine(r6)}`);
+    }
     return 0;
   }
   if (arg === void 0) throw new SetupError(`usage: wim held ${action} <${action === "resume" ? "peer" : "id"}>`);
   if (action === "approve" || action === "refuse") {
     personHere(ctx, `wim held ${action} ${arg}`);
     const all = await listAllHeld(files, ctx.fsEnv);
-    const rows = all.filter((r6) => r6.id === arg);
-    if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
-    const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
-    const pins = action === "approve" ? rows[0].ci?.pins : void 0;
-    const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath);
-    const refusal2 = rules === void 0 ? void 0 : pinRefusal(rules, rows[0].ci.rule, pins);
-    if (refusal2 !== void 0) throw refusal2;
-    const details = heldDetails(rows, await files.loadConfig(), all, rules);
-    const resumable = action === "approve" && rows[0].reason === "breaker" && rows[0].ci === void 0;
-    if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
-    if (!await confirmed(ctx, details, question)) return 1;
-    if (pins !== void 0) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0].ci.rule, pins));
-    const n3 = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
-    if (n3 === 0) throw new SetupError(`no held message ${arg}`);
-    ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
-    return 0;
+    const rules = await heldRules(files);
+    const set2 = setOf(all, rules, arg);
+    if (set2 === void 0) throw new SetupError(`no held message ${arg}`);
+    if (set2.ids.length === 1) return decideOne(ctx, files, action, arg, all);
+    return decideSet(ctx, files, action, arg, set2, rules);
   }
   if (action === "resume") {
     if (!sessionAddressSchema.safeParse(arg).success) throw new SetupError("usage: wim held resume <name@device>");
@@ -130763,6 +130869,67 @@ async function held(ctx) {
     return 0;
   }
   throw new SetupError(`unknown held action ${action}`);
+}
+function heldRules(files) {
+  return loadCiRules(files.ciRulesPath).catch(() => []);
+}
+async function decideOne(ctx, files, action, arg, all) {
+  const rows = all.filter((r6) => r6.id === arg);
+  const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
+  const pins = action === "approve" ? rows[0].ci?.pins : void 0;
+  const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath);
+  const refusal2 = rules === void 0 ? void 0 : pinRefusal(rules, rows[0].ci.rule, pins);
+  if (refusal2 !== void 0) throw refusal2;
+  const details = heldDetails(rows, await files.loadConfig(), all, rules);
+  const resumable = action === "approve" && rows[0].reason === "breaker" && rows[0].ci === void 0;
+  if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
+  if (!await confirmed(ctx, details, question)) return 1;
+  if (pins !== void 0) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0].ci.rule, pins));
+  const n3 = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
+  if (n3 === 0) throw new SetupError(`no held message ${arg}`);
+  ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
+  return 0;
+}
+async function decideSet(ctx, files, action, arg, set2, rules) {
+  const covered = action === "approve" ? approvableIds(set2) : set2.ids;
+  const verb = action === "approve" ? "approve" : "refuse";
+  for (const line of setView(set2, rules, await files.loadConfig())) ctx.io.out(line);
+  const all = covered.length === set2.ids.length ? `all ${covered.length}` : `the ${covered.length} that do not pin ids`;
+  const options = covered.length === 0 ? `Type one to ${verb} only ${arg}` : `Type all to ${verb} ${all}, or one to ${verb} only ${arg}`;
+  const typed = (await ctx.io.prompt(`${options} [${covered.length === 0 ? "" : "all/"}one/N] `)).trim();
+  if (/^one$/i.test(typed)) return decideOne(ctx, files, action, arg, await listAllHeld(files, ctx.fsEnv));
+  if (!/^all$/i.test(typed) || covered.length === 0) {
+    ctx.io.err("wim: nothing changed.");
+    return 1;
+  }
+  const done = [];
+  for (const id2 of covered) if (await decideHeld(files, id2, action, ctx.fsEnv, ctx.io.now) > 0) done.push(id2);
+  const title = setTitle(set2.rows[0], rules);
+  ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${done.length} held from ${title}: ${done.join(" ")}.`);
+  if (done.length < covered.length) ctx.io.out(`${covered.length - done.length} of the ${covered.length} shown had been decided elsewhere meanwhile.`);
+  for (const id2 of set2.ids.filter((x2) => !covered.includes(x2))) ctx.io.out(`Still held: ${id2} pins its rule's ids, so it is approved only on its own: wim held approve ${id2}`);
+  const paused = set2.rows.find((r6) => r6.reason === "breaker" && r6.ci === void 0);
+  if (action === "approve" && paused !== void 0) ctx.io.out(`The breaker still pauses ${sanitizeForDisplay(paused.from)}: \`wim held resume ${paused.from}\` lifts it.`);
+  ctx.io.out("Anything held after this list was drawn stays held: wim held list shows it.");
+  return 0;
+}
+function setView(set2, rules, config2) {
+  const n3 = set2.ids.length;
+  const lines = [`Held from ${setTitle(set2.rows[0], rules)}: ${countText(set2)}, ${spanText(set2)}. Read them together: they are decided as one.`];
+  set2.ids.forEach((id2, i6) => {
+    const rows = set2.rows.filter((r7) => r7.id === id2);
+    const r6 = rows[0];
+    const why = r6.reason === "breaker" ? "the loop breaker paused it" : r6.ci === void 0 ? `its device's policy here is ${policyLevel(config2, r6.device)}` : "its CI rule holds it";
+    lines.push(`  ${i6 + 1} of ${n3}  ${id2}  ${sanitizeForDisplay(r6.from)} -> ${heldFor(rows)}  ${r6.kind}  ${new Date(r6.at).toISOString()}  held because ${why}`);
+    if (r6.ci !== void 0) lines.push(`           ci    ${ciText(r6.entry)}`);
+    if (r6.fileInfo !== void 0) lines.push(`           file  ${sanitizeForDisplay(r6.fileInfo.name)} (${r6.fileInfo.size} bytes, fetched once approved)`);
+    lines.push(`           text  ${r6.preview}`);
+    if (r6.ci?.pins !== void 0) lines.push(`           approve on its own: it pins ${pinText(r6.ci.pins)}`);
+  });
+  if (set2.rows.some((r6) => r6.reason === "breaker" && r6.ci === void 0)) {
+    lines.push("  Approving them releases these and keeps the loop breaker's pause on; `wim held resume <address>` lifts it.");
+  }
+  return lines;
 }
 async function approveOrResume(ctx, files, rows, all, details, question) {
   const r6 = rows[0];
@@ -130812,7 +130979,6 @@ function heldDetails(rows, config2, all, rules) {
     ...pinCheck(r6, all, rules)
   ];
 }
-var pinText = (pins) => Object.entries(pins).map(([k5, v]) => `${k5}=${v}`).join(" ");
 function pinCheck(r6, all, rules) {
   if (rules === void 0) return [];
   const mine = pinText(r6.ci.pins);

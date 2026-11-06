@@ -15,6 +15,19 @@ body line with a bracket.
 
 ### Added
 
+- **Held messages are decided a set at a time.** `wim held`, the `approve` and `refuse` requests
+  of `wim events`, the VS Code Held view and the Claude Code pane group what is held per sending
+  device (by its authenticated device id) and per CI rule (by the rule's id, so `wim ci remove`
+  never regroups), and show the whole set, in order, with its count and time span, before the
+  person decides. A decision covers exactly the ids shown: an item that arrives after the set was
+  drawn stays held. `wim held approve <id>` asks `all` or `one`; a set of one keeps the old prompt.
+  `wim events` takes `set` on `approve` and `refuse`, checks it is one set before deciding, and its
+  held rows carry `set`, `set_title`, `ci` and `pins`. The VS Code dialog is modal and lists the
+  set, with "Approve only this one" when started from a row. A CI notice that pins its rule's ids
+  is never in "approve all" (refusing the set covers it), and approving a breaker set keeps the
+  pause on and says how to resume it. This closes the gap docs/security-teams.md named (the held
+  view showed one item at a time).
+
 - **`wim setup`, a guided first run on one machine.** In a terminal of your own it creates the
   device and a mesh, offering the host name as the device name and the hosted relay as the relay,
   shows what the relay says it offers, and asks for a typed `y` before it creates anything. It

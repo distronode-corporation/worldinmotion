@@ -1059,6 +1059,26 @@ the new policy first (section 7.5). No message, tool call or MCP request can cha
 `wim devices trust --all` trusts every device in the mesh, other people's included; it is for a
 mesh of your own devices.
 
+**Held items are decided a set at a time.** Every approve and refuse surface (`wim held`, the
+`approve` and `refuse` requests of `wim events`, the VS Code Held view and the Claude Code pane)
+groups what is held into sets: everything from one sending device, by the device id the client
+authenticated, and every CI notice under one CI rule, by the rule's id (which `wim ci remove` does
+not renumber). A notice whose rule was removed while it was held is a set of its own. The whole set
+is shown, in order, with its count and time span, before the person decides, so a request split
+across several harmless-looking messages (agent session smuggling, section 5.2) is read as one.
+The grouping and the count come from what the client authenticated, never from text a sender
+wrote, and each item's text is folded to one escaped line, so a message cannot imitate a heading,
+a count or another item. A decision covers exactly the ids shown: `wim held` takes the ids when it
+draws the set, and a UI sends them (`set` in `wim events`, one mark per id in the pane), so an item
+that arrives after the set was drawn stays held for the next look. The events process checks that
+every id it is sent belongs to one set before it decides any of them. Approving a set never covers
+a CI notice whose approval pins its rule's ids (section 6.17): each of those is marked in the set
+and approved on its own at the person's terminal; refusing the set covers it. Deciding one item
+alone stays possible, only as an explicit choice after the whole set was shown (`one` at the
+command line, "Approve only this one" in the VS Code dialog started from that item, the per-item
+buttons under the set in the pane). The VS Code dialog is modal. Who decides does not change: the
+same person-only rule below guards every path.
+
 **Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume`,
 `wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`),
 `wim legacy-boxes accept` (section 6.14), `wim mesh delete`, and `wim setup` (every path, before
@@ -1160,9 +1180,11 @@ being admitted run one at a time on the session's inbound queue, so none of them
 another, and a message the person or a release delivered is recorded as seen, so a copy the relay
 brings again is never delivered twice.
 
-The pause lifts when the person resumes the peer (`wim held resume`, Resume in a local UI, or
-"Approve and resume this device" on a held item, which approves that item and resumes its device
-in every session of this device), when its cool-down ends, or when the hour rolls over. The sessions
+The person decides what the breaker held a set at a time (section 7.2): approving a set releases
+those items and keeps the pause on, and every surface says so and names the resume. The pause lifts
+when the person resumes the peer (`wim held resume`, Resume in a local UI, or "Approve and resume
+this device" on a held item, which approves that item and resumes its device in every session of
+this device), when its cool-down ends, or when the hour rolls over. The sessions
 told about it hear it lifted, from the session's next process when it was resumed while not
 running. Approving and resuming stay the person's (section 7.1): no MCP tool, internal op, message
 or `pause` reaches them, and the client's own release at the end of a cool-down is a timer the
@@ -1261,8 +1283,9 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   roster push; in a quiet mesh that can take time.
 - Plugin-delivered prompts carry no engine-enforced peer origin; their framing says what they are.
 - Prompt-injection defences are framing, policy, the relayed flag and the breaker, not a guarantee.
-- The held view shows each item on its own, not the thread it belongs to, so a request split across
-  several items (agent session smuggling, section 5.2) is easy to approve piece by piece.
+- Held items are shown and decided a set at a time, per sending device or CI rule (section 7.2), not
+  per thread: a request split across two devices, or across a set the person approved and a later
+  one, is still read in pieces. Deciding one item alone after the set was shown stays possible.
 - The outbound secret filter is best effort, and does not look inside binary files.
 - Approval marks and policy are files under the OS user: a local process, or an agent allowed to
   write files unprompted, can change them. So are the CI rules (`ci-rules.json`) and the

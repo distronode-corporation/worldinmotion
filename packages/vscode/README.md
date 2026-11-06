@@ -28,7 +28,11 @@ An activity bar container, **worldinmotion**, with four views:
   the thread with it.
 - **Rooms:** each room and its members.
 - **Leases:** each lease, its holder and the time left. The lease token is never shown.
-- **Held:** messages held for you, with **Approve** and **Refuse** buttons on each row. A
+- **Held:** messages held for you, grouped under the device (or CI rule) that sent them, with
+  **Approve** and **Refuse** on each group and each row. Either opens a modal that lists
+  everything held from that sender, in order, with the count and the time span; **Approve all**
+  decides exactly what it listed, and **Approve only this one** is offered when you started from
+  a row. A CI notice whose approval pins its rule's ids is approved only in a terminal. A
   message held by two of this device's sessions shows once for each; deciding it decides
   every copy.
 
@@ -53,7 +57,7 @@ Commands, in the editor and explorer context menus and the command palette:
 | Ask a Peer about the Selection... | Sends it as a `task`, with an optional question first. |
 | Send File to... | Sends a file from this machine with `send_file`. |
 | Open Thread | Shows the conversation with a peer as plain text in a read-only editor. |
-| Approve / Refuse | Decides a held message. |
+| Approve / Refuse | Shows everything held from that sender in a modal, then decides all of it or only the row you started from. |
 | Trust / Trust (including relayed text) / Untrust | On a device in the Mesh view; asks you to confirm the new policy first. |
 | Resume | On a session the breaker paused. |
 | Show Client Log / Restart Client | The client's log lines, and a fresh start. |
