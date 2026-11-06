@@ -665,6 +665,9 @@ that device sends and its messages are dropped there; the relay reports a broadc
 it got no box for as `invalid` (section 7). The reference client keeps the choice per device in
 `$WIM_HOME/legacy-boxes` (`wim legacy-boxes refuse`, off by default until 1.0); turning it back off
 is a person's decision at their own terminal, like trusting a device (SECURITY-MODEL.md section 7.2).
+When it drops a message as `legacy_box`, it tells the receiving session in a local notice, once per
+sender device per session, that names the sender and carries none of the message (which was never
+opened), and it counts the drop in `$WIM_HOME/legacy-boxes-dropped`, which `wim status` shows.
 
 **Failure modes.**
 
