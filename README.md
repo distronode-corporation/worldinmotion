@@ -513,14 +513,28 @@ terminal running the same commands with the extension's own client.
 A CI job can tell one of your sessions how it finished: one information-only notice, which never
 starts work, never wakes the session and lands in its inbox. The job proves where it runs with
 its provider's own ID token, so there is no secret to store. You decide, at your own terminal,
-which repository, branch and workflow may send to a device:
+which repository, branch or tag, and workflow may send to a device:
 
 ```
 wim ci allow github <owner>/<repo> --ref main --workflow ci.yml
+wim ci allow github <owner>/<repo> --tag 'v*' --workflow release.yml
 wim ci allow gitlab <group>/<project> --ref main
+wim ci allow gitlab <group>/<project> --tag 'v*'
 wim ci list                 # the rules on this device, numbered
 wim ci remove <n>           # removes rule n
 ```
+
+`--ref` takes a branch name or a full ref (`refs/heads/...`, `refs/tags/...`), `--tag` a tag
+name. Either may be a pattern with one `*` at the end (`--tag 'v*'`, `--ref 'refs/heads/release/*'`;
+quote it so the shell leaves it alone). A pattern takes every tag or branch that starts with the
+part before the `*`, that name itself and names with `/` included, so anyone who can push one
+can send. Protect the same refs at the provider, as `allow` tells you: on GitHub a tag or branch
+ruleset targeting both `v*` and `v*/**/*` (a ruleset's `*` stops at `/`); on GitLab protected
+tags or branches with the wildcard `v*` (a GitLab rule takes only protected refs unless it has
+`--unprotected`). A GitHub pattern rule also needs a relay that checks ref patterns
+(`"ciPatterns": true` in its `/v1/info`): `allow` warns when the relay does not say so or cannot
+be reached, and saves the rule all the same. GitLab rules need no such relay, since the relay
+never filters GitLab notices.
 
 `allow` prints a recipient code (`wimci1_...`, not a secret) for the job. The job side is the
 GitHub Action in [packaging/github-action](packaging/github-action/README.md) or the GitLab CI/CD

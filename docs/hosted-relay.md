@@ -61,13 +61,19 @@ CI senders (a GitHub Actions or GitLab CI/CD job sending a notice to one of your
   ids, the actor's login and id, and the environment). It stores none of them and never the
   token. It keeps only a counting key per repository (a hash of the repository's ids) and a hash
   of the token's id until the token expires, which stops it being used twice;
-- **each device's rule tags**: hashes of the repositories and refs a device accepts notices from,
-  which give away a repository name that can be guessed, and whether the device accepts GitLab
-  notices;
+- **each device's rule tags**: hashes of the repositories and refs, or ref patterns such as
+  `refs/tags/v*`, a device accepts notices from, which give away a repository name, ref or
+  pattern that can be guessed, and whether the device accepts GitLab notices. The device never
+  sends a pattern itself: for each verified GitHub token the relay hashes the exact ref and every
+  prefix of it followed by `*`, and so learns which ref or pattern a notice matched;
 - which session accepts notices, and each notice's target, size and time.
 
 It never sees a GitLab token, so never a GitLab pipeline user's login or email address, and
 never a notice's text.
+
+Ref patterns need a relay that reports `"ciPatterns": true` in `GET /v1/info` (relay 0.1.10 and
+later). On a relay without it, a GitHub notice that only a pattern rule allows is refused, and
+`wim ci allow` warns when such a rule is made. GitLab notices are not affected.
 
 ## Limits
 

@@ -1,6 +1,7 @@
 // What a relay says about itself at `GET /v1/info`: whether it creates meshes for anyone, with an
-// operator key, or not at all, its limits, and an offer text. Read only by `wim doctor` and when a
-// relay refuses `create`; the answer is the relay's claim, never a trust input.
+// operator key, or not at all, its limits, and an offer text. Read only by `wim doctor`, when a
+// relay refuses `create`, and by `wim ci allow` for a GitHub ref pattern (`ciPatterns`); the
+// answer is the relay's claim, never a trust input.
 
 import { isRelayUrl, relayInfoSchema } from "@worldinmotion/protocol";
 import { request, type RequestOptions } from "node:https";

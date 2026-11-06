@@ -16,15 +16,29 @@ body line with a bracket.
 ### Added
 
 - **CI rules can name a tag or branch pattern.** A rule's ref may end in one `*` and match every
-  ref under that prefix, the prefix included: `wim ci allow github <repo> --tag 'v*' --workflow
-  release.yml`, or `wim ci allow gitlab <project> --tag 'v*'`. There is no other glob syntax. The
-  device stores a hash of the pattern as a rule tag; for each verified GitHub token the relay
-  tries the exact ref and every prefix of it followed by `*` (at most 256 hashes), so the device
-  never names its patterns to the relay, which learns one only when a notice matches it. A
-  pattern admits anyone who can push under its prefix, so protect the same pattern at the provider
-  (a GitHub ruleset, GitLab protected tags; GitLab rules still need protected refs by default).
-  Relays report `"ciPatterns": true` in `/v1/info`, and a client warns when a GitHub pattern rule
-  is made on a relay without it, since an older relay refuses notices under a pattern.
+  tag or branch under that prefix, the prefix itself included: `wim ci allow github <repo> --tag
+  'v*' --workflow release.yml`, `wim ci allow gitlab <project> --tag 'v*'`, or `--ref
+  'refs/heads/release/*'` for branches (SPEC section 18). There is no other glob syntax, and a
+  rules file with any other spelling is refused. A device matches a notice's `ref` (and, for
+  GitHub, the `workflow_ref` suffix, which must still be the token's own ref) by the prefix. The
+  rule is tagged as spelled; for each verified GitHub token the relay tries the exact ref and
+  every prefix of it followed by `*` (at most 256 hashes), so the device never names its patterns
+  to the relay, which learns one only when a notice matches it. A pattern admits anyone who can
+  push under its prefix: `allow` says so and how to protect the same refs at the provider (a
+  GitHub ruleset targeting `v*` and `v*/**/*`, GitLab protected tags or branches; GitLab rules
+  still need protected refs by default). Relays report `"ciPatterns": true` in `/v1/info`, and for
+  a GitHub pattern `allow` warns, without refusing the rule, when the relay's `/v1/info` lacks it
+  or cannot be read, since an older relay refuses notices under a pattern.
+
+### Changed
+
+- **`wim ci allow --tag` takes the tag name** (`--tag v1`, `--tag 'v*'`) instead of turning
+  `--ref` into a tag: 0.1.9's `--ref v1 --tag` is refused (write `--tag v1`), never read as
+  something else. `--ref` is unchanged: a branch name or a full ref, now also a pattern.
+- **The hosted relay takes CI senders** since 2026-11-06 (relay 0.1.9, `"ci": true` in
+  `/v1/info`), and [docs/hosted-relay.md](docs/hosted-relay.md) now says so, with what the relay
+  sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
+  where to find them.
 
 ### Fixed
 
@@ -41,13 +55,6 @@ body line with a bracket.
   no redirect dialled an unreachable address, which hid the TypeError; it now gets a real 302
   from the test outbound service. GitLab notices were not affected (the relay does not verify
   their tokens), nor was the Node relay.
-
-### Changed
-
-- **The hosted relay takes CI senders** since 2026-11-06 (relay 0.1.9, `"ci": true` in
-  `/v1/info`), and [docs/hosted-relay.md](docs/hosted-relay.md) now says so, with what the relay
-  sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
-  where to find them.
 
 ## [0.1.9] - 2026-11-06
 

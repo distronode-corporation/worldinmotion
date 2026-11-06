@@ -2,12 +2,30 @@
 // the same guard as `wim devices trust` (an interactive terminal, no agent's variables, a typed
 // yes), and no MCP tool, message or local UI request reaches them. `notify` is the CI job's side.
 
-import { b64u, ciRecipientCode, gitlabAudience, sanitizeForDisplay, ulid } from "@worldinmotion/protocol";
-import { checkRule, CI_RULES_MAX, EVENT_NAME, fullRef, GITHUB_REPO, GITLAB_REPO, loadCiRules, PRIVILEGED_EVENTS, ruleLine, updateCiRules, WORKFLOW_FILE, type CiPins, type CiRule } from "./cirules.ts";
+import { b64u, ciRecipientCode, gitlabAudience, isCiRefPattern, sanitizeForDisplay, ulid } from "@worldinmotion/protocol";
+import {
+  checkRule,
+  CI_RULES_MAX,
+  EVENT_NAME,
+  GITHUB_REPO,
+  GITLAB_REPO,
+  loadCiRules,
+  patternLines,
+  PRIVILEGED_EVENTS,
+  refRefusal,
+  ruleLine,
+  ruleRef,
+  updateCiRules,
+  WORKFLOW_FILE,
+  type CiPins,
+  type CiRule,
+  type RefFlag,
+} from "./cirules.ts";
 import { ciNotify, GITLAB_TOKEN_VAR } from "./cisend.ts";
 import { SetupError } from "./errors.ts";
 import type { Device } from "./home.ts";
 import type { MeshFiles } from "./mesh.ts";
+import { fetchRelayInfo } from "./relayinfo.ts";
 import { confirmTyped, requirePerson } from "./secretout.ts";
 
 /** The subcommands; any other first word is still the polling watcher's config path (`wim ci <config.json>`). */
@@ -90,7 +108,29 @@ export async function publicIds(fetcher: typeof fetch, via: "github" | "gitlab",
   }
 }
 
-const ALLOW_USAGE = "usage: wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]\n       wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]";
+const ALLOW_USAGE = [
+  "usage: wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]",
+  "       wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]",
+  "       a branch, tag or full ref may be a pattern ending in one *, quoted so the shell leaves it alone: --tag 'v*', --ref 'release/*'",
+].join("\n");
+
+const REF_FLAGS: readonly RefFlag[] = ["ref", "tag"];
+
+/** The rule's ref from exactly one of `--ref` and `--tag`, checked. */
+function refFrom(c: CiCli): string {
+  const given = REF_FLAGS.filter((f) => c.flags.has(f));
+  if (given.length === 0) throw new SetupError(`--ref or --tag is required\n${ALLOW_USAGE}`);
+  // 0.1.9 read `--ref v1 --tag` as a tag; `--tag` now takes the name itself.
+  if (given.length > 1) throw new SetupError(`give one of --ref and --tag (for a tag, --tag <name> alone)\n${ALLOW_USAGE}`);
+  const flag = given[0]!;
+  // parseArgs gives every value flag a string.
+  const name = c.flags.get(flag) as string;
+  if (name === "" || name.startsWith("-")) throw new SetupError(flag === "tag" ? "--tag needs a tag name or a pattern ending in * (quoted: --tag 'v*')" : "--ref needs a branch name, a full ref or a pattern ending in * (quoted: --ref 'release/*')");
+  const ref = ruleRef(flag, name);
+  const why = refRefusal(ref);
+  if (why !== undefined) throw new SetupError(why);
+  return ref;
+}
 
 /** The rule `wim ci allow` describes, checked; refuses flags that do not apply to the provider. */
 function ruleFrom(c: CiCli): CiRule {
@@ -98,12 +138,10 @@ function ruleFrom(c: CiCli): CiRule {
   if ((via !== "github" && via !== "gitlab") || rawRepo === undefined || c.positional.length > 3) throw new SetupError(ALLOW_USAGE);
   const repo = rawRepo.toLowerCase();
   if (!(via === "github" ? GITHUB_REPO : GITLAB_REPO).test(repo)) throw new SetupError(`not a ${via === "github" ? "GitHub owner/repo" : "GitLab group/project"}: ${sanitizeForDisplay(rawRepo)}`);
-  const refName = value(c, "ref");
-  if (refName === undefined) throw new SetupError(`--ref is required\n${ALLOW_USAGE}`);
   const base = {
     id: ulid(c.io.now()),
     repo,
-    ref: fullRef(refName, on(c, "tag")),
+    ref: refFrom(c),
     ...(value(c, "environment") === undefined ? {} : { environment: value(c, "environment")! }),
     ...(on(c, "hold") ? { hold: true as const } : {}),
   };
@@ -119,9 +157,33 @@ function ruleFrom(c: CiCli): CiRule {
   return checkRule({ ...base, via, workflow, ...(events === undefined ? {} : { events }) });
 }
 
+/**
+ * Whether the mesh's relay says it computes pattern candidate tags (`ciPatterns` in `/v1/info`):
+ * `yes`, `no` (it answered without it), or `unknown` (no info could be read).
+ */
+export async function relayTakesPatterns(files: MeshFiles, fetcher: typeof fetch): Promise<"yes" | "no" | "unknown"> {
+  const config = await files.loadConfig();
+  const info = await fetchRelayInfo(config.relay, fetcher, { tlsPin: config.tls });
+  if (info === undefined) return "unknown";
+  return info.ciPatterns === true ? "yes" : "no";
+}
+
+/**
+ * The warning for a pattern rule on a relay that may not take patterns. Only `wim ci allow github`
+ * asks: the relay filters GitHub notices by tag, never GitLab ones (SPEC section 18,
+ * Compatibility), so a GitLab pattern rule works on any relay that takes CI senders.
+ */
+function capabilityLines(patterns: "yes" | "no" | "unknown"): string[] {
+  const effect = "a relay without them refuses every GitHub notice that only a pattern rule matches, so notices under this rule are refused until the relay is updated. Allowing it saves the rule all the same.";
+  if (patterns === "no") return [`Warning: this device's relay does not say it checks ref patterns (its /v1/info lacks "ciPatterns": true): ${effect}`];
+  if (patterns === "unknown") return [`Warning: whether this device's relay checks ref patterns could not be checked (its /v1/info could not be read): ${effect}`];
+  return [];
+}
+
 /** What the person reads before allowing a rule. */
-function allowLines(rule: CiRule, pins: CiPins | undefined): string[] {
-  const who = rule.via === "github" ? "any job of that workflow file on that ref" : "any job of that project on that ref";
+function allowLines(rule: CiRule, pins: CiPins | undefined, patterns: "yes" | "no" | "unknown"): string[] {
+  const where = isCiRefPattern(rule.ref) ? "on a matching ref" : "on that ref";
+  const who = rule.via === "github" ? `any job of that workflow file ${where}` : `any job of that project ${where}`;
   return [
     "Allowing CI notices to this device:",
     `  ${ruleLine({ ...rule, ...(pins === undefined ? {} : { pins }) } as CiRule)}`,
@@ -129,6 +191,8 @@ function allowLines(rule: CiRule, pins: CiPins | undefined): string[] {
     pins === undefined
       ? "The repository's ids could not be read from the provider's public API (a private repository, or no network): the first matching notice is held for you, showing the ids its token carries, and approving it with `wim held approve <id>` pins them."
       : "The repository's ids were read from the provider's public API and are pinned: a recycled name cannot send.",
+    ...patternLines(rule),
+    ...capabilityLines(patterns),
     ...(rule.via === "github" && rule.events?.some((e) => PRIVILEGED_EVENTS.includes(e)) === true
       ? ["This rule names pull_request_target or workflow_run: a pull request from a fork can steer those runs."]
       : []),
@@ -153,7 +217,8 @@ async function allow(c: CiCli): Promise<number> {
   };
   room(await loadCiRules(files.ciRulesPath));
   const pins = await publicIds(c.io.fetch, rule.via, rule.repo);
-  if (!(await confirmTyped(c.io, allowLines(rule, pins), "Allow it?"))) return 1;
+  const patterns = rule.via === "github" && isCiRefPattern(rule.ref) ? await relayTakesPatterns(files, c.io.fetch) : "yes";
+  if (!(await confirmTyped(c.io, allowLines(rule, pins, patterns), "Allow it?"))) return 1;
   const added = checkRule({ ...rule, ...(pins === undefined ? {} : { pins }) } as CiRule);
   await updateCiRules(files.ciRulesPath, files.env, (rules) => (room(rules), [...rules, added]));
   const { code, mesh } = await recipient(files, device);
