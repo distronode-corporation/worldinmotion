@@ -228,8 +228,13 @@ comparison code, trust, ping, send with receipts, the offline queue, held messag
 refused, rooms, a file, a lease, ask and reply, rename, the loop breaker, `wim status` and `wim
 doctor`, and `wim mesh delete`. It plays the person for the steps that need one, on its own
 devices only, and removes everything at the end. It prints one row per step and exits 0 only when
-every step passed; `wim test --json` prints the same as JSON. SECURITY-MODEL section 7.6 says
-what it can and cannot touch.
+every step passed; `wim test --json` prints the same as JSON. `wim test --full` adds the signer
+(encrypt, start, lock, unlock, stop) and a CI notice from a test issuer that exists only inside
+the sandbox. `wim test --relay wss://<relay>` runs the same steps on a real relay instead, with a
+throwaway mesh it deletes at the end (`--key-env NAME` for a relay that needs an operator key to
+create one); a step that relay does not offer is skipped, which does not fail the run.
+`--person` has you type the steps that need a person. SECURITY-MODEL section 7.6 says what it
+can and cannot touch.
 
 ### 7. Addresses
 

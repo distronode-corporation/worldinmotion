@@ -179,12 +179,15 @@ describe("the runner and its report", { timeout: 30_000 }, () => {
       steps: (run: Run) => [
         { name: "open", run: async () => {
           await run.open();
-          run.readyMs = 30;
-          await run.background(await run.device("test-a"), ["version"], /never printed/);
+          run.readyMs = 300;
+          const a = await run.device("test-a");
+          // One that ends first fails at once; one that keeps running fails when the wait ends.
+          await expect(run.background(a, ["version"], /never printed/)).rejects.toThrow(/^`wim version` on test-a exited 0 before it was ready: \d+\.\d+\.\d+$/);
+          await run.background(a, ["events", "--json"], /never printed/);
         } },
       ],
     });
-    expect(io.out.join("\n")).toMatch(/^  fail  open .*timed out waiting for `wim version` on test-a: \d+\.\d+\.\d+$/m);
+    expect(io.out.join("\n")).toMatch(/^  fail  open .*timed out waiting for `wim events --json` on test-a: /m);
   });
 
   it("prints one row per step and a summary", () => {
@@ -206,10 +209,10 @@ describe("the runner and its report", { timeout: 30_000 }, () => {
     const t = term(await scratch("usage"), new RelayHarness());
     expect(await main(["test", "now"], {}, t.io)).toBe(2);
     expect(await main(["test", "--mesh", "m"], {}, t.io)).toBe(2);
-    expect(t.err.join("\n")).toContain("usage: wim test [--json]");
-    expect(await main(["test", "--relay", "ws://127.0.0.1:1"], {}, t.io)).toBe(2);
+    expect(t.err.join("\n")).toContain("usage: wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]");
+    expect(await main(["test", "--tls", "pin"], {}, t.io)).toBe(2);
     expect(await main(["help", "test"], {}, t.io)).toBe(0);
-    expect(t.out.at(-1)).toBe("wim test [--json]");
+    expect(t.out.at(-1)).toBe("wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]");
   });
 });
 

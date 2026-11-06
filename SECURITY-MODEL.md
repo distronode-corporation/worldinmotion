@@ -1245,6 +1245,31 @@ That is safe only because of where the script can act, so isolation is the prope
 - **The limit.** While a run lasts, any local process can reach its relay's port and create a mesh
   there, as on any relay run with open creation. It cannot reach the run's meshes without their
   keys, and the relay goes away with the run.
+- **`--full`: the signer and a CI notice.** The signer step encrypts a sandbox device's keys
+  under a passphrase made in the process for the run, which is typed by the script without echo
+  and never printed, and starts that device's signer inside the `wim test` process; its socket is
+  in the device's own directory (on Windows, a pipe under a fresh random name that the device's
+  directory keeps). The run stops it at the end, failures and Ctrl-C included. The CI step needs a
+  token issuer: the run makes a throwaway RSA key, and the sandbox relay and the receiving
+  session are given a key fetcher that serves only that key, as GitHub's. The job's token comes
+  from that issuer at a URL under `.invalid`, a name that never resolves, answered in the
+  process. The issuer exists only in the test-mode module and only for the sandbox relay: a live
+  relay, and every other command, fetch GitHub's real keys, which it is not among.
+- **Live mode (`--relay <url>`).** The same rules, except the relay is the one named: `wss://`, or
+  plain `ws://` only on loopback, checked before anything is made and again before every step.
+  Devices dial only that relay and fetch only from its origin. The run creates its own meshes
+  there and deletes them at the end through `wim mesh delete`, failures and Ctrl-C included, and
+  never names or touches any other mesh: `wim test` takes no argument naming a device, mesh or
+  state directory. `--key-env NAME` hands the named variable's value (an operator key) to the
+  sandbox devices that create meshes, and to nothing else. A live relay sees what it sees for any
+  mesh, for the minutes the run lasts: a mesh id, roster metadata, session names, sizes and
+  timing (section 6.10). A mesh whose deletion failed (the relay went away) is said on the last
+  rows, and stays until the relay's idle expiry. The CI step is skipped there: a live relay checks
+  real GitHub tokens, and the test issuer exists only in the sandbox.
+- **`--person`.** A person types the person-only steps at their own terminal, so the real
+  terminal checks (section 5.6) are what those steps meet. It refuses to start under an agent's
+  variables or without an interactive terminal on stdin and stdout, as a person-only command
+  would. Each question is shown with its device and what the step expects.
 
 ## 8. The A2A gateway
 
