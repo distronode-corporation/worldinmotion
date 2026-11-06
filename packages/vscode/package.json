@@ -209,6 +209,11 @@
         "command": "worldinmotion.crashReportsOff",
         "title": "Turn Crash Reports Off",
         "category": "worldinmotion"
+      },
+      {
+        "command": "worldinmotion.runSelfTest",
+        "title": "Run Self-Test",
+        "category": "worldinmotion"
       }
     ],
     "menus": {

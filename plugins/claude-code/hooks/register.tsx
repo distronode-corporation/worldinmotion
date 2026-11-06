@@ -35,6 +35,8 @@ import {
   peerLine,
   sessionDir,
   statusLines,
+  testArgs,
+  testReport,
   toolJson,
   toolText,
 } from './parse'
@@ -822,7 +824,25 @@ function age(at: number, now: number): string {
   return `${Math.round(s / 3600)}h`
 }
 
-const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab).'
+const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab), /wim test [--full] [--relay <url> [--key-env NAME]] (the self-test).'
+
+/** How long `/wim test` lets the self-test run. */
+const TEST_TIMEOUT_MS = 600_000
+
+/**
+ * /wim test: the client's self-test (`wim test`), run through this plugin's own bundle: throwaway
+ * devices and, unless the person typed `--relay`, a relay on loopback, all removed at the end.
+ */
+async function selfTest($: EngineInterface, words: string[]): Promise<string> {
+  const flags = testArgs(words)
+  if (flags === undefined) return 'Usage: /wim test [--full] [--relay <url> [--key-env NAME]]'
+  try {
+    const ran = await $.process.run(['node', `${$.plugin.root}/dist/client.mjs`, 'test', '--json', ...flags], { timeoutMs: TEST_TIMEOUT_MS })
+    return testReport(ran.stdout, ran.stderr)
+  } catch (error) {
+    return `The self-test did not finish: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
 
 /** /wim status: what the client says about this tab, or why there is no client to ask. */
 async function statusText($: EngineInterface): Promise<string> {
@@ -858,7 +878,7 @@ export const register: Register = on => {
     const started = await next(e)
     await $.command.register({
       name: 'wim',
-      description: 'worldinmotion: the pane; /wim status for this tab; /wim name <name> to rename it',
+      description: 'worldinmotion: the pane; /wim status for this tab; /wim name <name> to rename it; /wim test for the self-test',
     })
     // A reload keeps the atoms; the line is set afresh.
     await update($, statusShown, () => '')
@@ -993,6 +1013,7 @@ export const register: Register = on => {
     const [sub = '', ...rest] = e.args.trim().split(/\s+/)
     if (sub === 'status') return { text: await statusText($) }
     if (sub === 'name') return { text: await rename($, rest.join(' ')) }
+    if (sub === 'test') return { text: await selfTest($, rest.filter(word => word !== '')) }
     if (sub !== '') return { text: WIM_USAGE }
     await refreshPanel($)
     const opened = await $.ui.open({ id: PANE, title: 'worldinmotion' })

@@ -6,7 +6,9 @@ import * as actions from "./actions.ts";
 import { VIEW_ID, ActivityView } from "./activity/view.ts";
 import { notice, oneLine } from "./display.ts";
 import { homedir } from "node:os";
-import { clientCommand, clientCwd, crashReportsTerminal, EventsProcess, signerTerminal } from "./process.ts";
+import { clientCommand, clientCwd, crashReportsTerminal, EventsProcess, selfTestCommand, signerTerminal, type SpawnFn } from "./process.ts";
+import { runSelfTest } from "./selftest.ts";
+import { spawn as nodeSpawn } from "node:child_process";
 import { historyRows, type MessageRow } from "./protocol.ts";
 import { Store, toNotify } from "./state.ts";
 import { signerState, StatusItem } from "./status.ts";
@@ -210,6 +212,19 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     proc!.restart();
   };
 
+  /** The self-test's own output channel, made at its first run. */
+  let selfTestOut: vscode.OutputChannel | undefined;
+  const selfTest = (): Promise<void> => {
+    selfTestOut ??= vscode.window.createOutputChannel("worldinmotion self-test");
+    return runSelfTest({
+      window: vscode.window,
+      notification: vscode.ProgressLocation.Notification,
+      channel: selfTestOut,
+      command: () => selfTestCommand({ extensionPath: context.extensionPath, wimPath: settings().wimPath, execPath: process.execPath, env: process.env, telemetry: vscode.env.isTelemetryEnabled, cwd: homedir() }),
+      spawn: nodeSpawn as unknown as SpawnFn,
+    });
+  };
+
   const command = (id: string, fn: (arg: unknown) => unknown): vscode.Disposable => vscode.commands.registerCommand(id, fn);
   context.subscriptions.push(
     out,
@@ -252,6 +267,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     command("worldinmotion.startSigner", startSigner),
     command("worldinmotion.crashReportsOn", () => crashReports(true)),
     command("worldinmotion.crashReportsOff", () => crashReports(false)),
+    command("worldinmotion.runSelfTest", selfTest),
     // The client is told at start whether VS Code's telemetry is off (no crash reports then).
     vscode.env.onDidChangeTelemetryEnabled(() => proc!.restart()),
     vscode.window.onDidCloseTerminal(signerClosed),
@@ -261,6 +277,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     }),
     {
       dispose: () => {
+        selfTestOut?.dispose();
         proc!.stop();
         stopStore();
         clearInterval(tick);

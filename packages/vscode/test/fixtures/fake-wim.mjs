@@ -10,6 +10,7 @@
 //                      a device in no mesh yet, whose `join` succeeds and ends the process, after
 //                      which it starts in the mesh); "setup-fail" (setup mode, whose join fails
 //                      after its code was shown)
+//   WIM_FAKE_TEST      for `test --json` (the self-test): see below
 
 import { appendFileSync, existsSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
@@ -19,6 +20,27 @@ const argv = process.argv.slice(2);
 const as = argv.includes("--as") ? argv[argv.indexOf("--as") + 1] : "vscode";
 const scenario = process.env.WIM_FAKE_SCENARIO ?? "default";
 const log = process.env.WIM_FAKE_LOG;
+
+// `wim test --json`: WIM_FAKE_TEST is "pass" (the default), "fail", "garbage" (no report, a line on
+// stderr) or "hang" (prints nothing until it is stopped).
+if (argv[0] === "test") {
+  const kind = process.env.WIM_FAKE_TEST ?? "pass";
+  if (log !== undefined) appendFileSync(log, `${JSON.stringify({ op: "test", args: { argv } })}\n`);
+  if (kind === "hang") await new Promise(() => setInterval(() => undefined, 1000));
+  if (kind === "garbage") {
+    process.stdout.write("not a report\n");
+    process.stderr.write("wim: something went wrong\n");
+    process.exit(1);
+  }
+  const step = (name, result, ms, detail) => ({ name, result, ms, ...(detail === undefined ? {} : { detail }) });
+  const steps =
+    kind === "fail"
+      ? [step("create the mesh", "pass", 900), step("ping both directions", "fail", 5000, "no pong from qa@test-b"), step("mesh delete", "skip", 0, "an earlier step failed"), step("remove the sandbox", "pass", 12)]
+      : [step("create the mesh", "pass", 900), step("ping both directions", "pass", 4100), step("remove the sandbox", "pass", 12)];
+  const ok = kind !== "fail";
+  process.stdout.write(`${JSON.stringify({ mode: "sandbox", full: false, ok, passed: 0, failed: 0, skipped: 0, ms: 6012, steps })}\n`);
+  process.exit(ok ? 0 : 1);
+}
 const self = `${as}@laptop`;
 const start = Date.now();
 

@@ -82,6 +82,11 @@ it as below). `cli@<device>` is that device's terminal inbox (`wim inbox`), not 
 - [Claude chat] `/wim status` prints the address, device, mesh, relay connection, signer state,
   held count and the state directory this tab uses, with why it is that one.
 - [Claude chat] `/wim name <name>` renames the tab (its address becomes `<name>@<device>`).
+- [Claude chat] `/wim test` runs the self-test (`wim test`) with the plugin's own client:
+  throwaway devices and a relay on loopback, all removed at the end, and prints one row per step.
+  `--full` adds the signer and CI notice steps; `--relay <url>` (with `--key-env NAME`) runs it
+  on that relay with a throwaway mesh, and only when you type it. Your device and meshes are not
+  touched.
 - [Claude chat] `/wim` opens the pane (below).
 
 If this tab started before the signer (`wim agent start`) or while the signer was locked, it

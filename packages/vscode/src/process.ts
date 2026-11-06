@@ -301,6 +301,12 @@ export function clientCommand(o: ClientOptions & { sessionName: string; cwd: str
   return { cmd, args, env, cwd: o.cwd };
 }
 
+/** The command for the self-test: `wim test --json` (the sandbox), with the same client as `wim events`. */
+export function selfTestCommand(o: ClientOptions & { cwd: string }): Command {
+  const { cmd, args, env } = wimInvocation(o, ["test", "--json"]);
+  return { cmd, args, env, cwd: o.cwd };
+}
+
 /**
  * The integrated terminal that starts the signer (`wim agent start`, or `unlock` when it is
  * locked) with the same client as `wim events`. The person types the passphrase there, in a
