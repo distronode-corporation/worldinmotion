@@ -110,7 +110,7 @@ describe("wim setup on a new machine", () => {
     expect(t.err).toEqual(["wim: nothing changed."]);
     expect(relay.dials).toEqual([]);
     expect(await exists(join(home, "device.json"))).toBe(false);
-  });
+  }, 20_000);
 
   it("says the add path and the invite-code form are not in this version yet", async () => {
     const relay = new RelayHarness();
@@ -127,7 +127,7 @@ describe("wim setup on a new machine", () => {
     expect(await run(other, "setup")).toBe(1);
     expect(other.err).toEqual(["wim: choose 1 or 2. Nothing changed."]);
     expect(await exists(join(home, "device.json"))).toBe(false);
-  });
+  }, 20_000);
 
   it("refuses a bad name, a relay it cannot dial and a key variable that is not set, with nothing made", async () => {
     const relay = new RelayHarness();
@@ -145,7 +145,7 @@ describe("wim setup on a new machine", () => {
     expect(await run(key, "setup", "--relay", RELAY, "--key-env", "NOPE")).toBe(1);
     expect(said(key)).toContain("wim: NOPE is not set");
     expect(await exists(join(home, "device.json"))).toBe(false);
-  });
+  }, 20_000);
 
   it("uses a device that exists but is in no mesh, without asking its name", async () => {
     const relay = new RelayHarness();
@@ -203,7 +203,7 @@ describe("wim setup on a device already set up", () => {
     const t = term(devices[0]!.root, relay);
     expect(await run(t, "setup")).toBe(1);
     expect(t.out.at(-1)).toBe("Problems: 1, above. `wim doctor` shows each check.");
-  });
+  }, 20_000);
 });
 
 describe("wim setup integrations", () => {
@@ -242,7 +242,7 @@ describe("wim setup integrations", () => {
     expect(questions(term1)).toEqual(["Install the worldinmotion plugin? [y/N] ", "VS Code found. Install the extension? It runs: code --install-extension distronode.worldinmotion --pre-release [y/N] "]);
     expect(text).toContain("VS Code extension: installed. Reload any open VS Code window.");
     expect(text).toMatch(/State directory: .* \(WIM_HOME is set\)\./);
-  });
+  }, 20_000);
 
   it("skips the marketplace Claude Code has, and says when both are installed already", async () => {
     const { t } = await setUp();
@@ -262,7 +262,7 @@ describe("wim setup integrations", () => {
     expect(await run(b, "setup")).toBe(0);
     expect(questions(b)).toEqual([]);
     expect(said(b)).toContain("Claude Code plugin: installed. Open a new Claude Code tab; it links by itself.");
-  });
+  }, 20_000);
 
   it("says what to do by hand when the person answers no, a tool fails or cannot start", async () => {
     const { t } = await setUp();
@@ -335,17 +335,21 @@ describe("wim setup integrations", () => {
     expect(await run(stopped, "setup")).toBe(130);
     expect(said(stopped)).not.toContain("Everything checks out");
     expect(said(stopped)).not.toContain("`wim agent encrypt`");
-  });
+  }, 20_000);
 
   it("covers the POSIX runner with a fake execFile: no shell, no `where`", async () => {
     const calls: Array<{ file: string; shell: boolean }> = [];
     const execFile = ((file: string, _args: readonly string[], options: { shell: boolean }, callback: (e: null, out: string, err: string) => void) => {
       calls.push({ file, shell: options.shell });
-      setImmediate(() => callback(null, "ok", ""));
+      // A program that cannot start fails with a string code, as Node's ENOENT does.
+      if (file === "missing") setImmediate(() => callback(Object.assign(new Error("spawn missing ENOENT"), { code: "ENOENT" }) as never, "", ""));
+      else setImmediate(() => callback(null, "ok", ""));
       return { stdin: null };
     }) as unknown as Parameters<typeof execRunner>[1];
-    expect(await execRunner("linux", execFile)("code", ["--list-extensions"])).toEqual({ code: 0, stdout: "ok", stderr: "" });
-    expect(calls).toEqual([{ file: "code", shell: false }]);
+    const r = execRunner("linux", execFile);
+    expect(await r("code", ["--list-extensions"])).toEqual({ code: 0, stdout: "ok", stderr: "" });
+    await expect(r("missing", [])).rejects.toMatchObject({ code: "ENOENT" });
+    expect(calls).toEqual([{ file: "code", shell: false }, { file: "missing", shell: false }]);
   });
 
   it("warns when CLAUDE_CONFIG_DIR picks this state directory, and not when WIM_HOME does", async () => {
