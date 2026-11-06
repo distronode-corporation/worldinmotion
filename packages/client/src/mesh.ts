@@ -22,85 +22,49 @@ import { readJson, withLock, writeJson, type FsEnv } from "./fsx.ts";
 export type Policy = "deliver" | "deliver-relayed" | "hold" | "refuse";
 
 /**
- * One tier of the loop breaker's limits (design.md, loop and cost breaker): wakes per sender
- * device and in total per sliding hour, and the ping-pong rule (more than `pingPongExchanges`
- * alternating short messages in 10 minutes).
+ * The loop breaker's counting limits (design.md, loop and cost breaker): wakes per sender device
+ * and in total per sliding hour, and the ping-pong rule (more than `pingPongExchanges` alternating
+ * short messages in 10 minutes).
  */
 export type BreakerTier = { perPeerPerHour: number; totalPerHour: number; pingPong: boolean; pingPongExchanges: number };
 
 /**
- * The limits for devices the person trusts (policy `deliver` or `deliver-relayed`, and this
- * device's own sessions). A trip pauses such a peer for `cooldownMinutes` only, after which the
- * client releases it by itself (SECURITY-MODEL section 7.3).
+ * The loop breaker's limits, in mesh.json as `breaker`. They govern every automatic delivery,
+ * which only a device the person trusts gets (policy `deliver` or `deliver-relayed`, and this
+ * device's own sessions; any other device is held before the breaker counts it). A trip pauses
+ * the peer for `cooldownMinutes`, after which the client releases it by itself, delivering at
+ * most `perPeerPerHour` of what it held (SECURITY-MODEL section 7.3).
  */
-export type TrustedTier = BreakerTier & { cooldownMinutes: number };
+export type BreakerLimits = BreakerTier & { cooldownMinutes: number };
 
-/**
- * The loop breaker's limits, in mesh.json as `breaker`: the top-level fields for peers the
- * person does not trust, `trusted` for the ones they do. They govern every automatic delivery.
- */
-export type BreakerLimits = BreakerTier & { trusted: TrustedTier };
-
-/** The trusted tier's defaults: the ceilings 0.1.8 gave every peer of a new mesh, and a 10-minute cool-down. */
-const TRUSTED_DEFAULT: TrustedTier = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 10 };
-
-/** The longest cool-down: an hour, the pause an untrusted peer gets. */
+/** The longest cool-down: an hour. */
 export const COOLDOWN_MAX_MINUTES = 60;
 
-/**
- * What a field missing or invalid in a written `breaker` reads as: the values every mesh.json was
- * written with before 0.1.8 (which had no `pingPongExchanges`), and the untrusted tier's defaults.
- */
-const UNTRUSTED_DEFAULT: BreakerTier = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
+/** What a new mesh.json gets, and what a file with no `breaker` at all reads as: the ceilings of 0.1.8, and a 10-minute cool-down. */
+export const DEFAULT_BREAKER: BreakerLimits = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 10 };
 
-/** What a new mesh.json gets, and what a file with no `breaker` at all reads as. */
-export const DEFAULT_BREAKER: BreakerLimits = { ...UNTRUSTED_DEFAULT, trusted: TRUSTED_DEFAULT };
+/**
+ * What a field missing or invalid in a WRITTEN `breaker` reads as: the values every mesh.json was
+ * written with before 0.1.8 (which had no `pingPongExchanges`). A file is honoured as written, and
+ * a gap in it never reads as the higher new default.
+ */
+const WRITTEN_BREAKER: BreakerTier = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
 
 function positiveInt(v: unknown, fallback: number): number {
   return Number.isSafeInteger(v) && (v as number) > 0 ? (v as number) : fallback;
 }
 
-type Fields<T> = Partial<Record<keyof T, unknown>>;
-
-const record = <T>(raw: unknown): Fields<T> => (typeof raw === "object" && raw !== null ? raw : {}) as Fields<T>;
-
-/**
- * A written `trusted` is honoured as written, field by field. A file without one (every file
- * written before 0.1.9) gets the trusted defaults, each raised to the file's own top-level value
- * when that is higher, so a person's raised limits still hold for the devices they trust. A
- * top-level `"pingPong": false` turns the rule off for both tiers.
- */
-function parseTrusted(raw: unknown, base: BreakerTier): TrustedTier {
-  const pingPong = base.pingPong;
-  if (raw === undefined) {
-    return {
-      perPeerPerHour: Math.max(base.perPeerPerHour, TRUSTED_DEFAULT.perPeerPerHour),
-      totalPerHour: Math.max(base.totalPerHour, TRUSTED_DEFAULT.totalPerHour),
-      pingPong,
-      pingPongExchanges: Math.max(base.pingPongExchanges, TRUSTED_DEFAULT.pingPongExchanges),
-      cooldownMinutes: TRUSTED_DEFAULT.cooldownMinutes,
-    };
-  }
-  const t = record<TrustedTier>(raw);
-  return {
-    perPeerPerHour: positiveInt(t.perPeerPerHour, TRUSTED_DEFAULT.perPeerPerHour),
-    totalPerHour: positiveInt(t.totalPerHour, TRUSTED_DEFAULT.totalPerHour),
-    pingPong: pingPong && t.pingPong !== false,
-    pingPongExchanges: positiveInt(t.pingPongExchanges, TRUSTED_DEFAULT.pingPongExchanges),
-    cooldownMinutes: Math.min(positiveInt(t.cooldownMinutes, TRUSTED_DEFAULT.cooldownMinutes), COOLDOWN_MAX_MINUTES),
-  };
-}
-
 function parseBreaker(raw: unknown): BreakerLimits {
   if (raw === undefined) return DEFAULT_BREAKER;
-  const b = record<BreakerLimits>(raw);
-  const base: BreakerTier = {
-    perPeerPerHour: positiveInt(b.perPeerPerHour, UNTRUSTED_DEFAULT.perPeerPerHour),
-    totalPerHour: positiveInt(b.totalPerHour, UNTRUSTED_DEFAULT.totalPerHour),
+  const b = (typeof raw === "object" && raw !== null ? raw : {}) as Partial<Record<keyof BreakerLimits, unknown>>;
+  return {
+    perPeerPerHour: positiveInt(b.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour),
+    totalPerHour: positiveInt(b.totalPerHour, WRITTEN_BREAKER.totalPerHour),
     pingPong: b.pingPong !== false,
-    pingPongExchanges: positiveInt(b.pingPongExchanges, UNTRUSTED_DEFAULT.pingPongExchanges),
+    pingPongExchanges: positiveInt(b.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges),
+    // A file written before 0.1.9 has none: the default cool-down, the one new behaviour it gets.
+    cooldownMinutes: Math.min(positiveInt(b.cooldownMinutes, DEFAULT_BREAKER.cooldownMinutes), COOLDOWN_MAX_MINUTES),
   };
-  return { ...base, trusted: parseTrusted(b.trusted, base) };
 }
 
 /** Fork state: the seq where two valid rosters met, and the devices that existed before it. */
@@ -215,6 +179,10 @@ export class MeshFiles {
    */
   get pausedByPath(): string {
     return join(this.dir, "paused-by.json");
+  }
+  /** The peer sessions this device's sessions sent to in the last hour: a `pause` counts only from one (pauses.ts). */
+  get sentToPath(): string {
+    return join(this.dir, "sent-to.json");
   }
   /** The admin signing lock (SPEC section 4): one writer signs a roster at a time. */
   get rosterLock(): string {

@@ -429,9 +429,9 @@ export function handHello(
 }
 
 /**
- * Breaker limits that apply to trusted and untrusted peers alike, with an hour-long cool-down
- * (so the client releases nothing during a test), for tests that trip the breaker on purpose.
+ * Breaker limits with an hour-long cool-down (so the client releases nothing during a test), for
+ * tests that trip the breaker on purpose.
  */
 export function breakerOf(tier: BreakerTier): BreakerLimits {
-  return { ...tier, trusted: { ...tier, cooldownMinutes: 60 } };
+  return { ...tier, cooldownMinutes: 60 };
 }

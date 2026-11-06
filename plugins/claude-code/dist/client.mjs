@@ -7582,7 +7582,7 @@ var init_getProfileName = __esm({
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js
 import { createHash as createHash4 } from "node:crypto";
-import { join as join10 } from "node:path";
+import { join as join11 } from "node:path";
 var getSSOTokenFilepath;
 var init_getSSOTokenFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js"() {
@@ -7590,7 +7590,7 @@ var init_getSSOTokenFilepath = __esm({
     getSSOTokenFilepath = (id2) => {
       const hasher = createHash4("sha1");
       const cacheName = hasher.update(id2).digest("hex");
-      return join10(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
+      return join11(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
     };
   }
 });
@@ -7645,24 +7645,24 @@ var init_getConfigData = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getConfigFilepath.js
-import { join as join11 } from "node:path";
+import { join as join12 } from "node:path";
 var ENV_CONFIG_PATH, getConfigFilepath;
 var init_getConfigFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getConfigFilepath.js"() {
     init_getHomeDir();
     ENV_CONFIG_PATH = "AWS_CONFIG_FILE";
-    getConfigFilepath = () => process.env[ENV_CONFIG_PATH] || join11(getHomeDir(), ".aws", "config");
+    getConfigFilepath = () => process.env[ENV_CONFIG_PATH] || join12(getHomeDir(), ".aws", "config");
   }
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getCredentialsFilepath.js
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 var ENV_CREDENTIALS_PATH, getCredentialsFilepath;
 var init_getCredentialsFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getCredentialsFilepath.js"() {
     init_getHomeDir();
     ENV_CREDENTIALS_PATH = "AWS_SHARED_CREDENTIALS_FILE";
-    getCredentialsFilepath = () => process.env[ENV_CREDENTIALS_PATH] || join12(getHomeDir(), ".aws", "credentials");
+    getCredentialsFilepath = () => process.env[ENV_CREDENTIALS_PATH] || join13(getHomeDir(), ".aws", "credentials");
   }
 });
 
@@ -7742,7 +7742,7 @@ var init_readFile = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/loadSharedConfigFiles.js
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 var swallowError, loadSharedConfigFiles;
 var init_loadSharedConfigFiles = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/loadSharedConfigFiles.js"() {
@@ -7760,11 +7760,11 @@ var init_loadSharedConfigFiles = __esm({
       const relativeHomeDirPrefix = "~/";
       let resolvedFilepath = filepath;
       if (filepath.startsWith(relativeHomeDirPrefix)) {
-        resolvedFilepath = join13(homeDir, filepath.slice(2));
+        resolvedFilepath = join14(homeDir, filepath.slice(2));
       }
       let resolvedConfigFilepath = configFilepath;
       if (configFilepath.startsWith(relativeHomeDirPrefix)) {
-        resolvedConfigFilepath = join13(homeDir, configFilepath.slice(2));
+        resolvedConfigFilepath = join14(homeDir, configFilepath.slice(2));
       }
       const parsedFiles = await Promise.all([
         readFile3(resolvedConfigFilepath, {
@@ -8549,8 +8549,8 @@ var init_getEndpointFromConfig = __esm({
     init_getEndpointUrlConfig();
     init_getIgnoreConfiguredEndpointUrls();
     getEndpointFromConfig = async (serviceId) => {
-      const ignore2 = await loadConfig2(ignoreConfiguredEndpointUrlsConfigSelectors)();
-      if (ignore2) {
+      const ignore3 = await loadConfig2(ignoreConfiguredEndpointUrlsConfigSelectors)();
+      if (ignore3) {
         return void 0;
       }
       return loadConfig2(getEndpointUrlConfig(serviceId ?? ""))();
@@ -14227,18 +14227,18 @@ var init_JsonShapeDeserializer2 = __esm({
         }
         return value2;
       }
-      _readStruct(ns, record3) {
+      _readStruct(ns, record2) {
         const union2 = ns.isUnionSchema();
         const out = {};
         let nameMap;
-        const hasType = typeof record3.__type === "string";
+        const hasType = typeof record2.__type === "string";
         const { jsonName } = this.settings;
         if (jsonName && hasType) {
           nameMap = {};
         }
         let unionSerde;
         if (union2) {
-          unionSerde = new UnionSerde(record3, out);
+          unionSerde = new UnionSerde(record2, out);
         }
         for (const [memberName, memberSchema] of ns.structIterator()) {
           let fromKey = memberName;
@@ -14251,17 +14251,17 @@ var init_JsonShapeDeserializer2 = __esm({
           if (union2) {
             unionSerde.mark(fromKey);
           }
-          if (record3[fromKey] != null) {
-            out[memberName] = this._read(memberSchema, record3[fromKey]);
+          if (record2[fromKey] != null) {
+            out[memberName] = this._read(memberSchema, record2[fromKey]);
           }
         }
         if (union2) {
           unionSerde.writeUnknown();
         } else if (hasType) {
-          for (const k5 in record3) {
-            if (!hasOwn(record3, k5))
+          for (const k5 in record2) {
+            if (!hasOwn(record2, k5))
               continue;
-            const v = record3[k5];
+            const v = record2[k5];
             const t2 = jsonName ? nameMap[k5] ?? k5 : k5;
             if (!(t2 in out)) {
               out[t2] = v;
@@ -15082,7 +15082,7 @@ var init_JsonShapeDeserializer = __esm({
         const ns = NormalizedSchema.of(schema);
         if (isObject3) {
           if (ns.isStructSchema()) {
-            const record3 = value2;
+            const record2 = value2;
             const union2 = ns.isUnionSchema();
             const out = {};
             let nameMap = void 0;
@@ -15092,7 +15092,7 @@ var init_JsonShapeDeserializer = __esm({
             }
             let unionSerde;
             if (union2) {
-              unionSerde = new UnionSerde(record3, out);
+              unionSerde = new UnionSerde(record2, out);
             }
             for (const [memberName, memberSchema] of ns.structIterator()) {
               let fromKey = memberName;
@@ -15103,17 +15103,17 @@ var init_JsonShapeDeserializer = __esm({
               if (union2) {
                 unionSerde.mark(fromKey);
               }
-              if (record3[fromKey] != null) {
-                out[memberName] = this._read(memberSchema, record3[fromKey]);
+              if (record2[fromKey] != null) {
+                out[memberName] = this._read(memberSchema, record2[fromKey]);
               }
             }
             if (union2) {
               unionSerde.writeUnknown();
-            } else if (typeof record3.__type === "string") {
-              for (const k5 in record3) {
-                if (!hasOwn(record3, k5))
+            } else if (typeof record2.__type === "string") {
+              for (const k5 in record2) {
+                if (!hasOwn(record2, k5))
                   continue;
-                const v = record3[k5];
+                const v = record2[k5];
                 const t2 = jsonName ? nameMap[k5] ?? k5 : k5;
                 if (!(t2 in out)) {
                   out[t2] = v;
@@ -15321,7 +15321,7 @@ var init_JsonShapeSerializer = __esm({
         const ns = NormalizedSchema.of(schema);
         if (isObject3) {
           if (ns.isStructSchema()) {
-            const record3 = value2;
+            const record2 = value2;
             const out = {};
             const { jsonName } = this.settings;
             let nameMap = void 0;
@@ -15330,7 +15330,7 @@ var init_JsonShapeSerializer = __esm({
             }
             let outCount = 0;
             for (const [memberName, memberSchema] of ns.structIterator()) {
-              const serializableValue = this._write(memberSchema, record3[memberName], ns);
+              const serializableValue = this._write(memberSchema, record2[memberName], ns);
               if (serializableValue !== void 0) {
                 let targetKey = memberName;
                 if (jsonName) {
@@ -15342,7 +15342,7 @@ var init_JsonShapeSerializer = __esm({
               }
             }
             if (ns.isUnionSchema() && outCount === 0) {
-              const { $unknown } = record3;
+              const { $unknown } = record2;
               if (Array.isArray($unknown)) {
                 const [k5, v] = $unknown;
                 if (k5 === "__proto__") {
@@ -15350,11 +15350,11 @@ var init_JsonShapeSerializer = __esm({
                 }
                 out[k5] = this._write(15, v);
               }
-            } else if (typeof record3.__type === "string") {
-              for (const k5 in record3) {
-                if (!hasOwn(record3, k5))
+            } else if (typeof record2.__type === "string") {
+              for (const k5 in record2) {
+                if (!hasOwn(record2, k5))
                   continue;
-                const v = record3[k5];
+                const v = record2[k5];
                 const targetKey = jsonName ? nameMap[k5] ?? k5 : k5;
                 if (!(targetKey in out)) {
                   out[targetKey] = this._write(15, v);
@@ -77414,8 +77414,8 @@ function rewriteKeyNames(ctx) {
       bySchema.set(entry.schema, entry);
   }
   const rewrites = /* @__PURE__ */ new Map();
-  for (const record3 of pendingRecords.get(ctx) ?? []) {
-    const seen = ctx.seen.get(record3);
+  for (const record2 of pendingRecords.get(ctx) ?? []) {
+    const seen = ctx.seen.get(record2);
     const names = (seen?.def ?? seen?.schema)?.propertyNames;
     if (!names || names === true || rewrites.has(names))
       continue;
@@ -83312,10 +83312,10 @@ function encodeContainer(value2, depth, seen) {
     if (Object.getOwnPropertySymbols(value2).length > 0) {
       throw new TypeError("canon: object has symbol keys");
     }
-    const record3 = value2;
+    const record2 = value2;
     const parts = [];
-    for (const key2 of Object.keys(record3).sort()) {
-      const item = record3[key2];
+    for (const key2 of Object.keys(record2).sort()) {
+      const item = record2[key2];
       if (item === void 0) continue;
       parts.push(`${encode3(key2, depth + 1, seen)}:${encode3(item, depth + 1, seen)}`);
     }
@@ -86455,7 +86455,7 @@ async function signObjectWith(type, obj, keyring) {
 
 // ../protocol/src/roster.ts
 function makeDeviceRecord(name, keys, role, added) {
-  const record3 = {
+  const record2 = {
     id: deviceIdFromSignPub(keys.signPub),
     name,
     sign: b64u.encode(keys.signPub),
@@ -86463,9 +86463,9 @@ function makeDeviceRecord(name, keys, role, added) {
     role,
     added
   };
-  const parsed2 = deviceRecordSchema.safeParse(record3);
+  const parsed2 = deviceRecordSchema.safeParse(record2);
   if (!parsed2.success) throw new TypeError(`makeDeviceRecord: ${parsed2.error.issues[0].message}`);
-  return record3;
+  return record2;
 }
 function isRecoveryName(name) {
   return name.startsWith("recovery");
@@ -86735,10 +86735,10 @@ function verifyJoin(join22, secret, nonce) {
   return ok(j5);
 }
 function admitJoin(device, now) {
-  const record3 = { ...joinFields(device), role: "member", added: now };
-  const parsed2 = deviceRecordSchema.safeParse(record3);
-  if (!parsed2.success || record3.name.startsWith("recovery")) throw new TypeError("admitJoin: invalid device, reserved name or bad time");
-  return record3;
+  const record2 = { ...joinFields(device), role: "member", added: now };
+  const parsed2 = deviceRecordSchema.safeParse(record2);
+  if (!parsed2.success || record2.name.startsWith("recovery")) throw new TypeError("admitJoin: invalid device, reserved name or bad time");
+  return record2;
 }
 
 // ../protocol/src/replay.ts
@@ -87884,8 +87884,8 @@ function createRecoveryIdentity(meshId, opts = {}) {
   if (opts.genesis === void 0) {
     throw new TypeError("createRecoveryIdentity: needs the genesis hash; at mesh creation use createRecoveryKeys and recoveryCode");
   }
-  const { record: record3, keys } = createRecoveryKeys(meshId, opts);
-  return { record: record3, keys, code: recoveryCode(keys, { mesh: meshId, genesis: opts.genesis }) };
+  const { record: record2, keys } = createRecoveryKeys(meshId, opts);
+  return { record: record2, keys, code: recoveryCode(keys, { mesh: meshId, genesis: opts.genesis }) };
 }
 function parseRecoveryCode(code2, meshId) {
   const text2 = typeof code2 === "string" ? code2.trim() : "";
@@ -87926,8 +87926,8 @@ function verifyRecoveryChain(code2, chain2) {
   const newest = verifyRosterChain({ seq: 1, hash: parsed2.genesis }, chain2);
   if (!newest.ok) return newest;
   const id2 = deviceIdFromSignPub(parsed2.signPub);
-  const record3 = newest.value.devices.find((d5) => d5.id === id2);
-  if (record3 === void 0 || record3.role !== "admin") return fail("recovery_not_admin");
+  const record2 = newest.value.devices.find((d5) => d5.id === id2);
+  if (record2 === void 0 || record2.role !== "admin") return fail("recovery_not_admin");
   return ok(newest.value);
 }
 function recoverySummary(chain2) {
@@ -89168,17 +89168,19 @@ async function startGateway(config2, mesh, deps = {}) {
 import { EventEmitter } from "node:events";
 import { constants as fsConstants, promises as fs4 } from "node:fs";
 import { homedir } from "node:os";
-import { basename as basename4, join as join9, resolve as resolve2 } from "node:path";
+import { basename as basename4, join as join10, resolve as resolve2 } from "node:path";
 
 // src/breaker.ts
 var HOUR2 = 36e5;
 var MINUTE2 = 6e4;
 var PING_WINDOW = 10 * MINUTE2;
 var SHORT = 200;
+function bounded(p3, now) {
+  if (p3.at <= now && p3.until - now <= HOUR2) return p3;
+  return { ...p3, at: now, until: now + Math.min(Math.max(p3.until - p3.at, 0), HOUR2) };
+}
 var Breaker = class {
   deliveries = /* @__PURE__ */ new Map();
-  /** Each counted peer's tier when it last delivered, so a total counts one tier. */
-  tierOf = /* @__PURE__ */ new Map();
   talk = /* @__PURE__ */ new Map();
   paused = /* @__PURE__ */ new Map();
   /** When the client last released each trusted peer by itself. */
@@ -89214,49 +89216,66 @@ var Breaker = class {
     return n3;
   }
   /** Which rule a delivery from `peer` would trip, with what it counted, or undefined. */
-  trips(peer, tier, trusted, now) {
+  trips(peer, limits, now) {
     const since = now - HOUR2;
     const mine = this.recent(this.deliveries.get(peer), since).length;
-    if (mine >= tier.perPeerPerHour) return { rule: "peer", count: mine + 1, limit: tier.perPeerPerHour, minutes: 60 };
+    if (mine >= limits.perPeerPerHour) return { rule: "peer", count: mine + 1, limit: limits.perPeerPerHour, minutes: 60 };
     let total = 0;
-    for (const [p3, list3] of this.deliveries) if (this.tierOf.get(p3) === trusted) total += this.recent(list3, since).length;
-    if (total >= tier.totalPerHour) return { rule: "total", count: total + 1, limit: tier.totalPerHour, minutes: 60 };
-    const n3 = tier.pingPong ? this.exchanges(peer) : 0;
-    if (n3 > tier.pingPongExchanges) return { rule: "pingpong", count: n3, limit: tier.pingPongExchanges, minutes: 10 };
+    for (const list3 of this.deliveries.values()) total += this.recent(list3, since).length;
+    if (total >= limits.totalPerHour) return { rule: "total", count: total + 1, limit: limits.totalPerHour, minutes: 60 };
+    const n3 = limits.pingPong ? this.exchanges(peer) : 0;
+    if (n3 > limits.pingPongExchanges) return { rule: "pingpong", count: n3, limit: limits.pingPongExchanges, minutes: 10 };
     return void 0;
   }
   /**
    * Decides one automatic delivery from `peer`, and counts it when it goes through. `trusted`:
-   * the person trusts the sender device, so its tier's limits apply and a trip is a cool-down
-   * the client ends by itself, unless the peer was already released that way in the last hour.
+   * the person trusts the sender device, so a trip is a cool-down the client ends by itself
+   * (when the limits have one), unless the peer was already released that way in the last hour.
+   * A cool-down that ended but was not taken yet (takeDue) still holds: what comes meanwhile joins
+   * what its release decides on.
    */
   admit(peer, length, trusted = false) {
     const now = this.now();
-    const current = this.paused.get(peer);
-    if (current !== void 0 && current.until > now) return { ok: false, reason: "paused", newly: false, pause: current };
+    const held2 = this.paused.get(peer);
+    const current = held2 === void 0 ? void 0 : bounded(held2, now);
+    if (current !== void 0 && (current.until > now || current.auto)) {
+      this.paused.set(peer, current);
+      return { ok: false, reason: "paused", newly: false, pause: current };
+    }
     if (current !== void 0) this.paused.delete(peer);
     this.push(peer, { at: now, dir: "in", short: length < SHORT });
     const limits = this.limits();
-    const tier = trusted && limits.trusted !== void 0 ? limits.trusted : limits;
-    const isTrusted2 = tier !== limits;
-    const tripped = this.trips(peer, tier, isTrusted2, now);
+    const tripped = this.trips(peer, limits, now);
     if (tripped !== void 0) {
       const last = this.released.get(peer);
-      const auto = isTrusted2 && (last === void 0 || now - last >= HOUR2);
-      const until = now + (auto ? limits.trusted.cooldownMinutes * MINUTE2 : HOUR2);
-      const pause = { peer, ...tripped, trusted: isTrusted2, at: now, until, auto };
+      const auto = trusted && limits.cooldownMinutes !== void 0 && (last === void 0 || now - last >= HOUR2);
+      const until = now + (auto ? limits.cooldownMinutes * MINUTE2 : HOUR2);
+      const pause = { peer, ...tripped, at: now, until, auto };
       this.paused.set(peer, pause);
       return { ok: false, reason: tripped.rule, newly: true, pause };
     }
-    const mine = this.recent(this.deliveries.get(peer), now - HOUR2);
-    mine.push(now);
-    this.deliveries.set(peer, mine);
-    this.tierOf.set(peer, isTrusted2);
+    this.count(peer, 1);
     return { ok: true };
   }
-  /** Takes back a pause an earlier process of the session wrote (pauses.ts): its end and its release hold. */
+  /** Counts `n` deliveries from `peer` now: what a cool-down's release delivers counts as delivered. */
+  count(peer, n3) {
+    const now = this.now();
+    const mine = this.recent(this.deliveries.get(peer), now - HOUR2);
+    for (let i6 = 0; i6 < n3; i6++) mine.push(now);
+    this.deliveries.set(peer, mine);
+  }
+  /** Takes back a pause an earlier process of the session wrote (pauses.ts), bounded by the clock. */
   restore(p3) {
-    this.paused.set(p3.peer, p3);
+    this.paused.set(p3.peer, bounded(p3, this.now()));
+  }
+  /** Takes back when an earlier process released `peer` by itself, so a second trip within the hour still waits for the person. */
+  restoreRelease(peer, at) {
+    if (this.now() - at < HOUR2) this.released.set(peer, Math.min(at, this.now()));
+  }
+  /** The automatic releases of the last hour, by peer, for a later process of the session. */
+  releases() {
+    const now = this.now();
+    return Object.fromEntries([...this.released].filter(([, at]) => now - at < HOUR2));
   }
   /** The pauses still running, oldest first. */
   pauses() {
@@ -89273,7 +89292,7 @@ var Breaker = class {
   }
   /**
    * The trusted peers whose cool-down has ended, each lifted here (its counts start over) so two
-   * callers never release one twice. The caller delivers what each one held.
+   * callers never release one twice. The caller delivers what each one held, and counts it.
    */
   takeDue() {
     const now = this.now();
@@ -89287,7 +89306,6 @@ var Breaker = class {
   clear(peer) {
     this.paused.delete(peer);
     this.deliveries.delete(peer);
-    this.tierOf.delete(peer);
     this.talk.delete(peer);
   }
   /** The person resumed a peer: its pause and its counts start over, and so does its cool-down allowance. */
@@ -89301,23 +89319,24 @@ function clock(ms) {
 }
 function pauseRule(peer, p3) {
   if (p3.rule === "peer") return `the per-peer limit: ${p3.count} messages from ${peer} in ${p3.minutes} minutes, limit ${p3.limit}`;
-  const tier = p3.trusted === void 0 ? "" : p3.trusted ? "trusted " : "untrusted ";
-  if (p3.rule === "total") return `the total limit: ${p3.count} messages from all ${tier}peers in ${p3.minutes} minutes, limit ${p3.limit}`;
+  if (p3.rule === "total") return `the total limit: ${p3.count} messages from all peers in ${p3.minutes} minutes, limit ${p3.limit}`;
   return `the ping-pong rule: ${p3.count} alternating short messages with ${peer} in ${p3.minutes} minutes, limit ${p3.limit}`;
 }
 function pauseEnd(p3) {
-  return p3.auto ? `until ${clock(p3.until)}, when the client releases it and delivers what it held (a trusted device's cool-down)` : `until ${clock(p3.until)}; what it held waits for the person`;
+  return p3.auto ? `until ${clock(p3.until)}, when the client releases it and delivers up to its per-peer limit of what it held (a trusted device's cool-down)` : `until ${clock(p3.until)}; what it held waits for the person`;
 }
 function pauseNotice(peer, p3) {
   return `worldinmotion paused ${peer}: ${pauseRule(peer, p3)}; ${pauseEnd(p3)}. /wim to approve, or to approve and resume it now`;
 }
 function pauseNoticeForAgent(peer, p3) {
-  const after = p3.auto ? `The client releases ${peer} by itself at ${clock(p3.until)} and delivers what it held then; your person can release it earlier.` : `The pause lifts at ${clock(p3.until)}; what was held stays held until the person decides.`;
+  const after = p3.auto ? `The client releases ${peer} by itself at ${clock(p3.until)} and delivers up to its per-peer limit of what it held then; the rest waits for your person, who can release it earlier.` : `The pause lifts at ${clock(p3.until)}; what was held stays held until the person decides.`;
   return `this device's loop breaker paused ${peer} (${pauseRule(peer, p3)}): its messages to this session are held from now on, not delivered to you, until ${p3.auto ? "the cool-down ends or " : ""}your person releases them. Only the person can release them early: \`wim held resume ${peer}\` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). ${after} If you are waiting on ${peer}, tell your person; it has not gone silent.`;
 }
-function releasedNotice(peer, p3, released, kept) {
-  const what2 = kept > 0 ? `its device is no longer trusted here, so the ${kept} message${kept === 1 ? "" : "s"} it held stay${kept === 1 ? "s" : ""} held for the person` : `the ${released} message${released === 1 ? "" : "s"} it held ${released === 1 ? "is" : "are"} delivered now`;
-  return `the loop breaker's cool-down for ${peer} ended at ${clock(p3.until)} (it tripped on ${pauseRule(peer, p3)}): its messages are delivered again, and ${what2}. If it trips again within the hour, it waits for your person.`;
+function releasedNotice(peer, p3, released, kept, why) {
+  const n3 = (k5) => `${k5} message${k5 === 1 ? "" : "s"}`;
+  const delivered = released === 0 ? "nothing it held is delivered" : `${n3(released)} it held ${released === 1 ? "is" : "are"} delivered now`;
+  const rest = kept === 0 ? "" : why === "untrusted" ? `; its device is no longer trusted here or no longer in the mesh, so the ${n3(kept)} it held ${kept === 1 ? "stays" : "stay"} held for the person` : `; ${n3(kept)} more ${kept === 1 ? "stays" : "stay"} held for the person (a release delivers at most the per-peer limit)`;
+  return `the loop breaker's cool-down for ${peer} ended at ${clock(p3.until)} (it tripped on ${pauseRule(peer, p3)}): its messages are delivered again, and ${delivered}${rest}. If it trips again within the hour, it waits for your person.`;
 }
 
 // src/cards.ts
@@ -90265,44 +90284,23 @@ function renderForPerson(e6) {
 
 // src/mesh.ts
 import { join as join5 } from "node:path";
-var TRUSTED_DEFAULT = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 10 };
 var COOLDOWN_MAX_MINUTES = 60;
-var UNTRUSTED_DEFAULT = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
-var DEFAULT_BREAKER = { ...UNTRUSTED_DEFAULT, trusted: TRUSTED_DEFAULT };
+var DEFAULT_BREAKER = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 10 };
+var WRITTEN_BREAKER = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
 function positiveInt2(v, fallback2) {
   return Number.isSafeInteger(v) && v > 0 ? v : fallback2;
 }
-var record2 = (raw) => typeof raw === "object" && raw !== null ? raw : {};
-function parseTrusted(raw, base) {
-  const pingPong = base.pingPong;
-  if (raw === void 0) {
-    return {
-      perPeerPerHour: Math.max(base.perPeerPerHour, TRUSTED_DEFAULT.perPeerPerHour),
-      totalPerHour: Math.max(base.totalPerHour, TRUSTED_DEFAULT.totalPerHour),
-      pingPong,
-      pingPongExchanges: Math.max(base.pingPongExchanges, TRUSTED_DEFAULT.pingPongExchanges),
-      cooldownMinutes: TRUSTED_DEFAULT.cooldownMinutes
-    };
-  }
-  const t2 = record2(raw);
-  return {
-    perPeerPerHour: positiveInt2(t2.perPeerPerHour, TRUSTED_DEFAULT.perPeerPerHour),
-    totalPerHour: positiveInt2(t2.totalPerHour, TRUSTED_DEFAULT.totalPerHour),
-    pingPong: pingPong && t2.pingPong !== false,
-    pingPongExchanges: positiveInt2(t2.pingPongExchanges, TRUSTED_DEFAULT.pingPongExchanges),
-    cooldownMinutes: Math.min(positiveInt2(t2.cooldownMinutes, TRUSTED_DEFAULT.cooldownMinutes), COOLDOWN_MAX_MINUTES)
-  };
-}
 function parseBreaker(raw) {
   if (raw === void 0) return DEFAULT_BREAKER;
-  const b5 = record2(raw);
-  const base = {
-    perPeerPerHour: positiveInt2(b5.perPeerPerHour, UNTRUSTED_DEFAULT.perPeerPerHour),
-    totalPerHour: positiveInt2(b5.totalPerHour, UNTRUSTED_DEFAULT.totalPerHour),
+  const b5 = typeof raw === "object" && raw !== null ? raw : {};
+  return {
+    perPeerPerHour: positiveInt2(b5.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour),
+    totalPerHour: positiveInt2(b5.totalPerHour, WRITTEN_BREAKER.totalPerHour),
     pingPong: b5.pingPong !== false,
-    pingPongExchanges: positiveInt2(b5.pingPongExchanges, UNTRUSTED_DEFAULT.pingPongExchanges)
+    pingPongExchanges: positiveInt2(b5.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges),
+    // A file written before 0.1.9 has none: the default cool-down, the one new behaviour it gets.
+    cooldownMinutes: Math.min(positiveInt2(b5.cooldownMinutes, DEFAULT_BREAKER.cooldownMinutes), COOLDOWN_MAX_MINUTES)
   };
-  return { ...base, trusted: parseTrusted(b5.trusted, base) };
 }
 function isPolicy(v) {
   return v === "deliver" || v === "deliver-relayed" || v === "hold" || v === "refuse";
@@ -90390,6 +90388,10 @@ var MeshFiles = class {
    */
   get pausedByPath() {
     return join5(this.dir, "paused-by.json");
+  }
+  /** The peer sessions this device's sessions sent to in the last hour: a `pause` counts only from one (pauses.ts). */
+  get sentToPath() {
+    return join5(this.dir, "sent-to.json");
   }
   /** The admin signing lock (SPEC section 4): one writer signs a roster at a time. */
   get rosterLock() {
@@ -90524,6 +90526,9 @@ async function setDevicePolicy(files, deviceId, level) {
 function trustLevel(action, relayed2) {
   return action === "untrust" ? "hold" : relayed2 ? "deliver-relayed" : "deliver";
 }
+
+// src/offline.ts
+import { join as join8 } from "node:path";
 
 // src/session.ts
 import { join as join6 } from "node:path";
@@ -90687,17 +90692,24 @@ var SessionKeys = class {
 };
 
 // src/pauses.ts
-async function savePauses(path2, rows, env3) {
-  await writeJson(path2, { pauses: rows }, env3);
+async function savePauses(path2, file2, env3) {
+  await writeJson(path2, file2, env3);
 }
 function isPauseRow(x2) {
   const r6 = x2;
-  return typeof r6 === "object" && r6 !== null && typeof r6.from === "string" && typeof r6.peer === "string" && (r6.rule === "peer" || r6.rule === "total" || r6.rule === "pingpong") && [r6.count, r6.limit, r6.minutes, r6.at, r6.until].every((n3) => Number.isSafeInteger(n3)) && typeof r6.auto === "boolean" && typeof r6.trusted === "boolean" && Array.isArray(r6.told) && r6.told.every((t2) => typeof t2 === "string");
+  return typeof r6 === "object" && r6 !== null && typeof r6.from === "string" && typeof r6.peer === "string" && (r6.rule === "peer" || r6.rule === "total" || r6.rule === "pingpong") && [r6.count, r6.limit, r6.minutes, r6.at, r6.until].every((n3) => Number.isSafeInteger(n3)) && typeof r6.auto === "boolean" && Array.isArray(r6.told) && r6.told.every((t2) => typeof t2 === "string");
 }
 async function readPauses(path2, now) {
+  return (await readBreakerFile(path2)).pauses.filter((r6) => r6.until > now);
+}
+async function readBreakerFile(path2) {
   const raw = await readJson(path2).catch(() => void 0);
-  const rows = Array.isArray(raw?.pauses) ? raw.pauses : [];
-  return rows.filter(isPauseRow).filter((r6) => r6.until > now);
+  const pauses = Array.isArray(raw?.pauses) ? raw.pauses.filter(isPauseRow) : [];
+  const released = Object.fromEntries(
+    Object.entries(typeof raw?.released === "object" && raw.released !== null ? raw.released : {}).filter(([, at]) => Number.isSafeInteger(at))
+  );
+  const lifts = Array.isArray(raw?.lifts) ? raw.lifts.filter((t2) => typeof t2 === "string") : [];
+  return { pauses, released, lifts };
 }
 async function listAllPauses(mesh, env3, now) {
   const out = [];
@@ -90739,6 +90751,273 @@ var PausedBy = class {
     }, this.env);
   }
 };
+var SENT_TO_REFRESH_MS = 5 * 6e4;
+var SENT_TO_LISTEN_MS = 36e5;
+var SENT_TO_MAX = 256;
+var SentTo = class {
+  path;
+  env;
+  now;
+  /** What this process wrote last, by pair. */
+  written = /* @__PURE__ */ new Map();
+  constructor(path2, env3, now) {
+    this.path = path2;
+    this.env = env3;
+    this.now = now;
+  }
+  async read() {
+    const raw = await readJson(this.path).catch(() => void 0);
+    const now = this.now();
+    const fresh = Object.entries(typeof raw === "object" && raw !== null ? raw : {}).filter(
+      (e6) => Number.isSafeInteger(e6[1]) && now - e6[1] <= SENT_TO_LISTEN_MS
+    );
+    return Object.fromEntries(fresh.sort((a5, b5) => b5[1] - a5[1]).slice(0, SENT_TO_MAX));
+  }
+  /** Notes messages sent to `pairs` now. */
+  async note(pairs) {
+    const now = this.now();
+    const due = pairs.filter((p3) => now - (this.written.get(p3) ?? Number.NEGATIVE_INFINITY) >= SENT_TO_REFRESH_MS);
+    if (due.length === 0) return;
+    for (const p3 of due) this.written.set(p3, now);
+    await withLock(`${this.path}.lock`, async () => {
+      const file2 = await this.read();
+      for (const p3 of due) file2[p3] = now;
+      await writeJson(this.path, file2, this.env);
+    }, this.env);
+  }
+  /** Whether a session of this device sent to `pair` in the last hour. */
+  async has(pair) {
+    return Object.hasOwn(await this.read(), pair);
+  }
+};
+
+// src/spool.ts
+import { join as join7 } from "node:path";
+var NAME2 = /^(\d{12})\.json$/;
+var itemName = (cursor2) => `${String(cursor2).padStart(12, "0")}.json`;
+var BUSY = /* @__PURE__ */ Symbol("busy");
+function cursorNumber(text2) {
+  const m4 = NAME2.exec((text2 ?? "").trim());
+  return m4 === null ? 0 : Number(m4[1]);
+}
+var Spool = class _Spool {
+  /** The highest item number handed out so far, never reused. */
+  last;
+  /** The take in progress, which the next one waits for. */
+  taking = Promise.resolve();
+  /** The highest cursor this process wrote: a read of the file never goes back past it. */
+  written = 0;
+  /** Relayed items this process already copied to the box, so one it could not delete yet is not copied again. */
+  boxed = /* @__PURE__ */ new Set();
+  dir;
+  relayedDir;
+  env;
+  constructor(dir, env3, last) {
+    this.dir = dir;
+    this.relayedDir = join7(dir, "..", "relayed");
+    this.env = env3;
+    this.last = last;
+  }
+  get cursorPath() {
+    return join7(this.dir, "cursor");
+  }
+  /** Opens a spool, numbering after the highest of `last`, any item on disk and the cursor. */
+  static async open(dir, env3, last) {
+    const spool = new _Spool(dir, env3, last);
+    const onDisk = (await spool.names()).map((n3) => Number(NAME2.exec(n3)[1]));
+    spool.last = Math.max(last, await spool.cursor(), ...onDisk);
+    return spool;
+  }
+  get highest() {
+    return this.last;
+  }
+  async names() {
+    return (await listDir(this.dir)).filter((n3) => NAME2.test(n3)).sort();
+  }
+  /** The highest cursor this process has taken, without reading the file. */
+  get taken() {
+    return this.written;
+  }
+  /**
+   * The cursor: the file (read again while it is busy for a moment), and never less than what
+   * this process last wrote, whatever a file system that is slow to show a rename says.
+   */
+  async cursor() {
+    return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
+  }
+  async write(item) {
+    const cursor2 = ++this.last;
+    const full = { cursor: cursor2, ...item };
+    await writeJson(join7(this.dir, itemName(cursor2)), full, this.env);
+    return full;
+  }
+  /**
+   * Items not yet taken, oldest first. A file that does not parse is skipped. The list stops
+   * before an item that is still busy after a moment's wait (Windows), so nothing after it is
+   * handed out and taken past it: it comes first on a later call.
+   */
+  async unread() {
+    const after = await this.cursor();
+    const out = [];
+    for (const name of await this.names()) {
+      if (Number(NAME2.exec(name)[1]) <= after) continue;
+      const item = await this.read(join7(this.dir, name));
+      if (item === BUSY) break;
+      if (item !== void 0) out.push(item);
+    }
+    return out;
+  }
+  /**
+   * One item file: the item, undefined when it is gone or does not parse as one, or BUSY when
+   * it is still busy after the bounded wait. A busy file is there but cannot be read yet.
+   */
+  async read(path2) {
+    let raw;
+    try {
+      raw = await whileBusy(() => readJson(path2), this.env.platform);
+    } catch (error64) {
+      return momentarilyBusy(error64.code, this.env.platform) ? BUSY : void 0;
+    }
+    return typeof raw?.rendered === "string" && typeof raw.id === "string" ? raw : void 0;
+  }
+  /**
+   * Marks everything up to `cursor` as taken. The cursor never moves back: one take at a time,
+   * since two that overlap would both read the old cursor and the lower one could land last.
+   */
+  take(cursor2) {
+    const run = this.taking.then(async () => {
+      if (cursor2 <= await this.cursor()) return;
+      await writeAtomic(this.cursorPath, itemName(cursor2), this.env);
+      this.written = cursor2;
+    });
+    this.taking = run.catch(() => void 0);
+    return run;
+  }
+  /**
+   * Deletes taken items and returns them, so the caller can send their receipts. A relayed item
+   * is kept in the relayed box instead: the plugin never starts a turn for one, so it stays
+   * readable through `inbox` until an agent reads it or the person dismisses it.
+   */
+  async sweep(alreadyRead = /* @__PURE__ */ new Set()) {
+    const upto = await this.cursor();
+    const gone = [];
+    for (const name of await this.names()) {
+      if (Number(NAME2.exec(name)[1]) > upto) break;
+      const item = await this.read(join7(this.dir, name));
+      if (item === BUSY) continue;
+      if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+        await writeJson(join7(this.relayedDir, name), item, this.env);
+        this.boxed.add(name);
+      }
+      if (!await tryRemove(join7(this.dir, name), this.env)) continue;
+      if (item !== void 0) gone.push(item);
+    }
+    return gone;
+  }
+  /** Relayed items the cursor passed but nobody has read, oldest first. One still busy is left out this time. */
+  async relayed() {
+    return (await this.box()).items;
+  }
+  /** The box's readable items, and whether any item in it could not be read yet. */
+  async box() {
+    const items = [];
+    let busy = false;
+    for (const name of (await listDir(this.relayedDir)).filter((n3) => NAME2.test(n3)).sort()) {
+      const item = await this.read(join7(this.relayedDir, name));
+      if (item === BUSY) busy = true;
+      else if (item !== void 0) items.push(item);
+    }
+    return { items, busy };
+  }
+  /**
+   * Removes relayed items from the box: the ones given, or all. Returns how many went, and which
+   * of the ids given may still be there: one that could not be removed yet, or any not found
+   * while an item in the box could not be read yet. The caller asks again for those later.
+   */
+  async dismissRelayed(ids) {
+    const { items, busy } = await this.box();
+    let removed = 0;
+    const left = [];
+    for (const item of items) {
+      if (ids !== void 0 && !ids.includes(item.id)) continue;
+      if (await tryRemove(join7(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
+      else left.push(item.id);
+    }
+    if (busy) {
+      for (const id2 of ids ?? []) if (!items.some((i6) => i6.id === id2)) left.push(id2);
+    }
+    return { removed, left };
+  }
+};
+
+// src/offline.ts
+async function listAllHeld(mesh, env3) {
+  const rows = [];
+  for (const sid of await listSessions(mesh)) {
+    const files = new SessionFiles(mesh, sid, env3);
+    const name = (await files.load())?.name ?? "?";
+    for (const item of await new HeldBox(files.heldDir, env3).list()) rows.push({ ...item, sid, session: name });
+  }
+  return rows.sort((a5, b5) => a5.at - b5.at);
+}
+async function applyOffline(files, item, verdict, config2, env3, now) {
+  const box = new HeldBox(files.heldDir, env3);
+  await box.remove(item.id);
+  if (verdict === "refuse") return;
+  const state2 = await files.load();
+  const spool = await Spool.open(files.spoolDir, env3, state2?.spool ?? 0);
+  const framed = item.ci === void 0 ? releasedFrame(config2, item.device, item.entry) : { rendered: item.rendered, relayed: true, informs: true };
+  await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...framed });
+  if (state2 !== void 0) await files.save({ ...state2, spool: spool.highest });
+  await new History(files.historyPath, now).append(item.entry);
+}
+async function decideHeld(mesh, id2, verdict, env3, now, skipSid) {
+  let n3 = 0;
+  const config2 = await mesh.loadConfig();
+  const rules = await loadCiRules(mesh.ciRulesPath).catch(() => []);
+  for (const row of await listAllHeld(mesh, env3)) {
+    if (row.id !== id2 || row.sid === skipSid) continue;
+    const pins = row.ci?.pins;
+    if (verdict === "approve" && pins !== void 0 && !isPinned(rules, row.ci.rule, pins)) continue;
+    const files = new SessionFiles(mesh, row.sid, env3);
+    const later = await files.isLiveElsewhere() || verdict === "approve" && row.fileInfo !== void 0;
+    if (later) await new HeldBox(files.heldDir, env3).mark(id2, verdict);
+    else await applyOffline(files, row, verdict, config2, env3, now);
+    n3++;
+  }
+  return n3;
+}
+async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
+  let released = 0;
+  const config2 = await mesh.loadConfig();
+  for (const sid of (await listSessions(mesh)).filter((s3) => s3 !== skipSid)) {
+    const files = new SessionFiles(mesh, sid, env3);
+    if (await files.isLiveElsewhere()) {
+      await writeAtomic(join8(files.controlDir, `resume-${peer}`), "", env3);
+      continue;
+    }
+    const file2 = await readBreakerFile(files.breakerPath);
+    const resumed = file2.pauses.filter((p3) => p3.from.split("@")[1] === peer.split("@")[1]);
+    const ids = resumed.map((p3) => p3.peer);
+    await savePauses(
+      files.breakerPath,
+      {
+        pauses: file2.pauses.filter((p3) => !resumed.includes(p3)),
+        released: Object.fromEntries(Object.entries(file2.released).filter(([id2]) => !ids.includes(id2))),
+        lifts: [.../* @__PURE__ */ new Set([...file2.lifts, ...resumed.flatMap((p3) => p3.told)])]
+      },
+      env3
+    );
+    const box = new HeldBox(files.heldDir, env3);
+    for (const item of await box.list()) {
+      if (item.from.split("@")[1] !== peer.split("@")[1] || item.reason !== "breaker") continue;
+      if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
+      else await applyOffline(files, item, "approve", config2, env3, now);
+      released++;
+    }
+  }
+  return released;
+}
 
 // src/prekeys.ts
 function decode32(text2) {
@@ -91064,7 +91343,7 @@ function pingReport(rows, from, waitMs) {
 }
 
 // src/joins.ts
-import { join as join7 } from "node:path";
+import { join as join9 } from "node:path";
 var Invites = class {
   files;
   env;
@@ -91075,7 +91354,7 @@ var Invites = class {
     this.now = now;
   }
   path(id2) {
-    return join7(this.files.invitesDir, `${id2}.json`);
+    return join9(this.files.invitesDir, `${id2}.json`);
   }
   async get(id2) {
     if (!/^[A-Za-z0-9_-]{22}$/.test(id2)) return void 0;
@@ -91103,17 +91382,17 @@ var Invites = class {
   }
 };
 async function screenJoin(invites, roster, body, now) {
-  const record3 = await invites.get(body.invite);
-  if (record3 === void 0) return { outcome: "ignored", reason: "not an invite this device issued" };
-  if (record3.used) return { outcome: "refused", reason: "the invite was already used" };
-  if (record3.exp <= now || record3.secret === void 0) return { outcome: "refused", reason: "the invite has expired" };
-  const v = verifyJoin(body, b64u.decode(record3.secret));
+  const record2 = await invites.get(body.invite);
+  if (record2 === void 0) return { outcome: "ignored", reason: "not an invite this device issued" };
+  if (record2.used) return { outcome: "refused", reason: "the invite was already used" };
+  if (record2.exp <= now || record2.secret === void 0) return { outcome: "refused", reason: "the invite has expired" };
+  const v = verifyJoin(body, b64u.decode(record2.secret));
   if (!v.ok) return { outcome: "refused", reason: v.reason };
   const device = v.value.device;
   if ([device.sign, device.box].some(isVectorKey)) return { outcome: "refused", reason: "the device holds a published test-vector key" };
   if (roster.devices.some((d5) => d5.name === device.name)) return { outcome: "refused", reason: `the name ${device.name} is taken` };
   if (roster.devices.some((d5) => d5.id === device.id) || roster.revoked.includes(device.id)) return { outcome: "refused", reason: "that device is already known" };
-  return { outcome: "ok", record: record3, device, sas: sasFor(device) };
+  return { outcome: "ok", record: record2, device, sas: sasFor(device) };
 }
 function sameCode(typed, sas) {
   const norm = (s3) => s3.toUpperCase().replace(/[\s-]/g, "").replace(/[IL]/g, "1").replace(/O/g, "0");
@@ -91128,7 +91407,7 @@ var PendingJoins = class {
     this.env = env3;
   }
   path(invite2, device) {
-    return join7(this.files.joinsDir, `${invite2}.${device}.json`);
+    return join9(this.files.joinsDir, `${invite2}.${device}.json`);
   }
   /** Keeps a screened request. True when it was not kept before. */
   async save(body, exp, now) {
@@ -91136,15 +91415,15 @@ var PendingJoins = class {
     const fresh = await readJson(path2).catch(() => void 0) === void 0;
     await writeJson(path2, { v: 1, at: now, exp, body }, this.env);
     const names = (await this.entries()).sort((x2, y) => x2.file.at - y.file.at).map((e6) => e6.name);
-    for (const name of names.slice(0, Math.max(0, names.length - PENDING_MAX))) await tryRemove(join7(this.files.joinsDir, name), this.env);
+    for (const name of names.slice(0, Math.max(0, names.length - PENDING_MAX))) await tryRemove(join9(this.files.joinsDir, name), this.env);
     return fresh;
   }
   async entries() {
     const out = [];
     for (const name of await listFiles(this.files.joinsDir)) {
       if (!name.endsWith(".json")) continue;
-      const file2 = await readJson(join7(this.files.joinsDir, name)).catch(() => void 0);
-      if (typeof file2?.at !== "number" || typeof file2.exp !== "number" || verifyJoin(file2.body).ok !== true) await tryRemove(join7(this.files.joinsDir, name), this.env);
+      const file2 = await readJson(join9(this.files.joinsDir, name)).catch(() => void 0);
+      if (typeof file2?.at !== "number" || typeof file2.exp !== "number" || verifyJoin(file2.body).ok !== true) await tryRemove(join9(this.files.joinsDir, name), this.env);
       else out.push({ name, file: file2 });
     }
     return out;
@@ -91159,7 +91438,7 @@ var PendingJoins = class {
       const d5 = file2.body.device;
       const known = roster.devices.some((x2) => x2.id === d5.id) || roster.revoked.includes(d5.id);
       const live = file2.exp > now && (await invites.get(file2.body.invite))?.used === false;
-      if (known || !live) await tryRemove(join7(this.files.joinsDir, name), this.env);
+      if (known || !live) await tryRemove(join9(this.files.joinsDir, name), this.env);
       else rows.push({ name: d5.name, id: d5.id, invite: file2.body.invite, at: file2.at, exp: file2.exp, body: file2.body });
     }
     return rows.sort((x2, y) => x2.at - y.at);
@@ -91167,7 +91446,7 @@ var PendingJoins = class {
   /** Drops every request on an invite (it was used), or one device's request on it. */
   async remove(invite2, device) {
     for (const name of await listFiles(this.files.joinsDir)) {
-      if (name.startsWith(`${invite2}.${device ?? ""}`)) await tryRemove(join7(this.files.joinsDir, name), this.env);
+      if (name.startsWith(`${invite2}.${device ?? ""}`)) await tryRemove(join9(this.files.joinsDir, name), this.env);
     }
   }
 };
@@ -91468,165 +91747,6 @@ function signerKeyring(client, pub) {
     close: () => client.close()
   };
 }
-
-// src/spool.ts
-import { join as join8 } from "node:path";
-var NAME2 = /^(\d{12})\.json$/;
-var itemName = (cursor2) => `${String(cursor2).padStart(12, "0")}.json`;
-var BUSY = /* @__PURE__ */ Symbol("busy");
-function cursorNumber(text2) {
-  const m4 = NAME2.exec((text2 ?? "").trim());
-  return m4 === null ? 0 : Number(m4[1]);
-}
-var Spool = class _Spool {
-  /** The highest item number handed out so far, never reused. */
-  last;
-  /** The take in progress, which the next one waits for. */
-  taking = Promise.resolve();
-  /** The highest cursor this process wrote: a read of the file never goes back past it. */
-  written = 0;
-  /** Relayed items this process already copied to the box, so one it could not delete yet is not copied again. */
-  boxed = /* @__PURE__ */ new Set();
-  dir;
-  relayedDir;
-  env;
-  constructor(dir, env3, last) {
-    this.dir = dir;
-    this.relayedDir = join8(dir, "..", "relayed");
-    this.env = env3;
-    this.last = last;
-  }
-  get cursorPath() {
-    return join8(this.dir, "cursor");
-  }
-  /** Opens a spool, numbering after the highest of `last`, any item on disk and the cursor. */
-  static async open(dir, env3, last) {
-    const spool = new _Spool(dir, env3, last);
-    const onDisk = (await spool.names()).map((n3) => Number(NAME2.exec(n3)[1]));
-    spool.last = Math.max(last, await spool.cursor(), ...onDisk);
-    return spool;
-  }
-  get highest() {
-    return this.last;
-  }
-  async names() {
-    return (await listDir(this.dir)).filter((n3) => NAME2.test(n3)).sort();
-  }
-  /** The highest cursor this process has taken, without reading the file. */
-  get taken() {
-    return this.written;
-  }
-  /**
-   * The cursor: the file (read again while it is busy for a moment), and never less than what
-   * this process last wrote, whatever a file system that is slow to show a rename says.
-   */
-  async cursor() {
-    return Math.max(this.written, cursorNumber(await whileBusy(() => readText(this.cursorPath), this.env.platform)));
-  }
-  async write(item) {
-    const cursor2 = ++this.last;
-    const full = { cursor: cursor2, ...item };
-    await writeJson(join8(this.dir, itemName(cursor2)), full, this.env);
-    return full;
-  }
-  /**
-   * Items not yet taken, oldest first. A file that does not parse is skipped. The list stops
-   * before an item that is still busy after a moment's wait (Windows), so nothing after it is
-   * handed out and taken past it: it comes first on a later call.
-   */
-  async unread() {
-    const after = await this.cursor();
-    const out = [];
-    for (const name of await this.names()) {
-      if (Number(NAME2.exec(name)[1]) <= after) continue;
-      const item = await this.read(join8(this.dir, name));
-      if (item === BUSY) break;
-      if (item !== void 0) out.push(item);
-    }
-    return out;
-  }
-  /**
-   * One item file: the item, undefined when it is gone or does not parse as one, or BUSY when
-   * it is still busy after the bounded wait. A busy file is there but cannot be read yet.
-   */
-  async read(path2) {
-    let raw;
-    try {
-      raw = await whileBusy(() => readJson(path2), this.env.platform);
-    } catch (error64) {
-      return momentarilyBusy(error64.code, this.env.platform) ? BUSY : void 0;
-    }
-    return typeof raw?.rendered === "string" && typeof raw.id === "string" ? raw : void 0;
-  }
-  /**
-   * Marks everything up to `cursor` as taken. The cursor never moves back: one take at a time,
-   * since two that overlap would both read the old cursor and the lower one could land last.
-   */
-  take(cursor2) {
-    const run = this.taking.then(async () => {
-      if (cursor2 <= await this.cursor()) return;
-      await writeAtomic(this.cursorPath, itemName(cursor2), this.env);
-      this.written = cursor2;
-    });
-    this.taking = run.catch(() => void 0);
-    return run;
-  }
-  /**
-   * Deletes taken items and returns them, so the caller can send their receipts. A relayed item
-   * is kept in the relayed box instead: the plugin never starts a turn for one, so it stays
-   * readable through `inbox` until an agent reads it or the person dismisses it.
-   */
-  async sweep(alreadyRead = /* @__PURE__ */ new Set()) {
-    const upto = await this.cursor();
-    const gone = [];
-    for (const name of await this.names()) {
-      if (Number(NAME2.exec(name)[1]) > upto) break;
-      const item = await this.read(join8(this.dir, name));
-      if (item === BUSY) continue;
-      if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
-        await writeJson(join8(this.relayedDir, name), item, this.env);
-        this.boxed.add(name);
-      }
-      if (!await tryRemove(join8(this.dir, name), this.env)) continue;
-      if (item !== void 0) gone.push(item);
-    }
-    return gone;
-  }
-  /** Relayed items the cursor passed but nobody has read, oldest first. One still busy is left out this time. */
-  async relayed() {
-    return (await this.box()).items;
-  }
-  /** The box's readable items, and whether any item in it could not be read yet. */
-  async box() {
-    const items = [];
-    let busy = false;
-    for (const name of (await listDir(this.relayedDir)).filter((n3) => NAME2.test(n3)).sort()) {
-      const item = await this.read(join8(this.relayedDir, name));
-      if (item === BUSY) busy = true;
-      else if (item !== void 0) items.push(item);
-    }
-    return { items, busy };
-  }
-  /**
-   * Removes relayed items from the box: the ones given, or all. Returns how many went, and which
-   * of the ids given may still be there: one that could not be removed yet, or any not found
-   * while an item in the box could not be read yet. The caller asks again for those later.
-   */
-  async dismissRelayed(ids) {
-    const { items, busy } = await this.box();
-    let removed = 0;
-    const left = [];
-    for (const item of items) {
-      if (ids !== void 0 && !ids.includes(item.id)) continue;
-      if (await tryRemove(join8(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
-      else left.push(item.id);
-    }
-    if (busy) {
-      for (const id2 of ids ?? []) if (!items.some((i6) => i6.id === id2)) left.push(id2);
-    }
-    return { removed, left };
-  }
-};
 
 // src/wire.ts
 import { isIP as isIP2 } from "node:net";
@@ -92086,9 +92206,8 @@ var CARD_EVERY_MS = 6e4;
 var PARKED_MAX = 64;
 var ANSWER_KEEP_MS = 5 * 6e4;
 var GROUP = (to) => to.some((a5) => a5 === "*" || isRoom(a5));
-var PAUSE_LISTEN_MS = 36e5;
 var PAUSE_TELL_MS = 10 * 6e4;
-var SENT_TO_MAX = LIMITS.sessionsPerMesh;
+var ignore = () => void 0;
 function breakerFields(p3) {
   return { count: p3.count, limit: p3.limit, minutes: p3.minutes, until: p3.until, auto: p3.auto };
 }
@@ -92183,12 +92302,14 @@ var MeshSession = class _MeshSession extends EventEmitter {
   readRelayed = /* @__PURE__ */ new Set();
   /** How many pings this session answers (SPEC section 12). */
   pongBudget = new PongBudget();
-  /** Per paused sender device: the address of the message that tripped it, and the sessions told. */
+  /** Per paused sender device: its pause's record (PauseEntry). Changed only with the breaker's pause, on the inbound queue. */
   pauseFrom = /* @__PURE__ */ new Map();
-  /** Releases of trusted peers whose cool-down ended, one at a time, so none is released twice. */
-  releasing = Promise.resolve();
-  /** The peer sessions (`deviceId/session`) this session sent a message to, and when: a `pause` counts only from one. */
-  sentTo = /* @__PURE__ */ new Map();
+  /** `breaker.json` writes, one at a time, each taking the rows when its turn comes. */
+  saving = Promise.resolve();
+  /** Sessions still to hear that a pause they were told about was lifted (sent at the next pass). */
+  pendingLifts = /* @__PURE__ */ new Set();
+  /** The peer sessions this device's sessions sent to in the last hour, device-wide: a `pause` counts only from one. */
+  sentTo;
   /** When the agent was last told that a peer session paused this device, by pair. */
   pausedToldAt = /* @__PURE__ */ new Map();
   /** What peers' breakers said about this device's messages, device-wide (pauses.ts). */
@@ -92227,6 +92348,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.breaker = new Breaker(() => this.config.breaker, this.now);
     this.ciBreaker = new Breaker(() => CI_BREAKER, this.now);
     this.pausedBy = new PausedBy(o3.mesh.pausedByPath, o3.env, this.now);
+    this.sentTo = new SentTo(o3.mesh.sentToPath, o3.env, this.now);
     this.ciKeys = new CiKeys({ path: o3.mesh.ciJwksPath, env: o3.env, fetch: o3.jwksFetch ?? fetchJwks, now: this.now });
     this.ciParked = new CiParked(files.ciParkedPath, o3.env);
   }
@@ -92649,8 +92771,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (!r6.ok && r6.reason === "roster_behind") {
       if (!parked) {
         const waiting2 = (await listDir(this.files.behindDir)).sort();
-        for (const name of waiting2.slice(0, Math.max(0, waiting2.length - (PARKED_MAX - 1)))) await removeFile(join9(this.files.behindDir, name));
-        await writeJson(join9(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
+        for (const name of waiting2.slice(0, Math.max(0, waiting2.length - (PARKED_MAX - 1)))) await removeFile(join10(this.files.behindDir, name));
+        await writeJson(join10(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
       }
       return "behind";
     }
@@ -92707,7 +92829,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async retryParked() {
     for (const name of await listDir(this.files.behindDir)) {
-      const path2 = join9(this.files.behindDir, name);
+      const path2 = join10(this.files.behindDir, name);
       const msg = await readJson(path2).catch(() => void 0);
       const outcome = msg === void 0 ? "dropped" : await this.check(msg, true).catch((e6) => this.parkedFailed(name, e6));
       if (outcome !== "behind") await tryRemove(path2, this.o.env);
@@ -92899,7 +93021,6 @@ var MeshSession = class _MeshSession extends EventEmitter {
   async accept(p3) {
     if (p3.kind === "ping" || p3.kind === "pong") return this.probe(p3);
     if (p3.kind === "pause") return this.pausedThere(p3);
-    await this.releaseDue();
     const from = this.fromAddress(p3);
     this.config = await this.o.mesh.loadConfig();
     const policy = policyFor(this.config, p3.from.device, p3.relayed === true);
@@ -92922,17 +93043,21 @@ var MeshSession = class _MeshSession extends EventEmitter {
       ...p3.kind === "file" ? { fileInfo: p3.file } : {}
     };
     if (policy === "hold") return this.hold({ ...held2, reason: "policy" });
+    await this.releaseDue();
     const admitted = this.breaker.admit(p3.from.device, entry.text.length, isTrusted(this.config, p3.from.device));
     if (!admitted.ok) {
       const pause = admitted.pause;
       if (admitted.newly) {
-        this.pauseFrom.set(pause.peer, { from, told: /* @__PURE__ */ new Set() });
+        this.pauseFrom.set(pause.peer, { from, told: /* @__PURE__ */ new Set(), announced: false });
         await this.savePauses();
         this.emit("breaker", { peer: from, state: "tripped", reason: pause.rule, ...breakerFields(pause) });
       }
-      const under = { rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, trusted: pause.trusted, until: pause.until, auto: pause.auto };
-      await this.hold({ ...held2, reason: "breaker", pause: under }, admitted.newly ? { person: pauseNotice(from, pause), agent: pauseNoticeForAgent(from, pause) } : void 0);
-      return this.tellPaused(pause, from, p3.id);
+      const record2 = this.pauseFrom.get(pause.peer);
+      const under = { rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, at: pause.at, until: pause.until, auto: pause.auto };
+      await this.hold({ ...held2, reason: "breaker", pause: under }, record2.announced ? void 0 : { person: pauseNotice(from, pause), agent: pauseNoticeForAgent(from, pause) });
+      record2.announced = true;
+      this.tellPaused(pause, record2, from, p3.id);
+      return;
     }
     const waiter = p3.kind === "result" && !unsolicited ? this.askWaiters.get(p3.reply_to) : void 0;
     if (waiter !== void 0 && p3.kind === "result") {
@@ -93082,24 +93207,25 @@ var MeshSession = class _MeshSession extends EventEmitter {
     try {
       await this.sweep();
       await this.readPresence();
-      for (const { id: id2, verdict } of await this.held.takeMarks()) await this.applyMark(id2, verdict).catch(() => void 0);
-      await this.releaseDue();
+      for (const { id: id2, verdict } of await this.held.takeMarks()) await this.onQueue(() => this.applyMark(id2, verdict)).catch(ignore);
+      await this.onQueue(() => this.releaseDue());
+      if (this.link !== void 0) await this.flushLifts();
       const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m4) => m4.id);
       if (dismissed.length > 0) {
         const { left } = await this.spool.dismissRelayed(dismissed);
-        for (const id2 of left) await writeAtomic(join9(this.files.dismissDir, `${id2}.dismiss`), "", this.o.env);
+        for (const id2 of left) await writeAtomic(join10(this.files.dismissDir, `${id2}.dismiss`), "", this.o.env);
       }
       for (const name of await listDir(this.files.controlDir)) {
         if (name.endsWith(".tmp")) continue;
         const done = /^send-([0-9A-Z]{26})\.done\.json$/.exec(name);
         if (done !== null) {
-          if (ulidTime(done[1]) < this.now() - ANSWER_KEEP_MS) await removeFile(join9(this.files.controlDir, name));
+          if (ulidTime(done[1]) < this.now() - ANSWER_KEEP_MS) await removeFile(join10(this.files.controlDir, name));
           continue;
         }
         const m4 = /^resume-(.+)$/.exec(name);
         const req = /^send-([0-9A-Z]{26})\.json$/.exec(name);
         if (req !== null && this.o.handover !== true) continue;
-        const path2 = join9(this.files.controlDir, name);
+        const path2 = join10(this.files.controlDir, name);
         const body = req === null ? void 0 : await readJson(path2).catch(() => void 0);
         if (!await tryRemove(path2, this.o.env)) continue;
         if (m4 !== null) await this.resumePeer(m4[1]);
@@ -93167,8 +93293,21 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
   }
   // ---- held messages ----
+  /**
+   * Runs `fn` on the inbound queue: after every frame received so far and before any received
+   * later. What changes the breaker's pauses or what they hold runs here, so a release, a
+   * person's decision and a message being admitted never interleave.
+   */
+  onQueue(fn) {
+    const run = this.inbound.then(fn);
+    this.inbound = run.then(ignore, ignore);
+    return run;
+  }
   /** The person's decision on a held message (the pane, `wim held`). Never reachable by a message. */
-  async decide(id2, verdict) {
+  decide(id2, verdict) {
+    return this.onQueue(() => this.decideNow(id2, verdict));
+  }
+  async decideNow(id2, verdict) {
     const item = await this.held.get(id2);
     if (item === void 0) throw new ClientError(`no held message ${id2}`, "not_found");
     const pins = item.ci?.pins;
@@ -93190,7 +93329,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async handOverSend(id2, body) {
     const r6 = body;
-    const answer = join9(this.files.controlDir, `send-${id2}.done.json`);
+    const answer = join10(this.files.controlDir, `send-${id2}.done.json`);
     try {
       if (typeof r6?.to !== "string" || typeof r6.text !== "string") throw new ClientError("malformed send request", "malformed");
       const out = await this.send(r6.to, r6.text);
@@ -93203,31 +93342,35 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
   }
   /** Lifts a breaker pause on a peer (by address) and releases what it held from that device. */
-  async resumePeer(peer) {
+  resumePeer(peer) {
+    return this.onQueue(() => this.resumeNow(peer));
+  }
+  async resumeNow(peer) {
     const device = this.roster.devices.find((d5) => d5.name === peer.slice(peer.indexOf("@") + 1));
     if (device === void 0) return 0;
     this.breaker.resume(device.id);
-    const told = this.pauseFrom.get(device.id)?.told ?? /* @__PURE__ */ new Set();
+    for (const to of this.pauseFrom.get(device.id)?.told ?? []) this.pendingLifts.add(to);
     this.pauseFrom.delete(device.id);
     await this.savePauses();
-    for (const to of told) this.sendPause(to, { state: "lifted" });
     this.emit("breaker", { peer, state: "resumed" });
     let n3 = 0;
     for (const item of await this.held.list()) {
       if (item.device !== device.id || item.reason !== "breaker") continue;
-      await this.decide(item.id, "approve");
+      await this.decideNow(item.id, "approve");
       n3++;
     }
     return n3;
   }
   /**
    * A mark the person left in the pane: approve, refuse, or approve and resume (`resume`), which
-   * also lifts the breaker's pause on the item's device and releases everything it held from there.
+   * also lifts the breaker's pause on the item's device and releases everything it held from
+   * there, in this session and in the device's other sessions, as `wim held resume` does.
    */
   async applyMark(id2, mark) {
-    if (mark !== "resume") return this.decide(id2, mark);
+    if (mark !== "resume") return this.decideNow(id2, mark);
     const item = await this.held.get(id2);
-    if (item?.reason !== "breaker" || await this.resumePeer(item.from) === 0) await this.decide(id2, "approve");
+    if (item?.reason !== "breaker" || await this.resumeNow(item.from) === 0) return this.decideNow(id2, "approve");
+    await resumeEverywhere(this.o.mesh, item.from, this.o.env, this.now, this.sid);
   }
   // ---- the loop breaker's pauses ----
   /** The running pauses of this session's breaker, with the address that tripped each and the sessions told. */
@@ -93241,83 +93384,116 @@ var MeshSession = class _MeshSession extends EventEmitter {
     });
   }
   /**
-   * Carries on the pauses an earlier process of this session wrote: each keeps its end, a trusted
-   * peer's cool-down still releases what it held (at the first pass, when it ended meanwhile), and
-   * the sessions told still hear a resume. Its counts start over.
+   * Carries on what an earlier process of this session wrote: each pause that still holds
+   * something keeps its end, a trusted peer's cool-down still releases (at the first pass, when it
+   * ended meanwhile), the sessions told still hear a resume, a release in the last hour still makes
+   * a second trip wait for the person, and lifts not yet sent go out. A pause that holds nothing
+   * any more is not taken back (an older `wim held resume` released what it held without knowing
+   * this file, and the counts start over anyway); its sessions hear it lifted.
    */
   async restorePauses() {
-    for (const r6 of await readPauses(this.files.breakerPath, Number.NEGATIVE_INFINITY)) {
+    const file2 = await readBreakerFile(this.files.breakerPath);
+    const held2 = await this.held.list();
+    for (const r6 of file2.pauses) {
       const { from, told, ...pause } = r6;
+      if (!held2.some((h6) => h6.reason === "breaker" && h6.device === pause.peer && h6.pause !== void 0 && h6.pause.at === pause.at)) {
+        for (const to of told) this.pendingLifts.add(to);
+        continue;
+      }
       this.breaker.restore(pause);
-      this.pauseFrom.set(pause.peer, { from, told: new Set(told) });
+      this.pauseFrom.set(pause.peer, { from, told: new Set(told), announced: true });
     }
+    for (const [peer, at] of Object.entries(file2.released)) this.breaker.restoreRelease(peer, at);
+    for (const to of file2.lifts) this.pendingLifts.add(to);
     await this.savePauses();
   }
   /**
    * Writes the pauses where `wim held list` reads them (it shows the running ones) and a later
    * process of this session takes them back: a cool-down that ended stays written until its
-   * release has run, so a process that exits first leaves it for the next one.
+   * release has run, so a process that exits first leaves it for the next one. One write at a
+   * time, each taking the rows when its turn comes, so an older picture never lands last.
    */
-  async savePauses() {
-    await savePauses(this.files.breakerPath, this.rowsOf(this.breaker.kept()), this.o.env);
-  }
-  /** Releases every trusted peer whose cool-down has ended; resolves once the releases already due are done. */
-  releaseDue() {
-    const due = this.breaker.takeDue();
-    const run = this.releasing.then(async () => {
-      for (const p3 of due) await this.autoRelease(p3);
-    });
-    this.releasing = run.catch(() => void 0);
+  savePauses() {
+    const run = this.saving.then(
+      () => savePauses(this.files.breakerPath, { pauses: this.rowsOf(this.breaker.kept()), released: this.breaker.releases(), lifts: [...this.pendingLifts] }, this.o.env)
+    );
+    this.saving = run.catch(ignore);
     return run;
   }
   /**
-   * A trusted peer's cool-down ended: the breaker already lifted it, and what it held is
-   * delivered, as a resume by the person would, unless the person stopped trusting the device
-   * meanwhile. The session is told either way. Never reachable by a message or a tool.
+   * Releases every trusted peer whose cool-down has ended. On the inbound queue only (accept, and
+   * the housekeeping pass through onQueue), so nothing is admitted or decided meanwhile.
    */
-  async autoRelease(p3) {
-    const from = this.pauseFrom.get(p3.peer).from;
-    this.pauseFrom.delete(p3.peer);
-    await this.savePauses();
-    this.emit("breaker", { peer: from, state: "resumed", auto: true });
-    this.config = await this.o.mesh.loadConfig();
-    const still = isTrusted(this.config, p3.peer);
-    let released = 0;
-    let kept = 0;
-    for (const item of await this.held.list()) {
-      if (item.device !== p3.peer || item.reason !== "breaker") continue;
-      if (still) await this.decide(item.id, "approve");
-      if (still) released++;
-      else kept++;
+  async releaseDue() {
+    for (; ; ) {
+      const due = this.breaker.takeDue();
+      if (due.length === 0) return;
+      const taken = due.map((p3) => ({ p: p3, record: this.pauseFrom.get(p3.peer) }));
+      for (const { p: p3 } of taken) this.pauseFrom.delete(p3.peer);
+      await this.savePauses();
+      for (const { p: p3, record: record2 } of taken) await this.autoRelease(p3, record2);
     }
-    await this.notice(from, releasedNotice(from, p3, released, kept));
-  }
-  /** Tells the session that sent `id` that this session's breaker holds its device's messages, once a pause. */
-  async tellPaused(pause, to, id2) {
-    const told = this.pauseFrom.get(pause.peer).told;
-    if (told.has(to)) return;
-    told.add(to);
-    await this.savePauses();
-    this.sendPause(to, { state: "paused", rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, until: pause.until, auto: pause.auto }, id2);
-  }
-  /** Sends a `pause` without waiting for the relay's answer, like a pong. */
-  sendPause(to, pause, replyTo) {
-    void this.post(to, void 0, { kind: "pause", pause, ...replyTo === void 0 ? {} : { reply_to: replyTo } }).catch((e6) => this.log(`wim: no pause sent to ${to}: ${e6.message}`));
   }
   /**
-   * A peer session's breaker holds this device's messages, or lifted that (SPEC section 12). Taken
-   * only from a session this one sent to in the last hour, and only as a label: it changes what a
-   * send to that session reports (`held`), never what is sent or delivered. The agent is told when
-   * a pause starts, at most once in 10 minutes per peer session.
+   * A trusted peer's cool-down ended: the breaker already lifted it. Of what it held under that
+   * pause, oldest first, at most the per-peer limit is delivered, as a resume by the person would,
+   * and counted as delivered; the rest waits for the person, as in 0.1.8. Nothing is delivered for
+   * a device the person stopped trusting meanwhile, or one no longer in the roster (revoked). The
+   * session is told either way. Never reachable by a message or a tool.
+   */
+  async autoRelease(p3, record2) {
+    this.emit("breaker", { peer: record2.from, state: "resumed", auto: true });
+    this.config = await this.o.mesh.loadConfig();
+    const still = isTrusted(this.config, p3.peer) && this.roster.devices.some((d5) => d5.id === p3.peer);
+    const mine = (await this.held.list()).filter((h6) => h6.reason === "breaker" && h6.device === p3.peer && h6.pause !== void 0 && h6.pause.at === p3.at);
+    const out = mine.slice(0, still ? this.config.breaker.perPeerPerHour : 0);
+    for (const item of out) await this.decideNow(item.id, "approve");
+    this.breaker.count(p3.peer, out.length);
+    await this.notice(record2.from, releasedNotice(record2.from, p3, out.length, mine.length - out.length, still ? "limit" : "untrusted"));
+  }
+  /**
+   * Tells the session that sent `id` that this session's breaker holds its device's messages, once
+   * a pause. Without waiting for the relay, like a pong; one that cannot be sent is tried again
+   * with that session's next held message.
+   */
+  tellPaused(pause, record2, to, id2) {
+    if (record2.told.has(to)) return;
+    record2.told.add(to);
+    const info = { state: "paused", rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, until: pause.until, auto: pause.auto };
+    void this.savePauses().then(() => this.post(to, void 0, { kind: "pause", pause: info, reply_to: id2 })).catch((e6) => {
+      record2.told.delete(to);
+      this.log(`wim: no pause sent to ${to}: ${e6.message}`);
+    });
+  }
+  /** Sends the lifts still owed; one that cannot be sent now stays for the next pass. */
+  async flushLifts() {
+    let sent2 = 0;
+    for (const to of [...this.pendingLifts]) {
+      const ok2 = await this.post(to, void 0, { kind: "pause", pause: { state: "lifted" } }).then(
+        () => true,
+        (e6) => void this.log(`wim: no pause sent to ${to}: ${e6.message}`)
+      );
+      if (ok2 !== true) continue;
+      this.pendingLifts.delete(to);
+      sent2++;
+    }
+    if (sent2 > 0) await this.savePauses();
+  }
+  /**
+   * A peer session's breaker holds this device's messages, or lifted that (SPEC section 12). A
+   * pause is taken only from a session one of this device's sessions sent to in the last hour, a
+   * lift from any session (it can only clear a label); either way only as a label: it changes what
+   * a send to that session reports (`held`), never what is sent or delivered. The agent is told
+   * when a pause starts, at most once in 10 minutes per peer session.
    */
   async pausedThere(p3) {
     this.config = await this.o.mesh.loadConfig();
+    if (policyLevel(this.config, p3.from.device) === "refuse") return;
     const pair = `${p3.from.device}/${p3.from.session}`;
-    const sent2 = this.sentTo.get(pair);
-    if (policyLevel(this.config, p3.from.device) === "refuse" || sent2 === void 0 || this.now() - sent2 > PAUSE_LISTEN_MS) return;
     const to = this.fromAddress(p3);
+    if (p3.pause.state === "lifted") return this.pausedBy.note(pair, to, p3.pause, this.now());
+    if (!await this.sentTo.has(pair)) return;
     await this.pausedBy.note(pair, to, p3.pause, this.now());
-    if (p3.pause.state === "lifted") return;
     const last = this.pausedToldAt.get(pair);
     if (last !== void 0 && this.now() - last < PAUSE_TELL_MS) return;
     this.pausedToldAt.set(pair, this.now());
@@ -93431,7 +93607,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   recordSend(out, text2, opts) {
     if (out.sent === void 0) return Promise.resolve({ id: out.id, results: out.local });
     const { id: id2, routed, frame, missing, sent: sent2 } = out;
-    for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.noteSentTo(a5, (text2 ?? "").length);
+    for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.breaker.noteSent(this.pairOf(a5).split("/")[0], (text2 ?? "").length);
     const name = (d5) => this.roster.devices.find((r6) => r6.id === d5).name;
     const unprotected = this.legacyIds(frame).map(name);
     const outcome = { id: id2, results: [...out.local, ...sent2.results], ...unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {} };
@@ -93446,15 +93622,21 @@ var MeshSession = class _MeshSession extends EventEmitter {
       ...opts.status === void 0 ? {} : { status: opts.status },
       ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },
       ...opts.relayed === true ? { relayed: true } : {}
-    }).then(() => this.heldRows(outcome));
+    }).then(() => this.sentTo.note(this.sessionsOf(routed))).then(() => this.heldRows(outcome));
   }
-  /** A sent message's breaker count, and the session it went to, which a `pause` may then come from. */
-  noteSentTo(address, length) {
-    const pair = this.pairOf(address);
-    this.breaker.noteSent(pair.split("/")[0], length);
-    this.sentTo.delete(pair);
-    this.sentTo.set(pair, this.now());
-    if (this.sentTo.size > SENT_TO_MAX) this.sentTo.delete(this.sentTo.keys().next().value);
+  /**
+   * The peer sessions (`deviceId/session`) a send reached, as far as this session knows them: each
+   * named session, each member of a named room, every other session for `*`. A `pause` counts
+   * only from one of them, a room member's included.
+   */
+  sessionsOf(routed) {
+    const pairs = /* @__PURE__ */ new Set();
+    for (const a5 of routed) {
+      if (a5 === "*" || isRoom(a5)) {
+        for (const p3 of this.peers.values()) if (a5 === "*" || p3.rooms.includes(a5)) pairs.add(this.pairOf(p3.address));
+      } else pairs.add(this.pairOf(a5));
+    }
+    return [...pairs];
   }
   /** Routed or queued rows whose session said its breaker holds this device's messages, reported as `held`. */
   async heldRows(outcome) {
@@ -110879,8 +111061,8 @@ var ClientSDK = class {
       });
       return [...kept, additions].join("&");
     };
-    const encodeQueryRecord = (record3) => {
-      return Object.entries(record3).map(([k5, v]) => {
+    const encodeQueryRecord = (record2) => {
+      return Object.entries(record2).map(([k5, v]) => {
         if (v == null) {
           return void 0;
         }
@@ -111287,11 +111469,11 @@ function parseMessage(chunk, parse4, state2, dataRequired) {
   const lines = text2.split(/\r\n|\r|\n/);
   const dataLines = [];
   const ret = {};
-  let ignore2 = true;
+  let ignore3 = true;
   for (const line of lines) {
     if (!line || line.startsWith(":"))
       continue;
-    ignore2 = false;
+    ignore3 = false;
     const i6 = line.indexOf(":");
     let field = line;
     let value2 = "";
@@ -111309,7 +111491,7 @@ function parseMessage(chunk, parse4, state2, dataRequired) {
       ret.retry = Number(value2);
     }
   }
-  if (ignore2)
+  if (ignore3)
     return;
   ret.id = state2.eventId;
   if (dataLines.length)
@@ -119556,11 +119738,11 @@ import { rm } from "node:fs/promises";
 
 // src/home.ts
 import { promises as fs8 } from "node:fs";
-import { join as join15 } from "node:path";
+import { join as join16 } from "node:path";
 
 // src/agentpath.ts
 import { promises as fs7 } from "node:fs";
-import { join as join14 } from "node:path";
+import { join as join15 } from "node:path";
 
 // src/errors.ts
 var SetupError = class extends Error {
@@ -119571,13 +119753,13 @@ var NotReadyYet = class extends SetupError {
 
 // src/agentpath.ts
 function agentDir(root5) {
-  return join14(root5, "agent");
+  return join15(root5, "agent");
 }
 function agentLogPath(root5) {
-  return join14(agentDir(root5), "log.jsonl");
+  return join15(agentDir(root5), "log.jsonl");
 }
 function settingsPath(root5) {
-  return join14(agentDir(root5), "config.json");
+  return join15(agentDir(root5), "config.json");
 }
 async function agentEndpoint(root5, env3, create2) {
   const dir = agentDir(root5);
@@ -119588,7 +119770,7 @@ async function agentEndpoint(root5, env3, create2) {
   } catch {
     return void 0;
   }
-  const token = env3.platform === "win32" ? await pipeToken(join14(dir, "pipe"), env3, create2) : "";
+  const token = env3.platform === "win32" ? await pipeToken(join15(dir, "pipe"), env3, create2) : "";
   if (token === void 0) return void 0;
   const endpoint2 = agentEndpointFor(dir, env3.platform, token);
   const tooLong = endpointProblem(endpoint2, env3.platform);
@@ -119604,11 +119786,11 @@ async function pipeToken(path2, env3, create2) {
   return token;
 }
 function startLockPath(root5) {
-  return join14(agentDir(root5), "start.lock");
+  return join15(agentDir(root5), "start.lock");
 }
 async function retireEndpoint(root5, env3, endpoint2) {
   if (env3.platform !== "win32") return;
-  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs7.rm(join14(agentDir(root5), "pipe"), { force: true });
+  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs7.rm(join15(agentDir(root5), "pipe"), { force: true });
 }
 async function readAgentSettings(root5) {
   const raw = await readJson(settingsPath(root5));
@@ -119722,10 +119904,10 @@ function openPrekeySecret(data, prekey, sealed) {
 
 // src/home.ts
 async function deviceDirs(base) {
-  const candidates = [base, ...(await listDir(join15(base, "profiles"))).sort().map((p3) => join15(base, "profiles", p3))];
+  const candidates = [base, ...(await listDir(join16(base, "profiles"))).sort().map((p3) => join16(base, "profiles", p3))];
   const found = [];
   for (const dir of candidates) {
-    if (await fs8.lstat(join15(dir, "device.json")).then(() => true, () => false)) found.push(dir);
+    if (await fs8.lstat(join16(dir, "device.json")).then(() => true, () => false)) found.push(dir);
   }
   return found;
 }
@@ -119740,10 +119922,10 @@ var Home = class {
     this.env = env3;
   }
   get devicePath() {
-    return join15(this.root, "device.json");
+    return join16(this.root, "device.json");
   }
   meshDir(mesh) {
-    return join15(this.root, "meshes", mesh);
+    return join16(this.root, "meshes", mesh);
   }
   /**
    * The key file as it is on disk, refusing one that other users could read: a plaintext one
@@ -119829,10 +120011,10 @@ var Home = class {
     return dirProblem(stat3.mode, this.env.platform);
   }
   async meshIds() {
-    const names = await listDir(join15(this.root, "meshes"));
+    const names = await listDir(join16(this.root, "meshes"));
     const ids = [];
     for (const name of names.sort()) {
-      if (await readJson(join15(this.root, "meshes", name, "mesh.json")) !== void 0) ids.push(name);
+      if (await readJson(join16(this.root, "meshes", name, "mesh.json")) !== void 0) ids.push(name);
     }
     return ids;
   }
@@ -119957,11 +120139,11 @@ async function decideJoin(session, body, confirm, now) {
   const invites = new Invites(session.mesh, session.files.env, now);
   const screened = await screenJoin(invites, session.roster, body, now());
   if (screened.outcome !== "ok") return screened;
-  const { record: record3, device, sas } = screened;
-  if (!record3.auto && !await confirm({ name: device.name, id: device.id, sas })) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
+  const { record: record2, device, sas } = screened;
+  if (!record2.auto && !await confirm({ name: device.name, id: device.id, sas })) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
   await publishRoster(session, (current) => nextRosterWith(current, { add: [admitJoin(device, now())] }, session.device.keyring, now()));
-  await invites.markUsed(record3.id);
-  await new PendingJoins(session.mesh, session.files.env).remove(record3.id);
+  await invites.markUsed(record2.id);
+  await new PendingJoins(session.mesh, session.files.env).remove(record2.id);
   return { outcome: "admitted", name: device.name };
 }
 async function admitPending(session, name, typed, now) {
@@ -120155,68 +120337,6 @@ async function recoverMesh(o3) {
 import { constants as constants2, promises as fs9 } from "node:fs";
 import { createInterface } from "node:readline";
 import { isAbsolute as isAbsolute3, join as join17 } from "node:path";
-
-// src/offline.ts
-import { join as join16 } from "node:path";
-async function listAllHeld(mesh, env3) {
-  const rows = [];
-  for (const sid of await listSessions(mesh)) {
-    const files = new SessionFiles(mesh, sid, env3);
-    const name = (await files.load())?.name ?? "?";
-    for (const item of await new HeldBox(files.heldDir, env3).list()) rows.push({ ...item, sid, session: name });
-  }
-  return rows.sort((a5, b5) => a5.at - b5.at);
-}
-async function applyOffline(files, item, verdict, config2, env3, now) {
-  const box = new HeldBox(files.heldDir, env3);
-  await box.remove(item.id);
-  if (verdict === "refuse") return;
-  const state2 = await files.load();
-  const spool = await Spool.open(files.spoolDir, env3, state2?.spool ?? 0);
-  const framed = item.ci === void 0 ? releasedFrame(config2, item.device, item.entry) : { rendered: item.rendered, relayed: true, informs: true };
-  await spool.write({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...framed });
-  if (state2 !== void 0) await files.save({ ...state2, spool: spool.highest });
-  await new History(files.historyPath, now).append(item.entry);
-}
-async function decideHeld(mesh, id2, verdict, env3, now, skipSid) {
-  let n3 = 0;
-  const config2 = await mesh.loadConfig();
-  const rules = await loadCiRules(mesh.ciRulesPath).catch(() => []);
-  for (const row of await listAllHeld(mesh, env3)) {
-    if (row.id !== id2 || row.sid === skipSid) continue;
-    const pins = row.ci?.pins;
-    if (verdict === "approve" && pins !== void 0 && !isPinned(rules, row.ci.rule, pins)) continue;
-    const files = new SessionFiles(mesh, row.sid, env3);
-    const later = await files.isLiveElsewhere() || verdict === "approve" && row.fileInfo !== void 0;
-    if (later) await new HeldBox(files.heldDir, env3).mark(id2, verdict);
-    else await applyOffline(files, row, verdict, config2, env3, now);
-    n3++;
-  }
-  return n3;
-}
-async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
-  let released = 0;
-  const config2 = await mesh.loadConfig();
-  for (const sid of (await listSessions(mesh)).filter((s3) => s3 !== skipSid)) {
-    const files = new SessionFiles(mesh, sid, env3);
-    if (await files.isLiveElsewhere()) {
-      await writeAtomic(join16(files.controlDir, `resume-${peer}`), "", env3);
-      continue;
-    }
-    const pauses = await readPauses(files.breakerPath, now());
-    await savePauses(files.breakerPath, pauses.filter((p3) => p3.from.split("@")[1] !== peer.split("@")[1]), env3);
-    const box = new HeldBox(files.heldDir, env3);
-    for (const item of await box.list()) {
-      if (item.from.split("@")[1] !== peer.split("@")[1] || item.reason !== "breaker") continue;
-      if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
-      else await applyOffline(files, item, "approve", config2, env3, now);
-      released++;
-    }
-  }
-  return released;
-}
-
-// src/events.ts
 var EVENTS_VERSION = 1;
 var FOLLOW_READ_MAX = 1024 * 1024;
 var TIE_SLACK = 16;
@@ -120345,6 +120465,9 @@ async function runEvents(d5) {
     devices2 = remember(devs, (r6) => r6["id"]);
     peers2 = remember(rows.map(sessionRow), (r6) => r6["address"]);
     leases = remember(leaseRows, (l3) => l3.name);
+    for (const p3 of await listAllPauses(d5.mesh, d5.env, d5.now())) {
+      if (!paused.has(p3.from)) paused.set(p3.from, { peer: p3.from, at: p3.at, reason: p3.rule, until: p3.until, auto: p3.auto });
+    }
     for (const h6 of held2.values()) {
       const peer = h6.row["from"];
       if (h6.row["reason"] === "breaker" && !paused.has(peer)) paused.set(peer, pausedFromHold(h6.row));
@@ -122955,7 +123078,7 @@ function showPaths(home, platform2, kind = "recovery") {
 }
 var PROOF_WAIT_MS = 5e3;
 var PROOF_MAX = 128;
-function ignore() {
+function ignore2() {
 }
 var absent = () => void 0;
 async function removeOwnProof(path2, proof) {
@@ -122969,7 +123092,7 @@ async function holdForShow(paths, code2, o3) {
   const server = createServer2((socket) => {
     sockets.add(socket);
     socket.once("close", () => sockets.delete(socket));
-    socket.on("error", ignore);
+    socket.on("error", ignore2);
     socket.setTimeout(o3.proofWaitMs ?? PROOF_WAIT_MS, () => socket.destroy());
     socket.setEncoding("utf8");
     let line = "";
@@ -123013,7 +123136,7 @@ async function holdForShow(paths, code2, o3) {
       finish(true);
     });
     o3.signal.addEventListener("abort", onAbort, { once: true });
-    (o3.onListening ?? ignore)();
+    (o3.onListening ?? ignore2)();
   });
 }
 async function fetchHeldCode(paths) {

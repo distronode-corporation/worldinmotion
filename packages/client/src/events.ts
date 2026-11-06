@@ -20,6 +20,7 @@ import type { Dialer } from "./wire.ts";
 import { SetupError } from "./errors.ts";
 import { resolveInvite, type BoxFetcher } from "./shortcode.ts";
 import { decideHeld, listAllHeld, resumeEverywhere, type HeldRow } from "./offline.ts";
+import { listAllPauses } from "./pauses.ts";
 import { policyLevel } from "./render.ts";
 import { listSessions, SessionFiles } from "./session.ts";
 
@@ -216,7 +217,11 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     devices = remember(devs, (r) => r["id"] as string);
     peers = remember(rows.map(sessionRow), (r) => r["address"] as string);
     leases = remember(leaseRows, (l) => l.name);
-    // Breaker holds already on disk count as paused peers too (from before this process started).
+    // Running pauses on disk count as paused peers too (from before this process started, or in
+    // another session), and so do breaker holds an older client wrote without a pause file.
+    for (const p of await listAllPauses(d.mesh, d.env, d.now())) {
+      if (!paused.has(p.from)) paused.set(p.from, { peer: p.from, at: p.at, reason: p.rule, until: p.until, auto: p.auto });
+    }
     for (const h of held.values()) {
       const peer = h.row["from"] as string;
       if (h.row["reason"] === "breaker" && !paused.has(peer)) paused.set(peer, pausedFromHold(h.row));

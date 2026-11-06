@@ -21,7 +21,7 @@ export type HeldItem = {
   rendered: string;
   reason: "policy" | "breaker";
   /** For a breaker hold: the pause it was held under (the rule, its numbers, when it ends). */
-  pause?: Pick<Pause, "rule" | "count" | "limit" | "minutes" | "trusted" | "until" | "auto">;
+  pause?: Pick<Pause, "rule" | "count" | "limit" | "minutes" | "at" | "until" | "auto">;
   /** A held file's details; it is fetched only once the person approves (revision 4, M6). */
   fileInfo?: FileInfo;
   /** The message's own fields, for history (and in-process listeners) once it is delivered. */

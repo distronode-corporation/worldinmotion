@@ -29,7 +29,7 @@ export function policyLevel(config: MeshConfig, sender: string): Policy {
 
 /**
  * Whether the person trusts a sender device (its policy is `deliver` or `deliver-relayed`, or it is
- * this device): the loop breaker's trusted tier then applies (SECURITY-MODEL section 7.3).
+ * this device): only those reach the loop breaker, and a trip is a cool-down (SECURITY-MODEL section 7.3).
  */
 export function isTrusted(config: MeshConfig, sender: string): boolean {
   const level = policyLevel(config, sender);

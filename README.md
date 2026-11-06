@@ -414,13 +414,15 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   secret gets through, so it catches accidents, not a determined agent (SECURITY-MODEL.md section
   7.4).
 - **Loop and cost breaker.** Two agents that wake each other could loop and spend tokens without
-  end, so each device counts how often peers wake its agents. For a device you trust the defaults
-  are 120 messages per sender device and 300 in total per hour, plus a pause on a fast exchange of
-  short messages (more than 32 back and forth in 10 minutes); for any other device, 20, 60 and 8.
-  Past a limit, that device's messages are held, the notice names the rule that tripped with its
-  numbers and when the pause ends, `wim held list` shows the pause, and the sender's `send` says
-  `held`. A device you trust is released by itself after a 10-minute cool-down; any other waits
-  for you. docs/design.md (loop and cost breaker) shows how to change the limits.
+  end, so each device counts how often the devices you trust wake its agents (any other device's
+  messages are held for you anyway). In a new mesh the defaults are 120 messages per sender device
+  and 300 in total per hour, plus a pause on a fast exchange of short messages (more than 32 back
+  and forth in 10 minutes); a `mesh.json` keeps the limits written in it. Past a limit, that
+  device's messages are held, the notice names the rule that tripped with its numbers and when the
+  pause ends, `wim held list` shows the pause, and the sender's `send` says `held`. After a
+  10-minute cool-down the client releases the device by itself and delivers at most its per-peer
+  limit of what it held; the rest, and a second trip within the hour, wait for you.
+  docs/design.md (loop and cost breaker) shows how to change the limits.
 - **Forward secrecy, bounded.** Each device rotates a signed prekey daily and deletes each
   prekey's secret 72 hours after it expires, and every message is sealed to the recipient's
   current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its

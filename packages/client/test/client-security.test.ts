@@ -217,8 +217,8 @@ describe("inbound policy and the breaker", () => {
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     // A mesh made now, on the device that created it and on one that joined, holds the defaults.
     for (const d of devices) expect((await new MeshFiles(d.home.meshDir(mesh), FS).loadConfig()).breaker).toEqual(DEFAULT_BREAKER);
-    // Device one is trusted on two, so its tier applies: 2 an hour, then a long cool-down.
-    const limits = { perPeerPerHour: 50, totalPerHour: 50, pingPong: true, pingPongExchanges: 32, trusted: { perPeerPerHour: 2, totalPerHour: 50, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 60 } };
+    // Device one is trusted on two: 2 an hour, then a long cool-down.
+    const limits = { perPeerPerHour: 2, totalPerHour: 50, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 60 };
     await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: limits }));
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
@@ -230,7 +230,7 @@ describe("inbound policy and the breaker", () => {
     expect(
       notices.some((n) =>
         n.rendered.includes(
-          `worldinmotion paused a@one: the per-peer limit: 3 messages from a@one in 60 minutes, limit 2; until ${end}, when the client releases it and delivers what it held (a trusted device's cool-down). /wim to approve, or to approve and resume it now`,
+          `worldinmotion paused a@one: the per-peer limit: 3 messages from a@one in 60 minutes, limit 2; until ${end}, when the client releases it and delivers up to its per-peer limit of what it held (a trusted device's cool-down). /wim to approve, or to approve and resume it now`,
         ),
       ),
     ).toBe(true);
@@ -240,10 +240,10 @@ describe("inbound policy and the breaker", () => {
     const forAgent = notices.filter((n) => n.held === undefined && n.heldBy === undefined && n.forPerson === undefined);
     expect(forAgent).toHaveLength(1);
     expect(forAgent[0]!.rendered).toBe(
-      `worldinmotion notice (from the local client, not from a peer or the person): this device's loop breaker paused a@one (the per-peer limit: 3 messages from a@one in 60 minutes, limit 2): its messages to this session are held from now on, not delivered to you, until the cool-down ends or your person releases them. Only the person can release them early: \`wim held resume a@one\` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). The client releases a@one by itself at ${end} and delivers what it held then; your person can release it earlier. If you are waiting on a@one, tell your person; it has not gone silent.`,
+      `worldinmotion notice (from the local client, not from a peer or the person): this device's loop breaker paused a@one (the per-peer limit: 3 messages from a@one in 60 minutes, limit 2): its messages to this session are held from now on, not delivered to you, until the cool-down ends or your person releases them. Only the person can release them early: \`wim held resume a@one\` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). The client releases a@one by itself at ${end} and delivers up to its per-peer limit of what it held then; the rest waits for your person, who can release it earlier. If you are waiting on a@one, tell your person; it has not gone silent.`,
     );
     // Where \`wim held list\` reads it.
-    expect(JSON.parse(await fs.readFile(b.files.breakerPath, "utf8"))).toEqual({ pauses: [expect.objectContaining({ from: "a@one", peer: devices[0]!.device.id, rule: "peer", count: 3, limit: 2, until: until1, auto: true })] });
+    expect(JSON.parse(await fs.readFile(b.files.breakerPath, "utf8"))).toMatchObject({ pauses: [expect.objectContaining({ from: "a@one", peer: devices[0]!.device.id, rule: "peer", count: 3, limit: 2, until: until1, auto: true })] });
     expect(b.pausedRows()).toEqual([expect.objectContaining({ from: "a@one", rule: "peer" })]);
 
     // The sender heard it once (one \`pause\` for the two held), and its sends to b now say held.
@@ -273,7 +273,7 @@ describe("inbound policy and the breaker", () => {
     await fs.writeFile(join(b.files.controlDir, "junk"), "");
     await until(async () => (await unread(b)).filter((i) => i.kind === "msg").length === 6);
     expect(await b.held.list()).toEqual([]);
-    expect(JSON.parse(await fs.readFile(b.files.breakerPath, "utf8"))).toEqual({ pauses: [] });
+    expect(JSON.parse(await fs.readFile(b.files.breakerPath, "utf8"))).toMatchObject({ pauses: [] });
     // Both told sessions hear it lifted, and the device's sends there are routed again.
     await until(async () => Object.keys(await a.pausedBy.active()).length === 0);
     expect((await a.send("b@two", "7")).results).toEqual([{ to: "b@two", status: "routed" }]);

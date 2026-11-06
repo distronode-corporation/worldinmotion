@@ -134,7 +134,11 @@ describe("test vectors", { timeout: 60_000 }, () => {
       const atAlice = { ...v.receiver, deviceId: alice.id, keys: aliceKeys, prekey: held([pk.prekeys.alice.prekey.id]) };
       expect(openMessage(v.frame, { roster: pause.roster, me: atAlice, now: v.now }), which).toEqual({ ok: true, value: v.plaintext });
     }
-    expect(pause.paused.plaintext).toMatchObject({ kind: "pause", reply_to: expect.any(String), pause: { state: "paused", rule: "peer", count: 121, limit: 120, minutes: 10, auto: true } });
+    expect(pause.paused.plaintext).toMatchObject({ kind: "pause", reply_to: expect.any(String), pause: { state: "paused", rule: "peer", count: 121, limit: 120, minutes: 60, auto: true } });
+    // `minutes` is the window the rule counts over (SPEC section 12), never the cool-down: 60 for
+    // the per-peer and total rules, 10 for ping-pong.
+    const p = pause.paused.plaintext.pause;
+    expect(p.minutes).toBe({ peer: 60, total: 60, pingpong: 10 }[p.rule as "peer"]);
     expect(pause.lifted.plaintext.pause).toEqual({ state: "lifted" });
     for (const v of pause.invalid_plaintexts) expect(plaintextSchema.safeParse(v.plaintext).success, v.why).toBe(false);
     // A client before \`pause\`: the same schema without that kind, which refuses both, so the

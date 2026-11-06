@@ -1131,9 +1131,9 @@ other opened it, and the other sealed the pong and the pinging device opened it.
   print one row per session and one per device.
 
 **Pause.** A receiving client whose loop and cost breaker (SECURITY-MODEL section 7.3) paused a
-sender device tells each session of that device that sends to it during the pause, once per pause,
-with a `pause` addressed to that session; and, when the person resumes the device before the pause
-ends, tells each session it told that the pause was lifted:
+sender device tells each session of that device that sends to it during the pause (directly, to a
+room or to `*`), once per pause, with a `pause` addressed to that session; and, when the person
+resumes the device before the pause ends, tells each session it told that the pause was lifted:
 
 ```json
 "pause": { "state": "paused", "rule": "peer", "count": 121, "limit": 120, "minutes": 60,
@@ -1144,17 +1144,20 @@ ends, tells each session it told that the pause was lifted:
 - `rule` is `peer` (the per-peer limit), `total` (the total limit) or `pingpong`. `count` is what
   the rule counted when it tripped and `limit` its limit, both whole numbers of at least 1;
   `minutes` (1 to 60) is the window the rule counts over. `until` is when the pause ends: after
-  `at`, and at most an hour after it. `auto` is true when the receiving client then releases what
-  it held by itself (a trusted device's cool-down), false when that waits for its person.
+  `at`, and at most an hour after it. `auto` is true when the receiving client then releases the
+  sender by itself (a trusted device's cool-down, delivering at most the per-peer limit of what it
+  held), false when that waits for its person.
 - Like a ping or pong, a `pause` carries no `text`, `relayed` or `derived`, is written by the
   client itself and never by an agent, is never spooled, kept in history, receipted or shown to an
   agent as a message, starts no agent turn, and counts against no breaker. A receiver drops one
-  from a device whose policy is `refuse`, and one from a session it has not sent a message to in
-  the last hour.
+  from a device whose policy is `refuse`, and a `paused` from a session none of its device's
+  sessions sent a message to in the last hour (directly, or as a member of a room or `*` it sent
+  to). It takes a `lifted` from any session, since a lift can only clear a label.
 - A `pause` is a label, like a receipt (section 7): advisory, never proof that anything was or was
   not delivered. A receiver uses it only for what it reports: until `until`, or a `lifted` from the
   same session, it MAY report a send to that session as `held` instead of the relay's `routed` or
-  `queued`, with the rule and its numbers, and it SHOULD tell the sending agent once. It MUST NOT
+  `queued`, with the rule and its numbers, and it SHOULD tell the sending agent once. A row for a
+  room or `*` keeps the relay's status: one member's pause does not hold the room. It MUST NOT
   change what it sends, holds or delivers because of one, and a `pause` never lifts, shortens or
   resumes a pause on the device that receives it.
 - A client older than this kind drops it as `plaintext_malformed` (section 6, step 8); its sends

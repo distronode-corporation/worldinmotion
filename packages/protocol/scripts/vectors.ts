@@ -638,7 +638,8 @@ function pauseVectors() {
   const writer = { session: "writer", sid: "01K700000000000000000005D1" };
   const reviewer = { session: "reviewer", sid: "01K700000000000000000005D2" };
   const held = "01K700000000000000000006H1";
-  const paused = { state: "paused" as const, rule: "peer" as const, count: 121, limit: 120, minutes: 10, until: T + 40 + 600_000, auto: true };
+  // The per-peer rule counts over 60 minutes (ping-pong over 10); the 10-minute cool-down is `until`.
+  const paused = { state: "paused" as const, rule: "peer" as const, count: 121, limit: 120, minutes: 60, until: T + 40 + 600_000, auto: true };
   return withRandomSource(stream("wim vectors pause"), () => {
     // bob's breaker paused alice: his reviewer session tells writer@alice, whose message `held` it
     // holds, and later that the person lifted the pause. Each is sealed to alice's prekey.
@@ -687,7 +688,7 @@ function pauseVectors() {
     for (const v of invalid) check(!plaintextSchema.safeParse(v.plaintext).success, `pause invalid ${v.why}`);
     return {
       description:
-        "Pause (SPEC section 12), with the roster and prekeys of prekey.json. bob's loop breaker paused alice, so his reviewer session sends writer@alice a `pause` with every field, whose `reply_to` names the message it held, and later a `pause` saying the person lifted it; each is sealed to alice's prekey, and alice opens it at its `now` to `plaintext`. Neither carries text. Each `invalid_plaintexts` entry MUST be refused by the plaintext schema (reason `plaintext_malformed` when it arrives sealed). `older_kinds` are the kinds a client before `pause` knows: a plaintext schema of only those kinds MUST refuse both plaintexts, which is how an older client drops them (`plaintext_malformed`).",
+        "Pause (SPEC section 12), with the roster and prekeys of prekey.json. bob's loop breaker paused alice (the per-peer rule, which counts over 60 minutes; the cool-down ends at `until`), so his reviewer session sends writer@alice a `pause` with every field, whose `reply_to` names the message it held, and later a `pause` saying the person lifted it; each is sealed to alice's prekey, and alice opens it at its `now` to `plaintext`. Neither carries text. Each `invalid_plaintexts` entry MUST be refused by the plaintext schema (reason `plaintext_malformed` when it arrives sealed). `older_kinds` are the kinds a client before `pause` knows: a plaintext schema of only those kinds MUST refuse both plaintexts, which is how an older client drops them (`plaintext_malformed`).",
       roster,
       paused: { receiver: { device: "alice", address: atAlice.address, sid: atAlice.sid }, now: T + 60, frame: pausedFrame, plaintext: (pausedOpened as { value: unknown }).value },
       lifted: { receiver: { device: "alice", address: atAlice.address, sid: atAlice.sid }, now: T + 100, frame: liftedFrame, plaintext: (liftedOpened as { value: unknown }).value },

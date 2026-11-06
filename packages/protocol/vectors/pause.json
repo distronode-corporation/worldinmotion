@@ -1,5 +1,5 @@
 {
-  "description": "Pause (SPEC section 12), with the roster and prekeys of prekey.json. bob's loop breaker paused alice, so his reviewer session sends writer@alice a `pause` with every field, whose `reply_to` names the message it held, and later a `pause` saying the person lifted it; each is sealed to alice's prekey, and alice opens it at its `now` to `plaintext`. Neither carries text. Each `invalid_plaintexts` entry MUST be refused by the plaintext schema (reason `plaintext_malformed` when it arrives sealed). `older_kinds` are the kinds a client before `pause` knows: a plaintext schema of only those kinds MUST refuse both plaintexts, which is how an older client drops them (`plaintext_malformed`).",
+  "description": "Pause (SPEC section 12), with the roster and prekeys of prekey.json. bob's loop breaker paused alice (the per-peer rule, which counts over 60 minutes; the cool-down ends at `until`), so his reviewer session sends writer@alice a `pause` with every field, whose `reply_to` names the message it held, and later a `pause` saying the person lifted it; each is sealed to alice's prekey, and alice opens it at its `now` to `plaintext`. Neither carries text. Each `invalid_plaintexts` entry MUST be refused by the plaintext schema (reason `plaintext_malformed` when it arrives sealed). `older_kinds` are the kinds a client before `pause` knows: a plaintext schema of only those kinds MUST refuse both plaintexts, which is how an older client drops them (`plaintext_malformed`).",
   "roster": {
     "mesh": "8yvT1IZgynsBt7R7maZTCw",
     "seq": 2,
@@ -66,10 +66,10 @@
           "s": 2,
           "p": "QShAMsIibsspvJk-sGiNUO",
           "e": "cBL_NS31ZyHzX_fx6fk_fve9RJ-idicxlB3tO_o6zFw",
-          "c": "8tyyZMucF75gNvEDFidYes_Odp1wHX_0OkVqTN-wYVB8hkJF2T8cdrxkSrbGzk8bymHVFYAqZfkuVmjnRRFA_4GYqa0ovbAwLnMe_uKwsDsVyKvqwouLWGlxk-qL0QID3ZUrsD3mVg3WVXqxUVWxmd8j46Au-cuniP_GeJjZrGAvoP_pXx2oQ-Wmugq02g5fFfzP7-buvf7cxl6lXP53o_LhFHj8Y1PojAhrQf3qCIaV1RPfrH2wObOl-gNpcjy5JzjwKm8XdNEGKGDJRMXLiow8i1tmE-unVO4Lp2xfmJartxHg3cnsbr_tUnLCr6qiOQlDQ1CJZ-DV1QqtqYgvsULRZIyiOFoTwlh7bjVR43BA4Tt4H8T9-cg9PoMppCxHsU-8F4aPqIt4olcxHeDoGRoyVqyk46SzTmSiPwAe97kibkNth9hO6g8r2ys1CeFh9R8qkwuh6lLnsl-rrYzO52CXkqO1pnCOCE6PAd5A2HWHBYMYbCdr_bR9vqWgZ-ZnJqjI4U3FXfK8QqANXGN0oloLYgUhr4n2xNCz2pUBMvMPH9mrEK57I8QeicD8cUV-XVHj2w"
+          "c": "8tyyZMucF75gNvEDFidYes_Odp1wHX_0OkVqTN-wYVB8hkJF2T8cdrxkSrbGzk8bymHVFYAqZfkuVmjnRRFA_4GYqa0ovbAwLnMe_uKwsDsVyKvqwouLWGlxk-qL0QID3ZUrsD3mVg3WVXqxUVWxmd8j46Au-cuniP_GeJjZrGAvoP_pXx2oQ-Wmugq02g5fFfzP7-buvf7cxl6lXP53o_LhFHj8Y1PojAhrQf3qCIaV1RPfrH2wObOl-gNpcjy5JzjwKm8XdNEGKGDJRMXLiow8i1tmE-unVO4Lp2xfmJGrtxHg3cnsbr_tUnLCr6qiOQlDQ1CJZ-DV1QqtqYgvsULRZIyiOFoTwlh7bjVR43BA4Tt4H8T9-cg9PoMppCxHsU-8F4aPqIt4olcxHeDoGRoyVqyk46SzTmSiPwAe97kibkNth9hO6g8r2ys1CeFh9R8qkwuh6lLnsl-rrYzO52CXkqO1pnCOCE6PAd5A2HWHBYMYbCdr_bR9vqWgZ-ZnJqjI4U3FXfK8QqANXGN0oloLYgUhr4n2xNCz2pUBMvMPH9mrCNtKfYp2dK2SMfcekswZ6w"
         }
       },
-      "sig": "lBkQ-39teJgcmafqxu1DFUEMwnSbBZkigJQS0LO8M_FHFuzXVVq1fkvPnrr_wT6xWZ_pDnZYwJvA91crRVUOAg"
+      "sig": "DQ2nTuptF2AYRrUOo8EaPVbz20k3vgkoy4JolFkBwXibb5tM0nU6qLc03BYBmE5UBLlF1AZFjPvPsEPgNqCNDQ"
     },
     "plaintext": {
       "v": 1,
@@ -93,7 +93,7 @@
         "rule": "peer",
         "count": 121,
         "limit": 120,
-        "minutes": 10,
+        "minutes": 60,
         "until": 1760000600040,
         "auto": true
       },
@@ -191,7 +191,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true
         },
@@ -222,7 +222,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true
         },
@@ -253,7 +253,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true
         },
@@ -284,7 +284,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true
         }
@@ -314,7 +314,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true
         }
@@ -345,7 +345,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true
         }
@@ -396,7 +396,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000000040,
           "auto": true
         }
@@ -426,7 +426,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760003600041,
           "auto": true
         }
@@ -456,7 +456,7 @@
           "rule": "budget",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true
         }
@@ -486,7 +486,7 @@
           "rule": "peer",
           "count": 0,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true
         }
@@ -516,7 +516,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 1.5,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true
         }
@@ -576,7 +576,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": "yes"
         }
@@ -606,7 +606,7 @@
           "rule": "peer",
           "count": 121,
           "limit": 120,
-          "minutes": 10,
+          "minutes": 60,
           "until": 1760000600040,
           "auto": true,
           "reason": "loop"

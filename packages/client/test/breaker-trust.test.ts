@@ -16,7 +16,7 @@ import { MeshSession } from "../src/client.ts";
 import { HeldBox } from "../src/held.ts";
 import { INTERNAL_OPS, PUBLIC_TOOLS, WimMcp } from "../src/mcp.ts";
 import { MeshFiles, type BreakerLimits } from "../src/mesh.ts";
-import { listAllPauses, PausedBy, readPauses, savePauses, type PauseRow } from "../src/pauses.ts";
+import { listAllPauses, PausedBy, readBreakerFile, readPauses, savePauses, SentTo, type PauseRow } from "../src/pauses.ts";
 import type { SpoolItem } from "../src/spool.ts";
 import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, spooled, term, until, type TestDevice } from "./helpers.ts";
 
@@ -36,9 +36,9 @@ async function session(...args: Parameters<typeof openSession>): Promise<MeshSes
 const unread = (s: MeshSession): Promise<SpoolItem[]> => s.spool.unread();
 const msgs = async (s: MeshSession): Promise<string[]> => (await unread(s)).filter((i) => i.kind === "msg").map((i) => /\n(\d+)\n/.exec(i.rendered)?.[1] ?? "?");
 
-/** Limits whose trusted tier trips on the second message an hour, with a cool-down of `minutes`. */
+/** Limits that trip on the second message an hour, with a cool-down of `minutes`. */
 function trustedTrip(minutes: number): BreakerLimits {
-  return { perPeerPerHour: 50, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, trusted: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, cooldownMinutes: minutes } };
+  return { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, cooldownMinutes: minutes };
 }
 
 async function setBreaker(d: TestDevice, mesh: string, breaker: BreakerLimits): Promise<void> {
@@ -51,7 +51,7 @@ async function setPolicy(d: TestDevice, mesh: string, device: string, level: "de
 
 /** Sends a `pause` from `s` as its client would (tests forge what a peer's client could send). */
 function forgePause(s: MeshSession, to: string, pause: PauseInfo): void {
-  (s as unknown as { sendPause(to: string, p: PauseInfo): void }).sendPause(to, pause);
+  void (s as unknown as { post(to: string, text: undefined, o: { kind: "pause"; pause: PauseInfo }): Promise<unknown> }).post(to, undefined, { kind: "pause", pause });
 }
 
 /** Two trusted devices, with `b@two` tripping on `a@one`'s second message and a clock it can move. */
@@ -66,37 +66,37 @@ async function pair(minutes = 1) {
 }
 
 describe("a trusted peer's cool-down", () => {
-  it("ends by itself: what it held is delivered, the session is told, and a second trip waits for the person", async () => {
+  it("ends by itself: up to the per-peer limit of what it held is delivered, the rest and a second trip wait for the person", async () => {
     const { a, b, clocks } = await pair(1);
     const resumed: unknown[] = [];
     b.on("breaker", (e: { state: string }) => void (e.state === "resumed" && resumed.push(e)));
     for (const t of ["1", "2", "3"]) await a.send("b@two", t);
     await until(async () => (await b.held.list()).length === 2);
     const first = (await b.held.list())[0]!.pause!;
-    expect(first).toMatchObject({ rule: "peer", count: 2, limit: 1, minutes: 60, trusted: true, auto: true });
+    expect(first).toMatchObject({ rule: "peer", count: 2, limit: 1, minutes: 60, auto: true });
     expect(first.until - (await b.held.list())[0]!.at).toBeLessThanOrEqual(61_000);
     expect(await msgs(b)).toEqual(["1"]);
-    // The cool-down ends: the next housekeeping pass releases the peer and delivers what it held.
+    // The cool-down ends: the next housekeeping pass releases the peer and delivers what it held,
+    // at most the per-peer limit (1 here), oldest first; the rest waits for the person, as in 0.1.8.
     clocks.b += 61_000;
-    await until(async () => (await b.held.list()).length === 0);
-    await until(async () => (await msgs(b)).length === 3);
-    expect(await msgs(b)).toEqual(["1", "2", "3"]);
     const told = await spooled(b, (i) => i.kind === "notice" && i.rendered.includes("cool-down for a@one ended"));
-    expect(told.rendered).toContain(`the loop breaker's cool-down for a@one ended at ${clock(first.until)} (it tripped on the per-peer limit: 2 messages from a@one in 60 minutes, limit 1): its messages are delivered again, and the 2 messages it held are delivered now.`);
+    expect(told.rendered).toContain(
+      `the loop breaker's cool-down for a@one ended at ${clock(first.until)} (it tripped on the per-peer limit: 2 messages from a@one in 60 minutes, limit 1): its messages are delivered again, and 1 message it held is delivered now; 1 message more stays held for the person (a release delivers at most the per-peer limit).`,
+    );
+    expect(await msgs(b)).toEqual(["1", "2"]);
+    expect((await b.held.list()).map((h) => h.entry.text)).toEqual(["3"]);
     expect(resumed).toEqual([{ peer: "a@one", state: "resumed", auto: true }]);
-    expect(JSON.parse(await fs.readFile(b.files.breakerPath, "utf8"))).toEqual({ pauses: [] });
-    // Its counts started over: one more goes through, and the next trips again, within the hour of
-    // the release, so it is paused for the hour and waits for the person.
+    expect(await readPauses(b.files.breakerPath, Number.NEGATIVE_INFINITY)).toEqual([]);
+    // What it released counts as delivered, so the next message trips again, within the hour of
+    // the release: paused for the hour, and it waits for the person.
     await a.send("b@two", "4");
-    await until(async () => (await msgs(b)).length === 4);
-    await a.send("b@two", "5");
-    await until(async () => (await b.held.list()).length === 1);
-    expect((await b.held.list())[0]!.pause).toMatchObject({ auto: false });
+    await until(async () => (await b.held.list()).length === 2);
+    expect((await b.held.list())[1]!.pause).toMatchObject({ auto: false });
     const again = await spooled(b, (i) => i.kind === "notice" && i.rendered.includes("what it held waits for the person"));
     expect(again.rendered).toContain("worldinmotion paused a@one: the per-peer limit: 2 messages from a@one in 60 minutes, limit 1; until ");
     clocks.b += 120_000;
     await new Promise((r) => setTimeout(r, 100));
-    expect(await b.held.list()).toHaveLength(1);
+    expect(await b.held.list()).toHaveLength(2);
   }, 30_000);
 
   it("carries on across a restart of the holding session: the pause, its release, and who hears it lifted", async () => {
@@ -172,7 +172,7 @@ describe("a trusted peer's cool-down", () => {
     await until(async () => (await b.held.list()).length === 2);
     clocks.b += 61_000;
     const told = await spooled(b, (i) => i.kind === "notice" && i.rendered.includes("cool-down for a@one ended"));
-    expect(told.rendered).toContain("its device is no longer trusted here, so the 1 message it held stays held for the person");
+    expect(told.rendered).toContain("nothing it held is delivered; its device is no longer trusted here or no longer in the mesh, so the 1 message it held stays held for the person");
     expect((await b.held.list()).map((h) => h.reason)).toEqual(["breaker", "policy"]);
     expect(b.pausedRows()).toEqual([]);
   }, 30_000);
@@ -202,15 +202,12 @@ describe("a trusted peer's cool-down", () => {
 describe("the sending side", () => {
   it("hears the pause once a session, reports held, and takes a pause only as a label from a session it sent to", async () => {
     const { a, b, clocks, devices, mesh } = await pair(60);
-    // Sent to 256 sessions (the most kept) and then one more: the oldest, b, is no longer one this
-    // session sent to, so a pause from it counts for nothing.
-    const many = ["b@two", ...Array.from({ length: 255 }, (_, i) => `x${i}@two`)];
-    await a.send(many, "status?");
-    await a.send("y@two", "status?");
+    // Nothing was sent to b yet: a pause from it counts for nothing.
     forgePause(b, "a@one", { state: "paused", rule: "peer", count: 2, limit: 1, minutes: 60, until: Date.now() + 600_000, auto: true });
     await new Promise((r) => setTimeout(r, 200));
     expect(await a.pausedBy.active()).toEqual({});
-    // Sent to again: now it counts, and the agent is told once.
+    // Sent to: now it counts, and the agent is told once.
+    await a.send("b@two", "0");
     await a.send("b@two", "1");
     await until(async () => (await b.held.list()).length === 1);
     const pairKey = `${devices[1]!.device.id}/b`;
@@ -229,7 +226,7 @@ describe("the sending side", () => {
     // Lifted: sends there are routed again.
     forgePause(b, "a@one", { state: "lifted" });
     await until(async () => Object.keys(await a.pausedBy.active()).length === 0);
-    // From a device this one refuses, or an hour after this session last sent there: not taken.
+    // From a device this one refuses, or an hour after this device last sent there: not taken.
     await setPolicy(devices[0]!, mesh, devices[1]!.device.id, "refuse");
     forgePause(b, "a@one", { state: "paused", rule: "peer", count: 2, limit: 1, minutes: 60, until: Date.now() + 1_200_000, auto: false });
     await new Promise((r) => setTimeout(r, 200));
@@ -257,14 +254,18 @@ describe("pauses on disk", () => {
   it("reads only well-formed running pauses, and lists them for every session", async () => {
     const dir = await scratch("pauses");
     const path = join(dir, "breaker.json");
-    const row: PauseRow = { from: "a@one", told: ["a@one"], peer: "d", rule: "peer", count: 2, limit: 1, minutes: 60, trusted: true, at: 1, until: 100, auto: true };
-    await savePauses(path, [row, { ...row, until: 5 }], FS);
+    const row: PauseRow = { from: "a@one", told: ["a@one"], peer: "d", rule: "peer", count: 2, limit: 1, minutes: 60, at: 1, until: 100, auto: true };
+    await savePauses(path, { pauses: [row, { ...row, until: 5 }], released: { d: 1 }, lifts: ["x@two"] }, FS);
     expect(await readPauses(path, 10)).toEqual([row]);
     expect(await readPauses(join(dir, "missing.json"), 0)).toEqual([]);
-    await fs.writeFile(path, JSON.stringify({ pauses: [null, 3, { ...row, rule: "other" }, { ...row, from: 1 }, { ...row, peer: 1 }, { ...row, count: 1.5 }, { ...row, auto: "yes" }, { ...row, trusted: 1 }, { ...row, told: "a@one" }, { ...row, told: [1] }, row] }));
+    await fs.writeFile(path, JSON.stringify({ pauses: [null, 3, { ...row, rule: "other" }, { ...row, from: 1 }, { ...row, peer: 1 }, { ...row, count: 1.5 }, { ...row, auto: "yes" }, { ...row, told: "a@one" }, { ...row, told: [1] }, row] }));
     expect(await readPauses(path, 10)).toEqual([row]);
-    await fs.writeFile(path, JSON.stringify({ pauses: "none" }));
+    expect(await readBreakerFile(path)).toEqual({ pauses: [row], released: {}, lifts: [] });
+    await fs.writeFile(path, JSON.stringify({ pauses: "none", released: { d: 5, e: "soon" }, lifts: ["x@two", 3] }));
     expect(await readPauses(path, 10)).toEqual([]);
+    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: { d: 5 }, lifts: ["x@two"] });
+    await fs.writeFile(path, JSON.stringify({ released: null }));
+    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: {}, lifts: [] });
     await fs.writeFile(path, "{ not json");
     expect(await readPauses(path, 10)).toEqual([]);
     // Every session's, oldest first; a session whose state is gone is named "?".
@@ -272,7 +273,7 @@ describe("pauses on disk", () => {
     const [s1, s2] = [ulid(1), ulid(2)];
     for (const [sid, at] of [[s1, 5], [s2, 3]] as const) {
       await fs.mkdir(mesh.sessionDir(sid), { recursive: true });
-      await savePauses(join(mesh.sessionDir(sid), "breaker.json"), [{ ...row, at }], FS);
+      await savePauses(join(mesh.sessionDir(sid), "breaker.json"), { pauses: [{ ...row, at }], released: {}, lifts: [] }, FS);
     }
     expect((await listAllPauses(mesh, FS, 10)).map((p) => [p.sid, p.session, p.at])).toEqual([[s2, "?", 3], [s1, "?", 5]]);
   });
@@ -297,6 +298,42 @@ describe("pauses on disk", () => {
   });
 });
 
+describe("the device's sent-to record", () => {
+  it("keeps the newest 256 pairs of the last hour, written again at most every 5 minutes, and drops what is damaged", async () => {
+    const dir = await scratch("sent-to");
+    const path = join(dir, "sent-to.json");
+    let now = 1_000_000;
+    const box = new SentTo(path, FS, () => now);
+    expect(await box.has("d/a")).toBe(false);
+    await box.note(["d/a"]);
+    expect(await box.has("d/a")).toBe(true);
+    // Within 5 minutes the same pair is not written again (the file keeps its first time).
+    now += 60_000;
+    await box.note(["d/a"]);
+    expect(JSON.parse(await fs.readFile(path, "utf8"))).toEqual({ "d/a": 1_000_000 });
+    now += 5 * 60_000;
+    await box.note(["d/a"]);
+    expect(JSON.parse(await fs.readFile(path, "utf8"))).toEqual({ "d/a": now });
+    // Another session of the device reads the same record, and an hour later it is gone.
+    expect(await new SentTo(path, FS, () => now).has("d/a")).toBe(true);
+    now += 3_600_001;
+    expect(await box.has("d/a")).toBe(false);
+    // The newest 256 are kept.
+    const pairs = Array.from({ length: 257 }, (_, i) => `d/s${i}`);
+    for (const [i, p] of pairs.entries()) {
+      now += 1;
+      await box.note([p]);
+      void i;
+    }
+    expect(await box.has("d/s0")).toBe(false);
+    expect(await box.has("d/s1")).toBe(true);
+    for (const raw of ["null", "{ not json", JSON.stringify({ "d/x": "soon" })]) {
+      await fs.writeFile(path, raw);
+      expect(await box.has("d/x")).toBe(false);
+    }
+  });
+});
+
 describe("the person's decisions in the pane", () => {
   it("approve and resume lifts the pause on the item's device and releases everything held from it", async () => {
     const { a, b, devices, mesh, relay } = await pair(60);
@@ -307,7 +344,7 @@ describe("the person's decisions in the pane", () => {
     const t = term(devices[1]!.root, relay);
     expect(await run(t, "held", "list")).toBe(0);
     const end = clock((await b.held.list())[0]!.pause!.until);
-    expect(said(t)).toContain(`paused  a@one's device -> b  breaker: the per-peer limit: 2 messages from a@one in 60 minutes, limit 1; until ${end}, when the client releases it and delivers what it held (a trusted device's cool-down)`);
+    expect(said(t)).toContain(`paused  a@one's device -> b  breaker: the per-peer limit: 2 messages from a@one in 60 minutes, limit 1; until ${end}, when the client releases it and delivers up to its per-peer limit of what it held (a trusted device's cool-down)`);
     expect(said(t)).toMatch(/ {2}a@one -> b {2}msg {2}breaker \(the per-peer limit: 2 messages from a@one in 60 minutes, limit 1\) {2}/);
     expect((await listAllPauses(new MeshFiles(devices[1]!.home.meshDir(mesh), FS), FS, Date.now())).map((p) => p.session)).toEqual(["b"]);
     const [first] = await b.held.list();
@@ -371,7 +408,7 @@ describe("the pane's view", () => {
         until: expect.any(Number),
         auto: true,
         why: "the per-peer limit: 2 messages from a@one in 60 minutes, limit 1",
-        ends: expect.stringMatching(/^until \S+Z, when the client releases it and delivers what it held \(a trusted device's cool-down\)$/),
+        ends: expect.stringMatching(/^until \S+Z, when the client releases it and delivers up to its per-peer limit of what it held \(a trusted device's cool-down\)$/),
       },
     ]);
   }, 30_000);
