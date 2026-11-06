@@ -292,7 +292,9 @@ pauses a peer early: more than 32 alternating exchanges for a trusted device (8 
 item held by inbound policy already waits for the person.
 
 Past a limit, new items from that peer go to `held/` instead of the spool, each with the pause it
-was held under, and the session writes its running pauses to `breaker.json` in its directory. A
+was held under, and the session writes its running pauses to `breaker.json` in its directory,
+with the sessions it told; a later process of the same session takes them back, so a pause keeps
+its end, a cool-down still releases what it held, and the sessions told still hear it lifted. A
 `notice` tells the person which rule tripped, what it counted, its limit and when the pause ends
 ("worldinmotion paused <peer>: the per-peer limit: 121 messages from <peer> in 60 minutes, limit
 120; until <time>, when the client releases it and delivers what it held (a trusted device's
@@ -307,8 +309,7 @@ The sender gets the receipt `held` for each held message, and each sending sessi
 `pause` per pause (SPEC section 12). The sending client keeps it in the mesh's `paused-by.json`,
 for every session of that device, and tells its agent once (at most every 10 minutes per peer
 session) which rule holds its messages there, with the numbers, and until when. Until the pause
-ends, the peer says it was lifted, or a message sent after the `pause` came is receipted
-`delivered` there, `send`, `ask`, `reply`, `send_file` and `wim send` report that session as
+ends or the peer says it was lifted, `send`, `ask`, `reply`, `send_file` and `wim send` report that session as
 `held` rather than `routed` or `queued`, with `relay` (the relay's own status) and `breaker` (the
 rule, `count`, `limit`, `minutes`, `until`, `auto`); the MCP `send` result adds a `held_note`.
 

@@ -14,8 +14,11 @@ import { readJson, withLock, writeJson, type FsEnv } from "./fsx.ts";
 import type { MeshFiles } from "./mesh.ts";
 import { listSessions, SessionFiles } from "./session.ts";
 
-/** A pause as a session writes it: the breaker's, and the address of the message that tripped it. */
-export type PauseRow = Pause & { from: string };
+/**
+ * A pause as a session writes it: the breaker's, the address of the message that tripped it, and
+ * the sending sessions told about it, so a later process of the session carries it on.
+ */
+export type PauseRow = Pause & { from: string; told: string[] };
 
 /** Writes a session's running pauses (an empty list once none runs). */
 export async function savePauses(path: string, rows: readonly PauseRow[], env: FsEnv): Promise<void> {
@@ -32,11 +35,16 @@ function isPauseRow(x: unknown): x is PauseRow {
     (r.rule === "peer" || r.rule === "total" || r.rule === "pingpong") &&
     [r.count, r.limit, r.minutes, r.at, r.until].every((n) => Number.isSafeInteger(n)) &&
     typeof r.auto === "boolean" &&
-    typeof r.trusted === "boolean"
+    typeof r.trusted === "boolean" &&
+    Array.isArray(r.told) &&
+    r.told.every((t) => typeof t === "string")
   );
 }
 
-/** A session's pauses that are still running at `now`; a damaged or missing file reads as none. */
+/**
+ * A session's pauses that are still running at `now` (pass -Infinity for all of them, ended ones
+ * too); a damaged or missing file reads as none.
+ */
 export async function readPauses(path: string, now: number): Promise<PauseRow[]> {
   const raw = (await readJson(path).catch(() => undefined)) as { pauses?: unknown } | undefined;
   const rows = Array.isArray(raw?.pauses) ? raw.pauses : [];
@@ -93,17 +101,5 @@ export class PausedBy {
       else file[pair] = { ...info, to, at };
       await writeJson(this.path, file, this.env);
     }, this.env);
-  }
-
-  /**
-   * A `delivered` receipt from the session `pair` for a message sent at `sentAt`: a message sent
-   * after this device heard of the pause got through, so the pause is over there (its session may
-   * have restarted, or its person resumed it while it was not running). An older message's receipt
-   * says nothing, since a message taken from the inbox late is receipted late. Writes only then.
-   */
-  async deliveredSince(pair: string, sentAt: number): Promise<void> {
-    const e = (await this.read())[pair];
-    // Strictly after: a message sent in the same millisecond may have gone before the pause.
-    if (e !== undefined && sentAt > e.at) await this.note(pair, "", { state: "lifted" }, 0);
   }
 }

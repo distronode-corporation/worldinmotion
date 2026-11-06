@@ -89254,6 +89254,10 @@ var Breaker = class {
     this.tierOf.set(peer, isTrusted2);
     return { ok: true };
   }
+  /** Takes back a pause an earlier process of the session wrote (pauses.ts): its end and its release hold. */
+  restore(p3) {
+    this.paused.set(p3.peer, p3);
+  }
   /** The pauses still running, oldest first. */
   pauses() {
     const now = this.now();
@@ -90680,7 +90684,7 @@ async function savePauses(path2, rows, env3) {
 }
 function isPauseRow(x2) {
   const r6 = x2;
-  return typeof r6 === "object" && r6 !== null && typeof r6.from === "string" && typeof r6.peer === "string" && (r6.rule === "peer" || r6.rule === "total" || r6.rule === "pingpong") && [r6.count, r6.limit, r6.minutes, r6.at, r6.until].every((n3) => Number.isSafeInteger(n3)) && typeof r6.auto === "boolean" && typeof r6.trusted === "boolean";
+  return typeof r6 === "object" && r6 !== null && typeof r6.from === "string" && typeof r6.peer === "string" && (r6.rule === "peer" || r6.rule === "total" || r6.rule === "pingpong") && [r6.count, r6.limit, r6.minutes, r6.at, r6.until].every((n3) => Number.isSafeInteger(n3)) && typeof r6.auto === "boolean" && typeof r6.trusted === "boolean" && Array.isArray(r6.told) && r6.told.every((t2) => typeof t2 === "string");
 }
 async function readPauses(path2, now) {
   const raw = await readJson(path2).catch(() => void 0);
@@ -90725,16 +90729,6 @@ var PausedBy = class {
       else file2[pair] = { ...info, to, at };
       await writeJson(this.path, file2, this.env);
     }, this.env);
-  }
-  /**
-   * A `delivered` receipt from the session `pair` for a message sent at `sentAt`: a message sent
-   * after this device heard of the pause got through, so the pause is over there (its session may
-   * have restarted, or its person resumed it while it was not running). An older message's receipt
-   * says nothing, since a message taken from the inbox late is receipted late. Writes only then.
-   */
-  async deliveredSince(pair, sentAt) {
-    const e6 = (await this.read())[pair];
-    if (e6 !== void 0 && sentAt > e6.at) await this.note(pair, "", { state: "lifted" }, 0);
   }
 };
 
@@ -92256,7 +92250,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (o3.sessionKey !== void 0) await keys.remember(o3.sessionKey, state2.sid, state2.resume);
     const session = new _MeshSession(o3, files, state2);
     await session.load();
-    await session.savePauses();
+    await session.restorePauses();
     return session;
   }
   /**
@@ -93050,10 +93044,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   recordReceipt(f7) {
     const recorded = this.history.appendReceipt(f7.id, { to: f7.to, status: f7.status, at: this.now() });
-    if (f7.status === "delivered") {
-      this.heldTold.delete(f7.to);
-      return recorded.then(() => this.pausedBy.deliveredSince(this.pairOf(f7.to), ulidTime(f7.id)));
-    }
+    if (f7.status === "delivered") this.heldTold.delete(f7.to);
     if (f7.status !== "held") return recorded;
     const tell = !this.heldTold.has(f7.to);
     this.heldTold.add(f7.to);
@@ -93231,9 +93222,25 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (item?.reason !== "breaker" || await this.resumePeer(item.from) === 0) await this.decide(id2, "approve");
   }
   // ---- the loop breaker's pauses ----
-  /** The running pauses of this session's breaker, with the address that tripped each. */
+  /** The running pauses of this session's breaker, with the address that tripped each and the sessions told. */
   pausedRows() {
-    return this.breaker.pauses().map((p3) => ({ ...p3, from: this.pauseFrom.get(p3.peer).from }));
+    return this.breaker.pauses().map((p3) => {
+      const { from, told } = this.pauseFrom.get(p3.peer);
+      return { ...p3, from, told: [...told] };
+    });
+  }
+  /**
+   * Carries on the pauses an earlier process of this session wrote: each keeps its end, a trusted
+   * peer's cool-down still releases what it held (at the first pass, when it ended meanwhile), and
+   * the sessions told still hear a resume. Its counts start over.
+   */
+  async restorePauses() {
+    for (const r6 of await readPauses(this.files.breakerPath, Number.NEGATIVE_INFINITY)) {
+      const { from, told, ...pause } = r6;
+      this.breaker.restore(pause);
+      this.pauseFrom.set(pause.peer, { from, told: new Set(told) });
+    }
+    await this.savePauses();
   }
   /** Writes the running pauses where `wim held list` reads them. */
   async savePauses() {
@@ -93271,10 +93278,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await this.notice(from, releasedNotice(from, p3, released, kept));
   }
   /** Tells the session that sent `id` that this session's breaker holds its device's messages, once a pause. */
-  tellPaused(pause, to, id2) {
+  async tellPaused(pause, to, id2) {
     const told = this.pauseFrom.get(pause.peer).told;
     if (told.has(to)) return;
     told.add(to);
+    await this.savePauses();
     this.sendPause(to, { state: "paused", rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, until: pause.until, auto: pause.auto }, id2);
   }
   /** Sends a `pause` without waiting for the relay's answer, like a pong. */

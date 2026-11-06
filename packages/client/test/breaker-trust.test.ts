@@ -99,6 +99,61 @@ describe("a trusted peer's cool-down", () => {
     expect(await b.held.list()).toHaveLength(1);
   }, 30_000);
 
+  it("carries on across a restart of the holding session: the pause, its release, and who hears it lifted", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    await setBreaker(devices[1]!, mesh, trustedTrip(1));
+    let offset = 0;
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    const holder = { name: "b", sessionKey: "key:b", now: () => Date.now() + offset };
+    let b = await session(devices[1]!, mesh, relay, holder);
+    for (const t of ["1", "2"]) await a.send("b@two", t);
+    await until(async () => (await b.held.list()).length === 1);
+    await until(async () => Object.keys(await a.pausedBy.active()).length === 1);
+    const before = b.pausedRows();
+    const sid = b.sid;
+    expect(before).toEqual([expect.objectContaining({ from: "a@one", told: ["a@one"], auto: true })]);
+    // The session restarts (same session, same files): the pause is taken back as it was.
+    await b.stop();
+    b = await session(devices[1]!, mesh, relay, holder);
+    expect(b.sid).toBe(sid);
+    expect(b.pausedRows()).toEqual(before);
+    // Its cool-down still ends by itself, and delivers what it held.
+    offset += 61_000;
+    await until(async () => (await b.held.list()).length === 0);
+    await until(async () => (await msgs(b)).length === 2);
+    expect(b.pausedRows()).toEqual([]);
+  }, 30_000);
+
+  it("tells the sessions told before a restart when the person lifts the pause after it", async () => {
+    const { a, devices, mesh, relay } = await pair(60);
+    await setBreaker(devices[1]!, mesh, trustedTrip(60));
+    const holder = { name: "c", sessionKey: "key:c" };
+    let c = await session(devices[1]!, mesh, relay, holder);
+    for (const t of ["1", "2"]) await a.send("c@two", t);
+    await until(async () => Object.keys(await a.pausedBy.active()).length === 1);
+    await c.stop();
+    c = await session(devices[1]!, mesh, relay, holder);
+    await c.resumePeer("a@one");
+    await until(async () => Object.keys(await a.pausedBy.active()).length === 0);
+  }, 30_000);
+
+  it("keeps reporting held when the person there approves one message alone", async () => {
+    const { a, b } = await pair(60);
+    for (const t of ["1", "2", "3"]) await a.send("b@two", t);
+    await until(async () => (await b.held.list()).length === 2);
+    await until(async () => Object.keys(await a.pausedBy.active()).length === 1);
+    const [one] = await b.held.list();
+    await b.decide(one!.id, "approve");
+    const item = (await unread(b)).find((i) => i.id === one!.id)!;
+    await b.take(item.cursor);
+    // Its delivered receipt comes back, and the pause there still runs: sends still say held.
+    await until(() => (a.receipts.get(one!.id) ?? []).some((r) => r.status === "delivered"));
+    await new Promise((r) => setTimeout(r, 200));
+    expect(Object.keys(await a.pausedBy.active())).toHaveLength(1);
+    expect((await a.send("b@two", "4")).results[0]!.status).toBe("held");
+  }, 30_000);
+
   it("keeps what it held for the person when the device is no longer trusted at the end", async () => {
     const { a, b, clocks, devices, mesh } = await pair(1);
     for (const t of ["1", "2"]) await a.send("b@two", t);
@@ -194,11 +249,11 @@ describe("pauses on disk", () => {
   it("reads only well-formed running pauses, and lists them for every session", async () => {
     const dir = await scratch("pauses");
     const path = join(dir, "breaker.json");
-    const row: PauseRow = { from: "a@one", peer: "d", rule: "peer", count: 2, limit: 1, minutes: 60, trusted: true, at: 1, until: 100, auto: true };
+    const row: PauseRow = { from: "a@one", told: ["a@one"], peer: "d", rule: "peer", count: 2, limit: 1, minutes: 60, trusted: true, at: 1, until: 100, auto: true };
     await savePauses(path, [row, { ...row, until: 5 }], FS);
     expect(await readPauses(path, 10)).toEqual([row]);
     expect(await readPauses(join(dir, "missing.json"), 0)).toEqual([]);
-    await fs.writeFile(path, JSON.stringify({ pauses: [null, 3, { ...row, rule: "other" }, { ...row, from: 1 }, { ...row, peer: 1 }, { ...row, count: 1.5 }, { ...row, auto: "yes" }, { ...row, trusted: 1 }, row] }));
+    await fs.writeFile(path, JSON.stringify({ pauses: [null, 3, { ...row, rule: "other" }, { ...row, from: 1 }, { ...row, peer: 1 }, { ...row, count: 1.5 }, { ...row, auto: "yes" }, { ...row, trusted: 1 }, { ...row, told: "a@one" }, { ...row, told: [1] }, row] }));
     expect(await readPauses(path, 10)).toEqual([row]);
     await fs.writeFile(path, JSON.stringify({ pauses: "none" }));
     expect(await readPauses(path, 10)).toEqual([]);
@@ -222,12 +277,7 @@ describe("pauses on disk", () => {
     const info = { state: "paused" as const, rule: "peer" as const, count: 2, limit: 1, minutes: 60, until: 5_000, auto: false };
     await box.note("dev/b", "b@two", info, 1_000);
     expect(await box.active()).toEqual({ "dev/b": { ...info, to: "b@two", at: 1_000 } });
-    // A delivered receipt: for a pair not kept, nothing; for a message sent before the pause was
-    // heard, nothing; for one sent since, the pause is over.
-    await box.deliveredSince("dev/other", 2_000);
-    await box.deliveredSince("dev/b", 1_000);
-    expect(Object.keys(await box.active())).toEqual(["dev/b"]);
-    await box.deliveredSince("dev/b", 1_001);
+    await box.note("dev/b", "b@two", { state: "lifted" }, 2_000);
     expect(await box.active()).toEqual({});
     await box.note("dev/b", "b@two", info, 1_000);
     now = 5_000;

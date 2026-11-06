@@ -63,7 +63,7 @@ import { HeldBox, preview, takeMarks, type HeldItem, type Mark, type Verdict } f
 import { frameEntry, History, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
 import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
-import { PausedBy, savePauses, type PausedByEntry, type PauseRow } from "./pauses.ts";
+import { PausedBy, readPauses, savePauses, type PausedByEntry, type PauseRow } from "./pauses.ts";
 import type { Notifier } from "./notify.ts";
 import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { isTrusted, noticeText, policyFor, policyLevel } from "./render.ts";
@@ -477,8 +477,7 @@ export class MeshSession extends EventEmitter {
     if (o.sessionKey !== undefined) await keys.remember(o.sessionKey, state.sid, state.resume);
     const session = new MeshSession(o, files, state);
     await session.load();
-    // A breaker lives in memory: pauses an earlier process of this session wrote are over.
-    await session.savePauses();
+    await session.restorePauses();
     return session;
   }
 
@@ -1399,14 +1398,9 @@ export class MeshSession extends EventEmitter {
    */
   private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
     const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
-    // Something got through to that recipient: a later hold there is news again, and a pause it
-    // reported is over once a message sent after it is delivered.
-    if (f.status === "delivered") {
-      this.heldTold.delete(f.to);
-      // The id's time is when this session sealed it (a clock set back can only make it later,
-      // which at worst ends a label early).
-      return recorded.then(() => this.pausedBy.deliveredSince(this.pairOf(f.to), ulidTime(f.id)));
-    }
+    // Something got through to that recipient: a later hold there is news again. (A pause it
+    // reported is not over for that: the person there may have approved this one message alone.)
+    if (f.status === "delivered") this.heldTold.delete(f.to);
     if (f.status !== "held") return recorded;
     // The agent is told once per recipient (not per message), so a peer that holds everything
     // cannot wake the sender over and over.
@@ -1620,9 +1614,26 @@ export class MeshSession extends EventEmitter {
 
   // ---- the loop breaker's pauses ----
 
-  /** The running pauses of this session's breaker, with the address that tripped each. */
+  /** The running pauses of this session's breaker, with the address that tripped each and the sessions told. */
   pausedRows(): PauseRow[] {
-    return this.breaker.pauses().map((p) => ({ ...p, from: this.pauseFrom.get(p.peer)!.from }));
+    return this.breaker.pauses().map((p) => {
+      const { from, told } = this.pauseFrom.get(p.peer)!;
+      return { ...p, from, told: [...told] };
+    });
+  }
+
+  /**
+   * Carries on the pauses an earlier process of this session wrote: each keeps its end, a trusted
+   * peer's cool-down still releases what it held (at the first pass, when it ended meanwhile), and
+   * the sessions told still hear a resume. Its counts start over.
+   */
+  private async restorePauses(): Promise<void> {
+    for (const r of await readPauses(this.files.breakerPath, Number.NEGATIVE_INFINITY)) {
+      const { from, told, ...pause } = r;
+      this.breaker.restore(pause);
+      this.pauseFrom.set(pause.peer, { from, told: new Set(told) });
+    }
+    await this.savePauses();
   }
 
   /** Writes the running pauses where `wim held list` reads them. */
@@ -1664,10 +1675,12 @@ export class MeshSession extends EventEmitter {
   }
 
   /** Tells the session that sent `id` that this session's breaker holds its device's messages, once a pause. */
-  private tellPaused(pause: Pause, to: string, id: string): void {
+  private async tellPaused(pause: Pause, to: string, id: string): Promise<void> {
     const told = this.pauseFrom.get(pause.peer)!.told;
     if (told.has(to)) return;
     told.add(to);
+    // Written, so a later process of this session still tells this one when the pause is lifted.
+    await this.savePauses();
     this.sendPause(to, { state: "paused", rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, until: pause.until, auto: pause.auto }, id);
   }
 

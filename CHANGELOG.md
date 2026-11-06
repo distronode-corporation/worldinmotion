@@ -128,7 +128,8 @@ body line with a bracket.
   trusted, and the session is told. A second trip within the hour of that release waits for the
   person, as an untrusted peer's pause does.
 - **Pauses show, with the rule, its numbers and their end** (#59). `wim held list` lists running
-  pauses first (from the session's new `breaker.json`) and names the rule of each breaker hold;
+  pauses first (from the session's new `breaker.json`, which also carries a pause, its release and
+  who was told across a restart of the session) and names the rule of each breaker hold;
   the Claude Code pane lists them too; both notices read like "the per-peer limit: 121 messages
   from a@one in 60 minutes, limit 120; until <time>"; `wim events` gives `until` and `auto` on
   `breaker` events and rows, and VS Code lets a pause lapse at its `until`.

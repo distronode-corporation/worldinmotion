@@ -1152,9 +1152,8 @@ ends, tells each session it told that the pause was lifted:
   from a device whose policy is `refuse`, and one from a session it has not sent a message to in
   the last hour.
 - A `pause` is a label, like a receipt (section 7): advisory, never proof that anything was or was
-  not delivered. A receiver uses it only for what it reports: until `until`, a `lifted` from the
-  same session, or a `delivered` receipt from it for a message sent after the `pause` came (the
-  receiving session may have restarted and lost its pause), it MAY report a send to that session as `held` instead of the relay's `routed` or
+  not delivered. A receiver uses it only for what it reports: until `until`, or a `lifted` from the
+  same session, it MAY report a send to that session as `held` instead of the relay's `routed` or
   `queued`, with the rule and its numbers, and it SHOULD tell the sending agent once. It MUST NOT
   change what it sends, holds or delivers because of one, and a `pause` never lifts, shortens or
   resumes a pause on the device that receives it.

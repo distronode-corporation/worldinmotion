@@ -130,6 +130,11 @@ export class Breaker {
     return { ok: true };
   }
 
+  /** Takes back a pause an earlier process of the session wrote (pauses.ts): its end and its release hold. */
+  restore(p: Pause): void {
+    this.paused.set(p.peer, p);
+  }
+
   /** The pauses still running, oldest first. */
   pauses(): Pause[] {
     const now = this.now();
