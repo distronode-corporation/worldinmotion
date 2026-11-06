@@ -2,7 +2,7 @@ import { createServer as createHttpServer, type IncomingMessage, type Server, ty
 import { createServer as createHttpsServer } from "node:https";
 import type { Duplex } from "node:stream";
 import { networkInterfaces } from "node:os";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
 import { b64u, CLOSE, isRelayUrl, JwksCache, LIMITS, randomBytes, type JwksFetch } from "@worldinmotion/protocol";
 import {
   CI_NOT_FOUND,
@@ -210,7 +210,10 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
   }
   if (lan && config.db === ":memory:") throw new Error("LAN mode keeps its TLS key next to the database, so it needs a database file");
 
-  const raw = new DatabaseSync(config.db);
+  // Loaded here rather than imported at the top: the wim client bundles this server for `wim
+  // test`, and a top-level import would load node:sqlite (an experimental warning on some Node
+  // versions) on every wim command.
+  const raw = new (process.getBuiltinModule("node:sqlite").DatabaseSync)(config.db);
   raw.exec("PRAGMA journal_mode = WAL");
   const db = sqlDb(raw);
   migrate(db);

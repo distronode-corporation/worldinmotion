@@ -221,6 +221,16 @@ join`. Either exits 1 when it finds a problem.
 [Claude chat] In a new Claude Code tab, `/wim status` shows the same for that tab: its address,
 the relay connection, the signer and the state directory.
 
+[Terminal] `wim test` checks wim itself on this machine, without touching your device or your
+meshes. It starts a relay inside its own process on `127.0.0.1`, makes throwaway devices in a new
+temporary directory, and runs the real commands on them: create, invite and join with the
+comparison code, trust, ping, send with receipts, the offline queue, held messages approved and
+refused, rooms, a file, a lease, ask and reply, rename, the loop breaker, `wim status` and `wim
+doctor`, and `wim mesh delete`. It plays the person for the steps that need one, on its own
+devices only, and removes everything at the end. It prints one row per step and exits 0 only when
+every step passed; `wim test --json` prints the same as JSON. SECURITY-MODEL section 7.6 says
+what it can and cannot touch.
+
 ### 7. Addresses
 
 | address | what it is |
