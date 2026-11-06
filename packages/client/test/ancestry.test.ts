@@ -66,7 +66,7 @@ describe("ancestry", () => {
       { pid: 8, start: "Thu Nov  6 21:00:01 2026" },
       { pid: 1, start: "Thu Nov  6 08:00:00 2026" },
     ]);
-    expect(calls).toEqual([["ps", ["-A", "-o", "pid=,ppid=,lstart="], { LC_ALL: "C", TZ: "UTC" }]]);
+    expect(calls).toEqual([["/bin/ps", ["-A", "-o", "pid=,ppid=,lstart="], { LC_ALL: "C", TZ: "UTC" }]]);
     // ps that fails gives no chain.
     expect(await ancestry({ ...d, execFile: async () => Promise.reject(new Error("no ps")) }, 3)).toEqual([]);
     expect(psTable("  5  4 x")).toEqual(new Map([[5, { ppid: 4, start: "x" }]]));

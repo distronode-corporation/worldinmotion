@@ -188,8 +188,9 @@ export async function writePointer(dir: string, pid: number, chain: readonly Anc
   await writeJson(join(dir, POINTER_FILE), { v: 1, pid, chain }, env);
 }
 
+/** Removes the pointer; one that cannot be removed is left (the liveness lock already tells it is stale). */
 export async function removePointer(dir: string, env: FsEnv): Promise<void> {
-  await tryRemove(join(dir, POINTER_FILE), env);
+  await tryRemove(join(dir, POINTER_FILE), env).catch(() => undefined);
 }
 
 async function readPointer(dir: string): Promise<Pointer | undefined> {

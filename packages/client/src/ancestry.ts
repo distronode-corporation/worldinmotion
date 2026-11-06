@@ -60,17 +60,17 @@ async function walk(pid: number, levels: number, look: (pid: number) => Promise<
 }
 
 /**
- * The parents of this process, nearest first, at most `levels`. Linux reads `/proc`; macOS asks
- * `ps` once (run directly, with a fixed locale and time zone, so two processes read the same start
- * times). Elsewhere (Windows) only the direct parent is known, with no start time. Anything that
- * cannot be read ends the chain there.
+ * The parents of this process, nearest first, at most `levels`. Linux reads `/proc`; macOS runs
+ * `/bin/ps` once (directly, by its absolute path, with a fixed locale and time zone, so two
+ * processes read the same start times). Elsewhere (Windows) only the direct parent is known, with
+ * no start time. Anything that cannot be read ends the chain there.
  */
 export async function ancestry(d: AncestryDeps, levels: number): Promise<Ancestor[]> {
   if (d.platform === "linux") {
     return walk(d.pid, levels, async (pid) => procStat(await d.readFile(`/proc/${pid}/stat`).catch(() => "")));
   }
   if (d.platform === "darwin") {
-    const table = psTable(await d.execFile("ps", ["-A", "-o", "pid=,ppid=,lstart="], { LC_ALL: "C", TZ: "UTC" }).catch(() => ""));
+    const table = psTable(await d.execFile("/bin/ps", ["-A", "-o", "pid=,ppid=,lstart="], { LC_ALL: "C", TZ: "UTC" }).catch(() => ""));
     return walk(d.pid, levels, async (pid) => table.get(pid));
   }
   return d.ppid > 0 && levels > 0 ? [{ pid: d.ppid, start: "" }] : [];
