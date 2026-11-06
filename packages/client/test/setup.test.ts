@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseArgs } from "../src/cli.ts";
 import { AGENT_ENV_VARS } from "../src/secretout.ts";
+import { legacyBoxesLine } from "../src/legacyboxes.ts";
 import { execRunner, HOSTED_TERMS, STORED_PROMPT, type ToolRun } from "../src/setup.ts";
 import type { RunResult } from "../src/autostart.ts";
 import { makeMesh, RELAY, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
@@ -93,7 +94,12 @@ describe("wim setup on a new machine", () => {
     expect(text).toContain("To add another machine: run `wim invite` here");
     // The status summary ends it.
     expect(t.out.at(-1)).toBe("Everything checks out. `wim doctor` shows each check.");
-    expect(text).toMatch(/This device is my-host-local \(id \S+\)\.\nMesh \S+ on ws:\/\/127\.0\.0\.1:4444:\n  connected as an admin/);
+    // The device, its v0.1-box setting (off by default until 1.0), then the mesh it just made.
+    const at = t.out.findIndex((l) => /^This device is my-host-local \(id \S+\)\.$/.test(l));
+    expect(at).toBeGreaterThan(-1);
+    expect(t.out[at + 1]).toBe(`${legacyBoxesLine(false)}.`);
+    expect(t.out[at + 2]).toMatch(/^Mesh \S+ on ws:\/\/127\.0\.0\.1:4444:$/);
+    expect(t.out[at + 3]).toMatch(/^ {2}connected as an admin/);
     expect(await exists(join(home, "device.json"))).toBe(true);
   }, 20_000);
 

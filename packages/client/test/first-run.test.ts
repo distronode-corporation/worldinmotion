@@ -14,6 +14,7 @@ import { createMesh, deleteMesh, forgetMesh } from "../src/admin.ts";
 import { commandUsage } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
 import { Home } from "../src/home.ts";
+import { legacyBoxesLine } from "../src/legacyboxes.ts";
 import { runEvents } from "../src/events.ts";
 import { INTERNAL_OPS, PUBLIC_TOOLS, WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
@@ -49,6 +50,7 @@ describe("wim status", () => {
     expect(await run(t, "status")).toBe(0);
     expect(t.out).toEqual([
       `This device is solo (id ${devices[0]!.device.id}).`,
+      `${legacyBoxesLine(false)}.`,
       `Mesh ${mesh} on ${RELAY}:`,
       "  connected as an admin; roster seq 1; other devices: 0; other sessions online now: 0.",
       "  Next: `wim invite` adds another device. Until one joins, `wim peers` shows no other sessions, which is expected.",

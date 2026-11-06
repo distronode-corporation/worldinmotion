@@ -66,6 +66,7 @@ import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh
 import { resumeEverywhere } from "./offline.ts";
 import { PausedBy, readBreakerFile, savePauses, SentTo, type PausedByEntry, type PauseRow } from "./pauses.ts";
 import type { Notifier } from "./notify.ts";
+import { refusedLine, refusesLegacy, skippedNote } from "./legacyboxes.ts";
 import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { isTrusted, noticeText, policyFor, policyLevel } from "./render.ts";
 import { SeenStore, SeqStore } from "./replay.ts";
@@ -159,6 +160,11 @@ export type SessionOptions = {
   debug?: boolean;
   /** How CI providers' token keys are fetched (SPEC section 18). Default `fetchJwks`; tests pass their own. */
   jwksFetch?: JwksFetch;
+  /**
+   * The device's `legacy-boxes` file (legacyboxes.ts), read at each send and each open: when it
+   * says `refuse`, no v0.1 box is sent or accepted (SPEC section 6b). Without one, the window.
+   */
+  legacyBoxesPath?: string;
 };
 
 export type PeerRow = Peer & { card?: Card };
@@ -201,6 +207,10 @@ export type SendOptions = {
  * every recipient, because a v0.1 client drops a frame holding a `pk` or a scheme 2 box.
  * `unprotected` then names every device that got a scheme 1 box, without forward secrecy, and
  * `no_prekey` the devices that caused it. Both are absent when every box was sealed to a prekey.
+ *
+ * On a device that refuses v0.1 boxes (`wim legacy-boxes refuse`), a direct send naming such a
+ * device is refused instead, and a broadcast or room send skips it: `no_prekey` then names the
+ * devices skipped, and `unprotected` is absent.
  */
 export type SendOutcome = { id: string; results: SendRow[]; unprotected?: string[]; no_prekey?: string[] };
 
@@ -256,6 +266,16 @@ export function renamedLine(was: string, now: string): string {
 /** What a person or an agent is told about a send that went without forward secrecy. */
 export function unprotectedNote(unprotected: readonly string[], noPrekey: readonly string[]): string {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
+}
+
+/**
+ * The note a send's outcome carries about forward secrecy, if any: it went without (the window),
+ * or it skipped devices with no prekey (a device that refuses v0.1 boxes). An outcome from a watch
+ * that predates `no_prekey` has only `unprotected`.
+ */
+export function prekeyNote(o: { unprotected?: readonly string[]; no_prekey?: readonly string[] }): string | undefined {
+  if (o.unprotected !== undefined) return unprotectedNote(o.unprotected, o.no_prekey ?? o.unprotected);
+  return o.no_prekey === undefined ? undefined : skippedNote(o.no_prekey);
 }
 
 export type AskResult = { from: string; device: string; at: number; status: ResultStatus; text: string; id: string };
@@ -846,8 +866,15 @@ export class MeshSession extends EventEmitter {
     };
   }
 
-  private open(msg: SendFrame, history = false) {
-    return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history });
+  private async open(msg: SendFrame, history = false) {
+    // A device that refuses v0.1 boxes drops them as `legacy_box`, the reason 1.0 gives (SPEC section 6b).
+    const legacy = !(await this.refusesLegacy());
+    return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history, legacy });
+  }
+
+  /** Whether this device refuses v0.1 boxes now (`wim legacy-boxes`): read each time, so a change reaches a running session. */
+  private async refusesLegacy(): Promise<boolean> {
+    return this.o.legacyBoxesPath === undefined ? false : (await refusesLegacy(this.o.legacyBoxesPath)).refuse;
   }
 
   /**
@@ -1570,18 +1597,19 @@ export class MeshSession extends EventEmitter {
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
     const card = this.o.cwd === undefined || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    this.publishCard(link, card, await this.cardFrame(force || rotated, card), before);
+    this.publishCard(link, card, await this.cardFrame(force || rotated, card, await this.refusesLegacy()), before);
   }
 
   /**
    * The card frame to send, or undefined when the card is unchanged and nothing forces it. Not
    * async: the decision is taken before the seal (which may wait on the signer) and a seal that
-   * fails comes back as its error, so no branch follows an await (see publishCard).
+   * fails comes back as its error, so no branch follows an await (see publishCard). A device that
+   * refuses v0.1 boxes (`strict`) gives none to a device with no prekey: the card skips it.
    */
-  private cardFrame(always: boolean, card: Card): Promise<SendFrame | Error | undefined> {
+  private cardFrame(always: boolean, card: Card, strict: boolean): Promise<SendFrame | Error | undefined> {
     if (!always && sameCard(this.myCard, card)) return Promise.resolve(undefined);
     const ids = this.roster.devices.map((d) => d.id);
-    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids }).catch((error: unknown) => error as Error);
+    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, ...(strict ? { legacy: false } : {}), kind: "card", card, recipients: ids }).catch((error: unknown) => error as Error);
   }
 
   /**
@@ -1980,14 +2008,16 @@ export class MeshSession extends EventEmitter {
    * A card always carries the prekeys (`card`): cards are how upgraded devices learn each other's
    * prekeys, and a downgraded card would leave a mixed mesh with no forward secrecy at all. A v0.1
    * client drops such a card, so it misses that session's labels and nothing else.
+   *
+   * A device that refuses v0.1 boxes (`strict`) never falls back either: it seals as from 1.0.
    */
-  private keysFor(ids: readonly string[], card = false): { keys: { prekeys: Record<string, Prekey>; prekey?: Prekey }; missing: string[] } {
+  private keysFor(ids: readonly string[], card = false, strict = false): { keys: { prekeys: Record<string, Prekey>; prekey?: Prekey }; missing: string[] } {
     const own = this.prekeys.current();
     const prekeys = this.peerKeys.forSend(this.roster, ids);
     if (own !== undefined && ids.includes(this.device.id)) prekeys[this.device.id] = own;
     const acting = new Set(this.roster.devices.filter((d) => !isRecoveryName(d.name)).map((d) => d.id));
     const missing = ids.filter((id) => acting.has(id) && !Object.hasOwn(prekeys, id));
-    if (missing.length > 0 && !card) return { keys: { prekeys: {} }, missing };
+    if (missing.length > 0 && !card && !strict) return { keys: { prekeys: {} }, missing };
     return { keys: own === undefined ? { prekeys } : { prekeys, prekey: own }, missing };
   }
 
@@ -2035,7 +2065,12 @@ export class MeshSession extends EventEmitter {
     for (const a of routed) if (!isRoom(a) && a !== "*") this.breaker.noteSent(this.pairOf(a).split("/")[0]!, (text ?? "").length);
     const name = (d: string): string => this.roster.devices.find((r) => r.id === d)!.name;
     const unprotected = this.legacyIds(frame).map(name);
-    const outcome: SendOutcome = { id, results: [...out.local, ...sent.results], ...(unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {}) };
+    // Missing devices were sealed scheme 1 boxes (the window) or skipped (a device that refuses them).
+    const outcome: SendOutcome = {
+      id,
+      results: [...out.local, ...sent.results],
+      ...(missing.length > 0 ? { ...(unprotected.length > 0 ? { unprotected } : {}), no_prekey: missing.map(name) } : {}),
+    };
     return this.history.append({
       dir: "out",
       peer: routed.join(","),
@@ -2100,7 +2135,8 @@ export class MeshSession extends EventEmitter {
     // frame goes out, so an overlapping send would reuse it or overtake it, and the receiver
     // would drop one as a replay.
     const { frame, missing, answer: answering } = await this.serially(async () => {
-      let sealed = await this.seal(id, routed, ids, text, opts);
+      const strict = await this.refusesLegacy();
+      let sealed = await this.seal(id, routed, ids, text, opts, strict);
       const link = await this.ready(this.answerMs);
       if (sealed.missing.length > 0) {
         // A device with no prekey may only be unknown so far: read what sibling sessions learned
@@ -2109,12 +2145,13 @@ export class MeshSession extends EventEmitter {
         let timer: NodeJS.Timeout | undefined;
         await Promise.race([this.cardsIn, new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);
         clearTimeout(timer);
-        if (Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id, routed, ids, text, opts);
+        if (sealed.frame === undefined || Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id, routed, ids, text, opts, strict, true);
       }
-      await this.save({ seq: sealed.frame.seq });
+      // Only a strict direct send that still waits on a prekey leaves no frame, and its last seal refused it.
+      await this.save({ seq: sealed.frame!.seq });
       // Recorded before sending, so a quick answer already finds its task.
       if (opts.kind === "task") await this.recordSentTask(id, routed);
-      return { frame: sealed.frame, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame, id) };
+      return { frame: sealed.frame!, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame!, id) };
     });
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
@@ -2163,15 +2200,25 @@ export class MeshSession extends EventEmitter {
     return run;
   }
 
-  /** Seals a message at the next seq; the secrets check and the protocol limits refuse here. */
-  private async seal(id: string, routed: string[], ids: string[], text: string | undefined, opts: Outgoing): Promise<{ frame: SendFrame; missing: string[] }> {
+  /**
+   * Seals a message at the next seq; the secrets check and the protocol limits refuse here. On a
+   * device that refuses v0.1 boxes (`strict`), a direct send naming a device with no prekey has no
+   * frame until `last`, the seal after waiting for prekeys, which refuses it (SPEC section 6b,
+   * from 1.0); a broadcast or room send skips such a device.
+   */
+  private async seal(id: string, routed: string[], ids: string[], text: string | undefined, opts: Outgoing, strict: boolean, last = false): Promise<{ frame?: SendFrame; missing: string[] }> {
     // A ping, pong or pause is the client's own, never written while handling anything (SPEC section 6a).
     const derived = opts.kind === "ping" || opts.kind === "pong" || opts.kind === "pause" ? false : await this.isDerived();
-    const { keys, missing } = this.keysFor(ids);
+    const { keys, missing } = this.keysFor(ids, false, strict);
+    if (strict && !GROUP(routed) && missing.length > 0) {
+      if (!last) return { missing };
+      throw new ClientError(refusedLine(missing.map((d) => this.roster.devices.find((r) => r.id === d)!.name)), "invalid");
+    }
     try {
       const frame = await sealMessageWith({
         ...this.sealBase(routed),
         ...keys,
+        ...(strict ? { legacy: false } : {}),
         id,
         kind: opts.kind ?? "msg",
         ...(text === undefined ? {} : { text }),
