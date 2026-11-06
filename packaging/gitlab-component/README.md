@@ -5,8 +5,16 @@ session when a pipeline finishes. The job proves where it runs with a GitLab ID 
 is no secret to store. The receiving device decides which projects may send, and the notice
 never starts work in the session that receives it. The protocol is SPEC section 18.
 
-This folder is laid out as the component's own project (`templates/notify.yml`), for the GitLab
-CI/CD Catalog. Until it is published there, include the template by URL at a commit you pin.
+The component is published in the GitLab CI/CD Catalog from the project
+[distronode-corporation/worldinmotion-notify](https://gitlab.com/distronode-corporation/worldinmotion-notify),
+one version `X.Y.Z` per worldinmotion release.
+<!-- unpublished -->
+
+**Not published yet.** This folder is that project's source (`templates/notify.yml` and its own
+`.gitlab-ci.yml`, whose `release` job lists each tag in the Catalog): worldinmotion's release
+workflow writes it there. Until the first release that does, the `component:` line below does
+not resolve.
+<!-- /unpublished -->
 
 ## On the receiving device
 
@@ -24,27 +32,18 @@ Neither is a secret.
 
 ## In the pipeline
 
-Once it is in the Catalog:
-
 ```yaml
 include:
-  - component: $CI_SERVER_FQDN/<catalog project>/notify@<version>
+  - component: $CI_SERVER_FQDN/distronode-corporation/worldinmotion-notify/notify@X.Y.Z
     inputs:
       recipient: wimci1_...
       audience: wimci1.<mesh>.<device>
       to: build
 ```
 
-Before that, from this repository at a pinned commit:
-
-```yaml
-include:
-  - remote: https://raw.githubusercontent.com/distronode-corporation/worldinmotion/<full commit sha>/packaging/gitlab-component/templates/notify.yml
-    inputs:
-      recipient: wimci1_...
-      audience: wimci1.<mesh>.<device>
-      to: build
-```
+`X.Y.Z` is an exact version, such as the latest in the Catalog: each one runs the `wim` of the
+worldinmotion release with the same number. On a self-managed GitLab, the project must be
+mirrored there under the same path.
 
 | Input | Default | What it is |
 |---|---|---|

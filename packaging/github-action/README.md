@@ -5,8 +5,14 @@ session when a job finishes. The job proves where it runs with its own GitHub ID
 is no secret to store. The receiving device decides which repositories may send, and the notice
 never starts work in the session that receives it. The protocol is SPEC section 18.
 
-This folder is the action as it will be published on its own. Until then it runs from this
-repository, at a commit you pin.
+The action is published as [distronode-corporation/worldinmotion-notify](https://github.com/distronode-corporation/worldinmotion-notify),
+one tag `vX.Y.Z` per worldinmotion release, holding the client bundle of that release.
+<!-- unpublished -->
+
+**Not published yet.** This folder is that repository's source: worldinmotion's release workflow
+writes it there with the release's `wim.mjs`. Until the first release that does, the
+`uses:` line below does not resolve.
+<!-- /unpublished -->
 
 ## On the receiving device
 
@@ -32,13 +38,17 @@ jobs:
       id-token: write   # the notice is proven with the job's ID token
     steps:
       # ... the job's own steps ...
-      - uses: distronode-corporation/worldinmotion/packaging/github-action@<full commit sha>
+      - uses: distronode-corporation/worldinmotion-notify@<full commit sha> # vX.Y.Z
         if: always()
         with:
           recipient: ${{ vars.WIM_CI_RECIPIENT }}
           to: build
           status: ${{ job.status }}
 ```
+
+Pin the full commit sha of the release tag, with the tag as a comment, as for any action.
+`git ls-remote https://github.com/distronode-corporation/worldinmotion-notify refs/tags/vX.Y.Z`
+prints it.
 
 | Input | Required | What it is |
 |---|---|---|

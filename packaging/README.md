@@ -10,8 +10,8 @@ How a release reaches each install channel. Every channel carries the same clien
 | Homebrew | `brew install distronode-corporation/tap/worldinmotion` | the npm tarball | the tap (`packaging/homebrew` is the draft) |
 | VS Code Marketplace | the extension `distronode.worldinmotion` | `packages/vscode` | `release.yml` `marketplace` (gated) |
 | Open VSX | the same extension, for Cursor, VSCodium and others | `packages/vscode` | `release.yml` `openvsx` (gated) |
-| GitHub Marketplace | the action `worldinmotion CI notice` | `packaging/github-action` + the plugin bundle | not yet: its own repository, at a release (below) |
-| GitLab CI/CD Catalog | the component `notify` | `packaging/gitlab-component` | not yet: its own project, at a release (below) |
+| GitHub Marketplace | the action `worldinmotion CI notice` | `packaging/github-action` + `wim.mjs` | `release.yml` `notify-github` (gated), into its own repository |
+| GitLab CI/CD Catalog | the component `notify` | `packaging/gitlab-component` | `release.yml` `notify-gitlab` (gated), into its own project |
 
 ## npm: `packaging/npm`
 
@@ -65,16 +65,32 @@ tap pull request that also:
 ## CI senders: `packaging/github-action` and `packaging/gitlab-component`
 
 The two ways a CI job sends a notice (SPEC section 18), each laid out as the root of the
-repository or project it will be published from: a GitHub repository for the Marketplace
-(`action.yml` at its root) and a GitLab project for the CI/CD Catalog (`templates/notify.yml`).
-Until then they run from this repository at a pinned commit, as their READMEs show, and
-`.github/workflows/ci-notice-staging.yml` runs the action by hand against a relay.
+repository or project it is published from, both named `distronode-corporation/worldinmotion-notify`:
+a GitHub repository for the Marketplace (`action.yml` at its root) and a GitLab project for the
+CI/CD Catalog (`templates/notify.yml`). `.github/workflows/ci-notice-staging.yml` runs the action
+from this repository by hand against a relay.
+
+`.github/scripts/notify-trees.mjs` builds both trees, which `release.yml`'s `notify-github` and
+`notify-gitlab` jobs commit and tag (`vX.Y.Z` on GitHub, `X.Y.Z` on GitLab, whose own
+`.gitlab-ci.yml` lists the tag in the Catalog), and which `test/notify-trees.test.ts` checks:
+
+- GitHub: `action.yml`, `main.mjs`, `notify.mjs`, the release's `wim.mjs`, `README.md`,
+  `LICENSE` and `NOTICE`, only what the action needs (no workflow, no tests);
+- GitLab: `templates/notify.yml`, `.gitlab-ci.yml`, `README.md` and `LICENSE`.
+
+Each README drops its `<!-- unpublished -->` blocks in the published copy. To see the trees, from
+the repository root:
+
+```sh
+npm run bundle -w @worldinmotion/client
+node .github/scripts/notify-trees.mjs "$(node -p 'require("./package.json").version')" packages/client/dist/wim.mjs ../notify-trees
+```
 
 - **The action** is a JavaScript action on GitHub's Node.js 24. `main.mjs` (through `notify.mjs`) runs `wim ci notify`
   from the bundle beside it (`wim.mjs` in its own repository; here, the Claude Code plugin's
   committed bundle, which CI checks against a fresh build), so the pinned commit is the code
-  that runs and nothing is downloaded. Its own repository needs a copy of `wim.mjs` from the
-  release it follows.
+  that runs and nothing is downloaded. Its own repository holds the `wim.mjs` of the release
+  it was published from.
 - **The component** runs `npm exec` of `worldinmotion` at the exact version in its
   `wim_package` default, which `check-versions.mjs` holds to the release version.
 

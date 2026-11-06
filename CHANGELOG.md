@@ -13,6 +13,20 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **The CI senders get published, as `worldinmotion-notify`.** `release.yml` gains two jobs,
+  `notify-github` and `notify-gitlab`, each off until a repository variable turns it on, which
+  write the GitHub Action to its own repository for the GitHub Marketplace (tag `vX.Y.Z`) and the
+  GitLab CI/CD component to its own project for the CI/CD Catalog (tag `X.Y.Z`, released by that
+  project's own pipeline). `.github/scripts/notify-trees.mjs` builds both trees, with the
+  release's own `wim.mjs` in the action, and refuses a file it does not list, another release's
+  bundle, an expression in `action.yml` or a README link that would not resolve there. Each push
+  uses a write credential held by a protected environment and read only by the push step. The
+  READMEs now show only the published lines, `uses: distronode-corporation/worldinmotion-notify@<full
+  commit sha> # vX.Y.Z` and `component: $CI_SERVER_FQDN/distronode-corporation/worldinmotion-notify/notify@X.Y.Z`,
+  and say that neither resolves until a release publishes them.
+
 ### Fixed
 
 - **The GitHub Action did not load.** The description of its `status` input showed the

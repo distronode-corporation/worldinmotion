@@ -10,6 +10,9 @@ name: Release
 #       provenance;
 #   (d) the .vsix that `test` packaged to the Visual Studio Marketplace, as a pre-release;
 #   (e) the same .vsix to Open VSX.
+# And two gated jobs publish the CI senders (SPEC section 18), each as its own repository:
+#   (f) the GitHub Action, for the GitHub Marketplace;
+#   (g) the GitLab CI/CD component, for the GitLab CI/CD Catalog.
 # The Claude Code plugin is not a release asset: the marketplace installs it from the
 # repository at the release tag and commit that .claude-plugin/marketplace.json pins, and a
 # pull request after each tag moves that pin (CONTRIBUTING.md, "Releasing"). The .vsix is
@@ -35,6 +38,22 @@ name: Release
 # The CLIs those jobs run (vsce, ovsx) are pinned by .github/publish/package-lock.json and
 # installed with --ignore-scripts; npm is the one bundled with the Node in .nvmrc.
 #
+# THE TWO CI SENDER JOBS ARE OFF too. Each pushes to its own repository,
+# distronode-corporation/worldinmotion-notify on GitHub and on GitLab, with a write credential
+# held only by the protected environment `notify-publish` (a deploy key for GitHub, a project
+# access token for GitLab, never a personal token); only the push step reads it.
+#   notify-github  vars.NOTIFY_GITHUB_PUBLISH == 'true', after the repository exists, is
+#                  public and holds the environment's deploy key with write access. Commits the
+#                  tree .github/scripts/notify-trees.mjs builds to main and tags it vX.Y.Z.
+#                  The Marketplace has no API: its listing of each tag is a release drafted
+#                  there by hand, with "Publish this Action to the GitHub Marketplace" ticked.
+#   notify-gitlab  vars.NOTIFY_GITLAB_PUBLISH == 'true', after the project exists, is public,
+#                  is a CI/CD Catalog resource and holds the environment's token. Commits its
+#                  tree to main and tags it X.Y.Z; the project's own .gitlab-ci.yml then makes
+#                  the release the Catalog lists. It runs after `npm`, because the component
+#                  runs the `worldinmotion` package of the same version, so it is skipped while
+#                  `npm` is off.
+#
 # Jobs, in order. Each needs the one before it, so nothing leaves the run until everything
 # before it has passed:
 #   guard    refuses a tag that should not be built (not on main, a version string that
@@ -54,6 +73,8 @@ name: Release
 #                `worldinmotion`.
 #   marketplace  needs `publish`; publishes the .vsix to the Visual Studio Marketplace.
 #   openvsx      needs `marketplace`; publishes the same .vsix to Open VSX.
+#   notify-github  needs `publish`; commits and tags the GitHub Action's repository.
+#   notify-gitlab  needs `npm`; commits and tags the GitLab component's project.
 # A run that fails before `publish` leaves at most a draft release, which a re-run
 # rebuilds, and an image job that fails leaves no public release. The registry jobs run
 # only after `publish`, so nothing reaches a registry without its GitHub Release; a
@@ -580,3 +601,183 @@ jobs:
             echo "No OVSX_PAT: publishing through Open VSX trusted publishing."
             env -u OVSX_PAT npx --no -- ovsx publish "$vsix" --trusted-publishing
           fi
+
+  # The GitHub Action as its own repository, which is what the Marketplace lists (one action at
+  # the root, and only what it needs). The tree is notify-trees.mjs's: packaging/github-action, LICENSE,
+  # NOTICE and the wim.mjs that `client` built and `draft` attested, checked against SHA256SUMS
+  # again here. One commit on main per release, tagged vX.Y.Z; users pin that commit's sha.
+  notify-github:
+    needs: [guard, client, publish]
+    if: vars.NOTIFY_GITHUB_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Holds the deploy key; protected, so only a release tag can use it.
+    environment: notify-publish
+    permissions:
+      # The checkout. The push uses the deploy key, not this token.
+      contents: read
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+      TARGET: distronode-corporation/worldinmotion-notify
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: client
+          path: assets
+
+      - name: Build the action's tree
+        run: |
+          set -euo pipefail
+          (cd assets && sha256sum -c SHA256SUMS)
+          node .github/scripts/notify-trees.mjs "$VERSION" assets/wim.mjs "$RUNNER_TEMP/trees"
+
+      # Read without credentials, as the repository is public. A version is published once:
+      # moving a tag users pin by name would change what they run.
+      - name: The version is not in the action's repository yet
+        run: |
+          set -euo pipefail
+          status=0
+          git ls-remote --exit-code --tags "https://github.com/$TARGET.git" "refs/tags/v$VERSION" || status=$?
+          case "$status" in
+            2) echo "v$VERSION is not in $TARGET yet" ;;
+            0) echo "::error::$TARGET already has v$VERSION. Refusing to publish it again."; exit 1 ;;
+            *) echo "::error::could not read the tags of $TARGET (git exited $status)"; exit 1 ;;
+          esac
+
+      # The new commit's parent is main as it is now (none in an empty repository), and it
+      # holds the tree and nothing else.
+      - name: Commit the tree
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth 1 --no-tags "https://github.com/$TARGET.git" "$RUNNER_TEMP/target"
+          cd "$RUNNER_TEMP/target"
+          git rm -rq --ignore-unmatch -- .
+          cp -R "$RUNNER_TEMP/trees/github/." .
+          git add -A
+          expected="$(cd "$RUNNER_TEMP/trees/github" && find . -type f | sed 's|^\./||' | sort)"
+          if [ "$expected" != "$(git ls-files | sort)" ]; then
+            echo "::error::the commit would not hold exactly the built tree"
+            exit 1
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --quiet --allow-empty -m "worldinmotion-notify v$VERSION" \
+            -m "Built from $GITHUB_REPOSITORY $GITHUB_REF_NAME ($GITHUB_SHA) by .github/scripts/notify-trees.mjs."
+          git tag "v$VERSION"
+          git show --stat --format='%H %s' HEAD
+
+      # The only step that sees the key. GitHub's published SSH host key is pinned here, so the
+      # push cannot go anywhere else. --atomic: main and the tag move together or not at all,
+      # and main only fast-forwards.
+      - name: Push main and the tag
+        env:
+          DEPLOY_KEY: ${{ secrets.NOTIFY_GITHUB_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/target"
+          umask 077
+          key="$RUNNER_TEMP/notify-deploy-key"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$key"
+          printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$RUNNER_TEMP/known_hosts"
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts -o StrictHostKeyChecking=yes"
+          git push --atomic "git@github.com:$TARGET.git" HEAD:refs/heads/main "refs/tags/v$VERSION"
+
+  # The GitLab CI/CD component as its own project, from which the Catalog lists it. The tree is
+  # notify-trees.mjs's: packaging/gitlab-component (with the project's own .gitlab-ci.yml) and
+  # LICENSE. One commit on main per release, tagged X.Y.Z, the form the Catalog takes; the
+  # project's pipeline then creates the release. The template runs `worldinmotion` from npm at
+  # this version, so this runs only after `npm`, and checks npm has it.
+  notify-gitlab:
+    needs: [guard, client, npm]
+    if: vars.NOTIFY_GITLAB_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # Holds the project access token; protected, so only a release tag can use it.
+    environment: notify-publish
+    permissions:
+      # The checkout. The push uses the project access token, not this token.
+      contents: read
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+      TARGET: gitlab.com/distronode-corporation/worldinmotion-notify
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: client
+          path: assets
+
+      - name: Build the component's tree
+        run: |
+          set -euo pipefail
+          (cd assets && sha256sum -c SHA256SUMS)
+          node .github/scripts/notify-trees.mjs "$VERSION" assets/wim.mjs "$RUNNER_TEMP/trees"
+
+      - name: npm has the wim the component runs
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/worldinmotion/$VERSION")"
+          if [ "$status" != "200" ]; then
+            echo "::error::the npm registry answered $status for worldinmotion@$VERSION, which the component runs"
+            exit 1
+          fi
+
+      - name: The version is not in the component's project yet
+        run: |
+          set -euo pipefail
+          status=0
+          git ls-remote --exit-code --tags "https://$TARGET.git" "refs/tags/$VERSION" || status=$?
+          case "$status" in
+            2) echo "$VERSION is not in $TARGET yet" ;;
+            0) echo "::error::$TARGET already has $VERSION. Refusing to publish it again."; exit 1 ;;
+            *) echo "::error::could not read the tags of $TARGET (git exited $status)"; exit 1 ;;
+          esac
+
+      - name: Commit the tree
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth 1 --no-tags "https://$TARGET.git" "$RUNNER_TEMP/target"
+          cd "$RUNNER_TEMP/target"
+          git rm -rq --ignore-unmatch -- .
+          cp -R "$RUNNER_TEMP/trees/gitlab/." .
+          git add -A
+          expected="$(cd "$RUNNER_TEMP/trees/gitlab" && find . -type f | sed 's|^\./||' | sort)"
+          if [ "$expected" != "$(git ls-files | sort)" ]; then
+            echo "::error::the commit would not hold exactly the built tree"
+            exit 1
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --quiet --allow-empty -m "worldinmotion-notify $VERSION" \
+            -m "Built from $GITHUB_REPOSITORY $GITHUB_REF_NAME ($GITHUB_SHA) by .github/scripts/notify-trees.mjs."
+          git tag "$VERSION"
+          git show --stat --format='%H %s' HEAD
+
+      # The only step that sees the token. Git asks the inline credential helper for it, so it
+      # is never in a URL, an argument or the repository's config.
+      - name: Push main and the tag
+        env:
+          GITLAB_TOKEN: ${{ secrets.NOTIFY_GITLAB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/target"
+          # shellcheck disable=SC2016
+          helper='!f() { test "$1" = get || exit 0; echo username=oauth2; printf "password=%s\n" "$GITLAB_TOKEN"; }; f'
+          git -c credential.helper= -c "credential.helper=$helper" \
+            push --atomic "https://$TARGET.git" HEAD:refs/heads/main "refs/tags/$VERSION"
