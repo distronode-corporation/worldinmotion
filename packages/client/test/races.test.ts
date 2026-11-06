@@ -494,3 +494,50 @@ describe("first run", () => {
     await expect(h.createDevice("x")).rejects.toMatchObject({ code: "ENOENT" });
   });
 });
+
+describe("session state writes", () => {
+  it("land in the order asked, so a write still in flight never undoes the ended that stop writes", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const s = await openSession(devices[0]!, mesh, relay, { name: "short" });
+    const files = s.files as unknown as { save(state: unknown): Promise<void>; load(): Promise<{ ended?: boolean; rooms: string[] } | undefined> };
+    const write = files.save.bind(files);
+    const writes: string[] = [];
+    let slow = true;
+    files.save = async (state) => {
+      const ended = (state as { ended?: boolean }).ended === true;
+      // The first write is slow, as on a busy disk: without the order, the stop's write lands
+      // first and this older one after it.
+      if (slow) {
+        slow = false;
+        await sleep(100);
+      }
+      await write(state);
+      writes.push(ended ? "ended" : "open");
+    };
+    const inFlight = (s as unknown as { save(c: object): Promise<void> }).save({});
+    await s.stop({ ended: true });
+    await inFlight;
+    expect(writes).toEqual(["open", "ended"]);
+    expect((await files.load())?.ended).toBe(true);
+  });
+
+  it("go on after one fails: the failure reaches only its own caller", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const s = await openSession(devices[0]!, mesh, relay, { name: "failing" });
+    const files = s.files as unknown as { save(state: unknown): Promise<void>; load(): Promise<{ ended?: boolean } | undefined> };
+    const write = files.save.bind(files);
+    let fail = true;
+    files.save = async (state) => {
+      if (fail) {
+        fail = false;
+        throw Object.assign(new Error("no space left on device"), { code: "ENOSPC" });
+      }
+      await write(state);
+    };
+    await expect((s as unknown as { save(c: object): Promise<void> }).save({})).rejects.toThrow(/no space/);
+    await s.stop({ ended: true });
+    expect((await files.load())?.ended).toBe(true);
+  });
+});

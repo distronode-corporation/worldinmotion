@@ -161,9 +161,39 @@ body line with a bracket.
 
 - **Tests:** the held-code test's wrong proof always differs from the real one; it sent the real
   proof when that ended in `A`, one run in sixteen.
+- **`wim status` and `wim doctor` on a device never set up** ended in a raw file error
+  (`ENOENT`) for the missing state directory. They now say the device is not set up yet and name
+  `wim init` and `wim join <code>`, and exit 1, as for any problem they find. A state directory
+  that cannot be read is a problem line of its own.
+- **`wim status` and `wim doctor` on a device in two or more meshes** reported every mesh as
+  failed ("set WIM_MESH or pass --mesh"): each mesh's roster check opened its session without the
+  mesh's id. Every mesh is checked now, whatever `WIM_MESH` says.
+- **`wim init` on a device already set up** said only that `device.json` exists. It now says the
+  device is set up, that `wim status` shows it, and that `wim mesh create --relay <url>` or `wim
+  join <code>` adds a mesh.
+- **A stopped `wim init --relay` or `wim mesh create` exits 130** (Ctrl-C, a kill, or the
+  terminal closing while it holds the recovery code for `wim recovery show`), as a shell reports
+  Ctrl-C, and does not connect the device's `cli` session after the stop. It exited 0.
+- **Tests:** the Workers relay's mesh-delete and mesh-cap tests read the mesh count right after
+  the relay's answer, before the Durable Object gave the place back, and failed about one run in
+  four under load ("expected 4 to be 3"). They wait for it now; the close codes are checked as
+  before.
+- **A command ended for good could leave its session reusable, and the next one was refused.**
+  A session's state writes could land out of order, so a write still in flight when
+  `stop({ ended: true })` wrote `ended` could land after it and undo it. The next command with
+  that name then took the ended session's id, and the relay refused it ("the relay refused this
+  device's authentication"). Seen as `wim inbox --as <name>` failing right after a refused
+  `--as` for a Claude Code tab's name, about one run in six on Linux and on Windows CI. A
+  session now writes its state one write at a time, in the order asked.
+- **Tests:** two client tests checked a result after a fixed sleep (a joined member's roster seq,
+  and the deliveries after a cool-down's release); they wait for the result now.
 
 ### Documentation
 
+- **The send that trips a peer's loop breaker** (SECURITY-MODEL section 7.3): it is held there
+  itself, and still reports the relay's `routed` or `queued`, since the relay answers before the
+  receiving client opens it; its `held` receipt and the `pause`, whose `reply_to` names it, say
+  so afterwards. A test pins it.
 - **CI senders are specified (SPEC section 18).** A GitHub Actions or GitLab CI/CD job that is not
   in the mesh can send one information-only notice to one session, proving where it runs with its
   provider's OIDC ID token, under rules only the receiving device's person sets. SECURITY-MODEL

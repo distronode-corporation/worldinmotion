@@ -22,7 +22,7 @@ import { createMesh, decideJoin, Invites, issueInvite, joinMesh, promoteDevice, 
 import { MeshSession } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
-import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, sleep, until, rosterSeqs, keysOf } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, until, rosterSeqs, keysOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -202,8 +202,8 @@ describe("roster changes", () => {
     const revoked = await revokeDevice(admin, "m2", Date.now);
     expect(revoked.revoked).toContain(devices[2]!.device.id);
     const member = await session(devices[1]!, mesh, relay, { name: "m" });
-    await sleep(10);
-    expect(member.roster.seq).toBe(revoked.seq);
+    // Waited for, not slept on: the member walks to the newest roster after it connects.
+    await until(() => member.roster.seq === revoked.seq);
   });
 
   it("reports a relay refusal of a roster and a roster that does not verify here", async () => {

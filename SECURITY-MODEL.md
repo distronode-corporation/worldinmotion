@@ -1111,7 +1111,10 @@ its agent does not take a held peer for a silent one); `wim held list`, the plug
 events` show the running pauses; and the sender gets the receipt `held`. The receiving client also
 tells each sending session once per pause, a session that sent to a room included, with a `pause`
 message (SPEC section 12), so that the sender's `send` reports `held` for that session, with the
-rule and its numbers, instead of `routed` until the pause ends; the sending client tells its agent
+rule and its numbers, instead of `routed` until the pause ends. The send that trips the pause is
+itself held, and still reports the relay's `routed` or `queued`: the relay answers before the
+receiving client opens it. Its `held` receipt, and the `pause`, whose `reply_to` names it, tell
+the sender afterwards (`wim send --wait` says so when that receipt comes). The sending client tells its agent
 only when the receiving device is one its person trusts, at most once in 10 minutes per device, so a
 device it holds cannot wake its agent this way. A `pause` is a label like a
 receipt: it changes only what the sending client reports, never what it sends or what anyone

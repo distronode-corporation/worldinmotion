@@ -6,12 +6,14 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { promises as fs } from "node:fs";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { CLOSE } from "@worldinmotion/protocol";
-import { deleteMesh, forgetMesh } from "../src/admin.ts";
+import { createMesh, deleteMesh, forgetMesh } from "../src/admin.ts";
 import { commandUsage } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
+import { Home } from "../src/home.ts";
 import { runEvents } from "../src/events.ts";
 import { INTERNAL_OPS, PUBLIC_TOOLS, WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
@@ -33,6 +35,9 @@ function infoFetch(idle: number | null): typeof fetch {
 async function meshLives(relay: RelayHarness, mesh: string): Promise<boolean> {
   return relay.relay(mesh).exists();
 }
+
+/** What a Home on this machine reads, as the CLI builds it. */
+const HOME_ENV = { ...FS, uid: process.getuid?.() };
 
 const exists = (path: string): Promise<boolean> => fs.stat(path).then(() => true, () => false);
 
@@ -82,7 +87,7 @@ describe("wim status", () => {
     expect(t.out.at(-1)).toBe("Problems: 1, above. `wim doctor` shows each check.");
     const empty = term(await scratch("status-none"), relay);
     expect(await run(empty, "status")).toBe(1);
-    expect(empty.out[0]).toMatch(/^problem  no device keys at .*: run wim init$/);
+    expect(empty.out[0]).toMatch(/^problem  not set up yet, no device keys at .*: run `wim init`, or `wim join <code>` with an invite$/);
     expect(said(empty)).not.toContain("This device is");
     // Keys and no mesh yet.
     const fresh = term(await scratch("status-fresh"), relay);
@@ -110,7 +115,7 @@ describe("wim init, when it cannot show the recovery code", () => {
       "This command keeps running, for up to 10 minutes, until the code is collected: only this process holds it. If it is stopped before then, the code is gone; run `wim recovery rotate` on this device, in your own terminal, for a new one.",
     );
     agent.stop.abort();
-    expect(await creating).toBe(0);
+    expect(await creating).toBe(130);
     expect(said(agent)).toContain("The recovery code was not collected and is gone; make a new one from an admin device with `wim recovery rotate`.");
     expect(agent.out.at(-1)).toBe("Check this device and its mesh at any time with `wim status`.");
   }, 20_000);
@@ -315,4 +320,92 @@ describe("wim mesh delete", () => {
     expect(await meshLives(relay, mesh)).toBe(true);
     expect(await exists(devices[0]!.home.meshDir(mesh))).toBe(true);
   }, 30_000);
+});
+
+// The 0.1.9 release QA: a device never set up, a device in two meshes, `wim init` run again, and
+// a stopped `wim init`.
+describe("wim status and wim doctor on a device never set up", () => {
+  it("say it is not set up yet and what to run, with no file error, and exit 1 as for any problem", async () => {
+    const relay = new RelayHarness();
+    // No state directory at all: neither `wim init` nor `wim join` ever ran here.
+    const root = join(await scratch("never-set-up"), "wim");
+    const setUp = `not set up yet, no device keys at ${join(root, "device.json")}: run \`wim init\`, or \`wim join <code>\` with an invite`;
+    const s = term(root, relay);
+    expect(await run(s, "status")).toBe(1);
+    expect(s.out).toEqual([`problem  ${setUp}`, "Problems: 1, above. `wim doctor` shows each check."]);
+    expect(s.err).toEqual([]);
+    const d = term(root, relay);
+    expect(await run(d, "doctor")).toBe(1);
+    expect(d.out.filter((l) => l.startsWith("problem"))).toEqual([`problem  ${setUp}`]);
+    expect(said(d)).not.toMatch(/ENOENT|no such file/);
+    expect(d.err).toEqual([]);
+    // Checking created nothing.
+    expect(await exists(root)).toBe(false);
+  });
+
+  it("tell a state directory that cannot be read from one that does not exist", async () => {
+    const dir = await scratch("root-unreadable");
+    // A path no platform can stat, and that is not missing either (a path under a regular file is
+    // ENOTDIR on Linux and macOS but ENOENT on Windows).
+    expect(await new Home(join(dir, "wim\u0000"), HOME_ENV).rootProblem()).toMatch(/^cannot be read: .*null bytes/);
+    expect(await new Home(join(dir, "never"), HOME_ENV).rootProblem()).toBeNull();
+  });
+});
+
+describe("wim status and wim doctor on a device in two meshes", () => {
+  it("check every mesh, each with its own session, with or without WIM_MESH", async () => {
+    const relay = new RelayHarness();
+    const { mesh: first, devices } = await makeMesh(relay, ["both"]);
+    const d = devices[0]!;
+    const { mesh: second } = await createMesh({ home: d.home, device: d.device, relay: RELAY, dialer: relay.dialer, now: () => relay.now(), recovery: false });
+    expect((await d.home.meshIds()).sort()).toEqual([first, second].sort());
+    for (const env of [{}, { WIM_MESH: first }, { WIM_MESH: second }]) {
+      const status = term(d.root, relay, {}, env);
+      expect(await run(status, "status"), JSON.stringify(env)).toBe(0);
+      expect(said(status)).not.toContain("set WIM_MESH or pass --mesh");
+      for (const m of [first, second]) expect(said(status)).toContain(`Mesh ${m} on ${RELAY}:\n  connected as an admin;`);
+      expect(status.out.at(-1)).toBe("Everything checks out. `wim doctor` shows each check.");
+      const doctor = term(d.root, relay, {}, env);
+      expect(await run(doctor, "doctor"), JSON.stringify(env)).toBe(0);
+      for (const m of [first, second]) expect(said(doctor)).toMatch(new RegExp(`^ok {7}mesh ${m}: authenticated; roster seq \\d+`, "m"));
+    }
+  });
+});
+
+describe("wim init on a device already set up", () => {
+  it("refuses, names the next step, and changes nothing", async () => {
+    const relay = new RelayHarness();
+    const t = term(await scratch("init-again"), relay);
+    expect(await run(t, "init", "--name", "first")).toBe(0);
+    const keys = await fs.readFile(join(t.env["WIM_HOME"]!, "device.json"), "utf8");
+    expect(await run(t, "init", "--name", "second")).toBe(1);
+    expect(t.err.at(-1)).toBe(
+      `wim: ${join(t.env["WIM_HOME"]!, "device.json")} already exists: this device is set up. \`wim status\` shows it and its meshes; \`wim mesh create --relay <url>\` or \`wim join <code>\` adds a mesh`,
+    );
+    expect(await fs.readFile(join(t.env["WIM_HOME"]!, "device.json"), "utf8")).toBe(keys);
+  });
+});
+
+describe("wim init stopped by Ctrl-C", () => {
+  it("exits 130 while it holds the recovery code, and connects nothing more; run to the end it exits 0", async () => {
+    const relay = new RelayHarness();
+    const home = await scratch("init-sigint");
+    const agent = term(home, relay, { isTTY: false }, { CLAUDECODE: "1" });
+    const creating = run(agent, "init", "--name", "box", "--relay", RELAY);
+    await until(() => agent.out.some((l) => l.includes("keeps running")), 5000);
+    agent.stop.abort();
+    expect(await creating).toBe(130);
+    expect(agent.err).toEqual([]);
+    expect(agent.out.slice(-2)).toEqual(["The recovery code was not collected and is gone; make a new one from an admin device with `wim recovery rotate`.", "Check this device and its mesh at any time with `wim status`."]);
+    // The mesh was made before the stop, and the device's `cli` session never connected to it.
+    const [mesh] = await new Home(home, HOME_ENV).meshIds();
+    expect(await meshLives(relay, mesh!)).toBe(true);
+    const cliAuth = (r: RelayHarness): boolean => r.sentByClients.some((t) => t.includes('"t":"auth"') && t.includes('"name":"cli"'));
+    expect(cliAuth(relay)).toBe(false);
+    // Not stopped, the same command ends with 0 and connects `cli`.
+    const other = new RelayHarness();
+    const person = term(await scratch("init-whole"), other);
+    expect(await run(person, "init", "--name", "desk", "--relay", RELAY)).toBe(0);
+    expect(cliAuth(other)).toBe(true);
+  }, 20_000);
 });

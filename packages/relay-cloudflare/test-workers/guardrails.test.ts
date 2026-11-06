@@ -73,7 +73,8 @@ describe("the mesh cap", () => {
     // A create that fails after the reservation (here an invalid roster) gives the place back.
     const invalid = await createWith({ WIM_OPEN_CREATE: "1" }, () => ({ t: "create", roster: { ...(answer["chain"] as unknown[])[0] as object, at: 1 } }));
     expect(invalid.answer).toMatchObject({ t: "error", ref: "create" });
-    expect(await registered()).toBe(before + 1);
+    // Given back after the answer went out, so it is waited for.
+    await vi.waitFor(async () => expect(await registered()).toBe(before + 1));
   });
 });
 
@@ -155,7 +156,9 @@ describe("an admin deletes the mesh (mesh.delete)", () => {
     expect(await writer.sock.closedWith()).toEqual({ code: 4005, reason: "mesh deleted" });
     // The socket that created the mesh never authenticated; it goes too.
     expect(await m.sock.closedWith()).toEqual({ code: 4005, reason: "mesh deleted" });
-    expect(await registered()).toBe(count - 1);
+    // The object gives the place back after it has answered and closed the sockets (forget(), once
+    // the frame is handled), so a read right after the closes can come before the registry's.
+    await vi.waitFor(async () => expect(await registered()).toBe(count - 1));
     await drained(m.mesh);
     const tables = await runInDurableObject(meshStub(m.mesh), (_o, st) =>
       st.storage.sql.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\'").toArray(),
