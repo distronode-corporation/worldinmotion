@@ -132,6 +132,11 @@ const clientCases: Array<[string, object, object[]]> = [
   ],
   ["roster.get", { t: "roster.get", from: 1 }, [{ t: "roster.get", from: 0 }, { t: "roster.get" }]],
   ["roster.fork", { t: "roster.fork", a: forkA, b: forkB }, [{ t: "roster.fork", a: forkA }]],
+  [
+    "mesh.delete",
+    { t: "mesh.delete", mesh: roster.mesh },
+    [{ t: "mesh.delete" }, { t: "mesh.delete", mesh: "x" }, { t: "mesh.delete", mesh: roster.mesh, force: true }],
+  ],
   ["ping", { t: "ping" }, [{ t: "ping", x: 1 }]],
   ["bye", { t: "bye", ended: true }, [{ t: "bye", ended: "yes" }, { t: "bye" }]],
   ["create", { t: "create", roster: chain[0], key: "operator-key" }, [{ t: "create", roster: chain[0], key: "" }]],
@@ -222,6 +227,7 @@ const relayCases: Array<[string, object, object[]]> = [
   ["recover.ready", { t: "recover.ready", roster }, [{ t: "recover.ready" }, { t: "recover.ready", roster: { ...roster, seq: 0 } }]],
   ["invite.created", { t: "invite.created", invite: invite.inviteId }, [{ t: "invite.created", invite: "x" }, { t: "invite.created" }]],
   ["rdv.stored", { t: "rdv.stored", rdv: box.rdv }, [{ t: "rdv.stored" }, { t: "rdv.stored", rdv: "x" }]],
+  ["mesh.deleted", { t: "mesh.deleted", mesh: roster.mesh }, [{ t: "mesh.deleted" }, { t: "mesh.deleted", mesh: "x" }]],
   // pong has no fields to get wrong; unknown keys are kept like on every relay frame.
   ["pong", { t: "pong" }, []],
 ];

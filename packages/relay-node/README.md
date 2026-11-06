@@ -130,6 +130,10 @@ starts), and any session that connects resets it. A socket that never authentica
 **An expired mesh is gone.** Its devices get "unknown mesh" and must create a new mesh and invite
 each other again. The relay logs each deletion as an `expired` event.
 
+An admin device can also delete its mesh at once, whatever this setting (`wim mesh delete`, SPEC
+section 11): the relay closes every socket on it with 4005, deletes the same state, frees its place
+under `WIM_MAX_MESHES`, and logs a `deleted` event with the admin's device id.
+
 A relay reachable from the internet should set `WIM_CREATE_KEY`. Without a key, anyone can make
 meshes on your relay and fill your disk with them, within the per-address limit of 10 creates
 and joins an hour.

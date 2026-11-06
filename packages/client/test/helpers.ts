@@ -86,10 +86,13 @@ export class RelayHarness {
   readonly rendezvous: Rendezvous | undefined;
   /** Whether the relay takes CI senders (`WIM_CI=1`); on unless a test turns it off. */
   readonly ci: boolean;
+  /** Whether the host deletes a mesh for an admin's `mesh.delete`, as relay-node does; on unless a test turns it off. */
+  readonly deletes: boolean;
 
-  constructor(opts: { createKey?: string; rdv?: boolean; ci?: boolean } = {}) {
+  constructor(opts: { createKey?: string; rdv?: boolean; ci?: boolean; deletes?: boolean } = {}) {
     this.createKey = opts.createKey;
     this.ci = opts.ci ?? true;
+    this.deletes = opts.deletes ?? true;
     if (opts.rdv === true) {
       const db = new DatabaseSync(":memory:");
       this.rendezvous = new Rendezvous({
@@ -129,6 +132,8 @@ export class RelayHarness {
         setState: (c, s) => void states.set(c.id, s),
         log: () => undefined,
         ...(this.rendezvous === undefined ? {} : { rdvPut: (put: RdvPut, answer: (o: RdvOutcome) => void) => answer(this.rendezvous!.put(put, this.now())) }),
+        // The mesh's state goes with its relay; the next dial builds a fresh one that holds nothing.
+        ...(this.deletes ? { deleteMesh: () => void this.relays.delete(mesh) } : {}),
       },
     );
     m = { relay, conns, states };

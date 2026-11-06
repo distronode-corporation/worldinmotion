@@ -108,6 +108,10 @@ its storage, gives its place in the mesh count back, and logs an `expired` event
 mesh is gone**: its devices get "unknown mesh" and must create a new mesh and invite each other
 again.
 
+An admin device can also delete its mesh at once, whatever this setting (`wim mesh delete`, SPEC
+section 11): the object closes every socket on it with 4005, deletes all of its storage, gives its
+place in the mesh count back, and logs a `deleted` event with the admin's device id.
+
 ## `/v1/info`
 
 `GET <prefix>/v1/info` answers 200 with a small public JSON document, without touching a Durable

@@ -36,6 +36,7 @@ import {
   type RelayFrame,
   type Roster,
 } from "@worldinmotion/protocol";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { withLock } from "./fsx.ts";
 import { Invites, PendingJoins, sameCode, screenJoin } from "./joins.ts";
@@ -202,6 +203,30 @@ export async function revokeDevice(session: MeshSession, name: string, now: () =
   if (target === undefined) throw new ClientError(`no device named ${name}`, "not_found");
   if (target.id === session.device.id) throw new ClientError("a device cannot revoke itself", "invalid");
   return publishRoster(session, (current) => nextRosterWith(current, { revoke: [target.id] }, session.device.keyring, now()));
+}
+
+/**
+ * Deletes the session's mesh at the relay (SPEC section 11, `mesh.delete`; admins only), with
+ * everything the relay holds for it. Who may ask is the caller's to check first: the person, at
+ * their own terminal (`wim mesh delete`). This device's copy of the mesh stays until
+ * `forgetMesh`.
+ */
+export async function deleteMesh(session: MeshSession): Promise<void> {
+  const me = session.roster.devices.find((d) => d.id === session.device.id);
+  if (me?.role !== "admin") throw new ClientError("only an admin device can delete the mesh", "not_admin");
+  const mesh = session.config.mesh;
+  const link = await session.ready();
+  const answer = await link.request({ t: "mesh.delete", mesh }, (f) => (f.t === "mesh.deleted" && f.mesh === mesh) || errorFor("mesh.delete")(f), 15_000);
+  if (answer.t !== "error") return;
+  if (answer.code === "unknown_type" || answer.code === "unsupported") {
+    throw new ClientError("this relay cannot delete meshes (it runs a version older than wim 0.1.9, or its host does not support it); nothing was deleted. An unused mesh is removed after the time the relay publishes (`wim status` shows it)", "unsupported");
+  }
+  throw relayRefusal("the relay refused to delete the mesh", answer);
+}
+
+/** Removes this device's copy of a mesh (its configuration, rosters, prekeys, sessions and history). */
+export async function forgetMesh(home: Home, mesh: string): Promise<void> {
+  await rm(home.meshDir(mesh), { recursive: true, force: true });
 }
 
 /**

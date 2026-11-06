@@ -68,11 +68,17 @@ New Terminal):
 - `wim held approve <id>` (or the Approve button in `/wim`), `wim held refuse <id>` and
   `wim held resume <peer>`
 - `wim devices trust <name>` or `--all` (and `untrust`)
+- `wim mesh delete`
 - any `wim send ... --allow-secret`
 
 These only read, so run them yourself when they help, and report what they say:
-`wim agent status`, `wim agent autostart status`, `wim doctor`, `wim peers`, `wim devices`,
-`wim devices pending`, `wim held list`, `wim history`.
+`wim agent status`, `wim agent autostart status`, `wim status`, `wim doctor`, `wim peers`,
+`wim devices`, `wim devices pending`, `wim held list`, `wim history`.
+
+When a `wim init`, `wim mesh create` or `wim recovery rotate` you ran says the recovery code is
+not shown here, it keeps running for up to 10 minutes so the person can collect the code with
+`wim recovery show` in their own terminal. Leave it running and hand that command over; stopping
+it loses the code.
 
 When the status line says this tab is not linked, it names why (for example no signer is
 running). Hand the fix over as above. The tab links by itself once the signer is up or the device

@@ -76,7 +76,8 @@ never a notice's text.
 - **Files: 25 MiB per mesh per day**, in total across the mesh's devices. Each single file is also
   limited to 25 MiB by the protocol.
 - **A mesh with no connection for 30 days is deleted**, with its roster, queues and files. A mesh
-  any of whose devices connects at least once in 30 days is kept.
+  any of whose devices connects at least once in 30 days is kept. An admin device deletes one
+  sooner with `wim mesh delete` (a test mesh, say), which also frees its place in the 2,000.
 - **Rate limits per network**: creating, joining and recovering meshes is limited per source
   address (per IPv4 address, or per IPv6 /64), and so are connections (600 a minute per address,
   plenty for an office reconnecting every session at once), on top of the protocol's own limits

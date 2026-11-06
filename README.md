@@ -60,8 +60,9 @@ Every step says where it happens:
 
 - **[Terminal]** a terminal you opened yourself (in VS Code: Terminal > New Terminal). Never the
   Claude chat box, and never `!` in Claude Code: both run the command inside Claude's session,
-  where `wim` refuses the steps that ask for a passphrase, show a secret, decide trust or approve
-  a held message (it says so: `CLAUDECODE is set: this shell belongs to Claude Code`).
+  where `wim` refuses the steps that ask for a passphrase, show a secret, decide trust, approve
+  a held message or delete a mesh (it says so: `CLAUDECODE is set: this shell belongs to Claude
+  Code`).
 - **[Claude chat]** the Claude Code prompt.
 - **[VS Code]** the VS Code window itself (Extensions view, command palette).
 
@@ -114,9 +115,20 @@ wim init --name laptop --relay wss://worldinmotion.distronode.com
 
 This makes the device's keys, creates a new mesh on the relay with this device as its admin, and
 shows a **recovery code** once. Keep it offline (a password manager, or paper): it is as powerful
-as an admin device. Never paste it into a Claude chat or send it over the mesh. (Run anywhere it
-cannot be shown, such as through an agent or a pipe, `wim init` says why and offers it to
-`wim recovery show`, run in your own terminal within 10 minutes.)
+as an admin device. Never paste it into a Claude chat or send it over the mesh.
+
+Run anywhere it cannot be shown, such as through an agent or a pipe, `wim init` says why, offers
+the code to `wim recovery show` run in your own terminal, and **keeps running until you collect
+it, for up to 10 minutes**: only that process holds the code. If it is stopped before then (Ctrl-C,
+or an agent giving up on it), the code is gone and the mesh has none; run `wim recovery rotate` on
+this machine, in your own terminal, for a new one.
+
+`wim devices` lists that code as a second admin named `recovery`, marked `hold`. It is not a
+machine: it is an admin record that never connects, so nothing ever comes from it.
+
+`wim init` ends by pointing to `wim status`, which checks the device, the relay and the mesh in a
+few lines (step 6). Right after `init`, `wim peers` says "No other sessions.": that is expected
+until another device joins.
 
 ### 3. Add the other two machines
 
@@ -198,9 +210,11 @@ the signer's memory until `wim agent unlock`.
 
 ### 6. Check each machine
 
-[Terminal] `wim doctor` checks the keys, the state directory (and why it is the one: `WIM_HOME`,
-`CLAUDE_CONFIG_DIR` or the default), the relay, the clock and the roster, and lists any other
-device directory on the machine.
+[Terminal] `wim status` sums it up: this device, each mesh with its relay, whether this device is
+an admin, how many other devices and live sessions there are, how long the relay keeps a mesh
+nobody uses, and any problem in full. `wim doctor` shows every check behind it: the keys, the
+state directory (and why it is the one: `WIM_HOME`, `CLAUDE_CONFIG_DIR` or the default), the
+relay, the clock and the roster, and any other device directory on the machine.
 
 [Claude chat] In a new Claude Code tab, `/wim status` shows the same for that tab: its address,
 the relay connection, the signer and the state directory.
@@ -297,6 +311,29 @@ The client runs the program without a shell and adds the line as its last argume
 who knows a public ntfy topic name can read it, so pick a long random one, or use your own ntfy
 server. Sessions read `notify.json` when they start: restart them after a change. `wim notify-test`
 sends a test line.
+
+### 12. Deleting a mesh
+
+A mesh lives on its relay until it is deleted. The hosted relay deletes a mesh that no device has
+connected to for 30 days (another relay says what it does in `/v1/info`, which `wim status`
+shows), and every mesh counts against the hosted relay's limit of 2,000 until then.
+
+[Terminal on an admin device] To delete one sooner, such as a test mesh:
+
+```sh
+wim mesh delete
+```
+
+It lists the mesh's devices, says what goes, and waits for your `y`. The relay then deletes the
+mesh for every device in it (its roster, queued messages, room history, files and leases), closes
+every session, and this machine's copy is removed. There is no undo: the devices need a new mesh
+and new invites. Like trusting a device, it runs only in a terminal you opened yourself, never
+through an agent, and no MCP tool or VS Code request can do it. Any admin can delete the mesh, for
+other people's devices too.
+
+[Terminal on each other device] Its sessions stop with "an admin deleted this mesh at the relay".
+`wim mesh delete` there removes that machine's copy, also after a `y`. It does the same on any
+device whose mesh the relay removed after its idle time.
 
 ### Other agents
 
@@ -484,7 +521,8 @@ relay.
 `wss://worldinmotion.distronode.com` is a Cloudflare Worker run by Distronode. During the preview
 (until v1.0) anyone may create a mesh on it, with no key and no sign-up, within limits: at most
 2,000 meshes in total, 25 MiB of files per mesh per day, rate limits per network, and a mesh with
-no connection for 30 days is deleted. There is no SLA, and the offer may end with 60 days' notice.
+no connection for 30 days is deleted (`wim mesh delete` deletes one sooner). There is no SLA, and
+the offer may end with 60 days' notice.
 `wim doctor` shows what the relay says about its offer. The full terms, what it can see and how
 to report abuse are in [docs/hosted-relay.md](docs/hosted-relay.md).
 

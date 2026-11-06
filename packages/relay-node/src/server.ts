@@ -396,8 +396,24 @@ export async function start(config: StartConfig): Promise<RunningRelay> {
         allowSource,
         admitMesh: () => config.maxMeshes === undefined || meshCount(db) < config.maxMeshes,
         rdvPut: (put, answer) => answer(rendezvous.put(put, Date.now())),
+        deleteMesh: () => deleteMesh(id, sockets),
       },
     );
+  /**
+   * An admin deleted the mesh (`mesh.delete`): the relay already answered and closed every socket.
+   * A frame or close event that still arrives on one of them is not handed to anything, the
+   * sockets stop counting for this mesh, the mesh leaves memory, and every row keyed by it goes,
+   * the idle row and the mesh count with them. The relay logs the deletion itself.
+   */
+  const deleteMesh = (id: string, sockets: Map<string, Socket>): void => {
+    for (const s of sockets.values()) {
+      s.ws.removeAllListeners("message");
+      s.ws.removeAllListeners("close");
+    }
+    sockets.clear();
+    meshes.delete(id);
+    dropMesh(db, id);
+  };
   const meshFor = (id: string): Mesh => {
     const known = meshes.get(id);
     if (known) return known;

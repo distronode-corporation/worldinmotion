@@ -211,6 +211,12 @@ export const joinFrameSchema = z.strictObject({ t: z.literal("join"), ...joinBod
 /** Stores a short invite code's box at the relay (SPEC section 5); admin devices only. */
 export const rdvPutFrameSchema = z.strictObject({ t: z.literal("rdv.put"), ...rdvBoxFields });
 
+/**
+ * Deletes the mesh at the relay, with everything the relay holds for it (SPEC section 11); admin
+ * devices only. `mesh` names the mesh of the connection, so the request says what it deletes.
+ */
+export const meshDeleteFrameSchema = z.strictObject({ t: z.literal("mesh.delete"), mesh: meshIdSchema });
+
 const clientSchemas = {
   auth: authFrameSchema,
   send: sendFrameSchema,
@@ -238,6 +244,7 @@ const clientSchemas = {
   "cards.get": cardsGetFrameSchema,
   "rdv.put": rdvPutFrameSchema,
   "ci.rules": ciRulesFrameSchema,
+  "mesh.delete": meshDeleteFrameSchema,
   ping: pingFrameSchema,
   bye: byeFrameSchema,
   create: createFrameSchema,
@@ -271,6 +278,7 @@ export const clientFrameSchema = z.discriminatedUnion("t", [
   cardsGetFrameSchema,
   rdvPutFrameSchema,
   ciRulesFrameSchema,
+  meshDeleteFrameSchema,
   pingFrameSchema,
   byeFrameSchema,
   createFrameSchema,
@@ -385,6 +393,8 @@ export const cardsFrameSchema = z.looseObject({
 export const cardFrameSchema = z.looseObject({ t: z.literal("card"), msg: sendFrameSchema });
 /** The relay's answer to `rdv.put`: the box is stored until its `exp`. */
 export const rdvStoredFrameSchema = z.looseObject({ t: z.literal("rdv.stored"), rdv: rdvBoxFields.rdv });
+/** The relay's answer to `mesh.delete`, just before it closes every connection with 4005. */
+export const meshDeletedFrameSchema = z.looseObject({ t: z.literal("mesh.deleted"), mesh: meshIdSchema });
 
 const relaySchemas = {
   hello: helloFrameSchema,
@@ -413,6 +423,7 @@ const relaySchemas = {
   "rdv.stored": rdvStoredFrameSchema,
   "ci.rules": ciRulesAnswerSchema,
   "ci.deliver": ciDeliverFrameSchema,
+  "mesh.deleted": meshDeletedFrameSchema,
 } as const;
 
 export const relayFrameSchema = z.discriminatedUnion("t", [
@@ -442,6 +453,7 @@ export const relayFrameSchema = z.discriminatedUnion("t", [
   rdvStoredFrameSchema,
   ciRulesAnswerSchema,
   ciDeliverFrameSchema,
+  meshDeletedFrameSchema,
 ]);
 
 // ---- types ----
