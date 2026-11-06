@@ -28,8 +28,8 @@ inputs:
     default: ""
   status:
     description: >-
-      The outcome the default text reports. Pass `${{ job.status }}`, and run the step with
-      `if: always()` so a failed job still reports.
+      The outcome the default text reports. Pass the job.status expression (see the README),
+      and run the step with `if: always()` so a failed job still reports.
     required: false
     default: ""
 

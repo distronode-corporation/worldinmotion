@@ -34,6 +34,14 @@ describe("the GitHub Action's inputs", () => {
     expect(action).toMatch(/^runs:\n {2}using: node24\n {2}main: main\.mjs\n$/m);
   });
 
+  it("holds no ${{ }} expression, not even in a description", () => {
+    // GitHub evaluates expressions anywhere in action.yml, descriptions included, and a context
+    // the metadata cannot see (job, steps, ...) stops the action from loading at all: the first
+    // live run of 0.1.9's action failed in "Set up job" on `${{ job.status }}` in `status`'s
+    // description. The README is where a workflow's own expressions are shown.
+    expect(action).not.toContain("${{");
+  });
+
   it("reads INPUT_<NAME>, trimmed, and empty when unset", () => {
     expect(input({ INPUT_TO: "  build \n" }, "to")).toBe("build");
     expect(input({}, "recipient")).toBe("");

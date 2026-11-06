@@ -508,6 +508,28 @@ terminal running the same commands with the extension's own client.
   every copy of `wim` that shares the state directory. `wim` run from source carries no address.
   The relays have no crash reporting.
 
+## CI notices (GitHub Actions, GitLab CI/CD)
+
+A CI job can tell one of your sessions how it finished: one information-only notice, which never
+starts work, never wakes the session and lands in its inbox. The job proves where it runs with
+its provider's own ID token, so there is no secret to store. You decide, at your own terminal,
+which repository, branch and workflow may send to a device:
+
+```
+wim ci allow github <owner>/<repo> --ref main --workflow ci.yml
+wim ci allow gitlab <group>/<project> --ref main
+wim ci list                 # the rules on this device, numbered
+wim ci remove <n>           # removes rule n
+```
+
+`allow` prints a recipient code (`wimci1_...`, not a secret) for the job. The job side is the
+GitHub Action in [packaging/github-action](packaging/github-action/README.md) or the GitLab CI/CD
+component in [packaging/gitlab-component](packaging/gitlab-component/README.md); both run
+`wim ci notify`. Neither is in the GitHub Marketplace or the GitLab CI/CD Catalog yet, so use them
+from this repository at a commit you pin, as their READMEs show. The relay must take CI senders:
+the hosted relay does (see [docs/hosted-relay.md](docs/hosted-relay.md) for what it sees), and a
+self-hosted one takes them with `WIM_CI=1`. The protocol is [SPEC.md](SPEC.md) section 18.
+
 ## Self-hosting a relay
 
 The relay is untrusted for message content, so running your own is about availability, limits
