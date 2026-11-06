@@ -29,11 +29,44 @@ export type SessionState = {
    * `name-N` is still taken back under `name` (design.md, taking a session back).
    */
   asked?: string;
+  /** Claims that took this session over (`--take`, `WIM_TAKE=1`, `rename` with `take`), for `wim status`. */
+  claims?: ClaimRecord[];
   /** The working directory of the process that ran it, for same-project takeover. */
   cwd?: string;
   /** Set once the session said `bye { ended: true }`: the relay keeps it only as a tombstone. */
   ended?: true;
 };
+
+/** One claim of a session: when, the address taken over, and the claiming process's working directory. */
+export type ClaimRecord = { at: number; address: string; cwd?: string };
+
+/** How long `wim status` lists a takeover, and how long a session keeps its claim records. */
+export const CLAIM_SHOWN_MS = 24 * 3600 * 1000;
+
+function parseClaims(raw: unknown[]): ClaimRecord[] {
+  return (raw as Array<Partial<ClaimRecord> | null>).flatMap((c) =>
+    typeof c?.at === "number" && Number.isFinite(c.at) && typeof c.address === "string" ? [{ at: c.at, address: c.address, ...(typeof c.cwd === "string" ? { cwd: c.cwd } : {}) }] : [],
+  );
+}
+
+/**
+ * The takeovers of the last 24 hours among this mesh's sessions on this device, newest first, as
+ * `wim status` and `wim doctor` show them: a peer's text can prompt an agent to claim a name, so
+ * the person sees each one.
+ */
+export async function recentTakeovers(mesh: MeshFiles, env: FsEnv, now: number): Promise<string[]> {
+  const found: ClaimRecord[] = [];
+  for (const sid of await listSessions(mesh)) {
+    const state = await new SessionFiles(mesh, sid, env).load();
+    for (const c of state?.claims ?? []) if (now - c.at < CLAIM_SHOWN_MS) found.push(c);
+  }
+  return found.sort((a, b) => b.at - a.at).map((c) => `${c.address} was taken over ${ago(now - c.at)} ago by a session ${c.cwd === undefined ? "with no working directory" : `in ${c.cwd}`}`);
+}
+
+function ago(ms: number): string {
+  const min = Math.max(0, Math.floor(ms / 60_000));
+  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h`;
+}
 
 export function newSessionState(name: string, kind: string): SessionState {
   return { v: 1, sid: ulid(), name, kind, resume: b64u.encode(randomBytes(32)), cursor: 0, rooms: [], seq: 0, spool: 0, leases: {} };
@@ -56,6 +89,7 @@ export function parseSessionState(raw: unknown): SessionState | undefined {
     leases: typeof s.leases === "object" && s.leases !== null ? s.leases : {},
     ...(typeof s.address === "string" ? { address: s.address } : {}),
     ...(isName(s.asked) ? { asked: s.asked } : {}),
+    ...(Array.isArray(s.claims) ? { claims: parseClaims(s.claims) } : {}),
     ...(typeof s.cwd === "string" ? { cwd: s.cwd } : {}),
     ...(s.ended === true ? { ended: true as const } : {}),
   };

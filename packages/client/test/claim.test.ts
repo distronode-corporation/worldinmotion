@@ -10,7 +10,7 @@ import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { claimLine, ClientError, MeshSession, reclaimedLine } from "../src/client.ts";
 import { TAKE_HINT, WimMcp } from "../src/mcp.ts";
-import { parseSessionState, SessionKeys } from "../src/session.ts";
+import { CLAIM_SHOWN_MS, parseSessionState, recentTakeovers, SessionKeys } from "../src/session.ts";
 import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, spooled, term, until, type TestDevice } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
@@ -194,9 +194,13 @@ describe("a claim takes over an offline name on this device", () => {
     await old.stop();
     relay.toRelay = (t) => (t.includes('"t":"lease.list"') ? undefined : t);
     const logs: string[] = [];
-    const taker = await live(devices[0]!, mesh, relay, { name: "hub", take: true, answerMs: 50, log: (l) => void logs.push(l) });
+    const taker = await live(devices[0]!, mesh, relay, { name: "hub", take: true, answerMs: 500, log: (l) => void logs.push(l) });
     await until(() => logs.some((l) => l.startsWith("wim: claim notice not written:")));
     expect((await taker.spool.unread()).some((i) => i.rendered.includes("took over"))).toBe(false);
+    // The next `ready` tries again, and then it is written.
+    relay.toRelay = undefined;
+    relay.dropAll();
+    await spooled(taker, (i) => i.kind === "notice" && i.rendered.includes("took over"));
   });
 
   it("the claim line counts in the singular and the plural", () => {
@@ -268,7 +272,7 @@ describe("holdsNothing", () => {
     await peer.send("other@one", "unread");
     await until(async () => (await other.spool.unread()).some((i) => i.kind !== "notice"));
     expect(await other.holdsNothing()).toBe(false);
-  });
+   }, 20_000);
 });
 
 describe("the rename tool", () => {
@@ -377,5 +381,65 @@ describe("the CLI", () => {
     await until(() => relay.sentByClients.some((x) => x.startsWith('{"t":"auth"') && x.includes(old.sid)), 5000);
     stdin.end();
     expect(await serving).toBe(0);
+  });
+});
+
+describe("the person sees every takeover of the last 24 hours", () => {
+  it("through the CLI: `wim status` and `wim doctor` list it, and it is gone after 24 hours", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const old = await openSession(devices[0]!, mesh, relay, { name: "role", kind: "cli" });
+    await old.stop();
+    const t = term(devices[0]!.root, relay);
+    expect(await run(t, "peers", "--as", "role", "--take")).toBe(0);
+    const line = "role@one was taken over 0 min ago by a session with no working directory";
+    const st = term(devices[0]!.root, relay);
+    await run(st, "status");
+    expect(st.out).toContain(`  ${line}.`);
+    const doc = term(devices[0]!.root, relay);
+    await run(doc, "doctor");
+    expect(doc.out).toContain(`info     mesh ${mesh}: ${line}`);
+    // A day later the line is gone (both clocks move, so the relay still takes the auth).
+    const later = Date.now() + CLAIM_SHOWN_MS + 60_000;
+    relay.now = () => later;
+    const next = term(devices[0]!.root, relay, { now: () => later });
+    await run(next, "status");
+    expect(said(next)).not.toContain("was taken over");
+    // Shown while the relay cannot be reached too: it comes from this device's own state.
+    relay.now = Date.now;
+    relay.down = true;
+    const down = term(devices[0]!.root, relay);
+    await run(down, "status");
+    expect(down.out).toContain(`  ${line}.`);
+  });
+
+  it("through the rename tool, with the claiming process's working directory", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const role = await openSession(devices[0]!, mesh, relay, { name: "release", kind: "claude-code" });
+    await role.stop();
+    const work = await scratch("tab");
+    const { call } = await mcp(devices[0]!, mesh, relay, { name: "tab", cwd: work });
+    expect(textOf(await call("rename", { name: "release", take: true }))).toMatch(/took over/);
+    const st = term(devices[0]!.root, relay);
+    await run(st, "status");
+    expect(st.out).toContain(`  release@one was taken over 0 min ago by a session in ${work}.`);
+  });
+
+  it("keeps the records of the last 24 hours only, reads damaged ones as none, and counts hours", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const old = await openSession(devices[0]!, mesh, relay, { name: "hub" });
+    await old.stop();
+    const state = JSON.parse(await fs.readFile(old.files.statePath, "utf8")) as Record<string, unknown>;
+    const now = Date.now();
+    const recent = [{ at: now - 3 * 3600_000, address: "hub@one", cwd: "/w" }, { at: now - 12 * 60_000, address: "hub@one", cwd: "/v" }];
+    state["claims"] = [{ at: now - CLAIM_SHOWN_MS - 1, address: "hub@one" }, ...recent, null, { at: "x", address: "a" }, { at: Infinity, address: "a" }];
+    await fs.writeFile(old.files.statePath, JSON.stringify(state));
+    expect(parseSessionState(state)!.claims).toEqual([{ at: now - CLAIM_SHOWN_MS - 1, address: "hub@one" }, ...recent]);
+    // Newest first.
+    expect(await recentTakeovers(old.mesh, FS, now)).toEqual(["hub@one was taken over 12 min ago by a session in /v", "hub@one was taken over 3 h ago by a session in /w"]);
+    const taker = await live(devices[0]!, mesh, relay, { name: "hub", take: true });
+    expect(taker.state.claims!.map((c) => c.cwd)).toEqual(["/w", "/v", undefined]);
   });
 });

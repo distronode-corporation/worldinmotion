@@ -70,7 +70,7 @@ import { countDropped, droppedNotice, droppedPath, refusedLine, refusesLegacy, s
 import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { isTrusted, noticeText, policyFor, policyLevel } from "./render.ts";
 import { SeenStore, SeqStore } from "./replay.ts";
-import { listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
+import { CLAIM_SHOWN_MS, listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
 import { NeedsSigner } from "./keyring.ts";
 import { PongBudget, type PingRow } from "./ping.ts";
 import { Invites, PendingJoins, screenJoin } from "./joins.ts";
@@ -490,8 +490,10 @@ export class MeshSession extends EventEmitter {
   push: ((item: SpoolItem) => Promise<void>) | undefined;
   /** Whether this session was opened by a claim (`take`): it took over an offline session's address. */
   takenOver = false;
-  /** Whether the claim notice was written (claimNotice): once, at the first `ready`. */
+  /** Whether the claim notice is written or under way (claimNotice): once, retried at the next `ready` if it failed. */
   private claimTold = false;
+  /** The claim notice under way, which `stop` waits for, so a one-off command does not exit before it. */
+  private claimNoticing: Promise<void> = Promise.resolve();
 
   private constructor(o: SessionOptions, files: SessionFiles, state: SessionState) {
     super();
@@ -617,7 +619,10 @@ export class MeshSession extends EventEmitter {
     for (const f of found) if (f !== mine && (await f.files.isLiveElsewhere())) throw new ClientError(live, "name_live");
     if (!(await mine.files.claim())) throw new ClientError(live, "name_live");
     // The name asked for is now this one, so the same-project rule never hands it back as another.
-    return { ...mine.saved, asked: o.name };
+    // The claim is recorded for the person (`wim status`), the records of the last 24 hours kept.
+    const at = (o.now ?? Date.now)();
+    const claims = (mine.saved.claims ?? []).filter((c) => at - c.at < CLAIM_SHOWN_MS);
+    return { ...mine.saved, asked: o.name, claims: [...claims, { at, address, ...(o.cwd === undefined ? {} : { cwd: o.cwd }) }] };
   }
 
   /**
@@ -722,6 +727,8 @@ export class MeshSession extends EventEmitter {
   async stop(opts: { ended?: boolean } = {}): Promise<void> {
     if (this.stopped) return;
     this.stopped = true;
+    // A claim notice under way is written before the connection goes.
+    await this.claimNoticing;
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
@@ -793,7 +800,7 @@ export class MeshSession extends EventEmitter {
    */
   private claimNotice(link: Link): void {
     this.claimTold = true;
-    void link
+    this.claimNoticing = link
       .request({ t: "lease.list" }, (f) => f.t === "leases", this.answerMs)
       .then(async (f) => {
         await this.inbound;
@@ -802,7 +809,11 @@ export class MeshSession extends EventEmitter {
         const leases = (f as LeasesFrame).leases.filter((l) => l.holder === this.address).length;
         await this.notice(this.address, claimLine(this.address, { unread, held, leases }));
       })
-      .catch((e: unknown) => this.log(`wim: claim notice not written: ${(e as Error).message}`));
+      .catch((e: unknown) => {
+        // The next `ready` tries again.
+        this.claimTold = false;
+        this.log(`wim: claim notice not written: ${(e as Error).message}`);
+      });
   }
 
   /**

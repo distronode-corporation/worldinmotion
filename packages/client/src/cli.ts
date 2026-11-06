@@ -28,7 +28,7 @@ import { listAllPauses, PausedBy } from "./pauses.ts";
 import { homeChoice, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine, policyLevel } from "./render.ts";
 import { PING, pingReport } from "./ping.ts";
-import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
+import { listSessions, recentTakeovers, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
 import { agentEnv, canConfirm, canShowSecret, confirmTyped, fetchHeldCode, holdForShow, notAPerson, personOnly, requirePerson, showPaths, SHOW_WINDOW_MINUTES, type ShowKind } from "./secretout.ts";
@@ -1923,7 +1923,7 @@ async function recover(ctx: Ctx): Promise<number> {
 type Check = { level: "ok" | "info" | "problem"; line: string };
 
 /** What `wim status` sums up for one mesh, from the checks `wim doctor` runs. */
-type MeshSummary = { id: string; relay: string; seq?: number; devices?: number; admin?: boolean; online?: number; idleDays?: number | null };
+type MeshSummary = { id: string; relay: string; takeovers: string[]; seq?: number; devices?: number; admin?: boolean; online?: number; idleDays?: number | null };
 
 /**
  * The checks of `wim doctor`, in order, each handed to `emit` as it is made: the state directory,
@@ -1960,8 +1960,9 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   for (const id of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id), ctx.fsEnv);
     const config = await files.loadConfig();
-    const summary: MeshSummary = { id, relay: config.relay };
+    const summary: MeshSummary = { id, relay: config.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
+    for (const line of summary.takeovers) info(`mesh ${id}: ${line}`);
     try {
       checkDialable(config.relay, config.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config.relay}/v1/${id}`, config.tls === undefined ? {} : { tlsPin: config.tls });
@@ -2038,13 +2039,16 @@ async function status(ctx: Ctx): Promise<number> {
 /** The lines `wim status` prints for one mesh. */
 function meshStatus(m: MeshSummary): string[] {
   const head = `Mesh ${m.id} on ${m.relay}:`;
-  if (m.seq === undefined) return [head, "  not connected: the problem above says why."];
+  // Shown whatever the relay says: each comes from this device's own state.
+  const takeovers = m.takeovers.map((line) => `  ${line}.`);
+  if (m.seq === undefined) return [head, ...takeovers, "  not connected: the problem above says why."];
   const others = m.devices! - 1;
   return [
     head,
     `  connected as ${m.admin! ? "an admin" : "a member"}; roster seq ${m.seq}; other devices: ${others}; other sessions online now: ${m.online!}.`,
     ...(others === 0 ? ["  Next: `wim invite` adds another device. Until one joins, `wim peers` shows no other sessions, which is expected."] : []),
     `  ${idleLine(m.idleDays)} An admin can delete it sooner: \`wim mesh delete\`.`,
+    ...takeovers,
   ];
 }
 

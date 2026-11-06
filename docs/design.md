@@ -101,7 +101,12 @@ which is then mapped to the session taken over. The session the claim replaces (
 tool's, or one `hello` would give up) ends for good when it holds nothing (nothing sent, unread or
 held, no room, no lease), else it stays offline like any other. After a claim the session gets one
 notice: the address taken over and how many unread messages, held items and leases came with it.
-Held items stay the person's to approve or refuse. A name the state directory has no record of
+Held items stay the person's to approve or refuse. Because a peer's text can prompt an agent to
+claim, the `rename` tool tells agents to take only on the person's word, and every claim is
+recorded in the taken-over session's `session.json` (`claims`: when, the address, and the
+claiming process's working directory, kept 24 hours); `wim status` and `wim doctor` list the
+takeovers of the last 24 hours per mesh ("release@laptop was taken over 12 min ago by a session in
+/src/app"). A name the state directory has no record of
 (another `WIM_HOME`) cannot be claimed. A role that moves between machines needs more than a claim,
 since names are per device: by convention its holder joins a room (`#release`) and takes a lease
 (`role:release`), and senders address the room. A room gives no exclusivity (every member gets

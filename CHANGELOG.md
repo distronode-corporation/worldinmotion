@@ -38,7 +38,9 @@ body line with a bracket.
   session of another kind, is refused with the reason, never answered with `name-N`. The client
   also saves the name a session asked for, so a session that got `name-N` is taken back under
   its name when it is free. The Claude Code plugin links the tab again after the model renames
-  it. No wire or relay change.
+  it. Since a peer's text can prompt a takeover, the tool asks agents to take only on the
+  person's word, and `wim status` and `wim doctor` list every takeover of the last 24 hours.
+  No wire or relay change.
 - **Close the downgrade window early.** `wim legacy-boxes refuse` makes a device refuse v0.1
   boxes now, as every device will from 1.0 (SPEC section 6b): it never sends one (a direct send
   to a device with no current prekey is refused with the reason, a broadcast, room send or card

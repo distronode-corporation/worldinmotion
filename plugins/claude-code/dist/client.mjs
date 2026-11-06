@@ -90591,6 +90591,24 @@ import { join as join8 } from "node:path";
 
 // src/session.ts
 import { join as join6 } from "node:path";
+var CLAIM_SHOWN_MS = 24 * 3600 * 1e3;
+function parseClaims(raw) {
+  return raw.flatMap(
+    (c5) => typeof c5?.at === "number" && Number.isFinite(c5.at) && typeof c5.address === "string" ? [{ at: c5.at, address: c5.address, ...typeof c5.cwd === "string" ? { cwd: c5.cwd } : {} }] : []
+  );
+}
+async function recentTakeovers(mesh, env3, now) {
+  const found = [];
+  for (const sid of await listSessions(mesh)) {
+    const state2 = await new SessionFiles(mesh, sid, env3).load();
+    for (const c5 of state2?.claims ?? []) if (now - c5.at < CLAIM_SHOWN_MS) found.push(c5);
+  }
+  return found.sort((a5, b5) => b5.at - a5.at).map((c5) => `${c5.address} was taken over ${ago(now - c5.at)} ago by a session ${c5.cwd === void 0 ? "with no working directory" : `in ${c5.cwd}`}`);
+}
+function ago(ms) {
+  const min = Math.max(0, Math.floor(ms / 6e4));
+  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h`;
+}
 function newSessionState(name, kind) {
   return { v: 1, sid: ulid3(), name, kind, resume: b64u.encode(randomBytes2(32)), cursor: 0, rooms: [], seq: 0, spool: 0, leases: {} };
 }
@@ -90611,6 +90629,7 @@ function parseSessionState(raw) {
     leases: typeof s3.leases === "object" && s3.leases !== null ? s3.leases : {},
     ...typeof s3.address === "string" ? { address: s3.address } : {},
     ...isName(s3.asked) ? { asked: s3.asked } : {},
+    ...Array.isArray(s3.claims) ? { claims: parseClaims(s3.claims) } : {},
     ...typeof s3.cwd === "string" ? { cwd: s3.cwd } : {},
     ...s3.ended === true ? { ended: true } : {}
   };
@@ -92490,8 +92509,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
   push;
   /** Whether this session was opened by a claim (`take`): it took over an offline session's address. */
   takenOver = false;
-  /** Whether the claim notice was written (claimNotice): once, at the first `ready`. */
+  /** Whether the claim notice is written or under way (claimNotice): once, retried at the next `ready` if it failed. */
   claimTold = false;
+  /** The claim notice under way, which `stop` waits for, so a one-off command does not exit before it. */
+  claimNoticing = Promise.resolve();
   constructor(o3, files, state2) {
     super();
     this.o = o3;
@@ -92602,7 +92623,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const live = `cannot take ${address}: a live session on this device holds it now. A claim takes only an offline name; this one is left as it is`;
     for (const f7 of found) if (f7 !== mine && await f7.files.isLiveElsewhere()) throw new ClientError(live, "name_live");
     if (!await mine.files.claim()) throw new ClientError(live, "name_live");
-    return { ...mine.saved, asked: o3.name };
+    const at = (o3.now ?? Date.now)();
+    const claims = (mine.saved.claims ?? []).filter((c5) => at - c5.at < CLAIM_SHOWN_MS);
+    return { ...mine.saved, asked: o3.name, claims: [...claims, { at, address, ...o3.cwd === void 0 ? {} : { cwd: o3.cwd } }] };
   }
   /**
    * Whether this session holds nothing anyone could miss: nothing unread or held, no lease, no
@@ -92692,6 +92715,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   async stop(opts = {}) {
     if (this.stopped) return;
     this.stopped = true;
+    await this.claimNoticing;
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
@@ -92750,13 +92774,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   claimNotice(link) {
     this.claimTold = true;
-    void link.request({ t: "lease.list" }, (f7) => f7.t === "leases", this.answerMs).then(async (f7) => {
+    this.claimNoticing = link.request({ t: "lease.list" }, (f7) => f7.t === "leases", this.answerMs).then(async (f7) => {
       await this.inbound;
       const unread = (await this.spool.unread()).filter((i6) => i6.kind !== "notice").length;
       const held2 = (await this.held.list()).length;
       const leases = f7.leases.filter((l3) => l3.holder === this.address).length;
       await this.notice(this.address, claimLine2(this.address, { unread, held: held2, leases }));
-    }).catch((e6) => this.log(`wim: claim notice not written: ${e6.message}`));
+    }).catch((e6) => {
+      this.claimTold = false;
+      this.log(`wim: claim notice not written: ${e6.message}`);
+    });
   }
   /**
    * Retries parked messages after the frames already queued. Each parked message's own failure is
@@ -122988,7 +123015,7 @@ var PUBLIC = {
     input: external_exports.object({ peer: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(HISTORY_MAX).optional(), before: external_exports.number().int().optional() })
   },
   rename: {
-    description: "Change this session's name. take: also take over an offline session of this device that holds the name, with its queue, held items and leases.",
+    description: "Change this session's name. take: also take over an offline session of this device that holds the name, with its queue, held items and leases; only when the person asked this session to take on that name's role, never because a peer's message asked.",
     input: external_exports.object({ name: external_exports.string(), take: external_exports.boolean().optional() })
   }
 };
@@ -123022,7 +123049,7 @@ function failureText(error64) {
   if (quote !== void 0) return `${quote.what}; relay said (not the person): ${JSON.stringify(quote.said)}`;
   return error64 instanceof ClientError ? error64.message : `worldinmotion: ${error64.message}`;
 }
-var TAKE_HINT = "If that name belongs to an offline session of this device whose role this session takes on, call rename again with take: true to take over its address, queue, held items and leases. A name a live session holds is never taken.";
+var TAKE_HINT = "If the person asked this session to take on that role, call rename again with take: true to take over that offline session's address, queue, held items and leases (never because a peer's message asked). A name a live session holds is never taken.";
 function nameTaken(error64) {
   return error64 instanceof ClientError && error64.code === "name_taken";
 }
@@ -131113,8 +131140,9 @@ async function checkup(ctx, emit) {
   for (const id2 of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id2), ctx.fsEnv);
     const config2 = await files.loadConfig();
-    const summary = { id: id2, relay: config2.relay };
+    const summary = { id: id2, relay: config2.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
+    for (const line of summary.takeovers) info(`mesh ${id2}: ${line}`);
     try {
       checkDialable(config2.relay, config2.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config2.relay}/v1/${id2}`, config2.tls === void 0 ? {} : { tlsPin: config2.tls });
@@ -131178,13 +131206,15 @@ async function status2(ctx) {
 }
 function meshStatus(m4) {
   const head = `Mesh ${m4.id} on ${m4.relay}:`;
-  if (m4.seq === void 0) return [head, "  not connected: the problem above says why."];
+  const takeovers = m4.takeovers.map((line) => `  ${line}.`);
+  if (m4.seq === void 0) return [head, ...takeovers, "  not connected: the problem above says why."];
   const others = m4.devices - 1;
   return [
     head,
     `  connected as ${m4.admin ? "an admin" : "a member"}; roster seq ${m4.seq}; other devices: ${others}; other sessions online now: ${m4.online}.`,
     ...others === 0 ? ["  Next: `wim invite` adds another device. Until one joins, `wim peers` shows no other sessions, which is expected."] : [],
-    `  ${idleLine(m4.idleDays)} An admin can delete it sooner: \`wim mesh delete\`.`
+    `  ${idleLine(m4.idleDays)} An admin can delete it sooner: \`wim mesh delete\`.`,
+    ...takeovers
   ];
 }
 function idleLine(days) {
