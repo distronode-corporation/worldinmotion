@@ -56,7 +56,10 @@ describe("the report", () => {
 class FakeChild extends EventEmitter {
   readonly stdout = new EventEmitter();
   readonly stderr = new EventEmitter();
-  readonly stdin = Object.assign(new EventEmitter(), { write: () => true, end: () => undefined });
+  /** What was written to stdin, and whether it was ended. */
+  readonly written: string[] = [];
+  ended = false;
+  readonly stdin = Object.assign(new EventEmitter(), { write: (t: string) => (this.written.push(t), true), end: () => void (this.ended = true) });
   killed = 0;
   kill(): boolean {
     this.killed++;
@@ -119,10 +122,21 @@ describe("running the client", () => {
     expect(await done).toEqual({ error: "the client could not start: ENOENT" });
   });
 
-  it("stops the client when the person cancels", async () => {
-    const child = new FakeChild();
+  it("asks the client to stop when the person cancels, so it removes what it made, and kills it only when it does not end", async () => {
+    // It ends by itself after the stop line, with its report: not killed.
+    const polite = new FakeChild();
     let cancel: () => void = () => undefined;
-    const done = runClient(command, (() => child) as unknown as SpawnFn, { onCancellationRequested: (fn) => void (cancel = fn) });
+    const ended = runClient(command, (() => polite) as unknown as SpawnFn, { onCancellationRequested: (fn) => void (cancel = fn) }, 5000);
+    expect(polite.ended).toBe(false);
+    cancel();
+    expect([polite.written, polite.ended]).toEqual([["stop\n"], true]);
+    polite.stdout.emit("data", Buffer.from(JSON.stringify(failed)));
+    polite.emit("exit", 1, null);
+    expect(await ended).toEqual({ report: failed });
+    expect(polite.killed).toBe(0);
+    // It does not end: killed once the grace runs out.
+    const child = new FakeChild();
+    const done = runClient(command, (() => child) as unknown as SpawnFn, { onCancellationRequested: (fn) => void (cancel = fn) }, 10);
     cancel();
     expect(await done).toEqual({ error: "the client exited null with no report" });
     expect(child.killed).toBe(1);

@@ -1269,9 +1269,16 @@ That is safe only because of where the script can act, so isolation is the prope
 - **From VS Code and Claude Code.** **worldinmotion: Run Self-Test** and `/wim test` start `wim
   test --json` as a process of its own with the extension's or the plugin's client: the same
   command under the same rules, and neither reaches the scripted terminal any other way. The VS
-  Code command passes no flag (the sandbox). `/wim test` passes on only `--full`, `--relay <url>`
-  and `--key-env NAME`, and only when the person typed them; it never adds `--relay`, and refuses
-  `--person`, which needs the person's own terminal.
+  Code command passes no flag (the sandbox). `/wim test` passes on only `--full` and `--relay
+  <url>`, and only when the person typed them; it never adds `--relay`. It refuses `--person`,
+  which needs the person's own terminal, and `--key-env`, which sends a variable's value to the
+  relay named: from a chat, a slip or an injected suggestion could send any variable to any relay.
+- **A run that was killed** (a kill on Windows lets it remove nothing) leaves its directory
+  behind. Each run's directory holds a mark file, and every run first removes the directories
+  under the same temporary directory named `wim-test-*` that are real directories, not links,
+  whose mark file is a regular file last written more than 24 hours ago; nothing else. A program
+  that starts `wim test` with a piped stdin can stop it with a line `stop` instead of a kill, so
+  it cleans up (the VS Code command does, and kills only after 10 seconds).
 - **`--person`.** A person types the person-only steps at their own terminal, so the real
   terminal checks (section 5.6) are what those steps meet. It refuses to start under an agent's
   variables or without an interactive terminal on stdin and stdout, as a person-only command

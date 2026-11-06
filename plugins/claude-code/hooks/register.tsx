@@ -824,7 +824,7 @@ function age(at: number, now: number): string {
   return `${Math.round(s / 3600)}h`
 }
 
-const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab), /wim test [--full] [--relay <url> [--key-env NAME]] (the self-test).'
+const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab), /wim test [--full] [--relay <url>] (the self-test).'
 
 /** How long `/wim test` lets the self-test run. */
 const TEST_TIMEOUT_MS = 600_000
@@ -835,7 +835,7 @@ const TEST_TIMEOUT_MS = 600_000
  */
 async function selfTest($: EngineInterface, words: string[]): Promise<string> {
   const flags = testArgs(words)
-  if (flags === undefined) return 'Usage: /wim test [--full] [--relay <url> [--key-env NAME]]'
+  if (flags === undefined) return 'Usage: /wim test [--full] [--relay <url>]'
   try {
     const ran = await $.process.run(['node', `${$.plugin.root}/dist/client.mjs`, 'test', '--json', ...flags], { timeoutMs: TEST_TIMEOUT_MS })
     return testReport(ran.stdout, ran.stderr)

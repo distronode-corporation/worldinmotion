@@ -53,11 +53,15 @@ export function summary(r: SelfTestReport): string {
 /** What a run came to: the report, or why there is none (the client's last stderr line). */
 export type SelfTestOutcome = { report: SelfTestReport } | { error: string };
 
+/** How long a cancelled client may take to remove what it made before it is killed. */
+export const STOP_GRACE_MS = 10_000;
+
 /**
- * Runs `command` (the client's `test --json`) to its end and reads its report. `cancelled` stops
- * it: the client ends a run it is asked to stop by removing what it made first.
+ * Runs `command` (the client's `test --json`) to its end and reads its report. `cancelled` asks it
+ * to stop with a line `stop` on its stdin, which works on every platform (a kill on Windows gives
+ * it no chance to remove what it made); one that has not ended after `graceMs` is killed.
  */
-export function runClient(command: Command, spawn: SpawnFn, cancelled: { onCancellationRequested(fn: () => void): unknown }): Promise<SelfTestOutcome> {
+export function runClient(command: Command, spawn: SpawnFn, cancelled: { onCancellationRequested(fn: () => void): unknown }, graceMs = STOP_GRACE_MS): Promise<SelfTestOutcome> {
   return new Promise((resolve) => {
     let child;
     try {
@@ -77,10 +81,15 @@ export function runClient(command: Command, spawn: SpawnFn, cancelled: { onCance
       if (stderr.length < MAX_OUTPUT) stderr += err.write(b);
     });
     child.stdin!.on("error", () => undefined);
-    child.stdin!.end();
     child.on("error", (e: Error) => resolve({ error: `the client could not start: ${e.message}` }));
-    cancelled.onCancellationRequested(() => void child.kill());
+    let grace: ReturnType<typeof setTimeout> | undefined;
+    cancelled.onCancellationRequested(() => {
+      child.stdin!.write("stop\n");
+      child.stdin!.end();
+      grace = setTimeout(() => void child.kill(), graceMs);
+    });
     child.on("exit", (code: number | null) => {
+      clearTimeout(grace);
       const report = parseReport(stdout + out.end());
       const why = (stderr + err.end()).trim().split("\n").at(-1)!;
       resolve(report !== undefined ? { report } : { error: why === "" ? `the client exited ${String(code)} with no report` : oneLine(why, 300) });

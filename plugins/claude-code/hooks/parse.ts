@@ -279,16 +279,18 @@ export function describeMessage(to: string, text: string): string {
 }
 
 /**
- * The flags of `/wim test` passed on to `wim test`: only what the person typed, and only `--full`,
- * `--relay <url>` and `--key-env NAME` (`--person` needs a terminal of the person's own, which a
- * chat is not). Undefined for anything else, which gets the usage.
+ * The flags of `/wim test` passed on to `wim test`: only what the person typed, and only `--full`
+ * and `--relay <url>`. Not `--person`, which needs a terminal of the person's own, and not
+ * `--key-env NAME`: that sends the named variable's value to the relay named, and from a chat a
+ * slip or a suggestion injected into it could send any variable to any relay, so a keyed relay
+ * is tested from a terminal. Undefined for anything else, which gets the usage.
  */
 export function testArgs(words: readonly string[]): string[] | undefined {
   const out: string[] = []
   for (let i = 0; i < words.length; i++) {
     const w = words[i]!
     if (w === '--full') out.push(w)
-    else if ((w === '--relay' || w === '--key-env') && words[i + 1] !== undefined && !words[i + 1]!.startsWith('--')) out.push(w, words[++i]!)
+    else if (w === '--relay' && words[i + 1] !== undefined && !words[i + 1]!.startsWith('--')) out.push(w, words[++i]!)
     else return undefined
   }
   return out

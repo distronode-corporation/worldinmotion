@@ -22,11 +22,16 @@ const scenario = process.env.WIM_FAKE_SCENARIO ?? "default";
 const log = process.env.WIM_FAKE_LOG;
 
 // `wim test --json`: WIM_FAKE_TEST is "pass" (the default), "fail", "garbage" (no report, a line on
-// stderr) or "hang" (prints nothing until it is stopped).
+// stderr) or "hang" (runs until it is stopped).
 if (argv[0] === "test") {
   const kind = process.env.WIM_FAKE_TEST ?? "pass";
   if (log !== undefined) appendFileSync(log, `${JSON.stringify({ op: "test", args: { argv } })}\n`);
-  if (kind === "hang") await new Promise(() => setInterval(() => undefined, 1000));
+  // "hang" runs until a line `stop` on stdin, then reports the run stopped, as the client does.
+  if (kind === "hang") {
+    await new Promise((resolve) => createInterface({ input: process.stdin }).on("line", (l) => l === "stop" && resolve()));
+    process.stdout.write(`${JSON.stringify({ ok: false, ms: 1, steps: [{ name: "create the mesh", result: "fail", ms: 1, detail: "stopped" }, { name: "remove the sandbox", result: "pass", ms: 1 }] })}\n`);
+    process.exit(1);
+  }
   if (kind === "garbage") {
     process.stdout.write("not a report\n");
     process.stderr.write("wim: something went wrong\n");

@@ -235,7 +235,8 @@ throwaway mesh it deletes at the end (`--key-env NAME` for a relay that needs an
 create one); a step that relay does not offer is skipped, which does not fail the run.
 `--person` has you type the steps that need a person. In VS Code, **worldinmotion: Run
 Self-Test** runs the same in the sandbox and shows the rows in an output channel; in Claude Code,
-`/wim test` does, taking `--full` and `--relay` only when you type them. SECURITY-MODEL section 7.6 says what it
+`/wim test` does, taking `--full` and `--relay` only when you type them (a relay that needs an
+operator key is tested from a terminal). SECURITY-MODEL section 7.6 says what it
 can and cannot touch.
 
 ### 7. Addresses

@@ -538,7 +538,7 @@ test('/wim test runs the self-test through the plugin bundle, passes on only wha
       'FAILED: 4 steps, 1 passed, 1 failed, 1 skipped.',
     ].join('\n'),
   )
-  expect((await $.command.run({ ...WIM, args: 'test  --full --relay wss://relay.example --key-env KEY' })).text).toBe('PASS  create the mesh  900 ms\nPASSED: 1 steps, 1 passed, 0 failed, 0 skipped.')
+  expect((await $.command.run({ ...WIM, args: 'test  --full --relay wss://relay.example' })).text).toBe('PASS  create the mesh  900 ms\nPASSED: 1 steps, 1 passed, 0 failed, 0 skipped.')
   expect((await $.command.run({ ...WIM, args: 'test' })).text).toBe('The self-test did not finish: wim: the relay refused')
   expect((await $.command.run({ ...WIM, args: 'test' })).text).toBe('The self-test did not finish: the client wrote no report')
   expect((await $.command.run({ ...WIM, args: 'test' })).text).toBe('The self-test did not finish: worldinmotion: $.process.run: timed out')
@@ -547,14 +547,15 @@ test('/wim test runs the self-test through the plugin bundle, passes on only wha
   expect(bundle).toMatch(/\/dist\/client\.mjs$/)
   expect(asked).toEqual([
     { argv: ['node', bundle, 'test', '--json'], timeoutMs: 600_000 },
-    { argv: ['node', bundle, 'test', '--json', '--full', '--relay', 'wss://relay.example', '--key-env', 'KEY'], timeoutMs: 600_000 },
+    { argv: ['node', bundle, 'test', '--json', '--full', '--relay', 'wss://relay.example'], timeoutMs: 600_000 },
     { argv: ['node', bundle, 'test', '--json'], timeoutMs: 600_000 },
     { argv: ['node', bundle, 'test', '--json'], timeoutMs: 600_000 },
     { argv: ['node', bundle, 'test', '--json'], timeoutMs: 600_000 },
   ])
-  // Anything else, --person (it needs the person's own terminal) included, is the usage, and runs nothing.
-  for (const args of ['test --person', 'test --relay', 'test --relay --full', 'test --mesh m', 'test now']) {
-    expect((await $.command.run({ ...WIM, args })).text).toBe('Usage: /wim test [--full] [--relay <url> [--key-env NAME]]')
+  // Anything else is the usage, and runs nothing: --person (it needs the person's own terminal) and
+  // --key-env (it would send a variable's value to the relay named) included.
+  for (const args of ['test --person', 'test --relay wss://relay.example --key-env KEY', 'test --key-env KEY', 'test --relay', 'test --relay --full', 'test --mesh m', 'test now']) {
+    expect((await $.command.run({ ...WIM, args })).text).toBe('Usage: /wim test [--full] [--relay <url>]')
   }
   expect(asked).toHaveLength(5)
 })

@@ -68,9 +68,15 @@ body line with a bracket.
   runs `wim test --json` with the extension's client under a progress notification (Cancel
   stops it, and the client still removes what it made), then says whether it passed, naming the
   first failed step, with **Show Steps** for the **worldinmotion self-test** output, one row per
-  step, the mark first. `/wim test` runs the plugin's own client and prints the same rows; it
-  passes on `--full`, `--relay <url>` and `--key-env NAME` only when the person typed them, and
-  refuses `--person`.
+  step, the mark first; Cancel asks the client to stop with a line `stop` on its stdin, and kills
+  it only after 10 seconds. `/wim test` runs the plugin's own client and prints the same rows; it
+  passes on `--full` and `--relay <url>` only when the person typed them, and refuses `--person`
+  and `--key-env` (from a chat, that could send any variable's value to any relay).
+- **`wim test` cleans up after a run that was killed.** A line `stop` on a piped stdin stops a run
+  like Ctrl-C, which a program can send where a kill would leave the run no chance to remove what
+  it made (Windows). Each run's directory holds a mark file, and every run first removes
+  `wim-test-*` directories under the same temporary directory whose mark is over 24 hours old;
+  nothing unmarked, younger, or reached through a link.
 
 ### Changed
 
