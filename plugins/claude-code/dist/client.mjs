@@ -124860,6 +124860,7 @@ async function runSetup(d5) {
   }
   io.out("");
   await integrations(d5);
+  if (io.signal.aborted) return STOPPED;
   io.out("");
   io.out("Optional: `wim agent encrypt` keeps this device's keys under a passphrase, in a signer process instead of a file agents can read (README, step 5).");
   if (await isAdminAnywhere(d5)) {
@@ -130930,13 +130931,17 @@ async function notifyTest(ctx) {
 import { homedir as homedir3, hostname as hostname3 } from "node:os";
 import { createInterface as createInterface2 } from "node:readline";
 import { Writable as Writable4 } from "node:stream";
-function ask2(input2, open3, question) {
-  if (input2.readableEnded) return Promise.resolve("");
+function ask2(input2, open3, question, stop) {
+  if (input2.readableEnded || stop.signal.aborted) return Promise.resolve("");
   const rl = open3();
   return new Promise((resolve3) => {
     rl.question(question, resolve3);
     rl.once("line", resolve3);
     rl.once("close", () => resolve3(""));
+    rl.once("SIGINT", () => {
+      stop.abort();
+      resolve3("");
+    });
   }).finally(() => rl.close());
 }
 function written(out, text2) {
@@ -130966,11 +130971,11 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     // `wim mcp` owns stdout for the protocol, so diagnostics always go to stderr.
     err: (line) => void proc.stderr.write(`${line}
 `),
-    prompt: (question) => ask2(proc.stdin, () => createInterface2({ input: proc.stdin, output: proc.stderr }), question),
+    prompt: (question) => ask2(proc.stdin, () => createInterface2({ input: proc.stdin, output: proc.stderr }), question, stop),
     // The question goes to stderr; what is typed is echoed nowhere (readline writes it to a sink).
     promptSecret: async (question) => {
       proc.stderr.write(question);
-      const answer = await ask2(proc.stdin, () => createInterface2({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "");
+      const answer = await ask2(proc.stdin, () => createInterface2({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "", stop);
       proc.stderr.write("\n");
       return answer;
     },

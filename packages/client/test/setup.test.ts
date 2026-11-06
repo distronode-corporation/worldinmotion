@@ -324,6 +324,30 @@ describe("wim setup integrations", () => {
     expect(said(other)).toContain("VS Code: `code --list-extensions` did not work (exit code 3).");
   }, 30_000);
 
+  it("stops before the status summary when the person stops the command at a question", async () => {
+    const { t } = await setUp();
+    const tools = fakeTools({ "claude plugin list --json": ok("[]"), "code --list-extensions": ok("") });
+    const stopped = t(tools.run);
+    stopped.answers.push(() => {
+      stopped.stop.abort();
+      return "";
+    });
+    expect(await run(stopped, "setup")).toBe(130);
+    expect(said(stopped)).not.toContain("Everything checks out");
+    expect(said(stopped)).not.toContain("`wim agent encrypt`");
+  });
+
+  it("covers the POSIX runner with a fake execFile: no shell, no `where`", async () => {
+    const calls: Array<{ file: string; shell: boolean }> = [];
+    const execFile = ((file: string, _args: readonly string[], options: { shell: boolean }, callback: (e: null, out: string, err: string) => void) => {
+      calls.push({ file, shell: options.shell });
+      setImmediate(() => callback(null, "ok", ""));
+      return { stdin: null };
+    }) as unknown as Parameters<typeof execRunner>[1];
+    expect(await execRunner("linux", execFile)("code", ["--list-extensions"])).toEqual({ code: 0, stdout: "ok", stderr: "" });
+    expect(calls).toEqual([{ file: "code", shell: false }]);
+  });
+
   it("warns when CLAUDE_CONFIG_DIR picks this state directory, and not when WIM_HOME does", async () => {
     const relay = new RelayHarness();
     const homedir = await scratch("setup-claude-dir");
