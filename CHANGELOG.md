@@ -25,7 +25,7 @@ body line with a bracket.
   tool or events op. `wim status` and `wim doctor` show it. Off by default until 1.0. No wire
   change.
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
-  dropped as `legacy_box` gives the session a local notice, once per sender per session, that
+  dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device
   has dropped.
 

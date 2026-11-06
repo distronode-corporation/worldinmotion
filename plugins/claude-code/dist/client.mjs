@@ -92434,7 +92434,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   gotCards;
   /** Sender devices already told about once: a message this device could no longer read. */
   unreadable = /* @__PURE__ */ new Set();
-  /** Senders already told about once: a message dropped for its v0.1 box. */
+  /** Sender devices already told about once: a message dropped for its v0.1 box. */
   legacyTold = /* @__PURE__ */ new Set();
   stopped = false;
   derivedUntil = 0;
@@ -92989,13 +92989,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /**
    * A message dropped for its v0.1 box, on a device that refuses them (SPEC section 6b): the
-   * session is told once per sender, with no text (none was opened), and the device's count, which
-   * `wim status` shows, goes up by one.
+   * session is told once per sender device, naming the first address seen, with no text (none was
+   * opened), and the device's count, which `wim status` shows, goes up by one. Keyed by the
+   * verified device, not the address: the session name is the sender's to choose, so one device
+   * could otherwise get a notice per name.
    */
   async legacyFrom(msg) {
-    const address = `${msg.from.session}@${this.roster.devices.find((d5) => d5.id === msg.from.device).name}`;
-    if (!this.legacyTold.has(address)) {
-      this.legacyTold.add(address);
+    if (!this.legacyTold.has(msg.from.device)) {
+      this.legacyTold.add(msg.from.device);
+      const address = `${msg.from.session}@${this.roster.devices.find((d5) => d5.id === msg.from.device).name}`;
       await this.notice(address, droppedNotice(address));
     }
     await countDropped(droppedPath(this.o.legacyBoxesPath), this.o.env);

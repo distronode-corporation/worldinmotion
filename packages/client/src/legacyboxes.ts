@@ -80,7 +80,7 @@ export function droppedLine(n: number): string {
 }
 
 /**
- * The local notice for a message dropped as `legacy_box`, once per sender per session. It names
+ * The local notice for a message dropped as `legacy_box`, once per sender device per session. It names
  * the sender only: the message was never opened, so there is no text to carry.
  */
 export function droppedNotice(address: string): string {

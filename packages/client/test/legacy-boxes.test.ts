@@ -41,14 +41,14 @@ const refuse = (d: TestDevice): Promise<void> => setLegacyBoxes(fileOf(d), true,
 const v01SendFrame = sendFrameSchema.omit({ pk: true }).extend({ boxes: z.record(z.string(), legacyBoxSchema) });
 
 /**
- * Makes `device` seal as a v0.1 client does: it publishes no prekey (its cards never reach the
+ * Makes each `old` device seal as a v0.1 client does: it publishes no prekey (its cards never reach the
  * relay) and learns none (no card reaches it), so what it sends holds scheme 1 boxes only.
  */
-function noCards(relay: RelayHarness, device: TestDevice): void {
+function noCards(relay: RelayHarness, ...old: TestDevice[]): void {
   const conns = new Set<string>();
   relay.toRelay = (text, conn) => {
     const f = JSON.parse(text) as { t: string; device?: string };
-    if (f.t === "auth" && f.device === device.device.id) conns.add(conn);
+    if (f.t === "auth" && old.some((d) => d.device.id === f.device)) conns.add(conn);
     return conns.has(conn) && f.t === "card.set" ? undefined : text;
   };
   relay.toClient = (text, conn) => (conns.has(conn) && text.startsWith('{"t":"card') ? undefined : text);
@@ -67,11 +67,12 @@ const framesFrom = (relay: RelayHarness, sid: string): SendFrame[] =>
 const has = async (s: MeshSession, re: RegExp): Promise<boolean> => (await s.spool.unread()).some((i) => re.test(i.rendered));
 
 /** Upgraded devices one (which refuses v0.1 boxes) and two, and old, a v0.1 device; all in #ops. */
-async function mixed(opts: { strict?: boolean } = {}) {
+async function mixed(opts: { strict?: boolean; older?: boolean } = {}) {
   const relay = new RelayHarness();
-  const { mesh, devices } = await makeMesh(relay, ["one", "two", "old"]);
+  // `older`: a second v0.1 device, after old.
+  const { mesh, devices } = await makeMesh(relay, ["one", "two", "old", ...(opts.older === true ? ["older"] : [])]);
   await forgetPrekeys(mesh, devices);
-  noCards(relay, devices[2]!);
+  noCards(relay, ...devices.slice(2));
   if (opts.strict !== false) await refuse(devices[0]!);
   const logs: string[] = [];
   const old = await session(devices[2]!, mesh, relay, { name: "o", ...HAND });
@@ -160,27 +161,33 @@ describe("a dropped v0.1 box, told and counted", () => {
   const notices = async (s: MeshSession): Promise<string[]> => (await s.spool.unread()).map((i) => i.rendered).filter((r) => r.includes("old box format"));
   const drops = (logs: string[]): number => logs.filter((l) => / legacy_box$/.test(l)).length;
 
-  it("tells the session once per sender, with no message text, and counts every drop for wim status", async () => {
-    const { relay, mesh, devices, a, old, logs } = await mixed();
+  it("tells the session once per sender device, with no message text, and counts every drop for wim status", async () => {
+    const { relay, mesh, devices, a, old, logs } = await mixed({ older: true });
     await old.send("a@one", "first secret words");
     await old.send("a@one", "second secret words");
     await until(async () => drops(logs) === 2, undefined, "one drops both");
     // A second drop from the same sender adds no notice.
     expect(await notices(a)).toEqual([noticeText(droppedNotice("o@old"))]);
     expect(noticeText(droppedNotice("o@old"))).toContain("A message from o@old was dropped because it used the old box format");
-    // A different sender, even on the same device, gets its own.
-    const other = await session(devices[2]!, mesh, relay, { name: "p", ...HAND });
-    await other.send("a@one", "third secret words");
+    // Another session of the same device adds none: the session name is the sender's to choose,
+    // so a notice per name would let one device flood the spool.
+    const sibling = await session(devices[2]!, mesh, relay, { name: "p", ...HAND });
+    await sibling.send("a@one", "third secret words");
     await until(async () => drops(logs) === 3, undefined, "one drops the third");
-    expect(await notices(a)).toEqual([noticeText(droppedNotice("o@old")), noticeText(droppedNotice("p@old"))]);
+    expect(await notices(a)).toEqual([noticeText(droppedNotice("o@old"))]);
+    // Another v0.1 device gets its own.
+    const other = await session(devices[3]!, mesh, relay, { name: "q", ...HAND });
+    await other.send("a@one", "fourth secret words");
+    await until(async () => drops(logs) === 4, undefined, "one drops the fourth");
+    expect(await notices(a)).toEqual([noticeText(droppedNotice("o@old")), noticeText(droppedNotice("q@older"))]);
     // No notice, nor the count, carries anything of what was sent.
     const items = await a.spool.unread();
     expect(items.some((i) => /secret words/.test(JSON.stringify(i)))).toBe(false);
     const countFile = join(devices[0]!.root, LEGACY_DROPPED_FILE);
-    expect(await fs.readFile(countFile, "utf8")).toBe("3\n");
+    expect(await fs.readFile(countFile, "utf8")).toBe("4\n");
     const t = term(devices[0]!.root, relay);
     expect(await run(t, "status")).toBe(0);
-    expect(t.out).toContain(droppedLine(3));
+    expect(t.out).toContain(droppedLine(4));
   }, LONG);
 
   it("does nothing while the device accepts v0.1 boxes", async () => {

@@ -424,7 +424,7 @@ export class MeshSession extends EventEmitter {
   private gotCards!: () => void;
   /** Sender devices already told about once: a message this device could no longer read. */
   private readonly unreadable = new Set<string>();
-  /** Senders already told about once: a message dropped for its v0.1 box. */
+  /** Sender devices already told about once: a message dropped for its v0.1 box. */
   private readonly legacyTold = new Set<string>();
   private stopped = false;
   private derivedUntil = 0;
@@ -1073,14 +1073,16 @@ export class MeshSession extends EventEmitter {
 
   /**
    * A message dropped for its v0.1 box, on a device that refuses them (SPEC section 6b): the
-   * session is told once per sender, with no text (none was opened), and the device's count, which
-   * `wim status` shows, goes up by one.
+   * session is told once per sender device, naming the first address seen, with no text (none was
+   * opened), and the device's count, which `wim status` shows, goes up by one. Keyed by the
+   * verified device, not the address: the session name is the sender's to choose, so one device
+   * could otherwise get a notice per name.
    */
   private async legacyFrom(msg: SendFrame): Promise<void> {
-    // Its signature verified before the box was looked at, so the sender is in the roster.
-    const address = `${msg.from.session}@${this.roster.devices.find((d) => d.id === msg.from.device)!.name}`;
-    if (!this.legacyTold.has(address)) {
-      this.legacyTold.add(address);
+    if (!this.legacyTold.has(msg.from.device)) {
+      this.legacyTold.add(msg.from.device);
+      // Its signature verified before the box was looked at, so the sender is in the roster.
+      const address = `${msg.from.session}@${this.roster.devices.find((d) => d.id === msg.from.device)!.name}`;
       await this.notice(address, droppedNotice(address));
     }
     // Only a device with the setting's file refuses v0.1 boxes, so the path is set.
