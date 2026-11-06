@@ -16,13 +16,18 @@ writes it there with the release's `wim.mjs`. Until the first release that does,
 
 ## On the receiving device
 
-At your own terminal (not through an agent), allow the repository, the branch and the workflow file
-that may send, and note the code it prints (`wim ci allow` lists the other options: tags, events,
-environments, holding every notice):
+At your own terminal (not through an agent), allow the repository, the branch or tag and the
+workflow file that may send, and note the code it prints (`wim ci allow` lists the other options:
+events, environments, holding every notice):
 
 ```sh
 wim ci allow github <owner>/<repo> --ref main --workflow ci.yml
+wim ci allow github <owner>/<repo> --tag 'v*' --workflow release.yml
 ```
+
+A name ending in `*` is a pattern: `--tag 'v*'` takes every tag starting with `v`. Protect the
+same tags or branches with a ruleset, since anyone who can push one can send; `allow` prints the
+ruleset targets to use.
 
 The code starts with `wimci1_`. It names the relay, the mesh and the device, and it is not a
 secret: put it in a repository or organization variable such as `WIM_CI_RECIPIENT`.

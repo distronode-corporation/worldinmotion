@@ -5,17 +5,24 @@ import {
   checkCiTimes,
   checkSendAudience,
   ciAtFresh,
+  ciCandidateTags,
   ciClaims,
   ciDedupeExpiry,
   ciNoticeOf,
   ciOneTimeKey,
   ciOpenRequest,
   ciRecipientCode,
+  ciRefMatches,
+  ciRuleRefSchema,
   ciRuleTag,
   ciSenderId,
   githubAudience,
   githubCountingKey,
   githubSeen,
+  CI_REF_MAX,
+  isCiFullRef,
+  isCiRefPattern,
+  isCiRuleRef,
   gitlabAudience,
   gitlabCountingKey,
   parseCiRecipientCode,
@@ -115,6 +122,135 @@ describe("derivations", () => {
     expect(githubCountingKey(GITHUB_ISSUER, "1", "2")).toMatch(/^gh~[A-Za-z0-9_-]{22}$/);
     expect(githubCountingKey(GITHUB_ISSUER, "1", "2")).not.toBe(githubCountingKey(GITHUB_ISSUER, "2", "1"));
     expect(gitlabCountingKey(DEVICE)).toBe(`gl~${DEVICE}`);
+  });
+});
+
+describe("refs and ref patterns", () => {
+  const cp = (n: number) => "x".repeat(n);
+
+  it("tells a full ref from a pattern, and refuses every other spelling", () => {
+    for (const r of ["refs/heads/main", "refs/tags/v3.3.0", "refs/heads/release/1.x", "refs/tags/é"]) {
+      expect([isCiFullRef(r), isCiRefPattern(r), isCiRuleRef(r)], r).toEqual([true, false, true]);
+    }
+    for (const p of ["refs/tags/v*", "refs/heads/release/*", "refs/tags/*", "refs/heads/*"]) {
+      expect([isCiFullRef(p), isCiRefPattern(p), isCiRuleRef(p)], p).toEqual([false, true, true]);
+    }
+    const refused = [
+      "*",
+      "",
+      "refs/*",
+      "refs/heads/",
+      "refs/tags/",
+      "refs/pull/1/merge",
+      "refs/pull/*",
+      "main",
+      "v*",
+      "refs/tags/v**",
+      "refs/tags/*v",
+      "refs/tags/v*.0",
+      "refs/heads/a*b*",
+      "refs/tags/v?",
+      "refs/tags/v[0-9]*",
+      "refs/tags/v[0]",
+      "refs/tags/v\\*",
+      "refs/tags/a\\b",
+      "refs/heads/a?b",
+      "refs/tags/v 1*",
+      "refs/tags/v\t*",
+      "refs/tags/v\u0000",
+      "refs/tags/v\u007f*",
+      "refs/heads/main\n",
+      "Refs/heads/main",
+    ];
+    for (const r of refused) expect([isCiFullRef(r), isCiRefPattern(r), isCiRuleRef(r)], JSON.stringify(r)).toEqual([false, false, false]);
+    for (const v of [undefined, null, 1, ["refs/heads/main"], { ref: "refs/heads/main" }]) {
+      expect([isCiFullRef(v), isCiRefPattern(v), isCiRuleRef(v)]).toEqual([false, false, false]);
+    }
+  });
+
+  it("holds both forms to 255 code points, counting characters, not UTF-16 units", () => {
+    expect(CI_REF_MAX).toBe(255);
+    const full = `refs/heads/${cp(255 - 11)}`;
+    expect(isCiFullRef(full)).toBe(true);
+    expect(isCiFullRef(`${full}x`)).toBe(false);
+    const pattern = `refs/tags/${cp(255 - 11)}*`;
+    expect([...pattern].length).toBe(255);
+    expect(isCiRefPattern(pattern)).toBe(true);
+    expect(isCiRefPattern(`refs/tags/${cp(255 - 10)}*`)).toBe(false);
+    // 244 astral characters are 488 UTF-16 units but 255 code points with the prefix.
+    const astral = `refs/heads/${"\u{1F680}".repeat(244)}`;
+    expect(astral.length).toBeGreaterThan(255);
+    expect(isCiFullRef(astral)).toBe(true);
+    expect(isCiFullRef(`${astral}x`)).toBe(false);
+  });
+
+  it("checks a rule's ref as a schema", () => {
+    expect(ciRuleRefSchema.safeParse("refs/tags/v*").success).toBe(true);
+    expect(ciRuleRefSchema.safeParse("refs/heads/main").success).toBe(true);
+    expect(ciRuleRefSchema.safeParse("refs/tags/v*1").success).toBe(false);
+    expect(ciRuleRefSchema.safeParse(7).success).toBe(false);
+  });
+
+  it("matches a full ref exactly and a pattern by its prefix, the prefix itself included", () => {
+    expect(ciRefMatches("refs/heads/main", "refs/heads/main")).toBe(true);
+    expect(ciRefMatches("refs/heads/main", "refs/heads/main2")).toBe(false);
+    expect(ciRefMatches("refs/heads/main", "refs/heads/Main")).toBe(false);
+    expect(ciRefMatches("refs/tags/v*", "refs/tags/v3.3.0")).toBe(true);
+    expect(ciRefMatches("refs/tags/v*", "refs/tags/v")).toBe(true);
+    expect(ciRefMatches("refs/tags/v*", "refs/tags/V3")).toBe(false);
+    expect(ciRefMatches("refs/tags/v*", "refs/heads/v3")).toBe(false);
+    expect(ciRefMatches("refs/tags/v*", "refs/tags/")).toBe(false);
+    expect(ciRefMatches("refs/heads/release/*", "refs/heads/release/1/hotfix")).toBe(true);
+    expect(ciRefMatches("refs/heads/release/*", "refs/heads/release")).toBe(false);
+    expect(ciRefMatches("refs/tags/*", "refs/tags/anything")).toBe(true);
+    // The star is never a wildcard in the token's ref, and a rule outside the syntax matches nothing.
+    expect(ciRefMatches("refs/tags/v*", "refs/tags/v*")).toBe(true);
+    expect(ciRefMatches("refs/heads/main", "refs/heads/*")).toBe(false);
+    for (const bad of ["*", "refs/*", "refs/tags/v**", "refs/tags/*v", "", "refs/heads/a b"]) {
+      expect(ciRefMatches(bad, "refs/tags/v1"), bad).toBe(false);
+      expect(ciRefMatches(bad, bad), bad).toBe(false);
+    }
+  });
+
+  it("gives the relay the exact tag and one per prefix pattern, so a device's pattern tag is among them", () => {
+    const t = { mesh: MESH, device: DEVICE, iss: GITHUB_ISSUER, repo: "Octo-Org/Deploys", ref: "refs/tags/v3.3.0" };
+    const tags = ciCandidateTags(t);
+    expect(tags).toHaveLength(t.ref.length + 2);
+    expect(tags[0]).toBe(ciRuleTag(t));
+    expect(tags[1]).toBe(ciRuleTag({ ...t, ref: "*" }));
+    expect(tags.at(-1)).toBe(ciRuleTag({ ...t, ref: "refs/tags/v3.3.0*" }));
+    for (const p of ["refs/tags/v*", "refs/tags/*", "refs/tags/v3.*", "refs/tags/v3.3.0*"]) expect(tags, p).toContain(ciRuleTag({ ...t, ref: p }));
+    for (const p of ["refs/tags/w*", "refs/heads/*", "refs/tags/v3.3.0.1*"]) expect(tags, p).not.toContain(ciRuleTag({ ...t, ref: p }));
+    expect(new Set(tags).size).toBe(tags.length);
+    // The repository's case is not in the tag, as for an exact rule.
+    expect(ciCandidateTags({ ...t, repo: "octo-org/deploys" })).toEqual(tags);
+  });
+
+  it("caps the candidates at 255 patterns, so a long ref costs at most 256 hashes", () => {
+    const t = { mesh: MESH, device: DEVICE, iss: GITHUB_ISSUER, repo: "o/r" };
+    const at254 = `refs/tags/${cp(254 - 10)}`;
+    expect(ciCandidateTags({ ...t, ref: at254 })).toHaveLength(256);
+    expect(ciCandidateTags({ ...t, ref: at254 }).at(-1)).toBe(ciRuleTag({ ...t, ref: `${at254}*` }));
+    const at255 = `${at254}x`;
+    const c255 = ciCandidateTags({ ...t, ref: at255 });
+    expect(c255).toHaveLength(256);
+    expect(c255.at(-1)).toBe(ciRuleTag({ ...t, ref: `${at254}*` }));
+    expect(c255).not.toContain(ciRuleTag({ ...t, ref: `${at255}*` }));
+    const long = ciCandidateTags({ ...t, ref: `refs/tags/${cp(1000)}` });
+    expect(long).toHaveLength(256);
+    expect(long.at(-1)).toBe(ciRuleTag({ ...t, ref: `refs/tags/${cp(244)}*` }));
+    // The longest pattern a rule may hold is always a candidate for a ref under it.
+    const longest = `refs/tags/${cp(244)}*`;
+    expect(isCiRefPattern(longest)).toBe(true);
+    expect(long).toContain(ciRuleTag({ ...t, ref: longest }));
+    expect(ciCandidateTags({ ...t, ref: "" })).toEqual([ciRuleTag({ ...t, ref: "" }), ciRuleTag({ ...t, ref: "*" })]);
+  });
+
+  it("cuts prefixes between characters, never inside one", () => {
+    const t = { mesh: MESH, device: DEVICE, iss: GITHUB_ISSUER, repo: "o/r", ref: "refs/tags/\u{1F680}1" };
+    const tags = ciCandidateTags(t);
+    expect(tags).toHaveLength([...t.ref].length + 2);
+    expect(tags).toContain(ciRuleTag({ ...t, ref: "refs/tags/\u{1F680}*" }));
   });
 });
 
@@ -384,7 +520,10 @@ describe("what a relay keeps", () => {
     const g = github();
     const r = await verifyCiToken(g.token, g.notice, fixtureKeys);
     const seen = githubSeen((r as { value: GithubClaims }).value, MESH, DEVICE);
-    expect(seen.tag).toBe(ciRuleTag({ mesh: MESH, device: DEVICE, iss: GITHUB_ISSUER, repo: "octo-org/deploys", ref: "refs/heads/main" }));
+    const exact = { mesh: MESH, device: DEVICE, iss: GITHUB_ISSUER, repo: "octo-org/deploys", ref: "refs/heads/main" };
+    expect(seen.tags[0]).toBe(ciRuleTag(exact));
+    expect(seen.tags).toEqual(ciCandidateTags(exact));
+    expect(seen.tags).toContain(ciRuleTag({ ...exact, ref: "refs/heads/*" }));
     expect(seen.key).toBe(githubCountingKey(GITHUB_ISSUER, "65", "74"));
     expect(seen.jti).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(JSON.stringify(seen)).not.toContain("octo");

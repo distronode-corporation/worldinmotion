@@ -1,9 +1,10 @@
 // The person's CI sender rules (SPEC section 18): which repositories, refs and workflows may send
 // this device notices. They live in `ci-rules.json` beside the mesh config, change only through
 // `wim ci allow|remove` and a held notice's approval at the person's own terminal, and are matched
-// exactly. The relay only ever learns a hash of each GitHub rule's repository and ref (its tag).
+// exactly, a ref pattern by its prefix. The relay only ever learns a hash of each GitHub rule's
+// repository and ref (its tag).
 
-import { ciRuleTag, GITHUB_ISSUER, parseJson, type CiClaims } from "@worldinmotion/protocol";
+import { CI_REF_MAX, ciRefMatches, ciRuleRefSchema, ciRuleTag, GITHUB_ISSUER, isCiRefPattern, isCiRuleRef, parseJson, sanitizeForDisplay, type CiClaims } from "@worldinmotion/protocol";
 import { z } from "zod";
 import { readText, withLock, writeJson, type FsEnv } from "./fsx.ts";
 
@@ -14,7 +15,9 @@ export const CI_RULES_MAX = 64;
 export const PRIVILEGED_EVENTS: readonly string[] = ["pull_request_target", "workflow_run"];
 
 const id = z.string().regex(/^[0-9]{1,20}$/);
-const ref = z.string().max(255).regex(/^refs\/(heads|tags)\/[^\s\u0000-\u001f\u007f]+$/);
+// A full ref or a ref pattern (one trailing `*`), as the protocol defines them; any other spelling
+// makes the whole file invalid (SPEC section 18).
+const ref = ciRuleRefSchema;
 const environment = z.string().min(1).max(255).regex(/^[^\u0000-\u001f\u007f]+$/);
 const ruleId = z.string().regex(/^[0-9A-Z]{26}$/);
 
@@ -99,10 +102,50 @@ export async function updateCiRules(path: string, env: FsEnv, change: (rules: Ci
   await withLock(`${path}.lock`, async () => saveCiRules(path, change(await loadCiRules(path)), env), env);
 }
 
-/** The full ref a person means by `--ref main` (a branch) or `--ref v1 --tag`; a full ref is kept. */
-export function fullRef(name: string, tag: boolean): string {
-  if (name.startsWith("refs/")) return name;
-  return `${tag ? "refs/tags/" : "refs/heads/"}${name}`;
+/** Which flag of `wim ci allow` names the ref: `--ref` or `--tag`. */
+export type RefFlag = "ref" | "tag";
+
+/**
+ * The full ref or ref pattern a person means: `--tag 'v*'` is `refs/tags/v*` (a tag name, never a
+ * full ref), and `--ref` keeps a full ref or pattern (`refs/heads/release/*`) as it is and reads a
+ * bare name as a branch (`--ref main`, `--ref 'release/*'`). Not checked here: `refRefusal` says
+ * what is wrong with one.
+ */
+export function ruleRef(flag: RefFlag, name: string): string {
+  if (flag === "tag") return `refs/tags/${name}`;
+  return name.startsWith("refs/") ? name : `refs/heads/${name}`;
+}
+
+/** Why a rule cannot hold `ref`, for the person; undefined when it is a full ref or a ref pattern. */
+export function refRefusal(ref: string): string | undefined {
+  if (isCiRuleRef(ref)) return undefined;
+  if ([...ref].length > CI_REF_MAX) return `the ref is longer than ${CI_REF_MAX} characters: ${sanitizeForDisplay([...ref].slice(0, 64).join(""))}...`;
+  return `not a branch or tag name, or a pattern: ${sanitizeForDisplay(ref)}. A pattern ends in one * (--tag 'v*', --ref 'release/*'); a name holds no whitespace, control character, ?, [ or \\, and no * anywhere else`;
+}
+
+/** What a ref pattern's rule takes, in words, and how to protect the same refs at the provider. Empty for a full ref. */
+export function patternLines(rule: CiRule): string[] {
+  if (!isCiRefPattern(rule.ref)) return [];
+  const tag = rule.ref.startsWith("refs/tags/");
+  const kind = tag ? "tag" : "branch";
+  const prefix = sanitizeForDisplay(rule.ref.slice(tag ? "refs/tags/".length : "refs/heads/".length, -1));
+  const lines = [
+    prefix === ""
+      ? `This rule is a pattern: it takes every ${kind}, so anyone who can push any ${kind} can send.`
+      : `This rule is a pattern: it takes every ${kind} whose name starts with "${prefix}" (that name itself included, and names with / in them), so anyone who can push such a ${kind} can send.`,
+  ];
+  if (rule.via === "github") {
+    // A ruleset target is fnmatch: its * stops at /, and /**/ spans any depth.
+    lines.push(`Protect the same ${kind}s at GitHub with a ${kind} ruleset (Settings, Rules, Rulesets) that restricts creating, updating and deleting them, targeting both ${prefix}* and ${prefix}*/**/* (a ruleset's * does not match /).`);
+  } else {
+    lines.push(
+      `Protect the same ${kind}s at GitLab: Settings, Repository, Protected ${tag ? "tags" : "branches"}, with the wildcard ${prefix}*.`,
+      rule.unprotected === true
+        ? `This rule also takes unprotected refs (--unprotected): until they are protected, anyone who can push a matching ${kind} can send.`
+        : `This rule takes only refs GitLab marks protected: nothing from a matching ${kind} is delivered until it is protected.`,
+    );
+  }
+  return lines;
 }
 
 /** The ids a verified token carries, as a rule pins them. */
@@ -115,7 +158,10 @@ function samePins(a: CiPins, b: CiPins): boolean {
   return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
 }
 
-/** The workflow file a GitHub `workflow_ref` names, when it is `<repository>/.github/workflows/<file>@<ref>`. */
+/**
+ * Whether a GitHub `workflow_ref` is `<repository>/.github/workflows/<file>@<ref>`, where `<ref>` is
+ * the token's own `ref` exactly: the rule's ref (full or pattern) is then checked on that ref.
+ */
 function workflowMatches(workflowRef: string, repository: string, file: string, ref: string): boolean {
   const head = workflowRef.slice(0, repository.length);
   return head.toLowerCase() === repository.toLowerCase() && workflowRef.slice(repository.length) === `/.github/workflows/${file}@${ref}`;
@@ -125,13 +171,13 @@ function workflowMatches(workflowRef: string, repository: string, file: string, 
 export function matchesByName(rule: CiRule, c: CiClaims): boolean {
   if (rule.via === "github") {
     if (c.via !== "github") return false;
-    if (c.repository.toLowerCase() !== rule.repo || c.ref !== rule.ref) return false;
+    if (c.repository.toLowerCase() !== rule.repo || !ciRefMatches(rule.ref, c.ref)) return false;
     if (!workflowMatches(c.workflowRef, c.repository, rule.workflow, c.ref)) return false;
     const eventOk = rule.events === undefined ? !PRIVILEGED_EVENTS.includes(c.event) : rule.events.includes(c.event);
     return eventOk && (rule.environment === undefined || c.environment === rule.environment);
   }
   if (c.via !== "gitlab") return false;
-  if (c.projectPath.toLowerCase() !== rule.repo || c.ref !== rule.ref) return false;
+  if (c.projectPath.toLowerCase() !== rule.repo || !ciRefMatches(rule.ref, c.ref)) return false;
   if (!c.refProtected && rule.unprotected !== true) return false;
   return rule.environment === undefined || (c.environment === rule.environment && c.environmentProtected === true);
 }
