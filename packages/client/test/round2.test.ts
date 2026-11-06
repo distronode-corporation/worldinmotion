@@ -5,7 +5,7 @@ import { commandUsage, SHORT_USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
 import { processIo, type Proc } from "../src/io.ts";
 import { WimMcp } from "../src/mcp.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, breakerOf } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
@@ -322,7 +322,7 @@ describe("derived messages (revision 8)", () => {
     const { MeshFiles } = await import("../src/mesh.ts");
     const { resumeEverywhere } = await import("../src/offline.ts");
     const meshTwo = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
-    await meshTwo.updateConfig((c) => ({ ...c, policy: { [devices[0]!.device.id]: "deliver" }, breaker: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8 } }));
+    await meshTwo.updateConfig((c) => ({ ...c, policy: { [devices[0]!.device.id]: "deliver" }, breaker: breakerOf({ perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8 }) }));
     const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
     open.push(a);
     const b1 = await MeshSession.open({ ...sessionOpts(devices[1]!, mesh, relay, { name: "b" }), sessionKey: "key:b" });

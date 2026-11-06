@@ -22,34 +22,61 @@ import { readJson, withLock, writeJson, type FsEnv } from "./fsx.ts";
 export type Policy = "deliver" | "deliver-relayed" | "hold" | "refuse";
 
 /**
- * The loop breaker's limits (design.md, loop and cost breaker), in mesh.json as `breaker`. They
- * govern every automatic delivery: wakes per sender device and in total per sliding hour, and the
- * ping-pong rule (more than `pingPongExchanges` alternating short messages in 10 minutes).
+ * The loop breaker's counting limits (design.md, loop and cost breaker): wakes per sender device
+ * and in total per sliding hour, and the ping-pong rule (more than `pingPongExchanges` alternating
+ * short messages in 10 minutes).
  */
-export type BreakerLimits = { perPeerPerHour: number; totalPerHour: number; pingPong: boolean; pingPongExchanges: number };
+export type BreakerTier = { perPeerPerHour: number; totalPerHour: number; pingPong: boolean; pingPongExchanges: number };
 
-/** What a new mesh.json gets, and what a file with no `breaker` at all reads as. */
-export const DEFAULT_BREAKER: BreakerLimits = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32 };
+/**
+ * The loop breaker's limits, in mesh.json as `breaker`. They govern every automatic delivery,
+ * which only a device the person trusts gets (policy `deliver` or `deliver-relayed`, and this
+ * device's own sessions; any other device is held before the breaker counts it). A trip pauses
+ * the peer for `cooldownMinutes`, after which the client releases it by itself, delivering at
+ * most `perPeerPerHour` of what it held (SECURITY-MODEL section 7.3).
+ */
+export type BreakerLimits = BreakerTier & { cooldownMinutes: number };
+
+/** The longest cool-down: an hour. */
+export const COOLDOWN_MAX_MINUTES = 60;
+
+/** What a new mesh.json gets, and what a file with no `breaker` at all reads as: the ceilings of 0.1.8, and a 10-minute cool-down. */
+export const DEFAULT_BREAKER: BreakerLimits = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 10 };
 
 /**
  * What a field missing or invalid in a WRITTEN `breaker` reads as: the values every mesh.json was
  * written with before 0.1.8 (which had no `pingPongExchanges`). A file is honoured as written, and
  * a gap in it never reads as the higher new default.
  */
-const WRITTEN_BREAKER: BreakerLimits = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
+const WRITTEN_BREAKER: BreakerTier = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
 
 function positiveInt(v: unknown, fallback: number): number {
   return Number.isSafeInteger(v) && (v as number) > 0 ? (v as number) : fallback;
 }
 
+type BreakerFields = Partial<Record<keyof BreakerLimits, unknown>>;
+
+const fields = (raw: unknown): BreakerFields => (typeof raw === "object" && raw !== null ? raw : {}) as BreakerFields;
+
+/**
+ * Reads a written `breaker`. Any key it does not know is ignored, never refused. A `trusted`
+ * object, which drafts of 0.1.9 wrote for the devices the person trusts (the only ones the breaker
+ * counts), is read only where it is stricter: a lower limit there is honoured, so a person's lowered
+ * value is never raised, and nothing else in it changes anything.
+ */
 function parseBreaker(raw: unknown): BreakerLimits {
   if (raw === undefined) return DEFAULT_BREAKER;
-  const b = (typeof raw === "object" && raw !== null ? raw : {}) as Partial<Record<keyof BreakerLimits, unknown>>;
+  const b = fields(raw);
+  const t = fields((b as { trusted?: unknown }).trusted);
+  const stricter = (key: "perPeerPerHour" | "totalPerHour" | "pingPongExchanges", value: number): number => Math.min(value, positiveInt(t[key], value));
   return {
-    perPeerPerHour: positiveInt(b.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour),
-    totalPerHour: positiveInt(b.totalPerHour, WRITTEN_BREAKER.totalPerHour),
+    perPeerPerHour: stricter("perPeerPerHour", positiveInt(b.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour)),
+    totalPerHour: stricter("totalPerHour", positiveInt(b.totalPerHour, WRITTEN_BREAKER.totalPerHour)),
     pingPong: b.pingPong !== false,
-    pingPongExchanges: positiveInt(b.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges),
+    pingPongExchanges: stricter("pingPongExchanges", positiveInt(b.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges)),
+    // A file written before 0.1.9 has none: the default cool-down, the one new behaviour it gets
+    // (or the one a 0.1.9 draft wrote in `trusted`).
+    cooldownMinutes: Math.min(positiveInt(b.cooldownMinutes, positiveInt(t.cooldownMinutes, DEFAULT_BREAKER.cooldownMinutes)), COOLDOWN_MAX_MINUTES),
   };
 }
 
@@ -158,6 +185,17 @@ export class MeshFiles {
   /** The CI providers' token keys this device fetched itself, kept at most 24 hours. */
   get ciJwksPath(): string {
     return join(this.dir, "ci-jwks.json");
+  }
+  /**
+   * The peer sessions whose loop breaker said it holds this device's messages (a `pause`, SPEC
+   * section 12), so every session of this device reports a send to them as `held`.
+   */
+  get pausedByPath(): string {
+    return join(this.dir, "paused-by.json");
+  }
+  /** The peer sessions this device's sessions sent to in the last hour: a `pause` counts only from one (pauses.ts). */
+  get sentToPath(): string {
+    return join(this.dir, "sent-to.json");
   }
   /** The admin signing lock (SPEC section 4): one writer signs a roster at a time. */
   get rosterLock(): string {

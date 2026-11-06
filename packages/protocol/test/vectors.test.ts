@@ -15,6 +15,7 @@ import {
 import { parseJwks, type Jwk } from "../src/jwt.ts";
 import { openBox } from "../src/keyring.ts";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { buildVectors, vectorPublicKeys } from "../scripts/vectors.ts";
 import {
   b64u,
@@ -120,6 +121,35 @@ describe("test vectors", { timeout: 60_000 }, () => {
     expect(openMessage(ping.pong.frame, { roster: ping.roster, me: atAlice, now: ping.pong.now })).toEqual({ ok: true, value: ping.pong.plaintext });
     expect(ping.pong.plaintext.reply_to).toBe(ping.ping.plaintext.id);
     for (const v of ping.invalid_plaintexts) expect(plaintextSchema.safeParse(v.plaintext).success, v.why).toBe(false);
+  });
+
+  it("pause.json: a pause with every field and a lift open as given, the invalid ones are refused, and an older client drops both", () => {
+    const pause = load("pause.json");
+    const pk = load("prekey.json");
+    const alice = load("keys.json").keys[0];
+    const aliceKeys = deviceKeysFromSecrets(bytes(alice.signSec), bytes(alice.boxSec));
+    const held = (ids: string[]) => (id: string) => (ids.includes(id) ? b64u.decode(pk.prekeys.alice.secret) : undefined);
+    for (const which of ["paused", "lifted"] as const) {
+      const v = pause[which];
+      const atAlice = { ...v.receiver, deviceId: alice.id, keys: aliceKeys, prekey: held([pk.prekeys.alice.prekey.id]) };
+      expect(openMessage(v.frame, { roster: pause.roster, me: atAlice, now: v.now }), which).toEqual({ ok: true, value: v.plaintext });
+    }
+    expect(pause.paused.plaintext).toMatchObject({ kind: "pause", reply_to: expect.any(String), pause: { state: "paused", rule: "peer", count: 121, limit: 120, minutes: 60, auto: true } });
+    // `minutes` is the window the rule counts over (SPEC section 12), never the cool-down: 60 for
+    // the per-peer and total rules, 10 for ping-pong.
+    const p = pause.paused.plaintext.pause;
+    expect(p.minutes).toBe({ peer: 60, total: 60, pingpong: 10 }[p.rule as "peer"]);
+    expect(pause.lifted.plaintext.pause).toEqual({ state: "lifted" });
+    for (const v of pause.invalid_plaintexts) expect(plaintextSchema.safeParse(v.plaintext).success, v.why).toBe(false);
+    // A client before \`pause\`: the same schema without that kind, which refuses both, so the
+    // receiving checks drop them as plaintext_malformed (SPEC section 6, step 8).
+    const kinds = plaintextSchema.options.map((o) => o.shape.kind.value);
+    expect(kinds.filter((k) => k !== "pause").sort()).toEqual([...pause.older_kinds].sort());
+    const older = z.discriminatedUnion("kind", plaintextSchema.options.filter((o) => o.shape.kind.value !== "pause") as never);
+    for (const which of ["paused", "lifted"] as const) {
+      expect(older.safeParse(pause[which].plaintext).success, which).toBe(false);
+      expect(older.safeParse({ ...pause[which].plaintext, kind: "pong", reply_to: pause.paused.plaintext.reply_to }).success).toBe(false);
+    }
   });
 
   it("ci.json: every derivation, both notices open and verify, and each refused token fails for its reason", async () => {

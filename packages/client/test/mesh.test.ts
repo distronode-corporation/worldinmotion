@@ -36,45 +36,81 @@ describe("parseMeshConfig", () => {
     expect(parseMeshConfig({ ...good, share_cards: false, policy: undefined }, "p").share_cards).toBe(false);
     expect(parseMeshConfig({ ...good, fork: { seq: 2, a: "x", b: "y", base: [], at: 1 } }, "p").fork?.seq).toBe(2);
     const b = parseMeshConfig({ ...good, breaker: { perPeerPerHour: 0, totalPerHour: 5, pingPong: false } }, "p").breaker;
-    expect(b).toEqual({ perPeerPerHour: 20, totalPerHour: 5, pingPong: false, pingPongExchanges: 8 });
+    expect(b).toEqual({ perPeerPerHour: 20, totalPerHour: 5, pingPong: false, pingPongExchanges: 8, cooldownMinutes: 10 });
   });
   it("reads the breaker: absent is the new default, a written one is honoured as written", () => {
-    // New meshes (and a file with no breaker at all) get the limits of 0.1.8.
-    expect(DEFAULT_BREAKER).toEqual({ perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32 });
+    // New meshes (and a file with no breaker at all): the limits of 0.1.8 and a 10-minute cool-down.
+    expect(DEFAULT_BREAKER).toEqual({ perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 10 });
     expect(parseMeshConfig({ ...good, breaker: undefined }, "p").breaker).toEqual(DEFAULT_BREAKER);
-    // The default every earlier version wrote stays in force, threshold included (it had none written).
+    // The default every earlier version wrote stays in force as written, threshold included (it
+    // had none written), and lower limits are never raised (#59 review, F2): only the cool-down is new.
     expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 20, totalPerHour: 60, pingPong: true } }, "p").breaker).toEqual({
       perPeerPerHour: 20,
       totalPerHour: 60,
       pingPong: true,
       pingPongExchanges: 8,
+      cooldownMinutes: 10,
     });
-    // A hand-tuned one, as the person wrote it.
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 2, totalPerHour: 60, pingPong: true } }, "p").breaker.perPeerPerHour).toBe(2);
+    // A hand-tuned one, as the person wrote it (the #59 workaround among them).
     expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 120, totalPerHour: 300, pingPong: false } }, "p").breaker).toEqual({
       perPeerPerHour: 120,
       totalPerHour: 300,
       pingPong: false,
       pingPongExchanges: 8,
+      cooldownMinutes: 10,
     });
-    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 50, totalPerHour: 90, pingPong: true, pingPongExchanges: 16 } }, "p").breaker).toEqual({
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 50, totalPerHour: 90, pingPong: true, pingPongExchanges: 16, cooldownMinutes: 5 } }, "p").breaker).toEqual({
       perPeerPerHour: 50,
       totalPerHour: 90,
       pingPong: true,
       pingPongExchanges: 16,
+      cooldownMinutes: 5,
     });
+    // A cool-down is at most an hour.
+    expect(parseMeshConfig({ ...good, breaker: { cooldownMinutes: 90 } }, "p").breaker.cooldownMinutes).toBe(60);
     // Anything in a written breaker that is missing or not a positive whole number reads as the
     // value files were written with before 0.1.8, never as the higher new default.
     for (const bad of [0, -1, 1.5, "32", Number.MAX_SAFE_INTEGER + 1, null]) {
-      expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: bad, totalPerHour: bad, pingPong: true, pingPongExchanges: bad } }, "p").breaker).toEqual({
+      expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: bad, totalPerHour: bad, pingPong: true, pingPongExchanges: bad, cooldownMinutes: bad } }, "p").breaker).toEqual({
         perPeerPerHour: 20,
         totalPerHour: 60,
         pingPong: true,
         pingPongExchanges: 8,
+        cooldownMinutes: 10,
       });
     }
     for (const written of [{}, null, "fast", 7]) {
-      expect(parseMeshConfig({ ...good, breaker: written }, "p").breaker).toEqual({ perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 });
+      expect(parseMeshConfig({ ...good, breaker: written }, "p").breaker).toEqual({ perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8, cooldownMinutes: 10 });
     }
+  });
+  it("ignores old and unknown breaker keys, never refuses them, and never raises a written limit", () => {
+    // A 0.1.9 draft wrote a `trusted` block (its tier for the devices the person trusts, the only
+    // ones the breaker counts). It loads; where it is stricter, it is honoured.
+    const draft = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, trusted: { perPeerPerHour: 5, totalPerHour: 400, pingPong: false, pingPongExchanges: 4, cooldownMinutes: 3 } };
+    expect(parseMeshConfig({ ...good, breaker: draft }, "p").breaker).toEqual({ perPeerPerHour: 5, totalPerHour: 300, pingPong: true, pingPongExchanges: 4, cooldownMinutes: 3 });
+    // A lowered top-level limit stays lowered whatever `trusted` says.
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 2, totalPerHour: 60, trusted: { perPeerPerHour: 120, totalPerHour: 300 } } }, "p").breaker).toMatchObject({ perPeerPerHour: 2, totalPerHour: 60 });
+    // A top-level cool-down wins over one in `trusted`.
+    expect(parseMeshConfig({ ...good, breaker: { cooldownMinutes: 7, trusted: { cooldownMinutes: 3 } } }, "p").breaker.cooldownMinutes).toBe(7);
+    // A `trusted` that is not an object, or holds nothing usable, changes nothing.
+    for (const trusted of ["fast", 7, null, [], { perPeerPerHour: -1, totalPerHour: "5", pingPongExchanges: 1.5, cooldownMinutes: 0 }]) {
+      expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8, trusted } }, "p").breaker).toEqual({
+        perPeerPerHour: 20,
+        totalPerHour: 60,
+        pingPong: true,
+        pingPongExchanges: 8,
+        cooldownMinutes: 10,
+      });
+    }
+    // Keys it does not know (a typo, a later version's) are ignored.
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 3, perPeerPerMinute: 1, autoRelease: false, tiers: { a: 1 } } }, "p").breaker).toEqual({
+      perPeerPerHour: 3,
+      totalPerHour: 60,
+      pingPong: true,
+      pingPongExchanges: 8,
+      cooldownMinutes: 10,
+    });
   });
   it("refuses broken files", () => {
     expect(() => parseMeshConfig(null, "p")).toThrow(/not a mesh file/);

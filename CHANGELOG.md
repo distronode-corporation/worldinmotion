@@ -116,6 +116,46 @@ body line with a bracket.
   mesh's recovery code, an admin record that never connects, which is why its policy reads hold.
 - **"Unknown mesh" says why it may be** (#65): an admin deleted it, the relay removed it after it
   went unused, or the relay URL is wrong, and `wim mesh delete` removes this device's copy.
+- **The loop breaker's pause is a cool-down** (#59, SECURITY-MODEL section 7.3). Only devices the
+  person trusts are counted (any other is held by policy before the breaker sees it). When a pause
+  ends, after `cooldownMinutes` (new in mesh.json's `breaker`, 10 by default, at most 60), the
+  client releases the peer by itself and delivers, oldest first, at most the per-peer limit of what
+  it held and no more than is left under the total, counted as delivered; the rest waits for the
+  person, as in 0.1.8, and so does a second trip within the hour of a release. So, per receiving
+  session, a looping peer gets at most about twice the per-peer limit an hour and all peers together
+  at most the total, across restarts too (the hour's counts are kept). Nothing is released for a
+  device no longer trusted or revoked. A message the person or a release delivered is recorded as
+  seen, so the relay's copy of an unacknowledged frame is never delivered twice.
+  A mesh.json keeps the limits written in it, lower ones included; one written before 0.1.9 gets
+  only the cool-down. New meshes keep 0.1.8's 120, 300 and 32. The settings are documented in
+  docs/design.md.
+- **Pauses show, with the rule, its numbers and their end** (#59). Each session keeps its pauses
+  in a new `breaker.json` (with the sessions told, the releases and deliveries of the last hour, and
+  taken back after a restart while they still hold something). `wim held list` lists running pauses first and
+  names the rule of each breaker hold; the Claude Code pane and `wim events` list them too; both
+  notices read like "the per-peer limit: 121 messages from a@one in 60 minutes, limit 120; until
+  <time>"; `wim events` gives `until` and `auto` on `breaker` events and rows, and VS Code lets a
+  pause lapse at its `until`.
+- **`send` returns `held` for a session whose breaker holds this device's messages** (#59). The
+  receiving client tells each sending session once per pause (a room sender included) with a new
+  plaintext kind, `pause` (SPEC section 12; older clients drop it), and the sender keeps it in
+  `paused-by.json`, with the sessions its device sent to in `sent-to.json`, for every session of
+  its device: `send`, `ask`, `reply`, `send_file` and `wim send` then report `held` with `relay`
+  and `breaker` (the rule and its numbers) instead of `routed`, the MCP result adds a `held_note`,
+  and the agent is told once, only for a device its person trusts. A `pause` is a label only: it never changes what is sent, held or
+  delivered, and never resumes anything.
+- **"Approve and resume this device"** (#59): the pane offers it on every breaker hold, and `wim
+  held approve <id>` takes `resume` as well as `y` for one, approving the item and lifting the
+  pause on its device, in every session of this device, in one step. Both stay the person's: no
+  MCP tool, internal op, message or `pause` approves or resumes.
+- **A held message goes to the spool before it leaves `held/`** (#76), on every path that releases
+  one: the person's approve, a resume, a cool-down's release, and `wim held approve` while no
+  process runs the session. A process that stops in between loses nothing: the next one finds the
+  item delivered (a `<id>.delivered` mark, or the item in the spool) and only takes it out of
+  `held/`, so the agent never gets it twice. Before, the entry went first, and a stop then lost it.
+- **Test vectors for `pause`** (`vectors/pause.json`, SPEC section 16): a pause with every field
+  and a lift, sealed and opened, the plaintexts that must be refused, and the kinds an older
+  client knows, whose schema refuses both.
 
 ### Fixed
 

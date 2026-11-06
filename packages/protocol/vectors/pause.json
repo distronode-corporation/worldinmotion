@@ -1,0 +1,675 @@
+{
+  "description": "Pause (SPEC section 12), with the roster and prekeys of prekey.json. bob's loop breaker paused alice (the per-peer rule, which counts over 60 minutes; the cool-down ends at `until`), so his reviewer session sends writer@alice a `pause` with every field, whose `reply_to` names the message it held, and later a `pause` saying the person lifted it; each is sealed to alice's prekey, and alice opens it at its `now` to `plaintext`. Neither carries text. Each `invalid_plaintexts` entry MUST be refused by the plaintext schema (reason `plaintext_malformed` when it arrives sealed). `older_kinds` are the kinds a client before `pause` knows: a plaintext schema of only those kinds MUST refuse both plaintexts, which is how an older client drops them (`plaintext_malformed`).",
+  "roster": {
+    "mesh": "8yvT1IZgynsBt7R7maZTCw",
+    "seq": 2,
+    "prev": "ssMkmESqOUESIDgbriXNH6PbGkISd-iGLMPq2IZgY_I",
+    "devices": [
+      {
+        "id": "zv5yUNkED9tj8Qn03xCtIg",
+        "name": "alice",
+        "sign": "qeQGTgme0RbNMaRN8tNFWceHWsAg58JZrNRKLJZES_Q",
+        "box": "6kH3FetGuoP9g0UMRQe150nqCATTZOpnDT4OX9208Ag",
+        "role": "admin",
+        "added": 1760000000000
+      },
+      {
+        "id": "MktQIySOj-wiwSsggq4YCL",
+        "name": "bob",
+        "sign": "vt55Zzu0lLrj7NhBBlFLUsF4aQToTO5EHNZtx4qONKo",
+        "box": "bu1IwhsPiNy9wT2jYoGuItKLWLjwX-E2HKYo5_qRrx0",
+        "role": "member",
+        "added": 1760000000000
+      }
+    ],
+    "revoked": [],
+    "by": "zv5yUNkED9tj8Qn03xCtIg",
+    "at": 1760000000000,
+    "sig": "u5477rfcCTiEBGVjsQID17DcIs8Ej6jID8ggXYVmu_T0EQyfrNG6tRP6yhmnut0EUjCJXgtTKObZRQ1qH2ZoAw"
+  },
+  "paused": {
+    "receiver": {
+      "device": "alice",
+      "address": "writer@alice",
+      "sid": "01K700000000000000000005D1"
+    },
+    "now": 1760000000060,
+    "frame": {
+      "t": "send",
+      "mesh": "8yvT1IZgynsBt7R7maZTCw",
+      "id": "01K700000000000000000006Q1",
+      "from": {
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "session": "reviewer",
+        "sid": "01K700000000000000000005D2"
+      },
+      "to": [
+        "writer@alice"
+      ],
+      "seq": 1,
+      "at": 1760000000040,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "pk": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "CH0jPGmpY8ZrU6R5Donoxb",
+        "pub": "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "yIg0dgw-Q2XX7bYpWWsCiBCiyakTfnVIVkHW94Tu98VwnPXOa9hsQ92D_gnr-_bFgebMgm9BDpbFLlcI53rMBw"
+      },
+      "boxes": {
+        "zv5yUNkED9tj8Qn03xCtIg": {
+          "s": 2,
+          "p": "QShAMsIibsspvJk-sGiNUO",
+          "e": "cBL_NS31ZyHzX_fx6fk_fve9RJ-idicxlB3tO_o6zFw",
+          "c": "8tyyZMucF75gNvEDFidYes_Odp1wHX_0OkVqTN-wYVB8hkJF2T8cdrxkSrbGzk8bymHVFYAqZfkuVmjnRRFA_4GYqa0ovbAwLnMe_uKwsDsVyKvqwouLWGlxk-qL0QID3ZUrsD3mVg3WVXqxUVWxmd8j46Au-cuniP_GeJjZrGAvoP_pXx2oQ-Wmugq02g5fFfzP7-buvf7cxl6lXP53o_LhFHj8Y1PojAhrQf3qCIaV1RPfrH2wObOl-gNpcjy5JzjwKm8XdNEGKGDJRMXLiow8i1tmE-unVO4Lp2xfmJGrtxHg3cnsbr_tUnLCr6qiOQlDQ1CJZ-DV1QqtqYgvsULRZIyiOFoTwlh7bjVR43BA4Tt4H8T9-cg9PoMppCxHsU-8F4aPqIt4olcxHeDoGRoyVqyk46SzTmSiPwAe97kibkNth9hO6g8r2ys1CeFh9R8qkwuh6lLnsl-rrYzO52CXkqO1pnCOCE6PAd5A2HWHBYMYbCdr_bR9vqWgZ-ZnJqjI4U3FXfK8QqANXGN0oloLYgUhr4n2xNCz2pUBMvMPH9mrCNtKfYp2dK2SMfcekswZ6w"
+        }
+      },
+      "sig": "DQ2nTuptF2AYRrUOo8EaPVbz20k3vgkoy4JolFkBwXibb5tM0nU6qLc03BYBmE5UBLlF1AZFjPvPsEPgNqCNDQ"
+    },
+    "plaintext": {
+      "v": 1,
+      "id": "01K700000000000000000006Q1",
+      "from": {
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "session": "reviewer",
+        "sid": "01K700000000000000000005D2"
+      },
+      "to": [
+        "writer@alice"
+      ],
+      "at": 1760000000040,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "kind": "pause",
+      "pause": {
+        "state": "paused",
+        "rule": "peer",
+        "count": 121,
+        "limit": 120,
+        "minutes": 60,
+        "until": 1760000600040,
+        "auto": true
+      },
+      "reply_to": "01K700000000000000000006H1"
+    }
+  },
+  "lifted": {
+    "receiver": {
+      "device": "alice",
+      "address": "writer@alice",
+      "sid": "01K700000000000000000005D1"
+    },
+    "now": 1760000000100,
+    "frame": {
+      "t": "send",
+      "mesh": "8yvT1IZgynsBt7R7maZTCw",
+      "id": "01K700000000000000000006Q2",
+      "from": {
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "session": "reviewer",
+        "sid": "01K700000000000000000005D2"
+      },
+      "to": [
+        "writer@alice"
+      ],
+      "seq": 2,
+      "at": 1760000000080,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "pk": {
+        "mesh": "8yvT1IZgynsBt7R7maZTCw",
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "id": "CH0jPGmpY8ZrU6R5Donoxb",
+        "pub": "LhxXYsF_e8RUzGJtsR_RGmBjk6tyn31DPwSn2equTC0",
+        "at": 1759996400000,
+        "until": 1760169200000,
+        "sig": "yIg0dgw-Q2XX7bYpWWsCiBCiyakTfnVIVkHW94Tu98VwnPXOa9hsQ92D_gnr-_bFgebMgm9BDpbFLlcI53rMBw"
+      },
+      "boxes": {
+        "zv5yUNkED9tj8Qn03xCtIg": {
+          "s": 2,
+          "p": "QShAMsIibsspvJk-sGiNUO",
+          "e": "owZoKUxzVtPRqB6yV2aCS71QmJZOx96qWlpf3knygjU",
+          "c": "QpRgWtm1zuOI8urSWqe79FWYie_tOj_8BEkyMq0TDt79nA8cTEWl_BEJSb3-e51LetzIEyF8c9Ab6e_mDNy4FY-IMRIwal3imvuH3mdC4mBeKv_X5EttxroZOVvGjDYRpbLpIz3qHAuVsbUw_UjvbMq4UPZJgZWQglJ5KRcN1ELYk3UJKS8SUbMJiTJYti6a_mRBNWCj8_OjAXWIyVZdjT8XuyEiBoGsZaFOf1vF7szPJWiIXy9Y2cDytXjUJFRPYfpoARBWa0XkSP3vTRVxAPknrfwv6OhJwZHmK-N4BiJJywDkSdcreGZ9Fg6oGgdDxFhhTp2O6F2MkIhuTO_CQ91E9Tr32-50sSkmR5p4nJGnnUFjjQ1vbHL5UPwRsnMqngLm0KElftV4z_mbiiG6QwzYhaNmcH0"
+        }
+      },
+      "sig": "2BemwEQqh-B8UW2ymhatYnmn8cPM3bcYdYLv2NREuUEC_OAh8IYcKYBxOb0XQZBqzOKK2wq_laFjRQvzO8bfBA"
+    },
+    "plaintext": {
+      "v": 1,
+      "id": "01K700000000000000000006Q2",
+      "from": {
+        "device": "MktQIySOj-wiwSsggq4YCL",
+        "session": "reviewer",
+        "sid": "01K700000000000000000005D2"
+      },
+      "to": [
+        "writer@alice"
+      ],
+      "at": 1760000000080,
+      "roster": {
+        "seq": 2,
+        "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+      },
+      "kind": "pause",
+      "pause": {
+        "state": "lifted"
+      }
+    }
+  },
+  "invalid_plaintexts": [
+    {
+      "why": "a pause with text",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true
+        },
+        "text": "hello"
+      }
+    },
+    {
+      "why": "a pause marked relayed",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true
+        },
+        "relayed": true
+      }
+    },
+    {
+      "why": "a pause marked derived",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true
+        },
+        "derived": true
+      }
+    },
+    {
+      "why": "a pause to *",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "*"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true
+        }
+      }
+    },
+    {
+      "why": "a pause to a room",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "#ops"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true
+        }
+      }
+    },
+    {
+      "why": "a pause to two sessions",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice",
+          "other@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true
+        }
+      }
+    },
+    {
+      "why": "a pause without its pause field",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause"
+      }
+    },
+    {
+      "why": "a pause that ends at its own at",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000000040,
+          "auto": true
+        }
+      }
+    },
+    {
+      "why": "a pause that ends more than an hour after its at",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760003600041,
+          "auto": true
+        }
+      }
+    },
+    {
+      "why": "an unknown rule",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "budget",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true
+        }
+      }
+    },
+    {
+      "why": "a count of 0",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 0,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true
+        }
+      }
+    },
+    {
+      "why": "a limit that is not a whole number",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 1.5,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true
+        }
+      }
+    },
+    {
+      "why": "a window over 60 minutes",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 61,
+          "until": 1760000600040,
+          "auto": true
+        }
+      }
+    },
+    {
+      "why": "auto that is not a boolean",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": "yes"
+        }
+      }
+    },
+    {
+      "why": "a field paused does not have",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "paused",
+          "rule": "peer",
+          "count": 121,
+          "limit": 120,
+          "minutes": 60,
+          "until": 1760000600040,
+          "auto": true,
+          "reason": "loop"
+        }
+      }
+    },
+    {
+      "why": "a lifted with an until",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "lifted",
+          "until": 1760000000100
+        }
+      }
+    },
+    {
+      "why": "an unknown state",
+      "plaintext": {
+        "v": 1,
+        "id": "01K700000000000000000006Q1",
+        "from": {
+          "device": "MktQIySOj-wiwSsggq4YCL",
+          "session": "reviewer",
+          "sid": "01K700000000000000000005D2"
+        },
+        "to": [
+          "writer@alice"
+        ],
+        "at": 1760000000040,
+        "roster": {
+          "seq": 2,
+          "hash": "ZhnW2yIVnlZQ2vLe2nRndkJy4-5Iuh9DTFXdjKNm8us"
+        },
+        "kind": "pause",
+        "pause": {
+          "state": "resumed"
+        }
+      }
+    }
+  ],
+  "older_kinds": [
+    "msg",
+    "task",
+    "result",
+    "card",
+    "file",
+    "ping",
+    "pong"
+  ]
+}

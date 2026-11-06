@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../src/client.ts";
 import { relayHost, runEvents } from "../src/events.ts";
 import { MeshFiles } from "../src/mesh.ts";
-import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, type TestDevice } from "./helpers.ts";
+import { readPauses } from "../src/pauses.ts";
+import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, type TestDevice, breakerOf } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -154,7 +155,7 @@ describe("wim events --json", () => {
   it("shows held items, and approve, refuse, trust, untrust and resume act for the person", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
-    await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 } }));
+    await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: breakerOf({ perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 }) }));
     const other = await openSession(devices[0]!, mesh, relay, { name: "other" });
     cleanup.push(() => other.stop());
     const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
@@ -243,12 +244,21 @@ describe("wim events --json", () => {
   it("reports a revoked device, a session that ended, and breaker holds that predate the process", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"]);
-    await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 } }));
+    await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: breakerOf({ perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 }) }));
     const other = await openSession(devices[0]!, mesh, relay, { name: "other" });
     cleanup.push(() => other.stop());
     const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
     for (const t of ["1", "2"]) await peer.send("other@one", t);
     await until(async () => (await other.held.list()).length === 1);
+    // The session that holds it was run by a client before 0.1.9 (stopped here, so it writes no more).
+    await until(async () => (await readPauses(other.files.breakerPath, Date.now())).some((r) => r.told.length === 1));
+    await other.stop();
+    // A hold written by a client before 0.1.9 has no pause recorded with it.
+    const [old] = await other.held.list();
+    const { pause: _pause, ...before } = old!;
+    await other.held.add(before);
+    // and no breaker.json (an older client wrote none).
+    await fs.writeFile(other.files.breakerPath, JSON.stringify({ pauses: [], released: {}, lifts: [] }));
     const e = await start(devices[0]!, mesh, relay);
     expect(e.of("snapshot")[0]!["breakers"]).toEqual([expect.objectContaining({ peer: "peer@two" })]);
     expect((e.of("snapshot")[0]!["breakers"] as Array<Record<string, unknown>>)[0]!["reason"]).toBeUndefined();

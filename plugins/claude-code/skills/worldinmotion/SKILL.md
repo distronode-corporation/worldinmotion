@@ -105,7 +105,7 @@ Reply with `send` (and `reply_to` set to the message id) or, for a task, with `r
 | tool | use it to |
 |---|---|
 | `peers` | list sessions: address, kind, status (`idle`, `busy`, `offline`), rooms. Check it before assuming someone is online. |
-| `send` | send text to an address, a `#room`, `*` (everyone) or a list. Returns each recipient's status: `routed` (handed to a live session; not yet read), `queued` (that session is offline; the relay keeps it 24 h), or a failure. Neither means read: say "sent". If the recipient's device holds it for its person's approval, a notice says so later. Set `notify_when_idle` to be told when the recipient next goes idle. |
+| `send` | send text to an address, a `#room`, `*` (everyone) or a list. Returns each recipient's status: `routed` (handed to a live session; not yet read), `queued` (that session is offline; the relay keeps it 24 h), `held` (that session's loop breaker holds this device's messages; `held_note` names the rule and when it ends: do not say "delivered", and send less until then), or a failure. Neither `routed` nor `queued` means read: say "sent". If the recipient's device holds it for its person's approval, a notice says so later. Set `notify_when_idle` to be told when the recipient next goes idle. |
 | `ask` | send a task and wait for its result (default 110 s, at most 300 s). If it comes back `pending`, carry on and pick the result up later from `inbox`; do not loop on `ask`. |
 | `reply` | send the result of a task you received: `task_id`, `status`, `text`. |
 | `rooms` | `join`, `leave`, `list`, or read `history` of a room. |

@@ -14,7 +14,7 @@ import type { Readable, Writable } from "node:stream";
 import { admitPending, createMesh, decideJoin, deleteMesh, forgetMesh, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
 import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
-import { accepted, ClientError, MeshSession, unprotectedNote, type Inbound, type SessionOptions } from "./client.ts";
+import { accepted, ClientError, heldSendLine, MeshSession, unprotectedNote, type Inbound, type SendRow, type SessionOptions } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
@@ -23,6 +23,8 @@ import { WimMcp, type Retried } from "./mcp.ts";
 import { MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
+import { pauseEnd, pauseRule } from "./breaker.ts";
+import { listAllPauses } from "./pauses.ts";
 import { homeChoice, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine, policyLevel } from "./render.ts";
 import { PING, pingReport } from "./ping.ts";
@@ -1145,6 +1147,7 @@ async function peers(ctx: Ctx): Promise<number> {
 export const SENT_MEANING: Readonly<Record<string, string>> = {
   routed: "handed to a live session; not yet taken or read",
   queued: "that session is offline; the relay keeps it 24 h",
+  held: "that session's loop breaker holds this device's messages for now; the line below says until when",
 };
 
 /** The longest `wim send --wait`. */
@@ -1249,6 +1252,7 @@ async function send(ctx: Ctx): Promise<number> {
       const hint = r.status === "unknown" ? closestAddress(r.to, out.live) : undefined;
       const meaning = SENT_MEANING[r.status];
       ctx.io.out(`${r.to}: ${r.status}${meaning === undefined ? "" : ` (${meaning})`}${hint === undefined ? "" : ` (did you mean ${hint}?)`}`);
+      if (r.status === "held") ctx.io.out(`  ${heldSendLine(r.to, r.breaker)}`);
       // Queued for a terminal inbox (cli@X) that nobody reads now, while a Claude tab on X is live:
       // the person most likely meant the tab, whose address is <folder>@X.
       if (r.status === "queued") {
@@ -1323,7 +1327,7 @@ async function ping(ctx: Ctx): Promise<number> {
 }
 
 /** What a send reports: `live` addresses suggest one for an unknown address; `claude` are the live Claude Code tabs. */
-type SendAnswer = { id: string; results: Array<{ to: string; status: string }>; live: string[]; claude?: string[]; unprotected?: string[]; no_prekey?: string[] };
+type SendAnswer = { id: string; results: SendRow[]; live: string[]; claude?: string[]; unprotected?: string[]; no_prekey?: string[] };
 
 /**
  * Hands a send to the live watcher through its control directory and waits for its answer.
@@ -1496,7 +1500,10 @@ async function held(ctx: Ctx): Promise<number> {
   const { files } = await ctx.mesh();
   if (action === "list") {
     const rows = await listAllHeld(files, ctx.fsEnv);
-    if (rows.length === 0) ctx.io.out("Nothing is held.");
+    // The breaker's running pauses come first: a pause holds what comes next, even when nothing is held yet.
+    const pauses = await listAllPauses(files, ctx.fsEnv, ctx.io.now());
+    if (rows.length === 0 && pauses.length === 0) ctx.io.out("Nothing is held.");
+    for (const p of pauses) ctx.io.out(`paused  ${sanitizeForDisplay(p.from)}'s device -> ${p.session}  breaker: ${pauseRule(sanitizeForDisplay(p.from), p)}; ${pauseEnd(p)}`);
     for (const r of rows) ctx.io.out(heldLine(r));
     return 0;
   }
@@ -1514,7 +1521,11 @@ async function held(ctx: Ctx): Promise<number> {
     const rules = pins === undefined ? undefined : await loadCiRules(files.ciRulesPath);
     const refusal = rules === undefined ? undefined : pinRefusal(rules, rows[0]!.ci!.rule, pins!);
     if (refusal !== undefined) throw refusal;
-    if (!(await confirmed(ctx, heldDetails(rows, await files.loadConfig(), all, rules), question))) return 1;
+    const details = heldDetails(rows, await files.loadConfig(), all, rules);
+    // A peer's breaker hold also offers to resume its device: approving one item leaves the pause on.
+    const resumable = action === "approve" && rows[0]!.reason === "breaker" && rows[0]!.ci === undefined;
+    if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
+    if (!(await confirmed(ctx, details, question))) return 1;
     if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
     const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
     if (n === 0) throw new SetupError(`no held message ${arg}`);
@@ -1537,9 +1548,35 @@ async function held(ctx: Ctx): Promise<number> {
 
 type HeldRows = Awaited<ReturnType<typeof listAllHeld>>;
 
+/**
+ * The prompt for an item the loop breaker held: approve it alone (`y`), or approve it and resume
+ * its device (`resume`), which lifts the pause and releases everything else it held from there.
+ * Only a typed answer acts, as for every decision here.
+ */
+async function approveOrResume(ctx: Ctx, files: MeshFiles, rows: HeldRows, all: HeldRows, details: readonly string[], question: string): Promise<number> {
+  const r = rows[0]!;
+  const device = r.from.split("@")[1]!;
+  const others = all.filter((o) => o.reason === "breaker" && o.id !== r.id && o.from.split("@")[1] === device).length;
+  for (const line of details) ctx.io.out(line);
+  const typed = (await ctx.io.prompt(`${question} Type y to approve it, or resume to approve it and resume ${sanitizeForDisplay(r.from)} (lifting the pause on device ${device} and releasing the ${others} other${others === 1 ? "" : "s"} held from it) [y/resume/N] `)).trim();
+  if (/^resume$/i.test(typed)) {
+    const n = await resumeEverywhere(files, r.from, ctx.fsEnv, ctx.io.now);
+    ctx.io.out(`Approved ${r.id} and resumed ${sanitizeForDisplay(r.from)}; released ${n} held by the breaker.`);
+    return 0;
+  }
+  if (!/^y(es)?$/i.test(typed)) {
+    ctx.io.err("wim: nothing changed.");
+    return 1;
+  }
+  if ((await decideHeld(files, r.id, "approve", ctx.fsEnv, ctx.io.now)) === 0) throw new SetupError(`no held message ${r.id}`);
+  ctx.io.out(`Approved ${r.id}. The breaker still pauses ${sanitizeForDisplay(r.from)}: \`wim held resume ${r.from}\` lifts it.`);
+  return 0;
+}
+
 /** One held item on one line, as `wim held list` shows it. */
 function heldLine(r: HeldRows[number]): string {
-  return `${r.id}  ${sanitizeForDisplay(r.from)} -> ${r.session}  ${r.kind}  ${r.reason}  ${new Date(r.at).toISOString()}: ${r.preview}`;
+  const why = r.pause === undefined ? r.reason : `${r.reason} (${pauseRule(sanitizeForDisplay(r.from), r.pause)})`;
+  return `${r.id}  ${sanitizeForDisplay(r.from)} -> ${r.session}  ${r.kind}  ${why}  ${new Date(r.at).toISOString()}: ${r.preview}`;
 }
 
 /** The sessions on this device that hold one item (a room message can be held by several). */
@@ -1566,7 +1603,7 @@ function heldDetails(rows: HeldRows, config: MeshConfig, all: HeldRows, rules: r
   const r = rows[0]!;
   const why =
     r.reason === "breaker"
-      ? "the loop breaker paused that peer"
+      ? `the loop breaker paused that peer${r.pause === undefined ? "" : ` on ${pauseRule(sanitizeForDisplay(r.from), r.pause)}; the pause runs ${pauseEnd(r.pause)}`}`
       : r.ci === undefined
         ? `its device's policy here is ${policyLevel(config, r.device)}`
         : r.ci.pins === undefined

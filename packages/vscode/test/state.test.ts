@@ -123,6 +123,10 @@ describe("Store: events", () => {
     expect(s.pause("coder@buildbox", NOW + PAUSE_MS)).toBeUndefined();
     s.apply({ type: "breaker", at: NOW, peer: "coder@buildbox", state: "resumed" });
     expect(s.pause("coder@buildbox", NOW + 1)).toBeUndefined();
+    // A client that says when the pause ends (a trusted device's cool-down) is believed.
+    s.apply({ type: "breaker", at: NOW, peer: "own@desk", state: "tripped", reason: "peer", until: NOW + 600_000 });
+    expect(s.pause("own@desk", NOW + 1)).toEqual({ peer: "own@desk", reason: "peer", at: NOW, until: NOW + 600_000 });
+    expect(s.pause("own@desk", NOW + 600_000)).toBeUndefined();
   });
 
   it("keeps waiting join requests and setup mode, and a reset forgets both", () => {

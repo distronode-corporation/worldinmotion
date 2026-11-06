@@ -54,7 +54,8 @@ export type HeldRow = {
 export type RoomRow = { name: string; members: string[] };
 export type LeaseRow = { name: string; holder: string; token: number; expires_at: number };
 export type BreakerReason = "peer" | "total" | "pingpong";
-export type BreakerRow = { peer: string; reason?: BreakerReason; at: number };
+/** `until`: when the pause ends, from a client that reports it (0.1.9); else it lapses after an hour. */
+export type BreakerRow = { peer: string; reason?: BreakerReason; at: number; until?: number };
 export type ReceiptStatus = "delivered" | "held" | "refused" | "expired";
 /** A device waiting to join (an admin device only): never its comparison code, which the person types. */
 export type JoinRow = { name: string; id: string; invite: string; at: number; exp: number };
@@ -85,7 +86,7 @@ export type WimEvent =
   | { type: "held"; at: number; op: "add" | "remove"; item: HeldRow }
   | { type: "lease"; at: number; lease: LeaseRow }
   | { type: "lease-released"; at: number; name: string }
-  | { type: "breaker"; at: number; peer: string; state: "tripped" | "resumed"; reason?: BreakerReason }
+  | { type: "breaker"; at: number; peer: string; state: "tripped" | "resumed"; reason?: BreakerReason; until?: number }
   | { type: "join"; at: number; op: "add" | "remove"; request: JoinRow }
   | { type: "setup"; at: number; version: string; device?: DeviceRef }
   | { type: "joined"; at: number; mesh: string; devices: DeviceRef[] }
@@ -243,7 +244,7 @@ function leaseRow(x: unknown): LeaseRow {
 
 function breakerRow(x: unknown): BreakerRow {
   const o = obj(x, "breaker");
-  return compact<BreakerRow>({ peer: str(o, "peer"), reason: opt(o, "reason", (o, k) => oneOf(o, k, REASONS)), at: num(o, "at") });
+  return compact<BreakerRow>({ peer: str(o, "peer"), reason: opt(o, "reason", (o, k) => oneOf(o, k, REASONS)), at: num(o, "at"), until: opt(o, "until", num) });
 }
 
 function joinRow(x: unknown): JoinRow {
@@ -300,7 +301,14 @@ function event(o: Obj, type: string, at: number): WimEvent | undefined {
     case "lease":
       return o.released === true ? { type: "lease-released", at, name: str(o, "name") } : { type, at, lease: leaseRow(o) };
     case "breaker":
-      return compact({ type, at, peer: str(o, "peer"), state: oneOf(o, "state", ["tripped", "resumed"] as const), reason: opt(o, "reason", (o, k) => oneOf(o, k, REASONS)) });
+      return compact({
+        type,
+        at,
+        peer: str(o, "peer"),
+        state: oneOf(o, "state", ["tripped", "resumed"] as const),
+        reason: opt(o, "reason", (o, k) => oneOf(o, k, REASONS)),
+        until: opt(o, "until", num),
+      });
     case "join":
       return { type, at, op: oneOf(o, "op", ["add", "remove"]), request: joinRow(o.request) };
     case "setup":

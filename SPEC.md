@@ -1072,8 +1072,8 @@ document holds no secret and no live count. A client MUST NOT depend on it to co
 
 ## 12. Message kinds
 
-The plaintext `kind` is one of `msg`, `task`, `result`, `file`, `card` (section 17), `ping` or
-`pong`. All kinds carry the fields of section 6 (`v`, `id`, `from`, `to`, `at`, `roster`); the
+The plaintext `kind` is one of `msg`, `task`, `result`, `file`, `card` (section 17), `ping`,
+`pong` or `pause`. All kinds carry the fields of section 6 (`v`, `id`, `from`, `to`, `at`, `roster`); the
 message kinds may carry `reply_to`, and each adds its own:
 
 | kind | `text` | adds |
@@ -1084,6 +1084,7 @@ message kinds may carry `reply_to`, and each adds its own:
 | `file` | optional: a caption | `file`, below |
 | `ping` | none | nothing; `to` names sessions only, never `*` or a room |
 | `pong` | none | `reply_to` is REQUIRED and names the ping id; `to` is exactly one session |
+| `pause` | none | `pause`, below; `reply_to` (optional) names the held message; `to` is exactly one session |
 
 ```json
 "file": { "blob": "<ULID>", "name": "notes.txt", "size": 9, "mime": "text/plain",
@@ -1128,6 +1129,43 @@ other opened it, and the other sealed the pong and the pinging device opened it.
 - The reference client's `wim ping <address,...>` and `wim ping --all` ping sessions the relay
   lists as online (an offline one would only collect a queued ping), wait 5 seconds by default, and
   print one row per session and one per device.
+
+**Pause.** A receiving client whose loop and cost breaker (SECURITY-MODEL section 7.3) paused a
+sender device tells each session of that device that sends to it during the pause (directly, to a
+room or to `*`), once per pause, with a `pause` addressed to that session; and, when the person
+resumes the device before the pause ends, tells each session it told that the pause was lifted:
+
+```json
+"pause": { "state": "paused", "rule": "peer", "count": 121, "limit": 120, "minutes": 60,
+           "until": 1793930000000, "auto": true }
+"pause": { "state": "lifted" }
+```
+
+- `rule` is `peer` (the per-peer limit), `total` (the total limit) or `pingpong`. `count` is what
+  the rule counted when it tripped and `limit` its limit, both whole numbers of at least 1;
+  `minutes` (1 to 60) is the window the rule counts over. `until` is when the pause ends: after
+  `at`, and at most an hour after it. `auto` is true when the receiving client then releases the
+  sender by itself (a trusted device's cool-down, delivering at most the per-peer limit of what it
+  held), false when that waits for its person.
+- Like a ping or pong, a `pause` carries no `text`, `relayed` or `derived`, is written by the
+  client itself and never by an agent, is never spooled, kept in history, receipted or shown to an
+  agent as a message, starts no agent turn of its own, and counts against no breaker. A receiver
+  drops one from a device whose policy is `refuse`, a `paused` whose `until` has passed when it
+  arrives (it waited in a queue), and a `paused` from a session none of its device's sessions sent
+  a message to in the last hour (directly, or as a member of a room or `*` it sent to). It takes a
+  `lifted` from any session, since a lift can only clear a label.
+- A `pause` is a label, like a receipt (section 7): advisory, never proof that anything was or was
+  not delivered. A receiver uses it only for what it reports: until `until`, or a `lifted` from the
+  same session, it MAY report a send to that session as `held` instead of the relay's `routed` or
+  `queued`, with the rule and its numbers. It MAY tell its agent in a notice of its own, and then
+  only for a sender device whose inbound policy is `deliver` or `deliver-relayed` (any other could
+  otherwise wake the agent), at most once in 10 minutes per device; for any other device the
+  `held` row is all. A row for a room or `*` keeps the relay's status: one member's pause does not
+  hold the room. It MUST NOT
+  change what it sends, holds or delivers because of one, and a `pause` never lifts, shortens or
+  resumes a pause on the device that receives it.
+- A client older than this kind drops it as `plaintext_malformed` (section 6, step 8); its sends
+  then report `routed` as before, and the `held` receipts still come.
 
 ## 13. Rooms
 
@@ -1247,6 +1285,7 @@ escape.
 | `rdv.json` | a short invite code for `invite.json`'s code: `k`, the check, `rdv`, the box key, AAD, nonce and ciphertext, the relay's answer, spellings that read back, and codes that MUST be refused |
 | `message.json` | a sealed send frame with a scheme 1 box, the plaintext one recipient opens, and tamper cases with their reasons |
 | `ping.json` | a ping and its pong, each a whole frame sealed to the other device's prekey, with the plaintexts each side opens; ping and pong plaintexts that MUST be refused |
+| `pause.json` | a `pause` with every field and one saying the pause was lifted, each a whole frame sealed to the paused device's prekey, with the plaintexts it opens; pause plaintexts that MUST be refused; and the kinds a client before `pause` knows, whose schema MUST refuse both |
 | `prekey.json` | two signed prekeys with their secrets; one scheme 2 box by hand with every HPKE value (info, AAD, ephemeral secret, enc, shared secret, key, base nonce, ciphertext); a whole frame carrying `pk`, its plaintext, and tamper cases (`key_expired`, `decrypt_failed`, `bad_signature`) with the prekeys held; prekeys that MUST fail verification, with their reasons |
 | `blob.json` | a 2-chunk file with a fixed key and nonces |
 | `ci.json` | section 18: a recipient code, both audiences, a rule tag, a CI sender id and counting key; a GitHub and a GitLab notice sealed by hand (one-time key, `xk`, prekey, HPKE values, plaintext, the `ci` signature) with a fixture RSA issuer key and its JWKS; tokens that MUST be refused, with their reasons |

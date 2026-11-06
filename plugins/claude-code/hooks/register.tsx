@@ -22,6 +22,7 @@ import {
   newNames,
   noticeLine,
   parseHeld,
+  parsePaused,
   parseItem,
   parseLeases,
   parseLink,
@@ -68,6 +69,7 @@ const PEERS_HEADING = 'worldinmotion peers (other machines; address with name@de
 const EMPTY_PANEL: WimPanel = {
   peers: [],
   held: [],
+  paused: [],
   leases: [],
   note: '',
   waiting: 0,
@@ -109,7 +111,7 @@ const recent = atom({ plugin: 'worldinmotion', key: 'recent' } as const, [], { s
 const relayed = atom({ plugin: 'worldinmotion', key: 'relayed' } as const, [], { shape: 'relayed-2' })
 const teammates = atom({ plugin: 'worldinmotion', key: 'teammates' } as const, [], { shape: 'teammates-1' })
 const panel = atom({ plugin: 'worldinmotion', key: 'panel' } as const, EMPTY_PANEL, {
-  shape: 'panel-2',
+  shape: 'panel-3',
 })
 
 // Guards one delivery pass at a time. A reload drops the timer with it.
@@ -509,7 +511,7 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     $.ui.toast(`worldinmotion: ${n} message${n === 1 ? '' : 's'} held for your approval (/wim)`)
   } else if (item.kind === 'notice' && item.heldBy !== undefined) {
     // A message this session sent waits for the recipient device's person: theirs to approve.
-    $.ui.toast(`worldinmotion: ${item.heldBy} is holding your message for its person's approval; it is not delivered until they approve it there`)
+    $.ui.toast(`worldinmotion: ${item.heldBy} is holding your message; it is not delivered now (its person may approve it there, or its loop breaker release it after a cool-down)`)
   } else if (item.kind === 'notice' && item.forPerson) {
     // Something only the person can do (restart this session): a toast, and
     // kept for the status line and /wim status until the session ends.
@@ -607,7 +609,7 @@ async function handOver($: EngineInterface, name: string): Promise<void> {
  * it at its next pass. Only a press in the pane calls this. False when the client named no
  * directory for it or the write failed.
  */
-async function mark($: EngineInterface, id: string, verdict: 'approve' | 'refuse' | 'dismiss'): Promise<boolean> {
+async function mark($: EngineInterface, id: string, verdict: 'approve' | 'refuse' | 'resume' | 'dismiss'): Promise<boolean> {
   const linked = await read($, link)
   const path = markPath(verdict === 'dismiss' ? linked?.dismiss : linked?.held, id, verdict)
   if (path === undefined) return false
@@ -673,15 +675,20 @@ async function refreshPanel($: EngineInterface, note = ''): Promise<void> {
     ...value,
     peers: parsePeers(peers),
     held: parseHeld(held),
+    paused: parsePaused(held),
     leases: parseLeases(leases),
     heldOnDisk: parseHeld(held).length,
     note,
   }))
 }
 
-/** The person's Approve or Refuse: a mark file the client acts on at its next pass. */
-async function decide($: EngineInterface, op: 'approve' | 'refuse', id: string): Promise<void> {
-  const verb = op === 'approve' ? 'approved' : 'refused'
+/**
+ * The person's Approve, Approve and resume (the item's device: the breaker's pause lifts and
+ * everything it held from there is released) or Refuse: a mark file the client acts on at its
+ * next pass. Only a press in the pane calls this.
+ */
+async function decide($: EngineInterface, op: 'approve' | 'resume' | 'refuse', id: string): Promise<void> {
+  const verb = op === 'approve' ? 'approved' : op === 'resume' ? 'approved and its device resumed' : 'refused'
   if (!(await mark($, id, op))) {
     await update($, panel, value => ({ ...value, note: `Could not mark ${id} ${verb}.` }))
     return
@@ -1017,11 +1024,17 @@ export const register: Register = on => {
         {shown.held.length === 0 && shown.heldOnDisk > 0 && (
           <Text dimColor>{`${shown.heldOnDisk} held: press Refresh to list them.`}</Text>
         )}
+        {shown.paused.map(one => (
+          <Text>{`Paused by the loop breaker: ${one.from} (${one.why}), ${one.ends}`}</Text>
+        ))}
         {shown.held.map(one => (
           <Box flexDirection="column">
             <Text>{`${one.from}  ${one.kind}  ${age(one.at, now)} ago: ${one.preview}`}</Text>
             <Box flexDirection="row">
               <Button key={`approve:${one.id}`} label="Approve" onPress={() => decide($, 'approve', one.id)} />
+              {one.isBreaker && (
+                <Button key={`resume:${one.id}`} label="Approve and resume this device" onPress={() => decide($, 'resume', one.id)} />
+              )}
               <Button key={`refuse:${one.id}`} label="Refuse" onPress={() => decide($, 'refuse', one.id)} />
             </Box>
           </Box>

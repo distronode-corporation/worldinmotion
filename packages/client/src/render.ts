@@ -27,6 +27,15 @@ export function policyLevel(config: MeshConfig, sender: string): Policy {
   return set ?? "hold";
 }
 
+/**
+ * Whether the person trusts a sender device (its policy is `deliver` or `deliver-relayed`, or it is
+ * this device): only those reach the loop breaker, and a trip is a cool-down (SECURITY-MODEL section 7.3).
+ */
+export function isTrusted(config: MeshConfig, sender: string): boolean {
+  const level = policyLevel(config, sender);
+  return level === "deliver" || level === "deliver-relayed";
+}
+
 /** What happens to one item: a relayed item from a plain `deliver` device is held. */
 export function policyFor(config: MeshConfig, sender: string, relayed: boolean): "deliver" | "hold" | "refuse" {
   const level = policyLevel(config, sender);

@@ -45,6 +45,7 @@ import {
   type RoomJoinedFrame,
   type Roster,
   type SendFrame,
+  type PauseInfo,
   type SendResult,
   type SentFrame,
 } from "@worldinmotion/protocol";
@@ -52,19 +53,21 @@ import { EventEmitter } from "node:events";
 import { constants as fsConstants, promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { Breaker, pauseNotice, pauseNoticeForAgent } from "./breaker.ts";
+import { Breaker, pauseNotice, pauseNoticeForAgent, pauseRule, releasedNotice, clock, type Pause } from "./breaker.ts";
 import { cardFor, sameCard } from "./cards.ts";
 import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciLabel, CiParked, ciPauseNotices, fetchJwks, jtiKey, noticeId } from "./cireceive.ts";
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
-import { HeldBox, preview, takeMarks, type HeldItem, type Verdict } from "./held.ts";
+import { HeldBox, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
 import { frameEntry, History, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
 import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
+import { resumeEverywhere } from "./offline.ts";
+import { PausedBy, readBreakerFile, savePauses, SentTo, type PausedByEntry, type PauseRow } from "./pauses.ts";
 import type { Notifier } from "./notify.ts";
 import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
-import { noticeText, policyFor, policyLevel } from "./render.ts";
+import { isTrusted, noticeText, policyFor, policyLevel } from "./render.ts";
 import { SeenStore, SeqStore } from "./replay.ts";
 import { listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
 import { NeedsSigner } from "./keyring.ts";
@@ -116,9 +119,13 @@ export function relayRefusal(what: string, frame: ErrorFrame): ClientError {
   return new ClientError(`${what}: ${said}`, relayCode(frame.code), { what, said });
 }
 
-/** Whether a relay `sent` status means the message was taken (SPEC section 9): routed now, or queued. */
+/**
+ * Whether a send's status means the message was taken (SPEC section 9): routed now, or queued, or
+ * `held`, which the client reports for a routed or queued message that the recipient's loop breaker
+ * holds (SPEC section 12, `pause`).
+ */
 export function accepted(status: string): boolean {
-  return status === "routed" || status === "queued";
+  return status === "routed" || status === "queued" || status === "held";
 }
 
 export type SessionOptions = {
@@ -159,8 +166,8 @@ export type PeerRow = Peer & { card?: Card };
 /** A delivered item's verified fields, for in-process consumers. */
 export type Inbound = HistoryEntry & { cursor: number };
 
-/** What `post` sends: a message, or a ping or pong of the client's own (SPEC section 12). */
-type Outgoing = Omit<SendOptions, "kind"> & { kind?: SendOptions["kind"] | "ping" | "pong" };
+/** What `post` sends: a message, or a ping, pong or pause of the client's own (SPEC section 12). */
+type Outgoing = Omit<SendOptions, "kind"> & { kind?: SendOptions["kind"] | "ping" | "pong" | "pause"; pause?: PauseInfo };
 
 /** Every address's status for a ping: the ones no roster device answers to, then the relay's. */
 function pingResults(out: { local: SendResult[]; sent?: SentFrame }): SendResult[] {
@@ -195,11 +202,30 @@ export type SendOptions = {
  * `unprotected` then names every device that got a scheme 1 box, without forward secrecy, and
  * `no_prekey` the devices that caused it. Both are absent when every box was sealed to a prekey.
  */
-export type SendOutcome = { id: string; results: SendResult[]; unprotected?: string[]; no_prekey?: string[] };
+export type SendOutcome = { id: string; results: SendRow[]; unprotected?: string[]; no_prekey?: string[] };
+
+/**
+ * One recipient's status for a send: the relay's, or `held` when the relay routed or queued it but
+ * that session's loop breaker said it holds this device's messages (a `pause`, SPEC section 12).
+ * `breaker` then names the rule, its numbers and when the pause ends; `relay` keeps the relay's own
+ * status. A label like a receipt, never proof.
+ */
+export type SendRow = SendResult | { to: string; status: "held"; relay: "routed" | "queued"; breaker: HeldBreaker };
+
+/** What a peer's breaker said when it paused this device: the rule, its numbers, and when it ends. */
+export type HeldBreaker = Omit<PausedByEntry, "to" | "state" | "at">;
+
+/** What a `held` send row means, for the agent and the person: which rule holds it there, and until when. */
+export function heldSendLine(to: string, b: HeldBreaker): string {
+  const after = b.auto
+    ? `at ${clock(b.until)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person`
+    : `what it holds waits for its person (the pause itself lifts at ${clock(b.until)})`;
+  return `${to}: held there, not delivered: its loop breaker paused this device on ${pauseRule("this device", b)}; ${after}. Sending more now only adds to what it holds.`;
+}
 
 /** The notice for a `held` receipt: the message waits for the recipient device's person. */
 export function heldReceiptLine(to: string, id: string): string {
-  return `${to} is holding your message ${id} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`).`;
+  return `${to} is holding your message ${id}. It is not delivered now: it reaches that session if its person approves it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`), or, when its loop breaker holds it for a cool-down, possibly when that ends.`;
 }
 
 /**
@@ -207,7 +233,7 @@ export function heldReceiptLine(to: string, id: string): string {
  * the person's toast; this one reaches the model, once per recipient until something gets through.
  */
 export function heldForAgentLine(to: string, id: string): string {
-  return `${to} is holding your message ${id} for its person's approval: it is not delivered until they approve it on that device. Tell your person; resending will not get it through. Only the person on that device can approve it.`;
+  return `${to} is holding your message ${id}: it is not delivered now. It gets through if the person on that device approves it, or, when that device's loop breaker holds it for a cool-down, possibly when the cool-down ends (a notice says which). Resending will not get it through sooner; if it cannot wait, tell your person.`;
 }
 
 /** The notice for a session the relay gave another name than the one it had or asked for. */
@@ -236,9 +262,33 @@ export const PARKED_MAX = 64;
 /** How long an answer to a handed-over send waits for the CLI that asked. */
 export const ANSWER_KEEP_MS = 5 * 60_000;
 const GROUP = (to: readonly string[]): boolean => to.some((a) => a === "*" || isRoom(a));
+/** The agent hears that a peer session paused this device at most this often per session. */
+const PAUSE_TELL_MS = 10 * 60_000;
 
-/** A plaintext that is a message to someone: neither a card nor a ping or pong (SPEC section 12). */
-type Message = Exclude<Plaintext, { kind: "card" | "ping" | "pong" }>;
+/** Swallows a failure already reported to the caller of the promise it follows. */
+const ignore = (): undefined => undefined;
+
+/** A running pause's record: the address of the message that tripped it, the sending sessions told, and whether its notices went out. */
+type PauseEntry = { from: string; told: Set<string>; announced: boolean };
+
+/** A pause's numbers as `breaker` events and rows carry them. */
+function breakerFields(p: Pause): { count: number; limit: number; minutes: number; until: number; auto: boolean } {
+  return { count: p.count, limit: p.limit, minutes: p.minutes, until: p.until, auto: p.auto };
+}
+
+/** The notice for the agent when a peer session's breaker says it holds this device's messages. */
+export function pausedThereLine(to: string, p: Extract<PauseInfo, { state: "paused" }>): string {
+  const end = p.auto
+    ? `until its client releases them by itself at ${clock(p.until)}, delivering up to its per-peer limit of what it held (the rest waits for its person)`
+    : `until its person releases them; the pause itself lifts at ${clock(p.until)}`;
+  return `${to}'s loop breaker paused messages from this device (${pauseRule("this device", p)}): what this device sends there is held, not delivered, ${end}. \`send\` reports \`held\` for ${to} until then. Sending more only adds to what it holds; if it cannot wait, tell your person.`;
+}
+
+/** A plaintext that is a message to someone: neither a card nor a ping, pong or pause (SPEC section 12). */
+type Message = Exclude<Plaintext, { kind: "card" | "ping" | "pong" | "pause" }>;
+
+/** A peer breaker's word that it holds this device's messages, or lifted that (SPEC section 12). */
+type PauseMessage = Extract<Plaintext, { kind: "pause" }>;
 
 /** A ping or a pong: answered or taken by the client itself, never spooled or shown to an agent. */
 type Probe = Extract<Plaintext, { kind: "ping" | "pong" }>;
@@ -349,6 +399,24 @@ export class MeshSession extends EventEmitter {
   private readonly readRelayed = new Set<string>();
   /** How many pings this session answers (SPEC section 12). */
   private readonly pongBudget = new PongBudget();
+  /** Per paused sender device: its pause's record (PauseEntry). Changed only with the breaker's pause, on the inbound queue. */
+  private readonly pauseFrom = new Map<string, PauseEntry>();
+  /** `breaker.json` writes, one at a time, each taking the rows when its turn comes. */
+  private saving: Promise<void> = Promise.resolve();
+  /** The last housekeeping pass, so `stop` waits for one under way. */
+  private ticked: Promise<void> = Promise.resolve();
+  /** A release the pass put on the inbound queue that has not run yet: at most one waits. */
+  private releaseQueued = false;
+  /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
+  private countsChanged = false;
+  /** Sessions still to hear that a pause they were told about was lifted (sent at the next pass). */
+  private readonly pendingLifts = new Set<string>();
+  /** The peer sessions this device's sessions sent to in the last hour, device-wide: a `pause` counts only from one. */
+  readonly sentTo: SentTo;
+  /** When the agent was last told that a peer device's session paused this device, by device. */
+  private readonly pausedToldAt = new Map<string, number>();
+  /** What peers' breakers said about this device's messages, device-wide (pauses.ts). */
+  readonly pausedBy: PausedBy;
   /** Pings this session sent and still waits on, by id: each takes the pongs that answer it. */
   private readonly pongWaiters = new Map<string, (device: string, session: string) => void>();
   private readonly ciKeys: CiKeys;
@@ -383,6 +451,8 @@ export class MeshSession extends EventEmitter {
     this.seqs = new SeqStore(o.mesh.seqPath, o.env);
     this.breaker = new Breaker(() => this.config.breaker, this.now);
     this.ciBreaker = new Breaker(() => CI_BREAKER, this.now);
+    this.pausedBy = new PausedBy(o.mesh.pausedByPath, o.env, this.now);
+    this.sentTo = new SentTo(o.mesh.sentToPath, o.env, this.now);
     this.ciKeys = new CiKeys({ path: o.mesh.ciJwksPath, env: o.env, fetch: o.jwksFetch ?? fetchJwks, now: this.now });
     this.ciParked = new CiParked(files.ciParkedPath, o.env);
   }
@@ -421,6 +491,8 @@ export class MeshSession extends EventEmitter {
     if (o.sessionKey !== undefined) await keys.remember(o.sessionKey, state.sid, state.resume);
     const session = new MeshSession(o, files, state);
     await session.load();
+    await session.settleDelivered();
+    await session.restorePauses();
     return session;
   }
 
@@ -533,7 +605,10 @@ export class MeshSession extends EventEmitter {
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
+    // A pass under way, what it queued, and the breaker's writes all land before the lock goes.
+    await this.ticked;
     await this.inbound;
+    await this.savePauses();
     if (opts.ended === true) this.state = { ...this.state, ended: true };
     await this.files.save(this.state);
     await this.files.release();
@@ -1163,6 +1238,7 @@ export class MeshSession extends EventEmitter {
 
   private async accept(p: Exclude<Plaintext, { kind: "card" }>): Promise<void> {
     if (p.kind === "ping" || p.kind === "pong") return this.probe(p);
+    if (p.kind === "pause") return this.pausedThere(p);
     const from = this.fromAddress(p);
     this.config = await this.o.mesh.loadConfig();
     const policy = policyFor(this.config, p.from.device, p.relayed === true);
@@ -1187,13 +1263,28 @@ export class MeshSession extends EventEmitter {
     // A file from a sender that is not delivered is not even fetched until the person approves.
     if (policy === "hold") return this.hold({ ...held, reason: "policy" });
 
-    const admitted = this.breaker.admit(p.from.device, entry.text.length);
+    // A trusted peer whose cool-down ended is released first (this runs on the inbound queue, as
+    // every release does), so what it held comes before this, and this is counted after it. A
+    // copy of a message that release just delivered (its frame was not acknowledged) goes no further.
+    if ((await this.releaseDue()).has(p.id)) return;
+    const admitted = this.breaker.admit(p.from.device, entry.text.length, isTrusted(this.config, p.from.device));
     if (!admitted.ok) {
-      const reason = admitted.reason as "peer";
-      const pause = admitted.newly ? { person: pauseNotice(from, reason, this.config.breaker), agent: pauseNoticeForAgent(from, reason, this.config.breaker) } : undefined;
-      if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
-      return this.hold({ ...held, reason: "breaker" }, pause);
+      const pause = admitted.pause;
+      if (admitted.newly) {
+        this.pauseFrom.set(pause.peer, { from, told: new Set(), announced: false });
+        await this.savePauses();
+        this.emit("breaker", { peer: from, state: "tripped", reason: pause.rule, ...breakerFields(pause) });
+      }
+      const record = this.pauseFrom.get(pause.peer)!;
+      const under = { rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, at: pause.at, until: pause.until, auto: pause.auto };
+      // The notices go with the first hold that is written: one that failed leaves them for the next.
+      await this.hold({ ...held, reason: "breaker", pause: under }, record.announced ? undefined : { person: pauseNotice(from, pause), agent: pauseNoticeForAgent(from, pause) });
+      record.announced = true;
+      // The sending session hears it too, once a pause, so its `send` reports `held` (SPEC section 12).
+      this.tellPaused(pause, record, from, p.id);
+      return;
     }
+    this.countsChanged = true;
     const waiter = p.kind === "result" && !unsolicited ? this.askWaiters.get(p.reply_to) : undefined;
     if (waiter !== undefined && p.kind === "result") {
       // The asker is waiting in a tool call: hand it over there instead of waking the agent again.
@@ -1223,16 +1314,17 @@ export class MeshSession extends EventEmitter {
   }
 
   /** Fetches a file if there is one, renders the frame and puts the item in the spool. */
-  private async release(item: Omit<HeldItem, "reason">, file: FileInfo | undefined): Promise<void> {
+  /** `written`: what a release from held/ records once the item is in the spool (decideNow). */
+  private async release(item: Omit<HeldItem, "reason">, file: FileInfo | undefined, written?: () => Promise<void>): Promise<void> {
     // A CI notice was framed when it arrived, and is always information only.
     if (item.ci !== undefined) {
-      await this.deliver({ kind: item.kind, from: item.from, device: "", id: item.id, at: item.at, rendered: item.rendered, relayed: true, informs: true }, item.entry);
+      await this.deliver({ kind: item.kind, from: item.from, device: "", id: item.id, at: item.at, rendered: item.rendered, relayed: true, informs: true }, item.entry, written);
       return;
     }
     const entry = { ...item.entry };
     if (file !== undefined) entry.savedTo = await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`);
     // The same trust decision as a release applied on disk (offline.ts).
-    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry);
+    await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry, written);
   }
 
   /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
@@ -1284,15 +1376,17 @@ export class MeshSession extends EventEmitter {
    * delivery at a time: deliveries start from the inbound queue, notices, the person's decisions
    * and resumes, and two that overlap would otherwise announce a higher item before a lower one.
    */
-  private deliver(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined): Promise<SpoolItem> {
-    const run = this.delivering.then(() => this.deliverNow(item, entry));
+  private deliver(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined, written?: () => Promise<void>): Promise<SpoolItem> {
+    const run = this.delivering.then(() => this.deliverNow(item, entry, written));
     this.delivering = run.then(() => undefined, () => undefined);
     return run;
   }
 
-  private async deliverNow(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined): Promise<SpoolItem> {
+  /** `afterWrite`: runs once the item is durably in the spool, before anything takes it from there. */
+  private async deliverNow(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined, afterWrite?: () => Promise<void>): Promise<SpoolItem> {
     this.informed([item]);
     const written = await this.spool.write(item);
+    if (afterWrite !== undefined) await afterWrite();
     await this.save({});
     if (entry !== undefined) await this.history.append(entry);
     this.emit("item", written);
@@ -1332,7 +1426,8 @@ export class MeshSession extends EventEmitter {
    */
   private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
     const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
-    // Something got through to that recipient: a later hold there is news again.
+    // Something got through to that recipient: a later hold there is news again. (A pause it
+    // reported is not over for that: the person there may have approved this one message alone.)
     if (f.status === "delivered") this.heldTold.delete(f.to);
     if (f.status !== "held") return recorded;
     // The agent is told once per recipient (not per message), so a peer that holds everything
@@ -1365,13 +1460,24 @@ export class MeshSession extends EventEmitter {
   // ---- housekeeping ----
 
   /** One housekeeping pass: sweep the spool, presence, decisions left by the CLI, the card. */
-  async tick(): Promise<void> {
-    if (this.ticking || this.stopped) return;
+  tick(): Promise<void> {
+    if (this.ticking || this.stopped) return Promise.resolve();
+    this.ticked = this.tickNow();
+    return this.ticked;
+  }
+
+  private async tickNow(): Promise<void> {
     this.ticking = true;
     try {
       await this.sweep();
       await this.readPresence();
-      for (const { id, verdict } of await this.held.takeMarks()) await this.decide(id, verdict).catch(() => undefined);
+      // The person's marks and the end of a cool-down change what is held and paused: on the
+      // inbound queue, so neither interleaves with a message being admitted or held. Queued, not
+      // waited for, so a slow frame never holds up this pass (the sweep and its receipts).
+      for (const { id, verdict } of await this.held.takeMarks()) void this.onQueue(() => this.applyMark(id, verdict)).catch(ignore);
+      this.queueRelease();
+      if (this.link !== undefined) await this.flushLifts();
+      if (this.countsChanged) await this.savePauses();
       const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m) => m.id);
       if (dismissed.length > 0) {
         // A dismissal the box could not settle yet keeps its mark for the next pass.
@@ -1395,7 +1501,7 @@ export class MeshSession extends EventEmitter {
         const body = req === null ? undefined : await readJson(path).catch(() => undefined);
         // Taking a request is removing it: one that cannot be removed yet is left for the next pass.
         if (!(await tryRemove(path, this.o.env))) continue;
-        if (m !== null) await this.resumePeer(m[1]!);
+        if (m !== null) void this.resumePeer(m[1]!).catch((e: unknown) => this.log(`wim: housekeeping: ${(e as Error).message}`));
         if (req !== null && this.o.handover === true) await this.handOverSend(req[1]!, body);
       }
       await this.book.reload();
@@ -1472,8 +1578,23 @@ export class MeshSession extends EventEmitter {
 
   // ---- held messages ----
 
+  /**
+   * Runs `fn` on the inbound queue: after every frame received so far and before any received
+   * later. What changes the breaker's pauses or what they hold runs here, so a release, a
+   * person's decision and a message being admitted never interleave.
+   */
+  private onQueue<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.inbound.then(fn);
+    this.inbound = run.then(ignore, ignore);
+    return run;
+  }
+
   /** The person's decision on a held message (the pane, `wim held`). Never reachable by a message. */
-  async decide(id: string, verdict: Verdict): Promise<void> {
+  decide(id: string, verdict: Verdict): Promise<void> {
+    return this.onQueue(() => this.decideNow(id, verdict));
+  }
+
+  private async decideNow(id: string, verdict: Verdict): Promise<void> {
     const item = await this.held.get(id);
     if (item === undefined) throw new ClientError(`no held message ${id}`, "not_found");
     // Approving a notice that pins its rule's ids changes a rule: only `wim held approve` at the
@@ -1482,12 +1603,40 @@ export class MeshSession extends EventEmitter {
     if (verdict === "approve" && pins !== undefined && !isPinned((await this.ciRulesNow()) ?? [], item.ci!.rule, pins)) {
       throw new ClientError(`held CI notice ${id} pins its rule's ids: approve it with \`wim held approve ${id}\` in a terminal you opened yourself`, "person_only");
     }
-    await this.held.remove(id);
     if (verdict === "refuse") {
+      await this.held.remove(id);
       if (item.ci === undefined) this.receipt(id, "refused");
-      return;
+      return this.decided(item);
     }
-    await this.release(item, item.fileInfo);
+    // Written to the spool before it leaves held/, so a process that stops in between loses
+    // nothing: the next one finds it delivered (its mark, or the spool) and only takes it out of
+    // held/ (settleDelivered), and one that cannot be delivered (a full disk) simply stays held.
+    if (!(await this.held.wasDelivered(id))) await this.release(item, item.fileInfo, () => this.held.markDelivered(id));
+    await this.decided(item);
+    await this.held.settle(id);
+  }
+
+  /**
+   * Finishes what an earlier process of this session left half done: an item that is in the spool
+   * (or marked delivered) and still in held/ is taken out of held/, never delivered again, and a
+   * delivered mark whose entry is gone is cleared.
+   */
+  private async settleDelivered(): Promise<void> {
+    const unread = new Set((await this.spool.unread()).map((i) => i.id));
+    for (const item of await this.held.list()) {
+      if (!unread.has(item.id) && !(await this.held.wasDelivered(item.id))) continue;
+      await this.decided(item);
+      await this.held.settle(item.id);
+    }
+    for (const id of await this.held.deliveredMarks()) await this.held.settle(id);
+  }
+
+  /**
+   * A held item was decided: its id is recorded as seen, so a copy the relay brings again (its
+   * frame was not acknowledged) is dropped, never held or delivered a second time.
+   */
+  private decided(item: HeldItem): Promise<void> {
+    return this.seen.add(item.id, this.address, dedupeExpiry(item.at), this.now());
   }
 
   /**
@@ -1514,18 +1663,220 @@ export class MeshSession extends EventEmitter {
   }
 
   /** Lifts a breaker pause on a peer (by address) and releases what it held from that device. */
-  async resumePeer(peer: string): Promise<number> {
+  resumePeer(peer: string): Promise<number> {
+    return this.onQueue(() => this.resumeNow(peer));
+  }
+
+  private async resumeNow(peer: string): Promise<number> {
     const device = this.roster.devices.find((d) => d.name === peer.slice(peer.indexOf("@") + 1));
     if (device === undefined) return 0;
     this.breaker.resume(device.id);
+    // The sessions told about the pause hear it lifted at the next pass, so their sends stop reporting `held`.
+    for (const to of this.pauseFrom.get(device.id)?.told ?? []) this.pendingLifts.add(to);
+    this.pauseFrom.delete(device.id);
+    await this.savePauses();
     this.emit("breaker", { peer, state: "resumed" });
     let n = 0;
     for (const item of await this.held.list()) {
       if (item.device !== device.id || item.reason !== "breaker") continue;
-      await this.decide(item.id, "approve");
+      await this.decideNow(item.id, "approve");
       n++;
     }
     return n;
+  }
+
+  /**
+   * A mark the person left in the pane: approve, refuse, or approve and resume (`resume`), which
+   * also lifts the breaker's pause on the item's device and releases everything it held from
+   * there, in this session and in the device's other sessions, as `wim held resume` does.
+   */
+  private async applyMark(id: string, mark: Mark): Promise<void> {
+    if (mark !== "resume") return this.decideNow(id, mark);
+    const item = await this.held.get(id);
+    // A policy hold has no pause to lift: the item alone is approved.
+    if (item?.reason !== "breaker" || (await this.resumeNow(item.from)) === 0) return this.decideNow(id, "approve");
+    await resumeEverywhere(this.o.mesh, item.from, this.o.env, this.now, this.sid);
+  }
+
+  // ---- the loop breaker's pauses ----
+
+  /** The running pauses of this session's breaker, with the address that tripped each and the sessions told. */
+  pausedRows(): PauseRow[] {
+    return this.rowsOf(this.breaker.pauses());
+  }
+
+  private rowsOf(pauses: Pause[]): PauseRow[] {
+    return pauses.map((p) => {
+      const { from, told } = this.pauseFrom.get(p.peer)!;
+      return { ...p, from, told: [...told] };
+    });
+  }
+
+  /**
+   * Carries on what an earlier process of this session wrote: each pause that still holds
+   * something keeps its end, a trusted peer's cool-down still releases (at the first pass, when it
+   * ended meanwhile), the sessions told still hear a resume, a release in the last hour still makes
+   * a second trip wait for the person, and lifts not yet sent go out. A pause that holds nothing
+   * any more is not taken back (an older `wim held resume` released what it held without knowing
+   * this file, and the counts start over anyway); its sessions hear it lifted.
+   */
+  private async restorePauses(): Promise<void> {
+    const file = await readBreakerFile(this.files.breakerPath);
+    const held = await this.held.list();
+    for (const r of file.pauses) {
+      const { from, told, ...pause } = r;
+      if (!held.some((h) => h.reason === "breaker" && h.device === pause.peer && h.pause !== undefined && h.pause.at === pause.at)) {
+        for (const to of told) this.pendingLifts.add(to);
+        continue;
+      }
+      this.breaker.restore(pause);
+      this.pauseFrom.set(pause.peer, { from, told: new Set(told), announced: true });
+    }
+    for (const [peer, at] of Object.entries(file.released)) this.breaker.restoreRelease(peer, at);
+    for (const [peer, times] of Object.entries(file.counts)) this.breaker.restoreCounts(peer, times);
+    for (const to of file.lifts) this.pendingLifts.add(to);
+    await this.savePauses();
+  }
+
+  /**
+   * Writes the pauses where `wim held list` reads them (it shows the running ones) and a later
+   * process of this session takes them back: a cool-down that ended stays written until its
+   * release has run, so a process that exits first leaves it for the next one. One write at a
+   * time, each taking the rows when its turn comes, so an older picture never lands last.
+   */
+  private savePauses(): Promise<void> {
+    const run = this.saving.then(() => {
+      this.countsChanged = false;
+      return savePauses(
+        this.files.breakerPath,
+        { pauses: this.rowsOf(this.breaker.kept()), released: this.breaker.releases(), lifts: [...this.pendingLifts], counts: this.breaker.counts() },
+        this.o.env,
+      );
+    });
+    this.saving = run.catch(ignore);
+    return run;
+  }
+
+  /**
+   * Releases every trusted peer whose cool-down has ended. On the inbound queue only (accept, and
+   * the housekeeping pass through onQueue), so nothing is admitted or decided meanwhile.
+   */
+  private async releaseDue(): Promise<Set<string>> {
+    const delivered = new Set<string>();
+    for (;;) {
+      const due = this.breaker.takeDue();
+      if (due.length === 0) return delivered;
+      const taken = due.map((p) => ({ p, record: this.pauseFrom.get(p.peer)! }));
+      for (const { p } of taken) this.pauseFrom.delete(p.peer);
+      await this.savePauses();
+      for (const { p, record } of taken) await this.autoRelease(p, record, delivered);
+    }
+  }
+
+  /** Puts a release on the inbound queue from the housekeeping pass, unless one already waits there. */
+  private queueRelease(): void {
+    if (this.releaseQueued) return;
+    this.releaseQueued = true;
+    void this.onQueue(() => {
+      this.releaseQueued = false;
+      return this.releaseDue();
+    }).catch((e: unknown) => this.log(`wim: housekeeping: ${(e as Error).message}`));
+  }
+
+  /**
+   * A trusted peer's cool-down ended: the breaker already lifted it. Of what it held under that
+   * pause, oldest first, at most the per-peer limit is delivered, as a resume by the person would,
+   * and counted as delivered; the rest waits for the person, as in 0.1.8. Nothing is delivered for
+   * a device the person stopped trusting meanwhile, or one no longer in the roster (revoked). The
+   * session is told either way. Never reachable by a message or a tool.
+   */
+  private async autoRelease(p: Pause, record: PauseEntry, delivered: Set<string>): Promise<void> {
+    this.emit("breaker", { peer: record.from, state: "resumed", auto: true });
+    this.config = await this.o.mesh.loadConfig();
+    const still = isTrusted(this.config, p.peer) && this.roster.devices.some((d) => d.id === p.peer);
+    const mine = (await this.held.list()).filter((h) => h.reason === "breaker" && h.device === p.peer && h.pause !== undefined && h.pause.at === p.at);
+    // At most the per-peer limit, and no more than is left under the total.
+    const out = mine.slice(0, still ? this.breaker.allowance() : 0);
+    let released = 0;
+    try {
+      for (const item of out) {
+        // Each is counted as it is delivered; one that fails stays held, and ends this release.
+        // One that is gone (taken out of held/ by another process) is passed over.
+        const done = await this.decideNow(item.id, "approve").then(
+          () => true,
+          (e: unknown) => {
+            if ((e as ClientError).code !== "not_found") throw e;
+            return false;
+          },
+        );
+        if (!done) continue;
+        this.breaker.count(p.peer, 1);
+        delivered.add(item.id);
+        released++;
+      }
+    } finally {
+      this.countsChanged = true;
+      await this.notice(record.from, releasedNotice(record.from, p, released, mine.length - released, still ? "limit" : "untrusted"));
+    }
+  }
+
+  /**
+   * Tells the session that sent `id` that this session's breaker holds its device's messages, once
+   * a pause. Without waiting for the relay, like a pong; one that cannot be sent is tried again
+   * with that session's next held message.
+   */
+  private tellPaused(pause: Pause, record: PauseEntry, to: string, id: string): void {
+    if (record.told.has(to)) return;
+    record.told.add(to);
+    // A lift still owed from an earlier pause must not follow this one and clear its label.
+    this.pendingLifts.delete(to);
+    const info: PauseInfo = { state: "paused", rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, until: pause.until, auto: pause.auto };
+    // Written first, so a later process of this session still tells this one when the pause is lifted.
+    void this.savePauses()
+      .then(() => this.post(to, undefined, { kind: "pause", pause: info, reply_to: id }))
+      .catch((e: unknown) => {
+        record.told.delete(to);
+        this.log(`wim: no pause sent to ${to}: ${(e as Error).message}`);
+      });
+  }
+
+  /** Sends the lifts still owed; one that cannot be sent now stays for the next pass. */
+  private async flushLifts(): Promise<void> {
+    let sent = 0;
+    for (const to of [...this.pendingLifts]) {
+      const ok = await this.post(to, undefined, { kind: "pause", pause: { state: "lifted" } }).then(
+        () => true,
+        (e: unknown) => void this.log(`wim: no pause sent to ${to}: ${(e as Error).message}`),
+      );
+      if (ok !== true) continue;
+      this.pendingLifts.delete(to);
+      sent++;
+    }
+    if (sent > 0) await this.savePauses();
+  }
+
+  /**
+   * A peer session's breaker holds this device's messages, or lifted that (SPEC section 12). A
+   * pause is taken only from a session one of this device's sessions sent to in the last hour, a
+   * lift from any session (it can only clear a label); either way only as a label: it changes what
+   * a send to that session reports (`held`), never what is sent or delivered. The agent is told
+   * when a pause starts, at most once in 10 minutes per peer session.
+   */
+  private async pausedThere(p: PauseMessage): Promise<void> {
+    this.config = await this.o.mesh.loadConfig();
+    if (policyLevel(this.config, p.from.device) === "refuse") return;
+    const pair = `${p.from.device}/${p.from.session}`;
+    const to = this.fromAddress(p);
+    if (p.pause.state === "lifted") return this.pausedBy.note(pair, to, p.pause, this.now());
+    // One that ended before it came (it waited in a queue) says nothing any more.
+    if (p.pause.until <= this.now() || !(await this.sentTo.has(pair))) return;
+    await this.pausedBy.note(pair, to, p.pause, this.now());
+    // The agent hears it only from a device the person trusts, at most once in 10 minutes per
+    // device; for any other the label is enough (the next send's `held` row and `held_note`).
+    const last = this.pausedToldAt.get(p.from.device);
+    if (!isTrusted(this.config, p.from.device) || (last !== undefined && this.now() - last < PAUSE_TELL_MS)) return;
+    this.pausedToldAt.set(p.from.device, this.now());
+    await this.notice(to, pausedThereLine(to, p.pause));
   }
 
   // ---- tasks ----
@@ -1668,7 +2019,37 @@ export class MeshSession extends EventEmitter {
       ...(opts.status === undefined ? {} : { status: opts.status }),
       ...(opts.file === undefined ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } }),
       ...(opts.relayed === true ? { relayed: true as const } : {}),
-    }).then(() => outcome);
+    })
+      // Bookkeeping only: the relay took the message, so a failure here never fails the send.
+      .then(() => this.sentTo.note(this.sessionsOf(routed)).catch((e: unknown) => this.log(`wim: sent-to: ${(e as Error).message}`)))
+      .then(() => this.heldRows(outcome));
+  }
+
+  /**
+   * The peer sessions (`deviceId/session`) a send reached, as far as this session knows them: each
+   * named session, each member of a named room, every other session for `*`. A `pause` counts
+   * only from one of them, a room member's included.
+   */
+  private sessionsOf(routed: readonly string[]): string[] {
+    const pairs = new Set<string>();
+    for (const a of routed) {
+      if (a === "*" || isRoom(a)) {
+        for (const p of this.peers.values()) if (a === "*" || p.rooms.includes(a)) pairs.add(this.pairOf(p.address));
+      } else pairs.add(this.pairOf(a));
+    }
+    return [...pairs];
+  }
+
+  /** Routed or queued rows whose session said its breaker holds this device's messages, reported as `held`. */
+  private async heldRows(outcome: SendOutcome): Promise<SendOutcome> {
+    const paused = await this.pausedBy.active();
+    const results = outcome.results.map((r): SendRow => {
+      const e = r.status === "routed" || r.status === "queued" ? paused[this.pairOf(r.to)] : undefined;
+      if (e === undefined) return r;
+      const { to: _to, state: _state, at: _at, ...breaker } = e;
+      return { to: r.to, status: "held", relay: r.status as "routed" | "queued", breaker };
+    });
+    return { ...outcome, results };
   }
 
   /**
@@ -1757,8 +2138,8 @@ export class MeshSession extends EventEmitter {
 
   /** Seals a message at the next seq; the secrets check and the protocol limits refuse here. */
   private async seal(id: string, routed: string[], ids: string[], text: string | undefined, opts: Outgoing): Promise<{ frame: SendFrame; missing: string[] }> {
-    // A pong is the client's own answer, never written while handling anything (SPEC section 6a).
-    const derived = opts.kind === "ping" || opts.kind === "pong" ? false : await this.isDerived();
+    // A ping, pong or pause is the client's own, never written while handling anything (SPEC section 6a).
+    const derived = opts.kind === "ping" || opts.kind === "pong" || opts.kind === "pause" ? false : await this.isDerived();
     const { keys, missing } = this.keysFor(ids);
     try {
       const frame = await sealMessageWith({
@@ -1771,6 +2152,7 @@ export class MeshSession extends EventEmitter {
         ...(opts.deadline === undefined ? {} : { deadline: opts.deadline }),
         ...(opts.status === undefined ? {} : { status: opts.status }),
         ...(opts.file === undefined ? {} : { file: opts.file }),
+        ...(opts.pause === undefined ? {} : { pause: opts.pause }),
         recipients: ids,
         ...(opts.relayed === true ? { relayed: true } : {}),
         ...(derived ? { derived: true } : {}),
@@ -1801,7 +2183,7 @@ export class MeshSession extends EventEmitter {
   }
 
   /** Sends a task and waits for its result; `pending` when none arrives in time. */
-  async ask(to: string, task: string, timeoutMs: number): Promise<{ result?: AskResult; pending?: true; task_id: string; results: SendResult[] }> {
+  async ask(to: string, task: string, timeoutMs: number): Promise<{ result?: AskResult; pending?: true; task_id: string; results: SendRow[] }> {
     const id = ulid(this.now());
     let resolveResult!: (v: AskResult) => void;
     const got = new Promise<AskResult>((r) => (resolveResult = r));

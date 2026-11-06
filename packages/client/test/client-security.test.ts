@@ -3,7 +3,8 @@ import { promises as fs } from "node:fs";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { decideJoin, issueInvite, joinMesh, revokeDevice } from "../src/admin.ts";
-import { MeshSession } from "../src/client.ts";
+import { clock } from "../src/breaker.ts";
+import { heldSendLine, MeshSession, type HeldBreaker } from "../src/client.ts";
 import { DEFAULT_BREAKER, MeshFiles } from "../src/mesh.ts";
 import type { SpoolItem } from "../src/spool.ts";
 import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
@@ -211,34 +212,70 @@ describe("inbound policy and the breaker", () => {
     expect(pushed[0]!.rendered).toContain("plain");
   });
 
-  it("pauses a peer past its limit, tells the person, and resumes on request", async () => {
+  it("pauses a peer past its limit, tells the person and the sender, and resumes on request", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
-    // A mesh made now, on the device that created it and on one that joined, holds the 0.1.8 defaults.
+    // A mesh made now, on the device that created it and on one that joined, holds the defaults.
     for (const d of devices) expect((await new MeshFiles(d.home.meshDir(mesh), FS).loadConfig()).breaker).toEqual(DEFAULT_BREAKER);
-    expect(DEFAULT_BREAKER).toEqual({ perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32 });
-    await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: { perPeerPerHour: 2, totalPerHour: 50, pingPong: true, pingPongExchanges: 32 } }));
+    // Device one is trusted on two: 2 an hour, then a long cool-down.
+    const limits = { perPeerPerHour: 2, totalPerHour: 50, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 60 };
+    await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: limits }));
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
-    for (const t of ["1", "2", "3", "4"]) await a.send("b@two", t);
+    for (const t of ["1", "2", "3", "4"]) expect((await a.send("b@two", t)).results).toEqual([{ to: "b@two", status: "routed" }]);
     await until(async () => (await b.held.list()).length === 2);
+    const until1 = (await b.held.list())[0]!.pause!.until;
+    const end = clock(until1);
     const notices = (await unread(b)).filter((i) => i.kind === "notice");
-    expect(notices.some((n) => n.rendered.includes("worldinmotion paused a@one: the per-peer limit, 2 messages in an hour; /wim to resume"))).toBe(true);
-    expect((await b.held.list()).every((h) => h.reason === "breaker")).toBe(true);
+    expect(
+      notices.some((n) =>
+        n.rendered.includes(
+          `worldinmotion paused a@one: the per-peer limit: 3 messages from a@one in 60 minutes, limit 2; until ${end}, when the client releases it and delivers up to its per-peer limit of what it held (a trusted device's cool-down). /wim to approve, or to approve and resume it now`,
+        ),
+      ),
+    ).toBe(true);
+    expect((await b.held.list()).every((h) => h.reason === "breaker" && h.pause?.rule === "peer" && h.pause.auto)).toBe(true);
     // The session itself is told once per pause, in a notice that reaches the agent (no `held`
     // count, which the plugin shows only as a toast), with what only the person can run (issue #40).
     const forAgent = notices.filter((n) => n.held === undefined && n.heldBy === undefined && n.forPerson === undefined);
     expect(forAgent).toHaveLength(1);
     expect(forAgent[0]!.rendered).toBe(
-      "worldinmotion notice (from the local client, not from a peer or the person): this device's loop breaker paused a@one (the per-peer limit, 2 messages in an hour): its messages to this session are held from now on, not delivered to you, until your person releases them. Only the person can: `wim held resume a@one` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). The pause lifts after an hour; what was held stays held until the person decides. If you are waiting on a@one, tell your person; it has not gone silent.",
+      `worldinmotion notice (from the local client, not from a peer or the person): this device's loop breaker paused a@one (the per-peer limit: 3 messages from a@one in 60 minutes, limit 2): its messages to this session are held from now on, not delivered to you, until the cool-down ends or your person releases them. Only the person can release them early: \`wim held resume a@one\` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). The client releases a@one by itself at ${end} and delivers up to its per-peer limit of what it held then; the rest waits for your person, who can release it earlier. If you are waiting on a@one, tell your person; it has not gone silent.`,
     );
+    // Where \`wim held list\` reads it.
+    expect(JSON.parse(await fs.readFile(b.files.breakerPath, "utf8"))).toMatchObject({ pauses: [expect.objectContaining({ from: "a@one", peer: devices[0]!.device.id, rule: "peer", count: 3, limit: 2, until: until1, auto: true })] });
+    expect(b.pausedRows()).toEqual([expect.objectContaining({ from: "a@one", rule: "peer" })]);
+
+    // The sender heard it once (one \`pause\` for the two held), and its sends to b now say held.
+    const told = await spooled(a, (i) => i.kind === "notice" && i.rendered.includes("loop breaker paused messages from this device"));
+    expect(told.rendered).toContain(`b@two's loop breaker paused messages from this device (the per-peer limit: 3 messages from this device in 60 minutes, limit 2): what this device sends there is held, not delivered, until its client releases them by itself at ${end}, delivering up to its per-peer limit of what it held (the rest waits for its person)`);
+    expect(sentFrames(relay).filter((f) => f.from.session === "b")).toHaveLength(1);
+    const held = await a.send("b@two", "5");
+    expect(held.results).toEqual([{ to: "b@two", status: "held", relay: "routed", breaker: { rule: "peer", count: 3, limit: 2, minutes: 60, until: until1, auto: true } }]);
+    expect(heldSendLine("b@two", (held.results[0] as { breaker: HeldBreaker }).breaker)).toBe(
+      `b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 3 messages from this device in 60 minutes, limit 2; at ${end} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. Sending more now only adds to what it holds.`,
+    );
+    // Paused for the hour instead, the line says the person decides.
+    expect(heldSendLine("b@two", { rule: "total", count: 51, limit: 50, minutes: 60, until: 0, auto: false })).toBe(
+      "b@two: held there, not delivered: its loop breaker paused this device on the total limit: 51 messages from all peers in 60 minutes, limit 50; what it holds waits for its person (the pause itself lifts at 1970-01-01T00:00:00Z). Sending more now only adds to what it holds.",
+    );
+    // Another session of the same device reads the same device-wide record.
+    const a2 = await session(devices[0]!, mesh, relay, { name: "a2" });
+    expect((await a2.send("b@two", "6")).results[0]!.status).toBe("held");
+    await until(async () => (await b.held.list()).length === 4);
+    // a2 sent during the pause, so it is told too, once.
+    await spooled(a2, (i) => i.kind === "notice" && i.rendered.includes("loop breaker paused messages from this device"));
+
     expect(await b.resumePeer("x@unknown")).toBe(0);
     // The CLI leaves a resume marker; the session applies it.
     await fs.mkdir(b.files.controlDir, { recursive: true });
     await fs.writeFile(join(b.files.controlDir, "resume-a@one"), "");
     await fs.writeFile(join(b.files.controlDir, "junk"), "");
-    await until(async () => (await unread(b)).filter((i) => i.kind === "msg").length === 4);
-    expect(await b.held.list()).toEqual([]);
+    await until(async () => (await unread(b)).filter((i) => i.kind === "msg").length === 6 && (await b.held.list()).length === 0);
+    expect(JSON.parse(await fs.readFile(b.files.breakerPath, "utf8"))).toMatchObject({ pauses: [] });
+    // Both told sessions hear it lifted, and the device's sends there are routed again.
+    await until(async () => Object.keys(await a.pausedBy.active()).length === 0);
+    expect((await a.send("b@two", "7")).results).toEqual([{ to: "b@two", status: "routed" }]);
   });
 
   it("accepts a task's result only from its addressee", async () => {

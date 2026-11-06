@@ -80,7 +80,12 @@ export type WimHeld = {
   kind: string
   at: number
   preview: string
+  /** Held by the loop breaker (not by policy): the pane also offers to resume its device. */
+  isBreaker: boolean
 }
+
+/** A loop breaker pause the client reports: who tripped it, the rule with its numbers, and how it ends. */
+export type WimPaused = { from: string; why: string; ends: string }
 
 export type WimLease = { name: string; holder: string; expiresAt: number }
 
@@ -88,6 +93,7 @@ export type WimLease = { name: string; holder: string; expiresAt: number }
 export type WimPanel = {
   peers: WimPeer[]
   held: WimHeld[]
+  paused: WimPaused[]
   leases: WimLease[]
   note: string
   waiting: number

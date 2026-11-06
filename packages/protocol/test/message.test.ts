@@ -492,6 +492,35 @@ describe("peer cards", () => {
   });
 });
 
+describe("pause (SPEC section 12)", () => {
+  const paused = { state: "paused" as const, rule: "peer" as const, count: 121, limit: 120, minutes: 60, until: T0 + 600_000, auto: true };
+
+  it("seals a pause or a lift to one session, and opens it", () => {
+    const id = ulid();
+    expect(open(seal({ kind: "pause", text: undefined, pause: paused, reply_to: id }), server)).toMatchObject({ ok: true, value: { kind: "pause", pause: paused, reply_to: id } });
+    const lifted = open(seal({ kind: "pause", text: undefined, pause: { state: "lifted" } }), server);
+    expect(lifted).toMatchObject({ ok: true, value: { kind: "pause", pause: { state: "lifted" } } });
+    expect(lifted.ok && "reply_to" in lifted.value).toBe(false);
+  });
+
+  it("refuses a pause with text or flags, to more than one session, or one that ends outside the next hour", () => {
+    const ok = { kind: "pause" as const, text: undefined, pause: paused };
+    expect(() => seal({ ...ok, text: "hi" })).toThrow(TypeError);
+    expect(() => seal({ ...ok, relayed: true })).toThrow(/relayed/);
+    expect(() => seal({ ...ok, derived: true })).toThrow(/derived/);
+    expect(() => seal({ ...ok, to: ["*"], recipients: allIds })).toThrow(/a pause is for one session/);
+    expect(() => seal({ ...ok, to: ["#room"], recipients: allIds })).toThrow(/a pause is for one session/);
+    expect(() => seal({ ...ok, to: ["reviewer@server", "other@server"] })).toThrow(/a pause is for one session/);
+    expect(() => seal({ ...ok, pause: { ...paused, until: T0 } })).toThrow(/pause.until: until must be after at and at most an hour after it/);
+    expect(() => seal({ ...ok, pause: { ...paused, until: T0 + 3_600_001 } })).toThrow(/pause.until/);
+    expect(seal({ ...ok, pause: { ...paused, until: T0 + 3_600_000 } }).t).toBe("send");
+    for (const bad of [{ ...paused, rule: "other" }, { ...paused, count: 0 }, { ...paused, limit: 1.5 }, { ...paused, minutes: 61 }, { ...paused, auto: "yes" }, { ...paused, extra: 1 }, { state: "lifted", until: T0 + 1 }, { state: "over" }]) {
+      expect(() => seal({ ...ok, pause: bad as never })).toThrow(/pause/);
+    }
+    expect(() => seal({ ...ok, pause: undefined })).toThrow(/pause/);
+  });
+});
+
 describe("revision 4 receive rules", () => {
   it("round trips relayed text, and keeps it out when not set", () => {
     expect(open(seal({ relayed: true }), server)).toMatchObject({ ok: true, value: { relayed: true } });

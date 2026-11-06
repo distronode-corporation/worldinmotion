@@ -90,7 +90,7 @@ describe("parseLine: events", () => {
       rooms: [{ name: "#r", members: ["x@a"] }],
       leases: [{ name: "l", holder: "x@a", token: 7, expires_at: 9 }],
       held: [heldRow("h", { file: { name: "f", size: 1, mime: "text/plain" } })],
-      breakers: [{ peer: "x@a", reason: "pingpong", at: 3 }, { peer: "y@a", at: 4 }],
+      breakers: [{ peer: "x@a", reason: "pingpong", at: 3 }, { peer: "y@a", at: 4, until: 7 }],
     });
     expect(s).toMatchObject({ type: "snapshot", at: 5 });
     if (s.type !== "snapshot") throw new Error("snapshot");
@@ -100,7 +100,7 @@ describe("parseLine: events", () => {
     expect(s.rooms).toEqual([{ name: "#r", members: ["x@a"] }]);
     expect(s.leases).toEqual([{ name: "l", holder: "x@a", token: 7, expires_at: 9 }]);
     expect(s.held[0]!.file).toEqual({ name: "f", size: 1, mime: "text/plain" });
-    expect(s.breakers).toEqual([{ peer: "x@a", reason: "pingpong", at: 3 }, { peer: "y@a", at: 4 }]);
+    expect(s.breakers).toEqual([{ peer: "x@a", reason: "pingpong", at: 3 }, { peer: "y@a", at: 4, until: 7 }]);
     // A client from before devices could be added here sends no joins.
     expect(s.joins).toEqual([]);
   });
@@ -181,6 +181,9 @@ describe("parseLine: events", () => {
   it("parses breaker with and without a reason", () => {
     expect(ev({ type: "breaker", peer: "a@b", state: "tripped", reason: "total" })).toEqual({ type: "breaker", at: 5, peer: "a@b", state: "tripped", reason: "total" });
     expect(ev({ type: "breaker", peer: "a@b", state: "resumed" })).toEqual({ type: "breaker", at: 5, peer: "a@b", state: "resumed" });
+    // From 0.1.9 a pause says when it ends, and a cool-down's end comes as a resume with `auto`.
+    expect(ev({ type: "breaker", peer: "a@b", state: "tripped", reason: "peer", until: 9, count: 3 })).toEqual({ type: "breaker", at: 5, peer: "a@b", state: "tripped", reason: "peer", until: 9 });
+    expect(ev({ type: "breaker", peer: "a@b", state: "resumed", auto: true })).toEqual({ type: "breaker", at: 5, peer: "a@b", state: "resumed" });
   });
 });
 

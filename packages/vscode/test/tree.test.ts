@@ -59,13 +59,13 @@ describe("MeshView", () => {
 
   it("shows a paused peer with its reason, and a vanished session", () => {
     const s = mesh();
-    s.apply({ type: "breaker", at: NOW, peer: "coder@buildbox", state: "tripped", reason: "pingpong" });
+    s.apply({ type: "breaker", at: NOW, peer: "coder@buildbox", state: "tripped", reason: "pingpong", until: NOW + 600_000 });
     s.apply({ type: "breaker", at: NOW, peer: "tester@buildbox", state: "tripped" });
     const nodes = new Nodes();
     const v = new MeshView(s, nodes, now);
     const coder = item(v, nodes.session("coder@buildbox"));
     expect(coder).toMatchObject({ contextValue: "session.paused", description: "paused · /srv/app · main" });
-    expect(coder.tooltip).toContain("Paused by the breaker (pingpong)");
+    expect(coder.tooltip).toMatch(/Paused by the breaker \(pingpong\) at .*, until /);
     expect(item(v, nodes.session("tester@buildbox")).tooltip).toMatch(/Paused by the breaker at /);
     expect(item(v, nodes.session("gone@nowhere"))).toMatchObject({ description: "gone", contextValue: "session" });
   });

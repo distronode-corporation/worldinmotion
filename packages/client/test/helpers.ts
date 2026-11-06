@@ -15,7 +15,7 @@ import { Home, type Device, type LocalDevice } from "../src/home.ts";
 import { b64u, deviceIdFromSignPub, type DeviceKeys } from "@worldinmotion/protocol";
 import { createPrivateKey, sign as edSign } from "node:crypto";
 import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type CertBody, type Channel } from "../src/channel.ts";
-import { MeshFiles } from "../src/mesh.ts";
+import { MeshFiles, type BreakerLimits, type BreakerTier } from "../src/mesh.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
 import { main, type CliIO } from "../src/cli.ts";
 import { PassThrough } from "node:stream";
@@ -426,4 +426,12 @@ export function handHello(
   const transcript = helloTranscript(b64u.decode(ask.nonce), theirs, mine.pub, info);
   const hello = { ...info, epub: b64u.encode(mine.pub), cert, proof: b64u.encode(edSign(null, transcript, run.privateKey)) };
   return { hello, channel: channelFor("signer", mine.privateKey, theirs, transcript) };
+}
+
+/**
+ * Breaker limits with an hour-long cool-down (so the client releases nothing during a test), for
+ * tests that trip the breaker on purpose.
+ */
+export function breakerOf(tier: BreakerTier): BreakerLimits {
+  return { ...tier, cooldownMinutes: 60 };
 }

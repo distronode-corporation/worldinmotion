@@ -1095,16 +1095,54 @@ every device of the mesh, so it reaches untrusted devices too.
 
 ### 7.3 Loop and cost breaker
 
-Two agents that each wake on the other's message can loop forever, and every wake costs tokens. The
-client counts automatic deliveries per sender device in a sliding hour (by default 120 per peer
-and 300 in total) and detects ping-pong (by default more than 32 short alternating exchanges in 10
-minutes). A `mesh.json` written before 0.1.8 keeps the limits written in it (20, 60 and 8) until
-the person changes them there (docs/design.md, loop and cost breaker). Past a limit,
-new items from that peer are held, the person is told, the receiving session is told once per
-pause (so its agent does not take a held peer for a silent one; only the person can release what is
-held), and the sender gets the receipt `held`. The
-pause lifts when the person resumes the peer or the hour rolls over. No message can change the
-limits.
+Two agents that each wake on the other's message can loop forever, and every wake costs tokens. Each
+receiving session counts its automatic deliveries per sender device in a sliding hour, and detects ping-pong (more
+than a number of short alternating exchanges in 10 minutes). Only a device the person trusts
+(policy `deliver` or `deliver-relayed`, and this device's own sessions) is ever counted: any other
+device is held by inbound policy before anything is delivered, so the breaker never sees it. The
+limits are mesh.json's `breaker`: for a new mesh 120 per peer and 300 in total an hour, ping-pong
+past 32 exchanges, and a 10-minute cool-down (at most an hour). A `mesh.json` keeps the limits
+written in it, lower ones included (one written before 0.1.8 holds 20, 60 and 8); one written
+before 0.1.9 gets only the cool-down (docs/design.md, loop and cost breaker).
+
+Past a limit, new items from that peer are held; the person is told which rule tripped, what it
+counted and its limit, and when the pause ends; the receiving session is told once per pause (so
+its agent does not take a held peer for a silent one); `wim held list`, the plugin's pane and `wim
+events` show the running pauses; and the sender gets the receipt `held`. The receiving client also
+tells each sending session once per pause, a session that sent to a room included, with a `pause`
+message (SPEC section 12), so that the sender's `send` reports `held` for that session, with the
+rule and its numbers, instead of `routed` until the pause ends; the sending client tells its agent
+only when the receiving device is one its person trusts, at most once in 10 minutes per device, so a
+device it holds cannot wake its agent this way. A `pause` is a label like a
+receipt: it changes only what the sending client reports, never what it sends or what anyone
+delivers, and a `pause` a peer sends about its own breaker never lifts, shortens or resumes a pause
+on the device that receives it.
+
+A trip is a cool-down. When it ends, the client lifts the pause and delivers, oldest first, what it
+held under that pause: at most the per-peer limit, and no more than is left under the total, each
+counted as a delivery (the peer's deliveries before the trip stay counted too). The rest waits for
+the person, as in 0.1.8, and the session is told how many of each. Nothing is delivered for a device
+the person stopped trusting meanwhile, or one revoked from the mesh. A peer that trips again within
+an hour of such a release is paused for the hour and waits for the person. So, per receiving
+session and before the person decides, one looping peer costs at most about twice the per-peer
+limit in an hour, and all peers together at most the total limit. These bounds hold across a
+restart of the receiving session: its `breaker.json` keeps the hour's deliveries per peer, the
+releases of the last hour and its pauses, and a later process takes them back (each pause that
+still holds something, with its end checked again against the clock, so a clock that was wrong
+cannot stretch it past an hour from now). They are per receiving session: a device with several
+sessions a peer writes to counts in each. The release, the person's decisions and every message
+being admitted run one at a time on the session's inbound queue, so none of them interleaves with
+another, and a message the person or a release delivered is recorded as seen, so a copy the relay
+brings again is never delivered twice.
+
+The pause lifts when the person resumes the peer (`wim held resume`, Resume in a local UI, or
+"Approve and resume this device" on a held item, which approves that item and resumes its device
+in every session of this device), when its cool-down ends, or when the hour rolls over. The sessions
+told about it hear it lifted, from the session's next process when it was resumed while not
+running. Approving and resuming stay the person's (section 7.1): no MCP tool, internal op, message
+or `pause` reaches them, and the client's own release at the end of a cool-down is a timer the
+person set in mesh.json, which an agent can only wait for. No message can change the limits or the
+trust.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy

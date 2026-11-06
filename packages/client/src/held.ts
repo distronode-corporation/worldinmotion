@@ -4,7 +4,8 @@
 
 import { isUlid, sanitizeForDisplay, type FileInfo } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { listDir, listFiles, readJson, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { listDir, listFiles, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import type { Pause } from "./breaker.ts";
 import type { HistoryEntry } from "./history.ts";
 import type { SpoolKind } from "./spool.ts";
 
@@ -19,6 +20,8 @@ export type HeldItem = {
   /** Unused for messages held here: the frame is rendered when the item is released. */
   rendered: string;
   reason: "policy" | "breaker";
+  /** For a breaker hold: the pause it was held under (the rule, its numbers, when it ends). */
+  pause?: Pick<Pause, "rule" | "count" | "limit" | "minutes" | "at" | "until" | "auto">;
   /** A held file's details; it is fetched only once the person approves (revision 4, M6). */
   fileInfo?: FileInfo;
   /** The message's own fields, for history (and in-process listeners) once it is delivered. */
@@ -31,6 +34,9 @@ export type HeldItem = {
 };
 
 export type Verdict = "approve" | "refuse";
+
+/** A decision the pane leaves as a mark: a verdict, or `resume` (approve, and resume the item's device). */
+export type Mark = Verdict | "resume";
 
 /** A one-line preview a person can read safely: controls and invisible characters made visible. */
 export function preview(text: string, max = 120): string {
@@ -75,14 +81,42 @@ export class HeldBox {
     await removeFile(this.path(id));
   }
 
+  /**
+   * Records that `id` is in the spool now, before its held entry goes. A process that stops between
+   * the two leaves this mark, and the next takes the entry out instead of delivering it again
+   * (`settle`); one that stops before the mark leaves the item in the spool, which the next reads.
+   */
+  async markDelivered(id: string): Promise<void> {
+    await writeAtomic(join(this.dir, `${id}.delivered`), "", this.env);
+  }
+
+  /** Whether `id` was written to the spool already (markDelivered). */
+  async wasDelivered(id: string): Promise<boolean> {
+    return (await readText(join(this.dir, `${id}.delivered`))) !== undefined;
+  }
+
+  /** Takes a delivered item out of held/: its entry first, then its mark. */
+  async settle(id: string): Promise<void> {
+    await this.remove(id);
+    await removeFile(join(this.dir, `${id}.delivered`));
+  }
+
+  /** The ids with a delivered mark, entry or not. */
+  async deliveredMarks(): Promise<string[]> {
+    return (await listFiles(this.dir)).flatMap((name) => {
+      const m = /^([0-9A-Z]{26})\.delivered$/.exec(name);
+      return m === null ? [] : [m[1]!];
+    });
+  }
+
   /** Leaves a decision for the process that runs this session. */
-  async mark(id: string, verdict: Verdict): Promise<void> {
+  async mark(id: string, verdict: Mark): Promise<void> {
     await writeAtomic(join(this.dir, `${id}.${verdict}`), "", this.env);
   }
 
   /** Decisions left by other processes (`wim held`, the plugin's pane), consumed as they are read. */
-  async takeMarks(): Promise<Array<{ id: string; verdict: Verdict }>> {
-    return (await takeMarks(this.dir, ["approve", "refuse"], this.env)).map(({ id, mark }) => ({ id, verdict: mark as Verdict }));
+  async takeMarks(): Promise<Array<{ id: string; verdict: Mark }>> {
+    return (await takeMarks(this.dir, ["approve", "refuse", "resume"], this.env)).map(({ id, mark }) => ({ id, verdict: mark as Mark }));
   }
 }
 

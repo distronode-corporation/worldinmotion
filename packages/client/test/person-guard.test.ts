@@ -215,9 +215,9 @@ describe("only a person approves held messages and trusts devices", () => {
     // Through the plugin's own handshake, the held op lists and decides nothing.
     const hello = (await client.callTool({ name: "_internal", arguments: { op: "hello", args: { claudeSessionId: "s1" } } }, CallToolResultSchema)) as { structuredContent?: { token?: string } };
     const token = hello.structuredContent!.token!;
-    expect(await call("_internal", { op: "held", args: {}, token })).toBe('{"held":[]}');
+    expect(await call("_internal", { op: "held", args: {}, token })).toBe('{"held":[],"paused":[]}');
     // An extra argument is dropped, not acted on.
-    expect(await call("_internal", { op: "held", args: { approve: s.id, verdict: "approve" }, token })).toBe('{"held":[]}');
+    expect(await call("_internal", { op: "held", args: { approve: s.id, verdict: "approve" }, token })).toBe('{"held":[],"paused":[]}');
     expect(await s.stillHeld()).toBe(true);
     expect(await s.policyOfOne()).toBeUndefined();
   }, 30_000);
