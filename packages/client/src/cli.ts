@@ -127,7 +127,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
-  test: ["json"],
+  test: ["json", "full", "relay", "key-env", "person"],
 };
 
 /**
@@ -225,7 +225,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
-  wim test [--json]
+  wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -499,7 +499,10 @@ export async function main(argv: readonly string[], env: Record<string, string |
       io.err(`wim: usage: ${commandUsage("test")!}`);
       return 2;
     }
-    return selfTest({ main, env, io, json: args.flags.get("json") === true });
+    const relay = flag(args, "relay");
+    const keyEnv = flag(args, "key-env");
+    const flags = { json: args.flags.get("json") === true, full: args.flags.get("full") === true, person: args.flags.get("person") === true };
+    return selfTest({ main, env, io, ...flags, ...(relay === undefined ? {} : { relay }), ...(keyEnv === undefined ? {} : { keyEnv }) });
   }
   const ctx = new Ctx(env, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({

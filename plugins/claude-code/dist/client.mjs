@@ -131853,6 +131853,7 @@ var Sandbox = class _Sandbox {
   root;
   dirs = /* @__PURE__ */ new Map();
   relay;
+  live = false;
   constructor(root5) {
     this.root = root5;
   }
@@ -131869,10 +131870,15 @@ var Sandbox = class _Sandbox {
     }
     return new _Sandbox(await fs14.mkdtemp(join21(at, "wim-test-")));
   }
-  /** The run's relay: refused unless it is on loopback. */
-  attach(url2) {
-    if (!onLoopback(url2)) throw new SandboxError(`the sandbox relay must be on loopback, not ${url2}`);
+  /**
+   * The run's relay: the sandbox's own, refused unless it is on loopback; or, in live mode, the
+   * relay named, refused unless it is `wss://` (plain `ws://` only on loopback).
+   */
+  attach(url2, live = false) {
+    if (live && !isRelayUrl(url2)) throw new SandboxError(`a live relay must be a wss:// URL (plain ws:// only on loopback) with no trailing slash, not ${url2}`);
+    if (!live && !onLoopback(url2)) throw new SandboxError(`the sandbox relay must be on loopback, not ${url2}`);
     this.relay = url2;
+    this.live = live;
   }
   get relayUrl() {
     return this.relay;
@@ -131897,14 +131903,20 @@ var Sandbox = class _Sandbox {
   /** The checks made before every step: every path inside the run's directory, the relay the run's own. */
   async check() {
     for (const dir of this.dirs.values()) await noLinks(this.root, dir);
-    if (this.relay === void 0 || !onLoopback(this.relay)) throw new SandboxError(`the relay ${String(this.relay)} is not the sandbox's own`);
+    if (this.relay === void 0 || !(this.live ? isRelayUrl(this.relay) : onLoopback(this.relay))) throw new SandboxError(`the relay ${String(this.relay)} is not the sandbox's own`);
   }
   /** Removes everything the run made. */
   async remove() {
     await fs14.rm(this.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 };
+var NotOffered = class extends Error {
+};
+function passed(rows) {
+  return rows.every((r6) => r6.result === "pass" || r6.offered === false);
+}
 var STEP_MS = 6e4;
+var PERSON_STEP_MS = 6e5;
 var sleep3 = (ms) => new Promise((r6) => setTimeout(r6, ms));
 async function waitFor(get2, ms, what2) {
   const end2 = Date.now() + ms;
@@ -131950,6 +131962,10 @@ async function runSteps(steps, before, signal, ms = STEP_MS) {
       await within(before().then(step.run), ms, signal);
       rows.push({ name: step.name, result: "pass", ms: Date.now() - t0 });
     } catch (error64) {
+      if (error64 instanceof NotOffered) {
+        rows.push({ name: step.name, result: "skip", ms: Date.now() - t0, detail: error64.message, offered: false });
+        continue;
+      }
       failed = true;
       rows.push({ name: step.name, result: "fail", ms: Date.now() - t0, detail: error64.message });
     }
@@ -131959,10 +131975,47 @@ async function runSteps(steps, before, signal, ms = STEP_MS) {
 function report(rows, ms) {
   const width = Math.max(...rows.map((r6) => r6.name.length));
   const count = (r6) => rows.filter((x2) => x2.result === r6).length;
+  const notOffered = rows.filter((r6) => r6.offered === false).length;
   return [
     ...rows.map((r6) => `  ${r6.result.padEnd(4)}  ${r6.name.padEnd(width)}  ${String(r6.ms).padStart(6)} ms${r6.detail === void 0 ? "" : `  ${r6.detail}`}`),
-    `${count("fail") === 0 && count("skip") === 0 ? "PASS" : "FAIL"}: ${rows.length} steps, ${count("pass")} passed, ${count("fail")} failed, ${count("skip")} skipped, in ${(ms / 1e3).toFixed(1)} s.`
+    `${passed(rows) ? "PASS" : "FAIL"}: ${rows.length} steps, ${count("pass")} passed, ${count("fail")} failed, ${count("skip")} skipped${notOffered === 0 ? "" : ` (${notOffered} not offered by this relay, which does not fail the run)`}, in ${(ms / 1e3).toFixed(1)} s.`
   ];
+}
+var TEST_TOKEN_URL = "http://id-token.wim-test.invalid/token";
+var CI_REPO = "wim-test/notices";
+var RSA = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
+async function testIssuer() {
+  const pair = await crypto.subtle.generateKey({ ...RSA, modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]) }, true, ["sign", "verify"]);
+  const pub = await crypto.subtle.exportKey("jwk", pair.publicKey);
+  const kid = b64u.encode(randomBytes2(9));
+  const jwks = JSON.stringify({ keys: [{ kty: "RSA", use: "sig", alg: "RS256", kid, n: pub.n, e: pub.e }] });
+  const part = (v) => b64u.encode(utf8(JSON.stringify(v)));
+  return {
+    // Only GitHub's JWKS URL is ever asked for; anything else gets nothing.
+    jwksFetch: async (url2) => url2 === JWKS_URLS[GITHUB_ISSUER] ? { status: 200, text: async () => jwks } : { status: 404, text: async () => "" },
+    async mint(aud, now) {
+      const iat = Math.floor(now / 1e3) - 5;
+      const claims = {
+        iss: GITHUB_ISSUER,
+        aud,
+        jti: b64u.encode(randomBytes2(12)),
+        iat,
+        nbf: iat - 5,
+        exp: iat + 300,
+        repository: CI_REPO,
+        repository_id: "1001",
+        repository_owner_id: "1000",
+        ref: "refs/heads/main",
+        workflow_ref: `${CI_REPO}/.github/workflows/notify.yml@refs/heads/main`,
+        event_name: "push",
+        sha: "0".repeat(40),
+        run_id: "1"
+      };
+      const input2 = `${part({ alg: "RS256", kid, typ: "JWT" })}.${part(claims)}`;
+      const sig = new Uint8Array(await crypto.subtle.sign(RSA, pair.privateKey, utf8(input2)));
+      return `${input2}.${b64u.encode(sig)}`;
+    }
+  };
 }
 var Run2 = class {
   terms = [];
@@ -131970,29 +132023,51 @@ var Run2 = class {
   running = [];
   box;
   relay;
+  /** What the relay says it offers (`/v1/info`). */
+  info;
+  issuer;
   devs = /* @__PURE__ */ new Map();
   /** Mesh ids by role: the run's mesh, and device A's second one. */
   mesh = "";
   second = "";
+  /** The meshes the run made and has not deleted yet: in live mode, deleted at the end whatever happened. */
+  made = /* @__PURE__ */ new Set();
   /** How long a running command may take to print that it is ready. */
   readyMs = 15e3;
+  /** The sandbox signer's passphrase: made here, typed by the script, never printed. */
+  passphrase = b64u.encode(randomBytes2(24));
   main;
   io;
   base;
   real;
-  constructor(main2, io, base, real) {
+  mode;
+  constructor(main2, io, base, real, mode) {
     this.main = main2;
     this.io = io;
     this.base = base;
     this.real = real;
+    this.mode = mode;
   }
   check() {
     return this.box?.check() ?? Promise.resolve();
   }
+  /** The sandbox and its relay: one started here on loopback, or the live relay named, after reading its `/v1/info`. */
   async open() {
     this.box = await Sandbox.open(this.base, this.real);
-    this.relay = await start2({ db: ":memory:", port: 0, host: "127.0.0.1", log: () => void 0 });
+    if (this.mode.live !== void 0) {
+      this.box.attach(this.mode.live, true);
+      this.info = await fetchRelayInfo(this.mode.live, this.fetcher());
+      need(this.info !== void 0, `the relay's /v1/info cannot be read at ${this.mode.live}: is it a worldinmotion relay?`);
+      return;
+    }
+    this.issuer = await testIssuer();
+    this.relay = await start2({ db: ":memory:", port: 0, host: "127.0.0.1", log: () => void 0, ci: true, jwksFetch: this.issuer.jwksFetch });
     this.box.attach(this.relay.relayUrls[0]);
+    this.info = { v: 1, software: "worldinmotion-relay", version: "sandbox", create: "open", limits: { max_meshes: null, idle_mesh_days: null, blob_bytes_per_mesh_per_day: 0 }, offer: null, ci: true };
+  }
+  /** The run's fetch: only the relay's own origin. */
+  fetcher() {
+    return sandboxFetch(`${this.box.relayUrl.replace(/^ws/, "http")}/`, fetch);
   }
   async device(name, made = true) {
     const dir = made ? await this.box.device(name) : await this.box.absent(name);
@@ -132003,20 +132078,24 @@ var Run2 = class {
   dev(name) {
     return this.devs.get(name);
   }
-  term(dev, answers2) {
-    const url2 = this.box.relayUrl;
+  /** A terminal on `dev`: scripted, or with `--person` the person's own for every prompt. */
+  term(dev, answers2, extraEnv = {}, fetcher = this.fetcher()) {
+    const key2 = this.mode.keyEnv === void 0 ? {} : { [this.mode.keyEnv.name]: this.mode.keyEnv.value };
     const t2 = scriptedTerm({
       home: dev.dir,
-      env: deviceEnv(dev.dir),
+      env: { ...deviceEnv(dev.dir), ...key2, ...extraEnv },
       hostname: dev.name,
       platform: this.io.platform,
       uid: this.io.uid,
       pid: this.io.pid,
       now: this.io.now,
-      dialer: sandboxDialer(url2, wsDialer),
-      fetch: sandboxFetch(`${url2.replace(/^ws:/, "http:")}/`, fetch)
+      dialer: sandboxDialer(this.box.relayUrl, wsDialer),
+      fetch: fetcher,
+      // The signer's passphrase, typed without echo: it is never in any output.
+      extra: { promptSecret: async () => this.passphrase }
     });
     t2.answers.push(...answers2);
+    if (this.mode.person) personAt(t2, dev.name, this.io);
     this.terms.push(t2);
     return t2;
   }
@@ -132036,9 +132115,11 @@ var Run2 = class {
     const term = this.term(dev, answers2);
     const r6 = { term, done: this.main(argv, term.env, term.io) };
     this.running.push(r6);
-    await shows(term, ready, this.readyMs, `\`wim ${argv.join(" ")}\` on ${dev.name}`).catch((error64) => {
+    const what2 = `\`wim ${argv.join(" ")}\` on ${dev.name}`;
+    const first = await Promise.race([shows(term, ready, this.readyMs, what2).then(() => void 0), r6.done]).catch((error64) => {
       throw new Error(`${error64.message}: ${lastLine(said(term))}`);
     });
+    need(first === void 0, `${what2} exited ${String(first)} before it was ready: ${lastLine(said(term))}`);
     return r6;
   }
   /** Stops a running command (Ctrl-C) and waits for it to end. */
@@ -132048,7 +132129,7 @@ var Run2 = class {
   }
   /**
    * A session of `dev` in the run's mesh, as an agent's MCP server runs one, for the steps the
-   * command line has no command for (rooms, files, leases, ask and reply, rename).
+   * command line has no command for (rooms, files, leases, ask and reply, rename, CI notices).
    */
   async session(dev, name) {
     const env3 = { platform: this.io.platform, pid: this.io.pid };
@@ -132062,7 +132143,9 @@ var Run2 = class {
       env: env3,
       now: this.io.now,
       // The file checks read the person's home directory; here that is the device's own.
-      userHome: dev.dir
+      userHome: dev.dir,
+      // CI tokens are checked against the sandbox's test issuer only (sandbox mode alone runs the CI step).
+      ...this.issuer === void 0 ? {} : { jwksFetch: this.issuer.jwksFetch }
     });
     this.sessions.push(s3);
     s3.start();
@@ -132074,14 +132157,65 @@ var Run2 = class {
     const env3 = { platform: this.io.platform, pid: this.io.pid };
     return new MeshFiles(new Home(dev.dir, { ...env3, uid: this.io.uid }).meshDir(this.mesh), env3);
   }
-  /** Stops what still runs, closes the relay, and removes the sandbox. */
+  /** `wim mesh create` (or `init --relay`) on `dev`, with the operator key's variable when there is one; the new mesh's id. */
+  async create(dev, argv) {
+    const key2 = this.mode.keyEnv === void 0 ? [] : ["--key-env", this.mode.keyEnv.name];
+    const id2 = grab(await this.ok(dev, [...argv, "--relay", this.box.relayUrl, ...key2, "--no-recovery"]), /Created mesh (\S+) on/, "mesh id");
+    this.made.add(id2);
+    return id2;
+  }
+  /** `wim mesh delete` of one of the run's meshes, from test-a, its admin. */
+  async deleteMesh(id2) {
+    need((await this.ok(this.dev("test-a"), ["mesh", "delete", "--mesh", id2], ["y"])).includes(`Deleted mesh ${id2}`), `mesh ${id2} was not deleted`);
+    this.made.delete(id2);
+  }
+  /**
+   * The rows of the end of a run, which always run: in live mode the meshes the run made and did
+   * not delete yet are deleted; then what still runs is stopped, the sandbox relay closed and the
+   * sandbox removed.
+   */
   async close() {
+    const rows = [];
     for (const t2 of this.terms) t2.stop.abort();
     await Promise.allSettled([...this.running.map((r6) => r6.done), ...this.sessions.map((s3) => s3.stop({ ended: true }))]);
-    await this.relay?.close();
-    await this.box?.remove();
+    if (this.mode.live !== void 0) rows.push(await ending("delete the live meshes", async () => {
+      const left = [...this.made];
+      const failed = [];
+      for (const id2 of left) await this.deleteMesh(id2).catch((error64) => void failed.push(error64.message));
+      need(failed.length === 0, failed.join("; "));
+    }));
+    rows.push(await ending("remove the sandbox", async () => {
+      await this.relay?.close();
+      await this.box?.remove();
+    }));
+    return rows;
   }
 };
+async function ending(name, work) {
+  const t0 = Date.now();
+  try {
+    await work();
+    return { name, result: "pass", ms: Date.now() - t0 };
+  } catch (error64) {
+    return { name, result: "fail", ms: Date.now() - t0, detail: error64.message };
+  }
+}
+function personAt(t2, device, io) {
+  const show = (line) => io.err(`[${device}] ${line}`);
+  t2.io.out = (line) => (t2.out.push(line), show(line));
+  t2.io.err = (line) => (t2.err.push(line), show(line));
+  t2.io.isTTY = io.isTTY;
+  t2.io.inputIsTTY = io.inputIsTTY;
+  t2.io.prompt = async (q3) => {
+    t2.out.push(q3);
+    const a5 = t2.answers.shift() ?? "";
+    const expected = typeof a5 === "string" ? a5 : await a5();
+    return io.prompt(`[${device}] ${q3}(the test expects: ${expected === "" ? "Enter" : expected}) `);
+  };
+}
+function noPerson(env3, io) {
+  return cannotConfirm(env3, io);
+}
 var lastLine = (text2) => text2.trim().split("\n").at(-1);
 var sasIn = (t2) => waitFor(() => /Its comparison code is (\S+)\./.exec(said(t2))?.[1], 15e3, "the comparison code");
 async function joinThroughInvite(run, name) {
@@ -132104,16 +132238,66 @@ async function heldId(run, dev, from) {
   return grab(list3, new RegExp(`^(\\S+)  ${from.replace(/[.@-]/g, "\\$&")} -> `, "m"), `held message from ${from}`);
 }
 var TRIP = { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, cooldownMinutes: 60 };
+function ciStep(run) {
+  return {
+    name: "a CI notice: held, approved, its rule pinned",
+    run: async () => {
+      if (run.mode.live !== void 0) {
+        throw new NotOffered(run.info.ci === true ? "a live relay checks real CI tokens; the test issuer exists only in the sandbox" : "this relay takes no CI notices (its /v1/info has no ci: true)");
+      }
+      const B = run.dev("test-b");
+      const allowed = await run.ok(B, ["ci", "allow", "github", CI_REPO, "--ref", "main", "--workflow", "notify.yml"], ["y"]);
+      need(allowed.includes("could not be read from the provider's public API"), "the rule was pinned before any notice");
+      const code2 = grab(allowed, /Recipient code for the job \(not a secret\): (wimci1_\S+)/, "recipient code");
+      const deploys = await run.session(B, "deploys");
+      const job = await run.device("ci-job", false);
+      const tokens = (async (input2, init2) => {
+        const url2 = new URL(String(input2));
+        if (`${url2.origin}${url2.pathname}` !== TEST_TOKEN_URL) return run.fetcher()(input2, init2);
+        return Response.json({ value: await run.issuer.mint(url2.searchParams.get("audience"), Date.now()) });
+      });
+      const env3 = { GITHUB_ACTIONS: "true", ACTIONS_ID_TOKEN_REQUEST_URL: TEST_TOKEN_URL, ACTIONS_ID_TOKEN_REQUEST_TOKEN: "sandbox" };
+      const sent2 = await run.cmd(job, ["ci", "notify", "--recipient", code2, "--to", "deploys", "--text", "the build passed"], [], run.term(job, [], env3, tokens));
+      need(sent2.text.includes("wim ci notify: sent to deploys"), `the notice was not sent: ${lastLine(sent2.text)}`);
+      const id2 = await waitFor(async () => /^(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15e3, "the held CI notice");
+      await run.ok(B, ["held", "approve", id2], ["y"]);
+      need((await run.ok(B, ["ci", "list"])).includes("ids repositoryId=1001 ownerId=1000"), "approving the notice did not pin the rule's ids");
+      await arrived(deploys, "the build passed");
+    }
+  };
+}
+function signerStep(run) {
+  return {
+    name: "the signer: encrypt, start, lock, unlock, stop",
+    run: async () => {
+      const sig = await run.device("sig");
+      await run.ok(sig, ["init", "--name", "sig"]);
+      need((await run.ok(sig, ["agent", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
+      const running2 = /Signer running in the foreground \(pid \d+\) at (.+)\. Ctrl-C/;
+      const first = await run.background(sig, ["agent", "start", "--foreground"], running2);
+      const at = grab(said(first.term), running2, "signer endpoint");
+      need(at === await agentEndpoint(sig.dir, { platform: run.io.platform, pid: run.io.pid, uid: run.io.uid }, false), `the signer's endpoint ${at} is not the sandbox device's own`);
+      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["agent", "status"])), "the signer is not running unlocked");
+      need((await run.ok(sig, ["agent", "lock"])).includes("Signer locked"), "the signer did not lock");
+      need(/running \(pid \d+\), locked/.test(await run.ok(sig, ["agent", "status"])), "the signer is not locked");
+      const second = await run.background(sig, ["agent", "unlock", "--foreground"], running2);
+      need(await first.done === 0, "the locked signer did not stop for the unlock");
+      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["agent", "status"])), "the signer did not unlock");
+      need((await run.ok(sig, ["agent", "stop"])).includes("Signer stopped."), "the signer did not stop");
+      need(await second.done === 0, "the signer did not end");
+      need(!said(first.term).includes(run.passphrase) && !said(second.term).includes(run.passphrase), "the passphrase was printed");
+    }
+  };
+}
 function sandboxSteps(run) {
   const A2 = () => run.dev("test-a");
   const B = () => run.dev("test-b");
   return [
-    { name: "start the sandbox relay on loopback", run: () => run.open() },
+    { name: run.mode.live === void 0 ? "start the sandbox relay on loopback" : "read the live relay's /v1/info", run: () => run.open() },
     {
       name: "create the mesh",
       run: async () => {
-        const text2 = await run.ok(await run.device("test-a"), ["init", "--name", "test-a", "--relay", run.box.relayUrl, "--no-recovery"]);
-        run.mesh = grab(text2, /Created mesh (\S+) on/, "mesh id");
+        run.mesh = await run.create(await run.device("test-a"), ["init", "--name", "test-a"]);
       }
     },
     {
@@ -132199,6 +132383,7 @@ function sandboxSteps(run) {
         need((await b5.listPeers()).some((p3) => p3.address === "qa-renamed@test-a"), "the other device does not see the new name");
       }
     },
+    ...run.mode.full ? [ciStep(run)] : [],
     {
       name: "the loop breaker: trip, then resume",
       run: async () => {
@@ -132213,6 +132398,7 @@ function sandboxSteps(run) {
         need((await run.ok(B(), ["inbox", "--as", "brk"])).includes("breaker two"), "the released message was not delivered");
       }
     },
+    ...run.mode.full ? [signerStep(run)] : [],
     {
       name: "status and doctor on a device not set up",
       run: async () => {
@@ -132226,7 +132412,7 @@ function sandboxSteps(run) {
     {
       name: "status and doctor on a device in two meshes",
       run: async () => {
-        run.second = grab(await run.ok(A2(), ["mesh", "create", "--relay", run.box.relayUrl, "--no-recovery"]), /Created mesh (\S+) on/, "mesh id");
+        run.second = await run.create(A2(), ["mesh", "create"]);
         const status3 = await run.ok(A2(), ["status"]);
         for (const id2 of [run.mesh, run.second]) need(new RegExp(`Mesh ${id2} on .*\\n  connected as`).test(status3), `\`wim status\` did not check mesh ${id2}`);
         await run.ok(A2(), ["doctor"]);
@@ -132235,34 +132421,49 @@ function sandboxSteps(run) {
     {
       name: "mesh delete",
       run: async () => {
-        for (const id2 of [run.second, run.mesh]) need((await run.ok(A2(), ["mesh", "delete", "--mesh", id2], ["y"])).includes(`Deleted mesh ${id2}`), `mesh ${id2} was not deleted`);
+        for (const id2 of [run.second, run.mesh]) await run.deleteMesh(id2);
         need((await run.ok(A2(), ["status"])).includes("in no mesh yet"), "test-a still has a mesh");
       }
     }
   ];
 }
+function refusal2(o3) {
+  if (o3.keyEnv !== void 0 && o3.relay === void 0) return "--key-env is for live mode: wim test --relay <url> --key-env NAME";
+  if (o3.keyEnv !== void 0 && (o3.env[o3.keyEnv] ?? "") === "") return `${o3.keyEnv} is not set`;
+  if (o3.relay !== void 0 && !isRelayUrl(o3.relay)) return `a live relay must be a wss:// URL (plain ws:// only on loopback) with no trailing slash, not ${o3.relay}`;
+  const why = o3.person === true ? noPerson(o3.env, o3.io) : void 0;
+  return why === void 0 ? void 0 : `--person needs a person at their own interactive terminal: ${why}`;
+}
 async function selfTest(o3) {
+  const refused2 = refusal2(o3);
+  if (refused2 !== void 0) {
+    o3.io.err(`wim: ${refused2}`);
+    return 2;
+  }
   const t0 = Date.now();
   const choice = homeChoice(o3.env, o3.io.platform, o3.io.homedir);
-  const run = new Run2(o3.main, o3.io, o3.tmp ?? tmpdir(), [choice.root, choice.base]);
+  const mode = {
+    full: o3.full === true,
+    person: o3.person === true,
+    ...o3.relay === void 0 ? {} : { live: o3.relay },
+    ...o3.keyEnv === void 0 ? {} : { keyEnv: { name: o3.keyEnv, value: o3.env[o3.keyEnv] } }
+  };
+  const run = new Run2(o3.main, o3.io, o3.tmp ?? tmpdir(), [choice.root, choice.base], mode);
   const onAbort = () => run.terms.forEach((t2) => t2.stop.abort());
   o3.io.signal.addEventListener("abort", onAbort, { once: true });
-  const rows = await runSteps((o3.steps ?? sandboxSteps)(run), () => run.check(), o3.io.signal, o3.stepMs);
-  const c0 = Date.now();
-  try {
-    await run.close();
-    rows.push({ name: "remove the sandbox", result: "pass", ms: Date.now() - c0 });
-  } catch (error64) {
-    rows.push({ name: "remove the sandbox", result: "fail", ms: Date.now() - c0, detail: error64.message });
-  }
+  const rows = await runSteps((o3.steps ?? sandboxSteps)(run), () => run.check(), o3.io.signal, o3.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS));
   o3.io.signal.removeEventListener("abort", onAbort);
+  rows.push(...await run.close());
   const ms = Date.now() - t0;
-  const ok2 = rows.every((r6) => r6.result === "pass");
+  const ok2 = passed(rows);
+  const name = mode.live === void 0 ? "sandbox" : "live";
   if (o3.json) {
     const count = (r6) => rows.filter((x2) => x2.result === r6).length;
-    o3.io.out(JSON.stringify({ mode: "sandbox", ok: ok2, passed: count("pass"), failed: count("fail"), skipped: count("skip"), ms, steps: rows }));
+    o3.io.out(JSON.stringify({ mode: name, full: mode.full, ...mode.live === void 0 ? {} : { relay: mode.live }, ok: ok2, passed: count("pass"), failed: count("fail"), skipped: count("skip"), ms, steps: rows }));
   } else {
-    o3.io.out("wim test: the sandbox (a relay on loopback and throwaway devices in a temporary directory, all removed at the end)");
+    o3.io.out(
+      mode.live === void 0 ? "wim test: the sandbox (a relay on loopback and throwaway devices in a temporary directory, all removed at the end)" : `wim test: live, on ${mode.live} (a throwaway mesh, deleted at the end, and throwaway devices in a temporary directory, removed at the end)`
+    );
     for (const line of report(rows, ms)) o3.io.out(line);
   }
   return ok2 ? 0 : 1;
@@ -132292,7 +132493,7 @@ var COMMAND_FLAGS = {
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
-  test: ["json"]
+  test: ["json", "full", "relay", "key-env", "person"]
 };
 function parseArgs(argv) {
   const positional2 = [];
@@ -132371,7 +132572,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
-  wim test [--json]
+  wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -132591,7 +132792,10 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       io.err(`wim: usage: ${commandUsage("test")}`);
       return 2;
     }
-    return selfTest({ main, env: env3, io, json: args.flags.get("json") === true });
+    const relay = flag2(args, "relay");
+    const keyEnv = flag2(args, "key-env");
+    const flags = { json: args.flags.get("json") === true, full: args.flags.get("full") === true, person: args.flags.get("person") === true };
+    return selfTest({ main, env: env3, io, ...flags, ...relay === void 0 ? {} : { relay }, ...keyEnv === void 0 ? {} : { keyEnv } });
   }
   const ctx = new Ctx(env3, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({
@@ -132848,7 +133052,7 @@ function personHere(ctx, command5) {
 function confirmed(ctx, lines, question) {
   return confirmTyped(ctx.io, lines, question);
 }
-function noPerson(ctx) {
+function noPerson2(ctx) {
   return agentEnv(ctx.env) === void 0 ? "this is not an interactive terminal" : "an agent is running this command";
 }
 async function typedCode(ctx, p3) {
@@ -132869,7 +133073,7 @@ async function invite(ctx) {
   const ttl = parseDuration(flag2(ctx.args, "exp") ?? "1h");
   const auto = ctx.args.flags.get("auto") === true;
   if (!auto && !canConfirm(ctx.env, ctx.io)) {
-    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code, and shows that code only in a terminal of your own`);
+    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson2(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code, and shows that code only in a terminal of your own`);
   }
   const s3 = await ctx.session("invite", { keyed: false });
   const offerEnds = new AbortController();
@@ -133112,7 +133316,7 @@ async function pending(ctx) {
 }
 async function admit(ctx, name, code2) {
   if (name === void 0 || code2 === void 0) throw new SetupError("usage: wim devices admit <name> <code>");
-  if (!canConfirm(ctx.env, ctx.io)) throw new SetupError(`run \`wim devices admit\` in your own terminal: admitting a device is the person's decision, and ${noPerson(ctx)}`);
+  if (!canConfirm(ctx.env, ctx.io)) throw new SetupError(`run \`wim devices admit\` in your own terminal: admitting a device is the person's decision, and ${noPerson2(ctx)}`);
   const s3 = await joinsSession(ctx);
   try {
     const decision = await admitPending(s3, name, code2, ctx.io.now);
@@ -133433,8 +133637,8 @@ async function held(ctx) {
     const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
     const pins = action === "approve" ? rows[0].ci?.pins : void 0;
     const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath);
-    const refusal2 = rules === void 0 ? void 0 : pinRefusal(rules, rows[0].ci.rule, pins);
-    if (refusal2 !== void 0) throw refusal2;
+    const refusal3 = rules === void 0 ? void 0 : pinRefusal(rules, rows[0].ci.rule, pins);
+    if (refusal3 !== void 0) throw refusal3;
     const details = heldDetails(rows, await files.loadConfig(), all, rules);
     const resumable = action === "approve" && rows[0].reason === "breaker" && rows[0].ci === void 0;
     if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
