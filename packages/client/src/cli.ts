@@ -20,6 +20,8 @@ import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.t
 import { History, renderForPerson } from "./history.ts";
 import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp, type Retried } from "./mcp.ts";
+import { HOOK_AGENTS, hookAnswer, readInput } from "./hook.ts";
+import type { Ancestor } from "./ancestry.ts";
 import { MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
@@ -95,6 +97,8 @@ export type CliIO = {
   onUnexpected?: (listener: (reason: unknown) => void) => void;
   /** True once the process that started this one is gone (`wim mcp` then ends its session). */
   parentGone: () => boolean;
+  /** The processes above this one, nearest first, at most `levels` (`wim mcp` and `wim hook`); undefined: not read. */
+  ancestry?: (levels: number) => Promise<Ancestor[]>;
   /** How often `wim mcp` checks its parent (default 5 s) and how long a clean end may take (3 s). */
   parentPollMs?: number;
   /** How often `wim mcp` asks again while the device is not ready yet (default 5 s). */
@@ -223,6 +227,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
+  wim hook gemini|antigravity|codex|cursor|copilot
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
   wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]
   wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]
@@ -241,7 +246,7 @@ Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
-history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
+history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
 crash-reports, legacy-boxes, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
@@ -469,6 +474,8 @@ function notifyRefused(io: CliIO, why: string): number {
 
 /** Runs one `wim` command. Returns the process exit code. */
 export async function main(argv: readonly string[], env: Record<string, string | undefined>, io: CliIO): Promise<number> {
+  // An agent's turn-end hook: never an error, never exit 2 (which some agents read as "continue").
+  if (argv[0] === "hook") return hook(argv.slice(1), env, io);
   // `wim ci notify` never fails the CI job it runs in, not even on a bad flag (SPEC section 18).
   const notifying = argv[0] === "ci" && argv[1] === "notify";
   let args: Args;
@@ -1802,6 +1809,20 @@ async function history(ctx: Ctx): Promise<number> {
   return 0;
 }
 
+/**
+ * `wim hook <agent>`: the agent's turn-end hook (hook.ts). Prints the agent's continuation when
+ * trusted messages wait for this agent session, else what lets it stop; always exits 0.
+ * `WIM_DEBUG=1` says why on stderr.
+ */
+async function hook(rest: readonly string[], env: Record<string, string | undefined>, io: CliIO): Promise<number> {
+  const agent = rest.length === 1 ? rest[0]! : "";
+  const input = Object.hasOwn(HOOK_AGENTS, agent) ? await readInput(io.stdin) : undefined;
+  const answer = await hookAnswer({ agent, input, env, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...(io.ancestry === undefined ? {} : { ancestry: io.ancestry }) });
+  if (answer.out !== "") io.out(answer.out);
+  if (env["WIM_DEBUG"] === "1") io.err(`wim hook: ${answer.why}`);
+  return 0;
+}
+
 /** `wim mcp`: the stdio MCP server. Starts even when the device is not set up, to say so. */
 async function mcp(ctx: Ctx): Promise<number> {
   const envKind = ctx.env["WIM_KIND"];
@@ -1828,6 +1849,7 @@ async function mcp(ctx: Ctx): Promise<number> {
     channel: ctx.env["WIM_CHANNEL"] === "1",
     internalTools: kind === "claude-code",
     version: VERSION,
+    ...(ctx.io.ancestry === undefined ? {} : { ancestry: ctx.io.ancestry }),
   });
   const stdin = ctx.io.stdin;
   // The agent closing its end of stdin is how an MCP client says it is gone.

@@ -10,6 +10,9 @@ import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { claimLine, ClientError, MeshSession, reclaimedLine } from "../src/client.ts";
 import { TAKE_HINT, WimMcp } from "../src/mcp.ts";
+import { HOOK_AGENTS, hookAnswer, POINTER_FILE, wakeText } from "../src/hook.ts";
+import type { Ancestor } from "../src/ancestry.ts";
+import { join } from "node:path";
 import { CLAIM_SHOWN_MS, parseSessionState, recentTakeovers, SessionKeys } from "../src/session.ts";
 import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, spooled, term, until, type TestDevice } from "./helpers.ts";
 
@@ -442,4 +445,33 @@ describe("the person sees every takeover of the last 24 hours", () => {
     const taker = await live(devices[0]!, mesh, relay, { name: "hub", take: true });
     expect(taker.state.claims!.map((c) => c.cwd)).toEqual(["/w", "/v", undefined]);
   });
+});
+
+describe("`wim hook` after a claim", () => {
+  it("finds the session the rename tool took over, and not the one given up", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const role = await openSession(devices[0]!, mesh, relay, { name: "release", kind: "gemini-cli" });
+    await role.stop();
+    const chain: Ancestor[] = [{ pid: 9001, start: "agent" }, { pid: 9000, start: "terminal" }, { pid: 1, start: "init" }];
+    const server = new WimMcp({ channel: false, internalTools: false, version: "t", session: sessionOpts(devices[0]!, mesh, relay, { name: "tab", kind: "gemini-cli" }), ancestry: async (levels) => chain.slice(0, levels) });
+    open.push({ stop: () => server.close() });
+    const first = (await server.start())!;
+    await first.ready(3000);
+    await fs.access(join(first.files.dir, POINTER_FILE));
+    const r = (await server.call("rename", { name: "release", take: true }, undefined, async () => undefined)) as Text;
+    expect(textOf(r)).toMatch(/took over/);
+    const taken = server.current!;
+    expect(taken.sid).toBe(role.sid);
+    await expect(fs.access(join(first.files.dir, POINTER_FILE))).rejects.toThrow();
+    expect(JSON.parse(await fs.readFile(join(taken.files.dir, POINTER_FILE), "utf8"))).toMatchObject({ chain });
+    await taken.ready(3000);
+    const peer = await live(devices[1]!, mesh, relay, { name: "peer" });
+    await peer.send("release@one", "for the role");
+    await until(async () => (await taken.spool.unread()).some((i) => i.kind === "msg"));
+    const input = await fs.readFile(join(import.meta.dirname, "..", "..", "..", "test", "fixtures", "hooks", "gemini-cli", "after-agent.first.json"), "utf8");
+    const root = devices[0]!.root;
+    const answer = await hookAnswer({ agent: "gemini", input, env: { WIM_HOME: root }, platform: process.platform, homedir: root, uid: process.getuid?.(), pid: process.pid, now: Date.now, ancestry: async () => chain });
+    expect(answer).toEqual({ out: HOOK_AGENTS["gemini"]!.wake(wakeText(1)), why: "1 waiting" });
+  }, 20_000);
 });
