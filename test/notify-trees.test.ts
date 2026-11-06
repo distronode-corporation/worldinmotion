@@ -47,7 +47,7 @@ describe("the trees", () => {
 
   it("hold exactly the files each registry needs, and no workflow", () => {
     expect([...trees.github.keys()]).toEqual(["LICENSE", "NOTICE", "README.md", "action.yml", "main.mjs", "notify.mjs", "wim.mjs"]);
-    expect([...trees.gitlab.keys()]).toEqual([".gitlab-ci.yml", "LICENSE", "README.md", "templates/notify.yml"]);
+    expect([...trees.gitlab.keys()]).toEqual([".gitlab-ci.yml", "LICENSE", "NOTICE", "README.md", "templates/notify.yml"]);
     expect(Object.keys(trees)).toEqual(["github", "gitlab"]);
   });
 
@@ -63,6 +63,7 @@ describe("the trees", () => {
       ["github", "LICENSE", "LICENSE"],
       ["github", "NOTICE", "NOTICE"],
       ["gitlab", "LICENSE", "LICENSE"],
+      ["gitlab", "NOTICE", "NOTICE"],
       ["gitlab", "templates/notify.yml", "packaging/gitlab-component/templates/notify.yml"],
       ["gitlab", ".gitlab-ci.yml", "packaging/gitlab-component/.gitlab-ci.yml"],
     ] as const) {
@@ -201,7 +202,7 @@ describe("writeTrees", () => {
   it("writes both trees under a new directory and lists each file's sha256", () => {
     const out = join(scratch, "out");
     const lines = writeTrees(out, build()) as string[];
-    expect(lines).toHaveLength(11);
+    expect(lines).toHaveLength(12);
     expect(lines[0]).toMatch(/^[0-9a-f]{64} {2}github\/LICENSE$/);
     expect(readdirSync(join(out, "gitlab/templates"))).toEqual(["notify.yml"]);
     expect(readFileSync(join(out, "github/wim.mjs")).equals(readFileSync(bundle))).toBe(true);
@@ -221,7 +222,7 @@ describe("the command line", () => {
   it("builds and writes, printing one line per file", () => {
     const sink = io();
     expect(cli([version, bundle, join(scratch, "cli-out")], sink)).toBe(0);
-    expect(sink.out).toHaveBeenCalledTimes(11);
+    expect(sink.out).toHaveBeenCalledTimes(12);
     expect(sink.err).not.toHaveBeenCalled();
   });
 
@@ -246,7 +247,7 @@ describe("the command line", () => {
     const script = join(root, ".github/scripts/notify-trees.mjs");
     const ok = spawnSync(process.execPath, [script, version, bundle, out], { encoding: "utf8", timeout: 25_000 });
     expect(ok.status).toBe(0);
-    expect(ok.stdout.trim().split("\n")).toHaveLength(11);
+    expect(ok.stdout.trim().split("\n")).toHaveLength(12);
     const refused = spawnSync(process.execPath, [script, version, bundle, out], { encoding: "utf8", timeout: 25_000 });
     expect(refused.status).toBe(1);
     expect(refused.stderr).toMatch(/^::error::.* already exists/);

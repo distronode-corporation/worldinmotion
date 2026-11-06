@@ -692,8 +692,8 @@ jobs:
           git push --atomic "git@github.com:$TARGET.git" HEAD:refs/heads/main "refs/tags/v$VERSION"
 
   # The GitLab CI/CD component as its own project, from which the Catalog lists it. The tree is
-  # notify-trees.mjs's: packaging/gitlab-component (with the project's own .gitlab-ci.yml) and
-  # LICENSE. One commit on main per release, tagged X.Y.Z, the form the Catalog takes; the
+  # notify-trees.mjs's: packaging/gitlab-component (with the project's own .gitlab-ci.yml),
+  # LICENSE and NOTICE. One commit on main per release, tagged X.Y.Z, the form the Catalog takes; the
   # project's pipeline then creates the release. The template runs `worldinmotion` from npm at
   # this version, so this runs only after `npm`, and checks npm has it.
   notify-gitlab:

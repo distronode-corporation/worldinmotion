@@ -76,7 +76,7 @@ from this repository by hand against a relay.
 
 - GitHub: `action.yml`, `main.mjs`, `notify.mjs`, the release's `wim.mjs`, `README.md`,
   `LICENSE` and `NOTICE`, only what the action needs (no workflow, no tests);
-- GitLab: `templates/notify.yml`, `.gitlab-ci.yml`, `README.md` and `LICENSE`.
+- GitLab: `templates/notify.yml`, `.gitlab-ci.yml`, `README.md`, `LICENSE` and `NOTICE`.
 
 Each README drops its `<!-- unpublished -->` blocks in the published copy. To see the trees, from
 the repository root:

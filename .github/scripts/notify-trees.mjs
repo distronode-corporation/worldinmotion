@@ -4,7 +4,7 @@
 //   github/   distronode-corporation/worldinmotion-notify on GitHub, for the Marketplace:
 //             packaging/github-action, the release's own wim.mjs, LICENSE and NOTICE.
 //   gitlab/   distronode-corporation/worldinmotion-notify on GitLab, for the CI/CD Catalog:
-//             packaging/gitlab-component, and LICENSE.
+//             packaging/gitlab-component, LICENSE and NOTICE.
 //
 //   node .github/scripts/notify-trees.mjs <version> <wim.mjs> <out dir>
 //
@@ -45,6 +45,7 @@ export const TREES = Object.freeze({
     files: Object.freeze([
       [".gitlab-ci.yml", "packaging/gitlab-component/.gitlab-ci.yml"],
       ["LICENSE", "LICENSE"],
+      ["NOTICE", "NOTICE"],
       ["README.md", "packaging/gitlab-component/README.md"],
       ["templates/notify.yml", "packaging/gitlab-component/templates/notify.yml"],
     ]),
