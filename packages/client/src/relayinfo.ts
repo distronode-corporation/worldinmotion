@@ -2,7 +2,7 @@
 // operator key, or not at all, its limits, and an offer text. Read only by `wim doctor` and when a
 // relay refuses `create`; the answer is the relay's claim, never a trust input.
 
-import { isRelayUrl } from "@worldinmotion/protocol";
+import { isRelayUrl, relayInfoSchema } from "@worldinmotion/protocol";
 import { request, type RequestOptions } from "node:https";
 import { isIP } from "node:net";
 import * as tls from "node:tls";
@@ -10,18 +10,7 @@ import { urlToHttpOptions } from "node:url";
 import { z } from "zod";
 import { pinnedConnect, relayText } from "./wire.ts";
 
-const InfoSchema = z.object({
-  v: z.literal(1),
-  software: z.literal("worldinmotion-relay"),
-  version: z.string().max(64),
-  create: z.enum(["key", "open", "closed"]),
-  limits: z.object({
-    max_meshes: z.number().int().nonnegative().nullable(),
-    idle_mesh_days: z.number().int().nonnegative().nullable(),
-    blob_bytes_per_mesh_per_day: z.number().int().nonnegative(),
-  }),
-  offer: z.string().nullable(),
-});
+const InfoSchema = relayInfoSchema;
 
 export type RelayInfo = z.infer<typeof InfoSchema>;
 

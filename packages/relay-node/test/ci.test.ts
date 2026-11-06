@@ -106,8 +106,8 @@ function post(port: number, path: string, body: string, headers: Record<string, 
   });
 }
 
-async function githubSend(m: { r: Roster; laptop: Device; pk: Prekey }, otk = ciOneTimeKey(), reuse?: string) {
-  const token = reuse ?? (await iss.mint(githubClaims(githubAudience(m.r.mesh, m.laptop.id, otk.pub), Date.now())));
+async function githubSend(m: { r: Roster; laptop: Device; pk: Prekey }, otk = ciOneTimeKey(), reuse?: string, over?: Record<string, unknown>) {
+  const token = reuse ?? (await iss.mint(githubClaims(githubAudience(m.r.mesh, m.laptop.id, otk.pub), Date.now(), over)));
   return sealCiNotice({ mesh: m.r.mesh, device: m.laptop.id, prekey: m.pk, to: "deploys", text: "deployed", token, via: "github", otk, at: Date.now() }).request;
 }
 
@@ -152,6 +152,19 @@ describe("relay-node CI senders", () => {
     const replay = await githubSend(m, otk, req.token!);
     expect(replay.id).not.toBe(req.id);
     expect(await post(r.port, path, JSON.stringify(replay))).toMatchObject({ status: 403, json: { code: "unauthorized" } });
+  });
+
+  it("routes a GitHub notice whose ref falls under a pattern tag the device holds", async () => {
+    const r = await relay();
+    const m = await ciMesh(r.relayUrls[0]!);
+    const path = `/v1/${m.r.mesh}/ci`;
+    m.deploys.c.send({ t: "ci.rules", tags: [ciRuleTag({ mesh: m.r.mesh, device: m.laptop.id, iss: GITHUB_ISSUER, repo: "octo-org/deploys", ref: "refs/tags/v*" })], gitlab: false });
+    expect(await m.deploys.c.nextOf("ci.rules")).toEqual({ t: "ci.rules", count: 1 });
+    const req = await githubSend(m, ciOneTimeKey(), undefined, { ref: "refs/tags/v3.3.0" });
+    expect(await post(r.port, path, JSON.stringify(req))).toMatchObject({ status: 200, json: { t: "ci.sent", id: req.id, status: "routed" } });
+    expect((await m.deploys.c.nextOf("ci.deliver"))["msg"]["id"]).toBe(req.id);
+    const outside = await githubSend(m, ciOneTimeKey(), undefined, { ref: "refs/heads/main" });
+    expect(await post(r.port, path, JSON.stringify(outside))).toMatchObject({ status: 403, json: { code: "unauthorized" } });
   });
 
   it("answers 400, 413 and 403 for a bad path, body or mesh, and keeps nothing for an unknown mesh", async () => {

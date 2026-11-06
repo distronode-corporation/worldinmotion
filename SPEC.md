@@ -1058,11 +1058,14 @@ application/json` and:
 ```json
 { "v": 1, "software": "worldinmotion-relay", "version": "0.1.0", "create": "key",
   "limits": { "max_meshes": 2000, "idle_mesh_days": 90, "blob_bytes_per_mesh_per_day": 26214400 },
-  "offer": "Free hosted relay during the worldinmotion preview, until version 1.0", "ci": false }
+  "offer": "Free hosted relay during the worldinmotion preview, until version 1.0", "ci": false,
+  "ciPatterns": false }
 ```
 
 `ci` says whether the relay takes CI senders (section 18); a relay older than CI senders leaves
-it out, which means `false`.
+it out, which means `false`. `ciPatterns` says whether it checks ref pattern tags on GitHub CI
+notices (section 18, candidate tags); a relay older than ref patterns leaves it out, which means
+`false`. A client reads both as optional booleans, so an older relay's document parses.
 
 `create` is `key` (an operator key is required), `open` or `closed` (refused, including a relay
 whose configuration is wrong). In `limits`, `null` means unlimited; `blob_bytes_per_mesh_per_day`
@@ -1605,7 +1608,7 @@ GitLab notices by removing its GitLab rules. Each GitLab token sends one notice 
 single use), so a job that sends two declares two `id_tokens`.
 
 **The reference relays** take CI senders only when their operator turns them on
-(`WIM_CI=1`), and report it as `"ci": true` in `/v1/info` (section 11). Off, a relay answers the
+(`WIM_CI=1`), and report it as `"ci": true` and `"ciPatterns": true` in `/v1/info` (section 11). Off, a relay answers the
 endpoint 404 and `ci.rules` with `unknown_type`, as an older relay does, and stores no tags and no
 session mark. They fetch only GitHub's JWKS; no URL they fetch comes from a request.
 
@@ -1615,6 +1618,10 @@ it is never sent a notice; a session that sent it and then runs an older client 
 `ci.deliver` frames, which do not parse there, and its next `ack` drops them.
 A relay older than ref patterns computes only the exact candidate tag, so a GitHub notice that
 matches a device's pattern tag and no full-ref tag is refused there (`unauthorized`); a GitLab
-notice, which the relay does not filter, is unaffected. An older client reads a pattern as a full
+notice, which the relay does not filter, is unaffected. Such a relay leaves `ciPatterns` out of
+`/v1/info`. A client warns the person when a GitHub pattern rule is made, and MAY warn again
+when it reports on its rules, if its relay's `/v1/info` lacks `"ciPatterns": true` or cannot be
+read: notices under that rule are refused until the relay is updated. The warning never blocks
+the rule. An older client reads a pattern as a full
 ref, which no token's `ref` equals (a git ref cannot hold `*`), so it delivers nothing under that
 rule until it is updated.
