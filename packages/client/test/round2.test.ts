@@ -37,7 +37,8 @@ describe("help", () => {
       "wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]",
     ]);
     expect(commandUsage("recover")).toMatch(/^wim recover <code>/);
-    expect(commandUsage("recovery")).toBe("wim recovery show | wim recovery rotate");
+    expect(commandUsage("recovery")).toBe("wim recovery show [--wait] | wim recovery rotate");
+    expect(commandUsage("setup")).toBe("wim setup [--name <device>] [--relay <url>] [--key-env NAME]");
     expect(commandUsage("a.*")).toBeUndefined();
   });
 });

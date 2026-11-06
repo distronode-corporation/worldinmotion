@@ -495,6 +495,20 @@ describe("prompts on a stdin that closes before a line", () => {
   });
 });
 
+describe("Ctrl-C at a prompt in a terminal", () => {
+  it("answers \"\" and aborts the command's signal, and a later prompt answers at once", async () => {
+    const stdin = Object.assign(new PassThrough(), { isTTY: true, setRawMode: () => stdin });
+    const stderr = Object.assign(new PassThrough(), { isTTY: true, columns: 80 });
+    const proc: Proc = { stdin, stdout: new PassThrough(), stderr, platform: process.platform, pid: 1, ppid: process.pid, cwd: () => "/", once: () => undefined, on: () => undefined };
+    const io = processIo(proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined, wim: () => [] });
+    const asked = io.prompt("Press Enter once you have stored it. ");
+    setImmediate(() => stdin.write("\x03"));
+    expect(await asked).toBe("");
+    expect(io.signal.aborted).toBe(true);
+    expect(await io.prompt("Again? ")).toBe("");
+  });
+});
+
 describe("processIo for wim agent", () => {
   it("asks for a secret without echoing it, and starts the signer through wim's own command", async () => {
     const stdin = new PassThrough();
