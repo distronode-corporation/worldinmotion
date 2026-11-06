@@ -21,8 +21,11 @@ const K_CHARS = 20;
 const CHECK_CHARS = 4;
 const K_RE = /^[0-9A-HJKMNP-TV-Z]{20}$/;
 
-/** The relay a short code without `@` names: the hosted relay (README). */
-export const SHORT_CODE_RELAY = "wss://worldinmotion.distronode.com";
+/** The hosted relay (README, docs/hosted-relay.md): `wim setup`'s default relay. */
+export const HOSTED_RELAY = "wss://worldinmotion.distronode.com";
+
+/** The relay a short code without `@` names: the hosted relay. */
+export const SHORT_CODE_RELAY = HOSTED_RELAY;
 
 /** The first `chars * 5` bits of `bytes`, big-endian, as Crockford base32. */
 function crockford(bytes: Uint8Array, chars: number): string {

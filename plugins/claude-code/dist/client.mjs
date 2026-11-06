@@ -35848,7 +35848,7 @@ var require_ms = __commonJS({
 // ../../node_modules/debug/src/common.js
 var require_common2 = __commonJS({
   "../../node_modules/debug/src/common.js"(exports, module2) {
-    function setup(env3) {
+    function setup2(env3) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
       createDebug.coerce = coerce;
@@ -36018,7 +36018,7 @@ var require_common2 = __commonJS({
       createDebug.enable(createDebug.load());
       return createDebug;
     }
-    module2.exports = setup;
+    module2.exports = setup2;
   }
 });
 
@@ -84117,12 +84117,12 @@ function FpLegendre(Fp2, n3) {
   aoddModulus(F2.ORDER, "FpLegendre");
   const p1mod2 = (F2.ORDER - _1n2) / _2n;
   const powered = F2.pow(n3, p1mod2);
-  const yes = F2.eql(powered, F2.ONE);
+  const yes2 = F2.eql(powered, F2.ONE);
   const zero = F2.eql(powered, F2.ZERO);
   const no = F2.eql(powered, F2.neg(F2.ONE));
-  if (!yes && !zero && !no)
+  if (!yes2 && !zero && !no)
     throw new Error("invalid Legendre symbol result");
-  return yes ? 1 : zero ? 0 : -1;
+  return yes2 ? 1 : zero ? 0 : -1;
 }
 function nLength(n3, nBitLength) {
   if (nBitLength !== void 0)
@@ -84318,8 +84318,8 @@ function probeRandomBytes(randomBytes5, length) {
     return void 0;
   afunction(randomBytes5, "randomBytes");
   try {
-    const probe = randomBytes5(length);
-    if (!isBytes2(probe) || probe.length !== length)
+    const probe2 = randomBytes5(length);
+    if (!isBytes2(probe2) || probe2.length !== length)
       return void 0;
   } catch {
     return void 0;
@@ -86982,7 +86982,8 @@ var CROCKFORD3 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 var K_CHARS = 20;
 var CHECK_CHARS = 4;
 var K_RE = /^[0-9A-HJKMNP-TV-Z]{20}$/;
-var SHORT_CODE_RELAY = "wss://worldinmotion.distronode.com";
+var HOSTED_RELAY = "wss://worldinmotion.distronode.com";
+var SHORT_CODE_RELAY = HOSTED_RELAY;
 function crockford(bytes3, chars2) {
   let bits = 0n;
   for (const b5 of bytes3) bits = bits << 8n | BigInt(b5);
@@ -106556,8 +106557,8 @@ var LiveMusic = class {
     conn.connect();
     await onopenPromise;
     const model = tModel(this.apiClient, params.model);
-    const setup = { model };
-    const clientMessage = { setup };
+    const setup2 = { model };
+    const clientMessage = { setup: setup2 };
     conn.send(JSON.stringify(clientMessage));
     return new LiveMusicSession(conn, this.apiClient);
   }
@@ -109513,11 +109514,11 @@ function toolToMldev(fromObject) {
   }
   return toObject;
 }
-function getFieldMasks(setup) {
+function getFieldMasks(setup2) {
   const fields2 = [];
-  for (const key2 in setup) {
-    if (Object.prototype.hasOwnProperty.call(setup, key2)) {
-      const value2 = setup[key2];
+  for (const key2 in setup2) {
+    if (Object.prototype.hasOwnProperty.call(setup2, key2)) {
+      const value2 = setup2[key2];
       if (typeof value2 === "object" && value2 != null && Object.keys(value2).length > 0) {
         const field = Object.keys(value2).map((kk) => `${key2}.${kk}`);
         fields2.push(...field);
@@ -119688,17 +119689,17 @@ var GitLabWatcher = class {
   async pipelines(prefix) {
     const st = this.ctx.state;
     const list3 = await this.get(external_exports.array(Pipeline2), "/pipelines", this.query(st.cursors.pipelines));
-    const listed2 = /* @__PURE__ */ new Set();
+    const listed3 = /* @__PURE__ */ new Set();
     for (const p3 of list3) {
       if (p3.source === "parent_pipeline") continue;
       if (!refAllowed(p3.ref, this.source.refs) || tooOld(this.ctx, p3.updated_at)) continue;
-      listed2.add(String(p3.id));
+      listed3.add(String(p3.id));
       const seen = { id: p3.id, phase: gitlabPhase(p3.status), ref: p3.ref, sha: p3.sha, webUrl: p3.web_url, updatedAt: p3.updated_at };
       await this.pipeline(prefix, seen, modeFor(this.ctx, p3.updated_at));
     }
     const since = this.ctx.now() - REPOLL_MS;
     for (const [id2, e6] of Object.entries(st.pipelines)) {
-      if (listed2.has(id2) || e6.touched < since || !hasMovingChild(e6)) continue;
+      if (listed3.has(id2) || e6.touched < since || !hasMovingChild(e6)) continue;
       await this.pipeline(prefix, { id: Number(id2), ...e6 }, "announce");
     }
     setCursor(st.cursors, "pipelines", list3.map((p3) => p3.updated_at));
@@ -120913,9 +120914,9 @@ async function runEvents(d5) {
         break;
       }
     }
-    const ask2 = { limit: want + TIE_SLACK, max: want + TIE_SLACK, ...until === void 0 ? {} : { before: until + 1 }, ...a5.peer === void 0 ? {} : { peer: a5.peer } };
+    const ask3 = { limit: want + TIE_SLACK, max: want + TIE_SLACK, ...until === void 0 ? {} : { before: until + 1 }, ...a5.peer === void 0 ? {} : { peer: a5.peer } };
     const all = [];
-    for (const { address, history: h6 } of sessions) for (const e6 of await h6.query(ask2)) all.push(messageRow(e6, address));
+    for (const { address, history: h6 } of sessions) for (const e6 of await h6.query(ask3)) all.push(messageRow(e6, address));
     all.sort((x2, y) => x2.at - y.at);
     const cut = a5.before === void 0 ? -1 : all.findIndex((e6) => e6.id === a5.before);
     const upto = cut === -1 ? all : all.slice(0, cut);
@@ -124127,14 +124128,14 @@ function guiPrompts(platform2, text2) {
 }
 async function askGui(platform2, run, text2) {
   const prompts = guiPrompts(platform2, text2);
-  let failure3;
+  let failure4;
   for (const [i6, p3] of prompts.entries()) {
     const got = answered(await run(p3.cmd, p3.args).catch(unlessMissing), p3.cmd, i6 === prompts.length - 1);
     if (typeof got === "string") return got;
-    failure3 = got?.failed ?? failure3;
+    failure4 = got?.failed ?? failure4;
   }
   throw new SetupError(
-    failure3 === void 0 ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal" : `no passphrase prompt could be shown (${failure3}): start the signer with \`wim agent start\` in your own terminal`
+    failure4 === void 0 ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal" : `no passphrase prompt could be shown (${failure4}): start the signer with \`wim agent start\` in your own terminal`
   );
 }
 function answered(r6, cmd, last) {
@@ -125008,6 +125009,194 @@ async function remove(c5) {
   });
   c5.io.out("Removed. Sessions of this device that are running tell the relay now; others when they next start.");
   return 0;
+}
+
+// src/setup.ts
+import { execFile as nodeExecFile } from "node:child_process";
+var STORED_PROMPT = "Press Enter once you have stored it. ";
+var RECOVERY_TITLE = "Recovery code (shown once; keep it offline, it is as powerful as an admin device):";
+var HOSTED_TERMS = "https://github.com/distronode-corporation/worldinmotion/blob/main/docs/hosted-relay.md";
+var PLUGIN = "worldinmotion@worldinmotion";
+var MARKETPLACE = "distronode-corporation/worldinmotion";
+var MARKETPLACE_ADD = ["plugin", "marketplace", "add", MARKETPLACE];
+var PLUGIN_INSTALL = ["plugin", "install", PLUGIN];
+var EXTENSION = "distronode.worldinmotion";
+var EXTENSION_INSTALL = ["--install-extension", EXTENSION, "--pre-release"];
+var SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
+var TOOL_TIMEOUT_MS = 5 * 6e4;
+function execRunner(platform2, execFile2 = nodeExecFile) {
+  const exec = (file2, args, shell) => new Promise((resolve3, reject) => {
+    const child = execFile2(file2, args, { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (error64, stdout, stderr) => {
+      if (error64 !== null && typeof error64.code !== "number") reject(error64);
+      else resolve3({ code: error64 === null ? 0 : error64.code, stdout, stderr });
+    });
+    child.stdin?.end();
+  });
+  if (platform2 !== "win32") return (cmd, args) => exec(cmd, args, false);
+  return async (cmd, args) => {
+    if ((await exec("where", [cmd], false)).code !== 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
+    return exec(cmd, args, true);
+  };
+}
+var STOPPED = 130;
+var yes = (answer) => /^y(es)?$/i.test(answer.trim());
+async function runSetup(d5) {
+  requirePerson(d5.env, d5.io, "wim setup");
+  if (d5.positional.length > 0) {
+    throw new SetupError("`wim setup <invite code>` is not in this version yet: join with an invite code by `wim join <code>`");
+  }
+  const { io } = d5;
+  const device = await d5.home.loadDevice();
+  const meshes = device === void 0 ? [] : await d5.home.meshIds();
+  if (meshes.length === 0) {
+    const stopped = await firstMesh(d5, device?.name);
+    if (stopped !== void 0) return stopped;
+  } else {
+    io.out(`This device is ${device.name} (id ${device.id}), in ${meshes.length === 1 ? "a mesh" : `${meshes.length} meshes`} already: skipping to the steps that can be repeated.`);
+  }
+  io.out("");
+  await integrations(d5);
+  if (io.signal.aborted) return STOPPED;
+  io.out("");
+  io.out("Optional: `wim agent encrypt` keeps this device's keys under a passphrase, in a signer process instead of a file agents can read (README, step 5).");
+  if (await isAdminAnywhere(d5)) {
+    io.out("To add another machine: run `wim invite` here, then `wim join <code>` on it. Adding a machine from `wim setup` on it comes in a later version.");
+  }
+  io.out("");
+  return d5.status();
+}
+async function firstMesh(d5, existing) {
+  const { io } = d5;
+  io.out(existing === void 0 ? "This machine is not set up yet." : `This device is ${existing}, in no mesh yet.`);
+  io.out("  1. Create a new mesh here (the first of your devices)");
+  io.out("  2. Add this machine to a mesh you already have");
+  const choice = (await io.prompt("Choose 1 or 2: ")).trim();
+  if (choice === "2") {
+    io.out("Adding this machine from `wim setup` is not in this version yet. For now: on a device already in the mesh, run `wim invite` in a terminal; then here, `wim join <code>` with the code it shows.");
+    return 1;
+  }
+  if (choice !== "1") {
+    io.err("wim: choose 1 or 2. Nothing changed.");
+    return 1;
+  }
+  const name = existing ?? await ask(io, "Device name", d5.name ?? d5.toName(io.hostname));
+  if (!isName(name)) throw new SetupError(`invalid device name ${JSON.stringify(name)}: use 1 to 32 of a-z, 0-9 and -`);
+  const relay = await ask(io, "Relay", d5.relay ?? HOSTED_RELAY);
+  checkDialable(relay, void 0);
+  const info = await fetchRelayInfo(relay, io.fetch);
+  for (const line of info === void 0 ? ["this relay does not publish /v1/info, so what it offers is not known"] : describeInfo(info)) io.out(`  ${line}`);
+  if (relay === HOSTED_RELAY) io.out(`  The hosted relay's terms: ${HOSTED_TERMS}`);
+  if (!yes(await io.prompt(`Create a mesh on ${relay} with ${name} as its admin? [y/N] `))) {
+    io.err("wim: nothing changed.");
+    return 1;
+  }
+  const made = await d5.create(relay, name);
+  io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
+  io.out("");
+  io.out(RECOVERY_TITLE);
+  io.out(`  ${made.recoveryCode}`);
+  io.out("");
+  await io.prompt(STORED_PROMPT);
+  if (io.signal.aborted) return STOPPED;
+  await d5.register(made.mesh);
+  return void 0;
+}
+async function ask(io, what2, fallback2) {
+  const typed = (await io.prompt(`${what2} [${fallback2}]: `)).trim();
+  return typed === "" ? fallback2 : typed;
+}
+function failure3(r6) {
+  const lines = `${r6.stderr}
+${r6.stdout}`.split("\n").map((l3) => l3.trim()).filter((l3) => l3 !== "");
+  return lines.length === 0 ? `exit code ${String(r6.code)}` : sanitizeForDisplay(lines.slice(-3).join(" / "));
+}
+async function runText(run, cmd, args) {
+  try {
+    return await run(cmd, args);
+  } catch (error64) {
+    return sanitizeForDisplay(error64.message);
+  }
+}
+async function probe(run, cmd, args) {
+  if (run === void 0) return void 0;
+  try {
+    return await run(cmd, args);
+  } catch (error64) {
+    if (error64.code === "ENOENT") return void 0;
+    return sanitizeForDisplay(error64.message);
+  }
+}
+function whyNot(r6) {
+  if (typeof r6 === "string") return r6;
+  return r6.code === 0 ? void 0 : failure3(r6);
+}
+function listed2(r6, key2, value2) {
+  try {
+    const rows = JSON.parse(r6.stdout);
+    return Array.isArray(rows) && rows.some((row) => typeof row === "object" && row !== null && row[key2] === value2);
+  } catch {
+    return false;
+  }
+}
+async function integrations(d5) {
+  const { io, run } = d5;
+  const slash = [`  /plugin marketplace add ${MARKETPLACE}`, `  /plugin install ${PLUGIN}`];
+  const plugins = await probe(run, "claude", ["plugin", "list", "--json"]);
+  const listFailed = plugins === void 0 ? void 0 : whyNot(plugins);
+  if (plugins === void 0) {
+    io.out("Claude Code: the `claude` command was not found here. To install the plugin, type these in a Claude Code chat, then open a new tab:");
+    for (const l3 of slash) io.out(l3);
+  } else if (listFailed !== void 0) {
+    io.out(`Claude Code: \`claude plugin list\` did not work (${listFailed}). To install the plugin, type these in a Claude Code chat:`);
+    for (const l3 of slash) io.out(l3);
+  } else if (listed2(plugins, "id", PLUGIN)) {
+    io.out("Claude Code plugin: installed. Open a new Claude Code tab; it links by itself.");
+  } else {
+    io.out("Claude Code found. Installing the worldinmotion plugin runs:");
+    io.out(`  claude ${MARKETPLACE_ADD.join(" ")}`);
+    io.out(`  claude ${PLUGIN_INSTALL.join(" ")}`);
+    if (yes(await io.prompt("Install the worldinmotion plugin? [y/N] "))) await installPlugin(io, run, slash);
+    else for (const l3 of ["Skipped. Later, type these in a Claude Code chat:", ...slash]) io.out(l3);
+  }
+  io.out(`State directory: ${d5.home.root} (${d5.homeWhy}).`);
+  if ((d5.env["CLAUDE_CONFIG_DIR"] ?? "") !== "" && (d5.env["WIM_HOME"] ?? "") === "") {
+    io.out("Warning: CLAUDE_CONFIG_DIR is set in this terminal. A Claude Code tab started without the same CLAUDE_CONFIG_DIR is another device, with its own keys: start Claude Code with it set, or set WIM_HOME to this directory in both.");
+  }
+  const extensions = await probe(run, "code", ["--list-extensions"]);
+  const extFailed = extensions === void 0 ? void 0 : whyNot(extensions);
+  if (extensions === void 0) {
+    io.out(`VS Code: the \`code\` command was not found here. The extension is ${EXTENSION}, a pre-release: search for worldinmotion in the Extensions view.`);
+  } else if (extFailed !== void 0) {
+    io.out(`VS Code: \`code --list-extensions\` did not work (${extFailed}).`);
+  } else if (extensions.stdout.split(/\r?\n/).some((l3) => l3.trim().toLowerCase() === EXTENSION)) {
+    io.out("VS Code extension: installed.");
+  } else if (yes(await io.prompt(`VS Code found. Install the extension? It runs: code ${EXTENSION_INSTALL.join(" ")} [y/N] `))) {
+    const why = whyNot(await runText(run, "code", EXTENSION_INSTALL));
+    io.out(why === void 0 ? "VS Code extension: installed. Reload any open VS Code window." : `VS Code: the install did not work (${why}).`);
+  } else {
+    io.out(`Skipped. Later: code ${EXTENSION_INSTALL.join(" ")}`);
+  }
+}
+async function installPlugin(io, run, slash) {
+  const markets = await runText(run, "claude", ["plugin", "marketplace", "list", "--json"]);
+  const known = whyNot(markets) === void 0 && listed2(markets, "name", "worldinmotion");
+  for (const args of known ? [PLUGIN_INSTALL] : [MARKETPLACE_ADD, PLUGIN_INSTALL]) {
+    const why = whyNot(await runText(run, "claude", args));
+    if (why !== void 0) {
+      io.out(`Claude Code: \`claude ${args.join(" ")}\` did not work (${why}). In a Claude Code chat instead:`);
+      for (const l3 of slash) io.out(l3);
+      return;
+    }
+  }
+  io.out("Claude Code plugin: installed. Open a new Claude Code tab; it links by itself.");
+}
+async function isAdminAnywhere(d5) {
+  const device = await d5.home.loadDevice();
+  for (const id2 of await d5.home.meshIds()) {
+    const book = await RosterBook.open(new MeshFiles(d5.home.meshDir(id2), d5.home.env));
+    if (book.current.devices.some((x2) => x2.id === device.id && x2.role === "admin")) return true;
+  }
+  return false;
 }
 
 // src/crash.ts
@@ -126874,22 +127063,22 @@ function isStringOrRegExp(value2) {
 
 // ../../node_modules/@sentry/core/build/esm/integration.js
 var installedIntegrations = [];
-function setupIntegrations(client, integrations) {
+function setupIntegrations(client, integrations2) {
   const integrationIndex = {};
-  integrations.forEach((integration) => {
+  integrations2.forEach((integration) => {
     if (integration?.beforeSetup) {
       integration.beforeSetup(client);
     }
   });
-  integrations.forEach((integration) => {
+  integrations2.forEach((integration) => {
     if (integration) {
       setupIntegration(client, integration, integrationIndex);
     }
   });
   return integrationIndex;
 }
-function afterSetupIntegrations(client, integrations) {
-  for (const integration of integrations) {
+function afterSetupIntegrations(client, integrations2) {
+  for (const integration of integrations2) {
     if (integration?.afterAllSetup) {
       integration.afterAllSetup(client);
     }
@@ -127664,9 +127853,9 @@ function prepareEvent(options, event, hint, scope, client, isolationScope) {
     event_id: event.event_id || hint.event_id || uuid42(),
     timestamp: event.timestamp || dateTimestampInSeconds()
   };
-  const integrations = hint.integrations || options.integrations.map((i6) => i6.name);
+  const integrations2 = hint.integrations || options.integrations.map((i6) => i6.name);
   applyClientOptions(prepared, options);
-  applyIntegrationsMetadata(prepared, integrations);
+  applyIntegrationsMetadata(prepared, integrations2);
   if (client) {
     client.emit("applyFrameMetadata", event);
   }
@@ -128729,9 +128918,9 @@ var Client2 = class {
   /* eslint-enable @typescript-eslint/unified-signatures */
   /** Setup integrations for this client. */
   _setupIntegrations() {
-    const { integrations } = this._options;
-    this._integrations = setupIntegrations(this, integrations);
-    afterSetupIntegrations(this, integrations);
+    const { integrations: integrations2 } = this._options;
+    this._integrations = setupIntegrations(this, integrations2);
+    afterSetupIntegrations(this, integrations2);
   }
   /** Updates existing session based on the provided event */
   _updateSessionFromEvent(session, event) {
@@ -128799,9 +128988,9 @@ var Client2 = class {
    */
   _prepareEvent(event, hint, currentScope, isolationScope) {
     const options = this.getOptions();
-    const integrations = this.getIntegrationNames();
-    if (!hint.integrations && integrations.length) {
-      hint.integrations = integrations;
+    const integrations2 = this.getIntegrationNames();
+    if (!hint.integrations && integrations2.length) {
+      hint.integrations = integrations2;
     }
     this.emit("preprocessEvent", event, hint);
     if (!event.type) {
@@ -129435,9 +129624,11 @@ ${error64.message}`;
 // src/cli.ts
 var VERSION = "0.1.9";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected", "take"]);
+var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
+  setup: ["name", "relay", "key-env"],
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
   mesh: ["relay", "key-env", "tls", "no-recovery"],
   invite: ["exp", "auto", "full"],
@@ -129454,6 +129645,7 @@ var COMMAND_FLAGS = {
   ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
   a2a: ["as", "take"],
   recover: ["relay", "tls", "revoke", "name"],
+  recovery: ["wait"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
   "legacy-boxes": []
@@ -129480,7 +129672,8 @@ function parseArgs(argv) {
     if (eq !== -1 && BOOLEAN_FLAGS.has(name)) throw new SetupError(`--${name} takes no value`);
     if (eq !== -1) flags.set(name, a5.slice(eq + 1));
     else if (!VALUE_FLAGS.has(name)) flags.set(name, true);
-    else if (i6 + 1 < argv.length) flags.set(name, argv[++i6]);
+    else if (i6 + 1 < argv.length && !(OPTIONAL_VALUE_FLAGS.has(name) && argv[i6 + 1].startsWith("--"))) flags.set(name, argv[++i6]);
+    else if (OPTIONAL_VALUE_FLAGS.has(name)) flags.set(name, true);
     else throw new SetupError(`--${name} needs a value`);
   }
   return { positional, flags };
@@ -129509,6 +129702,7 @@ function parseDuration(text2) {
 }
 var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
+  wim setup [--name <device>] [--relay <url>] [--key-env NAME]
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery] | wim mesh delete
   wim invite [--exp 1h] [--auto] [--full] | wim invite show
@@ -129530,7 +129724,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim ci list | wim ci remove <n>
   wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
-  wim recovery show | wim recovery rotate
+  wim recovery show [--wait] | wim recovery rotate
   wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
@@ -129540,7 +129734,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
+Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
 crash-reports, legacy-boxes, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
@@ -129772,6 +129966,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "version":
         io.out(VERSION);
         return 0;
+      case "setup":
+        return await setup(ctx);
       case "init":
         return await init(ctx);
       case "mesh":
@@ -129906,12 +130102,21 @@ async function init(ctx) {
 async function meshCreate(ctx) {
   const relay = flag2(ctx.args, "relay");
   if (relay === void 0) throw new SetupError("--relay <url> is required");
+  const made = await createHere(ctx, relay, ctx.args.flags.get("no-recovery") !== true);
+  ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
+  ctx.io.out("Next: `wim invite` to add another device.");
+  if (made.recoveryCode !== void 0) await showRecoveryCode(ctx, made.recoveryCode);
+  if (!ctx.io.signal.aborted) await registerCli(ctx, made.mesh);
+  ctx.io.out(STATUS_LINE);
+  return ctx.io.signal.aborted ? STOPPED2 : 0;
+}
+async function createHere(ctx, relay, recovery2, name) {
   const keyEnv = flag2(ctx.args, "key-env");
   const key2 = keyEnv === void 0 ? void 0 : ctx.env[keyEnv];
   if (keyEnv !== void 0 && (key2 === void 0 || key2 === "")) throw new SetupError(`${keyEnv} is not set`);
   const tls3 = flag2(ctx.args, "tls");
-  const device = await ctx.home.requireDevice();
-  const made = await createMesh({
+  const device = name === void 0 ? await ctx.home.requireDevice() : await ctx.home.loadDevice() ?? await ctx.home.createDevice(name);
+  return createMesh({
     home: ctx.home,
     device,
     relay,
@@ -129919,21 +130124,33 @@ async function meshCreate(ctx) {
     now: ctx.io.now,
     ...key2 === void 0 ? {} : { key: key2 },
     ...tls3 === void 0 ? {} : { tls: tls3 },
-    recovery: ctx.args.flags.get("no-recovery") !== true
+    recovery: recovery2
   }).catch(async (error64) => {
     if (!(error64 instanceof ClientError)) throw error64;
     if (error64.code === "full") throw new ClientError(`${CREATE_REFUSED}: this relay has reached its limit of new meshes; run your own relay (packages/relay-node) or try another`, "full");
     if (error64.code !== "unauthorized") throw error64;
     throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls3)}`, "unauthorized");
   });
-  ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
-  ctx.io.out("Next: `wim invite` to add another device.");
-  if (made.recoveryCode !== void 0) await showRecoveryCode(ctx, made.recoveryCode);
-  if (!ctx.io.signal.aborted) await registerCli(ctx, made.mesh);
-  ctx.io.out(STATUS_LINE);
-  return ctx.io.signal.aborted ? STOPPED : 0;
 }
-var STOPPED = 130;
+function setup(ctx) {
+  const name = flag2(ctx.args, "name");
+  const relay = flag2(ctx.args, "relay");
+  return runSetup({
+    io: ctx.io,
+    env: ctx.env,
+    home: ctx.home,
+    homeWhy: ctx.homeWhy,
+    positional: ctx.args.positional,
+    ...name === void 0 ? {} : { name },
+    ...relay === void 0 ? {} : { relay },
+    ...ctx.io.tools === void 0 ? {} : { run: ctx.io.tools },
+    toName: (text2) => toName(text2, "device"),
+    create: (at, device) => createHere(ctx, at, true, device),
+    register: (mesh) => registerCli(ctx, mesh),
+    status: () => status2(ctx)
+  });
+}
+var STOPPED2 = 130;
 var CREATE_REFUSED = "the relay refused to create the mesh";
 var STATUS_LINE = "Check this device and its mesh at any time with `wim status`.";
 async function meshDelete(ctx) {
@@ -129983,7 +130200,7 @@ async function withoutKey(ctx, relay, keyEnv, tlsPin) {
 async function showRecoveryCode(ctx, code2) {
   if (canShowSecret(ctx.env, ctx.io.isTTY)) {
     ctx.io.out("");
-    ctx.io.out("Recovery code (shown once; keep it offline, it is as powerful as an admin device):");
+    ctx.io.out(RECOVERY_TITLE);
     ctx.io.out(`  ${code2}`);
     ctx.io.out("");
     return;
@@ -130004,15 +130221,18 @@ async function showRecoveryCode(ctx, code2) {
 }
 async function recovery(ctx) {
   const action = ctx.args.positional[0];
+  const wait = ctx.args.flags.get("wait");
+  if (wait !== void 0 && (action !== "show" || wait !== true)) throw new SetupError(`usage: ${commandUsage("recovery")}`);
   if (action === "rotate") return recoveryRotate(ctx);
-  if (action !== "show") throw new SetupError("usage: wim recovery show | wim recovery rotate");
-  return showHeld(ctx, "recovery", ["Recovery code (shown once; keep it offline, it is as powerful as an admin device):"]);
+  if (action !== "show") throw new SetupError(`usage: ${commandUsage("recovery")}`);
+  return showHeld(ctx, "recovery", [RECOVERY_TITLE], [], wait === true);
 }
-async function showHeld(ctx, kind, before, after = []) {
+async function showHeld(ctx, kind, before, after = [], wait = false) {
   const notHere = notAPerson(ctx.env, ctx.io.isTTY);
   if (notHere !== void 0) throw new SetupError(personOnly2(notHere, `wim ${kind} show`));
   const code2 = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform, kind));
   for (const line of [...before, `  ${code2}`, ...after]) ctx.io.out(line);
+  if (wait) await ctx.io.prompt(STORED_PROMPT);
   return 0;
 }
 async function recoveryRotate(ctx) {
@@ -130147,11 +130367,11 @@ async function invite(ctx) {
     await s3.stop({ ended: true });
   }
 }
-async function askTrust(ctx, files, devices2, ask2 = true) {
+async function askTrust(ctx, files, devices2, ask3 = true) {
   const names = devices2.map((d5) => d5.name);
   const one = names.length === 1;
   const list3 = one ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-  if (ask2 && canConfirm(ctx.env, ctx.io)) {
+  if (ask3 && canConfirm(ctx.env, ctx.io)) {
     const question = one ? `Is ${list3} your own device? Trust its messages here? [y/N] ` : `Are ${list3} your own devices? Trust their messages here? [y/N] `;
     if (/^y(es)?$/i.test((await ctx.io.prompt(question)).trim())) {
       for (const d5 of devices2) await setDevicePolicy(files, d5.id, "deliver");
@@ -130377,6 +130597,7 @@ async function send2(ctx) {
   if (to === void 0 || words.length === 0) throw new SetupError("usage: wim send <to> <text...>");
   const name = nameFor(ctx, "cli");
   const text2 = words.join(" ");
+  if (ctx.args.flags.get("wait") === true) throw new SetupError("--wait needs a value: a duration such as 30s");
   const waitText = flag2(ctx.args, "wait");
   const waitMs = waitText === void 0 ? void 0 : parseDuration(waitText);
   if (waitMs !== void 0 && (waitMs === 0 || waitMs > WAIT_MAX_MS)) throw new SetupError("--wait takes a duration from 1ms to 1h, such as 30s");
@@ -130941,13 +131162,17 @@ async function notifyTest(ctx) {
 import { homedir as homedir3, hostname as hostname3 } from "node:os";
 import { createInterface as createInterface2 } from "node:readline";
 import { Writable as Writable4 } from "node:stream";
-function ask(input2, open3, question) {
-  if (input2.readableEnded) return Promise.resolve("");
+function ask2(input2, open3, question, stop) {
+  if (input2.readableEnded || stop.signal.aborted) return Promise.resolve("");
   const rl = open3();
   return new Promise((resolve3) => {
     rl.question(question, resolve3);
     rl.once("line", resolve3);
     rl.once("close", () => resolve3(""));
+    rl.once("SIGINT", () => {
+      stop.abort();
+      resolve3("");
+    });
   }).finally(() => rl.close());
 }
 function written(out, text2) {
@@ -130977,16 +131202,17 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     // `wim mcp` owns stdout for the protocol, so diagnostics always go to stderr.
     err: (line) => void proc.stderr.write(`${line}
 `),
-    prompt: (question) => ask(proc.stdin, () => createInterface2({ input: proc.stdin, output: proc.stderr }), question),
+    prompt: (question) => ask2(proc.stdin, () => createInterface2({ input: proc.stdin, output: proc.stderr }), question, stop),
     // The question goes to stderr; what is typed is echoed nowhere (readline writes it to a sink).
     promptSecret: async (question) => {
       proc.stderr.write(question);
-      const answer = await ask(proc.stdin, () => createInterface2({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "");
+      const answer = await ask2(proc.stdin, () => createInterface2({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "", stop);
       proc.stderr.write("\n");
       return answer;
     },
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
     programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
+    tools: execRunner(proc.platform),
     signal: stop.signal,
     cwd: proc.cwd(),
     homedir: machine.homedir(),
