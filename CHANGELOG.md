@@ -13,6 +13,19 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **CI rules can name a tag or branch pattern.** A rule's ref may end in one `*` and match every
+  ref under that prefix, the prefix included: `wim ci allow github <repo> --tag 'v*' --workflow
+  release.yml`, or `wim ci allow gitlab <project> --tag 'v*'`. There is no other glob syntax. The
+  device stores a hash of the pattern as a rule tag; for each verified GitHub token the relay
+  tries the exact ref and every prefix of it followed by `*` (at most 256 hashes), so the device
+  never names its patterns to the relay, which learns one only when a notice matches it. A
+  pattern admits anyone who can push under its prefix, so protect the same pattern at the provider
+  (a GitHub ruleset, GitLab protected tags; GitLab rules still need protected refs by default).
+  Relays report `"ciPatterns": true` in `/v1/info`, and a client warns when a GitHub pattern rule
+  is made on a relay without it, since an older relay refuses notices under a pattern.
+
 ### Fixed
 
 - **The GitHub Action did not load.** The description of its `status` input showed the
