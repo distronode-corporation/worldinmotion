@@ -132101,7 +132101,9 @@ var Run2 = class {
   }
   /** Runs one command on `dev` to its end, answering its prompts with `answers`, or in the terminal `t`. */
   async cmd(dev, argv, answers2 = [], t2 = this.term(dev, answers2)) {
-    const code2 = await this.main(argv, t2.env, t2.io);
+    const done = this.main(argv, t2.env, t2.io);
+    this.running.push({ term: t2, done });
+    const code2 = await done;
     return { code: code2, text: said(t2) };
   }
   /** Runs `argv` on `dev` and fails the step unless it exits 0. */
@@ -132184,7 +132186,7 @@ var Run2 = class {
   async close() {
     const rows = [];
     for (const t2 of this.terms) t2.stop.abort();
-    await Promise.allSettled([...this.running.map((r6) => r6.done), ...this.sessions.map((s3) => s3.stop({ ended: true }))]);
+    await settledWithin([...this.running.map((r6) => r6.done), ...this.sessions.map((s3) => s3.stop({ ended: true }))], CLOSE_WAIT_MS);
     if (this.mode.live !== void 0) rows.push(await ending("delete the live meshes", async () => {
       const left = this.made();
       const failed = [];
@@ -132198,6 +132200,12 @@ var Run2 = class {
     return rows;
   }
 };
+var CLOSE_WAIT_MS = 3e4;
+function settledWithin(work, ms) {
+  let t2;
+  const late = new Promise((r6) => t2 = setTimeout(r6, ms));
+  return Promise.race([Promise.allSettled(work).then(() => void 0), late]).finally(() => clearTimeout(t2));
+}
 async function ending(name, work) {
   const t0 = Date.now();
   try {

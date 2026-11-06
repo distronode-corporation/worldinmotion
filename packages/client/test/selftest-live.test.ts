@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { GITHUB_ISSUER, JWKS_URLS } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { main } from "../src/cli.ts";
-import { ciStep, Sandbox, selfTest, testIssuer, waitFor, type Run, type Step } from "../src/selftest.ts";
+import { ciStep, Sandbox, selfTest, settledWithin, testIssuer, waitFor, type Run, type Step } from "../src/selftest.ts";
 import { makeMesh, RelayHarness, run as runCli, scratch, term } from "./helpers.ts";
 
 const BIN = join(import.meta.dirname, "..", "..", "relay-node", "src", "bin.ts");
@@ -143,11 +143,11 @@ describe("wim test --relay, live mode", { timeout: 480_000 }, () => {
     expect(await meshGone(copy)).toBe(true);
   });
 
-  it("deletes a mesh whose create was stopped by Ctrl-C after the relay made it", async () => {
+  it("deletes a mesh whose create was still in flight at Ctrl-C", async () => {
     const { url } = await relayProcess();
     const { t, env } = await caller();
     const stop = new AbortController();
-    const copy = join(await scratch("copy"), "a");
+    let ran: Run | undefined;
     const code = await selfTest({
       main,
       env,
@@ -155,15 +155,17 @@ describe("wim test --relay, live mode", { timeout: 480_000 }, () => {
       json: false,
       relay: url,
       steps: (run) => [
-        { name: "open", run: () => run.open() },
+        { name: "open", run: async () => {
+          ran = run;
+          await run.open();
+        } },
         {
           name: "create, stopped",
           run: async () => {
             const a = await run.device("test-a");
+            // Stopped while the create is still in flight: the end of the run waits for it, and
+            // deletes the mesh it made.
             void run.create(a, ["init", "--name", "test-a"]).catch(() => undefined);
-            // Stopped as soon as the mesh exists, before the create command has ended.
-            await waitFor(() => (run.terms.some((x) => x.out.some((l) => l.startsWith("Created mesh "))) ? true : undefined), 15_000, "the create");
-            await fs.cp(a.dir, copy, { recursive: true });
             stop.abort();
             await new Promise(() => undefined);
           },
@@ -172,7 +174,9 @@ describe("wim test --relay, live mode", { timeout: 480_000 }, () => {
     });
     expect(code).toBe(1);
     expect(t.out.join("\n")).toMatch(/^ {2}pass {2}delete the live meshes/m);
-    expect(await meshGone(copy)).toBe(true);
+    // The create ended (exit 130 at the stop) with the mesh made, and the end of the run deleted it.
+    expect(ran!.deleted.size).toBe(1);
+    expect(ran!.made()).toEqual([]);
   });
 
   it("says when the mesh could not be deleted (the relay went away)", async () => {
@@ -236,6 +240,17 @@ describe("wim test --relay, live mode", { timeout: 480_000 }, () => {
     (box as unknown as { relay: string }).relay = "ws://relay.example";
     await expect(box.check()).rejects.toThrow(/not the sandbox's own/);
     await box.remove();
+  });
+});
+
+describe("the end of a run", () => {
+  it("waits for commands still running, but not past its limit", async () => {
+    let ended = false;
+    await settledWithin([new Promise((r) => setTimeout(r, 20)).then(() => (ended = true)), Promise.reject(new Error("x"))], 5000);
+    expect(ended).toBe(true);
+    const t0 = Date.now();
+    await settledWithin([new Promise(() => undefined)], 30);
+    expect(Date.now() - t0).toBeLessThan(2000);
   });
 });
 

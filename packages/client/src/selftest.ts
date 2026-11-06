@@ -494,7 +494,10 @@ export class Run {
 
   /** Runs one command on `dev` to its end, answering its prompts with `answers`, or in the terminal `t`. */
   async cmd(dev: Dev, argv: readonly string[], answers: readonly Answer[] = [], t = this.term(dev, answers)): Promise<{ code: number; text: string }> {
-    const code = await this.main(argv, t.env, t.io);
+    // Every command is tracked, so the end of a run waits for one a step left running.
+    const done = this.main(argv, t.env, t.io);
+    this.running.push({ term: t, done });
+    const code = await done;
     return { code, text: said(t) };
   }
 
@@ -587,7 +590,10 @@ export class Run {
   async close(): Promise<StepRow[]> {
     const rows: StepRow[] = [];
     for (const t of this.terms) t.stop.abort();
-    await Promise.allSettled([...this.running.map((r) => r.done), ...this.sessions.map((s) => s.stop({ ended: true }))]);
+    // A command a timed-out or stopped step left running (a mesh create the relay is answering)
+    // ends first, so a mesh it made is in its output when the meshes to delete are read; one
+    // that does not end within CLOSE_WAIT_MS is not waited for longer.
+    await settledWithin([...this.running.map((r) => r.done), ...this.sessions.map((s) => s.stop({ ended: true }))], CLOSE_WAIT_MS);
     if (this.mode.live !== undefined) rows.push(await ending("delete the live meshes", async () => {
       // Each one is tried, whatever happened to the one before.
       const left = this.made();
@@ -601,6 +607,16 @@ export class Run {
     }));
     return rows;
   }
+}
+
+/** How long the end of a run waits for commands still running. */
+export const CLOSE_WAIT_MS = 30_000;
+
+/** Resolves once every one of `work` has settled, or after `ms`, whichever is first. */
+export function settledWithin(work: readonly Promise<unknown>[], ms: number): Promise<void> {
+  let t: NodeJS.Timeout | undefined;
+  const late = new Promise<void>((r) => (t = setTimeout(r, ms)));
+  return Promise.race([Promise.allSettled(work).then(() => undefined), late]).finally(() => clearTimeout(t));
 }
 
 /** One row at the end of a run, from work that always runs. */
