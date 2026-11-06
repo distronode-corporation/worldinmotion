@@ -10,12 +10,17 @@ CI/CD Catalog. Until it is published there, include the template by URL at a com
 
 ## On the receiving device
 
-At your own terminal (not through an agent), allow the project and the branch that may send (a
-protected one, unless you add `--unprotected`), and note the two values it prints:
+At your own terminal (not through an agent), allow the project and the branch or tag that may
+send (a protected one, unless you add `--unprotected`), and note the two values it prints:
 
 ```sh
 wim ci allow gitlab <group>/<project> --ref main
+wim ci allow gitlab <group>/<project> --tag 'v*'
 ```
+
+A name ending in `*` is a pattern: `--tag 'v*'` takes every tag starting with `v`. Protect the
+same wildcard under Settings, Repository, Protected tags (or branches): the rule takes only
+protected refs unless it has `--unprotected`.
 
 - the **recipient code**, starting with `wimci1_`, which names the relay, the mesh and the device;
 - the **audience**, `wimci1.<mesh>.<device>`, which the job's ID token must carry.

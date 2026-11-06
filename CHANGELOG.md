@@ -13,6 +13,28 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **CI rule ref patterns, client side.** `wim ci allow github <repo> --tag 'v*' --workflow
+  release.yml` and `wim ci allow gitlab <project> --tag 'v*'` (also `--ref 'refs/heads/release/*'` for branches) make a
+  rule whose ref ends in one `*` and takes every tag or branch under that prefix, the prefix itself
+  included (SPEC section 18). The rule is stored and tagged as spelled; a device matches a
+  notice's `ref` (and, for GitHub, the `workflow_ref` suffix, which must still be the token's own
+  ref) by the prefix. `allow` says what the pattern admits and how to protect the same refs at the
+  provider (a GitHub ruleset targeting `v*` and `v*/**/*`, GitLab protected tags or branches), and
+  for a GitHub pattern warns, without refusing the rule, when the relay's `/v1/info` lacks
+  `"ciPatterns": true` or cannot be read. A rules file with any other glob spelling is refused.
+
+### Changed
+
+- **`wim ci allow --tag` takes the tag name** (`--tag v1`, `--tag 'v*'`) instead of turning
+  `--ref` into a tag: 0.1.9's `--ref v1 --tag` is refused (write `--tag v1`), never read as
+  something else. `--ref` is unchanged: a branch name or a full ref, now also a pattern.
+- **The hosted relay takes CI senders** since 2026-11-06 (relay 0.1.9, `"ci": true` in
+  `/v1/info`), and [docs/hosted-relay.md](docs/hosted-relay.md) now says so, with what the relay
+  sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
+  where to find them.
+
 ### Fixed
 
 - **The GitHub Action did not load.** The description of its `status` input showed the
@@ -28,13 +50,6 @@ body line with a bracket.
   no redirect dialled an unreachable address, which hid the TypeError; it now gets a real 302
   from the test outbound service. GitLab notices were not affected (the relay does not verify
   their tokens), nor was the Node relay.
-
-### Changed
-
-- **The hosted relay takes CI senders** since 2026-11-06 (relay 0.1.9, `"ci": true` in
-  `/v1/info`), and [docs/hosted-relay.md](docs/hosted-relay.md) now says so, with what the relay
-  sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
-  where to find them.
 
 ## [0.1.9] - 2026-11-06
 

@@ -85,9 +85,12 @@ describe("wim ci allow", () => {
   it("leaves a private repository unpinned, and says the first notice is held", async () => {
     const w = await setup();
     w.t.answers.push("y");
-    expect(await run(w.t, ...allowGithub, "--tag")).toBe(0);
+    expect(await run(w.t, "ci", "allow", "github", "Octo-Org/Deploys", "--tag", "v1", "--workflow", "deploy.yml")).toBe(0);
     expect(said(w.t)).toContain("could not be read from the provider's public API");
-    expect((await loadCiRules(w.files.ciRulesPath))[0]).toMatchObject({ ref: "refs/tags/main" });
+    // A full ref is no pattern: no pattern lines and no look at the relay's info.
+    expect(said(w.t)).not.toContain("This rule is a pattern");
+    expect(w.asked).toEqual(["https://api.github.com/repos/octo-org/deploys"]);
+    expect((await loadCiRules(w.files.ciRulesPath))[0]).toMatchObject({ ref: "refs/tags/v1" });
     expect((await loadCiRules(w.files.ciRulesPath))[0]!.pins).toBeUndefined();
   });
 
@@ -115,23 +118,110 @@ describe("wim ci allow", () => {
       [["ci", "allow", "github", "a/b", "extra", "--ref", "main"], "usage: wim ci allow github"],
       [["ci", "allow", "github", "nope", "--ref", "main", "--workflow", "d.yml"], "not a GitHub owner/repo: nope"],
       [["ci", "allow", "gitlab", "nope", "--ref", "main"], "not a GitLab group/project: nope"],
-      [["ci", "allow", "github", "a/b", "--workflow", "d.yml"], "--ref is required"],
+      [["ci", "allow", "github", "a/b", "--workflow", "d.yml"], "--ref or --tag is required"],
+      [["ci", "allow", "github", "a/b", "--ref", "v1", "--tag", "v1", "--workflow", "d.yml"], "give one of --ref and --tag"],
+      // 0.1.9's boolean --tag after --ref: refused, never read as a tag named after the next flag.
+      [["ci", "allow", "github", "a/b", "--ref", "v1", "--tag", "--workflow", "d.yml"], "give one of --ref and --tag"],
+      [["ci", "allow", "github", "a/b", "--workflow", "d.yml", "--tag", "--hold"], "--tag needs a tag name or a pattern ending in * (quoted: --tag 'v*')"],
+      [["ci", "allow", "github", "a/b", "--ref=", "--workflow", "d.yml"], "--ref needs a branch name, a full ref or a pattern ending in * (quoted: --ref 'release/*')"],
+      [["ci", "allow", "gitlab", "a/b", "--tag="], "--tag needs a tag name"],
+      [["ci", "allow", "github", "a/b", "--ref=-x", "--workflow", "d.yml"], "--ref needs a branch name, a full ref or a pattern"],
+      [["ci", "allow", "github", "a/b", "--tag", "v*.*", "--workflow", "d.yml"], "not a branch or tag name, or a pattern: refs/tags/v*.*"],
+      [["ci", "allow", "github", "a/b", "--tag", "v?", "--workflow", "d.yml"], "not a branch or tag name, or a pattern"],
+      [["ci", "allow", "gitlab", "a/b", "--ref", "release/[0-9]*"], "not a branch or tag name, or a pattern"],
+      [["ci", "allow", "gitlab", "a/b", "--tag", "**"], "not a branch or tag name, or a pattern"],
+      [["ci", "allow", "gitlab", "a/b", "--tag", `${"v".repeat(246)}*`], "the ref is longer than 255 characters"],
       [["ci", "allow", "gitlab", "a/b", "--ref", "main", "--workflow", "d.yml"], "--workflow and --event are for GitHub rules"],
       [["ci", "allow", "github", "a/b", "--ref", "main", "--workflow", "d.yml", "--unprotected"], "--unprotected is for GitLab rules"],
       [["ci", "allow", "github", "a/b", "--ref", "main"], "--workflow must name the workflow file"],
       [["ci", "allow", "github", "a/b", "--ref", "main", "--workflow", "../d.yml"], "--workflow must name the workflow file"],
       [["ci", "allow", "github", "a/b", "--ref", "main", "--workflow", "d.yml", "--event", "Push"], "--event takes GitHub event names"],
-      [["ci", "allow", "github", "a/b", "--ref", "has space", "--workflow", "d.yml"], "invalid CI rule: ref"],
+      [["ci", "allow", "github", "a/b", "--ref", "has space", "--workflow", "d.yml"], "not a branch or tag name, or a pattern: refs/heads/has space"],
     ];
     for (const [argv, why] of bad) {
       expect(await run(w.t, ...argv)).toBe(1);
       expect(said(w.t)).toContain(why);
     }
+    // A refused name is shown with its control characters made visible, never as a terminal escape.
+    expect(await run(w.t, "ci", "allow", "gitlab", "a/b", "--tag", "v\u001b[2J*")).toBe(1);
+    expect(said(w.t)).toContain("not a branch or tag name, or a pattern");
+    expect(said(w.t)).not.toContain("\u001b");
+    // There is no --branch: a branch is --ref.
+    expect(await run(w.t, "ci", "allow", "gitlab", "a/b", "--branch", "main")).toBe(2);
+    expect(said(w.t)).toContain("unknown flag --branch for wim ci");
+    // A bare --tag at the end, 0.1.9's spelling, is a bad command line.
+    expect(await run(w.t, "ci", "allow", "github", "a/b", "--ref", "v1", "--workflow", "d.yml", "--tag")).toBe(2);
+    expect(said(w.t)).toContain("--tag needs a value");
     const many = Array.from({ length: 64 }, (_, i): CiRule => ({ id: ulid(), via: "github", repo: `o/r${i}`, ref: "refs/heads/main", workflow: "d.yml" }));
     await saveCiRules(w.files.ciRulesPath, many, FS);
     expect(await run(w.t, ...allowGithub)).toBe(1);
     expect(said(w.t)).toContain("already has 64 CI rules");
     expect(w.asked).toEqual([]);
+  });
+});
+
+describe("wim ci allow with a ref pattern", () => {
+  const info = (extra: Record<string, unknown> = {}) =>
+    Response.json({ v: 1, software: "worldinmotion-relay", version: "0.1.10", create: "open", limits: { max_meshes: null, idle_mesh_days: null, blob_bytes_per_mesh_per_day: 1 }, offer: null, ci: true, ...extra });
+  const release = ["ci", "allow", "github", "Octo-Org/Deploys", "--tag", "v*", "--workflow", "release.yml"];
+
+  it("stores the pattern as spelled, tells the person to protect it with a GitHub ruleset, and asks the relay whether it checks patterns", async () => {
+    const w = await setup((url) => (url.endsWith("/v1/info") ? info({ ciPatterns: true }) : new Response("{}", { status: 404 })));
+    w.t.answers.push("y");
+    expect(await run(w.t, ...release)).toBe(0);
+    const out = said(w.t);
+    expect(out).toContain("any job of that workflow file on a matching ref");
+    expect(out).toContain('it takes every tag whose name starts with "v"');
+    expect(out).toContain("targeting both v* and v*/**/*");
+    expect(out).not.toContain("Warning:");
+    expect(w.asked).toEqual(["https://api.github.com/repos/octo-org/deploys", "http://127.0.0.1:4444/v1/info"]);
+    expect((await loadCiRules(w.files.ciRulesPath))[0]).toMatchObject({ via: "github", repo: "octo-org/deploys", ref: "refs/tags/v*", workflow: "release.yml" });
+  });
+
+  it("warns, and saves the rule anyway, when the relay's info lacks ciPatterns: true", async () => {
+    for (const extra of [{}, { ciPatterns: false }]) {
+      const w = await setup((url) => (url.endsWith("/v1/info") ? info(extra) : new Response("{}", { status: 404 })));
+      w.t.answers.push("y");
+      expect(await run(w.t, ...release)).toBe(0);
+      expect(said(w.t)).toContain(`Warning: this device's relay does not say it checks ref patterns (its /v1/info lacks "ciPatterns": true)`);
+      expect(said(w.t)).toContain("notices under this rule are refused until the relay is updated. Allowing it saves the rule all the same.");
+      expect(await loadCiRules(w.files.ciRulesPath)).toHaveLength(1);
+    }
+  });
+
+  it("warns that it could not check, and saves the rule anyway, when the relay's info cannot be read", async () => {
+    const w = await setup(() => {
+      throw new Error("offline");
+    });
+    w.t.answers.push("y");
+    expect(await run(w.t, "ci", "allow", "github", "Octo-Org/Deploys", "--ref", "release/*", "--workflow", "release.yml")).toBe(0);
+    expect(said(w.t)).toContain("Warning: whether this device's relay checks ref patterns could not be checked (its /v1/info could not be read)");
+    expect(said(w.t)).toContain("a branch ruleset");
+    expect((await loadCiRules(w.files.ciRulesPath))[0]).toMatchObject({ ref: "refs/heads/release/*" });
+  });
+
+  it("takes a full pattern by --ref too", async () => {
+    const w = await setup();
+    w.t.answers.push("y");
+    expect(await run(w.t, "ci", "allow", "github", "o/r", "--ref", "refs/tags/*", "--workflow", "release.yml")).toBe(0);
+    expect(said(w.t)).toContain("it takes every tag, so anyone who can push any tag can send");
+    expect((await loadCiRules(w.files.ciRulesPath))[0]).toMatchObject({ ref: "refs/tags/*" });
+  });
+
+  it("never asks the relay for a GitLab pattern, which the relay does not filter, and names GitLab's protected tags", async () => {
+    const w = await setup();
+    w.t.answers.push("y");
+    expect(await run(w.t, "ci", "allow", "gitlab", "Group/App", "--tag", "v*")).toBe(0);
+    const out = said(w.t);
+    expect(out).toContain("any job of that project on a matching ref");
+    expect(out).toContain("Protected tags, with the wildcard v*.");
+    expect(out).toContain("nothing from a matching tag is delivered until it is protected");
+    expect(out).not.toContain("Warning:");
+    expect(w.asked).toEqual([`https://gitlab.com/api/v4/projects/${encodeURIComponent("group/app")}`]);
+    expect((await loadCiRules(w.files.ciRulesPath))[0]).toMatchObject({ via: "gitlab", ref: "refs/tags/v*" });
+    w.t.answers.push("y");
+    expect(await run(w.t, "ci", "allow", "gitlab", "group/app", "--ref", "refs/heads/release/*", "--unprotected")).toBe(0);
+    expect(said(w.t)).toContain("This rule also takes unprotected refs (--unprotected)");
   });
 });
 

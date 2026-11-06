@@ -88032,6 +88032,24 @@ function isVectorKey(pub) {
   return VECTOR_KEYS.has(typeof pub === "string" ? pub : b64u.encode(pub));
 }
 
+// ../protocol/src/info.ts
+var relayInfoSchema = external_exports.object({
+  v: external_exports.literal(1),
+  software: external_exports.literal("worldinmotion-relay"),
+  version: external_exports.string().max(64),
+  create: external_exports.enum(["key", "open", "closed"]),
+  limits: external_exports.object({
+    max_meshes: external_exports.number().int().nonnegative().nullable(),
+    idle_mesh_days: external_exports.number().int().nonnegative().nullable(),
+    blob_bytes_per_mesh_per_day: external_exports.number().int().nonnegative()
+  }),
+  offer: external_exports.string().nullable(),
+  /** Whether the relay takes CI senders (SPEC section 18). */
+  ci: external_exports.boolean().optional(),
+  /** Whether the relay checks ref pattern tags on GitHub CI notices (SPEC section 18). */
+  ciPatterns: external_exports.boolean().optional()
+});
+
 // ../protocol/src/jwt.ts
 var GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
 var GITLAB_ISSUER = "https://gitlab.com";
@@ -88212,6 +88230,24 @@ function ciRuleTag(t2) {
   bytes3.set(label);
   bytes3.set(body, label.length);
   return cut22(sha2562(bytes3));
+}
+var CI_REF_MAX = 255;
+var FULL_REF = /^refs\/(?:heads|tags)\/[^\s\u0000-\u001f\u007f*?[\\]+$/;
+var REF_PATTERN = /^refs\/(?:heads|tags)\/[^\s\u0000-\u001f\u007f*?[\\]*\*$/;
+var codePoints = (s3) => [...s3].length;
+function isCiFullRef(v) {
+  return typeof v === "string" && FULL_REF.test(v) && codePoints(v) <= CI_REF_MAX;
+}
+function isCiRefPattern(v) {
+  return typeof v === "string" && REF_PATTERN.test(v) && codePoints(v) <= CI_REF_MAX;
+}
+function isCiRuleRef(v) {
+  return isCiFullRef(v) || isCiRefPattern(v);
+}
+var ciRuleRefSchema = external_exports.string().refine(isCiRuleRef, "a full ref (refs/heads/... or refs/tags/...) or one with a single trailing *");
+function ciRefMatches(ruleRef2, ref2) {
+  if (isCiFullRef(ruleRef2)) return ref2 === ruleRef2;
+  return isCiRefPattern(ruleRef2) && ref2.startsWith(ruleRef2.slice(0, -1));
 }
 var PROBE2 = sha2562(utf8("wim/1 ci prekey probe"));
 function verifyCiPrekey(raw, r6, now) {
@@ -89693,7 +89729,7 @@ function cardLabel(card) {
 var CI_RULES_MAX = 64;
 var PRIVILEGED_EVENTS = ["pull_request_target", "workflow_run"];
 var id = external_exports.string().regex(/^[0-9]{1,20}$/);
-var ref = external_exports.string().max(255).regex(/^refs\/(heads|tags)\/[^\s\u0000-\u001f\u007f]+$/);
+var ref = ciRuleRefSchema;
 var environment = external_exports.string().min(1).max(255).regex(/^[^\u0000-\u001f\u007f]+$/);
 var ruleId = external_exports.string().regex(/^[0-9A-Z]{26}$/);
 var GITHUB_REPO = /^[a-z0-9_.-]{1,100}\/[a-z0-9_.-]{1,100}$/;
@@ -89745,9 +89781,32 @@ async function saveCiRules(path2, rules, env3) {
 async function updateCiRules(path2, env3, change) {
   await withLock(`${path2}.lock`, async () => saveCiRules(path2, change(await loadCiRules(path2)), env3), env3);
 }
-function fullRef(name, tag) {
-  if (name.startsWith("refs/")) return name;
-  return `${tag ? "refs/tags/" : "refs/heads/"}${name}`;
+function ruleRef(flag3, name) {
+  if (flag3 === "tag") return `refs/tags/${name}`;
+  return name.startsWith("refs/") ? name : `refs/heads/${name}`;
+}
+function refRefusal(ref2) {
+  if (isCiRuleRef(ref2)) return void 0;
+  if ([...ref2].length > CI_REF_MAX) return `the ref is longer than ${CI_REF_MAX} characters: ${sanitizeForDisplay([...ref2].slice(0, 64).join(""))}...`;
+  return `not a branch or tag name, or a pattern: ${sanitizeForDisplay(ref2)}. A pattern ends in one * (--tag 'v*', --ref 'release/*'); a name holds no whitespace, control character, ?, [ or \\, and no * anywhere else`;
+}
+function patternLines(rule) {
+  if (!isCiRefPattern(rule.ref)) return [];
+  const tag = rule.ref.startsWith("refs/tags/");
+  const kind = tag ? "tag" : "branch";
+  const prefix = sanitizeForDisplay(rule.ref.slice(tag ? "refs/tags/".length : "refs/heads/".length, -1));
+  const lines = [
+    prefix === "" ? `This rule is a pattern: it takes every ${kind}, so anyone who can push any ${kind} can send.` : `This rule is a pattern: it takes every ${kind} whose name starts with "${prefix}" (that name itself included, and names with / in them), so anyone who can push such a ${kind} can send.`
+  ];
+  if (rule.via === "github") {
+    lines.push(`Protect the same ${kind}s at GitHub with a ${kind} ruleset (Settings, Rules, Rulesets) that restricts creating, updating and deleting them, targeting both ${prefix}* and ${prefix}*/**/* (a ruleset's * does not match /).`);
+  } else {
+    lines.push(
+      `Protect the same ${kind}s at GitLab: Settings, Repository, Protected ${tag ? "tags" : "branches"}, with the wildcard ${prefix}*.`,
+      rule.unprotected === true ? `This rule also takes unprotected refs (--unprotected): until they are protected, anyone who can push a matching ${kind} can send.` : `This rule takes only refs GitLab marks protected: nothing from a matching ${kind} is delivered until it is protected.`
+    );
+  }
+  return lines;
 }
 function claimIds(c5) {
   return c5.via === "github" ? { repositoryId: c5.repositoryId, ownerId: c5.ownerId } : { projectId: c5.projectId, namespaceId: c5.namespaceId };
@@ -89763,13 +89822,13 @@ function workflowMatches(workflowRef, repository, file2, ref2) {
 function matchesByName(rule, c5) {
   if (rule.via === "github") {
     if (c5.via !== "github") return false;
-    if (c5.repository.toLowerCase() !== rule.repo || c5.ref !== rule.ref) return false;
+    if (c5.repository.toLowerCase() !== rule.repo || !ciRefMatches(rule.ref, c5.ref)) return false;
     if (!workflowMatches(c5.workflowRef, c5.repository, rule.workflow, c5.ref)) return false;
     const eventOk = rule.events === void 0 ? !PRIVILEGED_EVENTS.includes(c5.event) : rule.events.includes(c5.event);
     return eventOk && (rule.environment === void 0 || c5.environment === rule.environment);
   }
   if (c5.via !== "gitlab") return false;
-  if (c5.projectPath.toLowerCase() !== rule.repo || c5.ref !== rule.ref) return false;
+  if (c5.projectPath.toLowerCase() !== rule.repo || !ciRefMatches(rule.ref, c5.ref)) return false;
   if (!c5.refProtected && rule.unprotected !== true) return false;
   return rule.environment === void 0 || c5.environment === rule.environment && c5.environmentProtected === true;
 }
@@ -123338,18 +123397,7 @@ import { request } from "node:https";
 import { isIP as isIP4 } from "node:net";
 import * as tls2 from "node:tls";
 import { urlToHttpOptions } from "node:url";
-var InfoSchema = external_exports.object({
-  v: external_exports.literal(1),
-  software: external_exports.literal("worldinmotion-relay"),
-  version: external_exports.string().max(64),
-  create: external_exports.enum(["key", "open", "closed"]),
-  limits: external_exports.object({
-    max_meshes: external_exports.number().int().nonnegative().nullable(),
-    idle_mesh_days: external_exports.number().int().nonnegative().nullable(),
-    blob_bytes_per_mesh_per_day: external_exports.number().int().nonnegative()
-  }),
-  offer: external_exports.string().nullable()
-});
+var InfoSchema = relayInfoSchema;
 var INFO_MAX_BYTES = 16 * 1024;
 function infoUrl(relay) {
   return `${relay.replace(/^ws/, "http")}/v1/info`;
@@ -124725,19 +124773,35 @@ async function publicIds(fetcher, via, repo) {
     return void 0;
   }
 }
-var ALLOW_USAGE = "usage: wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]\n       wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]";
+var ALLOW_USAGE = [
+  "usage: wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]",
+  "       wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]",
+  "       a branch, tag or full ref may be a pattern ending in one *, quoted so the shell leaves it alone: --tag 'v*', --ref 'release/*'"
+].join("\n");
+var REF_FLAGS = ["ref", "tag"];
+function refFrom(c5) {
+  const given = REF_FLAGS.filter((f7) => c5.flags.has(f7));
+  if (given.length === 0) throw new SetupError(`--ref or --tag is required
+${ALLOW_USAGE}`);
+  if (given.length > 1) throw new SetupError(`give one of --ref and --tag (for a tag, --tag <name> alone)
+${ALLOW_USAGE}`);
+  const flag3 = given[0];
+  const name = c5.flags.get(flag3);
+  if (name === "" || name.startsWith("-")) throw new SetupError(flag3 === "tag" ? "--tag needs a tag name or a pattern ending in * (quoted: --tag 'v*')" : "--ref needs a branch name, a full ref or a pattern ending in * (quoted: --ref 'release/*')");
+  const ref2 = ruleRef(flag3, name);
+  const why = refRefusal(ref2);
+  if (why !== void 0) throw new SetupError(why);
+  return ref2;
+}
 function ruleFrom(c5) {
   const [, via, rawRepo] = c5.positional;
   if (via !== "github" && via !== "gitlab" || rawRepo === void 0 || c5.positional.length > 3) throw new SetupError(ALLOW_USAGE);
   const repo = rawRepo.toLowerCase();
   if (!(via === "github" ? GITHUB_REPO : GITLAB_REPO).test(repo)) throw new SetupError(`not a ${via === "github" ? "GitHub owner/repo" : "GitLab group/project"}: ${sanitizeForDisplay(rawRepo)}`);
-  const refName = value(c5, "ref");
-  if (refName === void 0) throw new SetupError(`--ref is required
-${ALLOW_USAGE}`);
   const base = {
     id: ulid3(c5.io.now()),
     repo,
-    ref: fullRef(refName, on(c5, "tag")),
+    ref: refFrom(c5),
     ...value(c5, "environment") === void 0 ? {} : { environment: value(c5, "environment") },
     ...on(c5, "hold") ? { hold: true } : {}
   };
@@ -124753,13 +124817,28 @@ ${ALLOW_USAGE}`);
   if (events2 !== void 0 && !events2.every((e6) => EVENT_NAME.test(e6))) throw new SetupError("--event takes GitHub event names, comma-separated (push,workflow_dispatch)");
   return checkRule({ ...base, via, workflow, ...events2 === void 0 ? {} : { events: events2 } });
 }
-function allowLines(rule, pins) {
-  const who = rule.via === "github" ? "any job of that workflow file on that ref" : "any job of that project on that ref";
+async function relayTakesPatterns(files, fetcher) {
+  const config2 = await files.loadConfig();
+  const info = await fetchRelayInfo(config2.relay, fetcher, { tlsPin: config2.tls });
+  if (info === void 0) return "unknown";
+  return info.ciPatterns === true ? "yes" : "no";
+}
+function capabilityLines(patterns) {
+  const effect = "a relay without them refuses every GitHub notice that only a pattern rule matches, so notices under this rule are refused until the relay is updated. Allowing it saves the rule all the same.";
+  if (patterns === "no") return [`Warning: this device's relay does not say it checks ref patterns (its /v1/info lacks "ciPatterns": true): ${effect}`];
+  if (patterns === "unknown") return [`Warning: whether this device's relay checks ref patterns could not be checked (its /v1/info could not be read): ${effect}`];
+  return [];
+}
+function allowLines(rule, pins, patterns) {
+  const where = isCiRefPattern(rule.ref) ? "on a matching ref" : "on that ref";
+  const who = rule.via === "github" ? `any job of that workflow file ${where}` : `any job of that project ${where}`;
   return [
     "Allowing CI notices to this device:",
     `  ${ruleLine({ ...rule, ...pins === void 0 ? {} : { pins } })}`,
     `Then ${who} (and anything that job runs) can send your sessions information-only notices. They never assign work and never wake a session.`,
     pins === void 0 ? "The repository's ids could not be read from the provider's public API (a private repository, or no network): the first matching notice is held for you, showing the ids its token carries, and approving it with `wim held approve <id>` pins them." : "The repository's ids were read from the provider's public API and are pinned: a recycled name cannot send.",
+    ...patternLines(rule),
+    ...capabilityLines(patterns),
     ...rule.via === "github" && rule.events?.some((e6) => PRIVILEGED_EVENTS.includes(e6)) === true ? ["This rule names pull_request_target or workflow_run: a pull request from a fork can steer those runs."] : [],
     ...rule.via === "gitlab" ? ["A GitLab token cannot be bound to one notice: anything that can read the job's variables can send one notice as that project until the job times out (set a short timeout:)."] : []
   ];
@@ -124775,7 +124854,8 @@ async function allow(c5) {
   };
   room(await loadCiRules(files.ciRulesPath));
   const pins = await publicIds(c5.io.fetch, rule.via, rule.repo);
-  if (!await confirmTyped(c5.io, allowLines(rule, pins), "Allow it?")) return 1;
+  const patterns = rule.via === "github" && isCiRefPattern(rule.ref) ? await relayTakesPatterns(files, c5.io.fetch) : "yes";
+  if (!await confirmTyped(c5.io, allowLines(rule, pins, patterns), "Allow it?")) return 1;
   const added = checkRule({ ...rule, ...pins === void 0 ? {} : { pins } });
   await updateCiRules(files.ciRulesPath, files.env, (rules) => (room(rules), [...rules, added]));
   const { code: code2, mesh } = await recipient(files, device);
@@ -129238,8 +129318,8 @@ ${error64.message}`;
 
 // src/cli.ts
 var VERSION = "0.1.9";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
@@ -129328,8 +129408,9 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
-  wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]
-  wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]
+  wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]
+  wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]
+  wim ci allow ... --tag 'v*' | --ref 'release/*': a pattern, one * at the end, quoted
   wim ci list | wim ci remove <n>
   wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
