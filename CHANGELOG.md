@@ -13,6 +13,23 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **`wim setup`, a guided first run on one machine.** In a terminal of your own it creates the
+  device and a mesh, offering the host name as the device name and the hosted relay as the relay,
+  shows what the relay says it offers, and asks for a typed `y` before it creates anything. It
+  shows the recovery code once and waits for Enter. When the `claude` or `code` command is
+  installed, it offers the Claude Code plugin or the VS Code extension, showing the commands it
+  runs (without a shell) and waiting for a `y`; it prints the state directory and why, and warns
+  when `CLAUDE_CONFIG_DIR` is set. It ends with `wim status`, problems first. Run again on a device
+  that is set up, it skips what is done. It refuses an agent's shell and piped input or output, as
+  the other person-only commands do, never asks about crash reports and does not start the
+  signer. Adding a machine to an existing mesh from `wim setup`, and `wim setup <invite code>`,
+  come later; `wim invite` and `wim join` do that today. `wim init`, `wim join` and
+  `wim invite --auto` are unchanged.
+- **`wim recovery show --wait`** waits for Enter after showing the code, so a terminal that closes
+  when its command ends keeps the code on screen until the person has stored it.
+
 ### Fixed
 
 - **The GitHub Action did not load.** The description of its `status` input showed the

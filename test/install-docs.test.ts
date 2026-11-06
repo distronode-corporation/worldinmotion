@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { commandUsage } from "../packages/client/src/cli.ts";
+import { SETUP_COMMANDS } from "../packages/client/src/setup.ts";
 
 // The VS Code extension is published as a pre-release only. An unpinned `code --install-extension
 // distronode.worldinmotion` asks for the latest stable version, finds none and prints only "Failed
@@ -28,4 +30,30 @@ describe("VS Code install commands in the docs", () => {
       expect(text).toContain("Failed Installing Extensions");
     });
   }
+});
+
+// `wim setup` (README, Quick start) runs these commands for the person; the README names the same
+// ones, and every `wim` command the quick start names exists.
+describe("the README's quick start", () => {
+  const text = readFileSync(join(repo, "README.md"), "utf8");
+  const quick = text.slice(text.indexOf("## Quick start: `wim setup`"), text.indexOf("## First run"));
+
+  it("comes before the manual first run, which stays", () => {
+    expect(text.indexOf("## Quick start: `wim setup`")).toBeGreaterThan(-1);
+    expect(quick.length).toBeGreaterThan(0);
+    expect(text).toContain("### 2. Create the mesh, on the first machine");
+  });
+
+  it("names the commands wim setup runs, exactly", () => {
+    for (const c of SETUP_COMMANDS) expect(quick.replace(/\s+/g, " ")).toContain(c);
+  });
+
+  it("names only wim commands that exist, and wim help setup and recovery show --wait give them", () => {
+    const named = [...quick.matchAll(/`wim ([a-z-]+)/g)].map((m) => m[1]!);
+    expect(named).toContain("setup");
+    for (const c of named) expect(commandUsage(c)).toBeDefined();
+    expect(commandUsage("setup")).toBe("wim setup [--name <device>] [--relay <url>] [--key-env NAME]");
+    expect(commandUsage("recovery")).toContain("wim recovery show [--wait]");
+    expect(text).toContain("`wim recovery show --wait`");
+  });
 });

@@ -1040,8 +1040,9 @@ the new policy first (section 7.5). No message, tool call or MCP request can cha
 mesh of your own devices.
 
 **Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume`,
-`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`), and
-`wim mesh delete` run only when standard input and standard output are both an interactive
+`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`),
+`wim mesh delete`, and `wim setup` (every path, before its first question) run only when
+standard input and standard output are both an interactive
 terminal and none of an agent's variables is set. They then show what is being decided (for a
 held item: the sender, its device id, the session it waits for, why it waits and its text; for a
 device: its name, role, id, and the policy now and after; for a mesh: its id, relay and every
