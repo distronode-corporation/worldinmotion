@@ -53,6 +53,17 @@ body line with a bracket.
   SECURITY-MODEL section 7.6, each with a test against hostile input (the caller's real
   `WIM_HOME` and agent variables, a temporary directory inside the caller's state, existing state
   directories, symbolic links, any other relay address).
+- **`wim test --full`, `--relay` and `--person`.** `--full` adds two sandbox steps: the signer
+  (encrypt under a passphrase made for the run and never printed, start, lock, unlock, stop, its
+  socket in the sandbox device's own directory) and a CI notice from a test issuer that exists
+  only inside the sandbox (held, approved, and the rule's ids pinned). `--relay <url>` is live
+  mode: the same steps with a throwaway mesh on that relay (`wss://`, or `ws://` only on
+  loopback), deleted at the end through `wim mesh delete` on pass, failure and Ctrl-C, with
+  `--key-env NAME` for a relay that needs an operator key. A step the relay does not offer is a
+  skip with the reason, and such skips do not fail the run; the summary line counts them.
+  `--person` has a person type the person-only steps at their own terminal, and refuses to start
+  under an agent's variables or piped input or output. Tests run live mode against relay-node in
+  a process of its own.
 
 ### Changed
 
