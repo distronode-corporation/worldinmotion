@@ -172,6 +172,11 @@ describe("F5: a restored pause is not bounded by its tier (clock moved back, or 
     const [p] = b.pausedRows();
     expect(p, "the pause is still running").toBeDefined();
     expect(p!.until - Date.now(), "a cool-down of 1 minute, at most an hour").toBeLessThanOrEqual(3_600_000);
+    // The bound keeps the pause's \`at\`, so its release still finds what it held (Seer, #76).
+    offset = 61_000;
+    await until(async () => (await msgs(b)).length === 2);
+    expect(await msgs(b)).toEqual(["1", "2"]);
+    expect(await b.held.list()).toEqual([]);
   }, 30_000);
 });
 

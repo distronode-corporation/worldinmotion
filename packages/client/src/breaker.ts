@@ -38,10 +38,14 @@ export type Admission = { ok: true } | { ok: false; reason: "paused" | TripRule;
 /** What the breaker reads: the counting limits, and the cool-down when trips may end by themselves (the CI bucket has none). */
 export type Limits = BreakerTier & { cooldownMinutes?: number };
 
-/** A pause bounded by the clock: one that starts in the future or ends more than an hour out (a clock set back, a damaged file) runs its length from now, at most an hour. */
+/**
+ * A pause bounded by the clock: one that ends more than an hour from now (a clock set back, a
+ * damaged file) runs its own length from now, at most an hour. `at` is kept: it is what the items
+ * held under the pause name it by.
+ */
 function bounded(p: Pause, now: number): Pause {
-  if (p.at <= now && p.until - now <= HOUR) return p;
-  return { ...p, at: now, until: now + Math.min(Math.max(p.until - p.at, 0), HOUR) };
+  if (p.until - now <= HOUR) return p;
+  return { ...p, until: now + Math.min(Math.max(p.until - p.at, 0), HOUR) };
 }
 
 export class Breaker {

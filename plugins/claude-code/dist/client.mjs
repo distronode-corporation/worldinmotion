@@ -89176,8 +89176,8 @@ var MINUTE2 = 6e4;
 var PING_WINDOW = 10 * MINUTE2;
 var SHORT = 200;
 function bounded(p3, now) {
-  if (p3.at <= now && p3.until - now <= HOUR2) return p3;
-  return { ...p3, at: now, until: now + Math.min(Math.max(p3.until - p3.at, 0), HOUR2) };
+  if (p3.until - now <= HOUR2) return p3;
+  return { ...p3, until: now + Math.min(Math.max(p3.until - p3.at, 0), HOUR2) };
 }
 var Breaker = class {
   deliveries = /* @__PURE__ */ new Map();

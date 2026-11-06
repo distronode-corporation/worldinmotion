@@ -174,16 +174,21 @@ describe("Breaker", () => {
     // As written: it started in the past and ends within the hour.
     b.restore(p);
     expect(b.pauses()).toEqual([p]);
-    // Written while the clock ran 5 hours ahead: it runs its minute from now.
+    // Written while the clock ran 5 hours ahead: it runs its minute from now, and keeps its \`at\`
+    // (what the items held under it name it by).
     b.restore({ ...p, at: now + 5 * 3_600_000, until: now + 5 * 3_600_000 + 60_000 });
-    expect(b.pauses()).toEqual([{ ...p, at: now, until: now + 60_000 }]);
+    expect(b.pauses()).toEqual([{ ...p, at: now + 5 * 3_600_000, until: now + 60_000 }]);
+    // Once bounded, it is not moved again.
+    now += 30_000;
+    expect(b.admit("x", 1, true)).toMatchObject({ ok: false, reason: "paused", pause: { until: now + 30_000 } });
+    now -= 30_000;
     // Ending more than an hour out (a damaged file): at most an hour from now.
     b.restore({ ...p, at: 0, until: Number.MAX_SAFE_INTEGER });
     expect(b.pauses()[0]!.until).toBe(now + 3_600_000);
     // Inside one process: the clock moves back 5 hours under a running pause.
     b.restore(p);
     now -= 5 * 3_600_000;
-    expect(b.admit("x", 1, true)).toMatchObject({ ok: false, reason: "paused", pause: { at: now, until: now + 60_000 } });
+    expect(b.admit("x", 1, true)).toMatchObject({ ok: false, reason: "paused", pause: { at: p.at, until: now + 60_000 } });
     // A release taken back keeps a second trip waiting for the person, for the hour only.
     b.restoreRelease("y", now - 1_000);
     b.restoreRelease("z", now - 3_600_000);
