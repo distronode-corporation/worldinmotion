@@ -414,8 +414,8 @@ export class Run {
   /** Mesh ids by role: the run's mesh, and device A's second one. */
   mesh = "";
   second = "";
-  /** The meshes the run made and has not deleted yet: in live mode, deleted at the end whatever happened. */
-  readonly made = new Set<string>();
+  /** The meshes the run deleted; in live mode, every other one it made is deleted at the end. */
+  readonly deleted = new Set<string>();
   /** How long a running command may take to print that it is ready. */
   readyMs = 15_000;
   /** The sandbox signer's passphrase: made here, typed by the script, never printed. */
@@ -560,15 +560,23 @@ export class Run {
   /** `wim mesh create` (or `init --relay`) on `dev`, with the operator key's variable when there is one; the new mesh's id. */
   async create(dev: Dev, argv: readonly string[]): Promise<string> {
     const key = this.mode.keyEnv === undefined ? [] : ["--key-env", this.mode.keyEnv.name];
-    const id = grab(await this.ok(dev, [...argv, "--relay", this.box!.relayUrl, ...key, "--no-recovery"]), /Created mesh (\S+) on/, "mesh id");
-    this.made.add(id);
-    return id;
+    return grab(await this.ok(dev, [...argv, "--relay", this.box!.relayUrl, ...key, "--no-recovery"]), /Created mesh (\S+) on/, "mesh id");
   }
 
   /** `wim mesh delete` of one of the run's meshes, from test-a, its admin. */
   async deleteMesh(id: string): Promise<void> {
     need((await this.ok(this.dev("test-a"), ["mesh", "delete", "--mesh", id], ["y"])).includes(`Deleted mesh ${id}`), `mesh ${id} was not deleted`);
-    this.made.delete(id);
+    this.deleted.add(id);
+  }
+
+  /**
+   * Every mesh the run made, read from what its commands printed: a create stopped after the
+   * relay made the mesh (Ctrl-C, a step's time running out) still printed its id, so it is
+   * still deleted.
+   */
+  made(): string[] {
+    const ids = this.terms.flatMap((t) => [...said(t).matchAll(/^Created mesh (\S+) on /gm)].map((m) => m[1]!));
+    return [...new Set(ids)].filter((id) => !this.deleted.has(id));
   }
 
   /**
@@ -582,7 +590,7 @@ export class Run {
     await Promise.allSettled([...this.running.map((r) => r.done), ...this.sessions.map((s) => s.stop({ ended: true }))]);
     if (this.mode.live !== undefined) rows.push(await ending("delete the live meshes", async () => {
       // Each one is tried, whatever happened to the one before.
-      const left = [...this.made];
+      const left = this.made();
       const failed: string[] = [];
       for (const id of left) await this.deleteMesh(id).catch((error: unknown) => void failed.push((error as Error).message));
       need(failed.length === 0, failed.join("; "));
@@ -694,6 +702,10 @@ export function ciStep(run: Run): Step {
         return Response.json({ value: await run.issuer!.mint(url.searchParams.get("audience")!, Date.now()) });
       }) as typeof fetch;
       const env = { GITHUB_ACTIONS: "true", ACTIONS_ID_TOKEN_REQUEST_URL: TEST_TOKEN_URL, ACTIONS_ID_TOKEN_REQUEST_TOKEN: "sandbox" };
+      // The session tells the relay it takes CI notices (its `ci.rules`) once it is connected;
+      // a round trip after that frame went out means the relay has handled it.
+      await waitFor(() => (deploys as unknown as { ciSent: string | undefined }).ciSent, 15_000, "the session to tell the relay it takes CI notices");
+      await deploys.listPeers();
       const sent = await run.cmd(job, ["ci", "notify", "--recipient", code, "--to", "deploys", "--text", "the build passed"], [], run.term(job, [], env, tokens));
       need(sent.text.includes("wim ci notify: sent to deploys"), `the notice was not sent: ${lastLine(sent.text)}`);
       const id = await waitFor(async () => /^(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15_000, "the held CI notice");

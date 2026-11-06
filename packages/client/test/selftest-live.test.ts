@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { GITHUB_ISSUER, JWKS_URLS } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { main } from "../src/cli.ts";
-import { ciStep, Sandbox, selfTest, testIssuer, type Run, type Step } from "../src/selftest.ts";
+import { ciStep, Sandbox, selfTest, testIssuer, waitFor, type Run, type Step } from "../src/selftest.ts";
 import { makeMesh, RelayHarness, run as runCli, scratch, term } from "./helpers.ts";
 
 const BIN = join(import.meta.dirname, "..", "..", "relay-node", "src", "bin.ts");
@@ -71,7 +71,9 @@ async function meshGone(copy: string): Promise<boolean> {
 describe("wim test --full, the sandbox", { timeout: 480_000 }, () => {
   it("runs the signer and CI notice steps too, and passes", async () => {
     const { t, env } = await caller({ CLAUDECODE: "1" });
-    expect(await main(["test", "--full", "--json"], env, t.io)).toBe(0);
+    const code = await main(["test", "--full", "--json"], env, t.io);
+    // On a failure, the rows are in the message.
+    expect(code, t.out.at(-1)).toBe(0);
     const out = JSON.parse(t.out.at(-1)!) as { mode: string; full: boolean; ok: boolean; steps: Array<{ name: string; result: string }> };
     expect(out).toMatchObject({ mode: "sandbox", full: true, ok: true });
     expect(out.steps.filter((s) => s.result !== "pass")).toEqual([]);
@@ -83,8 +85,9 @@ describe("wim test --relay, live mode", { timeout: 480_000 }, () => {
   it("passes on a relay that gates creation with a key, deletes its meshes, and skips the CI step without failing", async () => {
     const { url } = await relayProcess({ WIM_OPEN_CREATE: "", WIM_CREATE_KEY: "an-operator-key-for-tests", WIM_CI: "1" });
     const { t, env } = await caller({ WIM_TEST_KEY: "an-operator-key-for-tests" });
-    expect(await main(["test", "--full", "--relay", url, "--key-env", "WIM_TEST_KEY"], env, t.io)).toBe(0);
+    const code = await main(["test", "--full", "--relay", url, "--key-env", "WIM_TEST_KEY"], env, t.io);
     const out = t.out.join("\n");
+    expect(code, out).toBe(0);
     expect(out).toMatch(/^ {2}skip {2}a CI notice: held, approved, its rule pinned .*the test issuer exists only in the sandbox$/m);
     expect(out).toMatch(/^ {2}pass {2}mesh delete/m);
     expect(out).toMatch(/^ {2}pass {2}delete the live meshes/m);
@@ -136,6 +139,38 @@ describe("wim test --relay, live mode", { timeout: 480_000 }, () => {
     });
     expect(code).toBe(1);
     expect(t.out.join("\n")).toMatch(/^ {2}fail {2}create .*stopped$/m);
+    expect(t.out.join("\n")).toMatch(/^ {2}pass {2}delete the live meshes/m);
+    expect(await meshGone(copy)).toBe(true);
+  });
+
+  it("deletes a mesh whose create was stopped by Ctrl-C after the relay made it", async () => {
+    const { url } = await relayProcess();
+    const { t, env } = await caller();
+    const stop = new AbortController();
+    const copy = join(await scratch("copy"), "a");
+    const code = await selfTest({
+      main,
+      env,
+      io: { ...t.io, signal: stop.signal },
+      json: false,
+      relay: url,
+      steps: (run) => [
+        { name: "open", run: () => run.open() },
+        {
+          name: "create, stopped",
+          run: async () => {
+            const a = await run.device("test-a");
+            void run.create(a, ["init", "--name", "test-a"]).catch(() => undefined);
+            // Stopped as soon as the mesh exists, before the create command has ended.
+            await waitFor(() => (run.terms.some((x) => x.out.some((l) => l.startsWith("Created mesh "))) ? true : undefined), 15_000, "the create");
+            await fs.cp(a.dir, copy, { recursive: true });
+            stop.abort();
+            await new Promise(() => undefined);
+          },
+        },
+      ],
+    });
+    expect(code).toBe(1);
     expect(t.out.join("\n")).toMatch(/^ {2}pass {2}delete the live meshes/m);
     expect(await meshGone(copy)).toBe(true);
   });
