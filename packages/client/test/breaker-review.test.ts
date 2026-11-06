@@ -126,6 +126,8 @@ describe("F3: an offline `wim held resume` erases other peers' ended cool-downs 
     expect((await readBreakerFile(b.files.breakerPath)).lifts).toEqual(["a@one"]);
     const again = await session(devices[1]!, mesh, relay, { name: "b", sessionKey: "key:b" });
     await until(async () => (await pausedByCount(a)) === 0);
+    // The lift is sent before breaker.json is written without it, so the sender can hear it first.
+    await until(async () => (await readBreakerFile(again.files.breakerPath)).lifts.length === 0, 10_000, "breaker.json written without the lift");
     expect((await readBreakerFile(again.files.breakerPath)).lifts).toEqual([]);
   }, 30_000);
 });
