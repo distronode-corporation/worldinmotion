@@ -52,6 +52,7 @@ import {
   verifyPrekey,
   plaintextSchema,
   type DeviceKeys,
+  type PauseInfo,
   type Prekey,
   type Roster,
   type SendFrame,
@@ -630,6 +631,72 @@ function pingVectors() {
   });
 }
 
+function pauseVectors() {
+  const pks = vectorPrekeys();
+  const genesis = createGenesisRoster({ name: "alice", keys: alice, now: T, meshId: MESH });
+  const roster = nextRoster(genesis, { add: [makeDeviceRecord("bob", bob, "member", T)] }, { keys: alice }, T);
+  const writer = { session: "writer", sid: "01K700000000000000000005D1" };
+  const reviewer = { session: "reviewer", sid: "01K700000000000000000005D2" };
+  const held = "01K700000000000000000006H1";
+  const paused = { state: "paused" as const, rule: "peer" as const, count: 121, limit: 120, minutes: 10, until: T + 40 + 600_000, auto: true };
+  return withRandomSource(stream("wim vectors pause"), () => {
+    // bob's breaker paused alice: his reviewer session tells writer@alice, whose message `held` it
+    // holds, and later that the person lifted the pause. Each is sealed to alice's prekey.
+    const seal = (msgId: string, at: number, seq: number, pause: PauseInfo, replyTo?: string) =>
+      sealMessage({
+        roster,
+        sender: { deviceId: id(bob), keys: bob },
+        ...reviewer,
+        to: ["writer@alice"],
+        seq,
+        at,
+        id: msgId,
+        kind: "pause",
+        pause,
+        ...(replyTo === undefined ? {} : { reply_to: replyTo }),
+        recipients: [id(alice)],
+        prekeys: { [id(alice)]: pks.alice.prekey },
+        prekey: pks.bob.prekey,
+      });
+    const pausedFrame = seal("01K700000000000000000006Q1", T + 40, 1, paused, held);
+    const liftedFrame = seal("01K700000000000000000006Q2", T + 80, 2, { state: "lifted" });
+    const atAlice = { deviceId: id(alice), keys: alice, address: "writer@alice", sid: writer.sid, prekey: (p: string) => (p === pks.alice.prekey.id ? pks.alice.secret : undefined) };
+    const pausedOpened = openMessage(pausedFrame, { roster, me: atAlice, now: T + 60 });
+    const liftedOpened = openMessage(liftedFrame, { roster, me: atAlice, now: T + 100 });
+    check(pausedOpened.ok && liftedOpened.ok, "pause and lifted open");
+    const base = { v: 1, id: pausedFrame.id, from: { device: id(bob), ...reviewer }, to: ["writer@alice"], at: T + 40, roster: { seq: 2, hash: hash(roster) }, kind: "pause" };
+    const invalid = [
+      { why: "a pause with text", plaintext: { ...base, pause: paused, text: "hello" } },
+      { why: "a pause marked relayed", plaintext: { ...base, pause: paused, relayed: true } },
+      { why: "a pause marked derived", plaintext: { ...base, pause: paused, derived: true } },
+      { why: "a pause to *", plaintext: { ...base, pause: paused, to: ["*"] } },
+      { why: "a pause to a room", plaintext: { ...base, pause: paused, to: ["#ops"] } },
+      { why: "a pause to two sessions", plaintext: { ...base, pause: paused, to: ["writer@alice", "other@alice"] } },
+      { why: "a pause without its pause field", plaintext: { ...base } },
+      { why: "a pause that ends at its own at", plaintext: { ...base, pause: { ...paused, until: T + 40 } } },
+      { why: "a pause that ends more than an hour after its at", plaintext: { ...base, pause: { ...paused, until: T + 40 + 3_600_001 } } },
+      { why: "an unknown rule", plaintext: { ...base, pause: { ...paused, rule: "budget" } } },
+      { why: "a count of 0", plaintext: { ...base, pause: { ...paused, count: 0 } } },
+      { why: "a limit that is not a whole number", plaintext: { ...base, pause: { ...paused, limit: 1.5 } } },
+      { why: "a window over 60 minutes", plaintext: { ...base, pause: { ...paused, minutes: 61 } } },
+      { why: "auto that is not a boolean", plaintext: { ...base, pause: { ...paused, auto: "yes" } } },
+      { why: "a field paused does not have", plaintext: { ...base, pause: { ...paused, reason: "loop" } } },
+      { why: "a lifted with an until", plaintext: { ...base, pause: { state: "lifted", until: T + 100 } } },
+      { why: "an unknown state", plaintext: { ...base, pause: { state: "resumed" } } },
+    ];
+    for (const v of invalid) check(!plaintextSchema.safeParse(v.plaintext).success, `pause invalid ${v.why}`);
+    return {
+      description:
+        "Pause (SPEC section 12), with the roster and prekeys of prekey.json. bob's loop breaker paused alice, so his reviewer session sends writer@alice a `pause` with every field, whose `reply_to` names the message it held, and later a `pause` saying the person lifted it; each is sealed to alice's prekey, and alice opens it at its `now` to `plaintext`. Neither carries text. Each `invalid_plaintexts` entry MUST be refused by the plaintext schema (reason `plaintext_malformed` when it arrives sealed). `older_kinds` are the kinds a client before `pause` knows: a plaintext schema of only those kinds MUST refuse both plaintexts, which is how an older client drops them (`plaintext_malformed`).",
+      roster,
+      paused: { receiver: { device: "alice", address: atAlice.address, sid: atAlice.sid }, now: T + 60, frame: pausedFrame, plaintext: (pausedOpened as { value: unknown }).value },
+      lifted: { receiver: { device: "alice", address: atAlice.address, sid: atAlice.sid }, now: T + 100, frame: liftedFrame, plaintext: (liftedOpened as { value: unknown }).value },
+      invalid_plaintexts: invalid,
+      older_kinds: ["msg", "task", "result", "card", "file", "ping", "pong"],
+    };
+  });
+}
+
 function blobVectors() {
   return withRandomSource(stream("wim vectors blob"), () => {
     const size = 256 * 1024 + 5;
@@ -762,6 +829,7 @@ export function buildVectors(): Record<string, string> {
     "message.json": json(messageVectors()),
     "prekey.json": json(prekeyVectors()),
     "ping.json": json(pingVectors()),
+    "pause.json": json(pauseVectors()),
     "blob.json": json(blobVectors()),
     "ci.json": json(ciVectors()),
   };

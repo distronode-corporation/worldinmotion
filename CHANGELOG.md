@@ -143,6 +143,9 @@ body line with a bracket.
   held approve <id>` takes `resume` as well as `y` for one, approving the item and lifting the
   pause on its device in one step. Both stay the person's: no MCP tool, internal op, message or
   `pause` approves or resumes.
+- **Test vectors for `pause`** (`vectors/pause.json`, SPEC section 16): a pause with every field
+  and a lift, sealed and opened, the plaintexts that must be refused, and the kinds an older
+  client knows, whose schema refuses both.
 
 ### Fixed
 

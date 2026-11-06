@@ -1279,6 +1279,7 @@ escape.
 | `rdv.json` | a short invite code for `invite.json`'s code: `k`, the check, `rdv`, the box key, AAD, nonce and ciphertext, the relay's answer, spellings that read back, and codes that MUST be refused |
 | `message.json` | a sealed send frame with a scheme 1 box, the plaintext one recipient opens, and tamper cases with their reasons |
 | `ping.json` | a ping and its pong, each a whole frame sealed to the other device's prekey, with the plaintexts each side opens; ping and pong plaintexts that MUST be refused |
+| `pause.json` | a `pause` with every field and one saying the pause was lifted, each a whole frame sealed to the paused device's prekey, with the plaintexts it opens; pause plaintexts that MUST be refused; and the kinds a client before `pause` knows, whose schema MUST refuse both |
 | `prekey.json` | two signed prekeys with their secrets; one scheme 2 box by hand with every HPKE value (info, AAD, ephemeral secret, enc, shared secret, key, base nonce, ciphertext); a whole frame carrying `pk`, its plaintext, and tamper cases (`key_expired`, `decrypt_failed`, `bad_signature`) with the prekeys held; prekeys that MUST fail verification, with their reasons |
 | `blob.json` | a 2-chunk file with a fixed key and nonces |
 | `ci.json` | section 18: a recipient code, both audiences, a rule tag, a CI sender id and counting key; a GitHub and a GitLab notice sealed by hand (one-time key, `xk`, prekey, HPKE values, plaintext, the `ci` signature) with a fixture RSA issuer key and its JWKS; tokens that MUST be refused, with their reasons |
