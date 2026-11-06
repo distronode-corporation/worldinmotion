@@ -1096,15 +1096,41 @@ every device of the mesh, so it reaches untrusted devices too.
 ### 7.3 Loop and cost breaker
 
 Two agents that each wake on the other's message can loop forever, and every wake costs tokens. The
-client counts automatic deliveries per sender device in a sliding hour (by default 120 per peer
-and 300 in total) and detects ping-pong (by default more than 32 short alternating exchanges in 10
-minutes). A `mesh.json` written before 0.1.8 keeps the limits written in it (20, 60 and 8) until
-the person changes them there (docs/design.md, loop and cost breaker). Past a limit,
-new items from that peer are held, the person is told, the receiving session is told once per
-pause (so its agent does not take a held peer for a silent one; only the person can release what is
-held), and the sender gets the receipt `held`. The
-pause lifts when the person resumes the peer or the hour rolls over. No message can change the
-limits.
+client counts automatic deliveries per sender device in a sliding hour and detects ping-pong (more
+than a number of short alternating exchanges in 10 minutes), with limits that depend on whether the
+person trusts the sender device:
+
+- **A device the person trusts** (policy `deliver` or `deliver-relayed`, and this device's own
+  sessions): by default 120 per peer and 300 in total from all trusted peers, and ping-pong past
+  32 exchanges. A trip is a cool-down, 10 minutes by default (at most an hour): when it ends, the
+  client lifts the pause and delivers what it held, as a resume by the person would, and tells the
+  session. A device the person stopped trusting meanwhile is not released: what it held stays held.
+  A trusted peer that trips again within an hour of such a release is paused for the hour like an
+  untrusted one, and waits for the person, so a loop between trusted devices costs at most about
+  twice its limit in an hour.
+- **Any other device**: by default 20 per peer and 60 in total from all such peers, and ping-pong
+  past 8 exchanges. A trip pauses it for the hour, and what it held waits for the person. A device
+  whose policy is `hold` is held before the breaker counts it, so this tier is a floor for anything
+  else that reaches it.
+
+A `mesh.json` keeps the limits written in it, and one written before 0.1.9 has no trusted tier: its
+trusted peers get the trusted defaults, each raised to the file's own value where that is higher
+(docs/design.md, loop and cost breaker). Past a limit, new items from that peer are held; the person
+is told which rule tripped, what it counted and its limit, and when the pause ends; the receiving
+session is told once per pause (so its agent does not take a held peer for a silent one); `wim
+held list` and the plugin's pane show the running pauses; and the sender gets the receipt `held`.
+The receiving client also tells each sending session once per pause, with a `pause` message (SPEC
+section 12), so that the sender's `send` reports `held`, with the rule and its numbers, instead of
+`routed` until the pause ends. A `pause` is a label like a receipt: it changes only what the
+sending client reports, never what it sends or what anyone delivers, and a `pause` a peer sends
+about its own breaker never lifts, shortens or resumes a pause on the device that receives it.
+
+The pause lifts when the person resumes the peer (`wim held resume`, Resume in a local UI, or
+"Approve and resume this device" on a held item, which approves that item and resumes its device
+in one step), when a trusted peer's cool-down ends, or when the hour rolls over. Approving and
+resuming stay the person's (section 7.1): no MCP tool, internal op, message or `pause` reaches
+them, and the client's own release at the end of a cool-down is a timer the person set in
+mesh.json, which an agent can only wait for. No message can change the limits or the trust.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy
