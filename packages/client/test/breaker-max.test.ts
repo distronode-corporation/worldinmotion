@@ -97,7 +97,8 @@ describe("L1", () => {
     const held = (await b.held.list()).map((h) => h.entry.text);
     expect([...(await msgs(b)), ...held].sort(), "delivered or still held").toEqual(["1", "2", "3", "4", "5"]);
     for (const t of ["6", "7"]) await a.send("b@two", t);
-    await sleep(500);
+    // Once b has decided on both (delivered or held), not after a fixed half second.
+    await until(async () => (await msgs(b)).length + (await b.held.list()).length === 7, 10_000, "b decided on 6 and 7");
     expect((await msgs(b)).length, "2 x limit 2").toBeLessThanOrEqual(4);
   }, 30_000);
 });

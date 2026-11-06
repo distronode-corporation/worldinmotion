@@ -239,6 +239,35 @@ describe("an older mesh.json", () => {
 });
 
 describe("the sending side", () => {
+  it("reports the send that trips the pause as the relay's routed, while the receiver holds that very message and says so for its id", async () => {
+    const { a, b, devices } = await pair(60);
+    // What b's client sends of its own: the pause, and what it names.
+    const posts: Array<{ to: string; kind?: string; reply_to?: string }> = [];
+    const inner = b as unknown as { post(to: string, text: undefined, o: { kind?: string; reply_to?: string }): Promise<unknown> };
+    const post = inner.post.bind(b);
+    inner.post = (to, text, o) => {
+      posts.push({ to, ...(o.kind === undefined ? {} : { kind: o.kind }), ...(o.reply_to === undefined ? {} : { reply_to: o.reply_to }) });
+      return post(to, text, o);
+    };
+    expect((await a.send("b@two", "0")).results).toEqual([{ to: "b@two", status: "routed" }]);
+    // The second trips b's breaker (one an hour). The relay answers before b opens it, so this send
+    // reports what the relay did with it, and nothing on a's side can know yet that b holds it.
+    const tripping = await a.send("b@two", "1");
+    expect(tripping.results).toEqual([{ to: "b@two", status: "routed" }]);
+    // b holds the tripping message itself: it is not delivered and counted as the last one allowed.
+    await until(async () => (await b.held.list()).length === 1);
+    expect((await b.held.list()).map((h) => [h.id, h.reason])).toEqual([[tripping.id, "breaker"]]);
+    expect(await msgs(b)).toEqual(["0"]);
+    // a learns it for that id: the held receipt, and the pause, whose reply_to names it.
+    await until(() => (a.receipts.get(tripping.id) ?? []).some((r) => r.status === "held"));
+    await spooled(a, (i) => i.kind === "notice" && i.rendered.includes(`b@two is holding your message ${tripping.id}: it is not delivered now.`));
+    await until(() => posts.some((p) => p.kind === "pause"));
+    expect(posts.filter((p) => p.kind === "pause")).toEqual([{ to: "a@one", kind: "pause", reply_to: tripping.id }]);
+    // From then on a's sends there report held.
+    await until(async () => (await a.pausedBy.active())[`${devices[1]!.device.id}/b`] !== undefined);
+    expect((await a.send("b@two", "2")).results).toEqual([{ to: "b@two", status: "held", relay: "routed", breaker: expect.objectContaining({ rule: "peer", count: 2, limit: 1 }) }]);
+  });
+
   it("hears the pause once a session, reports held, and takes a pause only as a label from a session it sent to", async () => {
     const { a, b, clocks, devices, mesh } = await pair(60);
     // Nothing was sent to b yet: a pause from it counts for nothing.
