@@ -3,6 +3,7 @@ import {
   checkCiPlaintext,
   ciOpenRequest,
   ciRecipientCode,
+  ciCandidateTags,
   ciRuleTag,
   ciSenderId,
   githubAudience,
@@ -162,6 +163,9 @@ describe("test vectors", { timeout: 60_000 }, () => {
     expect(githubAudience(r.mesh, r.device, d.otk)).toBe(d.github_audience);
     expect(gitlabAudience(r.mesh, r.device)).toBe(d.gitlab_audience);
     expect(ciRuleTag(d.rule_tag)).toBe(d.rule_tag.tag);
+    expect(ciRuleTag(d.pattern_tag)).toBe(d.pattern_tag.tag);
+    expect(ciCandidateTags(d.candidate_tags)).toEqual(d.candidate_tags.tags);
+    expect(d.candidate_tags.tags).toContain(d.pattern_tag.tag);
     expect(githubCountingKey("https://token.actions.githubusercontent.com", "65", "74")).toBe(d.github_counting_key);
     expect(gitlabCountingKey(r.device)).toBe(d.gitlab_counting_key);
     const jwks = parseJwks(JSON.stringify(ci.issuer.jwks))!;
