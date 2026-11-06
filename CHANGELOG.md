@@ -13,6 +13,15 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The GitHub Action did not load.** The description of its `status` input showed the
+  job-status expression literally, and GitHub evaluates expressions anywhere in an action's
+  metadata, so every run stopped in "Set up job" (`Unrecognized named-value: 'job'`) before
+  sending anything. The description now names the expression in words, and a test refuses any
+  expression in `action.yml`. Found by the first live run of `ci-notice-staging.yml`; the GitLab
+  component was not affected.
+
 ## [0.1.9] - 2026-11-06
 
 ### Added
