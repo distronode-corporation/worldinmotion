@@ -17,6 +17,15 @@ export default defineConfig({
       miniflare: {
         bindings: { WIM_OPEN_CREATE: "1", WIM_IDLE_MESH_DAYS: "30", WIM_CI: "1" },
         ratelimits: { DIALS: { namespace_id: "4170", simple: { limit: 100, period: 60 } } },
+        // Every fetch the Worker makes lands here, so no test reaches the network. One URL is a
+        // redirect to a JWKS (MOVED_JWKS_URL in test-workers/ci.test.ts), for the test that the
+        // Worker's own JWKS fetch runs in workerd and follows no redirect.
+        outboundService: (request: Request) => {
+          const url = new URL(request.url);
+          if (url.host !== "jwks.invalid") return new Response("no network in tests", { status: 502 });
+          if (url.pathname === "/moved") return new Response(null, { status: 302, headers: { location: "https://jwks.invalid/keys" } });
+          return Response.json({ keys: [] });
+        },
       },
     }),
   ],

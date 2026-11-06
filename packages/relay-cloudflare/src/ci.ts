@@ -2,11 +2,13 @@ import { JwksCache, LIMITS, type JwksFetch } from "@worldinmotion/protocol";
 
 /**
  * How the Worker fetches GitHub's JWKS for CI tokens (SPEC section 18): no redirects, 5 seconds
- * at most, and only ever an issuer's fixed URL. Tests replace `jwks.fetch`, since the Worker and
- * the tests share one isolate.
+ * at most, and only ever an issuer's fixed URL. A redirect is not followed: its 3xx status comes
+ * back, and `JwksCache` takes only a 200. workerd refuses `redirect: "error"` outright (a
+ * TypeError before any request), so `manual` is the only way to say no redirects here. Tests
+ * replace `jwks.fetch`, since the Worker and the tests share one isolate.
  */
 export const jwks: { fetch: JwksFetch } = {
-  fetch: (url) => fetch(url, { redirect: "error", signal: AbortSignal.timeout(5000) }),
+  fetch: (url) => fetch(url, { redirect: "manual", signal: AbortSignal.timeout(5000) }),
 };
 
 let cache: JwksCache | undefined;
