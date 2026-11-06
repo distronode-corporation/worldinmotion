@@ -11,7 +11,9 @@ import { pauseEnd, pauseRule } from "./breaker.ts";
 import { ClientError, heldSendLine, MeshSession, unprotectedNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
 import { HISTORY_MAX, renderForAgent } from "./history.ts";
 import { isStalePeer, peerLine } from "./render.ts";
+import { POINTER_LEVELS, type Ancestor } from "./ancestry.ts";
 import { ensureDir, tryRemove, writeJson } from "./fsx.ts";
+import { removePointer, writePointer } from "./hook.ts";
 import { SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import type { RelayQuote } from "./wire.ts";
@@ -188,6 +190,12 @@ export type McpOptions = {
   /** Whether the `_internal` tool is offered (the Claude Code plugin sets `WIM_KIND=claude-code`). */
   internalTools: boolean;
   version: string;
+  /**
+   * The processes above this server (cli.ts `ancestry`): when given, the session directory keeps
+   * them in `ancestry.json` while this process runs it, so `wim hook` can tell it is the session
+   * inside the same agent session (hook.ts).
+   */
+  ancestry?: (levels: number) => Promise<Ancestor[]>;
   /** How often `wait` reports progress (default 30 s, well inside every client's idle timer). */
   progressMs?: number;
 };
@@ -208,6 +216,8 @@ export class WimMcp {
   private retryTimer: NodeJS.Timeout | undefined;
   /** A handshake that came before a session could open: its Claude session and the link file it waits on. */
   private pending: { claudeSessionId: string; file: string } | undefined;
+  /** The processes above this one, read once. */
+  private chain: Promise<Ancestor[]> | undefined;
 
   constructor(o: McpOptions) {
     this.o = o;
@@ -295,9 +305,19 @@ export class WimMcp {
     if (this.o.channel) s.push = (item) => this.pushChannel(item);
     s.start();
     this.session = s;
+    await this.point(s);
     // As MeshSession.deliver does: a relayed item, or a notice for the person, never starts a turn.
     if (this.o.channel) for (const item of await s.spool.unread()) if (item.relayed !== true && item.forPerson !== true) await s.take(item.cursor).then(() => this.pushChannel(item));
     return s;
+  }
+
+  /** Writes the session's pointer for `wim hook`; one that cannot be written only means no wake. */
+  private async point(s: MeshSession): Promise<void> {
+    if (this.o.ancestry === undefined) return;
+    const read = this.o.ancestry;
+    this.chain ??= read(POINTER_LEVELS).catch(() => []);
+    const chain = await this.chain;
+    if (chain.length > 0) await writePointer(s.files.dir, s.files.env.pid, chain, s.files.env).catch(() => undefined);
   }
 
   private async pushChannel(item: SpoolItem): Promise<void> {
@@ -312,6 +332,7 @@ export class WimMcp {
     clearInterval(this.retryTimer);
     this.retry = undefined;
     if (this.pending !== undefined) await tryRemove(this.pending.file, LOCAL_FS);
+    if (this.session !== undefined) await removePointer(this.session.files.dir, this.session.files.env);
     await this.session?.stop(opts);
     await this.server.close();
   }
@@ -353,6 +374,7 @@ export class WimMcp {
     const known = await keys.lookup(key);
     if (known !== undefined && known.sid !== s.sid && !(await new SessionFiles(o.mesh, known.sid, o.env).isLiveElsewhere())) {
       // The session this process opened is unused: end it so its name is freed for the old one.
+      await removePointer(s.files.dir, s.files.env);
       await s.stop({ ended: true });
       const next = this.openWith(key);
       this.opening = next;

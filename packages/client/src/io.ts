@@ -6,6 +6,7 @@ import { Writable, type Readable } from "node:stream";
 import { spawnDetached, wimCommand } from "./agentcli.ts";
 import { runProgram } from "./autostart.ts";
 import type { CliIO } from "./cli.ts";
+import { ancestry, realAncestryDeps } from "./ancestry.ts";
 import { pidAlive } from "./platform.ts";
 
 /**
@@ -102,5 +103,6 @@ export function processIo(
     onUnexpected: (listener) => void unexpected.push(listener),
     // Orphaned children are re-parented, so a changed ppid means the parent died.
     parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill),
+    ancestry: (levels) => ancestry({ ...realAncestryDeps(proc.platform), pid: proc.pid, ppid: proc.ppid }, levels),
   };
 }
