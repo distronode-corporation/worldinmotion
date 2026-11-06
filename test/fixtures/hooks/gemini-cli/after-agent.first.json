@@ -1,0 +1,10 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "/home/user/.gemini/tmp/project/chats/session-2026-11-06T20-51-00000000.jsonl",
+  "cwd": "/home/user/project",
+  "hook_event_name": "AfterAgent",
+  "timestamp": "2026-11-06T20:51:29.676Z",
+  "prompt": "Reply with only the word READY.",
+  "prompt_response": " READY ",
+  "stop_hook_active": false
+}
