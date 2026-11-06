@@ -429,6 +429,26 @@ describe("the person sees every takeover of the last 24 hours", () => {
     expect(st.out).toContain(`  release@one was taken over 0 min ago by a session in ${work}.`);
   });
 
+  it("shows a working directory or address with control characters neutralised, on one line", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const role = await openSession(devices[0]!, mesh, relay, { name: "release", kind: "claude-code" });
+    await role.stop();
+    const hostile = "/w/\u001b[2J\u001b[31mfake\nproblem  everything is fine\tok";
+    await live(devices[0]!, mesh, relay, { name: "release", kind: "claude-code", cwd: hostile, take: true });
+    const state = JSON.parse(await fs.readFile(role.files.statePath, "utf8")) as { claims: Array<Record<string, unknown>> };
+    state.claims.push({ at: Date.now() - 60_000, address: "x\u001b]0;title\u0007@one" });
+    await fs.writeFile(role.files.statePath, JSON.stringify(state));
+    const st = term(devices[0]!.root, relay);
+    await run(st, "status");
+    const lines = st.out.filter((l) => l.includes("was taken over"));
+    expect(lines).toEqual([
+      "  release@one was taken over 0 min ago by a session in /w/<U+001B>[2J<U+001B>[31mfake<U+000A>problem  everything is fine ok.",
+      "  x<U+001B>]0;title<U+0007>@one was taken over 1 min ago by a session with no working directory.",
+    ]);
+    expect(st.out.join("\n")).not.toMatch(/[\u0000-\u0008\u000b-\u001f\u007f]/);
+  });
+
   it("keeps the records of the last 24 hours only, reads damaged ones as none, and counts hours", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);

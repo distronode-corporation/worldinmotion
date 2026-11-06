@@ -101,6 +101,9 @@ which is then mapped to the session taken over. The session the claim replaces (
 tool's, or one `hello` would give up) ends for good when it holds nothing (nothing sent, unread or
 held, no room, no lease), else it stays offline like any other. After a claim the session gets one
 notice: the address taken over and how many unread messages, held items and leases came with it.
+The count waits on a `lease.list` request sent after `ready`: this relies on the relay answering a
+request only after it has flushed the queue it sends on `ready` (both relays do), so every
+queued message is spooled before it is counted; the answer also gives the lease count.
 Held items stay the person's to approve or refuse. Because a peer's text can prompt an agent to
 claim, the `rename` tool tells agents to take only on the person's word, and every claim is
 recorded in the taken-over session's `session.json` (`claims`: when, the address, and the

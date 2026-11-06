@@ -1,7 +1,7 @@
 // One session's files: session.json (name, resume secret, cursor, rooms, seq), its liveness
 // lock, and the map that lets a restarted agent take its session back.
 
-import { b64u, isName, isUlid, randomBytes, sha256, ulid, utf8 } from "@worldinmotion/protocol";
+import { b64u, isName, isUlid, randomBytes, sanitizeForDisplay, sha256, ulid, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
 import { claimLock, listDir, lockHeld, readJson, readText, releaseLock, removeFile, whileBusy, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import type { MeshFiles } from "./mesh.ts";
@@ -60,7 +60,12 @@ export async function recentTakeovers(mesh: MeshFiles, env: FsEnv, now: number):
     const state = await new SessionFiles(mesh, sid, env).load();
     for (const c of state?.claims ?? []) if (now - c.at < CLAIM_SHOWN_MS) found.push(c);
   }
-  return found.sort((a, b) => b.at - a.at).map((c) => `${c.address} was taken over ${ago(now - c.at)} ago by a session ${c.cwd === undefined ? "with no working directory" : `in ${c.cwd}`}`);
+  return found.sort((a, b) => b.at - a.at).map((c) => `${shown(c.address)} was taken over ${ago(now - c.at)} ago by a session ${c.cwd === undefined ? "with no working directory" : `in ${shown(c.cwd)}`}`);
+}
+
+/** A field of a claim record as a terminal line shows it: controls and invisible characters escaped visibly, on one line. */
+function shown(text: string): string {
+  return sanitizeForDisplay(text).replace(/\n/g, "<U+000A>").replace(/\t/g, " ");
 }
 
 function ago(ms: number): string {
