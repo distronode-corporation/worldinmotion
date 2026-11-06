@@ -64,6 +64,13 @@ body line with a bracket.
   `--person` has a person type the person-only steps at their own terminal, and refuses to start
   under an agent's variables or piped input or output. Tests run live mode against relay-node in
   a process of its own.
+- **worldinmotion: Run Self-Test in VS Code, and `/wim test` in Claude Code.** The VS Code command
+  runs `wim test --json` with the extension's client under a progress notification (Cancel
+  stops it, and the client still removes what it made), then says whether it passed, naming the
+  first failed step, with **Show Steps** for the **worldinmotion self-test** output, one row per
+  step, the mark first. `/wim test` runs the plugin's own client and prints the same rows; it
+  passes on `--full`, `--relay <url>` and `--key-env NAME` only when the person typed them, and
+  refuses `--person`.
 
 ### Changed
 

@@ -1266,6 +1266,12 @@ That is safe only because of where the script can act, so isolation is the prope
   timing (section 6.10). A mesh whose deletion failed (the relay went away) is said on the last
   rows, and stays until the relay's idle expiry. The CI step is skipped there: a live relay checks
   real GitHub tokens, and the test issuer exists only in the sandbox.
+- **From VS Code and Claude Code.** **worldinmotion: Run Self-Test** and `/wim test` start `wim
+  test --json` as a process of its own with the extension's or the plugin's client: the same
+  command under the same rules, and neither reaches the scripted terminal any other way. The VS
+  Code command passes no flag (the sandbox). `/wim test` passes on only `--full`, `--relay <url>`
+  and `--key-env NAME`, and only when the person typed them; it never adds `--relay`, and refuses
+  `--person`, which needs the person's own terminal.
 - **`--person`.** A person types the person-only steps at their own terminal, so the real
   terminal checks (section 5.6) are what those steps meet. It refuses to start under an agent's
   variables or without an interactive terminal on stdin and stdout, as a person-only command
