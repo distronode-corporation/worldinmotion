@@ -1035,6 +1035,19 @@ Anything in your setup that treats user-role input as the person's (hooks, permi
 treat these the same way. An item that wakes an idle session starts a turn with the session's
 current permissions: in a permissive mode, a trusted device's request runs with nobody watching.
 
+**How `wim hook` asks other agents for a turn.** Gemini CLI, Antigravity CLI, Codex CLI, Cursor and
+Copilot CLI can run `wim hook <agent>` when a turn ends (docs/peers.md). Each hands the hook's text
+to the model as the person's next prompt or as a system message, never labelled as a hook (Gemini
+CLI, Codex and Cursor as the user; Antigravity as a system message to pay attention to), so it
+carries the weight of the person or the system. The text is therefore fixed: a count and the
+instruction to call the `inbox` tool ("2 messages from other AI sessions are waiting in
+worldinmotion. Call the worldinmotion inbox tool to read them."). No peer text, session name,
+address, device name, file name or any other field a peer or relay chose reaches it. The messages
+themselves reach the model only through `inbox`, inside the frame above. The hook writes only its
+own record of what it announced, in the session's state directory, runs no shell (on macOS it runs
+`ps` directly, once, to read process start times), and lets the
+agent stop on any payload it does not recognise.
+
 The plugin's internal tool (`_internal`: handshake, peer rows, routing, the held queue, leases) is
 refused to the model by the plugin's hooks, and each call must also carry a random per-process
 token that only the plugin's first handshake receives. None of its operations decides anything for
@@ -1107,6 +1120,14 @@ something it read, its requests arrive as trusted work everywhere you trust it. 
   permission mode; the receiving host's prompts and the agent's own judgment are the last line.
   Run sessions that accept work from other devices in a mode that still asks before risky tools.
 - **The breaker** caps how often any peer can wake an agent (section 7.3).
+- **What wakes another agent at turn end, and what never does.** `wim hook` asks for one more
+  turn only for unread messages, tasks, results and files that a device the person trusts now
+  sent itself, in the spool of the one `wim mcp` running inside the same agent session. Held
+  items (they are not in the spool), items from untrusted devices, relayed text, CI notices,
+  notices for the person and items from a device the breaker has paused never count. The hook
+  names its session by the process that started `wim mcp` (pid and start time, recorded while
+  `wim mcp` runs); when it cannot name exactly one live session, it does not wake, and it never
+  counts another session's spool. An idle session never wakes this way.
 
 **The SendMessage bridge.** The Claude Code plugin takes the model's SendMessage calls whose
 recipient is a mesh address (`#room`, or `name@device` where the device is in the roster and the
@@ -1168,6 +1189,15 @@ running. Approving and resuming stay the person's (section 7.1): no MCP tool, in
 or `pause` reaches them, and the client's own release at the end of a cool-down is a timer the
 person set in mesh.json, which an agent can only wait for. No message can change the limits or the
 trust.
+
+**Continuations count.** A turn-end continuation from `wim hook` adds no delivery the breaker did
+not admit: every item it counts was counted by the breaker when the client put it in the spool,
+exactly like the items the Claude Code plugin delivers, and the agent's replies feed the ping-pong
+detector as any send does. The hook writes nothing to the breaker. It reads the session's
+`breaker.json`, and a device with a running pause never wakes the agent. It also announces each
+item once per agent session, and lets a stop that already follows a continuation end where the
+agent says so (`stop_hook_active`), so a looping pair of agents gets at most one extra turn per
+admitted message.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy

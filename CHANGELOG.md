@@ -38,6 +38,17 @@ body line with a bracket.
   person's alone (their own terminal and a typed `y`, as for `wim devices trust`), with no MCP
   tool or events op. `wim status` and `wim doctor` show it. Off by default until 1.0. No wire
   change.
+- **`wim hook <agent>`: other agents look again at turn end.** It is a turn-end hook for Gemini
+  CLI, Antigravity CLI, Codex CLI, Cursor and Copilot CLI. When a turn ends and messages from
+  devices you trust wait for that session, the hook asks the agent for one more turn. The request
+  is a fixed line: how many messages wait, and to call the `inbox` tool. It never holds a peer's
+  text, name or address. Each message is announced once per agent session. Held messages,
+  untrusted devices, relayed text, CI notices and paused devices never wake it, and anything
+  unclear lets the agent stop (exit 0 always). The hook counts only the `wim mcp` that the same
+  agent session started, which `wim mcp` now records in its session directory (`ancestry.json`)
+  while it runs. Add the hook entry by hand for now: [docs/peers.md](docs/peers.md) has it for
+  each agent. Gemini CLI and Antigravity CLI were checked live; the other three follow their
+  documentation. An idle session still does not wake.
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device
