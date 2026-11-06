@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { basename, join } from "node:path";
 import { ulid, ulidTime } from "@worldinmotion/protocol";
 import { describe, expect, it } from "vitest";
-import { Breaker, pauseNotice, pauseNoticeForAgent } from "../src/breaker.ts";
+import { Breaker, clock, pauseNotice, pauseNoticeForAgent, pauseRule, releasedNotice, type Pause } from "../src/breaker.ts";
 import { cardFor, cardLabel, readBranch, sameCard } from "../src/cards.ts";
 import { mimeFor, safeFileName, saveReceived, secretsInFile, unsendable, wireFileName } from "../src/files.ts";
 import { frameEntry, History, renderForAgent, renderForPerson, type HistoryEntry } from "../src/history.ts";
@@ -14,6 +14,8 @@ import { POSIX, scratch } from "./helpers.ts";
 const DEV = "A".repeat(22);
 /** The breaker every mesh.json written before 0.1.8 holds, read back. */
 const BEFORE_018 = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
+/** The trusted tier's defaults. */
+const TRUSTED = DEFAULT_BREAKER.trusted;
 
 describe("Breaker", () => {
   it("pauses a peer past its hourly limit and resumes after the hour or on request", () => {
@@ -21,9 +23,20 @@ describe("Breaker", () => {
     const limits = { perPeerPerHour: 3, totalPerHour: 100, pingPong: false, pingPongExchanges: 8 };
     const b = new Breaker(() => limits, () => now);
     for (let i = 0; i < 3; i++) expect(b.admit("dev1", 500)).toEqual({ ok: true });
-    expect(b.admit("dev1", 500)).toEqual({ ok: false, reason: "peer", newly: true });
-    expect(b.admit("dev1", 500)).toEqual({ ok: false, reason: "paused", newly: false });
-    now += 3_600_001;
+    const tripped = b.admit("dev1", 500);
+    expect(tripped).toEqual({
+      ok: false,
+      reason: "peer",
+      newly: true,
+      pause: { peer: "dev1", rule: "peer", count: 4, limit: 3, minutes: 60, trusted: false, at: 0, until: 3_600_000, auto: false },
+    });
+    expect(b.admit("dev1", 500)).toMatchObject({ ok: false, reason: "paused", newly: false, pause: { rule: "peer" } });
+    expect(b.pauses()).toHaveLength(1);
+    // An untrusted peer's pause is never released by the client: it only lapses.
+    now = 3_600_000;
+    expect(b.takeDue()).toEqual([]);
+    expect(b.pauses()).toEqual([]);
+    now += 1;
     expect(b.admit("dev1", 500)).toEqual({ ok: true });
     for (let i = 0; i < 2; i++) b.admit("dev1", 500);
     expect(b.admit("dev1", 500).ok).toBe(false);
@@ -31,11 +44,14 @@ describe("Breaker", () => {
     expect(b.admit("dev1", 500)).toEqual({ ok: true });
   });
 
-  it("pauses everyone past the total", () => {
-    const b = new Breaker(() => ({ perPeerPerHour: 100, totalPerHour: 2, pingPong: false, pingPongExchanges: 8 }), () => 0);
+  it("pauses everyone past the total, counting each tier on its own", () => {
+    const b = new Breaker(() => ({ perPeerPerHour: 100, totalPerHour: 2, pingPong: false, pingPongExchanges: 8, trusted: { ...TRUSTED, totalPerHour: 3 } }), () => 0);
     b.admit("a", 1);
     b.admit("b", 1);
-    expect(b.admit("c", 1)).toEqual({ ok: false, reason: "total", newly: true });
+    expect(b.admit("c", 1)).toMatchObject({ ok: false, reason: "total", pause: { count: 3, limit: 2, trusted: false } });
+    // Trusted deliveries are counted apart: the untrusted total does not stop them.
+    for (let i = 0; i < 3; i++) expect(b.admit(`t${i}`, 1, true)).toEqual({ ok: true });
+    expect(b.admit("t9", 1, true)).toMatchObject({ ok: false, reason: "total", pause: { count: 4, limit: 3, trusted: true, auto: true } });
   });
 
   it("pauses a fast ping-pong of short messages, not long or one-way ones", () => {
@@ -47,7 +63,7 @@ describe("Breaker", () => {
       b.noteSent("p", 10);
     }
     now += 1000;
-    expect(b.admit("p", 10)).toEqual({ ok: false, reason: "pingpong", newly: true });
+    expect(b.admit("p", 10)).toMatchObject({ ok: false, reason: "pingpong", newly: true, pause: { count: 10, limit: 8, minutes: 10 } });
     const c = new Breaker(() => BEFORE_018, () => now);
     for (let i = 0; i < 6; i++) {
       now += 1000;
@@ -57,38 +73,99 @@ describe("Breaker", () => {
     for (let i = 0; i < 6; i++) expect(c.admit("r", 10).ok).toBe(true);
   });
 
-  it("counts ping-pong exchanges against the configured threshold", () => {
+  it("counts ping-pong exchanges against the tier's threshold", () => {
     let now = 0;
-    // The default for new meshes, 32: 17 incoming short messages answered in turn make 32
-    // alternating exchanges and pass; the 18th makes 34 and trips it.
+    // The trusted default, 32: 17 incoming short messages answered in turn make 32 alternating
+    // exchanges and pass; the 18th makes 34 and trips it. The untrusted 8 would have tripped at 10.
     const b = new Breaker(() => DEFAULT_BREAKER, () => now);
     for (let i = 0; i < 16; i++) {
       now += 1000;
-      expect(b.admit("p", 10).ok).toBe(true);
+      expect(b.admit("p", 10, true).ok).toBe(true);
       b.noteSent("p", 10);
     }
     now += 1000;
-    expect(b.admit("p", 10).ok).toBe(true);
+    expect(b.admit("p", 10, true).ok).toBe(true);
     b.noteSent("p", 10);
     now += 1000;
-    expect(b.admit("p", 10)).toEqual({ ok: false, reason: "pingpong", newly: true });
-    // A breaker that turns ping-pong off never trips on it, whatever the threshold.
-    const off = new Breaker(() => ({ ...DEFAULT_BREAKER, pingPong: false, pingPongExchanges: 1 }), () => now);
+    expect(b.admit("p", 10, true)).toMatchObject({ ok: false, reason: "pingpong", newly: true, pause: { count: 34, limit: 32, trusted: true } });
+    // A tier that turns ping-pong off never trips on it, whatever the threshold.
+    const off = new Breaker(() => ({ ...DEFAULT_BREAKER, trusted: { ...TRUSTED, pingPong: false, pingPongExchanges: 1 } }), () => now);
     for (let i = 0; i < 40; i++) {
       now += 1000;
-      expect(off.admit("q", 10).ok).toBe(true);
+      expect(off.admit("q", 10, true).ok).toBe(true);
       off.noteSent("q", 10);
     }
   });
 
-  it("words its notices with the rule that tripped and its limit", () => {
-    expect(pauseNotice("a@x", "peer", DEFAULT_BREAKER)).toBe("worldinmotion paused a@x: the per-peer limit, 120 messages in an hour; /wim to resume");
-    expect(pauseNotice("a@x", "total", DEFAULT_BREAKER)).toBe("worldinmotion paused a@x: the total limit, 300 messages in an hour from all peers; /wim to resume");
-    expect(pauseNotice("a@x", "pingpong", DEFAULT_BREAKER)).toBe(
-      "worldinmotion paused a@x: the ping-pong rule, more than 32 alternating short messages in 10 minutes; /wim to resume",
+  it("gives a trusted peer its own ceiling and a cool-down the client ends, once an hour", () => {
+    let now = 0;
+    const limits = { perPeerPerHour: 1, totalPerHour: 100, pingPong: false, pingPongExchanges: 8, trusted: { ...TRUSTED, perPeerPerHour: 3, cooldownMinutes: 5 } };
+    const b = new Breaker(() => limits, () => now);
+    // Untrusted, the same device would trip on its second message; trusted, on its fourth.
+    for (let i = 0; i < 3; i++) expect(b.admit("own", 10, true)).toEqual({ ok: true });
+    const first = b.admit("own", 10, true);
+    expect(first).toMatchObject({ ok: false, reason: "peer", pause: { count: 4, limit: 3, trusted: true, until: 5 * 60_000, auto: true } });
+    now = 5 * 60_000 - 1;
+    expect(b.takeDue()).toEqual([]);
+    now = 5 * 60_000;
+    // Due once: taking it lifts the pause and starts the counts over, so a second caller gets nothing.
+    expect(b.takeDue()).toEqual([(first as { pause: unknown }).pause]);
+    expect(b.takeDue()).toEqual([]);
+    expect(b.pauses()).toEqual([]);
+    for (let i = 0; i < 3; i++) expect(b.admit("own", 10, true)).toEqual({ ok: true });
+    // A second trip within the hour of that release waits the hour for the person.
+    expect(b.admit("own", 10, true)).toMatchObject({ ok: false, pause: { auto: false, until: 5 * 60_000 + 3_600_000 } });
+    now += 3_600_000;
+    expect(b.takeDue()).toEqual([]);
+    // The person's resume starts the allowance over: the next trip is a cool-down again.
+    b.resume("own");
+    for (let i = 0; i < 3; i++) b.admit("own", 10, true);
+    expect(b.admit("own", 10, true)).toMatchObject({ ok: false, pause: { auto: true } });
+    // An hour after an automatic release, a trip is a cool-down again too.
+    now += 5 * 60_000;
+    expect(b.takeDue()).toHaveLength(1);
+    now += 3_600_000;
+    for (let i = 0; i < 3; i++) b.admit("own", 10, true);
+    expect(b.admit("own", 10, true)).toMatchObject({ ok: false, pause: { auto: true } });
+  });
+
+  it("lists running pauses oldest first", () => {
+    let now = 0;
+    const b = new Breaker(() => ({ perPeerPerHour: 1, totalPerHour: 10, pingPong: false, pingPongExchanges: 8 }), () => now);
+    for (const peer of ["x", "y"]) {
+      b.admit(peer, 1);
+      now += 1;
+      b.admit(peer, 1);
+    }
+    expect(b.pauses().map((p) => [p.peer, p.at])).toEqual([["x", 1], ["y", 2]]);
+  });
+
+  it("applies one tier when it has no trusted limits, as the CI bucket does", () => {
+    const b = new Breaker(() => ({ perPeerPerHour: 1, totalPerHour: 10, pingPong: false, pingPongExchanges: 8 }), () => 0);
+    expect(b.admit("x", 1, true)).toEqual({ ok: true });
+    expect(b.admit("x", 1, true)).toMatchObject({ ok: false, pause: { trusted: false, auto: false } });
+  });
+
+  it("words its notices with the rule that tripped, its numbers and how the pause ends", () => {
+    const peer: Pause = { peer: "d", rule: "peer", count: 21, limit: 20, minutes: 60, trusted: false, at: 0, until: 3_600_000, auto: false };
+    expect(pauseNotice("a@x", peer)).toBe(
+      "worldinmotion paused a@x: the per-peer limit: 21 messages from a@x in 60 minutes, limit 20; until 1970-01-01T01:00:00Z; what it held waits for the person. /wim to approve, or to approve and resume it now",
     );
-    expect(pauseNotice("a@x", "pingpong", BEFORE_018)).toMatch(/more than 8 alternating short messages/);
-    expect(pauseNoticeForAgent("a@x", "total", BEFORE_018)).toMatch(/^this device's loop breaker paused a@x \(the total limit, 60 messages in an hour from all peers\): /);
+    const total: Pause = { ...peer, rule: "total", count: 301, limit: 300, trusted: true, until: 600_000, auto: true };
+    expect(pauseNotice("a@x", total)).toBe(
+      "worldinmotion paused a@x: the total limit: 301 messages from all trusted peers in 60 minutes, limit 300; until 1970-01-01T00:10:00Z, when the client releases it and delivers what it held (a trusted device's cool-down). /wim to approve, or to approve and resume it now",
+    );
+    expect(pauseRule("a@x", { ...total, trusted: false })).toBe("the total limit: 301 messages from all untrusted peers in 60 minutes, limit 300");
+    expect(pauseRule("this device", { rule: "total", count: 3, limit: 2, minutes: 60 })).toBe("the total limit: 3 messages from all peers in 60 minutes, limit 2");
+    const ping: Pause = { ...peer, rule: "pingpong", count: 10, limit: 8, minutes: 10 };
+    expect(pauseNotice("a@x", ping)).toMatch(/the ping-pong rule: 10 alternating short messages with a@x in 10 minutes, limit 8/);
+    expect(pauseNoticeForAgent("a@x", ping)).toMatch(/^this device's loop breaker paused a@x \(the ping-pong rule: 10 alternating .*until your person releases them\. .*The pause lifts at 1970-01-01T01:00:00Z; what was held stays held until the person decides\./);
+    expect(pauseNoticeForAgent("a@x", total)).toMatch(/until the cool-down ends or your person releases them\. .*The client releases a@x by itself at 1970-01-01T00:10:00Z/);
+    expect(releasedNotice("a@x", total, 2, 0)).toMatch(/^the loop breaker's cool-down for a@x ended at 1970-01-01T00:10:00Z \(it tripped on the total limit: .*\): its messages are delivered again, and the 2 messages it held are delivered now\. If it trips again within the hour, it waits for your person\.$/);
+    expect(releasedNotice("a@x", total, 1, 0)).toMatch(/the 1 message it held is delivered now/);
+    expect(releasedNotice("a@x", total, 0, 1)).toMatch(/its device is no longer trusted here, so the 1 message it held stays held for the person/);
+    expect(releasedNotice("a@x", total, 0, 2)).toMatch(/so the 2 messages it held stay held for the person/);
+    expect(clock(1_000)).toBe("1970-01-01T00:00:01Z");
   });
 });
 

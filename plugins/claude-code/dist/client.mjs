@@ -14227,18 +14227,18 @@ var init_JsonShapeDeserializer2 = __esm({
         }
         return value2;
       }
-      _readStruct(ns, record2) {
+      _readStruct(ns, record3) {
         const union2 = ns.isUnionSchema();
         const out = {};
         let nameMap;
-        const hasType = typeof record2.__type === "string";
+        const hasType = typeof record3.__type === "string";
         const { jsonName } = this.settings;
         if (jsonName && hasType) {
           nameMap = {};
         }
         let unionSerde;
         if (union2) {
-          unionSerde = new UnionSerde(record2, out);
+          unionSerde = new UnionSerde(record3, out);
         }
         for (const [memberName, memberSchema] of ns.structIterator()) {
           let fromKey = memberName;
@@ -14251,17 +14251,17 @@ var init_JsonShapeDeserializer2 = __esm({
           if (union2) {
             unionSerde.mark(fromKey);
           }
-          if (record2[fromKey] != null) {
-            out[memberName] = this._read(memberSchema, record2[fromKey]);
+          if (record3[fromKey] != null) {
+            out[memberName] = this._read(memberSchema, record3[fromKey]);
           }
         }
         if (union2) {
           unionSerde.writeUnknown();
         } else if (hasType) {
-          for (const k5 in record2) {
-            if (!hasOwn(record2, k5))
+          for (const k5 in record3) {
+            if (!hasOwn(record3, k5))
               continue;
-            const v = record2[k5];
+            const v = record3[k5];
             const t2 = jsonName ? nameMap[k5] ?? k5 : k5;
             if (!(t2 in out)) {
               out[t2] = v;
@@ -15082,7 +15082,7 @@ var init_JsonShapeDeserializer = __esm({
         const ns = NormalizedSchema.of(schema);
         if (isObject3) {
           if (ns.isStructSchema()) {
-            const record2 = value2;
+            const record3 = value2;
             const union2 = ns.isUnionSchema();
             const out = {};
             let nameMap = void 0;
@@ -15092,7 +15092,7 @@ var init_JsonShapeDeserializer = __esm({
             }
             let unionSerde;
             if (union2) {
-              unionSerde = new UnionSerde(record2, out);
+              unionSerde = new UnionSerde(record3, out);
             }
             for (const [memberName, memberSchema] of ns.structIterator()) {
               let fromKey = memberName;
@@ -15103,17 +15103,17 @@ var init_JsonShapeDeserializer = __esm({
               if (union2) {
                 unionSerde.mark(fromKey);
               }
-              if (record2[fromKey] != null) {
-                out[memberName] = this._read(memberSchema, record2[fromKey]);
+              if (record3[fromKey] != null) {
+                out[memberName] = this._read(memberSchema, record3[fromKey]);
               }
             }
             if (union2) {
               unionSerde.writeUnknown();
-            } else if (typeof record2.__type === "string") {
-              for (const k5 in record2) {
-                if (!hasOwn(record2, k5))
+            } else if (typeof record3.__type === "string") {
+              for (const k5 in record3) {
+                if (!hasOwn(record3, k5))
                   continue;
-                const v = record2[k5];
+                const v = record3[k5];
                 const t2 = jsonName ? nameMap[k5] ?? k5 : k5;
                 if (!(t2 in out)) {
                   out[t2] = v;
@@ -15321,7 +15321,7 @@ var init_JsonShapeSerializer = __esm({
         const ns = NormalizedSchema.of(schema);
         if (isObject3) {
           if (ns.isStructSchema()) {
-            const record2 = value2;
+            const record3 = value2;
             const out = {};
             const { jsonName } = this.settings;
             let nameMap = void 0;
@@ -15330,7 +15330,7 @@ var init_JsonShapeSerializer = __esm({
             }
             let outCount = 0;
             for (const [memberName, memberSchema] of ns.structIterator()) {
-              const serializableValue = this._write(memberSchema, record2[memberName], ns);
+              const serializableValue = this._write(memberSchema, record3[memberName], ns);
               if (serializableValue !== void 0) {
                 let targetKey = memberName;
                 if (jsonName) {
@@ -15342,7 +15342,7 @@ var init_JsonShapeSerializer = __esm({
               }
             }
             if (ns.isUnionSchema() && outCount === 0) {
-              const { $unknown } = record2;
+              const { $unknown } = record3;
               if (Array.isArray($unknown)) {
                 const [k5, v] = $unknown;
                 if (k5 === "__proto__") {
@@ -15350,11 +15350,11 @@ var init_JsonShapeSerializer = __esm({
                 }
                 out[k5] = this._write(15, v);
               }
-            } else if (typeof record2.__type === "string") {
-              for (const k5 in record2) {
-                if (!hasOwn(record2, k5))
+            } else if (typeof record3.__type === "string") {
+              for (const k5 in record3) {
+                if (!hasOwn(record3, k5))
                   continue;
-                const v = record2[k5];
+                const v = record3[k5];
                 const targetKey = jsonName ? nameMap[k5] ?? k5 : k5;
                 if (!(targetKey in out)) {
                   out[targetKey] = this._write(15, v);
@@ -77414,8 +77414,8 @@ function rewriteKeyNames(ctx) {
       bySchema.set(entry.schema, entry);
   }
   const rewrites = /* @__PURE__ */ new Map();
-  for (const record2 of pendingRecords.get(ctx) ?? []) {
-    const seen = ctx.seen.get(record2);
+  for (const record3 of pendingRecords.get(ctx) ?? []) {
+    const seen = ctx.seen.get(record3);
     const names = (seen?.def ?? seen?.schema)?.propertyNames;
     if (!names || names === true || rewrites.has(names))
       continue;
@@ -83312,10 +83312,10 @@ function encodeContainer(value2, depth, seen) {
     if (Object.getOwnPropertySymbols(value2).length > 0) {
       throw new TypeError("canon: object has symbol keys");
     }
-    const record2 = value2;
+    const record3 = value2;
     const parts = [];
-    for (const key2 of Object.keys(record2).sort()) {
-      const item = record2[key2];
+    for (const key2 of Object.keys(record3).sort()) {
+      const item = record3[key2];
       if (item === void 0) continue;
       parts.push(`${encode3(key2, depth + 1, seen)}:${encode3(item, depth + 1, seen)}`);
     }
@@ -86455,7 +86455,7 @@ async function signObjectWith(type, obj, keyring) {
 
 // ../protocol/src/roster.ts
 function makeDeviceRecord(name, keys, role, added) {
-  const record2 = {
+  const record3 = {
     id: deviceIdFromSignPub(keys.signPub),
     name,
     sign: b64u.encode(keys.signPub),
@@ -86463,9 +86463,9 @@ function makeDeviceRecord(name, keys, role, added) {
     role,
     added
   };
-  const parsed2 = deviceRecordSchema.safeParse(record2);
+  const parsed2 = deviceRecordSchema.safeParse(record3);
   if (!parsed2.success) throw new TypeError(`makeDeviceRecord: ${parsed2.error.issues[0].message}`);
-  return record2;
+  return record3;
 }
 function isRecoveryName(name) {
   return name.startsWith("recovery");
@@ -86735,10 +86735,10 @@ function verifyJoin(join22, secret, nonce) {
   return ok(j5);
 }
 function admitJoin(device, now) {
-  const record2 = { ...joinFields(device), role: "member", added: now };
-  const parsed2 = deviceRecordSchema.safeParse(record2);
-  if (!parsed2.success || record2.name.startsWith("recovery")) throw new TypeError("admitJoin: invalid device, reserved name or bad time");
-  return record2;
+  const record3 = { ...joinFields(device), role: "member", added: now };
+  const parsed2 = deviceRecordSchema.safeParse(record3);
+  if (!parsed2.success || record3.name.startsWith("recovery")) throw new TypeError("admitJoin: invalid device, reserved name or bad time");
+  return record3;
 }
 
 // ../protocol/src/replay.ts
@@ -87408,6 +87408,21 @@ var cardSchema = external_exports.strictObject({
   title: external_exports.string().max(120).optional()
 });
 var RESULT_STATUSES = ["done", "failed", "declined", "timeout"];
+var PAUSE_RULES = ["peer", "total", "pingpong"];
+var PAUSE_MAX_MS = 36e5;
+var positiveCount = external_exports.int().min(1);
+var pauseSchema = external_exports.discriminatedUnion("state", [
+  external_exports.strictObject({
+    state: external_exports.literal("paused"),
+    rule: external_exports.enum(PAUSE_RULES),
+    count: positiveCount,
+    limit: positiveCount,
+    minutes: external_exports.int().min(1).max(60),
+    until: timeSchema,
+    auto: external_exports.boolean()
+  }),
+  external_exports.strictObject({ state: external_exports.literal("lifted") })
+]);
 var common = {
   v: external_exports.literal(WIRE_VERSION),
   id: ulidSchema,
@@ -87458,7 +87473,10 @@ var plaintextSchema = external_exports.discriminatedUnion("kind", [
   // A liveness probe (SPEC section 12): the receiving client answers it itself with a `pong`,
   // never an agent. Neither carries text, and neither is relayed or derived.
   external_exports.strictObject({ ...common, kind: external_exports.literal("ping"), text: external_exports.undefined().optional() }),
-  external_exports.strictObject({ ...common, kind: external_exports.literal("pong"), text: external_exports.undefined().optional(), reply_to: ulidSchema })
+  external_exports.strictObject({ ...common, kind: external_exports.literal("pong"), text: external_exports.undefined().optional(), reply_to: ulidSchema }),
+  // The receiving client's loop breaker holds the sender's messages (SPEC section 12): written
+  // by the client itself, never an agent, and only ever changes what the sender reports.
+  external_exports.strictObject({ ...common, kind: external_exports.literal("pause"), text: external_exports.undefined().optional(), pause: pauseSchema, reply_to: ulidSchema.optional() })
 ]).refine((p3) => p3.kind !== "card" || p3.to.length === 1 && p3.to[0] === "*", {
   message: "a card is sent to * only",
   path: ["to"]
@@ -87468,6 +87486,12 @@ var plaintextSchema = external_exports.discriminatedUnion("kind", [
 }).refine((p3) => p3.kind !== "pong" || p3.to.length === 1 && p3.to[0] !== "*" && !isRoom(p3.to[0]), {
   message: "a pong answers one session",
   path: ["to"]
+}).refine((p3) => p3.kind !== "pause" || p3.to.length === 1 && p3.to[0] !== "*" && !isRoom(p3.to[0]), {
+  message: "a pause is for one session",
+  path: ["to"]
+}).refine((p3) => p3.kind !== "pause" || p3.pause.state === "lifted" || p3.pause.until > p3.at && p3.pause.until - p3.at <= PAUSE_MAX_MS, {
+  message: "until must be after at and at most an hour after it",
+  path: ["pause", "until"]
 }).refine(
   (p3) => p3.kind !== "task" || p3.deadline === void 0 || p3.deadline > p3.at && p3.deadline - p3.at <= LIMITS.taskDeadlineMaxMs,
   { message: "deadline must be after at and at most 24 hours after it", path: ["deadline"] }
@@ -87493,7 +87517,7 @@ function planSeal(opts, signPub) {
   if (!roster.devices.some((d5) => d5.id === sender.deviceId)) {
     throw new TypeError("sealMessage: the sender is not a current device in the roster");
   }
-  const noCaption = (kind === "file" || kind === "card" || kind === "ping" || kind === "pong") && opts.text === void 0;
+  const noCaption = (kind === "file" || kind === "card" || kind === "ping" || kind === "pong" || kind === "pause") && opts.text === void 0;
   if (!noCaption && (typeof opts.text !== "string" || !fitsUtf8(opts.text, LIMITS.textBytes))) {
     throw new RangeError(`sealMessage: text must be a string of at most ${LIMITS.textBytes} UTF-8 bytes`);
   }
@@ -87564,6 +87588,7 @@ function planSeal(opts, signPub) {
     status: opts.status,
     file: opts.file,
     card: opts.card,
+    pause: opts.pause,
     relayed: opts.relayed === true ? true : void 0,
     derived: opts.derived === true ? true : void 0
   });
@@ -87859,8 +87884,8 @@ function createRecoveryIdentity(meshId, opts = {}) {
   if (opts.genesis === void 0) {
     throw new TypeError("createRecoveryIdentity: needs the genesis hash; at mesh creation use createRecoveryKeys and recoveryCode");
   }
-  const { record: record2, keys } = createRecoveryKeys(meshId, opts);
-  return { record: record2, keys, code: recoveryCode(keys, { mesh: meshId, genesis: opts.genesis }) };
+  const { record: record3, keys } = createRecoveryKeys(meshId, opts);
+  return { record: record3, keys, code: recoveryCode(keys, { mesh: meshId, genesis: opts.genesis }) };
 }
 function parseRecoveryCode(code2, meshId) {
   const text2 = typeof code2 === "string" ? code2.trim() : "";
@@ -87901,8 +87926,8 @@ function verifyRecoveryChain(code2, chain2) {
   const newest = verifyRosterChain({ seq: 1, hash: parsed2.genesis }, chain2);
   if (!newest.ok) return newest;
   const id2 = deviceIdFromSignPub(parsed2.signPub);
-  const record2 = newest.value.devices.find((d5) => d5.id === id2);
-  if (record2 === void 0 || record2.role !== "admin") return fail("recovery_not_admin");
+  const record3 = newest.value.devices.find((d5) => d5.id === id2);
+  if (record3 === void 0 || record3.role !== "admin") return fail("recovery_not_admin");
   return ok(newest.value);
 }
 function recoverySummary(chain2) {
@@ -89147,12 +89172,17 @@ import { basename as basename4, join as join9, resolve as resolve2 } from "node:
 
 // src/breaker.ts
 var HOUR2 = 36e5;
-var PING_WINDOW = 10 * 6e4;
+var MINUTE2 = 6e4;
+var PING_WINDOW = 10 * MINUTE2;
 var SHORT = 200;
 var Breaker = class {
   deliveries = /* @__PURE__ */ new Map();
+  /** Each counted peer's tier when it last delivered, so a total counts one tier. */
+  tierOf = /* @__PURE__ */ new Map();
   talk = /* @__PURE__ */ new Map();
-  pausedUntil = /* @__PURE__ */ new Map();
+  paused = /* @__PURE__ */ new Map();
+  /** When the client last released each trusted peer by itself. */
+  released = /* @__PURE__ */ new Map();
   limits;
   now;
   constructor(limits, now) {
@@ -89183,45 +89213,99 @@ var Breaker = class {
     }
     return n3;
   }
-  /** Decides one automatic delivery from `peer`, and counts it when it goes through. */
-  admit(peer, length) {
+  /** Which rule a delivery from `peer` would trip, with what it counted, or undefined. */
+  trips(peer, tier, trusted, now) {
+    const since = now - HOUR2;
+    const mine = this.recent(this.deliveries.get(peer), since).length;
+    if (mine >= tier.perPeerPerHour) return { rule: "peer", count: mine + 1, limit: tier.perPeerPerHour, minutes: 60 };
+    let total = 0;
+    for (const [p3, list3] of this.deliveries) if (this.tierOf.get(p3) === trusted) total += this.recent(list3, since).length;
+    if (total >= tier.totalPerHour) return { rule: "total", count: total + 1, limit: tier.totalPerHour, minutes: 60 };
+    const n3 = tier.pingPong ? this.exchanges(peer) : 0;
+    if (n3 > tier.pingPongExchanges) return { rule: "pingpong", count: n3, limit: tier.pingPongExchanges, minutes: 10 };
+    return void 0;
+  }
+  /**
+   * Decides one automatic delivery from `peer`, and counts it when it goes through. `trusted`:
+   * the person trusts the sender device, so its tier's limits apply and a trip is a cool-down
+   * the client ends by itself, unless the peer was already released that way in the last hour.
+   */
+  admit(peer, length, trusted = false) {
     const now = this.now();
-    const until = this.pausedUntil.get(peer);
-    if (until !== void 0 && until > now) return { ok: false, reason: "paused", newly: false };
-    if (until !== void 0) this.pausedUntil.delete(peer);
+    const current = this.paused.get(peer);
+    if (current !== void 0 && current.until > now) return { ok: false, reason: "paused", newly: false, pause: current };
+    if (current !== void 0) this.paused.delete(peer);
     this.push(peer, { at: now, dir: "in", short: length < SHORT });
     const limits = this.limits();
-    const since = now - HOUR2;
-    const mine = this.recent(this.deliveries.get(peer), since);
-    let total = 0;
-    for (const list3 of this.deliveries.values()) total += this.recent(list3, since).length;
-    let reason;
-    if (mine.length >= limits.perPeerPerHour) reason = "peer";
-    else if (total >= limits.totalPerHour) reason = "total";
-    else if (limits.pingPong && this.exchanges(peer) > limits.pingPongExchanges) reason = "pingpong";
-    if (reason !== void 0) {
-      this.pausedUntil.set(peer, now + HOUR2);
-      return { ok: false, reason, newly: true };
+    const tier = trusted && limits.trusted !== void 0 ? limits.trusted : limits;
+    const isTrusted2 = tier !== limits;
+    const tripped = this.trips(peer, tier, isTrusted2, now);
+    if (tripped !== void 0) {
+      const last = this.released.get(peer);
+      const auto = isTrusted2 && (last === void 0 || now - last >= HOUR2);
+      const until = now + (auto ? limits.trusted.cooldownMinutes * MINUTE2 : HOUR2);
+      const pause = { peer, ...tripped, trusted: isTrusted2, at: now, until, auto };
+      this.paused.set(peer, pause);
+      return { ok: false, reason: tripped.rule, newly: true, pause };
     }
+    const mine = this.recent(this.deliveries.get(peer), now - HOUR2);
     mine.push(now);
     this.deliveries.set(peer, mine);
+    this.tierOf.set(peer, isTrusted2);
     return { ok: true };
   }
-  /** The person resumed a peer: its pause and its counts start over. */
-  resume(peer) {
-    this.pausedUntil.delete(peer);
+  /** The pauses still running, oldest first. */
+  pauses() {
+    const now = this.now();
+    return [...this.paused.values()].filter((p3) => p3.until > now).sort((a5, b5) => a5.at - b5.at);
+  }
+  /**
+   * The trusted peers whose cool-down has ended, each lifted here (its counts start over) so two
+   * callers never release one twice. The caller delivers what each one held.
+   */
+  takeDue() {
+    const now = this.now();
+    const due = [...this.paused.values()].filter((p3) => p3.auto && p3.until <= now);
+    for (const p3 of due) {
+      this.clear(p3.peer);
+      this.released.set(p3.peer, now);
+    }
+    return due;
+  }
+  clear(peer) {
+    this.paused.delete(peer);
     this.deliveries.delete(peer);
+    this.tierOf.delete(peer);
     this.talk.delete(peer);
   }
+  /** The person resumed a peer: its pause and its counts start over, and so does its cool-down allowance. */
+  resume(peer) {
+    this.clear(peer);
+    this.released.delete(peer);
+  }
 };
-function pauseWhy(reason, limits) {
-  return reason === "peer" ? `the per-peer limit, ${limits.perPeerPerHour} messages in an hour` : reason === "total" ? `the total limit, ${limits.totalPerHour} messages in an hour from all peers` : `the ping-pong rule, more than ${limits.pingPongExchanges} alternating short messages in 10 minutes`;
+function clock(ms) {
+  return new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
-function pauseNotice(peer, reason, limits) {
-  return `worldinmotion paused ${peer}: ${pauseWhy(reason, limits)}; /wim to resume`;
+function pauseRule(peer, p3) {
+  if (p3.rule === "peer") return `the per-peer limit: ${p3.count} messages from ${peer} in ${p3.minutes} minutes, limit ${p3.limit}`;
+  const tier = p3.trusted === void 0 ? "" : p3.trusted ? "trusted " : "untrusted ";
+  if (p3.rule === "total") return `the total limit: ${p3.count} messages from all ${tier}peers in ${p3.minutes} minutes, limit ${p3.limit}`;
+  return `the ping-pong rule: ${p3.count} alternating short messages with ${peer} in ${p3.minutes} minutes, limit ${p3.limit}`;
 }
-function pauseNoticeForAgent(peer, reason, limits) {
-  return `this device's loop breaker paused ${peer} (${pauseWhy(reason, limits)}): its messages to this session are held from now on, not delivered to you, until your person releases them. Only the person can: \`wim held resume ${peer}\` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). The pause lifts after an hour; what was held stays held until the person decides. If you are waiting on ${peer}, tell your person; it has not gone silent.`;
+function pauseEnd(p3) {
+  return p3.auto ? `until ${clock(p3.until)}, when the client releases it and delivers what it held (a trusted device's cool-down)` : `until ${clock(p3.until)}; what it held waits for the person`;
+}
+function pauseNotice(peer, p3) {
+  return `worldinmotion paused ${peer}: ${pauseRule(peer, p3)}; ${pauseEnd(p3)}. /wim to approve, or to approve and resume it now`;
+}
+function pauseNoticeForAgent(peer, p3) {
+  const after = p3.auto ? `The client releases ${peer} by itself at ${clock(p3.until)} and delivers what it held then; your person can release it earlier.` : `The pause lifts at ${clock(p3.until)}; what was held stays held until the person decides.`;
+  return `this device's loop breaker paused ${peer} (${pauseRule(peer, p3)}): its messages to this session are held from now on, not delivered to you, until ${p3.auto ? "the cool-down ends or " : ""}your person releases them. Only the person can release them early: \`wim held resume ${peer}\` in a terminal they opened themselves, or Approve in /wim (Claude Code) or the Held view (VS Code). ${after} If you are waiting on ${peer}, tell your person; it has not gone silent.`;
+}
+function releasedNotice(peer, p3, released, kept) {
+  const what2 = kept > 0 ? `its device is no longer trusted here, so the ${kept} message${kept === 1 ? "" : "s"} it held stay${kept === 1 ? "s" : ""} held for the person` : `the ${released} message${released === 1 ? "" : "s"} it held ${released === 1 ? "is" : "are"} delivered now`;
+  return `the loop breaker's cool-down for ${peer} ended at ${clock(p3.until)} (it tripped on ${pauseRule(peer, p3)}): its messages are delivered again, and ${what2}. If it trips again within the hour, it waits for your person.`;
 }
 
 // src/cards.ts
@@ -89913,7 +89997,7 @@ var HeldBox = class {
   }
   /** Decisions left by other processes (`wim held`, the plugin's pane), consumed as they are read. */
   async takeMarks() {
-    return (await takeMarks(this.dir, ["approve", "refuse"], this.env)).map(({ id: id2, mark }) => ({ id: id2, verdict: mark }));
+    return (await takeMarks(this.dir, ["approve", "refuse", "resume"], this.env)).map(({ id: id2, mark }) => ({ id: id2, verdict: mark }));
   }
 };
 async function takeMarks(dir, marks, env3) {
@@ -89944,6 +90028,10 @@ function policyLevel(config2, sender) {
   const set2 = config2.policy[sender];
   if (sender === config2.device) return set2 === "deliver-relayed" ? set2 : "deliver";
   return set2 ?? "hold";
+}
+function isTrusted(config2, sender) {
+  const level = policyLevel(config2, sender);
+  return level === "deliver" || level === "deliver-relayed";
 }
 function policyFor(config2, sender, relayed2) {
   const level = policyLevel(config2, sender);
@@ -90165,20 +90253,44 @@ function renderForPerson(e6) {
 
 // src/mesh.ts
 import { join as join5 } from "node:path";
-var DEFAULT_BREAKER = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32 };
-var WRITTEN_BREAKER = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
+var TRUSTED_DEFAULT = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 10 };
+var COOLDOWN_MAX_MINUTES = 60;
+var UNTRUSTED_DEFAULT = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
+var DEFAULT_BREAKER = { ...UNTRUSTED_DEFAULT, trusted: TRUSTED_DEFAULT };
 function positiveInt2(v, fallback2) {
   return Number.isSafeInteger(v) && v > 0 ? v : fallback2;
 }
+var record2 = (raw) => typeof raw === "object" && raw !== null ? raw : {};
+function parseTrusted(raw, base) {
+  const pingPong = base.pingPong;
+  if (raw === void 0) {
+    return {
+      perPeerPerHour: Math.max(base.perPeerPerHour, TRUSTED_DEFAULT.perPeerPerHour),
+      totalPerHour: Math.max(base.totalPerHour, TRUSTED_DEFAULT.totalPerHour),
+      pingPong,
+      pingPongExchanges: Math.max(base.pingPongExchanges, TRUSTED_DEFAULT.pingPongExchanges),
+      cooldownMinutes: TRUSTED_DEFAULT.cooldownMinutes
+    };
+  }
+  const t2 = record2(raw);
+  return {
+    perPeerPerHour: positiveInt2(t2.perPeerPerHour, TRUSTED_DEFAULT.perPeerPerHour),
+    totalPerHour: positiveInt2(t2.totalPerHour, TRUSTED_DEFAULT.totalPerHour),
+    pingPong: pingPong && t2.pingPong !== false,
+    pingPongExchanges: positiveInt2(t2.pingPongExchanges, TRUSTED_DEFAULT.pingPongExchanges),
+    cooldownMinutes: Math.min(positiveInt2(t2.cooldownMinutes, TRUSTED_DEFAULT.cooldownMinutes), COOLDOWN_MAX_MINUTES)
+  };
+}
 function parseBreaker(raw) {
   if (raw === void 0) return DEFAULT_BREAKER;
-  const b5 = typeof raw === "object" && raw !== null ? raw : {};
-  return {
-    perPeerPerHour: positiveInt2(b5.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour),
-    totalPerHour: positiveInt2(b5.totalPerHour, WRITTEN_BREAKER.totalPerHour),
+  const b5 = record2(raw);
+  const base = {
+    perPeerPerHour: positiveInt2(b5.perPeerPerHour, UNTRUSTED_DEFAULT.perPeerPerHour),
+    totalPerHour: positiveInt2(b5.totalPerHour, UNTRUSTED_DEFAULT.totalPerHour),
     pingPong: b5.pingPong !== false,
-    pingPongExchanges: positiveInt2(b5.pingPongExchanges, WRITTEN_BREAKER.pingPongExchanges)
+    pingPongExchanges: positiveInt2(b5.pingPongExchanges, UNTRUSTED_DEFAULT.pingPongExchanges)
   };
+  return { ...base, trusted: parseTrusted(b5.trusted, base) };
 }
 function isPolicy(v) {
   return v === "deliver" || v === "deliver-relayed" || v === "hold" || v === "refuse";
@@ -90259,6 +90371,13 @@ var MeshFiles = class {
   /** The CI providers' token keys this device fetched itself, kept at most 24 hours. */
   get ciJwksPath() {
     return join5(this.dir, "ci-jwks.json");
+  }
+  /**
+   * The peer sessions whose loop breaker said it holds this device's messages (a `pause`, SPEC
+   * section 12), so every session of this device reports a send to them as `held`.
+   */
+  get pausedByPath() {
+    return join5(this.dir, "paused-by.json");
   }
   /** The admin signing lock (SPEC section 4): one writer signs a roster at a time. */
   get rosterLock() {
@@ -90393,6 +90512,231 @@ async function setDevicePolicy(files, deviceId, level) {
 function trustLevel(action, relayed2) {
   return action === "untrust" ? "hold" : relayed2 ? "deliver-relayed" : "deliver";
 }
+
+// src/session.ts
+import { join as join6 } from "node:path";
+function newSessionState(name, kind) {
+  return { v: 1, sid: ulid3(), name, kind, resume: b64u.encode(randomBytes2(32)), cursor: 0, rooms: [], seq: 0, spool: 0, leases: {} };
+}
+function parseSessionState(raw) {
+  const s3 = raw;
+  if (s3?.v !== 1 || !isUlid(s3.sid) || !isName(s3.name) || !isName(s3.kind) || typeof s3.resume !== "string") return void 0;
+  const int2 = (n3) => Number.isSafeInteger(n3) && n3 >= 0 ? n3 : 0;
+  return {
+    v: 1,
+    sid: s3.sid,
+    name: s3.name,
+    kind: s3.kind,
+    resume: s3.resume,
+    cursor: int2(s3.cursor),
+    rooms: Array.isArray(s3.rooms) ? s3.rooms.filter((r6) => typeof r6 === "string") : [],
+    seq: int2(s3.seq),
+    spool: int2(s3.spool),
+    leases: typeof s3.leases === "object" && s3.leases !== null ? s3.leases : {},
+    ...typeof s3.address === "string" ? { address: s3.address } : {},
+    ...typeof s3.cwd === "string" ? { cwd: s3.cwd } : {},
+    ...s3.ended === true ? { ended: true } : {}
+  };
+}
+var SessionFiles = class {
+  dir;
+  sid;
+  env;
+  constructor(mesh, sid, env3) {
+    this.sid = sid;
+    this.env = env3;
+    this.dir = mesh.sessionDir(sid);
+  }
+  get statePath() {
+    return join6(this.dir, "session.json");
+  }
+  get spoolDir() {
+    return join6(this.dir, "spool");
+  }
+  get cursorPath() {
+    return join6(this.dir, "spool", "cursor");
+  }
+  get presencePath() {
+    return join6(this.dir, "presence");
+  }
+  get heldDir() {
+    return join6(this.dir, "held");
+  }
+  /** The loop breaker's running pauses in this session, for `wim held list` (pauses.ts). */
+  get breakerPath() {
+    return join6(this.dir, "breaker.json");
+  }
+  /** Dismiss marks for relayed items (`<id>.dismiss`), left by the plugin's pane. */
+  get dismissDir() {
+    return join6(this.dir, "dismiss");
+  }
+  get filesDir() {
+    return join6(this.dir, "files");
+  }
+  get historyPath() {
+    return join6(this.dir, "history.jsonl");
+  }
+  /** CI notices acknowledged while their provider's keys could not be fetched, to be checked again. */
+  get ciParkedPath() {
+    return join6(this.dir, "ci-parked.json");
+  }
+  get tasksPath() {
+    return join6(this.dir, "tasks.json");
+  }
+  get sentTasksPath() {
+    return join6(this.dir, "sent-tasks.json");
+  }
+  get behindDir() {
+    return join6(this.dir, "behind");
+  }
+  get controlDir() {
+    return join6(this.dir, "control");
+  }
+  get liveLock() {
+    return join6(this.dir, "live.lock");
+  }
+  /** Written by a session that takes handed-over sends (`wim watch`): the pid of its process. */
+  get handoverPath() {
+    return join6(this.dir, "handover");
+  }
+  async load() {
+    return parseSessionState(await readJson(this.statePath));
+  }
+  async save(state2) {
+    await writeJson(this.statePath, state2, this.env);
+  }
+  /** Marks this process as the session's live holder. False when another live process holds it. */
+  claim() {
+    return claimLock(this.liveLock, this.env);
+  }
+  release() {
+    return releaseLock(this.liveLock, this.env);
+  }
+  isLiveElsewhere() {
+    return lockHeld(this.liveLock, this.env);
+  }
+  /**
+   * Says whether this process's session takes handed-over sends (`wim watch`): the handover file
+   * names this pid, or is removed. Written after the liveness claim, by its holder.
+   */
+  async markHandover(takes) {
+    if (takes) await writeAtomic(this.handoverPath, String(this.env.pid), this.env);
+    else await removeFile(this.handoverPath);
+  }
+  /**
+   * Whether another live process runs this session and takes handed-over sends: it holds the
+   * liveness lock and the handover file names the same pid. Any other holder (a `wim send --wait`,
+   * a `wim inbox`) holds the name without taking sends, and a file left by a watch that died names
+   * a pid that no longer holds the lock.
+   */
+  async takesHandoverElsewhere() {
+    const read = (path2) => whileBusy(() => readText(path2), this.env.platform);
+    const [live, marker, lock] = await Promise.all([this.isLiveElsewhere(), read(this.handoverPath), read(this.liveLock)]);
+    return takesSends(live, marker, lock);
+  }
+};
+function takesSends(live, marker, lock) {
+  return live && marker !== void 0 && marker.trim() === (lock ?? "").trim();
+}
+async function listSessions(mesh) {
+  return (await listDir(mesh.sessionsDir)).filter(isUlid).sort();
+}
+var SESSION_KEY_TTL_MS = 7 * 24 * 3600 * 1e3;
+var SessionKeys = class {
+  mesh;
+  env;
+  now;
+  constructor(mesh, env3, now) {
+    this.mesh = mesh;
+    this.env = env3;
+    this.now = now;
+  }
+  path(key2) {
+    return join6(this.mesh.keysDir, `${b64u.encode(sha2562(utf8(key2))).slice(0, 22)}.json`);
+  }
+  /** The session a key names, if its mapping is still fresh. Expired mappings are deleted. */
+  async lookup(key2) {
+    await this.prune();
+    const raw = await readJson(this.path(key2));
+    return raw?.v === 1 && isUlid(raw.sid) && typeof raw.resume === "string" ? { sid: raw.sid, resume: raw.resume } : void 0;
+  }
+  /** Records (or refreshes) a mapping; 0600 like every state file, since it holds the resume secret. */
+  async remember(key2, sid, resume) {
+    await writeJson(this.path(key2), { v: 1, sid, resume, used: this.now() }, this.env);
+  }
+  async prune() {
+    const cutoff = this.now() - SESSION_KEY_TTL_MS;
+    for (const name of await listDir(this.mesh.keysDir)) {
+      const path2 = join6(this.mesh.keysDir, name);
+      const raw = await readJson(path2).catch(() => void 0);
+      if (raw === void 0 || typeof raw.used !== "number" || raw.used < cutoff) await removeFile(path2);
+    }
+  }
+};
+
+// src/pauses.ts
+async function savePauses(path2, rows, env3) {
+  await writeJson(path2, { pauses: rows }, env3);
+}
+function isPauseRow(x2) {
+  const r6 = x2;
+  return typeof r6 === "object" && r6 !== null && typeof r6.from === "string" && typeof r6.peer === "string" && (r6.rule === "peer" || r6.rule === "total" || r6.rule === "pingpong") && [r6.count, r6.limit, r6.minutes, r6.at, r6.until].every((n3) => Number.isSafeInteger(n3)) && typeof r6.auto === "boolean" && typeof r6.trusted === "boolean";
+}
+async function readPauses(path2, now) {
+  const raw = await readJson(path2).catch(() => void 0);
+  const rows = Array.isArray(raw?.pauses) ? raw.pauses : [];
+  return rows.filter(isPauseRow).filter((r6) => r6.until > now);
+}
+async function listAllPauses(mesh, env3, now) {
+  const out = [];
+  for (const sid of await listSessions(mesh)) {
+    const files = new SessionFiles(mesh, sid, env3);
+    const name = (await files.load())?.name ?? "?";
+    for (const r6 of await readPauses(files.breakerPath, now)) out.push({ ...r6, sid, session: name });
+  }
+  return out.sort((a5, b5) => a5.at - b5.at);
+}
+var PausedBy = class {
+  path;
+  env;
+  now;
+  constructor(path2, env3, now) {
+    this.path = path2;
+    this.env = env3;
+    this.now = now;
+  }
+  async read() {
+    const raw = await readJson(this.path).catch(() => void 0);
+    const now = this.now();
+    const out = {};
+    if (typeof raw !== "object" || raw === null) return out;
+    for (const [pair, e6] of Object.entries(raw)) if (typeof e6?.until === "number" && e6.until > now && typeof e6.to === "string") out[pair] = e6;
+    return out;
+  }
+  /** The running entries, by pair. */
+  async active() {
+    return this.read();
+  }
+  /** Records a `pause` from the session `pair` (`to` is its address), or forgets one on `lifted`. */
+  async note(pair, to, info, at) {
+    await withLock(`${this.path}.lock`, async () => {
+      const file2 = await this.read();
+      if (info.state === "lifted") delete file2[pair];
+      else file2[pair] = { ...info, to, at };
+      await writeJson(this.path, file2, this.env);
+    }, this.env);
+  }
+  /**
+   * A `delivered` receipt from the session `pair` for a message sent at `sentAt`: a message sent
+   * after this device heard of the pause got through, so the pause is over there (its session may
+   * have restarted, or its person resumed it while it was not running). An older message's receipt
+   * says nothing, since a message taken from the inbox late is receipted late. Writes only then.
+   */
+  async deliveredSince(pair, sentAt) {
+    const e6 = (await this.read())[pair];
+    if (e6 !== void 0 && sentAt > e6.at) await this.note(pair, "", { state: "lifted" }, 0);
+  }
+};
 
 // src/prekeys.ts
 function decode32(text2) {
@@ -90626,163 +90970,6 @@ var SeqStore = class _SeqStore {
   }
 };
 
-// src/session.ts
-import { join as join6 } from "node:path";
-function newSessionState(name, kind) {
-  return { v: 1, sid: ulid3(), name, kind, resume: b64u.encode(randomBytes2(32)), cursor: 0, rooms: [], seq: 0, spool: 0, leases: {} };
-}
-function parseSessionState(raw) {
-  const s3 = raw;
-  if (s3?.v !== 1 || !isUlid(s3.sid) || !isName(s3.name) || !isName(s3.kind) || typeof s3.resume !== "string") return void 0;
-  const int2 = (n3) => Number.isSafeInteger(n3) && n3 >= 0 ? n3 : 0;
-  return {
-    v: 1,
-    sid: s3.sid,
-    name: s3.name,
-    kind: s3.kind,
-    resume: s3.resume,
-    cursor: int2(s3.cursor),
-    rooms: Array.isArray(s3.rooms) ? s3.rooms.filter((r6) => typeof r6 === "string") : [],
-    seq: int2(s3.seq),
-    spool: int2(s3.spool),
-    leases: typeof s3.leases === "object" && s3.leases !== null ? s3.leases : {},
-    ...typeof s3.address === "string" ? { address: s3.address } : {},
-    ...typeof s3.cwd === "string" ? { cwd: s3.cwd } : {},
-    ...s3.ended === true ? { ended: true } : {}
-  };
-}
-var SessionFiles = class {
-  dir;
-  sid;
-  env;
-  constructor(mesh, sid, env3) {
-    this.sid = sid;
-    this.env = env3;
-    this.dir = mesh.sessionDir(sid);
-  }
-  get statePath() {
-    return join6(this.dir, "session.json");
-  }
-  get spoolDir() {
-    return join6(this.dir, "spool");
-  }
-  get cursorPath() {
-    return join6(this.dir, "spool", "cursor");
-  }
-  get presencePath() {
-    return join6(this.dir, "presence");
-  }
-  get heldDir() {
-    return join6(this.dir, "held");
-  }
-  /** Dismiss marks for relayed items (`<id>.dismiss`), left by the plugin's pane. */
-  get dismissDir() {
-    return join6(this.dir, "dismiss");
-  }
-  get filesDir() {
-    return join6(this.dir, "files");
-  }
-  get historyPath() {
-    return join6(this.dir, "history.jsonl");
-  }
-  /** CI notices acknowledged while their provider's keys could not be fetched, to be checked again. */
-  get ciParkedPath() {
-    return join6(this.dir, "ci-parked.json");
-  }
-  get tasksPath() {
-    return join6(this.dir, "tasks.json");
-  }
-  get sentTasksPath() {
-    return join6(this.dir, "sent-tasks.json");
-  }
-  get behindDir() {
-    return join6(this.dir, "behind");
-  }
-  get controlDir() {
-    return join6(this.dir, "control");
-  }
-  get liveLock() {
-    return join6(this.dir, "live.lock");
-  }
-  /** Written by a session that takes handed-over sends (`wim watch`): the pid of its process. */
-  get handoverPath() {
-    return join6(this.dir, "handover");
-  }
-  async load() {
-    return parseSessionState(await readJson(this.statePath));
-  }
-  async save(state2) {
-    await writeJson(this.statePath, state2, this.env);
-  }
-  /** Marks this process as the session's live holder. False when another live process holds it. */
-  claim() {
-    return claimLock(this.liveLock, this.env);
-  }
-  release() {
-    return releaseLock(this.liveLock, this.env);
-  }
-  isLiveElsewhere() {
-    return lockHeld(this.liveLock, this.env);
-  }
-  /**
-   * Says whether this process's session takes handed-over sends (`wim watch`): the handover file
-   * names this pid, or is removed. Written after the liveness claim, by its holder.
-   */
-  async markHandover(takes) {
-    if (takes) await writeAtomic(this.handoverPath, String(this.env.pid), this.env);
-    else await removeFile(this.handoverPath);
-  }
-  /**
-   * Whether another live process runs this session and takes handed-over sends: it holds the
-   * liveness lock and the handover file names the same pid. Any other holder (a `wim send --wait`,
-   * a `wim inbox`) holds the name without taking sends, and a file left by a watch that died names
-   * a pid that no longer holds the lock.
-   */
-  async takesHandoverElsewhere() {
-    const read = (path2) => whileBusy(() => readText(path2), this.env.platform);
-    const [live, marker, lock] = await Promise.all([this.isLiveElsewhere(), read(this.handoverPath), read(this.liveLock)]);
-    return takesSends(live, marker, lock);
-  }
-};
-function takesSends(live, marker, lock) {
-  return live && marker !== void 0 && marker.trim() === (lock ?? "").trim();
-}
-async function listSessions(mesh) {
-  return (await listDir(mesh.sessionsDir)).filter(isUlid).sort();
-}
-var SESSION_KEY_TTL_MS = 7 * 24 * 3600 * 1e3;
-var SessionKeys = class {
-  mesh;
-  env;
-  now;
-  constructor(mesh, env3, now) {
-    this.mesh = mesh;
-    this.env = env3;
-    this.now = now;
-  }
-  path(key2) {
-    return join6(this.mesh.keysDir, `${b64u.encode(sha2562(utf8(key2))).slice(0, 22)}.json`);
-  }
-  /** The session a key names, if its mapping is still fresh. Expired mappings are deleted. */
-  async lookup(key2) {
-    await this.prune();
-    const raw = await readJson(this.path(key2));
-    return raw?.v === 1 && isUlid(raw.sid) && typeof raw.resume === "string" ? { sid: raw.sid, resume: raw.resume } : void 0;
-  }
-  /** Records (or refreshes) a mapping; 0600 like every state file, since it holds the resume secret. */
-  async remember(key2, sid, resume) {
-    await writeJson(this.path(key2), { v: 1, sid, resume, used: this.now() }, this.env);
-  }
-  async prune() {
-    const cutoff = this.now() - SESSION_KEY_TTL_MS;
-    for (const name of await listDir(this.mesh.keysDir)) {
-      const path2 = join6(this.mesh.keysDir, name);
-      const raw = await readJson(path2).catch(() => void 0);
-      if (raw === void 0 || typeof raw.used !== "number" || raw.used < cutoff) await removeFile(path2);
-    }
-  }
-};
-
 // src/keyring.ts
 function openWithClearPrekey(entry, req) {
   return openBox(void 0, () => entry.secret, req);
@@ -90826,14 +91013,14 @@ var PING = {
   /** How long `wim ping` waits for pongs by default. */
   waitMs: 5e3
 };
-var MINUTE2 = 6e4;
+var MINUTE3 = 6e4;
 var PongBudget = class {
   byDevice = /* @__PURE__ */ new Map();
   total = [];
   /** Whether a ping from `device`, sent at `at`, is answered now; counts it when it is. */
   allow(device, at, now) {
     if (now - at > PING.freshMs) return false;
-    const recent = (times) => (times ?? []).filter((t2) => now - t2 < MINUTE2);
+    const recent = (times) => (times ?? []).filter((t2) => now - t2 < MINUTE3);
     const mine = recent(this.byDevice.get(device));
     this.total = recent(this.total);
     if (mine.length >= PING.perDevicePerMinute || this.total.length >= PING.perSessionPerMinute) {
@@ -90914,17 +91101,17 @@ var Invites = class {
   }
 };
 async function screenJoin(invites, roster, body, now) {
-  const record2 = await invites.get(body.invite);
-  if (record2 === void 0) return { outcome: "ignored", reason: "not an invite this device issued" };
-  if (record2.used) return { outcome: "refused", reason: "the invite was already used" };
-  if (record2.exp <= now || record2.secret === void 0) return { outcome: "refused", reason: "the invite has expired" };
-  const v = verifyJoin(body, b64u.decode(record2.secret));
+  const record3 = await invites.get(body.invite);
+  if (record3 === void 0) return { outcome: "ignored", reason: "not an invite this device issued" };
+  if (record3.used) return { outcome: "refused", reason: "the invite was already used" };
+  if (record3.exp <= now || record3.secret === void 0) return { outcome: "refused", reason: "the invite has expired" };
+  const v = verifyJoin(body, b64u.decode(record3.secret));
   if (!v.ok) return { outcome: "refused", reason: v.reason };
   const device = v.value.device;
   if ([device.sign, device.box].some(isVectorKey)) return { outcome: "refused", reason: "the device holds a published test-vector key" };
   if (roster.devices.some((d5) => d5.name === device.name)) return { outcome: "refused", reason: `the name ${device.name} is taken` };
   if (roster.devices.some((d5) => d5.id === device.id) || roster.revoked.includes(device.id)) return { outcome: "refused", reason: "that device is already known" };
-  return { outcome: "ok", record: record2, device, sas: sasFor(device) };
+  return { outcome: "ok", record: record3, device, sas: sasFor(device) };
 }
 function sameCode(typed, sas) {
   const norm = (s3) => s3.toUpperCase().replace(/[\s-]/g, "").replace(/[IL]/g, "1").replace(/O/g, "0");
@@ -91867,7 +92054,7 @@ function relayRefusal(what2, frame) {
   return new ClientError(`${what2}: ${said}`, relayCode(frame.code), { what: what2, said });
 }
 function accepted(status3) {
-  return status3 === "routed" || status3 === "queued";
+  return status3 === "routed" || status3 === "queued" || status3 === "held";
 }
 function pingResults(out) {
   return [...out.local, ...out.sent === void 0 ? [] : out.sent.results];
@@ -91876,6 +92063,10 @@ function pingRow(address, results, pongs) {
   const status3 = results.find((r6) => r6.to === address).status;
   const ms = pongs.get(address);
   return ms === void 0 ? { to: address, status: status3 } : { to: address, status: status3, ms };
+}
+function heldSendLine(to, b5) {
+  const after = b5.auto ? `its client delivers what it held by itself at ${clock(b5.until)}` : `what it holds waits for its person (the pause itself lifts at ${clock(b5.until)})`;
+  return `${to}: held there, not delivered: its loop breaker paused this device on ${pauseRule("this device", b5)}; ${after}. Sending more now only adds to what it holds.`;
 }
 function heldReceiptLine(to, id2) {
   return `${to} is holding your message ${id2} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id2}\`).`;
@@ -91893,6 +92084,16 @@ var CARD_EVERY_MS = 6e4;
 var PARKED_MAX = 64;
 var ANSWER_KEEP_MS = 5 * 6e4;
 var GROUP = (to) => to.some((a5) => a5 === "*" || isRoom(a5));
+var PAUSE_LISTEN_MS = 36e5;
+var PAUSE_TELL_MS = 10 * 6e4;
+var SENT_TO_MAX = LIMITS.sessionsPerMesh;
+function breakerFields(p3) {
+  return { count: p3.count, limit: p3.limit, minutes: p3.minutes, until: p3.until, auto: p3.auto };
+}
+function pausedThereLine(to, p3) {
+  const end2 = p3.auto ? `until its client releases them by itself at ${clock(p3.until)} (a cool-down for a device it trusts)` : `until its person releases them; the pause itself lifts at ${clock(p3.until)}`;
+  return `${to}'s loop breaker paused messages from this device (${pauseRule("this device", p3)}): what this device sends there is held for its person, not delivered, ${end2}. \`send\` reports \`held\` for ${to} until then. Sending more only adds to what it holds; if it cannot wait, tell your person.`;
+}
 function entryOf(p3, from) {
   return {
     dir: "in",
@@ -91980,6 +92181,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
   readRelayed = /* @__PURE__ */ new Set();
   /** How many pings this session answers (SPEC section 12). */
   pongBudget = new PongBudget();
+  /** Per paused sender device: the address of the message that tripped it, and the sessions told. */
+  pauseFrom = /* @__PURE__ */ new Map();
+  /** Releases of trusted peers whose cool-down ended, one at a time, so none is released twice. */
+  releasing = Promise.resolve();
+  /** The peer sessions (`deviceId/session`) this session sent a message to, and when: a `pause` counts only from one. */
+  sentTo = /* @__PURE__ */ new Map();
+  /** When the agent was last told that a peer session paused this device, by pair. */
+  pausedToldAt = /* @__PURE__ */ new Map();
+  /** What peers' breakers said about this device's messages, device-wide (pauses.ts). */
+  pausedBy;
   /** Pings this session sent and still waits on, by id: each takes the pongs that answer it. */
   pongWaiters = /* @__PURE__ */ new Map();
   ciKeys;
@@ -92013,6 +92224,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.seqs = new SeqStore(o3.mesh.seqPath, o3.env);
     this.breaker = new Breaker(() => this.config.breaker, this.now);
     this.ciBreaker = new Breaker(() => CI_BREAKER, this.now);
+    this.pausedBy = new PausedBy(o3.mesh.pausedByPath, o3.env, this.now);
     this.ciKeys = new CiKeys({ path: o3.mesh.ciJwksPath, env: o3.env, fetch: o3.jwksFetch ?? fetchJwks, now: this.now });
     this.ciParked = new CiParked(files.ciParkedPath, o3.env);
   }
@@ -92044,6 +92256,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (o3.sessionKey !== void 0) await keys.remember(o3.sessionKey, state2.sid, state2.resume);
     const session = new _MeshSession(o3, files, state2);
     await session.load();
+    await session.savePauses();
     return session;
   }
   /**
@@ -92683,6 +92896,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   async accept(p3) {
     if (p3.kind === "ping" || p3.kind === "pong") return this.probe(p3);
+    if (p3.kind === "pause") return this.pausedThere(p3);
+    await this.releaseDue();
     const from = this.fromAddress(p3);
     this.config = await this.o.mesh.loadConfig();
     const policy = policyFor(this.config, p3.from.device, p3.relayed === true);
@@ -92705,12 +92920,17 @@ var MeshSession = class _MeshSession extends EventEmitter {
       ...p3.kind === "file" ? { fileInfo: p3.file } : {}
     };
     if (policy === "hold") return this.hold({ ...held2, reason: "policy" });
-    const admitted = this.breaker.admit(p3.from.device, entry.text.length);
+    const admitted = this.breaker.admit(p3.from.device, entry.text.length, isTrusted(this.config, p3.from.device));
     if (!admitted.ok) {
-      const reason = admitted.reason;
-      const pause = admitted.newly ? { person: pauseNotice(from, reason, this.config.breaker), agent: pauseNoticeForAgent(from, reason, this.config.breaker) } : void 0;
-      if (admitted.newly) this.emit("breaker", { peer: from, state: "tripped", reason: admitted.reason });
-      return this.hold({ ...held2, reason: "breaker" }, pause);
+      const pause = admitted.pause;
+      if (admitted.newly) {
+        this.pauseFrom.set(pause.peer, { from, told: /* @__PURE__ */ new Set() });
+        await this.savePauses();
+        this.emit("breaker", { peer: from, state: "tripped", reason: pause.rule, ...breakerFields(pause) });
+      }
+      const under = { rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, trusted: pause.trusted, until: pause.until, auto: pause.auto };
+      await this.hold({ ...held2, reason: "breaker", pause: under }, admitted.newly ? { person: pauseNotice(from, pause), agent: pauseNoticeForAgent(from, pause) } : void 0);
+      return this.tellPaused(pause, from, p3.id);
     }
     const waiter = p3.kind === "result" && !unsolicited ? this.askWaiters.get(p3.reply_to) : void 0;
     if (waiter !== void 0 && p3.kind === "result") {
@@ -92830,7 +93050,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   recordReceipt(f7) {
     const recorded = this.history.appendReceipt(f7.id, { to: f7.to, status: f7.status, at: this.now() });
-    if (f7.status === "delivered") this.heldTold.delete(f7.to);
+    if (f7.status === "delivered") {
+      this.heldTold.delete(f7.to);
+      return recorded.then(() => this.pausedBy.deliveredSince(this.pairOf(f7.to), ulidTime(f7.id)));
+    }
     if (f7.status !== "held") return recorded;
     const tell = !this.heldTold.has(f7.to);
     this.heldTold.add(f7.to);
@@ -92860,7 +93083,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     try {
       await this.sweep();
       await this.readPresence();
-      for (const { id: id2, verdict } of await this.held.takeMarks()) await this.decide(id2, verdict).catch(() => void 0);
+      for (const { id: id2, verdict } of await this.held.takeMarks()) await this.applyMark(id2, verdict).catch(() => void 0);
+      await this.releaseDue();
       const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m4) => m4.id);
       if (dismissed.length > 0) {
         const { left } = await this.spool.dismissRelayed(dismissed);
@@ -92984,6 +93208,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const device = this.roster.devices.find((d5) => d5.name === peer.slice(peer.indexOf("@") + 1));
     if (device === void 0) return 0;
     this.breaker.resume(device.id);
+    const told = this.pauseFrom.get(device.id)?.told ?? /* @__PURE__ */ new Set();
+    this.pauseFrom.delete(device.id);
+    await this.savePauses();
+    for (const to of told) this.sendPause(to, { state: "lifted" });
     this.emit("breaker", { peer, state: "resumed" });
     let n3 = 0;
     for (const item of await this.held.list()) {
@@ -92992,6 +93220,85 @@ var MeshSession = class _MeshSession extends EventEmitter {
       n3++;
     }
     return n3;
+  }
+  /**
+   * A mark the person left in the pane: approve, refuse, or approve and resume (`resume`), which
+   * also lifts the breaker's pause on the item's device and releases everything it held from there.
+   */
+  async applyMark(id2, mark) {
+    if (mark !== "resume") return this.decide(id2, mark);
+    const item = await this.held.get(id2);
+    if (item?.reason !== "breaker" || await this.resumePeer(item.from) === 0) await this.decide(id2, "approve");
+  }
+  // ---- the loop breaker's pauses ----
+  /** The running pauses of this session's breaker, with the address that tripped each. */
+  pausedRows() {
+    return this.breaker.pauses().map((p3) => ({ ...p3, from: this.pauseFrom.get(p3.peer).from }));
+  }
+  /** Writes the running pauses where `wim held list` reads them. */
+  async savePauses() {
+    await savePauses(this.files.breakerPath, this.pausedRows(), this.o.env);
+  }
+  /** Releases every trusted peer whose cool-down has ended; resolves once the releases already due are done. */
+  releaseDue() {
+    const due = this.breaker.takeDue();
+    const run = this.releasing.then(async () => {
+      for (const p3 of due) await this.autoRelease(p3);
+    });
+    this.releasing = run.catch(() => void 0);
+    return run;
+  }
+  /**
+   * A trusted peer's cool-down ended: the breaker already lifted it, and what it held is
+   * delivered, as a resume by the person would, unless the person stopped trusting the device
+   * meanwhile. The session is told either way. Never reachable by a message or a tool.
+   */
+  async autoRelease(p3) {
+    const from = this.pauseFrom.get(p3.peer).from;
+    this.pauseFrom.delete(p3.peer);
+    await this.savePauses();
+    this.emit("breaker", { peer: from, state: "resumed", auto: true });
+    this.config = await this.o.mesh.loadConfig();
+    const still = isTrusted(this.config, p3.peer);
+    let released = 0;
+    let kept = 0;
+    for (const item of await this.held.list()) {
+      if (item.device !== p3.peer || item.reason !== "breaker") continue;
+      if (still) await this.decide(item.id, "approve");
+      if (still) released++;
+      else kept++;
+    }
+    await this.notice(from, releasedNotice(from, p3, released, kept));
+  }
+  /** Tells the session that sent `id` that this session's breaker holds its device's messages, once a pause. */
+  tellPaused(pause, to, id2) {
+    const told = this.pauseFrom.get(pause.peer).told;
+    if (told.has(to)) return;
+    told.add(to);
+    this.sendPause(to, { state: "paused", rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, until: pause.until, auto: pause.auto }, id2);
+  }
+  /** Sends a `pause` without waiting for the relay's answer, like a pong. */
+  sendPause(to, pause, replyTo) {
+    void this.post(to, void 0, { kind: "pause", pause, ...replyTo === void 0 ? {} : { reply_to: replyTo } }).catch((e6) => this.log(`wim: no pause sent to ${to}: ${e6.message}`));
+  }
+  /**
+   * A peer session's breaker holds this device's messages, or lifted that (SPEC section 12). Taken
+   * only from a session this one sent to in the last hour, and only as a label: it changes what a
+   * send to that session reports (`held`), never what is sent or delivered. The agent is told when
+   * a pause starts, at most once in 10 minutes per peer session.
+   */
+  async pausedThere(p3) {
+    this.config = await this.o.mesh.loadConfig();
+    const pair = `${p3.from.device}/${p3.from.session}`;
+    const sent2 = this.sentTo.get(pair);
+    if (policyLevel(this.config, p3.from.device) === "refuse" || sent2 === void 0 || this.now() - sent2 > PAUSE_LISTEN_MS) return;
+    const to = this.fromAddress(p3);
+    await this.pausedBy.note(pair, to, p3.pause, this.now());
+    if (p3.pause.state === "lifted") return;
+    const last = this.pausedToldAt.get(pair);
+    if (last !== void 0 && this.now() - last < PAUSE_TELL_MS) return;
+    this.pausedToldAt.set(pair, this.now());
+    await this.notice(to, pausedThereLine(to, p3.pause));
   }
   // ---- tasks ----
   async tasks() {
@@ -93101,7 +93408,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   recordSend(out, text2, opts) {
     if (out.sent === void 0) return Promise.resolve({ id: out.id, results: out.local });
     const { id: id2, routed, frame, missing, sent: sent2 } = out;
-    for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.breaker.noteSent(this.pairOf(a5).split("/")[0], (text2 ?? "").length);
+    for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.noteSentTo(a5, (text2 ?? "").length);
     const name = (d5) => this.roster.devices.find((r6) => r6.id === d5).name;
     const unprotected = this.legacyIds(frame).map(name);
     const outcome = { id: id2, results: [...out.local, ...sent2.results], ...unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {} };
@@ -93116,7 +93423,26 @@ var MeshSession = class _MeshSession extends EventEmitter {
       ...opts.status === void 0 ? {} : { status: opts.status },
       ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },
       ...opts.relayed === true ? { relayed: true } : {}
-    }).then(() => outcome);
+    }).then(() => this.heldRows(outcome));
+  }
+  /** A sent message's breaker count, and the session it went to, which a `pause` may then come from. */
+  noteSentTo(address, length) {
+    const pair = this.pairOf(address);
+    this.breaker.noteSent(pair.split("/")[0], length);
+    this.sentTo.delete(pair);
+    this.sentTo.set(pair, this.now());
+    if (this.sentTo.size > SENT_TO_MAX) this.sentTo.delete(this.sentTo.keys().next().value);
+  }
+  /** Routed or queued rows whose session said its breaker holds this device's messages, reported as `held`. */
+  async heldRows(outcome) {
+    const paused = await this.pausedBy.active();
+    const results = outcome.results.map((r6) => {
+      const e6 = r6.status === "routed" || r6.status === "queued" ? paused[this.pairOf(r6.to)] : void 0;
+      if (e6 === void 0) return r6;
+      const { to: _to, state: _state, at: _at2, ...breaker2 } = e6;
+      return { to: r6.to, status: "held", relay: r6.status, breaker: breaker2 };
+    });
+    return { ...outcome, results };
   }
   /**
    * Seals one frame, puts it on the wire and waits for the relay's `sent`. `local` holds the
@@ -93190,7 +93516,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Seals a message at the next seq; the secrets check and the protocol limits refuse here. */
   async seal(id2, routed, ids, text2, opts) {
-    const derived3 = opts.kind === "ping" || opts.kind === "pong" ? false : await this.isDerived();
+    const derived3 = opts.kind === "ping" || opts.kind === "pong" || opts.kind === "pause" ? false : await this.isDerived();
     const { keys, missing } = this.keysFor(ids);
     try {
       const frame = await sealMessageWith({
@@ -93203,6 +93529,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         ...opts.deadline === void 0 ? {} : { deadline: opts.deadline },
         ...opts.status === void 0 ? {} : { status: opts.status },
         ...opts.file === void 0 ? {} : { file: opts.file },
+        ...opts.pause === void 0 ? {} : { pause: opts.pause },
         recipients: ids,
         ...opts.relayed === true ? { relayed: true } : {},
         ...derived3 ? { derived: true } : {},
@@ -110529,8 +110856,8 @@ var ClientSDK = class {
       });
       return [...kept, additions].join("&");
     };
-    const encodeQueryRecord = (record2) => {
-      return Object.entries(record2).map(([k5, v]) => {
+    const encodeQueryRecord = (record3) => {
+      return Object.entries(record3).map(([k5, v]) => {
         if (v == null) {
           return void 0;
         }
@@ -119607,11 +119934,11 @@ async function decideJoin(session, body, confirm, now) {
   const invites = new Invites(session.mesh, session.files.env, now);
   const screened = await screenJoin(invites, session.roster, body, now());
   if (screened.outcome !== "ok") return screened;
-  const { record: record2, device, sas } = screened;
-  if (!record2.auto && !await confirm({ name: device.name, id: device.id, sas })) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
+  const { record: record3, device, sas } = screened;
+  if (!record3.auto && !await confirm({ name: device.name, id: device.id, sas })) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
   await publishRoster(session, (current) => nextRosterWith(current, { add: [admitJoin(device, now())] }, session.device.keyring, now()));
-  await invites.markUsed(record2.id);
-  await new PendingJoins(session.mesh, session.files.env).remove(record2.id);
+  await invites.markUsed(record3.id);
+  await new PendingJoins(session.mesh, session.files.env).remove(record3.id);
   return { outcome: "admitted", name: device.name };
 }
 async function admitPending(session, name, typed, now) {
@@ -119853,6 +120180,8 @@ async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
       await writeAtomic(join16(files.controlDir, `resume-${peer}`), "", env3);
       continue;
     }
+    const pauses = await readPauses(files.breakerPath, now());
+    await savePauses(files.breakerPath, pauses.filter((p3) => p3.from.split("@")[1] !== peer.split("@")[1]), env3);
     const box = new HeldBox(files.heldDir, env3);
     for (const item of await box.list()) {
       if (item.from.split("@")[1] !== peer.split("@")[1] || item.reason !== "breaker") continue;
@@ -119905,8 +120234,13 @@ function heldRow(h6, session) {
     at: h6.at,
     preview: h6.preview,
     reason: h6.reason,
-    ...h6.entry.file === void 0 ? {} : { file: h6.entry.file }
+    ...h6.entry.file === void 0 ? {} : { file: h6.entry.file },
+    ...h6.pause === void 0 ? {} : { pause: h6.pause }
   };
+}
+function pausedFromHold(row) {
+  const pause = row["pause"];
+  return { peer: row["from"], at: row["at"], ...pause === void 0 ? {} : { reason: pause.rule, until: pause.until, auto: pause.auto } };
 }
 function personOnly(agent, what2) {
   if (agent !== void 0) throw new RequestError("refused", `${what2} is the person's: this events process runs with an agent's variables (${agent})`);
@@ -119990,7 +120324,7 @@ async function runEvents(d5) {
     leases = remember(leaseRows, (l3) => l3.name);
     for (const h6 of held2.values()) {
       const peer = h6.row["from"];
-      if (h6.row["reason"] === "breaker" && !paused.has(peer)) paused.set(peer, { peer, at: h6.row["at"] });
+      if (h6.row["reason"] === "breaker" && !paused.has(peer)) paused.set(peer, pausedFromHold(h6.row));
     }
     synced = true;
     emit("snapshot", { devices: devs, sessions: rows.map(sessionRow), rooms: roomsOf(rows), leases: leaseRows, held: heldRows, breakers: [...paused.values()], joins: joinRows });
@@ -120073,7 +120407,8 @@ async function runEvents(d5) {
       const pair = `${h6.sid} ${h6.row["from"]}`;
       if (h6.row["reason"] === "breaker" && h6.sid !== s3.sid && !pausedIn.has(pair)) {
         pausedIn.add(pair);
-        breaker2({ peer: h6.row["from"], state: "tripped" });
+        const { at: _at2, ...row } = pausedFromHold(h6.row);
+        breaker2({ ...row, state: "tripped" });
       }
     }
     for (const [k5, h6] of held2) if (!next.has(k5)) emit("held", { op: "remove", item: h6.row });
@@ -122164,7 +122499,10 @@ var Inputs = {
 };
 var text = (t2) => ({ content: [{ type: "text", text: t2 }] });
 var json3 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
-var sent = (o3) => json3(o3.unprotected === void 0 ? o3 : { ...o3, note: unprotectedNote(o3.unprotected, o3.no_prekey) });
+var sent = (o3) => {
+  const held2 = o3.results.flatMap((r6) => r6.status === "held" ? [heldSendLine(r6.to, r6.breaker)] : []);
+  return json3({ ...o3, ...o3.unprotected === void 0 ? {} : { note: unprotectedNote(o3.unprotected, o3.no_prekey) }, ...held2.length === 0 ? {} : { held_note: held2.join(" ") } });
+};
 var fail3 = (t2) => ({ content: [{ type: "text", text: t2 }], isError: true });
 function failure2(error64) {
   const quote = error64.quote;
@@ -122446,7 +122784,10 @@ var WimMcp = class {
       case "_route":
         return json3(await s3.route(a5.to));
       case "_held":
-        return json3({ held: (await s3.held.list()).map((h6) => ({ id: h6.id, from: h6.from, kind: h6.kind, at: h6.at, preview: h6.preview })) });
+        return json3({
+          held: (await s3.held.list()).map((h6) => ({ id: h6.id, from: h6.from, kind: h6.kind, at: h6.at, preview: h6.preview, reason: h6.reason })),
+          paused: s3.pausedRows().map((p3) => ({ from: p3.from, rule: p3.rule, until: p3.until, auto: p3.auto, why: pauseRule(p3.from, p3), ends: pauseEnd(p3) }))
+        });
       case "_leases":
         return json3({ leases: (await s3.listLeases()).map((l3) => ({ name: sanitizeForDisplay(l3.name), holder: l3.holder, expires_at: l3.expires_at })) });
     }
@@ -129432,7 +129773,8 @@ async function peers(ctx) {
 }
 var SENT_MEANING = {
   routed: "handed to a live session; not yet taken or read",
-  queued: "that session is offline; the relay keeps it 24 h"
+  queued: "that session is offline; the relay keeps it 24 h",
+  held: "its loop breaker holds this device's messages, so it waits for that device's person"
 };
 var WAIT_MAX_MS = 36e5;
 function receiptLine(to, status3, id2) {
@@ -129508,6 +129850,7 @@ async function send2(ctx) {
       const hint = r6.status === "unknown" ? closestAddress(r6.to, out.live) : void 0;
       const meaning = SENT_MEANING[r6.status];
       ctx.io.out(`${r6.to}: ${r6.status}${meaning === void 0 ? "" : ` (${meaning})`}${hint === void 0 ? "" : ` (did you mean ${hint}?)`}`);
+      if (r6.status === "held") ctx.io.out(`  ${heldSendLine(r6.to, r6.breaker)}`);
       if (r6.status === "queued") {
         const device = r6.to.slice(r6.to.indexOf("@") + 1);
         const tabs = (out.claude ?? []).filter((a5) => a5 !== r6.to && a5.endsWith(`@${device}`));
@@ -129686,7 +130029,9 @@ async function held(ctx) {
   const { files } = await ctx.mesh();
   if (action === "list") {
     const rows = await listAllHeld(files, ctx.fsEnv);
-    if (rows.length === 0) ctx.io.out("Nothing is held.");
+    const pauses = await listAllPauses(files, ctx.fsEnv, ctx.io.now());
+    if (rows.length === 0 && pauses.length === 0) ctx.io.out("Nothing is held.");
+    for (const p3 of pauses) ctx.io.out(`paused  ${sanitizeForDisplay(p3.from)}'s device -> ${p3.session}  breaker: ${pauseRule(sanitizeForDisplay(p3.from), p3)}; ${pauseEnd(p3)}`);
     for (const r6 of rows) ctx.io.out(heldLine(r6));
     return 0;
   }
@@ -129701,7 +130046,10 @@ async function held(ctx) {
     const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath);
     const refusal2 = rules === void 0 ? void 0 : pinRefusal(rules, rows[0].ci.rule, pins);
     if (refusal2 !== void 0) throw refusal2;
-    if (!await confirmed(ctx, heldDetails(rows, await files.loadConfig(), all, rules), question)) return 1;
+    const details = heldDetails(rows, await files.loadConfig(), all, rules);
+    const resumable = action === "approve" && rows[0].reason === "breaker" && rows[0].ci === void 0;
+    if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
+    if (!await confirmed(ctx, details, question)) return 1;
     if (pins !== void 0) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0].ci.rule, pins));
     const n3 = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
     if (n3 === 0) throw new SetupError(`no held message ${arg}`);
@@ -129721,8 +130069,28 @@ async function held(ctx) {
   }
   throw new SetupError(`unknown held action ${action}`);
 }
+async function approveOrResume(ctx, files, rows, all, details, question) {
+  const r6 = rows[0];
+  const device = r6.from.split("@")[1];
+  const others = all.filter((o3) => o3.reason === "breaker" && o3.id !== r6.id && o3.from.split("@")[1] === device).length;
+  for (const line of details) ctx.io.out(line);
+  const typed = (await ctx.io.prompt(`${question} Type y to approve it, or resume to approve it and resume ${sanitizeForDisplay(r6.from)} (lifting the pause on device ${device} and releasing the ${others} other${others === 1 ? "" : "s"} held from it) [y/resume/N] `)).trim();
+  if (/^resume$/i.test(typed)) {
+    const n3 = await resumeEverywhere(files, r6.from, ctx.fsEnv, ctx.io.now);
+    ctx.io.out(`Approved ${r6.id} and resumed ${sanitizeForDisplay(r6.from)}; released ${n3} held by the breaker.`);
+    return 0;
+  }
+  if (!/^y(es)?$/i.test(typed)) {
+    ctx.io.err("wim: nothing changed.");
+    return 1;
+  }
+  if (await decideHeld(files, r6.id, "approve", ctx.fsEnv, ctx.io.now) === 0) throw new SetupError(`no held message ${r6.id}`);
+  ctx.io.out(`Approved ${r6.id}. The breaker still pauses ${sanitizeForDisplay(r6.from)}: \`wim held resume ${r6.from}\` lifts it.`);
+  return 0;
+}
 function heldLine(r6) {
-  return `${r6.id}  ${sanitizeForDisplay(r6.from)} -> ${r6.session}  ${r6.kind}  ${r6.reason}  ${new Date(r6.at).toISOString()}: ${r6.preview}`;
+  const why = r6.pause === void 0 ? r6.reason : `${r6.reason} (${pauseRule(sanitizeForDisplay(r6.from), r6.pause)})`;
+  return `${r6.id}  ${sanitizeForDisplay(r6.from)} -> ${r6.session}  ${r6.kind}  ${why}  ${new Date(r6.at).toISOString()}: ${r6.preview}`;
 }
 function heldFor(rows) {
   return rows.map((r6) => r6.session).join(", ");
@@ -129737,7 +130105,7 @@ function pinRefusal(rules, ruleId2, pins) {
 }
 function heldDetails(rows, config2, all, rules) {
   const r6 = rows[0];
-  const why = r6.reason === "breaker" ? "the loop breaker paused that peer" : r6.ci === void 0 ? `its device's policy here is ${policyLevel(config2, r6.device)}` : r6.ci.pins === void 0 ? "its CI rule holds every notice" : `its CI rule has no repository ids yet; approving it pins ${Object.entries(r6.ci.pins).map(([k5, v]) => `${k5}=${v}`).join(" ")}, and only that repository can send under the rule from then on`;
+  const why = r6.reason === "breaker" ? `the loop breaker paused that peer${r6.pause === void 0 ? "" : ` on ${pauseRule(sanitizeForDisplay(r6.from), r6.pause)}; the pause runs ${pauseEnd(r6.pause)}`}` : r6.ci === void 0 ? `its device's policy here is ${policyLevel(config2, r6.device)}` : r6.ci.pins === void 0 ? "its CI rule holds every notice" : `its CI rule has no repository ids yet; approving it pins ${Object.entries(r6.ci.pins).map(([k5, v]) => `${k5}=${v}`).join(" ")}, and only that repository can send under the rule from then on`;
   return [
     `Held message ${r6.id}:`,
     r6.ci === void 0 ? `  from     ${sanitizeForDisplay(r6.from)} (device id ${r6.device})` : `  from     ${sanitizeForDisplay(r6.from)} (a CI job, information only)`,

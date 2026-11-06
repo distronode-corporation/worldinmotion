@@ -116,6 +116,33 @@ body line with a bracket.
   mesh's recovery code, an admin record that never connects, which is why its policy reads hold.
 - **"Unknown mesh" says why it may be** (#65): an admin deleted it, the relay removed it after it
   went unused, or the relay URL is wrong, and `wim mesh delete` removes this device's copy.
+- **The loop breaker scales by trust** (#59, SECURITY-MODEL section 7.3). A device the person
+  trusts (and this device's own sessions) gets 120 messages per peer and 300 in total an hour, and
+  ping-pong past 32 exchanges; any other device keeps 20, 60 and 8. mesh.json's `breaker` gains
+  `trusted` (`perPeerPerHour`, `totalPerHour`, `pingPong`, `pingPongExchanges`,
+  `cooldownMinutes`), documented in docs/design.md. A file without `trusted` gives trusted peers
+  the trusted defaults, each raised to the file's own value where that is higher; a top-level
+  `"pingPong": false` keeps the rule off for both tiers.
+- **A trusted peer that trips the breaker is released by the client after a cool-down** (10
+  minutes by default, at most an hour): what it held is delivered, unless the device is no longer
+  trusted, and the session is told. A second trip within the hour of that release waits for the
+  person, as an untrusted peer's pause does.
+- **Pauses show, with the rule, its numbers and their end** (#59). `wim held list` lists running
+  pauses first (from the session's new `breaker.json`) and names the rule of each breaker hold;
+  the Claude Code pane lists them too; both notices read like "the per-peer limit: 121 messages
+  from a@one in 60 minutes, limit 120; until <time>"; `wim events` gives `until` and `auto` on
+  `breaker` events and rows, and VS Code lets a pause lapse at its `until`.
+- **`send` returns `held` for a session whose breaker holds this device's messages** (#59). The
+  receiving client tells each sending session once per pause with a new plaintext kind, `pause`
+  (SPEC section 12; older clients drop it), and the sender keeps it in `paused-by.json` for every
+  session of its device: `send`, `ask`, `reply`, `send_file` and `wim send` then report `held`
+  with `relay` and `breaker` (the rule and its numbers) instead of `routed`, the MCP result adds a
+  `held_note`, and the agent is told once. A `pause` is a label only: it never changes what is
+  sent, held or delivered, and never resumes anything.
+- **"Approve and resume this device"** (#59): the pane offers it on every breaker hold, and `wim
+  held approve <id>` takes `resume` as well as `y` for one, approving the item and lifting the
+  pause on its device in one step. Both stay the person's: no MCP tool, internal op, message or
+  `pause` approves or resumes.
 
 ### Fixed
 

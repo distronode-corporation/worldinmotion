@@ -6,6 +6,7 @@ import { DEFAULT_BREAKER, MeshFiles, parseMeshConfig, RosterBook, type MeshConfi
 import { FS, RELAY, scratch, rosterSeqs } from "./helpers.ts";
 
 const T = 1_760_000_000_000;
+const { trusted: TRUSTED, ...UNTRUSTED } = DEFAULT_BREAKER;
 
 function chain(n: number) {
   const admin = generateDeviceKeys();
@@ -36,44 +37,56 @@ describe("parseMeshConfig", () => {
     expect(parseMeshConfig({ ...good, share_cards: false, policy: undefined }, "p").share_cards).toBe(false);
     expect(parseMeshConfig({ ...good, fork: { seq: 2, a: "x", b: "y", base: [], at: 1 } }, "p").fork?.seq).toBe(2);
     const b = parseMeshConfig({ ...good, breaker: { perPeerPerHour: 0, totalPerHour: 5, pingPong: false } }, "p").breaker;
-    expect(b).toEqual({ perPeerPerHour: 20, totalPerHour: 5, pingPong: false, pingPongExchanges: 8 });
+    expect(b).toEqual({ perPeerPerHour: 20, totalPerHour: 5, pingPong: false, pingPongExchanges: 8, trusted: { ...TRUSTED, pingPong: false } });
   });
   it("reads the breaker: absent is the new default, a written one is honoured as written", () => {
-    // New meshes (and a file with no breaker at all) get the limits of 0.1.8.
-    expect(DEFAULT_BREAKER).toEqual({ perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32 });
-    expect(parseMeshConfig({ ...good, breaker: undefined }, "p").breaker).toEqual(DEFAULT_BREAKER);
-    // The default every earlier version wrote stays in force, threshold included (it had none written).
-    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 20, totalPerHour: 60, pingPong: true } }, "p").breaker).toEqual({
+    // New meshes (and a file with no breaker at all): 20, 60 and 8 for untrusted peers, and a
+    // higher ceiling with a 10-minute cool-down for trusted ones.
+    expect(DEFAULT_BREAKER).toEqual({
       perPeerPerHour: 20,
       totalPerHour: 60,
       pingPong: true,
       pingPongExchanges: 8,
+      trusted: { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 10 },
     });
-    // A hand-tuned one, as the person wrote it.
-    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 120, totalPerHour: 300, pingPong: false } }, "p").breaker).toEqual({
-      perPeerPerHour: 120,
+    expect(parseMeshConfig({ ...good, breaker: undefined }, "p").breaker).toEqual(DEFAULT_BREAKER);
+    // The default every earlier version wrote stays in force for untrusted peers, threshold
+    // included (it had none written); trusted peers get the trusted defaults.
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 20, totalPerHour: 60, pingPong: true } }, "p").breaker).toEqual(DEFAULT_BREAKER);
+    // A hand-tuned one, as the person wrote it: raised limits hold for trusted peers too, and
+    // `"pingPong": false` turns the rule off for both tiers.
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 150, totalPerHour: 300, pingPong: false } }, "p").breaker).toEqual({
+      perPeerPerHour: 150,
       totalPerHour: 300,
       pingPong: false,
       pingPongExchanges: 8,
+      trusted: { perPeerPerHour: 150, totalPerHour: 300, pingPong: false, pingPongExchanges: 32, cooldownMinutes: 10 },
     });
-    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 50, totalPerHour: 90, pingPong: true, pingPongExchanges: 16 } }, "p").breaker).toEqual({
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 50, totalPerHour: 90, pingPong: true, pingPongExchanges: 40 } }, "p").breaker).toEqual({
       perPeerPerHour: 50,
       totalPerHour: 90,
       pingPong: true,
-      pingPongExchanges: 16,
+      pingPongExchanges: 40,
+      trusted: { ...TRUSTED, pingPongExchanges: 40 },
     });
+    // A written `trusted`, as written: lower than the top level if the person says so, ping-pong
+    // off for trusted peers only, and a cool-down of at most an hour.
+    const trusted = { perPeerPerHour: 5, totalPerHour: 7, pingPong: false, pingPongExchanges: 3, cooldownMinutes: 90 };
+    expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, trusted } }, "p").breaker).toEqual({
+      ...UNTRUSTED,
+      trusted: { perPeerPerHour: 5, totalPerHour: 7, pingPong: false, pingPongExchanges: 3, cooldownMinutes: 60 },
+    });
+    expect(parseMeshConfig({ ...good, breaker: { pingPong: false, trusted: { pingPong: true } } }, "p").breaker.trusted.pingPong).toBe(false);
     // Anything in a written breaker that is missing or not a positive whole number reads as the
-    // value files were written with before 0.1.8, never as the higher new default.
+    // value files were written with before 0.1.8, never as the higher new default; in a written
+    // `trusted`, as the trusted default.
     for (const bad of [0, -1, 1.5, "32", Number.MAX_SAFE_INTEGER + 1, null]) {
-      expect(parseMeshConfig({ ...good, breaker: { perPeerPerHour: bad, totalPerHour: bad, pingPong: true, pingPongExchanges: bad } }, "p").breaker).toEqual({
-        perPeerPerHour: 20,
-        totalPerHour: 60,
-        pingPong: true,
-        pingPongExchanges: 8,
-      });
+      const all = { perPeerPerHour: bad, totalPerHour: bad, pingPongExchanges: bad };
+      expect(parseMeshConfig({ ...good, breaker: { ...all, pingPong: true, trusted: { ...all, cooldownMinutes: bad } } }, "p").breaker).toEqual(DEFAULT_BREAKER);
     }
     for (const written of [{}, null, "fast", 7]) {
-      expect(parseMeshConfig({ ...good, breaker: written }, "p").breaker).toEqual({ perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 });
+      expect(parseMeshConfig({ ...good, breaker: written }, "p").breaker).toEqual(DEFAULT_BREAKER);
+      expect(parseMeshConfig({ ...good, breaker: { trusted: written } }, "p").breaker).toEqual(DEFAULT_BREAKER);
     }
   });
   it("refuses broken files", () => {

@@ -10,7 +10,7 @@ import { MeshFiles } from "../src/mesh.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "../src/offline.ts";
 import { agentEnv, canShowSecret, fetchHeldCode, holdForShow, showPaths } from "../src/secretout.ts";
 import { SessionFiles } from "../src/session.ts";
-import { FS, LIVE_PID, makeMesh, openSession, POSIX, RelayHarness, scratch, until } from "./helpers.ts";
+import { FS, LIVE_PID, makeMesh, openSession, POSIX, RelayHarness, scratch, until, breakerOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -150,7 +150,7 @@ describe("offline decisions", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const files = new MeshFiles(devices[1]!.home.meshDir(mesh), FS);
-    await files.updateConfig((c) => ({ ...c, breaker: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 } }));
+    await files.updateConfig((c) => ({ ...c, breaker: breakerOf({ perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 }) }));
     const a = await session(devices[0]!, mesh, relay, { name: "a", userHome: "/none" });
     const idle = await session(devices[1]!, mesh, relay, { name: "idle" });
     const live = await session(devices[1]!, mesh, relay, { name: "live" });

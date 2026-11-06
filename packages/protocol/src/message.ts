@@ -28,6 +28,33 @@ export type Card = z.infer<typeof cardSchema>;
 export const RESULT_STATUSES = ["done", "failed", "declined", "timeout"] as const;
 export type ResultStatus = (typeof RESULT_STATUSES)[number];
 
+/** The breaker rules a `pause` names (SPEC section 12, SECURITY-MODEL section 7.3). */
+export const PAUSE_RULES = ["peer", "total", "pingpong"] as const;
+
+/** The longest pause a `pause` can announce: an hour. */
+export const PAUSE_MAX_MS = 3_600_000;
+
+const positiveCount = z.int().min(1);
+
+/**
+ * What a `pause` says (SPEC section 12): the rule that tripped, what it counted, its limit, the
+ * window it counts over, when the pause ends and whether the receiving client then releases what
+ * it held by itself; or that the person lifted the pause.
+ */
+export const pauseSchema = z.discriminatedUnion("state", [
+  z.strictObject({
+    state: z.literal("paused"),
+    rule: z.enum(PAUSE_RULES),
+    count: positiveCount,
+    limit: positiveCount,
+    minutes: z.int().min(1).max(60),
+    until: timeSchema,
+    auto: z.boolean(),
+  }),
+  z.strictObject({ state: z.literal("lifted") }),
+]);
+export type PauseInfo = z.infer<typeof pauseSchema>;
+
 const common = {
   v: z.literal(WIRE_VERSION),
   id: ulidSchema,
@@ -95,6 +122,9 @@ export const plaintextSchema = z
     // never an agent. Neither carries text, and neither is relayed or derived.
     z.strictObject({ ...common, kind: z.literal("ping"), text: z.undefined().optional() }),
     z.strictObject({ ...common, kind: z.literal("pong"), text: z.undefined().optional(), reply_to: ulidSchema }),
+    // The receiving client's loop breaker holds the sender's messages (SPEC section 12): written
+    // by the client itself, never an agent, and only ever changes what the sender reports.
+    z.strictObject({ ...common, kind: z.literal("pause"), text: z.undefined().optional(), pause: pauseSchema, reply_to: ulidSchema.optional() }),
   ])
   .refine((p) => p.kind !== "card" || (p.to.length === 1 && p.to[0] === "*"), {
     message: "a card is sent to * only",
@@ -107,6 +137,14 @@ export const plaintextSchema = z
   .refine((p) => p.kind !== "pong" || (p.to.length === 1 && p.to[0] !== "*" && !isRoom(p.to[0]!)), {
     message: "a pong answers one session",
     path: ["to"],
+  })
+  .refine((p) => p.kind !== "pause" || (p.to.length === 1 && p.to[0] !== "*" && !isRoom(p.to[0]!)), {
+    message: "a pause is for one session",
+    path: ["to"],
+  })
+  .refine((p) => p.kind !== "pause" || p.pause.state === "lifted" || (p.pause.until > p.at && p.pause.until - p.at <= PAUSE_MAX_MS), {
+    message: "until must be after at and at most an hour after it",
+    path: ["pause", "until"],
   })
   .refine(
     (p) => p.kind !== "task" || p.deadline === undefined || (p.deadline > p.at && p.deadline - p.at <= LIMITS.taskDeadlineMaxMs),
@@ -148,9 +186,11 @@ export type SealOptions = {
   at: number;
   id?: string;
   kind?: MessageKind;
-  /** Required for `msg`, `task` and `result`; an optional caption for `file`; absent for `card`, `ping` and `pong`. */
+  /** Required for `msg`, `task` and `result`; an optional caption for `file`; absent for `card`, `ping`, `pong` and `pause`. */
   text?: string;
   card?: Card;
+  /** Required for `pause`. */
+  pause?: PauseInfo;
   reply_to?: string;
   deadline?: number;
   status?: ResultStatus;
@@ -214,7 +254,7 @@ function planSeal(opts: SealOptions & { sender: { deviceId: string } }, signPub:
   if (!roster.devices.some((d) => d.id === sender.deviceId)) {
     throw new TypeError("sealMessage: the sender is not a current device in the roster");
   }
-  const noCaption = (kind === "file" || kind === "card" || kind === "ping" || kind === "pong") && opts.text === undefined;
+  const noCaption = (kind === "file" || kind === "card" || kind === "ping" || kind === "pong" || kind === "pause") && opts.text === undefined;
   if (!noCaption && (typeof opts.text !== "string" || !fitsUtf8(opts.text, LIMITS.textBytes))) {
     throw new RangeError(`sealMessage: text must be a string of at most ${LIMITS.textBytes} UTF-8 bytes`);
   }
@@ -289,6 +329,7 @@ function planSeal(opts: SealOptions & { sender: { deviceId: string } }, signPub:
     status: opts.status,
     file: opts.file,
     card: opts.card,
+    pause: opts.pause,
     relayed: opts.relayed === true ? true : undefined,
     derived: opts.derived === true ? true : undefined,
   });

@@ -181,7 +181,9 @@ export class MeshView extends View {
       s.card?.title === undefined ? undefined : `Title: ${visible(s.card.title)}`,
       s.card?.cwd === undefined ? undefined : `Directory: ${visible(s.card.cwd)}`,
       s.card?.branch === undefined ? undefined : `Branch: ${visible(s.card.branch)}`,
-      pause === undefined ? undefined : `Paused by the breaker${pause.reason === undefined ? "" : ` (${pause.reason})`} at ${stamp(pause.at)}`,
+      pause === undefined
+        ? undefined
+        : `Paused by the breaker${pause.reason === undefined ? "" : ` (${pause.reason})`} at ${stamp(pause.at)}${pause.until === undefined ? "" : `, until ${stamp(pause.until)}`}`,
     );
     return item;
   }

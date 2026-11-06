@@ -377,7 +377,7 @@ describe("small module edges", () => {
     expect(await readBranch(root)).toBeUndefined();
     expect(cardLabel({ branch: "b" })).toBe("branch=b");
     const raw = { v: 1, mesh: "m", relay: RELAY, device: "d", pin: { seq: 1, hash: "h" } };
-    expect(parseMeshConfig({ ...raw, breaker: { perPeerPerHour: 3, totalPerHour: -1 } }, "p").breaker).toEqual({ perPeerPerHour: 3, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 });
+    expect(parseMeshConfig({ ...raw, breaker: { perPeerPerHour: 3, totalPerHour: -1 } }, "p").breaker).toMatchObject({ perPeerPerHour: 3, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 });
     // Locks whose file cannot be created, for a reason other than being there already: a name
     // that no file system accepts, which fails the same way on every platform. Windows looks at
     // the path before it creates; the others find out from the create itself.

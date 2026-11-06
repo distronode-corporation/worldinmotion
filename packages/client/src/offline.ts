@@ -8,6 +8,7 @@ import { writeAtomic, type FsEnv } from "./fsx.ts";
 import { HeldBox, type HeldItem, type Verdict } from "./held.ts";
 import { History, releasedFrame } from "./history.ts";
 import type { MeshConfig, MeshFiles } from "./mesh.ts";
+import { readPauses, savePauses } from "./pauses.ts";
 import { listSessions, SessionFiles } from "./session.ts";
 import { Spool } from "./spool.ts";
 
@@ -76,6 +77,9 @@ export async function resumeEverywhere(mesh: MeshFiles, peer: string, env: FsEnv
       await writeAtomic(join(files.controlDir, `resume-${peer}`), "", env);
       continue;
     }
+    // Its pauses on that device are over too, so `wim held list` stops showing them.
+    const pauses = await readPauses(files.breakerPath, now());
+    await savePauses(files.breakerPath, pauses.filter((p) => p.from.split("@")[1] !== peer.split("@")[1]), env);
     const box = new HeldBox(files.heldDir, env);
     for (const item of await box.list()) {
       // The breaker counts per sender device, so a resume releases that device's held items.

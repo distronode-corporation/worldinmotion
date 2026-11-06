@@ -283,41 +283,90 @@ host and only the first four characters of the mesh id (the full URL with `WIM_D
 ## Loop and cost breaker
 
 Two agents that each wake on the other's message can loop forever, and every wake costs tokens.
-The client counts automatic deliveries per sender device in a sliding hour. Defaults for a new
-mesh: 120 wakes per peer per hour and 300 in total. Past either limit, new items from that peer go
-to `held/` instead of the spool, a `notice` tells the person which rule tripped and its limit
-("worldinmotion paused <peer>: the per-peer limit, 120 messages in an hour; /wim to resume"), and
-the sender gets the receipt `held`. The session itself gets one
+The client counts automatic deliveries per sender device in a sliding hour, with limits by the
+sender device's trust (SECURITY-MODEL section 7.3). A device the person trusts (policy `deliver`
+or `deliver-relayed`, and this device's own sessions) gets by default 120 wakes per peer per hour
+and 300 in total from all trusted peers; any other device 20 and 60. A ping-pong detector also
+pauses a peer early: more than 32 alternating exchanges for a trusted device (8 for any other) in
+10 minutes in which every message is under 200 characters. Only deliveries reach the breaker: an
+item held by inbound policy already waits for the person.
+
+Past a limit, new items from that peer go to `held/` instead of the spool, each with the pause it
+was held under, and the session writes its running pauses to `breaker.json` in its directory. A
+`notice` tells the person which rule tripped, what it counted, its limit and when the pause ends
+("worldinmotion paused <peer>: the per-peer limit: 121 messages from <peer> in 60 minutes, limit
+120; until <time>, when the client releases it and delivers what it held (a trusted device's
+cool-down). /wim to approve, or to approve and resume it now"). The session itself gets one
 `notice` per pause, without a `held` count so that it reaches the agent: the peer is paused, its
-messages are held from now on and not delivered, only the person can release them (`wim held
-resume <peer>` in a terminal they opened themselves, or the pane), and the peer has not gone
-silent. Later holds from the paused peer raise no further turn, so the pause cannot itself become
-a loop. A held peer resumes when the
-person approves (the pane, `wim held resume <peer>`) or after the hour rolls over, whichever is
-first. A ping-pong detector also pauses a pair early: more than 32 alternating exchanges (by
-default) in 10 minutes in which every message is under 200 characters. Only deliveries reach the
-breaker: an item held by inbound policy already waits for the person.
+messages are held and not delivered, when the pause ends, that only the person can release them
+earlier (`wim held resume <peer>` in a terminal they opened themselves, or the pane), and that the
+peer has not gone silent. Later holds from the paused peer raise no further turn, so the pause
+cannot itself become a loop.
+
+The sender gets the receipt `held` for each held message, and each sending session gets one
+`pause` per pause (SPEC section 12). The sending client keeps it in the mesh's `paused-by.json`,
+for every session of that device, and tells its agent once (at most every 10 minutes per peer
+session) which rule holds its messages there, with the numbers, and until when. Until the pause
+ends, the peer says it was lifted, or a message sent after the `pause` came is receipted
+`delivered` there, `send`, `ask`, `reply`, `send_file` and `wim send` report that session as
+`held` rather than `routed` or `queued`, with `relay` (the relay's own status) and `breaker` (the
+rule, `count`, `limit`, `minutes`, `until`, `auto`); the MCP `send` result adds a `held_note`.
+
+A pause ends:
+
+- for a trusted peer, when its cool-down ends (`cooldownMinutes`, 10 by default): the client
+  lifts it, delivers what it held from that device as a resume would (unless the person stopped
+  trusting the device meanwhile; then it stays held), and tells the session. A trusted peer that
+  trips again within the hour of such a release is paused for the hour and waits for the person;
+- for any other peer, when the hour rolls over; what it held stays held for the person;
+- whenever the person resumes the peer: `wim held resume <peer>`, Resume in VS Code, or
+  "Approve and resume this device" on a held item in the pane (it writes `<held>/<id>.resume`),
+  or `resume` at the prompt of `wim held approve <id>` for a breaker hold. Each approves the item
+  and releases everything else the breaker held from that device. The sessions told about the
+  pause get a `pause` saying it was lifted.
+
+`wim held list` shows each running pause first (`paused  <peer>'s device -> <session>  breaker:
+<rule with its numbers>; until <time>...`), then the held items, a breaker hold with its rule.
+
+### The `breaker` settings in mesh.json
 
 The limits live in `mesh.json` as `breaker`, and no message can change them. The client reads
-the file again for every received message, so an edit applies without a restart. This is what a
+the file again for every received message, so an edit applies without a restart. The top-level
+fields are for devices the person does not trust; `trusted`, for the ones they do. This is what a
 device writes when it creates, joins or recovers a mesh, and what a file with no `breaker` reads
 as:
 
 ```
-"breaker": { "perPeerPerHour": 120, "totalPerHour": 300, "pingPong": true, "pingPongExchanges": 32 }
+"breaker": {
+  "perPeerPerHour": 20, "totalPerHour": 60, "pingPong": true, "pingPongExchanges": 8,
+  "trusted": { "perPeerPerHour": 120, "totalPerHour": 300, "pingPong": true, "pingPongExchanges": 32, "cooldownMinutes": 10 }
+}
 ```
 
-A mesh.json written before 0.1.8 keeps the breaker written in it, `{ "perPeerPerHour": 20,
-"totalPerHour": 60, "pingPong": true }`, with a ping-pong threshold of 8; a field missing or
-invalid in a written breaker reads as those values, never as the higher new default. To raise the
-limits, edit `breaker` in that mesh's `mesh.json` on the receiving device, for example:
+| field | meaning |
+|---|---|
+| `perPeerPerHour` | wakes from one sender device in a sliding hour before it is paused |
+| `totalPerHour` | wakes from all the tier's sender devices together in a sliding hour |
+| `pingPong` | `false` turns the ping-pong rule off; at the top level, for both tiers |
+| `pingPongExchanges` | alternating short messages in 10 minutes past which a peer is paused |
+| `trusted.cooldownMinutes` | how long a trusted peer's pause lasts before the client releases it, 1 to 60 |
+
+Every number is a positive whole number. A field missing or invalid at the top level reads as the
+untrusted default (the values every mesh.json was written with before 0.1.8), and one in `trusted`
+as the trusted default; a `cooldownMinutes` over 60 reads as 60. A mesh.json written before 0.1.9
+has no `trusted`: its trusted peers get the trusted defaults, each raised to the file's own
+top-level value where that is higher, and a top-level `"pingPong": false` keeps the rule off for
+them too. So the workaround some meshes carry, `{ "perPeerPerHour": 120, "totalPerHour": 300,
+"pingPong": false }`, keeps 120, 300 and no ping-pong for every peer, now with the cool-down for
+trusted ones. To raise the ceiling for your own devices only, write `trusted`, for example:
 
 ```
-"breaker": { "perPeerPerHour": 120, "totalPerHour": 300, "pingPong": false }
+"breaker": { "perPeerPerHour": 20, "totalPerHour": 60, "pingPong": true, "pingPongExchanges": 8,
+  "trusted": { "perPeerPerHour": 300, "totalPerHour": 600, "pingPongExchanges": 64, "cooldownMinutes": 5 } }
 ```
 
-or keep `"pingPong": true` and add `"pingPongExchanges": 32`. Each device keeps its own limits,
-so set them on every device whose agents should accept more.
+To keep one limit for every peer, write `trusted` with the same numbers. Each device keeps its own
+limits, so set them on every device whose agents should accept more.
 
 ## History
 

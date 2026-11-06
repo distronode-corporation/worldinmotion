@@ -83,6 +83,10 @@ export class SessionFiles {
   get heldDir(): string {
     return join(this.dir, "held");
   }
+  /** The loop breaker's running pauses in this session, for `wim held list` (pauses.ts). */
+  get breakerPath(): string {
+    return join(this.dir, "breaker.json");
+  }
   /** Dismiss marks for relayed items (`<id>.dismiss`), left by the plugin's pane. */
   get dismissDir(): string {
     return join(this.dir, "dismiss");

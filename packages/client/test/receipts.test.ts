@@ -178,7 +178,11 @@ describe("wim send", () => {
     expect(await run(t, "send", "taker@two", "hi")).toBe(0);
     expect(t.out).toContain(`taker@two: routed (${SENT_MEANING["routed"]})`);
     expect(t.out).toContain("Neither routed nor queued means it was read. `wim send --wait 30s` waits for each recipient's receipt.");
-    expect(SENT_MEANING).toEqual({ routed: "handed to a live session; not yet taken or read", queued: "that session is offline; the relay keeps it 24 h" });
+    expect(SENT_MEANING).toEqual({
+      routed: "handed to a live session; not yet taken or read",
+      queued: "that session is offline; the relay keeps it 24 h",
+      held: "its loop breaker holds this device's messages, so it waits for that device's person",
+    });
   });
 
   it("--wait stays connected and prints the receipt", async () => {

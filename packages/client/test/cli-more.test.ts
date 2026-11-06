@@ -8,7 +8,7 @@ import { MeshSession } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { homeChoice } from "../src/platform.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
-import { FS, POSIX_VIEW, makeMesh, openSession, RELAY, RelayHarness, run, said, scratch, sessionOpts, term, until, rosterSeqs } from "./helpers.ts";
+import { FS, POSIX_VIEW, makeMesh, openSession, RELAY, RelayHarness, run, said, scratch, sessionOpts, term, until, rosterSeqs, breakerOf } from "./helpers.ts";
 
 describe("more command paths", () => {
   it("uses the real dialer when none is given, and reports what it cannot reach", async () => {
@@ -118,7 +118,7 @@ describe("more command paths", () => {
   it("words held resume results and history of sessions without an address", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
-    await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 } }));
+    await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: breakerOf({ perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 }) }));
     const t = term(devices[1]!.root, relay);
     expect(await run(t, "held", "resume")).toBe(1);
     expect(said(t)).toMatch(/usage: wim held resume <peer>/);

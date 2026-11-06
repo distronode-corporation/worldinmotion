@@ -16,7 +16,10 @@ import type {
   WimEvent,
 } from "./protocol.ts";
 
-/** A breaker pause lapses after an hour, and the client does not report that (docs/events.md). */
+/**
+ * A breaker pause lapses after an hour, and the client does not report that (docs/events.md),
+ * unless it says when the pause ends (`until`, from 0.1.9): a trusted device's cool-down is shorter.
+ */
 export const PAUSE_MS = 60 * 60 * 1000;
 export const MESSAGE_CAP = 1000;
 export const RECEIPT_CAP = 2000;
@@ -153,7 +156,9 @@ export class Store {
         this.leases.delete(ev.name);
         break;
       case "breaker":
-        if (ev.state === "tripped") this.breakers.set(ev.peer, ev.reason === undefined ? { peer: ev.peer, at: ev.at } : { peer: ev.peer, reason: ev.reason, at: ev.at });
+        if (ev.state === "tripped") {
+          this.breakers.set(ev.peer, { peer: ev.peer, at: ev.at, ...(ev.reason === undefined ? {} : { reason: ev.reason }), ...(ev.until === undefined ? {} : { until: ev.until }) });
+        }
         else this.breakers.delete(ev.peer);
         break;
     }
@@ -203,9 +208,9 @@ export class Store {
   }
 
   /** The breaker pause on `peer`, unless it has lapsed. */
-  pause(peer: string, now: number): { reason?: BreakerReason; at: number } | undefined {
+  pause(peer: string, now: number): { reason?: BreakerReason; at: number; until?: number } | undefined {
     const b = this.breakers.get(peer);
-    return b !== undefined && now < b.at + PAUSE_MS ? b : undefined;
+    return b !== undefined && now < (b.until ?? b.at + PAUSE_MS) ? b : undefined;
   }
 
   /** Device names for the Mesh tree: the roster, plus any device a session names but the roster lacks. */

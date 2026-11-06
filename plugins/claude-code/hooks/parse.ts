@@ -3,7 +3,7 @@
 
 import type { McpToolResult } from 'claude-code'
 
-import type { WimHeld, WimLease, WimLink, WimPeer } from '../types'
+import type { WimHeld, WimLease, WimLink, WimPaused, WimPeer } from '../types'
 
 /** Spool item files are `<cursor zero-padded to 12 digits>.json`. */
 export const ITEM_NAME = /^\d{12}\.json$/
@@ -172,10 +172,11 @@ export const ULID = /^[0-9A-Z]{26}$/
 
 /**
  * The mark file that tells the client the person's decision: `<held>/<id>.approve`,
- * `<held>/<id>.refuse` or `<dismiss>/<id>.dismiss`. Undefined when the directory was not
+ * `<held>/<id>.refuse`, `<held>/<id>.resume` (approve, and resume the item's device) or
+ * `<dismiss>/<id>.dismiss`. Undefined when the directory was not
  * named by the client's `hello` or the id is not a ULID.
  */
-export function markPath(dir: string | undefined, id: string, verdict: 'approve' | 'refuse' | 'dismiss'): string | undefined {
+export function markPath(dir: string | undefined, id: string, verdict: 'approve' | 'refuse' | 'resume' | 'dismiss'): string | undefined {
   if (dir === undefined || !ULID.test(id)) return undefined
   return `${dir.replace(/[\\/]+$/, '')}/${id}.${verdict}`
 }
@@ -239,9 +240,16 @@ export function parseHeld(value: unknown): WimHeld[] {
           kind: str(row.kind, 'msg'),
           at: num(row.at),
           preview: str(row.preview),
+          isBreaker: row.reason === 'breaker',
         }]
       : [],
   )
+}
+
+/** The loop breaker's running pauses from the `held` op; an older client sends none. */
+export function parsePaused(value: unknown): WimPaused[] {
+  if (!isRecord(value) || !Array.isArray(value.paused)) return []
+  return value.paused.filter(isRecord).map(row => ({ from: str(row.from, '?'), why: str(row.why), ends: str(row.ends) }))
 }
 
 export function parseLeases(value: unknown): WimLease[] {

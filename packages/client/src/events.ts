@@ -105,7 +105,14 @@ function heldRow(h: HeldRow, session: string): Row {
     preview: h.preview,
     reason: h.reason,
     ...(h.entry.file === undefined ? {} : { file: h.entry.file }),
+    ...(h.pause === undefined ? {} : { pause: h.pause }),
   };
+}
+
+/** A paused peer as a breaker hold on disk shows it: the rule and the pause's end when the hold recorded them. */
+function pausedFromHold(row: Row): Row {
+  const pause = row["pause"] as { rule: string; until: number; auto: boolean } | undefined;
+  return { peer: row["from"], at: row["at"], ...(pause === undefined ? {} : { reason: pause.rule, until: pause.until, auto: pause.auto }) };
 }
 
 /** A join request as the UI sees it: never its comparison code, which the person types from the new device. */
@@ -212,7 +219,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     // Breaker holds already on disk count as paused peers too (from before this process started).
     for (const h of held.values()) {
       const peer = h.row["from"] as string;
-      if (h.row["reason"] === "breaker" && !paused.has(peer)) paused.set(peer, { peer, at: h.row["at"] });
+      if (h.row["reason"] === "breaker" && !paused.has(peer)) paused.set(peer, pausedFromHold(h.row));
     }
     synced = true;
     emit("snapshot", { devices: devs, sessions: rows.map(sessionRow), rooms: roomsOf(rows), leases: leaseRows, held: heldRows, breakers: [...paused.values()], joins: joinRows });
@@ -320,7 +327,8 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       const pair = `${h.sid} ${h.row["from"] as string}`;
       if (h.row["reason"] === "breaker" && h.sid !== s.sid && !pausedIn.has(pair)) {
         pausedIn.add(pair);
-        breaker({ peer: h.row["from"], state: "tripped" });
+        const { at: _at, ...row } = pausedFromHold(h.row);
+        breaker({ ...row, state: "tripped" });
       }
     }
     for (const [k, h] of held) if (!next.has(k)) emit("held", { op: "remove", item: h.row });

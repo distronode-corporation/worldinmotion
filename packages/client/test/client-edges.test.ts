@@ -17,7 +17,7 @@ import { MeshSession, PARKED_MAX } from "../src/client.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionKeys } from "../src/session.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { FS, makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice, rosterSeqs, keysOf } from "./helpers.ts";
+import { FS, makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice, rosterSeqs, keysOf, breakerOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -284,7 +284,7 @@ describe("receiving edge cases", () => {
   it("resumes only the paused device's breaker items", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"]);
-    await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 }, policy: { ...c.policy, [devices[2]!.device.id]: "hold" } }));
+    await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: breakerOf({ perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 32 }), policy: { ...c.policy, [devices[2]!.device.id]: "hold" } }));
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const c = await session(devices[2]!, mesh, relay, { name: "c" });
     const b = await session(devices[1]!, mesh, relay, { name: "b" });

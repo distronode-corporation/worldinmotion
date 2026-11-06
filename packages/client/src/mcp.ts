@@ -7,7 +7,8 @@ import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult } fr
 import { join } from "node:path";
 import { b64u, bytesEqual, frameForAgent, isName, LIMITS, randomBytes, RESULT_STATUSES, sanitizeForDisplay, utf8 } from "@worldinmotion/protocol";
 import { z } from "zod";
-import { ClientError, MeshSession, unprotectedNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
+import { pauseEnd, pauseRule } from "./breaker.ts";
+import { ClientError, heldSendLine, MeshSession, unprotectedNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
 import { HISTORY_MAX, renderForAgent } from "./history.ts";
 import { isStalePeer, peerLine } from "./render.ts";
 import { ensureDir, tryRemove, writeJson } from "./fsx.ts";
@@ -118,8 +119,14 @@ type In<K extends keyof typeof PUBLIC> = z.infer<(typeof PUBLIC)[K]["input"]>;
 
 const text = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }] });
 const json = (v: Record<string, unknown>): CallToolResult => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
-/** A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b). */
-const sent = (o: SendOutcome): CallToolResult => json(o.unprotected === undefined ? o : { ...o, note: unprotectedNote(o.unprotected, o.no_prekey!) });
+/**
+ * A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b), and
+ * one for each recipient whose loop breaker holds this device's messages (`held`, SPEC section 12).
+ */
+const sent = (o: SendOutcome): CallToolResult => {
+  const held = o.results.flatMap((r) => (r.status === "held" ? [heldSendLine(r.to, r.breaker)] : []));
+  return json({ ...o, ...(o.unprotected === undefined ? {} : { note: unprotectedNote(o.unprotected, o.no_prekey!) }), ...(held.length === 0 ? {} : { held_note: held.join(" ") }) });
+};
 const fail = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }], isError: true });
 
 /** A refusal as the model reads it: text the relay wrote is quoted and labelled as the relay's. */
@@ -469,7 +476,11 @@ export class WimMcp {
       case "_route":
         return json(await s.route((a as { to: string }).to));
       case "_held":
-        return json({ held: (await s.held.list()).map((h) => ({ id: h.id, from: h.from, kind: h.kind, at: h.at, preview: h.preview })) });
+        // The breaker's running pauses too, with the rule and when each ends, for the pane.
+        return json({
+          held: (await s.held.list()).map((h) => ({ id: h.id, from: h.from, kind: h.kind, at: h.at, preview: h.preview, reason: h.reason })),
+          paused: s.pausedRows().map((p) => ({ from: p.from, rule: p.rule, until: p.until, auto: p.auto, why: pauseRule(p.from, p), ends: pauseEnd(p) })),
+        });
       case "_leases":
         return json({ leases: (await s.listLeases()).map((l) => ({ name: sanitizeForDisplay(l.name), holder: l.holder, expires_at: l.expires_at })) });
     }

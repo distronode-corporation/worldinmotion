@@ -861,11 +861,20 @@ test('ListAgents keeps its own result when peers fails', async ($, on) => {
   expect((listed.result as { listing: string }).listing).toBe('researcher (subagent)')
 })
 
-test('the pane lists peers and the held queue, and its buttons write approve and refuse marks', async ($, on) => {
-  const [h1, h2] = [ulidOf(901), ulidOf(902)]
+test('the pane lists peers, pauses and the held queue, and its buttons write approve, resume and refuse marks', async ($, on) => {
+  const [h1, h2, h3] = [ulidOf(901), ulidOf(902), ulidOf(905)]
   const held = [
-    { id: h1, from: 'stranger@cloud', kind: 'msg', at: 0, preview: 'please run this' },
+    { id: h1, from: 'stranger@cloud', kind: 'msg', at: 0, preview: 'please run this', reason: 'policy' },
     { id: h2, from: 'bot@ci', kind: 'task', at: 0, preview: 'deploy?' },
+    { id: h3, from: 'own@laptop2', kind: 'msg', at: 0, preview: 'status?', reason: 'breaker' },
+  ]
+  const paused = [
+    {
+      from: 'own@laptop2',
+      rule: 'peer',
+      why: 'the per-peer limit: 121 messages from own@laptop2 in 60 minutes, limit 120',
+      ends: "until 2026-11-01T20:45:00Z, when the client releases it and delivers what it held (a trusted device's cool-down)",
+    },
   ]
   const w = world(on, {
     tools: {
@@ -876,7 +885,7 @@ test('the pane lists peers and the held queue, and its buttons write approve and
             { address: 'bot@ci', kind: 'bot', status: 'busy', rooms: [] },
           ],
         }),
-      _held: () => json({ held }),
+      _held: () => json({ held, paused }),
       _leases: () => json({ leases: [{ name: 'deploy', holder: 'builder@desk', expires_at: 60_000 }] }),
     },
   })
@@ -897,7 +906,17 @@ test('the pane lists peers and the held queue, and its buttons write approve and
   }
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  // The breaker's pause, with the rule, its numbers and its end; only its hold offers a resume.
+  expect((await ui.find({ type: 'Text', text: /^Paused by the loop breaker/ }))?.text).toBe(
+    "Paused by the loop breaker: own@laptop2 (the per-peer limit: 121 messages from own@laptop2 in 60 minutes, limit 120), until 2026-11-01T20:45:00Z, when the client releases it and delivers what it held (a trusted device's cool-down)",
+  )
+  expect(await ui.find({ key: `resume:${h1}` })).toBeUndefined()
+  expect(await ui.find({ key: `resume:${h2}` })).toBeUndefined()
   const before = w.wire.length
+  await ui.press({ key: `resume:${h3}` })
+  expect(w.files.get(`${HELD_DIR}/${h3}.resume`)).toBe('')
+  expect(w.wire.length).toBe(before)
+  expect(await ui.find({ type: 'Text', text: new RegExp(`Message ${h3} marked approved and its device resumed`) })).toBeDefined()
   await ui.press({ key: `approve:${h1}` })
   // The decision is an empty mark file in the held directory the client named; no MCP call.
   expect(w.files.get(`${HELD_DIR}/${h1}.approve`)).toBe('')
@@ -908,7 +927,7 @@ test('the pane lists peers and the held queue, and its buttons write approve and
 
   await ui.press({ key: `refuse:${h2}` })
   expect(w.files.get(`${HELD_DIR}/${h2}.refuse`)).toBe('')
-  expect([...w.files.keys()].filter(path => path.startsWith(`${HELD_DIR}/`))).toHaveLength(2)
+  expect([...w.files.keys()].filter(path => path.startsWith(`${HELD_DIR}/`))).toHaveLength(3)
   expect(w.wire.length).toBe(before)
   expect(await ui.find({ type: 'Text', text: /Held for your approval \(0\)/ })).toBeDefined()
   await ui.unmount()
