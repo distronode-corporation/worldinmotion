@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../src/client.ts";
 import { relayHost, runEvents } from "../src/events.ts";
 import { MeshFiles } from "../src/mesh.ts";
+import { saveCiRules, type CiRule } from "../src/cirules.ts";
+import type { HeldItem } from "../src/held.ts";
 import { readPauses } from "../src/pauses.ts";
 import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, type TestDevice, breakerOf } from "./helpers.ts";
 
@@ -337,5 +339,84 @@ describe("wim events --json", () => {
     expect(JSON.parse(v.out[0]!)).toMatchObject({ session: "vscode@one" });
     stdin2.end();
     expect(await plain).toBe(0);
+  });
+});
+
+describe("wim events: deciding a held set", () => {
+  it("approves exactly the ids shown from one device, keeps a later one and another device's, and checks the set first", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"], { trust: false });
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    const c = await openSession(devices[2]!, mesh, relay, { name: "c" });
+    cleanup.push(() => a.stop(), () => c.stop());
+    const e = await start(devices[1]!, mesh, relay);
+    const shown = [await a.send("vscode@two", "1"), await a.send("vscode@two", "2"), await a.send("vscode@two", "3")].map((m) => m.id);
+    const theirs = (await c.send("vscode@two", "other device")).id;
+    // Each row as the UI has heard it, from a snapshot or a held event.
+    const heard = () => e.lines.flatMap((l) => (l.type === "snapshot" ? (l["held"] as Array<Record<string, unknown>>) : l.type === "held" && l["op"] === "add" ? [l["item"] as Record<string, unknown>] : []));
+    await until(() => new Set(heard().map((r) => r["id"])).size === 4);
+    const rows = [...new Map(heard().map((r) => [r["id"], r])).values()].sort((x, y) => (x["at"] as number) - (y["at"] as number));
+    const one = `device:${devices[0]!.device.id}`;
+    expect(rows.filter((r) => r["set"] === one).map((r) => r["id"])).toEqual(shown);
+    expect(rows.find((r) => r["id"] === theirs)).toMatchObject({ set: `device:${devices[2]!.device.id}`, set_title: `device three (device id ${devices[2]!.device.id})` });
+    // One more from device one after the UI drew the set.
+    const late = (await a.send("vscode@two", "4")).id;
+    await until(async () => (await e.session.held.get(late)) !== undefined);
+    // Checked before anything is decided: another device's id, a set without `held`, a non-id.
+    expect(await e.request("approve", { held: shown[0], set: [...shown, theirs] })).toMatchObject({ ok: false, error: { code: "input", message: expect.stringContaining(`${theirs} is not held in the same set`) } });
+    expect(await e.request("approve", { held: shown[0], set: [shown[1]] })).toMatchObject({ ok: false, error: { code: "input" } });
+    expect(await e.request("refuse", { held: shown[0], set: [shown[0], "x"] })).toMatchObject({ ok: false, error: { code: "input" } });
+    const nobody = ulid();
+    expect(await e.request("approve", { held: nobody, set: [nobody] })).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect((await e.session.held.list()).length).toBe(5);
+    // An id no longer held is skipped; the rest are decided.
+    expect(await e.request("approve", { held: shown[0], set: [...shown, ulid()] })).toMatchObject({ ok: true, result: { decided: shown, kept: [] } });
+    expect((await e.session.held.list()).map((h) => h.id).sort()).toEqual([late, theirs].sort());
+    expect(await e.request("refuse", { held: late, set: [late] })).toMatchObject({ ok: true, result: { decided: [late], kept: [] } });
+    expect((await e.session.held.list()).map((h) => h.id)).toEqual([theirs]);
+  });
+
+  it("never approves a notice that pins ids as part of a set, refuses it with the set, and regroups a notice whose rule is removed", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const e = await start(devices[0]!, mesh, relay);
+    const rule = { id: ulid(), via: "github", repo: "octo-org/deploys", ref: "refs/heads/main", workflow: "deploy.yml", hold: true } as CiRule;
+    await saveCiRules(e.files.ciRulesPath, [rule], FS);
+    const notice = (at: number, pins?: Record<string, string>): HeldItem => {
+      const id = ulid();
+      return {
+        id,
+        from: "ci:github:octo-org/deploys",
+        device: "",
+        kind: "msg",
+        at,
+        preview: `n${at}`,
+        rendered: `framed ${at}`,
+        reason: "policy",
+        entry: { dir: "in", peer: "ci:github:octo-org/deploys", id, kind: "msg", at, text: `n${at}`, relayed: true, ci: { via: "github", repo: "octo-org/deploys", ref: "refs/heads/main", event: "push" } },
+        ci: { rule: rule.id, ...(pins === undefined ? {} : { pins }) },
+      };
+    };
+    const plain = notice(Date.now());
+    const pinning = notice(Date.now() + 1, { repositoryId: "74", ownerId: "65" });
+    const gone = notice(Date.now() + 2);
+    for (const n of [plain, pinning, gone]) await e.session.held.add(n);
+    // Each row as the UI has heard it, from a snapshot or a held event, in order.
+    const row = (id: string) =>
+      e.lines.flatMap((l) => (l.type === "snapshot" ? (l["held"] as Array<Record<string, unknown>>) : l.type === "held" && l["op"] === "add" ? [l["item"] as Record<string, unknown>] : [])).filter((r) => r["id"] === id);
+    await until(() => [plain, pinning, gone].every((n) => row(n.id).length > 0));
+    expect(row(pinning.id)[0]).toMatchObject({ set: `ci:${rule.id}`, ci: "github, octo-org/deploys, refs/heads/main, event push", pins: "repositoryId=74 ownerId=65" });
+    expect(await e.request("approve", { held: plain.id, set: [plain.id, pinning.id] })).toMatchObject({ ok: true, result: { decided: [plain.id], kept: [pinning.id] } });
+    expect(await e.request("refuse", { held: pinning.id, set: [pinning.id] })).toMatchObject({ ok: true, result: { decided: [pinning.id] } });
+    // The rule goes: its notice is sent again in a set of its own.
+    await saveCiRules(e.files.ciRulesPath, [], FS);
+    await until(() => row(gone.id).at(-1)!["set"] === `ci-removed:${gone.id}`);
+    expect(row(gone.id).at(-1)).toMatchObject({ set_title: "a CI rule removed while this notice was held" });
+    await until(() => e.of("held").filter((h) => h["op"] === "remove").length === 2);
+    expect(e.of("held").filter((h) => h["op"] === "remove").map((h) => (h["item"] as { id: string }).id).sort()).toEqual([plain.id, pinning.id].sort());
+    // A damaged rules file groups every notice on its own; the set of one is still decided.
+    await fs.writeFile(e.files.ciRulesPath, "damaged");
+    await sleep(100);
+    expect(await e.request("approve", { held: gone.id, set: [gone.id] })).toMatchObject({ ok: true, result: { decided: [gone.id] } });
   });
 });

@@ -20,6 +20,9 @@ import type { Dialer } from "./wire.ts";
 import { SetupError } from "./errors.ts";
 import { resolveInvite, type BoxFetcher } from "./shortcode.ts";
 import { decideHeld, listAllHeld, resumeEverywhere, type HeldRow } from "./offline.ts";
+import { loadCiRules, type CiRule } from "./cirules.ts";
+import type { Verdict } from "./held.ts";
+import { pinsIds, setFields, setKey } from "./heldsets.ts";
 import { listAllPauses } from "./pauses.ts";
 import { policyLevel } from "./render.ts";
 import { listSessions, SessionFiles } from "./session.ts";
@@ -70,8 +73,10 @@ const Args = {
   history: z.object({ session: z.string().optional(), peer: z.string().optional(), before: z.string().optional(), limit: z.number().int().min(1).max(500).optional() }),
   send: z.object({ to: To, text: z.string(), reply_to: z.string().optional(), kind: z.enum(["msg", "task"]).optional() }),
   send_file: z.object({ to: To, path: z.string().min(1) }),
-  approve: z.object({ held: z.string() }),
-  refuse: z.object({ held: z.string() }),
+  // `set`: the ids of the set the person was shown (a UI draws one set per sending device or CI
+  // rule); the decision covers exactly those. Without it, `held` alone is decided.
+  approve: z.object({ held: z.string(), set: z.array(z.string()).min(1).max(1000).optional() }),
+  refuse: z.object({ held: z.string(), set: z.array(z.string()).min(1).max(1000).optional() }),
   trust: z.object({ device: z.string(), relayed: z.boolean().optional() }),
   untrust: z.object({ device: z.string() }),
   resume: z.object({ peer: z.string() }),
@@ -94,8 +99,13 @@ export function relayHost(relay: string): string {
   return new URL(relay).host;
 }
 
-/** A held row as the UI sees it, `session` being the holding session's address: no text yet. */
-function heldRow(h: HeldRow, session: string): Row {
+/**
+ * A held row as the UI sees it, `session` being the holding session's address: no text yet.
+ * `set` is the set it is decided with (one per sending device or CI rule) and `set_title` who that
+ * set is from; a CI notice adds what its job claimed (`ci`) and, when approving it pins its rule's
+ * ids, those ids (`pins`): it is then approved only on its own, at the person's terminal.
+ */
+function heldRow(h: HeldRow, session: string, rules: readonly CiRule[]): Row {
   return {
     id: h.id,
     session,
@@ -105,6 +115,7 @@ function heldRow(h: HeldRow, session: string): Row {
     at: h.at,
     preview: h.preview,
     reason: h.reason,
+    ...setFields(h, rules),
     ...(h.entry.file === undefined ? {} : { file: h.entry.file }),
     ...(h.pause === undefined ? {} : { pause: h.pause }),
   };
@@ -195,11 +206,47 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   }
 
   /** Every held item on this device, keyed by holding session and id. */
+  /** Decides one held id wherever it is held; false when nothing held it. */
+  async function decideOne(id: string, verdict: Verdict): Promise<boolean> {
+    // This process decides its own items itself (it can send the receipt); others on disk.
+    const mine = (await s.held.get(id)) !== undefined;
+    if (mine) await s.decide(id, verdict);
+    const others = await decideHeld(d.mesh, id, verdict, d.env, d.now, s.sid);
+    return mine || others > 0;
+  }
+
+  /**
+   * Decides the set the person was shown: exactly those ids, all from one set, checked before any
+   * is decided. An id decided elsewhere meanwhile is skipped; an item that arrived after the UI drew
+   * the set is not in `ids`, so it stays held. Approving never covers a notice that pins its rule's
+   * ids (`kept`): that one is approved on its own, at the person's terminal.
+   */
+  async function decideSet(held: string, ids: readonly string[], verdict: Verdict): Promise<Row> {
+    if (!ids.includes(held) || !ids.every(isUlid)) throw new RequestError("input", "set must be the held ids shown, held among them");
+    const rules = await loadCiRules(d.mesh.ciRulesPath).catch(() => []);
+    const rows = await listAllHeld(d.mesh, d.env);
+    const first = rows.find((r) => r.id === held);
+    if (first === undefined) throw new RequestError("not_found", `no held message ${held}`);
+    const key = setKey(first, rules);
+    const now = [...new Set(ids)].flatMap((id) => rows.filter((r) => r.id === id).slice(0, 1));
+    const stranger = now.find((r) => setKey(r, rules) !== key);
+    if (stranger !== undefined) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held}: each set is decided on its own`);
+    const decided: string[] = [];
+    const kept: string[] = [];
+    for (const r of now) {
+      if (verdict === "approve" && pinsIds(r)) kept.push(r.id);
+      else decided.push(r.id);
+    }
+    for (const id of decided) await decideOne(id, verdict);
+    return { decided, kept };
+  }
+
   async function heldNow(): Promise<Map<string, { sid: string; row: Row }>> {
     const out = new Map<string, { sid: string; row: Row }>();
+    const rules = await loadCiRules(d.mesh.ciRulesPath).catch(() => []);
     for (const h of await listAllHeld(d.mesh, d.env)) {
       const address = await addressOf(h.sid);
-      out.set(`${h.sid}/${h.id}`, { sid: h.sid, row: heldRow(h, address) });
+      out.set(`${h.sid}/${h.id}`, { sid: h.sid, row: heldRow(h, address, rules) });
     }
     return out;
   }
@@ -325,8 +372,11 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     // Pairs of (session, peer) already paused, so one pause is reported once.
     const pausedIn = new Set([...held.values()].filter((o) => o.row["reason"] === "breaker").map((o) => `${o.sid} ${o.row["from"] as string}`));
     for (const [k, h] of next) {
-      if (held.has(k)) continue;
+      const was = held.get(k);
+      // A row whose set changed (its CI rule was removed) is sent again, so the UI regroups it.
+      if (was !== undefined && was.row["set"] === h.row["set"]) continue;
       emit("held", { op: "add", item: h.row });
+      if (was !== undefined) continue;
       // Another local session's first breaker hold for a peer shows that peer as paused there.
       // This process's own breaker reports itself, with the reason.
       const pair = `${h.sid} ${h.row["from"] as string}`;
@@ -406,14 +456,11 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       case "approve":
       case "refuse": {
         personOnly(d.agent, op === "approve" ? "approving a held message" : "refusing a held message");
-        const id = (a as { held: string }).held;
-        if (!isUlid(id)) throw new RequestError("input", "held must be a held message id");
+        const i = a as { held: string; set?: string[] };
+        if (!isUlid(i.held)) throw new RequestError("input", "held must be a held message id");
         const verdict = op === "approve" ? "approve" : "refuse";
-        // This process decides its own items itself (it can send the receipt); others on disk.
-        const mine = (await s.held.get(id)) !== undefined;
-        if (mine) await s.decide(id, verdict);
-        const others = await decideHeld(d.mesh, id, verdict, d.env, d.now, s.sid);
-        if (!mine && others === 0) throw new RequestError("not_found", `no held message ${id}`);
+        if (i.set !== undefined) return decideSet(i.held, i.set, verdict);
+        if (!(await decideOne(i.held, verdict))) throw new RequestError("not_found", `no held message ${i.held}`);
         return {};
       }
       case "trust":

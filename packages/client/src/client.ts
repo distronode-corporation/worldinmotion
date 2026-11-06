@@ -1097,6 +1097,11 @@ export class MeshSession extends EventEmitter {
 
   // ---- CI notices (SPEC section 18) ----
 
+  /** The CI rules as they are, for grouping held notices into sets (none when the file is missing or damaged). */
+  async ciRules(): Promise<CiRule[]> {
+    return (await this.ciRulesNow()) ?? [];
+  }
+
   /** The person's CI rules: undefined with no rules file; none when the file is damaged (logged once until it reads again). */
   private ciRulesNow(): Promise<CiRule[] | undefined> {
     return readCiRules(this.o.mesh.ciRulesPath).then(

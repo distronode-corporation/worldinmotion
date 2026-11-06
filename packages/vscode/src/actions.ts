@@ -6,11 +6,11 @@
 
 import * as vscode from "vscode";
 import { noIcons, notice, oneLine, stamp, visible } from "./display.ts";
-import type { JoinRow } from "./protocol.ts";
+import type { HeldRow, JoinRow } from "./protocol.ts";
 import { RequestError } from "./process.ts";
-import type { Store } from "./state.ts";
+import { heldKey, heldSetKey, type HeldSet, type Store } from "./state.ts";
 import { showThread, type Requester } from "./thread.ts";
-import { POLICY_LABEL, type Nodes } from "./tree.ts";
+import { POLICY_LABEL, setCount, setSpan, type Nodes } from "./tree.ts";
 
 /** `send_file` waits for the upload, so it gets longer than a plain request. */
 export const FILE_TIMEOUT_MS = 120_000;
@@ -153,33 +153,104 @@ export async function openThread(d: Deps, arg: unknown): Promise<void> {
   await showThread(peer, undefined);
 }
 
-async function heldFrom(d: Deps, arg: unknown, verb: string): Promise<string | undefined> {
+/**
+ * The set to decide, and the item the person started from (its row in the Held view), if any.
+ * From the palette, the person picks a set; a look-alike object or a bare id picks nothing.
+ */
+async function heldFrom(d: Deps, arg: unknown, verb: string): Promise<{ set: HeldSet; item?: HeldRow } | undefined> {
+  const sets = d.store.heldSets();
   const node = d.nodes.ours(arg, "held");
-  if (node !== undefined) return node.id;
+  if (node !== undefined) {
+    const item = d.store.held.get(heldKey(node));
+    const set = item === undefined ? undefined : sets.find((s) => s.key === heldSetKey(item));
+    return set === undefined ? undefined : { set, item: item! };
+  }
+  const setNode = d.nodes.ours(arg, "heldSet");
+  if (setNode !== undefined) {
+    const set = sets.find((s) => s.key === setNode.key);
+    return set === undefined ? undefined : { set };
+  }
   if (arg !== undefined) return undefined;
-  const items = [...d.store.held.values()];
-  if (items.length === 0) {
+  if (sets.length === 0) {
     void vscode.window.showInformationMessage("worldinmotion: nothing is held for you.");
     return undefined;
   }
   const picked = await vscode.window.showQuickPick(
-    items.map((h) => ({
-      label: noIcons(`${oneLine(h.from, 80)} (${h.kind})`),
-      description: noIcons(oneLine(h.file?.name ?? h.preview, 120)),
-      detail: noIcons(`For ${oneLine(h.session, 80)}`),
-      id: h.id,
+    sets.map((set) => ({
+      label: noIcons(`From ${oneLine(set.title, 80)}`),
+      description: `${setCount(set)}, ${setSpan(set)}`,
+      detail: noIcons(oneLine(set.rows[0]!.file?.name ?? set.rows[0]!.preview, 120)),
+      set,
     })),
-    { title: `${verb} a held message` },
+    { title: `${verb} what is held from one sender` },
   );
-  return picked?.id;
+  return picked === undefined ? undefined : { set: picked.set };
 }
 
+/**
+ * The modal's text: every item of the set, in order, with the count and the time span, so a
+ * request split across several messages is read as one. Each item's text is folded to one line
+ * and escaped, so it cannot draw a heading, a count or another item.
+ */
+export function setDetail(set: HeldSet, op: "approve" | "refuse"): string {
+  const n = set.ids.length;
+  const out = [`${setCount(set)} held from ${oneLine(set.title, 200)}, ${setSpan(set)}. Read them together: they are decided as one.`, ""];
+  set.ids.forEach((id, i) => {
+    const rows = set.rows.filter((r) => r.id === id);
+    const h = rows[0]!;
+    out.push(`${i + 1} of ${n}.  ${oneLine(h.from, 80)}, ${h.kind}, ${stamp(h.at)}, for ${rows.map((r) => oneLine(r.session, 80)).join(", ")}`);
+    if (h.ci !== undefined) out.push(`      CI: ${oneLine(h.ci, 200)}`);
+    if (h.file !== undefined) out.push(`      File: ${oneLine(h.file.name, 120)}, ${h.file.size} bytes, fetched once approved`);
+    out.push(`      ${h.preview === "" ? "(no text)" : oneLine(h.preview, 160)}`);
+    if (h.pins !== undefined && op === "approve") out.push(`      Approve on its own, in a terminal: it pins ${oneLine(h.pins, 120)} (wim held approve ${id})`);
+  });
+  out.push("");
+  const covered = op === "approve" ? approvable(set).length : n;
+  out.push(
+    op === "approve"
+      ? `Approve all delivers exactly these ${covered} to your agents. Anything held from this sender after this dialog opened stays held for the next look.`
+      : `Refuse all drops exactly these ${covered}, never delivered. Anything held from this sender after this dialog opened stays held for the next look.`,
+  );
+  if (op === "approve" && set.rows.some((r) => r.reason === "breaker")) {
+    out.push("The loop breaker's pause on this sender stays on: Resume on its session in the Mesh view, or wim held resume <address> in a terminal, lifts it.");
+  }
+  return out.join("\n");
+}
+
+/** The ids "approve all" covers: a notice that pins its rule's ids is approved only on its own. */
+function approvable(set: HeldSet): string[] {
+  return set.ids.filter((id) => set.rows.find((r) => r.id === id)!.pins === undefined);
+}
+
+/**
+ * Approve or refuse: a modal (an agent driving the editor cannot answer it) that shows the whole
+ * set first. "All" decides exactly the ids it showed; "only this one" is offered only when the
+ * person started from one item, after the set was shown.
+ */
 async function decide(d: Deps, arg: unknown, op: "approve" | "refuse"): Promise<void> {
-  const id = await heldFrom(d, arg, op === "approve" ? "Approve" : "Refuse");
-  if (id === undefined) return;
+  const chosen = await heldFrom(d, arg, op === "approve" ? "Approve" : "Refuse");
+  if (chosen === undefined) return;
+  const { set, item } = chosen;
+  const covered = op === "approve" ? approvable(set) : set.ids;
+  const verb = op === "approve" ? "Approve" : "Refuse";
+  const all = covered.length === 0 ? undefined : `${verb} all ${covered.length}`;
+  const only = item === undefined || (op === "approve" && item.pins !== undefined) ? undefined : `${verb} only this one`;
+  const buttons = [all, only].filter((b): b is string => b !== undefined);
+  const choice = await vscode.window.showWarningMessage(
+    `${verb} ${setCount(set)} held from ${oneLine(set.title, 100)}?`,
+    { modal: true, detail: setDetail(set, op) },
+    ...buttons,
+  );
+  if (choice === undefined) return;
   try {
-    await d.client.request(op, { held: id });
-    void vscode.window.showInformationMessage(op === "approve" ? "worldinmotion: approved and delivered." : "worldinmotion: refused.");
+    if (choice === only) {
+      await d.client.request(op, { held: item!.id });
+      void vscode.window.showInformationMessage(op === "approve" ? "worldinmotion: approved and delivered." : "worldinmotion: refused.");
+      return;
+    }
+    const result = (await d.client.request(op, { held: covered[0]!, set: covered })) as { decided?: unknown };
+    const n = Array.isArray(result.decided) ? result.decided.length : covered.length;
+    void vscode.window.showInformationMessage(op === "approve" ? `worldinmotion: approved and delivered ${n}.` : `worldinmotion: refused ${n}.`);
   } catch (e) {
     failure(op === "approve" ? "approve it" : "refuse it", e);
   }

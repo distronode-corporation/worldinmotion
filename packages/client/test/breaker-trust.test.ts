@@ -554,15 +554,17 @@ describe("wim held approve for a breaker hold", () => {
     const ids = (await b.held.list()).map((h) => h.id);
     await b.stop();
     const t = term(devices[1]!.root, relay);
-    t.answers.push("no");
+    // The three are one set; `one` reaches the single-item prompt, which offers the resume.
+    t.answers.push("one", "no");
     expect(await run(t, "held", "approve", ids[0]!)).toBe(1);
+    expect(said(t)).toContain("Approving them releases these and keeps the loop breaker's pause on; `wim held resume <address>` lifts it.");
     expect(said(t)).toContain(`Type y to approve it, or resume to approve it and resume a@one (lifting the pause on device one and releasing the 2 others held from it) [y/resume/N] `);
     expect(said(t)).toContain("  held     because the loop breaker paused that peer on the per-peer limit: 2 messages from a@one in 60 minutes, limit 1; the pause runs until ");
     expect(t.err).toContain("wim: nothing changed.");
-    t.answers.push("y");
+    t.answers.push("one", "y");
     expect(await run(t, "held", "approve", ids[0]!)).toBe(0);
     expect(said(t)).toContain(`Approved ${ids[0]!}. The breaker still pauses a@one: \`wim held resume a@one\` lifts it.`);
-    t.answers.push("RESUME");
+    t.answers.push("one", "RESUME");
     expect(await run(t, "held", "approve", ids[1]!)).toBe(0);
     expect(said(t)).toContain(`Approved ${ids[1]!} and resumed a@one; released 2 held by the breaker.`);
     expect(await new HeldBox(b.files.heldDir, FS).list()).toEqual([]);

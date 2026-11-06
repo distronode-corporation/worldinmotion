@@ -10,6 +10,7 @@ import { z } from "zod";
 import { pauseEnd, pauseRule } from "./breaker.ts";
 import { ClientError, heldSendLine, MeshSession, prekeyNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
 import { HISTORY_MAX, renderForAgent } from "./history.ts";
+import { setFields } from "./heldsets.ts";
 import { isStalePeer, peerLine } from "./render.ts";
 import { ensureDir, tryRemove, writeJson } from "./fsx.ts";
 import { SessionFiles, SessionKeys } from "./session.ts";
@@ -480,7 +481,19 @@ export class WimMcp {
       case "_held":
         // The breaker's running pauses too, with the rule and when each ends, for the pane.
         return json({
-          held: (await s.held.list()).map((h) => ({ id: h.id, from: h.from, kind: h.kind, at: h.at, preview: h.preview, reason: h.reason })),
+          // `set`: the items decided together (one per sending device or CI rule), and who it is from.
+          held: await s.ciRules().then(async (rules) =>
+            (await s.held.list()).map((h) => ({
+              id: h.id,
+              from: h.from,
+              device: h.device,
+              kind: h.kind,
+              at: h.at,
+              preview: h.preview,
+              reason: h.reason,
+              ...setFields(h, rules),
+            })),
+          ),
           paused: s.pausedRows().map((p) => ({ from: p.from, rule: p.rule, until: p.until, auto: p.auto, why: pauseRule(p.from, p), ends: pauseEnd(p) })),
         });
       case "_leases":

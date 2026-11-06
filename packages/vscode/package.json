@@ -256,22 +256,22 @@
       "view/item/context": [
         {
           "command": "worldinmotion.approve",
-          "when": "view == worldinmotion.held && viewItem == held",
+          "when": "view == worldinmotion.held && viewItem =~ /^held(Set)?$/",
           "group": "inline@1"
         },
         {
           "command": "worldinmotion.refuse",
-          "when": "view == worldinmotion.held && viewItem == held",
+          "when": "view == worldinmotion.held && viewItem =~ /^held(Set)?$/",
           "group": "inline@2"
         },
         {
           "command": "worldinmotion.approve",
-          "when": "view == worldinmotion.held && viewItem == held",
+          "when": "view == worldinmotion.held && viewItem =~ /^held(Set)?$/",
           "group": "decide@1"
         },
         {
           "command": "worldinmotion.refuse",
-          "when": "view == worldinmotion.held && viewItem == held",
+          "when": "view == worldinmotion.held && viewItem =~ /^held(Set)?$/",
           "group": "decide@2"
         },
         {

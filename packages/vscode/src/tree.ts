@@ -3,9 +3,9 @@
 // `noIcons`, so it is never read as Markdown, a link or an icon.
 
 import * as vscode from "vscode";
-import { deviceOf, duration, nameOf, noIcons, oneLine, size, stamp, visible } from "./display.ts";
+import { clock, deviceOf, duration, nameOf, noIcons, oneLine, size, stamp, visible } from "./display.ts";
 import type { Policy } from "./protocol.ts";
-import { heldKey, type Store } from "./state.ts";
+import { heldKey, heldSetKey, type HeldSet, type Store } from "./state.ts";
 
 export type DeviceNode = { kind: "device"; name: string };
 export type SessionNode = { kind: "session"; address: string };
@@ -13,7 +13,9 @@ export type RoomNode = { kind: "room"; name: string };
 export type MemberNode = { kind: "member"; room: string; address: string };
 export type LeaseNode = { kind: "lease"; name: string };
 export type HeldNode = { kind: "held"; session: string; id: string };
-export type Node = DeviceNode | SessionNode | RoomNode | MemberNode | LeaseNode | HeldNode;
+/** The items held from one sending device, or under one CI rule: decided together. */
+export type HeldSetNode = { kind: "heldSet"; key: string };
+export type Node = DeviceNode | SessionNode | RoomNode | MemberNode | LeaseNode | HeldNode | HeldSetNode;
 
 /**
  * Every node handed to VS Code comes from here, and the same key always gives the same object.
@@ -52,6 +54,9 @@ export class Nodes {
   /** A held row: one message held by two local sessions is two rows. */
   held(session: string, id: string): HeldNode {
     return this.get(`h\n${heldKey({ session, id })}`, () => ({ kind: "held", session, id }));
+  }
+  heldSet(key: string): HeldSetNode {
+    return this.get(`hs\n${key}`, () => ({ kind: "heldSet", key }));
   }
 
   /** `x` if it is a node this extension issued with the given kind. */
@@ -242,11 +247,20 @@ export class LeasesView extends View {
 
 export class HeldView extends View {
   getChildren(node?: Node): Node[] {
-    if (node !== undefined) return [];
-    return [...this.store.held.values()].sort((a, b) => a.at - b.at).map((h) => this.nodes.held(h.session, h.id));
+    const sets = this.store.heldSets();
+    if (node === undefined) return sets.map((set) => this.nodes.heldSet(set.key));
+    if (node.kind !== "heldSet") return [];
+    return (sets.find((set) => set.key === node.key)?.rows ?? []).map((h) => this.nodes.held(h.session, h.id));
+  }
+
+  /** A held row's parent is its set, so a row can be revealed. */
+  override getParent(node: Node): Node | undefined {
+    const h = node.kind === "held" ? this.store.held.get(heldKey(node)) : undefined;
+    return h === undefined ? undefined : this.nodes.heldSet(heldSetKey(h));
   }
 
   getTreeItem(node: Node): vscode.TreeItem {
+    if (node.kind === "heldSet") return setItem(node, this.store.heldSets().find((set) => set.key === node.key));
     const held = node as HeldNode;
     const h = this.store.held.get(heldKey(held));
     const id = `held:${held.session}:${held.id}`;
@@ -263,7 +277,9 @@ export class HeldView extends View {
     item.tooltip = lines(
       `From ${visible(h.from)} on device ${visible(h.device)}`,
       `For ${visible(h.session)}, ${h.kind}, ${stamp(h.at)}`,
-      h.reason === "breaker" ? "Held because the breaker paused this peer." : "Held by this device's policy for the sending device.",
+      h.reason === "breaker" ? "Held because the breaker paused this peer." : h.ci === undefined ? "Held by this device's policy for the sending device." : "Held by its CI rule.",
+      h.ci === undefined ? undefined : `CI: ${visible(h.ci)}`,
+      h.pins === undefined ? undefined : `Approved only on its own, in a terminal: it pins ${visible(h.pins)}`,
       h.file === undefined ? undefined : `File: ${visible(h.file.name)}, ${size(h.file.size)}, ${visible(h.file.mime)}`,
       "",
       "Preview (another agent's text):",
@@ -271,4 +287,32 @@ export class HeldView extends View {
     );
     return item;
   }
+}
+
+/** What a set holds, in words: "3 messages", "1 CI notice". */
+export function setCount(set: HeldSet): string {
+  const n = set.ids.length;
+  return `${n} ${set.rows[0]!.ci === undefined ? "message" : "CI notice"}${n === 1 ? "" : "s"}`;
+}
+
+/** When a set's items arrived: one time, or the first and the last. */
+export function setSpan(set: HeldSet): string {
+  return set.first === set.last ? `at ${stamp(set.first)}` : `from ${stamp(set.first)} to ${stamp(set.last)}`;
+}
+
+/** A set's row: who it is from, how many and when; its items are its children. */
+function setItem(node: HeldSetNode, set: HeldSet | undefined): vscode.TreeItem {
+  const id = `heldSet:${node.key}`;
+  if (set === undefined) {
+    const gone = new vscode.TreeItem("(decided)", vscode.TreeItemCollapsibleState.None);
+    gone.id = id;
+    return gone;
+  }
+  const item = new vscode.TreeItem(noIcons(`From ${oneLine(set.title, 100)}`), vscode.TreeItemCollapsibleState.Expanded);
+  item.id = id;
+  item.description = `${setCount(set)}, ${set.first === set.last ? clock(set.first) : `${clock(set.first)} to ${clock(set.last)}`}`;
+  item.iconPath = new vscode.ThemeIcon(set.rows.some((h) => h.reason === "breaker") ? "debug-pause" : "inbox");
+  item.contextValue = "heldSet";
+  item.tooltip = lines(`${setCount(set)} held from ${visible(set.title)}, ${setSpan(set)}.`, "Approve or Refuse shows them all together, then decides them as one.");
+  return item;
 }

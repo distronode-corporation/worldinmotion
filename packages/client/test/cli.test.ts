@@ -204,10 +204,13 @@ describe("using a mesh", () => {
     await until(async () => (await s.held.list()).length === 2);
     await s.stop();
     expect(await run(b, "held", "list")).toBe(0);
-    const ids = b.out.filter((l) => / -> inbox /.test(l)).map((l) => l.split(" ")[0]!);
+    const ids = b.out.filter((l) => / -> inbox /.test(l)).map((l) => l.trim().split(" ")[0]!);
     expect(ids.length).toBe(2);
-    b.answers.push("y", "y");
+    expect(said(b)).toMatch(/held from device one \(device id [^)]+\): 2 messages, from \S+ to \S+/);
+    // Two from one device are one set: `one` decides only the item named, after both were shown.
+    b.answers.push("one", "y", "y");
     expect(await run(b, "held", "approve", ids[0]!)).toBe(0);
+    expect(said(b)).toContain(`Type all to approve all 2, or one to approve only ${ids[0]!} [all/one/N] `);
     expect(said(b)).toContain(`Held message ${ids[0]!}:`);
     expect(said(b)).toContain("  from     cli@one (device id ");
     expect(said(b)).toContain("  for      inbox on this device");
