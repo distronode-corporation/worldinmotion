@@ -1,0 +1,50 @@
+name: Public hygiene
+
+# This repository is public, so its issue, pull request, discussion and release text is
+# too. This runs the organization's shared check on every title, description, comment,
+# review, discussion reply, release note and pull request commit message: a finding fails
+# the run and the check keeps one comment on the thread naming the rules (never the
+# matched text). The rules and the workflow are in distronode-corporation/.github, under
+# `.github/public-hygiene/` and `.github/workflows/public-hygiene.yml`.
+#
+# Not a required check. Nothing from this repository is checked out or run. The `pin`
+# job fails until the pin below is a commit on that repository's main.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited, deleted]
+  pull_request_review:
+    types: [submitted, edited]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+  discussion:
+    types: [created, edited]
+  discussion_comment:
+    types: [created, edited, deleted]
+  release:
+    types: [published, edited]
+
+permissions: {}
+
+# One run per thread at a time, so two runs never write the comment at once. Each run
+# reads the whole thread, so a queued run that is superseded loses nothing.
+concurrency:
+  group: public-hygiene-${{ github.event.release.id && format('release-{0}', github.event.release.id) || github.event.pull_request.number || github.event.issue.number || github.event.discussion.number }}
+  cancel-in-progress: false
+
+jobs:
+  public-hygiene:
+    name: public hygiene
+    permissions:
+      contents: read # the checker's checkout; commits and releases
+      issues: write # read the thread; keep the one comment on an issue or pull request
+      pull-requests: write # reviews, review comments and commits; the one comment on a pull request
+      discussions: write # read a discussion; keep the one comment on it
+    uses: distronode-corporation/.github/.github/workflows/public-hygiene.yml@cc8726d6c426d1e244eb511d7e2d4b955a3cb84a # v1.0.0
+    # The one secret the check uses, mapped by name (never `inherit`). Empty on a fork's
+    # pull request; the check then skips only its `internal-name` rule.
+    secrets:
+      PUBLIC_HYGIENE_DENYLIST_KEY: ${{ secrets.PUBLIC_HYGIENE_DENYLIST_KEY }}
