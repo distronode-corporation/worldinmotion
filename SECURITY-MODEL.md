@@ -592,7 +592,11 @@ The Windows case is tested against a second connection, not against a second acc
 A CI sender (SPEC section 18) is a GitHub Actions or GitLab CI/CD job. It is not in the roster
 and holds no stored key. Everything that runs in the job counts as the job: every step, script
 and dependency, and on GitHub any step can ask for an ID token of its own. So does anyone who can
-push to the branch the person allowed, or change the workflow file the rule names.
+push to the branch the person allowed, or change the workflow file the rule names. When the rule
+holds a ref pattern (`refs/tags/v*`), so does anyone who can push any branch or tag under its
+prefix: a pattern is only as narrow as what the provider lets people push there, which is why the
+client tells the person to protect the same pattern with a GitHub ruleset or GitLab protected tags
+or branches, and why a GitLab rule still needs `ref_protected` unless it allows unprotected refs.
 
 Can:
 - Send information-only notices to any session of a device that takes CI notices (a rule names
@@ -777,8 +781,11 @@ On a relay that takes CI senders (SPEC sections 10 and 18), also: each GitHub no
 read once to verify it and never stored, so for that moment every claim it carries (repository,
 owner and their ids and visibility, ref, workflow, event, commit, run ids, the actor's login and
 id, environment); a counting key per repository and a hash of each token's `jti` until it
-expires; each device's rule tags (hashes of mesh, device, issuer, repository and ref, which give
-away any guessable repository name) and whether it takes GitLab notices; which session takes
+expires; each device's rule tags (hashes of mesh, device, issuer, repository and a full ref or a
+ref pattern, which give away any guessable repository name and ref or pattern) and whether it
+takes GitLab notices; for each verified GitHub notice, which of its candidate tags matched, and so
+the full ref or pattern of the rule it fell under (the device never names a pattern: the relay
+tries every prefix of the token's ref); which session takes
 notices, which device and session each notice is for, its size and time, and which prekey went to
 a request from which source key. It never sees a GitLab token, and so never a GitLab pipeline
 user's login or email address, and never a notice's text.
@@ -959,7 +966,8 @@ job, sealed to the recipient device's prekey like any box.
 
 - **The receiving device decides.** It verifies the token against the provider's keys, which it
   fetches itself from a URL compiled into the client, never one a token or the relay names. It
-  matches the person's rule exactly: repository and ref, the workflow file and event on GitHub,
+  matches the person's rule exactly: repository and ref (a full ref equal, or a pattern's prefix,
+  with one trailing `*` and no other glob syntax), the workflow file and event on GitHub,
   protected refs on GitLab, and the repository's ids once pinned. Names can be recycled, so a rule
   pins ids: read from the provider's public API for a public repository, or, for a private one,
   from the first matching notice, which is held until the person approves it and so pins them.
@@ -971,9 +979,15 @@ job, sealed to the recipient device's prekey like any box.
   never sees it and cannot alter a GitLab notice. Anyone who can read the job's variables can send
   one notice as that project. The relay cannot filter GitLab notices, so the device's GitLab share
   is open to anyone with the recipient code, and only that share.
+- **Ref patterns widen a rule, nothing else.** A pattern admits every ref under its prefix, the
+  prefix itself included, so it is as narrow as the provider's protection of that pattern (section
+  5.10). It changes no other check: the workflow file, events, environment, pinned ids, the
+  one-time key, single use and the limits all apply as for a full ref. The relay holds a pattern's
+  tag like any other and compares it with candidates it computes from the verified token's ref,
+  at most 256 hashes per notice, so a long ref costs it no more.
 - **Relay-visible.** See section 6.10: GitHub claims for the moment of verifying, counting keys,
-  `jti` hashes and rule tags; never a GitLab token. The tags give away guessable repository
-  names.
+  `jti` hashes and rule tags, and which tag a verified notice matched; never a GitLab token. The
+  tags give away guessable repository names, refs and patterns.
 - **Replay.** The device keeps each notice id and token id until both the freshness window and
   the token's own life are over, and refuses a token that claims to live more than 24 hours.
 - **Not a member.** A CI sender cannot read, authenticate or send anything but a notice; its
