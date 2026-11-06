@@ -536,11 +536,24 @@ tags or branches with the wildcard `v*` (a GitLab rule takes only protected refs
 be reached, and saves the rule all the same. GitLab rules need no such relay, since the relay
 never filters GitLab notices.
 
-`allow` prints a recipient code (`wimci1_...`, not a secret) for the job. The job side is the
-GitHub Action in [packaging/github-action](packaging/github-action/README.md) or the GitLab CI/CD
-component in [packaging/gitlab-component](packaging/gitlab-component/README.md); both run
-`wim ci notify`. Neither is in the GitHub Marketplace or the GitLab CI/CD Catalog yet, so use them
-from this repository at a commit you pin, as their READMEs show. The relay must take CI senders:
+`allow` prints a recipient code (`wimci1_...`, not a secret) for the job. The job side is a
+published step pinned to a release, which runs `wim ci notify`: the GitHub Action (the job needs
+`permissions: id-token: write`) or the GitLab CI/CD component.
+
+```yaml
+- uses: distronode-corporation/worldinmotion-notify@<full commit sha> # vX.Y.Z
+```
+
+```yaml
+include:
+  - component: $CI_SERVER_FQDN/distronode-corporation/worldinmotion-notify/notify@X.Y.Z
+```
+
+Their READMEs show the whole job and every input:
+[packaging/github-action](packaging/github-action/README.md) and
+[packaging/gitlab-component](packaging/gitlab-component/README.md). Neither is published yet:
+the GitHub Marketplace and the GitLab CI/CD Catalog get them from a coming release, and until
+then these two lines do not resolve. The relay must take CI senders:
 the hosted relay does (see [docs/hosted-relay.md](docs/hosted-relay.md) for what it sees), and a
 self-hosted one takes them with `WIM_CI=1`. The protocol is [SPEC.md](SPEC.md) section 18.
 
