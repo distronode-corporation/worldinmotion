@@ -19,6 +19,8 @@ export const CLOSE = {
   unauthorized: 4003,
   /** Relay: this device was revoked from the roster. */
   revoked: 4004,
+  /** Relay: an admin deleted the mesh (`mesh.delete`, SPEC section 11). */
+  deleted: 4005,
   /** Relay: a frame was malformed or too large. */
   protocol: 4008,
   /** Relay: a newer connection took over this session or this join. */

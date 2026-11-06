@@ -1,9 +1,9 @@
 import { env, evictDurableObject, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
-import { LIMITS, sealBlob } from "@worldinmotion/protocol";
+import { LIMITS, nextRoster, sealBlob, type Roster } from "@worldinmotion/protocol";
 import { RELAY_VERSION } from "@worldinmotion/relay-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker, { MeshDurableObject, STALE_MS, type Attachment } from "../src/index.ts";
-import { bindings, clock, createMesh, createWith, meshStub, ORIGIN, RELAY, registered, Session, Socket } from "./helpers.ts";
+import { bindings, clock, createMesh, createWith, dev, meshStub, ORIGIN, RELAY, registered, Session, Socket } from "./helpers.ts";
 
 const DAY = 86_400_000;
 
@@ -132,6 +132,40 @@ describe("idle mesh expiry (30 days in the test config)", () => {
     await root.sock.ask({ t: "peers" }, "peers");
     expect(await runDurableObjectAlarm(meshStub(m.mesh))).toBe(true);
     expect(await root.sock.ask({ t: "peers" }, "peers")).toMatchObject({ t: "peers" });
+  });
+});
+
+describe("an admin deletes the mesh (mesh.delete)", () => {
+  it("refuses a member, then closes every socket with 4005, deletes all storage and gives the place back", async () => {
+    const m = await createMesh();
+    const laptop = dev("laptop");
+    const root = new Session(m.mesh, m.admin, "root");
+    await root.connect(m.genesis);
+    const r2: Roster = nextRoster(m.genesis, { add: [laptop.record] }, m.admin, Date.now());
+    await root.sock.ask({ t: "roster.publish", roster: r2 }, "roster");
+    const writer = new Session(m.mesh, laptop, "writer");
+    await writer.connect(r2);
+    // A member cannot, and nothing changes.
+    expect(await writer.sock.ask({ t: "mesh.delete", mesh: m.mesh }, "error")).toEqual({ t: "error", code: "unauthorized", message: "only an admin device can delete the mesh", ref: "mesh.delete" });
+    expect(await writer.sock.ask({ t: "peers" }, "peers")).toMatchObject({ t: "peers" });
+    const count = await registered();
+    root.sock.send({ t: "mesh.delete", mesh: m.mesh });
+    expect(await root.sock.next("mesh.deleted")).toEqual({ t: "mesh.deleted", mesh: m.mesh });
+    expect(await root.sock.closedWith()).toEqual({ code: 4005, reason: "mesh deleted" });
+    expect(await writer.sock.closedWith()).toEqual({ code: 4005, reason: "mesh deleted" });
+    // The socket that created the mesh never authenticated; it goes too.
+    expect(await m.sock.closedWith()).toEqual({ code: 4005, reason: "mesh deleted" });
+    expect(await registered()).toBe(count - 1);
+    await drained(m.mesh);
+    const tables = await runInDurableObject(meshStub(m.mesh), (_o, st) =>
+      st.storage.sql.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\'").toArray(),
+    );
+    expect(tables).toEqual([]);
+    // The mesh is gone for every device.
+    const late = new Session(m.mesh, laptop, "late");
+    const sock = await Socket.open(m.mesh);
+    sock.send(late.authFrame((await sock.next("hello"))["nonce"] as string, r2));
+    expect(await sock.next("error")).toMatchObject({ code: "unauthorized", message: "unknown mesh" });
   });
 });
 

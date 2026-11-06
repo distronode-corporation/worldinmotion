@@ -3,6 +3,14 @@
 Status: draft for v0.1. This document is the contract between clients and relays. Nothing here
 depends on Claude Code: any agent that can hold a WebSocket and do the crypto below can be a peer.
 
+Version note, unreleased: section 11 adds deleting a mesh: an admin device's session sends
+`mesh.delete { mesh }`, the relay answers `mesh.deleted { mesh }`, closes every connection on the
+mesh with the new close code 4005 and deletes the mesh as it deletes an idle one (section 8 lists
+the frames and the code). It is additive: an older relay answers `unknown_type` and deletes
+nothing, and an older client treats 4005 as a lost connection, reconnects, is refused as for an
+unknown mesh (4003) and stops. Every existing client and relay is compatible, so this is a `wim/1`
+change.
+
 Version note, unreleased: section 18 adds CI senders: a GitHub Actions or GitLab CI/CD job that is
 not a mesh member sends one notice to one session, proving where it runs with its provider's OIDC
 ID token. It adds an HTTP endpoint (`POST <relay>/v1/<mesh id>/ci`), the client frame `ci.rules`,
@@ -792,7 +800,7 @@ with a fresh nonce for every connection. The client answers within 10 seconds wi
 `lease.list`, `lease.watch { key }` (section 14), `blob.put { blob, index, last, n, data }`,
 `blob.get { blob, index }` (section 15), `card.set { msg }`, `cards.get { after? }` (section 17),
 `rdv.put { rdv, exp, n, c }` (admins; section 5, short invite codes), `ci.rules { tags, gitlab }`
-(section 18), `ping`, and `bye { ended: true }` when the session is
+(section 18), `mesh.delete { mesh }` (admins; section 11), `ping`, and `bye { ended: true }` when the session is
 ending for good (its name is freed, it leaves its rooms, its leases end, and later sends to it get
 `ended`).
 
@@ -803,7 +811,7 @@ joiner), `invite.created { invite }`, `recover.ready { roster }` (section 4a), `
 `lease { key, status, holder?, until?, token? }`, `leases { leases }`, `blob.stored { blob, index }`,
 `blob.chunk { blob, index, last, n, data }`, `cards { cards, more }`, `card { msg }` (section 17),
 `rdv.stored { rdv }` (section 5), `ci.rules { count }` and `ci.deliver { cursor, msg }` (section
-18), `error { code, message, ref? }`, `pong`.
+18), `mesh.deleted { mesh }` (section 11), `error { code, message, ref? }`, `pong`.
 
 CI senders do not use the WebSocket: they make two HTTP requests to `<relay>/v1/<mesh id>/ci`
 (section 18).
@@ -815,12 +823,13 @@ CI senders do not use the WebSocket: they make two HTTP requests to `<relay>/v1/
 **Error codes** include `unknown_type`, `malformed`, `too_large`, `duplicate_key`, `unauthorized`,
 `limited`, `roster_conflict`, `mesh_exists`, `full`, `name_taken`, `invite_used`, `room_limit`,
 `lease_limit`, `blob_missing`, `blob_quota`, `invite_unknown`, `invite_expired`, `roster_invalid`,
-`not_found`, and for `rdv.put` `rdv_exists`, `unavailable` and `unsupported`. `ref` names what the
+`not_found`, for `rdv.put` `rdv_exists`, `unavailable` and `unsupported`, and for `mesh.delete`
+`unsupported`. `ref` names what the
 error refers to: a message id or the `t` of the refused frame.
 
 **Close codes.** Connections close with these WebSocket close codes. The reference client stops
-reconnecting after 4003, 4004 or 4009, since another attempt cannot succeed, and reconnects with
-backoff after any other code.
+reconnecting after 4003, 4004, 4005 or 4009, since another attempt cannot succeed, and reconnects
+with backoff after any other code.
 
 | code | sent by | meaning |
 |---|---|---|
@@ -832,6 +841,7 @@ backoff after any other code.
 | 4002 | client | the relay did not answer a `ping`; a relay never sends it |
 | 4003 | relay | authentication was refused |
 | 4004 | relay | this device was revoked from the roster |
+| 4005 | relay | an admin deleted the mesh (`mesh.delete`, section 11) |
 | 4008 | relay | a frame was malformed or too large |
 | 4009 | relay | a newer connection took over this session or this join |
 | 4029 | relay | a rate or count limit was hit |
@@ -1012,6 +1022,34 @@ and meshes it already holds are unaffected. A relay MAY delete a mesh that no se
 for a period it publishes (`/v1/info`, below): the mesh is then gone, with its rosters, queues,
 rooms, leases and blobs, its devices get `unauthorized` ("unknown mesh"), and they must create a
 new mesh.
+
+**Deleting a mesh.** An admin device MAY have the relay delete its mesh, for every device in it, by
+sending `mesh.delete { mesh }` on an authenticated session, where `mesh` is the connection's mesh
+id.
+
+- The relay refuses it with `error { code: "unauthorized" }` from a device that is not an admin in
+  its newest roster, `malformed` for any other mesh id, and `unsupported` when it does not delete
+  meshes (a relay older than this answers `unknown_type`). Before `auth` it is `unauthorized`, as
+  every authenticated frame is, and a recovery connection (section 4a) cannot send it.
+- Otherwise it answers `mesh.deleted { mesh }`, closes every connection on the mesh with close code
+  4005 (sessions, joiners waiting for an admin and a recovery connection alike), and deletes the
+  mesh as it deletes an idle one: its rosters, sessions, queues, rooms and their history, leases,
+  blobs, cards, invites and waiting joins, CI rule tags and token ids, and its place in any mesh
+  cap. A short invite code's box (section 5) is kept relay-wide, not per mesh, and still ends at
+  its expiry. From then on the mesh does not exist: an `auth` for it gets `unauthorized` ("unknown
+  mesh"), as after an idle mesh was deleted.
+- Nothing but the session's `auth` authorises the request. The relay is trusted for availability
+  (section 10) and can delete or withhold a mesh at any time, so this rule only keeps members other
+  than admins from doing it. Any admin may delete the mesh for every device, other people's
+  included, as any admin may revoke them.
+- A client SHOULD take the decision only from its person, the way it takes a join confirmation
+  (section 5). The reference client's `wim mesh delete` runs only at an interactive terminal with
+  no agent's variables set and acts only on a typed yes, and no tool, MCP call, message or local UI
+  request reaches it.
+- Clients keep their own copy of the mesh (configuration, rosters, history), which the relay
+  cannot reach. A client that gets 4005, or `unknown mesh` in answer to `auth`, SHOULD stop
+  reconnecting and tell its person. The reference client's `wim mesh delete`, run on a device whose
+  relay no longer holds the mesh, removes that device's copy after the person confirms.
 
 **Relay information.** A relay SHOULD answer an HTTP `GET` of `<relay>/v1/info`, the relay URL
 with `wss://` read as `https://` (`ws://` as `http://`), with 200, `Content-Type:

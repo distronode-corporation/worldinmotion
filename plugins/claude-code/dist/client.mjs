@@ -4561,15 +4561,15 @@ var init_poller = __esm({
       }
     };
     createMessageFromResponse = (reason) => {
-      const status2 = reason?.$response?.statusCode ?? reason?.$metadata?.httpStatusCode;
+      const status3 = reason?.$response?.statusCode ?? reason?.$metadata?.httpStatusCode;
       if (reason?.$responseBodyText) {
-        return `${status2 ? status2 + ": " : ""}Deserialization error for body: ${reason.$responseBodyText}`;
+        return `${status3 ? status3 + ": " : ""}Deserialization error for body: ${reason.$responseBodyText}`;
       }
-      if (status2) {
+      if (status3) {
         if (reason?.$response || reason?.message) {
-          return `${status2 ?? "Unknown"}: ${reason?.message}`;
+          return `${status3 ?? "Unknown"}: ${reason?.message}`;
         }
-        return `${status2}: OK`;
+        return `${status3}: OK`;
       }
       return String(reason?.message ?? JSON.stringify(reason, getCircularReplacer()) ?? "Unknown");
     };
@@ -35502,7 +35502,7 @@ var require_common = __commonJS({
           }
           if (typeof res.data.error === "object") {
             message2 = "message" in res.data.error && typeof res.data.error.message === "string" ? res.data.error.message : message2;
-            const status2 = "status" in res.data.error && typeof res.data.error.status === "string" ? res.data.error.status : res.statusText;
+            const status3 = "status" in res.data.error && typeof res.data.error.status === "string" ? res.data.error.status : res.statusText;
             const code2 = "code" in res.data.error && typeof res.data.error.code === "number" ? res.data.error.code : res.status;
             if ("errors" in res.data.error && Array.isArray(res.data.error.errors)) {
               const errorMessages = [];
@@ -35514,13 +35514,13 @@ var require_common = __commonJS({
               return Object.assign({
                 message: errorMessages.join("\n") || message2,
                 code: code2,
-                status: status2
+                status: status3
               }, res.data.error);
             }
             return Object.assign({
               message: message2,
               code: code2,
-              status: status2
+              status: status3
             }, res.data.error);
           }
         }
@@ -35686,8 +35686,8 @@ var require_retry3 = __commonJS({
       if (err.response && err.response.status) {
         let isInRange = false;
         for (const [min, max] of config2.statusCodesToRetry) {
-          const status2 = err.response.status;
-          if (status2 >= min && status2 <= max) {
+          const status3 = err.response.status;
+          if (status3 >= min && status3 <= max) {
             isInRange = true;
             break;
           }
@@ -42547,7 +42547,7 @@ var init_response = __esm({
     Response2 = class _Response extends Body {
       constructor(body = null, options = {}) {
         super(body, options);
-        const status2 = options.status != null ? options.status : 200;
+        const status3 = options.status != null ? options.status : 200;
         const headers = new Headers2(options.headers);
         if (body !== null && !headers.has("Content-Type")) {
           const contentType = extractContentType(body, this);
@@ -42558,7 +42558,7 @@ var init_response = __esm({
         this[INTERNALS2] = {
           type: "default",
           url: options.url,
-          status: status2,
+          status: status3,
           statusText: options.statusText || "",
           headers,
           counter: options.counter,
@@ -42615,15 +42615,15 @@ var init_response = __esm({
        * @param {number} status An optional status code for the response (e.g., 302.)
        * @returns {Response}    A Response object.
        */
-      static redirect(url2, status2 = 302) {
-        if (!isRedirect(status2)) {
+      static redirect(url2, status3 = 302) {
+        if (!isRedirect(status3)) {
           throw new RangeError('Failed to execute "redirect" on "response": Invalid status code');
         }
         return new _Response(null, {
           headers: {
             location: new URL(url2).toString()
           },
-          status: status2
+          status: status3
         });
       }
       static error() {
@@ -43704,8 +43704,8 @@ var require_gaxios = __commonJS({
        * By default, throw for any non-2xx status code
        * @param status status code from the HTTP response
        */
-      validateStatus(status2) {
-        return status2 >= 200 && status2 < 300;
+      validateStatus(status3) {
+        return status3 >= 200 && status3 < 300;
       }
       /**
        * Attempts to parse a response by looking at the Content-Type header.
@@ -44221,7 +44221,7 @@ var require_bignumber = __commonJS({
             return arr.reverse();
           }
           return function(str2, baseIn, baseOut, sign2, callerIsToString) {
-            var alphabet, d5, e6, k5, r6, x2, xc, y, i6 = str2.indexOf("."), dp = DECIMAL_PLACES, rm = ROUNDING_MODE;
+            var alphabet, d5, e6, k5, r6, x2, xc, y, i6 = str2.indexOf("."), dp = DECIMAL_PLACES, rm2 = ROUNDING_MODE;
             if (i6 >= 0) {
               k5 = POW_PRECISION;
               POW_PRECISION = 0;
@@ -44247,7 +44247,7 @@ var require_bignumber = __commonJS({
               x2.c = xc;
               x2.e = e6;
               x2.s = sign2;
-              x2 = div(x2, y, dp, rm, baseOut);
+              x2 = div(x2, y, dp, rm2, baseOut);
               xc = x2.c;
               r6 = x2.r;
               e6 = x2.e;
@@ -44256,7 +44256,7 @@ var require_bignumber = __commonJS({
             i6 = xc[d5];
             k5 = baseOut / 2;
             r6 = r6 || d5 < 0 || xc[d5 + 1] != null;
-            r6 = rm < 4 ? (i6 != null || r6) && (rm == 0 || rm == (x2.s < 0 ? 3 : 2)) : i6 > k5 || i6 == k5 && (rm == 4 || r6 || rm == 6 && xc[d5 - 1] & 1 || rm == (x2.s < 0 ? 8 : 7));
+            r6 = rm2 < 4 ? (i6 != null || r6) && (rm2 == 0 || rm2 == (x2.s < 0 ? 3 : 2)) : i6 > k5 || i6 == k5 && (rm2 == 4 || r6 || rm2 == 6 && xc[d5 - 1] & 1 || rm2 == (x2.s < 0 ? 8 : 7));
             if (d5 < 1 || !xc[0]) {
               str2 = r6 ? toFixedPoint(alphabet.charAt(1), -dp, alphabet.charAt(0)) : alphabet.charAt(0);
             } else {
@@ -44314,7 +44314,7 @@ var require_bignumber = __commonJS({
             }
             for (; !a5[0] && a5.length > 1; a5.splice(0, 1)) ;
           }
-          return function(x2, y, dp, rm, base) {
+          return function(x2, y, dp, rm2, base) {
             var cmp, e6, i6, more, n3, prod, prodL, q3, qc, rem, remL, rem0, xi, xL, yc0, yL, yz, s3 = x2.s == y.s ? 1 : -1, xc = x2.c, yc = y.c;
             if (!xc || !xc[0] || !yc || !yc[0]) {
               return new BigNumber2(
@@ -44411,7 +44411,7 @@ var require_bignumber = __commonJS({
             }
             if (base == BASE) {
               for (i6 = 1, s3 = qc[0]; s3 >= 10; s3 /= 10, i6++) ;
-              round(q3, dp + (q3.e = i6 + e6 * LOG_BASE - 1) + 1, rm, more);
+              round(q3, dp + (q3.e = i6 + e6 * LOG_BASE - 1) + 1, rm2, more);
             } else {
               q3.e = e6;
               q3.r = +more;
@@ -44419,10 +44419,10 @@ var require_bignumber = __commonJS({
             return q3;
           };
         })();
-        function format2(n3, i6, rm, id2) {
+        function format2(n3, i6, rm2, id2) {
           var c0, e6, ne, len, str2;
-          if (rm == null) rm = ROUNDING_MODE;
-          else intCheck(rm, 0, 8);
+          if (rm2 == null) rm2 = ROUNDING_MODE;
+          else intCheck(rm2, 0, 8);
           if (!n3.c) return n3.toString();
           c0 = n3.c[0];
           ne = n3.e;
@@ -44430,7 +44430,7 @@ var require_bignumber = __commonJS({
             str2 = coeffToString(n3.c);
             str2 = id2 == 1 || id2 == 2 && (ne <= TO_EXP_NEG || ne >= TO_EXP_POS) ? toExponential(str2, ne) : toFixedPoint(str2, ne, "0");
           } else {
-            n3 = round(new BigNumber2(n3), i6, rm);
+            n3 = round(new BigNumber2(n3), i6, rm2);
             e6 = n3.e;
             str2 = coeffToString(n3.c);
             len = str2.length;
@@ -44503,7 +44503,7 @@ var require_bignumber = __commonJS({
             x2.c = x2.e = null;
           };
         })();
-        function round(x2, sd, rm, r6) {
+        function round(x2, sd, rm2, r6) {
           var d5, i6, j5, k5, n3, ni, rd, xc = x2.c, pows10 = POWS_TEN;
           if (xc) {
             out: {
@@ -44538,8 +44538,8 @@ var require_bignumber = __commonJS({
               // The expression  n % pows10[d - j - 1]  returns all digits of n to the right
               // of the digit at j, e.g. if n is 908714 and j is 2, the expression gives 714.
               xc[ni + 1] != null || (j5 < 0 ? n3 : n3 % pows10[d5 - j5 - 1]);
-              r6 = rm < 4 ? (rd || r6) && (rm == 0 || rm == (x2.s < 0 ? 3 : 2)) : rd > 5 || rd == 5 && (rm == 4 || r6 || rm == 6 && // Check whether the digit to the left of the rounding digit is odd.
-              (i6 > 0 ? j5 > 0 ? n3 / pows10[d5 - j5] : 0 : xc[ni - 1]) % 10 & 1 || rm == (x2.s < 0 ? 8 : 7));
+              r6 = rm2 < 4 ? (rd || r6) && (rm2 == 0 || rm2 == (x2.s < 0 ? 3 : 2)) : rd > 5 || rd == 5 && (rm2 == 4 || r6 || rm2 == 6 && // Check whether the digit to the left of the rounding digit is odd.
+              (i6 > 0 ? j5 > 0 ? n3 / pows10[d5 - j5] : 0 : xc[ni - 1]) % 10 & 1 || rm2 == (x2.s < 0 ? 8 : 7));
               if (sd < 1 || !xc[0]) {
                 xc.length = 0;
                 if (r6) {
@@ -44604,13 +44604,13 @@ var require_bignumber = __commonJS({
         P.comparedTo = function(y, b5) {
           return compare(this, new BigNumber2(y, b5));
         };
-        P.decimalPlaces = P.dp = function(dp, rm) {
+        P.decimalPlaces = P.dp = function(dp, rm2) {
           var c5, n3, v, x2 = this;
           if (dp != null) {
             intCheck(dp, 0, MAX);
-            if (rm == null) rm = ROUNDING_MODE;
-            else intCheck(rm, 0, 8);
-            return round(new BigNumber2(x2), dp + x2.e + 1, rm);
+            if (rm2 == null) rm2 = ROUNDING_MODE;
+            else intCheck(rm2, 0, 8);
+            return round(new BigNumber2(x2), dp + x2.e + 1, rm2);
           }
           if (!(c5 = x2.c)) return null;
           n3 = ((v = c5.length - 1) - bitFloor(this.e / LOG_BASE)) * LOG_BASE;
@@ -44693,11 +44693,11 @@ var require_bignumber = __commonJS({
           if (nIsNeg) y = ONE.div(y);
           return m4 ? y.mod(m4) : k5 ? round(y, POW_PRECISION, ROUNDING_MODE, more) : y;
         };
-        P.integerValue = function(rm) {
+        P.integerValue = function(rm2) {
           var n3 = new BigNumber2(this);
-          if (rm == null) rm = ROUNDING_MODE;
-          else intCheck(rm, 0, 8);
-          return round(n3, n3.e + 1, rm);
+          if (rm2 == null) rm2 = ROUNDING_MODE;
+          else intCheck(rm2, 0, 8);
+          return round(n3, n3.e + 1, rm2);
         };
         P.isEqualTo = P.eq = function(y, b5) {
           return compare(this, new BigNumber2(y, b5)) === 0;
@@ -44924,13 +44924,13 @@ var require_bignumber = __commonJS({
           }
           return normalise(y, xc, ye);
         };
-        P.precision = P.sd = function(sd, rm) {
+        P.precision = P.sd = function(sd, rm2) {
           var c5, n3, v, x2 = this;
           if (sd != null && sd !== !!sd) {
             intCheck(sd, 1, MAX);
-            if (rm == null) rm = ROUNDING_MODE;
-            else intCheck(rm, 0, 8);
-            return round(new BigNumber2(x2), sd, rm);
+            if (rm2 == null) rm2 = ROUNDING_MODE;
+            else intCheck(rm2, 0, 8);
+            return round(new BigNumber2(x2), sd, rm2);
           }
           if (!(c5 = x2.c)) return null;
           v = c5.length - 1;
@@ -45000,36 +45000,36 @@ var require_bignumber = __commonJS({
           }
           return round(r6, r6.e + DECIMAL_PLACES + 1, ROUNDING_MODE, m4);
         };
-        P.toExponential = function(dp, rm) {
+        P.toExponential = function(dp, rm2) {
           if (dp != null) {
             intCheck(dp, 0, MAX);
             dp++;
           }
-          return format2(this, dp, rm, 1);
+          return format2(this, dp, rm2, 1);
         };
-        P.toFixed = function(dp, rm) {
+        P.toFixed = function(dp, rm2) {
           if (dp != null) {
             intCheck(dp, 0, MAX);
             dp = dp + this.e + 1;
           }
-          return format2(this, dp, rm);
+          return format2(this, dp, rm2);
         };
-        P.toFormat = function(dp, rm, format3) {
+        P.toFormat = function(dp, rm2, format3) {
           var str2, x2 = this;
           if (format3 == null) {
-            if (dp != null && rm && typeof rm == "object") {
-              format3 = rm;
-              rm = null;
+            if (dp != null && rm2 && typeof rm2 == "object") {
+              format3 = rm2;
+              rm2 = null;
             } else if (dp && typeof dp == "object") {
               format3 = dp;
-              dp = rm = null;
+              dp = rm2 = null;
             } else {
               format3 = FORMAT;
             }
           } else if (typeof format3 != "object") {
             throw Error(bignumberError + "Argument not an object: " + format3);
           }
-          str2 = x2.toFixed(dp, rm);
+          str2 = x2.toFixed(dp, rm2);
           if (x2.c) {
             var i6, arr = str2.split("."), g1 = +format3.groupSize, g22 = +format3.secondaryGroupSize, groupSeparator = format3.groupSeparator || "", intPart = arr[0], fractionPart = arr[1], isNeg = x2.s < 0, intDigits = isNeg ? intPart.slice(1) : intPart, len = intDigits.length;
             if (g22) {
@@ -45097,9 +45097,9 @@ var require_bignumber = __commonJS({
         P.toNumber = function() {
           return +valueOf(this);
         };
-        P.toPrecision = function(sd, rm) {
+        P.toPrecision = function(sd, rm2) {
           if (sd != null) intCheck(sd, 1, MAX);
-          return format2(this, sd, rm, 2);
+          return format2(this, sd, rm2, 2);
         };
         P.toString = function(b5) {
           var str2, n3 = this, s3 = n3.s, e6 = n3.e;
@@ -49908,14 +49908,14 @@ var require_impersonated = __commonJS({
         } catch (error64) {
           if (!(error64 instanceof Error))
             throw error64;
-          let status2 = 0;
+          let status3 = 0;
           let message2 = "";
           if (error64 instanceof gaxios_1.GaxiosError) {
-            status2 = error64?.response?.data?.error?.status;
+            status3 = error64?.response?.data?.error?.status;
             message2 = error64?.response?.data?.error?.message;
           }
-          if (status2 && message2) {
-            error64.message = `${status2}: unable to impersonate: ${message2}`;
+          if (status3 && message2) {
+            error64.message = `${status3}: unable to impersonate: ${message2}`;
             throw error64;
           } else {
             error64.message = `unable to impersonate: ${error64}`;
@@ -87191,6 +87191,7 @@ var createFrameSchema = external_exports.strictObject({
 });
 var joinFrameSchema = external_exports.strictObject({ t: external_exports.literal("join"), ...joinBodySchema.shape });
 var rdvPutFrameSchema = external_exports.strictObject({ t: external_exports.literal("rdv.put"), ...rdvBoxFields });
+var meshDeleteFrameSchema = external_exports.strictObject({ t: external_exports.literal("mesh.delete"), mesh: meshIdSchema });
 var clientFrameSchema = external_exports.discriminatedUnion("t", [
   authFrameSchema,
   sendFrameSchema,
@@ -87218,6 +87219,7 @@ var clientFrameSchema = external_exports.discriminatedUnion("t", [
   cardsGetFrameSchema,
   rdvPutFrameSchema,
   ciRulesFrameSchema,
+  meshDeleteFrameSchema,
   pingFrameSchema,
   byeFrameSchema,
   createFrameSchema,
@@ -87320,6 +87322,7 @@ var cardsFrameSchema = external_exports.looseObject({
 });
 var cardFrameSchema = external_exports.looseObject({ t: external_exports.literal("card"), msg: sendFrameSchema });
 var rdvStoredFrameSchema = external_exports.looseObject({ t: external_exports.literal("rdv.stored"), rdv: rdvBoxFields.rdv });
+var meshDeletedFrameSchema = external_exports.looseObject({ t: external_exports.literal("mesh.deleted"), mesh: meshIdSchema });
 var relaySchemas = {
   hello: helloFrameSchema,
   ready: readyFrameSchema,
@@ -87346,7 +87349,8 @@ var relaySchemas = {
   card: cardFrameSchema,
   "rdv.stored": rdvStoredFrameSchema,
   "ci.rules": ciRulesAnswerSchema,
-  "ci.deliver": ciDeliverFrameSchema
+  "ci.deliver": ciDeliverFrameSchema,
+  "mesh.deleted": meshDeletedFrameSchema
 };
 var relayFrameSchema = external_exports.discriminatedUnion("t", [
   helloFrameSchema,
@@ -87374,7 +87378,8 @@ var relayFrameSchema = external_exports.discriminatedUnion("t", [
   cardFrameSchema,
   rdvStoredFrameSchema,
   ciRulesAnswerSchema,
-  ciDeliverFrameSchema
+  ciDeliverFrameSchema,
+  meshDeletedFrameSchema
 ]);
 function parseWith(text2, schemas, maxBytes) {
   if (typeof text2 !== "string") return fail("not_text");
@@ -87972,6 +87977,8 @@ var CLOSE = {
   unauthorized: 4003,
   /** Relay: this device was revoked from the roster. */
   revoked: 4004,
+  /** Relay: an admin deleted the mesh (`mesh.delete`, SPEC section 11). */
+  deleted: 4005,
   /** Relay: a frame was malformed or too large. */
   protocol: 4008,
   /** Relay: a newer connection took over this session or this join. */
@@ -88748,8 +88755,8 @@ function decodeCursor(token) {
     throw invalid("Invalid parameters: pageToken is not a token this server issued");
   }
 }
-function reply(res, status2, body, headers = {}) {
-  res.writeHead(status2, { "content-type": "application/json", ...headers });
+function reply(res, status3, body, headers = {}) {
+  res.writeHead(status3, { "content-type": "application/json", ...headers });
   res.end(JSON.stringify(body));
 }
 async function readBody(req) {
@@ -91467,6 +91474,7 @@ function relayText(text2) {
 function relayCode(code2) {
   return /^[a-z][a-z_]{0,63}$/.test(code2) ? code2 : "relay_error";
 }
+var UNKNOWN_MESH = "the relay does not know this mesh: an admin deleted it, or the relay removed it after it went unused, or the relay URL is wrong. `wim mesh delete` removes this device's copy";
 var AUTH_REFUSALS = /* @__PURE__ */ new Map([
   ["wrong_relay", "the relay is configured for a different URL than the one this mesh uses; use the exact URL the relay prints at start-up"],
   ["clock_skew", "this device's clock is too far from the relay's; correct the clock and try again"],
@@ -91474,7 +91482,7 @@ var AUTH_REFUSALS = /* @__PURE__ */ new Map([
   ["bad_signature", "the relay could not verify this device's signature against the roster"],
   ["wrong_nonce", "the authentication answered another connection's challenge"],
   ["malformed", "the relay could not read this client's authentication"],
-  ["unknown mesh", "the relay does not know this mesh; check the relay URL"],
+  ["unknown mesh", UNKNOWN_MESH],
   ["the device is not in the roster", "this device is not in the relay's roster (it may have been revoked)"],
   ["recovery records do not connect", "a recovery record cannot connect as a device"],
   ["the pinned roster is newer than any this relay holds", "this device knows a newer roster than the relay holds"]
@@ -91676,6 +91684,7 @@ var errorFor = (ref2) => (f7) => f7.t === "error" && f7.ref === ref2;
 var FATAL_CLOSE = /* @__PURE__ */ new Map([
   [CLOSE.unauthorized, "the relay refused this device's authentication"],
   [CLOSE.revoked, "this device was revoked from the mesh"],
+  [CLOSE.deleted, "an admin deleted this mesh at the relay; `wim mesh delete` removes this device's copy"],
   [CLOSE.replaced, "another connection took over this session"]
 ]);
 var Connection = class {
@@ -91857,16 +91866,16 @@ function relayRefusal(what2, frame) {
   const said = relayText(frame.message);
   return new ClientError(`${what2}: ${said}`, relayCode(frame.code), { what: what2, said });
 }
-function accepted(status2) {
-  return status2 === "routed" || status2 === "queued";
+function accepted(status3) {
+  return status3 === "routed" || status3 === "queued";
 }
 function pingResults(out) {
   return [...out.local, ...out.sent === void 0 ? [] : out.sent.results];
 }
 function pingRow(address, results, pongs) {
-  const status2 = results.find((r6) => r6.to === address).status;
+  const status3 = results.find((r6) => r6.to === address).status;
   const ms = pongs.get(address);
-  return ms === void 0 ? { to: address, status: status2 } : { to: address, status: status2, ms };
+  return ms === void 0 ? { to: address, status: status3 } : { to: address, status: status3, ms };
 }
 function heldReceiptLine(to, id2) {
   return `${to} is holding your message ${id2} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id2}\`).`;
@@ -92399,8 +92408,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.state = { ...this.state, cursor: Math.max(this.state.cursor, cursor2) };
     this.retryDelay = RETRY_FIRST_MS;
   }
-  receipt(id2, status2) {
-    this.sendIfOpen({ t: "receipt", id: id2, to: this.address, status: status2 });
+  receipt(id2, status3) {
+    this.sendIfOpen({ t: "receipt", id: id2, to: this.address, status: status3 });
   }
   async handleDeliver(cursor2, msg, via) {
     await this.check(msg);
@@ -93241,10 +93250,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
   }
   /** Sends the result of a task this session received. */
-  async reply(taskId, status2, text2) {
+  async reply(taskId, status3, text2) {
     const task = (await this.tasks())[taskId];
     if (task === void 0) throw new ClientError(`no task ${taskId} was received by this session`, "not_found");
-    return this.send(task.from, text2, { kind: "result", reply_to: taskId, status: status2 });
+    return this.send(task.from, text2, { kind: "result", reply_to: taskId, status: status3 });
   }
   /** Arms one idle notice for each session address. */
   notifyWhenIdle(addresses) {
@@ -93571,8 +93580,8 @@ function meshPort(s3) {
         if (m4.kind === "task") cb({ id: m4.id, to: s3.address, from: m4.peer, text: m4.text, ...m4.deadline === void 0 ? {} : { deadline: m4.deadline } });
       });
     },
-    async sendResult(to, taskId, status2, text2) {
-      requireDelivered(await s3.send(to, text2, { kind: "result", reply_to: taskId, status: status2, relayed: true }), to);
+    async sendResult(to, taskId, status3, text2) {
+      requireDelivered(await s3.send(to, text2, { kind: "result", reply_to: taskId, status: status3, relayed: true }), to);
     },
     onMessage(cb) {
       onInbound(s3, (m4) => {
@@ -93592,8 +93601,8 @@ var ModelRefusedError = class extends Error {
   name = "ModelRefusedError";
 };
 var REFUSED_STATUSES = /* @__PURE__ */ new Set([400, 401, 403, 404, 429]);
-function refusedStatus(status2) {
-  return REFUSED_STATUSES.has(status2);
+function refusedStatus(status3) {
+  return REFUSED_STATUSES.has(status3);
 }
 function refused(provider, err) {
   return new ModelRefusedError(`${provider}: ${err.name}: ${err.message}`, { cause: err });
@@ -95527,8 +95536,8 @@ function tCachedContentName(apiClient, name) {
   }
   return resourceName(apiClient, name, "cachedContents");
 }
-function tTuningJobStatus(status2) {
-  switch (status2) {
+function tTuningJobStatus(status3) {
+  switch (status3) {
     case "STATE_UNSPECIFIED":
       return "JOB_STATE_UNSPECIFIED";
     case "CREATING":
@@ -95538,7 +95547,7 @@ function tTuningJobStatus(status2) {
     case "FAILED":
       return "JOB_STATE_FAILED";
     default:
-      return status2;
+      return status3;
   }
 }
 function tBytes(fromImageBytes) {
@@ -105400,9 +105409,9 @@ function throwIfStreamErrorChunk(chunkString) {
     const chunkJson = JSON.parse(chunkString);
     if (chunkJson !== null && typeof chunkJson === "object" && "error" in chunkJson && chunkJson["error"] !== null && typeof chunkJson["error"] === "object") {
       const errorJson = chunkJson["error"];
-      const status2 = errorJson["status"];
+      const status3 = errorJson["status"];
       const code2 = errorJson["code"];
-      const errorMessage = `got status: ${status2}. ${JSON.stringify(chunkJson)}`;
+      const errorMessage = `got status: ${status3}. ${JSON.stringify(chunkJson)}`;
       if (typeof code2 === "number" && code2 >= 400 && code2 < 600) {
         throw new ApiError({
           message: errorMessage,
@@ -105423,7 +105432,7 @@ async function throwErrorIfNotOK(response) {
     throw new Error("response is undefined");
   }
   if (!response.ok) {
-    const status2 = response.status;
+    const status3 = response.status;
     let errorBody;
     if ((_a5 = response.headers.get("content-type")) === null || _a5 === void 0 ? void 0 : _a5.includes("application/json")) {
       errorBody = await response.json();
@@ -105437,10 +105446,10 @@ async function throwErrorIfNotOK(response) {
       };
     }
     const errorMessage = JSON.stringify(errorBody);
-    if (status2 >= 400 && status2 < 600) {
+    if (status3 >= 400 && status3 < 600) {
       const apiError = new ApiError({
         message: errorMessage,
-        status: status2
+        status: status3
       });
       throw apiError;
     }
@@ -109578,12 +109587,12 @@ var GeminiNextGenAPIClientError = class extends Error {
   }
 };
 var APIError = class _APIError extends GeminiNextGenAPIClientError {
-  constructor(status2, error64, message2, headers) {
-    super(_APIError.makeMessage(status2, error64, message2));
-    this.status = status2;
+  constructor(status3, error64, message2, headers) {
+    super(_APIError.makeMessage(status3, error64, message2));
+    this.status = status3;
     this.headers = headers;
     this.error = error64;
-    this.statusCode = status2;
+    this.statusCode = status3;
     this.body = stringifyErrorBody(error64);
     this.contentType = (headers === null || headers === void 0 ? void 0 : headers.get("content-type")) || "";
     this.rawResponse = void 0;
@@ -109591,46 +109600,46 @@ var APIError = class _APIError extends GeminiNextGenAPIClientError {
     this.name = this.constructor.name;
     Object.setPrototypeOf(this, new.target.prototype);
   }
-  static makeMessage(status2, error64, message2) {
+  static makeMessage(status3, error64, message2) {
     var _a5;
     const errorMessage = error64 && isPlainObject$2(error64) && typeof error64["message"] === "string" ? error64["message"] : void 0;
     const errorBody = stringifyErrorBody(error64);
     const msg = (_a5 = errorMessage !== null && errorMessage !== void 0 ? errorMessage : message2) !== null && _a5 !== void 0 ? _a5 : errorBody || "An error occurred";
-    const statusText = status2 ? `${status2} ` : "";
+    const statusText = status3 ? `${status3} ` : "";
     return `${statusText}${msg}`;
   }
-  static generate(status2, errorResponse, message2, headers) {
-    if (!status2 || !headers) {
+  static generate(status3, errorResponse, message2, headers) {
+    if (!status3 || !headers) {
       return new APIConnectionError({
         message: message2,
         cause: errorResponse instanceof Error ? errorResponse : void 0
       });
     }
-    if (status2 === 400) {
-      return new BadRequestError(status2, errorResponse, message2, headers);
+    if (status3 === 400) {
+      return new BadRequestError(status3, errorResponse, message2, headers);
     }
-    if (status2 === 401) {
-      return new AuthenticationError(status2, errorResponse, message2, headers);
+    if (status3 === 401) {
+      return new AuthenticationError(status3, errorResponse, message2, headers);
     }
-    if (status2 === 403) {
-      return new PermissionDeniedError(status2, errorResponse, message2, headers);
+    if (status3 === 403) {
+      return new PermissionDeniedError(status3, errorResponse, message2, headers);
     }
-    if (status2 === 404) {
-      return new NotFoundError(status2, errorResponse, message2, headers);
+    if (status3 === 404) {
+      return new NotFoundError(status3, errorResponse, message2, headers);
     }
-    if (status2 === 409) {
-      return new ConflictError(status2, errorResponse, message2, headers);
+    if (status3 === 409) {
+      return new ConflictError(status3, errorResponse, message2, headers);
     }
-    if (status2 === 422) {
-      return new UnprocessableEntityError(status2, errorResponse, message2, headers);
+    if (status3 === 422) {
+      return new UnprocessableEntityError(status3, errorResponse, message2, headers);
     }
-    if (status2 === 429) {
-      return new RateLimitError(status2, errorResponse, message2, headers);
+    if (status3 === 429) {
+      return new RateLimitError(status3, errorResponse, message2, headers);
     }
-    if (status2 >= 500) {
-      return new InternalServerError(status2, errorResponse, message2, headers);
+    if (status3 >= 500) {
+      return new InternalServerError(status3, errorResponse, message2, headers);
     }
-    return new _APIError(status2, errorResponse, message2, headers);
+    return new _APIError(status3, errorResponse, message2, headers);
   }
 };
 var APIUserAbortError = class extends APIError {
@@ -118262,9 +118271,9 @@ ${item.text}`
     await this.reply(item, res.text === "" ? "(empty reply)" : res.text, "done");
   }
   /** A task is answered with a `result`; a message with a `msg` threaded to it. */
-  reply(item, text2, status2) {
+  reply(item, text2, status3) {
     if (item.kind === "task") {
-      return this.o.io.send(item.from, text2, { reply_to: item.id, kind: "result", status: status2 });
+      return this.o.io.send(item.from, text2, { reply_to: item.id, kind: "result", status: status3 });
     }
     return this.o.io.send(item.from, text2, { reply_to: item.id, kind: "msg" });
   }
@@ -118525,10 +118534,10 @@ var CiHttpError = class extends Error {
   status;
   /** How long the server asked us to wait, when it said. */
   retryAfterMs;
-  constructor(message2, status2, retryAfterMs) {
+  constructor(message2, status3, retryAfterMs) {
     super(message2);
     this.name = "CiHttpError";
-    this.status = status2;
+    this.status = status3;
     this.retryAfterMs = retryAfterMs;
   }
 };
@@ -118776,8 +118785,8 @@ var TERMINAL2 = /* @__PURE__ */ new Set(["success", "failed", "canceled", "skipp
 var CHILD_REPORT = /* @__PURE__ */ new Set(["failed", "canceled", "manual"]);
 var REPOLL_MS = 24 * 36e5;
 var OVERLAP_MS = 6e4;
-function gitlabPhase(status2) {
-  switch (status2) {
+function gitlabPhase(status3) {
+  switch (status3) {
     case "waiting_for_resource":
     case "preparing":
     case "pending":
@@ -118786,7 +118795,7 @@ function gitlabPhase(status2) {
     case "canceling":
       return "canceled";
     default:
-      return status2;
+      return status3;
   }
 }
 var GitLabWatcher = class {
@@ -119076,11 +119085,11 @@ var GitHubWatcher = class {
         st.deployments[key2] = { phase: "inactive", touched: this.ctx.now() };
         continue;
       }
-      const [status2] = await this.get(external_exports.array(Status), `/deployments/${d5.id}/statuses?per_page=1`);
-      const phase = status2?.state ?? "created";
+      const [status3] = await this.get(external_exports.array(Status), `/deployments/${d5.id}/statuses?per_page=1`);
+      const phase = status3?.state ?? "created";
       if (known?.phase === phase) continue;
-      if (mode === "announce" && status2 !== void 0 && phase !== "inactive") {
-        const url2 = status2.log_url || `https://github.com/${this.source.owner}/${this.source.repo}/deployments`;
+      if (mode === "announce" && status3 !== void 0 && phase !== "inactive") {
+        const url2 = status3.log_url || `https://github.com/${this.source.owner}/${this.source.repo}/deployments`;
         const sha = d5.sha.slice(0, 7);
         await this.ctx.post(`${this.name} deploy ${d5.environment} ${d5.ref} ${sha} ${WORDS[phase] ?? phase} ${url2}`);
       }
@@ -119191,6 +119200,9 @@ async function runCi(config2, io, deps = {}) {
 // src/cli.ts
 import { promises as fs14 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
+
+// src/admin.ts
+import { rm } from "node:fs/promises";
 
 // src/home.ts
 import { promises as fs8 } from "node:fs";
@@ -119637,6 +119649,21 @@ async function revokeDevice(session, name, now) {
   if (target === void 0) throw new ClientError(`no device named ${name}`, "not_found");
   if (target.id === session.device.id) throw new ClientError("a device cannot revoke itself", "invalid");
   return publishRoster(session, (current) => nextRosterWith(current, { revoke: [target.id] }, session.device.keyring, now()));
+}
+async function deleteMesh(session) {
+  const me = session.roster.devices.find((d5) => d5.id === session.device.id);
+  if (me?.role !== "admin") throw new ClientError("only an admin device can delete the mesh", "not_admin");
+  const mesh = session.config.mesh;
+  const link = await session.ready();
+  const answer = await link.request({ t: "mesh.delete", mesh }, (f7) => f7.t === "mesh.deleted" && f7.mesh === mesh || errorFor("mesh.delete")(f7), 15e3);
+  if (answer.t !== "error") return;
+  if (answer.code === "unknown_type" || answer.code === "unsupported") {
+    throw new ClientError("this relay cannot delete meshes (it runs a version older than wim 0.1.9, or its host does not support it); nothing was deleted. An unused mesh is removed after the time the relay publishes (`wim status` shows it)", "unsupported");
+  }
+  throw relayRefusal("the relay refused to delete the mesh", answer);
+}
+async function forgetMesh(home, mesh) {
+  await rm(home.meshDir(mesh), { recursive: true, force: true });
 }
 async function joinMesh(o3) {
   const invite2 = parseInvite(o3.code);
@@ -120375,8 +120402,8 @@ function getLiteralValue(schema) {
 }
 
 // ../../node_modules/@modelcontextprotocol/sdk/dist/esm/experimental/tasks/interfaces.js
-function isTerminal2(status2) {
-  return status2 === "completed" || status2 === "failed" || status2 === "cancelled";
+function isTerminal2(status3) {
+  return status3 === "completed" || status3 === "failed" || status3 === "cancelled";
 }
 
 // ../../node_modules/zod-to-json-schema/dist/esm/parsers/string.js
@@ -121316,8 +121343,8 @@ var Protocol = class {
         }
         return task;
       },
-      storeTaskResult: async (taskId, status2, result) => {
-        await taskStore.storeTaskResult(taskId, status2, result, sessionId);
+      storeTaskResult: async (taskId, status3, result) => {
+        await taskStore.storeTaskResult(taskId, status3, result, sessionId);
         const task = await taskStore.getTask(taskId, sessionId);
         if (task) {
           const notification = TaskStatusNotificationSchema.parse({
@@ -121333,15 +121360,15 @@ var Protocol = class {
       getTaskResult: (taskId) => {
         return taskStore.getTaskResult(taskId, sessionId);
       },
-      updateTaskStatus: async (taskId, status2, statusMessage) => {
+      updateTaskStatus: async (taskId, status3, statusMessage) => {
         const task = await taskStore.getTask(taskId, sessionId);
         if (!task) {
           throw new McpError(ErrorCode.InvalidParams, `Task "${taskId}" not found - it may have been cleaned up`);
         }
         if (isTerminal2(task.status)) {
-          throw new McpError(ErrorCode.InvalidParams, `Cannot update task "${taskId}" from terminal status "${task.status}" to "${status2}". Terminal states (completed, failed, cancelled) cannot transition to other states.`);
+          throw new McpError(ErrorCode.InvalidParams, `Cannot update task "${taskId}" from terminal status "${task.status}" to "${status3}". Terminal states (completed, failed, cancelled) cannot transition to other states.`);
         }
-        await taskStore.updateTaskStatus(taskId, status2, statusMessage, sessionId);
+        await taskStore.updateTaskStatus(taskId, status3, statusMessage, sessionId);
         const updatedTask = await taskStore.getTask(taskId, sessionId);
         if (updatedTask) {
           const notification = TaskStatusNotificationSchema.parse({
@@ -125843,7 +125870,7 @@ function spanToStaticSpanJSON(span) {
   }
   const { spanId: span_id, traceId: trace_id } = span.spanContext();
   if (spanIsOpenTelemetrySdkTraceBaseSpan(span)) {
-    const { attributes, startTime, name, endTime, status: status2, links } = span;
+    const { attributes, startTime, name, endTime, status: status3, links } = span;
     return {
       span_id,
       trace_id,
@@ -125853,7 +125880,7 @@ function spanToStaticSpanJSON(span) {
       start_timestamp: spanTimeInputToSeconds(startTime),
       // This is [0,0] by default in OTEL, in which case we want to interpret this as no end time
       timestamp: spanTimeInputToSeconds(endTime) || void 0,
-      status: getStatusMessage(status2),
+      status: getStatusMessage(status3),
       op: attributes[eb],
       origin: attributes[tb],
       links: convertSpanLinksForEnvelope(links)
@@ -125894,14 +125921,14 @@ function spanIsSampled(span) {
   const { traceFlags } = span.spanContext();
   return traceFlags === TRACE_FLAG_SAMPLED;
 }
-function getStatusMessage(status2) {
-  if (!status2 || status2.code === SPAN_STATUS_UNSET) {
+function getStatusMessage(status3) {
+  if (!status3 || status3.code === SPAN_STATUS_UNSET) {
     return "ok";
   }
-  if (status2.code === SPAN_STATUS_OK) {
+  if (status3.code === SPAN_STATUS_OK) {
     return "ok";
   }
-  return status2.message && isStatusErrorMessageValid(status2.message) ? status2.message : "internal_error";
+  return status3.message && isStatusErrorMessageValid(status3.message) ? status3.message : "internal_error";
 }
 var ROOT_SPAN_FIELD = "_sentryRootSpan";
 var getRootSpan = INTERNAL_getSegmentSpan;
@@ -127301,7 +127328,7 @@ function createClientReportEnvelope(discarded_events, dsn, timestamp) {
 
 // ../../node_modules/@sentry/core/build/esm/utils/transactionEvent.js
 function convertTransactionEventToSpanJson(event) {
-  const { trace_id, parent_span_id, span_id, status: status2, origin, data, op: op2 } = event.contexts?.trace ?? {};
+  const { trace_id, parent_span_id, span_id, status: status3, origin, data, op: op2 } = event.contexts?.trace ?? {};
   return {
     data: data ?? {},
     description: event.transaction,
@@ -127309,7 +127336,7 @@ function convertTransactionEventToSpanJson(event) {
     parent_span_id,
     span_id: span_id ?? "",
     start_timestamp: event.start_timestamp ?? 0,
-    status: status2 ?? "ok",
+    status: status3 ?? "ok",
     timestamp: event.timestamp,
     trace_id: trace_id ?? "",
     origin,
@@ -128621,7 +128648,7 @@ function parseDuration(text2) {
 var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
-  wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
+  wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery] | wim mesh delete
   wim invite [--exp 1h] [--auto] [--full] | wim invite show
   wim join <code> [--name <device>]
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
@@ -128642,7 +128669,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
   wim recovery show | wim recovery rotate
-  wim doctor
+  wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
   ${AGENT_USAGE}
@@ -128650,8 +128677,9 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: init, mesh create, invite, join, devices, peers, send, ping, watch, held, history, mcp,
-bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, crash-reports, agent.
+Commands: init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
+history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
+crash-reports, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
   if (!/^[a-z-]+$/.test(command5)) return void 0;
@@ -128881,7 +128909,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "init":
         return await init(ctx);
       case "mesh":
-        if (rest[0] !== "create") throw new SetupError("usage: wim mesh create --relay <url>");
+        if (rest[0] === "delete") return await meshDelete(ctx);
+        if (rest[0] !== "create") throw new SetupError("usage: wim mesh create --relay <url> | wim mesh delete");
         return await meshCreate(ctx);
       case "invite":
         return await invite(ctx);
@@ -128917,6 +128946,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
         return await recover2(ctx);
       case "recovery":
         return await recovery(ctx);
+      case "status":
+        return await status2(ctx);
       case "doctor":
         return await doctor(ctx);
       case "notify-test":
@@ -129008,9 +129039,48 @@ async function meshCreate(ctx) {
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== void 0) await showRecoveryCode(ctx, made.recoveryCode);
   await registerCli(ctx, made.mesh);
+  ctx.io.out(STATUS_LINE);
   return 0;
 }
 var CREATE_REFUSED = "the relay refused to create the mesh";
+var STATUS_LINE = "Check this device and its mesh at any time with `wim status`.";
+async function meshDelete(ctx) {
+  const extra = ["relay", "key-env", "tls", "no-recovery"].some((f7) => ctx.args.flags.has(f7));
+  if (ctx.args.positional.length > 1 || extra) throw new SetupError("usage: wim mesh delete [--mesh <id>]");
+  personHere(ctx, "wim mesh delete");
+  const { files } = await ctx.mesh();
+  const config2 = await files.loadConfig();
+  const copy = `This device's copy goes too: its rosters, sessions and message history in ${files.dir}. The device keys stay.`;
+  let s3;
+  try {
+    s3 = await ctx.session("admin", { keyed: false, mesh: config2.mesh });
+  } catch (error64) {
+    if (!(error64 instanceof SetupError) || !error64.message.includes(UNKNOWN_MESH)) throw error64;
+    const lines = [`The relay ${config2.relay} does not hold mesh ${config2.mesh}: an admin deleted it, or it went unused for the relay's idle time, or this device has the wrong relay URL.`, copy];
+    if (!await confirmed(ctx, lines, `Remove this device's copy of mesh ${config2.mesh}?`)) return 1;
+    await forgetMesh(ctx.home, config2.mesh);
+    ctx.io.out(`Removed this device's copy of mesh ${config2.mesh}.`);
+    return 0;
+  }
+  try {
+    const roster = s3.roster;
+    if (roster.devices.find((d5) => d5.id === s3.device.id).role !== "admin") throw new SetupError("only an admin device can delete the mesh, and this device is a member: ask an admin, or wait for the relay to remove the mesh once it goes unused");
+    const lines = [
+      `Deleting mesh ${config2.mesh} on ${config2.relay}, for every device in it:`,
+      ...roster.devices.filter((d5) => !isRecoveryName(d5.name)).map((d5) => `  ${d5.name}  ${d5.role}  ${d5.id}${d5.id === s3.device.id ? "  this device" : ""}`),
+      "The relay deletes the roster, every queued message, room history, file and lease, and closes every session. Every other device is told the mesh is gone when it next connects. There is no undo: the devices would need a new mesh and new invites.",
+      copy
+    ];
+    if (!await confirmed(ctx, lines, `Delete mesh ${config2.mesh}?`)) return 1;
+    await deleteMesh(s3);
+    await s3.stop();
+  } finally {
+    await s3.stop({ ended: true });
+  }
+  await forgetMesh(ctx.home, config2.mesh);
+  ctx.io.out(`Deleted mesh ${config2.mesh} at the relay, and this device's copy. On each other device, \`wim mesh delete\` removes its copy.`);
+  return 0;
+}
 async function withoutKey(ctx, relay, keyEnv, tlsPin) {
   const info = await fetchRelayInfo(relay, ctx.io.fetch, { tlsPin });
   if (info?.create === "closed") return "this relay is not accepting new meshes";
@@ -129034,6 +129104,7 @@ async function showRecoveryCode(ctx, code2) {
     onListening: () => {
       ctx.io.out(`The recovery code is not shown here: ${why}.`);
       ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim recovery show\` there within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only; keep it out of any agent's chat.`);
+      ctx.io.out(`This command keeps running, for up to ${SHOW_WINDOW_MINUTES} minutes, until the code is collected: only this process holds it. If it is stopped before then, the code is gone; run \`wim recovery rotate\` on this device, in your own terminal, for a new one.`);
       ctx.io.out("(A scripted `wim mesh create` that needs no recovery code can pass --no-recovery.)");
     }
   });
@@ -129219,6 +129290,7 @@ async function join21(ctx) {
   const others = joined.roster.devices.filter((d5) => d5.id !== device.id && !isRecoveryName(d5.name));
   await askTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), others);
   await registerCli(ctx, joined.mesh);
+  ctx.io.out(STATUS_LINE);
   return 0;
 }
 async function registerCli(ctx, mesh) {
@@ -129247,6 +129319,8 @@ ${commandUsage("devices")}`);
   const config2 = await files.loadConfig();
   if (action === "list") {
     for (const line of deviceRows(book.current, config2)) ctx.io.out(line);
+    const recovery2 = book.current.devices.filter((d5) => isRecoveryName(d5.name)).map((d5) => d5.name);
+    if (recovery2.length > 0) ctx.io.out(`(${recovery2.join(", ")}: not a machine. It is the mesh's recovery code, an admin record that never connects, so nothing ever comes from it and its policy reads hold. Keep the code offline; \`wim recovery rotate\` replaces it.)`);
     return 0;
   }
   const trusting = action === "trust" || action === "untrust";
@@ -129361,8 +129435,8 @@ var SENT_MEANING = {
   queued: "that session is offline; the relay keeps it 24 h"
 };
 var WAIT_MAX_MS = 36e5;
-function receiptLine(to, status2, id2) {
-  switch (status2) {
+function receiptLine(to, status3, id2) {
+  switch (status3) {
     case "delivered":
       return `${to}: delivered (the session took it; that does not mean anyone read it)`;
     case "held":
@@ -129372,13 +129446,13 @@ function receiptLine(to, status2, id2) {
     case "expired":
       return `${to}: expired (no session took it within 24 hours)`;
     default:
-      return `${to}: ${sanitizeForDisplay(status2)}`;
+      return `${to}: ${sanitizeForDisplay(status3)}`;
   }
 }
 function lastReceipts(receipts) {
   return new Map(receipts.map((r6) => [r6.to, r6.status]));
 }
-var isFinal = (status2) => status2 !== void 0 && status2 !== "held";
+var isFinal = (status3) => status3 !== void 0 && status3 !== "held";
 async function waitForReceipts(ctx, read, wanted, ms, onHeld) {
   const until = Date.now() + ms;
   const told = /* @__PURE__ */ new Set();
@@ -129459,9 +129533,9 @@ async function send2(ctx) {
 function reportReceipts(ctx, out, took, got, code2) {
   const statusOf = new Map(out.results.map((r6) => [r6.to, r6.status]));
   for (const to of took) {
-    const status2 = got.get(to);
-    if (status2 === "held") ctx.io.out(`${to}: still held for the approval of that device's person when the wait ended, so not delivered yet`);
-    else if (status2 !== void 0) ctx.io.out(receiptLine(to, status2, out.id));
+    const status3 = got.get(to);
+    if (status3 === "held") ctx.io.out(`${to}: still held for the approval of that device's person when the wait ended, so not delivered yet`);
+    else if (status3 !== void 0) ctx.io.out(receiptLine(to, status3, out.id));
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)]})`);
   }
   return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code2;
@@ -129811,14 +129885,11 @@ async function recover2(ctx) {
   await showRecoveryCode(ctx, done.recoveryCode);
   return 0;
 }
-async function doctor(ctx) {
-  let problems = 0;
-  const ok2 = (line) => ctx.io.out(`ok       ${line}`);
-  const info = (line) => ctx.io.out(`info     ${line}`);
-  const bad = (line) => {
-    problems++;
-    ctx.io.out(`problem  ${line}`);
-  };
+async function checkup(ctx, emit) {
+  const meshes = [];
+  const ok2 = (line) => emit({ level: "ok", line });
+  const info = (line) => emit({ level: "info", line });
+  const bad = (line) => emit({ level: "problem", line });
   info(`state directory ${ctx.home.root}: ${ctx.homeWhy}`);
   for (const dir of await deviceDirs(ctx.homeBase)) {
     if (dir !== ctx.home.root) info(`another device on this machine: ${dir} (its own keys and signer; a shell or agent that resolves it is not this device)`);
@@ -129834,10 +129905,13 @@ async function doctor(ctx) {
   const rootProblem = await ctx.home.rootProblem();
   if (rootProblem === void 0) ok2(`state directory ${ctx.home.root}`);
   else bad(`state directory ${ctx.home.root}: ${rootProblem}`);
-  if (device === void 0) return 1;
+  if (device === void 0) return { meshes };
+  const me = device.id;
   for (const id2 of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id2), ctx.fsEnv);
     const config2 = await files.loadConfig();
+    const summary = { id: id2, relay: config2.relay };
+    meshes.push(summary);
     try {
       checkDialable(config2.relay, config2.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config2.relay}/v1/${id2}`, config2.tls === void 0 ? {} : { tlsPin: config2.tls });
@@ -129845,6 +129919,7 @@ async function doctor(ctx) {
       const skew = hello.at - ctx.io.now();
       ok2(`mesh ${id2}: relay ${config2.relay} answers`);
       const published = await fetchRelayInfo(config2.relay, ctx.io.fetch, { tlsPin: config2.tls });
+      if (published !== void 0) summary.idleDays = published.limits.idle_mesh_days;
       for (const line of published === void 0 ? ["this relay does not publish /v1/info"] : describeInfo(published)) info(`mesh ${id2}: ${line}`);
       if (Math.abs(skew) > 6e4) bad(`mesh ${id2}: this clock is ${Math.round(skew / 1e3)} s off the relay's (auth allows 300 s; messages 600 s ahead)`);
       else ok2(`mesh ${id2}: clock within ${Math.round(Math.abs(skew) / 1e3)} s of the relay`);
@@ -129860,6 +129935,10 @@ async function doctor(ctx) {
         await s3.ready(15e3);
         ok2(`mesh ${id2}: authenticated; roster seq ${s3.roster.seq}${s3.roster.seq > before ? ` (caught up from ${before})` : ""}`);
         if (s3.book.fork !== void 0) bad(`mesh ${id2}: the roster forked at seq ${s3.book.fork.seq}`);
+        summary.seq = s3.roster.seq;
+        summary.devices = s3.roster.devices.filter((d5) => !isRecoveryName(d5.name)).length;
+        summary.admin = s3.roster.devices.some((d5) => d5.id === me && d5.role === "admin");
+        summary.online = s3.knownPeers().filter((p3) => p3.status !== "offline").length;
       } finally {
         await s3.stop({ ended: true });
       }
@@ -129867,7 +129946,42 @@ async function doctor(ctx) {
       bad(`mesh ${id2}: ${error64.message}`);
     }
   }
+  return { device, meshes };
+}
+async function doctor(ctx) {
+  let problems = 0;
+  await checkup(ctx, (c5) => {
+    if (c5.level === "problem") problems++;
+    ctx.io.out(`${c5.level.padEnd(8)} ${c5.line}`);
+  });
   return problems === 0 ? 0 : 1;
+}
+async function status2(ctx) {
+  const problems = [];
+  const { device, meshes } = await checkup(ctx, (c5) => void (c5.level === "problem" && problems.push(c5)));
+  for (const c5 of problems) ctx.io.out(`problem  ${c5.line}`);
+  if (device !== void 0) {
+    ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
+    if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
+    for (const m4 of meshes) for (const line of meshStatus(m4)) ctx.io.out(line);
+  }
+  ctx.io.out(problems.length === 0 ? "Everything checks out. `wim doctor` shows each check." : `Problems: ${problems.length}, above. \`wim doctor\` shows each check.`);
+  return problems.length === 0 ? 0 : 1;
+}
+function meshStatus(m4) {
+  const head = `Mesh ${m4.id} on ${m4.relay}:`;
+  if (m4.seq === void 0) return [head, "  not connected: the problem above says why."];
+  const others = m4.devices - 1;
+  return [
+    head,
+    `  connected as ${m4.admin ? "an admin" : "a member"}; roster seq ${m4.seq}; other devices: ${others}; other sessions online now: ${m4.online}.`,
+    ...others === 0 ? ["  Next: `wim invite` adds another device. Until one joins, `wim peers` shows no other sessions, which is expected."] : [],
+    `  ${idleLine(m4.idleDays)} An admin can delete it sooner: \`wim mesh delete\`.`
+  ];
+}
+function idleLine(days) {
+  if (days === void 0) return "The relay does not say how long it keeps a mesh nobody uses.";
+  return days === null ? "The relay keeps a mesh nobody uses." : `The relay deletes it after ${days} days with no device connected.`;
 }
 async function notifyTest(ctx) {
   const n3 = await loadNotifier(ctx.home.root, ctx.io.now);

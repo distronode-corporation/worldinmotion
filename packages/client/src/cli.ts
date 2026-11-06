@@ -11,7 +11,7 @@ import { isName, isRecoveryName, parseJson, sanitizeForDisplay, sessionAddressSc
 import { promises as fs } from "node:fs";
 import { basename, join as pathJoin } from "node:path";
 import type { Readable, Writable } from "node:stream";
-import { admitPending, createMesh, decideJoin, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
+import { admitPending, createMesh, decideJoin, deleteMesh, forgetMesh, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
 import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
 import { accepted, ClientError, MeshSession, unprotectedNote, type Inbound, type SessionOptions } from "./client.ts";
@@ -30,7 +30,7 @@ import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
 import { agentEnv, canConfirm, canShowSecret, confirmTyped, fetchHeldCode, holdForShow, notAPerson, personOnly, requirePerson, showPaths, SHOW_WINDOW_MINUTES, type ShowKind } from "./secretout.ts";
-import { checkDialable, Link, WireError, wsDialer, type Dialer } from "./wire.ts";
+import { checkDialable, Link, UNKNOWN_MESH, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { resolveInvite } from "./shortcode.ts";
 import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
@@ -196,7 +196,7 @@ export function parseDuration(text: string): number {
 export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
-  wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]
+  wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery] | wim mesh delete
   wim invite [--exp 1h] [--auto] [--full] | wim invite show
   wim join <code> [--name <device>]
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
@@ -217,7 +217,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
   wim recovery show | wim recovery rotate
-  wim doctor
+  wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
   ${AGENT_USAGE}
@@ -226,8 +226,9 @@ Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: init, mesh create, invite, join, devices, peers, send, ping, watch, held, history, mcp,
-bot, ci, a2a, recover, recovery show, recovery rotate, doctor, notify-test, crash-reports, agent.
+Commands: init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
+history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
+crash-reports, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -509,7 +510,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
       case "init":
         return await init(ctx);
       case "mesh":
-        if (rest[0] !== "create") throw new SetupError("usage: wim mesh create --relay <url>");
+        if (rest[0] === "delete") return await meshDelete(ctx);
+        if (rest[0] !== "create") throw new SetupError("usage: wim mesh create --relay <url> | wim mesh delete");
         return await meshCreate(ctx);
       case "invite":
         return await invite(ctx);
@@ -545,6 +547,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await recover(ctx);
       case "recovery":
         return await recovery(ctx);
+      case "status":
+        return await status(ctx);
       case "doctor":
         return await doctor(ctx);
       case "notify-test":
@@ -646,10 +650,60 @@ async function meshCreate(ctx: Ctx): Promise<number> {
   if (made.recoveryCode !== undefined) await showRecoveryCode(ctx, made.recoveryCode);
   // After the recovery code, which exists only in memory: a slow relay here must not delay it.
   await registerCli(ctx, made.mesh);
+  ctx.io.out(STATUS_LINE);
   return 0;
 }
 
 const CREATE_REFUSED = "the relay refused to create the mesh";
+
+/** The last line of `wim init`, `wim mesh create` and `wim join`. */
+const STATUS_LINE = "Check this device and its mesh at any time with `wim status`.";
+
+/**
+ * `wim mesh delete`: an admin deletes the mesh at the relay, for every device in it, and then this
+ * device's copy. Only the person, at their own terminal, after reading what goes and typing yes
+ * (the rule of `wim devices trust`): no MCP tool, events request or message reaches this. When the
+ * relay no longer holds the mesh (an admin deleted it, or it went unused for the relay's idle
+ * time), any device removes its own copy the same way.
+ */
+async function meshDelete(ctx: Ctx): Promise<number> {
+  const extra = ["relay", "key-env", "tls", "no-recovery"].some((f) => ctx.args.flags.has(f));
+  if (ctx.args.positional.length > 1 || extra) throw new SetupError("usage: wim mesh delete [--mesh <id>]");
+  personHere(ctx, "wim mesh delete");
+  const { files } = await ctx.mesh();
+  const config = await files.loadConfig();
+  const copy = `This device's copy goes too: its rosters, sessions and message history in ${files.dir}. The device keys stay.`;
+  let s: MeshSession;
+  try {
+    s = await ctx.session("admin", { keyed: false, mesh: config.mesh });
+  } catch (error) {
+    if (!(error instanceof SetupError) || !error.message.includes(UNKNOWN_MESH)) throw error;
+    const lines = [`The relay ${config.relay} does not hold mesh ${config.mesh}: an admin deleted it, or it went unused for the relay's idle time, or this device has the wrong relay URL.`, copy];
+    if (!(await confirmed(ctx, lines, `Remove this device's copy of mesh ${config.mesh}?`))) return 1;
+    await forgetMesh(ctx.home, config.mesh);
+    ctx.io.out(`Removed this device's copy of mesh ${config.mesh}.`);
+    return 0;
+  }
+  try {
+    const roster = s.roster;
+    if (roster.devices.find((d) => d.id === s.device.id)!.role !== "admin") throw new SetupError("only an admin device can delete the mesh, and this device is a member: ask an admin, or wait for the relay to remove the mesh once it goes unused");
+    const lines = [
+      `Deleting mesh ${config.mesh} on ${config.relay}, for every device in it:`,
+      ...roster.devices.filter((d) => !isRecoveryName(d.name)).map((d) => `  ${d.name}  ${d.role}  ${d.id}${d.id === s.device.id ? "  this device" : ""}`),
+      "The relay deletes the roster, every queued message, room history, file and lease, and closes every session. Every other device is told the mesh is gone when it next connects. There is no undo: the devices would need a new mesh and new invites.",
+      copy,
+    ];
+    if (!(await confirmed(ctx, lines, `Delete mesh ${config.mesh}?`))) return 1;
+    await deleteMesh(s);
+    // Stopped at once, before the relay's close arrives, so this command does not report it.
+    await s.stop();
+  } finally {
+    await s.stop({ ended: true });
+  }
+  await forgetMesh(ctx.home, config.mesh);
+  ctx.io.out(`Deleted mesh ${config.mesh} at the relay, and this device's copy. On each other device, \`wim mesh delete\` removes its copy.`);
+  return 0;
+}
 
 /**
  * Why a relay refused `create` for lack of an accepted key, from what its `/v1/info` says: it may
@@ -684,6 +738,7 @@ async function showRecoveryCode(ctx: Ctx, code: string): Promise<void> {
     onListening: () => {
       ctx.io.out(`The recovery code is not shown here: ${why}.`);
       ctx.io.out(`Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim recovery show\` there within ${SHOW_WINDOW_MINUTES} minutes to see it once. It is kept in memory only; keep it out of any agent's chat.`);
+      ctx.io.out(`This command keeps running, for up to ${SHOW_WINDOW_MINUTES} minutes, until the code is collected: only this process holds it. If it is stopped before then, the code is gone; run \`wim recovery rotate\` on this device, in your own terminal, for a new one.`);
       ctx.io.out("(A scripted `wim mesh create` that needs no recovery code can pass --no-recovery.)");
     },
   });
@@ -913,6 +968,7 @@ async function join(ctx: Ctx): Promise<number> {
   const others = joined.roster.devices.filter((d) => d.id !== device.id && !isRecoveryName(d.name));
   await askTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), others);
   await registerCli(ctx, joined.mesh);
+  ctx.io.out(STATUS_LINE);
   return 0;
 }
 
@@ -952,6 +1008,8 @@ async function devices(ctx: Ctx): Promise<number> {
   const config = await files.loadConfig();
   if (action === "list") {
     for (const line of deviceRows(book.current, config)) ctx.io.out(line);
+    const recovery = book.current.devices.filter((d) => isRecoveryName(d.name)).map((d) => d.name);
+    if (recovery.length > 0) ctx.io.out(`(${recovery.join(", ")}: not a machine. It is the mesh's recovery code, an admin record that never connects, so nothing ever comes from it and its policy reads hold. Keep the code offline; \`wim recovery rotate\` replaces it.)`);
     return 0;
   }
   const trusting = action === "trust" || action === "untrust";
@@ -1692,14 +1750,22 @@ async function recover(ctx: Ctx): Promise<number> {
   return 0;
 }
 
-async function doctor(ctx: Ctx): Promise<number> {
-  let problems = 0;
-  const ok = (line: string): void => ctx.io.out(`ok       ${line}`);
-  const info = (line: string): void => ctx.io.out(`info     ${line}`);
-  const bad = (line: string): void => {
-    problems++;
-    ctx.io.out(`problem  ${line}`);
-  };
+/** One line of `wim doctor`: a check that passed, a fact, or a problem to fix. */
+type Check = { level: "ok" | "info" | "problem"; line: string };
+
+/** What `wim status` sums up for one mesh, from the checks `wim doctor` runs. */
+type MeshSummary = { id: string; relay: string; seq?: number; devices?: number; admin?: boolean; online?: number; idleDays?: number | null };
+
+/**
+ * The checks of `wim doctor`, in order, each handed to `emit` as it is made: the state directory,
+ * the device keys, and for each mesh the relay, its published limits, the clock and the roster.
+ * `meshes` holds what `wim status` reports of each mesh.
+ */
+async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: Device; meshes: MeshSummary[] }> {
+  const meshes: MeshSummary[] = [];
+  const ok = (line: string): void => emit({ level: "ok", line });
+  const info = (line: string): void => emit({ level: "info", line });
+  const bad = (line: string): void => emit({ level: "problem", line });
   // A terminal and an agent are the same device only when they resolve the same directory.
   info(`state directory ${ctx.home.root}: ${ctx.homeWhy}`);
   for (const dir of await deviceDirs(ctx.homeBase)) {
@@ -1717,10 +1783,13 @@ async function doctor(ctx: Ctx): Promise<number> {
   const rootProblem = await ctx.home.rootProblem();
   if (rootProblem === undefined) ok(`state directory ${ctx.home.root}`);
   else bad(`state directory ${ctx.home.root}: ${rootProblem}`);
-  if (device === undefined) return 1;
+  if (device === undefined) return { meshes };
+  const me = device.id;
   for (const id of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id), ctx.fsEnv);
     const config = await files.loadConfig();
+    const summary: MeshSummary = { id, relay: config.relay };
+    meshes.push(summary);
     try {
       checkDialable(config.relay, config.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config.relay}/v1/${id}`, config.tls === undefined ? {} : { tlsPin: config.tls });
@@ -1728,6 +1797,7 @@ async function doctor(ctx: Ctx): Promise<number> {
       const skew = hello.at - ctx.io.now();
       ok(`mesh ${id}: relay ${config.relay} answers`);
       const published = await fetchRelayInfo(config.relay, ctx.io.fetch, { tlsPin: config.tls });
+      if (published !== undefined) summary.idleDays = published.limits.idle_mesh_days;
       for (const line of published === undefined ? ["this relay does not publish /v1/info"] : describeInfo(published)) info(`mesh ${id}: ${line}`);
       if (Math.abs(skew) > 60_000) bad(`mesh ${id}: this clock is ${Math.round(skew / 1000)} s off the relay's (auth allows 300 s; messages 600 s ahead)`);
       else ok(`mesh ${id}: clock within ${Math.round(Math.abs(skew) / 1000)} s of the relay`);
@@ -1743,6 +1813,10 @@ async function doctor(ctx: Ctx): Promise<number> {
         await s.ready(15_000);
         ok(`mesh ${id}: authenticated; roster seq ${s.roster.seq}${s.roster.seq > before ? ` (caught up from ${before})` : ""}`);
         if (s.book.fork !== undefined) bad(`mesh ${id}: the roster forked at seq ${s.book.fork.seq}`);
+        summary.seq = s.roster.seq;
+        summary.devices = s.roster.devices.filter((d) => !isRecoveryName(d.name)).length;
+        summary.admin = s.roster.devices.some((d) => d.id === me && d.role === "admin");
+        summary.online = s.knownPeers().filter((p) => p.status !== "offline").length;
       } finally {
         await s.stop({ ended: true });
       }
@@ -1750,7 +1824,54 @@ async function doctor(ctx: Ctx): Promise<number> {
       bad(`mesh ${id}: ${(error as Error).message}`);
     }
   }
+  return { device, meshes };
+}
+
+async function doctor(ctx: Ctx): Promise<number> {
+  let problems = 0;
+  // Each line as it is checked, so what was found before a check that throws is still shown.
+  await checkup(ctx, (c) => {
+    if (c.level === "problem") problems++;
+    ctx.io.out(`${c.level.padEnd(8)} ${c.line}`);
+  });
+  // No device keys is always one of the problems.
   return problems === 0 ? 0 : 1;
+}
+
+/**
+ * `wim status`: the summary of `wim doctor`, for a person checking a new setup. Problems first, in
+ * full, then the device and each mesh in a few lines, with the next step where there is one.
+ */
+async function status(ctx: Ctx): Promise<number> {
+  const problems: Check[] = [];
+  const { device, meshes } = await checkup(ctx, (c) => void (c.level === "problem" && problems.push(c)));
+  for (const c of problems) ctx.io.out(`problem  ${c.line}`);
+  if (device !== undefined) {
+    ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
+    if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
+    for (const m of meshes) for (const line of meshStatus(m)) ctx.io.out(line);
+  }
+  ctx.io.out(problems.length === 0 ? "Everything checks out. `wim doctor` shows each check." : `Problems: ${problems.length}, above. \`wim doctor\` shows each check.`);
+  return problems.length === 0 ? 0 : 1;
+}
+
+/** The lines `wim status` prints for one mesh. */
+function meshStatus(m: MeshSummary): string[] {
+  const head = `Mesh ${m.id} on ${m.relay}:`;
+  if (m.seq === undefined) return [head, "  not connected: the problem above says why."];
+  const others = m.devices! - 1;
+  return [
+    head,
+    `  connected as ${m.admin! ? "an admin" : "a member"}; roster seq ${m.seq}; other devices: ${others}; other sessions online now: ${m.online!}.`,
+    ...(others === 0 ? ["  Next: `wim invite` adds another device. Until one joins, `wim peers` shows no other sessions, which is expected."] : []),
+    `  ${idleLine(m.idleDays)} An admin can delete it sooner: \`wim mesh delete\`.`,
+  ];
+}
+
+/** What the relay's `/v1/info` says about meshes nobody uses. */
+function idleLine(days: number | null | undefined): string {
+  if (days === undefined) return "The relay does not say how long it keeps a mesh nobody uses.";
+  return days === null ? "The relay keeps a mesh nobody uses." : `The relay deletes it after ${days} days with no device connected.`;
 }
 
 async function notifyTest(ctx: Ctx): Promise<number> {

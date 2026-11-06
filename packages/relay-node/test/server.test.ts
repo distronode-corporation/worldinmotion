@@ -546,6 +546,44 @@ describe("relay-node", () => {
     }
   });
 
+  it("deletes a mesh for an admin's mesh.delete: closes every socket with 4005, drops its rows, frees its place", async () => {
+    const db = join(await scratchDir(), "relay.db");
+    const lines: string[] = [];
+    const r = await start({ db, port: 0, maxMeshes: 1, idleMeshDays: 30, tickMs: 10, log: (l) => void lines.push(l) });
+    running.push(r);
+    const url = r.relayUrls[0]!;
+    const { admin, member, roster, root } = await mesh(url);
+    const writer = await session(url, member, roster, "writer");
+    const waiting = new Dial(`${url}/v1/${roster.mesh}`);
+    await waiting.next();
+    expect(await createFrom(url, "x")).toBe("full");
+    // A member cannot, and its session keeps working.
+    writer.c.send({ t: "mesh.delete", mesh: roster.mesh });
+    expect(await writer.c.nextOf("error")).toEqual({ t: "error", code: "unauthorized", message: "only an admin device can delete the mesh", ref: "mesh.delete" });
+    root.c.send({ t: "mesh.delete", mesh: roster.mesh });
+    // A frame already on its way from the member when the mesh goes is dropped, not handled.
+    writer.c.send({ t: "peers" });
+    expect(await root.c.nextOf("mesh.deleted")).toEqual({ t: "mesh.deleted", mesh: roster.mesh });
+    for (const c of [root.c, writer.c, waiting]) expect(await c.closed).toEqual({ code: 4005, reason: "mesh deleted" });
+    expect(lines.some((l) => l.includes('"event":"deleted"') && l.includes(roster.mesh) && l.includes(admin.id))).toBe(true);
+    expect(r.loadedMeshes()).toBe(0);
+    // Its place in the mesh count is free again, and no row of it is left.
+    expect(await createFrom(url, "x")).toBe("ok");
+    const raw = new DatabaseSync(db);
+    try {
+      for (const table of ["rosters", "sessions", "relay_node_idle"]) {
+        expect(raw.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE mesh = ?`).get(roster.mesh), table).toEqual({ n: 0 });
+      }
+    } finally {
+      raw.close();
+    }
+    // The mesh is gone for every device.
+    const gone = new Dial(`${url}/v1/${roster.mesh}`);
+    const hello = await gone.next();
+    gone.send(signAuth({ relay: url, mesh: roster.mesh, nonce: hello["nonce"], at: Date.now(), session: { name: "w", kind: "cli", sid: ulid(), resume: b64u.encode(randomBytes(32)) }, pin: rosterRef(roster) }, member.keys));
+    expect(await gone.nextOf("error")).toMatchObject({ code: "unauthorized", message: "unknown mesh" });
+  });
+
   it("starts the idle clock at start for meshes it already holds", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {

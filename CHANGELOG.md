@@ -81,6 +81,22 @@ body line with a bracket.
   with) and a GitLab CI/CD component (`packaging/gitlab-component`, two jobs in `.post`, one per
   outcome, each with its own ID token). Neither is published yet; both run from this repository
   at a pinned commit, and a hand-run workflow sends one notice through a relay to test them.
+- **`wim status`** (#65): the summary of `wim doctor` for a new setup. It names this device, and
+  for each mesh its relay, whether this device is an admin, the roster seq, how many other devices
+  and live sessions there are, and how long the relay keeps a mesh nobody uses, with any problem
+  in full and the next step for a mesh with one device. `wim init`, `wim mesh create` and
+  `wim join` end by pointing to it.
+- **`wim mesh delete`** (#65, SPEC section 11): an admin device deletes its mesh at the relay for
+  every device, then this device's copy. A new client frame `mesh.delete { mesh }`, answered
+  `mesh.deleted`, and a new close code 4005; both relays then close every socket on the mesh and
+  delete it as they delete an idle one, its place in the mesh cap included. A member is refused,
+  and so is a recovery connection. Like `wim devices trust`, the command runs only at an
+  interactive terminal with no agent's variables, after showing the mesh's devices and a typed
+  yes; no MCP tool, internal op or events request reaches it. On a device whose relay no longer
+  holds the mesh (deleted, or idle past the relay's time), the same command removes that device's
+  copy after a typed yes. Additive: an older relay answers `unknown_type` and the client says it
+  cannot delete there; an older client reconnects after 4005, is refused as for an unknown mesh,
+  and stops.
 
 ### Changed
 
@@ -91,6 +107,15 @@ body line with a bracket.
   records `reader`, the oldest version that still runs correctly on it; a relay accepts a newer
   database whose reader it meets, and still refuses one that needs a newer relay or that records
   no reader. This release must be deployed before any release that migrates the schema.
+- **`wim init` says that it waits, and for how long** (#65). When it cannot show the recovery code
+  (an agent's shell, or no terminal), it says it keeps running for up to 10 minutes so the code
+  can be collected with `wim recovery show`, that only that process holds the code, and that
+  `wim recovery rotate` makes a new one if it is stopped first. The README's step 2 and the Claude
+  Code skill say the same.
+- **`wim devices` explains the `recovery` admin** (#65) in one line under the list: it is the
+  mesh's recovery code, an admin record that never connects, which is why its policy reads hold.
+- **"Unknown mesh" says why it may be** (#65): an admin deleted it, the relay removed it after it
+  went unused, or the relay URL is wrong, and `wim mesh delete` removes this device's copy.
 
 ### Fixed
 
@@ -108,6 +133,12 @@ body line with a bracket.
 - **The hosted relay's terms say it is open now.** `docs/hosted-relay.md` still said the relay
   opens for new meshes with the public launch of the project. It is open now (`/v1/info` reports
   `"create": "open"`), and the line says so.
+- **Deleting a mesh, and the idle-out, are documented** (#65). The README gains step 12: the hosted
+  relay deletes a mesh no device has connected to for 30 days, `wim mesh delete` deletes one
+  sooner, and each other device removes its copy the same way. SECURITY-MODEL says any admin can
+  delete the mesh for everyone (sections 3, 5.2 and 9), that a relay can delete one at any time
+  (5.4), and lists `wim mesh delete` among the person's commands (7.2, 7.5); both relay READMEs
+  and the hosted relay's terms say the same.
 - **The README names the Claude Code version that added cross-machine messaging: v2.1.224.**
   Its changelog adds cross-session `SendMessage` across your machines in 2.1.224; 2.1.225 only
   let a session start a conversation with a remote one by name.

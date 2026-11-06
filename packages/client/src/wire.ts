@@ -66,6 +66,13 @@ export function relayCode(code: string): string {
 }
 
 /**
+ * Said when the relay holds no such mesh: an admin deleted it (`wim mesh delete`), the relay removed
+ * it after it went unused (`/v1/info` says after how long), or the relay URL is wrong.
+ */
+export const UNKNOWN_MESH =
+  "the relay does not know this mesh: an admin deleted it, or the relay removed it after it went unused, or the relay URL is wrong. `wim mesh delete` removes this device's copy";
+
+/**
  * The relay's reasons for refusing `auth` that this client knows (protocol `verifyAuth` and
  * relay-core), each with what the person can do about it. Any other text from the relay is not
  * repeated.
@@ -77,7 +84,7 @@ const AUTH_REFUSALS: ReadonlyMap<string, string> = new Map([
   ["bad_signature", "the relay could not verify this device's signature against the roster"],
   ["wrong_nonce", "the authentication answered another connection's challenge"],
   ["malformed", "the relay could not read this client's authentication"],
-  ["unknown mesh", "the relay does not know this mesh; check the relay URL"],
+  ["unknown mesh", UNKNOWN_MESH],
   ["the device is not in the roster", "this device is not in the relay's roster (it may have been revoked)"],
   ["recovery records do not connect", "a recovery record cannot connect as a device"],
   ["the pinned roster is newer than any this relay holds", "this device knows a newer roster than the relay holds"],
@@ -358,6 +365,7 @@ export const errorFor = (ref: string) => (f: RelayFrame): boolean => f.t === "er
 export const FATAL_CLOSE: ReadonlyMap<number, string> = new Map([
   [CLOSE.unauthorized, "the relay refused this device's authentication"],
   [CLOSE.revoked, "this device was revoked from the mesh"],
+  [CLOSE.deleted, "an admin deleted this mesh at the relay; `wim mesh delete` removes this device's copy"],
   [CLOSE.replaced, "another connection took over this session"],
 ]);
 

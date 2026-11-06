@@ -84,6 +84,8 @@ export class MeshDurableObject extends DurableObject<Env> {
    * so the event awaits it before it ends, and the answer goes out in the event's turn.
    */
   private rdvPending: Promise<void> = Promise.resolve();
+  /** Set by the relay when an admin's `mesh.delete` was accepted; the event then drops the mesh. */
+  private deleted = false;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -133,8 +135,10 @@ export class MeshDurableObject extends DurableObject<Env> {
         const reserved = await this.precheck(ws, message);
         relay.onMessage(conn, message);
         await this.rdvPending;
+        // An admin deleted the mesh: the relay answered and closed every socket; the storage goes.
+        if (this.deleted) await this.forget();
         // A place reserved in the mesh count for a create that did not create is given back.
-        if (!this.persistIfCreated() && reserved) await this.registry().release();
+        else if (!this.persistIfCreated() && reserved) await this.registry().release();
       }
       await this.settle();
     });
@@ -229,6 +233,7 @@ export class MeshDurableObject extends DurableObject<Env> {
           log: (event, fields) => console.log(JSON.stringify({ event, mesh: meshId, ...fields })),
           allowSource: () => this.allowed,
           admitMesh: () => this.admitted,
+          deleteMesh: () => void (this.deleted = true),
           rdvPut: (put, answer) => {
             const stub = this.env.RDV.get(this.env.RDV.idFromName(RDV_NAME));
             // A store that cannot be reached is answered too, so the client falls back at once. An
@@ -329,7 +334,7 @@ export class MeshDurableObject extends DurableObject<Env> {
 
   /**
    * Deletes a mesh no session has used for `WIM_IDLE_MESH_DAYS`: closes any socket still before
-   * auth on it, deletes all storage, and gives its place in the mesh count back.
+   * auth on it, then forgets the mesh.
    */
   private async expire(): Promise<void> {
     const relay = this.relay();
@@ -337,13 +342,22 @@ export class MeshDurableObject extends DurableObject<Env> {
       relay.onClose(this.conn(ws));
       ws.close(CLOSE.goingAway, "mesh expired");
     }
+    console.log(JSON.stringify({ event: "expired", mesh: this.meshId, idleMeshDays: this.settings.idleMeshDays }));
+    await this.forget();
+  }
+
+  /**
+   * After idle expiry or an admin's `mesh.delete`: deletes all storage, gives the mesh's place in
+   * the mesh count back, and drops the relay, so the next event finds no mesh here.
+   */
+  private async forget(): Promise<void> {
     await this.ctx.storage.deleteAll();
     await this.registry().release();
-    console.log(JSON.stringify({ event: "expired", mesh: this.meshId, idleMeshDays: this.settings.idleMeshDays }));
     this.relayInstance = undefined;
     this.memory = undefined;
     this.saved = undefined;
     this.idleSince = undefined;
+    this.deleted = false;
   }
 
   /**

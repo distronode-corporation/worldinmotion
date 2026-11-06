@@ -122,6 +122,14 @@ export type RelayHost = {
    * it, `rdv.put` is answered `unsupported`.
    */
   rdvPut?(put: RdvPut, answer: (outcome: RdvOutcome) => void): void;
+  /**
+   * Deletes everything the host keeps for this mesh, as idle expiry does: its stored state, its
+   * place in any mesh count, and this relay instance (the mesh no longer exists, so the next dial
+   * builds a fresh one). Called after an admin's `mesh.delete` (SPEC section 11), once the relay
+   * has answered it and closed every connection. Without it, `mesh.delete` is answered
+   * `unsupported` and nothing is deleted.
+   */
+  deleteMesh?(): void;
 };
 
 const MINUTE = 60_000;
@@ -646,6 +654,8 @@ export class MeshRelay {
         // Off, the relay answers as one that never heard of CI senders, and keeps no tags.
         if (this.config.ci !== true) return this.error(conn, "unknown_type", "unknown_type", f.t);
         return this.ciRules(conn, s, f.tags, f.gitlab);
+      case "mesh.delete":
+        return this.meshDelete(conn, s, f.mesh);
       case "ping":
         return this.emit(conn, { t: "pong" });
       case "bye":
@@ -1167,6 +1177,29 @@ export class MeshRelay {
     this.spend(deviceKey, device, 1, now);
     this.spend("rdv:mesh", mesh, 1, now);
     this.host.rdvPut({ rdv: f.rdv, exp, n: f.n, c: f.c, source: st.source }, (outcome) => this.rdvAnswer(conn, f.rdv, outcome));
+  }
+
+  /**
+   * `mesh.delete` (SPEC section 11): an admin device deletes the mesh. The relay answers the
+   * requester, closes every connection on the mesh (sessions, joiners waiting, recovery) with
+   * 4005, and has the host delete everything it holds for the mesh. From then on the mesh does not
+   * exist: its devices' `auth` is refused as for an unknown mesh, and its id could be created
+   * again only with a new genesis roster.
+   */
+  private meshDelete(conn: Conn, s: SessionRow, mesh: string): void {
+    if (this.host.deleteMesh === undefined) return this.error(conn, "unsupported", "this relay does not delete meshes", "mesh.delete");
+    if (mesh !== this.config.meshId) return this.error(conn, "malformed", "that is not this connection's mesh", "mesh.delete");
+    if (!this.isAdmin(s.device)) return this.error(conn, "unauthorized", "only an admin device can delete the mesh", "mesh.delete");
+    this.emit(conn, { t: "mesh.deleted", mesh });
+    // Every connection is marked closed before any closes, so no close event the host delivers
+    // later reaches a session row that is about to be deleted.
+    const open = [...this.host.connections()].filter((c) => this.host.getState(c)!.phase !== "closed");
+    for (const c of open) this.host.setState(c, { ...this.host.getState(c)!, phase: "closed" });
+    for (const c of open) c.close(CLOSE.deleted, "mesh deleted");
+    this.host.log("deleted", { by: s.device });
+    this.cached = undefined;
+    this.absent = true;
+    this.host.deleteMesh();
   }
 
   /** Answers an `rdv.put` with the store's outcome, unless the connection has closed meanwhile. */

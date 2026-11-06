@@ -55,7 +55,8 @@ Both are first-class threats here.
    filter. A CI notice never assigns work and never starts a turn (sections 5.10 and 6.17).
 3. **Person.** A mesh may span several people's accounts. The protocol has one notion of
    authority, the admin role, and any admin (or the recovery code) can add, promote or revoke any
-   device, including another person's. People who share a mesh trust each other's admin devices
+   device, including another person's, and any admin device can have the relay delete the whole
+   mesh (SPEC section 11). People who share a mesh trust each other's admin devices
    with membership. Each person decides separately, per device, whose items reach their agents
    unreviewed (section 7.2).
 4. **Relay.** Sees all metadata and controls delivery, timing and leases. Holds no key that matters
@@ -140,7 +141,9 @@ Can:
 - Hold or contend for leases, within the per-session limits (section 6.11).
 - Consume shared quotas within its per-device limits: queue share, fan-out bytes, blob storage.
 - If it is an admin: add, promote or revoke devices, including other people's, and revoke the
-  recovery record.
+  recovery record. Or delete the mesh at the relay for every device (`mesh.delete`, SPEC section
+  11): the relay then drops its roster, queued messages, room history, files and leases, and every
+  member needs a new mesh and new invites. Each device keeps its own copy and history.
 
 Cannot:
 - Read direct items whose boxes are for other devices.
@@ -215,7 +218,10 @@ Can:
 - On a relay that takes CI senders: read each GitHub notice's token claims, drop, delay or replay
   CI notices (receivers drop the replay), hand a CI sender an older valid prekey, and ignore rule
   tags (receivers check the rule themselves).
-- Refuse service entirely.
+- Refuse service entirely, or delete a mesh at any time, whether or not an admin asked (as it
+  does to a mesh left unused for the idle time it publishes). A relay that says a mesh is gone
+  ("unknown mesh") also gets `wim mesh delete` to offer removing the device's own copy, which only
+  the person can confirm, and which holds no key: the device keys stay.
 
 Cannot:
 - Read any content. It holds no box or prekey secrets and never sees file keys.
@@ -1033,12 +1039,13 @@ the new policy first (section 7.5). No message, tool call or MCP request can cha
 `wim devices trust --all` trusts every device in the mesh, other people's included; it is for a
 mesh of your own devices.
 
-**Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume` and
-`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`) run only
-when standard input and standard output are both an interactive terminal and none of an agent's
-variables is set. They then show what is being decided (for a held item: the sender, its device
-id, the session it waits for, why it waits and its text; for a device: its name, role, id, and
-the policy now and after) and act only on a typed `y` or `yes`. There is no flag that skips this,
+**Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume`,
+`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`), and
+`wim mesh delete` run only when standard input and standard output are both an interactive
+terminal and none of an agent's variables is set. They then show what is being decided (for a
+held item: the sender, its device id, the session it waits for, why it waits and its text; for a
+device: its name, role, id, and the policy now and after; for a mesh: its id, relay and every
+device it holds, and that this device's copy goes too) and act only on a typed `y` or `yes`. There is no flag that skips this,
 since an agent could pass a flag as easily as the person. The variables are the ones agent hosts
 set in the shells they run: `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` and
 `CLAUDE_CODE_MESSAGING_SOCKET` (Claude Code), `AI_AGENT`, `GEMINI_CLI`, `CURSOR_AGENT`,
@@ -1046,8 +1053,8 @@ set in the shells they run: `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE
 variable. Other `CLAUDE_CODE_` variables are not on the list, because people set some of them
 (`CLAUDE_CODE_USE_BEDROCK`, say) in their own shell profile. The same rule guards admitting a
 device (section 5.6), and an events process started with these variables refuses the same
-decisions (section 7.5). No MCP tool approves, refuses, resumes or trusts, and the plugin's
-internal tool only reads. This stops an agent that runs the command itself, by habit or because
+decisions (section 7.5). No MCP tool approves, refuses, resumes, trusts or deletes a mesh, and the
+plugin's internal tool only reads. This stops an agent that runs the command itself, by habit or because
 a peer asked; it is a same-user check, not a boundary (section 9).
 
 **Trusted devices can assign work.** An item from a `deliver` device, other than relayed text, is
@@ -1138,7 +1145,8 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   asks the person to confirm a trust change in a dialog that names the device and the new policy.
   It admits a device only with the comparison code the person types from the new device's screen,
   and copies an invite code with a button, never showing it. An events process started with an
-  agent's variables (section 7.2) refuses every one of these actions with code `refused`.
+  agent's variables (section 7.2) refuses every one of these actions with code `refused`. No
+  events request deletes a mesh: that is `wim mesh delete`, at the person's own terminal only.
 - **Peer text stays text.** Message text, previews, addresses, card fields and file names are
   another agent's text. The extension shows them as plain text only (no HTML, Markdown, links or
   command links), makes hidden and reordering characters visible, and names only the sender and
@@ -1179,7 +1187,8 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   trusted for leases.
 - Receipts, delivery statuses, presence, room member lists and peer rows are unsigned and advisory.
 - Rooms do not restrict who in the mesh can read a room message.
-- Any admin, and anyone with the recovery code, can change membership for everyone, across people.
+- Any admin, and anyone with the recovery code, can change membership for everyone, across people,
+  and any admin device can delete the mesh at the relay for everyone (SPEC section 11).
 - A device you trust can assign work to all of your trusting sessions; a compromised or injected
   trusted device steers them within their permissions until you set it to `hold` or revoke it.
 - Relayed marking covers clients that forward text, not agents that restate what they read.
@@ -1196,8 +1205,9 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   providers' keys a device keeps (`ci-jwks.json`): whoever writes the rules allows a repository,
   and whoever plants keys can forge notices that match any rule until the copy is a day old (a
   copy dated in the future is ignored).
-- The rule that only a person admits a device, approves, refuses or releases a held item, or
-  changes a device's policy (an interactive terminal with no agent's variables, or a local UI)
+- The rule that only a person admits a device, approves, refuses or releases a held item, changes
+  a device's policy, or deletes a mesh (an interactive terminal with no agent's variables, or a
+  local UI, which cannot delete a mesh)
   stops an agent that runs the command or answers a prompt for its person by accident or habit. A
   process of the OS user can unset the variables, run a terminal of its own and type into it, or
   write the mark files and the policy directly.
