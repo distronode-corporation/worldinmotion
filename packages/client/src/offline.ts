@@ -4,7 +4,7 @@
 
 import { join } from "node:path";
 import { isPinned, loadCiRules } from "./cirules.ts";
-import { writeAtomic, type FsEnv } from "./fsx.ts";
+import { readText, writeAtomic, type FsEnv } from "./fsx.ts";
 import { HeldBox, type HeldItem, type Verdict } from "./held.ts";
 import { History, releasedFrame } from "./history.ts";
 import type { MeshConfig, MeshFiles } from "./mesh.ts";
@@ -67,39 +67,59 @@ export async function decideHeld(mesh: MeshFiles, id: string, verdict: Verdict, 
   return n;
 }
 
-/** Lifts a breaker pause on `peer` in every session, releasing what the breaker held. */
+/**
+ * Lifts a breaker pause on `peer` in every session, releasing what the breaker held. A session
+ * another process runs gets a marker and does it itself; for any other, this takes the session's
+ * liveness lock while it edits the files, so a session that starts meanwhile does not take back a
+ * pause this is removing.
+ */
 export async function resumeEverywhere(mesh: MeshFiles, peer: string, env: FsEnv, now: () => number, skipSid?: string): Promise<number> {
   let released = 0;
   const config = await mesh.loadConfig();
+  const device = peer.split("@")[1];
   for (const sid of (await listSessions(mesh)).filter((s) => s !== skipSid)) {
     const files = new SessionFiles(mesh, sid, env);
-    if (await files.isLiveElsewhere()) {
+    // This process may run the session itself (a UI's events process): it holds the lock already.
+    const ours = (await readText(files.liveLock))?.trim() === String(env.pid);
+    if (!ours && !(await files.claim())) {
       await writeAtomic(join(files.controlDir, `resume-${peer}`), "", env);
       continue;
     }
-    // Its pauses on that device are over too, so `wim held list` stops showing them, and the
-    // sessions told hear it lifted from the session's next process. Every other pause stays as
-    // written, a cool-down that ended included: the next process releases it.
-    const file = await readBreakerFile(files.breakerPath);
-    const resumed = file.pauses.filter((p) => p.from.split("@")[1] === peer.split("@")[1]);
-    const ids = resumed.map((p) => p.peer);
-    await savePauses(
-      files.breakerPath,
-      {
-        pauses: file.pauses.filter((p) => !resumed.includes(p)),
-        released: Object.fromEntries(Object.entries(file.released).filter(([id]) => !ids.includes(id))),
-        lifts: [...new Set([...file.lifts, ...resumed.flatMap((p) => p.told)])],
-      },
-      env,
-    );
-    const box = new HeldBox(files.heldDir, env);
-    for (const item of await box.list()) {
-      // The breaker counts per sender device, so a resume releases that device's held items.
-      if (item.from.split("@")[1] !== peer.split("@")[1] || item.reason !== "breaker") continue;
-      if (item.fileInfo !== undefined) await box.mark(item.id, "approve");
-      else await applyOffline(files, item, "approve", config, env, now);
-      released++;
+    try {
+      released += await resumeOffline(files, device!, config, env, now);
+    } finally {
+      if (!ours) await files.release();
     }
   }
   return released;
+}
+
+/**
+ * The resume in one session no process runs. Its pauses on that device are over too, so `wim held
+ * list` stops showing them, the sessions told hear it lifted from the session's next process, and
+ * the device's counts start over. Every other pause stays as written, a cool-down that ended
+ * included: the next process releases it.
+ */
+async function resumeOffline(files: SessionFiles, device: string, config: MeshConfig, env: FsEnv, now: () => number): Promise<number> {
+  const box = new HeldBox(files.heldDir, env);
+  // The breaker counts per sender device, so a resume releases that device's held items.
+  const items = (await box.list()).filter((item) => item.from.split("@")[1] === device && item.reason === "breaker");
+  const file = await readBreakerFile(files.breakerPath);
+  const resumed = file.pauses.filter((p) => p.from.split("@")[1] === device);
+  const ids = new Set([...resumed.map((p) => p.peer), ...items.map((i) => i.device)]);
+  await savePauses(
+    files.breakerPath,
+    {
+      pauses: file.pauses.filter((p) => !resumed.includes(p)),
+      released: Object.fromEntries(Object.entries(file.released).filter(([id]) => !ids.has(id))),
+      lifts: [...new Set([...file.lifts, ...resumed.flatMap((p) => p.told)])],
+      counts: Object.fromEntries(Object.entries(file.counts).filter(([id]) => !ids.has(id))),
+    },
+    env,
+  );
+  for (const item of items) {
+    if (item.fileInfo !== undefined) await box.mark(item.id, "approve");
+    else await applyOffline(files, item, "approve", config, env, now);
+  }
+  return items.length;
 }

@@ -248,12 +248,12 @@ describe("inbound policy and the breaker", () => {
 
     // The sender heard it once (one \`pause\` for the two held), and its sends to b now say held.
     const told = await spooled(a, (i) => i.kind === "notice" && i.rendered.includes("loop breaker paused messages from this device"));
-    expect(told.rendered).toContain(`b@two's loop breaker paused messages from this device (the per-peer limit: 3 messages from this device in 60 minutes, limit 2): what this device sends there is held for its person, not delivered, until its client releases them by itself at ${end}`);
+    expect(told.rendered).toContain(`b@two's loop breaker paused messages from this device (the per-peer limit: 3 messages from this device in 60 minutes, limit 2): what this device sends there is held, not delivered, until its client releases them by itself at ${end}, delivering up to its per-peer limit of what it held (the rest waits for its person)`);
     expect(sentFrames(relay).filter((f) => f.from.session === "b")).toHaveLength(1);
     const held = await a.send("b@two", "5");
     expect(held.results).toEqual([{ to: "b@two", status: "held", relay: "routed", breaker: { rule: "peer", count: 3, limit: 2, minutes: 60, until: until1, auto: true } }]);
     expect(heldSendLine("b@two", (held.results[0] as { breaker: HeldBreaker }).breaker)).toBe(
-      `b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 3 messages from this device in 60 minutes, limit 2; its client delivers what it held by itself at ${end}. Sending more now only adds to what it holds.`,
+      `b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 3 messages from this device in 60 minutes, limit 2; at ${end} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. Sending more now only adds to what it holds.`,
     );
     // Paused for the hour instead, the line says the person decides.
     expect(heldSendLine("b@two", { rule: "total", count: 51, limit: 50, minutes: 60, until: 0, auto: false })).toBe(

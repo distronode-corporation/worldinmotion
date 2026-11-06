@@ -137,6 +137,35 @@ export class Breaker {
     return { ok: true };
   }
 
+  /**
+   * How many a cool-down's release may deliver now: the per-peer limit, and no more than is left
+   * under the total, so a release never takes the hour's deliveries past the total limit.
+   */
+  allowance(): number {
+    const limits = this.limits();
+    const since = this.now() - HOUR;
+    let total = 0;
+    for (const list of this.deliveries.values()) total += this.recent(list, since).length;
+    return Math.max(0, Math.min(limits.perPeerPerHour, limits.totalPerHour - total));
+  }
+
+  /** The deliveries of the last hour, by peer, for a later process of the session (the hour's counts hold across a restart). */
+  counts(): Record<string, number[]> {
+    const since = this.now() - HOUR;
+    const out: Record<string, number[]> = {};
+    for (const [peer, list] of this.deliveries) {
+      const recent = this.recent(list, since);
+      if (recent.length > 0) out[peer] = recent;
+    }
+    return out;
+  }
+
+  /** Takes back the deliveries an earlier process of the session counted in the last hour (none in the future). */
+  restoreCounts(peer: string, times: readonly number[]): void {
+    const now = this.now();
+    this.deliveries.set(peer, this.recent(times.map((t) => Math.min(t, now)), now - HOUR));
+  }
+
   /** Counts `n` deliveries from `peer` now: what a cool-down's release delivers counts as delivered. */
   count(peer: string, n: number): void {
     const now = this.now();
@@ -161,10 +190,16 @@ export class Breaker {
     return Object.fromEntries([...this.released].filter(([, at]) => now - at < HOUR));
   }
 
+  /** Every pause bounded by the clock as it reads now (a clock set back while the session runs). */
+  private rebound(now: number): Pause[] {
+    for (const [peer, p] of this.paused) this.paused.set(peer, bounded(p, now));
+    return [...this.paused.values()];
+  }
+
   /** The pauses still running, oldest first. */
   pauses(): Pause[] {
     const now = this.now();
-    return [...this.paused.values()].filter((p) => p.until > now).sort((a, b) => a.at - b.at);
+    return this.rebound(now).filter((p) => p.until > now).sort((a, b) => a.at - b.at);
   }
 
   /**
@@ -173,32 +208,30 @@ export class Breaker {
    */
   kept(): Pause[] {
     const now = this.now();
-    return [...this.paused.values()].filter((p) => p.until > now || p.auto).sort((a, b) => a.at - b.at);
+    return this.rebound(now).filter((p) => p.until > now || p.auto).sort((a, b) => a.at - b.at);
   }
 
   /**
-   * The trusted peers whose cool-down has ended, each lifted here (its counts start over) so two
-   * callers never release one twice. The caller delivers what each one held, and counts it.
+   * The trusted peers whose cool-down has ended, each lifted here so two callers never release one
+   * twice. Its deliveries of the hour stay counted (toward the total too), and so will what the
+   * caller delivers of what it held (count).
    */
   takeDue(): Pause[] {
     const now = this.now();
-    const due = [...this.paused.values()].filter((p) => p.auto && p.until <= now);
+    const due = this.rebound(now).filter((p) => p.auto && p.until <= now);
     for (const p of due) {
-      this.clear(p.peer);
+      this.paused.delete(p.peer);
+      this.talk.delete(p.peer);
       this.released.set(p.peer, now);
     }
     return due;
   }
 
-  private clear(peer: string): void {
+  /** The person resumed a peer: its pause and its counts start over, and so does its cool-down allowance. */
+  resume(peer: string): void {
     this.paused.delete(peer);
     this.deliveries.delete(peer);
     this.talk.delete(peer);
-  }
-
-  /** The person resumed a peer: its pause and its counts start over, and so does its cool-down allowance. */
-  resume(peer: string): void {
-    this.clear(peer);
     this.released.delete(peer);
   }
 }
@@ -255,6 +288,6 @@ export function releasedNotice(peer: string, p: Pause, released: number, kept: n
       ? ""
       : why === "untrusted"
         ? `; its device is no longer trusted here or no longer in the mesh, so the ${n(kept)} it held ${kept === 1 ? "stays" : "stay"} held for the person`
-        : `; ${n(kept)} more ${kept === 1 ? "stays" : "stay"} held for the person (a release delivers at most the per-peer limit)`;
+        : `; ${n(kept)} more ${kept === 1 ? "stays" : "stay"} held for the person (a release delivers at most the per-peer limit, and no more than is left under the total)`;
   return `the loop breaker's cool-down for ${peer} ended at ${clock(p.until)} (it tripped on ${pauseRule(peer, p)}): its messages are delivered again, and ${delivered}${rest}. If it trips again within the hour, it waits for your person.`;
 }

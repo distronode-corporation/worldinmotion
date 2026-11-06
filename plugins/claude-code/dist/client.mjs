@@ -89257,6 +89257,32 @@ var Breaker = class {
     this.count(peer, 1);
     return { ok: true };
   }
+  /**
+   * How many a cool-down's release may deliver now: the per-peer limit, and no more than is left
+   * under the total, so a release never takes the hour's deliveries past the total limit.
+   */
+  allowance() {
+    const limits = this.limits();
+    const since = this.now() - HOUR2;
+    let total = 0;
+    for (const list3 of this.deliveries.values()) total += this.recent(list3, since).length;
+    return Math.max(0, Math.min(limits.perPeerPerHour, limits.totalPerHour - total));
+  }
+  /** The deliveries of the last hour, by peer, for a later process of the session (the hour's counts hold across a restart). */
+  counts() {
+    const since = this.now() - HOUR2;
+    const out = {};
+    for (const [peer, list3] of this.deliveries) {
+      const recent = this.recent(list3, since);
+      if (recent.length > 0) out[peer] = recent;
+    }
+    return out;
+  }
+  /** Takes back the deliveries an earlier process of the session counted in the last hour (none in the future). */
+  restoreCounts(peer, times) {
+    const now = this.now();
+    this.deliveries.set(peer, this.recent(times.map((t2) => Math.min(t2, now)), now - HOUR2));
+  }
   /** Counts `n` deliveries from `peer` now: what a cool-down's release delivers counts as delivered. */
   count(peer, n3) {
     const now = this.now();
@@ -89277,10 +89303,15 @@ var Breaker = class {
     const now = this.now();
     return Object.fromEntries([...this.released].filter(([, at]) => now - at < HOUR2));
   }
+  /** Every pause bounded by the clock as it reads now (a clock set back while the session runs). */
+  rebound(now) {
+    for (const [peer, p3] of this.paused) this.paused.set(peer, bounded(p3, now));
+    return [...this.paused.values()];
+  }
   /** The pauses still running, oldest first. */
   pauses() {
     const now = this.now();
-    return [...this.paused.values()].filter((p3) => p3.until > now).sort((a5, b5) => a5.at - b5.at);
+    return this.rebound(now).filter((p3) => p3.until > now).sort((a5, b5) => a5.at - b5.at);
   }
   /**
    * The pauses a later process of the session must take back, oldest first: the running ones, and
@@ -89288,29 +89319,28 @@ var Breaker = class {
    */
   kept() {
     const now = this.now();
-    return [...this.paused.values()].filter((p3) => p3.until > now || p3.auto).sort((a5, b5) => a5.at - b5.at);
+    return this.rebound(now).filter((p3) => p3.until > now || p3.auto).sort((a5, b5) => a5.at - b5.at);
   }
   /**
-   * The trusted peers whose cool-down has ended, each lifted here (its counts start over) so two
-   * callers never release one twice. The caller delivers what each one held, and counts it.
+   * The trusted peers whose cool-down has ended, each lifted here so two callers never release one
+   * twice. Its deliveries of the hour stay counted (toward the total too), and so will what the
+   * caller delivers of what it held (count).
    */
   takeDue() {
     const now = this.now();
-    const due = [...this.paused.values()].filter((p3) => p3.auto && p3.until <= now);
+    const due = this.rebound(now).filter((p3) => p3.auto && p3.until <= now);
     for (const p3 of due) {
-      this.clear(p3.peer);
+      this.paused.delete(p3.peer);
+      this.talk.delete(p3.peer);
       this.released.set(p3.peer, now);
     }
     return due;
   }
-  clear(peer) {
+  /** The person resumed a peer: its pause and its counts start over, and so does its cool-down allowance. */
+  resume(peer) {
     this.paused.delete(peer);
     this.deliveries.delete(peer);
     this.talk.delete(peer);
-  }
-  /** The person resumed a peer: its pause and its counts start over, and so does its cool-down allowance. */
-  resume(peer) {
-    this.clear(peer);
     this.released.delete(peer);
   }
 };
@@ -89335,7 +89365,7 @@ function pauseNoticeForAgent(peer, p3) {
 function releasedNotice(peer, p3, released, kept, why) {
   const n3 = (k5) => `${k5} message${k5 === 1 ? "" : "s"}`;
   const delivered = released === 0 ? "nothing it held is delivered" : `${n3(released)} it held ${released === 1 ? "is" : "are"} delivered now`;
-  const rest = kept === 0 ? "" : why === "untrusted" ? `; its device is no longer trusted here or no longer in the mesh, so the ${n3(kept)} it held ${kept === 1 ? "stays" : "stay"} held for the person` : `; ${n3(kept)} more ${kept === 1 ? "stays" : "stay"} held for the person (a release delivers at most the per-peer limit)`;
+  const rest = kept === 0 ? "" : why === "untrusted" ? `; its device is no longer trusted here or no longer in the mesh, so the ${n3(kept)} it held ${kept === 1 ? "stays" : "stay"} held for the person` : `; ${n3(kept)} more ${kept === 1 ? "stays" : "stay"} held for the person (a release delivers at most the per-peer limit, and no more than is left under the total)`;
   return `the loop breaker's cool-down for ${peer} ended at ${clock(p3.until)} (it tripped on ${pauseRule(peer, p3)}): its messages are delivered again, and ${delivered}${rest}. If it trips again within the hour, it waits for your person.`;
 }
 
@@ -90713,7 +90743,12 @@ async function readBreakerFile(path2) {
     Object.entries(typeof raw?.released === "object" && raw.released !== null ? raw.released : {}).filter(([, at]) => Number.isSafeInteger(at))
   );
   const lifts = Array.isArray(raw?.lifts) ? raw.lifts.filter((t2) => typeof t2 === "string") : [];
-  return { pauses, released, lifts };
+  const counts = Object.fromEntries(
+    Object.entries(typeof raw?.counts === "object" && raw.counts !== null ? raw.counts : {}).flatMap(
+      ([peer, times]) => Array.isArray(times) ? [[peer, times.filter((t2) => Number.isSafeInteger(t2))]] : []
+    )
+  );
+  return { pauses, released, lifts, counts };
 }
 async function listAllPauses(mesh, env3, now) {
   const out = [];
@@ -90994,33 +91029,43 @@ async function decideHeld(mesh, id2, verdict, env3, now, skipSid) {
 async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
   let released = 0;
   const config2 = await mesh.loadConfig();
+  const device = peer.split("@")[1];
   for (const sid of (await listSessions(mesh)).filter((s3) => s3 !== skipSid)) {
     const files = new SessionFiles(mesh, sid, env3);
-    if (await files.isLiveElsewhere()) {
+    const ours = (await readText(files.liveLock))?.trim() === String(env3.pid);
+    if (!ours && !await files.claim()) {
       await writeAtomic(join8(files.controlDir, `resume-${peer}`), "", env3);
       continue;
     }
-    const file2 = await readBreakerFile(files.breakerPath);
-    const resumed = file2.pauses.filter((p3) => p3.from.split("@")[1] === peer.split("@")[1]);
-    const ids = resumed.map((p3) => p3.peer);
-    await savePauses(
-      files.breakerPath,
-      {
-        pauses: file2.pauses.filter((p3) => !resumed.includes(p3)),
-        released: Object.fromEntries(Object.entries(file2.released).filter(([id2]) => !ids.includes(id2))),
-        lifts: [.../* @__PURE__ */ new Set([...file2.lifts, ...resumed.flatMap((p3) => p3.told)])]
-      },
-      env3
-    );
-    const box = new HeldBox(files.heldDir, env3);
-    for (const item of await box.list()) {
-      if (item.from.split("@")[1] !== peer.split("@")[1] || item.reason !== "breaker") continue;
-      if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
-      else await applyOffline(files, item, "approve", config2, env3, now);
-      released++;
+    try {
+      released += await resumeOffline(files, device, config2, env3, now);
+    } finally {
+      if (!ours) await files.release();
     }
   }
   return released;
+}
+async function resumeOffline(files, device, config2, env3, now) {
+  const box = new HeldBox(files.heldDir, env3);
+  const items = (await box.list()).filter((item) => item.from.split("@")[1] === device && item.reason === "breaker");
+  const file2 = await readBreakerFile(files.breakerPath);
+  const resumed = file2.pauses.filter((p3) => p3.from.split("@")[1] === device);
+  const ids = /* @__PURE__ */ new Set([...resumed.map((p3) => p3.peer), ...items.map((i6) => i6.device)]);
+  await savePauses(
+    files.breakerPath,
+    {
+      pauses: file2.pauses.filter((p3) => !resumed.includes(p3)),
+      released: Object.fromEntries(Object.entries(file2.released).filter(([id2]) => !ids.has(id2))),
+      lifts: [.../* @__PURE__ */ new Set([...file2.lifts, ...resumed.flatMap((p3) => p3.told)])],
+      counts: Object.fromEntries(Object.entries(file2.counts).filter(([id2]) => !ids.has(id2)))
+    },
+    env3
+  );
+  for (const item of items) {
+    if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
+    else await applyOffline(files, item, "approve", config2, env3, now);
+  }
+  return items.length;
 }
 
 // src/prekeys.ts
@@ -92191,14 +92236,14 @@ function pingRow(address, results, pongs) {
   return ms === void 0 ? { to: address, status: status3 } : { to: address, status: status3, ms };
 }
 function heldSendLine(to, b5) {
-  const after = b5.auto ? `its client delivers what it held by itself at ${clock(b5.until)}` : `what it holds waits for its person (the pause itself lifts at ${clock(b5.until)})`;
+  const after = b5.auto ? `at ${clock(b5.until)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person` : `what it holds waits for its person (the pause itself lifts at ${clock(b5.until)})`;
   return `${to}: held there, not delivered: its loop breaker paused this device on ${pauseRule("this device", b5)}; ${after}. Sending more now only adds to what it holds.`;
 }
 function heldReceiptLine(to, id2) {
-  return `${to} is holding your message ${id2} for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id2}\`).`;
+  return `${to} is holding your message ${id2}. It is not delivered now: it reaches that session if its person approves it on that device (/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id2}\`), or, when its loop breaker holds it for a cool-down, possibly when that ends.`;
 }
 function heldForAgentLine(to, id2) {
-  return `${to} is holding your message ${id2} for its person's approval: it is not delivered until they approve it on that device. Tell your person; resending will not get it through. Only the person on that device can approve it.`;
+  return `${to} is holding your message ${id2}: it is not delivered now. It gets through if the person on that device approves it, or, when that device's loop breaker holds it for a cool-down, possibly when the cool-down ends (a notice says which). Resending will not get it through sooner; if it cannot wait, tell your person.`;
 }
 function renamedLine(was, now) {
   return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
@@ -92216,8 +92261,8 @@ function breakerFields(p3) {
   return { count: p3.count, limit: p3.limit, minutes: p3.minutes, until: p3.until, auto: p3.auto };
 }
 function pausedThereLine(to, p3) {
-  const end2 = p3.auto ? `until its client releases them by itself at ${clock(p3.until)} (a cool-down for a device it trusts)` : `until its person releases them; the pause itself lifts at ${clock(p3.until)}`;
-  return `${to}'s loop breaker paused messages from this device (${pauseRule("this device", p3)}): what this device sends there is held for its person, not delivered, ${end2}. \`send\` reports \`held\` for ${to} until then. Sending more only adds to what it holds; if it cannot wait, tell your person.`;
+  const end2 = p3.auto ? `until its client releases them by itself at ${clock(p3.until)}, delivering up to its per-peer limit of what it held (the rest waits for its person)` : `until its person releases them; the pause itself lifts at ${clock(p3.until)}`;
+  return `${to}'s loop breaker paused messages from this device (${pauseRule("this device", p3)}): what this device sends there is held, not delivered, ${end2}. \`send\` reports \`held\` for ${to} until then. Sending more only adds to what it holds; if it cannot wait, tell your person.`;
 }
 function entryOf(p3, from) {
   return {
@@ -92310,11 +92355,17 @@ var MeshSession = class _MeshSession extends EventEmitter {
   pauseFrom = /* @__PURE__ */ new Map();
   /** `breaker.json` writes, one at a time, each taking the rows when its turn comes. */
   saving = Promise.resolve();
+  /** The last housekeeping pass, so `stop` waits for one under way. */
+  ticked = Promise.resolve();
+  /** A release the pass put on the inbound queue that has not run yet: at most one waits. */
+  releaseQueued = false;
+  /** Deliveries counted since `breaker.json` was last written (the next pass writes them). */
+  countsChanged = false;
   /** Sessions still to hear that a pause they were told about was lifted (sent at the next pass). */
   pendingLifts = /* @__PURE__ */ new Set();
   /** The peer sessions this device's sessions sent to in the last hour, device-wide: a `pause` counts only from one. */
   sentTo;
-  /** When the agent was last told that a peer session paused this device, by pair. */
+  /** When the agent was last told that a peer device's session paused this device, by device. */
   pausedToldAt = /* @__PURE__ */ new Map();
   /** What peers' breakers said about this device's messages, device-wide (pauses.ts). */
   pausedBy;
@@ -92483,7 +92534,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
+    await this.ticked;
     await this.inbound;
+    await this.savePauses();
     if (opts.ended === true) this.state = { ...this.state, ended: true };
     await this.files.save(this.state);
     await this.files.release();
@@ -93047,7 +93100,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       ...p3.kind === "file" ? { fileInfo: p3.file } : {}
     };
     if (policy === "hold") return this.hold({ ...held2, reason: "policy" });
-    await this.releaseDue();
+    if ((await this.releaseDue()).has(p3.id)) return;
     const admitted = this.breaker.admit(p3.from.device, entry.text.length, isTrusted(this.config, p3.from.device));
     if (!admitted.ok) {
       const pause = admitted.pause;
@@ -93063,6 +93116,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.tellPaused(pause, record2, from, p3.id);
       return;
     }
+    this.countsChanged = true;
     const waiter = p3.kind === "result" && !unsolicited ? this.askWaiters.get(p3.reply_to) : void 0;
     if (waiter !== void 0 && p3.kind === "result") {
       await this.history.append(entry);
@@ -93205,15 +93259,20 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   // ---- housekeeping ----
   /** One housekeeping pass: sweep the spool, presence, decisions left by the CLI, the card. */
-  async tick() {
-    if (this.ticking || this.stopped) return;
+  tick() {
+    if (this.ticking || this.stopped) return Promise.resolve();
+    this.ticked = this.tickNow();
+    return this.ticked;
+  }
+  async tickNow() {
     this.ticking = true;
     try {
       await this.sweep();
       await this.readPresence();
-      for (const { id: id2, verdict } of await this.held.takeMarks()) await this.onQueue(() => this.applyMark(id2, verdict)).catch(ignore);
-      await this.onQueue(() => this.releaseDue());
+      for (const { id: id2, verdict } of await this.held.takeMarks()) void this.onQueue(() => this.applyMark(id2, verdict)).catch(ignore);
+      this.queueRelease();
       if (this.link !== void 0) await this.flushLifts();
+      if (this.countsChanged) await this.savePauses();
       const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m4) => m4.id);
       if (dismissed.length > 0) {
         const { left } = await this.spool.dismissRelayed(dismissed);
@@ -93232,7 +93291,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         const path2 = join10(this.files.controlDir, name);
         const body = req === null ? void 0 : await readJson(path2).catch(() => void 0);
         if (!await tryRemove(path2, this.o.env)) continue;
-        if (m4 !== null) await this.resumePeer(m4[1]);
+        if (m4 !== null) void this.resumePeer(m4[1]).catch((e6) => this.log(`wim: housekeeping: ${e6.message}`));
         if (req !== null && this.o.handover === true) await this.handOverSend(req[1], body);
       }
       await this.book.reload();
@@ -93321,9 +93380,22 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await this.held.remove(id2);
     if (verdict === "refuse") {
       if (item.ci === void 0) this.receipt(id2, "refused");
-      return;
+      return this.decided(item);
     }
-    await this.release(item, item.fileInfo);
+    try {
+      await this.release(item, item.fileInfo);
+    } catch (error64) {
+      await this.held.add(item);
+      throw error64;
+    }
+    await this.decided(item);
+  }
+  /**
+   * A held item was decided: its id is recorded as seen, so a copy the relay brings again (its
+   * frame was not acknowledged) is dropped, never held or delivered a second time.
+   */
+  decided(item) {
+    return this.seen.add(item.id, this.address, dedupeExpiry(item.at), this.now());
   }
   /**
    * A one-off `wim send` handed to this live CLI session (a `wim watch`), so replies come back to
@@ -93408,6 +93480,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.pauseFrom.set(pause.peer, { from, told: new Set(told), announced: true });
     }
     for (const [peer, at] of Object.entries(file2.released)) this.breaker.restoreRelease(peer, at);
+    for (const [peer, times] of Object.entries(file2.counts)) this.breaker.restoreCounts(peer, times);
     for (const to of file2.lifts) this.pendingLifts.add(to);
     await this.savePauses();
   }
@@ -93418,9 +93491,14 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * time, each taking the rows when its turn comes, so an older picture never lands last.
    */
   savePauses() {
-    const run = this.saving.then(
-      () => savePauses(this.files.breakerPath, { pauses: this.rowsOf(this.breaker.kept()), released: this.breaker.releases(), lifts: [...this.pendingLifts] }, this.o.env)
-    );
+    const run = this.saving.then(() => {
+      this.countsChanged = false;
+      return savePauses(
+        this.files.breakerPath,
+        { pauses: this.rowsOf(this.breaker.kept()), released: this.breaker.releases(), lifts: [...this.pendingLifts], counts: this.breaker.counts() },
+        this.o.env
+      );
+    });
     this.saving = run.catch(ignore);
     return run;
   }
@@ -93429,14 +93507,24 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * the housekeeping pass through onQueue), so nothing is admitted or decided meanwhile.
    */
   async releaseDue() {
+    const delivered = /* @__PURE__ */ new Set();
     for (; ; ) {
       const due = this.breaker.takeDue();
-      if (due.length === 0) return;
+      if (due.length === 0) return delivered;
       const taken = due.map((p3) => ({ p: p3, record: this.pauseFrom.get(p3.peer) }));
       for (const { p: p3 } of taken) this.pauseFrom.delete(p3.peer);
       await this.savePauses();
-      for (const { p: p3, record: record2 } of taken) await this.autoRelease(p3, record2);
+      for (const { p: p3, record: record2 } of taken) await this.autoRelease(p3, record2, delivered);
     }
+  }
+  /** Puts a release on the inbound queue from the housekeeping pass, unless one already waits there. */
+  queueRelease() {
+    if (this.releaseQueued) return;
+    this.releaseQueued = true;
+    void this.onQueue(() => {
+      this.releaseQueued = false;
+      return this.releaseDue();
+    }).catch((e6) => this.log(`wim: housekeeping: ${e6.message}`));
   }
   /**
    * A trusted peer's cool-down ended: the breaker already lifted it. Of what it held under that
@@ -93445,15 +93533,31 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * a device the person stopped trusting meanwhile, or one no longer in the roster (revoked). The
    * session is told either way. Never reachable by a message or a tool.
    */
-  async autoRelease(p3, record2) {
+  async autoRelease(p3, record2, delivered) {
     this.emit("breaker", { peer: record2.from, state: "resumed", auto: true });
     this.config = await this.o.mesh.loadConfig();
     const still = isTrusted(this.config, p3.peer) && this.roster.devices.some((d5) => d5.id === p3.peer);
     const mine = (await this.held.list()).filter((h6) => h6.reason === "breaker" && h6.device === p3.peer && h6.pause !== void 0 && h6.pause.at === p3.at);
-    const out = mine.slice(0, still ? this.config.breaker.perPeerPerHour : 0);
-    for (const item of out) await this.decideNow(item.id, "approve");
-    this.breaker.count(p3.peer, out.length);
-    await this.notice(record2.from, releasedNotice(record2.from, p3, out.length, mine.length - out.length, still ? "limit" : "untrusted"));
+    const out = mine.slice(0, still ? this.breaker.allowance() : 0);
+    let released = 0;
+    try {
+      for (const item of out) {
+        const done = await this.decideNow(item.id, "approve").then(
+          () => true,
+          (e6) => {
+            if (e6.code !== "not_found") throw e6;
+            return false;
+          }
+        );
+        if (!done) continue;
+        this.breaker.count(p3.peer, 1);
+        delivered.add(item.id);
+        released++;
+      }
+    } finally {
+      this.countsChanged = true;
+      await this.notice(record2.from, releasedNotice(record2.from, p3, released, mine.length - released, still ? "limit" : "untrusted"));
+    }
   }
   /**
    * Tells the session that sent `id` that this session's breaker holds its device's messages, once
@@ -93463,6 +93567,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   tellPaused(pause, record2, to, id2) {
     if (record2.told.has(to)) return;
     record2.told.add(to);
+    this.pendingLifts.delete(to);
     const info = { state: "paused", rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, until: pause.until, auto: pause.auto };
     void this.savePauses().then(() => this.post(to, void 0, { kind: "pause", pause: info, reply_to: id2 })).catch((e6) => {
       record2.told.delete(to);
@@ -93496,11 +93601,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const pair = `${p3.from.device}/${p3.from.session}`;
     const to = this.fromAddress(p3);
     if (p3.pause.state === "lifted") return this.pausedBy.note(pair, to, p3.pause, this.now());
-    if (!await this.sentTo.has(pair)) return;
+    if (p3.pause.until <= this.now() || !await this.sentTo.has(pair)) return;
     await this.pausedBy.note(pair, to, p3.pause, this.now());
-    const last = this.pausedToldAt.get(pair);
-    if (last !== void 0 && this.now() - last < PAUSE_TELL_MS) return;
-    this.pausedToldAt.set(pair, this.now());
+    const last = this.pausedToldAt.get(p3.from.device);
+    if (!isTrusted(this.config, p3.from.device) || last !== void 0 && this.now() - last < PAUSE_TELL_MS) return;
+    this.pausedToldAt.set(p3.from.device, this.now());
     await this.notice(to, pausedThereLine(to, p3.pause));
   }
   // ---- tasks ----
@@ -93626,7 +93731,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       ...opts.status === void 0 ? {} : { status: opts.status },
       ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },
       ...opts.relayed === true ? { relayed: true } : {}
-    }).then(() => this.sentTo.note(this.sessionsOf(routed))).then(() => this.heldRows(outcome));
+    }).then(() => this.sentTo.note(this.sessionsOf(routed)).catch((e6) => this.log(`wim: sent-to: ${e6.message}`))).then(() => this.heldRows(outcome));
   }
   /**
    * The peer sessions (`deviceId/session`) a send reached, as far as this session knows them: each
@@ -122600,7 +122705,7 @@ var Status2 = external_exports.enum(RESULT_STATUSES);
 var PUBLIC = {
   peers: { description: "List mesh sessions: address, kind, status, rooms, one per line. all: include long-offline ones.", input: external_exports.object({ all: external_exports.boolean().optional() }) },
   send: {
-    description: "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session) or queued (that session is offline; the relay keeps it 24 h). Neither means delivered or read; history shows receipts that come back (delivered, held for its person's approval).",
+    description: "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session), queued (that session is offline; the relay keeps it 24 h), or held (that session's loop breaker holds this device's messages; held_note says until when). None means delivered or read; history shows receipts that come back (delivered, or held on that device).",
     input: external_exports.object({ to: To2, text: external_exports.string(), reply_to: external_exports.string().optional(), notify_when_idle: external_exports.boolean().optional() })
   },
   ask: {
@@ -129924,7 +130029,7 @@ async function peers(ctx) {
 var SENT_MEANING = {
   routed: "handed to a live session; not yet taken or read",
   queued: "that session is offline; the relay keeps it 24 h",
-  held: "its loop breaker holds this device's messages, so it waits for that device's person"
+  held: "that session's loop breaker holds this device's messages for now; the line below says until when"
 };
 var WAIT_MAX_MS = 36e5;
 function receiptLine(to, status3, id2) {

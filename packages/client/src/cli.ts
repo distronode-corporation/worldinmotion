@@ -1147,7 +1147,7 @@ async function peers(ctx: Ctx): Promise<number> {
 export const SENT_MEANING: Readonly<Record<string, string>> = {
   routed: "handed to a live session; not yet taken or read",
   queued: "that session is offline; the relay keeps it 24 h",
-  held: "its loop breaker holds this device's messages, so it waits for that device's person",
+  held: "that session's loop breaker holds this device's messages for now; the line below says until when",
 };
 
 /** The longest `wim send --wait`. */

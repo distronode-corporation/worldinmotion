@@ -511,7 +511,7 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     $.ui.toast(`worldinmotion: ${n} message${n === 1 ? '' : 's'} held for your approval (/wim)`)
   } else if (item.kind === 'notice' && item.heldBy !== undefined) {
     // A message this session sent waits for the recipient device's person: theirs to approve.
-    $.ui.toast(`worldinmotion: ${item.heldBy} is holding your message for its person's approval; it is not delivered until they approve it there`)
+    $.ui.toast(`worldinmotion: ${item.heldBy} is holding your message; it is not delivered now (its person may approve it there, or its loop breaker release it after a cool-down)`)
   } else if (item.kind === 'notice' && item.forPerson) {
     // Something only the person can do (restart this session): a toast, and
     // kept for the status line and /wim status until the session ends.

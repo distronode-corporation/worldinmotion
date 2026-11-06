@@ -236,7 +236,7 @@ describe("F7: a cool-down's end races the inbound queue", () => {
     expect((await b.held.list()).map((h) => [h.entry.text, h.pause?.auto])).toEqual([["3", false]]);
   }, 30_000);
 
-  it("B: the release of an ended cool-down delivers a message held under the newer, person-only pause", async () => {
+  it("B: the release of an ended cool-down never delivers a message held under the newer, person-only pause", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"]);
     // Trusted total of 3: c fills it, so a trips the total rule on its first message.
@@ -265,14 +265,17 @@ describe("F7: a cool-down's end races the inbound queue", () => {
       return cfg;
     };
     await a.send("b@two", "a2");
-    await until(async () => (await msgs(b)).includes("a1") && b.pausedRows().length === 1 && (await b.held.list()).length === 1);
-    // a2 trips the total again within the hour of a1's release: it waits for the person.
+    await until(async () => b.pausedRows().length === 1 && (await b.held.list()).length === 2);
+    // c's three still fill the total, so a1's release delivers nothing (#76 max review, M2), and
+    // a2 trips the total again within the hour of that release: both wait for the person.
+    const told = (await unread(b)).find((i) => i.kind === "notice" && i.rendered.includes("cool-down for a@one ended"))!;
+    expect(told.rendered).toContain("nothing it held is delivered; 1 message more stays held for the person");
     expect(b.pausedRows()[0]).toMatchObject({ auto: false });
-    expect((await b.held.list()).map((h) => h.entry.text)).toEqual(["a2"]);
-    expect(await msgs(b), "a2 waits for the person").not.toContain("a2");
+    expect((await b.held.list()).map((h) => [h.entry.text, h.pause?.auto])).toEqual([["a1", true], ["a2", false]]);
+    expect(await msgs(b), "a1 and a2 wait for the person").toEqual(["c1", "c2", "c3"]);
   }, 30_000);
 
-  it("C: when two cool-downs end together, the second release deletes the newer pause's record and every save then throws", async () => {
+  it("C: when two cool-downs end together, both releases run, and every later save and message is handled", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"]);
     await setBreaker(devices[1]!, mesh, trustedTrip(1, { perPeerPerHour: 50, totalPerHour: 3 }));
@@ -303,7 +306,8 @@ describe("F7: a cool-down's end races the inbound queue", () => {
       return cfg;
     };
     await a.send("b@two", "a2");
-    await until(async () => (await msgs(b)).includes("a1") && (await msgs(b)).includes("c1"));
+    // d's three fill the total, so neither release delivers anything (M2); both run and say so.
+    await until(async () => (await unread(b)).filter((i) => i.kind === "notice" && i.rendered.includes("ended at") && i.rendered.includes("nothing it held is delivered")).length === 2);
     // A later message from a is handled too, and breaker.json still says what runs.
     await a.send("b@two", "a3");
     await sleep(500);
@@ -476,7 +480,7 @@ describe("pauses.ts on disk", () => {
   it("proof: breaker.json rows read as written; the bound applies when a session takes them back (F5)", async () => {
     const dir = await scratch("rv76");
     const row: PauseRow = { from: "a@one", told: [], peer: "d", rule: "peer", count: 2, limit: 1, minutes: 60, at: 0, until: Number.MAX_SAFE_INTEGER, auto: true };
-    await savePauses(join(dir, "breaker.json"), { pauses: [row], released: {}, lifts: [] }, FS);
+    await savePauses(join(dir, "breaker.json"), { pauses: [row], released: {}, lifts: [], counts: {} }, FS);
     expect(await readPauses(join(dir, "breaker.json"), Date.now())).toEqual([row]);
   });
 });

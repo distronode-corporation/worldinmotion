@@ -22,8 +22,12 @@ import { listSessions, SessionFiles } from "./session.ts";
  */
 export type PauseRow = Pause & { from: string; told: string[] };
 
-/** What `breaker.json` holds. `released`: when each peer was last released by itself; `lifts`: sessions still to hear `lifted`. */
-export type BreakerFile = { pauses: PauseRow[]; released: Record<string, number>; lifts: string[] };
+/**
+ * What `breaker.json` holds. `released`: when each peer was last released by itself; `lifts`:
+ * sessions still to hear `lifted`; `counts`: each peer's deliveries of the last hour, so the
+ * hour's limits hold across a restart of the session.
+ */
+export type BreakerFile = { pauses: PauseRow[]; released: Record<string, number>; lifts: string[]; counts: Record<string, number[]> };
 
 /** Writes a session's pauses (an empty list once none runs). */
 export async function savePauses(path: string, file: BreakerFile, env: FsEnv): Promise<void> {
@@ -61,7 +65,12 @@ export async function readBreakerFile(path: string): Promise<BreakerFile> {
     Object.entries(typeof raw?.released === "object" && raw.released !== null ? raw.released : {}).filter(([, at]) => Number.isSafeInteger(at)),
   ) as Record<string, number>;
   const lifts = Array.isArray(raw?.lifts) ? raw.lifts.filter((t): t is string => typeof t === "string") : [];
-  return { pauses, released, lifts };
+  const counts = Object.fromEntries(
+    Object.entries(typeof raw?.counts === "object" && raw.counts !== null ? raw.counts : {}).flatMap(([peer, times]) =>
+      Array.isArray(times) ? [[peer, times.filter((t): t is number => Number.isSafeInteger(t))]] : [],
+    ),
+  ) as Record<string, number[]>;
+  return { pauses, released, lifts, counts };
 }
 
 /** Every running pause of every session of a mesh on this device, oldest first. */

@@ -1095,8 +1095,8 @@ every device of the mesh, so it reaches untrusted devices too.
 
 ### 7.3 Loop and cost breaker
 
-Two agents that each wake on the other's message can loop forever, and every wake costs tokens. The
-client counts automatic deliveries per sender device in a sliding hour, and detects ping-pong (more
+Two agents that each wake on the other's message can loop forever, and every wake costs tokens. Each
+receiving session counts its automatic deliveries per sender device in a sliding hour, and detects ping-pong (more
 than a number of short alternating exchanges in 10 minutes). Only a device the person trusts
 (policy `deliver` or `deliver-relayed`, and this device's own sessions) is ever counted: any other
 device is held by inbound policy before anything is delivered, so the breaker never sees it. The
@@ -1111,22 +1111,29 @@ its agent does not take a held peer for a silent one); `wim held list`, the plug
 events` show the running pauses; and the sender gets the receipt `held`. The receiving client also
 tells each sending session once per pause, a session that sent to a room included, with a `pause`
 message (SPEC section 12), so that the sender's `send` reports `held` for that session, with the
-rule and its numbers, instead of `routed` until the pause ends. A `pause` is a label like a
+rule and its numbers, instead of `routed` until the pause ends; the sending client tells its agent
+only when the receiving device is one its person trusts, at most once in 10 minutes per device, so a
+device it holds cannot wake its agent this way. A `pause` is a label like a
 receipt: it changes only what the sending client reports, never what it sends or what anyone
 delivers, and a `pause` a peer sends about its own breaker never lifts, shortens or resumes a pause
 on the device that receives it.
 
-A trip is a cool-down. When it ends, the client lifts the pause and delivers, oldest first, at most
-the per-peer limit of what it held under that pause, each counted as a delivery; the rest waits for
+A trip is a cool-down. When it ends, the client lifts the pause and delivers, oldest first, what it
+held under that pause: at most the per-peer limit, and no more than is left under the total, each
+counted as a delivery (the peer's deliveries before the trip stay counted too). The rest waits for
 the person, as in 0.1.8, and the session is told how many of each. Nothing is delivered for a device
 the person stopped trusting meanwhile, or one revoked from the mesh. A peer that trips again within
-an hour of such a release (a restart of the receiving session does not reset that) is paused for
-the hour and waits for the person. So before the person decides, a looping peer costs at most
-about twice its per-peer limit in an hour. The release, the person's decisions and every message
+an hour of such a release is paused for the hour and waits for the person. So, per receiving
+session and before the person decides, one looping peer costs at most about twice the per-peer
+limit in an hour, and all peers together at most the total limit. These bounds hold across a
+restart of the receiving session: its `breaker.json` keeps the hour's deliveries per peer, the
+releases of the last hour and its pauses, and a later process takes them back (each pause that
+still holds something, with its end checked again against the clock, so a clock that was wrong
+cannot stretch it past an hour from now). They are per receiving session: a device with several
+sessions a peer writes to counts in each. The release, the person's decisions and every message
 being admitted run one at a time on the session's inbound queue, so none of them interleaves with
-another. A session keeps its pauses in its `breaker.json` and takes back, after a restart, each one
-that still holds something; the bound on a pause is checked again then, so a clock that was wrong
-cannot stretch it past an hour from now.
+another, and a message the person or a release delivered is recorded as seen, so a copy the relay
+brings again is never delivered twice.
 
 The pause lifts when the person resumes the peer (`wim held resume`, Resume in a local UI, or
 "Approve and resume this device" on a held item, which approves that item and resumes its device

@@ -803,7 +803,7 @@ test('a held receipt raises a toast for the person and does not start a turn', a
   await clock.settle()
 
   expect(w.toasts).toEqual([
-    "worldinmotion: reviewer@laptop is holding your message for its person's approval; it is not delivered until they approve it there",
+    "worldinmotion: reviewer@laptop is holding your message; it is not delivered now (its person may approve it there, or its loop breaker release it after a cool-down)",
   ])
   // A notice with an empty heldBy is an ordinary notice, for the model.
   expect(w.submitted).toHaveLength(1)

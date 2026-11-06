@@ -302,8 +302,10 @@ the pane), and that the peer has not gone silent. Later holds from the paused pe
 turn, so the pause cannot itself become a loop. A hold whose write fails leaves the notices for the
 next hold.
 
-Each session writes its pauses to `breaker.json` in its directory, with the sessions it told, the
-automatic releases of the last hour, and the lifts still to send. `wim held list` shows the running
+Each session keeps its own breaker: the limits hold per receiving session (a device with several
+sessions a peer writes to counts in each). Each writes its pauses to `breaker.json` in its
+directory, with the sessions it told, the automatic releases of the last hour, the lifts still to
+send, and each peer's deliveries of the last hour, so the hour's limits hold across a restart. `wim held list` shows the running
 ones, `wim events` lists them in its snapshot, and a later process of the same session takes back
 each pause that still holds something (one that holds nothing any more is dropped and its sessions
 hear it lifted), bounded again by the clock, so a pause keeps its end and a cool-down still
@@ -314,22 +316,28 @@ The sender gets the receipt `held` for each held message, and each sending sessi
 cannot be sent is tried again with that session's next held message. The sending device keeps the
 sessions its sessions sent to in the last hour in the mesh's `sent-to.json` (so a session that
 restarted still takes a `pause`), and what a `pause` said in `paused-by.json`, for every session of
-the device, and tells its agent once (at most every 10 minutes per peer session) which rule holds
-its messages there, with the numbers, and until when. Until the pause ends or the peer says it was
+the device. When the receiving device is one its person trusts, it tells its agent once (at most
+every 10 minutes per device) which rule holds its messages there, with the numbers, and until when;
+for any other device the `held` row is all, so a device it holds cannot wake its agent. A `paused`
+whose `until` has passed when it arrives is dropped. Until the pause ends or the peer says it was
 lifted, `send`, `ask`, `reply`, `send_file` and `wim send` report that session as `held` rather than
 `routed` or `queued`, with `relay` (the relay's own status) and `breaker` (the rule, `count`,
 `limit`, `minutes`, `until`, `auto`); the MCP `send` result adds a `held_note`. A row for a room or
 `*` keeps the relay's status: one member's pause does not hold the room, and the agent hears of it
-from its notice. A `lifted` is taken from any session, since it can only clear a label.
+from its notice. A `lifted` is taken from any session, since it can only clear a label. Recording
+the sessions sent to is bookkeeping: a failure there is logged and never fails a send the relay took.
 
 A pause ends:
 
 - when its cool-down ends (`cooldownMinutes`, 10 by default): the client lifts it and delivers,
-  oldest first, at most `perPeerPerHour` of what it held under that pause, each counted as a
-  delivery; the rest waits for the person, as in 0.1.8. Nothing is delivered for a device the
-  person stopped trusting meanwhile or one revoked from the mesh. The session is told how many of
-  each. A peer that trips again within the hour of such a release (a restart does not reset that)
-  is paused for the hour and waits for the person;
+  oldest first, what it held under that pause: at most `perPeerPerHour`, and no more than is left
+  under `totalPerHour`, each counted as a delivery (the peer's earlier deliveries of the hour stay
+  counted). The rest waits for the person, as in 0.1.8; one that cannot be delivered (a full disk)
+  stays held. Nothing is delivered for a device the person stopped trusting meanwhile or one revoked
+  from the mesh. The session is told how many of each. A peer that trips again within the hour of
+  such a release (a restart does not reset that) is paused for the hour and waits for the person.
+  So a looping peer gets at most about twice `perPeerPerHour` an hour, and all peers together at
+  most `totalPerHour`;
 - whenever the person resumes the peer: `wim held resume <peer>`, Resume in VS Code, or
   "Approve and resume this device" on a held item in the pane (it writes `<held>/<id>.resume`),
   or `resume` at the prompt of `wim held approve <id>` for a breaker hold. Each approves the item
@@ -338,7 +346,11 @@ A pause ends:
   (from its next process when it was resumed while not running).
 
 The release, the person's decisions and every received message run one at a time on the session's
-inbound queue, so none interleaves with another.
+inbound queue, so none interleaves with another; the housekeeping pass only puts them there and
+never waits on a slow frame. An item the person or a release delivered is recorded as seen, so a
+copy the relay brings again (its frame was not acknowledged) is dropped. Stopping a session waits
+for the pass under way and the last `breaker.json` write. An offline `wim held resume` takes the
+session's liveness lock while it edits its files.
 
 `wim held list` shows each running pause first (`paused  <peer>'s device -> <session>  breaker:
 <rule with its numbers>; until <time>...`), then the held items, a breaker hold with its rule.
@@ -356,7 +368,7 @@ as:
 
 | field | meaning |
 |---|---|
-| `perPeerPerHour` | wakes from one sender device in a sliding hour before it is paused; also the most a cool-down's release delivers |
+| `perPeerPerHour` | wakes from one sender device in a sliding hour before it is paused; also the most a cool-down's release delivers (and never past `totalPerHour`) |
 | `totalPerHour` | wakes from all sender devices together in a sliding hour |
 | `pingPong` | `false` turns the ping-pong rule off |
 | `pingPongExchanges` | alternating short messages in 10 minutes past which a peer is paused |

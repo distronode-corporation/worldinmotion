@@ -81,19 +81,20 @@ describe("a trusted peer's cool-down", () => {
     clocks.b += 61_000;
     const told = await spooled(b, (i) => i.kind === "notice" && i.rendered.includes("cool-down for a@one ended"));
     expect(told.rendered).toContain(
-      `the loop breaker's cool-down for a@one ended at ${clock(first.until)} (it tripped on the per-peer limit: 2 messages from a@one in 60 minutes, limit 1): its messages are delivered again, and 1 message it held is delivered now; 1 message more stays held for the person (a release delivers at most the per-peer limit).`,
+      `the loop breaker's cool-down for a@one ended at ${clock(first.until)} (it tripped on the per-peer limit: 2 messages from a@one in 60 minutes, limit 1): its messages are delivered again, and 1 message it held is delivered now; 1 message more stays held for the person (a release delivers at most the per-peer limit, and no more than is left under the total).`,
     );
     expect(await msgs(b)).toEqual(["1", "2"]);
     expect((await b.held.list()).map((h) => h.entry.text)).toEqual(["3"]);
     expect(resumed).toEqual([{ peer: "a@one", state: "resumed", auto: true }]);
     expect(await readPauses(b.files.breakerPath, Number.NEGATIVE_INFINITY)).toEqual([]);
-    // What it released counts as delivered, so the next message trips again, within the hour of
-    // the release: paused for the hour, and it waits for the person.
+    // Its deliveries stay counted through the release, and what it released counts too (1 + 1), so
+    // the next message trips again, within the hour of the release: paused for the hour, and it
+    // waits for the person.
     await a.send("b@two", "4");
     await until(async () => (await b.held.list()).length === 2);
     expect((await b.held.list())[1]!.pause).toMatchObject({ auto: false });
     const again = await spooled(b, (i) => i.kind === "notice" && i.rendered.includes("what it held waits for the person"));
-    expect(again.rendered).toContain("worldinmotion paused a@one: the per-peer limit: 2 messages from a@one in 60 minutes, limit 1; until ");
+    expect(again.rendered).toContain("worldinmotion paused a@one: the per-peer limit: 3 messages from a@one in 60 minutes, limit 1; until ");
     clocks.b += 120_000;
     await new Promise((r) => setTimeout(r, 100));
     expect(await b.held.list()).toHaveLength(2);
@@ -271,8 +272,8 @@ describe("the sending side", () => {
     // A one-off `wim send` is another session of the device: it reads the device-wide record.
     const t = term(devices[0]!.root, relay);
     expect(await run(t, "send", "b@two", "hello")).toBe(0);
-    expect(said(t)).toContain("b@two: held (its loop breaker holds this device's messages, so it waits for that device's person)");
-    expect(said(t)).toContain("  b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; its client delivers what it held by itself at ");
+    expect(said(t)).toContain("b@two: held (that session's loop breaker holds this device's messages for now; the line below says until when)");
+    expect(said(t)).toContain("  b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; at ");
   }, 30_000);
 });
 
@@ -281,17 +282,17 @@ describe("pauses on disk", () => {
     const dir = await scratch("pauses");
     const path = join(dir, "breaker.json");
     const row: PauseRow = { from: "a@one", told: ["a@one"], peer: "d", rule: "peer", count: 2, limit: 1, minutes: 60, at: 1, until: 100, auto: true };
-    await savePauses(path, { pauses: [row, { ...row, until: 5 }], released: { d: 1 }, lifts: ["x@two"] }, FS);
+    await savePauses(path, { pauses: [row, { ...row, until: 5 }], released: { d: 1 }, lifts: ["x@two"], counts: { d: [1, 2] } }, FS);
     expect(await readPauses(path, 10)).toEqual([row]);
     expect(await readPauses(join(dir, "missing.json"), 0)).toEqual([]);
     await fs.writeFile(path, JSON.stringify({ pauses: [null, 3, { ...row, rule: "other" }, { ...row, from: 1 }, { ...row, peer: 1 }, { ...row, count: 1.5 }, { ...row, auto: "yes" }, { ...row, told: "a@one" }, { ...row, told: [1] }, row] }));
     expect(await readPauses(path, 10)).toEqual([row]);
-    expect(await readBreakerFile(path)).toEqual({ pauses: [row], released: {}, lifts: [] });
-    await fs.writeFile(path, JSON.stringify({ pauses: "none", released: { d: 5, e: "soon" }, lifts: ["x@two", 3] }));
+    expect(await readBreakerFile(path)).toEqual({ pauses: [row], released: {}, lifts: [], counts: {} });
+    await fs.writeFile(path, JSON.stringify({ pauses: "none", released: { d: 5, e: "soon" }, lifts: ["x@two", 3], counts: { d: [1, "2", 3], e: "x" } }));
     expect(await readPauses(path, 10)).toEqual([]);
-    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: { d: 5 }, lifts: ["x@two"] });
-    await fs.writeFile(path, JSON.stringify({ released: null }));
-    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: {}, lifts: [] });
+    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: { d: 5 }, lifts: ["x@two"], counts: { d: [1, 3] } });
+    await fs.writeFile(path, JSON.stringify({ released: null, counts: null }));
+    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: {}, lifts: [], counts: {} });
     await fs.writeFile(path, "{ not json");
     expect(await readPauses(path, 10)).toEqual([]);
     // Every session's, oldest first; a session whose state is gone is named "?".
@@ -299,7 +300,7 @@ describe("pauses on disk", () => {
     const [s1, s2] = [ulid(1), ulid(2)];
     for (const [sid, at] of [[s1, 5], [s2, 3]] as const) {
       await fs.mkdir(mesh.sessionDir(sid), { recursive: true });
-      await savePauses(join(mesh.sessionDir(sid), "breaker.json"), { pauses: [{ ...row, at }], released: {}, lifts: [] }, FS);
+      await savePauses(join(mesh.sessionDir(sid), "breaker.json"), { pauses: [{ ...row, at }], released: {}, lifts: [], counts: {} }, FS);
     }
     expect((await listAllPauses(mesh, FS, 10)).map((p) => [p.sid, p.session, p.at])).toEqual([[s2, "?", 3], [s1, "?", 5]]);
   });

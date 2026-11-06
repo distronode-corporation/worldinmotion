@@ -48,7 +48,7 @@ const PUBLIC = {
   peers: { description: "List mesh sessions: address, kind, status, rooms, one per line. all: include long-offline ones.", input: z.object({ all: z.boolean().optional() }) },
   send: {
     description:
-      "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session) or queued (that session is offline; the relay keeps it 24 h). Neither means delivered or read; history shows receipts that come back (delivered, held for its person's approval).",
+      "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session), queued (that session is offline; the relay keeps it 24 h), or held (that session's loop breaker holds this device's messages; held_note says until when). None means delivered or read; history shows receipts that come back (delivered, or held on that device).",
     input: z.object({ to: To, text: z.string(), reply_to: z.string().optional(), notify_when_idle: z.boolean().optional() }),
   },
   ask: {

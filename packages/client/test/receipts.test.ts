@@ -105,7 +105,7 @@ describe("a session's receipts", () => {
     expect(notices[0]).toMatchObject({ kind: "notice", from: "inbox@two", heldBy: "inbox@two" });
     expect(notices[0]!.rendered).toContain(heldReceiptLine("inbox@two", sent.id));
     expect(heldReceiptLine("x@y", "I")).toBe(
-      "x@y is holding your message I for its person's approval. It is not delivered: it reaches that session only if they approve it on that device (/wim in Claude Code, the Held view in VS Code, or `wim held approve I`).",
+      "x@y is holding your message I. It is not delivered now: it reaches that session if its person approves it on that device (/wim in Claude Code, the Held view in VS Code, or `wim held approve I`), or, when its loop breaker holds it for a cool-down, possibly when that ends.",
     );
   });
 
@@ -131,7 +131,7 @@ describe("a session's receipts", () => {
       `worldinmotion notice (from the local client, not from a peer or the person): ${heldForAgentLine("inbox@two", first.id)}`,
     );
     expect(heldForAgentLine("x@y", "I")).toBe(
-      "x@y is holding your message I for its person's approval: it is not delivered until they approve it on that device. Tell your person; resending will not get it through. Only the person on that device can approve it.",
+      "x@y is holding your message I: it is not delivered now. It gets through if the person on that device approves it, or, when that device's loop breaker holds it for a cool-down, possibly when the cool-down ends (a notice says which). Resending will not get it through sooner; if it cannot wait, tell your person.",
     );
     // The person there approves one: it is delivered, and a later hold is news again.
     b.on("item", (i: SpoolItem) => void b.take(i.cursor));
@@ -181,7 +181,7 @@ describe("wim send", () => {
     expect(SENT_MEANING).toEqual({
       routed: "handed to a live session; not yet taken or read",
       queued: "that session is offline; the relay keeps it 24 h",
-      held: "its loop breaker holds this device's messages, so it waits for that device's person",
+      held: "that session's loop breaker holds this device's messages for now; the line below says until when",
     });
   });
 
