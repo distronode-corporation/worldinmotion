@@ -81,7 +81,7 @@ describe("L1", () => {
     sp.write = async (i) => { if (fail && i.kind === "msg" && /\n4\n/.test(i.rendered)) { fail = false; throw enospc(); } return write(i); };
     offset += 61_000;
     await until(async () => (await msgs(b)).includes("3"));
-    await sleep(300);
+    await until(async () => (await b.held.list()).length === 2, 10_000);
     const held = (await b.held.list()).map((h) => h.entry.text);
     expect([...(await msgs(b)), ...held].sort(), "delivered or still held").toEqual(["1", "2", "3", "4", "5"]);
     for (const t of ["6", "7"]) await a.send("b@two", t);
@@ -268,7 +268,7 @@ describe("L6", () => {
     offset = -5 * 3_600_000;
     await sleep(200);
     offset += 61_000;
-    await sleep(500);
+    await until(async () => (await msgs(b)).length === 2, 10_000);
     expect(await msgs(b)).toEqual(["1", "2"]);
   }, 30_000);
 });

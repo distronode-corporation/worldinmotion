@@ -107,8 +107,7 @@ describe("F3: an offline `wim held resume` erases other peers' ended cool-downs 
     expect(await run(t, "held", "resume", "a@one")).toBe(0);
     expect(await readPauses(b.files.breakerPath, Number.NEGATIVE_INFINITY), "c@three's ended cool-down is kept for the next process").toEqual([expect.objectContaining({ from: "c@three", auto: true })]);
     b = await session(devices[1]!, mesh, relay, holder);
-    await sleep(500);
-    expect(await msgs(b), "c2 released by its cool-down").toContain("c2");
+    await until(async () => (await msgs(b)).includes("c2"), 10_000, "c2 released by its cool-down");
   }, 30_000);
 
   it("the sender told about a@one's pause hears it lifted after an offline resume", async () => {
@@ -310,7 +309,7 @@ describe("F7: a cool-down's end races the inbound queue", () => {
     await until(async () => (await unread(b)).filter((i) => i.kind === "notice" && i.rendered.includes("ended at") && i.rendered.includes("nothing it held is delivered")).length === 2);
     // A later message from a is handled too, and breaker.json still says what runs.
     await a.send("b@two", "a3");
-    await sleep(500);
+    await until(async () => (await b.held.list()).some((h) => h.entry.text === "a3"), 10_000);
     expect({ errors: lines.filter((l) => /housekeeping|inbound/.test(l)), onDisk: (await readPauses(b.files.breakerPath, Date.now() + offset)).length, running: (b as unknown as { breaker: { pauses(): unknown[] } }).breaker.pauses().length }).toEqual({ errors: [], onDisk: 1, running: 1 });
   }, 30_000);
 });
@@ -352,8 +351,8 @@ describe("F9: a `pause` that fails to send is never sent again", () => {
     };
     for (const t of ["1", "2", "3"]) await a.send("b@two", t);
     await until(async () => (await b.held.list()).length === 2);
-    await sleep(500);
-    expect(await pausedByCount(a), "a@one learned of the pause from the second hold").toBe(1);
+    // Waited for, not slept on: a slow runner (Windows CI) takes longer than a fixed half second.
+    await until(async () => (await pausedByCount(a)) === 1, 10_000, "a@one learned of the pause from the second hold");
     // A lift that cannot be sent waits for the next pass.
     fail = true;
     const lines: string[] = [];
@@ -384,7 +383,7 @@ describe("F10: a trip whose hold fails loses the pause notices for good", () => 
     };
     for (const t of ["1", "2", "3"]) await a.send("b@two", t);
     await until(async () => (await b.held.list()).length === 1);
-    await sleep(300);
+    await until(async () => (await unread(b)).some((i) => i.kind === "notice" && i.rendered.includes("this device's loop breaker paused a@one")), 10_000);
     const notices = (await unread(b)).filter((i) => i.kind === "notice").map((i) => i.rendered);
     expect(notices.some((n) => n.includes("worldinmotion paused a@one")), "the person's pause notice").toBe(true);
     expect(notices.some((n) => n.includes("this device's loop breaker paused a@one")), "the agent's pause notice").toBe(true);
@@ -438,8 +437,7 @@ describe("F12: the pane's Approve and resume resumes one session, the CLI's resu
     await until(async () => (await b1.held.list()).length === 1 && (await b2.held.list()).length === 1);
     await new HeldBox(b1.files.heldDir, FS).mark((await b1.held.list())[0]!.id, "resume");
     await until(async () => (await b1.held.list()).length === 0);
-    await sleep(300);
-    expect(b2.pausedRows(), "device one is resumed on this device").toEqual([]);
+    await until(() => b2.pausedRows().length === 0, 10_000, "device one is resumed on this device");
   }, 30_000);
 });
 

@@ -318,10 +318,15 @@ describe("pauses on disk", () => {
     await box.note("dev/b", "b@two", info, 1_000);
     now = 5_000;
     expect(await box.active()).toEqual({});
-    for (const raw of ["null", "7", "{ not json", JSON.stringify({ x: null, y: { until: "soon", to: "b@two" }, z: { until: 9_000 } })]) {
+    // An end later than a pause can have (an hour after a send at most 10 minutes ahead), or past
+    // what a clock can show, is damaged (Seer, #76): it would make every send to that session throw.
+    for (const raw of ["null", "7", "{ not json", JSON.stringify({ x: null, y: { until: "soon", to: "b@two" }, z: { until: 9_000 }, w: { until: 9_000_000_000_000_000, to: "b@two" }, v: { until: 5_000 + 4_200_001, to: "b@two" }, u: { until: 5_500.5, to: "b@two" } })]) {
       await fs.writeFile(join(dir, "paused-by.json"), raw);
       expect(await box.active()).toEqual({});
     }
+    // The latest end a pause can have is still read.
+    await fs.writeFile(join(dir, "paused-by.json"), JSON.stringify({ t: { ...info, until: 5_000 + 4_200_000, to: "b@two", at: 5_000 } }));
+    expect(Object.keys(await box.active())).toEqual(["t"]);
   });
 });
 

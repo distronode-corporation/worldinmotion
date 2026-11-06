@@ -90773,7 +90773,8 @@ var PausedBy = class {
     const now = this.now();
     const out = {};
     if (typeof raw !== "object" || raw === null) return out;
-    for (const [pair, e6] of Object.entries(raw)) if (typeof e6?.until === "number" && e6.until > now && typeof e6.to === "string") out[pair] = e6;
+    const latest = now + PAUSE_MAX_MS + LIMITS.messageMaxFutureMs;
+    for (const [pair, e6] of Object.entries(raw)) if (Number.isSafeInteger(e6?.until) && e6.until > now && e6.until <= latest && typeof e6.to === "string") out[pair] = e6;
     return out;
   }
   /** The running entries, by pair. */

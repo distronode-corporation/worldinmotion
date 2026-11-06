@@ -10,7 +10,7 @@
 // counts per sender device, so every session of this device reports a send there as `held`. It
 // is a label, like a receipt: it changes what a send reports, never what is sent or delivered.
 
-import type { PauseInfo } from "@worldinmotion/protocol";
+import { LIMITS, PAUSE_MAX_MS, type PauseInfo } from "@worldinmotion/protocol";
 import type { Pause } from "./breaker.ts";
 import { readJson, withLock, writeJson, type FsEnv } from "./fsx.ts";
 import type { MeshFiles } from "./mesh.ts";
@@ -106,7 +106,11 @@ export class PausedBy {
     const now = this.now();
     const out: PausedByFile = {};
     if (typeof raw !== "object" || raw === null) return out;
-    for (const [pair, e] of Object.entries(raw)) if (typeof e?.until === "number" && e.until > now && typeof e.to === "string") out[pair] = e;
+    // A pause ends at most an hour after it was sent, and is sent at most 10 minutes ahead of this
+    // clock (SPEC sections 6 and 12): an entry ending later than that is damaged and is dropped,
+    // so nothing reads a time no clock can show.
+    const latest = now + PAUSE_MAX_MS + LIMITS.messageMaxFutureMs;
+    for (const [pair, e] of Object.entries(raw)) if (Number.isSafeInteger(e?.until) && e.until > now && e.until <= latest && typeof e.to === "string") out[pair] = e;
     return out;
   }
 
