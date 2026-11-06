@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-11-06
+
 ### Added
 
 - **Crash reports, opt in and off by default.** `wim crash-reports on` (a person at their own
@@ -220,6 +222,14 @@ body line with a bracket.
 - **The README names the Claude Code version that added cross-machine messaging: v2.1.224.**
   Its changelog adds cross-session `SendMessage` across your machines in 2.1.224; 2.1.225 only
   let a session start a conversation with a remote one by name.
+
+### Dependencies
+
+- **minimatch 11.0.3 under `@vscode/vsce`** (GHSA-g3hv-75wg-m249), the update 0.1.8 moved to
+  this release. minimatch below 11.0.1 can be made to amplify glob parts into a denial of
+  service. It reaches this repository only through `@vscode/vsce`, the tool that packages the VS
+  Code extension, and is in nothing a release ships. An override scoped to that tool pins 11.0.3,
+  which adds `@isaacs/nonrecursive-glob-match` 1.0.3; the extension packages the same files.
 
 ## [0.1.8] - 2026-11-02
 
@@ -797,7 +807,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.9
 [0.1.8]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.8
 [0.1.7]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.7
 [0.1.6]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.6
