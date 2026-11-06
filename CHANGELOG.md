@@ -13,6 +13,18 @@ body line with a bracket.
 
 ## [Unreleased]
 
+### Added
+
+- **Close the downgrade window early.** `wim legacy-boxes refuse` makes a device refuse v0.1
+  boxes now, as every device will from 1.0 (SPEC section 6b): it never sends one (a direct send
+  to a device with no current prekey is refused with the reason, a broadcast, room send or card
+  skips that device and `wim send` names it), and it drops every one it receives as
+  `legacy_box`. A relay that withholds prekeys can no longer strip forward secrecy from that
+  device's sends. Anyone may turn it on; `wim legacy-boxes accept` turns it off and is the
+  person's alone (their own terminal and a typed `y`, as for `wim devices trust`), with no MCP
+  tool or events op. `wim status` and `wim doctor` show it. Off by default until 1.0. No wire
+  change.
+
 ### Fixed
 
 - **The GitHub Action did not load.** The description of its `status` input showed the

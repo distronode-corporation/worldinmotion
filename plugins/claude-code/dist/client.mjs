@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs15 = __require("node:fs/promises");
+    var fs16 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs15.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs16.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -41651,7 +41651,7 @@ var require_node_domexception = __commonJS({
 });
 
 // ../../node_modules/fetch-blob/from.js
-import { statSync, createReadStream as createReadStream2, promises as fs5 } from "node:fs";
+import { statSync, createReadStream as createReadStream2, promises as fs6 } from "node:fs";
 import { basename as basename5 } from "node:path";
 var import_node_domexception, stat, blobFromSync, blobFrom, fileFrom, fileFromSync, fromBlob, fromFile, BlobDataItem;
 var init_from = __esm({
@@ -41659,7 +41659,7 @@ var init_from = __esm({
     import_node_domexception = __toESM(require_node_domexception(), 1);
     init_file();
     init_fetch_blob();
-    ({ stat } = fs5);
+    ({ stat } = fs6);
     blobFromSync = (path2, type) => fromBlob(statSync(path2), path2, type);
     blobFrom = (path2, type) => stat(path2).then((stat3) => fromBlob(stat3, path2, type));
     fileFrom = (path2, type) => stat(path2).then((stat3) => fromFile(stat3, path2, type));
@@ -46854,7 +46854,7 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs15 = __require("fs");
+    var fs16 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
@@ -46942,7 +46942,7 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs15.promises.lstat(filePath);
+        const stats = await fs16.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -48897,10 +48897,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs15 = __require("fs");
+    var fs16 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile6 = fs15.readFile ? (0, util_1.promisify)(fs15.readFile) : async () => {
+    var readFile6 = fs16.readFile ? (0, util_1.promisify)(fs16.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -50577,12 +50577,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs15 = __require("fs");
-    var readFile6 = (0, util_1.promisify)(fs15.readFile ?? (() => {
+    var fs16 = __require("fs");
+    var readFile6 = (0, util_1.promisify)(fs16.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs15.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs16.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs15.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs16.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50700,7 +50700,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs15 = __require("fs");
+    var fs16 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50794,7 +50794,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs15.promises.readFile(configPath, "utf8");
+          fileContents = await fs16.promises.readFile(configPath, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -50819,14 +50819,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key2;
         try {
-          cert = await fs15.promises.readFile(certPath);
+          cert = await fs16.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key2 = await fs15.promises.readFile(keyPath);
+          key2 = await fs16.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key2);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
@@ -50845,7 +50845,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs15.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs16.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51547,7 +51547,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs15 = __require("fs");
+    var fs16 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51632,14 +51632,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs15.promises.realpath(this.outputFile);
+          filePath = await fs16.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs15.promises.lstat(filePath)).isFile()) {
+        if (!(await fs16.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs15.promises.readFile(filePath, {
+        const responseString = await fs16.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -52050,7 +52050,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs15 = __require("fs");
+    var fs16 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52273,7 +52273,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs15.promises.readFile(currentPath);
+            const ca = await fs16.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52333,7 +52333,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs15 = __require("fs");
+    var fs16 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52635,7 +52635,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs15.existsSync(location)) {
+        if (!fs16.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52652,8 +52652,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs15.realpathSync(filePath);
-          if (!fs15.lstatSync(filePath).isFile()) {
+          filePath = fs16.realpathSync(filePath);
+          if (!fs16.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52662,7 +52662,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs15.createReadStream(filePath);
+        const readStream = fs16.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52990,7 +52990,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs15.createReadStream(filePath);
+          const stream = fs16.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -60745,12 +60745,12 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list3, fs15, exportName) {
+    function addFormats(ajv, list3, fs16, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list3)
-        ajv.addFormat(f7, fs15[f7]);
+        ajv.addFormat(f7, fs16[f7]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -89166,7 +89166,7 @@ async function startGateway(config2, mesh, deps = {}) {
 
 // src/client.ts
 import { EventEmitter } from "node:events";
-import { constants as fsConstants, promises as fs4 } from "node:fs";
+import { constants as fsConstants, promises as fs5 } from "node:fs";
 import { homedir } from "node:os";
 import { basename as basename4, join as join10, resolve as resolve2 } from "node:path";
 
@@ -91094,6 +91094,39 @@ async function resumeOffline(files, device, config2, env3, now) {
   return items.length;
 }
 
+// src/legacyboxes.ts
+import { promises as fs4 } from "node:fs";
+var LEGACY_BOXES_FILE = "legacy-boxes";
+var MAX_BYTES = 16;
+async function refusesLegacy(path2) {
+  let text2;
+  try {
+    text2 = await fs4.readFile(path2, "utf8");
+  } catch (error64) {
+    if (error64.code === "ENOENT") return { refuse: false };
+    return { refuse: true, problem: unreadable(path2, `it cannot be read: ${error64.code ?? "error"}`) };
+  }
+  const said = text2.length <= MAX_BYTES ? text2.trim() : void 0;
+  if (said === "accept") return { refuse: false };
+  if (said === "refuse") return { refuse: true };
+  return { refuse: true, problem: unreadable(path2, "it says neither refuse nor accept") };
+}
+function unreadable(path2, why) {
+  return `${path2}: ${why}, so this device refuses v0.1 boxes. \`wim legacy-boxes refuse\` or \`wim legacy-boxes accept\` rewrites it`;
+}
+function setLegacyBoxes(path2, refuse, env3) {
+  return writeAtomic(path2, refuse ? "refuse\n" : "accept\n", env3);
+}
+function legacyBoxesLine(refuse) {
+  return refuse ? "v0.1 boxes are refused on this device: it never sends without forward secrecy and drops messages that arrive without it (`wim legacy-boxes`)" : "v0.1 boxes are accepted until 1.0 (the migration window): a relay that withholds prekeys can make a send go without forward secrecy. `wim legacy-boxes refuse` closes that on this device";
+}
+function skippedNote(noPrekey) {
+  return `Not sent to ${noPrekey.join(", ")}: no current prekey (a v0.1 client, or offline for over 48 hours), and this device refuses v0.1 boxes (\`wim legacy-boxes\`).`;
+}
+function refusedLine(noPrekey) {
+  return `refused: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), and this device refuses v0.1 boxes, so nothing was sent. It goes once that device is online with a current client; \`wim legacy-boxes\` shows the setting.`;
+}
+
 // src/prekeys.ts
 function decode32(text2) {
   const bytes3 = b64u.decode(text2);
@@ -92285,6 +92318,10 @@ function renamedLine(was, now) {
 function unprotectedNote(unprotected, noPrekey) {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
 }
+function prekeyNote(o3) {
+  if (o3.unprotected !== void 0) return unprotectedNote(o3.unprotected, o3.no_prekey ?? o3.unprotected);
+  return o3.no_prekey === void 0 ? void 0 : skippedNote(o3.no_prekey);
+}
 var CARD_EVERY_MS = 6e4;
 var PARKED_MAX = 64;
 var ANSWER_KEEP_MS = 5 * 6e4;
@@ -92760,8 +92797,13 @@ var MeshSession = class _MeshSession extends EventEmitter {
       rooms: this.state.rooms
     };
   }
-  open(msg, history2 = false) {
-    return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history: history2 });
+  async open(msg, history2 = false) {
+    const legacy = !await this.refusesLegacy();
+    return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history: history2, legacy });
+  }
+  /** Whether this device refuses v0.1 boxes now (`wim legacy-boxes`): read each time, so a change reaches a running session. */
+  async refusesLegacy() {
+    return this.o.legacyBoxesPath === void 0 ? false : (await refusesLegacy(this.o.legacyBoxesPath)).refuse;
   }
   /**
    * Opens a frame; a box for a prekey this session has not read yet is tried again after a reload.
@@ -93378,17 +93420,18 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
     const card = this.o.cwd === void 0 || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    this.publishCard(link, card, await this.cardFrame(force || rotated, card), before);
+    this.publishCard(link, card, await this.cardFrame(force || rotated, card, await this.refusesLegacy()), before);
   }
   /**
    * The card frame to send, or undefined when the card is unchanged and nothing forces it. Not
    * async: the decision is taken before the seal (which may wait on the signer) and a seal that
-   * fails comes back as its error, so no branch follows an await (see publishCard).
+   * fails comes back as its error, so no branch follows an await (see publishCard). A device that
+   * refuses v0.1 boxes (`strict`) gives none to a device with no prekey: the card skips it.
    */
-  cardFrame(always, card) {
+  cardFrame(always, card, strict) {
     if (!always && sameCard(this.myCard, card)) return Promise.resolve(void 0);
     const ids = this.roster.devices.map((d5) => d5.id);
-    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids }).catch((error64) => error64);
+    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, ...strict ? { legacy: false } : {}, kind: "card", card, recipients: ids }).catch((error64) => error64);
   }
   /**
    * The part of sendCard after its awaits, kept synchronous: V8 counts a branch that follows an
@@ -93733,14 +93776,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * A card always carries the prekeys (`card`): cards are how upgraded devices learn each other's
    * prekeys, and a downgraded card would leave a mixed mesh with no forward secrecy at all. A v0.1
    * client drops such a card, so it misses that session's labels and nothing else.
+   *
+   * A device that refuses v0.1 boxes (`strict`) never falls back either: it seals as from 1.0.
    */
-  keysFor(ids, card = false) {
+  keysFor(ids, card = false, strict = false) {
     const own2 = this.prekeys.current();
     const prekeys = this.peerKeys.forSend(this.roster, ids);
     if (own2 !== void 0 && ids.includes(this.device.id)) prekeys[this.device.id] = own2;
     const acting = new Set(this.roster.devices.filter((d5) => !isRecoveryName(d5.name)).map((d5) => d5.id));
     const missing = ids.filter((id2) => acting.has(id2) && !Object.hasOwn(prekeys, id2));
-    if (missing.length > 0 && !card) return { keys: { prekeys: {} }, missing };
+    if (missing.length > 0 && !card && !strict) return { keys: { prekeys: {} }, missing };
     return { keys: own2 === void 0 ? { prekeys } : { prekeys, prekey: own2 }, missing };
   }
   /** Recipient device ids that a frame seals to without forward secrecy (scheme 1 boxes). */
@@ -93781,7 +93826,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
     for (const a5 of routed) if (!isRoom(a5) && a5 !== "*") this.breaker.noteSent(this.pairOf(a5).split("/")[0], (text2 ?? "").length);
     const name = (d5) => this.roster.devices.find((r6) => r6.id === d5).name;
     const unprotected = this.legacyIds(frame).map(name);
-    const outcome = { id: id2, results: [...out.local, ...sent2.results], ...unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {} };
+    const outcome = {
+      id: id2,
+      results: [...out.local, ...sent2.results],
+      ...missing.length > 0 ? { ...unprotected.length > 0 ? { unprotected } : {}, no_prekey: missing.map(name) } : {}
+    };
     return this.history.append({
       dir: "out",
       peer: routed.join(","),
@@ -93833,14 +93882,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const routed = to.filter((a5) => !unknown2.includes(a5));
     if (routed.length === 0) return { id: id2, local };
     const { frame, missing, answer: answering } = await this.serially(async () => {
-      let sealed = await this.seal(id2, routed, ids, text2, opts);
+      const strict = await this.refusesLegacy();
+      let sealed = await this.seal(id2, routed, ids, text2, opts, strict);
       const link = await this.ready(this.answerMs);
       if (sealed.missing.length > 0) {
         await this.peerKeys.reload();
         let timer;
         await Promise.race([this.cardsIn, new Promise((resolve3) => timer = setTimeout(resolve3, this.answerMs))]);
         clearTimeout(timer);
-        if (Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id2, routed, ids, text2, opts);
+        if (sealed.frame === void 0 || Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id2, routed, ids, text2, opts, strict, true);
       }
       await this.save({ seq: sealed.frame.seq });
       if (opts.kind === "task") await this.recordSentTask(id2, routed);
@@ -93889,14 +93939,24 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.sending = run.then(() => void 0, () => void 0);
     return run;
   }
-  /** Seals a message at the next seq; the secrets check and the protocol limits refuse here. */
-  async seal(id2, routed, ids, text2, opts) {
+  /**
+   * Seals a message at the next seq; the secrets check and the protocol limits refuse here. On a
+   * device that refuses v0.1 boxes (`strict`), a direct send naming a device with no prekey has no
+   * frame until `last`, the seal after waiting for prekeys, which refuses it (SPEC section 6b,
+   * from 1.0); a broadcast or room send skips such a device.
+   */
+  async seal(id2, routed, ids, text2, opts, strict, last = false) {
     const derived3 = opts.kind === "ping" || opts.kind === "pong" || opts.kind === "pause" ? false : await this.isDerived();
-    const { keys, missing } = this.keysFor(ids);
+    const { keys, missing } = this.keysFor(ids, false, strict);
+    if (strict && !GROUP(routed) && missing.length > 0) {
+      if (!last) return { missing };
+      throw new ClientError(refusedLine(missing.map((d5) => this.roster.devices.find((r6) => r6.id === d5).name)), "invalid");
+    }
     try {
       const frame = await sealMessageWith({
         ...this.sealBase(routed),
         ...keys,
+        ...strict ? { legacy: false } : {},
         id: id2,
         kind: opts.kind ?? "msg",
         ...text2 === void 0 ? {} : { text: text2 },
@@ -94089,11 +94149,11 @@ ${frameEntry(entry)}`);
   // ---- files ----
   /** Uploads a file's encrypted chunks, then sends the `file` message that carries its key. */
   async sendFile(toInput, path2, caption) {
-    const full = await fs4.realpath(resolve2(path2)).catch(() => void 0);
+    const full = await fs5.realpath(resolve2(path2)).catch(() => void 0);
     if (full === void 0) throw new ClientError(`not a regular file: ${path2}`, "not_found");
     const wimHome = resolve2(this.o.mesh.dir, "..", "..");
     const userHome = this.o.userHome ?? homedir();
-    const why = unsendable(full, await fs4.realpath(wimHome), await fs4.realpath(userHome).catch(() => resolve2(userHome)));
+    const why = unsendable(full, await fs5.realpath(wimHome), await fs5.realpath(userHome).catch(() => resolve2(userHome)));
     if (why !== void 0) throw new ClientError(`refusing to send ${path2}: ${why}`, "forbidden");
     const flags = fsConstants.O_RDONLY | noFollow(fsConstants) | fsConstants.O_NONBLOCK;
     const handle = await openNoFollow(full, flags);
@@ -94366,7 +94426,7 @@ function beforeBilling(err) {
 var import_p_retry = __toESM(require_p_retry(), 1);
 var import_google_auth_library = __toESM(require_src5(), 1);
 import { createWriteStream } from "fs";
-import * as fs6 from "fs/promises";
+import * as fs7 from "fs/promises";
 import { writeFile } from "fs/promises";
 import { Readable as Readable7 } from "node:stream";
 import { finished } from "node:stream/promises";
@@ -115708,8 +115768,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs15 = req("fs");
-          buffer = fs15.readFileSync(params.file);
+          const fs16 = req("fs");
+          buffer = fs16.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -115717,8 +115777,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs15 = mod2("fs");
-            buffer = fs15.readFileSync(params.file);
+            const fs16 = mod2("fs");
+            buffer = fs16.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -117947,7 +118007,7 @@ var NodeUploader = class {
   async stat(file2) {
     const fileStat = { size: 0, type: void 0 };
     if (typeof file2 === "string") {
-      const originalStat = await fs6.stat(file2);
+      const originalStat = await fs7.stat(file2);
       fileStat.size = originalStat.size;
       fileStat.type = this.inferMimeType(file2);
       return fileStat;
@@ -118095,7 +118155,7 @@ var NodeUploader = class {
     let fileHandle;
     const fileName = path.basename(file2);
     try {
-      fileHandle = await fs6.open(file2, "r");
+      fileHandle = await fs7.open(file2, "r");
       if (!fileHandle) {
         throw new Error(`Failed to open file`);
       }
@@ -119900,18 +119960,18 @@ async function runCi(config2, io, deps = {}) {
 }
 
 // src/cli.ts
-import { promises as fs14 } from "node:fs";
+import { promises as fs15 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
 // src/admin.ts
 import { rm } from "node:fs/promises";
 
 // src/home.ts
-import { promises as fs8 } from "node:fs";
+import { promises as fs9 } from "node:fs";
 import { join as join16 } from "node:path";
 
 // src/agentpath.ts
-import { promises as fs7 } from "node:fs";
+import { promises as fs8 } from "node:fs";
 import { join as join15 } from "node:path";
 
 // src/errors.ts
@@ -119936,7 +119996,7 @@ async function agentEndpoint(root5, env3, create2) {
   if (create2) await ensureDir(dir);
   let stat3;
   try {
-    stat3 = await fs7.lstat(dir);
+    stat3 = await fs8.lstat(dir);
   } catch {
     return void 0;
   }
@@ -119960,7 +120020,7 @@ function startLockPath(root5) {
 }
 async function retireEndpoint(root5, env3, endpoint2) {
   if (env3.platform !== "win32") return;
-  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs7.rm(join15(agentDir(root5), "pipe"), { force: true });
+  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs8.rm(join15(agentDir(root5), "pipe"), { force: true });
 }
 async function readAgentSettings(root5) {
   const raw = await readJson(settingsPath(root5));
@@ -119972,9 +120032,9 @@ async function writeAgentSettings(root5, settings, env3) {
 function endpointFiles(platform2) {
   if (platform2 === "win32") return { clear: async () => void 0, secure: async () => void 0, id: async () => "pipe" };
   return {
-    clear: (endpoint2) => fs7.rm(endpoint2, { force: true }),
-    secure: (endpoint2) => fs7.chmod(endpoint2, 384),
-    id: (endpoint2) => fs7.lstat(endpoint2, { bigint: true }).then((s3) => `${s3.dev}:${s3.ino}`, () => void 0)
+    clear: (endpoint2) => fs8.rm(endpoint2, { force: true }),
+    secure: (endpoint2) => fs8.chmod(endpoint2, 384),
+    id: (endpoint2) => fs8.lstat(endpoint2, { bigint: true }).then((s3) => `${s3.dev}:${s3.ino}`, () => void 0)
   };
 }
 
@@ -120077,7 +120137,7 @@ async function deviceDirs(base) {
   const candidates = [base, ...(await listDir(join16(base, "profiles"))).sort().map((p3) => join16(base, "profiles", p3))];
   const found = [];
   for (const dir of candidates) {
-    if (await fs8.lstat(join16(dir, "device.json")).then(() => true, () => false)) found.push(dir);
+    if (await fs9.lstat(join16(dir, "device.json")).then(() => true, () => false)) found.push(dir);
   }
   return found;
 }
@@ -120104,7 +120164,7 @@ var Home = class {
   async readKeyFile() {
     let facts;
     try {
-      facts = await fs8.lstat(this.devicePath);
+      facts = await fs9.lstat(this.devicePath);
     } catch (error64) {
       if (error64.code === "ENOENT") return void 0;
       throw error64;
@@ -120182,7 +120242,7 @@ var Home = class {
   async rootProblem() {
     let mode;
     try {
-      mode = (await fs8.stat(this.root)).mode;
+      mode = (await fs9.stat(this.root)).mode;
     } catch (error64) {
       return error64.code === "ENOENT" ? null : `cannot be read: ${error64.message}`;
     }
@@ -120512,7 +120572,7 @@ async function recoverMesh(o3) {
 }
 
 // src/events.ts
-import { constants as constants2, promises as fs9 } from "node:fs";
+import { constants as constants2, promises as fs10 } from "node:fs";
 import { createInterface } from "node:readline";
 import { isAbsolute as isAbsolute3, join as join17 } from "node:path";
 var EVENTS_VERSION = 1;
@@ -120690,7 +120750,7 @@ async function runEvents(d5) {
     return start2 + end2;
   }
   async function drainRotated(files, was, sid) {
-    for (const name of await fs9.readdir(files.dir)) {
+    for (const name of await fs10.readdir(files.dir)) {
       if (!/^history-[0-9A-Z]{26}\.jsonl$/.test(name)) continue;
       const handle2 = await openHistory(join17(files.dir, name));
       if (handle2 === void 0) continue;
@@ -122825,7 +122885,8 @@ var text = (t2) => ({ content: [{ type: "text", text: t2 }] });
 var json3 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
 var sent = (o3) => {
   const held2 = o3.results.flatMap((r6) => r6.status === "held" ? [heldSendLine(r6.to, r6.breaker)] : []);
-  return json3({ ...o3, ...o3.unprotected === void 0 ? {} : { note: unprotectedNote(o3.unprotected, o3.no_prekey) }, ...held2.length === 0 ? {} : { held_note: held2.join(" ") } });
+  const note = prekeyNote(o3);
+  return json3({ ...o3, ...note === void 0 ? {} : { note }, ...held2.length === 0 ? {} : { held_note: held2.join(" ") } });
 };
 var fail3 = (t2) => ({ content: [{ type: "text", text: t2 }], isError: true });
 function failure2(error64) {
@@ -123185,7 +123246,7 @@ async function loadNotifier(home, now = Date.now) {
 
 // src/secretout.ts
 import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
-import { promises as fs10 } from "node:fs";
+import { promises as fs11 } from "node:fs";
 import { createConnection as createConnection2, createServer as createServer2 } from "node:net";
 var AGENT_ENV_VARS = [
   "CLAUDECODE",
@@ -123260,10 +123321,10 @@ function ignore2() {
 }
 var absent = () => void 0;
 async function removeOwnProof(path2, proof) {
-  if (await fs10.readFile(path2, "utf8").catch(absent) === proof) await fs10.rm(path2, { force: true });
+  if (await fs11.readFile(path2, "utf8").catch(absent) === proof) await fs11.rm(path2, { force: true });
 }
 async function holdForShow(paths, code2, o3) {
-  if (o3.platform !== "win32") await fs10.rm(paths.socket, { force: true });
+  if (o3.platform !== "win32") await fs11.rm(paths.socket, { force: true });
   const proof = b64u.encode(randomBytes2(32));
   const expected = sha2562(utf8(proof));
   const sockets = /* @__PURE__ */ new Set();
@@ -123290,8 +123351,8 @@ async function holdForShow(paths, code2, o3) {
     server.listen(paths.socket, resolve3);
   });
   try {
-    await fs10.rm(paths.proof, { force: true });
-    await fs10.writeFile(paths.proof, proof, { mode: 384, flag: "wx" });
+    await fs11.rm(paths.proof, { force: true });
+    await fs11.writeFile(paths.proof, proof, { mode: 384, flag: "wx" });
   } catch (error64) {
     await new Promise((r6) => server.close(r6));
     throw error64;
@@ -123319,7 +123380,7 @@ async function holdForShow(paths, code2, o3) {
 }
 async function fetchHeldCode(paths) {
   const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
-  const proof = await fs10.readFile(paths.proof, "utf8").catch(absent);
+  const proof = await fs11.readFile(paths.proof, "utf8").catch(absent);
   if (proof === void 0) throw new Error(none);
   return new Promise((resolve3, reject) => {
     let text2 = "";
@@ -123418,7 +123479,7 @@ import { join as join20 } from "node:path";
 
 // src/agent.ts
 import { createPrivateKey, sign as edSign } from "node:crypto";
-import { promises as fs11 } from "node:fs";
+import { promises as fs12 } from "node:fs";
 import { createConnection as createConnection3, createServer as createServer3 } from "node:net";
 var AgentError = class extends Error {
   code;
@@ -123461,9 +123522,9 @@ var AgentLog = class {
   }
   write(entry) {
     this.chain = this.chain.then(async () => {
-      await fs11.appendFile(this.path, `${JSON.stringify(entry)}
+      await fs12.appendFile(this.path, `${JSON.stringify(entry)}
 `, { mode: 384 });
-      if ((await fs11.stat(this.path)).size > this.maxBytes) await fs11.rename(this.path, `${this.path}.1`);
+      if ((await fs12.stat(this.path)).size > this.maxBytes) await fs12.rename(this.path, `${this.path}.1`);
     }).catch(() => void 0);
   }
   /** Resolves once every write so far is on disk (or failed). */
@@ -123881,7 +123942,7 @@ var AgentServer = class {
 
 // src/autostart.ts
 import { spawn as nodeSpawn } from "node:child_process";
-import { promises as fs12 } from "node:fs";
+import { promises as fs13 } from "node:fs";
 function runProgram(cmd, args, input2 = "", spawn = nodeSpawn) {
   return new Promise((resolve3, reject) => {
     const child = spawn(cmd, [...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
@@ -124100,7 +124161,7 @@ async function enableAutostart(o3, source2) {
   }
   const file2 = here.join(o3.root, "agent", "autostart-task.xml");
   await ensureDir(here.dirname(file2));
-  await fs12.writeFile(file2, Buffer.concat([Buffer.from([255, 254]), Buffer.from(item.text, "utf16le")]), { mode: 384 });
+  await fs13.writeFile(file2, Buffer.concat([Buffer.from([255, 254]), Buffer.from(item.text, "utf16le")]), { mode: 384 });
   try {
     created(await o3.programs.run("schtasks", ["/Create", "/TN", item.where, "/XML", file2, "/F"]));
   } finally {
@@ -124815,7 +124876,7 @@ async function remove(c5) {
 }
 
 // src/crash.ts
-import { promises as fs13 } from "node:fs";
+import { promises as fs14 } from "node:fs";
 
 // ../../node_modules/@sentry/core/build/esm/debug-build.js
 var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
@@ -129042,7 +129103,7 @@ var REPORT_TIMEOUT_MS = 3e3;
 async function readConsent(path2) {
   let text2;
   try {
-    const handle = await fs13.open(path2, "r");
+    const handle = await fs14.open(path2, "r");
     try {
       const buf2 = Buffer.alloc(CONSENT_MAX_BYTES + 1);
       const { bytesRead } = await handle.read(buf2, 0, buf2.length, 0);
@@ -129259,7 +129320,8 @@ var COMMAND_FLAGS = {
   a2a: ["as"],
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
-  "crash-reports": []
+  "crash-reports": [],
+  "legacy-boxes": []
 };
 function parseArgs(argv) {
   const positional = [];
@@ -129337,6 +129399,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
+  wim legacy-boxes [status | refuse | accept]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -129344,7 +129407,7 @@ var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agen
 
 Commands: init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, agent.
+crash-reports, legacy-boxes, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
   if (!/^[a-z-]+$/.test(command5)) return void 0;
@@ -129406,7 +129469,8 @@ var Ctx = class {
       log: (line) => verbose || this.env["WIM_DEBUG"] === "1" ? this.io.err(line) : void 0,
       debug: this.env["WIM_DEBUG"] === "1",
       cwd: this.io.cwd,
-      ...notifier === void 0 ? {} : { notifier }
+      ...notifier === void 0 ? {} : { notifier },
+      legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE)
     };
   }
   /**
@@ -129619,6 +129683,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
         return await notifyTest(ctx);
       case "crash-reports":
         return await crashReports(ctx, crash);
+      case "legacy-boxes":
+        return await legacyBoxes(ctx);
       case "agent":
         return await agentCommand({ home: ctx.home, io, env: env3, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
       default:
@@ -129667,6 +129733,29 @@ async function crashReports(ctx, crash) {
   if (!allowed.ok && allowed.why === "no-address") ctx.io.out("This build of wim sends none: it runs from source, and only the bundled builds (npm, the GitHub release, the VS Code extension, the Claude Code plugin) carry the address reports go to.");
   const off = forcedOff(ctx.env);
   if (off !== void 0) ctx.io.out(`${off} is set, so none are sent from here.`);
+  return 0;
+}
+var LEGACY_ACCEPT_TERMS = [
+  "This reopens the migration window on this device (SPEC section 6b). Until 1.0, a relay that",
+  "withholds a device's prekey can then make your sends to it go without forward secrecy, and this",
+  "device again reads messages sent without it. Messages to and from v0.1 clients reach them again.",
+  "`wim legacy-boxes refuse` closes it again at any time."
+];
+async function legacyBoxes(ctx) {
+  const action = ctx.args.positional[0] ?? "status";
+  const file2 = pathJoin(ctx.home.root, LEGACY_BOXES_FILE);
+  if (action === "refuse") {
+    await setLegacyBoxes(file2, true, ctx.fsEnv);
+  } else if (action === "accept") {
+    requirePerson(ctx.env, ctx.io, "wim legacy-boxes accept");
+    if (!await confirmTyped(ctx.io, LEGACY_ACCEPT_TERMS, "Accept v0.1 boxes again?")) return 1;
+    await setLegacyBoxes(file2, false, ctx.fsEnv);
+  } else if (action !== "status") {
+    throw new SetupError("usage: wim legacy-boxes [status | refuse | accept]");
+  }
+  const now = await refusesLegacy(file2);
+  ctx.io.out(`${legacyBoxesLine(now.refuse)}.`);
+  if (now.problem !== void 0) ctx.io.out(`${now.problem}.`);
   return 0;
 }
 async function init(ctx) {
@@ -130192,7 +130281,8 @@ async function send2(ctx) {
         if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a5) => `${a5} (claude-code)`).join(", ")}`);
       }
     }
-    if (out.unprotected !== void 0) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
+    const note = prekeyNote(out);
+    if (note !== void 0) ctx.io.out(note);
     ctx.io.out(`id ${out.id}`);
     const took = out.results.filter((r6) => accepted(r6.status)).map((r6) => r6.to);
     const code2 = took.length === out.results.length ? 0 : 1;
@@ -130540,7 +130630,7 @@ async function mcp(ctx) {
 }
 async function readConfig(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs14.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs15.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
@@ -130621,6 +130711,9 @@ async function checkup(ctx, emit) {
   if (rootProblem === void 0) ok2(`state directory ${ctx.home.root}`);
   else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
   if (device === void 0) return { meshes };
+  const legacy = await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE));
+  info(legacyBoxesLine(legacy.refuse));
+  if (legacy.problem !== void 0) bad(legacy.problem);
   const me = device.id;
   for (const id2 of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id2), ctx.fsEnv);
@@ -130677,6 +130770,7 @@ async function status2(ctx) {
   for (const c5 of problems) ctx.io.out(`problem  ${c5.line}`);
   if (device !== void 0) {
     ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
+    ctx.io.out(`${legacyBoxesLine((await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE))).refuse)}.`);
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m4 of meshes) for (const line of meshStatus(m4)) ctx.io.out(line);
   }
