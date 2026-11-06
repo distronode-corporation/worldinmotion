@@ -142,6 +142,15 @@ export class Breaker {
   }
 
   /**
+   * The pauses a later process of the session must take back, oldest first: the running ones, and
+   * a trusted peer's whose cool-down ended but whose release has not run yet (takeDue).
+   */
+  kept(): Pause[] {
+    const now = this.now();
+    return [...this.paused.values()].filter((p) => p.until > now || p.auto).sort((a, b) => a.at - b.at);
+  }
+
+  /**
    * The trusted peers whose cool-down has ended, each lifted here (its counts start over) so two
    * callers never release one twice. The caller delivers what each one held.
    */

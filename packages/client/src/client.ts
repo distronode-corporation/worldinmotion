@@ -1616,7 +1616,11 @@ export class MeshSession extends EventEmitter {
 
   /** The running pauses of this session's breaker, with the address that tripped each and the sessions told. */
   pausedRows(): PauseRow[] {
-    return this.breaker.pauses().map((p) => {
+    return this.rowsOf(this.breaker.pauses());
+  }
+
+  private rowsOf(pauses: Pause[]): PauseRow[] {
+    return pauses.map((p) => {
       const { from, told } = this.pauseFrom.get(p.peer)!;
       return { ...p, from, told: [...told] };
     });
@@ -1636,9 +1640,13 @@ export class MeshSession extends EventEmitter {
     await this.savePauses();
   }
 
-  /** Writes the running pauses where `wim held list` reads them. */
+  /**
+   * Writes the pauses where `wim held list` reads them (it shows the running ones) and a later
+   * process of this session takes them back: a cool-down that ended stays written until its
+   * release has run, so a process that exits first leaves it for the next one.
+   */
   private async savePauses(): Promise<void> {
-    await savePauses(this.files.breakerPath, this.pausedRows(), this.o.env);
+    await savePauses(this.files.breakerPath, this.rowsOf(this.breaker.kept()), this.o.env);
   }
 
   /** Releases every trusted peer whose cool-down has ended; resolves once the releases already due are done. */

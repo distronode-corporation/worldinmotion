@@ -138,6 +138,24 @@ describe("Breaker", () => {
       b.admit(peer, 1);
     }
     expect(b.pauses().map((p) => [p.peer, p.at])).toEqual([["x", 1], ["y", 2]]);
+    expect(b.kept().map((p) => p.peer)).toEqual(["x", "y"]);
+  });
+
+  it("keeps a trusted peer's ended cool-down until it is taken, and lets an untrusted pause go", () => {
+    let now = 0;
+    const tier = { perPeerPerHour: 1, totalPerHour: 10, pingPong: false, pingPongExchanges: 8 };
+    const b = new Breaker(() => ({ ...tier, trusted: { ...tier, cooldownMinutes: 1 } }), () => now);
+    for (const [peer, trusted] of [["own", true], ["other", false]] as const) {
+      b.admit(peer, 1, trusted);
+      now += 1;
+      b.admit(peer, 1, trusted);
+    }
+    expect(b.kept().map((p) => p.peer)).toEqual(["own", "other"]);
+    now += 3_600_000;
+    expect(b.pauses()).toEqual([]);
+    expect(b.kept().map((p) => p.peer)).toEqual(["own"]);
+    expect(b.takeDue().map((p) => p.peer)).toEqual(["own"]);
+    expect(b.kept()).toEqual([]);
   });
 
   it("applies one tier when it has no trusted limits, as the CI bucket does", () => {

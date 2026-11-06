@@ -118,8 +118,16 @@ describe("a trusted peer's cool-down", () => {
     b = await session(devices[1]!, mesh, relay, holder);
     expect(b.sid).toBe(sid);
     expect(b.pausedRows()).toEqual(before);
-    // Its cool-down still ends by itself, and delivers what it held.
+    // Its cool-down ends while a process that never runs a pass has the session: the ended pause
+    // stays written for the next one, which releases it.
+    await b.stop();
     offset += 61_000;
+    b = await session(devices[1]!, mesh, relay, { ...holder, tickMs: 3_600_000 });
+    expect(b.pausedRows()).toEqual([]);
+    expect(await readPauses(b.files.breakerPath, Number.NEGATIVE_INFINITY)).toEqual(before);
+    expect(await b.held.list()).toHaveLength(1);
+    await b.stop();
+    b = await session(devices[1]!, mesh, relay, holder);
     await until(async () => (await b.held.list()).length === 0);
     await until(async () => (await msgs(b)).length === 2);
     expect(b.pausedRows()).toEqual([]);

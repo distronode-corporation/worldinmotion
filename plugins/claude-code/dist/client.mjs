@@ -89264,6 +89264,14 @@ var Breaker = class {
     return [...this.paused.values()].filter((p3) => p3.until > now).sort((a5, b5) => a5.at - b5.at);
   }
   /**
+   * The pauses a later process of the session must take back, oldest first: the running ones, and
+   * a trusted peer's whose cool-down ended but whose release has not run yet (takeDue).
+   */
+  kept() {
+    const now = this.now();
+    return [...this.paused.values()].filter((p3) => p3.until > now || p3.auto).sort((a5, b5) => a5.at - b5.at);
+  }
+  /**
    * The trusted peers whose cool-down has ended, each lifted here (its counts start over) so two
    * callers never release one twice. The caller delivers what each one held.
    */
@@ -93224,7 +93232,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
   // ---- the loop breaker's pauses ----
   /** The running pauses of this session's breaker, with the address that tripped each and the sessions told. */
   pausedRows() {
-    return this.breaker.pauses().map((p3) => {
+    return this.rowsOf(this.breaker.pauses());
+  }
+  rowsOf(pauses) {
+    return pauses.map((p3) => {
       const { from, told } = this.pauseFrom.get(p3.peer);
       return { ...p3, from, told: [...told] };
     });
@@ -93242,9 +93253,13 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
     await this.savePauses();
   }
-  /** Writes the running pauses where `wim held list` reads them. */
+  /**
+   * Writes the pauses where `wim held list` reads them (it shows the running ones) and a later
+   * process of this session takes them back: a cool-down that ended stays written until its
+   * release has run, so a process that exits first leaves it for the next one.
+   */
   async savePauses() {
-    await savePauses(this.files.breakerPath, this.pausedRows(), this.o.env);
+    await savePauses(this.files.breakerPath, this.rowsOf(this.breaker.kept()), this.o.env);
   }
   /** Releases every trusted peer whose cool-down has ended; resolves once the releases already due are done. */
   releaseDue() {
