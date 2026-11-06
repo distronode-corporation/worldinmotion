@@ -21,6 +21,13 @@ body line with a bracket.
   sending anything. The description now names the expression in words, and a test refuses any
   expression in `action.yml`. Found by the first live run of `ci-notice-staging.yml`; the GitLab
   component was not affected.
+- **The Cloudflare relay refused every GitHub notice** with a 403. It fetched GitHub's signing
+  keys with `redirect: "error"`, which workerd refuses with a TypeError before any request, so it
+  never held a key and no GitHub token verified. It now fetches with `redirect: "manual"` (a
+  redirect comes back as its 3xx and is not taken, as before). The test that the fetch follows
+  no redirect dialled an unreachable address, which hid the TypeError; it now gets a real 302
+  from the test outbound service. GitLab notices were not affected (the relay does not verify
+  their tokens), nor was the Node relay.
 
 ### Changed
 

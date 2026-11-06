@@ -26,6 +26,8 @@ let sign: (input: string) => Promise<string>;
 let jwksText = "";
 const fetched: string[] = [];
 const defaultFetch = jwks.fetch;
+/** The outbound service in vitest.config.ts answers it with a 302 to a JWKS. */
+const MOVED_JWKS_URL = "https://jwks.invalid/moved";
 
 beforeAll(async () => {
   const pair = (await crypto.subtle.generateKey({ ...ALG, modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]) }, true, ["sign", "verify"])) as CryptoKeyPair;
@@ -172,7 +174,12 @@ describe("CI senders on the Workers relay", () => {
     expect(last!.headers.get("retry-after")).toBe("60");
   });
 
-  it("fetches keys with no redirects by default", async () => {
-    await expect(defaultFetch("http://127.0.0.1:1/keys")).rejects.toThrow();
+  it("fetches keys with no redirects by default, with options workerd accepts", async () => {
+    // The outbound service (vitest.config.ts) answers this URL with a redirect to a JWKS. Not
+    // followed, the 302 comes back (and JwksCache takes only a 200). `redirect: "error"` failed
+    // here with workerd's TypeError, which an unreachable URL hid: relay 0.1.9 refused every
+    // GitHub notice that way.
+    const res = await defaultFetch(MOVED_JWKS_URL);
+    expect(res.status).toBe(302);
   });
 });
