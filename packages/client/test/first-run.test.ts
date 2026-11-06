@@ -344,10 +344,11 @@ describe("wim status and wim doctor on a device never set up", () => {
   });
 
   it("tell a state directory that cannot be read from one that does not exist", async () => {
-    const file = join(await scratch("root-is-file"), "plain");
-    await fs.writeFile(file, "");
-    expect(await new Home(join(file, "wim"), HOME_ENV).rootProblem()).toMatch(/^cannot be read: ENOTDIR/);
-    expect(await new Home(join(file, "..", "never"), HOME_ENV).rootProblem()).toBeNull();
+    const dir = await scratch("root-unreadable");
+    // A path no platform can stat, and that is not missing either (a path under a regular file is
+    // ENOTDIR on Linux and macOS but ENOENT on Windows).
+    expect(await new Home(join(dir, "wim\u0000"), HOME_ENV).rootProblem()).toMatch(/^cannot be read: .*null bytes/);
+    expect(await new Home(join(dir, "never"), HOME_ENV).rootProblem()).toBeNull();
   });
 });
 

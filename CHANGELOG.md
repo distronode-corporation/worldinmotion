@@ -178,6 +178,15 @@ body line with a bracket.
   the relay's answer, before the Durable Object gave the place back, and failed about one run in
   four under load ("expected 4 to be 3"). They wait for it now; the close codes are checked as
   before.
+- **A command ended for good could leave its session reusable, and the next one was refused.**
+  A session's state writes could land out of order, so a write still in flight when
+  `stop({ ended: true })` wrote `ended` could land after it and undo it. The next command with
+  that name then took the ended session's id, and the relay refused it ("the relay refused this
+  device's authentication"). Seen as `wim inbox --as <name>` failing right after a refused
+  `--as` for a Claude Code tab's name, about one run in six on Linux and on Windows CI. A
+  session now writes its state one write at a time, in the order asked.
+- **Tests:** two client tests checked a result after a fixed sleep (a joined member's roster seq,
+  and the deliveries after a cool-down's release); they wait for the result now.
 
 ### Documentation
 

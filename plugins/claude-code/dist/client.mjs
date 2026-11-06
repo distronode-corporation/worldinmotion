@@ -92565,12 +92565,26 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await this.inbound;
     await this.savePauses();
     if (opts.ended === true) this.state = { ...this.state, ended: true };
-    await this.files.save(this.state);
+    await this.persist();
     await this.files.release();
   }
   async save(change) {
     this.state = { ...this.state, ...change, spool: Math.max(this.state.spool, this.spool.highest) };
-    await this.files.save(this.state);
+    await this.persist();
+  }
+  /** The session state's writes, one at a time; settled whatever the last one did. */
+  stateWrites = Promise.resolve();
+  /**
+   * Writes the session's state as it is now, after every write asked for before it. Two writes in
+   * flight can land in either order, and an older one landing last undid a newer field: the
+   * `ended` that `stop({ ended: true })` writes, so the next command took that sid again and the
+   * relay refused it as ended.
+   */
+  persist() {
+    const state2 = this.state;
+    const write = this.stateWrites.then(() => this.files.save(state2));
+    this.stateWrites = write.catch(ignore);
+    return write;
   }
   // ---- connection ----
   async onReady(ready, link) {
