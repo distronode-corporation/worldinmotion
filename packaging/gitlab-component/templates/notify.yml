@@ -39,7 +39,7 @@ spec:
       description: >-
         The npm package that provides `wim`, at an exact version. The default is the release
         this component comes from.
-      default: "worldinmotion@0.1.8"
+      default: "worldinmotion@0.1.9"
     tags:
       description: Runner tags for both jobs (they do not inherit the pipeline's `default:`).
       type: array

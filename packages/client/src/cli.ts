@@ -41,7 +41,7 @@ import { CI_ACTIONS, ciCommand } from "./cicli.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
 
-export const VERSION = "0.1.8";
+export const VERSION = "0.1.9";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {
