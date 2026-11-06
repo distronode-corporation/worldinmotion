@@ -266,7 +266,9 @@ stderr; `--mark-read` marks what it printed anyway. `wim inbox --peek` prints it
 nothing. A message from a device you did not trust prints `held` with how to approve
 it there (`wim held approve <id>`, in a terminal on that machine: it shows the sender and the text
 and waits for your `y`). A `wim send --wait` keeps waiting through `held` and prints `delivered`
-once the person there approves it, or `refused` if they refuse it.
+once the person there approves it, or `refused` if they refuse it. When that device's loop
+breaker holds it for a trusted device's cool-down, it says when the cool-down ends, and prints
+`delivered` when that device's client delivers it then.
 
 ### 9. Claude-to-Claude test
 

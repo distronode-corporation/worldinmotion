@@ -5,7 +5,8 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { ulid } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it } from "vitest";
-import { receiptLine, SENT_MEANING } from "../src/cli.ts";
+import { heldWaitLine, PAUSE_GRACE_MS, receiptLine, SENT_MEANING } from "../src/cli.ts";
+import { clock as clock_ } from "../src/breaker.ts";
 import { heldForAgentLine, heldReceiptLine, MeshSession } from "../src/client.ts";
 import { History, parseReceipt, receiptNote, renderForAgent, renderForPerson, type HistoryEntry } from "../src/history.ts";
 import { MeshFiles } from "../src/mesh.ts";
@@ -198,12 +199,66 @@ describe("wim send", () => {
 
   it("--wait says how a held message gets approved, and keeps waiting through the hold", async () => {
     const { t } = await taking(false);
-    expect(await run(t, "send", "taker@two", "hi", "--wait", "400ms")).toBe(0);
+    // Past PAUSE_GRACE_MS: a hold with no pause after it is read as one for the person.
+    expect(await run(t, "send", "taker@two", "hi", "--wait", "3s")).toBe(0);
     const id = t.out.find((l) => l.startsWith("id "))!.slice(3);
     const progress = `taker@two: held for the approval of that device's person. It is not delivered until they approve it there: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`. Still waiting for it to be delivered...`;
     // Said once, however many times the wait looks again, then where the wait ended.
     expect(t.out.filter((l) => l === progress)).toHaveLength(1);
     expect(t.out.at(-1)).toBe("taker@two: still held for the approval of that device's person when the wait ended, so not delivered yet");
+  });
+
+  /** b@two trips on one@'s second message an hour; a trusted device's pause is a cool-down of a minute. */
+  async function coolingDown() {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const limits = { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, cooldownMinutes: 1 };
+    await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, breaker: limits }));
+    const clock = { offset: 0 };
+    const b = await openSession(devices[1]!, mesh, relay, { name: "taker", now: () => Date.now() + clock.offset });
+    open.push(b);
+    b.on("item", (i: SpoolItem) => void b.take(i.cursor));
+    const t = term(devices[0]!.root, relay);
+    expect(await run(t, "send", "taker@two", "first", "--wait", "10s")).toBe(0);
+    expect(t.out.at(-1)).toBe("taker@two: delivered (the session took it; that does not mean anyone read it)");
+    t.out.length = 0;
+    return { relay, mesh, devices, b, t, clock };
+  }
+
+  it("--wait says a trusted device's cool-down hold is delivered when the cool-down ends, and reports it delivered then", async () => {
+    const { b, t, clock } = await coolingDown();
+    const sending = run(t, "send", "taker@two", "second", "--wait", "1m");
+    await until(() => t.out.some((l) => l.endsWith("Still waiting for it to be delivered...")), 10_000);
+    const id = t.out.find((l) => l.startsWith("id "))!.slice(3);
+    const until1 = (await b.held.list())[0]!.pause!.until;
+    const progress = t.out.find((l) => l.endsWith("Still waiting for it to be delivered..."))!;
+    // The line a held send row prints, not "held for the approval of that device's person".
+    expect(progress).toBe(
+      `taker@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; at ${clock_(until1)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. Sending more now only adds to what it holds. Its person can approve it sooner: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\`. Still waiting for it to be delivered...`,
+    );
+    expect(said(t)).not.toContain("held for the approval of that device's person");
+    // The cool-down ends: b releases it by itself, and the wait ends on its delivered receipt.
+    clock.offset += 61_000;
+    expect(await sending).toBe(0);
+    expect(t.out.at(-1)).toBe("taker@two: delivered (the session took it; that does not mean anyone read it)");
+  }, 30_000);
+
+  it("--wait that ends during a cool-down says when it ends, not that the person must approve", async () => {
+    const { b, t } = await coolingDown();
+    expect(await run(t, "send", "taker@two", "second", "--wait", "4s")).toBe(0);
+    const until1 = (await b.held.list())[0]!.pause!.until;
+    expect(t.out.at(-1)).toBe(
+      `taker@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; at ${clock_(until1)} its client delivers by itself up to its per-peer limit of what it held, and the rest waits for its person. Sending more now only adds to what it holds. The wait ended first, so it is not delivered yet.`,
+    );
+  }, 30_000);
+
+  it("heldWaitLine: a pause that waits for the person says so, and no pause is a hold for the person", () => {
+    const until1 = Date.UTC(2026, 10, 6, 9, 30);
+    expect(heldWaitLine("b@two", "ID", { rule: "peer", count: 2, limit: 1, minutes: 60, until: until1, auto: false })).toBe(
+      "b@two: held there, not delivered: its loop breaker paused this device on the per-peer limit: 2 messages from this device in 60 minutes, limit 1; what it holds waits for its person (the pause itself lifts at 2026-11-06T09:30:00Z). Sending more now only adds to what it holds. Its person can approve it sooner: /wim in Claude Code, the Held view in VS Code, or `wim held approve ID`",
+    );
+    expect(heldWaitLine("b@two", "ID", undefined)).toBe(receiptLine("b@two", "held", "ID"));
+    expect(PAUSE_GRACE_MS).toBe(2000);
   });
 
   it("--wait reports delivered once the person there approves a held message", async () => {

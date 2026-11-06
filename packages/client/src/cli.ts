@@ -14,7 +14,7 @@ import type { Readable, Writable } from "node:stream";
 import { admitPending, createMesh, decideJoin, deleteMesh, forgetMesh, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
 import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
-import { accepted, ClientError, heldSendLine, MeshSession, unprotectedNote, type Inbound, type SendRow, type SessionOptions } from "./client.ts";
+import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, unprotectedNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
@@ -24,7 +24,7 @@ import { MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, ty
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
 import { pauseEnd, pauseRule } from "./breaker.ts";
-import { listAllPauses } from "./pauses.ts";
+import { listAllPauses, PausedBy } from "./pauses.ts";
 import { homeChoice, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine, policyLevel } from "./render.ts";
 import { PING, pingReport } from "./ping.ts";
@@ -1163,7 +1163,7 @@ export function receiptLine(to: string, status: string, id: string): string {
     case "delivered":
       return `${to}: delivered (the session took it; that does not mean anyone read it)`;
     case "held":
-      return `${to}: held for the approval of that device's person. It is not delivered until they approve it there: /wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\``;
+      return `${to}: held for the approval of that device's person. It is not delivered until they approve it there: ${approveThere(id)}`;
     case "refused":
       return `${to}: refused by that device's inbound policy`;
     case "expired":
@@ -1172,6 +1172,27 @@ export function receiptLine(to: string, status: string, id: string): string {
       return `${to}: ${sanitizeForDisplay(status)}`;
   }
 }
+
+/** Where the person on the receiving device approves a held message. */
+const approveThere = (id: string): string => `/wim in Claude Code, the Held view in VS Code, or \`wim held approve ${id}\``;
+
+/**
+ * A `held` receipt in `wim send --wait`. With a running `pause` from that session, the hold is its
+ * loop breaker's, and the line is the one a `held` send row prints (heldSendLine): a trusted
+ * device's cool-down delivers by itself at its end, any other pause waits for the person. With
+ * none, the message waits for the person there (an inbound policy hold).
+ */
+export function heldWaitLine(to: string, id: string, b: HeldBreaker | undefined): string {
+  if (b === undefined) return receiptLine(to, "held", id);
+  return `${heldSendLine(to, b)} Its person can approve it sooner: ${approveThere(id)}`;
+}
+
+/**
+ * How long `--wait` gives a `pause` to follow a `held` receipt before it reads the hold as one
+ * that waits for the person: the receiving client sends the receipt as it holds the message, and
+ * the `pause` after it.
+ */
+export const PAUSE_GRACE_MS = 2000;
 
 /** The receipt each address has, its last one counting (a `held` one can be followed by `delivered`). */
 function lastReceipts(receipts: ReadonlyArray<{ to: string; status: string }>): Map<string, string> {
@@ -1191,15 +1212,21 @@ async function waitForReceipts(
   read: () => Promise<ReadonlyArray<{ to: string; status: string }>>,
   wanted: readonly string[],
   ms: number,
-  onHeld: (to: string) => void,
+  pause: (to: string) => Promise<HeldBreaker | undefined>,
+  onHeld: (to: string, b: HeldBreaker | undefined) => void,
 ): Promise<Map<string, string>> {
   const until = Date.now() + ms;
   const told = new Set<string>();
+  const heldAt = new Map<string, number>();
   for (;;) {
     const got = lastReceipts(await read());
     for (const to of wanted.filter((a) => got.get(a) === "held" && !told.has(a))) {
+      if (!heldAt.has(to)) heldAt.set(to, Date.now());
+      const b = await pause(to);
+      // Said once the pause is known, or once it has had time to come.
+      if (b === undefined && Date.now() - heldAt.get(to)! < PAUSE_GRACE_MS) continue;
       told.add(to);
-      onHeld(to);
+      onHeld(to, b);
     }
     if (waitedEnough(got, wanted, until, ctx.io.signal)) return got;
     await new Promise((r) => setTimeout(r, 100));
@@ -1277,11 +1304,24 @@ async function send(ctx: Ctx): Promise<number> {
       return code;
     }
     ctx.io.out(`Waiting up to ${waitText!} for receipts (Ctrl-C stops waiting; the message stays sent)...`);
-    const got = await waitForReceipts(ctx, receipts, took, waitMs, (to) => ctx.io.out(`${receiptLine(to, "held", out.id)}. Still waiting for it to be delivered...`));
-    return reportReceipts(ctx, out, took, got, code);
+    // The pauses this device was told of, by any of its sessions (a watch's included).
+    const paused = new PausedBy(files.pausedByPath, ctx.fsEnv, ctx.io.now);
+    const pause = async (a: string): Promise<HeldBreaker | undefined> => pauseFrom(await paused.active(), a);
+    const got = await waitForReceipts(ctx, receipts, took, waitMs, pause, (a, b) => ctx.io.out(`${heldWaitLine(a, out.id, b)}. Still waiting for it to be delivered...`));
+    return reportReceipts(ctx, out, took, got, code, await pausesOf(took, got, pause));
   } finally {
     if (s !== undefined) await ctx.finish(s);
   }
+}
+
+/** The running pause of each waited-for recipient still held. */
+async function pausesOf(took: readonly string[], got: ReadonlyMap<string, string>, pause: (to: string) => Promise<HeldBreaker | undefined>): Promise<Map<string, HeldBreaker>> {
+  const out = new Map<string, HeldBreaker>();
+  for (const to of took.filter((a) => got.get(a) === "held")) {
+    const b = await pause(to);
+    if (b !== undefined) out.set(to, b);
+  }
+  return out;
 }
 
 /**
@@ -1289,11 +1329,13 @@ async function send(ctx: Ctx): Promise<number> {
  * send's (0 when every recipient was routed or queued), or 1 when a receipt says refused or
  * expired. Still held when the wait ends is not a failure: the message waits for a person there.
  */
-function reportReceipts(ctx: Ctx, out: SendAnswer, took: readonly string[], got: ReadonlyMap<string, string>, code: number): number {
+function reportReceipts(ctx: Ctx, out: SendAnswer, took: readonly string[], got: ReadonlyMap<string, string>, code: number, pauses: ReadonlyMap<string, HeldBreaker>): number {
   const statusOf = new Map(out.results.map((r) => [r.to, r.status]));
   for (const to of took) {
     const status = got.get(to);
-    if (status === "held") ctx.io.out(`${to}: still held for the approval of that device's person when the wait ended, so not delivered yet`);
+    const b = pauses.get(to);
+    if (status === "held" && b !== undefined) ctx.io.out(`${heldSendLine(to, b)} The wait ended first, so it is not delivered yet.`);
+    else if (status === "held") ctx.io.out(`${to}: still held for the approval of that device's person when the wait ended, so not delivered yet`);
     else if (status !== undefined) ctx.io.out(receiptLine(to, status, out.id));
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)!]})`);
   }

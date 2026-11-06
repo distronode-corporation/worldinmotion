@@ -215,6 +215,18 @@ export type SendRow = SendResult | { to: string; status: "held"; relay: "routed"
 /** What a peer's breaker said when it paused this device: the rule, its numbers, and when it ends. */
 export type HeldBreaker = Omit<PausedByEntry, "to" | "state" | "at">;
 
+/** What a `held` row carries of a recorded `pause`: the rule, its numbers, and how it ends. */
+function breakerOf(e: PausedByEntry): HeldBreaker {
+  const { to: _to, state: _state, at: _at, ...breaker } = e;
+  return breaker;
+}
+
+/** The running pause that the session at address `to` reported (paused-by.json's entries), as a `held` row carries it. */
+export function pauseFrom(entries: Readonly<Record<string, PausedByEntry>>, to: string): HeldBreaker | undefined {
+  const e = Object.values(entries).find((x) => x.to === to);
+  return e === undefined ? undefined : breakerOf(e);
+}
+
 /** What a `held` send row means, for the agent and the person: which rule holds it there, and until when. */
 export function heldSendLine(to: string, b: HeldBreaker): string {
   const after = b.auto
@@ -2062,8 +2074,7 @@ export class MeshSession extends EventEmitter {
     const results = outcome.results.map((r): SendRow => {
       const e = r.status === "routed" || r.status === "queued" ? paused[this.pairOf(r.to)] : undefined;
       if (e === undefined) return r;
-      const { to: _to, state: _state, at: _at, ...breaker } = e;
-      return { to: r.to, status: "held", relay: r.status as "routed" | "queued", breaker };
+      return { to: r.to, status: "held", relay: r.status as "routed" | "queued", breaker: breakerOf(e) };
     });
     return { ...outcome, results };
   }
