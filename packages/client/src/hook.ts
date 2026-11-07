@@ -4,7 +4,9 @@
 // chose (text, names, addresses, file names) ever reaches that line (SECURITY-MODEL section 7.1).
 // Anything unclear lets the agent stop, and the command always exits 0. The turn it asks for is a
 // mesh turn: the session's presence reads `busy-mesh` before the line is printed, so what the agent
-// sends in it is marked derived (SPEC 6a), and a turn end that lets the agent stop writes `idle`.
+// sends in it is marked derived (SPEC 6a), and a turn end that lets the agent stop writes a turn
+// mark, `idle <n>`, so the client reports idle at every turn end (armed idle notices fire). With
+// `start`, `wim hook <agent> start` is the turn-start hook: it writes `busy`, never over `busy-mesh`.
 
 import { b64u, sha256, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
@@ -16,7 +18,7 @@ import { MeshFiles, type MeshConfig } from "./mesh.ts";
 import { readPauses } from "./pauses.ts";
 import { homeChoice, pidAlive, type Platform } from "./platform.ts";
 import { isTrusted } from "./render.ts";
-import { listSessions, SessionFiles } from "./session.ts";
+import { IDLE_MARK, listSessions, SessionFiles } from "./session.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
 
 /** The file `wim mcp` keeps in its session directory while it runs: its pid and the processes above it. */
@@ -32,6 +34,8 @@ export const HOOK_INPUT_MS = 5000;
 /** How long an announced entry is kept without use, and how many are kept at most. */
 const ANNOUNCED_TTL_MS = 7 * 24 * 3600 * 1000;
 const ANNOUNCED_MAX = 64;
+/** The largest turn mark the client reads (`IDLE_MARK`: at most 15 digits). */
+const MARK_MAX = 999_999_999_999_999;
 
 /**
  * One turn end, as the hook reads it: the agent's own session key, and whether this stop already
@@ -45,6 +49,10 @@ type Payload = Record<string, unknown>;
 type AgentHook = {
   /** The stop, or undefined when the payload is not one this agent sends at turn end. */
   read(p: Payload): Stop | undefined;
+  /** Whether the payload is the one this agent sends at a turn's start; absent: no start entry. */
+  start?: (p: Payload) => boolean;
+  /** What lets a turn start: nothing, or the JSON the agent requires. */
+  go?: string;
   /** What asks this agent for one more turn with `text`. */
   wake(text: string): string;
   /** What lets it stop: nothing, or the JSON the agent requires. */
@@ -67,11 +75,14 @@ function flagged(id: unknown, active: unknown): Stop | undefined {
 export const HOOK_AGENTS: Readonly<Record<string, AgentHook>> = {
   gemini: {
     read: (p) => (p.hook_event_name === "AfterAgent" ? flagged(p.session_id, p.stop_hook_active) : undefined),
+    start: (p) => p.hook_event_name === "BeforeAgent" && key(p.session_id) !== undefined,
     wake: (text) => JSON.stringify({ decision: "deny", reason: text }),
     allow: "",
   },
   // No per-cycle flag: `executionNum` counts the calls in one prompt, and nothing captured shows when
   // it starts again, so only the announced record bounds it. A stop that carries an error is not woken.
+  // No start entry: `PreInvocation` runs before every model call, not once per turn. Each stop still
+  // writes a new turn mark, so a notice armed on the session fires.
   antigravity: {
     read: (p) => {
       const k = key(p.conversationId);
@@ -84,6 +95,8 @@ export const HOOK_AGENTS: Readonly<Record<string, AgentHook>> = {
   // Stop expects JSON on stdout when it exits 0.
   codex: {
     read: (p) => (p.hook_event_name === "Stop" ? flagged(p.session_id, p.stop_hook_active) : undefined),
+    // Plain text on a `UserPromptSubmit` hook's stdout becomes context for the model: it prints nothing.
+    start: (p) => p.hook_event_name === "UserPromptSubmit" && key(p.session_id) !== undefined,
     wake: (text) => JSON.stringify({ decision: "block", reason: text }),
     allow: "{}",
   },
@@ -95,12 +108,17 @@ export const HOOK_AGENTS: Readonly<Record<string, AgentHook>> = {
       if (k === undefined || p.hook_event_name !== "stop") return undefined;
       return p.status === "completed" ? { key: k, continued: false } : { key: k, continued: false, ends: "the turn was aborted or failed" };
     },
+    // `beforeSubmitPrompt` documents no default for empty output, so the hook says to go on.
+    start: (p) => p.hook_event_name === "beforeSubmitPrompt" && key(p.conversation_id) !== undefined,
+    go: JSON.stringify({ continue: true }),
     wake: (text) => JSON.stringify({ followup_message: text }),
     allow: "",
   },
-  // The `agentStop` event's camelCase payload; its loop flag keeps the snake_case name.
+  // The `agentStop` event's camelCase payload; its loop flag keeps the snake_case name. That form
+  // names no event: `userPromptSubmitted` is the one with a prompt and no loop flag.
   copilot: {
     read: (p) => flagged(p.sessionId, p.stop_hook_active),
+    start: (p) => key(p.sessionId) !== undefined && typeof p.prompt === "string" && !Object.hasOwn(p, "stop_hook_active"),
     wake: (text) => JSON.stringify({ decision: "block", reason: text }),
     allow: "",
   },
@@ -116,6 +134,8 @@ export function wakeText(n: number): string {
 /** What the hook reads: its payload and where the device's state lives. */
 export type HookOptions = {
   agent: string;
+  /** `start`: the turn-start hook; absent: the turn-end hook. */
+  event?: "start";
   /** The payload as text; undefined when it was too large or never finished. */
   input: string | undefined;
   env: Record<string, string | undefined>;
@@ -131,11 +151,13 @@ export type HookOptions = {
 /** What to print, and why, for `WIM_DEBUG=1`. */
 export type HookAnswer = { out: string; why: string };
 
-/** Decides one turn end. Never rejects. */
+/** Decides one turn end, or with `event: "start"` marks one turn start. Never rejects. */
 export async function hookAnswer(o: HookOptions): Promise<HookAnswer> {
   const agent = Object.hasOwn(HOOK_AGENTS, o.agent) ? HOOK_AGENTS[o.agent]! : undefined;
   if (agent === undefined) return { out: "", why: "not an agent the hook knows" };
-  const stop = readStop(agent, o.input);
+  if (o.event === "start") return started(agent, o);
+  const payload = readPayload(o.input);
+  const stop = payload === undefined ? undefined : agent.read(payload);
   if (stop === undefined) return { out: agent.allow, why: "not a turn-end payload this agent sends" };
   if (stop.continued) return { out: agent.allow, why: await ended(o, "this stop already follows a continuation") };
   if (stop.ends !== undefined) return { out: agent.allow, why: await ended(o, stop.ends) };
@@ -152,10 +174,30 @@ const cannotTell = (error: unknown): string => `cannot tell: ${(error as Error).
  */
 async function ended(o: HookOptions, why: string): Promise<string> {
   const found = await locate(o).catch(cannotTell);
-  return typeof found === "string" ? `${why}; nothing written: ${found}` : settle(found, why);
+  return typeof found === "string" ? `${why}; nothing written: ${found}` : settle(found, why, o.now());
 }
 
-function readStop(agent: AgentHook, input: string | undefined): Stop | undefined {
+/**
+ * A turn start: the one session reads `busy`, unless it reads `busy-mesh`. Only a turn end clears
+ * that, so a start the agent also fires for a continuation cannot unmark a mesh turn. Nothing is
+ * printed but what lets the turn go on.
+ */
+async function started(agent: AgentHook, o: HookOptions): Promise<HookAnswer> {
+  const go = agent.go ?? "";
+  if (agent.start === undefined) return { out: go, why: "this agent has no turn-start entry" };
+  const payload = readPayload(o.input);
+  if (payload === undefined || !agent.start(payload)) return { out: go, why: "not a turn-start payload this agent sends" };
+  const found = await locate(o).catch(cannotTell);
+  if (typeof found === "string") return { out: go, why: `nothing written: ${found}` };
+  if ((await readText(found.files.presencePath).catch(() => undefined))?.trim() === "busy-mesh") return { out: go, why: "a mesh turn runs: busy-mesh kept" };
+  return writeAtomic(found.files.presencePath, "busy", found.env).then(
+    () => ({ out: go, why: "busy" }),
+    (error: unknown) => ({ out: go, why: `busy not written: ${(error as Error).message}` }),
+  );
+}
+
+/** The payload as a JSON object, or undefined. */
+function readPayload(input: string | undefined): Payload | undefined {
   if (input === undefined) return undefined;
   let value: unknown;
   try {
@@ -163,7 +205,7 @@ function readStop(agent: AgentHook, input: string | undefined): Stop | undefined
   } catch {
     return undefined;
   }
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? agent.read(value as Payload) : undefined;
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Payload) : undefined;
 }
 
 /** How many items wait for this agent session and announce something new, or why there is no wake. */
@@ -175,10 +217,10 @@ async function waiting(o: HookOptions, sessionKey: string): Promise<number | str
   const now = o.now();
   const paused = new Set((await readPauses(files.breakerPath, now)).map((p) => p.peer));
   const items = (await new Spool(files.spoolDir, env, 0).unread()).filter((i) => counts(i, config, paused));
-  if (items.length === 0) return settle(found, "nothing waiting");
+  if (items.length === 0) return settle(found, "nothing waiting", now);
   const newest = Math.max(...items.map((i) => i.cursor));
   const why = await announce(files, sessionKey, newest, now, env);
-  return why === undefined ? items.length : why === NOTHING_NEW ? settle(found, why) : why;
+  return why === undefined ? items.length : why === NOTHING_NEW ? settle(found, why, now) : why;
 }
 
 type Located = { mesh: MeshFiles; files: SessionFiles; env: FsEnv };
@@ -194,12 +236,17 @@ async function locate(o: HookOptions): Promise<Located | string> {
 }
 
 /**
- * A turn end that lets the agent stop: the session's presence reads `idle`, which ends a mesh turn
- * the hook asked for. One that cannot be written is left as it was: a session still marked
- * `busy-mesh` only marks more of what it sends as derived.
+ * A turn end that lets the agent stop: the session's presence reads a new turn mark, `idle <n>`,
+ * which ends a mesh turn the hook asked for, and which the client reports as idle even when the
+ * session was idle already. `n` is the time, or one above the mark it replaces when the clock has
+ * not passed it, and never longer than the client reads. One that cannot be written is left as it
+ * was: a session still marked `busy-mesh` only marks more of what it sends as derived.
  */
-async function settle(at: Located, why: string): Promise<string> {
-  return writeAtomic(at.files.presencePath, "idle", at.env).then(
+async function settle(at: Located, why: string, now: number): Promise<string> {
+  const before = IDLE_MARK.exec((await readText(at.files.presencePath).catch(() => undefined))?.trim() ?? "");
+  const prev = before === null ? -1 : Number(before[1]);
+  const mark = prev >= now && prev < MARK_MAX ? prev + 1 : now;
+  return writeAtomic(at.files.presencePath, `idle ${mark}`, at.env).then(
     () => why,
     (error: unknown) => `${why}; idle not written: ${(error as Error).message}`,
   );

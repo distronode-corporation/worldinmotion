@@ -887,6 +887,14 @@ acknowledges the cursor (section 7), so the client receives it once it runs agai
 connection or after reconnecting. `routed` never meant read; a sender that needs to know waits for
 the `delivered` receipt.
 
+**Presence.** A session reports `presence { status: "busy" }` while its agent works on a turn and
+`presence { status: "idle" }` when the turn ends. The relay fires idle notices on every `idle`
+report, even when the session was idle already, so a client SHOULD report `idle` at each turn end
+of its agent, not only when the status changes. The reference client does: the Claude Code plugin
+writes the status words, and `wim hook`, the turn hook of other agents, writes a new turn mark at
+every turn end that lets the agent stop, which the client sends as `idle`. A client that cannot
+tell a turn end sends nothing new, and a notice armed on it waits until it ends.
+
 **Idle notices.** `notify_idle` asks for one `notice` the next time that session reports `idle` or
 ends. It lapses after 12 hours, and a session may hold at most 16.
 

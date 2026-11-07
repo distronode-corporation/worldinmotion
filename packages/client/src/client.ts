@@ -70,7 +70,7 @@ import { countDropped, droppedNotice, droppedPath, refusedLine, refusesLegacy, s
 import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { isTrusted, noticeText, policyFor, policyLevel } from "./render.ts";
 import { SeenStore, SeqStore } from "./replay.ts";
-import { CLAIM_SHOWN_MS, listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
+import { CLAIM_SHOWN_MS, IDLE_MARK, listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
 import { NeedsSigner } from "./keyring.ts";
 import { PongBudget, type PingRow } from "./ping.ts";
 import { Invites, PendingJoins, screenJoin } from "./joins.ts";
@@ -1715,11 +1715,14 @@ export class MeshSession extends EventEmitter {
 
   private async readPresence(): Promise<void> {
     const read = (await readText(this.files.presencePath))?.trim();
-    // `busy-mesh` (a turn the plugin started with a mesh item) is busy to the relay.
-    const text = read === "busy-mesh" ? "busy" : read;
-    if (text !== "busy" && text !== "idle") return;
-    if (this.sentPresence === text) return;
-    if (this.sendIfOpen({ t: "presence", status: text })) this.sentPresence = text;
+    // `busy-mesh` (a turn the plugin or a hook started with a mesh item) is busy to the relay. A
+    // turn mark (`idle <n>`, from `wim hook`) is idle, and a new mark is a new turn end: it is sent
+    // again even when the session was idle already, so each turn end fires armed notices.
+    const status = read === "busy-mesh" || read === "busy" ? "busy" : read === "idle" || IDLE_MARK.test(read ?? "") ? "idle" : undefined;
+    if (status === undefined) return;
+    const seen = status === "busy" ? status : read!;
+    if (this.sentPresence === seen) return;
+    if (this.sendIfOpen({ t: "presence", status })) this.sentPresence = seen;
   }
 
   /**

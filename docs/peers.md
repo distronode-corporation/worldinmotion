@@ -433,7 +433,12 @@ What it does and does not do:
   `busy-mesh`, so what the agent sends in that turn is marked derived, as in a turn Claude Code
   starts for a message. If it cannot write that mark, it does not ask. A turn end that lets the
   agent stop marks the session `idle` again.
-- **Never an idle session.** The hook runs only when a turn ends. An idle session still sees
+- **Presence.** Every turn end that lets the agent stop reports the session idle to the mesh, also
+  after a turn the person aborted or that failed, so a peer that asked to hear when this session is
+  idle (`notify_when_idle`) is told. With the turn-start entry below as well (`wim hook <agent>
+  start`), peers see the session `busy` while it works. The start entry never clears the mesh-turn
+  mark: only a turn end does.
+- **Never an idle session.** The hook runs only when a turn starts or ends. An idle session still sees
   messages only when it calls `inbox` or `wait`.
 - **Anything unclear lets the agent stop.** That covers a payload it does not recognise, a device
   or mesh it cannot read, or no session it can name for certain. It always exits 0. With
@@ -455,13 +460,13 @@ neither does a process id that the system has since given to another program.
 - **The same state directory.** The hook runs with the agent's environment, not the MCP server's
   `env` block. If you set `WIM_HOME` or `WIM_MESH` there, set it where you start the agent too.
 
-| agent | turn-end wake | how it was checked | hook entry |
-|---|---|---|---|
-| Gemini CLI | yes | live, 2026-11-06 (0.67.0, headless) | `AfterAgent` in `.gemini/settings.json` |
-| Antigravity CLI | yes | live, 2026-11-06 (1.5.2, print mode); interactive mode not checked | `Stop` in `.agents/hooks.json` |
-| Codex CLI | yes | from its documentation, not run | `Stop` in `~/.codex/hooks.json` |
-| Cursor | yes | from its documentation, not run | `stop` in `.cursor/hooks.json` |
-| Copilot CLI | yes | from its documentation, not run | `agentStop` in `.github/hooks/wim.json` |
+| agent | turn-end wake | how it was checked | hook entry | turn-start entry (`start`) |
+|---|---|---|---|---|
+| Gemini CLI | yes | live, 2026-11-06 (0.67.0, headless); the start payload live, 2026-11-07 | `AfterAgent` in `.gemini/settings.json` | `BeforeAgent` |
+| Antigravity CLI | yes | live, 2026-11-06 (1.5.2, print mode); interactive mode not checked | `Stop` in `.agents/hooks.json` | none: `PreInvocation` runs before every model call |
+| Codex CLI | yes | from its documentation, not run | `Stop` in `~/.codex/hooks.json` | `UserPromptSubmit` |
+| Cursor | yes | from its documentation, not run | `stop` in `.cursor/hooks.json` | `beforeSubmitPrompt` |
+| Copilot CLI | yes | from its documentation, not run | `agentStop` in `.github/hooks/wim.json` | `userPromptSubmitted` |
 
 The live checks on 2026-11-06 ran one headless turn each, about 13,000 tokens in all on lite
 models. They confirmed that the hook and `wim mcp` share the process that started `wim mcp`:
@@ -469,7 +474,9 @@ Gemini CLI starts both itself, and Antigravity starts `wim mcp` itself and the h
 shell. The live checks did not run the hook against a mesh; tests replay the captured payloads.
 
 `wim setup` does not write these entries yet. Add them by hand, with the same absolute
-path to `wim.mjs` as in the agent's MCP config.
+path to `wim.mjs` as in the agent's MCP config. The turn-start entry is optional: without it the
+session still reports idle at each turn end, but peers never see it busy. It prints nothing (Cursor:
+`{"continue":true}`), so it never changes the person's prompt.
 
 **Gemini CLI**, in `.gemini/settings.json` (or `~/.gemini/settings.json`); the timeout is in
 milliseconds:
@@ -479,6 +486,9 @@ milliseconds:
   "hooks": {
     "AfterAgent": [
       { "hooks": [{ "type": "command", "command": "node /path/to/wim.mjs hook gemini", "timeout": 10000 }] }
+    ],
+    "BeforeAgent": [
+      { "hooks": [{ "type": "command", "command": "node /path/to/wim.mjs hook gemini start", "timeout": 10000 }] }
     ]
   }
 }
@@ -486,7 +496,8 @@ milliseconds:
 
 **Antigravity CLI**, in `.agents/hooks.json` (or `~/.gemini/config/hooks.json`); the timeout is in
 seconds. Antigravity has no flag for a stop that follows a continuation, so only the hook's own
-record of what it announced bounds it:
+record of what it announced bounds it. It gets no turn-start entry, since `PreInvocation` runs
+before every model call, not once per turn:
 
 ```json
 { "worldinmotion": { "Stop": [{ "type": "command", "command": "node /path/to/wim.mjs hook antigravity", "timeout": 10 }] } }
@@ -496,7 +507,12 @@ record of what it announced bounds it:
 once with `/hooks`. To let Codex stop, the hook prints `{}`, since Codex wants JSON on stdout:
 
 ```json
-{ "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "node /path/to/wim.mjs hook codex", "timeout": 10 }] }] } }
+{
+  "hooks": {
+    "Stop": [{ "hooks": [{ "type": "command", "command": "node /path/to/wim.mjs hook codex", "timeout": 10 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node /path/to/wim.mjs hook codex start", "timeout": 10 }] }]
+  }
+}
 ```
 
 **Cursor**, in `.cursor/hooks.json` (or `~/.cursor/hooks.json`). The hook does not wake a turn the
@@ -504,7 +520,13 @@ person stopped or that failed. Cursor's `loop_count` counts over the whole conve
 hook does not use it:
 
 ```json
-{ "version": 1, "hooks": { "stop": [{ "command": "node /path/to/wim.mjs hook cursor", "timeout": 10 }] } }
+{
+  "version": 1,
+  "hooks": {
+    "stop": [{ "command": "node /path/to/wim.mjs hook cursor", "timeout": 10 }],
+    "beforeSubmitPrompt": [{ "command": "node /path/to/wim.mjs hook cursor start", "timeout": 10 }]
+  }
+}
 ```
 
 **Copilot CLI**, in `.github/hooks/wim.json` (or `~/.copilot/hooks/wim.json`). The hook reads the
@@ -512,7 +534,13 @@ hook does not use it:
 wakes there:
 
 ```json
-{ "version": 1, "hooks": { "agentStop": [{ "type": "command", "bash": "node /path/to/wim.mjs hook copilot", "timeoutSec": 10 }] } }
+{
+  "version": 1,
+  "hooks": {
+    "agentStop": [{ "type": "command", "bash": "node /path/to/wim.mjs hook copilot", "timeoutSec": 10 }],
+    "userPromptSubmitted": [{ "type": "command", "bash": "node /path/to/wim.mjs hook copilot start", "timeoutSec": 10 }]
+  }
+}
 ```
 
 ## A model API as a peer (`wim bot`)

@@ -61,7 +61,10 @@ $WIM_HOME/
       spool/                   inbound items for the agent (see below)
       spool/cursor             last item name the agent has taken
       relayed/                 relayed items, beside the spool: shown to the person, never a turn
-      presence                 "busy", "busy-mesh" or "idle", written by the plugin
+      presence                 "busy", "busy-mesh" or "idle", written by the plugin; or written by
+                               `wim hook`: "busy" at a turn start (never over "busy-mesh"),
+                               "busy-mesh" before a wake, and "idle <n>" (a new turn mark) at
+                               each turn end that lets the agent stop
       held/                    messages held for the person's approval (and approve/refuse marks)
       dismiss/                 dismiss marks for relayed items
       files/                   received files (safe names)
@@ -539,8 +542,9 @@ receipt from it arrives.
   `$.state`), so the text reaches the session once.
 - The mod writes `presence` from `turn.start`/`turn.complete` on the main loop: `idle`, `busy`, or
   `busy-mesh` for a turn a mesh item started. The server watches it, sends `presence` frames
-  (`busy-mesh` is `busy` to the relay), fires `notify_when_idle` notices, and marks what the session
-  sends during a `busy-mesh` turn as derived.
+  (`busy-mesh` is `busy` to the relay; a new `idle <n>` mark from `wim hook` is sent as `idle` even
+  when the session was idle already), and marks what the session sends during a `busy-mesh` turn as
+  derived. The relay fires `notify_when_idle` notices on each `idle` frame (SPEC section 8).
 
 ## Claude Code integration
 

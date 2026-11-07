@@ -62,7 +62,9 @@ body line with a bracket.
   each agent. Gemini CLI and Antigravity CLI were checked live; the other three follow their
   documentation. An idle session still does not wake. The turn it asks for is a mesh turn: the
   session reads `busy-mesh` before the hook asks, so what the agent sends in it is derived, and
-  without that mark there is no wake.
+  without that mark there is no wake. Every turn end that lets the agent stop, aborted and failed
+  turns included, reports the session idle, so `notify_when_idle` now fires for these agents, and
+  an optional turn-start entry (`wim hook <agent> start`) shows it busy while it works.
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device
