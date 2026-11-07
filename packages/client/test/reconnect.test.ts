@@ -84,6 +84,23 @@ describe("connection loss and takeover", () => {
     expect((await peer.send("agent@one", "still you?")).results[0]!.status).toBe("routed");
   });
 
+  it("logs a client notice it cannot write: the new address the relay gave a session", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const holder = await openSession(devices[0]!, mesh, relay, { name: "x", cwd: "/work/a" });
+    open.push(holder);
+    const logs: string[] = [];
+    const s = await MeshSession.open(sessionOpts(devices[0]!, mesh, relay, { name: "x", cwd: "/work/b", log: (l) => logs.push(l) }));
+    open.push(s);
+    const { promises: fs } = await import("node:fs");
+    // A file where the spool directory should be, before the relay names the session x-2.
+    await fs.rm(s.files.spoolDir, { recursive: true, force: true });
+    await fs.writeFile(s.files.spoolDir, "");
+    s.start();
+    await until(() => logs.some((l) => l.startsWith("wim: notice: ")));
+    expect(s.address).toBe("x-2@one");
+  });
+
   it("logs a notice it cannot write, holds presence while offline, and times out a send the relay ignores", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one"]);
