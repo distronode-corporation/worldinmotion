@@ -203,6 +203,13 @@ describe("secretout", () => {
     const [x, y] = await Promise.allSettled([fetchHeldCode(paths), fetchHeldCode(paths)]);
     expect([x.status, y.status].sort()).toEqual(["fulfilled", "rejected"]);
     await h2;
+    // A reader that finds the proof file empty or cut short (written in place, part-way) is told
+    // nothing waits, and connects to nothing.
+    for (const partial of ["", "abc"]) {
+      await fs.writeFile(paths.proof, partial);
+      await expect(fetchHeldCode(paths)).rejects.toThrow(/no recovery code is waiting \(it is offered for at most/);
+    }
+    await fs.rm(paths.proof);
     // Neither a socket in a missing directory nor (on Windows) a path that is not a pipe can listen.
     for (const platform of ["linux", "win32"]) {
       await expect(holdForShow({ ...paths, socket: join(dir, "missing", "deep", "r.sock") }, "C", { ms: 10, signal: new AbortController().signal, platform })).rejects.toThrow();
@@ -292,7 +299,7 @@ describe("holding a code for a person", () => {
     again.abort();
     expect(await held2).toBe(false);
     // A proof left behind with nothing listening: the connection fails, and the fetch says so.
-    await fs.writeFile(paths.proof, "left behind");
+    await fs.writeFile(paths.proof, "l".repeat(43));
     await expect(fetchHeldCode(paths)).rejects.toThrow(/no invite code is waiting \(it is offered/);
     await fs.rm(paths.proof);
     // A proof that cannot be written closes the socket or pipe again and fails the hold.

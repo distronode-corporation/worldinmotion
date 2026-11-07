@@ -277,3 +277,55 @@ export function describeMessage(to: string, text: string): string {
     `Last line: ${cut(last)}`,
   ].join('\n')
 }
+
+/**
+ * The flags of `/wim test` passed on to `wim test`: only what the person typed, and only `--full`
+ * and `--relay <url>`. Not `--person`, which needs a terminal of the person's own, and not
+ * `--key-env NAME`: that sends the named variable's value to the relay named, and from a chat a
+ * slip or a suggestion injected into it could send any variable to any relay, so a keyed relay
+ * is tested from a terminal. Undefined for anything else, which gets the usage.
+ */
+export function testArgs(words: readonly string[]): string[] | undefined {
+  const out: string[] = []
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]!
+    if (w === '--full') out.push(w)
+    else if (w === '--relay' && words[i + 1] !== undefined && !words[i + 1]!.startsWith('--')) out.push(w, words[++i]!)
+    else return undefined
+  }
+  return out
+}
+
+const TEST_MARKS: Record<string, string> = { pass: 'PASS', fail: 'FAIL', skip: 'skip' }
+
+/** The report on the last line of what `wim test --json` wrote, or undefined when there is none. */
+export function parseTestReport(stdout: string): { ok: boolean; steps: Record<string, unknown>[] } | undefined {
+  let value: unknown
+  try {
+    value = JSON.parse(stdout.trim().split('\n').at(-1)!)
+  } catch {
+    return undefined
+  }
+  if (!isRecord(value) || typeof value['ok'] !== 'boolean' || !Array.isArray(value['steps'])) return undefined
+  return { ok: value['ok'], steps: value['steps'].filter(isRecord) }
+}
+
+/**
+ * The table `/wim test` shows from what `wim test --json` wrote: one row per step, its mark first,
+ * then the outcome. Without a report, the client's last stderr line says why.
+ */
+export function testReport(stdout: string, stderr: string): string {
+  const report = parseTestReport(stdout)
+  if (report === undefined) {
+    const why = stderr.trim().split('\n').at(-1)!
+    return `The self-test did not finish: ${why === '' ? 'the client wrote no report' : why}`
+  }
+  const text = (v: unknown): string => String(v)
+  const width = Math.max(0, ...report.steps.map(s => text(s['name']).length))
+  const rows = report.steps.map(s => {
+    const detail = s['detail'] === undefined ? '' : `  ${text(s['detail']).replace(/\s+/g, ' ')}`
+    return `${TEST_MARKS[text(s['result'])] ?? text(s['result'])}  ${text(s['name']).padEnd(width)}  ${text(s['ms'])} ms${detail}`
+  })
+  const count = (r: string): number => report.steps.filter(s => s['result'] === r).length
+  return [...rows, `${report.ok ? 'PASSED' : 'FAILED'}: ${report.steps.length} steps, ${count('pass')} passed, ${count('fail')} failed, ${count('skip')} skipped.`].join('\n')
+}

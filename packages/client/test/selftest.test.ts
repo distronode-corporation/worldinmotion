@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { main } from "../src/cli.ts";
 import { notAPerson } from "../src/secretout.ts";
@@ -23,7 +24,10 @@ import {
   SandboxError,
   sandboxDialer,
   sandboxFetch,
+  SANDBOX_MARK,
   selfTest,
+  STALE_MS,
+  sweepStale,
   waitFor,
   type Run,
   type Step,
@@ -119,6 +123,42 @@ describe("the runner and its report", { timeout: 30_000 }, () => {
   it("fails a step that runs past its time", async () => {
     const rows = await runSteps([{ name: "hangs", run: () => new Promise(() => undefined) }], () => Promise.resolve(), new AbortController().signal, 30);
     expect(rows).toMatchObject([{ name: "hangs", result: "fail", detail: "timed out after 0.03 s" }]);
+  });
+
+  it("stops at a line `stop` on a piped stdin, which a program that started it sends (a kill on Windows allows no clean-up)", async () => {
+    const { io, real } = await caller();
+    const stdin = new PassThrough();
+    let root = "";
+    const code = await selfTest({
+      main,
+      env: real.env,
+      io: { ...io.io, stdin, inputIsTTY: false },
+      json: false,
+      steps: (run: Run) => [
+        { name: "open", run: async () => {
+          await run.open();
+          root = run.box!.root;
+          stdin.write("something else\n");
+          stdin.write("stop\n");
+          await new Promise(() => undefined);
+        } },
+        pass("next"),
+      ],
+    });
+    expect(code).toBe(1);
+    const out = io.out.join("\n");
+    expect(out).toMatch(/^ {2}fail {2}open .*stopped$/m);
+    expect(out).toMatch(/^ {2}skip {2}next .*stopped$/m);
+    expect(out).toMatch(/^ {2}pass {2}remove the sandbox/m);
+    await expect(fs.lstat(root)).rejects.toThrow();
+  });
+
+  it("does not start when stopped before it began", async () => {
+    const { io, real } = await caller();
+    const stop = new AbortController();
+    stop.abort();
+    expect(await selfTest({ main, env: real.env, io: { ...io.io, signal: stop.signal }, json: false, steps: () => [pass("one")] })).toBe(1);
+    expect(io.out.join("\n")).toMatch(/^ {2}skip {2}one .*stopped$/m);
   });
 
   it("stops at Ctrl-C: the sandbox devices' commands are stopped and the rest is skipped", async () => {
@@ -226,6 +266,68 @@ describe("the isolation rules, against hostile input", { timeout: 30_000 }, () =
     expect(out).toMatch(/fail {2}start the sandbox relay on loopback .*is inside this device's state/);
     expect(out).toMatch(/^ {2}pass {2}remove the sandbox/m);
     expect(await snapshot(real.root)).toEqual(before);
+  });
+
+  it("removes run directories left behind more than a day ago, marked as runs, and nothing else", async () => {
+    const base = await scratch("sweep");
+    const old = (Date.now() - STALE_MS - 60_000) / 1000;
+    const marked = async (name: string, aged: boolean): Promise<string> => {
+      const dir = join(base, name);
+      await fs.mkdir(dir);
+      await fs.writeFile(join(dir, SANDBOX_MARK), "");
+      await fs.writeFile(join(dir, "keep.txt"), "x");
+      if (aged) await fs.utimes(join(dir, SANDBOX_MARK), old, old);
+      return dir;
+    };
+    const stale = await marked("wim-test-stale", true);
+    const young = await marked("wim-test-young", false);
+    const named = await marked("not-a-run", true);
+    // Old, but not marked: a directory of someone else's that happens to have the name.
+    const unmarked = join(base, "wim-test-unmarked");
+    await fs.mkdir(unmarked);
+    // A link named like a run, to an old marked run elsewhere: refused, and its target kept.
+    const outside = join(await scratch("outside"), "run");
+    await fs.mkdir(outside);
+    await fs.writeFile(join(outside, SANDBOX_MARK), "");
+    await fs.utimes(join(outside, SANDBOX_MARK), old, old);
+    await fs.symlink(outside, join(base, "wim-test-link"), "junction");
+    // A file named like a run, and a run whose mark is a directory.
+    await fs.writeFile(join(base, "wim-test-file"), "x");
+    const odd = join(base, "wim-test-odd");
+    await fs.mkdir(join(odd, SANDBOX_MARK), { recursive: true });
+    expect(await sweepStale(base, Date.now())).toEqual([stale]);
+    for (const kept of [young, named, unmarked, join(base, "wim-test-file"), odd, join(outside, SANDBOX_MARK)]) await fs.lstat(kept);
+    await expect(fs.lstat(stale)).rejects.toThrow();
+    // A base that cannot be read has nothing to sweep.
+    expect(await sweepStale(join(base, "missing"), Date.now())).toEqual([]);
+  });
+
+  it("skips, and never fails on, a run directory that is another user's, gone before it is read, or cannot be removed", async () => {
+    const base = await scratch("sweep2");
+    const old = (Date.now() - STALE_MS - 60_000) / 1000;
+    const dir = join(base, "wim-test-planted");
+    await fs.mkdir(dir);
+    await fs.writeFile(join(dir, SANDBOX_MARK), "");
+    await fs.utimes(join(dir, SANDBOX_MARK), old, old);
+    const mine = (await fs.lstat(dir)).uid;
+    const real = { lstat: fs.lstat, rm: fs.rm };
+    // Another user's (on a shared /tmp): not ours to remove.
+    expect(await sweepStale(base, Date.now(), { ...real, uid: mine + 1 })).toEqual([]);
+    // Gone between the listing and its lstat (another run sweeping at once).
+    const gone = (async (path: string) => (path === dir ? Promise.reject(new Error("ENOENT")) : fs.lstat(path))) as typeof fs.lstat;
+    expect(await sweepStale(base, Date.now(), { ...real, lstat: gone, uid: mine })).toEqual([]);
+    // Its removal fails (files another user put inside): skipped, the run goes on.
+    const refused = (async () => Promise.reject(new Error("EACCES"))) as typeof fs.rm;
+    expect(await sweepStale(base, Date.now(), { ...real, rm: refused, uid: mine })).toEqual([]);
+    await fs.lstat(dir);
+    // With no owners to compare (Windows), and with the right one, it goes.
+    expect(await sweepStale(base, Date.now(), { ...real, uid: undefined })).toEqual([dir]);
+  });
+
+  it("marks each run's directory, so a later run can tell it is one", async () => {
+    const box = await Sandbox.open(await scratch("box"), []);
+    expect((await fs.lstat(join(box.root, SANDBOX_MARK))).isFile()).toBe(true);
+    await box.remove();
   });
 
   it("refuses a state directory that already exists, made or not", async () => {
