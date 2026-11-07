@@ -429,6 +429,10 @@ What it does and does not do:
   - held messages, or anything from a device you do not trust;
   - relayed text, CI notices, or notices for the person;
   - anything from a device the loop breaker has paused.
+- **The extra turn is a mesh turn.** Before it asks for the turn, the hook marks the session
+  `busy-mesh`, so what the agent sends in that turn is marked derived, as in a turn Claude Code
+  starts for a message. If it cannot write that mark, it does not ask. A turn end that lets the
+  agent stop marks the session `idle` again.
 - **Never an idle session.** The hook runs only when a turn ends. An idle session still sees
   messages only when it calls `inbox` or `wait`.
 - **Anything unclear lets the agent stop.** That covers a payload it does not recognise, a device

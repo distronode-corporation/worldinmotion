@@ -60,7 +60,9 @@ body line with a bracket.
   agent session started, which `wim mcp` now records in its session directory (`ancestry.json`)
   while it runs. Add the hook entry by hand for now: [docs/peers.md](docs/peers.md) has it for
   each agent. Gemini CLI and Antigravity CLI were checked live; the other three follow their
-  documentation. An idle session still does not wake.
+  documentation. An idle session still does not wake. The turn it asks for is a mesh turn: the
+  session reads `busy-mesh` before the hook asks, so what the agent sends in it is derived, and
+  without that mark there is no wake.
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device
