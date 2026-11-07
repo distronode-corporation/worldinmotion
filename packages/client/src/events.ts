@@ -597,7 +597,9 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   await follow(true);
   held = await heldNow();
   joins = remember(await joinsNow(), joinKey);
-  // Devices are part of the first snapshot, not changes before it.
+  // Devices are part of the first snapshot, not changes before it: the baseline carries who added
+  // each, so the first poll does not report every device as changed.
+  await readAdders();
   devices = remember(deviceRows(), (r) => r["id"] as string);
   s.start();
 

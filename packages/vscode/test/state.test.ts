@@ -206,8 +206,8 @@ describe("askAbout", () => {
     expect(s.askAbout(device("build"), none)).toBe(false);
     expect(s.askAbout(device("build", { added_by: "buildbox", policy: "deliver" }), none)).toBe(false);
     expect(s.askAbout(device("laptop", { added_by: "buildbox", self: true }), none)).toBe(false);
-    // Before the snapshot, no device is this one: any adder counts as another device.
-    expect(new Store().askAbout(device("build", { added_by: "laptop" }), none)).toBe(true);
+    // Before a snapshot named this device, nothing is asked.
+    expect(new Store().askAbout(device("build", { added_by: "buildbox" }), none)).toBe(false);
   });
 });
 

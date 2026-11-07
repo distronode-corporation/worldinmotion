@@ -121674,6 +121674,7 @@ async function runEvents(d5) {
   await follow(true);
   held2 = await heldNow();
   joins = remember(await joinsNow(), joinKey);
+  await readAdders();
   devices2 = remember(deviceRows2(), (r6) => r6["id"]);
   s3.start();
   let busy = false;

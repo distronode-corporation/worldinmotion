@@ -1,6 +1,7 @@
 // `wim events --json` adding a device (docs/events.md): `invite` and `admit` on an admin device,
 // `join` events for waiting requests, and setup mode, where a device in no mesh yet joins one.
 
+import { parseInvite } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
@@ -165,7 +166,7 @@ describe("own-device trust through wim events", () => {
       const made = (await e.request("invite", own === undefined ? {} : { own }))["result"] as { code: string; invite: string };
       expect((await invites.get(made.invite))!.own).toBe(own === true ? true : undefined);
       // The answer is never in the code: an invite code is a strict schema.
-      expect(made.code).not.toMatch(/own/i);
+      expect(Object.keys(parseInvite(made.code))).not.toContain("own");
       const d = await newDevice(name);
       let sas = "";
       const joined = joinMesh({ home: d.home, device: d.device, code: made.code, dialer: relay.dialer, now: Date.now, showSas: (x) => (sas = x) });

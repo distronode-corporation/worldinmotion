@@ -90,8 +90,9 @@ export class Store {
    * marked it Not Mine. One this device admitted was decided when it was invited.
    */
   askAbout(row: DeviceRow, notMine: { has(id: string): boolean }): boolean {
+    // Before a snapshot named this device, nothing is asked: a row cannot be told apart from one it added.
     const me = [...this.devices.values()].find((r) => r.self)?.name;
-    return !row.self && row.policy === "hold" && row.added_by !== undefined && row.added_by !== me && !notMine.has(row.id);
+    return me !== undefined && !row.self && row.policy === "hold" && row.added_by !== undefined && row.added_by !== me && !notMine.has(row.id);
   }
 
   /** This process's own session address, once `hello` has arrived. */

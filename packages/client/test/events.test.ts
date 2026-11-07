@@ -87,6 +87,9 @@ describe("wim events --json", () => {
     await until(() => e.of("lease").some((l) => l["released"] === true));
     await peer.acquireLease("again", 60_000, false);
     await until(() => e.of("lease").some((l) => l["holder"] === "peer@two"));
+    // Polls ran meanwhile, and nothing about the devices changed: no device line (the baseline
+    // before the first snapshot already carried who added each).
+    expect(e.of("device")).toEqual([]);
     // Presence and cards change peer rows.
     await fs.writeFile(peer.files.presencePath, "busy");
     await until(() => e.of("peer").some((p) => p["address"] === "peer@two" && p["status"] === "busy"));
