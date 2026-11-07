@@ -42,7 +42,7 @@ import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from ".
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
 import { selfTest } from "./selftest.ts";
 
-export const VERSION = "0.1.9";
+export const VERSION = "0.1.10";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {

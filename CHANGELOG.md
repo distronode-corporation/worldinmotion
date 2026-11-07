@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-11-07
+
 ### Added
 
 - **CI rules can name a tag or branch pattern.** A rule's ref may end in one `*` and match every
@@ -90,7 +92,7 @@ body line with a bracket.
   `/v1/info`), and [docs/hosted-relay.md](docs/hosted-relay.md) now says so, with what the relay
   sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
   where to find them.
-- A rule saved by 0.1.9 whose ref ends in * (which matched nothing then) is a ref pattern from 0.1.10.
+- A rule saved by 0.1.9 whose ref ends in `*` (which matched nothing then) is a ref pattern from 0.1.10.
 - **relay-node loads `node:sqlite` when a relay starts**, not when the package is imported, so the
   client can bundle it for `wim test` without loading SQLite on every command.
 
@@ -919,7 +921,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10
 [0.1.9]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.9
 [0.1.8]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.8
 [0.1.7]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.7

@@ -88542,7 +88542,7 @@ function ciAtFresh(at, now) {
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
 var MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
-var GATEWAY_VERSION = "0.1.9";
+var GATEWAY_VERSION = "0.1.10";
 var EARLY_RESULTS = 64;
 var WimMetadata = external_exports.looseObject({
   to: external_exports.string().optional(),
@@ -130758,7 +130758,7 @@ function sourceKey2(address, secret) {
   return b64u.encode(hmacSha256(secret, utf8(sourceBucket(address)))).slice(0, 22);
 }
 var UNIT = { "": 1, kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3 };
-var RELAY_VERSION = "0.1.9";
+var RELAY_VERSION = "0.1.10";
 function relayInfo(s3) {
   return {
     v: 1,
@@ -131967,6 +131967,17 @@ async function sweepStale(base, now, ops = SWEEP_OPS) {
   }
   return removed;
 }
+var SIGNER_DEVICE = "sig";
+var SHORT_TMP = "/tmp";
+async function runBase(base, platform2, fallback2 = SHORT_TMP) {
+  const fits = async (dir) => {
+    const sock = agentEndpointFor(agentDir(join21(await fs14.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
+    return endpointProblem(sock, platform2) === void 0;
+  };
+  if (await fits(base)) return base;
+  if (await fits(fallback2).catch(() => false)) return fallback2;
+  throw new SandboxError(`the temporary directory ${base} is too long for the signer's socket (at most ${SOCKET_PATH_MAX} bytes): set TMPDIR to a shorter directory`);
+}
 var Sandbox = class _Sandbox {
   root;
   dirs = /* @__PURE__ */ new Map();
@@ -132162,19 +132173,23 @@ var Run2 = class {
   base;
   real;
   mode;
-  constructor(main2, io, base, real, mode) {
+  /** Where a `--full` run goes when `base` is too long for the signer's socket (see `runBase`). */
+  shortTmp;
+  constructor(main2, io, base, real, mode, shortTmp = SHORT_TMP) {
     this.main = main2;
     this.io = io;
     this.base = base;
     this.real = real;
     this.mode = mode;
+    this.shortTmp = shortTmp;
   }
   check() {
     return this.box?.check() ?? Promise.resolve();
   }
   /** The sandbox and its relay: one started here on loopback, or the live relay named, after reading its `/v1/info`. */
   async open() {
-    this.box = await Sandbox.open(this.base, this.real);
+    const base = this.mode.full ? await runBase(this.base, this.io.platform, this.shortTmp) : this.base;
+    this.box = await Sandbox.open(base, this.real);
     if (this.mode.live !== void 0) {
       this.box.attach(this.mode.live, true);
       this.info = await fetchRelayInfo(this.mode.live, this.fetcher());
@@ -132408,8 +132423,8 @@ function signerStep(run) {
   return {
     name: "the signer: encrypt, start, lock, unlock, stop",
     run: async () => {
-      const sig = await run.device("sig");
-      await run.ok(sig, ["init", "--name", "sig"]);
+      const sig = await run.device(SIGNER_DEVICE);
+      await run.ok(sig, ["init", "--name", SIGNER_DEVICE]);
       need((await run.ok(sig, ["agent", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
       const running2 = /Signer running in the foreground \(pid \d+\) at (.+)\. Ctrl-C/;
       const first = await run.background(sig, ["agent", "start", "--foreground"], running2);
@@ -132603,7 +132618,7 @@ async function selfTest(o3) {
     ...o3.relay === void 0 ? {} : { live: o3.relay },
     ...o3.keyEnv === void 0 ? {} : { keyEnv: { name: o3.keyEnv, value: o3.env[o3.keyEnv] } }
   };
-  const run = new Run2(o3.main, o3.io, o3.tmp ?? tmpdir(), [choice.root, choice.base], mode);
+  const run = new Run2(o3.main, o3.io, o3.tmp ?? tmpdir(), [choice.root, choice.base], mode, o3.shortTmp);
   const stopped = stopSignal(o3.io, mode.person);
   const onAbort = () => run.terms.forEach((t2) => t2.stop.abort());
   stopped.signal.addEventListener("abort", onAbort, { once: true });
@@ -132627,7 +132642,7 @@ async function selfTest(o3) {
 }
 
 // src/cli.ts
-var VERSION = "0.1.9";
+var VERSION = "0.1.10";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 var COMMON_FLAGS = ["mesh", "help"];
