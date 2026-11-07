@@ -266,8 +266,9 @@ wim1_<b64u(canon({ "relay": "wss://relay.example", "mesh": "<mesh id>", "secret"
 - `by` (from 0.2.0) names the admin device that made the invite. Every admin receives a join
   request, so the roster that adds the joiner may be signed by another admin; the joiner treats
   the signer as the invite's maker only when it is `by` (section 6a). A code without `by` (from an
-  earlier client) names no maker. A client before 0.2.0 refuses a code that carries `by`, since the
-  code is a strict schema: such a device joins with an invite from a client of its own version.
+  earlier client) names no maker. 0.1.11 accepts and ignores `by`; 0.1.10 and older refuse a code
+  that carries it, since the code is a strict schema: such a device joins with an invite from a
+  client of its own version.
 
 - `inviteId` = `b64u(H(UTF-8("wim/1 invite " + b64u(secret))))` truncated to 22 characters. The
   admin registers only the `inviteId`, `exp` and `pin` with the relay
