@@ -132384,9 +132384,10 @@ async function joinThroughInvite(run, name) {
 function arrived(s3, text2) {
   return waitFor(async () => (await s3.spool.unread()).find((i6) => i6.rendered.includes(text2)), 15e3, `${JSON.stringify(text2)} at ${s3.address}`);
 }
+var literally = (text2) => text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 async function heldId(run, dev, from) {
   const list3 = await run.ok(dev, ["held", "list"]);
-  return grab(list3, new RegExp(`^(\\S+)  ${from.replace(/[.@-]/g, "\\$&")} -> `, "m"), `held message from ${from}`);
+  return grab(list3, new RegExp(`^(\\S+)  ${literally(from)} -> `, "m"), `held message from ${from}`);
 }
 var TRIP = { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, cooldownMinutes: 60 };
 function ciStep(run) {
