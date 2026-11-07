@@ -95,11 +95,15 @@ export function ciText(entry: HeldItem["entry"]): string {
   return sanitizeForDisplay(parts.join(", ")).replace(/\s+/g, " ");
 }
 
-/** The ids a pin-carrying notice would pin, as `key=value` pairs. */
+/**
+ * The ids a pin-carrying notice would pin, as `key=value` pairs. They come from the CI job's claims,
+ * so they are escaped like its other claims and kept to one line.
+ */
 export function pinText(pins: Record<string, string>): string {
-  return Object.entries(pins)
+  const text = Object.entries(pins)
     .map(([k, v]) => `${k}=${v}`)
     .join(" ");
+  return sanitizeForDisplay(text).replace(/\s+/g, " ");
 }
 
 /**

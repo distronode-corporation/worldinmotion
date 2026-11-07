@@ -222,6 +222,20 @@ function approvable(set: HeldSet): string[] {
   return set.ids.filter((id) => set.rows.find((r) => r.id === id)!.pins === undefined);
 }
 
+/** "Keep them held": the modal's first button, so Enter decides nothing. */
+export const KEEP: vscode.MessageItem = { title: "Keep them held" };
+/** The close affordance: Escape and the dialog's close button decide nothing. */
+export const CANCEL: vscode.MessageItem = { title: "Cancel", isCloseAffordance: true };
+
+/**
+ * The modal's buttons. VS Code makes the first button that is not the close affordance the default
+ * (Enter), so that one is KEEP, which decides nothing; Escape is CANCEL. Approving or refusing, all
+ * or one, is always a deliberate click.
+ */
+export function decisionButtons(...decisions: (vscode.MessageItem | undefined)[]): vscode.MessageItem[] {
+  return [KEEP, ...decisions.filter((b): b is vscode.MessageItem => b !== undefined), CANCEL];
+}
+
 /**
  * Approve or refuse: a modal (an agent driving the editor cannot answer it) that shows the whole
  * set first. "All" decides exactly the ids it showed; "only this one" is offered only when the
@@ -233,15 +247,14 @@ async function decide(d: Deps, arg: unknown, op: "approve" | "refuse"): Promise<
   const { set, item } = chosen;
   const covered = op === "approve" ? approvable(set) : set.ids;
   const verb = op === "approve" ? "Approve" : "Refuse";
-  const all = covered.length === 0 ? undefined : `${verb} all ${covered.length}`;
-  const only = item === undefined || (op === "approve" && item.pins !== undefined) ? undefined : `${verb} only this one`;
-  const buttons = [all, only].filter((b): b is string => b !== undefined);
+  const all = covered.length === 0 ? undefined : { title: `${verb} all ${covered.length}` };
+  const only = item === undefined || (op === "approve" && item.pins !== undefined) ? undefined : { title: `${verb} only this one` };
   const choice = await vscode.window.showWarningMessage(
     `${verb} ${covered.length === set.ids.length ? setCount(set) : `${covered.length} of ${setCount(set)}`} held from ${oneLine(set.title, 100)}?`,
     { modal: true, detail: setDetail(set, op) },
-    ...buttons,
+    ...decisionButtons(all, only),
   );
-  if (choice === undefined) return;
+  if (choice === undefined || (choice !== all && choice !== only)) return;
   try {
     if (choice === only) {
       await d.client.request(op, { held: item!.id });

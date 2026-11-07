@@ -23,7 +23,8 @@ body line with a bracket.
   drawn stays held. `wim held approve <id>` asks `all` or `one`; a set of one keeps the old prompt.
   `wim events` takes `set` on `approve` and `refuse`, checks it is one set before deciding, and its
   held rows carry `set`, `set_title`, `ci` and `pins`. The VS Code dialog is modal and lists the
-  set, with "Approve only this one" when started from a row. A CI notice that pins its rule's ids
+  set, with "Approve only this one" when started from a row; its default button (Enter) is "Keep them
+  held" and Escape cancels, so approving is always a deliberate click. A CI notice that pins its rule's ids
   is never in "approve all" (refusing the set covers it), and approving a breaker set keeps the
   pause on and says how to resume it. This closes the gap docs/security-teams.md named (the held
   view showed one item at a time).

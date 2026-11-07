@@ -1100,7 +1100,7 @@ a CI notice whose approval pins its rule's ids (section 6.17): each of those is 
 and approved on its own at the person's terminal; refusing the set covers it. Deciding one item
 alone stays possible, only as an explicit choice after the whole set was shown (`one` at the
 command line, "Approve only this one" in the VS Code dialog started from that item, the per-item
-buttons under the set in the pane). The VS Code dialog is modal. Who decides does not change: the
+buttons under the set in the pane). The VS Code dialog is modal, and neither Enter (its default button, "Keep them held") nor Escape decides anything. Who decides does not change: the
 same person-only rule below guards every path.
 
 **Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume`,

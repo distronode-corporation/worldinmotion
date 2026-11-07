@@ -217,7 +217,7 @@ describe("approve and refuse", () => {
     fake.state.messageAnswers.push("Approve all 3");
     await actions.approve(d, d.nodes.held("vscode@laptop", "h2"));
     const shown = fake.state.messages[0]!;
-    expect(shown).toMatchObject({ level: "warning", message: "Approve 3 messages held from device buildbox (device id dev-buildbox)?", items: ["Approve all 3", "Approve only this one"] });
+    expect(shown).toMatchObject({ level: "warning", message: "Approve 3 messages held from device buildbox (device id dev-buildbox)?", items: ["Keep them held", "Approve all 3", "Approve only this one", "Cancel"] });
     expect((shown.options as { modal: boolean }).modal).toBe(true);
     const detail = (shown.options as { detail: string }).detail;
     expect(detail).toMatch(/^3 messages held from device buildbox \(device id dev-buildbox\), from .+ to .+\. Read them together: they are decided as one\./);
@@ -230,10 +230,29 @@ describe("approve and refuse", () => {
     // From the set's own row there is no "only this one".
     fake.state.messageAnswers.push("Refuse all 3");
     await actions.refuse(d, d.nodes.heldSet("device:dev-buildbox"));
-    expect(fake.state.messages.at(-2)!.items).toEqual(["Refuse all 3"]);
+    expect(fake.state.messages.at(-2)!.items).toEqual(["Keep them held", "Refuse all 3", "Cancel"]);
     expect((fake.state.messages.at(-2)!.options as { detail: string }).detail).toContain("Refuse all drops exactly these 3, never delivered.");
     expect(calls.at(-1)).toMatchObject({ op: "refuse", args: { held: "h1", set: ["h1", "h2", "h3"] } });
     expect(last()!.message).toBe("worldinmotion: refused 3.");
+  });
+
+  it("makes the default button (Enter) and the close affordance (Escape) decide nothing; every decision is a deliberate click", async () => {
+    expect(actions.decisionButtons({ title: "Approve all 2" }, undefined, { title: "Approve only this one" })).toEqual([
+      { title: "Keep them held" },
+      { title: "Approve all 2" },
+      { title: "Approve only this one" },
+      { title: "Cancel", isCloseAffordance: true },
+    ]);
+    // VS Code takes the close affordance out of the row and makes the first other button the default.
+    const buttons = actions.decisionButtons({ title: "Approve all 2" });
+    expect(buttons.filter((b) => b.isCloseAffordance === true)).toEqual([actions.CANCEL]);
+    expect(buttons.find((b) => b.isCloseAffordance !== true)).toBe(actions.KEEP);
+    const { d, calls } = deps(three(), async () => ({}));
+    fake.state.messageAnswers.push("Keep them held", "Cancel");
+    await actions.approve(d, d.nodes.held("vscode@laptop", "h1"));
+    await actions.refuse(d, d.nodes.heldSet("device:dev-buildbox"));
+    expect(fake.state.messages.map((m) => m.raw[0])).toEqual([actions.KEEP, actions.KEEP]);
+    expect(calls).toEqual([]);
   });
 
   it("decides one item only by its own button after the set was shown, and nothing on dismiss", async () => {
@@ -262,7 +281,7 @@ describe("approve and refuse", () => {
     fake.state.messageAnswers.push("Approve only this one");
     await actions.approve(d, d.nodes.held("vscode@laptop", "c1"));
     const m = fake.state.messages[0]!;
-    expect(m.items).toEqual(["Approve all 1"]);
+    expect(m.items).toEqual(["Keep them held", "Approve all 1", "Cancel"]);
     const detail = (m.options as { detail: string }).detail;
     expect(detail).toContain("2 CI notices held from CI rule github o/r");
     expect(detail).toContain("      CI: github, o/r, refs/heads/main");
@@ -285,7 +304,7 @@ describe("approve and refuse", () => {
     const only = mesh({ held: [heldRow("p", { ...ci, pins: "repositoryId=1 ownerId=2" })] });
     const o = deps(only, async () => ({}));
     await actions.approve(o.d, o.d.nodes.heldSet("ci:R1"));
-    expect(fake.state.messages.at(-1)!.items).toEqual([]);
+    expect(fake.state.messages.at(-1)!.items).toEqual(["Keep them held", "Cancel"]);
     expect(o.calls).toEqual([]);
   });
 
@@ -319,7 +338,7 @@ describe("approve and refuse", () => {
     fake.state.messageAnswers.push("Approve all 3");
     await actions.approve(d, undefined);
     expect(fake.state.quickPicks[0]!.items[0]).toMatchObject({ description: expect.stringMatching(/^3 messages, from /), detail: "preview" });
-    expect(fake.state.messages[0]!.items).toEqual(["Approve all 3"]);
+    expect(fake.state.messages[0]!.items).toEqual(["Keep them held", "Approve all 3", "Cancel"]);
     expect(calls.map((c) => c.args)).toEqual([{ held: "h1", set: ["h1", "h2", "h3"] }]);
     await actions.refuse(d, undefined);
     expect(calls.length).toBe(1);

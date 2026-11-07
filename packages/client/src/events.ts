@@ -205,7 +205,6 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     joins = next;
   }
 
-  /** Every held item on this device, keyed by holding session and id. */
   /** Decides one held id wherever it is held; false when nothing held it. */
   async function decideOne(id: string, verdict: Verdict): Promise<boolean> {
     // This process decides its own items itself (it can send the receipt); others on disk.
@@ -241,6 +240,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     return { decided, kept };
   }
 
+  /** Every held item on this device, keyed by holding session and id. */
   async function heldNow(): Promise<Map<string, { sid: string; row: Row }>> {
     const out = new Map<string, { sid: string; row: Row }>();
     const rules = await loadCiRules(d.mesh.ciRulesPath).catch(() => []);

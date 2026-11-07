@@ -53,7 +53,7 @@ exports.run = async function run() {
   assert.equal(api.store.held.size, 1);
   const asked = [];
   const original = vscode.window.showWarningMessage;
-  vscode.window.showWarningMessage = (message, options, ...items) => (asked.push({ message, options, items }), Promise.resolve(items[0]));
+  vscode.window.showWarningMessage = (message, options, ...items) => (asked.push({ message, options, items }), Promise.resolve(items.find((i) => i.title === "Approve all 1")));
   try {
     await vscode.commands.executeCommand("worldinmotion.approve", api.nodes.held("vscode@laptop", HELD));
   } finally {
@@ -61,7 +61,8 @@ exports.run = async function run() {
   }
   assert.equal(asked.length, 1, "Approve asked through a modal");
   assert.equal(asked[0].options.modal, true);
-  assert.deepEqual(asked[0].items, ["Approve all 1", "Approve only this one"]);
+  // The default (first) button decides nothing, and Escape is the close affordance.
+  assert.deepEqual(asked[0].items, [{ title: "Keep them held" }, { title: "Approve all 1" }, { title: "Approve only this one" }, { title: "Cancel", isCloseAffordance: true }]);
   assert.match(asked[0].options.detail, /^1 message held from coder@buildbox, at /);
   await waitFor("the held item to go", () => api.store.held.size === 0);
   const log = readFileSync(process.env.WIM_FAKE_LOG, "utf8")

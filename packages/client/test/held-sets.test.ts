@@ -66,6 +66,8 @@ describe("grouping", () => {
     expect(setTitle({ ...plain, from: "ci:github:octo-org/deploys" }, [r])).toMatch(/^CI rule github {2}octo-org\/deploys {2}refs\/heads\/main {2}workflow deploy\.yml/);
     expect(setTitle({ ...plain, from: "ci:github:octo-org/deploys" }, [])).toBe("a CI rule removed while this notice was held");
     expect(pinText({ projectId: "1", namespaceId: "2" })).toBe("projectId=1 namespaceId=2");
+    // Pin values come from a CI job's claims: a control character is escaped, a newline cannot start a line.
+    expect(pinText({ repositoryId: "7\u0007", ownerId: "8\nApprove all 9" })).toBe("repositoryId=7<U+0007> ownerId=8 Approve all 9");
   });
 
   it("shows a notice's claims on one line, and gives a UI the set fields", () => {

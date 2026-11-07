@@ -120789,7 +120789,8 @@ function ciText(entry) {
   return sanitizeForDisplay(parts.join(", ")).replace(/\s+/g, " ");
 }
 function pinText(pins) {
-  return Object.entries(pins).map(([k5, v]) => `${k5}=${v}`).join(" ");
+  const text2 = Object.entries(pins).map(([k5, v]) => `${k5}=${v}`).join(" ");
+  return sanitizeForDisplay(text2).replace(/\s+/g, " ");
 }
 function setFields(item, rules) {
   return {
