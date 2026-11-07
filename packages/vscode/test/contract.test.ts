@@ -5,7 +5,8 @@
 // - every line the real `wim events --json` writes goes through the extension's parser and store;
 // - the plugin's peer line matches the client's own `peers` text for the same sessions;
 // - the extension's and the plugin's policy names, and the extension's trust dialog, match the
-//   client's.
+//   client's;
+// - the extension reads the report the real `wim test --json` prints.
 
 import { copyFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -17,9 +18,12 @@ import { MeshSession } from "../../client/src/client.ts";
 import { runEvents } from "../../client/src/events.ts";
 import { WimMcp } from "../../client/src/mcp.ts";
 import { MeshFiles, parseMeshConfig, trustLevel } from "../../client/src/mesh.ts";
-import { FS, makeMesh, openSession, RelayHarness, sessionOpts, until } from "../../client/test/helpers.ts";
+import { main } from "../../client/src/cli.ts";
+import { selfTest } from "../../client/src/selftest.ts";
+import { FS, makeMesh, openSession, RelayHarness, scratch, sessionOpts, term, until } from "../../client/test/helpers.ts";
 import { TRUST } from "../src/actions.ts";
 import { historyRows, parseLine, POLICIES } from "../src/protocol.ts";
+import { parseReport } from "../src/selftest.ts";
 import { Store } from "../src/state.ts";
 
 /**
@@ -182,5 +186,31 @@ describe("policy names", () => {
     expect(TRUST.trust.policy).toBe(trustLevel("trust", false));
     expect(TRUST.trustRelayed.policy).toBe(trustLevel("trust", true));
     expect(TRUST.untrust.policy).toBe(trustLevel("untrust", false));
+  });
+});
+
+describe("the real wim test --json report, read by the extension", () => {
+  it("has every step with its result, time and detail, and the outcome", async () => {
+    const t = term(await scratch("selftest"), new RelayHarness());
+    const code = await selfTest({
+      main,
+      env: { WIM_HOME: t.io.homedir },
+      io: t.io,
+      json: true,
+      steps: () => [
+        { name: "one", run: async () => undefined },
+        { name: "two", run: () => Promise.reject(new Error("it broke")) },
+        { name: "three", run: async () => undefined },
+      ],
+    });
+    expect(code).toBe(1);
+    const report = parseReport(t.out.join("\n"))!;
+    expect(report).toMatchObject({ ok: false, passed: 2, failed: 1, skipped: 1 });
+    expect(report.steps.map((s) => [s.name, s.result, s.detail])).toEqual([
+      ["one", "pass", undefined],
+      ["two", "fail", "it broke"],
+      ["three", "skip", "an earlier step failed"],
+      ["remove the sandbox", "pass", undefined],
+    ]);
   });
 });

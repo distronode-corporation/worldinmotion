@@ -1278,10 +1278,10 @@ export class MeshRelay {
    * every check by the relay's clock). Synchronous like every other event. Checks, in order: the
    * mesh exists, the per-source budget, the device and whether it takes notices by `via`; for a
    * prekey request the device's newest prekey from its sessions' cards; for a send `at`, the
-   * verified token's rule tag and unused `jti`, the session, then the counting key's rate and the
-   * CI queue, before it routes or queues the notice (for GitLab the rate comes first, and every
-   * outcome but `limited`, a used notice id included, reads `queued`). Answers 404 on a relay
-   * without CI senders. Never stores a token.
+   * verified token's candidate tags (one must be the device's) and unused `jti`, the session, then
+   * the counting key's rate and the CI queue, before it routes or queues the notice (for GitLab the
+   * rate comes first, and every outcome but `limited`, a used notice id included, reads `queued`).
+   * Answers 404 on a relay without CI senders. Never stores a token.
    */
   ci(req: CiRequest, ctx: { source: string; github?: GithubSeen }): CiAnswer {
     const L = this.limits;
@@ -1307,7 +1307,9 @@ export class MeshRelay {
       return { status: 400, body: { t: "error", code: "malformed", message: "the notice is for another mesh, or its at is more than 5 minutes from the relay's clock" } };
     }
     const seen = ctx.github;
-    if (req.via === "github" && (seen === undefined || !rules!.tags.includes(seen.tag) || this.store.hasJti(seen.jti, now))) return CI_UNAUTHORIZED;
+    // The candidate tags hold the exact ref's and every prefix pattern's, so the device's tags never
+    // tell the relay which patterns it holds (SPEC section 18).
+    if (req.via === "github" && (seen === undefined || !seen.tags.some((t) => rules!.tags.includes(t)) || this.store.hasJti(seen.jti, now))) return CI_UNAUTHORIZED;
     // Anyone with a recipient code can send a GitLab notice (the relay verifies nothing about its
     // sender), so the answer to one never tells a session name or presence: a missing session, a
     // full queue, a used id and a live session all read `queued`, each after the device's GitLab

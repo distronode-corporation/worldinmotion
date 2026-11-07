@@ -184,6 +184,33 @@ describe("activate", () => {
     deactivate();
   });
 
+  it("runs the self-test with this window's client, and shows its steps and outcome", async () => {
+    start();
+    fake.state.messageAnswers.push("Show Steps");
+    await fake.run("worldinmotion.runSelfTest");
+    expect(requests().some((r) => r.op === "test" && JSON.stringify(r.args) === JSON.stringify({ argv: ["test", "--json"] }))).toBe(true);
+    expect(fake.state.progress).toEqual([{ location: 15, title: "worldinmotion: running the self-test (throwaway devices and a relay on loopback)...", cancellable: true }]);
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the self-test passed (3 of 3 steps, in 6.0 s).", items: ["Show Steps"] });
+    expect(fake.state.output).toContain("PASS  create the mesh       900 ms");
+    const shown = fake.state.outputShown;
+    expect(shown).toBeGreaterThan(0);
+
+    vi.stubEnv("WIM_FAKE_TEST", "fail");
+    await fake.run("worldinmotion.runSelfTest");
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "error", message: "worldinmotion: the self-test failed: 1 failed, 1 skipped; first: ping both directions (no pong from qa@test-b)." });
+    expect(fake.state.output).toContain("FAIL  ping both directions   5.0 s  no pong from qa@test-b");
+    expect(fake.state.outputShown).toBe(shown);
+
+    // Cancelled while it runs: the client is asked to stop, reports the run stopped, and the
+    // person is told it was cancelled, not that it failed.
+    vi.stubEnv("WIM_FAKE_TEST", "hang");
+    fake.state.cancelProgress = true;
+    await fake.run("worldinmotion.runSelfTest");
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the self-test was cancelled." });
+    // The rows are the cancelled run's own: its stopped step, not the earlier run's.
+    expect(fake.state.output.some((l: string) => l.startsWith("FAIL  create the mesh") && l.endsWith("stopped"))).toBe(true);
+  });
+
   it("starts the signer in a terminal, and restarts the client when that terminal closes", async () => {
     const { api } = start();
     await waitFor(() => expect(api!.store.hello).toBeDefined());

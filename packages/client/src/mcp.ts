@@ -120,12 +120,18 @@ type In<K extends keyof typeof PUBLIC> = z.infer<(typeof PUBLIC)[K]["input"]>;
 const text = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }] });
 const json = (v: Record<string, unknown>): CallToolResult => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
 /**
- * A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b), and
- * one for each recipient whose loop breaker holds this device's messages (`held`, SPEC section 12).
+ * A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b), one
+ * for each recipient whose loop breaker holds this device's messages (`held`, SPEC section 12),
+ * and `watchNote`, which says why an idle notice it asked for was not armed.
  */
-const sent = (o: SendOutcome): CallToolResult => {
+const sent = (o: SendOutcome, watchNote?: string): CallToolResult => {
   const held = o.results.flatMap((r) => (r.status === "held" ? [heldSendLine(r.to, r.breaker)] : []));
-  return json({ ...o, ...(o.unprotected === undefined ? {} : { note: unprotectedNote(o.unprotected, o.no_prekey!) }), ...(held.length === 0 ? {} : { held_note: held.join(" ") }) });
+  return json({
+    ...o,
+    ...(o.unprotected === undefined ? {} : { note: unprotectedNote(o.unprotected, o.no_prekey!) }),
+    ...(held.length === 0 ? {} : { held_note: held.join(" ") }),
+    ...(watchNote === undefined ? {} : { watch_note: watchNote }),
+  });
 };
 const fail = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }], isError: true });
 
@@ -423,8 +429,7 @@ export class WimMcp {
       case "send": {
         const i = a as In<"send">;
         const out = await s.send(i.to, i.text, i.reply_to === undefined ? {} : { reply_to: i.reply_to });
-        if (i.notify_when_idle === true) s.notifyWhenIdle(MeshSession.parseTo(i.to));
-        return sent(out);
+        return sent(out, i.notify_when_idle === true ? await s.notifyWhenIdle(MeshSession.parseTo(i.to)) : undefined);
       }
       case "ask": {
         const i = a as In<"ask">;

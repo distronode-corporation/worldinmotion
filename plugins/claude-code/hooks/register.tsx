@@ -31,10 +31,13 @@ import {
   parseRoute,
   parsePeers,
   parseSent,
+  parseWatchNote,
   describeMessage,
   peerLine,
   sessionDir,
   statusLines,
+  testArgs,
+  testReport,
   toolJson,
   toolText,
 } from './parse'
@@ -765,15 +768,19 @@ async function bridgeSend(
   const answer = await callTool($, 'send', args)
   if (answer === undefined) return { isSent: false, text: `worldinmotion: the plugin's client is not connected. ${(await read($, problem)) || 'See /wim status.'}` }
   if (answer.isError) return { isSent: false, text: `worldinmotion refused the send: ${toolText(answer)}` }
-  const statuses = parseSent(toolJson(answer))
+  const sent = toolJson(answer)
+  const statuses = parseSent(sent)
   if (statuses === undefined || statuses.length === 0) {
     return { isSent: false, text: 'worldinmotion: the client answered no recipient status.' }
   }
   const named = statuses.map(one => `${one.to}: ${one.status}`).join(', ')
   const isSent = statuses.every(one => one.status === 'routed' || one.status === 'queued')
+  // The send stands either way; the model hears that it will not be told when the recipient finishes.
+  const watchNote = parseWatchNote(sent)
+  const watch = watchNote === undefined ? '' : ` worldinmotion: ${watchNote}.`
   return isSent
-    ? { isSent: true, text: `Sent through worldinmotion (${named}). ${SENT_MEANING}` }
-    : { isSent: false, text: `worldinmotion: not sent (${named}).` }
+    ? { isSent: true, text: `Sent through worldinmotion (${named}). ${SENT_MEANING}${watch}` }
+    : { isSent: false, text: `worldinmotion: not sent (${named}).${watch}` }
 }
 
 /** Records every local agent name and address seen, so none is ever bridged. */
@@ -822,7 +829,25 @@ function age(at: number, now: number): string {
   return `${Math.round(s / 3600)}h`
 }
 
-const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab).'
+const WIM_USAGE = 'Usage: /wim (the pane), /wim status (this tab: address, device, relay, signer, state directory), /wim name <name> (rename this tab), /wim test [--full] [--relay <url>] (the self-test).'
+
+/** How long `/wim test` lets the self-test run. */
+const TEST_TIMEOUT_MS = 600_000
+
+/**
+ * /wim test: the client's self-test (`wim test`), run through this plugin's own bundle: throwaway
+ * devices and, unless the person typed `--relay`, a relay on loopback, all removed at the end.
+ */
+async function selfTest($: EngineInterface, words: string[]): Promise<string> {
+  const flags = testArgs(words)
+  if (flags === undefined) return 'Usage: /wim test [--full] [--relay <url>]'
+  try {
+    const ran = await $.process.run(['node', `${$.plugin.root}/dist/client.mjs`, 'test', '--json', ...flags], { timeoutMs: TEST_TIMEOUT_MS })
+    return testReport(ran.stdout, ran.stderr)
+  } catch (error) {
+    return `The self-test did not finish: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
 
 /** /wim status: what the client says about this tab, or why there is no client to ask. */
 async function statusText($: EngineInterface): Promise<string> {
@@ -858,7 +883,7 @@ export const register: Register = on => {
     const started = await next(e)
     await $.command.register({
       name: 'wim',
-      description: 'worldinmotion: the pane; /wim status for this tab; /wim name <name> to rename it',
+      description: 'worldinmotion: the pane; /wim status for this tab; /wim name <name> to rename it; /wim test for the self-test',
     })
     // A reload keeps the atoms; the line is set afresh.
     await update($, statusShown, () => '')
@@ -993,6 +1018,7 @@ export const register: Register = on => {
     const [sub = '', ...rest] = e.args.trim().split(/\s+/)
     if (sub === 'status') return { text: await statusText($) }
     if (sub === 'name') return { text: await rename($, rest.join(' ')) }
+    if (sub === 'test') return { text: await selfTest($, rest.filter(word => word !== '')) }
     if (sub !== '') return { text: WIM_USAGE }
     await refreshPanel($)
     const opened = await $.ui.open({ id: PANE, title: 'worldinmotion' })

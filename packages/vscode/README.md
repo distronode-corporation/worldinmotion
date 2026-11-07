@@ -49,6 +49,7 @@ Commands, in the editor and explorer context menus and the command palette:
 | Send Message... | Sends a line you type to a session or room you pick (also a button on the Mesh view). |
 | Add a Device... / Admit a Device... / Join a Mesh... | Makes an invite, admits a device that asked to join (you type its comparison code), or joins this device to a mesh with a code. |
 | Start Signer | Runs `wim agent start` (or `unlock`) in a terminal. |
+| Run Self-Test | Runs `wim test --json` with this window's client: throwaway devices and a relay on loopback, all removed at the end. A notification shows it running (Cancel asks the client to stop and remove what it made; the extension kills it if it has not exited after 10 seconds, and a later run removes what that left behind after a day); then a message says whether it passed, naming the first failed step, and **Show Steps** opens the **worldinmotion self-test** output with one row per step. Your device and meshes are not touched. |
 | Send Selection to... | Sends the selected text, headed with `path:startLine-endLine`, to a session or room you pick. |
 | Ask a Peer about the Selection... | Sends it as a `task`, with an optional question first. |
 | Send File to... | Sends a file from this machine with `send_file`. |

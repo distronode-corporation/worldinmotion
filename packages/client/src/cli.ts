@@ -40,8 +40,9 @@ import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
+import { selfTest } from "./selftest.ts";
 
-export const VERSION = "0.1.9";
+export const VERSION = "0.1.10";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {
@@ -100,8 +101,8 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected"]);
-const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "person"]);
+const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -126,6 +127,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   recover: ["relay", "tls", "revoke", "name"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
+  test: ["json", "full", "relay", "key-env", "person"],
 };
 
 /**
@@ -213,8 +215,9 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
-  wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]
-  wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]
+  wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]
+  wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]
+  wim ci allow ... --tag 'v*' | --ref 'release/*': a pattern, one * at the end, quoted
   wim ci list | wim ci remove <n>
   wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
@@ -222,6 +225,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
+  wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -230,7 +234,7 @@ export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages betwee
 
 Commands: init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, agent.
+crash-reports, test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -488,6 +492,17 @@ export async function main(argv: readonly string[], env: Record<string, string |
   if (badFlag !== undefined) {
     io.err(`wim: ${badFlag}\n\n${(command === undefined ? undefined : commandUsage(command)) ?? SHORT_USAGE}`);
     return 2;
+  }
+  // Before this device's state directory is even worked out: the self-test never uses it.
+  if (command === "test") {
+    if (rest.length > 0 || args.flags.has("mesh")) {
+      io.err(`wim: usage: ${commandUsage("test")!}`);
+      return 2;
+    }
+    const relay = flag(args, "relay");
+    const keyEnv = flag(args, "key-env");
+    const flags = { json: args.flags.get("json") === true, full: args.flags.get("full") === true, person: args.flags.get("person") === true };
+    return selfTest({ main, env, io, ...flags, ...(relay === undefined ? {} : { relay }), ...(keyEnv === undefined ? {} : { keyEnv }) });
   }
   const ctx = new Ctx(env, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({

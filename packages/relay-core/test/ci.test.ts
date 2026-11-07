@@ -184,6 +184,33 @@ describe.each(KINDS)("CI senders at the relay (%s store)", (kind) => {
     expect(s.h.relay.ci(unverified, { source: "x" })).toEqual(CI_UNAUTHORIZED);
   });
 
+  it("takes a GitHub token whose ref falls under a pattern tag the device holds, and only then", async () => {
+    const s = setup(kind);
+    s.deploys.frame({ t: "ci.rules", tags: [tagFor(s.laptop, "octo-org/deploys", "refs/tags/v*"), tagFor(s.laptop, "octo-org/deploys", "refs/heads/release/*")], gitlab: false });
+    const tag = await github(s, { over: { ref: "refs/tags/v3.3.0", workflow_ref: "octo-org/deploys/.github/workflows/release.yml@refs/tags/v3.3.0" } });
+    expect(await post(s.h, tag)).toEqual(sent(tag.id, "routed"));
+    // The prefix itself is under the pattern; so is a deeper branch under release/.
+    const bare = await github(s, { over: { ref: "refs/tags/v" } });
+    expect(await post(s.h, bare)).toEqual(sent(bare.id, "routed"));
+    const branch = await github(s, { over: { ref: "refs/heads/release/1/hotfix" } });
+    expect(await post(s.h, branch)).toEqual(sent(branch.id, "routed"));
+    // Outside every prefix, in another repository, or a full ref the device holds no tag for.
+    for (const over of [{ ref: "refs/tags/w1" }, { ref: "refs/heads/release" }, { ref: "refs/heads/main" }, { ref: "refs/tags/v1", repository: "octo-org/other" }]) {
+      expect(await post(s.h, await github(s, { over })), JSON.stringify(over)).toEqual(CI_UNAUTHORIZED);
+    }
+  });
+
+  it("takes a GitHub token under a pattern even when its ref is longer than any pattern can be", async () => {
+    const s = setup(kind);
+    const longest = `refs/tags/${"x".repeat(244)}*`;
+    s.deploys.frame({ t: "ci.rules", tags: [tagFor(s.laptop, "octo-org/deploys", longest), tagFor(s.laptop, "octo-org/deploys", "*")], gitlab: false });
+    const long = await github(s, { over: { ref: `refs/tags/${"x".repeat(600)}` } });
+    expect(await post(s.h, long)).toEqual(sent(long.id, "routed"));
+    // The relay tries the empty prefix too: it never decides which patterns a rule may hold.
+    const any = await github(s, { over: { ref: "refs/pull/1/merge" } });
+    expect(await post(s.h, any)).toEqual(sent(any.id, "routed"));
+  });
+
   it("takes a GitLab notice for a device that opted in, counted under the device's GitLab share", async () => {
     const s = setup(kind);
     const req = gitlab(s);

@@ -96,6 +96,60 @@ export function ciRuleTag(t: { mesh: string; device: string; iss: string; repo: 
   return cut22(sha256(bytes));
 }
 
+// ---- refs and ref patterns ----
+
+/** The longest full ref or ref pattern a rule holds, in Unicode code points (SPEC section 18). */
+export const CI_REF_MAX = 255;
+
+// No glob character (`*`, `?`, `[`, `\`) in a name: git refuses each in a ref, so a pattern's only
+// special character is its one trailing `*`.
+const FULL_REF = /^refs\/(?:heads|tags)\/[^\s\u0000-\u001f\u007f*?[\\]+$/;
+const REF_PATTERN = /^refs\/(?:heads|tags)\/[^\s\u0000-\u001f\u007f*?[\\]*\*$/;
+
+const codePoints = (s: string): number => [...s].length;
+
+/** A full ref a rule may hold: `refs/heads/<name>` or `refs/tags/<name>`, no glob character, at most 255 code points. */
+export function isCiFullRef(v: unknown): boolean {
+  return typeof v === "string" && FULL_REF.test(v) && codePoints(v) <= CI_REF_MAX;
+}
+
+/** A ref pattern: `refs/heads/` or `refs/tags/`, a name part with no glob character, then one trailing `*`. */
+export function isCiRefPattern(v: unknown): boolean {
+  return typeof v === "string" && REF_PATTERN.test(v) && codePoints(v) <= CI_REF_MAX;
+}
+
+/** What a rule's `ref` may be: a full ref or a ref pattern. */
+export function isCiRuleRef(v: unknown): v is string {
+  return isCiFullRef(v) || isCiRefPattern(v);
+}
+
+/** A rule's `ref` as a schema: a full ref or a ref pattern, nothing else. */
+export const ciRuleRefSchema = z.string().refine(isCiRuleRef, "a full ref (refs/heads/... or refs/tags/...) or one with a single trailing *");
+
+/**
+ * Whether a token's full ref falls under a rule's ref (SPEC section 18): equal to a full ref, or
+ * starting with a pattern's prefix (the prefix itself included). False for a rule ref that is
+ * neither, so a hostile or corrupt rule matches nothing.
+ */
+export function ciRefMatches(ruleRef: string, ref: string): boolean {
+  if (isCiFullRef(ruleRef)) return ref === ruleRef;
+  return isCiRefPattern(ruleRef) && ref.startsWith(ruleRef.slice(0, -1));
+}
+
+/**
+ * The tags a relay compares with a device's for a verified token's (repository, ref): the exact
+ * one, then one for each prefix of `ref` of k code points followed by `*`, k from 0 to the smaller
+ * of its length and 254 (SPEC section 18). Every prefix is tried, whether or not a rule could hold
+ * it, so the device never names its patterns to the relay. At most 256 tags.
+ */
+export function ciCandidateTags(t: { mesh: string; device: string; iss: string; repo: string; ref: string }): string[] {
+  const chars = [...t.ref];
+  const tags = [ciRuleTag(t)];
+  const last = Math.min(chars.length, CI_REF_MAX - 1);
+  for (let k = 0; k <= last; k++) tags.push(ciRuleTag({ ...t, ref: `${chars.slice(0, k).join("")}*` }));
+  return tags;
+}
+
 /** The key a GitHub repository's notices are counted under: its ids, so a rename keeps the count. */
 export function githubCountingKey(iss: string, ownerId: string, repoId: string): string {
   return `gh~${cut22(sha256(utf8(`${PROTOCOL} ci count ${iss} ${ownerId} ${repoId}`)))}`;
@@ -416,12 +470,15 @@ export function checkSendAudience(payload: Record<string, unknown>, expected: st
 }
 
 /** A relay's view of a verified GitHub notice: only what it keeps or uses. */
-export type GithubSeen = { tag: string; key: string; jti: string; exp: number };
+export type GithubSeen = { tags: string[]; key: string; jti: string; exp: number };
 
-/** What the relay keeps of a verified GitHub token: the tag it compares, the counting key, and the `jti` hash. */
+/**
+ * What the relay keeps of a verified GitHub token: the candidate tags it compares (the exact one
+ * and every prefix pattern of the ref), the counting key, and the `jti` hash.
+ */
 export function githubSeen(claims: GithubClaims, mesh: string, device: string): GithubSeen {
   return {
-    tag: ciRuleTag({ mesh, device, iss: claims.iss, repo: claims.repository, ref: claims.ref }),
+    tags: ciCandidateTags({ mesh, device, iss: claims.iss, repo: claims.repository, ref: claims.ref }),
     key: githubCountingKey(claims.iss, claims.ownerId, claims.repositoryId),
     jti: b64u.encode(sha256(utf8(`${claims.iss} ${claims.jti}`))),
     exp: claims.exp * 1000,

@@ -245,6 +245,11 @@ Cannot:
 - Corrupt, reorder, swap or truncate a file's chunks without the receiver noticing (section 6.12).
 - Alter or forge a CI notice: a GitHub notice is signed by a one-time key its token binds, and a
   GitLab notice's token is inside the box, never shown to the relay (section 6.17).
+- Start agent turns with idle notices nobody asked for. A client takes a `notice` only for an
+  address its session armed with `notify_when_idle` (or, after that session renamed itself, for
+  the new address the relay's peer rows give the same session id), within the arm's 12 hours and
+  once; the watch is then closed. Any other notice is dropped and logged. A relay can still send
+  the one notice an arm asked for early, late or never.
 
 ### 5.5 Network attacker
 
@@ -592,7 +597,11 @@ The Windows case is tested against a second connection, not against a second acc
 A CI sender (SPEC section 18) is a GitHub Actions or GitLab CI/CD job. It is not in the roster
 and holds no stored key. Everything that runs in the job counts as the job: every step, script
 and dependency, and on GitHub any step can ask for an ID token of its own. So does anyone who can
-push to the branch the person allowed, or change the workflow file the rule names.
+push to the branch the person allowed, or change the workflow file the rule names. When the rule
+holds a ref pattern (`refs/tags/v*`), so does anyone who can push any branch or tag under its
+prefix: a pattern is only as narrow as what the provider lets people push there, which is why the
+client tells the person to protect the same pattern with a GitHub ruleset or GitLab protected tags
+or branches, and why a GitLab rule still needs `ref_protected` unless it allows unprotected refs.
 
 Can:
 - Send information-only notices to any session of a device that takes CI notices (a rule names
@@ -777,8 +786,11 @@ On a relay that takes CI senders (SPEC sections 10 and 18), also: each GitHub no
 read once to verify it and never stored, so for that moment every claim it carries (repository,
 owner and their ids and visibility, ref, workflow, event, commit, run ids, the actor's login and
 id, environment); a counting key per repository and a hash of each token's `jti` until it
-expires; each device's rule tags (hashes of mesh, device, issuer, repository and ref, which give
-away any guessable repository name) and whether it takes GitLab notices; which session takes
+expires; each device's rule tags (hashes of mesh, device, issuer, repository and a full ref or a
+ref pattern, which give away any guessable repository name and ref or pattern) and whether it
+takes GitLab notices; for each verified GitHub notice, which of its candidate tags matched, and so
+the full ref or pattern of the rule it fell under (the device never names a pattern: the relay
+tries every prefix of the token's ref); which session takes
 notices, which device and session each notice is for, its size and time, and which prekey went to
 a request from which source key. It never sees a GitLab token, and so never a GitLab pipeline
 user's login or email address, and never a notice's text.
@@ -959,7 +971,8 @@ job, sealed to the recipient device's prekey like any box.
 
 - **The receiving device decides.** It verifies the token against the provider's keys, which it
   fetches itself from a URL compiled into the client, never one a token or the relay names. It
-  matches the person's rule exactly: repository and ref, the workflow file and event on GitHub,
+  matches the person's rule exactly: repository and ref (a full ref equal, or a pattern's prefix,
+  with one trailing `*` and no other glob syntax), the workflow file and event on GitHub,
   protected refs on GitLab, and the repository's ids once pinned. Names can be recycled, so a rule
   pins ids: read from the provider's public API for a public repository, or, for a private one,
   from the first matching notice, which is held until the person approves it and so pins them.
@@ -971,9 +984,15 @@ job, sealed to the recipient device's prekey like any box.
   never sees it and cannot alter a GitLab notice. Anyone who can read the job's variables can send
   one notice as that project. The relay cannot filter GitLab notices, so the device's GitLab share
   is open to anyone with the recipient code, and only that share.
+- **Ref patterns widen a rule, nothing else.** A pattern admits every ref under its prefix, the
+  prefix itself included, so it is as narrow as the provider's protection of that pattern (section
+  5.10). It changes no other check: the workflow file, events, environment, pinned ids, the
+  one-time key, single use and the limits all apply as for a full ref. The relay holds a pattern's
+  tag like any other and compares it with candidates it computes from the verified token's ref,
+  at most 256 hashes per notice, so a long ref costs it no more.
 - **Relay-visible.** See section 6.10: GitHub claims for the moment of verifying, counting keys,
-  `jti` hashes and rule tags; never a GitLab token. The tags give away guessable repository
-  names.
+  `jti` hashes and rule tags, and which tag a verified notice matched; never a GitLab token. The
+  tags give away guessable repository names, refs and patterns.
 - **Replay.** The device keeps each notice id and token id until both the freshness window and
   the token's own life are over, and refuses a token that claims to live more than 24 hours.
 - **Not a member.** A CI sender cannot read, authenticate or send anything but a notice; its
@@ -1198,6 +1217,83 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
 - **The limit.** The stdio channel is a same-user boundary. Anything that can run as the OS user can
   start its own `wim events` and send these requests, as it could run `wim devices trust`
   (section 5.8).
+
+### 7.6 Test mode (`wim test`)
+
+`wim test` runs wim's own commands end to end on throwaway devices and prints one row per step
+(`--json` for CI). In its sandbox mode it starts a relay inside its own process on loopback
+(`127.0.0.1`, a free port, an in-memory database, mesh creation open to anyone who reaches that
+port while the run lasts) and makes its devices in a new directory under the system's temporary
+directory. Person-only steps (admitting by comparison code, trusting, approving, refusing and
+resuming held messages, deleting a mesh) are taken by a scripted terminal that plays the person.
+That is safe only because of where the script can act, so isolation is the property.
+
+- **What it touches.** The run's own directory and its own relay, and, read only, the `.git`
+  a `wim watch` reads its card's branch from (below). Each device's state
+  directory is a new one inside the run's directory, refused if anything is already at its path,
+  and each device's environment is built from nothing (its own `WIM_HOME`, crash reports off), so
+  the caller's `WIM_HOME`, `CLAUDE_CONFIG_DIR`, `WIM_MESH` and agent variables never reach a
+  sandbox device. The devices dial only the run's relay URL and fetch only from that relay; any
+  other address is refused before a connection is made. Everything is removed at the end,
+  failures and Ctrl-C included, and the last row says whether that worked.
+- **Checked before every step.** Every device path is inside the run's directory, that directory
+  is its own real path, and no part of any path below it is a symbolic link; the relay is the
+  run's own on loopback. A failed check fails the step, and the rest are skipped.
+- **What it does not touch.** The caller's device and meshes: the command starts before the
+  CLI works out its state directory, and reads nothing there. It resolves that path once, only to
+  refuse a temporary directory inside it (or inside the directory that holds every profile's
+  state). A `wim watch` in the sandbox publishes its card, which reads the branch from `.git` in
+  the run's directory or the nearest parent directory, as it does for any `wim watch`.
+- **The script is reachable from nowhere else.** The scripted terminal lives in the test-mode
+  module, which only the CLI's `test` command loads. No other command, MCP tool or events request
+  reaches it, and `wim test` takes no argument that names a device, a mesh or a state directory.
+  A test checks the module's importers.
+- **The limit.** While a run lasts, any local process can reach its relay's port and create a mesh
+  there, as on any relay run with open creation. Another OS user cannot reach the run's meshes
+  without their keys; a process under the same OS user can read them from the run's directory
+  (section 5.8) and use those meshes while the run lasts. The relay goes away with the run.
+- **`--full`: the signer and a CI notice.** The signer step encrypts a sandbox device's keys
+  under a passphrase made in the process for the run, which is typed by the script without echo
+  and never printed, and starts that device's signer inside the `wim test` process; its socket is
+  in the device's own directory (on Windows, a pipe under a fresh random name that the device's
+  directory keeps). The run stops it at the end, failures and Ctrl-C included. The CI step needs a
+  token issuer: the run makes a throwaway RSA key, and the sandbox relay and the receiving
+  session are given a key fetcher that serves only that key, as GitHub's. The job's token comes
+  from that issuer at a URL under `.invalid`, a name that never resolves, answered in the
+  process. The issuer exists only in the test-mode module and only for the sandbox relay: a live
+  relay, and every other command, fetch GitHub's real keys, which it is not among.
+- **Live mode (`--relay <url>`).** The same rules, except the relay is the one named: `wss://`, or
+  plain `ws://` only on loopback, checked before anything is made and again before every step.
+  Devices dial only that relay and fetch only from its origin. The run creates its own meshes
+  there and deletes them at the end through `wim mesh delete`, failures and Ctrl-C included, and
+  never names or touches any other mesh: `wim test` takes no argument naming a device, mesh or
+  state directory. `--key-env NAME` puts the named variable's value (an operator key) in the
+  environment of every sandbox command the run starts, and only the mesh creations name it
+  (`--key-env`), so only they send it, to the run's relay. A live relay sees what it sees for any
+  mesh, for the minutes the run lasts: a mesh id, roster metadata, session names, sizes and
+  timing (section 6.10). A mesh whose deletion failed (the relay went away) is said on the last
+  rows, and stays until the relay's idle expiry. The CI step is skipped there: a live relay checks
+  real GitHub tokens, and the test issuer exists only in the sandbox.
+- **From VS Code and Claude Code.** **worldinmotion: Run Self-Test** and `/wim test` start `wim
+  test --json` as a process of its own with the extension's or the plugin's client: the same
+  command under the same rules, and neither reaches the scripted terminal any other way. The VS
+  Code command passes no flag (the sandbox). `/wim test` passes on only `--full` and `--relay
+  <url>`, and only when the person typed them; it never adds `--relay`. It refuses `--person`,
+  which needs the person's own terminal, and `--key-env`, which sends a variable's value to the
+  relay named: from a chat, a slip or an injected suggestion could send any variable to any relay.
+- **A run that was killed** (a kill on Windows lets it remove nothing) leaves its directory
+  behind. Each run's directory holds a mark file, and every run first removes the directories
+  under the same temporary directory named `wim-test-*` that are real directories, not links,
+  owned by you (on POSIX; `/tmp` is shared, and another user's is never removed), whose mark
+  file is a regular file last written more than 24 hours ago; nothing else. One that cannot be
+  read or removed is skipped: the sweep never fails a run, so nobody can stop another user's
+  runs by planting a directory there. A program
+  that starts `wim test` with a piped stdin can stop it with a line `stop` instead of a kill, so
+  it cleans up (the VS Code command does, and kills only after 10 seconds).
+- **`--person`.** A person types the person-only steps at their own terminal, so the real
+  terminal checks (section 5.6) are what those steps meet. It refuses to start under an agent's
+  variables or without an interactive terminal on stdin and stdout, as a person-only command
+  would. Each question is shown with its device and what the step expects.
 
 ## 8. The A2A gateway
 

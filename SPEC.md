@@ -875,7 +875,10 @@ connection or after reconnecting. `routed` never meant read; a sender that needs
 the `delivered` receipt.
 
 **Idle notices.** `notify_idle` asks for one `notice` the next time that session reports `idle` or
-ends. It lapses after 12 hours, and a session may hold at most 16.
+ends. It lapses after 12 hours, and a session may hold at most 16. A `notice` is the relay's word,
+so a client MAY drop one it did not arm: for an address it sent no `notify_idle` for, after the arm
+lapsed, or a second one for the same arm. The reference client keeps its arms in the session's
+`watches.json` and drops every such notice (SECURITY-MODEL section 5.4).
 
 ## 9. Limits (defaults; a relay MAY lower the relay-side ones)
 
@@ -1058,11 +1061,14 @@ application/json` and:
 ```json
 { "v": 1, "software": "worldinmotion-relay", "version": "0.1.0", "create": "key",
   "limits": { "max_meshes": 2000, "idle_mesh_days": 90, "blob_bytes_per_mesh_per_day": 26214400 },
-  "offer": "Free hosted relay during the worldinmotion preview, until version 1.0", "ci": false }
+  "offer": "Free hosted relay during the worldinmotion preview, until version 1.0", "ci": false,
+  "ciPatterns": false }
 ```
 
 `ci` says whether the relay takes CI senders (section 18); a relay older than CI senders leaves
-it out, which means `false`.
+it out, which means `false`. `ciPatterns` says whether it checks ref pattern tags on GitHub CI
+notices (section 18, candidate tags); a relay older than ref patterns leaves it out, which means
+`false`. A client reads both as optional booleans, so an older relay's document parses.
 
 `create` is `key` (an operator key is required), `open` or `closed` (refused, including a relay
 whose configuration is wrong). In `limits`, `null` means unlimited; `blob_bytes_per_mesh_per_day`
@@ -1420,7 +1426,7 @@ KiB and `content-type: application/json`. The relay answers each with JSON.
 | status | `code` | when |
 |---|---|---|
 | 400 | `malformed` | the body does not parse, or a field is wrong |
-| 403 | `unauthorized` | no such mesh; the device is not in the roster, is a recovery record, or does not take CI notices by `via`; the token fails any check; its rule tag is not the device's; its `jti` was used |
+| 403 | `unauthorized` | no such mesh; the device is not in the roster, is a recovery record, or does not take CI notices by `via`; the token fails any check; none of its candidate tags (below) is the device's; its `jti` was used |
 | 404 | `not_found` | the relay takes no CI senders (an older relay answers 404 too) |
 | 413 | `too_large` | the body is over 32 KiB |
 | 429 | `limited` | the source address is over the relay's limit for it, or over its CI budget in the mesh, or the mesh holds as many live `jti`s as it may (below); with `Retry-After` in seconds |
@@ -1435,8 +1441,8 @@ verifying with `otk`. (The reference Workers relay does all of this in the Worke
 Durable Object request.) The source's rate limit there is the relay's dial limit (section 9), which
 CI requests share with dials. Then, in the mesh: that it exists, the per-source CI budget, the device
 (as for `ci.prekey`), that `mesh` is the mesh of the path and `at` is within 5 minutes of its
-clock; for `github` that the rule tag computed from the verified claims is among the device's tags
-and the token's `jti` was not used before in this mesh (it keeps `H(UTF-8(iss + " " + jti))` until
+clock; for `github` that one of the candidate tags computed from the verified claims (below) is
+among the device's tags and the token's `jti` was not used before in this mesh (it keeps `H(UTF-8(iss + " " + jti))` until
 `exp` + 5 minutes); for `gitlab` there is nothing it can verify. Then the notice id must be new, the
 session `to` on that device must exist, not have ended, and take CI notices; then the counting
 key's rate and the CI queue; then the relay routes or queues the notice. For `gitlab` the counting
@@ -1471,13 +1477,47 @@ token from any repository could fill a person's queues. So every session of a de
 rules sends, after `ready` and whenever the device's rules change, `ci.rules { tags, gitlab }`:
 at most 64 tags, and `gitlab` true when the device takes GitLab notices. A tag is
 `b64u(H(UTF-8("wim/1 ci rule ") || canonBytes({ "mesh", "device", "iss", "repo", "ref" })))` cut
-to 22 characters, where `repo` is the lower-cased `repository` and `ref` the full ref. The frame
+to 22 characters, where `repo` is the lower-cased `repository` and `ref` the rule's ref: a full
+ref, or a ref pattern spelled as the rule holds it (below). The frame
 replaces the device's tags and GitLab setting (a session is its device, so any session may), and
 marks the sending session as taking CI notices until it ends. The relay answers
 `ci.rules { count }` (the number of tags it holds for the device) and purges the tags with the
 device when it is revoked. A tag is a filter for queues and cost, not authority: the receiving
 client checks the whole rule itself. GitLab rules have no tags, since the relay sees no GitLab
 token to compare one with.
+
+For a verified GitHub token whose `ref` is R, of n characters, the relay computes the **candidate
+tags**: the tag with `ref` R, and for each k from 0 to the smaller of n and 254, the tag with
+`ref` the first k characters of R followed by `*`. That is at most 255 pattern candidates, k = 0
+(`*` alone) included, and k = n (R followed by `*`) when n is at most 254, plus the exact one. The token passes the tag
+check when any candidate is among the device's tags. The relay computes every candidate whether or
+not it is a pattern a rule could hold, so a device never tells it which patterns it holds; the
+relay learns which candidate matched only when a verified token matches one, as it learns an exact
+rule's repository and ref (section 10).
+
+**Ref patterns.** A rule's ref is either a full ref or a pattern:
+
+- A **full ref** is `refs/heads/` or `refs/tags/` and a name of at least one character, at most
+  255 characters in all, with no whitespace, no control character and none of `*`, `?`, `[` and
+  `\` (git refuses each of them in a ref). It matches only the identical string.
+- A **pattern** is `refs/heads/` or `refs/tags/`, a name part of zero or more characters held to
+  the same rules as a full ref's name, and then one `*`, the last character, at most 255
+  characters in all: `refs/tags/v*`, `refs/heads/release/*`, `refs/tags/*`. It matches every ref
+  that starts with the part before the `*` (its **prefix**), the prefix itself included: the `*`
+  stands for zero or more characters of any kind, `/` included. There is no other glob syntax: no
+  `?`, no `[...]`, no `**`, no `*` anywhere but at the end, and no escaping. A client refuses any
+  other spelling when a rule is made and when it reads `ci-rules.json`.
+
+Lengths, prefixes and "characters" here count Unicode code points, never UTF-16 code units or
+bytes, so a prefix never splits a character.
+
+Exact matching is case-sensitive and byte for byte, for full refs and prefixes alike. A pattern
+widens what a rule admits to every ref under its prefix, so anyone who can push such a branch or
+tag can send. The commands are `wim ci allow github <repo> --tag 'v*' --workflow <file>` and
+`wim ci allow gitlab <project> --tag 'v*'` for a tag pattern, and a client tells the
+person, when such a rule is made, to protect the same pattern at the provider: a tag or branch
+ruleset on GitHub, protected tags or branches on GitLab (whose rule still needs `ref_protected`
+unless it allows unprotected refs).
 
 **Delivery.** The relay sends `{ "t": "ci.deliver", "cursor": 42, "msg": <notice> }`, from the
 session's one queue and cursor, and the client acknowledges it with `ack` like a `deliver`. No
@@ -1520,13 +1560,14 @@ peer's place. A relay remembers at most 4096 live `jti`s per mesh and answers `l
    in one step under a lock the whole device shares, before the notice is delivered, so two
    sessions of one device given the same token accept it once.
 
-**Rules** are the person's, on the receiving device only, and match exactly:
+**Rules** are the person's, on the receiving device only, and match exactly (a ref pattern by its
+prefix, above):
 
 | | GitHub | GitLab |
 |---|---|---|
 | repository | lower-cased `repository` | lower-cased `project_path` |
-| ref | `ref` | `ref_path`; when absent, `refs/heads/` or `refs/tags/` plus `ref` by `ref_type` |
-| workflow | `workflow_ref` is `<repository>/.github/workflows/<file>@<ref>` (the repository part without case) | none |
+| ref | `ref` equals the rule's full ref, or starts with its pattern's prefix | the full ref, `ref_path` or, when absent, `refs/heads/` or `refs/tags/` plus `ref` by `ref_type`, equals the rule's full ref or starts with its pattern's prefix |
+| workflow | `workflow_ref` is `<repository>/.github/workflows/<file>@<ref>` (the repository part without case), where `<ref>` is the token's `ref`, so the rule's full ref or pattern applies to it as it does to `ref`: `octo-org/deploys/.github/workflows/release.yml@refs/tags/v3.3.0` matches `refs/tags/v*` | none |
 | protection | none | `ref_protected` is `"true"` (or `true`), unless the rule allows unprotected refs |
 | event | `pull_request_target` and `workflow_run` are refused unless the rule names the event; a rule that names events takes only those | none |
 | environment | optional: `environment` equal | optional: `environment` equal and `environment_protected` `"true"` |
@@ -1570,7 +1611,7 @@ GitLab notices by removing its GitLab rules. Each GitLab token sends one notice 
 single use), so a job that sends two declares two `id_tokens`.
 
 **The reference relays** take CI senders only when their operator turns them on
-(`WIM_CI=1`), and report it as `"ci": true` in `/v1/info` (section 11). Off, a relay answers the
+(`WIM_CI=1`), and report it as `"ci": true` and `"ciPatterns": true` in `/v1/info` (section 11). Off, a relay answers the
 endpoint 404 and `ci.rules` with `unknown_type`, as an older relay does, and stores no tags and no
 session mark. They fetch only GitHub's JWKS; no URL they fetch comes from a request.
 
@@ -1578,3 +1619,12 @@ session mark. They fetch only GitHub's JWKS; no URL they fetch comes from a requ
 takes no CI senders) and `ci.rules` with `unknown_type`. An older client never sends `ci.rules`, so
 it is never sent a notice; a session that sent it and then runs an older client ignores
 `ci.deliver` frames, which do not parse there, and its next `ack` drops them.
+A relay older than ref patterns computes only the exact candidate tag, so a GitHub notice that
+matches a device's pattern tag and no full-ref tag is refused there (`unauthorized`); a GitLab
+notice, which the relay does not filter, is unaffected. Such a relay leaves `ciPatterns` out of
+`/v1/info`. A client warns the person when a GitHub pattern rule is made, and MAY warn again
+when it reports on its rules, if its relay's `/v1/info` lacks `"ciPatterns": true` or cannot be
+read: notices under that rule are refused until the relay is updated. The warning never blocks
+the rule. An older client reads a pattern as a full
+ref, which no token's `ref` equals (a git ref cannot hold `*`), so it delivers nothing under that
+rule until it is updated.
