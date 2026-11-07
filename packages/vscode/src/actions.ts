@@ -508,9 +508,10 @@ function relayDetail(relay: string): string {
  * Create a Mesh...: on a device in no mesh yet, a name box (when it has no keys yet), a relay
  * pick, a modal confirmation, then the `create` request. The recovery code never comes here: it
  * waits in the client for `wim recovery show`, which `showRecovery` opens in a terminal the
- * person sees. The client ends with `created`, and the extension starts it again in the mesh.
+ * person sees, and `holding` is told the client now holds it. The client ends with `created`, and
+ * the extension starts it again in the mesh.
  */
-export async function createMesh(d: Deps, showRecovery: () => void): Promise<void> {
+export async function createMesh(d: Deps, showRecovery: () => void, holding: () => void = () => undefined): Promise<void> {
   if (d.store.setup === undefined) {
     void vscode.window.showWarningMessage("worldinmotion: this device is already in a mesh. To create another, run wim mesh create in a terminal.");
     return;
@@ -557,6 +558,7 @@ export async function createMesh(d: Deps, showRecovery: () => void): Promise<voi
     void vscode.window.showErrorMessage(notice(`worldinmotion: could not create the mesh: ${code}${(e as Error).message}`));
     return;
   }
+  holding();
   const store = await vscode.window.showInformationMessage(
     "Mesh created. Store your recovery code now.",
     { modal: true, detail: `It is as powerful as this device. Keep it offline (a password manager or paper), never in a chat. It waits ${RECOVERY_MINUTES} minutes in a terminal only you see.` },

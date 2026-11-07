@@ -32,6 +32,9 @@ export const SETUP_HINT =
 /** The `worldinmotion.state` context key, which the welcome content and menus read. */
 export type ViewState = "setup" | "mesh" | "closed";
 
+/** Said when a new mesh's recovery code was not collected, or the client holding it was stopped. */
+export const RECOVERY_LOST = "worldinmotion: the recovery code was not collected and is gone. In a terminal: wim recovery rotate";
+
 export type Settings = { sessionName: string; wimPath: string; notifyOnMessage: boolean; notifyForClaudeTabs: boolean };
 
 export function settings(): Settings {
@@ -60,6 +63,17 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   const deps: actions.Deps = { store, client, nodes, now, invited: new Set() };
   /** The devices to ask about once the client runs in the mesh this device just joined. */
   let trustAfterJoin: string[] | undefined;
+  /** Set from a `create` answer until its `created`: the client holds a recovery code. */
+  let recoveryWaits = false;
+  /**
+   * Restarts the client. One that holds a recovery code loses it when stopped, and its last line
+   * (`created`) is not read once it is being stopped, so that is said here.
+   */
+  const restartClient = (): void => {
+    if (recoveryWaits) void vscode.window.showWarningMessage(RECOVERY_LOST);
+    recoveryWaits = false;
+    proc!.restart();
+  };
 
   const mesh = new MeshView(store, nodes, now);
   const rooms = new RoomsView(store, nodes, now);
@@ -162,7 +176,8 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
       if (ev.type === "created") {
         // The client ends once the recovery code was collected or its window closed; started
         // again, it runs in the new mesh.
-        if (ev.recovery === "not_collected") void vscode.window.showWarningMessage("worldinmotion: the recovery code was not collected and is gone. In a terminal: wim recovery rotate");
+        recoveryWaits = false;
+        if (ev.recovery === "not_collected") void vscode.window.showWarningMessage(RECOVERY_LOST);
         proc!.restart();
       }
       if (ev.type === "snapshot" && trustAfterJoin !== undefined) {
@@ -224,7 +239,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     const code = t.exitStatus?.code;
     if (code === 0) vscode.window.showInformationMessage("worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`.");
     else if (code !== undefined) vscode.window.showWarningMessage(`worldinmotion: the signer did not start (exit code ${code}). Run worldinmotion: Start Signer again, or \`wim agent status\` in a terminal.`);
-    proc!.restart();
+    restartClient();
   };
 
   /** The self-test's own output channel, made at its first run. */
@@ -270,7 +285,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     command("worldinmotion.addDevice", () => actions.addDevice(deps)),
     command("worldinmotion.admitDevice", () => actions.admitDevice(deps)),
     command("worldinmotion.joinMesh", () => actions.joinMesh(deps)),
-    command("worldinmotion.createMesh", () => actions.createMesh(deps, showRecovery)),
+    command("worldinmotion.createMesh", () => actions.createMesh(deps, showRecovery, () => (recoveryWaits = true))),
     command("worldinmotion.refresh", () =>
       client.request("snapshot").catch((e: Error) => vscode.window.showErrorMessage(notice(`worldinmotion: could not refresh: ${e.message}`))),
     ),
@@ -279,17 +294,17 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
       store.markRead();
     }),
     command("worldinmotion.showLog", () => out.show(true)),
-    command("worldinmotion.restart", () => proc!.restart()),
+    command("worldinmotion.restart", restartClient),
     command("worldinmotion.startSigner", startSigner),
     command("worldinmotion.crashReportsOn", () => crashReports(true)),
     command("worldinmotion.crashReportsOff", () => crashReports(false)),
     command("worldinmotion.runSelfTest", selfTest),
     // The client is told at start whether VS Code's telemetry is off (no crash reports then).
-    vscode.env.onDidChangeTelemetryEnabled(() => proc!.restart()),
+    vscode.env.onDidChangeTelemetryEnabled(restartClient),
     vscode.window.onDidCloseTerminal(signerClosed),
     vscode.window.onDidCloseTerminal(crashReportsClosed),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("worldinmotion.sessionName") || e.affectsConfiguration("worldinmotion.wimPath")) proc!.restart();
+      if (e.affectsConfiguration("worldinmotion.sessionName") || e.affectsConfiguration("worldinmotion.wimPath")) restartClient();
     }),
     {
       dispose: () => {

@@ -11,7 +11,8 @@
 //                      which it starts in the mesh); "setup-fail" (setup mode, whose join fails
 //                      after its code was shown); in setup mode `create` succeeds, says
 //                      `created` (recovery "shown", or "not_collected" with WIM_FAKE_RECOVERY=lost)
-//                      and ends, after which it starts in the mesh
+//                      and ends, after which it starts in the mesh; with WIM_FAKE_RECOVERY=hold it
+//                      keeps holding the code until it is stopped
 //   WIM_FAKE_TEST      for `test --json` (the self-test): see below
 
 import { appendFileSync, existsSync, statSync, writeFileSync } from "node:fs";
@@ -243,6 +244,10 @@ function setupMode() {
     const { id, op, args } = JSON.parse(line);
     if (op === "create") {
       respond(id, { device: { name: args?.name ?? "fresh", id: "dev-fresh" }, mesh: "f4ke…", relay: "relay.invalid" });
+      if (process.env.WIM_FAKE_RECOVERY === "hold") {
+        if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
+        return;
+      }
       setTimeout(() => {
         if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
         emit("created", { mesh: "f4ke…", recovery: process.env.WIM_FAKE_RECOVERY === "lost" ? "not_collected" : "shown" });

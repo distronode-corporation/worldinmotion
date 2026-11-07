@@ -3,7 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { activate, deactivate, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
+import { activate, deactivate, RECOVERY_LOST, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
 import { ExtensionMode, fake, FakeTerminal, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
 
 const PKG = fileURLToPath(new URL("..", import.meta.url));
@@ -384,6 +384,24 @@ describe("activate", () => {
     expect(fake.state.messages.filter((m) => m.level === "warning")).toHaveLength(0);
   });
 
+  it("says the recovery code is gone when the client holding it is restarted", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    vi.stubEnv("WIM_FAKE_RECOVERY", "hold");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.inputAnswers.push("laptop");
+    fake.state.quickPickAnswers.push((items) => items[0]);
+    fake.state.messageAnswers.push("Create Mesh", "Show Recovery Code");
+    await fake.run("worldinmotion.createMesh");
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(0);
+    await fake.run("worldinmotion.restart");
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toEqual([expect.objectContaining({ level: "warning" })]);
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    // Said once: a later restart has nothing to lose.
+    await fake.run("worldinmotion.restart");
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(1);
+  });
+
   it("says when the recovery code was not collected", async () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
     vi.stubEnv("WIM_FAKE_RECOVERY", "lost");
@@ -393,7 +411,8 @@ describe("activate", () => {
     fake.state.quickPickAnswers.push((items) => items[0]);
     fake.state.messageAnswers.push("Create Mesh", undefined, undefined);
     await fake.run("worldinmotion.createMesh");
-    await waitFor(() => expect(fake.state.messages.filter((m) => m.message === "worldinmotion: the recovery code was not collected and is gone. In a terminal: wim recovery rotate")).toEqual([expect.objectContaining({ level: "warning" })]));
+    await waitFor(() => expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toEqual([expect.objectContaining({ level: "warning" })]));
+    expect(RECOVERY_LOST).toBe("worldinmotion: the recovery code was not collected and is gone. In a terminal: wim recovery rotate");
     await waitFor(() => expect(api!.store.hello).toBeDefined());
     expect(fake.state.terminals).toHaveLength(0);
   });
