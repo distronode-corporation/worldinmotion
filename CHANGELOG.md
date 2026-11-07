@@ -84,8 +84,110 @@ body line with a bracket.
   names the sender and carries none of the message, and `wim status` shows how many this device
   has dropped.
 
+## [0.1.10] - 2026-11-07
+
+### Added
+
+- **CI rules can name a tag or branch pattern.** A rule's ref may end in one `*` and match every
+  tag or branch under that prefix, the prefix itself included: `wim ci allow github <repo> --tag
+  'v*' --workflow release.yml`, `wim ci allow gitlab <project> --tag 'v*'`, or `--ref
+  'refs/heads/release/*'` for branches (SPEC section 18). There is no other glob syntax, and a
+  rules file with any other spelling is refused. A device matches a notice's `ref` (and, for
+  GitHub, the `workflow_ref` suffix, which must still be the token's own ref) by the prefix. The
+  rule is tagged as spelled; for each verified GitHub token the relay tries the exact ref and
+  every prefix of it followed by `*` (at most 256 hashes), so the device never names its patterns
+  to the relay, which learns one only when a notice matches it. A pattern admits anyone who can
+  push under its prefix: `allow` says so and how to protect the same refs at the provider (a
+  GitHub ruleset targeting `v*` and `v*/**/*`, GitLab protected tags or branches; GitLab rules
+  still need protected refs by default). Relays report `"ciPatterns": true` in `/v1/info`, and for
+  a GitHub pattern `allow` warns, without refusing the rule, when the relay's `/v1/info` lacks it
+  or cannot be read, since an older relay refuses notices under a pattern.
+- **The CI senders get published, as `worldinmotion-notify`.** `release.yml` gains two jobs,
+  `notify-github` and `notify-gitlab`, each off until a repository variable turns it on, which
+  write the GitHub Action to its own repository for the GitHub Marketplace (tag `vX.Y.Z`) and the
+  GitLab CI/CD component to its own project for the CI/CD Catalog (tag `X.Y.Z`, released by that
+  project's own pipeline). `.github/scripts/notify-trees.mjs` builds both trees, with the
+  release's own `wim.mjs` in the action, and refuses a file it does not list, another release's
+  bundle, an expression in `action.yml` or a README link that would not resolve there. Each push
+  uses a write credential held by a protected environment and read only by the push step. The
+  READMEs now show only the published lines, `uses: distronode-corporation/worldinmotion-notify@<full
+  commit sha> # vX.Y.Z` and `component: $CI_SERVER_FQDN/distronode-corporation/worldinmotion-notify/notify@X.Y.Z`,
+  and say that neither resolves until a release publishes them.
+- **`wim test`, a self-test inside wim.** It runs the real commands end to end on throwaway
+  devices against a relay it starts in its own process on loopback (relay-node on an in-memory
+  database), and removes all of it at the end, failures included. Fourteen steps: create, invite
+  and join with the comparison code, trust both ways, ping both directions, send with routed,
+  queued and delivered receipts, the offline queue, a held message from an untrusted device
+  approved and then refused, rooms, a file, a lease, ask and reply, rename, the loop breaker
+  tripped and resumed, `wim status` and `wim doctor` on a device not set up and on one in two
+  meshes, and `wim mesh delete`. One row per step (pass, fail or skip, and the time), a summary
+  line, exit 0 only when every step passed, and `--json` for CI. It plays the person for the
+  person-only steps, on its own devices only; the isolation rules and what they guard are in
+  SECURITY-MODEL section 7.6, each with a test against hostile input (the caller's real
+  `WIM_HOME` and agent variables, a temporary directory inside the caller's state, existing state
+  directories, symbolic links, any other relay address).
+- **`wim test --full`, `--relay` and `--person`.** `--full` adds two sandbox steps: the signer
+  (encrypt under a passphrase made for the run and never printed, start, lock, unlock, stop, its
+  socket in the sandbox device's own directory; when TMPDIR is too long for a socket path, the
+  run goes under `/tmp` instead, or is refused before it starts with "set TMPDIR to a shorter
+  directory") and a CI notice from a test issuer that exists only inside the sandbox (held,
+  approved, and the rule's ids pinned). `--relay <url>` is live
+  mode: the same steps with a throwaway mesh on that relay (`wss://`, or `ws://` only on
+  loopback), deleted at the end through `wim mesh delete` on pass, failure and Ctrl-C, with
+  `--key-env NAME` for a relay that needs an operator key. A step the relay does not offer is a
+  skip with the reason, and such skips do not fail the run; the summary line counts them.
+  `--person` has a person type the person-only steps at their own terminal, and refuses to start
+  under an agent's variables or piped input or output. Tests run live mode against relay-node in
+  a process of its own.
+- **worldinmotion: Run Self-Test in VS Code, and `/wim test` in Claude Code.** The VS Code command
+  runs `wim test --json` with the extension's client under a progress notification (Cancel
+  stops it, and the client still removes what it made), then says whether it passed, naming the
+  first failed step (or that it was cancelled), with **Show Steps** for the **worldinmotion self-test** output, one row per
+  step, the mark first; Cancel asks the client to stop with a line `stop` on its stdin, and kills
+  it only after 10 seconds. `/wim test` runs the plugin's own client and prints the same rows; it
+  passes on `--full` and `--relay <url>` only when the person typed them, and refuses `--person`
+  and `--key-env` (from a chat, that could send any variable's value to any relay).
+- **`wim test` cleans up after a run that was killed.** A line `stop` on a piped stdin stops a run
+  like Ctrl-C, which a program can send where a kill would leave the run no chance to remove what
+  it made (Windows). Each run's directory holds a mark file, and every run first removes
+  `wim-test-*` directories under the same temporary directory whose mark is over 24 hours old,
+  and on POSIX only those owned by you; nothing unmarked, younger, or reached through a link.
+  Windows has no owner check, so there keep the temporary directory your own (the default, under
+  your profile, is). One it cannot read or remove is skipped, never failing the run.
+
+### Changed
+
+- **`wim ci allow --tag` takes the tag name** (`--tag v1`, `--tag 'v*'`) instead of turning
+  `--ref` into a tag: 0.1.9's `--ref v1 --tag` is refused (write `--tag v1`), never read as
+  something else. `--ref` is unchanged: a branch name or a full ref, now also a pattern.
+- **The hosted relay takes CI senders** since 2026-11-06 (relay 0.1.9, `"ci": true` in
+  `/v1/info`), and [docs/hosted-relay.md](docs/hosted-relay.md) now says so, with what the relay
+  sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
+  where to find them.
+- A rule saved by 0.1.9 whose ref ends in `*` (which matched nothing then) is a ref pattern from 0.1.10.
+- **relay-node loads `node:sqlite` when a relay starts**, not when the package is imported, so the
+  client can bundle it for `wim test` without loading SQLite on every command.
+
 ### Fixed
 
+- **A relay could start agent turns with idle notices nobody asked for.** The client took every
+  relay `notice` frame, and the Claude Code plugin turns a notice into a turn of its own, so a
+  hostile relay could start turns at will (SECURITY-MODEL section 5.4). Each arm of
+  `notify_when_idle` (the `send` tool's, and the plugin's SendMessage through it) is now kept in
+  the session's `watches.json`, written atomically: the address, when it was armed and when it
+  lapses (12 hours). A notice is taken only for an armed address that has not lapsed, once, and
+  the watch is closed; any other is dropped and logged. A re-arm renews the watch, a watch
+  survives a restart that resumes the session, and an unreadable file reads as no watches. The
+  relay decides how many arms a session holds (16), so the client refuses none: the file keeps
+  the newest 64, and a watch the relay never fires lapses after its 12 hours, so a watch the
+  relay did not keep blocks nothing. A watch also records the armed session's id, so its notice
+  is taken after that session renames itself. When a watch cannot be recorded, the `send` result
+  says so in `watch_note`, which the plugin's SendMessage passes on (SPEC section 8).
+- **A recovery or invite code's show could read an empty proof.** The holder wrote its proof
+  file in place, so a `wim recovery show` or `wim invite show` that read it in that moment sent
+  an empty proof and was told no code was waiting while one was. The proof is now written under
+  another name and renamed into place, and a reader that finds an empty or short proof is told
+  nothing waits without connecting. Found by a macOS CI run.
 - **The GitHub Action did not load.** The description of its `status` input showed the
   job-status expression literally, and GitHub evaluates expressions anywhere in an action's
   metadata, so every run stopped in "Set up job" (`Unrecognized named-value: 'job'`) before
@@ -99,13 +201,6 @@ body line with a bracket.
   no redirect dialled an unreachable address, which hid the TypeError; it now gets a real 302
   from the test outbound service. GitLab notices were not affected (the relay does not verify
   their tokens), nor was the Node relay.
-
-### Changed
-
-- **The hosted relay takes CI senders** since 2026-11-06 (relay 0.1.9, `"ci": true` in
-  `/v1/info`), and [docs/hosted-relay.md](docs/hosted-relay.md) now says so, with what the relay
-  sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
-  where to find them.
 
 ## [0.1.9] - 2026-11-06
 
@@ -901,7 +996,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10
 [0.1.9]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.9
 [0.1.8]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.8
 [0.1.7]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.7

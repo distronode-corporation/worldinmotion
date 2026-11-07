@@ -152,6 +152,10 @@ export class SessionFiles {
   get ciParkedPath(): string {
     return join(this.dir, "ci-parked.json");
   }
+  /** The idle notices this session armed, so a notice nobody asked for is dropped (watches.ts). */
+  get watchesPath(): string {
+    return join(this.dir, "watches.json");
+  }
   get tasksPath(): string {
     return join(this.dir, "tasks.json");
   }

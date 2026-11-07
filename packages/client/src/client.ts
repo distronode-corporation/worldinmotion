@@ -16,6 +16,7 @@ import {
   openMessageWith,
   relayDialUrl,
   rosterRef,
+  sanitizeForDisplay,
   sealBlob,
   sealMessageWith,
   sessionAddressSchema,
@@ -76,6 +77,7 @@ import { PongBudget, type PingRow } from "./ping.ts";
 import { Invites, PendingJoins, screenJoin } from "./joins.ts";
 import { SignerError } from "./signer.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
+import { Watches } from "./watches.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
 
 /** How many times a delivered frame may fail for a reason of its own before it is let go. */
@@ -482,6 +484,8 @@ export class MeshSession extends EventEmitter {
   /** The paused CI buckets whose drops were logged since the breaker last tripped. */
   private readonly ciPausedLogged = new Set<string>();
   private readonly ciParked: CiParked;
+  /** The idle notices this session armed: a relay notice is taken only for one of them, once (watches.ts). */
+  private readonly watches: Watches;
   /** When parked CI notices are next checked again. */
   private ciParkedDue = 0;
   /** This minute's CI drop lines, and the drops past CI_DROP_LINES by reason. */
@@ -514,6 +518,7 @@ export class MeshSession extends EventEmitter {
     this.sentTo = new SentTo(o.mesh.sentToPath, o.env, this.now);
     this.ciKeys = new CiKeys({ path: o.mesh.ciJwksPath, env: o.env, fetch: o.jwksFetch ?? fetchJwks, now: this.now });
     this.ciParked = new CiParked(files.ciParkedPath, o.env);
+    this.watches = new Watches(files.watchesPath, o.env, this.now);
   }
 
   /**
@@ -891,7 +896,7 @@ export class MeshSession extends EventEmitter {
         return;
       }
       case "notice":
-        this.noticeLater(f.of, `${f.of} is now idle (or has ended).`);
+        void this.idleNotice(f.of).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
         return;
       case "join.request":
         // `wim invite` decides these as they come; every session of an admin device also keeps
@@ -1600,6 +1605,16 @@ export class MeshSession extends EventEmitter {
       await this.take(written.cursor);
     }
     return written;
+  }
+
+  /**
+   * A relay's idle notice (SPEC section 8): spooled only when this session armed one for that
+   * address, it has not lapsed, and no notice took it yet; the watch is closed then. Any other is
+   * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4).
+   */
+  private async idleNotice(of: string): Promise<void> {
+    if (!(await this.watches.take(of, this.peers.get(of)?.sid))) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
+    await this.notice(of, `${of} is now idle (or has ended).`);
   }
 
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
@@ -2431,9 +2446,22 @@ export class MeshSession extends EventEmitter {
     return this.send(task.from, text, { kind: "result", reply_to: taskId, status });
   }
 
-  /** Arms one idle notice for each session address. */
-  notifyWhenIdle(addresses: readonly string[]): void {
-    for (const of of addresses) if (sessionAddressSchema.safeParse(of).success) this.sendIfOpen({ t: "notify_idle", of });
+  /**
+   * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
+   * recorded in `watches.json` first, so the notice is taken when it comes. The relay decides the
+   * limit; a watch it never fires lapses after 12 hours. Answers a note for the send's result when
+   * the watch could not be recorded.
+   */
+  async notifyWhenIdle(addresses: readonly string[]): Promise<string | undefined> {
+    const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
+    try {
+      await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
+    } catch (error) {
+      this.log(`wim: watches: ${(error as Error).message}`);
+      return `no idle notice armed: this session could not record the watch (${(error as Error).message})`;
+    }
+    for (const of of wanted) this.sendIfOpen({ t: "notify_idle", of });
+    return undefined;
   }
 
   async rename(name: string): Promise<string> {

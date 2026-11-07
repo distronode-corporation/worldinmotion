@@ -93,8 +93,8 @@ var require_buffer_util = __commonJS({
       }
       return target;
     }
-    function _mask(source2, mask, output2, offset, length) {
-      for (let i6 = 0; i6 < length; i6++) {
+    function _mask(source2, mask, output2, offset, length2) {
+      for (let i6 = 0; i6 < length2; i6++) {
         output2[offset + i6] = source2[i6] ^ mask[i6 & 3];
       }
     }
@@ -133,9 +133,9 @@ var require_buffer_util = __commonJS({
     if (!process.env.WS_NO_BUFFER_UTIL) {
       try {
         const bufferUtil = __require("bufferutil");
-        module2.exports.mask = function(source2, mask, output2, offset, length) {
-          if (length < 48) _mask(source2, mask, output2, offset, length);
-          else bufferUtil.mask(source2, mask, output2, offset, length);
+        module2.exports.mask = function(source2, mask, output2, offset, length2) {
+          if (length2 < 48) _mask(source2, mask, output2, offset, length2);
+          else bufferUtil.mask(source2, mask, output2, offset, length2);
         };
         module2.exports.unmask = function(buffer, mask) {
           if (buffer.length < 32) _unmask(buffer, mask);
@@ -390,26 +390,26 @@ var require_permessage_deflate = __commonJS({
             value2 = value2[0];
             if (key3 === "client_max_window_bits") {
               if (value2 !== true) {
-                const num = +value2;
-                if (!Number.isInteger(num) || num < 8 || num > 15) {
+                const num2 = +value2;
+                if (!Number.isInteger(num2) || num2 < 8 || num2 > 15) {
                   throw new TypeError(
                     `Invalid value for parameter "${key3}": ${value2}`
                   );
                 }
-                value2 = num;
+                value2 = num2;
               } else if (!this._isServer) {
                 throw new TypeError(
                   `Invalid value for parameter "${key3}": ${value2}`
                 );
               }
             } else if (key3 === "server_max_window_bits") {
-              const num = +value2;
-              if (!Number.isInteger(num) || num < 8 || num > 15) {
+              const num2 = +value2;
+              if (!Number.isInteger(num2) || num2 < 8 || num2 > 15) {
                 throw new TypeError(
                   `Invalid value for parameter "${key3}": ${value2}`
                 );
               }
-              value2 = num;
+              value2 = num2;
             } else if (key3 === "client_no_context_takeover" || key3 === "server_no_context_takeover") {
               if (value2 !== true) {
                 throw new TypeError(
@@ -1123,8 +1123,8 @@ var require_receiver = __commonJS({
           return;
         }
         const buf2 = this.consume(8);
-        const num = buf2.readUInt32BE(0);
-        if (num > Math.pow(2, 53 - 32) - 1) {
+        const num2 = buf2.readUInt32BE(0);
+        if (num2 > Math.pow(2, 53 - 32) - 1) {
           const error64 = this.createError(
             RangeError,
             "Unsupported WebSocket frame: payload length > 2^53 - 1",
@@ -1135,7 +1135,7 @@ var require_receiver = __commonJS({
           cb(error64);
           return;
         }
-        this._payloadLength = num * Math.pow(2, 32) + buf2.readUInt32BE(4);
+        this._payloadLength = num2 * Math.pow(2, 32) + buf2.readUInt32BE(4);
         this.haveLength(cb);
       }
       /**
@@ -1558,11 +1558,11 @@ var require_sender = __commonJS({
           buf2 = Buffer.allocUnsafe(2);
           buf2.writeUInt16BE(code2, 0);
         } else {
-          const length = Buffer.byteLength(data);
-          if (length > 123) {
+          const length2 = Buffer.byteLength(data);
+          if (length2 > 123) {
             throw new RangeError("The message must not be greater than 123 bytes");
           }
-          buf2 = Buffer.allocUnsafe(2 + length);
+          buf2 = Buffer.allocUnsafe(2 + length2);
           buf2.writeUInt16BE(code2, 0);
           if (typeof data === "string") {
             buf2.write(data, 2);
@@ -2143,7 +2143,7 @@ var require_extension = __commonJS({
       let inQuotes = false;
       let extensionName;
       let paramName;
-      let start2 = -1;
+      let start3 = -1;
       let code2 = -1;
       let end2 = -1;
       let i6 = 0;
@@ -2151,45 +2151,45 @@ var require_extension = __commonJS({
         code2 = header2.charCodeAt(i6);
         if (extensionName === void 0) {
           if (end2 === -1 && tokenChars[code2] === 1) {
-            if (start2 === -1) start2 = i6;
+            if (start3 === -1) start3 = i6;
           } else if (i6 !== 0 && (code2 === 32 || code2 === 9)) {
-            if (end2 === -1 && start2 !== -1) end2 = i6;
+            if (end2 === -1 && start3 !== -1) end2 = i6;
           } else if (code2 === 59 || code2 === 44) {
-            if (start2 === -1) {
+            if (start3 === -1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
-            const name = header2.slice(start2, end2);
+            const name = header2.slice(start3, end2);
             if (code2 === 44) {
               push(offers, name, params);
               params = /* @__PURE__ */ Object.create(null);
             } else {
               extensionName = name;
             }
-            start2 = end2 = -1;
+            start3 = end2 = -1;
           } else {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
         } else if (paramName === void 0) {
           if (end2 === -1 && tokenChars[code2] === 1) {
-            if (start2 === -1) start2 = i6;
+            if (start3 === -1) start3 = i6;
           } else if (code2 === 32 || code2 === 9) {
-            if (end2 === -1 && start2 !== -1) end2 = i6;
+            if (end2 === -1 && start3 !== -1) end2 = i6;
           } else if (code2 === 59 || code2 === 44) {
-            if (start2 === -1) {
+            if (start3 === -1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
-            push(params, header2.slice(start2, end2), true);
+            push(params, header2.slice(start3, end2), true);
             if (code2 === 44) {
               push(offers, extensionName, params);
               params = /* @__PURE__ */ Object.create(null);
               extensionName = void 0;
             }
-            start2 = end2 = -1;
-          } else if (code2 === 61 && start2 !== -1 && end2 === -1) {
-            paramName = header2.slice(start2, i6);
-            start2 = end2 = -1;
+            start3 = end2 = -1;
+          } else if (code2 === 61 && start3 !== -1 && end2 === -1) {
+            paramName = header2.slice(start3, i6);
+            start3 = end2 = -1;
           } else {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
@@ -2198,13 +2198,13 @@ var require_extension = __commonJS({
             if (tokenChars[code2] !== 1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
-            if (start2 === -1) start2 = i6;
+            if (start3 === -1) start3 = i6;
             else if (!mustUnescape) mustUnescape = true;
             isEscaping = false;
           } else if (inQuotes) {
             if (tokenChars[code2] === 1) {
-              if (start2 === -1) start2 = i6;
-            } else if (code2 === 34 && start2 !== -1) {
+              if (start3 === -1) start3 = i6;
+            } else if (code2 === 34 && start3 !== -1) {
               inQuotes = false;
               end2 = i6;
             } else if (code2 === 92) {
@@ -2215,15 +2215,15 @@ var require_extension = __commonJS({
           } else if (code2 === 34 && header2.charCodeAt(i6 - 1) === 61) {
             inQuotes = true;
           } else if (end2 === -1 && tokenChars[code2] === 1) {
-            if (start2 === -1) start2 = i6;
-          } else if (start2 !== -1 && (code2 === 32 || code2 === 9)) {
+            if (start3 === -1) start3 = i6;
+          } else if (start3 !== -1 && (code2 === 32 || code2 === 9)) {
             if (end2 === -1) end2 = i6;
           } else if (code2 === 59 || code2 === 44) {
-            if (start2 === -1) {
+            if (start3 === -1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
-            let value2 = header2.slice(start2, end2);
+            let value2 = header2.slice(start3, end2);
             if (mustUnescape) {
               value2 = value2.replace(/\\/g, "");
               mustUnescape = false;
@@ -2235,17 +2235,17 @@ var require_extension = __commonJS({
               extensionName = void 0;
             }
             paramName = void 0;
-            start2 = end2 = -1;
+            start3 = end2 = -1;
           } else {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
         }
       }
-      if (start2 === -1 || inQuotes || code2 === 32 || code2 === 9) {
+      if (start3 === -1 || inQuotes || code2 === 32 || code2 === 9) {
         throw new SyntaxError("Unexpected end of input");
       }
       if (end2 === -1) end2 = i6;
-      const token = header2.slice(start2, end2);
+      const token = header2.slice(start3, end2);
       if (extensionName === void 0) {
         push(offers, token, params);
       } else {
@@ -2288,7 +2288,7 @@ var require_websocket = __commonJS({
     var http3 = __require("http");
     var net = __require("net");
     var tls3 = __require("tls");
-    var { randomBytes: randomBytes5, createHash: createHash9 } = __require("crypto");
+    var { randomBytes: randomBytes6, createHash: createHash9 } = __require("crypto");
     var { Duplex, Readable: Readable8 } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -2839,7 +2839,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key3 = randomBytes5(16).toString("base64");
+      const key3 = randomBytes6(16).toString("base64");
       const request2 = isSecure ? https2.request : http3.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -3071,9 +3071,9 @@ var require_websocket = __commonJS({
     }
     function sendAfterClose(websocket, data, cb) {
       if (data) {
-        const length = isBlob3(data) ? data.size : toBuffer2(data).length;
-        if (websocket._socket) websocket._sender._bufferedBytes += length;
-        else websocket._bufferedAmount += length;
+        const length2 = isBlob3(data) ? data.size : toBuffer2(data).length;
+        if (websocket._socket) websocket._sender._bufferedBytes += length2;
+        else websocket._bufferedAmount += length2;
       }
       if (cb) {
         const err = new Error(
@@ -3293,34 +3293,34 @@ var require_subprotocol = __commonJS({
     var { tokenChars } = require_validation();
     function parse4(header2) {
       const protocols = /* @__PURE__ */ new Set();
-      let start2 = -1;
+      let start3 = -1;
       let end2 = -1;
       let i6 = 0;
       for (i6; i6 < header2.length; i6++) {
         const code2 = header2.charCodeAt(i6);
         if (end2 === -1 && tokenChars[code2] === 1) {
-          if (start2 === -1) start2 = i6;
+          if (start3 === -1) start3 = i6;
         } else if (i6 !== 0 && (code2 === 32 || code2 === 9)) {
-          if (end2 === -1 && start2 !== -1) end2 = i6;
+          if (end2 === -1 && start3 !== -1) end2 = i6;
         } else if (code2 === 44) {
-          if (start2 === -1) {
+          if (start3 === -1) {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
           if (end2 === -1) end2 = i6;
-          const protocol2 = header2.slice(start2, end2);
+          const protocol2 = header2.slice(start3, end2);
           if (protocols.has(protocol2)) {
             throw new SyntaxError(`The "${protocol2}" subprotocol is duplicated`);
           }
           protocols.add(protocol2);
-          start2 = end2 = -1;
+          start3 = end2 = -1;
         } else {
           throw new SyntaxError(`Unexpected character at index ${i6}`);
         }
       }
-      if (start2 === -1 || end2 !== -1) {
+      if (start3 === -1 || end2 !== -1) {
         throw new SyntaxError("Unexpected end of input");
       }
-      const protocol = header2.slice(start2, i6);
+      const protocol = header2.slice(start3, i6);
       if (protocols.has(protocol)) {
         throw new SyntaxError(`The "${protocol}" subprotocol is duplicated`);
       }
@@ -4455,7 +4455,7 @@ var sleep;
 var init_sleep = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/client/util-waiter/utils/sleep.js"() {
     sleep = (seconds) => {
-      return new Promise((resolve3) => setTimeout(resolve3, seconds * 1e3));
+      return new Promise((resolve4) => setTimeout(resolve4, seconds * 1e3));
     };
   }
 });
@@ -4580,12 +4580,12 @@ var init_poller = __esm({
       }
       const delay3 = minDelayMs * 2 ** (attempt - 1);
       const capped = Math.min(delay3, maxDelayMs);
-      const waitFor = randomInRange(minDelayMs, capped);
-      if (Date.now() + waitFor > waitUntil) {
+      const waitFor2 = randomInRange(minDelayMs, capped);
+      if (Date.now() + waitFor2 > waitUntil) {
         const timeRemaining = waitUntil - Date.now();
         return Math.max(0, timeRemaining - 500);
       }
-      return waitFor;
+      return waitFor2;
     };
     randomInRange = (min, max) => min + Math.random() * (max - min);
   }
@@ -4620,8 +4620,8 @@ var init_createWaiter = __esm({
     init_waiter();
     abortTimeout = (abortSignal) => {
       let onAbort;
-      const promise2 = new Promise((resolve3) => {
-        onAbort = () => resolve3({ state: WaiterState.ABORTED });
+      const promise2 = new Promise((resolve4) => {
+        onAbort = () => resolve4({ state: WaiterState.ABORTED });
         if (typeof abortSignal.addEventListener === "function") {
           abortSignal.addEventListener("abort", onAbort);
         } else {
@@ -6173,9 +6173,9 @@ var init_object_mapping = __esm({
         if (typeof instruction === "function") {
           instruction = [, instruction];
         }
-        const [filter2 = nonNullish, valueFn = pass, sourceKey2 = targetKey] = instruction;
-        if (typeof filter2 === "function" && filter2(source2[sourceKey2]) || typeof filter2 !== "function" && !!filter2) {
-          target[targetKey] = valueFn(source2[sourceKey2]);
+        const [filter2 = nonNullish, valueFn = pass, sourceKey3 = targetKey] = instruction;
+        if (typeof filter2 === "function" && filter2(source2[sourceKey3]) || typeof filter2 !== "function" && !!filter2) {
+          target[targetKey] = valueFn(source2[sourceKey3]);
         }
         return;
       }
@@ -6357,11 +6357,11 @@ var fromArrayBuffer, fromString;
 var init_buffer_from = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/serde/util-buffer-from/buffer-from.js"() {
     init_is_array_buffer();
-    fromArrayBuffer = (input2, offset = 0, length = input2.byteLength - offset) => {
+    fromArrayBuffer = (input2, offset = 0, length2 = input2.byteLength - offset) => {
       if (!isArrayBuffer(input2)) {
         throw new TypeError(`The "input" argument must be ArrayBuffer. Received type ${typeof input2} (${input2})`);
       }
-      return Buffer.from(input2, offset, length);
+      return Buffer.from(input2, offset, length2);
     };
     fromString = (input2, encoding) => {
       if (typeof input2 !== "string") {
@@ -6934,7 +6934,7 @@ var LazyJsonString;
 var init_lazy_json = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/serde/lazy-json.js"() {
     LazyJsonString = function LazyJsonString2(val) {
-      const str2 = Object.assign(new String(val), {
+      const str3 = Object.assign(new String(val), {
         deserializeJSON() {
           return JSON.parse(String(val));
         },
@@ -6945,7 +6945,7 @@ var init_lazy_json = __esm({
           return String(val);
         }
       });
-      return str2;
+      return str3;
     };
     LazyJsonString.from = (object3) => {
       if (object3 && typeof object3 === "object" && (object3 instanceof LazyJsonString || "deserializeJSON" in object3)) {
@@ -6995,21 +6995,21 @@ var init_schema_date_utils = __esm({
       if (value2 == null) {
         return void 0;
       }
-      let num = NaN;
+      let num2 = NaN;
       if (typeof value2 === "number") {
-        num = value2;
+        num2 = value2;
       } else if (typeof value2 === "string") {
         if (!/^-?\d*\.?\d+$/.test(value2)) {
           throw new TypeError(`parseEpochTimestamp - numeric string invalid.`);
         }
-        num = Number.parseFloat(value2);
+        num2 = Number.parseFloat(value2);
       } else if (typeof value2 === "object" && value2.tag === 1) {
-        num = value2.value;
+        num2 = value2.value;
       }
-      if (isNaN(num) || Math.abs(num) === Infinity) {
+      if (isNaN(num2) || Math.abs(num2) === Infinity) {
         throw new TypeError("Epoch timestamps must be valid finite numbers.");
       }
-      return new Date(Math.round(num * 1e3));
+      return new Date(Math.round(num2 * 1e3));
     };
     _parseRfc3339DateTimeWithOffset = (value2) => {
       if (value2 == null) {
@@ -7031,8 +7031,8 @@ var init_schema_date_utils = __esm({
       const date6 = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr), Number(hours), Number(minutes), Number(seconds), Number(ms) ? Math.round(parseFloat(`0.${ms}`) * 1e3) : 0));
       date6.setUTCFullYear(Number(yearStr));
       if (offsetStr.toUpperCase() != "Z") {
-        const [, sign2, offsetH, offsetM] = /([+-])(\d\d):(\d\d)/.exec(offsetStr) || [void 0, "+", 0, 0];
-        const scalar = sign2 === "-" ? 1 : -1;
+        const [, sign3, offsetH, offsetM] = /([+-])(\d\d):(\d\d)/.exec(offsetStr) || [void 0, "+", 0, 0];
+        const scalar = sign3 === "-" ? 1 : -1;
         date6.setTime(date6.getTime() + scalar * (Number(offsetH) * 60 * 60 * 1e3 + Number(offsetM) * 60 * 1e3));
       }
       return date6;
@@ -7272,14 +7272,14 @@ var init_toUint8Array = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/serde/concatBytes.js
-function concatBytes3(arrays, length) {
-  if (length === void 0) {
-    length = 0;
+function concatBytes3(arrays, length2) {
+  if (length2 === void 0) {
+    length2 = 0;
     for (const bytes3 of arrays) {
-      length += bytes3.byteLength;
+      length2 += bytes3.byteLength;
     }
   }
-  const result = new Uint8Array(length);
+  const result = new Uint8Array(length2);
   let offset = 0;
   for (const buf2 of arrays) {
     result.set(buf2, offset);
@@ -8129,7 +8129,7 @@ var init_getInstanceMetadataRegion = __esm({
     };
     imdsRequest = async (options) => {
       const { request: request2 } = await import("node:http");
-      return new Promise((resolve3, reject) => {
+      return new Promise((resolve4, reject) => {
         const req = request2({
           hostname: options.hostname,
           port: options.port,
@@ -8157,7 +8157,7 @@ var init_getInstanceMetadataRegion = __esm({
           const chunks = [];
           res.on("data", (chunk) => chunks.push(chunk));
           res.on("end", () => {
-            resolve3(Buffer.concat(chunks));
+            resolve4(Buffer.concat(chunks));
             req.destroy();
           });
         });
@@ -9187,14 +9187,14 @@ var init_stringEquals = __esm({
 var substring;
 var init_substring = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/endpoints/util-endpoints/lib/substring.js"() {
-    substring = (input2, start2, stop, reverse) => {
-      if (input2 == null || start2 >= stop || input2.length < stop || /[^\u0000-\u007f]/.test(input2)) {
+    substring = (input2, start3, stop, reverse) => {
+      if (input2 == null || start3 >= stop || input2.length < stop || /[^\u0000-\u007f]/.test(input2)) {
         return null;
       }
       if (!reverse) {
-        return input2.substring(start2, stop);
+        return input2.substring(start3, stop);
       }
-      return input2.substring(input2.length - stop, input2.length - start2);
+      return input2.substring(input2.length - stop, input2.length - start3);
     };
   }
 });
@@ -9956,7 +9956,7 @@ function toBase642(_input) {
   if (!isArrayLike && !isUint8Array) {
     throw new Error("@smithy/util-base64: toBase64 encoder function only accepts string | Uint8Array.");
   }
-  let str2 = "";
+  let str3 = "";
   for (let i6 = 0; i6 < input2.length; i6 += 3) {
     let bits = 0;
     let bitLength = 0;
@@ -9968,11 +9968,11 @@ function toBase642(_input) {
     bits <<= bitClusterCount * bitsPerLetter - bitLength;
     for (let k5 = 1; k5 <= bitClusterCount; k5++) {
       const offset = (bitClusterCount - k5) * bitsPerLetter;
-      str2 += alphabetByValue[(bits & maxLetterValue << offset) >> offset];
+      str3 += alphabetByValue[(bits & maxLetterValue << offset) >> offset];
     }
-    str2 += "==".slice(0, 4 - bitClusterCount);
+    str3 += "==".slice(0, 4 - bitClusterCount);
   }
-  return str2;
+  return str3;
 }
 var init_toBase64_browser = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/serde/util-base64/toBase64.browser.js"() {
@@ -10302,11 +10302,11 @@ function getAwsChunkedEncodingStream2(stream, options) {
     }
   });
   readable.on("data", (data) => {
-    const length = bodyLengthChecker(data) || 0;
-    if (length === 0) {
+    const length2 = bodyLengthChecker(data) || 0;
+    if (length2 === 0) {
       return;
     }
-    awsChunkedEncodingStream.push(`${length.toString(16)}\r
+    awsChunkedEncodingStream.push(`${length2.toString(16)}\r
 `);
     awsChunkedEncodingStream.push(data);
     if (!awsChunkedEncodingStream.push("\r\n")) {
@@ -10390,7 +10390,7 @@ var init_headStream = __esm({
       if (isReadableStream(stream)) {
         return headStream(stream, bytes3);
       }
-      return new Promise((resolve3, reject) => {
+      return new Promise((resolve4, reject) => {
         const collector = new Collector();
         collector.limit = bytes3;
         stream.pipe(collector);
@@ -10401,7 +10401,7 @@ var init_headStream = __esm({
         collector.on("error", reject);
         collector.on("finish", function() {
           const bytes4 = concatBytes3(this.buffers);
-          resolve3(bytes4);
+          resolve4(bytes4);
         });
       });
     };
@@ -10447,18 +10447,18 @@ async function collectBlob(blob) {
 async function collectReadableStream(stream) {
   const chunks = [];
   const reader = stream.getReader();
-  let length = 0;
+  let length2 = 0;
   while (true) {
     const { done, value: value2 } = await reader.read();
     if (value2) {
       chunks.push(value2);
-      length += value2.length;
+      length2 += value2.length;
     }
     if (done) {
       break;
     }
   }
-  return concatBytes3(chunks, length);
+  return concatBytes3(chunks, length2);
 }
 var streamCollector;
 var init_stream_collector_browser = __esm({
@@ -10553,7 +10553,7 @@ var init_stream_collector = __esm({
       if (isReadableStream(stream)) {
         return collectReadableStream(stream);
       }
-      return new Promise((resolve3, reject) => {
+      return new Promise((resolve4, reject) => {
         const collector = new Collector2();
         const nodeStream = stream;
         nodeStream.pipe(collector);
@@ -10564,7 +10564,7 @@ var init_stream_collector = __esm({
         collector.on("error", reject);
         collector.on("finish", function() {
           const bytes3 = concatBytes3(this.bufferedBytes);
-          resolve3(bytes3);
+          resolve4(bytes3);
         });
       });
     };
@@ -10808,8 +10808,8 @@ var init_collect_stream_body = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/protocols/extended-encode-uri-component.js
-function extendedEncodeURIComponent(str2) {
-  return encodeURIComponent(str2).replace(/[!'()*]/g, function(c5) {
+function extendedEncodeURIComponent(str3) {
+  return encodeURIComponent(str3).replace(/[!'()*]/g, function(c5) {
     return "%" + c5.charCodeAt(0).toString(16).toUpperCase();
   });
 }
@@ -10891,7 +10891,7 @@ var fileStreamHasher, isReadStream;
 var init_fileStreamHasher = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/checksum/hash-stream-node/fileStreamHasher.js"() {
     init_HashCalculator();
-    fileStreamHasher = (hashCtor, fileStream) => new Promise((resolve3, reject) => {
+    fileStreamHasher = (hashCtor, fileStream) => new Promise((resolve4, reject) => {
       if (!isReadStream(fileStream)) {
         reject(new Error("Unable to calculate hash for non-file streams."));
         return;
@@ -10909,7 +10909,7 @@ var init_fileStreamHasher = __esm({
       });
       hashCalculator.on("error", reject);
       hashCalculator.on("finish", function() {
-        hash3.digest().then(resolve3).catch(reject);
+        hash3.digest().then(resolve4).catch(reject);
       });
     });
     isReadStream = (stream) => typeof stream.path === "string";
@@ -10928,14 +10928,14 @@ var init_readableStreamHasher = __esm({
       const hash3 = new hashCtor();
       const hashCalculator = new HashCalculator(hash3);
       readableStream.pipe(hashCalculator);
-      return new Promise((resolve3, reject) => {
+      return new Promise((resolve4, reject) => {
         readableStream.on("error", (err) => {
           hashCalculator.end();
           reject(err);
         });
         hashCalculator.on("error", reject);
         hashCalculator.on("finish", () => {
-          hash3.digest().then(resolve3).catch(reject);
+          hash3.digest().then(resolve4).catch(reject);
         });
       });
     };
@@ -11894,18 +11894,18 @@ var init_EventStreamCodec = __esm({
       }
       encode({ headers: rawHeaders, body }) {
         const headers = this.headerMarshaller.format(rawHeaders);
-        const length = headers.byteLength + body.byteLength + 16;
-        const out = new Uint8Array(length);
+        const length2 = headers.byteLength + body.byteLength + 16;
+        const out = new Uint8Array(length2);
         const view2 = new DataView(out.buffer, out.byteOffset, out.byteLength);
         const checksum2 = new Crc32Node();
-        view2.setUint32(0, length, false);
+        view2.setUint32(0, length2, false);
         view2.setUint32(4, headers.byteLength, false);
         checksum2.update(out.subarray(0, 8));
         view2.setUint32(8, checksum2.digestSync(), false);
         out.set(headers, 12);
         out.set(body, headers.byteLength + 12);
-        checksum2.update(out.subarray(8, length - 4));
-        view2.setUint32(length - 4, checksum2.digestSync(), false);
+        checksum2.update(out.subarray(8, length2 - 4));
+        view2.setUint32(length2 - 4, checksum2.digestSync(), false);
         return out;
       }
       decode(message2) {
@@ -12190,7 +12190,7 @@ async function* readableToIterable(readStream) {
     streamEnded = true;
   });
   while (!generationEnded) {
-    const value2 = await new Promise((resolve3) => setTimeout(() => resolve3(records.shift()), 0));
+    const value2 = await new Promise((resolve4) => setTimeout(() => resolve4(records.shift()), 0));
     if (value2) {
       yield value2;
     }
@@ -13632,13 +13632,13 @@ function contentLengthMiddleware(bodyLengthChecker) {
     const request2 = args.request;
     if (HttpRequest.isInstance(request2)) {
       const { body, headers } = request2;
-      if (body && Object.keys(headers).map((str2) => str2.toLowerCase()).indexOf(CONTENT_LENGTH_HEADER) === -1) {
+      if (body && Object.keys(headers).map((str3) => str3.toLowerCase()).indexOf(CONTENT_LENGTH_HEADER) === -1) {
         try {
-          const length = bodyLengthChecker(body);
-          if (length != null) {
+          const length2 = bodyLengthChecker(body);
+          if (length2 != null) {
             request2.headers = {
               ...request2.headers,
-              [CONTENT_LENGTH_HEADER]: String(length)
+              [CONTENT_LENGTH_HEADER]: String(length2)
             };
           }
         } catch (ignored) {
@@ -14346,8 +14346,8 @@ var init_JsonBytesStringAdapter = __esm({
       split(separator, limit2) {
         return this.s().split(separator, limit2);
       }
-      substring(start2, end2) {
-        return this.s().substring(start2, end2);
+      substring(start3, end2) {
+        return this.s().substring(start3, end2);
       }
       trim() {
         return this.s().trim();
@@ -15826,7 +15826,7 @@ var init_retryMiddleware = __esm({
     init_constants5();
     init_parseRetryAfterHeader();
     init_util();
-    cooldown = (ms) => new Promise((resolve3) => setTimeout(resolve3, ms));
+    cooldown = (ms) => new Promise((resolve4) => setTimeout(resolve4, ms));
     isRetryStrategyV2 = (retryStrategy) => typeof retryStrategy.acquireInitialRetryToken !== "undefined" && typeof retryStrategy.refreshRetryTokenForRetry !== "undefined" && typeof retryStrategy.recordSuccess !== "undefined";
     getRetryErrorInfo = (error64, logger2) => {
       const errorInfo = {
@@ -15924,7 +15924,7 @@ var init_DefaultRateLimiter = __esm({
         this.refillTokenBucket();
         while (amount > this.availableTokens) {
           const delay3 = (amount - this.availableTokens) / this.fillRate * 1e3;
-          await new Promise((resolve3) => _DefaultRateLimiter.setTimeoutFn(resolve3, delay3));
+          await new Promise((resolve4) => _DefaultRateLimiter.setTimeoutFn(resolve4, delay3));
           this.refillTokenBucket();
         }
         this.availableTokens = this.availableTokens - amount;
@@ -15968,8 +15968,8 @@ var init_DefaultRateLimiter = __esm({
           this.lastTxRateBucket = timeBucket;
         }
       }
-      getPrecise(num) {
-        return parseFloat(num.toFixed(8));
+      getPrecise(num2) {
+        return parseFloat(num2.toFixed(8));
       }
     };
   }
@@ -16362,7 +16362,7 @@ var init_StandardRetryStrategy2 = __esm({
               const delayFromResponse = getDelayFromRetryAfterHeader(err.$response);
               const delay3 = Math.max(delayFromResponse || 0, delayFromDecider);
               totalDelay += delay3;
-              await new Promise((resolve3) => setTimeout(resolve3, delay3));
+              await new Promise((resolve4) => setTimeout(resolve4, delay3));
               continue;
             }
             if (!err.$metadata) {
@@ -16884,7 +16884,7 @@ var init_recursionDetectionMiddleware = __esm({
           invokeStore ??= await InvokeStore.getInstanceAsync();
           const traceIdFromInvokeStore = invokeStore?.getXRayTraceId();
           const traceId = traceIdFromInvokeStore ?? traceIdFromEnv;
-          const nonEmptyString = (str2) => typeof str2 === "string" && str2.length > 0;
+          const nonEmptyString = (str3) => typeof str3 === "string" && str3.length > 0;
           if (nonEmptyString(functionName) && nonEmptyString(traceId)) {
             request2.headers[X_AMZN_TRACE_ID] = traceId;
           }
@@ -19238,7 +19238,7 @@ var require_dist_cjs2 = __commonJS({
 var validate2, parse3, build;
 var init_arn = __esm({
   "../../node_modules/@aws-sdk/core/dist-es/submodules/util/util-arn-parser/arn.js"() {
-    validate2 = (str2) => typeof str2 === "string" && str2.indexOf("arn:") === 0 && str2.split(":").length >= 6;
+    validate2 = (str3) => typeof str3 === "string" && str3.indexOf("arn:") === 0 && str3.split(":").length >= 6;
     parse3 = (arn) => {
       const segments = arn.split(":");
       if (segments.length < 6 || segments[0] !== "arn")
@@ -19333,7 +19333,7 @@ var require_dist_cjs3 = __commonJS({
       return new Request(url2, requestOptions);
     }
     function requestTimeout(timeoutInMs = 0) {
-      return new Promise((resolve3, reject) => {
+      return new Promise((resolve4, reject) => {
         if (timeoutInMs) {
           setTimeout(() => {
             const timeoutError = new Error(`Request did not complete within ${timeoutInMs} ms`);
@@ -19451,7 +19451,7 @@ var require_dist_cjs3 = __commonJS({
           requestTimeout(requestTimeoutInMs)
         ];
         if (abortSignal) {
-          raceOfPromises.push(new Promise((resolve3, reject) => {
+          raceOfPromises.push(new Promise((resolve4, reject) => {
             const onAbort = () => {
               const abortError = buildAbortError(abortSignal);
               reject(abortError);
@@ -19590,7 +19590,7 @@ var require_dist_cjs4 = __commonJS({
         this.sockets[url2] = (this.sockets[url2] ?? []).filter((socket) => ![WebSocket.CLOSING, WebSocket.CLOSED].includes(socket.readyState));
       }
       waitForReady(socket, connectionTimeout) {
-        return new Promise((resolve3, reject) => {
+        return new Promise((resolve4, reject) => {
           const timeout = setTimeout(() => {
             this.removeNotUsableSockets(socket.url);
             reject({
@@ -19602,7 +19602,7 @@ var require_dist_cjs4 = __commonJS({
           }, connectionTimeout);
           socket.onopen = () => {
             clearTimeout(timeout);
-            resolve3();
+            resolve4();
           };
         });
       }
@@ -19655,8 +19655,8 @@ var require_dist_cjs4 = __commonJS({
                 }
                 return { done: item.done, value: item.value };
               }
-              return new Promise((resolve3, reject) => {
-                pendingResolve = resolve3;
+              return new Promise((resolve4, reject) => {
+                pendingResolve = resolve4;
                 pendingReject = reject;
               });
             }
@@ -20069,7 +20069,7 @@ var init_AwsSdkSigV4ASigner = __esm({
 var getArrayForCommaSeparatedString;
 var init_getArrayForCommaSeparatedString = __esm({
   "../../node_modules/@aws-sdk/core/dist-es/submodules/httpAuthSchemes/utils/getArrayForCommaSeparatedString.js"() {
-    getArrayForCommaSeparatedString = (str2) => typeof str2 === "string" && str2.length > 0 ? str2.split(",").map((item) => item.trim()) : [];
+    getArrayForCommaSeparatedString = (str3) => typeof str3 === "string" && str3.length > 0 ? str3.split(",").map((item) => item.trim()) : [];
   }
 });
 
@@ -20951,7 +20951,7 @@ var require_dist_cjs7 = __commonJS({
     var DEFAULT_MAX_RETRIES = 0;
     var providerConfigFromInit = ({ maxRetries = DEFAULT_MAX_RETRIES, timeout = DEFAULT_TIMEOUT }) => ({ maxRetries, timeout });
     function httpRequest(options) {
-      return new Promise((resolve3, reject) => {
+      return new Promise((resolve4, reject) => {
         const req = node_http.request({
           method: "GET",
           ...options,
@@ -20976,7 +20976,7 @@ var require_dist_cjs7 = __commonJS({
             chunks.push(chunk);
           });
           res.on("end", () => {
-            resolve3(Buffer.concat(chunks));
+            resolve4(Buffer.concat(chunks));
             req.destroy();
           });
         });
@@ -21420,21 +21420,21 @@ var require_dist_cjs8 = __commonJS({
       let sendBody = true;
       if (!externalAgent && expect === "100-continue") {
         sendBody = await Promise.race([
-          new Promise((resolve3) => {
-            timeoutId = Number(timing.setTimeout(() => resolve3(true), Math.max(MIN_WAIT_TIME, maxContinueTimeoutMs)));
+          new Promise((resolve4) => {
+            timeoutId = Number(timing.setTimeout(() => resolve4(true), Math.max(MIN_WAIT_TIME, maxContinueTimeoutMs)));
           }),
-          new Promise((resolve3) => {
+          new Promise((resolve4) => {
             httpRequest.on("continue", () => {
               timing.clearTimeout(timeoutId);
-              resolve3(true);
+              resolve4(true);
             });
             httpRequest.on("response", () => {
               timing.clearTimeout(timeoutId);
-              resolve3(false);
+              resolve4(false);
             });
             httpRequest.on("error", () => {
               timing.clearTimeout(timeoutId);
-              resolve3(false);
+              resolve4(false);
             });
           })
         ]);
@@ -21510,13 +21510,13 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return socketWarningTimestamp;
       }
       constructor(options) {
-        this.configProvider = new Promise((resolve3, reject) => {
+        this.configProvider = new Promise((resolve4, reject) => {
           if (typeof options === "function") {
             options().then((_options) => {
-              resolve3(this.resolveDefaultConfig(_options));
+              resolve4(this.resolveDefaultConfig(_options));
             }).catch(reject);
           } else {
-            resolve3(this.resolveDefaultConfig(options));
+            resolve4(this.resolveDefaultConfig(options));
           }
         });
       }
@@ -21548,7 +21548,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
             timing.clearTimeout(socketTimeoutId);
             timing.clearTimeout(keepAliveTimeoutId);
           };
-          const resolve3 = async (arg) => {
+          const resolve4 = async (arg) => {
             await writeRequestBodyPromise;
             clearTimeouts();
             _resolve(arg);
@@ -21612,7 +21612,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
               headers: getTransformedHeaders(res.headers),
               body: res
             });
-            resolve3({ response: httpResponse });
+            resolve4({ response: httpResponse });
           });
           req.on("error", (err) => {
             if (NODEJS_TIMEOUT_ERROR_CODES2.includes(err.code)) {
@@ -21940,13 +21940,13 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return new _NodeHttp2Handler(instanceOrOptions);
       }
       constructor(options) {
-        this.configProvider = new Promise((resolve3, reject) => {
+        this.configProvider = new Promise((resolve4, reject) => {
           if (typeof options === "function") {
             options().then((opts) => {
-              resolve3(opts || {});
+              resolve4(opts || {});
             }).catch(reject);
           } else {
-            resolve3(options || {});
+            resolve4(options || {});
           }
         });
       }
@@ -21971,7 +21971,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return new Promise((_resolve, _reject) => {
           let fulfilled = false;
           let writeRequestBodyPromise = void 0;
-          const resolve3 = async (arg) => {
+          const resolve4 = async (arg) => {
             await writeRequestBodyPromise;
             _resolve(arg);
           };
@@ -22056,7 +22056,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
               body: clientHttp2Stream
             });
             fulfilled = true;
-            resolve3({ response: httpResponse });
+            resolve4({ response: httpResponse });
             if (useIsolatedSession) {
               session.close();
               clientHttp2Stream.on("end", () => {
@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs17 = __require("node:fs/promises");
+    var fs18 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22129,8 +22129,8 @@ var require_dist_cjs9 = __commonJS({
         }
         const ipComponents = url2.hostname.split(".");
         const inRange2 = (component) => {
-          const num = parseInt(component, 10);
-          return 0 <= num && num <= 255;
+          const num2 = parseInt(component, 10);
+          return 0 <= num2 && num2 <= 255;
         };
         if (ipComponents[0] === "127" && inRange2(ipComponents[1]) && inRange2(ipComponents[2]) && inRange2(ipComponents[3]) && ipComponents.length === 4) {
           return;
@@ -22156,9 +22156,9 @@ var require_dist_cjs9 = __commonJS({
     }
     async function getCredentials(response, logger2) {
       const stream = sdkStreamMixin3(response.body);
-      const str2 = await stream.transformToString();
+      const str3 = await stream.transformToString();
       if (response.statusCode === 200) {
-        const parsed2 = JSON.parse(str2);
+        const parsed2 = JSON.parse(str3);
         if (typeof parsed2.AccessKeyId !== "string" || typeof parsed2.SecretAccessKey !== "string" || typeof parsed2.Token !== "string" || typeof parsed2.Expiration !== "string") {
           throw new CredentialsProviderError2("HTTP credential provider response not of the required format, an object matching: { AccessKeyId: string, SecretAccessKey: string, Token: string, Expiration: string(rfc3339) }", { logger: logger2 });
         }
@@ -22172,7 +22172,7 @@ var require_dist_cjs9 = __commonJS({
       if (response.statusCode >= 400 && response.statusCode < 500) {
         let parsedBody = {};
         try {
-          parsedBody = JSON.parse(str2);
+          parsedBody = JSON.parse(str3);
         } catch (e6) {
         }
         throw Object.assign(new CredentialsProviderError2(`Server responded with status: ${response.statusCode}`, { logger: logger2 }), {
@@ -22188,7 +22188,7 @@ var require_dist_cjs9 = __commonJS({
           try {
             return await toRetry();
           } catch (e6) {
-            await new Promise((resolve3) => setTimeout(resolve3, delayMs));
+            await new Promise((resolve4) => setTimeout(resolve4, delayMs));
           }
         }
         return await toRetry();
@@ -22202,12 +22202,12 @@ var require_dist_cjs9 = __commonJS({
     var fromHttp = (options = {}) => {
       options.logger?.debug("@aws-sdk/credential-provider-http - fromHttp");
       let host;
-      const relative2 = options.awsContainerCredentialsRelativeUri ?? process.env[AWS_CONTAINER_CREDENTIALS_RELATIVE_URI];
+      const relative3 = options.awsContainerCredentialsRelativeUri ?? process.env[AWS_CONTAINER_CREDENTIALS_RELATIVE_URI];
       const full = options.awsContainerCredentialsFullUri ?? process.env[AWS_CONTAINER_CREDENTIALS_FULL_URI];
       const token = options.awsContainerAuthorizationToken ?? process.env[AWS_CONTAINER_AUTHORIZATION_TOKEN];
       const tokenFile = options.awsContainerAuthorizationTokenFile ?? process.env[AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE];
       const warn2 = options.logger?.constructor?.name === "NoOpLogger" || !options.logger?.warn ? console.warn : options.logger.warn.bind(options.logger);
-      if (relative2 && full) {
+      if (relative3 && full) {
         warn2("@aws-sdk/credential-provider-http: you have set both awsContainerCredentialsRelativeUri and awsContainerCredentialsFullUri.");
         warn2("awsContainerCredentialsRelativeUri will take precedence.");
       }
@@ -22215,8 +22215,8 @@ var require_dist_cjs9 = __commonJS({
         warn2("@aws-sdk/credential-provider-http: you have set both awsContainerAuthorizationToken and awsContainerAuthorizationTokenFile.");
         warn2("awsContainerAuthorizationTokenFile will take precedence.");
       }
-      if (relative2) {
-        host = `${DEFAULT_LINK_LOCAL_HOST}${relative2}`;
+      if (relative3) {
+        host = `${DEFAULT_LINK_LOCAL_HOST}${relative3}`;
       } else if (full) {
         host = full;
       } else {
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs17.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs18.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -22927,10 +22927,10 @@ function writeString(s3) {
       cached2.epoch = encodeCacheEpoch;
       return;
     }
-    const start2 = cursor;
+    const start3 = cursor;
     writeStringUncached(s3, len);
     const end2 = cursor;
-    const bytes3 = Uint8Array.prototype.slice.call(buf, start2, end2);
+    const bytes3 = Uint8Array.prototype.slice.call(buf, start3, end2);
     if (stringEncodeCache.size >= STRING_CACHE_MAX) {
       if (encodeCacheSaturated) {
         return;
@@ -23042,17 +23042,17 @@ function writeTag(tagValue, innerValue) {
   writeUntypedValue(innerValue);
 }
 function writeNumericValue(nv2) {
-  let str2 = nv2.string;
+  let str3 = nv2.string;
   let expOffset = BigInt(0);
-  const eIndex = str2.search(/[eE]/);
+  const eIndex = str3.search(/[eE]/);
   if (eIndex !== -1) {
-    expOffset = BigInt(str2.slice(eIndex + 1));
-    str2 = str2.slice(0, eIndex);
+    expOffset = BigInt(str3.slice(eIndex + 1));
+    str3 = str3.slice(0, eIndex);
   }
-  const decimalIndex = str2.indexOf(".");
-  const fractionDigits = decimalIndex === -1 ? 0 : str2.length - decimalIndex - 1;
+  const decimalIndex = str3.indexOf(".");
+  const fractionDigits = decimalIndex === -1 ? 0 : str3.length - decimalIndex - 1;
   const exponent = expOffset - BigInt(fractionDigits);
-  const mantissa = BigInt(str2.replace(".", ""));
+  const mantissa = BigInt(str3.replace(".", ""));
   ensure(9);
   buf[cursor++] = 196;
   encodeHeader(majorList, 2);
@@ -23245,7 +23245,7 @@ function readTag(ns) {
     const normalizer = mantissa < 0 ? -1 : 1;
     const absMantissa = BigInt(normalizer) * BigInt(mantissa);
     const mantissaDigits = String(absMantissa);
-    const sign2 = mantissa < 0 ? "-" : "";
+    const sign3 = mantissa < 0 ? "-" : "";
     let numericString;
     const isSmallExponent = typeof rawExponent === "number" && Math.abs(rawExponent) <= 2 ** 28;
     if (isSmallExponent) {
@@ -23259,14 +23259,14 @@ function readTag(ns) {
       if (numericString[0] === ".") {
         numericString = "0" + numericString;
       }
-      numericString = sign2 + numericString;
+      numericString = sign3 + numericString;
     } else {
       const bigExponent = BigInt(rawExponent);
       if (mantissaDigits.length === 1) {
-        numericString = sign2 + mantissaDigits + "e" + String(bigExponent);
+        numericString = sign3 + mantissaDigits + "e" + String(bigExponent);
       } else {
         const adjustedExp = bigExponent + BigInt(mantissaDigits.length - 1);
-        numericString = sign2 + mantissaDigits[0] + "." + mantissaDigits.slice(1) + "e" + String(adjustedExp);
+        numericString = sign3 + mantissaDigits[0] + "." + mantissaDigits.slice(1) + "e" + String(adjustedExp);
       }
     }
     return nv(numericString);
@@ -23496,39 +23496,39 @@ function readNegativeInt() {
   return -1 - val;
 }
 function readByteString() {
-  const length = decodeCount();
-  if (end - pos < length) {
-    overflow(length);
+  const length2 = decodeCount();
+  if (end - pos < length2) {
+    overflow(length2);
   }
-  const start2 = pos;
-  pos += length;
-  return payload.subarray(start2, start2 + length);
+  const start3 = pos;
+  pos += length2;
+  return payload.subarray(start3, start3 + length2);
 }
 function readUtf8String() {
-  const length = decodeCount();
-  if (end - pos < length) {
-    overflow(length);
+  const length2 = decodeCount();
+  if (end - pos < length2) {
+    overflow(length2);
   }
-  const start2 = pos;
-  pos += length;
-  if (length < 24) {
-    return decodeUtf8Cached(start2, length);
+  const start3 = pos;
+  pos += length2;
+  if (length2 < 24) {
+    return decodeUtf8Cached(start3, length2);
   }
   if (isBuffer) {
-    return payload.toString("utf-8", start2, start2 + length);
+    return payload.toString("utf-8", start3, start3 + length2);
   }
-  return textDecoder.decode(payload.subarray(start2, start2 + length));
+  return textDecoder.decode(payload.subarray(start3, start3 + length2));
 }
-function decodeUtf8Cached(at, length) {
-  let h6 = length;
-  for (let i6 = 0; i6 < length; ++i6) {
+function decodeUtf8Cached(at, length2) {
+  let h6 = length2;
+  for (let i6 = 0; i6 < length2; ++i6) {
     h6 = h6 * 31 + payload[at + i6] | 0;
   }
   const slot = h6 >>> 0 & STRING_CACHE_SIZE - 1;
   const cached2 = stringCache[slot];
-  if (cached2 !== void 0 && cached2.length === length) {
+  if (cached2 !== void 0 && cached2.length === length2) {
     let match2 = true;
-    for (let i6 = 0; i6 < length; ++i6) {
+    for (let i6 = 0; i6 < length2; ++i6) {
       if (cached2.charCodeAt(i6) !== payload[at + i6]) {
         match2 = false;
         break;
@@ -23539,7 +23539,7 @@ function decodeUtf8Cached(at, length) {
       return cached2;
     }
   }
-  const result = isBuffer ? payload.toString("utf-8", at, at + length) : textDecoder.decode(payload.subarray(at, at + length));
+  const result = isBuffer ? payload.toString("utf-8", at, at + length2) : textDecoder.decode(payload.subarray(at, at + length2));
   if (stringCacheEpochs[slot] !== cacheEpoch) {
     stringCache[slot] = result;
     stringCacheEpochs[slot] = cacheEpoch;
@@ -23588,10 +23588,10 @@ function readSpecial() {
   }
 }
 function bytesToFloat16(a5, b5) {
-  const sign2 = a5 >> 7;
+  const sign3 = a5 >> 7;
   const exponent = (a5 & 124) >> 2;
   const fraction = (a5 & 3) << 8 | b5;
-  const scalar = sign2 === 0 ? 1 : -1;
+  const scalar = sign3 === 0 ? 1 : -1;
   if (exponent === 0) {
     if (fraction === 0) {
       return 0;
@@ -23609,9 +23609,9 @@ function castBigInt(value2) {
   if (typeof value2 === "number") {
     return value2;
   }
-  const num = Number(value2);
-  if (Number.MIN_SAFE_INTEGER <= num && num <= Number.MAX_SAFE_INTEGER) {
-    return num;
+  const num2 = Number(value2);
+  if (Number.MIN_SAFE_INTEGER <= num2 && num2 <= Number.MAX_SAFE_INTEGER) {
+    return num2;
   }
   return value2;
 }
@@ -24784,8 +24784,8 @@ var init_XmlShapeDeserializer = __esm({
           if (ns.isListSchema()) {
             const listValue = ns.getValueSchema();
             const buffer2 = [];
-            const sourceKey2 = listValue.getMergedTraits().xmlName ?? "member";
-            const source2 = flat ? value2 : (value2[0] ?? value2)[sourceKey2];
+            const sourceKey3 = listValue.getMergedTraits().xmlName ?? "member";
+            const source2 = flat ? value2 : (value2[0] ?? value2)[sourceKey3];
             if (source2 == null) {
               return buffer2;
             }
@@ -25031,9 +25031,9 @@ var init_QueryShapeSerializer = __esm({
         if (this.buffer === void 0) {
           throw new Error("@aws-sdk/core/protocols - QuerySerializer cannot flush with nothing written to buffer.");
         }
-        const str2 = this.buffer;
+        const str3 = this.buffer;
         delete this.buffer;
-        return str2;
+        return str3;
       }
       getKey(memberName, xmlName, ec2QueryName, keySource) {
         const { ec2, capitalizeKeys } = this.settings;
@@ -25329,9 +25329,9 @@ var init_XmlShapeSerializer = __esm({
           return bytes3;
         }
         if (this.stringBuffer !== void 0) {
-          const str2 = this.stringBuffer;
+          const str3 = this.stringBuffer;
           delete this.stringBuffer;
-          return str2;
+          return str3;
         }
         const buffer = this.buffer;
         if (this.settings.xmlNamespace) {
@@ -25756,14 +25756,14 @@ var init_coercing_serializers = __esm({
       if (typeof val === "boolean") {
       }
       if (typeof val === "string") {
-        const num = Number(val);
-        if (num.toString() !== val) {
+        const num2 = Number(val);
+        if (num2.toString() !== val) {
           const warning2 = new Error(`Received string "${val}" where a number was expected.`);
           warning2.name = "Warning";
           console.warn(warning2);
           return val;
         }
-        return num;
+        return num2;
       }
       return val;
     };
@@ -29999,10 +29999,10 @@ var require_dist_cjs14 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2 } = (init_config2(), __toCommonJS(config_exports));
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
-    var { createHash: createHash9, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign2 } = __require("node:crypto");
+    var { createHash: createHash9, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign3 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname7, join: join24 } = __require("node:path");
+    var { dirname: dirname7, join: join25 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30166,10 +30166,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join24(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join25(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash9("sha256").update(loginSessionBytes).digest("hex");
-        return join24(directory, `${loginSessionSha256}.json`);
+        return join25(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -30248,7 +30248,7 @@ var require_dist_cjs14 = __commonJS({
           const headerB64 = Buffer.from(JSON.stringify(header2)).toString("base64url");
           const payloadB64 = Buffer.from(JSON.stringify(payload2)).toString("base64url");
           const message2 = `${headerB64}.${payloadB64}`;
-          const asn1Signature = sign2("sha256", Buffer.from(message2), privateKey);
+          const asn1Signature = sign3("sha256", Buffer.from(message2), privateKey);
           const rawSignature = this.derToRawSignature(asn1Signature);
           const signatureB64 = rawSignature.toString("base64url");
           return `${message2}.${signatureB64}`;
@@ -30357,7 +30357,7 @@ var require_dist_cjs16 = __commonJS({
   "../../node_modules/@aws-sdk/credential-provider-web-identity/dist-cjs/index.js"(exports) {
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2, externalDataInterceptor: externalDataInterceptor2 } = (init_config2(), __toCommonJS(config_exports));
-    var { readFileSync } = __require("node:fs");
+    var { readFileSync: readFileSync2 } = __require("node:fs");
     var fromWebToken = (init2) => async (awsIdentityProperties) => {
       init2.logger?.debug("@aws-sdk/credential-provider-web-identity - fromWebToken");
       const { roleArn, roleSessionName, webIdentityToken, providerId, policyArns, policy, durationSeconds } = init2;
@@ -30398,7 +30398,7 @@ var require_dist_cjs16 = __commonJS({
       }
       const credentials = await fromWebToken({
         ...init2,
-        webIdentityToken: externalDataInterceptor2?.getTokenRecord?.()[webIdentityTokenFile] ?? readFileSync(webIdentityTokenFile, { encoding: "ascii" }),
+        webIdentityToken: externalDataInterceptor2?.getTokenRecord?.()[webIdentityTokenFile] ?? readFileSync2(webIdentityTokenFile, { encoding: "ascii" }),
         roleArn,
         roleSessionName
       })(awsIdentityProperties);
@@ -30769,7 +30769,7 @@ var require_dist_cjs18 = __commonJS({
 var require_dist_cjs19 = __commonJS({
   "../../node_modules/@aws-sdk/eventstream-handler-node/dist-cjs/index.js"(exports) {
     var { EventStreamCodec: EventStreamCodec2 } = (init_event_streams(), __toCommonJS(event_streams_exports));
-    var { Transform, Readable: Readable8, PassThrough: PassThrough4, pipeline: pipeline2 } = __require("node:stream");
+    var { Transform, Readable: Readable8, PassThrough: PassThrough5, pipeline: pipeline2 } = __require("node:stream");
     var EventSigningTransformStream = class extends Transform {
       priorSignature;
       messageSigner;
@@ -30844,7 +30844,7 @@ var require_dist_cjs19 = __commonJS({
         if (!(payload2 instanceof Readable8)) {
           throw new Error("Eventstream payload must be a Readable stream.");
         }
-        request2.body = new PassThrough4({
+        request2.body = new PassThrough5({
           objectMode: true
         });
         const match2 = request2.headers?.authorization?.match(/Signature=([\w]+)$/);
@@ -30860,8 +30860,8 @@ var require_dist_cjs19 = __commonJS({
           credentials: this.credentials
         });
         let resolvePipeline;
-        const pipelineError = new Promise((resolve3, reject) => {
-          resolvePipeline = () => resolve3(void 0);
+        const pipelineError = new Promise((resolve4, reject) => {
+          resolvePipeline = () => resolve4(void 0);
           pipeline2(payload2, signingStream, request2.body, (err) => {
             if (err) {
               reject(new Error(`Pipeline error in @aws-sdk/eventstream-handler-node: ${err.message}`, { cause: err }));
@@ -35116,7 +35116,7 @@ var require_p_retry = __commonJS({
       return error64;
     };
     var isNetworkError = (errorMessage) => networkErrorMsgs.includes(errorMessage);
-    var pRetry2 = (input2, options) => new Promise((resolve3, reject) => {
+    var pRetry2 = (input2, options) => new Promise((resolve4, reject) => {
       options = {
         onFailedAttempt: () => {
         },
@@ -35126,7 +35126,7 @@ var require_p_retry = __commonJS({
       const operation2 = retry2.operation(options);
       operation2.attempt(async (attemptNumber) => {
         try {
-          resolve3(await input2(attemptNumber));
+          resolve4(await input2(attemptNumber));
         } catch (error64) {
           if (!(error64 instanceof Error)) {
             reject(new TypeError(`Non-error was thrown: "${error64}". You should only throw errors.`));
@@ -35213,7 +35213,7 @@ var require_extend = __commonJS({
       var options, name, src, copy, copyIsArray, clone3;
       var target = arguments[0];
       var i6 = 1;
-      var length = arguments.length;
+      var length2 = arguments.length;
       var deep = false;
       if (typeof target === "boolean") {
         deep = target;
@@ -35223,7 +35223,7 @@ var require_extend = __commonJS({
       if (target == null || typeof target !== "object" && typeof target !== "function") {
         target = {};
       }
-      for (; i6 < length; ++i6) {
+      for (; i6 < length2; ++i6) {
         options = arguments[i6];
         if (options != null) {
           for (name in options) {
@@ -35660,8 +35660,8 @@ var require_retry3 = __commonJS({
       }
       const delay3 = getNextRetryDelay(config2);
       err.config.retryConfig.currentRetryAttempt += 1;
-      const backoff2 = config2.retryBackoff ? config2.retryBackoff(err, delay3) : new Promise((resolve3) => {
-        setTimeout(resolve3, delay3);
+      const backoff2 = config2.retryBackoff ? config2.retryBackoff(err, delay3) : new Promise((resolve4) => {
+        setTimeout(resolve4, delay3);
       });
       if (config2.onRetryAttempt) {
         await config2.onRetryAttempt(err);
@@ -35750,13 +35750,13 @@ var require_ms = __commonJS({
         "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
       );
     };
-    function parse4(str2) {
-      str2 = String(str2);
-      if (str2.length > 100) {
+    function parse4(str3) {
+      str3 = String(str3);
+      if (str3.length > 100) {
         return;
       }
       var match2 = /^(-?(?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|years?|yrs?|y)?$/i.exec(
-        str2
+        str3
       );
       if (!match2) {
         return;
@@ -36364,7 +36364,7 @@ var require_node = __commonJS({
     var { formatters } = module2.exports;
     formatters.o = function(v) {
       this.inspectOpts.colors = this.useColors;
-      return util.inspect(v, this.inspectOpts).split("\n").map((str2) => str2.trim()).join(" ");
+      return util.inspect(v, this.inspectOpts).split("\n").map((str3) => str3.trim()).join(" ");
     };
     formatters.O = function(v) {
       this.inspectOpts.colors = this.useColors;
@@ -36420,23 +36420,23 @@ var require_helpers = __commonJS({
     var http3 = __importStar(__require("http"));
     var https2 = __importStar(__require("https"));
     async function toBuffer2(stream) {
-      let length = 0;
+      let length2 = 0;
       const chunks = [];
       for await (const chunk of stream) {
-        length += chunk.length;
+        length2 += chunk.length;
         chunks.push(chunk);
       }
-      return Buffer.concat(chunks, length);
+      return Buffer.concat(chunks, length2);
     }
     exports.toBuffer = toBuffer2;
     async function json4(stream) {
       const buf2 = await toBuffer2(stream);
-      const str2 = buf2.toString("utf8");
+      const str3 = buf2.toString("utf8");
       try {
-        return JSON.parse(str2);
+        return JSON.parse(str3);
       } catch (_err) {
         const err = _err;
-        err.message += ` (input: ${str2})`;
+        err.message += ` (input: ${str3})`;
         throw err;
       }
     }
@@ -36444,8 +36444,8 @@ var require_helpers = __commonJS({
     function req(url2, opts = {}) {
       const href = typeof url2 === "string" ? url2 : url2.href;
       const req2 = (href.startsWith("https:") ? https2 : http3).request(url2, opts);
-      const promise2 = new Promise((resolve3, reject) => {
-        req2.once("response", resolve3).once("error", reject).end();
+      const promise2 = new Promise((resolve4, reject) => {
+        req2.once("response", resolve4).once("error", reject).end();
       });
       req2.then = promise2.then.bind(promise2);
       return req2;
@@ -36622,7 +36622,7 @@ var require_parse_proxy_response = __commonJS({
     var debug_1 = __importDefault(require_src());
     var debug2 = (0, debug_1.default)("https-proxy-agent:parse-proxy-response");
     function parseProxyResponse(socket) {
-      return new Promise((resolve3, reject) => {
+      return new Promise((resolve4, reject) => {
         let buffersLength = 0;
         const buffers = [];
         function read() {
@@ -36688,7 +36688,7 @@ var require_parse_proxy_response = __commonJS({
           }
           debug2("got proxy server response: %o %o", firstLine, headers);
           cleanup();
-          resolve3({
+          resolve4({
             connect: {
               statusCode,
               statusText,
@@ -36930,7 +36930,7 @@ var require_ponyfill_es2018 = __commonJS({
         return new originalPromise(executor);
       }
       function promiseResolvedWith(value2) {
-        return newPromise((resolve3) => resolve3(value2));
+        return newPromise((resolve4) => resolve4(value2));
       }
       function promiseRejectedWith(reason) {
         return originalPromiseReject(reason);
@@ -37100,8 +37100,8 @@ var require_ponyfill_es2018 = __commonJS({
         return new TypeError("Cannot " + name + " a stream using a released reader");
       }
       function defaultReaderClosedPromiseInitialize(reader) {
-        reader._closedPromise = newPromise((resolve3, reject) => {
-          reader._closedPromise_resolve = resolve3;
+        reader._closedPromise = newPromise((resolve4, reject) => {
+          reader._closedPromise_resolve = resolve4;
           reader._closedPromise_reject = reject;
         });
       }
@@ -37275,8 +37275,8 @@ var require_ponyfill_es2018 = __commonJS({
           }
           let resolvePromise;
           let rejectPromise;
-          const promise2 = newPromise((resolve3, reject) => {
-            resolvePromise = resolve3;
+          const promise2 = newPromise((resolve4, reject) => {
+            resolvePromise = resolve4;
             rejectPromise = reject;
           });
           const readRequest = {
@@ -37381,8 +37381,8 @@ var require_ponyfill_es2018 = __commonJS({
           const reader = this._reader;
           let resolvePromise;
           let rejectPromise;
-          const promise2 = newPromise((resolve3, reject) => {
-            resolvePromise = resolve3;
+          const promise2 = newPromise((resolve4, reject) => {
+            resolvePromise = resolve4;
             rejectPromise = reject;
           });
           const readRequest = {
@@ -37491,9 +37491,9 @@ var require_ponyfill_es2018 = __commonJS({
         if (buffer.slice) {
           return buffer.slice(begin, end2);
         }
-        const length = end2 - begin;
-        const slice = new ArrayBuffer(length);
-        CopyDataBlockBytes(slice, 0, buffer, begin, length);
+        const length2 = end2 - begin;
+        const slice = new ArrayBuffer(length2);
+        CopyDataBlockBytes(slice, 0, buffer, begin, length2);
         return slice;
       }
       function GetMethod(receiver, prop) {
@@ -38401,8 +38401,8 @@ var require_ponyfill_es2018 = __commonJS({
           }
           let resolvePromise;
           let rejectPromise;
-          const promise2 = newPromise((resolve3, reject) => {
-            resolvePromise = resolve3;
+          const promise2 = newPromise((resolve4, reject) => {
+            resolvePromise = resolve4;
             rejectPromise = reject;
           });
           const readIntoRequest = {
@@ -38514,13 +38514,13 @@ var require_ponyfill_es2018 = __commonJS({
         assertDictionary(original, context);
         const abort = original === null || original === void 0 ? void 0 : original.abort;
         const close = original === null || original === void 0 ? void 0 : original.close;
-        const start2 = original === null || original === void 0 ? void 0 : original.start;
+        const start3 = original === null || original === void 0 ? void 0 : original.start;
         const type = original === null || original === void 0 ? void 0 : original.type;
         const write = original === null || original === void 0 ? void 0 : original.write;
         return {
           abort: abort === void 0 ? void 0 : convertUnderlyingSinkAbortCallback(abort, original, `${context} has member 'abort' that`),
           close: close === void 0 ? void 0 : convertUnderlyingSinkCloseCallback(close, original, `${context} has member 'close' that`),
-          start: start2 === void 0 ? void 0 : convertUnderlyingSinkStartCallback(start2, original, `${context} has member 'start' that`),
+          start: start3 === void 0 ? void 0 : convertUnderlyingSinkStartCallback(start3, original, `${context} has member 'start' that`),
           write: write === void 0 ? void 0 : convertUnderlyingSinkWriteCallback(write, original, `${context} has member 'write' that`),
           type
         };
@@ -38714,10 +38714,10 @@ var require_ponyfill_es2018 = __commonJS({
           wasAlreadyErroring = true;
           reason = void 0;
         }
-        const promise2 = newPromise((resolve3, reject) => {
+        const promise2 = newPromise((resolve4, reject) => {
           stream._pendingAbortRequest = {
             _promise: void 0,
-            _resolve: resolve3,
+            _resolve: resolve4,
             _reject: reject,
             _reason: reason,
             _wasAlreadyErroring: wasAlreadyErroring
@@ -38734,9 +38734,9 @@ var require_ponyfill_es2018 = __commonJS({
         if (state2 === "closed" || state2 === "errored") {
           return promiseRejectedWith(new TypeError(`The stream (in ${state2} state) is not in the writable state and cannot be closed`));
         }
-        const promise2 = newPromise((resolve3, reject) => {
+        const promise2 = newPromise((resolve4, reject) => {
           const closeRequest = {
-            _resolve: resolve3,
+            _resolve: resolve4,
             _reject: reject
           };
           stream._closeRequest = closeRequest;
@@ -38749,9 +38749,9 @@ var require_ponyfill_es2018 = __commonJS({
         return promise2;
       }
       function WritableStreamAddWriteRequest(stream) {
-        const promise2 = newPromise((resolve3, reject) => {
+        const promise2 = newPromise((resolve4, reject) => {
           const writeRequest = {
-            _resolve: resolve3,
+            _resolve: resolve4,
             _reject: reject
           };
           stream._writeRequests.push(writeRequest);
@@ -39367,8 +39367,8 @@ var require_ponyfill_es2018 = __commonJS({
         return new TypeError("Cannot " + name + " a stream using a released writer");
       }
       function defaultWriterClosedPromiseInitialize(writer) {
-        writer._closedPromise = newPromise((resolve3, reject) => {
-          writer._closedPromise_resolve = resolve3;
+        writer._closedPromise = newPromise((resolve4, reject) => {
+          writer._closedPromise_resolve = resolve4;
           writer._closedPromise_reject = reject;
           writer._closedPromiseState = "pending";
         });
@@ -39404,8 +39404,8 @@ var require_ponyfill_es2018 = __commonJS({
         writer._closedPromiseState = "resolved";
       }
       function defaultWriterReadyPromiseInitialize(writer) {
-        writer._readyPromise = newPromise((resolve3, reject) => {
-          writer._readyPromise_resolve = resolve3;
+        writer._readyPromise = newPromise((resolve4, reject) => {
+          writer._readyPromise_resolve = resolve4;
           writer._readyPromise_reject = reject;
         });
         writer._readyPromiseState = "pending";
@@ -39492,7 +39492,7 @@ var require_ponyfill_es2018 = __commonJS({
         source2._disturbed = true;
         let shuttingDown = false;
         let currentWrite = promiseResolvedWith(void 0);
-        return newPromise((resolve3, reject) => {
+        return newPromise((resolve4, reject) => {
           let abortAlgorithm;
           if (signal !== void 0) {
             abortAlgorithm = () => {
@@ -39637,7 +39637,7 @@ var require_ponyfill_es2018 = __commonJS({
             if (isError2) {
               reject(error64);
             } else {
-              resolve3(void 0);
+              resolve4(void 0);
             }
             return null;
           }
@@ -39918,8 +39918,8 @@ var require_ponyfill_es2018 = __commonJS({
         let branch1;
         let branch2;
         let resolveCancelPromise;
-        const cancelPromise = newPromise((resolve3) => {
-          resolveCancelPromise = resolve3;
+        const cancelPromise = newPromise((resolve4) => {
+          resolveCancelPromise = resolve4;
         });
         function pullAlgorithm() {
           if (reading) {
@@ -40010,8 +40010,8 @@ var require_ponyfill_es2018 = __commonJS({
         let branch1;
         let branch2;
         let resolveCancelPromise;
-        const cancelPromise = newPromise((resolve3) => {
-          resolveCancelPromise = resolve3;
+        const cancelPromise = newPromise((resolve4) => {
+          resolveCancelPromise = resolve4;
         });
         function forwardReaderError(thisReader) {
           uponRejection(thisReader._closedPromise, (r6) => {
@@ -40311,13 +40311,13 @@ var require_ponyfill_es2018 = __commonJS({
         const autoAllocateChunkSize = original === null || original === void 0 ? void 0 : original.autoAllocateChunkSize;
         const cancel = original === null || original === void 0 ? void 0 : original.cancel;
         const pull = original === null || original === void 0 ? void 0 : original.pull;
-        const start2 = original === null || original === void 0 ? void 0 : original.start;
+        const start3 = original === null || original === void 0 ? void 0 : original.start;
         const type = original === null || original === void 0 ? void 0 : original.type;
         return {
           autoAllocateChunkSize: autoAllocateChunkSize === void 0 ? void 0 : convertUnsignedLongLongWithEnforceRange(autoAllocateChunkSize, `${context} has member 'autoAllocateChunkSize' that`),
           cancel: cancel === void 0 ? void 0 : convertUnderlyingSourceCancelCallback(cancel, original, `${context} has member 'cancel' that`),
           pull: pull === void 0 ? void 0 : convertUnderlyingSourcePullCallback(pull, original, `${context} has member 'pull' that`),
-          start: start2 === void 0 ? void 0 : convertUnderlyingSourceStartCallback(start2, original, `${context} has member 'start' that`),
+          start: start3 === void 0 ? void 0 : convertUnderlyingSourceStartCallback(start3, original, `${context} has member 'start' that`),
           type: type === void 0 ? void 0 : convertReadableStreamType(type, `${context} has member 'type' that`)
         };
       }
@@ -40744,14 +40744,14 @@ var require_ponyfill_es2018 = __commonJS({
         const cancel = original === null || original === void 0 ? void 0 : original.cancel;
         const flush2 = original === null || original === void 0 ? void 0 : original.flush;
         const readableType = original === null || original === void 0 ? void 0 : original.readableType;
-        const start2 = original === null || original === void 0 ? void 0 : original.start;
+        const start3 = original === null || original === void 0 ? void 0 : original.start;
         const transform2 = original === null || original === void 0 ? void 0 : original.transform;
         const writableType = original === null || original === void 0 ? void 0 : original.writableType;
         return {
           cancel: cancel === void 0 ? void 0 : convertTransformerCancelCallback(cancel, original, `${context} has member 'cancel' that`),
           flush: flush2 === void 0 ? void 0 : convertTransformerFlushCallback(flush2, original, `${context} has member 'flush' that`),
           readableType,
-          start: start2 === void 0 ? void 0 : convertTransformerStartCallback(start2, original, `${context} has member 'start' that`),
+          start: start3 === void 0 ? void 0 : convertTransformerStartCallback(start3, original, `${context} has member 'start' that`),
           transform: transform2 === void 0 ? void 0 : convertTransformerTransformCallback(transform2, original, `${context} has member 'transform' that`),
           writableType
         };
@@ -40791,8 +40791,8 @@ var require_ponyfill_es2018 = __commonJS({
           const writableHighWaterMark = ExtractHighWaterMark(writableStrategy, 1);
           const writableSizeAlgorithm = ExtractSizeAlgorithm(writableStrategy);
           let startPromise_resolve;
-          const startPromise = newPromise((resolve3) => {
-            startPromise_resolve = resolve3;
+          const startPromise = newPromise((resolve4) => {
+            startPromise_resolve = resolve4;
           });
           InitializeTransformStream(this, startPromise, writableHighWaterMark, writableSizeAlgorithm, readableHighWaterMark, readableSizeAlgorithm);
           SetUpTransformStreamDefaultControllerFromTransformer(this, transformer);
@@ -40885,8 +40885,8 @@ var require_ponyfill_es2018 = __commonJS({
         if (stream._backpressureChangePromise !== void 0) {
           stream._backpressureChangePromise_resolve();
         }
-        stream._backpressureChangePromise = newPromise((resolve3) => {
-          stream._backpressureChangePromise_resolve = resolve3;
+        stream._backpressureChangePromise = newPromise((resolve4) => {
+          stream._backpressureChangePromise_resolve = resolve4;
         });
         stream._backpressure = backpressure;
       }
@@ -41054,8 +41054,8 @@ var require_ponyfill_es2018 = __commonJS({
           return controller._finishPromise;
         }
         const readable = stream._readable;
-        controller._finishPromise = newPromise((resolve3, reject) => {
-          controller._finishPromise_resolve = resolve3;
+        controller._finishPromise = newPromise((resolve4, reject) => {
+          controller._finishPromise_resolve = resolve4;
           controller._finishPromise_reject = reject;
         });
         const cancelPromise = controller._cancelAlgorithm(reason);
@@ -41081,8 +41081,8 @@ var require_ponyfill_es2018 = __commonJS({
           return controller._finishPromise;
         }
         const readable = stream._readable;
-        controller._finishPromise = newPromise((resolve3, reject) => {
-          controller._finishPromise_resolve = resolve3;
+        controller._finishPromise = newPromise((resolve4, reject) => {
+          controller._finishPromise_resolve = resolve4;
           controller._finishPromise_reject = reject;
         });
         const flushPromise = controller._flushAlgorithm();
@@ -41112,8 +41112,8 @@ var require_ponyfill_es2018 = __commonJS({
           return controller._finishPromise;
         }
         const writable = stream._writable;
-        controller._finishPromise = newPromise((resolve3, reject) => {
-          controller._finishPromise_resolve = resolve3;
+        controller._finishPromise = newPromise((resolve4, reject) => {
+          controller._finishPromise_resolve = resolve4;
           controller._finishPromise_reject = reject;
         });
         const cancelPromise = controller._cancelAlgorithm(reason);
@@ -41327,12 +41327,12 @@ var init_fetch_blob = __esm({
        */
       async text() {
         const decoder = new TextDecoder();
-        let str2 = "";
+        let str3 = "";
         for await (const part of toIterator(this.#parts, false)) {
-          str2 += decoder.decode(part, { stream: true });
+          str3 += decoder.decode(part, { stream: true });
         }
-        str2 += decoder.decode();
-        return str2;
+        str3 += decoder.decode();
+        return str3;
       }
       /**
        * The arrayBuffer() method in the Blob interface returns a
@@ -41373,9 +41373,9 @@ var init_fetch_blob = __esm({
        * @param {number} [end]
        * @param {string} [type]
        */
-      slice(start2 = 0, end2 = this.size, type = "") {
+      slice(start3 = 0, end2 = this.size, type = "") {
         const { size } = this;
-        let relativeStart = start2 < 0 ? Math.max(size + start2, 0) : Math.min(start2, size);
+        let relativeStart = start3 < 0 ? Math.max(size + start3, 0) : Math.min(start3, size);
         let relativeEnd = end2 < 0 ? Math.max(size + end2, 0) : Math.min(end2, size);
         const span = Math.max(relativeEnd - relativeStart, 0);
         const parts = this.#parts;
@@ -41689,12 +41689,12 @@ var init_from = __esm({
        * Slicing arguments is first validated and formatted
        * to not be out of range by Blob.prototype.slice
        */
-      slice(start2, end2) {
+      slice(start3, end2) {
         return new _BlobDataItem({
           path: this.#path,
           lastModified: this.lastModified,
-          size: end2 - start2,
-          start: this.#start + start2
+          size: end2 - start3,
+          start: this.#start + start3
         });
       }
       async *stream() {
@@ -41883,9 +41883,9 @@ var init_multipart_parser = __esm({
         const clear = (name) => {
           delete this[name + "Mark"];
         };
-        const callback = (callbackSymbol, start2, end2, ui8a) => {
-          if (start2 === void 0 || start2 !== end2) {
-            this[callbackSymbol](ui8a && ui8a.subarray(start2, end2));
+        const callback = (callbackSymbol, start3, end2, ui8a) => {
+          if (start3 === void 0 || start3 !== end2) {
+            this[callbackSymbol](ui8a && ui8a.subarray(start3, end2));
           }
         };
         const dataCallback = (name, clear2) => {
@@ -43064,7 +43064,7 @@ import zlib2 from "node:zlib";
 import Stream2, { PassThrough as PassThrough3, pipeline as pump } from "node:stream";
 import { Buffer as Buffer3 } from "node:buffer";
 async function fetch2(url2, options_) {
-  return new Promise((resolve3, reject) => {
+  return new Promise((resolve4, reject) => {
     const request2 = new Request2(url2, options_);
     const { parsedURL, options } = getNodeRequestOptions(request2);
     if (!supportedSchemas.has(parsedURL.protocol)) {
@@ -43073,7 +43073,7 @@ async function fetch2(url2, options_) {
     if (parsedURL.protocol === "data:") {
       const data = dist_default(request2.url);
       const response2 = new Response2(data, { headers: { "Content-Type": data.typeFull } });
-      resolve3(response2);
+      resolve4(response2);
       return;
     }
     const send3 = (parsedURL.protocol === "https:" ? https : http2).request;
@@ -43195,7 +43195,7 @@ async function fetch2(url2, options_) {
             if (responseReferrerPolicy) {
               requestOptions.referrerPolicy = responseReferrerPolicy;
             }
-            resolve3(fetch2(new Request2(locationURL, requestOptions)));
+            resolve4(fetch2(new Request2(locationURL, requestOptions)));
             finalize2();
             return;
           }
@@ -43228,7 +43228,7 @@ async function fetch2(url2, options_) {
       const codings = headers.get("Content-Encoding");
       if (!request2.compress || request2.method === "HEAD" || codings === null || response_.statusCode === 204 || response_.statusCode === 304) {
         response = new Response2(body, responseOptions);
-        resolve3(response);
+        resolve4(response);
         return;
       }
       const zlibOptions = {
@@ -43242,7 +43242,7 @@ async function fetch2(url2, options_) {
           }
         });
         response = new Response2(body, responseOptions);
-        resolve3(response);
+        resolve4(response);
         return;
       }
       if (codings === "deflate" || codings === "x-deflate") {
@@ -43266,12 +43266,12 @@ async function fetch2(url2, options_) {
             });
           }
           response = new Response2(body, responseOptions);
-          resolve3(response);
+          resolve4(response);
         });
         raw.once("end", () => {
           if (!response) {
             response = new Response2(body, responseOptions);
-            resolve3(response);
+            resolve4(response);
           }
         });
         return;
@@ -43283,11 +43283,11 @@ async function fetch2(url2, options_) {
           }
         });
         response = new Response2(body, responseOptions);
-        resolve3(response);
+        resolve4(response);
         return;
       }
       response = new Response2(body, responseOptions);
-      resolve3(response);
+      resolve4(response);
     });
     writeToStream(request_, request2).catch(reject);
   });
@@ -43875,7 +43875,7 @@ var require_bignumber = __commonJS({
           suffix: ""
         }, ALPHABET2 = "0123456789abcdefghijklmnopqrstuvwxyz", alphabetHasNormalDecimalDigits = true;
         function BigNumber2(v, b5) {
-          var alphabet, c5, caseChanged, e6, i6, isNum, len, str2, x2 = this;
+          var alphabet, c5, caseChanged, e6, i6, isNum, len, str3, x2 = this;
           if (!(x2 instanceof BigNumber2)) return new BigNumber2(v, b5);
           if (b5 == null) {
             if (v && v._isBigNumber === true) {
@@ -43902,18 +43902,18 @@ var require_bignumber = __commonJS({
                 }
                 return;
               }
-              str2 = String(v);
+              str3 = String(v);
             } else {
-              if (!isNumeric.test(str2 = String(v))) return parseNumeric(x2, str2, isNum);
-              x2.s = str2.charCodeAt(0) == 45 ? (str2 = str2.slice(1), -1) : 1;
+              if (!isNumeric.test(str3 = String(v))) return parseNumeric(x2, str3, isNum);
+              x2.s = str3.charCodeAt(0) == 45 ? (str3 = str3.slice(1), -1) : 1;
             }
-            if ((e6 = str2.indexOf(".")) > -1) str2 = str2.replace(".", "");
-            if ((i6 = str2.search(/e/i)) > 0) {
+            if ((e6 = str3.indexOf(".")) > -1) str3 = str3.replace(".", "");
+            if ((i6 = str3.search(/e/i)) > 0) {
               if (e6 < 0) e6 = i6;
-              e6 += +str2.slice(i6 + 1);
-              str2 = str2.substring(0, i6);
+              e6 += +str3.slice(i6 + 1);
+              str3 = str3.substring(0, i6);
             } else if (e6 < 0) {
-              e6 = str2.length;
+              e6 = str3.length;
             }
           } else {
             intCheck(b5, 2, ALPHABET2.length, "Base");
@@ -43921,27 +43921,27 @@ var require_bignumber = __commonJS({
               x2 = new BigNumber2(v);
               return round(x2, DECIMAL_PLACES + x2.e + 1, ROUNDING_MODE);
             }
-            str2 = String(v);
+            str3 = String(v);
             if (isNum = typeof v == "number") {
-              if (v * 0 != 0) return parseNumeric(x2, str2, isNum, b5);
-              x2.s = 1 / v < 0 ? (str2 = str2.slice(1), -1) : 1;
-              if (BigNumber2.DEBUG && str2.replace(/^0\.0*|\./, "").length > 15) {
+              if (v * 0 != 0) return parseNumeric(x2, str3, isNum, b5);
+              x2.s = 1 / v < 0 ? (str3 = str3.slice(1), -1) : 1;
+              if (BigNumber2.DEBUG && str3.replace(/^0\.0*|\./, "").length > 15) {
                 throw Error(tooManyDigits + v);
               }
             } else {
-              x2.s = str2.charCodeAt(0) === 45 ? (str2 = str2.slice(1), -1) : 1;
+              x2.s = str3.charCodeAt(0) === 45 ? (str3 = str3.slice(1), -1) : 1;
             }
             alphabet = ALPHABET2.slice(0, b5);
             e6 = i6 = 0;
-            for (len = str2.length; i6 < len; i6++) {
-              if (alphabet.indexOf(c5 = str2.charAt(i6)) < 0) {
+            for (len = str3.length; i6 < len; i6++) {
+              if (alphabet.indexOf(c5 = str3.charAt(i6)) < 0) {
                 if (c5 == ".") {
                   if (i6 > e6) {
                     e6 = len;
                     continue;
                   }
                 } else if (!caseChanged) {
-                  if (str2 == str2.toUpperCase() && (str2 = str2.toLowerCase()) || str2 == str2.toLowerCase() && (str2 = str2.toUpperCase())) {
+                  if (str3 == str3.toUpperCase() && (str3 = str3.toLowerCase()) || str3 == str3.toLowerCase() && (str3 = str3.toUpperCase())) {
                     caseChanged = true;
                     i6 = -1;
                     e6 = 0;
@@ -43952,13 +43952,13 @@ var require_bignumber = __commonJS({
               }
             }
             isNum = false;
-            str2 = convertBase(str2, b5, 10, x2.s);
-            if ((e6 = str2.indexOf(".")) > -1) str2 = str2.replace(".", "");
-            else e6 = str2.length;
+            str3 = convertBase(str3, b5, 10, x2.s);
+            if ((e6 = str3.indexOf(".")) > -1) str3 = str3.replace(".", "");
+            else e6 = str3.length;
           }
-          for (i6 = 0; str2.charCodeAt(i6) === 48; i6++) ;
-          for (len = str2.length; str2.charCodeAt(--len) === 48; ) ;
-          if (str2 = str2.slice(i6, ++len)) {
+          for (i6 = 0; str3.charCodeAt(i6) === 48; i6++) ;
+          for (len = str3.length; str3.charCodeAt(--len) === 48; ) ;
+          if (str3 = str3.slice(i6, ++len)) {
             len -= i6;
             if (isNum && BigNumber2.DEBUG && len > 15 && (v > MAX_SAFE_INTEGER || v !== mathfloor(v))) {
               throw Error(tooManyDigits + x2.s * v);
@@ -43973,16 +43973,16 @@ var require_bignumber = __commonJS({
               i6 = (e6 + 1) % LOG_BASE;
               if (e6 < 0) i6 += LOG_BASE;
               if (i6 < len) {
-                if (i6) x2.c.push(+str2.slice(0, i6));
+                if (i6) x2.c.push(+str3.slice(0, i6));
                 for (len -= LOG_BASE; i6 < len; ) {
-                  x2.c.push(+str2.slice(i6, i6 += LOG_BASE));
+                  x2.c.push(+str3.slice(i6, i6 += LOG_BASE));
                 }
-                i6 = LOG_BASE - (str2 = str2.slice(i6)).length;
+                i6 = LOG_BASE - (str3 = str3.slice(i6)).length;
               } else {
                 i6 -= len;
               }
-              for (; i6--; str2 += "0") ;
-              x2.c.push(+str2);
+              for (; i6--; str3 += "0") ;
+              x2.c.push(+str3);
             }
           } else {
             x2.c = [x2.e = 0];
@@ -44205,11 +44205,11 @@ var require_bignumber = __commonJS({
         };
         convertBase = /* @__PURE__ */ (function() {
           var decimal = "0123456789";
-          function toBaseOut(str2, baseIn, baseOut, alphabet) {
-            var j5, arr = [0], arrL, i6 = 0, len = str2.length;
+          function toBaseOut(str3, baseIn, baseOut, alphabet) {
+            var j5, arr = [0], arrL, i6 = 0, len = str3.length;
             for (; i6 < len; ) {
               for (arrL = arr.length; arrL--; arr[arrL] *= baseIn) ;
-              arr[0] += alphabet.indexOf(str2.charAt(i6++));
+              arr[0] += alphabet.indexOf(str3.charAt(i6++));
               for (j5 = 0; j5 < arr.length; j5++) {
                 if (arr[j5] > baseOut - 1) {
                   if (arr[j5 + 1] == null) arr[j5 + 1] = 0;
@@ -44220,14 +44220,14 @@ var require_bignumber = __commonJS({
             }
             return arr.reverse();
           }
-          return function(str2, baseIn, baseOut, sign2, callerIsToString) {
-            var alphabet, d5, e6, k5, r6, x2, xc, y, i6 = str2.indexOf("."), dp = DECIMAL_PLACES, rm2 = ROUNDING_MODE;
+          return function(str3, baseIn, baseOut, sign3, callerIsToString) {
+            var alphabet, d5, e6, k5, r6, x2, xc, y, i6 = str3.indexOf("."), dp = DECIMAL_PLACES, rm2 = ROUNDING_MODE;
             if (i6 >= 0) {
               k5 = POW_PRECISION;
               POW_PRECISION = 0;
-              str2 = str2.replace(".", "");
+              str3 = str3.replace(".", "");
               y = new BigNumber2(baseIn);
-              x2 = y.pow(str2.length - i6);
+              x2 = y.pow(str3.length - i6);
               POW_PRECISION = k5;
               y.c = toBaseOut(
                 toFixedPoint(coeffToString(x2.c), x2.e, "0"),
@@ -44237,7 +44237,7 @@ var require_bignumber = __commonJS({
               );
               y.e = y.c.length;
             }
-            xc = toBaseOut(str2, baseIn, baseOut, callerIsToString ? (alphabet = ALPHABET2, decimal) : (alphabet = decimal, ALPHABET2));
+            xc = toBaseOut(str3, baseIn, baseOut, callerIsToString ? (alphabet = ALPHABET2, decimal) : (alphabet = decimal, ALPHABET2));
             e6 = k5 = xc.length;
             for (; xc[--k5] == 0; xc.pop()) ;
             if (!xc[0]) return alphabet.charAt(0);
@@ -44246,7 +44246,7 @@ var require_bignumber = __commonJS({
             } else {
               x2.c = xc;
               x2.e = e6;
-              x2.s = sign2;
+              x2.s = sign3;
               x2 = div(x2, y, dp, rm2, baseOut);
               xc = x2.c;
               r6 = x2.r;
@@ -44258,7 +44258,7 @@ var require_bignumber = __commonJS({
             r6 = r6 || d5 < 0 || xc[d5 + 1] != null;
             r6 = rm2 < 4 ? (i6 != null || r6) && (rm2 == 0 || rm2 == (x2.s < 0 ? 3 : 2)) : i6 > k5 || i6 == k5 && (rm2 == 4 || r6 || rm2 == 6 && xc[d5 - 1] & 1 || rm2 == (x2.s < 0 ? 8 : 7));
             if (d5 < 1 || !xc[0]) {
-              str2 = r6 ? toFixedPoint(alphabet.charAt(1), -dp, alphabet.charAt(0)) : alphabet.charAt(0);
+              str3 = r6 ? toFixedPoint(alphabet.charAt(1), -dp, alphabet.charAt(0)) : alphabet.charAt(0);
             } else {
               xc.length = d5;
               if (r6) {
@@ -44271,10 +44271,10 @@ var require_bignumber = __commonJS({
                 }
               }
               for (k5 = xc.length; !xc[--k5]; ) ;
-              for (i6 = 0, str2 = ""; i6 <= k5; str2 += alphabet.charAt(xc[i6++])) ;
-              str2 = toFixedPoint(str2, e6, alphabet.charAt(0));
+              for (i6 = 0, str3 = ""; i6 <= k5; str3 += alphabet.charAt(xc[i6++])) ;
+              str3 = toFixedPoint(str3, e6, alphabet.charAt(0));
             }
-            return str2;
+            return str3;
           };
         })();
         div = /* @__PURE__ */ (function() {
@@ -44420,38 +44420,38 @@ var require_bignumber = __commonJS({
           };
         })();
         function format2(n3, i6, rm2, id2) {
-          var c0, e6, ne, len, str2;
+          var c0, e6, ne, len, str3;
           if (rm2 == null) rm2 = ROUNDING_MODE;
           else intCheck(rm2, 0, 8);
           if (!n3.c) return n3.toString();
           c0 = n3.c[0];
           ne = n3.e;
           if (i6 == null) {
-            str2 = coeffToString(n3.c);
-            str2 = id2 == 1 || id2 == 2 && (ne <= TO_EXP_NEG || ne >= TO_EXP_POS) ? toExponential(str2, ne) : toFixedPoint(str2, ne, "0");
+            str3 = coeffToString(n3.c);
+            str3 = id2 == 1 || id2 == 2 && (ne <= TO_EXP_NEG || ne >= TO_EXP_POS) ? toExponential(str3, ne) : toFixedPoint(str3, ne, "0");
           } else {
             n3 = round(new BigNumber2(n3), i6, rm2);
             e6 = n3.e;
-            str2 = coeffToString(n3.c);
-            len = str2.length;
+            str3 = coeffToString(n3.c);
+            len = str3.length;
             if (id2 == 1 || id2 == 2 && (i6 <= e6 || e6 <= TO_EXP_NEG)) {
-              for (; len < i6; str2 += "0", len++) ;
-              str2 = toExponential(str2, e6);
+              for (; len < i6; str3 += "0", len++) ;
+              str3 = toExponential(str3, e6);
             } else {
               i6 -= ne + (id2 === 2 && e6 > ne);
-              str2 = toFixedPoint(str2, e6, "0");
+              str3 = toFixedPoint(str3, e6, "0");
               if (e6 + 1 > len) {
-                if (--i6 > 0) for (str2 += "."; i6--; str2 += "0") ;
+                if (--i6 > 0) for (str3 += "."; i6--; str3 += "0") ;
               } else {
                 i6 += e6 - len;
                 if (i6 > 0) {
-                  if (e6 + 1 == len) str2 += ".";
-                  for (; i6--; str2 += "0") ;
+                  if (e6 + 1 == len) str3 += ".";
+                  for (; i6--; str3 += "0") ;
                 }
               }
             }
           }
-          return n3.s < 0 && c0 ? "-" + str2 : str2;
+          return n3.s < 0 && c0 ? "-" + str3 : str3;
         }
         function maxOrMin(args, n3) {
           var k5, y, i6 = 1, x2 = new BigNumber2(args[0]);
@@ -44479,8 +44479,8 @@ var require_bignumber = __commonJS({
         }
         parseNumeric = /* @__PURE__ */ (function() {
           var basePrefix = /^(-?)0([xbo])(?=\w[\w.]*$)/i, dotAfter = /^([^.]+)\.$/, dotBefore = /^\.([^.]+)$/, isInfinityOrNaN = /^-?(Infinity|NaN)$/, whitespaceOrPlus = /^\s*\+(?=[\w.])|^\s+|\s+$/g;
-          return function(x2, str2, isNum, b5) {
-            var base, s3 = isNum ? str2 : str2.replace(whitespaceOrPlus, "");
+          return function(x2, str3, isNum, b5) {
+            var base, s3 = isNum ? str3 : str3.replace(whitespaceOrPlus, "");
             if (isInfinityOrNaN.test(s3)) {
               x2.s = isNaN(s3) ? null : s3 < 0 ? -1 : 1;
             } else {
@@ -44493,10 +44493,10 @@ var require_bignumber = __commonJS({
                   base = b5;
                   s3 = s3.replace(dotAfter, "$1").replace(dotBefore, "0.$1");
                 }
-                if (str2 != s3) return new BigNumber2(s3, base);
+                if (str3 != s3) return new BigNumber2(s3, base);
               }
               if (BigNumber2.DEBUG) {
-                throw Error(bignumberError + "Not a" + (b5 ? " base " + b5 : "") + " number: " + str2);
+                throw Error(bignumberError + "Not a" + (b5 ? " base " + b5 : "") + " number: " + str3);
               }
               x2.s = null;
             }
@@ -44590,11 +44590,11 @@ var require_bignumber = __commonJS({
           return x2;
         }
         function valueOf(n3) {
-          var str2, e6 = n3.e;
+          var str3, e6 = n3.e;
           if (e6 === null) return n3.toString();
-          str2 = coeffToString(n3.c);
-          str2 = e6 <= TO_EXP_NEG || e6 >= TO_EXP_POS ? toExponential(str2, e6) : toFixedPoint(str2, e6, "0");
-          return n3.s < 0 ? "-" + str2 : str2;
+          str3 = coeffToString(n3.c);
+          str3 = e6 <= TO_EXP_NEG || e6 >= TO_EXP_POS ? toExponential(str3, e6) : toFixedPoint(str3, e6, "0");
+          return n3.s < 0 ? "-" + str3 : str3;
         }
         P.absoluteValue = P.abs = function() {
           var x2 = new BigNumber2(this);
@@ -45015,7 +45015,7 @@ var require_bignumber = __commonJS({
           return format2(this, dp, rm2);
         };
         P.toFormat = function(dp, rm2, format3) {
-          var str2, x2 = this;
+          var str3, x2 = this;
           if (format3 == null) {
             if (dp != null && rm2 && typeof rm2 == "object") {
               format3 = rm2;
@@ -45029,9 +45029,9 @@ var require_bignumber = __commonJS({
           } else if (typeof format3 != "object") {
             throw Error(bignumberError + "Argument not an object: " + format3);
           }
-          str2 = x2.toFixed(dp, rm2);
+          str3 = x2.toFixed(dp, rm2);
           if (x2.c) {
-            var i6, arr = str2.split("."), g1 = +format3.groupSize, g22 = +format3.secondaryGroupSize, groupSeparator = format3.groupSeparator || "", intPart = arr[0], fractionPart = arr[1], isNeg = x2.s < 0, intDigits = isNeg ? intPart.slice(1) : intPart, len = intDigits.length;
+            var i6, arr = str3.split("."), g1 = +format3.groupSize, g22 = +format3.secondaryGroupSize, groupSeparator = format3.groupSeparator || "", intPart = arr[0], fractionPart = arr[1], isNeg = x2.s < 0, intDigits = isNeg ? intPart.slice(1) : intPart, len = intDigits.length;
             if (g22) {
               i6 = g1;
               g1 = g22;
@@ -45045,12 +45045,12 @@ var require_bignumber = __commonJS({
               if (g22 > 0) intPart += groupSeparator + intDigits.slice(i6);
               if (isNeg) intPart = "-" + intPart;
             }
-            str2 = fractionPart ? intPart + (format3.decimalSeparator || "") + ((g22 = +format3.fractionGroupSize) ? fractionPart.replace(
+            str3 = fractionPart ? intPart + (format3.decimalSeparator || "") + ((g22 = +format3.fractionGroupSize) ? fractionPart.replace(
               new RegExp("\\d{" + g22 + "}\\B", "g"),
               "$&" + (format3.fractionGroupSeparator || "")
             ) : fractionPart) : intPart;
           }
-          return (format3.prefix || "") + str2 + (format3.suffix || "");
+          return (format3.prefix || "") + str3 + (format3.suffix || "");
         };
         P.toFraction = function(md) {
           var d5, d0, d1, d22, e6, exp, n3, n05, n1, q3, r6, s3, x2 = this, xc = x2.c;
@@ -45102,27 +45102,27 @@ var require_bignumber = __commonJS({
           return format2(this, sd, rm2, 2);
         };
         P.toString = function(b5) {
-          var str2, n3 = this, s3 = n3.s, e6 = n3.e;
+          var str3, n3 = this, s3 = n3.s, e6 = n3.e;
           if (e6 === null) {
             if (s3) {
-              str2 = "Infinity";
-              if (s3 < 0) str2 = "-" + str2;
+              str3 = "Infinity";
+              if (s3 < 0) str3 = "-" + str3;
             } else {
-              str2 = "NaN";
+              str3 = "NaN";
             }
           } else {
             if (b5 == null) {
-              str2 = e6 <= TO_EXP_NEG || e6 >= TO_EXP_POS ? toExponential(coeffToString(n3.c), e6) : toFixedPoint(coeffToString(n3.c), e6, "0");
+              str3 = e6 <= TO_EXP_NEG || e6 >= TO_EXP_POS ? toExponential(coeffToString(n3.c), e6) : toFixedPoint(coeffToString(n3.c), e6, "0");
             } else if (b5 === 10 && alphabetHasNormalDecimalDigits) {
               n3 = round(new BigNumber2(n3), DECIMAL_PLACES + e6 + 1, ROUNDING_MODE);
-              str2 = toFixedPoint(coeffToString(n3.c), n3.e, "0");
+              str3 = toFixedPoint(coeffToString(n3.c), n3.e, "0");
             } else {
               intCheck(b5, 2, ALPHABET2.length, "Base");
-              str2 = convertBase(toFixedPoint(coeffToString(n3.c), e6, "0"), 10, b5, s3, true);
+              str3 = convertBase(toFixedPoint(coeffToString(n3.c), e6, "0"), 10, b5, s3, true);
             }
-            if (s3 < 0 && n3.c[0]) str2 = "-" + str2;
+            if (s3 < 0 && n3.c[0]) str3 = "-" + str3;
           }
-          return str2;
+          return str3;
         };
         P.valueOf = P.toJSON = function() {
           return valueOf(this);
@@ -45170,24 +45170,24 @@ var require_bignumber = __commonJS({
         var k5 = n3.c.length - 1;
         return bitFloor(n3.e / LOG_BASE) == k5 && n3.c[k5] % 2 != 0;
       }
-      function toExponential(str2, e6) {
-        return (str2.length > 1 ? str2.charAt(0) + "." + str2.slice(1) : str2) + (e6 < 0 ? "e" : "e+") + e6;
+      function toExponential(str3, e6) {
+        return (str3.length > 1 ? str3.charAt(0) + "." + str3.slice(1) : str3) + (e6 < 0 ? "e" : "e+") + e6;
       }
-      function toFixedPoint(str2, e6, z2) {
+      function toFixedPoint(str3, e6, z2) {
         var len, zs;
         if (e6 < 0) {
           for (zs = z2 + "."; ++e6; zs += z2) ;
-          str2 = zs + str2;
+          str3 = zs + str3;
         } else {
-          len = str2.length;
+          len = str3.length;
           if (++e6 > len) {
             for (zs = z2, e6 -= len; --e6; zs += z2) ;
-            str2 += zs;
+            str3 += zs;
           } else if (e6 < len) {
-            str2 = str2.slice(0, e6) + "." + str2.slice(e6);
+            str3 = str3.slice(0, e6) + "." + str3.slice(e6);
           }
         }
-        return str2;
+        return str3;
       }
       BigNumber = clone3();
       BigNumber["default"] = BigNumber.BigNumber = BigNumber;
@@ -45234,8 +45234,8 @@ var require_stringify = __commonJS({
           return typeof c5 === "string" ? c5 : "\\u" + ("0000" + a5.charCodeAt(0).toString(16)).slice(-4);
         }) + '"' : '"' + string4 + '"';
       }
-      function str2(key3, holder) {
-        var i6, k5, v, length, mind = gap, partial2, value2 = holder[key3], isBigNumber = value2 != null && (value2 instanceof BigNumber || BigNumber.isBigNumber(value2));
+      function str3(key3, holder) {
+        var i6, k5, v, length2, mind = gap, partial2, value2 = holder[key3], isBigNumber = value2 != null && (value2 instanceof BigNumber || BigNumber.isBigNumber(value2));
         if (value2 && typeof value2 === "object" && typeof value2.toJSON === "function") {
           value2 = value2.toJSON(key3);
         }
@@ -45264,20 +45264,20 @@ var require_stringify = __commonJS({
             gap += indent;
             partial2 = [];
             if (Object.prototype.toString.apply(value2) === "[object Array]") {
-              length = value2.length;
-              for (i6 = 0; i6 < length; i6 += 1) {
-                partial2[i6] = str2(i6, value2) || "null";
+              length2 = value2.length;
+              for (i6 = 0; i6 < length2; i6 += 1) {
+                partial2[i6] = str3(i6, value2) || "null";
               }
               v = partial2.length === 0 ? "[]" : gap ? "[\n" + gap + partial2.join(",\n" + gap) + "\n" + mind + "]" : "[" + partial2.join(",") + "]";
               gap = mind;
               return v;
             }
             if (rep && typeof rep === "object") {
-              length = rep.length;
-              for (i6 = 0; i6 < length; i6 += 1) {
+              length2 = rep.length;
+              for (i6 = 0; i6 < length2; i6 += 1) {
                 if (typeof rep[i6] === "string") {
                   k5 = rep[i6];
-                  v = str2(k5, value2);
+                  v = str3(k5, value2);
                   if (v) {
                     partial2.push(quote(k5) + (gap ? ": " : ":") + v);
                   }
@@ -45285,7 +45285,7 @@ var require_stringify = __commonJS({
               }
             } else {
               Object.keys(value2).forEach(function(k6) {
-                var v2 = str2(k6, value2);
+                var v2 = str3(k6, value2);
                 if (v2) {
                   partial2.push(quote(k6) + (gap ? ": " : ":") + v2);
                 }
@@ -45312,7 +45312,7 @@ var require_stringify = __commonJS({
           if (replacer && typeof replacer !== "function" && (typeof replacer !== "object" || typeof replacer.length !== "number")) {
             throw new Error("JSON.stringify");
           }
-          return str2("", { "": value2 });
+          return str3("", { "": value2 });
         };
       }
     })();
@@ -46366,13 +46366,13 @@ var require_base64_js = __commonJS({
       }
       return arr;
     }
-    function tripletToBase64(num) {
-      return lookup[num >> 18 & 63] + lookup[num >> 12 & 63] + lookup[num >> 6 & 63] + lookup[num & 63];
+    function tripletToBase64(num2) {
+      return lookup[num2 >> 18 & 63] + lookup[num2 >> 12 & 63] + lookup[num2 >> 6 & 63] + lookup[num2 & 63];
     }
-    function encodeChunk(uint8, start2, end2) {
+    function encodeChunk(uint8, start3, end2) {
       var tmp;
       var output2 = [];
-      for (var i7 = start2; i7 < end2; i7 += 3) {
+      for (var i7 = start3; i7 < end2; i7 += 3) {
         tmp = (uint8[i7] << 16 & 16711680) + (uint8[i7 + 1] << 8 & 65280) + (uint8[i7 + 2] & 255);
         output2.push(tripletToBase64(tmp));
       }
@@ -46432,8 +46432,8 @@ var require_crypto = __commonJS({
           throw new Error("SubtleCrypto not found. Make sure it's an https:// website.");
         }
       }
-      async sha256DigestBase64(str2) {
-        const inputBuffer = new TextEncoder().encode(str2);
+      async sha256DigestBase64(str3) {
+        const inputBuffer = new TextEncoder().encode(str3);
         const outputBuffer = await window.crypto.subtle.digest("SHA-256", inputBuffer);
         return base64js.fromByteArray(new Uint8Array(outputBuffer));
       }
@@ -46485,8 +46485,8 @@ var require_crypto = __commonJS({
        * @return A promise that resolves with the SHA-256 hash of the provided
        *   string in hexadecimal encoding.
        */
-      async sha256DigestHex(str2) {
-        const inputBuffer = new TextEncoder().encode(str2);
+      async sha256DigestHex(str3) {
+        const inputBuffer = new TextEncoder().encode(str3);
         const outputBuffer = await window.crypto.subtle.digest("SHA-256", inputBuffer);
         return (0, shared_1.fromArrayBufferToHex)(outputBuffer);
       }
@@ -46522,8 +46522,8 @@ var require_crypto2 = __commonJS({
     exports.NodeCrypto = void 0;
     var crypto2 = __require("crypto");
     var NodeCrypto = class {
-      async sha256DigestBase64(str2) {
-        return crypto2.createHash("sha256").update(str2).digest("base64");
+      async sha256DigestBase64(str3) {
+        return crypto2.createHash("sha256").update(str3).digest("base64");
       }
       randomBytesBase64(count) {
         return crypto2.randomBytes(count).toString("base64");
@@ -46552,8 +46552,8 @@ var require_crypto2 = __commonJS({
        * @return A promise that resolves with the SHA-256 hash of the provided
        *   string in hexadecimal encoding.
        */
-      async sha256DigestHex(str2) {
-        return crypto2.createHash("sha256").update(str2).digest("hex");
+      async sha256DigestHex(str3) {
+        return crypto2.createHash("sha256").update(str3).digest("hex");
       }
       /**
        * Computes the HMAC hash of a message using the provided crypto key and the
@@ -46637,16 +46637,16 @@ var require_safe_buffer = __commonJS({
       copyProps2(buffer, exports);
       exports.Buffer = SafeBuffer;
     }
-    function SafeBuffer(arg, encodingOrOffset, length) {
-      return Buffer4(arg, encodingOrOffset, length);
+    function SafeBuffer(arg, encodingOrOffset, length2) {
+      return Buffer4(arg, encodingOrOffset, length2);
     }
     SafeBuffer.prototype = Object.create(Buffer4.prototype);
     copyProps2(Buffer4, SafeBuffer);
-    SafeBuffer.from = function(arg, encodingOrOffset, length) {
+    SafeBuffer.from = function(arg, encodingOrOffset, length2) {
       if (typeof arg === "number") {
         throw new TypeError("Argument must not be a number");
       }
-      return Buffer4(arg, encodingOrOffset, length);
+      return Buffer4(arg, encodingOrOffset, length2);
     };
     SafeBuffer.alloc = function(size, fill, encoding) {
       if (typeof size !== "number") {
@@ -46785,12 +46785,12 @@ var require_ecdsa_sig_formatter = __commonJS({
       dst = base64Url(dst);
       return dst;
     }
-    function countPadding(buf2, start2, stop) {
+    function countPadding(buf2, start3, stop) {
       var padding = 0;
-      while (start2 + padding < stop && buf2[start2 + padding] === 0) {
+      while (start3 + padding < stop && buf2[start3 + padding] === 0) {
         ++padding;
       }
-      var needsSign = buf2[start2 + padding] >= MAX_OCTET;
+      var needsSign = buf2[start3 + padding] >= MAX_OCTET;
       if (needsSign) {
         --padding;
       }
@@ -46854,13 +46854,13 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs17 = __require("fs");
+    var fs18 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
     var CLOUDSDK_CONFIG_DIRECTORY = "gcloud";
-    function snakeToCamel(str2) {
-      return str2.replace(/([_][^_])/g, (match2) => match2.slice(1).toUpperCase());
+    function snakeToCamel(str3) {
+      return str3.replace(/([_][^_])/g, (match2) => match2.slice(1).toUpperCase());
     }
     function originalOrCamelOptions(obj) {
       function get2(key3) {
@@ -46942,7 +46942,7 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs17.promises.lstat(filePath);
+        const stats = await fs18.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -48432,7 +48432,7 @@ var require_jwa = __commonJS({
       return thing;
     }
     function createHmacSigner(bits) {
-      return function sign2(thing, secret) {
+      return function sign3(thing, secret) {
         checkIsSecretKey(secret);
         thing = normalizeInput(thing);
         var hmac2 = crypto2.createHmac("sha" + bits, secret);
@@ -48459,7 +48459,7 @@ var require_jwa = __commonJS({
       };
     }
     function createKeySigner(bits) {
-      return function sign2(thing, privateKey) {
+      return function sign3(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
         var signer = crypto2.createSign("RSA-SHA" + bits);
@@ -48478,7 +48478,7 @@ var require_jwa = __commonJS({
       };
     }
     function createPSSKeySigner(bits) {
-      return function sign2(thing, privateKey) {
+      return function sign3(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
         var signer = crypto2.createSign("RSA-SHA" + bits);
@@ -48506,7 +48506,7 @@ var require_jwa = __commonJS({
     }
     function createECDSASigner(bits) {
       var inner = createKeySigner(bits);
-      return function sign2() {
+      return function sign3() {
         var signature = inner.apply(null, arguments);
         signature = formatEcdsa.derToJose(signature, "ES" + bits);
         return signature;
@@ -48521,7 +48521,7 @@ var require_jwa = __commonJS({
       };
     }
     function createNoneSigner() {
-      return function sign2() {
+      return function sign3() {
         return "";
       };
     }
@@ -48623,7 +48623,7 @@ var require_sign_stream = __commonJS({
       }.bind(this));
     }
     util.inherits(SignStream, Stream4);
-    SignStream.prototype.sign = function sign2() {
+    SignStream.prototype.sign = function sign3() {
       try {
         var signature = jwsSign({
           header: this.header,
@@ -48897,10 +48897,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs17 = __require("fs");
+    var fs18 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile6 = fs17.readFile ? (0, util_1.promisify)(fs17.readFile) : async () => {
+    var readFile6 = fs18.readFile ? (0, util_1.promisify)(fs18.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -49355,7 +49355,7 @@ var require_jwtaccess = __commonJS({
         }
       }
       fromStreamAsync(inputStream) {
-        return new Promise((resolve3, reject) => {
+        return new Promise((resolve4, reject) => {
           if (!inputStream) {
             reject(new Error("Must pass in a stream containing the service account auth settings."));
           }
@@ -49364,7 +49364,7 @@ var require_jwtaccess = __commonJS({
             try {
               const data = JSON.parse(s3);
               this.fromJSON(data);
-              resolve3();
+              resolve4();
             } catch (err) {
               reject(err);
             }
@@ -49603,7 +49603,7 @@ var require_jwtclient = __commonJS({
         }
       }
       fromStreamAsync(inputStream) {
-        return new Promise((resolve3, reject) => {
+        return new Promise((resolve4, reject) => {
           if (!inputStream) {
             throw new Error("Must pass in a stream containing the service account auth settings.");
           }
@@ -49612,7 +49612,7 @@ var require_jwtclient = __commonJS({
             try {
               const data = JSON.parse(s3);
               this.fromJSON(data);
-              resolve3();
+              resolve4();
             } catch (e6) {
               reject(e6);
             }
@@ -49745,7 +49745,7 @@ var require_refreshclient = __commonJS({
         }
       }
       async fromStreamAsync(inputStream) {
-        return new Promise((resolve3, reject) => {
+        return new Promise((resolve4, reject) => {
           if (!inputStream) {
             return reject(new Error("Must pass in a stream containing the user refresh token."));
           }
@@ -49754,7 +49754,7 @@ var require_refreshclient = __commonJS({
             try {
               const data = JSON.parse(s3);
               this.fromJSON(data);
-              return resolve3();
+              return resolve4();
             } catch (err) {
               return reject(err);
             }
@@ -50577,12 +50577,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs17 = __require("fs");
-    var readFile6 = (0, util_1.promisify)(fs17.readFile ?? (() => {
+    var fs18 = __require("fs");
+    var readFile6 = (0, util_1.promisify)(fs18.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs17.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs18.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs17.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs18.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50700,7 +50700,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs17 = __require("fs");
+    var fs18 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50794,7 +50794,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs17.promises.readFile(configPath, "utf8");
+          fileContents = await fs18.promises.readFile(configPath, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -50819,14 +50819,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key3;
         try {
-          cert = await fs17.promises.readFile(certPath);
+          cert = await fs18.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key3 = await fs17.promises.readFile(keyPath);
+          key3 = await fs18.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key3);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
@@ -50845,7 +50845,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs17.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs18.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51076,14 +51076,14 @@ var require_awsrequestsigner = __commonJS({
       }
     };
     exports.AwsRequestSigner = AwsRequestSigner;
-    async function sign2(crypto2, key3, msg) {
+    async function sign3(crypto2, key3, msg) {
       return await crypto2.signWithHmacSha256(key3, msg);
     }
     async function getSigningKey(crypto2, key3, dateStamp, region, serviceName) {
-      const kDate = await sign2(crypto2, `AWS4${key3}`, dateStamp);
-      const kRegion = await sign2(crypto2, kDate, region);
-      const kService = await sign2(crypto2, kRegion, serviceName);
-      const kSigning = await sign2(crypto2, kService, "aws4_request");
+      const kDate = await sign3(crypto2, `AWS4${key3}`, dateStamp);
+      const kRegion = await sign3(crypto2, kDate, region);
+      const kService = await sign3(crypto2, kRegion, serviceName);
+      const kSigning = await sign3(crypto2, kService, "aws4_request");
       return kSigning;
     }
     async function generateAuthenticationHeaderMap(options) {
@@ -51127,7 +51127,7 @@ ${amzDate}
 ${credentialScope}
 ` + await options.crypto.sha256DigestHex(canonicalRequest);
       const signingKey = await getSigningKey(options.crypto, options.securityCredentials.secretAccessKey, dateStamp, options.region, serviceName);
-      const signature = await sign2(options.crypto, signingKey, stringToSign);
+      const signature = await sign3(options.crypto, signingKey, stringToSign);
       const authorizationHeader = `${AWS_ALGORITHM} Credential=${options.securityCredentials.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${(0, crypto_1.fromArrayBufferToHex)(signature)}`;
       return {
         // Do not return x-amz-date if date is available.
@@ -51547,7 +51547,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs17 = __require("fs");
+    var fs18 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51587,7 +51587,7 @@ var require_pluggable_auth_handler = __commonJS({
        * @return A promise that resolves with the executable response.
        */
       retrieveResponseFromExecutable(envMap) {
-        return new Promise((resolve3, reject) => {
+        return new Promise((resolve4, reject) => {
           const child = childProcess.spawn(this.commandComponents[0], this.commandComponents.slice(1), {
             env: { ...process.env, ...Object.fromEntries(envMap) }
           });
@@ -51609,7 +51609,7 @@ var require_pluggable_auth_handler = __commonJS({
               try {
                 const responseJson = JSON.parse(output2);
                 const response = new executable_response_1.ExecutableResponse(responseJson);
-                return resolve3(response);
+                return resolve4(response);
               } catch (error64) {
                 if (error64 instanceof executable_response_1.ExecutableResponseError) {
                   return reject(error64);
@@ -51632,14 +51632,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs17.promises.realpath(this.outputFile);
+          filePath = await fs18.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs17.promises.lstat(filePath)).isFile()) {
+        if (!(await fs18.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs17.promises.readFile(filePath, {
+        const responseString = await fs18.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -52050,7 +52050,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs17 = __require("fs");
+    var fs18 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52273,7 +52273,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs17.promises.readFile(currentPath);
+            const ca = await fs18.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52317,8 +52317,8 @@ var require_gdchclient = __commonJS({
       [/* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom")]() {
         return this.toJSON();
       }
-      base64UrlEncode(str2) {
-        const buffer = typeof str2 === "string" ? Buffer.from(str2) : str2;
+      base64UrlEncode(str3) {
+        const buffer = typeof str3 === "string" ? Buffer.from(str3) : str3;
         return buffer.toString("base64url");
       }
     };
@@ -52333,7 +52333,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs17 = __require("fs");
+    var fs18 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52635,7 +52635,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs17.existsSync(location)) {
+        if (!fs18.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52652,8 +52652,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs17.realpathSync(filePath);
-          if (!fs17.lstatSync(filePath).isFile()) {
+          filePath = fs18.realpathSync(filePath);
+          if (!fs18.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52662,7 +52662,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs17.createReadStream(filePath);
+        const readStream = fs18.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52801,7 +52801,7 @@ var require_googleauth = __commonJS({
         }
       }
       fromStreamAsync(inputStream, options) {
-        return new Promise((resolve3, reject) => {
+        return new Promise((resolve4, reject) => {
           if (!inputStream) {
             throw new Error("Must pass in a stream containing the Google auth settings.");
           }
@@ -52811,7 +52811,7 @@ var require_googleauth = __commonJS({
               try {
                 const data = JSON.parse(chunks.join(""));
                 const r6 = this._cacheClientFromJSON(data, options);
-                return resolve3(r6);
+                return resolve4(r6);
               } catch (err) {
                 if (!this.keyFilename)
                   throw err;
@@ -52821,7 +52821,7 @@ var require_googleauth = __commonJS({
                 });
                 this.cachedCredential = client;
                 this.setGapicJWTValues(client);
-                return resolve3(client);
+                return resolve4(client);
               }
             } catch (err) {
               return reject(err);
@@ -52857,17 +52857,17 @@ var require_googleauth = __commonJS({
        * Run the Google Cloud SDK command that prints the default project ID
        */
       async getDefaultServiceProjectId() {
-        return new Promise((resolve3) => {
+        return new Promise((resolve4) => {
           (0, child_process_1.exec)("gcloud config config-helper --format json", (err, stdout) => {
             if (!err && stdout) {
               try {
                 const projectId = JSON.parse(stdout).configuration.properties.core.project;
-                resolve3(projectId);
+                resolve4(projectId);
                 return;
               } catch (e6) {
               }
             }
-            resolve3(null);
+            resolve4(null);
           });
         });
       }
@@ -52990,7 +52990,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs17.createReadStream(filePath);
+          const stream = fs18.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -53105,8 +53105,8 @@ var require_googleauth = __commonJS({
         }
         const crypto2 = (0, crypto_1.createCrypto)();
         if (client instanceof jwtclient_1.JWT && client.key) {
-          const sign2 = await crypto2.sign(client.key, data);
-          return sign2;
+          const sign3 = await crypto2.sign(client.key, data);
+          return sign3;
         }
         const creds = await this.getCredentials();
         if (!creds.client_email) {
@@ -53604,7 +53604,7 @@ var require_code = __commonJS({
     }
     exports._ = _;
     var plus = new _Code("+");
-    function str2(strs, ...args) {
+    function str3(strs, ...args) {
       const expr = [safeStringify(strs[0])];
       let i6 = 0;
       while (i6 < args.length) {
@@ -53615,7 +53615,7 @@ var require_code = __commonJS({
       optimize(expr);
       return new _Code(expr);
     }
-    exports.str = str2;
+    exports.str = str3;
     function addCodeArg(code2, arg) {
       if (arg instanceof _Code)
         code2.push(...arg._items);
@@ -53658,7 +53658,7 @@ var require_code = __commonJS({
       return;
     }
     function strConcat(c1, c22) {
-      return c22.emptyStr() ? c1 : c1.emptyStr() ? c22 : str2`${c1}${c22}`;
+      return c22.emptyStr() ? c1 : c1.emptyStr() ? c22 : str3`${c1}${c22}`;
     }
     exports.strConcat = strConcat;
     function interpolate(x2) {
@@ -54620,22 +54620,22 @@ var require_util3 = __commonJS({
       return (0, codegen_1._)`${topSchemaRef}${schemaPath}${(0, codegen_1.getProperty)(keyword)}`;
     }
     exports.schemaRefOrVal = schemaRefOrVal;
-    function unescapeFragment(str2) {
-      return unescapeJsonPointer(decodeURIComponent(str2));
+    function unescapeFragment(str3) {
+      return unescapeJsonPointer(decodeURIComponent(str3));
     }
     exports.unescapeFragment = unescapeFragment;
-    function escapeFragment(str2) {
-      return encodeURIComponent(escapeJsonPointer(str2));
+    function escapeFragment(str3) {
+      return encodeURIComponent(escapeJsonPointer(str3));
     }
     exports.escapeFragment = escapeFragment;
-    function escapeJsonPointer(str2) {
-      if (typeof str2 == "number")
-        return `${str2}`;
-      return str2.replace(/~/g, "~0").replace(/\//g, "~1");
+    function escapeJsonPointer(str3) {
+      if (typeof str3 == "number")
+        return `${str3}`;
+      return str3.replace(/~/g, "~0").replace(/\//g, "~1");
     }
     exports.escapeJsonPointer = escapeJsonPointer;
-    function unescapeJsonPointer(str2) {
-      return str2.replace(/~1/g, "/").replace(/~0/g, "~");
+    function unescapeJsonPointer(str3) {
+      return str3.replace(/~1/g, "/").replace(/~0/g, "~");
     }
     exports.unescapeJsonPointer = unescapeJsonPointer;
     function eachItem(xs, f7) {
@@ -55551,11 +55551,11 @@ var require_fast_deep_equal = __commonJS({
       if (a5 === b5) return true;
       if (a5 && b5 && typeof a5 == "object" && typeof b5 == "object") {
         if (a5.constructor !== b5.constructor) return false;
-        var length, i6, keys;
+        var length2, i6, keys;
         if (Array.isArray(a5)) {
-          length = a5.length;
-          if (length != b5.length) return false;
-          for (i6 = length; i6-- !== 0; )
+          length2 = a5.length;
+          if (length2 != b5.length) return false;
+          for (i6 = length2; i6-- !== 0; )
             if (!equal(a5[i6], b5[i6])) return false;
           return true;
         }
@@ -55563,11 +55563,11 @@ var require_fast_deep_equal = __commonJS({
         if (a5.valueOf !== Object.prototype.valueOf) return a5.valueOf() === b5.valueOf();
         if (a5.toString !== Object.prototype.toString) return a5.toString() === b5.toString();
         keys = Object.keys(a5);
-        length = keys.length;
-        if (length !== Object.keys(b5).length) return false;
-        for (i6 = length; i6-- !== 0; )
+        length2 = keys.length;
+        if (length2 !== Object.keys(b5).length) return false;
+        for (i6 = length2; i6-- !== 0; )
           if (!Object.prototype.hasOwnProperty.call(b5, keys[i6])) return false;
-        for (i6 = length; i6-- !== 0; ) {
+        for (i6 = length2; i6-- !== 0; ) {
           var key3 = keys[i6];
           if (!equal(a5[key3], b5[key3])) return false;
         }
@@ -55660,8 +55660,8 @@ var require_json_schema_traverse = __commonJS({
         post2(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
       }
     }
-    function escapeJsonPtr(str2) {
-      return str2.replace(/~/g, "~0").replace(/\//g, "~1");
+    function escapeJsonPtr(str3) {
+      return str3.replace(/~/g, "~0").replace(/\//g, "~1");
     }
   }
 });
@@ -56487,7 +56487,7 @@ var require_compile = __commonJS({
       const schOrFunc = root5.refs[ref2];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve3.call(this, root5, ref2);
+      let _sch = resolve4.call(this, root5, ref2);
       if (_sch === void 0) {
         const schema = (_a5 = root5.localRefs) === null || _a5 === void 0 ? void 0 : _a5[ref2];
         const { schemaId } = this.opts;
@@ -56514,7 +56514,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s22) {
       return s1.schema === s22.schema && s1.root === s22.root && s1.baseId === s22.baseId;
     }
-    function resolve3(root5, ref2) {
+    function resolve4(root5, ref2) {
       let sch;
       while (typeof (sch = this.refs[ref2]) == "string")
         ref2 = sch;
@@ -56758,10 +56758,10 @@ var require_utils = __commonJS({
         isIPV6: true
       };
     }
-    function findToken(str2, token) {
+    function findToken(str3, token) {
       let ind = 0;
-      for (let i6 = 0; i6 < str2.length; i6++) {
-        if (str2[i6] === token) ind++;
+      for (let i6 = 0; i6 < str3.length; i6++) {
+        if (str3[i6] === token) ind++;
       }
       return ind;
     }
@@ -57378,7 +57378,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve3(baseURI, relativeURI, options) {
+    function resolve4(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const {
         parsed: baseParsed,
@@ -57414,50 +57414,50 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative2, options, skipNormalization) {
+    function resolveComponent(base, relative3, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse4(serialize(base, options), options);
-        relative2 = parse4(serialize(relative2, options), options);
+        relative3 = parse4(serialize(relative3, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative2.scheme) {
-        target.scheme = relative2.scheme;
-        target.userinfo = relative2.userinfo;
-        target.host = relative2.host;
-        target.port = relative2.port;
-        target.path = removeDotSegments(relative2.path || "");
-        target.query = relative2.query;
+      if (!options.tolerant && relative3.scheme) {
+        target.scheme = relative3.scheme;
+        target.userinfo = relative3.userinfo;
+        target.host = relative3.host;
+        target.port = relative3.port;
+        target.path = removeDotSegments(relative3.path || "");
+        target.query = relative3.query;
       } else {
-        if (relative2.userinfo !== void 0 || relative2.host !== void 0 || relative2.port !== void 0) {
-          target.userinfo = relative2.userinfo;
-          target.host = relative2.host;
-          target.port = relative2.port;
-          target.path = removeDotSegments(relative2.path || "");
-          target.query = relative2.query;
+        if (relative3.userinfo !== void 0 || relative3.host !== void 0 || relative3.port !== void 0) {
+          target.userinfo = relative3.userinfo;
+          target.host = relative3.host;
+          target.port = relative3.port;
+          target.path = removeDotSegments(relative3.path || "");
+          target.query = relative3.query;
         } else {
-          if (!relative2.path) {
+          if (!relative3.path) {
             target.path = base.path;
-            if (relative2.query !== void 0) {
-              target.query = relative2.query;
+            if (relative3.query !== void 0) {
+              target.query = relative3.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative2.path[0] === "/") {
-              target.path = removeDotSegments(relative2.path);
+            if (relative3.path[0] === "/") {
+              target.path = removeDotSegments(relative3.path);
             } else {
               const baseHasAuthority = base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0;
               if (baseHasAuthority && !base.path) {
-                target.path = "/" + relative2.path;
+                target.path = "/" + relative3.path;
               } else if (!base.path) {
-                target.path = relative2.path;
+                target.path = relative3.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative2.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative3.path;
               }
               target.path = base.scheme === void 0 && !baseHasAuthority && target.path[0] !== "/" ? removeDotSegmentsRelative(target.path) : removeDotSegments(target.path);
             }
-            target.query = relative2.query;
+            target.query = relative3.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -57465,7 +57465,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative2.fragment;
+      target.fragment = relative3.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -57769,7 +57769,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize: normalize2,
-      resolve: resolve3,
+      resolve: resolve4,
       resolveComponent,
       equal,
       serialize,
@@ -57831,7 +57831,7 @@ var require_core = __commonJS({
     var util_1 = require_util3();
     var $dataRefSchema = require_data();
     var uri_1 = require_uri();
-    var defaultRegExp = (str2, flags) => new RegExp(str2, flags);
+    var defaultRegExp = (str3, flags) => new RegExp(str3, flags);
     defaultRegExp.code = "new RegExp";
     var META_IGNORE_OPTIONS = ["removeAdditional", "useDefaults", "coerceTypes"];
     var EXT_SCOPE_NAMES = /* @__PURE__ */ new Set([
@@ -58626,21 +58626,21 @@ var require_ucs2length = __commonJS({
   "../../node_modules/ajv/dist/runtime/ucs2length.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    function ucs2length(str2) {
-      const len = str2.length;
-      let length = 0;
+    function ucs2length(str3) {
+      const len = str3.length;
+      let length2 = 0;
       let pos2 = 0;
       let value2;
       while (pos2 < len) {
-        length++;
-        value2 = str2.charCodeAt(pos2++);
+        length2++;
+        value2 = str3.charCodeAt(pos2++);
         if (value2 >= 55296 && value2 <= 56319 && pos2 < len) {
-          value2 = str2.charCodeAt(pos2);
+          value2 = str3.charCodeAt(pos2);
           if ((value2 & 64512) === 56320)
             pos2++;
         }
       }
-      return length;
+      return length2;
     }
     exports.default = ucs2length;
     ucs2length.code = 'require("ajv/dist/runtime/ucs2length").default';
@@ -60518,8 +60518,8 @@ var require_formats = __commonJS({
     }
     var DATE = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
     var DAYS2 = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    function date6(str2) {
-      const matches = DATE.exec(str2);
+    function date6(str3) {
+      const matches = DATE.exec(str3);
       if (!matches)
         return false;
       const year2 = +matches[1];
@@ -60538,8 +60538,8 @@ var require_formats = __commonJS({
     }
     var TIME = /^(\d\d):(\d\d):(\d\d(?:\.\d+)?)(z|([+-])(\d\d)(?::?(\d\d))?)?$/i;
     function getTime(strictTimeZone) {
-      return function time4(str2) {
-        const matches = TIME.exec(str2);
+      return function time4(str3) {
+        const matches = TIME.exec(str3);
         if (!matches)
           return false;
         const hr = +matches[1];
@@ -60585,8 +60585,8 @@ var require_formats = __commonJS({
     var DATE_TIME_SEPARATOR = /t|\s/i;
     function getDateTime(strictTimeZone) {
       const time4 = getTime(strictTimeZone);
-      return function date_time(str2) {
-        const dateTime = str2.split(DATE_TIME_SEPARATOR);
+      return function date_time(str3) {
+        const dateTime = str3.split(DATE_TIME_SEPARATOR);
         return dateTime.length === 2 && date6(dateTime[0]) && time4(dateTime[1]);
       };
     }
@@ -60611,13 +60611,13 @@ var require_formats = __commonJS({
     }
     var NOT_URI_FRAGMENT = /\/|:/;
     var URI = /^(?:[a-z][a-z0-9+\-.]*:)(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|[Vv][0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?|(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i;
-    function uri(str2) {
-      return NOT_URI_FRAGMENT.test(str2) && URI.test(str2);
+    function uri(str3) {
+      return NOT_URI_FRAGMENT.test(str3) && URI.test(str3);
     }
     var BYTE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/gm;
-    function byte(str2) {
+    function byte(str3) {
       BYTE.lastIndex = 0;
-      return BYTE.test(str2);
+      return BYTE.test(str3);
     }
     var MIN_INT32 = -(2 ** 31);
     var MAX_INT32 = 2 ** 31 - 1;
@@ -60631,11 +60631,11 @@ var require_formats = __commonJS({
       return true;
     }
     var Z_ANCHOR = /[^\\]\\Z/;
-    function regex(str2) {
-      if (Z_ANCHOR.test(str2))
+    function regex(str3) {
+      if (Z_ANCHOR.test(str3))
         return false;
       try {
-        new RegExp(str2);
+        new RegExp(str3);
         return true;
       } catch (e6) {
         return false;
@@ -60745,12 +60745,12 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list3, fs17, exportName) {
+    function addFormats(ajv, list3, fs18, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list3)
-        ajv.addFormat(f7, fs17[f7]);
+        ajv.addFormat(f7, fs18[f7]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -61471,9 +61471,9 @@ function nullish(input2) {
   return input2 === null || input2 === void 0;
 }
 function cleanRegex(source2) {
-  const start2 = source2.startsWith("^") ? 1 : 0;
+  const start3 = source2.startsWith("^") ? 1 : 0;
   const end2 = source2.endsWith("$") ? source2.length - 1 : source2.length;
-  return source2.slice(start2, end2);
+  return source2.slice(start3, end2);
 }
 function floatSafeRemainder(val, step) {
   const ratio = val / step;
@@ -61594,16 +61594,16 @@ function promiseAllObject(promisesObj) {
     return resolvedObj;
   });
 }
-function randomString(length = 10) {
+function randomString(length2 = 10) {
   const chars2 = "abcdefghijklmnopqrstuvwxyz";
-  let str2 = "";
-  for (let i6 = 0; i6 < length; i6++) {
-    str2 += chars2[Math.floor(Math.random() * chars2.length)];
+  let str3 = "";
+  for (let i6 = 0; i6 < length2; i6++) {
+    str3 += chars2[Math.floor(Math.random() * chars2.length)];
   }
-  return str2;
+  return str3;
 }
-function esc(str2) {
-  return JSON.stringify(str2);
+function esc(str3) {
+  return JSON.stringify(str3);
 }
 function slugify(input2) {
   return input2.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -61717,8 +61717,8 @@ var primitiveTypes = /* @__PURE__ */ new Set([
   "symbol",
   "undefined"
 ]);
-function escapeRegex(str2) {
-  return str2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function escapeRegex(str3) {
+  return str3.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function clone(inst, def, params) {
   const cl = new inst._zod.constr(def ?? inst._zod.def);
@@ -61944,9 +61944,9 @@ function sizeCaps(defChecks) {
   }
   return caps;
 }
-function attachSchema(issues, start2, inst) {
+function attachSchema(issues, start3, inst) {
   var _a5;
-  for (let i6 = start2; i6 < issues.length; i6++) {
+  for (let i6 = start3; i6 < issues.length; i6++) {
     (_a5 = issues[i6]).schema ?? (_a5.schema = inst);
   }
 }
@@ -61984,13 +61984,13 @@ function getSizableOrigin(input2) {
   return "unknown";
 }
 var highSurrogate = /[\uD800-\uDBFF]/;
-function codePointLength(str2) {
-  const units = str2.length;
-  if (!highSurrogate.test(str2))
+function codePointLength(str3) {
+  const units = str3.length;
+  if (!highSurrogate.test(str3))
     return units;
   let count = units;
   for (let i6 = 0; i6 < units - 1; i6++) {
-    if ((str2.charCodeAt(i6) & 64512) === 55296 && (str2.charCodeAt(i6 + 1) & 64512) === 56320) {
+    if ((str3.charCodeAt(i6) & 64512) === 55296 && (str3.charCodeAt(i6 + 1) & 64512) === 56320) {
       count--;
       i6++;
     }
@@ -62745,8 +62745,8 @@ var ulid = /^[0-7][0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{25}$/;
 var xid = /^[0-9a-vA-V]{20}$/;
 var ksuid = /^[A-Za-z0-9]{27}$/;
 var nanoid = /^[a-zA-Z0-9_-]{21}$/;
-function nanoidOfLength(length) {
-  return new RegExp(`^[a-zA-Z0-9_-]{${length}}$`);
+function nanoidOfLength(length2) {
+  return new RegExp(`^[a-zA-Z0-9_-]{${length2}}$`);
 }
 var duration = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
 var extendedDuration = /^[-+]?P(?!$)(?:(?:[-+]?\d+Y)|(?:[-+]?\d+[.,]\d+Y$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:(?:[-+]?\d+W)|(?:[-+]?\d+[.,]\d+W$))?(?:(?:[-+]?\d+D)|(?:[-+]?\d+[.,]\d+D$))?(?:T(?=[\d+-])(?:(?:[-+]?\d+H)|(?:[-+]?\d+[.,]\d+H$))?(?:(?:[-+]?\d+M)|(?:[-+]?\d+[.,]\d+M$))?(?:[-+]?\d+(?:[.,]\d+)?S)?)??$/;
@@ -62824,8 +62824,8 @@ var hex = /^[0-9a-fA-F]*$/;
 function fixedBase64(bodyLength, padding) {
   return new RegExp(`^[A-Za-z0-9+/]{${bodyLength}}${padding}$`);
 }
-function fixedBase64url(length) {
-  return new RegExp(`^[A-Za-z0-9_-]{${length}}$`);
+function fixedBase64url(length2) {
+  return new RegExp(`^[A-Za-z0-9_-]{${length2}}$`);
 }
 var md5_hex = /^[0-9a-fA-F]{32}$/;
 var md5_base64 = /* @__PURE__ */ fixedBase64(22, "==");
@@ -63088,8 +63088,8 @@ var $ZodCheckMaxLength = /* @__PURE__ */ $constructor("$ZodCheckMaxLength", (ins
   inst._zod.check = (payload2) => {
     const input2 = payload2.value;
     const units = input2.length;
-    const length = typeof input2 === "string" && units > def.maximum ? codePointLength(input2) : units;
-    if (length <= def.maximum)
+    const length2 = typeof input2 === "string" && units > def.maximum ? codePointLength(input2) : units;
+    if (length2 <= def.maximum)
       return;
     const origin = getLengthableOrigin(input2);
     payload2.issues.push({
@@ -63110,8 +63110,8 @@ var $ZodCheckMinLength = /* @__PURE__ */ $constructor("$ZodCheckMinLength", (ins
   inst._zod.check = (payload2) => {
     const input2 = payload2.value;
     const units = input2.length;
-    const length = typeof input2 === "string" && units >= def.minimum && units < def.minimum * 2 ? codePointLength(input2) : units;
-    if (length >= def.minimum)
+    const length2 = typeof input2 === "string" && units >= def.minimum && units < def.minimum * 2 ? codePointLength(input2) : units;
+    if (length2 >= def.minimum)
       return;
     const origin = getLengthableOrigin(input2);
     payload2.issues.push({
@@ -63132,11 +63132,11 @@ var $ZodCheckLengthEquals = /* @__PURE__ */ $constructor("$ZodCheckLengthEquals"
   inst._zod.check = (payload2) => {
     const input2 = payload2.value;
     const units = input2.length;
-    const length = typeof input2 === "string" && units >= def.length && units <= def.length * 2 ? codePointLength(input2) : units;
-    if (length === def.length)
+    const length2 = typeof input2 === "string" && units >= def.length && units <= def.length * 2 ? codePointLength(input2) : units;
+    if (length2 === def.length)
       return;
     const origin = getLengthableOrigin(input2);
-    const tooBig = length > def.length;
+    const tooBig = length2 > def.length;
     payload2.issues.push({
       origin,
       ...tooBig ? { code: "too_big", maximum: def.length } : { code: "too_small", minimum: def.length },
@@ -63828,11 +63828,11 @@ var $ZodE164 = /* @__PURE__ */ $constructor("$ZodE164", (inst, def) => {
 });
 var CC_SANITIZE = /[- ]/g;
 function isLuhnAlgo(digits) {
-  let length = digits.length;
+  let length2 = digits.length;
   let bit = 1;
   let sum = 0;
-  while (length) {
-    const value2 = digits.charCodeAt(--length) - 48;
+  while (length2) {
+    const value2 = digits.charCodeAt(--length2) - 48;
     bit ^= 1;
     sum += bit ? [0, 2, 4, 6, 8, 1, 3, 5, 7, 9][value2] : value2;
   }
@@ -64131,10 +64131,10 @@ function capSize(inst, size) {
     if (n3 > cap && !ctx?.skipChecks && ctx?.direction !== "backward") {
       for (const [max, ch] of sizeCaps(inst._zod.def.checks)) {
         if (n3 > max && ch._zod.def.when(payload2)) {
-          const start2 = payload2.issues.length;
+          const start3 = payload2.issues.length;
           ch._zod.check(payload2);
-          payload2.issues[start2].continue = false;
-          attachSchema(payload2.issues, start2, inst);
+          payload2.issues[start3].continue = false;
+          attachSchema(payload2.issues, start3, inst);
           return payload2;
         }
       }
@@ -65828,7 +65828,7 @@ var recursive = /* @__PURE__ */ new WeakMap();
 var NONE = 0;
 var ASSUMED = 1;
 var PROVEN = 2;
-function isRecursive(inst, stack, resolve3) {
+function isRecursive(inst, stack, resolve4) {
   const cached2 = recursive.get(inst);
   if (cached2 !== void 0)
     return cached2 ? PROVEN : NONE;
@@ -65838,7 +65838,7 @@ function isRecursive(inst, stack, resolve3) {
   let result = NONE;
   const check3 = (child) => {
     if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve3);
+      const answer = isRecursive(child, stack, resolve4);
       if (answer > result)
         result = answer;
     }
@@ -65849,7 +65849,7 @@ function isRecursive(inst, stack, resolve3) {
       const desc = Object.getOwnPropertyDescriptor(sh, key3);
       if (spread && !desc.enumerable)
         continue;
-      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve3) : NONE;
+      const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve4) : NONE;
       if (child > answer)
         answer = child;
     }
@@ -65913,7 +65913,7 @@ function isRecursive(inst, stack, resolve3) {
       break;
     // `$ZodLazy` caches its inner on the def, so a resolved edge is followed exactly
     case "lazy": {
-      const inner = def._cachedInner ?? (resolve3 ? inst._zod.innerType : void 0);
+      const inner = def._cachedInner ?? (resolve4 ? inst._zod.innerType : void 0);
       merge4(inner ? isRecursive(inner, stack, false) : ASSUMED);
       break;
     }
@@ -75906,11 +75906,11 @@ function _minLength(minimum, params) {
   });
 }
 // @__NO_SIDE_EFFECTS__
-function _length(length, params) {
+function _length(length2, params) {
   return new $ZodCheckLengthEquals({
     check: "length_equals",
     ...normalizeParams(params),
-    length
+    length: length2
   });
 }
 // @__NO_SIDE_EFFECTS__
@@ -82090,12 +82090,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message2) {
-    return new Promise((resolve3) => {
+    return new Promise((resolve4) => {
       const json4 = serializeMessage(message2);
       if (this._stdout.write(json4)) {
-        resolve3();
+        resolve4();
       } else {
-        this._stdout.once("drain", resolve3);
+        this._stdout.once("drain", resolve4);
       }
     });
   }
@@ -82461,13 +82461,13 @@ function anumber(n3, title = "") {
     throw new RangeError(atitle(title) + "expected integer >= 0, got " + n3);
   return n3;
 }
-function abytes(value2, length, title = "") {
-  if (isBytes(value2) && (length === void 0 || value2.length === length))
+function abytes(value2, length2, title = "") {
+  if (isBytes(value2) && (length2 === void 0 || value2.length === length2))
     return value2;
-  if (length !== void 0)
-    anumber(length, "length");
+  if (length2 !== void 0)
+    anumber(length2, "length");
   const bytes3 = isBytes(value2);
-  const ofLen = length !== void 0 ? ` of length ${length}` : "";
+  const ofLen = length2 !== void 0 ? ` of length ${length2}` : "";
   const got = bytes3 ? `length=${value2.length}` : `type=${typeof value2}`;
   const message2 = atitle(title) + "expected Uint8Array" + ofLen + ", got " + got;
   if (!bytes3)
@@ -82823,10 +82823,10 @@ var HashMD = class {
     return res;
   }
   _cloneIntoMeta(to) {
-    const { buffer, length, finished: finished2, destroyed, pos: pos2 } = this;
+    const { buffer, length: length2, finished: finished2, destroyed, pos: pos2 } = this;
     to.destroyed = destroyed;
     to.finished = finished2;
-    to.length = length;
+    to.length = length2;
     to.pos = pos2;
     if (pos2)
       to.buffer.set(buffer);
@@ -83326,14 +83326,14 @@ function encodeContainer(value2, depth, seen) {
 }
 var encoder = new TextEncoder();
 var strictDecoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-function utf8(str2) {
-  return encoder.encode(str2);
+function utf8(str3) {
+  return encoder.encode(str3);
 }
 function fromUtf8(bytes3) {
   return strictDecoder.decode(bytes3);
 }
-function fitsUtf8(str2, limit2) {
-  return str2.length <= limit2 && encoder.encode(str2).length <= limit2;
+function fitsUtf8(str3, limit2) {
+  return str3.length <= limit2 && encoder.encode(str3).length <= limit2;
 }
 var ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 var LOOKUP = new Uint8Array(128).fill(255);
@@ -83361,15 +83361,15 @@ var b64u = {
     }
     return asciiDecoder.decode(out);
   },
-  decode(str2) {
-    if (typeof str2 !== "string") throw new TypeError("b64u: not a string");
-    if (str2.length % 4 === 1) throw new TypeError("b64u: impossible length");
-    const out = new Uint8Array(Math.floor(str2.length * 3 / 4));
+  decode(str3) {
+    if (typeof str3 !== "string") throw new TypeError("b64u: not a string");
+    if (str3.length % 4 === 1) throw new TypeError("b64u: impossible length");
+    const out = new Uint8Array(Math.floor(str3.length * 3 / 4));
     let bits = 0;
     let acc = 0;
     let j5 = 0;
-    for (let i6 = 0; i6 < str2.length; i6++) {
-      const code2 = str2.charCodeAt(i6);
+    for (let i6 = 0; i6 < str3.length; i6++) {
+      const code2 = str3.charCodeAt(i6);
       const v = code2 < 128 ? LOOKUP[code2] : 255;
       if (v === 255) throw new TypeError("b64u: invalid character");
       acc = (acc << 6 | v) & 65535;
@@ -83385,6 +83385,9 @@ var b64u = {
 };
 function sha2562(bytes3) {
   return sha256(bytes3);
+}
+function hmacSha256(key3, bytes3) {
+  return hmac(sha256, key3, bytes3);
 }
 function hash2(value2) {
   return b64u.encode(sha2562(canonBytes(value2)));
@@ -83738,7 +83741,7 @@ function aarray(item, title, inner = () => {
     inner(item[i6], `${title}[${i6}]`);
   return item;
 }
-var abytes2 = (value2, length, title) => abytes(value2, length, title);
+var abytes2 = (value2, length2, title) => abytes(value2, length2, title);
 var anumber2 = anumber;
 function aobject2(value2, title = "object") {
   if (value2 === null || typeof value2 !== "object" || Array.isArray(value2))
@@ -83868,7 +83871,7 @@ function mod(a5, b5) {
   const result = a5 % b5;
   return result >= _0n2 ? result : b5 + result;
 }
-function pow(num, power, modulo) {
+function pow(num2, power, modulo) {
   if (modulo <= _1n2)
     throw new Error("pow: expected modulus > 1, got " + modulo);
   if (typeof power !== "bigint")
@@ -83878,8 +83881,8 @@ function pow(num, power, modulo) {
   if (power === _0n2)
     return _1n2;
   if (power === _1n2)
-    return num;
-  let d5 = num % modulo;
+    return num2;
+  let d5 = num2 % modulo;
   if (d5 < _0n2)
     d5 += modulo;
   if (power < POW_WINDOWED_MIN) {
@@ -84056,7 +84059,7 @@ function FpSqrt(P) {
     return sqrt9mod16(P);
   return tonelliShanks(P);
 }
-var isNegativeLE = (num, modulo) => (mod(num, modulo) & _1n2) === _1n2;
+var isNegativeLE = (num2, modulo) => (mod(num2, modulo) & _1n2) === _1n2;
 var FIELD_FIELDS = [
   "create",
   "isValid",
@@ -84096,18 +84099,18 @@ function FpInvertBatch(Fp2, nums, passZero = false) {
   abool(passZero, "passZero");
   const F2 = Fp2;
   const inverted = new Array(nums.length).fill(passZero ? F2.ZERO : void 0);
-  const multipliedAcc = nums.reduce((acc, num, i6) => {
-    if (F2.is0(num))
+  const multipliedAcc = nums.reduce((acc, num2, i6) => {
+    if (F2.is0(num2))
       return acc;
     inverted[i6] = acc;
-    return F2.mul(acc, num);
+    return F2.mul(acc, num2);
   }, F2.ONE);
   const invertedAcc = F2.inv(multipliedAcc);
-  nums.reduceRight((acc, num, i6) => {
-    if (F2.is0(num))
+  nums.reduceRight((acc, num2, i6) => {
+    if (F2.is0(num2))
       return acc;
     inverted[i6] = F2.mul(acc, inverted[i6]);
-    return F2.mul(acc, num);
+    return F2.mul(acc, num2);
   }, invertedAcc);
   return inverted;
 }
@@ -84173,32 +84176,32 @@ var _Field = class {
     this.BYTES = nByteLength;
     Object.freeze(this);
   }
-  create(num) {
-    return mod(num, this.ORDER);
+  create(num2) {
+    return mod(num2, this.ORDER);
   }
-  isValid(num) {
-    if (typeof num !== "bigint")
-      throw new TypeError("invalid field element: expected bigint, got " + typeof num);
-    return _0n2 <= num && num < this.ORDER;
+  isValid(num2) {
+    if (typeof num2 !== "bigint")
+      throw new TypeError("invalid field element: expected bigint, got " + typeof num2);
+    return _0n2 <= num2 && num2 < this.ORDER;
   }
-  is0(num) {
-    return num === _0n2;
+  is0(num2) {
+    return num2 === _0n2;
   }
   // is valid and invertible
-  isValidNot0(num) {
-    return !this.is0(num) && this.isValid(num);
+  isValidNot0(num2) {
+    return !this.is0(num2) && this.isValid(num2);
   }
-  isOdd(num) {
-    return (num & _1n2) === _1n2;
+  isOdd(num2) {
+    return (num2 & _1n2) === _1n2;
   }
-  neg(num) {
-    return mod(-num, this.ORDER);
+  neg(num2) {
+    return mod(-num2, this.ORDER);
   }
   eql(lhs, rhs) {
     return lhs === rhs;
   }
-  sqr(num) {
-    return mod(num * num, this.ORDER);
+  sqr(num2) {
+    return mod(num2 * num2, this.ORDER);
   }
   add(lhs, rhs) {
     return mod(lhs + rhs, this.ORDER);
@@ -84209,15 +84212,15 @@ var _Field = class {
   mul(lhs, rhs) {
     return mod(lhs * rhs, this.ORDER);
   }
-  pow(num, power) {
-    return pow(num, power, this.ORDER);
+  pow(num2, power) {
+    return pow(num2, power, this.ORDER);
   }
   div(lhs, rhs) {
     return mod(lhs * invert(rhs, this.ORDER), this.ORDER);
   }
   // Same as above, but doesn't normalize
-  sqrN(num) {
-    return num * num;
+  sqrN(num2) {
+    return num2 * num2;
   }
   addN(lhs, rhs) {
     return lhs + rhs;
@@ -84228,17 +84231,17 @@ var _Field = class {
   mulN(lhs, rhs) {
     return lhs * rhs;
   }
-  inv(num) {
-    return invert(num, this.ORDER);
+  inv(num2) {
+    return invert(num2, this.ORDER);
   }
-  sqrt(num) {
+  sqrt(num2) {
     let sqrt = FIELD_SQRT.get(this);
     if (!sqrt)
       FIELD_SQRT.set(this, sqrt = FpSqrt(this.ORDER));
-    return sqrt(this, num);
+    return sqrt(this, num2);
   }
-  toBytes(num) {
-    return this.isLE ? numberToBytesLE(num, this.BYTES) : numberToBytesBE(num, this.BYTES);
+  toBytes(num2) {
+    return this.isLE ? numberToBytesLE(num2, this.BYTES) : numberToBytesBE(num2, this.BYTES);
   }
   fromBytes(bytes3, skipValidation = false) {
     abytes2(bytes3);
@@ -84313,18 +84316,18 @@ function validateTableBytes(numPoints, fpBytes) {
   if (bytes3 > TABLE_BYTES_MAX)
     throw new Error("invalid window size: table would need ~" + Math.ceil(bytes3 / 2 ** 20) + " MiB, max " + TABLE_BYTES_MAX / 2 ** 20 + " MiB");
 }
-function probeRandomBytes(randomBytes5, length) {
-  if (randomBytes5 === void 0)
+function probeRandomBytes(randomBytes6, length2) {
+  if (randomBytes6 === void 0)
     return void 0;
-  afunction(randomBytes5, "randomBytes");
+  afunction(randomBytes6, "randomBytes");
   try {
-    const probe2 = randomBytes5(length);
-    if (!isBytes2(probe2) || probe2.length !== length)
+    const probe2 = randomBytes6(length2);
+    if (!isBytes2(probe2) || probe2.length !== length2)
       return void 0;
   } catch {
     return void 0;
   }
-  return randomBytes5;
+  return randomBytes6;
 }
 function validateMSMPoints(points, c5) {
   aarray(points, "points");
@@ -84417,9 +84420,9 @@ var ScalarMultiplier = class {
   baseCanBeBlinded;
   bits;
   // Parametrized with a given Point class (not individual point)
-  constructor(Point, randomBytes5) {
+  constructor(Point, randomBytes6) {
     validatePointCons(Point);
-    this.randomBytes = probeRandomBytes(randomBytes5, BLIND_BYTES);
+    this.randomBytes = probeRandomBytes(randomBytes6, BLIND_BYTES);
     this.Point = Point;
     this.BASE = Point.BASE;
     this.ZERO = Point.ZERO;
@@ -84467,14 +84470,14 @@ var ScalarMultiplier = class {
     let f7 = this.BASE;
     for (let w = 0; w < windows; w++) {
       const digit = digits[w];
-      const start2 = w * half;
+      const start3 = w * half;
       const idx = Math.abs(digit) - 1;
-      let sel = comp[start2];
+      let sel = comp[start3];
       for (let i6 = 1; i6 < half; i6++)
-        sel = i6 === idx ? comp[start2 + i6] : sel;
+        sel = i6 === idx ? comp[start3 + i6] : sel;
       const neg = sel.negate();
       if (digit === 0)
-        f7 = f7.add(comp[start2]);
+        f7 = f7.add(comp[start3]);
       else
         p3 = p3.add(digit < 0 ? neg : sel);
     }
@@ -84690,7 +84693,7 @@ function edwards(params, extraOpts = {}) {
   if (FpLegendre(Fp2, CURVE.d) !== -1)
     throw new Error("edwards: CURVE.d must be a non-square in Fp for complete addition formulas");
   validateObject(opts, {}, { uvRatio: "function", randomBytes: "function" });
-  const randomBytes5 = opts.randomBytes === void 0 ? randomBytes3 : opts.randomBytes;
+  const randomBytes6 = opts.randomBytes === void 0 ? randomBytes3 : opts.randomBytes;
   const MASK = _2n2 << BigInt(Fp2.BYTES * 8) - _1n4;
   function isOdd(n3) {
     if (!Fp2.isOdd)
@@ -84951,7 +84954,7 @@ function edwards(params, extraOpts = {}) {
     }
   }
   const normalize2 = (points) => normalizeZ(Point, points);
-  const wnaf = new ScalarMultiplier(Point, randomBytes5);
+  const wnaf = new ScalarMultiplier(Point, randomBytes6);
   if (wnaf.bits >= 6)
     Point.BASE.precompute(6);
   Object.freeze(Point.prototype);
@@ -84983,7 +84986,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
     if (outputLen !== expectedLen)
       throw new Error(`hash.outputLen must be ${expectedLen}, got ${outputLen}`);
   }
-  const randomBytes5 = opts.randomBytes === void 0 ? randomBytes3 : opts.randomBytes;
+  const randomBytes6 = opts.randomBytes === void 0 ? randomBytes3 : opts.randomBytes;
   const toMontgomery2 = opts.toMontgomery;
   const toMontgomerySecret2 = opts.toMontgomerySecret;
   const adjustScalarBytes2 = opts.adjustScalarBytes === void 0 ? (bytes3) => bytes3 : opts.adjustScalarBytes;
@@ -85018,7 +85021,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
     const msg = concatBytes2(...msgs);
     return modN_LE(hash3(domain2(msg, abytes2(context, void 0, "context"), !!prehash)));
   }
-  function sign2(msg, secretKey, options = {}) {
+  function sign3(msg, secretKey, options = {}) {
     validateObject(options, {}, {}, "options");
     msg = copyBytes(abytes2(msg, void 0, "message"));
     if (prehash)
@@ -85073,7 +85076,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
     seed: _size2
   };
   function randomSecretKey(seed) {
-    seed = seed === void 0 ? randomBytes5(lengths.seed) : seed;
+    seed = seed === void 0 ? randomBytes6(lengths.seed) : seed;
     return abytes2(seed, lengths.seed, "seed");
   }
   function isValidSecretKey(key3) {
@@ -85108,7 +85111,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
   return Object.freeze({
     keygen: createKeygen(randomSecretKey, getPublicKey),
     getPublicKey,
-    sign: sign2,
+    sign: sign3,
     verify: verify2,
     utils,
     Point,
@@ -85465,10 +85468,10 @@ function safeParse3(schema, value2) {
     return { success: false, error: error64 };
   }
 }
-function decodes(s3, length) {
+function decodes(s3, length2) {
   try {
     const bytes3 = b64u.decode(s3);
-    return length === void 0 || bytes3.length === length;
+    return length2 === void 0 || bytes3.length === length2;
   } catch {
     return false;
   }
@@ -85561,13 +85564,13 @@ function anumber3(n3, title = "") {
     throw new RangeError(atitle3(title) + "expected integer >= 0, got " + n3);
   return n3;
 }
-function abytes3(value2, length, title = "") {
-  if (isBytes3(value2) && (length === void 0 || value2.length === length))
+function abytes3(value2, length2, title = "") {
+  if (isBytes3(value2) && (length2 === void 0 || value2.length === length2))
     return value2;
-  if (length !== void 0)
-    anumber3(length, "length");
+  if (length2 !== void 0)
+    anumber3(length2, "length");
   const bytes3 = isBytes3(value2);
-  const ofLen = length !== void 0 ? ` of length ${length}` : "";
+  const ofLen = length2 !== void 0 ? ` of length ${length2}` : "";
   const got = bytes3 ? `length=${value2.length}` : `type=${typeof value2}`;
   const message2 = atitle3(title) + "expected Uint8Array" + ofLen + ", got " + got;
   if (!bytes3)
@@ -85709,11 +85712,11 @@ function u64Lengths(dataLength, aadLength, isLE2) {
   anumber3(dataLength);
   anumber3(aadLength);
   abool2(isLE2);
-  const num = new Uint8Array(16);
-  const view2 = createView2(num);
+  const num2 = new Uint8Array(16);
+  const view2 = createView2(num2);
   view2.setBigUint64(0, BigInt(aadLength), isLE2);
   view2.setBigUint64(8, BigInt(dataLength), isLE2);
-  return num;
+  return num2;
 }
 function isAligned32(bytes3) {
   return bytes3.byteOffset % 4 === 0;
@@ -85723,7 +85726,7 @@ function copyBytes2(bytes3) {
 }
 
 // ../../node_modules/@noble/ciphers/_arx.js
-var encodeStr = (str2) => Uint8Array.from(str2.split(""), (c5) => c5.charCodeAt(0));
+var encodeStr = (str3) => Uint8Array.from(str3.split(""), (c5) => c5.charCodeAt(0));
 var sigma16_32 = /* @__PURE__ */ (() => swap32IfBE(u32(encodeStr("expand 16-byte k"))))();
 var sigma32_32 = /* @__PURE__ */ (() => swap32IfBE(u32(encodeStr("expand 32-byte k"))))();
 function rotl(a5, b5) {
@@ -86292,16 +86295,16 @@ function extract(hash3, ikm, salt) {
 }
 var HKDF_COUNTER = /* @__PURE__ */ Uint8Array.of(0);
 var EMPTY_BUFFER = /* @__PURE__ */ Uint8Array.of();
-function expand(hash3, prk, info, length = 32, _recycled) {
+function expand(hash3, prk, info, length2 = 32, _recycled) {
   ahash(hash3);
-  anumber(length, "length");
+  anumber(length2, "length");
   abytes(prk, void 0, "prk");
   const olen = hash3.outputLen;
   if (prk.length < olen)
     throw new Error('"prk" must be at least HashLen octets');
-  if (length > 255 * olen)
+  if (length2 > 255 * olen)
     throw new Error("Length must be <= 255*HashLen");
-  const blocks = Math.ceil(length / olen);
+  const blocks = Math.ceil(length2 / olen);
   if (info === void 0)
     info = EMPTY_BUFFER;
   else
@@ -86336,18 +86339,18 @@ function expand(hash3, prk, info, length = 32, _recycled) {
   if (T2 !== okm)
     clean(T2);
   clean(HKDF_COUNTER);
-  if (length === okm.length)
+  if (length2 === okm.length)
     return okm;
-  const res = okm.slice(0, length);
+  const res = okm.slice(0, length2);
   clean(okm);
   return res;
 }
-var hkdf = (hash3, ikm, salt, info, length) => {
+var hkdf = (hash3, ikm, salt, info, length2) => {
   ahash(hash3);
   if (salt === void 0)
     salt = new Uint8Array(hash3.outputLen);
   const HMAC = hmac.create(hash3, salt).update(ikm);
-  return expand(hash3, HMAC.digest(), info, length, HMAC);
+  return expand(hash3, HMAC.digest(), info, length2, HMAC);
 };
 
 // ../protocol/src/hpke.ts
@@ -86371,8 +86374,8 @@ var V1 = utf8("HPKE-v1");
 function labeledExtract(suite, salt, label, ikm) {
   return extract(sha256, concat(V1, suite, utf8(label), ikm), salt);
 }
-function labeledExpand(suite, prk, label, info, length) {
-  return expand(sha256, prk, concat(i2osp2(length), V1, suite, utf8(label), info), length);
+function labeledExpand(suite, prk, label, info, length2) {
+  return expand(sha256, prk, concat(i2osp2(length2), V1, suite, utf8(label), info), length2);
 }
 function kemSecret(dh, kemContext) {
   const prk = labeledExtract(KEM_SUITE, new Uint8Array(0), "eae_prk", dh);
@@ -86721,8 +86724,8 @@ function joinBody(invite2, name, keys, nonce) {
   if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
   return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
 }
-function verifyJoin(join24, secret, nonce) {
-  const parsed2 = safeParse3(joinOrBodySchema, join24);
+function verifyJoin(join25, secret, nonce) {
+  const parsed2 = safeParse3(joinOrBodySchema, join25);
   if (!parsed2.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -86756,12 +86759,12 @@ var SeqTracker = class _SeqTracker {
     if (typeof device !== "string" || typeof sid !== "string") throw new TypeError("SeqTracker: device and sid are strings");
     return JSON.stringify([device, sid]);
   }
-  observe(device, sid, seq) {
+  observe(device, sid, seq2) {
     const key3 = this.#key(device, sid);
-    if (!Number.isSafeInteger(seq) || seq < 1) throw new RangeError("SeqTracker: seq must be a positive integer");
+    if (!Number.isSafeInteger(seq2) || seq2 < 1) throw new RangeError("SeqTracker: seq must be a positive integer");
     const last = this.#highest.get(key3)?.seq ?? 0;
-    if (seq <= last) return "dup";
-    this.#highest.set(key3, { device, sid, seq });
+    if (seq2 <= last) return "dup";
+    this.#highest.set(key3, { device, sid, seq: seq2 });
     return "ok";
   }
   /** The highest seq seen for a sender session, or 0. */
@@ -86779,8 +86782,8 @@ var SeqTracker = class _SeqTracker {
     const tracker = new _SeqTracker();
     for (const row of data.entries) {
       if (!Array.isArray(row) || row.length !== 3) throw new TypeError("SeqTracker.fromJSON: bad row");
-      const [device, sid, seq] = row;
-      tracker.observe(device, sid, seq);
+      const [device, sid, seq2] = row;
+      tracker.observe(device, sid, seq2);
     }
     return tracker;
   }
@@ -86793,8 +86796,8 @@ function blobChunkCount(size) {
 var BAD_NAME_CHAR = /[/\\\u0000-\u001F\u007F-\u009F]/;
 function isFileName(name) {
   if (typeof name !== "string") return false;
-  const length = [...name].length;
-  return length >= 1 && length <= 255 && !BAD_NAME_CHAR.test(name) && name !== "." && name !== "..";
+  const length2 = [...name].length;
+  return length2 >= 1 && length2 <= 255 && !BAD_NAME_CHAR.test(name) && name !== "." && name !== "..";
 }
 var fileSchema = external_exports.strictObject({
   blob: ulidSchema,
@@ -87193,6 +87196,39 @@ var createFrameSchema = external_exports.strictObject({
 var joinFrameSchema = external_exports.strictObject({ t: external_exports.literal("join"), ...joinBodySchema.shape });
 var rdvPutFrameSchema = external_exports.strictObject({ t: external_exports.literal("rdv.put"), ...rdvBoxFields });
 var meshDeleteFrameSchema = external_exports.strictObject({ t: external_exports.literal("mesh.delete"), mesh: meshIdSchema });
+var clientSchemas = {
+  auth: authFrameSchema,
+  send: sendFrameSchema,
+  ack: ackFrameSchema,
+  receipt: receiptFrameSchema,
+  presence: presenceFrameSchema,
+  peers: peersRequestFrameSchema,
+  rename: renameFrameSchema,
+  notify_idle: notifyIdleFrameSchema,
+  "invite.create": inviteCreateFrameSchema,
+  "roster.publish": rosterPublishFrameSchema,
+  "roster.get": rosterGetFrameSchema,
+  "roster.fork": rosterForkFrameSchema,
+  "room.join": roomJoinFrameSchema,
+  "room.leave": roomLeaveFrameSchema,
+  "room.history": roomHistoryRequestFrameSchema,
+  "lease.acquire": leaseAcquireFrameSchema,
+  "lease.renew": leaseRenewFrameSchema,
+  "lease.release": leaseReleaseFrameSchema,
+  "lease.list": leaseListFrameSchema,
+  "lease.watch": leaseWatchFrameSchema,
+  "blob.put": blobPutFrameSchema,
+  "blob.get": blobGetFrameSchema,
+  "card.set": cardSetFrameSchema,
+  "cards.get": cardsGetFrameSchema,
+  "rdv.put": rdvPutFrameSchema,
+  "ci.rules": ciRulesFrameSchema,
+  "mesh.delete": meshDeleteFrameSchema,
+  ping: pingFrameSchema,
+  bye: byeFrameSchema,
+  create: createFrameSchema,
+  join: joinFrameSchema
+};
 var clientFrameSchema = external_exports.discriminatedUnion("t", [
   authFrameSchema,
   sendFrameSchema,
@@ -87396,6 +87432,13 @@ function parseWith(text2, schemas, maxBytes) {
   if ((t2 === "card.set" || t2 === "card") && !fitsUtf8(text2, LIMITS.cardFrameBytes)) return fail("too_large");
   const parsed2 = safeParse3(schema, value2);
   return parsed2.success ? ok(parsed2.data) : fail("malformed");
+}
+var preAuthSchemas = { auth: authFrameSchema, join: joinFrameSchema, create: createFrameSchema };
+function parseClientFrame(text2, opts = {}) {
+  return opts.preAuth === true ? parseWith(text2, preAuthSchemas, LIMITS.preAuthFrameBytes) : parseWith(text2, clientSchemas, LIMITS.frameBytes);
+}
+function parseRecoverAuthFrame(text2) {
+  return parseWith(text2, { auth: recoverAuthFrameSchema }, LIMITS.preAuthFrameBytes);
 }
 function parseRelayFrame(text2) {
   return parseWith(text2, relaySchemas, LIMITS.receiveFrameBytes);
@@ -87964,6 +88007,29 @@ function checkAuth(frame) {
   }
   return parsed2.data;
 }
+function verifyAuth(frame, signPub, expect) {
+  const parsed2 = safeParse3(authFrameSchema, frame);
+  if (!parsed2.success) return fail("malformed");
+  const f7 = parsed2.data;
+  const checked = checkCommon(f7, expect);
+  if (!checked.ok) return checked;
+  let device;
+  try {
+    device = deviceIdFromSignPub(signPub);
+  } catch {
+    return fail("wrong_device");
+  }
+  if (f7.device !== device) return fail("wrong_device");
+  if (!verifyObject("auth", f7, signPub)) return fail("bad_signature");
+  return ok(true);
+}
+function checkCommon(f7, expect) {
+  const relays = typeof expect.relay === "string" ? [expect.relay] : expect.relay;
+  if (!relays.includes(f7.relay)) return fail("wrong_relay");
+  if (f7.nonce !== expect.nonce) return fail("wrong_nonce");
+  if (Math.abs(f7.at - expect.now) > (expect.skewMs ?? LIMITS.authSkewMs)) return fail("clock_skew");
+  return ok(true);
+}
 function signRecoverAuth(fields2, keys) {
   const body = {
     t: "auth",
@@ -87983,6 +88049,19 @@ function signRecoverAuth(fields2, keys) {
     throw new TypeError(`signRecoverAuth: ${issue2.path.join(".")}: ${issue2.message}`);
   }
   return parsed2.data;
+}
+function verifyRecoverAuth(frame, mesh, expect) {
+  const parsed2 = safeParse3(recoverAuthFrameSchema, frame);
+  if (!parsed2.success) return fail("malformed");
+  const f7 = parsed2.data;
+  const checked = checkCommon(f7, expect);
+  if (!checked.ok) return checked;
+  if (f7.mesh !== mesh.roster.mesh) return fail("wrong_mesh");
+  if (f7.pin.hash !== hash2(mesh.genesis)) return fail("wrong_pin");
+  const record2 = mesh.roster.devices.find((d5) => d5.id === f7.device);
+  if (record2 === void 0 || !isRecoveryName(record2.name)) return fail("not_recovery");
+  if (!verifyObject("auth", f7, b64u.decode(record2.sign))) return fail("bad_signature");
+  return ok(record2);
 }
 
 // ../protocol/src/close.ts
@@ -88032,6 +88111,24 @@ var VECTOR_KEYS = new Set(VECTOR_SEED_PUBLIC_KEYS);
 function isVectorKey(pub) {
   return VECTOR_KEYS.has(typeof pub === "string" ? pub : b64u.encode(pub));
 }
+
+// ../protocol/src/info.ts
+var relayInfoSchema = external_exports.object({
+  v: external_exports.literal(1),
+  software: external_exports.literal("worldinmotion-relay"),
+  version: external_exports.string().max(64),
+  create: external_exports.enum(["key", "open", "closed"]),
+  limits: external_exports.object({
+    max_meshes: external_exports.number().int().nonnegative().nullable(),
+    idle_mesh_days: external_exports.number().int().nonnegative().nullable(),
+    blob_bytes_per_mesh_per_day: external_exports.number().int().nonnegative()
+  }),
+  offer: external_exports.string().max(280).nullable(),
+  /** Whether the relay takes CI senders (SPEC section 18). */
+  ci: external_exports.boolean().optional(),
+  /** Whether the relay checks ref pattern tags on GitHub CI notices (SPEC section 18). */
+  ciPatterns: external_exports.boolean().optional()
+});
 
 // ../protocol/src/jwt.ts
 var GITHUB_ISSUER = "https://token.actions.githubusercontent.com";
@@ -88214,6 +88311,47 @@ function ciRuleTag(t2) {
   bytes3.set(body, label.length);
   return cut22(sha2562(bytes3));
 }
+var CI_REF_MAX = 255;
+var FULL_REF = /^refs\/(?:heads|tags)\/[^\s\u0000-\u001f\u007f*?[\\]+$/;
+var REF_PATTERN = /^refs\/(?:heads|tags)\/[^\s\u0000-\u001f\u007f*?[\\]*\*$/;
+var codePoints = (s3) => [...s3].length;
+function isCiFullRef(v) {
+  return typeof v === "string" && FULL_REF.test(v) && codePoints(v) <= CI_REF_MAX;
+}
+function isCiRefPattern(v) {
+  return typeof v === "string" && REF_PATTERN.test(v) && codePoints(v) <= CI_REF_MAX;
+}
+function isCiRuleRef(v) {
+  return isCiFullRef(v) || isCiRefPattern(v);
+}
+var ciRuleRefSchema = external_exports.string().refine(isCiRuleRef, "a full ref (refs/heads/... or refs/tags/...) or one with a single trailing *");
+function ciRefMatches(ruleRef2, ref2) {
+  if (isCiFullRef(ruleRef2)) return ref2 === ruleRef2;
+  return isCiRefPattern(ruleRef2) && ref2.startsWith(ruleRef2.slice(0, -1));
+}
+function ciCandidateTags(t2) {
+  const chars2 = [...t2.ref];
+  const tags = [ciRuleTag(t2)];
+  const last = Math.min(chars2.length, CI_REF_MAX - 1);
+  for (let k5 = 0; k5 <= last; k5++) tags.push(ciRuleTag({ ...t2, ref: `${chars2.slice(0, k5).join("")}*` }));
+  return tags;
+}
+function githubCountingKey(iss, ownerId, repoId) {
+  return `gh~${cut22(sha2562(utf8(`${PROTOCOL} ci count ${iss} ${ownerId} ${repoId}`)))}`;
+}
+function gitlabCountingKey(device) {
+  return `gl~${device}`;
+}
+function parseCiRequest(text2) {
+  if (typeof text2 !== "string") return fail("malformed");
+  if (!fitsUtf8(text2, LIMITS.ciRequestBytes)) return fail("too_large");
+  const json4 = parseJson(text2);
+  if (!json4.ok) return json4;
+  const t2 = json4.value?.t;
+  const schema = t2 === "ci.send" ? ciSendRequestSchema : t2 === "ci.prekey" ? ciPrekeyRequestSchema : void 0;
+  const parsed2 = schema === void 0 ? void 0 : safeParse3(schema, json4.value);
+  return parsed2?.success === true ? ok(parsed2.data) : fail("malformed");
+}
 var PROBE2 = sha2562(utf8("wim/1 ci prekey probe"));
 function verifyCiPrekey(raw, r6, now) {
   const parsed2 = safeParse3(prekeySchema, raw);
@@ -88278,6 +88416,10 @@ function sealCiNotice(o3) {
   const parsed2 = safeParse3(ciSendRequestSchema, request2);
   if (!parsed2.success) throw new TypeError(`sealCiNotice: ${parsed2.error.issues[0].path.join(".")}: ${parsed2.error.issues[0].message}`);
   return { request: parsed2.data, notice };
+}
+function ciNoticeOf(request2) {
+  const { token: _token, ...notice } = request2;
+  return notice;
 }
 function ciOpenRequest(raw, me) {
   const parsed2 = safeParse3(ciNoticeSchema, raw);
@@ -88386,11 +88528,22 @@ function checkSendAudience(payload2, expected) {
   if (typeof aud !== "string" || !aud.startsWith("wimci1.")) return fail("not_wim_audience");
   return aud === expected ? ok(true) : fail("wrong_audience");
 }
+function githubSeen(claims, mesh, device) {
+  return {
+    tags: ciCandidateTags({ mesh, device, iss: claims.iss, repo: claims.repository, ref: claims.ref }),
+    key: githubCountingKey(claims.iss, claims.ownerId, claims.repositoryId),
+    jti: b64u.encode(sha2562(utf8(`${claims.iss} ${claims.jti}`))),
+    exp: claims.exp * 1e3
+  };
+}
+function ciAtFresh(at, now) {
+  return Math.abs(at - now) <= LIMITS.ciSkewMs;
+}
 
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
 var MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
-var GATEWAY_VERSION = "0.1.9";
+var GATEWAY_VERSION = "0.1.10";
 var EARLY_RESULTS = 64;
 var WimMetadata = external_exports.looseObject({
   to: external_exports.string().optional(),
@@ -88435,9 +88588,9 @@ var InboundGateway = class {
     }
     const onRequest = (req, res) => void this.handle(req, res).catch(() => res.destroy());
     const server = tls3 === void 0 ? createServer(onRequest) : createTlsServer({ cert: tls3.cert, key: tls3.key }, onRequest);
-    await new Promise((resolve3, reject) => {
+    await new Promise((resolve4, reject) => {
       server.once("error", reject);
-      server.listen(this.opts.port ?? 0, host, () => resolve3());
+      server.listen(this.opts.port ?? 0, host, () => resolve4());
     });
     this.server = server;
     const port = server.address().port;
@@ -88452,7 +88605,7 @@ var InboundGateway = class {
     this.server = void 0;
     if (server === void 0) return;
     server.closeAllConnections();
-    await new Promise((resolve3) => server.close(() => resolve3()));
+    await new Promise((resolve4) => server.close(() => resolve4()));
   }
   async handle(req, res) {
     const name = hostHeaderName(req.headers.host);
@@ -88638,9 +88791,9 @@ var InboundGateway = class {
     if (early !== void 0) this.onResult(early);
     if (this.inflight === 0) this.early.clear();
     if (p3.configuration?.returnImmediately !== true && !isTerminal(rec.task.status.state)) {
-      await new Promise((resolve3) => {
-        rec.waiters.add(resolve3);
-        res.once("close", resolve3);
+      await new Promise((resolve4) => {
+        rec.waiters.add(resolve4);
+        res.once("close", resolve4);
       });
     }
     return { task: this.view(rec, p3.configuration?.historyLength) };
@@ -88722,18 +88875,18 @@ var InboundGateway = class {
     const all = this.store.values().filter(
       (r6) => (p3.contextId === void 0 || r6.task.contextId === p3.contextId) && (p3.status === void 0 || r6.task.status.state === p3.status) && r6.statusMs >= after
     ).sort((a5, b5) => b5.statusMs - a5.statusMs || Number(a5.task.id < b5.task.id) - Number(a5.task.id > b5.task.id));
-    let start2 = 0;
+    let start3 = 0;
     if (p3.pageToken !== void 0 && p3.pageToken !== "") {
       const cursor2 = decodeCursor(p3.pageToken);
-      start2 = all.findIndex(
+      start3 = all.findIndex(
         (r6) => r6.statusMs < cursor2.ms || r6.statusMs === cursor2.ms && r6.task.id < cursor2.id
       );
-      if (start2 === -1) start2 = all.length;
+      if (start3 === -1) start3 = all.length;
     }
     const pageSize = p3.pageSize ?? 50;
-    const page = all.slice(start2, start2 + pageSize);
+    const page = all.slice(start3, start3 + pageSize);
     const last = page.at(-1);
-    const more = start2 + page.length < all.length;
+    const more = start3 + page.length < all.length;
     return {
       tasks: page.map((r6) => {
         const t2 = this.view(r6, p3.historyLength);
@@ -88991,22 +89144,22 @@ var OutboundBridge = class {
   }
 };
 function outcomeOf(task) {
-  const said = task.status.message === void 0 ? "" : render(task.status.message.parts);
+  const said2 = task.status.message === void 0 ? "" : render(task.status.message.parts);
   switch (task.status.state) {
     case "TASK_STATE_COMPLETED": {
       const parts = (task.artifacts ?? []).flatMap((a5) => a5.parts);
-      return { status: "done", text: parts.length > 0 ? render(parts) : said };
+      return { status: "done", text: parts.length > 0 ? render(parts) : said2 };
     }
     case "TASK_STATE_REJECTED":
-      return { status: "declined", text: said };
+      return { status: "declined", text: said2 };
     case "TASK_STATE_CANCELED":
-      return { status: "failed", text: `The agent canceled the task.${said === "" ? "" : ` ${said}`}` };
+      return { status: "failed", text: `The agent canceled the task.${said2 === "" ? "" : ` ${said2}`}` };
     case "TASK_STATE_FAILED":
-      return { status: "failed", text: said === "" ? "The agent reported a failure." : said };
+      return { status: "failed", text: said2 === "" ? "The agent reported a failure." : said2 };
     default:
       return {
         status: "failed",
-        text: `The agent asked for more input, which the gateway cannot relay.${said === "" ? "" : ` ${said}`}`
+        text: `The agent asked for more input, which the gateway cannot relay.${said2 === "" ? "" : ` ${said2}`}`
       };
   }
 }
@@ -89196,8 +89349,8 @@ var Breaker = class {
     return (list3 ?? []).filter((t2) => t2 > since);
   }
   /** Notes a message this session sent to a session address, for the ping-pong detector. */
-  noteSent(peer, length) {
-    this.push(peer, { at: this.now(), dir: "out", short: length < SHORT });
+  noteSent(peer, length2) {
+    this.push(peer, { at: this.now(), dir: "out", short: length2 < SHORT });
   }
   push(peer, e6) {
     const list3 = (this.talk.get(peer) ?? []).filter((x2) => x2.at > e6.at - PING_WINDOW);
@@ -89235,7 +89388,7 @@ var Breaker = class {
    * A cool-down that ended but was not taken yet (takeDue) still holds: what comes meanwhile joins
    * what its release decides on.
    */
-  admit(peer, length, trusted = false) {
+  admit(peer, length2, trusted = false) {
     const now = this.now();
     const held2 = this.paused.get(peer);
     const current = held2 === void 0 ? void 0 : bounded(held2, now);
@@ -89244,7 +89397,7 @@ var Breaker = class {
       return { ok: false, reason: "paused", newly: false, pause: current };
     }
     if (current !== void 0) this.paused.delete(peer);
-    this.push(peer, { at: now, dir: "in", short: length < SHORT });
+    this.push(peer, { at: now, dir: "in", short: length2 < SHORT });
     const limits = this.limits();
     const tripped = this.trips(peer, limits, now);
     if (tripped !== void 0) {
@@ -89467,7 +89620,7 @@ var fsOps = {
   readFile: (path2) => fs.readFile(path2, "utf8"),
   rm: (path2) => fs.rm(path2, { force: true }),
   kill: (pid, signal) => void process.kill(pid, signal),
-  sleep: (ms) => new Promise((resolve3) => setTimeout(resolve3, ms))
+  sleep: (ms) => new Promise((resolve4) => setTimeout(resolve4, ms))
 };
 var realFsEnv = { platform: process.platform, pid: process.pid };
 function code(error64) {
@@ -89694,7 +89847,7 @@ function cardLabel(card) {
 var CI_RULES_MAX = 64;
 var PRIVILEGED_EVENTS = ["pull_request_target", "workflow_run"];
 var id = external_exports.string().regex(/^[0-9]{1,20}$/);
-var ref = external_exports.string().max(255).regex(/^refs\/(heads|tags)\/[^\s\u0000-\u001f\u007f]+$/);
+var ref = ciRuleRefSchema;
 var environment = external_exports.string().min(1).max(255).regex(/^[^\u0000-\u001f\u007f]+$/);
 var ruleId = external_exports.string().regex(/^[0-9A-Z]{26}$/);
 var GITHUB_REPO = /^[a-z0-9_.-]{1,100}\/[a-z0-9_.-]{1,100}$/;
@@ -89746,9 +89899,32 @@ async function saveCiRules(path2, rules, env3) {
 async function updateCiRules(path2, env3, change) {
   await withLock(`${path2}.lock`, async () => saveCiRules(path2, change(await loadCiRules(path2)), env3), env3);
 }
-function fullRef(name, tag) {
-  if (name.startsWith("refs/")) return name;
-  return `${tag ? "refs/tags/" : "refs/heads/"}${name}`;
+function ruleRef(flag3, name) {
+  if (flag3 === "tag") return `refs/tags/${name}`;
+  return name.startsWith("refs/") ? name : `refs/heads/${name}`;
+}
+function refRefusal(ref2) {
+  if (isCiRuleRef(ref2)) return void 0;
+  if ([...ref2].length > CI_REF_MAX) return `the ref is longer than ${CI_REF_MAX} characters: ${sanitizeForDisplay([...ref2].slice(0, 64).join(""))}...`;
+  return `not a branch or tag name, or a pattern: ${sanitizeForDisplay(ref2)}. A pattern ends in one * (--tag 'v*', --ref 'release/*'); a name holds no whitespace, control character, ?, [ or \\, and no * anywhere else`;
+}
+function patternLines(rule) {
+  if (!isCiRefPattern(rule.ref)) return [];
+  const tag = rule.ref.startsWith("refs/tags/");
+  const kind = tag ? "tag" : "branch";
+  const prefix = sanitizeForDisplay(rule.ref.slice(tag ? "refs/tags/".length : "refs/heads/".length, -1));
+  const lines = [
+    prefix === "" ? `This rule is a pattern: it takes every ${kind}, so anyone who can push any ${kind} can send.` : `This rule is a pattern: it takes every ${kind} whose name starts with "${prefix}" (that name itself included, and names with / in them), so anyone who can push such a ${kind} can send.`
+  ];
+  if (rule.via === "github") {
+    lines.push(`Protect the same ${kind}s at GitHub with a ${kind} ruleset (Settings, Rules, Rulesets) that restricts creating, updating and deleting them, targeting both ${prefix}* and ${prefix}*/**/* (a ruleset's * does not match /).`);
+  } else {
+    lines.push(
+      `Protect the same ${kind}s at GitLab: Settings, Repository, Protected ${tag ? "tags" : "branches"}, with the wildcard ${prefix}*.`,
+      rule.unprotected === true ? `This rule also takes unprotected refs (--unprotected): until they are protected, anyone who can push a matching ${kind} can send.` : `This rule takes only refs GitLab marks protected: nothing from a matching ${kind} is delivered until it is protected.`
+    );
+  }
+  return lines;
 }
 function claimIds(c5) {
   return c5.via === "github" ? { repositoryId: c5.repositoryId, ownerId: c5.ownerId } : { projectId: c5.projectId, namespaceId: c5.namespaceId };
@@ -89764,13 +89940,13 @@ function workflowMatches(workflowRef, repository, file2, ref2) {
 function matchesByName(rule, c5) {
   if (rule.via === "github") {
     if (c5.via !== "github") return false;
-    if (c5.repository.toLowerCase() !== rule.repo || c5.ref !== rule.ref) return false;
+    if (c5.repository.toLowerCase() !== rule.repo || !ciRefMatches(rule.ref, c5.ref)) return false;
     if (!workflowMatches(c5.workflowRef, c5.repository, rule.workflow, c5.ref)) return false;
     const eventOk = rule.events === void 0 ? !PRIVILEGED_EVENTS.includes(c5.event) : rule.events.includes(c5.event);
     return eventOk && (rule.environment === void 0 || c5.environment === rule.environment);
   }
   if (c5.via !== "gitlab") return false;
-  if (c5.projectPath.toLowerCase() !== rule.repo || c5.ref !== rule.ref) return false;
+  if (c5.projectPath.toLowerCase() !== rule.repo || !ciRefMatches(rule.ref, c5.ref)) return false;
   if (!c5.refProtected && rule.unprotected !== true) return false;
   return rule.environment === void 0 || c5.environment === rule.environment && c5.environmentProtected === true;
 }
@@ -90231,9 +90407,9 @@ var History = class {
     if (handle === void 0) return [];
     try {
       const { size } = await handle.stat();
-      const start2 = readStart(size, from);
-      const buf2 = Buffer.alloc(size - start2);
-      await handle.read(buf2, 0, buf2.length, start2);
+      const start3 = readStart(size, from);
+      const buf2 = Buffer.alloc(size - start3);
+      await handle.read(buf2, 0, buf2.length, start3);
       return receiptsIn(buf2.toString("utf8"), id2);
     } finally {
       await handle.close();
@@ -90479,11 +90655,11 @@ var MeshFiles = class {
   async saveRoster(r6) {
     await writeJson(join5(this.rostersDir, `${r6.seq}.json`), r6, this.env);
   }
-  async loadRoster(seq) {
-    const raw = await readJson(join5(this.rostersDir, `${seq}.json`));
+  async loadRoster(seq2) {
+    const raw = await readJson(join5(this.rostersDir, `${seq2}.json`));
     if (raw === void 0) return void 0;
     const parsed2 = rosterSchema.safeParse(raw);
-    if (!parsed2.success) throw new Error(`${this.rostersDir}/${seq}.json is not a roster`);
+    if (!parsed2.success) throw new Error(`${this.rostersDir}/${seq2}.json is not a roster`);
     return parsed2.data;
   }
   async saveForkEvidence(a5, b5) {
@@ -90522,8 +90698,8 @@ var RosterBook = class _RosterBook {
     this.forked ??= config2.fork;
     if (config2.pin.seq <= this.head.seq) return;
     const chain2 = [this.head];
-    for (let seq = this.head.seq + 1; seq <= config2.pin.seq; seq++) {
-      const r6 = await this.files.loadRoster(seq);
+    for (let seq2 = this.head.seq + 1; seq2 <= config2.pin.seq; seq2++) {
+      const r6 = await this.files.loadRoster(seq2);
       if (r6 === void 0) break;
       chain2.push(r6);
     }
@@ -90679,6 +90855,10 @@ var SessionFiles = class {
   /** CI notices acknowledged while their provider's keys could not be fetched, to be checked again. */
   get ciParkedPath() {
     return join6(this.dir, "ci-parked.json");
+  }
+  /** The idle notices this session armed, so a notice nobody asked for is dropped (watches.ts). */
+  get watchesPath() {
+    return join6(this.dir, "watches.json");
   }
   get tasksPath() {
     return join6(this.dir, "tasks.json");
@@ -91133,9 +91313,9 @@ async function refusesLegacy(path2) {
     if (error64.code === "ENOENT") return { refuse: false };
     return { refuse: true, problem: unreadable(path2, `it cannot be read: ${error64.code ?? "error"}`) };
   }
-  const said = text2.length <= MAX_BYTES ? text2.trim() : void 0;
-  if (said === "accept") return { refuse: false };
-  if (said === "refuse") return { refuse: true };
+  const said2 = text2.length <= MAX_BYTES ? text2.trim() : void 0;
+  if (said2 === "accept") return { refuse: false };
+  if (said2 === "refuse") return { refuse: true };
   return { refuse: true, problem: unreadable(path2, "it says neither refuse nor accept") };
 }
 function unreadable(path2, why) {
@@ -91381,22 +91561,22 @@ var SeqStore = class _SeqStore {
     }
   }
   /** Whether `seq` is new for this sender session at this address. Reads the file once per address. */
-  async isNew(address, device, sid, seq) {
+  async isNew(address, device, sid, seq2) {
     let tracker = this.trackers.get(address);
     if (tracker === void 0) {
       tracker = _SeqStore.load((await this.read())[address]);
       this.trackers.set(address, tracker);
     }
-    return seq > tracker.highest(device, sid);
+    return seq2 > tracker.highest(device, sid);
   }
   /** Records `seq`, merging with what sibling sessions wrote for their own addresses. */
-  async record(address, device, sid, seq) {
+  async record(address, device, sid, seq2) {
     await withLock(`${this.path}.lock`, async () => {
       const all = await this.read();
       const tracker = _SeqStore.load(all[address]);
       const mine = this.trackers.get(address);
       for (const [d5, s3, n3] of mine?.toJSON().entries ?? []) if (n3 > tracker.highest(d5, s3)) tracker.observe(d5, s3, n3);
-      if (seq > tracker.highest(device, sid)) tracker.observe(device, sid, seq);
+      if (seq2 > tracker.highest(device, sid)) tracker.observe(device, sid, seq2);
       this.trackers.set(address, tracker);
       await writeJson(this.path, { v: 1, byAddress: { ...all, [address]: tracker.toJSON() } }, this.env);
     }, this.env);
@@ -91764,13 +91944,13 @@ var SignerClient = class {
   }
   send(conn, op2, a5) {
     const i6 = ++this.next;
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       const timer = setTimeout(() => {
         conn.pending.delete(i6);
         this.idle(conn);
         reject(new SignerError("timeout", `the signer did not answer ${op2} in ${this.timeoutMs} ms`));
       }, this.timeoutMs);
-      conn.pending.set(i6, { resolve: resolve3, reject, timer });
+      conn.pending.set(i6, { resolve: resolve4, reject, timer });
       conn.socket.ref();
       const text2 = JSON.stringify({ i: i6, op: op2, a: a5 });
       conn.socket.write(`${conn.channel === void 0 ? text2 : JSON.stringify({ x: conn.channel.seal(text2) })}
@@ -91791,7 +91971,7 @@ var SignerClient = class {
   connectTo(at) {
     if (at === void 0) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in a terminal you opened yourself"));
     this.endpoint = at;
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       const socket = this.connect(at);
       const conn = { socket, pending: /* @__PURE__ */ new Map(), buffered: "" };
       socket.setEncoding("utf8");
@@ -91804,7 +91984,7 @@ var SignerClient = class {
         this.greet(conn).then(
           () => {
             this.conn = conn;
-            resolve3(conn);
+            resolve4(conn);
           },
           (error64) => {
             socket.destroy();
@@ -91899,6 +92079,71 @@ function signerKeyring(client, pub) {
     close: () => client.close()
   };
 }
+
+// src/watches.ts
+var WATCHES_KEPT = 4 * LIMITS.notifyIdlePerSession;
+function isWatch(x2) {
+  const w = x2;
+  return typeof w === "object" && w !== null && typeof w.of === "string" && (w.sid === void 0 || typeof w.sid === "string") && Number.isSafeInteger(w.at) && Number.isSafeInteger(w.until);
+}
+var Watches = class {
+  path;
+  env;
+  now;
+  /** The last change, so changes run one at a time. */
+  changing = Promise.resolve();
+  constructor(path2, env3, now) {
+    this.path = path2;
+    this.env = env3;
+    this.now = now;
+  }
+  /** The watches that have not lapsed. A missing, damaged or unreadable file reads as none, the safe side. */
+  async list() {
+    const raw = await readJson(this.path).catch(() => void 0);
+    const now = this.now();
+    return (Array.isArray(raw?.watches) ? raw.watches.filter(isWatch) : []).filter((w) => w.until > now);
+  }
+  /**
+   * Records an arm for each address: a new watch, or a renewed one in place of any for the same
+   * address or the same session (one session has one watch, so a re-arm after a rename replaces
+   * the old address's). The relay decides the limit, so none is refused here.
+   */
+  arm(arms) {
+    return this.change((watches) => {
+      const at = this.now();
+      for (const { of, sid } of arms) {
+        const kept = watches.filter((w) => w.of !== of && (sid === void 0 || w.sid !== sid));
+        watches = [...kept, { of, ...sid === void 0 ? {} : { sid }, at, until: at + LIMITS.idleNoticeLifetimeMs }];
+      }
+      return { watches: watches.slice(-WATCHES_KEPT), out: void 0 };
+    });
+  }
+  /**
+   * Takes the watch for `of`, or, when there is none, the one for the session `sid` (the relay's
+   * id for `of` now, after a rename): true, and the watch is closed, when one was armed and has
+   * not lapsed.
+   */
+  take(of, sid) {
+    return this.change((watches) => {
+      const exact = watches.findIndex((w) => w.of === of);
+      const i6 = exact !== -1 || sid === void 0 ? exact : watches.findIndex((w) => w.sid === sid);
+      return i6 === -1 ? { out: false } : { watches: watches.filter((_, n3) => n3 !== i6), out: true };
+    });
+  }
+  /**
+   * Reads the watches, changes them and writes them back atomically (when `f` gives a new list),
+   * after every change asked for before it.
+   */
+  change(f7) {
+    const run = this.changing.then(async () => {
+      const { watches, out } = f7(await this.list());
+      if (watches !== void 0) await writeJson(this.path, { v: 1, watches }, this.env);
+      return out;
+    });
+    this.changing = Promise.allSettled([run]);
+    return run;
+  }
+};
 
 // src/wire.ts
 import { isIP as isIP2 } from "node:net";
@@ -92020,7 +92265,7 @@ function pinnedConnect(pin, connect3 = tls.connect) {
     return socket;
   };
 }
-var wsDialer = (url2, opts) => new Promise((resolve3, reject) => {
+var wsDialer = (url2, opts) => new Promise((resolve4, reject) => {
   const options = { maxPayload: LIMITS.receiveFrameBytes, handshakeTimeout: 15e3, perMessageDeflate: false };
   if (opts.tlsPin !== void 0) {
     options.createConnection = pinnedConnect(opts.tlsPin);
@@ -92035,7 +92280,7 @@ var wsDialer = (url2, opts) => new Promise((resolve3, reject) => {
     else deliver(text2);
   });
   ws.once("open", () => {
-    resolve3({
+    resolve4({
       send: (text2) => ws.send(text2),
       close: (code2, reason) => ws.close(code2, reason),
       onMessage: (cb) => {
@@ -92057,7 +92302,7 @@ var Link = class _Link {
   constructor(socket) {
     this.socket = socket;
     let done;
-    this.closed = new Promise((resolve3) => done = resolve3);
+    this.closed = new Promise((resolve4) => done = resolve4);
     socket.onClose((code2, reason) => {
       this.isClosed = true;
       for (const w of this.waiters) {
@@ -92109,10 +92354,10 @@ var Link = class _Link {
   /** The next frame that `match` accepts, within `timeoutMs`. */
   wait(match2, timeoutMs) {
     if (this.isClosed) return Promise.reject(new WireError("not connected to the relay", "closed"));
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       const w = {
         match: match2,
-        resolve: resolve3,
+        resolve: resolve4,
         reject,
         timer: setTimeout(() => {
           this.waiters.delete(w);
@@ -92174,7 +92419,7 @@ var Connection = class {
   ready(timeoutMs) {
     if (this.link?.isOpen === true) return Promise.resolve(this.link);
     if (this.fatal !== void 0) return Promise.reject(this.fatal);
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       const timer = setTimeout(() => {
         this.readyWaiters = this.readyWaiters.filter((w) => w !== waiter);
         reject(new WireError("not connected to the relay", "offline"));
@@ -92182,7 +92427,7 @@ var Connection = class {
       const waiter = {
         resolve: (l3) => {
           clearTimeout(timer);
-          resolve3(l3);
+          resolve4(l3);
         },
         reject: (e6) => {
           clearTimeout(timer);
@@ -92271,9 +92516,9 @@ var Connection = class {
     if (this.stopped) return;
     const fatal = FATAL_CLOSE.get(code2);
     if (fatal !== void 0) {
-      const said = this.refusal ?? (reason === "" ? void 0 : relayText(reason));
-      const message2 = said === void 0 ? fatal : `${fatal} (${said})`;
-      this.fatal = new WireError(message2, "fatal", said === void 0 || this.refusal !== void 0 ? void 0 : { what: fatal, said });
+      const said2 = this.refusal ?? (reason === "" ? void 0 : relayText(reason));
+      const message2 = said2 === void 0 ? fatal : `${fatal} (${said2})`;
+      this.fatal = new WireError(message2, "fatal", said2 === void 0 || this.refusal !== void 0 ? void 0 : { what: fatal, said: said2 });
       for (const w of this.readyWaiters.splice(0)) w.reject(this.fatal);
       this.o.log(`wim: not reconnecting: ${message2}`);
       this.o.onFatal(message2);
@@ -92324,8 +92569,8 @@ var ClientError = class extends Error {
   }
 };
 function relayRefusal(what2, frame) {
-  const said = relayText(frame.message);
-  return new ClientError(`${what2}: ${said}`, relayCode(frame.code), { what: what2, said });
+  const said2 = relayText(frame.message);
+  return new ClientError(`${what2}: ${said2}`, relayCode(frame.code), { what: what2, said: said2 });
 }
 function accepted(status3) {
   return status3 === "routed" || status3 === "queued" || status3 === "held";
@@ -92505,6 +92750,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
   /** The paused CI buckets whose drops were logged since the breaker last tripped. */
   ciPausedLogged = /* @__PURE__ */ new Set();
   ciParked;
+  /** The idle notices this session armed: a relay notice is taken only for one of them, once (watches.ts). */
+  watches;
   /** When parked CI notices are next checked again. */
   ciParkedDue = 0;
   /** This minute's CI drop lines, and the drops past CI_DROP_LINES by reason. */
@@ -92536,6 +92783,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.sentTo = new SentTo(o3.mesh.sentToPath, o3.env, this.now);
     this.ciKeys = new CiKeys({ path: o3.mesh.ciJwksPath, env: o3.env, fetch: o3.jwksFetch ?? fetchJwks, now: this.now });
     this.ciParked = new CiParked(files.ciParkedPath, o3.env);
+    this.watches = new Watches(files.watchesPath, o3.env, this.now);
   }
   /**
    * Opens a session: with `take`, the one a claim finds (claimState); else the one `sessionKey`
@@ -92764,7 +93012,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     for (const p3 of ready.peers) this.peers.set(p3.address, p3);
     this.emit("peers");
     this.sentPresence = void 0;
-    this.cardsIn = new Promise((resolve3) => this.gotCards = resolve3);
+    this.cardsIn = new Promise((resolve4) => this.gotCards = resolve4);
     this.emit("ready", this.address);
     void this.sendCard(link, true);
     this.ciSent = void 0;
@@ -92803,8 +93051,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       const page = await link.request({ t: "roster.get", from: this.roster.seq }, (f7) => f7.t === "roster" || errorFor("roster.get")(f7), this.answerMs);
       if (page.t !== "roster") {
         const what2 = "the relay would not serve the roster chain";
-        const said = relayText(page.message);
-        throw new WireError(`${what2}: ${said}`, "roster", { what: what2, said });
+        const said2 = relayText(page.message);
+        throw new WireError(`${what2}: ${said2}`, "roster", { what: what2, said: said2 });
       }
       const result = await this.book.accept(page.chain);
       if (!result.ok) {
@@ -92857,7 +93105,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         return;
       }
       case "notice":
-        this.noticeLater(f7.of, `${f7.of} is now idle (or has ended).`);
+        void this.idleNotice(f7.of).catch((e6) => this.log(`wim: notice: ${e6.message}`));
         return;
       case "join.request":
         this.emit("join", f7.join);
@@ -93119,8 +93367,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await countDropped(droppedPath(this.o.legacyBoxesPath), this.o.env);
   }
   /** A message whose roster ref has our seq but another hash: ask the relay which roster it holds. */
-  async probeFork(link, seq) {
-    const page = await link.request({ t: "roster.get", from: seq }, (f7) => f7.t === "roster" || errorFor("roster.get")(f7), this.answerMs).catch(() => void 0);
+  async probeFork(link, seq2) {
+    const page = await link.request({ t: "roster.get", from: seq2 }, (f7) => f7.t === "roster" || errorFor("roster.get")(f7), this.answerMs).catch(() => void 0);
     if (page?.t === "roster") await this.forkFrom(page.chain[0], link);
   }
   /**
@@ -93463,6 +93711,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
       await this.take(written2.cursor);
     }
     return written2;
+  }
+  /**
+   * A relay's idle notice (SPEC section 8): spooled only when this session armed one for that
+   * address, it has not lapsed, and no notice took it yet; the watch is closed then. Any other is
+   * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4).
+   */
+  async idleNotice(of) {
+    if (!await this.watches.take(of, this.peers.get(of)?.sid)) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
+    await this.notice(of, `${of} is now idle (or has ended).`);
   }
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
   noticeLater(from, line, forPerson = false) {
@@ -94046,7 +94303,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       if (sealed.missing.length > 0) {
         await this.peerKeys.reload();
         let timer;
-        await Promise.race([this.cardsIn, new Promise((resolve3) => timer = setTimeout(resolve3, this.answerMs))]);
+        await Promise.race([this.cardsIn, new Promise((resolve4) => timer = setTimeout(resolve4, this.answerMs))]);
         clearTimeout(timer);
         if (sealed.frame === void 0 || Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id2, routed, ids, text2, opts, strict, true);
       }
@@ -94071,7 +94328,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const pongs = /* @__PURE__ */ new Map();
     const started2 = this.now();
     let answered2;
-    const all = new Promise((resolve3) => answered2 = resolve3);
+    const all = new Promise((resolve4) => answered2 = resolve4);
     let waiting3 = to;
     const check3 = () => waiting3.every((a5) => pongs.has(a5)) ? answered2() : void 0;
     this.pongWaiters.set(id2, (device, session) => {
@@ -94085,7 +94342,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       waiting3 = results.filter((r6) => r6.status === "routed").map((r6) => r6.to);
       check3();
       let timer;
-      await Promise.race([all, new Promise((resolve3) => timer = setTimeout(resolve3, waitMs))]);
+      await Promise.race([all, new Promise((resolve4) => timer = setTimeout(resolve4, waitMs))]);
       clearTimeout(timer);
       return to.map((a5) => pingRow(a5, results, pongs));
     } finally {
@@ -94175,9 +94432,22 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (task === void 0) throw new ClientError(`no task ${taskId} was received by this session`, "not_found");
     return this.send(task.from, text2, { kind: "result", reply_to: taskId, status: status3 });
   }
-  /** Arms one idle notice for each session address. */
-  notifyWhenIdle(addresses) {
-    for (const of of addresses) if (sessionAddressSchema.safeParse(of).success) this.sendIfOpen({ t: "notify_idle", of });
+  /**
+   * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
+   * recorded in `watches.json` first, so the notice is taken when it comes. The relay decides the
+   * limit; a watch it never fires lapses after 12 hours. Answers a note for the send's result when
+   * the watch could not be recorded.
+   */
+  async notifyWhenIdle(addresses) {
+    const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
+    try {
+      await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
+    } catch (error64) {
+      this.log(`wim: watches: ${error64.message}`);
+      return `no idle notice armed: this session could not record the watch (${error64.message})`;
+    }
+    for (const of of wanted) this.sendIfOpen({ t: "notify_idle", of });
+    return void 0;
   }
   async rename(name) {
     const link = await this.ready();
@@ -94392,7 +94662,7 @@ ${frameEntry(entry)}`);
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */
   next(timeoutMs, onTick, tickMs = 3e4) {
     const started2 = this.now();
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       let over = false;
       let timer;
       const finish = () => {
@@ -94411,13 +94681,13 @@ ${frameEntry(entry)}`);
         finish();
         this.take(first.cursor).then(() => {
           this.informed([first]);
-          resolve3(first);
+          resolve4(first);
         }, reject);
       };
       const look = () => void this.spool.unread().then(takeFirst, fail4);
       const firstLook = (items) => {
         takeFirst(items);
-        if (!over) timer = setTimeout(() => (finish(), resolve3(void 0)), timeoutMs);
+        if (!over) timer = setTimeout(() => (finish(), resolve4(void 0)), timeoutMs);
       };
       const onItem = (item) => {
         if (this.push === void 0 && item.cursor > this.spool.taken) look();
@@ -99898,14 +100168,14 @@ function __asyncValues(o3) {
   }, i6);
   function verb(n3) {
     i6[n3] = o3[n3] && function(v) {
-      return new Promise(function(resolve3, reject) {
-        v = o3[n3](v), settle3(resolve3, reject, v.done, v.value);
+      return new Promise(function(resolve4, reject) {
+        v = o3[n3](v), settle3(resolve4, reject, v.done, v.value);
       });
     };
   }
-  function settle3(resolve3, reject, d5, v) {
+  function settle3(resolve4, reject, d5, v) {
     Promise.resolve(v).then(function(v2) {
-      resolve3({ value: v2, done: d5 });
+      resolve4({ value: v2, done: d5 });
     }, reject);
   }
 }
@@ -99946,16 +100216,16 @@ function extractCuratedHistory(comprehensiveHistory) {
     return [];
   }
   const curatedHistory = [];
-  const length = comprehensiveHistory.length;
+  const length2 = comprehensiveHistory.length;
   let i6 = 0;
-  while (i6 < length) {
+  while (i6 < length2) {
     if (comprehensiveHistory[i6].role === "user") {
       curatedHistory.push(comprehensiveHistory[i6]);
       i6++;
     } else {
       const modelOutput = [];
       let isValid = true;
-      while (i6 < length && comprehensiveHistory[i6].role === "model") {
+      while (i6 < length2 && comprehensiveHistory[i6].role === "model") {
         modelOutput.push(comprehensiveHistory[i6]);
         if (isValid && !isValidContent(comprehensiveHistory[i6])) {
           isValid = false;
@@ -106608,8 +106878,8 @@ var LiveMusic = class {
     const url2 = `${websocketBaseUrl}/ws/google.ai.generativelanguage.${apiVersion}.GenerativeService.BidiGenerateMusic?key=${apiKey}`;
     let onopenResolve = () => {
     };
-    const onopenPromise = new Promise((resolve3) => {
-      onopenResolve = resolve3;
+    const onopenPromise = new Promise((resolve4) => {
+      onopenResolve = resolve4;
     });
     const callbacks = params.callbacks;
     const onopenAwaitedCallback = function() {
@@ -106849,8 +107119,8 @@ var Live = class {
     }
     let onopenResolve = () => {
     };
-    const onopenPromise = new Promise((resolve3) => {
-      onopenResolve = resolve3;
+    const onopenPromise = new Promise((resolve4) => {
+      onopenResolve = resolve4;
     });
     const callbacks = params.callbacks;
     const onopenAwaitedCallback = function() {
@@ -106863,8 +107133,8 @@ var Live = class {
     const messageQueue = [];
     let setupCompleteResolve = () => {
     };
-    const setupCompletePromise = new Promise((resolve3) => {
-      setupCompleteResolve = resolve3;
+    const setupCompletePromise = new Promise((resolve4) => {
+      setupCompleteResolve = resolve4;
     });
     const websocketCallbacks = {
       onopen: onopenAwaitedCallback,
@@ -110931,11 +111201,11 @@ function ERR(error64) {
 function bytesToBase64(u8arr) {
   return btoa(String.fromCodePoint(...u8arr));
 }
-function stringToBytes(str2) {
-  return new TextEncoder().encode(str2);
+function stringToBytes(str3) {
+  return new TextEncoder().encode(str3);
 }
-function stringToBase64(str2) {
-  return bytesToBase64(stringToBytes(str2));
+function stringToBase64(str3) {
+  return bytesToBase64(stringToBytes(str3));
 }
 var hasOwn3 = Object.prototype.hasOwnProperty;
 function pathToFunc(pathPattern, options) {
@@ -111064,7 +111334,7 @@ function encodeChars(v, charEncoding) {
       return v;
   }
 }
-function formEncoder(sep2) {
+function formEncoder(sep3) {
   return (key3, value2, options) => {
     let out = "";
     const pairs = (options === null || options === void 0 ? void 0 : options.explode) ? explode(key3, value2) : [[key3, value2]];
@@ -111075,7 +111345,7 @@ function formEncoder(sep2) {
       return encodeChars(v, options === null || options === void 0 ? void 0 : options.charEncoding);
     };
     const encodeValue = (v) => encodeString(serializeValue(v));
-    const encodedSep = encodeString(sep2);
+    const encodedSep = encodeString(sep3);
     pairs.forEach(([pk, pv]) => {
       var _a5, _b;
       let tmp = "";
@@ -111306,7 +111576,7 @@ function isRetryableResponse(res, statusCodes) {
 }
 async function retryBackoff(fn, strategy) {
   const { maxElapsedTime, initialInterval, exponent, maxInterval } = strategy;
-  const start2 = Date.now();
+  const start3 = Date.now();
   let x2 = 0;
   while (true) {
     try {
@@ -111316,7 +111586,7 @@ async function retryBackoff(fn, strategy) {
       if (err instanceof PermanentError) {
         throw err.cause;
       }
-      const elapsed = Date.now() - start2;
+      const elapsed = Date.now() - start3;
       if (elapsed > maxElapsedTime) {
         if (err instanceof TemporaryError) {
           return err.response;
@@ -111388,7 +111658,7 @@ function retryIntervalFromResponse(res) {
   return 0;
 }
 async function delay(delay3) {
-  return new Promise((resolve3) => setTimeout(resolve3, delay3));
+  return new Promise((resolve4) => setTimeout(resolve4, delay3));
 }
 var gt = typeof globalThis === "undefined" ? null : globalThis;
 var webWorkerLike = typeof gt === "object" && gt != null && "importScripts" in gt && typeof gt["importScripts"] === "function";
@@ -115926,8 +116196,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs17 = req("fs");
-          buffer = fs17.readFileSync(params.file);
+          const fs18 = req("fs");
+          buffer = fs18.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -115935,8 +116205,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs17 = mod2("fs");
-            buffer = fs17.readFileSync(params.file);
+            const fs18 = mod2("fs");
+            buffer = fs18.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -118560,11 +118830,11 @@ function getEnv(env3) {
   var _a5, _b, _c5;
   return (_c5 = (_b = (_a5 = process === null || process === void 0 ? void 0 : process.env) === null || _a5 === void 0 ? void 0 : _a5[env3]) === null || _b === void 0 ? void 0 : _b.trim()) !== null && _c5 !== void 0 ? _c5 : void 0;
 }
-function stringToBoolean(str2) {
-  if (str2 === void 0) {
+function stringToBoolean(str3) {
+  if (str3 === void 0) {
     return false;
   }
-  return str2.toLowerCase() === "true";
+  return str3.toLowerCase() === "true";
 }
 function getApiKeyFromEnv() {
   const envGoogleApiKey = getEnv("GOOGLE_API_KEY");
@@ -118625,7 +118895,7 @@ var VertexGeminiModel = class {
   async complete(request2) {
     const stall = new AbortController();
     const signal = request2.signal === void 0 ? stall.signal : AbortSignal.any([stall.signal, request2.signal]);
-    const step = (p3) => new Promise((resolve3, reject) => {
+    const step = (p3) => new Promise((resolve4, reject) => {
       const timer = setTimeout(() => {
         stall.abort();
         reject(new Error(`vertex: no data for ${this.idleTimeoutMs / 1e3} s`));
@@ -118633,7 +118903,7 @@ var VertexGeminiModel = class {
       p3.then(
         (v) => {
           clearTimeout(timer);
-          resolve3(v);
+          resolve4(v);
         },
         (e6) => {
           clearTimeout(timer);
@@ -119021,7 +119291,7 @@ var Gate = class {
       return Promise.resolve();
     }
     if (this.waiting.length >= this.maxQueue) return null;
-    return new Promise((resolve3) => this.waiting.push(resolve3));
+    return new Promise((resolve4) => this.waiting.push(resolve4));
   }
   /** Hands the slot straight to the next waiter, so `active` only drops when nobody waits. */
   leave() {
@@ -119440,8 +119710,8 @@ function jobList(names, what2) {
   const noun = unique.length === 1 ? "job" : "jobs";
   return `${unique.length} ${noun} ${what2}: ${shown2}${more}`;
 }
-function between(start2, end2) {
-  const a5 = Date.parse(start2 ?? "");
+function between(start3, end2) {
+  const a5 = Date.parse(start3 ?? "");
   const b5 = Date.parse(end2 ?? "");
   return Number.isNaN(a5) || Number.isNaN(b5) ? void 0 : b5 - a5;
 }
@@ -120058,7 +120328,7 @@ function authHeaders(source2, token) {
 }
 async function runCi(config2, io, deps = {}) {
   const now = deps.now ?? Date.now;
-  const sleep3 = deps.sleep ?? defaultSleep;
+  const sleep4 = deps.sleep ?? defaultSleep;
   const random = deps.random ?? Math.random;
   const env3 = deps.env ?? process.env;
   const signal = deps.signal ?? new AbortController().signal;
@@ -120111,14 +120381,14 @@ async function runCi(config2, io, deps = {}) {
       } catch (err) {
         log2(`ci: cannot save state: ${message(err)}`);
       }
-      await sleep3(wait, signal);
+      await sleep4(wait, signal);
     }
   };
   await Promise.all(watchers.map(loop));
 }
 
 // src/cli.ts
-import { promises as fs16 } from "node:fs";
+import { promises as fs17 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
 // src/admin.ts
@@ -120247,10 +120517,10 @@ async function sealKeyFile(o3) {
   return { ...pub, nonce: b64u.encode(nonce), sealed: b64u.encode(sealed) };
 }
 function parseSealedKeyFile(raw) {
-  const str2 = (v) => typeof v === "string" && v !== "";
+  const str3 = (v) => typeof v === "string" && v !== "";
   const kdf = raw["kdf"];
   const int2 = (v, max) => Number.isSafeInteger(v) && v > 0 && v <= max;
-  const ok2 = raw["v"] === 2 && str2(raw["id"]) && isName(raw["name"]) && str2(raw["signPub"]) && str2(raw["boxPub"]) && str2(raw["nonce"]) && str2(raw["sealed"]) && typeof kdf === "object" && kdf !== null && kdf.alg === "scrypt" && int2(kdf.N, MAX_N) && int2(kdf.r, MAX_R) && int2(kdf.p, MAX_P) && str2(kdf.salt);
+  const ok2 = raw["v"] === 2 && str3(raw["id"]) && isName(raw["name"]) && str3(raw["signPub"]) && str3(raw["boxPub"]) && str3(raw["nonce"]) && str3(raw["sealed"]) && typeof kdf === "object" && kdf !== null && kdf.alg === "scrypt" && int2(kdf.N, MAX_N) && int2(kdf.r, MAX_R) && int2(kdf.p, MAX_P) && str3(kdf.salt);
   if (!ok2) throw new TypeError("the encrypted key file is malformed");
   const file2 = raw;
   if (deviceIdFromSignPub(b64u.decode(file2.signPub)) !== file2.id) throw new TypeError("the encrypted key file's id does not match its signing key");
@@ -121007,19 +121277,19 @@ async function runEvents(d5) {
     if (state2?.address !== void 0) addresses.set(sid, address);
     return address;
   }
-  async function readLines(handle2, start2, size, sid) {
-    const buf2 = Buffer.alloc(Math.min(size - start2, FOLLOW_READ_MAX));
-    const { bytesRead } = await handle2.read(buf2, 0, buf2.length, start2);
+  async function readLines(handle2, start3, size, sid) {
+    const buf2 = Buffer.alloc(Math.min(size - start3, FOLLOW_READ_MAX));
+    const { bytesRead } = await handle2.read(buf2, 0, buf2.length, start3);
     const end2 = buf2.subarray(0, bytesRead).lastIndexOf(10) + 1;
     if (end2 === 0) {
-      return bytesRead === FOLLOW_READ_MAX ? start2 + bytesRead : start2;
+      return bytesRead === FOLLOW_READ_MAX ? start3 + bytesRead : start3;
     }
     const address = await addressOf(sid);
     for (const line of buf2.subarray(0, end2).toString("utf8").split("\n")) {
       const entry = parseEntry(line);
       if (entry !== void 0) emit("message", messageRow(entry, address));
     }
-    return start2 + end2;
+    return start3 + end2;
   }
   async function drainRotated(files, was, sid) {
     for (const name of await fs10.readdir(files.dir)) {
@@ -121043,10 +121313,10 @@ async function runEvents(d5) {
       const size = Number(st.size);
       const was = followed.get(sid);
       if (initial) return void followed.set(sid, { ino: st.ino, offset: size });
-      let start2 = 0;
+      let start3 = 0;
       if (was !== void 0 && was.ino !== st.ino) await drainRotated(files, was, sid);
-      else if (was !== void 0 && was.offset <= size) start2 = was.offset;
-      followed.set(sid, { ino: st.ino, offset: start2 === size ? start2 : await readLines(handle2, start2, size, sid) });
+      else if (was !== void 0 && was.offset <= size) start3 = was.offset;
+      followed.set(sid, { ino: st.ino, offset: start3 === size ? start3 : await readLines(handle2, start3, size, sid) });
     } finally {
       await handle2.close();
     }
@@ -121235,8 +121505,8 @@ async function runEvents(d5) {
     if (line.trim() === "") return;
     queue = queue.then(() => handle(line));
   });
-  const ended2 = new Promise((resolve3) => lines.once("close", resolve3));
-  const aborted2 = new Promise((resolve3) => d5.signal.aborted ? resolve3() : d5.signal.addEventListener("abort", () => resolve3(), { once: true }));
+  const ended2 = new Promise((resolve4) => lines.once("close", resolve4));
+  const aborted2 = new Promise((resolve4) => d5.signal.aborted ? resolve4() : d5.signal.addEventListener("abort", () => resolve4(), { once: true }));
   await Promise.race([ended2, aborted2]);
   clearInterval(tick);
   clearInterval(leaseTick);
@@ -121250,8 +121520,8 @@ async function runSetupEvents(d5) {
   emit("setup", { version: d5.version, device: known === void 0 ? null : { name: known.name, id: known.id } });
   let joining = false;
   let finish;
-  const joined = new Promise((resolve3) => finish = resolve3);
-  async function join24(a5) {
+  const joined = new Promise((resolve4) => finish = resolve4);
+  async function join25(a5) {
     personOnly(d5.agent, "joining a mesh");
     if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
     joining = true;
@@ -121265,7 +121535,7 @@ async function runSetupEvents(d5) {
         throw new RequestError("input", "not an invite code (wim1_... or wim2-...)");
       }
       const device = await d5.home.loadDevice() ?? await d5.home.createDevice(a5.name ?? d5.defaultName);
-      return await new Promise((resolve3, reject) => {
+      return await new Promise((resolve4, reject) => {
         let answered2 = false;
         joinMesh({
           home: d5.home,
@@ -121275,7 +121545,7 @@ async function runSetupEvents(d5) {
           now: d5.now,
           showSas: (sas) => {
             answered2 = true;
-            resolve3({ device: { name: device.name, id: device.id }, code: sas });
+            resolve4({ device: { name: device.name, id: device.id }, code: sas });
           }
         }).then(
           (done) => {
@@ -121311,7 +121581,7 @@ async function runSetupEvents(d5) {
       if (req.data.op !== "join") throw new RequestError("setup", "this device is in no mesh yet: join one first");
       const args = SetupArgs.safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      emit("response", { id: id2, ok: true, result: await join24(args.data) });
+      emit("response", { id: id2, ok: true, result: await join25(args.data) });
     } catch (error64) {
       const code2 = error64 instanceof RequestError ? error64.code : "error";
       emit("response", { ...id2 === void 0 ? {} : { id: id2 }, ok: false, error: { code: code2, message: sanitizeForDisplay(error64.message) } });
@@ -121323,8 +121593,8 @@ async function runSetupEvents(d5) {
     if (line.trim() === "") return;
     queue = queue.then(() => handle(line));
   });
-  const ended2 = new Promise((resolve3) => lines.once("close", resolve3));
-  const aborted2 = new Promise((resolve3) => d5.signal.aborted ? resolve3() : d5.signal.addEventListener("abort", () => resolve3(), { once: true }));
+  const ended2 = new Promise((resolve4) => lines.once("close", resolve4));
+  const aborted2 = new Promise((resolve4) => d5.signal.aborted ? resolve4() : d5.signal.addEventListener("abort", () => resolve4(), { once: true }));
   await Promise.race([ended2, aborted2, joined]);
   lines.close();
 }
@@ -121943,7 +122213,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve3) => setTimeout(resolve3, pollInterval));
+        await new Promise((resolve4) => setTimeout(resolve4, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error64) {
@@ -121960,7 +122230,7 @@ var Protocol = class {
    */
   request(request2, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       const earlyReject = (error64) => {
         reject(error64);
       };
@@ -122038,7 +122308,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve3(parseResult.data);
+            resolve4(parseResult.data);
           }
         } catch (error64) {
           reject(error64);
@@ -122300,12 +122570,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve3, interval);
+      const timeoutId = setTimeout(resolve4, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -123097,8 +123367,8 @@ function procStat(text2) {
   if (close < 0) return void 0;
   const fields2 = text2.slice(close + 2).split(" ");
   const ppid = Number(fields2[1]);
-  const start2 = fields2[19] ?? "";
-  return Number.isSafeInteger(ppid) && ppid >= 0 && /^\d+$/.test(start2) ? { ppid, start: start2 } : void 0;
+  const start3 = fields2[19] ?? "";
+  return Number.isSafeInteger(ppid) && ppid >= 0 && /^\d+$/.test(start3) ? { ppid, start: start3 } : void 0;
 }
 function psTable(text2) {
   const out = /* @__PURE__ */ new Map();
@@ -123135,8 +123405,8 @@ function realAncestryDeps(platform2) {
     pid: process.pid,
     ppid: process.ppid,
     readFile: (path2) => fs11.readFile(path2, "utf8"),
-    execFile: (file2, args, env3) => new Promise((resolve3, reject) => {
-      execFile(file2, [...args], { env: env3, timeout: 3e3, maxBuffer: 8 << 20, windowsHide: true }, (error64, stdout) => error64 === null ? resolve3(stdout) : reject(error64));
+    execFile: (file2, args, env3) => new Promise((resolve4, reject) => {
+      execFile(file2, [...args], { env: env3, timeout: 3e3, maxBuffer: 8 << 20, windowsHide: true }, (error64, stdout) => error64 === null ? resolve4(stdout) : reject(error64));
     })
   };
 }
@@ -123344,7 +123614,7 @@ async function announce(files, sessionKey, newest, now, env3) {
   }, env3, 2e3);
 }
 function readInput(stream, max = HOOK_INPUT_MAX, ms = HOOK_INPUT_MS) {
-  return new Promise((resolve3) => {
+  return new Promise((resolve4) => {
     const chunks = [];
     let size = 0;
     const done = (value2) => {
@@ -123353,7 +123623,7 @@ function readInput(stream, max = HOOK_INPUT_MAX, ms = HOOK_INPUT_MS) {
       stream.off("end", onEnd);
       stream.off("error", onError);
       stream.pause();
-      resolve3(value2);
+      resolve4(value2);
     };
     const onData = (chunk) => {
       const b5 = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
@@ -123442,10 +123712,15 @@ var Inputs = {
 };
 var text = (t2) => ({ content: [{ type: "text", text: t2 }] });
 var json3 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
-var sent = (o3) => {
+var sent = (o3, watchNote) => {
   const held2 = o3.results.flatMap((r6) => r6.status === "held" ? [heldSendLine(r6.to, r6.breaker)] : []);
   const note = prekeyNote(o3);
-  return json3({ ...o3, ...note === void 0 ? {} : { note }, ...held2.length === 0 ? {} : { held_note: held2.join(" ") } });
+  return json3({
+    ...o3,
+    ...note === void 0 ? {} : { note },
+    ...held2.length === 0 ? {} : { held_note: held2.join(" ") },
+    ...watchNote === void 0 ? {} : { watch_note: watchNote }
+  });
 };
 var fail3 = (t2) => ({ content: [{ type: "text", text: t2 }], isError: true });
 function failure2(error64) {
@@ -123707,8 +123982,7 @@ var WimMcp = class {
       case "send": {
         const i6 = a5;
         const out = await s3.send(i6.to, i6.text, i6.reply_to === void 0 ? {} : { reply_to: i6.reply_to });
-        if (i6.notify_when_idle === true) s3.notifyWhenIdle(MeshSession.parseTo(i6.to));
-        return sent(out);
+        return sent(out, i6.notify_when_idle === true ? await s3.notifyWhenIdle(MeshSession.parseTo(i6.to)) : void 0);
       }
       case "ask": {
         const i6 = a5;
@@ -123857,12 +124131,12 @@ var CommandNotifier = class {
     if (!force && now - this.last < this.minIntervalMs) return Promise.resolve();
     this.last = now;
     const line = text2.replace(/[^\x20-\x7E]/g, " ").slice(0, 120);
-    return new Promise((resolve3, reject) => {
+    return new Promise((resolve4, reject) => {
       this.run(
         this.command[0],
         [...this.command.slice(1), line],
         { shell: false, timeout: 15e3 },
-        (error64) => error64 ? reject(error64) : resolve3()
+        (error64) => error64 ? reject(error64) : resolve4()
       );
     });
   }
@@ -123949,6 +124223,7 @@ function showPaths(home, platform2, kind = "recovery") {
   return { socket, proof: p3.join(home, `${kind}.proof`), what: `${kind} code` };
 }
 var PROOF_WAIT_MS = 5e3;
+var PROOF_LEN = 43;
 var PROOF_MAX = 128;
 function ignore2() {
 }
@@ -123979,18 +124254,20 @@ async function holdForShow(paths, code2, o3) {
       else socket.destroy();
     });
   });
-  await new Promise((resolve3, reject) => {
+  await new Promise((resolve4, reject) => {
     server.on("error", reject);
-    server.listen(paths.socket, resolve3);
+    server.listen(paths.socket, resolve4);
   });
   try {
     await fs12.rm(paths.proof, { force: true });
-    await fs12.writeFile(paths.proof, proof, { mode: 384, flag: "wx" });
+    const partial2 = `${paths.proof}.${b64u.encode(randomBytes2(6))}.tmp`;
+    await fs12.writeFile(partial2, proof, { mode: 384, flag: "wx" });
+    await fs12.rename(partial2, paths.proof);
   } catch (error64) {
     await new Promise((r6) => server.close(r6));
     throw error64;
   }
-  return new Promise((resolve3) => {
+  return new Promise((resolve4) => {
     const timer = setTimeout(() => finish(false), o3.ms);
     const onAbort = () => finish(false);
     function finish(handed) {
@@ -123999,7 +124276,7 @@ async function holdForShow(paths, code2, o3) {
       server.removeAllListeners("proved");
       const closed = new Promise((r6) => server.close(r6));
       for (const s3 of sockets) s3.destroy();
-      void Promise.all([closed, removeOwnProof(paths.proof, proof)]).then(() => resolve3(handed));
+      void Promise.all([closed, removeOwnProof(paths.proof, proof)]).then(() => resolve4(handed));
     }
     server.once("proved", (socket) => {
       sockets.delete(socket);
@@ -124014,14 +124291,14 @@ async function holdForShow(paths, code2, o3) {
 async function fetchHeldCode(paths) {
   const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
   const proof = await fs12.readFile(paths.proof, "utf8").catch(absent);
-  if (proof === void 0) throw new Error(none);
-  return new Promise((resolve3, reject) => {
+  if (proof === void 0 || proof.length < PROOF_LEN) throw new Error(none);
+  return new Promise((resolve4, reject) => {
     let text2 = "";
     const socket = createConnection2(paths.socket);
     socket.setEncoding("utf8");
     socket.on("data", (d5) => text2 += d5);
     socket.once("error", () => reject(new Error(none)));
-    socket.once("end", () => text2.trim() === "" ? reject(new Error(`no ${paths.what} is waiting`)) : resolve3(text2.trim()));
+    socket.once("end", () => text2.trim() === "" ? reject(new Error(`no ${paths.what} is waiting`)) : resolve4(text2.trim()));
     socket.write(`${proof}
 `);
   });
@@ -124032,24 +124309,13 @@ import { request } from "node:https";
 import { isIP as isIP4 } from "node:net";
 import * as tls2 from "node:tls";
 import { urlToHttpOptions } from "node:url";
-var InfoSchema = external_exports.object({
-  v: external_exports.literal(1),
-  software: external_exports.literal("worldinmotion-relay"),
-  version: external_exports.string().max(64),
-  create: external_exports.enum(["key", "open", "closed"]),
-  limits: external_exports.object({
-    max_meshes: external_exports.number().int().nonnegative().nullable(),
-    idle_mesh_days: external_exports.number().int().nonnegative().nullable(),
-    blob_bytes_per_mesh_per_day: external_exports.number().int().nonnegative()
-  }),
-  offer: external_exports.string().nullable()
-});
+var InfoSchema = relayInfoSchema;
 var INFO_MAX_BYTES = 16 * 1024;
 function infoUrl(relay) {
   return `${relay.replace(/^ws/, "http")}/v1/info`;
 }
 function pinnedFetcher(pin, connect3 = tls2.connect) {
-  return (url2, init2) => new Promise((resolve3, reject) => {
+  return (url2, init2) => new Promise((resolve4, reject) => {
     const target = urlToHttpOptions(new URL(url2));
     const servername = isIP4(target.hostname) === 0 ? target.hostname : "";
     const options = { ...target, servername, headers: init2.headers, signal: init2.signal, createConnection: pinnedConnect(pin, connect3) };
@@ -124066,7 +124332,7 @@ function pinnedFetcher(pin, connect3 = tls2.connect) {
             res.destroy();
           }
         });
-        res.on("close", () => resolve3({ status: res.statusCode, text: async () => Buffer.concat(chunks).toString("utf8") }));
+        res.on("close", () => resolve4({ status: res.statusCode, text: async () => Buffer.concat(chunks).toString("utf8") }));
       }
     );
     req.on("error", reject);
@@ -124423,13 +124689,13 @@ function opened(o3) {
   return typeof o3 === "string" ? { reason: o3 } : { opened: b64u.encode(o3) };
 }
 function answers(endpoint2) {
-  return new Promise((resolve3) => {
+  return new Promise((resolve4) => {
     const socket = createConnection3(endpoint2);
     socket.once("connect", () => {
       socket.destroy();
-      resolve3(true);
+      resolve4(true);
     });
-    socket.once("error", () => resolve3(false));
+    socket.once("error", () => resolve4(false));
   });
 }
 var AgentServer = class {
@@ -124454,12 +124720,12 @@ var AgentServer = class {
     if (await answers(this.o.endpoint)) throw new AgentError("running", `a signer is already running at ${this.o.endpoint}`);
     await this.o.files.clear(this.o.endpoint);
     let markBound;
-    this.bound = new Promise((resolve3) => markBound = resolve3);
+    this.bound = new Promise((resolve4) => markBound = resolve4);
     const server = createServer3((socket) => this.serve(socket));
     this.server = server;
-    await new Promise((resolve3, reject) => {
+    await new Promise((resolve4, reject) => {
       server.once("error", reject);
-      server.listen(this.o.endpoint, () => resolve3());
+      server.listen(this.o.endpoint, () => resolve4());
     });
     await this.o.files.secure(this.o.endpoint);
     this.identity = await this.o.files.id(this.o.endpoint);
@@ -124568,7 +124834,7 @@ var AgentServer = class {
     clearInterval(this.watcher);
     this.o.signer.lock();
     for (const s3 of this.sockets) if (s3 !== answering) s3.destroy();
-    await new Promise((resolve3) => this.server === void 0 ? resolve3() : this.server.close(() => resolve3()));
+    await new Promise((resolve4) => this.server === void 0 ? resolve4() : this.server.close(() => resolve4()));
     this.resolveStopped();
   }
 };
@@ -124577,7 +124843,7 @@ var AgentServer = class {
 import { spawn as nodeSpawn } from "node:child_process";
 import { promises as fs14 } from "node:fs";
 function runProgram(cmd, args, input2 = "", spawn = nodeSpawn) {
-  return new Promise((resolve3, reject) => {
+  return new Promise((resolve4, reject) => {
     const child = spawn(cmd, [...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     let stdout = "";
     let stderr = "";
@@ -124586,7 +124852,7 @@ function runProgram(cmd, args, input2 = "", spawn = nodeSpawn) {
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (d5) => stdout += d5);
     child.stderr.on("data", (d5) => stderr += d5);
-    child.once("close", (code2) => resolve3({ code: code2, stdout, stderr }));
+    child.once("close", (code2) => resolve4({ code: code2, stdout, stderr }));
     child.stdin.on("error", () => void 0);
     child.stdin.end(input2);
   });
@@ -124852,7 +125118,7 @@ function wimCommand() {
   return [process.execPath, ...process.execArgv, process.argv[1]];
 }
 function spawnDetached(command5, input2, spawn = nodeSpawn2) {
-  return new Promise((resolve3, reject) => {
+  return new Promise((resolve4, reject) => {
     const child = spawn(command5[0], command5.slice(1), { detached: true, stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
     let out = "";
     child.once("error", reject);
@@ -124865,7 +125131,7 @@ function spawnDetached(command5, input2, spawn = nodeSpawn2) {
       child.removeAllListeners("close");
       child.stdout.destroy();
       child.unref();
-      resolve3(out.slice(0, nl));
+      resolve4(out.slice(0, nl));
     });
     child.stdin.on("error", reject);
     child.stdin.end(`${input2}
@@ -125419,19 +125685,35 @@ async function publicIds(fetcher, via, repo) {
     return void 0;
   }
 }
-var ALLOW_USAGE = "usage: wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]\n       wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]";
+var ALLOW_USAGE = [
+  "usage: wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]",
+  "       wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]",
+  "       a branch, tag or full ref may be a pattern ending in one *, quoted so the shell leaves it alone: --tag 'v*', --ref 'release/*'"
+].join("\n");
+var REF_FLAGS = ["ref", "tag"];
+function refFrom(c5) {
+  const given = REF_FLAGS.filter((f7) => c5.flags.has(f7));
+  if (given.length === 0) throw new SetupError(`--ref or --tag is required
+${ALLOW_USAGE}`);
+  if (given.length > 1) throw new SetupError(`give one of --ref and --tag (for a tag, --tag <name> alone)
+${ALLOW_USAGE}`);
+  const flag3 = given[0];
+  const name = c5.flags.get(flag3);
+  if (name === "" || name.startsWith("-")) throw new SetupError(flag3 === "tag" ? "--tag needs a tag name or a pattern ending in * (quoted: --tag 'v*')" : "--ref needs a branch name, a full ref or a pattern ending in * (quoted: --ref 'release/*')");
+  const ref2 = ruleRef(flag3, name);
+  const why = refRefusal(ref2);
+  if (why !== void 0) throw new SetupError(why);
+  return ref2;
+}
 function ruleFrom(c5) {
   const [, via, rawRepo] = c5.positional;
   if (via !== "github" && via !== "gitlab" || rawRepo === void 0 || c5.positional.length > 3) throw new SetupError(ALLOW_USAGE);
   const repo = rawRepo.toLowerCase();
   if (!(via === "github" ? GITHUB_REPO : GITLAB_REPO).test(repo)) throw new SetupError(`not a ${via === "github" ? "GitHub owner/repo" : "GitLab group/project"}: ${sanitizeForDisplay(rawRepo)}`);
-  const refName = value(c5, "ref");
-  if (refName === void 0) throw new SetupError(`--ref is required
-${ALLOW_USAGE}`);
   const base = {
     id: ulid3(c5.io.now()),
     repo,
-    ref: fullRef(refName, on(c5, "tag")),
+    ref: refFrom(c5),
     ...value(c5, "environment") === void 0 ? {} : { environment: value(c5, "environment") },
     ...on(c5, "hold") ? { hold: true } : {}
   };
@@ -125447,13 +125729,28 @@ ${ALLOW_USAGE}`);
   if (events2 !== void 0 && !events2.every((e6) => EVENT_NAME.test(e6))) throw new SetupError("--event takes GitHub event names, comma-separated (push,workflow_dispatch)");
   return checkRule({ ...base, via, workflow, ...events2 === void 0 ? {} : { events: events2 } });
 }
-function allowLines(rule, pins) {
-  const who = rule.via === "github" ? "any job of that workflow file on that ref" : "any job of that project on that ref";
+async function relayTakesPatterns(files, fetcher) {
+  const config2 = await files.loadConfig();
+  const info = await fetchRelayInfo(config2.relay, fetcher, { tlsPin: config2.tls });
+  if (info === void 0) return "unknown";
+  return info.ciPatterns === true ? "yes" : "no";
+}
+function capabilityLines(patterns) {
+  const effect = "a relay without them refuses every GitHub notice that only a pattern rule matches, so notices under this rule are refused until the relay is updated. Allowing it saves the rule all the same.";
+  if (patterns === "no") return [`Warning: this device's relay does not say it checks ref patterns (its /v1/info lacks "ciPatterns": true): ${effect}`];
+  if (patterns === "unknown") return [`Warning: whether this device's relay checks ref patterns could not be checked (its /v1/info could not be read): ${effect}`];
+  return [];
+}
+function allowLines(rule, pins, patterns) {
+  const where = isCiRefPattern(rule.ref) ? "on a matching ref" : "on that ref";
+  const who = rule.via === "github" ? `any job of that workflow file ${where}` : `any job of that project ${where}`;
   return [
     "Allowing CI notices to this device:",
     `  ${ruleLine({ ...rule, ...pins === void 0 ? {} : { pins } })}`,
     `Then ${who} (and anything that job runs) can send your sessions information-only notices. They never assign work and never wake a session.`,
     pins === void 0 ? "The repository's ids could not be read from the provider's public API (a private repository, or no network): the first matching notice is held for you, showing the ids its token carries, and approving it with `wim held approve <id>` pins them." : "The repository's ids were read from the provider's public API and are pinned: a recycled name cannot send.",
+    ...patternLines(rule),
+    ...capabilityLines(patterns),
     ...rule.via === "github" && rule.events?.some((e6) => PRIVILEGED_EVENTS.includes(e6)) === true ? ["This rule names pull_request_target or workflow_run: a pull request from a fork can steer those runs."] : [],
     ...rule.via === "gitlab" ? ["A GitLab token cannot be bound to one notice: anything that can read the job's variables can send one notice as that project until the job times out (set a short timeout:)."] : []
   ];
@@ -125469,7 +125766,8 @@ async function allow(c5) {
   };
   room(await loadCiRules(files.ciRulesPath));
   const pins = await publicIds(c5.io.fetch, rule.via, rule.repo);
-  if (!await confirmTyped(c5.io, allowLines(rule, pins), "Allow it?")) return 1;
+  const patterns = rule.via === "github" && isCiRefPattern(rule.ref) ? await relayTakesPatterns(files, c5.io.fetch) : "yes";
+  if (!await confirmTyped(c5.io, allowLines(rule, pins, patterns), "Allow it?")) return 1;
   const added = checkRule({ ...rule, ...pins === void 0 ? {} : { pins } });
   await updateCiRules(files.ciRulesPath, files.env, (rules) => (room(rules), [...rules, added]));
   const { code: code2, mesh } = await recipient(files, device);
@@ -125522,10 +125820,10 @@ var EXTENSION_INSTALL = ["--install-extension", EXTENSION, "--pre-release"];
 var SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
 var TOOL_TIMEOUT_MS = 5 * 6e4;
 function execRunner(platform2, execFile3 = nodeExecFile) {
-  const exec = (file2, args, shell) => new Promise((resolve3, reject) => {
+  const exec = (file2, args, shell) => new Promise((resolve4, reject) => {
     const child = execFile3(file2, args, { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (error64, stdout, stderr) => {
       if (error64 !== null && typeof error64.code !== "number") reject(error64);
-      else resolve3({ code: error64 === null ? 0 : error64.code, stdout, stderr });
+      else resolve4({ code: error64 === null ? 0 : error64.code, stdout, stderr });
     });
     child.stdin?.end();
   });
@@ -126113,11 +126411,11 @@ function memoBuilder() {
 }
 
 // ../../node_modules/@sentry/core/build/esm/utils/string.js
-function truncate(str2, max = 0) {
-  if (typeof str2 !== "string" || max === 0) {
-    return str2;
+function truncate(str3, max = 0) {
+  if (typeof str3 !== "string" || max === 0) {
+    return str3;
   }
-  return str2.length <= max ? str2 : `${str2.slice(0, max)}...`;
+  return str3.length <= max ? str3 : `${str3.slice(0, max)}...`;
 }
 function isMatchingPattern(value2, pattern, requireExactStringMatch = false) {
   if (!isString(value2)) {
@@ -127263,11 +127561,11 @@ function dsnToString(dsn, withPassword = false) {
   const { host, path: path2, pass: pass2, port, projectId, protocol, publicKey } = dsn;
   return `${protocol}://${publicKey}${withPassword && pass2 ? `:${pass2}` : ""}@${host}${port ? `:${port}` : ""}/${path2 ? `${path2}/` : path2}${projectId}`;
 }
-function dsnFromString(str2) {
-  const match2 = DSN_REGEX.exec(str2);
+function dsnFromString(str3) {
+  const match2 = DSN_REGEX.exec(str3);
   if (!match2) {
     consoleSandbox(() => {
-      console.error(`Invalid Sentry Dsn: ${str2}`);
+      console.error(`Invalid Sentry Dsn: ${str3}`);
     });
     return void 0;
   }
@@ -128098,8 +128396,8 @@ var STATE_PENDING = 0;
 var STATE_RESOLVED = 1;
 var STATE_REJECTED = 2;
 function resolvedSyncPromise(value2) {
-  return new SyncPromise((resolve3) => {
-    resolve3(value2);
+  return new SyncPromise((resolve4) => {
+    resolve4(value2);
   });
 }
 function rejectedSyncPromise(reason) {
@@ -128115,15 +128413,15 @@ var SyncPromise = class _SyncPromise {
   }
   /** @inheritdoc */
   then(onfulfilled, onrejected) {
-    return new _SyncPromise((resolve3, reject) => {
+    return new _SyncPromise((resolve4, reject) => {
       this._handlers.push([
         false,
         (result) => {
           if (!onfulfilled) {
-            resolve3(result);
+            resolve4(result);
           } else {
             try {
-              resolve3(onfulfilled(result));
+              resolve4(onfulfilled(result));
             } catch (e6) {
               reject(e6);
             }
@@ -128134,7 +128432,7 @@ var SyncPromise = class _SyncPromise {
             reject(reason);
           } else {
             try {
-              resolve3(onrejected(reason));
+              resolve4(onrejected(reason));
             } catch (e6) {
               reject(e6);
             }
@@ -128150,7 +128448,7 @@ var SyncPromise = class _SyncPromise {
   }
   /** @inheritdoc */
   finally(onfinally) {
-    return new _SyncPromise((resolve3, reject) => {
+    return new _SyncPromise((resolve4, reject) => {
       let val;
       let isRejected;
       return this.then(
@@ -128173,7 +128471,7 @@ var SyncPromise = class _SyncPromise {
           reject(val);
           return;
         }
-        resolve3(val);
+        resolve4(val);
       });
     });
   }
@@ -128204,21 +128502,21 @@ var SyncPromise = class _SyncPromise {
         return;
       }
       if (isThenable(value2)) {
-        void value2.then(resolve3, reject);
+        void value2.then(resolve4, reject);
         return;
       }
       this._state = state2;
       this._value = value2;
       this._executeHandlers();
     };
-    const resolve3 = (value2) => {
+    const resolve4 = (value2) => {
       setResult(STATE_RESOLVED, value2);
     };
     const reject = (reason) => {
       setResult(STATE_REJECTED, reason);
     };
     try {
-      executor(resolve3, reject);
+      executor(resolve4, reject);
     } catch (e6) {
       reject(e6);
     }
@@ -128720,7 +129018,7 @@ function makePromiseBuffer(limit2 = 100) {
     }
     const promises = [
       drainPromise,
-      new Promise((resolve3) => safeUnref(setTimeout(() => resolve3(false), timeout)))
+      new Promise((resolve4) => safeUnref(setTimeout(() => resolve4(false), timeout)))
     ];
     return Promise.race(promises);
   }
@@ -129457,7 +129755,7 @@ var Client2 = class {
   async _isClientDoneProcessing(timeout) {
     let ticked = 0;
     while (!timeout || ticked < timeout) {
-      await new Promise((resolve3) => setTimeout(resolve3, 1));
+      await new Promise((resolve4) => setTimeout(resolve4, 1));
       if (!this._numProcessing) {
         return true;
       }
@@ -130118,11 +130416,3125 @@ ${error64.message}`;
   }
 };
 
+// ../relay-core/src/relay.ts
+var MINUTE4 = 6e4;
+var HOUR3 = 60 * MINUTE4;
+var DAY2 = 24 * HOUR3;
+var RETENTION_MS = LIMITS.roomHistoryLifetimeMs;
+var HISTORY_SWEEP_BATCH = 256;
+var RETAINED = ["roomHistoryLifetimeMs", "queueLifetimeMs", "blobLifetimeMs"];
+var CLIENT_TYPES = new Set(clientFrameSchema.options.map((o3) => o3.shape.t.value));
+var PARSE_CODES = {
+  duplicate_key: "duplicate_key",
+  unknown_type: "unknown_type",
+  too_large: "too_large"
+};
+var CI_NOT_FOUND = { status: 404, body: { t: "error", code: "not_found", message: "this relay takes no CI senders" } };
+var CI_UNAUTHORIZED = { status: 403, body: { t: "error", code: "unauthorized", message: "not accepted" } };
+var RDV_REFUSALS = {
+  exists: ["rdv_exists", "a short invite code with that id is already stored"],
+  limited: ["limited", "too many short invite codes from this address for now; try again later"],
+  full: ["full", "this relay holds as many short invite codes as it can; try again later"],
+  unavailable: ["unavailable", "the relay could not store the short invite code"]
+};
+var MeshRelay = class {
+  limits;
+  config;
+  host;
+  store;
+  cached;
+  /**
+   * Set by `tick` once it found the store without this mesh. Only this instance's `create` makes
+   * the mesh exist, so later ticks need not ask the store again until it does.
+   */
+  absent = false;
+  constructor(config2, host) {
+    if (config2.relayUrls.length === 0) throw new TypeError("MeshRelay: at least one relay URL");
+    for (const url2 of config2.relayUrls) relayDialUrl(url2, config2.meshId);
+    this.config = config2;
+    this.host = host;
+    this.limits = { ...LIMITS, ...config2.limits };
+    for (const k5 of RETAINED) this.limits[k5] = Math.min(this.limits[k5], RETENTION_MS);
+    this.store = host.store;
+    this.reconcile();
+  }
+  /**
+   * Whether this mesh exists: it has a genesis roster. Until it does, the relay writes nothing to
+   * the store except the `create` that makes it, so a host can drop (or never persist) the state
+   * of a mesh id that was only dialled.
+   */
+  exists() {
+    return this.store.rosterHead() > 0;
+  }
+  /**
+   * Whether an authenticated (or recovery) connection is open on this mesh. A host measures how
+   * long a mesh has been idle from the moment this turns false.
+   */
+  active() {
+    for (const c5 of this.host.connections()) {
+      const phase = this.host.getState(c5).phase;
+      if (phase === "authed" || phase === "recover") return true;
+    }
+    return false;
+  }
+  // ---- connection events ----
+  /** A new connection. `source` is the host's rate-limit key for the client's address. */
+  onOpen(conn, opts) {
+    const now = this.host.now();
+    const nonce = b64u.encode(randomBytes2(32));
+    this.host.setState(conn, {
+      phase: "pre",
+      nonce,
+      deadline: now + this.limits.authDeadlineMs,
+      source: opts.source,
+      join: null,
+      sid: null,
+      device: null,
+      name: null
+    });
+    this.emit(conn, { t: "hello", v: WIRE_VERSION, nonce, at: now });
+  }
+  onMessage(conn, text2) {
+    const st = this.host.getState(conn);
+    if (st === void 0 || st.phase === "closed") return;
+    if (st.phase === "pre") this.preAuth(conn, st, text2);
+    else if (st.phase === "recover") this.recovering(conn, st, text2);
+    else this.authed(conn, st, text2);
+  }
+  onClose(conn) {
+    const st = this.host.getState(conn);
+    if (st === void 0 || st.phase === "closed") return;
+    this.host.setState(conn, { ...st, phase: "closed" });
+    if (st.phase === "authed") this.goOffline(this.store.getSession(st.sid));
+  }
+  /**
+   * Expiry sweeps. Call about once a second. Connections past their pre-auth deadline are closed
+   * first; the store sweeps run only for a mesh that exists.
+   */
+  tick(now) {
+    const L = this.limits;
+    for (const conn of this.host.connections()) {
+      const st = this.host.getState(conn);
+      if (st.phase !== "pre" || st.deadline > now) continue;
+      if (st.join !== null) this.error(conn, "invite_expired", "the invite expired before an admin answered", "join");
+      this.shut(conn, st, CLOSE.authTimeout, "auth timeout");
+    }
+    if (this.absent || this.cached === void 0 && !this.exists()) {
+      this.absent = true;
+      return;
+    }
+    for (const s3 of this.store.sessions()) {
+      const tombstoneDone = s3.ended !== null && s3.ended <= now - L.queueLifetimeMs;
+      const abandoned = s3.ended === null && s3.conn === null && s3.since <= now - L.queueLifetimeMs;
+      const empty = this.store.queueCount(s3.sid, "msg") + this.store.queueCount(s3.sid, "ci") === 0;
+      if (tombstoneDone || abandoned && empty) this.store.deleteSession(s3.sid);
+    }
+    for (const item of this.store.expiredQueue(now - L.queueLifetimeMs)) {
+      this.store.dropQueueItem(item.sid, item.cur);
+      const m4 = this.store.getMessage(item.id);
+      const sender = this.connFor(this.store.getSession(m4.sender));
+      const rcpt = this.store.getSession(item.sid);
+      if (sender) this.emit(sender, { t: "receipt", id: item.id, to: this.address(rcpt), status: "expired" });
+    }
+    this.store.pruneMessages(now - L.queueLifetimeMs);
+    this.store.pruneJtis(now);
+    this.store.pruneIdle(now);
+    for (const inv of this.store.expiredInvites(now)) {
+      this.store.deleteInvite(inv.id);
+      this.store.deleteJoin(inv.id);
+    }
+    for (const w of this.store.expiredWaiters(now)) {
+      this.store.deleteWaiter(w.key, w.sid);
+      this.leaseTo(this.store.getSession(w.sid), w.key, "expired");
+    }
+    for (const l3 of this.store.expiredLeases(now)) this.free(l3, "expired", now);
+    this.store.pruneWatches(now);
+    this.store.pruneHistory(now - L.roomHistoryLifetimeMs, HISTORY_SWEEP_BATCH);
+    this.store.pruneRooms();
+    this.store.pruneChunks(now - L.blobLifetimeMs);
+    this.store.pruneBuckets(now - DAY2);
+  }
+  // ---- before auth ----
+  preAuth(conn, st, text2) {
+    if (!fitsUtf8(text2, this.limits.preAuthFrameBytes)) {
+      this.error(conn, "too_large", "frames before auth are limited in size");
+      return this.shut(conn, st, CLOSE.protocol, "too large");
+    }
+    const parsed2 = parseClientFrame(text2, { preAuth: true });
+    const recover3 = parsed2.ok ? void 0 : parseRecoverAuthFrame(text2);
+    if (recover3?.ok) return this.recoverAuth(conn, st, recover3.value);
+    if (!parsed2.ok) {
+      if (parsed2.reason === "unknown_type") {
+        const t2 = peekType(text2);
+        if (CLIENT_TYPES.has(t2)) return this.error(conn, "unauthorized", "authenticate first", t2);
+        return this.error(conn, "unknown_type", "unknown frame type", t2);
+      }
+      this.error(conn, PARSE_CODES[parsed2.reason] ?? "malformed", parsed2.reason);
+      return this.shut(conn, st, CLOSE.protocol, "malformed");
+    }
+    const f7 = parsed2.value;
+    if (f7.t === "auth") return this.auth(conn, st, f7);
+    if (!this.allowSource(st)) {
+      this.error(conn, "limited", "too many create or join requests from this address", f7.t);
+      return this.shut(conn, st, CLOSE.limited, "limited");
+    }
+    if (f7.t === "create") return this.create(conn, f7);
+    this.join(conn, st, f7);
+  }
+  /**
+   * A recovery record's `auth` (SPEC 4a): relay, nonce and clock checks, a genesis pin, and a
+   * current recovery record as the device. It opens no session; the connection may then only read
+   * the chain and publish one roster.
+   *
+   * Every attempt is charged to its source's pre-auth budget (the one `create` and `join` spend)
+   * before anything else is checked. The mesh's own recovery budget (`recoveryPerMeshPerHour`)
+   * is spent only by an attempt whose signature verified, so attempts that fail verification
+   * never use it up. A mesh that does not exist is refused before that budget is touched.
+   */
+  recoverAuth(conn, st, f7) {
+    const refuse = (code2, message2, close) => {
+      this.error(conn, code2, message2, "auth");
+      this.shut(conn, st, close, code2);
+    };
+    if (!this.allowSource(st)) return refuse("limited", "too many recovery attempts from this address", CLOSE.limited);
+    if (!this.exists()) return refuse("unauthorized", "unknown mesh", CLOSE.unauthorized);
+    const L = this.limits;
+    const now = this.host.now();
+    const genesis = JSON.parse(this.store.getRoster(1).json);
+    const v = verifyRecoverAuth(f7, { roster: this.roster(), genesis }, { relay: this.config.relayUrls, nonce: st.nonce, now, skewMs: L.authSkewMs });
+    if (!v.ok) return refuse("unauthorized", v.reason, CLOSE.unauthorized);
+    const level = this.level("recover", L.recoveryPerMeshPerHour, L.recoveryPerMeshPerHour / HOUR3, now);
+    if (level < 1) return refuse("limited", "too many recovery attempts for this mesh", CLOSE.limited);
+    this.spend("recover", level, 1, now);
+    this.host.setState(conn, { ...st, phase: "recover", deadline: 0, device: f7.device });
+    this.emit(conn, { t: "recover.ready", roster: this.roster() });
+  }
+  recovering(conn, st, text2) {
+    if (!fitsUtf8(text2, this.limits.frameBytes)) return this.error(conn, "too_large", "frame is too large");
+    const parsed2 = parseClientFrame(text2);
+    if (!parsed2.ok) return this.error(conn, PARSE_CODES[parsed2.reason] ?? "malformed", parsed2.reason);
+    const f7 = parsed2.value;
+    if (f7.t === "roster.get") return this.rosterGet(conn, f7.from);
+    if (f7.t !== "roster.publish") return this.error(conn, "unauthorized", "a recovery connection only reads and publishes rosters", f7.t);
+    this.publish(conn, st.device, f7.roster, this.host.now());
+    this.shut(conn, this.host.getState(conn), CLOSE.recovered, "recovered");
+  }
+  create(conn, f7) {
+    if (this.config.createRefused !== void 0) return this.error(conn, "unauthorized", this.config.createRefused, "create");
+    const key3 = this.config.createKey;
+    if (key3 !== void 0 && !bytesEqual(utf8(f7.key ?? ""), utf8(key3))) {
+      return this.error(conn, "unauthorized", "this relay needs an operator key to create a mesh", "create");
+    }
+    if (f7.roster.mesh !== this.config.meshId) return this.error(conn, "malformed", "the roster is for another mesh", "create");
+    const v = verifyGenesisRoster(f7.roster);
+    if (!v.ok) return this.error(conn, "roster_invalid", v.reason, "create");
+    if (this.exists()) return this.error(conn, "mesh_exists", "a mesh with this id already exists", "create");
+    if (this.host.admitMesh?.() === false) {
+      return this.error(conn, "full", "this relay holds as many meshes as it accepts; try again later", "create");
+    }
+    this.store.insertRoster({ seq: 1, hash: hash2(v.value), json: JSON.stringify(v.value) });
+    this.cached = v.value;
+    this.absent = false;
+    this.emit(conn, { t: "roster", chain: [v.value], more: false });
+  }
+  join(conn, st, f7) {
+    const now = this.host.now();
+    if (f7.mesh !== this.config.meshId || !this.exists()) return this.error(conn, "unauthorized", "unknown mesh", "join");
+    const v = verifyJoin(f7, void 0, st.nonce);
+    if (!v.ok) return this.error(conn, "malformed", v.reason, "join");
+    const body = v.value;
+    const inv = this.store.getInvite(body.invite);
+    if (inv === void 0) return this.error(conn, "invite_unknown", "no such invite", "join");
+    if (inv.exp <= now) return this.error(conn, "invite_expired", "the invite has expired", "join");
+    if (this.roster().revoked.includes(body.device.id)) return this.error(conn, "unauthorized", "this device was revoked", "join");
+    if (inv.joiner !== null && inv.joiner !== body.device.id) return this.error(conn, "invite_used", "the invite was already used", "join");
+    const pending2 = this.store.getJoin(inv.id);
+    if (pending2 !== void 0 && pending2.device !== body.device.id) {
+      return this.error(conn, "invite_used", "another device is already joining with this invite", "join");
+    }
+    const waiting3 = [...this.host.connections()].filter((c5) => {
+      const s3 = this.host.getState(c5);
+      return c5.id !== conn.id && s3.phase === "pre" && s3.join !== null;
+    });
+    const same = waiting3.filter((c5) => this.host.getState(c5).join === inv.id);
+    if (waiting3.length - same.length >= this.limits.pendingJoinsPerMesh) {
+      return this.error(conn, "limited", "too many joins are waiting in this mesh", "join");
+    }
+    for (const c5 of same.slice(0, Math.max(0, same.length - this.limits.pendingJoinsPerInvite + 1))) {
+      this.shut(c5, this.host.getState(c5), CLOSE.replaced, "replaced by a newer join");
+    }
+    if (inv.joiner !== null) {
+      this.host.setState(conn, { ...st, join: inv.id, deadline: now + this.limits.authDeadlineMs });
+      return this.emit(conn, { t: "joined", ...this.page(inv.pinSeq) });
+    }
+    this.store.putJoin({ invite: inv.id, device: body.device.id, body: JSON.stringify(body), exp: inv.exp });
+    this.host.setState(conn, { ...st, join: inv.id, deadline: inv.exp });
+    const request2 = JSON.stringify({ t: "join.request", join: body });
+    for (const c5 of this.adminConns()) c5.send(request2);
+  }
+  auth(conn, st, f7) {
+    const now = this.host.now();
+    const refuse = (code2, message2) => {
+      this.error(conn, code2, message2, "auth");
+      this.shut(conn, st, code2 === "limited" ? CLOSE.limited : CLOSE.unauthorized, code2);
+    };
+    if (f7.mesh !== this.config.meshId || !this.exists()) return refuse("unauthorized", "unknown mesh");
+    const roster = this.roster();
+    const device = roster.devices.find((d5) => d5.id === f7.device);
+    if (device === void 0) return refuse("unauthorized", "the device is not in the roster");
+    if (isRecoveryName(device.name)) return refuse("unauthorized", "recovery records do not connect");
+    const v = verifyAuth(f7, b64u.decode(device.sign), { relay: this.config.relayUrls, nonce: st.nonce, now, skewMs: this.limits.authSkewMs });
+    if (!v.ok) return refuse("unauthorized", v.reason);
+    if (f7.pin.seq > roster.seq) return refuse("unauthorized", "the pinned roster is newer than any this relay holds");
+    const pinned = this.store.getRoster(f7.pin.seq);
+    if (pinned.hash !== f7.pin.hash) {
+      const fork = { at: now, seq: f7.pin.seq, kind: "pin", signer: f7.device, a: pinned.hash, b: f7.pin.hash };
+      this.store.addFork(fork);
+      this.host.log("fork", fork);
+    }
+    const claim2 = this.claim(f7, now);
+    if (typeof claim2 === "string") return refuse(claim2 === "limited" ? "limited" : "unauthorized", claim2);
+    const row = claim2;
+    row.kind = f7.session.kind;
+    row.resume = hash2(f7.session.resume);
+    row.conn = conn.id;
+    row.status = "idle";
+    row.since = now;
+    const through = Math.min(f7.resume?.cursor ?? 0, row.delivered);
+    if (through > row.acked) {
+      this.store.dequeueThrough(row.sid, through);
+      row.acked = through;
+    }
+    const queued = this.store.queue(row.sid, row.acked);
+    for (const item of queued) row.delivered = Math.max(row.delivered, item.cur);
+    this.store.putSession(row);
+    this.host.setState(conn, { ...st, phase: "authed", deadline: 0, join: null, sid: row.sid, device: row.device, name: row.name });
+    this.emit(conn, {
+      t: "ready",
+      sid: row.sid,
+      name: row.name,
+      cursor: row.acked,
+      roster,
+      more: roster.seq > f7.pin.seq + 1,
+      peers: this.peerRows(row.sid)
+    });
+    this.sendCards(conn);
+    for (const item of queued) conn.send(item.kind === "ci" ? ciDeliverText(item.cur, item.msg) : deliverText(item.cur, item.msg));
+    if (device.role === "admin") {
+      for (const j5 of this.store.joins()) if (j5.exp > now) conn.send(`{"t":"join.request","join":${j5.body}}`);
+    }
+    this.pushPeer(row);
+  }
+  /**
+   * Finds or creates the session an `auth` claims (SPEC section 8, names). Returns the row to
+   * bring online, or the reason for refusing.
+   */
+  claim(f7, now) {
+    const { sid, name } = f7.session;
+    const own2 = this.store.getSession(sid);
+    if (own2 !== void 0) {
+      if (own2.device !== f7.device || own2.ended !== null) return "the session id is not available";
+      if (own2.resume !== hash2(f7.session.resume)) return "the session id is not available without its resume secret";
+      if (own2.conn !== null) {
+        const old = this.connFor(own2);
+        this.shut(old, this.host.getState(old), CLOSE.replaced, "replaced by a new connection");
+      }
+      return { ...own2, name: this.freeName(f7.device, name, sid) };
+    }
+    const live = this.store.sessionsOf(f7.device).filter((s3) => s3.ended === null);
+    const holder = live.find((s3) => s3.name === name);
+    if (holder !== void 0 && holder.conn === null && holder.resume === hash2(f7.session.resume)) {
+      this.store.rekeySession(holder.sid, sid);
+      return { ...holder, sid };
+    }
+    const meshLive = this.store.sessions().filter((s3) => s3.ended === null).length;
+    if (live.length >= this.limits.sessionsPerDevice || meshLive >= this.limits.sessionsPerMesh) return "limited";
+    return {
+      sid,
+      device: f7.device,
+      name: this.freeName(f7.device, name, sid),
+      kind: f7.session.kind,
+      status: "idle",
+      since: now,
+      conn: null,
+      ended: null,
+      resume: "",
+      acked: 0,
+      delivered: 0,
+      nextCursor: 1,
+      ci: false
+    };
+  }
+  /** `name`, or the first free `name-2`, `name-3`, ... on the device (ignoring session `self`). */
+  freeName(device, name, self2) {
+    const taken = new Set(
+      this.store.sessionsOf(device).filter((s3) => s3.ended === null && s3.sid !== self2).map((s3) => s3.name)
+    );
+    let candidate = name;
+    for (let k5 = 2; taken.has(candidate); k5++) {
+      const suffix = `-${k5}`;
+      candidate = name.slice(0, 32 - suffix.length) + suffix;
+    }
+    return candidate;
+  }
+  // ---- after auth ----
+  authed(conn, st, text2) {
+    if (!fitsUtf8(text2, this.limits.frameBytes)) return this.error(conn, "too_large", "frame is too large");
+    const parsed2 = parseClientFrame(text2);
+    if (!parsed2.ok) {
+      const ref2 = parsed2.reason === "unknown_type" ? peekType(text2) : void 0;
+      return this.error(conn, PARSE_CODES[parsed2.reason] ?? "malformed", parsed2.reason, ref2);
+    }
+    const f7 = parsed2.value;
+    if (f7.t === "card.set" && !fitsUtf8(text2, this.limits.cardFrameBytes)) return this.error(conn, "too_large", "card is too large", f7.t);
+    const s3 = this.store.getSession(st.sid);
+    const now = this.host.now();
+    switch (f7.t) {
+      case "auth":
+      case "create":
+      case "join":
+        return this.error(conn, "unauthorized", "this connection is already authenticated", f7.t);
+      case "send":
+        return this.send(conn, s3, f7, now);
+      case "ack":
+        return this.ack(conn, s3, f7.cursor);
+      case "receipt":
+        return this.receipt(conn, s3, f7.id, f7.status);
+      case "presence":
+        return this.presence(s3, f7.status, now);
+      case "peers":
+        return this.emit(conn, { t: "peers", peers: this.peerRows(s3.sid) });
+      case "rename":
+        return this.rename(conn, st, s3, f7.name);
+      case "notify_idle":
+        return this.notifyIdle(conn, s3, f7.of, now);
+      case "invite.create":
+        return this.inviteCreate(conn, s3, f7.invite, f7.exp, f7.pin, now);
+      case "roster.publish":
+        return this.publish(conn, s3.device, f7.roster, now);
+      case "roster.get":
+        return this.rosterGet(conn, f7.from);
+      case "roster.fork":
+        return this.forkEvidence(conn, s3, f7.a, f7.b, now);
+      case "room.join":
+        return this.roomJoin(conn, s3, f7.room, now);
+      case "room.leave":
+        return this.roomLeave(conn, s3, f7.room);
+      case "room.history":
+        return this.roomHistory(conn, f7.room, f7.before, f7.limit);
+      case "lease.acquire":
+        return this.leaseAcquire(conn, s3, f7.key, f7.ttl, f7.wait === true, now);
+      case "lease.renew":
+        return this.leaseRenew(conn, s3, f7.key, f7.token, f7.ttl, now);
+      case "lease.release":
+        return this.leaseRelease(conn, s3, f7.key, f7.token, now);
+      case "lease.list":
+        return this.leaseList(conn, now);
+      case "lease.watch":
+        return this.leaseWatch(conn, s3, f7.key, now);
+      case "blob.put":
+        return this.blobPut(conn, s3, f7, now);
+      case "blob.get":
+        return this.blobGet(conn, f7.blob, f7.index);
+      case "card.set":
+        return this.cardSet(conn, s3, f7.msg, now);
+      case "cards.get":
+        return this.sendCards(conn, f7.after);
+      case "rdv.put":
+        return this.rdvPut(conn, st, s3, f7, now);
+      case "ci.rules":
+        if (this.config.ci !== true) return this.error(conn, "unknown_type", "unknown_type", f7.t);
+        return this.ciRules(conn, s3, f7.tags, f7.gitlab);
+      case "mesh.delete":
+        return this.meshDelete(conn, s3, f7.mesh);
+      case "ping":
+        return this.emit(conn, { t: "pong" });
+      case "bye":
+        return this.bye(conn, st, s3, f7.ended, now);
+    }
+  }
+  // ---- messages ----
+  send(conn, s3, f7, now) {
+    const L = this.limits;
+    if (f7.from.device !== s3.device || f7.from.sid !== s3.sid || f7.from.session !== s3.name) {
+      return this.error(conn, "unauthorized", "from does not match this connection", f7.id);
+    }
+    if (f7.mesh !== this.config.meshId) return this.error(conn, "malformed", "wrong mesh", f7.id);
+    const prior = this.store.getMessage(f7.id);
+    if (prior !== void 0 && prior.sender !== s3.sid) return this.error(conn, "malformed", "message id already used", f7.id);
+    const everyone = f7.to.includes("*");
+    const broadcast = everyone || f7.to.some(isRoom);
+    const sends = this.level(`send:${s3.sid}`, L.sendBurst, L.sendsPerMinute / MINUTE4, now);
+    const casts = broadcast ? this.level(`bcast:${s3.sid}`, L.broadcastsPerMinute, L.broadcastsPerMinute / MINUTE4, now) : 1;
+    if (sends < 1 || casts < 1) {
+      return this.emit(conn, { t: "sent", id: f7.id, results: f7.to.map((to) => ({ to, status: "limited" })) });
+    }
+    this.spend(`send:${s3.sid}`, sends, 1, now);
+    if (broadcast) this.spend(`bcast:${s3.sid}`, casts, 1, now);
+    const results = [];
+    const targets = [];
+    const rooms = /* @__PURE__ */ new Map();
+    const seen = /* @__PURE__ */ new Set([s3.sid]);
+    const reach = (r6, to) => {
+      if (seen.has(r6.sid)) return;
+      seen.add(r6.sid);
+      targets.push({ to, session: r6 });
+    };
+    for (const to of f7.to) {
+      if (to === "*") continue;
+      if (isRoom(to)) {
+        const room = this.store.getRoom(to);
+        if (room === void 0) results.push({ to, status: "unknown" });
+        else {
+          rooms.set(to, room);
+          for (const sid of this.store.members(to)) {
+            const m4 = this.store.getSession(sid);
+            reach(m4, this.address(m4));
+          }
+        }
+        continue;
+      }
+      const r6 = this.resolve(to);
+      if (typeof r6 === "string") results.push({ to, status: r6 });
+      else if (r6.sid === s3.sid) targets.push({ to, session: r6 });
+      else reach(r6, to);
+    }
+    if (everyone) {
+      const before = targets.length;
+      for (const other of this.store.sessions()) if (other.ended === null) reach(other, this.address(other));
+      if (targets.length === before) results.push({ to: "*", status: "unknown" });
+    }
+    let accepted2 = [];
+    for (const t2 of targets) {
+      const r6 = t2.session;
+      if (!Object.hasOwn(f7.boxes, r6.device)) results.push({ to: t2.to, status: "invalid" });
+      else if (this.store.queueCount(r6.sid) >= L.queuePerSession || this.store.queueCountFrom(r6.sid, s3.device) >= L.queuePerSenderDevice) {
+        results.push({ to: t2.to, status: "full" });
+      } else accepted2.push(t2);
+    }
+    const msg = JSON.stringify(f7);
+    const bytes3 = utf8(msg).length;
+    let stored2 = true;
+    if (accepted2.length > 0) {
+      const fanKey = `fan:${s3.device}`;
+      const budget = this.level(fanKey, L.fanoutBytesPerMinute, L.fanoutBytesPerMinute / MINUTE4, now);
+      const cost = bytes3 * accepted2.length;
+      if (budget < cost) {
+        for (const t2 of accepted2) results.push({ to: t2.to, status: "limited" });
+        accepted2 = [];
+        stored2 = false;
+      } else this.spend(fanKey, budget, cost, now);
+    }
+    if (stored2) {
+      for (const room of rooms.values()) {
+        this.store.addHistory({ room: room.room, cur: room.nextCursor, at: now, msg }, L.roomHistoryMessages);
+        this.store.putRoom({ ...room, nextCursor: room.nextCursor + 1 });
+      }
+      while (rooms.size > 0 && this.store.historyBytes() > L.roomHistoryBytesPerMesh) this.store.dropOldestHistory();
+    }
+    if (accepted2.length > 0) {
+      const rcpts = new Set(prior?.rcpts);
+      for (const t2 of accepted2) rcpts.add(t2.session.sid);
+      this.store.putMessage({ id: f7.id, sender: s3.sid, at: now, rcpts: [...rcpts] });
+    }
+    for (const t2 of accepted2) {
+      const r6 = this.store.getSession(t2.session.sid);
+      const cur = r6.nextCursor++;
+      this.store.enqueue({ sid: r6.sid, cur, id: f7.id, kind: "msg", fromDevice: s3.device, queuedAt: now, bytes: bytes3, msg });
+      const c5 = this.connFor(r6);
+      if (c5) {
+        c5.send(deliverText(cur, msg));
+        r6.delivered = cur;
+      }
+      this.store.putSession(r6);
+      results.push({ to: t2.to, status: c5 ? "routed" : "queued" });
+    }
+    this.emit(conn, { t: "sent", id: f7.id, results });
+  }
+  ack(conn, s3, cursor2) {
+    if (cursor2 > s3.delivered) return this.error(conn, "malformed", "ack beyond the highest delivered cursor", "ack");
+    if (cursor2 <= s3.acked) return;
+    this.store.dequeueThrough(s3.sid, cursor2);
+    this.store.putSession({ ...s3, acked: cursor2 });
+  }
+  receipt(conn, s3, id2, status3) {
+    if (status3 === "expired") return this.error(conn, "malformed", "only the relay sends expired receipts", "receipt");
+    const m4 = this.store.getMessage(id2);
+    if (m4 === void 0 || !m4.rcpts.includes(s3.sid)) return;
+    const sender = this.connFor(this.store.getSession(m4.sender));
+    if (sender) this.emit(sender, { t: "receipt", id: id2, to: this.address(s3), status: status3 });
+  }
+  // ---- sessions ----
+  presence(s3, status3, now) {
+    if (s3.status !== status3) {
+      const row = { ...s3, status: status3, since: now };
+      this.store.putSession(row);
+      this.pushPeer(row);
+    }
+    if (status3 === "idle") this.fireIdle(s3, now);
+  }
+  rename(conn, st, s3, name) {
+    const holder = this.store.sessionsOf(s3.device).find((o3) => o3.ended === null && o3.name === name && o3.sid !== s3.sid);
+    if (holder !== void 0) return this.error(conn, "name_taken", "a session on this device holds that name", "rename");
+    const row = { ...s3, name };
+    this.store.putSession(row);
+    this.host.setState(conn, { ...st, name });
+    this.emit(conn, { t: "peer", peer: this.peerRow(row) });
+    this.pushPeers();
+  }
+  notifyIdle(conn, s3, of, now) {
+    const target = this.resolve(of);
+    if (typeof target === "string") return this.error(conn, "not_found", "no such session", "notify_idle");
+    const armed = this.store.idleFor(target.sid).some((r6) => r6.sub === s3.sid);
+    if (!armed && this.store.idleCount(s3.sid) >= this.limits.notifyIdlePerSession) {
+      return this.error(conn, "limited", "too many idle notices armed", "notify_idle");
+    }
+    this.store.putIdle({ sub: s3.sid, target: target.sid, exp: now + this.limits.idleNoticeLifetimeMs });
+  }
+  fireIdle(target, now) {
+    for (const sub of this.store.idleFor(target.sid)) {
+      this.store.deleteIdle(sub.sub, sub.target);
+      const c5 = sub.exp > now ? this.connFor(this.store.getSession(sub.sub)) : void 0;
+      if (c5) this.emit(c5, { t: "notice", kind: "idle", of: this.address(target) });
+    }
+  }
+  bye(conn, st, s3, ended2, now) {
+    this.shut(conn, st, CLOSE.bye, "bye");
+    if (!ended2) return this.goOffline(s3);
+    this.store.dequeueThrough(s3.sid, Number.MAX_SAFE_INTEGER);
+    this.store.deleteCard(s3.sid);
+    for (const room of this.store.roomsOf(s3.sid)) this.store.removeMember(room, s3.sid);
+    this.releaseAll(s3.sid, now);
+    this.store.putSession({ ...s3, conn: null, ended: now, since: now });
+    this.fireIdle(s3, now);
+    this.pushPeers();
+  }
+  goOffline(s3) {
+    const row = { ...s3, conn: null, since: this.host.now() };
+    this.store.putSession(row);
+    this.pushPeer(row);
+  }
+  // ---- invites and rosters ----
+  inviteCreate(conn, s3, id2, exp, pin, now) {
+    const L = this.limits;
+    if (!this.isAdmin(s3.device)) return this.error(conn, "unauthorized", "only admin devices create invites", "invite.create");
+    if (exp <= now || exp > now + L.inviteMaxTtlMs) return this.error(conn, "malformed", "exp must be in the next 7 days", "invite.create");
+    if (this.store.getInvite(id2) !== void 0) return this.error(conn, "invite_used", "that invite id is already registered", "invite.create");
+    if (this.store.liveInviteCount(s3.device, now) >= L.liveInvitesPerDevice) {
+      return this.error(conn, "limited", "too many live invites for this device", "invite.create");
+    }
+    const pinned = pin === void 0 ? void 0 : this.store.getRoster(pin.seq);
+    if (pin !== void 0 && pinned?.hash !== pin.hash) {
+      return this.error(conn, "roster_invalid", "the pin names no roster this relay holds", "invite.create");
+    }
+    this.store.putInvite({ id: id2, device: s3.device, exp, pinSeq: pin?.seq ?? this.store.rosterHead(), joiner: null });
+    this.emit(conn, { t: "invite.created", invite: id2 });
+  }
+  rosterGet(conn, from) {
+    if (from > this.store.rosterHead()) return this.error(conn, "malformed", "no roster at that seq", "roster.get");
+    this.emit(conn, { t: "roster", ...this.page(from) });
+  }
+  publish(conn, device, roster, now) {
+    if (!this.isAdmin(device)) return this.error(conn, "unauthorized", "only admin devices publish rosters", "roster.publish");
+    const prevRow = this.store.getRoster(roster.seq - 1);
+    if (prevRow === void 0) return this.error(conn, "roster_invalid", "no roster precedes it", "roster.publish");
+    const prev = JSON.parse(prevRow.json);
+    const v = verifyNextRoster(prev, roster);
+    if (!v.ok) return this.error(conn, "roster_invalid", v.reason, "roster.publish");
+    const next = v.value;
+    const h6 = hash2(next);
+    if (!this.store.insertRoster({ seq: next.seq, hash: h6, json: JSON.stringify(next) })) {
+      const held2 = this.store.getRoster(next.seq);
+      if (held2.hash === h6) return this.emit(conn, { t: "roster", ...this.page(next.seq) });
+      this.store.addFork({ at: now, seq: next.seq, kind: "evidence", signer: next.by, a: held2.json, b: JSON.stringify(next) });
+      this.host.log("fork", { seq: next.seq, signer: next.by, source: "roster.publish" });
+      return this.error(conn, "roster_conflict", "a different roster holds that seq", "roster.publish");
+    }
+    this.cached = next;
+    this.afterRoster(prev, next, now);
+  }
+  afterRoster(prev, next, now) {
+    const push = JSON.stringify({ t: "roster", chain: [next], more: false });
+    for (const c5 of this.authedConns()) c5.send(push);
+    const known = new Set(prev.devices.map((d5) => d5.id));
+    for (const d5 of next.devices) {
+      if (known.has(d5.id)) continue;
+      const pending2 = this.store.joins().find((j5) => j5.device === d5.id);
+      if (pending2 === void 0) continue;
+      const inv = this.store.getInvite(pending2.invite);
+      this.store.putInvite({ ...inv, joiner: d5.id });
+      this.store.deleteJoin(inv.id);
+      const joined = JSON.stringify({ t: "joined", ...this.page(inv.pinSeq) });
+      for (const c5 of this.host.connections()) {
+        const st = this.host.getState(c5);
+        if (st.phase !== "pre" || st.join !== inv.id) continue;
+        c5.send(joined);
+        this.host.setState(c5, { ...st, deadline: now + this.limits.authDeadlineMs });
+      }
+    }
+    const revoked = next.revoked.slice(prev.revoked.length);
+    for (const id2 of revoked) this.purge(id2, now);
+    if (revoked.length > 0) this.pushPeers();
+  }
+  /**
+   * A revoked device loses its sessions (with their queues, rooms, leases and waits), the
+   * messages and blob chunks it stored, and its invites.
+   */
+  purge(device, now) {
+    const sessions = this.store.sessionsOf(device);
+    for (const s3 of sessions) {
+      const c5 = this.connFor(s3);
+      if (c5) this.shut(c5, this.host.getState(c5), CLOSE.revoked, "device revoked");
+      this.releaseAll(s3.sid, now);
+      this.store.deleteSession(s3.sid);
+    }
+    this.store.dropQueueFrom(device);
+    this.store.dropChunksFrom(device);
+    this.store.deleteCiRules(device);
+    for (const inv of this.store.invitesBy(device)) {
+      this.store.deleteInvite(inv.id);
+      this.store.deleteJoin(inv.id);
+    }
+    this.host.log("revoked", { device, sessions: sessions.length });
+  }
+  forkEvidence(conn, s3, a5, b5, now) {
+    const valid = (r6) => {
+      if (r6.seq === 1) return verifyGenesisRoster(r6).ok;
+      const prev = this.store.getRoster(r6.seq - 1);
+      return prev !== void 0 && verifyNextRoster(JSON.parse(prev.json), r6).ok;
+    };
+    if (a5.mesh !== this.config.meshId || !detectFork(a5, b5) || !valid(a5) || !valid(b5)) {
+      return this.error(conn, "malformed", "not evidence of a fork in this mesh", "roster.fork");
+    }
+    this.store.addFork({ at: now, seq: a5.seq, kind: "evidence", signer: s3.device, a: JSON.stringify(a5), b: JSON.stringify(b5) });
+    this.host.log("fork", { seq: a5.seq, signer: s3.device, source: "roster.fork" });
+  }
+  // ---- rooms ----
+  roomJoin(conn, s3, room, now) {
+    const L = this.limits;
+    const mine = this.store.roomsOf(s3.sid);
+    if (!mine.includes(room)) {
+      const exists = this.store.getRoom(room) !== void 0;
+      if (mine.length >= L.roomsPerSession || !exists && this.store.roomCount() >= L.roomsPerMesh) {
+        return this.error(conn, "room_limit", "too many rooms", "room.join");
+      }
+      if (!exists) this.store.putRoom({ room, created: now, nextCursor: 1 });
+      this.store.addMember(room, s3.sid);
+      this.pushPeer(s3);
+    }
+    const members2 = this.store.members(room).map((sid) => this.address(this.store.getSession(sid)));
+    this.emit(conn, { t: "room.joined", room, members: members2 });
+  }
+  roomLeave(conn, s3, room) {
+    if (this.store.roomsOf(s3.sid).includes(room)) {
+      this.store.removeMember(room, s3.sid);
+      this.pushPeer(s3);
+    }
+    this.emit(conn, { t: "peer", peer: this.peerRow(s3) });
+  }
+  roomHistory(conn, room, before, limit2) {
+    const max = Math.min(limit2 ?? this.limits.roomHistoryPageMax, this.limits.roomHistoryPageMax);
+    const since = this.host.now() - this.limits.roomHistoryLifetimeMs;
+    const rows = this.store.history(room, before ?? Number.MAX_SAFE_INTEGER, max, since);
+    const parts = [];
+    let bytes3 = 0;
+    let oldest = Number.MAX_SAFE_INTEGER;
+    for (const h6 of rows) {
+      if (parts.length > 0 && bytes3 + h6.msg.length > this.limits.frameBytes) break;
+      bytes3 += h6.msg.length;
+      parts.unshift(`{"cursor":${h6.cur},"msg":${h6.msg}}`);
+      oldest = h6.cur;
+    }
+    const more = parts.length > 0 && this.store.history(room, oldest, 1, since).length > 0;
+    conn.send(`{"t":"room.history","room":${JSON.stringify(room)},"msgs":[${parts.join(",")}],"more":${more}}`);
+  }
+  // ---- leases ----
+  ttlOk(ttl) {
+    return ttl >= this.limits.leaseTtlMinMs && ttl <= this.limits.leaseTtlMaxMs;
+  }
+  leaseAcquire(conn, s3, key3, ttl, wait, now) {
+    const L = this.limits;
+    if (!this.ttlOk(ttl)) return this.lease(conn, { key: key3, status: "refused" });
+    this.expireDue(key3, now);
+    const held2 = this.store.getLease(key3);
+    const busy = this.store.leasesHeldBy(s3.sid) + this.store.waitsBy(s3.sid) >= L.leasesPerSession;
+    const deviceFull = this.deviceLeases(s3.device) >= L.leasesPerDevice;
+    if (held2 !== void 0) {
+      if (!wait || held2.holder === s3.sid) {
+        const holder = this.address(this.store.getSession(held2.holder));
+        return this.lease(conn, { key: key3, status: "held", holder, until: held2.until });
+      }
+      if (busy) return this.lease(conn, { key: key3, status: "refused" });
+      return this.store.addWaiter({ key: key3, sid: s3.sid, ttl, exp: now + ttl });
+    }
+    if (busy || deviceFull || this.store.leases().length >= L.leasesPerMesh) return this.lease(conn, { key: key3, status: "refused" });
+    this.grant(s3, key3, ttl, now);
+  }
+  grant(s3, key3, ttl, now) {
+    const token = this.store.nextToken();
+    const until = now + ttl;
+    this.store.putLease({ key: key3, holder: s3.sid, token, until, granted: now });
+    this.leaseTo(s3, key3, "granted", { holder: this.address(s3), until, token });
+  }
+  leaseRenew(conn, s3, key3, token, ttl, now) {
+    this.expireDue(key3, now);
+    const l3 = this.store.getLease(key3);
+    const tooLong = l3 !== void 0 && now + ttl > l3.granted + this.limits.leaseMaxHoldMs;
+    if (l3 === void 0 || l3.holder !== s3.sid || l3.token !== token || !this.ttlOk(ttl) || tooLong) return this.lease(conn, { key: key3, status: "refused" });
+    this.store.putLease({ ...l3, until: now + ttl });
+    this.lease(conn, { key: key3, status: "renewed", until: now + ttl, token });
+  }
+  leaseRelease(conn, s3, key3, token, now) {
+    this.expireDue(key3, now);
+    const l3 = this.store.getLease(key3);
+    if (l3 === void 0 || l3.holder !== s3.sid || l3.token !== token) return this.lease(conn, { key: key3, status: "refused" });
+    this.lease(conn, { key: key3, status: "released", token });
+    this.free(l3, "released", now);
+  }
+  leaseList(conn, now) {
+    const leases = this.store.leases().filter((l3) => l3.until > now).map((l3) => ({ key: l3.key, holder: this.address(this.store.getSession(l3.holder)), until: l3.until, token: l3.token }));
+    this.emit(conn, { t: "leases", leases });
+  }
+  leaseWatch(conn, s3, key3, now) {
+    const armed = this.store.watchesFor(key3).some((w) => w.sid === s3.sid);
+    if (!armed && this.store.watchesBy(s3.sid) >= this.limits.leaseWatchesPerSession) return this.lease(conn, { key: key3, status: "refused" });
+    this.store.putWatch({ key: key3, sid: s3.sid, exp: now + this.limits.leaseWatchLifetimeMs });
+  }
+  /** Ends a lease whose `until` has passed, so it is free before anyone is answered about it. */
+  expireDue(key3, now) {
+    const l3 = this.store.getLease(key3);
+    if (l3 !== void 0 && l3.until <= now) this.free(l3, "expired", now);
+  }
+  /** Ends a lease: tells the holder (on expiry) and the watchers, then hands it to the first waiter still waiting. */
+  free(l3, why, now) {
+    this.store.deleteLease(l3.key);
+    if (why === "expired") this.leaseTo(this.store.getSession(l3.holder), l3.key, "expired", { token: l3.token });
+    for (const w of this.store.watchesFor(l3.key)) {
+      this.store.deleteWatch(w.key, w.sid);
+      if (w.exp > now) this.leaseTo(this.store.getSession(w.sid), l3.key, why);
+    }
+    for (const w of this.store.waiters(l3.key)) {
+      this.store.deleteWaiter(w.key, w.sid);
+      const waiter = this.store.getSession(w.sid);
+      if (w.exp <= now) {
+        this.leaseTo(waiter, l3.key, "expired");
+        continue;
+      }
+      if (this.connFor(waiter) === void 0) continue;
+      if (this.deviceLeases(waiter.device) >= this.limits.leasesPerDevice) {
+        this.leaseTo(waiter, l3.key, "refused");
+        continue;
+      }
+      this.grant(waiter, l3.key, w.ttl, now);
+      break;
+    }
+  }
+  /** Leases held by all sessions of a device. */
+  deviceLeases(device) {
+    const sids = new Set(this.store.sessionsOf(device).map((s3) => s3.sid));
+    return this.store.leases().filter((l3) => sids.has(l3.holder)).length;
+  }
+  /** Ends every lease a session holds, handing each to its next waiter. */
+  releaseAll(sid, now) {
+    for (const l3 of this.store.leases()) if (l3.holder === sid) this.free(l3, "released", now);
+  }
+  leaseTo(s3, key3, status3, extra = {}) {
+    const c5 = this.connFor(s3);
+    if (c5) this.lease(c5, { key: key3, status: status3, ...extra });
+  }
+  lease(conn, fields2) {
+    this.emit(conn, { t: "lease", ...fields2 });
+  }
+  // ---- blobs ----
+  blobPut(conn, s3, f7, now) {
+    const L = this.limits;
+    const existing = this.store.getChunk(f7.blob, f7.index);
+    if (existing !== void 0 && existing.device !== s3.device) {
+      return this.error(conn, "unauthorized", "another device stored this chunk", "blob.put");
+    }
+    const bytes3 = Math.floor(f7.data.length * 3 / 4);
+    const replaced = existing === void 0 ? 0 : existing.bytes;
+    const dayKey = `blob:${s3.device}`;
+    const day = this.level(dayKey, L.blobBytesPerDevicePerDay, L.blobBytesPerDevicePerDay / DAY2, now);
+    if (this.store.blobBytes() - replaced + bytes3 > L.blobBytesPerMesh || day < bytes3) {
+      return this.error(conn, "blob_quota", "blob storage limit reached", "blob.put");
+    }
+    const meshDay = this.level("blob:mesh", L.blobBytesPerMeshPerDay, L.blobBytesPerMeshPerDay / DAY2, now);
+    if (meshDay < bytes3) return this.error(conn, "blob_quota", "this mesh's daily file allowance is used up; it refills over the day", "blob.put");
+    this.spend("blob:mesh", meshDay, bytes3, now);
+    this.spend(dayKey, day, bytes3, now);
+    this.store.putChunk({ blob: f7.blob, idx: f7.index, last: f7.last, n: f7.n, data: f7.data, bytes: bytes3, device: s3.device, at: now });
+    this.emit(conn, { t: "blob.stored", blob: f7.blob, index: f7.index });
+  }
+  blobGet(conn, blob, index) {
+    const c5 = this.store.getChunk(blob, index);
+    if (c5 === void 0) return this.error(conn, "blob_missing", "no such chunk", "blob.get");
+    this.emit(conn, { t: "blob.chunk", blob, index, last: c5.last, n: c5.n, data: c5.data });
+  }
+  // ---- short invite codes ----
+  /**
+   * Checks an `rdv.put` (SPEC section 5) and hands it to the relay-wide store: only an admin
+   * device, an expiry within the next hour, and per-device and per-mesh hourly budgets, spent
+   * before the store's own per-source budget and count cap.
+   */
+  rdvPut(conn, st, s3, f7, now) {
+    const L = this.limits;
+    if (this.host.rdvPut === void 0) return this.error(conn, "unsupported", "this relay keeps no short invite codes", "rdv.put");
+    if (!this.isAdmin(s3.device)) return this.error(conn, "unauthorized", "only admin devices store short invite codes", "rdv.put");
+    if (f7.exp <= now || f7.exp > now + L.rdvLifetimeMs + L.authSkewMs) return this.error(conn, "malformed", "exp must be in the next hour", "rdv.put");
+    const exp = Math.min(f7.exp, now + L.rdvLifetimeMs);
+    const deviceKey = `rdv:${s3.device}`;
+    const device = this.level(deviceKey, L.rdvPutsPerDevicePerHour, L.rdvPutsPerDevicePerHour / HOUR3, now);
+    const mesh = this.level("rdv:mesh", L.rdvPutsPerMeshPerHour, L.rdvPutsPerMeshPerHour / HOUR3, now);
+    if (device < 1 || mesh < 1) return this.error(conn, "limited", "too many short invite codes for now; try again later", "rdv.put");
+    this.spend(deviceKey, device, 1, now);
+    this.spend("rdv:mesh", mesh, 1, now);
+    this.host.rdvPut({ rdv: f7.rdv, exp, n: f7.n, c: f7.c, source: st.source }, (outcome) => this.rdvAnswer(conn, f7.rdv, outcome));
+  }
+  /**
+   * `mesh.delete` (SPEC section 11): an admin device deletes the mesh. The relay answers the
+   * requester, closes every connection on the mesh (sessions, joiners waiting, recovery) with
+   * 4005, and has the host delete everything it holds for the mesh. From then on the mesh does not
+   * exist: its devices' `auth` is refused as for an unknown mesh, and its id could be created
+   * again only with a new genesis roster.
+   */
+  meshDelete(conn, s3, mesh) {
+    if (this.host.deleteMesh === void 0) return this.error(conn, "unsupported", "this relay does not delete meshes", "mesh.delete");
+    if (mesh !== this.config.meshId) return this.error(conn, "malformed", "that is not this connection's mesh", "mesh.delete");
+    if (!this.isAdmin(s3.device)) return this.error(conn, "unauthorized", "only an admin device can delete the mesh", "mesh.delete");
+    this.emit(conn, { t: "mesh.deleted", mesh });
+    const open3 = [...this.host.connections()].filter((c5) => this.host.getState(c5).phase !== "closed");
+    for (const c5 of open3) this.host.setState(c5, { ...this.host.getState(c5), phase: "closed" });
+    for (const c5 of open3) c5.close(CLOSE.deleted, "mesh deleted");
+    this.host.log("deleted", { by: s3.device });
+    this.cached = void 0;
+    this.absent = true;
+    this.host.deleteMesh();
+  }
+  /** Answers an `rdv.put` with the store's outcome, unless the connection has closed meanwhile. */
+  rdvAnswer(conn, rdv, outcome) {
+    if (this.host.getState(conn)?.phase !== "authed") return;
+    if (outcome === "stored") return this.emit(conn, { t: "rdv.stored", rdv });
+    const [code2, message2] = RDV_REFUSALS[outcome];
+    this.error(conn, code2, message2, "rdv.put");
+  }
+  // ---- peer cards ----
+  /**
+   * Stores a session's newest card (SPEC section 17). A card is never a message: it is not
+   * queued, delivered, receipted, or counted against message limits; it only annotates peer rows.
+   */
+  cardSet(conn, s3, msg, now) {
+    if (msg.from.device !== s3.device || msg.from.sid !== s3.sid || msg.from.session !== s3.name) {
+      return this.error(conn, "unauthorized", "from does not match this connection", "card.set");
+    }
+    if (msg.mesh !== this.config.meshId || msg.to.length !== 1 || msg.to[0] !== "*") {
+      return this.error(conn, "malformed", "a card is sealed to the whole mesh", "card.set");
+    }
+    const key3 = `card:${s3.sid}`;
+    const level = this.level(key3, 2, 1 / MINUTE4, now);
+    if (level < 1) return this.error(conn, "limited", "too many card updates", "card.set");
+    const text2 = JSON.stringify(msg);
+    const siblings = new Set(this.store.sessionsOf(s3.device).map((o3) => o3.sid));
+    siblings.delete(s3.sid);
+    let deviceBytes = text2.length;
+    for (const c5 of this.store.cards()) if (siblings.has(c5.sid)) deviceBytes += c5.msg.length;
+    if (deviceBytes > this.limits.cardBytesPerDevice) return this.error(conn, "limited", "too many card bytes for this device", "card.set");
+    this.spend(key3, level, 1, now);
+    this.store.putCard(s3.sid, text2);
+    const push = `{"t":"card","msg":${text2}}`;
+    for (const c5 of this.authedConns()) if (this.host.getState(c5).sid !== s3.sid) c5.send(push);
+  }
+  /**
+   * One `cards` page: the stored cards of sessions after sid `after`, in sid order, within the
+   * page byte limit (at least one card), with `more` when the client should ask with `cards.get`.
+   */
+  sendCards(conn, after = "") {
+    const cards = this.store.cards().filter((c5) => c5.sid > after).sort((a5, b5) => Number(a5.sid > b5.sid) - Number(a5.sid < b5.sid));
+    const parts = [];
+    let bytes3 = 0;
+    for (const card of cards) {
+      if (parts.length > 0 && bytes3 + card.msg.length > this.limits.cardsPageBytes) break;
+      parts.push(card.msg);
+      bytes3 += card.msg.length;
+    }
+    conn.send(`{"t":"cards","cards":[${parts.join(",")}],"more":${parts.length < cards.length}}`);
+  }
+  // ---- CI senders ----
+  /**
+   * `ci.rules` (SPEC section 18), on a relay that takes CI senders: replaces the device's rule tags
+   * and GitLab setting, and marks this session as taking CI notices.
+   */
+  ciRules(conn, s3, tags, gitlab) {
+    const unique = [...new Set(tags)];
+    this.store.putCiRules(s3.device, unique, gitlab);
+    if (!s3.ci) this.store.putSession({ ...s3, ci: true });
+    this.emit(conn, { t: "ci.rules", count: unique.length });
+  }
+  /**
+   * A CI sender's request (SPEC section 18), after the host has parsed it and, for a GitHub
+   * `ci.send`, verified its token (`github`, which the host passes only for a token that passed
+   * every check by the relay's clock). Synchronous like every other event. Checks, in order: the
+   * mesh exists, the per-source budget, the device and whether it takes notices by `via`; for a
+   * prekey request the device's newest prekey from its sessions' cards; for a send `at`, the
+   * verified token's candidate tags (one must be the device's) and unused `jti`, the session, then
+   * the counting key's rate and the CI queue, before it routes or queues the notice (for GitLab the
+   * rate comes first, and every outcome but `limited`, a used notice id included, reads `queued`).
+   * Answers 404 on a relay without CI senders. Never stores a token.
+   */
+  ci(req, ctx) {
+    const L = this.limits;
+    const now = this.host.now();
+    if (this.config.ci !== true) return CI_NOT_FOUND;
+    if (!this.exists()) return CI_UNAUTHORIZED;
+    const srcKey = `cisrc:${ctx.source}`;
+    const budget = this.level(srcKey, L.ciRequestsPerSourcePerMinute, L.ciRequestsPerSourcePerMinute / MINUTE4, now);
+    if (budget < 1) {
+      return { status: 429, body: { t: "error", code: "limited", message: "too many CI requests from this address; try again later" }, retryAfter: 60 };
+    }
+    this.spend(srcKey, budget, 1, now);
+    const device = this.roster().devices.find((d5) => d5.id === req.device);
+    const rules = device === void 0 || isRecoveryName(device.name) ? void 0 : this.store.ciRules(device.id);
+    const takes = req.via === "github" ? (rules?.tags.length ?? 0) > 0 : rules?.gitlab === true;
+    if (!takes) return CI_UNAUTHORIZED;
+    if (req.t === "ci.prekey") {
+      const prekey = this.newestPrekey(req.device);
+      return prekey === void 0 ? CI_UNAUTHORIZED : { status: 200, body: { t: "ci.prekey", prekey } };
+    }
+    if (req.mesh !== this.config.meshId || !ciAtFresh(req.at, now)) {
+      return { status: 400, body: { t: "error", code: "malformed", message: "the notice is for another mesh, or its at is more than 5 minutes from the relay's clock" } };
+    }
+    const seen = ctx.github;
+    if (req.via === "github" && (seen === void 0 || !seen.tags.some((t2) => rules.tags.includes(t2)) || this.store.hasJti(seen.jti, now))) return CI_UNAUTHORIZED;
+    const opaque = req.via === "gitlab";
+    const used = this.store.getMessage(req.id) !== void 0;
+    if (used && !opaque) return { status: 400, body: { t: "error", code: "malformed", message: "notice id already used" } };
+    const key3 = seen?.key ?? gitlabCountingKey(req.device);
+    const sent2 = (status3) => ({ status: 200, body: { t: "ci.sent", id: req.id, status: status3 } });
+    const found = this.store.sessionsOf(req.device).find((s3) => s3.name === req.to && s3.ended === null);
+    const target = found?.ci === true ? found : void 0;
+    if (target === void 0 && !opaque) return sent2("unknown");
+    const rate = this.level(`ci:${key3}`, L.ciSendBurst, L.ciSendsPerMinute / MINUTE4, now);
+    if (rate < 1) return sent2("limited");
+    const full = used || target === void 0 || this.store.queueCount(target.sid, "ci") >= L.ciQueuePerSession || this.store.queueCountFrom(target.sid, key3) >= L.ciQueuePerKey;
+    if (full && opaque) {
+      this.spend(`ci:${key3}`, rate, 1, now);
+      return sent2("queued");
+    }
+    if (full) return sent2("full");
+    if (seen !== void 0) {
+      if (this.store.pruneJtis(now) >= L.ciJtisPerMesh) {
+        return { status: 429, body: { t: "error", code: "limited", message: "too many CI tokens in flight for this mesh; try again later" }, retryAfter: 60 };
+      }
+      this.store.putJti(seen.jti, seen.exp + L.ciSkewMs);
+    }
+    this.spend(`ci:${key3}`, rate, 1, now);
+    const msg = JSON.stringify(ciNoticeOf(req));
+    const r6 = target;
+    const cur = r6.nextCursor++;
+    this.store.enqueue({ sid: r6.sid, cur, id: req.id, kind: "ci", fromDevice: key3, queuedAt: now, bytes: utf8(msg).length, msg });
+    this.store.putMessage({ id: req.id, sender: "", at: now, rcpts: [r6.sid] });
+    const c5 = this.connFor(r6);
+    if (c5) {
+      c5.send(ciDeliverText(cur, msg));
+      r6.delivered = cur;
+    }
+    this.store.putSession(r6);
+    return sent2(c5 && !opaque ? "routed" : "queued");
+  }
+  /** The newest prekey (by `at`) in the stored cards of a device's sessions; the sender verifies it. */
+  newestPrekey(device) {
+    const sids = new Set(this.store.sessionsOf(device).map((s3) => s3.sid));
+    let best;
+    for (const card of this.store.cards()) {
+      if (!sids.has(card.sid)) continue;
+      const pk = JSON.parse(card.msg).pk;
+      if (pk !== void 0 && (best === void 0 || pk.at > best.at)) best = pk;
+    }
+    return best;
+  }
+  // ---- helpers ----
+  /** Marks sessions offline whose connection is gone (the host restarted without them). */
+  reconcile() {
+    const open3 = /* @__PURE__ */ new Set();
+    for (const c5 of this.host.connections()) open3.add(c5.id);
+    for (const s3 of this.store.sessions()) {
+      if (s3.conn !== null && !open3.has(s3.conn)) this.store.putSession({ ...s3, conn: null, since: this.host.now() });
+    }
+  }
+  /** The newest roster. Cached; the store is the truth, so a fresh instance reads it back. */
+  roster() {
+    this.cached ??= JSON.parse(this.store.getRoster(this.store.rosterHead()).json);
+    return this.cached;
+  }
+  isAdmin(device) {
+    return this.roster().devices.some((d5) => d5.id === device && d5.role === "admin");
+  }
+  /** One page of the chain from seq `from`: at most 64 rosters or 512 KiB, at least one. */
+  page(from) {
+    const rows = this.store.rosterRange(from, this.limits.rosterPageMax);
+    const chain2 = [];
+    let bytes3 = 0;
+    for (const row of rows) {
+      if (chain2.length > 0 && bytes3 + row.json.length > this.limits.rosterPageBytes) break;
+      bytes3 += row.json.length;
+      chain2.push(JSON.parse(row.json));
+    }
+    return { chain: chain2, more: chain2.at(-1).seq < this.store.rosterHead() };
+  }
+  /** A session's address, `name@device`, with the device name from the current roster. */
+  address(s3) {
+    return `${s3.name}@${this.roster().devices.find((d5) => d5.id === s3.device).name}`;
+  }
+  /** The live session at `name@device`, or the `sent` status for an address that has none. */
+  resolve(address) {
+    const at = address.indexOf("@");
+    const name = address.slice(0, at);
+    const device = this.roster().devices.find((d5) => d5.name === address.slice(at + 1));
+    if (device === void 0) return "unknown";
+    const named = this.store.sessionsOf(device.id).filter((s3) => s3.name === name);
+    return named.find((s3) => s3.ended === null) ?? (named.length > 0 ? "ended" : "unknown");
+  }
+  peerRow(s3) {
+    return {
+      address: this.address(s3),
+      sid: s3.sid,
+      kind: s3.kind,
+      status: s3.conn === null ? "offline" : s3.status,
+      since: s3.since,
+      rooms: this.store.roomsOf(s3.sid)
+    };
+  }
+  /** Every live session except `self`. */
+  peerRows(self2) {
+    return this.store.sessions().filter((s3) => s3.ended === null && s3.sid !== self2).map((s3) => this.peerRow(s3));
+  }
+  /** Tells every other online session that one row changed. */
+  pushPeer(s3) {
+    const text2 = JSON.stringify({ t: "peer", peer: this.peerRow(s3) });
+    for (const c5 of this.authedConns()) if (this.host.getState(c5).sid !== s3.sid) c5.send(text2);
+  }
+  /** Sends every online session the whole list, for changes a single row cannot express. */
+  pushPeers() {
+    for (const c5 of this.authedConns()) this.emit(c5, { t: "peers", peers: this.peerRows(this.host.getState(c5).sid) });
+  }
+  *authedConns() {
+    for (const c5 of this.host.connections()) if (this.host.getState(c5).phase === "authed") yield c5;
+  }
+  *adminConns() {
+    for (const c5 of this.authedConns()) if (this.isAdmin(this.host.getState(c5).device)) yield c5;
+  }
+  /** The open connection holding a session, if any. */
+  connFor(s3) {
+    if (s3 === void 0 || s3.conn === null) return void 0;
+    for (const c5 of this.host.connections()) if (c5.id === s3.conn) return c5;
+    return void 0;
+  }
+  allowSource(st) {
+    const L = this.limits;
+    const key3 = `src:${st.source}`;
+    const now = this.host.now();
+    if (this.host.allowSource) return this.host.allowSource(st.source, now);
+    const level = this.level(key3, L.createJoinPerSourcePerHour, L.createJoinPerSourcePerHour / HOUR3, now);
+    if (level < 1) return false;
+    this.spend(key3, level, 1, now);
+    return true;
+  }
+  /** A token bucket's level now: full when never used, refilled at `perMs` up to `cap`. */
+  level(key3, cap, perMs, now) {
+    const row = this.store.getBucket(key3);
+    return row === void 0 ? cap : Math.min(cap, row.tokens + (now - row.at) * perMs);
+  }
+  spend(key3, level, cost, now) {
+    this.store.putBucket({ bkey: key3, tokens: level - cost, at: now });
+  }
+  shut(conn, st, code2, reason) {
+    this.host.setState(conn, { ...st, phase: "closed" });
+    conn.close(code2, reason);
+  }
+  emit(conn, frame) {
+    conn.send(JSON.stringify(frame));
+  }
+  error(conn, code2, message2, ref2) {
+    this.emit(conn, { t: "error", code: code2, message: message2, ref: ref2 });
+  }
+};
+function deliverText(cursor2, msg) {
+  return `{"t":"deliver","cursor":${cursor2},"msg":${msg}}`;
+}
+function ciDeliverText(cursor2, msg) {
+  return `{"t":"ci.deliver","cursor":${cursor2},"msg":${msg}}`;
+}
+function peekType(text2) {
+  const parsed2 = parseJson(text2);
+  return parsed2.value.t.slice(0, 128);
+}
+
+// ../relay-core/src/host.ts
+var DIAL_PATH = /\/v1\/([^/]*)$/;
+function parseDialPath(pathname) {
+  const match2 = DIAL_PATH.exec(pathname);
+  if (match2 === null) return { ok: false, status: 404, error: "not found" };
+  const meshId = match2[1];
+  if (!isMeshId(meshId)) return { ok: false, status: 400, error: "invalid mesh id" };
+  return { ok: true, meshId };
+}
+var CI_PATH = /\/v1\/([^/]*)\/ci$/;
+function parseCiPath(pathname) {
+  const match2 = CI_PATH.exec(pathname);
+  if (match2 === null) return void 0;
+  return isMeshId(match2[1]) ? { ok: true, meshId: match2[1] } : { ok: false, status: 400, error: "invalid mesh id" };
+}
+async function ciPrecheck(text2, opts) {
+  if (!opts.enabled) return { ok: false, answer: CI_NOT_FOUND };
+  const parsed2 = parseCiRequest(text2);
+  if (!parsed2.ok) {
+    const status3 = parsed2.reason === "too_large" ? 413 : 400;
+    return { ok: false, answer: { status: status3, body: { t: "error", code: parsed2.reason === "too_large" ? "too_large" : "malformed", message: parsed2.reason } } };
+  }
+  const req = parsed2.value;
+  if (req.t !== "ci.send" || req.via !== "github") return { ok: true, req };
+  const verified = await verifyCiToken(req.token, ciNoticeOf(req), opts.keys, opts.now);
+  if (!verified.ok) return { ok: false, answer: CI_UNAUTHORIZED };
+  return { ok: true, req, github: githubSeen(verified.value, req.mesh, req.device) };
+}
+function isInfoPath(pathname) {
+  return /\/v1\/info$/.test(pathname);
+}
+var RDV_PATH = /\/v1\/rdv\/([^/]*)$/;
+function parseRdvPath(pathname) {
+  const match2 = RDV_PATH.exec(pathname);
+  if (match2 === null) return void 0;
+  return isId22(match2[1]) ? { ok: true, rdv: match2[1] } : { ok: false, status: 400, error: "invalid id" };
+}
+var RDV_HEADERS = { "content-type": "application/json", "cache-control": "no-store" };
+var IPV4 = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+var HEXTET = /^[0-9a-f]{1,4}$/;
+function ipv6Words(text2) {
+  let s3 = text2;
+  const tail = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s3);
+  if (tail !== null) {
+    const o3 = tail.slice(1).map(Number);
+    if (o3.some((n3) => n3 > 255)) return void 0;
+    s3 = `${s3.slice(0, tail.index)}${(o3[0] << 8 | o3[1]).toString(16)}:${(o3[2] << 8 | o3[3]).toString(16)}`;
+  }
+  const halves = s3.split("::");
+  if (halves.length > 2) return void 0;
+  const groups = halves.map((h6) => h6 === "" ? [] : h6.split(":"));
+  if (!groups.every((g5) => g5.every((x2) => HEXTET.test(x2)))) return void 0;
+  const words = groups.map((g5) => g5.map((x2) => parseInt(x2, 16)));
+  if (words.length === 1) return words[0].length === 8 ? words[0] : void 0;
+  const missing = 8 - words[0].length - words[1].length;
+  return missing < 1 ? void 0 : [...words[0], ...Array(missing).fill(0), ...words[1]];
+}
+function sourceBucket(address) {
+  const bare = address.toLowerCase().replace(/^\[(.*)\]$/, "$1");
+  const zone = bare.indexOf("%");
+  const a5 = zone < 0 ? bare : bare.slice(0, zone);
+  if (IPV4.test(a5)) return a5;
+  const w = ipv6Words(a5);
+  if (w === void 0) return address;
+  if (w.slice(0, 5).every((x2) => x2 === 0) && w[5] === 65535) return [w[6] >> 8, w[6] & 255, w[7] >> 8, w[7] & 255].join(".");
+  return `${w.slice(0, 4).map((x2) => x2.toString(16)).join(":")}::/64`;
+}
+function sourceKey2(address, secret) {
+  return b64u.encode(hmacSha256(secret, utf8(sourceBucket(address)))).slice(0, 22);
+}
+var UNIT = { "": 1, kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3 };
+var RELAY_VERSION = "0.1.10";
+function relayInfo(s3) {
+  return {
+    v: 1,
+    software: "worldinmotion-relay",
+    version: RELAY_VERSION,
+    create: s3.createRefused !== void 0 ? "closed" : s3.createKey !== void 0 ? "key" : "open",
+    limits: {
+      max_meshes: s3.maxMeshes ?? null,
+      idle_mesh_days: s3.idleMeshDays ?? null,
+      blob_bytes_per_mesh_per_day: s3.limits.blobBytesPerMeshPerDay ?? LIMITS.blobBytesPerMeshPerDay
+    },
+    offer: s3.offer ?? null,
+    ci: s3.ci === true,
+    ciPatterns: s3.ci === true
+  };
+}
+function healthz(problem) {
+  return problem === void 0 ? { status: 200, body: { ok: true } } : { status: 503, body: { ok: false, error: problem } };
+}
+
+// ../relay-core/src/rdv.ts
+var HOUR4 = 36e5;
+var Rendezvous = class {
+  limits;
+  db;
+  constructor(db, limits = {}) {
+    this.db = db;
+    this.limits = { ...LIMITS, ...limits };
+    db.exec("CREATE TABLE IF NOT EXISTS rdv (id TEXT PRIMARY KEY, exp INTEGER NOT NULL, n TEXT NOT NULL, c TEXT NOT NULL, gets INTEGER NOT NULL)");
+    db.exec("CREATE TABLE IF NOT EXISTS rdv_buckets (k TEXT PRIMARY KEY, tokens REAL NOT NULL, at INTEGER NOT NULL)");
+  }
+  /** Stores a box, unless its source is over its rate, the relay is full, or the id is taken. */
+  put(p3, now) {
+    const L = this.limits;
+    if (!this.take(`put:${p3.source}`, L.rdvPutsPerSourcePerHour, now)) return "limited";
+    if (Number(this.db.one("SELECT COUNT(*) AS n FROM rdv WHERE exp > ?", now)["n"]) >= L.rdvBoxesPerRelay) return "full";
+    if (this.db.one("SELECT id FROM rdv WHERE id = ? AND exp > ?", p3.rdv, now) !== void 0) return "exists";
+    this.db.exec(
+      "INSERT INTO rdv (id, exp, n, c, gets) VALUES (?, ?, ?, ?, 0) ON CONFLICT (id) DO UPDATE SET exp = excluded.exp, n = excluded.n, c = excluded.c, gets = 0",
+      p3.rdv,
+      p3.exp,
+      p3.n,
+      p3.c
+    );
+    return "stored";
+  }
+  /**
+   * Hands out a live box, counting the fetch and deleting the box with the last one allowed. Every
+   * fetch, found or not, spends from its source's hourly budget first.
+   */
+  get(rdv, source2, now) {
+    if (!this.take(`get:${source2}`, this.limits.rdvGetsPerSourcePerHour, now)) return { status: 429, body: { error: "too many requests from this address; try again later" } };
+    const row = this.db.one("SELECT exp, n, c, gets FROM rdv WHERE id = ? AND exp > ?", rdv, now);
+    if (row === void 0) return { status: 404, body: { error: "not found" } };
+    const gets = Number(row["gets"]) + 1;
+    if (gets >= this.limits.rdvGetsPerBox) this.db.exec("DELETE FROM rdv WHERE id = ?", rdv);
+    else this.db.exec("UPDATE rdv SET gets = ? WHERE id = ?", gets, rdv);
+    return { status: 200, body: { v: 1, rdv, exp: Number(row["exp"]), n: String(row["n"]), c: String(row["c"]) } };
+  }
+  /** Deletes expired boxes, and buckets unused for an hour (they have refilled by then). */
+  sweep(now) {
+    this.db.exec("DELETE FROM rdv WHERE exp <= ?", now);
+    this.db.exec("DELETE FROM rdv_buckets WHERE at <= ?", now - HOUR4);
+  }
+  /** The first time `sweep` has something to delete, or undefined when the store is empty. */
+  nextDue() {
+    const box = this.db.one("SELECT MIN(exp) AS due FROM rdv")["due"];
+    const bucket = this.db.one("SELECT MIN(at) + ? AS due FROM rdv_buckets", HOUR4)["due"];
+    const dues = [box, bucket].filter((v) => v !== null).map(Number);
+    return dues.length === 0 ? void 0 : Math.min(...dues);
+  }
+  /** Spends one token of an hourly bucket (full when unused). Returns whether one was left. */
+  take(key3, perHour, now) {
+    const row = this.db.one("SELECT tokens, at FROM rdv_buckets WHERE k = ?", key3);
+    const tokens = row === void 0 ? perHour : Math.min(perHour, Number(row["tokens"]) + (now - Number(row["at"])) * perHour / HOUR4);
+    if (tokens < 1) return false;
+    this.db.exec("INSERT INTO rdv_buckets (k, tokens, at) VALUES (?, ?, ?) ON CONFLICT (k) DO UPDATE SET tokens = excluded.tokens, at = excluded.at", key3, tokens - 1, now);
+    return true;
+  }
+};
+
+// ../relay-core/src/sql-store.ts
+function positional(sql, params) {
+  const values = [];
+  let largest = 0;
+  const text2 = sql.replace(/\?(\d*)/g, (_match, digits) => {
+    const index = digits === "" ? largest + 1 : Number(digits);
+    largest = Math.max(largest, index);
+    values.push(params[index - 1]);
+    return "?";
+  });
+  return [text2, ...values];
+}
+var MIGRATIONS = [
+  {
+    reader: 1,
+    sql: [
+      `CREATE TABLE rosters (mesh TEXT NOT NULL, seq INTEGER NOT NULL, hash TEXT NOT NULL, json TEXT NOT NULL,
+      PRIMARY KEY (mesh, seq))`,
+      `CREATE TABLE forks (mesh TEXT NOT NULL, at INTEGER NOT NULL, seq INTEGER NOT NULL, kind TEXT NOT NULL,
+      signer TEXT NOT NULL, a TEXT NOT NULL, b TEXT NOT NULL)`,
+      `CREATE TABLE invites (mesh TEXT NOT NULL, id TEXT NOT NULL, device TEXT NOT NULL, exp INTEGER NOT NULL,
+      pinSeq INTEGER NOT NULL, joiner TEXT, PRIMARY KEY (mesh, id))`,
+      `CREATE TABLE joins (mesh TEXT NOT NULL, invite TEXT NOT NULL, device TEXT NOT NULL, body TEXT NOT NULL,
+      exp INTEGER NOT NULL, PRIMARY KEY (mesh, invite))`,
+      `CREATE TABLE sessions (mesh TEXT NOT NULL, sid TEXT NOT NULL, device TEXT NOT NULL, name TEXT NOT NULL,
+      kind TEXT NOT NULL, status TEXT NOT NULL, since INTEGER NOT NULL, conn TEXT, ended INTEGER,
+      resume TEXT NOT NULL, acked INTEGER NOT NULL, delivered INTEGER NOT NULL, nextCursor INTEGER NOT NULL,
+      PRIMARY KEY (mesh, sid))`,
+      `CREATE INDEX sessions_device ON sessions (mesh, device)`,
+      `CREATE TABLE queue (mesh TEXT NOT NULL, sid TEXT NOT NULL, cur INTEGER NOT NULL, id TEXT NOT NULL,
+      fromDevice TEXT NOT NULL, queuedAt INTEGER NOT NULL, bytes INTEGER NOT NULL, msg TEXT NOT NULL,
+      PRIMARY KEY (mesh, sid, cur))`,
+      `CREATE INDEX queue_age ON queue (mesh, queuedAt)`,
+      `CREATE TABLE messages (mesh TEXT NOT NULL, id TEXT NOT NULL, sender TEXT NOT NULL, at INTEGER NOT NULL,
+      PRIMARY KEY (mesh, id))`,
+      `CREATE TABLE message_rcpts (mesh TEXT NOT NULL, id TEXT NOT NULL, sid TEXT NOT NULL, PRIMARY KEY (mesh, id, sid))`,
+      `CREATE TABLE idle (mesh TEXT NOT NULL, sub TEXT NOT NULL, target TEXT NOT NULL, exp INTEGER NOT NULL,
+      PRIMARY KEY (mesh, sub, target))`,
+      `CREATE TABLE buckets (mesh TEXT NOT NULL, bkey TEXT NOT NULL, tokens REAL NOT NULL, at INTEGER NOT NULL,
+      PRIMARY KEY (mesh, bkey))`,
+      `CREATE TABLE rooms (mesh TEXT NOT NULL, room TEXT NOT NULL, created INTEGER NOT NULL, nextCursor INTEGER NOT NULL,
+      PRIMARY KEY (mesh, room))`,
+      `CREATE TABLE room_members (mesh TEXT NOT NULL, room TEXT NOT NULL, sid TEXT NOT NULL, PRIMARY KEY (mesh, room, sid))`,
+      `CREATE TABLE room_history (mesh TEXT NOT NULL, room TEXT NOT NULL, cur INTEGER NOT NULL, at INTEGER NOT NULL,
+      msg TEXT NOT NULL, PRIMARY KEY (mesh, room, cur))`,
+      `CREATE TABLE leases (mesh TEXT NOT NULL, lkey TEXT NOT NULL, holder TEXT NOT NULL, token INTEGER NOT NULL,
+      until INTEGER NOT NULL, granted INTEGER NOT NULL, PRIMARY KEY (mesh, lkey))`,
+      `CREATE TABLE lease_waiters (mesh TEXT NOT NULL, lkey TEXT NOT NULL, sid TEXT NOT NULL, ttl INTEGER NOT NULL,
+      exp INTEGER NOT NULL, PRIMARY KEY (mesh, lkey, sid))`,
+      `CREATE TABLE lease_watches (mesh TEXT NOT NULL, lkey TEXT NOT NULL, sid TEXT NOT NULL, exp INTEGER NOT NULL,
+      PRIMARY KEY (mesh, lkey, sid))`,
+      `CREATE TABLE counters (mesh TEXT NOT NULL, name TEXT NOT NULL, v INTEGER NOT NULL, PRIMARY KEY (mesh, name))`,
+      `CREATE TABLE chunks (mesh TEXT NOT NULL, blob TEXT NOT NULL, idx INTEGER NOT NULL, last INTEGER NOT NULL,
+      n TEXT NOT NULL, data TEXT NOT NULL, bytes INTEGER NOT NULL, device TEXT NOT NULL, at INTEGER NOT NULL,
+      PRIMARY KEY (mesh, blob, idx))`,
+      `CREATE INDEX chunks_age ON chunks (mesh, at)`,
+      `CREATE TABLE cards (mesh TEXT NOT NULL, sid TEXT NOT NULL, msg TEXT NOT NULL, PRIMARY KEY (mesh, sid))`
+    ]
+  },
+  // CI senders (SPEC section 18). Additive, so its reader stays 1: a version 1 relay never reads
+  // the new tables or columns, and their defaults are what it would write. It delivers a queued
+  // notice as a `deliver` that clients drop, and finds no sender to tell when one expires.
+  {
+    reader: 1,
+    sql: [
+      `ALTER TABLE sessions ADD COLUMN ci INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE queue ADD COLUMN kind TEXT NOT NULL DEFAULT 'msg'`,
+      `CREATE TABLE ci_rules (mesh TEXT NOT NULL, device TEXT NOT NULL, tags TEXT NOT NULL, gitlab INTEGER NOT NULL,
+        PRIMARY KEY (mesh, device))`,
+      `CREATE TABLE ci_jtis (mesh TEXT NOT NULL, jti TEXT NOT NULL, exp INTEGER NOT NULL, PRIMARY KEY (mesh, jti))`
+    ]
+  }
+];
+var SCHEMA_VERSION = MIGRATIONS.length;
+function migrate(db) {
+  const meta3 = "INSERT INTO wim_meta (k, v) VALUES (?, ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v";
+  db.exec("CREATE TABLE IF NOT EXISTS wim_meta (k TEXT PRIMARY KEY, v INTEGER NOT NULL)");
+  const row = db.one("SELECT v FROM wim_meta WHERE k = 'schema'");
+  const current = row === void 0 ? 0 : Number(row["v"]);
+  if (current > SCHEMA_VERSION) {
+    const reader = db.one("SELECT v FROM wim_meta WHERE k = 'reader'");
+    if (reader === void 0 || Number(reader["v"]) > SCHEMA_VERSION) {
+      throw new Error(`relay database schema ${current} is newer than this relay (${SCHEMA_VERSION}) and needs a newer relay`);
+    }
+    return;
+  }
+  for (let v = current; v < SCHEMA_VERSION; v++) {
+    db.transaction(() => {
+      for (const sql of MIGRATIONS[v].sql) db.exec(sql);
+      db.exec(meta3, "schema", v + 1);
+    });
+  }
+  db.exec(meta3, "reader", MIGRATIONS[SCHEMA_VERSION - 1].reader);
+}
+function meshCount(db) {
+  return Number(db.one("SELECT COUNT(*) AS n FROM rosters WHERE seq = 1")["n"]);
+}
+function dropMesh(db, mesh) {
+  const tables = db.all(
+    "SELECT m.name AS name FROM sqlite_master m WHERE m.type = 'table' AND EXISTS (SELECT 1 FROM pragma_table_info(m.name) p WHERE p.name = 'mesh')"
+  );
+  for (const t2 of tables) db.exec(`DELETE FROM "${String(t2["name"])}" WHERE mesh = ?`, mesh);
+}
+var str2 = (v) => v;
+var num = (v) => Number(v);
+var strOrNull = (v) => v === null ? null : v;
+var numOrNull = (v) => v === null ? null : Number(v);
+var toSession = (r6) => ({
+  sid: str2(r6["sid"]),
+  device: str2(r6["device"]),
+  name: str2(r6["name"]),
+  kind: str2(r6["kind"]),
+  status: str2(r6["status"]),
+  since: num(r6["since"]),
+  conn: strOrNull(r6["conn"]),
+  ended: numOrNull(r6["ended"]),
+  resume: str2(r6["resume"]),
+  acked: num(r6["acked"]),
+  delivered: num(r6["delivered"]),
+  nextCursor: num(r6["nextCursor"]),
+  ci: num(r6["ci"]) === 1
+});
+var toItem = (r6) => ({
+  sid: str2(r6["sid"]),
+  cur: num(r6["cur"]),
+  id: str2(r6["id"]),
+  kind: str2(r6["kind"]),
+  fromDevice: str2(r6["fromDevice"]),
+  queuedAt: num(r6["queuedAt"]),
+  bytes: num(r6["bytes"]),
+  msg: str2(r6["msg"])
+});
+var toInvite = (r6) => ({
+  id: str2(r6["id"]),
+  device: str2(r6["device"]),
+  exp: num(r6["exp"]),
+  pinSeq: num(r6["pinSeq"]),
+  joiner: strOrNull(r6["joiner"])
+});
+var toRoster = (r6) => ({ seq: num(r6["seq"]), hash: str2(r6["hash"]), json: str2(r6["json"]) });
+var toJoin = (r6) => ({ invite: str2(r6["invite"]), device: str2(r6["device"]), body: str2(r6["body"]), exp: num(r6["exp"]) });
+var toIdle = (r6) => ({ sub: str2(r6["sub"]), target: str2(r6["target"]), exp: num(r6["exp"]) });
+var toHistory = (r6) => ({ room: str2(r6["room"]), cur: num(r6["cur"]), at: num(r6["at"]), msg: str2(r6["msg"]) });
+var toLease = (r6) => ({
+  key: str2(r6["lkey"]),
+  holder: str2(r6["holder"]),
+  token: num(r6["token"]),
+  until: num(r6["until"]),
+  granted: num(r6["granted"])
+});
+var LEASE_COLS = "lkey, holder, token, until, granted";
+var toWaiter = (r6) => ({
+  key: str2(r6["lkey"]),
+  sid: str2(r6["sid"]),
+  ttl: num(r6["ttl"]),
+  exp: num(r6["exp"]),
+  seq: num(r6["seq"])
+});
+var toWatch = (r6) => ({ key: str2(r6["lkey"]), sid: str2(r6["sid"]), exp: num(r6["exp"]) });
+var toChunk = (r6) => ({
+  blob: str2(r6["blob"]),
+  idx: num(r6["idx"]),
+  last: num(r6["last"]) === 1,
+  n: str2(r6["n"]),
+  data: str2(r6["data"]),
+  bytes: num(r6["bytes"]),
+  device: str2(r6["device"]),
+  at: num(r6["at"])
+});
+var SESSION_COLS = "sid, device, name, kind, status, since, conn, ended, resume, acked, delivered, nextCursor, ci";
+var ITEM_COLS = "sid, cur, id, kind, fromDevice, queuedAt, bytes, msg";
+var INVITE_COLS = "id, device, exp, pinSeq, joiner";
+var WAITER_COLS = "lkey, sid, ttl, exp, rowid AS seq";
+var SqlStore = class {
+  db;
+  mesh;
+  constructor(db, mesh) {
+    this.db = db;
+    this.mesh = mesh;
+  }
+  // Every statement is scoped to this mesh, which is always its first parameter.
+  run(sql, ...params) {
+    this.db.exec(...positional(sql, [this.mesh, ...params]));
+  }
+  all(sql, ...params) {
+    return this.db.all(...positional(sql, [this.mesh, ...params]));
+  }
+  one(sql, ...params) {
+    return this.db.one(...positional(sql, [this.mesh, ...params]));
+  }
+  count(sql, ...params) {
+    return num(this.one(sql, ...params)["n"]);
+  }
+  rosterHead() {
+    return this.count("SELECT COALESCE(MAX(seq), 0) AS n FROM rosters WHERE mesh = ?");
+  }
+  getRoster(seq2) {
+    const r6 = this.one("SELECT seq, hash, json FROM rosters WHERE mesh = ? AND seq = ?", seq2);
+    return r6 && toRoster(r6);
+  }
+  rosterRange(from, limit2) {
+    return this.all("SELECT seq, hash, json FROM rosters WHERE mesh = ? AND seq >= ? ORDER BY seq LIMIT ?", from, limit2).map(toRoster);
+  }
+  insertRoster(row) {
+    const before = this.rosterCountAt(row.seq);
+    this.run("INSERT OR IGNORE INTO rosters (mesh, seq, hash, json) VALUES (?, ?, ?, ?)", row.seq, row.hash, row.json);
+    return this.rosterCountAt(row.seq) > before;
+  }
+  rosterCountAt(seq2) {
+    return this.count("SELECT COUNT(*) AS n FROM rosters WHERE mesh = ? AND seq = ?", seq2);
+  }
+  addFork(row) {
+    this.run("INSERT INTO forks (mesh, at, seq, kind, signer, a, b) VALUES (?, ?, ?, ?, ?, ?, ?)", row.at, row.seq, row.kind, row.signer, row.a, row.b);
+  }
+  forks() {
+    return this.all("SELECT at, seq, kind, signer, a, b FROM forks WHERE mesh = ? ORDER BY rowid").map((r6) => ({
+      at: num(r6["at"]),
+      seq: num(r6["seq"]),
+      kind: str2(r6["kind"]),
+      signer: str2(r6["signer"]),
+      a: str2(r6["a"]),
+      b: str2(r6["b"])
+    }));
+  }
+  getInvite(id2) {
+    const r6 = this.one(`SELECT ${INVITE_COLS} FROM invites WHERE mesh = ? AND id = ?`, id2);
+    return r6 && toInvite(r6);
+  }
+  putInvite(row) {
+    this.run(
+      `INSERT INTO invites (mesh, ${INVITE_COLS}) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (mesh, id) DO UPDATE SET
+       device = excluded.device, exp = excluded.exp, pinSeq = excluded.pinSeq, joiner = excluded.joiner`,
+      row.id,
+      row.device,
+      row.exp,
+      row.pinSeq,
+      row.joiner
+    );
+  }
+  deleteInvite(id2) {
+    this.run("DELETE FROM invites WHERE mesh = ? AND id = ?", id2);
+  }
+  liveInviteCount(device, now) {
+    return this.count("SELECT COUNT(*) AS n FROM invites WHERE mesh = ? AND device = ? AND joiner IS NULL AND exp > ?", device, now);
+  }
+  expiredInvites(now) {
+    return this.all(`SELECT ${INVITE_COLS} FROM invites WHERE mesh = ? AND exp <= ? ORDER BY exp`, now).map(toInvite);
+  }
+  invitesBy(device) {
+    return this.all(`SELECT ${INVITE_COLS} FROM invites WHERE mesh = ? AND device = ?`, device).map(toInvite);
+  }
+  getJoin(invite2) {
+    const r6 = this.one("SELECT invite, device, body, exp FROM joins WHERE mesh = ? AND invite = ?", invite2);
+    return r6 && toJoin(r6);
+  }
+  putJoin(row) {
+    this.run(
+      `INSERT INTO joins (mesh, invite, device, body, exp) VALUES (?, ?, ?, ?, ?) ON CONFLICT (mesh, invite) DO UPDATE SET
+       device = excluded.device, body = excluded.body, exp = excluded.exp`,
+      row.invite,
+      row.device,
+      row.body,
+      row.exp
+    );
+  }
+  deleteJoin(invite2) {
+    this.run("DELETE FROM joins WHERE mesh = ? AND invite = ?", invite2);
+  }
+  joins() {
+    return this.all("SELECT invite, device, body, exp FROM joins WHERE mesh = ? ORDER BY exp").map(toJoin);
+  }
+  getSession(sid) {
+    const r6 = this.one(`SELECT ${SESSION_COLS} FROM sessions WHERE mesh = ? AND sid = ?`, sid);
+    return r6 && toSession(r6);
+  }
+  putSession(s3) {
+    this.run(
+      `INSERT INTO sessions (mesh, ${SESSION_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (mesh, sid) DO UPDATE SET
+       device = excluded.device, name = excluded.name, kind = excluded.kind, status = excluded.status,
+       since = excluded.since, conn = excluded.conn, ended = excluded.ended, resume = excluded.resume,
+       acked = excluded.acked, delivered = excluded.delivered, nextCursor = excluded.nextCursor, ci = excluded.ci`,
+      s3.sid,
+      s3.device,
+      s3.name,
+      s3.kind,
+      s3.status,
+      s3.since,
+      s3.conn,
+      s3.ended,
+      s3.resume,
+      s3.acked,
+      s3.delivered,
+      s3.nextCursor,
+      s3.ci ? 1 : 0
+    );
+  }
+  deleteSession(sid) {
+    this.run("DELETE FROM sessions WHERE mesh = ? AND sid = ?", sid);
+    this.run("DELETE FROM queue WHERE mesh = ? AND sid = ?", sid);
+    this.run("DELETE FROM idle WHERE mesh = ? AND (sub = ? OR target = ?)", sid, sid);
+    this.run("DELETE FROM room_members WHERE mesh = ? AND sid = ?", sid);
+    this.run("DELETE FROM leases WHERE mesh = ? AND holder = ?", sid);
+    this.run("DELETE FROM lease_waiters WHERE mesh = ? AND sid = ?", sid);
+    this.run("DELETE FROM lease_watches WHERE mesh = ? AND sid = ?", sid);
+    this.deleteCard(sid);
+  }
+  sessions() {
+    return this.all(`SELECT ${SESSION_COLS} FROM sessions WHERE mesh = ? ORDER BY sid`).map(toSession);
+  }
+  sessionsOf(device) {
+    return this.all(`SELECT ${SESSION_COLS} FROM sessions WHERE mesh = ? AND device = ? ORDER BY sid`, device).map(toSession);
+  }
+  rekeySession(from, to) {
+    const moves = [
+      "UPDATE sessions SET sid = ?2 WHERE mesh = ?1 AND sid = ?3",
+      "UPDATE queue SET sid = ?2 WHERE mesh = ?1 AND sid = ?3",
+      "UPDATE messages SET sender = ?2 WHERE mesh = ?1 AND sender = ?3",
+      "UPDATE message_rcpts SET sid = ?2 WHERE mesh = ?1 AND sid = ?3",
+      "UPDATE idle SET sub = ?2 WHERE mesh = ?1 AND sub = ?3",
+      "UPDATE idle SET target = ?2 WHERE mesh = ?1 AND target = ?3",
+      "UPDATE room_members SET sid = ?2 WHERE mesh = ?1 AND sid = ?3",
+      "UPDATE leases SET holder = ?2 WHERE mesh = ?1 AND holder = ?3",
+      "UPDATE lease_waiters SET sid = ?2 WHERE mesh = ?1 AND sid = ?3",
+      "UPDATE lease_watches SET sid = ?2 WHERE mesh = ?1 AND sid = ?3",
+      "UPDATE cards SET sid = ?2 WHERE mesh = ?1 AND sid = ?3"
+    ];
+    for (const sql of moves) this.run(sql, to, from);
+  }
+  enqueue(item) {
+    this.run(
+      `INSERT INTO queue (mesh, ${ITEM_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      item.sid,
+      item.cur,
+      item.id,
+      item.kind,
+      item.fromDevice,
+      item.queuedAt,
+      item.bytes,
+      item.msg
+    );
+  }
+  queue(sid, after) {
+    return this.all(`SELECT ${ITEM_COLS} FROM queue WHERE mesh = ? AND sid = ? AND cur > ? ORDER BY cur`, sid, after).map(toItem);
+  }
+  queueCount(sid, kind = "msg") {
+    return this.count("SELECT COUNT(*) AS n FROM queue WHERE mesh = ? AND sid = ? AND kind = ?", sid, kind);
+  }
+  queueCountFrom(sid, fromDevice) {
+    return this.count("SELECT COUNT(*) AS n FROM queue WHERE mesh = ? AND sid = ? AND fromDevice = ?", sid, fromDevice);
+  }
+  dequeueThrough(sid, cur) {
+    this.run("DELETE FROM queue WHERE mesh = ? AND sid = ? AND cur <= ?", sid, cur);
+  }
+  expiredQueue(before) {
+    return this.all(`SELECT ${ITEM_COLS} FROM queue WHERE mesh = ? AND queuedAt <= ? ORDER BY queuedAt, rowid`, before).map(toItem);
+  }
+  dropQueueItem(sid, cur) {
+    this.run("DELETE FROM queue WHERE mesh = ? AND sid = ? AND cur = ?", sid, cur);
+  }
+  dropQueueFrom(device) {
+    this.run("DELETE FROM queue WHERE mesh = ? AND fromDevice = ?", device);
+  }
+  putMessage(row) {
+    this.run(
+      "INSERT INTO messages (mesh, id, sender, at) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, id) DO UPDATE SET sender = excluded.sender, at = excluded.at",
+      row.id,
+      row.sender,
+      row.at
+    );
+    this.run("DELETE FROM message_rcpts WHERE mesh = ? AND id = ?", row.id);
+    for (const sid of row.rcpts) this.run("INSERT OR IGNORE INTO message_rcpts (mesh, id, sid) VALUES (?, ?, ?)", row.id, sid);
+  }
+  getMessage(id2) {
+    const r6 = this.one("SELECT id, sender, at FROM messages WHERE mesh = ? AND id = ?", id2);
+    if (r6 === void 0) return void 0;
+    const rcpts = this.all("SELECT sid FROM message_rcpts WHERE mesh = ? AND id = ? ORDER BY rowid", id2).map((x2) => str2(x2["sid"]));
+    return { id: str2(r6["id"]), sender: str2(r6["sender"]), at: num(r6["at"]), rcpts };
+  }
+  pruneMessages(before) {
+    this.run("DELETE FROM message_rcpts WHERE mesh = ?1 AND id IN (SELECT id FROM messages WHERE mesh = ?1 AND at <= ?2)", before);
+    this.run("DELETE FROM messages WHERE mesh = ? AND at <= ?", before);
+  }
+  putIdle(row) {
+    this.run(
+      "INSERT INTO idle (mesh, sub, target, exp) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, sub, target) DO UPDATE SET exp = excluded.exp",
+      row.sub,
+      row.target,
+      row.exp
+    );
+  }
+  idleFor(target) {
+    return this.all("SELECT sub, target, exp FROM idle WHERE mesh = ? AND target = ? ORDER BY sub", target).map(toIdle);
+  }
+  idleCount(sub) {
+    return this.count("SELECT COUNT(*) AS n FROM idle WHERE mesh = ? AND sub = ?", sub);
+  }
+  deleteIdle(sub, target) {
+    this.run("DELETE FROM idle WHERE mesh = ? AND sub = ? AND target = ?", sub, target);
+  }
+  pruneIdle(now) {
+    this.run("DELETE FROM idle WHERE mesh = ? AND exp <= ?", now);
+  }
+  getBucket(bkey) {
+    const r6 = this.one("SELECT bkey, tokens, at FROM buckets WHERE mesh = ? AND bkey = ?", bkey);
+    return r6 && { bkey: str2(r6["bkey"]), tokens: num(r6["tokens"]), at: num(r6["at"]) };
+  }
+  putBucket(row) {
+    this.run(
+      "INSERT INTO buckets (mesh, bkey, tokens, at) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, bkey) DO UPDATE SET tokens = excluded.tokens, at = excluded.at",
+      row.bkey,
+      row.tokens,
+      row.at
+    );
+  }
+  pruneBuckets(before) {
+    this.run("DELETE FROM buckets WHERE mesh = ? AND at <= ?", before);
+  }
+  getRoom(room) {
+    const r6 = this.one("SELECT room, created, nextCursor FROM rooms WHERE mesh = ? AND room = ?", room);
+    return r6 && { room: str2(r6["room"]), created: num(r6["created"]), nextCursor: num(r6["nextCursor"]) };
+  }
+  putRoom(row) {
+    this.run(
+      "INSERT INTO rooms (mesh, room, created, nextCursor) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, room) DO UPDATE SET created = excluded.created, nextCursor = excluded.nextCursor",
+      row.room,
+      row.created,
+      row.nextCursor
+    );
+  }
+  roomCount() {
+    return this.count("SELECT COUNT(*) AS n FROM rooms WHERE mesh = ?");
+  }
+  pruneRooms() {
+    this.run(
+      `DELETE FROM rooms WHERE mesh = ?1
+       AND NOT EXISTS (SELECT 1 FROM room_members m WHERE m.mesh = ?1 AND m.room = rooms.room)
+       AND NOT EXISTS (SELECT 1 FROM room_history h WHERE h.mesh = ?1 AND h.room = rooms.room)`
+    );
+  }
+  members(room) {
+    return this.all("SELECT sid FROM room_members WHERE mesh = ? AND room = ? ORDER BY rowid", room).map((r6) => str2(r6["sid"]));
+  }
+  roomsOf(sid) {
+    return this.all("SELECT room FROM room_members WHERE mesh = ? AND sid = ? ORDER BY room", sid).map((r6) => str2(r6["room"]));
+  }
+  addMember(room, sid) {
+    this.run("INSERT OR IGNORE INTO room_members (mesh, room, sid) VALUES (?, ?, ?)", room, sid);
+  }
+  removeMember(room, sid) {
+    this.run("DELETE FROM room_members WHERE mesh = ? AND room = ? AND sid = ?", room, sid);
+  }
+  addHistory(row, keep) {
+    this.run("INSERT INTO room_history (mesh, room, cur, at, msg) VALUES (?, ?, ?, ?, ?)", row.room, row.cur, row.at, row.msg);
+    this.run(
+      `DELETE FROM room_history WHERE mesh = ?1 AND room = ?2 AND cur NOT IN
+       (SELECT cur FROM room_history WHERE mesh = ?1 AND room = ?2 ORDER BY cur DESC LIMIT ?3)`,
+      row.room,
+      keep
+    );
+  }
+  history(room, before, limit2, since) {
+    return this.all(
+      "SELECT room, cur, at, msg FROM room_history WHERE mesh = ? AND room = ? AND cur < ? AND at > ? ORDER BY cur DESC LIMIT ?",
+      room,
+      before,
+      since,
+      limit2
+    ).map(toHistory);
+  }
+  pruneHistory(before, limit2) {
+    const n3 = this.count("SELECT COUNT(*) AS n FROM (SELECT 1 FROM room_history WHERE mesh = ? AND at <= ? LIMIT ?)", before, limit2);
+    this.run(
+      "DELETE FROM room_history WHERE mesh = ?1 AND rowid IN (SELECT rowid FROM room_history WHERE mesh = ?1 AND at <= ?2 ORDER BY at, rowid LIMIT ?3)",
+      before,
+      limit2
+    );
+    return n3;
+  }
+  historyBytes() {
+    return this.count("SELECT COALESCE(SUM(LENGTH(msg)), 0) AS n FROM room_history WHERE mesh = ?");
+  }
+  dropOldestHistory() {
+    this.run("DELETE FROM room_history WHERE mesh = ?1 AND rowid = (SELECT rowid FROM room_history WHERE mesh = ?1 ORDER BY at, rowid LIMIT 1)");
+  }
+  getLease(key3) {
+    const r6 = this.one(`SELECT ${LEASE_COLS} FROM leases WHERE mesh = ? AND lkey = ?`, key3);
+    return r6 && toLease(r6);
+  }
+  putLease(row) {
+    this.run(
+      `INSERT INTO leases (mesh, ${LEASE_COLS}) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (mesh, lkey) DO UPDATE SET
+       holder = excluded.holder, token = excluded.token, until = excluded.until, granted = excluded.granted`,
+      row.key,
+      row.holder,
+      row.token,
+      row.until,
+      row.granted
+    );
+  }
+  deleteLease(key3) {
+    this.run("DELETE FROM leases WHERE mesh = ? AND lkey = ?", key3);
+  }
+  leases() {
+    return this.all(`SELECT ${LEASE_COLS} FROM leases WHERE mesh = ? ORDER BY lkey`).map(toLease);
+  }
+  leasesHeldBy(sid) {
+    return this.count("SELECT COUNT(*) AS n FROM leases WHERE mesh = ? AND holder = ?", sid);
+  }
+  expiredLeases(now) {
+    return this.all(`SELECT ${LEASE_COLS} FROM leases WHERE mesh = ? AND until <= ? ORDER BY until`, now).map(toLease);
+  }
+  nextToken() {
+    this.run("INSERT INTO counters (mesh, name, v) VALUES (?, 'lease', 1) ON CONFLICT (mesh, name) DO UPDATE SET v = v + 1");
+    return this.count("SELECT v AS n FROM counters WHERE mesh = ? AND name = 'lease'");
+  }
+  addWaiter(row) {
+    this.run("INSERT OR IGNORE INTO lease_waiters (mesh, lkey, sid, ttl, exp) VALUES (?, ?, ?, ?, ?)", row.key, row.sid, row.ttl, row.exp);
+  }
+  waiters(key3) {
+    return this.all(`SELECT ${WAITER_COLS} FROM lease_waiters WHERE mesh = ? AND lkey = ? ORDER BY rowid`, key3).map(toWaiter);
+  }
+  deleteWaiter(key3, sid) {
+    this.run("DELETE FROM lease_waiters WHERE mesh = ? AND lkey = ? AND sid = ?", key3, sid);
+  }
+  waitsBy(sid) {
+    return this.count("SELECT COUNT(*) AS n FROM lease_waiters WHERE mesh = ? AND sid = ?", sid);
+  }
+  expiredWaiters(now) {
+    return this.all(`SELECT ${WAITER_COLS} FROM lease_waiters WHERE mesh = ? AND exp <= ? ORDER BY rowid`, now).map(toWaiter);
+  }
+  putWatch(row) {
+    this.run(
+      "INSERT INTO lease_watches (mesh, lkey, sid, exp) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, lkey, sid) DO UPDATE SET exp = excluded.exp",
+      row.key,
+      row.sid,
+      row.exp
+    );
+  }
+  watchesFor(key3) {
+    return this.all("SELECT lkey, sid, exp FROM lease_watches WHERE mesh = ? AND lkey = ? ORDER BY rowid", key3).map(toWatch);
+  }
+  watchesBy(sid) {
+    return this.count("SELECT COUNT(*) AS n FROM lease_watches WHERE mesh = ? AND sid = ?", sid);
+  }
+  deleteWatch(key3, sid) {
+    this.run("DELETE FROM lease_watches WHERE mesh = ? AND lkey = ? AND sid = ?", key3, sid);
+  }
+  pruneWatches(now) {
+    this.run("DELETE FROM lease_watches WHERE mesh = ? AND exp <= ?", now);
+  }
+  getChunk(blob, idx) {
+    const r6 = this.one("SELECT blob, idx, last, n, data, bytes, device, at FROM chunks WHERE mesh = ? AND blob = ? AND idx = ?", blob, idx);
+    return r6 && toChunk(r6);
+  }
+  putChunk(row) {
+    this.run(
+      `INSERT INTO chunks (mesh, blob, idx, last, n, data, bytes, device, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (mesh, blob, idx) DO UPDATE SET last = excluded.last, n = excluded.n, data = excluded.data,
+       bytes = excluded.bytes, device = excluded.device, at = excluded.at`,
+      row.blob,
+      row.idx,
+      row.last ? 1 : 0,
+      row.n,
+      row.data,
+      row.bytes,
+      row.device,
+      row.at
+    );
+  }
+  blobBytes() {
+    return this.count("SELECT COALESCE(SUM(bytes), 0) AS n FROM chunks WHERE mesh = ?");
+  }
+  pruneChunks(before) {
+    this.run("DELETE FROM chunks WHERE mesh = ? AND at <= ?", before);
+  }
+  dropChunksFrom(device) {
+    this.run("DELETE FROM chunks WHERE mesh = ? AND device = ?", device);
+  }
+  putCard(sid, msg) {
+    this.run("INSERT INTO cards (mesh, sid, msg) VALUES (?, ?, ?) ON CONFLICT (mesh, sid) DO UPDATE SET msg = excluded.msg", sid, msg);
+  }
+  deleteCard(sid) {
+    this.run("DELETE FROM cards WHERE mesh = ? AND sid = ?", sid);
+  }
+  cards() {
+    return this.all("SELECT sid, msg FROM cards WHERE mesh = ? ORDER BY sid").map((r6) => ({ sid: str2(r6["sid"]), msg: str2(r6["msg"]) }));
+  }
+  putCiRules(device, tags, gitlab) {
+    this.run(
+      "INSERT INTO ci_rules (mesh, device, tags, gitlab) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, device) DO UPDATE SET tags = excluded.tags, gitlab = excluded.gitlab",
+      device,
+      JSON.stringify(tags),
+      gitlab ? 1 : 0
+    );
+  }
+  ciRules(device) {
+    const r6 = this.one("SELECT tags, gitlab FROM ci_rules WHERE mesh = ? AND device = ?", device);
+    return r6 && { tags: JSON.parse(str2(r6["tags"])), gitlab: num(r6["gitlab"]) === 1 };
+  }
+  deleteCiRules(device) {
+    this.run("DELETE FROM ci_rules WHERE mesh = ? AND device = ?", device);
+  }
+  hasJti(jti, now) {
+    return this.count("SELECT COUNT(*) AS n FROM ci_jtis WHERE mesh = ? AND jti = ? AND exp > ?", jti, now) > 0;
+  }
+  putJti(jti, exp) {
+    this.run("INSERT INTO ci_jtis (mesh, jti, exp) VALUES (?, ?, ?) ON CONFLICT (mesh, jti) DO UPDATE SET exp = excluded.exp", jti, exp);
+  }
+  pruneJtis(now) {
+    this.run("DELETE FROM ci_jtis WHERE mesh = ? AND exp <= ?", now);
+    return this.count("SELECT COUNT(*) AS n FROM ci_jtis WHERE mesh = ?");
+  }
+};
+
+// ../relay-node/src/server.ts
+import { createServer as createHttpServer } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
+import { networkInterfaces } from "node:os";
+
+// ../relay-node/src/tls.ts
+import { generateKeyPairSync as generateKeyPairSync2, randomBytes as randomBytes5, sign as sign2, X509Certificate } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+function length(n3) {
+  if (n3 < 128) return [n3];
+  const bytes3 = [];
+  for (let v = n3; v > 0; v = Math.floor(v / 256)) bytes3.unshift(v % 256);
+  return [128 | bytes3.length, ...bytes3];
+}
+function tlv(tag, ...content) {
+  const body = Buffer.concat(content);
+  return Buffer.concat([Buffer.from([tag, ...length(body.length)]), body]);
+}
+var seq = (...items) => tlv(48, ...items);
+function oid(dotted) {
+  const [a5, b5, ...rest] = dotted.split(".").map(Number);
+  const out = [a5 * 40 + b5];
+  for (const n3 of rest) {
+    const groups = [n3 & 127];
+    for (let v = n3 >>> 7; v > 0; v >>>= 7) groups.unshift(v & 127 | 128);
+    out.push(...groups);
+  }
+  return tlv(6, Buffer.from(out));
+}
+function derTime(date6) {
+  const iso3 = date6.toISOString().replace(/[-:T]/g, "").slice(0, 14) + "Z";
+  return date6.getUTCFullYear() < 2050 ? tlv(23, Buffer.from(iso3.slice(2))) : tlv(24, Buffer.from(iso3));
+}
+var ECDSA_SHA256 = "1.2.840.10045.4.3.2";
+var IPV42 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+function altName(host) {
+  const ip = IPV42.exec(host);
+  return ip ? tlv(135, Buffer.from(ip.slice(1).map(Number))) : tlv(130, Buffer.from(host));
+}
+function selfSignedCert(hosts, now) {
+  const { privateKey, publicKey } = generateKeyPairSync2("ec", { namedCurve: "P-256" });
+  const serial = randomBytes5(16);
+  serial[0] = serial[0] & 63 | 64;
+  const name = seq(tlv(49, seq(oid("2.5.4.3"), tlv(12, Buffer.from("wim-relay")))));
+  const algorithm = seq(oid(ECDSA_SHA256));
+  const tbs = seq(
+    tlv(160, tlv(2, Buffer.from([2]))),
+    // version 3
+    tlv(2, serial),
+    algorithm,
+    name,
+    // "No well-defined expiration" (RFC 5280 section 4.1.2.5): the pin, not a date, is the trust.
+    seq(derTime(now), tlv(24, Buffer.from("99991231235959Z"))),
+    name,
+    publicKey.export({ type: "spki", format: "der" }),
+    tlv(163, seq(seq(oid("2.5.29.17"), tlv(4, seq(...hosts.map(altName))))))
+  );
+  const signature = sign2("sha256", tbs, { key: privateKey, dsaEncoding: "der" });
+  const der = seq(tbs, algorithm, tlv(3, Buffer.from([0]), signature));
+  const cert = `-----BEGIN CERTIFICATE-----
+${Buffer.from(der).toString("base64").replace(/.{1,64}/g, "$&\n")}-----END CERTIFICATE-----
+`;
+  return { key: privateKey.export({ type: "pkcs8", format: "pem" }), cert };
+}
+function certPin(certPem) {
+  const spki = new X509Certificate(certPem).publicKey.export({ type: "spki", format: "der" });
+  return spkiPin(new Uint8Array(spki));
+}
+function lanCert(db, hosts, now) {
+  const keyPath = `${db}.key.pem`;
+  const certPath = `${db}.cert.pem`;
+  let pair;
+  try {
+    pair = { key: readFileSync(keyPath, "utf8"), cert: readFileSync(certPath, "utf8") };
+  } catch (e6) {
+    if (e6.code !== "ENOENT") throw e6;
+    pair = selfSignedCert(hosts, now);
+    writeFileSync(keyPath, pair.key, { mode: 384, flag: "wx" });
+    writeFileSync(certPath, pair.cert, { mode: 384, flag: "wx" });
+  }
+  return { ...pair, pin: certPin(pair.cert) };
+}
+function lanAddress(interfaces) {
+  for (const list3 of Object.values(interfaces)) {
+    for (const i6 of list3 ?? []) if (i6.family === "IPv4" && !i6.internal) return i6.address;
+  }
+  throw new Error("LAN mode: no LAN (non-internal IPv4) address found");
+}
+
+// ../relay-node/src/server.ts
+var MINUTE5 = 6e4;
+var DAY3 = 864e5;
+var STATUS_TEXT = { 400: "Bad Request", 404: "Not Found", 429: "Too Many Requests" };
+function refuseUpgrade(socket, status3, error64, retryAfter) {
+  const body = JSON.stringify({ error: error64 });
+  const retry2 = retryAfter === void 0 ? "" : `Retry-After: ${retryAfter}\r
+`;
+  socket.end(`HTTP/1.1 ${status3} ${STATUS_TEXT[status3]}\r
+Content-Type: application/json\r
+Connection: close\r
+${retry2}Content-Length: ${body.length}\r
+\r
+${body}`);
+}
+var fetchJwks2 = (url2) => fetch(url2, { redirect: "error", signal: AbortSignal.timeout(5e3) });
+function readBody2(req, max) {
+  return new Promise((resolve4) => {
+    const chunks = [];
+    let size = 0;
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > max) {
+        req.removeAllListeners("data");
+        req.resume();
+        resolve4(void 0);
+      } else chunks.push(chunk);
+    });
+    req.on("end", () => resolve4(Buffer.concat(chunks).toString("utf8")));
+  });
+}
+var STORED_SWEEP_MESHES = 8;
+function sqlDb(db) {
+  return {
+    exec: (sql, ...params) => void db.prepare(sql).run(...params),
+    all: (sql, ...params) => db.prepare(sql).all(...params),
+    one: (sql, ...params) => db.prepare(sql).get(...params),
+    transaction: (fn) => {
+      db.exec("BEGIN");
+      try {
+        fn();
+        db.exec("COMMIT");
+      } catch (err) {
+        db.exec("ROLLBACK");
+        throw err;
+      }
+    }
+  };
+}
+function pathOf(target) {
+  try {
+    return new URL(target, "http://relay").pathname;
+  } catch {
+    return "";
+  }
+}
+async function start2(config2) {
+  const log2 = config2.log ?? console.log;
+  const lan = config2.lan === true;
+  const host = config2.host ?? (lan ? lanAddress(networkInterfaces()) : "127.0.0.1");
+  for (const url2 of config2.relayUrls ?? []) {
+    if (!isRelayUrl(url2)) throw new Error(`invalid relay URL: ${url2}`);
+    if (lan && !url2.startsWith("wss://")) throw new Error("LAN mode serves wss only; every relay URL must be wss://");
+  }
+  if (config2.relayUrls === void 0 && !lan && !isRelayUrl(`ws://${host}`)) {
+    throw new Error("set relayUrls (WIM_RELAY_URLS) for a relay that is not on loopback");
+  }
+  if (lan && config2.db === ":memory:") throw new Error("LAN mode keeps its TLS key next to the database, so it needs a database file");
+  const raw = new (process.getBuiltinModule("node:sqlite")).DatabaseSync(config2.db);
+  raw.exec("PRAGMA journal_mode = WAL");
+  const db = sqlDb(raw);
+  migrate(db);
+  db.exec("CREATE TABLE IF NOT EXISTS relay_node_secret (k TEXT PRIMARY KEY, v TEXT NOT NULL)");
+  db.exec("INSERT INTO relay_node_secret (k, v) VALUES ('source', ?) ON CONFLICT (k) DO NOTHING", b64u.encode(randomBytes2(32)));
+  const sourceSecret = b64u.decode(String(db.one("SELECT v FROM relay_node_secret WHERE k = 'source'")["v"]));
+  const tls3 = lan ? lanCert(config2.db, [host, "localhost"], /* @__PURE__ */ new Date()) : void 0;
+  const server = tls3 ? createHttpsServer({ key: tls3.key, cert: tls3.cert }) : createHttpServer();
+  const health = healthz(config2.problem);
+  const info = relayInfo({ ...config2, limits: config2.limits ?? {} });
+  const rendezvous = new Rendezvous(db, config2.limits ?? {});
+  const sourceOf = (req) => {
+    const forwarded = config2.trustProxy === true ? req.headers["x-forwarded-for"] : void 0;
+    const addr = typeof forwarded === "string" ? forwarded.split(",").at(-1).trim() : req.socket.remoteAddress;
+    return sourceKey2(addr, sourceSecret);
+  };
+  const ciKeys = new JwksCache({ fetch: config2.jwksFetch ?? fetchJwks2, now: () => Date.now(), ttlMs: LIMITS.jwksRelayTtlMs });
+  const answerCi = (res, a5) => {
+    res.writeHead(a5.status, { "content-type": "application/json", ...a5.retryAfter === void 0 ? {} : { "retry-after": String(a5.retryAfter) } });
+    res.end(JSON.stringify(a5.body));
+  };
+  const ciRequest = async (req, res, meshId) => {
+    const source2 = sourceOf(req);
+    const wait = spendDial(source2, Date.now());
+    if (wait > 0) return answerCi(res, { status: 429, body: { t: "error", code: "limited", message: "too many requests from this address; try again later" }, retryAfter: wait });
+    if (config2.ci !== true) return answerCi(res, CI_NOT_FOUND);
+    const text2 = await readBody2(req, LIMITS.ciRequestBytes);
+    if (text2 === void 0) return answerCi(res, { status: 413, body: { t: "error", code: "too_large", message: "the request is over 32 KiB" } });
+    const pre = await ciPrecheck(text2, { enabled: true, keys: (iss, kid) => ciKeys.key(iss, kid), now: Date.now() });
+    if (!pre.ok) return answerCi(res, pre.answer);
+    const mesh = meshFor(meshId);
+    answerCi(res, mesh.relay.ci(pre.req, { source: source2, ...pre.github === void 0 ? {} : { github: pre.github } }));
+    if (mesh.sockets.size === 0 && !mesh.relay.exists()) meshes.delete(meshId);
+  };
+  server.on("request", (req, res) => {
+    const get2 = req.method === "GET";
+    const path2 = pathOf(req.url);
+    const ci = req.method === "POST" ? parseCiPath(path2) : void 0;
+    if (ci !== void 0) {
+      if (!ci.ok) return answerCi(res, { status: 400, body: { t: "error", code: "malformed", message: ci.error } });
+      void ciRequest(req, res, ci.meshId);
+      return;
+    }
+    const rdv = get2 ? parseRdvPath(path2) : void 0;
+    if (rdv !== void 0) {
+      const answer2 = rdv.ok ? rendezvous.get(rdv.rdv, sourceOf(req), Date.now()) : { status: rdv.status, body: { error: rdv.error } };
+      res.writeHead(answer2.status, RDV_HEADERS);
+      res.end(JSON.stringify(answer2.body));
+      return;
+    }
+    const answer = get2 && req.url === "/healthz" ? health : get2 && isInfoPath(path2) ? { status: 200, body: info } : { status: 404, body: { error: "not found" } };
+    res.writeHead(answer.status, { "content-type": "application/json" });
+    res.end(JSON.stringify(answer.body));
+  });
+  await new Promise((resolve4, reject) => {
+    server.once("error", reject);
+    server.listen(config2.port, host, () => resolve4());
+  });
+  const port = server.address().port;
+  const relayUrls = config2.relayUrls ?? [`${lan ? "wss" : "ws"}://${host}:${port}`];
+  const meshes = /* @__PURE__ */ new Map();
+  const idleDays = config2.idleMeshDays;
+  if (idleDays !== void 0) {
+    db.exec("CREATE TABLE IF NOT EXISTS relay_node_idle (mesh TEXT PRIMARY KEY, since INTEGER NOT NULL)");
+    db.exec("INSERT INTO relay_node_idle (mesh, since) SELECT mesh, ? FROM rosters WHERE seq = 1 ON CONFLICT (mesh) DO NOTHING", Date.now());
+  }
+  const track = (id2, mesh) => {
+    if (idleDays === void 0 || !mesh.relay.exists()) return;
+    const idle = !mesh.relay.active();
+    if (mesh.idle === idle) return;
+    if (idle) db.exec("INSERT INTO relay_node_idle (mesh, since) VALUES (?, ?) ON CONFLICT (mesh) DO NOTHING", id2, Date.now());
+    else db.exec("DELETE FROM relay_node_idle WHERE mesh = ?", id2);
+    mesh.idle = idle;
+  };
+  const expireIdle = (days, now) => {
+    for (const row of db.all("SELECT mesh FROM relay_node_idle WHERE since <= ?", now - days * DAY3)) {
+      const id2 = String(row["mesh"]);
+      for (const s3 of meshes.get(id2)?.sockets.values() ?? []) {
+        s3.ws.removeAllListeners("close");
+        s3.ws.close(CLOSE.goingAway, "mesh expired");
+        endPreAuth(s3);
+      }
+      meshes.delete(id2);
+      dropMesh(db, id2);
+      log2(JSON.stringify({ event: "expired", mesh: id2, idleDays: days }));
+    }
+  };
+  const HOUR5 = 36e5;
+  const perHour = config2.limits?.createJoinPerSourcePerHour ?? LIMITS.createJoinPerSourcePerHour;
+  const sources = /* @__PURE__ */ new Map();
+  const allowSource = (source2, now) => {
+    const b5 = sources.get(source2);
+    const tokens = b5 === void 0 ? perHour : Math.min(perHour, b5.tokens + (now - b5.at) * perHour / HOUR5);
+    if (tokens < 1) return false;
+    sources.set(source2, { tokens: tokens - 1, at: now });
+    return true;
+  };
+  const dialsPerMinute = config2.limits?.dialsPerSourcePerMinute ?? LIMITS.dialsPerSourcePerMinute;
+  const preAuthCap = config2.limits?.preAuthSocketsPerSource ?? LIMITS.preAuthSocketsPerSource;
+  const authDeadlineMs = config2.limits?.authDeadlineMs ?? LIMITS.authDeadlineMs;
+  const dials = /* @__PURE__ */ new Map();
+  const preAuth = /* @__PURE__ */ new Map();
+  const spendDial = (source2, now) => {
+    const b5 = dials.get(source2);
+    const tokens = b5 === void 0 ? dialsPerMinute : Math.min(dialsPerMinute, b5.tokens + (now - b5.at) * dialsPerMinute / MINUTE5);
+    if (tokens < 1) return Math.ceil((1 - tokens) * MINUTE5 / dialsPerMinute / 1e3);
+    dials.set(source2, { tokens: tokens - 1, at: now });
+    return 0;
+  };
+  const admitDial = (source2, now) => {
+    const open3 = preAuth.get(source2) ?? 0;
+    if (open3 >= preAuthCap) return Math.ceil(authDeadlineMs / 1e3);
+    const wait = spendDial(source2, now);
+    if (wait === 0) preAuth.set(source2, open3 + 1);
+    return wait;
+  };
+  const freePlace = (source2) => {
+    const open3 = preAuth.get(source2) - 1;
+    if (open3 === 0) preAuth.delete(source2);
+    else preAuth.set(source2, open3);
+  };
+  const endPreAuth = (s3) => {
+    if (!s3.preAuth) return;
+    s3.preAuth = false;
+    freePlace(s3.source);
+  };
+  const wss = new import_websocket_server.default({ noServer: true, maxPayload: LIMITS.frameBytes });
+  let next = 0;
+  const relayFor = (id2, sockets) => new MeshRelay(
+    { meshId: id2, relayUrls, createKey: config2.createKey, createRefused: config2.createRefused, limits: config2.limits, ci: config2.ci === true },
+    {
+      store: new SqlStore(db, id2),
+      now: () => Date.now(),
+      connections: () => [...sockets.values()].map((s3) => s3.conn),
+      getState: (c5) => sockets.get(c5.id).state,
+      setState: (c5, st) => {
+        const s3 = sockets.get(c5.id);
+        s3.state = st;
+        if (st.phase !== "pre") endPreAuth(s3);
+      },
+      log: (event, fields2) => log2(JSON.stringify({ event, mesh: id2, ...fields2 })),
+      allowSource,
+      admitMesh: () => config2.maxMeshes === void 0 || meshCount(db) < config2.maxMeshes,
+      rdvPut: (put, answer) => answer(rendezvous.put(put, Date.now())),
+      deleteMesh: () => deleteMesh2(id2, sockets)
+    }
+  );
+  const deleteMesh2 = (id2, sockets) => {
+    for (const s3 of sockets.values()) {
+      s3.ws.removeAllListeners("message");
+      s3.ws.removeAllListeners("close");
+    }
+    sockets.clear();
+    meshes.delete(id2);
+    dropMesh(db, id2);
+  };
+  const meshFor = (id2) => {
+    const known = meshes.get(id2);
+    if (known) return known;
+    const sockets = /* @__PURE__ */ new Map();
+    const mesh = { relay: relayFor(id2, sockets), sockets };
+    meshes.set(id2, mesh);
+    return mesh;
+  };
+  let sweptThrough = "";
+  const sweepStored = (now) => {
+    const rows = db.all("SELECT mesh FROM rosters WHERE seq = 1 AND mesh > ? ORDER BY mesh LIMIT ?", sweptThrough, STORED_SWEEP_MESHES);
+    for (const row of rows) {
+      const id2 = String(row["mesh"]);
+      if (!meshes.has(id2)) relayFor(id2, /* @__PURE__ */ new Map()).tick(now);
+    }
+    sweptThrough = rows.length < STORED_SWEEP_MESHES ? "" : String(rows.at(-1)["mesh"]);
+  };
+  server.on("upgrade", (req, socket, head) => {
+    const dial = parseDialPath(pathOf(req.url));
+    if (!dial.ok) return refuseUpgrade(socket, dial.status, dial.error);
+    const meshId = dial.meshId;
+    const source2 = sourceOf(req);
+    const wait = admitDial(source2, Date.now());
+    if (wait > 0) return refuseUpgrade(socket, 429, "too many connections from this address; try again later", wait);
+    let upgraded = false;
+    socket.once("close", () => {
+      if (!upgraded) freePlace(source2);
+    });
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      upgraded = true;
+      const mesh = meshFor(meshId);
+      const id2 = `${++next}`;
+      const entry = {
+        ws,
+        state: void 0,
+        alive: true,
+        source: source2,
+        preAuth: true,
+        conn: { id: id2, send: (text2) => ws.send(text2), close: (code2, reason) => ws.close(code2, reason) }
+      };
+      mesh.sockets.set(id2, entry);
+      ws.on("message", (data, isBinary) => {
+        if (isBinary) ws.close(CLOSE.textOnly, "text frames only");
+        else mesh.relay.onMessage(entry.conn, data.toString("utf8"));
+        track(meshId, mesh);
+      });
+      ws.on("pong", () => void (entry.alive = true));
+      ws.on("close", () => {
+        mesh.relay.onClose(entry.conn);
+        mesh.sockets.delete(id2);
+        track(meshId, mesh);
+        if (mesh.sockets.size === 0 && !mesh.relay.exists()) meshes.delete(meshId);
+      });
+      mesh.relay.onOpen(entry.conn, { source: source2 });
+      track(meshId, mesh);
+    });
+  });
+  const tick = setInterval(() => {
+    const now = Date.now();
+    if (idleDays !== void 0) expireIdle(idleDays, now);
+    for (const m4 of meshes.values()) m4.relay.tick(now);
+    sweepStored(now);
+    rendezvous.sweep(now);
+    for (const [k5, b5] of sources) if (b5.at <= now - HOUR5) sources.delete(k5);
+    for (const [k5, b5] of dials) if (b5.at <= now - MINUTE5) dials.delete(k5);
+  }, config2.tickMs ?? 1e3);
+  const heartbeat = setInterval(() => {
+    for (const m4 of meshes.values()) {
+      for (const s3 of m4.sockets.values()) {
+        if (!s3.alive) s3.ws.terminate();
+        else {
+          s3.alive = false;
+          s3.ws.ping();
+        }
+      }
+    }
+  }, config2.heartbeatMs ?? 3e4);
+  log2(`wim-relay listening on ${relayUrls.join(", ")}`);
+  if (config2.problem !== void 0) log2(`configuration problem: ${config2.problem}; creating meshes is refused until it is fixed`);
+  else if (config2.createRefused !== void 0) log2("creating meshes is closed: set WIM_CREATE_KEY, or WIM_OPEN_CREATE=1 to let anyone create one");
+  else if (config2.createKey !== void 0) log2("creating a mesh needs the operator key (WIM_CREATE_KEY)");
+  else log2("creating meshes is open to anyone");
+  if (tls3) log2(`LAN relay URL: ${relayUrls[0]}
+TLS pin (SPKI SHA-256, for the invite): ${tls3.pin}`);
+  return {
+    port,
+    relayUrls,
+    pin: tls3?.pin,
+    loadedMeshes: () => meshes.size,
+    close: async () => {
+      clearInterval(tick);
+      clearInterval(heartbeat);
+      for (const m4 of meshes.values()) {
+        for (const s3 of m4.sockets.values()) {
+          s3.ws.removeAllListeners("close");
+          m4.relay.onClose(s3.conn);
+          s3.ws.terminate();
+        }
+      }
+      wss.close();
+      await new Promise((resolve4) => server.close(() => resolve4()));
+      raw.close();
+    }
+  };
+}
+
+// src/selftest.ts
+import { promises as fs16 } from "node:fs";
+import { tmpdir } from "node:os";
+import { isAbsolute as isAbsolute4, join as join23, relative as relative2, resolve as resolve3, sep as sep2 } from "node:path";
+import { createInterface as createInterface2 } from "node:readline";
+import { PassThrough as PassThrough4 } from "node:stream";
+var SandboxError = class extends Error {
+};
+function scriptedTerm(spec) {
+  const out = [];
+  const err = [];
+  const answers2 = [];
+  const stop = new AbortController();
+  const io = {
+    out: (l3) => void out.push(l3),
+    err: (l3) => void err.push(l3),
+    prompt: async (q3) => {
+      out.push(q3);
+      const a5 = answers2.shift() ?? "";
+      return typeof a5 === "string" ? a5 : a5();
+    },
+    signal: stop.signal,
+    cwd: spec.home,
+    homedir: spec.home,
+    hostname: spec.hostname,
+    platform: spec.platform,
+    uid: spec.uid,
+    pid: spec.pid,
+    now: spec.now,
+    dialer: spec.dialer,
+    isTTY: true,
+    inputIsTTY: true,
+    stdin: new PassThrough4(),
+    stdout: new PassThrough4(),
+    fetch: spec.fetch,
+    parentGone: () => false,
+    ...spec.extra
+  };
+  return { io, out, err, answers: answers2, stop, env: spec.env };
+}
+var said = (t2) => [...t2.out, ...t2.err].join("\n");
+function inside2(root5, path2) {
+  const rel = relative2(root5, path2);
+  return rel !== ".." && !rel.startsWith(`..${sep2}`) && !isAbsolute4(rel);
+}
+function onLoopback(url2) {
+  let u;
+  try {
+    u = new URL(url2);
+  } catch {
+    return false;
+  }
+  return u.protocol === "ws:" && u.hostname === "127.0.0.1";
+}
+async function noLinks(root5, path2) {
+  if (await fs16.realpath(root5) !== root5) throw new SandboxError(`the sandbox ${root5} is reached through a symbolic link`);
+  if (!inside2(root5, path2)) throw new SandboxError(`${path2} is outside the sandbox ${root5}`);
+  let at = root5;
+  for (const part of relative2(root5, path2).split(sep2).filter((p3) => p3 !== "")) {
+    at = join23(at, part);
+    const st = await fs16.lstat(at).catch(() => void 0);
+    if (st === void 0) return;
+    if (st.isSymbolicLink()) throw new SandboxError(`${at} is a symbolic link`);
+  }
+}
+function deviceEnv(dir) {
+  return { WIM_HOME: dir, WIM_NO_CRASH_REPORTS: "1" };
+}
+function sandboxDialer(relayUrl, real) {
+  return (url2, opts) => url2.startsWith(`${relayUrl}/`) ? real(url2, opts) : Promise.reject(new SandboxError(`refusing to dial ${url2}: only the sandbox relay ${relayUrl} is reached`));
+}
+function sandboxFetch(base, real) {
+  return ((input2, init2) => {
+    const url2 = String(input2);
+    return url2.startsWith(base) ? real(input2, init2) : Promise.reject(new SandboxError(`refusing to fetch ${url2}: only the sandbox relay ${base} is reached`));
+  });
+}
+var SANDBOX_MARK = ".wim-test-sandbox";
+var STALE_MS = 24 * 36e5;
+var SWEEP_OPS = { lstat: fs16.lstat, rm: fs16.rm, uid: process.getuid?.() };
+async function sweepStale(base, now, ops = SWEEP_OPS) {
+  const removed = [];
+  for (const name of await fs16.readdir(base).catch(() => [])) {
+    if (!name.startsWith("wim-test-")) continue;
+    const dir = join23(base, name);
+    const st = await ops.lstat(dir).catch(() => void 0);
+    if (st === void 0 || !st.isDirectory() || ops.uid !== void 0 && st.uid !== ops.uid) continue;
+    const mark = await ops.lstat(join23(dir, SANDBOX_MARK)).catch(() => void 0);
+    if (mark === void 0 || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
+    if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
+  }
+  return removed;
+}
+var SIGNER_DEVICE = "sig";
+var SHORT_TMP = "/tmp";
+async function runBase(base, platform2, fallback2 = SHORT_TMP) {
+  const fits = async (dir) => {
+    const sock = agentEndpointFor(agentDir(join23(await fs16.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
+    return endpointProblem(sock, platform2) === void 0;
+  };
+  if (await fits(base)) return base;
+  if (await fits(fallback2).catch(() => false)) return fallback2;
+  throw new SandboxError(`the temporary directory ${base} is too long for the signer's socket (at most ${SOCKET_PATH_MAX} bytes): set TMPDIR to a shorter directory`);
+}
+var Sandbox = class _Sandbox {
+  root;
+  dirs = /* @__PURE__ */ new Map();
+  relay;
+  live = false;
+  constructor(root5) {
+    this.root = root5;
+  }
+  /**
+   * Makes a fresh directory under `base`. Refused when `base` is inside the caller's state
+   * directory or the config directory that holds every profile's (`real`), so the run never
+   * writes there.
+   */
+  static async open(base, real) {
+    const at = await fs16.realpath(base);
+    for (const r6 of real) {
+      const resolved = await fs16.realpath(r6).catch(() => resolve3(r6));
+      if (inside2(resolved, at)) throw new SandboxError(`the temporary directory ${at} is inside this device's state ${resolved}: set TMPDIR to another directory`);
+    }
+    await sweepStale(at, Date.now());
+    const root5 = await fs16.mkdtemp(join23(at, "wim-test-"));
+    await fs16.writeFile(join23(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
+      await fs16.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      throw error64;
+    });
+    return new _Sandbox(root5);
+  }
+  /**
+   * The run's relay: the sandbox's own, refused unless it is on loopback; or, in live mode, the
+   * relay named, refused unless it is `wss://` (plain `ws://` only on loopback).
+   */
+  attach(url2, live = false) {
+    if (live && !isRelayUrl(url2)) throw new SandboxError(`a live relay must be a wss:// URL (plain ws:// only on loopback) with no trailing slash, not ${url2}`);
+    if (!live && !onLoopback(url2)) throw new SandboxError(`the sandbox relay must be on loopback, not ${url2}`);
+    this.relay = url2;
+    this.live = live;
+  }
+  get relayUrl() {
+    return this.relay;
+  }
+  /** A new device's state directory, made now. Refused when anything is at its path already. */
+  async device(name) {
+    const dir = join23(this.root, name);
+    await noLinks(this.root, dir);
+    await fs16.mkdir(dir, { mode: 448 }).catch((error64) => {
+      throw new SandboxError(`refusing the state directory ${dir}: ${error64.message}`);
+    });
+    this.dirs.set(name, dir);
+    return dir;
+  }
+  /** A device's state directory that the run never makes (a device not set up). Refused when anything is there. */
+  async absent(name) {
+    const dir = join23(this.root, name);
+    if (await fs16.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
+    this.dirs.set(name, dir);
+    return dir;
+  }
+  /** The checks made before every step: every path inside the run's directory, the relay the run's own. */
+  async check() {
+    for (const dir of this.dirs.values()) await noLinks(this.root, dir);
+    if (this.relay === void 0 || !(this.live ? isRelayUrl(this.relay) : onLoopback(this.relay))) throw new SandboxError(`the relay ${String(this.relay)} is not the sandbox's own`);
+  }
+  /** Removes everything the run made. */
+  async remove() {
+    await fs16.rm(this.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+};
+var NotOffered = class extends Error {
+};
+function passed(rows) {
+  return rows.every((r6) => r6.result === "pass" || r6.offered === false);
+}
+var STEP_MS = 6e4;
+var PERSON_STEP_MS = 6e5;
+var sleep3 = (ms) => new Promise((r6) => setTimeout(r6, ms));
+async function waitFor(get2, ms, what2) {
+  const end2 = Date.now() + ms;
+  for (; ; ) {
+    const v = await get2();
+    if (v !== void 0) return v;
+    if (Date.now() > end2) throw new Error(`timed out waiting for ${what2}`);
+    await sleep3(25);
+  }
+}
+function shows(t2, re, ms, what2) {
+  return waitFor(() => re.test(said(t2)) ? true : void 0, ms, what2);
+}
+function need(ok2, what2) {
+  if (!ok2) throw new Error(what2);
+}
+function grab(text2, re, what2) {
+  const m4 = re.exec(text2);
+  if (m4 === null) throw new Error(`no ${what2} in the output`);
+  return m4[1];
+}
+function within(p3, ms, signal) {
+  let reject;
+  const late = new Promise((_, r6) => reject = r6);
+  const t2 = setTimeout(() => reject(new Error(`timed out after ${ms / 1e3} s`)), ms);
+  const onAbort = () => reject(new Error("stopped"));
+  signal.addEventListener("abort", onAbort, { once: true });
+  return Promise.race([p3, late]).finally(() => {
+    clearTimeout(t2);
+    signal.removeEventListener("abort", onAbort);
+  });
+}
+async function runSteps(steps, before, signal, ms = STEP_MS) {
+  const rows = [];
+  let failed = false;
+  for (const step of steps) {
+    if (failed || signal.aborted) {
+      rows.push({ name: step.name, result: "skip", ms: 0, detail: signal.aborted ? "stopped" : "an earlier step failed" });
+      continue;
+    }
+    const t0 = Date.now();
+    try {
+      await within(before().then(step.run), ms, signal);
+      rows.push({ name: step.name, result: "pass", ms: Date.now() - t0 });
+    } catch (error64) {
+      if (error64 instanceof NotOffered) {
+        rows.push({ name: step.name, result: "skip", ms: Date.now() - t0, detail: error64.message, offered: false });
+        continue;
+      }
+      failed = true;
+      rows.push({ name: step.name, result: "fail", ms: Date.now() - t0, detail: error64.message });
+    }
+  }
+  return rows;
+}
+function report(rows, ms) {
+  const width = Math.max(...rows.map((r6) => r6.name.length));
+  const count = (r6) => rows.filter((x2) => x2.result === r6).length;
+  const notOffered = rows.filter((r6) => r6.offered === false).length;
+  return [
+    ...rows.map((r6) => `  ${r6.result.padEnd(4)}  ${r6.name.padEnd(width)}  ${String(r6.ms).padStart(6)} ms${r6.detail === void 0 ? "" : `  ${r6.detail}`}`),
+    `${passed(rows) ? "PASS" : "FAIL"}: ${rows.length} steps, ${count("pass")} passed, ${count("fail")} failed, ${count("skip")} skipped${notOffered === 0 ? "" : ` (${notOffered} not offered by this relay, which does not fail the run)`}, in ${(ms / 1e3).toFixed(1)} s.`
+  ];
+}
+var TEST_TOKEN_URL = "http://id-token.wim-test.invalid/token";
+var CI_REPO = "wim-test/notices";
+var RSA = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
+async function testIssuer() {
+  const pair = await crypto.subtle.generateKey({ ...RSA, modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]) }, true, ["sign", "verify"]);
+  const pub = await crypto.subtle.exportKey("jwk", pair.publicKey);
+  const kid = b64u.encode(randomBytes2(9));
+  const jwks = JSON.stringify({ keys: [{ kty: "RSA", use: "sig", alg: "RS256", kid, n: pub.n, e: pub.e }] });
+  const part = (v) => b64u.encode(utf8(JSON.stringify(v)));
+  return {
+    // Only GitHub's JWKS URL is ever asked for; anything else gets nothing.
+    jwksFetch: async (url2) => url2 === JWKS_URLS[GITHUB_ISSUER] ? { status: 200, text: async () => jwks } : { status: 404, text: async () => "" },
+    async mint(aud, now) {
+      const iat = Math.floor(now / 1e3) - 5;
+      const claims = {
+        iss: GITHUB_ISSUER,
+        aud,
+        jti: b64u.encode(randomBytes2(12)),
+        iat,
+        nbf: iat - 5,
+        exp: iat + 300,
+        repository: CI_REPO,
+        repository_id: "1001",
+        repository_owner_id: "1000",
+        ref: "refs/heads/main",
+        workflow_ref: `${CI_REPO}/.github/workflows/notify.yml@refs/heads/main`,
+        event_name: "push",
+        sha: "0".repeat(40),
+        run_id: "1"
+      };
+      const input2 = `${part({ alg: "RS256", kid, typ: "JWT" })}.${part(claims)}`;
+      const sig = new Uint8Array(await crypto.subtle.sign(RSA, pair.privateKey, utf8(input2)));
+      return `${input2}.${b64u.encode(sig)}`;
+    }
+  };
+}
+var Run2 = class {
+  terms = [];
+  sessions = [];
+  running = [];
+  box;
+  relay;
+  /** What the relay says it offers (`/v1/info`). */
+  info;
+  issuer;
+  devs = /* @__PURE__ */ new Map();
+  /** Mesh ids by role: the run's mesh, and device A's second one. */
+  mesh = "";
+  second = "";
+  /** The meshes the run deleted; in live mode, every other one it made is deleted at the end. */
+  deleted = /* @__PURE__ */ new Set();
+  /** How long a running command may take to print that it is ready. */
+  readyMs = 15e3;
+  /** The sandbox signer's passphrase: made here, typed by the script, never printed. */
+  passphrase = b64u.encode(randomBytes2(24));
+  main;
+  io;
+  base;
+  real;
+  mode;
+  /** Where a `--full` run goes when `base` is too long for the signer's socket (see `runBase`). */
+  shortTmp;
+  constructor(main2, io, base, real, mode, shortTmp = SHORT_TMP) {
+    this.main = main2;
+    this.io = io;
+    this.base = base;
+    this.real = real;
+    this.mode = mode;
+    this.shortTmp = shortTmp;
+  }
+  check() {
+    return this.box?.check() ?? Promise.resolve();
+  }
+  /** The sandbox and its relay: one started here on loopback, or the live relay named, after reading its `/v1/info`. */
+  async open() {
+    const base = this.mode.full ? await runBase(this.base, this.io.platform, this.shortTmp) : this.base;
+    this.box = await Sandbox.open(base, this.real);
+    if (this.mode.live !== void 0) {
+      this.box.attach(this.mode.live, true);
+      this.info = await fetchRelayInfo(this.mode.live, this.fetcher());
+      need(this.info !== void 0, `the relay's /v1/info cannot be read at ${this.mode.live}: is it a worldinmotion relay?`);
+      return;
+    }
+    this.issuer = await testIssuer();
+    this.relay = await start2({ db: ":memory:", port: 0, host: "127.0.0.1", log: () => void 0, ci: true, jwksFetch: this.issuer.jwksFetch });
+    this.box.attach(this.relay.relayUrls[0]);
+    this.info = { v: 1, software: "worldinmotion-relay", version: "sandbox", create: "open", limits: { max_meshes: null, idle_mesh_days: null, blob_bytes_per_mesh_per_day: 0 }, offer: null, ci: true };
+  }
+  /** The run's fetch: only the relay's own origin. */
+  fetcher() {
+    return sandboxFetch(`${this.box.relayUrl.replace(/^ws/, "http")}/`, fetch);
+  }
+  async device(name, made = true) {
+    const dir = made ? await this.box.device(name) : await this.box.absent(name);
+    const dev = { name, dir };
+    this.devs.set(name, dev);
+    return dev;
+  }
+  dev(name) {
+    return this.devs.get(name);
+  }
+  /** A terminal on `dev`: scripted, or with `--person` the person's own for every prompt. */
+  term(dev, answers2, extraEnv = {}, fetcher = this.fetcher()) {
+    const key3 = this.mode.keyEnv === void 0 ? {} : { [this.mode.keyEnv.name]: this.mode.keyEnv.value };
+    const t2 = scriptedTerm({
+      home: dev.dir,
+      env: { ...deviceEnv(dev.dir), ...key3, ...extraEnv },
+      hostname: dev.name,
+      platform: this.io.platform,
+      uid: this.io.uid,
+      pid: this.io.pid,
+      now: this.io.now,
+      dialer: sandboxDialer(this.box.relayUrl, wsDialer),
+      fetch: fetcher,
+      // The signer's passphrase, typed without echo: it is never in any output.
+      extra: { promptSecret: async () => this.passphrase }
+    });
+    t2.answers.push(...answers2);
+    if (this.mode.person) personAt(t2, dev.name, this.io);
+    this.terms.push(t2);
+    return t2;
+  }
+  /** Runs one command on `dev` to its end, answering its prompts with `answers`, or in the terminal `t`. */
+  async cmd(dev, argv, answers2 = [], t2 = this.term(dev, answers2)) {
+    const done = this.main(argv, t2.env, t2.io);
+    this.running.push({ term: t2, done });
+    const code2 = await done;
+    return { code: code2, text: said(t2) };
+  }
+  /** Runs `argv` on `dev` and fails the step unless it exits 0. */
+  async ok(dev, argv, answers2 = []) {
+    const r6 = await this.cmd(dev, argv, answers2);
+    need(r6.code === 0, `\`wim ${argv.join(" ")}\` on ${dev.name} exited ${r6.code}: ${lastLine(r6.text)}`);
+    return r6.text;
+  }
+  /** Starts a command that keeps running, such as `wim watch`, and waits for `ready` in its output. */
+  async background(dev, argv, ready, answers2 = []) {
+    const term = this.term(dev, answers2);
+    const r6 = { term, done: this.main(argv, term.env, term.io) };
+    this.running.push(r6);
+    const what2 = `\`wim ${argv.join(" ")}\` on ${dev.name}`;
+    const first = await Promise.race([shows(term, ready, this.readyMs, what2).then(() => void 0), r6.done]).catch((error64) => {
+      throw new Error(`${error64.message}: ${lastLine(said(term))}`);
+    });
+    need(first === void 0, `${what2} exited ${String(first)} before it was ready: ${lastLine(said(term))}`);
+    return r6;
+  }
+  /** Stops a running command (Ctrl-C) and waits for it to end. */
+  async stop(r6) {
+    r6.term.stop.abort();
+    await r6.done;
+  }
+  /**
+   * A session of `dev` in the run's mesh, as an agent's MCP server runs one, for the steps the
+   * command line has no command for (rooms, files, leases, ask and reply, rename, CI notices).
+   */
+  async session(dev, name) {
+    const env3 = { platform: this.io.platform, pid: this.io.pid };
+    const home = new Home(dev.dir, { ...env3, uid: this.io.uid });
+    const s3 = await MeshSession.open({
+      device: await home.requireDevice(),
+      mesh: new MeshFiles(home.meshDir(this.mesh), env3),
+      name,
+      kind: "mcp",
+      dialer: sandboxDialer(this.box.relayUrl, wsDialer),
+      env: env3,
+      now: this.io.now,
+      // The file checks read the person's home directory; here that is the device's own.
+      userHome: dev.dir,
+      // CI tokens are checked against the sandbox's test issuer only (sandbox mode alone runs the CI step).
+      ...this.issuer === void 0 ? {} : { jwksFetch: this.issuer.jwksFetch }
+    });
+    this.sessions.push(s3);
+    s3.start();
+    await s3.ready(15e3);
+    return s3;
+  }
+  /** The mesh.json of `dev`'s copy of the run's mesh. */
+  meshFiles(dev) {
+    const env3 = { platform: this.io.platform, pid: this.io.pid };
+    return new MeshFiles(new Home(dev.dir, { ...env3, uid: this.io.uid }).meshDir(this.mesh), env3);
+  }
+  /** `wim mesh create` (or `init --relay`) on `dev`, with the operator key's variable when there is one; the new mesh's id. */
+  async create(dev, argv) {
+    const key3 = this.mode.keyEnv === void 0 ? [] : ["--key-env", this.mode.keyEnv.name];
+    return grab(await this.ok(dev, [...argv, "--relay", this.box.relayUrl, ...key3, "--no-recovery"]), /Created mesh (\S+) on/, "mesh id");
+  }
+  /** `wim mesh delete` of one of the run's meshes, from test-a, its admin. */
+  async deleteMesh(id2) {
+    need((await this.ok(this.dev("test-a"), ["mesh", "delete", "--mesh", id2], ["y"])).includes(`Deleted mesh ${id2}`), `mesh ${id2} was not deleted`);
+    this.deleted.add(id2);
+  }
+  /**
+   * Every mesh the run made, read from what its commands printed: a create stopped after the
+   * relay made the mesh (Ctrl-C, a step's time running out) still printed its id, so it is
+   * still deleted.
+   */
+  made() {
+    const ids = this.terms.flatMap((t2) => [...said(t2).matchAll(/^Created mesh (\S+) on /gm)].map((m4) => m4[1]));
+    return [...new Set(ids)].filter((id2) => !this.deleted.has(id2));
+  }
+  /**
+   * The rows of the end of a run, which always run: in live mode the meshes the run made and did
+   * not delete yet are deleted; then what still runs is stopped, the sandbox relay closed and the
+   * sandbox removed.
+   */
+  async close() {
+    const rows = [];
+    for (const t2 of this.terms) t2.stop.abort();
+    await settledWithin([...this.running.map((r6) => r6.done), ...this.sessions.map((s3) => s3.stop({ ended: true }))], CLOSE_WAIT_MS);
+    if (this.mode.live !== void 0) rows.push(await ending("delete the live meshes", async () => {
+      const left = this.made();
+      const failed = [];
+      for (const id2 of left) await this.deleteMesh(id2).catch((error64) => void failed.push(error64.message));
+      need(failed.length === 0, failed.join("; "));
+    }));
+    rows.push(await ending("remove the sandbox", async () => {
+      try {
+        await this.relay?.close();
+      } finally {
+        await this.box?.remove();
+      }
+    }));
+    return rows;
+  }
+};
+var CLOSE_WAIT_MS = 3e4;
+function settledWithin(work, ms) {
+  let t2;
+  const late = new Promise((r6) => t2 = setTimeout(r6, ms));
+  return Promise.race([Promise.allSettled(work).then(() => void 0), late]).finally(() => clearTimeout(t2));
+}
+async function ending(name, work) {
+  const t0 = Date.now();
+  try {
+    await work();
+    return { name, result: "pass", ms: Date.now() - t0 };
+  } catch (error64) {
+    return { name, result: "fail", ms: Date.now() - t0, detail: error64.message };
+  }
+}
+function personAt(t2, device, io) {
+  const show = (line) => io.err(`[${device}] ${line}`);
+  t2.io.out = (line) => (t2.out.push(line), show(line));
+  t2.io.err = (line) => (t2.err.push(line), show(line));
+  t2.io.isTTY = io.isTTY;
+  t2.io.inputIsTTY = io.inputIsTTY;
+  t2.io.prompt = async (q3) => {
+    t2.out.push(q3);
+    const a5 = t2.answers.shift() ?? "";
+    const expected = typeof a5 === "string" ? a5 : await a5();
+    return io.prompt(`[${device}] ${q3}(the test expects: ${expected === "" ? "Enter" : expected}) `);
+  };
+}
+function noPerson(env3, io) {
+  return cannotConfirm(env3, io);
+}
+var lastLine = (text2) => text2.trim().split("\n").at(-1);
+var sasIn = (t2) => waitFor(() => /Its comparison code is (\S+)\./.exec(said(t2))?.[1], 15e3, "the comparison code");
+async function joinThroughInvite(run, name) {
+  const a5 = run.dev("test-a");
+  const joiner = await run.device(name);
+  const joinTerm = run.term(joiner, ["n"]);
+  const invite2 = await run.background(a5, ["invite"], /On the new device, in a terminal/, [() => sasIn(joinTerm), "n"]);
+  const code2 = grab(said(invite2.term), /never through an agent\):\n {2}(\S+)/, "invite code");
+  const joined = await run.cmd(joiner, ["join", code2, "--name", name], [], joinTerm);
+  need(joined.code === 0, `\`wim join\` on ${name} exited ${joined.code}: ${lastLine(joined.text)}`);
+  need(await invite2.done === 0, `\`wim invite\` on test-a failed: ${lastLine(said(invite2.term))}`);
+  need(said(invite2.term).includes(`Admitted ${name}.`), "test-a did not say it admitted the device");
+  return grab(joined.text, /Joined mesh (\S+)\./, "joined mesh");
+}
+function arrived(s3, text2) {
+  return waitFor(async () => (await s3.spool.unread()).find((i6) => i6.rendered.includes(text2)), 15e3, `${JSON.stringify(text2)} at ${s3.address}`);
+}
+var literally = (text2) => text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+async function heldId(run, dev, from) {
+  const list3 = await run.ok(dev, ["held", "list"]);
+  return grab(list3, new RegExp(`^(\\S+)  ${literally(from)} -> `, "m"), `held message from ${from}`);
+}
+var TRIP = { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, cooldownMinutes: 60 };
+function ciStep(run) {
+  return {
+    name: "a CI notice: held, approved, its rule pinned",
+    run: async () => {
+      if (run.mode.live !== void 0) {
+        throw new NotOffered(run.info.ci === true ? "a live relay checks real CI tokens; the test issuer exists only in the sandbox" : "this relay takes no CI notices (its /v1/info has no ci: true)");
+      }
+      const B = run.dev("test-b");
+      const allowed = await run.ok(B, ["ci", "allow", "github", CI_REPO, "--ref", "main", "--workflow", "notify.yml"], ["y"]);
+      need(allowed.includes("could not be read from the provider's public API"), "the rule was pinned before any notice");
+      const code2 = grab(allowed, /Recipient code for the job \(not a secret\): (wimci1_\S+)/, "recipient code");
+      const deploys = await run.session(B, "deploys");
+      const job = await run.device("ci-job", false);
+      const tokens = (async (input2, init2) => {
+        const url2 = new URL(String(input2));
+        if (`${url2.origin}${url2.pathname}` !== TEST_TOKEN_URL) return run.fetcher()(input2, init2);
+        return Response.json({ value: await run.issuer.mint(url2.searchParams.get("audience"), Date.now()) });
+      });
+      const env3 = { GITHUB_ACTIONS: "true", ACTIONS_ID_TOKEN_REQUEST_URL: TEST_TOKEN_URL, ACTIONS_ID_TOKEN_REQUEST_TOKEN: "sandbox" };
+      await waitFor(() => deploys.ciSent, 15e3, "the session to tell the relay it takes CI notices");
+      await deploys.listPeers();
+      const sent2 = await run.cmd(job, ["ci", "notify", "--recipient", code2, "--to", "deploys", "--text", "the build passed"], [], run.term(job, [], env3, tokens));
+      need(sent2.text.includes("wim ci notify: sent to deploys"), `the notice was not sent: ${lastLine(sent2.text)}`);
+      const id2 = await waitFor(async () => /^(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15e3, "the held CI notice");
+      await run.ok(B, ["held", "approve", id2], ["y"]);
+      need((await run.ok(B, ["ci", "list"])).includes("ids repositoryId=1001 ownerId=1000"), "approving the notice did not pin the rule's ids");
+      await arrived(deploys, "the build passed");
+    }
+  };
+}
+function signerStep(run) {
+  return {
+    name: "the signer: encrypt, start, lock, unlock, stop",
+    run: async () => {
+      const sig = await run.device(SIGNER_DEVICE);
+      await run.ok(sig, ["init", "--name", SIGNER_DEVICE]);
+      need((await run.ok(sig, ["agent", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
+      const running2 = /Signer running in the foreground \(pid \d+\) at (.+)\. Ctrl-C/;
+      const first = await run.background(sig, ["agent", "start", "--foreground"], running2);
+      const at = grab(said(first.term), running2, "signer endpoint");
+      need(at === await agentEndpoint(sig.dir, { platform: run.io.platform, pid: run.io.pid, uid: run.io.uid }, false), `the signer's endpoint ${at} is not the sandbox device's own`);
+      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["agent", "status"])), "the signer is not running unlocked");
+      need((await run.ok(sig, ["agent", "lock"])).includes("Signer locked"), "the signer did not lock");
+      need(/running \(pid \d+\), locked/.test(await run.ok(sig, ["agent", "status"])), "the signer is not locked");
+      const second = await run.background(sig, ["agent", "unlock", "--foreground"], running2);
+      need(await first.done === 0, "the locked signer did not stop for the unlock");
+      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["agent", "status"])), "the signer did not unlock");
+      need((await run.ok(sig, ["agent", "stop"])).includes("Signer stopped."), "the signer did not stop");
+      need(await second.done === 0, "the signer did not end");
+      need(!said(first.term).includes(run.passphrase) && !said(second.term).includes(run.passphrase), "the passphrase was printed");
+    }
+  };
+}
+function sandboxSteps(run) {
+  const A2 = () => run.dev("test-a");
+  const B = () => run.dev("test-b");
+  return [
+    { name: run.mode.live === void 0 ? "start the sandbox relay on loopback" : "read the live relay's /v1/info", run: () => run.open() },
+    {
+      name: "create the mesh",
+      run: async () => {
+        run.mesh = await run.create(await run.device("test-a"), ["init", "--name", "test-a"]);
+      }
+    },
+    {
+      name: "invite, join, comparison code, admit",
+      run: async () => need(await joinThroughInvite(run, "test-b") === run.mesh, "test-b joined another mesh")
+    },
+    {
+      name: "trust both ways",
+      run: async () => {
+        need((await run.ok(A2(), ["devices", "trust", "test-b"], ["y"])).includes("Messages from test-b are delivered"), "test-a did not trust test-b");
+        need((await run.ok(B(), ["devices", "trust", "test-a"], ["y"])).includes("Messages from test-a are delivered"), "test-b did not trust test-a");
+      }
+    },
+    {
+      name: "ping both directions",
+      run: async () => {
+        const wa = await run.background(A2(), ["watch", "--as", "qa"], /Watching as/);
+        const wb = await run.background(B(), ["watch", "--as", "qa"], /Watching as/);
+        need((await run.ok(A2(), ["ping", "qa@test-b"])).includes("pong in"), "no pong from qa@test-b");
+        need((await run.ok(B(), ["ping", "qa@test-a"])).includes("pong in"), "no pong from qa@test-a");
+        await run.stop(wa);
+        await run.stop(wb);
+      }
+    },
+    {
+      name: "send and receive, with receipts",
+      run: async () => {
+        const wb = await run.background(B(), ["watch"], /Watching as/);
+        const sent2 = await run.ok(A2(), ["send", "cli@test-b", "hello from test-a", "--wait", "15s"]);
+        need(sent2.includes("cli@test-b: routed"), "the send was not routed");
+        need(sent2.includes("cli@test-b: delivered"), "no delivered receipt");
+        await shows(wb.term, /hello from test-a/, 15e3, "the message at test-b");
+        await run.stop(wb);
+      }
+    },
+    {
+      name: "the offline queue and reconnect",
+      run: async () => {
+        need((await run.ok(A2(), ["send", "cli@test-b", "while you were away"])).includes("cli@test-b: queued"), "the send to an offline session was not queued");
+        need((await run.ok(B(), ["inbox"])).includes("while you were away"), "test-b did not get the queued message when it came back");
+      }
+    },
+    {
+      name: "held from an untrusted device: approve, then refuse",
+      run: async () => {
+        await joinThroughInvite(run, "test-c");
+        const C = run.dev("test-c");
+        await run.ok(C, ["send", "cli@test-b", "first from test-c"]);
+        need(!(await run.ok(B(), ["inbox"])).includes("first from test-c"), "a message from an untrusted device was delivered");
+        await run.ok(B(), ["held", "approve", await heldId(run, B(), "cli@test-c")], ["y"]);
+        need((await run.ok(B(), ["inbox"])).includes("first from test-c"), "the approved message was not delivered");
+        await run.ok(C, ["send", "cli@test-b", "second from test-c"]);
+        await run.ok(B(), ["inbox"]);
+        await run.ok(B(), ["held", "refuse", await heldId(run, B(), "cli@test-c")], ["y"]);
+        need((await run.ok(B(), ["held", "list"])).includes("Nothing is held."), "the refused message is still held");
+        need(!(await run.ok(B(), ["inbox"])).includes("second from test-c"), "the refused message was delivered");
+      }
+    },
+    {
+      name: "rooms, a file, a lease, ask and reply, rename",
+      run: async () => {
+        const a5 = await run.session(A2(), "qa-a");
+        const b5 = await run.session(B(), "qa-b");
+        b5.on("message", (m4) => {
+          if (m4.kind === "task") void b5.reply(m4.id, "done", "42");
+        });
+        await a5.joinRoom("#qa");
+        need((await b5.joinRoom("#qa")).includes("qa-a@test-a"), "the room does not list qa-a");
+        await a5.send("#qa", "to the room");
+        await arrived(b5, "to the room");
+        const dir = join23(run.box.root, "files");
+        await fs16.mkdir(dir);
+        await fs16.writeFile(join23(dir, "hello.txt"), "a small file");
+        await a5.sendFile("qa-b@test-b", join23(dir, "hello.txt"));
+        const saved = grab((await arrived(b5, "hello.txt")).rendered, /saved to (\S+)\./, "saved file");
+        need(inside2(run.box.root, saved) && await fs16.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
+        need((await a5.acquireLease("qa", 6e4, false)).status === "granted", "the lease was not granted");
+        need((await b5.acquireLease("qa", 6e4, false)).status === "held", "a held lease was granted twice");
+        await a5.releaseLease("qa");
+        need((await b5.acquireLease("qa", 6e4, false)).status === "granted", "a released lease was not granted");
+        need((await a5.ask("qa-b@test-b", "what is 6 times 7", 15e3)).result?.text === "42", "the task got no reply");
+        need(await a5.rename("qa-renamed") === "qa-renamed@test-a", "the rename did not take");
+        need((await b5.listPeers()).some((p3) => p3.address === "qa-renamed@test-a"), "the other device does not see the new name");
+      }
+    },
+    ...run.mode.full ? [ciStep(run)] : [],
+    {
+      name: "the loop breaker: trip, then resume",
+      run: async () => {
+        await run.meshFiles(B()).updateConfig((c5) => ({ ...c5, breaker: TRIP }));
+        await run.ok(B(), ["inbox", "--as", "brk"]);
+        await run.ok(A2(), ["send", "brk@test-b", "breaker one"]);
+        await run.ok(A2(), ["send", "brk@test-b", "breaker two"]);
+        const first = await run.ok(B(), ["inbox", "--as", "brk"]);
+        need(first.includes("breaker one") && !first.includes("breaker two"), "the breaker did not hold the second message");
+        need((await run.ok(B(), ["held", "list"])).includes("paused  cli@test-a's device -> brk"), "`wim held list` shows no pause");
+        need((await run.ok(B(), ["held", "resume", "cli@test-a"], ["y"])).includes("released 1"), "the resume released nothing");
+        need((await run.ok(B(), ["inbox", "--as", "brk"])).includes("breaker two"), "the released message was not delivered");
+      }
+    },
+    ...run.mode.full ? [signerStep(run)] : [],
+    {
+      name: "status and doctor on a device not set up",
+      run: async () => {
+        const fresh = await run.device("test-fresh", false);
+        for (const command5 of ["status", "doctor"]) {
+          const r6 = await run.cmd(fresh, [command5]);
+          need(r6.code === 1 && r6.text.includes("wim init") && !r6.text.includes("ENOENT"), `\`wim ${command5}\` on a device not set up: ${lastLine(r6.text)}`);
+        }
+      }
+    },
+    {
+      name: "status and doctor on a device in two meshes",
+      run: async () => {
+        run.second = await run.create(A2(), ["mesh", "create"]);
+        const status3 = await run.ok(A2(), ["status"]);
+        for (const id2 of [run.mesh, run.second]) need(new RegExp(`Mesh ${id2} on .*\\n  connected as`).test(status3), `\`wim status\` did not check mesh ${id2}`);
+        await run.ok(A2(), ["doctor"]);
+      }
+    },
+    {
+      name: "mesh delete",
+      run: async () => {
+        for (const id2 of [run.second, run.mesh]) await run.deleteMesh(id2);
+        need((await run.ok(A2(), ["status"])).includes("in no mesh yet"), "test-a still has a mesh");
+      }
+    }
+  ];
+}
+function stopSignal(io, person) {
+  const stop = new AbortController();
+  const onAbort = () => stop.abort();
+  io.signal.addEventListener("abort", onAbort, { once: true });
+  if (io.signal.aborted) stop.abort();
+  const lines = person || io.inputIsTTY ? void 0 : createInterface2({ input: io.stdin });
+  lines?.on("line", (line) => {
+    if (line.trim() === "stop") stop.abort();
+  });
+  return {
+    signal: stop.signal,
+    close: () => {
+      io.signal.removeEventListener("abort", onAbort);
+      lines?.close();
+    }
+  };
+}
+function refusal2(o3) {
+  if (o3.keyEnv !== void 0 && o3.relay === void 0) return "--key-env is for live mode: wim test --relay <url> --key-env NAME";
+  if (o3.keyEnv !== void 0 && (o3.env[o3.keyEnv] ?? "") === "") return `${o3.keyEnv} is not set`;
+  if (o3.relay !== void 0 && !isRelayUrl(o3.relay)) return `a live relay must be a wss:// URL (plain ws:// only on loopback) with no trailing slash, not ${o3.relay}`;
+  const why = o3.person === true ? noPerson(o3.env, o3.io) : void 0;
+  return why === void 0 ? void 0 : `--person needs a person at their own interactive terminal: ${why}`;
+}
+async function selfTest(o3) {
+  const refused2 = refusal2(o3);
+  if (refused2 !== void 0) {
+    o3.io.err(`wim: ${refused2}`);
+    return 2;
+  }
+  const t0 = Date.now();
+  const choice = homeChoice(o3.env, o3.io.platform, o3.io.homedir);
+  const mode = {
+    full: o3.full === true,
+    person: o3.person === true,
+    ...o3.relay === void 0 ? {} : { live: o3.relay },
+    ...o3.keyEnv === void 0 ? {} : { keyEnv: { name: o3.keyEnv, value: o3.env[o3.keyEnv] } }
+  };
+  const run = new Run2(o3.main, o3.io, o3.tmp ?? tmpdir(), [choice.root, choice.base], mode, o3.shortTmp);
+  const stopped = stopSignal(o3.io, mode.person);
+  const onAbort = () => run.terms.forEach((t2) => t2.stop.abort());
+  stopped.signal.addEventListener("abort", onAbort, { once: true });
+  const rows = await runSteps((o3.steps ?? sandboxSteps)(run), () => run.check(), stopped.signal, o3.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS));
+  stopped.signal.removeEventListener("abort", onAbort);
+  stopped.close();
+  rows.push(...await run.close());
+  const ms = Date.now() - t0;
+  const ok2 = passed(rows);
+  const name = mode.live === void 0 ? "sandbox" : "live";
+  if (o3.json) {
+    const count = (r6) => rows.filter((x2) => x2.result === r6).length;
+    o3.io.out(JSON.stringify({ mode: name, full: mode.full, ...mode.live === void 0 ? {} : { relay: mode.live }, ok: ok2, passed: count("pass"), failed: count("fail"), skipped: count("skip"), ms, steps: rows }));
+  } else {
+    o3.io.out(
+      mode.live === void 0 ? "wim test: the sandbox (a relay on loopback and throwaway devices in a temporary directory, all removed at the end)" : `wim test: live, on ${mode.live} (a throwaway mesh, deleted at the end, and throwaway devices in a temporary directory, removed at the end)`
+    );
+    for (const line of report(rows, ms)) o3.io.out(line);
+  }
+  return ok2 ? 0 : 1;
+}
+
 // src/cli.ts
-var VERSION = "0.1.9";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected", "take"]);
+var VERSION = "0.1.10";
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   setup: ["name", "relay", "key-env"],
@@ -130145,15 +133557,16 @@ var COMMAND_FLAGS = {
   recovery: ["wait"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
-  "legacy-boxes": []
+  "legacy-boxes": [],
+  test: ["json", "full", "relay", "key-env", "person"]
 };
 function parseArgs(argv) {
-  const positional = [];
+  const positional2 = [];
   const flags = /* @__PURE__ */ new Map();
   for (let i6 = 0; i6 < argv.length; i6++) {
     const a5 = argv[i6];
     if (a5 === "--") {
-      positional.push(...argv.slice(i6 + 1));
+      positional2.push(...argv.slice(i6 + 1));
       break;
     }
     if (a5 === "-h") {
@@ -130161,7 +133574,7 @@ function parseArgs(argv) {
       continue;
     }
     if (!a5.startsWith("--")) {
-      positional.push(a5);
+      positional2.push(a5);
       continue;
     }
     const eq = a5.indexOf("=");
@@ -130173,7 +133586,7 @@ function parseArgs(argv) {
     else if (OPTIONAL_VALUE_FLAGS.has(name)) flags.set(name, true);
     else throw new SetupError(`--${name} needs a value`);
   }
-  return { positional, flags };
+  return { positional: positional2, flags };
 }
 function unknownFlag(command5, flags) {
   const allowed = [...COMMON_FLAGS, ...command5 === void 0 ? [] : COMMAND_FLAGS[command5] ?? []];
@@ -130217,8 +133630,9 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim mcp
   wim hook gemini|antigravity|codex|cursor|copilot [start]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
-  wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]
-  wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]
+  wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]
+  wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]
+  wim ci allow ... --tag 'v*' | --ref 'release/*': a pattern, one * at the end, quoted
   wim ci list | wim ci remove <n>
   wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
@@ -130227,6 +133641,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim notify-test
   wim crash-reports [status | on | off]
   wim legacy-boxes [status | refuse | accept]
+  wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -130234,7 +133649,7 @@ var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agen
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, legacy-boxes, agent.
+crash-reports, legacy-boxes, test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
   if (!/^[a-z-]+$/.test(command5)) return void 0;
@@ -130345,7 +133760,7 @@ var Ctx = class {
   /** Waits until the person stops the command. */
   untilStopped() {
     if (this.io.signal.aborted) return Promise.resolve();
-    return new Promise((resolve3) => this.io.signal.addEventListener("abort", () => resolve3(), { once: true }));
+    return new Promise((resolve4) => this.io.signal.addEventListener("abort", () => resolve4(), { once: true }));
   }
 };
 function nameFor(ctx, fallback2) {
@@ -130445,6 +133860,16 @@ ${SHORT_USAGE}`);
 ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
     return 2;
   }
+  if (command5 === "test") {
+    if (rest.length > 0 || args.flags.has("mesh")) {
+      io.err(`wim: usage: ${commandUsage("test")}`);
+      return 2;
+    }
+    const relay = flag2(args, "relay");
+    const keyEnv = flag2(args, "key-env");
+    const flags = { json: args.flags.get("json") === true, full: args.flags.get("full") === true, person: args.flags.get("person") === true };
+    return selfTest({ main, env: env3, io, ...flags, ...relay === void 0 ? {} : { relay }, ...keyEnv === void 0 ? {} : { keyEnv } });
+  }
   const ctx = new Ctx(env3, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({
     dsn: bakedDsn("https://8a144e08992790fa91bbd33197e4b237@o4511933949083648.ingest.de.sentry.io/4512381403856976"),
@@ -130476,7 +133901,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join23(ctx);
+        return await join24(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -130751,7 +134176,7 @@ function personHere(ctx, command5) {
 function confirmed(ctx, lines, question) {
   return confirmTyped(ctx.io, lines, question);
 }
-function noPerson(ctx) {
+function noPerson2(ctx) {
   return agentEnv(ctx.env) === void 0 ? "this is not an interactive terminal" : "an agent is running this command";
 }
 async function typedCode(ctx, p3) {
@@ -130772,7 +134197,7 @@ async function invite(ctx) {
   const ttl = parseDuration(flag2(ctx.args, "exp") ?? "1h");
   const auto = ctx.args.flags.get("auto") === true;
   if (!auto && !canConfirm(ctx.env, ctx.io)) {
-    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code, and shows that code only in a terminal of your own`);
+    throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson2(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code, and shows that code only in a terminal of your own`);
   }
   const s3 = await ctx.session("invite", { keyed: false });
   const offerEnds = new AbortController();
@@ -130831,13 +134256,13 @@ async function invite(ctx) {
       }
       const body = joins.shift();
       if (body === void 0) {
-        await new Promise((resolve3) => {
+        await new Promise((resolve4) => {
           const t2 = setTimeout(done, Math.max(0, Math.min(1e3, made.exp - ctx.io.now())));
           function done() {
             clearTimeout(t2);
             wake = void 0;
             ctx.io.signal.removeEventListener("abort", done);
-            resolve3();
+            resolve4();
           }
           wake = done;
           ctx.io.signal.addEventListener("abort", done, { once: true });
@@ -130880,7 +134305,7 @@ async function askTrust(ctx, files, devices2, ask3 = true) {
   }
   ctx.io.out(`Messages from ${list3} are held for your approval. If ${one ? "it is" : "they are"} your own: wim devices trust ${one ? list3 : "--all"}`);
 }
-async function join23(ctx) {
+async function join24(ctx) {
   const typed = ctx.args.positional[0];
   if (typed === void 0) throw new SetupError("usage: wim join <code>");
   const code2 = await resolveInvite(typed, ctx.io.fetch);
@@ -131015,7 +134440,7 @@ async function pending(ctx) {
 }
 async function admit(ctx, name, code2) {
   if (name === void 0 || code2 === void 0) throw new SetupError("usage: wim devices admit <name> <code>");
-  if (!canConfirm(ctx.env, ctx.io)) throw new SetupError(`run \`wim devices admit\` in your own terminal: admitting a device is the person's decision, and ${noPerson(ctx)}`);
+  if (!canConfirm(ctx.env, ctx.io)) throw new SetupError(`run \`wim devices admit\` in your own terminal: admitting a device is the person's decision, and ${noPerson2(ctx)}`);
   const s3 = await joinsSession(ctx);
   try {
     const decision = await admitPending(s3, name, code2, ctx.io.now);
@@ -131193,9 +134618,9 @@ async function ping(ctx) {
     }
     const asked = targets.filter((a5) => !offline.has(a5));
     const rows = asked.length === 0 ? [] : await s3.ping(asked, waitMs);
-    const report = targets.map((a5) => rows.find((r6) => r6.to === a5) ?? { to: a5, status: "offline" });
-    for (const line of pingReport(report, s3.address, waitMs)) ctx.io.out(line);
-    return report.every((r6) => r6.ms !== void 0) ? 0 : 1;
+    const report2 = targets.map((a5) => rows.find((r6) => r6.to === a5) ?? { to: a5, status: "offline" });
+    for (const line of pingReport(report2, s3.address, waitMs)) ctx.io.out(line);
+    return report2.every((r6) => r6.ms !== void 0) ? 0 : 1;
   } finally {
     await s3.stop({ ended: true });
   }
@@ -131365,8 +134790,8 @@ async function decideOne(ctx, files, action, arg, all) {
   const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
   const pins = action === "approve" ? rows[0].ci?.pins : void 0;
   const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath);
-  const refusal2 = rules === void 0 ? void 0 : pinRefusal(rules, rows[0].ci.rule, pins);
-  if (refusal2 !== void 0) throw refusal2;
+  const refusal3 = rules === void 0 ? void 0 : pinRefusal(rules, rows[0].ci.rule, pins);
+  if (refusal3 !== void 0) throw refusal3;
   const details = heldDetails(rows, await files.loadConfig(), all, rules);
   const resumable = action === "approve" && rows[0].reason === "breaker" && rows[0].ci === void 0;
   if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
@@ -131502,10 +134927,10 @@ async function history(ctx) {
   return 0;
 }
 async function hook(rest, env3, io) {
-  const start2 = rest.length === 2 && rest[1] === "start";
-  const agent = rest.length === 1 || start2 ? rest[0] : "";
+  const start3 = rest.length === 2 && rest[1] === "start";
+  const agent = rest.length === 1 || start3 ? rest[0] : "";
   const input2 = Object.hasOwn(HOOK_AGENTS, agent) ? await readInput(io.stdin) : void 0;
-  const answer = await hookAnswer({ agent, input: input2, env: env3, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...start2 ? { event: "start" } : {}, ...io.ancestry === void 0 ? {} : { ancestry: io.ancestry } });
+  const answer = await hookAnswer({ agent, input: input2, env: env3, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...start3 ? { event: "start" } : {}, ...io.ancestry === void 0 ? {} : { ancestry: io.ancestry } });
   if (answer.out !== "") io.out(answer.out);
   if (env3["WIM_DEBUG"] === "1") io.err(`wim hook: ${answer.why}`);
   return 0;
@@ -131535,23 +134960,23 @@ async function mcp(ctx) {
     ...ctx.io.ancestry === void 0 ? {} : { ancestry: ctx.io.ancestry }
   });
   const stdin = ctx.io.stdin;
-  const closed = new Promise((resolve3) => stdin.once("end", resolve3));
+  const closed = new Promise((resolve4) => stdin.once("end", resolve4));
   let poll;
-  const orphaned = new Promise((resolve3) => {
-    poll = setInterval(() => ctx.io.parentGone() ? resolve3() : void 0, ctx.io.parentPollMs ?? 5e3);
+  const orphaned = new Promise((resolve4) => {
+    poll = setInterval(() => ctx.io.parentGone() ? resolve4() : void 0, ctx.io.parentPollMs ?? 5e3);
   });
   await server.server.connect(new StdioServerTransport(stdin, ctx.io.stdout));
   await server.start()?.catch((error64) => ctx.io.err(`wim: ${error64.message}`));
   await Promise.race([closed, orphaned, ctx.untilStopped()]);
   clearInterval(poll);
   let timer;
-  await Promise.race([server.close(), new Promise((resolve3) => timer = setTimeout(resolve3, ctx.io.closeMs ?? 3e3))]);
+  await Promise.race([server.close(), new Promise((resolve4) => timer = setTimeout(resolve4, ctx.io.closeMs ?? 3e3))]);
   clearTimeout(timer);
   return 0;
 }
 async function readConfig(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs16.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs17.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
@@ -131730,24 +135155,24 @@ async function notifyTest(ctx) {
 
 // src/io.ts
 import { homedir as homedir3, hostname as hostname3 } from "node:os";
-import { createInterface as createInterface2 } from "node:readline";
+import { createInterface as createInterface3 } from "node:readline";
 import { Writable as Writable4 } from "node:stream";
 function ask2(input2, open3, question, stop) {
   if (input2.readableEnded || stop.signal.aborted) return Promise.resolve("");
   const rl = open3();
-  return new Promise((resolve3) => {
-    rl.question(question, resolve3);
-    rl.once("line", resolve3);
-    rl.once("close", () => resolve3(""));
+  return new Promise((resolve4) => {
+    rl.question(question, resolve4);
+    rl.once("line", resolve4);
+    rl.once("close", () => resolve4(""));
     rl.once("SIGINT", () => {
       stop.abort();
-      resolve3("");
+      resolve4("");
     });
   }).finally(() => rl.close());
 }
 function written(out, text2) {
   if (out.destroyed || out.writableEnded) return Promise.resolve(false);
-  return new Promise((resolve3) => void out.write(text2, (error64) => resolve3(error64 == null)));
+  return new Promise((resolve4) => void out.write(text2, (error64) => resolve4(error64 == null)));
 }
 function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kill: (pid, s3) => void process.kill(pid, s3), wim: wimCommand }) {
   const stop = new AbortController();
@@ -131772,11 +135197,11 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     // `wim mcp` owns stdout for the protocol, so diagnostics always go to stderr.
     err: (line) => void proc.stderr.write(`${line}
 `),
-    prompt: (question) => ask2(proc.stdin, () => createInterface2({ input: proc.stdin, output: proc.stderr }), question, stop),
+    prompt: (question) => ask2(proc.stdin, () => createInterface3({ input: proc.stdin, output: proc.stderr }), question, stop),
     // The question goes to stderr; what is typed is echoed nowhere (readline writes it to a sink).
     promptSecret: async (question) => {
       proc.stderr.write(question);
-      const answer = await ask2(proc.stdin, () => createInterface2({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "", stop);
+      const answer = await ask2(proc.stdin, () => createInterface3({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "", stop);
       proc.stderr.write("\n");
       return answer;
     },

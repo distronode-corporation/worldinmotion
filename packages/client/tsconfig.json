@@ -11,6 +11,7 @@
     { "path": "../protocol" },
     { "path": "../bot" },
     { "path": "../ci" },
-    { "path": "../a2a" }
+    { "path": "../a2a" },
+    { "path": "../relay-node" }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "name": "@worldinmotion/client",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "wim: the worldinmotion CLI, client library and MCP server",
   "license": "Apache-2.0",
   "type": "module",
@@ -24,10 +24,11 @@
     "@modelcontextprotocol/sdk": "1.32.2",
     "@noble/ciphers": "2.4.0",
     "@sentry/core": "11.10.0",
-    "@worldinmotion/a2a": "0.1.9",
-    "@worldinmotion/bot": "0.1.9",
-    "@worldinmotion/ci": "0.1.9",
-    "@worldinmotion/protocol": "0.1.9",
+    "@worldinmotion/a2a": "0.1.10",
+    "@worldinmotion/bot": "0.1.10",
+    "@worldinmotion/ci": "0.1.10",
+    "@worldinmotion/protocol": "0.1.10",
+    "@worldinmotion/relay-node": "0.1.10",
     "ws": "8.22.0",
     "zod": "4.6.7"
   },

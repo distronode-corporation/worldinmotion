@@ -14,6 +14,31 @@ import { MeshFiles } from "../src/mesh.ts";
 import { canConfirm } from "../src/secretout.ts";
 import { FS, inviteCodeOf, makeMesh, newDevice, openSession, RELAY, RelayHarness, run, said, sasOf, scratch, term, until, type TestDevice } from "./helpers.ts";
 
+/**
+ * A terminal's clock that the test moves two hours ahead while `wim invite` waits, and back
+ * when it ends. The invite gets an hour, so the relay always takes it (a real expiry of a few
+ * hundred milliseconds raced the work before the relay checked it, and lost on a slow runner),
+ * and it still expires unused within the second the wait loop sleeps.
+ */
+function inviteClock(): { now: () => number; skew: (ms: number) => void } {
+  let skew = 0;
+  return { now: () => Date.now() + skew, skew: (ms) => void (skew = ms) };
+}
+
+/** Runs `wim invite` with `args` in a terminal on `clock`, and moves the clock past the invite's expiry once it waits. */
+async function inviteExpiring(t: ReturnType<typeof term>, clock: ReturnType<typeof inviteClock>, ...args: string[]): Promise<number> {
+  const waits = (): number => said(t).split("Waiting for the device to join").length;
+  const before = waits();
+  const inviting = run(t, "invite", ...args, "--exp", "1h");
+  await until(() => waits() > before);
+  clock.skew(2 * 3_600_000);
+  try {
+    return await inviting;
+  } finally {
+    clock.skew(0);
+  }
+}
+
 const open: MeshSession[] = [];
 const later: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -235,7 +260,8 @@ describe("wim invite, join and devices", () => {
   it("refuses an --auto invite whose code cannot be held, and a stray argument", async () => {
     const relay = new RelayHarness();
     const { devices } = await makeMesh(relay, ["admin"]);
-    const piped = term(devices[0]!.root, relay, { isTTY: false });
+    const clock = inviteClock();
+    const piped = term(devices[0]!.root, relay, { isTTY: false, now: clock.now });
     // Something else is where the proof goes, so the code cannot be offered.
     await fs.mkdir(join(devices[0]!.home.root, "invite.proof"));
     expect(await run(piped, "invite", "--auto")).toBe(1);
@@ -243,7 +269,7 @@ describe("wim invite, join and devices", () => {
     expect(said(piped)).not.toMatch(/wim[12][_-]/);
     await fs.rmdir(join(devices[0]!.home.root, "invite.proof"));
     // A held code nobody collects before the invite expires: the invite was never usable.
-    expect(await run(piped, "invite", "--auto", "--exp", "300")).toBe(1);
+    expect(await inviteExpiring(piped, clock, "--auto")).toBe(1);
     expect(said(piped)).toContain("wim: the invite expired unused.");
     expect(said(piped)).not.toMatch(/wim[12][_-]/);
     expect(await fs.access(join(devices[0]!.home.root, "invite.proof")).then(() => true, () => false)).toBe(false);
@@ -254,8 +280,9 @@ describe("wim invite, join and devices", () => {
   it("says when an invite expired unused, and refuses a request whose code the person will not confirm", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["admin"]);
-    const a = term(devices[0]!.root, relay);
-    expect(await run(a, "invite", "--exp", "150")).toBe(1);
+    const clock = inviteClock();
+    const a = term(devices[0]!.root, relay, { now: clock.now });
+    expect(await inviteExpiring(a, clock)).toBe(1);
     expect(said(a)).toContain("wim: the invite expired unused.");
     a.out.length = 0;
     a.err.length = 0;
