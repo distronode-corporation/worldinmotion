@@ -1043,8 +1043,13 @@ carries the weight of the person or the system. The text is therefore fixed: a c
 instruction to call the `inbox` tool ("2 messages from other AI sessions are waiting in
 worldinmotion. Call the worldinmotion inbox tool to read them."). No peer text, session name,
 address, device name, file name or any other field a peer or relay chose reaches it. The messages
-themselves reach the model only through `inbox`, inside the frame above. The hook writes only its
-own record of what it announced, in the session's state directory, runs no shell (on macOS it runs
+themselves reach the model only through `inbox`, inside the frame above. The turn the hook asks
+for is a mesh turn: before it prints the line, it writes the session's presence as `busy-mesh`, so
+what the agent sends in that turn is marked derived (SPEC 6a), as in a turn the Claude Code plugin
+starts. When that write fails, it prints no line. A turn end that lets the agent stop writes `idle`,
+which ends the mesh turn; with no single session found, it writes nothing, and a session left
+marked only marks more of what it sends as derived. Besides presence, the hook writes only its own
+record of what it announced, in the session's state directory, runs no shell (on macOS it runs
 `ps` directly, once, to read process start times), and lets the
 agent stop on any payload it does not recognise.
 
@@ -1197,7 +1202,8 @@ detector as any send does. The hook writes nothing to the breaker. It reads the 
 `breaker.json`, and a device with a running pause never wakes the agent. It also announces each
 item once per agent session, and lets a stop that already follows a continuation end where the
 agent says so (`stop_hook_active`), so a looping pair of agents gets at most one extra turn per
-admitted message.
+admitted message. That extra turn is a mesh turn (section 7.1): what the agent sends in it is
+derived, so a trusted request it carries goes one hop, not two.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy

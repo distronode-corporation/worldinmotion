@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { promises as fs } from "node:fs";
+import { promises as fs, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { ulid } from "@worldinmotion/protocol";
@@ -369,6 +369,122 @@ describe("wim hook: hostile payloads", () => {
     text.end("é");
     expect(await strings).toBe("é");
   });
+});
+
+describe("wim hook: the turn it asks for is a mesh turn", () => {
+  const presence = (dir: string): Promise<string | undefined> => fs.readFile(join(dir, "presence"), "utf8").catch(() => undefined);
+
+  it("writes busy-mesh before it prints the wake, for every agent", async () => {
+    for (const agent of Object.keys(HOOK_AGENTS)) {
+      const { root, meshDir } = await stateDir();
+      const dir = await session(meshDir, [AGENT]);
+      await item(dir);
+      const input = agent === "gemini" ? await fixture("gemini-cli", "after-agent.first.json") : agent === "antigravity" ? await fixture("antigravity", "stop.first.json") : JSON.stringify(DOCUMENTED[agent as keyof typeof DOCUMENTED]);
+      // What the presence file reads at the moment the wake is printed.
+      const seen: Array<string | undefined> = [];
+      const stdin = new PassThrough();
+      const t = term(root, new RelayHarness(), { stdin, ancestry: async () => MINE });
+      const print = t.io.out;
+      t.io.out = (line: string) => {
+        seen.push(readFileSync(join(dir, "presence"), "utf8"));
+        print(line);
+      };
+      const running = main(["hook", agent], t.env, t.io);
+      stdin.end(input);
+      expect(await running).toBe(0);
+      expect(t.out, agent).toEqual([wake(agent, 1)]);
+      expect(seen, agent).toEqual(["busy-mesh"]);
+    }
+  });
+
+  it("prints no wake when busy-mesh cannot be written, and announces nothing then", async () => {
+    const { root, meshDir } = await stateDir();
+    const dir = await session(meshDir, [AGENT]);
+    await item(dir);
+    // A directory where the presence file goes: the write fails.
+    await fs.mkdir(join(dir, "presence", "x"), { recursive: true });
+    const input = JSON.stringify(DOCUMENTED.codex);
+    const answer = await hookAnswer(opts(root, "codex", input));
+    expect(answer.out).toBe("{}");
+    expect(answer.why).toMatch(/^cannot mark the turn a mesh turn: /);
+    await expect(fs.access(join(dir, ANNOUNCED_FILE))).rejects.toThrow();
+    // Once it can be written, the same item wakes: it was never recorded as announced.
+    await fs.rm(join(dir, "presence"), { recursive: true });
+    expect(await out(opts(root, "codex", input))).toBe(wake("codex", 1));
+    expect(await presence(dir)).toBe("busy-mesh");
+  });
+
+  it("writes idle at the stop that follows a continuation, so the mesh turn ends", async () => {
+    const { root, meshDir } = await stateDir();
+    const dir = await session(meshDir, [AGENT]);
+    await item(dir);
+    expect(await out(opts(root, "gemini", await fixture("gemini-cli", "after-agent.first.json")))).toBe(wake("gemini", 1));
+    expect(await presence(dir)).toBe("busy-mesh");
+    expect(await hookAnswer(opts(root, "gemini", await fixture("gemini-cli", "after-agent.continued.json")))).toEqual({ out: "", why: "this stop already follows a continuation" });
+    expect(await presence(dir)).toBe("idle");
+    // An agent with no per-cycle flag: its continuation ends as any stop that does not wake, with idle.
+    for (const [agent, input] of [["antigravity", await fixture("antigravity", "stop.first.json")], ["cursor", JSON.stringify(DOCUMENTED.cursor)]] as const) {
+      const state = await stateDir();
+      const mine = await session(state.meshDir, [AGENT]);
+      await item(mine);
+      expect(await out(opts(state.root, agent, input))).toBe(wake(agent, 1));
+      expect(await presence(mine)).toBe("busy-mesh");
+      expect(await hookAnswer(opts(state.root, agent, input))).toEqual({ out: "", why: "nothing new since the last announcement" });
+      expect(await presence(mine)).toBe("idle");
+    }
+    // A stop with nothing waiting writes idle too.
+    const state = await stateDir();
+    const quiet = await session(state.meshDir, [AGENT]);
+    await fs.writeFile(join(quiet, "presence"), "busy-mesh");
+    expect(await hookAnswer(opts(state.root, "copilot", JSON.stringify(DOCUMENTED.copilot)))).toEqual({ out: "", why: "nothing waiting" });
+    expect(await presence(quiet)).toBe("idle");
+  });
+
+  it("writes nothing at a continuation's stop without one session, and keeps busy-mesh when idle cannot be written", async () => {
+    const continuedStop = JSON.stringify({ ...DOCUMENTED.codex, stop_hook_active: true });
+    {
+      const { root, meshDir } = await stateDir();
+      const one = await session(meshDir, [AGENT]);
+      const two = await session(meshDir, [AGENT]);
+      for (const dir of [one, two]) await fs.writeFile(join(dir, "presence"), "busy-mesh");
+      expect(await hookAnswer(opts(root, "codex", continuedStop))).toEqual({ out: "{}", why: "this stop already follows a continuation; nothing written: 2 sessions share the nearest process: not one session" });
+      for (const dir of [one, two]) expect(await presence(dir)).toBe("busy-mesh");
+      expect(await hookAnswer(opts(root, "codex", continuedStop, { ancestry: undefined }))).toEqual({ out: "{}", why: "this stop already follows a continuation; nothing written: the processes above the hook cannot be read here" });
+      expect((await hookAnswer(opts(root, "codex", continuedStop, { ancestry: () => Promise.reject(new Error("no proc")) }))).why).toBe("this stop already follows a continuation; nothing written: cannot tell: no proc");
+      for (const dir of [one, two]) expect(await presence(dir)).toBe("busy-mesh");
+    }
+    {
+      const { root, meshDir } = await stateDir();
+      const dir = await session(meshDir, [AGENT]);
+      await fs.mkdir(join(dir, "presence", "x"), { recursive: true });
+      expect((await hookAnswer(opts(root, "codex", continuedStop))).why).toMatch(/^this stop already follows a continuation; idle not written: /);
+      expect((await hookAnswer(opts(root, "codex", JSON.stringify(DOCUMENTED.codex)))).why).toMatch(/^nothing waiting; idle not written: /);
+    }
+  });
+
+  it("marks what the woken session sends derived until the continuation's stop", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const peer = await openSession(devices[1]!, mesh, relay, { name: "peer" });
+    cleanup.push(() => peer.stop());
+    const server = new WimMcp({ channel: false, internalTools: false, version: "t", session: sessionOpts(devices[0]!, mesh, relay, { name: "gem", kind: "gemini-cli" }), ancestry: async (levels) => MINE.slice(0, levels) });
+    cleanup.push(() => server.close());
+    const s = await server.start()!;
+    await s.ready(3000);
+    await peer.send("gem@one", "please look");
+    await until(async () => (await s.spool.unread()).length > 0);
+    const o = opts(devices[0]!.root, "gemini", await fixture("gemini-cli", "after-agent.first.json"));
+    expect(await out(o)).toBe(wake("gemini", 1));
+    // In the turn the hook asked for, a send carries `derived`.
+    await s.send("peer@two", "answer in the mesh turn");
+    await until(async () => (await peer.spool.unread()).length > 0);
+    expect((await peer.spool.unread())[0]!.rendered).toMatch(/Derived: written while handling another agent's message/);
+    // After the continuation's stop, a send is the person's again.
+    await hookAnswer({ ...o, input: await fixture("gemini-cli", "after-agent.continued.json") });
+    await s.send("peer@two", "after the turn");
+    await until(async () => (await peer.spool.unread()).length > 1);
+    expect((await peer.spool.unread())[1]!.rendered).not.toMatch(/Derived:/);
+  }, 20_000);
 });
 
 describe("wim hook: the command", () => {

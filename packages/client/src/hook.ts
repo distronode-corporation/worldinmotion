@@ -2,13 +2,15 @@
 // from trusted peers wait in this agent session's spool and were not announced yet, it asks the
 // agent for one more turn with a fixed line: how many, and to call `inbox`. Nothing a peer wrote or
 // chose (text, names, addresses, file names) ever reaches that line (SECURITY-MODEL section 7.1).
-// Anything unclear lets the agent stop, and the command always exits 0.
+// Anything unclear lets the agent stop, and the command always exits 0. The turn it asks for is a
+// mesh turn: the session's presence reads `busy-mesh` before the line is printed, so what the agent
+// sends in it is marked derived (SPEC 6a), and a turn end that lets the agent stop writes `idle`.
 
 import { b64u, sha256, utf8 } from "@worldinmotion/protocol";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
 import { parseChain, sameProcess, type Ancestor } from "./ancestry.ts";
-import { fsOps, readJson, readText, tryRemove, whileBusy, withLock, writeJson, type FsEnv } from "./fsx.ts";
+import { fsOps, readJson, readText, tryRemove, whileBusy, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { Home } from "./home.ts";
 import { MeshFiles, type MeshConfig } from "./mesh.ts";
 import { readPauses } from "./pauses.ts";
@@ -129,10 +131,19 @@ export async function hookAnswer(o: HookOptions): Promise<HookAnswer> {
   if (agent === undefined) return { out: "", why: "not an agent the hook knows" };
   const stop = readStop(agent, o.input);
   if (stop === undefined) return { out: agent.allow, why: "not a turn-end payload this agent sends" };
-  if (stop.continued) return { out: agent.allow, why: "this stop already follows a continuation" };
-  const found = await waiting(o, `${o.agent}\0${stop.key}`).catch((error: unknown) => `cannot tell: ${(error as Error).message}`);
+  if (stop.continued) return { out: agent.allow, why: await continued(o) };
+  const found = await waiting(o, `${o.agent}\0${stop.key}`).catch(cannotTell);
   if (typeof found === "string") return { out: agent.allow, why: found };
   return { out: agent.wake(wakeText(found)), why: `${found} waiting` };
+}
+
+const cannotTell = (error: unknown): string => `cannot tell: ${(error as Error).message}`;
+
+/** The stop after a continuation: the mesh turn the hook asked for ends, so the one session reads `idle`. */
+async function continued(o: HookOptions): Promise<string> {
+  const why = "this stop already follows a continuation";
+  const found = await locate(o).catch(cannotTell);
+  return typeof found === "string" ? `${why}; nothing written: ${found}` : settle(found, why);
 }
 
 function readStop(agent: AgentHook, input: string | undefined): Stop | undefined {
@@ -148,19 +159,41 @@ function readStop(agent: AgentHook, input: string | undefined): Stop | undefined
 
 /** How many items wait for this agent session and announce something new, or why there is no wake. */
 async function waiting(o: HookOptions, sessionKey: string): Promise<number | string> {
+  const found = await locate(o);
+  if (typeof found === "string") return found;
+  const { mesh, files, env } = found;
+  const config = await mesh.loadConfig();
+  const now = o.now();
+  const paused = new Set((await readPauses(files.breakerPath, now)).map((p) => p.peer));
+  const items = (await new Spool(files.spoolDir, env, 0).unread()).filter((i) => counts(i, config, paused));
+  if (items.length === 0) return settle(found, "nothing waiting");
+  const newest = Math.max(...items.map((i) => i.cursor));
+  const why = await announce(files, sessionKey, newest, now, env);
+  return why === undefined ? items.length : why === NOTHING_NEW ? settle(found, why) : why;
+}
+
+type Located = { mesh: MeshFiles; files: SessionFiles; env: FsEnv };
+
+/** The device's mesh and the one session the hook runs beside, or why there is none. */
+async function locate(o: HookOptions): Promise<Located | string> {
   if (o.ancestry === undefined) return "the processes above the hook cannot be read here";
   const env: FsEnv = { platform: o.platform, pid: o.pid };
   const home = new Home(homeChoice(o.env, o.platform, o.homedir).root, { ...env, uid: o.uid });
   const mesh = new MeshFiles(home.meshDir(await home.pickMesh(o.env["WIM_MESH"])), env);
   const files = await sessionFor(mesh, (await o.ancestry(HOOK_LEVELS)).slice(0, HOOK_LEVELS), env);
-  if (typeof files === "string") return files;
-  const config = await mesh.loadConfig();
-  const now = o.now();
-  const paused = new Set((await readPauses(files.breakerPath, now)).map((p) => p.peer));
-  const items = (await new Spool(files.spoolDir, env, 0).unread()).filter((i) => counts(i, config, paused));
-  if (items.length === 0) return "nothing waiting";
-  const newest = Math.max(...items.map((i) => i.cursor));
-  return (await announce(files, sessionKey, newest, now, env)) ? items.length : "nothing new since the last announcement";
+  return typeof files === "string" ? files : { mesh, files, env };
+}
+
+/**
+ * A turn end that lets the agent stop: the session's presence reads `idle`, which ends a mesh turn
+ * the hook asked for. One that cannot be written is left as it was: a session still marked
+ * `busy-mesh` only marks more of what it sends as derived.
+ */
+async function settle(at: Located, why: string): Promise<string> {
+  return writeAtomic(at.files.presencePath, "idle", at.env).then(
+    () => why,
+    (error: unknown) => `${why}; idle not written: ${(error as Error).message}`,
+  );
 }
 
 /**
@@ -229,11 +262,16 @@ async function sessionFor(mesh: MeshFiles, mine: readonly Ancestor[], env: FsEnv
 
 type Announced = Record<string, { cursor: number; at: number }>;
 
+const NOTHING_NEW = "nothing new since the last announcement";
+
 /**
- * Records `newest` as announced for this agent session, under a lock, written atomically. False
- * when it was announced already: an announced item the agent did not read is not announced again.
+ * Records `newest` as announced for this agent session, under a lock, written atomically, and
+ * undefined then: the hook may wake. An announced item the agent did not read is not announced
+ * again. Before the record, the session's presence is written `busy-mesh` (SECURITY-MODEL section
+ * 7.1): the turn the hook asks for is a mesh turn, so what the agent sends in it is derived. When
+ * that write fails, nothing is recorded and the reason comes back: no wake.
  */
-async function announce(files: SessionFiles, sessionKey: string, newest: number, now: number, env: FsEnv): Promise<boolean> {
+async function announce(files: SessionFiles, sessionKey: string, newest: number, now: number, env: FsEnv): Promise<string | undefined> {
   const path = join(files.dir, ANNOUNCED_FILE);
   const id = b64u.encode(sha256(utf8(sessionKey))).slice(0, 22);
   return withLock(`${path}.lock`, async () => {
@@ -241,11 +279,16 @@ async function announce(files: SessionFiles, sessionKey: string, newest: number,
     const kept: Announced = {};
     const rows = raw?.v === 1 && typeof raw.sessions === "object" && raw.sessions !== null ? Object.entries(raw.sessions as Record<string, Partial<{ cursor: number; at: number }>>) : [];
     for (const [k, e] of rows) if (Number.isSafeInteger(e?.cursor) && Number.isSafeInteger(e?.at) && now - e.at! < ANNOUNCED_TTL_MS) kept[k] = { cursor: e.cursor!, at: e.at! };
-    if (newest <= (kept[id]?.cursor ?? 0)) return false;
+    if (newest <= (kept[id]?.cursor ?? 0)) return NOTHING_NEW;
+    const unmarked = await writeAtomic(files.presencePath, "busy-mesh", env).then(
+      () => undefined,
+      (error: unknown) => `cannot mark the turn a mesh turn: ${(error as Error).message}`,
+    );
+    if (unmarked !== undefined) return unmarked;
     kept[id] = { cursor: newest, at: now };
     const newestFirst = Object.entries(kept).sort((a, b) => b[1].at - a[1].at).slice(0, ANNOUNCED_MAX);
     await writeJson(path, { v: 1, sessions: Object.fromEntries(newestFirst) }, env);
-    return true;
+    return undefined;
   }, env, 2000);
 }
 
