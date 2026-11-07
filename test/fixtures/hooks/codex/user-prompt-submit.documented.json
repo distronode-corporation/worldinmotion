@@ -1,0 +1,10 @@
+{
+  "session_id": "codex-session-1",
+  "transcript_path": null,
+  "cwd": "/home/user/project",
+  "hook_event_name": "UserPromptSubmit",
+  "model": "model",
+  "turn_id": "turn-1",
+  "prompt": "Reply with only the word READY.",
+  "permission_mode": "default"
+}

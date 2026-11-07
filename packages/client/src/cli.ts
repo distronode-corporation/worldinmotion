@@ -227,7 +227,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
-  wim hook gemini|antigravity|codex|cursor|copilot
+  wim hook gemini|antigravity|codex|cursor|copilot [start]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
   wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]
   wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]
@@ -1812,12 +1812,14 @@ async function history(ctx: Ctx): Promise<number> {
 /**
  * `wim hook <agent>`: the agent's turn-end hook (hook.ts). Prints the agent's continuation when
  * trusted messages wait for this agent session, else what lets it stop; always exits 0.
- * `WIM_DEBUG=1` says why on stderr.
+ * `wim hook <agent> start` is its turn-start hook: it marks the session busy and prints only what
+ * lets the turn go on. `WIM_DEBUG=1` says why on stderr.
  */
 async function hook(rest: readonly string[], env: Record<string, string | undefined>, io: CliIO): Promise<number> {
-  const agent = rest.length === 1 ? rest[0]! : "";
+  const start = rest.length === 2 && rest[1] === "start";
+  const agent = rest.length === 1 || start ? rest[0]! : "";
   const input = Object.hasOwn(HOOK_AGENTS, agent) ? await readInput(io.stdin) : undefined;
-  const answer = await hookAnswer({ agent, input, env, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...(io.ancestry === undefined ? {} : { ancestry: io.ancestry }) });
+  const answer = await hookAnswer({ agent, input, env, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...(start ? { event: "start" as const } : {}), ...(io.ancestry === undefined ? {} : { ancestry: io.ancestry }) });
   if (answer.out !== "") io.out(answer.out);
   if (env["WIM_DEBUG"] === "1") io.err(`wim hook: ${answer.why}`);
   return 0;

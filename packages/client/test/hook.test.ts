@@ -79,6 +79,13 @@ async function deadPid(): Promise<number> {
 
 const wake = (agent: string, n: number): string => HOOK_AGENTS[agent]!.wake(wakeText(n));
 
+/** A turn mark: what a turn end that lets the agent stop writes. */
+const MARK = /^idle [0-9]+$/;
+
+/** Each agent's turn-start payload: Gemini CLI captured, the others from their documentation. */
+const START_FIXTURES = { gemini: ["gemini-cli", "before-agent.first.json"], codex: ["codex", "user-prompt-submit.documented.json"], cursor: ["cursor", "before-submit-prompt.documented.json"], copilot: ["copilot", "user-prompt-submitted.documented.json"] } as const;
+const startPayload = (agent: keyof typeof START_FIXTURES): Promise<string> => fixture(START_FIXTURES[agent][0], START_FIXTURES[agent][1]);
+
 describe("wim hook: per agent", () => {
   it("Gemini CLI (captured): stops with nothing waiting, continues once with the fixed text, stops on its continuation", async () => {
     const { root, meshDir } = await stateDir();
@@ -421,7 +428,7 @@ describe("wim hook: the turn it asks for is a mesh turn", () => {
     expect(await out(opts(root, "gemini", await fixture("gemini-cli", "after-agent.first.json")))).toBe(wake("gemini", 1));
     expect(await presence(dir)).toBe("busy-mesh");
     expect(await hookAnswer(opts(root, "gemini", await fixture("gemini-cli", "after-agent.continued.json")))).toEqual({ out: "", why: "this stop already follows a continuation" });
-    expect(await presence(dir)).toBe("idle");
+    expect(await presence(dir)).toMatch(MARK);
     // An agent with no per-cycle flag: its continuation ends as any stop that does not wake, with idle.
     for (const [agent, input] of [["antigravity", await fixture("antigravity", "stop.first.json")], ["cursor", JSON.stringify(DOCUMENTED.cursor)]] as const) {
       const state = await stateDir();
@@ -430,7 +437,7 @@ describe("wim hook: the turn it asks for is a mesh turn", () => {
       expect(await out(opts(state.root, agent, input))).toBe(wake(agent, 1));
       expect(await presence(mine)).toBe("busy-mesh");
       expect(await hookAnswer(opts(state.root, agent, input))).toEqual({ out: "", why: "nothing new since the last announcement" });
-      expect(await presence(mine)).toBe("idle");
+      expect(await presence(mine)).toMatch(MARK);
     }
     // A Cursor turn the person aborted or that failed, and an Antigravity stop with an error: no
     // wake, but the mesh turn ends.
@@ -443,14 +450,14 @@ describe("wim hook: the turn it asks for is a mesh turn", () => {
       await item(mine);
       await fs.writeFile(join(mine, "presence"), "busy-mesh");
       expect(await hookAnswer(opts(state.root, agent, input))).toEqual({ out: "", why });
-      expect(await presence(mine)).toBe("idle");
+      expect(await presence(mine)).toMatch(MARK);
     }
     // A stop with nothing waiting writes idle too.
     const state = await stateDir();
     const quiet = await session(state.meshDir, [AGENT]);
     await fs.writeFile(join(quiet, "presence"), "busy-mesh");
     expect(await hookAnswer(opts(state.root, "copilot", JSON.stringify(DOCUMENTED.copilot)))).toEqual({ out: "", why: "nothing waiting" });
-    expect(await presence(quiet)).toBe("idle");
+    expect(await presence(quiet)).toMatch(MARK);
   });
 
   it("writes nothing at a continuation's stop without one session, and keeps busy-mesh when idle cannot be written", async () => {
@@ -526,7 +533,7 @@ describe("wim hook: the command", () => {
     expect(blind.out).toEqual(["{}"]);
     expect(blind.err).toEqual([]);
     expect(await main(["help", "hook"], blind.env, blind.io)).toBe(0);
-    expect(blind.out.at(-1)).toBe("wim hook gemini|antigravity|codex|cursor|copilot");
+    expect(blind.out.at(-1)).toBe("wim hook gemini|antigravity|codex|cursor|copilot [start]");
   });
 
   it("finds the session a real `wim mcp` runs, and its pointer goes when it stops", async () => {
@@ -589,4 +596,197 @@ describe("wim hook: the command", () => {
     expect((await fs.stat(join(dir, POINTER_FILE))).isDirectory()).toBe(true);
     await server.close();
   }, 20_000);
+});
+
+describe("wim hook: presence from hooks", () => {
+  const presence = (dir: string): Promise<string | undefined> => fs.readFile(join(dir, "presence"), "utf8").catch(() => undefined);
+  const START_AGENTS = Object.keys(START_FIXTURES) as Array<keyof typeof START_FIXTURES>;
+
+  it("marks a turn start busy, for every agent with a start entry, and prints only what lets it go on", async () => {
+    for (const agent of START_AGENTS) {
+      const { root, meshDir } = await stateDir();
+      const dir = await session(meshDir, [AGENT]);
+      const go = agent === "cursor" ? '{"continue":true}' : "";
+      expect(await hookAnswer(opts(root, agent, await startPayload(agent), { event: "start" })), agent).toEqual({ out: go, why: "busy" });
+      expect(await presence(dir), agent).toBe("busy");
+      // From idle too, and through the command.
+      await fs.writeFile(join(dir, "presence"), "idle 5");
+      const stdin = new PassThrough();
+      const t = term(root, new RelayHarness(), { stdin, ancestry: async () => MINE }, { WIM_DEBUG: "1" });
+      const running = main(["hook", agent, "start"], t.env, t.io);
+      stdin.end(await startPayload(agent));
+      expect(await running).toBe(0);
+      expect(t.out, agent).toEqual(go === "" ? [] : [go]);
+      expect(t.err, agent).toEqual(["wim hook: busy"]);
+      expect(await presence(dir), agent).toBe("busy");
+    }
+  });
+
+  it("never overwrites busy-mesh at a start: only a turn end clears it", async () => {
+    const { root, meshDir } = await stateDir();
+    const dir = await session(meshDir, [AGENT]);
+    await item(dir);
+    // The hook wakes the agent: a mesh turn.
+    expect(await out(opts(root, "codex", JSON.stringify(DOCUMENTED.codex)))).toBe(wake("codex", 1));
+    expect(await presence(dir)).toBe("busy-mesh");
+    // A start the agent fires for the continuation keeps the mark.
+    expect(await hookAnswer(opts(root, "codex", await startPayload("codex"), { event: "start" }))).toEqual({ out: "", why: "a mesh turn runs: busy-mesh kept" });
+    expect(await presence(dir)).toBe("busy-mesh");
+    // The continuation's stop ends the mesh turn; the next start is the person's.
+    expect((await hookAnswer(opts(root, "codex", JSON.stringify({ ...DOCUMENTED.codex, stop_hook_active: true })))).why).toBe("this stop already follows a continuation");
+    expect(await presence(dir)).toMatch(MARK);
+    expect((await hookAnswer(opts(root, "codex", await startPayload("codex"), { event: "start" }))).why).toBe("busy");
+    expect(await presence(dir)).toBe("busy");
+  });
+
+  it("writes a new turn mark at every turn end, above the one before, and over a plain idle", async () => {
+    const { root, meshDir } = await stateDir();
+    const dir = await session(meshDir, [AGENT]);
+    const stop = JSON.stringify(DOCUMENTED.copilot);
+    const at = (now: number): Partial<HookOptions> => ({ now: () => now });
+    await fs.writeFile(join(dir, "presence"), "idle");
+    expect((await hookAnswer(opts(root, "copilot", stop, at(1000)))).why).toBe("nothing waiting");
+    expect(await presence(dir)).toBe("idle 1000");
+    // The same time, or a clock that went back: still a new mark.
+    await hookAnswer(opts(root, "copilot", stop, at(1000)));
+    expect(await presence(dir)).toBe("idle 1001");
+    await hookAnswer(opts(root, "copilot", stop, at(5)));
+    expect(await presence(dir)).toBe("idle 1002");
+    // A mark at the longest the client reads is followed by the time, never by a longer one.
+    await fs.writeFile(join(dir, "presence"), "idle 999999999999999");
+    await hookAnswer(opts(root, "copilot", stop, at(1000)));
+    expect(await presence(dir)).toBe("idle 1000");
+    // After a start, the mark it replaced is gone: the time is the mark.
+    await hookAnswer(opts(root, "copilot", await startPayload("copilot"), { event: "start" }));
+    await hookAnswer(opts(root, "copilot", stop, at(2000)));
+    expect(await presence(dir)).toBe("idle 2000");
+    // An aborted or failed turn, and an Antigravity stop with an error, end with a new mark too.
+    await hookAnswer(opts(root, "cursor", JSON.stringify({ ...DOCUMENTED.cursor, status: "aborted" }), at(2000)));
+    expect(await presence(dir)).toBe("idle 2001");
+    await hookAnswer(opts(root, "antigravity", JSON.stringify({ ...JSON.parse(await fixture("antigravity", "stop.first.json")), error: "boom" }), at(2000)));
+    expect(await presence(dir)).toBe("idle 2002");
+  });
+
+  it("writes nothing at a start without one session, or for a payload that is not a start", async () => {
+    const { root, meshDir } = await stateDir();
+    const one = await session(meshDir, [AGENT]);
+    const two = await session(meshDir, [AGENT]);
+    const start = await startPayload("gemini");
+    expect(await hookAnswer(opts(root, "gemini", start, { event: "start" }))).toEqual({ out: "", why: "nothing written: 2 sessions share the nearest process: not one session" });
+    expect((await hookAnswer(opts(root, "gemini", start, { event: "start", ancestry: undefined }))).why).toBe("nothing written: the processes above the hook cannot be read here");
+    expect(await hookAnswer(opts(root, "cursor", await startPayload("cursor"), { event: "start", ancestry: () => Promise.reject(new Error("no proc")) }))).toEqual({ out: '{"continue":true}', why: "nothing written: cannot tell: no proc" });
+    for (const dir of [one, two]) expect(await presence(dir)).toBeUndefined();
+    // Antigravity has no start entry: `PreInvocation` runs before every model call.
+    expect(await hookAnswer(opts(root, "antigravity", await fixture("antigravity", "post-invocation.first.json"), { event: "start" }))).toEqual({ out: "", why: "this agent has no turn-start entry" });
+    const gemini = JSON.parse(start) as Record<string, unknown>;
+    const bad: Array<[keyof typeof START_FIXTURES, string | undefined]> = [
+      ["gemini", undefined],
+      ["gemini", "{"],
+      ["gemini", "[]"],
+      ["gemini", await fixture("gemini-cli", "after-agent.first.json")],
+      ["gemini", JSON.stringify({ ...gemini, session_id: "" })],
+      ["codex", JSON.stringify(DOCUMENTED.codex)],
+      ["codex", JSON.stringify({ ...JSON.parse(await startPayload("codex")), session_id: 7 })],
+      ["cursor", JSON.stringify(DOCUMENTED.cursor)],
+      ["cursor", JSON.stringify({ ...JSON.parse(await startPayload("cursor")), conversation_id: undefined })],
+      ["copilot", JSON.stringify(DOCUMENTED.copilot)],
+      ["copilot", JSON.stringify({ ...JSON.parse(await startPayload("copilot")), prompt: 7 })],
+      ["copilot", JSON.stringify({ ...JSON.parse(await startPayload("copilot")), sessionId: "" })],
+      ["copilot", JSON.stringify({ ...JSON.parse(await startPayload("copilot")), stop_hook_active: false })],
+    ];
+    for (const [agent, input] of bad) {
+      expect(await hookAnswer(opts(root, agent, input, { event: "start" })), `${agent} ${input}`).toEqual({ out: agent === "cursor" ? '{"continue":true}' : "", why: "not a turn-start payload this agent sends" });
+    }
+    // A start payload at the turn-end hook is not a stop.
+    for (const agent of START_AGENTS) expect((await hookAnswer(opts(root, agent, await startPayload(agent)))).why, agent).toBe("not a turn-end payload this agent sends");
+    for (const dir of [one, two]) expect(await presence(dir)).toBeUndefined();
+    // `start` is the only event word; anything else is nothing at all.
+    for (const argv of [["hook", "gemini", "begin"], ["hook", "gemini", "start", "x"], ["hook", "nope", "start"]]) {
+      const quiet = term(root, new RelayHarness(), { stdin: new PassThrough(), ancestry: async () => MINE });
+      expect(await main(argv, quiet.env, quiet.io)).toBe(0);
+      expect([...quiet.out, ...quiet.err]).toEqual([]);
+    }
+  });
+
+  it("says so when busy cannot be written", async () => {
+    const { root, meshDir } = await stateDir();
+    const dir = await session(meshDir, [AGENT]);
+    await fs.mkdir(join(dir, "presence", "x"), { recursive: true });
+    const answer = await hookAnswer(opts(root, "gemini", await startPayload("gemini"), { event: "start" }));
+    expect(answer.out).toBe("");
+    expect(answer.why).toMatch(/^busy not written: /);
+  });
+
+  it("the client re-sends idle for each new mark, keeps a plain idle, and sends nothing for what it cannot read", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const s = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    cleanup.push(() => s.stop());
+    const sent = (status: string): number => relay.sentByClients.filter((t) => t === `{"t":"presence","status":"${status}"}`).length;
+    const settled = async (): Promise<void> => {
+      await s.tick();
+      await s.tick();
+    };
+    await fs.writeFile(s.files.presencePath, "idle");
+    await until(() => sent("idle") === 1, undefined, "the plain idle");
+    await settled();
+    expect(sent("idle")).toBe(1);
+    // A mark while idle already is a new turn end.
+    await fs.writeFile(s.files.presencePath, "idle 7");
+    await until(() => sent("idle") === 2, undefined, "the first mark");
+    await settled();
+    expect(sent("idle")).toBe(2);
+    await fs.writeFile(s.files.presencePath, "idle 8\n");
+    await until(() => sent("idle") === 3, undefined, "the next mark");
+    for (const unread of ["idle x", "idle -1", "idle\t8", "idle 1234567890123456", "idle 8 9", "Idle 9"]) {
+      await fs.writeFile(s.files.presencePath, unread);
+      await settled();
+    }
+    expect(sent("idle")).toBe(3);
+    expect(sent("busy")).toBe(0);
+    // busy and busy-mesh are one status to the relay; the same mark after busy is sent again.
+    await fs.writeFile(s.files.presencePath, "busy");
+    await until(() => sent("busy") === 1, undefined, "busy");
+    await fs.writeFile(s.files.presencePath, "busy-mesh");
+    await settled();
+    expect(sent("busy")).toBe(1);
+    await fs.writeFile(s.files.presencePath, "idle 8");
+    await until(() => sent("idle") === 4, undefined, "the mark after busy");
+  }, 20_000);
+
+  it("end to end: a session armed with notify_when_idle hears of each aborted or failed turn end of a hooked agent", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const watcher = await openSession(devices[1]!, mesh, relay, { name: "watcher" });
+    cleanup.push(() => watcher.stop());
+    const server = new WimMcp({ channel: false, internalTools: false, version: "t", session: sessionOpts(devices[0]!, mesh, relay, { name: "cur", kind: "cursor" }), ancestry: async (levels) => MINE.slice(0, levels) });
+    cleanup.push(() => server.close());
+    const s = await server.start()!;
+    await s.ready(3000);
+    const hooked = async (argv: string[], input: string): Promise<void> => {
+      const stdin = new PassThrough();
+      const t = term(devices[0]!.root, relay, { stdin, ancestry: async () => MINE });
+      const running = main(["hook", ...argv], t.env, t.io);
+      stdin.end(input);
+      expect(await running).toBe(0);
+    };
+    const arms = (): number => relay.sentByClients.filter((t) => t === '{"t":"notify_idle","of":"cur@one"}').length;
+    const notices = async (): Promise<number> => (await watcher.spool.unread()).filter((i) => i.kind === "notice" && i.rendered.includes("cur@one is now idle")).length;
+    const agyError = JSON.stringify({ ...JSON.parse(await fixture("antigravity", "stop.first.json")), error: "boom" });
+    // Three turns, each armed first: a Cursor turn the person aborted, one that failed, and an
+    // Antigravity turn that ended with an error (no start entry). Each turn end is a notice.
+    const turns: Array<[string, string | undefined, string]> = [
+      ["cursor", await startPayload("cursor"), JSON.stringify({ ...DOCUMENTED.cursor, status: "aborted" })],
+      ["cursor", await startPayload("cursor"), JSON.stringify({ ...DOCUMENTED.cursor, status: "error" })],
+      ["antigravity", undefined, agyError],
+    ];
+    for (const [n, [agent, start, stop]] of turns.entries()) {
+      watcher.notifyWhenIdle(["cur@one"]);
+      await until(() => arms() === n + 1, undefined, `arm ${n + 1}`);
+      // The client may sample the start's busy or not: the stop's new mark is sent either way.
+      if (start !== undefined) await hooked([agent, "start"], start);
+      await hooked([agent], stop);
+      await until(async () => (await notices()) === n + 1, 5000, `notice ${n + 1}`);
+    }
+  }, 30_000);
 });

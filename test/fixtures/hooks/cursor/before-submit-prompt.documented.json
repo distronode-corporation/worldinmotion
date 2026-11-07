@@ -1,0 +1,12 @@
+{
+  "conversation_id": "cursor-conv-1",
+  "generation_id": "gen-1",
+  "model": "model",
+  "hook_event_name": "beforeSubmitPrompt",
+  "cursor_version": "1.0.0",
+  "workspace_roots": ["/home/user/project"],
+  "user_email": null,
+  "transcript_path": null,
+  "prompt": "Reply with only the word READY.",
+  "attachments": [{ "type": "file", "file_path": "/home/user/project/README.md" }]
+}

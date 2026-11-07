@@ -100,6 +100,12 @@ export function parseSessionState(raw: unknown): SessionState | undefined {
   };
 }
 
+/**
+ * A turn mark in the presence file, `idle <n>`, which `wim hook` writes at each turn end that lets
+ * the agent stop: idle, and a new turn end whenever `n` changes. The plugin writes plain words.
+ */
+export const IDLE_MARK = /^idle ([0-9]{1,15})$/;
+
 /** The directory tree of one session (design.md, state on disk). */
 export class SessionFiles {
   readonly dir: string;

@@ -89619,10 +89619,10 @@ async function create(path2, env3) {
 }
 async function withLock(lockPath, fn, env3 = realFsEnv, timeoutMs = 1e4) {
   await ensureDir(dirname(lockPath));
-  const started = Date.now();
+  const started2 = Date.now();
   while (!await create(lockPath, env3)) {
     if (await contend(lockPath, env3, false) === "retry") continue;
-    if (Date.now() - started > timeoutMs) throw new Error(`${lockPath} is held by another process`);
+    if (Date.now() - started2 > timeoutMs) throw new Error(`${lockPath} is held by another process`);
     await fsOps.sleep(15);
   }
   try {
@@ -90637,6 +90637,7 @@ function parseSessionState(raw) {
     ...s3.ended === true ? { ended: true } : {}
   };
 }
+var IDLE_MARK = /^idle ([0-9]{1,15})$/;
 var SessionFiles = class {
   dir;
   sid;
@@ -93554,10 +93555,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   async readPresence() {
     const read = (await readText(this.files.presencePath))?.trim();
-    const text2 = read === "busy-mesh" ? "busy" : read;
-    if (text2 !== "busy" && text2 !== "idle") return;
-    if (this.sentPresence === text2) return;
-    if (this.sendIfOpen({ t: "presence", status: text2 })) this.sentPresence = text2;
+    const status3 = read === "busy-mesh" || read === "busy" ? "busy" : read === "idle" || IDLE_MARK.test(read ?? "") ? "idle" : void 0;
+    if (status3 === void 0) return;
+    const seen = status3 === "busy" ? status3 : read;
+    if (this.sentPresence === seen) return;
+    if (this.sendIfOpen({ t: "presence", status: status3 })) this.sentPresence = seen;
   }
   /**
    * Sends this session's card after ready, when it changes (at most once a minute) and when the
@@ -94063,7 +94065,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const id2 = ulid3(this.now());
     const asked = new Map(to.map((a5) => [this.pairOf(a5), a5]));
     const pongs = /* @__PURE__ */ new Map();
-    const started = this.now();
+    const started2 = this.now();
     let answered2;
     const all = new Promise((resolve3) => answered2 = resolve3);
     let waiting3 = to;
@@ -94071,7 +94073,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.pongWaiters.set(id2, (device, session) => {
       const address = asked.get(`${device}/${session}`);
       if (address === void 0 || pongs.has(address)) return;
-      pongs.set(address, this.now() - started);
+      pongs.set(address, this.now() - started2);
       check3();
     });
     try {
@@ -94385,7 +94387,7 @@ ${frameEntry(entry)}`);
   }
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */
   next(timeoutMs, onTick, tickMs = 3e4) {
-    const started = this.now();
+    const started2 = this.now();
     return new Promise((resolve3, reject) => {
       let over = false;
       let timer;
@@ -94416,7 +94418,7 @@ ${frameEntry(entry)}`);
       const onItem = (item) => {
         if (this.push === void 0 && item.cursor > this.spool.taken) look();
       };
-      const beat = setInterval(() => onTick?.(this.now() - started), tickMs);
+      const beat = setInterval(() => onTick?.(this.now() - started2), tickMs);
       this.on("item", onItem);
       void this.spool.unread().then(firstLook, fail4);
     });
@@ -119133,10 +119135,10 @@ ${item.text}`
       }
       return;
     }
-    const started = this.o.now();
-    const timeoutAt = started + this.o.callTimeoutMs;
+    const started2 = this.o.now();
+    const timeoutAt = started2 + this.o.callTimeoutMs;
     const byDeadline = deadline !== void 0 && deadline < timeoutAt;
-    const waitMs = (byDeadline ? deadline : timeoutAt) - started;
+    const waitMs = (byDeadline ? deadline : timeoutAt) - started2;
     const abort = new AbortController();
     let timer;
     const expired = new Promise((_, reject) => {
@@ -119161,7 +119163,7 @@ ${item.text}`
         expired
       ]);
     } catch (err) {
-      const ms = this.o.now() - started;
+      const ms = this.o.now() - started2;
       this.o.log(`bot: model call failed ${tag} ms=${ms} ${describe5(err)}`);
       const timedOut = abort.signal.aborted;
       const billed = timedOut || !(err instanceof ModelRefusedError);
@@ -119178,7 +119180,7 @@ ${item.text}`
       clearTimeout(timer);
     }
     this.o.log(
-      `bot: model call done ${tag} ms=${this.o.now() - started} in=${res.usage.inputTokens} out=${res.usage.outputTokens} stop=${res.stopReason}`
+      `bot: model call done ${tag} ms=${this.o.now() - started2} in=${res.usage.inputTokens} out=${res.usage.outputTokens} stop=${res.stopReason}`
     );
     await this.o.budget.settle(reservation, res.usage);
     this.o.conversations.commit(thread, userText, res.text);
@@ -123038,6 +123040,7 @@ var HOOK_INPUT_MAX = 1 << 20;
 var HOOK_INPUT_MS = 5e3;
 var ANNOUNCED_TTL_MS = 7 * 24 * 3600 * 1e3;
 var ANNOUNCED_MAX = 64;
+var MARK_MAX = 999999999999999;
 var key2 = (v) => typeof v === "string" && v !== "" && v.length <= 256 ? v : void 0;
 function flagged(id2, active) {
   const k5 = key2(id2);
@@ -123046,11 +123049,14 @@ function flagged(id2, active) {
 var HOOK_AGENTS = {
   gemini: {
     read: (p3) => p3.hook_event_name === "AfterAgent" ? flagged(p3.session_id, p3.stop_hook_active) : void 0,
+    start: (p3) => p3.hook_event_name === "BeforeAgent" && key2(p3.session_id) !== void 0,
     wake: (text2) => JSON.stringify({ decision: "deny", reason: text2 }),
     allow: ""
   },
   // No per-cycle flag: `executionNum` counts the calls in one prompt, and nothing captured shows when
   // it starts again, so only the announced record bounds it. A stop that carries an error is not woken.
+  // No start entry: `PreInvocation` runs before every model call, not once per turn. Each stop still
+  // writes a new turn mark, so a notice armed on the session fires.
   antigravity: {
     read: (p3) => {
       const k5 = key2(p3.conversationId);
@@ -123063,6 +123069,8 @@ var HOOK_AGENTS = {
   // Stop expects JSON on stdout when it exits 0.
   codex: {
     read: (p3) => p3.hook_event_name === "Stop" ? flagged(p3.session_id, p3.stop_hook_active) : void 0,
+    // Plain text on a `UserPromptSubmit` hook's stdout becomes context for the model: it prints nothing.
+    start: (p3) => p3.hook_event_name === "UserPromptSubmit" && key2(p3.session_id) !== void 0,
     wake: (text2) => JSON.stringify({ decision: "block", reason: text2 }),
     allow: "{}"
   },
@@ -123074,12 +123082,17 @@ var HOOK_AGENTS = {
       if (k5 === void 0 || p3.hook_event_name !== "stop") return void 0;
       return p3.status === "completed" ? { key: k5, continued: false } : { key: k5, continued: false, ends: "the turn was aborted or failed" };
     },
+    // `beforeSubmitPrompt` documents no default for empty output, so the hook says to go on.
+    start: (p3) => p3.hook_event_name === "beforeSubmitPrompt" && key2(p3.conversation_id) !== void 0,
+    go: JSON.stringify({ continue: true }),
     wake: (text2) => JSON.stringify({ followup_message: text2 }),
     allow: ""
   },
-  // The `agentStop` event's camelCase payload; its loop flag keeps the snake_case name.
+  // The `agentStop` event's camelCase payload; its loop flag keeps the snake_case name. That form
+  // names no event: `userPromptSubmitted` is the one with a prompt and no loop flag.
   copilot: {
     read: (p3) => flagged(p3.sessionId, p3.stop_hook_active),
+    start: (p3) => key2(p3.sessionId) !== void 0 && typeof p3.prompt === "string" && !Object.hasOwn(p3, "stop_hook_active"),
     wake: (text2) => JSON.stringify({ decision: "block", reason: text2 }),
     allow: ""
   }
@@ -123090,7 +123103,9 @@ function wakeText(n3) {
 async function hookAnswer(o3) {
   const agent = Object.hasOwn(HOOK_AGENTS, o3.agent) ? HOOK_AGENTS[o3.agent] : void 0;
   if (agent === void 0) return { out: "", why: "not an agent the hook knows" };
-  const stop = readStop(agent, o3.input);
+  if (o3.event === "start") return started(agent, o3);
+  const payload2 = readPayload(o3.input);
+  const stop = payload2 === void 0 ? void 0 : agent.read(payload2);
   if (stop === void 0) return { out: agent.allow, why: "not a turn-end payload this agent sends" };
   if (stop.continued) return { out: agent.allow, why: await ended(o3, "this stop already follows a continuation") };
   if (stop.ends !== void 0) return { out: agent.allow, why: await ended(o3, stop.ends) };
@@ -123101,9 +123116,22 @@ async function hookAnswer(o3) {
 var cannotTell = (error64) => `cannot tell: ${error64.message}`;
 async function ended(o3, why) {
   const found = await locate(o3).catch(cannotTell);
-  return typeof found === "string" ? `${why}; nothing written: ${found}` : settle2(found, why);
+  return typeof found === "string" ? `${why}; nothing written: ${found}` : settle2(found, why, o3.now());
 }
-function readStop(agent, input2) {
+async function started(agent, o3) {
+  const go = agent.go ?? "";
+  if (agent.start === void 0) return { out: go, why: "this agent has no turn-start entry" };
+  const payload2 = readPayload(o3.input);
+  if (payload2 === void 0 || !agent.start(payload2)) return { out: go, why: "not a turn-start payload this agent sends" };
+  const found = await locate(o3).catch(cannotTell);
+  if (typeof found === "string") return { out: go, why: `nothing written: ${found}` };
+  if ((await readText(found.files.presencePath).catch(() => void 0))?.trim() === "busy-mesh") return { out: go, why: "a mesh turn runs: busy-mesh kept" };
+  return writeAtomic(found.files.presencePath, "busy", found.env).then(
+    () => ({ out: go, why: "busy" }),
+    (error64) => ({ out: go, why: `busy not written: ${error64.message}` })
+  );
+}
+function readPayload(input2) {
   if (input2 === void 0) return void 0;
   let value2;
   try {
@@ -123111,7 +123139,7 @@ function readStop(agent, input2) {
   } catch {
     return void 0;
   }
-  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) ? agent.read(value2) : void 0;
+  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) ? value2 : void 0;
 }
 async function waiting(o3, sessionKey) {
   const found = await locate(o3);
@@ -123121,10 +123149,10 @@ async function waiting(o3, sessionKey) {
   const now = o3.now();
   const paused = new Set((await readPauses(files.breakerPath, now)).map((p3) => p3.peer));
   const items = (await new Spool(files.spoolDir, env3, 0).unread()).filter((i6) => counts(i6, config2, paused));
-  if (items.length === 0) return settle2(found, "nothing waiting");
+  if (items.length === 0) return settle2(found, "nothing waiting", now);
   const newest = Math.max(...items.map((i6) => i6.cursor));
   const why = await announce(files, sessionKey, newest, now, env3);
-  return why === void 0 ? items.length : why === NOTHING_NEW ? settle2(found, why) : why;
+  return why === void 0 ? items.length : why === NOTHING_NEW ? settle2(found, why, now) : why;
 }
 async function locate(o3) {
   if (o3.ancestry === void 0) return "the processes above the hook cannot be read here";
@@ -123134,8 +123162,11 @@ async function locate(o3) {
   const files = await sessionFor(mesh, (await o3.ancestry(HOOK_LEVELS)).slice(0, HOOK_LEVELS), env3);
   return typeof files === "string" ? files : { mesh, files, env: env3 };
 }
-async function settle2(at, why) {
-  return writeAtomic(at.files.presencePath, "idle", at.env).then(
+async function settle2(at, why, now) {
+  const before = IDLE_MARK.exec((await readText(at.files.presencePath).catch(() => void 0))?.trim() ?? "");
+  const prev = before === null ? -1 : Number(before[1]);
+  const mark = prev >= now && prev < MARK_MAX ? prev + 1 : now;
+  return writeAtomic(at.files.presencePath, `idle ${mark}`, at.env).then(
     () => why,
     (error64) => `${why}; idle not written: ${error64.message}`
   );
@@ -130054,7 +130085,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
-  wim hook gemini|antigravity|codex|cursor|copilot
+  wim hook gemini|antigravity|codex|cursor|copilot [start]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
   wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]
   wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]
@@ -131287,9 +131318,10 @@ async function history(ctx) {
   return 0;
 }
 async function hook(rest, env3, io) {
-  const agent = rest.length === 1 ? rest[0] : "";
+  const start2 = rest.length === 2 && rest[1] === "start";
+  const agent = rest.length === 1 || start2 ? rest[0] : "";
   const input2 = Object.hasOwn(HOOK_AGENTS, agent) ? await readInput(io.stdin) : void 0;
-  const answer = await hookAnswer({ agent, input: input2, env: env3, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...io.ancestry === void 0 ? {} : { ancestry: io.ancestry } });
+  const answer = await hookAnswer({ agent, input: input2, env: env3, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...start2 ? { event: "start" } : {}, ...io.ancestry === void 0 ? {} : { ancestry: io.ancestry } });
   if (answer.out !== "") io.out(answer.out);
   if (env3["WIM_DEBUG"] === "1") io.err(`wim hook: ${answer.why}`);
   return 0;
