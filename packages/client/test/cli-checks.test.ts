@@ -35,6 +35,9 @@ describe("flags", () => {
     expect(t.err.at(-1)).toMatch(new RegExp(`^wim: unknown flag --bogus\\n\\nwim ${VERSION.replaceAll(".", "\\.")}: end-to-end`));
     expect(await run(t, "peers", "--all=yes")).toBe(2);
     expect(t.err.at(-1)).toBe("--all takes no value");
+    // `wim test --person=no` would otherwise run without the person it names.
+    expect(await run(t, "test", "--person=no")).toBe(2);
+    expect(t.err.at(-1)).toBe("--person takes no value");
   });
 
   it("answers --version and -h", async () => {
