@@ -13,6 +13,8 @@ export interface Child {
   stdout: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
   stderr: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
   on(ev: "exit", fn: (code: number | null, signal: string | null) => void): unknown;
+  /** After `exit`, once stdout and stderr are closed too: all output has been read. */
+  on(ev: "close", fn: (code: number | null, signal: string | null) => void): unknown;
   on(ev: "error", fn: (err: Error) => void): unknown;
   kill(): boolean;
 }

@@ -88,7 +88,8 @@ export function runClient(command: Command, spawn: SpawnFn, cancelled: { onCance
       child.stdin!.end();
       grace = setTimeout(() => void child.kill(), graceMs);
     });
-    child.on("exit", (code: number | null) => {
+    // `close`, not `exit`: the report is the last output, which may still be in the pipe at exit.
+    child.on("close", (code: number | null) => {
       clearTimeout(grace);
       const report = parseReport(stdout + out.end());
       const why = (stderr + err.end()).trim().split("\n").at(-1)!;

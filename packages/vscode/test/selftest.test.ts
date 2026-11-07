@@ -63,7 +63,7 @@ class FakeChild extends EventEmitter {
   killed = 0;
   kill(): boolean {
     this.killed++;
-    setImmediate(() => this.emit("exit", null, "SIGTERM"));
+    setImmediate(() => this.emit("close", null, "SIGTERM"));
     return true;
   }
 }
@@ -81,7 +81,7 @@ describe("running the client", () => {
     const at = bytes.indexOf(0xc3) + 1;
     child.stdout.emit("data", bytes.subarray(0, at));
     child.stdout.emit("data", bytes.subarray(at));
-    child.emit("exit", 0, null);
+    child.emit("close", 0, null);
     expect(await done).toEqual({ report: { ok: true, passed: 1, failed: 0, skipped: 0, ms: 5, steps: [step("é", "pass", 1)] } });
     expect(asked).toEqual([["wim", ["test", "--json"], { cwd: "/", env: {}, stdio: ["pipe", "pipe", "pipe"], windowsHide: true }]]);
   });
@@ -91,11 +91,11 @@ describe("running the client", () => {
     const done = runClient(command, (() => child) as unknown as SpawnFn, never);
     child.stdout.emit("data", Buffer.from("not a report\n"));
     child.stderr.emit("data", Buffer.from("wim: first\nwim: the last one\n"));
-    child.emit("exit", 1, null);
+    child.emit("close", 1, null);
     expect(await done).toEqual({ error: "wim: the last one" });
     const quiet = new FakeChild();
     const silent = runClient(command, (() => quiet) as unknown as SpawnFn, never);
-    quiet.emit("exit", 2, null);
+    quiet.emit("close", 2, null);
     expect(await silent).toEqual({ error: "the client exited 2 with no report" });
   });
 
@@ -107,7 +107,7 @@ describe("running the client", () => {
       child.stdout.emit("data", big);
       child.stderr.emit("data", big);
     }
-    child.emit("exit", 1, null);
+    child.emit("close", 1, null);
     expect("error" in (await done)).toBe(true);
   });
 
@@ -131,7 +131,7 @@ describe("running the client", () => {
     cancel();
     expect([polite.written, polite.ended]).toEqual([["stop\n"], true]);
     polite.stdout.emit("data", Buffer.from(JSON.stringify(failed)));
-    polite.emit("exit", 1, null);
+    polite.emit("close", 1, null);
     expect(await ended).toEqual({ report: failed });
     expect(polite.killed).toBe(0);
     // It does not end: killed once the grace runs out.
@@ -165,7 +165,7 @@ describe("the command", () => {
             progress.push(options);
             const running = task(undefined, never);
             child.stdout.emit("data", Buffer.from(stdout));
-            child.emit("exit", code, null);
+            child.emit("close", code, null);
             return running;
           },
           showInformationMessage: say("info"),

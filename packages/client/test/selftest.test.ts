@@ -302,6 +302,28 @@ describe("the isolation rules, against hostile input", { timeout: 30_000 }, () =
     expect(await sweepStale(join(base, "missing"), Date.now())).toEqual([]);
   });
 
+  it("skips, and never fails on, a run directory that is another user's, gone before it is read, or cannot be removed", async () => {
+    const base = await scratch("sweep2");
+    const old = (Date.now() - STALE_MS - 60_000) / 1000;
+    const dir = join(base, "wim-test-planted");
+    await fs.mkdir(dir);
+    await fs.writeFile(join(dir, SANDBOX_MARK), "");
+    await fs.utimes(join(dir, SANDBOX_MARK), old, old);
+    const mine = (await fs.lstat(dir)).uid;
+    const real = { lstat: fs.lstat, rm: fs.rm };
+    // Another user's (on a shared /tmp): not ours to remove.
+    expect(await sweepStale(base, Date.now(), { ...real, uid: mine + 1 })).toEqual([]);
+    // Gone between the listing and its lstat (another run sweeping at once).
+    const gone = (async (path: string) => (path === dir ? Promise.reject(new Error("ENOENT")) : fs.lstat(path))) as typeof fs.lstat;
+    expect(await sweepStale(base, Date.now(), { ...real, lstat: gone, uid: mine })).toEqual([]);
+    // Its removal fails (files another user put inside): skipped, the run goes on.
+    const refused = (async () => Promise.reject(new Error("EACCES"))) as typeof fs.rm;
+    expect(await sweepStale(base, Date.now(), { ...real, rm: refused, uid: mine })).toEqual([]);
+    await fs.lstat(dir);
+    // With no owners to compare (Windows), and with the right one, it goes.
+    expect(await sweepStale(base, Date.now(), { ...real, uid: undefined })).toEqual([dir]);
+  });
+
   it("marks each run's directory, so a later run can tell it is one", async () => {
     const box = await Sandbox.open(await scratch("box"), []);
     expect((await fs.lstat(join(box.root, SANDBOX_MARK))).isFile()).toBe(true);

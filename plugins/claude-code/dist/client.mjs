@@ -131852,16 +131852,17 @@ function sandboxFetch(base, real) {
 }
 var SANDBOX_MARK = ".wim-test-sandbox";
 var STALE_MS = 24 * 36e5;
-async function sweepStale(base, now) {
+var SWEEP_OPS = { lstat: fs14.lstat, rm: fs14.rm, uid: process.getuid?.() };
+async function sweepStale(base, now, ops = SWEEP_OPS) {
   const removed = [];
   for (const name of await fs14.readdir(base).catch(() => [])) {
     if (!name.startsWith("wim-test-")) continue;
     const dir = join21(base, name);
-    if (!(await fs14.lstat(dir)).isDirectory()) continue;
-    const mark = await fs14.lstat(join21(dir, SANDBOX_MARK)).catch(() => void 0);
+    const st = await ops.lstat(dir).catch(() => void 0);
+    if (st === void 0 || !st.isDirectory() || ops.uid !== void 0 && st.uid !== ops.uid) continue;
+    const mark = await ops.lstat(join21(dir, SANDBOX_MARK)).catch(() => void 0);
     if (mark === void 0 || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
-    await fs14.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    removed.push(dir);
+    if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
   }
   return removed;
 }

@@ -1276,7 +1276,10 @@ That is safe only because of where the script can act, so isolation is the prope
 - **A run that was killed** (a kill on Windows lets it remove nothing) leaves its directory
   behind. Each run's directory holds a mark file, and every run first removes the directories
   under the same temporary directory named `wim-test-*` that are real directories, not links,
-  whose mark file is a regular file last written more than 24 hours ago; nothing else. A program
+  owned by you (on POSIX; `/tmp` is shared, and another user's is never removed), whose mark
+  file is a regular file last written more than 24 hours ago; nothing else. One that cannot be
+  read or removed is skipped: the sweep never fails a run, so nobody can stop another user's
+  runs by planting a directory there. A program
   that starts `wim test` with a piped stdin can stop it with a line `stop` instead of a kill, so
   it cleans up (the VS Code command does, and kills only after 10 seconds).
 - **`--person`.** A person types the person-only steps at their own terminal, so the real

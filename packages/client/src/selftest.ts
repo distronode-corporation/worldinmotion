@@ -167,23 +167,29 @@ export const SANDBOX_MARK = ".wim-test-sandbox";
 /** How old a run's directory must be before a later run removes it as left behind. */
 export const STALE_MS = 24 * 3_600_000;
 
+/** What `sweepStale` uses of the file system, and whose entries it may remove (undefined: no owners, as on Windows). */
+export type SweepOps = { lstat: typeof fs.lstat; rm: typeof fs.rm; uid: number | undefined };
+
+const SWEEP_OPS: SweepOps = { lstat: fs.lstat, rm: fs.rm, uid: process.getuid?.() };
+
 /**
  * Removes run directories left behind under `base` (a run whose process was killed, as on
- * Windows, cannot remove its own): only a real directory named `wim-test-*`, not a link, holding
- * the run's mark file (a regular file, not a link) last written more than STALE_MS ago. Nothing
- * else is touched. Returns what it removed.
+ * Windows, cannot remove its own): only a real directory named `wim-test-*`, not a link, owned by
+ * this user (on POSIX: /tmp is shared, and another user's is never ours to remove), holding the
+ * run's mark file (a regular file, not a link) last written more than STALE_MS ago. Nothing else
+ * is touched. Housekeeping, not a step: an entry that cannot be read or removed (gone already,
+ * another run sweeping at once, not ours) is skipped, never fails the run. Returns what it removed.
  */
-export async function sweepStale(base: string, now: number): Promise<string[]> {
+export async function sweepStale(base: string, now: number, ops: SweepOps = SWEEP_OPS): Promise<string[]> {
   const removed: string[] = [];
   for (const name of await fs.readdir(base).catch(() => [] as string[])) {
     if (!name.startsWith("wim-test-")) continue;
     const dir = join(base, name);
-    if (!(await fs.lstat(dir)).isDirectory()) continue;
-    const mark = await fs.lstat(join(dir, SANDBOX_MARK)).catch(() => undefined);
+    const st = await ops.lstat(dir).catch(() => undefined);
+    if (st === undefined || !st.isDirectory() || (ops.uid !== undefined && st.uid !== ops.uid)) continue;
+    const mark = await ops.lstat(join(dir, SANDBOX_MARK)).catch(() => undefined);
     if (mark === undefined || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
-    // One that cannot be removed fails the run's first step, which says where it is.
-    await fs.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    removed.push(dir);
+    if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
   }
   return removed;
 }
