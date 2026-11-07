@@ -268,7 +268,8 @@ describe("approve and refuse", () => {
     expect(detail).toContain("      CI: github, o/r, refs/heads/main");
     expect(detail).toContain("      Approve on its own, in a terminal: it pins repositoryId=1 ownerId=2 (wim held approve c1)");
     expect(detail).toContain("      File: r.txt, 3 bytes, fetched once approved\n      (no text)");
-    expect(detail).toContain("Approve all delivers exactly these 1");
+    expect(m.message).toMatch(/^Approve 1 of 2 CI notices held from CI rule github o\/r\?$/);
+    expect(detail).toContain("Approve all delivers exactly the 1 of these 2 that do not pin ids to your agents.");
     expect(detail).toContain("The loop breaker's pause on this sender stays on");
     expect(calls).toEqual([]);
     fake.state.messageAnswers.push("Approve all 1");

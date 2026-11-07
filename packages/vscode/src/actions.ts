@@ -208,7 +208,7 @@ export function setDetail(set: HeldSet, op: "approve" | "refuse"): string {
   const covered = op === "approve" ? approvable(set).length : n;
   out.push(
     op === "approve"
-      ? `Approve all delivers exactly these ${covered} to your agents. Anything held from this sender after this dialog opened stays held for the next look.`
+      ? `Approve all delivers exactly ${covered === n ? `these ${n}` : `the ${covered} of these ${n} that do not pin ids`} to your agents. Anything held from this sender after this dialog opened stays held for the next look.`
       : `Refuse all drops exactly these ${covered}, never delivered. Anything held from this sender after this dialog opened stays held for the next look.`,
   );
   if (op === "approve" && set.rows.some((r) => r.reason === "breaker")) {
@@ -237,7 +237,7 @@ async function decide(d: Deps, arg: unknown, op: "approve" | "refuse"): Promise<
   const only = item === undefined || (op === "approve" && item.pins !== undefined) ? undefined : `${verb} only this one`;
   const buttons = [all, only].filter((b): b is string => b !== undefined);
   const choice = await vscode.window.showWarningMessage(
-    `${verb} ${setCount(set)} held from ${oneLine(set.title, 100)}?`,
+    `${verb} ${covered.length === set.ids.length ? setCount(set) : `${covered.length} of ${setCount(set)}`} held from ${oneLine(set.title, 100)}?`,
     { modal: true, detail: setDetail(set, op) },
     ...buttons,
   );
