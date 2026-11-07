@@ -1095,10 +1095,21 @@ Policy is per sender device id: `deliver`, `deliver-relayed`, `hold` (wait for t
 `refuse`. Sessions on the same device, and devices the person trusts, are `deliver`;
 every other device is `hold`. Held items wait until the person approves them in the pane, in a
 local UI or at the command line. Only the person changes policy: at the command line (`wim devices
-trust` and `untrust`, one device or `--all`, and the "Is it your own device?" question that
-`wim invite`, `wim devices admit` and `wim join` ask at an interactive terminal), or with the trust
-and untrust actions of a local UI such as the VS Code extension, which asks the person to confirm
-the new policy first (section 7.5). No message, tool call or MCP request can change it.
+trust` and `untrust`, one device or `--all`), with the trust and untrust actions of a local UI such
+as the VS Code extension, which asks the person to confirm the new policy first (section 7.5), or
+as part of their approval of an own-device invite, pairwise, never transitive. `wim invite` asks
+"Is the new device one of yours?" before it shows the code (the VS Code Add a Device... pick asks
+the same), and the answer is kept in the invite's record on that admin device, never in the code;
+an own-device invite sets `deliver` for the device it admits, and nothing is asked after the admit.
+`wim invite --auto` never trusts: nobody approves that join. On the joining side, `wim join` and
+`wim setup <code>` ask about the device that admitted this one alone ("laptop admitted this device.
+Is laptop your own device?"), then about each other device on its own, never all at once; the VS
+Code extension asks the same in modals. A device another device added later is never trusted
+because that device is: VS Code asks about it (Trust..., or Not Mine, kept on that machine), and
+`wim status` lists it as held. Every automatic trust prints its undo (`wim devices untrust`). No
+message, tool call or MCP request can change policy, and none can set an invite's `own` or the
+`added_by` a UI shows, which the client reads only from its own invite records and its verified
+roster chain. In a mesh with another person's devices, answer no for theirs: they stay at hold.
 `wim devices trust --all` trusts every device in the mesh, other people's included; it is for a
 mesh of your own devices.
 

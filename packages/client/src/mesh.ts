@@ -364,3 +364,29 @@ export async function setDevicePolicy(files: MeshFiles, deviceId: string, level:
 export function trustLevel(action: "trust" | "untrust", relayed: boolean): Policy {
   return action === "untrust" ? "hold" : relayed ? "deliver-relayed" : "deliver";
 }
+
+/** The device that signed the roster adding a device, as that roster's predecessor named it. */
+export type Adder = { id: string; name: string };
+
+/**
+ * Who added each device of `head` (events `added_by`, `wim status`): the signer of the first
+ * stored roster that lists it, walking back from the head while the roster before is stored here.
+ * Read only from rosters this device verified (each signed by an admin of the one before), so no
+ * message or relay frame can name an adder. Missing for the genesis's devices (nobody added them),
+ * and for devices older than the earliest roster stored here (a joining device keeps the chain
+ * from its invite's pin on).
+ */
+export async function addersOf(files: MeshFiles, head: Roster): Promise<Map<string, Adder>> {
+  const out = new Map<string, Adder>();
+  let cur = head;
+  while (cur.seq > 1) {
+    // Only the roster this one follows (its `prev` hash), naming its signer; anything else on disk
+    // (missing, unreadable, another roster) ends the walk, and the devices before it read as unknown.
+    const prev = await files.loadRoster(cur.seq - 1).catch(() => undefined);
+    const by = prev !== undefined && hash(prev) === cur.prev ? prev.devices.find((d) => d.id === cur.by) : undefined;
+    if (by === undefined) break;
+    for (const d of cur.devices) if (!prev!.devices.some((p) => p.id === d.id)) out.set(d.id, { id: by.id, name: by.name });
+    cur = prev!;
+  }
+  return out;
+}

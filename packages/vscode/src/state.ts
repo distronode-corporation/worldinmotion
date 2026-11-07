@@ -84,6 +84,16 @@ export class Store {
     for (const fn of this.listeners) fn(ev);
   }
 
+  /**
+   * Whether the person is asked about a device (SPEC section 6a): another device added it (the
+   * client read who from its verified roster chain), it is held here, and the person has not
+   * marked it Not Mine. One this device admitted was decided when it was invited.
+   */
+  askAbout(row: DeviceRow, notMine: { has(id: string): boolean }): boolean {
+    const me = [...this.devices.values()].find((r) => r.self)?.name;
+    return !row.self && row.policy === "hold" && row.added_by !== undefined && row.added_by !== me && !notMine.has(row.id);
+  }
+
   /** This process's own session address, once `hello` has arrived. */
   get self(): string | undefined {
     return this.hello?.session;

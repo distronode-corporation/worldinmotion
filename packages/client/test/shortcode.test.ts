@@ -127,7 +127,7 @@ describe("wim invite and wim join with a short code", () => {
     const a = term(await scratch("sc-a"), relay);
     expect(await run(a, "init", "--name", "laptop", "--relay", RELAY, "--no-recovery")).toBe(0);
     const b = term(await scratch("sc-b"), relay, { fetch: relay.fetch });
-    a.answers.push(() => sasOf(b));
+    a.answers.push("n", () => sasOf(b));
     const inviting = run(a, "invite");
     await until(() => a.out.some((l) => l.includes("wim2-")));
     const short = /wim2-\S+/.exec(said(a))![0];
@@ -140,7 +140,7 @@ describe("wim invite and wim join with a short code", () => {
 
     // --full: no box at the relay, and the full code.
     const c = term(await scratch("sc-c"), relay);
-    a.answers.push(() => sasOf(c));
+    a.answers.push("n", () => sasOf(c));
     const sent = relay.sentByClients.length;
     a.out.length = 0;
     const again = run(a, "invite", "--full");

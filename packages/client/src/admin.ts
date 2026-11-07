@@ -41,7 +41,7 @@ import { join } from "node:path";
 import { withLock } from "./fsx.ts";
 import { Invites, PendingJoins, sameCode, screenJoin } from "./joins.ts";
 import { SetupError, type Device, type Home } from "./home.ts";
-import { DEFAULT_BREAKER, MeshFiles, type MeshConfig } from "./mesh.ts";
+import { DEFAULT_BREAKER, MeshFiles, setDevicePolicy, type MeshConfig } from "./mesh.ts";
 import { ClientError, relayRefusal, type MeshSession } from "./client.ts";
 import { storeShortCode } from "./shortcode.ts";
 import { authRefusal, checkDialable, errorFor, Link, relayCode, type Dialer } from "./wire.ts";
@@ -112,14 +112,16 @@ export type IssuedInvite = { code: string; inviteId: string; exp: number; short?
  * except for a mesh that pins its relay's certificate: a joiner holding only the short code could
  * not check that certificate before it had the pin, which is inside the full code.
  */
-export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto: boolean; now: () => number; short?: boolean }): Promise<IssuedInvite> {
+export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto: boolean; own?: boolean; now: () => number; short?: boolean }): Promise<IssuedInvite> {
   const me = session.roster.devices.find((d) => d.id === session.device.id);
   if (me?.role !== "admin") throw new ClientError("only an admin device can invite", "not_admin");
   const now = o.now();
   const tls = session.config.tls;
   const invite = createInvite({ relay: session.config.relay, mesh: session.config.mesh, pin: rosterRef(session.roster), exp: now + o.ttlMs, now, ...(tls === undefined ? {} : { tls }) });
   const invites = new Invites(session.mesh, session.files.env, o.now);
-  await invites.put({ v: 1, id: invite.inviteId, exp: invite.exp, auto: o.auto, used: false, created: now, secret: b64u.encode(invite.secret) });
+  // Nobody approves an auto-accept join, so it never trusts (SPEC section 6a).
+  const own = o.own === true && !o.auto;
+  await invites.put({ v: 1, id: invite.inviteId, exp: invite.exp, auto: o.auto, ...(own ? { own } : {}), used: false, created: now, secret: b64u.encode(invite.secret) });
   const link = await session.ready();
   const refused = await link.request(
     { t: "invite.create", invite: invite.inviteId, exp: invite.exp },
@@ -138,12 +140,15 @@ export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto
 
 export type JoinPrompt = { name: string; id: string; sas: string };
 
-export type JoinDecision = { outcome: "admitted" | "refused" | "ignored"; reason?: string; name?: string };
+/** `trusted` (only when true): the invite was an own-device one, so the device admitted is `deliver` here now. */
+export type JoinDecision = { outcome: "admitted" | "refused" | "ignored"; reason?: string; name?: string; trusted?: boolean };
 
 /**
  * The admin's side of a join (SPEC section 5): only an invite this device issued, unused and
  * unexpired by its own clock; proof, signature and id checked; the name free; then the person
- * confirms the SAS unless the invite was created with auto-accept.
+ * confirms the SAS unless the invite was created with auto-accept. An invite the person made for
+ * a device of their own (`own`, never with auto-accept) trusts the device admitted, as part of
+ * that approval (SPEC section 6a): between this device and the new one only.
  */
 export async function decideJoin(session: MeshSession, body: JoinBody, confirm: (p: JoinPrompt) => Promise<boolean>, now: () => number): Promise<JoinDecision> {
   const invites = new Invites(session.mesh, session.files.env, now);
@@ -155,7 +160,10 @@ export async function decideJoin(session: MeshSession, body: JoinBody, confirm: 
   await invites.markUsed(record.id);
   // Other requests on this invite (someone else's who also held the code) can never be admitted now.
   await new PendingJoins(session.mesh, session.files.env).remove(record.id);
-  return { outcome: "admitted", name: device.name };
+  if (record.own !== true || record.auto) return { outcome: "admitted", name: device.name };
+  await setDevicePolicy(session.mesh, device.id, "deliver");
+  session.config = await session.mesh.loadConfig();
+  return { outcome: "admitted", name: device.name, trusted: true };
 }
 
 /**

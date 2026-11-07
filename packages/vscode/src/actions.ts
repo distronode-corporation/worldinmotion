@@ -6,7 +6,7 @@
 
 import * as vscode from "vscode";
 import { NAME_RE, noIcons, notice, oneLine, stamp, visible } from "./display.ts";
-import type { HeldRow, JoinRow } from "./protocol.ts";
+import type { DeviceRef, DeviceRow, HeldRow, JoinedDevice, JoinRow } from "./protocol.ts";
 import { RequestError } from "./process.ts";
 import { heldKey, heldSetKey, type HeldSet, type Store } from "./state.ts";
 import { showThread, type Requester } from "./thread.ts";
@@ -34,6 +34,11 @@ export type Deps = {
   now: () => number;
   /** Invites this window made: a request on one asks for its comparison code at once. */
   invited: Set<string>;
+  /**
+   * Device ids the person marked Not Mine, kept on this machine only (the extension's global
+   * state): a device someone else added is then not offered for trust again.
+   */
+  notMine: { has(id: string): boolean; add(id: string): unknown };
   /**
    * The name Create a Mesh... last sent while the device had no keys. A try that failed may have
    * made the device under it, and the client keeps an existing device's name, so a retry sends
@@ -303,6 +308,11 @@ export async function setTrust(d: Deps, arg: unknown, which: keyof typeof TRUST)
   const node = d.nodes.ours(arg, "device");
   const row = node === undefined ? undefined : d.store.devices.get(node.name);
   if (row === undefined || row.self) return;
+  await changeTrust(d, row, which);
+}
+
+/** The modal and the request behind every trust change: the person sees the old and new policy first. */
+async function changeTrust(d: Deps, row: DeviceRow, which: keyof typeof TRUST): Promise<void> {
   const t = TRUST[which];
   const choice = await vscode.window.showWarningMessage(
     `${t.button} the device "${visible(row.name)}"?`,
@@ -343,10 +353,17 @@ export async function addDevice(d: Deps): Promise<void> {
     void vscode.window.showWarningMessage("worldinmotion: this device is in no mesh yet. Create or join one first (Create a Mesh or Join with a Code in the Mesh view).");
     return;
   }
+  const whose = await vscode.window.showQuickPick(ADD_WAYS, { title: "Add a device", placeHolder: "Whose device is it?", ignoreFocusOut: true });
+  if (whose === undefined) return;
+  if (whose.way === "pair") {
+    void vscode.window.showInformationMessage(ADD_PAIRING_LATER);
+    return;
+  }
   // With a short code, `code` is it and `full` the full code, for a device on wim 0.1.4 or older.
   let made: { code: string; invite: string; exp: number; full?: string };
   try {
-    made = (await d.client.request("invite")) as typeof made;
+    // `own` stays in the client's invite record, never in the code (SPEC section 6a).
+    made = (await d.client.request("invite", { own: whose.way === "own" })) as typeof made;
   } catch (e) {
     failure("make an invite", e);
     return;
@@ -357,7 +374,7 @@ export async function addDevice(d: Deps): Promise<void> {
     "worldinmotion: an invite for the new device is ready.",
     {
       modal: true,
-      detail: `On the new device, in a terminal: wim join <code> (or there in VS Code: worldinmotion: Join with a Code...). The code works once, until ${stamp(made.exp)}. Give it over a channel you trust, never through an agent or a message. When the device asks to join, you type the comparison code it shows.${older}`,
+      detail: `On the new device, in a terminal: wim join <code> (or there in VS Code: worldinmotion: Join with a Code...). The code works once, until ${stamp(made.exp)}. Give it over a channel you trust, never through an agent or a message. When the device asks to join, you type the comparison code it shows.${whose.way === "own" ? " Once admitted, its messages are trusted here." : " Its messages stay held here until you approve them."}${older}`,
     },
     "Copy Invite Code",
     ...(made.full === undefined ? [] : ["Copy Full Code"]),
@@ -371,6 +388,16 @@ export async function addDevice(d: Deps): Promise<void> {
   await vscode.env.clipboard.writeText(made.code);
   void vscode.window.showInformationMessage("worldinmotion: invite code copied.");
 }
+
+/** The choices of Add a Device...; the pairing one is not in this version yet. */
+export const ADD_WAYS = [
+  { label: "My device, by pairing code", detail: "The new device shows a pairing code, you type it here.", way: "pair" },
+  { label: "My device, by invite code", detail: "Its messages are trusted here once you admit it.", way: "own" },
+  { label: "Another person's device", detail: "Its messages stay held here until you approve them.", way: "other" },
+] as const;
+
+/** Said for the pairing choice until pairing codes ship. */
+export const ADD_PAIRING_LATER = "worldinmotion: pairing codes are not in this version yet. Choose My device, by invite code.";
 
 /** A device asks to join: on an invite this window made, its code is asked for at once; otherwise offered. */
 export async function joinRequested(d: Deps, row: JoinRow): Promise<void> {
@@ -408,8 +435,9 @@ export async function admitRequest(d: Deps, row: JoinRow): Promise<void> {
     validateInput: (v: string) => (CODE_RE.test(v.trim()) ? undefined : "10 letters and digits, as the new device shows them"),
   });
   if (code === undefined) return;
+  let trusted: boolean;
   try {
-    await d.client.request("admit", { device: row.name, code: code.trim() });
+    trusted = ((await d.client.request("admit", { device: row.name, code: code.trim() })) as { trusted?: unknown }).trusted === true;
   } catch (e) {
     if (e instanceof RequestError && e.code === "mismatch") {
       void vscode.window.showErrorMessage(notice(`worldinmotion: that is not the comparison code of ${name}'s request. Check it on the new device; if it shows another code, do not admit it.`));
@@ -417,31 +445,98 @@ export async function admitRequest(d: Deps, row: JoinRow): Promise<void> {
     return;
   }
   d.invited.delete(row.invite);
-  void vscode.window.showInformationMessage(notice(`worldinmotion: admitted ${name}.`));
-  await askTrust(d, [row.name]);
+  // An own-device invite trusted it on admit; any other stays held. Nothing more is asked here.
+  void vscode.window.showInformationMessage(
+    notice(trusted ? `worldinmotion: admitted ${name}. ${trustedLine(name)}` : `worldinmotion: admitted ${name}. Its messages are held for your approval; Trust on it in the Mesh view if it is your own.`),
+  );
 }
 
-/** "Is X your own device?" after an admit or a join; a yes trusts it, as the Trust action does. */
-export async function askTrust(d: Deps, names: readonly string[]): Promise<void> {
-  if (names.length === 0) return;
-  const one = names.length === 1;
-  const shown = names.map((n) => `"${visible(n)}"`);
-  const list = one ? shown[0]! : `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)!}`;
-  const choice = await vscode.window.showWarningMessage(
-    one ? `Is ${list} your own device?` : `Are ${list} your own devices?`,
-    { modal: true, detail: `Trust ${one ? "its" : "their"} messages here: ${TRUST.trust.explain} Only for a device you would let type into your own terminal.` },
-    TRUST.trust.button,
-  );
-  if (choice !== TRUST.trust.button) return;
-  for (const name of names) {
-    try {
-      await d.client.request("trust", { device: name, relayed: false });
-    } catch (e) {
-      failure(`trust ${oneLine(name, 40)}`, e);
-      return;
-    }
+/** Every automatic trust says how to undo it. */
+export function trustedLine(name: string): string {
+  return `Trusted ${name}. Untrust on it in the Mesh view (or wim devices untrust ${name}) undoes it.`;
+}
+
+/** The button that records a device as someone else's, here only. */
+export const NOT_MINE = "Not Mine";
+
+/**
+ * After this device joined: first the device that admitted it, the only one whose approval this
+ * join was ("laptop admitted this device. Is laptop your own device?"), then each other device
+ * on its own, naming who added it. A yes trusts that one device; nothing is trusted because
+ * another device was. A client from before 0.1.11 names no approver: each device is asked on its own.
+ */
+export async function joinTrust(d: Deps, approver: DeviceRef | undefined, others: readonly JoinedDevice[]): Promise<void> {
+  const q = (name: string): string => `"${visible(name)}"`;
+  if (approver !== undefined) await askOne(d, approver, `${q(approver.name)} admitted this device. Is ${q(approver.name)} your own device?`);
+  for (const o of others) {
+    if (o.id === approver?.id) continue;
+    const by = o.added_by === undefined ? "" : ` (added by ${q(o.added_by)})`;
+    await askOne(d, o, `The mesh also has ${q(o.name)}${by}. Is ${q(o.name)} your own device?`);
   }
-  void vscode.window.showInformationMessage(notice(`worldinmotion: ${names.join(", ")} trusted.`));
+}
+
+/** One device, one modal: Trust sets `deliver` for it, Not Mine records it here, anything else decides nothing. */
+async function askOne(d: Deps, dev: DeviceRef, question: string): Promise<void> {
+  const choice = await vscode.window.showWarningMessage(
+    question,
+    { modal: true, detail: `Trust its messages here: ${TRUST.trust.explain} Only for a device you would let type into your own terminal.` },
+    TRUST.trust.button,
+    NOT_MINE,
+  );
+  if (choice === NOT_MINE) return void d.notMine.add(dev.id);
+  if (choice !== TRUST.trust.button) return;
+  try {
+    await d.client.request("trust", { device: dev.name, relayed: false });
+  } catch (e) {
+    failure(`trust ${oneLine(dev.name, 40)}`, e);
+    return;
+  }
+  void vscode.window.showInformationMessage(notice(`worldinmotion: ${trustedLine(oneLine(dev.name, 40))}`));
+}
+
+/**
+ * A device another device added, still held here and not marked Not Mine: "laptop added build
+ * to this mesh. Is build your own device?" Trust... opens the usual trust modal; Not Mine records
+ * it here. Nothing is trusted because laptop is (SPEC section 6a).
+ */
+export function thirdDevice(d: Deps, row: DeviceRow): Promise<void> {
+  const name = oneLine(row.name, 40);
+  return offerTrust(d, row, `worldinmotion: ${oneLine(row.added_by!, 40)} added ${name} to this mesh. Is ${name} your own device?`);
+}
+
+/** Trust... (the trust modal) or Not Mine (recorded here) for one device. */
+async function offerTrust(d: Deps, row: DeviceRow, message: string): Promise<void> {
+  const choice = await vscode.window.showInformationMessage(notice(message), TRUST_ASK, NOT_MINE);
+  if (choice === NOT_MINE) return void d.notMine.add(row.id);
+  if (choice === TRUST_ASK) await changeTrust(d, row, "trust");
+}
+
+/** The notification's button that opens the trust modal. */
+export const TRUST_ASK = "Trust...";
+
+/**
+ * Review Trust...: every other device, with its policy and who added it; picking a trusted one
+ * offers Untrust, any other Trust... and Not Mine, each change behind its modal.
+ */
+export async function reviewTrust(d: Deps): Promise<void> {
+  const rows = [...d.store.devices.values()].filter((r) => !r.self);
+  if (rows.length === 0) {
+    void vscode.window.showInformationMessage("worldinmotion: no other devices in the mesh.");
+    return;
+  }
+  const picked = await vscode.window.showQuickPick(
+    rows.map((r) => ({
+      label: noIcons(oneLine(r.name, 40)),
+      description: noIcons(`${r.policy}${r.added_by === undefined ? "" : `, added by ${oneLine(r.added_by, 40)}`}${d.notMine.has(r.id) ? ", not mine" : ""}`),
+      detail: noIcons(oneLine(r.id, 60)),
+      row: r,
+    })),
+    { title: "Review trust", placeHolder: "A device of this mesh" },
+  );
+  if (picked === undefined) return;
+  const row = picked.row;
+  if (row.policy === "deliver" || row.policy === "deliver-relayed") return changeTrust(d, row, "untrust");
+  return offerTrust(d, row, `worldinmotion: is ${oneLine(row.name, 40)} your own device?`);
 }
 
 /** The two ways of Join with a Code...; the pairing one is not in this version yet. */

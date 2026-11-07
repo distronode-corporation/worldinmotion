@@ -12,7 +12,8 @@ import { AGENT_ENV_VARS } from "../src/secretout.ts";
 import { legacyBoxesLine } from "../src/legacyboxes.ts";
 import { execRunner, HOSTED_TERMS, STORED_PROMPT, type ToolRun } from "../src/setup.ts";
 import type { RunResult } from "../src/autostart.ts";
-import { makeMesh, RELAY, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
+import { MeshFiles } from "../src/mesh.ts";
+import { FS, inviteCodeOf, makeMesh, RELAY, RelayHarness, run, sasOf, said, scratch, term, until, type Term } from "./helpers.ts";
 
 /** What a relay's `/v1/info` answers. */
 const infoFetch = (async () =>
@@ -118,22 +119,57 @@ describe("wim setup on a new machine", () => {
     expect(await exists(join(home, "device.json"))).toBe(false);
   }, 20_000);
 
-  it("says the add path and the invite-code form are not in this version yet", async () => {
+  it("points the add path at wim invite and wim setup <code>, and refuses a second argument or another choice", async () => {
     const relay = new RelayHarness();
     const home = await scratch("setup-later");
     const add = term(home, relay);
     add.answers.push("2");
     expect(await run(add, "setup")).toBe(1);
-    expect(said(add)).toContain("Adding this machine from `wim setup` is not in this version yet. For now: on a device already in the mesh, run `wim invite` in a terminal; then here, `wim join <code>` with the code it shows.");
-    const code = term(home, relay);
-    expect(await run(code, "setup", "wim2-0000")).toBe(1);
-    expect(said(code)).toContain("`wim setup <invite code>` is not in this version yet: join with an invite code by `wim join <code>`");
+    expect(said(add)).toContain("On a device already in the mesh, run `wim invite` in a terminal; then here, `wim setup <code>` with the code it shows.");
+    const two = term(home, relay);
+    expect(await run(two, "setup", "wim2-0000", "more")).toBe(1);
+    expect(said(two)).toContain("usage: wim setup [<invite code>] [--name <n>] [--relay <url>] [--key-env NAME]");
     const other = term(home, relay);
     other.answers.push("3");
     expect(await run(other, "setup")).toBe(1);
     expect(other.err).toEqual(["wim: choose 1 or 2. Nothing changed."]);
     expect(await exists(join(home, "device.json"))).toBe(false);
   }, 20_000);
+
+  it("joins with an invite code, asks about the admitting device alone, then runs the repeatable steps", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["laptop", "desk"]);
+    const a = term(devices[0]!.root, relay);
+    const home = await scratch("setup-join");
+    const t = term(home, relay);
+    // laptop: not one of the person's own (so desk is asked about too), then the code from here.
+    a.answers.push("n", () => sasOf(t));
+    // Here: laptop is the person's own, desk is not.
+    t.answers.push("y", "n");
+    const inviting = run(a, "invite");
+    await until(() => said(a).includes("wim1_"));
+    expect(await run(t, "setup", inviteCodeOf(a), "--name", "build")).toBe(0);
+    expect(await inviting).toBe(0);
+    expect(questions(t)).toEqual(["laptop admitted this device. Is laptop your own device? [y/N] ", "The mesh also has desk. Is desk your own device? [y/N] "]);
+    expect(said(t)).toContain("Trusted laptop. wim devices untrust laptop undoes it.");
+    expect(said(t)).toContain("Messages from desk are held for your approval. If it is your own: wim devices trust desk");
+    expect(said(t)).not.toContain("Check this device and its mesh at any time");
+    expect(said(t)).toContain("Claude Code: the `claude` command was not found here.");
+    expect(t.out.at(-1)).toBe("Everything checks out. `wim doctor` shows each check.");
+    const here = await new MeshFiles(join(home, "meshes", mesh), FS).loadConfig();
+    expect(here.policy).toEqual({ [devices[0]!.device.id]: "deliver" });
+    // On laptop, which admitted it as someone else's: held, and nothing asked after the admit.
+    expect(said(a)).toContain("Messages from build are held for your approval. If it is your own: wim devices trust build");
+    expect((await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).loadConfig()).policy[here.device]).toBeUndefined();
+    // On desk, which neither admitted it nor was told anything: listed by wim status, never trusted.
+    const d = term(devices[1]!.root, relay);
+    expect(await run(d, "status")).toBe(0);
+    expect(said(d)).toContain("  held here, added by laptop: build (wim devices trust build)");
+    // A code that does not resolve stops before the repeatable steps.
+    const bad = term(await scratch("setup-join-bad"), relay);
+    expect(await run(bad, "setup", "wim2-nope")).toBe(1);
+    expect(said(bad)).not.toContain("Claude Code");
+  }, 30_000);
 
   it("refuses a bad name, a relay it cannot dial and a key variable that is not set, with nothing made", async () => {
     const relay = new RelayHarness();
@@ -409,7 +445,7 @@ describe("wim recovery show --wait", () => {
     const t = term(await scratch("setup-help"), new RelayHarness());
     expect(await run(t, "help", "setup")).toBe(0);
     expect(await run(t, "recovery", "--help")).toBe(0);
-    expect(t.out).toEqual(["wim setup [--name <device>] [--relay <url>] [--key-env NAME]", "wim recovery show [--wait] | wim recovery rotate"]);
+    expect(t.out).toEqual(["wim setup [<invite code>] [--name <device>] [--relay <url>] [--key-env NAME]", "wim recovery show [--wait] | wim recovery rotate"]);
   });
 
   it("parses --wait alone, before another flag, and with a value", () => {

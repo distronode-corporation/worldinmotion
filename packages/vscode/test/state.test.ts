@@ -194,6 +194,23 @@ describe("Store: queries", () => {
   });
 });
 
+describe("askAbout", () => {
+  it("is a device another device added, held here, and not marked Not Mine", () => {
+    const s = mesh();
+    const none = new Set<string>();
+    const build = device("build", { added_by: "buildbox" });
+    expect(s.askAbout(build, none)).toBe(true);
+    expect(s.askAbout(build, new Set(["dev-build"]))).toBe(false);
+    // This device admitted it, so its invite decided; who added it is not known; trusted; this device.
+    expect(s.askAbout(device("build", { added_by: "laptop" }), none)).toBe(false);
+    expect(s.askAbout(device("build"), none)).toBe(false);
+    expect(s.askAbout(device("build", { added_by: "buildbox", policy: "deliver" }), none)).toBe(false);
+    expect(s.askAbout(device("laptop", { added_by: "buildbox", self: true }), none)).toBe(false);
+    // Before the snapshot, no device is this one: any adder counts as another device.
+    expect(new Store().askAbout(device("build", { added_by: "laptop" }), none)).toBe(true);
+  });
+});
+
 describe("counterparts", () => {
   it("is the sender for in, and the to list (or the joined peer) for out", () => {
     expect(counterparts(message("a"))).toEqual(["coder@buildbox"]);

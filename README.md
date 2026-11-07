@@ -77,8 +77,8 @@ Run it again whenever you like: on a machine that is set up, it skips what is do
 steps 3 and 4. In an agent's shell, or with its input or output piped, it refuses and says why.
 It never asks about crash reports, and it does not start the signer (step 5 below).
 
-Adding your other machines from `wim setup` comes in a later version: add them with `wim invite`
-and `wim join` (step 3 below). The guide below does everything by hand, and `wim init`, `wim join`
+To add another machine: run `wim invite` on one already in the mesh, then `wim setup <code>` on the
+new one with the code it shows (or `wim join <code>`, step 3 below). The guide below does everything by hand, and `wim init`, `wim join`
 and `wim invite --auto` stay as they are for scripts and unattended machines.
 
 ## First run: three machines, one person
@@ -206,10 +206,18 @@ in your own terminal, within 10 minutes and before the invite expires, to see it
 
 ### 4. Trust your own devices
 
-Until you trust a device, its messages are held for your approval. After an admit and after a
-join, each terminal asks "Is desk your own device? Trust its messages here?": answer `y` for your
-own devices. For three machines that is six trusts, two on each machine. Any you skipped, on each
-machine:
+Until you trust a device, its messages are held for your approval. Trust is set inside the
+approvals you already give, between the two devices of each one, and never passed on:
+
+- `wim invite` asks "Is the new device one of yours?" before it shows the code. Answer `y` for
+  your own, and `laptop` trusts `desk` when it admits it (`wim invite --auto` never trusts).
+- `wim join` (or `wim setup <code>`) on `desk` asks "laptop admitted this device. Is laptop your
+  own device?", then about each other device on its own.
+- A device added later by another device is not trusted because that device is: `wim status`
+  lists it ("held here, added by laptop: build"), and VS Code asks about it.
+
+Each automatic trust prints its undo, `wim devices untrust <name>`. In a mesh with someone else's
+devices, answer no for theirs. Any you skipped, or a mesh made before 0.1.11, on each machine:
 
 [Terminal on `laptop`, `desk` and `build`]
 

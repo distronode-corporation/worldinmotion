@@ -71,7 +71,8 @@ describe("wim events --json", () => {
     const snap = e.of("snapshot")[0]!;
     expect(snap["devices"]).toEqual([
       { name: "one", id: devices[0]!.device.id, role: "admin", policy: "deliver", self: true },
-      { name: "two", id: devices[1]!.device.id, role: "member", policy: "deliver", self: false },
+      // Read from the verified roster chain on this device: one signed the roster that added two.
+      { name: "two", id: devices[1]!.device.id, role: "member", policy: "deliver", self: false, added_by: "one" },
     ]);
     expect(snap["sessions"]).toEqual([expect.objectContaining({ address: "peer@two", kind: "mcp", rooms: ["#ops"], local: false })]);
     expect(snap["rooms"]).toEqual([{ name: "#ops", members: ["peer@two"] }]);

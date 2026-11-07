@@ -13,7 +13,8 @@
 //                      `created` (recovery "shown", or "not_collected" with WIM_FAKE_RECOVERY=lost)
 //                      and ends, after which it starts in the mesh; with WIM_FAKE_RECOVERY=hold it
 //                      keeps holding the code until it is stopped, and with =crash it exits
-//                      (code 1) while holding it, never saying `created`
+//                      (code 1) while holding it, never saying `created`; "third-device" (in the
+//                      mesh, a device that buildbox added arrives after the snapshot)
 //   WIM_FAKE_TEST      for `test --json` (the self-test): see below
 
 import { appendFileSync, existsSync, statSync, writeFileSync } from "node:fs";
@@ -95,6 +96,8 @@ const held = new Map(
 );
 // Devices waiting to join, by invite/id; the comparison code the fake admits is FAKE_CODE.
 const joins = new Map();
+/** Whether each invite was made for one of the person's own devices. */
+const ownInvites = new Map();
 const FAKE_CODE = "ABCDE-FGHJK";
 const heldText = new Map([["01JFAKEHELD000000000000001", "Could you look at the failing test in auth.ts? It fails on main since this morning."]]);
 const history = [
@@ -197,6 +200,7 @@ function handle(line) {
       return respond(id, { released: 0 });
     case "invite": {
       const invite = `inv-${nextMessage++}`;
+      ownInvites.set(invite, args?.own === true);
       respond(id, { code: `wim1_fake${invite}`, invite, exp: Date.now() + 3_600_000 });
       // The new device asks to join soon after.
       setTimeout(() => {
@@ -212,10 +216,12 @@ function handle(line) {
       if (String(args.code).toUpperCase() !== FAKE_CODE) return fail(id, "mismatch", "that is not the comparison code of this request");
       joins.delete(`${request.invite}/${request.id}`);
       emit("join", { op: "remove", request });
-      const d = { name: request.name, id: request.id, role: "member", policy: "hold", self: false };
+      // An own-device invite trusts the device it admits; this device added it.
+      const trusted = ownInvites.get(request.invite) === true;
+      const d = { name: request.name, id: request.id, role: "member", policy: trusted ? "deliver" : "hold", self: false, added_by: "laptop" };
       devices.set(d.name, d);
       emit("device", d);
-      return respond(id, { device: request.name });
+      return respond(id, { device: request.name, trusted });
     }
     default:
       return fail(id, "input", `unknown op ${op}`);
@@ -263,7 +269,7 @@ function setupMode() {
     setTimeout(() => {
       if (scenario === "setup-fail") return emit("join_failed", { message: "the relay went away" });
       if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
-      emit("joined", { mesh: "f4ke…", devices: [{ name: "buildbox", id: "dev-buildbox" }] });
+      emit("joined", { mesh: "f4ke…", admitted_by: { name: "buildbox", id: "dev-buildbox" }, devices: [{ name: "buildbox", id: "dev-buildbox" }] });
       process.exit(0);
     }, 30);
   });
@@ -281,6 +287,11 @@ function inMesh() {
   emit("peer", { ...sessions[2], mood: "fine" });
   if (scenario === "bad-version") process.stdout.write(`${JSON.stringify({ v: 2, type: "hello", at: Date.now() })}\n`);
   // A message for a Claude Code tab on this device, not for this window's own session.
+  if (scenario === "third-device") {
+    const desk = { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false, added_by: "buildbox" };
+    devices.set(desk.name, desk);
+    emit("device", desk);
+  }
   if (scenario === "tab-message") record({ id: messageId(), dir: "in", session: "reviewer@laptop", peer: "coder@buildbox", device: "dev-buildbox", kind: "msg", text: "for the tab", at: Date.now() });
 
   const rl = createInterface({ input: process.stdin });

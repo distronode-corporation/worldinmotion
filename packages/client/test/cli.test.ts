@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
-import { main, parseArgs, parseDuration, toName, USAGE } from "../src/cli.ts";
+import { main, OWN_QUESTION, parseArgs, parseDuration, toName, USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
 import { inviteCodeOf, makeMesh, POSIX_VIEW, RELAY, RelayHarness, run, said, sasOf, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
@@ -50,7 +50,8 @@ describe("setting up", () => {
     const b = term(await scratch("cli-b"), relay);
     // A wrong code is asked again; the code typed in lower case without its dash is accepted. The
     // admin never shows the code itself: the person reads it on the new device.
-    a.answers.push("AAAAA-AAAAA", () => sasOf(b).toLowerCase().replace("-", ""), "n");
+    // Not one of the person's own devices: asked before the code is shown, so nothing after the admit.
+    a.answers.push("n", "AAAAA-AAAAA", () => sasOf(b).toLowerCase().replace("-", ""));
     const inviting = run(a, "invite", "--exp", "1h");
     await until(() => a.out.some((l) => l.includes("wim1_")));
     expect(said(a)).toContain("On the new device, in a terminal: `wim join <code>`");
@@ -61,12 +62,14 @@ describe("setting up", () => {
     expect(said(a)).toMatch(/A device named my-host-local \(id \S+\) asks to join/);
     expect(said(a)).toMatch(/that is not this request's code/);
     expect(said(a)).toMatch(/Admitted my-host-local/);
-    expect(said(a)).toContain("Is my-host-local your own device? Trust its messages here? [y/N] ");
+    expect(said(a)).toContain(OWN_QUESTION);
+    expect(said(a).indexOf(OWN_QUESTION)).toBeLessThan(said(a).indexOf("wim1_"));
+    expect(said(a)).not.toContain("Is my-host-local your own device?");
     expect(said(a)).toContain("Messages from my-host-local are held for your approval. If it is your own: wim devices trust my-host-local");
     expect(said(b)).toMatch(/Joined mesh/);
     expect(said(b)).toContain(`wim devices admit my-host-local ${sas}`);
     // The joiner was asked about the admin and said nothing: held.
-    expect(said(b)).toContain("Is laptop your own device?");
+    expect(said(b)).toContain("laptop admitted this device. Is laptop your own device? [y/N] ");
     expect(said(b)).toContain("Messages from laptop are held for your approval.");
 
     // devices: list, trust, trust --relayed, untrust, errors
@@ -94,7 +97,7 @@ describe("setting up", () => {
     const a = term(await scratch("cli-a"), relay);
     await run(a, "init", "--name", "laptop", "--relay", RELAY, "--no-recovery");
     const b = term(await scratch("cli-b"), relay);
-    a.answers.push("n");
+    a.answers.push("n", "n");
     const inviting = run(a, "invite", "--exp", "3s");
     await until(() => a.out.some((l) => l.includes("wim1_")));
     const code = a.out.find((l) => l.includes("wim1_"))!.trim();

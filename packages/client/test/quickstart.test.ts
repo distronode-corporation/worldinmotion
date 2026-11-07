@@ -10,15 +10,15 @@ async function quickStart(): Promise<{ a: ReturnType<typeof term>; b: ReturnType
   const a = term(await scratch("qs-a"), relay);
   const b = term(await scratch("qs-b"), relay);
   expect(await run(a, "init", "--name", "qs-a", "--relay", RELAY, "--no-recovery")).toBe(0);
-  // The person types the code the new device shows, and trusts each device as their own when asked.
-  a.answers.push(() => sasOf(b), "y");
+  // The person says the new device is their own, types the code it shows, and trusts the admin there.
+  a.answers.push("y", () => sasOf(b));
   b.answers.push("y");
   const inviting = run(a, "invite");
   await until(() => a.out.some((l) => l.includes("wim1_")));
   expect(await run(b, "join", inviteCodeOf(a), "--name", "qs-b")).toBe(0);
   expect(await inviting).toBe(0);
-  expect(said(a)).toContain("Messages from qs-b are delivered here");
-  expect(said(b)).toContain("Messages from qs-a are delivered here");
+  expect(said(a)).toContain("Trusted qs-b. wim devices untrust qs-b undoes it.");
+  expect(said(b)).toContain("Trusted qs-a. wim devices untrust qs-a undoes it.");
   return { a, b };
 }
 
@@ -69,7 +69,7 @@ describe("the README quick start", () => {
     const a = term(await scratch("qs-a"), relay);
     const b = term(await scratch("qs-b"), relay, { connectMs: 200 });
     expect(await run(a, "init", "--name", "qs-a", "--relay", RELAY, "--no-recovery")).toBe(0);
-    a.answers.push(() => sasOf(b));
+    a.answers.push("n", () => sasOf(b));
     const inviting = run(a, "invite");
     await until(() => a.out.some((l) => l.includes("wim1_")));
     const code = inviteCodeOf(a);

@@ -15,6 +15,24 @@ body line with a bracket.
 
 ### Added
 
+- **Your own devices are trusted inside the approvals you already give.** `wim invite` asks "Is the
+  new device one of yours? Its messages will then be trusted here when it joins. [y/N]" before it
+  shows the code, and keeps the answer in the invite's record on that device, never in the code; an
+  own-device invite sets `deliver` for the device it admits, and the question after the admit is
+  gone. `wim invite --auto` never trusts. On the joining side, `wim join` and the new
+  `wim setup <invite code>` ask about the device that admitted this one alone, then about each
+  other device on its own, replacing the one question that covered every device. Every automatic
+  trust prints its undo (`wim devices untrust <name>`). Nothing is transitive: a device another
+  device added is never trusted because that device is. `wim status` lists those as "held here,
+  added by laptop: build (wim devices trust build)", and the VS Code extension asks about each one
+  as it joins ("laptop added build to this mesh. Is build your own device?", with **Trust...** and
+  **Not Mine**, kept on that machine), with **Review Trust...** for all of them. **Add a Device...**
+  asks whose device it is first, and after **Join with a Code...** the extension asks about the
+  admitting device, then each other one, in modals. `wim events` takes `invite { own }`, answers
+  `admit` with `trusted`, adds `added_by` to device rows (read only from the verified roster chain)
+  and `admitted_by` to `joined` ([docs/events.md](docs/events.md), SPEC section 6a,
+  SECURITY-MODEL section 7.2).
+
 - **VS Code: Create a Mesh and Join with a Code from the empty Mesh view.** On a device in no
   mesh yet the Mesh view shows a welcome text with both buttons (it reads the new
   `worldinmotion.state` context key: `setup`, `mesh` or `closed`), and VS Code alone needs no npm.

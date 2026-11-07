@@ -14,6 +14,12 @@ export type InviteRecord = {
   exp: number;
   /** Recorded on this device only, never in the code (SPEC section 5). */
   auto: boolean;
+  /**
+   * The person said, before the code was shown, that the new device is one of theirs: its join
+   * sets `deliver` here (SPEC section 6a). Recorded on this device only, never in the code, and
+   * never with `auto`. Missing in a record from before 0.1.11: not own.
+   */
+  own?: boolean;
   used: boolean;
   created: number;
   /** b64u; deleted once the invite is used or expired. */

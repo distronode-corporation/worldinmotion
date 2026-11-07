@@ -518,6 +518,12 @@ person the receiving agent works for.
   instruction or approval. The frame MUST use a fresh random boundary per message, and any
   sequence in the text that could open or close a frame MUST be escaped.
 - A message MUST NOT answer a permission prompt, approve a tool call, or change inbound policy.
+  A client MAY set `deliver` for a device as part of the person's approval of its join, or of the
+  join that admitted this device, when that approval says so: an admin's invite recorded as for
+  one of the person's own devices (kept with the invite on that device, never in the code; never
+  for an auto-accept invite), or the joining person's answer about the device that admitted it.
+  That trust is between those two devices only: no device becomes trusted because a trusted
+  device added it or said so.
 - **Trusted devices can assign work.** A message of any kind, except relayed or derived text
   (below), from a device whose inbound policy is `deliver` (one the person chose to trust) is
   presented to the agent as a work assignment from a device its person trusts. The agent MAY carry

@@ -9,7 +9,7 @@ import { homedir } from "node:os";
 import { clientCommand, clientCwd, crashReportsTerminal, EventsProcess, recoveryTerminal, selfTestCommand, signerTerminal, type SpawnFn } from "./process.ts";
 import { runSelfTest } from "./selftest.ts";
 import { spawn as nodeSpawn } from "node:child_process";
-import { historyRows, type MessageRow } from "./protocol.ts";
+import { historyRows, type DeviceRef, type JoinedDevice, type MessageRow } from "./protocol.ts";
 import { Store, toNotify } from "./state.ts";
 import { signerState, StatusItem } from "./status.ts";
 import { SCHEME, showThread, ThreadProvider, type Requester } from "./thread.ts";
@@ -28,6 +28,11 @@ export const TICK_MS = 15_000;
  */
 export const SETUP_HINT =
   "This extension runs its own copy of wim, so VS Code alone needs no npm: clear the worldinmotion.wimPath setting (or point it at a newer wim) and run worldinmotion: Restart Client, then choose Create a Mesh or Join with a Code in the Mesh view.";
+
+/** Where the device ids the person marked Not Mine are kept (global state: this machine only). */
+export const NOT_MINE_KEY = "worldinmotion.notMine";
+/** At most this many are kept; the oldest go first. */
+export const NOT_MINE_MAX = 1000;
 
 /** The `worldinmotion.state` context key, which the welcome content and menus read. */
 export type ViewState = "setup" | "mesh" | "closed";
@@ -60,9 +65,13 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   // Filled in below; the views and providers only call it after activation.
   let proc: EventsProcess | undefined;
   const client: Requester = { request: (op, args, timeoutMs) => proc!.request(op, args, timeoutMs) };
-  const deps: actions.Deps = { store, client, nodes, now, invited: new Set() };
-  /** The devices to ask about once the client runs in the mesh this device just joined. */
-  let trustAfterJoin: string[] | undefined;
+  const notMine = {
+    has: (id: string): boolean => (context.globalState.get<string[]>(NOT_MINE_KEY) ?? []).includes(id),
+    add: (id: string): Thenable<void> => context.globalState.update(NOT_MINE_KEY, [...(context.globalState.get<string[]>(NOT_MINE_KEY) ?? []).filter((x) => x !== id), id].slice(-NOT_MINE_MAX)),
+  };
+  const deps: actions.Deps = { store, client, nodes, now, invited: new Set(), notMine };
+  /** Who admitted this device and the other devices, asked about once the client runs in the mesh this device just joined. */
+  let trustAfterJoin: { approver: DeviceRef | undefined; others: JoinedDevice[] } | undefined;
   /** Set from a `create` answer until its `created`: the client holds a recovery code. */
   let recoveryWaits = false;
   /**
@@ -163,14 +172,17 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
       return clientCommand({ extensionPath: context.extensionPath, wimPath: s.wimPath, sessionName: s.sessionName, execPath: process.execPath, env: process.env, telemetry: vscode.env.isTelemetryEnabled, cwd });
     },
     onEvent: (ev) => {
+      // A device new to the mesh since the snapshot: asked about when another device added it.
+      const added = ev.type === "device" && !store.devices.has(ev.device.name) ? ev.device : undefined;
       store.apply(ev);
+      if (added !== undefined && store.askAbout(added, notMine)) void actions.thirdDevice(deps, added);
       if (ev.type === "hello") loadHistory();
       if (ev.type === "join" && ev.op === "add") void actions.joinRequested(deps, ev.request);
       if (ev.type === "join_failed") void vscode.window.showErrorMessage(notice(`worldinmotion: joining the mesh failed: ${ev.message}`));
       if (ev.type === "joined") {
         // The client ends after joining; started again, it runs in the mesh, and its first
         // snapshot is when the person is asked about the other devices.
-        trustAfterJoin = ev.devices.map((x) => x.name);
+        trustAfterJoin = { approver: ev.admitted_by, others: ev.devices };
         proc!.restart();
       }
       if (ev.type === "created") {
@@ -181,7 +193,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
         proc!.restart();
       }
       if (ev.type === "snapshot" && trustAfterJoin !== undefined) {
-        void actions.askTrust(deps, trustAfterJoin);
+        void actions.joinTrust(deps, trustAfterJoin.approver, trustAfterJoin.others);
         trustAfterJoin = undefined;
       }
       if (ev.type === "message") threads.messageArrived(ev.message);
@@ -290,6 +302,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     command("worldinmotion.resume", (arg) => actions.resume(deps, arg)),
     command("worldinmotion.addDevice", () => actions.addDevice(deps)),
     command("worldinmotion.admitDevice", () => actions.admitDevice(deps)),
+    command("worldinmotion.reviewTrust", () => actions.reviewTrust(deps)),
     command("worldinmotion.joinMesh", () => actions.joinMesh(deps)),
     command("worldinmotion.createMesh", () => actions.createMesh(deps, showRecovery, () => (recoveryWaits = true))),
     command("worldinmotion.refresh", () =>
