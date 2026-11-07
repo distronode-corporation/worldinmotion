@@ -71,6 +71,7 @@ function setup(home: Home, relay: RelayHarness, agent?: string) {
     signal: h.stop.signal,
     now: Date.now,
     fetch: relay.fetch,
+    platform: process.platform,
     ...(agent === undefined ? {} : { agent }),
   });
   cleanup.push(async () => {
@@ -230,7 +231,7 @@ describe("setup mode", () => {
     // An aborted signal ends it at once.
     const stop = new AbortController();
     stop.abort();
-    await runSetupEvents({ home, defaultName: "x", dialer: relay.dialer, version: "t", write: () => undefined, input: new PassThrough(), signal: stop.signal, now: Date.now, fetch: relay.fetch });
+    await runSetupEvents({ home, defaultName: "x", dialer: relay.dialer, version: "t", write: () => undefined, input: new PassThrough(), signal: stop.signal, now: Date.now, fetch: relay.fetch, platform: process.platform });
   }, 20_000);
 
   it("is what `wim events --json` runs on a device in no mesh, and refuses an agent's invite in a mesh", async () => {

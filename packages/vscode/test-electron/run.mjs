@@ -1,9 +1,11 @@
 // Integration smoke test: launches a downloaded VS Code with this extension, pointed at the fake
-// events process (test/fixtures/fake-wim.mjs), and runs suite.cjs inside it. Build first
-// (`npm run bundle -w worldinmotion`); on Linux without a display, run under `xvfb-run -a`.
+// events process (test/fixtures/fake-wim.mjs), and runs suite.cjs inside it, then setup.cjs on a
+// device in no mesh yet. Build first (`npm run bundle -w worldinmotion`); on Linux without a
+// display, run under `xvfb-run -a`.
 //
 //   WIM_VSCODE_TEST_CACHE  where VS Code is downloaded (default: <package>/.vscode-test)
 //   WIM_VSCODE_VERSION     the VS Code version to test against (default below)
+//   WIM_VSCODE_ARGS        more VS Code arguments, space separated (say --ozone-platform=x11)
 
 import { runTests } from "@vscode/test-electron";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -29,19 +31,25 @@ writeFileSync(join(user, "User", "settings.json"), JSON.stringify({ "worldinmoti
 // A folder to open, so the client's card should carry it as its working directory.
 const folder = join(work, "project");
 mkdirSync(folder);
-const log = join(work, "requests.log");
-writeFileSync(log, "");
 
-let code = 1;
-try {
-  code = await runTests({
+/** One VS Code run of `suite` against the fake client in `scenario`, with a request log of its own. */
+async function pass(suite, scenario) {
+  const log = join(work, `requests-${scenario}.log`);
+  writeFileSync(log, "");
+  return runTests({
     version: process.env.WIM_VSCODE_VERSION ?? "1.143.1",
     cachePath: process.env.WIM_VSCODE_TEST_CACHE ?? join(pkg, ".vscode-test"),
     extensionDevelopmentPath: pkg,
-    extensionTestsPath: join(here, "suite.cjs"),
-    extensionTestsEnv: { WIM_FAKE_LOG: log, WIM_SMOKE_FOLDER: folder },
-    launchArgs: [folder, "--user-data-dir", user, "--extensions-dir", join(work, "extensions"), "--disable-extensions", "--skip-welcome", "--skip-release-notes", "--disable-gpu"],
+    extensionTestsPath: join(here, suite),
+    extensionTestsEnv: { WIM_FAKE_LOG: log, WIM_SMOKE_FOLDER: folder, WIM_FAKE_SCENARIO: scenario },
+    launchArgs: [folder, "--user-data-dir", user, "--extensions-dir", join(work, "extensions"), "--disable-extensions", "--skip-welcome", "--skip-release-notes", "--disable-gpu", ...(process.env.WIM_VSCODE_ARGS ?? "").split(" ").filter((a) => a !== "")],
   });
+}
+
+let code = 1;
+try {
+  code = await pass("suite.cjs", "default");
+  if (code === 0) code = await pass("setup.cjs", "setup");
 } catch (e) {
   console.error(`smoke test failed: ${e instanceof Error ? e.message : String(e)}`);
 } finally {

@@ -5,21 +5,30 @@
 // - every line the real `wim events --json` writes goes through the extension's parser and store;
 // - the plugin's peer line matches the client's own `peers` text for the same sessions;
 // - the extension's and the plugin's policy names, and the extension's trust dialog, match the
-//   client's.
+//   client's;
+// - the extension reads the report the real `wim test --json` prints;
+// - setup mode's `create` and `created` are what docs/events.md says and the extension reads.
 
-import { copyFileSync, mkdtempSync } from "node:fs";
+import { HOSTED_RELAY, LIMITS } from "@worldinmotion/protocol";
+import { copyFileSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../../client/src/client.ts";
-import { runEvents } from "../../client/src/events.ts";
+import { runEvents, runSetupEvents } from "../../client/src/events.ts";
+import { Home } from "../../client/src/home.ts";
+import { fetchHeldCode, showPaths } from "../../client/src/secretout.ts";
 import { WimMcp } from "../../client/src/mcp.ts";
 import { MeshFiles, parseMeshConfig, trustLevel } from "../../client/src/mesh.ts";
-import { FS, makeMesh, openSession, RelayHarness, sessionOpts, until } from "../../client/test/helpers.ts";
+import { main } from "../../client/src/cli.ts";
+import { selfTest } from "../../client/src/selftest.ts";
+import { FS, makeMesh, openSession, RELAY, RelayHarness, scratch, sessionOpts, term, until } from "../../client/test/helpers.ts";
+import * as actions from "../src/actions.ts";
 import { TRUST } from "../src/actions.ts";
 import { historyRows, parseLine, POLICIES } from "../src/protocol.ts";
+import { parseReport } from "../src/selftest.ts";
 import { Store } from "../src/state.ts";
 
 /**
@@ -135,6 +144,44 @@ describe("the real wim events output, read by the extension", () => {
   });
 });
 
+describe("setup mode's create, read by the extension", () => {
+  const doc = readFileSync(fileURLToPath(new URL("../../../docs/events.md", import.meta.url)), "utf8");
+  const row = (first: string): string => doc.split("\n").find((l) => l.startsWith(`| \`${first}\` |`)) ?? "";
+
+  it("is documented with the fields the client writes and the extension sends", () => {
+    expect(row("create")).toMatch(/^\| `create` \| `name\?` .* `relay\?` .* \| `\{ device: \{ name, id \}, mesh, relay \}`/);
+    expect(row("created")).toMatch(/^\| `created` \| `mesh` .* `recovery`: `shown` .* or `not_collected`/);
+    expect(row("create")).toContain(HOSTED_RELAY);
+    expect(actions.HOSTED_RELAY).toBe(HOSTED_RELAY);
+    expect(actions.RECOVERY_MINUTES * 60_000).toBe(LIMITS.recoveryShowWindowMs);
+  });
+
+  it("parses every line of a real create, whose code only wim recovery show collects", async () => {
+    const relay = new RelayHarness();
+    const home = new Home(await scratch("contract-create"), { ...FS, uid: process.getuid?.() });
+    const lines: string[] = [];
+    const input = new PassThrough();
+    const stop = new AbortController();
+    const running = runSetupEvents({ home, defaultName: "fresh", dialer: relay.dialer, version: "t", write: (l) => void lines.push(l), input, signal: stop.signal, now: Date.now, fetch: relay.fetch, platform: process.platform });
+    cleanup.push(async () => {
+      stop.abort();
+      await running;
+    });
+    const store = new Store();
+    // The same request the extension's Create a Mesh... sends.
+    input.write(`${JSON.stringify({ v: 1, id: "c", op: "create", args: { name: "laptop", relay: RELAY } })}\n`);
+    await until(() => lines.some((l) => l.includes('"type":"response"')), 10_000, "the create answer");
+    const code = await fetchHeldCode(showPaths(home.root, process.platform));
+    await running;
+    const parsed = lines.map(parseLine);
+    for (const p of parsed) if (p.kind === "event") store.apply(p.event);
+    expect(parsed.map((p) => p.kind)).toEqual(["event", "response", "event"]);
+    expect(parsed[1]).toMatchObject({ kind: "response", response: { id: "c", ok: true, result: { device: { name: "laptop" }, relay: "127.0.0.1:4444" } } });
+    expect(parsed[2]).toMatchObject({ kind: "event", event: { type: "created", recovery: "shown" } });
+    expect(lines.join("\n")).not.toContain(code);
+  });
+});
+
 describe("the plugin's peer line", () => {
   it("reads as the client's own peers text for the same sessions", async () => {
     const relay = new RelayHarness();
@@ -182,5 +229,31 @@ describe("policy names", () => {
     expect(TRUST.trust.policy).toBe(trustLevel("trust", false));
     expect(TRUST.trustRelayed.policy).toBe(trustLevel("trust", true));
     expect(TRUST.untrust.policy).toBe(trustLevel("untrust", false));
+  });
+});
+
+describe("the real wim test --json report, read by the extension", () => {
+  it("has every step with its result, time and detail, and the outcome", async () => {
+    const t = term(await scratch("selftest"), new RelayHarness());
+    const code = await selfTest({
+      main,
+      env: { WIM_HOME: t.io.homedir },
+      io: t.io,
+      json: true,
+      steps: () => [
+        { name: "one", run: async () => undefined },
+        { name: "two", run: () => Promise.reject(new Error("it broke")) },
+        { name: "three", run: async () => undefined },
+      ],
+    });
+    expect(code).toBe(1);
+    const report = parseReport(t.out.join("\n"))!;
+    expect(report).toMatchObject({ ok: false, passed: 2, failed: 1, skipped: 1 });
+    expect(report.steps.map((s) => [s.name, s.result, s.detail])).toEqual([
+      ["one", "pass", undefined],
+      ["two", "fail", "it broke"],
+      ["three", "skip", "an earlier step failed"],
+      ["remove the sandbox", "pass", undefined],
+    ]);
   });
 });

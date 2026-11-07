@@ -110,24 +110,32 @@ export { CLOSE } from "./close.ts";
 export { localKeyring, openBox, sealBox, signObjectWith, type BoxRequest, type Keyring, type Opened, type OpenRequest, type SealRequest } from "./keyring.ts";
 export * from "./frames.ts";
 export { isVectorKey, VECTOR_SEED_PUBLIC_KEYS } from "./vector-keys.ts";
+export { relayInfoSchema, type RelayInfoDocument } from "./info.ts";
 export { baseClaims, GITHUB_ISSUER, GITLAB_ISSUER, JWKS_URLS, JwksCache, parseJwks, parseJwt, unverifiedPayload, verifyJwtSignature, type BaseClaims, type Jwk, type Jwt, type JwksFetch } from "./jwt.ts";
 export {
   checkCiPlaintext,
   checkCiTimes,
   checkSendAudience,
   CI_ISSUERS,
+  CI_REF_MAX,
   ciAtFresh,
+  ciCandidateTags,
   ciClaims,
   ciDedupeExpiry,
   ciNoticeOf,
   ciOneTimeKey,
   ciOpenRequest,
   ciRecipientCode,
+  ciRefMatches,
+  ciRuleRefSchema,
   ciRuleTag,
   ciSenderId,
   githubAudience,
   githubCountingKey,
   githubSeen,
+  isCiFullRef,
+  isCiRefPattern,
+  isCiRuleRef,
   gitlabAudience,
   gitlabCountingKey,
   parseCiRecipientCode,

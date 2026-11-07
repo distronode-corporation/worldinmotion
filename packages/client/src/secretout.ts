@@ -127,7 +127,8 @@ export function showPaths(home: string, platform: Platform, kind: ShowKind = "re
 
 /** How long a connection may take to send its proof before it is dropped. */
 export const PROOF_WAIT_MS = 5_000;
-/** The longest proof line read: a proof is 43 characters. */
+/** A proof's length (32 random bytes in base64url), and the longest proof line read. */
+const PROOF_LEN = 43;
 const PROOF_MAX = 128;
 
 function ignore(): void {}
@@ -180,13 +181,21 @@ export async function holdForShow(paths: ShowPaths, code: string, o: HoldOptions
     server.on("error", reject);
     server.listen(paths.socket, resolve);
   });
+  // The proof exists only while this process holds the socket or pipe, so it is never sent to
+  // a listener that took the name first.
+  // Written whole under another name, then renamed into place: a reader sees no proof or all
+  // of it, never the empty file a write in place shows first.
+  const partial = `${paths.proof}.${b64u.encode(randomBytes(6))}.tmp`;
   try {
-    // The proof exists only while this process holds the socket or pipe, so it is never sent to
-    // a listener that took the name first.
     await fs.rm(paths.proof, { force: true });
-    await fs.writeFile(paths.proof, proof, { mode: 0o600, flag: "wx" });
+    await fs.writeFile(partial, proof, { mode: 0o600, flag: "wx" });
+    await fs.rename(partial, paths.proof);
   } catch (error) {
+    // The socket or pipe is let go first, and nothing of a failed write stays behind in the
+    // state directory; a cleanup that fails too (a file another program holds open) is not the
+    // error to report.
     await new Promise((r) => server.close(r));
+    await fs.rm(partial, { force: true }).catch(() => undefined);
     throw error;
   }
   return new Promise((resolve) => {
@@ -207,7 +216,9 @@ export async function holdForShow(paths: ShowPaths, code: string, o: HoldOptions
       socket.end(`${code}\n`);
       finish(true);
     });
-    o.signal.addEventListener("abort", onAbort, { once: true });
+    // A signal that aborted while the socket was set up never fires again: that ends it at once.
+    if (o.signal.aborted) finish(false);
+    else o.signal.addEventListener("abort", onAbort, { once: true });
     (o.onListening ?? ignore)();
   });
 }
@@ -216,7 +227,8 @@ export async function holdForShow(paths: ShowPaths, code: string, o: HoldOptions
 export async function fetchHeldCode(paths: ShowPaths): Promise<string> {
   const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
   const proof = await fs.readFile(paths.proof, "utf8").catch(absent);
-  if (proof === undefined) throw new Error(none);
+  // No proof, or one read part-way (a holder before this fix wrote it in place): nothing waits for this reader.
+  if (proof === undefined || proof.length < PROOF_LEN) throw new Error(none);
   return new Promise((resolve, reject) => {
     let text = "";
     const socket = createConnection(paths.socket);

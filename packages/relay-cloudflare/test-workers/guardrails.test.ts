@@ -37,6 +37,7 @@ describe("GET /v1/info", () => {
       limits: { max_meshes: 2000, idle_mesh_days: 90, blob_bytes_per_mesh_per_day: 25 * 1024 * 1024 },
       offer: "Free during the preview",
       ci: false,
+      ciPatterns: false,
     };
     expect(await info(vars)).toEqual({ status: 200, type: "application/json", body: doc });
     expect((await info(vars, "/relay/v1/info")).body).toEqual(doc);
@@ -53,9 +54,10 @@ describe("GET /v1/info", () => {
       limits: { max_meshes: null, idle_mesh_days: null, blob_bytes_per_mesh_per_day: LIMITS.blobBytesPerMeshPerDay },
       offer: null,
       ci: false,
+      ciPatterns: false,
     });
     expect((await info({ WIM_OPEN_CREATE: "1" })).body).toMatchObject({ create: "open" });
-    expect((await info({ WIM_CI: "1" })).body).toMatchObject({ ci: true });
+    expect((await info({ WIM_CI: "1" })).body).toMatchObject({ ci: true, ciPatterns: true });
     expect((await info({ WIM_OPEN_CREATE: "1", WIM_OFFER: "x".repeat(281) })).body).toMatchObject({ create: "closed", offer: null });
   });
 });

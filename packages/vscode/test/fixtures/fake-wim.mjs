@@ -9,7 +9,11 @@
 //                      real client's line for a device that is not set up); "setup" (setup mode:
 //                      a device in no mesh yet, whose `join` succeeds and ends the process, after
 //                      which it starts in the mesh); "setup-fail" (setup mode, whose join fails
-//                      after its code was shown)
+//                      after its code was shown); in setup mode `create` succeeds, says
+//                      `created` (recovery "shown", or "not_collected" with WIM_FAKE_RECOVERY=lost)
+//                      and ends, after which it starts in the mesh; with WIM_FAKE_RECOVERY=hold it
+//                      keeps holding the code until it is stopped
+//   WIM_FAKE_TEST      for `test --json` (the self-test): see below
 
 import { appendFileSync, existsSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
@@ -19,6 +23,41 @@ const argv = process.argv.slice(2);
 const as = argv.includes("--as") ? argv[argv.indexOf("--as") + 1] : "vscode";
 const scenario = process.env.WIM_FAKE_SCENARIO ?? "default";
 const log = process.env.WIM_FAKE_LOG;
+
+// `wim recovery show --wait` (the recovery terminal): a stand-in line with no code, then it waits
+// for Enter, as the client does.
+if (argv[0] === "recovery") {
+  if (log !== undefined) appendFileSync(log, `${JSON.stringify({ op: "recovery", args: { argv } })}\n`);
+  process.stdout.write("fake wim: the recovery code would be here. Press Enter once you have stored it.\n");
+  await new Promise((resolve) => createInterface({ input: process.stdin }).once("line", resolve));
+  process.exit(0);
+}
+
+// `wim test --json`: WIM_FAKE_TEST is "pass" (the default), "fail", "garbage" (no report, a line on
+// stderr) or "hang" (runs until it is stopped).
+if (argv[0] === "test") {
+  const kind = process.env.WIM_FAKE_TEST ?? "pass";
+  if (log !== undefined) appendFileSync(log, `${JSON.stringify({ op: "test", args: { argv } })}\n`);
+  // "hang" runs until a line `stop` on stdin, then reports the run stopped, as the client does.
+  if (kind === "hang") {
+    await new Promise((resolve) => createInterface({ input: process.stdin }).on("line", (l) => l === "stop" && resolve()));
+    process.stdout.write(`${JSON.stringify({ ok: false, ms: 1, steps: [{ name: "create the mesh", result: "fail", ms: 1, detail: "stopped" }, { name: "remove the sandbox", result: "pass", ms: 1 }] })}\n`);
+    process.exit(1);
+  }
+  if (kind === "garbage") {
+    process.stdout.write("not a report\n");
+    process.stderr.write("wim: something went wrong\n");
+    process.exit(1);
+  }
+  const step = (name, result, ms, detail) => ({ name, result, ms, ...(detail === undefined ? {} : { detail }) });
+  const steps =
+    kind === "fail"
+      ? [step("create the mesh", "pass", 900), step("ping both directions", "fail", 5000, "no pong from qa@test-b"), step("mesh delete", "skip", 0, "an earlier step failed"), step("remove the sandbox", "pass", 12)]
+      : [step("create the mesh", "pass", 900), step("ping both directions", "pass", 4100), step("remove the sandbox", "pass", 12)];
+  const ok = kind !== "fail";
+  process.stdout.write(`${JSON.stringify({ mode: "sandbox", full: false, ok, passed: 0, failed: 0, skipped: 0, ms: 6012, steps })}\n`);
+  process.exit(ok ? 0 : 1);
+}
 const self = `${as}@laptop`;
 const start = Date.now();
 
@@ -202,8 +241,21 @@ function setupMode() {
   rl.on("line", (line) => {
     if (line.trim() === "") return;
     if (log !== undefined) appendFileSync(log, `${line}\n`);
-    const { id, op } = JSON.parse(line);
-    if (op !== "join") return fail(id, "setup", "this device is in no mesh yet: join one first");
+    const { id, op, args } = JSON.parse(line);
+    if (op === "create") {
+      // Holding: the device is in the mesh from now on. The marker is written before the answer,
+      // since the extension may stop this process as soon as it reads it.
+      if (process.env.WIM_FAKE_RECOVERY === "hold" && joinedMarker !== undefined) writeFileSync(joinedMarker, "");
+      respond(id, { device: { name: args?.name ?? "fresh", id: "dev-fresh" }, mesh: "f4ke…", relay: "relay.invalid" });
+      if (process.env.WIM_FAKE_RECOVERY === "hold") return;
+      setTimeout(() => {
+        if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
+        emit("created", { mesh: "f4ke…", recovery: process.env.WIM_FAKE_RECOVERY === "lost" ? "not_collected" : "shown" });
+        process.exit(0);
+      }, 30);
+      return;
+    }
+    if (op !== "join") return fail(id, "setup", "this device is in no mesh yet: create or join one first");
     respond(id, { device: { name: "fresh", id: "dev-fresh" }, code: FAKE_CODE });
     setTimeout(() => {
       if (scenario === "setup-fail") return emit("join_failed", { message: "the relay went away" });

@@ -5,18 +5,29 @@ session when a job finishes. The job proves where it runs with its own GitHub ID
 is no secret to store. The receiving device decides which repositories may send, and the notice
 never starts work in the session that receives it. The protocol is SPEC section 18.
 
-This folder is the action as it will be published on its own. Until then it runs from this
-repository, at a commit you pin.
+The action is published as [distronode-corporation/worldinmotion-notify](https://github.com/distronode-corporation/worldinmotion-notify),
+one tag `vX.Y.Z` per worldinmotion release, holding the client bundle of that release.
+<!-- unpublished -->
+
+**Not published yet.** This folder is that repository's source: worldinmotion's release workflow
+writes it there with the release's `wim.mjs`. Until the first release that does, the
+`uses:` line below does not resolve.
+<!-- /unpublished -->
 
 ## On the receiving device
 
-At your own terminal (not through an agent), allow the repository, the branch and the workflow file
-that may send, and note the code it prints (`wim ci allow` lists the other options: tags, events,
-environments, holding every notice):
+At your own terminal (not through an agent), allow the repository, the branch or tag and the
+workflow file that may send, and note the code it prints (`wim ci allow` lists the other options:
+events, environments, holding every notice):
 
 ```sh
 wim ci allow github <owner>/<repo> --ref main --workflow ci.yml
+wim ci allow github <owner>/<repo> --tag 'v*' --workflow release.yml
 ```
+
+A name ending in `*` is a pattern: `--tag 'v*'` takes every tag starting with `v`. Protect the
+same tags or branches with a ruleset, since anyone who can push one can send; `allow` prints the
+ruleset targets to use.
 
 The code starts with `wimci1_`. It names the relay, the mesh and the device, and it is not a
 secret: put it in a repository or organization variable such as `WIM_CI_RECIPIENT`.
@@ -32,13 +43,17 @@ jobs:
       id-token: write   # the notice is proven with the job's ID token
     steps:
       # ... the job's own steps ...
-      - uses: distronode-corporation/worldinmotion/packaging/github-action@<full commit sha>
+      - uses: distronode-corporation/worldinmotion-notify@<full commit sha> # vX.Y.Z
         if: always()
         with:
           recipient: ${{ vars.WIM_CI_RECIPIENT }}
           to: build
           status: ${{ job.status }}
 ```
+
+Pin the full commit sha of the release tag, with the tag as a comment, as for any action.
+`git ls-remote https://github.com/distronode-corporation/worldinmotion-notify refs/tags/vX.Y.Z`
+prints it.
 
 | Input | Required | What it is |
 |---|---|---|

@@ -13,6 +13,8 @@ export interface Child {
   stdout: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
   stderr: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
   on(ev: "exit", fn: (code: number | null, signal: string | null) => void): unknown;
+  /** After `exit`, once stdout and stderr are closed too: all output has been read. */
+  on(ev: "close", fn: (code: number | null, signal: string | null) => void): unknown;
   on(ev: "error", fn: (err: Error) => void): unknown;
   kill(): boolean;
 }
@@ -301,6 +303,12 @@ export function clientCommand(o: ClientOptions & { sessionName: string; cwd: str
   return { cmd, args, env, cwd: o.cwd };
 }
 
+/** The command for the self-test: `wim test --json` (the sandbox), with the same client as `wim events`. */
+export function selfTestCommand(o: ClientOptions & { cwd: string }): Command {
+  const { cmd, args, env } = wimInvocation(o, ["test", "--json"]);
+  return { cmd, args, env, cwd: o.cwd };
+}
+
 /**
  * The integrated terminal that starts the signer (`wim agent start`, or `unlock` when it is
  * locked) with the same client as `wim events`. The person types the passphrase there, in a
@@ -321,6 +329,16 @@ export type TerminalSpec = { name: string; shellPath: string; shellArgs: string[
  */
 export function crashReportsTerminal(o: ClientOptions & { on: boolean; cwd: string }): TerminalSpec {
   return clientTerminal(o, "worldinmotion crash reports", ["crash-reports", o.on ? "on" : "off"]);
+}
+
+/**
+ * The integrated terminal for `wim recovery show --wait`, with the same client as `wim events`: a
+ * new mesh's recovery code appears there, and only there, in a terminal the person opened by
+ * clicking, never in a view, notification or output channel. `--wait` keeps it on screen until
+ * the person presses Enter, since VS Code closes the terminal when its command ends.
+ */
+export function recoveryTerminal(o: ClientOptions & { cwd: string }): TerminalSpec {
+  return clientTerminal(o, "worldinmotion recovery code", ["recovery", "show", "--wait"]);
 }
 
 /** A terminal running the client with `rest`; its `env` is added to VS Code's own. */

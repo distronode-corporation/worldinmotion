@@ -215,7 +215,7 @@ describe("wim events with a short code", () => {
     const out: Record<string, any>[] = [];
     const setupIn = new PassThrough();
     const setupStop = new AbortController();
-    const setup = runSetupEvents({ home, defaultName: "fresh", dialer: relay.dialer, version: "t", write: (l) => void out.push(JSON.parse(l)), input: setupIn, signal: setupStop.signal, now: Date.now, fetch: relay.fetch });
+    const setup = runSetupEvents({ home, defaultName: "fresh", dialer: relay.dialer, version: "t", write: (l) => void out.push(JSON.parse(l)), input: setupIn, signal: setupStop.signal, now: Date.now, fetch: relay.fetch, platform: process.platform });
     cleanup.push(async () => {
       setupStop.abort();
       await setup;

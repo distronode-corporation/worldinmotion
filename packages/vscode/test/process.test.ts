@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { BACKOFF_MS, clientCommand, clientCwd, crashReportsTerminal, signerTerminal, EventsProcess, LineSplitter, MAX_LINE, REQUEST_TIMEOUT_MS, RequestError, STABLE_MS, type Child, type SpawnFn, type Timers } from "../src/process.ts";
+import { BACKOFF_MS, clientCommand, clientCwd, crashReportsTerminal, recoveryTerminal, signerTerminal, EventsProcess, LineSplitter, MAX_LINE, REQUEST_TIMEOUT_MS, RequestError, STABLE_MS, type Child, type SpawnFn, type Timers } from "../src/process.ts";
 import type { WimEvent } from "../src/protocol.ts";
 import { flush } from "./helpers.ts";
 
@@ -347,6 +347,22 @@ describe("signerTerminal", () => {
 
   it("keeps crash reports off while VS Code's telemetry is off", () => {
     expect(signerTerminal({ ...base, telemetry: false }).env).toEqual({ ELECTRON_RUN_AS_NODE: "1", WIM_NO_CRASH_REPORTS: "1" });
+  });
+});
+
+describe("recoveryTerminal", () => {
+  const base = { extensionPath: "/ext", wimPath: "", execPath: "/electron", env: { HOME: "/h" }, telemetry: true, cwd: "/h" };
+
+  it("runs wim recovery show --wait with the bundled client, or wimPath, with crash reports off while telemetry is", () => {
+    expect(recoveryTerminal(base)).toEqual({
+      name: "worldinmotion recovery code",
+      shellPath: "/electron",
+      shellArgs: [join("/ext", "dist", "wim.mjs"), "recovery", "show", "--wait"],
+      env: { ELECTRON_RUN_AS_NODE: "1" },
+      cwd: "/h",
+    });
+    expect(recoveryTerminal({ ...base, wimPath: "/usr/local/bin/wim" })).toMatchObject({ shellPath: "/usr/local/bin/wim", shellArgs: ["recovery", "show", "--wait"] });
+    expect(recoveryTerminal({ ...base, telemetry: false }).env).toEqual({ ELECTRON_RUN_AS_NODE: "1", WIM_NO_CRASH_REPORTS: "1" });
   });
 });
 

@@ -45,8 +45,9 @@ import { RECOVERY_TITLE, runSetup, STORED_PROMPT, type ToolRun } from "./setup.t
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
 import { droppedCount, droppedLine, droppedPath, LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
+import { selfTest } from "./selftest.ts";
 
-export const VERSION = "0.1.9";
+export const VERSION = "0.1.10";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {
@@ -109,10 +110,10 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected", "take"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person"]);
 /** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
 const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
-const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
+const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -140,6 +141,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
   "crash-reports": [],
   "legacy-boxes": [],
+  test: ["json", "full", "relay", "key-env", "person"],
 };
 
 /**
@@ -230,8 +232,9 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim mcp
   wim hook gemini|antigravity|codex|cursor|copilot [start]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
-  wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]
-  wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]
+  wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]
+  wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]
+  wim ci allow ... --tag 'v*' | --ref 'release/*': a pattern, one * at the end, quoted
   wim ci list | wim ci remove <n>
   wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
@@ -240,6 +243,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim notify-test
   wim crash-reports [status | on | off]
   wim legacy-boxes [status | refuse | accept]
+  wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
   ${AGENT_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -248,7 +252,7 @@ export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages betwee
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, legacy-boxes, agent.
+crash-reports, legacy-boxes, test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -511,6 +515,17 @@ export async function main(argv: readonly string[], env: Record<string, string |
   if (badFlag !== undefined) {
     io.err(`wim: ${badFlag}\n\n${(command === undefined ? undefined : commandUsage(command)) ?? SHORT_USAGE}`);
     return 2;
+  }
+  // Before this device's state directory is even worked out: the self-test never uses it.
+  if (command === "test") {
+    if (rest.length > 0 || args.flags.has("mesh")) {
+      io.err(`wim: usage: ${commandUsage("test")!}`);
+      return 2;
+    }
+    const relay = flag(args, "relay");
+    const keyEnv = flag(args, "key-env");
+    const flags = { json: args.flags.get("json") === true, full: args.flags.get("full") === true, person: args.flags.get("person") === true };
+    return selfTest({ main, env, io, ...flags, ...(relay === undefined ? {} : { relay }), ...(keyEnv === undefined ? {} : { keyEnv }) });
   }
   const ctx = new Ctx(env, io, { positional: rest, flags: args.flags });
   const crash = new CrashReporter({
@@ -1551,7 +1566,7 @@ async function events(ctx: Ctx): Promise<number> {
   // A device in no mesh yet: the UI can join one (setup mode); any other problem is said as usual.
   if ((await ctx.home.loadDevice()) === undefined || (await ctx.home.meshIds()).length === 0) {
     const io = ctx.io;
-    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, ...(agent === undefined ? {} : { agent }) });
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, platform: io.platform, ...(agent === undefined ? {} : { agent }) });
     return 0;
   }
   const o = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);

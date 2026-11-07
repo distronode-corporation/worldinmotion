@@ -297,7 +297,7 @@ export function relaySettings(env: RelayEnv): RelaySettings {
 }
 
 /** The relay software version `relayInfo` reports (relay-core's package version). */
-export const RELAY_VERSION = "0.1.9";
+export const RELAY_VERSION = "0.1.10";
 
 /**
  * The public `GET <prefix>/v1/info` document (format `v` 1). `null` means unlimited, or no offer.
@@ -313,6 +313,8 @@ export type RelayInfo = {
   offer: string | null;
   /** Whether the relay takes CI senders (SPEC section 18). */
   ci: boolean;
+  /** Whether it checks ref pattern tags on GitHub notices: every relay that takes CI senders does. */
+  ciPatterns: boolean;
 };
 
 /** The `/v1/info` document for these settings. `create` is `closed` when creation is refused or misconfigured. */
@@ -329,6 +331,7 @@ export function relayInfo(s: RelaySettings): RelayInfo {
     },
     offer: s.offer ?? null,
     ci: s.ci === true,
+    ciPatterns: s.ci === true,
   };
 }
 

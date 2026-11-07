@@ -119,6 +119,9 @@ describe("parseLine: events", () => {
     expect(invalid({ type: "setup", version: "1", device: "x" })).toBe("setup: device is not an object");
     expect(ev({ type: "joined", mesh: "ab…", devices: [{ name: "x", id: "y", role: "admin" }] })).toEqual({ type: "joined", at: 5, mesh: "ab…", devices: [{ name: "x", id: "y" }] });
     expect(ev({ type: "join_failed", message: "gone" })).toEqual({ type: "join_failed", at: 5, message: "gone" });
+    expect(ev({ type: "created", mesh: "ab…", recovery: "shown" })).toEqual({ type: "created", at: 5, mesh: "ab…", recovery: "shown" });
+    expect(ev({ type: "created", mesh: "ab…", recovery: "not_collected" })).toMatchObject({ recovery: "not_collected" });
+    expect(parseLine(JSON.stringify({ v: 1, type: "created", at: 5, mesh: "ab…", recovery: "maybe" }))).toMatchObject({ kind: "invalid" });
   });
 
   it("refuses a snapshot with a bad list or row", () => {

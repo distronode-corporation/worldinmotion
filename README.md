@@ -258,6 +258,24 @@ join`. Either exits 1 when it finds a problem.
 [Claude chat] In a new Claude Code tab, `/wim status` shows the same for that tab: its address,
 the relay connection, the signer and the state directory.
 
+[Terminal] `wim test` checks wim itself on this machine, without touching your device or your
+meshes. It starts a relay inside its own process on `127.0.0.1`, makes throwaway devices in a new
+temporary directory, and runs the real commands on them: create, invite and join with the
+comparison code, trust, ping, send with receipts, the offline queue, held messages approved and
+refused, rooms, a file, a lease, ask and reply, rename, the loop breaker, `wim status` and `wim
+doctor`, and `wim mesh delete`. It plays the person for the steps that need one, on its own
+devices only, and removes everything at the end. It prints one row per step and exits 0 only when
+every step passed; `wim test --json` prints the same as JSON. `wim test --full` adds the signer
+(encrypt, start, lock, unlock, stop) and a CI notice from a test issuer that exists only inside
+the sandbox. `wim test --relay wss://<relay>` runs the same steps on a real relay instead, with a
+throwaway mesh it deletes at the end (`--key-env NAME` for a relay that needs an operator key to
+create one); a step that relay does not offer is skipped, which does not fail the run.
+`--person` has you type the steps that need a person. In VS Code, **worldinmotion: Run
+Self-Test** runs the same in the sandbox and shows the rows in an output channel; in Claude Code,
+`/wim test` does, taking `--full` and `--relay` only when you type them (a relay that needs an
+operator key is tested from a terminal). SECURITY-MODEL section 7.6 says what it
+can and cannot touch.
+
 ### 7. Addresses
 
 | address | what it is |
@@ -571,20 +589,47 @@ terminal running the same commands with the extension's own client.
 A CI job can tell one of your sessions how it finished: one information-only notice, which never
 starts work, never wakes the session and lands in its inbox. The job proves where it runs with
 its provider's own ID token, so there is no secret to store. You decide, at your own terminal,
-which repository, branch and workflow may send to a device:
+which repository, branch or tag, and workflow may send to a device:
 
 ```
 wim ci allow github <owner>/<repo> --ref main --workflow ci.yml
+wim ci allow github <owner>/<repo> --tag 'v*' --workflow release.yml
 wim ci allow gitlab <group>/<project> --ref main
+wim ci allow gitlab <group>/<project> --tag 'v*'
 wim ci list                 # the rules on this device, numbered
 wim ci remove <n>           # removes rule n
 ```
 
-`allow` prints a recipient code (`wimci1_...`, not a secret) for the job. The job side is the
-GitHub Action in [packaging/github-action](packaging/github-action/README.md) or the GitLab CI/CD
-component in [packaging/gitlab-component](packaging/gitlab-component/README.md); both run
-`wim ci notify`. Neither is in the GitHub Marketplace or the GitLab CI/CD Catalog yet, so use them
-from this repository at a commit you pin, as their READMEs show. The relay must take CI senders:
+`--ref` takes a branch name or a full ref (`refs/heads/...`, `refs/tags/...`), `--tag` a tag
+name. Either may be a pattern with one `*` at the end (`--tag 'v*'`, `--ref 'refs/heads/release/*'`;
+quote it so the shell leaves it alone). A pattern takes every tag or branch that starts with the
+part before the `*`, that name itself and names with `/` included, so anyone who can push one
+can send. Protect the same refs at the provider, as `allow` tells you: on GitHub a tag or branch
+ruleset targeting both `v*` and `v*/**/*` (a ruleset's `*` stops at `/`); on GitLab protected
+tags or branches with the wildcard `v*` (a GitLab rule takes only protected refs unless it has
+`--unprotected`). A GitHub pattern rule also needs a relay that checks ref patterns
+(`"ciPatterns": true` in its `/v1/info`): `allow` warns when the relay does not say so or cannot
+be reached, and saves the rule all the same. GitLab rules need no such relay, since the relay
+never filters GitLab notices.
+
+`allow` prints a recipient code (`wimci1_...`, not a secret) for the job. The job side is a
+published step pinned to a release, which runs `wim ci notify`: the GitHub Action (the job needs
+`permissions: id-token: write`) or the GitLab CI/CD component.
+
+```yaml
+- uses: distronode-corporation/worldinmotion-notify@<full commit sha> # vX.Y.Z
+```
+
+```yaml
+include:
+  - component: $CI_SERVER_FQDN/distronode-corporation/worldinmotion-notify/notify@X.Y.Z
+```
+
+Their READMEs show the whole job and every input:
+[packaging/github-action](packaging/github-action/README.md) and
+[packaging/gitlab-component](packaging/gitlab-component/README.md). Neither is published yet:
+the GitHub Marketplace and the GitLab CI/CD Catalog get them from a coming release, and until
+then these two lines do not resolve. The relay must take CI senders:
 the hosted relay does (see [docs/hosted-relay.md](docs/hosted-relay.md) for what it sees), and a
 self-hosted one takes them with `WIM_CI=1`. The protocol is [SPEC.md](SPEC.md) section 18.
 
