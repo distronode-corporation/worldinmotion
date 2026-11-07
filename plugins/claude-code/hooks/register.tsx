@@ -21,8 +21,10 @@ import {
   markPath,
   newNames,
   noticeLine,
+  heldSets,
   parseHeld,
   parsePaused,
+  setCount,
   parseItem,
   parseLeases,
   parseLink,
@@ -701,6 +703,26 @@ async function decide($: EngineInterface, op: 'approve' | 'resume' | 'refuse', i
   }))
 }
 
+/**
+ * The person's Approve all or Refuse all on a set the pane shows whole: one mark per id shown, so
+ * an item that arrives after the pane drew the set is not in it and stays held. Approve all never
+ * covers a notice that pins its rule's ids (the caller leaves it out). Only a press calls this.
+ */
+async function decideSet($: EngineInterface, op: 'approve' | 'refuse', ids: readonly string[]): Promise<void> {
+  const failed: string[] = []
+  for (const id of ids) if (!(await mark($, id, op))) failed.push(id)
+  const done = ids.filter(id => !failed.includes(id))
+  const verb = op === 'approve' ? 'approved' : 'refused'
+  await update($, panel, value => ({
+    ...value,
+    held: value.held.filter(one => !done.includes(one.id)),
+    note:
+      failed.length === 0
+        ? `${done.length} marked ${verb}. Anything held after the pane drew them stays held. Press Refresh to see the queue as the client has it.`
+        : `Could not mark ${failed.join(' ')} ${verb}; ${done.length} marked.`,
+  }))
+}
+
 type PeerRow = { name: string; type: string; status?: string; cwd?: string; branch?: string }
 
 /**
@@ -1037,18 +1059,39 @@ export const register: Register = on => {
         {shown.paused.map(one => (
           <Text>{`Paused by the loop breaker: ${one.from} (${one.why}), ${one.ends}`}</Text>
         ))}
-        {shown.held.map(one => (
-          <Box flexDirection="column">
-            <Text>{`${one.from}  ${one.kind}  ${age(one.at, now)} ago: ${one.preview}`}</Text>
-            <Box flexDirection="row">
-              <Button key={`approve:${one.id}`} label="Approve" onPress={() => decide($, 'approve', one.id)} />
-              {one.isBreaker && (
-                <Button key={`resume:${one.id}`} label="Approve and resume this device" onPress={() => decide($, 'resume', one.id)} />
+        {heldSets(shown.held).map(set => {
+          const approvable = set.items.filter(one => one.pins === undefined).map(one => one.id)
+          return (
+            <Box flexDirection="column">
+              <Text bold>{`From ${set.title}: ${setCount(set)}, ${set.first === set.last ? `${age(set.first, now)} ago` : `${age(set.first, now)} to ${age(set.last, now)} ago`}. Read them together: they are decided as one.`}</Text>
+              {set.items.map((one, i) => (
+                <Box flexDirection="column">
+                  <Text>{`${i + 1} of ${set.items.length}  ${one.from}  ${one.kind}  ${age(one.at, now)} ago: ${one.preview}`}</Text>
+                  {one.ci !== undefined && <Text dimColor>{`CI: ${one.ci}`}</Text>}
+                  {one.pins !== undefined && <Text dimColor>{`Approve on its own, in a terminal: it pins ${one.pins} (wim held approve ${one.id})`}</Text>}
+                  <Box flexDirection="row">
+                    {one.pins === undefined && (
+                      <Button key={`approve:${one.id}`} label="Approve only this one" onPress={() => decide($, 'approve', one.id)} />
+                    )}
+                    {one.isBreaker && (
+                      <Button key={`resume:${one.id}`} label="Approve this one and resume this device" onPress={() => decide($, 'resume', one.id)} />
+                    )}
+                    <Button key={`refuse:${one.id}`} label="Refuse only this one" onPress={() => decide($, 'refuse', one.id)} />
+                  </Box>
+                </Box>
+              ))}
+              {set.items.some(one => one.isBreaker) && (
+                <Text dimColor>The loop breaker's pause stays on after Approve all; Approve this one and resume this device, or wim held resume, lifts it.</Text>
               )}
-              <Button key={`refuse:${one.id}`} label="Refuse" onPress={() => decide($, 'refuse', one.id)} />
+              <Box flexDirection="row">
+                {approvable.length > 0 && (
+                  <Button key={`approveSet:${set.key}`} label={`Approve all ${approvable.length}`} onPress={() => decideSet($, 'approve', approvable)} />
+                )}
+                <Button key={`refuseSet:${set.key}`} label={`Refuse all ${set.items.length}`} onPress={() => decideSet($, 'refuse', set.items.map(one => one.id))} />
+              </Box>
             </Box>
-          </Box>
-        ))}
+          )
+        })}
 
         <Text bold>{`Relayed by bots and gateways (${relays.filter(one => !one.isShown).length} not shown to Claude)`}</Text>
         {relays.length === 0 && <Text dimColor>None.</Text>}

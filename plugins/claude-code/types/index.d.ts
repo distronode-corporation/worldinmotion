@@ -82,7 +82,18 @@ export type WimHeld = {
   preview: string
   /** Held by the loop breaker (not by policy): the pane also offers to resume its device. */
   isBreaker: boolean
+  /** The set it is decided with (one per sending device or CI rule); an older client's item is a set of its own. */
+  set: string
+  /** Who that set is from. */
+  setTitle: string
+  /** A CI notice: what its job claimed. */
+  ci?: string
+  /** A CI notice whose approval pins its rule's ids: those ids. It is approved only on its own, in a terminal. */
+  pins?: string
 }
+
+/** Held items decided together, oldest first; `ids` has each message once. */
+export type WimHeldSet = { key: string; title: string; items: WimHeld[]; first: number; last: number }
 
 /** A loop breaker pause the client reports: who tripped it, the rule with its numbers, and how it ends. */
 export type WimPaused = { from: string; why: string; ends: string }

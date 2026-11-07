@@ -50,6 +50,16 @@ export type HeldRow = {
   preview: string;
   reason: "policy" | "breaker";
   file?: FileInfo;
+  /**
+   * The set it is decided with (one per sending device or CI rule) and who that set is from, from
+   * a client that groups held items (0.1.11); an older client's rows are each a set of their own.
+   */
+  set?: string;
+  set_title?: string;
+  /** A CI notice: what its job claimed (provider, repository, ref, workflow, event). */
+  ci?: string;
+  /** A CI notice whose approval pins its rule's ids: those ids. It is approved only on its own, in a terminal. */
+  pins?: string;
 };
 export type RoomRow = { name: string; members: string[] };
 export type LeaseRow = { name: string; holder: string; token: number; expires_at: number };
@@ -229,6 +239,10 @@ function heldRow(x: unknown): HeldRow {
     preview: str(o, "preview"),
     reason: oneOf(o, "reason", ["policy", "breaker"]),
     file: opt(o, "file", file),
+    set: opt(o, "set", str),
+    set_title: opt(o, "set_title", str),
+    ci: opt(o, "ci", str),
+    pins: opt(o, "pins", str),
   });
 }
 

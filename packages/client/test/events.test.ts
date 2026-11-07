@@ -4,8 +4,10 @@ import { PassThrough } from "node:stream";
 import { ulid } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../src/client.ts";
-import { relayHost, runEvents } from "../src/events.ts";
+import { relayHost, runEvents, stableJson } from "../src/events.ts";
 import { MeshFiles } from "../src/mesh.ts";
+import { saveCiRules, type CiRule } from "../src/cirules.ts";
+import type { HeldItem } from "../src/held.ts";
 import { readPauses } from "../src/pauses.ts";
 import { FS, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, type TestDevice, breakerOf } from "./helpers.ts";
 
@@ -337,5 +339,157 @@ describe("wim events --json", () => {
     expect(JSON.parse(v.out[0]!)).toMatchObject({ session: "vscode@one" });
     stdin2.end();
     expect(await plain).toBe(0);
+  });
+});
+
+describe("wim events: deciding a held set", () => {
+  it("approves exactly the ids shown from one device, keeps a later one and another device's, and checks the set first", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"], { trust: false });
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    const c = await openSession(devices[2]!, mesh, relay, { name: "c" });
+    cleanup.push(() => a.stop(), () => c.stop());
+    const e = await start(devices[1]!, mesh, relay);
+    const shown = [await a.send("vscode@two", "1"), await a.send("vscode@two", "2"), await a.send("vscode@two", "3")].map((m) => m.id);
+    const theirs = (await c.send("vscode@two", "other device")).id;
+    // Each row as the UI has heard it, from a snapshot or a held event.
+    const heard = () => e.lines.flatMap((l) => (l.type === "snapshot" ? (l["held"] as Array<Record<string, unknown>>) : l.type === "held" && l["op"] === "add" ? [l["item"] as Record<string, unknown>] : []));
+    await until(() => new Set(heard().map((r) => r["id"])).size === 4);
+    const rows = [...new Map(heard().map((r) => [r["id"], r])).values()].sort((x, y) => (x["at"] as number) - (y["at"] as number));
+    const one = `device:${devices[0]!.device.id}`;
+    expect(rows.filter((r) => r["set"] === one).map((r) => r["id"])).toEqual(shown);
+    expect(rows.find((r) => r["id"] === theirs)).toMatchObject({ set: `device:${devices[2]!.device.id}`, set_title: `device three (device id ${devices[2]!.device.id})` });
+    // One more from device one after the UI drew the set.
+    const late = (await a.send("vscode@two", "4")).id;
+    await until(async () => (await e.session.held.get(late)) !== undefined);
+    // Checked before anything is decided: another device's id, a set without `held`, a non-id.
+    expect(await e.request("approve", { held: shown[0], set: [...shown, theirs] })).toMatchObject({ ok: false, error: { code: "input", message: expect.stringContaining(`${theirs} is not held in the same set`) } });
+    expect(await e.request("approve", { held: shown[0], set: [shown[1]] })).toMatchObject({ ok: false, error: { code: "input" } });
+    expect(await e.request("refuse", { held: shown[0], set: [shown[0], "x"] })).toMatchObject({ ok: false, error: { code: "input" } });
+    const nobody = ulid();
+    expect(await e.request("approve", { held: nobody, set: [nobody] })).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect((await e.session.held.list()).length).toBe(5);
+    // An id no longer held is skipped; the rest are decided.
+    const missing = ulid();
+    expect(await e.request("approve", { held: shown[0], set: [...shown, missing] })).toMatchObject({ ok: true, result: { decided: shown, kept: [], gone: [missing] } });
+    expect((await e.session.held.list()).map((h) => h.id).sort()).toEqual([late, theirs].sort());
+    expect(await e.request("refuse", { held: late, set: [late] })).toMatchObject({ ok: true, result: { decided: [late], kept: [] } });
+    expect((await e.session.held.list()).map((h) => h.id)).toEqual([theirs]);
+  });
+
+  it("never approves a notice that pins ids as part of a set, refuses it with the set, and regroups a notice whose rule is removed", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const e = await start(devices[0]!, mesh, relay);
+    const rule = { id: ulid(), via: "github", repo: "octo-org/deploys", ref: "refs/heads/main", workflow: "deploy.yml", hold: true } as CiRule;
+    await saveCiRules(e.files.ciRulesPath, [rule], FS);
+    const notice = (at: number, pins?: Record<string, string>): HeldItem => {
+      const id = ulid();
+      return {
+        id,
+        from: "ci:github:octo-org/deploys",
+        device: "",
+        kind: "msg",
+        at,
+        preview: `n${at}`,
+        rendered: `framed ${at}`,
+        reason: "policy",
+        entry: { dir: "in", peer: "ci:github:octo-org/deploys", id, kind: "msg", at, text: `n${at}`, relayed: true, ci: { via: "github", repo: "octo-org/deploys", ref: "refs/heads/main", event: "push" } },
+        ci: { rule: rule.id, ...(pins === undefined ? {} : { pins }) },
+      };
+    };
+    const plain = notice(Date.now());
+    const pinning = notice(Date.now() + 1, { repositoryId: "74", ownerId: "65" });
+    const gone = notice(Date.now() + 2);
+    for (const n of [plain, pinning, gone]) await e.session.held.add(n);
+    // Each row as the UI has heard it, from a snapshot or a held event, in order.
+    const row = (id: string) =>
+      e.lines.flatMap((l) => (l.type === "snapshot" ? (l["held"] as Array<Record<string, unknown>>) : l.type === "held" && l["op"] === "add" ? [l["item"] as Record<string, unknown>] : [])).filter((r) => r["id"] === id);
+    await until(() => [plain, pinning, gone].every((n) => row(n.id).length > 0));
+    expect(row(pinning.id)[0]).toMatchObject({ set: `ci:${rule.id}`, ci: "github, octo-org/deploys, refs/heads/main, event push", pins: "repositoryId=74 ownerId=65" });
+    expect(await e.request("approve", { held: plain.id, set: [plain.id, pinning.id] })).toMatchObject({ ok: true, result: { decided: [plain.id], kept: [pinning.id] } });
+    expect(await e.request("refuse", { held: pinning.id, set: [pinning.id] })).toMatchObject({ ok: true, result: { decided: [pinning.id] } });
+    // An unchanged row is not sent again pass after pass; a pin changes the set's title (same set
+    // key), and the row is sent again once.
+    const adds = (id: string) => e.of("held").filter((h) => h["op"] === "add" && (h["item"] as { id: string }).id === id).length;
+    const before = adds(gone.id);
+    await sleep(300);
+    expect(adds(gone.id)).toBe(before);
+    await saveCiRules(e.files.ciRulesPath, [{ ...rule, pins: { repositoryId: "74", ownerId: "65" } } as CiRule], FS);
+    await until(() => String(row(gone.id).at(-1)!["set_title"]).includes("ids repositoryId=74 ownerId=65"));
+    await sleep(300);
+    expect(adds(gone.id)).toBe(before + 1);
+    expect(row(gone.id).at(-1)).toMatchObject({ set: `ci:${rule.id}` });
+    // The rule goes: its notice is sent again in a set of its own.
+    await saveCiRules(e.files.ciRulesPath, [], FS);
+    await until(() => row(gone.id).at(-1)!["set"] === `ci-removed:${gone.id}`);
+    expect(row(gone.id).at(-1)).toMatchObject({ set_title: "a CI rule removed while this notice was held" });
+    await until(() => e.of("held").filter((h) => h["op"] === "remove").length === 2);
+    expect(e.of("held").filter((h) => h["op"] === "remove").map((h) => (h["item"] as { id: string }).id).sort()).toEqual([plain.id, pinning.id].sort());
+    // A damaged rules file groups every notice on its own; the set of one is still decided.
+    await fs.writeFile(e.files.ciRulesPath, "damaged");
+    await sleep(100);
+    expect(await e.request("approve", { held: gone.id, set: [gone.id] })).toMatchObject({ ok: true, result: { decided: [gone.id] } });
+  });
+});
+
+describe("wim events: a held set decided while another decides some of it", () => {
+  it("skips what was decided elsewhere mid-loop, decides the rest, counts both, and passes on any other error", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    cleanup.push(() => a.stop());
+    const e = await start(devices[1]!, mesh, relay);
+    const heldAll = async (n: number) => until(async () => (await e.session.held.list()).length === n, 10_000, `${n} held`);
+    const s = e.session;
+    const decide = s.decide.bind(s);
+    // Another terminal decides the third while this request decides the first: it is gone, not decided.
+    const x = [await a.send("vscode@two", "1"), await a.send("vscode@two", "2"), await a.send("vscode@two", "3")].map((m) => m.id);
+    await heldAll(3);
+    s.decide = async (id, verdict) => {
+      if (id === x[0]) await s.held.remove(x[2]!);
+      return decide(id, verdict);
+    };
+    expect(await e.request("approve", { held: x[0], set: x })).toMatchObject({ ok: true, result: { decided: [x[0], x[1]], kept: [], gone: [x[2]] } });
+    // Decided elsewhere between this process's look and its decision: not found, so gone.
+    const y = [await a.send("vscode@two", "4"), await a.send("vscode@two", "5")].map((m) => m.id);
+    await heldAll(2);
+    s.decide = async (id, verdict) => {
+      if (id === y[0]) await s.held.remove(id);
+      return decide(id, verdict);
+    };
+    expect(await e.request("refuse", { held: y[0], set: y })).toMatchObject({ ok: true, result: { decided: [y[1]], gone: [y[0]] } });
+    expect(await s.held.list()).toEqual([]);
+    // Any other failure is the request's: it is not counted as gone.
+    const z = (await a.send("vscode@two", "6")).id;
+    await heldAll(1);
+    s.decide = async () => {
+      throw new Error("disk full");
+    };
+    expect(await e.request("approve", { held: z, set: [z] })).toMatchObject({ ok: false, error: { code: "error", message: "disk full" } });
+    s.decide = decide;
+  });
+});
+
+describe("wim events: a held set whose first id was decided elsewhere", () => {
+  it("decides the rest by the set the ids still held are in, the first in gone; with none held, not found", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    cleanup.push(() => a.stop());
+    const e = await start(devices[1]!, mesh, relay);
+    const p = [await a.send("vscode@two", "1"), await a.send("vscode@two", "2"), await a.send("vscode@two", "3")].map((m) => m.id);
+    await until(async () => (await e.session.held.list()).length === 3, 10_000, "3 held");
+    await e.session.held.remove(p[0]!);
+    expect(await e.request("approve", { held: p[0], set: p })).toMatchObject({ ok: true, result: { decided: [p[1], p[2]], kept: [], gone: [p[0]] } });
+    expect(await e.session.held.list()).toEqual([]);
+    expect(await e.request("refuse", { held: p[0], set: p })).toMatchObject({ ok: false, error: { code: "not_found", message: `no held message ${p[0]}` } });
+  });
+});
+
+describe("stableJson", () => {
+  it("sorts every object's keys and leaves arrays in order", () => {
+    expect(stableJson({ b: 1, a: { d: 1, c: 2 }, e: [{ z: 1, y: 2 }, 3], n: null })).toBe('{"a":{"c":2,"d":1},"b":1,"e":[{"y":2,"z":1},3],"n":null}');
+    expect(stableJson({ x: 1, y: 2 })).toBe(stableJson({ y: 2, x: 1 }));
   });
 });

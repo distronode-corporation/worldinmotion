@@ -25,6 +25,7 @@ import type { Ancestor } from "./ancestry.ts";
 import { MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
+import { approvableIds, ciText, countText, groupHeld, pinText, setOf, setTitle, spanText, type HeldSet } from "./heldsets.ts";
 import { pauseEnd, pauseRule } from "./breaker.ts";
 import { listAllPauses, PausedBy } from "./pauses.ts";
 import { homeChoice, type Platform } from "./platform.ts";
@@ -1643,33 +1644,23 @@ async function held(ctx: Ctx): Promise<number> {
     const pauses = await listAllPauses(files, ctx.fsEnv, ctx.io.now());
     if (rows.length === 0 && pauses.length === 0) ctx.io.out("Nothing is held.");
     for (const p of pauses) ctx.io.out(`paused  ${sanitizeForDisplay(p.from)}'s device -> ${p.session}  breaker: ${pauseRule(sanitizeForDisplay(p.from), p)}; ${pauseEnd(p)}`);
-    for (const r of rows) ctx.io.out(heldLine(r));
+    // One set per sending device (or CI rule), decided together: `wim held approve` any of its ids.
+    const rules = await heldRules(files);
+    for (const set of groupHeld(rows, rules)) {
+      ctx.io.out(`held from ${setTitle(set.rows[0]!, rules)}: ${countText(set)}, ${spanText(set)}`);
+      for (const r of set.rows) ctx.io.out(`  ${heldLine(r)}`);
+    }
     return 0;
   }
   if (arg === undefined) throw new SetupError(`usage: wim held ${action} <${action === "resume" ? "peer" : "id"}>`);
   if (action === "approve" || action === "refuse") {
     personHere(ctx, `wim held ${action} ${arg}`);
     const all = await listAllHeld(files, ctx.fsEnv);
-    const rows = all.filter((r) => r.id === arg);
-    if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
-    const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
-    // A CI notice held because its rule had no ids yet: approving it pins them (SPEC section 18).
-    const pins = action === "approve" ? rows[0]!.ci?.pins : undefined;
-    // Refused before the prompt when it cannot pin, and pinned after it on the rules as they are
-    // then (another terminal may have removed or pinned the rule meanwhile).
-    const rules = pins === undefined ? undefined : await loadCiRules(files.ciRulesPath);
-    const refusal = rules === undefined ? undefined : pinRefusal(rules, rows[0]!.ci!.rule, pins!);
-    if (refusal !== undefined) throw refusal;
-    const details = heldDetails(rows, await files.loadConfig(), all, rules);
-    // A peer's breaker hold also offers to resume its device: approving one item leaves the pause on.
-    const resumable = action === "approve" && rows[0]!.reason === "breaker" && rows[0]!.ci === undefined;
-    if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
-    if (!(await confirmed(ctx, details, question))) return 1;
-    if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
-    const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
-    if (n === 0) throw new SetupError(`no held message ${arg}`);
-    ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
-    return 0;
+    const rules = await heldRules(files);
+    const set = setOf(all, rules, arg);
+    if (set === undefined) throw new SetupError(`no held message ${arg}`);
+    if (set.ids.length === 1) return decideOne(ctx, files, action, arg, all);
+    return decideSet(ctx, files, action, arg, set, rules);
   }
   if (action === "resume") {
     if (!sessionAddressSchema.safeParse(arg).success) throw new SetupError("usage: wim held resume <name@device>");
@@ -1683,6 +1674,89 @@ async function held(ctx: Ctx): Promise<number> {
     return 0;
   }
   throw new SetupError(`unknown held action ${action}`);
+}
+
+/**
+ * The CI rules as they are, for grouping: an unreadable rules file groups every notice on its
+ * own (none is decided along with another), and a session then allows nothing anyway.
+ */
+function heldRules(files: MeshFiles): Promise<CiRule[]> {
+  return loadCiRules(files.ciRulesPath).catch(() => []);
+}
+
+/** One held item decided on its own: the only item of its set, or the person's explicit `one`. */
+async function decideOne(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse", arg: string, all: HeldRows): Promise<number> {
+  const rows = all.filter((r) => r.id === arg);
+  // Decided elsewhere while the set's prompt was open (`one` reads the held list again).
+  if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
+  const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
+  // A CI notice held because its rule had no ids yet: approving it pins them (SPEC section 18).
+  const pins = action === "approve" ? rows[0]!.ci?.pins : undefined;
+  // Refused before the prompt when it cannot pin, and pinned after it on the rules as they are
+  // then (another terminal may have removed or pinned the rule meanwhile).
+  const rules = pins === undefined ? undefined : await loadCiRules(files.ciRulesPath);
+  const refusal = rules === undefined ? undefined : pinRefusal(rules, rows[0]!.ci!.rule, pins!);
+  if (refusal !== undefined) throw refusal;
+  const details = heldDetails(rows, await files.loadConfig(), all, rules);
+  // A peer's breaker hold also offers to resume its device: approving one item leaves the pause on.
+  const resumable = action === "approve" && rows[0]!.reason === "breaker" && rows[0]!.ci === undefined;
+  if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
+  if (!(await confirmed(ctx, details, question))) return 1;
+  if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
+  const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
+  if (n === 0) throw new SetupError(`no held message ${arg}`);
+  ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
+  return 0;
+}
+
+/**
+ * Every item held from one device (or under one CI rule), shown together before the person
+ * decides, and the decision covers exactly the ids shown: an item that arrives after the list
+ * was drawn stays held for the next look. `one` decides only the item named, after the whole set
+ * was shown, through the same prompt as a set of one.
+ */
+async function decideSet(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse", arg: string, set: HeldSet<HeldRows[number]>, rules: readonly CiRule[]): Promise<number> {
+  const covered = action === "approve" ? approvableIds(set) : set.ids;
+  const verb = action === "approve" ? "approve" : "refuse";
+  for (const line of setView(set, rules, await files.loadConfig())) ctx.io.out(line);
+  const all = covered.length === set.ids.length ? `all ${covered.length}` : `the ${covered.length} that do not pin ids`;
+  const options = covered.length === 0 ? `Type one to ${verb} only ${arg}` : `Type all to ${verb} ${all}, or one to ${verb} only ${arg}`;
+  const typed = (await ctx.io.prompt(`${options} [${covered.length === 0 ? "" : "all/"}one/N] `)).trim();
+  if (/^one$/i.test(typed)) return decideOne(ctx, files, action, arg, await listAllHeld(files, ctx.fsEnv));
+  if (!/^all$/i.test(typed) || covered.length === 0) {
+    ctx.io.err("wim: nothing changed.");
+    return 1;
+  }
+  const done: string[] = [];
+  for (const id of covered) if ((await decideHeld(files, id, action, ctx.fsEnv, ctx.io.now)) > 0) done.push(id);
+  const title = setTitle(set.rows[0]!, rules);
+  ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${done.length} held from ${title}: ${done.join(" ")}.`);
+  if (done.length < covered.length) ctx.io.out(`${covered.length - done.length} of the ${covered.length} shown had been decided elsewhere meanwhile.`);
+  for (const id of set.ids.filter((x) => !covered.includes(x))) ctx.io.out(`Still held: ${id} pins its rule's ids, so it is approved only on its own: wim held approve ${id}`);
+  const paused = set.rows.find((r) => r.reason === "breaker" && r.ci === undefined);
+  if (action === "approve" && paused !== undefined) ctx.io.out(`The breaker still pauses ${sanitizeForDisplay(paused.from)}: \`wim held resume ${paused.from}\` lifts it.`);
+  ctx.io.out("Anything held after this list was drawn stays held: wim held list shows it.");
+  return 0;
+}
+
+/** A set as the person reads it before deciding: who, how many, when, then each item in order. */
+function setView(set: HeldSet<HeldRows[number]>, rules: readonly CiRule[], config: MeshConfig): string[] {
+  const n = set.ids.length;
+  const lines = [`Held from ${setTitle(set.rows[0]!, rules)}: ${countText(set)}, ${spanText(set)}. Read them together: they are decided as one.`];
+  set.ids.forEach((id, i) => {
+    const rows = set.rows.filter((r) => r.id === id);
+    const r = rows[0]!;
+    const why = r.reason === "breaker" ? "the loop breaker paused it" : r.ci === undefined ? `its device's policy here is ${policyLevel(config, r.device)}` : "its CI rule holds it";
+    lines.push(`  ${i + 1} of ${n}  ${id}  ${sanitizeForDisplay(r.from)} -> ${heldFor(rows)}  ${r.kind}  ${new Date(r.at).toISOString()}  held because ${why}`);
+    if (r.ci !== undefined) lines.push(`           ci    ${ciText(r.entry)}`);
+    if (r.fileInfo !== undefined) lines.push(`           file  ${sanitizeForDisplay(r.fileInfo.name)} (${r.fileInfo.size} bytes, fetched once approved)`);
+    lines.push(`           text  ${r.preview}`);
+    if (r.ci?.pins !== undefined) lines.push(`           approve on its own: it pins ${pinText(r.ci.pins)}`);
+  });
+  if (set.rows.some((r) => r.reason === "breaker" && r.ci === undefined)) {
+    lines.push("  Approving them releases these and keeps the loop breaker's pause on; `wim held resume <address>` lifts it.");
+  }
+  return lines;
 }
 
 type HeldRows = Awaited<ReturnType<typeof listAllHeld>>;
@@ -1759,8 +1833,6 @@ function heldDetails(rows: HeldRows, config: MeshConfig, all: HeldRows, rules: r
     ...pinCheck(r, all, rules),
   ];
 }
-
-const pinText = (pins: Record<string, string>): string => Object.entries(pins).map(([k, v]) => `${k}=${v}`).join(" ");
 
 /**
  * For a CI notice whose approval pins its rule: every other held notice under the same rule with

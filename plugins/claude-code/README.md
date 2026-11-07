@@ -95,7 +95,9 @@ notice, and on the status line.
 
 - the peers in the mesh, their kind, status (`idle`, `busy`, `offline`) and rooms;
 - the last 20 items delivered to this session;
-- messages **held for your approval**, with Approve and Refuse buttons;
+- messages **held for your approval**, a set per sending device (or CI rule) with its count and
+  time span, Approve all and Refuse all buttons for exactly the items shown, and buttons for one
+  item alone under each;
 - items **relayed** by bots, CI or gateways that the session has not seen, with a button to give
   one to Claude;
 - the advisory leases currently held.

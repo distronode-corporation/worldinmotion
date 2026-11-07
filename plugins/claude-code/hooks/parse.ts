@@ -3,7 +3,7 @@
 
 import type { McpToolResult } from 'claude-code'
 
-import type { WimHeld, WimLease, WimLink, WimPaused, WimPeer } from '../types'
+import type { WimHeld, WimHeldSet, WimLease, WimLink, WimPaused, WimPeer } from '../types'
 
 /** Spool item files are `<cursor zero-padded to 12 digits>.json`. */
 export const ITEM_NAME = /^\d{12}\.json$/
@@ -241,9 +241,35 @@ export function parseHeld(value: unknown): WimHeld[] {
           at: num(row.at),
           preview: str(row.preview),
           isBreaker: row.reason === 'breaker',
+          set: typeof row.set === 'string' && row.set !== '' ? row.set : `one:${row.id}`,
+          setTitle: str(row.set_title, str(row.from, '?')),
+          ...(typeof row.ci === 'string' ? { ci: row.ci } : {}),
+          ...(typeof row.pins === 'string' ? { pins: row.pins } : {}),
         }]
       : [],
   )
+}
+
+/**
+ * Held items as sets: every item from one sending device, or under one CI rule, oldest first (the
+ * id breaking ties), the sets in the order their first item arrived. The grouping is the client's
+ * (`set`), from what it authenticated, never from text a sender wrote.
+ */
+export function heldSets(held: readonly WimHeld[]): WimHeldSet[] {
+  const sets = new Map<string, WimHeldSet>()
+  for (const one of [...held].sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1))) {
+    const set = sets.get(one.set) ?? { key: one.set, title: one.setTitle, items: [], first: one.at, last: one.at }
+    set.items.push(one)
+    set.last = one.at
+    sets.set(one.set, set)
+  }
+  return [...sets.values()]
+}
+
+/** What a set holds: "3 messages" or "1 CI notice". */
+export function setCount(set: WimHeldSet): string {
+  const n = set.items.length
+  return `${n} ${set.items[0]!.ci === undefined ? 'message' : 'CI notice'}${n === 1 ? '' : 's'}`
 }
 
 /** The loop breaker's running pauses from the `held` op; an older client sends none. */

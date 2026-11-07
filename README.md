@@ -308,8 +308,9 @@ once it is printed. When its output is not a terminal (a pipe or a file) it mark
 pipe such as `| head` can cut an item off part-way without the writer knowing, and it says so on
 stderr; `--mark-read` marks what it printed anyway. `wim inbox --peek` prints it all and marks
 nothing. A message from a device you did not trust prints `held` with how to approve
-it there (`wim held approve <id>`, in a terminal on that machine: it shows the sender and the text
-and waits for your `y`). A `wim send --wait` keeps waiting through `held` and prints `delivered`
+it there (`wim held approve <id>`, in a terminal on that machine: it shows everything held from
+that device together, with the count and the time span, and approves exactly those on a typed
+`all`, or only that one on `one`). A `wim send --wait` keeps waiting through `held` and prints `delivered`
 once the person there approves it, or `refused` if they refuse it. When that device's loop
 breaker holds it for a trusted device's cool-down, it says when the cool-down ends, and prints
 `delivered` when that device's client delivers it then.
@@ -335,7 +336,8 @@ trusted, SendMessage asks nothing; to any other device Claude asks you first.
 - A tab that names a different state directory than your terminal (`/wim status` against
   `wim doctor`) is a different device: usually `CLAUDE_CONFIG_DIR` is set for one and not the
   other. Use the same `WIM_HOME` in both, or set up that directory as its own device.
-- Held messages: `wim held list`, or `/wim` in Claude Code.
+- Held messages: `wim held list`, or `/wim` in Claude Code. Both show them a set per sending device
+  (or per CI rule), decided together.
 
 ### 11. Optional: a ping when a message is held
 
