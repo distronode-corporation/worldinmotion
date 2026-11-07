@@ -221,6 +221,9 @@ function freshState() {
     webviewProviders: new Map<string, { resolveWebviewView(view: FakeWebviewView): void }>(),
     treeViews: new Map<string, FakeTreeView>(),
     output: [] as string[],
+    /** The options of every progress notification, and whether the next one is cancelled at once. */
+    progress: [] as unknown[],
+    cancelProgress: false,
     outputShown: 0,
     statusItems: [] as FakeStatusBarItem[],
     messages: [] as { level: "info" | "warning" | "error"; message: string; options?: unknown; items: string[] }[],
@@ -333,7 +336,20 @@ function message(level: "info" | "warning" | "error") {
   };
 }
 
+export const ProgressLocation = { SourceControl: 1, Window: 10, Notification: 15 } as const;
+
 export const window = {
+  /** Records the options; `fake.state.cancelProgress` cancels the task as soon as it listens. */
+  withProgress<T>(options: unknown, task: (progress: { report(v: unknown): void }, token: { onCancellationRequested(fn: () => void): Disposable }) => Promise<T>): Promise<T> {
+    fake.state.progress.push(options);
+    const token = {
+      onCancellationRequested(fn: () => void): Disposable {
+        if (fake.state.cancelProgress) fn();
+        return { dispose: () => undefined };
+      },
+    };
+    return task({ report: () => undefined }, token);
+  },
   get activeTextEditor(): TextEditor | undefined {
     return fake.state.activeTextEditor;
   },

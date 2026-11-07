@@ -64,6 +64,20 @@ body line with a bracket.
   `--person` has a person type the person-only steps at their own terminal, and refuses to start
   under an agent's variables or piped input or output. Tests run live mode against relay-node in
   a process of its own.
+- **worldinmotion: Run Self-Test in VS Code, and `/wim test` in Claude Code.** The VS Code command
+  runs `wim test --json` with the extension's client under a progress notification (Cancel
+  stops it, and the client still removes what it made), then says whether it passed, naming the
+  first failed step (or that it was cancelled), with **Show Steps** for the **worldinmotion self-test** output, one row per
+  step, the mark first; Cancel asks the client to stop with a line `stop` on its stdin, and kills
+  it only after 10 seconds. `/wim test` runs the plugin's own client and prints the same rows; it
+  passes on `--full` and `--relay <url>` only when the person typed them, and refuses `--person`
+  and `--key-env` (from a chat, that could send any variable's value to any relay).
+- **`wim test` cleans up after a run that was killed.** A line `stop` on a piped stdin stops a run
+  like Ctrl-C, which a program can send where a kill would leave the run no chance to remove what
+  it made (Windows). Each run's directory holds a mark file, and every run first removes
+  `wim-test-*` directories under the same temporary directory that are owned by you and whose
+  mark is over 24 hours old; nothing unmarked, younger, another user's, or reached through a
+  link. One it cannot read or remove is skipped, never failing the run.
 
 ### Changed
 
@@ -80,6 +94,11 @@ body line with a bracket.
 
 ### Fixed
 
+- **A recovery or invite code's show could read an empty proof.** The holder wrote its proof
+  file in place, so a `wim recovery show` or `wim invite show` that read it in that moment sent
+  an empty proof and was told no code was waiting while one was. The proof is now written under
+  another name and renamed into place, and a reader that finds an empty or short proof is told
+  nothing waits without connecting. Found by a macOS CI run.
 - **The GitHub Action did not load.** The description of its `status` input showed the
   job-status expression literally, and GitHub evaluates expressions anywhere in an action's
   metadata, so every run stopped in "Set up job" (`Unrecognized named-value: 'job'`) before

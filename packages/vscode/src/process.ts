@@ -13,6 +13,8 @@ export interface Child {
   stdout: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
   stderr: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
   on(ev: "exit", fn: (code: number | null, signal: string | null) => void): unknown;
+  /** After `exit`, once stdout and stderr are closed too: all output has been read. */
+  on(ev: "close", fn: (code: number | null, signal: string | null) => void): unknown;
   on(ev: "error", fn: (err: Error) => void): unknown;
   kill(): boolean;
 }
@@ -298,6 +300,12 @@ export function clientCommand(o: ClientOptions & { sessionName: string; cwd: str
     throw new Error(`worldinmotion.sessionName must be lowercase letters, digits and hyphens (up to 32), not ${JSON.stringify(o.sessionName)}`);
   }
   const { cmd, args, env } = wimInvocation(o, ["events", "--json", "--as", o.sessionName]);
+  return { cmd, args, env, cwd: o.cwd };
+}
+
+/** The command for the self-test: `wim test --json` (the sandbox), with the same client as `wim events`. */
+export function selfTestCommand(o: ClientOptions & { cwd: string }): Command {
+  const { cmd, args, env } = wimInvocation(o, ["test", "--json"]);
   return { cmd, args, env, cwd: o.cwd };
 }
 

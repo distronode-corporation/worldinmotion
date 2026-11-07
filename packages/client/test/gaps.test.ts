@@ -396,7 +396,7 @@ describe("small module edges", () => {
     expect(await new SeqStore(path, FS).isNew("a@x", "D".repeat(22), "S", 9)).toBe(false);
     // A server that hangs up without a code (a Unix socket, or a named pipe on Windows).
     const paths = showPaths(root, process.platform);
-    await fs.writeFile(paths.proof, "a proof");
+    await fs.writeFile(paths.proof, "p".repeat(43));
     // It reads the proof first, so the reader sees an orderly end rather than a broken pipe.
     const srv = createServer((c) => c.once("data", () => c.end()));
     await new Promise<void>((r) => srv.listen(paths.socket, r));

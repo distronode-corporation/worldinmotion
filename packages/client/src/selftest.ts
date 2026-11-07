@@ -21,6 +21,7 @@ import type { webcrypto } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { createInterface } from "node:readline";
 import { PassThrough } from "node:stream";
 import type { CliIO } from "./cli.ts";
 import { agentEndpoint } from "./agentpath.ts";
@@ -160,6 +161,39 @@ export function sandboxFetch(base: string, real: typeof fetch): typeof fetch {
   }) as typeof fetch;
 }
 
+/** The file every run's directory holds, so a later run knows it is one (see `sweepStale`). */
+export const SANDBOX_MARK = ".wim-test-sandbox";
+
+/** How old a run's directory must be before a later run removes it as left behind. */
+export const STALE_MS = 24 * 3_600_000;
+
+/** What `sweepStale` uses of the file system, and whose entries it may remove (undefined: no owners, as on Windows). */
+export type SweepOps = { lstat: typeof fs.lstat; rm: typeof fs.rm; uid: number | undefined };
+
+const SWEEP_OPS: SweepOps = { lstat: fs.lstat, rm: fs.rm, uid: process.getuid?.() };
+
+/**
+ * Removes run directories left behind under `base` (a run whose process was killed, as on
+ * Windows, cannot remove its own): only a real directory named `wim-test-*`, not a link, owned by
+ * this user (on POSIX: /tmp is shared, and another user's is never ours to remove), holding the
+ * run's mark file (a regular file, not a link) last written more than STALE_MS ago. Nothing else
+ * is touched. Housekeeping, not a step: an entry that cannot be read or removed (gone already,
+ * another run sweeping at once, not ours) is skipped, never fails the run. Returns what it removed.
+ */
+export async function sweepStale(base: string, now: number, ops: SweepOps = SWEEP_OPS): Promise<string[]> {
+  const removed: string[] = [];
+  for (const name of await fs.readdir(base).catch(() => [] as string[])) {
+    if (!name.startsWith("wim-test-")) continue;
+    const dir = join(base, name);
+    const st = await ops.lstat(dir).catch(() => undefined);
+    if (st === undefined || !st.isDirectory() || (ops.uid !== undefined && st.uid !== ops.uid)) continue;
+    const mark = await ops.lstat(join(dir, SANDBOX_MARK)).catch(() => undefined);
+    if (mark === undefined || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
+    if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
+  }
+  return removed;
+}
+
 /** One run's own directory, devices and relay, and the checks made before every step. */
 export class Sandbox {
   readonly root: string;
@@ -182,7 +216,10 @@ export class Sandbox {
       const resolved = await fs.realpath(r).catch(() => resolve(r));
       if (inside(resolved, at)) throw new SandboxError(`the temporary directory ${at} is inside this device's state ${resolved}: set TMPDIR to another directory`);
     }
-    return new Sandbox(await fs.mkdtemp(join(at, "wim-test-")));
+    await sweepStale(at, Date.now());
+    const root = await fs.mkdtemp(join(at, "wim-test-"));
+    await fs.writeFile(join(root, SANDBOX_MARK), "", { flag: "wx", mode: 0o600 });
+    return new Sandbox(root);
   }
 
   /**
@@ -924,6 +961,30 @@ export type SelfTestOptions = {
   stepMs?: number;
 };
 
+/**
+ * What stops a run: Ctrl-C (or a kill the process can catch), or, when stdin is not a terminal,
+ * a line `stop` on it. That is how a program that started `wim test` stops it on Windows, where
+ * killing a process gives it no chance to remove what it made. Stdin is not read at a terminal,
+ * nor with `--person`, whose prompts read it.
+ */
+export function stopSignal(io: CliIO, person: boolean): { signal: AbortSignal; close(): void } {
+  const stop = new AbortController();
+  const onAbort = (): void => stop.abort();
+  io.signal.addEventListener("abort", onAbort, { once: true });
+  if (io.signal.aborted) stop.abort();
+  const lines = person || io.inputIsTTY ? undefined : createInterface({ input: io.stdin });
+  lines?.on("line", (line) => {
+    if (line.trim() === "stop") stop.abort();
+  });
+  return {
+    signal: stop.signal,
+    close: () => {
+      io.signal.removeEventListener("abort", onAbort);
+      lines?.close();
+    },
+  };
+}
+
 /** Why a run cannot start as asked, before anything is made; undefined when it can. */
 function refusal(o: SelfTestOptions): string | undefined {
   if (o.keyEnv !== undefined && o.relay === undefined) return "--key-env is for live mode: wim test --relay <url> --key-env NAME";
@@ -950,11 +1011,13 @@ export async function selfTest(o: SelfTestOptions): Promise<number> {
   };
   const run = new Run(o.main, o.io, o.tmp ?? tmpdir(), [choice.root, choice.base], mode);
   // Ctrl-C on `wim test` stops what the sandbox devices run, too.
+  const stopped = stopSignal(o.io, mode.person);
   const onAbort = (): void => run.terms.forEach((t) => t.stop.abort());
-  o.io.signal.addEventListener("abort", onAbort, { once: true });
+  stopped.signal.addEventListener("abort", onAbort, { once: true });
   // A person typing gets longer per step than the script.
-  const rows = await runSteps((o.steps ?? sandboxSteps)(run), () => run.check(), o.io.signal, o.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS));
-  o.io.signal.removeEventListener("abort", onAbort);
+  const rows = await runSteps((o.steps ?? sandboxSteps)(run), () => run.check(), stopped.signal, o.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS));
+  stopped.signal.removeEventListener("abort", onAbort);
+  stopped.close();
   rows.push(...(await run.close()));
   const ms = Date.now() - t0;
   const ok = passed(rows);

@@ -123431,6 +123431,7 @@ function showPaths(home, platform2, kind = "recovery") {
   return { socket, proof: p3.join(home, `${kind}.proof`), what: `${kind} code` };
 }
 var PROOF_WAIT_MS = 5e3;
+var PROOF_LEN = 43;
 var PROOF_MAX = 128;
 function ignore2() {
 }
@@ -123467,7 +123468,9 @@ async function holdForShow(paths, code2, o3) {
   });
   try {
     await fs10.rm(paths.proof, { force: true });
-    await fs10.writeFile(paths.proof, proof, { mode: 384, flag: "wx" });
+    const partial2 = `${paths.proof}.${b64u.encode(randomBytes2(6))}.tmp`;
+    await fs10.writeFile(partial2, proof, { mode: 384, flag: "wx" });
+    await fs10.rename(partial2, paths.proof);
   } catch (error64) {
     await new Promise((r6) => server.close(r6));
     throw error64;
@@ -123496,7 +123499,7 @@ async function holdForShow(paths, code2, o3) {
 async function fetchHeldCode(paths) {
   const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
   const proof = await fs10.readFile(paths.proof, "utf8").catch(absent);
-  if (proof === void 0) throw new Error(none);
+  if (proof === void 0 || proof.length < PROOF_LEN) throw new Error(none);
   return new Promise((resolve4, reject) => {
     let text2 = "";
     const socket = createConnection2(paths.socket);
@@ -131777,6 +131780,7 @@ TLS pin (SPKI SHA-256, for the invite): ${tls3.pin}`);
 import { promises as fs14 } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute as isAbsolute4, join as join21, relative as relative2, resolve as resolve3, sep as sep2 } from "node:path";
+import { createInterface as createInterface2 } from "node:readline";
 import { PassThrough as PassThrough4 } from "node:stream";
 var SandboxError = class extends Error {
 };
@@ -131849,6 +131853,22 @@ function sandboxFetch(base, real) {
     return url2.startsWith(base) ? real(input2, init2) : Promise.reject(new SandboxError(`refusing to fetch ${url2}: only the sandbox relay ${base} is reached`));
   });
 }
+var SANDBOX_MARK = ".wim-test-sandbox";
+var STALE_MS = 24 * 36e5;
+var SWEEP_OPS = { lstat: fs14.lstat, rm: fs14.rm, uid: process.getuid?.() };
+async function sweepStale(base, now, ops = SWEEP_OPS) {
+  const removed = [];
+  for (const name of await fs14.readdir(base).catch(() => [])) {
+    if (!name.startsWith("wim-test-")) continue;
+    const dir = join21(base, name);
+    const st = await ops.lstat(dir).catch(() => void 0);
+    if (st === void 0 || !st.isDirectory() || ops.uid !== void 0 && st.uid !== ops.uid) continue;
+    const mark = await ops.lstat(join21(dir, SANDBOX_MARK)).catch(() => void 0);
+    if (mark === void 0 || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
+    if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
+  }
+  return removed;
+}
 var Sandbox = class _Sandbox {
   root;
   dirs = /* @__PURE__ */ new Map();
@@ -131868,7 +131888,10 @@ var Sandbox = class _Sandbox {
       const resolved = await fs14.realpath(r6).catch(() => resolve3(r6));
       if (inside2(resolved, at)) throw new SandboxError(`the temporary directory ${at} is inside this device's state ${resolved}: set TMPDIR to another directory`);
     }
-    return new _Sandbox(await fs14.mkdtemp(join21(at, "wim-test-")));
+    await sweepStale(at, Date.now());
+    const root5 = await fs14.mkdtemp(join21(at, "wim-test-"));
+    await fs14.writeFile(join21(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 });
+    return new _Sandbox(root5);
   }
   /**
    * The run's relay: the sandbox's own, refused unless it is on loopback; or, in live mode, the
@@ -132444,6 +132467,23 @@ function sandboxSteps(run) {
     }
   ];
 }
+function stopSignal(io, person) {
+  const stop = new AbortController();
+  const onAbort = () => stop.abort();
+  io.signal.addEventListener("abort", onAbort, { once: true });
+  if (io.signal.aborted) stop.abort();
+  const lines = person || io.inputIsTTY ? void 0 : createInterface2({ input: io.stdin });
+  lines?.on("line", (line) => {
+    if (line.trim() === "stop") stop.abort();
+  });
+  return {
+    signal: stop.signal,
+    close: () => {
+      io.signal.removeEventListener("abort", onAbort);
+      lines?.close();
+    }
+  };
+}
 function refusal2(o3) {
   if (o3.keyEnv !== void 0 && o3.relay === void 0) return "--key-env is for live mode: wim test --relay <url> --key-env NAME";
   if (o3.keyEnv !== void 0 && (o3.env[o3.keyEnv] ?? "") === "") return `${o3.keyEnv} is not set`;
@@ -132466,10 +132506,12 @@ async function selfTest(o3) {
     ...o3.keyEnv === void 0 ? {} : { keyEnv: { name: o3.keyEnv, value: o3.env[o3.keyEnv] } }
   };
   const run = new Run2(o3.main, o3.io, o3.tmp ?? tmpdir(), [choice.root, choice.base], mode);
+  const stopped = stopSignal(o3.io, mode.person);
   const onAbort = () => run.terms.forEach((t2) => t2.stop.abort());
-  o3.io.signal.addEventListener("abort", onAbort, { once: true });
-  const rows = await runSteps((o3.steps ?? sandboxSteps)(run), () => run.check(), o3.io.signal, o3.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS));
-  o3.io.signal.removeEventListener("abort", onAbort);
+  stopped.signal.addEventListener("abort", onAbort, { once: true });
+  const rows = await runSteps((o3.steps ?? sandboxSteps)(run), () => run.check(), stopped.signal, o3.stepMs ?? (mode.person ? PERSON_STEP_MS : STEP_MS));
+  stopped.signal.removeEventListener("abort", onAbort);
+  stopped.close();
   rows.push(...await run.close());
   const ms = Date.now() - t0;
   const ok2 = passed(rows);
@@ -133971,7 +134013,7 @@ async function notifyTest(ctx) {
 
 // src/io.ts
 import { homedir as homedir3, hostname as hostname3 } from "node:os";
-import { createInterface as createInterface2 } from "node:readline";
+import { createInterface as createInterface3 } from "node:readline";
 import { Writable as Writable4 } from "node:stream";
 function ask(input2, open3, question) {
   if (input2.readableEnded) return Promise.resolve("");
@@ -134009,11 +134051,11 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     // `wim mcp` owns stdout for the protocol, so diagnostics always go to stderr.
     err: (line) => void proc.stderr.write(`${line}
 `),
-    prompt: (question) => ask(proc.stdin, () => createInterface2({ input: proc.stdin, output: proc.stderr }), question),
+    prompt: (question) => ask(proc.stdin, () => createInterface3({ input: proc.stdin, output: proc.stderr }), question),
     // The question goes to stderr; what is typed is echoed nowhere (readline writes it to a sink).
     promptSecret: async (question) => {
       proc.stderr.write(question);
-      const answer = await ask(proc.stdin, () => createInterface2({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "");
+      const answer = await ask(proc.stdin, () => createInterface3({ input: proc.stdin, output: new Writable4({ write: (_chunk, _enc, done) => done() }), terminal: true }), "");
       proc.stderr.write("\n");
       return answer;
     },
