@@ -12,7 +12,8 @@
 //                      after its code was shown); in setup mode `create` succeeds, says
 //                      `created` (recovery "shown", or "not_collected" with WIM_FAKE_RECOVERY=lost)
 //                      and ends, after which it starts in the mesh; with WIM_FAKE_RECOVERY=hold it
-//                      keeps holding the code until it is stopped
+//                      keeps holding the code until it is stopped, and with =crash it exits
+//                      (code 1) while holding it, never saying `created`
 //   WIM_FAKE_TEST      for `test --json` (the self-test): see below
 
 import { appendFileSync, existsSync, statSync, writeFileSync } from "node:fs";
@@ -245,9 +246,11 @@ function setupMode() {
     if (op === "create") {
       // Holding: the device is in the mesh from now on. The marker is written before the answer,
       // since the extension may stop this process as soon as it reads it.
-      if (process.env.WIM_FAKE_RECOVERY === "hold" && joinedMarker !== undefined) writeFileSync(joinedMarker, "");
+      const holds = process.env.WIM_FAKE_RECOVERY === "hold" || process.env.WIM_FAKE_RECOVERY === "crash";
+      if (holds && joinedMarker !== undefined) writeFileSync(joinedMarker, "");
       respond(id, { device: { name: args?.name ?? "fresh", id: "dev-fresh" }, mesh: "f4ke…", relay: "relay.invalid" });
-      if (process.env.WIM_FAKE_RECOVERY === "hold") return;
+      if (process.env.WIM_FAKE_RECOVERY === "crash") setTimeout(() => process.exit(1), 50);
+      if (holds) return;
       setTimeout(() => {
         if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
         emit("created", { mesh: "f4ke…", recovery: process.env.WIM_FAKE_RECOVERY === "lost" ? "not_collected" : "shown" });

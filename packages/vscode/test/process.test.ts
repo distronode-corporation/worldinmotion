@@ -157,6 +157,21 @@ describe("EventsProcess", () => {
     await expect(q).rejects.toMatchObject({ code: "timeout" });
   });
 
+  it("reads the lines a client wrote before it exited, though they arrive after its exit", async () => {
+    const h = harness();
+    h.proc.start();
+    const c = h.children[0]!;
+    // The process is gone (`exit`) while its last line is still in the pipe; `close` comes once
+    // the pipes are drained, and only then is it finished with.
+    c.emit("exit", 0, null);
+    c.stdout.write(`${JSON.stringify({ v: 1, type: "created", at: 2, mesh: "ab…", recovery: "not_collected" })}\n`);
+    await flush();
+    expect(h.states).toEqual(["starting"]);
+    c.emit("close", 0, null);
+    expect(h.events).toEqual([{ type: "created", at: 2, mesh: "ab…", recovery: "not_collected" }]);
+    expect(h.states).toEqual(["starting", "exited: exited with code 0"]);
+  });
+
   it("refuses a request while not running", async () => {
     const h = harness();
     await expect(h.proc.request("snapshot")).rejects.toMatchObject({ code: "closed" });
@@ -168,7 +183,7 @@ describe("EventsProcess", () => {
     const p = h.proc.request("snapshot");
     h.children[0]!.stderr.write("wim: this device is not set up: run `wim init` first\n");
     await flush();
-    h.children[0]!.emit("exit", 2, null);
+    h.children[0]!.emit("close", 2, null);
     await expect(p).rejects.toMatchObject({ code: "closed", message: "the wim events process exited with code 2: wim: this device is not set up: run `wim init` first" });
     // Not running until the restart: a request is refused at once.
     await expect(h.proc.request("snapshot")).rejects.toMatchObject({ code: "closed", message: "the wim events process is not running" });
@@ -176,16 +191,16 @@ describe("EventsProcess", () => {
     expect(h.logs).toContain("restarting in 1 s");
     h.timers.fire(BACKOFF_MS[0]!);
     expect(h.children.length).toBe(2);
-    h.children[1]!.emit("exit", null, "SIGTERM");
+    h.children[1]!.emit("close", null, "SIGTERM");
     expect(h.states.at(-1)).toBe("exited: stopped by SIGTERM");
     h.timers.fire(BACKOFF_MS[1]!);
     for (let i = 2; i < BACKOFF_MS.length + 1; i += 1) {
-      h.children[i]!.emit("exit", 1, null);
+      h.children[i]!.emit("close", 1, null);
       h.timers.fire(BACKOFF_MS[Math.min(i, BACKOFF_MS.length - 1)]!);
     }
     // A process that stayed up long enough starts the backoff again from the first step.
     h.advance(STABLE_MS);
-    h.children.at(-1)!.emit("exit", 1, null);
+    h.children.at(-1)!.emit("close", 1, null);
     h.timers.fire(BACKOFF_MS[0]!);
     // Output from a replaced process is ignored.
     h.children[0]!.line({ v: 1, type: "connection", at: 1, state: "open" });
@@ -200,7 +215,7 @@ describe("EventsProcess", () => {
     h.proc.start();
     const c = h.children[0]!;
     c.emit("error", new Error("spawn wim ENOENT"));
-    c.emit("exit", -2, null);
+    c.emit("close", -2, null);
     expect(h.logs).toContain("could not run wim: spawn wim ENOENT");
     expect(h.states).toEqual(["starting", "exited: spawn wim ENOENT"]);
     c.stdin.emit("error", new Error("EPIPE"));
@@ -240,11 +255,11 @@ describe("EventsProcess", () => {
     await expect(p).rejects.toMatchObject({ code: "closed", message: "the wim events process stopped" });
     expect(c.killed).toBe(true);
     expect(c.stdin.writableEnded).toBe(true);
-    c.emit("exit", 0, null);
+    c.emit("close", 0, null);
     expect(h.timers.queue).toEqual([]);
     h.proc.restart();
     expect(h.children.length).toBe(2);
-    h.children[1]!.emit("exit", 1, null);
+    h.children[1]!.emit("close", 1, null);
     expect(h.timers.queue.length).toBe(1);
     h.proc.stop();
     expect(h.timers.queue).toEqual([]);

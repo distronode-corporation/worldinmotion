@@ -189,7 +189,13 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
       const m = toNotify(store, ev, s.notifyForClaudeTabs);
       if (m !== undefined && s.notifyOnMessage) notify(m);
     },
-    onState: (state, detail) => (state === "starting" ? store.reset() : store.exited(detail!)),
+    onState: (state, detail) => {
+      if (state === "starting") return store.reset();
+      store.exited(detail!);
+      // A client that exited on its own holds no recovery code any more: said once if it held one.
+      if (recoveryWaits) void vscode.window.showWarningMessage(RECOVERY_LOST);
+      recoveryWaits = false;
+    },
     log,
   });
   const stopStore = store.onChange(schedule);

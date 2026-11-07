@@ -402,6 +402,32 @@ describe("activate", () => {
     expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(1);
   }, 20_000);
 
+  it("says the recovery code is gone, once, when the client holding it exits on its own", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    vi.stubEnv("WIM_FAKE_RECOVERY", "crash");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.inputAnswers.push("laptop");
+    fake.state.quickPickAnswers.push((items) => items[0]);
+    fake.state.messageAnswers.push("Create Mesh", "Show Recovery Code");
+    await fake.run("worldinmotion.createMesh");
+    await waitFor(() => expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toEqual([expect.objectContaining({ level: "warning" })]));
+    // Started again after its backoff, now in the mesh; a later restart has nothing to lose.
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    await fake.run("worldinmotion.restart");
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(1);
+  }, 20_000);
+
+  it("says nothing of a recovery code when a client that held none exits on its own and is restarted", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "exit-after-hello");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.connection.state).toBe("closed"));
+    await fake.run("worldinmotion.restart");
+    await waitFor(() => expect(fake.state.output.filter((l) => l.startsWith("starting ")).length).toBeGreaterThanOrEqual(2));
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(0);
+  }, 20_000);
+
   it("says when the recovery code was not collected", async () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
     vi.stubEnv("WIM_FAKE_RECOVERY", "lost");

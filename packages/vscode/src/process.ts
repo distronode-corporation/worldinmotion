@@ -12,8 +12,7 @@ export interface Child {
   stdin: { write(chunk: string): boolean; end(): void; on(ev: "error", fn: (err: Error) => void): unknown } | null;
   stdout: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
   stderr: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
-  on(ev: "exit", fn: (code: number | null, signal: string | null) => void): unknown;
-  /** After `exit`, once stdout and stderr are closed too: all output has been read. */
+  /** After the process exited, once stdout and stderr are closed too: all output has been read. */
   on(ev: "close", fn: (code: number | null, signal: string | null) => void): unknown;
   on(ev: "error", fn: (err: Error) => void): unknown;
   kill(): boolean;
@@ -196,7 +195,9 @@ export class EventsProcess {
       this.opts.log(`could not run ${cmd.cmd}: ${e.message}`);
       this.exited(child, e.message);
     });
-    child.on("exit", (code, signal) => {
+    // `close`, not `exit`: the last lines (a `created`, say) may still be in the pipe at `exit`,
+    // and nothing is read from a child once it is finished with.
+    child.on("close", (code, signal) => {
       const why = signal === null ? `exited with code ${code}` : `stopped by ${signal}`;
       this.exited(child, lastErr === "" ? why : `${why}: ${lastErr}`);
     });
