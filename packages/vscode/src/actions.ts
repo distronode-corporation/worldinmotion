@@ -34,6 +34,12 @@ export type Deps = {
   now: () => number;
   /** Invites this window made: a request on one asks for its comparison code at once. */
   invited: Set<string>;
+  /**
+   * The name Create a Mesh... last sent while the device had no keys. A try that failed may have
+   * made the device under it, and the client keeps an existing device's name, so a retry sends
+   * the same one instead of asking again.
+   */
+  setupName?: string;
 }
 
 function failure(what: string, e: unknown): void {
@@ -510,7 +516,7 @@ export async function createMesh(d: Deps, showRecovery: () => void): Promise<voi
     return;
   }
   const known = d.store.setup.device;
-  let name = known?.name;
+  let name = known?.name ?? d.setupName;
   if (name === undefined) {
     const typed = await vscode.window.showInputBox({
       title: "Create a mesh: name this device",
@@ -543,6 +549,7 @@ export async function createMesh(d: Deps, showRecovery: () => void): Promise<voi
     "Create Mesh",
   );
   if (go !== "Create Mesh") return;
+  if (known === undefined) d.setupName = name;
   try {
     await d.client.request("create", { ...(known === undefined ? { name } : {}), relay }, CREATE_TIMEOUT_MS);
   } catch (e) {

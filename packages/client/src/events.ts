@@ -651,6 +651,8 @@ export async function runSetupEvents(d: SetupDeps): Promise<void> {
   let joining = false;
   /** Set once a `create` starts, and never cleared after it made a mesh: this device is then in one. */
   let creating = false;
+  /** A `create` under way, until its answer is written; stdin closing does not cut it short. */
+  let making: Promise<unknown> | undefined;
   /** A recovery code's hold: the process ends only after it, even when stdin closes first. */
   let holding: Promise<void> | undefined;
   /** Run once the current request's answer is written. */
@@ -683,6 +685,12 @@ export async function runSetupEvents(d: SetupDeps): Promise<void> {
       const result = { device: { name: device.name, id: device.id }, mesh: `${made.mesh.slice(0, 4)}…`, relay: relayHost(relay) };
       // Answered once the code waits for `wim recovery show`, so the UI can open that terminal.
       const code = made.recoveryCode!;
+      // Stopped while the mesh was made: nothing can collect the code now.
+      if (d.signal.aborted) {
+        emit("created", { mesh: result.mesh, recovery: "not_collected" });
+        finish();
+        return result;
+      }
       return await new Promise<Row>((resolve, reject) => {
         holding = holdForShow(showPaths(d.home.root, d.platform), code, {
           ms: d.recoveryMs ?? LIMITS.recoveryShowWindowMs,
@@ -773,7 +781,8 @@ export async function runSetupEvents(d: SetupDeps): Promise<void> {
       if (op !== "join" && op !== "create") throw new RequestError("setup", "this device is in no mesh yet: create or join one first");
       const args = (op === "join" ? SetupArgs : CreateArgs).safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
-      emit("response", { id, ok: true, result: op === "join" ? await join(args.data as z.infer<typeof SetupArgs>) : await create(args.data) });
+      const answer = op === "join" ? join(args.data as z.infer<typeof SetupArgs>) : (making = create(args.data));
+      emit("response", { id, ok: true, result: await answer });
     } catch (error) {
       // The client's own errors before the code was shown (a dial that failed, the device already in that mesh) are `error`.
       const code = error instanceof RequestError ? error.code : "error";
@@ -792,6 +801,8 @@ export async function runSetupEvents(d: SetupDeps): Promise<void> {
   const aborted = new Promise<void>((resolve) => (d.signal.aborted ? resolve() : d.signal.addEventListener("abort", () => resolve(), { once: true })));
   await Promise.race([ended, aborted, joined]);
   lines.close();
-  // A held recovery code outlives stdin: only `wim recovery show`, its window or the signal ends it.
+  // A mesh being made, and then its held recovery code, outlive stdin: only `wim recovery show`,
+  // the code's window or the signal ends them.
+  await making?.catch(() => undefined);
   await holding;
 }

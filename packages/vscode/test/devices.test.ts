@@ -294,6 +294,14 @@ describe("Create a Mesh...", () => {
     fake.state.messageAnswers.push("Create Mesh");
     await actions.createMesh(d, () => undefined);
     expect(messages().at(-1)).toBe("worldinmotion: could not create the mesh: unauthorized: the relay refused to create the mesh");
+    // The failed try may have made the device under that name: the retry asks for none and sends it again.
+    expect(d.setupName).toBe("laptop");
+    choose("relay", actions.HOSTED_RELAY);
+    fake.state.messageAnswers.push("Create Mesh");
+    const boxes = fake.state.inputBoxes.length;
+    await actions.createMesh(d, () => undefined);
+    expect(fake.state.inputBoxes).toHaveLength(boxes);
+    expect(calls.at(-1)!.args).toEqual({ name: "laptop", relay: actions.HOSTED_RELAY });
     const plain = deps(inSetup(), async () => Promise.reject(new Error("gone")));
     fake.state.inputAnswers.push("laptop");
     choose("relay", actions.HOSTED_RELAY);

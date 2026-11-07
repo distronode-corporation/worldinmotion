@@ -121678,6 +121678,7 @@ async function runSetupEvents(d5) {
   emit("setup", { version: d5.version, device: known === void 0 ? null : { name: known.name, id: known.id } });
   let joining = false;
   let creating = false;
+  let making;
   let holding;
   let afterResponse;
   let finish;
@@ -121704,6 +121705,11 @@ async function runSetupEvents(d5) {
       });
       const result = { device: { name: device.name, id: device.id }, mesh: `${made.mesh.slice(0, 4)}\u2026`, relay: relayHost(relay) };
       const code2 = made.recoveryCode;
+      if (d5.signal.aborted) {
+        emit("created", { mesh: result.mesh, recovery: "not_collected" });
+        finish();
+        return result;
+      }
       return await new Promise((resolve4, reject) => {
         holding = holdForShow(showPaths(d5.home.root, d5.platform), code2, {
           ms: d5.recoveryMs ?? LIMITS.recoveryShowWindowMs,
@@ -121787,7 +121793,8 @@ async function runSetupEvents(d5) {
       if (op2 !== "join" && op2 !== "create") throw new RequestError("setup", "this device is in no mesh yet: create or join one first");
       const args = (op2 === "join" ? SetupArgs : CreateArgs).safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      emit("response", { id: id2, ok: true, result: op2 === "join" ? await join25(args.data) : await create2(args.data) });
+      const answer = op2 === "join" ? join25(args.data) : making = create2(args.data);
+      emit("response", { id: id2, ok: true, result: await answer });
     } catch (error64) {
       const code2 = error64 instanceof RequestError ? error64.code : "error";
       emit("response", { ...id2 === void 0 ? {} : { id: id2 }, ok: false, error: { code: code2, message: sanitizeForDisplay(error64.message) } });
@@ -121804,6 +121811,7 @@ async function runSetupEvents(d5) {
   const aborted2 = new Promise((resolve4) => d5.signal.aborted ? resolve4() : d5.signal.addEventListener("abort", () => resolve4(), { once: true }));
   await Promise.race([ended2, aborted2, joined]);
   lines.close();
+  await making?.catch(() => void 0);
   await holding;
 }
 

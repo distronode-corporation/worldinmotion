@@ -4,6 +4,7 @@
 
 import { HOSTED_RELAY } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
+import { createServer } from "node:net";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
@@ -127,6 +128,28 @@ describe("setup mode: create", () => {
     expect(s.of("created")[0]).toMatchObject({ recovery: "not_collected" });
   }, 20_000);
 
+  it("finishes a create whose stdin closed before its answer, and says so", async () => {
+    const relay = new RelayHarness();
+    const s = await setup({ relay, recoveryMs: 300 });
+    s.input.write(`${JSON.stringify({ v: 1, id: "c", op: "create", args: { relay: RELAY } })}\n`);
+    s.input.end();
+    await s.running;
+    expect(s.of("response")).toEqual([expect.objectContaining({ id: "c", ok: true })]);
+    expect(s.of("created")[0]).toMatchObject({ recovery: "not_collected" });
+    expect(await s.home.meshIds()).toHaveLength(1);
+  }, 20_000);
+
+  it("says not_collected at once when stopped while the mesh was being made", async () => {
+    const relay = new RelayHarness();
+    let stop: (() => void) | undefined;
+    const s = await setup({ relay, dialer: (url, opts) => (stop!(), relay.dialer(url, opts)) });
+    stop = () => s.stop.abort();
+    s.input.write(`${JSON.stringify({ v: 1, id: "c", op: "create", args: { relay: RELAY } })}\n`);
+    await s.running;
+    expect(s.of("created")[0]).toMatchObject({ recovery: "not_collected" });
+    await expect(fetchHeldCode(paths(s.root))).rejects.toThrow(/no recovery code is waiting/);
+  }, 20_000);
+
   it("is refused under an agent's variables, before anything is made", async () => {
     const relay = new RelayHarness();
     const s = await setup({ relay, agent: "CLAUDECODE" });
@@ -179,11 +202,17 @@ describe("setup mode: create", () => {
     expect(JSON.stringify(refused)).not.toContain("relay text");
   }, 20_000);
 
-  it.skipIf(!POSIX)("ends after saying so when the code cannot be held", async () => {
+  it("ends after saying so when the code cannot be held", async () => {
     const relay = new RelayHarness();
     const root = await scratch("create-nohold");
-    // Something that is not a socket sits where the code would wait.
-    await fs.mkdir(join(root, "recovery.sock"), { recursive: true });
+    // Something already sits where the code would wait: a directory on POSIX (the holder removes
+    // only a stale socket), another listener on the Windows pipe.
+    if (POSIX) await fs.mkdir(join(root, "recovery.sock"), { recursive: true });
+    else {
+      const squatter = createServer();
+      await new Promise<void>((resolve) => squatter.listen(paths(root).socket, resolve));
+      cleanup.push(() => new Promise((resolve) => squatter.close(resolve)));
+    }
     const s = await setup({ relay, root });
     expect(await s.request("create", { relay: RELAY })).toMatchObject({ ok: false, error: { code: "error", message: expect.stringMatching(/the mesh was created, but its recovery code could not be held .* wim recovery rotate/) } });
     await s.running;
