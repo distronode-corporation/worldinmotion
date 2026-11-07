@@ -76,7 +76,7 @@ import { PongBudget, type PingRow } from "./ping.ts";
 import { Invites, PendingJoins, screenJoin } from "./joins.ts";
 import { SignerError } from "./signer.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
-import { Watches, type Armed } from "./watches.ts";
+import { Watches } from "./watches.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
 
 /** How many times a delivered frame may fail for a reason of its own before it is let go. */
@@ -1441,7 +1441,7 @@ export class MeshSession extends EventEmitter {
    * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4).
    */
   private async idleNotice(of: string): Promise<void> {
-    if (!(await this.watches.take(of))) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
+    if (!(await this.watches.take(of, this.peers.get(of)?.sid))) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
     await this.notice(of, `${of} is now idle (or has ended).`);
   }
 
@@ -2253,21 +2253,44 @@ export class MeshSession extends EventEmitter {
 
   /**
    * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
-   * recorded in `watches.json` first, so the notice is taken when it comes. Answers a note for
-   * the send's result when an address was not armed: the limit, or a watch that could not be recorded.
+   * recorded in `watches.json` first, so the notice is taken when it comes, and dropped again when
+   * the relay refuses the arm. Answers a note for the send's result when an address was not armed:
+   * the relay refused it, this session is offline, or the watch could not be recorded.
    */
   async notifyWhenIdle(addresses: readonly string[]): Promise<string | undefined> {
-    const wanted = addresses.filter((of) => sessionAddressSchema.safeParse(of).success);
-    let armed: Armed;
+    const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
     try {
-      armed = await this.watches.arm(wanted);
+      await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
     } catch (error) {
       this.log(`wim: watches: ${(error as Error).message}`);
       return `no idle notice armed: this session could not record the watch (${(error as Error).message})`;
     }
-    for (const of of armed.armed) this.sendIfOpen({ t: "notify_idle", of });
-    if (armed.refused.length === 0) return undefined;
-    return `no idle notice armed for ${armed.refused.join(", ")}: a session holds at most ${LIMITS.notifyIdlePerSession} at once (each lasts until it fires or lapses after 12 hours)`;
+    const refused: string[] = [];
+    for (const of of wanted) {
+      const why = await this.armAtRelay(of);
+      if (why === undefined) continue;
+      refused.push(`${of} (${why})`);
+      await this.watches.drop(of).catch((error: unknown) => this.log(`wim: watches: ${(error as Error).message}`));
+    }
+    return refused.length === 0 ? undefined : `no idle notice armed for ${refused.join(", ")}`;
+  }
+
+  /**
+   * Arms one idle notice at the relay: undefined when it stands, else why not. The relay answers
+   * an arm only to refuse it, so a ping follows it: the relay answers frames in order, and a pong
+   * that comes first means the arm stands. With no answer in time the arm may stand, and the watch
+   * is kept (it lapses after 12 hours).
+   */
+  private async armAtRelay(of: string): Promise<string | undefined> {
+    const link = this.link;
+    if (link === undefined || !link.isOpen) return "this session is not connected to the relay";
+    const answer = link.request({ t: "notify_idle", of }, (f) => f.t === "pong" || errorFor("notify_idle")(f), this.answerMs);
+    link.send({ t: "ping" });
+    const f = (await answer.catch(() => undefined)) as RelayFrame | undefined;
+    if (f?.t !== "error") return undefined;
+    const code = relayCode(f.code);
+    if (code === "limited") return `a session holds at most ${LIMITS.notifyIdlePerSession} at once, each until it fires or lapses after 12 hours`;
+    return code === "not_found" ? "no such session" : `the relay refused it: ${code}`;
   }
 
   async rename(name: string): Promise<string> {

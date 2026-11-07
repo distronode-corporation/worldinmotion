@@ -9,15 +9,23 @@
 import { LIMITS } from "@worldinmotion/protocol";
 import { readJson, writeJson, type FsEnv } from "./fsx.ts";
 
-/** One armed notice: the address, when it was armed, and when it lapses. */
-export type Watch = { of: string; at: number; until: number };
+/**
+ * One armed notice: the address, the relay's session id for it when this session knew one (a
+ * session that renames itself is still the one armed), when it was armed, and when it lapses.
+ */
+export type Watch = { of: string; sid?: string; at: number; until: number };
 
-/** What an arm did: the addresses armed (renewed ones too), and those refused for the limit. */
-export type Armed = { armed: string[]; refused: string[] };
+/**
+ * How many watches the file keeps; past it the oldest go. The relay holds at most
+ * LIMITS.notifyIdlePerSession arms and refuses the rest (each refusal also drops its watch here),
+ * so only arms the relay already let go of without a notice can push a live one out: those it
+ * fired while this session was offline, or fired under a new name nobody knew.
+ */
+export const WATCHES_KEPT = 4 * LIMITS.notifyIdlePerSession;
 
 function isWatch(x: unknown): x is Watch {
   const w = x as Partial<Watch> | null;
-  return typeof w === "object" && w !== null && typeof w.of === "string" && Number.isSafeInteger(w.at) && Number.isSafeInteger(w.until);
+  return typeof w === "object" && w !== null && typeof w.of === "string" && (w.sid === undefined || typeof w.sid === "string") && Number.isSafeInteger(w.at) && Number.isSafeInteger(w.until);
 }
 
 export class Watches {
@@ -42,31 +50,30 @@ export class Watches {
 
   /**
    * Records an arm for each address: a new watch, or a renewed one for an address already armed.
-   * Past the relay's limit of armed notices per session a new address is refused.
+   * The relay decides the limit: an arm it refuses is dropped again (`drop`).
    */
-  arm(addresses: readonly string[]): Promise<Armed> {
+  arm(arms: ReadonlyArray<{ of: string; sid?: string }>): Promise<void> {
     return this.change((watches) => {
       const at = this.now();
-      const out: Armed = { armed: [], refused: [] };
-      for (const of of new Set(addresses)) {
-        const kept = watches.filter((w) => w.of !== of);
-        if (kept.length === watches.length && watches.length >= LIMITS.notifyIdlePerSession) {
-          out.refused.push(of);
-          continue;
-        }
-        watches = [...kept, { of, at, until: at + LIMITS.idleNoticeLifetimeMs }];
-        out.armed.push(of);
-      }
-      return { watches, out };
+      for (const { of, sid } of arms) watches = [...watches.filter((w) => w.of !== of), { of, ...(sid === undefined ? {} : { sid }), at, until: at + LIMITS.idleNoticeLifetimeMs }];
+      return { watches: watches.slice(-WATCHES_KEPT), out: undefined };
     });
   }
 
-  /** Takes the watch for `of`: true, and the watch is closed, when one was armed and has not lapsed. */
-  take(of: string): Promise<boolean> {
+  /** Drops the watch for `of`, an arm the relay refused. */
+  drop(of: string): Promise<void> {
+    return this.change((watches) => ({ watches: watches.filter((w) => w.of !== of), out: undefined }));
+  }
+
+  /**
+   * Takes the watch for `of`, or for the session `sid` (the relay's id for `of` now, after a
+   * rename): true, and the watch is closed, when one was armed and has not lapsed.
+   */
+  take(of: string, sid?: string): Promise<boolean> {
     return this.change((watches) => {
-      const kept = watches.filter((w) => w.of !== of);
+      const i = watches.findIndex((w) => w.of === of || (sid !== undefined && w.sid === sid));
       // A notice nobody asked for changes nothing, so it writes nothing either.
-      return kept.length < watches.length ? { watches: kept, out: true } : { out: false };
+      return i === -1 ? { out: false } : { watches: watches.filter((_, n) => n !== i), out: true };
     });
   }
 

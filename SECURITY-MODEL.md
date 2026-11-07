@@ -246,9 +246,10 @@ Cannot:
 - Alter or forge a CI notice: a GitHub notice is signed by a one-time key its token binds, and a
   GitLab notice's token is inside the box, never shown to the relay (section 6.17).
 - Start agent turns with idle notices nobody asked for. A client takes a `notice` only for an
-  address its session armed with `notify_when_idle`, within the arm's 12 hours and once; the
-  watch is then closed. Any other notice is dropped and logged. A relay can still send the one
-  notice an arm asked for early, late or never.
+  address its session armed with `notify_when_idle` (or, after that session renamed itself, for
+  the new address the relay's peer rows give the same session id), within the arm's 12 hours and
+  once; the watch is then closed. Any other notice is dropped and logged. A relay can still send
+  the one notice an arm asked for early, late or never.
 
 ### 5.5 Network attacker
 
