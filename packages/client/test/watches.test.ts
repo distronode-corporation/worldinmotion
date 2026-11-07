@@ -67,6 +67,32 @@ describe("idle-notice watches on disk", () => {
     expect((await w.list()).map((x) => x.of)).toEqual([...many.slice(2).map((x) => x.of), "s0@two", "late@two"]);
   });
 
+  it("keeps one watch per session: a re-arm after a rename replaces the old address's, and an exact address wins over the id", async () => {
+    const w = new Watches(join(await scratch("watches"), "watches.json"), FS, Date.now);
+    // Armed as old@two, the session renamed itself and was armed again as new@two.
+    await w.arm([{ of: "old@two", sid: "sid-1" }, { of: "other@two", sid: "sid-2" }]);
+    await w.arm([{ of: "new@two", sid: "sid-1" }]);
+    expect((await w.list()).map((x) => [x.of, x.sid])).toEqual([
+      ["other@two", "sid-2"],
+      ["new@two", "sid-1"],
+    ]);
+    // A notice under the new address takes that watch, and only it.
+    expect(await w.take("new@two", "sid-1")).toBe(true);
+    expect((await w.list()).map((x) => x.of)).toEqual(["other@two"]);
+    // A notice under the old address, with the same id, takes the session's watch by the fallback.
+    await w.arm([{ of: "new@two", sid: "sid-1" }]);
+    expect(await w.take("old@two", "sid-1")).toBe(true);
+    expect((await w.list()).map((x) => x.of)).toEqual(["other@two"]);
+    // An exact address is taken before an older watch of another session that the relay says has the id now.
+    expect(await w.take("other@two")).toBe(true);
+    await w.arm([{ of: "mine@two", sid: "sid-3" }, { of: "other@two", sid: "sid-2" }]);
+    expect(await w.take("other@two", "sid-3")).toBe(true);
+    expect((await w.list()).map((x) => x.of)).toEqual(["mine@two"]);
+    // A different session's watch is never taken: neither its address nor its id.
+    expect(await w.take("stranger@two", "sid-9")).toBe(false);
+    expect((await w.list()).map((x) => x.of)).toEqual(["mine@two"]);
+  });
+
   it("reads a damaged, foreign or unreadable file as no watches", async () => {
     const dir = await scratch("watches");
     const path = join(dir, "watches.json");

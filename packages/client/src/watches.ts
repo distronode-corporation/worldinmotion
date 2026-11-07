@@ -49,24 +49,30 @@ export class Watches {
   }
 
   /**
-   * Records an arm for each address: a new watch, or a renewed one for an address already armed.
-   * The relay decides the limit, so none is refused here.
+   * Records an arm for each address: a new watch, or a renewed one in place of any for the same
+   * address or the same session (one session has one watch, so a re-arm after a rename replaces
+   * the old address's). The relay decides the limit, so none is refused here.
    */
   arm(arms: ReadonlyArray<{ of: string; sid?: string }>): Promise<void> {
     return this.change((watches) => {
       const at = this.now();
-      for (const { of, sid } of arms) watches = [...watches.filter((w) => w.of !== of), { of, ...(sid === undefined ? {} : { sid }), at, until: at + LIMITS.idleNoticeLifetimeMs }];
+      for (const { of, sid } of arms) {
+        const kept = watches.filter((w) => w.of !== of && (sid === undefined || w.sid !== sid));
+        watches = [...kept, { of, ...(sid === undefined ? {} : { sid }), at, until: at + LIMITS.idleNoticeLifetimeMs }];
+      }
       return { watches: watches.slice(-WATCHES_KEPT), out: undefined };
     });
   }
 
   /**
-   * Takes the watch for `of`, or for the session `sid` (the relay's id for `of` now, after a
-   * rename): true, and the watch is closed, when one was armed and has not lapsed.
+   * Takes the watch for `of`, or, when there is none, the one for the session `sid` (the relay's
+   * id for `of` now, after a rename): true, and the watch is closed, when one was armed and has
+   * not lapsed.
    */
   take(of: string, sid?: string): Promise<boolean> {
     return this.change((watches) => {
-      const i = watches.findIndex((w) => w.of === of || (sid !== undefined && w.sid === sid));
+      const exact = watches.findIndex((w) => w.of === of);
+      const i = exact !== -1 || sid === undefined ? exact : watches.findIndex((w) => w.sid === sid);
       // A notice nobody asked for changes nothing, so it writes nothing either.
       return i === -1 ? { out: false } : { watches: watches.filter((_, n) => n !== i), out: true };
     });
