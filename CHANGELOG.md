@@ -31,7 +31,11 @@ body line with a bracket.
   admitting device, then each other one, in modals. `wim events` takes `invite { own }`, answers
   `admit` with `trusted`, adds `added_by` to device rows (read only from the verified roster chain)
   and `admitted_by` to `joined` ([docs/events.md](docs/events.md), SPEC section 6a,
-  SECURITY-MODEL section 7.2).
+  SECURITY-MODEL section 7.2). An invite code now names the admin that made it (`by`, SPEC section
+  5): the joining side asks about the device that admitted it as the approver only when that is
+  the maker, and otherwise says so and asks about it like any other device. A client before 0.2.0
+  cannot read a code that carries `by`. Admitting on an own-device invite says first that it
+  trusts the device (the comparison-code prompt, `wim devices pending`, the VS Code admit box).
 
 ## [Unreleased]
 

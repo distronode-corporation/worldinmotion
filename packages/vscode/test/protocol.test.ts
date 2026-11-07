@@ -127,6 +127,13 @@ describe("parseLine: events", () => {
       devices: [{ name: "x", id: "y" }, { name: "z", id: "w", added_by: "x" }],
     });
     expect(invalid({ type: "joined", mesh: "ab…", admitted_by: "x", devices: [] })).toBe("joined: device is not an object");
+    expect(ev({ type: "joined", mesh: "ab…", admitted_other: { name: "b", id: "c", reason: "not_issuer" }, devices: [{ name: "b", id: "c", added_by_id: "d" }] })).toMatchObject({
+      admitted_other: { name: "b", id: "c", reason: "not_issuer" },
+      devices: [{ name: "b", id: "c", added_by_id: "d" }],
+    });
+    expect(invalid({ type: "joined", mesh: "ab…", admitted_other: { name: "b", id: "c", reason: "maybe" }, devices: [] })).toBe("joined: reason is not one of not_issuer, no_issuer");
+    expect(ev({ type: "join", op: "add", request: { name: "n", id: "d1", invite: "i1", at: 3, exp: 9, own: true } })).toMatchObject({ request: { own: true } });
+    expect(invalid({ type: "join", op: "add", request: { name: "n", id: "d1", invite: "i1", at: 3, exp: 9, own: "yes" } })).toBe("join: own is not a boolean");
     expect(invalid({ type: "joined", mesh: "ab…", devices: [{ name: "z", id: "w", added_by: 3 }] })).toBe("joined: added_by is not a string");
     expect(ev({ type: "device", name: "z", id: "w", role: "member", policy: "hold", self: false, added_by: "x" })).toMatchObject({ device: { added_by: "x" } });
     expect(invalid({ type: "device", name: "z", id: "w", role: "member", policy: "hold", self: false, added_by: null })).toBe("device: added_by is not a string");

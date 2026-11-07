@@ -39,7 +39,7 @@ import {
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { withLock } from "./fsx.ts";
-import { Invites, PendingJoins, sameCode, screenJoin } from "./joins.ts";
+import { Invites, ownInvite, PendingJoins, sameCode, screenJoin } from "./joins.ts";
 import { SetupError, type Device, type Home } from "./home.ts";
 import { DEFAULT_BREAKER, MeshFiles, setDevicePolicy, type MeshConfig } from "./mesh.ts";
 import { ClientError, relayRefusal, type MeshSession } from "./client.ts";
@@ -117,7 +117,9 @@ export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto
   if (me?.role !== "admin") throw new ClientError("only an admin device can invite", "not_admin");
   const now = o.now();
   const tls = session.config.tls;
-  const invite = createInvite({ relay: session.config.relay, mesh: session.config.mesh, pin: rosterRef(session.roster), exp: now + o.ttlMs, now, ...(tls === undefined ? {} : { tls }) });
+  // `by` names this device, so the joining device can tell whether the device that admits it is
+  // the one whose invite it holds (another admin could add it first).
+  const invite = createInvite({ relay: session.config.relay, mesh: session.config.mesh, pin: rosterRef(session.roster), exp: now + o.ttlMs, now, by: session.device.id, ...(tls === undefined ? {} : { tls }) });
   const invites = new Invites(session.mesh, session.files.env, o.now);
   // Nobody approves an auto-accept join, so it never trusts (SPEC section 6a).
   const own = o.own === true && !o.auto;
@@ -138,7 +140,8 @@ export async function issueInvite(session: MeshSession, o: { ttlMs: number; auto
   return { ...made, ...(await storeShortCode(link, session.config.relay, invite.code, invite.exp, o.now())) };
 }
 
-export type JoinPrompt = { name: string; id: string; sas: string };
+/** `own`: the invite was made for one of the person's own devices, so admitting trusts the device. */
+export type JoinPrompt = { name: string; id: string; sas: string; own: boolean };
 
 /** `trusted` (only when true): the invite was an own-device one, so the device admitted is `deliver` here now. */
 export type JoinDecision = { outcome: "admitted" | "refused" | "ignored"; reason?: string; name?: string; trusted?: boolean };
@@ -155,12 +158,13 @@ export async function decideJoin(session: MeshSession, body: JoinBody, confirm: 
   const screened = await screenJoin(invites, session.roster, body, now());
   if (screened.outcome !== "ok") return screened;
   const { record, device, sas } = screened;
-  if (!record.auto && !(await confirm({ name: device.name, id: device.id, sas }))) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
+  const own = ownInvite(record);
+  if (!record.auto && !(await confirm({ name: device.name, id: device.id, sas, own }))) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
   await publishRoster(session, (current) => nextRosterWith(current, { add: [admitJoin(device, now())] }, session.device.keyring, now()));
   await invites.markUsed(record.id);
   // Other requests on this invite (someone else's who also held the code) can never be admitted now.
   await new PendingJoins(session.mesh, session.files.env).remove(record.id);
-  if (record.own !== true || record.auto) return { outcome: "admitted", name: device.name };
+  if (!own) return { outcome: "admitted", name: device.name };
   await setDevicePolicy(session.mesh, device.id, "deliver");
   session.config = await session.mesh.loadConfig();
   return { outcome: "admitted", name: device.name, trusted: true };
@@ -250,7 +254,7 @@ export async function joinMesh(o: {
   now: () => number;
   showSas: (sas: string) => void;
   waitMs?: number;
-}): Promise<{ mesh: string; roster: Roster }> {
+}): Promise<{ mesh: string; roster: Roster; issuer?: string }> {
   const invite = parseInvite(o.code);
   const tls = invite.tls;
   checkDialable(invite.relay, tls);
@@ -273,7 +277,8 @@ export async function joinMesh(o: {
     if (!newest.devices.some((d) => d.id === o.device.id)) throw new ClientError("this device is not in the mesh's newest roster", "not_admitted");
     const files = new MeshFiles(o.home.meshDir(invite.mesh), o.home.env);
     await files.createConfig(newConfig(invite.mesh, invite.relay, o.device.id, newest, tls), chain);
-    return { mesh: invite.mesh, roster: newest };
+    // `issuer`: the device the code says made the invite (none in a code from before 0.2.0).
+    return { mesh: invite.mesh, roster: newest, ...(invite.by === undefined ? {} : { issuer: invite.by }) };
   } finally {
     link.close();
   }

@@ -390,3 +390,16 @@ export async function addersOf(files: MeshFiles, head: Roster): Promise<Map<stri
   }
   return out;
 }
+
+/**
+ * Whose approval a join was (SPEC section 6a), for the joining device: the device that signed the
+ * roster adding it (`admitter`) is the `approver` only when the invite code names it as the
+ * invite's maker (`issuer`). Every admin receives a join request, so another admin, another
+ * person's in a shared mesh, can add the device first; and a code from before 0.2.0 names no
+ * maker. Either way there is no approver, and the admitter is asked about like any other device.
+ */
+export function joinApproval(adders: ReadonlyMap<string, Adder>, me: string, issuer: string | undefined): { admitter?: Adder; approver?: Adder } {
+  const admitter = adders.get(me);
+  if (admitter === undefined) return {};
+  return admitter.id === issuer ? { admitter, approver: admitter } : { admitter };
+}

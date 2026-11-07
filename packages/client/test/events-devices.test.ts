@@ -171,6 +171,8 @@ describe("own-device trust through wim events", () => {
       let sas = "";
       const joined = joinMesh({ home: d.home, device: d.device, code: made.code, dialer: relay.dialer, now: Date.now, showSas: (x) => (sas = x) });
       await until(() => e.of("join").some((j) => (j["request"] as { name: string }).name === name));
+      // The join row says whether admitting it will trust it, so the UI can say so where the code is typed.
+      expect(e.of("join").find((j) => (j["request"] as { name: string }).name === name)!["request"]).toMatchObject({ own: own === true });
       const answer = await e.request("admit", { device: name, code: sas, ...extra });
       await joined;
       return { d, answer };
@@ -178,7 +180,7 @@ describe("own-device trust through wim events", () => {
     const mine = await join("mine", true);
     expect(mine.answer).toMatchObject({ ok: true, result: { device: "mine", trusted: true } });
     expect((await files.loadConfig()).policy[mine.d.device.id]).toBe("deliver");
-    await until(() => e.of("device").some((r) => r["name"] === "mine" && r["policy"] === "deliver" && r["added_by"] === "admin"));
+    await until(() => e.of("device").some((r) => r["name"] === "mine" && r["policy"] === "deliver" && r["added_by"] === "admin" && r["added_by_id"] === devices[0]!.device.id));
     // Not own, or own: false: held. An `own` a UI adds to `admit` is not an argument of it.
     const theirs = await join("theirs", false, { own: true, trusted: true });
     expect(theirs.answer).toMatchObject({ ok: true, result: { device: "theirs", trusted: false } });
@@ -210,6 +212,60 @@ describe("own-device trust through wim events", () => {
     expect(await fs.readdir(new MeshFiles(devices[0]!.home.meshDir(mesh), FS).invitesDir).catch(() => [])).toEqual([]);
   });
 });
+
+describe("device rows and the roster they come from", () => {
+  it("never sends a device's row without its adder when the roster moves while the adders are read", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["admin"]);
+    const d = devices[0]!;
+    /** Runs `hook` once, inside the next roster read: the read the adders of a new roster need. */
+    class Paused extends MeshFiles {
+      hook: (() => Promise<void>) | undefined;
+      override async loadRoster(seq: number) {
+        const h = this.hook;
+        this.hook = undefined;
+        if (h !== undefined) await h();
+        return super.loadRoster(seq);
+      }
+    }
+    const files = new Paused(d.home.meshDir(mesh), FS);
+    const h = harness();
+    const session = await MeshSession.open({ ...sessionOpts(d, mesh, relay, { name: "vscode", kind: "vscode" }), sessionKey: "events:vscode", mesh: files });
+    const running = runEvents({ session, mesh: files, env: FS, device: d.device, version: "test", write: h.write, input: h.input, signal: h.stop.signal, now: Date.now, pollMs: 20, leasePollMs: 1000 });
+    cleanup.push(async () => {
+      h.stop.abort();
+      await running;
+      await session.stop();
+    });
+    await until(() => h.of("snapshot").length > 0, 5000, "first snapshot");
+    const admin = await MeshSession.open({ ...sessionOpts(d, mesh, relay, { name: "a", kind: "cli" }) });
+    admin.start();
+    await admin.ready(3000);
+    cleanup.push(() => admin.stop({ ended: true }));
+    const { issueInvite, decideJoin } = await import("../src/admin.ts");
+    const add = async (name: string) => {
+      const inv = await issueInvite(admin, { ttlMs: 600_000, auto: true, now: Date.now });
+      const n = await newDevice(name);
+      const decided = new Promise<void>((resolve) => admin.once("join", (body) => void decideJoin(admin, body, async () => true, Date.now).then(() => resolve())));
+      await Promise.all([joinMesh({ home: n.home, device: n.device, code: inv.code, dialer: relay.dialer, now: Date.now, showSas: () => undefined }), decided]);
+      return n;
+    };
+    // While the events process reads the adders of the roster that adds `first`, the roster moves
+    // on again and adds `second`.
+    let second: TestDevice | undefined;
+    files.hook = async () => {
+      second = await add("second");
+      await until(() => session.roster.devices.some((x) => x.id === second!.device.id));
+    };
+    await add("first");
+    await until(() => e2(h).some((r) => r["name"] === "second"), 10_000, "second's row");
+    const firstRowOfSecond = e2(h).find((r) => r["name"] === "second")!;
+    expect(firstRowOfSecond).toMatchObject({ added_by: "admin", added_by_id: d.device.id });
+  }, 30_000);
+});
+
+/** The device rows a harness was sent, in order. */
+const e2 = (h: ReturnType<typeof harness>): Line[] => h.of("device");
 
 describe("setup mode", () => {
   it("joins a mesh from a device with no keys yet, then ends", async () => {
@@ -251,7 +307,7 @@ describe("setup mode", () => {
     expect(s.of("joined")[0]).toMatchObject({
       mesh: `${mesh.slice(0, 4)}…`,
       admitted_by: { name: "admin", id: devices[0]!.device.id },
-      devices: [{ name: "admin", id: devices[0]!.device.id }, { name: "member", id: devices[1]!.device.id }, { name: "late", id: late.device.id, added_by: "admin" }],
+      devices: [{ name: "admin", id: devices[0]!.device.id }, { name: "member", id: devices[1]!.device.id }, { name: "late", id: late.device.id, added_by: "admin", added_by_id: devices[0]!.device.id }],
     });
     expect((s.of("joined")[0]!["devices"] as Array<Record<string, unknown>>)[1]).not.toHaveProperty("added_by");
   }, 20_000);

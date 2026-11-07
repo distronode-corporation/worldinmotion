@@ -9,7 +9,7 @@ import { homedir } from "node:os";
 import { clientCommand, clientCwd, crashReportsTerminal, EventsProcess, recoveryTerminal, selfTestCommand, signerTerminal, type SpawnFn } from "./process.ts";
 import { runSelfTest } from "./selftest.ts";
 import { spawn as nodeSpawn } from "node:child_process";
-import { historyRows, type DeviceRef, type JoinedDevice, type MessageRow } from "./protocol.ts";
+import { historyRows, type AdmittedOther, type DeviceRef, type JoinedDevice, type MessageRow } from "./protocol.ts";
 import { Store, toNotify } from "./state.ts";
 import { signerState, StatusItem } from "./status.ts";
 import { SCHEME, showThread, ThreadProvider, type Requester } from "./thread.ts";
@@ -71,7 +71,9 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   };
   const deps: actions.Deps = { store, client, nodes, now, invited: new Set(), notMine };
   /** Who admitted this device and the other devices, asked about once the client runs in the mesh this device just joined. */
-  let trustAfterJoin: { approver: DeviceRef | undefined; others: JoinedDevice[] } | undefined;
+  let trustAfterJoin: { approver: DeviceRef | undefined; other: AdmittedOther | undefined; others: JoinedDevice[] } | undefined;
+  /** Device ids the person was asked about in this window, so a reconnect's snapshot asks nothing again. */
+  const asked = new Set<string>();
   /** Set from a `create` answer until its `created`: the client holds a recovery code. */
   let recoveryWaits = false;
   /**
@@ -172,17 +174,25 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
       return clientCommand({ extensionPath: context.extensionPath, wimPath: s.wimPath, sessionName: s.sessionName, execPath: process.execPath, env: process.env, telemetry: vscode.env.isTelemetryEnabled, cwd });
     },
     onEvent: (ev) => {
-      // A device new to the mesh since the snapshot: asked about when another device added it.
-      const added = ev.type === "device" && !store.devices.has(ev.device.name) ? ev.device : undefined;
       store.apply(ev);
-      if (added !== undefined && store.askAbout(added, notMine)) void actions.thirdDevice(deps, added);
+      // A device another device added and nobody decided: asked about once in this window, when a
+      // snapshot shows it (it may have joined while VS Code was closed) or a device row does (it is
+      // new, or its adder became known).
+      const rows = ev.type === "device" ? [ev.device] : ev.type === "snapshot" ? ev.devices : [];
+      for (const row of rows) {
+        if (asked.has(row.id) || !store.askAbout(row, notMine)) continue;
+        asked.add(row.id);
+        void actions.thirdDevice(deps, row);
+      }
       if (ev.type === "hello") loadHistory();
       if (ev.type === "join" && ev.op === "add") void actions.joinRequested(deps, ev.request);
       if (ev.type === "join_failed") void vscode.window.showErrorMessage(notice(`worldinmotion: joining the mesh failed: ${ev.message}`));
       if (ev.type === "joined") {
         // The client ends after joining; started again, it runs in the mesh, and its first
         // snapshot is when the person is asked about the other devices.
-        trustAfterJoin = { approver: ev.admitted_by, others: ev.devices };
+        trustAfterJoin = { approver: ev.admitted_by, other: ev.admitted_other, others: ev.devices };
+        // Each of these is asked about once in the mesh, by joinTrust.
+        for (const x of ev.devices) asked.add(x.id);
         proc!.restart();
       }
       if (ev.type === "created") {
@@ -193,7 +203,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
         proc!.restart();
       }
       if (ev.type === "snapshot" && trustAfterJoin !== undefined) {
-        void actions.joinTrust(deps, trustAfterJoin.approver, trustAfterJoin.others);
+        void actions.joinTrust(deps, trustAfterJoin.approver, trustAfterJoin.others, trustAfterJoin.other);
         trustAfterJoin = undefined;
       }
       if (ev.type === "message") threads.messageArrived(ev.message);

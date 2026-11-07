@@ -342,6 +342,12 @@ describe("wim invite, join and devices", () => {
     // The answer is in the record, never in the code.
     expect(JSON.stringify(parseInvite(ownCode))).not.toMatch(/own/);
     const mine = await joining(relay, "minebox", ownCode);
+    // `wim devices pending` says, before the admit, that admitting it trusts it; the earlier
+    // request on a plain invite said nothing of the kind.
+    const listed = term(devices[0]!.root, relay);
+    expect(await run(listed, "devices", "pending")).toBe(0);
+    expect(said(listed)).toMatch(/^minebox {2}\S+ {2}asked \S+ {2}invite expires \S+ {2}\(This invite was for one of your own devices: admitting minebox trusts its messages here\.\)$/m);
+    expect(said(p)).not.toContain("This invite was for one of your own devices");
     const q = term(devices[0]!.root, relay);
     expect(await run(q, "devices", "admit", "minebox", mine.sas)).toBe(0);
     expect(said(q)).toContain("Trusted minebox. wim devices untrust minebox undoes it.");

@@ -14,7 +14,10 @@
 //                      and ends, after which it starts in the mesh; with WIM_FAKE_RECOVERY=hold it
 //                      keeps holding the code until it is stopped, and with =crash it exits
 //                      (code 1) while holding it, never saying `created`; "third-device" (in the
-//                      mesh, a device that buildbox added arrives after the snapshot)
+//                      mesh, a device that buildbox added arrives after the snapshot); "third-snapshot"
+//                      (that device is already in the snapshot, as when it joined while VS Code
+//                      was closed, beside a trusted one buildbox added); "adder-later" (its row
+//                      comes first without its adder, then with it, then once more unchanged)
 //   WIM_FAKE_TEST      for `test --json` (the self-test): see below
 
 import { appendFileSync, existsSync, statSync, writeFileSync } from "node:fs";
@@ -112,6 +115,12 @@ const rooms = () => {
   for (const s of sessions) for (const r of s.rooms) byRoom.set(r, [...(byRoom.get(r) ?? []), s.address]);
   return [...byRoom].map(([name, members]) => ({ name, members }));
 };
+if (scenario === "third-snapshot") {
+  for (const d of [
+    { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false, added_by: "buildbox", added_by_id: "dev-buildbox" },
+    { name: "ci", id: "dev-ci", role: "member", policy: "deliver", self: false, added_by: "buildbox", added_by_id: "dev-buildbox" },
+  ]) devices.set(d.name, d);
+}
 const snapshot = () =>
   emit("snapshot", {
     devices: [...devices.values()],
@@ -218,7 +227,7 @@ function handle(line) {
       emit("join", { op: "remove", request });
       // An own-device invite trusts the device it admits; this device added it.
       const trusted = ownInvites.get(request.invite) === true;
-      const d = { name: request.name, id: request.id, role: "member", policy: trusted ? "deliver" : "hold", self: false, added_by: "laptop" };
+      const d = { name: request.name, id: request.id, role: "member", policy: trusted ? "deliver" : "hold", self: false, added_by: "laptop", added_by_id: "dev-laptop" };
       devices.set(d.name, d);
       emit("device", d);
       return respond(id, { device: request.name, trusted });
@@ -287,8 +296,16 @@ function inMesh() {
   emit("peer", { ...sessions[2], mood: "fine" });
   if (scenario === "bad-version") process.stdout.write(`${JSON.stringify({ v: 2, type: "hello", at: Date.now() })}\n`);
   // A message for a Claude Code tab on this device, not for this window's own session.
+  if (scenario === "adder-later") {
+    const desk = { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false };
+    emit("device", desk);
+    const known = { ...desk, added_by: "buildbox", added_by_id: "dev-buildbox" };
+    devices.set(desk.name, known);
+    emit("device", known);
+    emit("device", known);
+  }
   if (scenario === "third-device") {
-    const desk = { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false, added_by: "buildbox" };
+    const desk = { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false, added_by: "buildbox", added_by_id: "dev-buildbox" };
     devices.set(desk.name, desk);
     emit("device", desk);
   }

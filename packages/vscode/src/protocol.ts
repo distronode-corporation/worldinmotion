@@ -11,7 +11,7 @@ export type MessageKind = "msg" | "task" | "result" | "file";
 export type FileInfo = { name: string; size: number; mime: string };
 
 /** `added_by`: the device that signed the roster adding this one, as the client read it from its verified chain (from 0.2.0). */
-export type DeviceRow = { name: string; id: string; role: "admin" | "member"; policy: Policy; self: boolean; added_by?: string };
+export type DeviceRow = { name: string; id: string; role: "admin" | "member"; policy: Policy; self: boolean; added_by?: string; added_by_id?: string };
 export type Card = { cwd?: string; branch?: string; title?: string };
 export type SessionRow = {
   address: string;
@@ -69,10 +69,13 @@ export type BreakerReason = "peer" | "total" | "pingpong";
 export type BreakerRow = { peer: string; reason?: BreakerReason; at: number; until?: number };
 export type ReceiptStatus = "delivered" | "held" | "refused" | "expired";
 /** A device waiting to join (an admin device only): never its comparison code, which the person types. */
-export type JoinRow = { name: string; id: string; invite: string; at: number; exp: number };
+/** `own` (from 0.2.0): the invite was made for one of the person's own devices, so admitting it trusts it. */
+export type JoinRow = { name: string; id: string; invite: string; at: number; exp: number; own?: boolean };
 export type DeviceRef = { name: string; id: string };
 /** A device of the mesh this device just joined, and who added it when the client could tell. */
-export type JoinedDevice = DeviceRef & { added_by?: string };
+export type JoinedDevice = DeviceRef & { added_by?: string; added_by_id?: string };
+/** The device that admitted this one without being the invite's maker, and why the client says so. */
+export type AdmittedOther = DeviceRef & { reason: "not_issuer" | "no_issuer" };
 /** Where the device keys are: in the client (a plaintext key file) or in the signer (`wim agent`). */
 export type KeysAt = "local" | "signer";
 
@@ -102,7 +105,7 @@ export type WimEvent =
   | { type: "breaker"; at: number; peer: string; state: "tripped" | "resumed"; reason?: BreakerReason; until?: number }
   | { type: "join"; at: number; op: "add" | "remove"; request: JoinRow }
   | { type: "setup"; at: number; version: string; device?: DeviceRef }
-  | { type: "joined"; at: number; mesh: string; devices: JoinedDevice[]; admitted_by?: DeviceRef }
+  | { type: "joined"; at: number; mesh: string; devices: JoinedDevice[]; admitted_by?: DeviceRef; admitted_other?: AdmittedOther }
   | { type: "join_failed"; at: number; message: string }
   | { type: "created"; at: number; mesh: string; recovery: "shown" | "not_collected" };
 
@@ -188,7 +191,7 @@ function file(o: Obj, k: string): FileInfo {
 
 export function deviceRow(x: unknown): DeviceRow {
   const o = obj(x, "device");
-  return compact<DeviceRow>({ name: str(o, "name"), id: str(o, "id"), role: oneOf(o, "role", ["admin", "member"]), policy: oneOf(o, "policy", POLICIES), self: bool(o, "self"), added_by: opt(o, "added_by", str) });
+  return compact<DeviceRow>({ name: str(o, "name"), id: str(o, "id"), role: oneOf(o, "role", ["admin", "member"]), policy: oneOf(o, "policy", POLICIES), self: bool(o, "self"), added_by: opt(o, "added_by", str), added_by_id: opt(o, "added_by_id", str) });
 }
 
 export function sessionRow(x: unknown): SessionRow {
@@ -267,7 +270,7 @@ function breakerRow(x: unknown): BreakerRow {
 
 function joinRow(x: unknown): JoinRow {
   const o = obj(x, "join");
-  return { name: str(o, "name"), id: str(o, "id"), invite: str(o, "invite"), at: num(o, "at"), exp: num(o, "exp") };
+  return compact<JoinRow>({ name: str(o, "name"), id: str(o, "id"), invite: str(o, "invite"), at: num(o, "at"), exp: num(o, "exp"), own: opt(o, "own", bool) });
 }
 
 function deviceRef(x: unknown): DeviceRef {
@@ -277,7 +280,12 @@ function deviceRef(x: unknown): DeviceRef {
 
 function joinedDevice(x: unknown): JoinedDevice {
   const o = obj(x, "device");
-  return compact<JoinedDevice>({ name: str(o, "name"), id: str(o, "id"), added_by: opt(o, "added_by", str) });
+  return compact<JoinedDevice>({ name: str(o, "name"), id: str(o, "id"), added_by: opt(o, "added_by", str), added_by_id: opt(o, "added_by_id", str) });
+}
+
+function admittedOther(o: Obj, k: string): AdmittedOther {
+  const a = obj(o[k], k);
+  return { name: str(a, "name"), id: str(a, "id"), reason: oneOf(a, "reason", ["not_issuer", "no_issuer"]) };
 }
 
 function event(o: Obj, type: string, at: number): WimEvent | undefined {
@@ -337,7 +345,7 @@ function event(o: Obj, type: string, at: number): WimEvent | undefined {
     case "setup":
       return compact({ type, at, version: str(o, "version"), device: o.device === null ? undefined : deviceRef(o.device) });
     case "joined":
-      return compact({ type, at, mesh: str(o, "mesh"), devices: list(o, "devices", joinedDevice), admitted_by: opt(o, "admitted_by", (o, k) => deviceRef(o[k])) });
+      return compact({ type, at, mesh: str(o, "mesh"), devices: list(o, "devices", joinedDevice), admitted_by: opt(o, "admitted_by", (o, k) => deviceRef(o[k])), admitted_other: opt(o, "admitted_other", admittedOther) });
     case "join_failed":
       return { type, at, message: str(o, "message") };
     case "created":

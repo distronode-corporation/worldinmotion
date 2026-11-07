@@ -65,6 +65,7 @@ describe("setting up", () => {
     expect(said(a)).toContain(OWN_QUESTION);
     expect(said(a).indexOf(OWN_QUESTION)).toBeLessThan(said(a).indexOf("wim1_"));
     expect(said(a)).not.toContain("Is my-host-local your own device?");
+    expect(said(a)).not.toContain("This invite was for one of your own devices");
     expect(said(a)).toContain("Messages from my-host-local are held for your approval. If it is your own: wim devices trust my-host-local");
     expect(said(b)).toMatch(/Joined mesh/);
     expect(said(b)).toContain(`wim devices admit my-host-local ${sas}`);

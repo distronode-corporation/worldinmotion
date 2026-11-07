@@ -86625,7 +86625,13 @@ var inviteBodySchema = external_exports.strictObject({
   pin: rosterRefSchema,
   exp: timeSchema,
   /** Optional relay certificate pin: b64u SHA-256 of its SubjectPublicKeyInfo (SPEC section 5). */
-  tls: b64uBytes(32).optional()
+  tls: b64uBytes(32).optional(),
+  /**
+   * Optional (from 0.2.0): the id of the admin device that made the invite. The joining device
+   * treats the device that admits it as the invite's maker only when this matches the signer of
+   * the roster that adds it (SPEC section 6a).
+   */
+  by: deviceIdSchema.optional()
 });
 function spkiPin(spkiDer) {
   if (!(spkiDer instanceof Uint8Array) || spkiDer.length === 0) throw new TypeError("spkiPin: expected DER bytes");
@@ -86645,7 +86651,7 @@ function createInvite(opts) {
   }
   if (exp - now > LIMITS.inviteMaxTtlMs) throw new RangeError("createInvite: exp is more than 7 days away");
   const secret = randomBytes2(32);
-  const body = { relay: opts.relay, mesh: opts.mesh, secret: b64u.encode(secret), pin: opts.pin, exp, tls: opts.tls };
+  const body = { relay: opts.relay, mesh: opts.mesh, secret: b64u.encode(secret), pin: opts.pin, exp, tls: opts.tls, by: opts.by };
   const parsed2 = inviteBodySchema.safeParse(body);
   if (!parsed2.success) throw new TypeError(`createInvite: ${describe3(parsed2.error)}`);
   return { code: PREFIX + b64u.encode(canonBytes(body)), secret, inviteId: inviteIdFromSecret(secret), exp };
@@ -90773,6 +90779,11 @@ async function addersOf(files, head) {
   }
   return out;
 }
+function joinApproval(adders, me, issuer) {
+  const admitter = adders.get(me);
+  if (admitter === void 0) return {};
+  return admitter.id === issuer ? { admitter, approver: admitter } : { admitter };
+}
 
 // src/offline.ts
 import { join as join8 } from "node:path";
@@ -91688,6 +91699,9 @@ function pingReport(rows, from, waitMs) {
 
 // src/joins.ts
 import { join as join10 } from "node:path";
+function ownInvite(r6) {
+  return r6.own === true && !r6.auto;
+}
 var Invites = class {
   files;
   env;
@@ -91781,9 +91795,10 @@ var PendingJoins = class {
     for (const { name, file: file2 } of await this.entries()) {
       const d5 = file2.body.device;
       const known = roster.devices.some((x2) => x2.id === d5.id) || roster.revoked.includes(d5.id);
-      const live = file2.exp > now && (await invites.get(file2.body.invite))?.used === false;
+      const record2 = await invites.get(file2.body.invite);
+      const live = file2.exp > now && record2?.used === false;
       if (known || !live) await tryRemove(join10(this.files.joinsDir, name), this.env);
-      else rows.push({ name: d5.name, id: d5.id, invite: file2.body.invite, at: file2.at, exp: file2.exp, body: file2.body });
+      else rows.push({ name: d5.name, id: d5.id, invite: file2.body.invite, at: file2.at, exp: file2.exp, own: ownInvite(record2), body: file2.body });
     }
     return rows.sort((x2, y) => x2.at - y.at);
   }
@@ -120795,7 +120810,7 @@ async function issueInvite(session, o3) {
   if (me?.role !== "admin") throw new ClientError("only an admin device can invite", "not_admin");
   const now = o3.now();
   const tls3 = session.config.tls;
-  const invite2 = createInvite({ relay: session.config.relay, mesh: session.config.mesh, pin: rosterRef(session.roster), exp: now + o3.ttlMs, now, ...tls3 === void 0 ? {} : { tls: tls3 } });
+  const invite2 = createInvite({ relay: session.config.relay, mesh: session.config.mesh, pin: rosterRef(session.roster), exp: now + o3.ttlMs, now, by: session.device.id, ...tls3 === void 0 ? {} : { tls: tls3 } });
   const invites = new Invites(session.mesh, session.files.env, o3.now);
   const own2 = o3.own === true && !o3.auto;
   await invites.put({ v: 1, id: invite2.inviteId, exp: invite2.exp, auto: o3.auto, ...own2 ? { own: own2 } : {}, used: false, created: now, secret: b64u.encode(invite2.secret) });
@@ -120819,11 +120834,12 @@ async function decideJoin(session, body, confirm, now) {
   const screened = await screenJoin(invites, session.roster, body, now());
   if (screened.outcome !== "ok") return screened;
   const { record: record2, device, sas } = screened;
-  if (!record2.auto && !await confirm({ name: device.name, id: device.id, sas })) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
+  const own2 = ownInvite(record2);
+  if (!record2.auto && !await confirm({ name: device.name, id: device.id, sas, own: own2 })) return { outcome: "refused", reason: "the person did not confirm", name: device.name };
   await publishRoster(session, (current) => nextRosterWith(current, { add: [admitJoin(device, now())] }, session.device.keyring, now()));
   await invites.markUsed(record2.id);
   await new PendingJoins(session.mesh, session.files.env).remove(record2.id);
-  if (record2.own !== true || record2.auto) return { outcome: "admitted", name: device.name };
+  if (!own2) return { outcome: "admitted", name: device.name };
   await setDevicePolicy(session.mesh, device.id, "deliver");
   session.config = await session.mesh.loadConfig();
   return { outcome: "admitted", name: device.name, trusted: true };
@@ -120901,7 +120917,7 @@ async function joinMesh(o3) {
     if (!newest.devices.some((d5) => d5.id === o3.device.id)) throw new ClientError("this device is not in the mesh's newest roster", "not_admitted");
     const files = new MeshFiles(o3.home.meshDir(invite2.mesh), o3.home.env);
     await files.createConfig(newConfig(invite2.mesh, invite2.relay, o3.device.id, newest, tls3), chain2);
-    return { mesh: invite2.mesh, roster: newest };
+    return { mesh: invite2.mesh, roster: newest, ...invite2.by === void 0 ? {} : { issuer: invite2.by } };
   } finally {
     link.close();
   }
@@ -121308,18 +121324,16 @@ async function runEvents(d5) {
   const emit = (type, fields2 = {}) => d5.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d5.now(), ...fields2 }));
   const myDevice = d5.device.id;
   let adders = { hash: "", map: /* @__PURE__ */ new Map() };
-  async function readAdders() {
+  async function deviceRows2() {
     const roster = s3.roster;
     const h6 = hash2(roster);
     if (adders.hash !== h6) adders = { hash: h6, map: await addersOf(d5.mesh, roster) };
+    const map4 = adders.map;
+    return roster.devices.filter((dev) => !isRecoveryName(dev.name)).map((dev) => {
+      const by = map4.get(dev.id);
+      return { name: dev.name, id: dev.id, role: dev.role, policy: policyLevel(s3.config, dev.id), self: dev.id === myDevice, ...by === void 0 ? {} : { added_by: by.name, added_by_id: by.id } };
+    });
   }
-  const deviceRows2 = () => (
-    // Recovery records never act (SPEC section 4a), so a UI has nothing to show or decide for them.
-    s3.roster.devices.filter((dev) => !isRecoveryName(dev.name)).map((dev) => {
-      const by = adders.map.get(dev.id);
-      return { name: dev.name, id: dev.id, role: dev.role, policy: policyLevel(s3.config, dev.id), self: dev.id === myDevice, ...by === void 0 ? {} : { added_by: by.name } };
-    })
-  );
   const sessionRow = (p3) => ({
     address: p3.address,
     sid: p3.sid,
@@ -121353,7 +121367,7 @@ async function runEvents(d5) {
   const remember = (rows, key3) => new Map(rows.map((r6) => [key3(r6), JSON.stringify(r6)]));
   async function joinsNow() {
     const rows = await new PendingJoins(d5.mesh, d5.env).list(s3.roster, new Invites(d5.mesh, d5.env, d5.now), d5.now());
-    return rows.map((r6) => ({ name: r6.name, id: r6.id, invite: r6.invite, at: r6.at, exp: r6.exp }));
+    return rows.map((r6) => ({ name: r6.name, id: r6.id, invite: r6.invite, at: r6.at, exp: r6.exp, own: r6.own }));
   }
   const joinKey = (r6) => `${r6["invite"]}/${r6["id"]}`;
   let joinsQueue = Promise.resolve();
@@ -121421,8 +121435,7 @@ async function runEvents(d5) {
     const heldRows = [...held2.values()].map((h6) => h6.row);
     const joinRows = await joinsNow();
     joins = remember(joinRows, joinKey);
-    await readAdders();
-    const devs = deviceRows2();
+    const devs = await deviceRows2();
     devices2 = remember(devs, (r6) => r6["id"]);
     peers2 = remember(rows.map(sessionRow), (r6) => r6["address"]);
     leases = remember(leaseRows, (l3) => l3.name);
@@ -121527,8 +121540,7 @@ async function runEvents(d5) {
     await follow(false);
     await heldPass();
     await joinsPass();
-    await readAdders();
-    devices2 = diff("device", deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
+    devices2 = diff("device", await deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
   }
   async function leasePass() {
     if (s3.link === void 0) return;
@@ -121597,7 +121609,7 @@ async function runEvents(d5) {
         if (target === void 0) throw new RequestError("not_found", `no device named ${sanitizeForDisplay(name)}`);
         const policy = await setDevicePolicy(d5.mesh, target.id, trustLevel(op2, a5.relayed === true));
         s3.config = await d5.mesh.loadConfig();
-        devices2 = diff("device", deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
+        devices2 = diff("device", await deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
         return { policy };
       }
       case "resume": {
@@ -121619,8 +121631,7 @@ async function runEvents(d5) {
         const decision = await admitPending(s3, i6.device, i6.code, d5.now);
         if (decision.outcome !== "admitted") throw new RequestError("refused", `could not admit ${sanitizeForDisplay(i6.device)}: ${decision.reason}`);
         await joinsPass();
-        await readAdders();
-        devices2 = diff("device", deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
+        devices2 = diff("device", await deviceRows2(), (r6) => r6["id"], devices2, deviceGone);
         return { device: i6.device, trusted: decision.trusted === true };
       }
     }
@@ -121674,8 +121685,7 @@ async function runEvents(d5) {
   await follow(true);
   held2 = await heldNow();
   joins = remember(await joinsNow(), joinKey);
-  await readAdders();
-  devices2 = remember(deviceRows2(), (r6) => r6["id"]);
+  devices2 = remember(await deviceRows2(), (r6) => r6["id"]);
   s3.start();
   let busy = false;
   const tick = setInterval(() => {
@@ -121793,12 +121803,17 @@ async function runSetupEvents(d5) {
         }).then(
           async (done) => {
             const map4 = await addersOf(new MeshFiles(d5.home.meshDir(done.mesh), d5.home.env), done.roster);
-            const by = map4.get(device.id);
+            const { admitter, approver } = joinApproval(map4, device.id, done.issuer);
             const others = done.roster.devices.filter((x2) => x2.id !== device.id && !isRecoveryName(x2.name)).map((x2) => {
               const adder = map4.get(x2.id);
-              return { name: x2.name, id: x2.id, ...adder === void 0 ? {} : { added_by: adder.name } };
+              return { name: x2.name, id: x2.id, ...adder === void 0 ? {} : { added_by: adder.name, added_by_id: adder.id } };
             });
-            emit("joined", { mesh: `${done.mesh.slice(0, 4)}\u2026`, admitted_by: { name: by.name, id: by.id }, devices: others });
+            emit("joined", {
+              mesh: `${done.mesh.slice(0, 4)}\u2026`,
+              ...approver === void 0 ? {} : { admitted_by: { name: approver.name, id: approver.id } },
+              ...admitter === void 0 || approver !== void 0 ? {} : { admitted_other: { name: admitter.name, id: admitter.id, reason: done.issuer === void 0 ? "no_issuer" : "not_issuer" } },
+              devices: others
+            });
             finish();
           },
           (error64) => {
@@ -134283,6 +134298,7 @@ function noPerson2(ctx) {
 }
 async function typedCode(ctx, p3) {
   ctx.io.out(`A device named ${p3.name} (id ${p3.id}) asks to join.`);
+  if (p3.own) ctx.io.out(ownAdmitLine(p3.name));
   for (let tries = 0; tries < 3; tries++) {
     const typed = (await ctx.io.prompt("Type the comparison code the new device shows (Enter to refuse): ")).trim();
     if (typed === "") return false;
@@ -134395,6 +134411,9 @@ async function invite(ctx) {
   }
 }
 var OWN_QUESTION = "Is the new device one of yours? Its messages will then be trusted here when it joins. [y/N] ";
+function ownAdmitLine(name) {
+  return `This invite was for one of your own devices: admitting ${name} trusts its messages here.`;
+}
 function trustedLine(name) {
   return `Trusted ${name}. wim devices untrust ${name} undoes it.`;
 }
@@ -134402,10 +134421,15 @@ function admittedTrust(decision) {
   const name = decision.name;
   return decision.trusted === true ? trustedLine(name) : `Messages from ${name} are held for your approval. If it is your own: wim devices trust ${name}`;
 }
-async function askJoinTrust(ctx, files, roster, me) {
+async function askJoinTrust(ctx, files, roster, me, issuer) {
   const adders = await addersOf(files, roster);
-  const approver = adders.get(me);
-  const others = roster.devices.filter((d5) => d5.id !== me && d5.id !== approver.id && !isRecoveryName(d5.name));
+  const { admitter, approver } = joinApproval(adders, me, issuer);
+  if (admitter !== void 0 && approver === void 0) {
+    ctx.io.out(
+      issuer === void 0 ? `This invite code does not say which device made it (it is from wim 0.1.x), so ${admitter.name}, which admitted this device, is asked about like any other device.` : `Warning: ${admitter.name} admitted this device, but the invite was made by another device (id ${issuer}). If you did not expect ${admitter.name} to admit it, it may be someone else's: it is asked about like any other device.`
+    );
+  }
+  const others = roster.devices.filter((d5) => d5.id !== me && d5.id !== approver?.id && !isRecoveryName(d5.name));
   const ask3 = canConfirm(ctx.env, ctx.io);
   const held2 = [];
   const one = async (d5, question) => {
@@ -134414,7 +134438,7 @@ async function askJoinTrust(ctx, files, roster, me) {
       ctx.io.out(trustedLine(d5.name));
     } else held2.push(d5.name);
   };
-  await one(approver, `${approver.name} admitted this device. Is ${approver.name} your own device? [y/N] `);
+  if (approver !== void 0) await one(approver, `${approver.name} admitted this device. Is ${approver.name} your own device? [y/N] `);
   for (const d5 of others) {
     const by = adders.get(d5.id);
     await one(d5, `The mesh also has ${d5.name}${by === void 0 ? "" : ` (added by ${by.name})`}. Is ${d5.name} your own device? [y/N] `);
@@ -134443,7 +134467,7 @@ async function joinWith(ctx, typed, hint) {
     }
   });
   ctx.io.out(`Joined mesh ${joined.mesh}.`);
-  await askJoinTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), joined.roster, device.id);
+  await askJoinTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), joined.roster, device.id, joined.issuer);
   await registerCli(ctx, joined.mesh);
   if (hint) ctx.io.out(STATUS_LINE);
 }
@@ -134549,7 +134573,7 @@ async function pending(ctx) {
     const rows = await new PendingJoins(s3.mesh, ctx.fsEnv).list(s3.roster, new Invites(s3.mesh, ctx.fsEnv, ctx.io.now), ctx.io.now());
     if (s3.roster.devices.find((d5) => d5.id === s3.device.id).role !== "admin") ctx.io.out("This device is not an admin, so no join requests come here.");
     else if (rows.length === 0) ctx.io.out("No device is waiting to join.");
-    for (const r6 of rows) ctx.io.out(`${r6.name}  ${r6.id}  asked ${new Date(r6.at).toISOString()}  invite expires ${new Date(r6.exp).toISOString()}`);
+    for (const r6 of rows) ctx.io.out(`${r6.name}  ${r6.id}  asked ${new Date(r6.at).toISOString()}  invite expires ${new Date(r6.exp).toISOString()}${r6.own ? `  (${ownAdmitLine(r6.name)})` : ""}`);
     if (rows.length > 0) ctx.io.out("In your own terminal, admit one with the comparison code it shows: wim devices admit <name> <code>");
     return 0;
   } finally {

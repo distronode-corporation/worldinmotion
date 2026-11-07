@@ -22,7 +22,7 @@ import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp, type Retried } from "./mcp.ts";
 import { HOOK_AGENTS, hookAnswer, readInput } from "./hook.ts";
 import type { Ancestor } from "./ancestry.ts";
-import { addersOf, MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
+import { addersOf, joinApproval, MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
 import { approvableIds, ciText, countText, groupHeld, pinText, setOf, setTitle, spanText, type HeldSet } from "./heldsets.ts";
@@ -913,6 +913,7 @@ function noPerson(ctx: Ctx): string {
  */
 async function typedCode(ctx: Ctx, p: JoinPrompt): Promise<boolean> {
   ctx.io.out(`A device named ${p.name} (id ${p.id}) asks to join.`);
+  if (p.own) ctx.io.out(ownAdmitLine(p.name));
   for (let tries = 0; tries < 3; tries++) {
     const typed = (await ctx.io.prompt("Type the comparison code the new device shows (Enter to refuse): ")).trim();
     if (typed === "") return false;
@@ -1044,6 +1045,11 @@ async function invite(ctx: Ctx): Promise<number> {
 /** Asked by `wim invite` before it shows the code (SPEC section 6a). */
 export const OWN_QUESTION = "Is the new device one of yours? Its messages will then be trusted here when it joins. [y/N] ";
 
+/** Said before the person admits on an own-device invite, so the trust is not a surprise. */
+export function ownAdmitLine(name: string): string {
+  return `This invite was for one of your own devices: admitting ${name} trusts its messages here.`;
+}
+
 /** Every automatic trust says how to undo it. */
 export function trustedLine(name: string): string {
   return `Trusted ${name}. wim devices untrust ${name} undoes it.`;
@@ -1056,15 +1062,25 @@ function admittedTrust(decision: { name?: string; trusted?: boolean }): string {
 }
 
 /**
- * The joining side (SPEC section 6a): first the device that admitted this one, the only one whose
- * approval this join was, then each other device on its own, naming who added it. A yes trusts
- * that one device (policy `deliver`); nothing is trusted because another device was. Asked only of
- * a person at the terminal (canConfirm); everyone else is told the commands.
+ * The joining side (SPEC section 6a): first the device that made the invite, when it is also the
+ * one that admitted this device (the only one whose approval this join was), then each other
+ * device on its own, naming who added it. A device that admitted this one without having made
+ * the invite (another admin; or any admitter, for a code from before 0.2.0 that names no maker)
+ * is said so first, and asked about like any other device. A yes trusts that one device (policy
+ * `deliver`); nothing is trusted because another device was. Asked only of a person at the
+ * terminal (canConfirm); everyone else is told the commands.
  */
-async function askJoinTrust(ctx: Ctx, files: MeshFiles, roster: Roster, me: string): Promise<void> {
+async function askJoinTrust(ctx: Ctx, files: MeshFiles, roster: Roster, me: string, issuer: string | undefined): Promise<void> {
   const adders = await addersOf(files, roster);
-  const approver = adders.get(me)!;
-  const others = roster.devices.filter((d) => d.id !== me && d.id !== approver.id && !isRecoveryName(d.name));
+  const { admitter, approver } = joinApproval(adders, me, issuer);
+  if (admitter !== undefined && approver === undefined) {
+    ctx.io.out(
+      issuer === undefined
+        ? `This invite code does not say which device made it (it is from wim 0.1.x), so ${admitter.name}, which admitted this device, is asked about like any other device.`
+        : `Warning: ${admitter.name} admitted this device, but the invite was made by another device (id ${issuer}). If you did not expect ${admitter.name} to admit it, it may be someone else's: it is asked about like any other device.`,
+    );
+  }
+  const others = roster.devices.filter((d) => d.id !== me && d.id !== approver?.id && !isRecoveryName(d.name));
   const ask = canConfirm(ctx.env, ctx.io);
   const held: string[] = [];
   const one = async (d: { name: string; id: string }, question: string): Promise<void> => {
@@ -1073,7 +1089,7 @@ async function askJoinTrust(ctx: Ctx, files: MeshFiles, roster: Roster, me: stri
       ctx.io.out(trustedLine(d.name));
     } else held.push(d.name);
   };
-  await one(approver, `${approver.name} admitted this device. Is ${approver.name} your own device? [y/N] `);
+  if (approver !== undefined) await one(approver, `${approver.name} admitted this device. Is ${approver.name} your own device? [y/N] `);
   for (const d of others) {
     const by = adders.get(d.id);
     await one(d, `The mesh also has ${d.name}${by === undefined ? "" : ` (added by ${by.name})`}. Is ${d.name} your own device? [y/N] `);
@@ -1106,7 +1122,7 @@ async function joinWith(ctx: Ctx, typed: string, hint: boolean): Promise<void> {
     },
   });
   ctx.io.out(`Joined mesh ${joined.mesh}.`);
-  await askJoinTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), joined.roster, device.id);
+  await askJoinTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), joined.roster, device.id, joined.issuer);
   await registerCli(ctx, joined.mesh);
   if (hint) ctx.io.out(STATUS_LINE);
 }
@@ -1241,7 +1257,7 @@ async function pending(ctx: Ctx): Promise<number> {
     const rows = await new PendingJoins(s.mesh, ctx.fsEnv).list(s.roster, new Invites(s.mesh, ctx.fsEnv, ctx.io.now), ctx.io.now());
     if (s.roster.devices.find((d) => d.id === s.device.id)!.role !== "admin") ctx.io.out("This device is not an admin, so no join requests come here.");
     else if (rows.length === 0) ctx.io.out("No device is waiting to join.");
-    for (const r of rows) ctx.io.out(`${r.name}  ${r.id}  asked ${new Date(r.at).toISOString()}  invite expires ${new Date(r.exp).toISOString()}`);
+    for (const r of rows) ctx.io.out(`${r.name}  ${r.id}  asked ${new Date(r.at).toISOString()}  invite expires ${new Date(r.exp).toISOString()}${r.own ? `  (${ownAdmitLine(r.name)})` : ""}`);
     if (rows.length > 0) ctx.io.out("In your own terminal, admit one with the comparison code it shows: wim devices admit <name> <code>");
     return 0;
   } finally {

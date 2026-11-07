@@ -165,6 +165,15 @@ describe("wim setup on a new machine", () => {
     const d = term(devices[1]!.root, relay);
     expect(await run(d, "status")).toBe(0);
     expect(said(d)).toContain("  held here, added by laptop: build (wim devices trust build)");
+    // Not on laptop, which added build itself (its invite decided), and not on desk once desk trusts it.
+    expect(await run(a, "status")).toBe(0);
+    expect(said(a)).not.toContain("held here");
+    const trusting = term(devices[1]!.root, relay);
+    trusting.answers.push("y");
+    expect(await run(trusting, "devices", "trust", "build")).toBe(0);
+    const again = term(devices[1]!.root, relay);
+    expect(await run(again, "status")).toBe(0);
+    expect(said(again)).not.toContain("held here");
     // A code that does not resolve stops before the repeatable steps.
     const bad = term(await scratch("setup-join-bad"), relay);
     expect(await run(bad, "setup", "wim2-nope")).toBe(1);

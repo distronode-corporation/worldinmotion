@@ -1102,14 +1102,21 @@ as part of their approval of an own-device invite, pairwise, never transitive. `
 the same), and the answer is kept in the invite's record on that admin device, never in the code;
 an own-device invite sets `deliver` for the device it admits, and nothing is asked after the admit.
 `wim invite --auto` never trusts: nobody approves that join. On the joining side, `wim join` and
-`wim setup <code>` ask about the device that admitted this one alone ("laptop admitted this device.
-Is laptop your own device?"), then about each other device on its own, never all at once; the VS
-Code extension asks the same in modals. A device another device added later is never trusted
+`wim setup <code>` ask first about the device that admitted this one, alone ("laptop admitted this
+device. Is laptop your own device?"), but only when the invite code names it as the invite's maker
+(`by`, SPEC section 5): every admin receives a join request, so in a mesh shared with another
+person their admin could add the device first. When the device that admitted it is not the maker,
+or the code names none (one from before 0.2.0), the joiner is told so and that device is asked
+about like any other. Then each other device is asked about on its own, never all at once; the
+VS Code extension asks the same in modals. On the admin side, the comparison-code prompt, `wim
+devices pending` and the VS Code admit box say when admitting will trust the device (an
+own-device invite). A device another device added later is never trusted
 because that device is: VS Code asks about it (Trust..., or Not Mine, kept on that machine), and
 `wim status` lists it as held. Every automatic trust prints its undo (`wim devices untrust`). No
 message, tool call or MCP request can change policy, and none can set an invite's `own` or the
 `added_by` a UI shows, which the client reads only from its own invite records and its verified
-roster chain. In a mesh with another person's devices, answer no for theirs: they stay at hold.
+roster chain; a UI compares the adder by its id (`added_by_id`), never its name. A joining device
+names the adder only of devices admitted after its invite's pin, the start of the chain it keeps. In a mesh with another person's devices, answer no for theirs: they stay at hold.
 `wim devices trust --all` trusts every device in the mesh, other people's included; it is for a
 mesh of your own devices.
 

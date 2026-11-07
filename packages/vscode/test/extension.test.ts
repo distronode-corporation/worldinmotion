@@ -392,6 +392,26 @@ describe("activate", () => {
     await waitFor(() => expect(state.values.get(NOT_MINE_KEY)).toEqual(["dev-other", "dev-desk"]));
   });
 
+  it("asks about an undecided device already in the snapshot once, never a trusted one, and not again after a reconnect", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "third-snapshot");
+    const { api } = start();
+    await waitFor(() => expect(fake.state.messages.some((m) => m.message === "worldinmotion: buildbox added desk to this mesh. Is desk your own device?")).toBe(true));
+    // A second snapshot (a reconnect, or Refresh) asks nothing again.
+    await fake.run("worldinmotion.refresh");
+    await waitFor(() => expect(api!.store.devices.has("ci")).toBe(true));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(fake.state.messages.filter((m) => /added (desk|ci) to this mesh/.test(m.message)).map((m) => m.message)).toEqual(["worldinmotion: buildbox added desk to this mesh. Is desk your own device?"]);
+  });
+
+  it("asks once its adder becomes known, and not again for the same row", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "adder-later");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.devices.get("desk")?.added_by_id).toBe("dev-buildbox"));
+    await waitFor(() => expect(fake.state.messages.filter((m) => /added desk/.test(m.message))).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(fake.state.messages.filter((m) => /added desk/.test(m.message))).toHaveLength(1);
+  });
+
   it("says when joining a mesh fails after the code was shown", async () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "setup-fail");
     const { api } = start();

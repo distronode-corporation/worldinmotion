@@ -259,8 +259,15 @@ An admin device runs `invite` and gets a one-time code:
 ```
 wim1_<b64u(canon({ "relay": "wss://relay.example", "mesh": "<mesh id>", "secret": "<b64u 32 random bytes>",
                    "pin": { "seq": 3, "hash": "<hash of roster 3>" }, "exp": 1760000000000,
-                   "tls": "<optional: b64u SHA-256 of the relay certificate's SubjectPublicKeyInfo>" }))>
+                   "tls": "<optional: b64u SHA-256 of the relay certificate's SubjectPublicKeyInfo>",
+                   "by": "<optional: the device id of the admin that made the invite>" }))>
 ```
+
+- `by` (from 0.2.0) names the admin device that made the invite. Every admin receives a join
+  request, so the roster that adds the joiner may be signed by another admin; the joiner treats
+  the signer as the invite's maker only when it is `by` (section 6a). A code without `by` (from an
+  earlier client) names no maker. A client before 0.2.0 refuses a code that carries `by`, since the
+  code is a strict schema: such a device joins with an invite from a client of its own version.
 
 - `inviteId` = `b64u(H(UTF-8("wim/1 invite " + b64u(secret))))` truncated to 22 characters. The
   admin registers only the `inviteId`, `exp` and `pin` with the relay
@@ -521,7 +528,8 @@ person the receiving agent works for.
   A client MAY set `deliver` for a device as part of the person's approval of its join, or of the
   join that admitted this device, when that approval says so: an admin's invite recorded as for
   one of the person's own devices (kept with the invite on that device, never in the code; never
-  for an auto-accept invite), or the joining person's answer about the device that admitted it.
+  for an auto-accept invite), or the joining person's answer about the device that admitted it,
+  asked as that join's approver only when it is the maker the invite code names (`by`, section 5).
   That trust is between those two devices only: no device becomes trusted because a trusted
   device added it or said so.
 - **Trusted devices can assign work.** A message of any kind, except relayed or derived text

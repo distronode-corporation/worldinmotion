@@ -18,6 +18,9 @@ async function quickStart(): Promise<{ a: ReturnType<typeof term>; b: ReturnType
   expect(await run(b, "join", inviteCodeOf(a), "--name", "qs-b")).toBe(0);
   expect(await inviting).toBe(0);
   expect(said(a)).toContain("Trusted qs-b. wim devices untrust qs-b undoes it.");
+  // Said where the code is typed, before the admit: admitting on this invite trusts the device.
+  expect(said(a).indexOf("This invite was for one of your own devices: admitting qs-b trusts its messages here.")).toBeLessThan(said(a).indexOf("Type the comparison code"));
+  expect(said(a)).toContain("This invite was for one of your own devices: admitting qs-b trusts its messages here.");
   expect(said(b)).toContain("Trusted qs-a. wim devices untrust qs-a undoes it.");
   return { a, b };
 }

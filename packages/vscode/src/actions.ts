@@ -6,7 +6,7 @@
 
 import * as vscode from "vscode";
 import { NAME_RE, noIcons, notice, oneLine, stamp, visible } from "./display.ts";
-import type { DeviceRef, DeviceRow, HeldRow, JoinedDevice, JoinRow } from "./protocol.ts";
+import type { AdmittedOther, DeviceRef, DeviceRow, HeldRow, JoinedDevice, JoinRow } from "./protocol.ts";
 import { RequestError } from "./process.ts";
 import { heldKey, heldSetKey, type HeldSet, type Store } from "./state.ts";
 import { showThread, type Requester } from "./thread.ts";
@@ -429,7 +429,9 @@ export async function admitRequest(d: Deps, row: JoinRow): Promise<void> {
   const name = oneLine(row.name, 40);
   const code = await vscode.window.showInputBox({
     title: noIcons(`Add ${name} to the mesh`),
-    prompt: noIcons(`Type the comparison code the new device shows (device id ${oneLine(row.id, 40)}). If it shows no code, or another one, press Escape: the request is not from the device you invited.`),
+    prompt: noIcons(
+      `Type the comparison code the new device shows (device id ${oneLine(row.id, 40)}). If it shows no code, or another one, press Escape: the request is not from the device you invited.${row.own === true ? ` This invite was for one of your own devices: admitting ${name} trusts its messages here.` : ""}`,
+    ),
     placeHolder: "XXXXX-XXXXX",
     ignoreFocusOut: true,
     validateInput: (v: string) => (CODE_RE.test(v.trim()) ? undefined : "10 letters and digits, as the new device shows them"),
@@ -460,13 +462,23 @@ export function trustedLine(name: string): string {
 export const NOT_MINE = "Not Mine";
 
 /**
- * After this device joined: first the device that admitted it, the only one whose approval this
- * join was ("laptop admitted this device. Is laptop your own device?"), then each other device
- * on its own, naming who added it. A yes trusts that one device; nothing is trusted because
- * another device was. A client from before 0.2.0 names no approver: each device is asked on its own.
+ * After this device joined: first the device that admitted it, when it also made the invite (the
+ * only one whose approval this join was: "laptop admitted this device. Is laptop your own
+ * device?"), then each other device on its own, naming who added it. A device that admitted this
+ * one without having made the invite (`other`: another admin, or any admitter of a code that names
+ * no maker) is said so first, and asked about like the rest. A yes trusts that one device; nothing
+ * is trusted because another device was. A client from before 0.2.0 names no approver: each
+ * device is asked on its own.
  */
-export async function joinTrust(d: Deps, approver: DeviceRef | undefined, others: readonly JoinedDevice[]): Promise<void> {
+export async function joinTrust(d: Deps, approver: DeviceRef | undefined, others: readonly JoinedDevice[], other?: AdmittedOther): Promise<void> {
   const q = (name: string): string => `"${visible(name)}"`;
+  if (other !== undefined) {
+    void vscode.window.showWarningMessage(
+      other.reason === "no_issuer"
+        ? `worldinmotion: the invite code does not say which device made it (an older wim), so ${q(other.name)}, which admitted this device, is asked about like any other device.`
+        : `worldinmotion: ${q(other.name)} admitted this device, but the invite was made by another device. If you did not expect ${q(other.name)} to admit it, it may be someone else's: it is asked about like any other device.`,
+    );
+  }
   if (approver !== undefined) await askOne(d, approver, `${q(approver.name)} admitted this device. Is ${q(approver.name)} your own device?`);
   for (const o of others) {
     if (o.id === approver?.id) continue;

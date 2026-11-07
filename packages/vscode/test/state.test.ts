@@ -195,19 +195,25 @@ describe("Store: queries", () => {
 });
 
 describe("askAbout", () => {
-  it("is a device another device added, held here, and not marked Not Mine", () => {
+  it("is a device another device added (by id), held here, and not marked Not Mine", () => {
     const s = mesh();
     const none = new Set<string>();
-    const build = device("build", { added_by: "buildbox" });
+    const build = device("build", { added_by: "buildbox", added_by_id: "dev-buildbox" });
     expect(s.askAbout(build, none)).toBe(true);
     expect(s.askAbout(build, new Set(["dev-build"]))).toBe(false);
     // This device admitted it, so its invite decided; who added it is not known; trusted; this device.
-    expect(s.askAbout(device("build", { added_by: "laptop" }), none)).toBe(false);
+    expect(s.askAbout(device("build", { added_by: "laptop", added_by_id: "dev-laptop" }), none)).toBe(false);
     expect(s.askAbout(device("build"), none)).toBe(false);
-    expect(s.askAbout(device("build", { added_by: "buildbox", policy: "deliver" }), none)).toBe(false);
-    expect(s.askAbout(device("laptop", { added_by: "buildbox", self: true }), none)).toBe(false);
+    expect(s.askAbout(device("build", { added_by_id: "dev-buildbox", policy: "deliver" }), none)).toBe(false);
+    expect(s.askAbout(device("laptop", { added_by_id: "dev-buildbox", self: true }), none)).toBe(false);
+    // Ids decide, never names: an adder that took this device's name is still another device, and
+    // one whose name differs but whose id is this device's is this device.
+    expect(s.askAbout(device("build", { added_by: "laptop", added_by_id: "dev-other-laptop" }), none)).toBe(true);
+    expect(s.askAbout(device("build", { added_by: "renamed", added_by_id: "dev-laptop" }), none)).toBe(false);
+    // A name alone, from an older client, asks nothing.
+    expect(s.askAbout(device("build", { added_by: "buildbox" }), none)).toBe(false);
     // Before a snapshot named this device, nothing is asked.
-    expect(new Store().askAbout(device("build", { added_by: "buildbox" }), none)).toBe(false);
+    expect(new Store().askAbout(build, none)).toBe(false);
   });
 });
 

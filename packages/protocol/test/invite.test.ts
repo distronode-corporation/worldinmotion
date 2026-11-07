@@ -8,6 +8,7 @@ import {
   canonBytes,
   createInvite,
   createJoin,
+  deviceIdFromSignPub,
   generateDeviceKeys,
   hash,
   inviteIdFromSecret,
@@ -48,6 +49,16 @@ describe("invites", () => {
     expect(createInvite(base).inviteId).not.toBe(invite.inviteId);
     // Without `now`, the clock is used.
     expect(createInvite({ ...base, now: undefined }).exp).toBeGreaterThan(Date.now());
+  });
+
+  it("carries the maker's device id as `by` when given one, and refuses one that is not a device id", () => {
+    const by = deviceIdFromSignPub(generateDeviceKeys().signPub);
+    const invite = createInvite({ ...base, by });
+    expect(parseInvite(invite.code).by).toBe(by);
+    expect(parseInvite(createInvite(base).code)).not.toHaveProperty("by");
+    expect(() => createInvite({ ...base, by: "laptop" })).toThrow(/by: expected a 22-character id/);
+    const body = JSON.parse(new TextDecoder().decode(b64u.decode(invite.code.slice(5)))) as Record<string, unknown>;
+    expect(() => parseInvite(encodeBody({ ...body, by: "x" }))).toThrow(/invalid invite code: by/);
   });
 
   it("caps exp at seven days and refuses exp at or before now", () => {

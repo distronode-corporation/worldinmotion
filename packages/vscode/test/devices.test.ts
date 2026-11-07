@@ -126,6 +126,15 @@ describe("admitting a device", () => {
     expect(messages()).toEqual(["worldinmotion: admitted newbox. Its messages are held for your approval; Trust on it in the Mesh view if it is your own."]);
   });
 
+  it("says in the code box when admitting will trust the device, and only then", async () => {
+    const { d } = deps(mesh(), async () => ({ device: "newbox", trusted: true }));
+    fake.state.inputAnswers.push(undefined, undefined);
+    await actions.admitRequest(d, { ...request, own: true });
+    await actions.admitRequest(d, request);
+    expect(box(0).prompt).toMatch(/ This invite was for one of your own devices: admitting newbox trusts its messages here\.$/);
+    expect(box(1).prompt).not.toMatch(/own devices/);
+  });
+
   it("says an own-device invite trusted the device on admit, and how to undo it", async () => {
     const { d, calls } = deps(mesh(), async () => ({ device: "newbox", trusted: true }));
     fake.state.inputAnswers.push("ABCDE-FGHJK");
@@ -191,6 +200,22 @@ describe("the joining side's trust questions", () => {
     expect(calls).toEqual([{ op: "trust", args: { device: "laptop", relayed: false }, timeoutMs: undefined }]);
     expect(messages()).toContain("worldinmotion: Trusted laptop. Untrust on it in the Mesh view (or wim devices untrust laptop) undoes it.");
     expect([...(d.notMine as Set<string>)]).toEqual(["dev-desk"]);
+  });
+
+  it("says first when the device that admitted this one did not make the invite, and asks about it like the rest", async () => {
+    for (const [reason, said] of [
+      ["not_issuer", 'worldinmotion: "bob" admitted this device, but the invite was made by another device. If you did not expect "bob" to admit it, it may be someone else\'s: it is asked about like any other device.'],
+      ["no_issuer", 'worldinmotion: the invite code does not say which device made it (an older wim), so "bob", which admitted this device, is asked about like any other device.'],
+    ] as const) {
+      fake.reset();
+      const { d, calls } = deps(mesh(), async () => ({ policy: "deliver" }));
+      fake.state.messageAnswers.push(undefined, undefined);
+      await actions.joinTrust(d, undefined, [{ name: "bob", id: "dev-bob" }, { name: "ann", id: "dev-ann" }], { name: "bob", id: "dev-bob", reason });
+      expect(fake.state.messages[0]).toMatchObject({ level: "warning", message: said });
+      expect(fake.state.messages.filter((m) => m.options !== undefined).map((m) => m.message)).toEqual(['The mesh also has "bob". Is "bob" your own device?', 'The mesh also has "ann". Is "ann" your own device?']);
+      expect(fake.state.messages.some((m) => /admitted this device\. Is/.test(m.message))).toBe(false);
+      expect(calls).toEqual([]);
+    }
   });
 
   it("asks each device on its own for a client that names no approver, and says a failed trust", async () => {
