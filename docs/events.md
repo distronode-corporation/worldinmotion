@@ -12,7 +12,7 @@ Keys and encryption stay in the client. The UI never reads key files, never open
 connection to the relay, and never sees a frame that is still sealed.
 
 ```
-wim events --json [--as <name>]
+wim events --json [--as <name> [--take]]
 ```
 
 The process is itself a session on the mesh, named `vscode` unless `--as` or `WIM_NAME` says

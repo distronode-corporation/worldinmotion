@@ -990,6 +990,16 @@ export const register: Register = on => {
     next.called || !isMeshShaped(e.to) ? next(e) : { isDelivered: false, reason: FAILED },
   )
 
+  // The model's rename: the address changes, and with `take` the client swaps its session for
+  // the one it took over, with its own spool. The tab links again, as /wim name does.
+  on('tool.call', { tool: `${TOOL_PREFIX}rename` }, async ($, e, next) => {
+    const ran = await next(e)
+    // The mod's own call (/wim name) links again by itself.
+    if (e.tool_use_id.startsWith(PLUGIN_CALL) || ran.deny !== undefined || ran.isError === true) return ran
+    await handshake($).catch(error => unlinked($, `could not reach the plugin's client (${String(error)}).`))
+    return ran
+  })
+
   on('tool.call', { tool: 'ListAgents' }, async ($, e, next) => {
     const ran = await next(e)
     // The mod's own calls raise this hook too; leave them as they are.

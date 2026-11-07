@@ -256,13 +256,13 @@ describe("L5", () => {
     const append = h.append.bind(b.history);
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
-    h.append = async (e) => { if (e.text === "slow") await gate; return append(e); };
+    let stuck = false;
+    h.append = async (e) => { if (e.text === "slow") { stuck = true; await gate; } return append(e); };
     await a.send("b@two", "slow");
-    await sleep(100);
+    await until(() => stuck, 10_000, "the slow frame waits on the inbound queue");
     const one = (await unread(b)).find((i) => i.id === sent.id)!;
     await b.spool.take(one.cursor);
-    await sleep(1000);
-    const delivered = (a.receipts.get(sent.id) ?? []).some((r) => r.status === "delivered");
+    const delivered = await until(() => (a.receipts.get(sent.id) ?? []).some((r) => r.status === "delivered"), 10_000, "the delivered receipt").then(() => true, () => false);
     release();
     expect(delivered).toBe(true);
   }, 30_000);

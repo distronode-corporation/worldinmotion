@@ -42,6 +42,18 @@ body line with a bracket.
   `wim invite --auto` are unchanged.
 - **`wim recovery show --wait`** waits for Enter after showing the code, so a terminal that closes
   when its command ends keeps the code on screen until the person has stored it.
+- **Stable addresses: take over an offline name on the same device.** `--take` with `--as
+  <name>`, `WIM_TAKE=1` with `WIM_NAME` (also for `wim mcp`), and a `take` parameter on the MCP
+  `rename` tool claim the offline session on this device that holds the name, from any
+  directory, with its sid and resume secret: its queue, rooms, leases (same token), held items,
+  receipts and history come with it, and one notice counts what came. Only on request: `rename`
+  without `take` still answers `name_taken`, now with a hint. A name a live session holds, or a
+  session of another kind, is refused with the reason, never answered with `name-N`. The client
+  also saves the name a session asked for, so a session that got `name-N` is taken back under
+  its name when it is free. The Claude Code plugin links the tab again after the model renames
+  it. Since a peer's text can prompt a takeover, the tool asks agents to take only on the
+  person's word, and `wim status` and `wim doctor` list every takeover of the last 24 hours.
+  No wire or relay change.
 - **Close the downgrade window early.** `wim legacy-boxes refuse` makes a device refuse v0.1
   boxes now, as every device will from 1.0 (SPEC section 6b): it never sends one (a direct send
   to a device with no current prekey is refused with the reason, a broadcast, room send or card
@@ -51,6 +63,21 @@ body line with a bracket.
   person's alone (their own terminal and a typed `y`, as for `wim devices trust`), with no MCP
   tool or events op. `wim status` and `wim doctor` show it. Off by default until 1.0. No wire
   change.
+- **`wim hook <agent>`: other agents look again at turn end.** It is a turn-end hook for Gemini
+  CLI, Antigravity CLI, Codex CLI, Cursor and Copilot CLI. When a turn ends and messages from
+  devices you trust wait for that session, the hook asks the agent for one more turn. The request
+  is a fixed line: how many messages wait, and to call the `inbox` tool. It never holds a peer's
+  text, name or address. Each message is announced once per agent session. Held messages,
+  untrusted devices, relayed text, CI notices and paused devices never wake it, and anything
+  unclear lets the agent stop (exit 0 always). The hook counts only the `wim mcp` that the same
+  agent session started, which `wim mcp` now records in its session directory (`ancestry.json`)
+  while it runs. Add the hook entry by hand for now: [docs/peers.md](docs/peers.md) has it for
+  each agent. Gemini CLI and Antigravity CLI were checked live; the other three follow their
+  documentation. An idle session still does not wake. The turn it asks for is a mesh turn: the
+  session reads `busy-mesh` before the hook asks, so what the agent sends in it is derived, and
+  without that mark there is no wake. Every turn end that lets the agent stop, aborted and failed
+  turns included, reports the session idle, so `notify_when_idle` now fires for these agents, and
+  an optional turn-start entry (`wim hook <agent> start`) shows it busy while it works.
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device

@@ -151,7 +151,7 @@ describe("wim inbox", () => {
   it("lists --peek and --mark-read in its usage", async () => {
     const t = term("/nonexistent", new RelayHarness());
     expect(await run(t, "help", "inbox")).toBe(0);
-    expect(t.out.at(-1)).toBe("wim inbox [--peek | --mark-read] [--as <name>]");
+    expect(t.out.at(-1)).toBe("wim inbox [--peek | --mark-read] [--as <name> [--take]]");
   });
 });
 

@@ -33,9 +33,9 @@ var __export = (target, all) => {
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
-    for (let key2 of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key2) && key2 !== except)
-        __defProp(to, key2, { get: () => from[key2], enumerable: !(desc = __getOwnPropDesc(from, key2)) || desc.enumerable });
+    for (let key3 of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key3) && key3 !== except)
+        __defProp(to, key3, { get: () => from[key3], enumerable: !(desc = __getOwnPropDesc(from, key3)) || desc.enumerable });
   }
   return to;
 };
@@ -382,44 +382,44 @@ var require_permessage_deflate = __commonJS({
        */
       normalizeParams(configurations) {
         configurations.forEach((params) => {
-          Object.keys(params).forEach((key2) => {
-            let value2 = params[key2];
+          Object.keys(params).forEach((key3) => {
+            let value2 = params[key3];
             if (value2.length > 1) {
-              throw new Error(`Parameter "${key2}" must have only a single value`);
+              throw new Error(`Parameter "${key3}" must have only a single value`);
             }
             value2 = value2[0];
-            if (key2 === "client_max_window_bits") {
+            if (key3 === "client_max_window_bits") {
               if (value2 !== true) {
                 const num = +value2;
                 if (!Number.isInteger(num) || num < 8 || num > 15) {
                   throw new TypeError(
-                    `Invalid value for parameter "${key2}": ${value2}`
+                    `Invalid value for parameter "${key3}": ${value2}`
                   );
                 }
                 value2 = num;
               } else if (!this._isServer) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key2}": ${value2}`
+                  `Invalid value for parameter "${key3}": ${value2}`
                 );
               }
-            } else if (key2 === "server_max_window_bits") {
+            } else if (key3 === "server_max_window_bits") {
               const num = +value2;
               if (!Number.isInteger(num) || num < 8 || num > 15) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key2}": ${value2}`
+                  `Invalid value for parameter "${key3}": ${value2}`
                 );
               }
               value2 = num;
-            } else if (key2 === "client_no_context_takeover" || key2 === "server_no_context_takeover") {
+            } else if (key3 === "client_no_context_takeover" || key3 === "server_no_context_takeover") {
               if (value2 !== true) {
                 throw new TypeError(
-                  `Invalid value for parameter "${key2}": ${value2}`
+                  `Invalid value for parameter "${key3}": ${value2}`
                 );
               }
             } else {
-              throw new Error(`Unknown parameter "${key2}"`);
+              throw new Error(`Unknown parameter "${key3}"`);
             }
-            params[key2] = value2;
+            params[key3] = value2;
           });
         });
         return configurations;
@@ -467,8 +467,8 @@ var require_permessage_deflate = __commonJS({
       _decompress(data, fin, callback) {
         const endpoint2 = this._isServer ? "client" : "server";
         if (!this._inflate) {
-          const key2 = `${endpoint2}_max_window_bits`;
-          const windowBits = typeof this.params[key2] !== "number" ? zlib3.Z_DEFAULT_WINDOWBITS : this.params[key2];
+          const key3 = `${endpoint2}_max_window_bits`;
+          const windowBits = typeof this.params[key3] !== "number" ? zlib3.Z_DEFAULT_WINDOWBITS : this.params[key3];
           this._inflate = zlib3.createInflateRaw({
             ...this._options.zlibInflateOptions,
             windowBits
@@ -518,8 +518,8 @@ var require_permessage_deflate = __commonJS({
       _compress(data, fin, callback) {
         const endpoint2 = this._isServer ? "server" : "client";
         if (!this._deflate) {
-          const key2 = `${endpoint2}_max_window_bits`;
-          const windowBits = typeof this.params[key2] !== "number" ? zlib3.Z_DEFAULT_WINDOWBITS : this.params[key2];
+          const key3 = `${endpoint2}_max_window_bits`;
+          const windowBits = typeof this.params[key3] !== "number" ? zlib3.Z_DEFAULT_WINDOWBITS : this.params[key3];
           this._deflate = zlib3.createDeflateRaw({
             ...this._options.zlibDeflateOptions,
             windowBits
@@ -2839,7 +2839,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key2 = randomBytes5(16).toString("base64");
+      const key3 = randomBytes5(16).toString("base64");
       const request2 = isSecure ? https2.request : http3.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -2850,7 +2850,7 @@ var require_websocket = __commonJS({
       opts.headers = {
         ...opts.headers,
         "Sec-WebSocket-Version": opts.protocolVersion,
-        "Sec-WebSocket-Key": key2,
+        "Sec-WebSocket-Key": key3,
         Connection: "Upgrade",
         Upgrade: "websocket"
       };
@@ -2901,8 +2901,8 @@ var require_websocket = __commonJS({
           const headers = options && options.headers;
           options = { ...options, headers: {} };
           if (headers) {
-            for (const [key3, value2] of Object.entries(headers)) {
-              options.headers[key3.toLowerCase()] = value2;
+            for (const [key4, value2] of Object.entries(headers)) {
+              options.headers[key4.toLowerCase()] = value2;
             }
           }
         } else if (websocket.listenerCount("redirect") === 0) {
@@ -2969,7 +2969,7 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest2 = createHash9("sha1").update(key2 + GUID).digest("base64");
+        const digest2 = createHash9("sha1").update(key3 + GUID).digest("base64");
         if (res.headers["sec-websocket-accept"] !== digest2) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
@@ -3537,7 +3537,7 @@ var require_websocket_server = __commonJS({
        */
       handleUpgrade(req, socket, head, cb) {
         socket.on("error", socketOnError);
-        const key2 = req.headers["sec-websocket-key"];
+        const key3 = req.headers["sec-websocket-key"];
         const upgrade = req.headers.upgrade;
         const version2 = +req.headers["sec-websocket-version"];
         if (req.method !== "GET") {
@@ -3550,7 +3550,7 @@ var require_websocket_server = __commonJS({
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
           return;
         }
-        if (key2 === void 0 || !keyRegex.test(key2)) {
+        if (key3 === void 0 || !keyRegex.test(key3)) {
           const message2 = "Missing or invalid Sec-WebSocket-Key header";
           abortHandshakeOrEmitwsClientError(this, req, socket, 400, message2);
           return;
@@ -3610,7 +3610,7 @@ var require_websocket_server = __commonJS({
               }
               this.completeUpgrade(
                 extensions,
-                key2,
+                key3,
                 protocols,
                 req,
                 socket,
@@ -3622,7 +3622,7 @@ var require_websocket_server = __commonJS({
           }
           if (!this.options.verifyClient(info)) return abortHandshake(socket, 401);
         }
-        this.completeUpgrade(extensions, key2, protocols, req, socket, head, cb);
+        this.completeUpgrade(extensions, key3, protocols, req, socket, head, cb);
       }
       /**
        * Upgrade the connection to WebSocket.
@@ -3637,7 +3637,7 @@ var require_websocket_server = __commonJS({
        * @throws {Error} If called more than once with the same socket
        * @private
        */
-      completeUpgrade(extensions, key2, protocols, req, socket, head, cb) {
+      completeUpgrade(extensions, key3, protocols, req, socket, head, cb) {
         if (!socket.readable || !socket.writable) return socket.destroy();
         if (socket[kWebSocket]) {
           throw new Error(
@@ -3645,7 +3645,7 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest2 = createHash9("sha1").update(key2 + GUID).digest("base64");
+        const digest2 = createHash9("sha1").update(key3 + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
@@ -4324,17 +4324,17 @@ function parseQueryString(querystring) {
   querystring = querystring.replace(/^\?/, "");
   if (querystring) {
     for (const pair of querystring.split("&")) {
-      let [key2, value2 = null] = pair.split("=");
-      key2 = decodeURIComponent(key2);
+      let [key3, value2 = null] = pair.split("=");
+      key3 = decodeURIComponent(key3);
       if (value2) {
         value2 = decodeURIComponent(value2);
       }
-      if (!(key2 in query)) {
-        query[key2] = value2;
-      } else if (Array.isArray(query[key2])) {
-        query[key2].push(value2);
+      if (!(key3 in query)) {
+        query[key3] = value2;
+      } else if (Array.isArray(query[key3])) {
+        query[key3].push(value2);
       } else {
-        query[key2] = [query[key2], value2];
+        query[key3] = [query[key3], value2];
       }
     }
   }
@@ -4437,7 +4437,7 @@ var init_circularReplacer = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/client/util-waiter/circularReplacer.js"() {
     getCircularReplacer = () => {
       const seen = /* @__PURE__ */ new WeakSet();
-      return (key2, value2) => {
+      return (key3, value2) => {
         if (typeof value2 === "object" && value2 !== null) {
           if (seen.has(value2)) {
             return "[Circular]";
@@ -6061,13 +6061,13 @@ var init_get_value_from_text_node = __esm({
     init_transport();
     getValueFromTextNode = (obj) => {
       const textNodeName = "#text";
-      for (const key2 in obj) {
-        if (!hasOwn(obj, key2))
+      for (const key3 in obj) {
+        if (!hasOwn(obj, key3))
           continue;
-        if (obj[key2][textNodeName] !== void 0) {
-          obj[key2] = obj[key2][textNodeName];
-        } else if (typeof obj[key2] === "object" && obj[key2] !== null) {
-          obj[key2] = getValueFromTextNode(obj[key2]);
+        if (obj[key3][textNodeName] !== void 0) {
+          obj[key3] = obj[key3][textNodeName];
+        } else if (typeof obj[key3] === "object" && obj[key3] !== null) {
+          obj[key3] = getValueFromTextNode(obj[key3]);
         }
       }
       return obj;
@@ -6122,14 +6122,14 @@ function map3(arg0, arg1, arg2) {
       instructions = arg1;
     }
   }
-  for (const key2 in instructions) {
-    if (!hasOwn(instructions, key2))
+  for (const key3 in instructions) {
+    if (!hasOwn(instructions, key3))
       continue;
-    if (!Array.isArray(instructions[key2])) {
-      target[key2] = instructions[key2];
+    if (!Array.isArray(instructions[key3])) {
+      target[key3] = instructions[key3];
       continue;
     }
-    applyInstruction(target, null, instructions, key2);
+    applyInstruction(target, null, instructions, key3);
   }
   return target;
 }
@@ -6146,22 +6146,22 @@ var init_object_mapping = __esm({
     };
     take = (source2, instructions) => {
       const out = {};
-      for (const key2 in instructions) {
-        if (!hasOwn(instructions, key2))
+      for (const key3 in instructions) {
+        if (!hasOwn(instructions, key3))
           continue;
-        applyInstruction(out, source2, instructions, key2);
+        applyInstruction(out, source2, instructions, key3);
       }
       return out;
     };
     mapWithFilter = (target, filter, instructions) => {
-      return map3(target, Object.entries(instructions).reduce((_instructions, [key2, value2]) => {
+      return map3(target, Object.entries(instructions).reduce((_instructions, [key3, value2]) => {
         if (Array.isArray(value2)) {
-          _instructions[key2] = value2;
+          _instructions[key3] = value2;
         } else {
           if (typeof value2 === "function") {
-            _instructions[key2] = [filter, value2()];
+            _instructions[key3] = [filter, value2()];
           } else {
-            _instructions[key2] = [filter, value2];
+            _instructions[key3] = [filter, value2];
           }
         }
         return _instructions;
@@ -6237,13 +6237,13 @@ var init_serde_json = __esm({
       }
       if (typeof obj === "object") {
         const target = {};
-        for (const key2 in obj) {
-          if (!hasOwn(obj, key2))
+        for (const key3 in obj) {
+          if (!hasOwn(obj, key3))
             continue;
-          if (obj[key2] == null) {
+          if (obj[key3] == null) {
             continue;
           }
-          target[key2] = _json(obj[key2]);
+          target[key3] = _json(obj[key3]);
         }
         return target;
       }
@@ -7502,14 +7502,14 @@ var init_memoize = __esm({
 var booleanSelector;
 var init_booleanSelector = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/util-config-provider/booleanSelector.js"() {
-    booleanSelector = (obj, key2, type) => {
-      if (!(key2 in obj))
+    booleanSelector = (obj, key3, type) => {
+      if (!(key3 in obj))
         return void 0;
-      if (obj[key2] === "true")
+      if (obj[key3] === "true")
         return true;
-      if (obj[key2] === "false")
+      if (obj[key3] === "false")
         return false;
-      throw new Error(`Cannot load ${type} "${key2}". Expected "true" or "false", got ${obj[key2]}.`);
+      throw new Error(`Cannot load ${type} "${key3}". Expected "true" or "false", got ${obj[key3]}.`);
     };
   }
 });
@@ -7518,12 +7518,12 @@ var init_booleanSelector = __esm({
 var numberSelector;
 var init_numberSelector = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/util-config-provider/numberSelector.js"() {
-    numberSelector = (obj, key2, type) => {
-      if (!(key2 in obj))
+    numberSelector = (obj, key3, type) => {
+      if (!(key3 in obj))
         return void 0;
-      const numberValue = parseInt(obj[key2], 10);
+      const numberValue = parseInt(obj[key3], 10);
       if (Number.isNaN(numberValue)) {
-        throw new TypeError(`Cannot load ${type} '${key2}'. Expected number, got '${obj[key2]}'.`);
+        throw new TypeError(`Cannot load ${type} '${key3}'. Expected number, got '${obj[key3]}'.`);
       }
       return numberValue;
     };
@@ -7627,15 +7627,15 @@ var init_getConfigData = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getConfigData.js"() {
     import_types5 = __toESM(require_dist_cjs());
     init_constants2();
-    getConfigData = (data) => Object.entries(data).filter(([key2]) => {
-      const indexOfSeparator = key2.indexOf(CONFIG_PREFIX_SEPARATOR);
+    getConfigData = (data) => Object.entries(data).filter(([key3]) => {
+      const indexOfSeparator = key3.indexOf(CONFIG_PREFIX_SEPARATOR);
       if (indexOfSeparator === -1) {
         return false;
       }
-      return Object.values(import_types5.IniSectionType).includes(key2.substring(0, indexOfSeparator));
-    }).reduce((acc, [key2, value2]) => {
-      const indexOfSeparator = key2.indexOf(CONFIG_PREFIX_SEPARATOR);
-      const updatedKey = key2.substring(0, indexOfSeparator) === import_types5.IniSectionType.PROFILE ? key2.substring(indexOfSeparator + 1) : key2;
+      return Object.values(import_types5.IniSectionType).includes(key3.substring(0, indexOfSeparator));
+    }).reduce((acc, [key3, value2]) => {
+      const indexOfSeparator = key3.indexOf(CONFIG_PREFIX_SEPARATOR);
+      const updatedKey = key3.substring(0, indexOfSeparator) === import_types5.IniSectionType.PROFILE ? key3.substring(indexOfSeparator + 1) : key3;
       acc[updatedKey] = value2;
       return acc;
     }, {
@@ -7711,8 +7711,8 @@ var init_parseIni = __esm({
                 currentSubSection = void 0;
               }
               map4[currentSection] = map4[currentSection] || {};
-              const key2 = currentSubSection ? [currentSubSection, name].join(CONFIG_PREFIX_SEPARATOR) : name;
-              map4[currentSection][key2] = value2;
+              const key3 = currentSubSection ? [currentSubSection, name].join(CONFIG_PREFIX_SEPARATOR) : name;
+              map4[currentSection][key3] = value2;
             }
           }
         }
@@ -7788,7 +7788,7 @@ var init_getSsoSessionData = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSsoSessionData.js"() {
     import_types7 = __toESM(require_dist_cjs());
     init_loadSharedConfigFiles();
-    getSsoSessionData = (data) => Object.entries(data).filter(([key2]) => key2.startsWith(import_types7.IniSectionType.SSO_SESSION + CONFIG_PREFIX_SEPARATOR)).reduce((acc, [key2, value2]) => ({ ...acc, [key2.substring(key2.indexOf(CONFIG_PREFIX_SEPARATOR) + 1)]: value2 }), {});
+    getSsoSessionData = (data) => Object.entries(data).filter(([key3]) => key3.startsWith(import_types7.IniSectionType.SSO_SESSION + CONFIG_PREFIX_SEPARATOR)).reduce((acc, [key3, value2]) => ({ ...acc, [key3.substring(key3.indexOf(CONFIG_PREFIX_SEPARATOR) + 1)]: value2 }), {});
   }
 });
 
@@ -7812,11 +7812,11 @@ var init_mergeConfigFiles = __esm({
     mergeConfigFiles = (...files) => {
       const merged = {};
       for (const file2 of files) {
-        for (const [key2, values] of Object.entries(file2)) {
-          if (merged[key2] !== void 0) {
-            Object.assign(merged[key2], values);
+        for (const [key3, values] of Object.entries(file2)) {
+          if (merged[key3] !== void 0) {
+            Object.assign(merged[key3], values);
           } else {
-            merged[key2] = values;
+            merged[key3] = values;
           }
         }
       }
@@ -8279,7 +8279,7 @@ var init_getResolvedHostname = __esm({
 var getResolvedPartition;
 var init_getResolvedPartition = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/config-resolver/regionInfo/getResolvedPartition.js"() {
-    getResolvedPartition = (region, { partitionHash }) => Object.keys(partitionHash || {}).find((key2) => partitionHash[key2].regions.includes(region)) ?? "aws";
+    getResolvedPartition = (region, { partitionHash }) => Object.keys(partitionHash || {}).find((key3) => partitionHash[key3].regions.includes(region)) ?? "aws";
   }
 });
 
@@ -8892,11 +8892,11 @@ var init_EndpointCache = __esm({
         }
       }
       get(endpointParams, resolver) {
-        const key2 = this.hash(endpointParams);
-        if (key2 === false) {
+        const key3 = this.hash(endpointParams);
+        if (key3 === false) {
           return resolver();
         }
-        if (!this.data.has(key2)) {
+        if (!this.data.has(key3)) {
           if (this.data.size > this.capacity + 10) {
             const keys = this.data.keys();
             let i6 = 0;
@@ -8908,9 +8908,9 @@ var init_EndpointCache = __esm({
               }
             }
           }
-          this.data.set(key2, resolver());
+          this.data.set(key3, resolver());
         }
-        return this.data.get(key2);
+        return this.data.get(key3);
       }
       size() {
         return this.data.size;
@@ -11161,14 +11161,14 @@ var init_Sha256Js = __esm({
       outer;
       constructor(secret) {
         if (secret) {
-          const key2 = _Sha256Js.normalizeKey(secret);
+          const key3 = _Sha256Js.normalizeKey(secret);
           this.inner = new _Sha256Js();
           this.outer = new _Sha256Js();
           const { inner, outer } = this;
           const pad = new Uint8Array(BLOCK * 2);
           for (let i6 = 0; i6 < BLOCK; ++i6) {
-            pad[i6] = 54 ^ key2[i6];
-            pad[i6 + BLOCK] = 92 ^ key2[i6];
+            pad[i6] = 54 ^ key3[i6];
+            pad[i6 + BLOCK] = 92 ^ key3[i6];
           }
           inner.update(pad.subarray(0, BLOCK));
           outer.update(pad.subarray(BLOCK));
@@ -11247,21 +11247,21 @@ var init_Sha256Js = __esm({
         return out;
       }
       static normalizeKey(secret) {
-        const key2 = toUint8Array(secret);
-        if (key2.byteLength > BLOCK) {
+        const key3 = toUint8Array(secret);
+        if (key3.byteLength > BLOCK) {
           const h6 = new _Sha256Js();
-          h6.update(key2);
+          h6.update(key3);
           const out = h6.digestSync();
           const padded = new Uint8Array(BLOCK);
           padded.set(out);
           return padded;
         }
-        if (key2.byteLength < BLOCK) {
+        if (key3.byteLength < BLOCK) {
           const padded = new Uint8Array(BLOCK);
-          padded.set(key2);
+          padded.set(key3);
           return padded;
         }
-        return key2;
+        return key3;
       }
       hashBuffer() {
         this.hashBufferWith(this.state, this.buffer);
@@ -11489,8 +11489,8 @@ var init_Sha256WebCrypto = __esm({
         if (subtle) {
           if (this.secret) {
             this.finished = true;
-            const key2 = await subtle.importKey("raw", this.secret, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-            const sig = await subtle.sign("HMAC", key2, data);
+            const key3 = await subtle.importKey("raw", this.secret, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+            const sig = await subtle.sign("HMAC", key3, data);
             return new Uint8Array(sig);
           }
           const hash3 = await subtle.digest("SHA-256", data);
@@ -12323,11 +12323,11 @@ var init_EventStreamSerde = __esm({
             };
           }
           let unionMember = "";
-          for (const key2 in event) {
-            if (!hasOwn(event, key2))
+          for (const key3 in event) {
+            if (!hasOwn(event, key3))
               continue;
-            if (key2 !== "__type") {
-              unionMember = key2;
+            if (key3 !== "__type") {
+              unionMember = key3;
               break;
             }
           }
@@ -12352,11 +12352,11 @@ var init_EventStreamSerde = __esm({
         const initialResponseMarker = /* @__PURE__ */ Symbol("initialResponseMarker");
         const asyncIterable = marshaller.deserialize(response.body, async (event) => {
           let unionMember = "";
-          for (const key2 in event) {
-            if (!hasOwn(event, key2))
+          for (const key3 in event) {
+            if (!hasOwn(event, key3))
               continue;
-            if (key2 !== "__type") {
-              unionMember = key2;
+            if (key3 !== "__type") {
+              unionMember = key3;
               break;
             }
           }
@@ -12421,10 +12421,10 @@ var init_EventStreamSerde = __esm({
           if (!responseSchema) {
             throw new Error("@smithy::core/protocols - initial-response event encountered in event stream but no response schema given.");
           }
-          for (const key2 in firstEvent.value) {
-            if (!hasOwn(firstEvent.value, key2))
+          for (const key3 in firstEvent.value) {
+            if (!hasOwn(firstEvent.value, key3))
               continue;
-            initialResponseContainer[key2] = firstEvent.value[key2];
+            initialResponseContainer[key3] = firstEvent.value[key3];
           }
         }
         return {
@@ -12831,8 +12831,8 @@ var init_HttpBindingProtocol = __esm({
               request2.path += path2;
             }
             const traitSearchParams = new URLSearchParams(search ?? "");
-            for (const [key2, value2] of traitSearchParams) {
-              query[key2] = value2;
+            for (const [key3, value2] of traitSearchParams) {
+              query[key3] = value2;
             }
           }
         }
@@ -12877,11 +12877,11 @@ var init_HttpBindingProtocol = __esm({
             serializer.write(memberNs, inputMemberValue);
             headers[memberTraits.httpHeader.toLowerCase()] = String(serializer.flush());
           } else if (typeof memberTraits.httpPrefixHeaders === "string") {
-            for (const key2 in inputMemberValue) {
-              if (!hasOwn(inputMemberValue, key2))
+            for (const key3 in inputMemberValue) {
+              if (!hasOwn(inputMemberValue, key3))
                 continue;
-              const val = inputMemberValue[key2];
-              const amalgam = memberTraits.httpPrefixHeaders + key2;
+              const val = inputMemberValue[key3];
+              const amalgam = memberTraits.httpPrefixHeaders + key3;
               serializer.write([memberNs.getValueSchema(), { httpHeader: amalgam }], val);
               headers[amalgam.toLowerCase()] = serializer.flush();
             }
@@ -12922,15 +12922,15 @@ var init_HttpBindingProtocol = __esm({
         const serializer = this.serializer;
         const traits = ns.getMergedTraits();
         if (traits.httpQueryParams) {
-          for (const key2 in data) {
-            if (!hasOwn(data, key2))
+          for (const key3 in data) {
+            if (!hasOwn(data, key3))
               continue;
-            if (!(key2 in query)) {
-              const val = data[key2];
+            if (!(key3 in query)) {
+              const val = data[key3];
               const valueSchema = ns.getValueSchema();
               Object.assign(valueSchema.getMergedTraits(), {
                 ...traits,
-                httpQuery: key2,
+                httpQuery: key3,
                 httpQueryParams: void 0
               });
               this.serializeQuery(valueSchema, val, query);
@@ -13023,12 +13023,12 @@ var init_HttpBindingProtocol = __esm({
               }
             }
           } else if (memberTraits.httpHeader) {
-            const key2 = String(memberTraits.httpHeader).toLowerCase();
-            const value2 = response.headers[key2];
+            const key3 = String(memberTraits.httpHeader).toLowerCase();
+            const value2 = response.headers[key3];
             if (null != value2) {
               if (memberSchema.isListSchema()) {
                 const headerListValueSchema = memberSchema.getValueSchema();
-                headerListValueSchema.getMergedTraits().httpHeader = key2;
+                headerListValueSchema.getMergedTraits().httpHeader = key3;
                 let sections;
                 if (headerListValueSchema.isTimestampSchema() && headerListValueSchema.getSchema() === 4) {
                   sections = splitEvery(value2, ",", 2);
@@ -13610,8 +13610,8 @@ var init_httpExtensionConfiguration = __esm({
         httpHandler() {
           return runtimeConfig.requestHandler;
         },
-        updateHttpClientConfig(key2, value2) {
-          runtimeConfig.requestHandler?.updateHttpClientConfig(key2, value2);
+        updateHttpClientConfig(key3, value2) {
+          runtimeConfig.requestHandler?.updateHttpClientConfig(key3, value2);
         },
         httpHandlerConfigs() {
           return runtimeConfig.requestHandler.httpHandlerConfigs();
@@ -13691,15 +13691,15 @@ var init_escape_uri_path = __esm({
 // ../../node_modules/@smithy/core/dist-es/submodules/protocols/querystring-builder/buildQueryString.js
 function buildQueryString(query) {
   const parts = [];
-  for (let key2 of Object.keys(query).sort()) {
-    const value2 = query[key2];
-    key2 = escapeUri(key2);
+  for (let key3 of Object.keys(query).sort()) {
+    const value2 = query[key3];
+    key3 = escapeUri(key3);
     if (Array.isArray(value2)) {
       for (let i6 = 0, iLen = value2.length; i6 < iLen; i6++) {
-        parts.push(`${key2}=${escapeUri(value2[i6])}`);
+        parts.push(`${key3}=${escapeUri(value2[i6])}`);
       }
     } else {
-      let qsEntry = key2;
+      let qsEntry = key3;
       if (value2 || typeof value2 === "string") {
         qsEntry += `=${escapeUri(value2)}`;
       }
@@ -13743,8 +13743,8 @@ var init_UnionSerde = __esm({
         set2.delete("__type");
         this.keys = set2;
       }
-      mark(key2) {
-        this.keys.delete(key2);
+      mark(key3) {
+        this.keys.delete(key3);
       }
       hasUnknown() {
         return this.keys.size === 1 && Object.keys(this.to).length === 0;
@@ -13783,7 +13783,7 @@ var init_detectBufferParsing = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/protocols/json/jsonReviver.js
-function jsonReviver(key2, value2, context) {
+function jsonReviver(key3, value2, context) {
   if (context?.source) {
     const numericString = context.source;
     if (typeof value2 === "number") {
@@ -14002,7 +14002,7 @@ var init_parseJsonBody = __esm({
       value2.message = value2.message ?? value2.Message;
       return value2;
     };
-    findKey = (object3, key2) => Object.keys(object3).find((k5) => k5.toLowerCase() === key2.toLowerCase());
+    findKey = (object3, key3) => Object.keys(object3).find((k5) => k5.toLowerCase() === key3.toLowerCase());
     sanitizeErrorCode = (rawValue) => {
       let cleanValue = rawValue;
       if (typeof cleanValue === "number") {
@@ -15238,7 +15238,7 @@ var init_jsonReplacer = __esm({
           throw new Error("@aws-sdk/core/protocols - JsonReplacer exhausted.");
         }
         this.stage = 1;
-        return (key2, value2) => {
+        return (key3, value2) => {
           if (value2 instanceof NumericValue) {
             const v = `${NUMERIC_CONTROL_CHAR + "nv" + this.counter++}_` + value2.string;
             this.values.set(`"${v}"`, value2.string);
@@ -15264,8 +15264,8 @@ var init_jsonReplacer = __esm({
         if (this.counter === 0) {
           return json4;
         }
-        for (const [key2, value2] of this.values) {
-          json4 = json4.replace(key2, value2);
+        for (const [key3, value2] of this.values) {
+          json4 = json4.replace(key3, value2);
         }
         return json4;
       }
@@ -16378,7 +16378,7 @@ var init_StandardRetryStrategy2 = __esm({
     getDelayFromRetryAfterHeader = (response) => {
       if (!HttpResponse.isInstance(response))
         return;
-      const retryAfterHeaderName = Object.keys(response.headers).find((key2) => key2.toLowerCase() === "retry-after");
+      const retryAfterHeaderName = Object.keys(response.headers).find((key3) => key3.toLowerCase() === "retry-after");
       if (!retryAfterHeaderName)
         return;
       const retryAfter = response.headers[retryAfterHeaderName];
@@ -16740,8 +16740,8 @@ var init_invoke_store = __esm({
     }
     InvokeStoreBase = class {
       static PROTECTED_KEYS = PROTECTED_KEYS;
-      isProtectedKey(key2) {
-        return Object.values(PROTECTED_KEYS).includes(key2);
+      isProtectedKey(key3) {
+        return Object.values(PROTECTED_KEYS).includes(key3);
       }
       getRequestId() {
         return this.get(PROTECTED_KEYS.REQUEST_ID) ?? "-";
@@ -16770,15 +16770,15 @@ var init_invoke_store = __esm({
       hasContext() {
         return this.currentContext !== void 0;
       }
-      get(key2) {
-        return this.currentContext?.[key2];
+      get(key3) {
+        return this.currentContext?.[key3];
       }
-      set(key2, value2) {
-        if (this.isProtectedKey(key2)) {
-          throw new Error(`Cannot modify protected Lambda context field: ${String(key2)}`);
+      set(key3, value2) {
+        if (this.isProtectedKey(key3)) {
+          throw new Error(`Cannot modify protected Lambda context field: ${String(key3)}`);
         }
         this.currentContext = this.currentContext || {};
-        this.currentContext[key2] = value2;
+        this.currentContext[key3] = value2;
       }
       run(context, fn) {
         this.currentContext = context;
@@ -16799,18 +16799,18 @@ var init_invoke_store = __esm({
       hasContext() {
         return this.als.getStore() !== void 0;
       }
-      get(key2) {
-        return this.als.getStore()?.[key2];
+      get(key3) {
+        return this.als.getStore()?.[key3];
       }
-      set(key2, value2) {
-        if (this.isProtectedKey(key2)) {
-          throw new Error(`Cannot modify protected Lambda context field: ${String(key2)}`);
+      set(key3, value2) {
+        if (this.isProtectedKey(key3)) {
+          throw new Error(`Cannot modify protected Lambda context field: ${String(key3)}`);
         }
         const store = this.als.getStore();
         if (!store) {
           throw new Error("No context available");
         }
-        store[key2] = value2;
+        store[key3] = value2;
       }
       run(context, fn) {
         return this.als.run(context, fn);
@@ -17205,12 +17205,12 @@ var init_DefaultIdentityProviderConfig = __esm({
     DefaultIdentityProviderConfig = class {
       authSchemes = /* @__PURE__ */ new Map();
       constructor(config2) {
-        for (const key2 in config2) {
-          if (!hasOwn(config2, key2))
+        for (const key3 in config2) {
+          if (!hasOwn(config2, key3))
             continue;
-          const value2 = config2[key2];
+          const value2 = config2[key3];
           if (value2 !== void 0) {
-            this.authSchemes.set(key2, value2);
+            this.authSchemes.set(key3, value2);
           }
         }
       }
@@ -17809,8 +17809,8 @@ async function checkFeatures(context, config2, args) {
     if (credentials.accountId) {
       setFeature2(context, "RESOLVED_ACCOUNT_ID", "T");
     }
-    for (const [key2, value2] of Object.entries(credentials.$source ?? {})) {
-      setFeature2(context, key2, value2);
+    for (const [key3, value2] of Object.entries(credentials.$source ?? {})) {
+      setFeature2(context, key3, value2);
     }
   }
 }
@@ -17840,8 +17840,8 @@ var init_constants6 = __esm({
 // ../../node_modules/@aws-sdk/core/dist-es/submodules/client/middleware-user-agent/encode-features.js
 function encodeFeatures(features) {
   let buffer = "";
-  for (const key2 in features) {
-    const val = features[key2];
+  for (const key3 in features) {
+    const val = features[key3];
     if (buffer.length + val.length + 1 <= BYTE_LIMIT) {
       if (buffer.length) {
         buffer += "," + val;
@@ -19298,8 +19298,8 @@ var init_format_url = __esm({
 });
 
 // ../../node_modules/@aws-sdk/core/dist-es/submodules/util/hasOwn.js
-function hasOwn2(container, key2) {
-  return Object.prototype.hasOwnProperty.call(container, key2);
+function hasOwn2(container, key3) {
+  return Object.prototype.hasOwnProperty.call(container, key3);
 }
 var init_hasOwn2 = __esm({
   "../../node_modules/@aws-sdk/core/dist-es/submodules/util/hasOwn.js"() {
@@ -19467,10 +19467,10 @@ var require_dist_cjs3 = __commonJS({
         }
         return Promise.race(raceOfPromises).finally(removeSignalEventListener);
       }
-      updateHttpClientConfig(key2, value2) {
+      updateHttpClientConfig(key3, value2) {
         this.config = void 0;
         this.configProvider = this.configProvider.then((config2) => {
-          config2[key2] = value2;
+          config2[key3] = value2;
           return config2;
         });
       }
@@ -19542,11 +19542,11 @@ var require_dist_cjs4 = __commonJS({
         }
       }
       destroy() {
-        for (const [key2, sockets] of Object.entries(this.sockets)) {
+        for (const [key3, sockets] of Object.entries(this.sockets)) {
           for (const socket of sockets) {
             socket.close(1e3, `Socket closed through destroy() call`);
           }
-          delete this.sockets[key2];
+          delete this.sockets[key3];
         }
       }
       async handle(request2) {
@@ -19577,9 +19577,9 @@ var require_dist_cjs4 = __commonJS({
           })
         };
       }
-      updateHttpClientConfig(key2, value2) {
+      updateHttpClientConfig(key3, value2) {
         this.configPromise = this.configPromise.then((config2) => {
-          config2[key2] = value2;
+          config2[key3] = value2;
           return config2;
         });
       }
@@ -20320,22 +20320,22 @@ var require_dist_cjs5 = __commonJS({
     var getCanonicalQuery = ({ query = {} }) => {
       const keys = [];
       const serialized = {};
-      for (const key2 in query) {
-        if (!hasOwn4(query, key2))
+      for (const key3 in query) {
+        if (!hasOwn4(query, key3))
           continue;
-        if (key2.toLowerCase() === SIGNATURE_HEADER) {
+        if (key3.toLowerCase() === SIGNATURE_HEADER) {
           continue;
         }
-        const encodedKey = escapeUri2(key2);
+        const encodedKey = escapeUri2(key3);
         keys.push(encodedKey);
-        const value2 = query[key2];
+        const value2 = query[key3];
         if (typeof value2 === "string") {
           serialized[encodedKey] = `${encodedKey}=${escapeUri2(value2)}`;
         } else if (Array.isArray(value2)) {
           serialized[encodedKey] = value2.slice(0).reduce((encoded, value3) => encoded.concat([`${encodedKey}=${escapeUri2(value3)}`]), []).sort().join("&");
         }
       }
-      return keys.sort().map((key2) => serialized[key2]).filter((serialized2) => serialized2).join("&");
+      return keys.sort().map((key3) => serialized[key3]).filter((serialized2) => serialized2).join("&");
     };
     var iso8601 = (time4) => toDate(time4).toISOString().replace(/\.\d{3}Z$/, "Z");
     var toDate = (time4) => {
@@ -20433,11 +20433,11 @@ ${toHex2(hashedRequest)}`;
       while (cacheQueue.length > MAX_CACHE_SIZE) {
         delete signingKeyCache[cacheQueue.shift()];
       }
-      let key2 = `AWS4${credentials.secretAccessKey}`;
+      let key3 = `AWS4${credentials.secretAccessKey}`;
       for (const signable of [shortDate, region, service2, KEY_TYPE_IDENTIFIER]) {
-        key2 = await hmac2(sha256Constructor, key2, signable);
+        key3 = await hmac2(sha256Constructor, key3, signable);
       }
-      return signingKeyCache[cacheKey] = key2;
+      return signingKeyCache[cacheKey] = key3;
     };
     var clearCredentialCache = () => {
       cacheQueue.length = 0;
@@ -21652,10 +21652,10 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
           });
         });
       }
-      updateHttpClientConfig(key2, value2) {
+      updateHttpClientConfig(key3, value2) {
         this.config = void 0;
         this.configProvider = this.configProvider.then((config2) => {
-          if (key2 === /* @__PURE__ */ Symbol.for("logger")) {
+          if (key3 === /* @__PURE__ */ Symbol.for("logger")) {
             return {
               ...config2,
               logger: config2.logger ?? value2
@@ -21663,7 +21663,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
           }
           return {
             ...config2,
-            [key2]: value2
+            [key3]: value2
           };
         });
       }
@@ -22081,12 +22081,12 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
           writeRequestBodyPromise = writeRequestBody(clientHttp2Stream, request2, effectiveRequestTimeout);
         });
       }
-      updateHttpClientConfig(key2, value2) {
+      updateHttpClientConfig(key3, value2) {
         this.config = void 0;
         this.configProvider = this.configProvider.then((config2) => {
           return {
             ...config2,
-            [key2]: value2
+            [key3]: value2
           };
         });
       }
@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs16 = __require("node:fs/promises");
+    var fs17 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs16.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs17.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -22719,10 +22719,10 @@ function writeStruct(ns, value2, serdeContext) {
     if (item == null && !memberSchemas[i6].isIdempotencyToken()) {
       continue;
     }
-    const key2 = encodedKeys[i6];
-    ensure(key2.length);
-    buf.set(key2, cursor);
-    cursor += key2.length;
+    const key3 = encodedKeys[i6];
+    ensure(key3.length);
+    buf.set(key3, cursor);
+    cursor += key3.length;
     writeValue(memberSchemas[i6], item, ns, serdeContext);
     ++count;
   }
@@ -22936,12 +22936,12 @@ function writeString(s3) {
         return;
       }
       let evicted = 0;
-      for (const [key2, entry] of stringEncodeCache) {
+      for (const [key3, entry] of stringEncodeCache) {
         if (evicted >= 1024) {
           break;
         }
         if (entry.epoch !== encodeCacheEpoch) {
-          stringEncodeCache.delete(key2);
+          stringEncodeCache.delete(key3);
           ++evicted;
         }
       }
@@ -23159,8 +23159,8 @@ function readMap(ns) {
   const valueSchema = ns.isMapSchema() ? ns.getValueSchema() : ns;
   const map4 = {};
   for (let i6 = 0; i6 < count; ++i6) {
-    const key2 = readUtf8String();
-    map4[key2] = readValue(valueSchema);
+    const key3 = readUtf8String();
+    map4[key3] = readValue(valueSchema);
   }
   return map4;
 }
@@ -23187,12 +23187,12 @@ function readStruct(ns, count, startPos) {
         result[memberNames[matchIdx]] = val;
       }
     } else {
-      const key2 = readUtf8String();
+      const key3 = readUtf8String();
       const val = readValue(NormalizedSchema.of(15));
-      if (key2 === "__type" && typeof val === "string") {
+      if (key3 === "__type" && typeof val === "string") {
         hasType = true;
       } else {
-        unknownKey = key2;
+        unknownKey = key3;
         unknownValue = val;
         ++unknownCount;
       }
@@ -23213,10 +23213,10 @@ function readStruct(ns, count, startPos) {
     pos = startPos;
     const docSchema = NormalizedSchema.of(15);
     for (let i6 = 0; i6 < count; ++i6) {
-      const key2 = readUtf8String();
+      const key3 = readUtf8String();
       const val = readValue(docSchema);
-      if (!(key2 in result)) {
-        result[key2] = val;
+      if (!(key3 in result)) {
+        result[key3] = val;
       }
     }
   }
@@ -23387,10 +23387,10 @@ function readMapIndefinite(ns) {
           result[memberNames[matchIdx]] = val;
         }
       } else {
-        const key2 = readUtf8String();
+        const key3 = readUtf8String();
         const val = readValue(NormalizedSchema.of(15));
-        if (key2 !== "__type") {
-          unknownKey = key2;
+        if (key3 !== "__type") {
+          unknownKey = key3;
           unknownValue = val;
           ++unknownCount;
         }
@@ -23405,8 +23405,8 @@ function readMapIndefinite(ns) {
       pos += 1;
       return map4;
     }
-    const key2 = readUtf8String();
-    map4[key2] = readValue(valueSchema);
+    const key3 = readUtf8String();
+    map4[key3] = readValue(valueSchema);
   }
   throw new Error("expected break marker.");
 }
@@ -23661,10 +23661,10 @@ function transformObject(ns, value2) {
   const newObject = {};
   if (ns.isMapSchema()) {
     const targetSchema = ns.getValueSchema();
-    for (const key2 in value2) {
-      if (!hasOwn(value2, key2))
+    for (const key3 in value2) {
+      if (!hasOwn(value2, key3))
         continue;
-      newObject[key2] = transformObject(targetSchema, value2[key2]);
+      newObject[key3] = transformObject(targetSchema, value2[key3]);
     }
   } else if (ns.isStructSchema()) {
     const isUnion = ns.isUnionSchema();
@@ -23679,12 +23679,12 @@ function transformObject(ns, value2) {
         }
       }
     }
-    for (const [key2, memberSchema] of ns.structIterator()) {
+    for (const [key3, memberSchema] of ns.structIterator()) {
       if (isUnion) {
-        keys.delete(key2);
+        keys.delete(key3);
       }
-      if (value2[key2] != null) {
-        newObject[key2] = transformObject(memberSchema, value2[key2]);
+      if (value2[key3] != null) {
+        newObject[key3] = transformObject(memberSchema, value2[key3]);
       }
     }
     if (isUnion && keys?.size === 1) {
@@ -24696,8 +24696,8 @@ var init_UnionSerde2 = __esm({
         set2.delete("__type");
         this.keys = set2;
       }
-      mark(key2) {
-        this.keys.delete(key2);
+      mark(key3) {
+        this.keys.delete(key3);
       }
       hasUnknown() {
         return this.keys.size === 1 && Object.keys(this.to).length === 0;
@@ -24746,7 +24746,7 @@ var init_XmlShapeDeserializer = __esm({
         this.serdeContext = serdeContext;
         this.stringDeserializer.setSerdeContext(serdeContext);
       }
-      read(schema, bytes3, key2) {
+      read(schema, bytes3, key3) {
         const ns = NormalizedSchema.of(schema);
         const memberSchemas = ns.getMemberSchemas();
         const isEventPayload = ns.isStructSchema() && ns.isMemberSchema() && !!Object.values(memberSchemas).find((memberNs) => {
@@ -24765,7 +24765,7 @@ var init_XmlShapeDeserializer = __esm({
         }
         const xmlString = (this.serdeContext?.utf8Encoder ?? toUtf8)(bytes3);
         const parsedObject = this.parseXml(xmlString);
-        return this.readSchema(schema, key2 ? parsedObject[key2] : parsedObject);
+        return this.readSchema(schema, key3 ? parsedObject[key3] : parsedObject);
       }
       readSchema(_schema, value2) {
         const ns = NormalizedSchema.of(_schema);
@@ -24808,12 +24808,12 @@ var init_XmlShapeDeserializer = __esm({
             const keyProperty = keyNs.getMergedTraits().xmlName ?? "key";
             const valueProperty = memberNs.getMergedTraits().xmlName ?? "value";
             for (const entry of entries) {
-              const key2 = entry[keyProperty];
+              const key3 = entry[keyProperty];
               const value3 = entry[valueProperty];
-              if (key2 === "__proto__") {
+              if (key3 === "__proto__") {
                 writeKey2(buffer);
               }
-              buffer[key2] = this.readSchema(memberNs, value3);
+              buffer[key3] = this.readSchema(memberNs, value3);
             }
             return buffer;
           }
@@ -24865,10 +24865,10 @@ var init_XmlShapeDeserializer = __esm({
             throw e6;
           }
           const textNodeName = "#text";
-          const key2 = Object.keys(parsedObj)[0];
-          const parsedObjToReturn = parsedObj[key2];
+          const key3 = Object.keys(parsedObj)[0];
+          const parsedObjToReturn = parsedObj[key3];
           if (parsedObjToReturn[textNodeName]) {
-            parsedObjToReturn[key2] = parsedObjToReturn[textNodeName];
+            parsedObjToReturn[key3] = parsedObjToReturn[textNodeName];
             delete parsedObjToReturn[textNodeName];
           }
           return getValueFromTextNode(parsedObjToReturn);
@@ -24972,8 +24972,8 @@ var init_QueryShapeSerializer = __esm({
                 }
                 const traits = member2.getMergedTraits();
                 const suffix = this.getKey("member", traits.xmlName, traits.ec2QueryName);
-                const key2 = flat ? `${prefix}${i6}` : `${prefix}${suffix}.${i6}`;
-                this.write(member2, item, key2);
+                const key3 = flat ? `${prefix}${i6}` : `${prefix}${suffix}.${i6}`;
+                this.write(member2, item, key3);
                 ++i6;
               }
             }
@@ -24991,11 +24991,11 @@ var init_QueryShapeSerializer = __esm({
               }
               const keyTraits = keySchema2.getMergedTraits();
               const keySuffix = this.getKey("key", keyTraits.xmlName, keyTraits.ec2QueryName);
-              const key2 = flat ? `${prefix}${i6}.${keySuffix}` : `${prefix}entry.${i6}.${keySuffix}`;
+              const key3 = flat ? `${prefix}${i6}.${keySuffix}` : `${prefix}entry.${i6}.${keySuffix}`;
               const valTraits = memberSchema.getMergedTraits();
               const valueSuffix = this.getKey("value", valTraits.xmlName, valTraits.ec2QueryName);
               const valueKey = flat ? `${prefix}${i6}.${valueSuffix}` : `${prefix}entry.${i6}.${valueSuffix}`;
-              this.write(keySchema2, k5, key2);
+              this.write(keySchema2, k5, key3);
               this.write(memberSchema, v, valueKey);
               ++i6;
             }
@@ -25009,16 +25009,16 @@ var init_QueryShapeSerializer = __esm({
               }
               const traits = member2.getMergedTraits();
               const suffix = this.getKey(memberName, traits.xmlName, traits.ec2QueryName, "struct");
-              const key2 = `${prefix}${suffix}`;
-              this.write(member2, value2[memberName], key2);
+              const key3 = `${prefix}${suffix}`;
+              this.write(member2, value2[memberName], key3);
               didWriteMember = true;
             }
             if (!didWriteMember && ns.isUnionSchema()) {
               const { $unknown } = value2;
               if (Array.isArray($unknown)) {
                 const [k5, v] = $unknown;
-                const key2 = `${prefix}${k5}`;
-                this.write(15, v, key2);
+                const key3 = `${prefix}${k5}`;
+                this.write(15, v, key3);
               }
             }
           }
@@ -25040,17 +25040,17 @@ var init_QueryShapeSerializer = __esm({
         if (ec2 && ec2QueryName) {
           return ec2QueryName;
         }
-        const key2 = xmlName ?? memberName;
+        const key3 = xmlName ?? memberName;
         if (capitalizeKeys && keySource === "struct") {
-          return key2[0].toUpperCase() + key2.slice(1);
+          return key3[0].toUpperCase() + key3.slice(1);
         }
-        return key2;
+        return key3;
       }
-      writeKey(key2) {
-        if (key2.endsWith(".")) {
-          key2 = key2.slice(0, key2.length - 1);
+      writeKey(key3) {
+        if (key3.endsWith(".")) {
+          key3 = key3.slice(0, key3.length - 1);
         }
-        this.buffer += `&${extendedEncodeURIComponent(key2)}=`;
+        this.buffer += `&${extendedEncodeURIComponent(key3)}=`;
       }
       writeValue(value2) {
         this.buffer += extendedEncodeURIComponent(value2);
@@ -25258,10 +25258,10 @@ var init_parseXmlBody = __esm({
           throw e6;
         }
         const textNodeName = "#text";
-        const key2 = Object.keys(parsedObj)[0];
-        const parsedObjToReturn = parsedObj[key2];
+        const key3 = Object.keys(parsedObj)[0];
+        const parsedObjToReturn = parsedObj[key3];
         if (parsedObjToReturn[textNodeName]) {
-          parsedObjToReturn[key2] = parsedObjToReturn[textNodeName];
+          parsedObjToReturn[key3] = parsedObjToReturn[textNodeName];
           delete parsedObjToReturn[textNodeName];
         }
         return getValueFromTextNode(parsedObjToReturn);
@@ -25446,8 +25446,8 @@ var init_XmlShapeSerializer = __esm({
         const sparse = !!mapValueTraits.sparse;
         const flat = !!mapTraits.xmlFlattened;
         const [xmlnsAttr, xmlns] = this.getXmlnsAttribute(mapMember, parentXmlns);
-        const addKeyValue = (entry, key2, val) => {
-          const keyNode = import_xml_builder3.XmlNode.of(keyTag, key2);
+        const addKeyValue = (entry, key3, val) => {
+          const keyNode = import_xml_builder3.XmlNode.of(keyTag, key3);
           const [keyXmlnsAttr, keyXmlns] = this.getXmlnsAttribute(mapKeySchema, xmlns);
           if (keyXmlns) {
             keyNode.addAttribute(keyXmlnsAttr, keyXmlns);
@@ -25466,11 +25466,11 @@ var init_XmlShapeSerializer = __esm({
           entry.addChildNode(valueNode);
         };
         if (flat) {
-          for (const key2 in map4) {
-            const val = map4[key2];
+          for (const key3 in map4) {
+            const val = map4[key3];
             if (sparse || val != null) {
               const entry = import_xml_builder3.XmlNode.of(mapTraits.xmlName ?? mapMember.getMemberName());
-              addKeyValue(entry, key2, val);
+              addKeyValue(entry, key3, val);
               container.addChildNode(entry);
             }
           }
@@ -25483,11 +25483,11 @@ var init_XmlShapeSerializer = __esm({
             }
             container.addChildNode(mapNode);
           }
-          for (const key2 in map4) {
-            const val = map4[key2];
+          for (const key3 in map4) {
+            const val = map4[key3];
             if (sparse || val != null) {
               const entry = import_xml_builder3.XmlNode.of("entry");
-              addKeyValue(entry, key2, val);
+              addKeyValue(entry, key3, val);
               (containerIsMap ? container : mapNode).addChildNode(entry);
             }
           }
@@ -25650,10 +25650,10 @@ var init_AwsRestXmlProtocol = __esm({
         const errorIdentifier = loadRestXmlErrorCode(response, dataObject) ?? "Unknown";
         this.mixin.compose(this.compositeErrorRegistry, errorIdentifier, this.options.defaultNamespace);
         if (dataObject.Error && typeof dataObject.Error === "object") {
-          for (const key2 of Object.keys(dataObject.Error)) {
-            dataObject[key2] = dataObject.Error[key2];
-            if (key2.toLowerCase() === "message") {
-              dataObject.message = dataObject.Error[key2];
+          for (const key3 of Object.keys(dataObject.Error)) {
+            dataObject[key3] = dataObject.Error[key3];
+            if (key3.toLowerCase() === "message") {
+              dataObject.message = dataObject.Error[key3];
             }
           }
         }
@@ -26723,9 +26723,9 @@ var require_dist_cjs11 = __commonJS({
         throw new TokenProviderError2(`Token is expired. ${REFRESH_MESSAGE}`, false);
       }
     };
-    var validateTokenKey = (key2, value2, forRefresh = false) => {
+    var validateTokenKey = (key3, value2, forRefresh = false) => {
       if (typeof value2 === "undefined") {
-        throw new TokenProviderError2(`Value not present for '${key2}' in SSO Token${forRefresh ? ". Cannot refresh" : ""}. ${REFRESH_MESSAGE}`, false);
+        throw new TokenProviderError2(`Value not present for '${key3}' in SSO Token${forRefresh ? ". Cannot refresh" : ""}. ${REFRESH_MESSAGE}`, false);
       }
     };
     var { writeFile: writeFile4 } = promises;
@@ -30002,7 +30002,7 @@ var require_dist_cjs14 = __commonJS({
     var { createHash: createHash9, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign2 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname7, join: join23 } = __require("node:path");
+    var { dirname: dirname7, join: join24 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30166,10 +30166,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join23(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join24(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash9("sha256").update(loginSessionBytes).digest("hex");
-        return join23(directory, `${loginSessionSha256}.json`);
+        return join24(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -30932,9 +30932,9 @@ var require_dist_cjs20 = __commonJS({
         throw new TokenProviderError2(`Token is expired. ${REFRESH_MESSAGE}`, false);
       }
     };
-    var validateTokenKey = (key2, value2, forRefresh = false) => {
+    var validateTokenKey = (key3, value2, forRefresh = false) => {
       if (typeof value2 === "undefined") {
-        throw new TokenProviderError2(`Value not present for '${key2}' in SSO Token${forRefresh ? ". Cannot refresh" : ""}. ${REFRESH_MESSAGE}`, false);
+        throw new TokenProviderError2(`Value not present for '${key3}' in SSO Token${forRefresh ? ". Cannot refresh" : ""}. ${REFRESH_MESSAGE}`, false);
       }
     };
     var { writeFile: writeFile4 } = promises;
@@ -34969,14 +34969,14 @@ var require_retry_operation = __commonJS({
       if (this._errors.length === 0) {
         return null;
       }
-      var counts = {};
+      var counts2 = {};
       var mainError = null;
       var mainErrorCount = 0;
       for (var i6 = 0; i6 < this._errors.length; i6++) {
         var error64 = this._errors[i6];
         var message2 = error64.message;
-        var count = (counts[message2] || 0) + 1;
-        counts[message2] = count;
+        var count = (counts2[message2] || 0) + 1;
+        counts2[message2] = count;
         if (count >= mainErrorCount) {
           mainError = error64;
           mainErrorCount = count;
@@ -35010,8 +35010,8 @@ var require_retry = __commonJS({
         maxTimeout: Infinity,
         randomize: false
       };
-      for (var key2 in options) {
-        opts[key2] = options[key2];
+      for (var key3 in options) {
+        opts[key3] = options[key3];
       }
       if (opts.minTimeout > opts.maxTimeout) {
         throw new Error("minTimeout is greater than maxTimeout");
@@ -35041,9 +35041,9 @@ var require_retry = __commonJS({
       }
       if (!methods) {
         methods = [];
-        for (var key2 in obj) {
-          if (typeof obj[key2] === "function") {
-            methods.push(key2);
+        for (var key3 in obj) {
+          if (typeof obj[key3] === "function") {
+            methods.push(key3);
           }
         }
       }
@@ -35182,10 +35182,10 @@ var require_extend = __commonJS({
       if (obj.constructor && !hasOwnConstructor && !hasIsPrototypeOf) {
         return false;
       }
-      var key2;
-      for (key2 in obj) {
+      var key3;
+      for (key3 in obj) {
       }
-      return typeof key2 === "undefined" || hasOwn4.call(obj, key2);
+      return typeof key3 === "undefined" || hasOwn4.call(obj, key3);
     };
     var setProperty = function setProperty2(target, options) {
       if (defineProperty && options.name === "__proto__") {
@@ -35551,16 +35551,16 @@ var require_common = __commonJS({
       function redactHeaders(headers) {
         if (!headers)
           return;
-        headers.forEach((_, key2) => {
-          if (/^authentication$/i.test(key2) || /^authorization$/i.test(key2) || /secret/i.test(key2))
-            headers.set(key2, REDACT);
+        headers.forEach((_, key3) => {
+          if (/^authentication$/i.test(key3) || /^authorization$/i.test(key3) || /secret/i.test(key3))
+            headers.set(key3, REDACT);
         });
       }
-      function redactString(obj, key2) {
-        if (typeof obj === "object" && obj !== null && typeof obj[key2] === "string") {
-          const text2 = obj[key2];
+      function redactString(obj, key3) {
+        if (typeof obj === "object" && obj !== null && typeof obj[key3] === "string") {
+          const text2 = obj[key3];
           if (/grant_type=/i.test(text2) || /assertion=/i.test(text2) || /secret/i.test(text2)) {
-            obj[key2] = REDACT;
+            obj[key3] = REDACT;
           }
         }
       }
@@ -35569,9 +35569,9 @@ var require_common = __commonJS({
           return;
         } else if (obj instanceof FormData || obj instanceof URLSearchParams || // support `node-fetch` FormData/URLSearchParams
         "forEach" in obj && "set" in obj) {
-          obj.forEach((_, key2) => {
-            if (["grant_type", "assertion"].includes(key2) || /secret/.test(key2)) {
-              obj.set(key2, REDACT);
+          obj.forEach((_, key3) => {
+            if (["grant_type", "assertion"].includes(key3) || /secret/.test(key3)) {
+              obj.set(key3, REDACT);
             }
           });
         } else {
@@ -35857,8 +35857,8 @@ var require_common2 = __commonJS({
       createDebug.enabled = enabled;
       createDebug.humanize = require_ms();
       createDebug.destroy = destroy;
-      Object.keys(env3).forEach((key2) => {
-        createDebug[key2] = env3[key2];
+      Object.keys(env3).forEach((key3) => {
+        createDebug[key3] = env3[key3];
       });
       createDebug.names = [];
       createDebug.skips = [];
@@ -36300,13 +36300,13 @@ var require_node = __commonJS({
       }
     } catch (error64) {
     }
-    exports.inspectOpts = Object.keys(process.env).filter((key2) => {
-      return /^debug_/i.test(key2);
-    }).reduce((obj, key2) => {
-      const prop = key2.substring(6).toLowerCase().replace(/_([a-z])/g, (_, k5) => {
+    exports.inspectOpts = Object.keys(process.env).filter((key3) => {
+      return /^debug_/i.test(key3);
+    }).reduce((obj, key3) => {
+      const prop = key3.substring(6).toLowerCase().replace(/_([a-z])/g, (_, k5) => {
         return k5.toUpperCase();
       });
-      let val = process.env[key2];
+      let val = process.env[key3];
       if (/^(yes|on|true|enabled)$/i.test(val)) {
         val = true;
       } else if (/^(no|off|false|disabled)$/i.test(val)) {
@@ -36675,15 +36675,15 @@ var require_parse_proxy_response = __commonJS({
               socket.destroy();
               return reject(new Error(`Invalid header from proxy CONNECT response: "${header2}"`));
             }
-            const key2 = header2.slice(0, firstColon).toLowerCase();
+            const key3 = header2.slice(0, firstColon).toLowerCase();
             const value2 = header2.slice(firstColon + 1).trimStart();
-            const current = headers[key2];
+            const current = headers[key3];
             if (typeof current === "string") {
-              headers[key2] = [current, value2];
+              headers[key3] = [current, value2];
             } else if (Array.isArray(current)) {
               current.push(value2);
             } else {
-              headers[key2] = value2;
+              headers[key3] = value2;
             }
           }
           debug2("got proxy server response: %o %o", firstLine, headers);
@@ -36845,10 +36845,10 @@ var require_dist2 = __commonJS({
     }
     function omit2(obj, ...keys) {
       const ret = {};
-      let key2;
-      for (key2 in obj) {
-        if (!keys.includes(key2)) {
-          ret[key2] = obj[key2];
+      let key3;
+      for (key3 in obj) {
+        if (!keys.includes(key3)) {
+          ret[key3] = obj[key3];
         }
       }
       return ret;
@@ -42495,8 +42495,8 @@ var init_headers = __esm({
        * @returns {Record<string, string[]>}
        */
       raw() {
-        return [...this.keys()].reduce((result, key2) => {
-          result[key2] = this.getAll(key2);
+        return [...this.keys()].reduce((result, key3) => {
+          result[key3] = this.getAll(key3);
           return result;
         }, {});
       }
@@ -42504,12 +42504,12 @@ var init_headers = __esm({
        * For better console.log(headers) and also to convert Headers into Node.js Request compatible format
        */
       [/* @__PURE__ */ Symbol.for("nodejs.util.inspect.custom")]() {
-        return [...this.keys()].reduce((result, key2) => {
-          const values = this.getAll(key2);
-          if (key2 === "host") {
-            result[key2] = values[0];
+        return [...this.keys()].reduce((result, key3) => {
+          const values = this.getAll(key3);
+          if (key3 === "host") {
+            result[key3] = values[0];
           } else {
-            result[key2] = values.length > 1 ? values : values[0];
+            result[key3] = values.length > 1 ? values : values[0];
           }
           return result;
         }, {});
@@ -43613,8 +43613,8 @@ var require_gaxios = __commonJS({
             opts.url = opts.url + prefix + additionalQueryParams;
           } else {
             const url2 = opts.url instanceof URL ? opts.url : new URL(opts.url);
-            for (const [key2, value2] of new URLSearchParams(opts.params)) {
-              url2.searchParams.append(key2, value2);
+            for (const [key3, value2] of new URLSearchParams(opts.params)) {
+              url2.searchParams.append(key3, value2);
             }
             opts.url = url2;
           }
@@ -43805,8 +43805,8 @@ Content-Type: ${partContentType}\r
         base = base instanceof Headers ? base : new Headers(base);
         for (const headers of append) {
           const add2 = headers instanceof Headers ? headers : new Headers(headers);
-          add2.forEach((value2, key2) => {
-            key2 === "set-cookie" ? base.append(key2, value2) : base.set(key2, value2);
+          add2.forEach((value2, key3) => {
+            key3 === "set-cookie" ? base.append(key3, value2) : base.set(key3, value2);
           });
         }
         return base;
@@ -45234,13 +45234,13 @@ var require_stringify = __commonJS({
           return typeof c5 === "string" ? c5 : "\\u" + ("0000" + a5.charCodeAt(0).toString(16)).slice(-4);
         }) + '"' : '"' + string4 + '"';
       }
-      function str2(key2, holder) {
-        var i6, k5, v, length, mind = gap, partial2, value2 = holder[key2], isBigNumber = value2 != null && (value2 instanceof BigNumber || BigNumber.isBigNumber(value2));
+      function str2(key3, holder) {
+        var i6, k5, v, length, mind = gap, partial2, value2 = holder[key3], isBigNumber = value2 != null && (value2 instanceof BigNumber || BigNumber.isBigNumber(value2));
         if (value2 && typeof value2 === "object" && typeof value2.toJSON === "function") {
-          value2 = value2.toJSON(key2);
+          value2 = value2.toJSON(key3);
         }
         if (typeof rep === "function") {
-          value2 = rep.call(holder, key2, value2);
+          value2 = rep.call(holder, key3, value2);
         }
         switch (typeof value2) {
           case "string":
@@ -45510,7 +45510,7 @@ var require_parse = __commonJS({
         }
         error64("Bad array");
       }, object3 = function() {
-        var key2, object4 = /* @__PURE__ */ Object.create(null);
+        var key3, object4 = /* @__PURE__ */ Object.create(null);
         if (ch === "{") {
           next("{");
           white();
@@ -45519,30 +45519,30 @@ var require_parse = __commonJS({
             return object4;
           }
           while (ch) {
-            key2 = string4();
+            key3 = string4();
             white();
             next(":");
-            if (_options.strict === true && Object.hasOwnProperty.call(object4, key2)) {
-              error64('Duplicate key "' + key2 + '"');
+            if (_options.strict === true && Object.hasOwnProperty.call(object4, key3)) {
+              error64('Duplicate key "' + key3 + '"');
             }
-            if (suspectProtoRx.test(key2) === true) {
+            if (suspectProtoRx.test(key3) === true) {
               if (_options.protoAction === "error") {
                 error64("Object contains forbidden prototype property");
               } else if (_options.protoAction === "ignore") {
                 value2();
               } else {
-                object4[key2] = value2();
+                object4[key3] = value2();
               }
-            } else if (suspectConstructorRx.test(key2) === true) {
+            } else if (suspectConstructorRx.test(key3) === true) {
               if (_options.constructorAction === "error") {
                 error64("Object contains forbidden constructor property");
               } else if (_options.constructorAction === "ignore") {
                 value2();
               } else {
-                object4[key2] = value2();
+                object4[key3] = value2();
               }
             } else {
-              object4[key2] = value2();
+              object4[key3] = value2();
             }
             white();
             if (ch === "}") {
@@ -45580,11 +45580,11 @@ var require_parse = __commonJS({
         if (ch) {
           error64("Syntax error");
         }
-        return typeof reviver === "function" ? (function walk(holder, key2) {
-          var k5, v, value3 = holder[key2];
+        return typeof reviver === "function" ? (function walk2(holder, key3) {
+          var k5, v, value3 = holder[key3];
           if (value3 && typeof value3 === "object") {
             Object.keys(value3).forEach(function(k6) {
-              v = walk(value3, k6);
+              v = walk2(value3, k6);
               if (v !== void 0) {
                 value3[k6] = v;
               } else {
@@ -45592,7 +45592,7 @@ var require_parse = __commonJS({
               }
             });
           }
-          return reviver.call(holder, key2, value3);
+          return reviver.call(holder, key3, value3);
         })({ "": result }, "") : result;
       };
     };
@@ -46128,8 +46128,8 @@ var require_src4 = __commonJS({
       return new URL(exports.BASE_PATH, baseUrl).href;
     }
     function validate3(options) {
-      Object.keys(options).forEach((key2) => {
-        switch (key2) {
+      Object.keys(options).forEach((key3) => {
+        switch (key3) {
           case "params":
           case "property":
           case "headers":
@@ -46137,7 +46137,7 @@ var require_src4 = __commonJS({
           case "qs":
             throw new Error("'qs' is not a valid configuration option. Please use 'params' instead.");
           default:
-            throw new Error(`'${key2}' is not a valid configuration option.`);
+            throw new Error(`'${key3}' is not a valid configuration option.`);
         }
       });
     }
@@ -46147,7 +46147,7 @@ var require_src4 = __commonJS({
       let params = {};
       if (typeof type === "object") {
         const metadataAccessor2 = type;
-        new Headers(metadataAccessor2.headers).forEach((value2, key2) => headers.set(key2, value2));
+        new Headers(metadataAccessor2.headers).forEach((value2, key3) => headers.set(key3, value2));
         metadataKey = metadataAccessor2.metadataKey;
         params = metadataAccessor2.params || params;
         noResponseRetries = metadataAccessor2.noResponseRetries || noResponseRetries;
@@ -46162,7 +46162,7 @@ var require_src4 = __commonJS({
         if (options.property) {
           metadataKey += `/${options.property}`;
         }
-        new Headers(options.headers).forEach((value2, key2) => headers.set(key2, value2));
+        new Headers(options.headers).forEach((value2, key3) => headers.set(key3, value2));
         params = options.params || params;
       }
       const requestMethod = fastFail ? fastFailMetadataRequest : gaxios_1.request;
@@ -46212,8 +46212,8 @@ var require_src4 = __commonJS({
       await Promise.all(properties.map((item) => {
         return (async () => {
           const res = await metadataAccessor(item);
-          const key2 = item.metadataKey;
-          r6[key2] = res;
+          const key3 = item.metadataKey;
+          r6[key3] = res;
         })();
       }));
       return r6;
@@ -46498,8 +46498,8 @@ var require_crypto = __commonJS({
        * @return A promise that resolves with the HMAC-SHA256 hash in ArrayBuffer
        *   format.
        */
-      async signWithHmacSha256(key2, msg) {
-        const rawKey = typeof key2 === "string" ? key2 : String.fromCharCode(...new Uint16Array(key2));
+      async signWithHmacSha256(key3, msg) {
+        const rawKey = typeof key3 === "string" ? key3 : String.fromCharCode(...new Uint16Array(key3));
         const enc = new TextEncoder();
         const cryptoKey = await window.crypto.subtle.importKey("raw", enc.encode(rawKey), {
           name: "HMAC",
@@ -46563,8 +46563,8 @@ var require_crypto2 = __commonJS({
        * @return A promise that resolves with the HMAC-SHA256 hash in ArrayBuffer
        *   format.
        */
-      async signWithHmacSha256(key2, msg) {
-        const cryptoKey = typeof key2 === "string" ? key2 : toBuffer2(key2);
+      async signWithHmacSha256(key3, msg) {
+        const cryptoKey = typeof key3 === "string" ? key3 : toBuffer2(key3);
         return toArrayBuffer(crypto2.createHmac("sha256", cryptoKey).update(msg).digest());
       }
     };
@@ -46627,8 +46627,8 @@ var require_safe_buffer = __commonJS({
     var buffer = __require("buffer");
     var Buffer4 = buffer.Buffer;
     function copyProps2(src, dst) {
-      for (var key2 in src) {
-        dst[key2] = src[key2];
+      for (var key3 in src) {
+        dst[key3] = src[key3];
       }
     }
     if (Buffer4.from && Buffer4.alloc && Buffer4.allocUnsafe && Buffer4.allocUnsafeSlow) {
@@ -46854,7 +46854,7 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs16 = __require("fs");
+    var fs17 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
@@ -46863,9 +46863,9 @@ var require_util2 = __commonJS({
       return str2.replace(/([_][^_])/g, (match2) => match2.slice(1).toUpperCase());
     }
     function originalOrCamelOptions(obj) {
-      function get2(key2) {
+      function get2(key3) {
         const o3 = obj || {};
-        return o3[key2] ?? o3[snakeToCamel(key2)];
+        return o3[key3] ?? o3[snakeToCamel(key3)];
       }
       return { get: get2 };
     }
@@ -46888,9 +46888,9 @@ var require_util2 = __commonJS({
        * @param key the key to move
        * @param value the value of the key
        */
-      #moveToEnd(key2, value2) {
-        this.#cache.delete(key2);
-        this.#cache.set(key2, {
+      #moveToEnd(key3, value2) {
+        this.#cache.delete(key3);
+        this.#cache.set(key3, {
           value: value2,
           lastAccessed: Date.now()
         });
@@ -46901,8 +46901,8 @@ var require_util2 = __commonJS({
        * @param key the key to upsert
        * @param value the value of the key
        */
-      set(key2, value2) {
-        this.#moveToEnd(key2, value2);
+      set(key3, value2) {
+        this.#moveToEnd(key3, value2);
         this.#evict();
       }
       /**
@@ -46910,11 +46910,11 @@ var require_util2 = __commonJS({
        *
        * @param key the key to retrieve
        */
-      get(key2) {
-        const item = this.#cache.get(key2);
+      get(key3) {
+        const item = this.#cache.get(key3);
         if (!item)
           return;
-        this.#moveToEnd(key2, item.value);
+        this.#moveToEnd(key3, item.value);
         this.#evict();
         return item.value;
       }
@@ -46933,16 +46933,16 @@ var require_util2 = __commonJS({
     };
     exports.LRUCache = LRUCache;
     function removeUndefinedValuesInObject(object3) {
-      Object.entries(object3).forEach(([key2, value2]) => {
+      Object.entries(object3).forEach(([key3, value2]) => {
         if (value2 === void 0 || value2 === "undefined") {
-          delete object3[key2];
+          delete object3[key3];
         }
       });
       return object3;
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs16.promises.lstat(filePath);
+        const stats = await fs17.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -47870,8 +47870,8 @@ var require_oauth2client = __commonJS({
             certificates = res.data;
             break;
           case CertificateFormat.JWK:
-            for (const key2 of res.data.keys) {
-              certificates[key2.kid] = key2;
+            for (const key3 of res.data.keys) {
+              certificates[key3.kid] = key3;
             }
             break;
           default:
@@ -48350,58 +48350,58 @@ var require_jwa = __commonJS({
       MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
       MSG_INVALID_SECRET += "or a KeyObject";
     }
-    function checkIsPublicKey(key2) {
-      if (Buffer4.isBuffer(key2)) {
+    function checkIsPublicKey(key3) {
+      if (Buffer4.isBuffer(key3)) {
         return;
       }
-      if (typeof key2 === "string") {
+      if (typeof key3 === "string") {
         return;
       }
       if (!supportsKeyObjects) {
         throw typeError(MSG_INVALID_VERIFIER_KEY);
       }
-      if (typeof key2 !== "object") {
+      if (typeof key3 !== "object") {
         throw typeError(MSG_INVALID_VERIFIER_KEY);
       }
-      if (typeof key2.type !== "string") {
+      if (typeof key3.type !== "string") {
         throw typeError(MSG_INVALID_VERIFIER_KEY);
       }
-      if (typeof key2.asymmetricKeyType !== "string") {
+      if (typeof key3.asymmetricKeyType !== "string") {
         throw typeError(MSG_INVALID_VERIFIER_KEY);
       }
-      if (typeof key2.export !== "function") {
+      if (typeof key3.export !== "function") {
         throw typeError(MSG_INVALID_VERIFIER_KEY);
       }
     }
-    function checkIsPrivateKey(key2) {
-      if (Buffer4.isBuffer(key2)) {
+    function checkIsPrivateKey(key3) {
+      if (Buffer4.isBuffer(key3)) {
         return;
       }
-      if (typeof key2 === "string") {
+      if (typeof key3 === "string") {
         return;
       }
-      if (typeof key2 === "object") {
+      if (typeof key3 === "object") {
         return;
       }
       throw typeError(MSG_INVALID_SIGNER_KEY);
     }
-    function checkIsSecretKey(key2) {
-      if (Buffer4.isBuffer(key2)) {
+    function checkIsSecretKey(key3) {
+      if (Buffer4.isBuffer(key3)) {
         return;
       }
-      if (typeof key2 === "string") {
-        return key2;
+      if (typeof key3 === "string") {
+        return key3;
       }
       if (!supportsKeyObjects) {
         throw typeError(MSG_INVALID_SECRET);
       }
-      if (typeof key2 !== "object") {
+      if (typeof key3 !== "object") {
         throw typeError(MSG_INVALID_SECRET);
       }
-      if (key2.type !== "secret") {
+      if (key3.type !== "secret") {
         throw typeError(MSG_INVALID_SECRET);
       }
-      if (typeof key2.export !== "function") {
+      if (typeof key3.export !== "function") {
         throw typeError(MSG_INVALID_SECRET);
       }
     }
@@ -48897,10 +48897,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs16 = __require("fs");
+    var fs17 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile6 = fs16.readFile ? (0, util_1.promisify)(fs16.readFile) : async () => {
+    var readFile6 = fs17.readFile ? (0, util_1.promisify)(fs17.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -48922,10 +48922,10 @@ var require_getCredentials = __commonJS({
        * @returns A promise that resolves with the credentials.
        */
       async getCredentials() {
-        const key2 = await readFile6(this.keyFilePath, "utf8");
+        const key3 = await readFile6(this.keyFilePath, "utf8");
         let body;
         try {
-          body = JSON.parse(key2);
+          body = JSON.parse(key3);
         } catch (error64) {
           const err = error64;
           throw new Error(`Invalid JSON key file: ${err.message}`);
@@ -49238,9 +49238,9 @@ var require_jwtaccess = __commonJS({
        * @param key the private key that will be used to sign the token.
        * @param keyId the ID of the private key used to sign the token.
        */
-      constructor(email3, key2, keyId, eagerRefreshThresholdMillis) {
+      constructor(email3, key3, keyId, eagerRefreshThresholdMillis) {
         this.email = email3;
-        this.key = key2;
+        this.key = key3;
         this.keyId = keyId;
         this.eagerRefreshThresholdMillis = eagerRefreshThresholdMillis ?? 5 * 60 * 1e3;
       }
@@ -49272,8 +49272,8 @@ var require_jwtaccess = __commonJS({
        * @returns An object that includes the authorization header.
        */
       getRequestHeaders(url2, additionalClaims, scopes) {
-        const key2 = this.getCachedKey(url2, scopes);
-        const cachedToken = this.cache.get(key2);
+        const key3 = this.getCachedKey(url2, scopes);
+        const cachedToken = this.cache.get(key3);
         const now = Date.now();
         if (cachedToken && cachedToken.expiration - now > this.eagerRefreshThresholdMillis) {
           return new Headers(cachedToken.headers);
@@ -49312,7 +49312,7 @@ var require_jwtaccess = __commonJS({
         const payload2 = Object.assign(defaultClaims, additionalClaims);
         const signedJWT = jws.sign({ header: header2, payload: payload2, secret: this.key });
         const headers = new Headers({ authorization: `Bearer ${signedJWT}` });
-        this.cache.set(key2, {
+        this.cache.set(key3, {
           expiration: exp * 1e3,
           headers
         });
@@ -50088,10 +50088,10 @@ var require_oauth2common = __commonJS({
         if (err.stack) {
           keys.push("stack");
         }
-        keys.forEach((key2) => {
-          if (key2 !== "message") {
-            Object.defineProperty(newError2, key2, {
-              value: err[key2],
+        keys.forEach((key3) => {
+          if (key3 !== "message") {
+            Object.defineProperty(newError2, key3, {
+              value: err[key3],
               writable: false,
               enumerable: true
             });
@@ -50577,12 +50577,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs16 = __require("fs");
-    var readFile6 = (0, util_1.promisify)(fs16.readFile ?? (() => {
+    var fs17 = __require("fs");
+    var readFile6 = (0, util_1.promisify)(fs17.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs16.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs17.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs16.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs17.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50700,7 +50700,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs16 = __require("fs");
+    var fs17 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50794,7 +50794,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs16.promises.readFile(configPath, "utf8");
+          fileContents = await fs17.promises.readFile(configPath, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -50817,22 +50817,22 @@ var require_certificatesubjecttokensupplier = __commonJS({
        * @returns An object containing the cert content and key content in buffer format.
        */
       async #getKeyAndCert(certPath, keyPath) {
-        let cert, key2;
+        let cert, key3;
         try {
-          cert = await fs16.promises.readFile(certPath);
+          cert = await fs17.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key2 = await fs16.promises.readFile(keyPath);
-          (0, crypto_1.createPrivateKey)(key2);
+          key3 = await fs17.promises.readFile(keyPath);
+          (0, crypto_1.createPrivateKey)(key3);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read private key file at ${keyPath}: ${message2}`);
         }
-        return { cert, key: key2 };
+        return { cert, key: key3 };
       }
       /**
        * Reads the leaf certificate and trust chain, combines them,
@@ -50845,7 +50845,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs16.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs17.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51076,11 +51076,11 @@ var require_awsrequestsigner = __commonJS({
       }
     };
     exports.AwsRequestSigner = AwsRequestSigner;
-    async function sign2(crypto2, key2, msg) {
-      return await crypto2.signWithHmacSha256(key2, msg);
+    async function sign2(crypto2, key3, msg) {
+      return await crypto2.signWithHmacSha256(key3, msg);
     }
-    async function getSigningKey(crypto2, key2, dateStamp, region, serviceName) {
-      const kDate = await sign2(crypto2, `AWS4${key2}`, dateStamp);
+    async function getSigningKey(crypto2, key3, dateStamp, region, serviceName) {
+      const kDate = await sign2(crypto2, `AWS4${key3}`, dateStamp);
       const kRegion = await sign2(crypto2, kDate, region);
       const kService = await sign2(crypto2, kRegion, serviceName);
       const kSigning = await sign2(crypto2, kService, "aws4_request");
@@ -51109,8 +51109,8 @@ var require_awsrequestsigner = __commonJS({
       const signedHeadersList = [
         ...amzHeaders.keys()
       ].sort();
-      signedHeadersList.forEach((key2) => {
-        canonicalHeaders += `${key2}:${amzHeaders.get(key2)}
+      signedHeadersList.forEach((key3) => {
+        canonicalHeaders += `${key3}:${amzHeaders.get(key3)}
 `;
       });
       const signedHeaders = signedHeadersList.join(";");
@@ -51396,7 +51396,7 @@ var require_awsclient = __commonJS({
           // ensure data integrity.
           "x-goog-cloud-target-resource": this.audience
         }, options.headers);
-        extendedHeaders.forEach((value2, key2) => reformattedHeader.push({ key: key2, value: value2 }));
+        extendedHeaders.forEach((value2, key3) => reformattedHeader.push({ key: key3, value: value2 }));
         return encodeURIComponent(JSON.stringify({
           url: options.url,
           method: options.method,
@@ -51547,7 +51547,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs16 = __require("fs");
+    var fs17 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51632,14 +51632,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs16.promises.realpath(this.outputFile);
+          filePath = await fs17.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs16.promises.lstat(filePath)).isFile()) {
+        if (!(await fs17.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs16.promises.readFile(filePath, {
+        const responseString = await fs17.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -52050,7 +52050,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs16 = __require("fs");
+    var fs17 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52273,7 +52273,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs16.promises.readFile(currentPath);
+            const ca = await fs17.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52333,7 +52333,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs16 = __require("fs");
+    var fs17 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52635,7 +52635,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs16.existsSync(location)) {
+        if (!fs17.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52652,8 +52652,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs16.realpathSync(filePath);
-          if (!fs16.lstatSync(filePath).isFile()) {
+          filePath = fs17.realpathSync(filePath);
+          if (!fs17.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52662,7 +52662,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs16.createReadStream(filePath);
+        const readStream = fs17.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52990,7 +52990,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs16.createReadStream(filePath);
+          const stream = fs17.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -53672,15 +53672,15 @@ var require_code = __commonJS({
       return JSON.stringify(x2).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     }
     exports.safeStringify = safeStringify;
-    function getProperty(key2) {
-      return typeof key2 == "string" && exports.IDENTIFIER.test(key2) ? new _Code(`.${key2}`) : _`[${key2}]`;
+    function getProperty(key3) {
+      return typeof key3 == "string" && exports.IDENTIFIER.test(key3) ? new _Code(`.${key3}`) : _`[${key3}]`;
     }
     exports.getProperty = getProperty;
-    function getEsmExportName(key2) {
-      if (typeof key2 == "string" && exports.IDENTIFIER.test(key2)) {
-        return new _Code(`${key2}`);
+    function getEsmExportName(key3) {
+      if (typeof key3 == "string" && exports.IDENTIFIER.test(key3)) {
+        return new _Code(`${key3}`);
       }
-      throw new Error(`CodeGen: invalid export name: ${key2}, use explicit $id name mapping`);
+      throw new Error(`CodeGen: invalid export name: ${key3}, use explicit $id name mapping`);
     }
     exports.getEsmExportName = getEsmExportName;
     function regexpCode(rx) {
@@ -54307,11 +54307,11 @@ var require_codegen = __commonJS({
       // returns code for object literal for the passed argument list of key-value pairs
       object(...keyValues) {
         const code2 = ["{"];
-        for (const [key2, value2] of keyValues) {
+        for (const [key3, value2] of keyValues) {
           if (code2.length > 1)
             code2.push(",");
-          code2.push(key2);
-          if (key2 !== value2 || this.opts.es5) {
+          code2.push(key3);
+          if (key3 !== value2 || this.opts.es5) {
             code2.push(":");
             (0, code_1.addCodeArg)(code2, value2);
           }
@@ -54586,17 +54586,17 @@ var require_util3 = __commonJS({
       if (typeof schema === "boolean")
         return;
       const rules = self2.RULES.keywords;
-      for (const key2 in schema) {
-        if (!rules[key2])
-          checkStrictMode(it, `unknown keyword: "${key2}"`);
+      for (const key3 in schema) {
+        if (!rules[key3])
+          checkStrictMode(it, `unknown keyword: "${key3}"`);
       }
     }
     exports.checkUnknownRules = checkUnknownRules;
     function schemaHasRules(schema, rules) {
       if (typeof schema == "boolean")
         return !schema;
-      for (const key2 in schema)
-        if (rules[key2])
+      for (const key3 in schema)
+        if (rules[key3])
           return true;
       return false;
     }
@@ -54604,8 +54604,8 @@ var require_util3 = __commonJS({
     function schemaHasRulesButRef(schema, RULES) {
       if (typeof schema == "boolean")
         return !schema;
-      for (const key2 in schema)
-        if (key2 !== "$ref" && RULES.all[key2])
+      for (const key3 in schema)
+        if (key3 !== "$ref" && RULES.all[key3])
           return true;
       return false;
     }
@@ -55183,8 +55183,8 @@ var require_defaults = __commonJS({
     function assignDefaults(it, ty) {
       const { properties, items } = it.schema;
       if (ty === "object" && properties) {
-        for (const key2 in properties) {
-          assignDefault(it, key2, properties[key2].default);
+        for (const key3 in properties) {
+          assignDefault(it, key3, properties[key3].default);
         }
       } else if (ty === "array" && Array.isArray(items)) {
         items.forEach((sch, i6) => assignDefault(it, i6, sch.default));
@@ -55568,8 +55568,8 @@ var require_fast_deep_equal = __commonJS({
         for (i6 = length; i6-- !== 0; )
           if (!Object.prototype.hasOwnProperty.call(b5, keys[i6])) return false;
         for (i6 = length; i6-- !== 0; ) {
-          var key2 = keys[i6];
-          if (!equal(a5[key2], b5[key2])) return false;
+          var key3 = keys[i6];
+          if (!equal(a5[key3], b5[key3])) return false;
         }
         return true;
       }
@@ -55641,20 +55641,20 @@ var require_json_schema_traverse = __commonJS({
     function _traverse(opts, pre, post2, schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex) {
       if (schema && typeof schema == "object" && !Array.isArray(schema)) {
         pre(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
-        for (var key2 in schema) {
-          var sch = schema[key2];
+        for (var key3 in schema) {
+          var sch = schema[key3];
           if (Array.isArray(sch)) {
-            if (key2 in traverse.arrayKeywords) {
+            if (key3 in traverse.arrayKeywords) {
               for (var i6 = 0; i6 < sch.length; i6++)
-                _traverse(opts, pre, post2, sch[i6], jsonPtr + "/" + key2 + "/" + i6, rootSchema, jsonPtr, key2, schema, i6);
+                _traverse(opts, pre, post2, sch[i6], jsonPtr + "/" + key3 + "/" + i6, rootSchema, jsonPtr, key3, schema, i6);
             }
-          } else if (key2 in traverse.propsKeywords) {
+          } else if (key3 in traverse.propsKeywords) {
             if (sch && typeof sch == "object") {
               for (var prop in sch)
-                _traverse(opts, pre, post2, sch[prop], jsonPtr + "/" + key2 + "/" + escapeJsonPtr(prop), rootSchema, jsonPtr, key2, schema, prop);
+                _traverse(opts, pre, post2, sch[prop], jsonPtr + "/" + key3 + "/" + escapeJsonPtr(prop), rootSchema, jsonPtr, key3, schema, prop);
             }
-          } else if (key2 in traverse.keywords || opts.allKeys && !(key2 in traverse.skipKeywords)) {
-            _traverse(opts, pre, post2, sch, jsonPtr + "/" + key2, rootSchema, jsonPtr, key2, schema);
+          } else if (key3 in traverse.keywords || opts.allKeys && !(key3 in traverse.skipKeywords)) {
+            _traverse(opts, pre, post2, sch, jsonPtr + "/" + key3, rootSchema, jsonPtr, key3, schema);
           }
         }
         post2(schema, jsonPtr, rootSchema, parentJsonPtr, parentKeyword, parentSchema, keyIndex);
@@ -55711,10 +55711,10 @@ var require_resolve = __commonJS({
       "$dynamicAnchor"
     ]);
     function hasRef(schema) {
-      for (const key2 in schema) {
-        if (REF_KEYWORDS.has(key2))
+      for (const key3 in schema) {
+        if (REF_KEYWORDS.has(key3))
           return true;
-        const sch = schema[key2];
+        const sch = schema[key3];
         if (Array.isArray(sch) && sch.some(hasRef))
           return true;
         if (typeof sch == "object" && hasRef(sch))
@@ -55724,14 +55724,14 @@ var require_resolve = __commonJS({
     }
     function countKeys(schema) {
       let count = 0;
-      for (const key2 in schema) {
-        if (key2 === "$ref")
+      for (const key3 in schema) {
+        if (key3 === "$ref")
           return Infinity;
         count++;
-        if (SIMPLE_INLINED.has(key2))
+        if (SIMPLE_INLINED.has(key3))
           continue;
-        if (typeof schema[key2] == "object") {
-          (0, util_1.eachItem)(schema[key2], (sch) => count += countKeys(sch));
+        if (typeof schema[key3] == "object") {
+          (0, util_1.eachItem)(schema[key3], (sch) => count += countKeys(sch));
         }
         if (count === Infinity)
           return Infinity;
@@ -55920,8 +55920,8 @@ var require_validate = __commonJS({
     function schemaCxtHasRules({ schema, self: self2 }) {
       if (typeof schema == "boolean")
         return !schema;
-      for (const key2 in schema)
-        if (self2.RULES.all[key2])
+      for (const key3 in schema)
+        if (self2.RULES.all[key3])
           return true;
       return false;
     }
@@ -58016,7 +58016,7 @@ var require_core = __commonJS({
         }
       }
       // Adds schema to the instance
-      addSchema(schema, key2, _meta, _validateSchema = this.opts.validateSchema) {
+      addSchema(schema, key3, _meta, _validateSchema = this.opts.validateSchema) {
         if (Array.isArray(schema)) {
           for (const sch of schema)
             this.addSchema(sch, void 0, _meta, _validateSchema);
@@ -58030,15 +58030,15 @@ var require_core = __commonJS({
             throw new Error(`schema ${schemaId} must be string`);
           }
         }
-        key2 = (0, resolve_1.normalizeId)(key2 || id2);
-        this._checkUnique(key2);
-        this.schemas[key2] = this._addSchema(schema, _meta, key2, _validateSchema, true);
+        key3 = (0, resolve_1.normalizeId)(key3 || id2);
+        this._checkUnique(key3);
+        this.schemas[key3] = this._addSchema(schema, _meta, key3, _validateSchema, true);
         return this;
       }
       // Add schema that will be used to validate other schemas
       // options in META_IGNORE_OPTIONS are alway set to false
-      addMetaSchema(schema, key2, _validateSchema = this.opts.validateSchema) {
-        this.addSchema(schema, key2, true, _validateSchema);
+      addMetaSchema(schema, key3, _validateSchema = this.opts.validateSchema) {
+        this.addSchema(schema, key3, true, _validateSchema);
         return this;
       }
       //  Validate schema against its meta-schema
@@ -58194,14 +58194,14 @@ var require_core = __commonJS({
           let keywords = metaSchema;
           for (const seg of segments)
             keywords = keywords[seg];
-          for (const key2 in rules) {
-            const rule = rules[key2];
+          for (const key3 in rules) {
+            const rule = rules[key3];
             if (typeof rule != "object")
               continue;
             const { $data } = rule.definition;
-            const schema = keywords[key2];
+            const schema = keywords[key3];
             if ($data && schema)
-              keywords[key2] = schemaOrData(schema);
+              keywords[key3] = schemaOrData(schema);
           }
         }
         return metaSchema;
@@ -58274,10 +58274,10 @@ var require_core = __commonJS({
     Ajv2.MissingRefError = ref_error_1.default;
     exports.default = Ajv2;
     function checkOptions(checkOpts3, options, msg, log2 = "error") {
-      for (const key2 in checkOpts3) {
-        const opt = key2;
+      for (const key3 in checkOpts3) {
+        const opt = key3;
         if (opt in options)
-          this.logger[log2](`${msg}: option ${key2}. ${checkOpts3[opt]}`);
+          this.logger[log2](`${msg}: option ${key3}. ${checkOpts3[opt]}`);
       }
     }
     function getSchEnv(keyRef) {
@@ -58291,8 +58291,8 @@ var require_core = __commonJS({
       if (Array.isArray(optsSchemas))
         this.addSchema(optsSchemas);
       else
-        for (const key2 in optsSchemas)
-          this.addSchema(optsSchemas[key2], key2);
+        for (const key3 in optsSchemas)
+          this.addSchema(optsSchemas[key3], key3);
     }
     function addInitialFormats() {
       for (const name in this.opts.formats) {
@@ -59340,11 +59340,11 @@ var require_dependencies = __commonJS({
     function splitDependencies({ schema }) {
       const propertyDeps = {};
       const schemaDeps = {};
-      for (const key2 in schema) {
-        if (key2 === "__proto__")
+      for (const key3 in schema) {
+        if (key3 === "__proto__")
           continue;
-        const deps = Array.isArray(schema[key2]) ? propertyDeps : schemaDeps;
-        deps[key2] = schema[key2];
+        const deps = Array.isArray(schema[key3]) ? propertyDeps : schemaDeps;
+        deps[key3] = schema[key3];
       }
       return [propertyDeps, schemaDeps];
     }
@@ -59421,13 +59421,13 @@ var require_propertyNames = __commonJS({
         if ((0, util_1.alwaysValidSchema)(it, schema))
           return;
         const valid = gen.name("valid");
-        gen.forIn("key", data, (key2) => {
-          cxt.setParams({ propertyName: key2 });
+        gen.forIn("key", data, (key3) => {
+          cxt.setParams({ propertyName: key3 });
           cxt.subschema({
             keyword: "propertyNames",
-            data: key2,
+            data: key3,
             dataTypes: ["string"],
-            propertyName: key2,
+            propertyName: key3,
             compositeRule: true
           }, valid);
           gen.if((0, codegen_1.not)(valid), () => {
@@ -59476,38 +59476,38 @@ var require_additionalProperties = __commonJS({
         checkAdditionalProperties();
         cxt.ok((0, codegen_1._)`${errsCount} === ${names_1.default.errors}`);
         function checkAdditionalProperties() {
-          gen.forIn("key", data, (key2) => {
+          gen.forIn("key", data, (key3) => {
             if (!props.length && !patProps.length)
-              additionalPropertyCode(key2);
+              additionalPropertyCode(key3);
             else
-              gen.if(isAdditional(key2), () => additionalPropertyCode(key2));
+              gen.if(isAdditional(key3), () => additionalPropertyCode(key3));
           });
         }
-        function isAdditional(key2) {
+        function isAdditional(key3) {
           let definedProp;
           if (props.length > 8) {
             const propsSchema = (0, util_1.schemaRefOrVal)(it, parentSchema.properties, "properties");
-            definedProp = (0, code_1.isOwnProperty)(gen, propsSchema, key2);
+            definedProp = (0, code_1.isOwnProperty)(gen, propsSchema, key3);
           } else if (props.length) {
-            definedProp = (0, codegen_1.or)(...props.map((p3) => (0, codegen_1._)`${key2} === ${p3}`));
+            definedProp = (0, codegen_1.or)(...props.map((p3) => (0, codegen_1._)`${key3} === ${p3}`));
           } else {
             definedProp = codegen_1.nil;
           }
           if (patProps.length) {
-            definedProp = (0, codegen_1.or)(definedProp, ...patProps.map((p3) => (0, codegen_1._)`${(0, code_1.usePattern)(cxt, p3)}.test(${key2})`));
+            definedProp = (0, codegen_1.or)(definedProp, ...patProps.map((p3) => (0, codegen_1._)`${(0, code_1.usePattern)(cxt, p3)}.test(${key3})`));
           }
           return (0, codegen_1.not)(definedProp);
         }
-        function deleteAdditional(key2) {
-          gen.code((0, codegen_1._)`delete ${data}[${key2}]`);
+        function deleteAdditional(key3) {
+          gen.code((0, codegen_1._)`delete ${data}[${key3}]`);
         }
-        function additionalPropertyCode(key2) {
+        function additionalPropertyCode(key3) {
           if (opts.removeAdditional === "all" || opts.removeAdditional && schema === false) {
-            deleteAdditional(key2);
+            deleteAdditional(key3);
             return;
           }
           if (schema === false) {
-            cxt.setParams({ additionalProperty: key2 });
+            cxt.setParams({ additionalProperty: key3 });
             cxt.error();
             if (!allErrors)
               gen.break();
@@ -59516,22 +59516,22 @@ var require_additionalProperties = __commonJS({
           if (typeof schema == "object" && !(0, util_1.alwaysValidSchema)(it, schema)) {
             const valid = gen.name("valid");
             if (opts.removeAdditional === "failing") {
-              applyAdditionalSchema(key2, valid, false);
+              applyAdditionalSchema(key3, valid, false);
               gen.if((0, codegen_1.not)(valid), () => {
                 cxt.reset();
-                deleteAdditional(key2);
+                deleteAdditional(key3);
               });
             } else {
-              applyAdditionalSchema(key2, valid);
+              applyAdditionalSchema(key3, valid);
               if (!allErrors)
                 gen.if((0, codegen_1.not)(valid), () => gen.break());
             }
           }
         }
-        function applyAdditionalSchema(key2, valid, errors) {
+        function applyAdditionalSchema(key3, valid, errors) {
           const subschema = {
             keyword: "additionalProperties",
-            dataProp: key2,
+            dataProp: key3,
             dataPropType: util_1.Type.Str
           };
           if (errors === false) {
@@ -59656,19 +59656,19 @@ var require_patternProperties = __commonJS({
           }
         }
         function validateProperties(pat) {
-          gen.forIn("key", data, (key2) => {
-            gen.if((0, codegen_1._)`${(0, code_1.usePattern)(cxt, pat)}.test(${key2})`, () => {
+          gen.forIn("key", data, (key3) => {
+            gen.if((0, codegen_1._)`${(0, code_1.usePattern)(cxt, pat)}.test(${key3})`, () => {
               const alwaysValid = alwaysValidPatterns.includes(pat);
               if (!alwaysValid) {
                 cxt.subschema({
                   keyword: "patternProperties",
                   schemaProp: pat,
-                  dataProp: key2,
+                  dataProp: key3,
                   dataPropType: util_2.Type.Str
                 }, valid);
               }
               if (it.opts.unevaluated && props !== true) {
-                gen.assign((0, codegen_1._)`${props}[${key2}]`, true);
+                gen.assign((0, codegen_1._)`${props}[${key3}]`, true);
               } else if (!alwaysValid && !it.allErrors) {
                 gen.if((0, codegen_1.not)(valid), () => gen.break());
               }
@@ -60745,12 +60745,12 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list3, fs16, exportName) {
+    function addFormats(ajv, list3, fs17, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list3)
-        ajv.addFormat(f7, fs16[f7]);
+        ajv.addFormat(f7, fs17[f7]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -61484,9 +61484,9 @@ function floatSafeRemainder(val, step) {
   return ratio - roundedRatio;
 }
 var EVALUATING = /* @__PURE__ */ Symbol("evaluating");
-function defineLazy(object3, key2, getter) {
+function defineLazy(object3, key3, getter) {
   let value2 = void 0;
-  Object.defineProperty(object3, key2, {
+  Object.defineProperty(object3, key3, {
     get() {
       if (value2 === EVALUATING) {
         return void 0;
@@ -61498,7 +61498,7 @@ function defineLazy(object3, key2, getter) {
       return value2;
     },
     set(v) {
-      Object.defineProperty(object3, key2, {
+      Object.defineProperty(object3, key3, {
         value: v
         // configurable: true,
       });
@@ -61524,47 +61524,47 @@ function rawShape(def) {
 function sourceShape(schema) {
   return rawShape(schema._zod.def) ?? schema._zod.def.shape;
 }
-function deferProp(target, key2, getter) {
-  Object.defineProperty(target, key2, {
+function deferProp(target, key3, getter) {
+  Object.defineProperty(target, key3, {
     get() {
       const value2 = getter();
-      assignProp(this, key2, value2);
+      assignProp(this, key3, value2);
       return value2;
     },
     enumerable: true,
     configurable: true
   });
 }
-function putProp(target, key2, value2) {
-  if (key2 in target)
-    assignProp(target, key2, value2);
+function putProp(target, key3, value2) {
+  if (key3 in target)
+    assignProp(target, key3, value2);
   else
-    target[key2] = value2;
+    target[key3] = value2;
 }
 function mirrorShape(target, source2, keys, wrap) {
   const raw = sourceShape(source2);
-  for (const key2 of keys) {
-    const desc = Object.getOwnPropertyDescriptor(raw, key2);
+  for (const key3 of keys) {
+    const desc = Object.getOwnPropertyDescriptor(raw, key3);
     if (!desc.enumerable)
       continue;
     if (desc.get) {
-      deferProp(target, key2, () => {
-        const value2 = source2._zod.def.shape[key2];
-        return wrap ? wrap(value2, key2) : value2;
+      deferProp(target, key3, () => {
+        const value2 = source2._zod.def.shape[key3];
+        return wrap ? wrap(value2, key3) : value2;
       });
     } else
-      putProp(target, key2, wrap ? wrap(desc.value, key2) : desc.value);
+      putProp(target, key3, wrap ? wrap(desc.value, key3) : desc.value);
   }
 }
 function mirrorProps(target, source2) {
-  for (const key2 of Reflect.ownKeys(source2)) {
-    const desc = Object.getOwnPropertyDescriptor(source2, key2);
+  for (const key3 of Reflect.ownKeys(source2)) {
+    const desc = Object.getOwnPropertyDescriptor(source2, key3);
     if (!desc.enumerable)
       continue;
     if (desc.get)
-      deferProp(target, key2, () => source2[key2]);
+      deferProp(target, key3, () => source2[key3]);
     else
-      putProp(target, key2, desc.value);
+      putProp(target, key3, desc.value);
   }
 }
 function mergeDefs(...defs) {
@@ -61581,11 +61581,11 @@ function cloneDef(schema) {
 function getElementAtPath(obj, path2) {
   if (!path2)
     return obj;
-  return path2.reduce((acc, key2) => acc?.[key2], obj);
+  return path2.reduce((acc, key3) => acc?.[key3], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
-  const promises = keys.map((key2) => promisesObj[key2]);
+  const promises = keys.map((key3) => promisesObj[key3]);
   return Promise.all(promises).then((results) => {
     const resolvedObj = {};
     for (let i6 = 0; i6 < keys.length; i6++) {
@@ -61657,8 +61657,8 @@ function shallowClone(o3) {
 }
 function numKeys(data) {
   let keyCount = 0;
-  for (const key2 in data) {
-    if (Object.prototype.hasOwnProperty.call(data, key2)) {
+  for (const key3 in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key3)) {
       keyCount++;
     }
   }
@@ -61812,12 +61812,12 @@ function pick(schema, mask) {
 function maskedKeys(schema, mask) {
   const raw = sourceShape(schema);
   const keys = [];
-  for (const key2 of Reflect.ownKeys(mask)) {
-    if (!Object.getOwnPropertyDescriptor(raw, key2)?.enumerable) {
-      throw new Error(`Unrecognized key: "${String(key2)}"`);
+  for (const key3 of Reflect.ownKeys(mask)) {
+    if (!Object.getOwnPropertyDescriptor(raw, key3)?.enumerable) {
+      throw new Error(`Unrecognized key: "${String(key3)}"`);
     }
-    if (mask[key2])
-      keys.push(key2);
+    if (mask[key3])
+      keys.push(key3);
   }
   return keys;
 }
@@ -61830,7 +61830,7 @@ function omit(schema, mask) {
   }
   const omitted = new Set(maskedKeys(schema, mask));
   const newShape = {};
-  mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)).filter((key2) => !omitted.has(key2)));
+  mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)).filter((key3) => !omitted.has(key3)));
   return clone(schema, mergeDefs(currDef, { shape: newShape, checks: [] }));
 }
 function extend(schema, shape) {
@@ -61841,8 +61841,8 @@ function extend(schema, shape) {
   const hasChecks = checks && checks.length > 0;
   if (hasChecks) {
     const existingShape = sourceShape(schema);
-    for (const key2 of Reflect.ownKeys(shape)) {
-      if (Object.getOwnPropertyDescriptor(existingShape, key2) !== void 0) {
+    for (const key3 of Reflect.ownKeys(shape)) {
+      if (Object.getOwnPropertyDescriptor(existingShape, key3) !== void 0) {
         throw new Error("Cannot overwrite keys on object schemas containing refinements. Use `.safeExtend()` instead.");
       }
     }
@@ -61889,15 +61889,15 @@ function partial(Class2, schema, mask, name = "partial") {
   }
   const selected = mask ? new Set(maskedKeys(schema, mask)) : void 0;
   const newShape = {};
-  mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)), Class2 && ((value2, key2) => selected && !selected.has(key2) ? value2 : new Class2({ type: "optional", innerType: value2 })));
+  mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)), Class2 && ((value2, key3) => selected && !selected.has(key3) ? value2 : new Class2({ type: "optional", innerType: value2 })));
   return clone(schema, mergeDefs(schema._zod.def, { shape: newShape, checks: [] }));
 }
 function required(Class2, schema, mask) {
   const selected = mask ? new Set(maskedKeys(schema, mask)) : void 0;
   const newShape = {};
-  mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)), (value2, key2) => (
+  mirrorShape(newShape, schema, Reflect.ownKeys(sourceShape(schema)), (value2, key3) => (
     // overwrite with non-optional
-    selected && !selected.has(key2) ? value2 : new Class2({ type: "nonoptional", innerType: value2 })
+    selected && !selected.has(key3) ? value2 : new Class2({ type: "nonoptional", innerType: value2 })
   ));
   return clone(schema, mergeDefs(schema._zod.def, { shape: newShape }));
 }
@@ -62084,46 +62084,46 @@ var Class = class {
   }
 };
 function members(proto, table) {
-  for (const key2 in table) {
-    const desc = Object.getOwnPropertyDescriptor(table, key2);
+  for (const key3 in table) {
+    const desc = Object.getOwnPropertyDescriptor(table, key3);
     if (desc.get)
-      Object.defineProperty(proto, key2, { ...desc, enumerable: false });
+      Object.defineProperty(proto, key3, { ...desc, enumerable: false });
     else
-      defineBound(proto, key2, desc.value);
+      defineBound(proto, key3, desc.value);
   }
 }
-function own(inst, key2, value2, enumerable = true) {
-  Object.defineProperty(inst, key2, { configurable: true, writable: true, enumerable, value: value2 });
+function own(inst, key3, value2, enumerable = true) {
+  Object.defineProperty(inst, key3, { configurable: true, writable: true, enumerable, value: value2 });
   return value2;
 }
-function hide(inst, key2, value2) {
-  return own(inst, key2, value2, false);
+function hide(inst, key3, value2) {
+  return own(inst, key3, value2, false);
 }
 // @__NO_SIDE_EFFECTS__
 function derived(computes, table) {
-  for (const key2 in computes) {
-    const compute = computes[key2];
-    Object.defineProperty(table, key2, {
+  for (const key3 in computes) {
+    const compute = computes[key3];
+    Object.defineProperty(table, key3, {
       configurable: true,
       enumerable: true,
       get() {
-        return own(this, key2, compute(this));
+        return own(this, key3, compute(this));
       },
       set(value2) {
-        own(this, key2, value2);
+        own(this, key3, value2);
       }
     });
   }
   return table;
 }
-function defineBound(proto, key2, fn) {
-  Object.defineProperty(proto, key2, {
+function defineBound(proto, key3, fn) {
+  Object.defineProperty(proto, key3, {
     configurable: true,
     get() {
-      return this == null ? fn : own(this, key2, fn.bind(this));
+      return this == null ? fn : own(this, key3, fn.bind(this));
     },
     set(value2) {
-      own(this, key2, value2);
+      own(this, key3, value2);
     }
   });
 }
@@ -62140,53 +62140,53 @@ var breaker = {
     return void 0;
   }
 };
-function defineLazyInternal(inst, key2, compute) {
+function defineLazyInternal(inst, key3, compute) {
   const proto = Object.getPrototypeOf(inst._zod);
-  if (key2 in proto && installing !== inst._zod) {
+  if (key3 in proto && installing !== inst._zod) {
     installing = void 0;
     return;
   }
   installing = inst._zod;
-  Object.defineProperty(proto, key2, {
+  Object.defineProperty(proto, key3, {
     configurable: true,
     get() {
-      Object.defineProperty(this, key2, breaker);
+      Object.defineProperty(this, key3, breaker);
       const outer = broke;
       broke = false;
       try {
         const value2 = compute(this);
         if (broke)
-          delete this[key2];
+          delete this[key3];
         else
-          Object.defineProperty(this, key2, { configurable: true, writable: true, value: value2 });
+          Object.defineProperty(this, key3, { configurable: true, writable: true, value: value2 });
         broke = broke || outer;
         return value2;
       } catch (err) {
-        delete this[key2];
+        delete this[key3];
         broke = broke || outer;
         throw err;
       }
     },
     set(value2) {
-      Object.defineProperty(this, key2, { configurable: true, writable: true, value: value2 });
+      Object.defineProperty(this, key3, { configurable: true, writable: true, value: value2 });
     }
   });
 }
-function installLazyProp(inst, key2, make, enumerable) {
-  const proto = claim(inst, key2);
+function installLazyProp(inst, key3, make, enumerable) {
+  const proto = claim(inst, key3);
   if (!proto)
     return;
-  Object.defineProperty(proto, key2, {
+  Object.defineProperty(proto, key3, {
     configurable: true,
     get() {
       const desc = { configurable: true, writable: true, enumerable, value: void 0 };
-      Object.defineProperty(this, key2, desc);
+      Object.defineProperty(this, key3, desc);
       desc.value = make(this);
-      Object.defineProperty(this, key2, desc);
+      Object.defineProperty(this, key3, desc);
       return desc.value;
     },
     set(value2) {
-      Object.defineProperty(this, key2, { configurable: true, writable: true, enumerable, value: value2 });
+      Object.defineProperty(this, key3, { configurable: true, writable: true, enumerable, value: value2 });
     }
   });
 }
@@ -62363,15 +62363,15 @@ var $ZodError = $constructor("$ZodError", initializer);
 var $ZodRealError = $constructor("$ZodError", initializer, void 0, {
   Parent: Error
 });
-function node(obj, key2, make) {
-  if (!Object.prototype.hasOwnProperty.call(obj, key2)) {
-    if (key2 === "__proto__") {
-      Object.defineProperty(obj, key2, { value: make(), writable: true, enumerable: true, configurable: true });
+function node(obj, key3, make) {
+  if (!Object.prototype.hasOwnProperty.call(obj, key3)) {
+    if (key3 === "__proto__") {
+      Object.defineProperty(obj, key3, { value: make(), writable: true, enumerable: true, configurable: true });
     } else {
-      obj[key2] = make();
+      obj[key3] = make();
     }
   }
-  return obj[key2];
+  return obj[key3];
 }
 function flattenError(error64, mapper = (issue2) => issue2.message) {
   const fieldErrors = {};
@@ -63280,16 +63280,16 @@ var $ZodCheckProperties = /* @__PURE__ */ $constructor("$ZodCheckProperties", (i
       payload2.issues.push({ expected: "object", code: "invalid_type", input: payload2.value, inst });
       return void 0;
     }
-    entries ?? (entries = Reflect.ownKeys(def.shape).map((key2) => [key2, def.shape[key2]]));
+    entries ?? (entries = Reflect.ownKeys(def.shape).map((key3) => [key3, def.shape[key3]]));
     const input2 = payload2.value;
     let proms;
-    for (const [key2, schema] of entries) {
-      const result = schema._zod.run({ value: input2[key2], issues: [] }, {});
+    for (const [key3, schema] of entries) {
+      const result = schema._zod.run({ value: input2[key3], issues: [] }, {});
       if (result instanceof Promise) {
         proms ?? (proms = []);
-        proms.push(result.then((result2) => handleCheckPropertyResult(result2, payload2, key2)));
+        proms.push(result.then((result2) => handleCheckPropertyResult(result2, payload2, key3)));
       } else {
-        handleCheckPropertyResult(result, payload2, key2);
+        handleCheckPropertyResult(result, payload2, key3);
       }
     }
     if (proms)
@@ -64190,8 +64190,8 @@ var $ZodArray = /* @__PURE__ */ $constructor("$ZodArray", (inst, def) => {
   };
   capSize(inst, arraySize);
 });
-function handlePropertyResult(result, final, key2, input2, optin, optout) {
-  const isPresent = key2 in input2;
+function handlePropertyResult(result, final, key3, input2, optin, optout) {
+  const isPresent = key3 in input2;
   const isOptionalOut = optout === "optional";
   if (!isPresent && isOptionalOut && optin === "optional") {
     return;
@@ -64200,7 +64200,7 @@ function handlePropertyResult(result, final, key2, input2, optin, optout) {
     if (optin !== void 0 && isOptionalOut && !isPresent) {
       return;
     }
-    final.issues.push(...prefixIssues(key2, result.issues));
+    final.issues.push(...prefixIssues(key3, result.issues));
   }
   if (!isPresent && optin === void 0) {
     if (!result.issues.length) {
@@ -64208,17 +64208,17 @@ function handlePropertyResult(result, final, key2, input2, optin, optout) {
         code: "invalid_type",
         expected: "nonoptional",
         input: void 0,
-        path: [key2]
+        path: [key3]
       });
     }
     return;
   }
   if (result.value === void 0) {
     if (isPresent || optin === "defaulted" && !isOptionalOut) {
-      final.value[key2] = void 0;
+      final.value[key3] = void 0;
     }
   } else {
-    final.value[key2] = result.value;
+    final.value[key3] = result.value;
   }
 }
 var NO_SYMBOL_KEYS = [];
@@ -64251,28 +64251,28 @@ function handleCatchall(proms, input2, payload2, ctx, def, inst, abortEarly) {
   const optin = _catchall.optin;
   const optout = _catchall.optout;
   let seen = 0;
-  for (const key2 in input2) {
+  for (const key3 in input2) {
     if (abortEarly && payload2.issues.length !== seen) {
       if (aborted(payload2, seen))
         break;
       seen = payload2.issues.length;
     }
-    if (keySet.has(key2))
+    if (keySet.has(key3))
       continue;
-    if (key2 === "__proto__") {
+    if (key3 === "__proto__") {
       if (t2 === "never")
-        unrecognized.push(key2);
+        unrecognized.push(key3);
       continue;
     }
     if (t2 === "never") {
-      unrecognized.push(key2);
+      unrecognized.push(key3);
       continue;
     }
-    const r6 = _catchall.run({ value: input2[key2], issues: [] }, ctx);
+    const r6 = _catchall.run({ value: input2[key3], issues: [] }, ctx);
     if (r6 instanceof Promise) {
-      proms.push(r6.then((r7) => handlePropertyResult(r7, payload2, key2, input2, optin, optout)));
+      proms.push(r6.then((r7) => handlePropertyResult(r7, payload2, key3, input2, optin, optout)));
     } else {
-      handlePropertyResult(r6, payload2, key2, input2, optin, optout);
+      handlePropertyResult(r6, payload2, key3, input2, optin, optout);
     }
   }
   if (unrecognized.length) {
@@ -64309,16 +64309,16 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
   defineLazyInternal(inst, "propValues", (zod) => {
     const shape = zod.def.shape;
     const propValues = {};
-    for (const key2 in shape) {
-      const field = shape[key2]._zod;
+    for (const key3 in shape) {
+      const field = shape[key3]._zod;
       if (field.values) {
-        if (!Object.prototype.hasOwnProperty.call(propValues, key2)) {
-          assignProp(propValues, key2, /* @__PURE__ */ new Set());
+        if (!Object.prototype.hasOwnProperty.call(propValues, key3)) {
+          assignProp(propValues, key3, /* @__PURE__ */ new Set());
         }
         for (const v of field.values)
-          propValues[key2].add(v);
+          propValues[key3].add(v);
         if (field.optin !== void 0)
-          propValues[key2].add(void 0);
+          propValues[key3].add(void 0);
       }
     }
     return propValues;
@@ -64345,22 +64345,22 @@ var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
     const shape = value2.shape;
     const abortEarly = ctx?.abortEarly;
     let seen = payload2.issues.length;
-    for (const key2 of value2.allKeys) {
+    for (const key3 of value2.allKeys) {
       if (abortEarly && payload2.issues.length !== seen) {
         if (aborted(payload2, seen))
           break;
         seen = payload2.issues.length;
       }
-      if (key2 === "__proto__")
+      if (key3 === "__proto__")
         continue;
-      const el = shape[key2];
+      const el = shape[key3];
       const optin = el._zod.optin;
       const optout = el._zod.optout;
-      const r6 = el._zod.run({ value: input2[key2], issues: [] }, ctx);
+      const r6 = el._zod.run({ value: input2[key3], issues: [] }, ctx);
       if (r6 instanceof Promise) {
-        proms.push(r6.then((r7) => handlePropertyResult(r7, payload2, key2, input2, optin, optout)));
+        proms.push(r6.then((r7) => handlePropertyResult(r7, payload2, key3, input2, optin, optout)));
       } else {
-        handlePropertyResult(r6, payload2, key2, input2, optin, optout);
+        handlePropertyResult(r6, payload2, key3, input2, optin, optout);
       }
     }
     if (!catchall) {
@@ -64394,17 +64394,17 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
     doc.write(`const input = payload.value;`);
     const ids = /* @__PURE__ */ Object.create(null);
     let counter = 0;
-    for (const key2 of normalized.allKeys) {
-      ids[key2] = `key_${counter++}`;
+    for (const key3 of normalized.allKeys) {
+      ids[key3] = `key_${counter++}`;
     }
     doc.write(memo2 ? `const newResult = memo.alloc(inst, payload, {}, ctx);` : `const newResult = {};`);
-    for (const key2 of normalized.allKeys) {
-      if (key2 === "__proto__")
+    for (const key3 of normalized.allKeys) {
+      if (key3 === "__proto__")
         continue;
-      const id2 = ids[key2];
-      const k5 = typeof key2 === "symbol" ? `syms[${syms.indexOf(key2)}]` : esc(key2);
+      const id2 = ids[key3];
+      const k5 = typeof key3 === "symbol" ? `syms[${syms.indexOf(key3)}]` : esc(key3);
       const isPresent = `${k5} in input`;
-      const schema = shape[key2];
+      const schema = shape[key3];
       const optin = schema?._zod?.optin;
       const isOptionalIn = optin !== void 0;
       const isOptionalOut = schema?._zod?.optout === "optional";
@@ -64738,21 +64738,21 @@ function mergeValues(a5, b5) {
   }
   if (isPlainObject(a5) && isPlainObject(b5)) {
     const bKeys = Object.keys(b5);
-    const sharedKeys = Object.keys(a5).filter((key2) => bKeys.indexOf(key2) !== -1);
+    const sharedKeys = Object.keys(a5).filter((key3) => bKeys.indexOf(key3) !== -1);
     const newObj = { ...a5, ...b5 };
     if (Object.prototype.hasOwnProperty.call(newObj, "__proto__"))
       delete newObj.__proto__;
-    for (const key2 of sharedKeys) {
-      if (key2 === "__proto__")
+    for (const key3 of sharedKeys) {
+      if (key3 === "__proto__")
         continue;
-      const sharedValue = mergeValues(a5[key2], b5[key2]);
+      const sharedValue = mergeValues(a5[key3], b5[key3]);
       if (!sharedValue.valid) {
         return {
           valid: false,
-          mergeErrorPath: [key2, ...sharedValue.mergeErrorPath]
+          mergeErrorPath: [key3, ...sharedValue.mergeErrorPath]
         };
       }
-      newObj[key2] = sharedValue.data;
+      newObj[key3] = sharedValue.data;
     }
     return { valid: true, data: newObj };
   }
@@ -64911,9 +64911,9 @@ var $ZodTuple = /* @__PURE__ */ $constructor("$ZodTuple", (inst, def) => {
     return handleTupleResults(itemResults, payload2, items, input2, optoutStart);
   };
 });
-function getTupleOptStart(items, key2) {
+function getTupleOptStart(items, key3) {
   for (let i6 = items.length - 1; i6 >= 0; i6--) {
-    const omittable = key2 === "optin" ? items[i6]._zod.optin !== void 0 : items[i6]._zod.optout === "optional";
+    const omittable = key3 === "optin" ? items[i6]._zod.optin !== void 0 : items[i6]._zod.optout === "optional";
     if (!omittable)
       return i6 + 1;
   }
@@ -64971,12 +64971,12 @@ var $ZodRecord = /* @__PURE__ */ $constructor("$ZodRecord", (inst, def) => {
     if (values && !def.partial) {
       payload2.value = memo2 ? memo2.alloc(inst, payload2, {}, ctx) : {};
       const recordKeys = /* @__PURE__ */ new Set();
-      for (const key2 of values) {
-        if (typeof key2 === "string" || typeof key2 === "number" || typeof key2 === "symbol") {
-          recordKeys.add(typeof key2 === "number" ? key2.toString() : key2);
-          if (key2 === "__proto__")
+      for (const key3 of values) {
+        if (typeof key3 === "string" || typeof key3 === "number" || typeof key3 === "symbol") {
+          recordKeys.add(typeof key3 === "number" ? key3.toString() : key3);
+          if (key3 === "__proto__")
             continue;
-          const keyResult = def.keyType._zod.run({ value: key2, issues: [] }, ctx);
+          const keyResult = def.keyType._zod.run({ value: key3, issues: [] }, ctx);
           if (keyResult instanceof Promise) {
             throw new Error("Async schemas not supported in object keys currently");
           }
@@ -64985,8 +64985,8 @@ var $ZodRecord = /* @__PURE__ */ $constructor("$ZodRecord", (inst, def) => {
               code: "invalid_key",
               origin: "record",
               issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
-              input: key2,
-              path: [key2],
+              input: key3,
+              path: [key3],
               inst
             });
             continue;
@@ -64994,32 +64994,32 @@ var $ZodRecord = /* @__PURE__ */ $constructor("$ZodRecord", (inst, def) => {
           const outKey = keyResult.value;
           if (outKey === "__proto__")
             continue;
-          const result = def.valueType._zod.run({ value: input2[key2], issues: [] }, ctx);
+          const result = def.valueType._zod.run({ value: input2[key3], issues: [] }, ctx);
           if (result instanceof Promise) {
             proms.push(result.then((result2) => {
               if (result2.issues.length) {
-                payload2.issues.push(...prefixIssues(key2, result2.issues));
+                payload2.issues.push(...prefixIssues(key3, result2.issues));
               }
               payload2.value[outKey] = result2.value;
             }));
           } else {
             if (result.issues.length) {
-              payload2.issues.push(...prefixIssues(key2, result.issues));
+              payload2.issues.push(...prefixIssues(key3, result.issues));
             }
             payload2.value[outKey] = result.value;
           }
         }
       }
       let unrecognized;
-      for (const key2 in input2) {
-        if (!recordKeys.has(key2)) {
+      for (const key3 in input2) {
+        if (!recordKeys.has(key3)) {
           if (def.mode === "loose") {
-            if (key2 === "__proto__")
+            if (key3 === "__proto__")
               continue;
-            payload2.value[key2] = input2[key2];
+            payload2.value[key3] = input2[key3];
           } else {
             unrecognized = unrecognized ?? [];
-            unrecognized.push(key2);
+            unrecognized.push(key3);
           }
         }
       }
@@ -65035,18 +65035,18 @@ var $ZodRecord = /* @__PURE__ */ $constructor("$ZodRecord", (inst, def) => {
     } else {
       payload2.value = memo2 ? memo2.alloc(inst, payload2, {}, ctx) : {};
       let unrecognized;
-      for (const key2 of Reflect.ownKeys(input2)) {
-        if (key2 === "__proto__")
+      for (const key3 of Reflect.ownKeys(input2)) {
+        if (key3 === "__proto__")
           continue;
-        if (!Object.prototype.propertyIsEnumerable.call(input2, key2))
+        if (!Object.prototype.propertyIsEnumerable.call(input2, key3))
           continue;
-        let keyResult = def.keyType._zod.run({ value: key2, issues: [] }, ctx);
+        let keyResult = def.keyType._zod.run({ value: key3, issues: [] }, ctx);
         if (keyResult instanceof Promise) {
           throw new Error("Async schemas not supported in object keys currently");
         }
-        const checkNumericKey = typeof key2 === "string" && number.test(key2) && keyResult.issues.length;
+        const checkNumericKey = typeof key3 === "string" && number.test(key3) && keyResult.issues.length;
         if (checkNumericKey) {
-          const retryResult = def.keyType._zod.run({ value: Number(key2), issues: [] }, ctx);
+          const retryResult = def.keyType._zod.run({ value: Number(key3), issues: [] }, ctx);
           if (retryResult instanceof Promise) {
             throw new Error("Async schemas not supported in object keys currently");
           }
@@ -65056,17 +65056,17 @@ var $ZodRecord = /* @__PURE__ */ $constructor("$ZodRecord", (inst, def) => {
         }
         if (keyResult.issues.length) {
           if (def.mode === "loose") {
-            payload2.value[key2] = input2[key2];
+            payload2.value[key3] = input2[key3];
           } else if (values) {
             unrecognized = unrecognized ?? [];
-            unrecognized.push(key2);
+            unrecognized.push(key3);
           } else {
             payload2.issues.push({
               code: "invalid_key",
               origin: "record",
               issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
-              input: key2,
-              path: [key2],
+              input: key3,
+              path: [key3],
               inst
             });
           }
@@ -65075,17 +65075,17 @@ var $ZodRecord = /* @__PURE__ */ $constructor("$ZodRecord", (inst, def) => {
         const outKey = keyResult.value;
         if (outKey === "__proto__")
           continue;
-        const result = def.valueType._zod.run({ value: input2[key2], issues: [] }, ctx);
+        const result = def.valueType._zod.run({ value: input2[key3], issues: [] }, ctx);
         if (result instanceof Promise) {
           proms.push(result.then((result2) => {
             if (result2.issues.length) {
-              payload2.issues.push(...prefixIssues(key2, result2.issues));
+              payload2.issues.push(...prefixIssues(key3, result2.issues));
             }
             payload2.value[outKey] = result2.value;
           }));
         } else {
           if (result.issues.length) {
-            payload2.issues.push(...prefixIssues(key2, result.issues));
+            payload2.issues.push(...prefixIssues(key3, result.issues));
           }
           payload2.value[outKey] = result.value;
         }
@@ -65125,20 +65125,20 @@ var $ZodMap = /* @__PURE__ */ $constructor("$ZodMap", (inst, def) => {
     payload2.value = memo2 ? memo2.alloc(inst, payload2, /* @__PURE__ */ new Map(), ctx) : /* @__PURE__ */ new Map();
     const abortEarly = ctx?.abortEarly;
     let seen = payload2.issues.length;
-    for (const [key2, value2] of input2) {
+    for (const [key3, value2] of input2) {
       if (abortEarly && payload2.issues.length !== seen) {
         if (aborted(payload2, seen))
           break;
         seen = payload2.issues.length;
       }
-      const keyResult = def.keyType._zod.run({ value: key2, issues: [] }, ctx);
+      const keyResult = def.keyType._zod.run({ value: key3, issues: [] }, ctx);
       const valueResult = def.valueType._zod.run({ value: value2, issues: [] }, ctx);
       if (keyResult instanceof Promise || valueResult instanceof Promise) {
         proms.push(Promise.all([keyResult, valueResult]).then(([keyResult2, valueResult2]) => {
-          handleMapResult(keyResult2, valueResult2, payload2, key2, input2, inst, ctx);
+          handleMapResult(keyResult2, valueResult2, payload2, key3, input2, inst, ctx);
         }));
       } else {
-        handleMapResult(keyResult, valueResult, payload2, key2, input2, inst, ctx);
+        handleMapResult(keyResult, valueResult, payload2, key3, input2, inst, ctx);
       }
     }
     if (proms.length)
@@ -65147,10 +65147,10 @@ var $ZodMap = /* @__PURE__ */ $constructor("$ZodMap", (inst, def) => {
   };
   capSize(inst, mapSize);
 });
-function handleMapResult(keyResult, valueResult, final, key2, input2, inst, ctx) {
+function handleMapResult(keyResult, valueResult, final, key3, input2, inst, ctx) {
   if (keyResult.issues.length) {
-    if (propertyKeyTypes.has(typeof key2)) {
-      final.issues.push(...prefixIssues(key2, keyResult.issues));
+    if (propertyKeyTypes.has(typeof key3)) {
+      final.issues.push(...prefixIssues(key3, keyResult.issues));
     } else {
       final.issues.push({
         code: "invalid_key",
@@ -65162,15 +65162,15 @@ function handleMapResult(keyResult, valueResult, final, key2, input2, inst, ctx)
     }
   }
   if (valueResult.issues.length) {
-    if (propertyKeyTypes.has(typeof key2)) {
-      final.issues.push(...prefixIssues(key2, valueResult.issues));
+    if (propertyKeyTypes.has(typeof key3)) {
+      final.issues.push(...prefixIssues(key3, valueResult.issues));
     } else {
       final.issues.push({
         origin: "map",
         code: "invalid_element",
         input: input2,
         inst,
-        key: key2,
+        key: key3,
         issues: valueResult.issues.map((iss) => finalizeIssue(iss, ctx, config()))
       });
     }
@@ -65845,8 +65845,8 @@ function isRecursive(inst, stack, resolve3) {
   };
   const shape = (sh, spread) => {
     let answer = NONE;
-    for (const key2 of Reflect.ownKeys(sh)) {
-      const desc = Object.getOwnPropertyDescriptor(sh, key2);
+    for (const key3 of Reflect.ownKeys(sh)) {
+      const desc = Object.getOwnPropertyDescriptor(sh, key3);
       if (spread && !desc.enumerable)
         continue;
       const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve3) : NONE;
@@ -65942,8 +65942,8 @@ function isRecursive(inst, stack, resolve3) {
       break;
     default: {
       kind;
-      for (const key2 in def) {
-        const desc = Object.getOwnPropertyDescriptor(def, key2);
+      for (const key3 in def) {
+        const desc = Object.getOwnPropertyDescriptor(def, key3);
         if (!desc || desc.get)
           continue;
         const value2 = desc.value;
@@ -74076,11 +74076,11 @@ function generatePropertiesChecks(doc, ctx, def, accessor) {
   }
   doc.write(`if (${accessor} == null) return INVALID;`);
   const shape = def.shape;
-  for (const key2 of Reflect.ownKeys(shape)) {
-    const keyExpr = typeof key2 === "symbol" ? addConstant(ctx, key2) : esc(key2);
+  for (const key3 of Reflect.ownKeys(shape)) {
+    const keyExpr = typeof key3 === "symbol" ? addConstant(ctx, key3) : esc(key3);
     const inputVar = newVar(ctx);
     doc.write(`const ${inputVar} = ${accessor}[${keyExpr}];`);
-    compileChild(doc, ctx, shape[key2], inputVar, false);
+    compileChild(doc, ctx, shape[key3], inputVar, false);
   }
 }
 function generatePropertyCheck(doc, ctx, def, accessor) {
@@ -74473,9 +74473,9 @@ function generateObjectCheck(doc, ctx, schema, accessor, buildsValue = true) {
     throw new ZodCompileUnsupportedError('object shape key "__proto__"');
   }
   const propOutputs = /* @__PURE__ */ new Map();
-  for (const key2 of allKeys) {
-    const propSchema = propShape[key2];
-    const kx = keyExpr(key2);
+  for (const key3 of allKeys) {
+    const propSchema = propShape[key3];
+    const kx = keyExpr(key3);
     const inputVar = newVar(ctx);
     doc.write(`const ${inputVar} = ${accessor}[${kx}];`);
     if (propSchema._zod.optin !== void 0) {
@@ -74496,14 +74496,14 @@ function generateObjectCheck(doc, ctx, schema, accessor, buildsValue = true) {
       } else {
         doc.write(`if (${outputVar2} === INVALID) return INVALID;`);
       }
-      propOutputs.set(key2, outputVar2);
+      propOutputs.set(key3, outputVar2);
     } else {
       if (requiresPresenceCheck(propSchema)) {
         doc.write(`if (!(${kx} in ${accessor})) return INVALID;`);
       }
       const outputAccessor = compileChild(doc, ctx, propSchema, inputVar, buildsValue);
       if (outputAccessor !== null)
-        propOutputs.set(key2, outputAccessor);
+        propOutputs.set(key3, outputAccessor);
     }
   }
   const catchall = def.catchall;
@@ -74924,9 +74924,9 @@ function generateTupleCheck(doc, ctx, schema, accessor) {
   }
   return outputVar;
 }
-function getTupleOptStart2(items, key2) {
+function getTupleOptStart2(items, key3) {
   for (let i6 = items.length - 1; i6 >= 0; i6--) {
-    const omittable = key2 === "optin" ? items[i6]._zod.optin !== void 0 : items[i6]._zod.optout === "optional";
+    const omittable = key3 === "optin" ? items[i6]._zod.optin !== void 0 : items[i6]._zod.optout === "optional";
     if (!omittable)
       return i6 + 1;
   }
@@ -75056,16 +75056,16 @@ function generateRecordCheck(doc, ctx, schema, accessor) {
   const keyValues = recordDef.partial ? void 0 : def.keyType._zod.values;
   if (keyValues) {
     const inputKeys = [];
-    for (const key2 of keyValues) {
-      if (!(typeof key2 === "string" || typeof key2 === "number" || typeof key2 === "symbol")) {
-        throw new ZodCompileUnsupportedError(`record key value ${String(key2)}`);
+    for (const key3 of keyValues) {
+      if (!(typeof key3 === "string" || typeof key3 === "number" || typeof key3 === "symbol")) {
+        throw new ZodCompileUnsupportedError(`record key value ${String(key3)}`);
       }
-      const inputKey = typeof key2 === "number" ? key2.toString() : key2;
+      const inputKey = typeof key3 === "number" ? key3.toString() : key3;
       if (inputKey === "__proto__") {
         throw new ZodCompileUnsupportedError('record key "__proto__"');
       }
       inputKeys.push(inputKey);
-      const keyConst = addConstant(ctx, key2);
+      const keyConst = addConstant(ctx, key3);
       const outKey = generateCheck(doc, ctx, def.keyType, keyConst);
       const valueVar = newVar(ctx);
       doc.write(`const ${valueVar} = ${accessor}[${literalPropertyKey(ctx, inputKey)}];`);
@@ -75143,10 +75143,10 @@ function emitOwnKeys(doc, ctx, accessor, kVar, body, onSymbol) {
   });
   doc.write(`}`);
 }
-function literalPropertyKey(ctx, key2) {
-  if (typeof key2 === "string")
-    return esc(key2);
-  return addConstant(ctx, key2);
+function literalPropertyKey(ctx, key3) {
+  if (typeof key3 === "string")
+    return esc(key3);
+  return addConstant(ctx, key3);
 }
 function generateMapCheck(doc, ctx, schema, accessor) {
   const def = schema._zod.def;
@@ -76375,9 +76375,9 @@ function _stringFormat(Class2, format2, fnOrRegex, _params = {}) {
 // ../../node_modules/zod/v4/core/to-json-schema.js
 function assignProps(target, ...sources) {
   for (const source2 of sources) {
-    for (const key2 of Reflect.ownKeys(source2)) {
-      if (Object.prototype.propertyIsEnumerable.call(source2, key2)) {
-        assignProp(target, key2, source2[key2]);
+    for (const key3 of Reflect.ownKeys(source2)) {
+      if (Object.prototype.propertyIsEnumerable.call(source2, key3)) {
+        assignProp(target, key3, source2[key3]);
       }
     }
   }
@@ -76523,8 +76523,8 @@ function extractDefs(ctx, schema) {
     if (defId)
       seen.defId = defId;
     const schema2 = seen.schema;
-    for (const key2 in schema2) {
-      delete schema2[key2];
+    for (const key3 in schema2) {
+      delete schema2[key3];
     }
     schema2.$ref = ref2;
   };
@@ -76605,8 +76605,8 @@ function foldObjects(members2) {
   for (const member2 of members2) {
     if (typeof member2 !== "object" || member2.type !== "object")
       return null;
-    for (const key2 in member2) {
-      if (!FOLDABLE_KEYS.has(key2))
+    for (const key3 in member2) {
+      if (!FOLDABLE_KEYS.has(key3))
         return null;
     }
     objects.push(member2);
@@ -76614,22 +76614,22 @@ function foldObjects(members2) {
   const properties = {};
   const required2 = /* @__PURE__ */ new Set();
   for (const object3 of objects) {
-    for (const key2 in object3.properties) {
-      if (Object.prototype.hasOwnProperty.call(properties, key2))
+    for (const key3 in object3.properties) {
+      if (Object.prototype.hasOwnProperty.call(properties, key3))
         continue;
       const parts = [];
       for (const other of objects) {
-        const part = other.properties?.[key2] ?? undeclaredConstraint(other);
+        const part = other.properties?.[key3] ?? undeclaredConstraint(other);
         if (part === null || part === void 0)
           continue;
         if (!parts.some((seen) => JSON.stringify(seen) === JSON.stringify(part)))
           parts.push(part);
       }
       const merged = parts.length === 1 ? parts[0] : foldObjects(parts) ?? { allOf: parts };
-      assignProp(properties, key2, merged);
+      assignProp(properties, key3, merged);
     }
-    for (const key2 of object3.required ?? [])
-      required2.add(key2);
+    for (const key3 of object3.required ?? [])
+      required2.add(key3);
   }
   const folded = { type: "object", properties };
   if (required2.size)
@@ -76654,8 +76654,8 @@ function foldIntersection(json4) {
   const allOf = json4.allOf;
   if (!Array.isArray(allOf) || allOf.length < 2)
     return;
-  for (const key2 of FOLDABLE_KEYS)
-    if (key2 in json4)
+  for (const key3 of FOLDABLE_KEYS)
+    if (key3 in json4)
       return;
   const unions = allOf.filter((m4) => UNION_KEYS.some((k5) => Array.isArray(m4[k5])));
   let folded = null;
@@ -76702,20 +76702,20 @@ function finalize(ctx, schema) {
       assignProps(schema2, _cached);
       const isParentRef = zodSchema._zod.parent === ref2;
       if (isParentRef) {
-        for (const key2 in schema2) {
-          if (key2 === "$ref" || key2 === "allOf")
+        for (const key3 in schema2) {
+          if (key3 === "$ref" || key3 === "allOf")
             continue;
-          if (!(key2 in _cached)) {
-            delete schema2[key2];
+          if (!(key3 in _cached)) {
+            delete schema2[key3];
           }
         }
       }
       if (refSchema.$ref && refSeen.def) {
-        for (const key2 in schema2) {
-          if (key2 === "$ref" || key2 === "allOf")
+        for (const key3 in schema2) {
+          if (key3 === "$ref" || key3 === "allOf")
             continue;
-          if (key2 in refSeen.def && JSON.stringify(schema2[key2]) === JSON.stringify(refSeen.def[key2])) {
-            delete schema2[key2];
+          if (key3 in refSeen.def && JSON.stringify(schema2[key3]) === JSON.stringify(refSeen.def[key3])) {
+            delete schema2[key3];
           }
         }
       }
@@ -76727,11 +76727,11 @@ function finalize(ctx, schema) {
       if (parentSeen?.schema.$ref) {
         schema2.$ref = parentSeen.schema.$ref;
         if (parentSeen.def) {
-          for (const key2 in schema2) {
-            if (key2 === "$ref" || key2 === "allOf")
+          for (const key3 in schema2) {
+            if (key3 === "$ref" || key3 === "allOf")
               continue;
-            if (key2 in parentSeen.def && JSON.stringify(schema2[key2]) === JSON.stringify(parentSeen.def[key2])) {
-              delete schema2[key2];
+            if (key3 in parentSeen.def && JSON.stringify(schema2[key3]) === JSON.stringify(parentSeen.def[key3])) {
+              delete schema2[key3];
             }
           }
         }
@@ -76864,8 +76864,8 @@ function isTransforming(_schema, _ctx) {
     return isTransforming(def.in, ctx) || isTransforming(def.out, ctx);
   }
   if (def.type === "object") {
-    for (const key2 in def.shape) {
-      if (isTransforming(def.shape[key2], ctx))
+    for (const key3 in def.shape) {
+      if (isTransforming(def.shape[key3], ctx))
         return true;
     }
     return false;
@@ -76903,13 +76903,13 @@ var createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) =
 };
 
 // ../../node_modules/zod/v4/core/json-schema-processors.js
-var narrowMin = (agg, key2, value2) => {
-  if (agg[key2] === void 0 || value2 > agg[key2])
-    agg[key2] = value2;
+var narrowMin = (agg, key3, value2) => {
+  if (agg[key3] === void 0 || value2 > agg[key3])
+    agg[key3] = value2;
 };
-var narrowMax = (agg, key2, value2) => {
-  if (agg[key2] === void 0 || value2 < agg[key2])
-    agg[key2] = value2;
+var narrowMax = (agg, key3, value2) => {
+  if (agg[key3] === void 0 || value2 < agg[key3])
+    agg[key3] = value2;
 };
 var narrowBoth = (agg, value2) => {
   narrowMin(agg, "minimum", value2);
@@ -77247,17 +77247,17 @@ var objectProcessor = (schema, ctx, _json2, params) => {
   }
   json4.type = "object";
   json4.properties = {};
-  for (const key2 in shape) {
-    assignProp(json4.properties, key2, processSchema(shape[key2], ctx, {
+  for (const key3 in shape) {
+    assignProp(json4.properties, key3, processSchema(shape[key3], ctx, {
       ...params,
-      path: [...params.path, "properties", key2]
+      path: [...params.path, "properties", key3]
     }));
   }
   const requiredKeys = [];
-  for (const key2 of Object.keys(shape)) {
-    const field = def.shape[key2];
+  for (const key3 of Object.keys(shape)) {
+    const field = def.shape[key3];
     if (ctx.io === "input" ? inputOptin(field) === void 0 : field._zod.optout === void 0) {
-      requiredKeys.push(key2);
+      requiredKeys.push(key3);
     }
   }
   if (requiredKeys.length > 0) {
@@ -77632,9 +77632,9 @@ function toJSONSchema(input2, params) {
     };
     ctx2.external = external;
     for (const entry of registry2._idmap.entries()) {
-      const [key2, schema] = entry;
+      const [key3, schema] = entry;
       extractDefs(ctx2, schema);
-      assignProp(schemas, key2, finalize(ctx2, schema));
+      assignProp(schemas, key3, finalize(ctx2, schema));
     }
     if (Object.keys(defs).length > 0) {
       const defsSegment = ctx2.target === "draft-2020-12" ? "$defs" : "definitions";
@@ -77949,17 +77949,17 @@ __export(checks_exports2, {
 
 // ../../node_modules/zod/v4/classic/errors.js
 var _installedErrorProtos = /* @__PURE__ */ new WeakSet([Object.prototype, Error.prototype]);
-function _lazyMethod(proto, key2, make) {
-  Object.defineProperty(proto, key2, {
+function _lazyMethod(proto, key3, make) {
+  Object.defineProperty(proto, key3, {
     configurable: true,
     enumerable: false,
     get() {
       const value2 = make(this);
-      Object.defineProperty(this, key2, { value: value2, configurable: true, writable: true });
+      Object.defineProperty(this, key3, { value: value2, configurable: true, writable: true });
       return value2;
     },
     set(value2) {
-      Object.defineProperty(this, key2, { value: value2, configurable: true, writable: true });
+      Object.defineProperty(this, key3, { value: value2, configurable: true, writable: true });
     }
   });
 }
@@ -79629,11 +79629,11 @@ function resolveRef(ref2, ctx) {
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
   if (path2[0] === defsKey) {
-    const key2 = path2[1] === void 0 ? void 0 : decodeJSONPointerSegment(path2[1]);
-    if (!key2 || !ctx.defs[key2]) {
+    const key3 = path2[1] === void 0 ? void 0 : decodeJSONPointerSegment(path2[1]);
+    if (!key3 || !ctx.defs[key3]) {
       throw new Error(`Reference not found: ${ref2}`);
     }
-    return ctx.defs[key2];
+    return ctx.defs[key3];
   }
   throw new Error(`Reference not found: ${ref2}`);
 }
@@ -79668,16 +79668,16 @@ function checkObjectGuards(objectSchema, guards) {
       });
     }
     if (guards.keySchema) {
-      for (const key2 of keys) {
-        const result = guards.keySchema.safeParse(key2);
+      for (const key3 of keys) {
+        const result = guards.keySchema.safeParse(key3);
         if (result.success)
           continue;
         payload2.issues.push({
           code: "invalid_key",
           origin: "record",
           issues: result.error.issues,
-          input: key2,
-          path: [key2],
+          input: key3,
+          path: [key3],
           continue: true
         });
       }
@@ -79702,20 +79702,20 @@ function canonicalKey(value2, seen) {
     if (Array.isArray(value2)) {
       const parts2 = [];
       for (const item of value2) {
-        const key2 = canonicalKey(item, seen);
-        if (key2 === null)
+        const key3 = canonicalKey(item, seen);
+        if (key3 === null)
           return null;
-        parts2.push(key2);
+        parts2.push(key3);
       }
       return `a${parts2.length}:[${parts2.join(",")}]`;
     }
     const keys = Object.keys(value2).sort();
     const parts = [];
     for (const k5 of keys) {
-      const key2 = canonicalKey(value2[k5], seen);
-      if (key2 === null)
+      const key3 = canonicalKey(value2[k5], seen);
+      if (key3 === null)
         return null;
-      parts.push(`${k5.length}:${k5}=${key2}`);
+      parts.push(`${k5.length}:${k5}=${key3}`);
     }
     return `o${parts.length}:{${parts.join(",")}}`;
   } finally {
@@ -79755,10 +79755,10 @@ function containsRef(value2) {
     return value2.some(containsRef);
   if (typeof value2.$ref === "string")
     return true;
-  return Object.entries(value2).some(([key2, sub]) => {
-    if (SCHEMA_KEYWORDS.has(key2))
+  return Object.entries(value2).some(([key3, sub]) => {
+    if (SCHEMA_KEYWORDS.has(key3))
       return containsRef(sub);
-    if (!SCHEMA_MAP_KEYWORDS.has(key2) || typeof sub !== "object" || sub === null)
+    if (!SCHEMA_MAP_KEYWORDS.has(key3) || typeof sub !== "object" || sub === null)
       return false;
     return Object.values(sub).some(containsRef);
   });
@@ -79774,12 +79774,12 @@ function checkArrayGuards(arraySchema, guards) {
     if (guards.uniqueItems === true) {
       const firstSeen = /* @__PURE__ */ new Map();
       for (let i6 = 0; i6 < items.length; i6++) {
-        const key2 = canonicalKey(items[i6], /* @__PURE__ */ new Set());
-        if (key2 === null)
+        const key3 = canonicalKey(items[i6], /* @__PURE__ */ new Set());
+        if (key3 === null)
           continue;
-        const first = firstSeen.get(key2);
+        const first = firstSeen.get(key3);
         if (first === void 0) {
-          firstSeen.set(key2, i6);
+          firstSeen.set(key3, i6);
           continue;
         }
         payload2.issues.push({
@@ -80018,9 +80018,9 @@ function convertBaseSchema(schema, ctx) {
       const properties = schema.properties || {};
       const requiredSet = new Set(schema.required || []);
       const additionalSchema = typeof schema.additionalProperties === "object" ? convertSchema(schema.additionalProperties, ctx) : void 0;
-      for (const [key2, propSchema] of Object.entries(properties)) {
+      for (const [key3, propSchema] of Object.entries(properties)) {
         const propZodSchema = convertSchema(propSchema, ctx);
-        assignProp(shape, key2, requiredSet.has(key2) ? propZodSchema : propZodSchema.optional());
+        assignProp(shape, key3, requiredSet.has(key3) ? propZodSchema : propZodSchema.optional());
       }
       if (schema.patternProperties) {
         const patternProps = schema.patternProperties;
@@ -80055,12 +80055,12 @@ function convertBaseSchema(schema, ctx) {
             if (!isPlainObject(payload2.value))
               return;
             const unrecognized = [];
-            for (const key2 of Object.keys(payload2.value)) {
-              if (propertyKeys.includes(key2))
+            for (const key3 of Object.keys(payload2.value)) {
+              if (propertyKeys.includes(key3))
                 continue;
-              if (patterns.some((regex) => regex.test(key2)))
+              if (patterns.some((regex) => regex.test(key3)))
                 continue;
-              unrecognized.push(key2);
+              unrecognized.push(key3);
             }
             if (unrecognized.length) {
               payload2.issues.push({
@@ -80191,38 +80191,38 @@ function convertSchema(schema, ctx) {
   }
   const extraMeta = {};
   const coreMetadataKeys = ["$id", "id", "$comment", "$anchor", "$vocabulary", "$dynamicRef", "$dynamicAnchor"];
-  for (const key2 of coreMetadataKeys) {
-    if (key2 in schema) {
-      extraMeta[key2] = schema[key2];
+  for (const key3 of coreMetadataKeys) {
+    if (key3 in schema) {
+      extraMeta[key3] = schema[key3];
     }
   }
   const contentMetadataKeys = ["contentEncoding", "contentMediaType", "contentSchema"];
-  for (const key2 of contentMetadataKeys) {
-    if (key2 in schema) {
-      extraMeta[key2] = schema[key2];
+  for (const key3 of contentMetadataKeys) {
+    if (key3 in schema) {
+      extraMeta[key3] = schema[key3];
     }
   }
   if (schema.type === "object" && schema.$ref === void 0) {
     if (schema.propertyNames !== void 0 && !containsRef(schema.propertyNames)) {
       extraMeta.propertyNames = schema.propertyNames;
     }
-    for (const key2 of ["minProperties", "maxProperties"]) {
-      if (schema[key2] !== void 0)
-        extraMeta[key2] = schema[key2];
+    for (const key3 of ["minProperties", "maxProperties"]) {
+      if (schema[key3] !== void 0)
+        extraMeta[key3] = schema[key3];
     }
   }
   if (schema.type === "array" && schema.$ref === void 0) {
     if (schema.contains !== void 0 && !containsRef(schema.contains)) {
       extraMeta.contains = schema.contains;
     }
-    for (const key2 of ["uniqueItems", "minContains", "maxContains"]) {
-      if (schema[key2] !== void 0)
-        extraMeta[key2] = schema[key2];
+    for (const key3 of ["uniqueItems", "minContains", "maxContains"]) {
+      if (schema[key3] !== void 0)
+        extraMeta[key3] = schema[key3];
     }
   }
-  for (const key2 of Object.keys(schema)) {
-    if (!RECOGNIZED_KEYS.has(key2)) {
-      assignProp(extraMeta, key2, schema[key2]);
+  for (const key3 of Object.keys(schema)) {
+    if (!RECOGNIZED_KEYS.has(key3)) {
+      assignProp(extraMeta, key3, schema[key3]);
     }
   }
   if (Object.keys(extraMeta).length > 0) {
@@ -82623,9 +82623,9 @@ var _HMAC = class {
   canXOF = false;
   finished = false;
   destroyed = false;
-  constructor(hash3, key2) {
+  constructor(hash3, key3) {
     ahash(hash3);
-    abytes(key2, void 0, "key");
+    abytes(key3, void 0, "key");
     this.iHash = hash3.create();
     if (typeof this.iHash.update !== "function")
       throw new Error("expected Hash instance");
@@ -82633,7 +82633,7 @@ var _HMAC = class {
     this.outputLen = this.iHash.outputLen;
     const blockLen = this.blockLen;
     const pad = new Uint8Array(blockLen);
-    pad.set(key2.length > blockLen ? hash3.create().update(key2).digest() : key2);
+    pad.set(key3.length > blockLen ? hash3.create().update(key3).digest() : key3);
     for (let i6 = 0; i6 < pad.length; i6++)
       pad[i6] ^= 54;
     this.iHash.update(pad);
@@ -82686,8 +82686,8 @@ var _HMAC = class {
   }
 };
 var hmac = /* @__PURE__ */ (() => {
-  const hmac_ = ((hash3, key2, message2) => new _HMAC(hash3, key2).update(message2).digest());
-  hmac_.create = (hash3, key2) => new _HMAC(hash3, key2);
+  const hmac_ = ((hash3, key3, message2) => new _HMAC(hash3, key3).update(message2).digest());
+  hmac_.create = (hash3, key3) => new _HMAC(hash3, key3);
   return hmac_;
 })();
 
@@ -83314,10 +83314,10 @@ function encodeContainer(value2, depth, seen) {
     }
     const record2 = value2;
     const parts = [];
-    for (const key2 of Object.keys(record2).sort()) {
-      const item = record2[key2];
+    for (const key3 of Object.keys(record2).sort()) {
+      const item = record2[key3];
       if (item === void 0) continue;
-      parts.push(`${encode3(key2, depth + 1, seen)}:${encode3(item, depth + 1, seen)}`);
+      parts.push(`${encode3(key3, depth + 1, seen)}:${encode3(item, depth + 1, seen)}`);
     }
     out = `{${parts.join(",")}}`;
   }
@@ -83613,9 +83613,9 @@ function scanForDuplicateKeys(text2) {
       while (text2[j5] !== '"') j5 += text2[j5] === "\\" ? 2 : 1;
       const keys = stack.at(-1);
       if (expectKey && keys) {
-        const key2 = JSON.parse(text2.slice(i6, j5 + 1));
-        if (keys.has(key2)) return true;
-        keys.add(key2);
+        const key3 = JSON.parse(text2.slice(i6, j5 + 1));
+        if (keys.has(key3)) return true;
+        keys.add(key3);
         expectKey = false;
       }
       i6 = j5 + 1;
@@ -84996,10 +84996,10 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
   function modN_LE(hash4) {
     return Fn.create(bytesToNumberLE(hash4));
   }
-  function getPrivateScalar(key2) {
+  function getPrivateScalar(key3) {
     const len = lengths.secretKey;
-    abytes2(key2, lengths.secretKey, "secretKey");
-    const hashed = abytes2(hash3(key2), 2 * len, "hashedSecretKey");
+    abytes2(key3, lengths.secretKey, "secretKey");
+    const hashed = abytes2(hash3(key3), 2 * len, "hashedSecretKey");
     const head = adjustScalarBytes2(hashed.slice(0, len));
     const prefix = hashed.slice(len, 2 * len);
     const scalar = modN_LE(head);
@@ -85076,12 +85076,12 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
     seed = seed === void 0 ? randomBytes5(lengths.seed) : seed;
     return abytes2(seed, lengths.seed, "seed");
   }
-  function isValidSecretKey(key2) {
-    return isBytes2(key2) && key2.length === lengths.secretKey;
+  function isValidSecretKey(key3) {
+    return isBytes2(key3) && key3.length === lengths.secretKey;
   }
-  function isValidPublicKey(key2, zip215) {
+  function isValidPublicKey(key3, zip215) {
     try {
-      return !!Point.fromBytes(key2, zip215 === void 0 ? verifyOpts.zip215 : zip215);
+      return !!Point.fromBytes(key3, zip215 === void 0 ? verifyOpts.zip215 : zip215);
     } catch (error64) {
       return false;
     }
@@ -85643,16 +85643,16 @@ function equalBytes(a5, b5) {
 function wrapMacConstructor(keyLen, macCons, fromMsg) {
   const mac3 = macCons;
   const getArgs = fromMsg || (() => []);
-  const macC = (msg, key2) => mac3(key2, ...getArgs(msg)).update(msg).digest();
+  const macC = (msg, key3) => mac3(key3, ...getArgs(msg)).update(msg).digest();
   const tmp = mac3(new Uint8Array(keyLen), ...getArgs(new Uint8Array(0)));
   macC.outputLen = tmp.outputLen;
   macC.blockLen = tmp.blockLen;
-  macC.create = (key2, ...args) => mac3(key2, ...args);
+  macC.create = (key3, ...args) => mac3(key3, ...args);
   return macC;
 }
 var wrapCipher = /* @__NO_SIDE_EFFECTS__ */ (params, constructor) => {
-  function wrappedCipher(key2, ...args) {
-    abytes3(key2, void 0, "key");
+  function wrappedCipher(key3, ...args) {
+    abytes3(key3, void 0, "key");
     if (params.nonceLength !== void 0) {
       const nonce = args[0];
       abytes3(nonce, params.varSizeNonce ? void 0 : params.nonceLength, "nonce");
@@ -85666,7 +85666,7 @@ var wrapCipher = /* @__NO_SIDE_EFFECTS__ */ (params, constructor) => {
     }
     if (params.withAAD && args[aadStart] !== void 0)
       abytes3(args[aadStart], void 0, "AAD");
-    const cipher = constructor(key2, ...args);
+    const cipher = constructor(key3, ...args);
     const checkOutput = (fnLength, output2) => {
       if (output2 !== void 0) {
         if (fnLength !== 2)
@@ -85733,7 +85733,7 @@ var BLOCK_LEN = 64;
 var BLOCK_LEN32 = 16;
 var MAX_COUNTER = /* @__PURE__ */ (() => 2 ** 32 - 1)();
 var U32_EMPTY = /* @__PURE__ */ Uint32Array.of();
-function runCipher(core, sigma, key2, nonce, data, output2, counter, rounds) {
+function runCipher(core, sigma, key3, nonce, data, output2, counter, rounds) {
   const len = data.length;
   const block = new Uint8Array(BLOCK_LEN);
   const b32 = u32(block);
@@ -85742,7 +85742,7 @@ function runCipher(core, sigma, key2, nonce, data, output2, counter, rounds) {
   const o32 = isAligned ? u32(output2) : U32_EMPTY;
   if (!isLE) {
     for (let pos2 = 0; pos2 < len; counter++) {
-      core(sigma, key2, nonce, b32, counter, rounds);
+      core(sigma, key3, nonce, b32, counter, rounds);
       swap32IfBE(b32);
       if (counter >= MAX_COUNTER)
         throw new Error("arx: counter overflow");
@@ -85756,7 +85756,7 @@ function runCipher(core, sigma, key2, nonce, data, output2, counter, rounds) {
     return;
   }
   for (let pos2 = 0; pos2 < len; counter++) {
-    core(sigma, key2, nonce, b32, counter, rounds);
+    core(sigma, key3, nonce, b32, counter, rounds);
     if (counter >= MAX_COUNTER)
       throw new Error("arx: counter overflow");
     const take2 = Math.min(BLOCK_LEN, len - pos2);
@@ -85786,8 +85786,8 @@ function createCipher(core, opts) {
   anumber3(rounds);
   abool2(counterRight);
   abool2(allowShortKeys);
-  return (key2, nonce, data, output2, counter = 0) => {
-    abytes3(key2, void 0, "key");
+  return (key3, nonce, data, output2, counter = 0) => {
+    abytes3(key3, void 0, "key");
     abytes3(nonce, void 0, "nonce");
     abytes3(data, void 0, "data");
     const len = data.length;
@@ -85799,20 +85799,20 @@ function createCipher(core, opts) {
     if (counter < 0 || counter >= MAX_COUNTER)
       throw new Error("arx: counter overflow");
     const toClean = [];
-    let l3 = key2.length;
+    let l3 = key3.length;
     let k5;
     let sigma;
     if (l3 === 32) {
-      toClean.push(k5 = copyBytes2(key2));
+      toClean.push(k5 = copyBytes2(key3));
       sigma = sigma32_32;
     } else if (l3 === 16 && allowShortKeys) {
       k5 = new Uint8Array(32);
-      k5.set(key2);
-      k5.set(key2, 16);
+      k5.set(key3);
+      k5.set(key3, 16);
       sigma = sigma16_32;
       toClean.push(k5);
     } else {
-      abytes3(key2, 32, "arx key");
+      abytes3(key3, 32, "arx key");
       throw new Error("invalid key size");
     }
     if (!isLE || !isAligned32(nonce))
@@ -85868,16 +85868,16 @@ var Poly1305 = class {
   finished = false;
   destroyed = false;
   // Can be speed-up using BigUint64Array, at the cost of complexity
-  constructor(key2) {
-    key2 = copyBytes2(abytes3(key2, 32, "key"));
-    const t0 = u8to16(key2, 0);
-    const t1 = u8to16(key2, 2);
-    const t2 = u8to16(key2, 4);
-    const t3 = u8to16(key2, 6);
-    const t4 = u8to16(key2, 8);
-    const t5 = u8to16(key2, 10);
-    const t6 = u8to16(key2, 12);
-    const t7 = u8to16(key2, 14);
+  constructor(key3) {
+    key3 = copyBytes2(abytes3(key3, 32, "key"));
+    const t0 = u8to16(key3, 0);
+    const t1 = u8to16(key3, 2);
+    const t2 = u8to16(key3, 4);
+    const t3 = u8to16(key3, 6);
+    const t4 = u8to16(key3, 8);
+    const t5 = u8to16(key3, 10);
+    const t6 = u8to16(key3, 12);
+    const t7 = u8to16(key3, 14);
     this.r[0] = t0 & 8191;
     this.r[1] = (t0 >>> 13 | t1 << 3) & 8191;
     this.r[2] = (t1 >>> 10 | t2 << 6) & 7939;
@@ -85889,7 +85889,7 @@ var Poly1305 = class {
     this.r[8] = (t6 >>> 8 | t7 << 8) & 8191;
     this.r[9] = t7 >>> 5 & 127;
     for (let i6 = 0; i6 < 8; i6++)
-      this.pad[i6] = u8to16(key2, 16 + 2 * i6);
+      this.pad[i6] = u8to16(key3, 16 + 2 * i6);
   }
   process(data, offset, isLast = false) {
     const hibit = isLast ? 0 : 1 << 11;
@@ -86101,7 +86101,7 @@ var Poly1305 = class {
     return res;
   }
 };
-var poly1305 = /* @__PURE__ */ wrapMacConstructor(32, (key2) => new Poly1305(key2));
+var poly1305 = /* @__PURE__ */ wrapMacConstructor(32, (key3) => new Poly1305(key3));
 
 // ../../node_modules/@noble/ciphers/chacha.js
 function chachaCore(s3, k5, n3, out, cnt, rounds = 20) {
@@ -86230,10 +86230,10 @@ var updatePadded = (h6, msg) => {
     h6.update(ZEROS16.subarray(leftover));
 };
 var ZEROS32 = /* @__PURE__ */ new Uint8Array(32);
-function computeTag(fn, key2, nonce, ciphertext, AAD) {
+function computeTag(fn, key3, nonce, ciphertext, AAD) {
   if (AAD !== void 0)
     abytes3(AAD, void 0, "AAD");
-  const authKey = fn(key2, nonce, ZEROS32);
+  const authKey = fn(key3, nonce, ZEROS32);
   const lengths = u64Lengths(ciphertext.length, AAD ? AAD.length : 0, true);
   const h6 = poly1305.create(authKey);
   if (AAD)
@@ -86244,7 +86244,7 @@ function computeTag(fn, key2, nonce, ciphertext, AAD) {
   clean2(authKey, lengths);
   return res;
 }
-var _poly1305_aead = (xorStream) => (key2, nonce, AAD) => {
+var _poly1305_aead = (xorStream) => (key3, nonce, AAD) => {
   const tagLength = 16;
   return {
     encrypt(plaintext, output2) {
@@ -86252,8 +86252,8 @@ var _poly1305_aead = (xorStream) => (key2, nonce, AAD) => {
       output2 = getOutput(plength + tagLength, output2, false);
       output2.set(plaintext);
       const oPlain = output2.subarray(0, -tagLength);
-      xorStream(key2, nonce, oPlain, oPlain, 1);
-      const tag = computeTag(xorStream, key2, nonce, oPlain, AAD);
+      xorStream(key3, nonce, oPlain, oPlain, 1);
+      const tag = computeTag(xorStream, key3, nonce, oPlain, AAD);
       output2.set(tag, plength);
       clean2(tag);
       return output2;
@@ -86262,13 +86262,13 @@ var _poly1305_aead = (xorStream) => (key2, nonce, AAD) => {
       output2 = getOutput(ciphertext.length - tagLength, output2, false);
       const data = ciphertext.subarray(0, -tagLength);
       const passedTag = ciphertext.subarray(-tagLength);
-      const tag = computeTag(xorStream, key2, nonce, data, AAD);
+      const tag = computeTag(xorStream, key3, nonce, data, AAD);
       if (!equalBytes(passedTag, tag)) {
         clean2(tag);
         throw new Error("invalid tag");
       }
       output2.set(ciphertext.subarray(0, -tagLength));
-      xorStream(key2, nonce, output2, output2, 1);
+      xorStream(key3, nonce, output2, output2, 1);
       clean2(tag);
       return output2;
     }
@@ -86394,15 +86394,15 @@ function hpkeSealAuth(opts) {
   const enc = x25519.getPublicKey(skE);
   const dh = concat(x25519.getSharedSecret(skE, opts.pkR), x25519.getSharedSecret(opts.skS, opts.pkR));
   const sharedSecret = kemSecret(dh, concat(enc, opts.pkR, x25519.getPublicKey(opts.skS)));
-  const { key: key2, nonce } = keySchedule(sharedSecret, opts.info);
-  const ciphertext = chacha20poly1305(key2, nonce, opts.aad).encrypt(opts.plaintext);
-  return { enc, sharedSecret, key: key2, nonce, ciphertext };
+  const { key: key3, nonce } = keySchedule(sharedSecret, opts.info);
+  const ciphertext = chacha20poly1305(key3, nonce, opts.aad).encrypt(opts.plaintext);
+  return { enc, sharedSecret, key: key3, nonce, ciphertext };
 }
 function hpkeOpenAuth(opts) {
   const dh = concat(x25519.getSharedSecret(opts.skR, opts.enc), x25519.getSharedSecret(opts.skR, opts.pkS));
   const sharedSecret = kemSecret(dh, concat(opts.enc, x25519.getPublicKey(opts.skR), opts.pkS));
-  const { key: key2, nonce } = keySchedule(sharedSecret, opts.info);
-  return chacha20poly1305(key2, nonce, opts.aad).decrypt(opts.ciphertext);
+  const { key: key3, nonce } = keySchedule(sharedSecret, opts.info);
+  return chacha20poly1305(key3, nonce, opts.aad).decrypt(opts.ciphertext);
 }
 
 // ../protocol/src/keyring.ts
@@ -86419,9 +86419,9 @@ function sealBox(boxSec, req) {
     const sealed = hpkeSealAuth({ pkR: req.prekey.pub, skS: boxSec, info, aad: req.aad, plaintext: req.plaintext });
     return { s: 2, p: req.prekey.id, e: b64u.encode(sealed.enc), c: b64u.encode(sealed.ciphertext) };
   }
-  const key2 = boxKey(req.mesh, boxSec, req.recipientBox, req.sender, req.recipient);
+  const key3 = boxKey(req.mesh, boxSec, req.recipientBox, req.sender, req.recipient);
   const nonce = randomBytes2(24);
-  return { n: b64u.encode(nonce), c: b64u.encode(xchacha20poly1305(key2, nonce, req.aad).encrypt(req.plaintext)) };
+  return { n: b64u.encode(nonce), c: b64u.encode(xchacha20poly1305(key3, nonce, req.aad).encrypt(req.plaintext)) };
 }
 function openBox(boxSec, prekeySecret, req) {
   const box = req.box;
@@ -86433,8 +86433,8 @@ function openBox(boxSec, prekeySecret, req) {
       return hpkeOpenAuth({ enc: b64u.decode(box.e), skR: secret, pkS: req.senderBox, info, aad: req.aad, ciphertext: b64u.decode(box.c) });
     }
     if (boxSec === void 0) return "decrypt_failed";
-    const key2 = boxKey(req.mesh, boxSec, req.senderBox, req.sender, req.recipient);
-    return xchacha20poly1305(key2, b64u.decode(box.n), req.aad).decrypt(b64u.decode(box.c));
+    const key3 = boxKey(req.mesh, boxSec, req.senderBox, req.sender, req.recipient);
+    return xchacha20poly1305(key3, b64u.decode(box.n), req.aad).decrypt(b64u.decode(box.c));
   } catch {
     return "decrypt_failed";
   }
@@ -86721,8 +86721,8 @@ function joinBody(invite2, name, keys, nonce) {
   if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
   return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
 }
-function verifyJoin(join23, secret, nonce) {
-  const parsed2 = safeParse3(joinOrBodySchema, join23);
+function verifyJoin(join24, secret, nonce) {
+  const parsed2 = safeParse3(joinOrBodySchema, join24);
   if (!parsed2.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -86757,11 +86757,11 @@ var SeqTracker = class _SeqTracker {
     return JSON.stringify([device, sid]);
   }
   observe(device, sid, seq) {
-    const key2 = this.#key(device, sid);
+    const key3 = this.#key(device, sid);
     if (!Number.isSafeInteger(seq) || seq < 1) throw new RangeError("SeqTracker: seq must be a positive integer");
-    const last = this.#highest.get(key2)?.seq ?? 0;
+    const last = this.#highest.get(key3)?.seq ?? 0;
     if (seq <= last) return "dup";
-    this.#highest.set(key2, { device, sid, seq });
+    this.#highest.set(key3, { device, sid, seq });
     return "ok";
   }
   /** The highest seq seen for a sender session, or 0. */
@@ -86827,17 +86827,17 @@ function sealBlob(file2, opts = {}) {
   if (file2.length > LIMITS.blobFileBytes) throw new RangeError("sealBlob: file is over 25 MiB");
   const blob = opts.blob ?? ulid3();
   if (!ulidSchema.safeParse(blob).success) throw new TypeError("sealBlob: blob must be a ULID");
-  const key2 = randomBytes2(32);
+  const key3 = randomBytes2(32);
   const count = blobChunkCount(file2.length);
   const chunks = [];
   for (let index = 0; index < count; index++) {
     const last = index === count - 1;
     const plain = file2.subarray(index * LIMITS.blobChunkBytes, (index + 1) * LIMITS.blobChunkBytes);
     const nonce = randomBytes2(24);
-    const data = xchacha20poly1305(key2, nonce, chunkAad(blob, index, last)).encrypt(plain);
+    const data = xchacha20poly1305(key3, nonce, chunkAad(blob, index, last)).encrypt(plain);
     chunks.push({ index, last, n: b64u.encode(nonce), data: b64u.encode(data) });
   }
-  return { blob, key: b64u.encode(key2), sha256: b64u.encode(sha2562(file2)), size: file2.length, chunks };
+  return { blob, key: b64u.encode(key3), sha256: b64u.encode(sha2562(file2)), size: file2.length, chunks };
 }
 function openBlob(input2) {
   const info = external_exports.strictObject({
@@ -86854,13 +86854,13 @@ function openBlob(input2) {
   if (chunks.length !== count || chunks.some((c5, i6) => c5.index !== i6 || c5.last !== (i6 === count - 1))) {
     return fail("blob_incomplete");
   }
-  const key2 = b64u.decode(info.data.key);
+  const key3 = b64u.decode(info.data.key);
   const out = new Uint8Array(size);
   let offset = 0;
   for (const c5 of chunks) {
     let plain;
     try {
-      plain = xchacha20poly1305(key2, b64u.decode(c5.n), chunkAad(blob, c5.index, c5.last)).decrypt(b64u.decode(c5.data));
+      plain = xchacha20poly1305(key3, b64u.decode(c5.n), chunkAad(blob, c5.index, c5.last)).decrypt(b64u.decode(c5.data));
     } catch {
       return fail("blob_decrypt_failed");
     }
@@ -88076,17 +88076,17 @@ function unverifiedPayload(token) {
   const payload2 = jsonObject(token.split(".")[1]);
   return payload2 === void 0 ? fail("malformed") : ok(payload2);
 }
-async function verifyJwtSignature(jwt2, key2) {
+async function verifyJwtSignature(jwt2, key3) {
   let n3;
   try {
-    n3 = b64u.decode(key2.n);
+    n3 = b64u.decode(key3.n);
   } catch {
     return fail("weak_key");
   }
-  if (key2.e !== "AQAB" || n3.length < 256 || n3.length > 1024 || n3[0] === 0) return fail("weak_key");
+  if (key3.e !== "AQAB" || n3.length < 256 || n3.length > 1024 || n3[0] === 0) return fail("weak_key");
   if (jwt2.signature.length !== n3.length) return fail("bad_signature");
   const algorithm = { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" };
-  const imported = await crypto.subtle.importKey("jwk", { kty: "RSA", n: key2.n, e: key2.e, alg: "RS256", ext: true }, algorithm, false, ["verify"]);
+  const imported = await crypto.subtle.importKey("jwk", { kty: "RSA", n: key3.n, e: key3.e, alg: "RS256", ext: true }, algorithm, false, ["verify"]);
   const valid = await crypto.subtle.verify(algorithm, imported, jwt2.signature, jwt2.signed);
   return valid ? ok(true) : fail("bad_signature");
 }
@@ -88364,9 +88364,9 @@ async function verifyCiToken(token, notice, keys, now) {
     if (base.value.exp * 1e3 + LIMITS.ciSkewMs < now) return fail("token_expired");
     if ((base.value.nbf ?? base.value.iat) * 1e3 - LIMITS.ciSkewMs > now) return fail("token_not_yet");
   }
-  const key2 = await keys(iss, jwt2.value.kid);
-  if (key2 === void 0) return fail("unknown_key");
-  const signed = await verifyJwtSignature(jwt2.value, key2);
+  const key3 = await keys(iss, jwt2.value.kid);
+  if (key3 === void 0) return fail("unknown_key");
+  const signed = await verifyJwtSignature(jwt2.value, key3);
   if (!signed.ok) return signed;
   return ciClaims(notice.via, jwt2.value.payload, base.value);
 }
@@ -89619,10 +89619,10 @@ async function create(path2, env3) {
 }
 async function withLock(lockPath, fn, env3 = realFsEnv, timeoutMs = 1e4) {
   await ensureDir(dirname(lockPath));
-  const started = Date.now();
+  const started2 = Date.now();
   while (!await create(lockPath, env3)) {
     if (await contend(lockPath, env3, false) === "retry") continue;
-    if (Date.now() - started > timeoutMs) throw new Error(`${lockPath} is held by another process`);
+    if (Date.now() - started2 > timeoutMs) throw new Error(`${lockPath} is held by another process`);
     await fsOps.sleep(15);
   }
   try {
@@ -89675,8 +89675,8 @@ async function readBranch(cwd) {
 }
 async function cardFor(cwd, full, home) {
   const branch = await readBranch(cwd);
-  const shown = full ? cwd : basename(resolve(cwd));
-  return { ...resolve(cwd) === resolve(home) ? {} : { cwd: shown.slice(0, CARD_LIMITS.cwd) }, ...branch === void 0 ? {} : { branch } };
+  const shown2 = full ? cwd : basename(resolve(cwd));
+  return { ...resolve(cwd) === resolve(home) ? {} : { cwd: shown2.slice(0, CARD_LIMITS.cwd) }, ...branch === void 0 ? {} : { branch } };
 }
 function sameCard(a5, b5) {
   return a5 !== void 0 && a5.cwd === b5.cwd && a5.branch === b5.branch && a5.title === b5.title;
@@ -90350,7 +90350,7 @@ function parseBreaker(raw) {
   if (raw === void 0) return DEFAULT_BREAKER;
   const b5 = fields(raw);
   const t2 = fields(b5.trusted);
-  const stricter = (key2, value2) => Math.min(value2, positiveInt2(t2[key2], value2));
+  const stricter = (key3, value2) => Math.min(value2, positiveInt2(t2[key3], value2));
   return {
     perPeerPerHour: stricter("perPeerPerHour", positiveInt2(b5.perPeerPerHour, WRITTEN_BREAKER.perPeerPerHour)),
     totalPerHour: stricter("totalPerHour", positiveInt2(b5.totalPerHour, WRITTEN_BREAKER.totalPerHour)),
@@ -90591,6 +90591,27 @@ import { join as join8 } from "node:path";
 
 // src/session.ts
 import { join as join6 } from "node:path";
+var CLAIM_SHOWN_MS = 24 * 3600 * 1e3;
+function parseClaims(raw) {
+  return raw.flatMap(
+    (c5) => typeof c5?.at === "number" && Number.isFinite(c5.at) && typeof c5.address === "string" ? [{ at: c5.at, address: c5.address, ...typeof c5.cwd === "string" ? { cwd: c5.cwd } : {} }] : []
+  );
+}
+async function recentTakeovers(mesh, env3, now) {
+  const found = [];
+  for (const sid of await listSessions(mesh)) {
+    const state2 = await new SessionFiles(mesh, sid, env3).load();
+    for (const c5 of state2?.claims ?? []) if (now - c5.at < CLAIM_SHOWN_MS) found.push(c5);
+  }
+  return found.sort((a5, b5) => b5.at - a5.at).map((c5) => `${shown(c5.address)} was taken over ${ago(now - c5.at)} ago by a session ${c5.cwd === void 0 ? "with no working directory" : `in ${shown(c5.cwd)}`}`);
+}
+function shown(text2) {
+  return sanitizeForDisplay(text2).replace(/\n/g, "<U+000A>").replace(/\t/g, " ");
+}
+function ago(ms) {
+  const min = Math.max(0, Math.floor(ms / 6e4));
+  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h`;
+}
 function newSessionState(name, kind) {
   return { v: 1, sid: ulid3(), name, kind, resume: b64u.encode(randomBytes2(32)), cursor: 0, rooms: [], seq: 0, spool: 0, leases: {} };
 }
@@ -90610,10 +90631,13 @@ function parseSessionState(raw) {
     spool: int2(s3.spool),
     leases: typeof s3.leases === "object" && s3.leases !== null ? s3.leases : {},
     ...typeof s3.address === "string" ? { address: s3.address } : {},
+    ...isName(s3.asked) ? { asked: s3.asked } : {},
+    ...Array.isArray(s3.claims) ? { claims: parseClaims(s3.claims) } : {},
     ...typeof s3.cwd === "string" ? { cwd: s3.cwd } : {},
     ...s3.ended === true ? { ended: true } : {}
   };
 }
+var IDLE_MARK = /^idle ([0-9]{1,15})$/;
 var SessionFiles = class {
   dir;
   sid;
@@ -90727,18 +90751,18 @@ var SessionKeys = class {
     this.env = env3;
     this.now = now;
   }
-  path(key2) {
-    return join6(this.mesh.keysDir, `${b64u.encode(sha2562(utf8(key2))).slice(0, 22)}.json`);
+  path(key3) {
+    return join6(this.mesh.keysDir, `${b64u.encode(sha2562(utf8(key3))).slice(0, 22)}.json`);
   }
   /** The session a key names, if its mapping is still fresh. Expired mappings are deleted. */
-  async lookup(key2) {
+  async lookup(key3) {
     await this.prune();
-    const raw = await readJson(this.path(key2));
+    const raw = await readJson(this.path(key3));
     return raw?.v === 1 && isUlid(raw.sid) && typeof raw.resume === "string" ? { sid: raw.sid, resume: raw.resume } : void 0;
   }
   /** Records (or refreshes) a mapping; 0600 like every state file, since it holds the resume secret. */
-  async remember(key2, sid, resume) {
-    await writeJson(this.path(key2), { v: 1, sid, resume, used: this.now() }, this.env);
+  async remember(key3, sid, resume) {
+    await writeJson(this.path(key3), { v: 1, sid, resume, used: this.now() }, this.env);
   }
   async prune() {
     const cutoff = this.now() - SESSION_KEY_TTL_MS;
@@ -90768,12 +90792,12 @@ async function readBreakerFile(path2) {
     Object.entries(typeof raw?.released === "object" && raw.released !== null ? raw.released : {}).filter(([, at]) => Number.isSafeInteger(at))
   );
   const lifts = Array.isArray(raw?.lifts) ? raw.lifts.filter((t2) => typeof t2 === "string") : [];
-  const counts = Object.fromEntries(
+  const counts2 = Object.fromEntries(
     Object.entries(typeof raw?.counts === "object" && raw.counts !== null ? raw.counts : {}).flatMap(
       ([peer, times]) => Array.isArray(times) ? [[peer, times.filter((t2) => Number.isSafeInteger(t2))]] : []
     )
   );
-  return { pauses, released, lifts, counts };
+  return { pauses, released, lifts, counts: counts2 };
 }
 async function listAllPauses(mesh, env3, now) {
   const out = [];
@@ -91834,21 +91858,21 @@ var SignerClient = class {
         conn.socket.destroy();
         return;
       }
-      const waiting2 = conn.pending.get(answer.i);
-      if (waiting2 === void 0) continue;
+      const waiting3 = conn.pending.get(answer.i);
+      if (waiting3 === void 0) continue;
       conn.pending.delete(answer.i);
-      clearTimeout(waiting2.timer);
+      clearTimeout(waiting3.timer);
       this.idle(conn);
-      if ("e" in answer) waiting2.reject(new SignerError(answer.e.code, answer.e.message));
-      else waiting2.resolve(answer.r);
+      if ("e" in answer) waiting3.reject(new SignerError(answer.e.code, answer.e.message));
+      else waiting3.resolve(answer.r);
     }
   }
   dropped(conn) {
     if (this.conn === conn) this.conn = void 0;
-    for (const [i6, waiting2] of conn.pending) {
+    for (const [i6, waiting3] of conn.pending) {
       conn.pending.delete(i6);
-      clearTimeout(waiting2.timer);
-      waiting2.reject(new SignerError("unavailable", "the signer closed the connection"));
+      clearTimeout(waiting3.timer);
+      waiting3.reject(new SignerError("unavailable", "the signer closed the connection"));
     }
   }
 };
@@ -92050,10 +92074,10 @@ var Link = class _Link {
   static async open(dialer, url2, opts = {}) {
     const socket = await dialer(url2, opts.tlsPin === void 0 ? {} : { tlsPin: opts.tlsPin });
     const link = new _Link(socket);
-    const waiting2 = link.wait((f7) => f7.t === "hello", opts.timeoutMs ?? 1e4);
+    const waiting3 = link.wait((f7) => f7.t === "hello", opts.timeoutMs ?? 1e4);
     socket.onMessage((text2) => link.receive(text2));
     try {
-      const hello = await waiting2;
+      const hello = await waiting3;
       return { link, hello };
     } catch (error64) {
       link.close();
@@ -92335,6 +92359,13 @@ function heldForAgentLine(to, id2) {
 function renamedLine(was, now) {
   return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
 }
+function reclaimedLine(was, now) {
+  return `this session's address is ${now} again, not ${was}: the name it asked for is free now. Give peers ${now}; messages sent to ${was} do not reach this session.`;
+}
+function claimLine2(address, c5) {
+  const n3 = (k5, one, many) => `${k5} ${k5 === 1 ? one : many}`;
+  return `this session took over ${address}, an offline session on this device, with its queue, rooms, history and leases. With it came ${n3(c5.unread, "unread message", "unread messages")}, ${n3(c5.held, "held item", "held items")} and ${n3(c5.leases, "lease", "leases")}. Held items wait for the person on this device to approve or refuse (/wim, the Held view, or wim held list); a claim does not decide them.`;
+}
 function unprotectedNote(unprotected, noPrekey) {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
 }
@@ -92480,6 +92511,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
   ciDrops = { since: 0, lines: 0, quiet: /* @__PURE__ */ new Map() };
   /** Delivery through MCP channel notifications instead of leaving items for the plugin. */
   push;
+  /** Whether this session was opened by a claim (`take`): it took over an offline session's address. */
+  takenOver = false;
+  /** Whether the claim notice is written or under way (claimNotice): once, retried at the next `ready` if it failed. */
+  claimTold = false;
+  /** The claim notice under way, which `stop` waits for, so a one-off command does not exit before it. */
+  claimNoticing = Promise.resolve();
   constructor(o3, files, state2) {
     super();
     this.o = o3;
@@ -92501,14 +92538,27 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.ciParked = new CiParked(files.ciParkedPath, o3.env);
   }
   /**
-   * Opens a session: the one `sessionKey` names when its mapping is fresh and no live process
-   * holds it, else a new one. Claims the session's liveness lock.
+   * Opens a session: with `take`, the one a claim finds (claimState); else the one `sessionKey`
+   * names when its mapping is fresh and no live process holds it; else an earlier one from this
+   * directory (sameProject); else a new one. Claims the session's liveness lock.
    */
   static async open(o3) {
+    return _MeshSession.opened(o3, o3.take === true ? await _MeshSession.claimState(o3) : void 0);
+  }
+  /**
+   * A claim of the session named `o.name` (the MCP `rename` tool's `take`): opened, not started,
+   * or undefined when no session on this device has that name. Refused as `claimState` refuses.
+   */
+  static async claim(o3) {
+    const state2 = await _MeshSession.claimState(o3);
+    return state2 === void 0 ? void 0 : _MeshSession.opened(o3, state2);
+  }
+  /** `open` once a claim, if any, has found its session (`claimed`, its lock already taken). */
+  static async opened(o3, claimed) {
     const now = o3.now ?? Date.now;
     const keys = new SessionKeys(o3.mesh, o3.env, now);
-    let state2;
-    const known = o3.sessionKey === void 0 ? void 0 : await keys.lookup(o3.sessionKey);
+    let state2 = claimed;
+    const known = state2 !== void 0 || o3.sessionKey === void 0 ? void 0 : await keys.lookup(o3.sessionKey);
     if (known !== void 0) {
       const kf = new SessionFiles(o3.mesh, known.sid, o3.env);
       const saved = await kf.load();
@@ -92527,26 +92577,70 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await files.save(state2);
     if (o3.sessionKey !== void 0) await keys.remember(o3.sessionKey, state2.sid, state2.resume);
     const session = new _MeshSession(o3, files, state2);
+    session.takenOver = claimed !== void 0;
     await session.load();
     await session.settleDelivered();
     await session.restorePauses();
     return session;
   }
   /**
-   * Same-project takeover (design.md, state on disk): an earlier session on this device with the
-   * same name and working directory, not ended and run by no live process, is taken back with
-   * its sid and resume secret, so the relay hands over its name, queue and rooms by proof.
-   * Sessions from another directory keep their name; this one then gets `name-N`.
+   * Same-project takeover (design.md, state on disk): an earlier session on this device that asked
+   * for the same name from the same working directory, not ended and run by no live process, is
+   * taken back with its sid and resume secret, so the relay hands over its name, queue and rooms
+   * by proof. One that holds the name itself comes first; one the relay gave `name-N` asks for
+   * `name` again. Sessions from another directory keep their name; this one then gets `name-N`.
    */
   static async sameProject(o3) {
     if (o3.cwd === void 0) return void 0;
+    const found = [];
     for (const sid of (await listSessions(o3.mesh)).reverse()) {
       const files = new SessionFiles(o3.mesh, sid, o3.env);
       const saved = await files.load();
-      if (saved?.name !== o3.name || saved.cwd !== o3.cwd || saved.ended === true) continue;
-      if (await files.claim()) return { ...saved, kind: o3.kind };
+      if ((saved?.asked ?? saved?.name) !== o3.name || saved.cwd !== o3.cwd || saved.ended === true) continue;
+      found.push({ files, saved });
     }
+    found.sort((a5, b5) => Number(b5.saved.name === o3.name) - Number(a5.saved.name === o3.name));
+    for (const { files, saved } of found) if (await files.claim()) return { ...saved, name: o3.name, kind: o3.kind };
     return void 0;
+  }
+  /**
+   * A claim (`--take`, `WIM_TAKE=1`, the `rename` tool's `take`): the session on this device whose
+   * saved name is `o.name`, from any directory, taken with its sid and resume secret, as the
+   * same-project rule takes one (design.md, taking a session back). Only one that did not end, is
+   * of this session's kind and whose liveness lock is free. While a live process holds the name,
+   * or only a session of another kind has it, the claim is refused out loud: never a `name-N`,
+   * never a replaced connection. Undefined when no session on this device has the name.
+   */
+  static async claimState(o3) {
+    const address = `${o3.name}@${o3.device.name}`;
+    const found = [];
+    for (const sid of (await listSessions(o3.mesh)).reverse()) {
+      const files = new SessionFiles(o3.mesh, sid, o3.env);
+      const saved = await files.load();
+      if (saved?.name === o3.name && saved.ended !== true) found.push({ files, saved });
+    }
+    const mine = found.find((f7) => f7.saved.kind === o3.kind);
+    if (mine === void 0) {
+      if (found.length === 0) return void 0;
+      throw new ClientError(`cannot take ${address}: it belongs to a session of another kind on this device (${found[0].saved.kind}), so messages for that name are its own`, "name_kind");
+    }
+    const live = `cannot take ${address}: a live session on this device holds it now. A claim takes only an offline name; this one is left as it is`;
+    for (const f7 of found) if (f7 !== mine && await f7.files.isLiveElsewhere()) throw new ClientError(live, "name_live");
+    if (!await mine.files.claim()) throw new ClientError(live, "name_live");
+    const at = (o3.now ?? Date.now)();
+    const claims = (mine.saved.claims ?? []).filter((c5) => at - c5.at < CLAIM_SHOWN_MS);
+    return { ...mine.saved, asked: o3.name, claims: [...claims, { at, address, ...o3.cwd === void 0 ? {} : { cwd: o3.cwd } }] };
+  }
+  /**
+   * Whether this session holds nothing anyone could miss: nothing unread or held, no lease, no
+   * room, and nothing sent (receipts and results come back to its sid). Such a session may end
+   * for good when another takes over its process (the `rename` tool's claim, the `hello` op).
+   */
+  async holdsNothing() {
+    const st = this.state;
+    if (st.seq > 0 || st.rooms.length > 0 || Object.keys(st.leases).length > 0) return false;
+    const unread = (await this.spool.unread()).filter((i6) => i6.kind !== "notice");
+    return unread.length + (await this.held.list()).length === 0;
   }
   async load() {
     this.config = await this.o.mesh.loadConfig();
@@ -92625,6 +92719,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
   async stop(opts = {}) {
     if (this.stopped) return;
     this.stopped = true;
+    await this.claimNoticing;
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
@@ -92661,8 +92756,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     else if (roster.seq === pin.seq && rosterRef(roster).hash !== pin.hash) await this.forkFrom(roster, link);
     const address = `${ready.name}@${this.device.name}`;
     const was = this.state.address ?? `${this.state.name}@${this.device.name}`;
-    await this.save({ name: ready.name, address, cursor: Math.max(this.state.cursor, ready.cursor) });
-    if (address !== was) this.noticeLater(this.address, renamedLine(was, address));
+    const asked = this.state.asked ?? this.state.name;
+    await this.save({ name: ready.name, asked, address, cursor: Math.max(this.state.cursor, ready.cursor) });
+    if (address !== was) this.noticeLater(this.address, ready.name === asked ? reclaimedLine(was, address) : renamedLine(was, address));
+    if (this.takenOver && !this.claimTold) this.claimNotice(link);
     this.peers.clear();
     for (const p3 of ready.peers) this.peers.set(p3.address, p3);
     this.emit("peers");
@@ -92673,6 +92770,24 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.ciSent = void 0;
     void this.sendCiRules(link);
     this.retryParkedLater();
+  }
+  /**
+   * Writes the claim notice once (claimLine). The relay sends what it queued for the session right
+   * after `ready` and answers a later request only after that, so once the lease list is in, every
+   * queued message is on the inbound queue; the count is taken when those are spooled.
+   */
+  claimNotice(link) {
+    this.claimTold = true;
+    this.claimNoticing = link.request({ t: "lease.list" }, (f7) => f7.t === "leases", this.answerMs).then(async (f7) => {
+      await this.inbound;
+      const unread = (await this.spool.unread()).filter((i6) => i6.kind !== "notice").length;
+      const held2 = (await this.held.list()).length;
+      const leases = f7.leases.filter((l3) => l3.holder === this.address).length;
+      await this.notice(this.address, claimLine2(this.address, { unread, held: held2, leases }));
+    }).catch((e6) => {
+      this.claimTold = false;
+      this.log(`wim: claim notice not written: ${e6.message}`);
+    });
   }
   /**
    * Retries parked messages after the frames already queued. Each parked message's own failure is
@@ -92797,9 +92912,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
   annotate(opened2) {
     if (!opened2.ok || opened2.value.kind !== "card") return;
     const from = opened2.value.from;
-    const key2 = `${from.device}/${from.sid}`;
-    if (Object.keys(opened2.value.card).length === 0) this.cards.delete(key2);
-    else this.cards.set(key2, opened2.value.card);
+    const key3 = `${from.device}/${from.sid}`;
+    if (Object.keys(opened2.value.card).length === 0) this.cards.delete(key3);
+    else this.cards.set(key3, opened2.value.card);
     this.emit("peers");
   }
   async onRosterPush(chain2) {
@@ -92940,8 +93055,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
     if (!r6.ok && r6.reason === "roster_behind") {
       if (!parked) {
-        const waiting2 = (await listDir(this.files.behindDir)).sort();
-        for (const name of waiting2.slice(0, Math.max(0, waiting2.length - (PARKED_MAX - 1)))) await removeFile(join11(this.files.behindDir, name));
+        const waiting3 = (await listDir(this.files.behindDir)).sort();
+        for (const name of waiting3.slice(0, Math.max(0, waiting3.length - (PARKED_MAX - 1)))) await removeFile(join11(this.files.behindDir, name));
         await writeJson(join11(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
       }
       return "behind";
@@ -93444,10 +93559,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   async readPresence() {
     const read = (await readText(this.files.presencePath))?.trim();
-    const text2 = read === "busy-mesh" ? "busy" : read;
-    if (text2 !== "busy" && text2 !== "idle") return;
-    if (this.sentPresence === text2) return;
-    if (this.sendIfOpen({ t: "presence", status: text2 })) this.sentPresence = text2;
+    const status3 = read === "busy-mesh" || read === "busy" ? "busy" : read === "idle" || IDLE_MARK.test(read ?? "") ? "idle" : void 0;
+    if (status3 === void 0) return;
+    const seen = status3 === "busy" ? status3 : read;
+    if (this.sentPresence === seen) return;
+    if (this.sendIfOpen({ t: "presence", status: status3 })) this.sentPresence = seen;
   }
   /**
    * Sends this session's card after ready, when it changes (at most once a minute) and when the
@@ -93953,20 +94069,20 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const id2 = ulid3(this.now());
     const asked = new Map(to.map((a5) => [this.pairOf(a5), a5]));
     const pongs = /* @__PURE__ */ new Map();
-    const started = this.now();
+    const started2 = this.now();
     let answered2;
     const all = new Promise((resolve3) => answered2 = resolve3);
-    let waiting2 = to;
-    const check3 = () => waiting2.every((a5) => pongs.has(a5)) ? answered2() : void 0;
+    let waiting3 = to;
+    const check3 = () => waiting3.every((a5) => pongs.has(a5)) ? answered2() : void 0;
     this.pongWaiters.set(id2, (device, session) => {
       const address = asked.get(`${device}/${session}`);
       if (address === void 0 || pongs.has(address)) return;
-      pongs.set(address, this.now() - started);
+      pongs.set(address, this.now() - started2);
       check3();
     });
     try {
       const results = pingResults(await this.post(to, void 0, { kind: "ping", id: id2 }));
-      waiting2 = results.filter((r6) => r6.status === "routed").map((r6) => r6.to);
+      waiting3 = results.filter((r6) => r6.status === "routed").map((r6) => r6.to);
       check3();
       let timer;
       await Promise.race([all, new Promise((resolve3) => timer = setTimeout(resolve3, waitMs))]);
@@ -94069,7 +94185,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const want = `${name}@${me.name}`;
     const answer = await link.request({ t: "rename", name }, (f7) => f7.t === "peer" && f7.peer.address === want || errorFor("rename")(f7), this.answerMs);
     if (answer.t === "error") throw relayRefusal("rename refused", answer);
-    await this.save({ name, address: want });
+    await this.save({ name, asked: name, address: want });
     return want;
   }
   /**
@@ -94148,36 +94264,36 @@ ${frameEntry(entry)}`);
     return typeof raw === "object" && raw !== null ? raw : {};
   }
   async keyFor(name) {
-    const key2 = leaseKey(this.config.mesh, name);
+    const key3 = leaseKey(this.config.mesh, name);
     const names = await this.leaseNames();
-    if (names[key2] !== name) await writeJson(this.o.mesh.leaseNamesPath, { ...names, [key2]: name }, this.o.env);
-    return key2;
+    if (names[key3] !== name) await writeJson(this.o.mesh.leaseNamesPath, { ...names, [key3]: name }, this.o.env);
+    return key3;
   }
   async acquireLease(name, ttlMs, wait) {
-    const key2 = await this.keyFor(name);
+    const key3 = await this.keyFor(name);
     const link = await this.ready();
     const answer = await link.request(
-      { t: "lease.acquire", key: key2, ttl: ttlMs, ...wait ? { wait: true } : {} },
-      (f7) => f7.t === "lease" && f7.key === key2,
+      { t: "lease.acquire", key: key3, ttl: ttlMs, ...wait ? { wait: true } : {} },
+      (f7) => f7.t === "lease" && f7.key === key3,
       (wait ? ttlMs : 0) + this.answerMs
     );
-    if (answer.status === "granted" && answer.token !== void 0) await this.save({ leases: { ...this.state.leases, [key2]: answer.token } });
+    if (answer.status === "granted" && answer.token !== void 0) await this.save({ leases: { ...this.state.leases, [key3]: answer.token } });
     return answer;
   }
   async renewLease(name, ttlMs) {
-    const key2 = await this.keyFor(name);
-    const token = this.state.leases[key2];
+    const key3 = await this.keyFor(name);
+    const token = this.state.leases[key3];
     if (token === void 0) throw new ClientError(`this session does not hold the lease ${JSON.stringify(name)}`, "not_held");
     const link = await this.ready();
-    return await link.request({ t: "lease.renew", key: key2, token, ttl: ttlMs }, (f7) => f7.t === "lease" && f7.key === key2, this.answerMs);
+    return await link.request({ t: "lease.renew", key: key3, token, ttl: ttlMs }, (f7) => f7.t === "lease" && f7.key === key3, this.answerMs);
   }
   async releaseLease(name) {
-    const key2 = await this.keyFor(name);
-    const token = this.state.leases[key2];
+    const key3 = await this.keyFor(name);
+    const token = this.state.leases[key3];
     if (token === void 0) throw new ClientError(`this session does not hold the lease ${JSON.stringify(name)}`, "not_held");
     const link = await this.ready();
-    const answer = await link.request({ t: "lease.release", key: key2, token }, (f7) => f7.t === "lease" && f7.key === key2, this.answerMs);
-    const { [key2]: _gone, ...rest } = this.state.leases;
+    const answer = await link.request({ t: "lease.release", key: key3, token }, (f7) => f7.t === "lease" && f7.key === key3, this.answerMs);
+    const { [key3]: _gone, ...rest } = this.state.leases;
     await this.save({ leases: rest });
     return answer;
   }
@@ -94275,7 +94391,7 @@ ${frameEntry(entry)}`);
   }
   /** The next unread item, waiting up to `timeoutMs`. Marks it read. */
   next(timeoutMs, onTick, tickMs = 3e4) {
-    const started = this.now();
+    const started2 = this.now();
     return new Promise((resolve3, reject) => {
       let over = false;
       let timer;
@@ -94306,7 +94422,7 @@ ${frameEntry(entry)}`);
       const onItem = (item) => {
         if (this.push === void 0 && item.cursor > this.spool.taken) look();
       };
-      const beat = setInterval(() => onTick?.(this.now() - started), tickMs);
+      const beat = setInterval(() => onTick?.(this.now() - started2), tickMs);
       this.on("item", onItem);
       void this.spool.unread().then(firstLook, fail4);
     });
@@ -94497,25 +94613,25 @@ var BaseModule = class {
 };
 function formatMap2(templateString, valueMap) {
   const regex = /\{([^}]+)\}/g;
-  return templateString.replace(regex, (match2, key2) => {
-    if (Object.prototype.hasOwnProperty.call(valueMap, key2)) {
-      const value2 = valueMap[key2];
+  return templateString.replace(regex, (match2, key3) => {
+    if (Object.prototype.hasOwnProperty.call(valueMap, key3)) {
+      const value2 = valueMap[key3];
       return value2 !== void 0 && value2 !== null ? String(value2) : "";
     } else {
-      throw new Error(`Key '${key2}' not found in valueMap.`);
+      throw new Error(`Key '${key3}' not found in valueMap.`);
     }
   });
 }
 function setValueByPath(data, keys, value2) {
   for (let i6 = 0; i6 < keys.length - 1; i6++) {
-    const key2 = keys[i6];
-    if (key2.endsWith("[]")) {
-      const keyName = key2.slice(0, -2);
+    const key3 = keys[i6];
+    if (key3.endsWith("[]")) {
+      const keyName = key3.slice(0, -2);
       if (!(keyName in data)) {
         if (Array.isArray(value2)) {
           data[keyName] = Array.from({ length: value2.length }, () => ({}));
         } else {
-          throw new Error(`Value must be a list given an array path ${key2}`);
+          throw new Error(`Value must be a list given an array path ${key3}`);
         }
       }
       if (Array.isArray(data[keyName])) {
@@ -94532,8 +94648,8 @@ function setValueByPath(data, keys, value2) {
         }
       }
       return;
-    } else if (key2.endsWith("[0]")) {
-      const keyName = key2.slice(0, -3);
+    } else if (key3.endsWith("[0]")) {
+      const keyName = key3.slice(0, -3);
       if (!(keyName in data)) {
         data[keyName] = [{}];
       }
@@ -94541,10 +94657,10 @@ function setValueByPath(data, keys, value2) {
       setValueByPath(arrayData[0], keys.slice(i6 + 1), value2);
       return;
     }
-    if (!data[key2] || typeof data[key2] !== "object") {
-      data[key2] = {};
+    if (!data[key3] || typeof data[key3] !== "object") {
+      data[key3] = {};
     }
-    data = data[key2];
+    data = data[key3];
   }
   const keyToSet = keys[keys.length - 1];
   const existingData = data[keyToSet];
@@ -94578,9 +94694,9 @@ function getValueByPath(data, keys, defaultValue = void 0) {
       if (typeof data !== "object" || data === null) {
         return defaultValue;
       }
-      const key2 = keys[i6];
-      if (key2.endsWith("[]")) {
-        const keyName = key2.slice(0, -2);
+      const key3 = keys[i6];
+      if (key3.endsWith("[]")) {
+        const keyName = key3.slice(0, -2);
         if (keyName in data) {
           const arrayData = data[keyName];
           if (!Array.isArray(arrayData)) {
@@ -94591,7 +94707,7 @@ function getValueByPath(data, keys, defaultValue = void 0) {
           return defaultValue;
         }
       } else {
-        data = data[key2];
+        data = data[key3];
       }
     }
     return data;
@@ -94616,9 +94732,9 @@ function moveValueByPath(data, paths) {
     }
     if (wildcardIdx !== -1 && destKeys.length > wildcardIdx) {
       for (let i6 = wildcardIdx; i6 < destKeys.length; i6++) {
-        const key2 = destKeys[i6];
-        if (key2 !== "*" && !key2.endsWith("[]") && !key2.endsWith("[0]")) {
-          excludeKeys.add(key2);
+        const key3 = destKeys[i6];
+        if (key3 !== "*" && !key3.endsWith("[]") && !key3.endsWith("[0]")) {
+          excludeKeys.add(key3);
         }
       }
     }
@@ -94632,16 +94748,16 @@ function _moveValueRecursive(data, sourceKeys, destKeys, keyIdx, excludeKeys) {
   if (typeof data !== "object" || data === null) {
     return;
   }
-  const key2 = sourceKeys[keyIdx];
-  if (key2.endsWith("[]")) {
-    const keyName = key2.slice(0, -2);
+  const key3 = sourceKeys[keyIdx];
+  if (key3.endsWith("[]")) {
+    const keyName = key3.slice(0, -2);
     const dataRecord = data;
     if (keyName in dataRecord && Array.isArray(dataRecord[keyName])) {
       for (const item of dataRecord[keyName]) {
         _moveValueRecursive(item, sourceKeys, destKeys, keyIdx + 1, excludeKeys);
       }
     }
-  } else if (key2 === "*") {
+  } else if (key3 === "*") {
     if (typeof data === "object" && data !== null && !Array.isArray(data)) {
       const dataRecord = data;
       const keysToMove = Object.keys(dataRecord).filter((k5) => !k5.startsWith("_") && !excludeKeys.has(k5));
@@ -94666,8 +94782,8 @@ function _moveValueRecursive(data, sourceKeys, destKeys, keyIdx, excludeKeys) {
     }
   } else {
     const dataRecord = data;
-    if (key2 in dataRecord) {
-      _moveValueRecursive(dataRecord[key2], sourceKeys, destKeys, keyIdx + 1, excludeKeys);
+    if (key3 in dataRecord) {
+      _moveValueRecursive(dataRecord[key3], sourceKeys, destKeys, keyIdx + 1, excludeKeys);
     }
   }
 }
@@ -96234,8 +96350,8 @@ function processJsonSchema(_jsonSchema) {
       genAISchema[fieldName] = listSchemaFieldValue;
     } else if (dictSchemaFieldNames.includes(fieldName)) {
       const dictSchemaFieldValue = {};
-      for (const [key2, value2] of Object.entries(fieldValue)) {
-        dictSchemaFieldValue[key2] = processJsonSchema(value2);
+      for (const [key3, value2] of Object.entries(fieldValue)) {
+        dictSchemaFieldValue[key3] = processJsonSchema(value2);
       }
       genAISchema[fieldName] = dictSchemaFieldValue;
     } else {
@@ -96412,9 +96528,9 @@ function tModelsUrl(apiClient, baseModels) {
   return res;
 }
 function tExtractModels(response) {
-  for (const key2 of ["models", "tunedModels", "publisherModels"]) {
-    if (hasField(response, key2)) {
-      return response[key2];
+  for (const key3 of ["models", "tunedModels", "publisherModels"]) {
+    if (hasField(response, key3)) {
+      return response[key3];
     }
   }
   return [];
@@ -99758,11 +99874,11 @@ function __asyncGenerator(thisArg, _arguments, generator) {
     try {
       step(g5[n3](v));
     } catch (e6) {
-      settle2(q3[0][3], e6);
+      settle3(q3[0][3], e6);
     }
   }
   function step(r6) {
-    r6.value instanceof __await ? Promise.resolve(r6.value.v).then(fulfill, reject) : settle2(q3[0][2], r6);
+    r6.value instanceof __await ? Promise.resolve(r6.value.v).then(fulfill, reject) : settle3(q3[0][2], r6);
   }
   function fulfill(value2) {
     resume("next", value2);
@@ -99770,7 +99886,7 @@ function __asyncGenerator(thisArg, _arguments, generator) {
   function reject(value2) {
     resume("throw", value2);
   }
-  function settle2(f7, v) {
+  function settle3(f7, v) {
     if (f7(v), q3.shift(), q3.length) resume(q3[0][0], q3[0][1]);
   }
 }
@@ -99783,11 +99899,11 @@ function __asyncValues(o3) {
   function verb(n3) {
     i6[n3] = o3[n3] && function(v) {
       return new Promise(function(resolve3, reject) {
-        v = o3[n3](v), settle2(resolve3, reject, v.done, v.value);
+        v = o3[n3](v), settle3(resolve3, reject, v.done, v.value);
       });
     };
   }
-  function settle2(resolve3, reject, d5, v) {
+  function settle3(resolve3, reject, d5, v) {
     Promise.resolve(v).then(function(v2) {
       resolve3({ value: v2, done: d5 });
     }, reject);
@@ -105889,8 +106005,8 @@ var ApiClient = class {
     const prependProjectLocation = this.shouldPrependVertexProjectPath(request2, patchedHttpOptions);
     const url2 = this.constructUrl(request2.path, patchedHttpOptions, prependProjectLocation);
     if (request2.queryParams) {
-      for (const [key2, value2] of Object.entries(request2.queryParams)) {
-        url2.searchParams.append(key2, String(value2));
+      for (const [key3, value2] of Object.entries(request2.queryParams)) {
+        url2.searchParams.append(key3, String(value2));
       }
     }
     let requestInit = {};
@@ -105909,11 +106025,11 @@ var ApiClient = class {
     if (baseHttpOptions.fetch) {
       patchedHttpOptions.fetch = baseHttpOptions.fetch;
     }
-    for (const [key2, value2] of Object.entries(requestHttpOptions)) {
+    for (const [key3, value2] of Object.entries(requestHttpOptions)) {
       if (typeof value2 === "object") {
-        patchedHttpOptions[key2] = Object.assign(Object.assign({}, patchedHttpOptions[key2]), value2);
+        patchedHttpOptions[key3] = Object.assign(Object.assign({}, patchedHttpOptions[key3]), value2);
       } else if (value2 !== void 0) {
-        patchedHttpOptions[key2] = value2;
+        patchedHttpOptions[key3] = value2;
       }
     }
     return patchedHttpOptions;
@@ -106083,8 +106199,8 @@ var ApiClient = class {
   async getHeadersInternal(httpOptions, url2) {
     const headers = new Headers();
     if (httpOptions && httpOptions.headers) {
-      for (const [key2, value2] of Object.entries(httpOptions.headers)) {
-        headers.append(key2, value2);
+      for (const [key3, value2] of Object.entries(httpOptions.headers)) {
+        headers.append(key3, value2);
       }
     }
     if ((httpOptions === null || httpOptions === void 0 ? void 0 : httpOptions.timeout) && httpOptions.timeout > 0) {
@@ -106285,17 +106401,17 @@ function includeExtraBodyToRequestInit(requestInit, extraBody) {
   }
   function deepMerge(target, source2) {
     const output2 = Object.assign({}, target);
-    for (const key2 in source2) {
-      if (Object.prototype.hasOwnProperty.call(source2, key2)) {
-        const sourceValue = source2[key2];
-        const targetValue = output2[key2];
+    for (const key3 in source2) {
+      if (Object.prototype.hasOwnProperty.call(source2, key3)) {
+        const sourceValue = source2[key3];
+        const targetValue = output2[key3];
         if (sourceValue && typeof sourceValue === "object" && !Array.isArray(sourceValue) && targetValue && typeof targetValue === "object" && !Array.isArray(targetValue)) {
-          output2[key2] = deepMerge(targetValue, sourceValue);
+          output2[key3] = deepMerge(targetValue, sourceValue);
         } else {
           if (targetValue && sourceValue && typeof targetValue !== typeof sourceValue) {
-            console.warn(`includeExtraBodyToRequestInit:deepMerge: Type mismatch for key "${key2}". Original type: ${typeof targetValue}, New type: ${typeof sourceValue}. Overwriting.`);
+            console.warn(`includeExtraBodyToRequestInit:deepMerge: Type mismatch for key "${key3}". Original type: ${typeof targetValue}, New type: ${typeof sourceValue}. Overwriting.`);
           }
-          output2[key2] = sourceValue;
+          output2[key3] = sourceValue;
         }
       }
     }
@@ -106611,15 +106727,15 @@ var LiveMusicSession = class {
 };
 function headersToMap$1(headers) {
   const headerMap = {};
-  headers.forEach((value2, key2) => {
-    headerMap[key2] = value2;
+  headers.forEach((value2, key3) => {
+    headerMap[key3] = value2;
   });
   return headerMap;
 }
 function mapToHeaders$1(map4) {
   const headers = new Headers();
-  for (const [key2, value2] of Object.entries(map4)) {
-    headers.append(key2, value2);
+  for (const [key3, value2] of Object.entries(map4)) {
+    headers.append(key3, value2);
   }
   return headers;
 }
@@ -107047,15 +107163,15 @@ var Session = class {
 };
 function headersToMap(headers) {
   const headerMap = {};
-  headers.forEach((value2, key2) => {
-    headerMap[key2] = value2;
+  headers.forEach((value2, key3) => {
+    headerMap[key3] = value2;
   });
   return headerMap;
 }
 function mapToHeaders(map4) {
   const headers = new Headers();
-  for (const [key2, value2] of Object.entries(map4)) {
-    headers.append(key2, value2);
+  for (const [key3, value2] of Object.entries(map4)) {
+    headers.append(key3, value2);
   }
   return headers;
 }
@@ -109473,14 +109589,14 @@ function toolToMldev(fromObject) {
 }
 function getFieldMasks(setup2) {
   const fields2 = [];
-  for (const key2 in setup2) {
-    if (Object.prototype.hasOwnProperty.call(setup2, key2)) {
-      const value2 = setup2[key2];
+  for (const key3 in setup2) {
+    if (Object.prototype.hasOwnProperty.call(setup2, key3)) {
+      const value2 = setup2[key3];
       if (typeof value2 === "object" && value2 != null && Object.keys(value2).length > 0) {
-        const field = Object.keys(value2).map((kk) => `${key2}.${kk}`);
+        const field = Object.keys(value2).map((kk) => `${key3}.${kk}`);
         fields2.push(...field);
       } else {
-        fields2.push(key2);
+        fields2.push(key3);
       }
     }
   }
@@ -109922,8 +110038,8 @@ var FileSearchStores = class extends BaseModule {
       throw new Error(`Invalid uri format: ${uri}. Expected to contain /media/`);
     }
     const queryParams = {};
-    parsedUri.searchParams.forEach((value2, key2) => {
-      queryParams[key2] = value2;
+    parsedUri.searchParams.forEach((value2, key3) => {
+      queryParams[key3] = value2;
     });
     queryParams["alt"] = "media";
     const httpOptions = Object.assign({}, config2 === null || config2 === void 0 ? void 0 : config2.httpOptions);
@@ -110246,10 +110362,10 @@ function withEnvSecurity(security) {
 function securityFromHeaders(headers) {
   var _a5, _b;
   const defaultHeaders = {};
-  for (const [key2, value2] of headers) {
-    const lowerKey = key2.toLowerCase();
+  for (const [key3, value2] of headers) {
+    const lowerKey = key3.toLowerCase();
     if (lowerKey !== "authorization" && lowerKey !== "x-goog-api-key") {
-      defaultHeaders[key2] = value2;
+      defaultHeaders[key3] = value2;
     }
   }
   const security = {
@@ -110263,9 +110379,9 @@ function applyDefaultHeaders(target, source2) {
   if (!source2) {
     return;
   }
-  for (const [key2, value2] of new Headers(source2)) {
-    if (target.get(key2) === null) {
-      target.set(key2, value2);
+  for (const [key3, value2] of new Headers(source2)) {
+    if (target.get(key3) === null) {
+      target.set(key3, value2);
     }
   }
 }
@@ -110535,8 +110651,8 @@ function getErrorPayload(error64) {
   const dataError = getObjectProperty(error64, "error");
   return dataError && typeof dataError === "object" ? dataError : void 0;
 }
-function getObjectProperty(value2, key2) {
-  return value2 && typeof value2 === "object" ? value2[key2] : void 0;
+function getObjectProperty(value2, key3) {
+  return value2 && typeof value2 === "object" ? value2[key3] : void 0;
 }
 function stringifyErrorBody(error64) {
   if (!error64)
@@ -110553,8 +110669,8 @@ function isPlainObject$2(value2) {
 function isCompatAPIErrorInstance(value2) {
   return typeof value2 === "object" && value2 !== null ? APIError.prototype.isPrototypeOf(value2) : false;
 }
-function defineReadonly(target, key2, value2) {
-  Object.defineProperty(target, key2, {
+function defineReadonly(target, key3, value2) {
+  Object.defineProperty(target, key3, {
     configurable: true,
     enumerable: true,
     value: value2,
@@ -110578,21 +110694,21 @@ var HTTPClient = class _HTTPClient {
   }
   async request(request2) {
     let req = request2;
-    for (const hook of this.requestHooks) {
-      const nextRequest = await hook(req);
+    for (const hook2 of this.requestHooks) {
+      const nextRequest = await hook2(req);
       if (nextRequest) {
         req = nextRequest;
       }
     }
     try {
       const res = await this.fetcher(req);
-      for (const hook of this.responseHooks) {
-        await hook(res, req);
+      for (const hook2 of this.responseHooks) {
+        await hook2(res, req);
       }
       return res;
     } catch (err) {
-      for (const hook of this.requestErrorHooks) {
-        await hook(err, req);
+      for (const hook2 of this.requestErrorHooks) {
+        await hook2(err, req);
       }
       throw err;
     }
@@ -110737,69 +110853,69 @@ var SDKHooks = class {
     this.afterSuccessHooks = [];
     this.afterErrorHooks = [];
     const presetHooks = [];
-    for (const hook of presetHooks) {
-      if ("sdkInit" in hook) {
-        this.registerSDKInitHook(hook);
+    for (const hook2 of presetHooks) {
+      if ("sdkInit" in hook2) {
+        this.registerSDKInitHook(hook2);
       }
-      if ("beforeCreateRequest" in hook) {
-        this.registerBeforeCreateRequestHook(hook);
+      if ("beforeCreateRequest" in hook2) {
+        this.registerBeforeCreateRequestHook(hook2);
       }
-      if ("beforeRequest" in hook) {
-        this.registerBeforeRequestHook(hook);
+      if ("beforeRequest" in hook2) {
+        this.registerBeforeRequestHook(hook2);
       }
-      if ("afterSuccess" in hook) {
-        this.registerAfterSuccessHook(hook);
+      if ("afterSuccess" in hook2) {
+        this.registerAfterSuccessHook(hook2);
       }
-      if ("afterError" in hook) {
-        this.registerAfterErrorHook(hook);
+      if ("afterError" in hook2) {
+        this.registerAfterErrorHook(hook2);
       }
     }
     initHooks(this);
   }
-  registerSDKInitHook(hook) {
-    this.sdkInitHooks.push(hook);
+  registerSDKInitHook(hook2) {
+    this.sdkInitHooks.push(hook2);
   }
-  registerBeforeCreateRequestHook(hook) {
-    this.beforeCreateRequestHooks.push(hook);
+  registerBeforeCreateRequestHook(hook2) {
+    this.beforeCreateRequestHooks.push(hook2);
   }
-  registerBeforeRequestHook(hook) {
-    this.beforeRequestHooks.push(hook);
+  registerBeforeRequestHook(hook2) {
+    this.beforeRequestHooks.push(hook2);
   }
-  registerAfterSuccessHook(hook) {
-    this.afterSuccessHooks.push(hook);
+  registerAfterSuccessHook(hook2) {
+    this.afterSuccessHooks.push(hook2);
   }
-  registerAfterErrorHook(hook) {
-    this.afterErrorHooks.push(hook);
+  registerAfterErrorHook(hook2) {
+    this.afterErrorHooks.push(hook2);
   }
   sdkInit(opts) {
-    return this.sdkInitHooks.reduce((opts2, hook) => hook.sdkInit(opts2), opts);
+    return this.sdkInitHooks.reduce((opts2, hook2) => hook2.sdkInit(opts2), opts);
   }
   beforeCreateRequest(hookCtx, input2) {
     let inp = input2;
-    for (const hook of this.beforeCreateRequestHooks) {
-      inp = hook.beforeCreateRequest(hookCtx, inp);
+    for (const hook2 of this.beforeCreateRequestHooks) {
+      inp = hook2.beforeCreateRequest(hookCtx, inp);
     }
     return inp;
   }
   async beforeRequest(hookCtx, request2) {
     let req = request2;
-    for (const hook of this.beforeRequestHooks) {
-      req = await hook.beforeRequest(hookCtx, req);
+    for (const hook2 of this.beforeRequestHooks) {
+      req = await hook2.beforeRequest(hookCtx, req);
     }
     return req;
   }
   async afterSuccess(hookCtx, response) {
     let res = response;
-    for (const hook of this.afterSuccessHooks) {
-      res = await hook.afterSuccess(hookCtx, res);
+    for (const hook2 of this.afterSuccessHooks) {
+      res = await hook2.afterSuccess(hookCtx, res);
     }
     return res;
   }
   async afterError(hookCtx, response, error64) {
     let res = response;
     let err = error64;
-    for (const hook of this.afterErrorHooks) {
-      const result = await hook.afterError(hookCtx, res, err);
+    for (const hook2 of this.afterErrorHooks) {
+      const result = await hook2.afterError(hookCtx, res, err);
       res = result.response;
       err = result.error;
     }
@@ -110949,9 +111065,9 @@ function encodeChars(v, charEncoding) {
   }
 }
 function formEncoder(sep2) {
-  return (key2, value2, options) => {
+  return (key3, value2, options) => {
     let out = "";
-    const pairs = (options === null || options === void 0 ? void 0 : options.explode) ? explode(key2, value2) : [[key2, value2]];
+    const pairs = (options === null || options === void 0 ? void 0 : options.explode) ? explode(key3, value2) : [[key3, value2]];
     if (pairs.every(([_, v]) => v == null)) {
       return;
     }
@@ -110988,7 +111104,7 @@ function formEncoder(sep2) {
   };
 }
 var encodeForm = formEncoder(",");
-function encodeJSON(key2, value2, options) {
+function encodeJSON(key3, value2, options) {
   if (typeof value2 === "undefined") {
     return;
   }
@@ -110996,11 +111112,11 @@ function encodeJSON(key2, value2, options) {
     return encodeChars(v, options === null || options === void 0 ? void 0 : options.charEncoding);
   };
   const encVal = encodeString(JSON.stringify(value2, jsonReplacer));
-  return (options === null || options === void 0 ? void 0 : options.explode) ? encVal : `${encodeKeyChars(key2, options === null || options === void 0 ? void 0 : options.charEncoding)}=${encVal}`;
+  return (options === null || options === void 0 ? void 0 : options.explode) ? encVal : `${encodeKeyChars(key3, options === null || options === void 0 ? void 0 : options.charEncoding)}=${encVal}`;
 }
-var encodeSimple = (key2, value2, options) => {
+var encodeSimple = (key3, value2, options) => {
   let out = "";
-  const pairs = (options === null || options === void 0 ? void 0 : options.explode) ? explode(key2, value2) : [[key2, value2]];
+  const pairs = (options === null || options === void 0 ? void 0 : options.explode) ? explode(key3, value2) : [[key3, value2]];
   if (pairs.every(([_, v]) => v == null)) {
     return;
   }
@@ -111028,14 +111144,14 @@ var encodeSimple = (key2, value2, options) => {
   });
   return out.slice(1);
 };
-function explode(key2, value2) {
+function explode(key3, value2) {
   if (Array.isArray(value2)) {
-    return value2.map((v) => [key2, v]);
+    return value2.map((v) => [key3, v]);
   } else if (isPlainObject$1(value2)) {
     const o3 = value2 !== null && value2 !== void 0 ? value2 : {};
     return Object.entries(o3).map(([k5, v]) => [k5, v]);
   } else {
-    return [[key2, value2]];
+    return [[key3, value2]];
   }
 }
 function serializeValue(value2) {
@@ -111093,13 +111209,13 @@ function queryEncoder(f7) {
     var _a5, _b, _c5;
     const opts = Object.assign(Object.assign({}, options), { explode: (_a5 = options === null || options === void 0 ? void 0 : options.explode) !== null && _a5 !== void 0 ? _a5 : true, charEncoding: (_b = options === null || options === void 0 ? void 0 : options.charEncoding) !== null && _b !== void 0 ? _b : "percent" });
     const allowEmptySet = new Set((_c5 = options === null || options === void 0 ? void 0 : options.allowEmptyValue) !== null && _c5 !== void 0 ? _c5 : []);
-    const encoded = Object.entries(values).map(([key2, value2]) => {
-      if (allowEmptySet.has(key2)) {
+    const encoded = Object.entries(values).map(([key3, value2]) => {
+      if (allowEmptySet.has(key3)) {
         if (value2 === void 0 || value2 === null || value2 === "" || Array.isArray(value2) && value2.length === 0) {
-          return `${encodeURIComponent(key2)}=`;
+          return `${encodeURIComponent(key3)}=`;
         }
       }
-      return f7(key2, value2, opts);
+      return f7(key3, value2, opts);
     });
     return queryJoin(...encoded);
   };
@@ -115625,8 +115741,8 @@ function attachSdkHttpResponse(value2, call) {
 }
 function createSdkHttpResponse(response, parsedBody) {
   const headers = {};
-  for (const [key2, value2] of response.headers.entries()) {
-    headers[key2] = value2;
+  for (const [key3, value2] of response.headers.entries()) {
+    headers[key3] = value2;
   }
   return {
     headers,
@@ -115810,8 +115926,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs16 = req("fs");
-          buffer = fs16.readFileSync(params.file);
+          const fs17 = req("fs");
+          buffer = fs17.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -115819,8 +115935,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs16 = mod2("fs");
-            buffer = fs16.readFileSync(params.file);
+            const fs17 = mod2("fs");
+            buffer = fs17.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -116029,11 +116145,11 @@ var NodeAuth = class {
       throw new Error("Trying to set google-auth headers but googleAuth is unset");
     }
     const authHeaders2 = await this.googleAuth.getRequestHeaders(url2);
-    for (const [key2, value2] of authHeaders2) {
-      if (headers.get(key2) !== null) {
+    for (const [key3, value2] of authHeaders2) {
+      if (headers.get(key3) !== null) {
         continue;
       }
-      headers.append(key2, value2);
+      headers.append(key3, value2);
     }
   }
 };
@@ -118262,12 +118378,12 @@ var NodeFiles = class extends Files$1 {
     const headers = Object.assign({}, httpOptions.headers || {});
     if (authHeaders2) {
       if (typeof authHeaders2[Symbol.iterator] === "function") {
-        for (const [key2, value2] of authHeaders2) {
-          headers[key2] = value2;
+        for (const [key3, value2] of authHeaders2) {
+          headers[key3] = value2;
         }
       } else {
-        for (const [key2, value2] of Object.entries(authHeaders2)) {
-          headers[key2] = value2;
+        for (const [key3, value2] of Object.entries(authHeaders2)) {
+          headers[key3] = value2;
         }
       }
     }
@@ -118753,11 +118869,11 @@ var Budget = class _Budget {
     return true;
   }
   day() {
-    const key2 = utcDay(this.options.now());
-    let day = this.ledger.days[key2];
+    const key3 = utcDay(this.options.now());
+    let day = this.ledger.days[key3];
     if (day === void 0) {
       day = { inputTokens: 0, outputTokens: 0, usd: 0, notified: [] };
-      this.ledger.days[key2] = day;
+      this.ledger.days[key3] = day;
     }
     return day;
   }
@@ -118769,8 +118885,8 @@ var Budget = class _Budget {
   }
   async write() {
     const oldest = utcDay(this.options.now() - KEEP_DAYS * DAY_MS);
-    for (const key2 of Object.keys(this.ledger.days)) {
-      if (key2 < oldest) delete this.ledger.days[key2];
+    for (const key3 of Object.keys(this.ledger.days)) {
+      if (key3 < oldest) delete this.ledger.days[key3];
     }
     const path2 = this.options.path;
     await mkdir(dirname5(path2), { recursive: true, mode: 448 });
@@ -118872,13 +118988,13 @@ var Guards = class {
     if (Buffer.byteLength(item.text, "utf8") > MAX_TEXT_BYTES) {
       return { ok: false, reason: "too_long" };
     }
-    for (const [key3, at] of this.recent) {
-      if (now - at >= DUPLICATE_MS) this.recent.delete(key3);
+    for (const [key4, at] of this.recent) {
+      if (now - at >= DUPLICATE_MS) this.recent.delete(key4);
     }
-    const key2 = `${item.from}
+    const key3 = `${item.from}
 ${createHash8("sha256").update(item.text).digest("hex")}`;
-    if (this.recent.has(key2)) return { ok: false, reason: "duplicate" };
-    this.recent.set(key2, now);
+    if (this.recent.has(key3)) return { ok: false, reason: "duplicate" };
+    this.recent.set(key3, now);
     const times = (this.replies.get(item.from) ?? []).filter((t2) => now - t2 < HOUR_MS);
     if (times.length >= this.options.perPeerPerHour) {
       this.replies.set(item.from, times);
@@ -119023,10 +119139,10 @@ ${item.text}`
       }
       return;
     }
-    const started = this.o.now();
-    const timeoutAt = started + this.o.callTimeoutMs;
+    const started2 = this.o.now();
+    const timeoutAt = started2 + this.o.callTimeoutMs;
     const byDeadline = deadline !== void 0 && deadline < timeoutAt;
-    const waitMs = (byDeadline ? deadline : timeoutAt) - started;
+    const waitMs = (byDeadline ? deadline : timeoutAt) - started2;
     const abort = new AbortController();
     let timer;
     const expired = new Promise((_, reject) => {
@@ -119051,7 +119167,7 @@ ${item.text}`
         expired
       ]);
     } catch (err) {
-      const ms = this.o.now() - started;
+      const ms = this.o.now() - started2;
       this.o.log(`bot: model call failed ${tag} ms=${ms} ${describe5(err)}`);
       const timedOut = abort.signal.aborted;
       const billed = timedOut || !(err instanceof ModelRefusedError);
@@ -119068,7 +119184,7 @@ ${item.text}`
       clearTimeout(timer);
     }
     this.o.log(
-      `bot: model call done ${tag} ms=${this.o.now() - started} in=${res.usage.inputTokens} out=${res.usage.outputTokens} stop=${res.stopReason}`
+      `bot: model call done ${tag} ms=${this.o.now() - started2} in=${res.usage.inputTokens} out=${res.usage.outputTokens} stop=${res.stopReason}`
     );
     await this.o.budget.settle(reservation, res.usage);
     this.o.conversations.commit(thread, userText, res.text);
@@ -119287,11 +119403,11 @@ var ConfigSchema3 = external_exports.strictObject({
 }).superRefine((c5, ctx) => {
   const seen = /* @__PURE__ */ new Set();
   c5.sources.forEach((source2, i6) => {
-    const key2 = sourceKey(source2);
-    if (seen.has(key2)) {
-      ctx.addIssue({ code: "custom", path: ["sources", i6], message: `duplicate source ${key2}` });
+    const key3 = sourceKey(source2);
+    if (seen.has(key3)) {
+      ctx.addIssue({ code: "custom", path: ["sources", i6], message: `duplicate source ${key3}` });
     }
-    seen.add(key2);
+    seen.add(key3);
   });
 });
 function sourceKey(source2) {
@@ -119319,10 +119435,10 @@ function formatDuration(ms) {
 }
 function jobList(names, what2) {
   const unique = [...new Set(names)];
-  const shown = unique.slice(0, 5).join(", ");
+  const shown2 = unique.slice(0, 5).join(", ");
   const more = unique.length > 5 ? ` and ${unique.length - 5} more` : "";
   const noun = unique.length === 1 ? "job" : "jobs";
-  return `${unique.length} ${noun} ${what2}: ${shown}${more}`;
+  return `${unique.length} ${noun} ${what2}: ${shown2}${more}`;
 }
 function between(start2, end2) {
   const a5 = Date.parse(start2 ?? "");
@@ -119499,11 +119615,11 @@ var StateStore = class _StateStore {
     }
     return new _StateStore(path2, parsed2 ?? { version: 1, sources: {} }, now);
   }
-  source(key2) {
-    let s3 = this.data.sources[key2];
+  source(key3) {
+    let s3 = this.data.sources[key3];
     if (s3 === void 0) {
       s3 = { seeded: false, cursors: {}, pipelines: {}, deployments: {} };
-      this.data.sources[key2] = s3;
+      this.data.sources[key3] = s3;
     }
     return s3;
   }
@@ -119663,9 +119779,9 @@ var GitLabWatcher = class {
   }
   async pipeline(prefix, p3, mode) {
     const now = this.ctx.now();
-    const key2 = String(p3.id);
+    const key3 = String(p3.id);
     const st = this.ctx.state;
-    const e6 = st.pipelines[key2] ??= {
+    const e6 = st.pipelines[key3] ??= {
       phase: "",
       updatedAt: "",
       ref: p3.ref,
@@ -119747,8 +119863,8 @@ var GitLabWatcher = class {
     const list3 = await this.get(external_exports.array(Deployment2), "/deployments", this.query(st.cursors.deployments));
     for (const d5 of list3) {
       if (!refAllowed(d5.ref, this.source.refs) || tooOld(this.ctx, d5.updated_at)) continue;
-      const key2 = String(d5.id);
-      if (st.deployments[key2]?.phase === d5.status) continue;
+      const key3 = String(d5.id);
+      if (st.deployments[key3]?.phase === d5.status) continue;
       if (modeFor(this.ctx, d5.updated_at) === "announce") {
         const what2 = d5.status === "blocked" ? "blocked, waiting for approval" : d5.status;
         const url2 = d5.deployable?.web_url ?? `${webUrl}/-/environments`;
@@ -119756,7 +119872,7 @@ var GitLabWatcher = class {
           `${prefix} deploy ${d5.environment.name} #${d5.iid} ${d5.ref} ${d5.sha.slice(0, 8)} ${what2} ${url2}`
         );
       }
-      st.deployments[key2] = { phase: d5.status, touched: this.ctx.now() };
+      st.deployments[key3] = { phase: d5.status, touched: this.ctx.now() };
     }
     setCursor(st.cursors, "deployments", list3.map((d5) => d5.updated_at));
   }
@@ -119840,15 +119956,15 @@ var GitHubWatcher = class {
   }
   async runs() {
     const st = this.ctx.state;
-    const { workflow_runs: runs } = await this.get(Runs, "/actions/runs?per_page=50");
-    for (const r6 of runs) {
+    const { workflow_runs: runs2 } = await this.get(Runs, "/actions/runs?per_page=50");
+    for (const r6 of runs2) {
       const branch = r6.head_branch ?? "";
       if (!refAllowed(branch, this.source.refs) || tooOld(this.ctx, r6.updated_at)) continue;
-      const key2 = String(r6.id);
+      const key3 = String(r6.id);
       const phase = `${r6.run_attempt}:${githubPhase(r6)}`;
-      if (st.pipelines[key2]?.phase === phase) continue;
+      if (st.pipelines[key3]?.phase === phase) continue;
       if (modeFor(this.ctx, r6.updated_at) === "announce") await this.ctx.post(await this.runLine(r6, branch));
-      st.pipelines[key2] = {
+      st.pipelines[key3] = {
         phase,
         updatedAt: r6.updated_at,
         ref: branch,
@@ -119881,12 +119997,12 @@ var GitHubWatcher = class {
     const list3 = await this.get(external_exports.array(Deployment3), "/deployments?per_page=30");
     for (const d5 of list3) {
       if (!refAllowed(d5.ref, this.source.refs) || tooOld(this.ctx, d5.created_at)) continue;
-      const key2 = String(d5.id);
-      const known = st.deployments[key2];
+      const key3 = String(d5.id);
+      const known = st.deployments[key3];
       if (known !== void 0 && DEPLOY_DONE.has(known.phase)) continue;
       const mode = modeFor(this.ctx, d5.created_at);
       if (mode === "skip") {
-        st.deployments[key2] = { phase: "inactive", touched: this.ctx.now() };
+        st.deployments[key3] = { phase: "inactive", touched: this.ctx.now() };
         continue;
       }
       const [status3] = await this.get(external_exports.array(Status), `/deployments/${d5.id}/statuses?per_page=1`);
@@ -119897,7 +120013,7 @@ var GitHubWatcher = class {
         const sha = d5.sha.slice(0, 7);
         await this.ctx.post(`${this.name} deploy ${d5.environment} ${d5.ref} ${sha} ${WORDS[phase] ?? phase} ${url2}`);
       }
-      st.deployments[key2] = { phase, touched: this.ctx.now() };
+      st.deployments[key3] = { phase, touched: this.ctx.now() };
     }
   }
 };
@@ -120002,7 +120118,7 @@ async function runCi(config2, io, deps = {}) {
 }
 
 // src/cli.ts
-import { promises as fs15 } from "node:fs";
+import { promises as fs16 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
 // src/admin.ts
@@ -120101,13 +120217,13 @@ function concat2(a5, b5) {
   out.set(b5, a5.length);
   return out;
 }
-function aeadSeal(key2, aad, plaintext) {
+function aeadSeal(key3, aad, plaintext) {
   const nonce = randomBytes2(12);
-  return { nonce, sealed: chacha20poly1305(key2, nonce, aad).encrypt(plaintext) };
+  return { nonce, sealed: chacha20poly1305(key3, nonce, aad).encrypt(plaintext) };
 }
-function aeadOpen(key2, nonce, aad, sealed) {
+function aeadOpen(key3, nonce, aad, sealed) {
   try {
-    return chacha20poly1305(key2, nonce, aad).decrypt(sealed);
+    return chacha20poly1305(key3, nonce, aad).decrypt(sealed);
   } catch {
     return void 0;
   }
@@ -120123,10 +120239,10 @@ function fileAad(file2) {
 async function sealKeyFile(o3) {
   const kdf = { alg: "scrypt", ...o3.kdf ?? DEFAULT_KDF, salt: b64u.encode(randomBytes2(16)) };
   const pub = { v: 2, id: deviceIdFromSignPub(o3.keys.signPub), name: o3.name, signPub: b64u.encode(o3.keys.signPub), boxPub: b64u.encode(o3.keys.boxPub), kdf };
-  const key2 = await derive(o3.passphrase, kdf);
+  const key3 = await derive(o3.passphrase, kdf);
   const secrets = canonBytes({ signSec: b64u.encode(o3.keys.signSec), boxSec: b64u.encode(o3.keys.boxSec), data: b64u.encode(o3.data ?? randomBytes2(32)) });
-  const { nonce, sealed } = aeadSeal(key2, fileAad(pub), secrets);
-  key2.fill(0);
+  const { nonce, sealed } = aeadSeal(key3, fileAad(pub), secrets);
+  key3.fill(0);
   secrets.fill(0);
   return { ...pub, nonce: b64u.encode(nonce), sealed: b64u.encode(sealed) };
 }
@@ -120141,9 +120257,9 @@ function parseSealedKeyFile(raw) {
   return { v: 2, id: file2.id, name: file2.name, signPub: file2.signPub, boxPub: file2.boxPub, kdf: { alg: "scrypt", N: kdf.N, r: kdf.r, p: kdf.p, salt: kdf.salt }, nonce: file2.nonce, sealed: file2.sealed };
 }
 async function openKeyFile(file2, passphrase) {
-  const key2 = await derive(passphrase, file2.kdf);
-  const bytes3 = aeadOpen(key2, b64u.decode(file2.nonce), fileAad(file2), b64u.decode(file2.sealed));
-  key2.fill(0);
+  const key3 = await derive(passphrase, file2.kdf);
+  const bytes3 = aeadOpen(key3, b64u.decode(file2.nonce), fileAad(file2), b64u.decode(file2.sealed));
+  key3.fill(0);
   if (bytes3 === void 0) throw new BadPassphrase();
   const secrets = JSON.parse(fromUtf8(bytes3));
   bytes3.fill(0);
@@ -120428,9 +120544,9 @@ async function decideJoin(session, body, confirm, now) {
 }
 async function admitPending(session, name, typed, now) {
   const invites = new Invites(session.mesh, session.files.env, now);
-  const waiting2 = (await new PendingJoins(session.mesh, session.files.env).list(session.roster, invites, now())).filter((p3) => p3.name === name);
-  if (waiting2.length === 0) throw new ClientError(`no device named ${name} is waiting to join`, "not_found");
-  const match2 = waiting2.find((p3) => sameCode(typed, sasFor(p3.body.device)));
+  const waiting3 = (await new PendingJoins(session.mesh, session.files.env).list(session.roster, invites, now())).filter((p3) => p3.name === name);
+  if (waiting3.length === 0) throw new ClientError(`no device named ${name} is waiting to join`, "not_found");
+  const match2 = waiting3.find((p3) => sameCode(typed, sasFor(p3.body.device)));
   if (match2 === void 0) {
     throw new ClientError(
       `that is not the comparison code of ${name}'s request. Check the code on the new device; if it shows another one, the request is not from it, so do not admit it`,
@@ -120626,12 +120742,12 @@ function setKey(item, rules) {
 function groupHeld(rows, rules) {
   const sets = /* @__PURE__ */ new Map();
   for (const row of [...rows].sort(byArrival)) {
-    const key2 = setKey(row, rules);
-    const set2 = sets.get(key2) ?? { key: key2, rows: [], ids: [], first: row.at, last: row.at };
+    const key3 = setKey(row, rules);
+    const set2 = sets.get(key3) ?? { key: key3, rows: [], ids: [], first: row.at, last: row.at };
     set2.rows.push(row);
     if (!set2.ids.includes(row.id)) set2.ids.push(row.id);
     set2.last = row.at;
-    sets.set(key2, set2);
+    sets.set(key3, set2);
   }
   return [...sets.values()];
 }
@@ -120777,7 +120893,7 @@ async function runEvents(d5) {
     emit("breaker", b5);
   };
   const addresses = /* @__PURE__ */ new Map();
-  const remember = (rows, key2) => new Map(rows.map((r6) => [key2(r6), JSON.stringify(r6)]));
+  const remember = (rows, key3) => new Map(rows.map((r6) => [key3(r6), JSON.stringify(r6)]));
   async function joinsNow() {
     const rows = await new PendingJoins(d5.mesh, d5.env).list(s3.roster, new Invites(d5.mesh, d5.env, d5.now), d5.now());
     return rows.map((r6) => ({ name: r6.name, id: r6.id, invite: r6.invite, at: r6.at, exp: r6.exp }));
@@ -120808,9 +120924,9 @@ async function runEvents(d5) {
     const rows = await listAllHeld(d5.mesh, d5.env);
     const first = rows.find((r6) => r6.id === held3);
     if (first === void 0) throw new RequestError("not_found", `no held message ${held3}`);
-    const key2 = setKey(first, rules);
+    const key3 = setKey(first, rules);
     const now = [...new Set(ids)].flatMap((id2) => rows.filter((r6) => r6.id === id2).slice(0, 1));
-    const stranger = now.find((r6) => setKey(r6, rules) !== key2);
+    const stranger = now.find((r6) => setKey(r6, rules) !== key3);
     if (stranger !== void 0) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held3}: each set is decided on its own`);
     const decided = [];
     const kept = [];
@@ -120852,10 +120968,10 @@ async function runEvents(d5) {
     synced = true;
     emit("snapshot", { devices: devs, sessions: rows.map(sessionRow), rooms: roomsOf(rows), leases: leaseRows, held: heldRows, breakers: [...paused.values()], joins: joinRows });
   }
-  function diff(kind, rows, key2, last, gone) {
+  function diff(kind, rows, key3, last, gone) {
     const next = /* @__PURE__ */ new Map();
     for (const r6 of rows) {
-      const k5 = key2(r6);
+      const k5 = key3(r6);
       const text2 = JSON.stringify(r6);
       next.set(k5, text2);
       if (last.get(k5) !== text2) emit(kind, r6);
@@ -120961,11 +121077,11 @@ async function runEvents(d5) {
       if (a5.session !== void 0 && a5.session !== address) continue;
       sessions.push({ address, history: new History(new SessionFiles(d5.mesh, sid, d5.env).historyPath, d5.now) });
     }
-    const shown = (e6) => a5.peer === void 0 || e6.peer.split(",").includes(a5.peer);
+    const shown2 = (e6) => a5.peer === void 0 || e6.peer.split(",").includes(a5.peer);
     let until;
     for (const { history: h6 } of a5.before === void 0 ? [] : sessions) {
       const cut2 = await h6.find(a5.before);
-      if (cut2 !== void 0 && shown(cut2)) {
+      if (cut2 !== void 0 && shown2(cut2)) {
         until = cut2.at;
         break;
       }
@@ -121102,9 +121218,9 @@ async function runEvents(d5) {
     if (line.trim() === "") return;
     queue = queue.then(() => handle(line));
   });
-  const ended = new Promise((resolve3) => lines.once("close", resolve3));
+  const ended2 = new Promise((resolve3) => lines.once("close", resolve3));
   const aborted2 = new Promise((resolve3) => d5.signal.aborted ? resolve3() : d5.signal.addEventListener("abort", () => resolve3(), { once: true }));
-  await Promise.race([ended, aborted2]);
+  await Promise.race([ended2, aborted2]);
   clearInterval(tick);
   clearInterval(leaseTick);
   lines.close();
@@ -121118,7 +121234,7 @@ async function runSetupEvents(d5) {
   let joining = false;
   let finish;
   const joined = new Promise((resolve3) => finish = resolve3);
-  async function join23(a5) {
+  async function join24(a5) {
     personOnly(d5.agent, "joining a mesh");
     if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
     joining = true;
@@ -121178,7 +121294,7 @@ async function runSetupEvents(d5) {
       if (req.data.op !== "join") throw new RequestError("setup", "this device is in no mesh yet: join one first");
       const args = SetupArgs.safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      emit("response", { id: id2, ok: true, result: await join23(args.data) });
+      emit("response", { id: id2, ok: true, result: await join24(args.data) });
     } catch (error64) {
       const code2 = error64 instanceof RequestError ? error64.code : "error";
       emit("response", { ...id2 === void 0 ? {} : { id: id2 }, ok: false, error: { code: code2, message: sanitizeForDisplay(error64.message) } });
@@ -121190,9 +121306,9 @@ async function runSetupEvents(d5) {
     if (line.trim() === "") return;
     queue = queue.then(() => handle(line));
   });
-  const ended = new Promise((resolve3) => lines.once("close", resolve3));
+  const ended2 = new Promise((resolve3) => lines.once("close", resolve3));
   const aborted2 = new Promise((resolve3) => d5.signal.aborted ? resolve3() : d5.signal.addEventListener("abort", () => resolve3(), { once: true }));
-  await Promise.race([ended, aborted2, joined]);
+  await Promise.race([ended2, aborted2, joined]);
   lines.close();
 }
 
@@ -122250,8 +122366,8 @@ function isPlainObject3(value2) {
 }
 function mergeCapabilities(base, additional) {
   const result = { ...base };
-  for (const key2 in additional) {
-    const k5 = key2;
+  for (const key3 in additional) {
+    const k5 = key3;
     const addValue = additional[k5];
     if (addValue === void 0)
       continue;
@@ -122953,7 +123069,291 @@ var Server = class extends Protocol {
 };
 
 // src/mcp.ts
+import { join as join20 } from "node:path";
+
+// src/ancestry.ts
+import { execFile } from "node:child_process";
+import { promises as fs11 } from "node:fs";
+var POINTER_LEVELS = 8;
+function procStat(text2) {
+  const close = text2.lastIndexOf(")");
+  if (close < 0) return void 0;
+  const fields2 = text2.slice(close + 2).split(" ");
+  const ppid = Number(fields2[1]);
+  const start2 = fields2[19] ?? "";
+  return Number.isSafeInteger(ppid) && ppid >= 0 && /^\d+$/.test(start2) ? { ppid, start: start2 } : void 0;
+}
+function psTable(text2) {
+  const out = /* @__PURE__ */ new Map();
+  for (const line of text2.split("\n")) {
+    const m4 = /^\s*(\d+)\s+(\d+)\s+(\S(?:.*\S)?)\s*$/.exec(line);
+    if (m4 !== null) out.set(Number(m4[1]), { ppid: Number(m4[2]), start: m4[3] });
+  }
+  return out;
+}
+async function walk(pid, levels, look) {
+  const chain2 = [];
+  let self2 = await look(pid);
+  while (self2 !== void 0 && self2.ppid > 0 && chain2.length < levels) {
+    const parent = await look(self2.ppid);
+    if (parent === void 0) break;
+    chain2.push({ pid: self2.ppid, start: parent.start });
+    self2 = parent;
+  }
+  return chain2;
+}
+async function ancestry(d5, levels) {
+  if (d5.platform === "linux") {
+    return walk(d5.pid, levels, async (pid) => procStat(await d5.readFile(`/proc/${pid}/stat`).catch(() => "")));
+  }
+  if (d5.platform === "darwin") {
+    const table = psTable(await d5.execFile("/bin/ps", ["-A", "-o", "pid=,ppid=,lstart="], { LC_ALL: "C", TZ: "UTC" }).catch(() => ""));
+    return walk(d5.pid, levels, async (pid) => table.get(pid));
+  }
+  return d5.ppid > 0 && levels > 0 ? [{ pid: d5.ppid, start: "" }] : [];
+}
+function realAncestryDeps(platform2) {
+  return {
+    platform: platform2,
+    pid: process.pid,
+    ppid: process.ppid,
+    readFile: (path2) => fs11.readFile(path2, "utf8"),
+    execFile: (file2, args, env3) => new Promise((resolve3, reject) => {
+      execFile(file2, [...args], { env: env3, timeout: 3e3, maxBuffer: 8 << 20, windowsHide: true }, (error64, stdout) => error64 === null ? resolve3(stdout) : reject(error64));
+    })
+  };
+}
+function sameProcess(a5, b5) {
+  return a5.pid === b5.pid && a5.start === b5.start;
+}
+function parseChain(raw) {
+  if (!Array.isArray(raw) || raw.length > POINTER_LEVELS) return void 0;
+  const ok2 = raw.every((a5) => typeof a5 === "object" && a5 !== null && Number.isSafeInteger(a5.pid) && a5.pid > 0 && typeof a5.start === "string" && a5.start.length <= 64);
+  return ok2 ? raw.map((a5) => ({ pid: a5.pid, start: a5.start })) : void 0;
+}
+
+// src/hook.ts
 import { join as join19 } from "node:path";
+var POINTER_FILE = "ancestry.json";
+var ANNOUNCED_FILE = "hook-announced.json";
+var HOOK_LEVELS = 3;
+var HOOK_INPUT_MAX = 1 << 20;
+var HOOK_INPUT_MS = 5e3;
+var ANNOUNCED_TTL_MS = 7 * 24 * 3600 * 1e3;
+var ANNOUNCED_MAX = 64;
+var MARK_MAX = 999999999999999;
+var key2 = (v) => typeof v === "string" && v !== "" && v.length <= 256 ? v : void 0;
+function flagged(id2, active) {
+  const k5 = key2(id2);
+  return k5 === void 0 || typeof active !== "boolean" ? void 0 : { key: k5, continued: active };
+}
+var HOOK_AGENTS = {
+  gemini: {
+    read: (p3) => p3.hook_event_name === "AfterAgent" ? flagged(p3.session_id, p3.stop_hook_active) : void 0,
+    start: (p3) => p3.hook_event_name === "BeforeAgent" && key2(p3.session_id) !== void 0,
+    wake: (text2) => JSON.stringify({ decision: "deny", reason: text2 }),
+    allow: ""
+  },
+  // No per-cycle flag: `executionNum` counts the calls in one prompt, and nothing captured shows when
+  // it starts again, so only the announced record bounds it. A stop that carries an error is not woken.
+  // No start entry: `PreInvocation` runs before every model call, not once per turn. Each stop still
+  // writes a new turn mark, so a notice armed on the session fires.
+  antigravity: {
+    read: (p3) => {
+      const k5 = key2(p3.conversationId);
+      if (k5 === void 0) return void 0;
+      return p3.error !== void 0 && p3.error !== "" ? { key: k5, continued: false, ends: "the turn ended with an error" } : { key: k5, continued: false };
+    },
+    wake: (text2) => JSON.stringify({ decision: "continue", reason: text2 }),
+    allow: ""
+  },
+  // Stop expects JSON on stdout when it exits 0.
+  codex: {
+    read: (p3) => p3.hook_event_name === "Stop" ? flagged(p3.session_id, p3.stop_hook_active) : void 0,
+    // Plain text on a `UserPromptSubmit` hook's stdout becomes context for the model: it prints nothing.
+    start: (p3) => p3.hook_event_name === "UserPromptSubmit" && key2(p3.session_id) !== void 0,
+    wake: (text2) => JSON.stringify({ decision: "block", reason: text2 }),
+    allow: "{}"
+  },
+  // `loop_count` counts follow-ups over the whole conversation, so it is no per-cycle flag. A turn
+  // the person aborted, or one that failed, is not woken.
+  cursor: {
+    read: (p3) => {
+      const k5 = key2(p3.conversation_id);
+      if (k5 === void 0 || p3.hook_event_name !== "stop") return void 0;
+      return p3.status === "completed" ? { key: k5, continued: false } : { key: k5, continued: false, ends: "the turn was aborted or failed" };
+    },
+    // `beforeSubmitPrompt` documents no default for empty output, so the hook says to go on.
+    start: (p3) => p3.hook_event_name === "beforeSubmitPrompt" && key2(p3.conversation_id) !== void 0,
+    go: JSON.stringify({ continue: true }),
+    wake: (text2) => JSON.stringify({ followup_message: text2 }),
+    allow: ""
+  },
+  // The `agentStop` event's camelCase payload; its loop flag keeps the snake_case name. That form
+  // names no event: `userPromptSubmitted` is the one with a prompt and no loop flag.
+  copilot: {
+    read: (p3) => flagged(p3.sessionId, p3.stop_hook_active),
+    start: (p3) => key2(p3.sessionId) !== void 0 && typeof p3.prompt === "string" && !Object.hasOwn(p3, "stop_hook_active"),
+    wake: (text2) => JSON.stringify({ decision: "block", reason: text2 }),
+    allow: ""
+  }
+};
+function wakeText(n3) {
+  return n3 === 1 ? "1 message from another AI session is waiting in worldinmotion. Call the worldinmotion inbox tool to read it." : `${n3} messages from other AI sessions are waiting in worldinmotion. Call the worldinmotion inbox tool to read them.`;
+}
+async function hookAnswer(o3) {
+  const agent = Object.hasOwn(HOOK_AGENTS, o3.agent) ? HOOK_AGENTS[o3.agent] : void 0;
+  if (agent === void 0) return { out: "", why: "not an agent the hook knows" };
+  if (o3.event === "start") return started(agent, o3);
+  const payload2 = readPayload(o3.input);
+  const stop = payload2 === void 0 ? void 0 : agent.read(payload2);
+  if (stop === void 0) return { out: agent.allow, why: "not a turn-end payload this agent sends" };
+  if (stop.continued) return { out: agent.allow, why: await ended(o3, "this stop already follows a continuation") };
+  if (stop.ends !== void 0) return { out: agent.allow, why: await ended(o3, stop.ends) };
+  const found = await waiting(o3, `${o3.agent}\0${stop.key}`).catch(cannotTell);
+  if (typeof found === "string") return { out: agent.allow, why: found };
+  return { out: agent.wake(wakeText(found)), why: `${found} waiting` };
+}
+var cannotTell = (error64) => `cannot tell: ${error64.message}`;
+async function ended(o3, why) {
+  const found = await locate(o3).catch(cannotTell);
+  return typeof found === "string" ? `${why}; nothing written: ${found}` : settle2(found, why, o3.now());
+}
+async function started(agent, o3) {
+  const go = agent.go ?? "";
+  if (agent.start === void 0) return { out: go, why: "this agent has no turn-start entry" };
+  const payload2 = readPayload(o3.input);
+  if (payload2 === void 0 || !agent.start(payload2)) return { out: go, why: "not a turn-start payload this agent sends" };
+  const found = await locate(o3).catch(cannotTell);
+  if (typeof found === "string") return { out: go, why: `nothing written: ${found}` };
+  if ((await readText(found.files.presencePath).catch(() => void 0))?.trim() === "busy-mesh") return { out: go, why: "a mesh turn runs: busy-mesh kept" };
+  return writeAtomic(found.files.presencePath, "busy", found.env).then(
+    () => ({ out: go, why: "busy" }),
+    (error64) => ({ out: go, why: `busy not written: ${error64.message}` })
+  );
+}
+function readPayload(input2) {
+  if (input2 === void 0) return void 0;
+  let value2;
+  try {
+    value2 = JSON.parse(input2);
+  } catch {
+    return void 0;
+  }
+  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) ? value2 : void 0;
+}
+async function waiting(o3, sessionKey) {
+  const found = await locate(o3);
+  if (typeof found === "string") return found;
+  const { mesh, files, env: env3 } = found;
+  const config2 = await mesh.loadConfig();
+  const now = o3.now();
+  const paused = new Set((await readPauses(files.breakerPath, now)).map((p3) => p3.peer));
+  const items = (await new Spool(files.spoolDir, env3, 0).unread()).filter((i6) => counts(i6, config2, paused));
+  if (items.length === 0) return settle2(found, "nothing waiting", now);
+  const newest = Math.max(...items.map((i6) => i6.cursor));
+  const why = await announce(files, sessionKey, newest, now, env3);
+  return why === void 0 ? items.length : why === NOTHING_NEW ? settle2(found, why, now) : why;
+}
+async function locate(o3) {
+  if (o3.ancestry === void 0) return "the processes above the hook cannot be read here";
+  const env3 = { platform: o3.platform, pid: o3.pid };
+  const home = new Home(homeChoice(o3.env, o3.platform, o3.homedir).root, { ...env3, uid: o3.uid });
+  const mesh = new MeshFiles(home.meshDir(await home.pickMesh(o3.env["WIM_MESH"])), env3);
+  const files = await sessionFor(mesh, (await o3.ancestry(HOOK_LEVELS)).slice(0, HOOK_LEVELS), env3);
+  return typeof files === "string" ? files : { mesh, files, env: env3 };
+}
+async function settle2(at, why, now) {
+  const before = IDLE_MARK.exec((await readText(at.files.presencePath).catch(() => void 0))?.trim() ?? "");
+  const prev = before === null ? -1 : Number(before[1]);
+  const mark = prev >= now && prev < MARK_MAX ? prev + 1 : now;
+  return writeAtomic(at.files.presencePath, `idle ${mark}`, at.env).then(
+    () => why,
+    (error64) => `${why}; idle not written: ${error64.message}`
+  );
+}
+function counts(i6, config2, paused) {
+  return ["msg", "task", "result", "file"].includes(i6.kind) && Number.isSafeInteger(i6.cursor) && typeof i6.device === "string" && i6.device !== "" && i6.relayed !== true && i6.forPerson !== true && isTrusted(config2, i6.device) && !paused.has(i6.device);
+}
+async function writePointer(dir, pid, chain2, env3) {
+  await writeJson(join19(dir, POINTER_FILE), { v: 1, pid, chain: chain2 }, env3);
+}
+async function removePointer(dir, env3) {
+  await tryRemove(join19(dir, POINTER_FILE), env3).catch(() => void 0);
+}
+async function readPointer(dir) {
+  const raw = await readJson(join19(dir, POINTER_FILE)).catch(() => void 0);
+  const chain2 = parseChain(raw?.chain);
+  return raw?.v === 1 && Number.isSafeInteger(raw.pid) && chain2 !== void 0 && chain2.length > 0 ? { pid: raw.pid, chain: chain2 } : void 0;
+}
+async function runs(files, pid, env3) {
+  const holder = (await whileBusy(() => readText(files.liveLock), env3.platform))?.trim();
+  return holder === String(pid) && pidAlive(pid, fsOps.kill);
+}
+async function sessionFor(mesh, mine, env3) {
+  const found = [];
+  for (const sid of await listSessions(mesh)) {
+    const files = new SessionFiles(mesh, sid, env3);
+    const pointer = await readPointer(files.dir);
+    if (pointer === void 0 || !await runs(files, pointer.pid, env3)) continue;
+    const level = mine.findIndex((a5) => pointer.chain.some((b5) => sameProcess(a5, b5)));
+    if (level >= 0) found.push({ files, level, direct: sameProcess(pointer.chain[0], mine[level]) });
+  }
+  if (found.length === 0) return "no running session shares a process with the hook";
+  const nearest = Math.min(...found.map((f7) => f7.level));
+  const at = found.filter((f7) => f7.level === nearest);
+  if (at.length > 1) return `${at.length} sessions share the nearest process: not one session`;
+  return at[0].direct ? at[0].files : "the nearest shared process did not start a session's `wim mcp`";
+}
+var NOTHING_NEW = "nothing new since the last announcement";
+async function announce(files, sessionKey, newest, now, env3) {
+  const path2 = join19(files.dir, ANNOUNCED_FILE);
+  const id2 = b64u.encode(sha2562(utf8(sessionKey))).slice(0, 22);
+  return withLock(`${path2}.lock`, async () => {
+    const raw = await readJson(path2).catch(() => void 0);
+    const kept = {};
+    const rows = raw?.v === 1 && typeof raw.sessions === "object" && raw.sessions !== null ? Object.entries(raw.sessions) : [];
+    for (const [k5, e6] of rows) if (Number.isSafeInteger(e6?.cursor) && Number.isSafeInteger(e6?.at) && now - e6.at < ANNOUNCED_TTL_MS) kept[k5] = { cursor: e6.cursor, at: e6.at };
+    if (newest <= (kept[id2]?.cursor ?? 0)) return NOTHING_NEW;
+    const unmarked = await writeAtomic(files.presencePath, "busy-mesh", env3).then(
+      () => void 0,
+      (error64) => `cannot mark the turn a mesh turn: ${error64.message}`
+    );
+    if (unmarked !== void 0) return unmarked;
+    kept[id2] = { cursor: newest, at: now };
+    const newestFirst = Object.entries(kept).sort((a5, b5) => b5[1].at - a5[1].at).slice(0, ANNOUNCED_MAX);
+    await writeJson(path2, { v: 1, sessions: Object.fromEntries(newestFirst) }, env3);
+    return void 0;
+  }, env3, 2e3);
+}
+function readInput(stream, max = HOOK_INPUT_MAX, ms = HOOK_INPUT_MS) {
+  return new Promise((resolve3) => {
+    const chunks = [];
+    let size = 0;
+    const done = (value2) => {
+      clearTimeout(timer);
+      stream.off("data", onData);
+      stream.off("end", onEnd);
+      stream.off("error", onError);
+      stream.pause();
+      resolve3(value2);
+    };
+    const onData = (chunk) => {
+      const b5 = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+      size += b5.length;
+      if (size > max) return done(void 0);
+      chunks.push(b5);
+    };
+    const onEnd = () => done(Buffer.concat(chunks).toString("utf8"));
+    const onError = () => done(void 0);
+    const timer = setTimeout(() => done(void 0), ms);
+    stream.on("data", onData);
+    stream.on("end", onEnd);
+    stream.on("error", onError);
+  });
+}
+
+// src/mcp.ts
 var WAIT_DEFAULT_S = 110;
 var WAIT_MAX_S = 300;
 var INSTRUCTIONS = [
@@ -122968,7 +123368,7 @@ function jsonSchema(input2) {
 }
 var To2 = external_exports.union([external_exports.string().min(1), external_exports.array(external_exports.string().min(1)).min(1)]).describe("name@device, #room, *, or a list");
 var WaitS = external_exports.number().int().min(1).max(WAIT_MAX_S);
-var waiting = `(default ${WAIT_DEFAULT_S} s, max ${WAIT_MAX_S})`;
+var waiting2 = `(default ${WAIT_DEFAULT_S} s, max ${WAIT_MAX_S})`;
 var Status2 = external_exports.enum(RESULT_STATUSES);
 var PUBLIC = {
   peers: { description: "List mesh sessions: address, kind, status, rooms, one per line. all: include long-offline ones.", input: external_exports.object({ all: external_exports.boolean().optional() }) },
@@ -122977,12 +123377,12 @@ var PUBLIC = {
     input: external_exports.object({ to: To2, text: external_exports.string(), reply_to: external_exports.string().optional(), notify_when_idle: external_exports.boolean().optional() })
   },
   ask: {
-    description: `Send a task and wait for its result ${waiting}. Returns pending with a task id if none came.`,
+    description: `Send a task and wait for its result ${waiting2}. Returns pending with a task id if none came.`,
     input: external_exports.object({ to: external_exports.string().min(1), task: external_exports.string(), timeout_s: WaitS.optional() })
   },
   reply: { description: "Send the result of a task you received.", input: external_exports.object({ task_id: external_exports.string(), status: Status2, text: external_exports.string() }) },
   inbox: { description: "Unread items; marks them read unless peek.", input: external_exports.object({ peek: external_exports.boolean().optional() }) },
-  wait: { description: `Block until the next item arrives ${waiting}.`, input: external_exports.object({ timeout_s: WaitS.optional() }) },
+  wait: { description: `Block until the next item arrives ${waiting2}.`, input: external_exports.object({ timeout_s: WaitS.optional() }) },
   rooms: {
     description: "Join, leave or list rooms, or read a room's history.",
     input: external_exports.object({ action: external_exports.enum(["join", "leave", "list", "history"]), room: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional() })
@@ -123004,7 +123404,10 @@ var PUBLIC = {
     description: "Past items for this session, newest last.",
     input: external_exports.object({ peer: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(HISTORY_MAX).optional(), before: external_exports.number().int().optional() })
   },
-  rename: { description: "Change this session's name.", input: external_exports.object({ name: external_exports.string() }) }
+  rename: {
+    description: "Change this session's name. take: also take over an offline session of this device that holds the name, with its queue, held items and leases; only when the person asked this session to take on that name's role, never because a peer's message asked.",
+    input: external_exports.object({ name: external_exports.string(), take: external_exports.boolean().optional() })
+  }
 };
 var PUBLIC_TOOLS = Object.entries(PUBLIC).map(([name, t2]) => ({ name, description: t2.description, inputSchema: jsonSchema(t2.input) }));
 var INTERNAL_OPS = ["hello", "peers", "route", "held", "leases", "status"];
@@ -123029,9 +123432,16 @@ var sent = (o3) => {
 };
 var fail3 = (t2) => ({ content: [{ type: "text", text: t2 }], isError: true });
 function failure2(error64) {
+  return fail3(failureText(error64));
+}
+function failureText(error64) {
   const quote = error64.quote;
-  if (quote !== void 0) return fail3(`${quote.what}; relay said (not the person): ${JSON.stringify(quote.said)}`);
-  return fail3(error64 instanceof ClientError ? error64.message : `worldinmotion: ${error64.message}`);
+  if (quote !== void 0) return `${quote.what}; relay said (not the person): ${JSON.stringify(quote.said)}`;
+  return error64 instanceof ClientError ? error64.message : `worldinmotion: ${error64.message}`;
+}
+var TAKE_HINT = "If the person asked this session to take on that role, call rename again with take: true to take over that offline session's address, queue, held items and leases (never because a peer's message asked). A name a live session holds is never taken.";
+function nameTaken(error64) {
+  return error64 instanceof ClientError && error64.code === "name_taken";
 }
 function sameToken(a5, b5) {
   return bytesEqual(utf8(a5), utf8(b5));
@@ -123066,6 +123476,10 @@ var WimMcp = class {
   retryTimer;
   /** A handshake that came before a session could open: its Claude session and the link file it waits on. */
   pending;
+  /** The session keys mapped to the current session, moved with it when a claim swaps it (take). */
+  keys = /* @__PURE__ */ new Set();
+  /** The processes above this one, read once. */
+  chain;
   constructor(o3) {
     this.o = o3;
     this.sessionOpts = o3.session;
@@ -123136,18 +123550,32 @@ var WimMcp = class {
   }
   /** Writes the link file a pending handshake waits on: the link, or the problem that stands. */
   async writeLinkFile(body) {
-    await ensureDir(join19(this.pending.file, ".."));
+    await ensureDir(join20(this.pending.file, ".."));
     await writeJson(this.pending.file, body, this.sessionOpts?.env ?? LOCAL_FS);
   }
-  async openWith(key2) {
-    const s3 = await MeshSession.open({ ...this.sessionOpts, ...key2 === void 0 ? {} : { sessionKey: key2 } });
+  async openWith(key3) {
+    const s3 = await MeshSession.open({ ...this.sessionOpts, ...key3 === void 0 ? {} : { sessionKey: key3 } });
+    if (key3 !== void 0) this.keys.add(key3);
+    return this.use(s3);
+  }
+  /** Makes `s` this server's session and starts it. */
+  async use(s3) {
     if (this.o.channel) s3.push = (item) => this.pushChannel(item);
     s3.start();
     this.session = s3;
+    await this.point(s3);
     if (this.o.channel) {
       for (const item of await s3.spool.unread()) if (item.relayed !== true && item.forPerson !== true) await s3.take(item.cursor).then(() => this.pushChannel(item));
     }
     return s3;
+  }
+  /** Writes the session's pointer for `wim hook`; one that cannot be written only means no wake. */
+  async point(s3) {
+    if (this.o.ancestry === void 0) return;
+    const read = this.o.ancestry;
+    this.chain ??= read(POINTER_LEVELS).catch(() => []);
+    const chain2 = await this.chain;
+    if (chain2.length > 0) await writePointer(s3.files.dir, s3.files.env.pid, chain2, s3.files.env).catch(() => void 0);
   }
   async pushChannel(item) {
     await this.server.notification({
@@ -123160,6 +123588,7 @@ var WimMcp = class {
     clearInterval(this.retryTimer);
     this.retry = void 0;
     if (this.pending !== void 0) await tryRemove(this.pending.file, LOCAL_FS);
+    if (this.session !== void 0) await removePointer(this.session.files.dir, this.session.files.env);
     await this.session?.stop(opts);
     await this.server.close();
   }
@@ -123188,19 +123617,24 @@ var WimMcp = class {
   linkOf(s3) {
     return { spool: s3.files.spoolDir, sid: s3.sid, address: s3.address, token: this.token, held: s3.files.heldDir, dismiss: s3.files.dismissDir };
   }
-  /** Takes back the session `claudeSessionId` had before, if any, in place of `s`; else maps it to `s`. */
+  /**
+   * Takes back the session `claudeSessionId` had before, if any, in place of `s`; else maps it to
+   * `s`. A session `s` that a claim opened (`WIM_TAKE=1`) is kept: the person asked for its name.
+   */
   async adopt(claudeSessionId, s3) {
-    const key2 = `claude:${claudeSessionId}`;
+    const key3 = `claude:${claudeSessionId}`;
+    this.keys.add(key3);
     const o3 = this.sessionOpts;
     const keys = new SessionKeys(o3.mesh, o3.env, o3.now ?? Date.now);
-    const known = await keys.lookup(key2);
-    if (known !== void 0 && known.sid !== s3.sid && !await new SessionFiles(o3.mesh, known.sid, o3.env).isLiveElsewhere()) {
-      await s3.stop({ ended: true });
-      const next = this.openWith(key2);
+    const known = await keys.lookup(key3);
+    if (!s3.takenOver && known !== void 0 && known.sid !== s3.sid && !await new SessionFiles(o3.mesh, known.sid, o3.env).isLiveElsewhere()) {
+      await removePointer(s3.files.dir, s3.files.env);
+      await s3.stop({ ended: await s3.holdsNothing() });
+      const next = this.openWith(key3);
       this.opening = next;
       return next;
     }
-    await keys.remember(key2, s3.sid, s3.state.resume);
+    await keys.remember(key3, s3.sid, s3.state.resume);
     return s3;
   }
   /** The plugin's handshake: take back the session this Claude Code session had before, if any. */
@@ -123214,7 +123648,7 @@ var WimMcp = class {
     } catch (error64) {
       if (this.retry === void 0 || this.o.stateDir === void 0) throw error64;
       this.token ??= b64u.encode(randomBytes2(32));
-      this.pending ??= { claudeSessionId: input2.claudeSessionId, file: join19(this.o.stateDir.path, "links", `${b64u.encode(randomBytes2(12))}.json`) };
+      this.pending ??= { claudeSessionId: input2.claudeSessionId, file: join20(this.o.stateDir.path, "links", `${b64u.encode(randomBytes2(12))}.json`) };
       return json3({ pending: true, problem: error64.message, link: this.pending.file, token: this.token });
     }
     this.token ??= b64u.encode(randomBytes2(32));
@@ -123250,8 +123684,8 @@ var WimMcp = class {
     switch (name) {
       case "peers": {
         const rows = await s3.listPeers();
-        const shown = a5.all === true ? rows : rows.filter((p3) => !isStalePeer(p3, Date.now()));
-        return text(shown.map(peerLine).join("\n"));
+        const shown2 = a5.all === true ? rows : rows.filter((p3) => !isStalePeer(p3, Date.now()));
+        return text(shown2.map(peerLine).join("\n"));
       }
       case "send": {
         const i6 = a5;
@@ -123299,9 +123733,15 @@ var WimMcp = class {
         return text(entries.length === 0 ? "No history." : entries.map(renderForAgent).join("\n\n"));
       }
       case "rename": {
-        const want = a5.name;
-        if (!isName(want)) return fail3("a name is 1 to 32 of a-z, 0-9 and -, starting with a letter or digit");
-        return text(`This session is now ${await s3.rename(want)}.`);
+        const i6 = a5;
+        if (!isName(i6.name)) return fail3("a name is 1 to 32 of a-z, 0-9 and -, starting with a letter or digit");
+        if (i6.take === true) return text(await this.take(s3, i6.name));
+        try {
+          return text(`This session is now ${await s3.rename(i6.name)}.`);
+        } catch (error64) {
+          if (!nameTaken(error64)) throw error64;
+          return fail3(`${failureText(error64)}. ${TAKE_HINT}`);
+        }
       }
       case "_peers":
         return json3({ peers: (await s3.listPeers({ forPane: a5.forPane === true })).map(peerJson) });
@@ -123327,6 +123767,31 @@ var WimMcp = class {
       case "_leases":
         return json3({ leases: (await s3.listLeases()).map((l3) => ({ name: sanitizeForDisplay(l3.name), holder: l3.holder, expires_at: l3.expires_at })) });
     }
+  }
+  /**
+   * `rename` with `take`: a free name is a plain rename; a name an offline session of this device
+   * holds is a claim (MeshSession.claimState), which swaps this server's session for that one. The
+   * session given up ends when it holds nothing, else stays offline; the keys move with the claim,
+   * so the plugin's next handshake and a restart find the session taken over.
+   */
+  async take(s3, name) {
+    try {
+      return `This session is now ${await s3.rename(name)}.`;
+    } catch (error64) {
+      if (!nameTaken(error64)) throw error64;
+    }
+    const o3 = this.sessionOpts;
+    const next = await MeshSession.claim({ ...o3, name });
+    if (next === void 0) {
+      throw new ClientError(`cannot take ${name}: a session holds it that this device's state directory has no record of, so there is nothing to take over`, "name_taken");
+    }
+    await removePointer(s3.files.dir, s3.files.env);
+    await s3.stop({ ended: await s3.holdsNothing() });
+    const keys = new SessionKeys(o3.mesh, o3.env, o3.now ?? Date.now);
+    for (const key3 of this.keys) await keys.remember(key3, next.sid, next.state.resume);
+    this.opening = this.use(next);
+    await this.opening;
+    return `This session is now ${next.address}: it took over that offline session. A notice follows with what came with it.`;
   }
   async rooms(s3, i6) {
     if (i6.action === "list") {
@@ -123355,15 +123820,15 @@ var WimMcp = class {
 };
 
 // src/notify.ts
-import { execFile } from "node:child_process";
-import { join as join20 } from "node:path";
+import { execFile as execFile2 } from "node:child_process";
+import { join as join21 } from "node:path";
 var CommandNotifier = class {
   last = Number.NEGATIVE_INFINITY;
   command;
   minIntervalMs;
   now;
   run;
-  constructor(command5, minIntervalMs = 6e4, now = Date.now, run = execFile) {
+  constructor(command5, minIntervalMs = 6e4, now = Date.now, run = execFile2) {
     this.command = command5;
     this.minIntervalMs = minIntervalMs;
     this.now = now;
@@ -123389,7 +123854,7 @@ function quiet(n3, log2) {
   return { notify: (text2) => n3.notify(text2).catch((e6) => log2(`wim: notification failed: ${e6.message}`)) };
 }
 async function loadNotifier(home, now = Date.now) {
-  const raw = await readJson(join20(home, "notify.json"));
+  const raw = await readJson(join21(home, "notify.json"));
   if (raw === void 0) return void 0;
   if (raw.provider !== "command" || !Array.isArray(raw.command)) throw new Error('notify.json: provider must be "command" with a command list');
   return new CommandNotifier(raw.command, raw.minIntervalMs ?? 6e4, now);
@@ -123397,7 +123862,7 @@ async function loadNotifier(home, now = Date.now) {
 
 // src/secretout.ts
 import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
-import { promises as fs11 } from "node:fs";
+import { promises as fs12 } from "node:fs";
 import { createConnection as createConnection2, createServer as createServer2 } from "node:net";
 var AGENT_ENV_VARS = [
   "CLAUDECODE",
@@ -123472,10 +123937,10 @@ function ignore2() {
 }
 var absent = () => void 0;
 async function removeOwnProof(path2, proof) {
-  if (await fs11.readFile(path2, "utf8").catch(absent) === proof) await fs11.rm(path2, { force: true });
+  if (await fs12.readFile(path2, "utf8").catch(absent) === proof) await fs12.rm(path2, { force: true });
 }
 async function holdForShow(paths, code2, o3) {
-  if (o3.platform !== "win32") await fs11.rm(paths.socket, { force: true });
+  if (o3.platform !== "win32") await fs12.rm(paths.socket, { force: true });
   const proof = b64u.encode(randomBytes2(32));
   const expected = sha2562(utf8(proof));
   const sockets = /* @__PURE__ */ new Set();
@@ -123502,8 +123967,8 @@ async function holdForShow(paths, code2, o3) {
     server.listen(paths.socket, resolve3);
   });
   try {
-    await fs11.rm(paths.proof, { force: true });
-    await fs11.writeFile(paths.proof, proof, { mode: 384, flag: "wx" });
+    await fs12.rm(paths.proof, { force: true });
+    await fs12.writeFile(paths.proof, proof, { mode: 384, flag: "wx" });
   } catch (error64) {
     await new Promise((r6) => server.close(r6));
     throw error64;
@@ -123531,7 +123996,7 @@ async function holdForShow(paths, code2, o3) {
 }
 async function fetchHeldCode(paths) {
   const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
-  const proof = await fs11.readFile(paths.proof, "utf8").catch(absent);
+  const proof = await fs12.readFile(paths.proof, "utf8").catch(absent);
   if (proof === void 0) throw new Error(none);
   return new Promise((resolve3, reject) => {
     let text2 = "";
@@ -123626,11 +124091,11 @@ function describeInfo(info) {
 
 // src/agentcli.ts
 import { spawn as nodeSpawn2 } from "node:child_process";
-import { join as join21 } from "node:path";
+import { join as join22 } from "node:path";
 
 // src/agent.ts
 import { createPrivateKey, sign as edSign } from "node:crypto";
-import { promises as fs12 } from "node:fs";
+import { promises as fs13 } from "node:fs";
 import { createConnection as createConnection3, createServer as createServer3 } from "node:net";
 var AgentError = class extends Error {
   code;
@@ -123673,9 +124138,9 @@ var AgentLog = class {
   }
   write(entry) {
     this.chain = this.chain.then(async () => {
-      await fs12.appendFile(this.path, `${JSON.stringify(entry)}
+      await fs13.appendFile(this.path, `${JSON.stringify(entry)}
 `, { mode: 384 });
-      if ((await fs12.stat(this.path)).size > this.maxBytes) await fs12.rename(this.path, `${this.path}.1`);
+      if ((await fs13.stat(this.path)).size > this.maxBytes) await fs13.rename(this.path, `${this.path}.1`);
     }).catch(() => void 0);
   }
   /** Resolves once every write so far is on disk (or failed). */
@@ -123774,10 +124239,10 @@ var Signer = class {
   }
   /** A new run key and its certificate, signed with the device key. */
   issue(locked, signKey) {
-    const key2 = runKey();
+    const key3 = runKey();
     const now = this.o.now();
-    const body = { pub: b64u.encode(key2.pub), locked, issued: now, expires: now + RUN_LIFETIME_MS, pid: this.o.pid };
-    this.run = { privateKey: key2.privateKey, body, sig: b64u.encode(edSign(null, certBytes(body), signKey)) };
+    const body = { pub: b64u.encode(key3.pub), locked, issued: now, expires: now + RUN_LIFETIME_MS, pid: this.o.pid };
+    this.run = { privateKey: key3.privateKey, body, sig: b64u.encode(edSign(null, certBytes(body), signKey)) };
   }
   /**
    * An unlocked signer issues a new run key when its certificate is half spent, or was issued
@@ -124093,7 +124558,7 @@ var AgentServer = class {
 
 // src/autostart.ts
 import { spawn as nodeSpawn } from "node:child_process";
-import { promises as fs13 } from "node:fs";
+import { promises as fs14 } from "node:fs";
 function runProgram(cmd, args, input2 = "", spawn = nodeSpawn) {
   return new Promise((resolve3, reject) => {
     const child = spawn(cmd, [...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
@@ -124312,7 +124777,7 @@ async function enableAutostart(o3, source2) {
   }
   const file2 = here.join(o3.root, "agent", "autostart-task.xml");
   await ensureDir(here.dirname(file2));
-  await fs13.writeFile(file2, Buffer.concat([Buffer.from([255, 254]), Buffer.from(item.text, "utf16le")]), { mode: 384 });
+  await fs14.writeFile(file2, Buffer.concat([Buffer.from([255, 254]), Buffer.from(item.text, "utf16le")]), { mode: 384 });
   try {
     created(await o3.programs.run("schtasks", ["/Create", "/TN", item.where, "/XML", file2, "/F"]));
   } finally {
@@ -124650,7 +125115,7 @@ async function unlock(ctx) {
 }
 async function eachPrekeyFile(home, rewrite) {
   for (const mesh of await home.meshIds()) {
-    const path2 = join21(home.meshDir(mesh), "prekeys.json");
+    const path2 = join22(home.meshDir(mesh), "prekeys.json");
     await withLock(`${path2}.lock`, async () => {
       const raw = await readJson(path2).catch(() => void 0);
       if (raw?.v !== 1 || !Array.isArray(raw.keys)) return;
@@ -125039,9 +125504,9 @@ var EXTENSION = "distronode.worldinmotion";
 var EXTENSION_INSTALL = ["--install-extension", EXTENSION, "--pre-release"];
 var SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
 var TOOL_TIMEOUT_MS = 5 * 6e4;
-function execRunner(platform2, execFile2 = nodeExecFile) {
+function execRunner(platform2, execFile3 = nodeExecFile) {
   const exec = (file2, args, shell) => new Promise((resolve3, reject) => {
-    const child = execFile2(file2, args, { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (error64, stdout, stderr) => {
+    const child = execFile3(file2, args, { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (error64, stdout, stderr) => {
       if (error64 !== null && typeof error64.code !== "number") reject(error64);
       else resolve3({ code: error64 === null ? 0 : error64.code, stdout, stderr });
     });
@@ -125145,10 +125610,10 @@ function whyNot(r6) {
   if (typeof r6 === "string") return r6;
   return r6.code === 0 ? void 0 : failure3(r6);
 }
-function listed2(r6, key2, value2) {
+function listed2(r6, key3, value2) {
   try {
     const rows = JSON.parse(r6.stdout);
-    return Array.isArray(rows) && rows.some((row) => typeof row === "object" && row !== null && row[key2] === value2);
+    return Array.isArray(rows) && rows.some((row) => typeof row === "object" && row !== null && row[key3] === value2);
   } catch {
     return false;
   }
@@ -125215,7 +125680,7 @@ async function isAdminAnywhere(d5) {
 }
 
 // src/crash.ts
-import { promises as fs14 } from "node:fs";
+import { promises as fs15 } from "node:fs";
 
 // ../../node_modules/@sentry/core/build/esm/debug-build.js
 var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
@@ -125529,13 +125994,13 @@ function normalizeToSize(object3, depth = 3, maxSize = 100 * 1024) {
   }
   return normalized;
 }
-function visit2(key2, value2, depth = Infinity, maxProperties = Infinity, memo2 = memoBuilder()) {
+function visit2(key3, value2, depth = Infinity, maxProperties = Infinity, memo2 = memoBuilder()) {
   const [memoize2, unmemoize] = memo2;
   if (value2 == null || // this matches null and undefined -> eqeq not eqeqeq
   ["boolean", "string"].includes(typeof value2) || typeof value2 === "number" && Number.isFinite(value2)) {
     return value2;
   }
-  const stringified = stringifyValue(key2, value2);
+  const stringified = stringifyValue(key3, value2);
   if (!stringified.startsWith("[object ")) {
     return stringified;
   }
@@ -125576,7 +126041,7 @@ function visit2(key2, value2, depth = Infinity, maxProperties = Infinity, memo2 
   unmemoize(value2);
   return normalized;
 }
-function stringifyValue(key2, value2) {
+function stringifyValue(key3, value2) {
   try {
     if (stringifier) {
       const stringified = stringifier(value2);
@@ -125847,9 +126312,9 @@ function merge3(initialObj, mergeObj, levels = 2) {
     return initialObj;
   }
   const output2 = { ...initialObj };
-  for (const key2 in mergeObj) {
-    if (Object.prototype.hasOwnProperty.call(mergeObj, key2)) {
-      output2[key2] = merge3(output2[key2], mergeObj[key2], levels - 1);
+  for (const key3 in mergeObj) {
+    if (Object.prototype.hasOwnProperty.call(mergeObj, key3)) {
+      output2[key3] = merge3(output2[key3], mergeObj[key3], levels - 1);
     }
   }
   return output2;
@@ -126003,8 +126468,8 @@ var Scope = class _Scope {
   /**
    * Set a single tag that will be sent as tags data with the event.
    */
-  setTag(key2, value2) {
-    return this.setTags({ [key2]: value2 });
+  setTag(key3, value2) {
+    return this.setTags({ [key3]: value2 });
   }
   /**
    * Sets attributes onto the scope.
@@ -126049,8 +126514,8 @@ var Scope = class _Scope {
    * ```
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setAttribute(key2, value2) {
-    return this.setAttributes({ [key2]: value2 });
+  setAttribute(key3, value2) {
+    return this.setAttributes({ [key3]: value2 });
   }
   /**
    * Removes the attribute with the given key from the scope.
@@ -126062,9 +126527,9 @@ var Scope = class _Scope {
    * scope.removeAttribute('is_admin');
    * ```
    */
-  removeAttribute(key2) {
-    if (key2 in this._attributes) {
-      delete this._attributes[key2];
+  removeAttribute(key3) {
+    if (key3 in this._attributes) {
+      delete this._attributes[key3];
       this._notifyScopeListeners();
     }
     return this;
@@ -126084,8 +126549,8 @@ var Scope = class _Scope {
   /**
    * Set a single key:value extra entry that will be sent as extra data with the event.
    */
-  setExtra(key2, extra) {
-    this._extra = { ...this._extra, [key2]: extra };
+  setExtra(key3, extra) {
+    this._extra = { ...this._extra, [key3]: extra };
     this._notifyScopeListeners();
     return this;
   }
@@ -126127,11 +126592,11 @@ var Scope = class _Scope {
    * Data passed as context will be normalized. You can also pass `null` to unset the context.
    * Note that context data will not be merged - calling `setContext` will overwrite an existing context with the same key.
    */
-  setContext(key2, context) {
+  setContext(key3, context) {
     if (context === null) {
-      delete this._contexts[key2];
+      delete this._contexts[key3];
     } else {
-      this._contexts[key2] = context;
+      this._contexts[key3] = context;
     }
     this._notifyScopeListeners();
     return this;
@@ -126396,19 +126861,19 @@ var chainAndCopyPromiseLike = (original, onSuccess, onError) => {
 var copyProps = (original, chained) => {
   if (!chained) return original;
   let mutated = false;
-  for (const key2 in original) {
-    if (key2 in chained) continue;
+  for (const key3 in original) {
+    if (key3 in chained) continue;
     mutated = true;
-    const value2 = original[key2];
+    const value2 = original[key3];
     if (typeof value2 === "function") {
-      Object.defineProperty(chained, key2, {
+      Object.defineProperty(chained, key3, {
         value: (...args) => value2.apply(original, args),
         enumerable: true,
         configurable: true,
         writable: true
       });
     } else {
-      chained[key2] = value2;
+      chained[key3] = value2;
     }
   }
   if (mutated) Object.assign(chained, { [kChainedCopy]: true });
@@ -126576,10 +127041,10 @@ function attributeValueToTypedAttributeValue(rawValue, useFallback) {
 }
 function serializeAttributes(attributes, fallback2 = false) {
   const serializedAttributes = {};
-  for (const [key2, value2] of Object.entries(attributes ?? {})) {
+  for (const [key3, value2] of Object.entries(attributes ?? {})) {
     const typedValue = attributeValueToTypedAttributeValue(value2, fallback2);
     if (typedValue) {
-      serializedAttributes[key2] = typedValue;
+      serializedAttributes[key3] = typedValue;
     }
   }
   return serializedAttributes;
@@ -126720,9 +127185,9 @@ function baggageHeaderToDynamicSamplingContext(baggageHeader) {
   if (!baggageObject) {
     return void 0;
   }
-  const dynamicSamplingContext = Object.entries(baggageObject).reduce((acc, [key2, value2]) => {
-    if (key2.startsWith(SENTRY_BAGGAGE_KEY_PREFIX)) {
-      const nonPrefixedKey = key2.slice(SENTRY_BAGGAGE_KEY_PREFIX.length);
+  const dynamicSamplingContext = Object.entries(baggageObject).reduce((acc, [key3, value2]) => {
+    if (key3.startsWith(SENTRY_BAGGAGE_KEY_PREFIX)) {
+      const nonPrefixedKey = key3.slice(SENTRY_BAGGAGE_KEY_PREFIX.length);
       acc[nonPrefixedKey] = value2;
     }
     return acc;
@@ -126740,8 +127205,8 @@ function parseBaggageHeader(baggageHeader) {
   if (Array.isArray(baggageHeader)) {
     return baggageHeader.reduce((acc, curr) => {
       const currBaggageObject = baggageHeaderToObject(curr);
-      Object.entries(currBaggageObject).forEach(([key2, value2]) => {
-        acc[key2] = value2;
+      Object.entries(currBaggageObject).forEach(([key3, value2]) => {
+        acc[key3] = value2;
       });
       return acc;
     }, {});
@@ -126754,18 +127219,18 @@ function baggageHeaderToObject(baggageHeader) {
     if (eqIdx === -1) {
       return [];
     }
-    const key2 = baggageEntry.slice(0, eqIdx);
+    const key3 = baggageEntry.slice(0, eqIdx);
     const value2 = baggageEntry.slice(eqIdx + 1);
-    return [key2, value2].map((keyOrValue) => {
+    return [key3, value2].map((keyOrValue) => {
       try {
         return decodeURIComponent(keyOrValue.trim());
       } catch {
         return;
       }
     });
-  }).reduce((acc, [key2, value2]) => {
-    if (key2 && value2) {
-      acc[key2] = value2;
+  }).reduce((acc, [key3, value2]) => {
+    if (key3 && value2) {
+      acc[key3] = value2;
     }
     return acc;
   }, {});
@@ -127042,7 +127507,7 @@ function shouldIgnoreSpan(span, ignoreSpans) {
     const nameMatches = pattern.name ? span.description && isMatchingPattern(span.description, pattern.name) : true;
     const opMatches = pattern.op ? span.op && isMatchingPattern(span.op, pattern.op) : true;
     const attrsMatch = pattern.attributes ? Object.entries(pattern.attributes).every(
-      ([key2, valuePattern]) => _matchesAttributeValue(span.attributes?.[key2], valuePattern)
+      ([key3, valuePattern]) => _matchesAttributeValue(span.attributes?.[key3], valuePattern)
     ) : true;
     if (nameMatches && opMatches && attrsMatch) {
       DEBUG_BUILD && logIgnoredSpan(span);
@@ -127123,10 +127588,10 @@ function setupIntegration(client, integration, integrationIndex) {
     });
     client.addEventProcessor(processor);
   }
-  ["processSpan", "processSegmentSpan"].forEach((hook) => {
-    const callback = integration[hook];
+  ["processSpan", "processSegmentSpan"].forEach((hook2) => {
+    const callback = integration[hook2];
     if (typeof callback === "function") {
-      client.on(hook, (span) => callback.call(integration, span, client));
+      client.on(hook2, (span) => callback.call(integration, span, client));
     }
   });
   DEBUG_BUILD && debug.log(`Integration installed: ${integration.name}`);
@@ -127553,8 +128018,8 @@ function toWeakMapKey(error64) {
   return isPrimitive(error64) ? void 0 : error64;
 }
 function applyEscapedErrorSpanToEvent(event, hint, scope) {
-  const key2 = toWeakMapKey(hint.originalException);
-  const traceContext = key2 && escapedSpanTraceContexts.get(key2);
+  const key3 = toWeakMapKey(hint.originalException);
+  const traceContext = key3 && escapedSpanTraceContexts.get(key3);
   if (!traceContext) {
     return;
   }
@@ -127807,22 +128272,22 @@ function getFilenameToDebugIdMap(stackParser2) {
     parsedStackResults = {};
   }
   const processDebugIds = (debugIdKeys, debugIdMap) => {
-    for (const key2 of debugIdKeys) {
-      const debugId2 = debugIdMap[key2];
-      const result = parsedStackResults?.[key2];
+    for (const key3 of debugIdKeys) {
+      const debugId2 = debugIdMap[key3];
+      const result = parsedStackResults?.[key3];
       if (result && cachedFilenameDebugIds && debugId2) {
         cachedFilenameDebugIds[result[0]] = debugId2;
         if (parsedStackResults) {
-          parsedStackResults[key2] = [result[0], debugId2];
+          parsedStackResults[key3] = [result[0], debugId2];
         }
       } else if (debugId2) {
-        const parsedStack = stackParser2(key2);
+        const parsedStack = stackParser2(key3);
         for (let i6 = parsedStack.length - 1; i6 >= 0; i6--) {
           const stackFrame = parsedStack[i6];
           const filename = stackFrame?.filename;
           if (filename && cachedFilenameDebugIds && parsedStackResults) {
             cachedFilenameDebugIds[filename] = debugId2;
-            parsedStackResults[key2] = [filename, debugId2];
+            parsedStackResults[key3] = [filename, debugId2];
             break;
           }
         }
@@ -128865,16 +129330,16 @@ var Client2 = class {
    */
   recordDroppedEvent(reason, category, count = 1) {
     if (this._options.sendClientReports) {
-      const key2 = `${reason}:${category}`;
-      DEBUG_BUILD && debug.log(`Recording outcome: "${key2}"${count > 1 ? ` (${count} times)` : ""}`);
-      this._outcomes[key2] = (this._outcomes[key2] || 0) + count;
+      const key3 = `${reason}:${category}`;
+      DEBUG_BUILD && debug.log(`Recording outcome: "${key3}"${count > 1 ? ` (${count} times)` : ""}`);
+      this._outcomes[key3] = (this._outcomes[key3] || 0) + count;
     }
   }
   /**
    * Register a hook on this client.
    */
-  on(hook, callback) {
-    const hookCallbacks = this._hooks[hook] = this._hooks[hook] || /* @__PURE__ */ new Set();
+  on(hook2, callback) {
+    const hookCallbacks = this._hooks[hook2] = this._hooks[hook2] || /* @__PURE__ */ new Set();
     const uniqueCallback = (...args) => callback(...args);
     hookCallbacks.add(uniqueCallback);
     return () => {
@@ -128884,8 +129349,8 @@ var Client2 = class {
   /**
    * Emit a hook that was previously registered via `on()`.
    */
-  emit(hook, ...rest) {
-    const callbacks = this._hooks[hook];
+  emit(hook2, ...rest) {
+    const callbacks = this._hooks[hook2];
     if (callbacks) {
       callbacks.forEach((callback) => callback(...rest));
     }
@@ -129190,8 +129655,8 @@ Reason: ${reason}`
   _clearOutcomes() {
     const outcomes = this._outcomes;
     this._outcomes = {};
-    return Object.entries(outcomes).map(([key2, quantity]) => {
-      const [reason, category] = key2.split(":");
+    return Object.entries(outcomes).map(([key3, quantity]) => {
+      const [reason, category] = key3.split(":");
       return {
         reason,
         category,
@@ -129442,7 +129907,7 @@ var REPORT_TIMEOUT_MS = 3e3;
 async function readConsent(path2) {
   let text2;
   try {
-    const handle = await fs14.open(path2, "r");
+    const handle = await fs15.open(path2, "r");
     try {
       const buf2 = Buffer.alloc(CONSENT_MAX_BYTES + 1);
       const { bytesRead } = await handle.read(buf2, 0, buf2.length, 0);
@@ -129598,10 +130063,10 @@ var CrashReporter = class {
   async report(error64, where) {
     if (!isBug(error64)) return false;
     if (!(await this.allowed()).ok) return false;
-    const key2 = `${error64.name}
+    const key3 = `${error64.name}
 ${error64.message}`;
-    if (this.taken.size >= REPORTS_PER_PROCESS || this.taken.has(key2)) return false;
-    this.taken.add(key2);
+    if (this.taken.size >= REPORTS_PER_PROCESS || this.taken.has(key3)) return false;
+    this.taken.add(key3);
     const client = this.clientFor();
     const before = this.delivered;
     client.captureException(error64, { data: { where } }, new Scope());
@@ -129638,7 +130103,7 @@ ${error64.message}`;
 
 // src/cli.ts
 var VERSION = "0.1.9";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected", "take"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 var COMMON_FLAGS = ["mesh", "help"];
@@ -129649,16 +130114,16 @@ var COMMAND_FLAGS = {
   invite: ["exp", "auto", "full"],
   join: ["name"],
   devices: ["relayed", "all"],
-  peers: ["all", "as"],
-  send: ["allow-secret", "as", "wait"],
+  peers: ["all", "as", "take"],
+  send: ["allow-secret", "as", "take", "wait"],
   ping: ["all", "timeout"],
-  watch: ["as"],
-  inbox: ["peek", "mark-read", "as"],
-  events: ["json", "as"],
+  watch: ["as", "take"],
+  inbox: ["peek", "mark-read", "as", "take"],
+  events: ["json", "as", "take"],
   history: ["session", "peer", "limit"],
-  bot: ["as"],
-  ci: ["as", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
-  a2a: ["as"],
+  bot: ["as", "take"],
+  ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
+  a2a: ["as", "take"],
   recover: ["relay", "tls", "revoke", "name"],
   recovery: ["wait"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
@@ -129725,14 +130190,15 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
+  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
-  wim watch [--as <name>]
-  wim inbox [--peek | --mark-read] [--as <name>]
-  wim events --json [--as <name>]
+  wim watch [--as <name> [--take]]
+  wim inbox [--peek | --mark-read] [--as <name> [--take]]
+  wim events --json [--as <name> [--take]]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
+  wim hook gemini|antigravity|codex|cursor|copilot [start]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
   wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]
   wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]
@@ -129750,7 +130216,7 @@ Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
-history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
+history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
 crash-reports, legacy-boxes, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
@@ -129814,7 +130280,9 @@ var Ctx = class {
       debug: this.env["WIM_DEBUG"] === "1",
       cwd: this.io.cwd,
       ...notifier === void 0 ? {} : { notifier },
-      legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE)
+      legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE),
+      // A claim of an offline session's name is only ever asked for (design.md, taking a session back).
+      ...this.args.flags.get("take") === true || this.env["WIM_TAKE"] === "1" && this.env["WIM_NAME"] === name ? { take: true } : {}
     };
   }
   /**
@@ -129921,6 +130389,7 @@ function notifyRefused(io, why) {
   return 0;
 }
 async function main(argv, env3, io) {
+  if (argv[0] === "hook") return hook(argv.slice(1), env3, io);
   const notifying = argv[0] === "ci" && argv[1] === "notify";
   let args;
   try {
@@ -129990,7 +130459,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join22(ctx);
+        return await join23(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -130125,8 +130594,8 @@ async function meshCreate(ctx) {
 }
 async function createHere(ctx, relay, recovery2, name) {
   const keyEnv = flag2(ctx.args, "key-env");
-  const key2 = keyEnv === void 0 ? void 0 : ctx.env[keyEnv];
-  if (keyEnv !== void 0 && (key2 === void 0 || key2 === "")) throw new SetupError(`${keyEnv} is not set`);
+  const key3 = keyEnv === void 0 ? void 0 : ctx.env[keyEnv];
+  if (keyEnv !== void 0 && (key3 === void 0 || key3 === "")) throw new SetupError(`${keyEnv} is not set`);
   const tls3 = flag2(ctx.args, "tls");
   const device = name === void 0 ? await ctx.home.requireDevice() : await ctx.home.loadDevice() ?? await ctx.home.createDevice(name);
   return createMesh({
@@ -130135,7 +130604,7 @@ async function createHere(ctx, relay, recovery2, name) {
     relay,
     dialer: ctx.dialer,
     now: ctx.io.now,
-    ...key2 === void 0 ? {} : { key: key2 },
+    ...key3 === void 0 ? {} : { key: key3 },
     ...tls3 === void 0 ? {} : { tls: tls3 },
     recovery: recovery2
   }).catch(async (error64) => {
@@ -130394,7 +130863,7 @@ async function askTrust(ctx, files, devices2, ask3 = true) {
   }
   ctx.io.out(`Messages from ${list3} are held for your approval. If ${one ? "it is" : "they are"} your own: wim devices trust ${one ? list3 : "--all"}`);
 }
-async function join22(ctx) {
+async function join23(ctx) {
   const typed = ctx.args.positional[0];
   if (typed === void 0) throw new SetupError("usage: wim join <code>");
   const code2 = await resolveInvite(typed, ctx.io.fetch);
@@ -130815,9 +131284,9 @@ function showInbox(ctx, s3, items) {
   const peek = ctx.args.flags.get("peek") === true;
   const unmarked = !peek && !ctx.io.isTTY && ctx.args.flags.get("mark-read") !== true;
   const mark = peek || unmarked ? () => Promise.resolve() : (item) => s3.markRead([item]);
-  return printEach(items, print, mark).then((shown) => {
+  return printEach(items, print, mark).then((shown2) => {
     if (unmarked && items.length > 0) ctx.io.err(unmarkedLine(items.length));
-    else if (shown < items.length) ctx.io.err(`wim: the output closed after ${shown} of ${items.length} items; the other ${items.length - shown} stay unread.`);
+    else if (shown2 < items.length) ctx.io.err(`wim: the output closed after ${shown2} of ${items.length} items; the other ${items.length - shown2} stay unread.`);
     return 0;
   });
 }
@@ -131000,7 +131469,7 @@ async function history(ctx) {
   const limitText = flag2(ctx.args, "limit") ?? "20";
   if (!/^[1-9]\d{0,5}$/.test(limitText)) throw new SetupError("--limit must be a positive whole number");
   const limit2 = Number(limitText);
-  let shown = 0;
+  let shown2 = 0;
   for (const sid of await listSessions(files)) {
     const sf = new SessionFiles(files, sid, ctx.fsEnv);
     const state2 = await sf.load();
@@ -131009,9 +131478,18 @@ async function history(ctx) {
     if (entries.length === 0) continue;
     ctx.io.out(`== ${state2.address ?? state2.name} (${sid})`);
     for (const e6 of entries) ctx.io.out(renderForPerson(e6));
-    shown += entries.length;
+    shown2 += entries.length;
   }
-  if (shown === 0) ctx.io.out("No history.");
+  if (shown2 === 0) ctx.io.out("No history.");
+  return 0;
+}
+async function hook(rest, env3, io) {
+  const start2 = rest.length === 2 && rest[1] === "start";
+  const agent = rest.length === 1 || start2 ? rest[0] : "";
+  const input2 = Object.hasOwn(HOOK_AGENTS, agent) ? await readInput(io.stdin) : void 0;
+  const answer = await hookAnswer({ agent, input: input2, env: env3, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...start2 ? { event: "start" } : {}, ...io.ancestry === void 0 ? {} : { ancestry: io.ancestry } });
+  if (answer.out !== "") io.out(answer.out);
+  if (env3["WIM_DEBUG"] === "1") io.err(`wim hook: ${answer.why}`);
   return 0;
 }
 async function mcp(ctx) {
@@ -131027,15 +131505,16 @@ async function mcp(ctx) {
     }
   };
   const first = await attempt();
-  const key2 = ctx.env["WIM_SESSION_KEY"];
+  const key3 = ctx.env["WIM_SESSION_KEY"];
   const server = new WimMcp({
     ..."session" in first ? { session: first.session } : { setupProblem: first.problem, ...first.again ? { retry: attempt } : {} },
     stateDir: { path: ctx.home.root, why: ctx.homeWhy },
     ...ctx.io.retryMs === void 0 ? {} : { retryMs: ctx.io.retryMs },
-    ...key2 === void 0 || key2 === "" ? {} : { sessionKey: key2 },
+    ...key3 === void 0 || key3 === "" ? {} : { sessionKey: key3 },
     channel: ctx.env["WIM_CHANNEL"] === "1",
     internalTools: kind === "claude-code",
-    version: VERSION
+    version: VERSION,
+    ...ctx.io.ancestry === void 0 ? {} : { ancestry: ctx.io.ancestry }
   });
   const stdin = ctx.io.stdin;
   const closed = new Promise((resolve3) => stdin.once("end", resolve3));
@@ -131054,7 +131533,7 @@ async function mcp(ctx) {
 }
 async function readConfig(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs15.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs16.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
@@ -131142,8 +131621,9 @@ async function checkup(ctx, emit) {
   for (const id2 of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id2), ctx.fsEnv);
     const config2 = await files.loadConfig();
-    const summary = { id: id2, relay: config2.relay };
+    const summary = { id: id2, relay: config2.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
+    for (const line of summary.takeovers) info(`mesh ${id2}: ${line}`);
     try {
       checkDialable(config2.relay, config2.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config2.relay}/v1/${id2}`, config2.tls === void 0 ? {} : { tlsPin: config2.tls });
@@ -131207,13 +131687,15 @@ async function status2(ctx) {
 }
 function meshStatus(m4) {
   const head = `Mesh ${m4.id} on ${m4.relay}:`;
-  if (m4.seq === void 0) return [head, "  not connected: the problem above says why."];
+  const takeovers = m4.takeovers.map((line) => `  ${line}.`);
+  if (m4.seq === void 0) return [head, ...takeovers, "  not connected: the problem above says why."];
   const others = m4.devices - 1;
   return [
     head,
     `  connected as ${m4.admin ? "an admin" : "a member"}; roster seq ${m4.seq}; other devices: ${others}; other sessions online now: ${m4.online}.`,
     ...others === 0 ? ["  Next: `wim invite` adds another device. Until one joins, `wim peers` shows no other sessions, which is expected."] : [],
-    `  ${idleLine(m4.idleDays)} An admin can delete it sooner: \`wim mesh delete\`.`
+    `  ${idleLine(m4.idleDays)} An admin can delete it sooner: \`wim mesh delete\`.`,
+    ...takeovers
   ];
 }
 function idleLine(days) {
@@ -131298,7 +131780,8 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
     fetch: globalThis.fetch,
     onUnexpected: (listener) => void unexpected.push(listener),
     // Orphaned children are re-parented, so a changed ppid means the parent died.
-    parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill)
+    parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill),
+    ancestry: (levels) => ancestry({ ...realAncestryDeps(proc.platform), pid: proc.pid, ppid: proc.ppid }, levels)
   };
 }
 

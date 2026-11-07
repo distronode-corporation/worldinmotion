@@ -24,7 +24,7 @@ describe("help", () => {
     expect(t.out.at(-1)).toMatch(/wim init \[--name/);
     expect(await run(t, "help")).toBe(0);
     expect(await run(t, "help", "send")).toBe(0);
-    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]");
+    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s>]");
     expect(await run(t, "send", "--help")).toBe(0);
     expect(t.out.at(-1)).toMatch(/^wim send /);
     expect(await run(t, "help", "nope")).toBe(2);
@@ -141,7 +141,7 @@ describe("clean ends of wim mcp", () => {
     let err = "";
     (proc.stderr as PassThrough).on("data", (d: Buffer) => (err += d.toString()));
     processIo(proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined, wim: () => [] });
-    await sleep(10);
+    await until(() => err.includes("wim: unexpected error: plain\n"), undefined, "both errors on stderr");
     expect(err).toContain("wim: unexpected error: stray\nwim: unexpected error: plain\n");
   });
 });

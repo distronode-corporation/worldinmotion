@@ -61,7 +61,10 @@ $WIM_HOME/
       spool/                   inbound items for the agent (see below)
       spool/cursor             last item name the agent has taken
       relayed/                 relayed items, beside the spool: shown to the person, never a turn
-      presence                 "busy", "busy-mesh" or "idle", written by the plugin
+      presence                 "busy", "busy-mesh" or "idle", written by the plugin; or written by
+                               `wim hook`: "busy" at a turn start (never over "busy-mesh"),
+                               "busy-mesh" before a wake, and "idle <n>" (a new turn mark) at
+                               each turn end that lets the agent stop
       held/                    messages held for the person's approval (and approve/refuse marks)
       dismiss/                 dismiss marks for relayed items
       files/                   received files (safe names)
@@ -80,7 +83,42 @@ through a stable key (the Claude Code session id from the `_internal` op `hello`
 `meshes/<mesh>/claude/`, 7 days), or the earlier session on this device has the same name and the
 same working directory in its `session.json`, did not end (`bye { ended: true }`), and no live
 process holds its liveness lock. A session from another directory keeps its name, and the new one
-gets `name-N`. Whenever the relay assigns a session another address than the one it had (or, for a
+gets `name-N`. The client saves the name a session asked for (`asked` in `session.json`) beside the
+one the relay assigned, so the same-project rule also takes back a session that got `name-N` and
+asks for `name` again; an offline session that holds `name` itself is preferred, since the relay
+would give the other one `name-N` again while it holds the name.
+
+**A claim** takes over an offline name from any directory, and only when asked for: `--take` beside
+`--as <name>`, `WIM_TAKE=1` beside `WIM_NAME` (for `wim mcp`, too), or the MCP `rename` tool's
+`take` parameter. Without it, `rename` to a name an offline session holds is still refused with
+`name_taken`, with a hint that names `take`: a session never falls into another role's queue by
+accident. A claim finds the session on this device whose saved name is that name, not ended, of
+the same kind (the rule for terminal commands below holds for claims too) and with a free liveness
+lock, and reconnects with its sid and resume secret, so the relay hands over its queue, rooms,
+leases (same fencing token), cards and receipts by proof, and its held items, breaker state,
+history and tasks come with its directory. The lock is the gate: while a live process holds the
+name, or only a session of another kind has it, the claim is refused with the reason, never
+answered with `name-N` and never by replacing a live connection; of two processes that race for
+one name, exactly one takes its lock and the other is refused. A claim comes before a session key,
+which is then mapped to the session taken over. The session the claim replaces (the `rename`
+tool's, or one `hello` would give up) ends for good when it holds nothing (nothing sent, unread or
+held, no room, no lease), else it stays offline like any other. After a claim the session gets one
+notice: the address taken over and how many unread messages, held items and leases came with it.
+The count waits on a `lease.list` request sent after `ready`: this relies on the relay answering a
+request only after it has flushed the queue it sends on `ready` (both relays do), so every
+queued message is spooled before it is counted; the answer also gives the lease count.
+Held items stay the person's to approve or refuse. Because a peer's text can prompt an agent to
+claim, the `rename` tool tells agents to take only on the person's word, and every claim is
+recorded in the taken-over session's `session.json` (`claims`: when, the address, and the
+claiming process's working directory, kept 24 hours); `wim status` and `wim doctor` list the
+takeovers of the last 24 hours per mesh ("release@laptop was taken over 12 min ago by a session in
+/src/app"). A name the state directory has no record of
+(another `WIM_HOME`) cannot be claimed. A role that moves between machines needs more than a claim,
+since names are per device: by convention its holder joins a room (`#release`) and takes a lease
+(`role:release`), and senders address the room. A room gives no exclusivity (every member gets
+the work, and every member's session sends its own receipts), a lease is advisory and lapses at
+its TTL, and a send to a room with no members is not delivered live (room history keeps it, and
+history is never a task to act on). Whenever the relay assigns a session another address than the one it had (or, for a
 new session, asked for), the client writes it one `notice` for the agent: "this session's address
 is distronode-2@laptop, not distronode@laptop: another session on this device holds that name. Give
 peers distronode-2@laptop; messages sent to distronode@laptop do not reach this session." `/wim
@@ -504,8 +542,9 @@ receipt from it arrives.
   `$.state`), so the text reaches the session once.
 - The mod writes `presence` from `turn.start`/`turn.complete` on the main loop: `idle`, `busy`, or
   `busy-mesh` for a turn a mesh item started. The server watches it, sends `presence` frames
-  (`busy-mesh` is `busy` to the relay), fires `notify_when_idle` notices, and marks what the session
-  sends during a `busy-mesh` turn as derived.
+  (`busy-mesh` is `busy` to the relay; a new `idle <n>` mark from `wim hook` is sent as `idle` even
+  when the session was idle already), and marks what the session sends during a `busy-mesh` turn as
+  derived. The relay fires `notify_when_idle` notices on each `idle` frame (SPEC section 8).
 
 ## Claude Code integration
 

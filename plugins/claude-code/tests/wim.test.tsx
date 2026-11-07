@@ -539,6 +539,33 @@ test('/wim name renames the tab and links again; anything else gets the usage', 
   expect((await $.command.run({ ...WIM, args: 'help' })).text).toContain('/wim status')
 })
 
+test("the model's rename links the tab again, for the session the client now runs", async ($, on) => {
+  let sid = 's1'
+  let address = 'builder@desk'
+  const w = world(on, {
+    tools: { _hello: () => json({ spool: `/state/sessions/${sid}/spool`, sid, address, token: TOKEN, held: HELD_DIR, dismiss: DISMISS_DIR }) },
+  })
+  let renames = 0
+  on('tool.call', { tool: `${TOOL}rename` }, () => {
+    if (++renames === 1) return { deny: 'a name is 1 to 32 of a-z, 0-9 and -' }
+    // A rename with take swaps the client's session for the one it took over.
+    sid = 's2'
+    address = 'release@desk'
+    return { result: `This session is now ${address}.` }
+  })
+  mock.clock(on)
+  await $.session.start(START)
+  const hellos = () => w.calls.filter(call => call.tool === '_hello').length
+
+  expect(hellos(), 'at start').toBe(1)
+  // A refused rename changed nothing: the tab keeps its link.
+  await $.tool.call({ tool: `${TOOL}rename`, name: 'Bad Name' })
+  expect(hellos(), 'after a refusal').toBe(1)
+  await $.tool.call({ tool: `${TOOL}rename`, name: 'release', take: true })
+  expect(hellos(), 'after a rename').toBe(2)
+  expect(w.statuses.at(-1)).toBe('release@desk, 0 held')
+})
+
 test('/wim name in a tab that is not linked says why', async ($, on) => {
   const w = world(on, { tools: { _hello: () => ({ content: [{ type: 'text', text: NO_SIGNER }], isError: true }) } })
   mock.clock(on)

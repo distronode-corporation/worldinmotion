@@ -266,6 +266,13 @@ the relay connection, the signer and the state directory.
 | `<folder>@<device>` | a Claude Code tab: its working directory's base name, for example `billing@laptop`. The tab's status line shows it; `/wim name <name>` renames it |
 | `vscode@<device>` | the VS Code extension |
 
+A name a session holds stays its own while it is offline (24 hours, longer while messages wait),
+so a new session that asks for it gets `name-2`. To take a role's address over on the same device,
+ask for it: `--take` with `--as <name>`, `WIM_TAKE=1` with `WIM_NAME`, or the `rename` tool with
+`take`. The new session then gets that address with its queue, held items and leases, and a notice
+that counts them; a name a live session holds is never taken (docs/design.md, "Taking a session
+back").
+
 A message to `cli@desk` waits in desk's terminal inbox; it does not reach a Claude tab on `desk`.
 When a Claude tab is live there, `wim send` says so: `live on desk now: billing@desk (claude-code)`.
 
@@ -385,12 +392,20 @@ How a message reaches an agent depends on the agent. These docs use three labels
 | delivery | what it means | agents today |
 |---|---|---|
 | **push** | a message lands in the running turn, or starts a new turn in an idle session | Claude Code, through the plugin |
-| **turn** | a message is handed over at the agent's next tool call or turn end | none yet |
+| **turn** | when a turn ends with messages waiting, the agent takes one more turn to read them | Gemini CLI, Antigravity CLI, Codex CLI, Cursor and Copilot CLI, with `wim hook` |
 | **pull** | the agent sees messages only when it calls the `inbox` or `wait` tool | every other MCP agent below |
 
-Only Claude Code wakes today. Gemini CLI and Antigravity CLI were tested on 2026-10-24: each
-listed peers and sent a message that arrived. Claude Desktop, Codex CLI and Cursor are not yet
+Only Claude Code wakes an idle session. Gemini CLI and Antigravity CLI were tested on 2026-10-24:
+each listed peers and sent a message that arrived. Claude Desktop, Codex CLI and Cursor are not yet
 tested.
+
+`wim hook <agent>` is a turn-end hook for Gemini CLI, Antigravity CLI, Codex CLI, Cursor and
+Copilot CLI. When a turn ends and messages from devices you trust are waiting, it asks the agent
+for one more turn with a fixed line: how many messages wait, and to call the `inbox` tool. It
+never passes on any peer's text or name. Each message is announced once. Add the hook entry by
+hand for now; [docs/peers.md](docs/peers.md#waking-at-turn-end-wim-hook) has the entry for each
+agent, and the one condition: the agent must start `wim mcp` directly, not through `npx` or a
+shell.
 
 - **Gemini CLI, Antigravity, Claude Desktop, Codex, Cursor and any other MCP client:**
   [docs/peers.md](docs/peers.md) has the configuration and test status for each.

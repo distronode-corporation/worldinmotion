@@ -790,7 +790,9 @@ with a fresh nonce for every connection. The client answers within 10 seconds wi
   new connection takes over that name and its queue only if `hash(session.resume)` matches the
   holder's (an agent restarting keeps its messages); a matching `sid` alone is not enough, since
   sids appear in peer rows. Otherwise it gets `name-N` too. A `rename` to an offline holder's name follows the same rule, so it is
-  refused with `name_taken`. The relay answers with the name actually assigned.
+  refused with `name_taken`. The relay answers with the name actually assigned. (Informative: a
+  client on the same device that holds the offline session's sid and resume secret may claim its
+  name by connecting with them; this needs no other frame.)
 - A `sid` that is already online on another connection is taken over by the new connection only
   when the resume proof also matches (`hash(session.resume)` equals the stored one); otherwise the
   new `auth` is refused with `unauthorized`.
@@ -884,6 +886,14 @@ self-hosted one. Nothing is lost: a routed message stays in the recipient's queu
 acknowledges the cursor (section 7), so the client receives it once it runs again, on the same
 connection or after reconnecting. `routed` never meant read; a sender that needs to know waits for
 the `delivered` receipt.
+
+**Presence.** A session reports `presence { status: "busy" }` while its agent works on a turn and
+`presence { status: "idle" }` when the turn ends. The relay fires idle notices on every `idle`
+report, even when the session was idle already, so a client SHOULD report `idle` at each turn end
+of its agent, not only when the status changes. The reference client does: the Claude Code plugin
+writes the status words, and `wim hook`, the turn hook of other agents, writes a new turn mark at
+every turn end that lets the agent stop, which the client sends as `idle`. A client that cannot
+tell a turn end sends nothing new, and a notice armed on it waits until it ends.
 
 **Idle notices.** `notify_idle` asks for one `notice` the next time that session reports `idle` or
 ends. It lapses after 12 hours, and a session may hold at most 16.
