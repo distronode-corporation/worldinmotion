@@ -99,6 +99,13 @@ export function relayHost(relay: string): string {
   return new URL(relay).host;
 }
 
+/** JSON with every object's keys sorted, so two rows with the same fields compare equal. */
+export function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v !== null && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1))) : v,
+  );
+}
+
 /**
  * A held row as the UI sees it, `session` being the holding session's address: no text yet.
  * `set` is the set it is decided with (one per sending device or CI rule) and `set_title` who that
@@ -225,11 +232,12 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     if (!ids.includes(held) || !ids.every(isUlid)) throw new RequestError("input", "set must be the held ids shown, held among them");
     const rules = await loadCiRules(d.mesh.ciRulesPath).catch(() => []);
     const rows = await listAllHeld(d.mesh, d.env);
-    const first = rows.find((r) => r.id === held);
-    if (first === undefined) throw new RequestError("not_found", `no held message ${held}`);
-    const key = setKey(first, rules);
     const unique = [...new Set(ids)];
     const now = unique.flatMap((id) => rows.filter((r) => r.id === id).slice(0, 1));
+    // The set is the one its ids still held are in: `held` itself may have been decided elsewhere.
+    const first = now.find((r) => r.id === held) ?? now[0];
+    if (first === undefined) throw new RequestError("not_found", `no held message ${held}`);
+    const key = setKey(first, rules);
     const stranger = now.find((r) => setKey(r, rules) !== key);
     if (stranger !== undefined) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held}: each set is decided on its own`);
     const decided: string[] = [];
@@ -386,8 +394,10 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     const pausedIn = new Set([...held.values()].filter((o) => o.row["reason"] === "breaker").map((o) => `${o.sid} ${o.row["from"] as string}`));
     for (const [k, h] of next) {
       const was = held.get(k);
-      // A row whose set changed (its CI rule was removed) is sent again, so the UI regroups it.
-      if (was !== undefined && was.row["set"] === h.row["set"]) continue;
+      // A row that changed (its CI rule was removed or pinned: its set or its title) is sent again,
+      // so the UI regroups or relabels it. Every field of a row is read from disk, none is relative
+      // to now, so an unchanged row compares equal from pass to pass.
+      if (was !== undefined && stableJson(was.row) === stableJson(h.row)) continue;
       emit("held", { op: "add", item: h.row });
       if (was !== undefined) continue;
       // Another local session's first breaker hold for a peer shows that peer as paused there.

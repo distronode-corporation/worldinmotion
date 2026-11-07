@@ -4,7 +4,7 @@ import { PassThrough } from "node:stream";
 import { ulid } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../src/client.ts";
-import { relayHost, runEvents } from "../src/events.ts";
+import { relayHost, runEvents, stableJson } from "../src/events.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { saveCiRules, type CiRule } from "../src/cirules.ts";
 import type { HeldItem } from "../src/held.ts";
@@ -409,6 +409,17 @@ describe("wim events: deciding a held set", () => {
     expect(row(pinning.id)[0]).toMatchObject({ set: `ci:${rule.id}`, ci: "github, octo-org/deploys, refs/heads/main, event push", pins: "repositoryId=74 ownerId=65" });
     expect(await e.request("approve", { held: plain.id, set: [plain.id, pinning.id] })).toMatchObject({ ok: true, result: { decided: [plain.id], kept: [pinning.id] } });
     expect(await e.request("refuse", { held: pinning.id, set: [pinning.id] })).toMatchObject({ ok: true, result: { decided: [pinning.id] } });
+    // An unchanged row is not sent again pass after pass; a pin changes the set's title (same set
+    // key), and the row is sent again once.
+    const adds = (id: string) => e.of("held").filter((h) => h["op"] === "add" && (h["item"] as { id: string }).id === id).length;
+    const before = adds(gone.id);
+    await sleep(300);
+    expect(adds(gone.id)).toBe(before);
+    await saveCiRules(e.files.ciRulesPath, [{ ...rule, pins: { repositoryId: "74", ownerId: "65" } } as CiRule], FS);
+    await until(() => String(row(gone.id).at(-1)!["set_title"]).includes("ids repositoryId=74 ownerId=65"));
+    await sleep(300);
+    expect(adds(gone.id)).toBe(before + 1);
+    expect(row(gone.id).at(-1)).toMatchObject({ set: `ci:${rule.id}` });
     // The rule goes: its notice is sent again in a set of its own.
     await saveCiRules(e.files.ciRulesPath, [], FS);
     await until(() => row(gone.id).at(-1)!["set"] === `ci-removed:${gone.id}`);
@@ -457,5 +468,28 @@ describe("wim events: a held set decided while another decides some of it", () =
     };
     expect(await e.request("approve", { held: z, set: [z] })).toMatchObject({ ok: false, error: { code: "error", message: "disk full" } });
     s.decide = decide;
+  });
+});
+
+describe("wim events: a held set whose first id was decided elsewhere", () => {
+  it("decides the rest by the set the ids still held are in, the first in gone; with none held, not found", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    cleanup.push(() => a.stop());
+    const e = await start(devices[1]!, mesh, relay);
+    const p = [await a.send("vscode@two", "1"), await a.send("vscode@two", "2"), await a.send("vscode@two", "3")].map((m) => m.id);
+    await until(async () => (await e.session.held.list()).length === 3, 10_000, "3 held");
+    await e.session.held.remove(p[0]!);
+    expect(await e.request("approve", { held: p[0], set: p })).toMatchObject({ ok: true, result: { decided: [p[1], p[2]], kept: [], gone: [p[0]] } });
+    expect(await e.session.held.list()).toEqual([]);
+    expect(await e.request("refuse", { held: p[0], set: p })).toMatchObject({ ok: false, error: { code: "not_found", message: `no held message ${p[0]}` } });
+  });
+});
+
+describe("stableJson", () => {
+  it("sorts every object's keys and leaves arrays in order", () => {
+    expect(stableJson({ b: 1, a: { d: 1, c: 2 }, e: [{ z: 1, y: 2 }, 3], n: null })).toBe('{"a":{"c":2,"d":1},"b":1,"e":[{"y":2,"z":1},3],"n":null}');
+    expect(stableJson({ x: 1, y: 2 })).toBe(stableJson({ y: 2, x: 1 }));
   });
 });

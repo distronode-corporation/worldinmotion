@@ -120834,6 +120834,12 @@ var RequestError = class extends Error {
 function relayHost(relay) {
   return new URL(relay).host;
 }
+function stableJson(value2) {
+  return JSON.stringify(
+    value2,
+    (_key, v) => v !== null && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a5], [b5]) => a5 < b5 ? -1 : 1)) : v
+  );
+}
 function heldRow(h6, session, rules) {
   return {
     id: h6.id,
@@ -120923,11 +120929,11 @@ async function runEvents(d5) {
     if (!ids.includes(held3) || !ids.every(isUlid)) throw new RequestError("input", "set must be the held ids shown, held among them");
     const rules = await loadCiRules(d5.mesh.ciRulesPath).catch(() => []);
     const rows = await listAllHeld(d5.mesh, d5.env);
-    const first = rows.find((r6) => r6.id === held3);
-    if (first === void 0) throw new RequestError("not_found", `no held message ${held3}`);
-    const key3 = setKey(first, rules);
     const unique = [...new Set(ids)];
     const now = unique.flatMap((id2) => rows.filter((r6) => r6.id === id2).slice(0, 1));
+    const first = now.find((r6) => r6.id === held3) ?? now[0];
+    if (first === void 0) throw new RequestError("not_found", `no held message ${held3}`);
+    const key3 = setKey(first, rules);
     const stranger = now.find((r6) => setKey(r6, rules) !== key3);
     if (stranger !== void 0) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held3}: each set is decided on its own`);
     const decided = [];
@@ -121053,7 +121059,7 @@ async function runEvents(d5) {
     const pausedIn = new Set([...held2.values()].filter((o3) => o3.row["reason"] === "breaker").map((o3) => `${o3.sid} ${o3.row["from"]}`));
     for (const [k5, h6] of next) {
       const was = held2.get(k5);
-      if (was !== void 0 && was.row["set"] === h6.row["set"]) continue;
+      if (was !== void 0 && stableJson(was.row) === stableJson(h6.row)) continue;
       emit("held", { op: "add", item: h6.row });
       if (was !== void 0) continue;
       const pair = `${h6.sid} ${h6.row["from"]}`;
