@@ -1284,13 +1284,16 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   show held items and decide them; it cannot bypass any of the three, and it has no way to skip
   the secret filter.
 - **The person's actions.** `approve`, `refuse`, `trust`, `untrust` and `resume` change what reaches
-  the agents, and `invite`, `admit` and (on a device in no mesh yet) `join` change the mesh, so
-  they are the person's. Only the process that started `wim events` holds its stdio, so only that
+  the agents, and `invite`, `admit` and (on a device in no mesh yet) `create` and `join` change the
+  mesh, so they are the person's. Only the process that started `wim events` holds its stdio, so only that
   UI can send them. The VS Code extension runs them only from a click in its own views, a command
   the person runs, or a dialog it shows, accepts only items from its own views as arguments, and
   asks the person to confirm a trust change in a dialog that names the device and the new policy.
   It admits a device only with the comparison code the person types from the new device's screen,
-  and copies an invite code with a button, never showing it. An events process started with an
+  and copies an invite code with a button, never showing it. A mesh it creates gets its recovery
+  code (section 5.7) only through `wim recovery show --wait` in a terminal the person opens with a
+  click: the events process holds the code in memory for that command, for ten minutes, and never
+  writes it in a line, so it never reaches a view, a notification or the client log. An events process started with an
   agent's variables (section 7.2) refuses every one of these actions with code `refused`. No
   events request deletes a mesh: that is `wim mesh delete`, at the person's own terminal only.
 - **Peer text stays text.** Message text, previews, addresses, card fields and file names are

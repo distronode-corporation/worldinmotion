@@ -121000,7 +121000,7 @@ async function recoverMesh(o3) {
 }
 
 // src/events.ts
-import { constants as constants2, promises as fs10 } from "node:fs";
+import { constants as constants2, promises as fs11 } from "node:fs";
 import { createInterface } from "node:readline";
 import { isAbsolute as isAbsolute3, join as join18 } from "node:path";
 
@@ -121071,6 +121071,159 @@ function setFields(item, rules) {
   };
 }
 
+// src/secretout.ts
+import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
+import { promises as fs10 } from "node:fs";
+import { createConnection as createConnection2, createServer as createServer2 } from "node:net";
+var AGENT_ENV_VARS = [
+  "CLAUDECODE",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "AI_AGENT",
+  "GEMINI_CLI",
+  "CURSOR_AGENT",
+  "CURSOR_TRACE_ID",
+  "OPENCODE",
+  "AIDER_MODEL",
+  "ANTIGRAVITY_AGENT",
+  "WIM_AGENT"
+];
+var AGENT_ENV_PREFIXES = ["CODEX_"];
+function agentEnv(env3) {
+  for (const k5 of AGENT_ENV_VARS) if (env3[k5] !== void 0 && env3[k5] !== "") return k5;
+  return Object.keys(env3).find((k5) => AGENT_ENV_PREFIXES.some((p3) => k5.startsWith(p3)) && env3[k5] !== "");
+}
+var AGENT_NAMES = {
+  CLAUDECODE: "Claude Code",
+  CLAUDE_CODE_ENTRYPOINT: "Claude Code",
+  CLAUDE_CODE_SESSION_ID: "Claude Code",
+  CLAUDE_CODE_MESSAGING_SOCKET: "Claude Code",
+  GEMINI_CLI: "Gemini CLI",
+  CURSOR_AGENT: "Cursor",
+  CURSOR_TRACE_ID: "Cursor",
+  OPENCODE: "opencode",
+  AIDER_MODEL: "Aider",
+  ANTIGRAVITY_AGENT: "Antigravity"
+};
+function notAPerson(env3, isTTY) {
+  const agent = agentEnv(env3);
+  if (agent !== void 0) {
+    const who = AGENT_NAMES[agent] ?? (agent.startsWith("CODEX_") ? "Codex" : "an AI agent");
+    return `${agent} is set: this shell belongs to ${who}`;
+  }
+  return isTTY ? void 0 : "this command's output is not an interactive terminal (it is piped or redirected)";
+}
+function personOnly(why, command5) {
+  return `${why}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`${command5}\` there`;
+}
+function canShowSecret(env3, isTTY) {
+  return notAPerson(env3, isTTY) === void 0;
+}
+function canConfirm(env3, io) {
+  return cannotConfirm(env3, io) === void 0;
+}
+function cannotConfirm(env3, io) {
+  return notAPerson(env3, io.isTTY) ?? (io.inputIsTTY ? void 0 : "this command's input is not an interactive terminal (it is piped or redirected)");
+}
+function requirePerson(env3, io, command5) {
+  const why = cannotConfirm(env3, io);
+  if (why !== void 0) throw new SetupError(personOnly(why, command5));
+}
+async function confirmTyped(io, lines, question) {
+  for (const line of lines) io.out(line);
+  if (/^y(es)?$/i.test((await io.prompt(`${question} [y/N] `)).trim())) return true;
+  io.err("wim: nothing changed.");
+  return false;
+}
+var SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 6e4;
+function showPaths(home, platform2, kind = "recovery") {
+  const p3 = pathFor(platform2);
+  const socket = platform2 === "win32" ? `\\\\.\\pipe\\wim-${kind}-${b64u.encode(sha2562(utf8(home))).slice(0, 16)}` : p3.join(home, `${kind}.sock`);
+  return { socket, proof: p3.join(home, `${kind}.proof`), what: `${kind} code` };
+}
+var PROOF_WAIT_MS = 5e3;
+var PROOF_LEN = 43;
+var PROOF_MAX = 128;
+function ignore2() {
+}
+var absent = () => void 0;
+async function removeOwnProof(path2, proof) {
+  if (await fs10.readFile(path2, "utf8").catch(absent) === proof) await fs10.rm(path2, { force: true });
+}
+async function holdForShow(paths, code2, o3) {
+  if (o3.platform !== "win32") await fs10.rm(paths.socket, { force: true });
+  const proof = b64u.encode(randomBytes2(32));
+  const expected = sha2562(utf8(proof));
+  const sockets = /* @__PURE__ */ new Set();
+  const server = createServer2((socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+    socket.on("error", ignore2);
+    socket.setTimeout(o3.proofWaitMs ?? PROOF_WAIT_MS, () => socket.destroy());
+    socket.setEncoding("utf8");
+    let line = "";
+    socket.on("data", (d5) => {
+      line += d5;
+      const end2 = line.indexOf("\n");
+      if (end2 === -1) {
+        if (line.length > PROOF_MAX) socket.destroy();
+        return;
+      }
+      if (timingSafeEqual2(sha2562(utf8(line.slice(0, end2))), expected)) server.emit("proved", socket);
+      else socket.destroy();
+    });
+  });
+  await new Promise((resolve4, reject) => {
+    server.on("error", reject);
+    server.listen(paths.socket, resolve4);
+  });
+  try {
+    await fs10.rm(paths.proof, { force: true });
+    const partial2 = `${paths.proof}.${b64u.encode(randomBytes2(6))}.tmp`;
+    await fs10.writeFile(partial2, proof, { mode: 384, flag: "wx" });
+    await fs10.rename(partial2, paths.proof);
+  } catch (error64) {
+    await new Promise((r6) => server.close(r6));
+    throw error64;
+  }
+  return new Promise((resolve4) => {
+    const timer = setTimeout(() => finish(false), o3.ms);
+    const onAbort = () => finish(false);
+    function finish(handed) {
+      clearTimeout(timer);
+      o3.signal.removeEventListener("abort", onAbort);
+      server.removeAllListeners("proved");
+      const closed = new Promise((r6) => server.close(r6));
+      for (const s3 of sockets) s3.destroy();
+      void Promise.all([closed, removeOwnProof(paths.proof, proof)]).then(() => resolve4(handed));
+    }
+    server.once("proved", (socket) => {
+      sockets.delete(socket);
+      socket.end(`${code2}
+`);
+      finish(true);
+    });
+    o3.signal.addEventListener("abort", onAbort, { once: true });
+    (o3.onListening ?? ignore2)();
+  });
+}
+async function fetchHeldCode(paths) {
+  const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
+  const proof = await fs10.readFile(paths.proof, "utf8").catch(absent);
+  if (proof === void 0 || proof.length < PROOF_LEN) throw new Error(none);
+  return new Promise((resolve4, reject) => {
+    let text2 = "";
+    const socket = createConnection2(paths.socket);
+    socket.setEncoding("utf8");
+    socket.on("data", (d5) => text2 += d5);
+    socket.once("error", () => reject(new Error(none)));
+    socket.once("end", () => text2.trim() === "" ? reject(new Error(`no ${paths.what} is waiting`)) : resolve4(text2.trim()));
+    socket.write(`${proof}
+`);
+  });
+}
+
 // src/events.ts
 var EVENTS_VERSION = 1;
 var FOLLOW_READ_MAX = 1024 * 1024;
@@ -121129,7 +121282,7 @@ function pausedFromHold(row) {
   const pause = row["pause"];
   return { peer: row["from"], at: row["at"], ...pause === void 0 ? {} : { reason: pause.rule, until: pause.until, auto: pause.auto } };
 }
-function personOnly(agent, what2) {
+function personOnly2(agent, what2) {
   if (agent !== void 0) throw new RequestError("refused", `${what2} is the person's: this events process runs with an agent's variables (${agent})`);
 }
 async function runEvents(d5) {
@@ -121292,7 +121445,7 @@ async function runEvents(d5) {
     return start3 + end2;
   }
   async function drainRotated(files, was, sid) {
-    for (const name of await fs10.readdir(files.dir)) {
+    for (const name of await fs11.readdir(files.dir)) {
       if (!/^history-[0-9A-Z]{26}\.jsonl$/.test(name)) continue;
       const handle2 = await openHistory(join18(files.dir, name));
       if (handle2 === void 0) continue;
@@ -121399,7 +121552,7 @@ async function runEvents(d5) {
       }
       case "approve":
       case "refuse": {
-        personOnly(d5.agent, op2 === "approve" ? "approving a held message" : "refusing a held message");
+        personOnly2(d5.agent, op2 === "approve" ? "approving a held message" : "refusing a held message");
         const i6 = a5;
         if (!isUlid(i6.held)) throw new RequestError("input", "held must be a held message id");
         const verdict = op2 === "approve" ? "approve" : "refuse";
@@ -121409,7 +121562,7 @@ async function runEvents(d5) {
       }
       case "trust":
       case "untrust": {
-        personOnly(d5.agent, "changing a device's trust");
+        personOnly2(d5.agent, "changing a device's trust");
         const name = a5.device;
         const target = s3.roster.devices.find((x2) => x2.name === name);
         if (target === void 0) throw new RequestError("not_found", `no device named ${sanitizeForDisplay(name)}`);
@@ -121419,19 +121572,19 @@ async function runEvents(d5) {
         return { policy };
       }
       case "resume": {
-        personOnly(d5.agent, "releasing what the loop breaker held");
+        personOnly2(d5.agent, "releasing what the loop breaker held");
         const peer = a5.peer;
         const released = await s3.resumePeer(peer) + await resumeEverywhere(d5.mesh, peer, d5.env, d5.now, s3.sid);
         return { released };
       }
       case "invite": {
-        personOnly(d5.agent, "inviting a device");
+        personOnly2(d5.agent, "inviting a device");
         const made = await issueInvite(s3, { ttlMs: a5.exp ?? 36e5, auto: false, now: d5.now, short: true });
         if (made.short === void 0) return { code: made.code, invite: made.inviteId, exp: made.exp };
         return { code: made.short.code, invite: made.inviteId, exp: made.short.exp, full: made.code };
       }
       case "admit": {
-        personOnly(d5.agent, "admitting a device");
+        personOnly2(d5.agent, "admitting a device");
         const i6 = a5;
         const decision = await admitPending(s3, i6.device, i6.code, d5.now);
         if (decision.outcome !== "admitted") throw new RequestError("refused", `could not admit ${sanitizeForDisplay(i6.device)}: ${decision.reason}`);
@@ -121514,16 +121667,68 @@ async function runEvents(d5) {
   await queue;
 }
 var SetupArgs = external_exports.object({ code: external_exports.string().min(1).max(16 * 1024), name: external_exports.string().optional() });
+var CreateArgs = external_exports.object({ name: external_exports.string().optional(), relay: external_exports.string().min(1).max(2048).optional() });
+var CREATE_REFUSED = {
+  full: "the relay refused to create the mesh: it has reached its limit of new meshes. Choose another relay, or run your own (packages/relay-node)",
+  unauthorized: "the relay refused to create the mesh: it is not accepting new meshes, or it needs an operator key, which only wim mesh create --key-env NAME in a terminal can pass"
+};
 async function runSetupEvents(d5) {
   const emit = (type, fields2 = {}) => d5.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d5.now(), ...fields2 }));
   const known = await d5.home.loadDevice();
   emit("setup", { version: d5.version, device: known === void 0 ? null : { name: known.name, id: known.id } });
   let joining = false;
+  let creating = false;
+  let holding;
+  let afterResponse;
   let finish;
   const joined = new Promise((resolve4) => finish = resolve4);
+  async function create2(a5) {
+    personOnly2(d5.agent, "creating a mesh");
+    if (joining || creating) throw new RequestError("busy", joining ? "a join is already waiting for an admin" : "a mesh is already being created on this device");
+    const relay = a5.relay ?? HOSTED_RELAY;
+    creating = true;
+    let made;
+    try {
+      try {
+        checkDialable(relay, void 0);
+      } catch (error64) {
+        throw new RequestError("input", error64.message);
+      }
+      const known2 = await d5.home.loadDevice();
+      const name = a5.name ?? d5.defaultName;
+      if (known2 === void 0 && !isName(name)) throw new RequestError("input", `invalid device name ${JSON.stringify(name)}: use 1 to 32 of a-z, 0-9 and -`);
+      const device = known2 ?? await d5.home.createDevice(name);
+      made = await createMesh({ home: d5.home, device, relay, dialer: d5.dialer, now: d5.now }).catch((error64) => {
+        const own2 = error64 instanceof ClientError ? CREATE_REFUSED[error64.code] : void 0;
+        throw own2 === void 0 ? error64 : new RequestError(error64.code, own2);
+      });
+      const result = { device: { name: device.name, id: device.id }, mesh: `${made.mesh.slice(0, 4)}\u2026`, relay: relayHost(relay) };
+      const code2 = made.recoveryCode;
+      return await new Promise((resolve4, reject) => {
+        holding = holdForShow(showPaths(d5.home.root, d5.platform), code2, {
+          ms: d5.recoveryMs ?? LIMITS.recoveryShowWindowMs,
+          signal: d5.signal,
+          platform: d5.platform,
+          onListening: () => resolve4(result)
+        }).then(
+          (handed) => {
+            emit("created", { mesh: result.mesh, recovery: handed ? "shown" : "not_collected" });
+            finish();
+          },
+          (error64) => {
+            afterResponse = finish;
+            reject(new RequestError("error", `the mesh was created, but its recovery code could not be held for wim recovery show (${error64.message}). Run wim recovery rotate in a terminal of your own for a new one`));
+          }
+        );
+      });
+    } catch (error64) {
+      if (made === void 0) creating = false;
+      throw error64;
+    }
+  }
   async function join25(a5) {
-    personOnly(d5.agent, "joining a mesh");
-    if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
+    personOnly2(d5.agent, "joining a mesh");
+    if (joining || creating) throw new RequestError("busy", joining ? "a join is already waiting for an admin" : "a mesh is being created on this device");
     joining = true;
     try {
       const code2 = await resolveInvite(a5.code, d5.fetch).catch((error64) => {
@@ -121578,14 +121783,16 @@ async function runSetupEvents(d5) {
       const req = Request3.safeParse(raw);
       if (!req.success) throw new RequestError("input", "a request is { v: 1, id, op, args? }");
       id2 = req.data.id;
-      if (req.data.op !== "join") throw new RequestError("setup", "this device is in no mesh yet: join one first");
-      const args = SetupArgs.safeParse(req.data.args ?? {});
+      const op2 = req.data.op;
+      if (op2 !== "join" && op2 !== "create") throw new RequestError("setup", "this device is in no mesh yet: create or join one first");
+      const args = (op2 === "join" ? SetupArgs : CreateArgs).safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      emit("response", { id: id2, ok: true, result: await join25(args.data) });
+      emit("response", { id: id2, ok: true, result: op2 === "join" ? await join25(args.data) : await create2(args.data) });
     } catch (error64) {
       const code2 = error64 instanceof RequestError ? error64.code : "error";
       emit("response", { ...id2 === void 0 ? {} : { id: id2 }, ok: false, error: { code: code2, message: sanitizeForDisplay(error64.message) } });
     }
+    afterResponse?.();
   }
   let queue = Promise.resolve();
   const lines = createInterface({ input: d5.input });
@@ -121597,6 +121804,7 @@ async function runSetupEvents(d5) {
   const aborted2 = new Promise((resolve4) => d5.signal.aborted ? resolve4() : d5.signal.addEventListener("abort", () => resolve4(), { once: true }));
   await Promise.race([ended2, aborted2, joined]);
   lines.close();
+  await holding;
 }
 
 // ../../node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
@@ -123360,7 +123568,7 @@ import { join as join20 } from "node:path";
 
 // src/ancestry.ts
 import { execFile } from "node:child_process";
-import { promises as fs11 } from "node:fs";
+import { promises as fs12 } from "node:fs";
 var POINTER_LEVELS = 8;
 function procStat(text2) {
   const close = text2.lastIndexOf(")");
@@ -123404,7 +123612,7 @@ function realAncestryDeps(platform2) {
     platform: platform2,
     pid: process.pid,
     ppid: process.ppid,
-    readFile: (path2) => fs11.readFile(path2, "utf8"),
+    readFile: (path2) => fs12.readFile(path2, "utf8"),
     execFile: (file2, args, env3) => new Promise((resolve4, reject) => {
       execFile(file2, [...args], { env: env3, timeout: 3e3, maxBuffer: 8 << 20, windowsHide: true }, (error64, stdout) => error64 === null ? resolve4(stdout) : reject(error64));
     })
@@ -124149,159 +124357,6 @@ async function loadNotifier(home, now = Date.now) {
   if (raw === void 0) return void 0;
   if (raw.provider !== "command" || !Array.isArray(raw.command)) throw new Error('notify.json: provider must be "command" with a command list');
   return new CommandNotifier(raw.command, raw.minIntervalMs ?? 6e4, now);
-}
-
-// src/secretout.ts
-import { timingSafeEqual as timingSafeEqual2 } from "node:crypto";
-import { promises as fs12 } from "node:fs";
-import { createConnection as createConnection2, createServer as createServer2 } from "node:net";
-var AGENT_ENV_VARS = [
-  "CLAUDECODE",
-  "CLAUDE_CODE_ENTRYPOINT",
-  "CLAUDE_CODE_SESSION_ID",
-  "CLAUDE_CODE_MESSAGING_SOCKET",
-  "AI_AGENT",
-  "GEMINI_CLI",
-  "CURSOR_AGENT",
-  "CURSOR_TRACE_ID",
-  "OPENCODE",
-  "AIDER_MODEL",
-  "ANTIGRAVITY_AGENT",
-  "WIM_AGENT"
-];
-var AGENT_ENV_PREFIXES = ["CODEX_"];
-function agentEnv(env3) {
-  for (const k5 of AGENT_ENV_VARS) if (env3[k5] !== void 0 && env3[k5] !== "") return k5;
-  return Object.keys(env3).find((k5) => AGENT_ENV_PREFIXES.some((p3) => k5.startsWith(p3)) && env3[k5] !== "");
-}
-var AGENT_NAMES = {
-  CLAUDECODE: "Claude Code",
-  CLAUDE_CODE_ENTRYPOINT: "Claude Code",
-  CLAUDE_CODE_SESSION_ID: "Claude Code",
-  CLAUDE_CODE_MESSAGING_SOCKET: "Claude Code",
-  GEMINI_CLI: "Gemini CLI",
-  CURSOR_AGENT: "Cursor",
-  CURSOR_TRACE_ID: "Cursor",
-  OPENCODE: "opencode",
-  AIDER_MODEL: "Aider",
-  ANTIGRAVITY_AGENT: "Antigravity"
-};
-function notAPerson(env3, isTTY) {
-  const agent = agentEnv(env3);
-  if (agent !== void 0) {
-    const who = AGENT_NAMES[agent] ?? (agent.startsWith("CODEX_") ? "Codex" : "an AI agent");
-    return `${agent} is set: this shell belongs to ${who}`;
-  }
-  return isTTY ? void 0 : "this command's output is not an interactive terminal (it is piped or redirected)";
-}
-function personOnly2(why, command5) {
-  return `${why}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`${command5}\` there`;
-}
-function canShowSecret(env3, isTTY) {
-  return notAPerson(env3, isTTY) === void 0;
-}
-function canConfirm(env3, io) {
-  return cannotConfirm(env3, io) === void 0;
-}
-function cannotConfirm(env3, io) {
-  return notAPerson(env3, io.isTTY) ?? (io.inputIsTTY ? void 0 : "this command's input is not an interactive terminal (it is piped or redirected)");
-}
-function requirePerson(env3, io, command5) {
-  const why = cannotConfirm(env3, io);
-  if (why !== void 0) throw new SetupError(personOnly2(why, command5));
-}
-async function confirmTyped(io, lines, question) {
-  for (const line of lines) io.out(line);
-  if (/^y(es)?$/i.test((await io.prompt(`${question} [y/N] `)).trim())) return true;
-  io.err("wim: nothing changed.");
-  return false;
-}
-var SHOW_WINDOW_MINUTES = LIMITS.recoveryShowWindowMs / 6e4;
-function showPaths(home, platform2, kind = "recovery") {
-  const p3 = pathFor(platform2);
-  const socket = platform2 === "win32" ? `\\\\.\\pipe\\wim-${kind}-${b64u.encode(sha2562(utf8(home))).slice(0, 16)}` : p3.join(home, `${kind}.sock`);
-  return { socket, proof: p3.join(home, `${kind}.proof`), what: `${kind} code` };
-}
-var PROOF_WAIT_MS = 5e3;
-var PROOF_LEN = 43;
-var PROOF_MAX = 128;
-function ignore2() {
-}
-var absent = () => void 0;
-async function removeOwnProof(path2, proof) {
-  if (await fs12.readFile(path2, "utf8").catch(absent) === proof) await fs12.rm(path2, { force: true });
-}
-async function holdForShow(paths, code2, o3) {
-  if (o3.platform !== "win32") await fs12.rm(paths.socket, { force: true });
-  const proof = b64u.encode(randomBytes2(32));
-  const expected = sha2562(utf8(proof));
-  const sockets = /* @__PURE__ */ new Set();
-  const server = createServer2((socket) => {
-    sockets.add(socket);
-    socket.once("close", () => sockets.delete(socket));
-    socket.on("error", ignore2);
-    socket.setTimeout(o3.proofWaitMs ?? PROOF_WAIT_MS, () => socket.destroy());
-    socket.setEncoding("utf8");
-    let line = "";
-    socket.on("data", (d5) => {
-      line += d5;
-      const end2 = line.indexOf("\n");
-      if (end2 === -1) {
-        if (line.length > PROOF_MAX) socket.destroy();
-        return;
-      }
-      if (timingSafeEqual2(sha2562(utf8(line.slice(0, end2))), expected)) server.emit("proved", socket);
-      else socket.destroy();
-    });
-  });
-  await new Promise((resolve4, reject) => {
-    server.on("error", reject);
-    server.listen(paths.socket, resolve4);
-  });
-  try {
-    await fs12.rm(paths.proof, { force: true });
-    const partial2 = `${paths.proof}.${b64u.encode(randomBytes2(6))}.tmp`;
-    await fs12.writeFile(partial2, proof, { mode: 384, flag: "wx" });
-    await fs12.rename(partial2, paths.proof);
-  } catch (error64) {
-    await new Promise((r6) => server.close(r6));
-    throw error64;
-  }
-  return new Promise((resolve4) => {
-    const timer = setTimeout(() => finish(false), o3.ms);
-    const onAbort = () => finish(false);
-    function finish(handed) {
-      clearTimeout(timer);
-      o3.signal.removeEventListener("abort", onAbort);
-      server.removeAllListeners("proved");
-      const closed = new Promise((r6) => server.close(r6));
-      for (const s3 of sockets) s3.destroy();
-      void Promise.all([closed, removeOwnProof(paths.proof, proof)]).then(() => resolve4(handed));
-    }
-    server.once("proved", (socket) => {
-      sockets.delete(socket);
-      socket.end(`${code2}
-`);
-      finish(true);
-    });
-    o3.signal.addEventListener("abort", onAbort, { once: true });
-    (o3.onListening ?? ignore2)();
-  });
-}
-async function fetchHeldCode(paths) {
-  const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
-  const proof = await fs12.readFile(paths.proof, "utf8").catch(absent);
-  if (proof === void 0 || proof.length < PROOF_LEN) throw new Error(none);
-  return new Promise((resolve4, reject) => {
-    let text2 = "";
-    const socket = createConnection2(paths.socket);
-    socket.setEncoding("utf8");
-    socket.on("data", (d5) => text2 += d5);
-    socket.once("error", () => reject(new Error(none)));
-    socket.once("end", () => text2.trim() === "" ? reject(new Error(`no ${paths.what} is waiting`)) : resolve4(text2.trim()));
-    socket.write(`${proof}
-`);
-  });
 }
 
 // src/relayinfo.ts
@@ -125188,7 +125243,7 @@ async function readPassphrase(ctx, question, opens) {
   else {
     const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === void 0 ? "this program cannot ask for a passphrase without showing it" : void 0);
     if (why !== void 0) {
-      throw new SetupError(`${personOnly2(why, `wim agent ${ctx.args[0]}`)} (a service manager can pass --passphrase-stdin instead)`);
+      throw new SetupError(`${personOnly(why, `wim agent ${ctx.args[0]}`)} (a service manager can pass --passphrase-stdin instead)`);
     }
     passphrase = await ctx.io.promptSecret(question);
   }
@@ -125517,7 +125572,7 @@ async function storeInKeyring(ctx, o3, file2) {
   const kind = keyringKind(o3.platform);
   if (kind === void 0) throw new SetupError(NO_KEYRING);
   const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === void 0 ? "this program cannot ask for a passphrase without showing it" : void 0);
-  if (why !== void 0) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly2(why, "wim agent autostart enable --keyring")}`);
+  if (why !== void 0) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly(why, "wim agent autostart enable --keyring")}`);
   for (const line of KEYRING_WARNING[kind]) ctx.io.out(line);
   if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
   const passphrase = await ctx.io.promptSecret(PROMPT);
@@ -133275,7 +133330,7 @@ function arrived(s3, text2) {
 var literally = (text2) => text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 async function heldId(run, dev, from) {
   const list3 = await run.ok(dev, ["held", "list"]);
-  return grab(list3, new RegExp(`^(\\S+)  ${literally(from)} -> `, "m"), `held message from ${from}`);
+  return grab(list3, new RegExp(`^ *(\\S+)  ${literally(from)} -> `, "m"), `held message from ${from}`);
 }
 var TRIP = { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, cooldownMinutes: 60 };
 function ciStep(run) {
@@ -133301,7 +133356,7 @@ function ciStep(run) {
       await deploys.listPeers();
       const sent2 = await run.cmd(job, ["ci", "notify", "--recipient", code2, "--to", "deploys", "--text", "the build passed"], [], run.term(job, [], env3, tokens));
       need(sent2.text.includes("wim ci notify: sent to deploys"), `the notice was not sent: ${lastLine(sent2.text)}`);
-      const id2 = await waitFor(async () => /^(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15e3, "the held CI notice");
+      const id2 = await waitFor(async () => /^ *(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15e3, "the held CI notice");
       await run.ok(B, ["held", "approve", id2], ["y"]);
       need((await run.ok(B, ["ci", "list"])).includes("ids repositoryId=1001 ownerId=1000"), "approving the notice did not pin the rule's ids");
       await arrived(deploys, "the build passed");
@@ -134051,9 +134106,9 @@ async function createHere(ctx, relay, recovery2, name) {
     recovery: recovery2
   }).catch(async (error64) => {
     if (!(error64 instanceof ClientError)) throw error64;
-    if (error64.code === "full") throw new ClientError(`${CREATE_REFUSED}: this relay has reached its limit of new meshes; run your own relay (packages/relay-node) or try another`, "full");
+    if (error64.code === "full") throw new ClientError(`${CREATE_REFUSED2}: this relay has reached its limit of new meshes; run your own relay (packages/relay-node) or try another`, "full");
     if (error64.code !== "unauthorized") throw error64;
-    throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls3)}`, "unauthorized");
+    throw new ClientError(`${CREATE_REFUSED2}: ${await withoutKey(ctx, relay, keyEnv, tls3)}`, "unauthorized");
   });
 }
 function setup(ctx) {
@@ -134075,7 +134130,7 @@ function setup(ctx) {
   });
 }
 var STOPPED2 = 130;
-var CREATE_REFUSED = "the relay refused to create the mesh";
+var CREATE_REFUSED2 = "the relay refused to create the mesh";
 var STATUS_LINE = "Check this device and its mesh at any time with `wim status`.";
 async function meshDelete(ctx) {
   const extra = ["relay", "key-env", "tls", "no-recovery"].some((f7) => ctx.args.flags.has(f7));
@@ -134153,7 +134208,7 @@ async function recovery(ctx) {
 }
 async function showHeld(ctx, kind, before, after = [], wait = false) {
   const notHere = notAPerson(ctx.env, ctx.io.isTTY);
-  if (notHere !== void 0) throw new SetupError(personOnly2(notHere, `wim ${kind} show`));
+  if (notHere !== void 0) throw new SetupError(personOnly(notHere, `wim ${kind} show`));
   const code2 = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform, kind));
   for (const line of [...before, `  ${code2}`, ...after]) ctx.io.out(line);
   if (wait) await ctx.io.prompt(STORED_PROMPT);
@@ -134528,7 +134583,7 @@ async function send2(ctx) {
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
   const notHere = allowSecrets ? notAPerson(ctx.env, ctx.io.isTTY) : void 0;
   if (notHere !== void 0) {
-    throw new SetupError(`--allow-secret is only for a person at their own terminal: ${personOnly2(notHere, `wim send ${to} <text> --allow-secret`)}`);
+    throw new SetupError(`--allow-secret is only for a person at their own terminal: ${personOnly(notHere, `wim send ${to} <text> --allow-secret`)}`);
   }
   const { files } = await ctx.mesh();
   const watcher = allowSecrets ? void 0 : await liveWatcher(files, name, ctx.fsEnv);
@@ -134685,7 +134740,7 @@ async function events(ctx) {
   const agent = agentEnv(ctx.env);
   if (await ctx.home.loadDevice() === void 0 || (await ctx.home.meshIds()).length === 0) {
     const io = ctx.io;
-    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, ...agent === void 0 ? {} : { agent } });
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, platform: io.platform, ...agent === void 0 ? {} : { agent } });
     return 0;
   }
   const o3 = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);

@@ -2,14 +2,14 @@
 // session of its own; the UI sees what the device's sessions do and acts through it, without
 // ever touching keys or the relay itself.
 
-import { isRecoveryName, isUlid, LIMITS, parseInvite, sanitizeForDisplay } from "@worldinmotion/protocol";
+import { HOSTED_RELAY, isName, isRecoveryName, isUlid, LIMITS, parseInvite, sanitizeForDisplay } from "@worldinmotion/protocol";
 import { constants, promises as fs } from "node:fs";
 import type { FileHandle } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
 import { isAbsolute, join } from "node:path";
 import { z } from "zod";
-import { admitPending, issueInvite, joinMesh } from "./admin.ts";
+import { admitPending, createMesh, issueInvite, joinMesh } from "./admin.ts";
 import { ClientError, MeshSession, type PeerRow } from "./client.ts";
 import { noFollow, openNoFollow, type FsEnv } from "./fsx.ts";
 import { History, parseEntry, type HistoryEntry } from "./history.ts";
@@ -26,6 +26,9 @@ import { pinsIds, setFields, setKey } from "./heldsets.ts";
 import { listAllPauses } from "./pauses.ts";
 import { policyLevel } from "./render.ts";
 import { listSessions, SessionFiles } from "./session.ts";
+import type { Platform } from "./platform.ts";
+import { holdForShow, showPaths } from "./secretout.ts";
+import { checkDialable } from "./wire.ts";
 
 export const EVENTS_VERSION = 1;
 
@@ -619,27 +622,96 @@ export type SetupDeps = {
   agent?: string;
   /** Reads a short invite code's box from its relay (`fetch`). */
   fetch: BoxFetcher;
+  /** Where `wim recovery show` finds a held recovery code (secretout.ts `showPaths`). */
+  platform: Platform;
+  /** How long a new mesh's recovery code waits for `wim recovery show` (tests shorten it). */
+  recoveryMs?: number;
 };
 
 const SetupArgs = z.object({ code: z.string().min(1).max(16 * 1024), name: z.string().optional() });
+const CreateArgs = z.object({ name: z.string().optional(), relay: z.string().min(1).max(2048).optional() });
+/** The client's own words for a relay that refuses a new mesh (cli.ts `createHere`); the relay's text is not repeated. */
+const CREATE_REFUSED: Record<string, string> = {
+  full: "the relay refused to create the mesh: it has reached its limit of new meshes. Choose another relay, or run your own (packages/relay-node)",
+  unauthorized: "the relay refused to create the mesh: it is not accepting new meshes, or it needs an operator key, which only wim mesh create --key-env NAME in a terminal can pass",
+};
 
 /**
  * `wim events --json` on a device in no mesh yet (docs/events.md, setup mode): a `setup` event
- * instead of `hello`, and one request, `join`, answered once the comparison code is known. The
- * outcome follows as a `joined` or `join_failed` event; after `joined` the process ends, and the UI
- * starts it again, now in the mesh.
+ * instead of `hello`, and two requests. `join` is answered once the comparison code is known; the
+ * outcome follows as a `joined` or `join_failed` event. `create` makes a mesh with this device as
+ * its admin and holds the recovery code for `wim recovery show`, which the person runs in a
+ * terminal of their own; `created` follows when the hold ends. After `joined` or `created` the
+ * process ends, and the UI starts it again, now in the mesh.
  */
 export async function runSetupEvents(d: SetupDeps): Promise<void> {
   const emit = (type: string, fields: Row = {}): void => d.write(JSON.stringify({ v: EVENTS_VERSION, type, at: d.now(), ...fields }));
   const known = await d.home.loadDevice();
   emit("setup", { version: d.version, device: known === undefined ? null : { name: known.name, id: known.id } });
   let joining = false;
+  /** Set once a `create` starts, and never cleared after it made a mesh: this device is then in one. */
+  let creating = false;
+  /** A recovery code's hold: the process ends only after it, even when stdin closes first. */
+  let holding: Promise<void> | undefined;
+  /** Run once the current request's answer is written. */
+  let afterResponse: (() => void) | undefined;
   let finish!: () => void;
   const joined = new Promise<void>((resolve) => (finish = resolve));
 
+  /** `create`: a mesh on `relay` (the hosted one by default), its recovery code held for `wim recovery show`. */
+  async function create(a: z.infer<typeof CreateArgs>): Promise<Row> {
+    personOnly(d.agent, "creating a mesh");
+    if (joining || creating) throw new RequestError("busy", joining ? "a join is already waiting for an admin" : "a mesh is already being created on this device");
+    const relay = a.relay ?? HOSTED_RELAY;
+    creating = true;
+    let made: { mesh: string; recoveryCode?: string } | undefined;
+    try {
+      // Checked before any key is made, so a wrong URL or name leaves no device behind.
+      try {
+        checkDialable(relay, undefined);
+      } catch (error) {
+        throw new RequestError("input", (error as Error).message);
+      }
+      const known = await d.home.loadDevice();
+      const name = a.name ?? d.defaultName;
+      if (known === undefined && !isName(name)) throw new RequestError("input", `invalid device name ${JSON.stringify(name)}: use 1 to 32 of a-z, 0-9 and -`);
+      const device = known ?? (await d.home.createDevice(name));
+      made = await createMesh({ home: d.home, device, relay, dialer: d.dialer, now: d.now }).catch((error: unknown) => {
+        const own = error instanceof ClientError ? CREATE_REFUSED[error.code] : undefined;
+        throw own === undefined ? error : new RequestError((error as ClientError).code, own);
+      });
+      const result = { device: { name: device.name, id: device.id }, mesh: `${made.mesh.slice(0, 4)}…`, relay: relayHost(relay) };
+      // Answered once the code waits for `wim recovery show`, so the UI can open that terminal.
+      const code = made.recoveryCode!;
+      return await new Promise<Row>((resolve, reject) => {
+        holding = holdForShow(showPaths(d.home.root, d.platform), code, {
+          ms: d.recoveryMs ?? LIMITS.recoveryShowWindowMs,
+          signal: d.signal,
+          platform: d.platform,
+          onListening: () => resolve(result),
+        }).then(
+          (handed) => {
+            emit("created", { mesh: result.mesh, recovery: handed ? "shown" : "not_collected" });
+            finish();
+          },
+          (error: unknown) => {
+            // Nothing holds the code: the mesh exists and its code is gone. The process ends
+            // once this answer is written, as after `created`.
+            afterResponse = finish;
+            reject(new RequestError("error", `the mesh was created, but its recovery code could not be held for wim recovery show (${(error as Error).message}). Run wim recovery rotate in a terminal of your own for a new one`));
+          },
+        );
+      });
+    } catch (error) {
+      // After a mesh was made, `creating` stays set: this device is in it now.
+      if (made === undefined) creating = false;
+      throw error;
+    }
+  }
+
   async function join(a: z.infer<typeof SetupArgs>): Promise<Row> {
     personOnly(d.agent, "joining a mesh");
-    if (joining) throw new RequestError("busy", "a join is already waiting for an admin");
+    if (joining || creating) throw new RequestError("busy", joining ? "a join is already waiting for an admin" : "a mesh is being created on this device");
     // Read before any key is made, so a mistyped code leaves no device behind. A short code is
     // resolved through its relay (which counts the lookup), then read as a full one.
     joining = true;
@@ -697,15 +769,17 @@ export async function runSetupEvents(d: SetupDeps): Promise<void> {
       const req = Request.safeParse(raw);
       if (!req.success) throw new RequestError("input", "a request is { v: 1, id, op, args? }");
       id = req.data.id;
-      if (req.data.op !== "join") throw new RequestError("setup", "this device is in no mesh yet: join one first");
-      const args = SetupArgs.safeParse(req.data.args ?? {});
+      const op = req.data.op;
+      if (op !== "join" && op !== "create") throw new RequestError("setup", "this device is in no mesh yet: create or join one first");
+      const args = (op === "join" ? SetupArgs : CreateArgs).safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
-      emit("response", { id, ok: true, result: await join(args.data) });
+      emit("response", { id, ok: true, result: op === "join" ? await join(args.data as z.infer<typeof SetupArgs>) : await create(args.data) });
     } catch (error) {
       // The client's own errors before the code was shown (a dial that failed, the device already in that mesh) are `error`.
       const code = error instanceof RequestError ? error.code : "error";
       emit("response", { ...(id === undefined ? {} : { id }), ok: false, error: { code, message: sanitizeForDisplay((error as Error).message) } });
     }
+    afterResponse?.();
   }
 
   let queue = Promise.resolve();
@@ -718,4 +792,6 @@ export async function runSetupEvents(d: SetupDeps): Promise<void> {
   const aborted = new Promise<void>((resolve) => (d.signal.aborted ? resolve() : d.signal.addEventListener("abort", () => resolve(), { once: true })));
   await Promise.race([ended, aborted, joined]);
   lines.close();
+  // A held recovery code outlives stdin: only `wim recovery show`, its window or the signal ends it.
+  await holding;
 }

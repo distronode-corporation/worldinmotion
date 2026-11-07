@@ -211,6 +211,8 @@ function freshState() {
     terminalCloses: new EventEmitter<FakeTerminal>(),
     commands: new Map<string, Command>(),
     executed: [] as { id: string; args: unknown[] }[],
+    /** Context keys set with the built-in `setContext` command. */
+    context: new Map<string, unknown>(),
     config: new Map<string, unknown>(),
     configEvents: new EventEmitter<{ affectsConfiguration(section: string): boolean }>(),
     /** VS Code's telemetry switch, and its change event. */
@@ -480,6 +482,7 @@ export const commands = {
   },
   async executeCommand(id: string, ...args: unknown[]): Promise<unknown> {
     fake.state.executed.push({ id, args });
+    if (id === "setContext") return void fake.state.context.set(args[0] as string, args[1]);
     const fn = fake.state.commands.get(id);
     if (fn !== undefined) return fn(...args);
     if (id.endsWith(".focus") && VIEW_IDS.has(id.slice(0, -".focus".length))) return undefined;

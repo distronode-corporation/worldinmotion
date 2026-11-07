@@ -3,7 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { activate, deactivate, JOIN_HINT, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
+import { activate, deactivate, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
 import { ExtensionMode, fake, FakeTerminal, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
 
 const PKG = fileURLToPath(new URL("..", import.meta.url));
@@ -83,7 +83,9 @@ describe("startup", () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
     const { api } = start();
     await waitFor(() => expect(api!.store.setup).toEqual({}));
-    await waitFor(() => expect(fake.state.treeViews.get("worldinmotion.mesh")!.message).toBe(JOIN_HINT));
+    // The view has no text of its own, so its welcome content (Create a Mesh, Join with a Code) shows.
+    await waitFor(() => expect(fake.state.context.get("worldinmotion.state")).toBe("setup"));
+    expect(fake.state.treeViews.get("worldinmotion.mesh")!.message).toBeUndefined();
     expect(fake.state.output.filter((l) => l.startsWith("starting ")).length).toBe(1);
     expect(fake.state.messages).toHaveLength(0);
   });
@@ -302,10 +304,11 @@ describe("activate", () => {
     const mesh = fake.state.treeViews.get("worldinmotion.mesh")!;
     await waitFor(() => expect(mesh.message).toMatch(/^Not connected \(closed: exited with code 2: wim: this device is not set up/));
     expect(mesh.message).toContain(` ${SETUP_HINT}`);
-    // npm first, with the PATH fix for a global prefix that is not on the PATH.
-    expect(SETUP_HINT).toContain("npm install --global worldinmotion");
-    expect(SETUP_HINT).toContain('export PATH="$(npm prefix -g)/bin:$PATH"');
-    expect(SETUP_HINT).toContain("open a terminal yourself (Terminal > New Terminal)");
+    expect(fake.state.context.get("worldinmotion.state")).toBe("closed");
+    // VS Code alone needs no npm: the extension's own client sets the device up from the Mesh view.
+    expect(SETUP_HINT).not.toMatch(/npm install/);
+    expect(SETUP_HINT).toContain("VS Code alone needs no npm");
+    expect(SETUP_HINT).toContain("Create a Mesh or Join with a Code in the Mesh view");
   });
 
   it("notifies for a message to a Claude Code tab on this device only when asked to, naming the tab", async () => {
@@ -328,14 +331,16 @@ describe("activate", () => {
     const { api } = start();
     const meshView = fake.state.treeViews.get("worldinmotion.mesh")!;
     await waitFor(() => expect(api!.store.setup).toEqual({}));
-    await waitFor(() => expect(meshView.message).toBe(JOIN_HINT));
+    await waitFor(() => expect(meshView.message).toBeUndefined());
     // The comparison code's dialog has no buttons; the trust question that follows does.
+    fake.state.quickPickAnswers.push((items) => items[1]);
     fake.state.inputAnswers.push("wim1_fake");
     fake.state.messageAnswers.push("Trust");
     await fake.run("worldinmotion.joinMesh");
     await waitFor(() => expect(fake.state.messages.some((m) => m.message === "worldinmotion: this device's comparison code is ABCDE-FGHJK")).toBe(true));
     // Joined: the client starts again in the mesh, and its first snapshot brings the question.
     await waitFor(() => expect(api!.store.hello).toBeDefined());
+    await waitFor(() => expect(fake.state.context.get("worldinmotion.state")).toBe("mesh"));
     await waitFor(() => expect(requests().find((r) => r.op === "trust")?.args).toEqual({ device: "buildbox", relayed: false }));
     expect(fake.state.messages.filter((m) => m.message === 'Is "buildbox" your own device?').length).toBe(1);
     // Add a Device...: the invite is copied, and the request on it asks for its code at once.
@@ -354,9 +359,43 @@ describe("activate", () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "setup-fail");
     const { api } = start();
     await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.quickPickAnswers.push((items) => items[1]);
     fake.state.inputAnswers.push("wim1_fake");
     await fake.run("worldinmotion.joinMesh");
     await waitFor(() => expect(fake.state.messages.at(-1)!.message).toBe("worldinmotion: joining the mesh failed: the relay went away"));
+  });
+
+  it("creates a mesh in setup mode, opens the recovery terminal, and restarts in the mesh on created", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    const { api } = start();
+    await waitFor(() => expect(fake.state.context.get("worldinmotion.state")).toBe("setup"));
+    fake.state.inputAnswers.push("laptop");
+    fake.state.quickPickAnswers.push((items) => items[0]);
+    fake.state.messageAnswers.push("Create Mesh", "Show Recovery Code");
+    await fake.run("worldinmotion.createMesh");
+    expect(requests().find((r) => r.op === "create")!.args).toEqual({ name: "laptop", relay: "wss://worldinmotion.distronode.com" });
+    // The code is shown only in this terminal, by the client's own `wim recovery show --wait`.
+    const t = fake.state.terminals.at(-1)!;
+    expect(t.options).toMatchObject({ name: "worldinmotion recovery code", shellArgs: [FIXTURE, "recovery", "show", "--wait"], env: { ELECTRON_RUN_AS_NODE: "1" }, cwd: homedir() });
+    expect(t.shown).toBe(1);
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    await waitFor(() => expect(fake.state.context.get("worldinmotion.state")).toBe("mesh"));
+    expect(fake.state.output.filter((l) => l.startsWith("starting ")).length).toBe(2);
+    expect(fake.state.messages.filter((m) => m.level === "warning")).toHaveLength(0);
+  });
+
+  it("says when the recovery code was not collected", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    vi.stubEnv("WIM_FAKE_RECOVERY", "lost");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.inputAnswers.push("laptop");
+    fake.state.quickPickAnswers.push((items) => items[0]);
+    fake.state.messageAnswers.push("Create Mesh", undefined, undefined);
+    await fake.run("worldinmotion.createMesh");
+    await waitFor(() => expect(fake.state.messages.filter((m) => m.message === "worldinmotion: the recovery code was not collected and is gone. In a terminal: wim recovery rotate")).toEqual([expect.objectContaining({ level: "warning" })]));
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    expect(fake.state.terminals).toHaveLength(0);
   });
 
   it("logs and ignores a line of a newer contract version, and keeps going", async () => {

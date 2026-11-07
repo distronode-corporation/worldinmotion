@@ -97,6 +97,13 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "worldinmotion.mesh",
+        "contents": "This device is in no mesh yet. A mesh is the set of devices whose AI sessions can message each other, end to end encrypted.\n[Create a Mesh](command:worldinmotion.createMesh)\n[Join with a Code](command:worldinmotion.joinMesh)\nSetting up another machine of yours? Choose Join with a Code on that machine.",
+        "when": "worldinmotion.state == 'setup'"
+      }
+    ],
     "commands": [
       {
         "command": "worldinmotion.sendMessage",
@@ -170,8 +177,13 @@
         "category": "worldinmotion"
       },
       {
+        "command": "worldinmotion.createMesh",
+        "title": "Create a Mesh...",
+        "category": "worldinmotion"
+      },
+      {
         "command": "worldinmotion.joinMesh",
-        "title": "Join a Mesh...",
+        "title": "Join with a Code...",
         "category": "worldinmotion"
       },
       {

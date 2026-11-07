@@ -331,6 +331,16 @@ export function crashReportsTerminal(o: ClientOptions & { on: boolean; cwd: stri
   return clientTerminal(o, "worldinmotion crash reports", ["crash-reports", o.on ? "on" : "off"]);
 }
 
+/**
+ * The integrated terminal for `wim recovery show --wait`, with the same client as `wim events`: a
+ * new mesh's recovery code appears there, and only there, in a terminal the person opened by
+ * clicking, never in a view, notification or output channel. `--wait` keeps it on screen until
+ * the person presses Enter, since VS Code closes the terminal when its command ends.
+ */
+export function recoveryTerminal(o: ClientOptions & { cwd: string }): TerminalSpec {
+  return clientTerminal(o, "worldinmotion recovery code", ["recovery", "show", "--wait"]);
+}
+
 /** A terminal running the client with `rest`; its `env` is added to VS Code's own. */
 function clientTerminal(o: ClientOptions & { cwd: string }, name: string, rest: string[]): TerminalSpec {
   const run = wimInvocation(o, rest);

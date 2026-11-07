@@ -15,6 +15,19 @@ body line with a bracket.
 
 ### Added
 
+- **VS Code: Create a Mesh and Join with a Code from the empty Mesh view.** On a device in no
+  mesh yet the Mesh view shows a welcome text with both buttons (it reads the new
+  `worldinmotion.state` context key: `setup`, `mesh` or `closed`), and VS Code alone needs no npm.
+  **Create a Mesh...** asks for this device's name (when it has no keys yet), a relay (the hosted
+  relay by default, or a URL), and a confirmation in a modal that names the relay, then creates the
+  mesh through the extension's own client. The recovery code never appears in VS Code: **Show
+  Recovery Code** opens a terminal running `wim recovery show --wait`, and the extension restarts
+  its client in the new mesh once the code is collected or its 10 minutes end, saying so when it
+  was not collected. **Join with a Code...** (formerly Join a Mesh...) asks which code you have;
+  the invite code path is unchanged, and the pairing code path says it is not in this version yet.
+  Underneath, `wim events` in setup mode takes a new person-only request, `create { name?, relay? }`,
+  answered once the code waits for `wim recovery show`, then emits `created { mesh, recovery:
+  "shown" | "not_collected" }` and ends ([docs/events.md](docs/events.md)).
 - **Held messages are decided a set at a time.** `wim held`, the `approve` and `refuse` requests
   of `wim events`, the VS Code Held view and the Claude Code pane group what is held per sending
   device (by its authenticated device id) and per CI rule (by the rule's id, so `wim ci remove`

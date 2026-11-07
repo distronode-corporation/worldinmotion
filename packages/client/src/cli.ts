@@ -1566,7 +1566,7 @@ async function events(ctx: Ctx): Promise<number> {
   // A device in no mesh yet: the UI can join one (setup mode); any other problem is said as usual.
   if ((await ctx.home.loadDevice()) === undefined || (await ctx.home.meshIds()).length === 0) {
     const io = ctx.io;
-    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, ...(agent === undefined ? {} : { agent }) });
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, platform: io.platform, ...(agent === undefined ? {} : { agent }) });
     return 0;
   }
   const o = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);

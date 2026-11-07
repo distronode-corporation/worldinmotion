@@ -6,7 +6,7 @@ import * as actions from "./actions.ts";
 import { VIEW_ID, ActivityView } from "./activity/view.ts";
 import { notice, oneLine } from "./display.ts";
 import { homedir } from "node:os";
-import { clientCommand, clientCwd, crashReportsTerminal, EventsProcess, selfTestCommand, signerTerminal, type SpawnFn } from "./process.ts";
+import { clientCommand, clientCwd, crashReportsTerminal, EventsProcess, recoveryTerminal, selfTestCommand, signerTerminal, type SpawnFn } from "./process.ts";
 import { runSelfTest } from "./selftest.ts";
 import { spawn as nodeSpawn } from "node:child_process";
 import { historyRows, type MessageRow } from "./protocol.ts";
@@ -22,15 +22,15 @@ export const REDRAW_MS = 50;
 export const TICK_MS = 15_000;
 
 /**
- * Shown with a "not set up" exit. The extension runs its own copy of the client, but setting up
- * a device is a terminal step, and nothing here puts a `wim` command on the PATH.
+ * Shown with a "not set up" exit, which the extension's own client does not give (it runs in
+ * setup mode instead), but a client chosen with worldinmotion.wimPath may. VS Code alone needs
+ * no npm: the extension runs its own copy of the client.
  */
 export const SETUP_HINT =
-  'To set up this device, open a terminal yourself (Terminal > New Terminal) and install wim: npm install --global worldinmotion (if wim is then not found: export PATH="$(npm prefix -g)/bin:$PATH"). Then run wim init --relay <url> for a new mesh, or wim join <invite> to join one, and run Restart Client.';
+  "This extension runs its own copy of wim, so VS Code alone needs no npm: clear the worldinmotion.wimPath setting (or point it at a newer wim) and run worldinmotion: Restart Client, then choose Create a Mesh or Join with a Code in the Mesh view.";
 
-/** Shown while the client runs in setup mode: the device is in no mesh yet. */
-export const JOIN_HINT =
-  "This device is in no mesh yet. Run worldinmotion: Join a Mesh... with an invite code from an admin device, or start a new mesh with wim init --relay <url> in a terminal and restart the client.";
+/** The `worldinmotion.state` context key, which the welcome content and menus read. */
+export type ViewState = "setup" | "mesh" | "closed";
 
 export type Settings = { sessionName: string; wimPath: string; notifyOnMessage: boolean; notifyForClaudeTabs: boolean };
 
@@ -95,6 +95,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   );
 
   let redraw: ReturnType<typeof setTimeout> | undefined;
+  let viewState: ViewState | undefined;
   const draw = (): void => {
     redraw = undefined;
     for (const v of [mesh, rooms, leases, held]) v.refresh();
@@ -105,12 +106,15 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     heldTree.message = n === 0 ? "Nothing is held for you." : undefined;
     const { state, detail } = store.connection;
     const setup = detail?.includes("not set up") === true ? ` ${SETUP_HINT}` : "";
+    const now: ViewState = store.setup !== undefined ? "setup" : state === "open" || store.sessions.size > 0 ? "mesh" : "closed";
+    if (now !== viewState) {
+      viewState = now;
+      vscode.commands.executeCommand("setContext", "worldinmotion.state", now).then(undefined, failed("set the view state"));
+    }
+    // In setup mode the view has no text of its own, so its welcome content (package.json
+    // `viewsWelcome`: Create a Mesh, Join with a Code) shows instead.
     meshTree.message =
-      store.setup !== undefined
-        ? JOIN_HINT
-        : state === "open" || store.sessions.size > 0
-          ? undefined
-          : `Not connected (${state}${detail === undefined ? "" : `: ${oneLine(detail, 200)}`}).${setup}`;
+      now !== "closed" ? undefined : `Not connected (${state}${detail === undefined ? "" : `: ${oneLine(detail, 200)}`}).${setup}`;
     roomsTree.message = store.rooms.size === 0 ? "No rooms." : undefined;
     leasesTree.message = store.leases.size === 0 ? "No leases." : undefined;
   };
@@ -155,6 +159,12 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
         trustAfterJoin = ev.devices.map((x) => x.name);
         proc!.restart();
       }
+      if (ev.type === "created") {
+        // The client ends once the recovery code was collected or its window closed; started
+        // again, it runs in the new mesh.
+        if (ev.recovery === "not_collected") void vscode.window.showWarningMessage("worldinmotion: the recovery code was not collected and is gone. In a terminal: wim recovery rotate");
+        proc!.restart();
+      }
       if (ev.type === "snapshot" && trustAfterJoin !== undefined) {
         void actions.askTrust(deps, trustAfterJoin);
         trustAfterJoin = undefined;
@@ -181,6 +191,11 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     );
     signer = t;
     t.show();
+  };
+  /** Opens the terminal where `wim recovery show --wait` shows a new mesh's recovery code. */
+  const showRecovery = (): void => {
+    const s = settings();
+    vscode.window.createTerminal(recoveryTerminal({ extensionPath: context.extensionPath, wimPath: s.wimPath, execPath: process.execPath, env: process.env, telemetry: vscode.env.isTelemetryEnabled, cwd: homedir() })).show();
   };
   /** The crash-reports terminals still open, and whether each turns reports on. */
   const crashTerminals = new Map<vscode.Terminal, boolean>();
@@ -255,6 +270,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     command("worldinmotion.addDevice", () => actions.addDevice(deps)),
     command("worldinmotion.admitDevice", () => actions.admitDevice(deps)),
     command("worldinmotion.joinMesh", () => actions.joinMesh(deps)),
+    command("worldinmotion.createMesh", () => actions.createMesh(deps, showRecovery)),
     command("worldinmotion.refresh", () =>
       client.request("snapshot").catch((e: Error) => vscode.window.showErrorMessage(notice(`worldinmotion: could not refresh: ${e.message}`))),
     ),
