@@ -147,7 +147,7 @@ describe("running the client", () => {
 
 describe("the command", () => {
   /** The command's dependencies, with a client that prints `stdout` and exits `code`, and the person answering `answer`. */
-  function deps(stdout: string, code: number, answer: string | undefined) {
+  function deps(stdout: string, code: number, answer: string | undefined, cancel = false) {
     const lines: string[] = [];
     const shown: boolean[] = [];
     const messages: Array<{ level: string; message: string; items: string[] }> = [];
@@ -163,7 +163,8 @@ describe("the command", () => {
         window: {
           withProgress: <T,>(options: unknown, task: (p: unknown, t: { onCancellationRequested(fn: () => void): unknown }) => Promise<T>) => {
             progress.push(options);
-            const running = task(undefined, never);
+            // `cancel`: the person cancels as soon as the task listens.
+            const running = task(undefined, cancel ? { onCancellationRequested: (fn: () => void) => fn() } : never);
             child.stdout.emit("data", Buffer.from(stdout));
             child.emit("close", code, null);
             return running;
@@ -201,5 +202,16 @@ describe("the command", () => {
     await runSelfTest(w.d);
     expect(w.messages).toEqual([{ level: "error", message: "worldinmotion: the self-test did not finish: the client exited 1 with no report", items: [] }]);
     expect(w.lines.at(-1)).toBe("no report: the client exited 1 with no report");
+  });
+
+  it("says a cancelled run was cancelled, not failed, with or without a report", async () => {
+    const w = deps(`${JSON.stringify(failed)}\n`, 1, SHOW, true);
+    await runSelfTest(w.d);
+    expect(w.messages).toEqual([{ level: "info", message: "worldinmotion: the self-test was cancelled.", items: [SHOW] }]);
+    expect(w.lines.slice(1)).toEqual(reportLines(failed));
+    expect(w.shown).toEqual([true]);
+    const none = deps("", null as unknown as number, undefined, true);
+    await runSelfTest(none.d);
+    expect(none.messages).toEqual([{ level: "info", message: "worldinmotion: the self-test was cancelled: the client exited null with no report", items: [] }]);
   });
 });

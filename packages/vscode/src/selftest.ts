@@ -118,16 +118,23 @@ export const SHOW = "Show Steps";
 
 /** The command: the run under a progress notification, the rows in the channel, the outcome in a message. */
 export async function runSelfTest(d: SelfTestDeps): Promise<void> {
-  const outcome = await d.window.withProgress({ location: d.notification, title: "worldinmotion: running the self-test (throwaway devices and a relay on loopback)...", cancellable: true }, (_p, token) =>
-    runClient(d.command(), d.spawn, token),
-  );
+  // A run the person cancelled is not a failure: it is said as a cancellation, not an error.
+  let cancelled = false;
+  const outcome = await d.window.withProgress({ location: d.notification, title: "worldinmotion: running the self-test (throwaway devices and a relay on loopback)...", cancellable: true }, (_p, token) => {
+    token.onCancellationRequested(() => (cancelled = true));
+    return runClient(d.command(), d.spawn, token);
+  });
   d.channel.appendLine(`self-test, ${new Date().toISOString()}`);
   if ("error" in outcome) {
     d.channel.appendLine(`no report: ${outcome.error}`);
-    await d.window.showErrorMessage(`worldinmotion: the self-test did not finish: ${outcome.error}`);
+    await (cancelled ? d.window.showInformationMessage(`worldinmotion: the self-test was cancelled: ${outcome.error}`) : d.window.showErrorMessage(`worldinmotion: the self-test did not finish: ${outcome.error}`));
     return;
   }
   for (const line of reportLines(outcome.report)) d.channel.appendLine(line);
-  const shown = outcome.report.ok ? d.window.showInformationMessage(summary(outcome.report), SHOW) : d.window.showErrorMessage(summary(outcome.report), SHOW);
+  const shown = cancelled
+    ? d.window.showInformationMessage("worldinmotion: the self-test was cancelled.", SHOW)
+    : outcome.report.ok
+      ? d.window.showInformationMessage(summary(outcome.report), SHOW)
+      : d.window.showErrorMessage(summary(outcome.report), SHOW);
   if ((await shown) === SHOW) d.channel.show(true);
 }

@@ -201,11 +201,13 @@ describe("activate", () => {
     expect(fake.state.output).toContain("FAIL  ping both directions   5.0 s  no pong from qa@test-b");
     expect(fake.state.outputShown).toBe(shown);
 
-    // Cancelled while it runs: the client is asked to stop, and reports the run stopped.
+    // Cancelled while it runs: the client is asked to stop, reports the run stopped, and the
+    // person is told it was cancelled, not that it failed.
     vi.stubEnv("WIM_FAKE_TEST", "hang");
     fake.state.cancelProgress = true;
     await fake.run("worldinmotion.runSelfTest");
-    expect(fake.state.messages.at(-1)!.message).toBe("worldinmotion: the self-test failed: 1 failed, 0 skipped; first: create the mesh (stopped).");
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the self-test was cancelled." });
+    expect(fake.state.output.some((l: string) => l.includes("create the mesh"))).toBe(true);
   });
 
   it("starts the signer in a terminal, and restarts the client when that terminal closes", async () => {

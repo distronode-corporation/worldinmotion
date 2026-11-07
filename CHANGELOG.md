@@ -67,7 +67,7 @@ body line with a bracket.
 - **worldinmotion: Run Self-Test in VS Code, and `/wim test` in Claude Code.** The VS Code command
   runs `wim test --json` with the extension's client under a progress notification (Cancel
   stops it, and the client still removes what it made), then says whether it passed, naming the
-  first failed step, with **Show Steps** for the **worldinmotion self-test** output, one row per
+  first failed step (or that it was cancelled), with **Show Steps** for the **worldinmotion self-test** output, one row per
   step, the mark first; Cancel asks the client to stop with a line `stop` on its stdin, and kills
   it only after 10 seconds. `/wim test` runs the plugin's own client and prints the same rows; it
   passes on `--full` and `--relay <url>` only when the person typed them, and refuses `--person`
