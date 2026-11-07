@@ -266,6 +266,13 @@ the relay connection, the signer and the state directory.
 | `<folder>@<device>` | a Claude Code tab: its working directory's base name, for example `billing@laptop`. The tab's status line shows it; `/wim name <name>` renames it |
 | `vscode@<device>` | the VS Code extension |
 
+A name a session holds stays its own while it is offline (24 hours, longer while messages wait),
+so a new session that asks for it gets `name-2`. To take a role's address over on the same device,
+ask for it: `--take` with `--as <name>`, `WIM_TAKE=1` with `WIM_NAME`, or the `rename` tool with
+`take`. The new session then gets that address with its queue, held items and leases, and a notice
+that counts them; a name a live session holds is never taken (docs/design.md, "Taking a session
+back").
+
 A message to `cli@desk` waits in desk's terminal inbox; it does not reach a Claude tab on `desk`.
 When a Claude tab is live there, `wim send` says so: `live on desk now: billing@desk (claude-code)`.
 
