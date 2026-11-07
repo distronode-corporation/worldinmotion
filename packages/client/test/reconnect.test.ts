@@ -94,6 +94,8 @@ describe("connection loss and takeover", () => {
     // A file where the spool directory should be: it can be neither written nor listed, on any platform.
     await fs.rm(s.files.spoolDir, { recursive: true, force: true });
     await fs.writeFile(s.files.spoolDir, "");
+    // An armed notice, so the client takes it and then fails to write it.
+    expect(await s.notifyWhenIdle(["y@one"])).toBeUndefined();
     relay.inject(mesh, JSON.stringify({ t: "notice", kind: "idle", of: "y@one" }));
     await until(() => logs.some((l) => l.startsWith("wim: notice: ")));
     // A sweep that cannot read the spool fails that pass only; the next one runs.

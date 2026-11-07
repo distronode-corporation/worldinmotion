@@ -80,6 +80,16 @@ body line with a bracket.
 
 ### Fixed
 
+- **A relay could start agent turns with idle notices nobody asked for.** The client took every
+  relay `notice` frame, and the Claude Code plugin turns a notice into a turn of its own, so a
+  hostile relay could start turns at will (SECURITY-MODEL section 5.4). Each arm of
+  `notify_when_idle` (the `send` tool's, and the plugin's SendMessage through it) is now kept in
+  the session's `watches.json`, written atomically: the address, when it was armed and when it
+  lapses (12 hours). A notice is taken only for an armed address that has not lapsed, once, and
+  the watch is closed; any other is dropped and logged. A re-arm renews the watch, a watch
+  survives a restart that resumes the session, and an unreadable file reads as no watches. Past
+  the relay's 16 armed notices per session an arm is refused locally, and the `send` result says
+  so in `watch_note` (SPEC section 8).
 - **The GitHub Action did not load.** The description of its `status` input showed the
   job-status expression literally, and GitHub evaluates expressions anywhere in an action's
   metadata, so every run stopped in "Set up job" (`Unrecognized named-value: 'job'`) before

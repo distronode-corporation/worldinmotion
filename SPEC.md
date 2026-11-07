@@ -875,7 +875,10 @@ connection or after reconnecting. `routed` never meant read; a sender that needs
 the `delivered` receipt.
 
 **Idle notices.** `notify_idle` asks for one `notice` the next time that session reports `idle` or
-ends. It lapses after 12 hours, and a session may hold at most 16.
+ends. It lapses after 12 hours, and a session may hold at most 16. A `notice` is the relay's word,
+so a client MAY drop one it did not arm: for an address it sent no `notify_idle` for, after the arm
+lapsed, or a second one for the same arm. The reference client keeps its arms in the session's
+`watches.json` and drops every such notice (SECURITY-MODEL section 5.4).
 
 ## 9. Limits (defaults; a relay MAY lower the relay-side ones)
 
