@@ -435,7 +435,9 @@ describe("the person sees every takeover of the last 24 hours", () => {
     const role = await openSession(devices[0]!, mesh, relay, { name: "release", kind: "claude-code" });
     await role.stop();
     const hostile = "/w/\u001b[2J\u001b[31mfake\nproblem  everything is fine\tok";
-    await live(devices[0]!, mesh, relay, { name: "release", kind: "claude-code", cwd: hostile, take: true });
+    const taker = await live(devices[0]!, mesh, relay, { name: "release", kind: "claude-code", cwd: hostile, take: true });
+    // Stopped first: a live session saves its state again and would drop the record added below.
+    await taker.stop();
     const state = JSON.parse(await fs.readFile(role.files.statePath, "utf8")) as { claims: Array<Record<string, unknown>> };
     state.claims.push({ at: Date.now() - 60_000, address: "x\u001b]0;title\u0007@one" });
     await fs.writeFile(role.files.statePath, JSON.stringify(state));
