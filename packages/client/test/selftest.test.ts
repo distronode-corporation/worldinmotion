@@ -77,7 +77,7 @@ describe("wim test, the sandbox run", () => {
       expect(out, out).toMatch(/^PASS: 14 steps, 14 passed, 0 failed, 0 skipped/m);
       expect(code).toBe(0);
       for (const step of ["create the mesh", "invite, join, comparison code, admit", "trust both ways", "ping both directions", "send and receive, with receipts", "the offline queue and reconnect", "held from an untrusted device: approve, then refuse", "rooms, a file, a lease, ask and reply, rename", "the loop breaker: trip, then resume", "status and doctor on a device not set up", "status and doctor on a device in two meshes", "mesh delete", "remove the sandbox"]) {
-        expect(out).toMatch(new RegExp(`^  pass  ${step.replace(/[()]/g, "\\$&")}`, "m"));
+        expect(out).toMatch(new RegExp(`^  pass  ${step.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m"));
       }
       expect(await snapshot(real.root)).toEqual(before);
     },

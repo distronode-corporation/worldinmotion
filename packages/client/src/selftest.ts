@@ -748,10 +748,13 @@ function arrived(s: MeshSession, text: string): Promise<{ rendered: string }> {
   return waitFor(async () => (await s.spool.unread()).find((i) => i.rendered.includes(text)), 15_000, `${JSON.stringify(text)} at ${s.address}`);
 }
 
+/** `text` as a regular expression that matches exactly it: every special character escaped, the backslash included. */
+const literally = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /** The id of the held message from `from` in `wim held list` on `dev`. */
 async function heldId(run: Run, dev: Dev, from: string): Promise<string> {
   const list = await run.ok(dev, ["held", "list"]);
-  return grab(list, new RegExp(`^(\\S+)  ${from.replace(/[.@-]/g, "\\$&")} -> `, "m"), `held message from ${from}`);
+  return grab(list, new RegExp(`^(\\S+)  ${literally(from)} -> `, "m"), `held message from ${from}`);
 }
 
 /** Limits that hold the second message from a peer in an hour, for an hour. */
