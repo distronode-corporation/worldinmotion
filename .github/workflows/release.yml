@@ -611,6 +611,12 @@ jobs:
     if: vars.NOTIFY_GITHUB_PUBLISH == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # The workflow's own group is per tag, so two releases could both clone the action
+    # repository's main and the second atomic push would be refused. One group for every
+    # release queues them: each clones main after the one before has pushed.
+    concurrency:
+      group: notify-github
+      cancel-in-progress: false
     # Holds the deploy key; protected, so only a release tag can use it.
     environment: notify-publish
     permissions:
