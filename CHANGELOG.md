@@ -79,9 +79,10 @@ body line with a bracket.
 - **`wim test` cleans up after a run that was killed.** A line `stop` on a piped stdin stops a run
   like Ctrl-C, which a program can send where a kill would leave the run no chance to remove what
   it made (Windows). Each run's directory holds a mark file, and every run first removes
-  `wim-test-*` directories under the same temporary directory that are owned by you and whose
-  mark is over 24 hours old; nothing unmarked, younger, another user's, or reached through a
-  link. One it cannot read or remove is skipped, never failing the run.
+  `wim-test-*` directories under the same temporary directory whose mark is over 24 hours old,
+  and on POSIX only those owned by you; nothing unmarked, younger, or reached through a link.
+  Windows has no owner check, so there keep the temporary directory your own (the default, under
+  your profile, is). One it cannot read or remove is skipped, never failing the run.
 
 ### Changed
 

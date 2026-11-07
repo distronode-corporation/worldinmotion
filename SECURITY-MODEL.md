@@ -1228,7 +1228,8 @@ directory. Person-only steps (admitting by comparison code, trusting, approving,
 resuming held messages, deleting a mesh) are taken by a scripted terminal that plays the person.
 That is safe only because of where the script can act, so isolation is the property.
 
-- **What it touches.** Only the run's own directory and its own relay. Each device's state
+- **What it touches.** The run's own directory and its own relay, and, read only, the `.git`
+  a `wim watch` reads its card's branch from (below). Each device's state
   directory is a new one inside the run's directory, refused if anything is already at its path,
   and each device's environment is built from nothing (its own `WIM_HOME`, crash reports off), so
   the caller's `WIM_HOME`, `CLAUDE_CONFIG_DIR`, `WIM_MESH` and agent variables never reach a
@@ -1248,8 +1249,9 @@ That is safe only because of where the script can act, so isolation is the prope
   reaches it, and `wim test` takes no argument that names a device, a mesh or a state directory.
   A test checks the module's importers.
 - **The limit.** While a run lasts, any local process can reach its relay's port and create a mesh
-  there, as on any relay run with open creation. It cannot reach the run's meshes without their
-  keys, and the relay goes away with the run.
+  there, as on any relay run with open creation. Another OS user cannot reach the run's meshes
+  without their keys; a process under the same OS user can read them from the run's directory
+  (section 5.8) and use those meshes while the run lasts. The relay goes away with the run.
 - **`--full`: the signer and a CI notice.** The signer step encrypts a sandbox device's keys
   under a passphrase made in the process for the run, which is typed by the script without echo
   and never printed, and starts that device's signer inside the `wim test` process; its socket is
@@ -1265,8 +1267,9 @@ That is safe only because of where the script can act, so isolation is the prope
   Devices dial only that relay and fetch only from its origin. The run creates its own meshes
   there and deletes them at the end through `wim mesh delete`, failures and Ctrl-C included, and
   never names or touches any other mesh: `wim test` takes no argument naming a device, mesh or
-  state directory. `--key-env NAME` hands the named variable's value (an operator key) to the
-  sandbox devices that create meshes, and to nothing else. A live relay sees what it sees for any
+  state directory. `--key-env NAME` puts the named variable's value (an operator key) in the
+  environment of every sandbox command the run starts, and only the mesh creations name it
+  (`--key-env`), so only they send it, to the run's relay. A live relay sees what it sees for any
   mesh, for the minutes the run lasts: a mesh id, roster metadata, session names, sizes and
   timing (section 6.10). A mesh whose deletion failed (the relay went away) is said on the last
   rows, and stays until the relay's idle expiry. The CI step is skipped there: a live relay checks
