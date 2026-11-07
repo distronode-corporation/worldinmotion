@@ -10,7 +10,7 @@ export type Presence = "idle" | "busy" | "offline";
 export type MessageKind = "msg" | "task" | "result" | "file";
 export type FileInfo = { name: string; size: number; mime: string };
 
-/** `added_by`: the device that signed the roster adding this one, as the client read it from its verified chain (from 0.1.11). */
+/** `added_by`: the device that signed the roster adding this one, as the client read it from its verified chain (from 0.2.0). */
 export type DeviceRow = { name: string; id: string; role: "admin" | "member"; policy: Policy; self: boolean; added_by?: string };
 export type Card = { cwd?: string; branch?: string; title?: string };
 export type SessionRow = {

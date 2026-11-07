@@ -463,7 +463,7 @@ export const NOT_MINE = "Not Mine";
  * After this device joined: first the device that admitted it, the only one whose approval this
  * join was ("laptop admitted this device. Is laptop your own device?"), then each other device
  * on its own, naming who added it. A yes trusts that one device; nothing is trusted because
- * another device was. A client from before 0.1.11 names no approver: each device is asked on its own.
+ * another device was. A client from before 0.2.0 names no approver: each device is asked on its own.
  */
 export async function joinTrust(d: Deps, approver: DeviceRef | undefined, others: readonly JoinedDevice[]): Promise<void> {
   const q = (name: string): string => `"${visible(name)}"`;

@@ -118,7 +118,7 @@ describe("parseLine: events", () => {
     expect(ev({ type: "setup", version: "1", device: { name: "x", id: "y" } })).toEqual({ type: "setup", at: 5, version: "1", device: { name: "x", id: "y" } });
     expect(invalid({ type: "setup", version: "1", device: "x" })).toBe("setup: device is not an object");
     expect(ev({ type: "joined", mesh: "ab…", devices: [{ name: "x", id: "y", role: "admin" }] })).toEqual({ type: "joined", at: 5, mesh: "ab…", devices: [{ name: "x", id: "y" }] });
-    // From 0.1.11: who admitted this device, and who added each other device when the client knows.
+    // From 0.2.0: who admitted this device, and who added each other device when the client knows.
     expect(ev({ type: "joined", mesh: "ab…", admitted_by: { name: "x", id: "y" }, devices: [{ name: "x", id: "y" }, { name: "z", id: "w", added_by: "x" }] })).toEqual({
       type: "joined",
       at: 5,

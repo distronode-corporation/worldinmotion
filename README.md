@@ -217,7 +217,7 @@ approvals you already give, between the two devices of each one, and never passe
   lists it ("held here, added by laptop: build"), and VS Code asks about it.
 
 Each automatic trust prints its undo, `wim devices untrust <name>`. In a mesh with someone else's
-devices, answer no for theirs. Any you skipped, or a mesh made before 0.1.11, on each machine:
+devices, answer no for theirs. Any you skipped, or a mesh made before 0.2.0, on each machine:
 
 [Terminal on `laptop`, `desk` and `build`]
 

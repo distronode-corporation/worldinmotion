@@ -11,7 +11,7 @@ index-based on the `## [x.y.z]` heading and stops at the next such heading or at
 line beginning with `[`, so keep the link definitions at the bottom and do not start a
 body line with a bracket.
 
-## [Unreleased]
+## [Unreleased: 0.2.0]
 
 ### Added
 
@@ -32,6 +32,10 @@ body line with a bracket.
   `admit` with `trusted`, adds `added_by` to device rows (read only from the verified roster chain)
   and `admitted_by` to `joined` ([docs/events.md](docs/events.md), SPEC section 6a,
   SECURITY-MODEL section 7.2).
+
+## [Unreleased]
+
+### Added
 
 - **VS Code: Create a Mesh and Join with a Code from the empty Mesh view.** On a device in no
   mesh yet the Mesh view shows a welcome text with both buttons (it reads the new
