@@ -10,7 +10,7 @@ How a release reaches each install channel. Every channel carries the same clien
 | Homebrew | `brew install distronode-corporation/tap/worldinmotion` | the npm tarball | the tap (`packaging/homebrew` is the draft) |
 | VS Code Marketplace | the extension `distronode.worldinmotion` | `packages/vscode` | `release.yml` `marketplace` (gated) |
 | Open VSX | the same extension, for Cursor, VSCodium and others | `packages/vscode` | `release.yml` `openvsx` (gated) |
-| GitHub Marketplace | the action `worldinmotion CI notice` | `packaging/github-action` + `wim.mjs` | `release.yml` `notify-github` (gated), into its own repository |
+| GitHub Marketplace | the action `worldinmotion CI notice` | `packaging/github-action` + `wim.mjs` | `release.yml` `notify-github` (gated) commits and tags its own repository; the Marketplace listing of each tag is a release drafted there by hand |
 | GitLab CI/CD Catalog | the component `notify` | `packaging/gitlab-component` | `release.yml` `notify-gitlab` (gated), into its own project |
 
 ## npm: `packaging/npm`

@@ -9,7 +9,7 @@ import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { main } from "../src/cli.ts";
 import { notAPerson } from "../src/secretout.ts";
 import {
@@ -92,12 +92,12 @@ async function caller(): Promise<{ io: ReturnType<typeof term>; real: Awaited<Re
 
 const pass = (name: string): Step => ({ name, run: async () => undefined });
 
-/** A new, empty directory whose real path is `length` bytes long. */
+/** A new, empty directory whose real path is at least `length` bytes long (longer under a long scratch root). */
 async function longDir(length: number): Promise<string> {
   const at = await fs.realpath(await scratch("long"));
-  const dir = join(at, "x".repeat(length - at.length - 1));
+  const dir = join(at, "x".repeat(Math.max(1, length - Buffer.byteLength(at) - 1)));
   await fs.mkdir(dir);
-  expect(Buffer.byteLength(dir)).toBe(length);
+  expect(Buffer.byteLength(dir)).toBeGreaterThanOrEqual(length);
   return dir;
 }
 
@@ -200,7 +200,7 @@ describe("the runner and its report", { timeout: 30_000 }, () => {
     expect(io.out.join("\n")).toMatch(/^  skip  next .*stopped$/m);
   });
 
-  it("reports a sandbox it could not remove", async () => {
+  it("reports a relay that would not close, and removes the sandbox all the same", async () => {
     const { io, real } = await caller();
     let root = "";
     const code = await selfTest({
@@ -219,7 +219,7 @@ describe("the runner and its report", { timeout: 30_000 }, () => {
     });
     expect(code).toBe(1);
     expect(io.out.join("\n")).toMatch(/^  fail  remove the sandbox .*the relay would not close$/m);
-    await fs.rm(root, { recursive: true, force: true });
+    await expect(fs.lstat(root)).rejects.toThrow();
   });
 
   it("says what a command that never got ready printed last", async () => {
@@ -337,10 +337,20 @@ describe("the isolation rules, against hostile input", { timeout: 30_000 }, () =
     expect(await sweepStale(base, Date.now(), { ...real, uid: undefined })).toEqual([dir]);
   });
 
-  it("marks each run's directory, so a later run can tell it is one", async () => {
-    const box = await Sandbox.open(await scratch("box"), []);
+  it("marks each run's directory, so a later run can tell it is one, and removes one it cannot mark", async () => {
+    const base = await scratch("box");
+    const box = await Sandbox.open(base, []);
     expect((await fs.lstat(join(box.root, SANDBOX_MARK))).isFile()).toBe(true);
     await box.remove();
+    // A mark that cannot be written (a full disk): the unmarked directory, which no sweep would
+    // ever take, is removed, and the error is the run's.
+    const write = vi.spyOn(fs, "writeFile").mockRejectedValueOnce(Object.assign(new Error("ENOSPC: no space left on device"), { code: "ENOSPC" }));
+    try {
+      await expect(Sandbox.open(base, [])).rejects.toThrow("ENOSPC");
+    } finally {
+      write.mockRestore();
+    }
+    expect(await fs.readdir(base)).toEqual([]);
   });
 
   it("refuses a state directory that already exists, made or not", async () => {
@@ -437,7 +447,7 @@ describe("the isolation rules, against hostile input", { timeout: 30_000 }, () =
   it("moves a --full run whose temporary directory is too long for the signer's socket, or refuses it up front", async () => {
     const long = await longDir(110);
     const root = await fs.realpath("/");
-    // Under the long base the socket would be 141 bytes: on POSIX the run goes to the fallback.
+    // Under the long base the socket would be over 103 bytes: on POSIX the run goes to the fallback.
     expect(await runBase(long, "linux", root)).toBe(root);
     expect(await runBase(long, "darwin", root)).toBe(root);
     // A base that fits is kept, and Windows names a pipe, so any base fits there.

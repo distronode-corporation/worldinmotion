@@ -15,7 +15,7 @@ export const relayInfoSchema = z.object({
     idle_mesh_days: z.number().int().nonnegative().nullable(),
     blob_bytes_per_mesh_per_day: z.number().int().nonnegative(),
   }),
-  offer: z.string().nullable(),
+  offer: z.string().max(280).nullable(),
   /** Whether the relay takes CI senders (SPEC section 18). */
   ci: z.boolean().optional(),
   /** Whether the relay checks ref pattern tags on GitHub CI notices (SPEC section 18). */

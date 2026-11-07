@@ -120,8 +120,9 @@ describe("wim ci allow", () => {
       [["ci", "allow", "gitlab", "nope", "--ref", "main"], "not a GitLab group/project: nope"],
       [["ci", "allow", "github", "a/b", "--workflow", "d.yml"], "--ref or --tag is required"],
       [["ci", "allow", "github", "a/b", "--ref", "v1", "--tag", "v1", "--workflow", "d.yml"], "give one of --ref and --tag"],
-      // 0.1.9's boolean --tag after --ref: refused, never read as a tag named after the next flag.
-      [["ci", "allow", "github", "a/b", "--ref", "v1", "--tag", "--workflow", "d.yml"], "give one of --ref and --tag"],
+      // 0.1.9's boolean --tag after --ref: refused. --tag takes the next word, so the workflow's
+      // file is left over as an argument, and the command line is refused as a whole.
+      [["ci", "allow", "github", "a/b", "--ref", "v1", "--tag", "--workflow", "d.yml"], "usage: wim ci allow github"],
       [["ci", "allow", "github", "a/b", "--workflow", "d.yml", "--tag", "--hold"], "--tag needs a tag name or a pattern ending in * (quoted: --tag 'v*')"],
       [["ci", "allow", "github", "a/b", "--ref=", "--workflow", "d.yml"], "--ref needs a branch name, a full ref or a pattern ending in * (quoted: --ref 'release/*')"],
       [["ci", "allow", "gitlab", "a/b", "--tag="], "--tag needs a tag name"],
@@ -139,8 +140,11 @@ describe("wim ci allow", () => {
       [["ci", "allow", "github", "a/b", "--ref", "has space", "--workflow", "d.yml"], "not a branch or tag name, or a pattern: refs/heads/has space"],
     ];
     for (const [argv, why] of bad) {
+      // Only this command's output: an earlier line must not satisfy a later case.
+      w.t.out.length = 0;
+      w.t.err.length = 0;
       expect(await run(w.t, ...argv)).toBe(1);
-      expect(said(w.t)).toContain(why);
+      expect(said(w.t), argv.join(" ")).toContain(why);
     }
     // A refused name is shown with its control characters made visible, never as a terminal escape.
     expect(await run(w.t, "ci", "allow", "gitlab", "a/b", "--tag", "v\u001b[2J*")).toBe(1);

@@ -241,7 +241,11 @@ export class Sandbox {
     }
     await sweepStale(at, Date.now());
     const root = await fs.mkdtemp(join(at, "wim-test-"));
-    await fs.writeFile(join(root, SANDBOX_MARK), "", { flag: "wx", mode: 0o600 });
+    // Unmarked, a later run would never sweep it, so a directory whose mark cannot be written goes.
+    await fs.writeFile(join(root, SANDBOX_MARK), "", { flag: "wx", mode: 0o600 }).catch(async (error: unknown) => {
+      await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      throw error;
+    });
     return new Sandbox(root);
   }
 
@@ -667,8 +671,12 @@ export class Run {
       need(failed.length === 0, failed.join("; "));
     }));
     rows.push(await ending("remove the sandbox", async () => {
-      await this.relay?.close();
-      await this.box?.remove();
+      // The directory goes even when the relay does not close cleanly.
+      try {
+        await this.relay?.close();
+      } finally {
+        await this.box?.remove();
+      }
     }));
     return rows;
   }

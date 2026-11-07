@@ -88122,7 +88122,7 @@ var relayInfoSchema = external_exports.object({
     idle_mesh_days: external_exports.number().int().nonnegative().nullable(),
     blob_bytes_per_mesh_per_day: external_exports.number().int().nonnegative()
   }),
-  offer: external_exports.string().nullable(),
+  offer: external_exports.string().max(280).nullable(),
   /** Whether the relay takes CI senders (SPEC section 18). */
   ci: external_exports.boolean().optional(),
   /** Whether the relay checks ref pattern tags on GitHub CI notices (SPEC section 18). */
@@ -131999,7 +131999,10 @@ var Sandbox = class _Sandbox {
     }
     await sweepStale(at, Date.now());
     const root5 = await fs14.mkdtemp(join21(at, "wim-test-"));
-    await fs14.writeFile(join21(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 });
+    await fs14.writeFile(join21(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
+      await fs14.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      throw error64;
+    });
     return new _Sandbox(root5);
   }
   /**
@@ -132330,8 +132333,11 @@ var Run2 = class {
       need(failed.length === 0, failed.join("; "));
     }));
     rows.push(await ending("remove the sandbox", async () => {
-      await this.relay?.close();
-      await this.box?.remove();
+      try {
+        await this.relay?.close();
+      } finally {
+        await this.box?.remove();
+      }
     }));
     return rows;
   }
@@ -132644,7 +132650,7 @@ async function selfTest(o3) {
 
 // src/cli.ts
 var VERSION = "0.1.10";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "person"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {

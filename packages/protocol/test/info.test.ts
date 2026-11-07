@@ -27,4 +27,9 @@ describe("relayInfoSchema", () => {
     expect(relayInfoSchema.safeParse({ ...doc, ci: 1 }).success).toBe(false);
     expect(relayInfoSchema.safeParse({ ...doc, software: "other" }).success).toBe(false);
   });
+
+  it("takes an offer of at most 280 characters, the limit a relay holds its own to (SPEC section 11)", () => {
+    expect(relayInfoSchema.safeParse({ ...doc, offer: "x".repeat(280) }).success).toBe(true);
+    expect(relayInfoSchema.safeParse({ ...doc, offer: "x".repeat(281) }).success).toBe(false);
+  });
 });

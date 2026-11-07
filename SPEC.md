@@ -1489,7 +1489,7 @@ token to compare one with.
 For a verified GitHub token whose `ref` is R, of n characters, the relay computes the **candidate
 tags**: the tag with `ref` R, and for each k from 0 to the smaller of n and 254, the tag with
 `ref` the first k characters of R followed by `*`. That is at most 255 pattern candidates, k = 0
-(`*` alone) and k = n (R followed by `*`) included, plus the exact one. The token passes the tag
+(`*` alone) included, and k = n (R followed by `*`) when n is at most 254, plus the exact one. The token passes the tag
 check when any candidate is among the device's tags. The relay computes every candidate whether or
 not it is a pattern a rule could hold, so a device never tells it which patterns it holds; the
 relay learns which candidate matched only when a verified token matches one, as it learns an exact

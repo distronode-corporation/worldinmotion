@@ -26,7 +26,7 @@ export function parseReport(stdout: string): SelfTestReport | undefined {
   }
   const r = v as Partial<SelfTestReport> | null;
   if (r === null || typeof r !== "object" || typeof r.ok !== "boolean" || !Array.isArray(r.steps)) return undefined;
-  const steps = r.steps.filter((s): s is SelfTestStep => typeof s?.name === "string" && RESULTS.has(s.result) && typeof s.ms === "number");
+  const steps = r.steps.filter((s): s is SelfTestStep => typeof s?.name === "string" && RESULTS.has(s.result) && typeof s.ms === "number" && (s.detail === undefined || typeof s.detail === "string"));
   if (steps.length !== r.steps.length) return undefined;
   const count = (x: SelfTestStep["result"]): number => steps.filter((s) => s.result === x).length;
   return { ok: r.ok, passed: count("pass"), failed: count("fail"), skipped: count("skip"), ms: typeof r.ms === "number" ? r.ms : 0, steps };
@@ -74,11 +74,18 @@ export function runClient(command: Command, spawn: SpawnFn, cancelled: { onCance
     const err = new StringDecoder("utf8");
     let stdout = "";
     let stderr = "";
+    // At most MAX_OUTPUT bytes of each stream, cut inside the chunk that crosses it.
+    let outBytes = 0;
+    let errBytes = 0;
     child.stdout!.on("data", (b: Buffer) => {
-      if (stdout.length < MAX_OUTPUT) stdout += out.write(b);
+      const part = b.subarray(0, MAX_OUTPUT - outBytes);
+      outBytes += part.length;
+      stdout += out.write(part);
     });
     child.stderr!.on("data", (b: Buffer) => {
-      if (stderr.length < MAX_OUTPUT) stderr += err.write(b);
+      const part = b.subarray(0, MAX_OUTPUT - errBytes);
+      errBytes += part.length;
+      stderr += err.write(part);
     });
     child.stdin!.on("error", () => undefined);
     child.on("error", (e: Error) => resolve({ error: `the client could not start: ${e.message}` }));

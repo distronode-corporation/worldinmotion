@@ -207,7 +207,8 @@ describe("activate", () => {
     fake.state.cancelProgress = true;
     await fake.run("worldinmotion.runSelfTest");
     expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the self-test was cancelled." });
-    expect(fake.state.output.some((l: string) => l.includes("create the mesh"))).toBe(true);
+    // The rows are the cancelled run's own: its stopped step, not the earlier run's.
+    expect(fake.state.output.some((l: string) => l.startsWith("FAIL  create the mesh") && l.endsWith("stopped"))).toBe(true);
   });
 
   it("starts the signer in a terminal, and restarts the client when that terminal closes", async () => {
