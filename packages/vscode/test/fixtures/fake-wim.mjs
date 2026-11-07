@@ -243,11 +243,11 @@ function setupMode() {
     if (log !== undefined) appendFileSync(log, `${line}\n`);
     const { id, op, args } = JSON.parse(line);
     if (op === "create") {
+      // Holding: the device is in the mesh from now on. The marker is written before the answer,
+      // since the extension may stop this process as soon as it reads it.
+      if (process.env.WIM_FAKE_RECOVERY === "hold" && joinedMarker !== undefined) writeFileSync(joinedMarker, "");
       respond(id, { device: { name: args?.name ?? "fresh", id: "dev-fresh" }, mesh: "f4ke…", relay: "relay.invalid" });
-      if (process.env.WIM_FAKE_RECOVERY === "hold") {
-        if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
-        return;
-      }
+      if (process.env.WIM_FAKE_RECOVERY === "hold") return;
       setTimeout(() => {
         if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
         emit("created", { mesh: "f4ke…", recovery: process.env.WIM_FAKE_RECOVERY === "lost" ? "not_collected" : "shown" });

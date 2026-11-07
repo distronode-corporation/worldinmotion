@@ -121184,8 +121184,8 @@ async function holdForShow(paths, code2, o3) {
     await fs10.writeFile(partial2, proof, { mode: 384, flag: "wx" });
     await fs10.rename(partial2, paths.proof);
   } catch (error64) {
-    await fs10.rm(partial2, { force: true });
     await new Promise((r6) => server.close(r6));
+    await fs10.rm(partial2, { force: true }).catch(() => void 0);
     throw error64;
   }
   return new Promise((resolve4) => {

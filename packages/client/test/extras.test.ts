@@ -332,6 +332,25 @@ describe("holding a code: setup that fails or is stopped", () => {
     expect(await holdForShow(paths, "CODE", { ms: 10, signal: new AbortController().signal, platform: process.platform })).toBe(false);
   });
 
+  it("closes the socket and throws the original error when removing the partial file fails too", async () => {
+    const dir = await scratch("hold-rm");
+    const paths = showPaths(dir, process.platform);
+    const realRm = fs.rm;
+    vi.spyOn(fs, "rename").mockRejectedValueOnce(Object.assign(new Error("EPERM: operation not permitted, rename"), { code: "EPERM" }));
+    // The proof's own removal before the write still works; only the cleanup of the partial file fails.
+    const rm = vi.spyOn(fs, "rm").mockImplementation(async (path, options) => {
+      if (String(path).endsWith(".tmp")) throw Object.assign(new Error("EBUSY: resource busy or locked, rm"), { code: "EBUSY" });
+      return realRm(path, options);
+    });
+    await expect(holdForShow(paths, "CODE", { ms: 10_000, signal: new AbortController().signal, platform: process.platform })).rejects.toThrow(/^EPERM: operation not permitted, rename$/);
+    expect(rm.mock.calls.some(([path]) => String(path).endsWith(".tmp"))).toBe(true);
+    vi.restoreAllMocks();
+    // The server was closed: the socket or pipe is free, and nothing answers on it.
+    await expect(fetchHeldCode(paths)).rejects.toThrow(/no recovery code is waiting/);
+    expect(await holdForShow(paths, "CODE", { ms: 10, signal: new AbortController().signal, platform: process.platform })).toBe(false);
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
   for (const step of ["writeFile", "rename"] as const) {
     it(`leaves no partial proof file when ${step} fails, and frees the name`, async () => {
       const dir = await scratch(`hold-${step}`);

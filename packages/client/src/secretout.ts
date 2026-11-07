@@ -191,9 +191,11 @@ export async function holdForShow(paths: ShowPaths, code: string, o: HoldOptions
     await fs.writeFile(partial, proof, { mode: 0o600, flag: "wx" });
     await fs.rename(partial, paths.proof);
   } catch (error) {
-    // Nothing of a failed write stays behind in the state directory.
-    await fs.rm(partial, { force: true });
+    // The socket or pipe is let go first, and nothing of a failed write stays behind in the
+    // state directory; a cleanup that fails too (a file another program holds open) is not the
+    // error to report.
     await new Promise((r) => server.close(r));
+    await fs.rm(partial, { force: true }).catch(() => undefined);
     throw error;
   }
   return new Promise((resolve) => {
