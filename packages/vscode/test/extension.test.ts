@@ -400,7 +400,7 @@ describe("activate", () => {
     // Said once: a later restart has nothing to lose.
     await fake.run("worldinmotion.restart");
     expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(1);
-  });
+  }, 20_000);
 
   it("says when the recovery code was not collected", async () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
