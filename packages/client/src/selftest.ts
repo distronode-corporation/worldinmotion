@@ -762,7 +762,8 @@ const literally = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, 
 /** The id of the held message from `from` in `wim held list` on `dev`. */
 async function heldId(run: Run, dev: Dev, from: string): Promise<string> {
   const list = await run.ok(dev, ["held", "list"]);
-  return grab(list, new RegExp(`^(\\S+)  ${literally(from)} -> `, "m"), `held message from ${from}`);
+  // Each row is indented under its set's `held from` line.
+  return grab(list, new RegExp(`^ *(\\S+)  ${literally(from)} -> `, "m"), `held message from ${from}`);
 }
 
 /** Limits that hold the second message from a peer in an hour, for an hour. */
@@ -800,7 +801,7 @@ export function ciStep(run: Run): Step {
       await deploys.listPeers();
       const sent = await run.cmd(job, ["ci", "notify", "--recipient", code, "--to", "deploys", "--text", "the build passed"], [], run.term(job, [], env, tokens));
       need(sent.text.includes("wim ci notify: sent to deploys"), `the notice was not sent: ${lastLine(sent.text)}`);
-      const id = await waitFor(async () => /^(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15_000, "the held CI notice");
+      const id = await waitFor(async () => /^ *(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15_000, "the held CI notice");
       await run.ok(B, ["held", "approve", id], ["y"]);
       need((await run.ok(B, ["ci", "list"])).includes("ids repositoryId=1001 ownerId=1000"), "approving the notice did not pin the rule's ids");
       await arrived(deploys, "the build passed");
