@@ -533,8 +533,13 @@ describe("held CI notices never wake the session", () => {
     let shift = 0;
     const s = await agent(w, "agent", { now: () => Date.now() + shift });
     const told = async () => (await s.spool.unread()).filter((i) => i.kind === "notice" && i.held !== undefined).map((i) => i.held);
+    // A hold is listed before the session decides whether to tell the person, and "held" is
+    // emitted after that, so the clock moves only once the second hold's decision is made.
+    let holds = 0;
+    s.on("held", () => void holds++);
     for (let i = 0; i < 2; i++) await github(w, `unpinned ${i}`);
-    await until(async () => (await s.held.list()).length === 2, SLOW);
+    await until(() => holds === 2, SLOW, "both holds decided");
+    expect(await s.held.list()).toHaveLength(2);
     expect(await told()).toEqual([1]);
     // An hour on, the person is told again.
     shift = 3_600_000;

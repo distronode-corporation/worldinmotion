@@ -40,7 +40,7 @@ beforeAll(async () => {
 
 const part = (v: unknown) => b64u.encode(utf8(JSON.stringify(v)));
 
-async function token(aud: string): Promise<string> {
+async function token(aud: string, ref = "refs/heads/main"): Promise<string> {
   const iat = Math.floor(Date.now() / 1000) - 60;
   const payload = {
     iss: GITHUB_ISSUER,
@@ -52,8 +52,8 @@ async function token(aud: string): Promise<string> {
     repository: "octo-org/deploys",
     repository_id: "74",
     repository_owner_id: "65",
-    ref: "refs/heads/main",
-    workflow_ref: "octo-org/deploys/.github/workflows/deploy.yml@refs/heads/main",
+    ref,
+    workflow_ref: `octo-org/deploys/.github/workflows/deploy.yml@${ref}`,
     event_name: "push",
     sha: "e3b0c44",
     run_id: "1",
@@ -106,6 +106,26 @@ describe("CI senders on the Workers relay", () => {
     expect((await post(m.mesh, replay)).status).toBe(403);
     const gl = sealCiNotice({ mesh: m.mesh, device: m.laptop.id, prekey: m.pk, to: "deploys", text: "x", token: "a.b.c", via: "gitlab", at: Date.now() }).request;
     expect((await post(m.mesh, gl)).status).toBe(403);
+  });
+
+  it("routes a GitHub notice whose ref falls under a pattern tag, the candidates carried from the Worker to the object", async () => {
+    const m = await ciMesh();
+    const pattern = ciRuleTag({ mesh: m.mesh, device: m.laptop.id, iss: GITHUB_ISSUER, repo: "octo-org/deploys", ref: "refs/tags/v*" });
+    expect(await m.deploys.sock.ask({ t: "ci.rules", tags: [pattern], gitlab: false }, "ci.rules")).toEqual({ t: "ci.rules", count: 1 });
+    const send = async (ref: string) => {
+      const otk = ciOneTimeKey();
+      const t = await token(githubAudience(m.mesh, m.laptop.id, otk.pub), ref);
+      return sealCiNotice({ mesh: m.mesh, device: m.laptop.id, prekey: m.pk, to: "deploys", text: "released", token: t, via: "github", otk, at: Date.now() }).request;
+    };
+    // A long ref: the Worker hands the object all 256 candidate tags in its header.
+    for (const ref of ["refs/tags/v3.3.0", `refs/tags/v${"9".repeat(400)}`]) {
+      const request = await send(ref);
+      const res = await post(m.mesh, request);
+      expect([res.status, await res.json()]).toEqual([200, { t: "ci.sent", id: request.id, status: "routed" }]);
+      expect((await m.deploys.sock.next("ci.deliver"))["msg"]["id"]).toBe(request.id);
+    }
+    // The exact rule the mesh started with is gone, and no other ref is under the pattern.
+    for (const ref of ["refs/heads/main", "refs/tags/w1"]) expect((await post(m.mesh, await send(ref))).status).toBe(403);
   });
 
   it("refuses junk before any Durable Object: a bad path, a body over 32 KiB, a malformed one, a forged token", async () => {

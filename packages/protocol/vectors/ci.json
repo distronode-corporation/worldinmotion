@@ -20,6 +20,41 @@
       "ref": "refs/heads/main",
       "tag": "eGdaSfgrON5JeZGMFBNe8q"
     },
+    "pattern_tag": {
+      "mesh": "8yvT1IZgynsBt7R7maZTCw",
+      "device": "MktQIySOj-wiwSsggq4YCL",
+      "iss": "https://token.actions.githubusercontent.com",
+      "repo": "Octo-Org/Deploys",
+      "ref": "refs/tags/v*",
+      "tag": "4v_gcyNPzj2AcjX-aIDR7K"
+    },
+    "candidate_tags": {
+      "mesh": "8yvT1IZgynsBt7R7maZTCw",
+      "device": "MktQIySOj-wiwSsggq4YCL",
+      "iss": "https://token.actions.githubusercontent.com",
+      "repo": "Octo-Org/Deploys",
+      "ref": "refs/tags/v3.3.0",
+      "tags": [
+        "K7hQPDhPoi4Q6gx2DN_UX7",
+        "86fx9eiiO3mO9nbH64tutl",
+        "hC3YzK9gl6xRScI4vQiRHz",
+        "7AhZMdEmUWDBIyb4EaL5uP",
+        "LLefQrpg3caZ7o7i_0zNkT",
+        "1bNZSdEh4R5ymN1IYM3R5-",
+        "tF1kr4QQBOCd1gU7C0Twlp",
+        "eMVMeEKDvuTYJUBaceMCgK",
+        "VHpBFZcezqQdAgTH1OCC4h",
+        "ST0oIzd2zZ8hTjX1suJnU0",
+        "tuXALxr1M2jD-ru4uyWkEv",
+        "yVm8zAu4TU7LQwg1dN8sny",
+        "4v_gcyNPzj2AcjX-aIDR7K",
+        "pPKGib39EwTraEf0_27bP8",
+        "qt7PE6eN6Z6Qesofj-1Ar7",
+        "RFDs8wGhIA78MeJeT8y7e7",
+        "aeOPYsDlCF34HHVhKjtnsi",
+        "r2Jc1Ysgx2foG9r7UNqP3b"
+      ]
+    },
     "github_counting_key": "gh~vNQCjgcGgrePF0iNrMv1HD",
     "gitlab_counting_key": "gl~MktQIySOj-wiwSsggq4YCL"
   },

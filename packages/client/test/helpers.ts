@@ -18,7 +18,7 @@ import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type CertBod
 import { MeshFiles, type BreakerLimits, type BreakerTier } from "../src/mesh.ts";
 import type { Dialer, WireSocket } from "../src/wire.ts";
 import { main, type CliIO } from "../src/cli.ts";
-import { PassThrough } from "node:stream";
+import { said, scriptedTerm, type Term } from "../src/selftest.ts";
 
 /** Where test scratch directories go: `WIM_TEST_TMP` when set, else the system temp directory (honours TMPDIR). */
 function scratchRoot(): string {
@@ -346,47 +346,24 @@ export async function makeMesh(relay: RelayHarness, names: string[], opts: { tru
   return { mesh: made.mesh, devices, recoveryCode: made.recoveryCode };
 }
 
-/**
- * An answer to a prompt: a line, or one read when the question comes (a code another terminal
- * printed), or work another terminal does while the prompt is open before the line comes.
- */
-export type Answer = string | (() => string | Promise<string>);
+export type { Answer, Term } from "../src/selftest.ts";
 
-export type Term = { io: CliIO; out: string[]; err: string[]; answers: Answer[]; stop: AbortController; env: Record<string, string | undefined> };
-
+/** A scripted terminal for a device at `home`, on the test relay (`wim test`'s own, with test defaults). */
 export function term(home: string, relay: RelayHarness, extra: Partial<CliIO> = {}, env: Record<string, string | undefined> = {}): Term {
-  const out: string[] = [];
-  const err: string[] = [];
-  const answers: Answer[] = [];
-  const stop = new AbortController();
-  const io: CliIO = {
-    out: (l) => void out.push(l),
-    err: (l) => void err.push(l),
-    prompt: async (q) => {
-      out.push(q);
-      const a = answers.shift() ?? "";
-      return typeof a === "string" ? a : a();
-    },
-    signal: stop.signal,
-    cwd: home,
-    homedir: home,
+  return scriptedTerm({
+    home,
+    env: { WIM_HOME: home, ...env },
     hostname: "My Host.local",
     platform: process.platform,
     uid: process.getuid?.(),
     pid: process.pid,
     now: Date.now,
     dialer: relay.dialer,
-    isTTY: true,
-    inputIsTTY: true,
-    stdin: new PassThrough(),
-    stdout: new PassThrough(),
     fetch: (async () => {
       throw new Error("no network in tests");
     }) as typeof fetch,
-    parentGone: () => false,
-    ...extra,
-  };
-  return { io, out, err, answers, stop, env: { WIM_HOME: home, ...env } };
+    extra,
+  });
 }
 
 export const run = (t: Term, ...argv: string[]): Promise<number> => main(argv, t.env, t.io);
@@ -400,7 +377,7 @@ export function sasOf(t: Term): string {
 export function inviteCodeOf(t: Term): string {
   return /wim1_\S+/.exec(said(t))![0];
 }
-export const said = (t: Term): string => [...t.out, ...t.err].join("\n");
+export { said };
 
 
 /**

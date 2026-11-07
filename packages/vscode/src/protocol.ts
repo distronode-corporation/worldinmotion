@@ -100,7 +100,8 @@ export type WimEvent =
   | { type: "join"; at: number; op: "add" | "remove"; request: JoinRow }
   | { type: "setup"; at: number; version: string; device?: DeviceRef }
   | { type: "joined"; at: number; mesh: string; devices: DeviceRef[] }
-  | { type: "join_failed"; at: number; message: string };
+  | { type: "join_failed"; at: number; message: string }
+  | { type: "created"; at: number; mesh: string; recovery: "shown" | "not_collected" };
 
 export type WimResponse = { id: string; ok: true; result: unknown } | { id: string; ok: false; error: { code: string; message: string } };
 
@@ -331,6 +332,8 @@ function event(o: Obj, type: string, at: number): WimEvent | undefined {
       return { type, at, mesh: str(o, "mesh"), devices: list(o, "devices", deviceRef) };
     case "join_failed":
       return { type, at, message: str(o, "message") };
+    case "created":
+      return { type, at, mesh: str(o, "mesh"), recovery: oneOf(o, "recovery", ["shown", "not_collected"] as const) };
     default:
       return undefined;
   }

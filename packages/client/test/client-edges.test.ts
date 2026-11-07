@@ -19,6 +19,14 @@ import { SessionKeys } from "../src/session.ts";
 import type { SpoolItem } from "../src/spool.ts";
 import { FS, makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until, type TestDevice, rosterSeqs, keysOf, breakerOf } from "./helpers.ts";
 
+/**
+ * The budget of a test that builds a mesh of three or more devices with a session on each. Such a
+ * test asserts no timing (its waits are `until`s on state), so time is its only way to fail. On
+ * windows-2025 one takes about 2 s, but in a window where every test running at once went 4 to 10
+ * times slower (the runner, not the tests) two of them ran past the 20 s default.
+ */
+const MANY_DEVICES_MS = 60_000;
+
 const open: MeshSession[] = [];
 afterEach(async () => {
   for (const s of open.splice(0)) await s.stop().catch(() => undefined);
@@ -294,7 +302,7 @@ describe("receiving edge cases", () => {
     await until(async () => (await b.held.list()).length === 2);
     expect(await b.resumePeer("a@one")).toBe(1);
     expect((await b.held.list()).map((h) => h.reason)).toEqual(["policy"]);
-  });
+  }, MANY_DEVICES_MS);
 });
 
 describe("relay refusals and other answers", () => {
@@ -347,7 +355,7 @@ describe("relay refusals and other answers", () => {
     // Something that does not open is skipped.
     rewriteOnce(relay, (f) => f["t"] === "room.history", (f) => ({ ...f, msgs: (f["msgs"] as Array<{ cursor: number; msg: SendFrame }>).map((m) => ({ ...m, msg: { ...m.msg, sig: b64u.encode(new Uint8Array(64)) } })) }));
     expect((await b.roomHistory("#r")).items).toEqual([]);
-  }, 20_000);
+  }, MANY_DEVICES_MS);
 
   it("lists leases it knows only by key", async () => {
     const relay = new RelayHarness();

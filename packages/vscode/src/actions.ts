@@ -5,7 +5,7 @@
 // extension issued; nothing in a message can reach them.
 
 import * as vscode from "vscode";
-import { noIcons, notice, oneLine, stamp, visible } from "./display.ts";
+import { NAME_RE, noIcons, notice, oneLine, stamp, visible } from "./display.ts";
 import type { HeldRow, JoinRow } from "./protocol.ts";
 import { RequestError } from "./process.ts";
 import { heldKey, heldSetKey, type HeldSet, type Store } from "./state.ts";
@@ -18,6 +18,15 @@ export const FILE_TIMEOUT_MS = 120_000;
 /** A `join` request waits for an admin, up to the invite's expiry (at most 7 days). */
 export const JOIN_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** `create` dials the relay, creates the mesh and signs in once; each step may take 15 s. */
+export const CREATE_TIMEOUT_MS = 60_000;
+
+/** The hosted relay, the default for a new mesh (HOSTED_RELAY in @worldinmotion/protocol; a test holds the two equal). */
+export const HOSTED_RELAY = "wss://worldinmotion.distronode.com";
+
+/** How long the client holds a new mesh's recovery code for `wim recovery show`, in minutes (LIMITS.recoveryShowWindowMs). */
+export const RECOVERY_MINUTES = 10;
+
 export type Deps = {
   store: Store;
   client: Requester;
@@ -25,6 +34,12 @@ export type Deps = {
   now: () => number;
   /** Invites this window made: a request on one asks for its comparison code at once. */
   invited: Set<string>;
+  /**
+   * The name Create a Mesh... last sent while the device had no keys. A try that failed may have
+   * made the device under it, and the client keeps an existing device's name, so a retry sends
+   * the same one instead of asking again.
+   */
+  setupName?: string;
 }
 
 function failure(what: string, e: unknown): void {
@@ -325,7 +340,7 @@ const CODE_RE = /^[0-9a-z]{5}[\s-]?[0-9a-z]{5}$/i;
  */
 export async function addDevice(d: Deps): Promise<void> {
   if (d.store.setup !== undefined) {
-    void vscode.window.showWarningMessage("worldinmotion: this device is in no mesh yet. Join one first (worldinmotion: Join a Mesh...).");
+    void vscode.window.showWarningMessage("worldinmotion: this device is in no mesh yet. Create or join one first (Create a Mesh or Join with a Code in the Mesh view).");
     return;
   }
   // With a short code, `code` is it and `full` the full code, for a device on wim 0.1.4 or older.
@@ -342,7 +357,7 @@ export async function addDevice(d: Deps): Promise<void> {
     "worldinmotion: an invite for the new device is ready.",
     {
       modal: true,
-      detail: `On the new device, in a terminal: wim join <code> (or there in VS Code: worldinmotion: Join a Mesh...). The code works once, until ${stamp(made.exp)}. Give it over a channel you trust, never through an agent or a message. When the device asks to join, you type the comparison code it shows.${older}`,
+      detail: `On the new device, in a terminal: wim join <code> (or there in VS Code: worldinmotion: Join with a Code...). The code works once, until ${stamp(made.exp)}. Give it over a channel you trust, never through an agent or a message. When the device asks to join, you type the comparison code it shows.${older}`,
     },
     "Copy Invite Code",
     ...(made.full === undefined ? [] : ["Copy Full Code"]),
@@ -429,13 +444,29 @@ export async function askTrust(d: Deps, names: readonly string[]): Promise<void>
   void vscode.window.showInformationMessage(notice(`worldinmotion: ${names.join(", ")} trusted.`));
 }
 
+/** The two ways of Join with a Code...; the pairing one is not in this version yet. */
+export const JOIN_WAYS = [
+  { label: "My other device is already in the mesh", detail: "This device shows a pairing code, you type it there.", way: "pair" },
+  { label: "I have an invite code", detail: "A wim2-... code from wim invite or Add a Device.", way: "invite" },
+] as const;
+
+/** Said for the pairing way until pairing codes ship. */
+export const PAIRING_LATER =
+  "worldinmotion: pairing codes are not in this version yet. On the device that is in the mesh, run worldinmotion: Add a Device... (or wim invite in a terminal), then choose I have an invite code here.";
+
 /**
- * Join a Mesh...: on a device in no mesh yet, joins with an invite code pasted here (never shown),
- * then shows this device's comparison code for the person to type on the admin device.
+ * Join with a Code...: on a device in no mesh yet, joins with an invite code pasted here (never
+ * shown), then shows this device's comparison code for the person to type on the admin device.
  */
 export async function joinMesh(d: Deps): Promise<void> {
   if (d.store.setup === undefined) {
     void vscode.window.showWarningMessage("worldinmotion: this device is already in a mesh. To join another, run wim join <code> in a terminal.");
+    return;
+  }
+  const way = await vscode.window.showQuickPick(JOIN_WAYS, { title: "Join with a code", placeHolder: "Which code do you have?", ignoreFocusOut: true });
+  if (way === undefined) return;
+  if (way.way === "pair") {
+    void vscode.window.showInformationMessage(PAIRING_LATER);
     return;
   }
   const code = await vscode.window.showInputBox({
@@ -459,4 +490,82 @@ export async function joinMesh(d: Deps): Promise<void> {
     modal: true,
     detail: noIcons(`On the admin device, type ${sas} where wim invite asks for it, in its Add a Device... dialog, or run wim devices admit ${name} ${sas} there. This window finishes joining once the admin admits it.`),
   });
+}
+
+/** The relay choices of Create a Mesh...: the hosted relay, or a URL the person types. */
+export const RELAY_PICKS = [
+  { label: "Hosted relay (recommended)", description: "worldinmotion.distronode.com", detail: "Free during the preview, no sign-up.", relay: HOSTED_RELAY },
+  { label: "Another relay...", detail: "A relay you or your team run (packages/relay-node).", relay: undefined },
+] as const;
+
+/** What the confirmation says about the relay. */
+function relayDetail(relay: string): string {
+  const hosted = relay === HOSTED_RELAY ? " It deletes a mesh nobody connects to for 30 days. Terms: docs/hosted-relay.md." : "";
+  return `On ${relay}. The relay passes encrypted messages on and cannot read them.${hosted}`;
+}
+
+/**
+ * Create a Mesh...: on a device in no mesh yet, a name box (when it has no keys yet), a relay
+ * pick, a modal confirmation, then the `create` request. The recovery code never comes here: it
+ * waits in the client for `wim recovery show`, which `showRecovery` opens in a terminal the
+ * person sees, and `holding` is told the client now holds it. The client ends with `created`, and
+ * the extension starts it again in the mesh.
+ */
+export async function createMesh(d: Deps, showRecovery: () => void, holding: () => void = () => undefined): Promise<void> {
+  if (d.store.setup === undefined) {
+    void vscode.window.showWarningMessage("worldinmotion: this device is already in a mesh. To create another, run wim mesh create in a terminal.");
+    return;
+  }
+  const known = d.store.setup.device;
+  let name = known?.name ?? d.setupName;
+  if (name === undefined) {
+    const typed = await vscode.window.showInputBox({
+      title: "Create a mesh: name this device",
+      prompt: "Name this device. Its sessions get addresses like vscode@laptop. Lowercase letters, digits and hyphens.",
+      placeHolder: "laptop",
+      ignoreFocusOut: true,
+      validateInput: (v: string) => (NAME_RE.test(v.trim()) ? undefined : "Lowercase letters, digits and hyphens, up to 32, starting with a letter or digit"),
+    });
+    if (typed === undefined) return;
+    name = typed.trim();
+  }
+  const pick = await vscode.window.showQuickPick(RELAY_PICKS, { title: "Create a mesh: choose a relay", placeHolder: "Where the mesh's encrypted messages pass", ignoreFocusOut: true });
+  if (pick === undefined) return;
+  const relay =
+    pick.relay ??
+    (
+      await vscode.window.showInputBox({
+        title: "Create a mesh: the relay's URL",
+        prompt: "The relay's URL as its operator gives it: wss://..., or ws:// for one on this machine.",
+        placeHolder: "wss://relay.example.com",
+        ignoreFocusOut: true,
+        validateInput: (v: string) => (/^wss?:\/\/[^\s/]+/i.test(v.trim()) ? undefined : "A relay URL starts with wss:// (or ws:// for one on this machine)"),
+      })
+    )?.trim();
+  if (relay === undefined) return;
+  const shown = noIcons(oneLine(name, 40));
+  const go = await vscode.window.showInformationMessage(
+    `Create a mesh with ${shown} as its admin?`,
+    { modal: true, detail: noIcons(`${relayDetail(oneLine(relay, 200))}\n\nNext comes your recovery code, shown once.`) },
+    "Create Mesh",
+  );
+  if (go !== "Create Mesh") return;
+  if (known === undefined) d.setupName = name;
+  try {
+    await d.client.request("create", { ...(known === undefined ? { name } : {}), relay }, CREATE_TIMEOUT_MS);
+  } catch (e) {
+    const code = e instanceof RequestError ? `${e.code}: ` : "";
+    void vscode.window.showErrorMessage(notice(`worldinmotion: could not create the mesh: ${code}${(e as Error).message}`));
+    return;
+  }
+  holding();
+  const store = await vscode.window.showInformationMessage(
+    "Mesh created. Store your recovery code now.",
+    { modal: true, detail: `It is as powerful as this device. Keep it offline (a password manager or paper), never in a chat. It waits ${RECOVERY_MINUTES} minutes in a terminal only you see.` },
+    "Show Recovery Code",
+  );
+  if (store === "Show Recovery Code") return showRecovery();
+  // Dismissed: the code still waits, and one more click opens it.
+  const later = await vscode.window.showWarningMessage(`worldinmotion: your recovery code waits ${RECOVERY_MINUTES} minutes, then it is gone.`, "Show Recovery Code");
+  if (later === "Show Recovery Code") showRecovery();
 }

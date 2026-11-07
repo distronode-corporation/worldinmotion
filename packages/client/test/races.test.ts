@@ -195,7 +195,9 @@ describe("busy files on Windows", () => {
     let tries = 0;
     fsOps.rm = async (path) => (path === request && ++tries < 4 ? busy() : real.rm(path));
     await fs.writeFile(request, "");
-    await until(async () => (await readText(request)) === undefined);
+    // Gone only when it is not found: on Windows a file the session is deleting at that moment
+    // cannot be opened or read (EPERM), which is not gone yet.
+    await until(() => fs.lstat(request).then(() => false, (error: NodeJS.ErrnoException) => error.code === "ENOENT"));
     expect(tries).toBe(4);
   });
 

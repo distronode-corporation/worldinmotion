@@ -13,7 +13,12 @@ const files = readdirSync(src, { recursive: true, encoding: "utf8" })
   .map((f) => ({ f, code: readFileSync(join(src, f), "utf8") }));
 const manifest = JSON.parse(readFileSync(join(pkg, "package.json"), "utf8")) as {
   extensionKind: string[];
-  contributes: { configuration: { properties: Record<string, { scope: string }> }; menus: Record<string, { command: string; when?: string; group?: string }[]> };
+  contributes: {
+    configuration: { properties: Record<string, { scope: string }> };
+    menus: Record<string, { command: string; when?: string; group?: string }[]>;
+    commands: { command: string }[];
+    viewsWelcome: { view: string; contents: string; when: string }[];
+  };
 };
 
 describe("source", () => {
@@ -37,6 +42,22 @@ describe("manifest", () => {
 
   it("prefers the person's own machine", () => {
     expect(manifest.extensionKind).toEqual(["ui", "workspace"]);
+  });
+
+  it("has welcome content that is static text, whose only links run this extension's own setup commands", () => {
+    const welcome = manifest.contributes.viewsWelcome;
+    expect(welcome.map((w) => [w.view, w.when])).toEqual([["worldinmotion.mesh", "worldinmotion.state == 'setup'"]]);
+    const contents = welcome[0]!.contents;
+    // Links are Markdown in this one place, which VS Code renders from the manifest; nothing in
+    // src can change it, and it holds no placeholder a value could fill.
+    const links = [...contents.matchAll(/\[([^\]]*)\]\(([^)]*)\)/g)].map((m) => [m[1], m[2]]);
+    expect(links).toEqual([
+      ["Create a Mesh", "command:worldinmotion.createMesh"],
+      ["Join with a Code", "command:worldinmotion.joinMesh"],
+    ]);
+    const registered = new Set(manifest.contributes.commands.map((c) => c.command));
+    for (const [, target] of links) expect(registered.has(target!.slice("command:".length))).toBe(true);
+    expect(contents.replace(/\[[^\]]*\]\([^)]*\)/g, "")).not.toMatch(/[[\]()<>`$%{}]|https?:|command:/);
   });
 
   it("offers trust, untrust and resume only on a node the person clicked", () => {

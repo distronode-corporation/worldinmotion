@@ -211,6 +211,8 @@ function freshState() {
     terminalCloses: new EventEmitter<FakeTerminal>(),
     commands: new Map<string, Command>(),
     executed: [] as { id: string; args: unknown[] }[],
+    /** Context keys set with the built-in `setContext` command. */
+    context: new Map<string, unknown>(),
     config: new Map<string, unknown>(),
     configEvents: new EventEmitter<{ affectsConfiguration(section: string): boolean }>(),
     /** VS Code's telemetry switch, and its change event. */
@@ -221,6 +223,9 @@ function freshState() {
     webviewProviders: new Map<string, { resolveWebviewView(view: FakeWebviewView): void }>(),
     treeViews: new Map<string, FakeTreeView>(),
     output: [] as string[],
+    /** The options of every progress notification, and whether the next one is cancelled at once. */
+    progress: [] as unknown[],
+    cancelProgress: false,
     outputShown: 0,
     statusItems: [] as FakeStatusBarItem[],
     messages: [] as { level: "info" | "warning" | "error"; message: string; options?: unknown; items: string[]; raw: (string | MessageItem)[] }[],
@@ -337,7 +342,23 @@ function message(level: "info" | "warning" | "error") {
   };
 }
 
+export const ProgressLocation = { SourceControl: 1, Window: 10, Notification: 15 } as const;
+
 export const window = {
+  /** Records the options; `fake.state.cancelProgress` cancels this task (only this one) as soon as it listens. */
+  withProgress<T>(options: unknown, task: (progress: { report(v: unknown): void }, token: { onCancellationRequested(fn: () => void): Disposable }) => Promise<T>): Promise<T> {
+    fake.state.progress.push(options);
+    // Only this notification is cancelled: the flag is taken here, not left for the next one.
+    const cancel = fake.state.cancelProgress;
+    fake.state.cancelProgress = false;
+    const token = {
+      onCancellationRequested(fn: () => void): Disposable {
+        if (cancel) fn();
+        return { dispose: () => undefined };
+      },
+    };
+    return task({ report: () => undefined }, token);
+  },
   get activeTextEditor(): TextEditor | undefined {
     return fake.state.activeTextEditor;
   },
@@ -461,6 +482,7 @@ export const commands = {
   },
   async executeCommand(id: string, ...args: unknown[]): Promise<unknown> {
     fake.state.executed.push({ id, args });
+    if (id === "setContext") return void fake.state.context.set(args[0] as string, args[1]);
     const fn = fake.state.commands.get(id);
     if (fn !== undefined) return fn(...args);
     if (id.endsWith(".focus") && VIEW_IDS.has(id.slice(0, -".focus".length))) return undefined;

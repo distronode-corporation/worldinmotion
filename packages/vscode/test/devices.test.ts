@@ -1,6 +1,6 @@
 // Adding a device from VS Code: Add a Device... (an invite, copied with a button), the admit
 // dialog where the person types the comparison code the new device shows, the trust question, and
-// Join a Mesh... on a device in no mesh yet.
+// Create a Mesh... and Join with a Code... on a device in no mesh yet.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import * as actions from "../src/actions.ts";
@@ -42,6 +42,9 @@ function inSetup(): Store {
   return s;
 }
 
+/** Answers the next quick pick with the item whose `key` field is `value`. */
+const choose = (key: string, value: unknown) => fake.state.quickPickAnswers.push((items) => items.find((i) => (i as Record<string, unknown>)[key] === value));
+
 beforeEach(() => fake.reset());
 
 describe("Add a Device...", () => {
@@ -78,7 +81,7 @@ describe("Add a Device...", () => {
 
   it("says why it cannot invite: no mesh yet, or the client refused", async () => {
     await actions.addDevice(deps(inSetup()).d);
-    expect(messages()).toEqual(["worldinmotion: this device is in no mesh yet. Join one first (worldinmotion: Join a Mesh...)."]);
+    expect(messages()).toEqual(["worldinmotion: this device is in no mesh yet. Create or join one first (Create a Mesh or Join with a Code in the Mesh view)."]);
     await actions.addDevice(deps(mesh(), async () => Promise.reject(new RequestError("not_admin", "only an admin device can invite"))).d);
     expect(messages().at(-1)).toBe("worldinmotion: could not make an invite: not_admin: only an admin device can invite");
   });
@@ -159,11 +162,14 @@ describe("the trust question", () => {
   });
 });
 
-describe("Join a Mesh...", () => {
+describe("Join with a Code...", () => {
   it("joins with a pasted code, never shown, and shows this device's comparison code", async () => {
     const { d, calls } = deps(inSetup(), async () => ({ device: { name: "fresh", id: "dev-fresh" }, code: "ABCDE-FGHJK" }));
+    choose("way", "invite");
     fake.state.inputAnswers.push(" wim1_code ");
     await actions.joinMesh(d);
+    expect(fake.state.quickPicks[0]).toMatchObject({ items: actions.JOIN_WAYS, options: { title: "Join with a code", ignoreFocusOut: true } });
+    expect(actions.JOIN_WAYS.map((w) => w.label)).toEqual(["My other device is already in the mesh", "I have an invite code"]);
     expect(box()).toMatchObject({ title: "Join a mesh", password: true, ignoreFocusOut: true });
     expect(box().validateInput!("wim1_x")).toBeUndefined();
     expect(box().validateInput!(" WIM2-abcd")).toBeUndefined();
@@ -175,15 +181,132 @@ describe("Join a Mesh...", () => {
     });
   });
 
+  it("says the pairing way is not in this version yet, and sends nothing", async () => {
+    const { d, calls } = deps(inSetup());
+    choose("way", "pair");
+    await actions.joinMesh(d);
+    expect(messages()).toEqual([actions.PAIRING_LATER]);
+    expect(fake.state.inputBoxes).toHaveLength(0);
+    expect(calls).toEqual([]);
+  });
+
   it("is only for a device in no mesh, and says when it is cancelled or fails", async () => {
     await actions.joinMesh(deps().d);
     expect(messages()).toEqual(["worldinmotion: this device is already in a mesh. To join another, run wim join <code> in a terminal."]);
     const { d, calls } = deps(inSetup(), async () => Promise.reject(new RequestError("input", "not an invite code (wim1_...)")));
+    // Cancelled at the pick, then at the code.
+    await actions.joinMesh(d);
+    choose("way", "invite");
     fake.state.inputAnswers.push(undefined);
     await actions.joinMesh(d);
     expect(calls).toEqual([]);
+    choose("way", "invite");
     fake.state.inputAnswers.push("wim1_bad");
     await actions.joinMesh(d);
     expect(messages().at(-1)).toBe("worldinmotion: could not join the mesh: input: not an invite code (wim1_...)");
+  });
+});
+
+describe("Create a Mesh...", () => {
+  const made = { device: { name: "laptop", id: "dev-laptop" }, mesh: "f4ke…", relay: "worldinmotion.distronode.com" };
+
+  it("names the device, picks the hosted relay, confirms, creates, then opens the recovery terminal", async () => {
+    const { d, calls } = deps(inSetup(), async () => made);
+    let opened = 0;
+    fake.state.inputAnswers.push(" laptop ");
+    choose("relay", actions.HOSTED_RELAY);
+    fake.state.messageAnswers.push("Create Mesh", "Show Recovery Code");
+    await actions.createMesh(d, () => void (opened += 1));
+    expect(box()).toMatchObject({ title: "Create a mesh: name this device", prompt: "Name this device. Its sessions get addresses like vscode@laptop. Lowercase letters, digits and hyphens.", ignoreFocusOut: true });
+    expect(box().validateInput!("desk-2")).toBeUndefined();
+    for (const bad of ["", "Laptop", "-x", "a b", "x".repeat(33)]) expect(box().validateInput!(bad)).toMatch(/^Lowercase letters/);
+    expect(actions.RELAY_PICKS.map((p) => [p.label, "description" in p ? p.description : ""])).toEqual([
+      ["Hosted relay (recommended)", "worldinmotion.distronode.com"],
+      ["Another relay...", ""],
+    ]);
+    expect(fake.state.messages[0]).toMatchObject({
+      level: "info",
+      message: "Create a mesh with laptop as its admin?",
+      options: {
+        modal: true,
+        detail:
+          "On wss://worldinmotion.distronode.com. The relay passes encrypted messages on and cannot read them. It deletes a mesh nobody connects to for 30 days. Terms: docs/hosted-relay.md.\n\nNext comes your recovery code, shown once.",
+      },
+      items: ["Create Mesh"],
+    });
+    expect(calls).toEqual([{ op: "create", args: { name: "laptop", relay: actions.HOSTED_RELAY }, timeoutMs: actions.CREATE_TIMEOUT_MS }]);
+    expect(fake.state.messages[1]).toMatchObject({
+      message: "Mesh created. Store your recovery code now.",
+      options: { modal: true, detail: "It is as powerful as this device. Keep it offline (a password manager or paper), never in a chat. It waits 10 minutes in a terminal only you see." },
+      items: ["Show Recovery Code"],
+    });
+    expect(opened).toBe(1);
+    // Nothing the client answered is a code, and nothing here showed one.
+    expect(JSON.stringify(fake.state.messages)).not.toMatch(/wimrec/);
+  });
+
+  it("keeps a device's own name, takes another relay's URL, and offers the code again when the modal is dismissed", async () => {
+    const store = new Store();
+    store.apply({ type: "setup", at: NOW, version: "1", device: { name: "$(zap)desk", id: "dev-desk" } });
+    const { d, calls } = deps(store, async () => made);
+    let opened = 0;
+    choose("relay", undefined);
+    fake.state.inputAnswers.push(" ws://127.0.0.1:8787 ");
+    fake.state.messageAnswers.push("Create Mesh", undefined, "Show Recovery Code");
+    await actions.createMesh(d, () => void (opened += 1));
+    // No name box: the device has keys and a name.
+    expect(fake.state.inputBoxes.map((b) => b.title)).toEqual(["Create a mesh: the relay's URL"]);
+    expect(box().validateInput!("wss://relay.example.com/x")).toBeUndefined();
+    expect(box().validateInput!("https://relay.example.com")).toBe("A relay URL starts with wss:// (or ws:// for one on this machine)");
+    expect(fake.state.messages[0]).toMatchObject({
+      message: "Create a mesh with $ (zap)desk as its admin?",
+      options: { detail: "On ws://127.0.0.1:8787. The relay passes encrypted messages on and cannot read them.\n\nNext comes your recovery code, shown once." },
+    });
+    expect(calls).toEqual([{ op: "create", args: { relay: "ws://127.0.0.1:8787" }, timeoutMs: actions.CREATE_TIMEOUT_MS }]);
+    expect(fake.state.messages[2]).toMatchObject({ level: "warning", message: "worldinmotion: your recovery code waits 10 minutes, then it is gone.", items: ["Show Recovery Code"] });
+    expect(opened).toBe(1);
+    // Dismissed twice: no terminal.
+    choose("relay", actions.HOSTED_RELAY);
+    fake.state.messageAnswers.push("Create Mesh", undefined, undefined);
+    await actions.createMesh(d, () => void (opened += 1));
+    expect(opened).toBe(1);
+  });
+
+  it("stops at each cancel, and says a refusal", async () => {
+    await actions.createMesh(deps().d, () => undefined);
+    expect(messages()).toEqual(["worldinmotion: this device is already in a mesh. To create another, run wim mesh create in a terminal."]);
+    const { d, calls } = deps(inSetup(), async () => Promise.reject(new RequestError("unauthorized", "the relay refused to create the mesh")));
+    // The name box, the pick, the URL box and the modal.
+    fake.state.inputAnswers.push(undefined);
+    await actions.createMesh(d, () => undefined);
+    fake.state.inputAnswers.push("laptop");
+    await actions.createMesh(d, () => undefined);
+    fake.state.inputAnswers.push("laptop", undefined);
+    choose("relay", undefined);
+    await actions.createMesh(d, () => undefined);
+    fake.state.inputAnswers.push("laptop");
+    choose("relay", actions.HOSTED_RELAY);
+    fake.state.messageAnswers.push(undefined);
+    await actions.createMesh(d, () => undefined);
+    expect(calls).toEqual([]);
+    fake.state.inputAnswers.push("laptop");
+    choose("relay", actions.HOSTED_RELAY);
+    fake.state.messageAnswers.push("Create Mesh");
+    await actions.createMesh(d, () => undefined);
+    expect(messages().at(-1)).toBe("worldinmotion: could not create the mesh: unauthorized: the relay refused to create the mesh");
+    // The failed try may have made the device under that name: the retry asks for none and sends it again.
+    expect(d.setupName).toBe("laptop");
+    choose("relay", actions.HOSTED_RELAY);
+    fake.state.messageAnswers.push("Create Mesh");
+    const boxes = fake.state.inputBoxes.length;
+    await actions.createMesh(d, () => undefined);
+    expect(fake.state.inputBoxes).toHaveLength(boxes);
+    expect(calls.at(-1)!.args).toEqual({ name: "laptop", relay: actions.HOSTED_RELAY });
+    const plain = deps(inSetup(), async () => Promise.reject(new Error("gone")));
+    fake.state.inputAnswers.push("laptop");
+    choose("relay", actions.HOSTED_RELAY);
+    fake.state.messageAnswers.push("Create Mesh");
+    await actions.createMesh(plain.d, () => undefined);
+    expect(messages().at(-1)).toBe("worldinmotion: could not create the mesh: gone");
   });
 });

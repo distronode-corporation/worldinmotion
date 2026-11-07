@@ -31,8 +31,9 @@ describe("help", () => {
     expect(said(t)).toMatch(/no command "nope"/);
     expect(commandUsage("ci")!.split("\n")).toEqual([
       "wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>",
-      "wim ci allow github <owner/repo> --ref <branch> --workflow <file.yml> [--tag] [--event <name,...>] [--environment <name>] [--hold]",
-      "wim ci allow gitlab <group/project> --ref <branch> [--tag] [--unprotected] [--environment <name>] [--hold]",
+      "wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]",
+      "wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]",
+      "wim ci allow ... --tag 'v*' | --ref 'release/*': a pattern, one * at the end, quoted",
       "wim ci list | wim ci remove <n>",
       "wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]",
     ]);
