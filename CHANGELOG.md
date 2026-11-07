@@ -105,9 +105,12 @@ body line with a bracket.
   the session's `watches.json`, written atomically: the address, when it was armed and when it
   lapses (12 hours). A notice is taken only for an armed address that has not lapsed, once, and
   the watch is closed; any other is dropped and logged. A re-arm renews the watch, a watch
-  survives a restart that resumes the session, and an unreadable file reads as no watches. Past
-  the relay's 16 armed notices per session an arm is refused locally, and the `send` result says
-  so in `watch_note`, which the plugin's SendMessage passes on (SPEC section 8).
+  survives a restart that resumes the session, and an unreadable file reads as no watches. The
+  relay decides how many arms a session holds (16), so the client refuses none: the file keeps
+  the newest 64, and a watch the relay never fires lapses after its 12 hours, so a watch the
+  relay did not keep blocks nothing. A watch also records the armed session's id, so its notice
+  is taken after that session renames itself. When a watch cannot be recorded, the `send` result
+  says so in `watch_note`, which the plugin's SendMessage passes on (SPEC section 8).
 - **A recovery or invite code's show could read an empty proof.** The holder wrote its proof
   file in place, so a `wim recovery show` or `wim invite show` that read it in that moment sent
   an empty proof and was told no code was waiting while one was. The proof is now written under

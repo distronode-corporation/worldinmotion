@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeshSession } from "../src/client.ts";
-import { Watches } from "../src/watches.ts";
+import { Watches, WATCHES_KEPT } from "../src/watches.ts";
 import { FS, makeMesh, openSession, RelayHarness, scratch, sleep, until } from "./helpers.ts";
 
 const open: MeshSession[] = [];
@@ -20,6 +20,7 @@ async function session(...args: Parameters<typeof openSession>): Promise<MeshSes
 
 const notices = async (s: MeshSession): Promise<string[]> => (await s.spool.unread()).filter((i) => i.kind === "notice").map((i) => i.rendered);
 const idle = (of: string): string => JSON.stringify({ t: "notice", kind: "idle", of });
+const watched = (s: MeshSession) => (s as unknown as { watches: Watches }).watches.list();
 
 describe("idle-notice watches on disk", () => {
   it("takes an armed address once, renews a re-arm, and lets a watch lapse after 12 hours", async () => {
@@ -28,42 +29,75 @@ describe("idle-notice watches on disk", () => {
     const path = join(await scratch("watches"), "watches.json");
     const w = new Watches(path, FS, Date.now);
     expect(await w.list()).toEqual([]);
-    expect(await w.arm(["b@two", "b@two", "c@two"])).toEqual({ armed: ["b@two", "c@two"], refused: [] });
+    await w.arm([{ of: "b@two" }, { of: "b@two" }, { of: "c@two", sid: "sid-c" }]);
     expect(await w.list()).toEqual([
       { of: "b@two", at: 1_000_000, until: 1_000_000 + LIMITS.idleNoticeLifetimeMs },
-      { of: "c@two", at: 1_000_000, until: 1_000_000 + LIMITS.idleNoticeLifetimeMs },
+      { of: "c@two", sid: "sid-c", at: 1_000_000, until: 1_000_000 + LIMITS.idleNoticeLifetimeMs },
     ]);
     // Only once: the first take closes the watch. Two at once cannot both take it.
     expect(await Promise.all([w.take("b@two"), w.take("b@two")])).toEqual([true, false]);
     expect(await w.take("x@two")).toBe(false);
     // A re-arm an hour before c lapses renews it for another 12 hours.
     vi.setSystemTime(1_000_000 + LIMITS.idleNoticeLifetimeMs - 3600_000);
-    expect(await w.arm(["c@two"])).toEqual({ armed: ["c@two"], refused: [] });
+    await w.arm([{ of: "c@two", sid: "sid-c" }]);
     vi.setSystemTime(1_000_000 + LIMITS.idleNoticeLifetimeMs + 1);
     expect(await w.take("c@two")).toBe(true);
     // One that was not renewed lapses.
-    await w.arm(["d@two"]);
+    await w.arm([{ of: "d@two" }]);
     vi.setSystemTime(Date.now() + LIMITS.idleNoticeLifetimeMs);
     expect(await w.list()).toEqual([]);
     expect(await w.take("d@two")).toBe(false);
   });
 
-  it("refuses a 17th address, but renews one already armed", async () => {
+  it("takes a watch by the session's id after a rename, and keeps the newest past its bound", async () => {
     const w = new Watches(join(await scratch("watches"), "watches.json"), FS, Date.now);
-    const sixteen = Array.from({ length: LIMITS.notifyIdlePerSession }, (_, n) => `s${n}@two`);
-    expect((await w.arm(sixteen)).armed).toHaveLength(16);
-    expect(await w.arm(["s17@two", "s3@two"])).toEqual({ armed: ["s3@two"], refused: ["s17@two"] });
-    expect(await w.list()).toHaveLength(16);
-    // A notice frees a place.
-    expect(await w.take("s0@two")).toBe(true);
-    expect(await w.arm(["s17@two"])).toEqual({ armed: ["s17@two"], refused: [] });
+    await w.arm([{ of: "old@two", sid: "sid-1" }, { of: "bare@two" }]);
+    // The session renamed itself: the notice names its new address, and the relay's id for it.
+    expect(await w.take("new@two", "sid-2")).toBe(false);
+    expect(await w.take("new@two", "sid-1")).toBe(true);
+    expect(await w.take("old@two")).toBe(false);
+    // An address armed with no id is taken only by its address.
+    expect(await w.take("other@two")).toBe(false);
+    expect(await w.take("bare@two")).toBe(true);
+    expect(await w.list()).toEqual([]);
+    // Past WATCHES_KEPT the oldest go; a re-arm makes one the newest.
+    const many = Array.from({ length: WATCHES_KEPT }, (_, n) => ({ of: `s${n}@two` }));
+    await w.arm(many);
+    await w.arm([{ of: "s0@two" }, { of: "late@two" }]);
+    expect((await w.list()).map((x) => x.of)).toEqual([...many.slice(2).map((x) => x.of), "s0@two", "late@two"]);
+  });
+
+  it("keeps one watch per session: a re-arm after a rename replaces the old address's, and an exact address wins over the id", async () => {
+    const w = new Watches(join(await scratch("watches"), "watches.json"), FS, Date.now);
+    // Armed as old@two, the session renamed itself and was armed again as new@two.
+    await w.arm([{ of: "old@two", sid: "sid-1" }, { of: "other@two", sid: "sid-2" }]);
+    await w.arm([{ of: "new@two", sid: "sid-1" }]);
+    expect((await w.list()).map((x) => [x.of, x.sid])).toEqual([
+      ["other@two", "sid-2"],
+      ["new@two", "sid-1"],
+    ]);
+    // A notice under the new address takes that watch, and only it.
+    expect(await w.take("new@two", "sid-1")).toBe(true);
+    expect((await w.list()).map((x) => x.of)).toEqual(["other@two"]);
+    // A notice under the old address, with the same id, takes the session's watch by the fallback.
+    await w.arm([{ of: "new@two", sid: "sid-1" }]);
+    expect(await w.take("old@two", "sid-1")).toBe(true);
+    expect((await w.list()).map((x) => x.of)).toEqual(["other@two"]);
+    // An exact address is taken before an older watch of another session that the relay says has the id now.
+    expect(await w.take("other@two")).toBe(true);
+    await w.arm([{ of: "mine@two", sid: "sid-3" }, { of: "other@two", sid: "sid-2" }]);
+    expect(await w.take("other@two", "sid-3")).toBe(true);
+    expect((await w.list()).map((x) => x.of)).toEqual(["mine@two"]);
+    // A different session's watch is never taken: neither its address nor its id.
+    expect(await w.take("stranger@two", "sid-9")).toBe(false);
+    expect((await w.list()).map((x) => x.of)).toEqual(["mine@two"]);
   });
 
   it("reads a damaged, foreign or unreadable file as no watches", async () => {
     const dir = await scratch("watches");
     const path = join(dir, "watches.json");
     const w = new Watches(path, FS, Date.now);
-    for (const text of ["{not json", "null", "7", '{"watches":"all"}', '{"watches":[null,{"of":1,"at":1,"until":1},{"of":"b@two","at":1.5,"until":2}]}']) {
+    for (const text of ["{not json", "null", "7", '{"watches":"all"}', '{"watches":[null,{"of":1,"at":1,"until":1},{"of":"b@two","at":1.5,"until":2},{"of":"b@two","sid":3,"at":1,"until":9007199254740991}]}']) {
       await fs.writeFile(path, text);
       expect(await w.list()).toEqual([]);
       expect(await w.take("b@two")).toBe(false);
@@ -72,10 +106,11 @@ describe("idle-notice watches on disk", () => {
     await fs.rm(path);
     await fs.mkdir(path);
     expect(await w.list()).toEqual([]);
-    await expect(w.arm(["b@two"])).rejects.toThrow();
+    await expect(w.arm([{ of: "b@two" }])).rejects.toThrow();
     // A failed change does not stop the next one.
     await fs.rm(path, { recursive: true });
-    expect((await w.arm(["b@two"])).armed).toEqual(["b@two"]);
+    await w.arm([{ of: "b@two" }]);
+    expect((await w.list()).map((x) => x.of)).toEqual(["b@two"]);
   });
 });
 
@@ -100,23 +135,44 @@ describe("relay idle notices", () => {
     expect(await notices(a)).toEqual(["worldinmotion notice (from the local client, not from a peer or the person): b@two is now idle (or has ended)."]);
   });
 
-  it("refuses a 17th arm locally, and says so when the watch cannot be recorded", async () => {
+  it("accepts every arm past the relay's 16 (the relay decides the limit), and says when a watch cannot be recorded", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const logs: string[] = [];
     const a = await session(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
-    const sixteen = Array.from({ length: LIMITS.notifyIdlePerSession }, (_, n) => `s${n}@two`);
-    expect(await a.notifyWhenIdle(sixteen)).toBeUndefined();
-    expect(await a.notifyWhenIdle(["s16@two", "#room", "*"])).toBe(
-      "no idle notice armed for s16@two: a session holds at most 16 at once (each lasts until it fires or lapses after 12 hours)",
-    );
-    // A refused arm takes no notice.
-    relay.inject(mesh, idle("s16@two"));
-    await until(() => logs.includes("wim: dropped a notice for s16@two: not asked for"));
+    const many = Array.from({ length: LIMITS.notifyIdlePerSession + 2 }, (_, n) => `s${n}@two`);
+    expect(await a.notifyWhenIdle([...many, "#room", "*"])).toBeUndefined();
+    expect((await watched(a)).map((w) => w.of)).toEqual(many);
+    // Each arm reaches the relay as its own frame; nothing waits for an answer to it.
+    await until(() => relay.sentByClients.filter((t) => t.includes('"t":"notify_idle"')).length === many.length);
+    // No code path waits for a relay pong: the client sends a relay ping only as its keepalive.
+    const src = await fs.readFile(join(import.meta.dirname, "..", "src", "client.ts"), "utf8");
+    expect(src).not.toMatch(/t === "pong"|t: "ping"/);
+    // The 18th is taken like the first.
+    relay.inject(mesh, idle("s17@two"));
+    await until(async () => (await notices(a)).length === 1);
+    expect((await notices(a))[0]).toContain("s17@two is now idle");
     await fs.rm(a.files.watchesPath);
     await fs.mkdir(a.files.watchesPath);
     expect(await a.notifyWhenIdle(["b@two"])).toMatch(/^no idle notice armed: this session could not record the watch \(.+\)$/);
     expect(logs.some((l) => l.startsWith("wim: watches: "))).toBe(true);
+  });
+
+  it("takes the notice of a session that renamed itself after the arm", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const b = await session(devices[1]!, mesh, relay, { name: "b" });
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    await until(() => a.peers.has("b@two"));
+    expect(await a.notifyWhenIdle(["b@two"])).toBeUndefined();
+    expect(await b.rename("c")).toBe("c@two");
+    await until(() => a.peers.has("c@two"));
+    await fs.writeFile(b.files.presencePath, "busy");
+    await until(() => a.peers.get("c@two")?.status === "busy");
+    await fs.writeFile(b.files.presencePath, "idle");
+    await until(async () => (await notices(a)).length === 1);
+    expect((await notices(a))[0]).toContain("c@two is now idle");
+    expect(await watched(a)).toEqual([]);
   });
 
   it("keeps a watch across a restart that resumes the session, and the relay's row with it", async () => {

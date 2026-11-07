@@ -92004,9 +92004,10 @@ function signerKeyring(client, pub) {
 }
 
 // src/watches.ts
+var WATCHES_KEPT = 4 * LIMITS.notifyIdlePerSession;
 function isWatch(x2) {
   const w = x2;
-  return typeof w === "object" && w !== null && typeof w.of === "string" && Number.isSafeInteger(w.at) && Number.isSafeInteger(w.until);
+  return typeof w === "object" && w !== null && typeof w.of === "string" && (w.sid === void 0 || typeof w.sid === "string") && Number.isSafeInteger(w.at) && Number.isSafeInteger(w.until);
 }
 var Watches = class {
   path;
@@ -92026,30 +92027,30 @@ var Watches = class {
     return (Array.isArray(raw?.watches) ? raw.watches.filter(isWatch) : []).filter((w) => w.until > now);
   }
   /**
-   * Records an arm for each address: a new watch, or a renewed one for an address already armed.
-   * Past the relay's limit of armed notices per session a new address is refused.
+   * Records an arm for each address: a new watch, or a renewed one in place of any for the same
+   * address or the same session (one session has one watch, so a re-arm after a rename replaces
+   * the old address's). The relay decides the limit, so none is refused here.
    */
-  arm(addresses) {
+  arm(arms) {
     return this.change((watches) => {
       const at = this.now();
-      const out = { armed: [], refused: [] };
-      for (const of of new Set(addresses)) {
-        const kept = watches.filter((w) => w.of !== of);
-        if (kept.length === watches.length && watches.length >= LIMITS.notifyIdlePerSession) {
-          out.refused.push(of);
-          continue;
-        }
-        watches = [...kept, { of, at, until: at + LIMITS.idleNoticeLifetimeMs }];
-        out.armed.push(of);
+      for (const { of, sid } of arms) {
+        const kept = watches.filter((w) => w.of !== of && (sid === void 0 || w.sid !== sid));
+        watches = [...kept, { of, ...sid === void 0 ? {} : { sid }, at, until: at + LIMITS.idleNoticeLifetimeMs }];
       }
-      return { watches, out };
+      return { watches: watches.slice(-WATCHES_KEPT), out: void 0 };
     });
   }
-  /** Takes the watch for `of`: true, and the watch is closed, when one was armed and has not lapsed. */
-  take(of) {
+  /**
+   * Takes the watch for `of`, or, when there is none, the one for the session `sid` (the relay's
+   * id for `of` now, after a rename): true, and the watch is closed, when one was armed and has
+   * not lapsed.
+   */
+  take(of, sid) {
     return this.change((watches) => {
-      const kept = watches.filter((w) => w.of !== of);
-      return kept.length < watches.length ? { watches: kept, out: true } : { out: false };
+      const exact = watches.findIndex((w) => w.of === of);
+      const i6 = exact !== -1 || sid === void 0 ? exact : watches.findIndex((w) => w.sid === sid);
+      return i6 === -1 ? { out: false } : { watches: watches.filter((_, n3) => n3 !== i6), out: true };
     });
   }
   /**
@@ -93518,7 +93519,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4).
    */
   async idleNotice(of) {
-    if (!await this.watches.take(of)) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
+    if (!await this.watches.take(of, this.peers.get(of)?.sid)) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
     await this.notice(of, `${of} is now idle (or has ended).`);
   }
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
@@ -94215,21 +94216,20 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /**
    * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
-   * recorded in `watches.json` first, so the notice is taken when it comes. Answers a note for
-   * the send's result when an address was not armed: the limit, or a watch that could not be recorded.
+   * recorded in `watches.json` first, so the notice is taken when it comes. The relay decides the
+   * limit; a watch it never fires lapses after 12 hours. Answers a note for the send's result when
+   * the watch could not be recorded.
    */
   async notifyWhenIdle(addresses) {
-    const wanted = addresses.filter((of) => sessionAddressSchema.safeParse(of).success);
-    let armed;
+    const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
     try {
-      armed = await this.watches.arm(wanted);
+      await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
     } catch (error64) {
       this.log(`wim: watches: ${error64.message}`);
       return `no idle notice armed: this session could not record the watch (${error64.message})`;
     }
-    for (const of of armed.armed) this.sendIfOpen({ t: "notify_idle", of });
-    if (armed.refused.length === 0) return void 0;
-    return `no idle notice armed for ${armed.refused.join(", ")}: a session holds at most ${LIMITS.notifyIdlePerSession} at once (each lasts until it fires or lapses after 12 hours)`;
+    for (const of of wanted) this.sendIfOpen({ t: "notify_idle", of });
+    return void 0;
   }
   async rename(name) {
     const link = await this.ready();
