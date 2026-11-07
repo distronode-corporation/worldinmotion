@@ -121178,12 +121178,13 @@ async function holdForShow(paths, code2, o3) {
     server.on("error", reject);
     server.listen(paths.socket, resolve4);
   });
+  const partial2 = `${paths.proof}.${b64u.encode(randomBytes2(6))}.tmp`;
   try {
     await fs10.rm(paths.proof, { force: true });
-    const partial2 = `${paths.proof}.${b64u.encode(randomBytes2(6))}.tmp`;
     await fs10.writeFile(partial2, proof, { mode: 384, flag: "wx" });
     await fs10.rename(partial2, paths.proof);
   } catch (error64) {
+    await fs10.rm(partial2, { force: true });
     await new Promise((r6) => server.close(r6));
     throw error64;
   }
@@ -121204,7 +121205,8 @@ async function holdForShow(paths, code2, o3) {
 `);
       finish(true);
     });
-    o3.signal.addEventListener("abort", onAbort, { once: true });
+    if (o3.signal.aborted) finish(false);
+    else o3.signal.addEventListener("abort", onAbort, { once: true });
     (o3.onListening ?? ignore2)();
   });
 }
