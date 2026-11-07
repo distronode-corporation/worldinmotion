@@ -55,8 +55,10 @@ body line with a bracket.
   directories, symbolic links, any other relay address).
 - **`wim test --full`, `--relay` and `--person`.** `--full` adds two sandbox steps: the signer
   (encrypt under a passphrase made for the run and never printed, start, lock, unlock, stop, its
-  socket in the sandbox device's own directory) and a CI notice from a test issuer that exists
-  only inside the sandbox (held, approved, and the rule's ids pinned). `--relay <url>` is live
+  socket in the sandbox device's own directory; when TMPDIR is too long for a socket path, the
+  run goes under `/tmp` instead, or is refused before it starts with "set TMPDIR to a shorter
+  directory") and a CI notice from a test issuer that exists only inside the sandbox (held,
+  approved, and the rule's ids pinned). `--relay <url>` is live
   mode: the same steps with a throwaway mesh on that relay (`wss://`, or `ws://` only on
   loopback), deleted at the end through `wim mesh delete` on pass, failure and Ctrl-C, with
   `--key-env NAME` for a relay that needs an operator key. A step the relay does not offer is a

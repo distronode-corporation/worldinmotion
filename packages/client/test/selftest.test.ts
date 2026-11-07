@@ -6,6 +6,7 @@
 
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
@@ -19,6 +20,7 @@ import {
   noLinks,
   onLoopback,
   report,
+  runBase,
   runSteps,
   Sandbox,
   SandboxError,
@@ -26,6 +28,8 @@ import {
   sandboxFetch,
   SANDBOX_MARK,
   selfTest,
+  SHORT_TMP,
+  signerStep,
   STALE_MS,
   sweepStale,
   waitFor,
@@ -87,6 +91,15 @@ async function caller(): Promise<{ io: ReturnType<typeof term>; real: Awaited<Re
 }
 
 const pass = (name: string): Step => ({ name, run: async () => undefined });
+
+/** A new, empty directory whose real path is `length` bytes long. */
+async function longDir(length: number): Promise<string> {
+  const at = await fs.realpath(await scratch("long"));
+  const dir = join(at, "x".repeat(length - at.length - 1));
+  await fs.mkdir(dir);
+  expect(Buffer.byteLength(dir)).toBe(length);
+  return dir;
+}
 
 // Each test makes a real-looking device in a mesh first, which takes a few seconds on a slow disk.
 describe("the runner and its report", { timeout: 30_000 }, () => {
@@ -419,6 +432,59 @@ describe("the isolation rules, against hostile input", { timeout: 30_000 }, () =
     expect(inside(root, join(root, "..a"))).toBe(true);
     expect(inside(root, join(root, ".."))).toBe(false);
     expect(inside(root, join("/", "s", "box2"))).toBe(false);
+  });
+
+  it("moves a --full run whose temporary directory is too long for the signer's socket, or refuses it up front", async () => {
+    const long = await longDir(110);
+    const root = await fs.realpath("/");
+    // Under the long base the socket would be 141 bytes: on POSIX the run goes to the fallback.
+    expect(await runBase(long, "linux", root)).toBe(root);
+    expect(await runBase(long, "darwin", root)).toBe(root);
+    // A base that fits is kept, and Windows names a pipe, so any base fits there.
+    expect(await runBase(root, "linux", join(long, "missing"))).toBe(root);
+    expect(await runBase(long, "win32", join(long, "missing"))).toBe(long);
+    // A fallback that is missing or too long as well: refused, with the advice that works in the sandbox.
+    for (const fallback of [join(long, "missing"), long]) {
+      await expect(runBase(long, "linux", fallback)).rejects.toThrow(`the temporary directory ${long} is too long for the signer's socket (at most 103 bytes): set TMPDIR to a shorter directory`);
+    }
+    expect(SHORT_TMP).toBe("/tmp");
+  });
+
+  it.skipIf(!POSIX)("runs the signer step under a temporary directory of about 110 characters", async () => {
+    const { io, real } = await caller();
+    const long = await longDir(110);
+    // The fallback: right under the system's temporary directory, whose path is short on every runner.
+    const short = await fs.mkdtemp(join(await fs.realpath(tmpdir()), "wim-s-"));
+    let root = "";
+    try {
+      const code = await selfTest({
+        main,
+        env: real.env,
+        io: io.io,
+        json: true,
+        full: true,
+        tmp: long,
+        shortTmp: short,
+        steps: (run: Run) => [
+          { name: "open", run: async () => {
+            await run.open();
+            root = run.box!.root;
+          } },
+          signerStep(run),
+        ],
+      });
+      const json = JSON.parse(io.out.at(-1)!) as { steps: Array<{ name: string; result: string; detail?: string }> };
+      expect(json.steps.map((s) => [s.name, s.result, s.detail])).toEqual([
+        ["open", "pass", undefined],
+        ["the signer: encrypt, start, lock, unlock, stop", "pass", undefined],
+        ["remove the sandbox", "pass", undefined],
+      ]);
+      expect(code).toBe(0);
+      expect(inside(short, root)).toBe(true);
+      expect(await fs.readdir(long)).toEqual([]);
+    } finally {
+      await fs.rm(short, { recursive: true, force: true });
+    }
   });
 
   it("keeps the scripted terminal inside wim test: only the CLI's test command imports it", async () => {
