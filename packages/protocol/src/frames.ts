@@ -180,6 +180,8 @@ export const leaseAcquireFrameSchema = z.strictObject({
   key: leaseKeySchema,
   ttl: leaseTtlSchema,
   wait: z.boolean().optional(),
+  /** With `wait`, how long to wait for a held lease (else `ttl`); same bounds as `ttl`. */
+  timeout: leaseTtlSchema.optional(),
 });
 export const leaseRenewFrameSchema = z.strictObject({
   t: z.literal("lease.renew"),

@@ -315,12 +315,14 @@ export class MeshRelay {
       this.store.deleteJoin(inv.id);
     }
 
-    // Waiters whose own ttl passed give up before an expiring lease could be handed to them.
+    // Leases first: one that ended within this sweep goes to a waiter whose wait was still running
+    // at its `until` (free), even when that wait has ended by now. Waiters of leases still held
+    // whose own wait passed give up after.
+    for (const l of this.store.expiredLeases(now)) this.free(l, "expired", now);
     for (const w of this.store.expiredWaiters(now)) {
       this.store.deleteWaiter(w.key, w.sid);
       this.leaseTo(this.store.getSession(w.sid), w.key, "expired");
     }
-    for (const l of this.store.expiredLeases(now)) this.free(l, "expired", now);
     this.store.pruneWatches(now);
 
     this.store.pruneHistory(now - L.roomHistoryLifetimeMs, HISTORY_SWEEP_BATCH);
@@ -631,7 +633,7 @@ export class MeshRelay {
       case "room.history":
         return this.roomHistory(conn, f.room, f.before, f.limit);
       case "lease.acquire":
-        return this.leaseAcquire(conn, s, f.key, f.ttl, f.wait === true, now);
+        return this.leaseAcquire(conn, s, f.key, f.ttl, f.wait === true ? (f.timeout ?? f.ttl) : undefined, now);
       case "lease.renew":
         return this.leaseRenew(conn, s, f.key, f.token, f.ttl, now);
       case "lease.release":
@@ -1012,21 +1014,25 @@ export class MeshRelay {
     return ttl >= this.limits.leaseTtlMinMs && ttl <= this.limits.leaseTtlMaxMs;
   }
 
-  private leaseAcquire(conn: Conn, s: SessionRow, key: string, ttl: number, wait: boolean, now: number): void {
+  /** `wait`: how long a held lease is waited for (the frame's `timeout`, else its `ttl`); undefined for no wait. */
+  private leaseAcquire(conn: Conn, s: SessionRow, key: string, ttl: number, wait: number | undefined, now: number): void {
     const L = this.limits;
-    if (!this.ttlOk(ttl)) return this.lease(conn, { key, status: "refused" });
+    if (!this.ttlOk(ttl) || (wait !== undefined && !this.ttlOk(wait))) return this.lease(conn, { key, status: "refused" });
     this.expireDue(key, now);
     const held = this.store.getLease(key);
     const busy = this.store.leasesHeldBy(s.sid) + this.store.waitsBy(s.sid) >= L.leasesPerSession;
     const deviceFull = this.deviceLeases(s.device) >= L.leasesPerDevice;
     if (held !== undefined) {
-      if (!wait || held.holder === s.sid) {
+      // The holder asking again (an agent that took over its own session, say) is told it holds the
+      // lease, with its token, rather than `held` under its own name; the lease is not extended.
+      if (held.holder === s.sid) return this.lease(conn, { key, status: "granted", holder: this.address(s), until: held.until, token: held.token });
+      if (wait === undefined) {
         const holder = this.address(this.store.getSession(held.holder)!);
         return this.lease(conn, { key, status: "held", holder, until: held.until });
       }
       if (busy) return this.lease(conn, { key, status: "refused" });
-      // Answered later: `granted` when it frees, or `expired` if this wait's ttl passes first.
-      return this.store.addWaiter({ key, sid: s.sid, ttl, exp: now + ttl });
+      // Answered later: `granted` when it frees, or `expired` if this wait passes first.
+      return this.store.addWaiter({ key, sid: s.sid, ttl, exp: now + wait });
     }
     if (busy || deviceFull || this.store.leases().length >= L.leasesPerMesh) return this.lease(conn, { key, status: "refused" });
     this.grant(s, key, ttl, now);
@@ -1078,7 +1084,12 @@ export class MeshRelay {
     if (l !== undefined && l.until <= now) this.free(l, "expired", now);
   }
 
-  /** Ends a lease: tells the holder (on expiry) and the watchers, then hands it to the first waiter still waiting. */
+  /**
+   * Ends a lease: tells the holder (on expiry) and the watchers, then hands it to the first waiter
+   * still waiting when it ended. An expired lease ended at its `until`, which the sweep may see up
+   * to a second late: a waiter whose wait reached `until` was still waiting then (SPEC section 14:
+   * `expired` only if the waiter's own wait passes first).
+   */
   private free(l: LeaseRow, why: "released" | "expired", now: number): void {
     this.store.deleteLease(l.key);
     if (why === "expired") this.leaseTo(this.store.getSession(l.holder), l.key, "expired", { token: l.token });
@@ -1089,7 +1100,7 @@ export class MeshRelay {
     for (const w of this.store.waiters(l.key)) {
       this.store.deleteWaiter(w.key, w.sid);
       const waiter = this.store.getSession(w.sid);
-      if (w.exp <= now) {
+      if (why === "expired" ? w.exp < l.until : w.exp <= now) {
         this.leaseTo(waiter, l.key, "expired");
         continue;
       }

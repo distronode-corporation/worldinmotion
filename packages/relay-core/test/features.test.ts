@@ -199,7 +199,11 @@ describe.each(KINDS)("leases (%s store)", (kind) => {
     const g = a.frame({ t: "lease.acquire", key, ttl: MIN })[0]!;
     expect(g).toEqual({ t: "lease", key, status: "granted", holder: "a@laptop", until: h.now + MIN, token: 1 });
     expect(b.frame({ t: "lease.acquire", key, ttl: MIN })).toEqual([{ t: "lease", key, status: "held", holder: "a@laptop", until: h.now + MIN }]);
-    expect(a.frame({ t: "lease.acquire", key, ttl: MIN, wait: true })[0]!["status"]).toBe("held");
+    // The holder asking again is told it holds the lease, with its token, and the lease is not extended.
+    expect(a.frame({ t: "lease.acquire", key, ttl: MIN, wait: true })).toEqual([{ t: "lease", key, status: "granted", holder: "a@laptop", until: h.now + MIN, token: 1 }]);
+    h.now += 1000;
+    expect(a.frame({ t: "lease.acquire", key, ttl: 2 * MIN })).toEqual([{ t: "lease", key, status: "granted", holder: "a@laptop", until: h.now - 1000 + MIN, token: 1 }]);
+    h.now -= 1000;
     expect(a.frame({ t: "lease.list" })).toEqual([{ t: "leases", leases: [{ key, holder: "a@laptop", until: h.now + MIN, token: 1 }] }]);
     h.now += 1000;
     expect(a.frame({ t: "lease.renew", key, token: 1, ttl: MIN })).toEqual([{ t: "lease", key, status: "renewed", until: h.now + MIN, token: 1 }]);
@@ -246,6 +250,53 @@ describe.each(KINDS)("leases (%s store)", (kind) => {
     a.frame({ t: "lease.release", key, token: 1 });
     expect(c.conn.last("lease")).toEqual({ t: "lease", key, status: "expired" });
     expect(d.conn.last("lease")).toMatchObject({ status: "granted" });
+  });
+
+  it("hands an expiring lease to a waiter whose wait ends in the same sweep", () => {
+    const { h, a, b } = trio(kind);
+    a.frame({ t: "lease.acquire", key, ttl: MIN });
+    h.now += 300;
+    // The wait ends 300 ms after the lease does; one sweep a second sees both past.
+    b.frame({ t: "lease.acquire", key, ttl: MIN, wait: true });
+    h.advance(MIN);
+    expect(a.conn.last("lease")).toEqual({ t: "lease", key, status: "expired", token: 1 });
+    expect(b.conn.last("lease")).toMatchObject({ status: "granted", holder: "b@server", token: 2 });
+    expect(h.store.getLease(key)).toMatchObject({ token: 2 });
+  });
+
+  it("hands an expiring lease to a waiter with an equal ttl, and to one whose wait ends at its until", () => {
+    const { h, a, b, root } = trio(kind);
+    // Asked in the same millisecond with the same ttl: the wait ends exactly when the lease does.
+    a.frame({ t: "lease.acquire", key, ttl: MIN });
+    b.frame({ t: "lease.acquire", key, ttl: MIN, wait: true });
+    h.advance(MIN + 1000);
+    expect(b.conn.last("lease")).toMatchObject({ status: "granted", token: 2 });
+    // A waiter whose wait ended before the lease did is still told `expired`, in the same sweep.
+    const other = leaseKey(MESH, "other");
+    a.frame({ t: "lease.acquire", key: other, ttl: MIN });
+    h.now += 1;
+    root.frame({ t: "lease.acquire", key: other, ttl: MIN, wait: true, timeout: MIN - 2 });
+    h.advance(MIN);
+    expect(root.conn.last("lease")).toEqual({ t: "lease", key: other, status: "expired" });
+    expect(h.store.getLease(other)).toBeUndefined();
+  });
+
+  it("waits for the acquire's timeout rather than its ttl", () => {
+    const { h, a, b, root } = trio(kind);
+    a.frame({ t: "lease.acquire", key, ttl: 5 * MIN });
+    // A long wait for a short lease: granted when the holder's lease runs out.
+    b.frame({ t: "lease.acquire", key, ttl: 1000, wait: true, timeout: 10 * MIN });
+    // A short wait: expired at its timeout, well before its ttl.
+    root.frame({ t: "lease.acquire", key, ttl: 10 * MIN, wait: true, timeout: 1000 });
+    h.advance(1000);
+    expect(root.conn.last("lease")).toEqual({ t: "lease", key, status: "expired" });
+    h.advance(5 * MIN);
+    expect(b.conn.last("lease")).toMatchObject({ status: "granted", until: h.now + 1000 });
+    // A timeout outside the relay's ttl bounds is refused; one without wait is ignored.
+    const { a: x, b: y } = trio(kind, { limits: { leaseTtlMaxMs: MIN } });
+    x.frame({ t: "lease.acquire", key, ttl: MIN });
+    expect(y.frame({ t: "lease.acquire", key, ttl: MIN, wait: true, timeout: 2 * MIN })[0]!["status"]).toBe("refused");
+    expect(y.frame({ t: "lease.acquire", key, ttl: MIN, timeout: 2 * MIN })[0]!["status"]).toBe("held");
   });
 
   it("ends a lease when its holder says bye, but not on a disconnect", () => {
