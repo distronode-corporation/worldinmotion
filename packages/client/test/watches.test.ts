@@ -179,7 +179,7 @@ describe("relay idle notices", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
-    const first = await openSession(devices[0]!, mesh, relay, { name: "a", sessionKey: "key:a" });
+    const first = await session(devices[0]!, mesh, relay, { name: "a", sessionKey: "key:a" });
     expect(await first.notifyWhenIdle(["b@two"])).toBeUndefined();
     await sleep(30);
     await first.stop();
