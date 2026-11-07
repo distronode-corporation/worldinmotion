@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-11-07
+
 ### Added
 
 - **CI rules can name a tag or branch pattern.** A rule's ref may end in one `*` and match every
@@ -55,8 +57,10 @@ body line with a bracket.
   directories, symbolic links, any other relay address).
 - **`wim test --full`, `--relay` and `--person`.** `--full` adds two sandbox steps: the signer
   (encrypt under a passphrase made for the run and never printed, start, lock, unlock, stop, its
-  socket in the sandbox device's own directory) and a CI notice from a test issuer that exists
-  only inside the sandbox (held, approved, and the rule's ids pinned). `--relay <url>` is live
+  socket in the sandbox device's own directory; when TMPDIR is too long for a socket path, the
+  run goes under `/tmp` instead, or is refused before it starts with "set TMPDIR to a shorter
+  directory") and a CI notice from a test issuer that exists only inside the sandbox (held,
+  approved, and the rule's ids pinned). `--relay <url>` is live
   mode: the same steps with a throwaway mesh on that relay (`wss://`, or `ws://` only on
   loopback), deleted at the end through `wim mesh delete` on pass, failure and Ctrl-C, with
   `--key-env NAME` for a relay that needs an operator key. A step the relay does not offer is a
@@ -88,7 +92,7 @@ body line with a bracket.
   `/v1/info`), and [docs/hosted-relay.md](docs/hosted-relay.md) now says so, with what the relay
   sees for them. The README gains a CI notices section: the `wim ci` commands, the two senders and
   where to find them.
-- A rule saved by 0.1.9 whose ref ends in * (which matched nothing then) is a ref pattern from 0.1.10.
+- A rule saved by 0.1.9 whose ref ends in `*` (which matched nothing then) is a ref pattern from 0.1.10.
 - **relay-node loads `node:sqlite` when a relay starts**, not when the package is imported, so the
   client can bundle it for `wim test` without loading SQLite on every command.
 
@@ -917,7 +921,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10
 [0.1.9]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.9
 [0.1.8]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.8
 [0.1.7]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.7

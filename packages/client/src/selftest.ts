@@ -24,11 +24,11 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { createInterface } from "node:readline";
 import { PassThrough } from "node:stream";
 import type { CliIO } from "./cli.ts";
-import { agentEndpoint } from "./agentpath.ts";
+import { agentDir, agentEndpoint } from "./agentpath.ts";
 import { MeshSession, type Inbound } from "./client.ts";
 import { Home } from "./home.ts";
 import { MeshFiles, type BreakerLimits } from "./mesh.ts";
-import { homeChoice } from "./platform.ts";
+import { agentEndpointFor, endpointProblem, homeChoice, SOCKET_PATH_MAX, type Platform } from "./platform.ts";
 import { fetchRelayInfo, type RelayInfo } from "./relayinfo.ts";
 import { cannotConfirm } from "./secretout.ts";
 import { wsDialer, type Dialer } from "./wire.ts";
@@ -192,6 +192,29 @@ export async function sweepStale(base: string, now: number, ops: SweepOps = SWEE
     if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
   }
   return removed;
+}
+
+/** The device the signer step runs its signer on. */
+export const SIGNER_DEVICE = "sig";
+
+/** Where a `--full` run goes when its temporary directory is too long for the signer's socket (POSIX). */
+export const SHORT_TMP = "/tmp";
+
+/**
+ * Where a `--full` run makes its directory: `base`, unless the signer's socket under it
+ * (`wim-test-XXXXXX/sig/agent/sock`, after symbolic links are resolved) would be over
+ * SOCKET_PATH_MAX bytes, as under a long TMPDIR; then `fallback` when the socket fits there.
+ * Otherwise refused before anything is made. Setting WIM_HOME is no help: each sandbox device
+ * has its own. Windows names a pipe, not a path, so there `base` always fits.
+ */
+export async function runBase(base: string, platform: Platform, fallback = SHORT_TMP): Promise<string> {
+  const fits = async (dir: string): Promise<boolean> => {
+    const sock = agentEndpointFor(agentDir(join(await fs.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform, "");
+    return endpointProblem(sock, platform) === undefined;
+  };
+  if (await fits(base)) return base;
+  if (await fits(fallback).catch(() => false)) return fallback;
+  throw new SandboxError(`the temporary directory ${base} is too long for the signer's socket (at most ${SOCKET_PATH_MAX} bytes): set TMPDIR to a shorter directory`);
 }
 
 /** One run's own directory, devices and relay, and the checks made before every step. */
@@ -463,13 +486,16 @@ export class Run {
   readonly base: string;
   readonly real: readonly string[];
   readonly mode: RunMode;
+  /** Where a `--full` run goes when `base` is too long for the signer's socket (see `runBase`). */
+  readonly shortTmp: string;
 
-  constructor(main: Main, io: CliIO, base: string, real: readonly string[], mode: RunMode) {
+  constructor(main: Main, io: CliIO, base: string, real: readonly string[], mode: RunMode, shortTmp = SHORT_TMP) {
     this.main = main;
     this.io = io;
     this.base = base;
     this.real = real;
     this.mode = mode;
+    this.shortTmp = shortTmp;
   }
 
   check(): Promise<void> {
@@ -478,7 +504,9 @@ export class Run {
 
   /** The sandbox and its relay: one started here on loopback, or the live relay named, after reading its `/v1/info`. */
   async open(): Promise<void> {
-    this.box = await Sandbox.open(this.base, this.real);
+    // The signer's socket must fit under the run's directory (only `--full` runs a signer).
+    const base = this.mode.full ? await runBase(this.base, this.io.platform, this.shortTmp) : this.base;
+    this.box = await Sandbox.open(base, this.real);
     if (this.mode.live !== undefined) {
       this.box.attach(this.mode.live, true);
       this.info = await fetchRelayInfo(this.mode.live, this.fetcher());
@@ -779,8 +807,8 @@ export function signerStep(run: Run): Step {
   return {
     name: "the signer: encrypt, start, lock, unlock, stop",
     run: async () => {
-      const sig = await run.device("sig");
-      await run.ok(sig, ["init", "--name", "sig"]);
+      const sig = await run.device(SIGNER_DEVICE);
+      await run.ok(sig, ["init", "--name", SIGNER_DEVICE]);
       need((await run.ok(sig, ["agent", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
       const running = /Signer running in the foreground \(pid \d+\) at (.+)\. Ctrl-C/;
       const first = await run.background(sig, ["agent", "start", "--foreground"], running);
@@ -956,6 +984,8 @@ export type SelfTestOptions = {
   person?: boolean;
   /** Where the sandbox goes (default: the system's temporary directory). */
   tmp?: string;
+  /** Where a `--full` run goes when `tmp` is too long for the signer's socket (default: SHORT_TMP). */
+  shortTmp?: string;
   /** The steps, for tests of the runner itself (default: `sandboxSteps`). */
   steps?: (run: Run) => Step[];
   stepMs?: number;
@@ -1009,7 +1039,7 @@ export async function selfTest(o: SelfTestOptions): Promise<number> {
     ...(o.relay === undefined ? {} : { live: o.relay }),
     ...(o.keyEnv === undefined ? {} : { keyEnv: { name: o.keyEnv, value: o.env[o.keyEnv]! } }),
   };
-  const run = new Run(o.main, o.io, o.tmp ?? tmpdir(), [choice.root, choice.base], mode);
+  const run = new Run(o.main, o.io, o.tmp ?? tmpdir(), [choice.root, choice.base], mode, o.shortTmp);
   // Ctrl-C on `wim test` stops what the sandbox devices run, too.
   const stopped = stopSignal(o.io, mode.person);
   const onAbort = (): void => run.terms.forEach((t) => t.stop.abort());

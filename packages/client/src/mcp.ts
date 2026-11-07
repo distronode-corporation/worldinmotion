@@ -120,10 +120,10 @@ type In<K extends keyof typeof PUBLIC> = z.infer<(typeof PUBLIC)[K]["input"]>;
 const text = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }] });
 const json = (v: Record<string, unknown>): CallToolResult => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
 /**
- * A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b), and
- * one for each recipient whose loop breaker holds this device's messages (`held`, SPEC section 12).
+ * A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b), one
+ * for each recipient whose loop breaker holds this device's messages (`held`, SPEC section 12),
+ * and `watchNote`, which says why an idle notice it asked for was not armed.
  */
-/** A send's result; `watchNote` says why an idle notice it asked for was not armed. */
 const sent = (o: SendOutcome, watchNote?: string): CallToolResult => {
   const held = o.results.flatMap((r) => (r.status === "held" ? [heldSendLine(r.to, r.breaker)] : []));
   return json({
