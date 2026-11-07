@@ -1,7 +1,7 @@
 // Short invite codes (SPEC section 5): the admin device stores its sealed full code at the relay
 // and prints `wim2-...`; the joiner resolves it through the relay and joins as before.
 
-import { createInvite, formatShortCode, LIMITS, newShortKey, rdvId, sealRdv, SHORT_CODE_RELAY, type RelayFrame } from "@worldinmotion/protocol";
+import { b64u, canonBytes, createInvite, formatShortCode, LIMITS, newShortKey, parseInvite, rdvId, sealRdv, SHORT_CODE_RELAY, type RelayFrame } from "@worldinmotion/protocol";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { ClientError } from "../src/client.ts";
@@ -47,6 +47,15 @@ describe("resolveInvite", () => {
     expect(await resolveInvite(` ${short.toLowerCase()} `, fetcher)).toBe(code);
     expect(fetcher.urls).toEqual([`http://127.0.0.1:4444/v1/rdv/${rdvId(short.slice(5, 29).replace(/-/g, ""))}`]);
     expect(rdvUrl("wss://relay.example/x", "ID")).toBe("https://relay.example/x/v1/rdv/ID");
+  });
+
+  it("opens a short code whose box holds a code from 0.2.0 (with `by`), and the code reads as without it", async () => {
+    const code = full();
+    const body = JSON.parse(new TextDecoder().decode(b64u.decode(code.slice(5)))) as Record<string, unknown>;
+    const newer = `wim1_${b64u.encode(canonBytes({ ...body, by: "PxJjk3xiwFWIWhuMwaIsqQ" }))}`;
+    const { short, fetcher } = stored(newer);
+    expect(await resolveInvite(short, fetcher)).toBe(newer);
+    expect(parseInvite(newer)).toEqual(parseInvite(code));
   });
 
   it("refuses a mistyped short code before asking the relay", async () => {

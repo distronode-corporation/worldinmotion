@@ -299,6 +299,10 @@ wim1_<b64u(canon({ "relay": "wss://relay.example", "mesh": "<mesh id>", "secret"
   `ws://` is still refused except to loopback. The pin is stored per
   mesh, and a later invite MUST NOT replace it without the person confirming; wim/1 has no pin
   rotation other than re-inviting.
+- **`by`.** From 0.2.0 an invite carries `by`, the device id of the admin that made it. 0.1.11
+  accepts and ignores `by`, checked as a device id like any other field, so a malformed one is
+  refused; 0.1.10 and older refuse a code that carries it. Any other unknown field is still
+  refused. This holds for a short code too, whose box holds the full code.
 
 **The join request.** The joining device generates its keys, connects without authenticating and
 sends:

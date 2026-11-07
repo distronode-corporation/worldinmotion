@@ -8,6 +8,7 @@ import type { DeviceKeys } from "./keys.ts";
 import { signObjectWith, type Keyring } from "./keyring.ts";
 import { fail, LIMITS, ok, PROTOCOL, type Result } from "./limits.ts";
 import {
+  deviceIdSchema,
   deviceRecordSchema,
   inviteIdSchema,
   joinDeviceSchema,
@@ -35,6 +36,12 @@ const inviteBodySchema = z.strictObject({
   exp: timeSchema,
   /** Optional relay certificate pin: b64u SHA-256 of its SubjectPublicKeyInfo (SPEC section 5). */
   tls: b64uBytes(32).optional(),
+  /**
+   * The id of the admin device that made the invite, which 0.2.0 writes. This version accepts it,
+   * checked as a device id like any other field, and ignores it: it is not part of the decoded
+   * invite (SPEC section 5).
+   */
+  by: deviceIdSchema.optional(),
 });
 
 /** A decoded invite code (SPEC section 5). */
@@ -120,8 +127,10 @@ export function parseInvite(code: string): InviteCode {
   if (!body.ok) throw new Error("invalid invite code: it is damaged or incomplete");
   const parsed = safeParse(inviteBodySchema, body.value);
   if (!parsed.success) throw new Error(`invalid invite code: ${describe(parsed.error)}`);
-  const secret = b64u.decode(parsed.data.secret);
-  return { ...parsed.data, secret, inviteId: inviteIdFromSecret(secret) };
+  // `by` (from 0.2.0) was checked above and is not used by this version.
+  const { by: _by, ...fields } = parsed.data;
+  const secret = b64u.decode(fields.secret);
+  return { ...fields, secret, inviteId: inviteIdFromSecret(secret) };
 }
 
 /** The four public fields of a device, whether given a join record or a full roster record. */

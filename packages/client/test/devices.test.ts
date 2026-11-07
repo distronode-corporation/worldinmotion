@@ -3,7 +3,7 @@
 // variables; admin-device sessions keep join requests on disk for `wim devices pending` and
 // `wim devices admit`; and both sides are asked whether the other device is the person's own.
 
-import { b64u, createJoin, generateDeviceKeys, parseInvite, sasFor, type JoinBody } from "@worldinmotion/protocol";
+import { b64u, canonBytes, createJoin, generateDeviceKeys, parseInvite, sasFor, type JoinBody } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -328,6 +328,24 @@ describe("wim invite, join and devices", () => {
     expect((await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).loadConfig()).policy[j.d.device.id]).toBe("deliver");
     await j.done;
     void sasFor;
+  }, 30_000);
+
+  it("joins with a code from 0.2.0 (it names its maker as `by`) exactly as with one without it", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["admin"]);
+    const withBy = (code: string): string => {
+      const body = JSON.parse(new TextDecoder().decode(b64u.decode(code.slice(5)))) as Record<string, unknown>;
+      return `wim1_${b64u.encode(canonBytes({ ...body, by: devices[0]!.device.id }))}`;
+    };
+    const p = term(devices[0]!.root, relay);
+    for (const [name, code] of [["plain", await inviteAndLeave(relay, devices[0]!, mesh)], ["newer", withBy(await inviteAndLeave(relay, devices[0]!, mesh))]] as const) {
+      const j = await joining(relay, name, code);
+      expect(await run(p, "devices", "admit", name, j.sas)).toBe(0);
+      const done = await j.done;
+      expect(done.mesh).toBe(mesh);
+      expect(done.roster.devices.map((d) => d.name)).toContain(name);
+      expect(Object.keys(done).sort()).toEqual(["mesh", "roster"]);
+    }
   }, 30_000);
 
   it("refuses to admit a second device under a name the first one took", async () => {
