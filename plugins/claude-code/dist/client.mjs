@@ -123431,6 +123431,7 @@ function showPaths(home, platform2, kind = "recovery") {
   return { socket, proof: p3.join(home, `${kind}.proof`), what: `${kind} code` };
 }
 var PROOF_WAIT_MS = 5e3;
+var PROOF_LEN = 43;
 var PROOF_MAX = 128;
 function ignore2() {
 }
@@ -123467,7 +123468,9 @@ async function holdForShow(paths, code2, o3) {
   });
   try {
     await fs10.rm(paths.proof, { force: true });
-    await fs10.writeFile(paths.proof, proof, { mode: 384, flag: "wx" });
+    const partial2 = `${paths.proof}.${b64u.encode(randomBytes2(6))}.tmp`;
+    await fs10.writeFile(partial2, proof, { mode: 384, flag: "wx" });
+    await fs10.rename(partial2, paths.proof);
   } catch (error64) {
     await new Promise((r6) => server.close(r6));
     throw error64;
@@ -123496,7 +123499,7 @@ async function holdForShow(paths, code2, o3) {
 async function fetchHeldCode(paths) {
   const none = `no ${paths.what} is waiting (it is offered for at most ${SHOW_WINDOW_MINUTES} minutes after it is made)`;
   const proof = await fs10.readFile(paths.proof, "utf8").catch(absent);
-  if (proof === void 0) throw new Error(none);
+  if (proof === void 0 || proof.length < PROOF_LEN) throw new Error(none);
   return new Promise((resolve4, reject) => {
     let text2 = "";
     const socket = createConnection2(paths.socket);

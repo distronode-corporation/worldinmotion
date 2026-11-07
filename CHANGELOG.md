@@ -94,6 +94,11 @@ body line with a bracket.
 
 ### Fixed
 
+- **A recovery or invite code's show could read an empty proof.** The holder wrote its proof
+  file in place, so a `wim recovery show` or `wim invite show` that read it in that moment sent
+  an empty proof and was told no code was waiting while one was. The proof is now written under
+  another name and renamed into place, and a reader that finds an empty or short proof is told
+  nothing waits without connecting. Found by a macOS CI run.
 - **The GitHub Action did not load.** The description of its `status` input showed the
   job-status expression literally, and GitHub evaluates expressions anywhere in an action's
   metadata, so every run stopped in "Set up job" (`Unrecognized named-value: 'job'`) before
