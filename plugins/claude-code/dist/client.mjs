@@ -121115,9 +121115,9 @@ async function runEvents(d5) {
     if (line.trim() === "") return;
     queue = queue.then(() => handle(line));
   });
-  const ended = new Promise((resolve3) => lines.once("close", resolve3));
+  const ended2 = new Promise((resolve3) => lines.once("close", resolve3));
   const aborted2 = new Promise((resolve3) => d5.signal.aborted ? resolve3() : d5.signal.addEventListener("abort", () => resolve3(), { once: true }));
-  await Promise.race([ended, aborted2]);
+  await Promise.race([ended2, aborted2]);
   clearInterval(tick);
   clearInterval(leaseTick);
   lines.close();
@@ -121203,9 +121203,9 @@ async function runSetupEvents(d5) {
     if (line.trim() === "") return;
     queue = queue.then(() => handle(line));
   });
-  const ended = new Promise((resolve3) => lines.once("close", resolve3));
+  const ended2 = new Promise((resolve3) => lines.once("close", resolve3));
   const aborted2 = new Promise((resolve3) => d5.signal.aborted ? resolve3() : d5.signal.addEventListener("abort", () => resolve3(), { once: true }));
-  await Promise.race([ended, aborted2, joined]);
+  await Promise.race([ended2, aborted2, joined]);
   lines.close();
 }
 
@@ -123054,7 +123054,8 @@ var HOOK_AGENTS = {
   antigravity: {
     read: (p3) => {
       const k5 = key2(p3.conversationId);
-      return k5 === void 0 || p3.error !== void 0 && p3.error !== "" ? void 0 : { key: k5, continued: false };
+      if (k5 === void 0) return void 0;
+      return p3.error !== void 0 && p3.error !== "" ? { key: k5, continued: false, ends: "the turn ended with an error" } : { key: k5, continued: false };
     },
     wake: (text2) => JSON.stringify({ decision: "continue", reason: text2 }),
     allow: ""
@@ -123070,7 +123071,8 @@ var HOOK_AGENTS = {
   cursor: {
     read: (p3) => {
       const k5 = key2(p3.conversation_id);
-      return k5 === void 0 || p3.hook_event_name !== "stop" || p3.status !== "completed" ? void 0 : { key: k5, continued: false };
+      if (k5 === void 0 || p3.hook_event_name !== "stop") return void 0;
+      return p3.status === "completed" ? { key: k5, continued: false } : { key: k5, continued: false, ends: "the turn was aborted or failed" };
     },
     wake: (text2) => JSON.stringify({ followup_message: text2 }),
     allow: ""
@@ -123090,14 +123092,14 @@ async function hookAnswer(o3) {
   if (agent === void 0) return { out: "", why: "not an agent the hook knows" };
   const stop = readStop(agent, o3.input);
   if (stop === void 0) return { out: agent.allow, why: "not a turn-end payload this agent sends" };
-  if (stop.continued) return { out: agent.allow, why: await continued(o3) };
+  if (stop.continued) return { out: agent.allow, why: await ended(o3, "this stop already follows a continuation") };
+  if (stop.ends !== void 0) return { out: agent.allow, why: await ended(o3, stop.ends) };
   const found = await waiting(o3, `${o3.agent}\0${stop.key}`).catch(cannotTell);
   if (typeof found === "string") return { out: agent.allow, why: found };
   return { out: agent.wake(wakeText(found)), why: `${found} waiting` };
 }
 var cannotTell = (error64) => `cannot tell: ${error64.message}`;
-async function continued(o3) {
-  const why = "this stop already follows a continuation";
+async function ended(o3, why) {
   const found = await locate(o3).catch(cannotTell);
   return typeof found === "string" ? `${why}; nothing written: ${found}` : settle2(found, why);
 }

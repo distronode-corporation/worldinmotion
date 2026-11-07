@@ -33,8 +33,12 @@ export const HOOK_INPUT_MS = 5000;
 const ANNOUNCED_TTL_MS = 7 * 24 * 3600 * 1000;
 const ANNOUNCED_MAX = 64;
 
-/** One turn end, as the hook reads it: the agent's own session key, and whether this stop already follows a continuation. */
-type Stop = { key: string; continued: boolean };
+/**
+ * One turn end, as the hook reads it: the agent's own session key, and whether this stop already
+ * follows a continuation. `ends` says why a turn end may not wake (a turn the person aborted or that
+ * failed): it still ends a mesh turn.
+ */
+type Stop = { key: string; continued: boolean; ends?: string };
 
 type Payload = Record<string, unknown>;
 
@@ -71,7 +75,8 @@ export const HOOK_AGENTS: Readonly<Record<string, AgentHook>> = {
   antigravity: {
     read: (p) => {
       const k = key(p.conversationId);
-      return k === undefined || (p.error !== undefined && p.error !== "") ? undefined : { key: k, continued: false };
+      if (k === undefined) return undefined;
+      return p.error !== undefined && p.error !== "" ? { key: k, continued: false, ends: "the turn ended with an error" } : { key: k, continued: false };
     },
     wake: (text) => JSON.stringify({ decision: "continue", reason: text }),
     allow: "",
@@ -87,7 +92,8 @@ export const HOOK_AGENTS: Readonly<Record<string, AgentHook>> = {
   cursor: {
     read: (p) => {
       const k = key(p.conversation_id);
-      return k === undefined || p.hook_event_name !== "stop" || p.status !== "completed" ? undefined : { key: k, continued: false };
+      if (k === undefined || p.hook_event_name !== "stop") return undefined;
+      return p.status === "completed" ? { key: k, continued: false } : { key: k, continued: false, ends: "the turn was aborted or failed" };
     },
     wake: (text) => JSON.stringify({ followup_message: text }),
     allow: "",
@@ -131,7 +137,8 @@ export async function hookAnswer(o: HookOptions): Promise<HookAnswer> {
   if (agent === undefined) return { out: "", why: "not an agent the hook knows" };
   const stop = readStop(agent, o.input);
   if (stop === undefined) return { out: agent.allow, why: "not a turn-end payload this agent sends" };
-  if (stop.continued) return { out: agent.allow, why: await continued(o) };
+  if (stop.continued) return { out: agent.allow, why: await ended(o, "this stop already follows a continuation") };
+  if (stop.ends !== undefined) return { out: agent.allow, why: await ended(o, stop.ends) };
   const found = await waiting(o, `${o.agent}\0${stop.key}`).catch(cannotTell);
   if (typeof found === "string") return { out: agent.allow, why: found };
   return { out: agent.wake(wakeText(found)), why: `${found} waiting` };
@@ -139,9 +146,11 @@ export async function hookAnswer(o: HookOptions): Promise<HookAnswer> {
 
 const cannotTell = (error: unknown): string => `cannot tell: ${(error as Error).message}`;
 
-/** The stop after a continuation: the mesh turn the hook asked for ends, so the one session reads `idle`. */
-async function continued(o: HookOptions): Promise<string> {
-  const why = "this stop already follows a continuation";
+/**
+ * A turn end that may not wake (it follows a continuation, or the turn was aborted or failed): a
+ * mesh turn the hook asked for ends, so the one session reads `idle`.
+ */
+async function ended(o: HookOptions, why: string): Promise<string> {
   const found = await locate(o).catch(cannotTell);
   return typeof found === "string" ? `${why}; nothing written: ${found}` : settle(found, why);
 }

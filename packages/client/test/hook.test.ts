@@ -432,6 +432,19 @@ describe("wim hook: the turn it asks for is a mesh turn", () => {
       expect(await hookAnswer(opts(state.root, agent, input))).toEqual({ out: "", why: "nothing new since the last announcement" });
       expect(await presence(mine)).toBe("idle");
     }
+    // A Cursor turn the person aborted or that failed, and an Antigravity stop with an error: no
+    // wake, but the mesh turn ends.
+    for (const [agent, input, why] of [
+      ["cursor", JSON.stringify({ ...DOCUMENTED.cursor, status: "aborted" }), "the turn was aborted or failed"],
+      ["antigravity", JSON.stringify({ ...JSON.parse(await fixture("antigravity", "stop.first.json")), error: "boom" }), "the turn ended with an error"],
+    ] as const) {
+      const state = await stateDir();
+      const mine = await session(state.meshDir, [AGENT]);
+      await item(mine);
+      await fs.writeFile(join(mine, "presence"), "busy-mesh");
+      expect(await hookAnswer(opts(state.root, agent, input))).toEqual({ out: "", why });
+      expect(await presence(mine)).toBe("idle");
+    }
     // A stop with nothing waiting writes idle too.
     const state = await stateDir();
     const quiet = await session(state.meshDir, [AGENT]);
