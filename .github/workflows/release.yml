@@ -613,10 +613,12 @@ jobs:
     timeout-minutes: 10
     # The workflow's own group is per tag, so two releases could both clone the action
     # repository's main and the second atomic push would be refused. One group for every
-    # release queues them: each clones main after the one before has pushed.
+    # release queues them: each clones main after the one before has pushed. `queue: max` keeps
+    # every pending release (by default a newer pending job cancels the one already waiting).
     concurrency:
       group: notify-github
       cancel-in-progress: false
+      queue: max
     # Holds the deploy key; protected, so only a release tag can use it.
     environment: notify-publish
     permissions:
