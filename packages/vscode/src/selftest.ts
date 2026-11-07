@@ -74,11 +74,18 @@ export function runClient(command: Command, spawn: SpawnFn, cancelled: { onCance
     const err = new StringDecoder("utf8");
     let stdout = "";
     let stderr = "";
+    // At most MAX_OUTPUT bytes of each stream, cut inside the chunk that crosses it.
+    let outBytes = 0;
+    let errBytes = 0;
     child.stdout!.on("data", (b: Buffer) => {
-      if (stdout.length < MAX_OUTPUT) stdout += out.write(b);
+      const part = b.subarray(0, MAX_OUTPUT - outBytes);
+      outBytes += part.length;
+      stdout += out.write(part);
     });
     child.stderr!.on("data", (b: Buffer) => {
-      if (stderr.length < MAX_OUTPUT) stderr += err.write(b);
+      const part = b.subarray(0, MAX_OUTPUT - errBytes);
+      errBytes += part.length;
+      stderr += err.write(part);
     });
     child.stdin!.on("error", () => undefined);
     child.on("error", (e: Error) => resolve({ error: `the client could not start: ${e.message}` }));

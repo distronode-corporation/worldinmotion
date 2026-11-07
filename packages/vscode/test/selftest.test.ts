@@ -102,18 +102,19 @@ describe("running the client", () => {
   it("keeps at most MAX_OUTPUT of each stream", async () => {
     const big = Buffer.alloc(3 * 1024 * 1024, 0x61);
     const report = JSON.stringify({ ok: true, ms: 1, steps: [step("create the mesh", "pass", 1)] });
-    // A valid report past the limit on stdout is not read: nothing past MAX_OUTPUT is kept.
+    // A valid report past the limit on stdout is not read, even inside the chunk that crosses it:
+    // nothing past MAX_OUTPUT bytes is kept.
     const out = new FakeChild();
     const outDone = runClient(command, (() => out) as unknown as SpawnFn, never);
-    for (let i = 0; i < 2; i++) out.stdout.emit("data", big);
-    out.stdout.emit("data", Buffer.from(`\n${report}\n`));
+    out.stdout.emit("data", big);
+    out.stdout.emit("data", Buffer.concat([big, Buffer.from(`\n${report}\n`)]));
     out.emit("close", 0, null);
     expect(await outDone).toEqual({ error: "the client exited 0 with no report" });
     // On stderr, a line past the limit is not the reason given.
     const err = new FakeChild();
     const errDone = runClient(command, (() => err) as unknown as SpawnFn, never);
-    for (let i = 0; i < 2; i++) err.stderr.emit("data", big);
-    err.stderr.emit("data", Buffer.from("\nwim: a line past the limit\n"));
+    err.stderr.emit("data", big);
+    err.stderr.emit("data", Buffer.concat([big, Buffer.from("\nwim: a line past the limit\n")]));
     err.emit("close", 1, null);
     const r = await errDone;
     expect("error" in r && !r.error.includes("past the limit")).toBe(true);
