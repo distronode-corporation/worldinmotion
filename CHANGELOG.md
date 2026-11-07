@@ -97,6 +97,30 @@ body line with a bracket.
   names the sender and carries none of the message, and `wim status` shows how many this device
   has dropped.
 
+### Fixed
+
+- **A lease that expires goes to the session waiting for it.** When a lease's `until` and its
+  waiter's wait ended within the same one-second relay sweep (always the case with the default
+  60 s on both sides), the waiter was told `expired` and the lease was left free with nobody
+  holding it. The relay now ends expired leases before expired waits, and hands the lease to a
+  waiter whose wait had not passed at the lease's `until`. `lease.acquire` takes an optional
+  `timeout`, how long to wait, apart from the lease's `ttl` (SPEC section 14); the MCP `lease`
+  tool takes it as `wait_s`. Without it a wait lasts the `ttl`, as before. A relay older than this
+  refuses the field, and the client asks again without it.
+- **A session that lost a lease is told.** The client drops the token and writes a notice for the
+  agent when the relay says the lease expired, when its `until` passes (also while offline), when
+  a renew is refused and the relay no longer lists it as the holder, when a release is refused,
+  and when it reconnects and `lease.list` shows that the lease ended while it was away. A re-acquire
+  after the `until` is answered with the new grant (the client took the expiry notice before it as
+  the answer). The `lease` tool's description tells agents to renew or check before every step a
+  lease protects.
+- **A new agent no longer inherits leases silently.** A same-project takeover writes one notice
+  naming the leases that came with it, and keeps the relay's tokens for them. An acquire by the
+  session that already holds the lease is answered `granted` with its token (it was `held`, naming
+  the caller itself).
+- **Expired lease tokens no longer pile up.** A token whose lease's `until` has passed is dropped,
+  so a session whose leases all ended holds nothing and can end cleanly.
+
 ## [0.1.10] - 2026-11-07
 
 ### Added

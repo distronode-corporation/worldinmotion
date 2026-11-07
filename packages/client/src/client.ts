@@ -284,6 +284,40 @@ export function claimLine(address: string, c: { unread: number; held: number; le
   return `this session took over ${address}, an offline session on this device, with its queue, rooms, history and leases. With it came ${n(c.unread, "unread message", "unread messages")}, ${n(c.held, "held item", "held items")} and ${n(c.leases, "lease", "leases")}. Held items wait for the person on this device to approve or refuse (/wim, the Held view, or wim held list); a claim does not decide them.`;
 }
 
+/**
+ * The relay's answer to this session's lease request for `key`: any `lease` frame for it except
+ * an expiry with a token, which is the relay telling the holder its lease ended (onFrame), sent
+ * just before the answer to a request that found the lease past its `until`.
+ */
+function leaseAnswer(key: string): (f: RelayFrame) => boolean {
+  return (f) => f.t === "lease" && f.key === key && !(f.status === "expired" && f.token !== undefined);
+}
+
+/** Why a session no longer holds a lease it had a token for (leaseLostLine). */
+export type LeaseLoss = "expired" | "away" | "renew" | "release";
+
+/**
+ * The notice when this session learns it lost a lease (SPEC section 14): whatever the lease
+ * protected may now be another session's turn. `name` is shown as given (quoted by the caller).
+ */
+export function leaseLostLine(name: string, why: LeaseLoss): string {
+  const how = {
+    expired: "it expired (its ttl passed without a renew)",
+    away: "it ended while this session was offline or not running",
+    renew: "the relay refused to renew it: it had expired or ended",
+    release: "the relay refused the release: it had expired or ended before",
+  }[why];
+  return `this session no longer holds the lease ${name}: ${how}, and another session may hold it now. Stop any step it protected, and acquire it again before going on.`;
+}
+
+/**
+ * The notice after a same-project takeover that brought leases with it: the agent now holds them,
+ * though it never asked for them.
+ */
+export function inheritedLeasesLine(names: readonly string[]): string {
+  return `this session took over an earlier session from this working directory, and with it ${names.length} ${names.length === 1 ? "lease" : "leases"}: ${names.join(", ")}. Renew one before relying on it, or release it if this session does not need it.`;
+}
+
 /** What a person or an agent is told about a send that went without forward secrecy. */
 export function unprotectedNote(unprotected: readonly string[], noPrekey: readonly string[]): string {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
@@ -498,6 +532,12 @@ export class MeshSession extends EventEmitter {
   private claimTold = false;
   /** The claim notice under way, which `stop` waits for, so a one-off command does not exit before it. */
   private claimNoticing: Promise<void> = Promise.resolve();
+  /** Whether this session was taken over by the same-project rule; its inherited leases are told once (checkLeases). */
+  private projectTaken = false;
+  /** The lease check of the last `ready` (checkLeases), which `stop` waits for. */
+  private leaseChecking: Promise<void> = Promise.resolve();
+  /** The relay's clock minus this one, from the last `hello` (lease `until` is the relay's time). */
+  private relayOffset = 0;
 
   private constructor(o: SessionOptions, files: SessionFiles, state: SessionState) {
     super();
@@ -555,7 +595,8 @@ export class MeshSession extends EventEmitter {
         state = { ...(saved ?? { ...newSessionState(o.name, o.kind), sid: known.sid }), resume: known.resume, kind: o.kind };
       }
     }
-    state ??= await MeshSession.sameProject(o);
+    const project = state === undefined ? await MeshSession.sameProject(o) : undefined;
+    state ??= project;
     state ??= newSessionState(o.name, o.kind);
     if (o.cwd !== undefined) state = { ...state, cwd: o.cwd };
     const files = new SessionFiles(o.mesh, state.sid, o.env);
@@ -571,6 +612,7 @@ export class MeshSession extends EventEmitter {
     if (o.sessionKey !== undefined) await keys.remember(o.sessionKey, state.sid, state.resume);
     const session = new MeshSession(o, files, state);
     session.takenOver = claimed !== undefined;
+    session.projectTaken = project !== undefined;
     await session.load();
     await session.settleDelivered();
     await session.restorePauses();
@@ -637,7 +679,7 @@ export class MeshSession extends EventEmitter {
    */
   async holdsNothing(): Promise<boolean> {
     const st = this.state;
-    if (st.seq > 0 || st.rooms.length > 0 || Object.keys(st.leases).length > 0) return false;
+    if (st.seq > 0 || st.rooms.length > 0 || this.heldLeases().length > 0) return false;
     // Notices are this client's own lines (a `name-N`, say): nothing a peer sent.
     const unread = (await this.spool.unread()).filter((i) => i.kind !== "notice");
     return unread.length + (await this.held.list()).length === 0;
@@ -694,7 +736,7 @@ export class MeshSession extends EventEmitter {
           },
           this.device.keyring,
         ),
-      onReady: (ready, link) => this.onReady(ready, link),
+      onReady: (ready, link, hello) => this.onReady(ready, link, hello.at),
       onFrame: (f) => this.onFrame(f),
       onFatal: (reason) => {
         this.log(`wim: ${reason}`);
@@ -734,6 +776,7 @@ export class MeshSession extends EventEmitter {
     this.stopped = true;
     // A claim notice under way is written before the connection goes.
     await this.claimNoticing;
+    await this.leaseChecking;
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
@@ -769,7 +812,8 @@ export class MeshSession extends EventEmitter {
 
   // ---- connection ----
 
-  private async onReady(ready: ReadyFrame, link: Link): Promise<void> {
+  private async onReady(ready: ReadyFrame, link: Link, relayAt: number): Promise<void> {
+    this.relayOffset = relayAt - this.now();
     const roster = ready.roster;
     const pin = this.book.ref;
     // Walk forward from the pin; a relay that cannot show a valid chain is not believed.
@@ -786,6 +830,7 @@ export class MeshSession extends EventEmitter {
     // agent must learn its own address, or it gives peers one that does not reach it (issue #36).
     if (address !== was) this.noticeLater(this.address, ready.name === asked ? reclaimedLine(was, address) : renamedLine(was, address));
     if (this.takenOver && !this.claimTold) this.claimNotice(link);
+    this.checkLeases(link);
     this.peers.clear();
     for (const p of ready.peers) this.peers.set(p.address, p);
     this.emit("peers");
@@ -916,6 +961,10 @@ export class MeshSession extends EventEmitter {
       }
       case "card":
         this.takeCard(f.msg);
+        return;
+      case "lease":
+        // The relay tells a holder when its lease expires (SPEC section 14), answered or not.
+        if (f.status === "expired" && f.token !== undefined) void this.leaseLost(f.key, f.token, "expired").catch((e: unknown) => this.log(`wim: lease: ${(e as Error).message}`));
         return;
       case "ci.deliver": {
         const via = this.link;
@@ -1685,6 +1734,7 @@ export class MeshSession extends EventEmitter {
     this.ticking = true;
     try {
       await this.sweep();
+      await this.pruneLeases();
       await this.readPresence();
       // The person's marks and the end of a cool-down change what is held and paused: on the
       // inbound queue, so neither interleaves with a message being admitted or held. Queued, not
@@ -2566,24 +2616,42 @@ export class MeshSession extends EventEmitter {
     return key;
   }
 
-  async acquireLease(name: string, ttlMs: number, wait: boolean): Promise<LeaseFrame> {
+  /**
+   * Acquires a lease. With `wait`, a held lease is waited for up to `waitMs` (SPEC section 14's
+   * `timeout`), else up to `ttlMs` as before. A relay older than `timeout` refuses the frame as
+   * malformed (with no `ref`): the acquire is then asked again without it, waiting up to `ttlMs`.
+   */
+  async acquireLease(name: string, ttlMs: number, wait: boolean, waitMs?: number): Promise<LeaseFrame> {
     const key = await this.keyFor(name);
     const link = await this.ready();
-    const answer = (await link.request(
-      { t: "lease.acquire", key, ttl: ttlMs, ...(wait ? { wait: true } : {}) },
-      (f) => f.t === "lease" && f.key === key,
-      (wait ? ttlMs : 0) + (this.answerMs),
-    )) as LeaseFrame;
-    if (answer.status === "granted" && answer.token !== undefined) await this.save({ leases: { ...this.state.leases, [key]: answer.token } });
-    return answer;
+    const timeout = wait ? waitMs : undefined;
+    const ask = (withTimeout: boolean): Promise<RelayFrame> =>
+      link.request(
+        { t: "lease.acquire", key, ttl: ttlMs, ...(wait ? { wait: true } : {}), ...(withTimeout ? { timeout } : {}) },
+        (f) => leaseAnswer(key)(f) || (withTimeout && f.t === "error" && f.code === "malformed" && f.ref === undefined),
+        (wait ? (withTimeout ? timeout! : ttlMs) : 0) + this.answerMs,
+      );
+    let answer = await ask(timeout !== undefined);
+    if (answer.t === "error") {
+      this.log("wim: the relay does not take a lease wait timeout; waiting up to the lease ttl instead");
+      answer = await ask(false);
+    }
+    const lease = answer as LeaseFrame;
+    if (lease.status === "granted" && lease.token !== undefined) await this.keepLease(key, lease.token, lease.until);
+    return lease;
   }
 
+  /** Renews a lease. A refused renew is checked against the relay's list: a lease this session lost is dropped, and the agent told. */
   async renewLease(name: string, ttlMs: number): Promise<LeaseFrame> {
     const key = await this.keyFor(name);
     const token = this.state.leases[key];
     if (token === undefined) throw new ClientError(`this session does not hold the lease ${JSON.stringify(name)}`, "not_held");
     const link = await this.ready();
-    return (await link.request({ t: "lease.renew", key, token, ttl: ttlMs }, (f) => f.t === "lease" && f.key === key, this.answerMs)) as LeaseFrame;
+    const answer = (await link.request({ t: "lease.renew", key, token, ttl: ttlMs }, leaseAnswer(key), this.answerMs)) as LeaseFrame;
+    if (answer.status === "renewed") await this.keepLease(key, token, answer.until);
+    // Refused for a bad ttl or the 4-hour cap, the lease is still held: only a lost one is dropped.
+    else if (!(await this.stillHeld(link, key, token).catch(() => true))) await this.leaseLost(key, token, "renew");
+    return answer;
   }
 
   async releaseLease(name: string): Promise<LeaseFrame> {
@@ -2591,10 +2659,94 @@ export class MeshSession extends EventEmitter {
     const token = this.state.leases[key];
     if (token === undefined) throw new ClientError(`this session does not hold the lease ${JSON.stringify(name)}`, "not_held");
     const link = await this.ready();
-    const answer = (await link.request({ t: "lease.release", key, token }, (f) => f.t === "lease" && f.key === key, this.answerMs)) as LeaseFrame;
-    const { [key]: _gone, ...rest } = this.state.leases;
-    await this.save({ leases: rest });
+    const answer = (await link.request({ t: "lease.release", key, token }, leaseAnswer(key), this.answerMs)) as LeaseFrame;
+    // Refused, the lease had already ended: the agent learns that what it protected was not its own.
+    if (answer.status === "refused") await this.leaseLost(key, token, "release");
+    else await this.forgetLease(key, token);
     return answer;
+  }
+
+  /** Lease keys this session holds a token for, less those whose `until` has passed (relay clock). */
+  private heldLeases(): string[] {
+    const until = this.state.leaseUntil ?? {};
+    const now = this.relayNow();
+    return Object.keys(this.state.leases).filter((k) => !(until[k]! <= now));
+  }
+
+  private relayNow(): number {
+    return this.now() + this.relayOffset;
+  }
+
+  /** Keeps a lease's token and, when the relay gave one, its `until`. */
+  private async keepLease(key: string, token: number, until: number | undefined): Promise<void> {
+    const { [key]: _old, ...untils } = this.state.leaseUntil ?? {};
+    await this.save({ leases: { ...this.state.leases, [key]: token }, leaseUntil: until === undefined ? untils : { ...untils, [key]: until } });
+  }
+
+  /** Forgets a lease if this session still has `token` for it; true when it did. */
+  private async forgetLease(key: string, token: number): Promise<boolean> {
+    if (this.state.leases[key] !== token) return false;
+    const { [key]: _t, ...leases } = this.state.leases;
+    const { [key]: _u, ...leaseUntil } = this.state.leaseUntil ?? {};
+    await this.save({ leases, leaseUntil });
+    return true;
+  }
+
+  /** Forgets a lost lease and tells the agent, once: only while this session still has that token. */
+  private async leaseLost(key: string, token: number, why: LeaseLoss): Promise<void> {
+    if (!(await this.forgetLease(key, token))) return;
+    await this.notice(this.address, leaseLostLine(await this.leaseShown(key), why));
+  }
+
+  /** A lease as a notice names it: its plain name where this device knows it, else its key. */
+  private async leaseShown(key: string): Promise<string> {
+    return JSON.stringify(sanitizeForDisplay((await this.leaseNames())[key] ?? key));
+  }
+
+  /** Whether the relay lists this session as the lease's holder with `token`. */
+  private async stillHeld(link: Link, key: string, token: number): Promise<boolean> {
+    const f = (await link.request({ t: "lease.list" }, (x) => x.t === "leases", this.answerMs)) as LeasesFrame;
+    return f.leases.some((l) => l.key === key && l.holder === this.address && l.token === token);
+  }
+
+  /** Drops each lease whose `until` has passed (relay clock), telling the agent: from the housekeeping pass. */
+  private async pruneLeases(): Promise<void> {
+    const held = new Set(this.heldLeases());
+    for (const [key, token] of Object.entries(this.state.leases)) if (!held.has(key)) await this.leaseLost(key, token, "expired");
+  }
+
+  /**
+   * At each `ready`, asks the relay which leases this session holds (SPEC section 14 sends an
+   * expiry only to a connected holder): a token for a lease that ended meanwhile is dropped, and
+   * the agent told; one the relay holds for this session that it did not know (a grant after the
+   * client gave up waiting) is kept. After a same-project takeover the agent is told, once, which
+   * leases came with it. The tokens are taken when the list comes, so a grant after it is kept.
+   */
+  private checkLeases(link: Link): void {
+    const inherit = this.projectTaken;
+    if (Object.keys(this.state.leases).length === 0 && !inherit) return;
+    this.projectTaken = false;
+    this.leaseChecking = link
+      .request({ t: "lease.list" }, (f) => f.t === "leases", this.answerMs)
+      .then(async (f) => {
+        const had = Object.entries(this.state.leases);
+        const mine = new Map((f as LeasesFrame).leases.filter((l) => l.holder === this.address).map((l) => [l.key, l]));
+        for (const [key, token] of had) {
+          const l = mine.get(key);
+          // Held under another token, the session was granted it again (a wait it gave up on).
+          if (l === undefined) await this.leaseLost(key, token, "away");
+        }
+        for (const l of mine.values()) await this.keepLease(l.key, l.token, l.until);
+        if (!inherit || mine.size === 0) return;
+        const names: string[] = [];
+        for (const key of mine.keys()) names.push(await this.leaseShown(key));
+        await this.notice(this.address, inheritedLeasesLine(names));
+      })
+      .catch((e: unknown) => {
+        // The next `ready` asks again.
+        this.projectTaken ||= inherit;
+        this.log(`wim: leases not checked: ${(e as Error).message}`);
+      });
   }
 
   /** Current leases with plain names where this device knows them (else the key). */

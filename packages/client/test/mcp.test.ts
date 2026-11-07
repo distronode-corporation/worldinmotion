@@ -170,6 +170,8 @@ describe("wim mcp", () => {
     // leases
     expect((await call("lease", { action: "acquire", name: "deploy", ttl_s: 30 })).structuredContent).toMatchObject({ name: "deploy", status: "granted" });
     expect((await call("lease", { action: "renew", name: "deploy" })).structuredContent).toMatchObject({ status: "renewed" });
+    // The holder asking again, with a wait of its own, is told it holds it.
+    expect((await call("lease", { action: "acquire", name: "deploy", wait: true, wait_s: 5 })).structuredContent).toMatchObject({ status: "granted" });
     expect((await call("lease", { action: "list" })).structuredContent).toMatchObject({ leases: [{ name: "deploy", holder: "writer@one" }] });
     await call("_hello", { claudeSessionId: "pub" });
     expect((await call("_leases")).structuredContent).toMatchObject({ leases: [{ name: "deploy", holder: "writer@one" }] });

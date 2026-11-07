@@ -109,6 +109,11 @@ const clientCases: Array<[string, object, object[]]> = [
     { t: "lease.acquire", key: lkey, ttl: 1000, wait: true },
     [{ t: "lease.acquire", key: lkey, ttl: 999 }, { t: "lease.acquire", key: lkey, ttl: 3600001 }, { t: "lease.acquire", key: "deploy", ttl: 5000 }],
   ],
+  [
+    "lease.acquire",
+    { t: "lease.acquire", key: lkey, ttl: 1000, wait: true, timeout: 3600000 },
+    [{ t: "lease.acquire", key: lkey, ttl: 1000, wait: true, timeout: 999 }, { t: "lease.acquire", key: lkey, ttl: 1000, wait: true, timeout: 3600001 }],
+  ],
   ["lease.renew", { t: "lease.renew", key: lkey, token: 3, ttl: 3600000 }, [{ t: "lease.renew", key: lkey, token: 0, ttl: 5000 }]],
   ["lease.release", { t: "lease.release", key: lkey, token: 3 }, [{ t: "lease.release", key: lkey }]],
   ["lease.list", { t: "lease.list" }, [{ t: "lease.list", key: lkey }]],

@@ -22,6 +22,11 @@ export type SessionState = {
   spool: number;
   /** Lease key to fencing token, for leases this session holds. */
   leases: Record<string, number>;
+  /**
+   * Lease key to the `until` the relay last gave it (relay clock), for leases this session holds:
+   * a token whose lease ran out is dropped (absent for a lease held before this was kept).
+   */
+  leaseUntil?: Record<string, number>;
   /** The address the relay assigned at the last `ready`. */
   address?: string;
   /**
@@ -92,6 +97,7 @@ export function parseSessionState(raw: unknown): SessionState | undefined {
     seq: int(s.seq),
     spool: int(s.spool),
     leases: typeof s.leases === "object" && s.leases !== null ? s.leases : {},
+    ...(typeof s.leaseUntil === "object" && s.leaseUntil !== null ? { leaseUntil: s.leaseUntil } : {}),
     ...(typeof s.address === "string" ? { address: s.address } : {}),
     ...(isName(s.asked) ? { asked: s.asked } : {}),
     ...(Array.isArray(s.claims) ? { claims: parseClaims(s.claims) } : {}),
