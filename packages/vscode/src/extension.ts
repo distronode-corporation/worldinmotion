@@ -180,6 +180,8 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
       // new, or its adder became known).
       const rows = ev.type === "device" ? [ev.device] : ev.type === "snapshot" ? ev.devices : [];
       for (const row of rows) {
+        // A device seen trusted was decided: untrusting it later is not a reason to ask whose it is.
+        if (row.policy !== "hold") asked.add(row.id);
         if (asked.has(row.id) || !store.askAbout(row, notMine)) continue;
         asked.add(row.id);
         void actions.thirdDevice(deps, row);

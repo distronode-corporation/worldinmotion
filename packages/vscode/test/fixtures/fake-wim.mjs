@@ -17,7 +17,8 @@
 //                      mesh, a device that buildbox added arrives after the snapshot); "third-snapshot"
 //                      (that device is already in the snapshot, as when it joined while VS Code
 //                      was closed, beside a trusted one buildbox added); "adder-later" (its row
-//                      comes first without its adder, then with it, then once more unchanged)
+//                      comes first without its adder, then with it, then once more unchanged);
+//                      "untrust-later" (as third-snapshot, then the trusted one is untrusted)
 //   WIM_FAKE_TEST      for `test --json` (the self-test): see below
 
 import { appendFileSync, existsSync, statSync, writeFileSync } from "node:fs";
@@ -115,7 +116,7 @@ const rooms = () => {
   for (const s of sessions) for (const r of s.rooms) byRoom.set(r, [...(byRoom.get(r) ?? []), s.address]);
   return [...byRoom].map(([name, members]) => ({ name, members }));
 };
-if (scenario === "third-snapshot") {
+if (scenario === "third-snapshot" || scenario === "untrust-later") {
   for (const d of [
     { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false, added_by: "buildbox", added_by_id: "dev-buildbox" },
     { name: "ci", id: "dev-ci", role: "member", policy: "deliver", self: false, added_by: "buildbox", added_by_id: "dev-buildbox" },
@@ -296,6 +297,7 @@ function inMesh() {
   emit("peer", { ...sessions[2], mood: "fine" });
   if (scenario === "bad-version") process.stdout.write(`${JSON.stringify({ v: 2, type: "hello", at: Date.now() })}\n`);
   // A message for a Claude Code tab on this device, not for this window's own session.
+  if (scenario === "untrust-later") setTimeout(() => emit("device", { ...devices.get("ci"), policy: "hold" }), 100);
   if (scenario === "adder-later") {
     const desk = { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false };
     emit("device", desk);

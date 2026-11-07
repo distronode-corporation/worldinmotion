@@ -403,6 +403,15 @@ describe("activate", () => {
     expect(fake.state.messages.filter((m) => /added (desk|ci) to this mesh/.test(m.message)).map((m) => m.message)).toEqual(["worldinmotion: buildbox added desk to this mesh. Is desk your own device?"]);
   });
 
+  it("does not ask whose a device is when a trusted one is untrusted", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "untrust-later");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.devices.get("ci")?.policy).toBe("hold"));
+    await new Promise((r) => setTimeout(r, 300));
+    // desk (never decided) is asked about; ci, trusted when first seen, is not, once untrusted.
+    expect(fake.state.messages.filter((m) => /added (desk|ci) to this mesh/.test(m.message)).map((m) => m.message)).toEqual(["worldinmotion: buildbox added desk to this mesh. Is desk your own device?"]);
+  });
+
   it("asks once its adder becomes known, and not again for the same row", async () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "adder-later");
     const { api } = start();
