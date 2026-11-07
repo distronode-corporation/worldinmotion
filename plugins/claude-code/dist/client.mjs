@@ -99868,11 +99868,11 @@ function __asyncGenerator(thisArg, _arguments, generator) {
     try {
       step(g5[n3](v));
     } catch (e6) {
-      settle2(q3[0][3], e6);
+      settle3(q3[0][3], e6);
     }
   }
   function step(r6) {
-    r6.value instanceof __await ? Promise.resolve(r6.value.v).then(fulfill, reject) : settle2(q3[0][2], r6);
+    r6.value instanceof __await ? Promise.resolve(r6.value.v).then(fulfill, reject) : settle3(q3[0][2], r6);
   }
   function fulfill(value2) {
     resume("next", value2);
@@ -99880,7 +99880,7 @@ function __asyncGenerator(thisArg, _arguments, generator) {
   function reject(value2) {
     resume("throw", value2);
   }
-  function settle2(f7, v) {
+  function settle3(f7, v) {
     if (f7(v), q3.shift(), q3.length) resume(q3[0][0], q3[0][1]);
   }
 }
@@ -99893,11 +99893,11 @@ function __asyncValues(o3) {
   function verb(n3) {
     i6[n3] = o3[n3] && function(v) {
       return new Promise(function(resolve3, reject) {
-        v = o3[n3](v), settle2(resolve3, reject, v.done, v.value);
+        v = o3[n3](v), settle3(resolve3, reject, v.done, v.value);
       });
     };
   }
-  function settle2(resolve3, reject, d5, v) {
+  function settle3(resolve3, reject, d5, v) {
     Promise.resolve(v).then(function(v2) {
       resolve3({ value: v2, done: d5 });
     }, reject);
@@ -123090,10 +123090,16 @@ async function hookAnswer(o3) {
   if (agent === void 0) return { out: "", why: "not an agent the hook knows" };
   const stop = readStop(agent, o3.input);
   if (stop === void 0) return { out: agent.allow, why: "not a turn-end payload this agent sends" };
-  if (stop.continued) return { out: agent.allow, why: "this stop already follows a continuation" };
-  const found = await waiting(o3, `${o3.agent}\0${stop.key}`).catch((error64) => `cannot tell: ${error64.message}`);
+  if (stop.continued) return { out: agent.allow, why: await continued(o3) };
+  const found = await waiting(o3, `${o3.agent}\0${stop.key}`).catch(cannotTell);
   if (typeof found === "string") return { out: agent.allow, why: found };
   return { out: agent.wake(wakeText(found)), why: `${found} waiting` };
+}
+var cannotTell = (error64) => `cannot tell: ${error64.message}`;
+async function continued(o3) {
+  const why = "this stop already follows a continuation";
+  const found = await locate(o3).catch(cannotTell);
+  return typeof found === "string" ? `${why}; nothing written: ${found}` : settle2(found, why);
 }
 function readStop(agent, input2) {
   if (input2 === void 0) return void 0;
@@ -123106,19 +123112,31 @@ function readStop(agent, input2) {
   return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) ? agent.read(value2) : void 0;
 }
 async function waiting(o3, sessionKey) {
+  const found = await locate(o3);
+  if (typeof found === "string") return found;
+  const { mesh, files, env: env3 } = found;
+  const config2 = await mesh.loadConfig();
+  const now = o3.now();
+  const paused = new Set((await readPauses(files.breakerPath, now)).map((p3) => p3.peer));
+  const items = (await new Spool(files.spoolDir, env3, 0).unread()).filter((i6) => counts(i6, config2, paused));
+  if (items.length === 0) return settle2(found, "nothing waiting");
+  const newest = Math.max(...items.map((i6) => i6.cursor));
+  const why = await announce(files, sessionKey, newest, now, env3);
+  return why === void 0 ? items.length : why === NOTHING_NEW ? settle2(found, why) : why;
+}
+async function locate(o3) {
   if (o3.ancestry === void 0) return "the processes above the hook cannot be read here";
   const env3 = { platform: o3.platform, pid: o3.pid };
   const home = new Home(homeChoice(o3.env, o3.platform, o3.homedir).root, { ...env3, uid: o3.uid });
   const mesh = new MeshFiles(home.meshDir(await home.pickMesh(o3.env["WIM_MESH"])), env3);
   const files = await sessionFor(mesh, (await o3.ancestry(HOOK_LEVELS)).slice(0, HOOK_LEVELS), env3);
-  if (typeof files === "string") return files;
-  const config2 = await mesh.loadConfig();
-  const now = o3.now();
-  const paused = new Set((await readPauses(files.breakerPath, now)).map((p3) => p3.peer));
-  const items = (await new Spool(files.spoolDir, env3, 0).unread()).filter((i6) => counts(i6, config2, paused));
-  if (items.length === 0) return "nothing waiting";
-  const newest = Math.max(...items.map((i6) => i6.cursor));
-  return await announce(files, sessionKey, newest, now, env3) ? items.length : "nothing new since the last announcement";
+  return typeof files === "string" ? files : { mesh, files, env: env3 };
+}
+async function settle2(at, why) {
+  return writeAtomic(at.files.presencePath, "idle", at.env).then(
+    () => why,
+    (error64) => `${why}; idle not written: ${error64.message}`
+  );
 }
 function counts(i6, config2, paused) {
   return ["msg", "task", "result", "file"].includes(i6.kind) && Number.isSafeInteger(i6.cursor) && typeof i6.device === "string" && i6.device !== "" && i6.relayed !== true && i6.forPerson !== true && isTrusted(config2, i6.device) && !paused.has(i6.device);
@@ -123153,6 +123171,7 @@ async function sessionFor(mesh, mine, env3) {
   if (at.length > 1) return `${at.length} sessions share the nearest process: not one session`;
   return at[0].direct ? at[0].files : "the nearest shared process did not start a session's `wim mcp`";
 }
+var NOTHING_NEW = "nothing new since the last announcement";
 async function announce(files, sessionKey, newest, now, env3) {
   const path2 = join19(files.dir, ANNOUNCED_FILE);
   const id2 = b64u.encode(sha2562(utf8(sessionKey))).slice(0, 22);
@@ -123161,11 +123180,16 @@ async function announce(files, sessionKey, newest, now, env3) {
     const kept = {};
     const rows = raw?.v === 1 && typeof raw.sessions === "object" && raw.sessions !== null ? Object.entries(raw.sessions) : [];
     for (const [k5, e6] of rows) if (Number.isSafeInteger(e6?.cursor) && Number.isSafeInteger(e6?.at) && now - e6.at < ANNOUNCED_TTL_MS) kept[k5] = { cursor: e6.cursor, at: e6.at };
-    if (newest <= (kept[id2]?.cursor ?? 0)) return false;
+    if (newest <= (kept[id2]?.cursor ?? 0)) return NOTHING_NEW;
+    const unmarked = await writeAtomic(files.presencePath, "busy-mesh", env3).then(
+      () => void 0,
+      (error64) => `cannot mark the turn a mesh turn: ${error64.message}`
+    );
+    if (unmarked !== void 0) return unmarked;
     kept[id2] = { cursor: newest, at: now };
     const newestFirst = Object.entries(kept).sort((a5, b5) => b5[1].at - a5[1].at).slice(0, ANNOUNCED_MAX);
     await writeJson(path2, { v: 1, sessions: Object.fromEntries(newestFirst) }, env3);
-    return true;
+    return void 0;
   }, env3, 2e3);
 }
 function readInput(stream, max = HOOK_INPUT_MAX, ms = HOOK_INPUT_MS) {
