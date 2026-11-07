@@ -16,10 +16,10 @@ import { readJson, writeJson, type FsEnv } from "./fsx.ts";
 export type Watch = { of: string; sid?: string; at: number; until: number };
 
 /**
- * How many watches the file keeps; past it the oldest go. The relay holds at most
- * LIMITS.notifyIdlePerSession arms and refuses the rest (each refusal also drops its watch here),
- * so only arms the relay already let go of without a notice can push a live one out: those it
- * fired while this session was offline, or fired under a new name nobody knew.
+ * How many watches the file keeps; past it the oldest go. The relay decides the limit (it holds
+ * at most LIMITS.notifyIdlePerSession arms), so the client never refuses an arm. Watches the
+ * relay never fires (an arm it refused, one sent while offline) lapse after 12 hours, and while
+ * they wait they take room in the file only, and block no arm.
  */
 export const WATCHES_KEPT = 4 * LIMITS.notifyIdlePerSession;
 
@@ -50,7 +50,7 @@ export class Watches {
 
   /**
    * Records an arm for each address: a new watch, or a renewed one for an address already armed.
-   * The relay decides the limit: an arm it refuses is dropped again (`drop`).
+   * The relay decides the limit, so none is refused here.
    */
   arm(arms: ReadonlyArray<{ of: string; sid?: string }>): Promise<void> {
     return this.change((watches) => {
@@ -58,11 +58,6 @@ export class Watches {
       for (const { of, sid } of arms) watches = [...watches.filter((w) => w.of !== of), { of, ...(sid === undefined ? {} : { sid }), at, until: at + LIMITS.idleNoticeLifetimeMs }];
       return { watches: watches.slice(-WATCHES_KEPT), out: undefined };
     });
-  }
-
-  /** Drops the watch for `of`, an arm the relay refused. */
-  drop(of: string): Promise<void> {
-    return this.change((watches) => ({ watches: watches.filter((w) => w.of !== of), out: undefined }));
   }
 
   /**

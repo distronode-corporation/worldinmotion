@@ -49,7 +49,7 @@ describe("idle-notice watches on disk", () => {
     expect(await w.take("d@two")).toBe(false);
   });
 
-  it("takes a watch by the session's id after a rename, drops a refused arm, and keeps the newest past its bound", async () => {
+  it("takes a watch by the session's id after a rename, and keeps the newest past its bound", async () => {
     const w = new Watches(join(await scratch("watches"), "watches.json"), FS, Date.now);
     await w.arm([{ of: "old@two", sid: "sid-1" }, { of: "bare@two" }]);
     // The session renamed itself: the notice names its new address, and the relay's id for it.
@@ -58,7 +58,7 @@ describe("idle-notice watches on disk", () => {
     expect(await w.take("old@two")).toBe(false);
     // An address armed with no id is taken only by its address.
     expect(await w.take("other@two")).toBe(false);
-    await w.drop("bare@two");
+    expect(await w.take("bare@two")).toBe(true);
     expect(await w.list()).toEqual([]);
     // Past WATCHES_KEPT the oldest go; a re-arm makes one the newest.
     const many = Array.from({ length: WATCHES_KEPT }, (_, n) => ({ of: `s${n}@two` }));
@@ -93,7 +93,6 @@ describe("relay idle notices", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const logs: string[] = [];
-    await session(devices[1]!, mesh, relay, { name: "b" });
     const a = await session(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
     relay.inject(mesh, idle("c@two"));
     relay.inject(mesh, idle("b@two"));
@@ -110,48 +109,27 @@ describe("relay idle notices", () => {
     expect(await notices(a)).toEqual(["worldinmotion notice (from the local client, not from a peer or the person): b@two is now idle (or has ended)."]);
   });
 
-  it("arms at the relay, drops the watch of an arm the relay refuses or that cannot be sent, and says why", async () => {
+  it("accepts every arm past the relay's 16 (the relay decides the limit), and says when a watch cannot be recorded", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const logs: string[] = [];
-    await session(devices[1]!, mesh, relay, { name: "b" });
-    const a = await session(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l), answerMs: 300 });
-    expect(await a.notifyWhenIdle(["b@two", "#room", "*"])).toBeUndefined();
-    expect((await watched(a)).map((w) => w.of)).toEqual(["b@two"]);
-    // The relay refuses an arm for a session it does not know: the watch goes, and its notice is dropped.
-    expect(await a.notifyWhenIdle(["nobody@two", "b@two"])).toBe("no idle notice armed for nobody@two (no such session)");
-    relay.inject(mesh, idle("nobody@two"));
-    await until(() => logs.includes("wim: dropped a notice for nobody@two: not asked for"));
-    // Its limit, and a code this client does not know (read only as a code, never as text).
-    for (const [code, why] of [
-      ["limited", "a session holds at most 16 at once, each until it fires or lapses after 12 hours"],
-      ["Not A Code", "the relay refused it: relay_error"],
-    ] as const) {
-      relay.toClient = (text) => (text.includes('"ref":"notify_idle"') ? text.replace('"not_found"', JSON.stringify(code)) : text);
-      expect(await a.notifyWhenIdle(["full@two"])).toBe(`no idle notice armed for full@two (${why})`);
-    }
-    // No answer at all: the arm may stand, so the watch is kept.
-    relay.toClient = (text) => (text.includes('"ref":"notify_idle"') || text.startsWith('{"t":"pong"') ? undefined : text);
-    expect(await a.notifyWhenIdle(["quiet@two"])).toBeUndefined();
-    relay.toClient = undefined;
-    expect((await watched(a)).map((w) => w.of)).toEqual(["b@two", "quiet@two"]);
-    // A watch that cannot be dropped again is logged; the note still says the arm was refused.
-    const watches = (a as unknown as { watches: { drop: (of: string) => Promise<void> } }).watches;
-    const drop = watches.drop.bind(watches);
-    watches.drop = () => Promise.reject(new Error("EIO"));
-    expect(await a.notifyWhenIdle(["ghost@two"])).toBe("no idle notice armed for ghost@two (no such session)");
-    expect(logs).toContain("wim: watches: EIO");
-    watches.drop = drop;
-    // The watch cannot be recorded at all.
+    const a = await session(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
+    const many = Array.from({ length: LIMITS.notifyIdlePerSession + 2 }, (_, n) => `s${n}@two`);
+    expect(await a.notifyWhenIdle([...many, "#room", "*"])).toBeUndefined();
+    expect((await watched(a)).map((w) => w.of)).toEqual(many);
+    // Each arm reaches the relay as its own frame; nothing waits for an answer to it.
+    await until(() => relay.sentByClients.filter((t) => t.includes('"t":"notify_idle"')).length === many.length);
+    // No code path waits for a relay pong: the client sends a relay ping only as its keepalive.
+    const src = await fs.readFile(join(import.meta.dirname, "..", "src", "client.ts"), "utf8");
+    expect(src).not.toMatch(/t === "pong"|t: "ping"/);
+    // The 18th is taken like the first.
+    relay.inject(mesh, idle("s17@two"));
+    await until(async () => (await notices(a)).length === 1);
+    expect((await notices(a))[0]).toContain("s17@two is now idle");
     await fs.rm(a.files.watchesPath);
     await fs.mkdir(a.files.watchesPath);
     expect(await a.notifyWhenIdle(["b@two"])).toMatch(/^no idle notice armed: this session could not record the watch \(.+\)$/);
-    expect(logs.some((l) => l.startsWith("wim: watches: ") && l !== "wim: watches: EIO")).toBe(true);
-    await fs.rm(a.files.watchesPath, { recursive: true });
-    // Offline, nothing reaches the relay, so nothing is armed.
-    await a.stop();
-    expect(await a.notifyWhenIdle(["b@two"])).toBe("no idle notice armed for b@two (this session is not connected to the relay)");
-    expect(await watched(a)).toEqual([]);
+    expect(logs.some((l) => l.startsWith("wim: watches: "))).toBe(true);
   });
 
   it("takes the notice of a session that renamed itself after the arm", async () => {

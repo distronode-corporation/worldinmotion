@@ -92028,7 +92028,7 @@ var Watches = class {
   }
   /**
    * Records an arm for each address: a new watch, or a renewed one for an address already armed.
-   * The relay decides the limit: an arm it refuses is dropped again (`drop`).
+   * The relay decides the limit, so none is refused here.
    */
   arm(arms) {
     return this.change((watches) => {
@@ -92036,10 +92036,6 @@ var Watches = class {
       for (const { of, sid } of arms) watches = [...watches.filter((w) => w.of !== of), { of, ...sid === void 0 ? {} : { sid }, at, until: at + LIMITS.idleNoticeLifetimeMs }];
       return { watches: watches.slice(-WATCHES_KEPT), out: void 0 };
     });
-  }
-  /** Drops the watch for `of`, an arm the relay refused. */
-  drop(of) {
-    return this.change((watches) => ({ watches: watches.filter((w) => w.of !== of), out: void 0 }));
   }
   /**
    * Takes the watch for `of`, or for the session `sid` (the relay's id for `of` now, after a
@@ -94214,9 +94210,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /**
    * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
-   * recorded in `watches.json` first, so the notice is taken when it comes, and dropped again when
-   * the relay refuses the arm. Answers a note for the send's result when an address was not armed:
-   * the relay refused it, this session is offline, or the watch could not be recorded.
+   * recorded in `watches.json` first, so the notice is taken when it comes. The relay decides the
+   * limit; a watch it never fires lapses after 12 hours. Answers a note for the send's result when
+   * the watch could not be recorded.
    */
   async notifyWhenIdle(addresses) {
     const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
@@ -94226,31 +94222,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.log(`wim: watches: ${error64.message}`);
       return `no idle notice armed: this session could not record the watch (${error64.message})`;
     }
-    const refused2 = [];
-    for (const of of wanted) {
-      const why = await this.armAtRelay(of);
-      if (why === void 0) continue;
-      refused2.push(`${of} (${why})`);
-      await this.watches.drop(of).catch((error64) => this.log(`wim: watches: ${error64.message}`));
-    }
-    return refused2.length === 0 ? void 0 : `no idle notice armed for ${refused2.join(", ")}`;
-  }
-  /**
-   * Arms one idle notice at the relay: undefined when it stands, else why not. The relay answers
-   * an arm only to refuse it, so a ping follows it: the relay answers frames in order, and a pong
-   * that comes first means the arm stands. With no answer in time the arm may stand, and the watch
-   * is kept (it lapses after 12 hours).
-   */
-  async armAtRelay(of) {
-    const link = this.link;
-    if (link === void 0 || !link.isOpen) return "this session is not connected to the relay";
-    const answer = link.request({ t: "notify_idle", of }, (f8) => f8.t === "pong" || errorFor("notify_idle")(f8), this.answerMs);
-    link.send({ t: "ping" });
-    const f7 = await answer.catch(() => void 0);
-    if (f7?.t !== "error") return void 0;
-    const code2 = relayCode(f7.code);
-    if (code2 === "limited") return `a session holds at most ${LIMITS.notifyIdlePerSession} at once, each until it fires or lapses after 12 hours`;
-    return code2 === "not_found" ? "no such session" : `the relay refused it: ${code2}`;
+    for (const of of wanted) this.sendIfOpen({ t: "notify_idle", of });
+    return void 0;
   }
   async rename(name) {
     const link = await this.ready();

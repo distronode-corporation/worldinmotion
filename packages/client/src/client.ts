@@ -2253,9 +2253,9 @@ export class MeshSession extends EventEmitter {
 
   /**
    * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
-   * recorded in `watches.json` first, so the notice is taken when it comes, and dropped again when
-   * the relay refuses the arm. Answers a note for the send's result when an address was not armed:
-   * the relay refused it, this session is offline, or the watch could not be recorded.
+   * recorded in `watches.json` first, so the notice is taken when it comes. The relay decides the
+   * limit; a watch it never fires lapses after 12 hours. Answers a note for the send's result when
+   * the watch could not be recorded.
    */
   async notifyWhenIdle(addresses: readonly string[]): Promise<string | undefined> {
     const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
@@ -2265,32 +2265,8 @@ export class MeshSession extends EventEmitter {
       this.log(`wim: watches: ${(error as Error).message}`);
       return `no idle notice armed: this session could not record the watch (${(error as Error).message})`;
     }
-    const refused: string[] = [];
-    for (const of of wanted) {
-      const why = await this.armAtRelay(of);
-      if (why === undefined) continue;
-      refused.push(`${of} (${why})`);
-      await this.watches.drop(of).catch((error: unknown) => this.log(`wim: watches: ${(error as Error).message}`));
-    }
-    return refused.length === 0 ? undefined : `no idle notice armed for ${refused.join(", ")}`;
-  }
-
-  /**
-   * Arms one idle notice at the relay: undefined when it stands, else why not. The relay answers
-   * an arm only to refuse it, so a ping follows it: the relay answers frames in order, and a pong
-   * that comes first means the arm stands. With no answer in time the arm may stand, and the watch
-   * is kept (it lapses after 12 hours).
-   */
-  private async armAtRelay(of: string): Promise<string | undefined> {
-    const link = this.link;
-    if (link === undefined || !link.isOpen) return "this session is not connected to the relay";
-    const answer = link.request({ t: "notify_idle", of }, (f) => f.t === "pong" || errorFor("notify_idle")(f), this.answerMs);
-    link.send({ t: "ping" });
-    const f = (await answer.catch(() => undefined)) as RelayFrame | undefined;
-    if (f?.t !== "error") return undefined;
-    const code = relayCode(f.code);
-    if (code === "limited") return `a session holds at most ${LIMITS.notifyIdlePerSession} at once, each until it fires or lapses after 12 hours`;
-    return code === "not_found" ? "no such session" : `the relay refused it: ${code}`;
+    for (const of of wanted) this.sendIfOpen({ t: "notify_idle", of });
+    return undefined;
   }
 
   async rename(name: string): Promise<string> {

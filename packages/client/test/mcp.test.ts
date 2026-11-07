@@ -115,10 +115,18 @@ describe("wim mcp", () => {
     const sent = await call("send", { to: "peer@two", text: "hi", notify_when_idle: true });
     expect(sent.structuredContent).toMatchObject({ results: [{ to: "peer@two", status: "routed" }] });
     expect(sent.structuredContent).not.toHaveProperty("watch_note");
-    // An arm the relay refuses does not stop the send, and its result says what was not armed.
-    expect((await call("send", { to: "peer@two,ghost@two", text: "hi", notify_when_idle: true })).structuredContent).toMatchObject({
-      watch_note: "no idle notice armed for ghost@two (no such session)",
+    // Past the relay's 16 the client refuses nothing (the relay decides): no note.
+    const many = Array.from({ length: 17 }, (_, n) => `w${n}@two`).join(",");
+    expect((await call("send", { to: many, text: "hi", notify_when_idle: true })).structuredContent).not.toHaveProperty("watch_note");
+    // A watch that cannot be recorded: the send still goes out, and its result says so.
+    const watches = server.current!.files.watchesPath;
+    await fs.rm(watches, { force: true });
+    await fs.mkdir(watches);
+    expect((await call("send", { to: "peer@two", text: "hi", notify_when_idle: true })).structuredContent).toMatchObject({
+      results: [{ to: "peer@two", status: "routed" }],
+      watch_note: expect.stringMatching(/^no idle notice armed: this session could not record the watch \(.+\)$/),
     });
+    await fs.rmdir(watches);
     expect(text(await call("send", { to: "peer@two", text: `sk-ant-${"x".repeat(40)}` }))).toMatch(/refused: text appears to contain a secret \(anthropic_api_key\)\. If the person means to send it, .*--allow-secret.*An agent cannot skip this check\./);
     expect((await call("send", { to: "Bad", text: "x" })).isError).toBe(true);
     // ask, answered by the peer
