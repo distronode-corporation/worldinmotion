@@ -1171,6 +1171,24 @@ test('SendMessage to a mesh address is taken by the bridge before the engine ref
   expect((room.result as { success: boolean }).success).toBe(true)
 })
 
+test('SendMessage says when the idle notice it asked for was not armed', async ($, on) => {
+  const NOTE = 'no idle notice armed for bob@laptop-b: a session holds at most 16 at once (each lasts until it fires or lapses after 12 hours)'
+  let status = 'routed'
+  world(on, { tools: { send: () => json({ id: '01JAAAAAAAAAAAAAAAAAAAAAAA', results: [{ to: 'bob@laptop-b', status }], watch_note: NOTE }) } })
+  engineSendMessage(on)
+  mock.clock(on)
+  await $.session.start(START)
+
+  const ran = await $.tool.call({ tool: 'SendMessage', to: 'bob@laptop-b', message: 'ready for review', notify_when_idle: true })
+  expect((ran.result as { success: boolean }).success).toBe(true)
+  expect(ran.text).toMatch(/^Sent through worldinmotion \(bob@laptop-b: routed\)\./)
+  expect(ran.text).toContain(` worldinmotion: ${NOTE}.`)
+  status = 'unknown'
+  const refused = await $.tool.call({ tool: 'SendMessage', to: 'bob@laptop-b', message: 'again', notify_when_idle: true })
+  expect(refused.isError).toBe(true)
+  expect(refused.text).toBe(`worldinmotion: not sent (bob@laptop-b: unknown). worldinmotion: ${NOTE}.`)
+})
+
 test('SendMessage to a local name passes to the engine untouched', async ($, on) => {
   const w = world(on)
   const reached = engineSendMessage(on)

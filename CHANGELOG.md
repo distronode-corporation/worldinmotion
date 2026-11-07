@@ -103,7 +103,7 @@ body line with a bracket.
   the watch is closed; any other is dropped and logged. A re-arm renews the watch, a watch
   survives a restart that resumes the session, and an unreadable file reads as no watches. Past
   the relay's 16 armed notices per session an arm is refused locally, and the `send` result says
-  so in `watch_note` (SPEC section 8).
+  so in `watch_note`, which the plugin's SendMessage passes on (SPEC section 8).
 - **A recovery or invite code's show could read an empty proof.** The holder wrote its proof
   file in place, so a `wim recovery show` or `wim invite show` that read it in that moment sent
   an empty proof and was told no code was waiting while one was. The proof is now written under
