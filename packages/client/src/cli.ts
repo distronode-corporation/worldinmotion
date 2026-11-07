@@ -30,7 +30,7 @@ import { listAllPauses, PausedBy } from "./pauses.ts";
 import { homeChoice, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine, policyLevel } from "./render.ts";
 import { PING, pingReport } from "./ping.ts";
-import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
+import { listSessions, recentTakeovers, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
 import { agentEnv, canConfirm, canShowSecret, confirmTyped, fetchHeldCode, holdForShow, notAPerson, personOnly, requirePerson, showPaths, SHOW_WINDOW_MINUTES, type ShowKind } from "./secretout.ts";
@@ -108,7 +108,7 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "tag", "hold", "unprotected", "take"]);
 /** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
 const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
 const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
@@ -124,16 +124,16 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   invite: ["exp", "auto", "full"],
   join: ["name"],
   devices: ["relayed", "all"],
-  peers: ["all", "as"],
-  send: ["allow-secret", "as", "wait"],
+  peers: ["all", "as", "take"],
+  send: ["allow-secret", "as", "take", "wait"],
   ping: ["all", "timeout"],
-  watch: ["as"],
-  inbox: ["peek", "mark-read", "as"],
-  events: ["json", "as"],
+  watch: ["as", "take"],
+  inbox: ["peek", "mark-read", "as", "take"],
+  events: ["json", "as", "take"],
   history: ["session", "peer", "limit"],
-  bot: ["as"],
-  ci: ["as", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
-  a2a: ["as"],
+  bot: ["as", "take"],
+  ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
+  a2a: ["as", "take"],
   recover: ["relay", "tls", "revoke", "name"],
   recovery: ["wait"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
@@ -219,11 +219,11 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
+  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s>]
   wim ping <address,...> | --all [--timeout 5s]
-  wim watch [--as <name>]
-  wim inbox [--peek | --mark-read] [--as <name>]
-  wim events --json [--as <name>]
+  wim watch [--as <name> [--take]]
+  wim inbox [--peek | --mark-read] [--as <name> [--take]]
+  wim events --json [--as <name> [--take]]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
@@ -324,6 +324,8 @@ class Ctx {
       cwd: this.io.cwd,
       ...(notifier === undefined ? {} : { notifier }),
       legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE),
+      // A claim of an offline session's name is only ever asked for (design.md, taking a session back).
+      ...(this.args.flags.get("take") === true || (this.env["WIM_TAKE"] === "1" && this.env["WIM_NAME"] === name) ? { take: true } : {}),
     };
   }
 
@@ -1943,7 +1945,7 @@ async function recover(ctx: Ctx): Promise<number> {
 type Check = { level: "ok" | "info" | "problem"; line: string };
 
 /** What `wim status` sums up for one mesh, from the checks `wim doctor` runs. */
-type MeshSummary = { id: string; relay: string; seq?: number; devices?: number; admin?: boolean; online?: number; idleDays?: number | null };
+type MeshSummary = { id: string; relay: string; takeovers: string[]; seq?: number; devices?: number; admin?: boolean; online?: number; idleDays?: number | null };
 
 /**
  * The checks of `wim doctor`, in order, each handed to `emit` as it is made: the state directory,
@@ -1980,8 +1982,9 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   for (const id of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id), ctx.fsEnv);
     const config = await files.loadConfig();
-    const summary: MeshSummary = { id, relay: config.relay };
+    const summary: MeshSummary = { id, relay: config.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
+    for (const line of summary.takeovers) info(`mesh ${id}: ${line}`);
     try {
       checkDialable(config.relay, config.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config.relay}/v1/${id}`, config.tls === undefined ? {} : { tlsPin: config.tls });
@@ -2058,13 +2061,16 @@ async function status(ctx: Ctx): Promise<number> {
 /** The lines `wim status` prints for one mesh. */
 function meshStatus(m: MeshSummary): string[] {
   const head = `Mesh ${m.id} on ${m.relay}:`;
-  if (m.seq === undefined) return [head, "  not connected: the problem above says why."];
+  // Shown whatever the relay says: each comes from this device's own state.
+  const takeovers = m.takeovers.map((line) => `  ${line}.`);
+  if (m.seq === undefined) return [head, ...takeovers, "  not connected: the problem above says why."];
   const others = m.devices! - 1;
   return [
     head,
     `  connected as ${m.admin! ? "an admin" : "a member"}; roster seq ${m.seq}; other devices: ${others}; other sessions online now: ${m.online!}.`,
     ...(others === 0 ? ["  Next: `wim invite` adds another device. Until one joins, `wim peers` shows no other sessions, which is expected."] : []),
     `  ${idleLine(m.idleDays)} An admin can delete it sooner: \`wim mesh delete\`.`,
+    ...takeovers,
   ];
 }
 

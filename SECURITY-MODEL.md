@@ -736,6 +736,12 @@ old by design. They are presented as history or labels, never as something to ac
   name and queue pass to a new connection only if it presents the same sid or the session's resume
   secret, kept 0600 with the session's state; a sid that is online elsewhere passes only with the
   resume secret. Two agents on one device that pick the same name do not read each other's queues.
+  A claim (`--take`, `WIM_TAKE=1`, the `rename` tool's `take`) uses only those resume secrets: it
+  needs read access to the state directory, as the device keys do, and adds no trust. A peer's
+  text can ask an agent to take over an offline name of its own device. That changes no trust and
+  reaches no other device, but it routes that name's queue, held items and leases to the agent
+  that took it, so the tool asks agents to take only on the person's word, and `wim status` shows
+  every takeover of the last 24 hours.
   These rules separate honest sessions; they are not a boundary against a hostile process under
   the same OS user, which is the device anyway (section 5.8). An offline session is kept for 24
   hours, and while its queue holds messages. A closed Claude Code tab is such an offline session
