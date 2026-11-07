@@ -86625,7 +86625,13 @@ var inviteBodySchema = external_exports.strictObject({
   pin: rosterRefSchema,
   exp: timeSchema,
   /** Optional relay certificate pin: b64u SHA-256 of its SubjectPublicKeyInfo (SPEC section 5). */
-  tls: b64uBytes(32).optional()
+  tls: b64uBytes(32).optional(),
+  /**
+   * The id of the admin device that made the invite, which 0.2.0 writes. This version accepts it,
+   * checked as a device id like any other field, and ignores it: it is not part of the decoded
+   * invite (SPEC section 5).
+   */
+  by: deviceIdSchema.optional()
 });
 function spkiPin(spkiDer) {
   if (!(spkiDer instanceof Uint8Array) || spkiDer.length === 0) throw new TypeError("spkiPin: expected DER bytes");
@@ -86667,8 +86673,9 @@ function parseInvite(code2) {
   if (!body.ok) throw new Error("invalid invite code: it is damaged or incomplete");
   const parsed2 = safeParse3(inviteBodySchema, body.value);
   if (!parsed2.success) throw new Error(`invalid invite code: ${describe3(parsed2.error)}`);
-  const secret = b64u.decode(parsed2.data.secret);
-  return { ...parsed2.data, secret, inviteId: inviteIdFromSecret(secret) };
+  const { by: _by, ...fields2 } = parsed2.data;
+  const secret = b64u.decode(fields2.secret);
+  return { ...fields2, secret, inviteId: inviteIdFromSecret(secret) };
 }
 function joinFields(device) {
   return { id: device.id, name: device.name, sign: device.sign, box: device.box };

@@ -15,6 +15,12 @@ body line with a bracket.
 
 ### Added
 
+- **Invite codes from 0.2.0 are read.** 0.2.0 adds `by`, the device id of the admin that made
+  the invite, to the invite code. This version accepts it (checked as a device id, so a malformed
+  one is still refused) and ignores it, so a device on it can join with a 0.2.0 admin's invite,
+  short code or full. Any other unknown field is still refused; 0.1.10 and older refuse `by`
+  (SPEC section 5).
+
 - **VS Code: Create a Mesh and Join with a Code from the empty Mesh view.** On a device in no
   mesh yet the Mesh view shows a welcome text with both buttons (it reads the new
   `worldinmotion.state` context key: `setup`, `mesh` or `closed`), and VS Code alone needs no npm.
