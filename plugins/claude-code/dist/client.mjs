@@ -120926,17 +120926,27 @@ async function runEvents(d5) {
     const first = rows.find((r6) => r6.id === held3);
     if (first === void 0) throw new RequestError("not_found", `no held message ${held3}`);
     const key3 = setKey(first, rules);
-    const now = [...new Set(ids)].flatMap((id2) => rows.filter((r6) => r6.id === id2).slice(0, 1));
+    const unique = [...new Set(ids)];
+    const now = unique.flatMap((id2) => rows.filter((r6) => r6.id === id2).slice(0, 1));
     const stranger = now.find((r6) => setKey(r6, rules) !== key3);
     if (stranger !== void 0) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held3}: each set is decided on its own`);
     const decided = [];
     const kept = [];
+    const gone = unique.filter((id2) => !now.some((r6) => r6.id === id2));
     for (const r6 of now) {
       if (verdict === "approve" && pinsIds(r6)) kept.push(r6.id);
-      else decided.push(r6.id);
+      else if (await decideIfHeld(r6.id, verdict)) decided.push(r6.id);
+      else gone.push(r6.id);
     }
-    for (const id2 of decided) await decideOne2(id2, verdict);
-    return { decided, kept };
+    return { decided, kept, gone };
+  }
+  async function decideIfHeld(id2, verdict) {
+    try {
+      return await decideOne2(id2, verdict);
+    } catch (error64) {
+      if (error64 instanceof ClientError && error64.code === "not_found") return false;
+      throw error64;
+    }
   }
   async function heldNow() {
     const out = /* @__PURE__ */ new Map();
@@ -131345,6 +131355,7 @@ function heldRules(files) {
 }
 async function decideOne(ctx, files, action, arg, all) {
   const rows = all.filter((r6) => r6.id === arg);
+  if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
   const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
   const pins = action === "approve" ? rows[0].ci?.pins : void 0;
   const rules = pins === void 0 ? void 0 : await loadCiRules(files.ciRulesPath);

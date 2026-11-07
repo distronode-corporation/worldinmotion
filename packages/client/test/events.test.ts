@@ -370,7 +370,8 @@ describe("wim events: deciding a held set", () => {
     expect(await e.request("approve", { held: nobody, set: [nobody] })).toMatchObject({ ok: false, error: { code: "not_found" } });
     expect((await e.session.held.list()).length).toBe(5);
     // An id no longer held is skipped; the rest are decided.
-    expect(await e.request("approve", { held: shown[0], set: [...shown, ulid()] })).toMatchObject({ ok: true, result: { decided: shown, kept: [] } });
+    const missing = ulid();
+    expect(await e.request("approve", { held: shown[0], set: [...shown, missing] })).toMatchObject({ ok: true, result: { decided: shown, kept: [], gone: [missing] } });
     expect((await e.session.held.list()).map((h) => h.id).sort()).toEqual([late, theirs].sort());
     expect(await e.request("refuse", { held: late, set: [late] })).toMatchObject({ ok: true, result: { decided: [late], kept: [] } });
     expect((await e.session.held.list()).map((h) => h.id)).toEqual([theirs]);
@@ -418,5 +419,43 @@ describe("wim events: deciding a held set", () => {
     await fs.writeFile(e.files.ciRulesPath, "damaged");
     await sleep(100);
     expect(await e.request("approve", { held: gone.id, set: [gone.id] })).toMatchObject({ ok: true, result: { decided: [gone.id] } });
+  });
+});
+
+describe("wim events: a held set decided while another decides some of it", () => {
+  it("skips what was decided elsewhere mid-loop, decides the rest, counts both, and passes on any other error", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const a = await openSession(devices[0]!, mesh, relay, { name: "a" });
+    cleanup.push(() => a.stop());
+    const e = await start(devices[1]!, mesh, relay);
+    const heldAll = async (n: number) => until(async () => (await e.session.held.list()).length === n, 10_000, `${n} held`);
+    const s = e.session;
+    const decide = s.decide.bind(s);
+    // Another terminal decides the third while this request decides the first: it is gone, not decided.
+    const x = [await a.send("vscode@two", "1"), await a.send("vscode@two", "2"), await a.send("vscode@two", "3")].map((m) => m.id);
+    await heldAll(3);
+    s.decide = async (id, verdict) => {
+      if (id === x[0]) await s.held.remove(x[2]!);
+      return decide(id, verdict);
+    };
+    expect(await e.request("approve", { held: x[0], set: x })).toMatchObject({ ok: true, result: { decided: [x[0], x[1]], kept: [], gone: [x[2]] } });
+    // Decided elsewhere between this process's look and its decision: not found, so gone.
+    const y = [await a.send("vscode@two", "4"), await a.send("vscode@two", "5")].map((m) => m.id);
+    await heldAll(2);
+    s.decide = async (id, verdict) => {
+      if (id === y[0]) await s.held.remove(id);
+      return decide(id, verdict);
+    };
+    expect(await e.request("refuse", { held: y[0], set: y })).toMatchObject({ ok: true, result: { decided: [y[1]], gone: [y[0]] } });
+    expect(await s.held.list()).toEqual([]);
+    // Any other failure is the request's: it is not counted as gone.
+    const z = (await a.send("vscode@two", "6")).id;
+    await heldAll(1);
+    s.decide = async () => {
+      throw new Error("disk full");
+    };
+    expect(await e.request("approve", { held: z, set: [z] })).toMatchObject({ ok: false, error: { code: "error", message: "disk full" } });
+    s.decide = decide;
   });
 });

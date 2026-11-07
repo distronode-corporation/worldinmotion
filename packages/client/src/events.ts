@@ -216,9 +216,10 @@ export async function runEvents(d: EventsDeps): Promise<void> {
 
   /**
    * Decides the set the person was shown: exactly those ids, all from one set, checked before any
-   * is decided. An id decided elsewhere meanwhile is skipped; an item that arrived after the UI drew
-   * the set is not in `ids`, so it stays held. Approving never covers a notice that pins its rule's
-   * ids (`kept`): that one is approved on its own, at the person's terminal.
+   * is decided. `decided` lists the ids this request decided; `gone` the ids it was sent that were
+   * no longer held, before the loop or decided elsewhere during it; an item that arrived after the
+   * UI drew the set is not in `ids`, so it stays held. Approving never covers a notice that pins its
+   * rule's ids (`kept`): that one is approved on its own, at the person's terminal.
    */
   async function decideSet(held: string, ids: readonly string[], verdict: Verdict): Promise<Row> {
     if (!ids.includes(held) || !ids.every(isUlid)) throw new RequestError("input", "set must be the held ids shown, held among them");
@@ -227,17 +228,29 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     const first = rows.find((r) => r.id === held);
     if (first === undefined) throw new RequestError("not_found", `no held message ${held}`);
     const key = setKey(first, rules);
-    const now = [...new Set(ids)].flatMap((id) => rows.filter((r) => r.id === id).slice(0, 1));
+    const unique = [...new Set(ids)];
+    const now = unique.flatMap((id) => rows.filter((r) => r.id === id).slice(0, 1));
     const stranger = now.find((r) => setKey(r, rules) !== key);
     if (stranger !== undefined) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held}: each set is decided on its own`);
     const decided: string[] = [];
     const kept: string[] = [];
+    const gone = unique.filter((id) => !now.some((r) => r.id === id));
     for (const r of now) {
       if (verdict === "approve" && pinsIds(r)) kept.push(r.id);
-      else decided.push(r.id);
+      else if (await decideIfHeld(r.id, verdict)) decided.push(r.id);
+      else gone.push(r.id);
     }
-    for (const id of decided) await decideOne(id, verdict);
-    return { decided, kept };
+    return { decided, kept, gone };
+  }
+
+  /** decideOne, with an item decided elsewhere meanwhile (not found) as false; any other error is thrown. */
+  async function decideIfHeld(id: string, verdict: Verdict): Promise<boolean> {
+    try {
+      return await decideOne(id, verdict);
+    } catch (error) {
+      if (error instanceof ClientError && error.code === "not_found") return false;
+      throw error;
+    }
   }
 
   /** Every held item on this device, keyed by holding session and id. */

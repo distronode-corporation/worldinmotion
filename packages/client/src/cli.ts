@@ -1687,6 +1687,8 @@ function heldRules(files: MeshFiles): Promise<CiRule[]> {
 /** One held item decided on its own: the only item of its set, or the person's explicit `one`. */
 async function decideOne(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse", arg: string, all: HeldRows): Promise<number> {
   const rows = all.filter((r) => r.id === arg);
+  // Decided elsewhere while the set's prompt was open (`one` reads the held list again).
+  if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
   const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
   // A CI notice held because its rule had no ids yet: approving it pins them (SPEC section 18).
   const pins = action === "approve" ? rows[0]!.ci?.pins : undefined;

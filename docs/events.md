@@ -79,7 +79,7 @@ successor.
 | `history` | `session?` (default: every local session), `peer?`, `before?` (message id), `limit?` (default 50, max 500) | `{ messages: message[] }`, newest last |
 | `send` | `to` (address, `#room` or a list), `text`, `reply_to?`, `kind?`: `msg` or `task` | `{ id, results: [{ to, status }] }`, as `wim send` |
 | `send_file` | `to`, `path` (absolute; must be a regular file the user can read) | as `send` |
-| `approve` / `refuse` | `held` (a held id), `set?` (from 0.1.11: the ids of the set the person was shown, `held` among them) | Without `set`: `{}`, and only `held` is decided. With `set`: `{ decided, kept }`, exactly those ids, after checking that each still held belongs to `held`'s set (code `input` otherwise, and nothing is decided); an id no longer held is skipped, and an approval keeps (`kept`) a CI notice that pins its rule's ids. |
+| `approve` / `refuse` | `held` (a held id), `set?` (from 0.1.11: the ids of the set the person was shown, `held` among them) | Without `set`: `{}`, and only `held` is decided. With `set`: `{ decided, kept, gone }`, exactly those ids, after checking that each still held belongs to `held`'s set (code `input` otherwise, and nothing is decided). `decided` lists the ids this request decided; `gone` the ids that were no longer held, before or while it ran (decided elsewhere), which are skipped; an approval keeps (`kept`) a CI notice that pins its rule's ids. Any other failure fails the request. |
 | `trust` | `device` (name), `relayed?`: boolean | `{ policy }` |
 | `untrust` | `device` | `{ policy: "hold" }` |
 | `resume` | `peer` (address): lifts a breaker pause | `{ released }` |

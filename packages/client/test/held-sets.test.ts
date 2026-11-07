@@ -151,6 +151,12 @@ describe("wim held, a set per device", () => {
     expect(await run(t, "held", "refuse", sent[2]!.id)).toBe(0);
     expect(said(t)).toContain(`Type all to refuse all 3, or one to refuse only ${sent[2]!.id} [all/one/N] `);
     expect(said(t)).toContain(`Refused ${sent[2]!.id}.`);
+    // Decided in another terminal while this prompt was open: `one` says so, nothing else is decided.
+    t.answers.push(async () => (await box.remove(sent[1]!.id), "one"));
+    expect(await run(t, "held", "approve", sent[1]!.id)).toBe(1);
+    expect(t.err.join("\n")).toContain(`no held message ${sent[1]!.id}`);
+    expect((await box.list()).map((h) => h.id)).toEqual([sent[0]!.id]);
+    await box.add({ ...(await box.get(sent[0]!.id))!, id: sent[1]!.id, at: Date.now() });
     t.answers.push("all");
     expect(await run(t, "held", "refuse", sent[0]!.id)).toBe(0);
     expect(said(t)).toContain(`Refused 2 held from device one (device id ${w.devices[0]!.device.id}): ${sent[0]!.id} ${sent[1]!.id}.`);
