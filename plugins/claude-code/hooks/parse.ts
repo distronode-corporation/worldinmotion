@@ -204,6 +204,11 @@ export function parseSent(value: unknown): SendStatus[] | undefined {
   }))
 }
 
+/** Why an idle notice a send asked for was not armed (the 16-watch limit, or a watch not recorded), if the client said. */
+export function parseWatchNote(value: unknown): string | undefined {
+  return isRecord(value) && typeof value.watch_note === 'string' && value.watch_note !== '' ? value.watch_note : undefined
+}
+
 export function parsePeers(value: unknown): WimPeer[] {
   if (!isRecord(value) || !Array.isArray(value.peers)) return []
   return value.peers.filter(isRecord).map(row => ({

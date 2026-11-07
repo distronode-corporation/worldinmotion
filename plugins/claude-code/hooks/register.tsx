@@ -31,6 +31,7 @@ import {
   parseRoute,
   parsePeers,
   parseSent,
+  parseWatchNote,
   describeMessage,
   peerLine,
   sessionDir,
@@ -767,15 +768,19 @@ async function bridgeSend(
   const answer = await callTool($, 'send', args)
   if (answer === undefined) return { isSent: false, text: `worldinmotion: the plugin's client is not connected. ${(await read($, problem)) || 'See /wim status.'}` }
   if (answer.isError) return { isSent: false, text: `worldinmotion refused the send: ${toolText(answer)}` }
-  const statuses = parseSent(toolJson(answer))
+  const sent = toolJson(answer)
+  const statuses = parseSent(sent)
   if (statuses === undefined || statuses.length === 0) {
     return { isSent: false, text: 'worldinmotion: the client answered no recipient status.' }
   }
   const named = statuses.map(one => `${one.to}: ${one.status}`).join(', ')
   const isSent = statuses.every(one => one.status === 'routed' || one.status === 'queued')
+  // The send stands either way; the model hears that it will not be told when the recipient finishes.
+  const watchNote = parseWatchNote(sent)
+  const watch = watchNote === undefined ? '' : ` worldinmotion: ${watchNote}.`
   return isSent
-    ? { isSent: true, text: `Sent through worldinmotion (${named}). ${SENT_MEANING}` }
-    : { isSent: false, text: `worldinmotion: not sent (${named}).` }
+    ? { isSent: true, text: `Sent through worldinmotion (${named}). ${SENT_MEANING}${watch}` }
+    : { isSent: false, text: `worldinmotion: not sent (${named}).${watch}` }
 }
 
 /** Records every local agent name and address seen, so none is ever bridged. */

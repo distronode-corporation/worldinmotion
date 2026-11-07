@@ -90831,6 +90831,10 @@ var SessionFiles = class {
   get ciParkedPath() {
     return join6(this.dir, "ci-parked.json");
   }
+  /** The idle notices this session armed, so a notice nobody asked for is dropped (watches.ts). */
+  get watchesPath() {
+    return join6(this.dir, "watches.json");
+  }
   get tasksPath() {
     return join6(this.dir, "tasks.json");
   }
@@ -91999,6 +92003,70 @@ function signerKeyring(client, pub) {
   };
 }
 
+// src/watches.ts
+function isWatch(x2) {
+  const w = x2;
+  return typeof w === "object" && w !== null && typeof w.of === "string" && Number.isSafeInteger(w.at) && Number.isSafeInteger(w.until);
+}
+var Watches = class {
+  path;
+  env;
+  now;
+  /** The last change, so changes run one at a time. */
+  changing = Promise.resolve();
+  constructor(path2, env3, now) {
+    this.path = path2;
+    this.env = env3;
+    this.now = now;
+  }
+  /** The watches that have not lapsed. A missing, damaged or unreadable file reads as none, the safe side. */
+  async list() {
+    const raw = await readJson(this.path).catch(() => void 0);
+    const now = this.now();
+    return (Array.isArray(raw?.watches) ? raw.watches.filter(isWatch) : []).filter((w) => w.until > now);
+  }
+  /**
+   * Records an arm for each address: a new watch, or a renewed one for an address already armed.
+   * Past the relay's limit of armed notices per session a new address is refused.
+   */
+  arm(addresses) {
+    return this.change((watches) => {
+      const at = this.now();
+      const out = { armed: [], refused: [] };
+      for (const of of new Set(addresses)) {
+        const kept = watches.filter((w) => w.of !== of);
+        if (kept.length === watches.length && watches.length >= LIMITS.notifyIdlePerSession) {
+          out.refused.push(of);
+          continue;
+        }
+        watches = [...kept, { of, at, until: at + LIMITS.idleNoticeLifetimeMs }];
+        out.armed.push(of);
+      }
+      return { watches, out };
+    });
+  }
+  /** Takes the watch for `of`: true, and the watch is closed, when one was armed and has not lapsed. */
+  take(of) {
+    return this.change((watches) => {
+      const kept = watches.filter((w) => w.of !== of);
+      return kept.length < watches.length ? { watches: kept, out: true } : { out: false };
+    });
+  }
+  /**
+   * Reads the watches, changes them and writes them back atomically (when `f` gives a new list),
+   * after every change asked for before it.
+   */
+  change(f7) {
+    const run = this.changing.then(async () => {
+      const { watches, out } = f7(await this.list());
+      if (watches !== void 0) await writeJson(this.path, { v: 1, watches }, this.env);
+      return out;
+    });
+    this.changing = Promise.allSettled([run]);
+    return run;
+  }
+};
+
 // src/wire.ts
 import { isIP as isIP2 } from "node:net";
 import * as tls from "node:tls";
@@ -92591,6 +92659,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
   /** The paused CI buckets whose drops were logged since the breaker last tripped. */
   ciPausedLogged = /* @__PURE__ */ new Set();
   ciParked;
+  /** The idle notices this session armed: a relay notice is taken only for one of them, once (watches.ts). */
+  watches;
   /** When parked CI notices are next checked again. */
   ciParkedDue = 0;
   /** This minute's CI drop lines, and the drops past CI_DROP_LINES by reason. */
@@ -92616,6 +92686,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.sentTo = new SentTo(o3.mesh.sentToPath, o3.env, this.now);
     this.ciKeys = new CiKeys({ path: o3.mesh.ciJwksPath, env: o3.env, fetch: o3.jwksFetch ?? fetchJwks, now: this.now });
     this.ciParked = new CiParked(files.ciParkedPath, o3.env);
+    this.watches = new Watches(files.watchesPath, o3.env, this.now);
   }
   /**
    * Opens a session: the one `sessionKey` names when its mapping is fresh and no live process
@@ -92859,7 +92930,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         return;
       }
       case "notice":
-        this.noticeLater(f7.of, `${f7.of} is now idle (or has ended).`);
+        void this.idleNotice(f7.of).catch((e6) => this.log(`wim: notice: ${e6.message}`));
         return;
       case "join.request":
         this.emit("join", f7.join);
@@ -93440,6 +93511,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
       await this.take(written2.cursor);
     }
     return written2;
+  }
+  /**
+   * A relay's idle notice (SPEC section 8): spooled only when this session armed one for that
+   * address, it has not lapsed, and no notice took it yet; the watch is closed then. Any other is
+   * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4).
+   */
+  async idleNotice(of) {
+    if (!await this.watches.take(of)) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
+    await this.notice(of, `${of} is now idle (or has ended).`);
   }
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
   noticeLater(from, line, forPerson = false) {
@@ -94133,9 +94213,23 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (task === void 0) throw new ClientError(`no task ${taskId} was received by this session`, "not_found");
     return this.send(task.from, text2, { kind: "result", reply_to: taskId, status: status3 });
   }
-  /** Arms one idle notice for each session address. */
-  notifyWhenIdle(addresses) {
-    for (const of of addresses) if (sessionAddressSchema.safeParse(of).success) this.sendIfOpen({ t: "notify_idle", of });
+  /**
+   * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
+   * recorded in `watches.json` first, so the notice is taken when it comes. Answers a note for
+   * the send's result when an address was not armed: the limit, or a watch that could not be recorded.
+   */
+  async notifyWhenIdle(addresses) {
+    const wanted = addresses.filter((of) => sessionAddressSchema.safeParse(of).success);
+    let armed;
+    try {
+      armed = await this.watches.arm(wanted);
+    } catch (error64) {
+      this.log(`wim: watches: ${error64.message}`);
+      return `no idle notice armed: this session could not record the watch (${error64.message})`;
+    }
+    for (const of of armed.armed) this.sendIfOpen({ t: "notify_idle", of });
+    if (armed.refused.length === 0) return void 0;
+    return `no idle notice armed for ${armed.refused.join(", ")}: a session holds at most ${LIMITS.notifyIdlePerSession} at once (each lasts until it fires or lapses after 12 hours)`;
   }
   async rename(name) {
     const link = await this.ready();
@@ -122999,9 +123093,14 @@ var Inputs = {
 };
 var text = (t2) => ({ content: [{ type: "text", text: t2 }] });
 var json3 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
-var sent = (o3) => {
+var sent = (o3, watchNote) => {
   const held2 = o3.results.flatMap((r6) => r6.status === "held" ? [heldSendLine(r6.to, r6.breaker)] : []);
-  return json3({ ...o3, ...o3.unprotected === void 0 ? {} : { note: unprotectedNote(o3.unprotected, o3.no_prekey) }, ...held2.length === 0 ? {} : { held_note: held2.join(" ") } });
+  return json3({
+    ...o3,
+    ...o3.unprotected === void 0 ? {} : { note: unprotectedNote(o3.unprotected, o3.no_prekey) },
+    ...held2.length === 0 ? {} : { held_note: held2.join(" ") },
+    ...watchNote === void 0 ? {} : { watch_note: watchNote }
+  });
 };
 var fail3 = (t2) => ({ content: [{ type: "text", text: t2 }], isError: true });
 function failure2(error64) {
@@ -123232,8 +123331,7 @@ var WimMcp = class {
       case "send": {
         const i6 = a5;
         const out = await s3.send(i6.to, i6.text, i6.reply_to === void 0 ? {} : { reply_to: i6.reply_to });
-        if (i6.notify_when_idle === true) s3.notifyWhenIdle(MeshSession.parseTo(i6.to));
-        return sent(out);
+        return sent(out, i6.notify_when_idle === true ? await s3.notifyWhenIdle(MeshSession.parseTo(i6.to)) : void 0);
       }
       case "ask": {
         const i6 = a5;

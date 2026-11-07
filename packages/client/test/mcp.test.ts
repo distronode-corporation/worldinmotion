@@ -114,6 +114,12 @@ describe("wim mcp", () => {
     expect(text(await call("peers"))).toMatch(/^peer@two {2}mcp {2}idle {2}-$/m);
     const sent = await call("send", { to: "peer@two", text: "hi", notify_when_idle: true });
     expect(sent.structuredContent).toMatchObject({ results: [{ to: "peer@two", status: "routed" }] });
+    expect(sent.structuredContent).not.toHaveProperty("watch_note");
+    // Past the relay's 16 armed notices a send still goes out, and its result says what was not armed.
+    const many = Array.from({ length: 16 }, (_, n) => `w${n}@two`).join(",");
+    expect((await call("send", { to: many, text: "hi", notify_when_idle: true })).structuredContent).toMatchObject({
+      watch_note: "no idle notice armed for w15@two: a session holds at most 16 at once (each lasts until it fires or lapses after 12 hours)",
+    });
     expect(text(await call("send", { to: "peer@two", text: `sk-ant-${"x".repeat(40)}` }))).toMatch(/refused: text appears to contain a secret \(anthropic_api_key\)\. If the person means to send it, .*--allow-secret.*An agent cannot skip this check\./);
     expect((await call("send", { to: "Bad", text: "x" })).isError).toBe(true);
     // ask, answered by the peer
