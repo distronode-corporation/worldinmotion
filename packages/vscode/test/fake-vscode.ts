@@ -339,12 +339,15 @@ function message(level: "info" | "warning" | "error") {
 export const ProgressLocation = { SourceControl: 1, Window: 10, Notification: 15 } as const;
 
 export const window = {
-  /** Records the options; `fake.state.cancelProgress` cancels the task as soon as it listens. */
+  /** Records the options; `fake.state.cancelProgress` cancels this task (only this one) as soon as it listens. */
   withProgress<T>(options: unknown, task: (progress: { report(v: unknown): void }, token: { onCancellationRequested(fn: () => void): Disposable }) => Promise<T>): Promise<T> {
     fake.state.progress.push(options);
+    // Only this notification is cancelled: the flag is taken here, not left for the next one.
+    const cancel = fake.state.cancelProgress;
+    fake.state.cancelProgress = false;
     const token = {
       onCancellationRequested(fn: () => void): Disposable {
-        if (fake.state.cancelProgress) fn();
+        if (cancel) fn();
         return { dispose: () => undefined };
       },
     };

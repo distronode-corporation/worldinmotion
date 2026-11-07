@@ -28,7 +28,7 @@ describe("the report", () => {
   });
 
   it("is refused when the line is not one", () => {
-    for (const text of ["", "not json", "null", "[]", '{"ok":"yes","steps":[]}', '{"ok":true}', '{"ok":true,"steps":[null]}', '{"ok":true,"steps":[{"name":"x","result":"maybe","ms":1}]}', '{"ok":true,"steps":[{"name":"x","result":"pass"}]}']) {
+    for (const text of ["", "not json", "null", "[]", '{"ok":"yes","steps":[]}', '{"ok":true}', '{"ok":true,"steps":[null]}', '{"ok":true,"steps":[{"name":"x","result":"maybe","ms":1}]}', '{"ok":true,"steps":[{"name":"x","result":"pass"}]}', '{"ok":false,"steps":[{"name":"x","result":"fail","ms":1,"detail":{"not":"text"}}]}']) {
       expect(parseReport(text)).toBeUndefined();
     }
   });
@@ -100,15 +100,23 @@ describe("running the client", () => {
   });
 
   it("keeps at most MAX_OUTPUT of each stream", async () => {
-    const child = new FakeChild();
-    const done = runClient(command, (() => child) as unknown as SpawnFn, never);
     const big = Buffer.alloc(3 * 1024 * 1024, 0x61);
-    for (let i = 0; i < 3; i++) {
-      child.stdout.emit("data", big);
-      child.stderr.emit("data", big);
-    }
-    child.emit("close", 1, null);
-    expect("error" in (await done)).toBe(true);
+    const report = JSON.stringify({ ok: true, ms: 1, steps: [step("create the mesh", "pass", 1)] });
+    // A valid report past the limit on stdout is not read: nothing past MAX_OUTPUT is kept.
+    const out = new FakeChild();
+    const outDone = runClient(command, (() => out) as unknown as SpawnFn, never);
+    for (let i = 0; i < 2; i++) out.stdout.emit("data", big);
+    out.stdout.emit("data", Buffer.from(`\n${report}\n`));
+    out.emit("close", 0, null);
+    expect(await outDone).toEqual({ error: "the client exited 0 with no report" });
+    // On stderr, a line past the limit is not the reason given.
+    const err = new FakeChild();
+    const errDone = runClient(command, (() => err) as unknown as SpawnFn, never);
+    for (let i = 0; i < 2; i++) err.stderr.emit("data", big);
+    err.stderr.emit("data", Buffer.from("\nwim: a line past the limit\n"));
+    err.emit("close", 1, null);
+    const r = await errDone;
+    expect("error" in r && !r.error.includes("past the limit")).toBe(true);
   });
 
   it("says when the client cannot start, whether spawn throws or the child errors", async () => {

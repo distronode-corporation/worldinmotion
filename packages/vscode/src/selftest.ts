@@ -26,7 +26,7 @@ export function parseReport(stdout: string): SelfTestReport | undefined {
   }
   const r = v as Partial<SelfTestReport> | null;
   if (r === null || typeof r !== "object" || typeof r.ok !== "boolean" || !Array.isArray(r.steps)) return undefined;
-  const steps = r.steps.filter((s): s is SelfTestStep => typeof s?.name === "string" && RESULTS.has(s.result) && typeof s.ms === "number");
+  const steps = r.steps.filter((s): s is SelfTestStep => typeof s?.name === "string" && RESULTS.has(s.result) && typeof s.ms === "number" && (s.detail === undefined || typeof s.detail === "string"));
   if (steps.length !== r.steps.length) return undefined;
   const count = (x: SelfTestStep["result"]): number => steps.filter((s) => s.result === x).length;
   return { ok: r.ok, passed: count("pass"), failed: count("fail"), skipped: count("skip"), ms: typeof r.ms === "number" ? r.ms : 0, steps };
