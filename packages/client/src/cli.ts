@@ -923,6 +923,9 @@ async function typedCode(ctx: Ctx, p: JoinPrompt): Promise<boolean> {
   return false;
 }
 
+/** Said with every invite: its code names its maker (`by`, SPEC section 5), which 0.1.10 and older refuse. */
+export const OLDER_CANNOT_JOIN = "A device on wim 0.1.10 or older cannot read this code: upgrade it to 0.2.0 before it joins.";
+
 /** What a person reads above an invite code, wherever it is shown. */
 const INVITE_CODE_TITLE = "Invite code (single use; give it to the other device over a channel you trust, never through an agent):";
 const INVITE_JOIN_LINE = "On the new device, in a terminal: `wim join <code>`";
@@ -986,8 +989,8 @@ async function invite(ctx: Ctx): Promise<number> {
     }
     // A short code lives at most an hour at the relay; the invite itself may live longer.
     if (made.short !== undefined && made.short.exp < made.exp) ctx.io.out(`The short code works until ${new Date(made.short.exp).toISOString()}.`);
-    if (made.short !== undefined) ctx.io.out("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
     if (made.shortRefused !== undefined) ctx.io.out(`This is the full code: no short code, because ${made.shortRefused}.`);
+    ctx.io.out(OLDER_CANNOT_JOIN);
     ctx.io.out(`It expires at ${until}. Waiting for the device to join (Ctrl-C to stop)...`);
     for (;;) {
       if (ctx.io.signal.aborted || ctx.io.now() >= made.exp) {

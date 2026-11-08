@@ -11,7 +11,7 @@ index-based on the `## [x.y.z]` heading and stops at the next such heading or at
 line beginning with `[`, so keep the link definitions at the bottom and do not start a
 body line with a bracket.
 
-## [Unreleased: 0.2.0]
+## [Unreleased]
 
 ### Added
 
@@ -33,14 +33,10 @@ body line with a bracket.
   and `admitted_by` to `joined` ([docs/events.md](docs/events.md), SPEC section 6a,
   SECURITY-MODEL section 7.2). An invite code now names the admin that made it (`by`, SPEC section
   5): the joining side asks about the device that admitted it as the approver only when that is
-  the maker, and otherwise says so and asks about it like any other device. 0.1.11 accepts and
-  ignores `by`; 0.1.10 and older cannot read a code that carries it. Admitting on an own-device
-  invite says first that it trusts the device (the comparison-code prompt, `wim devices pending`,
-  the VS Code admit box).
-
-## [Unreleased]
-
-### Added
+  the maker, and otherwise says so and asks about it like any other device. Devices on 0.1.10
+  or older cannot read a 0.2.0 invite code and must upgrade to 0.2.0 before joining; `wim invite`
+  and Add a Device... say so. Admitting on an own-device invite says first that it trusts the
+  device (the comparison-code prompt, `wim devices pending`, the VS Code admit box).
 
 - **VS Code: Create a Mesh and Join with a Code from the empty Mesh view.** On a device in no
   mesh yet the Mesh view shows a welcome text with both buttons (it reads the new
@@ -123,6 +119,30 @@ body line with a bracket.
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device
   has dropped.
+
+### Fixed
+
+- **A lease that expires goes to the session waiting for it.** When a lease's `until` and its
+  waiter's wait ended within the same one-second relay sweep (always the case with the default
+  60 s on both sides), the waiter was told `expired` and the lease was left free with nobody
+  holding it. The relay now ends expired leases before expired waits, and hands the lease to a
+  waiter whose wait had not passed at the lease's `until`. `lease.acquire` takes an optional
+  `timeout`, how long to wait, apart from the lease's `ttl` (SPEC section 14); the MCP `lease`
+  tool takes it as `wait_s`. Without it a wait lasts the `ttl`, as before. A relay older than this
+  refuses the field, and the client asks again without it.
+- **A session that lost a lease is told.** The client drops the token and writes a notice for the
+  agent when the relay says the lease expired, when its `until` passes (also while offline), when
+  a renew is refused and the relay no longer lists it as the holder, when a release is refused,
+  and when it reconnects and `lease.list` shows that the lease ended while it was away. A re-acquire
+  after the `until` is answered with the new grant (the client took the expiry notice before it as
+  the answer). The `lease` tool's description tells agents to renew or check before every step a
+  lease protects.
+- **A new agent no longer inherits leases silently.** A same-project takeover writes one notice
+  naming the leases that came with it, and keeps the relay's tokens for them. An acquire by the
+  session that already holds the lease is answered `granted` with its token (it was `held`, naming
+  the caller itself).
+- **Expired lease tokens no longer pile up.** A token whose lease's `until` has passed is dropped,
+  so a session whose leases all ended holds nothing and can end cleanly.
 
 ## [0.1.10] - 2026-11-07
 

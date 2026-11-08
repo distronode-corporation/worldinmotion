@@ -91,7 +91,7 @@ describe("Add a Device...", () => {
     fake.state.messageAnswers.push("Copy Invite Code");
     await actions.addDevice(d);
     expect(fake.state.messages[0]!.items).toEqual(["Copy Invite Code", "Copy Full Code"]);
-    expect(fake.state.messages[0]!.options).toMatchObject({ detail: expect.stringMatching(/older needs the full code instead\.$/) });
+    expect(fake.state.messages[0]!.options).toMatchObject({ detail: expect.stringMatching(/ A device on wim 0\.1\.10 or older cannot read it: upgrade it to 0\.2\.0 before it joins\.$/) });
     expect(fake.state.clipboard).toBe(short);
     choose("way", "own");
     fake.state.messageAnswers.push("Copy Full Code");

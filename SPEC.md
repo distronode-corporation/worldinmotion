@@ -3,6 +3,17 @@
 Status: draft for v0.1. This document is the contract between clients and relays. Nothing here
 depends on Claude Code: any agent that can hold a WebSocket and do the crypto below can be a peer.
 
+Version note, unreleased: section 14 adds an optional `timeout` to `lease.acquire`, how long a
+`wait` lasts (without it a wait lasts the `ttl`, as before), and fixes three answers: a lease that
+expires is handed to a waiter whose wait was still running at the lease's `until`, even when the
+relay's sweep sees both ends at once; an acquire by the session that holds the lease is answered
+`granted` with its current `until` and `token` (it was `held`, naming the caller); and a client
+learns which of its leases ended while it was offline from `lease.list` when it reconnects (no new
+frame). An older relay refuses an acquire that carries `timeout` as `error { code: "malformed" }`
+with no `ref`; the reference client then asks again without it. An older client never sends
+`timeout`, and treats the new `granted` as the grant it is, so every existing client and relay is
+compatible and this is a `wim/1` change.
+
 Version note, unreleased: section 11 adds deleting a mesh: an admin device's session sends
 `mesh.delete { mesh }`, the relay answers `mesh.deleted { mesh }`, closes every connection on the
 mesh with the new close code 4005 and deletes the mesh as it deletes an idle one (section 8 lists
@@ -266,9 +277,9 @@ wim1_<b64u(canon({ "relay": "wss://relay.example", "mesh": "<mesh id>", "secret"
 - `by` (from 0.2.0) names the admin device that made the invite. Every admin receives a join
   request, so the roster that adds the joiner may be signed by another admin; the joiner treats
   the signer as the invite's maker only when it is `by` (section 6a). A code without `by` (from an
-  earlier client) names no maker. 0.1.11 accepts and ignores `by`; 0.1.10 and older refuse a code
-  that carries it, since the code is a strict schema: such a device joins with an invite from a
-  client of its own version.
+  earlier client) names no maker. A malformed `by` is refused, and any other unknown field still
+  is: the code is a strict schema. So devices on 0.1.10 or older cannot read a code that carries
+  `by`, short or full, and must upgrade to 0.2.0 before joining with one.
 
 - `inviteId` = `b64u(H(UTF-8("wim/1 invite " + b64u(secret))))` truncated to 22 characters. The
   admin registers only the `inviteId`, `exp` and `pin` with the relay
@@ -824,7 +835,7 @@ with a fresh nonce for every connection. The client answers within 10 seconds wi
 `peers`, `rename { name }`, `notify_idle { of: "<address>" }`, `invite.create { invite, exp, pin }`
 (admins), `roster.publish { roster }` (admins), `roster.get { from }`, `roster.fork { a, b }`,
 `room.join { room }`, `room.leave { room }`, `room.history { room, before?, limit? }` (section 13),
-`lease.acquire { key, ttl, wait? }`, `lease.renew { key, token, ttl }`, `lease.release { key, token }`,
+`lease.acquire { key, ttl, wait?, timeout? }`, `lease.renew { key, token, ttl }`, `lease.release { key, token }`,
 `lease.list`, `lease.watch { key }` (section 14), `blob.put { blob, index, last, n, data }`,
 `blob.get { blob, index }` (section 15), `card.set { msg }`, `cards.get { after? }` (section 17),
 `rdv.put { rdv, exp, n, c }` (admins; section 5, short invite codes), `ci.rules { tags, gitlab }`
@@ -1250,7 +1261,8 @@ a time).
 - The client names a lease; the relay sees only its key,
   `b64u(H(UTF-8("wim/1 lease " + meshId + " " + name)))` truncated to 22 characters. A short or
   guessable name can be recovered by trying candidates, so the key hides only hard-to-guess names.
-- Client frames: `lease.acquire { key, ttl, wait? }` (`ttl` in milliseconds, 1 second to 1 hour),
+- Client frames: `lease.acquire { key, ttl, wait?, timeout? }` (`ttl` and `timeout` in
+  milliseconds, 1 second to 1 hour),
   `lease.renew { key, token, ttl }`, `lease.release { key, token }`, `lease.list`, and
   `lease.watch { key }`.
 - The relay answers with `lease { key, status, holder?, until?, token? }`, where `status` is
@@ -1268,12 +1280,23 @@ a time).
   the grant. After that a
   renew is `refused`, and the holder must release and acquire again, going to the back of any wait
   queue.
+- An acquire by the session that already holds the lease is answered `granted` with the lease's
+  current `holder`, `until` and `token`. It does not extend the lease: `lease.renew` does.
 - With `wait: true`, an acquire that finds the lease held is queued, first come first served, and
-  answered `granted` when the lease frees, or `expired` if the waiter's own ttl passes first. A
-  waiting acquire counts against the session's lease limit, and a waiter that goes offline loses
-  its place.
+  answered `granted` when the lease frees, or `expired` if the wait passes first. The wait lasts
+  `timeout` when given, else `ttl`; the granted lease lasts `ttl` from the grant. A lease that
+  ends at its `until` goes to a waiter whose wait had not passed at that `until`, however late the
+  relay notices the expiry. A waiting acquire counts against the session's lease limit, and a
+  waiter that goes offline loses its place.
 - A lease ends at `until`, on `lease.release`, or when its holder session says `bye`. It does not
   end when the holder only disconnects: a network blip keeps it until `until`.
+- The relay sends the holder `lease { status: "expired", token }` when its lease expires, but only
+  while the holder is connected; an `expired` with a `token` is this notice, never the answer to a
+  request (an acquire, renew or release that finds the lease past its `until` gets the notice
+  first, then its answer). A holder that was offline learns which of its leases ended from
+  `lease.list` when it reconnects. A client SHOULD drop the token of a lease that ended (on this
+  notice, at its `until`, on a refused `lease.release`, or when `lease.list` no longer lists it)
+  and tell its agent, since what the lease protected may now be another session's turn.
 - `lease.watch` asks for one `lease { status: "released" | "expired" }` when the key next frees.
   A watch lapses after 1 hour.
 - Leases are advisory and the relay is trusted for them (section 10).

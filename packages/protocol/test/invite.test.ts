@@ -51,14 +51,20 @@ describe("invites", () => {
     expect(createInvite({ ...base, now: undefined }).exp).toBeGreaterThan(Date.now());
   });
 
-  it("carries the maker's device id as `by` when given one, and refuses one that is not a device id", () => {
+  it("carries the maker's device id as `by`, checked as a device id; any other unknown field is still refused", () => {
     const by = deviceIdFromSignPub(generateDeviceKeys().signPub);
     const invite = createInvite({ ...base, by });
     expect(parseInvite(invite.code).by).toBe(by);
     expect(parseInvite(createInvite(base).code)).not.toHaveProperty("by");
     expect(() => createInvite({ ...base, by: "laptop" })).toThrow(/by: expected a 22-character id/);
-    const body = JSON.parse(new TextDecoder().decode(b64u.decode(invite.code.slice(5)))) as Record<string, unknown>;
-    expect(() => parseInvite(encodeBody({ ...body, by: "x" }))).toThrow(/invalid invite code: by/);
+    // A code made by this version's createInvite, kept as text: `by` reads back as written.
+    const fixture = "wim1_eyJieSI6IlB4SmprM3hpd0ZXSVdodU13YUlzcVEiLCJleHAiOjE3NjAwMDM2MDAwMDAsIm1lc2giOiJFTG9LMmxNUkNnQ1VLM2twbWl1N0hBIiwicGluIjp7Imhhc2giOiI0R2JEU2xWckRtY3pjZWQ3dWdPWWI0TDlrZWtwWXR5a1VLb0JiTll5N3IwIiwic2VxIjoxfSwicmVsYXkiOiJ3c3M6Ly9yZWxheS5leGFtcGxlIiwic2VjcmV0IjoiaXlvYkd5eFpqMmlZLVg4bDhSSXN6QmkyeXktbXlHWUl0LWlhNExDeFRLQSJ9";
+    expect(parseInvite(fixture)).toMatchObject({ by: "PxJjk3xiwFWIWhuMwaIsqQ", relay: "wss://relay.example", pin: { seq: 1 }, exp: 1_760_003_600_000 });
+    const body = JSON.parse(new TextDecoder().decode(b64u.decode(fixture.slice(5)))) as Record<string, unknown>;
+    // A `by` that is not a device id is refused, as is any other field this version does not know.
+    expect(() => parseInvite(encodeBody({ ...body, by: "laptop" }))).toThrow(/invalid invite code: by: expected a 22-character id/);
+    expect(() => parseInvite(encodeBody({ ...body, by: 7 }))).toThrow(/invalid invite code: by/);
+    expect(() => parseInvite(encodeBody({ ...body, own: true }))).toThrow(/invalid invite code/);
   });
 
   it("caps exp at seven days and refuses exp at or before now", () => {

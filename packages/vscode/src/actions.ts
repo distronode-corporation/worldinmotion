@@ -359,7 +359,7 @@ export async function addDevice(d: Deps): Promise<void> {
     void vscode.window.showInformationMessage(ADD_PAIRING_LATER);
     return;
   }
-  // With a short code, `code` is it and `full` the full code, for a device on wim 0.1.4 or older.
+  // With a short code, `code` is it and `full` the full code.
   let made: { code: string; invite: string; exp: number; full?: string };
   try {
     // `own` stays in the client's invite record, never in the code (SPEC section 6a).
@@ -369,7 +369,8 @@ export async function addDevice(d: Deps): Promise<void> {
     return;
   }
   d.invited.add(made.invite);
-  const older = made.full === undefined ? "" : " A device on wim 0.1.4 or older needs the full code instead.";
+  // The code names its maker (`by`, SPEC section 5), which 0.1.10 and older refuse.
+  const older = " A device on wim 0.1.10 or older cannot read it: upgrade it to 0.2.0 before it joins.";
   const choice = await vscode.window.showInformationMessage(
     "worldinmotion: an invite for the new device is ready.",
     {

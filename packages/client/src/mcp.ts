@@ -66,12 +66,14 @@ const PUBLIC = {
     input: z.object({ action: z.enum(["join", "leave", "list", "history"]), room: z.string().optional(), limit: z.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional() }),
   },
   lease: {
-    description: "Advisory locks by name: acquire, renew, release or list.",
+    description:
+      "Advisory locks by name: acquire, renew, release or list. A lease ends at its ttl (default 60 s) unless renewed, even while this session is offline, and another session may then take it: renew it (or list and check the holder and token) before every step it protects, and stop if that fails. wait: wait for a held lease, up to wait_s (default the ttl).",
     input: z.object({
       action: z.enum(["acquire", "renew", "release", "list"]),
       name: z.string().min(1).max(256).optional(),
       ttl_s: z.number().int().min(LIMITS.leaseTtlMinMs / 1000).max(LIMITS.leaseTtlMaxMs / 1000).optional(),
       wait: z.boolean().optional(),
+      wait_s: z.number().int().min(LIMITS.leaseTtlMinMs / 1000).max(LIMITS.leaseTtlMaxMs / 1000).optional(),
     }),
   },
   send_file: {
@@ -614,7 +616,9 @@ export class WimMcp {
     if (i.name === undefined) return fail(`lease ${i.action} needs a name`);
     const ttl = Math.min(LIMITS.leaseTtlMaxMs, (i.ttl_s ?? 60) * 1000);
     const answer =
-      i.action === "acquire" ? await s.acquireLease(i.name, ttl, i.wait === true) : i.action === "renew" ? await s.renewLease(i.name, ttl) : await s.releaseLease(i.name);
+      i.action === "acquire"
+        ? await s.acquireLease(i.name, ttl, i.wait === true, i.wait_s === undefined ? undefined : i.wait_s * 1000)
+        : i.action === "renew" ? await s.renewLease(i.name, ttl) : await s.releaseLease(i.name);
     const { t: _t, key: _k, ...rest } = answer;
     return json({ name: i.name, ...rest });
   }

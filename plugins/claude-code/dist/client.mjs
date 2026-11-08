@@ -87178,7 +87178,9 @@ var leaseAcquireFrameSchema = external_exports.strictObject({
   t: external_exports.literal("lease.acquire"),
   key: leaseKeySchema,
   ttl: leaseTtlSchema,
-  wait: external_exports.boolean().optional()
+  wait: external_exports.boolean().optional(),
+  /** With `wait`, how long to wait for a held lease (else `ttl`); same bounds as `ttl`. */
+  timeout: leaseTtlSchema.optional()
 });
 var leaseRenewFrameSchema = external_exports.strictObject({
   t: external_exports.literal("lease.renew"),
@@ -90829,6 +90831,7 @@ function parseSessionState(raw) {
     seq: int2(s3.seq),
     spool: int2(s3.spool),
     leases: typeof s3.leases === "object" && s3.leases !== null ? s3.leases : {},
+    ...typeof s3.leaseUntil === "object" && s3.leaseUntil !== null ? { leaseUntil: s3.leaseUntil } : {},
     ...typeof s3.address === "string" ? { address: s3.address } : {},
     ...isName(s3.asked) ? { asked: s3.asked } : {},
     ...Array.isArray(s3.claims) ? { claims: parseClaims(s3.claims) } : {},
@@ -92638,6 +92641,21 @@ function claimLine2(address, c5) {
   const n3 = (k5, one, many) => `${k5} ${k5 === 1 ? one : many}`;
   return `this session took over ${address}, an offline session on this device, with its queue, rooms, history and leases. With it came ${n3(c5.unread, "unread message", "unread messages")}, ${n3(c5.held, "held item", "held items")} and ${n3(c5.leases, "lease", "leases")}. Held items wait for the person on this device to approve or refuse (/wim, the Held view, or wim held list); a claim does not decide them.`;
 }
+function leaseAnswer(key3) {
+  return (f7) => f7.t === "lease" && f7.key === key3 && !(f7.status === "expired" && f7.token !== void 0);
+}
+function leaseLostLine(name, why) {
+  const how = {
+    expired: "it expired (its ttl passed without a renew)",
+    away: "it ended while this session was offline or not running",
+    renew: "the relay refused to renew it: it had expired or ended",
+    release: "the relay refused the release: it had expired or ended before"
+  }[why];
+  return `this session no longer holds the lease ${name}: ${how}, and another session may hold it now. Stop any step it protected, and acquire it again before going on.`;
+}
+function inheritedLeasesLine(names) {
+  return `this session took over an earlier session from this working directory, and with it ${names.length} ${names.length === 1 ? "lease" : "leases"}: ${names.join(", ")}. Renew one before relying on it, or release it if this session does not need it.`;
+}
 function unprotectedNote(unprotected, noPrekey) {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
 }
@@ -92791,6 +92809,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
   claimTold = false;
   /** The claim notice under way, which `stop` waits for, so a one-off command does not exit before it. */
   claimNoticing = Promise.resolve();
+  /** Whether this session was taken over by the same-project rule; its inherited leases are told once (checkLeases). */
+  projectTaken = false;
+  /** The lease check of the last `ready` (checkLeases), which `stop` waits for. */
+  leaseChecking = Promise.resolve();
+  /** The relay's clock minus this one, from the last `hello` (lease `until` is the relay's time). */
+  relayOffset = 0;
   constructor(o3, files, state2) {
     super();
     this.o = o3;
@@ -92841,7 +92865,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
         state2 = { ...saved ?? { ...newSessionState(o3.name, o3.kind), sid: known.sid }, resume: known.resume, kind: o3.kind };
       }
     }
-    state2 ??= await _MeshSession.sameProject(o3);
+    const project = state2 === void 0 ? await _MeshSession.sameProject(o3) : void 0;
+    state2 ??= project;
     state2 ??= newSessionState(o3.name, o3.kind);
     if (o3.cwd !== void 0) state2 = { ...state2, cwd: o3.cwd };
     const files = new SessionFiles(o3.mesh, state2.sid, o3.env);
@@ -92853,6 +92878,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (o3.sessionKey !== void 0) await keys.remember(o3.sessionKey, state2.sid, state2.resume);
     const session = new _MeshSession(o3, files, state2);
     session.takenOver = claimed !== void 0;
+    session.projectTaken = project !== void 0;
     await session.load();
     await session.settleDelivered();
     await session.restorePauses();
@@ -92913,7 +92939,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async holdsNothing() {
     const st = this.state;
-    if (st.seq > 0 || st.rooms.length > 0 || Object.keys(st.leases).length > 0) return false;
+    if (st.seq > 0 || st.rooms.length > 0 || this.heldLeases().length > 0) return false;
     const unread = (await this.spool.unread()).filter((i6) => i6.kind !== "notice");
     return unread.length + (await this.held.list()).length === 0;
   }
@@ -92960,7 +92986,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         },
         this.device.keyring
       ),
-      onReady: (ready, link) => this.onReady(ready, link),
+      onReady: (ready, link, hello) => this.onReady(ready, link, hello.at),
       onFrame: (f7) => this.onFrame(f7),
       onFatal: (reason) => {
         this.log(`wim: ${reason}`);
@@ -92995,6 +93021,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (this.stopped) return;
     this.stopped = true;
     await this.claimNoticing;
+    await this.leaseChecking;
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
@@ -93024,7 +93051,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     return write;
   }
   // ---- connection ----
-  async onReady(ready, link) {
+  async onReady(ready, link, relayAt) {
+    this.relayOffset = relayAt - this.now();
     const roster = ready.roster;
     const pin = this.book.ref;
     if (roster.seq > pin.seq) await this.walk(link, roster.seq);
@@ -93035,6 +93063,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await this.save({ name: ready.name, asked, address, cursor: Math.max(this.state.cursor, ready.cursor) });
     if (address !== was) this.noticeLater(this.address, ready.name === asked ? reclaimedLine(was, address) : renamedLine(was, address));
     if (this.takenOver && !this.claimTold) this.claimNotice(link);
+    this.checkLeases(link);
     this.peers.clear();
     for (const p3 of ready.peers) this.peers.set(p3.address, p3);
     this.emit("peers");
@@ -93148,6 +93177,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
       }
       case "card":
         this.takeCard(f7.msg);
+        return;
+      case "lease":
+        if (f7.status === "expired" && f7.token !== void 0) void this.leaseLost(f7.key, f7.token, "expired").catch((e6) => this.log(`wim: lease: ${e6.message}`));
         return;
       case "ci.deliver": {
         const via = this.link;
@@ -93803,6 +93835,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.ticking = true;
     try {
       await this.sweep();
+      await this.pruneLeases();
       await this.readPresence();
       for (const { id: id2, verdict } of await this.held.takeMarks()) void this.onQueue(() => this.applyMark(id2, verdict)).catch(ignore);
       this.queueRelease();
@@ -94566,33 +94599,118 @@ ${frameEntry(entry)}`);
     if (names[key3] !== name) await writeJson(this.o.mesh.leaseNamesPath, { ...names, [key3]: name }, this.o.env);
     return key3;
   }
-  async acquireLease(name, ttlMs, wait) {
+  /**
+   * Acquires a lease. With `wait`, a held lease is waited for up to `waitMs` (SPEC section 14's
+   * `timeout`), else up to `ttlMs` as before. A relay older than `timeout` refuses the frame as
+   * malformed (with no `ref`): the acquire is then asked again without it, waiting up to `ttlMs`.
+   */
+  async acquireLease(name, ttlMs, wait, waitMs) {
     const key3 = await this.keyFor(name);
     const link = await this.ready();
-    const answer = await link.request(
-      { t: "lease.acquire", key: key3, ttl: ttlMs, ...wait ? { wait: true } : {} },
-      (f7) => f7.t === "lease" && f7.key === key3,
-      (wait ? ttlMs : 0) + this.answerMs
+    const timeout = wait ? waitMs : void 0;
+    const ask3 = (withTimeout) => link.request(
+      { t: "lease.acquire", key: key3, ttl: ttlMs, ...wait ? { wait: true } : {}, ...withTimeout ? { timeout } : {} },
+      (f7) => leaseAnswer(key3)(f7) || withTimeout && f7.t === "error" && f7.code === "malformed" && f7.ref === void 0,
+      (wait ? withTimeout ? timeout : ttlMs : 0) + this.answerMs
     );
-    if (answer.status === "granted" && answer.token !== void 0) await this.save({ leases: { ...this.state.leases, [key3]: answer.token } });
-    return answer;
+    let answer = await ask3(timeout !== void 0);
+    if (answer.t === "error") {
+      this.log("wim: the relay does not take a lease wait timeout; waiting up to the lease ttl instead");
+      answer = await ask3(false);
+    }
+    const lease = answer;
+    if (lease.status === "granted" && lease.token !== void 0) await this.keepLease(key3, lease.token, lease.until);
+    return lease;
   }
+  /** Renews a lease. A refused renew is checked against the relay's list: a lease this session lost is dropped, and the agent told. */
   async renewLease(name, ttlMs) {
     const key3 = await this.keyFor(name);
     const token = this.state.leases[key3];
     if (token === void 0) throw new ClientError(`this session does not hold the lease ${JSON.stringify(name)}`, "not_held");
     const link = await this.ready();
-    return await link.request({ t: "lease.renew", key: key3, token, ttl: ttlMs }, (f7) => f7.t === "lease" && f7.key === key3, this.answerMs);
+    const answer = await link.request({ t: "lease.renew", key: key3, token, ttl: ttlMs }, leaseAnswer(key3), this.answerMs);
+    if (answer.status === "renewed") await this.keepLease(key3, token, answer.until);
+    else if (!await this.stillHeld(link, key3, token).catch(() => true)) await this.leaseLost(key3, token, "renew");
+    return answer;
   }
   async releaseLease(name) {
     const key3 = await this.keyFor(name);
     const token = this.state.leases[key3];
     if (token === void 0) throw new ClientError(`this session does not hold the lease ${JSON.stringify(name)}`, "not_held");
     const link = await this.ready();
-    const answer = await link.request({ t: "lease.release", key: key3, token }, (f7) => f7.t === "lease" && f7.key === key3, this.answerMs);
-    const { [key3]: _gone, ...rest } = this.state.leases;
-    await this.save({ leases: rest });
+    const answer = await link.request({ t: "lease.release", key: key3, token }, leaseAnswer(key3), this.answerMs);
+    if (answer.status === "refused") await this.leaseLost(key3, token, "release");
+    else await this.forgetLease(key3, token);
     return answer;
+  }
+  /** Lease keys this session holds a token for, less those whose `until` has passed (relay clock). */
+  heldLeases() {
+    const until = this.state.leaseUntil ?? {};
+    const now = this.relayNow();
+    return Object.keys(this.state.leases).filter((k5) => !(until[k5] <= now));
+  }
+  relayNow() {
+    return this.now() + this.relayOffset;
+  }
+  /** Keeps a lease's token and, when the relay gave one, its `until`. */
+  async keepLease(key3, token, until) {
+    const { [key3]: _old, ...untils } = this.state.leaseUntil ?? {};
+    await this.save({ leases: { ...this.state.leases, [key3]: token }, leaseUntil: until === void 0 ? untils : { ...untils, [key3]: until } });
+  }
+  /** Forgets a lease if this session still has `token` for it; true when it did. */
+  async forgetLease(key3, token) {
+    if (this.state.leases[key3] !== token) return false;
+    const { [key3]: _t, ...leases } = this.state.leases;
+    const { [key3]: _u, ...leaseUntil } = this.state.leaseUntil ?? {};
+    await this.save({ leases, leaseUntil });
+    return true;
+  }
+  /** Forgets a lost lease and tells the agent, once: only while this session still has that token. */
+  async leaseLost(key3, token, why) {
+    if (!await this.forgetLease(key3, token)) return;
+    await this.notice(this.address, leaseLostLine(await this.leaseShown(key3), why));
+  }
+  /** A lease as a notice names it: its plain name where this device knows it, else its key. */
+  async leaseShown(key3) {
+    return JSON.stringify(sanitizeForDisplay((await this.leaseNames())[key3] ?? key3));
+  }
+  /** Whether the relay lists this session as the lease's holder with `token`. */
+  async stillHeld(link, key3, token) {
+    const f7 = await link.request({ t: "lease.list" }, (x2) => x2.t === "leases", this.answerMs);
+    return f7.leases.some((l3) => l3.key === key3 && l3.holder === this.address && l3.token === token);
+  }
+  /** Drops each lease whose `until` has passed (relay clock), telling the agent: from the housekeeping pass. */
+  async pruneLeases() {
+    const held2 = new Set(this.heldLeases());
+    for (const [key3, token] of Object.entries(this.state.leases)) if (!held2.has(key3)) await this.leaseLost(key3, token, "expired");
+  }
+  /**
+   * At each `ready`, asks the relay which leases this session holds (SPEC section 14 sends an
+   * expiry only to a connected holder): a token for a lease that ended meanwhile is dropped, and
+   * the agent told; one the relay holds for this session that it did not know (a grant after the
+   * client gave up waiting) is kept. After a same-project takeover the agent is told, once, which
+   * leases came with it. The tokens are taken when the list comes, so a grant after it is kept.
+   */
+  checkLeases(link) {
+    const inherit = this.projectTaken;
+    if (Object.keys(this.state.leases).length === 0 && !inherit) return;
+    this.projectTaken = false;
+    this.leaseChecking = link.request({ t: "lease.list" }, (f7) => f7.t === "leases", this.answerMs).then(async (f7) => {
+      const had = Object.entries(this.state.leases);
+      const mine = new Map(f7.leases.filter((l3) => l3.holder === this.address).map((l3) => [l3.key, l3]));
+      for (const [key3, token] of had) {
+        const l3 = mine.get(key3);
+        if (l3 === void 0) await this.leaseLost(key3, token, "away");
+      }
+      for (const l3 of mine.values()) await this.keepLease(l3.key, l3.token, l3.until);
+      if (!inherit || mine.size === 0) return;
+      const names = [];
+      for (const key3 of mine.keys()) names.push(await this.leaseShown(key3));
+      await this.notice(this.address, inheritedLeasesLine(names));
+    }).catch((e6) => {
+      this.projectTaken ||= inherit;
+      this.log(`wim: leases not checked: ${e6.message}`);
+    });
   }
   /** Current leases with plain names where this device knows them (else the key). */
   async listLeases() {
@@ -123943,12 +124061,13 @@ var PUBLIC = {
     input: external_exports.object({ action: external_exports.enum(["join", "leave", "list", "history"]), room: external_exports.string().optional(), limit: external_exports.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional() })
   },
   lease: {
-    description: "Advisory locks by name: acquire, renew, release or list.",
+    description: "Advisory locks by name: acquire, renew, release or list. A lease ends at its ttl (default 60 s) unless renewed, even while this session is offline, and another session may then take it: renew it (or list and check the holder and token) before every step it protects, and stop if that fails. wait: wait for a held lease, up to wait_s (default the ttl).",
     input: external_exports.object({
       action: external_exports.enum(["acquire", "renew", "release", "list"]),
       name: external_exports.string().min(1).max(256).optional(),
       ttl_s: external_exports.number().int().min(LIMITS.leaseTtlMinMs / 1e3).max(LIMITS.leaseTtlMaxMs / 1e3).optional(),
-      wait: external_exports.boolean().optional()
+      wait: external_exports.boolean().optional(),
+      wait_s: external_exports.number().int().min(LIMITS.leaseTtlMinMs / 1e3).max(LIMITS.leaseTtlMaxMs / 1e3).optional()
     })
   },
   send_file: {
@@ -124372,7 +124491,7 @@ var WimMcp = class {
     if (i6.action === "list") return json3({ leases: await s3.listLeases() });
     if (i6.name === void 0) return fail3(`lease ${i6.action} needs a name`);
     const ttl = Math.min(LIMITS.leaseTtlMaxMs, (i6.ttl_s ?? 60) * 1e3);
-    const answer = i6.action === "acquire" ? await s3.acquireLease(i6.name, ttl, i6.wait === true) : i6.action === "renew" ? await s3.renewLease(i6.name, ttl) : await s3.releaseLease(i6.name);
+    const answer = i6.action === "acquire" ? await s3.acquireLease(i6.name, ttl, i6.wait === true, i6.wait_s === void 0 ? void 0 : i6.wait_s * 1e3) : i6.action === "renew" ? await s3.renewLease(i6.name, ttl) : await s3.releaseLease(i6.name);
     const { t: _t, key: _k, ...rest } = answer;
     return json3({ name: i6.name, ...rest });
   }
@@ -130659,11 +130778,11 @@ var MeshRelay = class {
       this.store.deleteInvite(inv.id);
       this.store.deleteJoin(inv.id);
     }
+    for (const l3 of this.store.expiredLeases(now)) this.free(l3, "expired", now);
     for (const w of this.store.expiredWaiters(now)) {
       this.store.deleteWaiter(w.key, w.sid);
       this.leaseTo(this.store.getSession(w.sid), w.key, "expired");
     }
-    for (const l3 of this.store.expiredLeases(now)) this.free(l3, "expired", now);
     this.store.pruneWatches(now);
     this.store.pruneHistory(now - L.roomHistoryLifetimeMs, HISTORY_SWEEP_BATCH);
     this.store.pruneRooms();
@@ -130939,7 +131058,7 @@ var MeshRelay = class {
       case "room.history":
         return this.roomHistory(conn, f7.room, f7.before, f7.limit);
       case "lease.acquire":
-        return this.leaseAcquire(conn, s3, f7.key, f7.ttl, f7.wait === true, now);
+        return this.leaseAcquire(conn, s3, f7.key, f7.ttl, f7.wait === true ? f7.timeout ?? f7.ttl : void 0, now);
       case "lease.renew":
         return this.leaseRenew(conn, s3, f7.key, f7.token, f7.ttl, now);
       case "lease.release":
@@ -131268,20 +131387,22 @@ var MeshRelay = class {
   ttlOk(ttl) {
     return ttl >= this.limits.leaseTtlMinMs && ttl <= this.limits.leaseTtlMaxMs;
   }
+  /** `wait`: how long a held lease is waited for (the frame's `timeout`, else its `ttl`); undefined for no wait. */
   leaseAcquire(conn, s3, key3, ttl, wait, now) {
     const L = this.limits;
-    if (!this.ttlOk(ttl)) return this.lease(conn, { key: key3, status: "refused" });
+    if (!this.ttlOk(ttl) || wait !== void 0 && !this.ttlOk(wait)) return this.lease(conn, { key: key3, status: "refused" });
     this.expireDue(key3, now);
     const held2 = this.store.getLease(key3);
     const busy = this.store.leasesHeldBy(s3.sid) + this.store.waitsBy(s3.sid) >= L.leasesPerSession;
     const deviceFull = this.deviceLeases(s3.device) >= L.leasesPerDevice;
     if (held2 !== void 0) {
-      if (!wait || held2.holder === s3.sid) {
+      if (held2.holder === s3.sid) return this.lease(conn, { key: key3, status: "granted", holder: this.address(s3), until: held2.until, token: held2.token });
+      if (wait === void 0) {
         const holder = this.address(this.store.getSession(held2.holder));
         return this.lease(conn, { key: key3, status: "held", holder, until: held2.until });
       }
       if (busy) return this.lease(conn, { key: key3, status: "refused" });
-      return this.store.addWaiter({ key: key3, sid: s3.sid, ttl, exp: now + ttl });
+      return this.store.addWaiter({ key: key3, sid: s3.sid, ttl, exp: now + wait });
     }
     if (busy || deviceFull || this.store.leases().length >= L.leasesPerMesh) return this.lease(conn, { key: key3, status: "refused" });
     this.grant(s3, key3, ttl, now);
@@ -131321,7 +131442,12 @@ var MeshRelay = class {
     const l3 = this.store.getLease(key3);
     if (l3 !== void 0 && l3.until <= now) this.free(l3, "expired", now);
   }
-  /** Ends a lease: tells the holder (on expiry) and the watchers, then hands it to the first waiter still waiting. */
+  /**
+   * Ends a lease: tells the holder (on expiry) and the watchers, then hands it to the first waiter
+   * still waiting when it ended. An expired lease ended at its `until`, which the sweep may see up
+   * to a second late: a waiter whose wait reached `until` was still waiting then (SPEC section 14:
+   * `expired` only if the waiter's own wait passes first).
+   */
   free(l3, why, now) {
     this.store.deleteLease(l3.key);
     if (why === "expired") this.leaseTo(this.store.getSession(l3.holder), l3.key, "expired", { token: l3.token });
@@ -131332,7 +131458,7 @@ var MeshRelay = class {
     for (const w of this.store.waiters(l3.key)) {
       this.store.deleteWaiter(w.key, w.sid);
       const waiter = this.store.getSession(w.sid);
-      if (w.exp <= now) {
+      if (why === "expired" ? w.exp < l3.until : w.exp <= now) {
         this.leaseTo(waiter, l3.key, "expired");
         continue;
       }
@@ -134307,6 +134433,7 @@ async function typedCode(ctx, p3) {
   }
   return false;
 }
+var OLDER_CANNOT_JOIN = "A device on wim 0.1.10 or older cannot read this code: upgrade it to 0.2.0 before it joins.";
 var INVITE_CODE_TITLE = "Invite code (single use; give it to the other device over a channel you trust, never through an agent):";
 var INVITE_JOIN_LINE = "On the new device, in a terminal: `wim join <code>`";
 async function invite(ctx) {
@@ -134359,8 +134486,8 @@ async function invite(ctx) {
       ).then(() => wake?.());
     }
     if (made.short !== void 0 && made.short.exp < made.exp) ctx.io.out(`The short code works until ${new Date(made.short.exp).toISOString()}.`);
-    if (made.short !== void 0) ctx.io.out("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
     if (made.shortRefused !== void 0) ctx.io.out(`This is the full code: no short code, because ${made.shortRefused}.`);
+    ctx.io.out(OLDER_CANNOT_JOIN);
     ctx.io.out(`It expires at ${until}. Waiting for the device to join (Ctrl-C to stop)...`);
     for (; ; ) {
       if (ctx.io.signal.aborted || ctx.io.now() >= made.exp) {
