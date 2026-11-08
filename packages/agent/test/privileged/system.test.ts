@@ -309,7 +309,7 @@ describe.runIf(linux)("systemDeps", () => {
     expect(d.worker.loadQuery).toBeTypeOf("function");
   });
 
-  it.runIf(process.getuid!() !== 0)("as root, writes and directories must be root's (refused here, where we are not)", async () => {
+  it.runIf(linux && process.getuid!() !== 0)("as root, writes and directories must be root's (refused here, where we are not)", async () => {
     const d = systemDeps(0);
     expect(d.euid).toBe(0);
     await expect(d.writeFile(join(dir, "root.json"), "x", 0o600)).rejects.toThrow(/EPERM/);

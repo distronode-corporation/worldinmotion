@@ -78,6 +78,7 @@ function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: numb
     }),
     fetch: (async () => new Response("")) as never,
     startProxy: async (o) => {
+      o.log("proxy: /v1/messages 200 (request 1 of 25)");
       const p = { ...o, closed: 0 };
       proxies.push(p);
       return { url: "http://127.0.0.1:4100", key: "wimjob-key", requests: () => 0, close: async () => void (ops.push("proxy closed"), p.closed++) };
@@ -166,6 +167,7 @@ describe("privilegedMain: the happy path", () => {
     expect(Object.keys(state.seen)).toHaveLength(1);
     expect(h.logs()).toContain("worker: cost_usd 0.02 turns 2");
     expect(h.logs()).toContain("token refresh failed: TypeError");
+    expect(h.logs()).toContain("wim-agent-privileged: proxy: /v1/messages 200 (request 1 of 25)");
     expect(h.logs()).not.toContain("refresh detail");
     expect(h.logs()).not.toContain("noise");
     expect(h.logs()).not.toContain("hello");
