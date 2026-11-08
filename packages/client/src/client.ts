@@ -64,7 +64,7 @@ import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./c
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
-import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
+import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type KeylessFile, type Mark, type Verdict } from "./held.ts";
 import { frameEntry, History, KEEP_MS, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
 import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
@@ -415,6 +415,13 @@ type PauseMessage = Extract<Plaintext, { kind: "pause" }>;
 type Probe = Extract<Plaintext, { kind: "ping" | "pong" }>;
 
 /** The verified fields of a received plaintext, as history and the agent frame read them. */
+/** A held item's file without its decryption key (#132), for a session that keeps no content. */
+function keyless(file: FileInfo | undefined): { fileInfo?: KeylessFile } {
+  if (file === undefined) return {};
+  const { key: _key, ...rest } = file;
+  return { fileInfo: rest };
+}
+
 function entryOf(p: Message, from: string): HistoryEntry {
   return {
     dir: "in",
@@ -1621,8 +1628,9 @@ export class MeshSession extends EventEmitter {
       ...(p.kind === "file" ? { fileInfo: p.file } : {}),
     };
     // A file from a sender that is not delivered is not even fetched until the person approves.
-    // A session that keeps no text holds only the metadata for the person's decision.
-    if (policy === "hold") return this.hold(this.redacting ? { ...held, preview: REDACTED_TEXT, entry: this.stored(entry), reason: "policy" } : { ...held, reason: "policy" });
+    // A session that keeps no text holds only the metadata for the person's decision: a file
+    // without its key, since it is never fetched (#132).
+    if (policy === "hold") return this.hold(this.redacting ? { ...held, preview: REDACTED_TEXT, entry: this.stored(entry), ...keyless(p.kind === "file" ? p.file : undefined), reason: "policy" } : { ...held, reason: "policy" });
 
     // A trusted peer whose cool-down ended is released first (this runs on the inbound queue, as
     // every release does), so what it held comes before this, and this is counted after it. A
@@ -1686,15 +1694,15 @@ export class MeshSession extends EventEmitter {
 
   /** Fetches a file if there is one, renders the frame and puts the item in the spool. */
   /** `written`: what a release from held/ records once the item is in the spool (decideNow). */
-  private async release(item: Omit<HeldItem, "reason">, file: FileInfo | undefined, written?: () => Promise<void>): Promise<void> {
+  private async release(item: Omit<HeldItem, "reason">, file: FileInfo | KeylessFile | undefined, written?: () => Promise<void>): Promise<void> {
     // A CI notice was framed when it arrived, and is always information only.
     if (item.ci !== undefined) {
       await this.deliver({ kind: item.kind, from: item.from, device: "", id: item.id, at: item.at, rendered: item.rendered, relayed: true, informs: true }, item.entry, written);
       return;
     }
     const entry = { ...item.entry };
-    // A session that keeps no message content does not fetch a file to disk either.
-    if (file !== undefined) entry.savedTo = this.redacting ? REDACTED_FILE : await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`);
+    // A session that keeps no message content does not fetch a file to disk either (and holds one without its key).
+    if (file !== undefined) entry.savedTo = "key" in file && !this.redacting ? await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`) : REDACTED_FILE;
     // The same trust decision as a release applied on disk (offline.ts).
     await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry, written);
   }

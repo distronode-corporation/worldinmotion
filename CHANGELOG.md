@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-08
+
 This release is built around one promise: encrypted messages between AI agents from different
 vendors and different accounts, with a trust model a security team can review. `npx worldinmotion
 setup` takes a machine from nothing to a mesh, offers the Claude Code plugin and the VS Code
@@ -259,7 +261,8 @@ upgrade it before it joins.
   `<profile>:` prefix from a configured list. Each job goes through a runner command: one JSON
   request on stdin, the answer on stdout, exit codes for refused, busy and timed out, and a
   SIGTERM-then-SIGKILL timeout on its process group. Limits: task length, attempts per device per
-  hour, one job at a time, a daily cap kept on disk. Replies are marked relayed; a room copy
+  hour, one job at a time, a daily cap kept on disk (a request the runner refuses, or is busy for,
+  gives its slot back). Replies are marked relayed; a room copy
   carries the answer only. The built-in runner (`wim agent runner`) uses the Claude Agent SDK with
   an API key, `claude-opus-5-5` at medium effort, read-only tools, and no settings, hooks or MCP
   servers from the machine (packages/agent/README.md, SECURITY-MODEL section 7.7).
@@ -279,11 +282,12 @@ upgrade it before it joins.
   cap and a timeout. The job holds no credential: the runner signs in itself (Workload Identity
   Federation through the Anthropic SDK's own token exchange, from an AWS STS, GCE metadata,
   impersonated GCP service account or file identity token, or an API key) and gives the job only a
-  loopback proxy and a key that is good for that job alone. See
+  loopback proxy and a key that is good for that job alone. Of the job's stderr it logs only the
+  worker's status lines, and keeps at most 500 characters of a line while it waits for the end. See
   `packages/agent/docs/privileged-runner.md`.
 - **Sessions that keep no message text on disk** (`redactStoredText`, used by `wim agent`): spool
   files and history entries keep every field but the text, the loop breaker refuses what it would
-  hold, and an untrusted device's item is held with its metadata only.
+  hold, and an untrusted device's item is held with its metadata only (a file without its key).
 
 ### Changed
 
@@ -1241,7 +1245,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.0
 [0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10
 [0.1.9]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.9
 [0.1.8]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.8

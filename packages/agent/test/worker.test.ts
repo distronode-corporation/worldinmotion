@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DailyLedger } from "../src/limits.ts";
@@ -217,6 +217,15 @@ describe("limits", () => {
     await w.send(item());
     expect(w.runs).toHaveLength(1);
     expect(w.sent.map((s) => s.text)).toEqual(["the answer", DAILY_CAP]);
+  });
+
+  it("gives the day's slot back when the runner refuses or is busy, so no job ran (#134)", async () => {
+    const outcomes: RunnerOutcome[] = [{ kind: "refused" }, { kind: "busy" }, { kind: "refused" }, { kind: "answered", answer: "the answer", truncated: false }];
+    const w = await make({}, { cap: 1, outcome: async () => outcomes.shift()! });
+    for (let i = 0; i < 5; i++) await w.send(item());
+    expect(w.runs).toHaveLength(4);
+    expect(w.sent.map((s) => s.text)).toEqual([NOT_ACCEPTED, BUSY, NOT_ACCEPTED, "the answer", DAILY_CAP]);
+    expect(JSON.parse(await readFile(join(w.dir, "ledger.json"), "utf8"))).toMatchObject({ jobs: 1 });
   });
 
   it("runs one job at a time and tells the second sender it is busy", async () => {

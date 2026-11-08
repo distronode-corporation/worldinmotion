@@ -45,6 +45,20 @@ describe("DailyLedger", () => {
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ day: "2026-11-09", jobs: 1 });
   });
 
+  it("gives back a job that did not run, on disk (#134)", async () => {
+    const dir = await scratchDir();
+    const path = join(dir, "ledger.json");
+    const c = clock(Date.UTC(2026, 10, 8, 12, 0, 0));
+    const l = await DailyLedger.open(path, 1, c.now);
+    expect(await l.take()).toBe(true);
+    expect(await l.take()).toBe(false);
+    await l.giveBack();
+    expect(l.used).toBe(0);
+    expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ day: "2026-11-08", jobs: 0 });
+    expect((await DailyLedger.open(path, 1, c.now)).used).toBe(0);
+    expect(await l.take()).toBe(true);
+  });
+
   it("treats a ledger it cannot read as today's cap reached", async () => {
     const dir = await scratchDir();
     const c = clock();
