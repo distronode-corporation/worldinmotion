@@ -34969,14 +34969,14 @@ var require_retry_operation = __commonJS({
       if (this._errors.length === 0) {
         return null;
       }
-      var counts2 = {};
+      var counts = {};
       var mainError = null;
       var mainErrorCount = 0;
       for (var i6 = 0; i6 < this._errors.length; i6++) {
         var error64 = this._errors[i6];
         var message2 = error64.message;
-        var count = (counts2[message2] || 0) + 1;
-        counts2[message2] = count;
+        var count = (counts[message2] || 0) + 1;
+        counts[message2] = count;
         if (count >= mainErrorCount) {
           mainError = error64;
           mainErrorCount = count;
@@ -35825,20 +35825,20 @@ var require_ms = __commonJS({
     function fmtLong(ms) {
       var msAbs = Math.abs(ms);
       if (msAbs >= d5) {
-        return plural2(ms, msAbs, d5, "day");
+        return plural3(ms, msAbs, d5, "day");
       }
       if (msAbs >= h6) {
-        return plural2(ms, msAbs, h6, "hour");
+        return plural3(ms, msAbs, h6, "hour");
       }
       if (msAbs >= m4) {
-        return plural2(ms, msAbs, m4, "minute");
+        return plural3(ms, msAbs, m4, "minute");
       }
       if (msAbs >= s3) {
-        return plural2(ms, msAbs, s3, "second");
+        return plural3(ms, msAbs, s3, "second");
       }
       return ms + " ms";
     }
-    function plural2(ms, msAbs, n3, name) {
+    function plural3(ms, msAbs, n3, name) {
       var isPlural = msAbs >= n3 * 1.5;
       return Math.round(ms / n3) + " " + name + (isPlural ? "s" : "");
     }
@@ -71472,8 +71472,8 @@ var error43 = () => {
       case "not_multiple_of":
         return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
       case "unrecognized_keys": {
-        const plural2 = issue2.keys.length > 1 ? "s" : "";
-        return `Chave${plural2} inv\xE1lida${plural2}: ${joinValues(issue2.keys, ", ")}`;
+        const plural3 = issue2.keys.length > 1 ? "s" : "";
+        return `Chave${plural3} inv\xE1lida${plural3}: ${joinValues(issue2.keys, ", ")}`;
       }
       case "invalid_key":
         return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
@@ -71617,8 +71617,8 @@ var error44 = () => {
       case "not_multiple_of":
         return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
       case "unrecognized_keys": {
-        const plural2 = issue2.keys.length > 1 ? "s" : "";
-        return `Chave${plural2} inv\xE1lida${plural2}: ${joinValues(issue2.keys, ", ")}`;
+        const plural3 = issue2.keys.length > 1 ? "s" : "";
+        return `Chave${plural3} inv\xE1lida${plural3}: ${joinValues(issue2.keys, ", ")}`;
       }
       case "invalid_key":
         return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
@@ -89420,6 +89420,26 @@ var Breaker = class {
     return { ok: true };
   }
   /**
+   * Decides whether an idle notice about `peer`'s session may start a turn (SPEC section 8), and
+   * counts it as one automatic delivery from `peer` when it may. Not while `peer` is paused (a
+   * cool-down that ended but was not released yet still holds), nor once the per-peer or total
+   * limit is reached. A notice is relay-authored and one per arm, so it never trips a pause and
+   * is not part of the ping-pong count: a notice that may not wake waits in the inbox instead.
+   */
+  admitWake(peer) {
+    const now = this.now();
+    const held2 = this.paused.get(peer);
+    if (held2 !== void 0 && (bounded(held2, now).until > now || held2.auto)) return false;
+    const limits = this.limits();
+    const since = now - HOUR2;
+    const mine = this.recent(this.deliveries.get(peer), since).length;
+    let total = 0;
+    for (const list3 of this.deliveries.values()) total += this.recent(list3, since).length;
+    if (mine >= limits.perPeerPerHour || total >= limits.totalPerHour) return false;
+    this.count(peer, 1);
+    return true;
+  }
+  /**
    * How many a cool-down's release may deliver now: the per-peer limit, and no more than is left
    * under the total, so a release never takes the hour's deliveries past the total limit.
    */
@@ -91010,12 +91030,12 @@ async function readBreakerFile(path2) {
     Object.entries(typeof raw?.released === "object" && raw.released !== null ? raw.released : {}).filter(([, at]) => Number.isSafeInteger(at))
   );
   const lifts = Array.isArray(raw?.lifts) ? raw.lifts.filter((t2) => typeof t2 === "string") : [];
-  const counts2 = Object.fromEntries(
+  const counts = Object.fromEntries(
     Object.entries(typeof raw?.counts === "object" && raw.counts !== null ? raw.counts : {}).flatMap(
       ([peer, times]) => Array.isArray(times) ? [[peer, times.filter((t2) => Number.isSafeInteger(t2))]] : []
     )
   );
-  return { pauses, released, lifts, counts: counts2 };
+  return { pauses, released, lifts, counts };
 }
 async function listAllPauses(mesh, env3, now) {
   const out = [];
@@ -92139,37 +92159,68 @@ var Watches = class {
     this.env = env3;
     this.now = now;
   }
-  /** The watches that have not lapsed. A missing, damaged or unreadable file reads as none, the safe side. */
-  async list() {
+  /** Every watch in the file, lapsed ones too. A missing, damaged or unreadable file reads as none, the safe side. */
+  async all() {
     const raw = await readJson(this.path).catch(() => void 0);
+    return Array.isArray(raw?.watches) ? raw.watches.filter(isWatch) : [];
+  }
+  /** The watches that have not lapsed. */
+  async list() {
     const now = this.now();
-    return (Array.isArray(raw?.watches) ? raw.watches.filter(isWatch) : []).filter((w) => w.until > now);
+    return (await this.all()).filter((w) => w.until > now);
   }
   /**
-   * Records an arm for each address: a new watch, or a renewed one in place of any for the same
-   * address or the same session (one session has one watch, so a re-arm after a rename replaces
-   * the old address's). The relay decides the limit, so none is refused here.
+   * Records an arm for each address: a renewed watch in place of any for the same address or the
+   * same session (one session has one watch, so a re-arm after a rename replaces the old
+   * address's), or a new one while fewer than the relay's limit are open. Past that an address is
+   * refused here, as the relay would refuse it.
    */
   arm(arms) {
     return this.change((watches) => {
       const at = this.now();
+      const watching = [];
+      const refused2 = [];
       for (const { of, sid } of arms) {
-        const kept = watches.filter((w) => w.of !== of && (sid === void 0 || w.sid !== sid));
-        watches = [...kept, { of, ...sid === void 0 ? {} : { sid }, at, until: at + LIMITS.idleNoticeLifetimeMs }];
+        const same = (w) => w.of === of || sid !== void 0 && w.sid === sid;
+        const renews = watches.some((w) => same(w) && w.until > at);
+        if (!renews && watches.filter((w) => w.until > at).length >= LIMITS.notifyIdlePerSession) {
+          refused2.push(of);
+          continue;
+        }
+        const watch2 = { of, ...sid === void 0 ? {} : { sid }, at, until: at + LIMITS.idleNoticeLifetimeMs };
+        watches = [...watches.filter((w) => !same(w)), watch2];
+        watching.push(watch2);
       }
-      return { watches: watches.slice(-WATCHES_KEPT), out: void 0 };
+      return { watches: watching.length === 0 ? void 0 : watches.slice(-WATCHES_KEPT), out: { watching, refused: refused2 } };
     });
   }
   /**
-   * Takes the watch for `of`, or, when there is none, the one for the session `sid` (the relay's
-   * id for `of` now, after a rename): true, and the watch is closed, when one was armed and has
-   * not lapsed.
+   * Takes the open watch for `of`, or, when there is none, the one for the session `sid` (the
+   * relay's id for `of` now, after a rename): the watch, which is closed, or undefined when none
+   * was armed or it lapsed.
    */
   take(of, sid) {
     return this.change((watches) => {
-      const exact = watches.findIndex((w) => w.of === of);
-      const i6 = exact !== -1 || sid === void 0 ? exact : watches.findIndex((w) => w.sid === sid);
-      return i6 === -1 ? { out: false } : { watches: watches.filter((_, n3) => n3 !== i6), out: true };
+      const now = this.now();
+      const exact = watches.findIndex((w) => w.of === of && w.until > now);
+      const i6 = exact !== -1 || sid === void 0 ? exact : watches.findIndex((w) => w.sid === sid && w.until > now);
+      return i6 === -1 ? { out: void 0 } : { watches: watches.filter((_, n3) => n3 !== i6), out: watches[i6] };
+    });
+  }
+  /** Closes the open watch for `of` (the relay refused its arm): true when there was one. */
+  drop(of) {
+    return this.change((watches) => {
+      const now = this.now();
+      const kept = watches.filter((w) => !(w.of === of && w.until > now));
+      return kept.length === watches.length ? { out: false } : { watches: kept, out: true };
+    });
+  }
+  /** Removes the watches that lapsed with no notice and returns them, so the agent can be told once. */
+  lapse() {
+    return this.change((watches) => {
+      const now = this.now();
+      const lapsed = watches.filter((w) => w.until <= now);
+      return lapsed.length === 0 ? { out: [] } : { watches: watches.filter((w) => w.until > now), out: lapsed };
     });
   }
   /**
@@ -92178,7 +92229,7 @@ var Watches = class {
    */
   change(f7) {
     const run = this.changing.then(async () => {
-      const { watches, out } = f7(await this.list());
+      const { watches, out } = f7(await this.all());
       if (watches !== void 0) await writeJson(this.path, { v: 1, watches }, this.env);
       return out;
     });
@@ -92809,6 +92860,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
   ciParked;
   /** The idle notices this session armed: a relay notice is taken only for one of them, once (watches.ts). */
   watches;
+  /**
+   * Arms to send at the next `ready`: one that could not be sent, and at a process's first
+   * `ready` every open watch (re-sending one the relay holds only renews it).
+   */
+  unsentArms = /* @__PURE__ */ new Set();
+  armsResent = false;
+  /** Arms sent and not yet answered, with when: a relay refusal that names no address belongs to the only one (armRefused). */
+  armsInFlight = /* @__PURE__ */ new Map();
+  /** When watches are next checked for ones that lapsed with no notice. */
+  lapseDue = 0;
   /** When parked CI notices are next checked again. */
   ciParkedDue = 0;
   /** This minute's CI drop lines, and the drops past CI_DROP_LINES by reason. */
@@ -93085,7 +93146,33 @@ var MeshSession = class _MeshSession extends EventEmitter {
     void this.sendCard(link, true);
     this.ciSent = void 0;
     void this.sendCiRules(link);
+    void this.watches.list().then((open3) => this.resendArms(open3, link));
     this.retryParkedLater();
+  }
+  /**
+   * Sends the arms that are not at the relay yet (SPEC section 8): ones made while offline, and
+   * at a process's first `ready` every open watch, so an arm is not lost to a connection that
+   * dropped. A re-sent arm the relay already holds is only renewed there.
+   */
+  resendArms(open3, link) {
+    const all = !this.armsResent;
+    this.armsResent = true;
+    const unsent = new Set(this.unsentArms);
+    this.unsentArms.clear();
+    for (const { of } of open3) if (all || unsent.has(of)) this.sendArm(of, link);
+  }
+  /** Sends one arm, or keeps it for the next `ready` when there is no connection. */
+  sendArm(of, link = this.link) {
+    try {
+      if (link === void 0) throw new Error("offline");
+      link.send({ t: "notify_idle", of });
+      this.unsentArms.delete(of);
+      const now = this.now();
+      for (const [a5, at] of this.armsInFlight) if (now - at > this.answerMs) this.armsInFlight.delete(a5);
+      this.armsInFlight.set(of, now);
+    } catch {
+      this.unsentArms.add(of);
+    }
   }
   /**
    * Writes the claim notice once (claimLine). The relay sends what it queued for the session right
@@ -93174,6 +93261,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
       }
       case "notice":
         void this.idleNotice(f7.of).catch((e6) => this.log(`wim: notice: ${e6.message}`));
+        return;
+      case "error":
+        if (f7.ref === "notify_idle") void this.armRefused(f7).catch((e6) => this.log(`wim: watches: ${e6.message}`));
         return;
       case "join.request":
         this.emit("join", f7.join);
@@ -93777,7 +93867,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (entry !== void 0) await this.history.append(entry);
     this.emit("item", written2);
     if (entry !== void 0 && entry.ci === void 0) this.emit("message", { ...entry, cursor: written2.cursor });
-    if (this.push !== void 0 && written2.relayed !== true && written2.forPerson !== true) {
+    if (this.push !== void 0 && written2.relayed !== true && written2.forPerson !== true && written2.quiet !== true) {
       await this.push(written2);
       await this.take(written2.cursor);
     }
@@ -93786,11 +93876,69 @@ var MeshSession = class _MeshSession extends EventEmitter {
   /**
    * A relay's idle notice (SPEC section 8): spooled only when this session armed one for that
    * address, it has not lapsed, and no notice took it yet; the watch is closed then. Any other is
-   * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4).
+   * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4). The notice names the
+   * address the agent armed, and the device that address names decides whether it may start a
+   * turn (mayWake): the relay cannot change which device that is. One that may not is `quiet`.
    */
   async idleNotice(of) {
-    if (!await this.watches.take(of, this.peers.get(of)?.sid)) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
-    await this.notice(of, `${of} is now idle (or has ended).`);
+    const watch2 = await this.watches.take(of, this.peers.get(of)?.sid);
+    if (watch2 === void 0) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
+    this.armsInFlight.delete(watch2.of);
+    this.unsentArms.delete(watch2.of);
+    const device = this.roster.devices.find((d5) => d5.name === watch2.of.slice(watch2.of.indexOf("@") + 1));
+    const wakes = device !== void 0 && await this.mayWake(device.id);
+    const renamed = of === watch2.of ? "" : ` It now goes by ${of}.`;
+    await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).${renamed}`, device?.id, !wakes);
+  }
+  /**
+   * Whether an idle notice about `device` may start a turn (decision D2): the person trusts that
+   * device now, the loop breaker does not pause it, and the breaker admits one more automatic
+   * delivery from it, which it then counts. A policy that cannot be read is a no.
+   */
+  async mayWake(device) {
+    const config2 = await this.o.mesh.loadConfig().catch(() => void 0);
+    if (config2 === void 0) return false;
+    this.config = config2;
+    if (!isTrusted(config2, device) || !this.breaker.admitWake(device)) return false;
+    this.countsChanged = true;
+    return true;
+  }
+  /** A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a turn. */
+  async watchNotice(from, line, watched, quiet2) {
+    const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line) };
+    await this.deliver({ ...item, ...watched === void 0 ? {} : { watched }, ...quiet2 ? { quiet: true } : {} }, void 0);
+  }
+  /**
+   * The relay refused an arm (`error` with ref `notify_idle`). It names the address only on a relay
+   * that sends `of` (and then only one this session armed counts), or when exactly one arm was
+   * sent and not yet answered: that watch is closed and the agent told, quietly. Otherwise the
+   * agent is told a refusal came, and the watches stay until they lapse. The relay's text is never
+   * passed on: the code is read against the ones SPEC section 8 names.
+   */
+  async armRefused(f7) {
+    const now = this.now();
+    for (const [of, at] of this.armsInFlight) if (now - at > this.answerMs) this.armsInFlight.delete(of);
+    const open3 = (await this.watches.list()).map((w) => w.of);
+    const said2 = f7.of;
+    const inFlight = [...this.armsInFlight.keys()];
+    const named = typeof said2 === "string" && open3.includes(said2) ? said2 : inFlight.length === 1 && open3.includes(inFlight[0]) ? inFlight[0] : void 0;
+    const why = f7.code === "not_found" ? "the relay knows no session by that address (it may have ended)" : f7.code === "limited" ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay` : "the relay refused it";
+    if (named === void 0) {
+      return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, void 0, true);
+    }
+    this.armsInFlight.delete(named);
+    await this.watches.drop(named);
+    await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, void 0, true);
+  }
+  /** Tells the agent, quietly, about each watch that lapsed with no notice: once a minute at most. */
+  async lapseWatches() {
+    if (this.now() < this.lapseDue) return;
+    this.lapseDue = this.now() + 6e4;
+    for (const w of await this.watches.lapse()) {
+      this.armsInFlight.delete(w.of);
+      this.unsentArms.delete(w.of);
+      await this.watchNotice(w.of, `no idle notice came for ${w.of} within 12 hours of the arm, so the watch lapsed and no notice will come for it. Arm it again if this session still needs to know.`, void 0, true);
+    }
   }
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
   noticeLater(from, line, forPerson = false) {
@@ -93848,6 +93996,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     try {
       await this.sweep();
       await this.pruneLeases();
+      await this.lapseWatches();
       await this.readPresence();
       for (const { id: id2, verdict } of await this.held.takeMarks()) void this.onQueue(() => this.applyMark(id2, verdict)).catch(ignore);
       this.queueRelease();
@@ -94505,21 +94654,28 @@ var MeshSession = class _MeshSession extends EventEmitter {
     return this.send(task.from, text2, { kind: "result", reply_to: taskId, status: status3 });
   }
   /**
-   * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
-   * recorded in `watches.json` first, so the notice is taken when it comes. The relay decides the
-   * limit; a watch it never fires lapses after 12 hours. Answers a note for the send's result when
-   * the watch could not be recorded.
+   * Arms one idle notice for each session address, recorded in `watches.json` first, so the notice
+   * is taken when it comes, and sent to the relay (at the next `ready` when offline). Rooms, `*`
+   * and anything else are not armed, nor a new address past the relay's limit of open watches; a
+   * watch with no notice lapses after 12 hours. Answers what is watched and until when, and a
+   * note for the send's result about anything not armed.
    */
   async notifyWhenIdle(addresses) {
     const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
+    const skipped = [...new Set(addresses.filter((of) => !wanted.includes(of)))];
+    const notes = skipped.length === 0 ? [] : [`Idle notices are for name@device only, so none is armed for ${skipped.map((a5) => sanitizeForDisplay(a5)).join(", ")}.`];
+    let armed;
     try {
-      await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
+      armed = await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
     } catch (error64) {
       this.log(`wim: watches: ${error64.message}`);
-      return `no idle notice armed: this session could not record the watch (${error64.message})`;
+      return { watching: [], note: [`no idle notice armed: this session could not record the watch (${error64.message})`, ...notes].join(" ") };
     }
-    for (const of of wanted) this.sendIfOpen({ t: "notify_idle", of });
-    return void 0;
+    if (armed.refused.length > 0) {
+      notes.push(`This session already watches ${LIMITS.notifyIdlePerSession} sessions, the most it may, so none is armed for ${armed.refused.join(", ")} (a watch ends at its notice, or 12 hours after the arm).`);
+    }
+    for (const w of armed.watching) this.sendArm(w.of);
+    return { watching: armed.watching.map((w) => ({ to: w.of, until: w.until })), ...notes.length === 0 ? {} : { note: notes.join(" ") } };
   }
   async rename(name) {
     const link = await this.ready();
@@ -123819,6 +123975,24 @@ function parseChain(raw) {
 
 // src/hook.ts
 import { join as join19 } from "node:path";
+
+// src/wake.ts
+function wakeKind(i6, config2, paused) {
+  if (!Number.isSafeInteger(i6.cursor) || i6.relayed === true || i6.forPerson === true) return void 0;
+  const device = i6.kind === "notice" ? i6.quiet === true ? void 0 : i6.watched : ["msg", "task", "result", "file"].includes(i6.kind) ? i6.device : void 0;
+  if (typeof device !== "string" || device === "" || !isTrusted(config2, device) || paused.has(device)) return void 0;
+  return i6.kind === "notice" ? "notice" : "message";
+}
+var plural2 = (n3, one, many) => `${n3} ${n3 === 1 ? one : many}`;
+function wakeText(messages, notices = 0) {
+  const m4 = plural2(messages, "message from another AI session", "messages from other AI sessions");
+  const n3 = plural2(notices, "notice this session asked for", "notices this session asked for");
+  const what2 = notices === 0 ? m4 : messages === 0 ? n3 : `${m4} and ${n3}`;
+  const one = messages + notices === 1;
+  return `${what2} ${one ? "is" : "are"} waiting in worldinmotion. Call the worldinmotion inbox tool to read ${one ? "it" : "them"}.`;
+}
+
+// src/hook.ts
 var POINTER_FILE = "ancestry.json";
 var ANNOUNCED_FILE = "hook-announced.json";
 var HOOK_LEVELS = 3;
@@ -123883,9 +124057,6 @@ var HOOK_AGENTS = {
     allow: ""
   }
 };
-function wakeText(n3) {
-  return n3 === 1 ? "1 message from another AI session is waiting in worldinmotion. Call the worldinmotion inbox tool to read it." : `${n3} messages from other AI sessions are waiting in worldinmotion. Call the worldinmotion inbox tool to read them.`;
-}
 async function hookAnswer(o3) {
   const agent = Object.hasOwn(HOOK_AGENTS, o3.agent) ? HOOK_AGENTS[o3.agent] : void 0;
   if (agent === void 0) return { out: "", why: "not an agent the hook knows" };
@@ -123897,7 +124068,7 @@ async function hookAnswer(o3) {
   if (stop.ends !== void 0) return { out: agent.allow, why: await ended(o3, stop.ends) };
   const found = await waiting(o3, `${o3.agent}\0${stop.key}`).catch(cannotTell);
   if (typeof found === "string") return { out: agent.allow, why: found };
-  return { out: agent.wake(wakeText(found)), why: `${found} waiting` };
+  return { out: agent.wake(wakeText(found.messages, found.notices)), why: `${found.messages + found.notices} waiting (messages ${found.messages}, notices ${found.notices})` };
 }
 var cannotTell = (error64) => `cannot tell: ${error64.message}`;
 async function ended(o3, why) {
@@ -123934,11 +124105,12 @@ async function waiting(o3, sessionKey) {
   const config2 = await mesh.loadConfig();
   const now = o3.now();
   const paused = new Set((await readPauses(files.breakerPath, now)).map((p3) => p3.peer));
-  const items = (await new Spool(files.spoolDir, env3, 0).unread()).filter((i6) => counts(i6, config2, paused));
+  const items = (await new Spool(files.spoolDir, env3, 0).unread()).map((i6) => ({ cursor: i6.cursor, kind: wakeKind(i6, config2, paused) })).filter((i6) => i6.kind !== void 0);
   if (items.length === 0) return settle2(found, "nothing waiting", now);
   const newest = Math.max(...items.map((i6) => i6.cursor));
   const why = await announce(files, sessionKey, newest, now, env3);
-  return why === void 0 ? items.length : why === NOTHING_NEW ? settle2(found, why, now) : why;
+  const notices = items.filter((i6) => i6.kind === "notice").length;
+  return why === void 0 ? { messages: items.length - notices, notices } : why === NOTHING_NEW ? settle2(found, why, now) : why;
 }
 async function locate(o3) {
   if (o3.ancestry === void 0) return "the processes above the hook cannot be read here";
@@ -123956,9 +124128,6 @@ async function settle2(at, why, now) {
     () => why,
     (error64) => `${why}; idle not written: ${error64.message}`
   );
-}
-function counts(i6, config2, paused) {
-  return ["msg", "task", "result", "file"].includes(i6.kind) && Number.isSafeInteger(i6.cursor) && typeof i6.device === "string" && i6.device !== "" && i6.relayed !== true && i6.forPerson !== true && isTrusted(config2, i6.device) && !paused.has(i6.device);
 }
 async function writePointer(dir, pid, chain2, env3) {
   await writeJson(join19(dir, POINTER_FILE), { v: 1, pid, chain: chain2 }, env3);
@@ -124058,8 +124227,8 @@ var Status2 = external_exports.enum(RESULT_STATUSES);
 var PUBLIC = {
   peers: { description: "List mesh sessions: address, kind, status, rooms, one per line. all: include long-offline ones.", input: external_exports.object({ all: external_exports.boolean().optional() }) },
   send: {
-    description: "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session), queued (that session is offline; the relay keeps it 24 h), or held (that session's loop breaker holds this device's messages; held_note says until when). None means delivered or read; history shows receipts that come back (delivered, or held on that device).",
-    input: external_exports.object({ to: To2, text: external_exports.string(), reply_to: external_exports.string().optional(), notify_when_idle: external_exports.boolean().optional() })
+    description: "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session), queued (that session is offline; the relay keeps it 24 h), or held (that session's loop breaker holds this device's messages; held_note says until when). None means delivered or read; history shows receipts that come back (delivered, or held on that device). notify_when_idle: one notice when each name@device next finishes a turn or ends (watching lists them; watch_note says what was not armed); with no text it only arms.",
+    input: external_exports.object({ to: To2, text: external_exports.string().optional(), reply_to: external_exports.string().optional(), notify_when_idle: external_exports.boolean().optional() })
   },
   ask: {
     description: `Send a task and wait for its result ${waiting2}. Returns pending with a task id if none came.`,
@@ -124111,14 +124280,15 @@ var Inputs = {
 };
 var text = (t2) => ({ content: [{ type: "text", text: t2 }] });
 var json3 = (v) => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
-var sent = (o3, watchNote) => {
+var watchFields = (w) => w === void 0 ? {} : { watching: w.watching.map((x2) => ({ to: x2.to, until: new Date(x2.until).toISOString() })), ...w.note === void 0 ? {} : { watch_note: w.note } };
+var sent = (o3, watched) => {
   const held2 = o3.results.flatMap((r6) => r6.status === "held" ? [heldSendLine(r6.to, r6.breaker)] : []);
   const note = prekeyNote(o3);
   return json3({
     ...o3,
     ...note === void 0 ? {} : { note },
     ...held2.length === 0 ? {} : { held_note: held2.join(" ") },
-    ...watchNote === void 0 ? {} : { watch_note: watchNote }
+    ...watchFields(watched)
   });
 };
 var fail3 = (t2) => ({ content: [{ type: "text", text: t2 }], isError: true });
@@ -124256,7 +124426,7 @@ var WimMcp = class {
     this.session = s3;
     await this.point(s3);
     if (this.o.channel) {
-      for (const item of await s3.spool.unread()) if (item.relayed !== true && item.forPerson !== true) await s3.take(item.cursor).then(() => this.pushChannel(item));
+      for (const item of await s3.spool.unread()) if (item.relayed !== true && item.forPerson !== true && item.quiet !== true) await s3.take(item.cursor).then(() => this.pushChannel(item));
     }
     return s3;
   }
@@ -124380,8 +124550,11 @@ var WimMcp = class {
       }
       case "send": {
         const i6 = a5;
+        const watch2 = i6.notify_when_idle === true;
+        if (watch2 && (i6.text === void 0 || i6.text === "")) return json3(watchFields(await s3.notifyWhenIdle(MeshSession.parseTo(i6.to))));
+        if (i6.text === void 0) return fail3("invalid input: text: required unless notify_when_idle is true");
         const out = await s3.send(i6.to, i6.text, i6.reply_to === void 0 ? {} : { reply_to: i6.reply_to });
-        return sent(out, i6.notify_when_idle === true ? await s3.notifyWhenIdle(MeshSession.parseTo(i6.to)) : void 0);
+        return sent(out, watch2 ? await s3.notifyWhenIdle(MeshSession.parseTo(i6.to)) : void 0);
       }
       case "ask": {
         const i6 = a5;

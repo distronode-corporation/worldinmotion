@@ -396,7 +396,11 @@ describe("relay idle notices", () => {
     expect((await said())[5]).toBe(`the idle notice for d@two was not armed: ${NOT_FOUND}. No notice will come for it.`);
     expect(await watched(a)).toEqual([]);
     // Nothing in flight any more (answered or older than the answer time): a refusal cannot be placed.
+    // A new arm forgets the arms older than the answer time too.
     await a.notifyWhenIdle(["b@two"]);
+    await sleep(350);
+    await a.notifyWhenIdle(["b@two"]);
+    expect([...(a as unknown as { armsInFlight: Map<string, number> }).armsInFlight.keys()]).toEqual(["b@two"]);
     await sleep(350);
     relay.inject(mesh, refusal("limited"));
     await until(async () => (await quiet()).length === 7);

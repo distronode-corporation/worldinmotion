@@ -77,7 +77,7 @@ import { PongBudget, type PingRow } from "./ping.ts";
 import { Invites, PendingJoins, screenJoin } from "./joins.ts";
 import { SignerError } from "./signer.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
-import { Watches, type Armed } from "./watches.ts";
+import { Watches, type Armed, type Watch } from "./watches.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
 
 /** How many times a delivered frame may fail for a reason of its own before it is let go. */
@@ -850,7 +850,8 @@ export class MeshSession extends EventEmitter {
     void this.sendCard(link, true);
     this.ciSent = undefined;
     void this.sendCiRules(link);
-    void this.resendArms(link).catch((e: unknown) => this.log(`wim: watches: ${(e as Error).message}`));
+    // The list never rejects (an unreadable file reads as none), and sending one never throws.
+    void this.watches.list().then((open) => this.resendArms(open, link));
     this.retryParkedLater();
   }
 
@@ -859,12 +860,13 @@ export class MeshSession extends EventEmitter {
    * at a process's first `ready` every open watch, so an arm is not lost to a connection that
    * dropped. A re-sent arm the relay already holds is only renewed there.
    */
-  private async resendArms(link: Link): Promise<void> {
-    const open = (await this.watches.list()).map((w) => w.of);
+  private resendArms(open: readonly Watch[], link: Link): void {
     const all = !this.armsResent;
     this.armsResent = true;
-    for (const of of open) if (all || this.unsentArms.has(of)) this.sendArm(of, link);
-    for (const of of [...this.unsentArms]) if (!open.includes(of)) this.unsentArms.delete(of);
+    // One that cannot be sent now is kept again by sendArm; one whose watch is gone is forgotten.
+    const unsent = new Set(this.unsentArms);
+    this.unsentArms.clear();
+    for (const { of } of open) if (all || unsent.has(of)) this.sendArm(of, link);
   }
 
   /** Sends one arm, or keeps it for the next `ready` when there is no connection. */
