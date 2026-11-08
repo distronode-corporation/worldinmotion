@@ -15,6 +15,27 @@ body line with a bracket.
 
 ### Added
 
+- **`wim setup` configures every agent it finds.** After the Claude Code and VS Code steps, it
+  looks for Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI and Claude Desktop (a
+  command on `PATH`, or the agent's config directory) and, for each, adds the worldinmotion MCP
+  server and the agent's `wim hook` entries: the turn end, and the turn start where the agent has
+  one (Gemini CLI `BeforeAgent`, Codex `UserPromptSubmit`, Cursor `beforeSubmitPrompt`, Copilot CLI
+  `userPromptSubmitted`; none for Antigravity, and Claude Desktop has no hooks). The server offers
+  only `peers`, `inbox`, `wait` and `history` where the agent has a tool list (Gemini CLI
+  `includeTools`, Antigravity `enabledTools`, Codex `enabled_tools`, Copilot CLI `tools`); Cursor
+  and Claude Desktop have none and ask before each call. The launch is direct, node and the
+  absolute path to `wim.mjs`, never npx, npm or a shell, so the hook's session match works. Each
+  file change is shown as a diff and written only on a typed `y`, with the original copied beside
+  it; only the worldinmotion entries are touched, JSON keeps its indentation and key order, and
+  Codex's `config.toml` changes only the worldinmotion lines. A rerun reports an entry that is right
+  as configured and offers a stale path as an update, keeping what you added to the entry. A file
+  that is a symbolic link, larger than 1 MiB, or not valid JSON or TOML is left alone
+  (docs/peers.md, "What `wim setup` writes").
+- **`wim hook copilot` reads Copilot CLI's VS Code-compatible events too.** An entry configured as
+  `Stop` or `UserPromptSubmit` gets snake_case payloads that name their event; the hook now wakes at
+  that `Stop` and marks that `UserPromptSubmit` busy, as it does for `agentStop` and
+  `userPromptSubmitted`.
+
 - **Relay: dependable idle notices.** A relay now sends the notice armed with `notify_idle` (MCP
   `send` with `notify_when_idle`) also when the watched session has been offline for 60 seconds
   without reconnecting, so a session whose agent crashed or closed is reported too, and says why it

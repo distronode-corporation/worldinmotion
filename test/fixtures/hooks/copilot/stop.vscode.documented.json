@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "Stop",
+  "session_id": "copilot-session-1",
+  "timestamp": "2026-11-06T20:13:20.000Z",
+  "cwd": "/home/user/project",
+  "transcript_path": "/home/user/t.jsonl",
+  "stop_reason": "end_turn",
+  "stop_hook_active": false
+}

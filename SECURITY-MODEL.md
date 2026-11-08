@@ -1166,6 +1166,14 @@ decisions (section 7.5). No MCP tool approves, refuses, resumes, trusts or delet
 plugin's internal tool only reads. This stops an agent that runs the command itself, by habit or because
 a peer asked; it is a same-user check, not a boundary (section 9).
 
+**`wim setup` edits other agents' configs only on the person's typed `y`.** For each agent it finds
+(Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI, Claude Desktop) it shows the change to
+each config file as a diff and writes it only on a typed `y`, after copying the original beside it
+(`<file>.wim-backup-<time>`). It touches only the worldinmotion MCP server entry and the
+`wim hook` entries, offers only the read-only tools (`peers`, `inbox`, `wait`, `history`) where
+the agent has a tool list, and leaves alone a file that is a symbolic link, is not a regular file,
+is larger than 1 MiB, or does not parse (docs/peers.md, "What `wim setup` writes").
+
 **Trusted devices can assign work.** An item from a `deliver` device, other than relayed text, is
 framed as a work assignment from a device the person trusts: the agent may carry it out within its
 normal permissions, as it would a colleague's request. It is never the person's approval of a

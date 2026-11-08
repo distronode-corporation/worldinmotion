@@ -1,6 +1,7 @@
 // `wim setup`: the guided first run on one machine (README, Quick start). It makes the device and
 // a mesh with this device as its admin, shows the recovery code, offers the Claude Code plugin and
-// the VS Code extension when their command lines are installed, and ends with `wim status`. On a
+// the VS Code extension when their command lines are installed, configures the other agents it
+// finds (agentsetup.ts), and ends with `wim status`. On a
 // device that is set up already it skips what is done and repeats the rest.
 //
 // Only a person runs it: `requirePerson` comes before anything else, on every path, and every step
@@ -114,6 +115,8 @@ export type SetupDeps = {
   register: (mesh: string) => Promise<void>;
   /** `wim status`; its exit code is the command's. */
   status: () => Promise<number>;
+  /** The step for the other agents (agentsetup.ts), after Claude Code and VS Code. */
+  agents: () => Promise<void>;
 };
 
 /** The exit code of a command a signal stopped, as cli.ts uses it. */
@@ -243,7 +246,7 @@ function listed(r: RunResult, key: string, value: string): boolean {
   }
 }
 
-/** The Claude Code plugin and the VS Code extension, each offered only when its CLI is found. */
+/** The Claude Code plugin and the VS Code extension, each offered only when its CLI is found, then the other agents. */
 async function integrations(d: SetupDeps): Promise<void> {
   const { io, run } = d;
   const slash = [`  /plugin marketplace add ${MARKETPLACE}`, `  /plugin install ${PLUGIN}`];
@@ -283,6 +286,7 @@ async function integrations(d: SetupDeps): Promise<void> {
   } else {
     io.out(`Skipped. Later: code ${EXTENSION_INSTALL.join(" ")}`);
   }
+  if (!io.signal.aborted) await d.agents();
 }
 
 /** Adds the marketplace unless Claude Code has it, then installs the plugin. */
