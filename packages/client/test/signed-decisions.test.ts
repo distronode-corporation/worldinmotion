@@ -55,7 +55,7 @@ const item = (over: Partial<HeldItem> = {}): HeldItem => {
 /** The person's answers to the signer, in order; each confirm records what it was shown. */
 type Answers = { said: string[][]; next: Array<boolean | Promise<boolean>> };
 
-/** A desk like `wim agent`'s own, with a scripted person. */
+/** A desk like `wim signer`'s own, with a scripted person. */
 function scriptedDesk(d: TestDevice, answers: Answers): Desk {
   return {
     device: async (mesh, name) => (await RosterBook.open(new MeshFiles(d.home.meshDir(mesh), FS))).current.devices.find((x) => x.name === name)?.id,
@@ -323,7 +323,7 @@ describe("the signer's decide", () => {
   });
 });
 
-describe("the signer's own desk (wim agent)", () => {
+describe("the signer's own desk (wim signer)", () => {
   async function ctxFor(over: { env?: Record<string, string | undefined>; foreground?: boolean; tty?: boolean; programs?: boolean; answer?: string; prompt?: (q: string) => Promise<string>; checks?: SignerChecks }) {
     const root = await scratch("desk");
     const out: string[] = [];
@@ -401,7 +401,7 @@ describe("the signer's own desk (wim agent)", () => {
     const above = "process 7 above this signer (bash) has CLAUDECODE set";
     for (const foreground of [false, true]) {
       const c = await ctxFor({ foreground, answer: "y", checks: checks({ agentAncestor: async () => above }) });
-      await expect(ask(signerDesk(c.ctx))).rejects.toThrow(new AgentError("refused", `${above}, so this signer cannot tell you from an agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`));
+      await expect(ask(signerDesk(c.ctx))).rejects.toThrow(new AgentError("refused", `${above}, so this signer cannot tell you from an agent: a decision on held messages needs a signer you started yourself (\`wim signer start\` in your own terminal, or at log in)`));
       expect([c.runs, c.out]).toEqual([[], []]);
     }
     const lost = await ctxFor({ checks: checks({ agentAncestor: async () => Promise.reject(new Error("EACCES")) }) });
@@ -877,7 +877,7 @@ describe("without a signer", () => {
     expect((await inbox.spool.unread()).filter((i) => i.kind !== "notice").map((i) => i.id)).toEqual([m.id]);
     const t = term(devices[1]!.root, relay);
     await run(t, "doctor");
-    expect(said(t)).toContain("held messages: approved or refused by mark files that any process of yours can write, agents included; with the signer (`wim agent encrypt`, then `wim agent start`) each decision needs its confirmation too (SECURITY-MODEL 7.2)");
+    expect(said(t)).toContain("held messages: approved or refused by mark files that any process of yours can write, agents included; with the signer (`wim signer encrypt`, then `wim signer start`) each decision needs its confirmation too (SECURITY-MODEL 7.2)");
   });
 
   it("wim doctor says nothing of decisions before there are device keys, and with the signer and no marks says they need it", async () => {

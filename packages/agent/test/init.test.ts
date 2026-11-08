@@ -40,12 +40,14 @@ describe("allowProblem", () => {
 describe("workerTemplate", () => {
   it("direct: runs this wim's own runner, and is a valid config as written", () => {
     const t = workerTemplate({ ...base, room: "#agents", profiles: ["a", "b"], wakeFile: "/home/w/.wake" });
-    expect(t["runner"]).toMatchObject({ command: "/usr/bin/node", args: ["/opt/wim/wim.mjs", "worker", "runner"] });
+    expect(t["runner"]).toMatchObject({ command: "/usr/bin/node", args: ["/opt/wim/wim.mjs", "agent", "runner"] });
     expect(placeholders(t)).toEqual([]);
     const c = loadConfig(t);
     expect(c.wake).toEqual({ mode: "local", codeFile: "/home/w/.wake" });
     expect(c.profiles).toEqual({ allowed: ["a", "b"], default: "a" });
     expect(c.replies.room).toBe("#agents");
+    expect(c.limits).toMatchObject({ maxTaskChars: 16000, perSenderPerHour: 20, dailyJobs: 50 });
+    expect(c.runner).toMatchObject({ timeoutSeconds: 1800, killGraceSeconds: 15 });
   });
 
   it("direct with no code and no senders: a placeholder to fill in", () => {
@@ -64,6 +66,8 @@ describe("workerTemplate", () => {
     // The runner parses the prefix, so the worker config names none.
     expect(c.profiles).toBeUndefined();
     expect(c.runner.passEnv).not.toContain("ANTHROPIC_API_KEY");
+    // Longer than the privileged runner's lock wait and job, which answers its own timeout.
+    expect(c.runner.timeoutSeconds).toBe(2760);
   });
 });
 
@@ -74,6 +78,9 @@ describe("privilegedTemplate", () => {
       profiles: { a: { auth: { type: "api-key", keyFile: "/etc/wim-agent/a.key" } }, b: { auth: { type: "api-key", keyFile: "/etc/wim-agent/b.key" } } },
       defaultProfile: "a",
       wakeCode: { file: "/etc/wim-agent/wake-code" },
+      timeoutSeconds: 1800,
+      maxTaskChars: 16000,
+      dailyJobs: 50,
       allowDevices: [LAPTOP],
     });
   });

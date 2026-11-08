@@ -1,10 +1,10 @@
-// `wim worker doctor`: read-only checks of a worker's install, one pass or fail line each. Run as
+// `wim agent doctor`: read-only checks of a worker's install, one pass or fail line each. Run as
 // root it checks every user's view (each probe is a child with that user's uid); run as the peer
 // user it checks what that user can see and says which checks need root. Nothing is written,
 // nothing is sent, and no file's content (a key, a code, a token) is ever printed.
 
 import type { WorkerConfig } from "./config.ts";
-import type { ProbeAnswer, ProbeOp, UserId } from "./probe.ts";
+import type { NoNewPrivs, ProbeAnswer, ProbeOp, UserId } from "./probe.ts";
 
 /** One line: a check that passed, a problem, a check that could not run here, or a fact. */
 export interface Check {
@@ -28,7 +28,8 @@ export const SUDOERS_PATH = "/etc/sudoers.d/wim-agent";
 export interface PrivilegedView {
   profiles: Record<string, { auth: { type: "api-key"; keyFile: string } | { type: "wif"; identity: { type: string } } }>;
   defaultProfile: string;
-  lock: { path: string };
+  lock: { path: string; waitSeconds: number };
+  timeoutSeconds: number;
   wakeCode?: { file: string } | { env: string };
   worker: { user: string };
   runDir: string;
@@ -46,11 +47,13 @@ export interface DoctorInput {
   configPath: string;
   configText: string | undefined;
   readError?: string;
-  /** The user the peer (`wim worker serve`) runs as; default: the user running doctor. */
+  /** The user the peer (`wim agent serve`) runs as; default: the user running doctor. */
   peerUser?: string;
   privilegedPath: string;
   launcherPath: string;
   sudoersPath: string;
+  /** The peer's systemd unit, whose main process must be free to use sudo. */
+  service: string;
   /** This device and its mesh's roster, or why they could not be read. */
   mesh: { self: { id: string; name: string }; devices: readonly { id: string; name: string }[]; trusted: (id: string) => boolean } | { error: string };
 }
@@ -72,6 +75,7 @@ export interface DoctorDeps {
   sdk: () => { version: string } | undefined;
   loadPrivileged: (path: string) => Promise<PrivilegedView>;
   sudoersLine: (peerUser: string) => string;
+  noNewPrivs: (service: string) => Promise<NoNewPrivs>;
 }
 
 const ok = (line: string): Check => ({ level: "ok", line });
@@ -100,7 +104,8 @@ export function privilegedRunner(config: WorkerConfig, launcher: string): boolea
 /** Whether the runner is one of this package's own, which load the Agent SDK. */
 export function builtInRunner(config: WorkerConfig, launcher: string): boolean {
   const { command, args } = config.runner;
-  const at = args.lastIndexOf("worker");
+  // `wim agent runner`, from the bundle (node wim.mjs agent runner) or an installed wim.
+  const at = args.lastIndexOf("agent");
   return privilegedRunner(config, launcher) || command.endsWith("wim-agent-runner") || (at >= 0 && args[at + 1] === "runner");
 }
 
@@ -112,7 +117,7 @@ export function placeholders(value: unknown, at = ""): string[] {
   return [];
 }
 
-/** What `wim worker init` writes where only the person knows the value. */
+/** What `wim agent init` writes where only the person knows the value. */
 export const PLACEHOLDER = "REPLACE-ME";
 
 /** Runs every check, handing each line to `emit` as it is found. Returns the number of problems. */
@@ -129,8 +134,10 @@ export async function runDoctor(input: DoctorInput, deps: DoctorDeps, emit: (c: 
   if (config === undefined) return problems;
 
   senders(config, input, say);
+  const l = config.limits;
+  say(info(`limits: tasks up to ${l.maxTaskChars} characters, ${l.perSenderPerHour} attempts per device per hour, ${l.dailyJobs} jobs a day, ${config.runner.timeoutSeconds} s a job, one job at a time`));
 
-  // The peer: the user `wim worker serve` runs as.
+  // The peer: the user `wim agent serve` runs as.
   const peerName = input.peerUser ?? deps.userName;
   const peer = await deps.lookupUser(peerName);
   if (peer === undefined) say(problem(`peer user ${peerName}: no such user`));
@@ -143,7 +150,7 @@ export async function runDoctor(input: DoctorInput, deps: DoctorDeps, emit: (c: 
     if (user.uid === deps.uid) return deps.probe(undefined, op);
     return "skip";
   };
-  const asRoot = `run \`sudo wim worker doctor\` to check it`;
+  const asRoot = `run \`sudo wim agent doctor\` to check it`;
 
   /** The metadata endpoint must be out of `user`'s reach: it hands out the machine's own credentials. */
   const noMetadata = async (role: string, user: UserId): Promise<void> => {
@@ -170,7 +177,7 @@ export async function runDoctor(input: DoctorInput, deps: DoctorDeps, emit: (c: 
 
 function readConfig(input: DoctorInput, deps: DoctorDeps, say: (c: Check) => void): WorkerConfig | undefined {
   if (input.configText === undefined) {
-    say(problem(`${input.configPath}: cannot be read (${input.readError ?? "unknown"}); \`wim worker init ${input.configPath}\` writes one`));
+    say(problem(`${input.configPath}: cannot be read (${input.readError ?? "unknown"}); \`wim agent init ${input.configPath}\` writes one`));
     return undefined;
   }
   let raw: unknown;
@@ -323,6 +330,12 @@ async function privileged(
     }
   }
 
+  // sudo cannot raise privileges from a process with no_new_privs: every job would fail.
+  const nnp = await deps.noNewPrivs(input.service);
+  if ("skip" in nnp) say(skip(`NoNewPrivs of ${input.service}: ${nnp.skip}`));
+  else if (nnp.value === "1") say(problem(`${input.service} (pid ${nnp.pid}) runs with NoNewPrivs, so its sudo cannot start the privileged runner: drop NoNewPrivileges= and the settings that imply it for a User= unit (LockPersonality=, RestrictRealtime=, ProtectKernelTunables=, ...)`));
+  else say(ok(`${input.service} (pid ${nnp.pid}) may use sudo (NoNewPrivs 0)`));
+
   let p: PrivilegedView;
   try {
     p = await deps.loadPrivileged(input.privilegedPath);
@@ -333,6 +346,11 @@ async function privileged(
     else say(problem(`${input.privilegedPath}: ${(err as Error).message}`));
     return;
   }
+
+  // The runner answers its own timeout (exit 5), after waiting for its lock: the peer must wait longer.
+  const needs = p.lock.waitSeconds + p.timeoutSeconds;
+  if (config.runner.timeoutSeconds <= needs) say(problem(`runner.timeoutSeconds is ${config.runner.timeoutSeconds}, but the privileged runner may take ${needs} s (lock wait ${p.lock.waitSeconds} + job ${p.timeoutSeconds}): set it above ${needs}`));
+  else say(ok(`runner.timeoutSeconds ${config.runner.timeoutSeconds} s covers the privileged runner's lock wait and job (${needs} s)`));
 
   // Profiles: each one the worker accepts must exist in the runner, with its auth in place.
   // With wake.mode runner the runner parses the prefix, so every profile it has can be named.

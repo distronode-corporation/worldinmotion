@@ -51,7 +51,7 @@ export function botIO(s: MeshSession): BotIO {
 }
 
 /**
- * `wim worker`: each delivered message or task with the device that signed it, whether it says
+ * `wim agent serve`: each delivered message or task with the device that signed it, whether it says
  * it relays others' text, and whether the person trusts that device now (`trusted` is asked for
  * each item, so taking trust away stops the worker at once). Replies and room copies are always
  * marked relayed: a model wrote them, not the session.

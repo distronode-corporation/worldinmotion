@@ -1,5 +1,5 @@
-// `wim worker run --once`: one runner request from stdin, through the configured runner, with the
-// same spec (timeout, kill grace, environment) `wim worker serve` uses. For testing a runner or a
+// `wim agent run --once`: one runner request from stdin, through the configured runner, with the
+// same spec (timeout, kill grace, environment) `wim agent serve` uses. For testing a runner or a
 // deployment by hand: no mesh, no sender check, no limits beyond the runner's own.
 
 import type { WorkerConfig } from "./config.ts";
@@ -50,7 +50,7 @@ export interface OnceIO {
 export async function runOnce(config: WorkerConfig, stdin: string, io: OnceIO, deps: Omit<RunDeps, "log" | "stderr"> = {}): Promise<number> {
   const req = parseRequest(stdin);
   if (typeof req === "string") {
-    io.err(`wim worker run: ${req}`);
+    io.err(`wim agent run: ${req}`);
     return 2;
   }
   const spec = {
@@ -63,11 +63,11 @@ export async function runOnce(config: WorkerConfig, stdin: string, io: OnceIO, d
   const outcome = await runJob(spec, req, { ...deps, log: io.err, ...(config.runner.logStderr ? { stderr: (line: string) => io.err(`runner: ${line}`) } : {}) });
   if (outcome.kind === "answered") {
     io.out(outcome.answer);
-    if (outcome.truncated) io.err(`wim worker run: the answer was cut at ${RUNNER_MAX_BYTES} bytes`);
+    if (outcome.truncated) io.err(`wim agent run: the answer was cut at ${RUNNER_MAX_BYTES} bytes`);
   } else if (outcome.kind === "failed") {
-    io.err(`wim worker run: the runner failed (${outcome.signal !== null ? `signal ${outcome.signal}` : outcome.code !== null ? `exit ${outcome.code}` : "it did not start"})`);
+    io.err(`wim agent run: the runner failed (${outcome.signal !== null ? `signal ${outcome.signal}` : outcome.code !== null ? `exit ${outcome.code}` : "it did not start"})`);
   } else {
-    io.err(`wim worker run: ${outcome.kind}`);
+    io.err(`wim agent run: ${outcome.kind}`);
   }
   return exitFor(outcome);
 }

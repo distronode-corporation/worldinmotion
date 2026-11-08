@@ -1,4 +1,4 @@
-// The `wim worker` adapter on its own: what it hands the worker for each item, and how it sends.
+// The `wim agent` adapter on its own: what it hands the worker for each item, and how it sends.
 // The real session's side is in worker-e2e.test.ts.
 
 import { EventEmitter } from "node:events";

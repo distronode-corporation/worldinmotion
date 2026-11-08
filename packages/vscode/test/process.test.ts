@@ -345,19 +345,19 @@ describe("clientCwd", () => {
 describe("signerTerminal", () => {
   const base = { extensionPath: "/ext", wimPath: "", execPath: "/electron", env: { HOME: "/h" }, telemetry: true, cwd: "/h", locked: false };
 
-  it("runs the bundled client's wim agent start on VS Code's Node, or unlock when the signer is locked", () => {
+  it("runs the bundled client's wim signer start on VS Code's Node, or unlock when the signer is locked", () => {
     expect(signerTerminal(base)).toEqual({
       name: "worldinmotion signer",
       shellPath: "/electron",
-      shellArgs: [join("/ext", "dist", "wim.mjs"), "agent", "start"],
+      shellArgs: [join("/ext", "dist", "wim.mjs"), "signer", "start"],
       env: { ELECTRON_RUN_AS_NODE: "1" },
       cwd: "/h",
     });
-    expect(signerTerminal({ ...base, locked: true }).shellArgs.slice(1)).toEqual(["agent", "unlock"]);
+    expect(signerTerminal({ ...base, locked: true }).shellArgs.slice(1)).toEqual(["signer", "unlock"]);
   });
 
   it("runs an executable wimPath as itself, with Electron's switch cleared", () => {
-    expect(signerTerminal({ ...base, wimPath: "/usr/local/bin/wim" })).toMatchObject({ shellPath: "/usr/local/bin/wim", shellArgs: ["agent", "start"], env: { ELECTRON_RUN_AS_NODE: null } });
+    expect(signerTerminal({ ...base, wimPath: "/usr/local/bin/wim" })).toMatchObject({ shellPath: "/usr/local/bin/wim", shellArgs: ["signer", "start"], env: { ELECTRON_RUN_AS_NODE: null } });
   });
 
   it("keeps crash reports off while VS Code's telemetry is off", () => {

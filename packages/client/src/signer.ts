@@ -1,4 +1,4 @@
-// The session side of the signer (`wim agent`): a client for its local socket, and the device
+// The session side of the signer (`wim signer`): a client for its local socket, and the device
 // keyring that asks it for every operation that needs a secret key. Sessions never read the key
 // file while the signer holds it; they ask, and the signer answers or refuses.
 //
@@ -116,7 +116,7 @@ type Conn = { socket: Socket; pending: Map<number, Pending>; buffered: string; c
  * run key signs the client's fresh nonce and both sides' channel keys. Nothing else is sent to
  * anything that cannot, and everything after the hello goes over the connection's sealed channel,
  * so a proof relayed by a process in the middle gets that process nothing. (The passphrase never
- * crosses this socket: `wim agent unlock` restarts the signer.)
+ * crosses this socket: `wim signer unlock` restarts the signer.)
  */
 export class SignerClient {
   /** The endpoint last connected to (or given). */
@@ -153,7 +153,7 @@ export class SignerClient {
   async call(op: string, a: Record<string, unknown> = {}, timeoutMs = this.timeoutMs): Promise<Record<string, unknown>> {
     const conn = await this.connected();
     // A signer that proved it is locked is sent nothing a locked signer could not answer.
-    if (conn.hello!.locked && !LOCKED_OPS.has(op)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
+    if (conn.hello!.locked && !LOCKED_OPS.has(op)) throw new SignerError("locked", "the signer is locked: run `wim signer unlock` in a terminal you opened yourself");
     return this.send(conn, op, a, timeoutMs);
   }
 
@@ -199,7 +199,7 @@ export class SignerClient {
   }
 
   private connectTo(at: string | undefined): Promise<Conn> {
-    if (at === undefined) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in a terminal you opened yourself"));
+    if (at === undefined) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim signer start` in a terminal you opened yourself"));
     this.endpoint = at;
     return new Promise<Conn>((resolve, reject) => {
       const socket = this.connect(at);
@@ -210,7 +210,7 @@ export class SignerClient {
       socket.once("close", () => reject(new SignerError("unavailable", "the connection to the signer was closed")));
       // Before the connection: no signer there. After it: the close that follows fails what is pending.
       socket.on("error", (error: NodeJS.ErrnoException) => {
-        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error.code ?? error.message}): run \`wim agent start\` in a terminal you opened yourself`));
+        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error.code ?? error.message}): run \`wim signer start\` in a terminal you opened yourself`));
       });
       socket.once("connect", () => {
         socket.on("data", (chunk: string) => this.take(conn, chunk));

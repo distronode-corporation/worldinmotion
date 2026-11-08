@@ -36,6 +36,6 @@ export {
   type WorkerOptions,
 } from "./worker.ts";
 export { builtInRunner, METADATA_ADDRESSES, MIN_NODE, nodeSupported, PLACEHOLDER, placeholders, privilegedRunner, runDoctor, SUDOERS_PATH, type Check, type DoctorDeps, type DoctorInput, type FileStat, type PrivilegedView } from "./doctor.ts";
-export { allowProblem, initNotes, privilegedTemplate, workerTemplate, type AuthMode, type InitMode, type InitOptions } from "./init.ts";
+export { allowProblem, initNotes, LIMITS, PRIVILEGED_PEER_TIMEOUT, privilegedTemplate, workerTemplate, type AuthMode, type InitMode, type InitOptions } from "./init.ts";
 export { exitFor, parseRequest, runOnce, type OnceIO } from "./once.ts";
-export { lookupUser, probe, PROBE_SCRIPT, type ExecFile, type ProbeAnswer, type ProbeOp, type Spawn, type UserId } from "./probe.ts";
+export { lookupUser, probe, PROBE_SCRIPT, serviceNoNewPrivs, type NoNewPrivs, type ExecFile, type ProbeAnswer, type ProbeOp, type Spawn, type UserId } from "./probe.ts";

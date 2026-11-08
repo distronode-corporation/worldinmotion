@@ -267,7 +267,7 @@ test('with the client not running, one status line saying so and nothing else', 
 })
 
 const NOT_SET_UP = 'this device is not set up (no device keys at /home/u/.config/worldinmotion/device.json): run `wim init` first'
-const NO_SIGNER = 'the device keys in /home/u/.config/worldinmotion/device.json are encrypted and no signer is running: run `wim agent start` in a terminal you opened yourself'
+const NO_SIGNER = 'the device keys in /home/u/.config/worldinmotion/device.json are encrypted and no signer is running: run `wim signer start` in a terminal you opened yourself'
 
 const LINK_FILE = '/home/u/.config/worldinmotion/links/abc.json'
 const pendingHello = (problem: string) => () => json({ pending: true, problem, link: LINK_FILE, token: TOKEN })
@@ -431,7 +431,7 @@ test('a notice for the person is a toast and a status line count, never a turn',
   const clock = mock.clock(on)
   const w = world(on, { tools: { _status: () => json({ address: 'builder@desk' }) } })
   await $.session.start(START)
-  const restart = 'this device\'s keys were encrypted (wim agent encrypt) while this session was running: restart it so it uses the signer'
+  const restart = 'this device\'s keys were encrypted (wim signer encrypt) while this session was running: restart it so it uses the signer'
   w.files.set(...item(1, '', { kind: 'notice', forPerson: true, rendered: `worldinmotion notice (from the local client, not from a peer or the person): ${restart}` }))
   await clock.advance(250)
   await clock.settle()

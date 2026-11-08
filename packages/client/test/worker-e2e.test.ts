@@ -1,4 +1,4 @@
-// End to end, from config only: `wim worker init` writes the config on a fresh device, `wim worker
+// End to end, from config only: `wim agent init` writes the config on a fresh device, `wim agent
 // serve` runs it as a real session on an in-process relay, and other devices' real sessions send it
 // work. The runner is a real child process: first a stub that keeps a log of every request it is
 // given, then the built-in SDK runner with the SDK's `query` replaced (no API call is ever made).
@@ -69,7 +69,7 @@ beforeAll(async () => {
   const made = await makeMesh(relay, ["laptop", "worker", "stranger"]);
   mesh = made.mesh;
   [sender, worker, stranger] = made.devices as [TestDevice, TestDevice, TestDevice];
-  // What `wim worker doctor` tells each sender to do: let the worker's (relayed) answers through.
+  // What `wim agent doctor` tells each sender to do: let the worker's (relayed) answers through.
   await setPolicy(sender, worker, "deliver-relayed");
   await setPolicy(stranger, worker, "deliver-relayed");
 
@@ -118,13 +118,13 @@ afterAll(async () => {
   for (const s of open.splice(0)) await s.stop().catch(() => undefined);
 });
 
-/** `wim worker init` on the worker device, with the runner it will use as "this wim". */
+/** `wim agent init` on the worker device, with the runner it will use as "this wim". */
 async function init(name: string, runner: string, extra: string[]): Promise<string> {
   const dir = join(worker.root, name);
   await fs.mkdir(dir);
   const cfg = join(dir, "worker.json");
   const t = term(worker.root, relay, { wim: () => [process.execPath, join(tools, runner)] });
-  expect(await run(t, "worker", "init", cfg, "--allow", sender.device.id, "--wake-file", codeFile, ...extra)).toBe(0);
+  expect(await run(t, "agent", "init", cfg, "--allow", sender.device.id, "--wake-file", codeFile, ...extra)).toBe(0);
   expect(said(t)).toContain(`  ${sender.device.id}  laptop`);
   return cfg;
 }
@@ -136,10 +136,10 @@ async function edit(cfg: string, change: (c: Record<string, Record<string, unkno
   await fs.writeFile(cfg, JSON.stringify(c));
 }
 
-/** `wim worker serve`, until stopped; returns its address and log. */
+/** `wim agent serve`, until stopped; returns its address and log. */
 async function serve(cfg: string): Promise<{ cfg: string; address: string; err: string[]; stop: () => Promise<number> }> {
   const t = term(worker.root, relay, {}, { ANTHROPIC_API_KEY: "test-key-not-real", PATH: process.env["PATH"] });
-  const done = run(t, "worker", "serve", cfg, "--as", "agents");
+  const done = run(t, "agent", "serve", cfg, "--as", "agents");
   await until(() => said(t).includes("worker running as") || t.err.length > 0, 15_000, "the worker to start");
   expect(t.err.filter((l) => !l.startsWith("worker: "))).toEqual([]);
   const address = /worker running as (\S+) /.exec(said(t))![1]!;
@@ -156,7 +156,7 @@ async function serve(cfg: string): Promise<{ cfg: string; address: string; err: 
 
 const replyTo = (got: readonly Inbound[], id: string) => got.find((m) => m.reply_to === id);
 
-describe("wim worker, end to end with a stub runner", () => {
+describe("wim agent, end to end with a stub runner", () => {
   let w: Awaited<ReturnType<typeof serve>>;
   let me: Awaited<ReturnType<typeof listener>>;
   let room: Awaited<ReturnType<typeof listener>>;
@@ -182,7 +182,7 @@ describe("wim worker, end to end with a stub runner", () => {
     expect(answer.status).toBe("done");
     const job = (await runs()).slice(before);
     // The code is checked and stripped before the runner sees the text; the profile is parsed.
-    expect(job).toEqual([{ v: 1, id: out.id, from: { device: sender.device.id, address: me.s.address }, profile: "b", text: TASK, argv: ["worker", "runner", "--config", join(dirname(w.cfg), "runner.json")] }]);
+    expect(job).toEqual([{ v: 1, id: out.id, from: { device: sender.device.id, address: me.s.address }, profile: "b", text: TASK, argv: ["agent", "runner", "--config", join(dirname(w.cfg), "runner.json")] }]);
     // The room copy is the answer only: never the task, never the code.
     await until(() => room.got.some((m) => m.text.startsWith("done:")), 15_000, "the room copy");
     const copy = room.got.find((m) => m.text.startsWith("done:"))!;
@@ -273,7 +273,7 @@ describe("wim worker, end to end with a stub runner", () => {
   });
 });
 
-describe("wim worker, limits and the timeout kill", () => {
+describe("wim agent, limits and the timeout kill", () => {
   it("task length, the daily cap and the per-sender rate", async () => {
     const cfg = await init("limits", "stub-runner.mjs", []);
     await edit(cfg, (c) => {
@@ -299,7 +299,8 @@ describe("wim worker, limits and the timeout kill", () => {
     }
   });
 
-  it("a job past its timeout gets SIGTERM, then SIGKILL, for its whole process group", async () => {
+  // Windows has no process groups to signal: the runner's timeout there is a plain kill.
+  it.skipIf(process.platform === "win32")("a job past its timeout gets SIGTERM, then SIGKILL, for its whole process group", async () => {
     const cfg = await init("timeout", "stub-runner.mjs", []);
     await edit(cfg, (c) => {
       c["runner"] = { ...c["runner"], timeoutSeconds: 0.5, killGraceSeconds: 0.3 };
@@ -350,7 +351,7 @@ describe("wim worker, limits and the timeout kill", () => {
   });
 });
 
-describe("wim worker, the built-in SDK runner with the SDK mocked", () => {
+describe("wim agent, the built-in SDK runner with the SDK mocked", () => {
   it("runs the job through runnerMain: code stripped, read-only tools, no settings, the mocked answer back", async () => {
     const cfg = await init("sdk", "sdk-runner.mjs", ["--profiles", "a"]);
     const w = await serve(cfg);
@@ -376,7 +377,7 @@ describe("wim worker, the built-in SDK runner with the SDK mocked", () => {
   });
 });
 
-describe("wim worker, the loop breaker", () => {
+describe("wim agent, the loop breaker", () => {
   it("a burst past the breaker is refused, and its text is never stored either", async () => {
     const cfg = await init("breaker", "stub-runner.mjs", []);
     const files = new MeshFiles(worker.home.meshDir(mesh), FS);

@@ -1,12 +1,14 @@
-// `wim worker`: a peer that sleeps until an allowed device messages it, then runs one agent job
+// `wim agent`: a peer that sleeps until an allowed device messages it, then runs one agent job
 // through a runner command and replies (@worldinmotion/agent). `init` writes a starting config,
 // `doctor` checks an install without changing it, `run --once` sends one runner request from stdin
 // through the configured runner, `serve` is the peer, and `runner` and `privileged` are the two
 // built-in runners (the plain Agent SDK runner, and the one a root launcher starts through sudo).
 
-import { allowProblem, initNotes, loadConfig, lookupUser, placeholders, privilegedTemplate, probe, runDoctor, runOnce, runWorker, SUDOERS_PATH, workerTemplate, type AuthMode, type Check, type DoctorDeps, type FileStat, type InitMode, type InitOptions, type PrivilegedView } from "@worldinmotion/agent";
+import { allowProblem, initNotes, loadConfig, lookupUser, placeholders, privilegedTemplate, probe, runDoctor, runOnce, runWorker, serviceNoNewPrivs, SUDOERS_PATH, workerTemplate, type AuthMode, type Check, type DoctorDeps, type FileStat, type InitMode, type InitOptions, type PrivilegedView } from "@worldinmotion/agent";
 import { loadPrivilegedConfig, privilegedMain, PRIVILEGED_CONFIG_PATH, PRIVILEGED_RUNNER_PATH, sudoersLine, systemDeps } from "@worldinmotion/agent/privileged";
 import { runnerMain } from "@worldinmotion/agent/sdk-runner";
+import { copyKit, findKit } from "@worldinmotion/agent/kit";
+import { fileURLToPath } from "node:url";
 import { constants, promises as fs, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { userInfo } from "node:os";
@@ -21,15 +23,38 @@ import type { Device } from "./home.ts";
 import { RosterBook, type MeshFiles } from "./mesh.ts";
 import { isTrusted } from "./render.ts";
 
-export const WORKER_USAGE = `wim worker init <config> [--mode direct|privileged] [--allow <device id>,...] [--profiles <name>,...] [--room <#room>] [--auth api-key|wif] [--wake-file <path>]
-  wim worker doctor <config> [--peer-user <name>] [--privileged-config <path>] [--sudoers <path>]
-  wim worker run --once <config> (one runner request, as JSON, on stdin)
-  wim worker serve <config> [--as <name>] [--take]
-  wim worker runner [--config <runner.json>] | wim worker privileged (the built-in runners; a runner request on stdin)`;
+export const WORKER_USAGE = `wim agent init <config> [--mode direct|privileged] [--allow <device id>,...] [--profiles <name>,...] [--room <#room>] [--auth api-key|wif] [--wake-file <path>] [--kit <dir>] | wim agent init --kit <dir>
+  wim agent doctor <config> [--peer-user <name>] [--privileged-config <path>] [--sudoers <path>] [--service <unit>]
+  wim agent run --once <config> (one runner request, as JSON, on stdin)
+  wim agent serve <config> [--as <name>] [--take]
+  wim agent runner [--config <runner.json>] | wim agent privileged (the built-in runners; a runner request on stdin)`;
 
 export const WORKER_ACTIONS: readonly string[] = ["init", "doctor", "run", "serve", "runner", "privileged"];
 
-/** What `wim worker` needs from the CLI. */
+/** The signer's words, which `wim agent` kept for one release after the signer became `wim signer`. */
+export const SIGNER_ACTIONS: readonly string[] = ["start", "serve", "status", "lock", "unlock", "stop", "encrypt", "decrypt", "autostart"];
+
+/** Flags only the signer takes. */
+const SIGNER_FLAGS: readonly string[] = ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"];
+
+/**
+ * Who answers `wim agent <words>`: the worker, or the signer under its old name. Only `serve` is
+ * both. Login items and scripts from before the rename run the signer's `wim agent serve` with no
+ * config path (and an older signer start with its flags), so those stay the signer; the worker
+ * always names its config. Anything else is the worker's, which prints the usage.
+ */
+export function agentRoute(positional: readonly string[], flags: ReadonlyMap<string, string | true>): "worker" | "signer" {
+  const [action, config] = positional;
+  if (action === "serve") return config === undefined || [...flags.keys()].some((f) => SIGNER_FLAGS.includes(f)) ? "signer" : "worker";
+  return SIGNER_ACTIONS.includes(action ?? "") ? "signer" : "worker";
+}
+
+/** The note on stderr when the signer is reached by its old name. */
+export function signerRenamed(action: string): string {
+  return `wim: \`wim agent ${action}\` is now \`wim signer ${action}\`; the old spelling works until the next release (\`wim agent\` is the worker from now on: \`wim help agent\`).`;
+}
+
+/** What `wim agent` needs from the CLI. */
 export type WorkerCli = {
   env: Record<string, string | undefined>;
   out: (line: string) => void;
@@ -51,6 +76,8 @@ export type WorkerCli = {
   /** The session name: `--as`, `WIM_NAME`, else `worker`. */
   name: string;
   untilStopped: () => Promise<void>;
+  /** Where to look for the deployment kit (tests); default kitCandidates(this module). */
+  kitFrom?: readonly string[];
   /** Replaces the doctor's view of this machine (tests). */
   doctor?: Partial<DoctorDeps>;
 };
@@ -65,17 +92,21 @@ const list = (c: WorkerCli, name: string): string[] =>
     .map((x) => x.trim())
     .filter((x) => x !== "");
 
-/** Runs `wim worker <action>`. */
+/** Runs `wim agent <action>`. */
 export async function workerCommand(c: WorkerCli): Promise<number> {
   const [action, path] = c.positional;
   const write = (text: string): void => void c.stdout.write(text);
   switch (action) {
-    case "init":
-      return init(c, needPath(path));
+    case "init": {
+      // The kit alone (`init --kit <dir>`), or the kit and then the config.
+      const kitDir = value(c, "kit");
+      if (kitDir !== undefined) await kit(c, kitDir);
+      return kitDir !== undefined && path === undefined ? 0 : init(c, needPath(path));
+    }
     case "doctor":
       return doctor(c, needPath(path));
     case "run":
-      if (c.flags.get("once") !== true) throw new SetupError("usage: wim worker run --once <config> (one runner request on stdin)");
+      if (c.flags.get("once") !== true) throw new SetupError("usage: wim agent run --once <config> (one runner request on stdin)");
       return once(c, needPath(path), write);
     case "serve":
       return serve(c, needPath(path));
@@ -87,10 +118,10 @@ export async function workerCommand(c: WorkerCli): Promise<number> {
     case "privileged":
       // Started with no arguments by the root launcher; `--worker` is the job child it starts itself.
       if (c.positional.length > 1 || [...c.flags.keys()].some((f) => f !== "worker")) {
-        c.err("wim worker privileged: refusing arguments: the runner takes none");
+        c.err("wim agent privileged: refusing arguments: the runner takes none");
         return 2;
       }
-      return privilegedMain(c.flags.get("worker") === true ? ["--worker"] : [], c.env, [...c.wim, "worker", "privileged"], systemDeps());
+      return privilegedMain(c.flags.get("worker") === true ? ["--worker"] : [], c.env, [...c.wim, "agent", "privileged"], systemDeps());
     default:
       throw new SetupError(`usage:\n  ${WORKER_USAGE}`);
   }
@@ -121,6 +152,25 @@ async function exists(path: string): Promise<boolean> {
     () => true,
     () => false,
   );
+}
+
+/**
+ * Where the deployment kit is: agent-kit/ beside the published wim.mjs, or packages/agent when
+ * this wim runs from the repository (its source, or its bundle in packages/client/dist).
+ */
+export function kitCandidates(moduleUrl: string): string[] {
+  return [fileURLToPath(new URL("./agent-kit/", moduleUrl)), fileURLToPath(new URL("../../agent/", moduleUrl))];
+}
+
+/** `wim agent init --kit <dir>`: writes the deployment kit into a new or empty directory. */
+async function kit(c: WorkerCli, dir: string): Promise<void> {
+  const from = await findKit(c.kitFrom ?? kitCandidates(import.meta.url));
+  if (from === undefined) throw new SetupError("this wim carries no deployment kit (agent-kit/ beside wim.mjs): install worldinmotion from npm, or use a clone of the repository");
+  const to = resolve(c.cwd, dir);
+  const files = await copyKit(from, to).catch((err: unknown) => {
+    throw new SetupError((err as Error).message);
+  });
+  c.out(`Wrote the deployment kit to ${to} (${files.length} files). Its guide is ${join(to, "docs", "deploy.md")}.`);
 }
 
 async function init(c: WorkerCli, path: string): Promise<number> {
@@ -199,7 +249,12 @@ async function serve(c: WorkerCli, path: string): Promise<number> {
 /** A file's owner, group, mode and kind, as doctor reads it. */
 export async function statOf(path: string): Promise<FileStat> {
   const st = await fs.stat(path);
-  return { uid: st.uid, gid: st.gid, mode: st.mode, kind: st.isFile() ? "file" : st.isDirectory() ? "dir" : st.isSocket() ? "socket" : "other" };
+  return { uid: st.uid, gid: st.gid, mode: st.mode, kind: kindOf(st) };
+}
+
+/** What kind of file a stat describes. */
+export function kindOf(st: { isFile(): boolean; isDirectory(): boolean; isSocket(): boolean }): FileStat["kind"] {
+  return st.isFile() ? "file" : st.isDirectory() ? "dir" : st.isSocket() ? "socket" : "other";
 }
 
 /** A command's path: itself when absolute and executable, else the first executable match on PATH. */
@@ -267,6 +322,7 @@ async function doctor(c: WorkerCli, path: string): Promise<number> {
     // As root it also refuses a config another user could have written, as the runner does.
     loadPrivileged: (p) => loadPrivilegedConfig(p, { readFile: (f) => fs.readFile(f, "utf8"), stat: (f) => fs.stat(f) }, c.uid ?? -1),
     sudoersLine,
+    noNewPrivs: (service) => serviceNoNewPrivs(service),
     ...c.doctor,
   };
   const input = {
@@ -277,6 +333,7 @@ async function doctor(c: WorkerCli, path: string): Promise<number> {
     privilegedPath: value(c, "privileged-config") ?? PRIVILEGED_CONFIG_PATH,
     launcherPath: PRIVILEGED_RUNNER_PATH,
     sudoersPath: value(c, "sudoers") ?? SUDOERS_PATH,
+    service: value(c, "service") ?? "wim-agent.service",
     mesh,
   };
   const problems = await runDoctor(input, deps, (check: Check) => c.out(`${check.level.padEnd(8)} ${check.line}`));

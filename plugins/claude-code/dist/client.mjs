@@ -7864,11 +7864,11 @@ var init_externalDataInterceptor = __esm({
 // ../../node_modules/@smithy/core/dist-es/submodules/config/node-config-provider/getSelectorName.js
 function getSelectorName(functionString) {
   try {
-    const constants5 = new Set(Array.from(functionString.match(/([A-Z_]){3,}/g) ?? []));
-    constants5.delete("CONFIG");
-    constants5.delete("CONFIG_PREFIX_SEPARATOR");
-    constants5.delete("ENV");
-    return [...constants5].join(", ");
+    const constants6 = new Set(Array.from(functionString.match(/([A-Z_]){3,}/g) ?? []));
+    constants6.delete("CONFIG");
+    constants6.delete("CONFIG_PREFIX_SEPARATOR");
+    constants6.delete("ENV");
+    return [...constants6].join(", ");
   } catch (ignored) {
     return functionString;
   }
@@ -21927,7 +21927,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return this.connectOptions === void 0 ? http22.connect(url2) : http22.connect(url2, this.connectOptions);
       }
     };
-    var { constants: constants5 } = http22;
+    var { constants: constants6 } = http22;
     var NodeHttp2Handler = class _NodeHttp2Handler {
       config;
       configProvider;
@@ -22017,8 +22017,8 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
           }
           const clientHttp2Stream = session.request({
             ...request2.headers,
-            [constants5.HTTP2_HEADER_PATH]: path2,
-            [constants5.HTTP2_HEADER_METHOD]: method
+            [constants6.HTTP2_HEADER_PATH]: path2,
+            [constants6.HTTP2_HEADER_METHOD]: method
           });
           if (effectiveRequestTimeout) {
             clientHttp2Stream.setTimeout(effectiveRequestTimeout, () => {
@@ -22106,7 +22106,7 @@ var require_dist_cjs9 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2 } = (init_config2(), __toCommonJS(config_exports));
     var { NodeHttpHandler } = require_dist_cjs8();
-    var fs21 = __require("node:fs/promises");
+    var fs22 = __require("node:fs/promises");
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
     var { sdkStreamMixin: sdkStreamMixin3, parseRfc3339DateTime: parseRfc3339DateTime2 } = (init_serde(), __toCommonJS(serde_exports));
     var ECS_CONTAINER_HOST = "169.254.170.2";
@@ -22230,7 +22230,7 @@ Set AWS_CONTAINER_CREDENTIALS_FULL_URI or AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
       const provider = retryWrapper(async () => {
         const request2 = createGetRequest(url2);
         if (tokenFile) {
-          request2.headers.Authorization = validateToken((await fs21.readFile(tokenFile)).toString());
+          request2.headers.Authorization = validateToken((await fs22.readFile(tokenFile)).toString());
         } else if (token) {
           request2.headers.Authorization = validateToken(token);
         }
@@ -30002,7 +30002,7 @@ var require_dist_cjs14 = __commonJS({
     var { createHash: createHash10, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign3 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname10, join: join27 } = __require("node:path");
+    var { dirname: dirname11, join: join28 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30158,7 +30158,7 @@ var require_dist_cjs14 = __commonJS({
       }
       async saveToken(token) {
         const tokenFilePath = this.getTokenFilePath();
-        const directory = dirname10(tokenFilePath);
+        const directory = dirname11(tokenFilePath);
         try {
           await promises.mkdir(directory, { recursive: true });
         } catch (error64) {
@@ -30166,10 +30166,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join27(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join28(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash10("sha256").update(loginSessionBytes).digest("hex");
-        return join27(directory, `${loginSessionSha256}.json`);
+        return join28(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -46854,7 +46854,7 @@ var require_util2 = __commonJS({
     exports.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports.isValidFile = isValidFile;
     exports.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs21 = __require("fs");
+    var fs22 = __require("fs");
     var os = __require("os");
     var path2 = __require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
@@ -46942,7 +46942,7 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs21.promises.lstat(filePath);
+        const stats = await fs22.promises.lstat(filePath);
         return stats.isFile();
       } catch (e6) {
         return false;
@@ -48897,10 +48897,10 @@ var require_getCredentials = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.getCredentials = getCredentials;
     var path2 = __require("path");
-    var fs21 = __require("fs");
+    var fs22 = __require("fs");
     var util_1 = __require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile7 = fs21.readFile ? (0, util_1.promisify)(fs21.readFile) : async () => {
+    var readFile7 = fs22.readFile ? (0, util_1.promisify)(fs22.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -50577,12 +50577,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.FileSubjectTokenSupplier = void 0;
     var util_1 = __require("util");
-    var fs21 = __require("fs");
-    var readFile7 = (0, util_1.promisify)(fs21.readFile ?? (() => {
+    var fs22 = __require("fs");
+    var readFile7 = (0, util_1.promisify)(fs22.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs21.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs22.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs21.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs22.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -50700,7 +50700,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.CertificateSubjectTokenSupplier = exports.InvalidConfigurationError = exports.CertificateSourceUnavailableError = exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs21 = __require("fs");
+    var fs22 = __require("fs");
     var crypto_1 = __require("crypto");
     var https2 = __require("https");
     exports.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -50794,7 +50794,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath2 = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs21.promises.readFile(configPath2, "utf8");
+          fileContents = await fs22.promises.readFile(configPath2, "utf8");
         } catch (err) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath2}`);
         }
@@ -50819,14 +50819,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key3;
         try {
-          cert = await fs21.promises.readFile(certPath);
+          cert = await fs22.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message2}`);
         }
         try {
-          key3 = await fs21.promises.readFile(keyPath);
+          key3 = await fs22.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key3);
         } catch (err) {
           const message2 = err instanceof Error ? err.message : String(err);
@@ -50845,7 +50845,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs21.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs22.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index) => {
             try {
@@ -51547,7 +51547,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports.PluggableAuthHandler = exports.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = __require("child_process");
-    var fs21 = __require("fs");
+    var fs22 = __require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -51632,14 +51632,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs21.promises.realpath(this.outputFile);
+          filePath = await fs22.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs21.promises.lstat(filePath)).isFile()) {
+        if (!(await fs22.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs21.promises.readFile(filePath, {
+        const responseString = await fs22.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -52050,7 +52050,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GdchClient = exports.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = __require("crypto");
-    var fs21 = __require("fs");
+    var fs22 = __require("fs");
     var https2 = __require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -52273,7 +52273,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs21.promises.readFile(currentPath);
+            const ca = await fs22.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err) {
             if (this.cachedCaCertPath === currentPath) {
@@ -52333,7 +52333,7 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.GoogleAuth = exports.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = __require("child_process");
-    var fs21 = __require("fs");
+    var fs22 = __require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = __require("os");
@@ -52635,7 +52635,7 @@ var require_googleauth = __commonJS({
           return null;
         }
         const location = path2.join(configDir, "application_default_credentials.json");
-        if (!fs21.existsSync(location)) {
+        if (!fs22.existsSync(location)) {
           return null;
         }
         const client = await this._getApplicationCredentialsFromFilePath(location, options);
@@ -52652,8 +52652,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs21.realpathSync(filePath);
-          if (!fs21.lstatSync(filePath).isFile()) {
+          filePath = fs22.realpathSync(filePath);
+          if (!fs22.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err) {
@@ -52662,7 +52662,7 @@ var require_googleauth = __commonJS({
           }
           throw err;
         }
-        const readStream = fs21.createReadStream(filePath);
+        const readStream = fs22.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -52990,7 +52990,7 @@ var require_googleauth = __commonJS({
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
           const filePath = path2.resolve(this.keyFilename);
-          const stream = fs21.createReadStream(filePath);
+          const stream = fs22.createReadStream(filePath);
           return await this.fromStreamAsync(stream, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -53913,11 +53913,11 @@ var require_codegen = __commonJS({
         const rhs = this.rhs === void 0 ? "" : ` = ${this.rhs}`;
         return `${varKind} ${this.name}${rhs};` + _n;
       }
-      optimizeNames(names, constants5) {
+      optimizeNames(names, constants6) {
         if (!names[this.name.str])
           return;
         if (this.rhs)
-          this.rhs = optimizeExpr(this.rhs, names, constants5);
+          this.rhs = optimizeExpr(this.rhs, names, constants6);
         return this;
       }
       get names() {
@@ -53934,10 +53934,10 @@ var require_codegen = __commonJS({
       render({ _n }) {
         return `${this.lhs} = ${this.rhs};` + _n;
       }
-      optimizeNames(names, constants5) {
+      optimizeNames(names, constants6) {
         if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
           return;
-        this.rhs = optimizeExpr(this.rhs, names, constants5);
+        this.rhs = optimizeExpr(this.rhs, names, constants6);
         return this;
       }
       get names() {
@@ -53998,8 +53998,8 @@ var require_codegen = __commonJS({
       optimizeNodes() {
         return `${this.code}` ? this : void 0;
       }
-      optimizeNames(names, constants5) {
-        this.code = optimizeExpr(this.code, names, constants5);
+      optimizeNames(names, constants6) {
+        this.code = optimizeExpr(this.code, names, constants6);
         return this;
       }
       get names() {
@@ -54028,12 +54028,12 @@ var require_codegen = __commonJS({
         }
         return nodes5.length > 0 ? this : void 0;
       }
-      optimizeNames(names, constants5) {
+      optimizeNames(names, constants6) {
         const { nodes: nodes5 } = this;
         let i6 = nodes5.length;
         while (i6--) {
           const n3 = nodes5[i6];
-          if (n3.optimizeNames(names, constants5))
+          if (n3.optimizeNames(names, constants6))
             continue;
           subtractNames(names, n3.names);
           nodes5.splice(i6, 1);
@@ -54086,12 +54086,12 @@ var require_codegen = __commonJS({
           return void 0;
         return this;
       }
-      optimizeNames(names, constants5) {
+      optimizeNames(names, constants6) {
         var _a5;
-        this.else = (_a5 = this.else) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants5);
-        if (!(super.optimizeNames(names, constants5) || this.else))
+        this.else = (_a5 = this.else) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants6);
+        if (!(super.optimizeNames(names, constants6) || this.else))
           return;
-        this.condition = optimizeExpr(this.condition, names, constants5);
+        this.condition = optimizeExpr(this.condition, names, constants6);
         return this;
       }
       get names() {
@@ -54114,10 +54114,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.iteration})` + super.render(opts);
       }
-      optimizeNames(names, constants5) {
-        if (!super.optimizeNames(names, constants5))
+      optimizeNames(names, constants6) {
+        if (!super.optimizeNames(names, constants6))
           return;
-        this.iteration = optimizeExpr(this.iteration, names, constants5);
+        this.iteration = optimizeExpr(this.iteration, names, constants6);
         return this;
       }
       get names() {
@@ -54153,10 +54153,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
       }
-      optimizeNames(names, constants5) {
-        if (!super.optimizeNames(names, constants5))
+      optimizeNames(names, constants6) {
+        if (!super.optimizeNames(names, constants6))
           return;
-        this.iterable = optimizeExpr(this.iterable, names, constants5);
+        this.iterable = optimizeExpr(this.iterable, names, constants6);
         return this;
       }
       get names() {
@@ -54198,11 +54198,11 @@ var require_codegen = __commonJS({
         (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
         return this;
       }
-      optimizeNames(names, constants5) {
+      optimizeNames(names, constants6) {
         var _a5, _b;
-        super.optimizeNames(names, constants5);
-        (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants5);
-        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants5);
+        super.optimizeNames(names, constants6);
+        (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants6);
+        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants6);
         return this;
       }
       get names() {
@@ -54503,7 +54503,7 @@ var require_codegen = __commonJS({
     function addExprNames(names, from) {
       return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
     }
-    function optimizeExpr(expr, names, constants5) {
+    function optimizeExpr(expr, names, constants6) {
       if (expr instanceof code_1.Name)
         return replaceName(expr);
       if (!canOptimize(expr))
@@ -54518,14 +54518,14 @@ var require_codegen = __commonJS({
         return items;
       }, []));
       function replaceName(n3) {
-        const c5 = constants5[n3.str];
+        const c5 = constants6[n3.str];
         if (c5 === void 0 || names[n3.str] !== 1)
           return n3;
         delete names[n3.str];
         return c5;
       }
       function canOptimize(e6) {
-        return e6 instanceof code_1._Code && e6._items.some((c5) => c5 instanceof code_1.Name && names[c5.str] === 1 && constants5[c5.str] !== void 0);
+        return e6 instanceof code_1._Code && e6._items.some((c5) => c5 instanceof code_1.Name && names[c5.str] === 1 && constants6[c5.str] !== void 0);
       }
     }
     function subtractNames(names, from) {
@@ -60745,12 +60745,12 @@ var require_dist3 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f7;
     };
-    function addFormats(ajv, list4, fs21, exportName) {
+    function addFormats(ajv, list4, fs22, exportName) {
       var _a5;
       var _b;
       (_a5 = (_b = ajv.opts.code).formats) !== null && _a5 !== void 0 ? _a5 : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f7 of list4)
-        ajv.addFormat(f7, fs21[f7]);
+        ajv.addFormat(f7, fs22[f7]);
     }
     module2.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -88234,8 +88234,8 @@ function joinBody(invite2, name, keys, nonce) {
   if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
   return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
 }
-function verifyJoin(join27, secret, nonce) {
-  const parsed2 = safeParse3(joinOrBodySchema, join27);
+function verifyJoin(join28, secret, nonce) {
+  const parsed2 = safeParse3(joinOrBodySchema, join28);
   if (!parsed2.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -92028,7 +92028,7 @@ function openWithClearPrekey(entry, req) {
 var NeedsSigner = class extends Error {
   name = "NeedsSigner";
   constructor() {
-    super("this device's keys were encrypted (wim agent encrypt) while this session was running: restart it so it uses the signer; messages it cannot open meanwhile are not acknowledged, and the relay delivers them again");
+    super("this device's keys were encrypted (wim signer encrypt) while this session was running: restart it so it uses the signer; messages it cannot open meanwhile are not acknowledged, and the relay delivers them again");
   }
 };
 function localDeviceKeyring(keys) {
@@ -92140,7 +92140,7 @@ var SignerClient = class {
    */
   async call(op2, a5 = {}, timeoutMs = this.timeoutMs) {
     const conn = await this.connected();
-    if (conn.hello.locked && !LOCKED_OPS.has(op2)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
+    if (conn.hello.locked && !LOCKED_OPS.has(op2)) throw new SignerError("locked", "the signer is locked: run `wim signer unlock` in a terminal you opened yourself");
     return this.send(conn, op2, a5, timeoutMs);
   }
   /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
@@ -92179,7 +92179,7 @@ var SignerClient = class {
     return this.connectTo(await this.where());
   }
   connectTo(at) {
-    if (at === void 0) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in a terminal you opened yourself"));
+    if (at === void 0) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim signer start` in a terminal you opened yourself"));
     this.endpoint = at;
     return new Promise((resolve5, reject) => {
       const socket = this.connect(at);
@@ -92188,7 +92188,7 @@ var SignerClient = class {
       socket.setEncoding("utf8");
       socket.once("close", () => reject(new SignerError("unavailable", "the connection to the signer was closed")));
       socket.on("error", (error64) => {
-        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error64.code ?? error64.message}): run \`wim agent start\` in a terminal you opened yourself`));
+        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error64.code ?? error64.message}): run \`wim signer start\` in a terminal you opened yourself`));
       });
       socket.once("connect", () => {
         socket.on("data", (chunk) => this.take(conn, chunk));
@@ -118524,8 +118524,8 @@ var GeminiNextGenEnvironmentFiles = class {
       try {
         const req = globalThis.require;
         if (req) {
-          const fs21 = req("fs");
-          buffer = fs21.readFileSync(params.file);
+          const fs22 = req("fs");
+          buffer = fs22.readFileSync(params.file);
         }
       } catch (_j) {
       }
@@ -118533,8 +118533,8 @@ var GeminiNextGenEnvironmentFiles = class {
         try {
           const mod2 = (_b = (_a5 = globalThis.process.mainModule) === null || _a5 === void 0 ? void 0 : _a5.require) !== null && _b !== void 0 ? _b : globalThis.require;
           if (mod2) {
-            const fs21 = mod2("fs");
-            buffer = fs21.readFileSync(params.file);
+            const fs22 = mod2("fs");
+            buffer = fs22.readFileSync(params.file);
           }
         } catch (_k) {
         }
@@ -122716,7 +122716,7 @@ async function runCi(config2, io, deps = {}) {
 }
 
 // src/cli.ts
-import { promises as fs20 } from "node:fs";
+import { promises as fs21 } from "node:fs";
 import { basename as basename7, join as pathJoin } from "node:path";
 
 // src/admin.ts
@@ -122881,13 +122881,13 @@ var Home = class {
     if (file2 === void 0) return void 0;
     if ("plain" in file2) {
       if (this.env.requireSigner === true || (await readAgentSettings(this.root)).require_signer === true) {
-        throw new SetupError(`${this.devicePath} is not encrypted, and this device requires the signer: run \`wim agent encrypt\`, then \`wim agent start\``);
+        throw new SetupError(`${this.devicePath} is not encrypted, and this device requires the signer: run \`wim signer encrypt\`, then \`wim signer start\``);
       }
       return file2.plain;
     }
     const sealed = file2.sealed;
     const signPub = b64u.decode(sealed.signPub);
-    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in a terminal you opened yourself`;
+    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim signer start\` in a terminal you opened yourself`;
     const client = new SignerClient({ endpoint: () => agentEndpoint(this.root, this.env, false), expect: signPub });
     let hello;
     try {
@@ -122898,7 +122898,7 @@ var Home = class {
     }
     if (hello.locked) {
       client.close();
-      throw new NotReadyYet("the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
+      throw new NotReadyYet("the signer is locked: run `wim signer unlock` in a terminal you opened yourself");
     }
     return { name: sealed.name, id: sealed.id, keyring: signerKeyring(client, { signPub, boxPub: b64u.decode(sealed.boxPub) }) };
   }
@@ -124050,7 +124050,7 @@ async function runSetupEvents(d5) {
       throw error64;
     }
   }
-  async function join27(a5) {
+  async function join28(a5) {
     personOnly2(d5.agent, "joining a mesh");
     if (joining || creating) throw new RequestError("busy", joining ? "a join is already waiting for an admin" : "a mesh is being created on this device");
     joining = true;
@@ -124121,7 +124121,7 @@ async function runSetupEvents(d5) {
       if (op2 !== "join" && op2 !== "create") throw new RequestError("setup", "this device is in no mesh yet: create or join one first");
       const args = (op2 === "join" ? SetupArgs : CreateArgs).safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      const answer = op2 === "join" ? join27(args.data) : making = create2(args.data);
+      const answer = op2 === "join" ? join28(args.data) : making = create2(args.data);
       emit("response", { id: id3, ok: true, result: await answer });
     } catch (error64) {
       const code3 = error64 instanceof RequestError ? error64.code : "error";
@@ -126523,7 +126523,7 @@ var WimMcp = class {
       device: `${s3.device.name} (${s3.device.id})`,
       mesh: s3.config.mesh,
       relay: s3.link?.isOpen === true ? "connected" : "connecting",
-      signer: s3.device.keyring.kind === "signer" ? "in use: the keys are in the signer (wim agent)" : "not used: the key file is plaintext",
+      signer: s3.device.keyring.kind === "signer" ? "in use: the keys are in the signer (wim signer)" : "not used: the key file is plaintext",
       held: (await s3.held.list()).length,
       ...dir
     });
@@ -127068,7 +127068,7 @@ var Signer = class {
         return {};
     }
     const keys = this.keys;
-    if (keys === void 0) throw new AgentError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
+    if (keys === void 0) throw new AgentError("locked", "the signer is locked: run `wim signer unlock` in a terminal you opened yourself");
     if (!this.bucket.take()) {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
@@ -127501,7 +127501,7 @@ async function askGui(platform2, run2, text2, trust) {
     failure4 = got?.failed ?? failure4;
   }
   throw new SetupError(
-    failure4 === void 0 ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal" : `no passphrase prompt could be shown (${failure4}): start the signer with \`wim agent start\` in your own terminal`
+    failure4 === void 0 ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim signer start` in your own terminal" : `no passphrase prompt could be shown (${failure4}): start the signer with \`wim signer start\` in your own terminal`
   );
 }
 function answered(r6, cmd, last) {
@@ -127545,7 +127545,7 @@ async function confirmGui(platform2, run2, lines, trust, signal) {
     failure4 = `${p3.cmd}: ${r6.stderr.trim().slice(0, 300) || `exit ${String(r6.code)}`}`;
   }
   throw new SetupError(
-    failure4 === void 0 ? "the signer has no dialog to ask you in (on Linux it needs zenity or kdialog in a desktop session): run it with `wim agent start --foreground` in your own terminal, which asks there" : `the signer could not show its dialog (${failure4}): run it with \`wim agent start --foreground\` in your own terminal, which asks there`
+    failure4 === void 0 ? "the signer has no dialog to ask you in (on Linux it needs zenity or kdialog in a desktop session): run it with `wim signer start --foreground` in your own terminal, which asks there" : `the signer could not show its dialog (${failure4}): run it with \`wim signer start --foreground\` in your own terminal, which asks there`
   );
 }
 async function trusted(trust, path2) {
@@ -127558,7 +127558,7 @@ function keyringKind(platform2) {
   if (platform2 === "darwin") return "keychain";
   return platform2 === "win32" ? void 0 : "libsecret";
 }
-var NO_KEYRING = "--keyring is not offered on Windows: Credential Manager gives a stored passphrase to any program you run, agents included, without asking. Use the passphrase dialog instead (`wim agent autostart enable`)";
+var NO_KEYRING = "--keyring is not offered on Windows: Credential Manager gives a stored passphrase to any program you run, agents included, without asking. Use the passphrase dialog instead (`wim signer autostart enable`)";
 var KEYRING_WARNING = {
   keychain: [
     "The passphrase goes into your login keychain in an item that trusts no program, so macOS asks you each time something reads it, the signer included.",
@@ -127566,7 +127566,7 @@ var KEYRING_WARNING = {
   ],
   libsecret: [
     "WARNING: your keyring (libsecret) gives this passphrase to any program you run while the keyring is unlocked, which is all the time you are logged in. That includes agents and the tools they run.",
-    "An agent that reads it can decrypt device.json offline and act as this device: this undoes the protection the signer gives against agents. The passphrase dialog (`wim agent autostart enable` without --keyring) does not."
+    "An agent that reads it can decrypt device.json offline and act as this device: this undoes the protection the signer gives against agents. The passphrase dialog (`wim signer autostart enable` without --keyring) does not."
   ]
 };
 var SERVICE = "worldinmotion-signer";
@@ -127606,7 +127606,7 @@ async function keyringRead(platform2, run2, account) {
 function decodeStored(r6) {
   const hex3 = r6.stdout.trim();
   if (r6.code !== 0 || !/^(?:[0-9a-f]{2})+$/.test(hex3)) {
-    throw new SetupError("no passphrase could be read from the keyring (not stored, or the read was denied): `wim agent autostart enable --keyring` stores it");
+    throw new SetupError("no passphrase could be read from the keyring (not stored, or the read was denied): `wim signer autostart enable --keyring` stores it");
   }
   return Buffer.from(hex3, "hex").toString("utf8");
 }
@@ -127632,7 +127632,7 @@ function windowsUser(env4) {
 function loginItem(o3, source2) {
   const path2 = pathFor(o3.platform);
   const id3 = keyringAccount(o3.root);
-  const command5 = [...o3.programs.wim, "agent", "start", "--foreground", `--${source2}`];
+  const command5 = [...o3.programs.wim, "signer", "start", "--foreground", `--${source2}`];
   const log3 = path2.join(o3.root, "agent", "autostart.log");
   if (o3.platform === "darwin") {
     const label = `worldinmotion.signer.${id3}`;
@@ -127664,7 +127664,7 @@ function loginItem(o3, source2) {
     const text3 = [
       '<?xml version="1.0" encoding="UTF-16"?>',
       '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
-      `  <RegistrationInfo><Description>Starts the worldinmotion signer at log on: wim agent start --foreground --${source2}</Description></RegistrationInfo>`,
+      `  <RegistrationInfo><Description>Starts the worldinmotion signer at log on: wim signer start --foreground --${source2}</Description></RegistrationInfo>`,
       `  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>${user}</UserId></LogonTrigger></Triggers>`,
       `  <Principals><Principal id="Author"><UserId>${user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>`,
       "  <Settings>",
@@ -127747,7 +127747,10 @@ async function disableAutostart(o3) {
 async function autostartStatus(o3) {
   const item = loginItem(o3, "ask-gui");
   const text2 = item.kind === "task" ? await taskText(o3, item.where) : await readText(item.where);
-  return text2 === void 0 ? void 0 : { where: item.where, source: text2.includes("--keyring") ? "keyring" : "ask-gui", log: item.log };
+  if (text2 === void 0) return void 0;
+  const source2 = text2.includes("--keyring") ? "keyring" : "ask-gui";
+  const stale = item.kind === "task" ? !text2.includes(`wim signer start --foreground --${source2}`) : text2 !== loginItem(o3, source2).text;
+  return { where: item.where, source: source2, log: item.log, stale };
 }
 async function taskText(o3, name) {
   const r6 = await o3.programs.run("schtasks", ["/Query", "/TN", name, "/XML"]);
@@ -127755,10 +127758,10 @@ async function taskText(o3, name) {
 }
 
 // src/agentcli.ts
-var AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin | --ask-gui | --keyring] [--allow-agent-passphrase]
-  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin | --ask-gui | --keyring] | wim agent stop
-  wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]
-  wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status`;
+var SIGNER_USAGE = `wim signer start [--foreground] [--passphrase-stdin | --ask-gui | --keyring] [--allow-agent-passphrase]
+  wim signer status | wim signer lock | wim signer unlock [--foreground] [--passphrase-stdin | --ask-gui | --keyring] | wim signer stop
+  wim signer encrypt [--passphrase-stdin] | wim signer decrypt [--passphrase-stdin]
+  wim signer autostart enable [--keyring] | wim signer autostart disable | wim signer autostart status`;
 var MIN_PASSPHRASE = 8;
 var PROMPT = "Passphrase for this device's keys: ";
 function wimCommand() {
@@ -127840,7 +127843,7 @@ async function readPassphrase(ctx, question, opens) {
   else {
     const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === void 0 ? "this program cannot ask for a passphrase without showing it" : void 0);
     if (why !== void 0) {
-      throw new SetupError(`${personOnly(why, `wim agent ${ctx.args[0]}`)} (a service manager can pass --passphrase-stdin instead)`);
+      throw new SetupError(`${personOnly(why, `wim signer ${ctx.args[0]}`)} (a service manager can pass --passphrase-stdin instead)`);
     }
     passphrase = await ctx.io.promptSecret(question);
   }
@@ -127850,7 +127853,7 @@ async function readPassphrase(ctx, question, opens) {
 async function sealedFile(ctx) {
   const file2 = await ctx.home.readKeyFile();
   if (file2 === void 0) throw new SetupError(`no device keys at ${ctx.home.devicePath}: run \`wim init\` first`);
-  if ("plain" in file2) throw new SetupError(`${ctx.home.devicePath} is not encrypted: run \`wim agent encrypt\` first`);
+  if ("plain" in file2) throw new SetupError(`${ctx.home.devicePath} is not encrypted: run \`wim signer encrypt\` first`);
   return file2.sealed;
 }
 async function endpoint(ctx, create2) {
@@ -127866,7 +127869,7 @@ async function running(ctx) {
 async function agentCommand(ctx) {
   const [action] = ctx.args;
   for (const s3 of Object.keys(SOURCES)) {
-    if (ctx.flags.get(s3) === true && !SOURCES[s3].includes(action ?? "")) throw new SetupError(`--${s3} is for wim agent ${SOURCES[s3].join(", ")}`);
+    if (ctx.flags.get(s3) === true && !SOURCES[s3].includes(action ?? "")) throw new SetupError(`--${s3} is for wim signer ${SOURCES[s3].join(", ")}`);
   }
   switch (action) {
     case "start":
@@ -127887,7 +127890,7 @@ async function agentCommand(ctx) {
     case "autostart":
       return autostart(ctx);
     default:
-      throw new SetupError(`usage: ${AGENT_USAGE}`);
+      throw new SetupError(`usage: ${SIGNER_USAGE}`);
   }
 }
 async function runSigner(ctx, passphrase, ready) {
@@ -127953,7 +127956,7 @@ function desk(ctx) {
       read,
       device,
       confirm: {
-        cannot: `${agent} was set where this signer started, so it runs in an agent's environment and cannot tell you from the agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`
+        cannot: `${agent} was set where this signer started, so it runs in an agent's environment and cannot tell you from the agent: a decision on held messages needs a signer you started yourself (\`wim signer start\` in your own terminal, or at log in)`
       }
     };
   }
@@ -127961,7 +127964,7 @@ function desk(ctx) {
   const above = checks === void 0 ? Promise.resolve(void 0) : checks.agentAncestor().catch((e6) => `the processes above this signer could not be read (${e6.message})`);
   const guard = async (terminal) => {
     const why = await above ?? (terminal ? await checks?.terminal() : void 0);
-    if (why !== void 0) throw new AgentError("refused", `${why}, so this signer cannot tell you from an agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`);
+    if (why !== void 0) throw new AgentError("refused", `${why}, so this signer cannot tell you from an agent: a decision on held messages needs a signer you started yourself (\`wim signer start\` in your own terminal, or at log in)`);
   };
   if (ctx.flags.get("foreground") === true && cannotConfirm(ctx.env, ctx.io) === void 0) {
     const question = "Type y to sign this decision; anything else declines it [y/N] ";
@@ -127986,7 +127989,7 @@ function desk(ctx) {
     };
   }
   const p3 = ctx.io.programs;
-  if (p3 === void 0) return { read, device, confirm: { cannot: "this signer has no terminal or dialog to ask you in: start it with `wim agent start --foreground` in your own terminal" } };
+  if (p3 === void 0) return { read, device, confirm: { cannot: "this signer has no terminal or dialog to ask you in: start it with `wim signer start --foreground` in your own terminal" } };
   return {
     read,
     device,
@@ -128026,7 +128029,7 @@ async function start(ctx) {
   if (at !== void 0 && await answers(at)) {
     const found2 = await proven(at, b64u.decode(file2.signPub));
     if (found2 !== void 0) {
-      ctx.io.out(found2.locked ? `A signer is already running at ${at}, locked (verified): \`wim agent unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it is this device's signer).`);
+      ctx.io.out(found2.locked ? `A signer is already running at ${at}, locked (verified): \`wim signer unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it is this device's signer).`);
       return 0;
     }
     ctx.io.err(`wim: something answers at ${at} but cannot prove it is this device's signer; starting a signer in its place`);
@@ -128038,7 +128041,7 @@ async function launch(ctx, passphrase) {
     let failed;
     const code3 = await runSigner(ctx, passphrase, (line2) => {
       if (line2.startsWith("error ")) failed = line2.slice(6);
-      else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${line2.split(" ").slice(2).join(" ")}. Ctrl-C or \`wim agent stop\` stops it.`);
+      else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${line2.split(" ").slice(2).join(" ")}. Ctrl-C or \`wim signer stop\` stops it.`);
     });
     if (failed !== void 0) throw new SetupError(failed);
     ctx.io.out("Signer stopped.");
@@ -128049,8 +128052,8 @@ async function launch(ctx, passphrase) {
   if (!line.startsWith("ready ")) throw new SetupError(line.replace(/^error /, ""));
   const [, pid, ...at] = line.split(" ");
   ctx.io.out(`Signer started (pid ${pid}) at ${at.join(" ")}. Sessions now sign and open through it.`);
-  ctx.io.out("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim agent stop`.");
-  ctx.io.out("`wim agent lock` wipes the keys from its memory. `wim agent autostart enable` starts it at each log in.");
+  ctx.io.out("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim signer stop`.");
+  ctx.io.out("`wim signer lock` wipes the keys from its memory. `wim signer autostart enable` starts it at each log in.");
   return 0;
 }
 async function serve(ctx) {
@@ -128064,7 +128067,7 @@ async function status(ctx) {
   ctx.io.out(`key file: ${ctx.home.devicePath} (${kind})${settings.require_signer === true ? "; the signer is required" : ""}`);
   const client = await running(ctx);
   if (client === void 0) {
-    ctx.io.out(`signer: not running. Start it with \`wim agent start\` in a terminal you opened yourself (not one an agent runs), or have it start at each log in: \`wim agent autostart enable\`.`);
+    ctx.io.out(`signer: not running. Start it with \`wim signer start\` in a terminal you opened yourself (not one an agent runs), or have it start at each log in: \`wim signer autostart enable\`.`);
     return 3;
   }
   try {
@@ -128094,12 +128097,12 @@ async function simple(ctx, action) {
     throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts. End that process`);
   }
   if (action === "stop") ctx.io.out("Signer stopped.");
-  else ctx.io.out(answer["was"] === true ? "The signer was locked already (verified)." : "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase.");
+  else ctx.io.out(answer["was"] === true ? "The signer was locked already (verified)." : "Signer locked: the keys are wiped from its memory. `wim signer unlock` starts it again with the passphrase.");
   return 0;
 }
 async function unlock(ctx) {
   const client = await running(ctx);
-  if (client === void 0) throw new SetupError("no signer is running: `wim agent start` starts one");
+  if (client === void 0) throw new SetupError("no signer is running: `wim signer start` starts one");
   let passphrase;
   try {
     if (!(await client.hello()).locked) {
@@ -128117,7 +128120,7 @@ async function unlock(ctx) {
     client.close();
   }
   if (await answers(client.endpoint)) {
-    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
+    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim signer start\``);
   }
   return launch(ctx, passphrase);
 }
@@ -128163,7 +128166,7 @@ async function decryptDevice(home2, passphrase) {
   if (file2 === void 0) throw new SetupError(`no device keys at ${home2.devicePath}: run \`wim init\` first`);
   if ("plain" in file2) throw new SetupError(`${home2.devicePath} is not encrypted`);
   const at = await agentEndpoint(home2.root, home2.env, false);
-  if (at !== void 0 && await answers(at)) throw new SetupError("a signer is running: `wim agent stop` first");
+  if (at !== void 0 && await answers(at)) throw new SetupError("a signer is running: `wim signer stop` first");
   let unlocked;
   try {
     unlocked = await openKeyFile(file2.sealed, passphrase);
@@ -128191,9 +128194,9 @@ async function encrypt(ctx) {
   if (passphrase.length < MIN_PASSPHRASE) throw new SetupError(`use a passphrase of at least ${MIN_PASSPHRASE} characters`);
   if (ctx.flags.get("passphrase-stdin") !== true && await readPassphrase(ctx, "Again: ") !== passphrase) throw new SetupError("the two passphrases differ; nothing was changed");
   await encryptDevice(ctx.home, passphrase, ctx.kdfN === void 0 ? void 0 : { N: ctx.kdfN, r: 8, p: 1 });
-  ctx.io.out(`Encrypted ${ctx.home.devicePath}. Sessions now need the signer: run \`wim agent start\`.`);
+  ctx.io.out(`Encrypted ${ctx.home.devicePath}. Sessions now need the signer: run \`wim signer start\`.`);
   ctx.io.out("Without the passphrase this device's keys are gone: it would have to join its meshes again as a new device.");
-  ctx.io.out("Restart running sessions so they use the signer. `wim agent decrypt` undoes this.");
+  ctx.io.out("Restart running sessions so they use the signer. `wim signer decrypt` undoes this.");
   return 0;
 }
 async function decrypt(ctx) {
@@ -128211,14 +128214,18 @@ async function autostart(ctx) {
   if (what2 === "disable") {
     const removed = await disableAutostart(o3);
     await keyringClear(o3.platform, o3.programs.run, keyringAccount(o3.root));
-    ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim agent stop`." : "No login item starts the signer here.");
+    ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim signer stop`." : "No login item starts the signer here.");
     return 0;
   }
-  if (what2 !== "status") throw new SetupError("usage: wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status");
+  if (what2 !== "status") throw new SetupError("usage: wim signer autostart enable [--keyring] | wim signer autostart disable | wim signer autostart status");
   const found2 = await autostartStatus(o3);
   if (found2 === void 0) {
-    ctx.io.out("autostart: off. `wim agent autostart enable` starts the signer at each log in.");
+    ctx.io.out("autostart: off. `wim signer autostart enable` starts the signer at each log in.");
     return 3;
+  }
+  if (found2.stale) {
+    await enableAutostart(o3, found2.source);
+    ctx.io.out(`autostart: rewrote ${found2.where}, which ran an older command line, to run \`wim signer start\` from this wim.`);
   }
   ctx.io.out(`autostart: on (${found2.source === "keyring" ? "the passphrase comes from the keyring" : "it asks for the passphrase in a dialog"}): ${found2.where}`);
   ctx.io.out(`log: ${found2.log}`);
@@ -128235,14 +128242,14 @@ async function autostartEnable(ctx, o3) {
     keyring ? "At each log in it starts the signer with the passphrase from the keyring." : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent. Any passphrase kept in the keyring for it before is removed."
   );
   ctx.io.out(`What it prints, errors included, is appended to ${item.log}.`);
-  ctx.io.out("It does not start a signer now (`wim agent start` does). `wim agent autostart disable` removes it.");
+  ctx.io.out("It does not start a signer now (`wim signer start` does). `wim signer autostart disable` removes it.");
   return 0;
 }
 async function storeInKeyring(ctx, o3, file2) {
   const kind = keyringKind(o3.platform);
   if (kind === void 0) throw new SetupError(NO_KEYRING);
   const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === void 0 ? "this program cannot ask for a passphrase without showing it" : void 0);
-  if (why !== void 0) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly(why, "wim agent autostart enable --keyring")}`);
+  if (why !== void 0) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly(why, "wim signer autostart enable --keyring")}`);
   for (const line of KEYRING_WARNING[kind]) ctx.io.out(line);
   if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
   const passphrase = await ctx.io.promptSecret(PROMPT);
@@ -128580,7 +128587,7 @@ var ConfigSchema4 = external_exports.strictObject({
     command: external_exports.string().min(1),
     /** Fixed arguments. Nothing from a message is ever put on the command line. */
     args: external_exports.array(external_exports.string()).default([]),
-    timeoutSeconds: external_exports.number().positive().max(86400).default(900),
+    timeoutSeconds: external_exports.number().positive().max(86400).default(1800),
     /** After the timeout: SIGTERM to the runner's process group, then SIGKILL this much later. */
     killGraceSeconds: external_exports.number().nonnegative().max(600).default(15),
     /** The only environment variables the runner inherits from the worker. */
@@ -128592,11 +128599,11 @@ var ConfigSchema4 = external_exports.strictObject({
     /** The JSON file that holds today's job count, so a restart does not reset the daily cap. */
     ledgerPath: external_exports.string().min(1),
     /** Longest task accepted, in characters, counted on the text as it arrives. */
-    maxTaskChars: positiveInt4.max(6e4).default(8e3),
+    maxTaskChars: positiveInt4.max(6e4).default(16e3),
     /** Attempts (accepted or not) per sender device in any rolling hour, so a code cannot be guessed. */
-    perSenderPerHour: positiveInt4.default(10),
+    perSenderPerHour: positiveInt4.default(20),
     /** Jobs started per UTC day, across all senders. */
-    dailyJobs: positiveInt4.default(20)
+    dailyJobs: positiveInt4.default(50)
   }),
   replies: external_exports.strictObject({
     /**
@@ -129053,7 +129060,7 @@ function privilegedRunner(config2, launcher) {
 }
 function builtInRunner(config2, launcher) {
   const { command: command5, args } = config2.runner;
-  const at = args.lastIndexOf("worker");
+  const at = args.lastIndexOf("agent");
   return privilegedRunner(config2, launcher) || command5.endsWith("wim-agent-runner") || at >= 0 && args[at + 1] === "runner";
 }
 function placeholders(value3, at = "") {
@@ -129073,6 +129080,8 @@ async function runDoctor(input2, deps, emit) {
   const config2 = readConfig(input2, deps, say);
   if (config2 === void 0) return problems;
   senders(config2, input2, say);
+  const l3 = config2.limits;
+  say(info(`limits: tasks up to ${l3.maxTaskChars} characters, ${l3.perSenderPerHour} attempts per device per hour, ${l3.dailyJobs} jobs a day, ${config2.runner.timeoutSeconds} s a job, one job at a time`));
   const peerName = input2.peerUser ?? deps.userName;
   const peer = await deps.lookupUser(peerName);
   if (peer === void 0) say(problem(`peer user ${peerName}: no such user`));
@@ -129083,7 +129092,7 @@ async function runDoctor(input2, deps, emit) {
     if (user.uid === deps.uid) return deps.probe(void 0, op2);
     return "skip";
   };
-  const asRoot = `run \`sudo wim worker doctor\` to check it`;
+  const asRoot = `run \`sudo wim agent doctor\` to check it`;
   const noMetadata = async (role, user) => {
     for (const m4 of METADATA_ADDRESSES) {
       const a5 = await as(user, { op: "connect", host: m4.host, port: m4.port, timeoutMs: 2e3 });
@@ -129105,7 +129114,7 @@ async function runDoctor(input2, deps, emit) {
 }
 function readConfig(input2, deps, say) {
   if (input2.configText === void 0) {
-    say(problem(`${input2.configPath}: cannot be read (${input2.readError ?? "unknown"}); \`wim worker init ${input2.configPath}\` writes one`));
+    say(problem(`${input2.configPath}: cannot be read (${input2.readError ?? "unknown"}); \`wim agent init ${input2.configPath}\` writes one`));
     return void 0;
   }
   let raw;
@@ -129216,6 +129225,10 @@ async function privileged(config2, input2, deps, peer, as, noMetadata, asRoot, s
       say(problem(`${input2.sudoersPath}: ${code2(err)}`));
     }
   }
+  const nnp = await deps.noNewPrivs(input2.service);
+  if ("skip" in nnp) say(skip(`NoNewPrivs of ${input2.service}: ${nnp.skip}`));
+  else if (nnp.value === "1") say(problem(`${input2.service} (pid ${nnp.pid}) runs with NoNewPrivs, so its sudo cannot start the privileged runner: drop NoNewPrivileges= and the settings that imply it for a User= unit (LockPersonality=, RestrictRealtime=, ProtectKernelTunables=, ...)`));
+  else say(ok2(`${input2.service} (pid ${nnp.pid}) may use sudo (NoNewPrivs 0)`));
   let p3;
   try {
     p3 = await deps.loadPrivileged(input2.privilegedPath);
@@ -129226,6 +129239,9 @@ async function privileged(config2, input2, deps, peer, as, noMetadata, asRoot, s
     else say(problem(`${input2.privilegedPath}: ${err.message}`));
     return;
   }
+  const needs = p3.lock.waitSeconds + p3.timeoutSeconds;
+  if (config2.runner.timeoutSeconds <= needs) say(problem(`runner.timeoutSeconds is ${config2.runner.timeoutSeconds}, but the privileged runner may take ${needs} s (lock wait ${p3.lock.waitSeconds} + job ${p3.timeoutSeconds}): set it above ${needs}`));
+  else say(ok2(`runner.timeoutSeconds ${config2.runner.timeoutSeconds} s covers the privileged runner's lock wait and job (${needs} s)`));
   const named = config2.profiles?.allowed ?? Object.keys(p3.profiles);
   for (const name of named) {
     const prof = p3.profiles[name];
@@ -129303,6 +129319,8 @@ function sdk(deps, say) {
 }
 
 // ../agent/src/init.ts
+var LIMITS2 = { maxTaskChars: 16e3, perSenderPerHour: 20, dailyJobs: 50, timeoutSeconds: 1800 };
+var PRIVILEGED_PEER_TIMEOUT = 900 + LIMITS2.timeoutSeconds + 60;
 function allowProblem(o3) {
   for (const a5 of o3.allow) {
     if (a5 === o3.self) return `${a5} is this device: list the devices that send this worker work`;
@@ -129320,8 +129338,12 @@ function workerTemplate(o3) {
     senders: { devices: o3.allow.length === 0 ? [PLACEHOLDER] : [...o3.allow], requireTrusted: true },
     wake,
     ...privileged2 || o3.profiles.length === 0 ? {} : { profiles: { allowed: [...o3.profiles], default: o3.profiles[0] } },
-    runner: privileged2 ? { command: "sudo", args: ["-n", o3.launcher], timeoutSeconds: 960, killGraceSeconds: 15, passEnv: ["PATH", "LANG", "TZ"] } : { command: o3.wim[0], args: [...o3.wim.slice(1), "worker", "runner"], timeoutSeconds: 900, killGraceSeconds: 15 },
-    limits: { ledgerPath: o3.ledgerPath, maxTaskChars: 8e3, perSenderPerHour: 10, dailyJobs: 20 },
+    runner: privileged2 ? (
+      // The privileged runner waits for its lock (up to 900 s) and then runs the job (up to 1800 s)
+      // and answers a timeout itself (exit 5); the peer's own limit only catches a runner that hangs.
+      { command: "sudo", args: ["-n", o3.launcher], timeoutSeconds: PRIVILEGED_PEER_TIMEOUT, killGraceSeconds: 15, passEnv: ["PATH", "LANG", "TZ"] }
+    ) : { command: o3.wim[0], args: [...o3.wim.slice(1), "agent", "runner"], timeoutSeconds: LIMITS2.timeoutSeconds, killGraceSeconds: 15 },
+    limits: { ledgerPath: o3.ledgerPath, maxTaskChars: LIMITS2.maxTaskChars, perSenderPerHour: LIMITS2.perSenderPerHour, dailyJobs: LIMITS2.dailyJobs },
     replies: { refused: "generic", ...o3.room === void 0 ? {} : { room: o3.room } }
   };
 }
@@ -129332,6 +129354,9 @@ function privilegedTemplate(o3) {
     profiles: Object.fromEntries(names.map((n3) => [n3, { auth: auth(n3) }])),
     defaultProfile: names[0],
     wakeCode: { file: "/etc/wim-agent/wake-code" },
+    timeoutSeconds: LIMITS2.timeoutSeconds,
+    maxTaskChars: LIMITS2.maxTaskChars,
+    dailyJobs: LIMITS2.dailyJobs,
     ...o3.allow.length === 0 ? {} : { allowDevices: [...o3.allow] }
   };
 }
@@ -129341,7 +129366,7 @@ function initNotes(o3, path2, left) {
     `Wrote ${path2}.`,
     ...others.length === 0 ? ["This mesh has no other device yet: `wim invite` adds one, and its id goes in senders.devices."] : ["Devices in this mesh (allow by id; names are the sender's choice):", ...others.map((d5) => `  ${d5.id}  ${d5.name}`)],
     ...left.length === 0 ? [] : [`Still to fill in: ${left.join(", ")}.`],
-    `Then \`wim worker doctor ${path2}\` checks the install, and \`wim worker serve ${path2}\` starts it.`
+    `Then \`wim agent doctor ${path2}\` checks the install, and \`wim agent serve ${path2}\` starts it.`
   ];
 }
 
@@ -129380,7 +129405,7 @@ function exitFor(o3) {
 async function runOnce(config2, stdin, io, deps = {}) {
   const req = parseRequest(stdin);
   if (typeof req === "string") {
-    io.err(`wim worker run: ${req}`);
+    io.err(`wim agent run: ${req}`);
     return 2;
   }
   const spec = {
@@ -129393,17 +129418,18 @@ async function runOnce(config2, stdin, io, deps = {}) {
   const outcome = await runJob(spec, req, { ...deps, log: io.err, ...config2.runner.logStderr ? { stderr: (line) => io.err(`runner: ${line}`) } : {} });
   if (outcome.kind === "answered") {
     io.out(outcome.answer);
-    if (outcome.truncated) io.err(`wim worker run: the answer was cut at ${RUNNER_MAX_BYTES} bytes`);
+    if (outcome.truncated) io.err(`wim agent run: the answer was cut at ${RUNNER_MAX_BYTES} bytes`);
   } else if (outcome.kind === "failed") {
-    io.err(`wim worker run: the runner failed (${outcome.signal !== null ? `signal ${outcome.signal}` : outcome.code !== null ? `exit ${outcome.code}` : "it did not start"})`);
+    io.err(`wim agent run: the runner failed (${outcome.signal !== null ? `signal ${outcome.signal}` : outcome.code !== null ? `exit ${outcome.code}` : "it did not start"})`);
   } else {
-    io.err(`wim worker run: ${outcome.kind}`);
+    io.err(`wim agent run: ${outcome.kind}`);
   }
   return exitFor(outcome);
 }
 
 // ../agent/src/probe.ts
 import { execFile as nodeExecFile, spawn as nodeSpawn4 } from "node:child_process";
+import { readFile as fsReadFile2 } from "node:fs/promises";
 var PROBE_SCRIPT = `
 const op = JSON.parse(process.argv[1]);
 const say = (w) => { process.stdout.write(w); process.exit(0); };
@@ -129469,6 +129495,16 @@ function lookupUser(name, exec = defaultExec) {
     })
   );
   return Promise.all([num2("-u"), num2("-g")]).then(([uid, gid]) => uid === void 0 || gid === void 0 ? void 0 : { name, uid, gid });
+}
+async function serviceNoNewPrivs(service2, exec = defaultExec, read = (p3) => fsReadFile2(p3, "utf8")) {
+  if (!/^[A-Za-z0-9@._:-]{1,128}$/.test(service2)) return { skip: `${JSON.stringify(service2)} is not a unit name` };
+  const out = await new Promise((resolve5) => exec("systemctl", ["show", "--property", "MainPID", "--value", "--", service2], (err, stdout) => resolve5(err === null ? stdout.trim() : void 0)));
+  if (out === void 0) return { skip: "systemctl did not answer (no systemd here?)" };
+  const pid = Number(out);
+  if (!Number.isInteger(pid) || pid <= 0) return { skip: `${service2} is not running` };
+  const status3 = await read(`/proc/${pid}/status`).catch(() => void 0);
+  const value3 = status3 === void 0 ? void 0 : /^NoNewPrivs:\s*([01])$/m.exec(status3)?.[1];
+  return value3 === void 0 ? { skip: `the status of ${service2}'s process ${pid} cannot be read here` } : { pid, value: value3 };
 }
 
 // ../agent/src/privileged/config.ts
@@ -129552,12 +129588,12 @@ function rootOwnedProblem(facts, secret) {
   if ((facts.mode & 18) !== 0) return `it is writable by group or others (mode ${(facts.mode & 511).toString(8)})`;
   return void 0;
 }
-async function loadPrivilegedConfig(path2, fs21, euid) {
+async function loadPrivilegedConfig(path2, fs22, euid) {
   if (euid === 0) {
-    const problem2 = rootOwnedProblem(await fs21.stat(path2), false);
+    const problem2 = rootOwnedProblem(await fs22.stat(path2), false);
     if (problem2 !== void 0) throw new ConfigError(`refusing ${path2}: ${problem2}`);
   }
-  const text2 = await fs21.readFile(path2);
+  const text2 = await fs22.readFile(path2);
   let raw;
   try {
     raw = JSON.parse(text2);
@@ -130128,7 +130164,7 @@ function systemDeps() {
 }
 
 // ../agent/src/sdk-runner.ts
-import { readFile as fsReadFile2 } from "node:fs/promises";
+import { readFile as fsReadFile3 } from "node:fs/promises";
 var READ_ONLY_TOOLS2 = ["Read", "Grep", "Glob"];
 var Effort = external_exports.enum(["low", "medium", "high", "xhigh", "max"]);
 var Tools = external_exports.union([external_exports.enum(["read-only", "none"]), external_exports.array(external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_]*$/)).min(1)]);
@@ -130227,7 +130263,7 @@ function promptFor(req) {
 ${req.text}`;
 }
 async function runnerMain(argv, io) {
-  const read = io.readFile ?? ((path2) => fsReadFile2(path2, "utf8"));
+  const read = io.readFile ?? ((path2) => fsReadFile3(path2, "utf8"));
   const configPath2 = flagValue(argv, "--config");
   let config2;
   try {
@@ -130306,16 +130342,59 @@ async function runnerMain(argv, io) {
   }
 }
 
+// ../agent/src/kit.ts
+import { constants as constants3, promises as fs16 } from "node:fs";
+import { dirname as dirname9, join as join23 } from "node:path";
+var KIT_ENTRIES = ["deploy", "docs/deploy.md", "docs/privileged-runner.md"];
+async function findKit(candidates) {
+  for (const root5 of candidates) {
+    const all = await Promise.all(KIT_ENTRIES.map((e6) => fs16.access(join23(root5, e6)).then(() => true, () => false)));
+    if (all.every(Boolean)) return root5;
+  }
+  return void 0;
+}
+async function copyKit(from, to) {
+  const there = await fs16.readdir(to).catch(() => void 0);
+  if (there !== void 0 && there.length > 0) throw new Error(`${to} is not empty: the kit is written only into a new or empty directory`);
+  const written2 = [];
+  const copy = async (rel) => {
+    const src = join23(from, rel);
+    const st = await fs16.stat(src);
+    if (st.isDirectory()) {
+      for (const name of (await fs16.readdir(src)).sort()) await copy(join23(rel, name));
+      return;
+    }
+    const dst = join23(to, rel);
+    await fs16.mkdir(dirname9(dst), { recursive: true });
+    await fs16.copyFile(src, dst, constants3.COPYFILE_EXCL);
+    await fs16.chmod(dst, st.mode & 511);
+    written2.push(rel);
+  };
+  for (const e6 of KIT_ENTRIES) await copy(e6);
+  return written2;
+}
+
 // src/workercli.ts
-import { constants as constants3, promises as fs16, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { constants as constants4, promises as fs17, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { userInfo } from "node:os";
-import { delimiter, dirname as dirname9, isAbsolute as isAbsolute4, join as join23, resolve as resolve3 } from "node:path";
-var WORKER_USAGE = `wim worker init <config> [--mode direct|privileged] [--allow <device id>,...] [--profiles <name>,...] [--room <#room>] [--auth api-key|wif] [--wake-file <path>]
-  wim worker doctor <config> [--peer-user <name>] [--privileged-config <path>] [--sudoers <path>]
-  wim worker run --once <config> (one runner request, as JSON, on stdin)
-  wim worker serve <config> [--as <name>] [--take]
-  wim worker runner [--config <runner.json>] | wim worker privileged (the built-in runners; a runner request on stdin)`;
+import { delimiter, dirname as dirname10, isAbsolute as isAbsolute4, join as join24, resolve as resolve3 } from "node:path";
+var WORKER_USAGE = `wim agent init <config> [--mode direct|privileged] [--allow <device id>,...] [--profiles <name>,...] [--room <#room>] [--auth api-key|wif] [--wake-file <path>] [--kit <dir>] | wim agent init --kit <dir>
+  wim agent doctor <config> [--peer-user <name>] [--privileged-config <path>] [--sudoers <path>] [--service <unit>]
+  wim agent run --once <config> (one runner request, as JSON, on stdin)
+  wim agent serve <config> [--as <name>] [--take]
+  wim agent runner [--config <runner.json>] | wim agent privileged (the built-in runners; a runner request on stdin)`;
+var SIGNER_ACTIONS = ["start", "serve", "status", "lock", "unlock", "stop", "encrypt", "decrypt", "autostart"];
+var SIGNER_FLAGS = ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"];
+function agentRoute(positional2, flags) {
+  const [action, config2] = positional2;
+  if (action === "serve") return config2 === void 0 || [...flags.keys()].some((f7) => SIGNER_FLAGS.includes(f7)) ? "signer" : "worker";
+  return SIGNER_ACTIONS.includes(action ?? "") ? "signer" : "worker";
+}
+function signerRenamed(action) {
+  return `wim: \`wim agent ${action}\` is now \`wim signer ${action}\`; the old spelling works until the next release (\`wim agent\` is the worker from now on: \`wim help agent\`).`;
+}
 var value2 = (c5, name) => {
   const v = c5.flags.get(name);
   return typeof v === "string" ? v : void 0;
@@ -130325,12 +130404,15 @@ async function workerCommand(c5) {
   const [action, path2] = c5.positional;
   const write2 = (text2) => void c5.stdout.write(text2);
   switch (action) {
-    case "init":
-      return init(c5, needPath(path2));
+    case "init": {
+      const kitDir = value2(c5, "kit");
+      if (kitDir !== void 0) await kit(c5, kitDir);
+      return kitDir !== void 0 && path2 === void 0 ? 0 : init(c5, needPath(path2));
+    }
     case "doctor":
       return doctor(c5, needPath(path2));
     case "run":
-      if (c5.flags.get("once") !== true) throw new SetupError("usage: wim worker run --once <config> (one runner request on stdin)");
+      if (c5.flags.get("once") !== true) throw new SetupError("usage: wim agent run --once <config> (one runner request on stdin)");
       return once(c5, needPath(path2), write2);
     case "serve":
       return serve2(c5, needPath(path2));
@@ -130340,10 +130422,10 @@ async function workerCommand(c5) {
     }
     case "privileged":
       if (c5.positional.length > 1 || [...c5.flags.keys()].some((f7) => f7 !== "worker")) {
-        c5.err("wim worker privileged: refusing arguments: the runner takes none");
+        c5.err("wim agent privileged: refusing arguments: the runner takes none");
         return 2;
       }
-      return privilegedMain(c5.flags.get("worker") === true ? ["--worker"] : [], c5.env, [...c5.wim, "worker", "privileged"], systemDeps());
+      return privilegedMain(c5.flags.get("worker") === true ? ["--worker"] : [], c5.env, [...c5.wim, "agent", "privileged"], systemDeps());
     default:
       throw new SetupError(`usage:
   ${WORKER_USAGE}`);
@@ -130354,7 +130436,7 @@ function needPath(path2) {
   return path2;
 }
 async function readConfigFile(path2) {
-  const parsed2 = parseJson(await fs16.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs17.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   const left = placeholders(parsed2.value);
   if (left.length > 0) throw new SetupError(`${path2}: still to fill in: ${left.join(", ")}`);
@@ -130366,10 +130448,22 @@ async function readAll2(stdin) {
   return Buffer.concat(chunks).toString("utf8");
 }
 async function exists(path2) {
-  return fs16.lstat(path2).then(
+  return fs17.lstat(path2).then(
     () => true,
     () => false
   );
+}
+function kitCandidates(moduleUrl) {
+  return [fileURLToPath(new URL("./agent-kit/", moduleUrl)), fileURLToPath(new URL("../../agent/", moduleUrl))];
+}
+async function kit(c5, dir) {
+  const from = await findKit(c5.kitFrom ?? kitCandidates(import.meta.url));
+  if (from === void 0) throw new SetupError("this wim carries no deployment kit (agent-kit/ beside wim.mjs): install worldinmotion from npm, or use a clone of the repository");
+  const to = resolve3(c5.cwd, dir);
+  const files = await copyKit(from, to).catch((err) => {
+    throw new SetupError(err.message);
+  });
+  c5.out(`Wrote the deployment kit to ${to} (${files.length} files). Its guide is ${join24(to, "docs", "deploy.md")}.`);
 }
 async function init(c5, path2) {
   const mode = value2(c5, "mode") ?? "direct";
@@ -130379,7 +130473,7 @@ async function init(c5, path2) {
   if (await exists(path2)) throw new SetupError(`${path2} exists: edit it, or remove it first`);
   const { device, files } = await c5.mesh();
   const roster = (await RosterBook.open(files)).current.devices.map((d5) => ({ id: d5.id, name: d5.name }));
-  const dir = dirname9(resolve3(c5.cwd, path2));
+  const dir = dirname10(resolve3(c5.cwd, path2));
   const room = value2(c5, "room");
   const wakeFile = value2(c5, "wake-file");
   const o3 = {
@@ -130390,7 +130484,7 @@ async function init(c5, path2) {
     profiles: list3(c5, "profiles"),
     auth,
     wim: c5.wim,
-    ledgerPath: join23(dir, "worker-ledger.json"),
+    ledgerPath: join24(dir, "worker-ledger.json"),
     launcher: PRIVILEGED_RUNNER_PATH,
     ...room === void 0 ? {} : { room },
     ...wakeFile === void 0 ? {} : { wakeFile: resolve3(c5.cwd, wakeFile) }
@@ -130400,7 +130494,7 @@ async function init(c5, path2) {
   const worker = workerTemplate(o3);
   const written2 = [];
   if (mode === "direct" && o3.profiles.length > 0) {
-    const runnerPath = join23(dir, "runner.json");
+    const runnerPath = join24(dir, "runner.json");
     if (await exists(runnerPath)) throw new SetupError(`${runnerPath} exists: edit it, or remove it first`);
     await writeAtomic(runnerPath, `${JSON.stringify({ profiles: Object.fromEntries(o3.profiles.map((p3) => [p3, {}])) }, null, 2)}
 `, c5.fsEnv);
@@ -130408,7 +130502,7 @@ async function init(c5, path2) {
     written2.push(runnerPath);
   }
   if (mode === "privileged") {
-    const privPath = join23(dir, "privileged.json");
+    const privPath = join24(dir, "privileged.json");
     if (await exists(privPath)) throw new SetupError(`${privPath} exists: edit it, or remove it first`);
     await writeAtomic(privPath, `${JSON.stringify(privilegedTemplate(o3), null, 2)}
 `, c5.fsEnv);
@@ -130442,18 +130536,21 @@ async function serve2(c5, path2) {
   }
 }
 async function statOf(path2) {
-  const st = await fs16.stat(path2);
-  return { uid: st.uid, gid: st.gid, mode: st.mode, kind: st.isFile() ? "file" : st.isDirectory() ? "dir" : st.isSocket() ? "socket" : "other" };
+  const st = await fs17.stat(path2);
+  return { uid: st.uid, gid: st.gid, mode: st.mode, kind: kindOf(st) };
+}
+function kindOf(st) {
+  return st.isFile() ? "file" : st.isDirectory() ? "dir" : st.isSocket() ? "socket" : "other";
 }
 async function which(command5, path2) {
-  const exec = (p3) => fs16.access(p3, constants3.X_OK).then(
+  const exec = (p3) => fs17.access(p3, constants4.X_OK).then(
     () => p3,
     () => void 0
   );
   if (isAbsolute4(command5)) return exec(command5);
   if (command5.includes("/")) return void 0;
   for (const dir of (path2 ?? "").split(delimiter).filter((d5) => d5 !== "")) {
-    const found2 = await exec(join23(dir, command5));
+    const found2 = await exec(join24(dir, command5));
     if (found2 !== void 0) return found2;
   }
   return void 0;
@@ -130461,7 +130558,7 @@ async function which(command5, path2) {
 function sdkFrom(from) {
   try {
     const entry = createRequire(from).resolve("@anthropic-ai/claude-agent-sdk");
-    const pkg = JSON.parse(readFileSync(join23(dirname9(entry), "package.json"), "utf8"));
+    const pkg = JSON.parse(readFileSync(join24(dirname10(entry), "package.json"), "utf8"));
     return { version: typeof pkg.version === "string" ? pkg.version : "(unknown version)" };
   } catch {
     return void 0;
@@ -130471,7 +130568,7 @@ async function doctor(c5, path2) {
   let text2;
   let readError;
   try {
-    text2 = await fs16.readFile(path2, "utf8");
+    text2 = await fs17.readFile(path2, "utf8");
   } catch (err) {
     readError = err.code;
   }
@@ -130492,14 +130589,15 @@ async function doctor(c5, path2) {
     env: c5.env,
     loadConfig: loadConfig5,
     stat: statOf,
-    readText: (p3) => fs16.readFile(p3, "utf8"),
+    readText: (p3) => fs17.readFile(p3, "utf8"),
     lookupUser: (name) => lookupUser(name),
     probe: (as, op2) => probe(as, op2),
     which: (command5) => which(command5, c5.env["PATH"]),
     sdk: () => sdkFrom(import.meta.url),
     // As root it also refuses a config another user could have written, as the runner does.
-    loadPrivileged: (p3) => loadPrivilegedConfig(p3, { readFile: (f7) => fs16.readFile(f7, "utf8"), stat: (f7) => fs16.stat(f7) }, c5.uid ?? -1),
+    loadPrivileged: (p3) => loadPrivilegedConfig(p3, { readFile: (f7) => fs17.readFile(f7, "utf8"), stat: (f7) => fs17.stat(f7) }, c5.uid ?? -1),
     sudoersLine,
+    noNewPrivs: (service2) => serviceNoNewPrivs(service2),
     ...c5.doctor
   };
   const input2 = {
@@ -130510,6 +130608,7 @@ async function doctor(c5, path2) {
     privilegedPath: value2(c5, "privileged-config") ?? PRIVILEGED_CONFIG_PATH,
     launcherPath: PRIVILEGED_RUNNER_PATH,
     sudoersPath: value2(c5, "sudoers") ?? SUDOERS_PATH,
+    service: value2(c5, "service") ?? "wim-agent.service",
     mesh
   };
   const problems = await runDoctor(input2, deps, (check3) => c5.out(`${check3.level.padEnd(8)} ${check3.line}`));
@@ -130565,7 +130664,7 @@ async function runSetup(d5) {
   await integrations(d5);
   if (io.signal.aborted) return STOPPED;
   io.out("");
-  io.out("Optional: `wim agent encrypt` keeps this device's keys under a passphrase, in a signer process instead of a file agents can read (README, step 5).");
+  io.out("Optional: `wim signer encrypt` keeps this device's keys under a passphrase, in a signer process instead of a file agents can read (README, step 5).");
   if (await isAdminAnywhere(d5)) {
     io.out("To add another machine: run `wim invite` here, then `wim setup <code>` on it.");
   }
@@ -130708,8 +130807,8 @@ async function isAdminAnywhere(d5) {
 }
 
 // src/agentsetup.ts
-import { constants as constants4, promises as fs17 } from "node:fs";
-import { join as join24 } from "node:path";
+import { constants as constants5, promises as fs18 } from "node:fs";
+import { join as join25 } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 // ../../node_modules/smol-toml/dist/error.js
@@ -131651,7 +131750,7 @@ function editHook(doc, plan) {
   }
   return changed ? `updates the ${plan.event} hook` : void 0;
 }
-var configOps = { lstat: (path2) => fs17.lstat(path2), open: openNoFollow, writeNew, writeAtomic };
+var configOps = { lstat: (path2) => fs18.lstat(path2), open: openNoFollow, writeNew, writeAtomic };
 async function readConfig2(path2) {
   const facts = await configOps.lstat(path2).catch((error64) => {
     if (error64.code === "ENOENT") return void 0;
@@ -131661,7 +131760,7 @@ async function readConfig2(path2) {
   if (facts.isSymbolicLink()) throw new Refused("it is a symbolic link");
   if (!facts.isFile()) throw new Refused("it is not a regular file");
   if (facts.size > CONFIG_MAX) throw new Refused(`it is larger than ${CONFIG_MAX} bytes`);
-  const handle = await configOps.open(path2, constants4.O_RDONLY | noFollow(constants4));
+  const handle = await configOps.open(path2, constants5.O_RDONLY | noFollow(constants5));
   if (handle === void 0) throw new Refused("it cannot be opened, or it changed while it was read");
   try {
     return { text: await handle.readFile("utf8"), mode: facts.mode & 511, exists: true };
@@ -131795,7 +131894,7 @@ async function write(path2, text2, read, backup) {
     }
     await configOps.writeAtomic(path2, text2, realFsEnv, read.mode);
   } catch (error64) {
-    if (copied) await fs17.rm(backup, { force: true });
+    if (copied) await fs18.rm(backup, { force: true });
     throw new Refused(`it could not be written (${error64.code ?? error64.message})`);
   }
 }
@@ -131825,7 +131924,7 @@ async function oneFile(c5, title, plan) {
     return "refused";
   }
 }
-var present = (path2) => fs17.lstat(path2).then(() => true, () => false);
+var present = (path2) => fs18.lstat(path2).then(() => true, () => false);
 async function found(c5, agent) {
   for (const command5 of agent.commands) if (await c5.onPath(command5)) return true;
   for (const marker of agent.markers(c5)) if (await present(marker)) return true;
@@ -131864,7 +131963,7 @@ async function setupAgents(d5) {
 }
 async function findLaunch(wim) {
   if (wim === void 0 || wim.length < 2) return "this wim cannot tell where it runs from";
-  const script = await fs17.realpath(wim.at(-1)).catch(() => void 0);
+  const script = await fs18.realpath(wim.at(-1)).catch(() => void 0);
   if (script === void 0) return `${wim.at(-1)} cannot be found`;
   if (!/[\\/]wim\.mjs$/.test(script)) return `it runs from ${script}, not from wim.mjs (a source checkout?)`;
   if (/[\\/]_npx[\\/]/.test(script)) return `it runs from npx's cache (${script}), which npx prunes: install it with \`npm install --global worldinmotion\` and run \`wim setup\` again`;
@@ -131879,7 +131978,7 @@ async function onPath(command5, env4, platform2) {
   for (const dir of (env4["PATH"] ?? "").split(pathFor(platform2).delimiter)) {
     if (dir === "") continue;
     for (const ext of exts) {
-      const facts = await fs17.stat(join24(dir, command5 + ext)).catch(() => void 0);
+      const facts = await fs18.stat(join25(dir, command5 + ext)).catch(() => void 0);
       if (facts?.isFile() === true && runnable(facts.mode, platform2)) return true;
     }
   }
@@ -131887,7 +131986,7 @@ async function onPath(command5, env4, platform2) {
 }
 
 // src/crash.ts
-import { promises as fs18 } from "node:fs";
+import { promises as fs19 } from "node:fs";
 
 // ../../node_modules/@sentry/core/build/esm/debug-build.js
 var DEBUG_BUILD = typeof __SENTRY_DEBUG__ === "undefined" || __SENTRY_DEBUG__;
@@ -136114,7 +136213,7 @@ var REPORT_TIMEOUT_MS = 3e3;
 async function readConsent(path2) {
   let text2;
   try {
-    const handle = await fs18.open(path2, "r");
+    const handle = await fs19.open(path2, "r");
     try {
       const buf2 = Buffer.alloc(CONSENT_MAX_BYTES + 1);
       const { bytesRead } = await handle.read(buf2, 0, buf2.length, 0);
@@ -138731,9 +138830,9 @@ TLS pin (SPKI SHA-256, for the invite): ${tls3.pin}`);
 }
 
 // src/selftest.ts
-import { promises as fs19 } from "node:fs";
+import { promises as fs20 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute as isAbsolute5, join as join25, relative as relative3, resolve as resolve4, sep as sep2 } from "node:path";
+import { isAbsolute as isAbsolute5, join as join26, relative as relative3, resolve as resolve4, sep as sep2 } from "node:path";
 import { createInterface as createInterface2 } from "node:readline";
 import { PassThrough as PassThrough4 } from "node:stream";
 var SandboxError = class extends Error {
@@ -138785,12 +138884,12 @@ function onLoopback(url2) {
   return u.protocol === "ws:" && u.hostname === "127.0.0.1";
 }
 async function noLinks(root5, path2) {
-  if (await fs19.realpath(root5) !== root5) throw new SandboxError(`the sandbox ${root5} is reached through a symbolic link`);
+  if (await fs20.realpath(root5) !== root5) throw new SandboxError(`the sandbox ${root5} is reached through a symbolic link`);
   if (!inside2(root5, path2)) throw new SandboxError(`${path2} is outside the sandbox ${root5}`);
   let at = root5;
   for (const part of relative3(root5, path2).split(sep2).filter((p3) => p3 !== "")) {
-    at = join25(at, part);
-    const st = await fs19.lstat(at).catch(() => void 0);
+    at = join26(at, part);
+    const st = await fs20.lstat(at).catch(() => void 0);
     if (st === void 0) return;
     if (st.isSymbolicLink()) throw new SandboxError(`${at} is a symbolic link`);
   }
@@ -138809,15 +138908,15 @@ function sandboxFetch(base2, real) {
 }
 var SANDBOX_MARK = ".wim-test-sandbox";
 var STALE_MS = 24 * 36e5;
-var SWEEP_OPS = { lstat: fs19.lstat, rm: fs19.rm, uid: process.getuid?.() };
+var SWEEP_OPS = { lstat: fs20.lstat, rm: fs20.rm, uid: process.getuid?.() };
 async function sweepStale(base2, now, ops = SWEEP_OPS) {
   const removed = [];
-  for (const name of await fs19.readdir(base2).catch(() => [])) {
+  for (const name of await fs20.readdir(base2).catch(() => [])) {
     if (!name.startsWith("wim-test-")) continue;
-    const dir = join25(base2, name);
+    const dir = join26(base2, name);
     const st = await ops.lstat(dir).catch(() => void 0);
     if (st === void 0 || !st.isDirectory() || ops.uid !== void 0 && st.uid !== ops.uid) continue;
-    const mark = await ops.lstat(join25(dir, SANDBOX_MARK)).catch(() => void 0);
+    const mark = await ops.lstat(join26(dir, SANDBOX_MARK)).catch(() => void 0);
     if (mark === void 0 || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
     if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
   }
@@ -138827,7 +138926,7 @@ var SIGNER_DEVICE = "sig";
 var SHORT_TMP = "/tmp";
 async function runBase(base2, platform2, fallback2 = SHORT_TMP) {
   const fits = async (dir) => {
-    const sock = agentEndpointFor(agentDir(join25(await fs19.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
+    const sock = agentEndpointFor(agentDir(join26(await fs20.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
     return endpointProblem(sock, platform2) === void 0;
   };
   if (await fits(base2)) return base2;
@@ -138848,15 +138947,15 @@ var Sandbox = class _Sandbox {
    * writes there.
    */
   static async open(base2, real) {
-    const at = await fs19.realpath(base2);
+    const at = await fs20.realpath(base2);
     for (const r6 of real) {
-      const resolved = await fs19.realpath(r6).catch(() => resolve4(r6));
+      const resolved = await fs20.realpath(r6).catch(() => resolve4(r6));
       if (inside2(resolved, at)) throw new SandboxError(`the temporary directory ${at} is inside this device's state ${resolved}: set TMPDIR to another directory`);
     }
     await sweepStale(at, Date.now());
-    const root5 = await fs19.mkdtemp(join25(at, "wim-test-"));
-    await fs19.writeFile(join25(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
-      await fs19.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    const root5 = await fs20.mkdtemp(join26(at, "wim-test-"));
+    await fs20.writeFile(join26(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
+      await fs20.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       throw error64;
     });
     return new _Sandbox(root5);
@@ -138876,9 +138975,9 @@ var Sandbox = class _Sandbox {
   }
   /** A new device's state directory, made now. Refused when anything is at its path already. */
   async device(name) {
-    const dir = join25(this.root, name);
+    const dir = join26(this.root, name);
     await noLinks(this.root, dir);
-    await fs19.mkdir(dir, { mode: 448 }).catch((error64) => {
+    await fs20.mkdir(dir, { mode: 448 }).catch((error64) => {
       throw new SandboxError(`refusing the state directory ${dir}: ${error64.message}`);
     });
     this.dirs.set(name, dir);
@@ -138886,8 +138985,8 @@ var Sandbox = class _Sandbox {
   }
   /** A device's state directory that the run never makes (a device not set up). Refused when anything is there. */
   async absent(name) {
-    const dir = join25(this.root, name);
-    if (await fs19.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
+    const dir = join26(this.root, name);
+    if (await fs20.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
     this.dirs.set(name, dir);
     return dir;
   }
@@ -138898,7 +138997,7 @@ var Sandbox = class _Sandbox {
   }
   /** Removes everything the run made. */
   async remove() {
-    await fs19.rm(this.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    await fs20.rm(this.root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 };
 var NotOffered = class extends Error {
@@ -139288,18 +139387,18 @@ function signerStep(run2) {
     run: async () => {
       const sig = await run2.device(SIGNER_DEVICE);
       await run2.ok(sig, ["init", "--name", SIGNER_DEVICE]);
-      need((await run2.ok(sig, ["agent", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
+      need((await run2.ok(sig, ["signer", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
       const running2 = /Signer running in the foreground \(pid \d+\) at (.+)\. Ctrl-C/;
-      const first = await run2.background(sig, ["agent", "start", "--foreground"], running2);
+      const first = await run2.background(sig, ["signer", "start", "--foreground"], running2);
       const at = grab(said(first.term), running2, "signer endpoint");
       need(at === await agentEndpoint(sig.dir, { platform: run2.io.platform, pid: run2.io.pid, uid: run2.io.uid }, false), `the signer's endpoint ${at} is not the sandbox device's own`);
-      need(/running \(pid \d+\), unlocked/.test(await run2.ok(sig, ["agent", "status"])), "the signer is not running unlocked");
-      need((await run2.ok(sig, ["agent", "lock"])).includes("Signer locked"), "the signer did not lock");
-      need(/running \(pid \d+\), locked/.test(await run2.ok(sig, ["agent", "status"])), "the signer is not locked");
-      const second = await run2.background(sig, ["agent", "unlock", "--foreground"], running2);
+      need(/running \(pid \d+\), unlocked/.test(await run2.ok(sig, ["signer", "status"])), "the signer is not running unlocked");
+      need((await run2.ok(sig, ["signer", "lock"])).includes("Signer locked"), "the signer did not lock");
+      need(/running \(pid \d+\), locked/.test(await run2.ok(sig, ["signer", "status"])), "the signer is not locked");
+      const second = await run2.background(sig, ["signer", "unlock", "--foreground"], running2);
       need(await first.done === 0, "the locked signer did not stop for the unlock");
-      need(/running \(pid \d+\), unlocked/.test(await run2.ok(sig, ["agent", "status"])), "the signer did not unlock");
-      need((await run2.ok(sig, ["agent", "stop"])).includes("Signer stopped."), "the signer did not stop");
+      need(/running \(pid \d+\), unlocked/.test(await run2.ok(sig, ["signer", "status"])), "the signer did not unlock");
+      need((await run2.ok(sig, ["signer", "stop"])).includes("Signer stopped."), "the signer did not stop");
       need(await second.done === 0, "the signer did not end");
       need(!said(first.term).includes(run2.passphrase) && !said(second.term).includes(run2.passphrase), "the passphrase was printed");
     }
@@ -139384,12 +139483,12 @@ function sandboxSteps(run2) {
         need((await b5.joinRoom("#qa")).includes("qa-a@test-a"), "the room does not list qa-a");
         await a5.send("#qa", "to the room");
         await arrived(b5, "to the room");
-        const dir = join25(run2.box.root, "files");
-        await fs19.mkdir(dir);
-        await fs19.writeFile(join25(dir, "hello.txt"), "a small file");
-        await a5.sendFile("qa-b@test-b", join25(dir, "hello.txt"));
+        const dir = join26(run2.box.root, "files");
+        await fs20.mkdir(dir);
+        await fs20.writeFile(join26(dir, "hello.txt"), "a small file");
+        await a5.sendFile("qa-b@test-b", join26(dir, "hello.txt"));
         const saved = grab((await arrived(b5, "hello.txt")).rendered, /saved to (\S+)\./, "saved file");
-        need(inside2(run2.box.root, saved) && await fs19.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
+        need(inside2(run2.box.root, saved) && await fs20.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
         need((await a5.acquireLease("qa", 6e4, false)).status === "granted", "the lease was not granted");
         need((await b5.acquireLease("qa", 6e4, false)).status === "held", "a held lease was granted twice");
         await a5.releaseLease("qa");
@@ -139508,7 +139607,7 @@ async function selfTest(o3) {
 var VERSION = "0.1.10";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
-var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config"]);
+var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
 var COMMON_FLAGS = ["mesh", "help"];
 var COMMAND_FLAGS = {
   setup: ["name", "relay", "key-env"],
@@ -139527,10 +139626,11 @@ var COMMAND_FLAGS = {
   bot: ["as", "take"],
   ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
   a2a: ["as", "take"],
-  worker: ["as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker"],
   recover: ["relay", "tls", "revoke", "name"],
   recovery: ["wait"],
-  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
+  signer: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
+  // The worker, and the signer's words under their old name for one release (agentRoute).
+  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker", "kit", "service"],
   "crash-reports": [],
   "legacy-boxes": [],
   test: ["json", "full", "relay", "key-env", "person"]
@@ -139617,7 +139717,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim crash-reports [status | on | off]
   wim legacy-boxes [status | refuse | accept]
   wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
-  ${AGENT_USAGE}
+  ${SIGNER_USAGE}
   ${WORKER_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
@@ -139625,7 +139725,7 @@ var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agen
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, legacy-boxes, test, agent, worker.
+crash-reports, legacy-boxes, test, signer, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 function commandUsage(command5) {
   if (!/^[a-z-]+$/.test(command5)) return void 0;
@@ -139877,7 +139977,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join26(ctx);
+        return await join27(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -139918,7 +140018,14 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
         return await crashReports(ctx, crash);
       case "legacy-boxes":
         return await legacyBoxes(ctx);
-      case "worker":
+      case "signer":
+        return await agentCommand({ home: ctx.home, io, env: env4, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
+      case "agent": {
+        const route = agentRoute(rest, args.flags);
+        if (route === "signer") {
+          io.err(signerRenamed(rest[0]));
+          return await agentCommand({ home: ctx.home, io, env: env4, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
+        }
         return await workerCommand({
           env: env4,
           out: io.out,
@@ -139938,10 +140045,10 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
           session: async (name) => MeshSession.open({ ...await ctx.sessionOptions(name, "worker"), sessionKey: `worker:${name}`, redactStoredText: true }),
           name: nameFor(ctx, "worker"),
           untilStopped: () => ctx.untilStopped(),
-          ...io.workerDoctor === void 0 ? {} : { doctor: io.workerDoctor }
+          ...io.workerDoctor === void 0 ? {} : { doctor: io.workerDoctor },
+          ...io.workerKit === void 0 ? {} : { kitFrom: io.workerKit }
         });
-      case "agent":
-        return await agentCommand({ home: ctx.home, io, env: env4, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
+      }
       default:
         io.err(`unknown command ${JSON.stringify(command5)}
 
@@ -140338,7 +140445,7 @@ async function askJoinTrust(ctx, files, roster, me, issuer) {
   }
   for (const name of held2) ctx.io.out(`Messages from ${name} are held for your approval. If it is your own: wim devices trust ${name}`);
 }
-async function join26(ctx) {
+async function join27(ctx) {
   const typed = ctx.args.positional[0];
   if (typed === void 0) throw new SetupError("usage: wim join <code>");
   await joinWith(ctx, typed, true);
@@ -141034,7 +141141,7 @@ async function mcp(ctx) {
 }
 async function readConfig3(path2) {
   if (path2 === void 0) throw new SetupError("a config file path is required");
-  const parsed2 = parseJson(await fs20.readFile(path2, "utf8"));
+  const parsed2 = parseJson(await fs21.readFile(path2, "utf8"));
   if (!parsed2.ok) throw new SetupError(`${path2}: not valid JSON (${parsed2.reason})`);
   return parsed2.value;
 }
@@ -141098,7 +141205,7 @@ async function decisionChecks(ctx, emit) {
   const file2 = await ctx.home.readKeyFile().catch(() => void 0);
   if (file2 === void 0) return;
   if ("plain" in file2) {
-    emit({ level: "info", line: "held messages: approved or refused by mark files that any process of yours can write, agents included; with the signer (`wim agent encrypt`, then `wim agent start`) each decision needs its confirmation too (SECURITY-MODEL 7.2)" });
+    emit({ level: "info", line: "held messages: approved or refused by mark files that any process of yours can write, agents included; with the signer (`wim signer encrypt`, then `wim signer start`) each decision needs its confirmation too (SECURITY-MODEL 7.2)" });
     return;
   }
   const found2 = [];
@@ -141129,7 +141236,7 @@ async function checkup(ctx, emit) {
   try {
     device = await ctx.home.loadDevice();
     if (device === void 0) bad(`not set up yet, no device keys at ${ctx.home.devicePath}: run \`wim init\`, or \`wim join <code>\` with an invite`);
-    else ok3(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim agent)" : "key file permissions are private"}`);
+    else ok3(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim signer)" : "key file permissions are private"}`);
   } catch (error64) {
     bad(error64.message);
   }
@@ -141289,7 +141396,7 @@ function processIo(proc, machine = { homedir: homedir3, hostname: hostname3, kil
       proc.stderr.write("\n");
       return answer;
     },
-    startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
+    startAgent: (passphrase) => spawnDetached([...machine.wim(), "signer", "serve"], passphrase),
     programs: { platform: proc.platform, run: runProgram, wim: machine.wim(), trust: realToolTrust(proc.platform) },
     tools: execRunner(proc.platform),
     signal: stop.signal,

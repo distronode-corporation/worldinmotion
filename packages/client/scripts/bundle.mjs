@@ -44,7 +44,7 @@ const bundle = (dsn) => build({
   // an ES module bundle need a real `require` for Node built-ins.
   banner: { js: 'import { createRequire as __wimCreateRequire } from "node:module"; const require = __wimCreateRequire(import.meta.url);' },
   // Optional native speed-ups of `ws`; it falls back to JavaScript without them. The Claude Agent
-  // SDK is loaded by `wim worker runner` with a dynamic import, from wherever it is installed
+  // SDK is loaded by `wim agent runner` with a dynamic import, from wherever it is installed
   // beside wim (`npm install --global worldinmotion @anthropic-ai/claude-agent-sdk`): it ships
   // its own platform binary and licence, so it is never copied into this file.
   external: ["bufferutil", "utf-8-validate", "@anthropic-ai/claude-agent-sdk"],

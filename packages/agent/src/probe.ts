@@ -1,9 +1,10 @@
-// Read-only probes `wim worker doctor` runs as another user: can that user open a TCP connection,
+// Read-only probes `wim agent doctor` runs as another user: can that user open a TCP connection,
 // read a file, or write to a path? Each probe is a tiny Node child started with the user's uid and
 // gid (which needs root), or as this process when the user is the one running doctor. A probe
 // never writes anything: `write` asks the kernel with access(2), it does not create a file.
 
 import { execFile as nodeExecFile, spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from "node:child_process";
+import { readFile as fsReadFile } from "node:fs/promises";
 
 export type ProbeOp =
   | { op: "connect"; host: string; port: number; timeoutMs: number }
@@ -107,4 +108,24 @@ export function lookupUser(name: string, exec: ExecFile = defaultExec): Promise<
       }),
     );
   return Promise.all([num("-u"), num("-g")]).then(([uid, gid]) => (uid === undefined || gid === undefined ? undefined : { name, uid, gid }));
+}
+
+/** A service's NoNewPrivs flag, read from its main process, or why it cannot be read here. */
+export type NoNewPrivs = { pid: number; value: "0" | "1" } | { skip: string };
+
+/**
+ * Whether the main process of a systemd unit runs with no_new_privs, which stops sudo from
+ * raising privileges. A unit sets it with NoNewPrivileges=, and silently with several hardening
+ * settings (LockPersonality=, RestrictRealtime=, ProtectKernelTunables= and others, for a User= unit).
+ */
+export async function serviceNoNewPrivs(service: string, exec: ExecFile = defaultExec, read: (path: string) => Promise<string> = (p) => fsReadFile(p, "utf8")): Promise<NoNewPrivs> {
+  // A unit name only, so nothing odd reaches systemctl's arguments.
+  if (!/^[A-Za-z0-9@._:-]{1,128}$/.test(service)) return { skip: `${JSON.stringify(service)} is not a unit name` };
+  const out = await new Promise<string | undefined>((resolve) => exec("systemctl", ["show", "--property", "MainPID", "--value", "--", service], (err, stdout) => resolve(err === null ? stdout.trim() : undefined)));
+  if (out === undefined) return { skip: "systemctl did not answer (no systemd here?)" };
+  const pid = Number(out);
+  if (!Number.isInteger(pid) || pid <= 0) return { skip: `${service} is not running` };
+  const status = await read(`/proc/${pid}/status`).catch(() => undefined);
+  const value = status === undefined ? undefined : /^NoNewPrivs:\s*([01])$/m.exec(status)?.[1];
+  return value === undefined ? { skip: `the status of ${service}'s process ${pid} cannot be read here` } : { pid, value: value as "0" | "1" };
 }

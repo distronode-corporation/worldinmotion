@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../src/config.ts";
 import { builtInRunner, nodeSupported, privilegedRunner, runDoctor, type Check, type DoctorDeps, type DoctorInput, type FileStat, type PrivilegedView } from "../src/doctor.ts";
-import type { ProbeAnswer, ProbeOp, UserId } from "../src/probe.ts";
+import type { NoNewPrivs, ProbeAnswer, ProbeOp, UserId } from "../src/probe.ts";
 
 const SELF = "S".repeat(22);
 const LAPTOP = "L".repeat(22);
@@ -29,6 +29,7 @@ type Machine = {
   sdk?: { version: string };
   env?: Record<string, string>;
   node?: string;
+  nnp?: NoNewPrivs;
 };
 
 const file = (uid: number, mode: number, kind: FileStat["kind"] = "file"): FileStat => ({ uid, gid: uid, mode, kind });
@@ -67,6 +68,7 @@ function deps(m: Machine, seen: string[] = []): DoctorDeps {
       return m.priv;
     },
     sudoersLine: (peer) => `${peer} ALL=(root) NOPASSWD: ${LAUNCHER} ""`,
+    noNewPrivs: async () => m.nnp ?? { pid: 42, value: "0" },
   };
 }
 
@@ -83,16 +85,17 @@ const mesh: DoctorInput["mesh"] = {
 const directConfig = (over: Record<string, unknown> = {}) => ({
   senders: { devices: [LAPTOP] },
   wake: { mode: "none" },
-  runner: { command: "/usr/bin/node", args: ["/opt/wim.mjs", "worker", "runner"] },
+  runner: { command: "/usr/bin/node", args: ["/opt/wim.mjs", "agent", "runner"] },
   limits: { ledgerPath: "/var/lib/w/ledger.json" },
   ...over,
 });
-const privConfig = (over: Record<string, unknown> = {}) => directConfig({ wake: { mode: "runner" }, runner: { command: "sudo", args: ["-n", LAUNCHER] }, ...over });
+const privConfig = (over: Record<string, unknown> = {}) => directConfig({ wake: { mode: "runner" }, runner: { command: "sudo", args: ["-n", LAUNCHER], timeoutSeconds: 2760 }, ...over });
 
 const privView = (over: Partial<PrivilegedView> = {}): PrivilegedView => ({
   profiles: { a: { auth: { type: "api-key", keyFile: "/etc/w/a.key" } }, b: { auth: { type: "wif", identity: { type: "file" } } } },
   defaultProfile: "a",
-  lock: { path: "/run/w/job.lock" },
+  lock: { path: "/run/w/job.lock", waitSeconds: 900 },
+  timeoutSeconds: 1800,
   wakeCode: { file: "/etc/w/wake-code" },
   worker: { user: "job" },
   runDir: "/run/w",
@@ -103,7 +106,7 @@ async function doctor(config: unknown, m: Machine, input: Partial<DoctorInput> =
   const lines: Check[] = [];
   const seen: string[] = [];
   const problems = await runDoctor(
-    { configPath: "w.json", configText: typeof config === "string" ? config : JSON.stringify(config), privilegedPath: PRIV, launcherPath: LAUNCHER, sudoersPath: SUDOERS, mesh, ...input },
+    { configPath: "w.json", configText: typeof config === "string" ? config : JSON.stringify(config), privilegedPath: PRIV, launcherPath: LAUNCHER, sudoersPath: SUDOERS, service: "w.service", mesh, ...input },
     deps(m, seen),
     (c) => lines.push(c),
   );
@@ -135,8 +138,10 @@ describe("helpers", () => {
     expect(privilegedRunner(c("sudo", ["-n", "/other"]), LAUNCHER)).toBe(false);
     expect(privilegedRunner(c("/bin/my-runner", [LAUNCHER]), LAUNCHER)).toBe(false);
     expect(builtInRunner(c("/usr/local/bin/wim-agent-runner", []), LAUNCHER)).toBe(true);
-    expect(builtInRunner(c("node", ["wim.mjs", "worker", "runner", "--config", "x"]), LAUNCHER)).toBe(true);
-    expect(builtInRunner(c("node", ["wim.mjs", "worker", "serve"]), LAUNCHER)).toBe(false);
+    expect(builtInRunner(c("node", ["wim.mjs", "agent", "runner", "--config", "x"]), LAUNCHER)).toBe(true);
+    expect(builtInRunner(c("node", ["wim.mjs", "agent", "serve"]), LAUNCHER)).toBe(false);
+    expect(builtInRunner(c("/usr/local/bin/wim", ["agent", "runner", "--config", "/etc/wim-agent/runner.json"]), LAUNCHER)).toBe(true);
+    expect(builtInRunner(c("/usr/local/bin/wim", ["agent", "serve"]), LAUNCHER)).toBe(false);
     expect(builtInRunner(c("/bin/my-runner", []), LAUNCHER)).toBe(false);
   });
 });
@@ -145,7 +150,7 @@ describe("the config itself", () => {
   it("an unreadable file stops there with the init hint", async () => {
     const d = await doctor(undefined, healthyPriv(), { configText: undefined, readError: "ENOENT" });
     expect(d.problems).toBe(1);
-    expect(d.has("problem", /cannot be read \(ENOENT\); `wim worker init w\.json`/)).toBe(true);
+    expect(d.has("problem", /cannot be read \(ENOENT\); `wim agent init w\.json`/)).toBe(true);
     const e = await doctor(undefined, healthyPriv(), { configText: undefined });
     expect(e.has("problem", /\(unknown\)/)).toBe(true);
   });
@@ -213,7 +218,7 @@ describe("direct runner", () => {
 
   it("another user, not as root: the probes are skipped", async () => {
     const d = await doctor(directConfig(), { ...healthyPriv(), uid: 1500, which: "/usr/bin/node" });
-    expect(d.has("skip", /job user peer reaching the metadata endpoint .*sudo wim worker doctor/)).toBe(true);
+    expect(d.has("skip", /job user peer reaching the metadata endpoint .*sudo wim agent doctor/)).toBe(true);
     expect(d.seen).toEqual([]);
   });
 
@@ -244,7 +249,7 @@ describe("direct runner", () => {
 
   it("profiles need the built-in runner's --config listing them, with private key files", async () => {
     const withProfiles = (args: string[]) => directConfig({ profiles: { allowed: ["a", "b"], default: "a" }, runner: { command: "/usr/bin/node", args } });
-    const base = ["/opt/wim.mjs", "worker", "runner"];
+    const base = ["/opt/wim.mjs", "agent", "runner"];
     expect((await doctor(withProfiles(base), { ...healthyPriv(), uid: 1001 })).has("problem", /give it `--config <runner\.json>` listing a, b/)).toBe(true);
     // `--config` as the last word names no file.
     expect((await doctor(withProfiles([...base, "--config"]), { ...healthyPriv(), uid: 1001 })).has("problem", /give it `--config/)).toBe(true);
@@ -295,10 +300,24 @@ describe("privileged runner", () => {
     expect(d.has("ok", /Claude Agent SDK/)).toBe(true);
   });
 
+  it("the limits are listed, and the peer's timeout must cover the runner's lock wait and job", async () => {
+    const d = await doctor(privConfig(), healthyPriv());
+    expect(d.has("info", /limits: tasks up to 16000 characters, 20 attempts per device per hour, 50 jobs a day, 2760 s a job, one job at a time/)).toBe(true);
+    expect(d.has("ok", /runner\.timeoutSeconds 2760 s covers the privileged runner's lock wait and job \(2700 s\)/)).toBe(true);
+    const short = await doctor(privConfig({ runner: { command: "sudo", args: ["-n", LAUNCHER], timeoutSeconds: 1800 } }), healthyPriv());
+    expect(short.has("problem", /runner\.timeoutSeconds is 1800, but the privileged runner may take 2700 s \(lock wait 900 \+ job 1800\): set it above 2700/)).toBe(true);
+  });
+
+  it("the peer's unit must not run with NoNewPrivs, or sudo cannot work", async () => {
+    expect((await doctor(privConfig(), healthyPriv())).has("ok", /w\.service \(pid 42\) may use sudo \(NoNewPrivs 0\)/)).toBe(true);
+    expect((await doctor(privConfig(), { ...healthyPriv(), nnp: { pid: 7, value: "1" } })).has("problem", /w\.service \(pid 7\) runs with NoNewPrivs/)).toBe(true);
+    expect((await doctor(privConfig(), { ...healthyPriv(), nnp: { skip: "w.service is not running" } })).has("skip", /NoNewPrivs of w\.service: w\.service is not running/)).toBe(true);
+  });
+
   it("not as root: root-only checks are skipped, never guessed", async () => {
     const d = await doctor(privConfig(), { ...healthyPriv(), uid: 1001, priv: errno("EACCES") });
-    expect(d.has("skip", /sudoers line in \/etc\/sudoers\.d\/w: run `sudo wim worker doctor`/)).toBe(true);
-    expect(d.has("skip", /privileged\.json: run `sudo wim worker doctor`/)).toBe(true);
+    expect(d.has("skip", /sudoers line in \/etc\/sudoers\.d\/w: run `sudo wim agent doctor`/)).toBe(true);
+    expect(d.has("skip", /privileged\.json: run `sudo wim agent doctor`/)).toBe(true);
   });
 
   it("not as root but readable: probes as the peer run, the job user's are skipped", async () => {

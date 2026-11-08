@@ -103,13 +103,13 @@ describe("runOnce, through a real runner process", () => {
   ])("exit %i is %s", async (code, word) => {
     const o = io();
     expect(await runOnce(config(), req(`exit ${code}`), o.io)).toBe(code);
-    expect(o.err.at(-1)).toBe(`wim worker run: ${word}`);
+    expect(o.err.at(-1)).toBe(`wim agent run: ${word}`);
   });
 
   it("any other exit is a failure, named by its code", async () => {
     const o = io();
     expect(await runOnce(config(), req("exit 7"), o.io)).toBe(1);
-    expect(o.err.at(-1)).toBe("wim worker run: the runner failed (exit 7)");
+    expect(o.err.at(-1)).toBe("wim agent run: the runner failed (exit 7)");
   });
 
   it("a runner killed by a signal, and one that never started", async () => {
@@ -117,15 +117,15 @@ describe("runOnce, through a real runner process", () => {
     const killer = join(dir, "self-kill.mjs");
     await writeFile(killer, `process.stdin.resume(); process.kill(process.pid, "SIGKILL");`);
     expect(await runOnce(config({ args: [killer] }), req("x"), o.io)).toBe(1);
-    expect(o.err.at(-1)).toBe("wim worker run: the runner failed (signal SIGKILL)");
+    expect(o.err.at(-1)).toBe("wim agent run: the runner failed (signal SIGKILL)");
     const p = io();
     expect(await runOnce(config({ command: join(dir, "no-such-runner") }), req("x"), p.io)).toBe(1);
-    expect(p.err.at(-1)).toBe("wim worker run: the runner failed (it did not start)");
+    expect(p.err.at(-1)).toBe("wim agent run: the runner failed (it did not start)");
   });
 
   it("refuses a malformed request before starting anything", async () => {
     const o = io();
     expect(await runOnce(config(), "not json", o.io)).toBe(2);
-    expect(o.err[0]).toMatch(/^wim worker run: not valid JSON/);
+    expect(o.err[0]).toMatch(/^wim agent run: not valid JSON/);
   });
 });

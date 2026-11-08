@@ -37,20 +37,20 @@ describe("status", () => {
     s.apply({ ...hello(), keys: "signer" } as WimEvent);
     expect(signerState(s)).toBe("running");
     expect(statusText(s)).toMatchObject({ text: "$(broadcast) wim  $(key)  $(inbox) 1", command: "worldinmotion.showActivity" });
-    expect(statusText(s).tooltip).toContain("Signer: running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`.");
-    s.exited("exited with code 1: wim: the device keys in /h/device.json are encrypted and no signer is running: run `wim agent start` in your own terminal");
+    expect(statusText(s).tooltip).toContain("Signer: running. It keeps running after VS Code closes, and stops at log out or `wim signer stop`.");
+    s.exited("exited with code 1: wim: the device keys in /h/device.json are encrypted and no signer is running: run `wim signer start` in your own terminal");
     expect(signerState(s)).toBe("stopped");
     const stopped = statusText(s);
     expect(stopped).toMatchObject({ text: "$(debug-disconnect) wim  $(key) signer stopped  $(inbox) 1", warn: true, command: "worldinmotion.startSigner" });
     expect(stopped.tooltip).toContain("Signer: not running.");
     expect(stopped.tooltip).not.toContain("Click to open the activity view.");
-    s.apply({ type: "connection", at: NOW, state: "closed", detail: "no signer answers at /h/agent/sock (ECONNREFUSED): run `wim agent start` in your own terminal" });
+    s.apply({ type: "connection", at: NOW, state: "closed", detail: "no signer answers at /h/agent/sock (ECONNREFUSED): run `wim signer start` in your own terminal" });
     expect(signerState(s)).toBe("stopped");
-    s.exited("exited with code 1: wim: the signer is locked: run `wim agent unlock` in your own terminal");
+    s.exited("exited with code 1: wim: the signer is locked: run `wim signer unlock` in your own terminal");
     expect(statusText(s)).toMatchObject({ text: "$(debug-disconnect) wim  $(lock) signer locked  $(inbox) 1", command: "worldinmotion.startSigner" });
     expect(statusText(s).tooltip).toContain("Signer: locked. Click to unlock it in a terminal");
     const quiet = new Store();
-    quiet.exited("exited with code 1: wim: the signer is locked: run `wim agent unlock` in your own terminal");
+    quiet.exited("exited with code 1: wim: the signer is locked: run `wim signer unlock` in your own terminal");
     expect(statusText(quiet)).toMatchObject({ warn: true, command: "worldinmotion.startSigner" });
   });
 

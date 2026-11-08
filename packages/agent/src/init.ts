@@ -1,4 +1,4 @@
-// `wim worker init`: the starting configs, with REPLACE-ME wherever only the person knows the
+// `wim agent init`: the starting configs, with REPLACE-ME wherever only the person knows the
 // value. Senders are taken by device id from the roster, never by name: a name is the sender's
 // own choice, and a name given here is refused with the id it belongs to.
 
@@ -28,6 +28,12 @@ export interface InitOptions {
   launcher: string;
 }
 
+/** The limits `init` writes: one job at a time, and a 15 s grace between SIGTERM and SIGKILL. */
+export const LIMITS = { maxTaskChars: 16_000, perSenderPerHour: 20, dailyJobs: 50, timeoutSeconds: 1800 } as const;
+
+/** The peer's timeout in front of the privileged runner: its lock wait and job time, and a minute. */
+export const PRIVILEGED_PEER_TIMEOUT = 900 + LIMITS.timeoutSeconds + 60;
+
 /** Why `allow` cannot be used as given, in one line, or undefined. */
 export function allowProblem(o: Pick<InitOptions, "allow" | "roster" | "self">): string | undefined {
   for (const a of o.allow) {
@@ -50,9 +56,11 @@ export function workerTemplate(o: InitOptions): Record<string, unknown> {
     wake,
     ...(privileged || o.profiles.length === 0 ? {} : { profiles: { allowed: [...o.profiles], default: o.profiles[0] } }),
     runner: privileged
-      ? { command: "sudo", args: ["-n", o.launcher], timeoutSeconds: 960, killGraceSeconds: 15, passEnv: ["PATH", "LANG", "TZ"] }
-      : { command: o.wim[0], args: [...o.wim.slice(1), "worker", "runner"], timeoutSeconds: 900, killGraceSeconds: 15 },
-    limits: { ledgerPath: o.ledgerPath, maxTaskChars: 8000, perSenderPerHour: 10, dailyJobs: 20 },
+      ? // The privileged runner waits for its lock (up to 900 s) and then runs the job (up to 1800 s)
+        // and answers a timeout itself (exit 5); the peer's own limit only catches a runner that hangs.
+        { command: "sudo", args: ["-n", o.launcher], timeoutSeconds: PRIVILEGED_PEER_TIMEOUT, killGraceSeconds: 15, passEnv: ["PATH", "LANG", "TZ"] }
+      : { command: o.wim[0], args: [...o.wim.slice(1), "agent", "runner"], timeoutSeconds: LIMITS.timeoutSeconds, killGraceSeconds: 15 },
+    limits: { ledgerPath: o.ledgerPath, maxTaskChars: LIMITS.maxTaskChars, perSenderPerHour: LIMITS.perSenderPerHour, dailyJobs: LIMITS.dailyJobs },
     replies: { refused: "generic", ...(o.room === undefined ? {} : { room: o.room }) },
   };
 }
@@ -68,6 +76,9 @@ export function privilegedTemplate(o: InitOptions): Record<string, unknown> {
     profiles: Object.fromEntries(names.map((n) => [n, { auth: auth(n) }])),
     defaultProfile: names[0],
     wakeCode: { file: "/etc/wim-agent/wake-code" },
+    timeoutSeconds: LIMITS.timeoutSeconds,
+    maxTaskChars: LIMITS.maxTaskChars,
+    dailyJobs: LIMITS.dailyJobs,
     ...(o.allow.length === 0 ? {} : { allowDevices: [...o.allow] }),
   };
 }
@@ -79,6 +90,6 @@ export function initNotes(o: InitOptions, path: string, left: readonly string[])
     `Wrote ${path}.`,
     ...(others.length === 0 ? ["This mesh has no other device yet: `wim invite` adds one, and its id goes in senders.devices."] : ["Devices in this mesh (allow by id; names are the sender's choice):", ...others.map((d) => `  ${d.id}  ${d.name}`)]),
     ...(left.length === 0 ? [] : [`Still to fill in: ${left.join(", ")}.`]),
-    `Then \`wim worker doctor ${path}\` checks the install, and \`wim worker serve ${path}\` starts it.`,
+    `Then \`wim agent doctor ${path}\` checks the install, and \`wim agent serve ${path}\` starts it.`,
   ];
 }

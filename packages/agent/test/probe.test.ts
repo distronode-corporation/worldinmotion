@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import type { ChildProcess } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { lookupUser, probe, type ExecFile, type Spawn } from "../src/probe.ts";
+import { lookupUser, probe, serviceNoNewPrivs, type ExecFile, type Spawn } from "../src/probe.ts";
 
 const POSIX = process.platform !== "win32";
 // Root reads and writes everything, so the "no" cases only hold for an ordinary user.
@@ -57,7 +57,7 @@ describe("probe, for real, as this user", () => {
     expect(await probe(undefined, { op: "write", path: join(dir, "nope", "x") })).toBe("missing");
   });
 
-  it("says error for a path the kernel refuses in another way", async () => {
+  it.skipIf(!POSIX)("says error for a path the kernel refuses in another way", async () => {
     // A path through a file: ENOTDIR, neither denied nor missing.
     const f = join(dir, "plain");
     await writeFile(f, "x");
@@ -128,6 +128,10 @@ describe("lookupUser", () => {
     expect(await lookupUser(me.username)).toEqual({ name: me.username, uid: me.uid, gid: me.gid });
   });
 
+  it("asks the real id(1) on every platform (where there is none, the answer is undefined)", async () => {
+    expect(await lookupUser("wim-no-such-user")).toBeUndefined();
+  });
+
   it("is undefined for an unknown user, a failed id, or an odd answer", async () => {
     const answers: Record<string, [Error | null, string]> = { "-u": [null, "1001\n"], "-g": [new Error("no such user"), ""] };
     const exec: ExecFile = (_f, args, cb) => {
@@ -146,5 +150,49 @@ describe("lookupUser", () => {
       throw new Error("must not run");
     };
     for (const bad of ["-u", "Root", "a b", "x".repeat(40), "", "../etc"]) expect(await lookupUser(bad, exec)).toBeUndefined();
+  });
+});
+
+describe("serviceNoNewPrivs", () => {
+  const exec = (answer: [Error | null, string], seen?: string[][]): ExecFile => (_f, args, cb) => {
+    seen?.push([...args]);
+    cb(answer[0], answer[1]);
+  };
+  const status = (nnp: string) => async (path: string) => {
+    expect(path).toBe("/proc/321/status");
+    return `Name:\tnode\nNoNewPrivs:\t${nnp}\nSeccomp:\t0\n`;
+  };
+
+  it("reads the main process's flag", async () => {
+    const seen: string[][] = [];
+    expect(await serviceNoNewPrivs("wim-agent.service", exec([null, "321\n"], seen), status("0"))).toEqual({ pid: 321, value: "0" });
+    expect(seen[0]).toEqual(["show", "--property", "MainPID", "--value", "--", "wim-agent.service"]);
+    expect(await serviceNoNewPrivs("wim-agent.service", exec([null, "321\n"]), status("1"))).toEqual({ pid: 321, value: "1" });
+  });
+
+  it("says why when it cannot", async () => {
+    const never = async () => {
+      throw new Error("must not read");
+    };
+    expect(await serviceNoNewPrivs("bad name;", exec([null, "1"]), never)).toEqual({ skip: '"bad name;" is not a unit name' });
+    expect(await serviceNoNewPrivs("w.service", exec([new Error("ENOENT"), ""]), never)).toEqual({ skip: "systemctl did not answer (no systemd here?)" });
+    expect(await serviceNoNewPrivs("w.service", exec([null, "0\n"]), never)).toEqual({ skip: "w.service is not running" });
+    expect(await serviceNoNewPrivs("w.service", exec([null, "x"]), never)).toEqual({ skip: "w.service is not running" });
+    const gone = async () => {
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    };
+    expect(await serviceNoNewPrivs("w.service", exec([null, "321"]), gone)).toEqual({ skip: "the status of w.service's process 321 cannot be read here" });
+    expect(await serviceNoNewPrivs("w.service", exec([null, "321"]), async () => "Name:\tx\n")).toEqual({ skip: "the status of w.service's process 321 cannot be read here" });
+  });
+
+  it("runs the real systemctl and /proc without failing, on every platform", async () => {
+    const r = await serviceNoNewPrivs("wim-agent-test-none.service");
+    expect("skip" in r).toBe(true);
+    // /proc for real: this test process stands in for the unit's main process (Linux only has it).
+    const self = await serviceNoNewPrivs("w.service", exec([null, String(process.pid)]));
+    if (process.platform === "linux") {
+      expect(self).toMatchObject({ pid: process.pid });
+      expect(["0", "1"]).toContain((self as { value: string }).value);
+    } else expect("skip" in self).toBe(true);
   });
 });

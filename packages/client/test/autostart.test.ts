@@ -1,4 +1,4 @@
-// The login item, the native passphrase prompt and the OS keyring of `wim agent`, each platform's
+// The login item, the native passphrase prompt and the OS keyring of `wim signer`, each platform's
 // branch run here by passing the platform: nothing touches a real keyring, dialog or login item.
 
 import { promises as fs } from "node:fs";
@@ -348,7 +348,7 @@ describe("the login item", () => {
     expect(item.where).toMatch(/^worldinmotion signer [0-9a-f]{16}$/);
     expect(item.text).toContain("<LogonTrigger><Enabled>true</Enabled><UserId>DESK\\sean</UserId></LogonTrigger>");
     expect(item.text).toContain("<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>");
-    expect(item.text).toContain("wim agent start --foreground --ask-gui</Description>");
+    expect(item.text).toContain("wim signer start --foreground --ask-gui</Description>");
     const encoded = /-EncodedCommand ([A-Za-z0-9+/=]+)</.exec(item.text)![1]!;
     expect(Buffer.from(encoded, "base64").toString("utf16le")).toBe(
       "$env:WIM_HOME = 'C:\\Users\\sean\\it''s'; & '/usr/bin/node' '/opt/wim/wim.mjs' 'agent' 'start' '--foreground' '--ask-gui' *>> 'C:\\Users\\sean\\it''s\\agent\\autostart.log'; exit $LASTEXITCODE",
