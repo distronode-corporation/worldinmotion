@@ -11,7 +11,8 @@ import { HeldBox } from "../src/held.ts";
 import { History } from "../src/history.ts";
 import { MeshFiles, type BreakerLimits } from "../src/mesh.ts";
 import { SessionFiles } from "../src/session.ts";
-import { FS, makeMesh, openSession, RelayHarness, until, type TestDevice } from "./helpers.ts";
+import { verifyObject } from "@worldinmotion/protocol";
+import { FS, keysOf, makeMesh, openSession, RelayHarness, until, type TestDevice } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -132,5 +133,29 @@ describe("redactStoredText", () => {
     await user.send("agents@worker", "one");
     await user.send("agents@worker", "two");
     await until(() => logs.some((x) => x.includes("no busy reply sent to me@laptop: relay gone")));
+  });
+
+  it("withFrame hands the signed frame to consumers in this process, and only while it is accepted", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["worker", "laptop"]);
+    const [w, l] = devices as [TestDevice, TestDevice];
+    const worker = await session(w, mesh, relay, { name: "agents", redactStoredText: true, withFrame: true });
+    const plain = await session(w, mesh, relay, { name: "plain" });
+    const user = await session(l, mesh, relay, { name: "me" });
+    const got: Inbound[] = [];
+    worker.on("message", (m: Inbound) => got.push(m));
+    plain.on("message", (m: Inbound) => got.push(m));
+    await user.send("agents@worker", `${CODE} ${TASK}`);
+    await user.send("plain@worker", "hello");
+    await until(() => got.length === 2);
+    const withFrame = got.find((m) => m.text.startsWith(CODE))!;
+    expect(withFrame.frame).toMatchObject({ id: withFrame.id, from: { device: l.device.id } });
+    // It still verifies after a JSON round trip, which is how a runner receives it.
+    const sent = JSON.parse(JSON.stringify(withFrame.frame)) as { sig: string };
+    expect(verifyObject("send", sent, keysOf(l.device).signPub)).toBe(true);
+    expect(verifyObject("send", { ...sent, at: 1 } as { sig: string }, keysOf(l.device).signPub)).toBe(false);
+    expect(got.find((m) => m.text === "hello")!.frame).toBeUndefined();
+    expect((worker as unknown as { frames: Map<string, unknown> }).frames.size).toBe(0);
+    expect(await filesHolding(w.root, CODE)).toEqual([]);
   });
 });

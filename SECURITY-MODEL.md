@@ -1544,7 +1544,10 @@ to act on what another session says, so its edges are these.
   for the person with its metadata only. So a wake code or a task never lands in plaintext under
   the worker's state directory. Frames parked for a newer roster (section 6.4) stay encrypted.
 - **The runner contract.** One process per job, in its own process group, with the request on
-  stdin and only the configured environment variables. Nothing from a message is put on a command
+  stdin and only the configured environment variables. The request carries the signed frame the
+  message arrived in, so a runner under another OS user (the privileged runner) verifies the
+  sender and opens the box itself instead of believing the worker: a compromised worker can then
+  neither forge a sender nor replay a message it saw. Nothing from a message is put on a command
   line. A timeout sends SIGTERM to the group, then SIGKILL after a grace period; a runner started
   through `sudo` must enforce its own timeout too, because the worker cannot signal root-owned
   processes.

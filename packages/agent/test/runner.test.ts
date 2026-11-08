@@ -4,12 +4,12 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import type { ChildProcess } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { encodeRequest, RUNNER_EXIT, RUNNER_MAX_BYTES, runJob, runnerEnv, signalGroup, truncateUtf8, type RunnerRequest, type RunnerSpec } from "../src/runner.ts";
+import { encodeRequest, RUNNER_EXIT, RUNNER_MAX_BYTES, RUNNER_MAX_REQUEST_BYTES, runJob, runnerEnv, signalGroup, truncateUtf8, type RunnerRequest, type RunnerSpec } from "../src/runner.ts";
 import { LAPTOP, scratchDir } from "./helpers.ts";
 
 const POSIX = process.platform !== "win32";
 
-const req: RunnerRequest = { v: 1, id: "01JC0000000000000000000000", from: { device: LAPTOP, address: "me@laptop" }, profile: "a", text: "list the files ünïcode" };
+const req: RunnerRequest = { v: 2, id: "01JC0000000000000000000000", from: { device: LAPTOP, address: "me@laptop" }, profile: "a", text: "list the files ünïcode" };
 
 /** A runner script in a scratch directory, run with this Node. */
 async function stub(body: string, extra: Partial<RunnerSpec> = {}): Promise<RunnerSpec> {
@@ -166,7 +166,7 @@ describe("runJob", () => {
 
   it("refuses a request over 64 KiB before starting anything", async () => {
     const spec = await stub("");
-    const big = { ...req, text: "x".repeat(RUNNER_MAX_BYTES) };
+    const big = { ...req, text: "x".repeat(RUNNER_MAX_REQUEST_BYTES) };
     expect(await runJob(spec, big, { spawn: () => expect.unreachable() })).toEqual({ kind: "failed", code: null, signal: null });
     expect(await runJob(spec, big)).toEqual({ kind: "failed", code: null, signal: null });
   });
@@ -175,7 +175,9 @@ describe("runJob", () => {
 describe("helpers", () => {
   it("encodeRequest is UTF-8 JSON", () => {
     expect(JSON.parse(encodeRequest(req).toString("utf8"))).toEqual(req);
-    expect(() => encodeRequest({ ...req, text: "é".repeat(RUNNER_MAX_BYTES / 2) })).toThrow(RangeError);
+    expect(() => encodeRequest({ ...req, text: "é".repeat(RUNNER_MAX_REQUEST_BYTES / 2) })).toThrow(RangeError);
+    // A frame up to the relay's limit fits.
+    expect(encodeRequest({ ...req, frame: { boxes: "x".repeat(1024 * 1024 + 4 * 1024) } }).length).toBeLessThanOrEqual(RUNNER_MAX_REQUEST_BYTES);
   });
 
   it("truncateUtf8 keeps short text whole", () => {

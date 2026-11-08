@@ -7,11 +7,14 @@ import { promises as fs } from "node:fs";
 import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from "vitest";
 import { defaultScope, detectScopeMode, ownSlice, scopeUnit, startScopedJob, type ScopeOptions } from "../../src/privileged/jobscope.ts";
 import { privilegedMain, type JobSpec } from "../../src/privileged/main.ts";
 import { acquireLock, systemDeps } from "../../src/privileged/system.ts";
-import { DEVICE, request } from "./helpers.ts";
+import { MESH, recipientKeyFile, requestFor, seal, SENDERS } from "./helpers.ts";
+import { startMockApi } from "./mock-api.ts";
+
+const ADDRESS = "agents@server";
 
 const linux = process.platform === "linux";
 let dir: string;
@@ -204,14 +207,19 @@ describe.runIf(linux)("the setsid escape, with real processes", () => {
     process.kill(escapee, "SIGKILL");
   });
 
-  it.runIf(userScopes)("through the runner: it returns, releases the lock, removes the token file and the escaped process is dead", async () => {
+  it.runIf(userScopes)("through the runner: it returns, releases the lock, closes the credential proxy and the escaped process is dead", async () => {
     const pidFile = join(dir, "escapee-runner");
+    const urlFile = join(dir, "proxy-url");
     const stub = join(dir, "escaping-worker.sh");
-    await fs.writeFile(stub, `#!/bin/sh\n[ "$1" = --worker ] || exit 9\ncat > /dev/null\n${ESCAPE(pidFile)}\n`, { mode: 0o755 });
-    await fs.writeFile(join(dir, "source-token"), "id.jwt\n");
+    await fs.writeFile(stub, `#!/bin/sh\n[ "$1" = --worker ] || exit 9\ncat > /dev/null\nprintf %s "$ANTHROPIC_BASE_URL" > '${urlFile}'\n${ESCAPE(pidFile)}\n`, { mode: 0o755 });
+    await fs.writeFile(join(dir, "source-token"), "id.jwt\n", { mode: 0o600 });
     await fs.mkdir(join(dir, "work"), { recursive: true });
-    const lockPath = join(dir, "job.lock");
+    await fs.mkdir(join(dir, "peer", "meshes", MESH), { recursive: true });
+    await fs.writeFile(join(dir, "peer", "device.json"), recipientKeyFile(), { mode: 0o600 });
+    const api = await startMockApi(() => ({ text: "unused" }));
+    onTestFinished(() => api.close());
     const runDir = join(dir, "run");
+    const lockPath = join(runDir, "job.lock");
     const cfgPath = join(dir, "privileged.json");
     await fs.writeFile(
       cfgPath,
@@ -222,25 +230,30 @@ describe.runIf(linux)("the setsid escape, with real processes", () => {
         lock: { path: lockPath, waitSeconds: 0 },
         statePath: join(dir, "state", "state.json"),
         minMemAvailableMb: 0,
-        allowDevices: [DEVICE],
+        senders: SENDERS,
+        recipient: { home: join(dir, "peer"), mesh: MESH, address: ADDRESS, user: userInfo().username },
+        apiUrl: api.url,
         defaultProfile: "a",
         profiles: { a: { auth: { type: "wif", organizationId: "org", federationRuleId: "rule", serviceAccountId: "sa", identity: { type: "file", path: join(dir, "source-token") } } } },
       }),
     );
     const deps = systemDeps();
-    deps.readStdin = async () => Buffer.from(JSON.stringify(request({ text: "escape" })));
+    deps.readStdin = async () => Buffer.from(JSON.stringify(requestFor(seal("escape", { to: ADDRESS }), "escape")));
     const out: Buffer[] = [];
+    const err: string[] = [];
     deps.out = (b) => void out.push(b);
-    deps.err = () => undefined;
+    deps.err = (l) => void err.push(l);
     deps.startJob = (spec) => startScopedJob(spec, { mode: "user", unit: scopeUnit(process.pid), drainMs: 2000, scopeEnv: USER_ENV });
     const t = Date.now();
-    expect(await privilegedMain([], { WIM_AGENT_PRIVILEGED_CONFIG: cfgPath }, ["/bin/sh", stub], deps)).toBe(0);
+    expect(await privilegedMain([], { WIM_AGENT_PRIVILEGED_CONFIG: cfgPath }, ["/bin/sh", stub], deps), err.join("\n")).toBe(0);
     expect(Date.now() - t).toBeLessThan(7000);
     expect(Buffer.concat(out).toString()).toBe("leader done\n");
     const lock = await acquireLock(lockPath, 0);
     expect(lock).not.toBeNull();
     await lock!.release();
-    expect((await fs.readdir(runDir)).filter((f) => f.startsWith("idtoken"))).toEqual([]);
+    const url = await fs.readFile(urlFile, "utf8");
+    expect(url).toMatch(/^http:\/\/127\.0\.0\.1:/);
+    await expect(fetch(`${url}/v1/messages`, { method: "POST", body: "{}" })).rejects.toThrow();
     const escapee = Number((await fs.readFile(pidFile, "utf8")).trim());
     for (let i = 0; i < 50 && alive(escapee); i++) await new Promise((r) => setTimeout(r, 100));
     expect(alive(escapee)).toBe(false);

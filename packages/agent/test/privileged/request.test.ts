@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { chooseProfile, EXIT, MAX_REQUEST_BYTES, parseRequest, Refusal, usableCode } from "../../src/privileged/request.ts";
-import { request } from "./helpers.ts";
+import { request, requestFor, seal } from "./helpers.ts";
+import { RUNNER_MAX_REQUEST_BYTES } from "../../src/runner.ts";
 
 const buf = (o: unknown) => Buffer.from(JSON.stringify(o));
 
@@ -16,7 +17,19 @@ function refusal(fn: () => unknown): Refusal {
 
 describe("parseRequest", () => {
   it("reads the contract's object", () => {
-    expect(parseRequest(buf(request()))).toEqual(request());
+    const r = request();
+    expect(parseRequest(buf(r))).toEqual(r);
+  });
+  it("reads a request of exactly the contract's limit, and refuses one byte more before parsing", () => {
+    const frame = seal("x");
+    const pad = (n: number) => {
+      const base = JSON.stringify(requestFor(frame, ""));
+      return Buffer.from(JSON.stringify(requestFor(frame, "x".repeat(n - base.length))));
+    };
+    expect(pad(MAX_REQUEST_BYTES).length).toBe(MAX_REQUEST_BYTES);
+    expect(parseRequest(pad(MAX_REQUEST_BYTES)).v).toBe(2);
+    expect(refusal(() => parseRequest(pad(MAX_REQUEST_BYTES + 1))).code).toBe(EXIT.refused);
+    expect(MAX_REQUEST_BYTES).toBe(RUNNER_MAX_REQUEST_BYTES);
   });
   it("refuses an oversized request as refused, before parsing", () => {
     expect(refusal(() => parseRequest(Buffer.alloc(MAX_REQUEST_BYTES + 1, 0x20))).code).toBe(EXIT.refused);
@@ -27,7 +40,7 @@ describe("parseRequest", () => {
   });
   it.each([
     ["an extra key", request({ extra: 1 })],
-    ["version 2", request({ v: 2 })],
+    ["version 1", request({ v: 1 })],
     ["a bad id", request({ id: "a b" })],
     ["a bad device", request({ from: { device: "x y", address: "a@b" } })],
     ["an extra from key", request({ from: { device: "d", address: "a@b", name: "x" } })],

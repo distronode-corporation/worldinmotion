@@ -4,7 +4,7 @@
 
 import { readFile as fsReadFile } from "node:fs/promises";
 import { z } from "zod";
-import { RUNNER_EXIT, RUNNER_MAX_BYTES, type RunnerRequest } from "./runner.ts";
+import { RUNNER_EXIT, RUNNER_MAX_REQUEST_BYTES, type RunnerRequest } from "./runner.ts";
 import { PROFILE_NAME } from "./config.ts";
 
 /** Tools that read the working directory and change nothing. */
@@ -46,11 +46,13 @@ const RunnerConfigSchema = z.strictObject({
 export type RunnerConfig = z.infer<typeof RunnerConfigSchema>;
 
 const RequestSchema = z.strictObject({
-  v: z.literal(1),
+  v: z.literal(2),
   id: z.string().min(1).max(64),
   from: z.strictObject({ device: z.string().min(1).max(64), address: z.string().min(1).max(200) }),
   profile: z.string().max(32),
   text: z.string(),
+  /** The signed frame: this runner trusts the worker that started it, so it does not need it. */
+  frame: z.unknown().optional(),
 });
 
 /** The fixed instructions every job gets before any configured `systemPrompt`. */
@@ -83,7 +85,7 @@ async function readStdin(stdin: AsyncIterable<Buffer | string>): Promise<Buffer 
   for await (const chunk of stdin) {
     const b = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
     size += b.length;
-    if (size > RUNNER_MAX_BYTES) return undefined;
+    if (size > RUNNER_MAX_REQUEST_BYTES) return undefined;
     chunks.push(b);
   }
   return Buffer.concat(chunks);
@@ -157,13 +159,13 @@ export async function runnerMain(argv: readonly string[], io: RunnerIO): Promise
 
   const body = await readStdin(io.stdin);
   if (body === undefined) {
-    io.stderr(`wim-agent-runner: request over ${RUNNER_MAX_BYTES} bytes`);
+    io.stderr(`wim-agent-runner: request over ${RUNNER_MAX_REQUEST_BYTES} bytes`);
     return 1;
   }
   let req: RunnerRequest;
   try {
     const parsed = RequestSchema.safeParse(JSON.parse(body.toString("utf8")));
-    if (!parsed.success) throw new Error("not a version 1 request");
+    if (!parsed.success) throw new Error("not a version 2 request");
     req = parsed.data;
   } catch (err) {
     io.stderr(`wim-agent-runner: bad request: ${(err as Error).message}`);
