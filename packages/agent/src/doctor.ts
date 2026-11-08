@@ -344,6 +344,11 @@ async function privileged(
   else if (nnp.value === "1") say(problem(`${input.service} (pid ${nnp.pid}) runs with NoNewPrivs, so its sudo cannot start the privileged runner: drop NoNewPrivileges= and the settings that imply it for a User= unit (LockPersonality=, RestrictRealtime=, ProtectKernelTunables=, ...)`));
   else say(ok(`${input.service} (pid ${nnp.pid}) may use sudo (NoNewPrivs 0)`));
 
+  // The runner compares the task with the signed message, so the worker must hand it over
+  // untouched: no code stripped and no prefix parsed on this side.
+  if (config.wake.mode !== "runner") say(problem(`wake.mode is ${config.wake.mode}, but the privileged runner checks the task against the signed message: set wake.mode to "runner" and leave the code and any profile prefix to the runner`));
+  else say(ok("the worker hands the privileged runner the signed text untouched (wake.mode runner)"));
+
   let p: PrivilegedView;
   try {
     p = await deps.loadPrivileged(input.privilegedPath);

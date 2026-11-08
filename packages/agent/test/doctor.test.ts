@@ -323,6 +323,12 @@ describe("privileged runner", () => {
     expect(short.has("problem", /runner\.timeoutSeconds is 1800, but the privileged runner may take 2715 s \(lock wait 900 \+ job 1800 \+ kill grace 15\): set it above 2715/)).toBe(true);
   });
 
+  it("the worker must hand the signed text over untouched: wake.mode runner (Seer, #131)", async () => {
+    expect((await doctor(privConfig(), healthyPriv())).has("ok", /hands the privileged runner the signed text untouched/)).toBe(true);
+    const local = await doctor(privConfig({ wake: { mode: "none" }, profiles: { allowed: ["a"], default: "a" } }), healthyPriv());
+    expect(local.has("problem", /wake\.mode is none, but the privileged runner checks the task against the signed message/)).toBe(true);
+  });
+
   it("the peer's unit must not run with NoNewPrivs, or sudo cannot work", async () => {
     expect((await doctor(privConfig(), healthyPriv())).has("ok", /w\.service \(pid 42\) may use sudo \(NoNewPrivs 0\)/)).toBe(true);
     expect((await doctor(privConfig(), { ...healthyPriv(), nnp: { pid: 7, value: "1" } })).has("problem", /w\.service \(pid 7\) runs with NoNewPrivs/)).toBe(true);
