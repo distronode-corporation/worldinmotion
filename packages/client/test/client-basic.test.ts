@@ -161,7 +161,10 @@ describe("messaging", () => {
     await expect(a2.rename("writer")).rejects.toThrow(/rename refused/);
     const peers = await b.listPeers();
     expect(peers.map((p) => p.address).sort()).toEqual(["other@one", "writer@one"]);
-    expect(await a.notifyWhenIdle(["b@two", "#room", "bad"])).toBeUndefined();
+    expect(await a.notifyWhenIdle(["b@two", "#room", "bad"])).toEqual({
+      watching: [{ to: "b@two", until: expect.any(Number) }],
+      note: "Idle notices are for name@device only, so none is armed for #room, bad.",
+    });
     await sleep(30);
     await fs.writeFile(b.files.presencePath, "busy");
     await until(() => a.peers.get("b@two")?.status === "busy");

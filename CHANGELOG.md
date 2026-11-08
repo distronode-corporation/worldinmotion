@@ -149,6 +149,26 @@ body line with a bracket.
   without that mark there is no wake. Every turn end that lets the agent stop, aborted and failed
   turns included, reports the session idle, so `notify_when_idle` now fires for these agents, and
   an optional turn-start entry (`wim hook <agent> start`) shows it busy while it works.
+- **The finished notice (`notify_when_idle`) is dependable on the client side.** An arm made while
+  offline is sent at the next `ready`, and a new process of the session sends every open one at
+  its first. A notice starts a turn only when the device that the armed address names is one the
+  person trusts, the loop breaker does not pause it, and the breaker admits one more delivery from
+  it, which it then counts; any other notice is spooled `quiet` (new spool fields `watched` and
+  `quiet`) and waits for `inbox` or `wait`. The notice names the address the agent armed. A
+  session may have at most 16 open watches, as the relay allows: past that, `send` arms nothing
+  more and says so in `watch_note`. The agent is told, quietly, when a watch lapses after 12 hours
+  with no notice, and when the relay refuses an arm (`not_found`, `limited`), naming the address
+  when it can tell which. `send` returns `watching: [{ to, until }]`, and with `notify_when_idle`
+  and no text it only arms. `wim hook` counts finished notices this session asked for, with a
+  fixed line of their own ("1 notice this session asked for is waiting in worldinmotion..."), and
+  the turn it asks for is a mesh turn as before. The wake rule moved to `wake.ts`, shared by the
+  hook. Notice wakes are counted per device on their own and toward the total; past a limit they
+  trip a cool-down on that device, which the person is told of. A session cannot watch its own
+  address. A relay refusal is taken only for an arm in flight (or, with `of`, an open watch), one
+  per arm. A damaged `watches.json` is left as it is, and arms are refused until it is removed. A
+  channel push writes `busy-mesh` first, and pushes nothing when it cannot. SPEC section 8 and
+  SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3 and 9 say so. **Until the Claude Code plugin reads
+  `quiet` (N2, which must merge before 0.2.0 ships), Claude Code hands quiet notices over as turns.**
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device

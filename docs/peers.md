@@ -474,10 +474,15 @@ What it does and does not do:
   not announced a second time. Where the agent says that a stop already follows a continuation
   (`stop_hook_active`), the hook lets it stop.
 - **Only messages that would start a turn in Claude Code.** That means messages, tasks, results
-  and files that a device you trust sent itself. It never counts:
+  and files that a device you trust sent itself, and the idle notices this session asked for
+  (`notify_when_idle`) about such a device, which have a line of their own ("1 notice this session
+  asked for is waiting in worldinmotion. Call the worldinmotion inbox tool to read it.", or one line
+  counting both). It never counts:
   - held messages, or anything from a device you do not trust;
   - relayed text, CI notices, or notices for the person;
-  - anything from a device the loop breaker has paused.
+  - anything from or about a device the loop breaker has paused;
+  - an idle notice the client spooled as quiet: past the breaker's limits, or about a device you
+    do not trust, or one saying a watch lapsed or was refused.
 - **The extra turn is a mesh turn.** Before it asks for the turn, the hook marks the session
   `busy-mesh`, so what the agent sends in that turn is marked derived, as in a turn Claude Code
   starts for a message. If it cannot write that mark, it does not ask. A turn end that lets the

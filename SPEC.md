@@ -924,10 +924,20 @@ every turn end that lets the agent stop, which the client sends as `idle`. A cli
 tell a turn end sends nothing new, and a notice armed on it waits until it ends.
 
 **Idle notices.** `notify_idle` asks for one `notice` the next time that session reports `idle` or
-ends. It lapses after 12 hours, and a session may hold at most 16. A `notice` is the relay's word,
-so a client MAY drop one it did not arm: for an address it sent no `notify_idle` for, after the arm
-lapsed, or a second one for the same arm. The reference client keeps its arms in the session's
-`watches.json` and drops every such notice (SECURITY-MODEL section 5.4).
+ends. It lapses after 12 hours, and a session may hold at most 16. A relay refuses an arm with
+`error { code, ref: "notify_idle" }`: `not_found` when no session has that address, `limited`
+past the 16. A client keeps its own record of each `notify_idle` it sent, and accepts a `notice`
+only for an address it armed and has had no notice for since; it drops any other. One notice ends
+the arm. A client tells its agent when an arm lapses with no notice, and when it learns the relay
+refused one. A notice is relay-authored (section 6a): a label, never proof that the watched
+session finished anything. A client MUST NOT start an agent turn for a notice unless the device
+that the armed address names is one its person trusts and its loop breaker does not pause, and it
+counts each notice that starts a turn as an automatic delivery from that device. A client ignores
+any key of a `notice` it does not know, and its value, so a relay can add one. The reference client
+keeps its arms in the session's `watches.json`, at most 16 open as at the relay; sends an arm made
+while offline at its next `ready`, and every open one at a new process's first `ready` (a re-sent
+arm the relay holds is only renewed); and spools a notice that may not start a turn as `quiet`
+(SECURITY-MODEL sections 5.4 and 7.3).
 
 A relay also sends the notice when the watched session has been offline for 60 seconds without a
 new connection, and adds `why`: `idle`, `ended` or `offline`. A later relay may add other values,

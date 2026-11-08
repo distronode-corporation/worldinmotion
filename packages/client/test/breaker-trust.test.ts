@@ -327,17 +327,17 @@ describe("pauses on disk", () => {
     const dir = await scratch("pauses");
     const path = join(dir, "breaker.json");
     const row: PauseRow = { from: "a@one", told: ["a@one"], peer: "d", rule: "peer", count: 2, limit: 1, minutes: 60, at: 1, until: 100, auto: true };
-    await savePauses(path, { pauses: [row, { ...row, until: 5 }], released: { d: 1 }, lifts: ["x@two"], counts: { d: [1, 2] } }, FS);
+    await savePauses(path, { pauses: [row, { ...row, until: 5 }], released: { d: 1 }, lifts: ["x@two"], counts: { d: [1, 2] }, wakes: {} }, FS);
     expect(await readPauses(path, 10)).toEqual([row]);
     expect(await readPauses(join(dir, "missing.json"), 0)).toEqual([]);
     await fs.writeFile(path, JSON.stringify({ pauses: [null, 3, { ...row, rule: "other" }, { ...row, from: 1 }, { ...row, peer: 1 }, { ...row, count: 1.5 }, { ...row, auto: "yes" }, { ...row, told: "a@one" }, { ...row, told: [1] }, row] }));
     expect(await readPauses(path, 10)).toEqual([row]);
-    expect(await readBreakerFile(path)).toEqual({ pauses: [row], released: {}, lifts: [], counts: {} });
-    await fs.writeFile(path, JSON.stringify({ pauses: "none", released: { d: 5, e: "soon" }, lifts: ["x@two", 3], counts: { d: [1, "2", 3], e: "x" } }));
+    expect(await readBreakerFile(path)).toEqual({ pauses: [row], released: {}, lifts: [], counts: {}, wakes: {} });
+    await fs.writeFile(path, JSON.stringify({ pauses: "none", released: { d: 5, e: "soon" }, lifts: ["x@two", 3], counts: { d: [1, "2", 3], e: "x" }, wakes: { d: [4, "5"], e: 6 } }));
     expect(await readPauses(path, 10)).toEqual([]);
-    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: { d: 5 }, lifts: ["x@two"], counts: { d: [1, 3] } });
-    await fs.writeFile(path, JSON.stringify({ released: null, counts: null }));
-    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: {}, lifts: [], counts: {} });
+    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: { d: 5 }, lifts: ["x@two"], counts: { d: [1, 3] }, wakes: { d: [4] } });
+    await fs.writeFile(path, JSON.stringify({ released: null, counts: null, wakes: null }));
+    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: {}, lifts: [], counts: {}, wakes: {} });
     await fs.writeFile(path, "{ not json");
     expect(await readPauses(path, 10)).toEqual([]);
     // Every session's, oldest first; a session whose state is gone is named "?".
@@ -345,7 +345,7 @@ describe("pauses on disk", () => {
     const [s1, s2] = [ulid(1), ulid(2)];
     for (const [sid, at] of [[s1, 5], [s2, 3]] as const) {
       await fs.mkdir(mesh.sessionDir(sid), { recursive: true });
-      await savePauses(join(mesh.sessionDir(sid), "breaker.json"), { pauses: [{ ...row, at }], released: {}, lifts: [], counts: {} }, FS);
+      await savePauses(join(mesh.sessionDir(sid), "breaker.json"), { pauses: [{ ...row, at }], released: {}, lifts: [], counts: {}, wakes: {} }, FS);
     }
     expect((await listAllPauses(mesh, FS, 10)).map((p) => [p.sid, p.session, p.at])).toEqual([[s2, "?", 3], [s1, "?", 5]]);
   });
