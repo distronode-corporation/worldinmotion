@@ -4,6 +4,7 @@
 // view, a command the person invokes, or a dialog this extension shows, and accept only nodes this
 // extension issued; nothing in a message can reach them.
 
+import { randomInt } from "node:crypto";
 import * as vscode from "vscode";
 import { NAME_RE, noIcons, notice, oneLine, stamp, visible } from "./display.ts";
 import type { AdmittedOther, DeviceRef, DeviceRow, HeldRow, JoinedDevice, JoinRow } from "./protocol.ts";
@@ -21,6 +22,13 @@ export const JOIN_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000;
 /** `create` dials the relay, creates the mesh and signs in once; each step may take 15 s. */
 export const CREATE_TIMEOUT_MS = 60_000;
 
+/**
+ * How long an approve, refuse or resume may take: on a device whose keys are in the signer
+ * (`wim agent`), the client waits for the person to confirm it in the signer's own dialog or
+ * terminal (the client gives up after 6 minutes).
+ */
+export const DECIDE_TIMEOUT_MS = 7 * 60_000;
+
 /** The hosted relay, the default for a new mesh (HOSTED_RELAY in @worldinmotion/protocol; a test holds the two equal). */
 export const HOSTED_RELAY = "wss://worldinmotion.distronode.com";
 
@@ -28,6 +36,8 @@ export const HOSTED_RELAY = "wss://worldinmotion.distronode.com";
 export const RECOVERY_MINUTES = 10;
 
 export type Deps = {
+  /** A fresh code for a decision the signer confirms (six digits; tests pass their own). */
+  code?: () => string;
   store: Store;
   client: Requester;
   nodes: Nodes;
@@ -277,16 +287,28 @@ async function decide(d: Deps, arg: unknown, op: "approve" | "refuse"): Promise<
   if (choice === undefined || (choice !== all && choice !== only)) return;
   try {
     if (choice === only) {
-      await d.client.request(op, { held: item!.id });
+      await d.client.request(op, { held: item!.id, ...signerCode(d) }, DECIDE_TIMEOUT_MS);
       void vscode.window.showInformationMessage(op === "approve" ? "worldinmotion: approved and delivered." : "worldinmotion: refused.");
       return;
     }
-    const result = (await d.client.request(op, { held: covered[0]!, set: covered })) as { decided?: unknown };
+    const result = (await d.client.request(op, { held: covered[0]!, set: covered, ...signerCode(d) }, DECIDE_TIMEOUT_MS)) as { decided?: unknown };
     const n = Array.isArray(result.decided) ? result.decided.length : covered.length;
     void vscode.window.showInformationMessage(op === "approve" ? `worldinmotion: approved and delivered ${n}.` : `worldinmotion: refused ${n}.`);
   } catch (e) {
     failure(op === "approve" ? "approve it" : "refuse it", e);
   }
+}
+
+/**
+ * With the keys in the signer: a fresh code for this decision, shown here (not modal: the signer's
+ * dialog comes next) and sent along, so the signer shows it too. The person signs only when the
+ * two match: another process's request, timed to come just then, shows a code they were not given.
+ */
+function signerCode(d: Deps): { code?: string } {
+  if (d.store.hello?.keys !== "signer") return {};
+  const code = (d.code ?? (() => String(randomInt(0, 1_000_000)).padStart(6, "0")))();
+  void vscode.window.showInformationMessage(`worldinmotion: confirm it in the signer, only if the signer shows the code ${code}.`);
+  return { code };
 }
 
 export const approve = (d: Deps, arg: unknown): Promise<void> => decide(d, arg, "approve");
@@ -334,7 +356,7 @@ export async function resume(d: Deps, arg: unknown): Promise<void> {
   const node = d.nodes.ours(arg, "session");
   if (node === undefined) return;
   try {
-    const result = (await d.client.request("resume", { peer: node.address })) as { released?: unknown };
+    const result = (await d.client.request("resume", { peer: node.address, ...signerCode(d) }, DECIDE_TIMEOUT_MS)) as { released?: unknown };
     void vscode.window.showInformationMessage(notice(`worldinmotion: resumed ${node.address}; ${String(result.released ?? 0)} held messages released.`));
   } catch (e) {
     failure(`resume ${node.address}`, e);

@@ -2,20 +2,23 @@
 // taking its rows when its turn comes, so a slow write of an older picture never lands last. The
 // mock delays one write, or fails one.
 
+import { promises as fs } from "node:fs";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeshSession } from "../src/client.ts";
 import { MeshFiles, type BreakerLimits } from "../src/mesh.ts";
 import { FS, makeMesh, openSession, RelayHarness, until, type TestDevice } from "./helpers.ts";
 
-const control = vi.hoisted(() => ({ gate: undefined as Promise<void> | undefined, pending: false, fail: false }));
+const control = vi.hoisted(() => ({ gate: undefined as Promise<void> | undefined, pending: false, fail: false, failWhen: undefined as ((file: { pauses: unknown[] }) => boolean) | undefined }));
 
 vi.mock("../src/pauses.ts", async (importOriginal) => {
   const m = await importOriginal<typeof import("../src/pauses.ts")>();
   return {
     ...m,
     savePauses: async (...args: Parameters<typeof m.savePauses>) => {
-      if (control.fail) {
+      if (control.fail || control.failWhen?.(args[1]) === true) {
         control.fail = false;
+        control.failWhen = undefined;
         throw new Error("ENOSPC: no space left on device");
       }
       const gate = control.gate;
@@ -71,6 +74,23 @@ describe("F14: concurrent breaker.json writes", () => {
     await new Promise((r) => setTimeout(r, 300));
     expect(b.pausedRows().map((r) => r.from)).toEqual(["c@three"]);
     expect((await readPauses(b.files.breakerPath, Date.now() + offset)).map((r) => r.from), "breaker.json").toEqual(["c@three"]);
+  }, 30_000);
+
+  it("a resume a marker asks for whose write fails is logged, and the held message stays held", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    await setBreaker(devices[1]!, mesh, { perPeerPerHour: 1, totalPerHour: 50, pingPong: false, pingPongExchanges: 8, cooldownMinutes: 60 });
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    const lines: string[] = [];
+    const b = await session(devices[1]!, mesh, relay, { name: "b", log: (l) => void lines.push(l) });
+    for (const t of ["1", "2"]) await a.send("b@two", t);
+    await until(async () => (await b.held.list()).length === 1, 10_000);
+    // Only the resume's own write fails: the first that lifts the pause.
+    control.failWhen = (file) => file.pauses.length === 0;
+    await fs.mkdir(b.files.controlDir, { recursive: true });
+    await fs.writeFile(join(b.files.controlDir, "resume-a@one"), "");
+    await until(() => lines.some((l) => /^wim: housekeeping: .*ENOSPC/.test(l)), 10_000);
+    expect((await b.held.list()).map((h) => h.entry.text)).toEqual(["2"]);
   }, 30_000);
 
   it("a write that fails is reported to the step that asked for it, and the next write goes through", async () => {

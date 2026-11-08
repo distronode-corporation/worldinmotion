@@ -43,9 +43,14 @@ some of the guideline holds and some does not; the notes say which.
   refuse` (`wim status` shows it; only the person can turn it back off), at the cost of reaching
   no v0.1 client. It is closed everywhere at 1.0, when v0.1 boxes are refused.
 - **No metadata padding.** The relay sees the full traffic pattern (6.10).
-- **Approval marks are files.** An approval is a file the plugin writes in the state directory. A
-  local process, or an agent allowed to write files without a prompt, can approve a held message
-  (7.1).
+- **Approval marks are files, unless the signer runs.** Without the signer, an approval is a file
+  the plugin writes in the state directory, and a local process, or an agent allowed to write files
+  without a prompt, can approve a held message (7.1). Since 0.2.0, with the device's keys in the
+  signer (`wim agent`), that is closed: an approve, refuse or resume is taken only signed by the
+  signer over exactly the items it showed the person in its own terminal or dialog, and mark files
+  are refused (7.2). What remains with the signer: a process of the user could press the signer's
+  dialog by driving the desktop, and could still write into a session's spool directly (5.8).
+  `wim doctor` advises the signer when it is not used.
 - **Framing is not a boundary.** An agent may still follow a peer's text. Messages from devices
   the person trusts may assign work within the agent's normal permissions (7.2).
 - **Held messages are decided a set at a time, not a thread.** Since 0.1.11 every approve and refuse

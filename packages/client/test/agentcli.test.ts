@@ -543,6 +543,7 @@ function fakePrograms(platform: string, answer: (cmd: string, args: readonly str
     programs: {
       platform,
       wim: ["/usr/bin/node", "/opt/wim.mjs"],
+      trust: async () => "ok",
       run: async (cmd, args, input) => {
         calls.push({ cmd, args, input });
         return answer(cmd, args, input);
@@ -625,7 +626,12 @@ describe("where the passphrase comes from", () => {
     const no = at(d.root, { programs: never.programs });
     expect(await run(no, "agent", "start", "--foreground", "--ask-gui")).toBe(1);
     expect(said(no)).toContain("the passphrase did not open this device's keys in 3 tries");
-    expect(never.calls.map((c) => c.cmd)).toEqual(["osascript", "osascript", "osascript"]);
+    expect(never.calls.map((c) => c.cmd)).toEqual(["/usr/bin/osascript", "/usr/bin/osascript", "/usr/bin/osascript"]);
+    // The dialog names the process that started the signer.
+    const named = fakePrograms("linux", () => ({ code: 1, stdout: "", stderr: "" }));
+    const by = at(d.root, { programs: named.programs, signerChecks: { agentAncestor: async () => undefined, terminal: async () => undefined, askedBy: async () => "bash -c wim agent start" } });
+    expect(await run(by, "agent", "start", "--ask-gui")).toBe(1);
+    expect(named.calls[0]!.args.at(-1)).toBe(`--text=${GUI_ASK}\n\nAsked by: bash -c wim agent start\nIf you did not just start the signer yourself, choose Cancel.`);
     const cancel = at(d.root, { programs: fakePrograms("win32", () => ({ code: 1, stdout: "", stderr: "" })).programs });
     expect(await run(cancel, "agent", "start", "--ask-gui")).toBe(1);
     expect(said(cancel)).toContain("the passphrase prompt was cancelled");
