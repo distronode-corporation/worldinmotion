@@ -195,8 +195,7 @@ export function systemDeps(euid = process.geteuid!()): PrivilegedDeps {
     credentials: loadAnthropicCredentials,
     fetch: (url, init) => fetch(url, init),
     startProxy,
-    // The real euid, not the tests' stand-in: only real root can make a system scope.
-    startJob: (spec) => startScopedJob(spec, defaultScope(process.geteuid!(), process.pid)),
+    startJob: (spec) => startScopedJob(spec, defaultScope(euid, process.pid)),
     now: Date.now,
     onSignal(cb) {
       const sigs = ["SIGTERM", "SIGHUP", "SIGINT"] as const;

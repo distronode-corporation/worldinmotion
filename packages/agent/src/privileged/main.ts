@@ -231,9 +231,21 @@ async function signIn(profile: Profile, cfg: PrivilegedConfig, deps: PrivilegedD
   return { env: { ANTHROPIC_BASE_URL: proxy.url, ANTHROPIC_API_KEY: proxy.key }, stop: () => proxy.close() };
 }
 
-/** Runs the job as the worker user; resolves with the answer, or throws a Refusal. */
-async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req: ParsedRequest, self: string[], deps: PrivilegedDeps): Promise<Buffer> {
+/**
+ * The worker user, and the directories the job lock and the job need, made before the lock is
+ * taken: on a fresh /run tmpfs neither exists yet, and opening the lock file would fail.
+ */
+async function prepareRunDir(cfg: PrivilegedConfig, deps: PrivilegedDeps): Promise<{ uid: number; gid: number }> {
   const user = await deps.lookupUser(cfg.worker.user);
+  // Each directory is checked as it is made: a directory, not a symlink, root's alone.
+  await deps.ensureDir(cfg.runDir, 0o750);
+  const lockDir = cfg.lock.path.slice(0, cfg.lock.path.lastIndexOf("/"));
+  if (lockDir !== "" && lockDir !== cfg.runDir) await deps.ensureDir(lockDir, 0o755);
+  return user;
+}
+
+/** Runs the job as the worker user; resolves with the answer, or throws a Refusal. */
+async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req: ParsedRequest, self: string[], user: { uid: number; gid: number }, deps: PrivilegedDeps): Promise<Buffer> {
   const auth = await signIn(profile, cfg, deps);
   try {
     const job = JSON.stringify({
@@ -287,10 +299,11 @@ async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req
     // The leader's exit ends the job: the credential stops at once, then anything the leader
     // left running (a setsid child holding the pipes) is killed with the job's scope.
     const code = await handle.exited;
-    await auth.stop();
     deps.clearTimeout(timer);
     deps.clearTimeout(grace);
     off();
+    // The proxy closes the moment the leader exits, before anything else is waited for.
+    await auth.stop();
     await handle.cleanup();
     const secs = Math.round((deps.now() - started) / 1000);
     if (ended === "timeout") throw new Refusal(EXIT.timeout, `job timed out after ${cfg.timeoutSeconds} s`);
@@ -327,16 +340,13 @@ async function run(env: Record<string, string | undefined>, self: string[], deps
     if (cfg.minMemAvailableMb > 0 && mem !== undefined && mem < cfg.minMemAvailableMb) {
       throw new Refusal(EXIT.busy, `MemAvailable ${mem} MB is under ${cfg.minMemAvailableMb}`);
     }
-    // Before the lock: on a fresh /run tmpfs neither directory exists yet.
-    await deps.ensureDir(cfg.runDir, 0o750);
-    const lockDir = cfg.lock.path.slice(0, cfg.lock.path.lastIndexOf("/")) || "/";
-    if (lockDir !== cfg.runDir) await deps.ensureDir(lockDir, 0o755);
+    const user = await prepareRunDir(cfg, deps);
     const lock = await deps.acquireLock(cfg.lock.path, cfg.lock.waitSeconds);
     if (lock === null) throw new Refusal(EXIT.busy, `job lock busy for ${cfg.lock.waitSeconds} s`);
     try {
       await admit(cfg, sender, deps);
       log(deps, `${tag} accepted: profile ${profile}, ${task.length} characters`);
-      const answer = await runJob(cfg, cfg.profiles[profile]!, task, req, self, deps);
+      const answer = await runJob(cfg, cfg.profiles[profile]!, task, req, self, user, deps);
       log(deps, `${tag} answered, ${answer.length} bytes`);
       return answer;
     } finally {
