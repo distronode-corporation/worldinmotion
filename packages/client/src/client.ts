@@ -2361,14 +2361,16 @@ export class MeshSession extends EventEmitter {
    * ended meanwhile), the sessions told still hear a resume, a release in the last hour still makes
    * a second trip wait for the person, and lifts not yet sent go out. A pause that holds nothing
    * any more is not taken back (an older `wim held resume` released what it held without knowing
-   * this file, and the counts start over anyway); its sessions hear it lifted.
+   * this file, and the counts start over anyway); its sessions hear it lifted. A pause idle notices
+   * tripped (`wake`) is taken back whatever it holds: it never needed a message to stand.
    */
   private async restorePauses(): Promise<void> {
     const file = await readBreakerFile(this.files.breakerPath);
     const held = await this.held.list();
     for (const r of file.pauses) {
       const { from, told, ...pause } = r;
-      if (!held.some((h) => h.reason === "breaker" && h.device === pause.peer && h.pause !== undefined && h.pause.at === pause.at)) {
+      // A pause idle notices tripped holds no message of its own, and is kept all the same.
+      if (pause.wake !== true && !held.some((h) => h.reason === "breaker" && h.device === pause.peer && h.pause !== undefined && h.pause.at === pause.at)) {
         for (const to of told) this.pendingLifts.add(to);
         continue;
       }

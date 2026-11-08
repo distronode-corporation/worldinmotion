@@ -31,6 +31,8 @@ export type Pause = {
   until: number;
   /** True when the client releases the peer by itself at `until` (a trusted device's cool-down). */
   auto: boolean;
+  /** Tripped by idle notices (admitWake): it may hold no message, so a restart keeps it without one. */
+  wake?: true;
 };
 
 export type Admission = { ok: true } | { ok: false; reason: "paused" | TripRule; newly: boolean; pause: Pause };
@@ -143,11 +145,11 @@ export class Breaker {
   }
 
   /** Pauses `peer` for what tripped: a cool-down the client ends by itself for a trusted peer released by itself not within the hour, else an hour for the person. */
-  private trip(peer: string, tripped: { rule: TripRule; count: number; limit: number; minutes: number }, limits: Limits, trusted: boolean, now: number): Admission {
+  private trip(peer: string, tripped: { rule: TripRule; count: number; limit: number; minutes: number }, limits: Limits, trusted: boolean, now: number, wake = false): Admission {
     const last = this.released.get(peer);
     const auto = trusted && limits.cooldownMinutes !== undefined && (last === undefined || now - last >= HOUR);
     const until = now + (auto ? limits.cooldownMinutes! * MINUTE : HOUR);
-    const pause: Pause = { peer, ...tripped, at: now, until, auto };
+    const pause: Pause = { peer, ...tripped, at: now, until, auto, ...(wake ? { wake: true as const } : {}) };
     this.paused.set(peer, pause);
     return { ok: false, reason: tripped.rule, newly: true, pause };
   }
@@ -172,7 +174,7 @@ export class Breaker {
     if (current !== undefined) this.paused.delete(peer);
     const limits = this.limits();
     const tripped = this.trips(peer, limits, now, true);
-    if (tripped !== undefined) return this.trip(peer, tripped, limits, true, now);
+    if (tripped !== undefined) return this.trip(peer, tripped, limits, true, now, true);
     this.wakes.set(peer, [...this.recent(this.wakes.get(peer), now - HOUR), now]);
     return { ok: true };
   }

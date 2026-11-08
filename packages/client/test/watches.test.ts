@@ -676,6 +676,35 @@ describe("whether an idle notice may start a turn", () => {
     expect((await noticeItems(again)).find((i) => i.rendered.includes("c@two is now idle"))).toMatchObject({ watched: two, quiet: true });
   });
 
+  it("keeps a pause its notice wakes tripped across a restart, though it holds no message (Seer, #137)", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const two = devices[1]!.device.id;
+    await setConfig(devices[0]!, mesh, (c) => ({ ...c, breaker: L(1) }));
+    swallowArms(relay);
+    const told: string[] = [];
+    const opts = { name: "a", sessionKey: "key:a", notifier: { notify: async (t: string) => void told.push(t) } };
+    const fire = async (s: MeshSession, of: string): Promise<SpoolItem> => {
+      await s.notifyWhenIdle([of]);
+      relay.inject(mesh, idle(of));
+      await until(async () => (await noticeItems(s)).some((i) => i.rendered.includes(`${of} is now idle`)), undefined, `notice for ${of}`);
+      return (await noticeItems(s)).find((i) => i.rendered.includes(`${of} is now idle`))!;
+    };
+    const first = await session(devices[0]!, mesh, relay, opts);
+    expect(await fire(first, "b@two")).not.toHaveProperty("quiet");
+    expect(await fire(first, "c@two")).toMatchObject({ quiet: true });
+    expect(told).toHaveLength(1);
+    const before = first.pausedRows();
+    expect(before).toEqual([expect.objectContaining({ peer: two, wake: true })]);
+    await first.stop();
+    // The session's next process takes the pause back: no held item stands for it, nor needs to.
+    const again = await session(devices[0]!, mesh, relay, opts);
+    expect(again.pausedRows()).toEqual(before);
+    expect(await fire(again, "d@two")).toMatchObject({ watched: two, quiet: true });
+    // Still the same pause: nothing trips again, and the person is not told twice.
+    expect(told).toHaveLength(1);
+  });
+
   it("never while the breaker pauses that device", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
