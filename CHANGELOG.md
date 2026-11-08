@@ -15,6 +15,21 @@ body line with a bracket.
 
 ### Added
 
+- **`wim worker`, a peer that wakes on a message and runs one agent job** (new package
+  `@worldinmotion/agent`). It runs a job only for a device id on its allow-list (from the signed
+  roster, never a name) that the person also trusts, optionally behind a wake code checked in
+  constant time (or left to the runner, so the worker's user never holds it), with an optional
+  `<profile>:` prefix from a configured list. Each job goes through a runner command: one JSON
+  request on stdin, the answer on stdout, exit codes for refused, busy and timed out, and a
+  SIGTERM-then-SIGKILL timeout on its process group. Limits: task length, attempts per device per
+  hour, one job at a time, a daily cap kept on disk. Replies are marked relayed; a room copy
+  carries the answer only. The built-in runner (`wim worker runner`) uses the Claude Agent SDK with
+  an API key, `claude-opus-5-5` at medium effort, read-only tools, and no settings, hooks or MCP
+  servers from the machine (packages/agent/README.md, SECURITY-MODEL section 7.7).
+- **Sessions that keep no message text on disk** (`redactStoredText`, used by `wim worker`): spool
+  files and history entries keep every field but the text, the loop breaker refuses what it would
+  hold, and an untrusted device's item is held with its metadata only.
+
 - **With the signer, an agent cannot approve a held message.** On a device whose key file is
   encrypted (`wim agent`), approving, refusing or resuming held messages needs the signer's own
   confirmation: `wim held` and the events process (VS Code) ask the signer with a new `decide`

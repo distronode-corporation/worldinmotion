@@ -173,6 +173,12 @@ export type SessionOptions = {
    * says `refuse`, no v0.1 box is sent or accepted (SPEC section 6b). Without one, the window.
    */
   legacyBoxesPath?: string;
+  /**
+   * Keeps no message text on disk (`wim worker`): an inbound item's spool file and history entry
+   * keep every field but the text, so ids, receipts and the audit trail still work while a wake
+   * code or a task never lands in this session's files. In-process consumers still get the text.
+   */
+  redactStoredText?: boolean;
 };
 
 export type PeerRow = Peer & { card?: Card };
@@ -355,6 +361,10 @@ const PAUSE_TELL_MS = 10 * 60_000;
 
 /** Swallows a failure already reported to the caller of the promise it follows. */
 const ignore = (): undefined => undefined;
+/** What a session that keeps no message text writes in a spool file in place of the frame. */
+export const REDACTED_TEXT = "(this session keeps no message text on disk)";
+/** What a session that keeps no text replies when its loop breaker refuses a sender's messages. */
+export const BREAKER_REFUSED = "busy: too many messages from your device for now, so they are refused, not kept; resend later";
 
 /** A running pause's record: the address of the message that tripped it, the sending sessions told, and whether its notices went out. */
 type PauseEntry = { from: string; told: Set<string>; announced: boolean };
@@ -1568,7 +1578,8 @@ export class MeshSession extends EventEmitter {
       ...(p.kind === "file" ? { fileInfo: p.file } : {}),
     };
     // A file from a sender that is not delivered is not even fetched until the person approves.
-    if (policy === "hold") return this.hold({ ...held, reason: "policy" });
+    // A session that keeps no text holds only the metadata for the person's decision.
+    if (policy === "hold") return this.hold(this.redacting ? { ...held, preview: REDACTED_TEXT, entry: this.stored(entry), reason: "policy" } : { ...held, reason: "policy" });
 
     // A trusted peer whose cool-down ended is released first (this runs on the inbound queue, as
     // every release does), so what it held comes before this, and this is counted after it. A
@@ -1583,6 +1594,16 @@ export class MeshSession extends EventEmitter {
         this.emit("breaker", { peer: from, state: "tripped", reason: pause.rule, ...breakerFields(pause) });
       }
       const record = this.pauseFrom.get(pause.peer)!;
+      if (this.redacting) {
+        // Holding it would put its text on disk: refused instead, and the sender hears once a pause.
+        this.receipt(p.id, "refused");
+        if (!record.announced) {
+          record.announced = true;
+          void this.send(from, BREAKER_REFUSED, { relayed: true, reply_to: p.id }).catch((e: unknown) => this.log(`wim: no busy reply sent to ${from}: ${(e as Error).message}`));
+        }
+        this.tellPaused(pause, record, from, p.id);
+        return;
+      }
       const under = { rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, at: pause.at, until: pause.until, auto: pause.auto };
       // The notices go with the first hold that is written: one that failed leaves them for the next.
       await this.hold({ ...held, reason: "breaker", pause: under }, record.announced ? undefined : { person: pauseNotice(from, pause), agent: pauseNoticeForAgent(from, pause) });
@@ -1595,7 +1616,7 @@ export class MeshSession extends EventEmitter {
     const waiter = p.kind === "result" && !unsolicited ? this.askWaiters.get(p.reply_to) : undefined;
     if (waiter !== undefined && p.kind === "result") {
       // The asker is waiting in a tool call: hand it over there instead of waking the agent again.
-      await this.history.append(entry);
+      await this.history.append(this.stored(entry));
       waiter(p, from);
       this.receipt(p.id, "delivered");
       return;
@@ -1689,13 +1710,24 @@ export class MeshSession extends EventEmitter {
     return run;
   }
 
+  private get redacting(): boolean {
+    return this.o.redactStoredText === true;
+  }
+
+  /** An inbound history entry as this session stores it: without its text when it keeps none. */
+  private stored(entry: HistoryEntry): HistoryEntry {
+    return this.redacting ? { ...entry, text: "", redacted: true } : entry;
+  }
+
   /** `afterWrite`: runs once the item is durably in the spool, before anything takes it from there. */
   private async deliverNow(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined, afterWrite?: () => Promise<void>): Promise<SpoolItem> {
     this.informed([item]);
-    const written = await this.spool.write(item);
+    const stored = await this.spool.write(this.redacting && item.kind !== "notice" ? { ...item, rendered: REDACTED_TEXT } : item);
     if (afterWrite !== undefined) await afterWrite();
     await this.save({});
-    if (entry !== undefined) await this.history.append(entry);
+    if (entry !== undefined) await this.history.append(this.stored(entry));
+    // The item as it arrived, for consumers in this process; the spool and history keep the redacted copy.
+    const written = { ...stored, rendered: item.rendered };
     this.emit("item", written);
     // In-process consumers (bot, ci, a2a adapters) read the verified fields, not the rendered frame.
     // A CI notice is for the agent's inbox only: in-process consumers never act on it.
