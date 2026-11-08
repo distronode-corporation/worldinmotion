@@ -65,7 +65,12 @@ describe("probe, for real, as this user", () => {
   });
 
   it("connects to a listening port and not to a closed one", async () => {
-    const server = createServer((s) => s.end());
+    // On Windows the probe's child resets the connection as it exits, and an unhandled reset on
+    // the server's side of the socket would fail the whole run.
+    const server = createServer((s) => {
+      s.on("error", () => undefined);
+      s.end();
+    });
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
     const port = (server.address() as { port: number }).port;
     expect(await probe(undefined, { op: "connect", host: "127.0.0.1", port, timeoutMs: 2000 })).toBe("yes");
