@@ -209,20 +209,21 @@ body line with a bracket.
   names the sender and carries none of the message, and `wim status` shows how many this device
   has dropped.
 
-- **A privileged runner for `wim worker`, with keyless Anthropic sign-in.** The worker runs as an
-  unprivileged user and calls `wim-agent-privileged-runner` through one sudoers line that allows
-  no arguments. The runner reads a root-only config (`/etc/wim-agent/privileged.json`), checks the
-  sender's device id again and the wake code (from a root-only file or the privileged side's
-  environment, in constant time), maps the optional `name:` prefix to a profile, and refuses long
-  or empty tasks. It caps the day's jobs, refuses to start when memory is low, and takes one job
-  lock that a shell's `flock` on fd 9 shares. It then runs one Claude Agent SDK job as a third user
-  with read-only tools (`Read`, `Grep`, `Glob` unless `unsafeTools` is set), the profile's model
-  and effort (default `claude-opus-5-5`, `medium`), a turn cap and a timeout that ends the job's
-  whole process group. The job signs in with Workload Identity Federation: the runner mints an
-  identity token (AWS STS `GetWebIdentityToken`, the GCE metadata server, an impersonated GCP
-  service account, or a token file) into a file only the job's group can read, and replaces it
-  every 240 seconds from a timer in its own process. Neither the peer nor the job holds cloud
-  credentials. An API key profile is also available. See `packages/agent/docs/privileged-runner.md`.
+- **A privileged runner for `wim agent`, with keyless Anthropic sign-in.** The worker runs as an
+  unprivileged user and calls the privileged runner (`wim agent privileged`, behind a no-argument
+  launcher) through one sudoers line that allows no arguments. The runner reads a root-only config
+  (`/etc/wim-agent/privileged.json`), checks the sender's device id again and the wake code (from a
+  root-only file or the privileged side's environment, in constant time), maps the optional `name:`
+  prefix to a profile, and refuses long or empty tasks. It caps the day's jobs, refuses to start
+  when memory is low, and takes one job lock that a shell's `flock` on fd 9 shares. It then runs one
+  Claude Agent SDK job as a third user with read-only tools (`Read`, `Grep`, `Glob` unless
+  `unsafeTools` is set), the profile's model and effort (default `claude-opus-5-5`, `medium`), a
+  turn cap and a timeout that ends the job's whole process group. The job signs in with Workload
+  Identity Federation: the runner mints an identity token (AWS STS `GetWebIdentityToken`, the GCE
+  metadata server, an impersonated GCP service account, or a token file) into a file only the job's
+  group can read, and replaces it every 240 seconds from a timer in its own process. Neither the
+  peer nor the job holds cloud credentials. An API key profile is also available. See
+  `packages/agent/docs/privileged-runner.md`.
 
 ### Fixed
 
