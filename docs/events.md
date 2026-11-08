@@ -79,12 +79,22 @@ successor.
 | `history` | `session?` (default: every local session), `peer?`, `before?` (message id), `limit?` (default 50, max 500) | `{ messages: message[] }`, newest last |
 | `send` | `to` (address, `#room` or a list), `text`, `reply_to?`, `kind?`: `msg` or `task` | `{ id, results: [{ to, status }] }`, as `wim send` |
 | `send_file` | `to`, `path` (absolute; must be a regular file the user can read) | as `send` |
-| `approve` / `refuse` | `held` (a held id), `set?` (from 0.1.11: the ids of the set the person was shown, `held` among them) | Without `set`: `{}`, and only `held` is decided. With `set`: `{ decided, kept, gone }`, exactly those ids, after checking that each still held belongs to `held`'s set (code `input` otherwise, and nothing is decided). `decided` lists the ids this request decided; `gone` the ids that were no longer held, before or while it ran (decided elsewhere), which are skipped, `held` included: the set is the one the ids still held are in, and the answer is `not_found` only when none is; an approval keeps (`kept`) a CI notice that pins its rule's ids. Any other failure fails the request. |
+| `approve` / `refuse` | `held` (a held id), `set?` (from 0.1.11: the ids of the set the person was shown, `held` among them), `code?` (from 0.2.0: six digits the UI showed the person, which the signer shows too; one is made when none is given) | Without `set`: `{}`, and only `held` is decided. With `set`: `{ decided, kept, gone }`, exactly those ids, after checking that each still held belongs to `held`'s set (code `input` otherwise, and nothing is decided). `decided` lists the ids this request decided; `gone` the ids that were no longer held, before or while it ran (decided elsewhere), which are skipped, `held` included: the set is the one the ids still held are in, and the answer is `not_found` only when none is; an approval keeps (`kept`) a CI notice that pins its rule's ids. Any other failure fails the request. |
 | `trust` | `device` (name), `relayed?`: boolean | `{ policy }` |
 | `untrust` | `device` | `{ policy: "hold" }` |
-| `resume` | `peer` (address): lifts a breaker pause | `{ released }` |
+| `resume` | `peer` (address): lifts a breaker pause; `code?` (from 0.2.0) as for `approve` | `{ released }` |
 | `invite` | `exp?` (milliseconds the invite lives, 1 minute to 7 days, default 1 hour), `own?` (from 0.2.0: the person said the new device is one of theirs; kept in the invite's record on this device, never in the code, and the admit then sets `deliver` for it) | `{ code, invite, exp, full? }`: the invite code for the new device, its id, and when the code stops working. On a relay that keeps short codes, `code` is the short `wim2-` code (SPEC section 5), `exp` its end (at most an hour away, never past the invite's), and `full` the full `wim1_` code; elsewhere `code` is the full code and there is no `full`. Never auto-accepting. |
 | `admit` | `device` (the waiting device's name), `code` (the comparison code the new device shows, as the person typed it) | `{ device, trusted }` (`trusted`, from 0.2.0: the invite was an `own` one, so the device is `deliver` here now; a UI says how to undo it); code `mismatch` when no waiting request from that name has that code, `not_found` when none waits |
+
+On a device whose keys are in the signer (from 0.2.0), `approve`, `refuse` and `resume` wait for
+the person to confirm in the signer's own terminal or dialog before they decide anything (up to 6
+minutes; a UI gives them that long), and fail with the signer's reason when it is locked or not
+running, has no way to ask, or the person declines. Only what the signer signed is decided: a
+resume releases the breaker holds it showed (SECURITY-MODEL section 7.2). While one waits for the
+person, the events process keeps answering other requests; the decision is applied in the next
+free turn. When the events process stops, an ask still open is dropped and nothing is decided (the
+signer signs nothing for an asker that went away). An approve or refuse of an id no session holds
+answers `not_found` without asking the signer. A resume of more than 1000 holds is asked in parts of at most 1000, each confirmed.
 
 Unknown `op`, bad `args` and unknown `v` answer `ok: false` with code `input`. A send the secrets
 check refuses answers code `refused`. There is no `allow_secret` here: skipping that check stays a

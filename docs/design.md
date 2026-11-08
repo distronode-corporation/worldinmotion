@@ -223,7 +223,14 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   device; `auth` and `send` only with an `at` within 5 minutes of the signer's clock; never a
   prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey entry; refused past
   its deletion time), `prekey` (makes one, dated within 5 minutes of the signer's clock: public
-  half and sealed secret), `adopt` (seals a clear prekey secret of this device's), `lock` (answers
+  half and sealed secret), `adopt` (seals a clear prekey secret of this device's), `decide` (from 0.2.0: `{ mesh, verdict:
+  "approve" | "refuse" | "resume", ids (at most 1000; a client asks for more in parts), peer? (a session address whose device is in the roster), code (six digits the asking process shows) }`; the signer reads those held items from the state
+  directory, shows them and the code to the person in its own terminal or dialog, one request at a time, and on
+  a yes answers `{ decision }`, signed with the device key over `wim-agent/2 held-decision\n` and
+  the canonical `{ v: 1, device, mesh, verdict, peer?, items: [{ id, digest }], at, n }`, each
+  digest the SHA-256 of the item's canonical JSON as read; refused when the person declines, when
+  none is held, when another decision is being asked, or when the signer has no way to ask:
+  SECURITY-MODEL 7.2), `lock` (answers
   `{ was }`, whether it was locked already, sealed: `wim agent lock` reports that, never the
   hello's flag), `stop` (the signer stops listening before it answers, then closes every connection
   without waiting for its client). Before answering any request, and every 2 seconds, the signer
@@ -506,23 +513,30 @@ receipt from it arrives.
   with five optional fields. A `notice` item carries `held: <count>` when it reports messages
   waiting for approval, or `heldBy: "<address>"` when a message this session sent is held for the
   approval of that address's person (a `held` receipt); the plugin shows either as a toast and
-  does not pass it to the model. A notice with none of the three flags is for the model, like a
-  message (the breaker's once-per-pause notice is one).
+  does not pass it to the model. A notice with none of the three flags is for the model, as
+  information: the client spools every notice of its own `quiet`.
   `forPerson: true` marks a notice only the person can act on (this session must be restarted
   to use the signer): the plugin shows it as a toast and on its status line, never as a turn.
   `relayed: true` marks text the sender passed on from a bot, CI or gateway: it never starts a
   turn. An idle notice this session armed carries `watched: "<device id>"`, the device its armed
   address names, and `quiet: true` when it may not start a turn (that device is not trusted, is
   paused, or is past the breaker's limits; SECURITY-MODEL section 7.3): a quiet notice waits for
-  `inbox`, `wait` or a running turn. So does the notice that a watch lapsed or was refused. Like a
-  relayed item, a quiet notice the cursor passed unread (a later item was pushed) is kept in the
-  `relayed/` box beside the spool until `inbox` returns it. `informs: true` marks an item framed as information only; handing it to the agent starts
+  `inbox`, `wait` or a running turn. So does the notice that a watch lapsed or was refused. Only a
+  message, task, result or file, or a notice with `watched`, and none with `quiet`, may start a
+  turn: the plugin, like `wim hook`, treats every other item (a notice from an older client, a kind
+  it does not know or none) as quiet, as it does a relayed item: appended
+  to a running turn, otherwise listed in its pane (under quiet notices), never submitted; any
+  `quiet` but `false` counts. Like a relayed item, a quiet notice for the agent the cursor passed
+  unread (a later item was pushed), and a notice from an older client that names no watch, is kept
+  in the `relayed/` box beside the spool until `inbox` returns it; one for the person (`held`,
+  `heldBy`, `forPerson`) is not. A held sender's message the person approves is spooled `quiet`. `informs: true` marks an item framed as information only; handing it to the agent starts
   the client's `derived` window, during which what the session sends is marked as derived from it. The mod hands
   each item to the session once: it claims an item (in `$.state`) before handing it over and gives
   the claim back only when that failed, so neither a failure later in a pass nor a pass still running
   from before a reload hands an item over twice. The rendered frame carries the message id.
 - The mod polls `spool/` every 250 ms with `$.fs`, delivers items in order (`$.session.append`
-  while the session is busy, `$.prompt.submit` while idle), and writes the newest delivered name to
+  while the session is busy, `$.prompt.submit` while idle, after writing `busy-mesh` to the
+  presence file, and not at all when that write fails), and writes the newest delivered name to
   `spool/cursor`, never back. It starts after its own cursor or after `spool/cursor`, whichever is
   further on, so items the server's `inbox` or `wait` tool (or a channel push) already handed to the
   session are not delivered again. The server deletes items at or below the cursor and only then

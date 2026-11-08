@@ -24,6 +24,26 @@ body line with a bracket.
   writes into an agent's config is the stable one. On `n` it prints the install command and
   stops before anything is made. The README's Quick start now starts with `npx worldinmotion
   setup`, with the global install as the alternative.
+- **With the signer, an agent cannot approve a held message.** On a device whose key file is
+  encrypted (`wim agent`), approving, refusing or resuming held messages needs the signer's own
+  confirmation: `wim held` and the events process (VS Code) ask the signer with a new `decide`
+  request, the signer reads the held items from disk itself, shows them in the terminal it runs in
+  (`--foreground`, a typed `y`) or in a native dialog, and on the person's yes signs a decision over
+  exactly those ids, each bound to a digest of the item it showed. Sessions release or drop only
+  what such a decision covers; an item that arrived later, a copy changed on disk and a replayed
+  decision release nothing, and a resume lifts only a pause that started before it was signed.
+  The asking command (or VS Code) shows a six-digit code that the signer shows too. The signer runs
+  its dialog programs by absolute path, only when they are root's alone (never from `PATH`, also
+  for the `--ask-gui` passphrase dialog, which now names the process that asked), ends every ask
+  after 5 minutes or when the asker goes away, waits after a decline before it asks again, refuses
+  an id whose held copies differ in what it would show, takes a resume only for a roster device's
+  breaker holds, and refuses every decision when an agent is among the processes that started it. Mark files (`held/<id>.approve`, `.refuse`, `.resume`,
+  `control/resume-<peer>`) are refused while the keys are in the signer, and `wim doctor` lists any
+  it finds; a locked or stopped signer takes no decision. The Claude Code pane's buttons then say
+  to decide with `wim held` or VS Code, and VS Code waits up to 7 minutes for the answer. Without a
+  signer nothing changes, and `wim doctor` advises running one. No wire or relay change
+  (SECURITY-MODEL 7.1, 7.2 and 9; docs/design.md, the signer).
+
 - **`wim setup` configures every agent it finds.** After the Claude Code and VS Code steps, it
   looks for Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI and Claude Desktop (a
   command on `PATH`, or the agent's config directory) and, for each, adds the worldinmotion MCP
@@ -57,6 +77,17 @@ body line with a bracket.
   client frame gained a key. The SQL store adds a `fired` column to `idle` (schema 3, additive, so a
   relay rolled back to 0.1.x still runs on the database). The hosted relay has it from its next
   deploy (SPEC sections 8, 9 and 10).
+
+- **`wim wait-idle` and `wim send --wait-idle`, for scripts.** `wim wait-idle <address,...>` arms a
+  finished notice for each address in a CLI session and waits, printing one line per notice (one
+  JSON object per line with `--json`): exit 0 when every address has its notice (any one with
+  `--any`), 1 when a watch is refused (this command's own address, past the 16 open watches, or an
+  address the relay does not know; with `--any`, only once no address is left to wait for), and 2
+  at `--timeout` (default and most 12h, a watch's life).
+  `wim send <to> <text...> --wait-idle [--timeout 12h]` arms first, then sends, then waits the same
+  way, so a session that finishes at once is not missed. A quiet notice (about a device you do not
+  trust, or one the loop breaker pauses or limits) ends the wait too, and its line says it was
+  quiet. A dropped connection does not end the wait (docs/peers.md, "Waiting from a script").
 
 - **Your own devices are trusted inside the approvals you already give.** `wim invite` asks "Is the
   new device one of yours? Its messages will then be trusted here when it joins. [y/N]" before it
@@ -176,8 +207,28 @@ body line with a bracket.
   address. A relay refusal is taken only for an arm in flight (or, with `of`, an open watch), one
   per arm. A damaged `watches.json` is left as it is, and arms are refused until it is removed. A
   channel push writes `busy-mesh` first, and pushes nothing when it cannot. SPEC section 8 and
-  SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3 and 9 say so. **Until the Claude Code plugin reads
-  `quiet` (N2, which must merge before 0.2.0 ships), Claude Code hands quiet notices over as turns.**
+  SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3 and 9 say so.
+- **The Claude Code plugin honours `quiet`, and only an armed notice wakes.** An item starts a
+  turn only when it is a message, task, result or file, or an idle notice this session armed (it
+  names the watched device), and is not `quiet`. Any other notice, one from before the watch was
+  named, an item of an unknown kind or none, and one with a malformed `quiet` never start one.
+  During a turn such an item is added to it, otherwise it waits in the `/wim` pane, under quiet
+  notices, apart from relayed items, and for `inbox`. The client spools its own notices
+  (unreadable or dropped messages, held receipts, claims, releases, renames, lost leases, pauses)
+  `quiet`, and a held sender's message the person approves too, so the channel push skips them;
+  the agent's ones, and notices from an older client, wait in the box for `inbox`. A waking notice
+  starts one turn, as before. Every turn the plugin starts writes `busy-mesh` to the session's
+  presence first, and when that write fails nothing is submitted: the items wait for a turn end
+  that can write it. A person's prompt that starts while a submit is pending no longer takes that
+  submit's place, presence stays `busy-mesh` until the submit's turn starts, and pending submits
+  are forgotten only after 30 seconds idle with nothing started. SendMessage with
+  `notify_when_idle` and no message (or an empty one) only arms the watch, sends no text, and
+  answers "worldinmotion will tell this session when `<to>` finishes". SECURITY-MODEL section 7.3
+  and the plugin README say so.
+- **Receipts only for messages this session sent.** A receipt for any other id is dropped and
+  logged before it is kept or told: no event, no notice and no history line. At most four
+  unknown ids are looked up in history at once, and the receipts kept for `send --wait` are
+  bounded.
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device

@@ -195,7 +195,8 @@ describe("L1 (continued)", () => {
     sp.write = async (i) => { if (fail && i.kind === "msg") { fail = false; throw enospc(); } return write(i); };
     await fs.mkdir(b.files.controlDir, { recursive: true });
     await fs.writeFile(`${b.files.controlDir}/resume-a@one`, "");
-    await until(() => lines.some((l) => l.startsWith("wim: housekeeping: ENOSPC")));
+    // Each item is released on its own: the one that failed is logged and stays held.
+    await until(() => lines.some((l) => /^wim: held message [0-9A-Z]{26}: .*ENOSPC.*; it stays held$/.test(l)));
     expect((await b.held.list()).map((h) => h.entry.text)).toEqual(["2"]);
   }, 30_000);
 });

@@ -4,8 +4,9 @@
 
 import { isUlid, sanitizeForDisplay, type FileInfo } from "@worldinmotion/protocol";
 import { join } from "node:path";
-import { listDir, listFiles, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { listDir, listFiles, readJson, readText, removeFile, tryRemove, withLock, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import type { Pause } from "./breaker.ts";
+import type { Decision } from "./decisions.ts";
 import type { HistoryEntry } from "./history.ts";
 import type { SpoolKind } from "./spool.ts";
 
@@ -114,6 +115,26 @@ export class HeldBox {
     await writeAtomic(join(this.dir, `${id}.${verdict}`), "", this.env);
   }
 
+  /** Leaves a signed decision for the process that runs this session (a device whose keys are in the signer). */
+  async leaveDecision(d: Decision): Promise<void> {
+    await writeJson(join(this.dir, `${d.n}.decision`), d, this.env);
+  }
+
+  /**
+   * Signed decisions left by other processes, consumed as they are read: what each file holds,
+   * unchecked (the session checks the signature). One that cannot be removed yet waits for the next pass.
+   */
+  async takeDecisions(): Promise<unknown[]> {
+    const out: unknown[] = [];
+    for (const name of (await listFiles(this.dir)).sort()) {
+      if (!/^[0-9A-Z]{26}\.decision$/.test(name)) continue;
+      const path = join(this.dir, name);
+      const raw = await readJson(path).catch(() => undefined);
+      if (await tryRemove(path, this.env)) out.push(raw);
+    }
+    return out;
+  }
+
   /** Decisions left by other processes (`wim held`, the plugin's pane), consumed as they are read. */
   async takeMarks(): Promise<Array<{ id: string; verdict: Mark }>> {
     return (await takeMarks(this.dir, ["approve", "refuse", "resume"], this.env)).map(({ id, mark }) => ({ id, verdict: mark as Mark }));
@@ -135,4 +156,26 @@ export async function takeMarks(dir: string, marks: readonly string[], env: FsEn
     out.push({ id: m[1]!, mark: m[2]! });
   }
   return out;
+}
+
+/**
+ * Records that the signed decision named `key` (a session and the decision's `n`) was acted on,
+ * until `until` (when it is too old to be taken anyway); false when it was already. The record is
+ * the mesh's (`decisions.used` in its directory), written under its lock, so a session opened
+ * later finds what was used before it. It fails closed: a record that cannot be read is thrown,
+ * never started over; a missing one is empty. Entries past their time are dropped.
+ */
+export async function useDecision(path: string, key: string, until: number, now: number, env: FsEnv): Promise<boolean> {
+  return withLock(
+    `${path}.lock`,
+    async () => {
+      const raw = await readJson(path);
+      if (raw !== undefined && (typeof raw !== "object" || raw === null || Array.isArray(raw))) throw new Error(`${path}: not a record of decisions`);
+      const kept = Object.fromEntries(Object.entries((raw ?? {}) as Record<string, unknown>).filter(([, t]) => typeof t === "number" && t > now));
+      if (kept[key] !== undefined) return false;
+      await writeJson(path, { ...kept, [key]: until }, env);
+      return true;
+    },
+    env,
+  );
 }

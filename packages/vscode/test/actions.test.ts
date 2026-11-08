@@ -5,7 +5,7 @@ import { Store } from "../src/state.ts";
 import { SCHEME, ThreadProvider } from "../src/thread.ts";
 import { Nodes } from "../src/tree.ts";
 import { fake, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
-import { device, flush, heldRow, mesh, NOW } from "./helpers.ts";
+import { device, flush, heldRow, hello, mesh, NOW } from "./helpers.ts";
 
 type Call = { op: string; args: Record<string, unknown>; timeoutMs: number | undefined };
 
@@ -410,6 +410,32 @@ describe("setTrust", () => {
     fake.state.messageAnswers.push("Untrust");
     await actions.setTrust(d, d.nodes.device("buildbox"), "untrust");
     expect(last()!.message).toBe("worldinmotion: could not change the policy for buildbox: not_found: no device named buildbox");
+  });
+});
+
+describe("a decision the signer confirms", () => {
+  it("sends a fresh code with approve, refuse and resume, and shows it first, only when the keys are in the signer", async () => {
+    const set = { set: "device:dev-buildbox", set_title: "device buildbox (device id dev-buildbox)" };
+    const store = mesh({ held: [heldRow("h1", { ...set }), heldRow("h2", { ...set, at: NOW + 1 }), heldRow("h3", { ...set, at: NOW + 2 })] });
+    store.apply({ ...hello(), keys: "signer" } as never);
+    const { d, calls } = deps(store, async (c) => ({ decided: (c.args.set as string[] | undefined) ?? [c.args.held], released: 1 }));
+    const codes = ["111111", "222222", "333333"];
+    d.code = () => codes.shift()!;
+    fake.state.messageAnswers.push("Approve all 3", "Refuse only this one");
+    await actions.approve(d, d.nodes.held("vscode@laptop", "h2"));
+    await actions.refuse(d, d.nodes.held("vscode@laptop", "h2"));
+    await actions.resume(d, d.nodes.session("coder@buildbox"));
+    expect(calls.map((c) => c.args)).toEqual([
+      { held: "h1", set: ["h1", "h2", "h3"], code: "111111" },
+      { held: "h2", code: "222222" },
+      { peer: "coder@buildbox", code: "333333" },
+    ]);
+    const info = fake.state.messages.filter((m) => m.level === "info").map((m) => m.message);
+    expect(info.filter((m) => m.includes("the signer shows the code"))).toEqual(["111111", "222222", "333333"].map((c) => `worldinmotion: confirm it in the signer, only if the signer shows the code ${c}.`));
+    // A code of its own when none is given: six digits.
+    delete d.code;
+    await actions.resume(d, d.nodes.session("coder@buildbox"));
+    expect(calls.at(-1)!.args["code"]).toMatch(/^\d{6}$/);
   });
 });
 

@@ -1,6 +1,6 @@
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { ancestry, parseChain, POINTER_LEVELS, procStat, psTable, realAncestryDeps, sameProcess, type AncestryDeps } from "../src/ancestry.ts";
+import { agentAncestor, ancestry, controllingTerminal, parseChain, POINTER_LEVELS, processFacts, procStat, psTable, realAncestryDeps, realSignerChecks, sameProcess, type AncestryDeps } from "../src/ancestry.ts";
 import { processIo, type Proc } from "../src/io.ts";
 
 /** `/proc/<pid>/stat` for a process: the name in parentheses, then the fields, starttime 22nd. */
@@ -106,5 +106,87 @@ describe("ancestry", () => {
     expect(parseChain("no")).toBeUndefined();
     expect(parseChain(Array.from({ length: POINTER_LEVELS + 1 }, (_, i) => ({ pid: i + 1, start: "" })))).toBeUndefined();
     for (const bad of [null, 5, { pid: 0, start: "" }, { pid: 1.5, start: "" }, { pid: 1 }, { pid: 1, start: "x".repeat(65) }]) expect(parseChain([bad])).toBeUndefined();
+  });
+});
+
+/** A Linux machine of `procs`: each pid's parent, command line and environment; `unreadable` environs fail. */
+function procs(table: Record<number, { ppid: number; argv?: string[]; env?: string[] }>, unreadable: number[] = []): AncestryDeps {
+  return {
+    platform: "linux",
+    pid: 10,
+    ppid: 9,
+    readFile: async (path) => {
+      const m = /^\/proc\/(\d+|self)\/(stat|cmdline|environ)$/.exec(path)!;
+      const pid = m[1] === "self" ? 10 : Number(m[1]);
+      const p = table[pid];
+      if (p === undefined || (m[2] === "environ" && unreadable.includes(pid)) || (m[2] === "cmdline" && p.argv === undefined)) throw new Error("EACCES");
+      if (m[2] === "stat") return stat(pid, "x", p.ppid, pid);
+      return `${(m[2] === "cmdline" ? p.argv! : (p.env ?? [])).join("\0")}\0`;
+    },
+    execFile: async () => {
+      throw new Error("not on linux");
+    },
+  };
+}
+
+describe("an agent above the signer", () => {
+  it("is one started with an agent's variables, or running an agent's program, anywhere up the chain", async () => {
+    const shell = { ppid: 8, argv: ["bash"], env: ["HOME=/h", "CLAUDECODE=1", "junk"] };
+    expect(await agentAncestor(procs({ 10: { ppid: 9 }, 9: { ppid: 8, argv: ["script", "-qc", "wim  agent\tstart"], env: [] }, 8: shell, 7: { ppid: 0 } }))).toBe("process 8 above this signer (bash) has CLAUDECODE set");
+    expect(await agentAncestor(procs({ 10: { ppid: 9 }, 9: { ppid: 8, argv: ["/usr/bin/node", "/opt/lib/codex.js"] }, 8: { ppid: 0 } }))).toBe("process 9 above this signer (/usr/bin/node /opt/lib/codex.js) runs codex");
+    expect(await agentAncestor(procs({ 10: { ppid: 9 }, 9: { ppid: 8, argv: ["C:\\bin\\claude.exe"] }, 8: { ppid: 0 } }))).toMatch(/runs claude$/);
+    // A parent whose command line cannot be read is passed over; an environment that cannot be read is none.
+    expect(await agentAncestor(procs({ 10: { ppid: 9 }, 9: { ppid: 8 }, 8: { ppid: 7, argv: ["sshd"], env: ["CLAUDECODE=1"] }, 7: { ppid: 0 } }, [8]))).toBeUndefined();
+    expect(await agentAncestor(procs({ 10: { ppid: 9 }, 9: { ppid: 8, argv: ["bash"], env: ["TERM=xterm"] }, 8: { ppid: 0, argv: ["systemd"] } }))).toBeUndefined();
+  });
+
+  it("is read from ps on macOS, and not at all elsewhere", async () => {
+    const calls: Array<readonly string[]> = [];
+    const mac: AncestryDeps = {
+      platform: "darwin",
+      pid: 10,
+      ppid: 9,
+      readFile: async () => "",
+      execFile: async (_f, args) => {
+        calls.push(args);
+        if (args[0] === "-A") return "10 9 Mon Jan 1 00:00:00 2026\n9 1 Mon Jan 1 00:00:00 2026\n";
+        return args.at(-1) === "9" ? "/bin/zsh -l TERM=xterm GEMINI_CLI=1\n" : "";
+      },
+    };
+    expect(await processFacts(mac, 9)).toEqual({ argv: ["/bin/zsh", "-l"], env: { TERM: "xterm", GEMINI_CLI: "1" } });
+    expect(await processFacts(mac, 5)).toBeUndefined();
+    expect(await processFacts({ ...mac, execFile: async () => Promise.reject(new Error("no ps")) }, 9)).toBeUndefined();
+    expect(calls).toContainEqual(["-E", "-ww", "-o", "command=", "-p", "9"]);
+    expect(await agentAncestor(mac)).toBe("process 9 above this signer (/bin/zsh -l) has GEMINI_CLI set");
+    expect(await processFacts({ ...mac, platform: "win32" }, 9)).toBeUndefined();
+    expect(await agentAncestor({ ...mac, platform: "win32" })).toBeUndefined();
+  });
+
+  it("checks the signer's input is its controlling terminal, and names its parent", async () => {
+    const line = (tty: number): string => `10 (wim) S 9 10 10 ${tty} 10 0\n`;
+    expect(controllingTerminal(line(34816), 34816)).toBeUndefined();
+    expect(controllingTerminal(line(34816), 34817)).toBe("this signer's input is not its controlling terminal");
+    expect(controllingTerminal(line(0), 0)).toBe("this signer has no controlling terminal");
+    expect(controllingTerminal("garbage", 0)).toBe("this signer has no controlling terminal");
+    const d = procs({ 10: { ppid: 9 }, 9: { ppid: 0, argv: ["gnome-terminal", "--", "wim"] } });
+    const checks = realSignerChecks({ ...d, readFile: async (p) => (p === "/proc/self/stat" ? line(5) : d.readFile(p)) }, () => 5);
+    expect(await checks.terminal()).toBeUndefined();
+    expect(await checks.askedBy()).toBe("gnome-terminal -- wim");
+    expect(await checks.agentAncestor()).toBeUndefined();
+    expect(await realSignerChecks({ ...d, readFile: async () => Promise.reject(new Error("no proc")) }, () => 5).terminal()).toBe("this signer has no controlling terminal");
+    const mac = realSignerChecks({ ...d, platform: "darwin", execFile: async () => "" }, () => 5);
+    expect(await mac.terminal()).toBeUndefined();
+    expect(await mac.askedBy()).toBeUndefined();
+  });
+
+  it("is checked for this process by the CLI", async () => {
+    const proc = { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), platform: "win32", pid: 7, ppid: 50, cwd: () => "/", once: () => undefined, on: () => undefined } as unknown as Proc;
+    const io = processIo(proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined, wim: () => [] });
+    expect(await io.signerChecks!.agentAncestor()).toBeUndefined();
+    expect(await io.signerChecks!.terminal()).toBeUndefined();
+    expect(await io.signerChecks!.askedBy()).toBeUndefined();
+    // On Linux it reads this process's own stat and standard input.
+    const linuxIo = processIo({ ...proc, platform: "linux" } as Proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined, wim: () => [] });
+    expect(["string", "undefined"]).toContain(typeof (await linuxIo.signerChecks!.terminal()));
   });
 });

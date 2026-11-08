@@ -22,6 +22,7 @@ import { resolveInvite, type BoxFetcher } from "./shortcode.ts";
 import { decideHeld, listAllHeld, resumeEverywhere, type HeldRow } from "./offline.ts";
 import { loadCiRules, type CiRule } from "./cirules.ts";
 import type { Verdict } from "./held.ts";
+import { CODE_RE, decisionCode, decisionFor, decisionsFor, NEEDS_SIGNER, type DecideRequest, type Decision, type DecisionVerdict } from "./decisions.ts";
 import { pinsIds, setFields, setKey } from "./heldsets.ts";
 import { listAllPauses } from "./pauses.ts";
 import { policyLevel } from "./render.ts";
@@ -65,9 +66,17 @@ export type EventsDeps = {
    * `invite`, `admit`, `approve`, `refuse`, `resume`, `trust` and `untrust` are refused when one is set.
    */
   agent?: string;
+  /**
+   * Asks this device's signer for a decision on held messages (decisions.ts requestDecision). Used
+   * when the keys are in the signer: then an approve, refuse or resume goes ahead only signed.
+   */
+  decide?: (req: DecideRequest, stop?: AbortSignal) => Promise<Decision>;
 };
 
 type Row = Record<string, unknown>;
+
+/** Runs `fn` (waiting for the person in the signer) without holding the request queue, then takes the queue's next turn. */
+type Ask = <T>(fn: () => Promise<T>) => Promise<T>;
 
 const Request = z.object({ v: z.literal(EVENTS_VERSION), id: z.string().min(1).max(200), op: z.string(), args: z.record(z.string(), z.unknown()).optional() });
 const To = z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]);
@@ -78,11 +87,12 @@ const Args = {
   send_file: z.object({ to: To, path: z.string().min(1) }),
   // `set`: the ids of the set the person was shown (a UI draws one set per sending device or CI
   // rule); the decision covers exactly those. Without it, `held` alone is decided.
-  approve: z.object({ held: z.string(), set: z.array(z.string()).min(1).max(1000).optional() }),
-  refuse: z.object({ held: z.string(), set: z.array(z.string()).min(1).max(1000).optional() }),
+  // `code`: the code the UI showed the person, which the signer shows too (one is made when none is given).
+  approve: z.object({ held: z.string(), set: z.array(z.string()).min(1).max(1000).optional(), code: z.string().regex(CODE_RE).optional() }),
+  refuse: z.object({ held: z.string(), set: z.array(z.string()).min(1).max(1000).optional(), code: z.string().regex(CODE_RE).optional() }),
   trust: z.object({ device: z.string(), relayed: z.boolean().optional() }),
   untrust: z.object({ device: z.string() }),
-  resume: z.object({ peer: z.string() }),
+  resume: z.object({ peer: z.string(), code: z.string().regex(CODE_RE).optional() }),
   invite: z.object({ exp: z.number().int().min(60_000).max(LIMITS.inviteMaxTtlMs).optional(), own: z.boolean().optional() }),
   admit: z.object({ device: z.string(), code: z.string().min(1).max(64) }),
 } as const;
@@ -232,12 +242,29 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     joins = next;
   }
 
+  /**
+   * The signer's decision over `ids` when this device's keys are in it (the person confirms it in
+   * the signer's own terminal or dialog); undefined when they are not, and nothing changes.
+   */
+  async function signed(ask: Ask, verdict: DecisionVerdict, ids: readonly string[], code: string | undefined, peer?: string): Promise<Decision[] | undefined> {
+    if (d.device.keyring.kind !== "signer") return undefined;
+    const decide = d.decide;
+    if (decide === undefined) throw new RequestError("needs_signer", `${NEEDS_SIGNER}, and this process cannot ask it`);
+    // Nothing to ask the person about: an approve or refuse of ids no session holds any more.
+    const held = new Set((await listAllHeld(d.mesh, d.env)).map((r) => r.id));
+    if (verdict !== "resume" && !ids.some((id) => held.has(id))) throw new RequestError("not_found", `no held message ${ids[0]!}`);
+    // The person may take minutes: the request gives up its turn meanwhile (ask), so other requests
+    // are answered; when this process stops, the ask is dropped (stopping) and nothing is decided.
+    const shown = code ?? decisionCode();
+    return ask(() => decisionsFor((chunk) => decide({ mesh: s.config.mesh, verdict, ids: chunk, code: shown, ...(peer === undefined ? {} : { peer }) }, stopping.signal), ids));
+  }
+
   /** Decides one held id wherever it is held; false when nothing held it. */
-  async function decideOne(id: string, verdict: Verdict): Promise<boolean> {
+  async function decideOne(id: string, verdict: Verdict, decision: Decision | undefined): Promise<boolean> {
     // This process decides its own items itself (it can send the receipt); others on disk.
     const mine = (await s.held.get(id)) !== undefined;
-    if (mine) await s.decide(id, verdict);
-    const others = await decideHeld(d.mesh, id, verdict, d.env, d.now, s.sid);
+    if (mine) await s.decide(id, verdict, decision);
+    const others = await decideHeld(d.mesh, id, verdict, d.env, d.now, s.sid, decision);
     return mine || others > 0;
   }
 
@@ -248,7 +275,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
    * UI drew the set is not in `ids`, so it stays held. Approving never covers a notice that pins its
    * rule's ids (`kept`): that one is approved on its own, at the person's terminal.
    */
-  async function decideSet(held: string, ids: readonly string[], verdict: Verdict): Promise<Row> {
+  async function decideSet(ask: Ask, held: string, ids: readonly string[], verdict: Verdict, code: string | undefined): Promise<Row> {
     if (!ids.includes(held) || !ids.every(isUlid)) throw new RequestError("input", "set must be the held ids shown, held among them");
     const rules = await loadCiRules(d.mesh.ciRulesPath).catch(() => []);
     const rows = await listAllHeld(d.mesh, d.env);
@@ -261,20 +288,21 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     const stranger = now.find((r) => setKey(r, rules) !== key);
     if (stranger !== undefined) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held}: each set is decided on its own`);
     const decided: string[] = [];
-    const kept: string[] = [];
     const gone = unique.filter((id) => !now.some((r) => r.id === id));
-    for (const r of now) {
-      if (verdict === "approve" && pinsIds(r)) kept.push(r.id);
-      else if (await decideIfHeld(r.id, verdict)) decided.push(r.id);
+    const kept = now.filter((r) => verdict === "approve" && pinsIds(r)).map((r) => r.id);
+    const go = now.filter((r) => !kept.includes(r.id));
+    const decisions = go.length === 0 ? undefined : await signed(ask, verdict, go.map((r) => r.id), code);
+    for (const r of go) {
+      if (await decideIfHeld(r.id, verdict, decisionFor(decisions, r.id))) decided.push(r.id);
       else gone.push(r.id);
     }
     return { decided, kept, gone };
   }
 
   /** decideOne, with an item decided elsewhere meanwhile (not found) as false; any other error is thrown. */
-  async function decideIfHeld(id: string, verdict: Verdict): Promise<boolean> {
+  async function decideIfHeld(id: string, verdict: Verdict, decision: Decision | undefined): Promise<boolean> {
     try {
-      return await decideOne(id, verdict);
+      return await decideOne(id, verdict, decision);
     } catch (error) {
       if (error instanceof ClientError && error.code === "not_found") return false;
       throw error;
@@ -480,7 +508,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   }
 
   // `a` was validated against Args[op], so each branch reads it as that shape.
-  async function run(op: Op, a: any): Promise<Row> {
+  async function run(op: Op, a: any, ask: Ask): Promise<Row> {
     switch (op) {
       case "snapshot":
         await snapshot();
@@ -499,11 +527,11 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       case "approve":
       case "refuse": {
         personOnly(d.agent, op === "approve" ? "approving a held message" : "refusing a held message");
-        const i = a as { held: string; set?: string[] };
+        const i = a as { held: string; set?: string[]; code?: string };
         if (!isUlid(i.held)) throw new RequestError("input", "held must be a held message id");
         const verdict = op === "approve" ? "approve" : "refuse";
-        if (i.set !== undefined) return decideSet(i.held, i.set, verdict);
-        if (!(await decideOne(i.held, verdict))) throw new RequestError("not_found", `no held message ${i.held}`);
+        if (i.set !== undefined) return decideSet(ask, i.held, i.set, verdict, i.code);
+        if (!(await decideOne(i.held, verdict, decisionFor(await signed(ask, verdict, [i.held], i.code), i.held)))) throw new RequestError("not_found", `no held message ${i.held}`);
         return {};
       }
       case "trust":
@@ -519,8 +547,15 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       }
       case "resume": {
         personOnly(d.agent, "releasing what the loop breaker held");
-        const peer = (a as { peer: string }).peer;
-        const released = (await s.resumePeer(peer)) + (await resumeEverywhere(d.mesh, peer, d.env, d.now, s.sid));
+        const { peer, code } = a as { peer: string; code?: string };
+        // What the pause holds now, for the signer to show: a resume releases only those.
+        const device = peer.split("@")[1];
+        const paused = (await listAllHeld(d.mesh, d.env)).filter((r) => r.reason === "breaker" && r.from.split("@")[1] === device).map((r) => r.id);
+        // More than one decision takes holds in chunks; without a signer, one resume with none.
+        let released = 0;
+        for (const decision of (await signed(ask, "resume", [...new Set(paused)], code, peer)) ?? [undefined]) {
+          released += (await s.resumePeer(peer, decision)) + (await resumeEverywhere(d.mesh, peer, d.env, d.now, s.sid, decision));
+        }
         return { released };
       }
       case "invite": {
@@ -546,7 +581,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     }
   }
 
-  async function handle(line: string): Promise<void> {
+  async function handle(line: string, ask: Ask): Promise<void> {
     let id: string | undefined;
     try {
       let raw: unknown;
@@ -565,7 +600,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       const op = req.data.op as Op;
       const args = Args[op].safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "));
-      const result = await run(op, args.data as never);
+      const result = await run(op, args.data as never, ask);
       emit("response", { id, ok: true, result });
     } catch (error) {
       const code = error instanceof RequestError ? error.code : error instanceof ClientError ? (error.code === "secret" ? "refused" : error.code === "bad_address" ? "input" : error.code) : "error";
@@ -614,20 +649,51 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   }, d.pollMs ?? 500);
   const leaseTick = setInterval(() => void leasePass().catch(() => undefined), d.leasePollMs ?? 5000);
 
-  // Requests are answered in order, one at a time.
-  let queue = Promise.resolve();
+  /** Aborted once this process stops (stdin closed or the signal): asks still open are dropped. */
+  const stopping = new AbortController();
+  // Requests are answered in order, one at a time; a request waiting for the person in the signer
+  // gives up its turn meanwhile (ask), and takes the next free turn for what it does after.
+  let queue: Promise<void> = Promise.resolve();
+  const inflight = new Set<Promise<void>>();
+  /** The next turn: resolves once every earlier turn ended, with the function that ends this one. */
+  const turn = (): Promise<() => void> => {
+    let end!: () => void;
+    const ended = new Promise<void>((resolve) => (end = resolve));
+    const mine = queue.then(() => end);
+    queue = queue.then(() => ended);
+    return mine;
+  };
   const lines = createInterface({ input: d.input });
   lines.on("line", (line) => {
     if (line.trim() === "") return;
-    queue = queue.then(() => handle(line));
+    const job = turn().then(async (first) => {
+      let end = first;
+      const ask: Ask = async (fn) => {
+        end();
+        try {
+          return await fn();
+        } finally {
+          end = await turn();
+        }
+      };
+      try {
+        await handle(line, ask);
+      } finally {
+        end();
+      }
+    });
+    inflight.add(job);
+    void job.then(() => inflight.delete(job));
   });
   const ended = new Promise<void>((resolve) => lines.once("close", resolve));
   const aborted = new Promise<void>((resolve) => (d.signal.aborted ? resolve() : d.signal.addEventListener("abort", () => resolve(), { once: true })));
   await Promise.race([ended, aborted]);
+  // Asks still waiting for the person are dropped, so the requests in flight end now.
+  stopping.abort();
   clearInterval(tick);
   clearInterval(leaseTick);
   lines.close();
-  await queue;
+  await Promise.all(inflight);
 }
 
 export type SetupDeps = {

@@ -1,14 +1,15 @@
 // The real process as the CLI sees it: output, prompts, Ctrl-C, and the facts about the machine.
 
+import { fstatSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { createInterface, type Interface } from "node:readline";
 import { Writable, type Readable } from "node:stream";
 import { spawnDetached, wimCommand } from "./agentcli.ts";
-import { runProgram } from "./autostart.ts";
+import { realToolTrust, runProgram } from "./autostart.ts";
 import { execRunner } from "./setup.ts";
 import { inheritRelaunch } from "./npxsetup.ts";
 import type { CliIO } from "./cli.ts";
-import { ancestry, realAncestryDeps } from "./ancestry.ts";
+import { ancestry, realAncestryDeps, realSignerChecks } from "./ancestry.ts";
 import { pidAlive } from "./platform.ts";
 
 /**
@@ -96,7 +97,7 @@ export function processIo(
       return answer;
     },
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
-    programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
+    programs: { platform: proc.platform, run: runProgram, wim: machine.wim(), trust: realToolTrust(proc.platform) },
     tools: execRunner(proc.platform),
     relaunch: inheritRelaunch(),
     signal: stop.signal,
@@ -116,5 +117,6 @@ export function processIo(
     // Orphaned children are re-parented, so a changed ppid means the parent died.
     parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill),
     ancestry: (levels) => ancestry({ ...realAncestryDeps(proc.platform), pid: proc.pid, ppid: proc.ppid }, levels),
+    signerChecks: realSignerChecks({ ...realAncestryDeps(proc.platform), pid: proc.pid, ppid: proc.ppid }, () => fstatSync(0).rdev),
   };
 }

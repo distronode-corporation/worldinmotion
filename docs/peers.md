@@ -132,6 +132,43 @@ notes below). While it waits, `wait` sends an MCP progress notification every 30
 that asked for progress, which keeps idle timers from firing. If your agent's tool timeout is
 shorter than 110 seconds and you cannot raise it, tell the agent to pass a smaller `timeout_s`.
 
+## Waiting from a script (`wim wait-idle`)
+
+A script, a CI job or a person at a terminal can wait for a session to finish, the CLI side of
+`notify_when_idle`:
+
+```sh
+wim send worker@build "run the release checklist" --wait-idle --timeout 2h
+wim wait-idle worker@build,reviewer@desk --json
+wim wait-idle worker@build,reviewer@desk --any --timeout 30m
+```
+
+- **What it waits for.** One finished notice per address: the relay's word that the session
+  reported the end of a turn, ended, or has been offline for 60 seconds. It is a label, never proof
+  that the work was done; for work shaped as a task, `ask` and `reply` give a real answer.
+- **`wim send --wait-idle`** arms the watch first, then sends, then waits, so a session that
+  finishes at once is not missed. If the watch cannot be armed, nothing is sent.
+- **Exit codes.** `0` when every address has its notice (any one with `--any`); `1` when a watch
+  is refused: this command's own address (a session never watches itself; use `--as <name>`), more
+  than 16 open watches in the session, or an address the relay does not know; `2` at `--timeout`
+  (default 12h, and at most 12h, as a watch lapses 12 hours after it is armed). With `--any`, a
+  refused address is reported and the wait goes on for the others, so it exits `1` only when none
+  is left to wait for. Ctrl-C exits 130.
+- **Output.** One line per notice or refusal, and a line at the timeout. With `--json`, each line
+  is one JSON object and nothing else is printed: `{"of":"worker@build","end":"idle","why":"ended","quiet":false}`,
+  `{"of":"ghost@build","end":"refused","code":"not_found"}`, `{"end":"timeout","waiting":["reviewer@desk"]}`.
+  `why` is `idle`, `ended` or `offline` when the relay says one this version knows.
+- **Quiet notices end the wait too.** A notice about a device you do not trust, or one the loop
+  breaker pauses or limits, would not start an agent turn. For a wait it still means the session
+  finished, so it ends the wait, and the line says it was quiet (`"quiet": true`).
+- **Reconnects.** A dropped connection does not end the wait: the client sends an arm the relay
+  does not have yet at the next `ready`, and the relay keeps a notice that fired meanwhile for it.
+- **The session.** The wait runs as the terminal session `cli@<device>` (or `--as <name>`), whose
+  inbox keeps the notices too. A watch that timed out stays open until its notice or its 12 hours,
+  and a later command of the same session arms it again. A notice the relay kept for such an
+  older watch, while the session was offline, does not end a new wait on that address. While a `wim watch` reads as that name,
+  `wim send --wait-idle` asks for `--as <name>`, since the notice goes to the session that armed it.
+
 ## What `wim setup` writes
 
 `wim setup`, run in a terminal you opened yourself, looks for each agent below: its command on

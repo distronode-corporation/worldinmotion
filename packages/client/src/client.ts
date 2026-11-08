@@ -10,6 +10,7 @@ import {
   isRecoveryName,
   isRoom,
   isVectorKey,
+  knownIdleWhy,
   leaseKey,
   LIMITS,
   openBlob,
@@ -23,12 +24,14 @@ import {
   signAuthWith,
   ulid,
   ulidTime,
+  isUlid,
   type BlobChunkFrame,
   type ErrorFrame,
   type Card,
   type CiClaims,
   type CiNotice,
   type FileInfo,
+  type IdleWhy,
   type JwksFetch,
   type JoinBody,
   type LeaseFrame,
@@ -60,8 +63,9 @@ import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciL
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
-import { HeldBox, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
-import { frameEntry, History, releasedFrame, type HistoryEntry } from "./history.ts";
+import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
+import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
+import { frameEntry, History, KEEP_MS, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
 import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
 import { resumeEverywhere } from "./offline.ts";
@@ -76,7 +80,7 @@ import { NeedsSigner } from "./keyring.ts";
 import { PongBudget, type PingRow } from "./ping.ts";
 import { Invites, PendingJoins, screenJoin } from "./joins.ts";
 import { SignerError } from "./signer.ts";
-import { Spool, type SpoolItem } from "./spool.ts";
+import { keptInBox, mayStartTurn, Spool, type SpoolItem } from "./spool.ts";
 import { Watches, type Armed } from "./watches.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
 
@@ -346,6 +350,14 @@ type SentTask = { at: number; any: boolean; addressees: string[] };
 
 const CARD_EVERY_MS = 60_000;
 export const PARKED_MAX = 64;
+/** How many ids of its own sends a session remembers, to know their receipts before history has them. */
+export const SENT_IDS_MAX = 4096;
+/** How many sent ids keep their receipts in memory (MeshSession.receipts). */
+export const RECEIPTS_MAX = 1024;
+/** How many history lookups for receipts of unknown ids may run at once; more are dropped. */
+export const RECEIPT_LOOKUPS_MAX = 4;
+/** How far ahead of this clock a send id's time may be and still be this session's. */
+const RECEIPT_SKEW_MS = 5 * 60_000;
 /** How long an answer to a handed-over send waits for the CLI that asked. */
 export const ANSWER_KEEP_MS = 5 * 60_000;
 const GROUP = (to: readonly string[]): boolean => to.some((a) => a === "*" || isRoom(a));
@@ -423,6 +435,22 @@ const CI_DROP_LINES = 10;
 const CI_DROP_WINDOW_MS = 60_000;
 
 /** One session on one mesh. */
+/** Why the relay refused an arm, from its code only: the relay's own text is never passed on (SPEC section 8). */
+export function armRefusedWhy(code: string): string {
+  if (code === "not_found") return "the relay knows no session by that address (it may have ended)";
+  return code === "limited" ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay` : "the relay refused it";
+}
+
+/**
+ * What ended a watch, emitted as `watch` once its notice is in the spool (`wim wait-idle` reads
+ * it): the watched session's idle notice came (`why` when the relay said a reason this version
+ * knows), the relay refused the arm (`code`; `of` is unset when which arm is not known), or the
+ * watch lapsed. `until` is when the watch the idle notice closed would have lapsed, so a wait can
+ * tell its own arm from an older one of the session. `quiet`: the notice may not start a turn.
+ * `item` is the spooled notice.
+ */
+export type WatchEnd = { of?: string; end: "idle" | "refused" | "lapsed"; quiet: boolean; why?: IdleWhy; code?: string; until?: number; item: SpoolItem };
+
 export class MeshSession extends EventEmitter {
   readonly device: Device;
   readonly files: SessionFiles;
@@ -979,16 +1007,11 @@ export class MeshSession extends EventEmitter {
         if (f.peer.address !== this.address) this.peers.set(f.peer.address, f.peer);
         this.emit("peers");
         return;
-      case "receipt": {
-        const list = this.receipts.get(f.id) ?? [];
-        list.push({ to: f.to, status: f.status });
-        this.receipts.set(f.id, list);
-        this.emit("receipt", f);
-        void this.recordReceipt(f).catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`));
+      case "receipt":
+        this.onReceipt(f);
         return;
-      }
       case "notice":
-        void this.idleNotice(f.of).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
+        void this.idleNotice(f.of, knownIdleWhy(f.why)).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
         return;
       case "error":
         // Other refusals go to the request that waits for them; one for an arm has no waiter.
@@ -1701,7 +1724,7 @@ export class MeshSession extends EventEmitter {
     if (entry !== undefined && entry.ci === undefined) this.emit("message", { ...entry, cursor: written.cursor } satisfies Inbound);
     // A relayed item must not start a turn, so it waits in the inbox instead of being pushed; a
     // notice for the person is not the model's either, and a quiet one never starts a turn.
-    if (this.push !== undefined && written.relayed !== true && written.forPerson !== true && written.quiet !== true) {
+    if (this.push !== undefined && mayStartTurn(written)) {
       await this.push(written);
       await this.take(written.cursor);
     }
@@ -1715,7 +1738,7 @@ export class MeshSession extends EventEmitter {
    * address the agent armed, and the device that address names decides whether it may start a
    * turn (mayWake): the relay cannot change which device that is. One that may not is `quiet`.
    */
-  private async idleNotice(of: string): Promise<void> {
+  private async idleNotice(of: string, why: IdleWhy | undefined): Promise<void> {
     const watch = await this.watches.take(of, this.peers.get(of)?.sid);
     if (watch === undefined) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
     this.armsInFlight.delete(watch.of);
@@ -1723,7 +1746,7 @@ export class MeshSession extends EventEmitter {
     const device = this.roster.devices.find((d) => d.name === watch.of.slice(watch.of.indexOf("@") + 1));
     const wakes = device !== undefined && (await this.mayWake(device.id, watch.of));
     // Only the address the agent armed: never one the relay or the peer chose since (a rename).
-    await this.watchNotice(watch.of, `${watch.of} is now idle (or has ended).`, device?.id, !wakes);
+    await this.watchNotice(watch.of, `${watch.of} is now idle (or has ended).`, device?.id, !wakes, { of: watch.of, end: "idle", until: watch.until, ...(why === undefined ? {} : { why }) });
   }
 
   /**
@@ -1751,10 +1774,15 @@ export class MeshSession extends EventEmitter {
     return false;
   }
 
-  /** A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a turn. */
-  private async watchNotice(from: string, line: string, watched: string | undefined, quiet: boolean): Promise<void> {
+  /**
+   * A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a
+   * turn. One that ends a watch (`end`) is also emitted as `watch` once it is spooled, for `wim
+   * wait-idle`.
+   */
+  private async watchNotice(from: string, line: string, watched: string | undefined, quiet: boolean, end?: Omit<WatchEnd, "quiet" | "item">): Promise<void> {
     const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line) };
-    await this.deliver({ ...item, ...(watched === undefined ? {} : { watched }), ...(quiet ? { quiet: true as const } : {}) }, undefined);
+    const written = await this.deliver({ ...item, ...(watched === undefined ? {} : { watched }), ...(quiet ? { quiet: true as const } : {}) }, undefined);
+    if (end !== undefined) this.emit("watch", { ...end, quiet, item: written } satisfies WatchEnd);
   }
 
   /** Forgets the arms in flight for longer than the answer time: a refusal now is not theirs. */
@@ -1783,22 +1811,17 @@ export class MeshSession extends EventEmitter {
     if (byRelay === undefined && inFlight.length === 0) return this.log("wim: dropped a refusal of an idle notice: no arm was in flight");
     const only = inFlight.length === 1 && !inFlight[0]![1].unsure ? inFlight[0]![0] : undefined;
     const named = byRelay ?? only;
-    const why =
-      f.code === "not_found"
-        ? "the relay knows no session by that address (it may have ended)"
-        : f.code === "limited"
-          ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay`
-          : "the relay refused it";
+    const why = armRefusedWhy(f.code);
     if (named === undefined) {
       this.armsInFlight.delete(inFlight[0]![0]);
       for (const a of this.armsInFlight.values()) a.unsure = true;
-      return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, undefined, true);
+      return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, undefined, true, { end: "refused", code: f.code });
     }
     this.armsInFlight.delete(named);
     // Its watch was taken or removed meanwhile: nothing is left to tell.
     if (!open.includes(named)) return this.log(`wim: a refused idle notice for ${named} has no open watch`);
     await this.watches.drop(named);
-    await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, undefined, true);
+    await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, undefined, true, { of: named, end: "refused", code: f.code });
   }
 
   /** Tells the agent, quietly, about each watch that lapsed with no notice: once a minute at most. */
@@ -1808,7 +1831,7 @@ export class MeshSession extends EventEmitter {
     for (const w of await this.watches.lapse()) {
       this.armsInFlight.delete(w.of);
       this.unsentArms.delete(w.of);
-      await this.watchNotice(w.of, `no idle notice came for ${w.of} within 12 hours of the arm, so the watch lapsed and no notice will come for it. Arm it again if this session still needs to know.`, undefined, true);
+      await this.watchNotice(w.of, `no idle notice came for ${w.of} within 12 hours of the arm, so the watch lapsed and no notice will come for it. Arm it again if this session still needs to know.`, undefined, true, { of: w.of, end: "lapsed" });
     }
   }
 
@@ -1822,7 +1845,8 @@ export class MeshSession extends EventEmitter {
    * the person can act on it (restart this session).
    */
   async notice(from: string, line: string, held?: number, heldBy?: string, forPerson = false): Promise<void> {
-    const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line) };
+    // Quiet always: only an idle notice this session armed may start a turn (watchNotice).
+    const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line), quiet: true as const };
     await this.deliver(
       { ...item, ...(held === undefined ? {} : { held }), ...(heldBy === undefined ? {} : { heldBy }), ...(forPerson ? { forPerson: true as const } : {}) },
       undefined,
@@ -1834,7 +1858,38 @@ export class MeshSession extends EventEmitter {
    * person through the plugin's toast, or the agent) learns that it waits for the recipient's
    * person and is not delivered. Branches before any await (see AgentServer.answerLine).
    */
-  private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
+  private onReceipt(f: { id: string; to: string; status: string }): void {
+    if (this.sentIds.has(f.id)) return this.takeReceipt(f);
+    const dropped = (why: string): void => this.log(`wim: dropped a receipt for ${sanitizeForDisplay(f.id)}: ${why}`);
+    // Not sent by this run: sent before a restart (its history has it), or the relay's invention.
+    // Only an id history could hold is looked up, and only a few at a time.
+    const now = this.now();
+    if (!isUlid(f.id) || ulidTime(f.id) > now + RECEIPT_SKEW_MS || ulidTime(f.id) < now - KEEP_MS) return dropped("not a message this session sent");
+    if (this.receiptLookups >= RECEIPT_LOOKUPS_MAX) return dropped("too many receipts for unknown messages at once");
+    this.receiptLookups++;
+    void this.history
+      .find(f.id)
+      .then((entry) => (entry?.dir === "out" ? this.takeReceipt(f) : dropped("not a message this session sent")))
+      .catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`))
+      .finally(() => this.receiptLookups--);
+  }
+
+  /** Lookups in history for receipts this run does not know, under way now. */
+  private receiptLookups = 0;
+
+  /** A receipt for a message this session sent: kept for `send --wait` (the newest RECEIPTS_MAX ids), told, recorded. */
+  private takeReceipt(f: { id: string; to: string; status: string }): void {
+    const list = this.receipts.get(f.id) ?? [];
+    list.push({ to: f.to, status: f.status });
+    this.receipts.delete(f.id);
+    this.receipts.set(f.id, list);
+    if (this.receipts.size > RECEIPTS_MAX) this.receipts.delete(this.receipts.keys().next().value!);
+    this.emit("receipt", f);
+    void this.recordOwnReceipt(f).catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`));
+  }
+
+  /** A receipt for a message this session sent. */
+  private recordOwnReceipt(f: { id: string; to: string; status: string }): Promise<void> {
     const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
     // Something got through to that recipient: a later hold there is news again. (A pause it
     // reported is not over for that: the person there may have approved this one message alone.)
@@ -1850,6 +1905,15 @@ export class MeshSession extends EventEmitter {
 
   /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
   private readonly heldTold = new Set<string>();
+
+  /** Ids this run put on the wire, newest last, at most SENT_IDS_MAX: a receipt may come before the send is in history. */
+  private readonly sentIds = new Set<string>();
+
+  private noteSentId(id: string): void {
+    this.sentIds.delete(id);
+    this.sentIds.add(id);
+    if (this.sentIds.size > SENT_IDS_MAX) this.sentIds.delete(this.sentIds.values().next().value!);
+  }
 
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor: number): Promise<void> {
@@ -1886,7 +1950,12 @@ export class MeshSession extends EventEmitter {
       // The person's marks and the end of a cool-down change what is held and paused: on the
       // inbound queue, so neither interleaves with a message being admitted or held. Queued, not
       // waited for, so a slow frame never holds up this pass (the sweep and its receipts).
-      for (const { id, verdict } of await this.held.takeMarks()) void this.onQueue(() => this.applyMark(id, verdict)).catch(ignore);
+      // With the keys in the signer, a mark file is no decision: anything of the user's can write one.
+      for (const { id, verdict } of await this.held.takeMarks()) {
+        if (this.signed) this.log(`wim: ${unsignedRefusal(`${verdict} mark for held message ${id}`)}; it stays held`);
+        else void this.onQueue(() => this.applyMark(id, verdict)).catch(ignore);
+      }
+      for (const raw of await this.held.takeDecisions()) void this.onQueue(() => this.applyDecision(raw)).catch(ignore);
       this.queueRelease();
       if (this.link !== undefined) await this.flushLifts();
       if (this.countsChanged) await this.savePauses();
@@ -1913,7 +1982,8 @@ export class MeshSession extends EventEmitter {
         const body = req === null ? undefined : await readJson(path).catch(() => undefined);
         // Taking a request is removing it: one that cannot be removed yet is left for the next pass.
         if (!(await tryRemove(path, this.o.env))) continue;
-        if (m !== null) void this.resumePeer(m[1]!).catch((e: unknown) => this.log(`wim: housekeeping: ${(e as Error).message}`));
+        if (m !== null && this.signed) this.log(`wim: ${unsignedRefusal(`resume of ${sanitizeForDisplay(m[1]!)}`)}`);
+        else if (m !== null) void this.onQueue(() => this.resumeNow(m[1]!)).catch((e: unknown) => this.log(`wim: housekeeping: ${(e as Error).message}`));
         if (req !== null && this.o.handover === true) await this.handOverSend(req[1]!, body);
       }
       await this.book.reload();
@@ -2005,9 +2075,82 @@ export class MeshSession extends EventEmitter {
     return run;
   }
 
-  /** The person's decision on a held message (the pane, `wim held`). Never reachable by a message. */
-  decide(id: string, verdict: Verdict): Promise<void> {
-    return this.onQueue(() => this.decideNow(id, verdict));
+  /**
+   * Whether this device's keys are in the signer: then a decision on held messages is taken only
+   * signed by it (`decide` with a decision, or a decision file), never from a mark file.
+   */
+  get signed(): boolean {
+    return this.device.keyring.kind === "signer";
+  }
+
+  /**
+   * The person's decision on a held message (a UI's events process, for its own session). Never
+   * reachable by a message. With the keys in the signer, `decision` must be the signer's, cover
+   * this item as it is held, and say `verdict`.
+   */
+  decide(id: string, verdict: Verdict, decision?: unknown): Promise<void> {
+    return this.onQueue(async () => {
+      if (this.signed) {
+        const item = await this.held.get(id);
+        const d = this.checked(decision);
+        if (typeof d === "string" || d.verdict !== verdict || (item !== undefined && !covers(d, item))) {
+          throw new ClientError(`${NEEDS_SIGNER}: ${typeof d === "string" ? d : `it does not ${verdict} ${id} as it is held`}`, "needs_signer");
+        }
+      }
+      return this.decideNow(id, verdict);
+    });
+  }
+
+  /**
+   * Whether this session has not acted on decision `d` yet; it is recorded as acted on now, in the
+   * mesh's record. A record that cannot be read refuses the decision (`needs_signer`).
+   */
+  private async firstUse(d: Decision): Promise<boolean> {
+    try {
+      return await useDecision(join(this.o.mesh.dir, "decisions.used"), `${this.sid} ${d.n}`, d.at + DECISION_TTL_MS + DECISION_SKEW_MS, this.now(), this.o.env);
+    } catch (error) {
+      throw new ClientError(`${NEEDS_SIGNER}: the record of decisions acted on cannot be read (${(error as Error).message}), so decision ${d.n} is not taken`, "needs_signer");
+    }
+  }
+
+  /** A decision this session may act on, or why not. */
+  private checked(raw: unknown): Decision | string {
+    const d = checkDecision(raw, { signPub: this.device.keyring.signPub, device: this.device.id, mesh: this.config.mesh, now: this.now() });
+    return "refused" in d ? `the decision is refused: ${d.refused}` : d;
+  }
+
+  /**
+   * A signed decision another process left (decision file): each copy held here that it covers,
+   * unchanged since the person was shown it, is decided; anything else stays held. `resume` also
+   * lifts the breaker's pause on its peer's device. Taken whether or not the keys are in the
+   * signer, since only the signer can make one.
+   */
+  private async applyDecision(raw: unknown): Promise<void> {
+    const d = this.checked(raw);
+    if (typeof d === "string") {
+      this.log(`wim: a decision file for held messages: ${d}; nothing changed`);
+      return;
+    }
+    const first = await this.firstUse(d).catch((error: unknown) => (error as Error).message);
+    if (first !== true) {
+      this.log(`wim: a decision file for held messages: ${first === false ? `decision ${d.n} was acted on already (a copy)` : first}; nothing changed`);
+      return;
+    }
+    const mine = new Set((await this.held.list()).filter((item) => covers(d, item)).map((i) => i.id));
+    // A resume releases only breaker holds (the signer signs no other for one).
+    if (d.verdict === "resume") await this.resumeNow(d.peer!, mine, d.at);
+    else for (const id of mine) await this.decideEach(id, d.verdict);
+  }
+
+  /** decideNow for one item of several: a failure is logged, and the rest are still decided. */
+  private async decideEach(id: string, verdict: Verdict): Promise<boolean> {
+    try {
+      await this.decideNow(id, verdict);
+      return true;
+    } catch (error) {
+      this.log(`wim: held message ${id}: ${(error as Error).message}; it stays held`);
+      return false;
+    }
   }
 
   private async decideNow(id: string, verdict: Verdict): Promise<void> {
@@ -2078,25 +2221,44 @@ export class MeshSession extends EventEmitter {
     }
   }
 
-  /** Lifts a breaker pause on a peer (by address) and releases what it held from that device. */
-  resumePeer(peer: string): Promise<number> {
-    return this.onQueue(() => this.resumeNow(peer));
+  /**
+   * Lifts a breaker pause on a peer (by address) and releases what it held from that device. With
+   * the keys in the signer, only with the signer's `resume` decision for that peer, and only the
+   * items it covers are released.
+   */
+  resumePeer(peer: string, decision?: unknown): Promise<number> {
+    return this.onQueue(async () => {
+      if (!this.signed) return this.resumeNow(peer);
+      const d = this.checked(decision);
+      if (typeof d === "string" || d.verdict !== "resume" || d.peer !== peer) throw new ClientError(`${NEEDS_SIGNER}: ${typeof d === "string" ? d : `it does not resume ${peer}`}`, "needs_signer");
+      if (!(await this.firstUse(d))) throw new ClientError(`${NEEDS_SIGNER}: decision ${d.n} was acted on already`, "needs_signer");
+      const mine = (await this.held.list()).filter((item) => covers(d, item));
+      return this.resumeNow(peer, new Set(mine.map((i) => i.id)), d.at);
+    });
   }
 
-  private async resumeNow(peer: string): Promise<number> {
+  /**
+   * The resume itself; `only`: release just these of what the pause held (a signed decision's).
+   * `before`: a signed decision's time; it lifts only a pause that started by then, so a copy of
+   * it played later lifts no pause that came after. Each item released on its own: one that fails
+   * is logged and stays held, and the rest go.
+   */
+  private async resumeNow(peer: string, only?: ReadonlySet<string>, before?: number): Promise<number> {
     const device = this.roster.devices.find((d) => d.name === peer.slice(peer.indexOf("@") + 1));
     if (device === undefined) return 0;
-    this.breaker.resume(device.id);
-    // The sessions told about the pause hear it lifted at the next pass, so their sends stop reporting `held`.
-    for (const to of this.pauseFrom.get(device.id)?.told ?? []) this.pendingLifts.add(to);
-    this.pauseFrom.delete(device.id);
-    await this.savePauses();
-    this.emit("breaker", { peer, state: "resumed" });
+    const pause = this.breaker.kept().find((p) => p.peer === device.id);
+    if (before === undefined || (pause !== undefined && pause.at <= before)) {
+      this.breaker.resume(device.id);
+      // The sessions told about the pause hear it lifted at the next pass, so their sends stop reporting `held`.
+      for (const to of this.pauseFrom.get(device.id)?.told ?? []) this.pendingLifts.add(to);
+      this.pauseFrom.delete(device.id);
+      await this.savePauses();
+      this.emit("breaker", { peer, state: "resumed" });
+    }
     let n = 0;
     for (const item of await this.held.list()) {
-      if (item.device !== device.id || item.reason !== "breaker") continue;
-      await this.decideNow(item.id, "approve");
-      n++;
+      if (item.device !== device.id || item.reason !== "breaker" || (only !== undefined && !only.has(item.id))) continue;
+      if (await this.decideEach(item.id, "approve")) n++;
     }
     return n;
   }
@@ -2512,6 +2674,8 @@ export class MeshSession extends EventEmitter {
       await this.save({ seq: sealed.frame!.seq });
       // Recorded before sending, so a quick answer already finds its task.
       if (opts.kind === "task") await this.recordSentTask(id, routed);
+      // Before the frame goes out, so its receipts are known as this session's.
+      this.noteSentId(id);
       return { frame: sealed.frame!, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame!, id) };
     });
     const answer = await answering;
@@ -3006,7 +3170,7 @@ export class MeshSession extends EventEmitter {
    */
   async markRead(items: readonly SpoolItem[]): Promise<void> {
     // Read here, so no sweep (this one or a concurrent pass) keeps them in the relayed box.
-    for (const i of items) if (i.relayed === true || i.quiet === true) this.readRelayed.add(i.id);
+    for (const i of items) if (keptInBox(i)) this.readRelayed.add(i.id);
     const newest = Math.max(0, ...items.map((i) => i.cursor));
     if (newest > this.spool.taken) await this.take(newest);
     // A pass that was already writing one to the box when the read began is undone here.
@@ -3038,7 +3202,7 @@ export class MeshSession extends EventEmitter {
         if (over || first === undefined) return;
         finish();
         // A relayed item or a quiet notice is read now, so the sweep does not keep it in the box for inbox.
-        if (first.relayed === true || first.quiet === true) this.readRelayed.add(first.id);
+        if (keptInBox(first)) this.readRelayed.add(first.id);
         this.take(first.cursor).then(() => {
           this.informed([first]);
           resolve(first);

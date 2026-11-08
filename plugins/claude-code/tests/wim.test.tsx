@@ -343,7 +343,8 @@ test('a tab started before its signer links by itself from the link file, with n
   await clock.settle()
   expect(w.submitted).toHaveLength(1)
   expect(w.submitted[0]).toContain('sent while the signer was down')
-  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+  // Written before the submit: the turn it starts is a mesh turn.
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
   // Only the one handshake, made in session.start: nothing from the timers.
   expect(w.calls.map(call => call.tool)).toEqual(['_hello'])
   // The token from the kept handshake carries the internal ops.
@@ -741,7 +742,8 @@ test('an item appended after the last request began is named at the turn end, on
     `(worldinmotion: a message from reviewer@laptop (id ${ulidOf(2)}) arrived as your last turn ended. It is in the conversation above, not repeated here.)`,
   ])
   expect(timesShown(session, w, 'early')).toBe(1)
-  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+  // The turn end wrote idle; the submit that names the late item, busy-mesh before it.
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
 
   // Once: the next turn's end submits nothing more.
   await $.turn.start({ text: '', turnId: 't2' })
@@ -894,9 +896,10 @@ test('a held receipt raises a toast for the person and does not start a turn', a
 
   expect(w.toasts).toEqual([
     "worldinmotion: reviewer@laptop is holding your message; it is not delivered now (its person may approve it there, or its loop breaker release it after a cool-down)",
+    'worldinmotion: 1 notice in the inbox, not started as a turn (/wim)',
   ])
-  // A notice with an empty heldBy is an ordinary notice, for the model.
-  expect(w.submitted).toHaveLength(1)
+  // A notice with an empty heldBy is an ordinary notice for the model: quiet, as it names no watch.
+  expect(w.submitted).toHaveLength(0)
   expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000004.json')
 })
 
@@ -1070,6 +1073,31 @@ test('the pane shows a set per sending device and Approve all marks exactly the 
   await ui.unmount()
 })
 
+test('with the keys in the signer, the pane writes no mark and says where to decide', async ($, on) => {
+  const [a1, a2] = [ulidOf(931), ulidOf(932)]
+  const one = { set: 'device:D1', set_title: 'device one (device id D1)', from: 'a@one', kind: 'msg' }
+  const held = [{ ...one, id: a1, at: 1000, preview: 'one' }, { ...one, id: a2, at: 2000, preview: 'two' }]
+  const w = world(on, {
+    tools: {
+      _hello: () => json({ spool: SPOOL, sid: 's1', address: 'builder@desk', token: TOKEN, held: HELD_DIR, dismiss: DISMISS_DIR, decide: 'signer' }),
+      _peers: () => json({ peers: [] }),
+      _held: () => json({ held }),
+      _leases: () => json({ leases: [] }),
+    },
+  })
+  mock.clock(on)
+  await $.session.start(START)
+  await $.command.run(WIM)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'approveSet:device:D1' })
+  expect(w.files.has(`${HELD_DIR}/${a1}.approve`)).toBe(false)
+  expect(await ui.find({ type: 'Text', text: new RegExp(`keys are in the signer.*wim held approve ${a1} \\(or refuse\\)`) })).toBeDefined()
+  await ui.press({ key: `approve:${a2}` })
+  expect(w.files.has(`${HELD_DIR}/${a2}.approve`)).toBe(false)
+  expect(await ui.find({ type: 'Text', text: new RegExp(`wim held approve ${a2} \\(or refuse\\)`) })).toBeDefined()
+  await ui.unmount()
+})
+
 test('a set mark that cannot be written is reported, not claimed', async ($, on) => {
   const held = [{ id: ulidOf(921), set: 'device:D', set_title: 'device d (device id D)', from: 'a@d', kind: 'msg', at: 0, preview: 'y' }, { id: ulidOf(922), set: 'device:D', from: 'b@d', kind: 'msg', at: 0, preview: 'z' }]
   world(on, {
@@ -1206,6 +1234,543 @@ test('a relayed item is appended while busy and never re-submitted at the turn e
   await $.turn.complete(COMPLETE)
   await clock.settle()
   expect(w.submitted).toHaveLength(0)
+})
+
+const NOTICE_HEAD = 'worldinmotion notice (from the local client, not from a peer or the person): '
+const WATCHED = 'wwwwwwwwwwwwwwwwwwwwww'
+
+/** An idle notice as the client spools it: `watched` names the armed device; `quiet` when it may not wake. */
+function notice(n: number, line: string, extra: Record<string, unknown> = {}): [string, string] {
+  return item(n, '', { kind: 'notice', from: 'bob@laptop-b', device: '', rendered: `${NOTICE_HEAD}${line}`, ...extra })
+}
+
+// What the client spools quiet (packages/client/src/client.ts, idleNotice, mayWake, armRefused, lapseWatches).
+const UNTRUSTED = notice(1, 'bob@laptop-b is now idle (or has ended).', { watched: WATCHED, quiet: true })
+const OVER_LIMIT = notice(2, 'bob@laptop-b is now idle (or has ended).', { watched: WATCHED, quiet: true })
+const PAUSED_FOR_AGENT = notice(3, 'worldinmotion paused bob@laptop-b: its idle notices reached the loop breaker limit.', { quiet: true })
+const LAPSE = notice(4, 'no idle notice came for bob@laptop-b within 12 hours of the arm, so the watch lapsed and no notice will come for it.', { quiet: true })
+const REFUSAL = notice(5, 'the idle notice for bob@laptop-b was not armed: the relay knows no session by that address (it may have ended). No notice will come for it.', { quiet: true })
+const UNNAMED_REFUSAL = notice(6, 'an idle notice this session asked for was not armed: the relay refused it.', { from: 'builder@desk', quiet: true })
+
+test('quiet notices never start a turn while idle: an untrusted or over-limit device, a pause, a lapse, a refusal', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  for (const one of [UNTRUSTED, OVER_LIMIT, PAUSED_FOR_AGENT, LAPSE, REFUSAL, UNNAMED_REFUSAL]) w.files.set(...one)
+  await clock.advance(250)
+  await clock.settle()
+
+  expect(w.submitted).toHaveLength(0)
+  expect(w.dropped).toHaveLength(0)
+  // The cursor passes them: the client keeps a quiet notice in its box for `inbox` (spool.ts sweep).
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000006.json')
+  expect(w.toasts).toEqual(['worldinmotion: 6 notices in the inbox, not started as a turn (/wim)'])
+  // A quiet notice never marks the session busy-mesh: no turn is coming.
+  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+
+  // Nor at a turn end, or on later ticks.
+  await $.turn.start({ text: 'my own prompt', turnId: 't1' })
+  await $.turn.complete(COMPLETE)
+  await clock.advance(1000)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+
+  // Shown in the pane, in a section of its own (not labelled relayed), the notice line without its frame.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: 'Relayed by bots and gateways (0 not shown to Claude)' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Quiet notices: they start no turn (6 not shown to Claude)' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /bob@laptop-b {2}\d+s: no idle notice came for bob@laptop-b within 12 hours/ })).toBeDefined()
+  // Dismiss tells the client, as for a relayed item.
+  await ui.press({ key: 'dismiss:000000000004.json' })
+  expect([...w.files.keys()].filter(path => path.startsWith(`${DISMISS_DIR}/`))).toEqual([`${DISMISS_DIR}/${ulidOf(4)}.dismiss`])
+  expect(await ui.find({ type: 'Text', text: 'Quiet notices: they start no turn (5 not shown to Claude)' })).toBeDefined()
+  expect(w.submitted).toHaveLength(0)
+  await ui.unmount()
+})
+
+test('a quiet notice is appended while busy, and never submitted then or at the turn end', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  const session = mock.session(on)
+  await $.session.start(START)
+  await $.turn.start({ text: 'work', turnId: 't1' })
+  const step = $.turn.step({ turnId: 't1', index: 0, model: 'm', messageCount: 3 })
+  for await (const _ of step) void _
+
+  w.files.set(...LAPSE)
+  w.files.set(...OVER_LIMIT)
+  await clock.advance(250)
+  await clock.settle()
+  expect(session.appended()).toHaveLength(2)
+  // In cursor order: the over-limit notice (2), then the lapse (4).
+  expect(JSON.stringify(session.appended()[0]?.message.content)).toContain('is now idle')
+  expect(JSON.stringify(session.appended()[1]?.message.content)).toContain('the watch lapsed')
+  expect(w.toasts).toHaveLength(0)
+  expect(w.submitted).toHaveLength(0)
+  // The person's turn stays the person's: presence is not raised to busy-mesh.
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy')
+
+  await $.turn.complete(COMPLETE)
+  await clock.advance(1000)
+  await clock.settle()
+  // Not named as a late item either: no turn is started for it at all.
+  expect(w.submitted).toHaveLength(0)
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: 'Quiet notices: they start no turn (0 not shown to Claude)' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /the watch lapsed.* {2}\(shown\)$/ })).toBeDefined()
+  expect(await ui.find({ key: 'deliver:000000000004.json' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a quiet notice behind a kept message waits in the spool with it and never rides its turn', async ($, on) => {
+  const clock = mock.clock(on)
+  let isStopped = true
+  const w = world(on, { dropWhen: () => (isStopped ? 'the session was stopped and nobody has sent input since' : undefined) })
+  await $.session.start(START)
+  w.files.set(...item(1, 'kept one'))
+  await clock.advance(250)
+  await clock.settle()
+  w.files.set(...notice(2, 'no idle notice came for bob@laptop-b within 12 hours of the arm.', { quiet: true }))
+  await clock.advance(250)
+  await clock.settle()
+  // Left unclaimed behind the kept message: the cursor is before both.
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+
+  isStopped = false
+  await $.turn.start({ text: 'my own prompt', turnId: 't1' })
+  await $.turn.complete(COMPLETE)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('kept one')
+  expect(w.submitted[0]).not.toContain('no idle notice came')
+  await $.turn.start({ text: w.submitted[0] ?? '', turnId: 't2' })
+  await clock.advance(250)
+  await clock.settle()
+  // Now in a running turn: appended, still never a turn of its own.
+  expect(w.submitted).toHaveLength(1)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000002.json')
+})
+
+test('a waking notice (its device trusted, not paused, admitted) starts one turn, a mesh turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...notice(1, 'bob@laptop-b is now idle (or has ended).', { watched: WATCHED }))
+  await clock.advance(250)
+  await clock.settle()
+
+  expect(w.submitted).toEqual([`${NOTICE_HEAD}bob@laptop-b is now idle (or has ended).`])
+  expect(w.toasts).toHaveLength(0)
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+  await $.turn.start({ text: w.submitted[0] ?? '', turnId: 't1' })
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+  await $.turn.complete(COMPLETE)
+  await clock.advance(1000)
+  await clock.settle()
+  // Once.
+  expect(w.submitted).toHaveLength(1)
+})
+
+test('when busy-mesh cannot be written, nothing is submitted: the wake waits for a turn end that can write it', async ($, on) => {
+  const clock = mock.clock(on)
+  let isDenied = true
+  const w = world(on, { isWriteDenied: path => isDenied && path === `${SESSION}/presence` })
+  await $.session.start(START)
+  w.files.set(...notice(1, 'bob@laptop-b is now idle (or has ended).', { watched: WATCHED }))
+  w.files.set(...item(2, 'a trusted message'))
+  await clock.advance(250)
+  await clock.settle()
+
+  // Fail closed: no turn, and no receipt (the cursor stays before both).
+  expect(w.submitted).toHaveLength(0)
+  expect(w.dropped).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
+  // Not retried from the timer.
+  await clock.advance(1000)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+
+  // A turn end still cannot write it: still nothing.
+  await $.turn.start({ text: 'my own prompt', turnId: 't1' })
+  await $.turn.complete(COMPLETE)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+
+  // Once presence can be written, the next turn end hands both over, once.
+  isDenied = false
+  await $.turn.start({ text: 'my own prompt', turnId: 't2' })
+  await $.turn.complete({ ...COMPLETE, turnId: 't2' })
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('is now idle')
+  expect(w.submitted[0]).toContain('a trusted message')
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+})
+
+test('a submit the engine fails puts presence back as it stands', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on, { failSubmit: () => true })
+  await $.session.start(START)
+  w.files.set(...item(1, 'x'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+})
+
+// Notices the client spools with no watch named: an unreadable message from a roster device, a
+// held receipt told to the agent, a claim, a released set, and a file from before `watched`.
+const UNREADABLE = notice(11, 'A message from anything-goes@laptop-b could not be read: it was sealed to a prekey this device no longer holds.', { from: 'anything-goes@laptop-b' })
+const HELD_FOR_AGENT = notice(12, 'bob@laptop-b is holding your message 01J: it is not delivered now.')
+const CLAIM = notice(13, 'this session took over 2 unread items.', { from: 'builder@desk' })
+const RELEASED = notice(14, 'worldinmotion released 3 held messages from bob@laptop-b.')
+const PRE_N1 = notice(15, 'bob@laptop-b is now idle (or has ended).')
+
+test('a notice that names no watch never starts a turn, whatever it says: an allow-list, not a deny-list', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  for (const one of [UNREADABLE, HELD_FOR_AGENT, CLAIM, RELEASED, PRE_N1]) w.files.set(...one)
+  await clock.advance(250)
+  await clock.settle()
+
+  expect(w.submitted).toHaveLength(0)
+  expect(w.dropped).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000015.json')
+  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+  expect(w.toasts).toEqual(['worldinmotion: 5 notices in the inbox, not started as a turn (/wim)'])
+  await $.turn.start({ text: 'my own prompt', turnId: 't1' })
+  await $.turn.complete(COMPLETE)
+  await clock.advance(1000)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: 'Quiet notices: they start no turn (5 not shown to Claude)' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^anything-goes@laptop-b {2}\d+s: A message from anything-goes@laptop-b could not be read/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a quiet field in any form but false keeps a notice, or any item, from starting a turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  const forms: unknown[] = [true, 'yes', 'false', 1, 0, null, {}, []]
+  forms.forEach((quiet, at) => w.files.set(...notice(at + 1, `idle notice ${at}`, { watched: WATCHED, quiet })))
+  w.files.set(...item(forms.length + 1, 'a message marked quiet', { quiet: 'yes' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  expect(w.toasts).toEqual([`worldinmotion: ${forms.length + 1} notices in the inbox, not started as a turn (/wim)`])
+
+  // `false`, and no field at all, leave a watched notice free to wake.
+  w.files.set(...notice(20, 'idle notice, quiet false', { watched: WATCHED, quiet: false }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toEqual([`${NOTICE_HEAD}idle notice, quiet false`])
+})
+
+test('an item of a kind the plugin does not know, or with no kind, never starts a turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'no kind at all', { kind: undefined }))
+  w.files.set(...item(2, 'a kind from a later client', { kind: 'proposal' }))
+  w.files.set(...item(3, 'an empty kind', { kind: '' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000003.json')
+  expect(w.toasts).toEqual(['worldinmotion: 3 notices in the inbox, not started as a turn (/wim)'])
+  // Each known kind still does, once.
+  for (const [at, kind] of ['msg', 'task', 'result', 'file'].entries()) w.files.set(...item(4 + at, `a ${kind}`, { kind }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  for (const kind of ['msg', 'task', 'result', 'file']) expect(w.submitted[0]).toContain(`a ${kind}`)
+})
+
+test('a notice whose watched is empty names no watch: it never starts a turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...notice(1, 'bob@laptop-b is now idle (or has ended).', { watched: '' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  expect(w.toasts).toEqual(['worldinmotion: 1 notice in the inbox, not started as a turn (/wim)'])
+})
+
+test('a notice that names no watch, behind a message in the same idle pass, waits for a later pass', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'a trusted message'))
+  w.files.set(...CLAIM)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).not.toContain('took over')
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000013.json')
+})
+
+test('a quiet notice behind a message in the same idle pass waits for a later pass and never rides its turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'a trusted message'))
+  w.files.set(...LAPSE)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('a trusted message')
+  expect(w.submitted[0]).not.toContain('the watch lapsed')
+  // Unclaimed: the cursor stops before it.
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000004.json')
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: 'Quiet notices: they start no turn (1 not shown to Claude)' })).toBeDefined()
+  await ui.unmount()
+})
+
+test("Give to Claude on a quiet notice writes busy-mesh first, and starts nothing when that write fails", async ($, on) => {
+  const clock = mock.clock(on)
+  let isDenied = false
+  const w = world(on, { isWriteDenied: path => isDenied && path === `${SESSION}/presence` })
+  await $.session.start(START)
+  w.files.set(...LAPSE)
+  await clock.advance(250)
+  await clock.settle()
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+
+  isDenied = true
+  await ui.press({ key: 'deliver:000000000004.json' })
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  expect(w.dropped).toHaveLength(0)
+  // The button comes back for the person to press again.
+  expect(await ui.find({ key: 'deliver:000000000004.json' })).toBeDefined()
+
+  isDenied = false
+  await ui.press({ key: 'deliver:000000000004.json' })
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('the watch lapsed')
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+  await ui.unmount()
+})
+
+test('a person\'s prompt that starts ahead of a pending submit leaves it pending: its own turn is still a mesh turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'please run the tests'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  const presence = () => w.files.get(`${SESSION}/presence`)
+
+  // The person's prompt was queued first and runs first: marked mesh, since a submit is pending.
+  await $.turn.start({ text: 'my own prompt', turnId: 't1' })
+  expect(presence()).toBe('busy-mesh')
+  await $.turn.complete(COMPLETE)
+  await clock.settle()
+  // Not idle: the submit's turn comes next.
+  expect(presence()).toBe('busy-mesh')
+  // The submit's own turn: mesh, never plain busy.
+  await $.turn.start({ text: w.submitted[0] ?? '', turnId: 't2' })
+  expect(presence()).toBe('busy-mesh')
+  await $.turn.complete({ ...COMPLETE, turnId: 't2' })
+  await clock.settle()
+  // Taken now: the person's next turn is theirs.
+  await $.turn.start({ text: 'another prompt', turnId: 't3' })
+  expect(presence()).toBe('busy')
+})
+
+test('pending submits no turn matches stay pending through any number of turns, and go only once the session stands idle', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  mock.session(on)
+  on('session.append', { door: 'note' }, () => ({ deny: 'not as a row' }))
+  await $.session.start(START)
+  const presence = () => w.files.get(`${SESSION}/presence`)
+  // Four submits, each made during the turn before (refused as rows, so each is a turn of its own).
+  await $.turn.start({ text: 'my own prompt', turnId: 't0' })
+  for (let n = 1; n <= 4; n++) w.files.set(...item(n, `message ${n}`))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(4)
+  await $.turn.complete({ ...COMPLETE, turnId: 't0' })
+  await clock.settle()
+
+  // A hook rewords every one, so no turn matches: each still runs as a mesh turn, and between
+  // them presence is never idle or plain busy.
+  for (let n = 1; n <= 5; n++) {
+    await $.turn.start({ text: `reworded ${n}`, turnId: `t${n}` })
+    expect(presence()).toBe('busy-mesh')
+    await $.turn.complete({ ...COMPLETE, turnId: `t${n}` })
+    await clock.advance(250)
+    await clock.settle()
+    expect(presence()).toBe('busy-mesh')
+  }
+  // Idle for less than the wait: still awaited.
+  await clock.advance(20_000)
+  await clock.settle()
+  expect(presence()).toBe('busy-mesh')
+  // Idle for the whole wait with no turn started: nothing is queued, so they are forgotten.
+  await clock.advance(11_000)
+  await clock.settle()
+  expect(presence()).toBe('idle')
+  await $.turn.start({ text: 'a later prompt', turnId: 't9' })
+  expect(presence()).toBe('busy')
+})
+
+test('a turn whose presence write fails is tried once more', async ($, on) => {
+  const clock = mock.clock(on)
+  let denials = 0
+  const w = world(on, { isWriteDenied: path => path === `${SESSION}/presence` && denials-- > 0 })
+  await $.session.start(START)
+  w.files.set(...item(1, 'please run the tests'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  await $.turn.complete(COMPLETE)
+  await clock.settle()
+  // One failed write: the second try lands.
+  denials = 1
+  await $.turn.start({ text: w.submitted[0] ?? '', turnId: 't1' })
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+  await $.turn.complete({ ...COMPLETE, turnId: 't1' })
+  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+  // Two failed writes: the turn still runs, and presence is left as it was (the failure is logged).
+  denials = 2
+  await $.turn.start({ text: 'my own prompt', turnId: 't2' })
+  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+  expect(denials).toBe(0)
+})
+
+test('a drop during a mesh turn puts presence back to busy-mesh, not busy', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on, { dropWhen: text => (text.includes('second') ? 'blocked' : undefined) })
+  mock.session(on)
+  on('session.append', { door: 'note' }, (_, e, next) => (JSON.stringify(e.message.content).includes('second') ? { deny: 'not as a row' } : next(e)))
+  await $.session.start(START)
+  w.files.set(...item(1, 'first'))
+  await clock.advance(250)
+  await clock.settle()
+  await $.turn.start({ text: w.submitted[0] ?? '', turnId: 't1' })
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+
+  // Refused as a row, then its own submit dropped: presence is the mesh turn's again.
+  w.files.set(...item(2, 'second'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.dropped.map(one => one.reason)).toEqual(['blocked'])
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+})
+
+test('a relayed item stored before the upgrade (no isQuiet) is still a relayed item after a reload', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(4, 'pipeline 812 failed', { relayed: true, from: 'ci@build' }))
+  await clock.advance(250)
+  await clock.settle()
+  // The module reloads: what it stored stands, read by the new code.
+  await $.session.start(START)
+  await clock.settle()
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: 'Relayed by bots and gateways (1 not shown to Claude)' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Quiet notices: they start no turn (0 not shown to Claude)' })).toBeDefined()
+  await ui.press({ key: 'deliver:000000000004.json' })
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('pipeline 812 failed')
+  await ui.unmount()
+})
+
+test('SendMessage with notify_when_idle and no message only arms the watch: no text goes out', async ($, on) => {
+  const UNTIL = '2026-11-08T12:00:00.000Z'
+  const w = world(on, {
+    tools: {
+      _route: args => json({ mesh: true, policy: args.to === 'stranger@cloud' ? 'hold' : 'deliver' }),
+      send: args =>
+        args.text !== undefined
+          ? SENT(String(args.to))
+          : String(args.to).startsWith('#')
+            ? json({ watching: [], watch_note: `Idle notices are for name@device only, so none is armed for ${String(args.to)}.` })
+            : json({ watching: [{ to: args.to, until: UNTIL }] }),
+    },
+  })
+  const reached = engineSendMessage(on)
+  mock.clock(on)
+  await $.session.start(START)
+
+  const armed = await $.tool.call({ tool: 'SendMessage', to: 'bob@laptop-b', notify_when_idle: true } as never)
+  expect(armed.isError).toBeUndefined()
+  expect(armed.text).toBe(`worldinmotion will tell this session when bob@laptop-b finishes. No message was sent. If none comes by ${UNTIL}, the watch lapses and this session is told.`)
+  expect((armed.result as { success: boolean }).success).toBe(true)
+  const empty = await $.tool.call({ tool: 'SendMessage', to: 'bob@laptop-b', message: '', notify_when_idle: true })
+  expect(empty.text).toMatch(/^worldinmotion will tell this session when bob@laptop-b finishes\./)
+  // Nothing is sent to an untrusted device either, so nothing asks the person.
+  const held = await $.tool.call({ tool: 'SendMessage', to: 'stranger@cloud', message: '  ', notify_when_idle: true })
+  expect((held.result as { success: boolean }).success).toBe(true)
+  expect(w.asked).toHaveLength(0)
+  const sends = w.calls.filter(call => call.tool === 'send').map(call => call.args)
+  expect(sends).toEqual([
+    { to: 'bob@laptop-b', notify_when_idle: true },
+    { to: 'bob@laptop-b', notify_when_idle: true },
+    { to: 'stranger@cloud', notify_when_idle: true },
+  ])
+  expect(reached).toHaveLength(0)
+
+  // A room is not armed, and the client's note says why.
+  const room = await $.tool.call({ tool: 'SendMessage', to: '#ci', message: '', notify_when_idle: true })
+  expect(room.isError).toBe(true)
+  expect(room.text).toBe('worldinmotion: no idle notice armed for #ci; nothing was sent. worldinmotion: Idle notices are for name@device only, so none is armed for #ci.')
+
+  // With a message, a send as before; with no message and no watch, the engine's own call.
+  const sent = await $.tool.call({ tool: 'SendMessage', to: 'bob@laptop-b', message: 'done?', notify_when_idle: true })
+  expect(sent.text).toMatch(/^Sent through worldinmotion/)
+  expect(w.calls.filter(call => call.tool === 'send').at(-1)?.args).toEqual({ to: 'bob@laptop-b', text: 'done?', notify_when_idle: true })
+})
+
+test('an arm-only SendMessage reports a client that is gone, refuses, or answers no watch list', async ($, on) => {
+  let answer: McpToolResult = json({})
+  world(on, { tools: { send: () => answer } })
+  engineSendMessage(on)
+  mock.clock(on)
+  await $.session.start(START)
+
+  const none = await $.tool.call({ tool: 'SendMessage', to: 'bob@laptop-b', message: '', notify_when_idle: true })
+  expect(none.text).toBe('worldinmotion: no idle notice armed for bob@laptop-b; nothing was sent.')
+  answer = json({ watching: [{ to: 'bob@laptop-b' }] })
+  const noUntil = await $.tool.call({ tool: 'SendMessage', to: 'bob@laptop-b', message: '', notify_when_idle: true })
+  expect(noUntil.text).toBe('worldinmotion will tell this session when bob@laptop-b finishes. No message was sent.')
+  answer = { content: [{ type: 'text', text: 'invalid input: to' }], isError: true }
+  const refused = await $.tool.call({ tool: 'SendMessage', to: 'bob@laptop-b', message: '', notify_when_idle: true })
+  expect(refused.isError).toBe(true)
+  expect(refused.text).toBe('worldinmotion refused the watch: invalid input: to')
+})
+
+test('an arm-only SendMessage to a local name goes to the engine', async ($, on) => {
+  const w = world(on)
+  const reached = engineSendMessage(on)
+  mock.clock(on)
+  await $.session.start(START)
+  // A bare name is not the mesh: the engine's own SendMessage takes it.
+  await $.tool.call({ tool: 'SendMessage', to: 'researcher', message: '', notify_when_idle: true })
+  expect(reached).toEqual(['researcher'])
+  expect(w.calls.some(call => call.tool === 'send')).toBe(false)
 })
 
 test('the pane asks _peers forPane; ListAgents asks _peers without it', async ($, on) => {
@@ -1437,7 +2002,8 @@ test('presence is busy-mesh for a turn the plugin started with a mesh item, busy
   await clock.settle()
   expect(w.submitted).toHaveLength(1)
   const presence = () => w.files.get(`${SESSION}/presence`)
-  expect(presence()).toBe('idle')
+  // Written before the submit, so the turn is a mesh turn from its first step.
+  expect(presence()).toBe('busy-mesh')
 
   await $.turn.start({ text: w.submitted[0] ?? '', turnId: 't1' })
   expect(presence()).toBe('busy-mesh')
@@ -1459,6 +2025,8 @@ test('a dropped mesh submit leaves no mesh turn pending', async ($, on) => {
   await clock.advance(250)
   await clock.settle()
 
+  // The drop put presence back as it stands: idle.
+  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
   await $.turn.start({ text: 'my own prompt', turnId: 't1' })
   expect(w.files.get(`${SESSION}/presence`)).toBe('busy')
 })

@@ -368,7 +368,7 @@ describe("wim setup from npx's cache", () => {
       }
       throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
     };
-    const programs = { platform: process.platform, run: async () => ok(), wim: [process.execPath, cached] };
+    const programs = { platform: process.platform, run: async () => ok(), wim: [process.execPath, cached], trust: async () => "ok" };
     const settings = join(root, ".gemini", "settings.json");
     return { relay, root, cached, prefix, bin, modules, npm, tools, programs, settings };
   }

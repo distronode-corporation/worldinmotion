@@ -14,7 +14,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, McpToolResult, Register } from 'claude-code'
 
 import type { WimItem, WimKept, WimLate, WimLink, WimPanel, WimRelayed } from '../types'
-import type { RoutePolicy } from './parse'
+import type { RoutePolicy, SpoolItem } from './parse'
 import {
   firstLine,
   ITEM_NAME,
@@ -28,12 +28,14 @@ import {
   parseItem,
   parseLeases,
   parseLink,
+  signedNote,
   parsePending,
   parseStanding,
   parseRoute,
   parsePeers,
   parseSent,
   parseWatchNote,
+  parseWatching,
   describeMessage,
   peerLine,
   sessionDir,
@@ -88,10 +90,17 @@ const cursor = atom({ plugin: 'worldinmotion', key: 'cursor' } as const, '', { s
 const busy = atom({ plugin: 'worldinmotion', key: 'busy' } as const, false)
 // True while the running main-loop turn is one the plugin started with a mesh item.
 const meshTurn = atom({ plugin: 'worldinmotion', key: 'meshTurn' } as const, false)
-// Mesh submits not yet seen to start their turn, by text.
+// Mesh submits not yet seen to start their turn, by text, with when each was submitted.
 const pendingSubmits = atom({ plugin: 'worldinmotion', key: 'pendingSubmits' } as const, [], {
-  shape: 'pending-1',
+  shape: 'pending-3',
 })
+// When the last main-loop turn ended (0 before any did this load).
+const idleSince = atom({ plugin: 'worldinmotion', key: 'idleSince' } as const, 0)
+// How long the session must stand idle, with no turn started since the last
+// one ended and since the newest submit, before the pending submits are
+// forgotten: a queued prompt starts as soon as the turn before it ends, so
+// nothing is queued by then (a hook reworded the submit, or the engine merged it).
+const PENDING_IDLE_MS = 30_000
 // Why the tab is not linked, in the client's words; '' once it is.
 const problem = atom({ plugin: 'worldinmotion', key: 'problem' } as const, '', { shape: 'problem-1' })
 // Notices the client meant for the person (a restart it needs), newest last.
@@ -205,12 +214,26 @@ async function linkedStatus($: EngineInterface): Promise<void> {
 
 /**
  * `busy-mesh` marks a turn a mesh item started, so the client flags what the
- * session sends in it as derived (work is assigned one hop, no further).
+ * session sends in it as derived (work is assigned one hop, no further). True
+ * once written; false when the tab is not linked or the write failed.
  */
-async function writePresence($: EngineInterface, state: 'busy' | 'busy-mesh' | 'idle'): Promise<void> {
+async function writePresence($: EngineInterface, state: 'busy' | 'busy-mesh' | 'idle'): Promise<boolean> {
   const linked = await read($, link)
-  if (linked === null) return
-  await $.fs.write(`${sessionDir(linked.spool)}/presence`, state).catch(() => undefined)
+  if (linked === null) return false
+  return $.fs.write(`${sessionDir(linked.spool)}/presence`, state).then(
+    () => true,
+    () => false,
+  )
+}
+
+/**
+ * Writes the presence that stands now: the running turn's busy or busy-mesh,
+ * else idle. While a submit is pending it is busy-mesh, idle or not: the turn
+ * that starts next, or the one running, may be it.
+ */
+async function writePresenceNow($: EngineInterface): Promise<boolean> {
+  const isMesh = (await read($, meshTurn)) || (await read($, pendingSubmits)).length > 0
+  return writePresence($, isMesh ? 'busy-mesh' : (await read($, busy)) ? 'busy' : 'idle')
 }
 
 /** Takes the late list and empties it in one versioned write. */
@@ -225,45 +248,77 @@ async function takeLate($: EngineInterface): Promise<WimLate[]> {
 
 /**
  * Every submit of the plugin's carries a mesh item: its turn is a mesh turn.
- * False when the engine dropped it: after the person pressed Stop it refuses
- * new work until their next input, and drops a prompt still queued. Nothing
- * queues or repeats it, so the caller keeps what it carried for a turn end.
+ * Presence reads `busy-mesh` before the submit, so whatever the turn sends is
+ * derived from its first step; when that cannot be written, nothing is
+ * submitted (fail closed), as `wim hook` and the channel push do.
+ * False when nothing entered: the presence write failed, or the engine dropped
+ * it (after the person pressed Stop it refuses new work until their next
+ * input, and drops a prompt still queued). Nothing queues or repeats it, so the
+ * caller keeps what it carried for a turn end.
  */
 async function submit($: EngineInterface, text: string): Promise<boolean> {
-  await update($, pendingSubmits, list => [...list, text])
-  const sent = await $.prompt.submit({ text }).catch(error => {
-    void forgetSubmit($, text)
+  if (!(await writePresence($, 'busy-mesh'))) {
+    $.ui.log('worldinmotion: a delivery waits: this session could not be marked busy-mesh (its presence file), so no turn was started')
+    return false
+  }
+  const at = await $.clock.now()
+  await update($, pendingSubmits, list => [...list, { text, at }])
+  const sent = await $.prompt.submit({ text }).catch(async error => {
+    await forgetSubmit($, text)
+    await writePresenceNow($)
     throw error
   })
   if (sent.drop === undefined) return true
   await forgetSubmit($, text)
+  await writePresenceNow($)
   $.ui.log(`worldinmotion: a delivery was dropped: ${sent.drop}`)
   return false
 }
 
 async function forgetSubmit($: EngineInterface, text: string): Promise<void> {
-  await update($, pendingSubmits, list => {
-    const at = list.indexOf(text)
-    return at < 0 ? list : [...list.slice(0, at), ...list.slice(at + 1)]
-  })
+  await update($, pendingSubmits, list => withoutText(list, text))
+}
+
+/** The list without the oldest entry of `text`, or the list itself when it has none. */
+function withoutText<T extends { text: string }>(list: T[], text: string): T[] {
+  const at = list.findIndex(one => one.text === text)
+  return at < 0 ? list : [...list.slice(0, at), ...list.slice(at + 1)]
 }
 
 /**
- * Whether the main-loop turn now starting is one of the plugin's submits.
- * The turn's text may differ from what was submitted (a hook can reword it),
- * so any pending submit counts and the matching or oldest one is consumed:
- * a person's turn misread as a mesh one only marks more sends as derived.
+ * Whether the main-loop turn now starting may be one of the plugin's submits:
+ * true while any is pending. Only an exact text match consumes one. A turn
+ * that matches none (the person's prompt queued ahead of a submit, or a submit
+ * a hook reworded) is still marked mesh, and the entries stay: consuming one
+ * would let the submit's own turn start later as plain busy, not derived.
+ * The engine names no submit in the turn it starts, so entries are matched by
+ * text alone, and forgotten only once the session has stood idle with nothing
+ * queued (forgetIdlePending). Misreading a person's turn as mesh only marks
+ * more sends as derived.
  */
 async function takeSubmit($: EngineInterface, text: string): Promise<boolean> {
   let isMesh = false
   await update($, pendingSubmits, list => {
     isMesh = list.length > 0
-    if (!isMesh) return list
-    const at = list.indexOf(text)
-    const drop = at < 0 ? 0 : at
-    return [...list.slice(0, drop), ...list.slice(drop + 1)]
+    return withoutText(list, text)
   })
   return isMesh
+}
+
+/**
+ * From the timer: forgets the pending submits once the session has stood idle
+ * for PENDING_IDLE_MS since its last turn ended and since the newest of them,
+ * and puts presence back to idle. Before that, presence stays busy-mesh.
+ */
+async function forgetIdlePending($: EngineInterface): Promise<void> {
+  const list = await read($, pendingSubmits)
+  if (list.length === 0 || (await read($, busy))) return
+  const now = await $.clock.now()
+  const since = Math.max(await read($, idleSince), ...list.map(one => one.at))
+  if (now - since < PENDING_IDLE_MS) return
+  await update($, pendingSubmits, () => [])
+  $.ui.log(`worldinmotion: ${list.length} submitted turn${list.length === 1 ? '' : 's'} never started under the text submitted; no longer awaited`)
+  await writePresenceNow($)
 }
 
 /**
@@ -382,8 +437,7 @@ async function adoptLink($: EngineInterface, answered: WimLink): Promise<boolean
   }
   await update($, problem, () => '')
   await linkedStatus($)
-  const isBusy = await read($, busy)
-  await writePresence($, !isBusy ? 'idle' : (await read($, meshTurn)) ? 'busy-mesh' : 'busy')
+  await writePresenceNow($)
   return true
 }
 
@@ -424,8 +478,8 @@ async function startCursor($: EngineInterface, spool: string): Promise<string> {
   return ITEM_NAME.test(theirs) && theirs > ours ? theirs : ours
 }
 
-/** What one pass handed over: the items' pane lines, the idle batch, relayed items left for the pane. */
-type Pass = { seen: WimItem[]; batch: Omit<WimKept, 'isSending'>[]; relaysWaiting: number }
+/** What one pass handed over: the items' pane lines, the idle batch, relayed items and quiet notices left for the pane. */
+type Pass = { seen: WimItem[]; batch: Omit<WimKept, 'isSending'>[]; relaysWaiting: number; quietWaiting: number }
 
 /**
  * Claims a spool item for this pass, false when another pass has it (one still
@@ -459,7 +513,7 @@ async function deliver($: EngineInterface): Promise<void> {
   const entries = await $.fs.list(linked.spool).catch(() => [])
   const fresh = newNames(entries.filter(entry => entry.kind === 'file').map(entry => entry.name), after)
   if (fresh.length === 0) return
-  const pass: Pass = { seen: [], batch: [], relaysWaiting: 0 }
+  const pass: Pass = { seen: [], batch: [], relaysWaiting: 0, quietWaiting: 0 }
   const claimed: string[] = []
   const done = new Set<string>()
   try {
@@ -474,6 +528,10 @@ async function deliver($: EngineInterface): Promise<void> {
     if (pass.relaysWaiting > 0) {
       const n = pass.relaysWaiting
       $.ui.toast(`worldinmotion: ${n} relayed item${n === 1 ? '' : 's'} in the inbox (/wim)`)
+    }
+    if (pass.quietWaiting > 0) {
+      const n = pass.quietWaiting
+      $.ui.toast(`worldinmotion: ${n} notice${n === 1 ? '' : 's'} in the inbox, not started as a turn (/wim)`)
     }
     // Only a pass that handed something over: a kept item stays fresh, and a
     // relayed one behind it is claimed and given back each tick, so a timer that
@@ -499,6 +557,21 @@ async function sendBatch($: EngineInterface, batch: Pass['batch']): Promise<bool
 }
 
 /**
+ * Whether a spool item may start a turn, as the client's `wim hook` decides (wakeKind): a
+ * message, task, result or file, or an idle notice this session armed (`watched`), and nothing
+ * the client made quiet. Every other item (a notice in a format from before `watched`, a kind
+ * missing or unknown) is quiet: an allow-list, so what the plugin does not know never starts a
+ * turn. Trust is the client's: it spools a held sender's released item quiet.
+ */
+function mayWake(item: SpoolItem): boolean {
+  if (item.quiet === true) return false
+  return WAKING_KINDS.includes(item.kind) || (item.kind === 'notice' && item.watched !== undefined)
+}
+
+/** The kinds of message that may start a turn, as wakeKind lists them: nothing else does. */
+const WAKING_KINDS: readonly string[] = ['msg', 'task', 'result', 'file']
+
+/**
  * Hands one claimed spool item over: true once it is, false when it waits in
  * the pass's idle batch (sent as one turn at the end of the pass).
  */
@@ -510,6 +583,7 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
   }
   const seen: WimItem = { name, kind: item.kind, from: item.from, line: firstLine(item.rendered), at: item.at }
   pass.seen.push(seen)
+  const isQuiet = !mayWake(item)
   if (item.kind === 'notice' && item.held !== undefined) {
     // For the person, not the model: spending a turn on it would only relay it.
     const n = item.held
@@ -523,15 +597,33 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     const line = noticeLine(item.rendered)
     $.ui.toast(`worldinmotion: ${line}`)
     await update($, alerts, list => [...list, line].slice(-RECENT_MAX))
-  } else if (item.relayed && (pass.batch.length > 0 || (await read($, kept)).length > 0)) {
+  } else if ((item.relayed || isQuiet) && (pass.batch.length > 0 || (await read($, kept)).length > 0)) {
     // Behind a kept item, or one of this pass's idle batch (which may be
     // dropped and kept): left in the spool, unclaimed, for a later pass. In the
     // pane now, a dismiss could reach the client before the cursor let it box
     // the item, and be lost (the item would come back).
     return false
-  } else if (item.relayed) {
-    const one: WimRelayed = { name, id: item.id, from: item.from, line: firstLine(item.rendered), at: item.at, text: item.rendered, isShown: false, isDismissed: false }
-    if (!(await keepRelayed($, one))) pass.relaysWaiting++
+  } else if (item.relayed || isQuiet) {
+    // Neither starts a turn: a relayed item's text is not its device's own, and
+    // a quiet notice is one the client says may not wake this session (its
+    // device not trusted, paused or past the breaker's limit; a lapse; a
+    // refusal). Added to a running turn, else left in the pane; the client keeps
+    // both for `inbox` once the cursor passes them.
+    const one: WimRelayed = {
+      name,
+      id: item.id,
+      from: item.from,
+      line: isQuiet ? noticeLine(item.rendered) : firstLine(item.rendered),
+      at: item.at,
+      text: item.rendered,
+      isShown: false,
+      isDismissed: false,
+      ...(isQuiet ? { isQuiet: true as const } : {}),
+    }
+    if (!(await keepRelayed($, one))) {
+      if (one.isQuiet) pass.quietWaiting++
+      else pass.relaysWaiting++
+    }
   } else if ((await read($, kept)).length > 0) {
     // Behind a kept item: the cursor cannot pass it, so anything handed over
     // now would still be unread to `inbox` and `wait`, and come again. It waits
@@ -576,9 +668,10 @@ async function moveCursor($: EngineInterface, spool: string, fresh: readonly str
 }
 
 /**
- * Relayed items reach the model only inside a turn that is already running:
- * a bot or gateway must not be able to start one. The rest wait in the pane.
- * True when it was shown to the model.
+ * Relayed items and quiet notices reach the model only inside a turn that is
+ * already running: a bot or gateway must not be able to start one, and the
+ * client said a quiet notice may not. The rest wait in the pane. True when it
+ * was shown to the model.
  */
 async function keepRelayed($: EngineInterface, one: WimRelayed): Promise<boolean> {
   let isShown = false
@@ -642,6 +735,7 @@ async function tick($: EngineInterface): Promise<void> {
   isTicking = true
   try {
     await linkFromFile($)
+    await forgetIdlePending($)
     await deliver($)
   } catch (error) {
     $.ui.log(`worldinmotion: delivery failed: ${String(error)}`)
@@ -694,6 +788,10 @@ async function refreshPanel($: EngineInterface, note = ''): Promise<void> {
  */
 async function decide($: EngineInterface, op: 'approve' | 'resume' | 'refuse', id: string): Promise<void> {
   const verb = op === 'approve' ? 'approved' : op === 'resume' ? 'approved and its device resumed' : 'refused'
+  if ((await read($, link))?.isSigned === true) {
+    await update($, panel, value => ({ ...value, note: signedNote(id) }))
+    return
+  }
   if (!(await mark($, id, op))) {
     await update($, panel, value => ({ ...value, note: `Could not mark ${id} ${verb}.` }))
     return
@@ -712,6 +810,10 @@ async function decide($: EngineInterface, op: 'approve' | 'resume' | 'refuse', i
  * covers a notice that pins its rule's ids (the caller leaves it out). Only a press calls this.
  */
 async function decideSet($: EngineInterface, op: 'approve' | 'refuse', ids: readonly string[]): Promise<void> {
+  if ((await read($, link))?.isSigned === true) {
+    await update($, panel, value => ({ ...value, note: signedNote(ids[0] ?? '<id>') }))
+    return
+  }
   const failed: string[] = []
   for (const id of ids) if (!(await mark($, id, op))) failed.push(id)
   const done = ids.filter(id => !failed.includes(id))
@@ -799,10 +901,31 @@ async function bridgeSend(
   const isSent = statuses.every(one => one.status === 'routed' || one.status === 'queued')
   // The send stands either way; the model hears that it will not be told when the recipient finishes.
   const watchNote = parseWatchNote(sent)
-  const watch = watchNote === undefined ? '' : ` worldinmotion: ${watchNote}.`
+  const watch = watchNote === undefined ? '' : ` worldinmotion: ${sentence(watchNote)}`
   return isSent
     ? { isSent: true, text: `Sent through worldinmotion (${named}). ${SENT_MEANING}${watch}` }
     : { isSent: false, text: `worldinmotion: not sent (${named}).${watch}` }
+}
+
+/**
+ * SendMessage with `notify_when_idle` and no message: arms the watch only, as the client's `send`
+ * does with no text, so no empty message goes out. Undefined when `to` is not a mesh route.
+ * Nothing is sent to `to`, so nothing asks the person, whoever calls: no text leaves the device,
+ * and whether the notice may start a turn is the client's to decide when it comes (`quiet`). Another
+ * plugin gains nothing it lacks: it can submit a prompt of its own.
+ */
+async function bridgeArm($: EngineInterface, to: string): Promise<SendOutcome | undefined> {
+  if ((await meshRoute($, to)) === undefined) return undefined
+  const answer = await callTool($, 'send', { to, notify_when_idle: true })
+  if (answer === undefined) return { isSent: false, text: `worldinmotion: the plugin's client is not connected. ${(await read($, problem)) || 'See /wim status.'}` }
+  if (answer.isError) return { isSent: false, text: `worldinmotion refused the watch: ${toolText(answer)}` }
+  const said = toolJson(answer)
+  const armed = (parseWatching(said) ?? []).find(one => one.to === to)
+  const watchNote = parseWatchNote(said)
+  const note = watchNote === undefined ? '' : ` worldinmotion: ${sentence(watchNote)}`
+  if (armed === undefined) return { isSent: false, text: `worldinmotion: no idle notice armed for ${to}; nothing was sent.${note}` }
+  const until = armed.until === '' ? '' : ` If none comes by ${armed.until}, the watch lapses and this session is told.`
+  return { isSent: true, text: `worldinmotion will tell this session when ${to} finishes. No message was sent.${until}${note}` }
 }
 
 /** Records every local agent name and address seen, so none is ever bridged. */
@@ -962,7 +1085,11 @@ export const register: Register = on => {
       const isMesh = await takeSubmit($, e.text)
       await update($, busy, () => true)
       await update($, meshTurn, () => isMesh)
-      await writePresence($, isMesh ? 'busy-mesh' : 'busy')
+      // The turn runs either way: a presence it could not write is tried once
+      // more, then logged, as the client reads a stale one (idle) from then on.
+      if (!(await writePresence($, isMesh ? 'busy-mesh' : 'busy')) && !(await writePresence($, isMesh ? 'busy-mesh' : 'busy'))) {
+        $.ui.log(`worldinmotion: could not mark this session ${isMesh ? 'busy-mesh' : 'busy'} (its presence file) for the turn now starting`)
+      }
       await noteTeammates($)
     }
     return next(e)
@@ -979,7 +1106,10 @@ export const register: Register = on => {
     if (e.agentId !== undefined) return next(e)
     await update($, busy, () => false)
     await update($, meshTurn, () => false)
-    await writePresence($, 'idle')
+    const endedAt = await $.clock.now()
+    await update($, idleSince, () => endedAt)
+    // Idle, unless a submit is pending: its turn starts next, so presence stays busy-mesh.
+    await writePresenceNow($)
     // Not awaited: the submitted turn starts only after this one has ended.
     // Kept items go with the late line, as the mods API docs say to retry a dropped submit.
     void handOverKept($).catch(error => $.ui.log(`worldinmotion: ${String(error)}`))
@@ -995,7 +1125,9 @@ export const register: Register = on => {
     // Another plugin's call of the tool is confirmed like its $.session.send.
     const origin = next.origin.plugin
     const byPlugin = origin === 'engine' || origin === $.plugin.name ? undefined : origin
-    const outcome = await bridgeSend($, to, e.message, notifyWhenIdle, byPlugin)
+    const message = typeof e.message === 'string' ? e.message : ''
+    // Arm only: an empty or missing message with notify_when_idle sends nothing.
+    const outcome = notifyWhenIdle && message.trim() === '' ? await bridgeArm($, to) : await bridgeSend($, to, message, notifyWhenIdle, byPlugin)
     if (outcome === undefined) return next(e)
     if (outcome.isSent) return { result: { success: true, message: outcome.text }, text: outcome.text }
     return { isError: true, result: { success: false, error: outcome.text }, text: outcome.text }
@@ -1063,8 +1195,21 @@ export const register: Register = on => {
     const why = await read($, problem)
     const shown = await read($, panel)
     const items = await read($, recent)
-    const relays = await read($, relayed)
+    const boxed = await read($, relayed)
+    const relays = boxed.filter(one => !one.isQuiet)
+    const quiet = boxed.filter(one => one.isQuiet)
     const now = await $.clock.now()
+    const boxRow = (one: WimRelayed) => (
+      <Box flexDirection="column">
+        <Text>{`${one.from}  ${age(one.at, now)}: ${one.line}${one.isShown ? '  (shown)' : ''}`}</Text>
+        <Box flexDirection="row">
+          {!one.isShown && (
+            <Button key={`deliver:${one.name}`} label="Give to Claude" onPress={() => handOver($, one.name)} />
+          )}
+          <Button key={`dismiss:${one.name}`} label="Dismiss" onPress={() => dismissRelayed($, one.name)} />
+        </Box>
+      </Box>
+    )
 
     return (
       <Box flexDirection="column">
@@ -1121,17 +1266,11 @@ export const register: Register = on => {
 
         <Text bold>{`Relayed by bots and gateways (${relays.filter(one => !one.isShown).length} not shown to Claude)`}</Text>
         {relays.length === 0 && <Text dimColor>None.</Text>}
-        {[...relays].reverse().map(one => (
-          <Box flexDirection="column">
-            <Text>{`${one.from}  ${age(one.at, now)}: ${one.line}${one.isShown ? '  (shown)' : ''}`}</Text>
-            <Box flexDirection="row">
-              {!one.isShown && (
-                <Button key={`deliver:${one.name}`} label="Give to Claude" onPress={() => handOver($, one.name)} />
-              )}
-              <Button key={`dismiss:${one.name}`} label="Dismiss" onPress={() => dismissRelayed($, one.name)} />
-            </Box>
-          </Box>
-        ))}
+        {[...relays].reverse().map(boxRow)}
+
+        <Text bold>{`Quiet notices: they start no turn (${quiet.filter(one => !one.isShown).length} not shown to Claude)`}</Text>
+        {quiet.length === 0 && <Text dimColor>None.</Text>}
+        {[...quiet].reverse().map(boxRow)}
 
         <Text bold>Recent</Text>
         {items.length === 0 && <Text dimColor>Nothing delivered yet.</Text>}
