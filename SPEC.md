@@ -833,13 +833,14 @@ ending for good (its name is freed, it leaves its rooms, its leases end, and lat
 `ended`).
 
 **Relay frames:** `hello`, `ready`, `sent`, `deliver`, `receipt`, `peers { peers }`,
-`peer { peer }` (one row changed), `notice { kind: "idle", of: "<address>" }`,
+`peer { peer }` (one row changed), `notice { kind: "idle", of: "<address>", why? }`,
+`idle.armed { of, exp }` (an answer to `notify_idle`),
 `roster { chain, more }`, `join.request { join }` (to admins), `joined { chain, more }` (to a
 joiner), `invite.created { invite }`, `recover.ready { roster }` (section 4a), `room.joined { room, members }`, `room.history { room, msgs, more }`,
 `lease { key, status, holder?, until?, token? }`, `leases { leases }`, `blob.stored { blob, index }`,
 `blob.chunk { blob, index, last, n, data }`, `cards { cards, more }`, `card { msg }` (section 17),
 `rdv.stored { rdv }` (section 5), `ci.rules { count }` and `ci.deliver { cursor, msg }` (section
-18), `mesh.deleted { mesh }` (section 11), `error { code, message, ref? }`, `pong`.
+18), `mesh.deleted { mesh }` (section 11), `error { code, message, ref?, of? }`, `pong`.
 
 CI senders do not use the WebSocket: they make two HTTP requests to `<relay>/v1/<mesh id>/ci`
 (section 18).
@@ -874,9 +875,10 @@ with backoff after any other code.
 | 4009 | relay | a newer connection took over this session or this join |
 | 4029 | relay | a rate or count limit was hit |
 
-**A peer row:** `{ "address": "reviewer@laptop", "sid": "<ULID>", "kind": "claude-code", "status": "idle" | "busy" | "offline", "since": ..., "rooms": ["#ops"] }`.
+**A peer row:** `{ "address": "reviewer@laptop", "sid": "<ULID>", "kind": "claude-code", "status": "idle" | "busy" | "offline", "since": ..., "rooms": ["#ops"], "presence": true }`.
 The `sid` is no secret (every recipient already sees it as `from.sid`); it lets a client match a
-session's card (section 17) by device id and sid.
+session's card (section 17) by device id and sid. `presence` is present, and `true`, once the
+session has sent `presence` on its current connection (see Idle notices below).
 
 **Keepalives and liveness.** These timings are what the reference client and relays do; they are
 informative, not requirements on other implementations.
@@ -916,6 +918,18 @@ so a client MAY drop one it did not arm: for an address it sent no `notify_idle`
 lapsed, or a second one for the same arm. The reference client keeps its arms in the session's
 `watches.json` and drops every such notice (SECURITY-MODEL section 5.4).
 
+A relay also sends the notice when the watched session has been offline for 60 seconds without a
+new connection, and adds `why`: `idle`, `ended` or `offline`. A notice that fires while the asking
+session is offline is kept until that session's next `ready` (after `ready` and the queued
+messages), within the arm's 12 hours; a later process of the session that takes it back with its
+resume secret (Names, above) gets it too. The relay answers each `notify_idle` it arms with
+`idle.armed { of, exp }`, `of` as the client sent it and `exp` when the arm lapses, and a refusal
+with `error { code, message, ref: "notify_idle", of }`. A peer row carries `"presence": true` once
+its session has sent `presence` on its current connection, so a row that reads `idle` because its
+session reports nothing can be told from one whose agent finished a turn. Clients MUST NOT depend
+on any of these: a relay that predates them (0.1.x) sends none, and a client that predates them
+ignores `idle.armed`, an unknown type, and the new keys. None of them adds a key to a client frame.
+
 ## 9. Limits (defaults; a relay MAY lower the relay-side ones)
 
 | limit | default |
@@ -935,6 +949,7 @@ lapsed, or a second one for the same arm. The reference client keeps its arms in
 | WebSocket dials per source address | 600 a minute, across every mesh on the relay |
 | connections before `auth` per source address | 256 open at once |
 | idle notices per session | 16, each lasting 12 hours |
+| idle notice offline grace | 60 seconds |
 | sessions per mesh | 256 |
 | sessions per device | 32 |
 | live invites per device | 16 |
@@ -994,8 +1009,9 @@ lapsed, or a second one for the same arm. The reference client keeps its arms in
 
 ## 10. What the relay can and cannot see
 
-It sees: mesh ids, device ids and names, session names, kinds and busy or idle status, who sends to
-whom, when, and how large. It cannot see message text, cannot add or remove devices, cannot forge
+It sees: mesh ids, device ids and names, session names, kinds and busy or idle status, which
+session asked to be told when which other session goes idle, who sends to whom, when, and how
+large. It cannot see message text, cannot add or remove devices, cannot forge
 or alter a message without the receiver dropping it, and cannot replay one past the receiver's
 dedupe and freshness window. It can drop or delay messages. It can withhold a roster update from a
 client for a while, but every message carries the sender's roster reference, so a receiver learns

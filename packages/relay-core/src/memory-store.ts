@@ -160,7 +160,7 @@ export class MemoryStore implements MeshStore {
     }
     const idle = [...this.idle.values()];
     this.idle.clear();
-    for (const r of idle) this.putIdle({ sub: swap(r.sub), target: swap(r.target), exp: r.exp });
+    for (const r of idle) this.putIdle({ ...r, sub: swap(r.sub), target: swap(r.target) });
     for (const m of this.memberRows) m.sid = swap(m.sid);
     for (const l of this.leaseRows.values()) l.holder = swap(l.holder);
     for (const w of this.waiterRows) w.sid = swap(w.sid);
@@ -227,6 +227,14 @@ export class MemoryStore implements MeshStore {
 
   idleFor(target: string): IdleRow[] {
     return [...this.idle.values()].filter((r) => r.target === target).map(copy);
+  }
+
+  idleBy(sub: string): IdleRow[] {
+    return [...this.idle.values()].filter((r) => r.sub === sub).map(copy);
+  }
+
+  idleArmed(): IdleRow[] {
+    return [...this.idle.values()].filter((r) => r.fired === null).map(copy);
   }
 
   idleCount(sub: string): number {

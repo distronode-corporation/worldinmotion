@@ -297,6 +297,11 @@ export const peerSchema = z.looseObject({
   status: z.enum(["idle", "busy", "offline"]),
   since: timeSchema,
   rooms: z.array(roomSchema).max(LIMITS.roomsPerSession),
+  /**
+   * Present once the session has sent `presence` on its current connection, so a row reading
+   * `idle` can be told apart from one whose session reports nothing. Absent from older relays.
+   */
+  presence: z.literal(true).optional(),
 });
 
 export const helloFrameSchema = z.looseObject({
@@ -330,11 +335,16 @@ export const deliverFrameSchema = z.looseObject({ t: z.literal("deliver"), curso
 export const relayReceiptFrameSchema = z.looseObject(receiptFields);
 export const peersFrameSchema = z.looseObject({ t: z.literal("peers"), peers: z.array(peerSchema) });
 export const peerFrameSchema = z.looseObject({ t: z.literal("peer"), peer: peerSchema });
+/** What fired an idle notice (SPEC section 8). Absent from older relays. */
+export const idleWhySchema = z.enum(["idle", "ended", "offline"]);
 export const noticeFrameSchema = z.looseObject({
   t: z.literal("notice"),
   kind: z.literal("idle"),
   of: sessionAddressSchema,
+  why: idleWhySchema.optional(),
 });
+/** The relay's answer to a `notify_idle` it armed: the address as asked, and when the arm lapses. Older relays send none. */
+export const idleArmedFrameSchema = z.looseObject({ t: z.literal("idle.armed"), of: sessionAddressSchema, exp: timeSchema });
 /** One page of a roster chain, oldest first, at most 64 rosters. */
 const chainPage = z.array(rosterSchema).min(1).max(LIMITS.rosterPageMax);
 /** A page of rosters: an answer to `roster.get`, or a new roster pushed to every session. */
@@ -347,6 +357,8 @@ export const errorFrameSchema = z.looseObject({
   message: z.string().max(4096),
   /** What the error refers to: a message id or the `t` of the refused frame. */
   ref: z.string().max(128).optional(),
+  /** On a refused `notify_idle`, the address it asked about. Absent from older relays. */
+  of: sessionAddressSchema.optional(),
 });
 export const pongFrameSchema = z.looseObject({ t: z.literal("pong") });
 /** The relay's answer to a verified recovery `auth` (SPEC section 4a): the newest roster. */
@@ -407,6 +419,7 @@ const relaySchemas = {
   peers: peersFrameSchema,
   peer: peerFrameSchema,
   notice: noticeFrameSchema,
+  "idle.armed": idleArmedFrameSchema,
   roster: rosterFrameSchema,
   "join.request": joinRequestFrameSchema,
   joined: joinedFrameSchema,
@@ -437,6 +450,7 @@ export const relayFrameSchema = z.discriminatedUnion("t", [
   peersFrameSchema,
   peerFrameSchema,
   noticeFrameSchema,
+  idleArmedFrameSchema,
   rosterFrameSchema,
   joinRequestFrameSchema,
   joinedFrameSchema,
@@ -505,6 +519,8 @@ export type RelayReceiptFrame = z.infer<typeof relayReceiptFrameSchema>;
 export type PeersFrame = z.infer<typeof peersFrameSchema>;
 export type PeerFrame = z.infer<typeof peerFrameSchema>;
 export type NoticeFrame = z.infer<typeof noticeFrameSchema>;
+export type IdleWhy = z.infer<typeof idleWhySchema>;
+export type IdleArmedFrame = z.infer<typeof idleArmedFrameSchema>;
 export type RosterFrame = z.infer<typeof rosterFrameSchema>;
 export type JoinRequestFrame = z.infer<typeof joinRequestFrameSchema>;
 export type JoinedFrame = z.infer<typeof joinedFrameSchema>;
