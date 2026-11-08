@@ -184,7 +184,7 @@ describe("keepalives", () => {
     // packages/client/src/wire.ts sends JSON.stringify({ t: "ping" }).
     root.sock.send(JSON.stringify({ t: "ping" }));
     expect(await root.sock.next("pong")).toEqual({ t: "pong" });
-    expect(raw.filter((r) => r.includes("pong"))).toEqual(['{"t":"pong"}']);
+    expect(raw.filter((r) => (JSON.parse(r) as { t?: unknown }).t === "pong")).toEqual(['{"t":"pong"}']);
     const stamps = await runInDurableObject(meshStub(m.mesh), (_o, st) => st.getWebSockets().map((ws) => st.getWebSocketAutoResponseTimestamp(ws)));
     expect(stamps.filter((d) => d !== null)).toHaveLength(1);
   });

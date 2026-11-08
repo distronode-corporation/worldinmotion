@@ -4,7 +4,7 @@ import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
 import { main, OWN_QUESTION, parseArgs, parseDuration, toName, USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
-import { inviteCodeOf, makeMesh, POSIX_VIEW, RELAY, RelayHarness, run, said, sasOf, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
+import { framedText, inviteCodeOf, makeMesh, POSIX_VIEW, RELAY, RelayHarness, run, said, sasOf, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -232,7 +232,7 @@ describe("using a mesh", () => {
     expect(said(b)).toContain("Resuming cli@one lifts the loop breaker's pause on device one and releases what it held from there (0 now on disk):");
     expect(await run(b, "held", "shrug", "x")).toBe(1);
     const back = await MeshSession.open({ ...sessionOpts(devices[1]!, mesh, relay, { name: "inbox" }), sessionKey: "key:inbox" });
-    expect((await back.spool.unread()).filter((i) => i.kind === "msg").map((i) => i.rendered.includes("first"))).toEqual([true]);
+    expect((await back.spool.unread()).filter((i) => i.kind === "msg").map((i) => framedText(i.rendered))).toEqual(["first"]);
     await back.stop();
   }, 20_000);
 
