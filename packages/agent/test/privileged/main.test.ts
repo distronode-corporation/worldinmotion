@@ -35,6 +35,7 @@ function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: numb
   const timers: Array<{ fn: () => void; ms: number }> = [];
   const proxies: Array<ProxyOptions & { closed: number }> = [];
   const dirs: string[] = [];
+  const ops: string[] = [];
   let signal: (() => void) | undefined;
   let released = 0;
   let stdin: Buffer = Buffer.from(JSON.stringify(request()));
@@ -53,10 +54,10 @@ function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: numb
       return f.text;
     },
     writeFile: async (p, d, mode) => void files.set(p, { text: d, uid: 0, mode }),
-    ensureDir: async (p) => void dirs.push(p),
+    ensureDir: async (p, mode) => void (dirs.push(p), ops.push(`dir ${p} ${mode.toString(8)}`)),
     codeProblem: async () => opts.codeProblem,
     lookupUser: async (name) => (name === RECIPIENT_CFG.user ? PEER : WORKER),
-    acquireLock: async () => (opts.lockBusy === true ? null : { release: async () => void released++ }),
+    acquireLock: async (p) => (ops.push(`lock ${p}`), opts.lockBusy === true ? null : { release: async () => void (ops.push("unlock"), released++) }),
     memAvailableMb: async () => opts.mem,
     ancestorsAllRoot: async () => opts.ancestorsRoot ?? true,
     identity: { awsWebIdentityToken: async () => "aws.jwt", fetch: async () => ({ ok: true, status: 200, text: async () => "" }), readFile: async () => "" },
@@ -78,7 +79,7 @@ function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: numb
     startProxy: async (o) => {
       const p = { ...o, closed: 0 };
       proxies.push(p);
-      return { url: "http://127.0.0.1:4100", key: "wimjob-key", requests: () => 0, close: async () => void p.closed++ };
+      return { url: "http://127.0.0.1:4100", key: "wimjob-key", requests: () => 0, close: async () => void (ops.push("proxy closed"), p.closed++) };
     },
     startJob(spec) {
       specs.push(spec);
@@ -95,6 +96,7 @@ function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: numb
           kills.push(s);
           if (s === "SIGKILL") resolve(null);
         },
+        cleanup: async () => void ops.push("cleanup"),
       };
       queueMicrotask(() => {
         if (job.out !== undefined) onOut(Buffer.isBuffer(job.out) ? job.out : Buffer.from(job.out));
@@ -123,6 +125,7 @@ function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: numb
     timers,
     proxies,
     dirs,
+    ops,
     released: () => released,
     fireSignal: () => signal!(),
     setStdin: (o: unknown) => void (stdin = Buffer.isBuffer(o) ? o : Buffer.from(JSON.stringify(o))),
@@ -390,10 +393,9 @@ describe("privilegedMain: limits, lock, timeout", () => {
     expect(await run(harness(minimal(), { mem: 2000 }))).toBe(0);
   });
 
-  it("makes the run directory before it takes the lock, and is busy when the lock stays held", async () => {
+  it("is busy when the lock stays held", async () => {
     const h = harness(minimal(), { lockBusy: true });
     expect(await run(h)).toBe(4);
-    expect(h.dirs).toEqual(["/run/wim-agent"]);
     expect(h.specs.length).toBe(0);
   });
 
@@ -458,7 +460,7 @@ describe("privilegedMain: limits, lock, timeout", () => {
     expect(h.output()).toBe("");
     expect(h.logs()).toMatch(/job exited 1/);
     const u = harness(minimal());
-    u.deps.lookupUser = async (name) => (name === RECIPIENT_CFG.user ? PEER : Promise.reject(new Error("no such user wim-agent-worker")));
+    u.deps.startProxy = async () => Promise.reject(new Error("no loopback"));
     expect(await run(u)).toBe(1);
     expect(u.logs()).toMatch(/failed: Error$/m);
     expect(u.released()).toBe(1);
@@ -476,6 +478,66 @@ describe("privilegedMain: limits, lock, timeout", () => {
     const h = harness({ v: 1 });
     expect(await run(h)).toBe(1);
     expect(h.logs()).toMatch(/failed: .*defaultProfile/);
+  });
+});
+
+describe("privilegedMain: directories before the lock, and the job's end", () => {
+  it("makes and checks runDir before it opens the lock, so a fresh /run tmpfs works", async () => {
+    const h = harness(minimal());
+    expect(await run(h)).toBe(0);
+    expect(h.ops.indexOf("dir /run/wim-agent 750")).toBeGreaterThanOrEqual(0);
+    expect(h.ops.indexOf("lock /run/wim-agent/job.lock")).toBeGreaterThan(h.ops.indexOf("dir /run/wim-agent 750"));
+    // The lock lives in runDir here, so no second directory is made before the lock.
+    expect(h.ops.slice(0, h.ops.indexOf("lock /run/wim-agent/job.lock"))).toEqual(["dir /run/wim-agent 750"]);
+  });
+
+  it("also makes the lock's own directory when the lock lives elsewhere, but never touches /", async () => {
+    const h = harness(minimal({ lock: { path: "/run/shared/job.lock", waitSeconds: 5 } }));
+    expect(await run(h)).toBe(0);
+    expect(h.ops.indexOf("dir /run/shared 755")).toBeLessThan(h.ops.indexOf("lock /run/shared/job.lock"));
+    const top = harness(minimal({ lock: { path: "/job.lock", waitSeconds: 5 } }));
+    expect(await run(top)).toBe(0);
+    expect(top.ops.filter((o) => o.startsWith("dir ") && o.includes(" 755"))).toEqual([]);
+  });
+
+  it("at the leader's exit closes the proxy first, then cleans up the job, then releases the lock", async () => {
+    for (const job of [{ out: "ok" }, { code: 2 }]) {
+      const h = harness(minimal(), { job });
+      await run(h);
+      const closed = h.ops.indexOf("proxy closed");
+      expect(closed).toBeGreaterThanOrEqual(0);
+      expect(h.ops.indexOf("cleanup")).toBeGreaterThan(closed);
+      expect(h.ops.indexOf("unlock")).toBeGreaterThan(h.ops.indexOf("cleanup"));
+    }
+  });
+
+  it("after a timeout the job is cleaned up too, and the grace kill is cancelled", async () => {
+    const h = harness(minimal(), { job: { hang: true } });
+    const cleared: unknown[] = [];
+    h.deps.clearTimeout = (t) => void cleared.push(t);
+    const done = run(h);
+    await new Promise((r) => setTimeout(r, 20));
+    h.timers.find((t) => t.ms === 1_800_000)!.fn();
+    h.timers.find((t) => t.ms === 15_000)!.fn();
+    expect(await done).toBe(5);
+    expect(h.ops).toContain("cleanup");
+    const grace = h.timers.findIndex((t) => t.ms === 15_000) + 1;
+    expect(cleared).toContain(grace);
+  });
+
+  it("a missing worker user fails before the lock is taken", async () => {
+    const h = harness(minimal());
+    h.deps.lookupUser = async (name) => (name === RECIPIENT_CFG.user ? PEER : Promise.reject(new Error("no such user")));
+    expect(await run(h)).toBe(1);
+    expect(h.ops.some((o) => o.startsWith("lock "))).toBe(false);
+  });
+
+  it("fails after the lock when the sign-in fails, and releases it", async () => {
+    const h = harness(minimal());
+    h.deps.identity.awsWebIdentityToken = async () => Promise.reject(new Error("sts unreachable"));
+    expect(await run(h)).toBe(1);
+    expect(h.logs()).toMatch(/failed: Error$/m);
+    expect(h.released()).toBe(1);
   });
 });
 
