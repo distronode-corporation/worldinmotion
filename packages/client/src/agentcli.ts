@@ -7,15 +7,15 @@
 import { b64u, encodeKeys, prekeySchema, randomBytes, type Prekey } from "@worldinmotion/protocol";
 import { spawn as nodeSpawn } from "node:child_process";
 import { join } from "node:path";
-import { AgentLog, AgentServer, answers, Signer, type Desk } from "./agent.ts";
+import { AgentError, AgentLog, AgentServer, answers, Signer, type Desk } from "./agent.ts";
 import { agentDir, agentEndpoint, agentLogPath, endpointFiles, readAgentSettings, retireEndpoint, startLockPath, writeAgentSettings } from "./agentpath.ts";
 import type { CliIO } from "./cli.ts";
 import { SetupError } from "./errors.ts";
 import { ensureDir, readJson, withLock, writeAtomic, writeJson } from "./fsx.ts";
 import type { Home } from "./home.ts";
 import { agentEnv, cannotConfirm, notAPerson, personOnly } from "./secretout.ts";
-import { askGui, confirmGui, autostartStatus, disableAutostart, enableAutostart, GUI_AGAIN, GUI_ASK, KEYRING_WARNING, keyringAccount, keyringClear, keyringKind, keyringRead, keyringStore, NO_KEYRING, type AutostartOptions, type Programs } from "./autostart.ts";
-import { MeshFiles } from "./mesh.ts";
+import { askGui, CONFIRM_SECONDS, confirmGui, autostartStatus, disableAutostart, enableAutostart, GUI_AGAIN, GUI_ASK, KEYRING_WARNING, keyringAccount, keyringClear, keyringKind, keyringRead, keyringStore, NO_KEYRING, type AutostartOptions, type Programs } from "./autostart.ts";
+import { MeshFiles, RosterBook } from "./mesh.ts";
 import { listAllHeld } from "./offline.ts";
 import { SignerClient } from "./signer.ts";
 import { BadPassphrase, openKeyFile, openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile } from "./vault.ts";
@@ -108,9 +108,12 @@ function programs(ctx: AgentCtx): Programs {
 
 /** Asks in the native dialog, again (up to GUI_TRIES) while what was typed does not pass `opens`. */
 async function askUntilOpens(ctx: AgentCtx, opens: ((passphrase: string) => Promise<boolean>) | undefined): Promise<string> {
-  const { platform, run } = programs(ctx);
+  const { platform, run, trust } = programs(ctx);
+  // The dialog names the process that started the signer: one the person did not start is not theirs to answer.
+  const by = await ctx.io.signerChecks?.askedBy();
+  const asked = by === undefined ? "" : `\n\nAsked by: ${by}\nIf you did not just start the signer yourself, choose Cancel.`;
   for (let i = 0; i < GUI_TRIES; i++) {
-    const passphrase = await askGui(platform, run, i === 0 ? GUI_ASK : GUI_AGAIN);
+    const passphrase = await askGui(platform, run, `${i === 0 ? GUI_ASK : GUI_AGAIN}${asked}`, trust);
     if (opens === undefined || (await opens(passphrase))) return passphrase;
   }
   throw new SetupError(`the passphrase did not open this device's keys in ${GUI_TRIES} tries`);
@@ -261,7 +264,10 @@ async function runSigner(ctx: AgentCtx, passphrase: string, ready: (line: string
  * How this signer takes decisions on held messages: it reads the held items from this state
  * directory itself, and asks in the terminal it runs in (`--foreground` at an interactive
  * terminal), else in a native dialog. A signer started under an agent's variables asks nobody: it
- * cannot tell the person from the agent, so it refuses every decision.
+ * cannot tell the person from the agent, so it refuses every decision. So does one with an agent
+ * among the processes above it (an agent that cleared its variables, `env -i`, and gave the signer
+ * a terminal of its own), checked when it starts; in the foreground its input must be its own
+ * controlling terminal too. Every ask ends after CONFIRM_SECONDS, or when the asker goes away.
  */
 export function desk(ctx: AgentCtx): Desk {
   const fsEnv = { platform: ctx.io.platform, pid: ctx.io.pid };
@@ -269,27 +275,75 @@ export function desk(ctx: AgentCtx): Desk {
     const rows = await listAllHeld(new MeshFiles(ctx.home.meshDir(mesh), fsEnv), fsEnv);
     return rows.filter((r) => ids.includes(r.id)).map(({ sid: _sid, session, ...item }) => ({ item, session }));
   };
+  const device: Desk["device"] = async (mesh, name) => {
+    const book = await RosterBook.open(new MeshFiles(ctx.home.meshDir(mesh), fsEnv)).catch(() => undefined);
+    return book?.current.devices.find((d) => d.name === name)?.id;
+  };
   const agent = agentEnv(ctx.env);
   if (agent !== undefined) {
     return {
       read,
+      device,
       confirm: {
         cannot: `${agent} was set where this signer started, so it runs in an agent's environment and cannot tell you from the agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`,
       },
     };
   }
+  const checks = ctx.io.signerChecks;
+  // Read now, while the processes that started it are still there; a failed read refuses.
+  const above = checks === undefined ? Promise.resolve(undefined) : checks.agentAncestor().catch((e: unknown) => `the processes above this signer could not be read (${(e as Error).message})`);
+  const guard = async (terminal: boolean): Promise<void> => {
+    const why = (await above) ?? (terminal ? await checks?.terminal() : undefined);
+    if (why !== undefined) throw new AgentError("refused", `${why}, so this signer cannot tell you from an agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`);
+  };
   if (ctx.flags.get("foreground") === true && cannotConfirm(ctx.env, ctx.io) === undefined) {
+    const question = "Type y to sign this decision; anything else declines it [y/N] ";
+    // A question nobody answered in time is still read: the next ask takes its answer, never a second reader.
+    let pending: Promise<string> | undefined;
     return {
       read,
-      confirm: async (lines) => {
+      device,
+      confirm: async (lines, gone) => {
+        await guard(true);
         for (const line of lines) ctx.io.out(line);
-        return /^y(es)?$/i.test((await ctx.io.prompt("Type y to sign this decision; anything else declines it [y/N] ")).trim());
+        if (pending !== undefined) ctx.io.out(question);
+        const answer = (pending ??= ctx.io.prompt(question));
+        const typed = await within(answer, CONFIRM_SECONDS * 1000, gone);
+        if (typed === undefined) {
+          ctx.io.out("No answer in time, or the process that asked went away: declined.");
+          return false;
+        }
+        pending = undefined;
+        return /^y(es)?$/i.test(typed.trim());
       },
     };
   }
   const p = ctx.io.programs;
-  if (p === undefined) return { read, confirm: { cannot: "this signer has no terminal or dialog to ask you in: start it with `wim agent start --foreground` in your own terminal" } };
-  return { read, confirm: (lines) => confirmGui(p.platform, p.run, lines) };
+  if (p === undefined) return { read, device, confirm: { cannot: "this signer has no terminal or dialog to ask you in: start it with `wim agent start --foreground` in your own terminal" } };
+  return {
+    read,
+    device,
+    confirm: async (lines, gone) => {
+      await guard(false);
+      return confirmGui(p.platform, p.run, lines, p.trust, gone);
+    },
+  };
+}
+
+/** What `answer` gives within `ms`, or undefined when the time runs out or `gone` aborts first. */
+export function within(answer: Promise<string>, ms: number, gone?: AbortSignal): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const settle = (value: string | undefined): void => {
+      clearTimeout(timer);
+      gone?.removeEventListener("abort", end);
+      resolve(value);
+    };
+    const end = (): void => settle(undefined);
+    const timer = setTimeout(end, ms);
+    gone?.addEventListener("abort", end, { once: true });
+    if (gone?.aborted === true) end();
+    void answer.then(settle);
+  });
 }
 
 /**

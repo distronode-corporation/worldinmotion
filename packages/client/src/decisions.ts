@@ -4,8 +4,8 @@
 // or dialog, and signed exactly those ids, each bound to a digest of the item it showed. A mark file
 // any process can write is refused. Without a signer nothing here is used (SECURITY-MODEL 7.2).
 
-import { b64u, canonBytes, isId22, isUlid, sanitizeForDisplay, sha256, utf8 } from "@worldinmotion/protocol";
-import { sign as edSign, verify, type KeyObject } from "node:crypto";
+import { b64u, canonBytes, isId22, isUlid, sha256, utf8 } from "@worldinmotion/protocol";
+import { randomInt, sign as edSign, verify, type KeyObject } from "node:crypto";
 import { z } from "zod";
 import { agentEndpoint, type AgentEnv } from "./agentpath.ts";
 import { ed25519Public } from "./channel.ts";
@@ -59,6 +59,12 @@ export const DECIDE_WAIT_MS = 6 * 60_000;
  */
 export const MAX_DECISION_IDS = 1000;
 
+/**
+ * At most this many signed copies in one decision (an id held in several sessions is one copy per
+ * distinct version): what a session takes, so the signer refuses more before the person is asked.
+ */
+export const MAX_DECISION_ITEMS = MAX_DECISION_IDS * 8;
+
 /** The signed bytes' label: no other signature of the device's key (SPEC section 3, design.md) uses it. */
 const LABEL = "wim-agent/2 held-decision\n";
 
@@ -71,11 +77,39 @@ export const decisionSchema = z.strictObject({
   mesh: z.string().max(64),
   verdict: z.enum(["approve", "refuse", "resume"]),
   peer: z.string().min(1).max(200).optional(),
-  items: z.array(z.strictObject({ id: ulidSchema, digest: digestSchema })).max(MAX_DECISION_IDS * 8),
+  items: z.array(z.strictObject({ id: ulidSchema, digest: digestSchema })).max(MAX_DECISION_ITEMS),
   at: z.int().min(0),
   n: ulidSchema,
   sig: z.string().max(200),
 });
+
+/**
+ * A held copy the signer takes as one: anything else in a held directory (a file planted or
+ * damaged, a time no date can show) is no item, never shown or signed. Fields it does not name are
+ * kept: the digest is over the copy as it is.
+ */
+export const heldItemSchema = z.looseObject({
+  id: ulidSchema,
+  from: z.string().max(300),
+  device: z.string().max(64),
+  kind: z.enum(["msg", "task", "result", "file"]),
+  at: z.int().min(0).max(8.64e15),
+  preview: z.string(),
+  rendered: z.string(),
+  reason: z.enum(["policy", "breaker"]),
+  entry: z.looseObject({ text: z.string() }),
+  ci: z.looseObject({ rule: z.string() }).optional(),
+});
+
+/**
+ * What the person is shown of a copy, and what is delivered: two copies of one id that differ in
+ * any of it are refused (the person would be shown one and approve the other). Which session holds
+ * it, and why (a policy or a breaker hold, its pause), may differ.
+ */
+export function shownOf(item: HeldItem): string {
+  const { from, device, kind, at, entry, rendered, ci, fileInfo } = item;
+  return b64u.encode(sha256(canonBytes({ from, device, kind, at, text: entry.text, ...(ci === undefined ? {} : { ci, rendered }), ...(fileInfo === undefined ? {} : { fileInfo }) })));
+}
 
 /** A digest of a held item as it is on disk: a decision releases a copy only while it is unchanged. */
 export function heldDigest(item: HeldItem): string {
@@ -121,7 +155,19 @@ export function covers(d: Decision, item: HeldItem): boolean {
 }
 
 /** What a client asks the signer to decide. The signer reads the items itself; `ids` only names them. */
-export type DecideRequest = { mesh: string; verdict: DecisionVerdict; ids: readonly string[]; peer?: string };
+export type DecideRequest = { mesh: string; verdict: DecisionVerdict; ids: readonly string[]; peer?: string; code: string };
+
+/**
+ * A fresh code for one request: the asking process shows it, the signer shows it too, and the
+ * person confirms only when the two match. Another process's request, timed to come when the
+ * person expects one, shows a code they were never given.
+ */
+export function decisionCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+/** A code as `decide` takes it: six digits. */
+export const CODE_RE = /^\d{6}$/;
 
 /**
  * Asks this device's signer for a decision, on a connection of its own (the person may take
@@ -140,7 +186,7 @@ export async function requestDecision(o: { root: string; env: AgentEnv; signPub:
     // Connected and checked first, then the stop looked at again: one given while connecting sends no `decide`.
     await client.hello();
     stop?.throwIfAborted();
-    const r = await client.call("decide", { mesh: req.mesh, verdict: req.verdict, ids: [...req.ids], ...(req.peer === undefined ? {} : { peer: req.peer }) }, DECIDE_WAIT_MS);
+    const r = await client.call("decide", { mesh: req.mesh, verdict: req.verdict, ids: [...req.ids], code: req.code, ...(req.peer === undefined ? {} : { peer: req.peer }) }, DECIDE_WAIT_MS);
     return r["decision"] as Decision;
   } catch (error) {
     throw new SetupError(`${NEEDS_SIGNER}: ${stop?.aborted === true ? "stopped before the signer answered; nothing was decided" : (error as Error).message}`);
@@ -191,12 +237,19 @@ export function unsignedRefusal(what: string): string {
 /** How many items the signer lists one by one; the rest are counted. */
 const SHOWN = 10;
 
+/** One line of free text from a peer or a file on disk: sanitized, whitespace and line breaks collapsed. */
+function one(text: string, max = 100): string {
+  return preview(text, max);
+}
+
 /**
- * What the signer shows the person before it signs: what the decision does, then each item it
- * read from disk itself (never text the asking process sent), its sender, sessions, kind, time
- * and first line. The first lines say to decline anything the person did not just ask for.
+ * What the signer shows the person before it signs: the code of the request, what the decision
+ * does, then each item it read from disk itself (never text the asking process sent), its sender,
+ * sessions, kind, time and first line; for a CI notice, the text that is delivered. The first
+ * lines say to decline anything the person did not just ask for. `peer`: a resume's peer, as the
+ * roster names its device.
  */
-export function decisionView(req: DecideRequest, copies: readonly HeldCopy[]): string[] {
+export function decisionView(req: DecideRequest, copies: readonly HeldCopy[], peer?: { session: string; device: string; id: string }): string[] {
   const ids = [...new Set(copies.map((c) => c.item.id))];
   const n = ids.length === 1 ? "1 held message" : `${ids.length} held messages`;
   const what =
@@ -204,12 +257,17 @@ export function decisionView(req: DecideRequest, copies: readonly HeldCopy[]): s
       ? `Approve ${n}: they are delivered to your agents.`
       : req.verdict === "refuse"
         ? `Refuse ${n}: they are dropped, never delivered.`
-        : `Resume ${sanitizeForDisplay(req.peer!)}: lift the loop breaker's pause on its device and release ${n}.`;
-  const lines = ["worldinmotion signer: a process on this computer asks you to decide on held messages.", "Confirm only if you just asked for this yourself (wim held, VS Code). If you did not, choose Cancel.", what];
+        : `Resume ${one(peer!.session, 64)}@${one(peer!.device, 64)} (device id ${peer!.id}): lift the loop breaker's pause on its device and release ${n}.`;
+  const lines = [
+    "worldinmotion signer: a process on this computer asks you to decide on held messages.",
+    `Code ${req.code}: confirm only if you just asked for this yourself (wim held, VS Code) and it showed you this code. If not, choose Cancel.`,
+    what,
+  ];
   for (const [i, id] of ids.slice(0, SHOWN).entries()) {
     const mine = copies.filter((c) => c.item.id === id);
     const r = mine[0]!.item;
-    lines.push(`${i + 1}. from ${sanitizeForDisplay(r.from)} to ${mine.map((c) => sanitizeForDisplay(c.session)).join(", ")}, ${r.kind}, ${new Date(r.at).toISOString()}: ${preview(r.entry.text, 100)}`);
+    const text = r.ci === undefined ? r.entry.text : r.rendered;
+    lines.push(`${i + 1}. from ${one(r.from)} to ${mine.map((c) => one(c.session, 64)).join(", ")}, ${one(r.kind, 16)}, ${new Date(r.at).toISOString()}: ${one(text)}`);
   }
   if (ids.length > SHOWN) lines.push(`... and ${ids.length - SHOWN} more.`);
   lines.push(`mesh ${req.mesh}`);

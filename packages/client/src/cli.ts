@@ -18,11 +18,11 @@ import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, prekeyNote
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
-import { decider, decisionFor, decisionsFor, idChunks, MAX_DECISION_IDS, requestDecision, type DecideRequest, type Decision } from "./decisions.ts";
+import { decider, decisionCode, decisionFor, decisionsFor, idChunks, MAX_DECISION_IDS, requestDecision, type DecideRequest, type Decision } from "./decisions.ts";
 import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp, type Retried } from "./mcp.ts";
 import { HOOK_AGENTS, hookAnswer, readInput } from "./hook.ts";
-import type { Ancestor } from "./ancestry.ts";
+import type { Ancestor, SignerChecks } from "./ancestry.ts";
 import { addersOf, joinApproval, MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
 import { decideHeld, listAllHeld, resumeEverywhere, unsignedMarks } from "./offline.ts";
@@ -103,6 +103,8 @@ export type CliIO = {
   parentGone: () => boolean;
   /** The processes above this one, nearest first, at most `levels` (`wim mcp` and `wim hook`); undefined: not read. */
   ancestry?: (levels: number) => Promise<Ancestor[]>;
+  /** What the signer checks about the processes above it before it asks the person (`wim agent`). */
+  signerChecks?: SignerChecks;
   /** How often `wim mcp` checks its parent (default 5 s) and how long a clean end may take (3 s). */
   parentPollMs?: number;
   /** How often `wim mcp` asks again while the device is not ready yet (default 5 s). */
@@ -1756,14 +1758,16 @@ async function held(ctx: Ctx): Promise<number> {
  * decision takes are asked in chunks, each confirmed. Undefined with a plaintext key file: then the
  * answer typed here is the decision, as before.
  */
-async function signerDecision(ctx: Ctx, files: MeshFiles, req: Omit<DecideRequest, "mesh">): Promise<Decision[] | undefined> {
+async function signerDecision(ctx: Ctx, files: MeshFiles, req: Omit<DecideRequest, "mesh" | "code">): Promise<Decision[] | undefined> {
   const file = await ctx.home.readKeyFile();
   if (file === undefined || "plain" in file) return undefined;
   const chunks = idChunks(req.ids).length;
+  const code = decisionCode();
   ctx.io.out(chunks === 1 ? "Confirm it in the signer too: its dialog, or the terminal it runs in." : `Confirm it in the signer too, in ${chunks} parts (at most ${MAX_DECISION_IDS} each): its dialog, or the terminal it runs in.`);
+  ctx.io.out(`The signer shows the code ${code}: confirm only if it does.`);
   const { mesh } = await files.loadConfig();
   const o = { root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file.sealed.signPub) };
-  return decisionsFor((ids) => requestDecision(o, { mesh, ...req, ids }), req.ids);
+  return decisionsFor((ids) => requestDecision(o, { mesh, ...req, ids, code }), req.ids);
 }
 
 /** A resume of `peer` over the breaker holds `ids`: one per signed decision, or one without a signer. */

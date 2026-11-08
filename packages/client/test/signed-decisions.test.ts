@@ -9,17 +9,19 @@ import { promises as fs } from "node:fs";
 import { PassThrough } from "node:stream";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AgentError, AgentServer, Signer, type Desk } from "../src/agent.ts";
+import { AgentError, AgentServer, DECLINE_BACKOFF, Signer, type Desk } from "../src/agent.ts";
 import { agentEndpoint, endpointFiles } from "../src/agentpath.ts";
-import { desk as signerDesk, encryptDevice } from "../src/agentcli.ts";
-import { confirmGui, confirmPrompts, kdialogText, type Run } from "../src/autostart.ts";
+import { desk as signerDesk, encryptDevice, within } from "../src/agentcli.ts";
+import type { SignerChecks } from "../src/ancestry.ts";
+import { confirmGui, confirmPrompts, kdialogText, type Run, type ToolTrust } from "../src/autostart.ts";
 import { MeshSession } from "../src/client.ts";
-import { checkDecision, covers, decider, requestDecision as ask2, decisionFor, decisionsFor, idChunks, MAX_DECISION_IDS, decisionView, heldDigest, NEEDS_SIGNER, requestDecision, signDecision, unsignedRefusal, type Decision, type DecideRequest, type HeldCopy } from "../src/decisions.ts";
+import { checkDecision, covers, decider, requestDecision as ask2, decisionFor, decisionsFor, idChunks, MAX_DECISION_IDS, MAX_DECISION_ITEMS, decisionView, heldDigest, NEEDS_SIGNER, requestDecision, signDecision, unsignedRefusal, type Decision, type DecideRequest, type HeldCopy } from "../src/decisions.ts";
 import { runEvents } from "../src/events.ts";
 import { fsOps } from "../src/fsx.ts";
-import { HeldBox, type HeldItem } from "../src/held.ts";
+import { HeldBox, useDecision, type HeldItem } from "../src/held.ts";
+import { readBreakerFile, savePauses, type PauseRow } from "../src/pauses.ts";
 import type { Device } from "../src/home.ts";
-import { MeshFiles } from "../src/mesh.ts";
+import { MeshFiles, RosterBook } from "../src/mesh.ts";
 import { decideHeld, listAllHeld, resumeEverywhere, unsignedMarks } from "../src/offline.ts";
 import { SessionFiles } from "../src/session.ts";
 import { openKeyFile } from "../src/vault.ts";
@@ -31,6 +33,9 @@ const until = (check: () => boolean | Promise<boolean>, what?: string): Promise<
 const KDF = { N: 1024, r: 8, p: 1 };
 const PASS = "pass phrase";
 const T = 1_760_000_000_000;
+const OK: ToolTrust = async () => "ok";
+/** The code the asking process shows, in the tests' requests. */
+const CODE = "123456";
 
 const cleanup: Array<() => Promise<unknown> | unknown> = [];
 afterEach(async () => {
@@ -53,6 +58,7 @@ type Answers = { said: string[][]; next: Array<boolean | Promise<boolean>> };
 /** A desk like `wim agent`'s own, with a scripted person. */
 function scriptedDesk(d: TestDevice, answers: Answers): Desk {
   return {
+    device: async (mesh, name) => (await RosterBook.open(new MeshFiles(d.home.meshDir(mesh), FS))).current.devices.find((x) => x.name === name)?.id,
     read: async (mesh, ids) => {
       const rows = await listAllHeld(new MeshFiles(d.home.meshDir(mesh), FS), FS);
       return rows.filter((r) => ids.includes(r.id)).map(({ sid: _s, session, ...i }) => ({ item: i, session }));
@@ -71,7 +77,7 @@ async function underSigner(d: TestDevice): Promise<{ device: Device; signer: Sig
   const file = await d.home.readKeyFile();
   if (file === undefined || !("sealed" in file)) throw new Error("not encrypted");
   const answers: Answers = { said: [], next: [] };
-  const signer = new Signer({ file: file.sealed, unlocked: await openKeyFile(file.sealed, PASS), now: Date.now, pid: process.pid, log: () => undefined, desk: scriptedDesk(d, answers) });
+  const signer = new Signer({ file: file.sealed, unlocked: await openKeyFile(file.sealed, PASS), now: Date.now, pid: process.pid, log: () => undefined, desk: scriptedDesk(d, answers), backoff: { firstMs: 0, maxMs: 0 } });
   const at = (await agentEndpoint(d.home.root, d.home.env, true))!;
   const server = new AgentServer({ signer, endpoint: at, files: endpointFiles(process.platform) });
   await server.listen();
@@ -97,7 +103,7 @@ async function world() {
   const three = await openSession(devices[2]!, mesh, relay, { name: "c" });
   cleanup.push(() => one.stop(), () => three.stop());
   const files = new MeshFiles(two.home.meshDir(mesh), FS);
-  const ask = (req: Omit<DecideRequest, "mesh">): Promise<Decision> => requestDecision({ root: two.home.root, env: two.home.env, signPub: signed.keys.signPub }, { mesh, ...req });
+  const ask = (req: Omit<DecideRequest, "mesh" | "code">): Promise<Decision> => requestDecision({ root: two.home.root, env: two.home.env, signPub: signed.keys.signPub }, { mesh, code: CODE, ...req });
   return { relay, mesh, devices, two, inbox, one, three, files, logs, open, ask, ...signed };
 }
 
@@ -140,35 +146,49 @@ describe("a signed decision", () => {
     const copies: HeldCopy[] = Array.from({ length: 12 }, (_, i) => ({ item: item({ from: "a‮@one", entry: { ...item().entry, text: `line ${i}\nsecond\u0007` } }), session: i === 0 ? "in\u0007box" : "inbox" }));
     const extra = { item: copies[0]!.item, session: "other" };
     const mesh = b64u.encode(randomBytes(16));
-    const lines = decisionView({ mesh, verdict: "approve", ids: [] }, [...copies, extra]);
+    const lines = decisionView({ mesh, code: CODE, verdict: "approve", ids: [] }, [...copies, extra]);
     expect(lines[0]).toBe("worldinmotion signer: a process on this computer asks you to decide on held messages.");
-    expect(lines[1]).toContain("If you did not, choose Cancel.");
+    expect(lines[1]).toBe(`Code ${CODE}: confirm only if you just asked for this yourself (wim held, VS Code) and it showed you this code. If not, choose Cancel.`);
     expect(lines[2]).toBe("Approve 12 held messages: they are delivered to your agents.");
     expect(lines[3]).toMatch(/^1\. from a<U\+202E>@one to in<U\+0007>box, other, msg, 2025-10-09T08:53:20\.000Z: line 0 second<U\+0007>$/);
     expect(lines).toContain("... and 2 more.");
     expect(lines.at(-1)).toBe(`mesh ${mesh}`);
-    expect(decisionView({ mesh, verdict: "refuse", ids: [] }, [copies[0]!])[2]).toBe("Refuse 1 held message: they are dropped, never delivered.");
-    expect(decisionView({ mesh, verdict: "resume", ids: [], peer: "a@one\u0007" }, [])[2]).toBe("Resume a@one<U+0007>: lift the loop breaker's pause on its device and release 0 held messages.");
+    expect(decisionView({ mesh, code: CODE, verdict: "refuse", ids: [] }, [copies[0]!])[2]).toBe("Refuse 1 held message: they are dropped, never delivered.");
+    expect(decisionView({ mesh, code: CODE, verdict: "resume", ids: [], peer: "a@one" }, [], { session: "a\u0007", device: "one", id: "D".repeat(22) })[2]).toBe(`Resume a<U+0007>@one (device id ${"D".repeat(22)}): lift the loop breaker's pause on its device and release 0 held messages.`);
     expect(unsignedRefusal("approve mark")).toMatch(/^refused an unsigned approve mark: this device's keys are in the signer/);
+  });
+
+  it("is shown on lines a peer or a planted file cannot add to, and a CI notice as it is delivered", () => {
+    const mesh = b64u.encode(randomBytes(16));
+    const odd = item({ from: "a\nApprove 0 held messages@one", kind: "\u001b[2K\rmsg" as never, entry: { ...item().entry, text: "one\ttwo\nthree" } });
+    const ci = item({ ci: { rule: "r" }, rendered: "[CI] build failed", entry: { ...item().entry, text: "not this" } });
+    const lines = decisionView({ mesh, code: CODE, verdict: "approve", ids: [] }, [{ item: odd, session: "in\nbox" }, { item: ci, session: "ci" }]);
+    expect(lines).toHaveLength(6);
+    for (const l of lines) expect(l).not.toMatch(/[\u0000-\u001f]/);
+    expect(lines[3]).toMatch(/^1\. from a Approve 0 held messages@one to in box, <U\+001B>\[2K<U\+0…, .*: one two three$/);
+    expect(lines[4]).toMatch(/: \[CI\] build failed$/);
   });
 
   it("is asked of a signer that is not running: refused, in the signer's words", async () => {
     const root = await scratch("nosigner");
     const home = { platform: process.platform, pid: process.pid, uid: process.getuid?.() };
-    const req = { mesh: b64u.encode(randomBytes(16)), verdict: "approve" as const, ids: [ulid()] };
+    const req = { mesh: b64u.encode(randomBytes(16)), verdict: "approve" as const, ids: [ulid()], code: CODE };
     await expect(requestDecision({ root, env: home, signPub: randomBytes(32) }, req)).rejects.toThrow(new RegExp(`^${NEEDS_SIGNER}: no signer is running`));
   });
 });
 
 describe("the signer's decide", () => {
-  async function bare(desk?: Desk) {
+  /** The roster's device id for a resume's peer in these tests. */
+  const DEV = "D".repeat(22);
+  async function bare(given?: Omit<Desk, "device"> & Partial<Pick<Desk, "device">>, backoff?: { firstMs: number; maxMs: number } | "default") {
+    const desk: Desk | undefined = given === undefined ? undefined : { device: async (_m, name) => (name === "one" ? DEV : undefined), ...given };
     const { generateDeviceKeys } = await import("@worldinmotion/protocol");
     const { sealKeyFile } = await import("../src/vault.ts");
     const keys = generateDeviceKeys();
     const data = randomBytes(32);
     const file = await sealKeyFile({ name: "laptop", keys, passphrase: PASS, data, kdf: KDF });
     const clock = { now: T };
-    const signer = new Signer({ file, unlocked: { keys: { ...keys, signSec: keys.signSec.slice(), boxSec: keys.boxSec.slice() }, data }, now: () => clock.now, pid: 1, log: () => undefined, ...(desk === undefined ? {} : { desk }) });
+    const signer = new Signer({ file, unlocked: { keys: { ...keys, signSec: keys.signSec.slice(), boxSec: keys.boxSec.slice() }, data }, now: () => clock.now, pid: 1, log: () => undefined, ...(backoff === "default" ? {} : { backoff: backoff ?? { firstMs: 0, maxMs: 0 } }), ...(desk === undefined ? {} : { desk }) });
     return { signer, keys, file, clock };
   }
   const MESH = b64u.encode(randomBytes(16));
@@ -183,7 +203,7 @@ describe("the signer's decide", () => {
       read: async (_m, ids) => (reads.push([...ids]), [{ item: a, session: "s1" }, { item: a, session: "s2" }, { item: b, session: "s1" }]),
       confirm: async (lines) => (shown.push(lines), true),
     });
-    const r = await signer.handle("decide", { mesh: MESH, verdict: "approve", ids: [a.id, b.id] });
+    const r = await signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id, b.id] });
     const d = r["decision"] as Decision;
     expect(reads).toEqual([[a.id, b.id]]);
     expect(shown[0]![2]).toBe("Approve 2 held messages: they are delivered to your agents.");
@@ -191,14 +211,14 @@ describe("the signer's decide", () => {
     expect(checkDecision(d, { signPub: keys.signPub, device: file.id, mesh: MESH, now: T })).toEqual(d);
     // The decision type is not something the generic sign operation will make.
     expect(await code(signer.handle("sign", { type: "held-decision", obj: { device: file.id } }))).toMatch(/^bad_request/);
-    const resume = (await signer.handle("decide", { mesh: MESH, verdict: "resume", ids: [a.id], peer: "a@one" }))["decision"] as Decision;
-    expect(resume).toMatchObject({ verdict: "resume", peer: "a@one" });
+    const resume = (await signer.handle("decide", { code: CODE, mesh: MESH, verdict: "resume", ids: [], peer: "a@one" }))["decision"] as Decision;
+    expect(resume).toMatchObject({ verdict: "resume", peer: "a@one", items: [] });
   });
 
   it("refuses without a desk, a desk that cannot ask, a resume with no peer, nothing held, a no, and a second at once", async () => {
-    expect(await code((await bare()).signer.handle("decide", { mesh: MESH, verdict: "refuse", ids: [ulid()] }))).toBe("refused: this signer takes no decisions on held messages");
+    expect(await code((await bare()).signer.handle("decide", { code: CODE, mesh: MESH, verdict: "refuse", ids: [ulid()] }))).toBe("refused: this signer takes no decisions on held messages");
     const cannot = await bare({ read: async () => [], confirm: { cannot: "CLAUDECODE was set where this signer started" } });
-    expect(await code(cannot.signer.handle("decide", { mesh: MESH, verdict: "approve", ids: [ulid()] }))).toBe("refused: CLAUDECODE was set where this signer started");
+    expect(await code(cannot.signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [ulid()] }))).toBe("refused: CLAUDECODE was set where this signer started");
     let release!: (v: boolean) => void;
     const a = item();
     const answers: boolean[] = [false];
@@ -206,37 +226,104 @@ describe("the signer's decide", () => {
       read: async (_m, ids) => (ids.includes(a.id) ? [{ item: a, session: "s" }] : []),
       confirm: () => (answers.length > 0 ? Promise.resolve(answers.shift()!) : new Promise<boolean>((r) => (release = r))),
     });
-    expect(await code(signer.handle("decide", { mesh: MESH, verdict: "resume", ids: [a.id] }))).toBe("bad_request: decide: a resume names its peer");
-    expect(await code(signer.handle("decide", { mesh: MESH, verdict: "approve", ids: [ulid()] }))).toBe("refused: none of these ids is held on this device");
-    expect(await code(signer.handle("decide", { mesh: MESH, verdict: "approve", ids: [a.id] }))).toBe("refused: you declined it in the signer: nothing changed");
-    expect(await code(signer.handle("decide", { mesh: MESH, verdict: "approve", ids: ["x"] }))).toMatch(/^bad_request: decide: /);
+    expect(await code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "resume", ids: [a.id] }))).toBe("bad_request: decide: a resume names its peer");
+    expect(await code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [ulid()] }))).toBe("refused: none of these ids is held on this device");
+    expect(await code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }))).toBe("refused: you declined it in the signer: nothing changed");
+    expect(await code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: ["x"] }))).toMatch(/^bad_request: decide: /);
     // A resume may lift a pause that holds nothing yet.
-    const waiting = signer.handle("decide", { mesh: MESH, verdict: "resume", ids: [], peer: "a@one" });
+    const waiting = signer.handle("decide", { code: CODE, mesh: MESH, verdict: "resume", ids: [], peer: "a@one" });
     await until(() => release !== undefined);
-    expect(await code(signer.handle("decide", { mesh: MESH, verdict: "approve", ids: [a.id] }))).toBe("refused: the signer is already asking you about another decision: answer that one first");
+    expect(await code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }))).toBe("refused: the signer is already asking you about another decision: answer that one first");
     release(true);
     expect(((await waiting)["decision"] as Decision).items).toEqual([]);
+  });
+
+  it("drops a copy that is no held item, and refuses an id whose copies differ in what the person is shown", async () => {
+    const a = item();
+    const shown: string[][] = [];
+    const copies: HeldCopy[] = [];
+    const { signer } = await bare({ read: async () => copies, confirm: async (lines) => (shown.push(lines), true) });
+    // A copy whose time no date can show, or whose kind is terminal codes, or that names another id: none is shown or signed.
+    copies.push({ item: a, session: "s1" }, { item: { ...a, at: Number.NaN }, session: "planted" }, { item: { ...a, kind: "\u001b[2K\rApprove 0" as never }, session: "planted" }, { item: { ...a, id: ulid() }, session: "other" });
+    const d = (await signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }))["decision"] as Decision;
+    expect(d.items).toEqual([{ id: a.id, digest: heldDigest(a) }]);
+    expect(shown[0]!.filter((l) => l.startsWith("1. "))).toEqual([expect.stringContaining("to s1, msg, ")]);
+    // Copies that differ only in why or where they are held are one item, each copy signed.
+    copies.splice(0, copies.length, { item: a, session: "s1" }, { item: { ...a, reason: "breaker" }, session: "s2" });
+    expect(((await signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }))["decision"] as Decision).items).toHaveLength(2);
+    // A copy that shows other text, sender or time: refused, nothing asked.
+    for (const other of [{ ...a, from: "alice@one", at: 1, entry: { ...a.entry, text: "lunch at noon?" } }, { ...a, entry: { ...a.entry, text: "other" } }, { ...a, ci: { rule: "r" }, rendered: "x" }]) {
+      copies.splice(0, copies.length, { item: a, session: "s1" }, { item: other, session: "planted" });
+      expect(await code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }))).toBe(`refused: held message ${a.id} is held in copies that differ in what you would be shown: nothing was signed (\`wim held list\` shows them)`);
+    }
+    expect(shown).toHaveLength(2);
+  });
+
+  it("refuses more copies than one decision takes, and a request without its code, before asking", async () => {
+    const asked: string[][] = [];
+    const ids = Array.from({ length: MAX_DECISION_IDS }, () => ulid());
+    const many: HeldCopy[] = ids.flatMap((id) => Array.from({ length: 9 }, (_, k) => ({ item: item({ id, reason: "breaker", pause: { rule: "peer", count: k, limit: 1, minutes: 60, at: T, until: T, auto: false } }), session: "s" })));
+    const { signer } = await bare({ read: async () => many, confirm: async (l) => (asked.push(l), true) });
+    expect(await code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids }))).toBe(`refused: these ids are held in ${9 * MAX_DECISION_IDS} copies, more than one decision takes (${MAX_DECISION_ITEMS}): ask for fewer at once`);
+    many.splice(MAX_DECISION_ITEMS);
+    expect(((await signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids }))["decision"] as Decision).items).toHaveLength(MAX_DECISION_ITEMS);
+    for (const bad of [undefined, "12345", "abcdef", "1234567"]) expect(await code(signer.handle("decide", { mesh: MESH, verdict: "approve", ids: [ids[0]!], ...(bad === undefined ? {} : { code: bad }) }))).toMatch(/^bad_request: decide: /);
+    expect(asked).toHaveLength(1);
+  });
+
+  it("after a decline, takes the next decision only after a wait that doubles, and a yes starts it over", async () => {
+    const a = item();
+    const answers = [false, false, false, true, false];
+    const { signer, clock } = await bare({ read: async () => [{ item: a, session: "s" }], confirm: async () => answers.shift()! }, { firstMs: 10_000, maxMs: 25_000 });
+    const decide = () => code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }));
+    const declined = "refused: you declined it in the signer: nothing changed";
+    const waiting = (s: number) => `refused: you declined a decision in the signer just now: it takes the next one in ${s} s`;
+    expect(await decide()).toBe(declined);
+    expect(await decide()).toBe(waiting(10));
+    clock.now += 10_000;
+    expect(await decide()).toBe(declined);
+    clock.now += 19_001;
+    expect(await decide()).toBe(waiting(1));
+    clock.now += 999;
+    expect(await decide()).toBe(declined);
+    clock.now += 24_999;
+    expect(await decide()).toBe(waiting(1));
+    clock.now += 1;
+    expect(await decide()).toBe("ok");
+    expect(await decide()).toBe(declined);
+    clock.now += 9_999;
+    expect(await decide()).toBe(waiting(1));
+    // The default wait: 10 s, at most 5 minutes.
+    expect(DECLINE_BACKOFF).toEqual({ firstMs: 10_000, maxMs: 300_000 });
+    const plain = await bare({ read: async () => [{ item: a, session: "s" }], confirm: async () => false }, "default");
+    const again = () => code(plain.signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }));
+    expect(await again()).toBe(declined);
+    plain.clock.now += 9_999;
+    expect(await again()).toBe(waiting(1));
+    plain.clock.now += 1;
+    expect(await again()).toBe(declined);
   });
 
   it("signs nothing when locked, before or while the person reads it", async () => {
     const a = item();
     let release!: (v: boolean) => void;
     const { signer } = await bare({ read: async () => [{ item: a, session: "s" }], confirm: () => new Promise<boolean>((r) => (release = r)) });
-    const waiting = code(signer.handle("decide", { mesh: MESH, verdict: "approve", ids: [a.id] }));
+    const waiting = code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }));
     await until(() => release !== undefined);
     signer.lock();
     release(true);
     expect(await waiting).toBe("locked: the signer was locked before it signed: nothing changed");
-    expect(await code(signer.handle("decide", { mesh: MESH, verdict: "approve", ids: [a.id] }))).toMatch(/^locked: the signer is locked/);
+    expect(await code(signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }))).toMatch(/^locked: the signer is locked/);
   });
 });
 
 describe("the signer's own desk (wim agent)", () => {
-  async function ctxFor(over: { env?: Record<string, string | undefined>; foreground?: boolean; tty?: boolean; programs?: boolean; answer?: string }) {
+  async function ctxFor(over: { env?: Record<string, string | undefined>; foreground?: boolean; tty?: boolean; programs?: boolean; answer?: string; prompt?: (q: string) => Promise<string>; checks?: SignerChecks }) {
     const root = await scratch("desk");
     const out: string[] = [];
     const runs: Array<[string, readonly string[]]> = [];
-    const run: Run = async (cmd, args) => (runs.push([cmd, args]), { code: 0, stdout: "", stderr: "" });
+    const options: unknown[] = [];
+    const run: Run = async (cmd, args, _input, o) => (runs.push([cmd, args]), options.push(o), { code: 0, stdout: "", stderr: "" });
     const { Home } = await import("../src/home.ts");
     const ctx = {
       home: new Home(root, { platform: process.platform, pid: process.pid, uid: process.getuid?.() }),
@@ -245,16 +332,82 @@ describe("the signer's own desk (wim agent)", () => {
       flags: new Map<string, string | true>(over.foreground === true ? [["foreground", true]] : []),
       io: {
         out: (l: string) => void out.push(l),
-        prompt: async () => over.answer ?? "",
+        prompt: over.prompt ?? (async () => over.answer ?? ""),
+        ...(over.checks === undefined ? {} : { signerChecks: over.checks }),
         isTTY: over.tty ?? true,
         inputIsTTY: over.tty ?? true,
         platform: "linux" as const,
         pid: process.pid,
-        ...(over.programs === false ? {} : { programs: { platform: "linux" as const, run, wim: [] } }),
+        ...(over.programs === false ? {} : { programs: { platform: "linux" as const, run, wim: [], trust: OK } }),
       },
     };
-    return { ctx: ctx as never as Parameters<typeof signerDesk>[0], out, runs, root };
+    return { ctx: ctx as never as Parameters<typeof signerDesk>[0], out, runs, options, root };
   }
+  const ask = (d: Desk, lines: string[] = ["x"], gone?: AbortSignal) => (d.confirm as (l: string[], g?: AbortSignal) => Promise<boolean>)(lines, gone);
+
+  it("takes only a typed y or yes in the foreground", async () => {
+    for (const answer of ["yess", "no y", "y y", "ye", ""]) expect(await ask(signerDesk((await ctxFor({ foreground: true, answer })).ctx))).toBe(false);
+    for (const answer of ["y", "YES", " yes "]) expect(await ask(signerDesk((await ctxFor({ foreground: true, answer })).ctx))).toBe(true);
+  });
+
+  it("ends an ask when the asker goes away, and the next ask takes the answer of a question still open", async () => {
+    let answer!: (a: string) => void;
+    let prompts = 0;
+    const fg = await ctxFor({ foreground: true, prompt: () => (prompts++, new Promise<string>((r) => (answer = r))) });
+    const d = signerDesk(fg.ctx);
+    const gone = new AbortController();
+    const first = ask(d, ["first"], gone.signal);
+    await until(() => prompts === 1, "asked");
+    gone.abort();
+    expect(await first).toBe(false);
+    expect(fg.out).toEqual(["first", "No answer in time, or the process that asked went away: declined."]);
+    // Asked again: the question already open is not asked a second time; what is typed answers this one.
+    const second = ask(d, ["second"]);
+    await until(() => fg.out.includes("second"), "shown");
+    expect(fg.out.at(-1)).toBe("Type y to sign this decision; anything else declines it [y/N] ");
+    answer("y");
+    expect(await second).toBe(true);
+    expect(prompts).toBe(1);
+    // A pre-aborted ask declines at once; the question after it is a new one.
+    const done = new AbortController();
+    done.abort();
+    expect(await ask(d, ["third"], done.signal)).toBe(false);
+    expect(prompts).toBe(2);
+    // What is waited for: an answer, a time that runs out, or the asker gone.
+    expect(await within(Promise.resolve("y"), 1000)).toBe("y");
+    expect(await within(new Promise<string>(() => undefined), 20)).toBeUndefined();
+    expect(await within(new Promise<string>(() => undefined), 60_000, done.signal)).toBeUndefined();
+  });
+
+  it("gives the dialog the asker's going away, and refuses to ask under an agent among its parents or off its own terminal", async () => {
+    const gui = await ctxFor({});
+    const gone = new AbortController().signal;
+    expect(await ask(signerDesk(gui.ctx), ["x"], gone)).toBe(true);
+    expect(gui.options).toEqual([{ timeoutMs: 300_000, signal: gone }]);
+    const checks = (over: Partial<SignerChecks>): SignerChecks => ({ agentAncestor: async () => undefined, terminal: async () => undefined, askedBy: async () => undefined, ...over });
+    const above = "process 7 above this signer (bash) has CLAUDECODE set";
+    for (const foreground of [false, true]) {
+      const c = await ctxFor({ foreground, answer: "y", checks: checks({ agentAncestor: async () => above }) });
+      await expect(ask(signerDesk(c.ctx))).rejects.toThrow(new AgentError("refused", `${above}, so this signer cannot tell you from an agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`));
+      expect([c.runs, c.out]).toEqual([[], []]);
+    }
+    const lost = await ctxFor({ checks: checks({ agentAncestor: async () => Promise.reject(new Error("EACCES")) }) });
+    await expect(ask(signerDesk(lost.ctx))).rejects.toThrow("the processes above this signer could not be read (EACCES), so this signer cannot tell you from an agent");
+    const tty = await ctxFor({ foreground: true, answer: "y", checks: checks({ terminal: async () => "this signer's input is not its controlling terminal" }) });
+    await expect(ask(signerDesk(tty.ctx))).rejects.toThrow("this signer's input is not its controlling terminal, so this signer cannot tell you from an agent");
+    // The terminal is the foreground's check only; with none found, it asks.
+    expect(await ask(signerDesk((await ctxFor({ checks: checks({ terminal: async () => "no" }) })).ctx))).toBe(true);
+    expect(await ask(signerDesk((await ctxFor({ foreground: true, answer: "y", checks: checks({}) })).ctx))).toBe(true);
+  });
+
+  it("finds a resume's device in the mesh's roster, and none in a mesh it does not have", async () => {
+    const w = await world();
+    const ctx = { home: w.two.home, env: {}, args: ["serve"], flags: new Map(), io: { platform: process.platform, pid: process.pid } } as never as Parameters<typeof signerDesk>[0];
+    expect(await signerDesk(ctx).device(w.mesh, "one")).toBe(w.devices[0]!.device.id);
+    expect(await signerDesk(ctx).device(w.mesh, "nobody")).toBeUndefined();
+    expect(await signerDesk(ctx).device(b64u.encode(randomBytes(16)), "one")).toBeUndefined();
+    expect(await signerDesk({ ...(ctx as object), env: { CLAUDECODE: "1" } } as never).device(w.mesh, "one")).toBe(w.devices[0]!.device.id);
+  });
 
   it("asks in its own terminal in the foreground, in a dialog otherwise, and nobody under an agent's variables", async () => {
     const fg = await ctxFor({ foreground: true, answer: " Y " });
@@ -265,7 +418,7 @@ describe("the signer's own desk (wim agent)", () => {
     // In the foreground but piped: the dialog, not the pipe.
     const piped = await ctxFor({ foreground: true, tty: false });
     expect(await (signerDesk(piped.ctx).confirm as (l: string[]) => Promise<boolean>)(["x"])).toBe(true);
-    expect(piped.runs[0]![0]).toBe("zenity");
+    expect(piped.runs[0]![0]).toBe("/usr/bin/zenity");
     expect(signerDesk((await ctxFor({ programs: false })).ctx).confirm).toEqual({ cannot: expect.stringContaining("no terminal or dialog to ask you in") });
     for (const env of [{ CLAUDECODE: "1" }, { CODEX_SANDBOX: "seatbelt" }, { CURSOR_AGENT: "1" }]) {
       expect(signerDesk((await ctxFor({ foreground: true, env })).ctx).confirm).toEqual({ cannot: expect.stringContaining("runs in an agent's environment and cannot tell you from the agent") });
@@ -279,13 +432,13 @@ describe("the signer's own desk (wim agent)", () => {
     const text = 'a <b>&amp;</b>\nquote " end'
     expect(kdialogText(text)).toBe('a (b)+amp;(/b)\nquote " end')
     const mac = confirmPrompts("darwin", text)[0]!;
-    expect(mac.cmd).toBe("osascript");
+    expect(mac.cmd).toBe("/usr/bin/osascript");
     expect(mac.args.at(-1)).toBe(text);
     expect(mac.args.slice(0, -1).join(" ")).not.toContain("quote");
     const win = confirmPrompts("win32", "it's")[0]!;
     expect(Buffer.from(win.args.at(-1)!, "base64").toString("utf16le")).toContain("'it''s'");
     const linux = confirmPrompts("linux", text);
-    expect(linux.map((p) => p.cmd)).toEqual(["zenity", "kdialog"]);
+    expect(linux.map((p) => p.cmd)).toEqual(["/usr/bin/zenity", "/usr/bin/kdialog"]);
     expect(linux[0]!.args).toContain("--no-markup");
     expect(linux[0]!.args).toContain(`--text=${text}`);
     expect(linux[1]!.args.at(-1)).toBe(kdialogText(text));
@@ -298,15 +451,15 @@ describe("the signer's own desk (wim agent)", () => {
         return { code: r.code, stdout: "", stderr: r.stderr ?? "" };
       };
     };
-    expect(await confirmGui("linux", answers({ code: 0 }), ["x"])).toBe(true);
-    for (const code of [1, 2, 5]) expect(await confirmGui("linux", answers({ code }), ["x"])).toBe(false);
-    expect(await confirmGui("linux", answers("missing", { code: 0 }), ["x"])).toBe(true);
+    expect(await confirmGui("linux", answers({ code: 0 }), ["x"], OK)).toBe(true);
+    for (const code of [1, 2, 5]) expect(await confirmGui("linux", answers({ code }), ["x"], OK)).toBe(false);
+    expect(await confirmGui("linux", answers("missing", { code: 0 }), ["x"], OK)).toBe(true);
     // zenity refusing its arguments (a locale that is not UTF-8), then kdialog: asked there.
-    expect(await confirmGui("linux", answers({ code: 255, stderr: "This option is not available." }, { code: 0 }), ["x"])).toBe(true);
-    await expect(confirmGui("linux", answers({ code: 1, stderr: "Gtk: cannot open display :9" }, { code: null }), ["x"])).rejects.toThrow(/could not show its dialog \(kdialog: exit null\)/);
-    await expect(confirmGui("linux", answers({ code: 1, stderr: "Gtk: cannot open display :9" }, { code: 1, stderr: "kdialog: cannot open display" }), ["x"])).rejects.toThrow(/could not show its dialog \(kdialog: kdialog: cannot open display\)/);
-    await expect(confirmGui("linux", answers("missing", "missing"), ["x"])).rejects.toThrow(/has no dialog to ask you in/);
-    await expect(confirmGui("darwin", async () => Promise.reject(new Error("EPERM")), ["x"])).rejects.toThrow("EPERM");
+    expect(await confirmGui("linux", answers({ code: 255, stderr: "This option is not available." }, { code: 0 }), ["x"], OK)).toBe(true);
+    await expect(confirmGui("linux", answers({ code: 1, stderr: "Gtk: cannot open display :9" }, { code: null }), ["x"], OK)).rejects.toThrow(/could not show its dialog \(\/usr\/bin\/kdialog: exit null\)/);
+    await expect(confirmGui("linux", answers({ code: 1, stderr: "Gtk: cannot open display :9" }, { code: 1, stderr: "kdialog: cannot open display" }), ["x"], OK)).rejects.toThrow(/could not show its dialog \(\/usr\/bin\/kdialog: kdialog: cannot open display\)/);
+    await expect(confirmGui("linux", answers("missing", "missing"), ["x"], OK)).rejects.toThrow(/has no dialog to ask you in/);
+    await expect(confirmGui("darwin", async () => Promise.reject(new Error("EPERM")), ["x"], OK)).rejects.toThrow("EPERM");
   });
 });
 
@@ -405,21 +558,32 @@ describe("a live session whose keys are in the signer", () => {
     expect((await w.inbox.held.list()).map((h) => h.id)).toEqual([m1.id]);
     await w.inbox.decide(m1.id, "refuse", refuse);
     expect(await w.inbox.held.list()).toEqual([]);
-    // A decision file that resumes: the pause lifts and its items, a policy hold among them, go.
+    // An approve the signer signed with a peer in it resumes nothing.
+    const forged = signDecision({ v: 1, device: w.device.id, mesh: w.mesh, verdict: "approve", peer: "a@one", items: [], at: Date.now(), n: ulid() }, signKeyOf(w.keys));
+    expect(await code(w.inbox.resumePeer("a@one", forged))).toBe(`needs_signer: ${NEEDS_SIGNER}: it does not resume a@one`);
+    // A resume covers only breaker holds from its peer's device: the signer refuses one over any other.
     const m3 = await w.one.send("inbox@two", "three");
     const m4 = await w.three.send("inbox@two", "four");
     await heldIn(w.inbox, 2);
     await box.add({ ...(await box.get(m3.id))!, reason: "breaker" });
-    const both = await w.ask({ verdict: "resume", ids: [m3.id, m4.id], peer: "a@one" });
-    await box.leaveDecision(both);
-    await until(async () => (await w.inbox.held.list()).length === 0, "resumed");
-    // A resume for a device that is not in the roster releases what it covers all the same.
-    const m5 = await w.three.send("inbox@two", "five");
-    await heldIn(w.inbox, 1);
+    await expect(w.ask({ verdict: "resume", ids: [m3.id, m4.id], peer: "a@one" })).rejects.toThrow(`held message ${m4.id} is not held by the loop breaker from a@one's device: a resume releases only those`);
+    await box.add({ ...(await box.get(m4.id))!, reason: "breaker" });
+    await expect(w.ask({ verdict: "resume", ids: [m4.id], peer: "a@one" })).rejects.toThrow(`held message ${m4.id} is not held by the loop breaker from a@one's device`);
     w.answers.next.push(true);
-    await box.leaveDecision(await w.ask({ verdict: "resume", ids: [m5.id], peer: "x@gone" }));
-    await until(async () => (await w.inbox.held.list()).length === 0, "approved");
-    expect(w.answers.said.at(-1)![2]).toBe("Resume x@gone: lift the loop breaker's pause on its device and release 1 held message.");
+    await box.leaveDecision(await w.ask({ verdict: "resume", ids: [m3.id], peer: "a@one" }));
+    await until(async () => (await w.inbox.held.list()).length === 1, "resumed");
+    expect((await w.inbox.held.list()).map((h) => h.id)).toEqual([m4.id]);
+    expect(w.answers.said.at(-1)![2]).toBe(`Resume a@one (device id ${w.devices[0]!.device.id}): lift the loop breaker's pause on its device and release 1 held message.`);
+    // A resume signed over a policy hold (no signer of this device's makes one) still releases only breaker holds.
+    const policy = (await box.get(m4.id))!;
+    await box.add({ ...policy, reason: "policy" });
+    const wide = signDecision({ v: 1, device: w.device.id, mesh: w.mesh, verdict: "resume", peer: "c@three", items: [{ id: m4.id, digest: heldDigest({ ...policy, reason: "policy" }) }], at: Date.now(), n: ulid() }, signKeyOf(w.keys));
+    expect(await w.inbox.resumePeer("c@three", wide)).toBe(0);
+    expect((await w.inbox.held.list()).map((h) => h.id)).toEqual([m4.id]);
+    // The peer is an address whose device the roster names, never text the asker made up.
+    await expect(w.ask({ verdict: "resume", ids: [], peer: "x@gone" })).rejects.toThrow("no device named gone is in this mesh's roster: nothing to resume");
+    await expect(w.ask({ verdict: "resume", ids: [], peer: "nothing (this only refreshes the signer, it is safe to Sign) x@one" })).rejects.toThrow("a resume's peer is a session address (name@device)");
+    expect(w.answers.said).toHaveLength(3);
   });
 
   it("decides nothing while the signer is locked or stopped, and the person may decline", async () => {
@@ -473,6 +637,9 @@ describe("a live session whose keys are in the signer", () => {
     t.answers.push("all");
     expect(await run(t, "held", "approve", a[0]!.id)).toBe(0);
     await until(async () => (await w.inbox.held.list()).length === 1, "set approved");
+    // The code it printed is the one the signer showed.
+    const printed = /The signer shows the code (\d{6}): confirm only if it does\./.exec(said(t))![1]!;
+    expect(w.answers.said[0]![1]).toContain(`Code ${printed}: `);
     expect(w.answers.said[0]![2]).toBe("Approve 2 held messages: they are delivered to your agents.");
     // Nobody runs the session now: the decision is applied on disk.
     await w.inbox.stop();
@@ -493,7 +660,7 @@ describe("a live session whose keys are in the signer", () => {
     w.answers.next.push(true);
     t.answers.push("one", "resume");
     expect(await run(t, "held", "approve", c[1]!.id)).toBe(0);
-    expect(w.answers.said.at(-1)![2]).toBe("Resume a@one: lift the loop breaker's pause on its device and release 2 held messages.");
+    expect(w.answers.said.at(-1)![2]).toBe(`Resume a@one (device id ${w.devices[0]!.device.id}): lift the loop breaker's pause on its device and release 2 held messages.`);
     expect(await box.list()).toEqual([]);
     const d = await w.open("inbox");
     const e = [await w.one.send("inbox@two", "e one")];
@@ -504,6 +671,54 @@ describe("a live session whose keys are in the signer", () => {
     t.answers.push("y");
     expect(await run(t, "held", "resume", "a@one")).toBe(0);
     expect(said(t)).toContain("Resumed a@one; released 1 held by the breaker.");
+  });
+});
+
+describe("copies planted where the signer reads, and a decision that fails partway", () => {
+  it("refuses an id with a planted copy that shows other text, and signs past a malformed one", async () => {
+    const w = await world();
+    const m = await w.one.send("inbox@two", "the real text");
+    await heldIn(w.inbox, 1);
+    const real = (await w.inbox.held.get(m.id))!;
+    const planted = new HeldBox(new SessionFiles(w.files, ulid(), FS).heldDir, FS);
+    await fs.mkdir(planted.dir, { recursive: true });
+    await planted.add({ ...real, at: 1, from: "alice@one", entry: { ...real.entry, text: "lunch at noon?" } });
+    await expect(w.ask({ verdict: "approve", ids: [m.id] })).rejects.toThrow(`held message ${m.id} is held in copies that differ in what you would be shown`);
+    expect(w.answers.said).toEqual([]);
+    // Malformed copies are no copies: the real one alone is shown and signed.
+    await planted.add({ ...real, at: Number.NaN });
+    await fs.writeFile(join(planted.dir, `${ulid()}.json`), "{}");
+    w.answers.next.push(true);
+    const d = await w.ask({ verdict: "approve", ids: [m.id] });
+    expect(d.items).toEqual([{ id: m.id, digest: heldDigest(real) }]);
+    expect(w.answers.said[0]!.filter((l) => /^\d+\. /.test(l))).toEqual([expect.stringMatching(/^1\. from a@one to inbox, msg, .*: the real text$/)]);
+  });
+
+  it("decides every other covered item when one of them fails", async () => {
+    const w = await world();
+    const m = await w.one.send("inbox@two", "plain");
+    await heldIn(w.inbox, 1);
+    const box = new HeldBox(w.inbox.files.heldDir, FS);
+    // A CI notice whose approval pins its rule's ids, held first: only the person's terminal approves it.
+    const pinned = item({ at: 1, ci: { rule: "r", pins: { a: "b" } }, rendered: "[CI] pin me" });
+    await box.add(pinned);
+    w.answers.next.push(true);
+    await box.leaveDecision(await w.ask({ verdict: "approve", ids: [pinned.id, m.id] }));
+    await until(async () => (await w.inbox.held.list()).length === 1, "the plain one released");
+    expect((await w.inbox.held.list()).map((h) => h.id)).toEqual([pinned.id]);
+    expect(w.logs.some((l) => l.includes(`wim: held message ${pinned.id}: held CI notice ${pinned.id} pins its rule's ids`) && l.endsWith("; it stays held"))).toBe(true);
+  });
+
+  it("on disk, a resume releases only the breaker holds it covers", async () => {
+    const w = await world();
+    const ms = [await w.one.send("inbox@two", "one"), await w.one.send("inbox@two", "two")];
+    await heldIn(w.inbox, 2);
+    await w.inbox.stop();
+    const box = new HeldBox(w.inbox.files.heldDir, FS);
+    for (const m of ms) await box.add({ ...(await box.get(m.id))!, reason: "breaker" });
+    w.answers.next.push(true);
+    expect(await resumeEverywhere(w.files, "a@one", FS, Date.now, undefined, await w.ask({ verdict: "resume", ids: [ms[0]!.id], peer: "a@one" }))).toBe(1);
+    expect((await box.list()).map((h) => h.id)).toEqual([ms[1]!.id]);
   });
 });
 
@@ -603,7 +818,10 @@ describe("wim events with the keys in the signer", () => {
     // Declined in the signer: nothing changes.
     expect(await e.request("approve", { held: a[0]!.id, set: a.map((m) => m.id) })).toMatchObject({ ok: false, error: { message: expect.stringContaining("you declined it in the signer") } });
     w.answers.next.push(true, true);
-    expect(await e.request("approve", { held: a[0]!.id, set: a.map((m) => m.id) })).toMatchObject({ ok: true, result: { decided: a.map((m) => m.id), kept: [], gone: [] } });
+    expect(await e.request("approve", { held: a[0]!.id, set: a.map((m) => m.id), code: "654321" })).toMatchObject({ ok: true, result: { decided: a.map((m) => m.id), kept: [], gone: [] } });
+    expect(w.answers.said.at(-1)![1]).toMatch(/^Code 654321: /);
+    expect(w.answers.said[0]![1]).toMatch(/^Code \d{6}: /);
+    expect(await e.request("approve", { held: b.id, code: "12" })).toMatchObject({ ok: false, error: { code: "input" } });
     expect(await e.request("refuse", { held: b.id })).toMatchObject({ ok: true, result: {} });
     const box = new HeldBox(new SessionFiles(w.files, w.inbox.sid, FS).heldDir, FS);
     expect(await box.list()).toEqual([]);
@@ -663,7 +881,7 @@ describe("without a signer", () => {
 });
 
 describe("a decision acted on once", () => {
-  it("does nothing the second time: a copied resume lifts no pause", async () => {
+  it("does nothing the second time, in this session or one opened later; the record is the mesh's, and fails closed", async () => {
     const w = await world();
     const m1 = await w.one.send("inbox@two", "one");
     await heldIn(w.inbox, 1);
@@ -675,15 +893,60 @@ describe("a decision acted on once", () => {
     await box.leaveDecision(resume);
     await until(() => w.logs.some((l) => l.includes(`decision ${resume.n} was acted on already (a copy); nothing changed`)), "copy refused");
     expect((await w.inbox.held.list()).map((h) => h.id)).toEqual([m1.id]);
-    // The record keeps only what is still current, and an unreadable one starts over.
-    const used = join(w.inbox.files.heldDir, "decisions.used");
-    await fs.writeFile(used, JSON.stringify({ [ulid()]: 1, [resume.n]: Date.now() + 60_000, x: "y" }));
-    expect(await box.useDecision(resume.n, 0, Date.now())).toBe(false);
-    const next = ulid();
-    expect(await box.useDecision(next, Date.now() + 60_000, Date.now())).toBe(true);
-    expect(Object.keys(JSON.parse(await fs.readFile(used, "utf8"))).sort()).toEqual([resume.n, next].sort());
-    await fs.writeFile(used, "not json");
-    expect(await box.useDecision(resume.n, Date.now() + 1, Date.now())).toBe(true);
+    // The record is in the mesh's directory, by session, and keeps only what is still current.
+    const used = join(w.files.dir, "decisions.used");
+    const mine = `${w.inbox.sid} ${resume.n}`;
+    expect(Object.keys(JSON.parse(await fs.readFile(used, "utf8")))).toEqual([mine]);
+    await fs.writeFile(used, JSON.stringify({ [`x ${ulid()}`]: 1, [mine]: Date.now() + 60_000, y: "z" }));
+    expect(await useDecision(used, mine, 0, Date.now(), FS)).toBe(false);
+    const next = `s ${ulid()}`;
+    expect(await useDecision(used, next, Date.now() + 60_000, Date.now(), FS)).toBe(true);
+    expect(Object.keys(JSON.parse(await fs.readFile(used, "utf8"))).sort()).toEqual([mine, next].sort());
+    // One that cannot be read refuses every decision; it never starts over.
+    for (const bad of ["not json", "[]", "1", "null"]) {
+      await fs.writeFile(used, bad);
+      await expect(useDecision(used, `s ${ulid()}`, Date.now() + 1, Date.now(), FS)).rejects.toThrow(/decisions\.used/);
+    }
+    w.answers.next.push(true);
+    const again = await w.ask({ verdict: "resume", ids: [], peer: "a@one" });
+    await expect(w.inbox.resumePeer("a@one", again)).rejects.toThrow(new RegExp(`the record of decisions acted on cannot be read \\(.+\\), so decision ${again.n} is not taken`));
+    await box.leaveDecision(again);
+    await until(() => w.logs.some((l) => l.includes(`so decision ${again.n} is not taken; nothing changed`)), "refused, unreadable record");
+    // A missing record is an empty one.
+    await fs.rm(used);
+    expect(await useDecision(used, next, Date.now() + 1, Date.now(), FS)).toBe(true);
+  });
+
+  it("a resume played again later lifts no pause that started after it was signed, live or on disk", async () => {
+    const w = await world();
+    w.answers.next.push(true);
+    const resume = await w.ask({ verdict: "resume", ids: [], peer: "a@one" });
+    await w.inbox.stop();
+    const later: PauseRow = { from: "a@one", peer: w.devices[0]!.device.id, rule: "peer", count: 121, limit: 120, minutes: 60, at: resume.at + 1, until: Date.now() + 30 * 60_000, auto: false, told: [] };
+    await savePauses(w.inbox.files.breakerPath, { pauses: [later], released: {}, lifts: [], counts: {}, wakes: {} }, FS);
+    const { from: _f, told: _t, peer: _p, ...under } = later;
+    await new HeldBox(w.inbox.files.heldDir, FS).add(item({ from: "a@one", device: later.peer, reason: "breaker", pause: under }));
+    // Nobody runs the session: the pause stays on disk.
+    expect(await resumeEverywhere(w.files, "a@one", FS, Date.now, undefined, resume)).toBe(0);
+    expect((await readBreakerFile(w.inbox.files.breakerPath)).pauses.map((p) => p.at)).toEqual([later.at]);
+    // A session that runs it again, and never saw the decision: the pause stays too.
+    const again = await w.open("inbox");
+    expect(again.pausedRows().map((r) => r.from)).toEqual(["a@one"]);
+    await new HeldBox(again.files.heldDir, FS).leaveDecision(resume);
+    await until(async () => (await fs.readdir(again.files.heldDir)).every((n) => !n.endsWith(".decision")), "replay taken");
+    await expect(again.resumePeer("a@one", resume)).rejects.toThrow("was acted on already");
+    expect(again.pausedRows().map((r) => r.from)).toEqual(["a@one"]);
+    // A resume signed after the pause started lifts it.
+    await until(() => Date.now() > later.at + 1, "a later time");
+    w.answers.next.push(true);
+    expect(await again.resumePeer("a@one", await w.ask({ verdict: "resume", ids: [], peer: "a@one" }))).toBe(0);
+    expect(again.pausedRows()).toEqual([]);
+    // And on disk the same.
+    await again.stop();
+    await savePauses(w.inbox.files.breakerPath, { pauses: [{ ...later, at: Date.now() - 1000 }], released: {}, lifts: [], counts: {}, wakes: {} }, FS);
+    w.answers.next.push(true);
+    expect(await resumeEverywhere(w.files, "a@one", FS, Date.now, undefined, await w.ask({ verdict: "resume", ids: [], peer: "a@one" }))).toBe(0);
+    expect((await readBreakerFile(w.inbox.files.breakerPath)).pauses).toEqual([]);
   });
 });
 
@@ -729,12 +992,12 @@ describe("decisions of any size, and a request queue that keeps answering", () =
     const keys = generateDeviceKeys();
     const data = randomBytes(32);
     const file = await sealKeyFile({ name: "laptop", keys, passphrase: PASS, data, kdf: KDF });
-    const signer = new Signer({ file, unlocked: { keys: { ...keys, signSec: keys.signSec.slice(), boxSec: keys.boxSec.slice() }, data }, now: () => T, pid: 1, log: () => undefined, desk: { read: async () => [], confirm: async () => true } });
+    const signer = new Signer({ file, unlocked: { keys: { ...keys, signSec: keys.signSec.slice(), boxSec: keys.boxSec.slice() }, data }, now: () => T, pid: 1, log: () => undefined, desk: { device: async () => undefined, read: async () => [], confirm: async () => true } });
     const mesh = b64u.encode(randomBytes(16));
     const code = (p: Promise<unknown>) => p.then(() => "ok", (e: AgentError) => e.code);
     // At the limit the request is taken (and finds nothing held); one more is refused as malformed.
-    expect(await code(signer.handle("decide", { mesh, verdict: "approve", ids: ids(1000) }))).toBe("refused");
-    expect(await code(signer.handle("decide", { mesh, verdict: "approve", ids: ids(1001) }))).toBe("bad_request");
+    expect(await code(signer.handle("decide", { code: CODE, mesh, verdict: "approve", ids: ids(1000) }))).toBe("refused");
+    expect(await code(signer.handle("decide", { code: CODE, mesh, verdict: "approve", ids: ids(1001) }))).toBe("bad_request");
   });
 
   it("wim held resume of more than one decision's worth asks in parts and releases them all", async () => {
@@ -753,8 +1016,8 @@ describe("decisions of any size, and a request queue that keeps answering", () =
     expect(said(t)).toContain(`Confirm it in the signer too, in 2 parts (at most ${MAX_DECISION_IDS} each)`);
     expect(said(t)).toContain(`Resumed a@one; released ${MAX_DECISION_IDS + 1} held by the breaker.`);
     expect(w.answers.said.map((l) => l[2])).toEqual([
-      `Resume a@one: lift the loop breaker's pause on its device and release ${MAX_DECISION_IDS} held messages.`,
-      "Resume a@one: lift the loop breaker's pause on its device and release 1 held message.",
+      `Resume a@one (device id ${w.devices[0]!.device.id}): lift the loop breaker's pause on its device and release ${MAX_DECISION_IDS} held messages.`,
+      `Resume a@one (device id ${w.devices[0]!.device.id}): lift the loop breaker's pause on its device and release 1 held message.`,
     ]);
     expect(await box.list()).toEqual([]);
   }, 120_000);
@@ -844,7 +1107,7 @@ describe("stopping while the person reads the signer, and ids no longer held", (
     // Asked with a stop already given, nothing is sent at all.
     const done = new AbortController();
     done.abort();
-    await expect(ask2({ root: w.two.root, env: w.two.home.env, signPub: w.keys.signPub }, { mesh: w.mesh, verdict: "approve", ids: [m.id] }, done.signal)).rejects.toThrow(`${NEEDS_SIGNER}: stopped before the signer answered; nothing was decided`);
+    await expect(ask2({ root: w.two.root, env: w.two.home.env, signPub: w.keys.signPub }, { mesh: w.mesh, verdict: "approve", ids: [m.id], code: CODE }, done.signal)).rejects.toThrow(`${NEEDS_SIGNER}: stopped before the signer answered; nothing was decided`);
     expect(w.answers.said).toHaveLength(1);
   });
 
@@ -878,6 +1141,35 @@ describe("stopping while the person reads the signer, and ids no longer held", (
   });
 });
 
+describe("a stop that lands just after the signer proved itself", () => {
+  it("sends no decide", async () => {
+    const w = await world();
+    const { SignerClient } = await import("../src/signer.ts");
+    const stop = new AbortController();
+    const hello = SignerClient.prototype.hello;
+    const close = SignerClient.prototype.close;
+    const clients: InstanceType<typeof SignerClient>[] = [];
+    // The stop comes once the hello is checked; the connection is kept open, so only the request's own check stops the decide.
+    vi.spyOn(SignerClient.prototype, "hello").mockImplementation(async function (this: InstanceType<typeof SignerClient>) {
+      const r = await hello.call(this);
+      stop.abort();
+      return r;
+    });
+    vi.spyOn(SignerClient.prototype, "close").mockImplementation(function (this: InstanceType<typeof SignerClient>) {
+      clients.push(this);
+    });
+    try {
+      await expect(requestDecision({ root: w.two.root, env: w.two.home.env, signPub: w.keys.signPub }, { mesh: w.mesh, verdict: "resume", ids: [], peer: "a@one", code: CODE }, stop.signal)).rejects.toThrow(`${NEEDS_SIGNER}: stopped before the signer answered; nothing was decided`);
+    } finally {
+      vi.restoreAllMocks();
+      for (const c of clients) close.call(c);
+    }
+    await new Promise((r) => setTimeout(r, 200));
+    expect(w.answers.said).toEqual([]);
+    expect(((await w.signer.handle("status", {}))["ops"] as Record<string, number>)["decide"]).toBeUndefined();
+  });
+});
+
 describe("a stop that lands while connecting to the signer", () => {
   it("closes the socket mid-handshake, sends no decide, and returns at once", async () => {
     const { createServer } = await import("node:net");
@@ -901,7 +1193,7 @@ describe("a stop that lands while connecting to the signer", () => {
     await new Promise<void>((r) => server.listen(at, () => r()));
     cleanup.push(() => new Promise<void>((r) => server.close(() => r())));
     const stop = new AbortController();
-    const asked = requestDecision({ root, env, signPub: randomBytes(32) }, { mesh: b64u.encode(randomBytes(16)), verdict: "approve", ids: [ulid()] }, stop.signal);
+    const asked = requestDecision({ root, env, signPub: randomBytes(32) }, { mesh: b64u.encode(randomBytes(16)), verdict: "approve", ids: [ulid()], code: CODE }, stop.signal);
     await reached;
     const started = Date.now();
     stop.abort();

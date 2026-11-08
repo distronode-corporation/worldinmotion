@@ -113,7 +113,8 @@ export async function resumeEverywhere(mesh: MeshFiles, peer: string, env: FsEnv
 }
 
 /**
- * The resume in one session no process runs. Its pauses on that device are over too, so `wim held
+ * The resume in one session no process runs. Its pauses on that device are over too (with a signed
+ * resume, those that started by its time), so `wim held
  * list` stops showing them, the sessions told hear it lifted from the session's next process, and
  * the device's counts start over. Every other pause stays as written, a cool-down that ended
  * included: the next process releases it.
@@ -124,8 +125,9 @@ async function resumeOffline(files: SessionFiles, device: string, config: MeshCo
   // signed resume, only those it covers (what the person was shown).
   const items = (await box.list()).filter((item) => item.from.split("@")[1] === device && item.reason === "breaker" && (decision === undefined || covers(decision, item)));
   const file = await readBreakerFile(files.breakerPath);
-  const resumed = file.pauses.filter((p) => p.from.split("@")[1] === device);
-  const ids = new Set([...resumed.map((p) => p.peer), ...items.map((i) => i.device)]);
+  // A signed resume lifts only the pauses that started by its time: a copy played later lifts none that came after.
+  const resumed = file.pauses.filter((p) => p.from.split("@")[1] === device && (decision === undefined || p.at <= decision.at));
+  const ids = new Set([...resumed.map((p) => p.peer), ...(decision === undefined ? items.map((i) => i.device) : [])]);
   await savePauses(
     files.breakerPath,
     {

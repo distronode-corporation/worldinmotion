@@ -402,7 +402,7 @@ describe("wim setup integrations", () => {
     await fs.symlink(join(root, "lib", "wim.mjs"), join(bin, "wim"));
     await fs.writeFile(join(bin, "gemini"), "", { mode: 0o755 });
     const tools = fakeTools({});
-    const programs = { platform: process.platform, run: async () => ok(), wim: [process.execPath, join(bin, "wim")] };
+    const programs = { platform: process.platform, run: async () => ok(), wim: [process.execPath, join(bin, "wim")], trust: async () => "ok" };
     const a = term(root, relay, { tools: tools.run, programs }, { PATH: bin });
     a.answers.push("y");
     expect(await run(a, "setup")).toBe(0);

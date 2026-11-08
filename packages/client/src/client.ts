@@ -61,7 +61,7 @@ import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./c
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
-import { HeldBox, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
+import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
 import { frameEntry, History, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
 import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
@@ -2038,9 +2038,16 @@ export class MeshSession extends EventEmitter {
     });
   }
 
-  /** Whether this session has not acted on decision `d` yet; it is recorded as acted on now. */
-  private firstUse(d: Decision): Promise<boolean> {
-    return this.held.useDecision(d.n, d.at + DECISION_TTL_MS + DECISION_SKEW_MS, this.now());
+  /**
+   * Whether this session has not acted on decision `d` yet; it is recorded as acted on now, in the
+   * mesh's record. A record that cannot be read refuses the decision (`needs_signer`).
+   */
+  private async firstUse(d: Decision): Promise<boolean> {
+    try {
+      return await useDecision(join(this.o.mesh.dir, "decisions.used"), `${this.sid} ${d.n}`, d.at + DECISION_TTL_MS + DECISION_SKEW_MS, this.now(), this.o.env);
+    } catch (error) {
+      throw new ClientError(`${NEEDS_SIGNER}: the record of decisions acted on cannot be read (${(error as Error).message}), so decision ${d.n} is not taken`, "needs_signer");
+    }
   }
 
   /** A decision this session may act on, or why not. */
@@ -2061,18 +2068,26 @@ export class MeshSession extends EventEmitter {
       this.log(`wim: a decision file for held messages: ${d}; nothing changed`);
       return;
     }
-    if (!(await this.firstUse(d))) {
-      this.log(`wim: a decision file for held messages: decision ${d.n} was acted on already (a copy); nothing changed`);
+    const first = await this.firstUse(d).catch((error: unknown) => (error as Error).message);
+    if (first !== true) {
+      this.log(`wim: a decision file for held messages: ${first === false ? `decision ${d.n} was acted on already (a copy)` : first}; nothing changed`);
       return;
     }
-    const mine = (await this.held.list()).filter((item) => covers(d, item));
-    if (d.verdict === "resume") {
-      await this.resumeNow(d.peer!, new Set(mine.map((i) => i.id)));
-      // A policy hold has no pause to lift: it is approved like the rest.
-      for (const item of mine) if ((await this.held.get(item.id)) !== undefined) await this.decideNow(item.id, "approve");
-      return;
+    const mine = new Set((await this.held.list()).filter((item) => covers(d, item)).map((i) => i.id));
+    // A resume releases only breaker holds (the signer signs no other for one).
+    if (d.verdict === "resume") await this.resumeNow(d.peer!, mine, d.at);
+    else for (const id of mine) await this.decideEach(id, d.verdict);
+  }
+
+  /** decideNow for one item of several: a failure is logged, and the rest are still decided. */
+  private async decideEach(id: string, verdict: Verdict): Promise<boolean> {
+    try {
+      await this.decideNow(id, verdict);
+      return true;
+    } catch (error) {
+      this.log(`wim: held message ${id}: ${(error as Error).message}; it stays held`);
+      return false;
     }
-    for (const item of mine) await this.decideNow(item.id, d.verdict);
   }
 
   private async decideNow(id: string, verdict: Verdict): Promise<void> {
@@ -2155,25 +2170,32 @@ export class MeshSession extends EventEmitter {
       if (typeof d === "string" || d.verdict !== "resume" || d.peer !== peer) throw new ClientError(`${NEEDS_SIGNER}: ${typeof d === "string" ? d : `it does not resume ${peer}`}`, "needs_signer");
       if (!(await this.firstUse(d))) throw new ClientError(`${NEEDS_SIGNER}: decision ${d.n} was acted on already`, "needs_signer");
       const mine = (await this.held.list()).filter((item) => covers(d, item));
-      return this.resumeNow(peer, new Set(mine.map((i) => i.id)));
+      return this.resumeNow(peer, new Set(mine.map((i) => i.id)), d.at);
     });
   }
 
-  /** The resume itself; `only`: release just these of what the pause held (a signed decision's). */
-  private async resumeNow(peer: string, only?: ReadonlySet<string>): Promise<number> {
+  /**
+   * The resume itself; `only`: release just these of what the pause held (a signed decision's).
+   * `before`: a signed decision's time; it lifts only a pause that started by then, so a copy of
+   * it played later lifts no pause that came after. Each item released on its own: one that fails
+   * is logged and stays held, and the rest go.
+   */
+  private async resumeNow(peer: string, only?: ReadonlySet<string>, before?: number): Promise<number> {
     const device = this.roster.devices.find((d) => d.name === peer.slice(peer.indexOf("@") + 1));
     if (device === undefined) return 0;
-    this.breaker.resume(device.id);
-    // The sessions told about the pause hear it lifted at the next pass, so their sends stop reporting `held`.
-    for (const to of this.pauseFrom.get(device.id)?.told ?? []) this.pendingLifts.add(to);
-    this.pauseFrom.delete(device.id);
-    await this.savePauses();
-    this.emit("breaker", { peer, state: "resumed" });
+    const pause = this.breaker.kept().find((p) => p.peer === device.id);
+    if (before === undefined || (pause !== undefined && pause.at <= before)) {
+      this.breaker.resume(device.id);
+      // The sessions told about the pause hear it lifted at the next pass, so their sends stop reporting `held`.
+      for (const to of this.pauseFrom.get(device.id)?.told ?? []) this.pendingLifts.add(to);
+      this.pauseFrom.delete(device.id);
+      await this.savePauses();
+      this.emit("breaker", { peer, state: "resumed" });
+    }
     let n = 0;
     for (const item of await this.held.list()) {
       if (item.device !== device.id || item.reason !== "breaker" || (only !== undefined && !only.has(item.id))) continue;
-      await this.decideNow(item.id, "approve");
-      n++;
+      if (await this.decideEach(item.id, "approve")) n++;
     }
     return n;
   }

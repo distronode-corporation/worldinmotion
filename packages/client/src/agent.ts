@@ -17,7 +17,9 @@ import {
   openBox,
   prekeyDeleteAt,
   prekeySchema,
+  sanitizeForDisplay,
   sealBox,
+  sessionAddressSchema,
   verifyObject,
   type Opened,
   type Prekey,
@@ -29,7 +31,7 @@ import { createConnection, createServer, type Server, type Socket } from "node:n
 import { z } from "zod";
 import type { EndpointFiles } from "./agentpath.ts";
 import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type CertBody, type Channel, type HelloInfo } from "./channel.ts";
-import { decisionView, heldDigest, MAX_DECISION_IDS, signDecision, type DecisionItem, type HeldCopy } from "./decisions.ts";
+import { CODE_RE, decisionView, heldDigest, heldItemSchema, MAX_DECISION_IDS, MAX_DECISION_ITEMS, shownOf, signDecision, type DecisionItem, type HeldCopy } from "./decisions.ts";
 import { MAX_LINE, unseal } from "./signer.ts";
 import { openPrekeySecret, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "./vault.ts";
 
@@ -128,6 +130,7 @@ const ARGS = {
     verdict: z.enum(["approve", "refuse", "resume"]),
     ids: z.array(z.string().refine(isUlid, "expected a held id")).max(MAX_DECISION_IDS),
     peer: z.string().min(1).max(200).optional(),
+    code: z.string().regex(CODE_RE, "expected the six-digit code the asking process shows"),
   }),
   lock: z.strictObject({}),
   stop: z.strictObject({}),
@@ -178,13 +181,19 @@ export const CHANNEL: unique symbol = Symbol("channel");
 
 /**
  * How the signer takes a decision on held messages (`decide`): it reads the items from the state
- * directory itself, and asks the person in its own terminal or dialog. `confirm` is why it cannot
- * ask when it cannot (it runs under an agent's variables, or has neither).
+ * directory itself, and the device a resume names from the mesh's roster, and asks the person in
+ * its own terminal or dialog. `confirm` is why it cannot ask when it cannot (it runs under an
+ * agent's variables, or has neither); `gone` aborts when the asker went away, which ends the ask.
  */
 export type Desk = {
   read: (mesh: string, ids: readonly string[]) => Promise<HeldCopy[]>;
-  confirm: ((lines: string[]) => Promise<boolean>) | { cannot: string };
+  /** The id of the roster's device named `name` in `mesh`, or undefined when there is none. */
+  device: (mesh: string, name: string) => Promise<string | undefined>;
+  confirm: ((lines: string[], gone?: AbortSignal) => Promise<boolean>) | { cannot: string };
 };
+
+/** After a decline the signer takes the next decision only this long after (doubling to maxMs; a yes starts it over). */
+export const DECLINE_BACKOFF = { firstMs: 10_000, maxMs: 5 * 60_000 };
 
 export type SignerOptions = {
   file: SealedKeyFile;
@@ -195,6 +204,8 @@ export type SignerOptions = {
   rate?: { perSecond: number; burst: number };
   /** Without one, every `decide` is refused. */
   desk?: Desk;
+  /** The wait after a decline (DECLINE_BACKOFF by default). */
+  backoff?: { firstMs: number; maxMs: number };
 };
 
 /**
@@ -221,6 +232,8 @@ export class Signer {
   private limited = 0;
   /** A `decide` is waiting for the person: another is refused meanwhile, never queued behind it. */
   private deciding = false;
+  /** After a decline: when the next decision is taken, and how long the wait after another decline is. */
+  private declined = { until: 0, ms: 0 };
   private readonly o: SignerOptions;
 
   constructor(o: SignerOptions) {
@@ -333,9 +346,14 @@ export class Signer {
 
   /**
    * A decision on held messages, signed only once the person confirmed it here: the signer reads
-   * every held copy of the ids from disk itself, shows them in its own terminal or dialog, and
-   * signs those ids, each with the digest of the copy it showed. One at a time. A lock while the
-   * person reads it signs nothing.
+   * every held copy of the ids from disk itself, shows them in its own terminal or dialog with the
+   * request's code, and signs those ids, each with the digest of the copy it showed. One at a time,
+   * and after a decline not again for a while. A lock while the person reads it signs nothing.
+   *
+   * Refused before the person is asked: a copy that is not a held item is dropped, and an id whose
+   * copies differ in what the person would be shown is refused (one would be shown, the other
+   * released). A resume names a session address whose device is in the roster, and covers only
+   * that device's breaker holds.
    */
   private async decide(req: z.infer<typeof ARGS.decide>, entry: LogEntry, gone: AbortSignal | undefined): Promise<Record<string, unknown>> {
     entry.mesh = req.mesh;
@@ -344,29 +362,59 @@ export class Signer {
     if (!(typeof desk.confirm === "function")) throw new AgentError("refused", desk.confirm.cannot);
     if (req.verdict === "resume" && req.peer === undefined) throw new AgentError("bad_request", "decide: a resume names its peer");
     if (this.deciding) throw new AgentError("refused", "the signer is already asking you about another decision: answer that one first");
+    const wait = this.declined.until - this.o.now();
+    if (wait > 0) throw new AgentError("refused", `you declined a decision in the signer just now: it takes the next one in ${Math.ceil(wait / 1000)} s`);
     this.deciding = true;
     try {
-      const items = await desk.read(req.mesh, req.ids);
-      // A resume may lift a pause that holds nothing yet; anything else decides something held.
-      if (items.length === 0 && req.verdict !== "resume") throw new AgentError("refused", "none of these ids is held on this device");
-      if (!(await desk.confirm(decisionView(req, items)))) throw new AgentError("refused", "you declined it in the signer: nothing changed");
-      if (gone?.aborted === true) throw new AgentError("refused", "the process that asked went away before you answered: nothing was signed");
-      const signKey = this.signKey;
-      if (signKey === undefined) throw new AgentError("locked", "the signer was locked before it signed: nothing changed");
-      const at = this.o.now();
+      const peer = req.verdict === "resume" ? await this.resumed(desk, req.mesh, req.peer!) : undefined;
+      const items = (await desk.read(req.mesh, req.ids)).filter((c) => req.ids.includes(c.item.id) && heldItemSchema.safeParse(c.item).success);
+      const shown = new Map<string, string>();
       const seen = new Set<string>();
       const signed: DecisionItem[] = [];
       for (const { item } of items) {
+        const view = shownOf(item);
+        if ((shown.get(item.id) ?? view) !== view) throw new AgentError("refused", `held message ${item.id} is held in copies that differ in what you would be shown: nothing was signed (\`wim held list\` shows them)`);
+        shown.set(item.id, view);
+        if (peer !== undefined && !(item.reason === "breaker" && item.device === peer.id && item.from.slice(item.from.indexOf("@") + 1) === peer.device)) {
+          throw new AgentError("refused", `held message ${item.id} is not held by the loop breaker from ${sanitizeForDisplay(req.peer!)}'s device: a resume releases only those`);
+        }
         const one = { id: item.id, digest: heldDigest(item) };
         if (seen.has(`${one.id} ${one.digest}`)) continue;
         seen.add(`${one.id} ${one.digest}`);
         signed.push(one);
       }
+      if (signed.length > MAX_DECISION_ITEMS) throw new AgentError("refused", `these ids are held in ${signed.length} copies, more than one decision takes (${MAX_DECISION_ITEMS}): ask for fewer at once`);
+      // A resume may lift a pause that holds nothing yet; anything else decides something held.
+      if (items.length === 0 && req.verdict !== "resume") throw new AgentError("refused", "none of these ids is held on this device");
+      const yes = await desk.confirm(decisionView(req, items, peer), gone);
+      this.declined = yes ? { until: 0, ms: 0 } : this.nextBackoff();
+      if (!yes) throw new AgentError("refused", "you declined it in the signer: nothing changed");
+      if (gone?.aborted === true) throw new AgentError("refused", "the process that asked went away before you answered: nothing was signed");
+      const signKey = this.signKey;
+      if (signKey === undefined) throw new AgentError("locked", "the signer was locked before it signed: nothing changed");
+      const at = this.o.now();
       const body = { v: 1 as const, device: this.file.id, mesh: req.mesh, verdict: req.verdict, ...(req.peer === undefined ? {} : { peer: req.peer }), items: signed, at, n: ulid(at) };
       return { decision: signDecision(body, signKey) };
     } finally {
       this.deciding = false;
     }
+  }
+
+  /** The wait after one more decline: firstMs, then doubling, at most maxMs. */
+  private nextBackoff(): { until: number; ms: number } {
+    const b = this.o.backoff ?? DECLINE_BACKOFF;
+    const ms = Math.min(this.declined.ms === 0 ? b.firstMs : this.declined.ms * 2, b.maxMs);
+    return { until: this.o.now() + ms, ms };
+  }
+
+  /** A resume's peer: a session address whose device the mesh's roster names, never free text. */
+  private async resumed(desk: Desk, mesh: string, peer: string): Promise<{ session: string; device: string; id: string }> {
+    if (!sessionAddressSchema.safeParse(peer).success) throw new AgentError("bad_request", "decide: a resume's peer is a session address (name@device)");
+    const at = peer.indexOf("@");
+    const device = peer.slice(at + 1);
+    const id = await desk.device(mesh, device);
+    if (id === undefined) throw new AgentError("refused", `no device named ${sanitizeForDisplay(device)} is in this mesh's roster: nothing to resume`);
+    return { session: peer.slice(0, at), device, id };
   }
 
   /**
