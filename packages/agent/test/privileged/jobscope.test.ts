@@ -178,7 +178,30 @@ const alive = (pid: number): boolean => {
     return false;
   }
 };
-const userScopes = linux && process.geteuid!() !== 0 && spawnSync("systemd-run", ["--user", "--scope", "--quiet", "true"], { stdio: "ignore", timeout: 10_000 }).status === 0;
+/**
+ * Whether a user scope really contains an escaped process here: systemd-run --user --scope can
+ * start on a host (a CI runner, say) whose user manager still cannot kill what left the group.
+ * The probe runs the same escape in a scope, kills the scope the way cleanup does, and passes
+ * only when the escapee is gone. Where it fails the scope tests cannot say anything, so they skip.
+ */
+function scopeKillWorks(): boolean {
+  if (!linux || process.geteuid!() === 0) return false;
+  // The escape lives in a script file, so the command systemd-run gets holds no `$` (it expands them).
+  const probe = [
+    'u="wim-agent-probe-$$"; d="${TMPDIR:-.}"; f="$d/wim-agent-probe-$$.pid"; s="$d/wim-agent-probe-$$.sh"; rm -f "$f"',
+    `printf "setsid sh -c 'echo \\$\\$ > %s; exec sleep 30' </dev/null >/dev/null 2>&1 &\\nsleep 30\\n" "$f" > "$s"`,
+    'systemd-run --user --scope --quiet --unit="$u" /bin/sh "$s" >/dev/null 2>&1 &',
+    'i=0; while [ ! -s "$f" ] && [ $i -lt 100 ]; do sleep 0.05; i=$((i+1)); done',
+    'p=$(cat "$f" 2>/dev/null); rm -f "$f" "$s"; case "$p" in ""|*[!0-9]*) exit 2;; esac; kill -0 "$p" || exit 2',
+    'systemctl --user kill --kill-whom=all --signal=SIGKILL "$u.scope" >/dev/null 2>&1',
+    'i=0; while kill -0 "$p" 2>/dev/null && [ $i -lt 60 ]; do sleep 0.05; i=$((i+1)); done',
+    'if kill -0 "$p" 2>/dev/null; then kill -9 "$p"; exit 3; fi',
+  ].join("\n");
+  return spawnSync("sh", ["-c", probe], { stdio: "ignore", timeout: 15_000, env: { ...process.env, TMPDIR: process.env["WIM_TEST_TMP"] || tmpdir() } }).status === 0;
+}
+const userScopes = scopeKillWorks();
+/** Each scope test's own limit: scope start-up, the 2 s drain, and the wait for the escapee, with room on a slow runner. */
+const SCOPE_TEST_MS = 30_000;
 const USER_ENV = { XDG_RUNTIME_DIR: process.env["XDG_RUNTIME_DIR"] ?? "" };
 /**
  * The reviewer's repro: the leader starts `setsid sh -c 'sleep 8'` in the background and exits.
@@ -201,11 +224,12 @@ describe.runIf(linux)("the setsid escape, with real processes", () => {
     const escapee = Number((await fs.readFile(pidFile, "utf8")).trim());
     expect(alive(escapee)).toBe(true);
     await h.cleanup();
-    expect(Date.now() - t).toBeLessThan(6000);
+    // Well under the escapee's 8 s sleep: cleanup did not wait for it, it killed it.
+    expect(Date.now() - t).toBeLessThan(7500);
     expect(out.join("")).toBe("leader done\n");
-    for (let i = 0; i < 50 && alive(escapee); i++) await new Promise((r) => setTimeout(r, 100));
+    for (let i = 0; i < 100 && alive(escapee); i++) await new Promise((r) => setTimeout(r, 50));
     expect(alive(escapee)).toBe(false);
-  });
+  }, SCOPE_TEST_MS);
 
   it("without a scope: the job still ends at the leader's exit and the runner does not wait for the escaped process", async () => {
     const pidFile = join(dir, "escapee-none");
@@ -267,14 +291,14 @@ describe.runIf(linux)("the setsid escape, with real processes", () => {
     } finally {
       await api.close();
     }
-    expect(Date.now() - t).toBeLessThan(7000);
+    expect(Date.now() - t).toBeLessThan(7500);
     expect(Buffer.concat(out).toString()).toBe("leader done\n");
     const lock = await acquireLock(lockPath, 0);
     expect(lock).not.toBeNull();
     await lock!.release();
     await expect(fetch(`${proxyUrl}/v1/messages`, { method: "POST", body: "{}" })).rejects.toThrow();
     const escapee = Number((await fs.readFile(pidFile, "utf8")).trim());
-    for (let i = 0; i < 50 && alive(escapee); i++) await new Promise((r) => setTimeout(r, 100));
+    for (let i = 0; i < 100 && alive(escapee); i++) await new Promise((r) => setTimeout(r, 50));
     expect(alive(escapee)).toBe(false);
-  });
+  }, SCOPE_TEST_MS);
 });
