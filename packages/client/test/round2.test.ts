@@ -5,7 +5,7 @@ import { commandUsage, SHORT_USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
 import { processIo, type Proc } from "../src/io.ts";
 import { WimMcp } from "../src/mcp.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, breakerOf } from "./helpers.ts";
+import { FS, framedText, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, breakerOf } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
@@ -265,7 +265,7 @@ describe("derived messages (revision 8)", () => {
     const held = await c.send("b@two", "info");
     await until(async () => (await b.held.list()).length === 1);
     await b.decide(held.id, "approve");
-    expect((await b.spool.unread()).find((i) => i.rendered.includes("info"))!.informs).toBe(true);
+    expect((await b.spool.unread()).find((i) => framedText(i.rendered) === "info")!.informs).toBe(true);
     await b.send("a@one", "inside the window");
     await until(async () => (await a.spool.unread()).length === 3);
     const third = (await a.spool.unread())[2]!.rendered;
