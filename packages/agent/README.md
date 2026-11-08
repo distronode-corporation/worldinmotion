@@ -79,7 +79,7 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
 | `profiles.allowed`, `profiles.default` | none | Profile names a task may start with as `<name>: `. Not allowed with `wake.mode` `runner`. |
 | `runner.command` | required | The runner: an absolute path, or a name on `PATH`. |
 | `runner.args` | `[]` | Fixed arguments. Nothing from a message is ever put on a command line. |
-| `runner.timeoutSeconds` | `1800` | Longest a job may take. A task's own deadline wins when sooner. |
+| `runner.timeoutSeconds` | `1800` | Longest a job may take. A task's own deadline wins when sooner. With the privileged runner, set it above that runner's lock wait plus its own timeout plus grace (`wim agent init` writes 2760), or a job still queued behind the lock is killed. |
 | `runner.killGraceSeconds` | `15` | After the timeout, SIGTERM goes to the runner's process group, then SIGKILL this much later. |
 | `runner.passEnv` | `PATH HOME LANG LC_ALL TZ TMPDIR ANTHROPIC_API_KEY` | The only environment variables the runner inherits. Never the wake code's. |
 | `runner.logStderr` | `true` | Copy the runner's stderr to the worker's log, 500 characters a line at most. |
