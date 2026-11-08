@@ -266,7 +266,9 @@ describe("the sending side", () => {
     // From then on a's sends there report held.
     await until(async () => (await a.pausedBy.active())[`${devices[1]!.device.id}/b`] !== undefined);
     expect((await a.send("b@two", "2")).results).toEqual([{ to: "b@two", status: "held", relay: "routed", breaker: expect.objectContaining({ rule: "peer", count: 2, limit: 1 }) }]);
-  });
+    // Two sessions and a relay, like every other test here that has them, so their budget: it was
+    // the only one at the 5 s default, which a full suite's load can use up. Every wait is on state.
+  }, 30_000);
 
   it("hears the pause once a session, reports held, and takes a pause only as a label from a session it sent to", async () => {
     const { a, b, clocks, devices, mesh } = await pair(60);
