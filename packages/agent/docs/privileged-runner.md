@@ -141,7 +141,7 @@ others (refused otherwise). Unknown keys are refused. As a non-root user (for tr
 | `maxTaskChars` | `16000` | Longer tasks are refused (3). |
 | `dailyJobs` | `50` | Jobs per UTC day, all senders; `0` turns the cap off. |
 | `statePath` | `/var/lib/wim-agent-privileged/state.json` | The day's count and the frames already run: root-owned, mode 0600, in a root-only directory, written through a fresh `O_EXCL`/`O_NOFOLLOW` file. A damaged file fails the run rather than reset the counts. |
-| `senders` | none | The senders who may wake a job: device id to `{ "sign", "box" }`, the device's public keys from the roster. |
+| `senders` | none | The senders who may wake a job: device id to `{ "sign", "box" }`, the device's public keys from the signed roster. `wim agent init <dir>/agent.json --mode privileged --allow <ids> [--peer-user <user>] [--as <name>]` writes `senders` and `recipient` for you. |
 | `recipient` | none | The receiving session: `home` (the peer's wim state directory), `mesh`, `address`, and `user` (the peer user, who must own the key files). Required with `senders`. |
 | `allowLocal` | `false` | Accept `from.device` `"local"` with no frame, for a scheduled job on the same host. Only from a root caller outside sudo: `SUDO_UID` unset (the guard; sudo always sets it, so the launcher must keep it), and every ancestor process root (a second check, not a sufficient one). Such a job skips the sender check and the wake code. |
 | `wakeCode` | none | `{ "file": path }` (root-owned, mode 0600) or `{ "env": NAME }` (set only for the privileged side; sudo resets the environment, so a file is what works through sudo). At least 16 characters, no whitespace; anything else fails closed. |

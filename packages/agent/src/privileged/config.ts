@@ -83,9 +83,10 @@ const Config = z
     dailyJobs: z.number().int().min(0).default(50),
     statePath: absolute.default("/var/lib/wim-agent-privileged/state.json"),
     /**
-     * The senders who may wake a job, by device id, with their public keys pinned here (from the
-     * roster: `wim devices --keys`). The runner checks each frame's signature against these keys
-     * itself, so a compromised peer cannot claim another sender.
+     * The senders who may wake a job, by device id, with their public keys pinned here. `wim agent
+     * init <dir>/agent.json --mode privileged --allow <ids>` writes them, and `recipient`, from the
+     * signed roster. The runner checks each frame's signature against these keys itself, so a
+     * compromised peer cannot claim another sender.
      */
     senders: z
       .record(z.string().regex(/^[A-Za-z0-9_-]{22}$/), z.strictObject({ sign: key32, box: key32 }))
