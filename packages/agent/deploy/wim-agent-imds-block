@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# wim-agent-imds-block: keep named local users away from the cloud metadata service.
+#
+#   wim-agent-imds-block apply  [--backend auto|nft|iptables] [--also ADDR]... USER...
+#   wim-agent-imds-block verify [--backend auto|nft|iptables] [--also ADDR]... USER...
+#   wim-agent-imds-block remove [--backend auto|nft|iptables] USER...
+#
+# Why: on a cloud VM, any process that can open a socket to the metadata address
+# can ask it for the instance's credentials (an AWS instance role, a GCP service
+# account token). The wim agent's peer user reads messages from the network and
+# its worker user runs a model with tools, so neither may ever be able to do that.
+# Only root (the privileged runner, which needs the instance identity to mint a
+# short-lived token) keeps the route. The rule matches the socket owner's uid, so
+# it holds for every program the user runs, whatever its proxy or DNS settings.
+#
+# Addresses blocked: 169.254.169.254 (the IPv4 metadata address on AWS, GCP and
+# Azure; the GCP metadata host name resolves to it), and on IPv6 the AWS metadata
+# address. Add any other with --also (a GCP IPv6-only VM, say).
+#
+# Backends: nft writes one table, `inet wim_agent_imds`, rebuilt whole on each
+# apply (so it is idempotent and `remove` is one command). iptables inserts one
+# REJECT rule per user and address, only when it is not already there. `auto`
+# picks nft when the nft command exists.
+#
+# Neither backend's rules survive a reboot by themselves: run `apply` at boot,
+# before the agent starts: the units run `apply` in ExecStartPre, so every
+# (re)start of the peer or a job puts the rules back, even after a firewall
+# reload flushed them.
+#
+# verify fails (exit 1) unless, for every user, the rule is present AND a TCP
+# connect to each IPv4 address as that user fails within 3 seconds. It also
+# prints whether root itself reaches the address: if root cannot either, this
+# is not a cloud VM and only the rule check means anything.
+set -euo pipefail
+
+TABLE="wim_agent_imds"
+V4=(169.254.169.254)
+V6=(fd00:ec2::254)
+
+die() { echo "wim-agent-imds-block: $*" >&2; exit "${2:-2}"; }
+usage() { die "usage: wim-agent-imds-block apply|verify|remove [--backend auto|nft|iptables] [--also ADDR]... USER..."; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+valid_user() { [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; }
+valid_v4() { [[ "$1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; }
+valid_v6() { [[ "$1" =~ ^[0-9a-fA-F:]+$ && "$1" == *:* ]]; }
+
+# nft_ruleset UID... prints the whole table for these uids.
+nft_ruleset() {
+  local uid a
+  echo "table inet $TABLE {"
+  echo "  chain output {"
+  echo "    type filter hook output priority 0; policy accept;"
+  for uid in "$@"; do
+    for a in "${V4[@]}"; do echo "    meta skuid $uid ip daddr $a reject"; done
+    for a in "${V6[@]}"; do echo "    meta skuid $uid ip6 daddr $a reject"; done
+  done
+  echo "  }"
+  echo "}"
+}
+
+# ipt <iptables|ip6tables> <uid> <addr>: insert the REJECT once.
+ipt_apply() {
+  "$1" -C OUTPUT -m owner --uid-owner "$2" -d "$3" -j REJECT 2>/dev/null \
+    || "$1" -I OUTPUT -m owner --uid-owner "$2" -d "$3" -j REJECT
+}
+ipt_remove() {
+  while "$1" -C OUTPUT -m owner --uid-owner "$2" -d "$3" -j REJECT 2>/dev/null; do
+    "$1" -D OUTPUT -m owner --uid-owner "$2" -d "$3" -j REJECT
+  done
+}
+
+# tcp_open [runuser -u USER --] <addr>: true when a TCP connect to <addr>:80
+# succeeds within 3 seconds. bash's /dev/tcp, so no curl is needed.
+# shellcheck disable=SC2016  # $0 belongs to the inner bash.
+TCP_OPEN=(timeout 3 bash -c 'exec 3<>"/dev/tcp/$0/80"')
+connect_blocked() { ! runuser -u "$1" -- "${TCP_OPEN[@]}" "$2" 2>/dev/null; }
+root_connects() { "${TCP_OPEN[@]}" "$1" 2>/dev/null; }
+
+main() {
+  [ $# -ge 1 ] || usage
+  local cmd="$1"; shift
+  case "$cmd" in apply|verify|remove) ;; *) usage;; esac
+  local backend=auto users=() uids=() u uid a
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --backend) [ $# -ge 2 ] || usage; backend="$2"; shift 2;;
+      --also)
+        [ $# -ge 2 ] || usage
+        if valid_v4 "$2"; then V4+=("$2"); elif valid_v6 "$2"; then V6+=("$2"); else die "--also: not an IP address: $2"; fi
+        shift 2;;
+      -*) usage;;
+      *) valid_user "$1" || die "not a valid user name: $1"; users+=("$1"); shift;;
+    esac
+  done
+  [ ${#users[@]} -gt 0 ] || usage
+  case "$backend" in
+    auto) if have nft; then backend=nft; else backend=iptables; fi;;
+    nft|iptables) ;;
+    *) usage;;
+  esac
+  [ "$(id -u)" = 0 ] || die "run as root"
+  for u in "${users[@]}"; do
+    uid="$(id -u "$u" 2>/dev/null)" || die "no such user: $u"
+    [ "$uid" != 0 ] || die "refusing to block root ($u): the privileged runner needs the metadata service"
+    uids+=("$uid")
+  done
+
+  case "$backend:$cmd" in
+    nft:apply)
+      nft list table inet "$TABLE" >/dev/null 2>&1 && nft delete table inet "$TABLE"
+      nft_ruleset "${uids[@]}" | nft -f -
+      ;;
+    nft:remove)
+      if nft list table inet "$TABLE" >/dev/null 2>&1; then nft delete table inet "$TABLE"; fi
+      ;;
+    iptables:apply|iptables:remove)
+      for uid in "${uids[@]}"; do
+        for a in "${V4[@]}"; do "ipt_$cmd" iptables "$uid" "$a"; done
+        if have ip6tables; then for a in "${V6[@]}"; do "ipt_$cmd" ip6tables "$uid" "$a"; done; fi
+      done
+      ;;
+  esac
+  [ "$cmd" = verify ] || { echo "wim-agent-imds-block: $cmd done ($backend) for ${users[*]}"; return 0; }
+
+  local bad=0 listing=""
+  if [ "$backend" = nft ]; then listing="$(nft list table inet "$TABLE" 2>/dev/null || true)"; fi
+  for i in "${!users[@]}"; do
+    u="${users[$i]}" uid="${uids[$i]}"
+    for a in "${V4[@]}"; do
+      if [ "$backend" = nft ]; then
+        grep -Eq "skuid \"?($u|$uid)\"? ip daddr $a reject" <<<"$listing" || { echo "wim-agent-imds-block: FAIL no nft rule for $u -> $a"; bad=1; }
+      else
+        iptables -C OUTPUT -m owner --uid-owner "$uid" -d "$a" -j REJECT 2>/dev/null || { echo "wim-agent-imds-block: FAIL no iptables rule for $u -> $a"; bad=1; }
+      fi
+      if connect_blocked "$u" "$a"; then echo "wim-agent-imds-block: ok $u cannot reach $a"; else echo "wim-agent-imds-block: FAIL $u can reach $a"; bad=1; fi
+    done
+  done
+  # The control: when root cannot connect either, there is no metadata service
+  # here (not a cloud VM), and the connect checks above prove nothing alone.
+  for a in "${V4[@]}"; do
+    if root_connects "$a"; then
+      echo "wim-agent-imds-block: control root reaches $a"
+    else
+      echo "wim-agent-imds-block: note root cannot reach $a either (no metadata service here?)"
+    fi
+  done
+  return "$bad"
+}
+
+main "$@"

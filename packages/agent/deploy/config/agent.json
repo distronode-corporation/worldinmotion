@@ -1,0 +1,22 @@
+{
+  "senders": {
+    "devices": ["REPLACE_WITH_DEVICE_ID", "REPLACE_WITH_DEVICE_I2"],
+    "requireTrusted": true
+  },
+  "wake": { "mode": "runner" },
+  "runner": {
+    "command": "/usr/bin/sudo",
+    "args": ["-n", "/usr/local/sbin/wim-agent-privileged-runner"],
+    "timeoutSeconds": 960,
+    "killGraceSeconds": 15,
+    "passEnv": ["PATH", "LANG"],
+    "logStderr": true
+  },
+  "limits": {
+    "ledgerPath": "/var/lib/wim-agent/ledger.json",
+    "maxTaskChars": 8000,
+    "perSenderPerHour": 10,
+    "dailyJobs": 20
+  },
+  "replies": { "refused": "generic" }
+}

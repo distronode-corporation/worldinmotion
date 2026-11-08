@@ -1,0 +1,10 @@
+# /etc/sudoers.d/wim-agent   (root:root 0440; check with `visudo -cf <file>` before installing)
+#
+# The peer user may run exactly one program as root, with no arguments at all:
+# the empty "" forbids every argument, so nothing from a message can reach the
+# command line. The request travels on stdin (RUNNER contract v1) and the
+# runner re-checks it. sudo resets the environment (env_reset is the default;
+# do not add env_keep or SETENV here), so the peer cannot steer the runner
+# through variables either. -n in the peer's runner command makes sudo fail
+# instead of prompting if this line is missing.
+wim-agent ALL=(root) NOPASSWD: /usr/local/sbin/wim-agent-privileged-runner ""
