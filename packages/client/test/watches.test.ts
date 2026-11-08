@@ -507,10 +507,11 @@ describe("whether an idle notice may start a turn", () => {
     await until(() => pushed.length === 1);
     expect(pushed[0]).toMatchObject({ from: "b@two", watched: devices[1]!.device.id });
     // Pushing b moved the cursor past the quiet one: the sweep keeps it in the box, and inbox still returns it, once.
-    await a.tick();
-    expect(await a.spool.unread()).toEqual([]);
+    // (The push is seen before its take lands, and the session's own timer runs the sweep.)
+    await until(async () => (await a.spool.unread()).length === 0);
+    await until(async () => (await a.spool.relayed()).length === 1);
     expect((await a.inbox(false)).map((i) => i.rendered)).toEqual([`${LINE}q@three is now idle (or has ended).`]);
-    await a.tick();
+    await sleep(60);
     expect(await a.inbox(false)).toEqual([]);
   });
 });
