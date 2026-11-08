@@ -24,6 +24,14 @@ export type SpoolItem = {
   relayed?: true
   /** A notice for the person (a restart only they can do), never for the model. */
   forPerson?: true
+  /** On an idle notice this session armed: the roster device id of the session it watched. */
+  watched?: string
+  /**
+   * The client's word that this item may not start a turn: an idle notice whose device is not
+   * trusted, is paused or is past the breaker's limit, a lapsed watch, a refused arm. It is added
+   * to a running turn, or waits in the pane and for `inbox`; it is never submitted.
+   */
+  quiet?: true
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -62,6 +70,9 @@ export function parseItem(text: string): SpoolItem | undefined {
     ...(typeof value.heldBy === 'string' && value.heldBy !== '' ? { heldBy: value.heldBy } : {}),
     ...(value.relayed === true ? { relayed: true as const } : {}),
     ...(value.forPerson === true ? { forPerson: true as const } : {}),
+    ...(typeof value.watched === 'string' && value.watched !== '' ? { watched: value.watched } : {}),
+    // Fail closed: a `quiet` the client wrote in any form but false keeps the item from waking.
+    ...(value.quiet !== undefined && value.quiet !== false ? { quiet: true as const } : {}),
   }
 }
 
@@ -207,6 +218,15 @@ export function parseSent(value: unknown): SendStatus[] | undefined {
 /** Why an idle notice a send asked for was not armed (the 16-watch limit, or a watch not recorded), if the client said. */
 export function parseWatchNote(value: unknown): string | undefined {
   return isRecord(value) && typeof value.watch_note === 'string' && value.watch_note !== '' ? value.watch_note : undefined
+}
+
+/**
+ * The watches an arm-only `send` (notify_when_idle, no text) answers: each address armed and until
+ * when. Undefined when the answer carries no `watching` list (an older client, a failure).
+ */
+export function parseWatching(value: unknown): { to: string; until: string }[] | undefined {
+  if (!isRecord(value) || !Array.isArray(value.watching)) return undefined
+  return value.watching.filter(isRecord).map(row => ({ to: str(row.to, '?'), until: str(row.until) }))
 }
 
 export function parsePeers(value: unknown): WimPeer[] {

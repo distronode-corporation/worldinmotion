@@ -47,8 +47,9 @@ export type WimKept = {
 }
 
 /**
- * An item a bot, CI or gateway relayed for a device. It never starts a turn:
- * the pane lists it, and the person may hand it to the session.
+ * An item that never starts a turn: one a bot, CI or gateway relayed for a
+ * device, or a quiet notice (`isQuiet`). The pane lists it, and the person may
+ * hand it to the session.
  */
 export type WimRelayed = {
   name: string
@@ -62,6 +63,12 @@ export type WimRelayed = {
   isShown: boolean
   /** True once a dismiss mark told the client the person is done with it. */
   isDismissed: boolean
+  /**
+   * A notice the client spooled `quiet` (an idle notice that may not wake, a lapsed watch, a
+   * refused arm): listed apart from relayed items. Absent on a value stored before it existed,
+   * which was a relayed item.
+   */
+  isQuiet?: true
 }
 
 export type WimPeer = {

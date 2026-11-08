@@ -24,6 +24,7 @@ import { WimMcp } from "../../client/src/mcp.ts";
 import { MeshFiles, parseMeshConfig, trustLevel } from "../../client/src/mesh.ts";
 import { main } from "../../client/src/cli.ts";
 import { selfTest } from "../../client/src/selftest.ts";
+import type { SpoolItem } from "../../client/src/spool.ts";
 import { FS, makeMesh, openSession, RELAY, RelayHarness, scratch, sessionOpts, term, until } from "../../client/test/helpers.ts";
 import * as actions from "../src/actions.ts";
 import { TRUST } from "../src/actions.ts";
@@ -40,6 +41,7 @@ import { Store } from "../src/state.ts";
  */
 type PluginParse = {
   ROUTE_POLICIES: readonly string[];
+  parseItem(text: string): Record<string, unknown> | undefined;
   parsePeers(value: unknown): unknown[];
   peerLine(peer: unknown): string;
 };
@@ -208,6 +210,37 @@ describe("the plugin's peer line", () => {
     expect(fromPlugin).toEqual(fromClient);
     expect(fromClient.some((l) => l.includes("cwd="))).toBe(true);
     expect(fromClient.some((l) => l.includes("  -"))).toBe(true);
+  });
+});
+
+describe("spool items, read by the plugin", () => {
+  it("keeps every field the client writes that decides a turn, quiet and watched included", () => {
+    // Required: a field the client adds to SpoolItem fails this until the plugin's reading of it is decided.
+    const written = {
+      cursor: 7,
+      kind: "notice",
+      from: "bob@laptop-b",
+      device: "",
+      id: "01JAAAAAAAAAAAAAAAAAAAAAAA",
+      at: 1000,
+      rendered: "worldinmotion notice (from the local client, not from a peer or the person): bob@laptop-b is now idle (or has ended).",
+      held: 2,
+      heldBy: "carol@desk",
+      relayed: true,
+      informs: true,
+      forPerson: true,
+      watched: "wwwwwwwwwwwwwwwwwwwwww",
+      quiet: true,
+    } satisfies Required<SpoolItem>;
+    // `informs` is the client's own: it frames the item, and the plugin hands the rendered text over as is.
+    const { informs: _informs, ...read } = written;
+    expect(plugin.parseItem(JSON.stringify(written))).toEqual(read);
+    // `quiet` fails closed: any value but false (or none) keeps the item from waking.
+    for (const quiet of ["yes", 1, null, {}]) expect(plugin.parseItem(JSON.stringify({ ...written, quiet }))).toHaveProperty("quiet", true);
+    const waking = plugin.parseItem(JSON.stringify({ ...written, quiet: false, watched: "" }));
+    expect(waking).not.toHaveProperty("quiet");
+    expect(waking).not.toHaveProperty("watched");
+    expect(plugin.parseItem(JSON.stringify({ ...written, quiet: undefined }))).not.toHaveProperty("quiet");
   });
 });
 

@@ -514,7 +514,9 @@ receipt from it arrives.
   turn. An idle notice this session armed carries `watched: "<device id>"`, the device its armed
   address names, and `quiet: true` when it may not start a turn (that device is not trusted, is
   paused, or is past the breaker's limits; SECURITY-MODEL section 7.3): a quiet notice waits for
-  `inbox`, `wait` or a running turn. So does the notice that a watch lapsed or was refused. Like a
+  `inbox`, `wait` or a running turn. So does the notice that a watch lapsed or was refused. The
+  plugin treats a quiet notice as it does a relayed item: appended to a running turn, otherwise
+  listed in its pane (under quiet notices), never submitted; any `quiet` but `false` counts. Like a
   relayed item, a quiet notice the cursor passed unread (a later item was pushed) is kept in the
   `relayed/` box beside the spool until `inbox` returns it. `informs: true` marks an item framed as information only; handing it to the agent starts
   the client's `derived` window, during which what the session sends is marked as derived from it. The mod hands
@@ -522,7 +524,8 @@ receipt from it arrives.
   the claim back only when that failed, so neither a failure later in a pass nor a pass still running
   from before a reload hands an item over twice. The rendered frame carries the message id.
 - The mod polls `spool/` every 250 ms with `$.fs`, delivers items in order (`$.session.append`
-  while the session is busy, `$.prompt.submit` while idle), and writes the newest delivered name to
+  while the session is busy, `$.prompt.submit` while idle, after writing `busy-mesh` to the
+  presence file, and not at all when that write fails), and writes the newest delivered name to
   `spool/cursor`, never back. It starts after its own cursor or after `spool/cursor`, whichever is
   further on, so items the server's `inbox` or `wait` tool (or a channel push) already handed to the
   session are not delivered again. The server deletes items at or below the cursor and only then

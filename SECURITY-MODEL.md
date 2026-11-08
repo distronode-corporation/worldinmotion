@@ -1299,11 +1299,15 @@ agent that re-arms on every notice and a peer that flaps its presence trip that 
 notice starts is a mesh turn: `wim hook` writes `busy-mesh` before its line, and a channel push
 writes it before the push, or does not push.
 
-**Until the Claude Code plugin reads `quiet` (packet N2, which must merge before 0.2.0 ships), Claude
-Code hands every idle notice it is given over as a turn, quiet ones included**, as it handed every
-armed notice before. `wim hook` and the channel push honour `quiet` now; the breaker's count and the
-cool-down above still bound the notices that reach Claude Code, but a quiet one there is not yet
-held back.
+**Every path honours `quiet`.** `wim hook` and the channel push do not wake for a quiet notice, and
+neither does the Claude Code plugin: it adds a quiet notice to a running turn, as it does a relayed
+item, and otherwise leaves it in its pane and for `inbox`, never submitting it (a person's own
+press of "Give to Claude" in the pane is their act, as for a relayed item). It reads any `quiet`
+but `false` as quiet, so a malformed one fails closed. Every turn the plugin starts is a mesh turn:
+it writes `busy-mesh` to the session's presence before it submits, and submits nothing when that
+write fails, as `wim hook` and the channel push do. A SendMessage that only arms a watch (no
+message) sends no text and asks the person nothing, whoever calls it: the arm alone cannot start a
+turn, since the client decides that when the notice comes.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy
