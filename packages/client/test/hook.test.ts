@@ -155,6 +155,22 @@ describe("wim hook: per agent", () => {
   });
 });
 
+describe("wim hook: Copilot CLI's VS Code-compatible events", () => {
+  // An entry configured as `Stop` or `UserPromptSubmit` gets the snake_case payloads that name
+  // their event (fixtures from the Copilot CLI hooks reference, not captured).
+  it("wakes at a `Stop` payload, lets a continuation's stop end, and marks a `UserPromptSubmit` busy", async () => {
+    const { root, meshDir } = await stateDir();
+    const dir = await session(meshDir, [AGENT]);
+    const stop = await fixture("copilot", "stop.vscode.documented.json");
+    expect(await hookAnswer(opts(root, "copilot", stop))).toEqual({ out: "", why: "nothing waiting" });
+    await item(dir);
+    expect(await out(opts(root, "copilot", stop))).toBe(wake("copilot", 1));
+    expect((await hookAnswer(opts(root, "copilot", JSON.stringify({ ...JSON.parse(stop), stop_hook_active: true })))).why).toBe("this stop already follows a continuation");
+    expect(await hookAnswer(opts(root, "copilot", await fixture("copilot", "user-prompt-submit.vscode.documented.json"), { event: "start" }))).toEqual({ out: "", why: "busy" });
+    expect(await fs.readFile(join(dir, "presence"), "utf8")).toBe("busy");
+  });
+});
+
 describe("wim hook: what counts", () => {
   it("never wakes for held, untrusted, relayed, CI or person-only items, notices, or a paused device", async () => {
     const { root, meshDir } = await stateDir();
@@ -345,7 +361,11 @@ describe("wim hook: hostile payloads", () => {
       ["codex", JSON.stringify({ ...DOCUMENTED.codex, hook_event_name: "PreToolUse" })],
       ["cursor", JSON.stringify({ ...DOCUMENTED.cursor, hook_event_name: "afterAgentResponse" })],
       ["cursor", JSON.stringify({ ...DOCUMENTED.cursor, conversation_id: undefined })],
-      ["copilot", JSON.stringify({ hook_event_name: "Stop", session_id: "s", stop_hook_active: false })],
+      // A VS Code-style payload for another event, a VS Code-style stop with the camelCase key, and a
+      // camelCase payload that names an event.
+      ["copilot", JSON.stringify({ hook_event_name: "PreToolUse", session_id: "s", stop_hook_active: false })],
+      ["copilot", JSON.stringify({ hook_event_name: "Stop", sessionId: "s", stop_hook_active: false })],
+      ["copilot", JSON.stringify({ ...DOCUMENTED.copilot, hook_event_name: "agentStop" })],
     ];
     for (const [agent, input] of bad) {
       const answer = await hookAnswer(opts(root, agent, input));
@@ -693,6 +713,8 @@ describe("wim hook: presence from hooks", () => {
       ["copilot", JSON.stringify({ ...JSON.parse(await startPayload("copilot")), prompt: 7 })],
       ["copilot", JSON.stringify({ ...JSON.parse(await startPayload("copilot")), sessionId: "" })],
       ["copilot", JSON.stringify({ ...JSON.parse(await startPayload("copilot")), stop_hook_active: false })],
+      ["copilot", await fixture("copilot", "stop.vscode.documented.json")],
+      ["copilot", JSON.stringify({ ...JSON.parse(await fixture("copilot", "user-prompt-submit.vscode.documented.json")), session_id: "" })],
     ];
     for (const [agent, input] of bad) {
       expect(await hookAnswer(opts(root, agent, input, { event: "start" })), `${agent} ${input}`).toEqual({ out: agent === "cursor" ? '{"continue":true}' : "", why: "not a turn-start payload this agent sends" });

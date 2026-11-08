@@ -51,7 +51,9 @@ of a turn.
    relay URL is `wss://` with no trailing slash, and must match one of the relay's
    `WIM_RELAY_URLS` exactly; the client refuses `https://`, and accepts `ws://` only to loopback.
    `wim doctor` checks the result.
-3. Add the MCP server to your agent as shown below, then start a new session. A session started
+3. Run `wim setup` in a terminal: it adds the MCP server and the hooks to each agent it finds
+   ([What `wim setup` writes](#what-wim-setup-writes)). Or add the MCP server by hand as shown
+   below. Then start a new session. A session started
    before the device was set up, or before its signer (`wim agent start`), keeps trying and joins
    the mesh by itself once it can.
 
@@ -129,6 +131,53 @@ the shortest limit among common agents: Claude Code moves an MCP call still runn
 notes below). While it waits, `wait` sends an MCP progress notification every 30 seconds to clients
 that asked for progress, which keeps idle timers from firing. If your agent's tool timeout is
 shorter than 110 seconds and you cannot raise it, tell the agent to pass a smaller `timeout_s`.
+
+## What `wim setup` writes
+
+`wim setup`, run in a terminal you opened yourself, looks for each agent below: its command on
+`PATH`, or its config directory. For each one it finds, it adds the worldinmotion MCP server and the
+agent's `wim hook` entries to the agent's user-level config, so they apply to every project.
+
+- **A direct launch.** The server's command is this machine's node, with the absolute path to the
+  `wim.mjs` that `wim setup` itself runs from as the first argument (behind npm's `wim` link, the
+  file it points to). It never writes npx, `npm exec`, a shell or `wim.cmd`, because the hook finds
+  its session only when `wim mcp` is the agent's own child. A `wim` run from a source checkout or
+  from npx's cache (which npx prunes) writes nothing and says why. The hooks run the same node
+  and `wim.mjs`. After an upgrade that moves either one (another node version, a new Homebrew
+  keg), run `wim setup` again: it offers the new paths as an update.
+- **The read-only tools.** Where the agent has a tool list, the server offers only `peers`,
+  `inbox`, `wait` and `history`. Add `send` (and `reply`) yourself to let the agent message peers.
+- **`env`.** `WIM_HOME` is the state directory `wim setup` used, and `WIM_KIND` names the agent.
+  The hooks run with the agent's own environment, not this block: when `WIM_HOME` or
+  `CLAUDE_CONFIG_DIR` is set in the terminal, setup says to start the agents with `WIM_HOME` set.
+- **A diff, then a typed `y`.** Each file change is shown as a diff and written only on `y`, with
+  the original copied beside it as `<file>.wim-backup-<time>`. Any other answer leaves the file
+  as it was.
+- **Only what wim owns.** That is the `worldinmotion` server entry and the hook entries whose
+  command runs `wim hook <agent>`. Every other entry stays, and so does a Copilot CLI command
+  for the other shell (`bash` beside `powershell`). JSON keeps its key order and
+  indentation (a one-line file stays on one line), and Codex's `config.toml` changes only the
+  worldinmotion lines.
+- **A rerun.** An entry that is already right is reported as configured. One with another
+  path, or launched through npx, is offered as an update of its command, arguments and `WIM_HOME`,
+  keeping anything else you set in it (a tool you added, a timeout).
+- **Files it leaves alone.** It does not touch a file that is a symbolic link, is not a regular
+  file, is larger than 1 MiB, does not parse (a `settings.json` with comments included), or changed
+  while the diff was shown. A write that fails leaves the file as it was, and setup goes on to the
+  next agent. It says why and points here, and you edit that file by hand.
+
+| agent | found by | MCP server | read-only means | hooks |
+|---|---|---|---|---|
+| Codex CLI | `codex`, or `~/.codex` (`$CODEX_HOME`) | `[mcp_servers.worldinmotion]` in `config.toml`, `tool_timeout_sec = 330` | `enabled_tools` lists only the four | `Stop` and `UserPromptSubmit` in `hooks.json`. Codex runs a new hook only once you trust it with `/hooks` |
+| Gemini CLI | `gemini`, or `~/.gemini/settings.json` (`$GEMINI_CLI_HOME`) | `mcpServers.worldinmotion` in `settings.json`, `timeout: 330000` | `includeTools` lists only the four, and `trust: true` runs those without a prompt | `AfterAgent` and `BeforeAgent` in the same file |
+| Antigravity CLI | `agy`, or `~/.gemini/antigravity-cli` or `~/.gemini/config` | `mcpServers.worldinmotion` in `~/.gemini/config/mcp_config.json`, `timeoutSeconds: 330` | `enabledTools` lists only the four; Antigravity still asks before each call unless a permission rule allows it | `Stop` under the hook name `worldinmotion` in `~/.gemini/config/hooks.json`; no turn-start entry |
+| Cursor | `cursor-agent` or `cursor`, or `~/.cursor` | `mcpServers.worldinmotion` in `~/.cursor/mcp.json` | Cursor has no per-server tool list: every tool is offered, and Cursor asks before each call unless your run mode allows it | `stop` and `beforeSubmitPrompt` in `~/.cursor/hooks.json` |
+| Copilot CLI | `copilot`, or `~/.copilot` (`$COPILOT_HOME`) | `mcpServers.worldinmotion` in `mcp-config.json`, `timeout: 330000` | `tools` lists only the four | `agentStop` and `userPromptSubmitted` in `hooks/wim.json` (`bash`; `powershell` on Windows) |
+| Claude Desktop | its config directory: `~/Library/Application Support/Claude` (macOS), `%APPDATA%\Claude` (Windows), `~/.config/Claude` (Linux) | `mcpServers.worldinmotion` in `claude_desktop_config.json`, with `WIM_NAME=desktop` | its file has no tool list: every tool is offered, and it asks before each call unless you choose to always allow a tool | none: Claude Desktop has no hooks |
+
+The session's name is the working directory's base name, as for any `wim mcp` without `WIM_NAME`,
+except in Claude Desktop, which has no project directory. The timeouts cover the longest `wait`
+(300 seconds).
 
 ## Claude Code
 
@@ -473,8 +522,8 @@ models. They confirmed that the hook and `wim mcp` share the process that starte
 Gemini CLI starts both itself, and Antigravity starts `wim mcp` itself and the hook through a
 shell. The live checks did not run the hook against a mesh; tests replay the captured payloads.
 
-`wim setup` does not write these entries yet. Add them by hand, with the same absolute
-path to `wim.mjs` as in the agent's MCP config. The turn-start entry is optional: without it the
+`wim setup` writes these entries ([What `wim setup` writes](#what-wim-setup-writes)). By hand, use
+the same absolute path to `wim.mjs` as in the agent's MCP config. The turn-start entry is optional: without it the
 session still reports idle at each turn end, but peers never see it busy. It prints nothing (Cursor:
 `{"continue":true}`), so it never changes the person's prompt.
 
@@ -530,8 +579,8 @@ hook does not use it:
 ```
 
 **Copilot CLI**, in `.github/hooks/wim.json` (or `~/.copilot/hooks/wim.json`). The hook reads the
-`agentStop` event's own payload. The VS Code-compatible `Stop` event is not covered, so it never
-wakes there:
+`agentStop` and `userPromptSubmitted` payloads, and also the VS Code-compatible ones that an entry
+configured as `Stop` or `UserPromptSubmit` gets (snake_case, naming their event):
 
 ```json
 {
