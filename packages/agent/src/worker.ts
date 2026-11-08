@@ -40,6 +40,8 @@ export interface WorkerIO {
 }
 
 export const NOT_ACCEPTED = "not accepted";
+/** To an allowed device whose message was written while it handled another agent's item. */
+export const NOT_ACCEPTED_DERIVED = "not accepted: derived";
 export const BUSY = "busy: another job is running, or this device sent too many messages this hour; try again later";
 export const DAILY_CAP = "declined: today's job limit is reached";
 export const FAILED = "the job failed; the worker's operator can see why in its log";
@@ -112,7 +114,11 @@ export class Worker {
     // Another model's output must not drive a job, or two agents could drive each other.
     if (item.relayed) return this.refused(item, "relayed");
     // Nor text a session wrote while it handled another agent's message (information only).
-    if (item.derived === true) return this.refused(item, "derived");
+    if (item.derived === true) {
+      this.refused(item, "derived");
+      if (this.o.config.replies.refused === "generic") await this.reply(item, NOT_ACCEPTED_DERIVED, "declined");
+      return;
+    }
 
     // Every attempt counts, accepted or not, so a wake code cannot be guessed at speed.
     if (!this.rate.take(item.device)) {
