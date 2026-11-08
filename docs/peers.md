@@ -141,8 +141,10 @@ agent's `wim hook` entries to the agent's user-level config, so they apply to ev
 - **A direct launch.** The server's command is this machine's node, with the absolute path to the
   `wim.mjs` that `wim setup` itself runs from as the first argument (behind npm's `wim` link, the
   file it points to). It never writes npx, `npm exec`, a shell or `wim.cmd`, because the hook finds
-  its session only when `wim mcp` is the agent's own child. A `wim` run from a source checkout
-  writes nothing and says why. The hooks run the same node and `wim.mjs`.
+  its session only when `wim mcp` is the agent's own child. A `wim` run from a source checkout or
+  from npx's cache (which npx prunes) writes nothing and says why. The hooks run the same node
+  and `wim.mjs`. After an upgrade that moves either one (another node version, a new Homebrew
+  keg), run `wim setup` again: it offers the new paths as an update.
 - **The read-only tools.** Where the agent has a tool list, the server offers only `peers`,
   `inbox`, `wait` and `history`. Add `send` (and `reply`) yourself to let the agent message peers.
 - **`env`.** `WIM_HOME` is the state directory `wim setup` used, and `WIM_KIND` names the agent.
@@ -152,7 +154,8 @@ agent's `wim hook` entries to the agent's user-level config, so they apply to ev
   the original copied beside it as `<file>.wim-backup-<time>`. Any other answer leaves the file
   as it was.
 - **Only what wim owns.** That is the `worldinmotion` server entry and the hook entries whose
-  command runs `wim hook <agent>`. Every other entry stays. JSON keeps its key order and
+  command runs `wim hook <agent>`. Every other entry stays, and so does a Copilot CLI command
+  for the other shell (`bash` beside `powershell`). JSON keeps its key order and
   indentation (a one-line file stays on one line), and Codex's `config.toml` changes only the
   worldinmotion lines.
 - **A rerun.** An entry that is already right is reported as configured. One with another
@@ -160,7 +163,8 @@ agent's `wim hook` entries to the agent's user-level config, so they apply to ev
   keeping anything else you set in it (a tool you added, a timeout).
 - **Files it leaves alone.** It does not touch a file that is a symbolic link, is not a regular
   file, is larger than 1 MiB, does not parse (a `settings.json` with comments included), or changed
-  while the diff was shown. It says why and points here, and you edit that file by hand.
+  while the diff was shown. A write that fails leaves the file as it was, and setup goes on to the
+  next agent. It says why and points here, and you edit that file by hand.
 
 | agent | found by | MCP server | read-only means | hooks |
 |---|---|---|---|---|

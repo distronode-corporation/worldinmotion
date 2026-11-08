@@ -274,15 +274,27 @@ const COMMAND_FIELDS = ["command", "bash", "powershell"];
 function editHook(doc: Json, plan: HookPlan): string | undefined {
   const { entries, add } = hookLists(doc, plan);
   const want = plan.entry[plan.field];
-  const owned = entries.flatMap((e) => COMMAND_FIELDS.filter((f) => ownsHook(e[f], plan.agent, plan.start)).map((f) => ({ e, f })));
-  if (owned.length === 0) {
+  const owns = (e: Json, f: string): boolean => ownsHook(e[f], plan.agent, plan.start);
+  const mine = entries.filter((e) => COMMAND_FIELDS.some((f) => owns(e, f)));
+  if (mine.length === 0) {
     add();
     return `adds the ${plan.event} hook`;
   }
-  const stale = owned.filter(({ e, f }) => e[f] !== want);
-  for (const { e, f } of stale) e[f] = want;
-  return stale.length === 0 ? undefined : `updates the ${plan.event} hook`;
+  // Only this machine's field and the cross-platform `command` are updated: a command for the other
+  // shell (Copilot CLI's `bash` beside `powershell`) stays, and this shell's field is added beside it.
+  let changed = false;
+  for (const e of mine) {
+    const fields = [...new Set([plan.field, "command"])].filter((f) => owns(e, f));
+    for (const f of fields.length === 0 ? [plan.field] : fields) {
+      changed ||= e[f] !== want;
+      e[f] = want;
+    }
+  }
+  return changed ? `updates the ${plan.event} hook` : undefined;
 }
+
+/** The calls that can fail in ways tests need to provoke on every platform; swapped in tests, never in production. */
+export const configOps = { lstat: (path: string) => fs.lstat(path), open: openNoFollow, writeNew, writeAtomic };
 
 /** A file as setup read it: its text, its mode, and whether it was there. */
 type Read = { text: string; mode: number; exists: boolean };
@@ -292,7 +304,7 @@ type Read = { text: string; mode: number; exists: boolean };
  * link, something other than a regular file, or a file over the cap is refused.
  */
 async function readConfig(path: string): Promise<Read> {
-  const facts = await fs.lstat(path).catch((error: NodeJS.ErrnoException) => {
+  const facts = await configOps.lstat(path).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return undefined;
     throw new Refused(`it cannot be read (${error.code})`);
   });
@@ -300,7 +312,7 @@ async function readConfig(path: string): Promise<Read> {
   if (facts.isSymbolicLink()) throw new Refused("it is a symbolic link");
   if (!facts.isFile()) throw new Refused("it is not a regular file");
   if (facts.size > CONFIG_MAX) throw new Refused(`it is larger than ${CONFIG_MAX} bytes`);
-  const handle = await openNoFollow(path, constants.O_RDONLY | noFollow(constants));
+  const handle = await configOps.open(path, constants.O_RDONLY | noFollow(constants));
   if (handle === undefined) throw new Refused("it cannot be opened, or it changed while it was read");
   try {
     return { text: await handle.readFile("utf8"), mode: facts.mode & 0o777, exists: true };
@@ -450,6 +462,25 @@ function backupPath(path: string, now: number): string {
 
 const yes = (answer: string): boolean => /^y(es)?$/i.test(answer.trim());
 
+/**
+ * Copies the original to `backup` (when there is one), then writes the new text in its place. A
+ * write that fails (a read-only or full disk, no permission) leaves the file as it was, removes a
+ * copy made for it, and is refused like a file setup cannot read, so the other agents still run.
+ */
+async function write(path: string, text: string, read: Read, backup: string | undefined): Promise<void> {
+  let copied = false;
+  try {
+    if (backup !== undefined) {
+      await configOps.writeNew(backup, read.text, realFsEnv, read.mode);
+      copied = true;
+    }
+    await configOps.writeAtomic(path, text, realFsEnv, read.mode);
+  } catch (error) {
+    if (copied) await fs.rm(backup!, { force: true });
+    throw new Refused(`it could not be written (${(error as NodeJS.ErrnoException).code ?? (error as Error).message})`);
+  }
+}
+
 type Outcome = "configured" | "written" | "skipped" | "refused";
 
 /** One file: read, edit, show the diff, and on a typed y keep the original beside it and write. */
@@ -470,14 +501,9 @@ async function oneFile(c: Ctx, title: string, plan: FilePlan): Promise<Outcome> 
     }
     // The person read the diff of what was there: a file that changed meanwhile is not written.
     if ((await readConfig(plan.path)).text !== read.text) throw new Refused("it changed while the diff was shown; run `wim setup` again");
-    let kept = "";
-    if (read.exists) {
-      const backup = backupPath(plan.path, c.now());
-      await writeNew(backup, read.text, realFsEnv, read.mode);
-      kept = ` The original is kept at ${backup}.`;
-    }
-    await writeAtomic(plan.path, edit.text, realFsEnv, read.mode);
-    io.out(`Written.${kept}`);
+    const backup = read.exists ? backupPath(plan.path, c.now()) : undefined;
+    await write(plan.path, edit.text, read, backup);
+    io.out(`Written.${backup === undefined ? "" : ` The original is kept at ${backup}.`}`);
     return "written";
   } catch (error) {
     if (!(error instanceof Refused)) throw error;
@@ -538,7 +564,14 @@ export async function findLaunch(wim: readonly string[] | undefined): Promise<La
   const script = await fs.realpath(wim.at(-1)!).catch(() => undefined);
   if (script === undefined) return `${wim.at(-1)!} cannot be found`;
   if (!/[\\/]wim\.mjs$/.test(script)) return `it runs from ${script}, not from wim.mjs (a source checkout?)`;
+  // npx runs from a cache it prunes: an agent config pointing there breaks later, with no word.
+  if (/[\\/]_npx[\\/]/.test(script)) return `it runs from npx's cache (${script}), which npx prunes: install it with \`npm install --global worldinmotion\` and run \`wim setup\` again`;
   return { node: wim[0]!, script };
+}
+
+/** Whether a file with this mode can be run: any execute bit on POSIX; Windows has none, so any file. */
+export function runnable(mode: number, platform: Platform): boolean {
+  return platform === "win32" || (mode & 0o111) !== 0;
 }
 
 /**
@@ -552,7 +585,7 @@ export async function onPath(command: string, env: Record<string, string | undef
     if (dir === "") continue;
     for (const ext of exts) {
       const facts = await fs.stat(join(dir, command + ext)).catch(() => undefined);
-      if (facts?.isFile() === true && (win || (facts.mode & 0o111) !== 0)) return true;
+      if (facts?.isFile() === true && runnable(facts.mode, platform)) return true;
     }
   }
   return false;

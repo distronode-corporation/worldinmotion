@@ -38516,12 +38516,12 @@ var require_ponyfill_es2018 = __commonJS({
         const close = original === null || original === void 0 ? void 0 : original.close;
         const start3 = original === null || original === void 0 ? void 0 : original.start;
         const type = original === null || original === void 0 ? void 0 : original.type;
-        const write = original === null || original === void 0 ? void 0 : original.write;
+        const write2 = original === null || original === void 0 ? void 0 : original.write;
         return {
           abort: abort === void 0 ? void 0 : convertUnderlyingSinkAbortCallback(abort, original, `${context} has member 'abort' that`),
           close: close === void 0 ? void 0 : convertUnderlyingSinkCloseCallback(close, original, `${context} has member 'close' that`),
           start: start3 === void 0 ? void 0 : convertUnderlyingSinkStartCallback(start3, original, `${context} has member 'start' that`),
-          write: write === void 0 ? void 0 : convertUnderlyingSinkWriteCallback(write, original, `${context} has member 'write' that`),
+          write: write2 === void 0 ? void 0 : convertUnderlyingSinkWriteCallback(write2, original, `${context} has member 'write' that`),
           type
         };
       }
@@ -48284,7 +48284,7 @@ var require_data_stream = __commonJS({
       throw new TypeError("Unexpected data type (" + typeof data + ")");
     }
     util.inherits(DataStream, Stream4);
-    DataStream.prototype.write = function write(data) {
+    DataStream.prototype.write = function write2(data) {
       this.buffer = Buffer4.concat([this.buffer, Buffer4.from(data)]);
       this.emit("data", data);
     };
@@ -93077,9 +93077,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   persist() {
     const state2 = this.state;
-    const write = this.stateWrites.then(() => this.files.save(state2));
-    this.stateWrites = write.catch(ignore);
-    return write;
+    const write2 = this.stateWrites.then(() => this.files.save(state2));
+    this.stateWrites = write2.catch(ignore);
+    return write2;
   }
   // ---- connection ----
   async onReady(ready, link, relayAt) {
@@ -127191,17 +127191,25 @@ var COMMAND_FIELDS = ["command", "bash", "powershell"];
 function editHook(doc, plan) {
   const { entries, add: add2 } = hookLists(doc, plan);
   const want = plan.entry[plan.field];
-  const owned = entries.flatMap((e6) => COMMAND_FIELDS.filter((f7) => ownsHook(e6[f7], plan.agent, plan.start)).map((f7) => ({ e: e6, f: f7 })));
-  if (owned.length === 0) {
+  const owns = (e6, f7) => ownsHook(e6[f7], plan.agent, plan.start);
+  const mine = entries.filter((e6) => COMMAND_FIELDS.some((f7) => owns(e6, f7)));
+  if (mine.length === 0) {
     add2();
     return `adds the ${plan.event} hook`;
   }
-  const stale = owned.filter(({ e: e6, f: f7 }) => e6[f7] !== want);
-  for (const { e: e6, f: f7 } of stale) e6[f7] = want;
-  return stale.length === 0 ? void 0 : `updates the ${plan.event} hook`;
+  let changed = false;
+  for (const e6 of mine) {
+    const fields2 = [.../* @__PURE__ */ new Set([plan.field, "command"])].filter((f7) => owns(e6, f7));
+    for (const f7 of fields2.length === 0 ? [plan.field] : fields2) {
+      changed ||= e6[f7] !== want;
+      e6[f7] = want;
+    }
+  }
+  return changed ? `updates the ${plan.event} hook` : void 0;
 }
+var configOps = { lstat: (path2) => fs15.lstat(path2), open: openNoFollow, writeNew, writeAtomic };
 async function readConfig(path2) {
-  const facts = await fs15.lstat(path2).catch((error64) => {
+  const facts = await configOps.lstat(path2).catch((error64) => {
     if (error64.code === "ENOENT") return void 0;
     throw new Refused(`it cannot be read (${error64.code})`);
   });
@@ -127209,7 +127217,7 @@ async function readConfig(path2) {
   if (facts.isSymbolicLink()) throw new Refused("it is a symbolic link");
   if (!facts.isFile()) throw new Refused("it is not a regular file");
   if (facts.size > CONFIG_MAX) throw new Refused(`it is larger than ${CONFIG_MAX} bytes`);
-  const handle = await openNoFollow(path2, constants3.O_RDONLY | noFollow(constants3));
+  const handle = await configOps.open(path2, constants3.O_RDONLY | noFollow(constants3));
   if (handle === void 0) throw new Refused("it cannot be opened, or it changed while it was read");
   try {
     return { text: await handle.readFile("utf8"), mode: facts.mode & 511, exists: true };
@@ -127334,6 +127342,19 @@ function backupPath(path2, now) {
   return `${path2}.wim-backup-${new Date(now).toISOString().replace(/[:.]/g, "-")}`;
 }
 var yes2 = (answer) => /^y(es)?$/i.test(answer.trim());
+async function write(path2, text2, read, backup) {
+  let copied = false;
+  try {
+    if (backup !== void 0) {
+      await configOps.writeNew(backup, read.text, realFsEnv, read.mode);
+      copied = true;
+    }
+    await configOps.writeAtomic(path2, text2, realFsEnv, read.mode);
+  } catch (error64) {
+    if (copied) await fs15.rm(backup, { force: true });
+    throw new Refused(`it could not be written (${error64.code ?? error64.message})`);
+  }
+}
 async function oneFile(c5, title, plan) {
   const { io } = c5;
   try {
@@ -127350,14 +127371,9 @@ async function oneFile(c5, title, plan) {
       return "skipped";
     }
     if ((await readConfig(plan.path)).text !== read.text) throw new Refused("it changed while the diff was shown; run `wim setup` again");
-    let kept = "";
-    if (read.exists) {
-      const backup = backupPath(plan.path, c5.now());
-      await writeNew(backup, read.text, realFsEnv, read.mode);
-      kept = ` The original is kept at ${backup}.`;
-    }
-    await writeAtomic(plan.path, edit.text, realFsEnv, read.mode);
-    io.out(`Written.${kept}`);
+    const backup = read.exists ? backupPath(plan.path, c5.now()) : void 0;
+    await write(plan.path, edit.text, read, backup);
+    io.out(`Written.${backup === void 0 ? "" : ` The original is kept at ${backup}.`}`);
     return "written";
   } catch (error64) {
     if (!(error64 instanceof Refused)) throw error64;
@@ -127407,7 +127423,11 @@ async function findLaunch(wim) {
   const script = await fs15.realpath(wim.at(-1)).catch(() => void 0);
   if (script === void 0) return `${wim.at(-1)} cannot be found`;
   if (!/[\\/]wim\.mjs$/.test(script)) return `it runs from ${script}, not from wim.mjs (a source checkout?)`;
+  if (/[\\/]_npx[\\/]/.test(script)) return `it runs from npx's cache (${script}), which npx prunes: install it with \`npm install --global worldinmotion\` and run \`wim setup\` again`;
   return { node: wim[0], script };
+}
+function runnable(mode, platform2) {
+  return platform2 === "win32" || (mode & 73) !== 0;
 }
 async function onPath(command5, env4, platform2) {
   const win = platform2 === "win32";
@@ -127416,7 +127436,7 @@ async function onPath(command5, env4, platform2) {
     if (dir === "") continue;
     for (const ext of exts) {
       const facts = await fs15.stat(join23(dir, command5 + ext)).catch(() => void 0);
-      if (facts?.isFile() === true && (win || (facts.mode & 73) !== 0)) return true;
+      if (facts?.isFile() === true && runnable(facts.mode, platform2)) return true;
     }
   }
   return false;

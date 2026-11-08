@@ -4,13 +4,19 @@
 // the PATH lookup and launch helpers.
 
 import { promises as fs } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { describe, expect, it } from "vitest";
-import { AGENTS, CONFIG_MAX, findLaunch, lineDiff, onPath, ownsHook, READ_ONLY_TOOLS, setupAgents, type AgentSetupDeps } from "../src/agentsetup.ts";
+import { AGENTS, CONFIG_MAX, configOps, findLaunch, lineDiff, onPath, ownsHook, READ_ONLY_TOOLS, runnable, setupAgents, type AgentSetupDeps } from "../src/agentsetup.ts";
 import { scratch } from "./helpers.ts";
 
 type Json = Record<string, unknown>;
+
+/** The tests use this machine's paths, so they run as this platform (macOS as Linux: the same layout but for Claude Desktop). */
+const WIN = process.platform === "win32";
+const PLATFORM = WIN ? "win32" : "linux";
+/** Claude Desktop's directory, relative to the home directory, with no APPDATA or XDG_CONFIG_HOME set. */
+const DESKTOP = WIN ? "AppData/Roaming/Claude" : ".config/Claude";
 
 /** One agent as the tests see it: how it is found, its files, its hook events. */
 type Spec = {
@@ -31,7 +37,7 @@ const SPECS: Spec[] = [
   { title: "Antigravity CLI", hook: "antigravity", command: "agy", files: [".gemini/config/mcp_config.json", ".gemini/config/hooks.json"], server: ".gemini/config/mcp_config.json", events: ["Stop"] },
   { title: "Cursor", hook: "cursor", command: "cursor-agent", files: [".cursor/mcp.json", ".cursor/hooks.json"], server: ".cursor/mcp.json", events: ["stop", "beforeSubmitPrompt"] },
   { title: "Copilot CLI", hook: "copilot", command: "copilot", files: [".copilot/mcp-config.json", ".copilot/hooks/wim.json"], server: ".copilot/mcp-config.json", events: ["agentStop", "userPromptSubmitted"] },
-  { title: "Claude Desktop", hook: "", files: [".config/Claude/claude_desktop_config.json"], server: ".config/Claude/claude_desktop_config.json", events: [] },
+  { title: "Claude Desktop", hook: "", files: [`${DESKTOP}/claude_desktop_config.json`], server: `${DESKTOP}/claude_desktop_config.json`, events: [] },
 ];
 
 const NOW = Date.UTC(2026, 10, 7, 12, 0, 0);
@@ -61,7 +67,7 @@ function deps(home: string, script: string, answers: string[], extra: Partial<Ag
       signal: new AbortController().signal,
     },
     env: {},
-    platform: "linux",
+    platform: PLATFORM,
     homedir: home,
     wimHome: join(home, "wim-state"),
     launch: { node: process.execPath, script },
@@ -97,12 +103,18 @@ async function hooksOf(home: string, spec: Spec): Promise<Record<string, string[
 }
 
 const q = (s: string): string => (/^[A-Za-z0-9_/.,:+@%=-]+$/.test(s) ? s : `'${s.replaceAll("'", "'\\''")}'`);
-const hookLine = (script: string, agent: string, start: boolean): string => `${q(process.execPath)} ${q(script)} hook ${agent}${start ? " start" : ""}`;
+/** The hook command setup writes on this platform: POSIX quoting, or double quotes (PowerShell's call operator for Copilot CLI) on Windows. */
+function hookLine(script: string, agent: string, start: boolean): string {
+  const tail = ` hook ${agent}${start ? " start" : ""}`;
+  if (!WIN) return `${q(process.execPath)} ${q(script)}${tail}`;
+  if (agent === "copilot") return `& '${process.execPath}' '${script}'${tail}`;
+  return `"${process.execPath}" "${script}"${tail}`;
+}
 
 /** Marks an agent as installed by its command, or by its directory for Claude Desktop. */
 async function install(home: string, spec: Spec): Promise<string[]> {
   if (spec.command !== undefined) return [spec.command];
-  await fs.mkdir(join(home, ".config", "Claude"), { recursive: true });
+  await fs.mkdir(join(home, DESKTOP), { recursive: true });
   return [];
 }
 
@@ -142,7 +154,8 @@ describe("wim setup: other agents, per agent", () => {
         expect(Object.keys(hooks).sort()).toEqual([...spec.events].sort());
         spec.events.forEach((e, i) => expect(hooks[e]).toEqual([hookLine(script, spec.hook, i === 1)]));
         for (const f of spec.files) expect(await exists(`${join(home, f)}${BACKUP_SUFFIX}`)).toBe(false);
-        for (const f of spec.files) expect(((await fs.stat(join(home, f))).mode & 0o777).toString(8)).toBe("600");
+        // Windows has no mode bits.
+        if (!WIN) for (const f of spec.files) expect(((await fs.stat(join(home, f))).mode & 0o777).toString(8)).toBe("600");
       });
 
       it("keeps other entries and the file's indentation, backs up the original, and a rerun is configured", async () => {
@@ -162,7 +175,7 @@ describe("wim setup: other agents, per agent", () => {
         for (const f of spec.files) {
           const text = await fs.readFile(join(home, f), "utf8");
           expect(await fs.readFile(`${join(home, f)}${BACKUP_SUFFIX}`, "utf8")).toBe(originals.get(f));
-          expect(((await fs.stat(join(home, f))).mode & 0o777).toString(8)).toBe("640");
+          if (!WIN) expect(((await fs.stat(join(home, f))).mode & 0o777).toString(8)).toBe("640");
           expect(first.r.out).toContain(`Written. The original is kept at ${join(home, f)}${BACKUP_SUFFIX}.`);
           if (f.endsWith(".toml")) {
             expect(text.startsWith(originals.get(f)!)).toBe(true);
@@ -198,7 +211,7 @@ describe("wim setup: other agents, per agent", () => {
               : spec.title === "Antigravity CLI"
                 ? { mine: { Stop: [{ type: "command", command: commands[0]![1], timeout: 3 }] } }
                 : spec.title === "Cursor" || spec.title === "Copilot CLI"
-                  ? { version: 1, hooks: Object.fromEntries(commands.map(([e, c]) => [e, [{ [spec.title === "Cursor" ? "command" : "bash"]: c, timeout: 3 }]])) }
+                  ? { version: 1, hooks: Object.fromEntries(commands.map(([e, c]) => [e, [{ [spec.title === "Cursor" ? "command" : WIN ? "powershell" : "bash"]: c, timeout: 3 }]])) }
                   : { hooks: Object.fromEntries(commands.map(([e, c]) => [e, [{ hooks: [{ type: "command", command: c, timeout: 3 }] }]])) };
           await fs.writeFile(join(home, f), JSON.stringify({ ...server, ...hooks }, null, 2) + "\n");
         }
@@ -266,6 +279,21 @@ describe("wim setup: other agents, hostile and odd files", () => {
     if (process.platform !== "win32" && process.getuid?.() !== 0) {
       const locked = await against("{}", ".gemini/settings.json", ["y"], (path) => fs.chmod(path, 0));
       expect(refusedFor(locked.out, locked.path)).toMatch(/^it cannot be opened/);
+    }
+  });
+
+  it("refuses a file it cannot look at or open, on every platform", async () => {
+    const saved = { ...configOps };
+    try {
+      configOps.lstat = () => Promise.reject(Object.assign(new Error("denied"), { code: "EACCES" }));
+      const looked = await against("{}");
+      expect(refusedFor(looked.out, looked.path)).toMatch(/^it cannot be read \(EACCES\)\./);
+      Object.assign(configOps, saved);
+      configOps.open = async () => undefined;
+      const opened = await against("{}");
+      expect(refusedFor(opened.out, opened.path)).toMatch(/^it cannot be opened, or it changed while it was read\./);
+    } finally {
+      Object.assign(configOps, saved);
     }
   });
 
@@ -376,6 +404,52 @@ describe("wim setup: other agents, hostile and odd files", () => {
     expect((copilot["hooks"] as Record<string, Json[]>)["agentStop"]).toEqual([{ command: hookLine(script, "copilot", false) }]);
   });
 
+  it("keeps the other shell's command in a Copilot CLI entry, and adds this shell's beside it", async () => {
+    const { home, script } = await homeDir();
+    const hooks = join(home, ".copilot", "hooks", "wim.json");
+    await fs.mkdir(join(hooks, ".."), { recursive: true });
+    const ps = "& 'C:\\old\\node.exe' 'C:\\old\\wim.mjs' hook copilot";
+    const doc = {
+      version: 1,
+      hooks: {
+        agentStop: [{ bash: "node /old/wim.mjs hook copilot", powershell: ps }, { powershell: ps }],
+        userPromptSubmitted: [{ command: "node /old/wim.mjs hook copilot start", powershell: `${ps} start` }],
+      },
+    };
+    await fs.writeFile(hooks, JSON.stringify(doc));
+    const { d } = deps(home, script, ["n", "y"], { path: ["copilot"], platform: "linux" });
+    await setupAgents(d);
+    const after = (await readJsonFile(hooks))["hooks"] as Record<string, Json[]>;
+    const line = (start: boolean): string => `${q(process.execPath)} ${q(script)} hook copilot${start ? " start" : ""}`;
+    expect(after["agentStop"]).toEqual([{ bash: line(false), powershell: ps }, { powershell: ps, bash: line(false) }]);
+    expect(after["userPromptSubmitted"]).toEqual([{ command: line(true), powershell: `${ps} start` }]);
+  });
+
+  it("leaves the file as it was when the write fails, removes the copy made for it, and goes on to the next agent", async () => {
+    const saved = { ...configOps };
+    try {
+      const { home, script } = await homeDir();
+      const settings = join(home, ".gemini", "settings.json");
+      await fs.mkdir(join(settings, ".."), { recursive: true });
+      await fs.writeFile(settings, "{}");
+      configOps.writeAtomic = () => Promise.reject(Object.assign(new Error("read-only"), { code: "EROFS" }));
+      const { d, r } = deps(home, script, ["y", "y", "y"], { path: ["gemini", "copilot"] });
+      await setupAgents(d);
+      expect(refusedFor(r.out, settings)).toMatch(/^it could not be written \(EROFS\)\./);
+      expect(await fs.readFile(settings, "utf8")).toBe("{}");
+      expect((await fs.readdir(join(settings, ".."))).filter((n) => n.includes("wim-backup"))).toEqual([]);
+      // Copilot CLI still comes: a new file fails the same way, with no copy to remove.
+      expect(refusedFor(r.out, join(home, ".copilot", "mcp-config.json"))).toMatch(/^it could not be written \(EROFS\)\./);
+      Object.assign(configOps, saved);
+      configOps.writeNew = () => Promise.reject(new Error("no room"));
+      const again = deps(home, script, ["y"], { path: ["gemini"] });
+      await setupAgents(again.d);
+      expect(refusedFor(again.r.out, settings)).toMatch(/^it could not be written \(no room\)\./);
+    } finally {
+      Object.assign(configOps, saved);
+    }
+  });
+
   it("writes nothing when the file changed while the diff was shown", async () => {
     const { home, script } = await homeDir();
     const path = join(home, ".gemini", "settings.json");
@@ -436,7 +510,7 @@ describe("wim setup: other agents, the step around the files", () => {
     }
     // Claude Desktop has no hooks: no note.
     const { home, script } = await homeDir();
-    await fs.mkdir(join(home, ".config", "Claude"), { recursive: true });
+    await fs.mkdir(join(home, DESKTOP), { recursive: true });
     const { d, r } = deps(home, script, ["y"], { env: { WIM_HOME: "/x" } });
     await setupAgents(d);
     expect(r.out.some((l) => l.startsWith("Note:"))).toBe(false);
@@ -444,7 +518,7 @@ describe("wim setup: other agents, the step around the files", () => {
 
   it("uses each agent's home variables, and the macOS and Windows places", async () => {
     const { home, script } = await homeDir();
-    const env = { GEMINI_CLI_HOME: join(home, "g"), CODEX_HOME: join(home, "cx"), COPILOT_HOME: join(home, "cp"), XDG_CONFIG_HOME: join(home, "xdg") };
+    const env = { GEMINI_CLI_HOME: join(home, "g"), CODEX_HOME: join(home, "cx"), COPILOT_HOME: join(home, "cp"), [WIN ? "APPDATA" : "XDG_CONFIG_HOME"]: join(home, "xdg") };
     await fs.mkdir(join(home, "xdg", "Claude"), { recursive: true });
     const { d, r } = deps(home, script, [], { path: ["codex", "gemini", "copilot"], env });
     await setupAgents(d);
@@ -460,7 +534,8 @@ describe("wim setup: other agents, the step around the files", () => {
     await fs.mkdir(join(mac.home, "Library", "Application Support", "Claude"), { recursive: true });
     const m = deps(mac.home, mac.script, ["y"], { platform: "darwin" });
     await setupAgents(m.d);
-    expect(m.r.questions).toEqual([`Write this change to ${join(mac.home, "Library", "Application Support", "Claude", "claude_desktop_config.json")}? [y/N] `]);
+    // macOS paths are joined with `/`, which Windows reads too.
+    expect(m.r.questions).toEqual([`Write this change to ${posix.join(mac.home, "Library", "Application Support", "Claude", "claude_desktop_config.json")}? [y/N] `]);
     // Windows: node and wim.mjs in double quotes, PowerShell's call operator for Copilot CLI. Only
     // the diffs are read (every answer is no), since these paths do not exist here.
     for (const appdata of ["C:\\Users\\me\\AppData\\Roaming", undefined]) {
@@ -473,16 +548,20 @@ describe("wim setup: other agents, the step around the files", () => {
     }
   });
 
-  it("quotes a path with spaces or quotes for the POSIX shell", async () => {
+  it("quotes a path with spaces or quotes for the POSIX shell, and leaves a plain one as it is", async () => {
     const { home } = await homeDir();
     const script = join(home, "it's here", "wim.mjs");
     await fs.mkdir(join(script, ".."), { recursive: true });
     await fs.writeFile(script, "");
-    const { d } = deps(home, script, ["y"], { path: ["gemini"] });
+    // As Linux on every machine: Windows reads the `/` that joins these paths too.
+    const { d } = deps(home, script, ["y"], { path: ["gemini"], platform: "linux" });
     await setupAgents(d);
     const hooks = (await readJsonFile(join(home, ".gemini", "settings.json")))["hooks"] as Record<string, Array<{ hooks: Json[] }>>;
-    expect(hooks["AfterAgent"]![0]!.hooks[0]!["command"]).toBe(`${q(process.execPath)} '${join(home, "it'\\''s here", "wim.mjs")}' hook gemini`);
+    expect(hooks["AfterAgent"]![0]!.hooks[0]!["command"]).toBe(`${q(process.execPath)} '${script.replaceAll("'", "'\\''")}' hook gemini`);
     expect(ownsHook(hooks["AfterAgent"]![0]!.hooks[0]!["command"], "gemini", false)).toBe(true);
+    const plain = deps(home, script, ["n"], { path: ["codex"], platform: "linux", launch: { node: "/usr/bin/node", script: "/opt/wim/wim.mjs" } });
+    await setupAgents(plain.d);
+    expect(plain.r.out.join("\n")).toContain('"command": "/usr/bin/node /opt/wim/wim.mjs hook codex",');
   });
 });
 
@@ -516,14 +595,23 @@ describe("wim setup: other agents, helpers", () => {
     await fs.writeFile(join(dir, "plain"), "", { mode: 0o644 });
     await fs.mkdir(join(dir, "folder"));
     await fs.writeFile(join(dir, "win.CMD"), "");
-    const env = { PATH: `:${join(dir, "none")}:${dir}` };
-    expect(await onPath("tool", env, "linux")).toBe(true);
-    expect(await onPath("plain", env, "linux")).toBe(false);
-    expect(await onPath("folder", env, "linux")).toBe(false);
+    expect(runnable(0o755, "linux")).toBe(true);
+    expect(runnable(0o644, "darwin")).toBe(false);
+    expect(runnable(0o644, "win32")).toBe(true);
+    if (!WIN) {
+      // A POSIX PATH (a Windows path holds the `:` it splits on).
+      const env = { PATH: `:${join(dir, "none")}:${dir}` };
+      expect(await onPath("tool", env, "linux")).toBe(true);
+      expect(await onPath("plain", env, "linux")).toBe(false);
+      expect(await onPath("folder", env, "linux")).toBe(false);
+    } else {
+      expect(await onPath("tool", { PATH: dir }, "linux")).toBe(false);
+    }
     expect(await onPath("tool", {}, "linux")).toBe(false);
     expect(await onPath("win", { PATH: dir }, "win32")).toBe(true);
     expect(await onPath("win", { PATH: dir, PATHEXT: ".EXE" }, "win32")).toBe(false);
-    expect(await onPath("plain", { PATH: `${dir};`, PATHEXT: ";.EXE" }, "win32")).toBe(true);
+    expect(await onPath("folder", { PATH: dir }, "win32")).toBe(false);
+    expect(await onPath("plain", { PATH: `${dir};${join(dir, "none")}`, PATHEXT: ";.EXE" }, "win32")).toBe(true);
   });
 
   it("finds the launch: this node and the real wim.mjs behind a link", async () => {
@@ -534,6 +622,10 @@ describe("wim setup: other agents, helpers", () => {
     expect(await findLaunch(undefined)).toBe("this wim cannot tell where it runs from");
     expect(await findLaunch(["/usr/bin/node"])).toBe("this wim cannot tell where it runs from");
     expect(await findLaunch(["/usr/bin/node", join(home, "gone.mjs")])).toBe(`${join(home, "gone.mjs")} cannot be found`);
+    const npx = join(home, "_npx", "0a1b", "node_modules", "worldinmotion", "wim.mjs");
+    await fs.mkdir(join(npx, ".."), { recursive: true });
+    await fs.writeFile(npx, "");
+    expect(await findLaunch(["/usr/bin/node", npx])).toMatch(/^it runs from npx's cache \(.*\), which npx prunes: install it with `npm install --global worldinmotion` and run `wim setup` again$/);
     await fs.writeFile(join(home, "bin.ts"), "");
     expect(await findLaunch(["/usr/bin/node", join(home, "bin.ts")])).toBe(`it runs from ${await fs.realpath(join(home, "bin.ts"))}, not from wim.mjs (a source checkout?)`);
   });
