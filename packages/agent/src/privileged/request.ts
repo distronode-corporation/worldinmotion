@@ -3,16 +3,16 @@
 
 import { z } from "zod";
 import { parseProfile } from "../gate.ts";
-import { RUNNER_EXIT, RUNNER_MAX_BYTES } from "../runner.ts";
+import { RUNNER_EXIT, RUNNER_MAX_REQUEST_BYTES } from "../runner.ts";
 
-/** The contract's limit on the stdin request, in bytes. */
-export const MAX_REQUEST_BYTES = RUNNER_MAX_BYTES;
+/** The contract's limit on the stdin request, in bytes: the one constant both sides import. */
+export const MAX_REQUEST_BYTES = RUNNER_MAX_REQUEST_BYTES;
 
 /** The sender a root caller outside sudo (a scheduled job) names when `allowLocal` is on. */
 export const LOCAL_DEVICE = "local";
 
 const Request = z.strictObject({
-  v: z.literal(1),
+  v: z.literal(2),
   id: z.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/),
   from: z.strictObject({
     device: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
@@ -20,6 +20,8 @@ const Request = z.strictObject({
   }),
   profile: z.string().max(32),
   text: z.string().refine((t) => !t.includes("\0"), "holds a NUL"),
+  /** The signed send frame the relay delivered (contract v2), verified by the runner itself. */
+  frame: z.unknown().optional(),
 });
 
 export type ParsedRequest = z.infer<typeof Request>;

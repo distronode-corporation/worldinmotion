@@ -1,19 +1,27 @@
 // The privileged runner: what the unprivileged peer calls (through one exact sudoers line, no
-// arguments) for each message it may run. It re-checks the sender, checks and strips the wake
-// code that only it can read, picks the profile, applies the limits, takes the job lock, signs
-// the job in (an identity token it mints and refreshes, or an API key) and runs the job as the
-// worker user. Its stdout is the answer; its exit code follows the RUNNER contract.
+// arguments) for each message it may run. It authenticates the sender itself from the signed
+// frame, checks and strips the wake code that only it can read, picks the profile, applies the
+// limits, takes the job lock, and runs the job as the worker user. The job reaches the API only
+// through a loopback proxy this process owns, which adds the credential: the job holds none. Its
+// stdout is the answer; its exit code follows the RUNNER contract.
 
-import { TokenBroker, type BrokerFs } from "./broker.ts";
-import { loadPrivilegedConfig, PRIVILEGED_CONFIG_PATH, rootOwnedProblem, type ConfigFs, type PrivilegedConfig, type Profile } from "./config.ts";
-import { fetchIdentityToken, type IdentityDeps } from "./identity.ts";
+import { z } from "zod";
 import { stripCode } from "../gate.ts";
+import { upstreamAuth, type AnthropicCredentials } from "./auth.ts";
+import { ConfigError, loadPrivilegedConfig, PRIVILEGED_CONFIG_PATH, type PrivilegedConfig, type Profile, type SecureRead } from "./config.ts";
+import { FrameError, parseRecipient, SEEN_WINDOW_MS, verifyFrame } from "./frame.ts";
+import type { IdentityDeps } from "./identity.ts";
+import type { ProxyOptions, RunningProxy } from "./proxy.ts";
 import { chooseProfile, EXIT, LOCAL_DEVICE, MAX_REQUEST_BYTES, parseRequest, Refusal, usableCode, type ParsedRequest } from "./request.ts";
 import { workerMain, type WorkerIO } from "./worker.ts";
 
 /** The answer's cap on stdout, under the contract's 64 KiB with room for the note. */
 export const MAX_ANSWER_BYTES = 60 * 1024;
 const TRUNCATED = "\n\n[answer truncated by the privileged runner]\n";
+/** The largest request body the job may send the API (a long conversation with tool results). */
+export const MAX_API_BODY_BYTES = 32 * 1024 * 1024;
+/** Requests beyond the profile's turns a job may make (retries, token counts). */
+const EXTRA_REQUESTS = 5;
 
 export interface JobSpec {
   command: string;
@@ -29,10 +37,12 @@ export interface JobSpec {
 export interface JobHandle {
   onStdout(cb: (chunk: Buffer) => void): void;
   onStderr(cb: (chunk: Buffer) => void): void;
-  /** Resolves with the exit code, or null when a signal ended it. */
+  /** Resolves when the job's leader exits, with its exit code, or null when a signal ended it. */
   exited: Promise<number | null>;
-  /** Signals the job's whole process group. */
+  /** Signals every process of the job: its scope (cgroup) when it has one, and its process group. */
   killGroup(signal: "SIGTERM" | "SIGKILL"): void;
+  /** After the leader exited: kills whatever it left behind, drains the pipes briefly, closes them. */
+  cleanup(): Promise<void>;
 }
 
 export interface Lock {
@@ -43,25 +53,29 @@ export interface PrivilegedDeps {
   euid: number;
   uid: number;
   readStdin(max: number): Promise<Buffer>;
-  configFs: ConfigFs;
-  brokerFs: BrokerFs;
-  mkdir(path: string, mode: number): Promise<void>;
-  chown(path: string, uid: number, gid: number): Promise<void>;
+  /** Reads a file without following a symlink, checking the opened file's owner and mode. */
+  readFile: SecureRead;
+  /** Writes a root-owned file through a fresh O_EXCL|O_NOFOLLOW temporary file, then renames it. */
+  writeFile(path: string, data: string, mode: number): Promise<void>;
+  /** Makes (or checks) a directory: not a symlink, root-owned when root, no group or other write. */
+  ensureDir(path: string, mode: number, gid?: number): Promise<void>;
+  /** Why the code this process runs could be changed by someone other than root, if it could. */
+  codeProblem(): Promise<string | undefined>;
   lookupUser(name: string): Promise<{ uid: number; gid: number }>;
   /** Null when the lock stayed busy for the whole wait. */
   acquireLock(path: string, waitSeconds: number): Promise<Lock | null>;
   memAvailableMb(): Promise<number | undefined>;
-  /** Whether every ancestor process up to pid 1 has real uid 0 (no non-root caller anywhere above). */
+  /** Whether every ancestor process up to pid 1 has real uid 0. */
   ancestorsAllRoot(): Promise<boolean>;
   identity: IdentityDeps;
+  credentials(): Promise<AnthropicCredentials>;
+  fetch: typeof fetch;
+  startProxy(options: ProxyOptions): Promise<RunningProxy>;
   startJob(spec: JobSpec): JobHandle;
   now(): number;
-  pid: number;
   /** Calls `cb` on SIGTERM, SIGHUP or SIGINT; sudo relays the peer's TERM here. */
   onSignal(cb: () => void): () => void;
   setTimeout(fn: () => void, ms: number): unknown;
-  setInterval(fn: () => void, ms: number): unknown;
-  clearInterval(timer: unknown): void;
   clearTimeout(timer: unknown): void;
   out(data: Buffer): void;
   err(line: string): void;
@@ -77,103 +91,162 @@ function configPath(env: Record<string, string | undefined>, euid: number): stri
   return euid !== 0 && o !== undefined && o !== "" ? o : PRIVILEGED_CONFIG_PATH;
 }
 
-async function readRootSecret(path: string, deps: PrivilegedDeps, what: string): Promise<string> {
-  if (deps.euid === 0) {
-    const problem = rootOwnedProblem(await deps.configFs.stat(path), true);
-    if (problem !== undefined) throw new Refusal(EXIT.failed, `refusing the ${what} file: ${problem}`);
-  }
-  return (await deps.configFs.readFile(path)).replace(/\r?\n$/, "");
+const rootRule = (deps: PrivilegedDeps, secret: boolean) => ({ owner: deps.euid === 0 ? 0 : undefined, secret });
+
+async function readRootSecret(path: string, deps: PrivilegedDeps): Promise<string> {
+  return (await deps.readFile(path, rootRule(deps, true))).replace(/\r?\n$/, "");
 }
 
-/** Who may wake a job: a listed device, or a root caller outside sudo naming `local`. */
-async function checkSender(req: ParsedRequest, cfg: PrivilegedConfig, env: Record<string, string | undefined>, deps: PrivilegedDeps): Promise<boolean> {
+interface Sender {
+  local: boolean;
+  text: string;
+  /** The verified frame's id, kept against replay; absent for a local job. */
+  frameId?: string;
+  at?: number;
+}
+
+/** Reads the recipient's keys from the peer's files: owned by the peer user, mode 0600, no symlink. */
+async function recipientKeys(cfg: PrivilegedConfig, deps: PrivilegedDeps) {
+  const r = cfg.recipient!;
+  const peer = await deps.lookupUser(r.user);
+  const rule = { owner: deps.euid === 0 ? peer.uid : undefined, secret: true };
+  const device = await deps.readFile(`${r.home}/device.json`, rule);
+  const prekeys = await deps.readFile(`${r.home}/meshes/${r.mesh}/prekeys.json`, rule).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  });
+  return parseRecipient(device, prekeys, deps.now());
+}
+
+/**
+ * Who sent this, decided here and not by the peer. A job from a pinned sender is accepted only
+ * with a frame whose signature verifies; the request's own fields are hints that must agree. A
+ * local job (a scheduled one) comes from root itself: sudo always sets SUDO_UID, and the launcher
+ * keeps it, so that is the guard; every ancestor being root is a second check, not a sufficient
+ * one (a process can be re-parented to init).
+ */
+async function authenticate(req: ParsedRequest, cfg: PrivilegedConfig, env: Record<string, string | undefined>, deps: PrivilegedDeps): Promise<Sender> {
   if (req.from.device === LOCAL_DEVICE) {
-    // Two signals that a `local` job came from root itself: sudo always sets SUDO_UID (a wrapper
-    // could scrub it), and no process above this one runs as anyone but root (which no wrapper
-    // can change: a sudo call from the peer has the peer among its ancestors).
     const refused = new Refusal(EXIT.refused, "a local job needs allowLocal and a root caller outside sudo");
-    if (!(cfg.allowLocal && deps.uid === 0 && deps.euid === 0 && env["SUDO_UID"] === undefined)) throw refused;
+    if (!(cfg.allowLocal && deps.uid === 0 && deps.euid === 0 && env["SUDO_UID"] === undefined && req.frame === undefined)) throw refused;
     const allRoot = await deps.ancestorsAllRoot();
     if (!allRoot) throw refused;
-    return true;
+    return { local: true, text: req.text };
   }
-  if (cfg.allowDevices !== undefined && !cfg.allowDevices.includes(req.from.device)) throw new Refusal(EXIT.refused, "sender device not on the allow-list");
-  return false;
+  if (cfg.senders === undefined) throw new Refusal(EXIT.refused, "no senders are pinned");
+  if (req.frame === undefined) throw new Refusal(EXIT.refused, "no signed frame");
+  let v;
+  try {
+    v = verifyFrame(req.frame, { senders: cfg.senders, mesh: cfg.recipient!.mesh, address: cfg.recipient!.address, recipient: await recipientKeys(cfg, deps), now: deps.now() });
+  } catch (error) {
+    if (error instanceof FrameError) throw new Refusal(EXIT.refused, error.message);
+    throw error;
+  }
+  if (v.device !== req.from.device || v.id !== req.id || v.text !== req.text) throw new Refusal(EXIT.refused, "the request disagrees with its signed frame");
+  return { local: false, text: v.text, frameId: v.id, at: v.at };
 }
 
 async function wakeCode(cfg: PrivilegedConfig, env: Record<string, string | undefined>, deps: PrivilegedDeps): Promise<string> {
   const source = cfg.wakeCode!;
-  const code = "file" in source ? await readRootSecret(source.file, deps, "wake code") : (env[source.env] ?? "");
+  const code = "file" in source ? await readRootSecret(source.file, deps) : (env[source.env] ?? "");
   if (!usableCode(code)) throw new Refusal(EXIT.failed, "the configured wake code is unusable (under 16 characters, or holds whitespace)");
   return code;
 }
 
-interface DayState {
-  days: Record<string, number>;
-}
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const State = z.strictObject({
+  days: z.record(z.string().regex(DAY), z.number().int().min(0)),
+  seen: z.record(z.string().regex(/^[A-Za-z0-9]{1,64}$/), z.number().int().min(0)).default({}),
+});
+type State = z.infer<typeof State>;
 
-/** Counts the job against the day's cap; runs under the job lock, so runs never race on it. */
-async function countToday(cfg: PrivilegedConfig, deps: PrivilegedDeps): Promise<void> {
-  if (cfg.dailyJobs === 0) return;
-  const day = new Date(deps.now()).toISOString().slice(0, 10);
-  let state: DayState = { days: {} };
-  let text: string | undefined;
-  try {
-    text = await deps.configFs.readFile(cfg.statePath);
-  } catch {
-    // No state yet: the first job of this install.
-  }
-  if (text !== undefined) {
-    try {
-      state = JSON.parse(text) as DayState;
-      if (typeof state.days !== "object" || state.days === null) throw new Error("no days");
-    } catch {
-      // A damaged file must not reset today's count to zero.
-      throw new Refusal(EXIT.failed, "the state file is damaged; a person must look at it");
-    }
-  }
-  const used = state.days[day] ?? 0;
-  if (used >= cfg.dailyJobs) throw new Refusal(EXIT.busy, `daily cap of ${cfg.dailyJobs} jobs reached`);
-  const next: DayState = { days: { [day]: used + 1 } };
-  await deps.mkdir(cfg.statePath.slice(0, cfg.statePath.lastIndexOf("/")), 0o700);
-  await deps.brokerFs.writeFile(`${cfg.statePath}.new`, JSON.stringify(next), 0o600);
-  await deps.brokerFs.rename(`${cfg.statePath}.new`, cfg.statePath);
-}
-
-async function signIn(profile: Profile, cfg: PrivilegedConfig, gid: number, req: ParsedRequest, deps: PrivilegedDeps): Promise<{ env: Record<string, string>; broker?: TokenBroker }> {
-  const auth = profile.auth;
-  if (auth.type === "api-key") {
-    // The key reaches the worker: an API key cannot be scoped down further. Prefer WIF.
-    return { env: { ANTHROPIC_API_KEY: await readRootSecret(auth.keyFile, deps, "API key") } };
-  }
-  const path = `${cfg.runDir}/idtoken.${req.id.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 48)}.${deps.pid}`;
-  const broker = new TokenBroker({
-    path,
-    gid,
-    chown: deps.euid === 0,
-    fs: deps.brokerFs,
-    log: (line) => log(deps, line),
-    setInterval: (fn, ms) => deps.setInterval(fn, ms),
-    clearInterval: (t) => deps.clearInterval(t),
-    mint: () => fetchIdentityToken(auth.identity, auth.audience, deps.identity),
+/**
+ * The day's count and the frames already run, under the job lock so runs never race on them. A
+ * frame seen before is refused (a peer replaying it); one older than the window is refused by
+ * the freshness check before it gets here. A damaged file fails the run rather than reset counts.
+ */
+async function admit(cfg: PrivilegedConfig, sender: Sender, deps: PrivilegedDeps): Promise<void> {
+  const now = deps.now();
+  const day = new Date(now).toISOString().slice(0, 10);
+  let state: State = { days: {}, seen: {} };
+  const text = await deps.readFile(cfg.statePath, rootRule(deps, true)).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
   });
-  await broker.start();
-  const env: Record<string, string> = {
-    ANTHROPIC_IDENTITY_TOKEN_FILE: path,
-    ANTHROPIC_FEDERATION_RULE_ID: auth.federationRuleId,
-    ANTHROPIC_ORGANIZATION_ID: auth.organizationId,
-    ANTHROPIC_SERVICE_ACCOUNT_ID: auth.serviceAccountId,
+  if (text !== undefined) {
+    let parsed;
+    try {
+      parsed = State.safeParse(JSON.parse(text));
+    } catch {
+      parsed = undefined;
+    }
+    if (parsed === undefined || !parsed.success) throw new Refusal(EXIT.failed, "the state file is damaged; a person must look at it");
+    state = parsed.data;
+  }
+  if (sender.frameId !== undefined && Object.hasOwn(state.seen, sender.frameId)) throw new Refusal(EXIT.refused, "this frame was run before");
+  const used = state.days[day] ?? 0;
+  if (cfg.dailyJobs > 0 && used >= cfg.dailyJobs) throw new Refusal(EXIT.busy, `daily cap of ${cfg.dailyJobs} jobs reached`);
+  const seen = Object.fromEntries(Object.entries(state.seen).filter(([, at]) => at > now - SEEN_WINDOW_MS));
+  if (sender.frameId !== undefined) seen[sender.frameId] = sender.at!;
+  const next: State = { days: { [day]: used + 1 }, seen };
+  await deps.ensureDir(cfg.statePath.slice(0, cfg.statePath.lastIndexOf("/")), 0o700);
+  await deps.writeFile(cfg.statePath, JSON.stringify(next), 0o600);
+}
+
+/**
+ * Paths the job's file tools are denied, on top of reads outside its working directories: the
+ * runner's directories, and each secret file by its own path (its directory could be `/`).
+ */
+function deniedPaths(cfg: PrivilegedConfig): string[] {
+  const paths = ["/proc", "/sys", "/etc/wim-agent", cfg.runDir, cfg.lock.path, cfg.statePath];
+  if (cfg.recipient !== undefined) paths.push(cfg.recipient.home);
+  if (cfg.wakeCode !== undefined && "file" in cfg.wakeCode) paths.push(cfg.wakeCode.file);
+  for (const p of Object.values(cfg.profiles)) {
+    if (p.auth.type === "api-key") paths.push(p.auth.keyFile);
+    else if (p.auth.identity.type === "file") paths.push(p.auth.identity.path);
+  }
+  return [...new Set(paths)];
+}
+
+/** The job's way to the API: a loopback proxy with this job's key. Nothing the job holds outlives it. */
+async function signIn(profile: Profile, cfg: PrivilegedConfig, deps: PrivilegedDeps): Promise<{ env: Record<string, string>; stop(): Promise<void> }> {
+  const apiKey = profile.auth.type === "api-key" ? await readRootSecret(profile.auth.keyFile, deps) : undefined;
+  const identity: IdentityDeps = {
+    ...deps.identity,
+    // A token file is read as root: it must be root's, and not writable by anyone else.
+    readFile: (path) => deps.readFile(path, rootRule(deps, false)),
   };
-  if (auth.workspaceId !== undefined) env["ANTHROPIC_WORKSPACE_ID"] = auth.workspaceId;
-  return { env, broker };
+  const auth = await upstreamAuth(profile.auth, apiKey, cfg.apiUrl, { identity, credentials: () => deps.credentials(), fetch: deps.fetch, log: (l) => log(deps, l) });
+  const proxy = await deps.startProxy({
+    upstream: cfg.apiUrl,
+    auth,
+    models: [profile.model],
+    maxTokens: profile.maxTokens,
+    maxRequests: profile.maxTurns + EXTRA_REQUESTS,
+    maxBodyBytes: MAX_API_BODY_BYTES,
+    requestTimeoutMs: cfg.timeoutSeconds * 1000,
+    fetch: deps.fetch as never,
+    log: (l) => log(deps, l),
+  });
+  return { env: { ANTHROPIC_BASE_URL: proxy.url, ANTHROPIC_API_KEY: proxy.key }, stop: () => proxy.close() };
+}
+
+/**
+ * The worker user, and the directories the job lock and the job need, made before the lock is
+ * taken: on a fresh /run tmpfs neither exists yet, and opening the lock file would fail.
+ */
+async function prepareRunDir(cfg: PrivilegedConfig, deps: PrivilegedDeps): Promise<{ uid: number; gid: number }> {
+  const user = await deps.lookupUser(cfg.worker.user);
+  // Each directory is checked as it is made: a directory, not a symlink, root's alone.
+  await deps.ensureDir(cfg.runDir, 0o750);
+  const lockDir = cfg.lock.path.slice(0, cfg.lock.path.lastIndexOf("/"));
+  if (lockDir !== "" && lockDir !== cfg.runDir) await deps.ensureDir(lockDir, 0o755);
+  return user;
 }
 
 /** Runs the job as the worker user; resolves with the answer, or throws a Refusal. */
-async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req: ParsedRequest, self: string[], deps: PrivilegedDeps): Promise<Buffer> {
-  const user = await deps.lookupUser(cfg.worker.user);
-  await deps.mkdir(cfg.runDir, 0o750);
-  if (deps.euid === 0) await deps.chown(cfg.runDir, 0, user.gid);
-  const auth = await signIn(profile, cfg, user.gid, req, deps);
+async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req: ParsedRequest, self: string[], user: { uid: number; gid: number }, deps: PrivilegedDeps): Promise<Buffer> {
+  const auth = await signIn(profile, cfg, deps);
   try {
     const job = JSON.stringify({
       model: profile.model,
@@ -182,6 +255,8 @@ async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req
       tools: profile.tools,
       cwd: cfg.worker.cwd,
       additionalDirectories: cfg.worker.additionalDirectories,
+      denyRead: deniedPaths(cfg),
+      sandbox: profile.unsafeTools,
     });
     const spec: JobSpec = {
       command: self[0]!,
@@ -211,18 +286,25 @@ async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req
     });
 
     let ended: "timeout" | "signal" | undefined;
+    let grace: unknown;
     const stop = (why: "timeout" | "signal"): void => {
       if (ended !== undefined) return;
       ended = why;
       handle.killGroup("SIGTERM");
-      deps.setTimeout(() => handle.killGroup("SIGKILL"), cfg.killGraceSeconds * 1000);
+      grace = deps.setTimeout(() => handle.killGroup("SIGKILL"), cfg.killGraceSeconds * 1000);
     };
     const timer = deps.setTimeout(() => stop("timeout"), cfg.timeoutSeconds * 1000);
     const off = deps.onSignal(() => stop("signal"));
     const started = deps.now();
+    // The leader's exit ends the job: the credential stops at once, then anything the leader
+    // left running (a setsid child holding the pipes) is killed with the job's scope.
     const code = await handle.exited;
     deps.clearTimeout(timer);
+    deps.clearTimeout(grace);
     off();
+    // The proxy closes the moment the leader exits, before anything else is waited for.
+    await auth.stop();
+    await handle.cleanup();
     const secs = Math.round((deps.now() - started) / 1000);
     if (ended === "timeout") throw new Refusal(EXIT.timeout, `job timed out after ${cfg.timeoutSeconds} s`);
     if (ended === "signal") throw new Refusal(EXIT.timeout, "stopped by a signal while the job ran");
@@ -231,18 +313,22 @@ async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req
     const answer = Buffer.concat(chunks);
     return truncated ? Buffer.concat([answer, Buffer.from(TRUNCATED)]) : answer;
   } finally {
-    await auth.broker?.stop();
+    await auth.stop();
   }
 }
 
 async function run(env: Record<string, string | undefined>, self: string[], deps: PrivilegedDeps): Promise<Buffer> {
-  const cfg = await loadPrivilegedConfig(configPath(env, deps.euid), deps.configFs, deps.euid);
+  if (deps.euid === 0) {
+    const problem = await deps.codeProblem();
+    if (problem !== undefined) throw new Refusal(EXIT.failed, `refusing to run code others could change: ${problem}`);
+  }
+  const cfg = await loadPrivilegedConfig(configPath(env, deps.euid), deps.readFile, deps.euid);
   const req = parseRequest(await deps.readStdin(MAX_REQUEST_BYTES + 1));
   const tag = `msg=${req.id} device=${req.from.device}`;
   try {
-    const local = await checkSender(req, cfg, env, deps);
-    let text = req.text;
-    if (!local && cfg.wakeCode !== undefined) {
+    const sender = await authenticate(req, cfg, env, deps);
+    let text = sender.text;
+    if (!sender.local && cfg.wakeCode !== undefined) {
       const stripped = stripCode(text, await wakeCode(cfg, env, deps));
       if (!stripped.ok) throw new Refusal(EXIT.refused, "no or wrong wake code");
       text = stripped.rest;
@@ -254,12 +340,13 @@ async function run(env: Record<string, string | undefined>, self: string[], deps
     if (cfg.minMemAvailableMb > 0 && mem !== undefined && mem < cfg.minMemAvailableMb) {
       throw new Refusal(EXIT.busy, `MemAvailable ${mem} MB is under ${cfg.minMemAvailableMb}`);
     }
+    const user = await prepareRunDir(cfg, deps);
     const lock = await deps.acquireLock(cfg.lock.path, cfg.lock.waitSeconds);
     if (lock === null) throw new Refusal(EXIT.busy, `job lock busy for ${cfg.lock.waitSeconds} s`);
     try {
-      await countToday(cfg, deps);
+      await admit(cfg, sender, deps);
       log(deps, `${tag} accepted: profile ${profile}, ${task.length} characters`);
-      const answer = await runJob(cfg, cfg.profiles[profile]!, task, req, self, deps);
+      const answer = await runJob(cfg, cfg.profiles[profile]!, task, req, self, user, deps);
       log(deps, `${tag} answered, ${answer.length} bytes`);
       return answer;
     } finally {
@@ -289,8 +376,10 @@ export async function privilegedMain(argv: string[], env: Record<string, string 
       log(deps, `${error.message} (exit ${error.code})`);
       return error.code;
     }
-    // Config errors and anything unexpected: the name and message, never request text.
-    log(deps, `failed: ${(error as Error).name}: ${(error as Error).message.slice(0, 300)}`);
+    // Our own config errors say what is wrong; anything else by name only, because a parser's or
+    // a library's message can quote what it read (a token, a key, the task).
+    const e = error as Error;
+    log(deps, e instanceof ConfigError ? `failed: ${e.message.slice(0, 500)}` : `failed: ${e.name}${typeof (e as NodeJS.ErrnoException).code === "string" ? ` (${(e as NodeJS.ErrnoException).code})` : ""}`);
     return EXIT.failed;
   }
 }

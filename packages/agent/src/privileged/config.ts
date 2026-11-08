@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { PROFILE_NAME } from "../config.ts";
+import { pinMatches } from "./frame.ts";
 
 export const PRIVILEGED_CONFIG_PATH = "/etc/wim-agent/privileged.json";
 export const PRIVILEGED_RUNNER_PATH = "/usr/local/sbin/wim-agent-privileged-runner";
@@ -23,6 +24,7 @@ const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/, "must be an id of letters,
 const unixUser = z.string().regex(/^[a-z_][a-z0-9_-]{0,31}$/, "must be a user name");
 const profileName = z.string().regex(PROFILE_NAME, "must be 1 to 32 of A-Z, a-z, 0-9, _ and -");
 const seconds = (max: number) => z.number().int().min(1).max(max);
+const key32 = z.string().regex(/^[A-Za-z0-9_-]{43}$/, "a 32-byte key in base64url");
 
 const Identity = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal("aws-sts"), region: z.string().regex(/^[a-z0-9-]{1,32}$/), durationSeconds: z.number().int().min(60).max(3600).default(600) }),
@@ -49,6 +51,8 @@ const Profile = z
     model: z.string().regex(/^[a-z0-9.-]{1,64}$/).default("claude-opus-5-5"),
     effort: z.enum(["low", "medium", "high", "xhigh", "max"]).default("medium"),
     maxTurns: z.number().int().min(1).max(500).default(20),
+    /** The highest max_tokens a request may ask for (the Agent SDK asks for 128000). */
+    maxTokens: z.number().int().min(1).max(1_000_000).default(128_000),
     tools: z.array(z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,63}$/)).max(64).default([...READ_ONLY_TOOLS]),
     unsafeTools: z.boolean().default(false),
     auth: Auth,
@@ -78,13 +82,35 @@ const Config = z
     maxTaskChars: z.number().int().min(1).max(60_000).default(16_000),
     dailyJobs: z.number().int().min(0).default(50),
     statePath: absolute.default("/var/lib/wim-agent-privileged/state.json"),
-    allowDevices: z.array(z.string().regex(/^[A-Za-z0-9_-]{16,64}$/)).optional(),
+    /**
+     * The senders who may wake a job, by device id, with their public keys pinned here (from the
+     * roster: `wim devices --keys`). The runner checks each frame's signature against these keys
+     * itself, so a compromised peer cannot claim another sender.
+     */
+    senders: z
+      .record(z.string().regex(/^[A-Za-z0-9_-]{22}$/), z.strictObject({ sign: key32, box: key32 }))
+      .refine((s) => Object.entries(s).every(([id, k]) => pinMatches(id, k.sign)), { message: "each sender's id must be the one its sign key names" })
+      .refine((s) => Object.keys(s).length > 0, { message: "at least one sender" })
+      .optional(),
+    /** The receiving session: its device's key files (owned by the peer user), mesh and address. */
+    recipient: z
+      .strictObject({
+        home: absolute,
+        mesh: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+        address: z.string().regex(/^[a-z0-9-]{1,32}@[a-z0-9-]{1,32}$/),
+        user: unixUser,
+      })
+      .optional(),
+    /** The API the proxy forwards to. */
+    apiUrl: z.string().regex(/^https:\/\/[^/\s]+$|^http:\/\/127\.0\.0\.1:\d+$/, "https://host, or http://127.0.0.1:port for a test").default("https://api.anthropic.com"),
     allowLocal: z.boolean().default(false),
     wakeCode: WakeCode.optional(),
     defaultProfile: profileName,
     profiles: z.record(profileName, Profile),
   })
-  .refine((c) => c.defaultProfile in c.profiles, { message: "defaultProfile must name a profile" });
+  .refine((c) => c.defaultProfile in c.profiles, { message: "defaultProfile must name a profile" })
+  .refine((c) => c.senders !== undefined || c.allowLocal, { message: "set senders, or allowLocal for local jobs only: a runner that would take a job from anyone does not start" })
+  .refine((c) => (c.senders === undefined) === (c.recipient === undefined), { message: "senders and recipient go together" });
 
 export type PrivilegedConfig = z.infer<typeof Config> & { worker: { cwd: string } };
 export type Profile = z.infer<typeof Profile>;
@@ -105,39 +131,40 @@ export function parsePrivilegedConfig(raw: unknown): PrivilegedConfig {
   return { ...c, worker: { ...c.worker, cwd: c.worker.cwd ?? `${c.worker.home}/work` } };
 }
 
-export interface FileFacts {
-  uid: number;
-  mode: number;
-}
-
-export interface ConfigFs {
-  readFile(path: string): Promise<string>;
-  stat(path: string): Promise<FileFacts>;
+/** Who must own a file the runner reads, and whether it is a secret (no group or other bits at all). */
+export interface ReadRule {
+  /** The owner's uid; undefined skips the owner and mode checks (a non-root trial). */
+  owner: number | undefined;
+  secret: boolean;
 }
 
 /**
- * Refuses a file a non-root user could have written when we run as root: owned by root, no
- * group or other write bit. `secret` also refuses any group or other bit at all.
+ * Reads a file without following a symlink, checking the owner and mode of the file it opened
+ * (not of a path that could be swapped in between).
  */
-export function rootOwnedProblem(facts: FileFacts, secret: boolean): string | undefined {
-  if (facts.uid !== 0) return "it is not owned by root";
-  if (secret && (facts.mode & 0o077) !== 0) return `it is readable by group or others (mode ${(facts.mode & 0o777).toString(8)})`;
+export interface SecureRead {
+  (path: string, rule: ReadRule): Promise<string>;
+}
+
+/** Why a file's owner and mode are not acceptable, or undefined when they are. */
+export function ownerProblem(facts: { uid: number; mode: number; isFile: boolean }, rule: ReadRule): string | undefined {
+  if (rule.owner === undefined) return undefined;
+  if (!facts.isFile) return "it is not a regular file";
+  if (facts.uid !== rule.owner) return `it is not owned by uid ${rule.owner}`;
+  if (rule.secret && (facts.mode & 0o077) !== 0) return `it is readable by group or others (mode ${(facts.mode & 0o777).toString(8)})`;
   if ((facts.mode & 0o022) !== 0) return `it is writable by group or others (mode ${(facts.mode & 0o777).toString(8)})`;
   return undefined;
 }
 
-/** Reads and checks the config. As root, the file itself must be root-owned and not writable by others. */
-export async function loadPrivilegedConfig(path: string, fs: ConfigFs, euid: number): Promise<PrivilegedConfig> {
-  if (euid === 0) {
-    const problem = rootOwnedProblem(await fs.stat(path), false);
-    if (problem !== undefined) throw new ConfigError(`refusing ${path}: ${problem}`);
-  }
-  const text = await fs.readFile(path);
+/** Reads and checks the config. As root, the file must be root-owned, not a symlink, and not writable by others. */
+export async function loadPrivilegedConfig(path: string, read: SecureRead, euid: number): Promise<PrivilegedConfig> {
+  const text = await read(path, { owner: euid === 0 ? 0 : undefined, secret: false });
   let raw: unknown;
   try {
     raw = JSON.parse(text);
-  } catch (error) {
-    throw new ConfigError(`${path}: not valid JSON (${(error as Error).message})`);
+  } catch {
+    // The parser's message quotes the text; the config is not secret, but keep one rule for all.
+    throw new ConfigError(`${path}: not valid JSON`);
   }
   return parsePrivilegedConfig(raw);
 }

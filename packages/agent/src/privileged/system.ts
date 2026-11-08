@@ -2,8 +2,14 @@
 // process and signals. Kept apart from main.ts, which takes them as an interface.
 
 import { execFile, spawn } from "node:child_process";
-import { promises as fs } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { constants, promises as fs } from "node:fs";
+import { dirname } from "node:path";
+import { loadAnthropicCredentials } from "./auth.ts";
+import { ownerProblem, type ReadRule } from "./config.ts";
 import { awsWebIdentityToken } from "./identity.ts";
+import { defaultScope, startScopedJob, type ScopeOptions } from "./jobscope.ts";
+import { startProxy } from "./proxy.ts";
 import type { JobHandle, JobSpec, Lock, PrivilegedDeps } from "./main.ts";
 import { loadSdkQuery } from "./worker.ts";
 
@@ -28,7 +34,8 @@ export function lookupUser(name: string, run = execFile): Promise<{ uid: number;
  * this process keeps, so it stays held after flock(1) exits and ends when the file is closed.
  */
 export async function acquireLock(path: string, waitSeconds: number, flock = "flock"): Promise<Lock | null> {
-  const file = await fs.open(path, "a", 0o640);
+  // Never through a symlink: root opening a path the peer could have pointed elsewhere.
+  const file = await fs.open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | constants.O_NOFOLLOW, 0o640);
   const code = await new Promise<number | null>((resolve, reject) => {
     const child = spawn(flock, ["-w", String(waitSeconds), "-E", String(FLOCK_BUSY), "3"], { stdio: ["ignore", "ignore", "ignore", file.fd] });
     child.once("error", reject);
@@ -51,34 +58,12 @@ export async function memAvailableMb(path = "/proc/meminfo"): Promise<number | u
   return m === null ? undefined : Math.floor(Number(m[1]) / 1024);
 }
 
-/** Starts the job in its own process group, so a timeout can end everything it started. */
-export function startJob(spec: JobSpec): JobHandle {
-  const child = spawn(spec.command, spec.args, {
-    cwd: spec.cwd,
-    env: spec.env,
-    detached: true,
-    stdio: ["pipe", "pipe", "pipe"],
-    ...(spec.uid === undefined ? {} : { uid: spec.uid, gid: spec.gid }),
-  });
-  const exited = new Promise<number | null>((resolve) => {
-    child.once("error", () => resolve(127));
-    child.once("close", (code) => resolve(code));
-  });
-  // A job that never reads its input must not fail the write.
-  child.stdin.on("error", () => undefined);
-  child.stdin.end(spec.stdin);
-  return {
-    onStdout: (cb) => void child.stdout.on("data", cb),
-    onStderr: (cb) => void child.stderr.on("data", cb),
-    exited,
-    killGroup(signal) {
-      try {
-        process.kill(-child.pid!, signal);
-      } catch {
-        // Already gone.
-      }
-    },
-  };
+/**
+ * Starts the job: in its own transient systemd scope when `scope` says so (the runner's default
+ * as root under systemd), else in its own process group. jobscope.ts says why.
+ */
+export function startJob(spec: JobSpec, scope: ScopeOptions = { mode: "none", unit: "", drainMs: 2000 }): JobHandle {
+  return startScopedJob(spec, scope);
 }
 
 /**
@@ -114,26 +99,90 @@ export function readAll(stream: NodeJS.ReadableStream, max: number): Promise<Buf
   });
 }
 
-export function systemDeps(): PrivilegedDeps {
+/** Reads a file without following a symlink, checking the owner and mode of the file it opened. */
+export async function secureRead(path: string, rule: ReadRule): Promise<string> {
+  const file = await fs.open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const st = await file.stat();
+    const problem = ownerProblem({ uid: st.uid, mode: st.mode, isFile: st.isFile() }, rule);
+    if (problem !== undefined) throw Object.assign(new Error(`refusing ${path}: ${problem}`), { code: "EUNSAFE" });
+    return await file.readFile("utf8");
+  } finally {
+    await file.close();
+  }
+}
+
+/**
+ * Writes `path` through a new temporary file next to it, created with O_EXCL and O_NOFOLLOW (so
+ * a planted name or symlink fails the write instead of redirecting it), owned through the handle,
+ * then renamed over the target.
+ */
+export async function secureWrite(path: string, data: string, mode: number, owner: { uid: number; gid: number } | undefined): Promise<void> {
+  const tmp = `${path}.${randomBytes(6).toString("hex")}.new`;
+  const file = await fs.open(tmp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, mode);
+  try {
+    if (owner !== undefined) await file.chown(owner.uid, owner.gid);
+    await file.chmod(mode);
+    await file.writeFile(data);
+    await file.sync();
+  } catch (error) {
+    await file.close();
+    await fs.rm(tmp, { force: true });
+    throw error;
+  }
+  await file.close();
+  await fs.rename(tmp, path);
+}
+
+/**
+ * Makes `path` if it is missing, then checks what is there: a directory, not a symlink, and,
+ * with an `owner` (root, in production), owned by it with no group or other write bit; then set
+ * to that owner and `mode` through a handle on the directory itself.
+ */
+export async function secureDir(path: string, mode: number, owner: { uid: number; gid: number } | undefined): Promise<void> {
+  await fs.mkdir(path, { recursive: true, mode });
+  const st = await fs.lstat(path);
+  if (!st.isDirectory()) throw Object.assign(new Error(`refusing ${path}: it is not a directory`), { code: "EUNSAFE" });
+  if (owner === undefined) return;
+  if (st.uid !== owner.uid || (st.mode & 0o022) !== 0) throw Object.assign(new Error(`refusing ${path}: it is not its owner's alone`), { code: "EUNSAFE" });
+  const dir = await fs.open(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  try {
+    await dir.chown(owner.uid, owner.gid);
+    await dir.chmod(mode);
+  } finally {
+    await dir.close();
+  }
+}
+
+/**
+ * Why the code this process runs could be changed by someone other than root, or undefined: each
+ * file and every directory above it (after resolving symlinks) must be root's, with no group or
+ * other write bit. A package tree the peer could write would let it change what root runs.
+ */
+export async function codeProblem(paths: readonly string[]): Promise<string | undefined> {
+  for (const p of paths) {
+    let at = await fs.realpath(p);
+    for (;;) {
+      const st = await fs.lstat(at);
+      if (st.uid !== 0 || (st.mode & 0o022) !== 0) return `${at} is not root's alone`;
+      const up = dirname(at);
+      if (up === at) break;
+      at = up;
+    }
+  }
+  return undefined;
+}
+
+/** `euid` is this process's own, except in tests of the root branches. */
+export function systemDeps(euid = process.geteuid!()): PrivilegedDeps {
   return {
-    euid: process.geteuid!(),
+    euid,
     uid: process.getuid!(),
     readStdin: (max) => readAll(process.stdin, max),
-    configFs: {
-      readFile: (p) => fs.readFile(p, "utf8"),
-      stat: async (p) => {
-        const s = await fs.lstat(p);
-        return { uid: s.uid, mode: s.isFile() ? s.mode : 0o777 };
-      },
-    },
-    brokerFs: {
-      writeFile: (p, d, mode) => fs.writeFile(p, d, { mode, flag: "w" }),
-      chown: (p, u, g) => fs.chown(p, u, g),
-      rename: (a, b) => fs.rename(a, b),
-      rm: (p) => fs.rm(p, { force: true }),
-    },
-    mkdir: async (p, mode) => void (await fs.mkdir(p, { recursive: true, mode })),
-    chown: (p, u, g) => fs.chown(p, u, g),
+    readFile: secureRead,
+    writeFile: (p, d, mode) => secureWrite(p, d, mode, euid === 0 ? { uid: 0, gid: 0 } : undefined),
+    ensureDir: (p, mode, gid) => secureDir(p, mode, euid === 0 ? { uid: 0, gid: gid ?? 0 } : undefined),
+    codeProblem: () => codeProblem([process.execPath, process.argv[1]!]),
     lookupUser: (name) => lookupUser(name),
     acquireLock: (p, w) => acquireLock(p, w),
     memAvailableMb: () => memAvailableMb(),
@@ -143,9 +192,11 @@ export function systemDeps(): PrivilegedDeps {
       fetch: (url, init) => fetch(url, init),
       readFile: (p) => fs.readFile(p, "utf8"),
     },
-    startJob,
+    credentials: loadAnthropicCredentials,
+    fetch: (url, init) => fetch(url, init),
+    startProxy,
+    startJob: (spec) => startScopedJob(spec, defaultScope(euid, process.pid)),
     now: Date.now,
-    pid: process.pid,
     onSignal(cb) {
       const sigs = ["SIGTERM", "SIGHUP", "SIGINT"] as const;
       for (const s of sigs) process.on(s, cb);
@@ -155,8 +206,6 @@ export function systemDeps(): PrivilegedDeps {
     },
     setTimeout: (fn, ms) => setTimeout(fn, ms).unref(),
     clearTimeout: (t) => clearTimeout(t as NodeJS.Timeout),
-    setInterval: (fn, ms) => setInterval(fn, ms).unref(),
-    clearInterval: (t) => clearInterval(t as NodeJS.Timeout),
     out: (d) => void process.stdout.write(d),
     err: (line) => void process.stderr.write(`${line}\n`),
     worker: {
