@@ -91,8 +91,10 @@ async function checkSender(req: ParsedRequest, cfg: PrivilegedConfig, env: Recor
     // Two signals that a `local` job came from root itself: sudo always sets SUDO_UID (a wrapper
     // could scrub it), and no process above this one runs as anyone but root (which no wrapper
     // can change: a sudo call from the peer has the peer among its ancestors).
-    const local = cfg.allowLocal && deps.uid === 0 && deps.euid === 0 && env["SUDO_UID"] === undefined && (await deps.ancestorsAllRoot());
-    if (!local) throw new Refusal(EXIT.refused, "a local job needs allowLocal and a root caller outside sudo");
+    const refused = new Refusal(EXIT.refused, "a local job needs allowLocal and a root caller outside sudo");
+    if (!(cfg.allowLocal && deps.uid === 0 && deps.euid === 0 && env["SUDO_UID"] === undefined)) throw refused;
+    const allRoot = await deps.ancestorsAllRoot();
+    if (!allRoot) throw refused;
     return true;
   }
   if (cfg.allowDevices !== undefined && !cfg.allowDevices.includes(req.from.device)) throw new Refusal(EXIT.refused, "sender device not on the allow-list");
