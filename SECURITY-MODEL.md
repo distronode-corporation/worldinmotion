@@ -1177,7 +1177,9 @@ counts as one:
   interactive terminal: a typed `y`) or else in a native dialog (zenity with markup off or
   kdialog, an AppleScript dialog that takes the text as an argument, a Windows message box), whose
   default button is Cancel where the tool allows it. It asks one decision at a time; a second
-  request meanwhile is refused, not queued. One request names at most 1000 ids, the most a UI sends
+  request meanwhile is refused, not queued. If the asking process goes away before the person
+  answers (its connection closes: `wim events` stopping drops its open asks), the signer signs
+  nothing, even on a later yes. One request names at most 1000 ids, the most a UI sends
   in one set; a client with more (a resume of a long pause) asks in parts, each confirmed.
 - Only on the person's yes does it sign, with the device key, a decision over exactly those ids,
   each bound to a SHA-256 digest of the item as it read it, with the verdict, the mesh, the device,

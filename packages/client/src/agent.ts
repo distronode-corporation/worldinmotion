@@ -283,10 +283,11 @@ export class Signer {
   }
 
   /** Answers one request, or throws an AgentError. Every answer is logged. */
-  async handle(op: string, raw: unknown): Promise<Record<string, unknown>> {
+  /** `gone`: aborted when the asker went away (its connection closed); a `decide` then signs nothing. */
+  async handle(op: string, raw: unknown, gone?: AbortSignal): Promise<Record<string, unknown>> {
     const entry: LogEntry = { at: this.o.now(), op, ok: false };
     try {
-      const result = await this.answer(op, raw, entry);
+      const result = await this.answer(op, raw, entry, gone);
       entry.ok = true;
       // `hello` and `status` only ask about the signer; the counts are of what it was asked to do.
       if (op !== "hello" && op !== "status") this.counts[op] = (this.counts[op] ?? 0) + 1;
@@ -301,7 +302,7 @@ export class Signer {
     }
   }
 
-  private async answer(op: string, raw: unknown, entry: LogEntry): Promise<Record<string, unknown>> {
+  private async answer(op: string, raw: unknown, entry: LogEntry, gone: AbortSignal | undefined): Promise<Record<string, unknown>> {
     if (!Object.hasOwn(ARGS, op)) throw new AgentError("bad_request", `no operation ${JSON.stringify(op)}`);
     const parsed = ARGS[op as Op].safeParse(raw);
     if (!parsed.success) throw new AgentError("bad_request", `${op}: ${parsed.error.issues[0]!.message}`);
@@ -326,7 +327,7 @@ export class Signer {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
     }
-    if (op === "decide") return this.decide(a as z.infer<typeof ARGS.decide>, entry);
+    if (op === "decide") return this.decide(a as z.infer<typeof ARGS.decide>, entry, gone);
     return this.keyOp(op as Exclude<Op, "hello" | "status" | "lock" | "stop" | "decide">, a, keys, this.signKey!, entry);
   }
 
@@ -336,7 +337,7 @@ export class Signer {
    * signs those ids, each with the digest of the copy it showed. One at a time. A lock while the
    * person reads it signs nothing.
    */
-  private async decide(req: z.infer<typeof ARGS.decide>, entry: LogEntry): Promise<Record<string, unknown>> {
+  private async decide(req: z.infer<typeof ARGS.decide>, entry: LogEntry, gone: AbortSignal | undefined): Promise<Record<string, unknown>> {
     entry.mesh = req.mesh;
     const desk = this.o.desk;
     if (desk === undefined) throw new AgentError("refused", "this signer takes no decisions on held messages");
@@ -349,6 +350,7 @@ export class Signer {
       // A resume may lift a pause that holds nothing yet; anything else decides something held.
       if (items.length === 0 && req.verdict !== "resume") throw new AgentError("refused", "none of these ids is held on this device");
       if (!(await desk.confirm(decisionView(req, items)))) throw new AgentError("refused", "you declined it in the signer: nothing changed");
+      if (gone?.aborted === true) throw new AgentError("refused", "the process that asked went away before you answered: nothing was signed");
       const signKey = this.signKey;
       if (signKey === undefined) throw new AgentError("locked", "the signer was locked before it signed: nothing changed");
       const at = this.o.now();
@@ -559,9 +561,14 @@ export class AgentServer {
     socket.setEncoding("utf8");
     let buffered = "";
     let queue: Promise<void> = Promise.resolve();
-    const state: { channel?: Channel } = {};
+    // `gone`: aborted when the connection closes, so a decision whose asker went away is never signed.
+    const closed = new AbortController();
+    const state: { channel?: Channel; gone: AbortSignal } = { gone: closed.signal };
     socket.on("error", () => undefined);
-    socket.on("close", () => this.sockets.delete(socket));
+    socket.on("close", () => {
+      this.sockets.delete(socket);
+      closed.abort();
+    });
     socket.on("data", (chunk: string) => {
       buffered += chunk;
       // A request past the limit ends the connection.
@@ -577,13 +584,13 @@ export class AgentServer {
     });
   }
 
-  private async request(socket: Socket, line: string, state: { channel?: Channel }): Promise<void> {
+  private async request(socket: Socket, line: string, state: { channel?: Channel; gone: AbortSignal }): Promise<void> {
     await this.bound;
     return this.dispatch(socket, line, state, await this.owned());
   }
 
   /** Someone else's socket at the path: nothing is answered, and the signer locks and stops. */
-  private dispatch(socket: Socket, line: string, state: { channel?: Channel }, owned: boolean): Promise<void> {
+  private dispatch(socket: Socket, line: string, state: { channel?: Channel; gone: AbortSignal }, owned: boolean): Promise<void> {
     if (!owned) {
       socket.destroy();
       this.replacedNow();
@@ -593,7 +600,7 @@ export class AgentServer {
   }
 
   /** The answer to one line, or undefined for a sealed line that does not open (the connection then ends). */
-  private async handleLine(line: string, state: { channel?: Channel }): Promise<{ op: string; answer: Answer } | undefined> {
+  private async handleLine(line: string, state: { channel?: Channel; gone: AbortSignal }): Promise<{ op: string; answer: Answer } | undefined> {
     const text = state.channel === undefined ? line : unseal(state.channel, line);
     if (text === undefined) return undefined;
     let i: unknown = 0;
@@ -602,7 +609,7 @@ export class AgentServer {
       const req = JSON.parse(text) as { i?: unknown; op?: unknown; a?: unknown };
       i = req.i;
       op = String(req.op);
-      return { op, answer: { i, r: await this.o.signer.handle(op, req.a ?? {}) } };
+      return { op, answer: { i, r: await this.o.signer.handle(op, req.a ?? {}, state.gone) } };
     } catch (error) {
       return { op, answer: { i, e: { code: error instanceof AgentError ? error.code : "bad_request", message: (error as Error).message } } };
     }

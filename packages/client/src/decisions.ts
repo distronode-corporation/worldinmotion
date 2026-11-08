@@ -129,14 +129,20 @@ export type DecideRequest = { mesh: string; verdict: DecisionVerdict; ids: reado
  * dialog and signs only what the person confirms there; every refusal is thrown as a SetupError in
  * the signer's words.
  */
-export async function requestDecision(o: { root: string; env: AgentEnv; signPub: Uint8Array }, req: DecideRequest): Promise<Decision> {
+export async function requestDecision(o: { root: string; env: AgentEnv; signPub: Uint8Array }, req: DecideRequest, stop?: AbortSignal): Promise<Decision> {
   const client = new SignerClient({ endpoint: () => agentEndpoint(o.root, o.env, false), expect: o.signPub });
+  // Stopped (the asking process ends): the connection closes at once, and the signer, seeing its
+  // asker gone, signs nothing even if the person then confirms.
+  const onStop = (): void => client.close();
+  stop?.addEventListener("abort", onStop, { once: true });
   try {
+    stop?.throwIfAborted();
     const r = await client.call("decide", { mesh: req.mesh, verdict: req.verdict, ids: [...req.ids], ...(req.peer === undefined ? {} : { peer: req.peer }) }, DECIDE_WAIT_MS);
     return r["decision"] as Decision;
   } catch (error) {
-    throw new SetupError(`${NEEDS_SIGNER}: ${(error as Error).message}`);
+    throw new SetupError(`${NEEDS_SIGNER}: ${stop?.aborted === true ? "stopped before the signer answered; nothing was decided" : (error as Error).message}`);
   } finally {
+    stop?.removeEventListener("abort", onStop);
     client.close();
   }
 }
@@ -167,8 +173,8 @@ export function decisionFor(ds: readonly Decision[] | undefined, id: string): De
 }
 
 /** A device's way to ask its signer for decisions (the events process's `decide`). */
-export function decider(o: { root: string; env: AgentEnv; signPub: Uint8Array }): (req: DecideRequest) => Promise<Decision> {
-  return (req) => requestDecision(o, req);
+export function decider(o: { root: string; env: AgentEnv; signPub: Uint8Array }): (req: DecideRequest, stop?: AbortSignal) => Promise<Decision> {
+  return (req, stop) => requestDecision(o, req, stop);
 }
 
 /** The start of every refusal a decision gets from the signer side. */

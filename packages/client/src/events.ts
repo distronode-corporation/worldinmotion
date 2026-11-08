@@ -70,7 +70,7 @@ export type EventsDeps = {
    * Asks this device's signer for a decision on held messages (decisions.ts requestDecision). Used
    * when the keys are in the signer: then an approve, refuse or resume goes ahead only signed.
    */
-  decide?: (req: DecideRequest) => Promise<Decision>;
+  decide?: (req: DecideRequest, stop?: AbortSignal) => Promise<Decision>;
 };
 
 type Row = Record<string, unknown>;
@@ -249,8 +249,12 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     if (d.device.keyring.kind !== "signer") return undefined;
     const decide = d.decide;
     if (decide === undefined) throw new RequestError("needs_signer", `${NEEDS_SIGNER}, and this process cannot ask it`);
-    // The person may take minutes: the request gives up its turn meanwhile (ask), so other requests are answered.
-    return ask(() => decisionsFor((chunk) => decide({ mesh: s.config.mesh, verdict, ids: chunk, ...(peer === undefined ? {} : { peer }) }), ids));
+    // Nothing to ask the person about: an approve or refuse of ids no session holds any more.
+    const held = new Set((await listAllHeld(d.mesh, d.env)).map((r) => r.id));
+    if (verdict !== "resume" && !ids.some((id) => held.has(id))) throw new RequestError("not_found", `no held message ${ids[0]!}`);
+    // The person may take minutes: the request gives up its turn meanwhile (ask), so other requests
+    // are answered; when this process stops, the ask is dropped (stopping) and nothing is decided.
+    return ask(() => decisionsFor((chunk) => decide({ mesh: s.config.mesh, verdict, ids: chunk, ...(peer === undefined ? {} : { peer }) }, stopping.signal), ids));
   }
 
   /** Decides one held id wherever it is held; false when nothing held it. */
@@ -643,6 +647,8 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   }, d.pollMs ?? 500);
   const leaseTick = setInterval(() => void leasePass().catch(() => undefined), d.leasePollMs ?? 5000);
 
+  /** Aborted once this process stops (stdin closed or the signal): asks still open are dropped. */
+  const stopping = new AbortController();
   // Requests are answered in order, one at a time; a request waiting for the person in the signer
   // gives up its turn meanwhile (ask), and takes the next free turn for what it does after.
   let queue: Promise<void> = Promise.resolve();
@@ -680,6 +686,8 @@ export async function runEvents(d: EventsDeps): Promise<void> {
   const ended = new Promise<void>((resolve) => lines.once("close", resolve));
   const aborted = new Promise<void>((resolve) => (d.signal.aborted ? resolve() : d.signal.addEventListener("abort", () => resolve(), { once: true })));
   await Promise.race([ended, aborted]);
+  // Asks still waiting for the person are dropped, so the requests in flight end now.
+  stopping.abort();
   clearInterval(tick);
   clearInterval(leaseTick);
   lines.close();

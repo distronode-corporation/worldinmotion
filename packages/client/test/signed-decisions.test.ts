@@ -14,7 +14,7 @@ import { agentEndpoint, endpointFiles } from "../src/agentpath.ts";
 import { desk as signerDesk, encryptDevice } from "../src/agentcli.ts";
 import { confirmGui, confirmPrompts, kdialogText, type Run } from "../src/autostart.ts";
 import { MeshSession } from "../src/client.ts";
-import { checkDecision, covers, decider, decisionFor, decisionsFor, idChunks, MAX_DECISION_IDS, decisionView, heldDigest, NEEDS_SIGNER, requestDecision, signDecision, unsignedRefusal, type Decision, type DecideRequest, type HeldCopy } from "../src/decisions.ts";
+import { checkDecision, covers, decider, requestDecision as ask2, decisionFor, decisionsFor, idChunks, MAX_DECISION_IDS, decisionView, heldDigest, NEEDS_SIGNER, requestDecision, signDecision, unsignedRefusal, type Decision, type DecideRequest, type HeldCopy } from "../src/decisions.ts";
 import { runEvents } from "../src/events.ts";
 import { fsOps } from "../src/fsx.ts";
 import { HeldBox, type HeldItem } from "../src/held.ts";
@@ -48,7 +48,7 @@ const item = (over: Partial<HeldItem> = {}): HeldItem => {
 };
 
 /** The person's answers to the signer, in order; each confirm records what it was shown. */
-type Answers = { said: string[][]; next: boolean[] };
+type Answers = { said: string[][]; next: Array<boolean | Promise<boolean>> };
 
 /** A desk like `wim agent`'s own, with a scripted person. */
 function scriptedDesk(d: TestDevice, answers: Answers): Desk {
@@ -807,5 +807,73 @@ describe("decisions of any size, and a request queue that keeps answering", () =
     expect(w.answers.said).toHaveLength(1);
     expect(await new HeldBox(new SessionFiles(w.files, w.inbox.sid, FS).heldDir, FS).list()).toEqual([]);
     expect((await new SessionFiles(w.files, w.inbox.sid, FS).load()) !== undefined).toBe(true);
+  });
+});
+
+describe("stopping while the person reads the signer, and ids no longer held", () => {
+  it("drops the ask when wim events stops: it ends at once, and a later yes signs nothing", async () => {
+    const w = await world();
+    const m = await w.one.send("inbox@two", "held while we stop");
+    await heldIn(w.inbox, 1);
+    await w.inbox.stop();
+    const lines: Array<Record<string, unknown>> = [];
+    const input = new PassThrough();
+    const stop = new AbortController();
+    const session = await MeshSession.open({ device: w.device, mesh: w.files, name: "vscode", kind: "vscode", dialer: w.relay.dialer, env: FS, tickMs: 20, answerMs: 2000, reconnectMs: 20, random: () => 0.5, handover: true, sessionKey: "events:vscode" });
+    const running = runEvents({
+      session, mesh: w.files, env: FS, device: w.device, version: "t", input, signal: stop.signal, now: Date.now, pollMs: 20, leasePollMs: 40,
+      write: (l) => void lines.push(JSON.parse(l) as Record<string, unknown>),
+      decide: decider({ root: w.two.root, env: w.two.home.env, signPub: w.keys.signPub }),
+    });
+    await until(() => lines.some((l) => l["type"] === "snapshot"), "snapshot");
+    let answer!: (yes: boolean) => void;
+    w.answers.next.push(new Promise<boolean>((r) => (answer = r)));
+    input.write(`${JSON.stringify({ v: 1, id: "d", op: "approve", args: { held: m.id } })}\n`);
+    await until(() => w.answers.said.length === 1, "the signer asking");
+    const started = Date.now();
+    stop.abort();
+    await running;
+    await session.stop();
+    expect(Date.now() - started).toBeLessThan(5_000);
+    expect(lines.find((l) => l["id"] === "d")).toMatchObject({ ok: false, error: { message: `${NEEDS_SIGNER}: stopped before the signer answered; nothing was decided` } });
+    // The person says yes after all: the signer, its asker gone, signs nothing.
+    const before = (await w.signer.handle("status", {}))["refused"] as number;
+    answer(true);
+    await until(async () => ((await w.signer.handle("status", {}))["refused"] as number) === before + 1, "the late yes refused");
+    expect((await listAllHeld(w.files, FS)).map((r) => r.id)).toEqual([m.id]);
+    // Asked with a stop already given, nothing is sent at all.
+    const done = new AbortController();
+    done.abort();
+    await expect(ask2({ root: w.two.root, env: w.two.home.env, signPub: w.keys.signPub }, { mesh: w.mesh, verdict: "approve", ids: [m.id] }, done.signal)).rejects.toThrow(`${NEEDS_SIGNER}: stopped before the signer answered; nothing was decided`);
+    expect(w.answers.said).toHaveLength(1);
+  });
+
+  it("answers not_found for ids no session holds, without asking the signer", async () => {
+    const w = await world();
+    const m = await w.one.send("inbox@two", "one");
+    await heldIn(w.inbox, 1);
+    await w.inbox.stop();
+    const lines: Array<Record<string, unknown>> = [];
+    const input = new PassThrough();
+    const stop = new AbortController();
+    const session = await MeshSession.open({ device: w.device, mesh: w.files, name: "vscode", kind: "vscode", dialer: w.relay.dialer, env: FS, tickMs: 20, answerMs: 2000, reconnectMs: 20, random: () => 0.5, handover: true, sessionKey: "events:vscode" });
+    const running = runEvents({
+      session, mesh: w.files, env: FS, device: w.device, version: "t", input, signal: stop.signal, now: Date.now, pollMs: 20, leasePollMs: 40,
+      write: (l) => void lines.push(JSON.parse(l) as Record<string, unknown>),
+      decide: decider({ root: w.two.root, env: w.two.home.env, signPub: w.keys.signPub }),
+    });
+    cleanup.push(async () => {
+      stop.abort();
+      await running;
+      await session.stop();
+    });
+    await until(() => lines.some((l) => l["type"] === "snapshot"), "snapshot");
+    const gone = ulid();
+    input.write(`${JSON.stringify({ v: 1, id: "a", op: "approve", args: { held: gone } })}\n`);
+    input.write(`${JSON.stringify({ v: 1, id: "r", op: "refuse", args: { held: gone } })}\n`);
+    await until(() => lines.filter((l) => l["type"] === "response").length === 2, "answers");
+    for (const id of ["a", "r"]) expect(lines.find((l) => l["id"] === id)).toMatchObject({ ok: false, error: { code: "not_found", message: `no held message ${gone}` } });
+    expect(w.answers.said).toEqual([]);
+    expect((await listAllHeld(w.files, FS)).map((r) => r.id)).toEqual([m.id]);
   });
 });

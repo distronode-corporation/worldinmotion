@@ -90766,14 +90766,18 @@ function covers(d5, item) {
   const digest2 = heldDigest(item);
   return d5.items.some((i6) => i6.id === item.id && i6.digest === digest2);
 }
-async function requestDecision(o3, req) {
+async function requestDecision(o3, req, stop) {
   const client = new SignerClient({ endpoint: () => agentEndpoint(o3.root, o3.env, false), expect: o3.signPub });
+  const onStop = () => client.close();
+  stop?.addEventListener("abort", onStop, { once: true });
   try {
+    stop?.throwIfAborted();
     const r6 = await client.call("decide", { mesh: req.mesh, verdict: req.verdict, ids: [...req.ids], ...req.peer === void 0 ? {} : { peer: req.peer } }, DECIDE_WAIT_MS);
     return r6["decision"];
   } catch (error64) {
-    throw new SetupError(`${NEEDS_SIGNER}: ${error64.message}`);
+    throw new SetupError(`${NEEDS_SIGNER}: ${stop?.aborted === true ? "stopped before the signer answered; nothing was decided" : error64.message}`);
   } finally {
+    stop?.removeEventListener("abort", onStop);
     client.close();
   }
 }
@@ -90791,7 +90795,7 @@ function decisionFor(ds, id2) {
   return ds === void 0 ? void 0 : ds.find((d5) => d5.items.some((i6) => i6.id === id2)) ?? ds[0];
 }
 function decider(o3) {
-  return (req) => requestDecision(o3, req);
+  return (req, stop) => requestDecision(o3, req, stop);
 }
 var NEEDS_SIGNER = "this device's keys are in the signer, so a decision on held messages needs the signer to confirm it with you";
 function unsignedRefusal(what2) {
@@ -121727,7 +121731,9 @@ async function runEvents(d5) {
     if (d5.device.keyring.kind !== "signer") return void 0;
     const decide = d5.decide;
     if (decide === void 0) throw new RequestError("needs_signer", `${NEEDS_SIGNER}, and this process cannot ask it`);
-    return ask3(() => decisionsFor((chunk) => decide({ mesh: s3.config.mesh, verdict, ids: chunk, ...peer === void 0 ? {} : { peer } }), ids));
+    const held3 = new Set((await listAllHeld(d5.mesh, d5.env)).map((r6) => r6.id));
+    if (verdict !== "resume" && !ids.some((id2) => held3.has(id2))) throw new RequestError("not_found", `no held message ${ids[0]}`);
+    return ask3(() => decisionsFor((chunk) => decide({ mesh: s3.config.mesh, verdict, ids: chunk, ...peer === void 0 ? {} : { peer } }, stopping.signal), ids));
   }
   async function decideOne2(id2, verdict, decision) {
     const mine = await s3.held.get(id2) !== void 0;
@@ -122046,6 +122052,7 @@ async function runEvents(d5) {
     void poll().catch(() => void 0).finally(() => busy = false);
   }, d5.pollMs ?? 500);
   const leaseTick = setInterval(() => void leasePass().catch(() => void 0), d5.leasePollMs ?? 5e3);
+  const stopping = new AbortController();
   let queue = Promise.resolve();
   const inflight = /* @__PURE__ */ new Set();
   const turn = () => {
@@ -122080,6 +122087,7 @@ async function runEvents(d5) {
   const ended2 = new Promise((resolve4) => lines.once("close", resolve4));
   const aborted2 = new Promise((resolve4) => d5.signal.aborted ? resolve4() : d5.signal.addEventListener("abort", () => resolve4(), { once: true }));
   await Promise.race([ended2, aborted2]);
+  stopping.abort();
   clearInterval(tick);
   clearInterval(leaseTick);
   lines.close();
@@ -125048,10 +125056,11 @@ var Signer = class {
     this.o.log({ at: this.o.now(), op: "replaced", ok: false, code: "replaced" });
   }
   /** Answers one request, or throws an AgentError. Every answer is logged. */
-  async handle(op2, raw) {
+  /** `gone`: aborted when the asker went away (its connection closed); a `decide` then signs nothing. */
+  async handle(op2, raw, gone) {
     const entry = { at: this.o.now(), op: op2, ok: false };
     try {
-      const result = await this.answer(op2, raw, entry);
+      const result = await this.answer(op2, raw, entry, gone);
       entry.ok = true;
       if (op2 !== "hello" && op2 !== "status") this.counts[op2] = (this.counts[op2] ?? 0) + 1;
       return result;
@@ -125064,7 +125073,7 @@ var Signer = class {
       this.o.log(entry);
     }
   }
-  async answer(op2, raw, entry) {
+  async answer(op2, raw, entry, gone) {
     if (!Object.hasOwn(ARGS, op2)) throw new AgentError("bad_request", `no operation ${JSON.stringify(op2)}`);
     const parsed2 = ARGS[op2].safeParse(raw);
     if (!parsed2.success) throw new AgentError("bad_request", `${op2}: ${parsed2.error.issues[0].message}`);
@@ -125088,7 +125097,7 @@ var Signer = class {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
     }
-    if (op2 === "decide") return this.decide(a5, entry);
+    if (op2 === "decide") return this.decide(a5, entry, gone);
     return this.keyOp(op2, a5, keys, this.signKey, entry);
   }
   /**
@@ -125097,7 +125106,7 @@ var Signer = class {
    * signs those ids, each with the digest of the copy it showed. One at a time. A lock while the
    * person reads it signs nothing.
    */
-  async decide(req, entry) {
+  async decide(req, entry, gone) {
     entry.mesh = req.mesh;
     const desk2 = this.o.desk;
     if (desk2 === void 0) throw new AgentError("refused", "this signer takes no decisions on held messages");
@@ -125109,6 +125118,7 @@ var Signer = class {
       const items = await desk2.read(req.mesh, req.ids);
       if (items.length === 0 && req.verdict !== "resume") throw new AgentError("refused", "none of these ids is held on this device");
       if (!await desk2.confirm(decisionView(req, items))) throw new AgentError("refused", "you declined it in the signer: nothing changed");
+      if (gone?.aborted === true) throw new AgentError("refused", "the process that asked went away before you answered: nothing was signed");
       const signKey = this.signKey;
       if (signKey === void 0) throw new AgentError("locked", "the signer was locked before it signed: nothing changed");
       const at = this.o.now();
@@ -125294,9 +125304,13 @@ var AgentServer = class {
     socket.setEncoding("utf8");
     let buffered = "";
     let queue = Promise.resolve();
-    const state2 = {};
+    const closed = new AbortController();
+    const state2 = { gone: closed.signal };
     socket.on("error", () => void 0);
-    socket.on("close", () => this.sockets.delete(socket));
+    socket.on("close", () => {
+      this.sockets.delete(socket);
+      closed.abort();
+    });
     socket.on("data", (chunk) => {
       buffered += chunk;
       if (buffered.length > MAX_LINE) {
@@ -125333,7 +125347,7 @@ var AgentServer = class {
       const req = JSON.parse(text2);
       i6 = req.i;
       op2 = String(req.op);
-      return { op: op2, answer: { i: i6, r: await this.o.signer.handle(op2, req.a ?? {}) } };
+      return { op: op2, answer: { i: i6, r: await this.o.signer.handle(op2, req.a ?? {}, state2.gone) } };
     } catch (error64) {
       return { op: op2, answer: { i: i6, e: { code: error64 instanceof AgentError ? error64.code : "bad_request", message: error64.message } } };
     }

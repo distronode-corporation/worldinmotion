@@ -92,7 +92,9 @@ minutes; a UI gives them that long), and fail with the signer's reason when it i
 running, has no way to ask, or the person declines. Only what the signer signed is decided: a
 resume releases the breaker holds it showed (SECURITY-MODEL section 7.2). While one waits for the
 person, the events process keeps answering other requests; the decision is applied in the next
-free turn. A resume of more than 1000 holds is asked in parts of at most 1000, each confirmed.
+free turn. When the events process stops, an ask still open is dropped and nothing is decided (the
+signer signs nothing for an asker that went away). An approve or refuse of an id no session holds
+answers `not_found` without asking the signer. A resume of more than 1000 holds is asked in parts of at most 1000, each confirmed.
 
 Unknown `op`, bad `args` and unknown `v` answer `ok: false` with code `input`. A send the secrets
 check refuses answers code `refused`. There is no `allow_secret` here: skipping that check stays a
