@@ -50,6 +50,8 @@ function bounded(p: Pause, now: number): Pause {
 
 export class Breaker {
   private readonly deliveries = new Map<string, number[]>();
+  /** Idle notices that started a turn, per watched device: their own per-peer count, and part of the total. */
+  private readonly wakes = new Map<string, number[]>();
   private readonly talk = new Map<string, Event[]>();
   private readonly paused = new Map<string, Pause>();
   /** When the client last released each trusted peer by itself. */
@@ -92,15 +94,25 @@ export class Breaker {
     return n;
   }
 
-  /** Which rule a delivery from `peer` would trip, with what it counted, or undefined. */
-  private trips(peer: string, limits: Limits, now: number): { rule: TripRule; count: number; limit: number; minutes: number } | undefined {
-    const since = now - HOUR;
-    const mine = this.recent(this.deliveries.get(peer), since).length;
-    if (mine >= limits.perPeerPerHour) return { rule: "peer", count: mine + 1, limit: limits.perPeerPerHour, minutes: 60 };
+  /** Every automatic delivery and notice wake since `since`, from all peers. */
+  private total(since: number): number {
     let total = 0;
-    for (const list of this.deliveries.values()) total += this.recent(list, since).length;
+    for (const list of [...this.deliveries.values(), ...this.wakes.values()]) total += this.recent(list, since).length;
+    return total;
+  }
+
+  /**
+   * Which rule a delivery from `peer` would trip, with what it counted, or undefined. A message
+   * reads its peer's messages and the ping-pong rule; a notice wake (`wake`) its peer's wakes only.
+   */
+  private trips(peer: string, limits: Limits, now: number, wake = false): { rule: TripRule; count: number; limit: number; minutes: number } | undefined {
+    const counted = wake ? this.wakes : this.deliveries;
+    const since = now - HOUR;
+    const mine = this.recent(counted.get(peer), since).length;
+    if (mine >= limits.perPeerPerHour) return { rule: "peer", count: mine + 1, limit: limits.perPeerPerHour, minutes: 60 };
+    const total = this.total(since);
     if (total >= limits.totalPerHour) return { rule: "total", count: total + 1, limit: limits.totalPerHour, minutes: 60 };
-    const n = limits.pingPong ? this.exchanges(peer) : 0;
+    const n = limits.pingPong && !wake ? this.exchanges(peer) : 0;
     if (n > limits.pingPongExchanges) return { rule: "pingpong", count: n, limit: limits.pingPongExchanges, minutes: 10 };
     return undefined;
   }
@@ -125,37 +137,54 @@ export class Breaker {
     this.push(peer, { at: now, dir: "in", short: length < SHORT });
     const limits = this.limits();
     const tripped = this.trips(peer, limits, now);
-    if (tripped !== undefined) {
-      const last = this.released.get(peer);
-      const auto = trusted && limits.cooldownMinutes !== undefined && (last === undefined || now - last >= HOUR);
-      const until = now + (auto ? limits.cooldownMinutes! * MINUTE : HOUR);
-      const pause: Pause = { peer, ...tripped, at: now, until, auto };
-      this.paused.set(peer, pause);
-      return { ok: false, reason: tripped.rule, newly: true, pause };
-    }
+    if (tripped !== undefined) return this.trip(peer, tripped, limits, trusted, now);
     this.count(peer, 1);
     return { ok: true };
   }
 
+  /** Pauses `peer` for what tripped: a cool-down the client ends by itself for a trusted peer released by itself not within the hour, else an hour for the person. */
+  private trip(peer: string, tripped: { rule: TripRule; count: number; limit: number; minutes: number }, limits: Limits, trusted: boolean, now: number): Admission {
+    const last = this.released.get(peer);
+    const auto = trusted && limits.cooldownMinutes !== undefined && (last === undefined || now - last >= HOUR);
+    const until = now + (auto ? limits.cooldownMinutes! * MINUTE : HOUR);
+    const pause: Pause = { peer, ...tripped, at: now, until, auto };
+    this.paused.set(peer, pause);
+    return { ok: false, reason: tripped.rule, newly: true, pause };
+  }
+
   /**
-   * Decides whether an idle notice about `peer`'s session may start a turn (SPEC section 8), and
-   * counts it as one automatic delivery from `peer` when it may. Not while `peer` is paused (a
-   * cool-down that ended but was not released yet still holds), nor once the per-peer or total
-   * limit is reached. A notice is relay-authored and one per arm, so it never trips a pause and
-   * is not part of the ping-pong count: a notice that may not wake waits in the inbox instead.
+   * Decides whether an idle notice about `peer`'s session may start a turn (SPEC section 8), as
+   * `admit` decides a message: not while `peer` is paused (a cool-down that ended but was not
+   * released yet still holds), and a notice past the per-peer limit (counted over notice wakes
+   * alone, so notices never use up a peer's messages) or the total (messages and notice wakes
+   * together) trips a pause, which the person is told of. Not part of the ping-pong count: a
+   * notice carries no text a peer wrote. Counted as a wake when admitted. Only a device the person
+   * trusts gets here, so a trip is its cool-down.
    */
-  admitWake(peer: string): boolean {
+  admitWake(peer: string): Admission {
     const now = this.now();
     const held = this.paused.get(peer);
-    if (held !== undefined && (bounded(held, now).until > now || held.auto)) return false;
+    const current = held === undefined ? undefined : bounded(held, now);
+    if (current !== undefined && (current.until > now || current.auto)) {
+      this.paused.set(peer, current);
+      return { ok: false, reason: "paused", newly: false, pause: current };
+    }
+    if (current !== undefined) this.paused.delete(peer);
     const limits = this.limits();
-    const since = now - HOUR;
-    const mine = this.recent(this.deliveries.get(peer), since).length;
-    let total = 0;
-    for (const list of this.deliveries.values()) total += this.recent(list, since).length;
-    if (mine >= limits.perPeerPerHour || total >= limits.totalPerHour) return false;
-    this.count(peer, 1);
-    return true;
+    const tripped = this.trips(peer, limits, now, true);
+    if (tripped !== undefined) return this.trip(peer, tripped, limits, true, now);
+    this.wakes.set(peer, [...this.recent(this.wakes.get(peer), now - HOUR), now]);
+    return { ok: true };
+  }
+
+  /** The notice wakes of the last hour, by peer, for a later process of the session. */
+  wakeCounts(): Record<string, number[]> {
+    return this.hourOf(this.wakes);
+  }
+
+  /** Takes back the notice wakes an earlier process of the session counted in the last hour. */
+  restoreWakes(peer: string, times: readonly number[]): void {
+    this.restoreInto(this.wakes, peer, times);
   }
 
   /**
@@ -164,27 +193,32 @@ export class Breaker {
    */
   allowance(): number {
     const limits = this.limits();
-    const since = this.now() - HOUR;
-    let total = 0;
-    for (const list of this.deliveries.values()) total += this.recent(list, since).length;
-    return Math.max(0, Math.min(limits.perPeerPerHour, limits.totalPerHour - total));
+    return Math.max(0, Math.min(limits.perPeerPerHour, limits.totalPerHour - this.total(this.now() - HOUR)));
   }
 
   /** The deliveries of the last hour, by peer, for a later process of the session (the hour's counts hold across a restart). */
   counts(): Record<string, number[]> {
+    return this.hourOf(this.deliveries);
+  }
+
+  /** Takes back the deliveries an earlier process of the session counted in the last hour (none in the future). */
+  restoreCounts(peer: string, times: readonly number[]): void {
+    this.restoreInto(this.deliveries, peer, times);
+  }
+
+  private hourOf(map: ReadonlyMap<string, number[]>): Record<string, number[]> {
     const since = this.now() - HOUR;
     const out: Record<string, number[]> = {};
-    for (const [peer, list] of this.deliveries) {
+    for (const [peer, list] of map) {
       const recent = this.recent(list, since);
       if (recent.length > 0) out[peer] = recent;
     }
     return out;
   }
 
-  /** Takes back the deliveries an earlier process of the session counted in the last hour (none in the future). */
-  restoreCounts(peer: string, times: readonly number[]): void {
+  private restoreInto(map: Map<string, number[]>, peer: string, times: readonly number[]): void {
     const now = this.now();
-    this.deliveries.set(peer, this.recent(times.map((t) => Math.min(t, now)), now - HOUR));
+    map.set(peer, this.recent(times.map((t) => Math.min(t, now)), now - HOUR));
   }
 
   /** Counts `n` deliveries from `peer` now: what a cool-down's release delivers counts as delivered. */
@@ -252,6 +286,7 @@ export class Breaker {
   resume(peer: string): void {
     this.paused.delete(peer);
     this.deliveries.delete(peer);
+    this.wakes.delete(peer);
     this.talk.delete(peer);
     this.released.delete(peer);
   }

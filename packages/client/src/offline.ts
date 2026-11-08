@@ -117,6 +117,7 @@ async function resumeOffline(files: SessionFiles, device: string, config: MeshCo
       released: Object.fromEntries(Object.entries(file.released).filter(([id]) => !ids.has(id))),
       lifts: [...new Set([...file.lifts, ...resumed.flatMap((p) => p.told)])],
       counts: Object.fromEntries(Object.entries(file.counts).filter(([id]) => !ids.has(id))),
+      wakes: Object.fromEntries(Object.entries(file.wakes).filter(([id]) => !ids.has(id))),
     },
     env,
   );

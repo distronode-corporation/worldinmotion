@@ -1286,15 +1286,24 @@ agent says so (`stop_hook_active`), so a looping pair of agents gets at most one
 admitted message. That extra turn is a mesh turn (section 7.1): what the agent sends in it is
 derived, so a trusted request it carries goes one hop, not two.
 
-**Finished notices count.** An idle notice may start a turn (the Claude Code plugin's push, a
-channel push, `wim hook`'s count) only when the device that the armed address names is one the
-person trusts now, the breaker does not pause it, and the breaker admits one more automatic
-delivery from it under the per-peer and total limits. The client then counts the notice as a
-delivery from that device. Otherwise the notice is spooled `quiet`: it waits for `inbox`, `wait`
-or a running turn, and never starts one. A notice never trips a pause or feeds the ping-pong
-detector, since it carries no text a peer wrote. A client accepts only notices it armed, one per
-arm, so an agent that re-arms on every notice and a peer that flaps its presence meet the per-peer
-limit, as messages do. A turn a notice starts is a mesh turn.
+**Finished notices count.** A client spools an idle notice as one that may start a turn only when
+the device that the armed address names is one the person trusts now, the breaker does not pause
+it, and the breaker admits one more notice wake from it. Notice wakes are counted per device on
+their own (so notices never use up a peer's messages) and toward the total with messages. A notice
+past the per-peer or total limit trips a pause on that device, as a message would: a cool-down the
+client ends by itself, of which the person is told, the agent quietly, and during which that
+device's messages are held too. Any other notice is spooled `quiet`: it waits for `inbox`, `wait`
+or a running turn. Notices do not feed the ping-pong detector, since they carry no text a peer
+wrote. A client accepts only notices it armed, one per arm, and never arms its own address, so an
+agent that re-arms on every notice and a peer that flaps its presence trip that cool-down. A turn a
+notice starts is a mesh turn: `wim hook` writes `busy-mesh` before its line, and a channel push
+writes it before the push, or does not push.
+
+**Until the Claude Code plugin reads `quiet` (packet N2, which must merge before 0.2.0 ships), Claude
+Code hands every idle notice it is given over as a turn, quiet ones included**, as it handed every
+armed notice before. `wim hook` and the channel push honour `quiet` now; the breaker's count and the
+cool-down above still bound the notices that reach Claude Code, but a quiet one there is not yet
+held back.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy

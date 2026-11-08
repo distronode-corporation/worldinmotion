@@ -119,11 +119,16 @@ describe("F3: an offline `wim held resume` erases other peers' ended cool-downs 
     for (const t of ["1", "2"]) await a.send("b@two", t);
     await until(async () => (await pausedByCount(a)) === 1);
     await b.stop();
+    // Notice wakes counted for a's device go with the resume; another device's stay.
+    const file = await readBreakerFile(b.files.breakerPath);
+    const now = Date.now();
+    await savePauses(b.files.breakerPath, { ...file, wakes: { [devices[0]!.device.id]: [now], other: [now] } }, FS);
     const t = term(devices[1]!.root, relay);
     t.answers.push("y");
     expect(await run(t, "held", "resume", "a@one")).toBe(0);
     // No process runs b to send it: the lift waits in breaker.json for the session's next process.
     expect((await readBreakerFile(b.files.breakerPath)).lifts).toEqual(["a@one"]);
+    expect((await readBreakerFile(b.files.breakerPath)).wakes).toEqual({ other: [now] });
     const again = await session(devices[1]!, mesh, relay, { name: "b", sessionKey: "key:b" });
     await until(async () => (await pausedByCount(a)) === 0);
     // The lift is sent before breaker.json is written without it, so the sender can hear it first.
@@ -480,7 +485,7 @@ describe("pauses.ts on disk", () => {
   it("proof: breaker.json rows read as written; the bound applies when a session takes them back (F5)", async () => {
     const dir = await scratch("rv76");
     const row: PauseRow = { from: "a@one", told: [], peer: "d", rule: "peer", count: 2, limit: 1, minutes: 60, at: 0, until: Number.MAX_SAFE_INTEGER, auto: true };
-    await savePauses(join(dir, "breaker.json"), { pauses: [row], released: {}, lifts: [], counts: {} }, FS);
+    await savePauses(join(dir, "breaker.json"), { pauses: [row], released: {}, lifts: [], counts: {}, wakes: {} }, FS);
     expect(await readPauses(join(dir, "breaker.json"), Date.now())).toEqual([row]);
   });
 });

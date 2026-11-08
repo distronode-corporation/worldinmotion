@@ -125,6 +125,8 @@ describe("wim mcp", () => {
       watch_note: "Idle notices are for name@device only, so none is armed for #room.",
     });
     expect((await call("send", { to: "w1@two", text: "", notify_when_idle: true })).structuredContent).toEqual({ watching: [{ to: "w1@two", until: expect.any(String) }] });
+    // A session never watches itself.
+    expect((await call("send", { to: "writer@one", notify_when_idle: true })).structuredContent).toEqual({ watching: [], watch_note: "A session cannot watch itself, so none is armed for its own address." });
     // No text and no notify_when_idle: nothing to do.
     const bare = await call("send", { to: "peer@two" });
     expect(bare.isError).toBe(true);
@@ -316,7 +318,35 @@ describe("wim mcp", () => {
     expect(pushed[1]!.params).toMatchObject({ meta: { from: "peer@two", kind: "msg" } });
     expect(String(pushed[1]!.params!["content"])).toContain("pushed");
     await until(async () => (await server.current!.spool.unread()).length === 0);
+    // A pushed item starts a mesh turn: busy-mesh is written before the push, so a send is derived.
+    expect((await fs.readFile(server.current!.files.presencePath, "utf8")).trim()).toBe("busy-mesh");
+    // When busy-mesh cannot be written, nothing is pushed: the item waits for inbox.
+    const presence = server.current!.files.presencePath;
+    await fs.rm(presence);
+    await fs.mkdir(presence);
+    await peer.send("agent@one", "not pushed");
+    await until(async () => (await server.current!.spool.unread()).some((i) => i.rendered.includes("not pushed")));
+    await sleep(50);
+    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(2);
+    await fs.rmdir(presence);
   }, 20_000);
+
+  it("pushes nothing waiting at start when busy-mesh cannot be written: it all waits for inbox", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const pre = await MeshSession.open({ ...sessionOpts(devices[0]!, mesh, relay, { name: "agent" }), sessionKey: "key:chan2" });
+    await pre.spool.write({ kind: "msg", from: "x@two", device: devices[1]!.device.id, id: "01J00000000000000000000001", at: 1, rendered: "first" });
+    await pre.spool.write({ kind: "msg", from: "x@two", device: devices[1]!.device.id, id: "01J00000000000000000000002", at: 1, rendered: "second" });
+    await fs.rm(pre.files.presencePath, { force: true });
+    await fs.mkdir(pre.files.presencePath);
+    await pre.stop();
+    const { server, notes } = await connect({ device: devices[0]!, mesh, relay, name: "agent", channel: true, sessionKey: "chan2" });
+    await server.start();
+    await server.current!.ready(3000);
+    await sleep(50);
+    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toEqual([]);
+    expect((await server.current!.spool.unread()).map((i) => i.rendered)).toEqual(["first", "second"]);
+  });
 
   it("keeps a fresh session when the remembered one is live in another process", async () => {
     const relay = new RelayHarness();

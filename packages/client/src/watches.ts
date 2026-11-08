@@ -42,10 +42,21 @@ export class Watches {
     this.now = now;
   }
 
-  /** Every watch in the file, lapsed ones too. A missing, damaged or unreadable file reads as none, the safe side. */
-  private async all(): Promise<Watch[]> {
-    const raw = (await readJson(this.path).catch(() => undefined)) as { watches?: unknown } | null | undefined;
-    return Array.isArray(raw?.watches) ? raw.watches.filter(isWatch) : [];
+  /**
+   * Every watch in the file, lapsed ones too, and whether the file is damaged: there but unreadable,
+   * not JSON, or holding anything but watches. A damaged file reads as no watches, the safe side
+   * (no notice is taken), and is never written over: an arm is refused until the person fixes it.
+   */
+  private async read(): Promise<{ watches: Watch[]; damaged: boolean }> {
+    let raw: unknown;
+    try {
+      raw = await readJson(this.path);
+    } catch {
+      return { watches: [], damaged: true };
+    }
+    if (raw === undefined) return { watches: [], damaged: false };
+    const list = (raw as { watches?: unknown } | null)?.watches;
+    return Array.isArray(list) && list.every(isWatch) ? { watches: list, damaged: false } : { watches: [], damaged: true };
   }
 
   /**
@@ -62,7 +73,7 @@ export class Watches {
   /** The watches that have not lapsed. */
   async list(): Promise<Watch[]> {
     const now = this.now();
-    return (await this.all()).filter((w) => w.until > now);
+    return (await this.read()).watches.filter((w) => w.until > now);
   }
 
   /**
@@ -72,7 +83,8 @@ export class Watches {
    * refused here, as the relay would refuse it.
    */
   arm(arms: ReadonlyArray<{ of: string; sid?: string }>): Promise<Armed> {
-    return this.change((watches) => {
+    return this.change((watches, damaged) => {
+      if (damaged) throw new Error(`${this.path} is damaged; it is left as it is (remove it to arm again)`);
       const at = this.now();
       const watching: Watch[] = [];
       const refused: string[] = [];
@@ -128,9 +140,10 @@ export class Watches {
    * Reads the watches, changes them and writes them back atomically (when `f` gives a new list),
    * after every change asked for before it.
    */
-  private change<T>(f: (watches: Watch[]) => { watches?: Watch[]; out: T }): Promise<T> {
+  private change<T>(f: (watches: Watch[], damaged: boolean) => { watches?: Watch[]; out: T }): Promise<T> {
     const run = this.changing.then(async () => {
-      const { watches, out } = f(await this.all());
+      const read = await this.read();
+      const { watches, out } = f(read.watches, read.damaged);
       if (watches !== undefined) await writeJson(this.path, { v: 1, watches }, this.env);
       return out;
     });

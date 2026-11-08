@@ -89362,6 +89362,8 @@ function bounded(p3, now) {
 }
 var Breaker = class {
   deliveries = /* @__PURE__ */ new Map();
+  /** Idle notices that started a turn, per watched device: their own per-peer count, and part of the total. */
+  wakes = /* @__PURE__ */ new Map();
   talk = /* @__PURE__ */ new Map();
   paused = /* @__PURE__ */ new Map();
   /** When the client last released each trusted peer by itself. */
@@ -89396,15 +89398,24 @@ var Breaker = class {
     }
     return n3;
   }
-  /** Which rule a delivery from `peer` would trip, with what it counted, or undefined. */
-  trips(peer, limits, now) {
-    const since = now - HOUR2;
-    const mine = this.recent(this.deliveries.get(peer), since).length;
-    if (mine >= limits.perPeerPerHour) return { rule: "peer", count: mine + 1, limit: limits.perPeerPerHour, minutes: 60 };
+  /** Every automatic delivery and notice wake since `since`, from all peers. */
+  total(since) {
     let total = 0;
-    for (const list3 of this.deliveries.values()) total += this.recent(list3, since).length;
+    for (const list3 of [...this.deliveries.values(), ...this.wakes.values()]) total += this.recent(list3, since).length;
+    return total;
+  }
+  /**
+   * Which rule a delivery from `peer` would trip, with what it counted, or undefined. A message
+   * reads its peer's messages and the ping-pong rule; a notice wake (`wake`) its peer's wakes only.
+   */
+  trips(peer, limits, now, wake = false) {
+    const counted = wake ? this.wakes : this.deliveries;
+    const since = now - HOUR2;
+    const mine = this.recent(counted.get(peer), since).length;
+    if (mine >= limits.perPeerPerHour) return { rule: "peer", count: mine + 1, limit: limits.perPeerPerHour, minutes: 60 };
+    const total = this.total(since);
     if (total >= limits.totalPerHour) return { rule: "total", count: total + 1, limit: limits.totalPerHour, minutes: 60 };
-    const n3 = limits.pingPong ? this.exchanges(peer) : 0;
+    const n3 = limits.pingPong && !wake ? this.exchanges(peer) : 0;
     if (n3 > limits.pingPongExchanges) return { rule: "pingpong", count: n3, limit: limits.pingPongExchanges, minutes: 10 };
     return void 0;
   }
@@ -89427,36 +89438,50 @@ var Breaker = class {
     this.push(peer, { at: now, dir: "in", short: length2 < SHORT });
     const limits = this.limits();
     const tripped = this.trips(peer, limits, now);
-    if (tripped !== void 0) {
-      const last = this.released.get(peer);
-      const auto = trusted && limits.cooldownMinutes !== void 0 && (last === void 0 || now - last >= HOUR2);
-      const until = now + (auto ? limits.cooldownMinutes * MINUTE2 : HOUR2);
-      const pause = { peer, ...tripped, at: now, until, auto };
-      this.paused.set(peer, pause);
-      return { ok: false, reason: tripped.rule, newly: true, pause };
-    }
+    if (tripped !== void 0) return this.trip(peer, tripped, limits, trusted, now);
     this.count(peer, 1);
     return { ok: true };
   }
+  /** Pauses `peer` for what tripped: a cool-down the client ends by itself for a trusted peer released by itself not within the hour, else an hour for the person. */
+  trip(peer, tripped, limits, trusted, now) {
+    const last = this.released.get(peer);
+    const auto = trusted && limits.cooldownMinutes !== void 0 && (last === void 0 || now - last >= HOUR2);
+    const until = now + (auto ? limits.cooldownMinutes * MINUTE2 : HOUR2);
+    const pause = { peer, ...tripped, at: now, until, auto };
+    this.paused.set(peer, pause);
+    return { ok: false, reason: tripped.rule, newly: true, pause };
+  }
   /**
-   * Decides whether an idle notice about `peer`'s session may start a turn (SPEC section 8), and
-   * counts it as one automatic delivery from `peer` when it may. Not while `peer` is paused (a
-   * cool-down that ended but was not released yet still holds), nor once the per-peer or total
-   * limit is reached. A notice is relay-authored and one per arm, so it never trips a pause and
-   * is not part of the ping-pong count: a notice that may not wake waits in the inbox instead.
+   * Decides whether an idle notice about `peer`'s session may start a turn (SPEC section 8), as
+   * `admit` decides a message: not while `peer` is paused (a cool-down that ended but was not
+   * released yet still holds), and a notice past the per-peer limit (counted over notice wakes
+   * alone, so notices never use up a peer's messages) or the total (messages and notice wakes
+   * together) trips a pause, which the person is told of. Not part of the ping-pong count: a
+   * notice carries no text a peer wrote. Counted as a wake when admitted. Only a device the person
+   * trusts gets here, so a trip is its cool-down.
    */
   admitWake(peer) {
     const now = this.now();
     const held2 = this.paused.get(peer);
-    if (held2 !== void 0 && (bounded(held2, now).until > now || held2.auto)) return false;
+    const current = held2 === void 0 ? void 0 : bounded(held2, now);
+    if (current !== void 0 && (current.until > now || current.auto)) {
+      this.paused.set(peer, current);
+      return { ok: false, reason: "paused", newly: false, pause: current };
+    }
+    if (current !== void 0) this.paused.delete(peer);
     const limits = this.limits();
-    const since = now - HOUR2;
-    const mine = this.recent(this.deliveries.get(peer), since).length;
-    let total = 0;
-    for (const list3 of this.deliveries.values()) total += this.recent(list3, since).length;
-    if (mine >= limits.perPeerPerHour || total >= limits.totalPerHour) return false;
-    this.count(peer, 1);
-    return true;
+    const tripped = this.trips(peer, limits, now, true);
+    if (tripped !== void 0) return this.trip(peer, tripped, limits, true, now);
+    this.wakes.set(peer, [...this.recent(this.wakes.get(peer), now - HOUR2), now]);
+    return { ok: true };
+  }
+  /** The notice wakes of the last hour, by peer, for a later process of the session. */
+  wakeCounts() {
+    return this.hourOf(this.wakes);
+  }
+  /** Takes back the notice wakes an earlier process of the session counted in the last hour. */
+  restoreWakes(peer, times) {
+    this.restoreInto(this.wakes, peer, times);
   }
   /**
    * How many a cool-down's release may deliver now: the per-peer limit, and no more than is left
@@ -89464,25 +89489,28 @@ var Breaker = class {
    */
   allowance() {
     const limits = this.limits();
-    const since = this.now() - HOUR2;
-    let total = 0;
-    for (const list3 of this.deliveries.values()) total += this.recent(list3, since).length;
-    return Math.max(0, Math.min(limits.perPeerPerHour, limits.totalPerHour - total));
+    return Math.max(0, Math.min(limits.perPeerPerHour, limits.totalPerHour - this.total(this.now() - HOUR2)));
   }
   /** The deliveries of the last hour, by peer, for a later process of the session (the hour's counts hold across a restart). */
   counts() {
+    return this.hourOf(this.deliveries);
+  }
+  /** Takes back the deliveries an earlier process of the session counted in the last hour (none in the future). */
+  restoreCounts(peer, times) {
+    this.restoreInto(this.deliveries, peer, times);
+  }
+  hourOf(map4) {
     const since = this.now() - HOUR2;
     const out = {};
-    for (const [peer, list3] of this.deliveries) {
+    for (const [peer, list3] of map4) {
       const recent = this.recent(list3, since);
       if (recent.length > 0) out[peer] = recent;
     }
     return out;
   }
-  /** Takes back the deliveries an earlier process of the session counted in the last hour (none in the future). */
-  restoreCounts(peer, times) {
+  restoreInto(map4, peer, times) {
     const now = this.now();
-    this.deliveries.set(peer, this.recent(times.map((t2) => Math.min(t2, now)), now - HOUR2));
+    map4.set(peer, this.recent(times.map((t2) => Math.min(t2, now)), now - HOUR2));
   }
   /** Counts `n` deliveries from `peer` now: what a cool-down's release delivers counts as delivered. */
   count(peer, n3) {
@@ -89541,6 +89569,7 @@ var Breaker = class {
   resume(peer) {
     this.paused.delete(peer);
     this.deliveries.delete(peer);
+    this.wakes.delete(peer);
     this.talk.delete(peer);
     this.released.delete(peer);
   }
@@ -91049,12 +91078,14 @@ async function readBreakerFile(path2) {
     Object.entries(typeof raw?.released === "object" && raw.released !== null ? raw.released : {}).filter(([, at]) => Number.isSafeInteger(at))
   );
   const lifts = Array.isArray(raw?.lifts) ? raw.lifts.filter((t2) => typeof t2 === "string") : [];
-  const counts = Object.fromEntries(
-    Object.entries(typeof raw?.counts === "object" && raw.counts !== null ? raw.counts : {}).flatMap(
+  return { pauses, released, lifts, counts: timesOf(raw?.counts), wakes: timesOf(raw?.wakes) };
+}
+function timesOf(raw) {
+  return Object.fromEntries(
+    Object.entries(typeof raw === "object" && raw !== null ? raw : {}).flatMap(
       ([peer, times]) => Array.isArray(times) ? [[peer, times.filter((t2) => Number.isSafeInteger(t2))]] : []
     )
   );
-  return { pauses, released, lifts, counts };
 }
 async function listAllPauses(mesh, env4, now) {
   const out = [];
@@ -91366,7 +91397,8 @@ async function resumeOffline(files, device, config2, env4, now) {
       pauses: file2.pauses.filter((p3) => !resumed.includes(p3)),
       released: Object.fromEntries(Object.entries(file2.released).filter(([id2]) => !ids.has(id2))),
       lifts: [.../* @__PURE__ */ new Set([...file2.lifts, ...resumed.flatMap((p3) => p3.told)])],
-      counts: Object.fromEntries(Object.entries(file2.counts).filter(([id2]) => !ids.has(id2)))
+      counts: Object.fromEntries(Object.entries(file2.counts).filter(([id2]) => !ids.has(id2))),
+      wakes: Object.fromEntries(Object.entries(file2.wakes).filter(([id2]) => !ids.has(id2)))
     },
     env4
   );
@@ -92179,10 +92211,21 @@ var Watches = class {
     this.env = env4;
     this.now = now;
   }
-  /** Every watch in the file, lapsed ones too. A missing, damaged or unreadable file reads as none, the safe side. */
-  async all() {
-    const raw = await readJson(this.path).catch(() => void 0);
-    return Array.isArray(raw?.watches) ? raw.watches.filter(isWatch) : [];
+  /**
+   * Every watch in the file, lapsed ones too, and whether the file is damaged: there but unreadable,
+   * not JSON, or holding anything but watches. A damaged file reads as no watches, the safe side
+   * (no notice is taken), and is never written over: an arm is refused until the person fixes it.
+   */
+  async read() {
+    let raw;
+    try {
+      raw = await readJson(this.path);
+    } catch {
+      return { watches: [], damaged: true };
+    }
+    if (raw === void 0) return { watches: [], damaged: false };
+    const list3 = raw?.watches;
+    return Array.isArray(list3) && list3.every(isWatch) ? { watches: list3, damaged: false } : { watches: [], damaged: true };
   }
   /**
    * The watches that have not lapsed, read after every change asked for before it: a notice
@@ -92197,7 +92240,7 @@ var Watches = class {
   /** The watches that have not lapsed. */
   async list() {
     const now = this.now();
-    return (await this.all()).filter((w) => w.until > now);
+    return (await this.read()).watches.filter((w) => w.until > now);
   }
   /**
    * Records an arm for each address: a renewed watch in place of any for the same address or the
@@ -92206,7 +92249,8 @@ var Watches = class {
    * refused here, as the relay would refuse it.
    */
   arm(arms) {
-    return this.change((watches) => {
+    return this.change((watches, damaged) => {
+      if (damaged) throw new Error(`${this.path} is damaged; it is left as it is (remove it to arm again)`);
       const at = this.now();
       const watching = [];
       const refused2 = [];
@@ -92259,7 +92303,8 @@ var Watches = class {
    */
   change(f7) {
     const run = this.changing.then(async () => {
-      const { watches, out } = f7(await this.all());
+      const read = await this.read();
+      const { watches, out } = f7(read.watches, read.damaged);
       if (watches !== void 0) await writeJson(this.path, { v: 1, watches }, this.env);
       return out;
     });
@@ -92896,7 +92941,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   unsentArms = /* @__PURE__ */ new Set();
   armsResent = false;
-  /** Arms sent and not yet answered, with when: a relay refusal that names no address belongs to the only one (armRefused). */
+  /**
+   * Arms sent and not yet answered, with when: a relay refusal is placed on one (armRefused). One
+   * that an unplaced refusal may have been for is `unsure`: it is never named by elimination.
+   */
   armsInFlight = /* @__PURE__ */ new Map();
   /** When watches are next checked for ones that lapsed with no notice. */
   lapseDue = 0;
@@ -93176,7 +93224,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     void this.sendCard(link, true);
     this.ciSent = void 0;
     void this.sendCiRules(link);
-    void this.watches.open().then((open3) => this.resendArms(open3, link));
+    void this.resendArms(link);
     this.retryParkedLater();
   }
   /**
@@ -93184,12 +93232,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * at a process's first `ready` every open watch, so an arm is not lost to a connection that
    * dropped. A re-sent arm the relay already holds is only renewed there.
    */
-  resendArms(open3, link) {
+  async resendArms(link) {
     const all = !this.armsResent;
     this.armsResent = true;
     const unsent = new Set(this.unsentArms);
     this.unsentArms.clear();
-    for (const { of } of open3) if (all || unsent.has(of)) this.sendArm(of, link);
+    for (const { of } of await this.watches.open()) {
+      if (!all && !unsent.has(of)) continue;
+      if ((await this.watches.open()).some((w) => w.of === of)) this.sendArm(of, link);
+    }
   }
   /** Sends one arm, or keeps it for the next `ready` when there is no connection. */
   sendArm(of, link = this.link) {
@@ -93197,9 +93248,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       if (link === void 0) throw new Error("offline");
       link.send({ t: "notify_idle", of });
       this.unsentArms.delete(of);
-      const now = this.now();
-      for (const [a5, at] of this.armsInFlight) if (now - at > this.answerMs) this.armsInFlight.delete(a5);
-      this.armsInFlight.set(of, now);
+      this.pruneInFlight();
+      this.armsInFlight.set(of, { at: this.now(), unsure: false });
     } catch {
       this.unsentArms.add(of);
     }
@@ -93293,7 +93343,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         void this.idleNotice(f7.of).catch((e6) => this.log(`wim: notice: ${e6.message}`));
         return;
       case "error":
-        if (f7.ref === "notify_idle") void this.armRefused(f7).catch((e6) => this.log(`wim: watches: ${e6.message}`));
+        if (f7.ref === "notify_idle") this.inbound = this.inbound.then(() => this.armRefused(f7)).catch((e6) => this.log(`wim: watches: ${e6.message}`));
         return;
       case "join.request":
         this.emit("join", f7.join);
@@ -93916,47 +93966,71 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.armsInFlight.delete(watch2.of);
     this.unsentArms.delete(watch2.of);
     const device = this.roster.devices.find((d5) => d5.name === watch2.of.slice(watch2.of.indexOf("@") + 1));
-    const wakes = device !== void 0 && await this.mayWake(device.id);
-    const renamed = of === watch2.of ? "" : ` It now goes by ${of}.`;
-    await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).${renamed}`, device?.id, !wakes);
+    const wakes = device !== void 0 && await this.mayWake(device.id, watch2.of);
+    await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).`, device?.id, !wakes);
   }
   /**
-   * Whether an idle notice about `device` may start a turn (decision D2): the person trusts that
-   * device now, the loop breaker does not pause it, and the breaker admits one more automatic
-   * delivery from it, which it then counts. A policy that cannot be read is a no.
+   * Whether an idle notice about `device` (the session `from`) may start a turn (decision D2):
+   * the person trusts that device now, the loop breaker does not pause it, and the breaker admits
+   * one more notice wake from it, which it then counts. A notice past a limit trips a pause on that
+   * device, as a message would: the person is told, and the agent quietly. A policy that cannot be
+   * read is a no.
    */
-  async mayWake(device) {
+  async mayWake(device, from) {
     const config2 = await this.o.mesh.loadConfig().catch(() => void 0);
-    if (config2 === void 0) return false;
+    if (config2 === void 0 || !isTrusted(config2, device)) return false;
     this.config = config2;
-    if (!isTrusted(config2, device) || !this.breaker.admitWake(device)) return false;
+    const admitted = this.breaker.admitWake(device);
     this.countsChanged = true;
-    return true;
+    if (admitted.ok) return true;
+    if (!admitted.newly) return false;
+    const pause = admitted.pause;
+    this.pauseFrom.set(pause.peer, { from, told: /* @__PURE__ */ new Set(), announced: true });
+    await this.savePauses();
+    this.emit("breaker", { peer: from, state: "tripped", reason: pause.rule, ...breakerFields(pause) });
+    await this.notice(from, pauseNotice(from, pause), void 0, void 0, true);
+    await this.watchNotice(from, pauseNoticeForAgent(from, pause), void 0, true);
+    await this.o.notifier?.notify(`worldinmotion: paused ${from}: its idle notices reached the loop breaker's limit`);
+    return false;
   }
   /** A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a turn. */
   async watchNotice(from, line, watched, quiet2) {
     const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line) };
     await this.deliver({ ...item, ...watched === void 0 ? {} : { watched }, ...quiet2 ? { quiet: true } : {} }, void 0);
   }
+  /** Forgets the arms in flight for longer than the answer time: a refusal now is not theirs. */
+  pruneInFlight() {
+    const now = this.now();
+    for (const [of, a5] of this.armsInFlight) if (now - a5.at > this.answerMs) this.armsInFlight.delete(of);
+  }
   /**
-   * The relay refused an arm (`error` with ref `notify_idle`). It names the address only on a relay
-   * that sends `of` (and then only one this session armed counts), or when exactly one arm was
-   * sent and not yet answered: that watch is closed and the agent told, quietly. Otherwise the
-   * agent is told a refusal came, and the watches stay until they lapse. The relay's text is never
-   * passed on: the code is read against the ones SPEC section 8 names.
+   * The relay refused an arm (`error` with ref `notify_idle`), on the inbound queue. A refusal is
+   * taken only for an arm in flight or, when the relay sends `of`, for an open watch, and each uses
+   * one up, so there are never more refusal notices than arms and watches; any other is dropped and
+   * logged. It names an address when the relay's `of` is such an arm or watch, or when exactly one
+   * arm is in flight and no earlier refusal could have been for it: that watch is closed and the
+   * agent told, quietly.
+   * Otherwise the oldest arm in flight is used up, the rest become unsure, and the agent is told a
+   * refusal came; the watches stay until they lapse. The relay's text is never passed on: the code
+   * is read against the ones SPEC section 8 names.
    */
   async armRefused(f7) {
-    const now = this.now();
-    for (const [of, at] of this.armsInFlight) if (now - at > this.answerMs) this.armsInFlight.delete(of);
-    const open3 = (await this.watches.list()).map((w) => w.of);
+    this.pruneInFlight();
     const said2 = f7.of;
-    const inFlight = [...this.armsInFlight.keys()];
-    const named = typeof said2 === "string" && open3.includes(said2) ? said2 : inFlight.length === 1 && open3.includes(inFlight[0]) ? inFlight[0] : void 0;
+    const inFlight = [...this.armsInFlight];
+    const open3 = (await this.watches.open()).map((w) => w.of);
+    const byRelay = typeof said2 === "string" && (this.armsInFlight.has(said2) || open3.includes(said2)) ? said2 : void 0;
+    if (byRelay === void 0 && inFlight.length === 0) return this.log("wim: dropped a refusal of an idle notice: no arm was in flight");
+    const only = inFlight.length === 1 && !inFlight[0][1].unsure ? inFlight[0][0] : void 0;
+    const named = byRelay ?? only;
     const why = f7.code === "not_found" ? "the relay knows no session by that address (it may have ended)" : f7.code === "limited" ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay` : "the relay refused it";
     if (named === void 0) {
+      this.armsInFlight.delete(inFlight[0][0]);
+      for (const a5 of this.armsInFlight.values()) a5.unsure = true;
       return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, void 0, true);
     }
     this.armsInFlight.delete(named);
+    if (!open3.includes(named)) return this.log(`wim: a refused idle notice for ${named} has no open watch`);
     await this.watches.drop(named);
     await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, void 0, true);
   }
@@ -94252,6 +94326,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     }
     for (const [peer, at] of Object.entries(file2.released)) this.breaker.restoreRelease(peer, at);
     for (const [peer, times] of Object.entries(file2.counts)) this.breaker.restoreCounts(peer, times);
+    for (const [peer, times] of Object.entries(file2.wakes)) this.breaker.restoreWakes(peer, times);
     for (const to of file2.lifts) this.pendingLifts.add(to);
     await this.savePauses();
   }
@@ -94266,7 +94341,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       this.countsChanged = false;
       return savePauses(
         this.files.breakerPath,
-        { pauses: this.rowsOf(this.breaker.kept()), released: this.breaker.releases(), lifts: [...this.pendingLifts], counts: this.breaker.counts() },
+        { pauses: this.rowsOf(this.breaker.kept()), released: this.breaker.releases(), lifts: [...this.pendingLifts], counts: this.breaker.counts(), wakes: this.breaker.wakeCounts() },
         this.o.env
       );
     });
@@ -94691,9 +94766,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * note for the send's result about anything not armed.
    */
   async notifyWhenIdle(addresses) {
-    const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
-    const skipped = [...new Set(addresses.filter((of) => !wanted.includes(of)))];
+    const self2 = (of) => of === this.address || this.peers.get(of)?.sid === this.state.sid;
+    const valid = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
+    const wanted = valid.filter((of) => !self2(of));
+    const skipped = [...new Set(addresses.filter((of) => !valid.includes(of)))];
     const notes = skipped.length === 0 ? [] : [`Idle notices are for name@device only, so none is armed for ${skipped.map((a5) => sanitizeForDisplay(a5)).join(", ")}.`];
+    if (wanted.length < valid.length) notes.push("A session cannot watch itself, so none is armed for its own address.");
     let armed;
     try {
       armed = await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
@@ -124454,12 +124532,16 @@ var WimMcp = class {
   }
   /** Makes `s` this server's session and starts it. */
   async use(s3) {
-    if (this.o.channel) s3.push = (item) => this.pushChannel(item);
+    if (this.o.channel) s3.push = (item) => this.pushChannel(s3, item);
     s3.start();
     this.session = s3;
     await this.point(s3);
     if (this.o.channel) {
-      for (const item of await s3.spool.unread()) if (item.relayed !== true && item.forPerson !== true && item.quiet !== true) await s3.take(item.cursor).then(() => this.pushChannel(item));
+      for (const item of await s3.spool.unread()) {
+        if (item.relayed === true || item.forPerson === true || item.quiet === true) continue;
+        if (!await this.pushChannel(s3, item).then(() => true, () => false)) break;
+        await s3.take(item.cursor);
+      }
     }
     return s3;
   }
@@ -124471,7 +124553,15 @@ var WimMcp = class {
     const chain2 = await this.chain;
     if (chain2.length > 0) await writePointer(s3.files.dir, s3.files.env.pid, chain2, s3.files.env).catch(() => void 0);
   }
-  async pushChannel(item) {
+  /**
+   * Pushes an item as a channel notification, which starts a turn: a mesh turn, so the session's
+   * presence reads `busy-mesh` first and what the agent sends in it is derived (SPEC 6a). When that
+   * cannot be written, nothing is pushed (it rejects): the item waits for inbox. Nothing in channel
+   * mode ends the mark but a turn-end hook or the plugin, so until then the session stays busy and
+   * its sends derived, the safe side.
+   */
+  async pushChannel(s3, item) {
+    await writeAtomic(s3.files.presencePath, "busy-mesh", s3.files.env);
     await this.server.notification({
       method: "notifications/claude/channel",
       params: { content: item.rendered, meta: { from: item.from, device: item.device, id: item.id, kind: item.kind } }

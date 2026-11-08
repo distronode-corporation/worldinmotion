@@ -13,7 +13,7 @@ import { HISTORY_MAX, renderForAgent } from "./history.ts";
 import { setFields } from "./heldsets.ts";
 import { isStalePeer, peerLine } from "./render.ts";
 import { POINTER_LEVELS, type Ancestor } from "./ancestry.ts";
-import { ensureDir, tryRemove, writeJson } from "./fsx.ts";
+import { ensureDir, tryRemove, writeAtomic, writeJson } from "./fsx.ts";
 import { removePointer, writePointer } from "./hook.ts";
 import { SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
@@ -344,12 +344,20 @@ export class WimMcp {
 
   /** Makes `s` this server's session and starts it. */
   private async use(s: MeshSession): Promise<MeshSession> {
-    if (this.o.channel) s.push = (item) => this.pushChannel(item);
+    if (this.o.channel) s.push = (item) => this.pushChannel(s, item);
     s.start();
     this.session = s;
     await this.point(s);
-    // As MeshSession.deliver does: a relayed item, a notice for the person or a quiet one never starts a turn.
-    if (this.o.channel) for (const item of await s.spool.unread()) if (item.relayed !== true && item.forPerson !== true && item.quiet !== true) await s.take(item.cursor).then(() => this.pushChannel(item));
+    // As MeshSession.deliver does: a relayed item, a notice for the person or a quiet one never
+    // starts a turn. Taken once pushed; one that cannot be pushed stops this, and it and the rest
+    // wait for inbox.
+    if (this.o.channel) {
+      for (const item of await s.spool.unread()) {
+        if (item.relayed === true || item.forPerson === true || item.quiet === true) continue;
+        if (!(await this.pushChannel(s, item).then(() => true, () => false))) break;
+        await s.take(item.cursor);
+      }
+    }
     return s;
   }
 
@@ -362,7 +370,15 @@ export class WimMcp {
     if (chain.length > 0) await writePointer(s.files.dir, s.files.env.pid, chain, s.files.env).catch(() => undefined);
   }
 
-  private async pushChannel(item: SpoolItem): Promise<void> {
+  /**
+   * Pushes an item as a channel notification, which starts a turn: a mesh turn, so the session's
+   * presence reads `busy-mesh` first and what the agent sends in it is derived (SPEC 6a). When that
+   * cannot be written, nothing is pushed (it rejects): the item waits for inbox. Nothing in channel
+   * mode ends the mark but a turn-end hook or the plugin, so until then the session stays busy and
+   * its sends derived, the safe side.
+   */
+  private async pushChannel(s: MeshSession, item: SpoolItem): Promise<void> {
+    await writeAtomic(s.files.presencePath, "busy-mesh", s.files.env);
     await this.server.notification({
       method: "notifications/claude/channel",
       params: { content: item.rendered, meta: { from: item.from, device: item.device, id: item.id, kind: item.kind } },

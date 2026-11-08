@@ -162,7 +162,13 @@ body line with a bracket.
   and no text it only arms. `wim hook` counts finished notices this session asked for, with a
   fixed line of their own ("1 notice this session asked for is waiting in worldinmotion..."), and
   the turn it asks for is a mesh turn as before. The wake rule moved to `wake.ts`, shared by the
-  hook. SPEC section 8 and SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3 and 9 say so.
+  hook. Notice wakes are counted per device on their own and toward the total; past a limit they
+  trip a cool-down on that device, which the person is told of. A session cannot watch its own
+  address. A relay refusal is taken only for an arm in flight (or, with `of`, an open watch), one
+  per arm. A damaged `watches.json` is left as it is, and arms are refused until it is removed. A
+  channel push writes `busy-mesh` first, and pushes nothing when it cannot. SPEC section 8 and
+  SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3 and 9 say so. **Until the Claude Code plugin reads
+  `quiet` (N2, which must merge before 0.2.0 ships), Claude Code hands quiet notices over as turns.**
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device
