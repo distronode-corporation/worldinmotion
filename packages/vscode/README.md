@@ -52,7 +52,8 @@ Commands, in the editor and explorer context menus and the command palette:
 |---|---|
 | Send Message... | Sends a line you type to a session or room you pick (also a button on the Mesh view). |
 | Create a Mesh... / Join with a Code... | On a device in no mesh yet (also buttons in the empty Mesh view): makes a mesh with this device as its admin, or joins one with an invite code. |
-| Add a Device... / Admit a Device... | Makes an invite, or admits a device that asked to join (you type its comparison code). |
+| Add a Device... / Admit a Device... | Asks whose device it is (yours: it is trusted here once admitted; another person's: its messages stay held), makes an invite, or admits a device that asked to join (you type its comparison code). |
+| Review Trust... | Lists the other devices with their policy and who added them; offers Trust... and Not Mine for one held here, Untrust for a trusted one. |
 | Start Signer | Runs `wim agent start` (or `unlock`) in a terminal. |
 | Run Self-Test | Runs `wim test --json` with this window's client: throwaway devices and a relay on loopback, all removed at the end. A notification shows it running (Cancel asks the client to stop and remove what it made; the extension kills it if it has not exited after 10 seconds, and a later run removes what that left behind after a day); then a message says whether it passed, naming the first failed step, and **Show Steps** opens the **worldinmotion self-test** output with one row per step. Your device and meshes are not touched. |
 | Send Selection to... | Sends the selected text, headed with `path:startLine-endLine`, to a session or room you pick. |
@@ -80,8 +81,14 @@ On a device in no mesh yet, the Mesh view shows **Create a Mesh** and **Join wit
   in the new mesh.
 - **Join with a Code** (each other machine): choose **I have an invite code** and paste the
   `wim2-...` code from **Add a Device...** (or `wim invite`) on a device in the mesh, in a password
-  field. This device then shows its comparison code, which you type on that device. The other way,
-  a pairing code this device shows, is not in this version yet.
+  field. This device then shows its comparison code, which you type on that device. Once admitted,
+  the extension asks whether the device that admitted it is your own, then about each other device
+  on its own (Trust or Not Mine). The other way, a pairing code this device shows, is not in this
+  version yet.
+
+A device another device adds later is never trusted because that device is: a notification asks
+"laptop added build to this mesh. Is build your own device?" with **Trust...** and **Not Mine**
+(kept on this machine), and **Review Trust...** shows them all again.
 
 To use `wim` in a terminal as well (Node.js 22.18 or newer): `npm install --global worldinmotion`.
 If `wim` is then not found, npm's global bin is not on your `PATH`:

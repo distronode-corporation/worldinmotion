@@ -335,13 +335,23 @@ export const deliverFrameSchema = z.looseObject({ t: z.literal("deliver"), curso
 export const relayReceiptFrameSchema = z.looseObject(receiptFields);
 export const peersFrameSchema = z.looseObject({ t: z.literal("peers"), peers: z.array(peerSchema) });
 export const peerFrameSchema = z.looseObject({ t: z.literal("peer"), peer: peerSchema });
-/** What fired an idle notice (SPEC section 8). Absent from older relays. */
+/** What fired an idle notice (SPEC section 8): the reasons a relay sends today. */
 export const idleWhySchema = z.enum(["idle", "ended", "offline"]);
+/** `why` as a client reads it, or undefined for a reason this version does not know (or none). */
+export function knownIdleWhy(why: string | undefined): IdleWhy | undefined {
+  const parsed = idleWhySchema.safeParse(why);
+  return parsed.success ? parsed.data : undefined;
+}
 export const noticeFrameSchema = z.looseObject({
   t: z.literal("notice"),
   kind: z.literal("idle"),
   of: sessionAddressSchema,
-  why: idleWhySchema.optional(),
+  /**
+   * Any short label, not only today's three: a later relay may add a reason, and a notice with
+   * one must still be taken (only `why` is unknown, not the notice). Absent from older relays.
+   * Read it through `knownIdleWhy`.
+   */
+  why: z.string().min(1).max(64).optional(),
 });
 /** The relay's answer to a `notify_idle` it armed: the address as asked, and when the arm lapses. Older relays send none. */
 export const idleArmedFrameSchema = z.looseObject({ t: z.literal("idle.armed"), of: sessionAddressSchema, exp: timeSchema });

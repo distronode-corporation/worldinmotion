@@ -189,3 +189,16 @@ describe.each(COMBOS)("idle notices: $client client against $relay relay", ({ ol
     } else await until(async () => (await notices(again, "b@two")) === 1);
   });
 });
+
+describe("idle notices from a later relay", () => {
+  it("takes a notice whose `why` names a reason this version does not know, as any notice it armed", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    await session(devices[1]!, mesh, relay, { name: "b" });
+    await a.notifyWhenIdle(["b@two"]);
+    await sleep(50);
+    relay.inject(mesh, JSON.stringify({ t: "notice", kind: "idle", of: "b@two", why: "suspended" }));
+    await until(async () => (await notices(a, "b@two")) === 1);
+  });
+});

@@ -12,6 +12,7 @@ import { ClientError, MeshSession } from "../src/client.ts";
 import { Invites, PENDING_MAX, PendingJoins, sameCode } from "../src/joins.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { canConfirm } from "../src/secretout.ts";
+import { OWN_QUESTION } from "../src/cli.ts";
 import { FS, inviteCodeOf, makeMesh, newDevice, openSession, RELAY, RelayHarness, run, said, sasOf, scratch, term, until, type TestDevice } from "./helpers.ts";
 
 /**
@@ -287,7 +288,7 @@ describe("wim invite, join and devices", () => {
     a.out.length = 0;
     a.err.length = 0;
     // Three wrong codes refuse it, and the request is not kept for later.
-    a.answers.push("AAAAA-AAAAA", "BBBBB-BBBBB", "CCCCC-CCCCC");
+    a.answers.push("n", "AAAAA-AAAAA", "BBBBB-BBBBB", "CCCCC-CCCCC");
     const inviting = run(a, "invite");
     await until(() => said(a).includes("wim1_"));
     const j = await joining(relay, "newbox", inviteCodeOf(a));
@@ -298,7 +299,7 @@ describe("wim invite, join and devices", () => {
     expect((await fs.readdir(files.joinsDir).catch(() => [])).filter((n) => n.includes(j.d.device.id))).toEqual([]);
   }, 20_000);
 
-  it("lists waiting devices and admits one by its code, then asks about trust", async () => {
+  it("lists waiting devices and admits one by its code, trusting it only on an own-device invite", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["admin", "member"]);
     const a = term(devices[0]!.root, relay);
@@ -321,30 +322,60 @@ describe("wim invite, join and devices", () => {
     expect(said(p)).not.toContain(j.sas);
     expect(await run(p, "devices", "admit", "newbox", "AAAAA-AAAAA")).toBe(1);
     expect(said(p)).toMatch(/that is not the comparison code of newbox's request/);
-    p.answers.push("yes");
+    // The invite was answered no (Enter) to "one of yours?": held, and nothing is asked after the admit.
     expect(await run(p, "devices", "admit", "newbox", j.sas)).toBe(0);
     expect(said(p)).toContain("Admitted newbox.");
-    expect(said(p)).toContain("Messages from newbox are delivered here; text it relays from others is still held.");
-    expect((await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).loadConfig()).policy[j.d.device.id]).toBe("deliver");
+    expect(said(p)).toContain("Messages from newbox are held for your approval. If it is your own: wim devices trust newbox");
+    expect(said(p)).not.toContain("[y/N]");
+    const files = new MeshFiles(devices[0]!.home.meshDir(mesh), FS);
+    expect((await files.loadConfig()).policy[j.d.device.id]).toBeUndefined();
     await j.done;
+    // y: the record says own, so the admit trusts it and says how to undo that; untrust undoes it.
+    const own = term(devices[0]!.root, relay);
+    own.answers.push("y");
+    const ownInvite = run(own, "invite");
+    await until(() => said(own).includes("wim1_"));
+    const ownCode = inviteCodeOf(own);
+    own.stop.abort();
+    expect(await ownInvite).toBe(1);
+    expect(said(own)).toContain(OWN_QUESTION);
+    // The answer is in the record, never in the code.
+    expect(JSON.stringify(parseInvite(ownCode))).not.toMatch(/own/);
+    const mine = await joining(relay, "minebox", ownCode);
+    // `wim devices pending` says, before the admit, that admitting it trusts it; the earlier
+    // request on a plain invite said nothing of the kind.
+    const listed = term(devices[0]!.root, relay);
+    expect(await run(listed, "devices", "pending")).toBe(0);
+    expect(said(listed)).toMatch(/^minebox {2}\S+ {2}asked \S+ {2}invite expires \S+ {2}\(This invite was for one of your own devices: admitting minebox trusts its messages here\.\)$/m);
+    expect(said(p)).not.toContain("This invite was for one of your own devices");
+    const q = term(devices[0]!.root, relay);
+    expect(await run(q, "devices", "admit", "minebox", mine.sas)).toBe(0);
+    expect(said(q)).toContain("Trusted minebox. wim devices untrust minebox undoes it.");
+    expect(said(q)).not.toContain("[y/N]");
+    expect((await files.loadConfig()).policy[mine.d.device.id]).toBe("deliver");
+    await mine.done;
+    const undo = term(devices[0]!.root, relay);
+    undo.answers.push("y");
+    expect(await run(undo, "devices", "untrust", "minebox")).toBe(0);
+    expect((await files.loadConfig()).policy[mine.d.device.id]).toBe("hold");
     void sasFor;
   }, 30_000);
 
-  it("joins with a code from 0.2.0 (it names its maker as `by`) exactly as with one without it", async () => {
+  it("joins with a code that names its maker (`by`) as with one from before 0.2.0 that names none", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["admin"]);
-    const withBy = (code: string): string => {
-      const body = JSON.parse(new TextDecoder().decode(b64u.decode(code.slice(5)))) as Record<string, unknown>;
-      return `wim1_${b64u.encode(canonBytes({ ...body, by: devices[0]!.device.id }))}`;
+    const withoutBy = (code: string): string => {
+      const { by: _by, ...body } = JSON.parse(new TextDecoder().decode(b64u.decode(code.slice(5)))) as Record<string, unknown>;
+      return `wim1_${b64u.encode(canonBytes(body))}`;
     };
     const p = term(devices[0]!.root, relay);
-    for (const [name, code] of [["plain", await inviteAndLeave(relay, devices[0]!, mesh)], ["newer", withBy(await inviteAndLeave(relay, devices[0]!, mesh))]] as const) {
+    for (const [name, code, issuer] of [["newer", await inviteAndLeave(relay, devices[0]!, mesh), devices[0]!.device.id], ["older", withoutBy(await inviteAndLeave(relay, devices[0]!, mesh)), undefined]] as const) {
       const j = await joining(relay, name, code);
       expect(await run(p, "devices", "admit", name, j.sas)).toBe(0);
       const done = await j.done;
       expect(done.mesh).toBe(mesh);
       expect(done.roster.devices.map((d) => d.name)).toContain(name);
-      expect(Object.keys(done).sort()).toEqual(["mesh", "roster"]);
+      expect(done.issuer).toBe(issuer);
     }
   }, 30_000);
 
@@ -360,29 +391,46 @@ describe("wim invite, join and devices", () => {
     expect(said(p)).toContain("could not admit twin: the name twin is taken");
   }, 20_000);
 
-  it("asks a joining person about every other device at once, and trusts or untrusts them all", async () => {
+  it("asks a joining person about the admitting device, then each other device on its own", async () => {
     const relay = new RelayHarness();
-    const { devices } = await makeMesh(relay, ["admin", "member"], { trust: false });
+    const { mesh, devices } = await makeMesh(relay, ["admin", "member"], { trust: false });
     const a = term(devices[0]!.root, relay);
     const b = term(await scratch("all-b"), relay);
-    a.answers.push(() => sasOf(b), "n");
-    b.answers.push("y");
+    a.answers.push("n", () => sasOf(b));
+    b.answers.push("y", "n");
     const inviting = run(a, "invite");
     await until(() => said(a).includes("wim1_"));
     expect(await run(b, "join", inviteCodeOf(a), "--name", "third")).toBe(0);
     expect(await inviting).toBe(0);
-    expect(said(b)).toContain("Are admin and member your own devices? Trust their messages here? [y/N] ");
-    expect(said(b)).toContain("Messages from admin and member are delivered here; text they relay from others is still held.");
-    // A person who says no, or an agent, is told the command.
+    // The approver first, alone; then member, which joined before the invite's pin (so no adder is known here).
+    expect(b.out.filter((l) => l.endsWith("[y/N] "))).toEqual(["admin admitted this device. Is admin your own device? [y/N] ", "The mesh also has member. Is member your own device? [y/N] "]);
+    expect(said(b)).toContain("Trusted admin. wim devices untrust admin undoes it.");
+    expect(said(b)).toContain("Messages from member are held for your approval. If it is your own: wim devices trust member");
+    expect(said(b)).not.toMatch(/Are .* your own devices/);
+    // An invite made now pins the roster as it is; a device admitted after that pin is named with
+    // who added it when the next device joins on this invite.
+    const early = await inviteAndLeave(relay, devices[0]!, mesh);
     const c = term(await scratch("all-c"), relay, {}, { CLAUDECODE: "1" });
-    a.answers.push(() => sasOf(c));
+    a.answers.push("n", () => sasOf(c));
     const again = run(a, "invite");
     await until(() => (said(a).match(/wim1_/g) ?? []).length === 2);
     const second = [...said(a).matchAll(/wim1_\S+/g)][1]![0];
+    // An agent's shell: nothing is asked, each device is held with its own command.
     expect(await run(c, "join", second, "--name", "fourth")).toBe(0);
     expect(await again).toBe(0);
     expect(said(c)).not.toContain("[y/N]");
-    expect(said(c)).toContain("Messages from admin, member and third are held for your approval. If they are your own: wim devices trust --all");
+    for (const n of ["admin", "member", "third"]) expect(said(c)).toContain(`Messages from ${n} are held for your approval. If it is your own: wim devices trust ${n}`);
+    const d = term(await scratch("all-d"), relay);
+    const fifth = run(d, "join", early, "--name", "fifth");
+    await until(() => said(d).includes("Its comparison code is"));
+    expect(await run(term(devices[0]!.root, relay), "devices", "admit", "fifth", sasOf(d))).toBe(0);
+    expect(await fifth).toBe(0);
+    expect(d.out.filter((l) => l.endsWith("[y/N] "))).toEqual([
+      "admin admitted this device. Is admin your own device? [y/N] ",
+      "The mesh also has member. Is member your own device? [y/N] ",
+      "The mesh also has third. Is third your own device? [y/N] ",
+      "The mesh also has fourth (added by admin). Is fourth your own device? [y/N] ",
+    ]);
     // The agent cannot trust them either; the same device at the person's own terminal can.
     expect(await run(c, "devices", "trust", "--all", "--relayed")).toBe(1);
     expect(said(c)).toContain("CLAUDECODE is set: this shell belongs to Claude Code. Open a terminal yourself (VS Code: Terminal > New Terminal) and run `wim devices trust --all --relayed` there");

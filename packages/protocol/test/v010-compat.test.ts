@@ -19,6 +19,7 @@ const widened: [string, Record<string, unknown>][] = [
   ["notice, idle", { t: "notice", kind: "idle", of: "reviewer@server", why: "idle" }],
   ["notice, ended", { t: "notice", kind: "idle", of: "reviewer@server", why: "ended" }],
   ["notice, offline", { t: "notice", kind: "idle", of: "reviewer@server", why: "offline" }],
+  ["notice, a reason a later relay adds", { t: "notice", kind: "idle", of: "reviewer@server", why: "suspended" }],
   ["error, not_found", { t: "error", code: "not_found", message: "no such session", ref: "notify_idle", of: "x@laptop" }],
   ["error, limited", { t: "error", code: "limited", message: "too many idle notices armed", ref: "notify_idle", of: "root@admin" }],
   ["peer", { t: "peer", peer: marked }],

@@ -39,7 +39,7 @@ describe("help", () => {
     ]);
     expect(commandUsage("recover")).toMatch(/^wim recover <code>/);
     expect(commandUsage("recovery")).toBe("wim recovery show [--wait] | wim recovery rotate");
-    expect(commandUsage("setup")).toBe("wim setup [--name <device>] [--relay <url>] [--key-env NAME]");
+    expect(commandUsage("setup")).toBe("wim setup [<invite code>] [--name <device>] [--relay <url>] [--key-env NAME]");
     expect(commandUsage("a.*")).toBeUndefined();
   });
 });

@@ -8,6 +8,7 @@ import {
   canonBytes,
   createInvite,
   createJoin,
+  deviceIdFromSignPub,
   generateDeviceKeys,
   hash,
   inviteIdFromSecret,
@@ -50,23 +51,20 @@ describe("invites", () => {
     expect(createInvite({ ...base, now: undefined }).exp).toBeGreaterThan(Date.now());
   });
 
-  it("accepts and ignores `by` (from 0.2.0), checked as a device id; any other unknown field is still refused", () => {
-    // A code as 0.2.0 makes it: its body names the admin that made the invite.
-    const fromNewer = "wim1_eyJieSI6IlB4SmprM3hpd0ZXSVdodU13YUlzcVEiLCJleHAiOjE3NjAwMDM2MDAwMDAsIm1lc2giOiJFTG9LMmxNUkNnQ1VLM2twbWl1N0hBIiwicGluIjp7Imhhc2giOiI0R2JEU2xWckRtY3pjZWQ3dWdPWWI0TDlrZWtwWXR5a1VLb0JiTll5N3IwIiwic2VxIjoxfSwicmVsYXkiOiJ3c3M6Ly9yZWxheS5leGFtcGxlIiwic2VjcmV0IjoiaXlvYkd5eFpqMmlZLVg4bDhSSXN6QmkyeXktbXlHWUl0LWlhNExDeFRLQSJ9";
-    const parsed = parseInvite(fromNewer);
-    expect(parsed).not.toHaveProperty("by");
-    expect(parsed).toMatchObject({ relay: "wss://relay.example", mesh: "ELoK2lMRCgCUK3kpmiu7HA", pin: { seq: 1, hash: "4GbDSlVrDmczced7ugOYb4L9kekpYtykUKoBbNYy7r0" }, exp: 1_760_003_600_000 });
-    // The same invite without `by` reads exactly the same.
-    const body = JSON.parse(new TextDecoder().decode(b64u.decode(fromNewer.slice(5)))) as Record<string, unknown>;
-    expect(body["by"]).toBe("PxJjk3xiwFWIWhuMwaIsqQ");
-    const { by: _by, ...older } = body;
-    expect(parseInvite(encodeBody(older))).toEqual(parsed);
+  it("carries the maker's device id as `by`, checked as a device id; any other unknown field is still refused", () => {
+    const by = deviceIdFromSignPub(generateDeviceKeys().signPub);
+    const invite = createInvite({ ...base, by });
+    expect(parseInvite(invite.code).by).toBe(by);
+    expect(parseInvite(createInvite(base).code)).not.toHaveProperty("by");
+    expect(() => createInvite({ ...base, by: "laptop" })).toThrow(/by: expected a 22-character id/);
+    // A code made by this version's createInvite, kept as text: `by` reads back as written.
+    const fixture = "wim1_eyJieSI6IlB4SmprM3hpd0ZXSVdodU13YUlzcVEiLCJleHAiOjE3NjAwMDM2MDAwMDAsIm1lc2giOiJFTG9LMmxNUkNnQ1VLM2twbWl1N0hBIiwicGluIjp7Imhhc2giOiI0R2JEU2xWckRtY3pjZWQ3dWdPWWI0TDlrZWtwWXR5a1VLb0JiTll5N3IwIiwic2VxIjoxfSwicmVsYXkiOiJ3c3M6Ly9yZWxheS5leGFtcGxlIiwic2VjcmV0IjoiaXlvYkd5eFpqMmlZLVg4bDhSSXN6QmkyeXktbXlHWUl0LWlhNExDeFRLQSJ9";
+    expect(parseInvite(fixture)).toMatchObject({ by: "PxJjk3xiwFWIWhuMwaIsqQ", relay: "wss://relay.example", pin: { seq: 1 }, exp: 1_760_003_600_000 });
+    const body = JSON.parse(new TextDecoder().decode(b64u.decode(fixture.slice(5)))) as Record<string, unknown>;
     // A `by` that is not a device id is refused, as is any other field this version does not know.
     expect(() => parseInvite(encodeBody({ ...body, by: "laptop" }))).toThrow(/invalid invite code: by: expected a 22-character id/);
     expect(() => parseInvite(encodeBody({ ...body, by: 7 }))).toThrow(/invalid invite code: by/);
     expect(() => parseInvite(encodeBody({ ...body, own: true }))).toThrow(/invalid invite code/);
-    // This version never writes it.
-    expect(JSON.parse(new TextDecoder().decode(b64u.decode(createInvite(base).code.slice(5))))).not.toHaveProperty("by");
   });
 
   it("caps exp at seven days and refuses exp at or before now", () => {

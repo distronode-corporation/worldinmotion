@@ -270,8 +270,16 @@ An admin device runs `invite` and gets a one-time code:
 ```
 wim1_<b64u(canon({ "relay": "wss://relay.example", "mesh": "<mesh id>", "secret": "<b64u 32 random bytes>",
                    "pin": { "seq": 3, "hash": "<hash of roster 3>" }, "exp": 1760000000000,
-                   "tls": "<optional: b64u SHA-256 of the relay certificate's SubjectPublicKeyInfo>" }))>
+                   "tls": "<optional: b64u SHA-256 of the relay certificate's SubjectPublicKeyInfo>",
+                   "by": "<optional: the device id of the admin that made the invite>" }))>
 ```
+
+- `by` (from 0.2.0) names the admin device that made the invite. Every admin receives a join
+  request, so the roster that adds the joiner may be signed by another admin; the joiner treats
+  the signer as the invite's maker only when it is `by` (section 6a). A code without `by` (from an
+  earlier client) names no maker. A malformed `by` is refused, and any other unknown field still
+  is: the code is a strict schema. So devices on 0.1.10 or older cannot read a code that carries
+  `by`, short or full, and must upgrade to 0.2.0 before joining with one.
 
 - `inviteId` = `b64u(H(UTF-8("wim/1 invite " + b64u(secret))))` truncated to 22 characters. The
   admin registers only the `inviteId`, `exp` and `pin` with the relay
@@ -299,10 +307,6 @@ wim1_<b64u(canon({ "relay": "wss://relay.example", "mesh": "<mesh id>", "secret"
   `ws://` is still refused except to loopback. The pin is stored per
   mesh, and a later invite MUST NOT replace it without the person confirming; wim/1 has no pin
   rotation other than re-inviting.
-- **`by`.** From 0.2.0 an invite carries `by`, the device id of the admin that made it. 0.1.11
-  accepts and ignores `by`, checked as a device id like any other field, so a malformed one is
-  refused; 0.1.10 and older refuse a code that carries it. Any other unknown field is still
-  refused. This holds for a short code too, whose box holds the full code.
 
 **The join request.** The joining device generates its keys, connects without authenticating and
 sends:
@@ -533,6 +537,13 @@ person the receiving agent works for.
   instruction or approval. The frame MUST use a fresh random boundary per message, and any
   sequence in the text that could open or close a frame MUST be escaped.
 - A message MUST NOT answer a permission prompt, approve a tool call, or change inbound policy.
+  A client MAY set `deliver` for a device as part of the person's approval of its join, or of the
+  join that admitted this device, when that approval says so: an admin's invite recorded as for
+  one of the person's own devices (kept with the invite on that device, never in the code; never
+  for an auto-accept invite), or the joining person's answer about the device that admitted it,
+  asked as that join's approver only when it is the maker the invite code names (`by`, section 5).
+  That trust is between those two devices only: no device becomes trusted because a trusted
+  device added it or said so.
 - **Trusted devices can assign work.** A message of any kind, except relayed or derived text
   (below), from a device whose inbound policy is `deliver` (one the person chose to trust) is
   presented to the agent as a work assignment from a device its person trusts. The agent MAY carry
@@ -919,7 +930,9 @@ lapsed, or a second one for the same arm. The reference client keeps its arms in
 `watches.json` and drops every such notice (SECURITY-MODEL section 5.4).
 
 A relay also sends the notice when the watched session has been offline for 60 seconds without a
-new connection, and adds `why`: `idle`, `ended` or `offline`. A notice that fires while the asking
+new connection, and adds `why`: `idle`, `ended` or `offline`. A later relay may add other values,
+so a client takes a notice whose `why` it does not know as a notice with no known reason, never
+drops it for that. A notice that fires while the asking
 session is offline is kept until that session's next `ready` (after `ready` and the queued
 messages), within the arm's 12 hours; a later process of the session that takes it back with its
 resume secret (Names, above) gets it too. The relay answers each `notify_idle` it arms with

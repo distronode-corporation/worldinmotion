@@ -6,6 +6,7 @@ import {
   createJoin,
   generateDeviceKeys,
   hash,
+  knownIdleWhy,
   LIMITS,
   nextRoster,
   parseInvite,
@@ -189,7 +190,7 @@ const relayCases: Array<[string, object, object[]]> = [
     { t: "peer", peer: { ...peer, presence: true } },
     [{ t: "peer", peer: { ...peer, since: -1 } }, { t: "peer", peer: { ...peer, presence: false } }, { t: "peer", peer: { ...peer, presence: "yes" } }],
   ],
-  ["notice", { t: "notice", kind: "idle", of: "reviewer@laptop", why: "offline" }, [{ t: "notice", kind: "busy", of: "a@b" }, { t: "notice", kind: "idle", of: "a@b", why: "gone" }]],
+  ["notice", { t: "notice", kind: "idle", of: "reviewer@laptop", why: "offline" }, [{ t: "notice", kind: "busy", of: "a@b" }, { t: "notice", kind: "idle", of: "a@b", why: "" }, { t: "notice", kind: "idle", of: "a@b", why: "x".repeat(65) }, { t: "notice", kind: "idle", of: "a@b", why: 3 }]],
   [
     "idle.armed",
     { t: "idle.armed", of: "reviewer@laptop", exp: T0 },
@@ -245,6 +246,16 @@ const relayCases: Array<[string, object, object[]]> = [
   // pong has no fields to get wrong; unknown keys are kept like on every relay frame.
   ["pong", { t: "pong" }, []],
 ];
+
+describe("idle notice reasons", () => {
+  it("takes a notice with a reason this version does not know, and reads that reason as unknown", () => {
+    const later = { t: "notice", kind: "idle", of: "reviewer@laptop", why: "suspended" };
+    expect(parseRelayFrame(JSON.stringify(later))).toEqual({ ok: true, value: later });
+    expect(knownIdleWhy("suspended")).toBeUndefined();
+    expect(knownIdleWhy(undefined)).toBeUndefined();
+    for (const why of ["idle", "ended", "offline"] as const) expect(knownIdleWhy(why)).toBe(why);
+  });
+});
 
 describe("parseClientFrame", () => {
   for (const [t, valid, invalid] of clientCases) {
