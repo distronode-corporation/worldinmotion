@@ -87318,6 +87318,10 @@ var relayReceiptFrameSchema = external_exports.looseObject(receiptFields);
 var peersFrameSchema = external_exports.looseObject({ t: external_exports.literal("peers"), peers: external_exports.array(peerSchema) });
 var peerFrameSchema = external_exports.looseObject({ t: external_exports.literal("peer"), peer: peerSchema });
 var idleWhySchema = external_exports.enum(["idle", "ended", "offline"]);
+function knownIdleWhy(why) {
+  const parsed2 = idleWhySchema.safeParse(why);
+  return parsed2.success ? parsed2.data : void 0;
+}
 var noticeFrameSchema = external_exports.looseObject({
   t: external_exports.literal("notice"),
   kind: external_exports.literal("idle"),
@@ -93120,6 +93124,10 @@ var CI_TELL_MS = 60 * 6e4;
 var CI_PARKED_RETRY_MS = 6e4;
 var CI_DROP_LINES = 10;
 var CI_DROP_WINDOW_MS = 6e4;
+function armRefusedWhy(code2) {
+  if (code2 === "not_found") return "the relay knows no session by that address (it may have ended)";
+  return code2 === "limited" ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay` : "the relay refused it";
+}
 var MeshSession = class _MeshSession extends EventEmitter {
   device;
   files;
@@ -93617,7 +93625,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
         this.onReceipt(f7);
         return;
       case "notice":
-        void this.idleNotice(f7.of).catch((e6) => this.log(`wim: notice: ${e6.message}`));
+        void this.idleNotice(f7.of, knownIdleWhy(f7.why)).catch((e6) => this.log(`wim: notice: ${e6.message}`));
         return;
       case "error":
         if (f7.ref === "notify_idle") this.inbound = this.inbound.then(() => this.armRefused(f7)).catch((e6) => this.log(`wim: watches: ${e6.message}`));
@@ -94237,14 +94245,14 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * address the agent armed, and the device that address names decides whether it may start a
    * turn (mayWake): the relay cannot change which device that is. One that may not is `quiet`.
    */
-  async idleNotice(of) {
+  async idleNotice(of, why) {
     const watch2 = await this.watches.take(of, this.peers.get(of)?.sid);
     if (watch2 === void 0) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
     this.armsInFlight.delete(watch2.of);
     this.unsentArms.delete(watch2.of);
     const device = this.roster.devices.find((d5) => d5.name === watch2.of.slice(watch2.of.indexOf("@") + 1));
     const wakes = device !== void 0 && await this.mayWake(device.id, watch2.of);
-    await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).`, device?.id, !wakes);
+    await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).`, device?.id, !wakes, { of: watch2.of, end: "idle", until: watch2.until, ...why === void 0 ? {} : { why } });
   }
   /**
    * Whether an idle notice about `device` (the session `from`) may start a turn (decision D2):
@@ -94270,10 +94278,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await this.o.notifier?.notify(`worldinmotion: paused ${from}: its idle notices reached the loop breaker's limit`);
     return false;
   }
-  /** A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a turn. */
-  async watchNotice(from, line, watched, quiet2) {
+  /**
+   * A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a
+   * turn. One that ends a watch (`end`) is also emitted as `watch` once it is spooled, for `wim
+   * wait-idle`.
+   */
+  async watchNotice(from, line, watched, quiet2, end2) {
     const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line) };
-    await this.deliver({ ...item, ...watched === void 0 ? {} : { watched }, ...quiet2 ? { quiet: true } : {} }, void 0);
+    const written2 = await this.deliver({ ...item, ...watched === void 0 ? {} : { watched }, ...quiet2 ? { quiet: true } : {} }, void 0);
+    if (end2 !== void 0) this.emit("watch", { ...end2, quiet: quiet2, item: written2 });
   }
   /** Forgets the arms in flight for longer than the answer time: a refusal now is not theirs. */
   pruneInFlight() {
@@ -94300,16 +94313,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (byRelay === void 0 && inFlight.length === 0) return this.log("wim: dropped a refusal of an idle notice: no arm was in flight");
     const only = inFlight.length === 1 && !inFlight[0][1].unsure ? inFlight[0][0] : void 0;
     const named = byRelay ?? only;
-    const why = f7.code === "not_found" ? "the relay knows no session by that address (it may have ended)" : f7.code === "limited" ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay` : "the relay refused it";
+    const why = armRefusedWhy(f7.code);
     if (named === void 0) {
       this.armsInFlight.delete(inFlight[0][0]);
       for (const a5 of this.armsInFlight.values()) a5.unsure = true;
-      return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, void 0, true);
+      return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, void 0, true, { end: "refused", code: f7.code });
     }
     this.armsInFlight.delete(named);
     if (!open3.includes(named)) return this.log(`wim: a refused idle notice for ${named} has no open watch`);
     await this.watches.drop(named);
-    await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, void 0, true);
+    await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, void 0, true, { of: named, end: "refused", code: f7.code });
   }
   /** Tells the agent, quietly, about each watch that lapsed with no notice: once a minute at most. */
   async lapseWatches() {
@@ -94318,7 +94331,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     for (const w of await this.watches.lapse()) {
       this.armsInFlight.delete(w.of);
       this.unsentArms.delete(w.of);
-      await this.watchNotice(w.of, `no idle notice came for ${w.of} within 12 hours of the arm, so the watch lapsed and no notice will come for it. Arm it again if this session still needs to know.`, void 0, true);
+      await this.watchNotice(w.of, `no idle notice came for ${w.of} within 12 hours of the arm, so the watch lapsed and no notice will come for it. Arm it again if this session still needs to know.`, void 0, true, { of: w.of, end: "lapsed" });
     }
   }
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
@@ -136012,7 +136025,7 @@ async function selfTest(o3) {
 
 // src/cli.ts
 var VERSION = "0.1.10";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "any", "wait-idle"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
 var COMMON_FLAGS = ["mesh", "help"];
@@ -136024,7 +136037,8 @@ var COMMAND_FLAGS = {
   join: ["name"],
   devices: ["relayed", "all"],
   peers: ["all", "as", "take"],
-  send: ["allow-secret", "as", "take", "wait"],
+  send: ["allow-secret", "as", "take", "wait", "wait-idle", "timeout"],
+  "wait-idle": ["any", "json", "timeout", "as", "take"],
   ping: ["all", "timeout"],
   watch: ["as", "take"],
   inbox: ["peek", "mark-read", "as", "take"],
@@ -136100,7 +136114,8 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s>]
+  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s> | --wait-idle [--timeout 12h]]
+  wim wait-idle <address,...> [--any] [--timeout 12h] [--json] [--as <name> [--take]]
   wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name> [--take]]
   wim inbox [--peek | --mark-read] [--as <name> [--take]]
@@ -136127,7 +136142,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
+Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, wait-idle, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
 crash-reports, legacy-boxes, test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
@@ -136388,6 +136403,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
         return await peers(ctx);
       case "send":
         return await send2(ctx);
+      case "wait-idle":
+        return await waitIdle(ctx);
       case "ping":
         return await ping(ctx);
       case "watch":
@@ -137042,6 +137059,10 @@ async function send2(ctx) {
   const waitText = flag2(ctx.args, "wait");
   const waitMs = waitText === void 0 ? void 0 : parseDuration(waitText);
   if (waitMs !== void 0 && (waitMs === 0 || waitMs > WAIT_MAX_MS)) throw new SetupError("--wait takes a duration from 1ms to 1h, such as 30s");
+  const waitsIdle = ctx.args.flags.get("wait-idle") === true;
+  if (waitsIdle && waitMs !== void 0) throw new SetupError("--wait waits for receipts and --wait-idle for the sessions to finish: use one");
+  if (!waitsIdle && ctx.args.flags.has("timeout")) throw new SetupError("--timeout goes with --wait-idle");
+  const idle = waitsIdle ? idleOptions(ctx, to) : void 0;
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
   const notHere = allowSecrets ? notAPerson(ctx.env, ctx.io.isTTY) : void 0;
   if (notHere !== void 0) {
@@ -137049,8 +137070,14 @@ async function send2(ctx) {
   }
   const { files } = await ctx.mesh();
   const watcher = allowSecrets ? void 0 : await liveWatcher(files, name, ctx.fsEnv);
+  if (idle !== void 0 && watcher !== void 0) {
+    throw new SetupError(`a \`wim watch\` is reading as ${name} on this device, and --wait-idle needs a session of its own to hear the notice: use --as <name>`);
+  }
   const s3 = watcher === void 0 ? await ctx.session(name) : void 0;
+  const waiter = idle === void 0 ? void 0 : new IdleWait(ctx, s3, idle);
   try {
+    const refused2 = await waiter?.arm();
+    if (refused2 !== void 0) return refused2;
     let out;
     let receipts;
     if (watcher !== void 0) {
@@ -137086,6 +137113,9 @@ async function send2(ctx) {
     const took = out.results.filter((r6) => accepted(r6.status)).map((r6) => r6.to);
     const code2 = took.length === out.results.length ? 0 : 1;
     if (took.length === 0) return code2;
+    if (waiter !== void 0) {
+      return Math.max(code2, await waiter.wait());
+    }
     if (waitMs === void 0) {
       ctx.io.out("Neither routed nor queued means it was read. `wim send --wait 30s` waits for each recipient's receipt.");
       return code2;
@@ -137096,6 +137126,7 @@ async function send2(ctx) {
     const got = await waitForReceipts(ctx, receipts, took, waitMs, pause, (a5, b5) => ctx.io.out(`${heldWaitLine(a5, out.id, b5)}. Still waiting for it to be delivered...`));
     return reportReceipts(ctx, out, took, got, code2, await pausesOf(took, got, pause));
   } finally {
+    waiter?.close();
     if (s3 !== void 0) await ctx.finish(s3);
   }
 }
@@ -137118,6 +137149,116 @@ function reportReceipts(ctx, out, took, got, code2, pauses) {
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)]})`);
   }
   return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code2;
+}
+var WAIT_IDLE_EXIT = { finished: 0, refused: 1, timeout: 2 };
+function idleOptions(ctx, list3) {
+  const addresses = MeshSession.parseTo(list3);
+  const bad = addresses.filter((a5) => !sessionAddressSchema.safeParse(a5).success);
+  if (bad.length > 0) throw new SetupError(`a session's finished notice is for name@device addresses only, not ${bad.join(", ")}`);
+  const timeoutText = flag2(ctx.args, "timeout") ?? "12h";
+  const timeoutMs = parseDuration(timeoutText);
+  if (timeoutMs === 0 || timeoutMs > LIMITS.idleNoticeLifetimeMs) throw new SetupError("--timeout takes a duration from 1ms to 12h (a watch lapses 12 hours after it is armed), such as 30m");
+  return { addresses, any: ctx.args.flags.get("any") === true, json: ctx.args.flags.get("json") === true, timeoutMs, timeoutText };
+}
+var IDLE_WHY = {
+  idle: "it reported the end of a turn",
+  ended: "it ended",
+  offline: "it has been offline for 60 seconds"
+};
+var IdleWait = class {
+  ends = [];
+  pending = /* @__PURE__ */ new Set();
+  /** When each of this wait's watches lapses: an idle notice that closed another watch is an older wait's. */
+  until = /* @__PURE__ */ new Map();
+  onEnd = (e6) => void this.ends.push(e6);
+  ctx;
+  s;
+  o;
+  constructor(ctx, s3, o3) {
+    this.ctx = ctx;
+    this.s = s3;
+    this.o = o3;
+    s3.on("watch", this.onEnd);
+  }
+  close() {
+    this.s.off("watch", this.onEnd);
+  }
+  line(text2, json4) {
+    this.ctx.io.out(this.o.json ? JSON.stringify(json4) : text2);
+  }
+  /**
+   * Arms every address: undefined when the wait goes on (every address armed, or, with --any, at
+   * least one), else the exit code once each refusal is said. Without --any, its own address
+   * refuses the whole wait before anything is armed.
+   */
+  async arm() {
+    const me = this.s.address;
+    if (this.o.addresses.includes(me)) {
+      this.line(`${me}: not watched: this command runs as ${me}, and a session never watches itself. Run it as another session with --as <name>.`, { of: me, end: "refused", code: "self" });
+      if (!this.o.any) return WAIT_IDLE_EXIT.refused;
+    }
+    const wanted = this.o.addresses.filter((a5) => a5 !== me);
+    if (wanted.length === 0) return WAIT_IDLE_EXIT.refused;
+    await this.s.listPeers().catch(() => void 0);
+    const armed = await this.s.notifyWhenIdle(wanted);
+    for (const w of armed.watching) {
+      this.pending.add(w.to);
+      this.until.set(w.to, w.until);
+    }
+    const missed = wanted.filter((a5) => !this.pending.has(a5));
+    for (const of of missed) this.line(`${of}: not watched: ${armed.note}`, { of, end: "refused", code: "local", note: armed.note });
+    return missed.length === 0 || this.o.any && this.pending.size > 0 ? void 0 : WAIT_IDLE_EXIT.refused;
+  }
+  /** Waits for the notices: 0 when every address (or one, with --any) has one, 1 on a refusal, 2 on the timeout. */
+  async wait() {
+    const { ctx, o: o3 } = this;
+    const all = o3.any ? "any of" : "each of";
+    if (!o3.json) ctx.io.out(`Waiting up to ${o3.timeoutText} for ${all} ${[...this.pending].join(", ")} to finish (Ctrl-C stops waiting). A finished notice is the relay's word that a turn ended, not proof the work is done.`);
+    const deadline = ctx.io.now() + o3.timeoutMs;
+    let unnamed = 0;
+    for (; ; ) {
+      for (const e6 of this.ends.splice(0)) {
+        if (e6.end === "lapsed" || e6.of !== void 0 && !this.pending.has(e6.of)) continue;
+        if (e6.end === "idle" && e6.until !== this.until.get(e6.of)) continue;
+        if (e6.end === "idle") {
+          const why2 = e6.why === void 0 ? "it is idle or has ended" : IDLE_WHY[e6.why];
+          const quiet2 = e6.quiet ? " (a quiet notice: it would not start an agent turn, as that device is not trusted, is paused, or is past the loop breaker's limits)" : "";
+          this.line(`${e6.of}: finished: ${why2}${quiet2}`, { of: e6.of, end: "idle", ...e6.why === void 0 ? {} : { why: e6.why }, quiet: e6.quiet });
+          this.pending.delete(e6.of);
+          if (o3.any || this.pending.size === 0) return WAIT_IDLE_EXIT.finished;
+          continue;
+        }
+        const why = armRefusedWhy(e6.code);
+        if (e6.of === void 0) {
+          this.line(`one of ${[...this.pending].join(", ")}: not watched: ${why} (the relay did not say which)`, { end: "refused", code: e6.code });
+          unnamed += 1;
+        } else {
+          this.line(`${e6.of}: not watched: ${why}`, { of: e6.of, end: "refused", code: e6.code });
+          this.pending.delete(e6.of);
+        }
+        if (!o3.any || unnamed >= this.pending.size) return WAIT_IDLE_EXIT.refused;
+      }
+      if (ctx.io.signal.aborted) return STOPPED2;
+      if (ctx.io.now() >= deadline) {
+        this.line(`no finished notice within ${o3.timeoutText} for ${[...this.pending].join(", ")}`, { end: "timeout", waiting: [...this.pending] });
+        return WAIT_IDLE_EXIT.timeout;
+      }
+      await new Promise((r6) => setTimeout(r6, 100));
+    }
+  }
+};
+async function waitIdle(ctx) {
+  const [list3, ...extra] = ctx.args.positional;
+  if (list3 === void 0 || extra.length > 0) throw new SetupError(`usage: ${commandUsage("wait-idle")}`);
+  const o3 = idleOptions(ctx, list3);
+  const s3 = await ctx.session(nameFor(ctx, "cli"));
+  const waiter = new IdleWait(ctx, s3, o3);
+  try {
+    return await waiter.arm() ?? await waiter.wait();
+  } finally {
+    waiter.close();
+    await ctx.finish(s3);
+  }
 }
 async function ping(ctx) {
   const all = ctx.args.flags.get("all") === true;
