@@ -1,4 +1,4 @@
-// `wim agent`: start, stop, lock and unlock the signer, show its status, start it at each log in,
+// `wim signer`: start, stop, lock and unlock the signer, show its status, start it at each log in,
 // and move the key file between plaintext and encrypted. The passphrase is asked for at the
 // person's own interactive terminal, or comes from stdin (--passphrase-stdin, for a service manager
 // or CI), a native dialog (--ask-gui) or the OS keyring (--keyring); none of those three is taken
@@ -20,12 +20,12 @@ import { listAllHeld } from "./offline.ts";
 import { SignerClient } from "./signer.ts";
 import { BadPassphrase, openKeyFile, openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile } from "./vault.ts";
 
-export const AGENT_USAGE = `wim agent start [--foreground] [--passphrase-stdin | --ask-gui | --keyring] [--allow-agent-passphrase]
-  wim agent status | wim agent lock | wim agent unlock [--foreground] [--passphrase-stdin | --ask-gui | --keyring] | wim agent stop
-  wim agent encrypt [--passphrase-stdin] | wim agent decrypt [--passphrase-stdin]
-  wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status`;
+export const SIGNER_USAGE = `wim signer start [--foreground] [--passphrase-stdin | --ask-gui | --keyring] [--allow-agent-passphrase]
+  wim signer status | wim signer lock | wim signer unlock [--foreground] [--passphrase-stdin | --ask-gui | --keyring] | wim signer stop
+  wim signer encrypt [--passphrase-stdin] | wim signer decrypt [--passphrase-stdin]
+  wim signer autostart enable [--keyring] | wim signer autostart disable | wim signer autostart status`;
 
-/** What `wim agent` needs from the CLI. */
+/** What `wim signer` needs from the CLI. */
 export type AgentCtx = {
   home: Home;
   io: CliIO;
@@ -146,7 +146,7 @@ async function readPassphrase(ctx: AgentCtx, question: string, opens?: (passphra
     const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === undefined ? "this program cannot ask for a passphrase without showing it" : undefined);
     if (why !== undefined) {
       // The passphrase is asked for only by a person at their own terminal. A service manager can pass --passphrase-stdin.
-      throw new SetupError(`${personOnly(why, `wim agent ${ctx.args[0]!}`)} (a service manager can pass --passphrase-stdin instead)`);
+      throw new SetupError(`${personOnly(why, `wim signer ${ctx.args[0]!}`)} (a service manager can pass --passphrase-stdin instead)`);
     }
     passphrase = await ctx.io.promptSecret!(question);
   }
@@ -157,7 +157,7 @@ async function readPassphrase(ctx: AgentCtx, question: string, opens?: (passphra
 async function sealedFile(ctx: AgentCtx): Promise<SealedKeyFile> {
   const file = await ctx.home.readKeyFile();
   if (file === undefined) throw new SetupError(`no device keys at ${ctx.home.devicePath}: run \`wim init\` first`);
-  if ("plain" in file) throw new SetupError(`${ctx.home.devicePath} is not encrypted: run \`wim agent encrypt\` first`);
+  if ("plain" in file) throw new SetupError(`${ctx.home.devicePath} is not encrypted: run \`wim signer encrypt\` first`);
   return file.sealed;
 }
 
@@ -177,7 +177,7 @@ async function running(ctx: AgentCtx): Promise<SignerClient | undefined> {
 export async function agentCommand(ctx: AgentCtx): Promise<number> {
   const [action] = ctx.args;
   for (const s of Object.keys(SOURCES) as Source[]) {
-    if (ctx.flags.get(s) === true && !(SOURCES[s] as readonly string[]).includes(action ?? "")) throw new SetupError(`--${s} is for wim agent ${SOURCES[s].join(", ")}`);
+    if (ctx.flags.get(s) === true && !(SOURCES[s] as readonly string[]).includes(action ?? "")) throw new SetupError(`--${s} is for wim signer ${SOURCES[s].join(", ")}`);
   }
   switch (action) {
     case "start":
@@ -198,7 +198,7 @@ export async function agentCommand(ctx: AgentCtx): Promise<number> {
     case "autostart":
       return autostart(ctx);
     default:
-      throw new SetupError(`usage: ${AGENT_USAGE}`);
+      throw new SetupError(`usage: ${SIGNER_USAGE}`);
   }
 }
 
@@ -285,7 +285,7 @@ export function desk(ctx: AgentCtx): Desk {
       read,
       device,
       confirm: {
-        cannot: `${agent} was set where this signer started, so it runs in an agent's environment and cannot tell you from the agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`,
+        cannot: `${agent} was set where this signer started, so it runs in an agent's environment and cannot tell you from the agent: a decision on held messages needs a signer you started yourself (\`wim signer start\` in your own terminal, or at log in)`,
       },
     };
   }
@@ -294,7 +294,7 @@ export function desk(ctx: AgentCtx): Desk {
   const above = checks === undefined ? Promise.resolve(undefined) : checks.agentAncestor().catch((e: unknown) => `the processes above this signer could not be read (${(e as Error).message})`);
   const guard = async (terminal: boolean): Promise<void> => {
     const why = (await above) ?? (terminal ? await checks?.terminal() : undefined);
-    if (why !== undefined) throw new AgentError("refused", `${why}, so this signer cannot tell you from an agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`);
+    if (why !== undefined) throw new AgentError("refused", `${why}, so this signer cannot tell you from an agent: a decision on held messages needs a signer you started yourself (\`wim signer start\` in your own terminal, or at log in)`);
   };
   if (ctx.flags.get("foreground") === true && cannotConfirm(ctx.env, ctx.io) === undefined) {
     const question = "Type y to sign this decision; anything else declines it [y/N] ";
@@ -322,7 +322,7 @@ export function desk(ctx: AgentCtx): Desk {
     };
   }
   const p = ctx.io.programs;
-  if (p === undefined) return { read, device, confirm: { cannot: "this signer has no terminal or dialog to ask you in: start it with `wim agent start --foreground` in your own terminal" } };
+  if (p === undefined) return { read, device, confirm: { cannot: "this signer has no terminal or dialog to ask you in: start it with `wim signer start --foreground` in your own terminal" } };
   return {
     read,
     device,
@@ -370,7 +370,7 @@ async function start(ctx: AgentCtx): Promise<number> {
   if (at !== undefined && (await answers(at))) {
     const found = await proven(at, b64u.decode(file.signPub));
     if (found !== undefined) {
-      ctx.io.out(found.locked ? `A signer is already running at ${at}, locked (verified): \`wim agent unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it is this device's signer).`);
+      ctx.io.out(found.locked ? `A signer is already running at ${at}, locked (verified): \`wim signer unlock\` restarts it.` : `A signer is already running at ${at} (verified: it proved it is this device's signer).`);
       return 0;
     }
     ctx.io.err(`wim: something answers at ${at} but cannot prove it is this device's signer; starting a signer in its place`);
@@ -384,7 +384,7 @@ async function launch(ctx: AgentCtx, passphrase: string): Promise<number> {
     let failed: string | undefined;
     const code = await runSigner(ctx, passphrase, (line) => {
       if (line.startsWith("error ")) failed = line.slice(6);
-      else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${line.split(" ").slice(2).join(" ")}. Ctrl-C or \`wim agent stop\` stops it.`);
+      else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${line.split(" ").slice(2).join(" ")}. Ctrl-C or \`wim signer stop\` stops it.`);
     });
     if (failed !== undefined) throw new SetupError(failed);
     ctx.io.out("Signer stopped.");
@@ -395,12 +395,12 @@ async function launch(ctx: AgentCtx, passphrase: string): Promise<number> {
   if (!line.startsWith("ready ")) throw new SetupError(line.replace(/^error /, ""));
   const [, pid, ...at] = line.split(" ");
   ctx.io.out(`Signer started (pid ${pid}) at ${at.join(" ")}. Sessions now sign and open through it.`);
-  ctx.io.out("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim agent stop`.");
-  ctx.io.out("`wim agent lock` wipes the keys from its memory. `wim agent autostart enable` starts it at each log in.");
+  ctx.io.out("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim signer stop`.");
+  ctx.io.out("`wim signer lock` wipes the keys from its memory. `wim signer autostart enable` starts it at each log in.");
   return 0;
 }
 
-/** The detached child of `wim agent start`: the passphrase comes on stdin, the first stdout line says how it went. */
+/** The detached child of `wim signer start`: the passphrase comes on stdin, the first stdout line says how it went. */
 async function serve(ctx: AgentCtx): Promise<number> {
   const passphrase = await ctx.io.prompt("");
   return runSigner(ctx, passphrase, (line) => ctx.io.out(line));
@@ -413,7 +413,7 @@ async function status(ctx: AgentCtx): Promise<number> {
   ctx.io.out(`key file: ${ctx.home.devicePath} (${kind})${settings.require_signer === true ? "; the signer is required" : ""}`);
   const client = await running(ctx);
   if (client === undefined) {
-    ctx.io.out(`signer: not running. Start it with \`wim agent start\` in a terminal you opened yourself (not one an agent runs), or have it start at each log in: \`wim agent autostart enable\`.`);
+    ctx.io.out(`signer: not running. Start it with \`wim signer start\` in a terminal you opened yourself (not one an agent runs), or have it start at each log in: \`wim signer autostart enable\`.`);
     return 3;
   }
   try {
@@ -451,7 +451,7 @@ async function simple(ctx: AgentCtx, action: "lock" | "stop"): Promise<number> {
     throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts. End that process`);
   }
   if (action === "stop") ctx.io.out("Signer stopped.");
-  else ctx.io.out(answer["was"] === true ? "The signer was locked already (verified)." : "Signer locked: the keys are wiped from its memory. `wim agent unlock` starts it again with the passphrase.");
+  else ctx.io.out(answer["was"] === true ? "The signer was locked already (verified)." : "Signer locked: the keys are wiped from its memory. `wim signer unlock` starts it again with the passphrase.");
   return 0;
 }
 
@@ -464,7 +464,7 @@ async function simple(ctx: AgentCtx, action: "lock" | "stop"): Promise<number> {
  */
 async function unlock(ctx: AgentCtx): Promise<number> {
   const client = await running(ctx);
-  if (client === undefined) throw new SetupError("no signer is running: `wim agent start` starts one");
+  if (client === undefined) throw new SetupError("no signer is running: `wim signer start` starts one");
   let passphrase: string;
   try {
     if (!(await client.hello()).locked) {
@@ -483,7 +483,7 @@ async function unlock(ctx: AgentCtx): Promise<number> {
   }
   // A signer stops listening before it answers `stop`.
   if (await answers(client.endpoint)) {
-    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim agent start\``);
+    throw new SetupError(`something at ${client.endpoint} still answers after it was asked to stop, so it is not a signer this command trusts; nothing was sent to it. End that process, then run \`wim signer start\``);
   }
   return launch(ctx, passphrase);
 }
@@ -542,7 +542,7 @@ export async function decryptDevice(home: Home, passphrase: string): Promise<voi
   if (file === undefined) throw new SetupError(`no device keys at ${home.devicePath}: run \`wim init\` first`);
   if ("plain" in file) throw new SetupError(`${home.devicePath} is not encrypted`);
   const at = await agentEndpoint(home.root, home.env, false);
-  if (at !== undefined && (await answers(at))) throw new SetupError("a signer is running: `wim agent stop` first");
+  if (at !== undefined && (await answers(at))) throw new SetupError("a signer is running: `wim signer stop` first");
   let unlocked;
   try {
     unlocked = await openKeyFile(file.sealed, passphrase);
@@ -571,9 +571,9 @@ async function encrypt(ctx: AgentCtx): Promise<number> {
   if (passphrase.length < MIN_PASSPHRASE) throw new SetupError(`use a passphrase of at least ${MIN_PASSPHRASE} characters`);
   if (ctx.flags.get("passphrase-stdin") !== true && (await readPassphrase(ctx, "Again: ")) !== passphrase) throw new SetupError("the two passphrases differ; nothing was changed");
   await encryptDevice(ctx.home, passphrase, ctx.kdfN === undefined ? undefined : { N: ctx.kdfN, r: 8, p: 1 });
-  ctx.io.out(`Encrypted ${ctx.home.devicePath}. Sessions now need the signer: run \`wim agent start\`.`);
+  ctx.io.out(`Encrypted ${ctx.home.devicePath}. Sessions now need the signer: run \`wim signer start\`.`);
   ctx.io.out("Without the passphrase this device's keys are gone: it would have to join its meshes again as a new device.");
-  ctx.io.out("Restart running sessions so they use the signer. `wim agent decrypt` undoes this.");
+  ctx.io.out("Restart running sessions so they use the signer. `wim signer decrypt` undoes this.");
   return 0;
 }
 
@@ -585,7 +585,7 @@ async function decrypt(ctx: AgentCtx): Promise<number> {
   return 0;
 }
 
-/** `wim agent autostart enable | disable | status`: the login item that starts the signer at each log in. */
+/** `wim signer autostart enable | disable | status`: the login item that starts the signer at each log in. */
 async function autostart(ctx: AgentCtx): Promise<number> {
   const what = ctx.args[1];
   const p = programs(ctx);
@@ -594,14 +594,20 @@ async function autostart(ctx: AgentCtx): Promise<number> {
   if (what === "disable") {
     const removed = await disableAutostart(o);
     await keyringClear(o.platform, o.programs.run, keyringAccount(o.root));
-    ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim agent stop`." : "No login item starts the signer here.");
+    ctx.io.out(removed ? "Removed the login item, and any passphrase it kept in the keyring. A signer running now keeps running until `wim signer stop`." : "No login item starts the signer here.");
     return 0;
   }
-  if (what !== "status") throw new SetupError("usage: wim agent autostart enable [--keyring] | wim agent autostart disable | wim agent autostart status");
+  if (what !== "status") throw new SetupError("usage: wim signer autostart enable [--keyring] | wim signer autostart disable | wim signer autostart status");
   const found = await autostartStatus(o);
   if (found === undefined) {
-    ctx.io.out("autostart: off. `wim agent autostart enable` starts the signer at each log in.");
+    ctx.io.out("autostart: off. `wim signer autostart enable` starts the signer at each log in.");
     return 3;
+  }
+  if (found.stale) {
+    // An older wim's login item (`wim agent start`), or one for a wim that has moved: rewritten
+    // for this one, with the same passphrase source. A stored keyring passphrase stays as it is.
+    await enableAutostart(o, found.source);
+    ctx.io.out(`autostart: rewrote ${found.where}, which ran an older command line, to run \`wim signer start\` from this wim.`);
   }
   ctx.io.out(`autostart: on (${found.source === "keyring" ? "the passphrase comes from the keyring" : "it asks for the passphrase in a dialog"}): ${found.where}`);
   ctx.io.out(`log: ${found.log}`);
@@ -629,7 +635,7 @@ async function autostartEnable(ctx: AgentCtx, o: AutostartOptions): Promise<numb
       : "At each log in it starts the signer, which asks for the passphrase in a dialog of its own: typed there, it never passes through a terminal or an agent. Any passphrase kept in the keyring for it before is removed.",
   );
   ctx.io.out(`What it prints, errors included, is appended to ${item.log}.`);
-  ctx.io.out("It does not start a signer now (`wim agent start` does). `wim agent autostart disable` removes it.");
+  ctx.io.out("It does not start a signer now (`wim signer start` does). `wim signer autostart disable` removes it.");
   return 0;
 }
 
@@ -637,7 +643,7 @@ async function storeInKeyring(ctx: AgentCtx, o: AutostartOptions, file: SealedKe
   const kind = keyringKind(o.platform);
   if (kind === undefined) throw new SetupError(NO_KEYRING);
   const why = notAPerson(ctx.env, ctx.io.isTTY) ?? (ctx.io.promptSecret === undefined ? "this program cannot ask for a passphrase without showing it" : undefined);
-  if (why !== undefined) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly(why, "wim agent autostart enable --keyring")}`);
+  if (why !== undefined) throw new SetupError(`the passphrase goes into the keyring only from your own terminal: ${personOnly(why, "wim signer autostart enable --keyring")}`);
   for (const line of KEYRING_WARNING[kind]) ctx.io.out(line);
   if (kind === "libsecret" && (await ctx.io.prompt("Type yes to store it anyway: ")).trim() !== "yes") throw new SetupError("nothing was stored or installed");
   const passphrase = await ctx.io.promptSecret!(PROMPT);

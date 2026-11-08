@@ -17,9 +17,16 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**/*.ts"],
-      // A bin.ts only wires process.env and signals to a tested entry point; test/bin-files.test.ts
-      // keeps each one that small, so excluding them hides no logic.
-      exclude: ["packages/relay-cloudflare/**", "packages/*/src/bin.ts"],
+      // A bin.ts (or bin-<name>.ts) only wires process.env and signals to a tested entry point;
+      // test/bin-files.test.ts keeps each one that small, so excluding them hides no logic.
+      exclude: [
+        "packages/relay-cloudflare/**",
+        "packages/*/src/bin.ts",
+        "packages/*/src/bin-*.ts",
+        // The privileged runner's system layer runs only as root on Linux (systemd scopes, /proc): its
+        // system-facing files are tested, and held to 100%, on the Linux jobs only.
+        ...(process.platform === "linux" ? [] : ["packages/agent/src/privileged/system.ts", "packages/agent/src/privileged/jobscope.ts"]),
+      ],
       reporter: ["text", "json-summary"],
       // Every package is held to 100% on all four metrics, per file: each line and branch is
       // exercised by a test, and unreachable code is deleted rather than excluded.

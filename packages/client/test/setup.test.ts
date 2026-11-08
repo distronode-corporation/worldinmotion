@@ -92,7 +92,7 @@ describe("wim setup on a new machine", () => {
     // out, since any of them can spell "crash".
     const random = [/wimrec1_\S+/.exec(text)![0], /Created mesh (\S+) on/.exec(text)![1]!, /\(id (\S+)\)\.$/m.exec(text)![1]!, home];
     expect(random.reduce((s, value) => s.replaceAll(value, "<random>"), text)).not.toMatch(/crash/i);
-    expect(text).toContain("`wim agent encrypt`");
+    expect(text).toContain("`wim signer encrypt`");
     expect(text).toContain("Claude Code: the `claude` command was not found here.");
     expect(text).toContain("VS Code: the `code` command was not found here.");
     expect(text).toMatch(/Other agents \(Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI, Claude Desktop\): none found here\./);
@@ -389,7 +389,7 @@ describe("wim setup integrations", () => {
     });
     expect(await run(stopped, "setup")).toBe(130);
     expect(said(stopped)).not.toContain("Everything checks out");
-    expect(said(stopped)).not.toContain("`wim agent encrypt`");
+    expect(said(stopped)).not.toContain("`wim signer encrypt`");
     expect(said(stopped)).not.toContain("Other agents");
   }, 20_000);
 

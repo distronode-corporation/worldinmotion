@@ -76,7 +76,7 @@ export type DeviceRef = { name: string; id: string };
 export type JoinedDevice = DeviceRef & { added_by?: string; added_by_id?: string };
 /** The device that admitted this one without being the invite's maker, and why the client says so. */
 export type AdmittedOther = DeviceRef & { reason: "not_issuer" | "no_issuer" };
-/** Where the device keys are: in the client (a plaintext key file) or in the signer (`wim agent`). */
+/** Where the device keys are: in the client (a plaintext key file) or in the signer (`wim signer`). */
 export type KeysAt = "local" | "signer";
 
 export type WimEvent =

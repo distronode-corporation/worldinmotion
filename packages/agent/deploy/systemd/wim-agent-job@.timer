@@ -1,0 +1,21 @@
+# /etc/systemd/system/wim-agent-job@.timer
+# The default schedule for every job, daily at 02:30 UTC with up to 10 minutes'
+# spread. Give one job its own schedule with a drop-in:
+#   systemctl edit wim-agent-job@<job>.timer
+#     [Timer]
+#     OnCalendar=
+#     OnCalendar=Mon *-*-* 07:00:00 UTC
+# (the empty OnCalendar= clears the default first). Enable one job with
+#   systemctl enable --now wim-agent-job@<job>.timer
+[Unit]
+Description=wim agent job timer: %i
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 UTC
+RandomizedDelaySec=10min
+AccuracySec=1min
+Persistent=false
+Unit=wim-agent-job@%i.service
+
+[Install]
+WantedBy=timers.target

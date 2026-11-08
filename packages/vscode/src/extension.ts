@@ -225,7 +225,7 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
   const stopStore = store.onChange(schedule);
 
   /**
-   * Opens a terminal running `wim agent start` (or `unlock`) with this window's client. When it
+   * Opens a terminal running `wim signer start` (or `unlock`) with this window's client. When it
    * closes, the client is restarted at once instead of waiting out its backoff.
    */
   let signer: vscode.Terminal | undefined;
@@ -267,8 +267,8 @@ export function activate(context: vscode.ExtensionContext): TestApi | undefined 
     if (t !== signer) return;
     signer = undefined;
     const code = t.exitStatus?.code;
-    if (code === 0) vscode.window.showInformationMessage("worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`.");
-    else if (code !== undefined) vscode.window.showWarningMessage(`worldinmotion: the signer did not start (exit code ${code}). Run worldinmotion: Start Signer again, or \`wim agent status\` in a terminal.`);
+    if (code === 0) vscode.window.showInformationMessage("worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim signer stop`.");
+    else if (code !== undefined) vscode.window.showWarningMessage(`worldinmotion: the signer did not start (exit code ${code}). Run worldinmotion: Start Signer again, or \`wim signer status\` in a terminal.`);
     restartClient();
   };
 

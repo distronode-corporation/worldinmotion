@@ -1,6 +1,6 @@
 // The signer's passphrase from somewhere other than a terminal, and its start at log in
-// (`wim agent autostart`, docs/design.md, the signer): a login item per platform that runs
-// `wim agent start --foreground --ask-gui`, the native prompt `--ask-gui` shows, and the opt-in OS
+// (`wim signer autostart`, docs/design.md, the signer): a login item per platform that runs
+// `wim signer start --foreground --ask-gui`, the native prompt `--ask-gui` shows, and the opt-in OS
 // keyring `--keyring` reads (SECURITY-MODEL 5.8 says what each one exposes). Every function takes
 // the platform as a parameter, so each platform's branch runs in the tests on any machine.
 
@@ -29,7 +29,7 @@ export type Run = (cmd: string, args: readonly string[], input?: string, options
 export type ToolTrust = (path: string) => Promise<string>;
 
 /**
- * What `wim agent` runs: other programs, the platform whose programs, paths and keyring those are,
+ * What `wim signer` runs: other programs, the platform whose programs, paths and keyring those are,
  * wim itself (for the login item's command line), and the check every dialog program passes first.
  */
 export type Programs = { platform: Platform; run: Run; wim: readonly string[]; trust: ToolTrust };
@@ -172,8 +172,8 @@ export async function askGui(platform: Platform, run: Run, text: string, trust: 
   }
   throw new SetupError(
     failure === undefined
-      ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal"
-      : `no passphrase prompt could be shown (${failure}): start the signer with \`wim agent start\` in your own terminal`,
+      ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim signer start` in your own terminal"
+      : `no passphrase prompt could be shown (${failure}): start the signer with \`wim signer start\` in your own terminal`,
   );
 }
 
@@ -246,8 +246,8 @@ export async function confirmGui(platform: Platform, run: Run, lines: readonly s
   }
   throw new SetupError(
     failure === undefined
-      ? "the signer has no dialog to ask you in (on Linux it needs zenity or kdialog in a desktop session): run it with `wim agent start --foreground` in your own terminal, which asks there"
-      : `the signer could not show its dialog (${failure}): run it with \`wim agent start --foreground\` in your own terminal, which asks there`,
+      ? "the signer has no dialog to ask you in (on Linux it needs zenity or kdialog in a desktop session): run it with `wim signer start --foreground` in your own terminal, which asks there"
+      : `the signer could not show its dialog (${failure}): run it with \`wim signer start --foreground\` in your own terminal, which asks there`,
   );
 }
 
@@ -275,7 +275,7 @@ export function keyringKind(platform: Platform): KeyringKind | undefined {
 }
 
 export const NO_KEYRING =
-  "--keyring is not offered on Windows: Credential Manager gives a stored passphrase to any program you run, agents included, without asking. Use the passphrase dialog instead (`wim agent autostart enable`)";
+  "--keyring is not offered on Windows: Credential Manager gives a stored passphrase to any program you run, agents included, without asking. Use the passphrase dialog instead (`wim signer autostart enable`)";
 
 /** What the person is told before the passphrase is stored, per keyring. */
 export const KEYRING_WARNING: Record<KeyringKind, string[]> = {
@@ -285,7 +285,7 @@ export const KEYRING_WARNING: Record<KeyringKind, string[]> = {
   ],
   libsecret: [
     "WARNING: your keyring (libsecret) gives this passphrase to any program you run while the keyring is unlocked, which is all the time you are logged in. That includes agents and the tools they run.",
-    "An agent that reads it can decrypt device.json offline and act as this device: this undoes the protection the signer gives against agents. The passphrase dialog (`wim agent autostart enable` without --keyring) does not.",
+    "An agent that reads it can decrypt device.json offline and act as this device: this undoes the protection the signer gives against agents. The passphrase dialog (`wim signer autostart enable` without --keyring) does not.",
   ],
 };
 
@@ -344,7 +344,7 @@ export async function keyringRead(platform: Platform, run: Run, account: string)
 function decodeStored(r: RunResult): string {
   const hex = r.stdout.trim();
   if (r.code !== 0 || !/^(?:[0-9a-f]{2})+$/.test(hex)) {
-    throw new SetupError("no passphrase could be read from the keyring (not stored, or the read was denied): `wim agent autostart enable --keyring` stores it");
+    throw new SetupError("no passphrase could be read from the keyring (not stored, or the read was denied): `wim signer autostart enable --keyring` stores it");
   }
   return Buffer.from(hex, "hex").toString("utf8");
 }
@@ -407,7 +407,7 @@ function windowsUser(env: Record<string, string | undefined>): string {
 export function loginItem(o: AutostartOptions, source: LoginSource): LoginItem {
   const path = pathFor(o.platform);
   const id = keyringAccount(o.root);
-  const command = [...o.programs.wim, "agent", "start", "--foreground", `--${source}`];
+  const command = [...o.programs.wim, "signer", "start", "--foreground", `--${source}`];
   const log = path.join(o.root, "agent", "autostart.log");
   if (o.platform === "darwin") {
     const label = `worldinmotion.signer.${id}`;
@@ -439,7 +439,7 @@ export function loginItem(o: AutostartOptions, source: LoginSource): LoginItem {
     const text = [
       '<?xml version="1.0" encoding="UTF-16"?>',
       '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
-      `  <RegistrationInfo><Description>Starts the worldinmotion signer at log on: wim agent start --foreground --${source}</Description></RegistrationInfo>`,
+      `  <RegistrationInfo><Description>Starts the worldinmotion signer at log on: wim signer start --foreground --${source}</Description></RegistrationInfo>`,
       `  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>${user}</UserId></LogonTrigger></Triggers>`,
       `  <Principals><Principal id="Author"><UserId>${user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>`,
       "  <Settings>",
@@ -539,10 +539,16 @@ export async function disableAutostart(o: AutostartOptions): Promise<boolean> {
 }
 
 /** The login item installed for this state directory, if any, and where it gets the passphrase. */
-export async function autostartStatus(o: AutostartOptions): Promise<{ where: string; source: LoginSource; log: string } | undefined> {
+export async function autostartStatus(o: AutostartOptions): Promise<{ where: string; source: LoginSource; log: string; stale: boolean } | undefined> {
   const item = loginItem(o, "ask-gui");
   const text = item.kind === "task" ? await taskText(o, item.where) : await readText(item.where);
-  return text === undefined ? undefined : { where: item.where, source: text.includes("--keyring") ? "keyring" : "ask-gui", log: item.log };
+  if (text === undefined) return undefined;
+  const source: LoginSource = text.includes("--keyring") ? "keyring" : "ask-gui";
+  // Stale: written for another command line, such as `wim agent start` before the signer became
+  // `wim signer`, or a wim that has moved. schtasks gives back its own XML, so a task is judged by
+  // the command its description names.
+  const stale = item.kind === "task" ? !text.includes(`wim signer start --foreground --${source}`) : text !== loginItem(o, source).text;
+  return { where: item.where, source, log: item.log, stale };
 }
 
 async function taskText(o: AutostartOptions, name: string): Promise<string | undefined> {

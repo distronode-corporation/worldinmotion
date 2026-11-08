@@ -1,0 +1,63 @@
+# /etc/systemd/system/wim-agent.service
+# The wim agent peer: a wim session that sleeps until an allowed device
+# messages it, then hands ONE job to the runner and replies. It runs as its own
+# unprivileged user, `wim-agent`, which holds the wim device keys and nothing
+# else: no cloud credentials (the metadata service is blocked for it), no
+# model key, and, when the wake code is checked by the privileged runner
+# (wake.mode "runner"), no wake code either.
+#
+# With the privileged runner, the peer's runner command is
+#   sudo -n /usr/local/sbin/wim-agent-privileged-runner
+# allowed by ONE sudoers line (deploy/sudoers/wim-agent). Three consequences for
+# this unit, all deliberate:
+#  - no NoNewPrivileges=yes (it would stop sudo);
+#  - no IPAddressDeny= for the metadata address: the root runner sudo starts
+#    lives in this unit's cgroup and needs the metadata service to mint its
+#    short-lived token. The block is per uid instead (ExecStartPre below).
+#  - none of LockPersonality=, RestrictRealtime=, ProtectKernelTunables=,
+#    ProtectKernelModules=, SystemCallFilter=, MemoryDenyWriteExecute=,
+#    RestrictNamespaces= or RestrictAddressFamilies=: for a unit with User=,
+#    systemd sets no_new_privs to install their filters, which stops sudo as
+#    surely as NoNewPrivileges=yes (check: `grep NoNewPrivs /proc/<pid>/status`
+#    for the peer's pid must print 0).
+# The sandboxing that stays is mount-only, which the root runner can live with:
+# it writes under /run/wim-agent and /var/lib, so ProtectSystem=full, not strict.
+# Without the privileged runner (the built-in runner, an API key, all as this
+# user), turn the rest on: docs/deploy.md, "Variant: no privileged runner".
+[Unit]
+Description=wim agent peer
+Documentation=https://github.com/distronode-corporation/worldinmotion/blob/main/packages/agent/docs/deploy.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wim-agent
+Group=wim-agent
+Slice=wim-agent.slice
+# `+`: as root, before the peer starts, on every (re)start.
+ExecStartPre=+/usr/local/sbin/wim-agent-imds-block apply wim-agent wim-agent-worker
+# --as is the session name: the peer answers at <name>@<this device>.
+ExecStart=/usr/local/bin/wim agent serve /etc/wim-agent/agent.json --as agents
+# The only writable place: the peer's wim state (device keys, roster, history)
+# in wim/, and the daily-cap ledger (limits.ledgerPath) beside it.
+StateDirectory=wim-agent
+StateDirectoryMode=0700
+Environment=WIM_HOME=/var/lib/wim-agent/wim
+Environment=HOME=/var/lib/wim-agent
+Restart=on-failure
+RestartSec=30
+# A job in flight gets the runner's own kill grace to finish its reply.
+TimeoutStopSec=60
+KillMode=control-group
+UMask=0077
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=yes
+ProtectControlGroups=yes
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wim-agent
+
+[Install]
+WantedBy=multi-user.target

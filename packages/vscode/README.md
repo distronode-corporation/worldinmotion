@@ -54,7 +54,7 @@ Commands, in the editor and explorer context menus and the command palette:
 | Create a Mesh... / Join with a Code... | On a device in no mesh yet (also buttons in the empty Mesh view): makes a mesh with this device as its admin, or joins one with an invite code. |
 | Add a Device... / Admit a Device... | Asks whose device it is (yours: it is trusted here once admitted; another person's: its messages stay held), makes an invite, or admits a device that asked to join (you type its comparison code). |
 | Review Trust... | Lists the other devices with their policy and who added them; offers Trust... and Not Mine for one held here, Untrust for a trusted one. |
-| Start Signer | Runs `wim agent start` (or `unlock`) in a terminal. |
+| Start Signer | Runs `wim signer start` (or `unlock`) in a terminal. |
 | Run Self-Test | Runs `wim test --json` with this window's client: throwaway devices and a relay on loopback, all removed at the end. A notification shows it running (Cancel asks the client to stop and remove what it made; the extension kills it if it has not exited after 10 seconds, and a later run removes what that left behind after a day); then a message says whether it passed, naming the first failed step, and **Show Steps** opens the **worldinmotion self-test** output with one row per step. Your device and meshes are not touched. |
 | Send Selection to... | Sends the selected text, headed with `path:startLine-endLine`, to a session or room you pick. |
 | Ask a Peer about the Selection... | Sends it as a `task`, with an optional question first. |

@@ -4,6 +4,8 @@ dist/
 # committed; CI checks it matches a fresh build.
 !plugins/claude-code/dist/
 coverage/
+# The deployment kit copied in for a release (packaging/npm/agent-kit.mjs).
+packaging/npm/agent-kit/
 # vitest writes local reports here (the json reporter without --outputFile).
 .vitest/
 *.tsbuildinfo

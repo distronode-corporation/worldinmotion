@@ -1,7 +1,7 @@
-// The signer (`wim agent`), the ssh-agent model: one long-running process per device holds the
+// The signer (`wim signer`), the ssh-agent model: one long-running process per device holds the
 // device's secret keys and the data key that seals its prekey secrets, and answers sessions over a
 // local socket. It signs, seals and opens; it never hands out a key. Locking wipes the keys from
-// its memory for good: `wim agent unlock` starts a new signer, so the passphrase is never sent
+// its memory for good: `wim signer unlock` starts a new signer, so the passphrase is never sent
 // over the socket, where something posing as a locked signer could collect it.
 //
 // What it stops and what it does not is in SECURITY-MODEL section 5.8.
@@ -335,7 +335,7 @@ export class Signer {
         return {};
     }
     const keys = this.keys;
-    if (keys === undefined) throw new AgentError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
+    if (keys === undefined) throw new AgentError("locked", "the signer is locked: run `wim signer unlock` in a terminal you opened yourself");
     if (!this.bucket.take()) {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
@@ -683,7 +683,7 @@ export class AgentServer {
       return;
     }
     // Stopped listening before the answer goes out, so a client that has the answer finds the
-    // endpoint closed (`wim agent unlock` relies on that to tell a signer from an impostor). The
+    // endpoint closed (`wim signer unlock` relies on that to tell a signer from an impostor). The
     // answer is flushed, then this connection is closed like every other.
     this.server!.close();
     socket.end(out, () => socket.destroy());

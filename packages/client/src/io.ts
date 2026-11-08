@@ -95,7 +95,7 @@ export function processIo(
       proc.stderr.write("\n");
       return answer;
     },
-    startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
+    startAgent: (passphrase) => spawnDetached([...machine.wim(), "signer", "serve"], passphrase),
     programs: { platform: proc.platform, run: runProgram, wim: machine.wim(), trust: realToolTrust(proc.platform) },
     tools: execRunner(proc.platform),
     signal: stop.signal,

@@ -24,7 +24,7 @@ export const CREATE_TIMEOUT_MS = 60_000;
 
 /**
  * How long an approve, refuse or resume may take: on a device whose keys are in the signer
- * (`wim agent`), the client waits for the person to confirm it in the signer's own dialog or
+ * (`wim signer`), the client waits for the person to confirm it in the signer's own dialog or
  * terminal (the client gives up after 6 minutes).
  */
 export const DECIDE_TIMEOUT_MS = 7 * 60_000;

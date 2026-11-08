@@ -822,19 +822,19 @@ export function signerStep(run: Run): Step {
     run: async () => {
       const sig = await run.device(SIGNER_DEVICE);
       await run.ok(sig, ["init", "--name", SIGNER_DEVICE]);
-      need((await run.ok(sig, ["agent", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
+      need((await run.ok(sig, ["signer", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
       const running = /Signer running in the foreground \(pid \d+\) at (.+)\. Ctrl-C/;
-      const first = await run.background(sig, ["agent", "start", "--foreground"], running);
+      const first = await run.background(sig, ["signer", "start", "--foreground"], running);
       const at = grab(said(first.term), running, "signer endpoint");
       // The endpoint the device's own state names: a socket in it, or on Windows the pipe whose fresh name it keeps.
       need(at === (await agentEndpoint(sig.dir, { platform: run.io.platform, pid: run.io.pid, uid: run.io.uid }, false)), `the signer's endpoint ${at} is not the sandbox device's own`);
-      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["agent", "status"])), "the signer is not running unlocked");
-      need((await run.ok(sig, ["agent", "lock"])).includes("Signer locked"), "the signer did not lock");
-      need(/running \(pid \d+\), locked/.test(await run.ok(sig, ["agent", "status"])), "the signer is not locked");
-      const second = await run.background(sig, ["agent", "unlock", "--foreground"], running);
+      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["signer", "status"])), "the signer is not running unlocked");
+      need((await run.ok(sig, ["signer", "lock"])).includes("Signer locked"), "the signer did not lock");
+      need(/running \(pid \d+\), locked/.test(await run.ok(sig, ["signer", "status"])), "the signer is not locked");
+      const second = await run.background(sig, ["signer", "unlock", "--foreground"], running);
       need((await first.done) === 0, "the locked signer did not stop for the unlock");
-      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["agent", "status"])), "the signer did not unlock");
-      need((await run.ok(sig, ["agent", "stop"])).includes("Signer stopped."), "the signer did not stop");
+      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["signer", "status"])), "the signer did not unlock");
+      need((await run.ok(sig, ["signer", "stop"])).includes("Signer stopped."), "the signer did not stop");
       need((await second.done) === 0, "the signer did not end");
       need(!said(first.term).includes(run.passphrase) && !said(second.term).includes(run.passphrase), "the passphrase was printed");
     },

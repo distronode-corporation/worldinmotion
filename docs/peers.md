@@ -54,7 +54,7 @@ of a turn.
 3. Run `wim setup` in a terminal: it adds the MCP server and the hooks to each agent it finds
    ([What `wim setup` writes](#what-wim-setup-writes)). Or add the MCP server by hand as shown
    below. Then start a new session. A session started
-   before the device was set up, or before its signer (`wim agent start`), keeps trying and joins
+   before the device was set up, or before its signer (`wim signer start`), keeps trying and joins
    the mesh by itself once it can.
 
 Every agent session gets its own address, `name@device`. The name comes from `WIM_NAME`, or the

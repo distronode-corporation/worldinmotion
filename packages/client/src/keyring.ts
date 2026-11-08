@@ -12,7 +12,7 @@ import { createPrekey, deviceIdFromSignPub, localKeyring, openBox, type DeviceKe
 export type PrekeyEntry = { prekey: Prekey; secret: Uint8Array } | { prekey: Prekey; sealed: string };
 
 export interface DeviceKeyring extends Keyring {
-  /** `local`: the keys are in this process. `signer`: they are in the `wim agent` signer. */
+  /** `local`: the keys are in this process. `signer`: they are in the `wim signer` signer. */
   readonly kind: "local" | "signer";
   /** Makes and signs a new prekey for `mesh`, made at `at`. */
   newPrekey(mesh: string, at: number): Promise<PrekeyEntry>;
@@ -34,13 +34,13 @@ export function openWithClearPrekey(entry: { secret: Uint8Array }, req: OpenRequ
 
 /**
  * Thrown by a process holding the plaintext keys for a prekey the signer sealed: the device's key
- * file was encrypted (`wim agent encrypt`) while this process ran, and only a restart, through the
+ * file was encrypted (`wim signer encrypt`) while this process ran, and only a restart, through the
  * signer, opens what was sealed to that prekey.
  */
 export class NeedsSigner extends Error {
   override readonly name = "NeedsSigner";
   constructor() {
-    super("this device's keys were encrypted (wim agent encrypt) while this session was running: restart it so it uses the signer; messages it cannot open meanwhile are not acknowledged, and the relay delivers them again");
+    super("this device's keys were encrypted (wim signer encrypt) while this session was running: restart it so it uses the signer; messages it cannot open meanwhile are not acknowledged, and the relay delivers them again");
   }
 }
 

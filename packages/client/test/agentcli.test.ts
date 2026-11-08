@@ -1,4 +1,4 @@
-// `wim agent` at the command line: encrypt, start (foreground and detached), status, lock,
+// `wim signer` at the command line: encrypt, start (foreground and detached), status, lock,
 // unlock, stop and decrypt, and who may type the passphrase.
 
 import { PassThrough } from "node:stream";
@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createServer } from "node:net";
 import { agentEndpoint } from "../src/agentpath.ts";
 import { spawnDetached, wimCommand } from "../src/agentcli.ts";
+import { agentRoute, signerRenamed } from "../src/workercli.ts";
 import { GUI_AGAIN, GUI_ASK, keyringAccount, NO_KEYRING, type Programs, type RunResult } from "../src/autostart.ts";
 import { processIo, type Proc } from "../src/io.ts";
 import { handHello, keysOf, makeMesh, newDevice, RELAY, RelayHarness, run, said, scratch, term, until, type Term } from "./helpers.ts";
@@ -22,7 +23,7 @@ const terms: Term[] = [];
 
 afterEach(async () => {
   // Every signer a test started is stopped through the CLI, then awaited.
-  for (const t of terms.splice(0)) await run(t, "agent", "stop");
+  for (const t of terms.splice(0)) await run(t, "signer", "stop");
   await Promise.all(running.splice(0));
 });
 
@@ -36,17 +37,17 @@ function at(root: string, extra: Partial<CliIO> = {}, env: Record<string, string
 /** Starts a foreground signer on `root` and waits until it listens. */
 async function foreground(root: string): Promise<Term> {
   const t = at(root, {}, {}, PASS);
-  running.push(run(t, "agent", "start", "--foreground", "--passphrase-stdin"));
+  running.push(run(t, "signer", "start", "--foreground", "--passphrase-stdin"));
   terms.push(at(root));
   await until(() => said(t).includes("Signer running"), undefined, "the signer to listen");
   return t;
 }
 
-/** A stand-in for the detached child: `wim agent serve` run in this process. */
+/** A stand-in for the detached child: `wim signer serve` run in this process. */
 function inProcess(root: string): CliIO["startAgent"] {
   return async (passphrase) => {
     const child = at(root, {}, {}, passphrase);
-    const done = run(child, "agent", "serve");
+    const done = run(child, "signer", "serve");
     running.push(done);
     const line = (): string | undefined => child.out.find((l) => /^(ready|error) /.test(l));
     await until(() => line() !== undefined, undefined, "the serve line");
@@ -121,92 +122,92 @@ describe("wim agent", () => {
   it("encrypts, runs, locks, unlocks, stops and decrypts, keeping the device's identity", async () => {
     const d = await newDevice("cli");
     const t = at(d.root, {}, {}, PASS);
-    expect(await run(t, "agent", "status")).toBe(3);
-    expect(said(t)).toMatch(/\(plaintext\)\nsigner: not running\. Start it with `wim agent start` in a terminal you opened yourself \(not one an agent runs\), or have it start at each log in: `wim agent autostart enable`\./);
-    expect(await run(t, "agent", "encrypt", "--passphrase-stdin")).toBe(0);
-    expect(said(t)).toMatch(/Encrypted .*wim agent start/);
+    expect(await run(t, "signer", "status")).toBe(3);
+    expect(said(t)).toMatch(/\(plaintext\)\nsigner: not running\. Start it with `wim signer start` in a terminal you opened yourself \(not one an agent runs\), or have it start at each log in: `wim signer autostart enable`\./);
+    expect(await run(t, "signer", "encrypt", "--passphrase-stdin")).toBe(0);
+    expect(said(t)).toMatch(/Encrypted .*wim signer start/);
     expect(await fs.readFile(d.home.devicePath, "utf8")).not.toMatch(/signSec/);
     expect(await run(at(d.root), "doctor")).toBe(1);
 
     const fg = await foreground(d.root);
     const s = at(d.root);
-    expect(await run(s, "agent", "status")).toBe(0);
+    expect(await run(s, "signer", "status")).toBe(0);
     expect(said(s)).toMatch(/\(encrypted\); the signer is required\nsigner: running \(pid \d+\), unlocked \(verified\), device cli \(.{22}\)\nsince .*: no operations; refused 0, rate limited 0\nlog: /);
     const doc = at(d.root);
     expect(await run(doc, "doctor")).toBe(0);
-    expect(said(doc)).toContain("keys held by the signer (wim agent)");
+    expect(said(doc)).toContain("keys held by the signer (wim signer)");
 
     const lock = at(d.root);
-    expect(await run(lock, "agent", "lock")).toBe(0);
+    expect(await run(lock, "signer", "lock")).toBe(0);
     expect(said(lock)).toMatch(/Signer locked/);
     const st = at(d.root);
-    await run(st, "agent", "status");
+    await run(st, "signer", "status");
     expect(said(st)).toMatch(/locked \(verified\), device cli.*\n.*lock 1/);
     // Locking again: the locked signer still proves itself, and says it is locked already.
     const relock = at(d.root);
-    expect(await run(relock, "agent", "lock")).toBe(0);
+    expect(await run(relock, "signer", "lock")).toBe(0);
     expect(said(relock)).toMatch(/locked already \(verified\)/);
     const restart = at(d.root);
-    expect(await run(restart, "agent", "start")).toBe(0);
-    expect(said(restart)).toMatch(/already running at .*, locked \(verified\): `wim agent unlock` restarts it/);
+    expect(await run(restart, "signer", "start")).toBe(0);
+    expect(said(restart)).toMatch(/already running at .*, locked \(verified\): `wim signer unlock` restarts it/);
     // A wrong passphrase is caught here, and the locked signer is left as it was.
     const wrong = at(d.root, {}, {}, "not it");
-    expect(await run(wrong, "agent", "unlock", "--passphrase-stdin")).toBe(1);
+    expect(await run(wrong, "signer", "unlock", "--passphrase-stdin")).toBe(1);
     expect(said(wrong)).toMatch(/does not open/);
     expect(said(fg)).not.toContain("Signer stopped.");
     // Unlocking restarts it: the locked one stops, a new one starts from this command.
     const right = at(d.root, {}, {}, PASS);
-    running.push(run(right, "agent", "unlock", "--foreground", "--passphrase-stdin"));
+    running.push(run(right, "signer", "unlock", "--foreground", "--passphrase-stdin"));
     await until(() => said(right).includes("Signer running"), undefined, "the new signer");
     // The old signer's command ends on its own schedule: another process, in effect.
     await until(() => said(fg).includes("Signer stopped."), undefined, "the old signer to end");
     const again = at(d.root);
-    expect(await run(again, "agent", "unlock")).toBe(0);
+    expect(await run(again, "signer", "unlock")).toBe(0);
     expect(said(again)).toContain("The signer is not locked.");
 
     // Decrypting needs the signer stopped.
-    expect(await run(at(d.root, {}, {}, PASS), "agent", "decrypt", "--passphrase-stdin")).toBe(1);
+    expect(await run(at(d.root, {}, {}, PASS), "signer", "decrypt", "--passphrase-stdin")).toBe(1);
     const stop = at(d.root);
-    expect(await run(stop, "agent", "stop")).toBe(0);
+    expect(await run(stop, "signer", "stop")).toBe(0);
     expect(said(stop)).toContain("Signer stopped.");
     expect(await Promise.all(running.splice(0))).toEqual([0, 0]);
     terms.splice(0);
 
     const back = at(d.root, {}, {}, PASS);
-    expect(await run(back, "agent", "decrypt", "--passphrase-stdin")).toBe(0);
+    expect(await run(back, "signer", "decrypt", "--passphrase-stdin")).toBe(0);
     expect(said(back)).toMatch(/Decrypted/);
     expect((await d.home.loadDevice())!.id).toBe(d.device.id);
   });
 
   it("starts a detached signer, which reports a wrong passphrase instead of running", async () => {
     const d = await newDevice("bg");
-    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    await run(at(d.root, {}, {}, PASS), "signer", "encrypt", "--passphrase-stdin");
     const bad = at(d.root, { startAgent: inProcess(d.root) }, {}, "wrong one");
-    expect(await run(bad, "agent", "start", "--passphrase-stdin")).toBe(1);
+    expect(await run(bad, "signer", "start", "--passphrase-stdin")).toBe(1);
     expect(said(bad)).toMatch(/does not open/);
     const t = at(d.root, { startAgent: inProcess(d.root) }, {}, PASS);
-    expect(await run(t, "agent", "start", "--passphrase-stdin")).toBe(0);
+    expect(await run(t, "signer", "start", "--passphrase-stdin")).toBe(0);
     terms.push(at(d.root));
     expect(said(t)).toMatch(/Signer started \(pid \d+\)/);
-    expect(said(t)).toContain("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim agent stop`.");
+    expect(said(t)).toContain("It keeps running after you close this terminal or VS Code; it stops at log out, restart or `wim signer stop`.");
     const again = at(d.root);
-    expect(await run(again, "agent", "start")).toBe(0);
+    expect(await run(again, "signer", "start")).toBe(0);
     expect(said(again)).toMatch(/already running at .* \(verified: it proved it is this device's signer\)/);
     // A second serve on the same endpoint says why it cannot run.
     const second = at(d.root, {}, {}, PASS);
-    expect(await run(second, "agent", "serve")).toBe(1);
+    expect(await run(second, "signer", "serve")).toBe(1);
     expect(second.out.find((l) => l !== "")).toMatch(/^error a signer is already running/);
   });
 
   it("lock, stop and unlock fail loudly against an impostor that claims to be locked, and send it no passphrase", async () => {
     const d = await newDevice("imp");
-    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    await run(at(d.root, {}, {}, PASS), "signer", "encrypt", "--passphrase-stdin");
     const endpoint = (await agentEndpoint(d.root, d.home.env, true))!;
     const imp = await impostor(d, endpoint);
     try {
       for (const [args, input] of [[["unlock", "--passphrase-stdin"], PASS], [["lock"], ""], [["stop"], ""]] as const) {
         const t = at(d.root, {}, {}, input);
-        expect(await run(t, "agent", ...args), args[0]).toBe(1);
+        expect(await run(t, "signer", ...args), args[0]).toBe(1);
         expect(said(t)).toMatch(/could not prove it is this device's signer/);
         expect(said(t)).not.toMatch(/Signer (stopped|locked|unlocked)/);
       }
@@ -220,13 +221,13 @@ describe("wim agent", () => {
 
   it("stop and unlock report something that still answers after a stop it acknowledged", async () => {
     const d = await newDevice("stays");
-    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    await run(at(d.root, {}, {}, PASS), "signer", "encrypt", "--passphrase-stdin");
     const endpoint = (await agentEndpoint(d.root, d.home.env, true))!;
     for (const locked of [false, true]) {
       const stays = await stubbornSigner(keysOf(d.device), locked, endpoint);
       try {
         const t = at(d.root, {}, {}, PASS);
-        expect(await run(t, "agent", ...(locked ? ["unlock", "--passphrase-stdin"] : ["stop"]))).toBe(1);
+        expect(await run(t, "signer", ...(locked ? ["unlock", "--passphrase-stdin"] : ["stop"]))).toBe(1);
         expect(said(t)).toMatch(/still answers after it was asked to stop/);
         expect(stays.ops).toEqual(["hello", "stop"]);
       } finally {
@@ -237,7 +238,7 @@ describe("wim agent", () => {
 
   it("a brief swap of the socket cannot fake a stop or a lock (independent re-review, N1)", async () => {
     const d = await newDevice("swap");
-    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    await run(at(d.root, {}, {}, PASS), "signer", "encrypt", "--passphrase-stdin");
     await foreground(d.root);
     const endpoint = (await agentEndpoint(d.root, d.home.env, false))!;
     // The attack: the real socket moved aside (on Windows, the pipe token pointed elsewhere), an
@@ -250,10 +251,10 @@ describe("wim agent", () => {
     const imp = await impostor(d, target);
     try {
       const stop = at(d.root);
-      expect(await run(stop, "agent", "stop")).toBe(1);
+      expect(await run(stop, "signer", "stop")).toBe(1);
       expect(said(stop)).not.toContain("Signer stopped.");
       const lock = at(d.root);
-      expect(await run(lock, "agent", "lock")).toBe(1);
+      expect(await run(lock, "signer", "lock")).toBe(1);
       expect(said(lock)).not.toMatch(/locked already|Signer locked/);
       expect(imp.ops).toEqual(["hello", "hello"]);
     } finally {
@@ -265,17 +266,17 @@ describe("wim agent", () => {
 
   it("start takes the place of something that answers at the endpoint but cannot prove it is this device's signer (re-review, N3)", async () => {
     const d = await newDevice("fake");
-    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    await run(at(d.root, {}, {}, PASS), "signer", "encrypt", "--passphrase-stdin");
     const endpoint = (await agentEndpoint(d.root, d.home.env, true))!;
     const imp = await impostor(d, endpoint);
     try {
       const t = at(d.root, {}, {}, PASS);
-      running.push(run(t, "agent", "start", "--foreground", "--passphrase-stdin"));
+      running.push(run(t, "signer", "start", "--foreground", "--passphrase-stdin"));
       terms.push(at(d.root));
       await until(() => said(t).includes("Signer running"), undefined, "the signer to start past the impostor");
       expect(said(t)).toMatch(/cannot prove it is this device's signer; starting a signer in its place/);
       const st = at(d.root);
-      expect(await run(st, "agent", "status")).toBe(0);
+      expect(await run(st, "signer", "status")).toBe(0);
       expect(said(st)).toMatch(/unlocked \(verified\)/);
     } finally {
       await imp.close();
@@ -284,10 +285,10 @@ describe("wim agent", () => {
 
   it("two signers starting at once: one binds, the other says one is running", async () => {
     const d = await newDevice("race");
-    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    await run(at(d.root, {}, {}, PASS), "signer", "encrypt", "--passphrase-stdin");
     const one = at(d.root, {}, {}, PASS);
     const two = at(d.root, {}, {}, PASS);
-    const runs = [run(one, "agent", "serve"), run(two, "agent", "serve")];
+    const runs = [run(one, "signer", "serve"), run(two, "signer", "serve")];
     running.push(...runs);
     terms.push(at(d.root));
     const line = (t: Term): string | undefined => t.out.find((l) => /^(ready|error) /.test(l));
@@ -296,24 +297,24 @@ describe("wim agent", () => {
     expect([line(one), line(two)].filter((l) => l!.startsWith("error a signer is already running"))).toHaveLength(1);
     // The one that bound is reachable and answers as this device's signer.
     const st = at(d.root);
-    expect(await run(st, "agent", "status")).toBe(0);
+    expect(await run(st, "signer", "status")).toBe(0);
     expect(said(st)).toMatch(/unlocked \(verified\)/);
   });
 
   it("starts only on an encrypted key file, and only in the background where it can", async () => {
     const empty = at(await scratch("none"));
-    expect(await run(empty, "agent", "start")).toBe(1);
+    expect(await run(empty, "signer", "start")).toBe(1);
     expect(said(empty)).toMatch(/run `wim init` first/);
     const d = await newDevice("plain");
     const plain = at(d.root);
-    expect(await run(plain, "agent", "start")).toBe(1);
-    expect(said(plain)).toMatch(/not encrypted: run `wim agent encrypt` first/);
-    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    expect(await run(plain, "signer", "start")).toBe(1);
+    expect(said(plain)).toMatch(/not encrypted: run `wim signer encrypt` first/);
+    await run(at(d.root, {}, {}, PASS), "signer", "encrypt", "--passphrase-stdin");
     const noSpawn = at(d.root, {}, {}, PASS);
-    expect(await run(noSpawn, "agent", "start", "--passphrase-stdin")).toBe(1);
+    expect(await run(noSpawn, "signer", "start", "--passphrase-stdin")).toBe(1);
     expect(said(noSpawn)).toMatch(/use --foreground/);
     const wrong = at(d.root, {}, {}, "wrong one");
-    expect(await run(wrong, "agent", "start", "--foreground", "--passphrase-stdin")).toBe(1);
+    expect(await run(wrong, "signer", "start", "--foreground", "--passphrase-stdin")).toBe(1);
     expect(said(wrong)).toMatch(/does not open/);
   });
 
@@ -325,14 +326,14 @@ describe("wim agent", () => {
       return answers.shift() ?? "";
     };
     const mismatch = at(d.root, { promptSecret: secret(["first passphrase", "second passphrase"]) });
-    expect(await run(mismatch, "agent", "encrypt")).toBe(1);
+    expect(await run(mismatch, "signer", "encrypt")).toBe(1);
     expect(said(mismatch)).toMatch(/differ; nothing was changed/);
     expect(asked).toEqual(["New passphrase for this device's keys: ", "Again: "]);
     const short = at(d.root, { promptSecret: secret(["short"]) });
-    expect(await run(short, "agent", "encrypt")).toBe(1);
+    expect(await run(short, "signer", "encrypt")).toBe(1);
     expect(said(short)).toMatch(/at least 8 characters/);
     const none = at(d.root, { promptSecret: secret([""]) });
-    expect(await run(none, "agent", "encrypt")).toBe(1);
+    expect(await run(none, "signer", "encrypt")).toBe(1);
     expect(said(none)).toMatch(/no passphrase given/);
     // Each refusal names its cause, then where to run the command instead.
     for (const [extra, env, cause] of [
@@ -343,40 +344,40 @@ describe("wim agent", () => {
       [{}, {}, "this program cannot ask for a passphrase without showing it"],
     ] as Array<[Partial<CliIO>, Record<string, string>, string]>) {
       const t = at(d.root, extra, env);
-      expect(await run(t, "agent", "encrypt")).toBe(1);
-      expect(said(t)).toContain(`${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim agent encrypt\` there (a service manager can pass --passphrase-stdin instead)`);
+      expect(await run(t, "signer", "encrypt")).toBe(1);
+      expect(said(t)).toContain(`${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim signer encrypt\` there (a service manager can pass --passphrase-stdin instead)`);
     }
     const ok = at(d.root, { promptSecret: secret([PASS, PASS]) });
-    expect(await run(ok, "agent", "encrypt")).toBe(0);
+    expect(await run(ok, "signer", "encrypt")).toBe(0);
     const twice = at(d.root, { promptSecret: secret([PASS, PASS]) });
-    expect(await run(twice, "agent", "encrypt")).toBe(1);
+    expect(await run(twice, "signer", "encrypt")).toBe(1);
     expect(said(twice)).toMatch(/already encrypted/);
   });
 
   it("lock, stop, unlock and status when no signer runs; usage", async () => {
     const d = await newDevice("idle");
     const lock = at(d.root);
-    expect(await run(lock, "agent", "lock")).toBe(3);
+    expect(await run(lock, "signer", "lock")).toBe(3);
     expect(said(lock)).toContain("No signer is running.");
-    expect(await run(at(d.root), "agent", "stop")).toBe(0);
+    expect(await run(at(d.root), "signer", "stop")).toBe(0);
     const unlock = at(d.root, {}, {}, PASS);
-    expect(await run(unlock, "agent", "unlock", "--passphrase-stdin")).toBe(1);
+    expect(await run(unlock, "signer", "unlock", "--passphrase-stdin")).toBe(1);
     expect(said(unlock)).toMatch(/no signer is running/);
     const empty = at(await scratch("none"));
-    expect(await run(empty, "agent", "status")).toBe(3);
+    expect(await run(empty, "signer", "status")).toBe(3);
     expect(said(empty)).toMatch(/\(no key file\)/);
     const usage = at(d.root);
-    expect(await run(usage, "agent")).toBe(1);
-    expect(said(usage)).toMatch(/usage: wim agent start/);
+    expect(await run(usage, "signer")).toBe(1);
+    expect(said(usage)).toMatch(/usage: wim signer start/);
     const help = at(d.root);
-    expect(await run(help, "help", "agent")).toBe(0);
-    expect(said(help)).toMatch(/wim agent start \[--foreground\] \[--passphrase-stdin \| --ask-gui \| --keyring\] \[--allow-agent-passphrase\]\nwim agent status/);
-    expect(said(help)).toMatch(/\nwim agent autostart enable \[--keyring\] \| wim agent autostart disable \| wim agent autostart status$/);
+    expect(await run(help, "help", "signer")).toBe(0);
+    expect(said(help)).toMatch(/wim signer start \[--foreground\] \[--passphrase-stdin \| --ask-gui \| --keyring\] \[--allow-agent-passphrase\]\nwim signer status/);
+    expect(said(help)).toMatch(/\nwim signer autostart enable \[--keyring\] \| wim signer autostart disable \| wim signer autostart status$/);
     const flag = at(d.root);
-    expect(await run(flag, "agent", "start", "--forground")).toBe(2);
+    expect(await run(flag, "signer", "start", "--forground")).toBe(2);
     expect(said(flag)).toMatch(/did you mean --foreground/);
     const decryptPlain = at(d.root, {}, {}, PASS);
-    expect(await run(decryptPlain, "agent", "decrypt", "--passphrase-stdin")).toBe(1);
+    expect(await run(decryptPlain, "signer", "decrypt", "--passphrase-stdin")).toBe(1);
     expect(said(decryptPlain)).toMatch(/not encrypted/);
   });
 
@@ -384,16 +385,16 @@ describe("wim agent", () => {
     const d = await newDevice("full");
     const t = term(d.root, relay);
     t.answers.push(PASS);
-    expect(await run(t, "agent", "encrypt", "--passphrase-stdin")).toBe(0);
+    expect(await run(t, "signer", "encrypt", "--passphrase-stdin")).toBe(0);
     expect(JSON.parse(await fs.readFile(d.home.devicePath, "utf8"))).toMatchObject({ kdf: { N: 2 ** 17 } });
     const fg = term(d.root, relay);
     fg.answers.push(PASS);
-    const done = run(fg, "agent", "start", "--foreground", "--passphrase-stdin");
+    const done = run(fg, "signer", "start", "--foreground", "--passphrase-stdin");
     await until(() => said(fg).includes("Signer running"), 10_000, "the signer to listen");
     // With the key file gone, status still reaches the signer (it cannot check whose keys it holds).
     await fs.rename(d.home.devicePath, `${d.home.devicePath}.away`);
     const st = at(d.root);
-    expect(await run(st, "agent", "status")).toBe(0);
+    expect(await run(st, "signer", "status")).toBe(0);
     expect(said(st)).toMatch(/\(no key file\); the signer is required\nsigner: running/);
     await fs.rename(`${d.home.devicePath}.away`, d.home.devicePath);
     fg.stop.abort();
@@ -403,14 +404,14 @@ describe("wim agent", () => {
 
   it("a foreground signer told to stop while it was starting stops once it has started", async () => {
     const d = await newDevice("early");
-    await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin");
+    await run(at(d.root, {}, {}, PASS), "signer", "encrypt", "--passphrase-stdin");
     const t = at(d.root, {}, {}, PASS);
     // Ctrl-C before the signer has bound: the abort event is long gone when it gets there.
     t.stop.abort();
-    expect(await run(t, "agent", "start", "--foreground", "--passphrase-stdin")).toBe(0);
+    expect(await run(t, "signer", "start", "--foreground", "--passphrase-stdin")).toBe(0);
     expect(said(t)).toMatch(/Signer running[\s\S]*Signer stopped\./);
     const st = at(d.root);
-    expect(await run(st, "agent", "status")).toBe(3);
+    expect(await run(st, "signer", "status")).toBe(3);
   });
 
   it("WIM_REQUIRE_SIGNER refuses a plaintext key file", async () => {
@@ -471,7 +472,7 @@ describe("prompts on a stdin that closes before a line", () => {
     expect(await stdinWith("correct horse").promptSecret!("Passphrase: ")).toBe("correct horse");
     const d = await newDevice("nonl");
     const t = at(d.root, stdinWith("correct horse battery"));
-    expect(await run(t, "agent", "encrypt", "--passphrase-stdin")).toBe(0);
+    expect(await run(t, "signer", "encrypt", "--passphrase-stdin")).toBe(0);
     expect(await fs.readFile(d.home.devicePath, "utf8")).not.toMatch(/signSec/);
   });
 
@@ -484,7 +485,7 @@ describe("prompts on a stdin that closes before a line", () => {
   it("a passphrase read so is none given (exit 1), and a confirmation read so is a no", async () => {
     const d = await newDevice("eof");
     const t = at(d.root, closedStdin());
-    expect(await run(t, "agent", "encrypt", "--passphrase-stdin")).toBe(1);
+    expect(await run(t, "signer", "encrypt", "--passphrase-stdin")).toBe(1);
     expect(said(t)).toMatch(/no passphrase given/);
     expect(await fs.readFile(d.home.devicePath, "utf8")).toMatch(/signSec/);
     const relay = new RelayHarness();
@@ -530,7 +531,7 @@ describe("processIo for wim agent", () => {
     stdin.write("hunter2 hunter2\n");
     expect(await answer).toBe("hunter2 hunter2");
     expect(err).toBe("Passphrase: \n");
-    expect(await io.startAgent!("x")).toBe("ready agent serve");
+    expect(await io.startAgent!("x")).toBe("ready signer serve");
     expect(asked[0]).toBe(process.execPath);
   });
 });
@@ -558,7 +559,7 @@ const typed = (...answers: string[]): CliIO["promptSecret"] => async () => answe
 /** An encrypted device under `name`. */
 async function encrypted(name: string) {
   const d = await newDevice(name);
-  expect(await run(at(d.root, {}, {}, PASS), "agent", "encrypt", "--passphrase-stdin")).toBe(0);
+  expect(await run(at(d.root, {}, {}, PASS), "signer", "encrypt", "--passphrase-stdin")).toBe(0);
   return d;
 }
 
@@ -568,44 +569,44 @@ describe("where the passphrase comes from", () => {
     const { programs } = fakePrograms("linux", () => ({ code: 0, stdout: `${PASS}\n`, stderr: "" }));
     for (const source of ["--passphrase-stdin", "--ask-gui", "--keyring"]) {
       const t = at(d.root, { programs }, { CLAUDECODE: "1" }, PASS);
-      expect(await run(t, "agent", "start", "--foreground", source)).toBe(1);
+      expect(await run(t, "signer", "start", "--foreground", source)).toBe(1);
       expect(said(t)).toMatch(new RegExp(`CLAUDECODE is set, so an agent is running this command, and ${source} is refused there.*add --allow-agent-passphrase \\(SECURITY-MODEL 5\\.8\\)`));
     }
     const codex = at((await newDevice("codex")).root, {}, { CODEX_SANDBOX: "seatbelt" }, PASS);
-    expect(await run(codex, "agent", "encrypt", "--passphrase-stdin")).toBe(1);
+    expect(await run(codex, "signer", "encrypt", "--passphrase-stdin")).toBe(1);
     expect(said(codex)).toMatch(/CODEX_SANDBOX is set/);
   });
 
   it("takes stdin under an agent with --allow-agent-passphrase, and warns once", async () => {
     const d = await encrypted("optin");
     const t = at(d.root, {}, { CLAUDECODE: "1" }, PASS);
-    running.push(run(t, "agent", "start", "--foreground", "--passphrase-stdin", "--allow-agent-passphrase"));
+    running.push(run(t, "signer", "start", "--foreground", "--passphrase-stdin", "--allow-agent-passphrase"));
     terms.push(at(d.root));
     await until(() => said(t).includes("Signer running"), undefined, "the signer to listen");
     expect(t.err).toEqual([expect.stringMatching(/^wim: warning: --allow-agent-passphrase: CLAUDECODE is set, so an agent runs this command; .*defeats the signer's protection against agents \(SECURITY-MODEL 5\.8\)$/)]);
     // Without an agent's variables the opt-in changes nothing and says nothing.
     const plain = at(d.root, {}, {}, PASS);
-    expect(await run(plain, "agent", "start", "--passphrase-stdin", "--allow-agent-passphrase")).toBe(0);
+    expect(await run(plain, "signer", "start", "--passphrase-stdin", "--allow-agent-passphrase")).toBe(0);
     expect(plain.err).toEqual([]);
   });
 
   it("takes one source at a time, each only for the commands it is for", async () => {
     const d = await encrypted("which");
     const two = at(d.root, {}, {}, PASS);
-    expect(await run(two, "agent", "start", "--passphrase-stdin", "--ask-gui")).toBe(1);
+    expect(await run(two, "signer", "start", "--passphrase-stdin", "--ask-gui")).toBe(1);
     expect(said(two)).toContain("use one of --passphrase-stdin, --ask-gui, not several");
     for (const [args, why] of [
-      [["encrypt", "--ask-gui"], "--ask-gui is for wim agent start, unlock"],
-      [["status", "--keyring"], "--keyring is for wim agent start, unlock, autostart"],
-      [["lock", "--passphrase-stdin"], "--passphrase-stdin is for wim agent start, unlock, encrypt, decrypt"],
-      [["--keyring"], "--keyring is for wim agent start, unlock, autostart"],
+      [["encrypt", "--ask-gui"], "--ask-gui is for wim signer start, unlock"],
+      [["status", "--keyring"], "--keyring is for wim signer start, unlock, autostart"],
+      [["lock", "--passphrase-stdin"], "--passphrase-stdin is for wim signer start, unlock, encrypt, decrypt"],
+      [["--keyring"], "--keyring is for wim signer start, unlock, autostart"],
     ] as Array<[string[], string]>) {
       const t = at(d.root);
-      expect(await run(t, "agent", ...args)).toBe(1);
+      expect(await run(t, "signer", ...args)).toBe(1);
       expect(said(t)).toContain(why);
     }
     const none = at(d.root);
-    expect(await run(none, "agent", "start", "--ask-gui")).toBe(1);
+    expect(await run(none, "signer", "start", "--ask-gui")).toBe(1);
     expect(said(none)).toContain("this program cannot run a passphrase dialog, a keyring or a login item");
   });
 
@@ -614,36 +615,36 @@ describe("where the passphrase comes from", () => {
     const typedIn = ["not it", "still not", PASS];
     const asked = fakePrograms("linux", () => ({ code: 0, stdout: `${typedIn.shift()}\n`, stderr: "" }));
     const t = at(d.root, { programs: asked.programs });
-    running.push(run(t, "agent", "start", "--foreground", "--ask-gui"));
+    running.push(run(t, "signer", "start", "--foreground", "--ask-gui"));
     terms.push(at(d.root));
     await until(() => said(t).includes("Signer running"), undefined, "the signer to listen");
     expect(asked.calls.map((c) => c.args.at(-1))).toEqual([`--text=${GUI_ASK}`, `--text=${GUI_AGAIN}`, `--text=${GUI_AGAIN}`]);
-    await run(at(d.root), "agent", "stop");
+    await run(at(d.root), "signer", "stop");
     await Promise.all(running.splice(0));
     terms.splice(0);
 
     const never = fakePrograms("darwin", () => ({ code: 0, stdout: "wrong\n", stderr: "" }));
     const no = at(d.root, { programs: never.programs });
-    expect(await run(no, "agent", "start", "--foreground", "--ask-gui")).toBe(1);
+    expect(await run(no, "signer", "start", "--foreground", "--ask-gui")).toBe(1);
     expect(said(no)).toContain("the passphrase did not open this device's keys in 3 tries");
     expect(never.calls.map((c) => c.cmd)).toEqual(["/usr/bin/osascript", "/usr/bin/osascript", "/usr/bin/osascript"]);
     // The dialog names the process that started the signer.
     const named = fakePrograms("linux", () => ({ code: 1, stdout: "", stderr: "" }));
-    const by = at(d.root, { programs: named.programs, signerChecks: { agentAncestor: async () => undefined, terminal: async () => undefined, askedBy: async () => "bash -c wim agent start" } });
-    expect(await run(by, "agent", "start", "--ask-gui")).toBe(1);
-    expect(named.calls[0]!.args.at(-1)).toBe(`--text=${GUI_ASK}\n\nAsked by: bash -c wim agent start\nIf you did not just start the signer yourself, choose Cancel.`);
+    const by = at(d.root, { programs: named.programs, signerChecks: { agentAncestor: async () => undefined, terminal: async () => undefined, askedBy: async () => "bash -c wim signer start" } });
+    expect(await run(by, "signer", "start", "--ask-gui")).toBe(1);
+    expect(named.calls[0]!.args.at(-1)).toBe(`--text=${GUI_ASK}\n\nAsked by: bash -c wim signer start\nIf you did not just start the signer yourself, choose Cancel.`);
     const cancel = at(d.root, { programs: fakePrograms("win32", () => ({ code: 1, stdout: "", stderr: "" })).programs });
-    expect(await run(cancel, "agent", "start", "--ask-gui")).toBe(1);
+    expect(await run(cancel, "signer", "start", "--ask-gui")).toBe(1);
     expect(said(cancel)).toContain("the passphrase prompt was cancelled");
   });
 
   it("unlock --ask-gui asks once and restarts the locked signer", async () => {
     const d = await encrypted("guiunlock");
     const fg = await foreground(d.root);
-    expect(await run(at(d.root), "agent", "lock")).toBe(0);
+    expect(await run(at(d.root), "signer", "lock")).toBe(0);
     const asked = fakePrograms("linux", () => ({ code: 0, stdout: `${PASS}\n`, stderr: "" }));
     const u = at(d.root, { programs: asked.programs });
-    running.push(run(u, "agent", "unlock", "--foreground", "--ask-gui"));
+    running.push(run(u, "signer", "unlock", "--foreground", "--ask-gui"));
     await until(() => said(u).includes("Signer running"), undefined, "the new signer");
     await until(() => said(fg).includes("Signer stopped."), undefined, "the old signer to end");
     expect(asked.calls).toHaveLength(1);
@@ -652,59 +653,59 @@ describe("where the passphrase comes from", () => {
   it("--keyring reads the stored passphrase; Windows has no keyring here", async () => {
     const d = await encrypted("keyread");
     const win = at(d.root, { programs: fakePrograms("win32", () => ({ code: 0, stdout: "", stderr: "" })).programs });
-    expect(await run(win, "agent", "start", "--keyring")).toBe(1);
+    expect(await run(win, "signer", "start", "--keyring")).toBe(1);
     expect(said(win)).toContain(NO_KEYRING);
     const ring = fakePrograms("linux", () => ({ code: 0, stdout: hexOf(PASS), stderr: "" }));
     const t = at(d.root, { programs: ring.programs });
-    running.push(run(t, "agent", "start", "--foreground", "--keyring"));
+    running.push(run(t, "signer", "start", "--foreground", "--keyring"));
     terms.push(at(d.root));
     await until(() => said(t).includes("Signer running"), undefined, "the signer to listen");
     expect(ring.calls).toEqual([{ cmd: "secret-tool", args: ["lookup", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: undefined }]);
   });
 });
 
-describe("wim agent autostart", () => {
+describe("wim signer autostart", () => {
   it("installs a login item that asks in a dialog, reports it and removes it", async () => {
     const plain = await newDevice("asplain");
     const p0 = fakePrograms("linux", () => ({ code: 0, stdout: "", stderr: "" }));
     const refused = at(plain.root, { programs: p0.programs });
-    expect(await run(refused, "agent", "autostart", "enable")).toBe(1);
-    expect(said(refused)).toMatch(/is not encrypted: run `wim agent encrypt` first/);
+    expect(await run(refused, "signer", "autostart", "enable")).toBe(1);
+    expect(said(refused)).toMatch(/is not encrypted: run `wim signer encrypt` first/);
 
     const d = await encrypted("asgui");
     const { programs, calls } = fakePrograms("linux", () => ({ code: 0, stdout: "", stderr: "" }));
     const off = at(d.root, { programs });
-    expect(await run(off, "agent", "autostart", "status")).toBe(3);
-    expect(said(off)).toContain("autostart: off. `wim agent autostart enable` starts the signer at each log in.");
+    expect(await run(off, "signer", "autostart", "status")).toBe(3);
+    expect(said(off)).toContain("autostart: off. `wim signer autostart enable` starts the signer at each log in.");
     const on = at(d.root, { programs });
-    expect(await run(on, "agent", "autostart", "enable")).toBe(0);
+    expect(await run(on, "signer", "autostart", "enable")).toBe(0);
     const where = join(d.root, ".config", "autostart", `worldinmotion-signer-${keyringAccount(d.root)}.desktop`).replace(/\\/g, "/");
     const shown = on.out.find((l) => l.startsWith("Installed a login item: "))!.slice("Installed a login item: ".length);
     expect(shown.replace(/\\/g, "/")).toBe(where);
-    expect(await fs.readFile(shown, "utf8")).toContain("agent start --foreground --ask-gui");
+    expect(await fs.readFile(shown, "utf8")).toContain("signer start --foreground --ask-gui");
     expect(said(on)).toContain("asks for the passphrase in a dialog of its own");
     // Enabling the dialog removes a passphrase an earlier --keyring stored.
     expect(calls.map((c) => [c.cmd, ...c.args])).toEqual([["secret-tool", "clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)]]);
     expect(said(on)).toContain("It does not start a signer now");
     const st = at(d.root, { programs });
-    expect(await run(st, "agent", "autostart", "status")).toBe(0);
+    expect(await run(st, "signer", "autostart", "status")).toBe(0);
     // Paths compared with one separator: on Windows the Linux item's paths mix both.
     const slash = (x: string): string => x.replace(/\\/g, "/");
     const log = slash(join(d.root, "agent", "autostart.log"));
     expect(slash(said(st))).toContain(`autostart: on (it asks for the passphrase in a dialog): ${slash(shown)}\nlog: ${log}`);
     expect(slash(said(on))).toContain(`What it prints, errors included, is appended to ${log}.`);
     const rm = at(d.root, { programs });
-    expect(await run(rm, "agent", "autostart", "disable")).toBe(0);
+    expect(await run(rm, "signer", "autostart", "disable")).toBe(0);
     expect(said(rm)).toContain("Removed the login item");
     expect(calls.map((c) => c.args[0])).toEqual(["clear", "clear"]);
     const again = at(d.root, { programs });
-    expect(await run(again, "agent", "autostart", "disable")).toBe(0);
+    expect(await run(again, "signer", "autostart", "disable")).toBe(0);
     expect(said(again)).toContain("No login item starts the signer here.");
     const usage = at(d.root, { programs });
-    expect(await run(usage, "agent", "autostart")).toBe(1);
-    expect(said(usage)).toContain("usage: wim agent autostart enable [--keyring]");
+    expect(await run(usage, "signer", "autostart")).toBe(1);
+    expect(said(usage)).toContain("usage: wim signer autostart enable [--keyring]");
     const none = at(d.root);
-    expect(await run(none, "agent", "autostart", "status")).toBe(1);
+    expect(await run(none, "signer", "autostart", "status")).toBe(1);
     expect(said(none)).toContain("this program cannot run");
   });
 
@@ -712,27 +713,27 @@ describe("wim agent autostart", () => {
     const d = await encrypted("asring");
     const { programs, calls } = fakePrograms("linux", () => ({ code: 0, stdout: "", stderr: "" }));
     const no = at(d.root, { programs, promptSecret: typed(PASS) }, {}, "no");
-    expect(await run(no, "agent", "autostart", "enable", "--keyring")).toBe(1);
+    expect(await run(no, "signer", "autostart", "enable", "--keyring")).toBe(1);
     expect(said(no)).toMatch(/WARNING: your keyring \(libsecret\) gives this passphrase to any program you run/);
     expect(said(no)).toContain("nothing was stored or installed");
     const wrong = at(d.root, { programs, promptSecret: typed("not it") }, {}, "yes");
-    expect(await run(wrong, "agent", "autostart", "enable", "--keyring")).toBe(1);
+    expect(await run(wrong, "signer", "autostart", "enable", "--keyring")).toBe(1);
     expect(said(wrong)).toContain("that passphrase does not open this device's keys; nothing was stored or installed");
     expect(calls).toEqual([]);
     const yes = at(d.root, { programs, promptSecret: typed(PASS) }, {}, " yes ");
-    expect(await run(yes, "agent", "autostart", "enable", "--keyring")).toBe(0);
+    expect(await run(yes, "signer", "autostart", "enable", "--keyring")).toBe(0);
     expect(calls).toEqual([{ cmd: "secret-tool", args: ["store", "--label=worldinmotion-signer", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: hexOf(PASS) }]);
     expect(said(yes)).toContain("Stored the passphrase in the keyring.");
     expect(said(yes)).toContain("At each log in it starts the signer with the passphrase from the keyring.");
     const st = at(d.root, { programs });
-    expect(await run(st, "agent", "autostart", "status")).toBe(0);
+    expect(await run(st, "signer", "autostart", "status")).toBe(0);
     expect(said(st)).toContain("autostart: on (the passphrase comes from the keyring)");
     // Back to the dialog: the stored passphrase goes, and the item asks again.
     const back = at(d.root, { programs });
-    expect(await run(back, "agent", "autostart", "enable")).toBe(0);
+    expect(await run(back, "signer", "autostart", "enable")).toBe(0);
     expect(calls.at(-1)).toEqual({ cmd: "secret-tool", args: ["clear", "service", "worldinmotion-signer", "account", keyringAccount(d.root)], input: undefined });
     const now = at(d.root, { programs });
-    expect(await run(now, "agent", "autostart", "status")).toBe(0);
+    expect(await run(now, "signer", "autostart", "status")).toBe(0);
     expect(said(now)).toContain("autostart: on (it asks for the passphrase in a dialog)");
   });
 
@@ -745,11 +746,11 @@ describe("wim agent autostart", () => {
       [{}, {}, "this program cannot ask for a passphrase without showing it"],
     ] as Array<[Partial<CliIO>, Record<string, string>, string]>) {
       const t = at(d.root, { programs: mac.programs, ...extra }, env);
-      expect(await run(t, "agent", "autostart", "enable", "--keyring")).toBe(1);
-      expect(said(t)).toContain(`the passphrase goes into the keyring only from your own terminal: ${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim agent autostart enable --keyring\` there`);
+      expect(await run(t, "signer", "autostart", "enable", "--keyring")).toBe(1);
+      expect(said(t)).toContain(`the passphrase goes into the keyring only from your own terminal: ${cause}. Open a terminal yourself (VS Code: Terminal > New Terminal) and run \`wim signer autostart enable --keyring\` there`);
     }
     const ok = at(d.root, { programs: mac.programs, promptSecret: typed(PASS) });
-    expect(await run(ok, "agent", "autostart", "enable", "--keyring")).toBe(0);
+    expect(await run(ok, "signer", "autostart", "enable", "--keyring")).toBe(0);
     expect(said(ok)).toContain("Never choose Always Allow");
     expect(ok.out).not.toContain("Type yes to store it anyway: ");
     expect(mac.calls.map((c) => c.args[0])).toEqual(["delete-generic-password", "-i", "find-generic-password"]);
@@ -757,7 +758,76 @@ describe("wim agent autostart", () => {
     expect(shown.replace(/\\/g, "/")).toMatch(/\/Library\/LaunchAgents\/worldinmotion\.signer\.[0-9a-f]{16}\.plist$/);
     expect(await fs.readFile(shown, "utf8")).toContain("<string>--keyring</string>");
     const win = at(d.root, { programs: fakePrograms("win32", () => ({ code: 0, stdout: "", stderr: "" })).programs, promptSecret: typed(PASS) });
-    expect(await run(win, "agent", "autostart", "enable", "--keyring")).toBe(1);
+    expect(await run(win, "signer", "autostart", "enable", "--keyring")).toBe(1);
     expect(said(win)).toContain(NO_KEYRING);
+  });
+});
+
+describe("the signer's old name, `wim agent`, kept for one release", () => {
+  const NOTE = /`wim agent (\w+)` is now `wim signer \1`; the old spelling works until the next release/;
+
+  it("routes by the words: serve with no config or with a signer flag is the signer, with a config the worker", () => {
+    const none = new Map<string, string | true>();
+    expect(agentRoute(["serve"], none)).toBe("signer");
+    expect(agentRoute(["serve", "/etc/wim-agent/agent.json"], none)).toBe("worker");
+    expect(agentRoute(["serve", "x.json"], new Map([["passphrase-stdin", true]]))).toBe("signer");
+    expect(agentRoute(["serve", "x.json"], new Map([["as", "w"]]))).toBe("worker");
+    for (const w of ["start", "status", "lock", "unlock", "stop", "encrypt", "decrypt", "autostart"]) expect(agentRoute([w], none)).toBe("signer");
+    for (const w of ["init", "doctor", "run", "runner", "privileged", "fly"]) expect(agentRoute([w], none)).toBe("worker");
+    expect(agentRoute([], none)).toBe("worker");
+    expect(signerRenamed("start")).toMatch(NOTE);
+  });
+
+  it("`wim agent status` and `wim agent start` (an old login item's words) still run the signer, with the note on stderr", async () => {
+    const d = await encrypted("oldname");
+    const st = at(d.root);
+    expect(await run(st, "agent", "status")).toBe(3);
+    expect(st.err.join("\n")).toMatch(NOTE);
+    expect(said(st)).toMatch(/signer: not running/);
+    // What an autostart item written before the rename runs at log in.
+    const t = at(d.root, {}, {}, PASS);
+    running.push(run(t, "agent", "start", "--foreground", "--passphrase-stdin"));
+    terms.push(at(d.root));
+    await until(() => said(t).includes("Signer running"), undefined, "the signer under its old name");
+    expect(t.err.join("\n")).toMatch(NOTE);
+  });
+
+  it("`wim agent serve` with no config is the signer's serve, never a worker", async () => {
+    const d = await encrypted("oldserve");
+    const child = at(d.root, {}, {}, PASS);
+    const done = run(child, "agent", "serve");
+    running.push(done);
+    terms.push(at(d.root));
+    await until(() => child.out.some((l) => /^(ready|error) /.test(l)), undefined, "the serve line");
+    expect(child.out.find((l) => /^(ready|error) /.test(l))).toMatch(/^ready /);
+    expect(child.err.join("\n")).toMatch(NOTE);
+    expect(said(child)).not.toMatch(/worker (config|running)/);
+  });
+
+  it("`wim agent serve <config>` is the worker: no note, and its own config error", async () => {
+    const d = await newDevice("newserve");
+    const t = at(d.root);
+    expect(await run(t, "agent", "serve", join(d.root, "no-such-worker.json"))).toBe(1);
+    expect(t.err.join("\n")).not.toMatch(NOTE);
+    expect(t.err.join("\n")).toMatch(/no-such-worker\.json/);
+  });
+
+  it("`wim signer autostart status` rewrites a login item an older wim wrote for `wim agent start`", async () => {
+    const d = await encrypted("asold");
+    const { programs } = fakePrograms("linux", () => ({ code: 0, stdout: "", stderr: "" }));
+    const on = at(d.root, { programs });
+    expect(await run(on, "signer", "autostart", "enable")).toBe(0);
+    const where = on.out.find((l) => l.startsWith("Installed a login item: "))!.slice("Installed a login item: ".length);
+    const fresh = await fs.readFile(where, "utf8");
+    // As 0.1 wrote it.
+    await fs.writeFile(where, fresh.replace("signer start --foreground", "agent start --foreground"));
+    const st = at(d.root, { programs });
+    expect(await run(st, "signer", "autostart", "status")).toBe(0);
+    expect(said(st)).toContain(`autostart: rewrote ${where}, which ran an older command line, to run \`wim signer start\` from this wim.`);
+    expect(await fs.readFile(where, "utf8")).toBe(fresh);
+    // Current: nothing to rewrite.
+    const again = at(d.root, { programs });
+    expect(await run(again, "signer", "autostart", "status")).toBe(0);
+    expect(said(again)).not.toContain("rewrote");
   });
 });

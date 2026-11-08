@@ -1,4 +1,4 @@
-// Decisions on held messages, signed by the signer (`wim agent`) once the person confirmed them
+// Decisions on held messages, signed by the signer (`wim signer`) once the person confirmed them
 // there. With an encrypted key file, an approve, refuse or resume reaches a session only as one of
 // these: the signer read the items from disk itself, showed them to the person in its own terminal
 // or dialog, and signed exactly those ids, each bound to a digest of the item it showed. A mark file
