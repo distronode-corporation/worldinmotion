@@ -163,8 +163,8 @@ For keyless authentication, profiles mapped to separate accounts and a code chec
 OS user, use the privileged runner instead (`wim agent privileged`, see
 [docs/privileged-runner.md](docs/privileged-runner.md)). It verifies each request's signed frame
 itself and compares it with the task, so the worker must run with `wake.mode` `runner` (the
-runner checks the code and parses the prefix; `wim agent doctor` says so otherwise), so it needs the worker device's key file in plaintext (not `wim signer encrypt`), readable
-by root. Its keyless sign-in also uses `@anthropic-ai/sdk`, an optional peer: install it beside
+runner checks the code and parses the prefix; `wim agent doctor` says so otherwise). It also
+needs the worker device's key file in plaintext (not `wim signer encrypt`), readable by root. Its keyless sign-in also uses `@anthropic-ai/sdk`, an optional peer: install it beside
 `wim` with the Agent SDK.
 
 From a checkout of this repository, `node packages/agent/src/bin.ts` (`wim-agent-runner`) is the
