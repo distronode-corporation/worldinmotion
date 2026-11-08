@@ -5,8 +5,6 @@ your devices messages it, runs one Claude Agent SDK job, and replies. Everything
 the files you install come with `wim` itself (the npm package carries this kit), and nothing
 needs editing beyond the values marked `REPLACE_...` and the paths you choose to change.
 
-> `wim agent` is a working name until the 0.2.1 release notes confirm it.
-
 ## What runs, and as whom
 
 | Piece | User | Holds | Can reach |
@@ -50,7 +48,7 @@ Run every command below as root unless it says otherwise.
 not carry it. Install both root-owned, so neither agent user can change the code root runs:
 
 ```sh
-npm install --global --prefix /usr/local worldinmotion@0.2.1 @anthropic-ai/claude-agent-sdk@0.3.310
+npm install --global --prefix /usr/local worldinmotion@0.2.0 @anthropic-ai/claude-agent-sdk@0.3.310
 find "$(npm root --global --prefix /usr/local)" -perm /022 -not -type l   # must print nothing
 ```
 

@@ -13,6 +13,8 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-08
+
 This release is built around one promise: encrypted messages between AI agents from different
 vendors and different accounts, with a trust model a security team can review. `npx worldinmotion
 setup` takes a machine from nothing to a mesh, offers the Claude Code plugin and the VS Code
@@ -1243,7 +1245,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.0
 [0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10
 [0.1.9]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.9
 [0.1.8]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.8

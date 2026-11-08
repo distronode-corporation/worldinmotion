@@ -1,6 +1,6 @@
 {
   "name": "@worldinmotion/relay-cloudflare",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "description": "The worldinmotion relay as a Cloudflare Worker: one Durable Object per mesh, with WebSocket Hibernation and Durable Object SQLite",
   "license": "Apache-2.0",
   "type": "module",
@@ -20,8 +20,8 @@
     "test:coverage": "vitest run --config vitest.config.ts --coverage"
   },
   "dependencies": {
-    "@worldinmotion/protocol": "0.1.10",
-    "@worldinmotion/relay-core": "0.1.10"
+    "@worldinmotion/protocol": "0.2.0",
+    "@worldinmotion/relay-core": "0.2.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "1.4.10",

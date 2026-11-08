@@ -90398,7 +90398,7 @@ function ciAtFresh(at, now) {
 // ../a2a/src/inbound.ts
 var MAX_REQUEST_BYTES = 1024 * 1024;
 var MAX_TASK_TEXT_BYTES = LIMITS.textBytes;
-var GATEWAY_VERSION = "0.1.10";
+var GATEWAY_VERSION = "0.2.0";
 var EARLY_RESULTS = 64;
 var WimMetadata = external_exports.looseObject({
   to: external_exports.string().optional(),
@@ -94927,6 +94927,11 @@ function pausedThereLine(to, p3) {
   const end2 = p3.auto ? `until its client releases them by itself at ${clock(p3.until)}, delivering up to its per-peer limit of what it held (the rest waits for its person)` : `until its person releases them; the pause itself lifts at ${clock(p3.until)}`;
   return `${to}'s loop breaker paused messages from this device (${pauseRule("this device", p3)}): what this device sends there is held, not delivered, ${end2}. \`send\` reports \`held\` for ${to} until then. Sending more only adds to what it holds; if it cannot wait, tell your person.`;
 }
+function keyless(file2) {
+  if (file2 === void 0) return {};
+  const { key: _key, ...rest } = file2;
+  return { fileInfo: rest };
+}
 function entryOf(p3, from) {
   return {
     dir: "in",
@@ -95955,7 +95960,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       entry,
       ...p3.kind === "file" ? { fileInfo: p3.file } : {}
     };
-    if (policy === "hold") return this.hold(this.redacting ? { ...held2, preview: REDACTED_TEXT, entry: this.stored(entry), reason: "policy" } : { ...held2, reason: "policy" });
+    if (policy === "hold") return this.hold(this.redacting ? { ...held2, preview: REDACTED_TEXT, entry: this.stored(entry), ...keyless(p3.kind === "file" ? p3.file : void 0), reason: "policy" } : { ...held2, reason: "policy" });
     if ((await this.releaseDue()).has(p3.id)) return;
     const admitted = this.breaker.admit(p3.from.device, entry.text.length, isTrusted(this.config, p3.from.device));
     if (!admitted.ok) {
@@ -96014,7 +96019,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       return;
     }
     const entry = { ...item.entry };
-    if (file2 !== void 0) entry.savedTo = this.redacting ? REDACTED_FILE : await this.fetchFile(item.id, file2).catch((e6) => `(not saved: ${e6.message})`);
+    if (file2 !== void 0) entry.savedTo = "key" in file2 && !this.redacting ? await this.fetchFile(item.id, file2).catch((e6) => `(not saved: ${e6.message})`) : REDACTED_FILE;
     await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry, written2);
   }
   /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
@@ -129125,12 +129130,24 @@ var DailyLedger = class _DailyLedger {
     }
     if (this.jobs >= this.cap) return false;
     this.jobs++;
+    await this.save();
+    return true;
+  }
+  /**
+   * Gives back the job the last `take` counted, when the runner ran none: it refused the request
+   * (a wrong wake code, a profile or sender it does not take) or was busy (#134). A job is taken
+   * and given back within one run, and one runs at a time, so this is that job's day.
+   */
+  async giveBack() {
+    this.jobs--;
+    await this.save();
+  }
+  async save() {
     await mkdir3(dirname8(this.path), { recursive: true });
     const tmp = `${this.path}.${process.pid}.tmp`;
     await writeFile4(tmp, `${JSON.stringify({ day: this.day, jobs: this.jobs })}
 `, { mode: 384 });
     await rename3(tmp, this.path);
-    return true;
   }
 };
 
@@ -129383,9 +129400,12 @@ var Worker = class {
         }
         return;
       }
+      // The runner ran no job, so today's allowance is not spent on it (#134).
       case "refused":
+        await this.o.ledger.giveBack();
         return this.refuse(item, "code");
       case "busy":
+        await this.o.ledger.giveBack();
         return this.reply(item, BUSY2, "declined");
       case "timeout":
         return this.reply(item, TIMED_OUT, "timeout");
@@ -130471,6 +130491,7 @@ var MAX_ANSWER_BYTES = 60 * 1024;
 var TRUNCATED = "\n\n[answer truncated by the privileged runner]\n";
 var MAX_API_BODY_BYTES = 32 * 1024 * 1024;
 var EXTRA_REQUESTS = 5;
+var MAX_STDERR_LINE2 = 500;
 var log = (deps, line) => deps.err(`wim-agent-privileged: ${line}`);
 function configPath(env4, euid) {
   const o3 = env4["WIM_AGENT_PRIVILEGED_CONFIG"];
@@ -130623,10 +130644,22 @@ ${task}
       size += kept.length;
     });
     let errTail = "";
+    let dropping = false;
+    const status3 = (line) => {
+      if (!dropping && line.startsWith("worker: ")) log(deps, line.slice(0, 300));
+    };
     handle.onStderr((chunk) => {
       const lines = (errTail + chunk.toString("utf8")).split("\n");
       errTail = lines.pop();
-      for (const line of lines) if (line.startsWith("worker: ")) log(deps, line.slice(0, 300));
+      for (const line of lines) {
+        status3(line);
+        dropping = false;
+      }
+      if (errTail.length > MAX_STDERR_LINE2) {
+        status3(errTail);
+        errTail = "";
+        dropping = true;
+      }
     });
     let ended2;
     let grace;
@@ -138625,7 +138658,7 @@ function sourceKey2(address, secret) {
   return b64u.encode(hmacSha256(secret, utf8(sourceBucket(address)))).slice(0, 22);
 }
 var UNIT = { "": 1, kib: 1024, mib: 1024 ** 2, gib: 1024 ** 3 };
-var RELAY_VERSION = "0.1.10";
+var RELAY_VERSION = "0.2.0";
 function relayInfo(s3) {
   return {
     v: 1,
@@ -140538,7 +140571,7 @@ async function selfTest(o3) {
 }
 
 // src/cli.ts
-var VERSION2 = "0.1.10";
+var VERSION2 = "0.2.0";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);

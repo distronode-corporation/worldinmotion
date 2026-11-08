@@ -52,7 +52,7 @@ import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } f
 import { droppedCount, droppedLine, droppedPath, LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
 import { selfTest } from "./selftest.ts";
 
-export const VERSION = "0.1.10";
+export const VERSION = "0.2.0";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {
