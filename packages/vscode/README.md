@@ -4,7 +4,7 @@ See and act on your [worldinmotion](https://github.com/distronode-corporation/wo
 sessions on it, their rooms and leases, the messages held for you, and a live view of who is
 talking to whom.
 
-> **Status: preview, v0.1.** Published as a pre-release. It works end to end, but the
+> **Status: preview, before v1.0.** Published as a pre-release. It works end to end, but the
 > commands and settings may still change before v1.0.
 
 ## Install
@@ -29,12 +29,20 @@ An activity bar container, **worldinmotion**, with four views:
 - **Rooms:** each room and its members.
 - **Leases:** each lease, its holder and the time left. The lease token is never shown.
 - **Held:** messages held for you, grouped under the device (or CI rule) that sent them, with
-  **Approve** and **Refuse** on each group and each row. Either opens a modal that lists
-  everything held from that sender, in order, with the count and the time span; **Approve all**
-  decides exactly what it listed, and **Approve only this one** is offered when you started from
-  a row. A CI notice whose approval pins its rule's ids is approved only in a terminal. A
-  message held by two of this device's sessions shows once for each; deciding it decides
-  every copy.
+  **Approve** and **Refuse** on each group and each row. Either opens the held-set dialog (below).
+  A message held by two of this device's sessions shows once for each; deciding it decides every
+  copy.
+
+**The held-set dialog.** Approve or Refuse opens a modal that lists everything held from that
+sender, in order, with the count and the time span. **Approve all** (or **Refuse all**) decides
+exactly what it listed: anything held from that sender after the dialog opened stays held for the
+next look. **Approve only this one** (or **Refuse only this one**) is offered when you started from
+a row. The default button, the one Enter presses, is **Keep them held**, and Escape cancels, so
+deciding is always a deliberate click. A CI notice whose approval pins its rule's ids is left out
+of Approve all and is approved only in a terminal (refusing the set covers it). When this device's
+keys are in the signer, a notification shows a six-digit code and the signer asks you to confirm in
+its own terminal or dialog: confirm only if it shows the same code. The extension waits up to 7
+minutes for that answer.
 
 A status bar item shows the connection state and the number of unread and held messages. Click
 it to open **Activity**, a view in the panel with:
@@ -60,15 +68,20 @@ Commands, in the editor and explorer context menus and the command palette:
 | Ask a Peer about the Selection... | Sends it as a `task`, with an optional question first. |
 | Send File to... | Sends a file from this machine with `send_file`. |
 | Open Thread | Shows the conversation with a peer as plain text in a read-only editor. |
-| Approve / Refuse | Shows everything held from that sender in a modal, then decides all of it or only the row you started from. |
+| Approve / Refuse | Opens the held-set dialog: everything held from that sender, then all of it or only the row you started from. |
 | Trust / Trust (including relayed text) / Untrust | On a device in the Mesh view; asks you to confirm the new policy first. |
 | Resume | On a session the breaker paused. |
 | Show Client Log / Restart Client | The client's log lines, and a fresh start. |
+| Show Activity / Refresh | Opens the Activity view; reads the mesh again. |
+| Turn Crash Reports On... / Turn Crash Reports Off | Opens a terminal running `wim crash-reports on` or `off` (see Safety model). |
 
 ## Set up this device
 
 VS Code alone needs no npm and no terminal command: the extension runs its own copy of the client.
-On a device in no mesh yet, the Mesh view shows **Create a Mesh** and **Join with a Code**.
+On a device in no mesh yet, the Mesh view is a welcome view: "This device is in no mesh yet. A mesh
+is the set of devices whose AI sessions can message each other, end to end encrypted.", with
+**Create a Mesh** and **Join with a Code** buttons (on another machine of yours, choose Join with a
+Code).
 
 - **Create a Mesh** (the first machine): name this device (its sessions get addresses like
   `vscode@laptop`), pick a relay (the hosted relay, `wss://worldinmotion.distronode.com`, free

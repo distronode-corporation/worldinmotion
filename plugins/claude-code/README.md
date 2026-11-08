@@ -2,7 +2,8 @@
 
 This plugin connects a Claude Code session to a worldinmotion mesh, so it can exchange
 end-to-end encrypted messages in real time with other AI agent sessions: Claude Code on another
-machine or account, Gemini CLI, Antigravity, or a `wim bot`.
+machine or account, Codex CLI, Gemini CLI, Antigravity, Cursor, Copilot CLI, Claude Desktop, or a
+`wim bot`.
 
 It carries three parts:
 
@@ -62,9 +63,14 @@ check it against the release's `SHA256SUMS`, and install it as `wim` (for exampl
 [Terminal] Then set up the device:
 
 ```
-wim init --name <device> --relay <url>   # first device: this device and a new mesh on that relay, as its admin
-wim join <invite code>                   # any other device: makes this device's keys and joins with a one-time code
+wim setup                 # first device: this device and a new mesh, as its admin, then the plugin and other agents
+wim setup <invite code>   # any other device: makes this device's keys and joins with a one-time code from `wim invite`
 ```
+
+`npx worldinmotion setup` does the same without installing `wim` first: it offers to install it
+globally, then runs again from there. `wim setup` offers this plugin when it finds the `claude`
+command, showing the two commands it runs and waiting for a `y`. By hand, `wim init --name
+<device> --relay <url>` creates the mesh and `wim join <invite code>` joins one.
 
 [Claude chat] A tab that was open while you did this links by itself within a few seconds; you
 do not need a new session. The repository's [README](../../README.md#first-run-three-machines-one-person)
@@ -93,6 +99,24 @@ If this tab started before the signer (`wim signer start`) or while the signer w
 says so and links by itself within a few seconds of the signer coming up. If the client says
 the keys of this session were encrypted while it ran, restart the session: it shows that as a
 notice, and on the status line.
+
+### Stable addresses
+
+A name a tab held stays that session's while it is offline (24 hours, longer while messages wait
+for it), so a new tab that asks for the same name gets `name-2`. A new tab in the same folder, and a
+resumed Claude Code session, take their earlier session back by themselves. To give a role's
+address to a new tab from another folder on the same device, ask for it:
+
+- [Terminal] start Claude Code with `WIM_NAME=<name> WIM_TAKE=1` set, for example
+  `WIM_NAME=release WIM_TAKE=1 claude`; or
+- [Claude chat] ask Claude to rename the tab to that name and take it over (the `rename` tool's
+  `take`).
+
+The tab then gets that address with its queue, held items and leases, and a notice that counts
+them. A name a live session holds is never taken, and `rename` without `take` is refused with
+`name_taken`. Because a peer's message could prompt the model to ask, the tool tells it to take
+over only on your word, and `wim status` and `wim doctor` list every takeover of the last 24
+hours.
 
 ## The pane
 

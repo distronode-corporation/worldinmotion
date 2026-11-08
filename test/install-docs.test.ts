@@ -32,32 +32,41 @@ describe("VS Code install commands in the docs", () => {
   }
 });
 
-// `wim setup` (README, Quick start) runs these commands for the person; the README names the same
-// ones, and every `wim` command the quick start names exists.
-describe("the README's quick start", () => {
+// `wim setup` (README, Quick start, and First run, "With `wim setup`") runs these commands for the
+// person; the README names the same ones, and every `wim` command either part names exists.
+describe("the README's quick start and its `wim setup` walk-through", () => {
   const text = readFileSync(join(repo, "README.md"), "utf8");
-  const quick = text.slice(text.indexOf("## Quick start: `wim setup`"), text.indexOf("## First run"));
+  const between = (from: string, to: string): string => {
+    const start = text.indexOf(from);
+    return start === -1 ? "" : text.slice(start, text.indexOf(to, start));
+  };
+  const quick = between("## Quick start: `wim setup`", "## First run");
+  const guided = between("### With `wim setup`", "### By hand");
+  const wimCommands = (part: string): string[] => [...part.matchAll(/`wim ([a-z-]+)/g)].map((m) => m[1]!);
 
-  it("comes before the manual first run, which stays", () => {
-    expect(text.indexOf("## Quick start: `wim setup`")).toBeGreaterThan(-1);
+  it("comes before the first run, whose manual path stays under By hand", () => {
     expect(quick.length).toBeGreaterThan(0);
-    expect(text).toContain("### 2. Create the mesh, on the first machine");
+    expect(guided.length).toBeGreaterThan(0);
+    expect(text.indexOf("## Quick start: `wim setup`")).toBeLessThan(text.indexOf("### With `wim setup`"));
+    expect(text.indexOf("### With `wim setup`")).toBeLessThan(text.indexOf("### By hand"));
+    expect(text.slice(text.indexOf("### By hand"))).toContain("#### 2. Create the mesh, on the first machine");
   });
 
   it("starts with `npx worldinmotion setup`, with the global install as the alternative", () => {
     expect(/```sh\n([^\n]*)\n/.exec(quick)![1]).toBe("npx worldinmotion setup");
-    expect(quick).toContain("`npm install --global worldinmotion@<version>`");
     expect(quick).toContain("install `wim` first (step 1 below) and run `wim setup`");
+    expect(quick).toContain("`npx worldinmotion setup <code>`");
+    expect(guided).toContain("`npm install --global worldinmotion@<version>`");
   });
 
   it("names the commands wim setup runs, exactly", () => {
-    for (const c of SETUP_COMMANDS) expect(quick.replace(/\s+/g, " ")).toContain(c);
+    for (const c of SETUP_COMMANDS) expect(guided.replace(/\s+/g, " ")).toContain(c);
   });
 
   it("names only wim commands that exist, and wim help setup and recovery show --wait give them", () => {
-    const named = [...quick.matchAll(/`wim ([a-z-]+)/g)].map((m) => m[1]!);
-    expect(named).toContain("setup");
-    for (const c of named) expect(commandUsage(c)).toBeDefined();
+    expect(wimCommands(quick)).toContain("setup");
+    expect(wimCommands(guided)).toContain("invite");
+    for (const c of [...wimCommands(quick), ...wimCommands(guided)]) expect(commandUsage(c)).toBeDefined();
     expect(commandUsage("setup")).toBe("wim setup [<invite code>] [--name <device>] [--relay <url>] [--key-env NAME]");
     expect(commandUsage("recovery")).toContain("wim recovery show [--wait]");
     expect(text).toContain("`wim recovery show --wait`");
