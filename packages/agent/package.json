@@ -1,7 +1,7 @@
 {
   "name": "@worldinmotion/agent",
   "version": "0.1.10",
-  "description": "wim worker: a worldinmotion peer that sleeps until an allowed device messages it, then runs one agent job through a runner command and replies",
+  "description": "wim agent: a worldinmotion peer that sleeps until an allowed device messages it, then runs one agent job through a runner command and replies",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {

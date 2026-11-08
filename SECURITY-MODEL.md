@@ -374,10 +374,10 @@ the user's, and any process of the user can write `on` into it. A report is a sc
 README's "Crash reports (opt in)"), at most 5 a process, so the exposure is small; where it
 matters, `WIM_NO_CRASH_REPORTS=1` in the environment keeps reporting off whatever the file says.
 
-**With the signer (`wim agent`).** `wim agent encrypt` encrypts `device.json` under a passphrase
+**With the signer (`wim signer`).** `wim signer encrypt` encrypts `device.json` under a passphrase
 (scrypt with N = 2^17, r = 8, p = 1; ChaCha20-Poly1305, with the file's public fields as associated
 data) and seals every prekey secret in `prekeys.json` under a random data key that only the
-encrypted file holds. `wim agent start`, run by the person in their own terminal, asks for the
+encrypted file holds. `wim signer start`, run by the person in their own terminal, asks for the
 passphrase once and starts the signer: one process per device that holds the device keys and the
 data key in memory and answers sessions over a local socket. Sessions never read the keys; they
 ask the signer to sign, seal and open, and it answers. The wire is unchanged (SPEC section 3).
@@ -387,9 +387,9 @@ What it stops:
 - **Taking the keys away.** No file holds a secret key in the clear. A copy of `device.json` and
   `prekeys.json` is worth an offline guessing attack on the passphrase and nothing more, so the
   passphrase must be a strong one.
-- **New use after the signer is locked or stopped.** `wim agent lock` wipes the keys from the
+- **New use after the signer is locked or stopped.** `wim signer lock` wipes the keys from the
   signer's memory (as far as JavaScript can, below) and it refuses every key operation from then
-  on; `wim agent stop` ends it. Nothing on disk lets a process act for the device meanwhile: the
+  on; `wim signer stop` ends it. Nothing on disk lets a process act for the device meanwhile: the
   signer hands out signatures and opened boxes, never a key. What it signed while unlocked stays
   valid, though (below, "Signatures made while unlocked").
 - **A process in the middle of the socket, or in its place.** The signer proves itself with a key
@@ -402,7 +402,7 @@ What it stops:
   everything the hello says about the signer (`id`, `name`, its public keys, `locked`, `pid`): no
   client decision rests on an unsigned field. Both sides derive the connection's keys from the
   exchange, and every later line is sealed with ChaCha20-Poly1305, one key and a message counter
-  each way. A client sends nothing but the hello to what cannot prove itself, and `wim agent
+  each way. A client sends nothing but the hello to what cannot prove itself, and `wim signer
   lock`, `stop`, `unlock` and `status` fail (non-zero) against it. So a process that relays the
   hello (a proxy put at the socket path, or another instance of a Windows pipe) reads nothing and
   can neither change nor forge a line, not even turn "unlocked" into "locked"; swapping in its own
@@ -428,16 +428,16 @@ What it stops:
   therefore gets nothing more either. A swap that is undone between two checks is not seen here;
   the proof above is what stops it.
 - **Collecting the passphrase by posing as a locked signer.** The device's public key is in the
-  key file for anyone of the user to read, so a process could bind the endpoint (after `wim agent
+  key file for anyone of the user to read, so a process could bind the endpoint (after `wim signer
   stop`, which any process of the user may send) and answer `hello` as a locked signer, which has
   nothing to prove. It gets nothing for it. The passphrase never goes over the socket: there is no
-  unlock request. `wim agent unlock` reads the passphrase in the person's own command, checks it
+  unlock request. `wim signer unlock` reads the passphrase in the person's own command, checks it
   against the key file there, asks the locked signer to stop (a signer stops listening before it
   answers), and starts a new signer from that command, handing the passphrase only to the process
   it started, over that process's own stdin. If something still answers at the endpoint after
   `stop`, the command says so and sends it nothing more. Sessions likewise send a connection whose
   signer has not proved itself (above) nothing but the hello. `stop` checks afterwards that the
-  endpoint stopped answering. `wim agent start` does not let something that answers without the
+  endpoint stopped answering. `wim signer start` does not let something that answers without the
   proof stop it: it says so and starts a signer in its place (a POSIX socket file is replaced; on
   Windows the new signer takes a fresh pipe name). Two `start`s at once take a lock file while they
   check for a running signer and bind, so one binds and the other says one is running (without it,
@@ -498,7 +498,7 @@ What it does not stop:
   Windows. Such a process is already more powerful than the user.
 - **Stopping or squatting the signer.** Any process of the user can stop the signer, or take its
   endpoint while it is stopped. That denies the device's sessions their keys (they report it), and
-  `wim agent unlock` and `wim agent start` report something that answers and is not the signer;
+  `wim signer unlock` and `wim signer start` report something that answers and is not the signer;
   it does not give that process the keys, the passphrase or any plaintext.
 - **A signer an agent started for itself.** An agent can clear its variables (`env -i`) and give
   a signer a terminal of its own (a pseudo-terminal, `script`); with the passphrase (the person
@@ -520,7 +520,7 @@ What it does not stop:
   key's OpenSSL object, whose own copy OpenSSL frees when the object is collected; JavaScript cannot
   zero it. Strings remain until the runtime frees them: the passphrase as typed, and the key file's
   decrypted JSON while it is parsed.
-- **The passphrase at the keyboard.** A keylogger running as the person sees it. `wim agent start`,
+- **The passphrase at the keyboard.** A keylogger running as the person sees it. `wim signer start`,
   `unlock`, `encrypt` and `decrypt` ask for it at an interactive terminal with no agent's variables
   set, and keep it inside the command and the signer it starts. The other sources (stdin, a native
   dialog, the OS keyring) are below, under "Starting the signer, and where the passphrase comes
@@ -531,10 +531,10 @@ What it does not stop:
   full assurance after starting to use the signer, join the mesh with a new device and revoke the
   old one.
 
-**Starting the signer, and where the passphrase comes from.** `wim agent start` runs the signer
+**Starting the signer, and where the passphrase comes from.** `wim signer start` runs the signer
 detached from the command (its own session on POSIX, no console window on Windows), so it keeps
 running after the terminal or VS Code that started it closes. It ends at log out or restart, or
-with `wim agent stop`; nothing restarts it unless the person sets that up, and `wim agent status`
+with `wim signer stop`; nothing restarts it unless the person sets that up, and `wim signer status`
 says whether one runs. The passphrase reaches it in one of these ways:
 
 - **The person's own terminal** (the default): typed without echo, where no agent's variable is
@@ -542,17 +542,17 @@ says whether one runs. The passphrase reaches it in one of these ways:
 - **A native dialog** (`--ask-gui`, for `start` and `unlock`): osascript on macOS, zenity or
   kdialog on Linux, the Windows PowerShell credential dialog on Windows. `start` asks again, up to
   three times, while what was typed does not open the key file.
-- **At each log in** (`wim agent autostart enable`): a login item (a launchd agent on macOS, an
-  XDG autostart entry on Linux, a logon task on Windows) runs `wim agent start --foreground
+- **At each log in** (`wim signer autostart enable`): a login item (a launchd agent on macOS, an
+  XDG autostart entry on Linux, a logon task on Windows) runs `wim signer start --foreground
   --ask-gui` with the state directory pinned in `WIM_HOME`. This is the default way to start it
   without typing in a terminal: the dialog belongs to a process the login session started, so the
   person types the passphrase into something that is not an agent's descendant, and the signer
   that holds it is not one either (above, "Reading the signer's memory"). A process of the user can
   still put up a look-alike dialog of its own; a dialog that comes at any time other than log in,
   or after a `start` the person ran, is not the signer's.
-- **The OS keyring** (`--keyring`, opt-in, set up with `wim agent autostart enable --keyring` at
+- **The OS keyring** (`--keyring`, opt-in, set up with `wim signer autostart enable --keyring` at
   the person's own terminal): the login item reads the passphrase from the keyring, so nobody types
-  it. `wim agent autostart disable`, or `enable` without `--keyring`, removes the stored passphrase.
+  it. `wim signer autostart disable`, or `enable` without `--keyring`, removes the stored passphrase.
   What that exposes depends on the keyring, and enabling it says so first:
   - macOS: the login keychain, in an item added with no trusted application (`security
     add-generic-password -T ""`, the passphrase given over stdin, never on a command line), so
@@ -581,7 +581,7 @@ set no agent variable, so they need no opt-in.
 
 The signer is optional. With a plaintext key file and no signer, clients behave as before. An
 encrypted key file needs a running, unlocked signer, and clients say so. `require_signer` (in
-`agent/config.json`, set by `wim agent encrypt` and cleared by `wim agent decrypt`, or
+`agent/config.json`, set by `wim signer encrypt` and cleared by `wim signer decrypt`, or
 `WIM_REQUIRE_SIGNER=1`) makes clients refuse a plaintext key file: a guard against restoring an old
 plaintext backup by mistake, not against a process of the user, which can change the setting.
 
@@ -1183,7 +1183,7 @@ decisions (section 7.5). No MCP tool approves, refuses, resumes, trusts or delet
 plugin's internal tool only reads. This stops an agent that runs the command itself, by habit or because
 a peer asked; it is a same-user check, not a boundary (section 9).
 
-**Decisions the signer signs.** With the device's key file encrypted (`wim agent encrypt`, section
+**Decisions the signer signs.** With the device's key file encrypted (`wim signer encrypt`, section
 5.8), an approve, refuse or resume also needs the signer's own confirmation, and nothing else
 counts as one:
 
@@ -1193,7 +1193,7 @@ counts as one:
   command (or VS Code) shows the person. The signer reads those items from the state directory
   itself, never from the request, and shows the code and each item (sender, sessions, kind, time,
   its first line or, for a CI notice, the text that is delivered, escaped and on one line) in the
-  terminal it runs in (`wim agent start --foreground` at an interactive terminal: a typed `y`) or
+  terminal it runs in (`wim signer start --foreground` at an interactive terminal: a typed `y`) or
   else in a native dialog (zenity with markup off or kdialog, an AppleScript dialog that takes the
   text as an argument, a Windows message box), whose default button is Cancel where the tool
   allows it. Each dialog program is run by its absolute path (`/usr/bin/zenity`, `/usr/bin/kdialog`,
@@ -1523,9 +1523,9 @@ That is safe only because of where the script can act, so isolation is the prope
   variables or without an interactive terminal on stdin and stdout, as a person-only command
   would. Each question is shown with its device and what the step expects.
 
-### 7.7 `wim worker`: a peer that runs agent jobs
+### 7.7 `wim agent`: a peer that runs agent jobs
 
-`wim worker` (package `@worldinmotion/agent`, README there) sleeps until a message arrives and
+`wim agent` (package `@worldinmotion/agent`, README there) sleeps until a message arrives and
 runs one job through a runner command for an allowed sender. It is the one peer whose purpose is
 to act on what another session says, so its edges are these.
 

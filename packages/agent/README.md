@@ -1,6 +1,6 @@
 # @worldinmotion/agent
 
-`wim worker`: a worldinmotion peer that sleeps until a message arrives, decides whether the
+`wim agent`: a worldinmotion peer that sleeps until a message arrives, decides whether the
 sender may wake it, runs one agent job through a runner command, and replies with the answer.
 
 - **Who may wake it** is a list of device ids from the signed roster, never names. By default the
@@ -39,7 +39,7 @@ Read [Security model](#security-model) before you run one.
 5. **Write a config** (below) and a runner config, and start it:
 
 ```sh
-wim worker serve agent.json --as agents
+wim agent serve agent.json --as agents
 ```
 
 The session is named `worker` unless `--as <name>` or `WIM_NAME` says otherwise. It runs until it
@@ -49,8 +49,8 @@ is stopped; its log goes to stderr. Then, from an allowed device:
 wim send agents@<worker device> "list the TODO comments in src/"
 ```
 
-`wim worker init` writes a starting config, `wim worker doctor` checks one, and
-`wim worker run --once` runs one job from a request on stdin, without the mesh.
+`wim agent init` writes a starting config, `wim agent doctor` checks one, and
+`wim agent run --once` runs one job from a request on stdin, without the mesh.
 
 ## Configuration
 
@@ -140,7 +140,7 @@ A runner is any program. The worker starts one per job, in its own process group
 
 ## The built-in runner
 
-`wim worker runner` runs one job through the
+`wim agent runner` runs one job through the
 [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk). `wim` does not
 carry the SDK (it is large, with a native Claude Code build per platform), so install it next to
 `wim`:
@@ -150,7 +150,7 @@ npm install --global worldinmotion @anthropic-ai/claude-agent-sdk
 ```
 
 For keyless authentication, profiles mapped to separate accounts and a code check under another
-OS user, use the privileged runner instead (`wim worker privileged`, see
+OS user, use the privileged runner instead (`wim agent privileged`, see
 [docs/privileged-runner.md](docs/privileged-runner.md)).
 
 From a checkout of this repository, `node packages/agent/src/bin.ts` (`wim-agent-runner`) is the
@@ -205,7 +205,7 @@ sudo -u wim-agent env WIM_HOME=/var/lib/wim-agent/wim wim join <code>
 ```ini
 # /etc/systemd/system/wim-agent.service
 [Unit]
-Description=wim worker (agent jobs)
+Description=wim agent (agent jobs)
 After=network-online.target
 Wants=network-online.target
 
@@ -215,7 +215,7 @@ Group=wim-agent
 StateDirectory=wim-agent
 Environment=WIM_HOME=/var/lib/wim-agent/wim
 Environment=HOME=/var/lib/wim-agent
-ExecStart=/usr/local/bin/wim worker serve /etc/wim-agent/agent.json --as agents
+ExecStart=/usr/local/bin/wim agent serve /etc/wim-agent/agent.json --as agents
 Restart=on-failure
 RestartSec=10
 NoNewPrivileges=yes

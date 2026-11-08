@@ -15,7 +15,7 @@ body line with a bracket.
 
 ### Added
 
-- **`wim worker`, a peer that wakes on a message and runs one agent job** (new package
+- **`wim agent`, a peer that wakes on a message and runs one agent job** (new package
   `@worldinmotion/agent`). It runs a job only for a device id on its allow-list (from the signed
   roster, never a name) that the person also trusts, optionally behind a wake code checked in
   constant time (or left to the runner, so the worker's user never holds it), with an optional
@@ -23,15 +23,15 @@ body line with a bracket.
   request on stdin, the answer on stdout, exit codes for refused, busy and timed out, and a
   SIGTERM-then-SIGKILL timeout on its process group. Limits: task length, attempts per device per
   hour, one job at a time, a daily cap kept on disk. Replies are marked relayed; a room copy
-  carries the answer only. The built-in runner (`wim worker runner`) uses the Claude Agent SDK with
+  carries the answer only. The built-in runner (`wim agent runner`) uses the Claude Agent SDK with
   an API key, `claude-opus-5-5` at medium effort, read-only tools, and no settings, hooks or MCP
   servers from the machine (packages/agent/README.md, SECURITY-MODEL section 7.7).
-- **Sessions that keep no message text on disk** (`redactStoredText`, used by `wim worker`): spool
+- **Sessions that keep no message text on disk** (`redactStoredText`, used by `wim agent`): spool
   files and history entries keep every field but the text, the loop breaker refuses what it would
   hold, and an untrusted device's item is held with its metadata only.
 
 - **With the signer, an agent cannot approve a held message.** On a device whose key file is
-  encrypted (`wim agent`), approving, refusing or resuming held messages needs the signer's own
+  encrypted (`wim signer`), approving, refusing or resuming held messages needs the signer's own
   confirmation: `wim held` and the events process (VS Code) ask the signer with a new `decide`
   request, the signer reads the held items from disk itself, shows them in the terminal it runs in
   (`--foreground`, a typed `y`) or in a native dialog, and on the person's yes signs a decision over
@@ -224,6 +224,18 @@ body line with a bracket.
   group can read, and replaces it every 240 seconds from a timer in its own process. Neither the
   peer nor the job holds cloud credentials. An API key profile is also available. See
   `packages/agent/docs/privileged-runner.md`.
+
+### Changed
+
+- **The signer is `wim signer`** (`start`, `stop`, `status`, `lock`, `unlock`, `encrypt`,
+  `decrypt`, `autostart`), so `wim agent` can name the agent worker. The old `wim agent start`,
+  `status`, `lock`, `unlock`, `stop`, `encrypt`, `decrypt` and `autostart` still run the signer,
+  with a note on stderr. `wim agent serve` runs the signer (with the note) when it is given no
+  config path or any signer flag (`--foreground`, `--passphrase-stdin`, `--ask-gui`, `--keyring`,
+  `--allow-agent-passphrase`); with a config path and none of those it is the worker.
+  `wim signer autostart status` rewrites a login item written for another command line (an older
+  `wim agent start`, or a moved `wim`) in place, keeping its passphrase source. The signer's state
+  stays in `<WIM_HOME>/agent/`.
 
 ### Fixed
 

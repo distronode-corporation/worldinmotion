@@ -241,21 +241,21 @@ shell. The signer keeps them in a separate process instead.
 [Terminal] Once per machine:
 
 ```sh
-wim agent encrypt   # once: encrypts the key file under a passphrase you choose
-wim agent start     # asks for the passphrase and starts the signer in the background
+wim signer encrypt   # once: encrypts the key file under a passphrase you choose
+wim signer start     # asks for the passphrase and starts the signer in the background
 ```
 
 The signer keeps running after you close the terminal or VS Code, and stops when you log out,
-restart or run `wim agent stop`. To have it start at each log in, run
-`wim agent autostart enable` once: a login item starts it and asks for the passphrase in a dialog
+restart or run `wim signer stop`. To have it start at each log in, run
+`wim signer autostart enable` once: a login item starts it and asks for the passphrase in a dialog
 of its own (`--keyring` keeps the passphrase in the macOS keychain or libsecret instead; read
-SECURITY-MODEL.md section 5.8 first). Without autostart, run `wim agent start` again after each
+SECURITY-MODEL.md section 5.8 first). Without autostart, run `wim signer start` again after each
 restart.
 
 Start it before you open Claude when you can. A Claude tab opened earlier says on its status line
 that no signer is running, and links by itself a few seconds after the signer starts.
-`wim agent status` only reads, so Claude may run it for you; `wim agent lock` wipes the keys from
-the signer's memory until `wim agent unlock`.
+`wim signer status` only reads, so Claude may run it for you; `wim signer lock` wipes the keys from
+the signer's memory until `wim signer unlock`.
 
 ### 6. Check each machine
 
@@ -367,7 +367,7 @@ trusted, SendMessage asks nothing; to any other device Claude asks you first.
   `wim doctor`) is a different device: usually `CLAUDE_CONFIG_DIR` is set for one and not the
   other. Use the same `WIM_HOME` in both, or set up that directory as its own device.
 - Held messages: `wim held list`, or `/wim` in Claude Code. Both show them a set per sending device
-  (or per CI rule), decided together. With the signer running (`wim agent`), each approve, refuse
+  (or per CI rule), decided together. With the signer running (`wim signer`), each approve, refuse
   or resume also asks you in the signer's own terminal or dialog, with a code the asking command
   shows, so a mark file an agent writes approves nothing. An agent that can read the signer's
   memory (on Windows any process of yours can) or drive your desktop still can (SECURITY-MODEL 5.8
@@ -531,10 +531,10 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   notice per sender device saying so, and `wim status` counts them. Only you, at your own terminal, can
   turn it back off. Details: SECURITY-MODEL.md section 6.14.
 - **Optional: keep the keys out of your agent's reach.** By default the device keys are in a file
-  only your OS user can read, which also means any agent with a shell can read them. `wim agent
-  encrypt` encrypts that file under a passphrase; `wim agent start`, run in your own terminal, asks
+  only your OS user can read, which also means any agent with a shell can read them. `wim signer
+  encrypt` encrypts that file under a passphrase; `wim signer start`, run in your own terminal, asks
   for it once and keeps the keys in a separate signer process that sessions ask to sign and
-  decrypt. A copy of the files is then useless without the passphrase, and `wim agent lock` stops
+  decrypt. A copy of the files is then useless without the passphrase, and `wim signer lock` stops
   all use of the keys until you unlock it. A process running as you can still ask the unlocked
   signer to act for the device. Details: SECURITY-MODEL.md section 5.8.
 - **Approving and trusting happen at your own terminal.** `wim held approve`, `refuse` and
