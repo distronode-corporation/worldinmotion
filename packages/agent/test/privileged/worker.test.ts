@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadSdkQuery, sdkOptions, workerMain, type Query, type WorkerIO } from "../../src/privileged/worker.ts";
 
-const JOB = { model: "claude-opus-5-5", effort: "medium", maxTurns: 20, tools: ["Read", "Grep", "Glob"], cwd: "/w", additionalDirectories: ["/in"] };
+const JOB = { model: "claude-opus-5-5", effort: "medium", maxTurns: 20, tools: ["Read", "Grep", "Glob"], cwd: "/w", additionalDirectories: ["/in"], denyRead: ["/proc", "/etc/wim-agent"], sandbox: false };
 
 function io(over: Partial<WorkerIO> & { messages?: Array<Record<string, unknown>>; throws?: Error } = {}) {
   const out: string[] = [];
@@ -15,7 +15,7 @@ function io(over: Partial<WorkerIO> & { messages?: Array<Record<string, unknown>
     })();
   };
   const w: WorkerIO = {
-    env: { WIM_AGENT_JOB: JSON.stringify(JOB), HOME: "/h", PATH: "/bin", ANTHROPIC_IDENTITY_TOKEN_FILE: "/run/t", AWS_ACCESS_KEY_ID: "never" },
+    env: { WIM_AGENT_JOB: JSON.stringify(JOB), HOME: "/h", PATH: "/bin", ANTHROPIC_API_KEY: "wimjob-k", ANTHROPIC_BASE_URL: "http://127.0.0.1:1", ANTHROPIC_IDENTITY_TOKEN_FILE: "/run/t", AWS_ACCESS_KEY_ID: "never", NODE_OPTIONS: "--require /tmp/x.js" },
     uid: 990,
     readStdin: async () => "the prompt",
     out: (t) => out.push(t),
@@ -36,7 +36,10 @@ describe("workerMain", () => {
     expect(seen[0]!.prompt).toBe("the prompt");
     expect(o).toMatchObject({ model: "claude-opus-5-5", effort: "medium", maxTurns: 20, tools: JOB.tools, allowedTools: JOB.tools, permissionMode: "dontAsk", cwd: "/w", additionalDirectories: ["/in"], settingSources: [], persistSession: false });
     // Only the listed variables reach the SDK's child: no cloud credentials.
-    expect(o["env"]).toEqual({ HOME: "/h", PATH: "/bin", ANTHROPIC_IDENTITY_TOKEN_FILE: "/run/t" });
+    expect(o["env"]).toEqual({ HOME: "/h", PATH: "/bin", ANTHROPIC_API_KEY: "wimjob-k", ANTHROPIC_BASE_URL: "http://127.0.0.1:1" });
+    // The file tools read nothing outside the working directories and never the denied paths.
+    expect(o["settings"]).toEqual({ permissions: { deny: ["Read(//proc)", "Read(//proc/**)", "Read(//etc/wim-agent)", "Read(//etc/wim-agent/**)"], blockReadsOutsideWorkingDirectories: true } });
+    expect(o["sandbox"]).toBeUndefined();
   });
 
   it("prints the subtype of an error result and fails", async () => {
@@ -65,6 +68,14 @@ describe("workerMain", () => {
 });
 
 describe("sdkOptions", () => {
+  it("turns the sandbox on, failing closed and denying the same paths, when write tools are on", () => {
+    expect(sdkOptions({ ...JOB, sandbox: true } as never, {}, new AbortController())["sandbox"]).toEqual({
+      enabled: true,
+      failIfUnavailable: true,
+      allowUnsandboxedCommands: false,
+      filesystem: { denyRead: ["/proc", "/etc/wim-agent"] },
+    });
+  });
   it("passes the abort controller through", () => {
     const a = new AbortController();
     expect(sdkOptions(JOB as never, {}, a)["abortController"]).toBe(a);

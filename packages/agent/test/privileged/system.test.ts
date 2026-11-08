@@ -3,7 +3,7 @@ import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Readable } from "node:stream";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { acquireLock, ancestorsAllRoot, FLOCK_BUSY, lookupUser, memAvailableMb, readAll, startJob, systemDeps } from "../../src/privileged/system.ts";
+import { acquireLock, ancestorsAllRoot, codeProblem, FLOCK_BUSY, lookupUser, memAvailableMb, readAll, secureDir, secureRead, secureWrite, startJob, systemDeps } from "../../src/privileged/system.ts";
 
 let dir: string;
 beforeAll(async () => {
@@ -146,28 +146,104 @@ describe("readAll", () => {
   });
 });
 
+const me = () => ({ uid: process.getuid!(), gid: process.getgid!() });
+
+describe.runIf(linux)("secureRead", () => {
+  it("reads a file its owner alone writes, checking the opened file", async () => {
+    const f = join(dir, "r.json");
+    await fs.writeFile(f, "ok", { mode: 0o600 });
+    expect(await secureRead(f, { owner: me().uid, secret: true })).toBe("ok");
+    expect(await secureRead(f, { owner: undefined, secret: true })).toBe("ok");
+  });
+  it("refuses a symlink, another owner, a readable secret and a writable file", async () => {
+    const f = join(dir, "r2.json");
+    await fs.writeFile(f, "ok", { mode: 0o644 });
+    await fs.symlink(f, join(dir, "link.json"));
+    await expect(secureRead(join(dir, "link.json"), { owner: me().uid, secret: false })).rejects.toThrow(/ELOOP/);
+    await expect(secureRead(f, { owner: me().uid + 1, secret: false })).rejects.toThrow(/not owned by uid/);
+    await expect(secureRead(f, { owner: me().uid, secret: true })).rejects.toMatchObject({ code: "EUNSAFE" });
+    await fs.chmod(f, 0o666);
+    await expect(secureRead(f, { owner: me().uid, secret: false })).rejects.toThrow(/writable by group or others/);
+    await expect(secureRead(join(dir, "none.json"), { owner: undefined, secret: false })).rejects.toMatchObject({ code: "ENOENT" });
+  });
+});
+
+describe.runIf(linux)("secureWrite", () => {
+  it("writes through a fresh temporary file with the mode and owner, then renames it", async () => {
+    const f = join(dir, "state.json");
+    await secureWrite(f, "one", 0o600, me());
+    await secureWrite(f, "two", 0o600, undefined);
+    expect(await fs.readFile(f, "utf8")).toBe("two");
+    expect((await fs.stat(f)).mode & 0o777).toBe(0o600);
+    expect((await fs.readdir(dir)).filter((n) => n.startsWith("state.json."))).toEqual([]);
+  });
+  it("replaces a symlink planted at the target instead of writing through it", async () => {
+    const victim = join(dir, "victim");
+    await fs.writeFile(victim, "keep");
+    const f = join(dir, "planted.json");
+    await fs.symlink(victim, f);
+    await secureWrite(f, "new", 0o600, undefined);
+    expect(await fs.readFile(victim, "utf8")).toBe("keep");
+    expect((await fs.lstat(f)).isSymbolicLink()).toBe(false);
+  });
+  it("cleans up its temporary file when the write fails", async () => {
+    const f = join(dir, "fail.json");
+    await expect(secureWrite(f, "x", 0o600, { uid: 0, gid: 0 })).rejects.toThrow(/EPERM/);
+    expect((await fs.readdir(dir)).filter((n) => n.startsWith("fail.json"))).toEqual([]);
+  });
+});
+
+describe.runIf(linux)("secureDir", () => {
+  it("makes a missing directory and sets its owner and mode through a handle", async () => {
+    const d = join(dir, "sd", "inner");
+    await secureDir(d, 0o750, me());
+    expect((await fs.stat(d)).mode & 0o777).toBe(0o750);
+    await secureDir(d, 0o700, undefined);
+  });
+  it("refuses a symlink, a file, another owner, and a directory others can write", async () => {
+    const real = join(dir, "real-dir");
+    await fs.mkdir(real);
+    await fs.symlink(real, join(dir, "dir-link"));
+    await expect(secureDir(join(dir, "dir-link"), 0o750, me())).rejects.toThrow(/not a directory/);
+    await fs.writeFile(join(dir, "a-file"), "");
+    await expect(secureDir(join(dir, "a-file"), 0o750, undefined)).rejects.toThrow(/EEXIST|not a directory/);
+    await expect(secureDir(real, 0o750, { uid: me().uid + 1, gid: me().gid })).rejects.toThrow(/not its owner's alone/);
+    await fs.chmod(real, 0o777);
+    await expect(secureDir(real, 0o750, me())).rejects.toMatchObject({ code: "EUNSAFE" });
+  });
+});
+
+describe.runIf(linux)("codeProblem", () => {
+  it("passes code that root alone can change, and names the first path anyone else could", async () => {
+    expect(await codeProblem(["/usr/bin/env"])).toBeUndefined();
+    const mine = join(dir, "bin.mjs");
+    await fs.writeFile(mine, "");
+    expect(await codeProblem(["/usr/bin/env", mine])).toMatch(new RegExp(`${mine} is not root's alone`));
+  });
+});
+
+describe.runIf(linux)("acquireLock on a planted symlink", () => {
+  it("refuses to open the lock through a symlink", async () => {
+    const target = join(dir, "elsewhere");
+    await fs.symlink(target, join(dir, "sym.lock"));
+    await expect(acquireLock(join(dir, "sym.lock"), 0)).rejects.toThrow(/ELOOP/);
+  });
+});
+
 describe.runIf(linux)("systemDeps", () => {
   it("binds every dependency to the real system", async () => {
     const d = systemDeps();
     expect(d.euid).toBe(process.geteuid!());
     expect(d.uid).toBe(process.getuid!());
-    expect(d.pid).toBe(process.pid);
 
     const f = join(dir, "a.txt");
-    await d.brokerFs.writeFile(f, "one", 0o640);
-    expect((await fs.stat(f)).mode & 0o777).toBe(0o640);
-    expect(await d.configFs.readFile(f)).toBe("one");
-    expect(await d.configFs.stat(f)).toEqual({ uid: process.getuid!(), mode: (await fs.stat(f)).mode });
-    expect((await d.configFs.stat(dir)).mode).toBe(0o777);
-    await d.brokerFs.chown(f, process.getuid!(), process.getgid!());
-    await d.chown(f, process.getuid!(), process.getgid!());
-    await d.brokerFs.rename(f, `${f}.2`);
-    await d.brokerFs.rm(`${f}.2`);
-    await d.brokerFs.rm(`${f}.2`);
-    await d.mkdir(join(dir, "m", "n"), 0o750);
+    await d.writeFile(f, "one", 0o640);
+    expect(await d.readFile(f, { owner: undefined, secret: false })).toBe("one");
+    await d.ensureDir(join(dir, "m", "n"), 0o750);
     expect((await fs.stat(join(dir, "m", "n"))).isDirectory()).toBe(true);
+    expect(await d.codeProblem()).toEqual(process.getuid!() === 0 ? expect.anything() : expect.stringMatching(/is not root's alone/));
 
-    expect(await d.lookupUser(userInfo().username)).toEqual({ uid: process.getuid!(), gid: process.getgid!() });
+    expect(await d.lookupUser(userInfo().username)).toEqual(me());
     const lock = await d.acquireLock(join(dir, "d.lock"), 0);
     await lock!.release();
     expect(await d.memAvailableMb()).toBeGreaterThan(0);
@@ -178,7 +254,11 @@ describe.runIf(linux)("systemDeps", () => {
     await fs.writeFile(join(dir, "tok"), "t");
     expect(await d.identity.readFile(join(dir, "tok"))).toBe("t");
     expect(await (await d.identity.fetch("data:text/plain,hi", { headers: {} })).text()).toBe("hi");
+    expect(await (await d.fetch("data:text/plain,up")).text()).toBe("up");
     expect(typeof d.identity.awsWebIdentityToken).toBe("function");
+    expect(typeof (await d.credentials()).oidcFederationProvider).toBe("function");
+    const proxy = await d.startProxy({ upstream: "https://x.test", auth: async () => ({}), models: [], maxTokens: 1, maxRequests: 1, maxBodyBytes: 1, requestTimeoutMs: 1, fetch: d.fetch as never, log: () => undefined });
+    await proxy.close();
 
     const seen: string[] = [];
     const off = d.onSignal(() => seen.push("sig"));
@@ -189,7 +269,6 @@ describe.runIf(linux)("systemDeps", () => {
 
     let fired = 0;
     d.clearTimeout(d.setTimeout(() => fired++, 1));
-    d.clearInterval(d.setInterval(() => fired++, 1));
     await new Promise((r) => setTimeout(r, 10));
     expect(fired).toBe(0);
 
@@ -213,5 +292,14 @@ describe.runIf(linux)("systemDeps", () => {
       Object.defineProperty(process, "stdin", stdin);
     }
     expect(d.worker.loadQuery).toBeTypeOf("function");
+  });
+
+  it.runIf(process.getuid!() !== 0)("as root, writes and directories must be root's (refused here, where we are not)", async () => {
+    const d = systemDeps(0);
+    expect(d.euid).toBe(0);
+    await expect(d.writeFile(join(dir, "root.json"), "x", 0o600)).rejects.toThrow(/EPERM/);
+    await fs.mkdir(join(dir, "mine"), { recursive: true });
+    await expect(d.ensureDir(join(dir, "mine"), 0o700)).rejects.toMatchObject({ code: "EUNSAFE" });
+    await expect(d.ensureDir(join(dir, "mine"), 0o750, 991)).rejects.toMatchObject({ code: "EUNSAFE" });
   });
 });
