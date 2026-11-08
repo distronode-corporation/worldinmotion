@@ -15,7 +15,8 @@ import { MeshSession } from "../src/client.ts";
 import { writeJson } from "../src/fsx.ts";
 import { WimMcp } from "../src/mcp.ts";
 import { MeshFiles } from "../src/mesh.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
+import { Invites } from "../src/joins.ts";
+import { FS, inviteCodeOf, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, sasOf, scratch, sessionOpts, term, until, type TestDevice } from "./helpers.ts";
 
 const LONG = 30_000;
 /** Housekeeping only when a test calls tick(): nothing runs on a timer behind the test's back. */
@@ -258,5 +259,56 @@ describe("the downgrade is visible to the sender", () => {
     await writeJson(join(w.files.controlDir, request!.replace(".json", ".done.json")), { ok: true, id, results: [{ to: "o@old", status: "routed" }], live: [], unprotected: ["old"] }, FS);
     expect(await sending).toBe(0);
     expect(said(t2)).toContain("Sent without forward secrecy to old: no current prekey for old (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.");
+  }, LONG);
+});
+
+describe("a mesh mixing two people's devices", () => {
+  it("keeps another person's device held on both sides, and asks the joiner about each device on its own", async () => {
+    const relay = new RelayHarness();
+    // laptop and desk are Ann's (trusted both ways); Bob's device joins through laptop.
+    const { mesh, devices } = await makeMesh(relay, ["laptop", "desk"]);
+    const ann = term(devices[0]!.root, relay);
+    const bob = term(await scratch("mixed-bob"), relay);
+    ann.answers.push("n", () => sasOf(bob));
+    // Bob: laptop and desk are not his.
+    bob.answers.push("n", "n");
+    const inviting = run(ann, "invite");
+    await until(() => said(ann).includes("wim1_"));
+    expect(await run(bob, "join", inviteCodeOf(ann), "--name", "bob")).toBe(0);
+    expect(await inviting).toBe(0);
+    expect(bob.out.filter((l) => l.endsWith("[y/N] "))).toEqual(["laptop admitted this device. Is laptop your own device? [y/N] ", "The mesh also has desk. Is desk your own device? [y/N] "]);
+    const bobFiles = new MeshFiles(join(bob.env["WIM_HOME"]!, "meshes", mesh), FS);
+    expect((await bobFiles.loadConfig()).policy).toEqual({});
+    const annFiles = new MeshFiles(devices[0]!.home.meshDir(mesh), FS);
+    const bobId = (await bobFiles.loadConfig()).device;
+    expect((await annFiles.loadConfig()).policy[bobId]).toBeUndefined();
+    // Ann's desk was told nothing and trusts nothing: bob is listed as held there.
+    const desk = term(devices[1]!.root, relay);
+    expect(await run(desk, "status")).toBe(0);
+    expect(said(desk)).toContain("  held here, added by laptop: bob (wim devices trust bob)");
+    expect((await new MeshFiles(devices[1]!.home.meshDir(mesh), FS).loadConfig()).policy[bobId]).toBeUndefined();
+  }, LONG);
+
+  it("holds a device admitted on an invite an older client recorded, which has no own field", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["laptop"]);
+    const ann = term(devices[0]!.root, relay);
+    const next = term(await scratch("mixed-old"), relay);
+    ann.answers.push("y", () => sasOf(next));
+    const inviting = run(ann, "invite");
+    await until(() => said(ann).includes("wim1_"));
+    // The record as 0.1.10 wrote it: no `own`.
+    const files = new MeshFiles(devices[0]!.home.meshDir(mesh), FS);
+    const invites = new Invites(files, FS, Date.now);
+    for (const name of await fs.readdir(files.invitesDir)) {
+      const r = (await invites.get(name.replace(/\.json$/, "")))!;
+      const { own: _own, ...old } = r;
+      await writeJson(join(files.invitesDir, name), old, FS);
+    }
+    expect(await run(next, "join", inviteCodeOf(ann), "--name", "old")).toBe(0);
+    expect(await inviting).toBe(0);
+    expect(said(ann)).toContain("Messages from old are held for your approval. If it is your own: wim devices trust old");
+    const id = (await new MeshFiles(join(next.env["WIM_HOME"]!, "meshes", mesh), FS).loadConfig()).device;
+    expect((await files.loadConfig()).policy[id]).toBeUndefined();
   }, LONG);
 });

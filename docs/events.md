@@ -52,14 +52,14 @@ emit time, so a UI can sort and measure by it.
 
 ### Row shapes
 
-- **device:** `{ name, id, role: "admin" | "member", policy: "deliver" | "deliver-relayed" | "hold" | "refuse", self: boolean }`
+- **device:** `{ name, id, role: "admin" | "member", policy: "deliver" | "deliver-relayed" | "hold" | "refuse", self: boolean, added_by?, added_by_id? }`. From 0.2.0, `added_by` is the name of the device that signed the roster adding this one, read only from the roster chain this device verified and stored (never from a message or a relay's word); missing for the mesh's first device and for devices that joined before the earliest roster stored here (a device that joined keeps the chain from its invite's pin). A device another device added that is still `hold` is one a UI may ask the person about (SPEC section 6a: nothing is trusted because the device that added it is); a UI compares `added_by_id` with this device's id, never names.
 - **session:** `{ address, sid?, kind, status: "idle" | "busy" | "offline", since, rooms: string[], card?: { cwd?, branch?, title? }, local: boolean }`. `local` is true for sessions on this device.
 - **message:** `{ id, dir: "in" | "out", session (the local address that sent or received it), peer, device?, kind: "msg" | "task" | "result" | "file", text, reply_to?, status?, deadline?, file?: { name, size, mime }, relayed?: true, derived?: true, unsolicited?: true, at, to?: string[] }`. These are the local history fields (`packages/client/src/history.ts`) plus `session` and, for `dir: "out"`, `to`: the routed recipients as a list. In history, `peer` for `out` is those same addresses joined with `,` (no spaces); a UI should read `to`.
 - **breaker:** `{ peer (address), reason?: "peer" | "total" | "pingpong", at, until?, auto? }`: a peer the breaker has paused and not yet resumed, with the same `reason` and `until` rule as the `breaker` event. The snapshot also lists every running pause in a session's `breaker.json`, so a pause whose held items were each approved alone still shows.
 - **held:** `{ id, session, from, device, kind, at, preview, reason: "policy" | "breaker", set, set_title, ci?, pins?, file?: { name, size, mime }, pause?: { rule, count, limit, minutes, at, until, auto } }`. `pause` is the breaker pause a breaker hold was held under (from 0.1.9). From 0.1.11, `set` names the set the row is decided with (`device:<id>` per sending device, `ci:<rule id>` per CI rule, `ci-removed:<id>` for a notice whose rule was removed) and `set_title` who it is from; a CI notice adds `ci` (provider, repository, ref, workflow, event) and, when approving it pins its rule's ids, `pins`. A UI shows a whole set before the person decides it (SECURITY-MODEL section 7.2); a row without `set`, from an older client, is a set of its own. A row that changes in any field (its rule was removed, so its set changes, or pinned, so its `set_title` does) comes again as an `add`. The full text is not included: it is shown once the person approves.
 - **room:** `{ name, members: string[] }` (addresses, from the session rows' `rooms`).
 - **lease:** `{ name, holder (address), token (integer, the lease's fencing token), expires_at }`, as `listLeases` returns them.
-- **join:** `{ name, id, invite, at, exp }`: a device that asked to join on invite `invite` at `at`, waiting until the invite's `exp`. Never its comparison code: the person reads that on the new device and types it (`admit`).
+- **join:** `{ name, id, invite, at, exp, own }`: a device that asked to join on invite `invite` at `at`, waiting until the invite's `exp`. Never its comparison code: the person reads that on the new device and types it (`admit`). `own` (from 0.2.0): the invite was made for one of the person's own devices, so admitting it trusts it; a UI says so where the person types the code.
 
 ### Where `message` events come from
 
@@ -83,14 +83,14 @@ successor.
 | `trust` | `device` (name), `relayed?`: boolean | `{ policy }` |
 | `untrust` | `device` | `{ policy: "hold" }` |
 | `resume` | `peer` (address): lifts a breaker pause | `{ released }` |
+| `invite` | `exp?` (milliseconds the invite lives, 1 minute to 7 days, default 1 hour), `own?` (from 0.2.0: the person said the new device is one of theirs; kept in the invite's record on this device, never in the code, and the admit then sets `deliver` for it) | `{ code, invite, exp, full? }`: the invite code for the new device, its id, and when the code stops working. On a relay that keeps short codes, `code` is the short `wim2-` code (SPEC section 5), `exp` its end (at most an hour away, never past the invite's), and `full` the full `wim1_` code; elsewhere `code` is the full code and there is no `full`. Never auto-accepting. |
+| `admit` | `device` (the waiting device's name), `code` (the comparison code the new device shows, as the person typed it) | `{ device, trusted }` (`trusted`, from 0.2.0: the invite was an `own` one, so the device is `deliver` here now; a UI says how to undo it); code `mismatch` when no waiting request from that name has that code, `not_found` when none waits |
 
 On a device whose keys are in the signer (from 0.2.0), `approve`, `refuse` and `resume` wait for
 the person to confirm in the signer's own terminal or dialog before they decide anything (up to 6
 minutes; a UI gives them that long), and fail with the signer's reason when it is locked or not
 running, has no way to ask, or the person declines. Only what the signer signed is decided: a
 resume releases the breaker holds it showed (SECURITY-MODEL section 7.2).
-| `invite` | `exp?` (milliseconds the invite lives, 1 minute to 7 days, default 1 hour) | `{ code, invite, exp, full? }`: the invite code for the new device, its id, and when the code stops working. On a relay that keeps short codes, `code` is the short `wim2-` code (SPEC section 5), `exp` its end (at most an hour away, never past the invite's), and `full` the full `wim1_` code for a device on wim 0.1.4 or older; elsewhere `code` is the full code and there is no `full`. Never auto-accepting. |
-| `admit` | `device` (the waiting device's name), `code` (the comparison code the new device shows, as the person typed it) | `{ device }`; code `mismatch` when no waiting request from that name has that code, `not_found` when none waits |
 
 Unknown `op`, bad `args` and unknown `v` answer `ok: false` with code `input`. A send the secrets
 check refuses answers code `refused`. There is no `allow_secret` here: skipping that check stays a
@@ -107,7 +107,7 @@ answers code `setup`. Both are the person's: with an agent's variables they answ
 | `type` | Fields | When |
 |---|---|---|
 | `setup` | `version`, `device` (`{ name, id }`, or `null` when there are no keys yet) | First line, once. |
-| `joined` | `mesh` (first 4 characters of the mesh id, then `…`), `devices` (`{ name, id }` of every other device in the mesh) | An admin admitted this device. The process then ends; start it again and it runs in the mesh. |
+| `joined` | `mesh` (first 4 characters of the mesh id, then `…`), `admitted_by?` (from 0.2.0: `{ name, id }` of the device that signed the roster adding this one, present only when the invite code names it as the invite's maker), `admitted_other?` (from 0.2.0: `{ name, id, reason }` of the device that admitted this one otherwise: `not_issuer`, another admin added it, or `no_issuer`, a code from before 0.2.0 names no maker), `devices` (`{ name, id, added_by?, added_by_id? }` of every other device in the mesh, as in the device row) | An admin admitted this device. A UI asks the person about `admitted_by` first, then about each other device on its own (SPEC section 6a), never all at once; it says so first when there is `admitted_other`, and asks about that device like the rest. The process then ends; start it again and it runs in the mesh. |
 | `join_failed` | `message` | A join failed after its `response` (the admin never answered before the invite expired, the relay went away, and so on). Another `join` may follow. |
 | `created` | `mesh` (first 4 characters of the mesh id, then `…`), `recovery`: `shown` (`wim recovery show` collected the code) or `not_collected` (its 10-minute window closed, or the process was stopped, and the code is gone: `wim recovery rotate` makes a new one) | The hold that followed a `create` ended. The process then ends, even when stdin closed first; start it again and it runs in the new mesh. |
 

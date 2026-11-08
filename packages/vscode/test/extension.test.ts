@@ -3,14 +3,20 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { activate, deactivate, RECOVERY_LOST, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
+import { activate, deactivate, NOT_MINE_KEY, RECOVERY_LOST, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
 import { ExtensionMode, fake, FakeTerminal, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
 
 const PKG = fileURLToPath(new URL("..", import.meta.url));
 const FIXTURE = fileURLToPath(new URL("./fixtures/fake-wim.mjs", import.meta.url));
 const HELD = "01JFAKEHELD000000000000001";
 
-type Ctx = { subscriptions: { dispose(): unknown }[]; extensionUri: Uri; extensionPath: string; extensionMode: number };
+type Memento = { get<T>(key: string): T | undefined; update(key: string, value: unknown): Promise<void> };
+type Ctx = { subscriptions: { dispose(): unknown }[]; extensionUri: Uri; extensionPath: string; extensionMode: number; globalState: Memento };
+
+/** The extension's global state, in memory: what survives a restart of the extension in a test. */
+function memento(values = new Map<string, unknown>()): Memento & { values: Map<string, unknown> } {
+  return { values, get: <T>(key: string) => values.get(key) as T | undefined, update: async (key, value) => void values.set(key, value) };
+}
 
 /** Waits long enough for a loaded machine: the fake client is a real process. */
 const waitFor = <T>(check: () => T): Promise<T> => vi.waitFor(check, { timeout: 10_000, interval: 20 });
@@ -18,8 +24,8 @@ const waitFor = <T>(check: () => T): Promise<T> => vi.waitFor(check, { timeout: 
 let dir: string;
 let ctx: Ctx | undefined;
 
-function start(mode: number = ExtensionMode.Test): { api: TestApi | undefined; ctx: Ctx } {
-  ctx = { subscriptions: [], extensionUri: Uri.file(PKG), extensionPath: PKG, extensionMode: mode };
+function start(mode: number = ExtensionMode.Test, globalState: Memento = memento()): { api: TestApi | undefined; ctx: Ctx } {
+  ctx = { subscriptions: [], extensionUri: Uri.file(PKG), extensionPath: PKG, extensionMode: mode, globalState };
   return { api: activate(ctx as never), ctx };
 }
 
@@ -342,17 +348,77 @@ describe("activate", () => {
     await waitFor(() => expect(api!.store.hello).toBeDefined());
     await waitFor(() => expect(fake.state.context.get("worldinmotion.state")).toBe("mesh"));
     await waitFor(() => expect(requests().find((r) => r.op === "trust")?.args).toEqual({ device: "buildbox", relayed: false }));
-    expect(fake.state.messages.filter((m) => m.message === 'Is "buildbox" your own device?').length).toBe(1);
-    // Add a Device...: the invite is copied, and the request on it asks for its code at once.
+    // Only the device that admitted this one is asked about, once.
+    expect(fake.state.messages.filter((m) => m.message.endsWith("your own device?")).map((m) => m.message)).toEqual(['"buildbox" admitted this device. Is "buildbox" your own device?']);
+    // Add a Device...: one of the person's own, the invite is copied, and the request on it asks for its code at once.
+    fake.state.quickPickAnswers.push((items) => items.find((i) => (i as { way: string }).way === "own"));
     fake.state.messageAnswers.push("Copy Invite Code");
     fake.state.inputAnswers.push("abcde-fghjk");
     await fake.run("worldinmotion.addDevice");
     await waitFor(() => expect(api!.store.devices.has("newbox")).toBe(true));
     expect(fake.state.clipboard).toMatch(/^wim1_fakeinv-/);
+    expect(requests().find((r) => r.op === "invite")!.args).toEqual({ own: true });
     expect(requests().find((r) => r.op === "admit")!.args).toEqual({ device: "newbox", code: "abcde-fghjk" });
+    await waitFor(() => expect(fake.state.messages.some((m) => m.message === "worldinmotion: admitted newbox. Trusted newbox. Untrust on it in the Mesh view (or wim devices untrust newbox) undoes it.")).toBe(true));
+    // This device added newbox: no notification asks about it.
+    expect(fake.state.messages.some((m) => /added newbox to this mesh/.test(m.message))).toBe(false);
     await waitFor(() => expect(api!.store.joins.size).toBe(0));
     await fake.run("worldinmotion.admitDevice");
     expect(fake.state.messages.at(-1)!.message).toBe("worldinmotion: no device is waiting to join.");
+  });
+
+  it("asks about a device another device added, keeps Not Mine across restarts, and lists it in Review Trust...", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "third-device");
+    const state = memento();
+    fake.state.messageAnswers.push("Not Mine");
+    const { api } = start(ExtensionMode.Test, state);
+    await waitFor(() => expect(api!.store.devices.has("desk")).toBe(true));
+    await waitFor(() => expect(state.values.get(NOT_MINE_KEY)).toEqual(["dev-desk"]));
+    const asked = fake.state.messages.filter((m) => m.message === "worldinmotion: buildbox added desk to this mesh. Is desk your own device?");
+    expect(asked).toEqual([expect.objectContaining({ level: "info", items: ["Trust...", "Not Mine"] })]);
+    fake.state.quickPickAnswers.push(() => undefined);
+    await fake.run("worldinmotion.reviewTrust");
+    expect((fake.state.quickPicks.at(-1)!.items as { label: string; description: string }[]).find((i) => i.label === "desk")!.description).toBe("hold, added by buildbox, not mine");
+    // Started again with the same state: desk is not asked about again.
+    stop();
+    const again = start(ExtensionMode.Test, state);
+    await waitFor(() => expect(again.api!.store.devices.has("desk")).toBe(true));
+    expect(fake.state.messages.filter((m) => /added desk/.test(m.message))).toHaveLength(1);
+    // Marked again: kept once, at the end.
+    await state.update(NOT_MINE_KEY, ["dev-desk", "dev-other"]);
+    fake.state.quickPickAnswers.push((items) => items.find((i) => (i as { label: string }).label === "desk"));
+    fake.state.messageAnswers.push("Not Mine");
+    await fake.run("worldinmotion.reviewTrust");
+    await waitFor(() => expect(state.values.get(NOT_MINE_KEY)).toEqual(["dev-other", "dev-desk"]));
+  });
+
+  it("asks about an undecided device already in the snapshot once, never a trusted one, and not again after a reconnect", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "third-snapshot");
+    const { api } = start();
+    await waitFor(() => expect(fake.state.messages.some((m) => m.message === "worldinmotion: buildbox added desk to this mesh. Is desk your own device?")).toBe(true));
+    // A second snapshot (a reconnect, or Refresh) asks nothing again.
+    await fake.run("worldinmotion.refresh");
+    await waitFor(() => expect(api!.store.devices.has("ci")).toBe(true));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(fake.state.messages.filter((m) => /added (desk|ci) to this mesh/.test(m.message)).map((m) => m.message)).toEqual(["worldinmotion: buildbox added desk to this mesh. Is desk your own device?"]);
+  });
+
+  it("does not ask whose a device is when a trusted one is untrusted", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "untrust-later");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.devices.get("ci")?.policy).toBe("hold"));
+    await new Promise((r) => setTimeout(r, 300));
+    // desk (never decided) is asked about; ci, trusted when first seen, is not, once untrusted.
+    expect(fake.state.messages.filter((m) => /added (desk|ci) to this mesh/.test(m.message)).map((m) => m.message)).toEqual(["worldinmotion: buildbox added desk to this mesh. Is desk your own device?"]);
+  });
+
+  it("asks once its adder becomes known, and not again for the same row", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "adder-later");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.devices.get("desk")?.added_by_id).toBe("dev-buildbox"));
+    await waitFor(() => expect(fake.state.messages.filter((m) => /added desk/.test(m.message))).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(fake.state.messages.filter((m) => /added desk/.test(m.message))).toHaveLength(1);
   });
 
   it("says when joining a mesh fails after the code was shown", async () => {
