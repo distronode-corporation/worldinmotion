@@ -1299,15 +1299,26 @@ agent that re-arms on every notice and a peer that flaps its presence trip that 
 notice starts is a mesh turn: `wim hook` writes `busy-mesh` before its line, and a channel push
 writes it before the push, or does not push.
 
-**Every path honours `quiet`.** `wim hook` and the channel push do not wake for a quiet notice, and
-neither does the Claude Code plugin: it adds a quiet notice to a running turn, as it does a relayed
-item, and otherwise leaves it in its pane and for `inbox`, never submitting it (a person's own
-press of "Give to Claude" in the pane is their act, as for a relayed item). It reads any `quiet`
-but `false` as quiet, so a malformed one fails closed. Every turn the plugin starts is a mesh turn:
-it writes `busy-mesh` to the session's presence before it submits, and submits nothing when that
-write fails, as `wim hook` and the channel push do. A SendMessage that only arms a watch (no
-message) sends no text and asks the person nothing, whoever calls it: the arm alone cannot start a
-turn, since the client decides that when the notice comes.
+**Only an armed notice may wake.** A notice starts a turn only when it is an idle notice this
+session armed (it names the watched device) and the client did not spool it `quiet`. That is an
+allow-list on every path: `wim hook`, the channel push and the Claude Code plugin all apply it, so
+a notice of any other kind, one in a format from before the watch was named, and one whose `quiet`
+is malformed (any value but `false`) never start a turn. The client also spools every notice of its
+own quiet (an unreadable or dropped message, a held receipt, a claim, a release, a rename, a lost
+lease, a pause), and the channel push skips them. The plugin adds a quiet notice to a running turn,
+as it does a relayed item, and otherwise leaves it in its pane and for `inbox`, never submitting it
+(a person's own press of "Give to Claude" in the pane is their act, as for a relayed item). Every
+turn the plugin starts is a mesh turn: it writes `busy-mesh` to the session's presence before it
+submits, and submits nothing when that write fails, as `wim hook` and the channel push do. A turn
+that starts while one of its submits is pending is marked a mesh turn too, and the submit stays
+pending until a turn with its exact text starts, so a person's prompt that runs first cannot leave
+the submit's own turn unmarked; while one is pending, presence never drops to plain `busy`. A
+SendMessage that only arms a watch (no message) sends no text and asks the person nothing, whoever
+calls it: the arm alone cannot start a turn, since the client decides that when the notice comes.
+
+**Receipts are for sends.** A client takes a receipt only for a message this session sent: one it
+put on the wire in this process, or one its history records as sent. Any other is dropped and
+logged, so a relay cannot raise held-receipt notices, or history lines, for ids it invents.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy

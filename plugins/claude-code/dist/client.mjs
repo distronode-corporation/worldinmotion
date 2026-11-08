@@ -87574,9 +87574,9 @@ function headerAad(frame) {
 async function sealMessageWith(opts) {
   const { keyring } = opts.sender;
   const plan = planSeal(opts, keyring.signPub);
-  const boxes = {};
-  for (const req of plan.requests) boxes[req.recipient] = await keyring.seal(req);
-  const body = { ...plan.header, boxes };
+  const boxes2 = {};
+  for (const req of plan.requests) boxes2[req.recipient] = await keyring.seal(req);
+  const body = { ...plan.header, boxes: boxes2 };
   return finishSeal(plan, { ...body, sig: await keyring.sign("send", body) });
 }
 function planSeal(opts, signPub) {
@@ -91177,6 +91177,10 @@ function cursorNumber(text2) {
   const m4 = NAME2.exec((text2 ?? "").trim());
   return m4 === null ? 0 : Number(m4[1]);
 }
+function boxes(item) {
+  if (item.relayed === true) return true;
+  return item.quiet === true && item.held === void 0 && item.heldBy === void 0 && item.forPerson !== true;
+}
 var Spool = class _Spool {
   /** The highest item number handed out so far, never reused. */
   last;
@@ -91272,9 +91276,10 @@ var Spool = class _Spool {
   }
   /**
    * Deletes taken items and returns them, so the caller can send their receipts. A relayed item,
-   * or a quiet notice, is kept in the relayed box instead: nothing starts a turn for one, so it
-   * stays readable through `inbox` until an agent reads it or the person dismisses it, even when
-   * the cursor passed it for a later item that was pushed.
+   * or a quiet notice for the agent, is kept in the relayed box instead: nothing starts a turn for
+   * one, so it stays readable through `inbox` until an agent reads it or the person dismisses it,
+   * even when the cursor passed it for a later item that was pushed. A notice for the person (held
+   * counts, a held receipt, a restart) is theirs, shown by the plugin, and goes like any item.
    */
   async sweep(alreadyRead = /* @__PURE__ */ new Set()) {
     const upto = await this.cursor();
@@ -91283,7 +91288,7 @@ var Spool = class _Spool {
       if (Number(NAME2.exec(name)[1]) > upto) break;
       const item = await this.read(join7(this.dir, name));
       if (item === BUSY) continue;
-      if ((item?.relayed === true || item?.quiet === true) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+      if (item !== void 0 && boxes(item) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
         await writeJson(join7(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }
@@ -92803,6 +92808,7 @@ function prekeyNote(o3) {
 }
 var CARD_EVERY_MS = 6e4;
 var PARKED_MAX = 64;
+var SENT_IDS_MAX = 4096;
 var ANSWER_KEEP_MS = 5 * 6e4;
 var GROUP = (to) => to.some((a5) => a5 === "*" || isRoom(a5));
 var PAUSE_TELL_MS = 10 * 6e4;
@@ -94053,7 +94059,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * the person can act on it (restart this session).
    */
   async notice(from, line, held2, heldBy, forPerson = false) {
-    const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line) };
+    const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line), quiet: true };
     await this.deliver(
       { ...item, ...held2 === void 0 ? {} : { held: held2 }, ...heldBy === void 0 ? {} : { heldBy }, ...forPerson ? { forPerson: true } : {} },
       void 0
@@ -94065,6 +94071,13 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * person and is not delivered. Branches before any await (see AgentServer.answerLine).
    */
   recordReceipt(f7) {
+    if (this.sentIds.has(f7.id)) return this.recordOwnReceipt(f7);
+    return this.history.find(f7.id).then(
+      (entry) => entry?.dir === "out" ? this.recordOwnReceipt(f7) : this.log(`wim: dropped a receipt for ${sanitizeForDisplay(f7.id)}: not a message this session sent`)
+    );
+  }
+  /** A receipt for a message this session sent. */
+  recordOwnReceipt(f7) {
     const recorded = this.history.appendReceipt(f7.id, { to: f7.to, status: f7.status, at: this.now() });
     if (f7.status === "delivered") this.heldTold.delete(f7.to);
     if (f7.status !== "held") return recorded;
@@ -94075,6 +94088,13 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
   heldTold = /* @__PURE__ */ new Set();
+  /** Ids this run put on the wire, newest last, at most SENT_IDS_MAX: a receipt may come before the send is in history. */
+  sentIds = /* @__PURE__ */ new Set();
+  noteSentId(id2) {
+    this.sentIds.delete(id2);
+    this.sentIds.add(id2);
+    if (this.sentIds.size > SENT_IDS_MAX) this.sentIds.delete(this.sentIds.values().next().value);
+  }
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
     await this.spool.take(cursor2);
@@ -94635,6 +94655,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       }
       await this.save({ seq: sealed.frame.seq });
       if (opts.kind === "task") await this.recordSentTask(id2, routed);
+      this.noteSentId(id2);
       return { frame: sealed.frame, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame, id2) };
     });
     const answer = await answering;

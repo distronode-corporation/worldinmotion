@@ -7,7 +7,7 @@ import { ulid } from "@worldinmotion/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { heldWaitLine, PAUSE_GRACE_MS, receiptLine, SENT_MEANING } from "../src/cli.ts";
 import { clock as clock_ } from "../src/breaker.ts";
-import { heldForAgentLine, heldReceiptLine, MeshSession } from "../src/client.ts";
+import { heldForAgentLine, heldReceiptLine, MeshSession, SENT_IDS_MAX } from "../src/client.ts";
 import { History, parseReceipt, receiptNote, renderForAgent, renderForPerson, type HistoryEntry } from "../src/history.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SessionFiles, takesSends } from "../src/session.ts";
@@ -160,6 +160,72 @@ describe("a session's receipts", () => {
     const second = await a.send("taker@two", "again");
     await until(() => logs.includes("wim: receipt: disk full"));
     expect(a.receipts.get(second.id)).toEqual([{ to: "taker@two", status: "delivered" }]);
+  });
+});
+
+describe("a receipt for a message this session did not send", () => {
+  /** The private steps a forged receipt goes through, reached as the relay's frame would reach them. */
+  type Inside = { recordReceipt(f: { id: string; to: string; status: string }): Promise<void>; sentIds: Set<string>; noteSentId(id: string): void };
+  const inside = (s: MeshSession): Inside => s as unknown as Inside;
+
+  it("from the relay is dropped: no notice, no history line, however many come", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const logs: string[] = [];
+    const a = await openSession(devices[0]!, mesh, relay, { name: "sender", log: (l) => logs.push(l) });
+    const b = await openSession(devices[1]!, mesh, relay, { name: "inbox" });
+    open.push(a, b);
+    // The relay names ids this session never sent, held and delivered by turns.
+    const forged = [ulid(1), ulid(2), ulid(3)];
+    let n = 0;
+    relay.toClient = (text) => {
+      if (!text.startsWith('{"t":"receipt"')) return text;
+      const f = JSON.parse(text) as { id: string };
+      return JSON.stringify({ ...f, id: forged[n++ % forged.length] });
+    };
+    for (const text of ["one", "two", "three"]) await a.send("inbox@two", text);
+    await until(() => logs.filter((l) => l.startsWith("wim: dropped a receipt for ")).length === 3);
+    for (const id of forged) {
+      expect(logs).toContain(`wim: dropped a receipt for ${id}: not a message this session sent`);
+      expect(await a.history.receiptsFrom(id, 0)).toEqual([]);
+    }
+    expect((await a.spool.unread()).filter((i) => i.kind === "notice")).toEqual([]);
+    for (const status of ["held", "delivered", "held"]) await inside(a).recordReceipt({ id: ulid(9), to: "inbox@two", status });
+    expect((await a.spool.unread()).filter((i) => i.kind === "notice")).toEqual([]);
+  });
+
+  it("is still taken for a message history says this session sent before a restart", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const a = await openSession(devices[0]!, mesh, relay, { name: "sender" });
+    const b = await openSession(devices[1]!, mesh, relay, { name: "inbox" });
+    open.push(a, b);
+    const sent = await a.send("inbox@two", "hello");
+    await until(async () => (await a.history.receiptsFrom(sent.id, 0)).length === 1);
+    // As a new process: it knows its earlier sends from history only.
+    inside(a).sentIds.clear();
+    await inside(a).recordReceipt({ id: sent.id, to: "inbox@two", status: "delivered" });
+    expect((await a.history.receiptsFrom(sent.id, 0)).map((r) => r.status)).toEqual(["held", "delivered"]);
+    // An id history has as received, not sent, is not this session's either.
+    await a.history.append({ dir: "in", peer: "inbox@two", device: "D", id: ulid(77), kind: "msg", at: 1, text: "in" });
+    await inside(a).recordReceipt({ id: ulid(77), to: "inbox@two", status: "held" });
+    expect(await a.history.receiptsFrom(ulid(77), 0)).toEqual([]);
+  });
+
+  it("is judged against at most SENT_IDS_MAX remembered sends, the oldest forgotten first", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const a = await openSession(devices[0]!, mesh, relay, { name: "sender" });
+    open.push(a);
+    const s = inside(a);
+    for (let i = 0; i <= SENT_IDS_MAX; i++) s.noteSentId(`id${i}`);
+    expect(s.sentIds.size).toBe(SENT_IDS_MAX);
+    expect(s.sentIds.has("id0")).toBe(false);
+    // Noted again, an id is the newest: the next one forgets id2, not id1.
+    s.noteSentId("id1");
+    s.noteSentId("another");
+    expect(s.sentIds.has("id1")).toBe(true);
+    expect(s.sentIds.has("id2")).toBe(false);
   });
 });
 

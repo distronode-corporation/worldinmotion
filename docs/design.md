@@ -506,19 +506,21 @@ receipt from it arrives.
   with five optional fields. A `notice` item carries `held: <count>` when it reports messages
   waiting for approval, or `heldBy: "<address>"` when a message this session sent is held for the
   approval of that address's person (a `held` receipt); the plugin shows either as a toast and
-  does not pass it to the model. A notice with none of the three flags is for the model, like a
-  message (the breaker's once-per-pause notice is one).
+  does not pass it to the model. A notice with none of the three flags is for the model, as
+  information: the client spools every notice of its own `quiet`.
   `forPerson: true` marks a notice only the person can act on (this session must be restarted
   to use the signer): the plugin shows it as a toast and on its status line, never as a turn.
   `relayed: true` marks text the sender passed on from a bot, CI or gateway: it never starts a
   turn. An idle notice this session armed carries `watched: "<device id>"`, the device its armed
   address names, and `quiet: true` when it may not start a turn (that device is not trusted, is
   paused, or is past the breaker's limits; SECURITY-MODEL section 7.3): a quiet notice waits for
-  `inbox`, `wait` or a running turn. So does the notice that a watch lapsed or was refused. The
-  plugin treats a quiet notice as it does a relayed item: appended to a running turn, otherwise
-  listed in its pane (under quiet notices), never submitted; any `quiet` but `false` counts. Like a
-  relayed item, a quiet notice the cursor passed unread (a later item was pushed) is kept in the
-  `relayed/` box beside the spool until `inbox` returns it. `informs: true` marks an item framed as information only; handing it to the agent starts
+  `inbox`, `wait` or a running turn. So does the notice that a watch lapsed or was refused. Only a
+  notice with `watched` and no `quiet` may start a turn: the plugin, like `wim hook`, treats every
+  other notice (one from an older client included) as quiet, as it does a relayed item: appended
+  to a running turn, otherwise listed in its pane (under quiet notices), never submitted; any
+  `quiet` but `false` counts. Like a relayed item, a quiet notice for the agent the cursor passed
+  unread (a later item was pushed) is kept in the `relayed/` box beside the spool until `inbox`
+  returns it; one for the person (`held`, `heldBy`, `forPerson`) is not. `informs: true` marks an item framed as information only; handing it to the agent starts
   the client's `derived` window, during which what the session sends is marked as derived from it. The mod hands
   each item to the session once: it claims an item (in `$.state`) before handing it over and gives
   the claim back only when that failed, so neither a failure later in a pass nor a pass still running

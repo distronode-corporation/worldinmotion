@@ -14,7 +14,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, McpToolResult, Register } from 'claude-code'
 
 import type { WimItem, WimKept, WimLate, WimLink, WimPanel, WimRelayed } from '../types'
-import type { RoutePolicy } from './parse'
+import type { RoutePolicy, SpoolItem } from './parse'
 import {
   firstLine,
   ITEM_NAME,
@@ -218,10 +218,14 @@ async function writePresence($: EngineInterface, state: 'busy' | 'busy-mesh' | '
   )
 }
 
-/** Writes the presence that stands now: idle, or the running turn's busy or busy-mesh. */
+/**
+ * Writes the presence that stands now: idle, or the running turn's busy or
+ * busy-mesh. Never busy while a submit is pending: the turn running may be it.
+ */
 async function writePresenceNow($: EngineInterface): Promise<void> {
   const isBusy = await read($, busy)
-  await writePresence($, !isBusy ? 'idle' : (await read($, meshTurn)) ? 'busy-mesh' : 'busy')
+  const isMesh = (await read($, meshTurn)) || (await read($, pendingSubmits)).length > 0
+  await writePresence($, !isBusy ? 'idle' : isMesh ? 'busy-mesh' : 'busy')
 }
 
 /** Takes the late list and empties it in one versioned write. */
@@ -270,19 +274,19 @@ async function forgetSubmit($: EngineInterface, text: string): Promise<void> {
 }
 
 /**
- * Whether the main-loop turn now starting is one of the plugin's submits.
- * The turn's text may differ from what was submitted (a hook can reword it),
- * so any pending submit counts and the matching or oldest one is consumed:
- * a person's turn misread as a mesh one only marks more sends as derived.
+ * Whether the main-loop turn now starting may be one of the plugin's submits:
+ * true while any is pending. Only an exact text match consumes one. A turn
+ * that matches none (the person's prompt queued ahead of a submit, or a submit
+ * a hook reworded) is still marked mesh, and the entries stay: consuming one
+ * would let the submit's own turn start later as plain busy, not derived.
+ * Misreading a person's turn as mesh only marks more sends as derived.
  */
 async function takeSubmit($: EngineInterface, text: string): Promise<boolean> {
   let isMesh = false
   await update($, pendingSubmits, list => {
     isMesh = list.length > 0
-    if (!isMesh) return list
     const at = list.indexOf(text)
-    const drop = at < 0 ? 0 : at
-    return [...list.slice(0, drop), ...list.slice(drop + 1)]
+    return at < 0 ? list : [...list.slice(0, at), ...list.slice(at + 1)]
   })
   return isMesh
 }
@@ -497,7 +501,7 @@ async function deliver($: EngineInterface): Promise<void> {
     }
     if (pass.quietWaiting > 0) {
       const n = pass.quietWaiting
-      $.ui.toast(`worldinmotion: ${n} notice${n === 1 ? '' : 's'} this session asked for ${n === 1 ? 'is' : 'are'} in the inbox, not started as a turn (/wim)`)
+      $.ui.toast(`worldinmotion: ${n} notice${n === 1 ? '' : 's'} in the inbox, not started as a turn (/wim)`)
     }
     // Only a pass that handed something over: a kept item stays fresh, and a
     // relayed one behind it is claimed and given back each tick, so a timer that
@@ -523,6 +527,16 @@ async function sendBatch($: EngineInterface, batch: Pass['batch']): Promise<bool
 }
 
 /**
+ * Whether a spool item may start a turn, as the client's `wim hook` decides (wakeKind): a
+ * message, or a notice only when it is an idle notice this session armed (`watched`). Nothing
+ * the client made quiet. Every other notice, and one in a format from before `watched`, is
+ * quiet: an allow-list, so a notice the plugin does not know never starts a turn.
+ */
+function mayWake(item: SpoolItem): boolean {
+  return item.quiet !== true && (item.kind !== 'notice' || item.watched !== undefined)
+}
+
+/**
  * Hands one claimed spool item over: true once it is, false when it waits in
  * the pass's idle batch (sent as one turn at the end of the pass).
  */
@@ -534,6 +548,7 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
   }
   const seen: WimItem = { name, kind: item.kind, from: item.from, line: firstLine(item.rendered), at: item.at }
   pass.seen.push(seen)
+  const isQuiet = !mayWake(item)
   if (item.kind === 'notice' && item.held !== undefined) {
     // For the person, not the model: spending a turn on it would only relay it.
     const n = item.held
@@ -547,13 +562,13 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
     const line = noticeLine(item.rendered)
     $.ui.toast(`worldinmotion: ${line}`)
     await update($, alerts, list => [...list, line].slice(-RECENT_MAX))
-  } else if ((item.relayed || item.quiet) && (pass.batch.length > 0 || (await read($, kept)).length > 0)) {
+  } else if ((item.relayed || isQuiet) && (pass.batch.length > 0 || (await read($, kept)).length > 0)) {
     // Behind a kept item, or one of this pass's idle batch (which may be
     // dropped and kept): left in the spool, unclaimed, for a later pass. In the
     // pane now, a dismiss could reach the client before the cursor let it box
     // the item, and be lost (the item would come back).
     return false
-  } else if (item.relayed || item.quiet) {
+  } else if (item.relayed || isQuiet) {
     // Neither starts a turn: a relayed item's text is not its device's own, and
     // a quiet notice is one the client says may not wake this session (its
     // device not trusted, paused or past the breaker's limit; a lapse; a
@@ -563,12 +578,12 @@ async function handOne($: EngineInterface, name: string, text: string, pass: Pas
       name,
       id: item.id,
       from: item.from,
-      line: item.quiet ? noticeLine(item.rendered) : firstLine(item.rendered),
+      line: isQuiet ? noticeLine(item.rendered) : firstLine(item.rendered),
       at: item.at,
       text: item.rendered,
       isShown: false,
       isDismissed: false,
-      ...(item.quiet ? { isQuiet: true as const } : {}),
+      ...(isQuiet ? { isQuiet: true as const } : {}),
     }
     if (!(await keepRelayed($, one))) {
       if (one.isQuiet) pass.quietWaiting++

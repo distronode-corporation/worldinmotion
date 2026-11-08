@@ -29,7 +29,7 @@ export type SpoolItem = {
   forPerson?: true;
   /** On an idle notice: the roster device id of the session this session armed it for (SPEC section 8). */
   watched?: string;
-  /** On an idle notice that may not start a turn (its device is not trusted, paused, or past the breaker's limit): it waits for `inbox`, `wait` or a running turn. */
+  /** On a notice that may not start a turn: every notice but an idle one this session armed whose device is trusted, not paused and admitted by the breaker. It waits for `inbox`, `wait` or a running turn. */
   quiet?: true;
 };
 
@@ -44,6 +44,12 @@ const BUSY = Symbol("busy");
 export function cursorNumber(text: string | undefined): number {
   const m = NAME.exec((text ?? "").trim());
   return m === null ? 0 : Number(m[1]);
+}
+
+/** Whether the sweep keeps a passed item in the relayed box for `inbox` (see Spool.sweep). */
+function boxes(item: SpoolItem): boolean {
+  if (item.relayed === true) return true;
+  return item.quiet === true && item.held === undefined && item.heldBy === undefined && item.forPerson !== true;
 }
 
 export class Spool {
@@ -155,9 +161,10 @@ export class Spool {
 
   /**
    * Deletes taken items and returns them, so the caller can send their receipts. A relayed item,
-   * or a quiet notice, is kept in the relayed box instead: nothing starts a turn for one, so it
-   * stays readable through `inbox` until an agent reads it or the person dismisses it, even when
-   * the cursor passed it for a later item that was pushed.
+   * or a quiet notice for the agent, is kept in the relayed box instead: nothing starts a turn for
+   * one, so it stays readable through `inbox` until an agent reads it or the person dismisses it,
+   * even when the cursor passed it for a later item that was pushed. A notice for the person (held
+   * counts, a held receipt, a restart) is theirs, shown by the plugin, and goes like any item.
    */
   async sweep(alreadyRead: ReadonlySet<string> = new Set()): Promise<SpoolItem[]> {
     const upto = await this.cursor();
@@ -167,7 +174,7 @@ export class Spool {
       const item = await this.read(join(this.dir, name));
       // One that cannot be read yet is neither boxed nor removed: the next pass deals with it.
       if (item === BUSY) continue;
-      if ((item?.relayed === true || item?.quiet === true) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+      if (item !== undefined && boxes(item) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
         await writeJson(join(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }

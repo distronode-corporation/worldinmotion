@@ -212,6 +212,24 @@ describe("inbound policy and the breaker", () => {
     expect(pushed[0]!.rendered).toContain("plain");
   });
 
+  it("spools every client notice quiet: none is pushed, and only the agent's wait in the box for inbox", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const b = await session(devices[0]!, mesh, relay, { name: "b" });
+    const pushed: SpoolItem[] = [];
+    b.push = async (i) => void pushed.push(i);
+    await b.notice("x@one", "for the agent");
+    await b.notice("x@one", "2 held for the person", 2);
+    await b.notice("x@one", "x@one is holding your message", undefined, "x@one");
+    await b.notice("x@one", "restart this session", undefined, undefined, true);
+    const items = await unread(b);
+    expect(items.map((i) => i.quiet)).toEqual([true, true, true, true]);
+    expect(items.every((i) => i.watched === undefined)).toBe(true);
+    expect(pushed).toEqual([]);
+    await b.take(items.at(-1)!.cursor);
+    expect((await b.spool.relayed()).map((i) => i.rendered)).toEqual([items[0]!.rendered]);
+  });
+
   it("pauses a peer past its limit, tells the person and the sender, and resumes on request", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);

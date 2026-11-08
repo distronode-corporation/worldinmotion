@@ -346,6 +346,8 @@ type SentTask = { at: number; any: boolean; addressees: string[] };
 
 const CARD_EVERY_MS = 60_000;
 export const PARKED_MAX = 64;
+/** How many ids of its own sends a session remembers, to know their receipts before history has them. */
+export const SENT_IDS_MAX = 4096;
 /** How long an answer to a handed-over send waits for the CLI that asked. */
 export const ANSWER_KEEP_MS = 5 * 60_000;
 const GROUP = (to: readonly string[]): boolean => to.some((a) => a === "*" || isRoom(a));
@@ -1822,7 +1824,8 @@ export class MeshSession extends EventEmitter {
    * the person can act on it (restart this session).
    */
   async notice(from: string, line: string, held?: number, heldBy?: string, forPerson = false): Promise<void> {
-    const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line) };
+    // Quiet always: only an idle notice this session armed may start a turn (watchNotice).
+    const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line), quiet: true as const };
     await this.deliver(
       { ...item, ...(held === undefined ? {} : { held }), ...(heldBy === undefined ? {} : { heldBy }), ...(forPerson ? { forPerson: true as const } : {}) },
       undefined,
@@ -1835,6 +1838,15 @@ export class MeshSession extends EventEmitter {
    * person and is not delivered. Branches before any await (see AgentServer.answerLine).
    */
   private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
+    if (this.sentIds.has(f.id)) return this.recordOwnReceipt(f);
+    // Not sent by this run: sent before a restart (its history has it), or the relay's invention.
+    return this.history.find(f.id).then((entry) =>
+      entry?.dir === "out" ? this.recordOwnReceipt(f) : this.log(`wim: dropped a receipt for ${sanitizeForDisplay(f.id)}: not a message this session sent`),
+    );
+  }
+
+  /** A receipt for a message this session sent. */
+  private recordOwnReceipt(f: { id: string; to: string; status: string }): Promise<void> {
     const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
     // Something got through to that recipient: a later hold there is news again. (A pause it
     // reported is not over for that: the person there may have approved this one message alone.)
@@ -1850,6 +1862,15 @@ export class MeshSession extends EventEmitter {
 
   /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
   private readonly heldTold = new Set<string>();
+
+  /** Ids this run put on the wire, newest last, at most SENT_IDS_MAX: a receipt may come before the send is in history. */
+  private readonly sentIds = new Set<string>();
+
+  private noteSentId(id: string): void {
+    this.sentIds.delete(id);
+    this.sentIds.add(id);
+    if (this.sentIds.size > SENT_IDS_MAX) this.sentIds.delete(this.sentIds.values().next().value!);
+  }
 
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor: number): Promise<void> {
@@ -2512,6 +2533,8 @@ export class MeshSession extends EventEmitter {
       await this.save({ seq: sealed.frame!.seq });
       // Recorded before sending, so a quick answer already finds its task.
       if (opts.kind === "task") await this.recordSentTask(id, routed);
+      // Before the frame goes out, so its receipts are known as this session's.
+      this.noteSentId(id);
       return { frame: sealed.frame!, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame!, id) };
     });
     const answer = await answering;
