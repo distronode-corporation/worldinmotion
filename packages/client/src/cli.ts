@@ -1565,6 +1565,8 @@ const IDLE_WHY: Readonly<Record<string, string>> = {
 class IdleWait {
   private readonly ends: WatchEnd[] = [];
   private readonly pending = new Set<string>();
+  /** When each of this wait's watches lapses: an idle notice that closed another watch is an older wait's. */
+  private readonly until = new Map<string, number>();
   private readonly onEnd = (e: WatchEnd): void => void this.ends.push(e);
 
   private readonly ctx: Ctx;
@@ -1586,19 +1588,31 @@ class IdleWait {
     this.ctx.io.out(this.o.json ? JSON.stringify(json) : text);
   }
 
-  /** Arms every address: undefined when all are armed, else the exit code once each refusal is said. */
+  /**
+   * Arms every address: undefined when the wait goes on (every address armed, or, with --any, at
+   * least one), else the exit code once each refusal is said. Without --any, its own address
+   * refuses the whole wait before anything is armed.
+   */
   async arm(): Promise<number | undefined> {
     const me = this.s.address;
     if (this.o.addresses.includes(me)) {
       this.line(`${me}: not watched: this command runs as ${me}, and a session never watches itself. Run it as another session with --as <name>.`, { of: me, end: "refused", code: "self" });
-      return WAIT_IDLE_EXIT.refused;
+      if (!this.o.any) return WAIT_IDLE_EXIT.refused;
     }
-    const armed = await this.s.notifyWhenIdle(this.o.addresses);
-    for (const w of armed.watching) this.pending.add(w.to);
-    const missed = this.o.addresses.filter((a) => !this.pending.has(a));
-    if (missed.length === 0) return undefined;
+    const wanted = this.o.addresses.filter((a) => a !== me);
+    if (wanted.length === 0) return WAIT_IDLE_EXIT.refused;
+    // A notice the relay kept for an older arm of this session comes right after `ready`. One
+    // answer from the relay first, so that notice closes the older watch before this wait renews
+    // it (the `until` check in wait() then passes it over). Offline, the wait arms all the same.
+    await this.s.listPeers().catch(() => undefined);
+    const armed = await this.s.notifyWhenIdle(wanted);
+    for (const w of armed.watching) {
+      this.pending.add(w.to);
+      this.until.set(w.to, w.until);
+    }
+    const missed = wanted.filter((a) => !this.pending.has(a));
     for (const of of missed) this.line(`${of}: not watched: ${armed.note!}`, { of, end: "refused", code: "local", note: armed.note });
-    return WAIT_IDLE_EXIT.refused;
+    return missed.length === 0 || (this.o.any && this.pending.size > 0) ? undefined : WAIT_IDLE_EXIT.refused;
   }
 
   /** Waits for the notices: 0 when every address (or one, with --any) has one, 1 on a refusal, 2 on the timeout. */
@@ -1613,7 +1627,10 @@ class IdleWait {
         // An address of an older wait of this session, which the client armed again at `ready`,
         // or a lapse: a watch of this wait lapses no sooner than its deadline (the timeout is at
         // most a watch's 12 hours), so the deadline below ends the wait first or in this pass.
+        // An idle notice that closed a watch this wait did not arm (an older wait's, kept by the
+        // relay while this session was offline) says nothing about the turn this wait is for.
         if (e.end === "lapsed" || (e.of !== undefined && !this.pending.has(e.of))) continue;
+        if (e.end === "idle" && e.until !== this.until.get(e.of!)) continue;
         if (e.end === "idle") {
           const why = e.why === undefined ? "it is idle or has ended" : IDLE_WHY[e.why]!;
           const quiet = e.quiet ? " (a quiet notice: it would not start an agent turn, as that device is not trusted, is paused, or is past the loop breaker's limits)" : "";

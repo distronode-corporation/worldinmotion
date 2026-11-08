@@ -53,7 +53,8 @@ body line with a bracket.
   finished notice for each address in a CLI session and waits, printing one line per notice (one
   JSON object per line with `--json`): exit 0 when every address has its notice (any one with
   `--any`), 1 when a watch is refused (this command's own address, past the 16 open watches, or an
-  address the relay does not know), and 2 at `--timeout` (default and most 12h, a watch's life).
+  address the relay does not know; with `--any`, only once no address is left to wait for), and 2
+  at `--timeout` (default and most 12h, a watch's life).
   `wim send <to> <text...> --wait-idle [--timeout 12h]` arms first, then sends, then waits the same
   way, so a session that finishes at once is not missed. A quiet notice (about a device you do not
   trust, or one the loop breaker pauses or limits) ends the wait too, and its line says it was

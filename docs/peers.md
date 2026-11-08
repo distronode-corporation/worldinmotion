@@ -151,7 +151,9 @@ wim wait-idle worker@build,reviewer@desk --any --timeout 30m
 - **Exit codes.** `0` when every address has its notice (any one with `--any`); `1` when a watch
   is refused: this command's own address (a session never watches itself; use `--as <name>`), more
   than 16 open watches in the session, or an address the relay does not know; `2` at `--timeout`
-  (default 12h, and at most 12h, as a watch lapses 12 hours after it is armed). Ctrl-C exits 130.
+  (default 12h, and at most 12h, as a watch lapses 12 hours after it is armed). With `--any`, a
+  refused address is reported and the wait goes on for the others, so it exits `1` only when none
+  is left to wait for. Ctrl-C exits 130.
 - **Output.** One line per notice or refusal, and a line at the timeout. With `--json`, each line
   is one JSON object and nothing else is printed: `{"of":"worker@build","end":"idle","why":"ended","quiet":false}`,
   `{"of":"ghost@build","end":"refused","code":"not_found"}`, `{"end":"timeout","waiting":["reviewer@desk"]}`.
@@ -163,7 +165,8 @@ wim wait-idle worker@build,reviewer@desk --any --timeout 30m
   does not have yet at the next `ready`, and the relay keeps a notice that fired meanwhile for it.
 - **The session.** The wait runs as the terminal session `cli@<device>` (or `--as <name>`), whose
   inbox keeps the notices too. A watch that timed out stays open until its notice or its 12 hours,
-  and a later command of the same session arms it again. While a `wim watch` reads as that name,
+  and a later command of the same session arms it again. A notice the relay kept for such an
+  older watch, while the session was offline, does not end a new wait on that address. While a `wim watch` reads as that name,
   `wim send --wait-idle` asks for `--as <name>`, since the notice goes to the session that armed it.
 
 ## What `wim setup` writes

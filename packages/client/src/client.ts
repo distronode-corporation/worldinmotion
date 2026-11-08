@@ -435,9 +435,11 @@ export function armRefusedWhy(code: string): string {
  * What ended a watch, emitted as `watch` once its notice is in the spool (`wim wait-idle` reads
  * it): the watched session's idle notice came (`why` when the relay said a reason this version
  * knows), the relay refused the arm (`code`; `of` is unset when which arm is not known), or the
- * watch lapsed. `quiet`: the notice may not start a turn. `item` is the spooled notice.
+ * watch lapsed. `until` is when the watch the idle notice closed would have lapsed, so a wait can
+ * tell its own arm from an older one of the session. `quiet`: the notice may not start a turn.
+ * `item` is the spooled notice.
  */
-export type WatchEnd = { of?: string; end: "idle" | "refused" | "lapsed"; quiet: boolean; why?: IdleWhy; code?: string; item: SpoolItem };
+export type WatchEnd = { of?: string; end: "idle" | "refused" | "lapsed"; quiet: boolean; why?: IdleWhy; code?: string; until?: number; item: SpoolItem };
 
 export class MeshSession extends EventEmitter {
   readonly device: Device;
@@ -1739,7 +1741,7 @@ export class MeshSession extends EventEmitter {
     const device = this.roster.devices.find((d) => d.name === watch.of.slice(watch.of.indexOf("@") + 1));
     const wakes = device !== undefined && (await this.mayWake(device.id, watch.of));
     // Only the address the agent armed: never one the relay or the peer chose since (a rename).
-    await this.watchNotice(watch.of, `${watch.of} is now idle (or has ended).`, device?.id, !wakes, { of: watch.of, end: "idle", ...(why === undefined ? {} : { why }) });
+    await this.watchNotice(watch.of, `${watch.of} is now idle (or has ended).`, device?.id, !wakes, { of: watch.of, end: "idle", until: watch.until, ...(why === undefined ? {} : { why }) });
   }
 
   /**

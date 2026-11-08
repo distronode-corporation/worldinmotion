@@ -93975,7 +93975,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.unsentArms.delete(watch2.of);
     const device = this.roster.devices.find((d5) => d5.name === watch2.of.slice(watch2.of.indexOf("@") + 1));
     const wakes = device !== void 0 && await this.mayWake(device.id, watch2.of);
-    await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).`, device?.id, !wakes, { of: watch2.of, end: "idle", ...why === void 0 ? {} : { why } });
+    await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).`, device?.id, !wakes, { of: watch2.of, end: "idle", until: watch2.until, ...why === void 0 ? {} : { why } });
   }
   /**
    * Whether an idle notice about `device` (the session `from`) may start a turn (decision D2):
@@ -136493,6 +136493,8 @@ var IDLE_WHY = {
 var IdleWait = class {
   ends = [];
   pending = /* @__PURE__ */ new Set();
+  /** When each of this wait's watches lapses: an idle notice that closed another watch is an older wait's. */
+  until = /* @__PURE__ */ new Map();
   onEnd = (e6) => void this.ends.push(e6);
   ctx;
   s;
@@ -136509,19 +136511,28 @@ var IdleWait = class {
   line(text2, json4) {
     this.ctx.io.out(this.o.json ? JSON.stringify(json4) : text2);
   }
-  /** Arms every address: undefined when all are armed, else the exit code once each refusal is said. */
+  /**
+   * Arms every address: undefined when the wait goes on (every address armed, or, with --any, at
+   * least one), else the exit code once each refusal is said. Without --any, its own address
+   * refuses the whole wait before anything is armed.
+   */
   async arm() {
     const me = this.s.address;
     if (this.o.addresses.includes(me)) {
       this.line(`${me}: not watched: this command runs as ${me}, and a session never watches itself. Run it as another session with --as <name>.`, { of: me, end: "refused", code: "self" });
-      return WAIT_IDLE_EXIT.refused;
+      if (!this.o.any) return WAIT_IDLE_EXIT.refused;
     }
-    const armed = await this.s.notifyWhenIdle(this.o.addresses);
-    for (const w of armed.watching) this.pending.add(w.to);
-    const missed = this.o.addresses.filter((a5) => !this.pending.has(a5));
-    if (missed.length === 0) return void 0;
+    const wanted = this.o.addresses.filter((a5) => a5 !== me);
+    if (wanted.length === 0) return WAIT_IDLE_EXIT.refused;
+    await this.s.listPeers().catch(() => void 0);
+    const armed = await this.s.notifyWhenIdle(wanted);
+    for (const w of armed.watching) {
+      this.pending.add(w.to);
+      this.until.set(w.to, w.until);
+    }
+    const missed = wanted.filter((a5) => !this.pending.has(a5));
     for (const of of missed) this.line(`${of}: not watched: ${armed.note}`, { of, end: "refused", code: "local", note: armed.note });
-    return WAIT_IDLE_EXIT.refused;
+    return missed.length === 0 || this.o.any && this.pending.size > 0 ? void 0 : WAIT_IDLE_EXIT.refused;
   }
   /** Waits for the notices: 0 when every address (or one, with --any) has one, 1 on a refusal, 2 on the timeout. */
   async wait() {
@@ -136533,6 +136544,7 @@ var IdleWait = class {
     for (; ; ) {
       for (const e6 of this.ends.splice(0)) {
         if (e6.end === "lapsed" || e6.of !== void 0 && !this.pending.has(e6.of)) continue;
+        if (e6.end === "idle" && e6.until !== this.until.get(e6.of)) continue;
         if (e6.end === "idle") {
           const why2 = e6.why === void 0 ? "it is idle or has ended" : IDLE_WHY[e6.why];
           const quiet2 = e6.quiet ? " (a quiet notice: it would not start an agent turn, as that device is not trusted, is paused, or is past the loop breaker's limits)" : "";

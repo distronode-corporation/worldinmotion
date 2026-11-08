@@ -146,6 +146,22 @@ describe("wim wait-idle", () => {
     expect(JSON.parse(t.out.at(-1)!)).toEqual({ of: "cli@one", end: "refused", code: "self" });
   });
 
+  it("with --any, says its own address is not watched and waits for the others", async () => {
+    const { peers, relay, t } = await mesh();
+    const waited = run(t, "wait-idle", "worker@two,cli@one", "--any");
+    await waiting(t);
+    expect(t.out[0]).toBe("cli@one: not watched: this command runs as cli@one, and a session never watches itself. Run it as another session with --as <name>.");
+    expect(relay.sentByClients).not.toContain(JSON.stringify({ t: "notify_idle", of: "cli@one" }));
+    await armed(relay, "worker@two");
+    await peers[0]!.stop({ ended: true });
+    expect(await waited).toBe(0);
+    expect(t.out.at(-1)).toBe("worker@two: finished: it ended");
+    t.out.length = 0;
+    // Nothing else to wait for.
+    expect(await run(t, "wait-idle", "cli@one", "--any", "--json")).toBe(1);
+    expect(t.out.map((l) => JSON.parse(l) as unknown)).toEqual([{ of: "cli@one", end: "refused", code: "self" }]);
+  });
+
   it(`refuses past the ${LIMITS.notifyIdlePerSession}-watch limit`, async () => {
     const { relay, t } = await mesh();
     // The relay never sees the arms, so none is refused there and every watch stays open.
@@ -159,6 +175,20 @@ describe("wim wait-idle", () => {
     t.out.length = 0;
     expect(await run(t, "wait-idle", "late@two")).toBe(1);
     expect(t.out.at(-1)).toMatch(/^late@two: not watched: This session already watches 16 sessions/);
+  });
+
+  it(`with --any, waits for the watches armed below the ${LIMITS.notifyIdlePerSession}-watch limit`, async () => {
+    const { relay, mesh: m, t } = await mesh();
+    relay.toRelay = (f) => (f.startsWith('{"t":"notify_idle"') ? undefined : f);
+    const many = Array.from({ length: LIMITS.notifyIdlePerSession + 1 }, (_, n) => `s${n}@two`);
+    const waited = run(t, "wait-idle", many.join(","), "--any");
+    await waiting(t);
+    expect(t.out[0]).toMatch(new RegExp(`^s${LIMITS.notifyIdlePerSession}@two: not watched: This session already watches 16 sessions`));
+    expect(t.out[1]).toMatch(/^Waiting up to 12h for any of s0@two, /);
+    expect(t.out[1]).not.toContain(`s${LIMITS.notifyIdlePerSession}@two`);
+    relay.inject(m, idle("s3@two"));
+    expect(await waited).toBe(0);
+    expect(t.out.at(-1)).toBe("s3@two: finished: it is idle or has ended");
   });
 
   it("exits 1 when the relay knows no such session; --any waits on for the others", async () => {
@@ -201,6 +231,34 @@ describe("wim wait-idle", () => {
     expect(t.out.at(-1)).toBe("b@two: finished: it is idle or has ended");
     expect(said(t)).not.toContain("a@two: finished");
   });
+
+  it("passes over a notice the relay kept for an older wait on the same address", async () => {
+    const { devices, mesh: m, peers, relay, t } = await mesh(["a"]);
+    // Timed out with its arm at the relay: the watch stays open while the session is offline.
+    expect(await run(t, "wait-idle", "a@two", "--timeout", "1ms")).toBe(2);
+    await armed(relay, "a@two");
+    // a ends while cli@one is offline, so the relay keeps that notice for cli@one's next ready.
+    await peers[0]!.stop({ ended: true });
+    const again = await openSession(devices[1]!, m, relay, { name: "a" });
+    open.push(again);
+    t.out.length = 0;
+    const waited = run(t, "wait-idle", "a@two", "--json");
+    await until(() => relay.sentByClients.filter((f) => f === JSON.stringify({ t: "notify_idle", of: "a@two" })).length >= 2, 10_000, "the second arm");
+    // The kept notice came first and closed the older watch; this wait's own notice ends it.
+    relay.inject(m, idle("a@two", { why: "idle" }));
+    expect(await waited).toBe(0);
+    expect(t.out.map((l) => JSON.parse(l) as unknown)).toEqual([{ of: "a@two", end: "idle", why: "idle", quiet: false }]);
+  });
+
+  it("arms all the same when the relay does not answer the first question", async () => {
+    const { relay, mesh: m, t } = await mesh();
+    relay.toRelay = (f) => (f === JSON.stringify({ t: "peers" }) ? undefined : f);
+    const waited = run(t, "wait-idle", "worker@two");
+    // The question goes unanswered for the session's answer time (10 seconds), then the arm goes.
+    await until(() => relay.sentByClients.includes(JSON.stringify({ t: "notify_idle", of: "worker@two" })), 25_000, "the arm");
+    relay.inject(m, idle("worker@two"));
+    expect(await waited).toBe(0);
+  }, 30_000);
 
   it("stops at Ctrl-C", async () => {
     const { t } = await mesh();
