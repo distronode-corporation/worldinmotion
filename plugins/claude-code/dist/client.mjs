@@ -83438,6 +83438,8 @@ var LIMITS = {
   idleNoticeLifetimeMs: 12 * HOUR,
   /** Armed `notify_idle` requests per session. */
   notifyIdlePerSession: 16,
+  /** How long a watched session stays offline, with no new connection, before its idle notices fire. */
+  idleOfflineGraceMs: 60 * 1e3,
   /** Sessions in one mesh. */
   sessionsPerMesh: 256,
   /** Sessions on one device. */
@@ -87277,7 +87279,12 @@ var peerSchema = external_exports.looseObject({
   kind: kindSchema,
   status: external_exports.enum(["idle", "busy", "offline"]),
   since: timeSchema,
-  rooms: external_exports.array(roomSchema).max(LIMITS.roomsPerSession)
+  rooms: external_exports.array(roomSchema).max(LIMITS.roomsPerSession),
+  /**
+   * Present once the session has sent `presence` on its current connection, so a row reading
+   * `idle` can be told apart from one whose session reports nothing. Absent from older relays.
+   */
+  presence: external_exports.literal(true).optional()
 });
 var helloFrameSchema = external_exports.looseObject({
   t: external_exports.literal("hello"),
@@ -87310,11 +87317,19 @@ var deliverFrameSchema = external_exports.looseObject({ t: external_exports.lite
 var relayReceiptFrameSchema = external_exports.looseObject(receiptFields);
 var peersFrameSchema = external_exports.looseObject({ t: external_exports.literal("peers"), peers: external_exports.array(peerSchema) });
 var peerFrameSchema = external_exports.looseObject({ t: external_exports.literal("peer"), peer: peerSchema });
+var idleWhySchema = external_exports.enum(["idle", "ended", "offline"]);
 var noticeFrameSchema = external_exports.looseObject({
   t: external_exports.literal("notice"),
   kind: external_exports.literal("idle"),
-  of: sessionAddressSchema
+  of: sessionAddressSchema,
+  /**
+   * Any short label, not only today's three: a later relay may add a reason, and a notice with
+   * one must still be taken (only `why` is unknown, not the notice). Absent from older relays.
+   * Read it through `knownIdleWhy`.
+   */
+  why: external_exports.string().min(1).max(64).optional()
 });
+var idleArmedFrameSchema = external_exports.looseObject({ t: external_exports.literal("idle.armed"), of: sessionAddressSchema, exp: timeSchema });
 var chainPage = external_exports.array(rosterSchema).min(1).max(LIMITS.rosterPageMax);
 var rosterFrameSchema = external_exports.looseObject({ t: external_exports.literal("roster"), chain: chainPage, more: external_exports.boolean() });
 var joinRequestFrameSchema = external_exports.looseObject({ t: external_exports.literal("join.request"), join: joinBodySchema });
@@ -87324,7 +87339,9 @@ var errorFrameSchema = external_exports.looseObject({
   code: external_exports.string().min(1).max(64),
   message: external_exports.string().max(4096),
   /** What the error refers to: a message id or the `t` of the refused frame. */
-  ref: external_exports.string().max(128).optional()
+  ref: external_exports.string().max(128).optional(),
+  /** On a refused `notify_idle`, the address it asked about. Absent from older relays. */
+  of: sessionAddressSchema.optional()
 });
 var pongFrameSchema = external_exports.looseObject({ t: external_exports.literal("pong") });
 var recoverReadyFrameSchema = external_exports.looseObject({ t: external_exports.literal("recover.ready"), roster: rosterSchema });
@@ -87377,6 +87394,7 @@ var relaySchemas = {
   peers: peersFrameSchema,
   peer: peerFrameSchema,
   notice: noticeFrameSchema,
+  "idle.armed": idleArmedFrameSchema,
   roster: rosterFrameSchema,
   "join.request": joinRequestFrameSchema,
   joined: joinedFrameSchema,
@@ -87406,6 +87424,7 @@ var relayFrameSchema = external_exports.discriminatedUnion("t", [
   peersFrameSchema,
   peerFrameSchema,
   noticeFrameSchema,
+  idleArmedFrameSchema,
   rosterFrameSchema,
   joinRequestFrameSchema,
   joinedFrameSchema,
@@ -130944,12 +130963,14 @@ var MeshRelay = class {
       this.absent = true;
       return;
     }
-    for (const s3 of this.store.sessions()) {
+    const sessions = this.store.sessions();
+    for (const s3 of sessions) {
       const tombstoneDone = s3.ended !== null && s3.ended <= now - L.queueLifetimeMs;
       const abandoned = s3.ended === null && s3.conn === null && s3.since <= now - L.queueLifetimeMs;
       const empty = this.store.queueCount(s3.sid, "msg") + this.store.queueCount(s3.sid, "ci") === 0;
       if (tombstoneDone || abandoned && empty) this.store.deleteSession(s3.sid);
     }
+    this.fireOffline(sessions, now);
     for (const item of this.store.expiredQueue(now - L.queueLifetimeMs)) {
       this.store.dropQueueItem(item.sid, item.cur);
       const m4 = this.store.getMessage(item.id);
@@ -131145,6 +131166,7 @@ var MeshRelay = class {
       for (const j5 of this.store.joins()) if (j5.exp > now) conn.send(`{"t":"join.request","join":${j5.body}}`);
     }
     this.pushPeer(row);
+    this.sendHeld(conn, row.sid, now);
   }
   /**
    * Finds or creates the session an `auth` claims (SPEC section 8, names). Returns the row to
@@ -131222,7 +131244,7 @@ var MeshRelay = class {
       case "receipt":
         return this.receipt(conn, s3, f7.id, f7.status);
       case "presence":
-        return this.presence(s3, f7.status, now);
+        return this.presence(conn, st, s3, f7.status, now);
       case "peers":
         return this.emit(conn, { t: "peers", peers: this.peerRows(s3.sid) });
       case "rename":
@@ -131386,13 +131408,15 @@ var MeshRelay = class {
     if (sender) this.emit(sender, { t: "receipt", id: id2, to: this.address(s3), status: status3 });
   }
   // ---- sessions ----
-  presence(s3, status3, now) {
+  presence(conn, st, s3, status3, now) {
+    const first = st.presence !== true;
+    if (first) this.host.setState(conn, { ...st, presence: true });
     if (s3.status !== status3) {
       const row = { ...s3, status: status3, since: now };
       this.store.putSession(row);
       this.pushPeer(row);
-    }
-    if (status3 === "idle") this.fireIdle(s3, now);
+    } else if (first) this.pushPeer(s3);
+    if (status3 === "idle") this.fireIdle(s3, "idle", now);
   }
   rename(conn, st, s3, name) {
     const holder = this.store.sessionsOf(s3.device).find((o3) => o3.ended === null && o3.name === name && o3.sid !== s3.sid);
@@ -131400,23 +131424,62 @@ var MeshRelay = class {
     const row = { ...s3, name };
     this.store.putSession(row);
     this.host.setState(conn, { ...st, name });
-    this.emit(conn, { t: "peer", peer: this.peerRow(row) });
+    this.emit(conn, { t: "peer", peer: this.peerRow(row, this.reporting()) });
     this.pushPeers();
   }
+  /**
+   * Arms one idle notice, answered with `idle.armed { of, exp }`; a refusal's `error` carries `of`
+   * too, so a client with several arms outstanding knows which one failed. Older clients ignore
+   * both (SPEC section 8).
+   */
   notifyIdle(conn, s3, of, now) {
+    const refuse = (code2, message2) => this.emit(conn, { t: "error", code: code2, message: message2, ref: "notify_idle", of });
     const target = this.resolve(of);
-    if (typeof target === "string") return this.error(conn, "not_found", "no such session", "notify_idle");
+    if (typeof target === "string") return refuse("not_found", "no such session");
     const armed = this.store.idleFor(target.sid).some((r6) => r6.sub === s3.sid);
-    if (!armed && this.store.idleCount(s3.sid) >= this.limits.notifyIdlePerSession) {
-      return this.error(conn, "limited", "too many idle notices armed", "notify_idle");
-    }
-    this.store.putIdle({ sub: s3.sid, target: target.sid, exp: now + this.limits.idleNoticeLifetimeMs });
+    if (!armed && this.store.idleCount(s3.sid) >= this.limits.notifyIdlePerSession) return refuse("limited", "too many idle notices armed");
+    const exp = now + this.limits.idleNoticeLifetimeMs;
+    this.store.putIdle({ sub: s3.sid, target: target.sid, exp, fired: null });
+    this.emit(conn, { t: "idle.armed", of, exp });
   }
-  fireIdle(target, now) {
-    for (const sub of this.store.idleFor(target.sid)) {
-      this.store.deleteIdle(sub.sub, sub.target);
-      const c5 = sub.exp > now ? this.connFor(this.store.getSession(sub.sub)) : void 0;
-      if (c5) this.emit(c5, { t: "notice", kind: "idle", of: this.address(target) });
+  /**
+   * Fires the notices armed on `target`: each goes to its subscriber now, or, when the subscriber
+   * is offline, is kept (marked with `why`) until its next `ready` within the arm's lifetime. A
+   * lapsed arm the sweep has not reached yet is dropped. A notice already fired and kept is left
+   * for that `ready`.
+   */
+  fireIdle(target, why, now) {
+    for (const row of this.store.idleFor(target.sid)) {
+      if (row.fired !== null) continue;
+      const c5 = this.connFor(this.store.getSession(row.sub));
+      if (row.exp <= now) this.store.deleteIdle(row.sub, row.target);
+      else if (c5 === void 0) this.store.putIdle({ ...row, fired: why });
+      else {
+        this.store.deleteIdle(row.sub, row.target);
+        this.emit(c5, { t: "notice", kind: "idle", of: this.address(target), why });
+      }
+    }
+  }
+  /**
+   * Fires the notices armed on sessions offline for the grace period with no new connection
+   * (`sessions` is the sweep's list; the rows of any it deleted went with them). An ended session
+   * has no armed rows: its notices fired at its `bye`, and a new arm on it is refused.
+   */
+  fireOffline(sessions, now) {
+    const byId = new Map(sessions.map((s3) => [s3.sid, s3]));
+    const due = /* @__PURE__ */ new Set();
+    for (const row of this.store.idleArmed()) {
+      const t2 = byId.get(row.target);
+      if (t2.conn === null && t2.since <= now - this.limits.idleOfflineGraceMs) due.add(t2);
+    }
+    for (const t2 of due) this.fireIdle(t2, "offline", now);
+  }
+  /** After a session's `ready`: the notices that fired while it was offline and have not lapsed. */
+  sendHeld(conn, sid, now) {
+    for (const row of this.store.idleBy(sid)) {
+      if (row.fired === null) continue;
+      this.store.deleteIdle(row.sub, row.target);
+      if (row.exp > now) this.emit(conn, { t: "notice", kind: "idle", of: this.address(this.store.getSession(row.target)), why: row.fired });
     }
   }
   bye(conn, st, s3, ended2, now) {
@@ -131427,7 +131490,7 @@ var MeshRelay = class {
     for (const room of this.store.roomsOf(s3.sid)) this.store.removeMember(room, s3.sid);
     this.releaseAll(s3.sid, now);
     this.store.putSession({ ...s3, conn: null, ended: now, since: now });
-    this.fireIdle(s3, now);
+    this.fireIdle(s3, "ended", now);
     this.pushPeers();
   }
   goOffline(s3) {
@@ -131551,7 +131614,7 @@ var MeshRelay = class {
       this.store.removeMember(room, s3.sid);
       this.pushPeer(s3);
     }
-    this.emit(conn, { t: "peer", peer: this.peerRow(s3) });
+    this.emit(conn, { t: "peer", peer: this.peerRow(s3, this.reporting()) });
   }
   roomHistory(conn, room, before, limit2) {
     const max = Math.min(limit2 ?? this.limits.roomHistoryPageMax, this.limits.roomHistoryPageMax);
@@ -131922,28 +131985,37 @@ var MeshRelay = class {
     const named = this.store.sessionsOf(device.id).filter((s3) => s3.name === name);
     return named.find((s3) => s3.ended === null) ?? (named.length > 0 ? "ended" : "unknown");
   }
-  peerRow(s3) {
+  /** `reporting`: the connections whose session has sent `presence` on them (see `reporting()`). */
+  peerRow(s3, reporting) {
     return {
       address: this.address(s3),
       sid: s3.sid,
       kind: s3.kind,
       status: s3.conn === null ? "offline" : s3.status,
       since: s3.since,
-      rooms: this.store.roomsOf(s3.sid)
+      rooms: this.store.roomsOf(s3.sid),
+      ...s3.conn !== null && reporting.has(s3.conn) ? { presence: true } : {}
     };
   }
+  /** The ids of open connections whose session has sent `presence` on them. */
+  reporting() {
+    const ids = /* @__PURE__ */ new Set();
+    for (const c5 of this.host.connections()) if (this.host.getState(c5).presence === true) ids.add(c5.id);
+    return ids;
+  }
   /** Every live session except `self`. */
-  peerRows(self2) {
-    return this.store.sessions().filter((s3) => s3.ended === null && s3.sid !== self2).map((s3) => this.peerRow(s3));
+  peerRows(self2, reporting = this.reporting()) {
+    return this.store.sessions().filter((s3) => s3.ended === null && s3.sid !== self2).map((s3) => this.peerRow(s3, reporting));
   }
   /** Tells every other online session that one row changed. */
   pushPeer(s3) {
-    const text2 = JSON.stringify({ t: "peer", peer: this.peerRow(s3) });
+    const text2 = JSON.stringify({ t: "peer", peer: this.peerRow(s3, this.reporting()) });
     for (const c5 of this.authedConns()) if (this.host.getState(c5).sid !== s3.sid) c5.send(text2);
   }
   /** Sends every online session the whole list, for changes a single row cannot express. */
   pushPeers() {
-    for (const c5 of this.authedConns()) this.emit(c5, { t: "peers", peers: this.peerRows(this.host.getState(c5).sid) });
+    const reporting = this.reporting();
+    for (const c5 of this.authedConns()) this.emit(c5, { t: "peers", peers: this.peerRows(this.host.getState(c5).sid, reporting) });
   }
   *authedConns() {
     for (const c5 of this.host.connections()) if (this.host.getState(c5).phase === "authed") yield c5;
@@ -132221,6 +132293,15 @@ var MIGRATIONS = [
         PRIMARY KEY (mesh, device))`,
       `CREATE TABLE ci_jtis (mesh TEXT NOT NULL, jti TEXT NOT NULL, exp INTEGER NOT NULL, PRIMARY KEY (mesh, jti))`
     ]
+  },
+  // Dependable idle notices (SPEC section 8): why a row fired while its subscriber was offline,
+  // kept until the subscriber's next `ready`. Additive, so its reader stays 1: an older relay never
+  // reads the column and its new rows leave it NULL (armed). A row it finds fired but not yet sent
+  // it treats as armed, so that notice comes on the target's next idle report instead; one it
+  // re-arms keeps its mark, so after a roll forward it is sent at the subscriber's next `ready`.
+  {
+    reader: 1,
+    sql: [`ALTER TABLE idle ADD COLUMN fired TEXT`]
   }
 ];
 var SCHEMA_VERSION = MIGRATIONS.length;
@@ -132291,7 +132372,13 @@ var toInvite = (r6) => ({
 });
 var toRoster = (r6) => ({ seq: num(r6["seq"]), hash: str2(r6["hash"]), json: str2(r6["json"]) });
 var toJoin = (r6) => ({ invite: str2(r6["invite"]), device: str2(r6["device"]), body: str2(r6["body"]), exp: num(r6["exp"]) });
-var toIdle = (r6) => ({ sub: str2(r6["sub"]), target: str2(r6["target"]), exp: num(r6["exp"]) });
+var toIdle = (r6) => ({
+  sub: str2(r6["sub"]),
+  target: str2(r6["target"]),
+  exp: num(r6["exp"]),
+  fired: strOrNull(r6["fired"])
+});
+var IDLE_COLS = "sub, target, exp, fired";
 var toHistory = (r6) => ({ room: str2(r6["room"]), cur: num(r6["cur"]), at: num(r6["at"]), msg: str2(r6["msg"]) });
 var toLease = (r6) => ({
   key: str2(r6["lkey"]),
@@ -132534,14 +132621,21 @@ var SqlStore = class {
   }
   putIdle(row) {
     this.run(
-      "INSERT INTO idle (mesh, sub, target, exp) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, sub, target) DO UPDATE SET exp = excluded.exp",
+      "INSERT INTO idle (mesh, sub, target, exp, fired) VALUES (?, ?, ?, ?, ?) ON CONFLICT (mesh, sub, target) DO UPDATE SET exp = excluded.exp, fired = excluded.fired",
       row.sub,
       row.target,
-      row.exp
+      row.exp,
+      row.fired
     );
   }
   idleFor(target) {
-    return this.all("SELECT sub, target, exp FROM idle WHERE mesh = ? AND target = ? ORDER BY sub", target).map(toIdle);
+    return this.all(`SELECT ${IDLE_COLS} FROM idle WHERE mesh = ? AND target = ? ORDER BY sub`, target).map(toIdle);
+  }
+  idleBy(sub) {
+    return this.all(`SELECT ${IDLE_COLS} FROM idle WHERE mesh = ? AND sub = ? ORDER BY target`, sub).map(toIdle);
+  }
+  idleArmed() {
+    return this.all(`SELECT ${IDLE_COLS} FROM idle WHERE mesh = ? AND fired IS NULL ORDER BY target, sub`).map(toIdle);
   }
   idleCount(sub) {
     return this.count("SELECT COUNT(*) AS n FROM idle WHERE mesh = ? AND sub = ?", sub);

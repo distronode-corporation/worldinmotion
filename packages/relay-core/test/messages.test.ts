@@ -347,7 +347,8 @@ describe.each(KINDS)("sessions and names (%s store)", (kind) => {
     b.conn.take();
     h.now += 5;
     a.frame({ t: "presence", status: "busy" });
-    expect(b.conn.take()).toEqual([{ t: "peer", peer: { address: "writer@laptop", sid: a.sid, kind: "cli", status: "busy", since: h.now, rooms: [] } }]);
+    // The first report on a connection also marks the row as one whose session reports turns.
+    expect(b.conn.take()).toEqual([{ t: "peer", peer: { address: "writer@laptop", sid: a.sid, kind: "cli", status: "busy", since: h.now, rooms: [], presence: true } }]);
     a.frame({ t: "presence", status: "busy" });
     expect(b.conn.take()).toEqual([]);
     expect(a.frame({ t: "peers" })[0]!["peers"].map((p: { address: string }) => p.address).sort()).toEqual(["reviewer@server", "root@admin"]);
@@ -386,14 +387,14 @@ describe.each(KINDS)("sessions and names (%s store)", (kind) => {
 
 describe.each(KINDS)("idle notices (%s store)", (kind) => {
   it("sends one notice when the target next reports idle", () => {
-    const { a, b } = pair(kind);
-    expect(a.frame({ t: "notify_idle", of: b.address })).toEqual([]);
+    const { h, a, b } = pair(kind);
+    expect(a.frame({ t: "notify_idle", of: b.address })).toEqual([{ t: "idle.armed", of: b.address, exp: h.now + 12 * HOUR }]);
     a.frame({ t: "notify_idle", of: b.address });
     b.frame({ t: "presence", status: "busy" });
     expect(a.conn.of("notice")).toEqual([]);
     b.frame({ t: "presence", status: "idle" });
     b.frame({ t: "presence", status: "idle" });
-    expect(a.conn.of("notice")).toEqual([{ t: "notice", kind: "idle", of: "reviewer@server" }]);
+    expect(a.conn.of("notice")).toEqual([{ t: "notice", kind: "idle", of: "reviewer@server", why: "idle" }]);
   });
 
   it("notifies when the target ends, not when the subscriber is offline, and not after 12 hours", () => {
@@ -422,11 +423,13 @@ describe.each(KINDS)("idle notices (%s store)", (kind) => {
     const a = new Client(w.h, w.members[0]!, "a");
     a.connect();
     w.root.conn.take();
-    expect(w.root.frame({ t: "notify_idle", of: "x@laptop" })[0]).toMatchObject({ code: "not_found", ref: "notify_idle" });
+    expect(w.root.frame({ t: "notify_idle", of: "x@laptop" })).toEqual([{ t: "error", code: "not_found", message: "no such session", ref: "notify_idle", of: "x@laptop" }]);
     w.root.frame({ t: "notify_idle", of: a.address });
-    expect(w.root.frame({ t: "notify_idle", of: "root@admin" })[0]).toMatchObject({ code: "limited" });
+    expect(w.root.frame({ t: "notify_idle", of: "root@admin" })).toEqual([
+      { t: "error", code: "limited", message: "too many idle notices armed", ref: "notify_idle", of: "root@admin" },
+    ]);
     // Re-arming the same target refreshes it rather than counting twice.
-    expect(w.root.frame({ t: "notify_idle", of: a.address })).toEqual([]);
+    expect(w.root.frame({ t: "notify_idle", of: a.address })).toEqual([{ t: "idle.armed", of: a.address, exp: w.h.now + 12 * HOUR }]);
   });
 });
 

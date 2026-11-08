@@ -15,6 +15,19 @@ body line with a bracket.
 
 ### Added
 
+- **Relay: dependable idle notices.** A relay now sends the notice armed with `notify_idle` (MCP
+  `send` with `notify_when_idle`) also when the watched session has been offline for 60 seconds
+  without reconnecting, so a session whose agent crashed or closed is reported too, and says why it
+  fired: `why` is `idle`, `ended` or `offline`. A notice that fires while the asking session is
+  offline is kept, within the arm's 12 hours, and sent after that session's next `ready`. Each arm
+  is answered with a new `idle.armed { of, exp }` frame, a refusal (`not_found`, `limited`) names
+  the address in `of`, and a peer row carries `"presence": true` once its session has sent
+  `presence` on its current connection. All of it is backward compatible: a 0.1.x client ignores
+  `idle.armed` and the new keys, and a 0.2.0 client works with a 0.1.x relay unchanged, since no
+  client frame gained a key. The SQL store adds a `fired` column to `idle` (schema 3, additive, so a
+  relay rolled back to 0.1.x still runs on the database). The hosted relay has it from its next
+  deploy (SPEC sections 8, 9 and 10).
+
 - **Your own devices are trusted inside the approvals you already give.** `wim invite` asks "Is the
   new device one of yours? Its messages will then be trusted here when it joins. [y/N]" before it
   shows the code, and keeps the answer in the invite's record on that device, never in the code; an
