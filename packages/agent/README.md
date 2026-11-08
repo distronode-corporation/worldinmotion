@@ -121,15 +121,18 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
 A runner is any program. The worker starts one per job, in its own process group:
 
 - **Invocation**: `<runner.command> <runner.args...>`. No message content is ever on argv.
-- **stdin**: one JSON object, UTF-8, at most 64 KiB:
+- **stdin**: one JSON object, UTF-8, at most 1 MiB + 8 KiB:
 
   ```json
-  {"v":1,"id":"<message id>","from":{"device":"<device id>","address":"<name@device>"},"profile":"<prefix or empty>","text":"<task>"}
+  {"v":2,"id":"<message id>","from":{"device":"<device id>","address":"<name@device>"},"profile":"<prefix or empty>","text":"<task>","frame":{ "...": "the signed send frame" }}
   ```
 
   `text` is the raw text, wake code included, when the worker holds no code (`wake.mode`
   `runner`). `from.device` is the id that signed the message; `from.address` is the sender's
-  chosen name, for display only.
+  chosen name, for display only. `frame` is the signed `send` frame the message arrived in
+  (SPEC.md), so a runner that does not trust the worker (one under another OS user) can verify the
+  signature against the roster, open the box with the device's keys and compare it with `text`,
+  `id` and `from`, and keep its own replay record. It is absent for an item that has none.
 - **stdout**: the answer, UTF-8, at most 64 KiB (the worker cuts a longer one and says so).
 - **stderr**: log lines for the operator. Never put the task, a code or a key there.
 - **Exit code**: `0` answered; `3` refused (bad code, profile or sender); `4` busy or

@@ -22,6 +22,8 @@ export interface WorkerItem {
   trusted: boolean;
   /** Epoch milliseconds after which a task's answer is no longer wanted. */
   deadline?: number;
+  /** The signed frame it came in, when the session keeps frames: passed to the runner untouched. */
+  frame?: unknown;
 }
 
 export type ReplyStatus = "done" | "failed" | "declined" | "timeout";
@@ -173,7 +175,7 @@ export class Worker {
       killGraceMs: c.runner.killGraceSeconds * 1000,
       env: runnerEnv(this.o.env, c.runner.passEnv),
     };
-    const req: RunnerRequest = { v: 1, id: item.id, from: { device: item.device!, address: item.from }, profile, text };
+    const req: RunnerRequest = { v: 2, id: item.id, from: { device: item.device!, address: item.from }, profile, text, ...(item.frame === undefined ? {} : { frame: item.frame }) };
     const started = this.o.now();
     this.o.log(`worker: job ${item.id} start from device ${item.device} profile ${profile === "" ? "-" : profile}`);
     const run = this.o.run ?? runJob;

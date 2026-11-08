@@ -9,6 +9,7 @@ export {
   encodeRequest,
   RUNNER_EXIT,
   RUNNER_MAX_BYTES,
+  RUNNER_MAX_REQUEST_BYTES,
   runJob,
   runnerEnv,
   signalGroup,
