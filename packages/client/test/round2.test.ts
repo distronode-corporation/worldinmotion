@@ -24,7 +24,7 @@ describe("help", () => {
     expect(t.out.at(-1)).toMatch(/wim init \[--name/);
     expect(await run(t, "help")).toBe(0);
     expect(await run(t, "help", "send")).toBe(0);
-    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s>]");
+    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s> | --wait-idle [--timeout 12h]]");
     expect(await run(t, "send", "--help")).toBe(0);
     expect(t.out.at(-1)).toMatch(/^wim send /);
     expect(await run(t, "help", "nope")).toBe(2);

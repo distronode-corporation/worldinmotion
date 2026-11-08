@@ -105,6 +105,7 @@ notice, and on the status line.
   item alone under each;
 - items **relayed** by bots, CI or gateways that the session has not seen, with a button to give
   one to Claude;
+- **quiet notices**: notices that may not start a turn (see below), with the same buttons;
 - the advisory leases currently held.
 
 Peers, the held queue and leases refresh when the pane opens and on each button press; the
@@ -151,6 +152,23 @@ counts read from disk refresh every five seconds while the pane is shown.
   Code's normal permission prompts.
 - Items a bot, CI job or gateway relays for a device never start a turn. While a turn is running
   they are added to it; otherwise they wait in the pane until you hand one over.
+- A finished notice (SendMessage or `send` with `notify_when_idle`: one notice when that session
+  next ends a turn or ends) starts a turn only when the client says it may: the watched device is
+  one you trust, the loop breaker does not pause it, and the breaker admits one more wake from it.
+  Every other notice is quiet: a watch that lapsed after 12 hours, an arm the relay refused, the
+  client's own notices (an unreadable message, a held receipt, a claim, a pause), any notice that
+  names no watched device, and any whose `quiet` is not `false`. So are an item of a kind the
+  plugin does not know, and a message from a device you have not trusted that you approve. A
+  quiet item is added to a running turn, otherwise it waits in the pane and for the `inbox` tool,
+  and never starts a turn. SendMessage with `notify_when_idle` and no message only
+  arms the watch: no text is sent.
+- Every turn the plugin starts (a message, a notice, a press of Give to Claude) is marked
+  `busy-mesh` in the session's presence first, so what the model sends in it is flagged derived
+  (a trusted request goes one hop, no further). When that cannot be written, the plugin starts no
+  turn, and the items wait for the next turn end. A turn that starts while one of the plugin's
+  submits is pending (your own prompt queued ahead of it) is marked `busy-mesh` too, and the
+  submit's own turn still is: presence stays `busy-mesh` until it starts, or until the session has
+  stood idle for 30 seconds with nothing started.
 - SendMessage reaches the mesh only for a room or for `name@device` where the device is in the
   current roster and the address was never a local teammate's in this session. The plugin asks
   you first before sending to a device you do not trust, to a room unless you trust every

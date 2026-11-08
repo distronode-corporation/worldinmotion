@@ -267,11 +267,19 @@ export function frameEntry(e: HistoryEntry, trust: "self" | "assign" | "inform" 
  * senders only inform. The frame says which, never that a trusted device is the person's own, and
  * an item that only informs carries `informs`, so reading it starts the `derived` window.
  */
-export function releasedFrame(config: MeshConfig, device: string, entry: HistoryEntry): Pick<SpoolItem, "rendered" | "relayed" | "informs"> {
+export function releasedFrame(config: MeshConfig, device: string, entry: HistoryEntry): Pick<SpoolItem, "rendered" | "relayed" | "informs" | "quiet"> {
   const level = policyLevel(config, device);
-  const works = (level === "deliver" || level === "deliver-relayed") && entry.relayed !== true && entry.derived !== true;
+  const trusted = level === "deliver" || level === "deliver-relayed";
+  const works = trusted && entry.relayed !== true && entry.derived !== true;
   const trust = !works ? "inform" : device === config.device ? "self" : "assign";
-  return { rendered: frameEntry(entry, trust), ...(entry.relayed === true ? { relayed: true as const } : {}), ...(trust === "inform" ? { informs: true as const } : {}) };
+  // A held sender's item the person released is theirs to read, never a turn: the rule `wim hook`
+  // applies (wakeKind), written into the item so every reader of the spool keeps it.
+  return {
+    rendered: frameEntry(entry, trust),
+    ...(entry.relayed === true ? { relayed: true as const } : {}),
+    ...(trust === "inform" ? { informs: true as const } : {}),
+    ...(trusted ? {} : { quiet: true as const }),
+  };
 }
 
 /** One history entry for the agent: received items in the agent frame, sent ones as a plain line. */

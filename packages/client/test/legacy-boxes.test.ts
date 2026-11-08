@@ -170,6 +170,8 @@ describe("a dropped v0.1 box, told and counted", () => {
     await until(async () => drops(logs) === 2, undefined, "one drops both");
     // A second drop from the same sender adds no notice.
     expect(await notices(a)).toEqual([noticeText(droppedNotice("o@old"))]);
+    // Quiet, with no watch named: a sender the person may not trust cannot start a turn with it.
+    expect((await a.spool.unread()).filter((i) => i.rendered.includes("old box format")).map((i) => [i.quiet, i.watched])).toEqual([[true, undefined]]);
     expect(noticeText(droppedNotice("o@old"))).toContain("A message from o@old was dropped because it used the old box format");
     // Another session of the same device adds none: the session name is the sender's to choose,
     // so a notice per name would let one device flood the spool.

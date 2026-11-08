@@ -255,9 +255,10 @@ describe("wim mcp", () => {
     await until(async () => (await s.spool.unread()).some((i) => i.relayed === true));
     const r = (await s.spool.unread()).find((i) => i.relayed === true)!;
     await s.take(r.cursor);
-    expect((await s.spool.relayed()).map((i) => i.id)).toEqual([r.id]);
-    expect(text(await call("inbox", { peek: true }))).toMatch(/^\(relayed: the sender passed on text it did not write itself\)/);
-    await fs.writeFile(join(dismiss, `${r.id}.dismiss`), "");
+    // The approved message from a held sender is there too: spooled quiet, it never started a turn.
+    expect((await s.spool.relayed()).map((i) => i.id)).toEqual([sent.id, r.id]);
+    expect(text(await call("inbox", { peek: true }))).toContain("(relayed: the sender passed on text it did not write itself)");
+    for (const id of [sent.id, r.id]) await fs.writeFile(join(dismiss, `${id}.dismiss`), "");
     await until(async () => (await s.spool.relayed()).length === 0);
   }, 20_000);
 

@@ -453,7 +453,9 @@ with the original kept beside it, and a rerun brings a stale path up to date.
 - **VS Code:** the [extension](packages/vscode/README.md) shows the mesh, held messages and live
   activity.
 
-`wim help` lists every command.
+`wim help` lists every command. For scripts, `wim send <to> <text...> --wait-idle` sends work and
+waits until that session finishes its turn, and `wim wait-idle <address,...>` waits for sessions
+already working ([docs/peers.md](docs/peers.md#waiting-from-a-script-wim-wait-idle)).
 
 ## How it works
 

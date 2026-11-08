@@ -89136,6 +89136,10 @@ var relayReceiptFrameSchema = external_exports.looseObject(receiptFields);
 var peersFrameSchema = external_exports.looseObject({ t: external_exports.literal("peers"), peers: external_exports.array(peerSchema) });
 var peerFrameSchema = external_exports.looseObject({ t: external_exports.literal("peer"), peer: peerSchema });
 var idleWhySchema = external_exports.enum(["idle", "ended", "offline"]);
+function knownIdleWhy(why) {
+  const parsed2 = idleWhySchema.safeParse(why);
+  return parsed2.success ? parsed2.data : void 0;
+}
 var noticeFrameSchema = external_exports.looseObject({
   t: external_exports.literal("notice"),
   kind: external_exports.literal("idle"),
@@ -92958,9 +92962,15 @@ function frameEntry(e6, trust = "inform") {
 }
 function releasedFrame(config2, device, entry) {
   const level = policyLevel(config2, device);
-  const works = (level === "deliver" || level === "deliver-relayed") && entry.relayed !== true && entry.derived !== true;
+  const trusted2 = level === "deliver" || level === "deliver-relayed";
+  const works = trusted2 && entry.relayed !== true && entry.derived !== true;
   const trust = !works ? "inform" : device === config2.device ? "self" : "assign";
-  return { rendered: frameEntry(entry, trust), ...entry.relayed === true ? { relayed: true } : {}, ...trust === "inform" ? { informs: true } : {} };
+  return {
+    rendered: frameEntry(entry, trust),
+    ...entry.relayed === true ? { relayed: true } : {},
+    ...trust === "inform" ? { informs: true } : {},
+    ...trusted2 ? {} : { quiet: true }
+  };
 }
 function renderForAgent(e6) {
   if (e6.dir === "in") {
@@ -93575,6 +93585,15 @@ function cursorNumber(text2) {
   const m4 = NAME2.exec((text2 ?? "").trim());
   return m4 === null ? 0 : Number(m4[1]);
 }
+function keptInBox(item) {
+  if (item.relayed === true) return true;
+  if (item.held !== void 0 || item.heldBy !== void 0 || item.forPerson === true) return false;
+  return item.quiet === true || item.kind === "notice" && item.watched === void 0;
+}
+function mayStartTurn(item) {
+  if (item.relayed === true || item.forPerson === true || item.quiet === true) return false;
+  return ["msg", "task", "result", "file"].some((kind) => kind === item.kind) || item.kind === "notice" && item.watched !== void 0 && item.watched !== "";
+}
 var Spool = class _Spool {
   /** The highest item number handed out so far, never reused. */
   last;
@@ -93670,9 +93689,10 @@ var Spool = class _Spool {
   }
   /**
    * Deletes taken items and returns them, so the caller can send their receipts. A relayed item,
-   * or a quiet notice, is kept in the relayed box instead: nothing starts a turn for one, so it
-   * stays readable through `inbox` until an agent reads it or the person dismisses it, even when
-   * the cursor passed it for a later item that was pushed.
+   * or a quiet notice for the agent, is kept in the relayed box instead: nothing starts a turn for
+   * one, so it stays readable through `inbox` until an agent reads it or the person dismisses it,
+   * even when the cursor passed it for a later item that was pushed. A notice for the person (held
+   * counts, a held receipt, a restart) is theirs, shown by the plugin, and goes like any item.
    */
   async sweep(alreadyRead = /* @__PURE__ */ new Set()) {
     const upto = await this.cursor();
@@ -93681,7 +93701,7 @@ var Spool = class _Spool {
       if (Number(NAME2.exec(name)[1]) > upto) break;
       const item = await this.read(join8(this.dir, name));
       if (item === BUSY) continue;
-      if ((item?.relayed === true || item?.quiet === true) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+      if (item !== void 0 && keptInBox(item) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
         await writeJson(join8(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }
@@ -94889,6 +94909,10 @@ function prekeyNote(o3) {
 }
 var CARD_EVERY_MS = 6e4;
 var PARKED_MAX = 64;
+var SENT_IDS_MAX = 4096;
+var RECEIPTS_MAX = 1024;
+var RECEIPT_LOOKUPS_MAX = 4;
+var RECEIPT_SKEW_MS = 5 * 6e4;
 var ANSWER_KEEP_MS = 5 * 6e4;
 var GROUP = (to) => to.some((a5) => a5 === "*" || isRoom(a5));
 var PAUSE_TELL_MS = 10 * 6e4;
@@ -94926,6 +94950,10 @@ var CI_TELL_MS = 60 * 6e4;
 var CI_PARKED_RETRY_MS = 6e4;
 var CI_DROP_LINES = 10;
 var CI_DROP_WINDOW_MS = 6e4;
+function armRefusedWhy(code2) {
+  if (code2 === "not_found") return "the relay knows no session by that address (it may have ended)";
+  return code2 === "limited" ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay` : "the relay refused it";
+}
 var MeshSession = class _MeshSession extends EventEmitter {
   device;
   files;
@@ -95421,16 +95449,11 @@ var MeshSession = class _MeshSession extends EventEmitter {
         if (f7.peer.address !== this.address) this.peers.set(f7.peer.address, f7.peer);
         this.emit("peers");
         return;
-      case "receipt": {
-        const list4 = this.receipts.get(f7.id) ?? [];
-        list4.push({ to: f7.to, status: f7.status });
-        this.receipts.set(f7.id, list4);
-        this.emit("receipt", f7);
-        void this.recordReceipt(f7).catch((e6) => this.log(`wim: receipt: ${e6.message}`));
+      case "receipt":
+        this.onReceipt(f7);
         return;
-      }
       case "notice":
-        void this.idleNotice(f7.of).catch((e6) => this.log(`wim: notice: ${e6.message}`));
+        void this.idleNotice(f7.of, knownIdleWhy(f7.why)).catch((e6) => this.log(`wim: notice: ${e6.message}`));
         return;
       case "error":
         if (f7.ref === "notify_idle") this.inbound = this.inbound.then(() => this.armRefused(f7)).catch((e6) => this.log(`wim: watches: ${e6.message}`));
@@ -96062,7 +96085,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       const frame = this.frames.get(entry.id);
       this.emit("message", { ...entry, cursor: written2.cursor, ...frame === void 0 ? {} : { frame } });
     }
-    if (this.push !== void 0 && written2.relayed !== true && written2.forPerson !== true && written2.quiet !== true) {
+    if (this.push !== void 0 && mayStartTurn(written2)) {
       await this.push(written2);
       await this.take(written2.cursor);
     }
@@ -96075,14 +96098,14 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * address the agent armed, and the device that address names decides whether it may start a
    * turn (mayWake): the relay cannot change which device that is. One that may not is `quiet`.
    */
-  async idleNotice(of) {
+  async idleNotice(of, why) {
     const watch2 = await this.watches.take(of, this.peers.get(of)?.sid);
     if (watch2 === void 0) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
     this.armsInFlight.delete(watch2.of);
     this.unsentArms.delete(watch2.of);
     const device = this.roster.devices.find((d5) => d5.name === watch2.of.slice(watch2.of.indexOf("@") + 1));
     const wakes = device !== void 0 && await this.mayWake(device.id, watch2.of);
-    await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).`, device?.id, !wakes);
+    await this.watchNotice(watch2.of, `${watch2.of} is now idle (or has ended).`, device?.id, !wakes, { of: watch2.of, end: "idle", until: watch2.until, ...why === void 0 ? {} : { why } });
   }
   /**
    * Whether an idle notice about `device` (the session `from`) may start a turn (decision D2):
@@ -96108,10 +96131,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
     await this.o.notifier?.notify(`worldinmotion: paused ${from}: its idle notices reached the loop breaker's limit`);
     return false;
   }
-  /** A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a turn. */
-  async watchNotice(from, line, watched, quiet2) {
+  /**
+   * A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a
+   * turn. One that ends a watch (`end`) is also emitted as `watch` once it is spooled, for `wim
+   * wait-idle`.
+   */
+  async watchNotice(from, line, watched, quiet2, end2) {
     const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line) };
-    await this.deliver({ ...item, ...watched === void 0 ? {} : { watched }, ...quiet2 ? { quiet: true } : {} }, void 0);
+    const written2 = await this.deliver({ ...item, ...watched === void 0 ? {} : { watched }, ...quiet2 ? { quiet: true } : {} }, void 0);
+    if (end2 !== void 0) this.emit("watch", { ...end2, quiet: quiet2, item: written2 });
   }
   /** Forgets the arms in flight for longer than the answer time: a refusal now is not theirs. */
   pruneInFlight() {
@@ -96138,16 +96166,16 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (byRelay === void 0 && inFlight.length === 0) return this.log("wim: dropped a refusal of an idle notice: no arm was in flight");
     const only = inFlight.length === 1 && !inFlight[0][1].unsure ? inFlight[0][0] : void 0;
     const named = byRelay ?? only;
-    const why = f7.code === "not_found" ? "the relay knows no session by that address (it may have ended)" : f7.code === "limited" ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay` : "the relay refused it";
+    const why = armRefusedWhy(f7.code);
     if (named === void 0) {
       this.armsInFlight.delete(inFlight[0][0]);
       for (const a5 of this.armsInFlight.values()) a5.unsure = true;
-      return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, void 0, true);
+      return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, void 0, true, { end: "refused", code: f7.code });
     }
     this.armsInFlight.delete(named);
     if (!open3.includes(named)) return this.log(`wim: a refused idle notice for ${named} has no open watch`);
     await this.watches.drop(named);
-    await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, void 0, true);
+    await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, void 0, true, { of: named, end: "refused", code: f7.code });
   }
   /** Tells the agent, quietly, about each watch that lapsed with no notice: once a minute at most. */
   async lapseWatches() {
@@ -96156,7 +96184,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     for (const w of await this.watches.lapse()) {
       this.armsInFlight.delete(w.of);
       this.unsentArms.delete(w.of);
-      await this.watchNotice(w.of, `no idle notice came for ${w.of} within 12 hours of the arm, so the watch lapsed and no notice will come for it. Arm it again if this session still needs to know.`, void 0, true);
+      await this.watchNotice(w.of, `no idle notice came for ${w.of} within 12 hours of the arm, so the watch lapsed and no notice will come for it. Arm it again if this session still needs to know.`, void 0, true, { of: w.of, end: "lapsed" });
     }
   }
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
@@ -96168,7 +96196,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * the person can act on it (restart this session).
    */
   async notice(from, line, held2, heldBy, forPerson = false) {
-    const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line) };
+    const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line), quiet: true };
     await this.deliver(
       { ...item, ...held2 === void 0 ? {} : { held: held2 }, ...heldBy === void 0 ? {} : { heldBy }, ...forPerson ? { forPerson: true } : {} },
       void 0
@@ -96179,7 +96207,29 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * person through the plugin's toast, or the agent) learns that it waits for the recipient's
    * person and is not delivered. Branches before any await (see AgentServer.answerLine).
    */
-  recordReceipt(f7) {
+  onReceipt(f7) {
+    if (this.sentIds.has(f7.id)) return this.takeReceipt(f7);
+    const dropped = (why) => this.log(`wim: dropped a receipt for ${sanitizeForDisplay(f7.id)}: ${why}`);
+    const now = this.now();
+    if (!isUlid(f7.id) || ulidTime(f7.id) > now + RECEIPT_SKEW_MS || ulidTime(f7.id) < now - KEEP_MS) return dropped("not a message this session sent");
+    if (this.receiptLookups >= RECEIPT_LOOKUPS_MAX) return dropped("too many receipts for unknown messages at once");
+    this.receiptLookups++;
+    void this.history.find(f7.id).then((entry) => entry?.dir === "out" ? this.takeReceipt(f7) : dropped("not a message this session sent")).catch((e6) => this.log(`wim: receipt: ${e6.message}`)).finally(() => this.receiptLookups--);
+  }
+  /** Lookups in history for receipts this run does not know, under way now. */
+  receiptLookups = 0;
+  /** A receipt for a message this session sent: kept for `send --wait` (the newest RECEIPTS_MAX ids), told, recorded. */
+  takeReceipt(f7) {
+    const list4 = this.receipts.get(f7.id) ?? [];
+    list4.push({ to: f7.to, status: f7.status });
+    this.receipts.delete(f7.id);
+    this.receipts.set(f7.id, list4);
+    if (this.receipts.size > RECEIPTS_MAX) this.receipts.delete(this.receipts.keys().next().value);
+    this.emit("receipt", f7);
+    void this.recordOwnReceipt(f7).catch((e6) => this.log(`wim: receipt: ${e6.message}`));
+  }
+  /** A receipt for a message this session sent. */
+  recordOwnReceipt(f7) {
     const recorded = this.history.appendReceipt(f7.id, { to: f7.to, status: f7.status, at: this.now() });
     if (f7.status === "delivered") this.heldTold.delete(f7.to);
     if (f7.status !== "held") return recorded;
@@ -96190,6 +96240,13 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
   heldTold = /* @__PURE__ */ new Set();
+  /** Ids this run put on the wire, newest last, at most SENT_IDS_MAX: a receipt may come before the send is in history. */
+  sentIds = /* @__PURE__ */ new Set();
+  noteSentId(id3) {
+    this.sentIds.delete(id3);
+    this.sentIds.add(id3);
+    if (this.sentIds.size > SENT_IDS_MAX) this.sentIds.delete(this.sentIds.values().next().value);
+  }
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
     await this.spool.take(cursor2);
@@ -96841,6 +96898,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       }
       await this.save({ seq: sealed.frame.seq });
       if (opts.kind === "task") await this.recordSentTask(id3, routed);
+      this.noteSentId(id3);
       return { frame: sealed.frame, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame, id3) };
     });
     const answer = await answering;
@@ -97280,7 +97338,7 @@ ${frameEntry(entry)}`);
    * once it is shown, so what it could not show stays unread.
    */
   async markRead(items) {
-    for (const i6 of items) if (i6.relayed === true || i6.quiet === true) this.readRelayed.add(i6.id);
+    for (const i6 of items) if (keptInBox(i6)) this.readRelayed.add(i6.id);
     const newest = Math.max(0, ...items.map((i6) => i6.cursor));
     if (newest > this.spool.taken) await this.take(newest);
     await this.spool.dismissRelayed([...this.readRelayed]);
@@ -97306,7 +97364,7 @@ ${frameEntry(entry)}`);
         const first = items[0];
         if (over || first === void 0) return;
         finish();
-        if (first.relayed === true || first.quiet === true) this.readRelayed.add(first.id);
+        if (keptInBox(first)) this.readRelayed.add(first.id);
         this.take(first.cursor).then(() => {
           this.informed([first]);
           resolve5(first);
@@ -126804,7 +126862,7 @@ var WimMcp = class {
     await this.point(s3);
     if (this.o.channel) {
       for (const item of await s3.spool.unread()) {
-        if (item.relayed === true || item.forPerson === true || item.quiet === true) continue;
+        if (!mayStartTurn(item)) continue;
         if (!await this.pushChannel(s3, item).then(() => true, () => false)) break;
         await s3.take(item.cursor);
       }
@@ -140345,7 +140403,7 @@ async function selfTest(o3) {
 
 // src/cli.ts
 var VERSION2 = "0.1.10";
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
 var COMMON_FLAGS = ["mesh", "help"];
@@ -140357,7 +140415,8 @@ var COMMAND_FLAGS = {
   join: ["name"],
   devices: ["relayed", "all"],
   peers: ["all", "as", "take"],
-  send: ["allow-secret", "as", "take", "wait"],
+  send: ["allow-secret", "as", "take", "wait", "wait-idle", "timeout"],
+  "wait-idle": ["any", "json", "timeout", "as", "take"],
   ping: ["all", "timeout"],
   watch: ["as", "take"],
   inbox: ["peek", "mark-read", "as", "take"],
@@ -140435,7 +140494,8 @@ var USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent ses
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s>]
+  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s> | --wait-idle [--timeout 12h]]
+  wim wait-idle <address,...> [--any] [--timeout 12h] [--json] [--as <name> [--take]]
   wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name> [--take]]
   wim inbox [--peek | --mark-read] [--as <name> [--take]]
@@ -140463,7 +140523,7 @@ var USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent ses
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 var SHORT_USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent sessions
 
-Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
+Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, wait-idle, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
 crash-reports, legacy-boxes, test, signer, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
@@ -140725,6 +140785,8 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
         return await peers(ctx);
       case "send":
         return await send2(ctx);
+      case "wait-idle":
+        return await waitIdle(ctx);
       case "ping":
         return await ping(ctx);
       case "watch":
@@ -141409,6 +141471,10 @@ async function send2(ctx) {
   const waitText = flag2(ctx.args, "wait");
   const waitMs = waitText === void 0 ? void 0 : parseDuration(waitText);
   if (waitMs !== void 0 && (waitMs === 0 || waitMs > WAIT_MAX_MS)) throw new SetupError("--wait takes a duration from 1ms to 1h, such as 30s");
+  const waitsIdle = ctx.args.flags.get("wait-idle") === true;
+  if (waitsIdle && waitMs !== void 0) throw new SetupError("--wait waits for receipts and --wait-idle for the sessions to finish: use one");
+  if (!waitsIdle && ctx.args.flags.has("timeout")) throw new SetupError("--timeout goes with --wait-idle");
+  const idle = waitsIdle ? idleOptions(ctx, to) : void 0;
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
   const notHere = allowSecrets ? notAPerson(ctx.env, ctx.io.isTTY) : void 0;
   if (notHere !== void 0) {
@@ -141416,8 +141482,14 @@ async function send2(ctx) {
   }
   const { files } = await ctx.mesh();
   const watcher = allowSecrets ? void 0 : await liveWatcher(files, name, ctx.fsEnv);
+  if (idle !== void 0 && watcher !== void 0) {
+    throw new SetupError(`a \`wim watch\` is reading as ${name} on this device, and --wait-idle needs a session of its own to hear the notice: use --as <name>`);
+  }
   const s3 = watcher === void 0 ? await ctx.session(name) : void 0;
+  const waiter = idle === void 0 ? void 0 : new IdleWait(ctx, s3, idle);
   try {
+    const refused2 = await waiter?.arm();
+    if (refused2 !== void 0) return refused2;
     let out;
     let receipts;
     if (watcher !== void 0) {
@@ -141453,6 +141525,9 @@ async function send2(ctx) {
     const took = out.results.filter((r6) => accepted(r6.status)).map((r6) => r6.to);
     const code2 = took.length === out.results.length ? 0 : 1;
     if (took.length === 0) return code2;
+    if (waiter !== void 0) {
+      return Math.max(code2, await waiter.wait());
+    }
     if (waitMs === void 0) {
       ctx.io.out("Neither routed nor queued means it was read. `wim send --wait 30s` waits for each recipient's receipt.");
       return code2;
@@ -141463,6 +141538,7 @@ async function send2(ctx) {
     const got = await waitForReceipts(ctx, receipts, took, waitMs, pause, (a5, b5) => ctx.io.out(`${heldWaitLine(a5, out.id, b5)}. Still waiting for it to be delivered...`));
     return reportReceipts(ctx, out, took, got, code2, await pausesOf(took, got, pause));
   } finally {
+    waiter?.close();
     if (s3 !== void 0) await ctx.finish(s3);
   }
 }
@@ -141485,6 +141561,116 @@ function reportReceipts(ctx, out, took, got, code2, pauses) {
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)]})`);
   }
   return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code2;
+}
+var WAIT_IDLE_EXIT = { finished: 0, refused: 1, timeout: 2 };
+function idleOptions(ctx, list4) {
+  const addresses = MeshSession.parseTo(list4);
+  const bad = addresses.filter((a5) => !sessionAddressSchema.safeParse(a5).success);
+  if (bad.length > 0) throw new SetupError(`a session's finished notice is for name@device addresses only, not ${bad.join(", ")}`);
+  const timeoutText = flag2(ctx.args, "timeout") ?? "12h";
+  const timeoutMs = parseDuration(timeoutText);
+  if (timeoutMs === 0 || timeoutMs > LIMITS.idleNoticeLifetimeMs) throw new SetupError("--timeout takes a duration from 1ms to 12h (a watch lapses 12 hours after it is armed), such as 30m");
+  return { addresses, any: ctx.args.flags.get("any") === true, json: ctx.args.flags.get("json") === true, timeoutMs, timeoutText };
+}
+var IDLE_WHY = {
+  idle: "it reported the end of a turn",
+  ended: "it ended",
+  offline: "it has been offline for 60 seconds"
+};
+var IdleWait = class {
+  ends = [];
+  pending = /* @__PURE__ */ new Set();
+  /** When each of this wait's watches lapses: an idle notice that closed another watch is an older wait's. */
+  until = /* @__PURE__ */ new Map();
+  onEnd = (e6) => void this.ends.push(e6);
+  ctx;
+  s;
+  o;
+  constructor(ctx, s3, o3) {
+    this.ctx = ctx;
+    this.s = s3;
+    this.o = o3;
+    s3.on("watch", this.onEnd);
+  }
+  close() {
+    this.s.off("watch", this.onEnd);
+  }
+  line(text2, json4) {
+    this.ctx.io.out(this.o.json ? JSON.stringify(json4) : text2);
+  }
+  /**
+   * Arms every address: undefined when the wait goes on (every address armed, or, with --any, at
+   * least one), else the exit code once each refusal is said. Without --any, its own address
+   * refuses the whole wait before anything is armed.
+   */
+  async arm() {
+    const me = this.s.address;
+    if (this.o.addresses.includes(me)) {
+      this.line(`${me}: not watched: this command runs as ${me}, and a session never watches itself. Run it as another session with --as <name>.`, { of: me, end: "refused", code: "self" });
+      if (!this.o.any) return WAIT_IDLE_EXIT.refused;
+    }
+    const wanted = this.o.addresses.filter((a5) => a5 !== me);
+    if (wanted.length === 0) return WAIT_IDLE_EXIT.refused;
+    await this.s.listPeers().catch(() => void 0);
+    const armed = await this.s.notifyWhenIdle(wanted);
+    for (const w of armed.watching) {
+      this.pending.add(w.to);
+      this.until.set(w.to, w.until);
+    }
+    const missed = wanted.filter((a5) => !this.pending.has(a5));
+    for (const of of missed) this.line(`${of}: not watched: ${armed.note}`, { of, end: "refused", code: "local", note: armed.note });
+    return missed.length === 0 || this.o.any && this.pending.size > 0 ? void 0 : WAIT_IDLE_EXIT.refused;
+  }
+  /** Waits for the notices: 0 when every address (or one, with --any) has one, 1 on a refusal, 2 on the timeout. */
+  async wait() {
+    const { ctx, o: o3 } = this;
+    const all = o3.any ? "any of" : "each of";
+    if (!o3.json) ctx.io.out(`Waiting up to ${o3.timeoutText} for ${all} ${[...this.pending].join(", ")} to finish (Ctrl-C stops waiting). A finished notice is the relay's word that a turn ended, not proof the work is done.`);
+    const deadline = ctx.io.now() + o3.timeoutMs;
+    let unnamed = 0;
+    for (; ; ) {
+      for (const e6 of this.ends.splice(0)) {
+        if (e6.end === "lapsed" || e6.of !== void 0 && !this.pending.has(e6.of)) continue;
+        if (e6.end === "idle" && e6.until !== this.until.get(e6.of)) continue;
+        if (e6.end === "idle") {
+          const why2 = e6.why === void 0 ? "it is idle or has ended" : IDLE_WHY[e6.why];
+          const quiet2 = e6.quiet ? " (a quiet notice: it would not start an agent turn, as that device is not trusted, is paused, or is past the loop breaker's limits)" : "";
+          this.line(`${e6.of}: finished: ${why2}${quiet2}`, { of: e6.of, end: "idle", ...e6.why === void 0 ? {} : { why: e6.why }, quiet: e6.quiet });
+          this.pending.delete(e6.of);
+          if (o3.any || this.pending.size === 0) return WAIT_IDLE_EXIT.finished;
+          continue;
+        }
+        const why = armRefusedWhy(e6.code);
+        if (e6.of === void 0) {
+          this.line(`one of ${[...this.pending].join(", ")}: not watched: ${why} (the relay did not say which)`, { end: "refused", code: e6.code });
+          unnamed += 1;
+        } else {
+          this.line(`${e6.of}: not watched: ${why}`, { of: e6.of, end: "refused", code: e6.code });
+          this.pending.delete(e6.of);
+        }
+        if (!o3.any || unnamed >= this.pending.size) return WAIT_IDLE_EXIT.refused;
+      }
+      if (ctx.io.signal.aborted) return STOPPED2;
+      if (ctx.io.now() >= deadline) {
+        this.line(`no finished notice within ${o3.timeoutText} for ${[...this.pending].join(", ")}`, { end: "timeout", waiting: [...this.pending] });
+        return WAIT_IDLE_EXIT.timeout;
+      }
+      await new Promise((r6) => setTimeout(r6, 100));
+    }
+  }
+};
+async function waitIdle(ctx) {
+  const [list4, ...extra] = ctx.args.positional;
+  if (list4 === void 0 || extra.length > 0) throw new SetupError(`usage: ${commandUsage("wait-idle")}`);
+  const o3 = idleOptions(ctx, list4);
+  const s3 = await ctx.session(nameFor(ctx, "cli"));
+  const waiter = new IdleWait(ctx, s3, o3);
+  try {
+    return await waiter.arm() ?? await waiter.wait();
+  } finally {
+    waiter.close();
+    await ctx.finish(s3);
+  }
 }
 async function ping(ctx) {
   const all = ctx.args.flags.get("all") === true;
