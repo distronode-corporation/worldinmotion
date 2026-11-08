@@ -1,10 +1,10 @@
 # The privileged runner
 
-`wim worker` runs as an unprivileged user and hands each accepted message to a runner command
+`wim agent` runs as an unprivileged user and hands each accepted message to a runner command
 (the RUNNER contract in the package README). The privileged runner is the runner to use when the
 job's credentials, or the wake code, must stay out of the worker's reach:
 
-- the **peer** (the `wim worker` process) runs as one user, for example `wim-agent`. It holds the
+- the **peer** (the `wim agent` process) runs as one user, for example `wim-agent`. It holds the
   wim device keys and nothing else;
 - the **privileged runner** runs as root, started by the peer through one sudoers line. It reads
   the wake code, signs the job in and enforces the limits;
@@ -21,6 +21,7 @@ The runner takes no arguments at all. sudo enforces that with the empty-string f
 wim-agent ALL=(root) NOPASSWD: /usr/local/sbin/wim-agent-privileged-runner ""
 ```
 
+The launcher at that path refuses any argument and execs `wim agent privileged`.
 `sudoersLine(peerUser)` returns exactly this line. The runner reads one RUNNER request on
 stdin, writes the answer on stdout and exits with the contract's codes:
 

@@ -1,4 +1,4 @@
-// The privileged side of `wim worker`: the runner the peer calls through sudo, its config, the
+// The privileged side of `wim agent`: the runner the peer calls through sudo, its config, the
 // Workload Identity Federation token broker, and the job it runs as the worker user.
 
 export { ANTHROPIC_AUDIENCE, ConfigError, loadPrivilegedConfig, parsePrivilegedConfig, PRIVILEGED_CONFIG_PATH, PRIVILEGED_RUNNER_PATH, READ_ONLY_TOOLS, rootOwnedProblem, sudoersLine, type Auth, type Identity, type PrivilegedConfig, type Profile } from "./config.ts";
