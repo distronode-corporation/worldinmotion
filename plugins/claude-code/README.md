@@ -189,7 +189,8 @@ counts read from disk refresh every five seconds while the pane is shown.
 - Every turn the plugin starts (a message, a notice, a press of Give to Claude) is marked
   `busy-mesh` in the session's presence first, so what the model sends in it is flagged derived
   (a trusted request goes one hop, no further). When that cannot be written, the plugin starts no
-  turn, and the items wait for the next turn end. A turn that starts while one of the plugin's
+  turn, and the items wait: while the session is idle the plugin tries again on its next poll,
+  otherwise at the turn's end. A turn that starts while one of the plugin's
   submits is pending (your own prompt queued ahead of it) is marked `busy-mesh` too, and the
   submit's own turn still is: presence stays `busy-mesh` until it starts, or until the session has
   stood idle for 30 seconds with nothing started.

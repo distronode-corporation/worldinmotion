@@ -2288,7 +2288,7 @@ var require_websocket = __commonJS({
     var http3 = __require("http");
     var net = __require("net");
     var tls3 = __require("tls");
-    var { randomBytes: randomBytes8, createHash: createHash11 } = __require("crypto");
+    var { randomBytes: randomBytes8, createHash: createHash10 } = __require("crypto");
     var { Duplex, Readable: Readable9 } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -2969,8 +2969,8 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest3 = createHash11("sha1").update(key3 + GUID).digest("base64");
-        if (res.headers["sec-websocket-accept"] !== digest3) {
+        const digest2 = createHash10("sha1").update(key3 + GUID).digest("base64");
+        if (res.headers["sec-websocket-accept"] !== digest2) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
         }
@@ -3338,7 +3338,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter2 = __require("events");
     var http3 = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash11 } = __require("crypto");
+    var { createHash: createHash10 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -3645,12 +3645,12 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest3 = createHash11("sha1").update(key3 + GUID).digest("base64");
+        const digest2 = createHash10("sha1").update(key3 + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
           "Connection: Upgrade",
-          `Sec-WebSocket-Accept: ${digest3}`
+          `Sec-WebSocket-Accept: ${digest2}`
         ];
         const ws = new this.options.WebSocket(null, void 0, this.options);
         if (protocols.size) {
@@ -9873,8 +9873,8 @@ var init_ChecksumStream = __esm({
           return;
         }
         try {
-          const digest3 = await this.checksum.digest();
-          const received = this.base64Encoder(digest3);
+          const digest2 = await this.checksum.digest();
+          const received = this.base64Encoder(digest2);
           if (this.expectedChecksum !== received) {
             this.destroy(new Error(`Checksum mismatch: expected "${this.expectedChecksum}" but received "${received}" in response header "${this.checksumSourceLocation}".`));
             return;
@@ -10015,8 +10015,8 @@ var init_createChecksumStream_browser = __esm({
           controller.enqueue(chunk);
         },
         async flush(controller) {
-          const digest3 = await checksum2.digest();
-          const received = encoder3(digest3);
+          const digest2 = await checksum2.digest();
+          const received = encoder3(digest2);
           if (expectedChecksum !== received) {
             const error64 = new Error(`Checksum mismatch: expected "${expectedChecksum}" but received "${received}" in response header "${checksumSourceLocation}".`);
             controller.error(error64);
@@ -10254,8 +10254,8 @@ var init_getAwsChunkedEncodingStream_browser = __esm({
     getAwsChunkedEncodingStream = (readableStream, options) => {
       const { base64Encoder, bodyLengthChecker, checksumAlgorithmFn, checksumLocationName, streamHasher } = options;
       const checksumRequired = base64Encoder !== void 0 && bodyLengthChecker !== void 0 && checksumAlgorithmFn !== void 0 && checksumLocationName !== void 0 && streamHasher !== void 0;
-      const digest3 = checksumRequired ? streamHasher(checksumAlgorithmFn, readableStream) : void 0;
-      Promise.resolve(digest3).catch(() => {
+      const digest2 = checksumRequired ? streamHasher(checksumAlgorithmFn, readableStream) : void 0;
+      Promise.resolve(digest2).catch(() => {
       });
       const reader = readableStream.getReader();
       return new ReadableStream({
@@ -10265,7 +10265,7 @@ var init_getAwsChunkedEncodingStream_browser = __esm({
             controller.enqueue(`0\r
 `);
             if (checksumRequired) {
-              const checksum2 = base64Encoder(await digest3);
+              const checksum2 = base64Encoder(await digest2);
               controller.enqueue(`${checksumLocationName}:${checksum2}\r
 `);
               controller.enqueue(`\r
@@ -10293,8 +10293,8 @@ function getAwsChunkedEncodingStream2(stream, options) {
   }
   const { base64Encoder, bodyLengthChecker, checksumAlgorithmFn, checksumLocationName, streamHasher } = options;
   const checksumRequired = base64Encoder !== void 0 && checksumAlgorithmFn !== void 0 && checksumLocationName !== void 0 && streamHasher !== void 0;
-  const digest3 = checksumRequired ? streamHasher(checksumAlgorithmFn, readable) : void 0;
-  Promise.resolve(digest3).catch(() => {
+  const digest2 = checksumRequired ? streamHasher(checksumAlgorithmFn, readable) : void 0;
+  Promise.resolve(digest2).catch(() => {
   });
   const awsChunkedEncodingStream = new Readable4({
     read() {
@@ -10322,7 +10322,7 @@ function getAwsChunkedEncodingStream2(stream, options) {
       awsChunkedEncodingStream.push(`0\r
 `);
       if (checksumRequired) {
-        const checksum2 = base64Encoder(await digest3);
+        const checksum2 = base64Encoder(await digest2);
         awsChunkedEncodingStream.push(`${checksumLocationName}:${checksum2}\r
 `);
         awsChunkedEncodingStream.push(`\r
@@ -29999,7 +29999,7 @@ var require_dist_cjs14 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2 } = (init_config2(), __toCommonJS(config_exports));
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
-    var { createHash: createHash11, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign3 } = __require("node:crypto");
+    var { createHash: createHash10, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign3 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
     var { dirname: dirname12, join: join28 } = __require("node:path");
@@ -30168,7 +30168,7 @@ var require_dist_cjs14 = __commonJS({
       getTokenFilePath() {
         const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join28(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
-        const loginSessionSha256 = createHash11("sha256").update(loginSessionBytes).digest("hex");
+        const loginSessionSha256 = createHash10("sha256").update(loginSessionBytes).digest("hex");
         return join28(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
@@ -91271,11 +91271,11 @@ var Breaker = class {
     return { ok: true };
   }
   /** Pauses `peer` for what tripped: a cool-down the client ends by itself for a trusted peer released by itself not within the hour, else an hour for the person. */
-  trip(peer, tripped, limits, trusted2, now) {
+  trip(peer, tripped, limits, trusted2, now, wake = false) {
     const last = this.released.get(peer);
     const auto = trusted2 && limits.cooldownMinutes !== void 0 && (last === void 0 || now - last >= HOUR2);
     const until = now + (auto ? limits.cooldownMinutes * MINUTE2 : HOUR2);
-    const pause = { peer, ...tripped, at: now, until, auto };
+    const pause = { peer, ...tripped, at: now, until, auto, ...wake ? { wake: true } : {} };
     this.paused.set(peer, pause);
     return { ok: false, reason: tripped.rule, newly: true, pause };
   }
@@ -91299,7 +91299,7 @@ var Breaker = class {
     if (current !== void 0) this.paused.delete(peer);
     const limits = this.limits();
     const tripped = this.trips(peer, limits, now, true);
-    if (tripped !== void 0) return this.trip(peer, tripped, limits, true, now);
+    if (tripped !== void 0) return this.trip(peer, tripped, limits, true, now, true);
     this.wakes.set(peer, [...this.recent(this.wakes.get(peer), now - HOUR2), now]);
     return { ok: true };
   }
@@ -92683,8 +92683,8 @@ function checkDecision(raw, o3) {
   return d5;
 }
 function covers(d5, item) {
-  const digest3 = heldDigest(item);
-  return d5.items.some((i6) => i6.id === item.id && i6.digest === digest3);
+  const digest2 = heldDigest(item);
+  return d5.items.some((i6) => i6.id === item.id && i6.digest === digest2);
 }
 function decisionCode() {
   return String(randomInt(0, 1e6)).padStart(6, "0");
@@ -96579,14 +96579,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * ended meanwhile), the sessions told still hear a resume, a release in the last hour still makes
    * a second trip wait for the person, and lifts not yet sent go out. A pause that holds nothing
    * any more is not taken back (an older `wim held resume` released what it held without knowing
-   * this file, and the counts start over anyway); its sessions hear it lifted.
+   * this file, and the counts start over anyway); its sessions hear it lifted. A pause idle notices
+   * tripped (`wake`) is taken back whatever it holds: it never needed a message to stand.
    */
   async restorePauses() {
     const file2 = await readBreakerFile(this.files.breakerPath);
     const held2 = await this.held.list();
     for (const r6 of file2.pauses) {
       const { from, told, ...pause } = r6;
-      if (!held2.some((h6) => h6.reason === "breaker" && h6.device === pause.peer && h6.pause !== void 0 && h6.pause.at === pause.at)) {
+      if (pause.wake !== true && !held2.some((h6) => h6.reason === "breaker" && h6.device === pause.peer && h6.pause !== void 0 && h6.pause.at === pause.at)) {
         for (const to of told) this.pendingLifts.add(to);
         continue;
       }
@@ -130268,14 +130269,18 @@ async function upstreamAuth(auth, apiKey, upstream, deps) {
 }
 
 // ../agent/src/privileged/proxy.ts
-import { createHash as createHash10, randomBytes as randomBytes5, timingSafeEqual as timingSafeEqual4 } from "node:crypto";
+import { randomBytes as randomBytes5, timingSafeEqual as timingSafeEqual4 } from "node:crypto";
 import { createServer as createServer4 } from "node:http";
 import { Readable as Readable8 } from "node:stream";
 var PROXY_PATHS = ["/v1/messages", "/v1/messages/count_tokens"];
 var QUERIES = /* @__PURE__ */ new Set(["", "?beta=true"]);
 var DROP_REQUEST = /* @__PURE__ */ new Set(["host", "x-api-key", "authorization", "connection", "content-length", "transfer-encoding", "accept-encoding", "proxy-authorization", "keep-alive", "upgrade"]);
 var DROP_RESPONSE = /* @__PURE__ */ new Set(["connection", "content-length", "transfer-encoding", "content-encoding", "keep-alive", "set-cookie"]);
-var digest2 = (s3) => createHash10("sha256").update(s3, "utf8").digest();
+function isKey(given, want) {
+  if (typeof given !== "string") return false;
+  const bytes3 = Buffer.from(given, "utf8");
+  return bytes3.length === want.length && timingSafeEqual4(bytes3, want);
+}
 function refuse(res, status3, message2) {
   res.writeHead(status3, { "content-type": "application/json" });
   res.end(JSON.stringify({ type: "error", error: { type: status3 === 429 ? "rate_limit_error" : "invalid_request_error", message: message2 } }));
@@ -130303,7 +130308,7 @@ function checkBody(body2, o3, counted) {
 }
 async function startProxy(o3) {
   const key3 = `wimjob-${randomBytes5(32).toString("base64url")}`;
-  const want = digest2(key3);
+  const want = Buffer.from(key3, "utf8");
   let count = 0;
   async function handle(req, res) {
     const url2 = req.url;
@@ -130311,7 +130316,7 @@ async function startProxy(o3) {
     const path2 = q3 === -1 ? url2 : url2.slice(0, q3);
     const query = q3 === -1 ? "" : url2.slice(q3);
     const given = req.headers["x-api-key"];
-    if (typeof given !== "string" || !timingSafeEqual4(digest2(given), want)) return refuse(res, 401, "not this job's key");
+    if (!isKey(given, want)) return refuse(res, 401, "not this job's key");
     if (req.method !== "POST" || !PROXY_PATHS.includes(path2) || !QUERIES.has(query)) return refuse(res, 404, "not a path this job may call");
     const body2 = await readBody2(req, o3.maxBodyBytes);
     if (body2 === void 0) return refuse(res, 413, `the request body is over ${o3.maxBodyBytes} bytes`);
@@ -130780,6 +130785,19 @@ function defaultScope(euid, pid, booted, cgroup = () => readFileSync("/proc/self
   const slice = ownSlice(mode, cgroup());
   return { mode, unit: scopeUnit(pid), drainMs: 2e3, ...slice === void 0 ? {} : { slice } };
 }
+var UNIT_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}$/;
+var SLICE_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,193}\.slice$/;
+var CONTROL = /[\u0000-\u001f\u007f]/;
+function checkScoped(spec, o3) {
+  const bad = (what2) => {
+    throw new Error(`refusing to start the job: ${what2}`);
+  };
+  if (!UNIT_NAME.test(o3.unit)) bad("the scope's unit name is not one the runner makes");
+  if (o3.slice !== void 0 && !SLICE_NAME.test(o3.slice)) bad("the slice name is not one the runner can join");
+  for (const id3 of [spec.uid, spec.gid]) if (id3 !== void 0 && !(Number.isSafeInteger(id3) && id3 >= 0)) bad("a user or group id is not a whole number");
+  if (!spec.command.startsWith("/")) bad("the command is not an absolute path");
+  if ([spec.command, ...spec.args].some((a5) => CONTROL.test(a5))) bad("the command line holds a control character");
+}
 function runSystemctl(args) {
   return new Promise((resolve5) => execFile3("systemctl", args, () => resolve5()));
 }
@@ -130789,6 +130807,7 @@ function startScopedJob(spec, o3) {
   const later = o3.setTimeout ?? ((fn, ms) => setTimeout(fn, ms).unref());
   const cancel = o3.clearTimeout ?? ((t2) => clearTimeout(t2));
   const scoped = o3.mode !== "none";
+  if (scoped) checkScoped(spec, o3);
   const manager = o3.mode === "user" ? ["--user"] : [];
   const ids = spec.uid === void 0 ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
   const literal2 = (a5) => a5.replaceAll("$", () => "$$");

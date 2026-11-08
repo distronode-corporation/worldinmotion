@@ -3,7 +3,7 @@
 // removes it, and adds the real credential, which never leaves the runner's memory. Whatever the
 // job reads (its own environment included) holds nothing that works once the job has ended.
 
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 
@@ -45,7 +45,16 @@ export interface RunningProxy {
   close(): Promise<void>;
 }
 
-const digest = (s: string): Buffer => createHash("sha256").update(s, "utf8").digest();
+/**
+ * Whether `given` is the job's key, in time that does not depend on where they differ. The key is
+ * random, not a password, so it is compared as bytes: a length that differs (which the key's fixed
+ * length makes public anyway) is refused before the comparison, which needs equal lengths.
+ */
+function isKey(given: string | string[] | undefined, want: Buffer): boolean {
+  if (typeof given !== "string") return false;
+  const bytes = Buffer.from(given, "utf8");
+  return bytes.length === want.length && timingSafeEqual(bytes, want);
+}
 
 function refuse(res: ServerResponse, status: number, message: string): void {
   res.writeHead(status, { "content-type": "application/json" });
@@ -79,7 +88,7 @@ function checkBody(body: string, o: ProxyOptions, counted: boolean): string | un
 
 export async function startProxy(o: ProxyOptions): Promise<RunningProxy> {
   const key = `wimjob-${randomBytes(32).toString("base64url")}`;
-  const want = digest(key);
+  const want = Buffer.from(key, "utf8");
   let count = 0;
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -88,7 +97,7 @@ export async function startProxy(o: ProxyOptions): Promise<RunningProxy> {
     const path = q === -1 ? url : url.slice(0, q);
     const query = q === -1 ? "" : url.slice(q);
     const given = req.headers["x-api-key"];
-    if (typeof given !== "string" || !timingSafeEqual(digest(given), want)) return refuse(res, 401, "not this job's key");
+    if (!isKey(given, want)) return refuse(res, 401, "not this job's key");
     if (req.method !== "POST" || !PROXY_PATHS.includes(path) || !QUERIES.has(query)) return refuse(res, 404, "not a path this job may call");
     const body = await readBody(req, o.maxBodyBytes);
     if (body === undefined) return refuse(res, 413, `the request body is over ${o.maxBodyBytes} bytes`);

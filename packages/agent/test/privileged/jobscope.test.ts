@@ -3,12 +3,12 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { promises as fs } from "node:fs";
+import { promises as fs, readFileSync } from "node:fs";
 import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { defaultScope, detectScopeMode, ownSlice, scopeUnit, startScopedJob, type ScopeOptions } from "../../src/privileged/jobscope.ts";
+import { checkScoped, defaultScope, detectScopeMode, ownSlice, scopeUnit, startScopedJob, type ScopeOptions } from "../../src/privileged/jobscope.ts";
 import { privilegedMain, type JobSpec } from "../../src/privileged/main.ts";
 import { acquireLock, systemDeps } from "../../src/privileged/system.ts";
 import { ADDRESS, MESH, recipientKeyFile, requestFor, seal, SENDERS } from "./helpers.ts";
@@ -60,7 +60,7 @@ describe("scopeUnit and defaultScope", () => {
     expect(defaultScope(0, 7, true, () => "0::/\n")).not.toHaveProperty("slice");
   });
   it.runIf(linux)("reads the runner's own cgroup by default", () => {
-    const own = ownSlice("system", spawnSync("cat", ["/proc/self/cgroup"], { encoding: "utf8" }).stdout);
+    const own = ownSlice("system", readFileSync("/proc/self/cgroup", "utf8"));
     const s = defaultScope(0, 7, true);
     expect(s.mode).toBe("system");
     expect(s.slice).toBe(own);
@@ -107,6 +107,37 @@ describe("startScopedJob with a stand-in process", () => {
     expect(f.calls[0]!.args.slice(-3)).toEqual(["/opt/$$dir/node", "-e", "x$$HOME$${Y}$$$$"]);
     startScopedJob(spec, { mode: "none", unit: "", drainMs: 10, spawn: f.spawnFn });
     expect(f.calls[1]).toMatchObject({ command: "/opt/$dir/node", args: ["-e", "x$HOME${Y}$$"] });
+  });
+
+  it("refuses, before anything runs, a unit, slice, id or command line systemd-run should never get", () => {
+    const f = fakeSpawn();
+    const scope: ScopeOptions = { mode: "system", unit: "wim-agent-job-1-1", slice: "distronode-agent.slice", drainMs: 10, spawn: f.spawnFn, systemctl: async () => undefined };
+    expect(() => checkScoped(SPEC, scope)).not.toThrow();
+    expect(() => checkScoped(SPEC, { ...scope, slice: "user-1000.slice" })).not.toThrow();
+    const { slice: _s, ...noSlice } = scope;
+    expect(() => checkScoped(SPEC, noSlice)).not.toThrow();
+    for (const unit of ["", "--wait", "-x", "a b", "x;rm -rf /", "../x", "a/b", "a\nb", "a$HOME", "a@b", "a\\x2db", "u".repeat(201)]) {
+      expect(() => checkScoped(SPEC, { ...scope, unit }), unit).toThrow("refusing to start the job: the scope's unit name is not one the runner makes");
+    }
+    for (const slice of ["", "-.slice", "--slice=x.slice", "evil", "a.slice --property=x", "a.slice\n", ".slice", "a/b.slice", "$X.slice", `${"s".repeat(195)}.slice`]) {
+      expect(() => checkScoped(SPEC, { ...scope, slice }), slice).toThrow("refusing to start the job: the slice name is not one the runner can join");
+    }
+    for (const ids of [{ uid: -1 }, { gid: 1.5 }, { uid: Number.NaN }, { gid: 2 ** 53 }]) {
+      expect(() => checkScoped({ ...SPEC, ...ids }, scope)).toThrow("refusing to start the job: a user or group id is not a whole number");
+    }
+    for (const command of ["node", "./node", "", "--wait"]) {
+      expect(() => checkScoped({ ...SPEC, command }, scope), command).toThrow("refusing to start the job: the command is not an absolute path");
+    }
+    for (const spec of [{ ...SPEC, command: "/usr/bin/node\n--wait" }, { ...SPEC, args: ["/opt/wim.mjs", "agent\u0000x"] }, { ...SPEC, args: ["a\u007f"] }, { ...SPEC, args: ["a\rb"] }]) {
+      expect(() => checkScoped(spec, scope)).toThrow("refusing to start the job: the command line holds a control character");
+    }
+    // The job never starts: nothing is spawned for a refused scope.
+    expect(() => startScopedJob(SPEC, { ...scope, unit: "--wait" })).toThrow("refusing to start the job");
+    expect(() => startScopedJob(SPEC, { ...scope, mode: "user", slice: "-.slice" })).toThrow("refusing to start the job");
+    expect(f.calls).toEqual([]);
+    // Without a scope nothing reaches systemd-run, and the spawn takes the command as given.
+    startScopedJob({ ...SPEC, command: "/opt/$dir/node" }, { mode: "none", unit: "", drainMs: 10, spawn: f.spawnFn });
+    expect(f.calls).toHaveLength(1);
   });
 
   it("no scope: the command itself, switched by the spawn when ids are given", () => {

@@ -130,6 +130,10 @@ const panel = atom({ plugin: 'worldinmotion', key: 'panel' } as const, EMPTY_PAN
 
 // Guards one delivery pass at a time. A reload drops the timer with it.
 let isTicking = false
+// A submit found presence unwritable and kept what it carried: the idle tick
+// retries the hand-over, so delivery does not wait for a turn end that may never
+// come. A turn the engine dropped (a Stop stands) is not retried from the timer.
+let isPresenceStalled = false
 
 /** One call to the plugin's own server, or undefined when it is not connected. */
 async function callTool(
@@ -254,11 +258,13 @@ async function takeLate($: EngineInterface): Promise<WimLate[]> {
  * False when nothing entered: the presence write failed, or the engine dropped
  * it (after the person pressed Stop it refuses new work until their next
  * input, and drops a prompt still queued). Nothing queues or repeats it, so the
- * caller keeps what it carried for a turn end.
+ * caller keeps what it carried for a turn end, or, when presence was the cause,
+ * for the idle timer too (isPresenceStalled).
  */
 async function submit($: EngineInterface, text: string): Promise<boolean> {
   if (!(await writePresence($, 'busy-mesh'))) {
     $.ui.log('worldinmotion: a delivery waits: this session could not be marked busy-mesh (its presence file), so no turn was started')
+    isPresenceStalled = true
     return false
   }
   const at = await $.clock.now()
@@ -736,6 +742,12 @@ async function tick($: EngineInterface): Promise<void> {
   try {
     await linkFromFile($)
     await forgetIdlePending($)
+    // Idle, with items kept because presence could not be written: tried again
+    // first, so they still go before anything newer.
+    if (isPresenceStalled && !(await read($, busy))) {
+      isPresenceStalled = false
+      await handOverKept($)
+    }
     await deliver($)
   } catch (error) {
     $.ui.log(`worldinmotion: delivery failed: ${String(error)}`)
