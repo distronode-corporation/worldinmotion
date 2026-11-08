@@ -5,6 +5,7 @@
 import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import type { Platform } from "./platform.ts";
+import { agentEnv } from "./secretout.ts";
 
 /** One process: its pid, and when it started, as the system reports it (empty where it reports nothing). */
 export type Ancestor = { pid: number; start: string };
@@ -100,4 +101,95 @@ export function parseChain(raw: unknown): Ancestor[] | undefined {
   if (!Array.isArray(raw) || raw.length > POINTER_LEVELS) return undefined;
   const ok = raw.every((a: Partial<Ancestor> | null) => typeof a === "object" && a !== null && Number.isSafeInteger(a.pid) && (a.pid as number) > 0 && typeof a.start === "string" && a.start.length <= 64);
   return ok ? (raw as Ancestor[]).map((a) => ({ pid: a.pid, start: a.start })) : undefined;
+}
+
+// ---- what the signer checks about the processes above it (SECURITY-MODEL 5.8) ----
+
+/** Program names of AI agents: a parent running one is an agent's, whatever its variables say. */
+export const AGENT_PROGRAMS: readonly string[] = ["claude", "codex", "cursor-agent", "gemini", "aider", "opencode", "antigravity"];
+
+/** A process's command line and its environment as it started, or undefined where neither can be read. */
+export type ProcessFacts = { argv: string[]; env: Record<string, string> };
+
+/** `KEY=value` strings as a record; anything else is skipped. */
+function envOf(items: readonly string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const item of items) {
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)=([\s\S]*)$/.exec(item);
+    if (m !== null) out[m[1]!] = m[2]!;
+  }
+  return out;
+}
+
+/**
+ * The command line and starting environment of `pid`. Linux reads `/proc/<pid>/cmdline` and
+ * `environ` (another user's environ is not readable: none then); macOS runs `/bin/ps -E`, which
+ * prints the environment after the command line. Elsewhere (Windows) nothing is known.
+ */
+export async function processFacts(d: AncestryDeps, pid: number): Promise<ProcessFacts | undefined> {
+  if (d.platform === "linux") {
+    const cmdline = await d.readFile(`/proc/${pid}/cmdline`).catch(() => undefined);
+    if (cmdline === undefined) return undefined;
+    const environ = await d.readFile(`/proc/${pid}/environ`).catch(() => "");
+    return { argv: cmdline.split("\0").filter((a) => a !== ""), env: envOf(environ.split("\0")) };
+  }
+  if (d.platform !== "darwin") return undefined;
+  const out = (await d.execFile("/bin/ps", ["-E", "-ww", "-o", "command=", "-p", String(pid)], { LC_ALL: "C" }).catch(() => "")).trim();
+  if (out === "") return undefined;
+  const words = out.split(/\s+/);
+  return { argv: words.filter((w) => !w.includes("=")), env: envOf(words) };
+}
+
+/** A program's name without its directory or extension (`/usr/bin/claude`, `C:\\x\\codex.exe`). */
+function programName(path: string): string {
+  return path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1).replace(/\.(exe|cmd|js|mjs|cjs)$/i, "");
+}
+
+/**
+ * Why an AI agent is among the processes above this one (at most `levels`): one started with an
+ * agent's variables, or one running an agent's program. Undefined when none is, or where the
+ * parents cannot be read (Windows). An agent that detaches its process from itself first (a new
+ * session whose parent is init) is not seen: SECURITY-MODEL 5.8 says so.
+ */
+export async function agentAncestor(d: AncestryDeps, levels = 32): Promise<string | undefined> {
+  for (const a of await ancestry(d, levels)) {
+    const f = await processFacts(d, a.pid);
+    if (f === undefined) continue;
+    const variable = agentEnv(f.env);
+    const program = f.argv.slice(0, 2).map(programName).find((n) => AGENT_PROGRAMS.includes(n));
+    if (variable === undefined && program === undefined) continue;
+    const line = f.argv.join(" ").replace(/\s+/g, " ").slice(0, 80);
+    return `process ${a.pid} above this signer (${line}) ${variable === undefined ? `runs ${program}` : `has ${variable} set`}`;
+  }
+  return undefined;
+}
+
+/**
+ * Whether standard input is this process's controlling terminal (Linux: `tty_nr` of
+ * `/proc/self/stat` against the device of fd 0); undefined when it is, or elsewhere, why not.
+ */
+export function controllingTerminal(stat: string, rdev: number): string | undefined {
+  const close = stat.lastIndexOf(")");
+  const tty = Number(stat.slice(close + 2).split(" ")[4]);
+  if (close < 0 || !Number.isSafeInteger(tty) || tty === 0) return "this signer has no controlling terminal";
+  return tty === rdev ? undefined : "this signer's input is not its controlling terminal";
+}
+
+/** What the signer checks before it asks the person, so tests can pass a stand-in. */
+export type SignerChecks = {
+  /** Why an agent is among the processes above it, if one is (agentAncestor). */
+  agentAncestor: () => Promise<string | undefined>;
+  /** Why its input is not its own terminal, if it is not (Linux; controllingTerminal). */
+  terminal: () => Promise<string | undefined>;
+  /** The command line of the process that started it, for the passphrase dialog to name. */
+  askedBy: () => Promise<string | undefined>;
+};
+
+/** The machine's own checks for this process. */
+export function realSignerChecks(d: AncestryDeps, rdev0: () => number): SignerChecks {
+  return {
+    agentAncestor: () => agentAncestor(d),
+    terminal: async () => (d.platform === "linux" ? controllingTerminal(await d.readFile("/proc/self/stat").catch(() => ""), rdev0()) : undefined),
+    askedBy: async () => (await processFacts(d, d.ppid))?.argv.join(" ").replace(/\s+/g, " ").slice(0, 200),
+  };
 }

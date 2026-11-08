@@ -412,6 +412,8 @@ describe("wim events: deciding a held set", () => {
     await until(() => [plain, pinning, gone].every((n) => row(n.id).length > 0));
     expect(row(pinning.id)[0]).toMatchObject({ set: `ci:${rule.id}`, ci: "github, octo-org/deploys, refs/heads/main, event push", pins: "repositoryId=74 ownerId=65" });
     expect(await e.request("approve", { held: plain.id, set: [plain.id, pinning.id] })).toMatchObject({ ok: true, result: { decided: [plain.id], kept: [pinning.id] } });
+    // A set that is all pins: approving it decides nothing, and asks no signer.
+    expect(await e.request("approve", { held: pinning.id, set: [pinning.id] })).toMatchObject({ ok: true, result: { decided: [], kept: [pinning.id], gone: [] } });
     expect(await e.request("refuse", { held: pinning.id, set: [pinning.id] })).toMatchObject({ ok: true, result: { decided: [pinning.id] } });
     // An unchanged row is not sent again pass after pass; a pin changes the set's title (same set
     // key), and the row is sent again once.

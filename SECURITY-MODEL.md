@@ -461,7 +461,11 @@ What it does not stop:
   the signer is locked until it is revoked. The signer signs only objects that name this device,
   logs every request to `agent/log.jsonl` (operation, signature type, mesh and peer device; never a
   key or a plaintext), and rate limits key operations to 100 a second with a burst of 1000, which
-  slows a bulk misuse and does not prevent one.
+  slows a bulk misuse and does not prevent one. It may also ask for a decision on held messages
+  (`decide`), which the signer signs only after the person's yes in its own terminal or dialog
+  (section 7.2). Where it can read the signer's memory (below: on Windows by default) it can take
+  the device key and sign such a decision itself, so on Windows a signed decision stops an agent
+  that asks out of habit or because a peer asked, not one that means harm.
 - **Signatures made while unlocked.** What the signer signed stays valid after a lock or a stop: a
   `send` frame is accepted by receivers until it is 47 hours old by its `at` (SPEC section 6), an
   `auth` frame within the relay's 5-minute window, and a roster for good. A process that asks for
@@ -496,6 +500,16 @@ What it does not stop:
   endpoint while it is stopped. That denies the device's sessions their keys (they report it), and
   `wim agent unlock` and `wim agent start` report something that answers and is not the signer;
   it does not give that process the keys, the passphrase or any plaintext.
+- **A signer an agent started for itself.** An agent can clear its variables (`env -i`) and give
+  a signer a terminal of its own (a pseudo-terminal, `script`); with the passphrase (the person
+  typing it into a dialog that signer put up, `--ask-gui`) that signer would sign whatever the
+  agent typed at it. The signer therefore reads the processes above it when it starts (Linux:
+  `/proc/<pid>/environ` and `cmdline`; macOS: `ps -E`) and refuses every decision when one of them
+  was started with an agent's variables or runs an agent's program; in the foreground its input
+  must also be its controlling terminal (Linux). The passphrase dialog names the process that
+  started the signer. This is a check on the chain as it is when the signer starts: an agent
+  that first detaches its process (a new session whose parent is init or the session manager)
+  is not seen, and on Windows the parents are not read at all.
 - **Reading the signer's memory.** An administrator can. A process of the same user can where the
   OS lets it debug the signer: on Linux with `kernel.yama.ptrace_scope` 0 (with the usual 1, only
   an ancestor of the signer can), on Windows by default, on macOS only with debugging rights. That
@@ -1088,11 +1102,14 @@ The plugin's internal tool (`_internal`: handshake, peer rows, routing, the held
 refused to the model by the plugin's hooks, and each call must also carry a random per-process
 token that only the plugin's first handshake receives. None of its operations decides anything for
 the person: approving, refusing and dismissing are not reachable through any tool the model can
-call. The plugin's pane records each decision as an empty mark file in the session's state
-directory, which the client applies. A mark file is still a file: any process under the OS user
-can write one (section 5.8), so an agent allowed to write files or run shell commands without a
-prompt can approve a held item. Keep the state directory outside what an agent may change
-unprompted. The tool exists only when `wim mcp` runs with `WIM_KIND=claude-code`, which only the
+call. Without the signer, the plugin's pane records each decision as an empty mark file in the
+session's state directory, which the client applies. A mark file is still a file: any process
+under the OS user can write one (section 5.8), so an agent allowed to write files or run shell
+commands without a prompt can approve a held item. Keep the state directory outside what an agent
+may change unprompted, or run the signer: with the device's keys in it, a decision is taken only
+signed by the signer after the person confirmed it there (section 7.2, "Decisions the signer
+signs"), every mark file is refused, and the pane's buttons say to decide with `wim held` or VS
+Code instead. The tool exists only when `wim mcp` runs with `WIM_KIND=claude-code`, which only the
 plugin sets; outside the plugin nothing refuses it to the model.
 
 ### 7.2 Inbound policy and work assignment
@@ -1165,6 +1182,75 @@ device (section 5.6), and an events process started with these variables refuses
 decisions (section 7.5). No MCP tool approves, refuses, resumes, trusts or deletes a mesh, and the
 plugin's internal tool only reads. This stops an agent that runs the command itself, by habit or because
 a peer asked; it is a same-user check, not a boundary (section 9).
+
+**Decisions the signer signs.** With the device's key file encrypted (`wim agent encrypt`, section
+5.8), an approve, refuse or resume also needs the signer's own confirmation, and nothing else
+counts as one:
+
+- The deciding command (`wim held approve`, `refuse` and `resume` at the person's terminal, or the
+  events process for a local UI) asks the signer with a `decide` request naming the verdict, the
+  mesh and the held ids (for a resume, the peer), with a fresh six-digit code that the asking
+  command (or VS Code) shows the person. The signer reads those items from the state directory
+  itself, never from the request, and shows the code and each item (sender, sessions, kind, time,
+  its first line or, for a CI notice, the text that is delivered, escaped and on one line) in the
+  terminal it runs in (`wim agent start --foreground` at an interactive terminal: a typed `y`) or
+  else in a native dialog (zenity with markup off or kdialog, an AppleScript dialog that takes the
+  text as an argument, a Windows message box), whose default button is Cancel where the tool
+  allows it. Each dialog program is run by its absolute path (`/usr/bin/zenity`, `/usr/bin/kdialog`,
+  `/usr/bin/osascript`, Windows PowerShell under `%SystemRoot%`), never looked up on `PATH`, and on
+  Linux and macOS only when it and its directory are root's and writable by nobody else, so a
+  program of the user's put in its place cannot answer for the person; the passphrase dialog is
+  run the same way. A held copy that is not a well-formed item is not shown or signed, and an id
+  whose copies differ in what the person would be shown (in two sessions' held directories) is
+  refused, so one copy cannot be shown while another is released. A resume names a session address
+  whose device is in the mesh's roster, the dialog shows the roster's name and device id, and the
+  signer refuses one over anything but that device's breaker holds. It asks one decision at a
+  time; a second request meanwhile is refused, not queued, and after a decline it takes the next
+  only after a wait (10 seconds, doubling to 5 minutes; a yes starts it over). Every ask ends after
+  5 minutes, or when the asking process goes away (its connection closes: `wim events` stopping
+  drops its open asks), as a no; and the signer signs nothing for an asker that went away, even
+  on a later yes. One request names at most 1000 ids, the most a UI sends in one set, and covers
+  at most 8000 copies; a client with more (a resume of a long pause) asks in parts, each
+  confirmed.
+- Only on the person's yes does it sign, with the device key, a decision over exactly those ids,
+  each bound to a SHA-256 digest of the item as it read it, with the verdict, the mesh, the device,
+  its time and a fresh ULID (label `wim-agent/2 held-decision`, a label no other signature of the
+  key uses; the generic `sign` operation never makes one).
+- A session releases or drops an item only under a decision that verifies against the device's
+  public key, names this device and mesh, is at most 48 hours old and not dated ahead, and covers
+  that id with the digest of the item as it is held now. A decision reaches a session another
+  process runs as a file (`held/<ULID>.decision`); a session's own process (a UI's events process)
+  takes it with the request. An item the decision does not cover stays held: one that arrived
+  after the person was shown the set, one from another device, and a copy changed on disk after
+  the signer read it. Each session acts on a decision once: it records the session and the
+  decision's ULID in the mesh's `decisions.used`, under a lock, until the decision is too old to
+  take, and a record that cannot be read refuses the decision rather than starting over. A replay
+  does nothing in any case: its ids are decided already, and a resume lifts only a pause that
+  started before the person signed it, so a copy played later (in a session opened since, or
+  offline) lifts no pause that came after. A resume releases only the breaker holds it covers; a
+  covered item that fails to apply (a CI notice that pins its rule's ids) stays held and the rest
+  are still decided.
+- Mark files (`held/<id>.approve`, `.refuse` and `.resume`, and `control/resume-<peer>`) are
+  refused, with the reason in the session's log, and the items stay held; `wim doctor` lists any it
+  finds on disk. The Claude Code pane does not write them then: its buttons say where to decide.
+- A locked or stopped signer takes no decision: the request fails, and nothing is decided until
+  the person unlocks or starts it. A signer started under an agent's variables (`--allow-agent-passphrase`)
+  refuses every decision, since it cannot tell the person from the agent, and so does one with
+  neither a terminal nor a dialog to ask in.
+
+What it does not stop: the signer cannot tell who connected to its socket (section 5.8), so any
+process of the user may ask it for a decision; the person is the check, which is why the dialog
+says to decline anything they did not just ask for and shows the asking command's code, and why
+the signer shows what it read itself. A process of the user that drives the desktop (synthetic
+input on X11, accessibility rights on macOS, UI automation on Windows) could press Sign in the
+dialog, as it could type into a terminal. One that can read the signer's memory (on Windows by
+default, section 5.8) can sign a decision with the device key itself. A signer an agent started
+itself, detached from it before it starts, is not told from the person's (section 5.8, "A signer
+an agent started for itself"), and a person who types the passphrase into a dialog they did not
+expect hands the keys to whoever put it up.
+And it changes nothing about writing the spool: a process that can write the state directory can
+still put text straight into a session's spool, which the plugin delivers (section 5.8). Without
+the signer, decisions are taken as before, and `wim doctor` advises running it.
 
 **`wim setup` edits other agents' configs only on the person's typed `y`.** For each agent it finds
 (Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI, Claude Desktop) it shows the change to
@@ -1502,8 +1588,10 @@ That is safe only because of where the script can act, so isolation is the prope
   per thread: a request split across two devices, or across a set the person approved and a later
   one, is still read in pieces. Deciding one item alone after the set was shown stays possible.
 - The outbound secret filter is best effort, and does not look inside binary files.
-- Approval marks and policy are files under the OS user: a local process, or an agent allowed to
-  write files unprompted, can change them. So are the CI rules (`ci-rules.json`) and the
+- Without the signer, approval marks and policy are files under the OS user: a local process, or
+  an agent allowed to write files unprompted, can change them. With the signer, approvals are not:
+  each needs the signer's confirmation and signature (section 7.2), but the policy still is, and a
+  process that can write the state directory can still write into a spool directly (section 5.8). So are the CI rules (`ci-rules.json`) and the
   providers' keys a device keeps (`ci-jwks.json`): whoever writes the rules allows a repository,
   and whoever plants keys can forge notices that match any rule until the copy is a day old (a
   copy dated in the future is ignored).
@@ -1512,7 +1600,10 @@ That is safe only because of where the script can act, so isolation is the prope
   local UI, which cannot delete a mesh)
   stops an agent that runs the command or answers a prompt for its person by accident or habit. A
   process of the OS user can unset the variables, run a terminal of its own and type into it, or
-  write the mark files and the policy directly.
+  write the mark files and the policy directly. With the signer, a decision on held messages also
+  needs the person's yes in the signer's own terminal or dialog, which such a process gets by
+  driving the desktop, by reading the signer's memory (on Windows by default), or from a signer it
+  started detached with a passphrase the person typed into its dialog (sections 5.8 and 7.2).
 - Card working directories are shared with every member by default.
 - A GitLab CI notice is not bound to the job that sent it: whoever can read that job's variables
   can send one notice as its project, and the relay cannot filter GitLab notices, so anyone with a

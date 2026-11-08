@@ -7,6 +7,11 @@ import { describe, expect, it } from "vitest";
 import {
   askGui,
   autostartStatus,
+  confirmGui,
+  confirmPrompts,
+  dialogProgram,
+  realToolTrust,
+  windowsRoot,
   disableAutostart,
   enableAutostart,
   execArg,
@@ -25,6 +30,7 @@ import {
   type AutostartOptions,
   type Run,
   type RunResult,
+  type ToolTrust,
 } from "../src/autostart.ts";
 import { scratch } from "./helpers.ts";
 
@@ -48,10 +54,12 @@ function programs(answer: (cmd: string, args: readonly string[], input: string |
 
 const hex = (s: string): string => Buffer.from(s, "utf8").toString("hex");
 const FS = { platform: process.platform, pid: process.pid };
+/** Every dialog program passes the ownership check (realToolTrust has its own tests). */
+const OK: ToolTrust = async () => "ok";
 
 async function options(platform: string, run: Run, env: Record<string, string | undefined> = {}): Promise<AutostartOptions> {
   const home = await scratch("autostart");
-  return { platform, homedir: home, env, root: join(home, "state dir"), programs: { platform, run, wim: ["/usr/bin/node", "/opt/wim/wim.mjs"] }, fsEnv: FS };
+  return { platform, homedir: home, env, root: join(home, "state dir"), programs: { platform, run, wim: ["/usr/bin/node", "/opt/wim/wim.mjs"], trust: OK }, fsEnv: FS };
 }
 
 describe("runProgram", () => {
@@ -67,17 +75,95 @@ describe("runProgram", () => {
   });
 });
 
+describe("runProgram's time limit and abort", () => {
+  const forever = ["-e", "setInterval(() => {}, 1000)"];
+
+  it("ends a program whose time ran out, or that was aborted before or while it ran, as stopped", async () => {
+    expect(await runProgram(process.execPath, forever, "", { timeoutMs: 200 })).toMatchObject({ stopped: true });
+    const abort = new AbortController();
+    const running = runProgram(process.execPath, forever, "", { signal: abort.signal });
+    setTimeout(() => abort.abort(), 200);
+    expect(await running).toMatchObject({ stopped: true });
+    expect(await runProgram(process.execPath, forever, "", { signal: abort.signal })).toMatchObject({ stopped: true });
+    // One that ends by itself first is not stopped, and the signal is let go.
+    const r = await runProgram(process.execPath, ["-e", "0"], "", { timeoutMs: 60_000, signal: new AbortController().signal });
+    expect(r).toEqual({ code: 0, stdout: "", stderr: "" });
+  });
+});
+
+describe("the dialog programs", () => {
+  it("are run by absolute path on every platform, never looked up on PATH", () => {
+    for (const platform of ["linux", "darwin", "win32", "freebsd"]) {
+      for (const p of [...guiPrompts(platform, "x"), ...confirmPrompts(platform, "x")]) expect(p.cmd).toMatch(/^(\/usr\/bin\/|[A-Za-z]:\\)/);
+    }
+    expect(dialogProgram("zenity")).toBe("/usr/bin/zenity");
+    expect(dialogProgram("powershell", "D:\\Win")).toBe("D:\\Win\\System32\\WindowsPowerShell\\v1.0\\powershell.exe");
+  });
+
+  it("take SystemRoot only when it is a Windows directory", () => {
+    expect(windowsRoot("D:\\Win")).toBe("D:\\Win");
+    for (const junk of [undefined, "", "Windows", "\\\\host\\share", "C:\\a\\b", "C:/Windows", "C:\\x\"y", "C:\\"]) expect(windowsRoot(junk)).toBe("C:\\Windows");
+  });
+
+  it("must be root's alone, file and directory, to be trusted; a missing one passes over", async () => {
+    const at = (table: Record<string, { uid: number; mode: number } | string>) => async (p: string) => {
+      const v = table[p];
+      if (typeof v === "string") throw Object.assign(new Error(v), { code: v });
+      if (v === undefined) throw new Error("unexpected path");
+      return v;
+    };
+    const root = { uid: 0, mode: 0o40755 };
+    const exe = { uid: 0, mode: 0o100755 };
+    expect(await realToolTrust("linux", at({ "/usr/bin/zenity": exe, "/usr/bin": root }))("/usr/bin/zenity")).toBe("ok");
+    expect(await realToolTrust("linux", at({ "/usr/bin/zenity": { uid: 1000, mode: 0o100755 }, "/usr/bin": root }))("/usr/bin/zenity")).toMatch(/^\/usr\/bin\/zenity is not root's alone/);
+    expect(await realToolTrust("linux", at({ "/usr/bin/zenity": { uid: 0, mode: 0o100775 }, "/usr/bin": root }))("/usr/bin/zenity")).toMatch(/not root's alone/);
+    expect(await realToolTrust("linux", at({ "/usr/bin/zenity": { uid: 0, mode: 0o100757 }, "/usr/bin": root }))("/usr/bin/zenity")).toMatch(/not root's alone/);
+    expect(await realToolTrust("darwin", at({ "/usr/bin/zenity": exe, "/usr/bin": { uid: 501, mode: 0o40755 } }))("/usr/bin/zenity")).toMatch(/^\/usr\/bin is not root's alone/);
+    expect(await realToolTrust("linux", at({ "/usr/bin/zenity": exe, "/usr/bin": { uid: 0, mode: 0o40777 } }))("/usr/bin/zenity")).toMatch(/^\/usr\/bin is not root's alone/);
+    expect(await realToolTrust("linux", at({ "/usr/bin/zenity": "ENOENT" }))("/usr/bin/zenity")).toBe("missing");
+    expect(await realToolTrust("linux", at({ "/usr/bin/zenity": "EACCES" }))("/usr/bin/zenity")).toBe("/usr/bin/zenity cannot be checked (EACCES), so it is not trusted to ask you");
+    expect(await realToolTrust("linux", at({ "/usr/bin/zenity": exe, "/usr/bin": "ENOENT" }))("/usr/bin/zenity")).toMatch(/^\/usr\/bin cannot be checked \(ENOENT\)/);
+    expect(await realToolTrust("win32", at({}))("C:\\Windows\\System32\\x.exe")).toBe("ok");
+    // A real file of this user's, with the real stat: refused (a root run owns it, and then it is root's own).
+    const dir = await scratch("trust");
+    await fs.writeFile(join(dir, "zenity"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    const mine = await realToolTrust(process.platform === "win32" ? "linux" : process.platform)(join(dir, "zenity"));
+    if (process.getuid?.() !== 0) expect(mine).toMatch(/is not root's alone|cannot be checked/);
+    expect(await realToolTrust("linux")(join(dir, "none"))).toBe("missing");
+  });
+
+  it("refuse to ask in a program that is not trusted, and say why", async () => {
+    const asked = programs(() => ok("p\n"));
+    const refuse: ToolTrust = async (p) => (p.endsWith("zenity") ? "missing" : `${p} is not root's alone`);
+    await expect(askGui("linux", asked.run, GUI_ASK, refuse)).rejects.toThrow("/usr/bin/kdialog is not root's alone");
+    await expect(confirmGui("linux", asked.run, ["x"], refuse)).rejects.toThrow("/usr/bin/kdialog is not root's alone");
+    expect(asked.calls).toEqual([]);
+    // A dialog ended by its time or by the asker going away is a no; every dialog gets the time limit.
+    const options: unknown[] = [];
+    const stopped: Run = async (_c, _a, _i, o) => (options.push(o), { code: null, stdout: "", stderr: "", stopped: true });
+    const signal = new AbortController().signal;
+    expect(await confirmGui("linux", stopped, ["x"], OK, signal)).toBe(false);
+    expect(await confirmGui("win32", stopped, ["x"], OK)).toBe(false);
+    expect(options).toEqual([{ timeoutMs: 300_000, signal }, { timeoutMs: 300_000 }]);
+    // Cancel is zenity's default button.
+    expect(confirmPrompts("linux", "x")[0]!.args).toContain("--default-cancel");
+  });
+});
+
 describe("the native passphrase prompt", () => {
   it("is a dialog per platform, with zenity before kdialog elsewhere", () => {
     const mac = guiPrompts("darwin", GUI_ASK);
-    expect(mac.map((p) => p.cmd)).toEqual(["osascript"]);
-    expect(mac[0]!.args[1]).toContain("with hidden answer");
+    expect(mac.map((p) => p.cmd)).toEqual(["/usr/bin/osascript"]);
+    expect(mac[0]!.args[3]).toContain("with hidden answer");
+    // The text is argv, never script text.
+    expect(guiPrompts("darwin", 'say "x"')[0]!.args.at(-1)).toBe('say "x"');
+    expect(mac[0]!.args.slice(0, -1).join(" ")).not.toContain(GUI_ASK);
     expect(guiPrompts("linux", "T").map((p) => [p.cmd, ...p.args])).toEqual([
-      ["zenity", "--entry", "--hide-text", "--title=worldinmotion", "--text=T"],
-      ["kdialog", "--title", "worldinmotion", "--password", "T"],
+      ["/usr/bin/zenity", "--entry", "--hide-text", "--title=worldinmotion", "--text=T"],
+      ["/usr/bin/kdialog", "--title", "worldinmotion", "--password", "T"],
     ]);
     const win = guiPrompts("win32", "it's");
-    expect(win[0]!.cmd).toBe("powershell.exe");
+    expect(win[0]!.cmd).toMatch(/^[A-Za-z]:\\[^\\]+\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/);
     const script = Buffer.from(win[0]!.args[2]!, "base64").toString("utf16le");
     expect(script).toContain("Get-Credential -UserName 'worldinmotion' -Message 'it''s'");
     expect(script).toContain("GetNetworkCredential().Password");
@@ -85,48 +171,48 @@ describe("the native passphrase prompt", () => {
 
   it("returns what was typed, without the newline the tool adds", async () => {
     const { run } = programs(() => ok("pass phrase\n"));
-    expect(await askGui("darwin", run, GUI_ASK)).toBe("pass phrase");
+    expect(await askGui("darwin", run, GUI_ASK, OK)).toBe("pass phrase");
     const crlf = programs(() => ok("pass phrase\r\n"));
-    expect(await askGui("win32", crlf.run, GUI_ASK)).toBe("pass phrase");
+    expect(await askGui("win32", crlf.run, GUI_ASK, OK)).toBe("pass phrase");
     const bare = programs(() => ok(" spaces kept "));
-    expect(await askGui("win32", bare.run, GUI_ASK)).toBe(" spaces kept ");
+    expect(await askGui("win32", bare.run, GUI_ASK, OK)).toBe(" spaces kept ");
   });
 
   it("tries the next tool when one is not installed, and says when none is", async () => {
-    const one = programs((cmd) => (cmd === "zenity" ? missing() : ok("p\n")));
-    expect(await askGui("linux", one.run, GUI_ASK)).toBe("p");
-    expect(one.calls.map((c) => c.cmd)).toEqual(["zenity", "kdialog"]);
+    const one = programs((cmd) => (cmd.endsWith("/zenity") ? missing() : ok("p\n")));
+    expect(await askGui("linux", one.run, GUI_ASK, OK)).toBe("p");
+    expect(one.calls.map((c) => c.cmd)).toEqual(["/usr/bin/zenity", "/usr/bin/kdialog"]);
     const none = programs(() => missing());
-    await expect(askGui("linux", none.run, GUI_ASK)).rejects.toThrow(/no passphrase prompt is available here.*zenity or kdialog/);
+    await expect(askGui("linux", none.run, GUI_ASK, OK)).rejects.toThrow(/no passphrase prompt is available here.*zenity or kdialog/);
   });
 
   it("tries the next tool when one cannot start, and says why when none could", async () => {
     const noDisplay = failed("(zenity:4242): Gtk-WARNING **: cannot open display: \n");
-    const next = programs((cmd) => (cmd === "zenity" ? noDisplay : ok("p\n")));
-    expect(await askGui("linux", next.run, GUI_ASK)).toBe("p");
-    expect(next.calls.map((c) => c.cmd)).toEqual(["zenity", "kdialog"]);
-    const alone = programs((cmd) => (cmd === "zenity" ? noDisplay : missing()));
-    await expect(askGui("linux", alone.run, GUI_ASK)).rejects.toThrow("no passphrase prompt could be shown (zenity: (zenity:4242): Gtk-WARNING **: cannot open display:): start the signer");
+    const next = programs((cmd) => (cmd.endsWith("/zenity") ? noDisplay : ok("p\n")));
+    expect(await askGui("linux", next.run, GUI_ASK, OK)).toBe("p");
+    expect(next.calls.map((c) => c.cmd)).toEqual(["/usr/bin/zenity", "/usr/bin/kdialog"]);
+    const alone = programs((cmd) => (cmd.endsWith("/zenity") ? noDisplay : missing()));
+    await expect(askGui("linux", alone.run, GUI_ASK, OK)).rejects.toThrow("no passphrase prompt could be shown (/usr/bin/zenity: (zenity:4242): Gtk-WARNING **: cannot open display:): start the signer");
     // The last tool's failure is taken as a cancel, as is macOS's own (osascript says so on stderr).
     const both = programs(() => noDisplay);
-    await expect(askGui("linux", both.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");
+    await expect(askGui("linux", both.run, GUI_ASK, OK)).rejects.toThrow("the passphrase prompt was cancelled");
     const mac = programs(() => failed("execution error: User canceled. (-128)"));
-    await expect(askGui("darwin", mac.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");
+    await expect(askGui("darwin", mac.run, GUI_ASK, OK)).rejects.toThrow("the passphrase prompt was cancelled");
     // zenity cancelled in a working dialog exits 1 too, with GTK's warnings on stderr: a cancel, no second dialog.
     const noisy = programs(() => failed("(zenity:4242): Gtk-WARNING **: Trying to measure GtkLabel 0x5a5d for height of 9, but it needs at least 24\n"));
-    await expect(askGui("linux", noisy.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");
-    expect(noisy.calls.map((c) => c.cmd)).toEqual(["zenity"]);
+    await expect(askGui("linux", noisy.run, GUI_ASK, OK)).rejects.toThrow("the passphrase prompt was cancelled");
+    expect(noisy.calls.map((c) => c.cmd)).toEqual(["/usr/bin/zenity"]);
     // GTK 4 words it "Failed to open display" (zenity 4.2, measured).
-    const gtk4 = programs((cmd) => (cmd === "zenity" ? failed("(zenity:414040): Gtk-WARNING **: 23:07:26.318: Failed to open display\n") : ok("q\n")));
-    expect(await askGui("linux", gtk4.run, GUI_ASK)).toBe("q");
+    const gtk4 = programs((cmd) => (cmd.endsWith("/zenity") ? failed("(zenity:414040): Gtk-WARNING **: 23:07:26.318: Failed to open display\n") : ok("q\n")));
+    expect(await askGui("linux", gtk4.run, GUI_ASK, OK)).toBe("q");
   });
 
   it("refuses a cancelled prompt, and passes on a failure that is not a missing tool", async () => {
     const cancel = programs(() => failed("", 1));
-    await expect(askGui("linux", cancel.run, GUI_ASK)).rejects.toThrow("the passphrase prompt was cancelled");
+    await expect(askGui("linux", cancel.run, GUI_ASK, OK)).rejects.toThrow("the passphrase prompt was cancelled");
     expect(cancel.calls).toHaveLength(1);
     const broken = programs(() => Object.assign(new Error("EACCES"), { code: "EACCES" }));
-    await expect(askGui("darwin", broken.run, GUI_ASK)).rejects.toThrow("EACCES");
+    await expect(askGui("darwin", broken.run, GUI_ASK, OK)).rejects.toThrow("EACCES");
   });
 
   it("quotes and encodes for PowerShell", () => {

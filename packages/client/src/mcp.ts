@@ -421,7 +421,8 @@ export class WimMcp {
   /** What the plugin links to: the session's spool, address and token, and its mark directories. */
   private linkOf(s: MeshSession): Record<string, unknown> {
     // Where the plugin's pane leaves the person's decisions: `<held>/<id>.approve|refuse`, `<dismiss>/<id>.dismiss`.
-    return { spool: s.files.spoolDir, sid: s.sid, address: s.address, token: this.token, held: s.files.heldDir, dismiss: s.files.dismissDir };
+    // `decide: "signer"`: the keys are in the signer, so the pane's marks would be refused; it says where to decide.
+    return { spool: s.files.spoolDir, sid: s.sid, address: s.address, token: this.token, held: s.files.heldDir, dismiss: s.files.dismissDir, ...(s.signed ? { decide: "signer" } : {}) };
   }
 
   /**

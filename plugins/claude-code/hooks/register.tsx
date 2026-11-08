@@ -28,6 +28,7 @@ import {
   parseItem,
   parseLeases,
   parseLink,
+  signedNote,
   parsePending,
   parseStanding,
   parseRoute,
@@ -763,6 +764,10 @@ async function refreshPanel($: EngineInterface, note = ''): Promise<void> {
  */
 async function decide($: EngineInterface, op: 'approve' | 'resume' | 'refuse', id: string): Promise<void> {
   const verb = op === 'approve' ? 'approved' : op === 'resume' ? 'approved and its device resumed' : 'refused'
+  if ((await read($, link))?.isSigned === true) {
+    await update($, panel, value => ({ ...value, note: signedNote(id) }))
+    return
+  }
   if (!(await mark($, id, op))) {
     await update($, panel, value => ({ ...value, note: `Could not mark ${id} ${verb}.` }))
     return
@@ -781,6 +786,10 @@ async function decide($: EngineInterface, op: 'approve' | 'resume' | 'refuse', i
  * covers a notice that pins its rule's ids (the caller leaves it out). Only a press calls this.
  */
 async function decideSet($: EngineInterface, op: 'approve' | 'refuse', ids: readonly string[]): Promise<void> {
+  if ((await read($, link))?.isSigned === true) {
+    await update($, panel, value => ({ ...value, note: signedNote(ids[0] ?? '<id>') }))
+    return
+  }
   const failed: string[] = []
   for (const id of ids) if (!(await mark($, id, op))) failed.push(id)
   const done = ids.filter(id => !failed.includes(id))

@@ -12,6 +12,11 @@ export type WimLink = {
   held?: string
   /** Where the person's dismiss marks for relayed items go. */
   dismiss?: string
+  /**
+   * The device's keys are in the signer: a mark is no decision then (the client refuses it), so
+   * the pane's buttons say where to decide instead.
+   */
+  isSigned?: boolean
 }
 
 /** One delivered spool item, as the pane lists it. */

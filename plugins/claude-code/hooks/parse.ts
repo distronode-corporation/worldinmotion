@@ -159,7 +159,13 @@ export function parseLink(value: unknown): WimLink | undefined {
     ...(typeof token === 'string' && token !== '' ? { token } : {}),
     ...(isAbsolute(held) ? { held } : {}),
     ...(isAbsolute(dismiss) ? { dismiss } : {}),
+    ...(value.decide === 'signer' ? { isSigned: true } : {}),
   }
+}
+
+/** What a press on a decision button says when the device's keys are in the signer. */
+export function signedNote(id: string): string {
+  return `This device's keys are in the signer, so a decision on held messages needs its confirmation: run wim held approve ${id} (or refuse) in a terminal you opened yourself, or use VS Code. The signer then asks you. A mark from the pane would be refused.`
 }
 
 /**

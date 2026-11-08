@@ -1073,6 +1073,31 @@ test('the pane shows a set per sending device and Approve all marks exactly the 
   await ui.unmount()
 })
 
+test('with the keys in the signer, the pane writes no mark and says where to decide', async ($, on) => {
+  const [a1, a2] = [ulidOf(931), ulidOf(932)]
+  const one = { set: 'device:D1', set_title: 'device one (device id D1)', from: 'a@one', kind: 'msg' }
+  const held = [{ ...one, id: a1, at: 1000, preview: 'one' }, { ...one, id: a2, at: 2000, preview: 'two' }]
+  const w = world(on, {
+    tools: {
+      _hello: () => json({ spool: SPOOL, sid: 's1', address: 'builder@desk', token: TOKEN, held: HELD_DIR, dismiss: DISMISS_DIR, decide: 'signer' }),
+      _peers: () => json({ peers: [] }),
+      _held: () => json({ held }),
+      _leases: () => json({ leases: [] }),
+    },
+  })
+  mock.clock(on)
+  await $.session.start(START)
+  await $.command.run(WIM)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'approveSet:device:D1' })
+  expect(w.files.has(`${HELD_DIR}/${a1}.approve`)).toBe(false)
+  expect(await ui.find({ type: 'Text', text: new RegExp(`keys are in the signer.*wim held approve ${a1} \\(or refuse\\)`) })).toBeDefined()
+  await ui.press({ key: `approve:${a2}` })
+  expect(w.files.has(`${HELD_DIR}/${a2}.approve`)).toBe(false)
+  expect(await ui.find({ type: 'Text', text: new RegExp(`wim held approve ${a2} \\(or refuse\\)`) })).toBeDefined()
+  await ui.unmount()
+})
+
 test('a set mark that cannot be written is reported, not claimed', async ($, on) => {
   const held = [{ id: ulidOf(921), set: 'device:D', set_title: 'device d (device id D)', from: 'a@d', kind: 'msg', at: 0, preview: 'y' }, { id: ulidOf(922), set: 'device:D', from: 'b@d', kind: 'msg', at: 0, preview: 'z' }]
   world(on, {
