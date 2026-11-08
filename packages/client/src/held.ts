@@ -10,6 +10,9 @@ import type { Decision } from "./decisions.ts";
 import type { HistoryEntry } from "./history.ts";
 import type { SpoolKind } from "./spool.ts";
 
+/** A file's details without its decryption key: how a session that keeps no content holds one. */
+export type KeylessFile = Omit<FileInfo, "key">;
+
 export type HeldItem = {
   id: string;
   from: string;
@@ -23,8 +26,11 @@ export type HeldItem = {
   reason: "policy" | "breaker";
   /** For a breaker hold: the pause it was held under (the rule, its numbers, when it ends). */
   pause?: Pick<Pause, "rule" | "count" | "limit" | "minutes" | "at" | "until" | "auto">;
-  /** A held file's details; it is fetched only once the person approves (revision 4, M6). */
-  fileInfo?: FileInfo;
+  /**
+   * A held file's details; it is fetched only once the person approves (revision 4, M6). A session
+   * that keeps no message content (`redactStoredText`) never fetches it, so it holds no key.
+   */
+  fileInfo?: FileInfo | KeylessFile;
   /** The message's own fields, for history (and in-process listeners) once it is delivered. */
   entry: HistoryEntry;
   /**

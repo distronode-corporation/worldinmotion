@@ -120,6 +120,29 @@ describe("redactStoredText", () => {
     expect(await filesHolding(w.root, CODE)).toEqual([]);
   });
 
+  it("holds an untrusted device's file without its key, and releases it unfetched (#132)", async () => {
+    const { w, l, mesh, worker, user, got } = await setup(true);
+    await new MeshFiles(w.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, policy: { ...c.policy, [l.device.id]: "hold" } }));
+    const sends = vi.spyOn(user, "send");
+    const src = join(await scratch("files"), "notes.txt");
+    await fs.writeFile(src, "Zr5fileCONTENTq2");
+    await user.sendFile("agents@worker", src, `${CODE} caption`);
+    const key = (sends.mock.calls[0]![2] as { file: { key: string } }).file.key;
+    expect(key).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const box = new HeldBox(new SessionFiles(new MeshFiles(w.home.meshDir(mesh), FS), worker.sid, FS).heldDir, FS);
+    await until(async () => (await box.list()).length === 1);
+    const [held] = await box.list();
+    expect(held).toMatchObject({ kind: "file", preview: REDACTED_TEXT, fileInfo: { name: "notes.txt", size: 16, mime: "text/plain" } });
+    expect(held!.fileInfo).not.toHaveProperty("key");
+    expect(await filesHolding(w.root, key)).toEqual([]);
+    await worker.decide(held!.id, "approve");
+    await until(() => got.some((m) => m.kind === "file"));
+    expect(got.find((m) => m.kind === "file")!.savedTo).toBe(REDACTED_FILE);
+    expect(await filesHolding(w.root, key)).toEqual([]);
+    expect(await filesHolding(w.root, "Zr5fileCONTENTq2")).toEqual([]);
+    expect(await filesHolding(w.root, CODE)).toEqual([]);
+  });
+
   it("logs a busy reply that could not be sent", async () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["worker", "laptop"]);
