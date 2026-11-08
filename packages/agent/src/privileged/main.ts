@@ -29,10 +29,12 @@ export interface JobSpec {
 export interface JobHandle {
   onStdout(cb: (chunk: Buffer) => void): void;
   onStderr(cb: (chunk: Buffer) => void): void;
-  /** Resolves with the exit code, or null when a signal ended it. */
+  /** Resolves when the job's leader exits, with its exit code, or null when a signal ended it. */
   exited: Promise<number | null>;
-  /** Signals the job's whole process group. */
+  /** Signals every process of the job: its scope (cgroup) when it has one, and its process group. */
   killGroup(signal: "SIGTERM" | "SIGKILL"): void;
+  /** After the leader exited: kills whatever it left behind, drains the pipes briefly, closes them. */
+  cleanup(): Promise<void>;
 }
 
 export interface Lock {
@@ -168,11 +170,21 @@ async function signIn(profile: Profile, cfg: PrivilegedConfig, gid: number, req:
   return { env, broker };
 }
 
-/** Runs the job as the worker user; resolves with the answer, or throws a Refusal. */
-async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req: ParsedRequest, self: string[], deps: PrivilegedDeps): Promise<Buffer> {
+/**
+ * The worker user, and the directories the job lock and the job need, made before the lock is
+ * taken: on a fresh /run tmpfs neither exists yet, and opening the lock file would fail.
+ */
+async function prepareRunDir(cfg: PrivilegedConfig, deps: PrivilegedDeps): Promise<{ uid: number; gid: number }> {
   const user = await deps.lookupUser(cfg.worker.user);
   await deps.mkdir(cfg.runDir, 0o750);
   if (deps.euid === 0) await deps.chown(cfg.runDir, 0, user.gid);
+  const lockDir = cfg.lock.path.slice(0, cfg.lock.path.lastIndexOf("/")) || "/";
+  if (lockDir !== cfg.runDir) await deps.mkdir(lockDir, 0o755);
+  return user;
+}
+
+/** Runs the job as the worker user; resolves with the answer, or throws a Refusal. */
+async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req: ParsedRequest, self: string[], user: { uid: number; gid: number }, deps: PrivilegedDeps): Promise<Buffer> {
   const auth = await signIn(profile, cfg, user.gid, req, deps);
   try {
     const job = JSON.stringify({
@@ -211,18 +223,24 @@ async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req
     });
 
     let ended: "timeout" | "signal" | undefined;
+    let grace: unknown;
     const stop = (why: "timeout" | "signal"): void => {
       if (ended !== undefined) return;
       ended = why;
       handle.killGroup("SIGTERM");
-      deps.setTimeout(() => handle.killGroup("SIGKILL"), cfg.killGraceSeconds * 1000);
+      grace = deps.setTimeout(() => handle.killGroup("SIGKILL"), cfg.killGraceSeconds * 1000);
     };
     const timer = deps.setTimeout(() => stop("timeout"), cfg.timeoutSeconds * 1000);
     const off = deps.onSignal(() => stop("signal"));
     const started = deps.now();
+    // The leader's exit ends the job: the credential stops at once, then anything the leader
+    // left running (a setsid child holding the pipes) is killed with the job's scope.
     const code = await handle.exited;
     deps.clearTimeout(timer);
+    deps.clearTimeout(grace);
     off();
+    await auth.broker?.stop();
+    await handle.cleanup();
     const secs = Math.round((deps.now() - started) / 1000);
     if (ended === "timeout") throw new Refusal(EXIT.timeout, `job timed out after ${cfg.timeoutSeconds} s`);
     if (ended === "signal") throw new Refusal(EXIT.timeout, "stopped by a signal while the job ran");
@@ -254,12 +272,13 @@ async function run(env: Record<string, string | undefined>, self: string[], deps
     if (cfg.minMemAvailableMb > 0 && mem !== undefined && mem < cfg.minMemAvailableMb) {
       throw new Refusal(EXIT.busy, `MemAvailable ${mem} MB is under ${cfg.minMemAvailableMb}`);
     }
+    const user = await prepareRunDir(cfg, deps);
     const lock = await deps.acquireLock(cfg.lock.path, cfg.lock.waitSeconds);
     if (lock === null) throw new Refusal(EXIT.busy, `job lock busy for ${cfg.lock.waitSeconds} s`);
     try {
       await countToday(cfg, deps);
       log(deps, `${tag} accepted: profile ${profile}, ${task.length} characters`);
-      const answer = await runJob(cfg, cfg.profiles[profile]!, task, req, self, deps);
+      const answer = await runJob(cfg, cfg.profiles[profile]!, task, req, self, user, deps);
       log(deps, `${tag} answered, ${answer.length} bytes`);
       return answer;
     } finally {

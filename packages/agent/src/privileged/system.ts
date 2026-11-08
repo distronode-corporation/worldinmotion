@@ -4,6 +4,7 @@
 import { execFile, spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { awsWebIdentityToken } from "./identity.ts";
+import { defaultScope, startScopedJob, type ScopeOptions } from "./jobscope.ts";
 import type { JobHandle, JobSpec, Lock, PrivilegedDeps } from "./main.ts";
 import { loadSdkQuery } from "./worker.ts";
 
@@ -51,34 +52,12 @@ export async function memAvailableMb(path = "/proc/meminfo"): Promise<number | u
   return m === null ? undefined : Math.floor(Number(m[1]) / 1024);
 }
 
-/** Starts the job in its own process group, so a timeout can end everything it started. */
-export function startJob(spec: JobSpec): JobHandle {
-  const child = spawn(spec.command, spec.args, {
-    cwd: spec.cwd,
-    env: spec.env,
-    detached: true,
-    stdio: ["pipe", "pipe", "pipe"],
-    ...(spec.uid === undefined ? {} : { uid: spec.uid, gid: spec.gid }),
-  });
-  const exited = new Promise<number | null>((resolve) => {
-    child.once("error", () => resolve(127));
-    child.once("close", (code) => resolve(code));
-  });
-  // A job that never reads its input must not fail the write.
-  child.stdin.on("error", () => undefined);
-  child.stdin.end(spec.stdin);
-  return {
-    onStdout: (cb) => void child.stdout.on("data", cb),
-    onStderr: (cb) => void child.stderr.on("data", cb),
-    exited,
-    killGroup(signal) {
-      try {
-        process.kill(-child.pid!, signal);
-      } catch {
-        // Already gone.
-      }
-    },
-  };
+/**
+ * Starts the job: in its own transient systemd scope when `scope` says so (the runner's default
+ * as root under systemd), else in its own process group. jobscope.ts says why.
+ */
+export function startJob(spec: JobSpec, scope: ScopeOptions = { mode: "none", unit: "", drainMs: 2000 }): JobHandle {
+  return startScopedJob(spec, scope);
 }
 
 /**
@@ -143,7 +122,7 @@ export function systemDeps(): PrivilegedDeps {
       fetch: (url, init) => fetch(url, init),
       readFile: (p) => fs.readFile(p, "utf8"),
     },
-    startJob,
+    startJob: (spec) => startScopedJob(spec, defaultScope(process.geteuid!(), process.pid)),
     now: Date.now,
     pid: process.pid,
     onSignal(cb) {
