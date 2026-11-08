@@ -255,6 +255,8 @@ export class RosterBook {
   private readonly files: MeshFiles;
   private head: Roster;
   private forked: ForkState | undefined;
+  /** The accept running now, if any: the next waits for it (see accept). */
+  private accepting: Promise<unknown> = Promise.resolve();
   private constructor(files: MeshFiles, head: Roster, forked: ForkState | undefined) {
     this.files = files;
     this.head = head;
@@ -301,8 +303,19 @@ export class RosterBook {
    * Takes a chain page (oldest first). Each roster at or below the head must match what this
    * device stored, unless it proves a fork; each above it must be a valid successor. A page that
    * starts above head + 1 leaves a gap and is refused (`gap`); fetch from the head instead.
+   *
+   * Accepts run one at a time, after every accept asked for before. A session accepts the same
+   * roster twice at once (the relay's answer to its own publish is also a roster push), and an
+   * accept that checked an older head and then waited on its write would otherwise set the head
+   * back after a newer accept moved it on, so the next roster made from the head was a gap (#114).
    */
-  async accept(chain: readonly Roster[]): Promise<AcceptResult> {
+  accept(chain: readonly Roster[]): Promise<AcceptResult> {
+    const run = this.accepting.then(() => this.acceptNow(chain));
+    this.accepting = Promise.allSettled([run]);
+    return run;
+  }
+
+  private async acceptNow(chain: readonly Roster[]): Promise<AcceptResult> {
     if (this.forked !== undefined) return { ok: false, reason: "forked" };
     let advanced = false;
     for (const r of chain) {
