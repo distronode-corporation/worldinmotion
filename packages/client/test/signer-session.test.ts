@@ -17,7 +17,7 @@ import { localDeviceKeyring, NeedsSigner } from "../src/keyring.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SignerError } from "../src/signer.ts";
 import { openKeyFile, sealKeyFile } from "../src/vault.ts";
-import { FS, keysOf, makeMesh, newDevice, openSession, RelayHarness, until as untilEvent, type TestDevice } from "./helpers.ts";
+import { framedText, FS, keysOf, makeMesh, newDevice, openSession, RelayHarness, until as untilEvent, type TestDevice } from "./helpers.ts";
 
 // Every wait here is for an event (a delivery, a reconnect) polled every 5 ms, never a fixed sleep.
 // These tests run real meshes, signers and key files, so a loaded machine (seen on the iMac) can
@@ -294,7 +294,7 @@ describe("sessions through the signer", () => {
     }
     // Two copies were handled: the old connection's acks nothing, the new one's (a repeat, dropped) acks once.
     expect(acks().length - before).toBe(1);
-    expect((await a.spool.unread()).filter((i) => i.rendered.includes("once"))).toHaveLength(1);
+    expect((await a.spool.unread()).filter((i) => framedText(i.rendered) === "once")).toHaveLength(1);
   });
 
   it("a parked retry the locked signer refuses is neither lost nor left unhandled", async () => {

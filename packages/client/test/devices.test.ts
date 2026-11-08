@@ -339,8 +339,9 @@ describe("wim invite, join and devices", () => {
     own.stop.abort();
     expect(await ownInvite).toBe(1);
     expect(said(own)).toContain(OWN_QUESTION);
-    // The answer is in the record, never in the code.
-    expect(JSON.stringify(parseInvite(ownCode))).not.toMatch(/own/);
+    // The answer is in the record, never in the code: a field check, as the mesh id and secret are
+    // random and can spell "own".
+    expect(Object.keys(parseInvite(ownCode))).not.toContain("own");
     const mine = await joining(relay, "minebox", ownCode);
     // `wim devices pending` says, before the admit, that admitting it trusts it; the earlier
     // request on a plain invite said nothing of the kind.

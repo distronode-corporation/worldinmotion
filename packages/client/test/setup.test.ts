@@ -87,8 +87,11 @@ describe("wim setup on a new machine", () => {
     expect(recoveryCodes(t)).toBe(1);
     // The code comes before the question that waits for it to be stored.
     expect(t.out.findIndex((l) => l.includes("wimrec1_"))).toBeLessThan(t.out.indexOf(STORED_PROMPT));
-    // Nothing asks about crash reports, and the signer is named, not started.
-    expect(text).not.toMatch(/crash/i);
+    // Nothing asks about crash reports, and the signer is named, not started. The check reads the
+    // text with its random values (recovery code, mesh and device ids, state directory) taken
+    // out, since any of them can spell "crash".
+    const random = [/wimrec1_\S+/.exec(text)![0], /Created mesh (\S+) on/.exec(text)![1]!, /\(id (\S+)\)\.$/m.exec(text)![1]!, home];
+    expect(random.reduce((s, value) => s.replaceAll(value, "<random>"), text)).not.toMatch(/crash/i);
     expect(text).toContain("`wim agent encrypt`");
     expect(text).toContain("Claude Code: the `claude` command was not found here.");
     expect(text).toContain("VS Code: the `code` command was not found here.");
