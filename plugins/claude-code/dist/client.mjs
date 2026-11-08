@@ -30002,7 +30002,7 @@ var require_dist_cjs14 = __commonJS({
     var { createHash: createHash11, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign3 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname13, join: join29 } = __require("node:path");
+    var { dirname: dirname12, join: join28 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30158,7 +30158,7 @@ var require_dist_cjs14 = __commonJS({
       }
       async saveToken(token) {
         const tokenFilePath = this.getTokenFilePath();
-        const directory = dirname13(tokenFilePath);
+        const directory = dirname12(tokenFilePath);
         try {
           await promises.mkdir(directory, { recursive: true });
         } catch (error64) {
@@ -30166,10 +30166,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join29(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join28(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
         const loginSessionSha256 = createHash11("sha256").update(loginSessionBytes).digest("hex");
-        return join29(directory, `${loginSessionSha256}.json`);
+        return join28(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -88550,8 +88550,8 @@ function joinBody(invite2, name, keys, nonce) {
   if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
   return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
 }
-function verifyJoin(join29, secret, nonce) {
-  const parsed2 = safeParse3(joinOrBodySchema, join29);
+function verifyJoin(join28, secret, nonce) {
+  const parsed2 = safeParse3(joinOrBodySchema, join28);
   if (!parsed2.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -124385,7 +124385,7 @@ async function runSetupEvents(d5) {
       throw error64;
     }
   }
-  async function join29(a5) {
+  async function join28(a5) {
     personOnly2(d5.agent, "joining a mesh");
     if (joining || creating) throw new RequestError("busy", joining ? "a join is already waiting for an admin" : "a mesh is being created on this device");
     joining = true;
@@ -124456,7 +124456,7 @@ async function runSetupEvents(d5) {
       if (op2 !== "join" && op2 !== "create") throw new RequestError("setup", "this device is in no mesh yet: create or join one first");
       const args = (op2 === "join" ? SetupArgs : CreateArgs).safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      const answer = op2 === "join" ? join29(args.data) : making = create2(args.data);
+      const answer = op2 === "join" ? join28(args.data) : making = create2(args.data);
       emit("response", { id: id3, ok: true, result: await answer });
     } catch (error64) {
       const code2 = error64 instanceof RequestError ? error64.code : "error";
@@ -129377,7 +129377,7 @@ async function runWorker(config2, io, deps = {}) {
 }
 
 // ../agent/src/doctor.ts
-import { dirname as dirname9, join as join23 } from "node:path";
+import { posix as posix2 } from "node:path";
 var MIN_NODE = [22, 18, 0];
 var METADATA_ADDRESSES = [
   { host: "169.254.169.254", port: 80 },
@@ -129626,7 +129626,7 @@ async function privileged(config2, input2, deps, peer, as, noMetadata, asRoot, s
   if (peer !== void 0) await noMetadata("peer user", peer);
   const code2 = await deps.codeProblem().catch((err) => `it could not be checked (${codeOf(err)})`);
   say(code2 === void 0 ? ok2("node and this wim, and every directory above them, are root's alone") : problem(`the privileged runner refuses code others can change: ${code2}`));
-  await rootDir(dirname9(p3.statePath), "the runner's state directory", deps, say);
+  await rootDir(posix2.dirname(p3.statePath), "the runner's state directory", deps, say);
   if (p3.recipient !== void 0) await recipientFiles(p3.recipient, deps, say);
   try {
     const st = await deps.stat(p3.runDir);
@@ -129667,7 +129667,7 @@ async function recipientFiles(r6, deps, say) {
     say(problem(`recipient.user ${r6.user}: no such user`));
     return;
   }
-  for (const [file2, optional2] of [[join23(r6.home, "device.json"), false], [join23(r6.home, "meshes", r6.mesh, "prekeys.json"), true]]) {
+  for (const [file2, optional2] of [[posix2.join(r6.home, "device.json"), false], [posix2.join(r6.home, "meshes", r6.mesh, "prekeys.json"), true]]) {
     let st;
     try {
       st = await deps.stat(file2);
@@ -130657,7 +130657,7 @@ async function privilegedMain(argv, env4, self2, deps) {
 import { execFile as execFile4, spawn } from "node:child_process";
 import { randomBytes as randomBytes6 } from "node:crypto";
 import { constants as constants3, promises as fs15 } from "node:fs";
-import { dirname as dirname10 } from "node:path";
+import { dirname as dirname9 } from "node:path";
 
 // ../agent/src/privileged/jobscope.ts
 import { execFile as execFile3, spawn as nodeSpawn5 } from "node:child_process";
@@ -130843,7 +130843,7 @@ async function codeProblem(paths) {
     for (; ; ) {
       const st = await fs15.lstat(at);
       if (st.uid !== 0 || (st.mode & 18) !== 0) return `${at} is not root's alone`;
-      const up = dirname10(at);
+      const up = dirname9(at);
       if (up === at) break;
       at = up;
     }
@@ -131080,11 +131080,11 @@ async function runnerMain(argv, io) {
 
 // ../agent/src/kit.ts
 import { constants as constants4, promises as fs16 } from "node:fs";
-import { dirname as dirname11, join as join24 } from "node:path";
+import { dirname as dirname10, join as join23 } from "node:path";
 var KIT_ENTRIES = ["deploy", "docs/deploy.md", "docs/privileged-runner.md"];
 async function findKit(candidates) {
   for (const root5 of candidates) {
-    const all = await Promise.all(KIT_ENTRIES.map((e6) => fs16.access(join24(root5, e6)).then(() => true, () => false)));
+    const all = await Promise.all(KIT_ENTRIES.map((e6) => fs16.access(join23(root5, e6)).then(() => true, () => false)));
     if (all.every(Boolean)) return root5;
   }
   return void 0;
@@ -131094,14 +131094,14 @@ async function copyKit(from, to) {
   if (there !== void 0 && there.length > 0) throw new Error(`${to} is not empty: the kit is written only into a new or empty directory`);
   const written2 = [];
   const copy = async (rel) => {
-    const src = join24(from, rel);
+    const src = join23(from, rel);
     const st = await fs16.stat(src);
     if (st.isDirectory()) {
-      for (const name of (await fs16.readdir(src)).sort()) await copy(join24(rel, name));
+      for (const name of (await fs16.readdir(src)).sort()) await copy(`${rel}/${name}`);
       return;
     }
-    const dst = join24(to, rel);
-    await fs16.mkdir(dirname11(dst), { recursive: true });
+    const dst = join23(to, rel);
+    await fs16.mkdir(dirname10(dst), { recursive: true });
     await fs16.copyFile(src, dst, constants4.COPYFILE_EXCL);
     await fs16.chmod(dst, st.mode & 511);
     written2.push(rel);
@@ -131115,7 +131115,7 @@ import { fileURLToPath } from "node:url";
 import { constants as constants5, promises as fs17, readFileSync as readFileSync2 } from "node:fs";
 import { createRequire } from "node:module";
 import { userInfo } from "node:os";
-import { delimiter, dirname as dirname12, isAbsolute as isAbsolute4, join as join25, resolve as resolve3 } from "node:path";
+import { delimiter, dirname as dirname11, isAbsolute as isAbsolute4, join as join24, resolve as resolve3 } from "node:path";
 var WORKER_USAGE = `wim agent init <config> [--mode direct|privileged] [--allow <device id>,...] [--profiles <name>,...] [--room <#room>] [--auth api-key|wif] [--wake-file <path>] [--kit <dir>] | wim agent init --kit <dir>
   wim agent doctor <config> [--peer-user <name>] [--privileged-config <path>] [--sudoers <path>] [--service <unit>]
   wim agent run --once <config> (one runner request, as JSON, on stdin)
@@ -131199,7 +131199,7 @@ async function kit(c5, dir) {
   const files = await copyKit(from, to).catch((err) => {
     throw new SetupError(err.message);
   });
-  c5.out(`Wrote the deployment kit to ${to} (${files.length} files). Its guide is ${join25(to, "docs", "deploy.md")}.`);
+  c5.out(`Wrote the deployment kit to ${to} (${files.length} files). Its guide is ${join24(to, "docs", "deploy.md")}.`);
 }
 async function init(c5, path2) {
   const mode = value2(c5, "mode") ?? "direct";
@@ -131209,7 +131209,7 @@ async function init(c5, path2) {
   if (await exists(path2)) throw new SetupError(`${path2} exists: edit it, or remove it first`);
   const { device, files } = await c5.mesh();
   const roster = (await RosterBook.open(files)).current.devices.map((d5) => ({ id: d5.id, name: d5.name, sign: d5.sign, box: d5.box }));
-  const dir = dirname12(resolve3(c5.cwd, path2));
+  const dir = dirname11(resolve3(c5.cwd, path2));
   const room = value2(c5, "room");
   const wakeFile = value2(c5, "wake-file");
   const o3 = {
@@ -131220,7 +131220,7 @@ async function init(c5, path2) {
     profiles: list3(c5, "profiles"),
     auth,
     wim: c5.wim,
-    ledgerPath: join25(dir, "worker-ledger.json"),
+    ledgerPath: join24(dir, "worker-ledger.json"),
     launcher: PRIVILEGED_RUNNER_PATH,
     // The worker's own session, as `wim agent serve` will run it, under the peer user.
     recipient: { home: c5.home, mesh: (await files.loadConfig()).mesh, address: `${c5.name}@${device.name}`, user: value2(c5, "peer-user") ?? "wim-agent" },
@@ -131232,7 +131232,7 @@ async function init(c5, path2) {
   const worker = workerTemplate(o3);
   const written2 = [];
   if (mode === "direct" && o3.profiles.length > 0) {
-    const runnerPath = join25(dir, "runner.json");
+    const runnerPath = join24(dir, "runner.json");
     if (await exists(runnerPath)) throw new SetupError(`${runnerPath} exists: edit it, or remove it first`);
     await writeAtomic(runnerPath, `${JSON.stringify({ profiles: Object.fromEntries(o3.profiles.map((p3) => [p3, {}])) }, null, 2)}
 `, c5.fsEnv);
@@ -131240,7 +131240,7 @@ async function init(c5, path2) {
     written2.push(runnerPath);
   }
   if (mode === "privileged") {
-    const privPath = join25(dir, "privileged.json");
+    const privPath = join24(dir, "privileged.json");
     if (await exists(privPath)) throw new SetupError(`${privPath} exists: edit it, or remove it first`);
     await writeAtomic(privPath, `${JSON.stringify(privilegedTemplate(o3), null, 2)}
 `, c5.fsEnv);
@@ -131288,7 +131288,7 @@ async function which(command5, path2) {
   if (isAbsolute4(command5)) return exec(command5);
   if (command5.includes("/")) return void 0;
   for (const dir of (path2 ?? "").split(delimiter).filter((d5) => d5 !== "")) {
-    const found2 = await exec(join25(dir, command5));
+    const found2 = await exec(join24(dir, command5));
     if (found2 !== void 0) return found2;
   }
   return void 0;
@@ -131296,7 +131296,7 @@ async function which(command5, path2) {
 function sdkFrom(from) {
   try {
     const entry = createRequire(from).resolve("@anthropic-ai/claude-agent-sdk");
-    const pkg = JSON.parse(readFileSync2(join25(dirname12(entry), "package.json"), "utf8"));
+    const pkg = JSON.parse(readFileSync2(join24(dirname11(entry), "package.json"), "utf8"));
     return { version: typeof pkg.version === "string" ? pkg.version : "(unknown version)" };
   } catch {
     return void 0;
@@ -131548,7 +131548,7 @@ async function isAdminAnywhere(d5) {
 
 // src/agentsetup.ts
 import { constants as constants6, promises as fs18 } from "node:fs";
-import { join as join26 } from "node:path";
+import { join as join25 } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 // ../../node_modules/smol-toml/dist/error.js
@@ -132718,7 +132718,7 @@ async function onPath(command5, env4, platform2) {
   for (const dir of (env4["PATH"] ?? "").split(pathFor(platform2).delimiter)) {
     if (dir === "") continue;
     for (const ext of exts) {
-      const facts = await fs18.stat(join26(dir, command5 + ext)).catch(() => void 0);
+      const facts = await fs18.stat(join25(dir, command5 + ext)).catch(() => void 0);
       if (facts?.isFile() === true && runnable(facts.mode, platform2)) return true;
     }
   }
@@ -139572,7 +139572,7 @@ TLS pin (SPKI SHA-256, for the invite): ${tls3.pin}`);
 // src/selftest.ts
 import { promises as fs20 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute as isAbsolute5, join as join27, relative as relative3, resolve as resolve4, sep as sep2 } from "node:path";
+import { isAbsolute as isAbsolute5, join as join26, relative as relative3, resolve as resolve4, sep as sep2 } from "node:path";
 import { createInterface as createInterface2 } from "node:readline";
 import { PassThrough as PassThrough4 } from "node:stream";
 var SandboxError = class extends Error {
@@ -139628,7 +139628,7 @@ async function noLinks(root5, path2) {
   if (!inside2(root5, path2)) throw new SandboxError(`${path2} is outside the sandbox ${root5}`);
   let at = root5;
   for (const part of relative3(root5, path2).split(sep2).filter((p3) => p3 !== "")) {
-    at = join27(at, part);
+    at = join26(at, part);
     const st = await fs20.lstat(at).catch(() => void 0);
     if (st === void 0) return;
     if (st.isSymbolicLink()) throw new SandboxError(`${at} is a symbolic link`);
@@ -139653,10 +139653,10 @@ async function sweepStale(base2, now, ops = SWEEP_OPS) {
   const removed = [];
   for (const name of await fs20.readdir(base2).catch(() => [])) {
     if (!name.startsWith("wim-test-")) continue;
-    const dir = join27(base2, name);
+    const dir = join26(base2, name);
     const st = await ops.lstat(dir).catch(() => void 0);
     if (st === void 0 || !st.isDirectory() || ops.uid !== void 0 && st.uid !== ops.uid) continue;
-    const mark = await ops.lstat(join27(dir, SANDBOX_MARK)).catch(() => void 0);
+    const mark = await ops.lstat(join26(dir, SANDBOX_MARK)).catch(() => void 0);
     if (mark === void 0 || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
     if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
   }
@@ -139666,7 +139666,7 @@ var SIGNER_DEVICE = "sig";
 var SHORT_TMP = "/tmp";
 async function runBase(base2, platform2, fallback2 = SHORT_TMP) {
   const fits = async (dir) => {
-    const sock = agentEndpointFor(agentDir(join27(await fs20.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
+    const sock = agentEndpointFor(agentDir(join26(await fs20.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
     return endpointProblem(sock, platform2) === void 0;
   };
   if (await fits(base2)) return base2;
@@ -139693,8 +139693,8 @@ var Sandbox = class _Sandbox {
       if (inside2(resolved, at)) throw new SandboxError(`the temporary directory ${at} is inside this device's state ${resolved}: set TMPDIR to another directory`);
     }
     await sweepStale(at, Date.now());
-    const root5 = await fs20.mkdtemp(join27(at, "wim-test-"));
-    await fs20.writeFile(join27(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
+    const root5 = await fs20.mkdtemp(join26(at, "wim-test-"));
+    await fs20.writeFile(join26(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
       await fs20.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       throw error64;
     });
@@ -139715,7 +139715,7 @@ var Sandbox = class _Sandbox {
   }
   /** A new device's state directory, made now. Refused when anything is at its path already. */
   async device(name) {
-    const dir = join27(this.root, name);
+    const dir = join26(this.root, name);
     await noLinks(this.root, dir);
     await fs20.mkdir(dir, { mode: 448 }).catch((error64) => {
       throw new SandboxError(`refusing the state directory ${dir}: ${error64.message}`);
@@ -139725,7 +139725,7 @@ var Sandbox = class _Sandbox {
   }
   /** A device's state directory that the run never makes (a device not set up). Refused when anything is there. */
   async absent(name) {
-    const dir = join27(this.root, name);
+    const dir = join26(this.root, name);
     if (await fs20.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
     this.dirs.set(name, dir);
     return dir;
@@ -140223,10 +140223,10 @@ function sandboxSteps(run2) {
         need((await b5.joinRoom("#qa")).includes("qa-a@test-a"), "the room does not list qa-a");
         await a5.send("#qa", "to the room");
         await arrived(b5, "to the room");
-        const dir = join27(run2.box.root, "files");
+        const dir = join26(run2.box.root, "files");
         await fs20.mkdir(dir);
-        await fs20.writeFile(join27(dir, "hello.txt"), "a small file");
-        await a5.sendFile("qa-b@test-b", join27(dir, "hello.txt"));
+        await fs20.writeFile(join26(dir, "hello.txt"), "a small file");
+        await a5.sendFile("qa-b@test-b", join26(dir, "hello.txt"));
         const saved = grab((await arrived(b5, "hello.txt")).rendered, /saved to (\S+)\./, "saved file");
         need(inside2(run2.box.root, saved) && await fs20.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
         need((await a5.acquireLease("qa", 6e4, false)).status === "granted", "the lease was not granted");
@@ -140718,7 +140718,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join28(ctx);
+        return await join27(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -141187,7 +141187,7 @@ async function askJoinTrust(ctx, files, roster, me, issuer) {
   }
   for (const name of held2) ctx.io.out(`Messages from ${name} are held for your approval. If it is your own: wim devices trust ${name}`);
 }
-async function join28(ctx) {
+async function join27(ctx) {
   const typed = ctx.args.positional[0];
   if (typed === void 0) throw new SetupError("usage: wim join <code>");
   await joinWith(ctx, typed, true);
