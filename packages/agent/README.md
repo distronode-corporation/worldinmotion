@@ -39,7 +39,7 @@ Read [Security model](#security-model) before you run one.
 5. **Write a config** (below) and a runner config, and start it:
 
 ```sh
-wim worker serve worker.json --as agents
+wim worker serve agent.json --as agents
 ```
 
 The session is named `worker` unless `--as <name>` or `WIM_NAME` says otherwise. It runs until it
@@ -59,13 +59,13 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
 ```json
 {
   "senders": { "devices": ["Xq3...22 characters...", "Lm9...22 characters..."] },
-  "wake": { "mode": "local", "codeFile": "/etc/wim-worker/wake-code" },
+  "wake": { "mode": "local", "codeFile": "/etc/wim-agent/wake-code" },
   "profiles": { "allowed": ["a", "b"], "default": "a" },
   "runner": {
     "command": "/usr/local/bin/wim",
-    "args": ["worker", "runner", "--config", "/etc/wim-worker/runner.json"]
+    "args": ["worker", "runner", "--config", "/etc/wim-agent/runner.json"]
   },
-  "limits": { "ledgerPath": "/var/lib/wim-worker/ledger.json", "dailyJobs": 20 },
+  "limits": { "ledgerPath": "/var/lib/wim-agent/ledger.json", "dailyJobs": 20 },
   "replies": { "refused": "generic", "room": "#agents" }
 }
 ```
@@ -192,26 +192,26 @@ privileged runner, sudoers, blocking cloud metadata endpoints). The short form, 
 runner on Linux with systemd:
 
 ```sh
-sudo useradd --system --home-dir /var/lib/wim-worker --shell /usr/sbin/nologin wim-worker
-sudo install -d -o root -g root -m 0755 /etc/wim-worker
-# worker.json and runner.json in /etc/wim-worker, root-owned, 0644; the key file 0640 root:wim-worker
-sudo -u wim-worker env WIM_HOME=/var/lib/wim-worker/wim wim join <code>
+sudo useradd --system --home-dir /var/lib/wim-agent --shell /usr/sbin/nologin wim-agent
+sudo install -d -o root -g root -m 0755 /etc/wim-agent
+# worker.json and runner.json in /etc/wim-agent, root-owned, 0644; the key file 0640 root:wim-agent
+sudo -u wim-agent env WIM_HOME=/var/lib/wim-agent/wim wim join <code>
 ```
 
 ```ini
-# /etc/systemd/system/wim-worker.service
+# /etc/systemd/system/wim-agent.service
 [Unit]
-Description=wim worker
+Description=wim worker (agent jobs)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=wim-worker
-Group=wim-worker
-StateDirectory=wim-worker
-Environment=WIM_HOME=/var/lib/wim-worker/wim
-Environment=HOME=/var/lib/wim-worker
-ExecStart=/usr/local/bin/wim worker serve /etc/wim-worker/worker.json --as agents
+User=wim-agent
+Group=wim-agent
+StateDirectory=wim-agent
+Environment=WIM_HOME=/var/lib/wim-agent/wim
+Environment=HOME=/var/lib/wim-agent
+ExecStart=/usr/local/bin/wim worker serve /etc/wim-agent/agent.json --as agents
 Restart=on-failure
 RestartSec=10
 NoNewPrivileges=yes
@@ -232,8 +232,10 @@ WantedBy=multi-user.target
 ```
 
 `StateDirectory` is the only writable path: the wim state, the ledger and the runner's own files.
-A runner started through `sudo` needs `NoNewPrivileges=no` (sudo is setuid); `docs/deploy.md`
-covers that case.
+A runner started through `sudo` needs `NoNewPrivileges` and every option that implies it off
+(sudo is setuid; for a `User=` unit `LockPersonality`, `PrivateDevices`, `ProtectKernel*`,
+`RestrictSUIDSGID` and others set it too): `deploy/systemd/wim-agent.service` lists them, and
+`docs/deploy.md` covers that case.
 
 ## Security model
 
