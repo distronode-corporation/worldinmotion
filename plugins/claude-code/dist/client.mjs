@@ -93069,6 +93069,8 @@ var ANSWER_KEEP_MS = 5 * 6e4;
 var GROUP = (to) => to.some((a5) => a5 === "*" || isRoom(a5));
 var PAUSE_TELL_MS = 10 * 6e4;
 var ignore = () => void 0;
+var REDACTED_TEXT = "(this session keeps no message text on disk)";
+var BREAKER_REFUSED = "busy: too many messages from your device for now, so they are refused, not kept; resend later";
 function breakerFields(p3) {
   return { count: p3.count, limit: p3.limit, minutes: p3.minutes, until: p3.until, auto: p3.auto };
 }
@@ -94098,7 +94100,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       entry,
       ...p3.kind === "file" ? { fileInfo: p3.file } : {}
     };
-    if (policy === "hold") return this.hold({ ...held2, reason: "policy" });
+    if (policy === "hold") return this.hold(this.redacting ? { ...held2, preview: REDACTED_TEXT, entry: this.stored(entry), reason: "policy" } : { ...held2, reason: "policy" });
     if ((await this.releaseDue()).has(p3.id)) return;
     const admitted = this.breaker.admit(p3.from.device, entry.text.length, isTrusted(this.config, p3.from.device));
     if (!admitted.ok) {
@@ -94109,6 +94111,15 @@ var MeshSession = class _MeshSession extends EventEmitter {
         this.emit("breaker", { peer: from, state: "tripped", reason: pause.rule, ...breakerFields(pause) });
       }
       const record2 = this.pauseFrom.get(pause.peer);
+      if (this.redacting) {
+        this.receipt(p3.id, "refused");
+        if (!record2.announced) {
+          record2.announced = true;
+          void this.send(from, BREAKER_REFUSED, { relayed: true, reply_to: p3.id }).catch((e6) => this.log(`wim: no busy reply sent to ${from}: ${e6.message}`));
+        }
+        this.tellPaused(pause, record2, from, p3.id);
+        return;
+      }
       const under = { rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, at: pause.at, until: pause.until, auto: pause.auto };
       await this.hold({ ...held2, reason: "breaker", pause: under }, record2.announced ? void 0 : { person: pauseNotice(from, pause), agent: pauseNoticeForAgent(from, pause) });
       record2.announced = true;
@@ -94118,7 +94129,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.countsChanged = true;
     const waiter = p3.kind === "result" && !unsolicited ? this.askWaiters.get(p3.reply_to) : void 0;
     if (waiter !== void 0 && p3.kind === "result") {
-      await this.history.append(entry);
+      await this.history.append(this.stored(entry));
       waiter(p3, from);
       this.receipt(p3.id, "delivered");
       return;
@@ -94200,13 +94211,21 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.delivering = run.then(() => void 0, () => void 0);
     return run;
   }
+  get redacting() {
+    return this.o.redactStoredText === true;
+  }
+  /** An inbound history entry as this session stores it: without its text when it keeps none. */
+  stored(entry) {
+    return this.redacting ? { ...entry, text: "", redacted: true } : entry;
+  }
   /** `afterWrite`: runs once the item is durably in the spool, before anything takes it from there. */
   async deliverNow(item, entry, afterWrite) {
     this.informed([item]);
-    const written2 = await this.spool.write(item);
+    const stored2 = await this.spool.write(this.redacting && item.kind !== "notice" ? { ...item, rendered: REDACTED_TEXT } : item);
     if (afterWrite !== void 0) await afterWrite();
     await this.save({});
-    if (entry !== void 0) await this.history.append(entry);
+    if (entry !== void 0) await this.history.append(this.stored(entry));
+    const written2 = { ...stored2, rendered: item.rendered };
     this.emit("item", written2);
     if (entry !== void 0 && entry.ci === void 0) this.emit("message", { ...entry, cursor: written2.cursor });
     if (this.push !== void 0 && written2.relayed !== true && written2.forPerson !== true && written2.quiet !== true) {
