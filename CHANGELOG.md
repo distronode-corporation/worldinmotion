@@ -22,7 +22,13 @@ body line with a bracket.
   (`--foreground`, a typed `y`) or in a native dialog, and on the person's yes signs a decision over
   exactly those ids, each bound to a digest of the item it showed. Sessions release or drop only
   what such a decision covers; an item that arrived later, a copy changed on disk and a replayed
-  decision release nothing. Mark files (`held/<id>.approve`, `.refuse`, `.resume`,
+  decision release nothing, and a resume lifts only a pause that started before it was signed.
+  The asking command (or VS Code) shows a six-digit code that the signer shows too. The signer runs
+  its dialog programs by absolute path, only when they are root's alone (never from `PATH`, also
+  for the `--ask-gui` passphrase dialog, which now names the process that asked), ends every ask
+  after 5 minutes or when the asker goes away, waits after a decline before it asks again, refuses
+  an id whose held copies differ in what it would show, takes a resume only for a roster device's
+  breaker holds, and refuses every decision when an agent is among the processes that started it. Mark files (`held/<id>.approve`, `.refuse`, `.resume`,
   `control/resume-<peer>`) are refused while the keys are in the signer, and `wim doctor` lists any
   it finds; a locked or stopped signer takes no decision. The Claude Code pane's buttons then say
   to decide with `wim held` or VS Code, and VS Code waits up to 7 minutes for the answer. Without a

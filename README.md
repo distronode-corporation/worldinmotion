@@ -368,8 +368,10 @@ trusted, SendMessage asks nothing; to any other device Claude asks you first.
   other. Use the same `WIM_HOME` in both, or set up that directory as its own device.
 - Held messages: `wim held list`, or `/wim` in Claude Code. Both show them a set per sending device
   (or per CI rule), decided together. With the signer running (`wim agent`), each approve, refuse
-  or resume also asks you in the signer's own terminal or dialog, so an agent that can write files
-  cannot approve one; the Claude Code pane then sends you to `wim held` or VS Code.
+  or resume also asks you in the signer's own terminal or dialog, with a code the asking command
+  shows, so a mark file an agent writes approves nothing. An agent that can read the signer's
+  memory (on Windows any process of yours can) or drive your desktop still can (SECURITY-MODEL 5.8
+  and 7.2); the Claude Code pane then sends you to `wim held` or VS Code.
 
 ### 11. Optional: a ping when a message is held
 
