@@ -4,7 +4,7 @@ import { homedir, hostname } from "node:os";
 import { createInterface, type Interface } from "node:readline";
 import { Writable, type Readable } from "node:stream";
 import { spawnDetached, wimCommand } from "./agentcli.ts";
-import { runProgram } from "./autostart.ts";
+import { realToolTrust, runProgram } from "./autostart.ts";
 import { execRunner } from "./setup.ts";
 import type { CliIO } from "./cli.ts";
 import { ancestry, realAncestryDeps } from "./ancestry.ts";
@@ -95,7 +95,7 @@ export function processIo(
       return answer;
     },
     startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
-    programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
+    programs: { platform: proc.platform, run: runProgram, wim: machine.wim(), trust: realToolTrust(proc.platform) },
     tools: execRunner(proc.platform),
     signal: stop.signal,
     cwd: proc.cwd(),

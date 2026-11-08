@@ -108,9 +108,9 @@ function programs(ctx: AgentCtx): Programs {
 
 /** Asks in the native dialog, again (up to GUI_TRIES) while what was typed does not pass `opens`. */
 async function askUntilOpens(ctx: AgentCtx, opens: ((passphrase: string) => Promise<boolean>) | undefined): Promise<string> {
-  const { platform, run } = programs(ctx);
+  const { platform, run, trust } = programs(ctx);
   for (let i = 0; i < GUI_TRIES; i++) {
-    const passphrase = await askGui(platform, run, i === 0 ? GUI_ASK : GUI_AGAIN);
+    const passphrase = await askGui(platform, run, i === 0 ? GUI_ASK : GUI_AGAIN, trust);
     if (opens === undefined || (await opens(passphrase))) return passphrase;
   }
   throw new SetupError(`the passphrase did not open this device's keys in ${GUI_TRIES} tries`);
@@ -289,7 +289,7 @@ export function desk(ctx: AgentCtx): Desk {
   }
   const p = ctx.io.programs;
   if (p === undefined) return { read, confirm: { cannot: "this signer has no terminal or dialog to ask you in: start it with `wim agent start --foreground` in your own terminal" } };
-  return { read, confirm: (lines) => confirmGui(p.platform, p.run, lines) };
+  return { read, confirm: (lines) => confirmGui(p.platform, p.run, lines, p.trust) };
 }
 
 /**
