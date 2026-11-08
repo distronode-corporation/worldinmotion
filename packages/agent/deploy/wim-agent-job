@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# wim-agent-job: one scheduled agent job, collect -> analyse -> post. An example
+# to adapt, not part of the message path: the wim peer never runs it.
+#
+#   wim-agent-job <job>
+#
+# Run as root by wim-agent-job@<job>.service (its timer starts it). A job is a
+# root-owned directory, /etc/wim-agent/jobs/<job>/, holding:
+#
+#   job.conf   KEY=VALUE lines: enabled=yes|no (no is the kill switch),
+#              profile=<name> (a profile in /etc/wim-agent/privileged.json;
+#              empty means its defaultProfile)
+#   prompt.md  the task. The wrapper appends where the inputs are.
+#   collect    optional, executable: `collect <input-dir>` fetches the job's
+#              inputs into <input-dir>. Root runs it, so it may use credentials
+#              the model never sees. Exit 3 = nothing new (no model call).
+#   post       optional, executable: `post <answer-file> <input-dir>` delivers
+#              the answer (an issue comment, a wim room, a mail). Without it
+#              the answer goes to the journal.
+#
+# The analysis step is the privileged runner (RUNNER contract v2 on stdin), so a
+# scheduled job gets the same worker user, read-only tools, timeout, daily cap,
+# memory floor and job lock as a job a message wakes. It sends from.device
+# "local", which the runner accepts only from root outside sudo, and only when
+# privileged.json sets "allowLocal": true. The runner takes the job lock itself,
+# so this wrapper never holds it (a second flock on the same file would wait on
+# itself).
+#
+# Exit: 0 done or skipped; 75 the runner was busy (lock, memory floor, daily
+# cap), which the unit treats as success, the next tick being the retry; 78 bad
+# job configuration; 1 anything else.
+set -euo pipefail
+
+JOBS_DIR="${WIM_AGENT_JOBS_DIR:-/etc/wim-agent/jobs}"
+IN_ROOT="${WIM_AGENT_IN_ROOT:-/var/lib/wim-agent-worker/in}"
+WORKER_GROUP="${WIM_AGENT_WORKER_GROUP:-wim-agent-worker}"
+RUNNER="${WIM_AGENT_RUNNER:-/usr/local/sbin/wim-agent-privileged-runner}"
+COLLECT_TIMEOUT="${WIM_AGENT_COLLECT_TIMEOUT:-600}"
+POST_TIMEOUT="${WIM_AGENT_POST_TIMEOUT:-120}"
+
+log() { echo "wim-agent-job: $*" >&2; }
+die() { log "$1"; exit "${2:-1}"; }
+
+# owned_safely <path>: owned by the user running this (root in production) and
+# not writable by group or other, so nobody else can change what root runs.
+owned_safely() {
+  local owner mode
+  owner="$(stat -c %u "$1")" mode="$(stat -c %a "$1")"
+  [ "$owner" = "$(id -u)" ] && (( (8#$mode & 8#022) == 0 ))
+}
+
+# read_conf <file>: sets ENABLED and PROFILE; any other key is an error.
+ENABLED="" PROFILE=""
+read_conf() {
+  local line key value
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue;; esac
+    [[ "$line" == *=* ]] || die "$1: not KEY=VALUE: $line" 78
+    key="${line%%=*}" value="${line#*=}"
+    case "$key" in
+      enabled) case "$value" in yes|no) ENABLED="$value";; *) die "$1: enabled must be yes or no" 78;; esac;;
+      profile) [[ "$value" =~ ^[a-z0-9_-]{0,32}$ ]] || die "$1: profile must be [a-z0-9_-], at most 32" 78; PROFILE="$value";;
+      *) die "$1: unknown key $key" 78;;
+    esac
+  done < "$1"
+  [ -n "$ENABLED" ] || die "$1: enabled=yes|no is required" 78
+}
+
+# The contract's limit on a request, in bytes: RUNNER_MAX_REQUEST_BYTES in
+# packages/agent/src/runner.ts (a test keeps the two equal).
+MAX_REQUEST_BYTES=1056768
+
+# request <id> <profile> <text-file>: the RUNNER contract v2 object. A local job
+# carries no signed frame: the runner accepts "local" only from root outside
+# sudo, with allowLocal on. Exits 3 when the request is over the limit.
+request() {
+  node -e '
+const [id, profile, file, max] = process.argv.slice(1);
+const text = require("node:fs").readFileSync(file, "utf8");
+const body = Buffer.from(JSON.stringify({ v: 2, id, from: { device: "local", address: "local@localhost" }, profile, text }), "utf8");
+if (body.length > Number(max)) process.exit(3);
+process.stdout.write(body);
+' "$1" "$2" "$3" "$MAX_REQUEST_BYTES"
+}
+
+main() {
+  [ $# -eq 1 ] || die "usage: wim-agent-job <job>" 2
+  local job="$1"
+  [[ "$job" =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]] || die "job name must be [a-z0-9-], at most 64" 2
+  local dir="$JOBS_DIR/$job" f
+  [ -d "$dir" ] || die "no job directory $dir" 78
+  for f in "$dir" "$dir/job.conf" "$dir/prompt.md" "$dir/collect" "$dir/post"; do
+    [ -e "$f" ] || continue
+    owned_safely "$f" || die "$f must be owned by $(id -un) and not group- or other-writable" 78
+  done
+  [ -r "$dir/job.conf" ] || die "no $dir/job.conf" 78
+  [ -r "$dir/prompt.md" ] || die "no $dir/prompt.md" 78
+  read_conf "$dir/job.conf"
+  [ "$ENABLED" = yes ] || { log "$job is off (enabled=no)"; exit 0; }
+
+  local stamp in rc
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  in="$IN_ROOT/$job"
+  # Global, so the EXIT trap still sees it after main returns.
+  WORK="$(mktemp -d)"
+  trap 'rm -rf "$WORK"' EXIT
+  rm -rf "$in"
+  install -d -m 0750 "$in"
+  chgrp "$WORKER_GROUP" "$in"
+
+  # 1. Collect (root). Inputs become readable by the worker's group, never writable.
+  if [ -x "$dir/collect" ]; then
+    rc=0; timeout "$COLLECT_TIMEOUT" "$dir/collect" "$in" || rc=$?
+    case "$rc" in
+      0) ;;
+      3) log "$job: nothing new, no model call"; exit 0;;
+      124) die "$job: collect ran past ${COLLECT_TIMEOUT}s";;
+      *) die "$job: collect failed (exit $rc)";;
+    esac
+    chgrp -R "$WORKER_GROUP" "$in"
+    chmod -R u+rwX,g+rX,g-w,o-rwx "$in"
+  fi
+
+  # 2. Analyse (the privileged runner; it takes the lock).
+  {
+    cat "$dir/prompt.md"
+    printf '\n\nThe inputs for this run are files under %s:\n' "$in"
+    (cd "$in" && find . -type f | sed 's|^\./|- |' | LC_ALL=C sort)
+  } > "$WORK/text"
+  rc=0; request "job-$job-$stamp" "$PROFILE" "$WORK/text" > "$WORK/request.json" || rc=$?
+  case "$rc" in
+    0) ;;
+    3) die "$job: the prompt and input list are over the contract's $MAX_REQUEST_BYTES bytes";;
+    *) die "$job: could not build the request (exit $rc)";;
+  esac
+  rc=0; "$RUNNER" < "$WORK/request.json" > "$WORK/answer" || rc=$?
+  case "$rc" in
+    0) ;;
+    4) log "$job: runner busy (lock, memory floor or daily cap); the next tick retries"; exit 75;;
+    3) die "$job: runner refused the request (is allowLocal on, and the profile allowed?)";;
+    5) die "$job: runner timed out";;
+    *) die "$job: runner failed (exit $rc)";;
+  esac
+
+  # 3. Post (root).
+  if [ -x "$dir/post" ]; then
+    rc=0; timeout "$POST_TIMEOUT" "$dir/post" "$WORK/answer" "$in" || rc=$?
+    [ "$rc" = 0 ] || die "$job: post failed (exit $rc)"
+    log "$job: posted"
+  else
+    cat "$WORK/answer"
+  fi
+}
+
+main "$@"

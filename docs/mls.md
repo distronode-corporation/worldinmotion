@@ -54,7 +54,7 @@ SLIM's `crates/mls` writes the group state to storage after every encrypt, so th
 sender "resumes at the correct generation instead of ... reusing keys the receivers have already
 ratcheted past".
 
-**The design.** One leaf per device per room, held by the device's signer (`wim agent`, see
+**The design.** One leaf per device per room, held by the device's signer (`wim signer`, see
 [design.md](design.md#the-signer-wim-agent)). Sessions never hold MLS state. They ask the signer
 to encrypt a room message and to open one, as they already ask it to sign and to open boxes.
 

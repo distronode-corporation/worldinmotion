@@ -311,13 +311,13 @@ export function selfTestCommand(o: ClientOptions & { cwd: string }): Command {
 }
 
 /**
- * The integrated terminal that starts the signer (`wim agent start`, or `unlock` when it is
+ * The integrated terminal that starts the signer (`wim signer start`, or `unlock` when it is
  * locked) with the same client as `wim events`. The person types the passphrase there, in a
  * terminal they opened by running the command, not in one an agent drives. The terminal adds its
  * `env` to VS Code's own, so only Electron's run-as-Node switch is set (or cleared).
  */
 export function signerTerminal(o: ClientOptions & { locked: boolean; cwd: string }): TerminalSpec {
-  return clientTerminal(o, "worldinmotion signer", ["agent", o.locked ? "unlock" : "start"]);
+  return clientTerminal(o, "worldinmotion signer", ["signer", o.locked ? "unlock" : "start"]);
 }
 
 /** What `vscode.window.createTerminal` is given. */

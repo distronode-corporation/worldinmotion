@@ -46,7 +46,7 @@ some of the guideline holds and some does not; the notes say which.
 - **Approval marks are files, unless the signer runs.** Without the signer, an approval is a file
   the plugin writes in the state directory, and a local process, or an agent allowed to write files
   without a prompt, can approve a held message (7.1). Since 0.2.0, with the device's keys in the
-  signer (`wim agent`), that is closed: an approve, refuse or resume is taken only signed by the
+  signer (`wim signer`), that is closed: an approve, refuse or resume is taken only signed by the
   signer over exactly the items it showed the person in its own terminal or dialog, and mark files
   are refused (7.2). What remains with the signer: a process of the user could press the signer's
   dialog by driving the desktop, and could still write into a session's spool directly (5.8).

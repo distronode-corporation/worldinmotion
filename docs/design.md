@@ -31,17 +31,17 @@ with its own keys and signer); `/wim status` in a Claude Code tab shows the plug
 ```
 $WIM_HOME/
   device.json            0600  device keys (protocol encodeKeys) + device name; or, after
-                               `wim agent encrypt`, version 2: the public keys and name in the
+                               `wim signer encrypt`, version 2: the public keys and name in the
                                clear and the secret keys and a data key encrypted (scrypt,
                                ChaCha20-Poly1305) under the passphrase
   crash-reports          0600  `on` or `off`, written by `wim crash-reports`: no file, or anything else,
                                is off (README, Crash reports)
-  agent/                 0700  the signer (`wim agent`), when one was ever started here
+  agent/                 0700  the signer (`wim signer`), when one was ever started here
     sock                 0600  its Unix socket (Windows: a named pipe `\\.\pipe\wim-agent-<token>`)
     pipe                 0600  Windows only: the pipe's random token
     config.json          0600  `require_signer`: refuse a plaintext key file
     log.jsonl            0600  one line per request: operation, type, mesh, peer device, outcome
-    autostart.log              what the login item (`wim agent autostart`) prints, errors included
+    autostart.log              what the login item (`wim signer autostart`) prints, errors included
   links/<random>.json  0600  a `wim mcp` whose plugin handshake came before a session could open
                                (the signer not up yet) writes the link here once it opens; the
                                plugin reads it (removed when that server ends)
@@ -144,13 +144,13 @@ kept like any offline one:
 - Leases the closed tab held are not released at close; they lapse at their TTL.
 - After 24 hours with nothing queued the relay forgets the session, and the name is free.
 
-## The signer (`wim agent`)
+## The signer (`wim signer`)
 
-Optional, and off until `wim agent encrypt`. The ssh-agent model: one process per device holds the
+Optional, and off until `wim signer encrypt`. The ssh-agent model: one process per device holds the
 device keys and the data key that seals prekey secrets, and sessions ask it for every operation
 that needs a secret key. What it does and does not protect is SECURITY-MODEL section 5.8.
 
-- `wim agent encrypt` encrypts `device.json` (version 2), seals every mesh's prekey secrets and sets
+- `wim signer encrypt` encrypts `device.json` (version 2), seals every mesh's prekey secrets and sets
   `require_signer`. A session already running keeps the plaintext keys it read; once it reads a
   sealed prekey it cannot open, it acknowledges nothing more on that connection and says once that
   it needs a restart, and the relay delivers those messages again to the restarted session. The
@@ -158,12 +158,12 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   left in the clear is sealed by the signer on the next schedule. A session that read sealed
   prekeys before a `decrypt` and a new `encrypt` (a new data key) reads the file again when a box
   does not open, and opens it then.
-  `wim agent decrypt` (signer stopped) writes the same keys back in the clear, opens the sealed
+  `wim signer decrypt` (signer stopped) writes the same keys back in the clear, opens the sealed
   prekeys and clears `require_signer`.
-- `wim agent start` asks for the passphrase and starts `wim agent serve` detached from the
+- `wim signer start` asks for the passphrase and starts `wim signer serve` detached from the
   terminal; the child reads the passphrase on stdin and prints `ready <pid> <endpoint>` or
   `error <why>`. Detached, it keeps running after the terminal or VS Code closes, and ends at log
-  out, restart or `wim agent stop`; the command says so, and `wim agent status` says where to
+  out, restart or `wim signer stop`; the command says so, and `wim signer status` says where to
   start one when none runs. The passphrase comes from the person's interactive terminal (no
   agent's variable set), or from `--passphrase-stdin` (a service manager, CI), `--ask-gui` (a
   native dialog: osascript, zenity or kdialog, the Windows PowerShell credential dialog; `start`
@@ -177,8 +177,8 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   `--foreground` runs it in the command itself, for systemd, launchd or CI. Nothing starts it
   unless the person sets that up: the passphrase needs the person, and a signer started from an
   agent's session would be that agent's descendant, which an OS may let it debug.
-- `wim agent autostart enable` installs a login item for the state directory (pinned as
-  `WIM_HOME`) that runs `wim agent start --foreground --ask-gui` at each log in: a launchd agent
+- `wim signer autostart enable` installs a login item for the state directory (pinned as
+  `WIM_HOME`) that runs `wim signer start --foreground --ask-gui` at each log in: a launchd agent
   (`~/Library/LaunchAgents/worldinmotion.signer.<id>.plist`), an XDG autostart entry
   (`$XDG_CONFIG_HOME/autostart/worldinmotion-signer-<id>.desktop`; XDG rather than a systemd user
   unit, because the dialog needs the desktop session's display), or a Windows logon task
@@ -188,7 +188,7 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   `StandardOutPath` and `StandardErrorPath`; `sh` in the XDG entry; PowerShell's `*>>` in the
   task), so a start that fails before the signer runs says why. The person types the passphrase
   into a dialog the login session started. It installs
-  only; `wim agent start` starts one now. `disable`, and `enable` without `--keyring`, remove any
+  only; `wim signer start` starts one now. `disable`, and `enable` without `--keyring`, remove any
   stored passphrase (`disable` the item too);
   `status` says whether one is installed and where it gets the passphrase.
   `enable --keyring` (only at the person's own terminal) stores the passphrase, checked against
@@ -196,13 +196,13 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   every read prompts) or libsecret (`secret-tool`, after a warning and a typed `yes`: any process
   of the user can read it while the keyring is unlocked), and the item then runs `--keyring`
   instead of `--ask-gui`. Not offered on Windows. SECURITY-MODEL 5.8 has the trade-offs.
-- `wim agent status`, `lock` and `stop` talk to the running signer. A lock is for good: `wim agent
+- `wim signer status`, `lock` and `stop` talk to the running signer. A lock is for good: `wim signer
   unlock` reads the passphrase, checks it against the key file, asks the locked signer to stop
   and starts a new one (`--foreground` as for `start`). The passphrase never goes over the socket,
   and the command sends nothing more to something that still answers after `stop`.
 - A session's device: a plaintext key file gives a keyring in the process, as before (refused when
   `require_signer` is set or `WIM_REQUIRE_SIGNER=1`). An encrypted one gives a keyring that calls
-  the signer; with no signer, or a locked one, the command says which `wim agent` command to run.
+  the signer; with no signer, or a locked one, the command says which `wim signer` command to run.
 - The socket speaks JSON lines: `{ "i", "op", "a" }`, answered `{ "i", "r" }` or
   `{ "i", "e": { "code", "message" } }`.
 - `hello`: the client sends a nonce and an X25519 key. The signer, locked or not, answers with
@@ -231,7 +231,7 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   digest the SHA-256 of the item's canonical JSON as read; refused when the person declines, when
   none is held, when another decision is being asked, or when the signer has no way to ask:
   SECURITY-MODEL 7.2), `lock` (answers
-  `{ was }`, whether it was locked already, sealed: `wim agent lock` reports that, never the
+  `{ was }`, whether it was locked already, sealed: `wim signer lock` reports that, never the
   hello's flag), `stop` (the signer stops listening before it answers, then closes every connection
   without waiting for its client). Before answering any request, and every 2 seconds, the signer
   checks that its endpoint still names its own socket (device and inode); if not, it locks and

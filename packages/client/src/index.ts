@@ -1,6 +1,6 @@
 // The worldinmotion client library: what `wim` is built from, for programs that embed a peer.
 
-export { botIO, ciIO, meshPort } from "./adapters.ts";
+export { botIO, ciIO, meshPort, workerIO } from "./adapters.ts";
 export { createMesh, decideJoin, issueInvite, joinMesh, promoteDevice, publishRoster, recoverMesh, revokeDevice, Invites } from "./admin.ts";
 export { Breaker, pauseNotice } from "./breaker.ts";
 export { cardFor, cardLabel, readBranch } from "./cards.ts";

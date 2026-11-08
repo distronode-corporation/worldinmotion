@@ -28,6 +28,8 @@ export type HistoryEntry = {
   savedTo?: string;
   /** The sender did not write the text itself (revision 4, H1). */
   relayed?: true;
+  /** The session keeps no message text on disk (`redactStoredText`): `text` is empty here. */
+  redacted?: true;
   /** A result whose sender was not asked the task it names (revision 4, M3). */
   unsolicited?: true;
   /** Written while its sender handled another agent's message (revision 8): information only. */

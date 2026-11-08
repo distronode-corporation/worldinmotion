@@ -228,10 +228,10 @@ describe("activate", () => {
     expect(starts()).toBe(1);
     await fake.run("worldinmotion.startSigner");
     const first = fake.state.terminals[0]!;
-    expect(first.options).toEqual({ name: "worldinmotion signer", shellPath: process.execPath, shellArgs: [FIXTURE, "agent", "start"], env: { ELECTRON_RUN_AS_NODE: "1" }, cwd: homedir() });
+    expect(first.options).toEqual({ name: "worldinmotion signer", shellPath: process.execPath, shellArgs: [FIXTURE, "signer", "start"], env: { ELECTRON_RUN_AS_NODE: "1" }, cwd: homedir() });
     expect(first.shown).toBe(1);
     fake.closeTerminal(first, 0);
-    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`." });
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim signer stop`." });
     expect(starts()).toBe(2);
 
     await fake.run("worldinmotion.startSigner");
@@ -251,9 +251,9 @@ describe("activate", () => {
     expect(starts()).toBe(4);
 
     // A locked signer is unlocked rather than started.
-    api!.store.exited("exited with code 1: wim: the signer is locked: run `wim agent unlock` in your own terminal");
+    api!.store.exited("exited with code 1: wim: the signer is locked: run `wim signer unlock` in your own terminal");
     await fake.run("worldinmotion.startSigner");
-    expect(fake.state.terminals[3]!.options.shellArgs).toEqual([FIXTURE, "agent", "unlock"]);
+    expect(fake.state.terminals[3]!.options.shellArgs).toEqual([FIXTURE, "signer", "unlock"]);
   });
 
   it("opens a terminal for wim crash-reports on and off, and restarts the client when VS Code's telemetry changes", async () => {
