@@ -245,11 +245,14 @@ Cannot:
 - Corrupt, reorder, swap or truncate a file's chunks without the receiver noticing (section 6.12).
 - Alter or forge a CI notice: a GitHub notice is signed by a one-time key its token binds, and a
   GitLab notice's token is inside the box, never shown to the relay (section 6.17).
-- Start agent turns with idle notices nobody asked for. A client takes a `notice` only for an
-  address its session armed with `notify_when_idle` (or, after that session renamed itself, for
-  the new address the relay's peer rows give the same session id), within the arm's 12 hours and
-  once; the watch is then closed. Any other notice is dropped and logged. A relay can still send
-  the one notice an arm asked for early, late or never.
+- Start agent turns with idle notices nobody asked for, or more than one per request. A client
+  takes a `notice` only for an address its session armed with `notify_when_idle` (or, after that
+  session renamed itself, for the new address the relay's peer rows give the same session id),
+  within the arm's 12 hours and once; the watch is then closed. Any other notice is dropped and
+  logged. Nor can it choose which device a notice is about: whether a notice may start a turn is
+  decided by the device the armed address names (section 7.3), and the notice names that address.
+  A relay can still send the one notice an arm asked for early (a false "finished"), late or
+  never, or claim it refused an arm: at most one turn per arm, 16 arms at a time, each counted.
 
 ### 5.5 Network attacker
 
@@ -787,8 +790,9 @@ room names and membership, lease keys (a hash of mesh id and lease name, recover
 names), lease holders and timing, blob ids, sizes and timing, that a short invite code exists with
 the admin device that stored it, its size and when and from where it is fetched (never the invite), the full sender and recipient list of
 every message, timestamps, sizes, and receipt outcomes (which reveal when a person's policy held or
-refused an item), and each device's prekeys with their rotation times (they travel in clear
-headers). Message kinds, file names and card contents are inside the encryption.
+refused an item), each device's prekeys with their rotation times (they travel in clear
+headers), and which session asked for an idle notice about which other session. Message kinds,
+file names and card contents are inside the encryption.
 
 On a relay that takes CI senders (SPEC sections 10 and 18), also: each GitHub notice's ID token,
 read once to verify it and never stored, so for that moment every claim it carries (repository,
@@ -1068,7 +1072,9 @@ to the model as the person's next prompt or as a system message, never labelled 
 CLI, Codex and Cursor as the user; Antigravity as a system message to pay attention to), so it
 carries the weight of the person or the system. The text is therefore fixed: a count and the
 instruction to call the `inbox` tool ("2 messages from other AI sessions are waiting in
-worldinmotion. Call the worldinmotion inbox tool to read them."). No peer text, session name,
+worldinmotion. Call the worldinmotion inbox tool to read them."). An idle notice the session asked
+for is counted the same way, in a fixed line of its own ("1 notice this session asked for is
+waiting in worldinmotion..."), a count and never an address. No peer text, session name,
 address, device name, file name or any other field a peer or relay chose reaches it. The messages
 themselves reach the model only through `inbox`, inside the frame above. The turn the hook asks
 for is a mesh turn: before it prints the line, it writes the session's presence as `busy-mesh`, so
@@ -1212,6 +1218,14 @@ And it changes nothing about writing the spool: a process that can write the sta
 still put text straight into a session's spool, which the plugin delivers (section 5.8). Without
 the signer, decisions are taken as before, and `wim doctor` advises running it.
 
+**`wim setup` edits other agents' configs only on the person's typed `y`.** For each agent it finds
+(Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI, Claude Desktop) it shows the change to
+each config file as a diff and writes it only on a typed `y`, after copying the original beside it
+(`<file>.wim-backup-<time>`). It touches only the worldinmotion MCP server entry and the
+`wim hook` entries, offers only the read-only tools (`peers`, `inbox`, `wait`, `history`) where
+the agent has a tool list, and leaves alone a file that is a symbolic link, is not a regular file,
+is larger than 1 MiB, or does not parse (docs/peers.md, "What `wim setup` writes").
+
 **Trusted devices can assign work.** An item from a `deliver` device, other than relayed text, is
 framed as a work assignment from a device the person trusts: the agent may carry it out within its
 normal permissions, as it would a colleague's request. It is never the person's approval of a
@@ -1242,9 +1256,11 @@ something it read, its requests arrive as trusted work everywhere you trust it. 
 - **The breaker** caps how often any peer can wake an agent (section 7.3).
 - **What wakes another agent at turn end, and what never does.** `wim hook` asks for one more
   turn only for unread messages, tasks, results and files that a device the person trusts now
-  sent itself, in the spool of the one `wim mcp` running inside the same agent session. Held
-  items (they are not in the spool), items from untrusted devices, relayed text, CI notices,
-  notices for the person and items from a device the breaker has paused never count. The hook
+  sent itself, and idle notices this session armed about such a device that the client did not
+  spool as `quiet` (one per arm, section 7.3), in the spool of the one `wim mcp` running inside
+  the same agent session. Held items (they are not in the spool), items from untrusted devices,
+  relayed text, CI notices, other notices, notices for the person and items or notices about a
+  device the breaker has paused never count. The hook
   names its session by the process that started `wim mcp` (pid and start time, recorded while
   `wim mcp` runs); when it cannot name exactly one live session, it does not wake, and it never
   counts another session's spool. An idle session never wakes this way.
@@ -1321,6 +1337,25 @@ item once per agent session, and lets a stop that already follows a continuation
 agent says so (`stop_hook_active`), so a looping pair of agents gets at most one extra turn per
 admitted message. That extra turn is a mesh turn (section 7.1): what the agent sends in it is
 derived, so a trusted request it carries goes one hop, not two.
+
+**Finished notices count.** A client spools an idle notice as one that may start a turn only when
+the device that the armed address names is one the person trusts now, the breaker does not pause
+it, and the breaker admits one more notice wake from it. Notice wakes are counted per device on
+their own (so notices never use up a peer's messages) and toward the total with messages. A notice
+past the per-peer or total limit trips a pause on that device, as a message would: a cool-down the
+client ends by itself, of which the person is told, the agent quietly, and during which that
+device's messages are held too. Any other notice is spooled `quiet`: it waits for `inbox`, `wait`
+or a running turn. Notices do not feed the ping-pong detector, since they carry no text a peer
+wrote. A client accepts only notices it armed, one per arm, and never arms its own address, so an
+agent that re-arms on every notice and a peer that flaps its presence trip that cool-down. A turn a
+notice starts is a mesh turn: `wim hook` writes `busy-mesh` before its line, and a channel push
+writes it before the push, or does not push.
+
+**Until the Claude Code plugin reads `quiet` (packet N2, which must merge before 0.2.0 ships), Claude
+Code hands every idle notice it is given over as a turn, quiet ones included**, as it handed every
+armed notice before. `wim hook` and the channel push honour `quiet` now; the breaker's count and the
+cool-down above still bound the notices that reach Claude Code, but a quiet one there is not yet
+held back.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy
@@ -1489,6 +1524,10 @@ That is safe only because of where the script can act, so isolation is the prope
 - A device you trust can assign work to all of your trusting sessions; a compromised or injected
   trusted device steers them within their permissions until you set it to `hold` or revoke it.
 - Relayed marking covers clients that forward text, not agents that restate what they read.
+- An idle notice is the relay's word and says nothing about the work itself. A session whose
+  agent reports no turns reads idle always, so a notice armed on it fires only when it ends. A
+  local process can write a session's presence, its `watches.json` and its spool, and so unmark a
+  mesh turn or arm a watch.
 - Room sends through the SendMessage bridge do not ask the person, and reach every device.
 - Revocation reaches a client with the next message from a peer that has seen it, or with the next
   roster push; in a quiet mesh that can take time.

@@ -71,10 +71,14 @@ It asks for what it needs and says what each step does before it takes it:
    Code extension, `code --install-extension distronode.worldinmotion --pre-release`. Each waits
    for a `y`. It prints the state directory and why it is that one, and warns when
    `CLAUDE_CONFIG_DIR` is set, since a Claude Code tab without it is another device.
-4. It ends with `wim status`, problems first.
+4. For each other agent it finds (Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI,
+   Claude Desktop), it shows the change to that agent's config as a diff: the worldinmotion MCP
+   server with the read-only tools, and the `wim hook` entries ([Other agents](#other-agents)).
+   Each file waits for a `y`, and the original is kept beside it.
+5. It ends with `wim status`, problems first.
 
 Run it again whenever you like: on a machine that is set up, it skips what is done and repeats
-steps 3 and 4. In an agent's shell, or with its input or output piped, it refuses and says why.
+steps 3 to 5. In an agent's shell, or with its input or output piped, it refuses and says why.
 It never asks about crash reports, and it does not start the signer (step 5 below).
 
 To add another machine: run `wim invite` on one already in the mesh, then `wim setup <code>` on the
@@ -430,10 +434,14 @@ tested.
 `wim hook <agent>` is a turn-end hook for Gemini CLI, Antigravity CLI, Codex CLI, Cursor and
 Copilot CLI. When a turn ends and messages from devices you trust are waiting, it asks the agent
 for one more turn with a fixed line: how many messages wait, and to call the `inbox` tool. It
-never passes on any peer's text or name. Each message is announced once. Add the hook entry by
-hand for now; [docs/peers.md](docs/peers.md#waking-at-turn-end-wim-hook) has the entry for each
-agent, and the one condition: the agent must start `wim mcp` directly, not through `npx` or a
-shell.
+never passes on any peer's text or name. Each message is announced once.
+
+`wim setup` configures each of these agents it finds, and Claude Desktop: the worldinmotion MCP
+server, with only the read-only tools where the agent has a tool list, and the agent's `wim hook`
+entries (turn end and turn start). It starts `wim mcp` directly, with node and the absolute path to
+`wim.mjs`, which the hook needs. Each change is shown as a diff and written only when you type `y`,
+with the original kept beside it, and a rerun brings a stale path up to date.
+[docs/peers.md](docs/peers.md#what-wim-setup-writes) lists what it writes, and where, per agent.
 
 - **Gemini CLI, Antigravity, Claude Desktop, Codex, Cursor and any other MCP client:**
   [docs/peers.md](docs/peers.md) has the configuration and test status for each.

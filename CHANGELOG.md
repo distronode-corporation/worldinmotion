@@ -29,6 +29,27 @@ body line with a bracket.
   signer nothing changes, and `wim doctor` advises running one. No wire or relay change
   (SECURITY-MODEL 7.1, 7.2 and 9; docs/design.md, the signer).
 
+- **`wim setup` configures every agent it finds.** After the Claude Code and VS Code steps, it
+  looks for Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI and Claude Desktop (a
+  command on `PATH`, or the agent's config directory) and, for each, adds the worldinmotion MCP
+  server and the agent's `wim hook` entries: the turn end, and the turn start where the agent has
+  one (Gemini CLI `BeforeAgent`, Codex `UserPromptSubmit`, Cursor `beforeSubmitPrompt`, Copilot CLI
+  `userPromptSubmitted`; none for Antigravity, and Claude Desktop has no hooks). The server offers
+  only `peers`, `inbox`, `wait` and `history` where the agent has a tool list (Gemini CLI
+  `includeTools`, Antigravity `enabledTools`, Codex `enabled_tools`, Copilot CLI `tools`); Cursor
+  and Claude Desktop have none and ask before each call. The launch is direct, node and the
+  absolute path to `wim.mjs`, never npx, npm or a shell, so the hook's session match works. Each
+  file change is shown as a diff and written only on a typed `y`, with the original copied beside
+  it; only the worldinmotion entries are touched, JSON keeps its indentation and key order, and
+  Codex's `config.toml` changes only the worldinmotion lines. A rerun reports an entry that is right
+  as configured and offers a stale path as an update, keeping what you added to the entry. A file
+  that is a symbolic link, larger than 1 MiB, or not valid JSON or TOML is left alone
+  (docs/peers.md, "What `wim setup` writes").
+- **`wim hook copilot` reads Copilot CLI's VS Code-compatible events too.** An entry configured as
+  `Stop` or `UserPromptSubmit` gets snake_case payloads that name their event; the hook now wakes at
+  that `Stop` and marks that `UserPromptSubmit` busy, as it does for `agentStop` and
+  `userPromptSubmitted`.
+
 - **Relay: dependable idle notices.** A relay now sends the notice armed with `notify_idle` (MCP
   `send` with `notify_when_idle`) also when the watched session has been offline for 60 seconds
   without reconnecting, so a session whose agent crashed or closed is reported too, and says why it
@@ -142,6 +163,26 @@ body line with a bracket.
   without that mark there is no wake. Every turn end that lets the agent stop, aborted and failed
   turns included, reports the session idle, so `notify_when_idle` now fires for these agents, and
   an optional turn-start entry (`wim hook <agent> start`) shows it busy while it works.
+- **The finished notice (`notify_when_idle`) is dependable on the client side.** An arm made while
+  offline is sent at the next `ready`, and a new process of the session sends every open one at
+  its first. A notice starts a turn only when the device that the armed address names is one the
+  person trusts, the loop breaker does not pause it, and the breaker admits one more delivery from
+  it, which it then counts; any other notice is spooled `quiet` (new spool fields `watched` and
+  `quiet`) and waits for `inbox` or `wait`. The notice names the address the agent armed. A
+  session may have at most 16 open watches, as the relay allows: past that, `send` arms nothing
+  more and says so in `watch_note`. The agent is told, quietly, when a watch lapses after 12 hours
+  with no notice, and when the relay refuses an arm (`not_found`, `limited`), naming the address
+  when it can tell which. `send` returns `watching: [{ to, until }]`, and with `notify_when_idle`
+  and no text it only arms. `wim hook` counts finished notices this session asked for, with a
+  fixed line of their own ("1 notice this session asked for is waiting in worldinmotion..."), and
+  the turn it asks for is a mesh turn as before. The wake rule moved to `wake.ts`, shared by the
+  hook. Notice wakes are counted per device on their own and toward the total; past a limit they
+  trip a cool-down on that device, which the person is told of. A session cannot watch its own
+  address. A relay refusal is taken only for an arm in flight (or, with `of`, an open watch), one
+  per arm. A damaged `watches.json` is left as it is, and arms are refused until it is removed. A
+  channel push writes `busy-mesh` first, and pushes nothing when it cannot. SPEC section 8 and
+  SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3 and 9 say so. **Until the Claude Code plugin reads
+  `quiet` (N2, which must merge before 0.2.0 ships), Claude Code hands quiet notices over as turns.**
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device

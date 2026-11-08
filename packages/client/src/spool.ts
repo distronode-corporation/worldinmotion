@@ -27,6 +27,10 @@ export type SpoolItem = {
   informs?: true;
   /** A notice only the person can act on (restart this session): the plugin shows it, never starts a turn. */
   forPerson?: true;
+  /** On an idle notice: the roster device id of the session this session armed it for (SPEC section 8). */
+  watched?: string;
+  /** On an idle notice that may not start a turn (its device is not trusted, paused, or past the breaker's limit): it waits for `inbox`, `wait` or a running turn. */
+  quiet?: true;
 };
 
 const NAME = /^(\d{12})\.json$/;
@@ -150,9 +154,10 @@ export class Spool {
   }
 
   /**
-   * Deletes taken items and returns them, so the caller can send their receipts. A relayed item
-   * is kept in the relayed box instead: the plugin never starts a turn for one, so it stays
-   * readable through `inbox` until an agent reads it or the person dismisses it.
+   * Deletes taken items and returns them, so the caller can send their receipts. A relayed item,
+   * or a quiet notice, is kept in the relayed box instead: nothing starts a turn for one, so it
+   * stays readable through `inbox` until an agent reads it or the person dismisses it, even when
+   * the cursor passed it for a later item that was pushed.
    */
   async sweep(alreadyRead: ReadonlySet<string> = new Set()): Promise<SpoolItem[]> {
     const upto = await this.cursor();
@@ -162,7 +167,7 @@ export class Spool {
       const item = await this.read(join(this.dir, name));
       // One that cannot be read yet is neither boxed nor removed: the next pass deals with it.
       if (item === BUSY) continue;
-      if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+      if ((item?.relayed === true || item?.quiet === true) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
         await writeJson(join(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }
@@ -173,7 +178,7 @@ export class Spool {
     return gone;
   }
 
-  /** Relayed items the cursor passed but nobody has read, oldest first. One still busy is left out this time. */
+  /** Relayed items and quiet notices the cursor passed but nobody has read, oldest first. One still busy is left out this time. */
   async relayed(): Promise<SpoolItem[]> {
     return (await this.box()).items;
   }

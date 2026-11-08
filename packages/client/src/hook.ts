@@ -1,7 +1,8 @@
 // `wim hook <agent>`: an agent's turn-end hook (docs/peers.md, waking at turn end). When messages
-// from trusted peers wait in this agent session's spool and were not announced yet, it asks the
-// agent for one more turn with a fixed line: how many, and to call `inbox`. Nothing a peer wrote or
-// chose (text, names, addresses, file names) ever reaches that line (SECURITY-MODEL section 7.1).
+// from trusted peers, or idle notices this session asked for about trusted peers, wait in this
+// agent session's spool and were not announced yet (wake.ts), it asks the agent for one more turn
+// with a fixed line: how many, and to call `inbox`. Nothing a peer or the relay wrote or chose
+// (text, names, addresses, file names) ever reaches that line (SECURITY-MODEL section 7.1).
 // Anything unclear lets the agent stop, and the command always exits 0. The turn it asks for is a
 // mesh turn: the session's presence reads `busy-mesh` before the line is printed, so what the agent
 // sends in it is marked derived (SPEC 6a), and a turn end that lets the agent stop writes a turn
@@ -17,9 +18,11 @@ import { Home } from "./home.ts";
 import { MeshFiles, type MeshConfig } from "./mesh.ts";
 import { readPauses } from "./pauses.ts";
 import { homeChoice, pidAlive, type Platform } from "./platform.ts";
-import { isTrusted } from "./render.ts";
 import { IDLE_MARK, listSessions, SessionFiles } from "./session.ts";
-import { Spool, type SpoolItem } from "./spool.ts";
+import { Spool } from "./spool.ts";
+import { wakeKind, wakeText } from "./wake.ts";
+
+export { wakeText } from "./wake.ts";
 
 /** The file `wim mcp` keeps in its session directory while it runs: its pid and the processes above it. */
 export const POINTER_FILE = "ancestry.json";
@@ -115,21 +118,19 @@ export const HOOK_AGENTS: Readonly<Record<string, AgentHook>> = {
     allow: "",
   },
   // The `agentStop` event's camelCase payload; its loop flag keeps the snake_case name. That form
-  // names no event: `userPromptSubmitted` is the one with a prompt and no loop flag.
+  // names no event: `userPromptSubmitted` is the one with a prompt and no loop flag. An entry
+  // configured under the VS Code-compatible names (`Stop`, `UserPromptSubmit`) gets snake_case
+  // payloads that name their event instead.
   copilot: {
-    read: (p) => flagged(p.sessionId, p.stop_hook_active),
-    start: (p) => key(p.sessionId) !== undefined && typeof p.prompt === "string" && !Object.hasOwn(p, "stop_hook_active"),
+    read: (p) => (p.hook_event_name === undefined ? flagged(p.sessionId, p.stop_hook_active) : p.hook_event_name === "Stop" ? flagged(p.session_id, p.stop_hook_active) : undefined),
+    start: (p) =>
+      p.hook_event_name === undefined
+        ? key(p.sessionId) !== undefined && typeof p.prompt === "string" && !Object.hasOwn(p, "stop_hook_active")
+        : p.hook_event_name === "UserPromptSubmit" && key(p.session_id) !== undefined,
     wake: (text) => JSON.stringify({ decision: "block", reason: text }),
     allow: "",
   },
 };
-
-/** The line the agent is given: a count and the instruction, nothing else. */
-export function wakeText(n: number): string {
-  return n === 1
-    ? "1 message from another AI session is waiting in worldinmotion. Call the worldinmotion inbox tool to read it."
-    : `${n} messages from other AI sessions are waiting in worldinmotion. Call the worldinmotion inbox tool to read them.`;
-}
 
 /** What the hook reads: its payload and where the device's state lives. */
 export type HookOptions = {
@@ -163,7 +164,7 @@ export async function hookAnswer(o: HookOptions): Promise<HookAnswer> {
   if (stop.ends !== undefined) return { out: agent.allow, why: await ended(o, stop.ends) };
   const found = await waiting(o, `${o.agent}\0${stop.key}`).catch(cannotTell);
   if (typeof found === "string") return { out: agent.allow, why: found };
-  return { out: agent.wake(wakeText(found)), why: `${found} waiting` };
+  return { out: agent.wake(wakeText(found.messages, found.notices)), why: `${found.messages + found.notices} waiting (messages ${found.messages}, notices ${found.notices})` };
 }
 
 const cannotTell = (error: unknown): string => `cannot tell: ${(error as Error).message}`;
@@ -208,19 +209,20 @@ function readPayload(input: string | undefined): Payload | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Payload) : undefined;
 }
 
-/** How many items wait for this agent session and announce something new, or why there is no wake. */
-async function waiting(o: HookOptions, sessionKey: string): Promise<number | string> {
+/** How many messages and notices wait for this agent session and announce something new, or why there is no wake. */
+async function waiting(o: HookOptions, sessionKey: string): Promise<{ messages: number; notices: number } | string> {
   const found = await locate(o);
   if (typeof found === "string") return found;
   const { mesh, files, env } = found;
   const config = await mesh.loadConfig();
   const now = o.now();
   const paused = new Set((await readPauses(files.breakerPath, now)).map((p) => p.peer));
-  const items = (await new Spool(files.spoolDir, env, 0).unread()).filter((i) => counts(i, config, paused));
+  const items = (await new Spool(files.spoolDir, env, 0).unread()).map((i) => ({ cursor: i.cursor, kind: wakeKind(i, config, paused) })).filter((i) => i.kind !== undefined);
   if (items.length === 0) return settle(found, "nothing waiting", now);
   const newest = Math.max(...items.map((i) => i.cursor));
   const why = await announce(files, sessionKey, newest, now, env);
-  return why === undefined ? items.length : why === NOTHING_NEW ? settle(found, why, now) : why;
+  const notices = items.filter((i) => i.kind === "notice").length;
+  return why === undefined ? { messages: items.length - notices, notices } : why === NOTHING_NEW ? settle(found, why, now) : why;
 }
 
 type Located = { mesh: MeshFiles; files: SessionFiles; env: FsEnv };
@@ -249,24 +251,6 @@ async function settle(at: Located, why: string, now: number): Promise<string> {
   return writeAtomic(at.files.presencePath, `idle ${mark}`, at.env).then(
     () => why,
     (error: unknown) => `${why}; idle not written: ${(error as Error).message}`,
-  );
-}
-
-/**
- * What counts: an unread message, task, result or file from a device the person trusts now, sent
- * by that peer itself, whose device the loop breaker does not hold. Notices (held counts, CI
- * notices, pauses), relayed items and notices for the person never count.
- */
-function counts(i: SpoolItem, config: MeshConfig, paused: ReadonlySet<string>): boolean {
-  return (
-    ["msg", "task", "result", "file"].includes(i.kind) &&
-    Number.isSafeInteger(i.cursor) &&
-    typeof i.device === "string" &&
-    i.device !== "" &&
-    i.relayed !== true &&
-    i.forPerson !== true &&
-    isTrusted(config, i.device) &&
-    !paused.has(i.device)
   );
 }
 

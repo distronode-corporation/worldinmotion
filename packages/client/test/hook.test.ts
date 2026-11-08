@@ -155,6 +155,22 @@ describe("wim hook: per agent", () => {
   });
 });
 
+describe("wim hook: Copilot CLI's VS Code-compatible events", () => {
+  // An entry configured as `Stop` or `UserPromptSubmit` gets the snake_case payloads that name
+  // their event (fixtures from the Copilot CLI hooks reference, not captured).
+  it("wakes at a `Stop` payload, lets a continuation's stop end, and marks a `UserPromptSubmit` busy", async () => {
+    const { root, meshDir } = await stateDir();
+    const dir = await session(meshDir, [AGENT]);
+    const stop = await fixture("copilot", "stop.vscode.documented.json");
+    expect(await hookAnswer(opts(root, "copilot", stop))).toEqual({ out: "", why: "nothing waiting" });
+    await item(dir);
+    expect(await out(opts(root, "copilot", stop))).toBe(wake("copilot", 1));
+    expect((await hookAnswer(opts(root, "copilot", JSON.stringify({ ...JSON.parse(stop), stop_hook_active: true })))).why).toBe("this stop already follows a continuation");
+    expect(await hookAnswer(opts(root, "copilot", await fixture("copilot", "user-prompt-submit.vscode.documented.json"), { event: "start" }))).toEqual({ out: "", why: "busy" });
+    expect(await fs.readFile(join(dir, "presence"), "utf8")).toBe("busy");
+  });
+});
+
 describe("wim hook: what counts", () => {
   it("never wakes for held, untrusted, relayed, CI or person-only items, notices, or a paused device", async () => {
     const { root, meshDir } = await stateDir();
@@ -191,6 +207,49 @@ describe("wim hook: what counts", () => {
     await fs.writeFile(join(dir, "spool", "cursor"), itemName(selfItem));
     await item(dir, { device: TRUSTED });
     expect(await out(opts(root, "copilot", input))).toBe(wake("copilot", 2));
+  });
+
+  it("wakes for an idle notice this session asked for about a trusted device, with its own fixed line", async () => {
+    const { root, meshDir } = await stateDir();
+    const dir = await session(meshDir, [AGENT]);
+    const input = JSON.stringify(DOCUMENTED.copilot);
+    // Notices that never count: quiet, about no device, a device held or unknown, relayed, for the person.
+    await item(dir, { kind: "notice", device: "", watched: TRUSTED, quiet: true, from: "boss@admin", rendered: "boss@admin is now idle" });
+    await item(dir, { kind: "notice", device: "" });
+    await item(dir, { kind: "notice", device: "", watched: "" });
+    await item(dir, { kind: "notice", device: "", watched: HELD });
+    await item(dir, { kind: "notice", device: "", watched: "dev-unknown" });
+    await item(dir, { kind: "notice", device: "", watched: TRUSTED, relayed: true });
+    await item(dir, { kind: "notice", device: "", watched: TRUSTED, forPerson: true });
+    await item(dir, { kind: "notice", device: "", watched: 7 as never });
+    expect(await hookAnswer(opts(root, "copilot", input))).toEqual({ out: "", why: "nothing waiting" });
+    // One that may wake: its own line, which names nobody.
+    await item(dir, { kind: "notice", device: "", watched: TRUSTED, from: "boss@admin", rendered: "boss@admin is now idle" });
+    const one = await hookAnswer(opts(root, "copilot", input));
+    expect(one).toEqual({ out: JSON.stringify({ decision: "block", reason: "1 notice this session asked for is waiting in worldinmotion. Call the worldinmotion inbox tool to read it." }), why: "1 waiting (messages 0, notices 1)" });
+    expect(one.out).not.toContain("boss");
+    // With messages too, one line counts both; this device's own sessions count as well.
+    await item(dir);
+    await item(dir, { device: SELF });
+    await item(dir, { kind: "notice", device: "", watched: SELF });
+    expect(await out(opts(root, "copilot", input))).toBe(
+      JSON.stringify({ decision: "block", reason: "2 messages from other AI sessions and 2 notices this session asked for are waiting in worldinmotion. Call the worldinmotion inbox tool to read them." }),
+    );
+    // A paused device's notices wait unannounced, as its messages do.
+    const now = Date.now();
+    const pause = { peer: SELF, from: "x@self", rule: "peer", count: 3, limit: 2, minutes: 60, at: now, until: now + 600_000, auto: true, told: [] };
+    await fs.writeFile(join(dir, "breaker.json"), JSON.stringify({ pauses: [pause], released: {}, lifts: [], counts: {} }));
+    await item(dir, { kind: "notice", device: "", watched: TRUSTED });
+    expect(await out(opts(root, "copilot", input))).toBe(JSON.stringify({ decision: "block", reason: wakeText(1, 2) }));
+  });
+
+  it("words the line for every count", () => {
+    expect(wakeText(1)).toBe("1 message from another AI session is waiting in worldinmotion. Call the worldinmotion inbox tool to read it.");
+    expect(wakeText(3, 0)).toBe("3 messages from other AI sessions are waiting in worldinmotion. Call the worldinmotion inbox tool to read them.");
+    expect(wakeText(0, 1)).toBe("1 notice this session asked for is waiting in worldinmotion. Call the worldinmotion inbox tool to read it.");
+    expect(wakeText(0, 2)).toBe("2 notices this session asked for are waiting in worldinmotion. Call the worldinmotion inbox tool to read them.");
+    expect(wakeText(1, 1)).toBe("1 message from another AI session and 1 notice this session asked for are waiting in worldinmotion. Call the worldinmotion inbox tool to read them.");
+    expect(wakeText(2, 1)).toBe("2 messages from other AI sessions and 1 notice this session asked for are waiting in worldinmotion. Call the worldinmotion inbox tool to read them.");
   });
 
   it("never puts peer text, names, addresses or file names in the output", async () => {
@@ -345,7 +404,11 @@ describe("wim hook: hostile payloads", () => {
       ["codex", JSON.stringify({ ...DOCUMENTED.codex, hook_event_name: "PreToolUse" })],
       ["cursor", JSON.stringify({ ...DOCUMENTED.cursor, hook_event_name: "afterAgentResponse" })],
       ["cursor", JSON.stringify({ ...DOCUMENTED.cursor, conversation_id: undefined })],
-      ["copilot", JSON.stringify({ hook_event_name: "Stop", session_id: "s", stop_hook_active: false })],
+      // A VS Code-style payload for another event, a VS Code-style stop with the camelCase key, and a
+      // camelCase payload that names an event.
+      ["copilot", JSON.stringify({ hook_event_name: "PreToolUse", session_id: "s", stop_hook_active: false })],
+      ["copilot", JSON.stringify({ hook_event_name: "Stop", sessionId: "s", stop_hook_active: false })],
+      ["copilot", JSON.stringify({ ...DOCUMENTED.copilot, hook_event_name: "agentStop" })],
     ];
     for (const [agent, input] of bad) {
       const answer = await hookAnswer(opts(root, agent, input));
@@ -505,6 +568,35 @@ describe("wim hook: the turn it asks for is a mesh turn", () => {
     await until(async () => (await peer.spool.unread()).length > 1);
     expect((await peer.spool.unread())[1]!.rendered).not.toMatch(/Derived:/);
   }, 20_000);
+
+  it("end to end: a notice this hooked session asked for wakes it at turn end, as a mesh turn", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const worker = await openSession(devices[1]!, mesh, relay, { name: "worker" });
+    cleanup.push(() => worker.stop());
+    const server = new WimMcp({ channel: false, internalTools: false, version: "t", session: sessionOpts(devices[0]!, mesh, relay, { name: "mgr", kind: "gemini-cli" }), ancestry: async (levels) => MINE.slice(0, levels) });
+    cleanup.push(() => server.close());
+    const s = await server.start()!;
+    await s.ready(3000);
+    await until(() => s.peers.has("worker@two"));
+    // The manager arms a watch with no message: only the watch.
+    await s.notifyWhenIdle(["worker@two"]);
+    await until(() => relay.sentByClients.includes('{"t":"notify_idle","of":"worker@two"}'));
+    await fs.writeFile(worker.files.presencePath, "busy");
+    await until(() => s.peers.get("worker@two")?.status === "busy");
+    await fs.writeFile(worker.files.presencePath, `idle ${Date.now()}`);
+    await until(async () => (await s.spool.unread()).some((i) => i.kind === "notice"));
+    const notice = (await s.spool.unread()).find((i) => i.kind === "notice")!;
+    expect(notice).toMatchObject({ watched: devices[1]!.device.id });
+    expect(notice).not.toHaveProperty("quiet");
+    const o = opts(devices[0]!.root, "gemini", await fixture("gemini-cli", "after-agent.first.json"));
+    expect(await out(o)).toBe(JSON.stringify({ decision: "deny", reason: wakeText(0, 1) }));
+    expect((await fs.readFile(s.files.presencePath, "utf8")).trim()).toBe("busy-mesh");
+    // What it sends in that turn is derived (decision D3).
+    await s.send("worker@two", "next step");
+    await until(async () => (await worker.spool.unread()).length > 0);
+    expect((await worker.spool.unread())[0]!.rendered).toMatch(/Derived: written while handling another agent's message/);
+  }, 20_000);
 });
 
 describe("wim hook: the command", () => {
@@ -518,7 +610,7 @@ describe("wim hook: the command", () => {
     stdin.end(await fixture("gemini-cli", "after-agent.first.json"));
     expect(await running).toBe(0);
     expect(t.out).toEqual([wake("gemini", 1)]);
-    expect(t.err).toEqual(["wim hook: 1 waiting"]);
+    expect(t.err).toEqual(["wim hook: 1 waiting (messages 1, notices 0)"]);
     // Unknown agents, extra words and flags: nothing read, nothing printed, exit 0 (never 2).
     for (const argv of [["hook"], ["hook", "nope"], ["hook", "gemini", "extra"], ["hook", "--help"], ["hook", "gemini", "--bad"]]) {
       const quiet = term(root, relay, { stdin: new PassThrough() });
@@ -693,6 +785,8 @@ describe("wim hook: presence from hooks", () => {
       ["copilot", JSON.stringify({ ...JSON.parse(await startPayload("copilot")), prompt: 7 })],
       ["copilot", JSON.stringify({ ...JSON.parse(await startPayload("copilot")), sessionId: "" })],
       ["copilot", JSON.stringify({ ...JSON.parse(await startPayload("copilot")), stop_hook_active: false })],
+      ["copilot", await fixture("copilot", "stop.vscode.documented.json")],
+      ["copilot", JSON.stringify({ ...JSON.parse(await fixture("copilot", "user-prompt-submit.vscode.documented.json")), session_id: "" })],
     ];
     for (const [agent, input] of bad) {
       expect(await hookAnswer(opts(root, agent, input, { event: "start" })), `${agent} ${input}`).toEqual({ out: agent === "cursor" ? '{"continue":true}' : "", why: "not a turn-start payload this agent sends" });

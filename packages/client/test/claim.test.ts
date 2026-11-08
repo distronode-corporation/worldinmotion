@@ -494,6 +494,6 @@ describe("`wim hook` after a claim", () => {
     const input = await fs.readFile(join(import.meta.dirname, "..", "..", "..", "test", "fixtures", "hooks", "gemini-cli", "after-agent.first.json"), "utf8");
     const root = devices[0]!.root;
     const answer = await hookAnswer({ agent: "gemini", input, env: { WIM_HOME: root }, platform: process.platform, homedir: root, uid: process.getuid?.(), pid: process.pid, now: Date.now, ancestry: async () => chain });
-    expect(answer).toEqual({ out: HOOK_AGENTS["gemini"]!.wake(wakeText(1)), why: "1 waiting" });
+    expect(answer).toEqual({ out: HOOK_AGENTS["gemini"]!.wake(wakeText(1)), why: "1 waiting (messages 1, notices 0)" });
   }, 20_000);
 });

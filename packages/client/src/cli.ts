@@ -43,6 +43,7 @@ import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
 import { RECOVERY_TITLE, runSetup, STORED_PROMPT, type ToolRun } from "./setup.ts";
+import { findLaunch, onPath, setupAgents } from "./agentsetup.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
 import { droppedCount, droppedLine, droppedPath, LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
@@ -757,6 +758,17 @@ function setup(ctx: Ctx): Promise<number> {
     join: (code) => joinWith(ctx, code, false),
     register: (mesh) => registerCli(ctx, mesh),
     status: () => status(ctx),
+    agents: async () =>
+      setupAgents({
+        io: ctx.io,
+        env: ctx.env,
+        platform: ctx.io.platform,
+        homedir: ctx.io.homedir,
+        wimHome: ctx.home.root,
+        launch: await findLaunch(ctx.io.programs?.wim),
+        onPath: (command) => onPath(command, ctx.env, ctx.io.platform),
+        now: ctx.io.now,
+      }),
   });
 }
 
