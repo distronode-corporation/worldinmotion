@@ -65,7 +65,7 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
     "command": "/usr/local/bin/wim",
     "args": ["worker", "runner", "--config", "/etc/wim-agent/runner.json"]
   },
-  "limits": { "ledgerPath": "/var/lib/wim-agent/ledger.json", "dailyJobs": 20 },
+  "limits": { "ledgerPath": "/var/lib/wim-agent/ledger.json", "dailyJobs": 50 },
   "replies": { "refused": "generic", "room": "#agents" }
 }
 ```
@@ -79,14 +79,14 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
 | `profiles.allowed`, `profiles.default` | none | Profile names a task may start with as `<name>: `. Not allowed with `wake.mode` `runner`. |
 | `runner.command` | required | The runner: an absolute path, or a name on `PATH`. |
 | `runner.args` | `[]` | Fixed arguments. Nothing from a message is ever put on a command line. |
-| `runner.timeoutSeconds` | `900` | Longest a job may take. A task's own deadline wins when sooner. |
+| `runner.timeoutSeconds` | `1800` | Longest a job may take. A task's own deadline wins when sooner. |
 | `runner.killGraceSeconds` | `15` | After the timeout, SIGTERM goes to the runner's process group, then SIGKILL this much later. |
 | `runner.passEnv` | `PATH HOME LANG LC_ALL TZ TMPDIR ANTHROPIC_API_KEY` | The only environment variables the runner inherits. Never the wake code's. |
 | `runner.logStderr` | `true` | Copy the runner's stderr to the worker's log, 500 characters a line at most. |
 | `limits.ledgerPath` | required | A JSON file holding today's job count, so a restart does not reset the daily cap. |
-| `limits.maxTaskChars` | `8000` | Longest message accepted. |
-| `limits.perSenderPerHour` | `10` | Attempts per device in any rolling hour, refused ones too, so a code cannot be guessed at speed. |
-| `limits.dailyJobs` | `20` | Jobs started per UTC day, across all senders. A job counts when it starts. |
+| `limits.maxTaskChars` | `16000` | Longest message accepted. |
+| `limits.perSenderPerHour` | `20` | Attempts per device in any rolling hour, refused ones too, so a code cannot be guessed at speed. |
+| `limits.dailyJobs` | `50` | Jobs started per UTC day, across all senders. A job counts when it starts. |
 | `replies.refused` | `generic` | What an allowed device hears when its code or profile is refused: `not accepted`, or nothing (`silent`). A device not on the list never hears anything. |
 | `replies.room` | none | A room that also gets each answer. The copy is the answer only: never the task, the raw text or the code. |
 
