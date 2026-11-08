@@ -130307,12 +130307,7 @@ function usableCode(code2) {
 function chooseProfile(text2, packageProfile, profiles, fallback2) {
   const parsed2 = parseProfile(text2.trim(), profiles, fallback2);
   if (!parsed2.ok) throw new Refusal(EXIT.refused, "profile prefix not on the allow-list");
-  const prefixed = parsed2.task !== text2.trim();
-  if (packageProfile !== "") {
-    if (!profiles.includes(packageProfile)) throw new Refusal(EXIT.refused, "request profile not on the allow-list");
-    if (prefixed && parsed2.profile !== packageProfile) throw new Refusal(EXIT.refused, "request profile and text prefix disagree");
-    return { profile: packageProfile, task: parsed2.task.trim() };
-  }
+  if (packageProfile !== "" && packageProfile !== parsed2.profile) throw new Refusal(EXIT.refused, "request profile does not match the signed text");
   return { profile: parsed2.profile, task: parsed2.task.trim() };
 }
 
