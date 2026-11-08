@@ -946,7 +946,9 @@ describe("a decision acted on once", () => {
     const again = await w.open("inbox");
     expect(again.pausedRows().map((r) => r.from)).toEqual(["a@one"]);
     await new HeldBox(again.files.heldDir, FS).leaveDecision(resume);
-    await until(async () => (await fs.readdir(again.files.heldDir)).every((n) => !n.endsWith(".decision")), "replay taken");
+    // Taken off disk is not yet acted on: the session queues it. Its first use is recorded before
+    // anything else it does, so the record says when the replay below can only be a copy.
+    await until(async () => (JSON.parse(await fs.readFile(join(w.files.dir, "decisions.used"), "utf8").catch(() => "{}")) as Record<string, number>)[`${again.sid} ${resume.n}`] !== undefined, "replay recorded");
     await expect(again.resumePeer("a@one", resume)).rejects.toThrow("was acted on already");
     expect(again.pausedRows().map((r) => r.from)).toEqual(["a@one"]);
     // A resume signed after the pause started lifts it.
