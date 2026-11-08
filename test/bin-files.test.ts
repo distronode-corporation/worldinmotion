@@ -2,12 +2,13 @@ import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Coverage excludes packages/*/src/bin.ts, so each must stay a thin wrapper: no branches of its
-// own, only imports from its own package and one call into a tested entry point.
+// Coverage excludes packages/*/src/bin.ts and bin-<name>.ts, so each must stay a thin wrapper: no
+// branches of its own, only imports from its own package and one call into a tested entry point.
 const root = join(import.meta.dirname, "..", "packages");
-const bins = readdirSync(root)
-  .map((pkg) => join(root, pkg, "src", "bin.ts"))
-  .filter((path) => existsSync(path));
+const bins = readdirSync(root).flatMap((pkg) => {
+  const src = join(root, pkg, "src");
+  return existsSync(src) ? readdirSync(src).filter((f) => /^bin(-[a-z]+)?\.ts$/.test(f)).map((f) => join(src, f)) : [];
+});
 
 // A line that branches. Keywords need word boundaries; the operators do not, because `\b` next to
 // `||` or `&&` needs a word character there, so the spaced form `a || b` would slip through.

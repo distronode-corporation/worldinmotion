@@ -336,7 +336,7 @@ describe("runWorker", () => {
       run: async () => ({ kind: "answered", answer: "ok", truncated: false }),
       runDeps: {},
     });
-    expect(logs).toEqual(["worker: listening; 2 allowed device(s), wake code local, 0 of 20 jobs used today"]);
+    expect(logs).toEqual(["worker: listening; 2 allowed device(s), wake code local, 0 of 50 jobs used today"]);
     deliver(item({ text: `${CODE} go` }));
     await worker.idle();
     expect(sent.map((s) => s.text)).toEqual(["ok"]);

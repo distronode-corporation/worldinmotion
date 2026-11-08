@@ -13,8 +13,8 @@ describe("loadConfig", () => {
   it("fills the defaults", () => {
     const c = loadConfig(base);
     expect(c.senders.requireTrusted).toBe(true);
-    expect(c.runner).toEqual({ command: "/usr/local/bin/runner", args: [], timeoutSeconds: 900, killGraceSeconds: 15, passEnv: DEFAULT_PASS_ENV, logStderr: true });
-    expect(c.limits).toEqual({ ledgerPath: "/var/lib/w/ledger.json", maxTaskChars: 8000, perSenderPerHour: 10, dailyJobs: 20 });
+    expect(c.runner).toEqual({ command: "/usr/local/bin/runner", args: [], timeoutSeconds: 1800, killGraceSeconds: 15, passEnv: DEFAULT_PASS_ENV, logStderr: true });
+    expect(c.limits).toEqual({ ledgerPath: "/var/lib/w/ledger.json", maxTaskChars: 16000, perSenderPerHour: 20, dailyJobs: 50 });
     expect(c.replies).toEqual({ refused: "generic" });
     expect(c.profiles).toBeUndefined();
   });
