@@ -1523,6 +1523,45 @@ That is safe only because of where the script can act, so isolation is the prope
   variables or without an interactive terminal on stdin and stdout, as a person-only command
   would. Each question is shown with its device and what the step expects.
 
+### 7.7 `wim worker`: a peer that runs agent jobs
+
+`wim worker` (package `@worldinmotion/agent`, README there) sleeps until a message arrives and
+runs one job through a runner command for an allowed sender. It is the one peer whose purpose is
+to act on what another session says, so its edges are these.
+
+- **Who wakes it.** Only a device id on its allow-list, taken from the item's verified signature
+  (the roster device whose key signed it), never the session or display name, which the sender
+  picks. By default the person must also trust that device on the worker's own device, read for
+  every item. Relayed items, `result`s and files never start a job. A device not on the list is
+  ignored without a reply.
+- **The wake code.** Optional. Checked in constant time (both sides are hashed to 32 bytes and
+  compared with `timingSafeEqual`), and counted against the sender's hourly attempts whether it
+  matches or not. When the worker is configured to leave the code to the runner, the worker
+  process never reads it, and the runner (for example under another OS user) checks it.
+- **No message text on disk.** The worker's session uses `redactStoredText`: spool files and
+  history entries keep every field but the text, an item the loop breaker would hold is refused
+  (with one `busy` reply per pause) rather than held, and an item from an untrusted device is held
+  for the person with its metadata only. So a wake code or a task never lands in plaintext under
+  the worker's state directory. Frames parked for a newer roster (section 6.4) stay encrypted.
+- **The runner contract.** One process per job, in its own process group, with the request on
+  stdin and only the configured environment variables. Nothing from a message is put on a command
+  line. A timeout sends SIGTERM to the group, then SIGKILL after a grace period; a runner started
+  through `sudo` must enforce its own timeout too, because the worker cannot signal root-owned
+  processes.
+- **The built-in runner** loads no settings, hooks, `CLAUDE.md` or MCP servers from the machine,
+  denies every tool not listed (read-only tools by default), and keeps no session. Prompt
+  injection is contained, not prevented: the model reads only what its OS user and `cwd` allow,
+  and its answer goes only to the sender and the configured room.
+- **Spend.** Task length, attempts per device per hour, one job at a time, a job timeout, and a
+  daily job cap kept on disk (a ledger that cannot be read counts as the cap reached), on top of
+  wim's loop and cost breaker (section 7.3) and whatever limit the model provider enforces.
+- **Replies** are always marked relayed (H1), so each recipient must trust the worker's device
+  with `--relayed` to receive them, and a recipient's agent treats them as third-party text.
+- **What it does not cover.** A compromised allowed device acts within the limits; a compromise
+  of the worker's OS user gives its device keys (and the code, when the worker holds it); a tool
+  set that can change the machine turns every allowed message into a command. Run the worker as
+  its own unprivileged user (the package's `docs/deploy.md`).
+
 ## 8. The A2A gateway
 
 `wim a2a` connects the mesh to Agent2Agent agents in both directions.
