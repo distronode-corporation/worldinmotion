@@ -135,7 +135,18 @@ describe("runnerMain", () => {
     expect(t.err[0]).toContain(message);
   });
 
-  it("fails on a request over 64 KiB", async () => {
+  it("reads a request of exactly RUNNER_MAX_REQUEST_BYTES and refuses one byte more", async () => {
+    const base = Buffer.byteLength(JSON.stringify({ ...req, text: "" }));
+    const at = JSON.stringify({ ...req, text: "x".repeat(RUNNER_MAX_REQUEST_BYTES - base) });
+    expect(Buffer.byteLength(at)).toBe(RUNNER_MAX_REQUEST_BYTES);
+    const ok = io({ request: at });
+    expect(await runnerMain([], ok.value)).toBe(0);
+    const over = io({ request: `${at} ` });
+    expect(await runnerMain([], over.value)).toBe(1);
+    expect(over.err).toEqual([`wim-agent-runner: request over ${RUNNER_MAX_REQUEST_BYTES} bytes`]);
+  });
+
+  it("fails on a request over the cap in several chunks", async () => {
     const t = io({ stdin: messages("x".repeat(RUNNER_MAX_REQUEST_BYTES), "y") as AsyncIterable<string> });
     expect(await runnerMain([], t.value)).toBe(1);
     expect(t.err).toEqual([`wim-agent-runner: request over ${RUNNER_MAX_REQUEST_BYTES} bytes`]);

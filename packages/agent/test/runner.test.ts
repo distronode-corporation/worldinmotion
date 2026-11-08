@@ -180,6 +180,13 @@ describe("helpers", () => {
     expect(encodeRequest({ ...req, frame: { boxes: "x".repeat(1024 * 1024 + 4 * 1024) } }).length).toBeLessThanOrEqual(RUNNER_MAX_REQUEST_BYTES);
   });
 
+  it("encodeRequest takes exactly RUNNER_MAX_REQUEST_BYTES and refuses one byte more", () => {
+    const base = Buffer.byteLength(JSON.stringify({ ...req, text: "" }));
+    const at = { ...req, text: "x".repeat(RUNNER_MAX_REQUEST_BYTES - base) };
+    expect(encodeRequest(at).length).toBe(RUNNER_MAX_REQUEST_BYTES);
+    expect(() => encodeRequest({ ...at, text: `${at.text}x` })).toThrow(`over ${RUNNER_MAX_REQUEST_BYTES}`);
+  });
+
   it("truncateUtf8 keeps short text whole", () => {
     expect(truncateUtf8(Buffer.from("abc"), 3)).toEqual({ text: "abc", truncated: false });
     expect(truncateUtf8(Buffer.from("aé"), 2)).toEqual({ text: "a", truncated: true });
