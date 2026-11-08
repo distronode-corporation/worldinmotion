@@ -6,7 +6,7 @@ import { decideJoin, issueInvite, joinMesh, revokeDevice } from "../src/admin.ts
 import { clock } from "../src/breaker.ts";
 import { heldSendLine, MeshSession, type HeldBreaker } from "../src/client.ts";
 import { DEFAULT_BREAKER, MeshFiles } from "../src/mesh.ts";
-import type { SpoolItem } from "../src/spool.ts";
+import { mayStartTurn, type SpoolItem } from "../src/spool.ts";
 import { FS, makeMesh, newDevice, openSession, RELAY, RelayHarness, scratch, sleep, spooled, until, type TestDevice, keysOf } from "./helpers.ts";
 
 const open: MeshSession[] = [];
@@ -149,6 +149,9 @@ describe("inbound policy and the breaker", () => {
     expect((await unread(b)).filter((i) => i.kind === "msg")).toEqual([]);
     await b.decide(first.id, "approve");
     expect((await unread(b)).some((i) => i.kind === "msg" && i.rendered.includes("please hold"))).toBe(true);
+    // Released for the person to read, never a turn: a held sender's item is spooled quiet, as
+    // `wim hook` would never wake for it, and so no reader of the spool starts one.
+    expect((await unread(b)).find((i) => i.rendered.includes("please hold"))).toMatchObject({ informs: true, quiet: true });
     const second = await a.send("b@two", "refuse me");
     await until(async () => (await b.held.list()).length === 1);
     await b.decide(second.id, "refuse");
@@ -228,6 +231,30 @@ describe("inbound policy and the breaker", () => {
     expect(pushed).toEqual([]);
     await b.take(items.at(-1)!.cursor);
     expect((await b.spool.relayed()).map((i) => i.rendered)).toEqual([items[0]!.rendered]);
+  });
+
+  it("keeps a notice from an older client (no quiet, no watch) in the box for inbox, and pushes only what may start a turn", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const b = await session(devices[0]!, mesh, relay, { name: "b" });
+    const old = await b.spool.write({ kind: "notice", from: "x@one", device: "", id: ulid(), at: 1, rendered: "an older client's notice" });
+    const forPerson = await b.spool.write({ kind: "notice", from: "x@one", device: "", id: ulid(), at: 1, rendered: "held", held: 1 });
+    await b.take(forPerson.cursor);
+    expect((await b.spool.relayed()).map((i) => i.id)).toEqual([old.id]);
+    // Read through inbox, it leaves the box and is not boxed again.
+    await b.inbox(false);
+    expect(await b.spool.relayed()).toEqual([]);
+    const base = { from: "x@one", device: "D", id: ulid(), at: 1, rendered: "r", cursor: 1 };
+    for (const kind of ["msg", "task", "result", "file"] as const) expect(mayStartTurn({ ...base, kind })).toBe(true);
+    expect(mayStartTurn({ ...base, kind: "notice", watched: "W" })).toBe(true);
+    for (const item of [
+      { ...base, kind: "notice" as const },
+      { ...base, kind: "notice" as const, watched: "" },
+      { ...base, kind: "proposal" as unknown as "msg" },
+      { ...base, kind: "msg" as const, quiet: true as const },
+      { ...base, kind: "msg" as const, relayed: true as const },
+      { ...base, kind: "notice" as const, watched: "W", forPerson: true as const },
+    ]) expect(mayStartTurn(item)).toBe(false);
   });
 
   it("pauses a peer past its limit, tells the person and the sender, and resumes on request", async () => {

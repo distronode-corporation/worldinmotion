@@ -1472,6 +1472,54 @@ test('a quiet field in any form but false keeps a notice, or any item, from star
   expect(w.submitted).toEqual([`${NOTICE_HEAD}idle notice, quiet false`])
 })
 
+test('an item of a kind the plugin does not know, or with no kind, never starts a turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'no kind at all', { kind: undefined }))
+  w.files.set(...item(2, 'a kind from a later client', { kind: 'proposal' }))
+  w.files.set(...item(3, 'an empty kind', { kind: '' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000003.json')
+  expect(w.toasts).toEqual(['worldinmotion: 3 notices in the inbox, not started as a turn (/wim)'])
+  // Each known kind still does, once.
+  for (const [at, kind] of ['msg', 'task', 'result', 'file'].entries()) w.files.set(...item(4 + at, `a ${kind}`, { kind }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  for (const kind of ['msg', 'task', 'result', 'file']) expect(w.submitted[0]).toContain(`a ${kind}`)
+})
+
+test('a notice whose watched is empty names no watch: it never starts a turn', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...notice(1, 'bob@laptop-b is now idle (or has ended).', { watched: '' }))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  expect(w.toasts).toEqual(['worldinmotion: 1 notice in the inbox, not started as a turn (/wim)'])
+})
+
+test('a notice that names no watch, behind a message in the same idle pass, waits for a later pass', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'a trusted message'))
+  w.files.set(...CLAIM)
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).not.toContain('took over')
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000001.json')
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.files.get(`${SPOOL}/cursor`)).toBe('000000000013.json')
+})
+
 test('a quiet notice behind a message in the same idle pass waits for a later pass and never rides its turn', async ($, on) => {
   const clock = mock.clock(on)
   const w = world(on)
@@ -1536,7 +1584,8 @@ test('a person\'s prompt that starts ahead of a pending submit leaves it pending
   expect(presence()).toBe('busy-mesh')
   await $.turn.complete(COMPLETE)
   await clock.settle()
-  expect(presence()).toBe('idle')
+  // Not idle: the submit's turn comes next.
+  expect(presence()).toBe('busy-mesh')
   // The submit's own turn: mesh, never plain busy.
   await $.turn.start({ text: w.submitted[0] ?? '', turnId: 't2' })
   expect(presence()).toBe('busy-mesh')
@@ -1547,26 +1596,66 @@ test('a person\'s prompt that starts ahead of a pending submit leaves it pending
   expect(presence()).toBe('busy')
 })
 
-test('a submit a hook reworded is forgotten after three turns start without it: later prompts are the person\'s again', async ($, on) => {
+test('pending submits no turn matches stay pending through any number of turns, and go only once the session stands idle', async ($, on) => {
   const clock = mock.clock(on)
   const w = world(on)
+  mock.session(on)
+  on('session.append', { door: 'note' }, () => ({ deny: 'not as a row' }))
+  await $.session.start(START)
+  const presence = () => w.files.get(`${SESSION}/presence`)
+  // Four submits, each made during the turn before (refused as rows, so each is a turn of its own).
+  await $.turn.start({ text: 'my own prompt', turnId: 't0' })
+  for (let n = 1; n <= 4; n++) w.files.set(...item(n, `message ${n}`))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(4)
+  await $.turn.complete({ ...COMPLETE, turnId: 't0' })
+  await clock.settle()
+
+  // A hook rewords every one, so no turn matches: each still runs as a mesh turn, and between
+  // them presence is never idle or plain busy.
+  for (let n = 1; n <= 5; n++) {
+    await $.turn.start({ text: `reworded ${n}`, turnId: `t${n}` })
+    expect(presence()).toBe('busy-mesh')
+    await $.turn.complete({ ...COMPLETE, turnId: `t${n}` })
+    await clock.advance(250)
+    await clock.settle()
+    expect(presence()).toBe('busy-mesh')
+  }
+  // Idle for less than the wait: still awaited.
+  await clock.advance(20_000)
+  await clock.settle()
+  expect(presence()).toBe('busy-mesh')
+  // Idle for the whole wait with no turn started: nothing is queued, so they are forgotten.
+  await clock.advance(11_000)
+  await clock.settle()
+  expect(presence()).toBe('idle')
+  await $.turn.start({ text: 'a later prompt', turnId: 't9' })
+  expect(presence()).toBe('busy')
+})
+
+test('a turn whose presence write fails is tried once more', async ($, on) => {
+  const clock = mock.clock(on)
+  let denials = 0
+  const w = world(on, { isWriteDenied: path => path === `${SESSION}/presence` && denials-- > 0 })
   await $.session.start(START)
   w.files.set(...item(1, 'please run the tests'))
   await clock.advance(250)
   await clock.settle()
   expect(w.submitted).toHaveLength(1)
-  const presence = () => w.files.get(`${SESSION}/presence`)
-
-  // Its turn starts with other text (a hook reworded it), and so do the two after: all marked mesh.
-  for (const [at, text] of ['reworded by a hook', 'my own prompt', 'another prompt'].entries()) {
-    await $.turn.start({ text, turnId: `t${at}` })
-    expect(presence()).toBe('busy-mesh')
-    await $.turn.complete({ ...COMPLETE, turnId: `t${at}` })
-    await clock.settle()
-  }
-  // Forgotten now: the person's next turn is plain busy.
-  await $.turn.start({ text: 'a later prompt', turnId: 't9' })
-  expect(presence()).toBe('busy')
+  await $.turn.complete(COMPLETE)
+  await clock.settle()
+  // One failed write: the second try lands.
+  denials = 1
+  await $.turn.start({ text: w.submitted[0] ?? '', turnId: 't1' })
+  expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+  await $.turn.complete({ ...COMPLETE, turnId: 't1' })
+  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+  // Two failed writes: the turn still runs, and presence is left as it was (the failure is logged).
+  denials = 2
+  await $.turn.start({ text: 'my own prompt', turnId: 't2' })
+  expect(w.files.get(`${SESSION}/presence`)).toBe('idle')
+  expect(denials).toBe(0)
 })
 
 test('a drop during a mesh turn puts presence back to busy-mesh, not busy', async ($, on) => {

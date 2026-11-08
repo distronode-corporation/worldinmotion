@@ -522,12 +522,14 @@ receipt from it arrives.
   address names, and `quiet: true` when it may not start a turn (that device is not trusted, is
   paused, or is past the breaker's limits; SECURITY-MODEL section 7.3): a quiet notice waits for
   `inbox`, `wait` or a running turn. So does the notice that a watch lapsed or was refused. Only a
-  notice with `watched` and no `quiet` may start a turn: the plugin, like `wim hook`, treats every
-  other notice (one from an older client included) as quiet, as it does a relayed item: appended
+  message, task, result or file, or a notice with `watched`, and none with `quiet`, may start a
+  turn: the plugin, like `wim hook`, treats every other item (a notice from an older client, a kind
+  it does not know or none) as quiet, as it does a relayed item: appended
   to a running turn, otherwise listed in its pane (under quiet notices), never submitted; any
   `quiet` but `false` counts. Like a relayed item, a quiet notice for the agent the cursor passed
-  unread (a later item was pushed) is kept in the `relayed/` box beside the spool until `inbox`
-  returns it; one for the person (`held`, `heldBy`, `forPerson`) is not. `informs: true` marks an item framed as information only; handing it to the agent starts
+  unread (a later item was pushed), and a notice from an older client that names no watch, is kept
+  in the `relayed/` box beside the spool until `inbox` returns it; one for the person (`held`,
+  `heldBy`, `forPerson`) is not. A held sender's message the person approves is spooled `quiet`. `informs: true` marks an item framed as information only; handing it to the agent starts
   the client's `derived` window, during which what the session sends is marked as derived from it. The mod hands
   each item to the session once: it claims an item (in `$.state`) before handing it over and gives
   the claim back only when that failed, so neither a failure later in a pass nor a pass still running

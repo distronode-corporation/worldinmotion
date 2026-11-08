@@ -46,10 +46,27 @@ export function cursorNumber(text: string | undefined): number {
   return m === null ? 0 : Number(m[1]);
 }
 
-/** Whether the sweep keeps a passed item in the relayed box for `inbox` (see Spool.sweep). */
-function boxes(item: SpoolItem): boolean {
+/**
+ * Whether the sweep keeps a passed item in the relayed box for `inbox` (see Spool.sweep): a relayed
+ * item, and anything for the agent that may not start a turn (a quiet item, or a notice that names
+ * no watch, as an older client wrote them). A notice for the person (held counts, a held receipt,
+ * a restart) is theirs and is not kept.
+ */
+export function keptInBox(item: SpoolItem): boolean {
   if (item.relayed === true) return true;
-  return item.quiet === true && item.held === undefined && item.heldBy === undefined && item.forPerson !== true;
+  if (item.held !== undefined || item.heldBy !== undefined || item.forPerson === true) return false;
+  return item.quiet === true || (item.kind === "notice" && item.watched === undefined);
+}
+
+/**
+ * Whether an item may be pushed to start a turn (a channel push): a message, task, result or file,
+ * or an idle notice this session armed, and none that is relayed, for the person or quiet. The
+ * allow-list `wim hook` (wakeKind) and the Claude Code plugin apply, so a kind this client does
+ * not know never starts one.
+ */
+export function mayStartTurn(item: SpoolItem): boolean {
+  if (item.relayed === true || item.forPerson === true || item.quiet === true) return false;
+  return (["msg", "task", "result", "file"] as const).some((kind) => kind === item.kind) || (item.kind === "notice" && item.watched !== undefined && item.watched !== "");
 }
 
 export class Spool {
@@ -174,7 +191,7 @@ export class Spool {
       const item = await this.read(join(this.dir, name));
       // One that cannot be read yet is neither boxed nor removed: the next pass deals with it.
       if (item === BUSY) continue;
-      if (item !== undefined && boxes(item) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+      if (item !== undefined && keptInBox(item) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
         await writeJson(join(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }

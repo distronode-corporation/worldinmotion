@@ -16,7 +16,7 @@ import { POINTER_LEVELS, type Ancestor } from "./ancestry.ts";
 import { ensureDir, tryRemove, writeAtomic, writeJson } from "./fsx.ts";
 import { removePointer, writePointer } from "./hook.ts";
 import { SessionFiles, SessionKeys } from "./session.ts";
-import type { SpoolItem } from "./spool.ts";
+import { mayStartTurn, type SpoolItem } from "./spool.ts";
 import type { RelayQuote } from "./wire.ts";
 
 export const WAIT_DEFAULT_S = 110;
@@ -348,12 +348,11 @@ export class WimMcp {
     s.start();
     this.session = s;
     await this.point(s);
-    // As MeshSession.deliver does: a relayed item, a notice for the person or a quiet one never
-    // starts a turn. Taken once pushed; one that cannot be pushed stops this, and it and the rest
-    // wait for inbox.
+    // As MeshSession.deliver does: only an item that may start a turn (mayStartTurn) is pushed.
+    // Taken once pushed; one that cannot be pushed stops this, and it and the rest wait for inbox.
     if (this.o.channel) {
       for (const item of await s.spool.unread()) {
-        if (item.relayed === true || item.forPerson === true || item.quiet === true) continue;
+        if (!mayStartTurn(item)) continue;
         if (!(await this.pushChannel(s, item).then(() => true, () => false))) break;
         await s.take(item.cursor);
       }

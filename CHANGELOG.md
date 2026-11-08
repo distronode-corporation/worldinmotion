@@ -188,22 +188,27 @@ body line with a bracket.
   per arm. A damaged `watches.json` is left as it is, and arms are refused until it is removed. A
   channel push writes `busy-mesh` first, and pushes nothing when it cannot. SPEC section 8 and
   SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3 and 9 say so.
-- **The Claude Code plugin honours `quiet`, and only an armed notice wakes.** A notice starts a
-  turn only when it is an idle notice this session armed (it names the watched device) and is not
-  `quiet`; any other notice, one from before the watch was named, and one with a malformed `quiet`
-  never start one. During a turn it is added to it, otherwise it waits in the `/wim` pane, under
-  quiet notices, apart from relayed items, and for `inbox`. The client spools its own notices
+- **The Claude Code plugin honours `quiet`, and only an armed notice wakes.** An item starts a
+  turn only when it is a message, task, result or file, or an idle notice this session armed (it
+  names the watched device), and is not `quiet`. Any other notice, one from before the watch was
+  named, an item of an unknown kind or none, and one with a malformed `quiet` never start one.
+  During a turn such an item is added to it, otherwise it waits in the `/wim` pane, under quiet
+  notices, apart from relayed items, and for `inbox`. The client spools its own notices
   (unreadable or dropped messages, held receipts, claims, releases, renames, lost leases, pauses)
-  `quiet`, so the channel push skips them too, and the agent's ones wait in the box for `inbox`. A
-  waking notice starts one turn, as before. Every turn the plugin starts writes `busy-mesh` to the
-  session's presence first, and when that write fails nothing is submitted: the items wait for a
-  turn end that can write it. A person's prompt that starts while a submit is pending no longer
-  takes that submit's place, so the submit's own turn is still a mesh turn.
+  `quiet`, and a held sender's message the person approves too, so the channel push skips them;
+  the agent's ones, and notices from an older client, wait in the box for `inbox`. A waking notice
+  starts one turn, as before. Every turn the plugin starts writes `busy-mesh` to the session's
+  presence first, and when that write fails nothing is submitted: the items wait for a turn end
+  that can write it. A person's prompt that starts while a submit is pending no longer takes that
+  submit's place, presence stays `busy-mesh` until the submit's turn starts, and pending submits
+  are forgotten only after 30 seconds idle with nothing started. SendMessage with
+  `notify_when_idle` and no message (or an empty one) only arms the watch, sends no text, and
+  answers "worldinmotion will tell this session when `<to>` finishes". SECURITY-MODEL section 7.3
+  and the plugin README say so.
 - **Receipts only for messages this session sent.** A receipt for any other id is dropped and
-  logged: no notice and no history line. SendMessage with `notify_when_idle`
-  and no message (or an empty one) only arms the watch, sends no text, and answers "worldinmotion
-  will tell this session when `<to>` finishes". SECURITY-MODEL section 7.3 and the plugin README
-  say so.
+  logged before it is kept or told: no event, no notice and no history line. At most four
+  unknown ids are looked up in history at once, and the receipts kept for `send --wait` are
+  bounded.
 - **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
   dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
   names the sender and carries none of the message, and `wim status` shows how many this device

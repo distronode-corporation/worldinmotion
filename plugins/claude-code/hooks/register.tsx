@@ -90,14 +90,17 @@ const cursor = atom({ plugin: 'worldinmotion', key: 'cursor' } as const, '', { s
 const busy = atom({ plugin: 'worldinmotion', key: 'busy' } as const, false)
 // True while the running main-loop turn is one the plugin started with a mesh item.
 const meshTurn = atom({ plugin: 'worldinmotion', key: 'meshTurn' } as const, false)
-// Mesh submits not yet seen to start their turn, by text, each with the turns
-// that started since without it.
+// Mesh submits not yet seen to start their turn, by text, with when each was submitted.
 const pendingSubmits = atom({ plugin: 'worldinmotion', key: 'pendingSubmits' } as const, [], {
-  shape: 'pending-2',
+  shape: 'pending-3',
 })
-// How many turns may start ahead of a pending submit (prompts queued before it)
-// before it counts as reworded and is forgotten.
-const PENDING_MISSES = 3
+// When the last main-loop turn ended (0 before any did this load).
+const idleSince = atom({ plugin: 'worldinmotion', key: 'idleSince' } as const, 0)
+// How long the session must stand idle, with no turn started since the last
+// one ended and since the newest submit, before the pending submits are
+// forgotten: a queued prompt starts as soon as the turn before it ends, so
+// nothing is queued by then (a hook reworded the submit, or the engine merged it).
+const PENDING_IDLE_MS = 30_000
 // Why the tab is not linked, in the client's words; '' once it is.
 const problem = atom({ plugin: 'worldinmotion', key: 'problem' } as const, '', { shape: 'problem-1' })
 // Notices the client meant for the person (a restart it needs), newest last.
@@ -224,13 +227,13 @@ async function writePresence($: EngineInterface, state: 'busy' | 'busy-mesh' | '
 }
 
 /**
- * Writes the presence that stands now: idle, or the running turn's busy or
- * busy-mesh. Never busy while a submit is pending: the turn running may be it.
+ * Writes the presence that stands now: the running turn's busy or busy-mesh,
+ * else idle. While a submit is pending it is busy-mesh, idle or not: the turn
+ * that starts next, or the one running, may be it.
  */
-async function writePresenceNow($: EngineInterface): Promise<void> {
-  const isBusy = await read($, busy)
+async function writePresenceNow($: EngineInterface): Promise<boolean> {
   const isMesh = (await read($, meshTurn)) || (await read($, pendingSubmits)).length > 0
-  await writePresence($, !isBusy ? 'idle' : isMesh ? 'busy-mesh' : 'busy')
+  return writePresence($, isMesh ? 'busy-mesh' : (await read($, busy)) ? 'busy' : 'idle')
 }
 
 /** Takes the late list and empties it in one versioned write. */
@@ -258,7 +261,8 @@ async function submit($: EngineInterface, text: string): Promise<boolean> {
     $.ui.log('worldinmotion: a delivery waits: this session could not be marked busy-mesh (its presence file), so no turn was started')
     return false
   }
-  await update($, pendingSubmits, list => [...list, { text, misses: 0 }])
+  const at = await $.clock.now()
+  await update($, pendingSubmits, list => [...list, { text, at }])
   const sent = await $.prompt.submit({ text }).catch(async error => {
     await forgetSubmit($, text)
     await writePresenceNow($)
@@ -287,20 +291,34 @@ function withoutText<T extends { text: string }>(list: T[], text: string): T[] {
  * that matches none (the person's prompt queued ahead of a submit, or a submit
  * a hook reworded) is still marked mesh, and the entries stay: consuming one
  * would let the submit's own turn start later as plain busy, not derived.
- * Each entry counts the turns that started without it, and one that misses
- * PENDING_MISSES is taken as reworded and forgotten, so a reworded submit
- * marks only the next few turns. Misreading a person's turn as mesh only
- * marks more sends as derived.
+ * The engine names no submit in the turn it starts, so entries are matched by
+ * text alone, and forgotten only once the session has stood idle with nothing
+ * queued (forgetIdlePending). Misreading a person's turn as mesh only marks
+ * more sends as derived.
  */
 async function takeSubmit($: EngineInterface, text: string): Promise<boolean> {
   let isMesh = false
   await update($, pendingSubmits, list => {
     isMesh = list.length > 0
-    const rest = withoutText(list, text)
-    if (rest !== list) return rest
-    return list.map(one => ({ ...one, misses: one.misses + 1 })).filter(one => one.misses < PENDING_MISSES)
+    return withoutText(list, text)
   })
   return isMesh
+}
+
+/**
+ * From the timer: forgets the pending submits once the session has stood idle
+ * for PENDING_IDLE_MS since its last turn ended and since the newest of them,
+ * and puts presence back to idle. Before that, presence stays busy-mesh.
+ */
+async function forgetIdlePending($: EngineInterface): Promise<void> {
+  const list = await read($, pendingSubmits)
+  if (list.length === 0 || (await read($, busy))) return
+  const now = await $.clock.now()
+  const since = Math.max(await read($, idleSince), ...list.map(one => one.at))
+  if (now - since < PENDING_IDLE_MS) return
+  await update($, pendingSubmits, () => [])
+  $.ui.log(`worldinmotion: ${list.length} submitted turn${list.length === 1 ? '' : 's'} never started under the text submitted; no longer awaited`)
+  await writePresenceNow($)
 }
 
 /**
@@ -540,13 +558,18 @@ async function sendBatch($: EngineInterface, batch: Pass['batch']): Promise<bool
 
 /**
  * Whether a spool item may start a turn, as the client's `wim hook` decides (wakeKind): a
- * message, or a notice only when it is an idle notice this session armed (`watched`). Nothing
- * the client made quiet. Every other notice, and one in a format from before `watched`, is
- * quiet: an allow-list, so a notice the plugin does not know never starts a turn.
+ * message, task, result or file, or an idle notice this session armed (`watched`), and nothing
+ * the client made quiet. Every other item (a notice in a format from before `watched`, a kind
+ * missing or unknown) is quiet: an allow-list, so what the plugin does not know never starts a
+ * turn. Trust is the client's: it spools a held sender's released item quiet.
  */
 function mayWake(item: SpoolItem): boolean {
-  return item.quiet !== true && (item.kind !== 'notice' || item.watched !== undefined)
+  if (item.quiet === true) return false
+  return WAKING_KINDS.includes(item.kind) || (item.kind === 'notice' && item.watched !== undefined)
 }
+
+/** The kinds of message that may start a turn, as wakeKind lists them: nothing else does. */
+const WAKING_KINDS: readonly string[] = ['msg', 'task', 'result', 'file']
 
 /**
  * Hands one claimed spool item over: true once it is, false when it waits in
@@ -712,6 +735,7 @@ async function tick($: EngineInterface): Promise<void> {
   isTicking = true
   try {
     await linkFromFile($)
+    await forgetIdlePending($)
     await deliver($)
   } catch (error) {
     $.ui.log(`worldinmotion: delivery failed: ${String(error)}`)
@@ -1061,7 +1085,11 @@ export const register: Register = on => {
       const isMesh = await takeSubmit($, e.text)
       await update($, busy, () => true)
       await update($, meshTurn, () => isMesh)
-      await writePresence($, isMesh ? 'busy-mesh' : 'busy')
+      // The turn runs either way: a presence it could not write is tried once
+      // more, then logged, as the client reads a stale one (idle) from then on.
+      if (!(await writePresence($, isMesh ? 'busy-mesh' : 'busy')) && !(await writePresence($, isMesh ? 'busy-mesh' : 'busy'))) {
+        $.ui.log(`worldinmotion: could not mark this session ${isMesh ? 'busy-mesh' : 'busy'} (its presence file) for the turn now starting`)
+      }
       await noteTeammates($)
     }
     return next(e)
@@ -1078,7 +1106,10 @@ export const register: Register = on => {
     if (e.agentId !== undefined) return next(e)
     await update($, busy, () => false)
     await update($, meshTurn, () => false)
-    await writePresence($, 'idle')
+    const endedAt = await $.clock.now()
+    await update($, idleSince, () => endedAt)
+    // Idle, unless a submit is pending: its turn starts next, so presence stays busy-mesh.
+    await writePresenceNow($)
     // Not awaited: the submitted turn starts only after this one has ended.
     // Kept items go with the late line, as the mods API docs say to retry a dropped submit.
     void handOverKept($).catch(error => $.ui.log(`worldinmotion: ${String(error)}`))

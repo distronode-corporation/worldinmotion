@@ -23,6 +23,7 @@ import {
   signAuthWith,
   ulid,
   ulidTime,
+  isUlid,
   type BlobChunkFrame,
   type ErrorFrame,
   type Card,
@@ -62,7 +63,7 @@ import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
-import { frameEntry, History, releasedFrame, type HistoryEntry } from "./history.ts";
+import { frameEntry, History, KEEP_MS, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
 import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
 import { resumeEverywhere } from "./offline.ts";
@@ -77,7 +78,7 @@ import { NeedsSigner } from "./keyring.ts";
 import { PongBudget, type PingRow } from "./ping.ts";
 import { Invites, PendingJoins, screenJoin } from "./joins.ts";
 import { SignerError } from "./signer.ts";
-import { Spool, type SpoolItem } from "./spool.ts";
+import { keptInBox, mayStartTurn, Spool, type SpoolItem } from "./spool.ts";
 import { Watches, type Armed } from "./watches.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
 
@@ -349,6 +350,12 @@ const CARD_EVERY_MS = 60_000;
 export const PARKED_MAX = 64;
 /** How many ids of its own sends a session remembers, to know their receipts before history has them. */
 export const SENT_IDS_MAX = 4096;
+/** How many sent ids keep their receipts in memory (MeshSession.receipts). */
+export const RECEIPTS_MAX = 1024;
+/** How many history lookups for receipts of unknown ids may run at once; more are dropped. */
+export const RECEIPT_LOOKUPS_MAX = 4;
+/** How far ahead of this clock a send id's time may be and still be this session's. */
+const RECEIPT_SKEW_MS = 5 * 60_000;
 /** How long an answer to a handed-over send waits for the CLI that asked. */
 export const ANSWER_KEEP_MS = 5 * 60_000;
 const GROUP = (to: readonly string[]): boolean => to.some((a) => a === "*" || isRoom(a));
@@ -982,14 +989,9 @@ export class MeshSession extends EventEmitter {
         if (f.peer.address !== this.address) this.peers.set(f.peer.address, f.peer);
         this.emit("peers");
         return;
-      case "receipt": {
-        const list = this.receipts.get(f.id) ?? [];
-        list.push({ to: f.to, status: f.status });
-        this.receipts.set(f.id, list);
-        this.emit("receipt", f);
-        void this.recordReceipt(f).catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`));
+      case "receipt":
+        this.onReceipt(f);
         return;
-      }
       case "notice":
         void this.idleNotice(f.of).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
         return;
@@ -1704,7 +1706,7 @@ export class MeshSession extends EventEmitter {
     if (entry !== undefined && entry.ci === undefined) this.emit("message", { ...entry, cursor: written.cursor } satisfies Inbound);
     // A relayed item must not start a turn, so it waits in the inbox instead of being pushed; a
     // notice for the person is not the model's either, and a quiet one never starts a turn.
-    if (this.push !== undefined && written.relayed !== true && written.forPerson !== true && written.quiet !== true) {
+    if (this.push !== undefined && mayStartTurn(written)) {
       await this.push(written);
       await this.take(written.cursor);
     }
@@ -1838,12 +1840,34 @@ export class MeshSession extends EventEmitter {
    * person through the plugin's toast, or the agent) learns that it waits for the recipient's
    * person and is not delivered. Branches before any await (see AgentServer.answerLine).
    */
-  private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
-    if (this.sentIds.has(f.id)) return this.recordOwnReceipt(f);
+  private onReceipt(f: { id: string; to: string; status: string }): void {
+    if (this.sentIds.has(f.id)) return this.takeReceipt(f);
+    const dropped = (why: string): void => this.log(`wim: dropped a receipt for ${sanitizeForDisplay(f.id)}: ${why}`);
     // Not sent by this run: sent before a restart (its history has it), or the relay's invention.
-    return this.history.find(f.id).then((entry) =>
-      entry?.dir === "out" ? this.recordOwnReceipt(f) : this.log(`wim: dropped a receipt for ${sanitizeForDisplay(f.id)}: not a message this session sent`),
-    );
+    // Only an id history could hold is looked up, and only a few at a time.
+    const now = this.now();
+    if (!isUlid(f.id) || ulidTime(f.id) > now + RECEIPT_SKEW_MS || ulidTime(f.id) < now - KEEP_MS) return dropped("not a message this session sent");
+    if (this.receiptLookups >= RECEIPT_LOOKUPS_MAX) return dropped("too many receipts for unknown messages at once");
+    this.receiptLookups++;
+    void this.history
+      .find(f.id)
+      .then((entry) => (entry?.dir === "out" ? this.takeReceipt(f) : dropped("not a message this session sent")))
+      .catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`))
+      .finally(() => this.receiptLookups--);
+  }
+
+  /** Lookups in history for receipts this run does not know, under way now. */
+  private receiptLookups = 0;
+
+  /** A receipt for a message this session sent: kept for `send --wait` (the newest RECEIPTS_MAX ids), told, recorded. */
+  private takeReceipt(f: { id: string; to: string; status: string }): void {
+    const list = this.receipts.get(f.id) ?? [];
+    list.push({ to: f.to, status: f.status });
+    this.receipts.delete(f.id);
+    this.receipts.set(f.id, list);
+    if (this.receipts.size > RECEIPTS_MAX) this.receipts.delete(this.receipts.keys().next().value!);
+    this.emit("receipt", f);
+    void this.recordOwnReceipt(f).catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`));
   }
 
   /** A receipt for a message this session sent. */
@@ -3128,7 +3152,7 @@ export class MeshSession extends EventEmitter {
    */
   async markRead(items: readonly SpoolItem[]): Promise<void> {
     // Read here, so no sweep (this one or a concurrent pass) keeps them in the relayed box.
-    for (const i of items) if (i.relayed === true || i.quiet === true) this.readRelayed.add(i.id);
+    for (const i of items) if (keptInBox(i)) this.readRelayed.add(i.id);
     const newest = Math.max(0, ...items.map((i) => i.cursor));
     if (newest > this.spool.taken) await this.take(newest);
     // A pass that was already writing one to the box when the read began is undone here.
@@ -3160,7 +3184,7 @@ export class MeshSession extends EventEmitter {
         if (over || first === undefined) return;
         finish();
         // A relayed item or a quiet notice is read now, so the sweep does not keep it in the box for inbox.
-        if (first.relayed === true || first.quiet === true) this.readRelayed.add(first.id);
+        if (keptInBox(first)) this.readRelayed.add(first.id);
         this.take(first.cursor).then(() => {
           this.informed([first]);
           resolve(first);

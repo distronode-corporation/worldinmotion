@@ -60,7 +60,8 @@ export function parseItem(text: string): SpoolItem | undefined {
   const held = value.held
   return {
     cursor: num(value.cursor),
-    kind: str(value.kind, 'msg'),
+    // No default kind: one that is missing is unknown, and never starts a turn.
+    kind: str(value.kind),
     from: str(value.from),
     device: str(value.device),
     id: str(value.id),
