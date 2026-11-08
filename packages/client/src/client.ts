@@ -850,8 +850,9 @@ export class MeshSession extends EventEmitter {
     void this.sendCard(link, true);
     this.ciSent = undefined;
     void this.sendCiRules(link);
-    // The list never rejects (an unreadable file reads as none), and sending one never throws.
-    void this.watches.list().then((open) => this.resendArms(open, link));
+    // In order with the notices being taken (one taken first is not re-armed). The read never
+    // rejects (an unreadable file reads as none), and sending an arm never throws.
+    void this.watches.open().then((open) => this.resendArms(open, link));
     this.retryParkedLater();
   }
 
@@ -2996,6 +2997,8 @@ export class MeshSession extends EventEmitter {
         const first = items[0];
         if (over || first === undefined) return;
         finish();
+        // A relayed item or a quiet notice is read now, so the sweep does not keep it in the box for inbox.
+        if (first.relayed === true || first.quiet === true) this.readRelayed.add(first.id);
         this.take(first.cursor).then(() => {
           this.informed([first]);
           resolve(first);

@@ -92184,6 +92184,16 @@ var Watches = class {
     const raw = await readJson(this.path).catch(() => void 0);
     return Array.isArray(raw?.watches) ? raw.watches.filter(isWatch) : [];
   }
+  /**
+   * The watches that have not lapsed, read after every change asked for before it: a notice
+   * taken first is not listed as open.
+   */
+  open() {
+    return this.change((watches) => {
+      const now = this.now();
+      return { out: watches.filter((w) => w.until > now) };
+    });
+  }
   /** The watches that have not lapsed. */
   async list() {
     const now = this.now();
@@ -93166,7 +93176,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     void this.sendCard(link, true);
     this.ciSent = void 0;
     void this.sendCiRules(link);
-    void this.watches.list().then((open3) => this.resendArms(open3, link));
+    void this.watches.open().then((open3) => this.resendArms(open3, link));
     this.retryParkedLater();
   }
   /**
@@ -95012,6 +95022,7 @@ ${frameEntry(entry)}`);
         const first = items[0];
         if (over || first === void 0) return;
         finish();
+        if (first.relayed === true || first.quiet === true) this.readRelayed.add(first.id);
         this.take(first.cursor).then(() => {
           this.informed([first]);
           resolve4(first);

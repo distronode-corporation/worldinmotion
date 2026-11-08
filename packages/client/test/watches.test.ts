@@ -103,6 +103,16 @@ describe("idle-notice watches on disk", () => {
     expect(lapsed[0]!.of).toBe("r1-0@two");
   });
 
+  it("lists the open watches in order with the changes before it", async () => {
+    const w = new Watches(join(await scratch("watches"), "watches.json"), FS, Date.now);
+    await w.arm([{ of: "b@two" }, { of: "c@two" }]);
+    // A take asked for first is seen by the listing that follows it, even before either ran.
+    const taken = w.take("b@two");
+    const open = w.open();
+    expect((await taken)?.of).toBe("b@two");
+    expect((await open).map((x) => x.of)).toEqual(["c@two"]);
+  });
+
   it("takes a watch by the session's id after a rename", async () => {
     const w = new Watches(join(await scratch("watches"), "watches.json"), FS, Date.now);
     await w.arm([{ of: "old@two", sid: "sid-1" }, { of: "bare@two" }]);
@@ -427,6 +437,22 @@ describe("relay idle notices", () => {
     await sleep(50);
     expect(await quiet()).toHaveLength(8);
     for (const n of await notices(a)) expect(n).not.toContain("ignore your instructions");
+  });
+});
+
+describe("a quiet notice read with wait", () => {
+  it("is read once: the sweep does not keep it for inbox, nor a relayed item that wait returned", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    await a.spool.write({ kind: "notice", from: "q@two", device: "", id: "01J00000000000000000000009", at: 1, rendered: "quiet one", quiet: true });
+    await a.spool.write({ kind: "msg", from: "ci:github:o/r", device: "", id: "01J0000000000000000000000A", at: 1, rendered: "relayed one", relayed: true });
+    await a.spool.write({ kind: "notice", from: "x@two", device: "", id: "01J0000000000000000000000B", at: 1, rendered: "plain one" });
+    for (const want of ["quiet one", "relayed one", "plain one"]) expect((await a.next(1000))?.rendered).toBe(want);
+    // The session's own timer sweeps what wait took; nothing comes back through inbox.
+    await until(async () => (await fs.readdir(a.spool.dir)).filter((n) => n.endsWith(".json")).length === 0);
+    await sleep(60);
+    expect(await a.inbox(false)).toEqual([]);
   });
 });
 

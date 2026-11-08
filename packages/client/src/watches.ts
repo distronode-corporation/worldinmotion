@@ -48,6 +48,17 @@ export class Watches {
     return Array.isArray(raw?.watches) ? raw.watches.filter(isWatch) : [];
   }
 
+  /**
+   * The watches that have not lapsed, read after every change asked for before it: a notice
+   * taken first is not listed as open.
+   */
+  open(): Promise<Watch[]> {
+    return this.change((watches) => {
+      const now = this.now();
+      return { out: watches.filter((w) => w.until > now) };
+    });
+  }
+
   /** The watches that have not lapsed. */
   async list(): Promise<Watch[]> {
     const now = this.now();
