@@ -64,7 +64,7 @@ const ConfigSchema = z
       command: z.string().min(1),
       /** Fixed arguments. Nothing from a message is ever put on the command line. */
       args: z.array(z.string()).default([]),
-      timeoutSeconds: z.number().positive().max(86_400).default(900),
+      timeoutSeconds: z.number().positive().max(86_400).default(1800),
       /** After the timeout: SIGTERM to the runner's process group, then SIGKILL this much later. */
       killGraceSeconds: z.number().nonnegative().max(600).default(15),
       /** The only environment variables the runner inherits from the worker. */
@@ -76,11 +76,11 @@ const ConfigSchema = z
       /** The JSON file that holds today's job count, so a restart does not reset the daily cap. */
       ledgerPath: z.string().min(1),
       /** Longest task accepted, in characters, counted on the text as it arrives. */
-      maxTaskChars: positiveInt.max(60_000).default(8_000),
+      maxTaskChars: positiveInt.max(60_000).default(16_000),
       /** Attempts (accepted or not) per sender device in any rolling hour, so a code cannot be guessed. */
-      perSenderPerHour: positiveInt.default(10),
+      perSenderPerHour: positiveInt.default(20),
       /** Jobs started per UTC day, across all senders. */
-      dailyJobs: positiveInt.default(20),
+      dailyJobs: positiveInt.default(50),
     }),
     replies: z
       .strictObject({
