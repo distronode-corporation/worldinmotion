@@ -225,6 +225,41 @@ describe("RosterBook", () => {
     expect(await gbook.accept([otherGenesis])).toMatchObject({ ok: false, reason: "forked" });
   });
 
+  it("never moves its head back when a slower accept of an older roster finishes last (#114)", async () => {
+    const f = await files();
+    const { rosters, admin } = chain(3);
+    await f.createConfig(config(rosters[0]!), rosters.slice(0, 1));
+    const book = await RosterBook.open(f);
+    // Writes stay in memory, so everything but the stalled one settles within one turn; the first
+    // write of roster 2 (a relay push, say) stalls until released.
+    let pin = rosterRef(rosters[0]!);
+    f.updateConfig = async (change) => {
+      const next = change({ ...config(rosters[0]!), pin });
+      pin = next.pin;
+      return next;
+    };
+    let release!: () => void;
+    const stalled = new Promise<void>((r) => (release = r));
+    let first = true;
+    f.saveRoster = async () => {
+      if (!first) return;
+      first = false;
+      await stalled;
+    };
+    const slow = book.accept([rosters[1]!]);
+    // Meanwhile the same roster and its successor arrive another way (the publisher's own accept).
+    const fast = book.accept([rosters[1]!]).then(() => book.accept([rosters[2]!]));
+    await new Promise((r) => setImmediate(r));
+    release();
+    expect(await slow).toEqual({ ok: true, advanced: true });
+    expect(await fast).toEqual({ ok: true, advanced: true });
+    expect(book.current.seq).toBe(3);
+    expect(pin.seq).toBe(3);
+    // A roster made from that head is the next one, never a gap.
+    const next = nextRoster(book.current, { add: [makeDeviceRecord("d4", generateDeviceKeys(), "member", T)] }, { keys: admin }, T + 9);
+    expect(await book.accept([next])).toEqual({ ok: true, advanced: true });
+  });
+
   it("cannot prove a fork without the predecessor", async () => {
     const f = await files();
     const { rosters, admin } = chain(2);
