@@ -305,7 +305,7 @@ describe("the login item", () => {
     const item = loginItem(o, "ask-gui");
     expect(item.kind).toBe("launchd");
     expect(item.where).toBe(`${o.homedir}/Library/LaunchAgents/worldinmotion.signer.${keyringAccount(o.root)}.plist`);
-    expect(item.text).toContain("<string>/opt/wim/wim.mjs</string>\n    <string>agent</string>\n    <string>start</string>\n    <string>--foreground</string>\n    <string>--ask-gui</string>");
+    expect(item.text).toContain("<string>/opt/wim/wim.mjs</string>\n    <string>signer</string>\n    <string>start</string>\n    <string>--foreground</string>\n    <string>--ask-gui</string>");
     expect(item.text).toContain(`<key>WIM_HOME</key><string>${o.root}</string>`);
     expect(item.log).toBe(`${o.root}/agent/autostart.log`);
     expect(item.text).toContain(`<key>StandardOutPath</key><string>${item.log}</string>\n  <key>StandardErrorPath</key><string>${item.log}</string>`);
@@ -321,7 +321,7 @@ describe("the login item", () => {
     expect(item.where).toBe(`${o.homedir}/.config/autostart/worldinmotion-signer-${keyringAccount(o.root)}.desktop`);
     expect(item.log).toBe(`${o.root}/agent/autostart.log`);
     expect(item.text).toContain(
-      `Exec=env ${execArg(`WIM_HOME=${o.root}`)} sh -c ${execArg('log="$1"; shift; exec "$@" >>"$log" 2>&1')} sh ${execArg(item.log)} /usr/bin/node /opt/wim/wim.mjs agent start --foreground --ask-gui\n`,
+      `Exec=env ${execArg(`WIM_HOME=${o.root}`)} sh -c ${execArg('log="$1"; shift; exec "$@" >>"$log" 2>&1')} sh ${execArg(item.log)} /usr/bin/node /opt/wim/wim.mjs signer start --foreground --ask-gui\n`,
     );
     // The script reaches sh as one argument, its quotes and dollars escaped for the desktop entry.
     expect(execArg('log="$1"; shift; exec "$@" >>"$log" 2>&1')).toBe('"log=\\\\\"\\\\$1\\\\\"; shift; exec \\\\\"\\\\$@\\\\\" >>\\\\\"\\\\$log\\\\\" 2>&1"');
@@ -351,7 +351,7 @@ describe("the login item", () => {
     expect(item.text).toContain("wim signer start --foreground --ask-gui</Description>");
     const encoded = /-EncodedCommand ([A-Za-z0-9+/=]+)</.exec(item.text)![1]!;
     expect(Buffer.from(encoded, "base64").toString("utf16le")).toBe(
-      "$env:WIM_HOME = 'C:\\Users\\sean\\it''s'; & '/usr/bin/node' '/opt/wim/wim.mjs' 'agent' 'start' '--foreground' '--ask-gui' *>> 'C:\\Users\\sean\\it''s\\agent\\autostart.log'; exit $LASTEXITCODE",
+      "$env:WIM_HOME = 'C:\\Users\\sean\\it''s'; & '/usr/bin/node' '/opt/wim/wim.mjs' 'signer' 'start' '--foreground' '--ask-gui' *>> 'C:\\Users\\sean\\it''s\\agent\\autostart.log'; exit $LASTEXITCODE",
     );
     expect(loginItem({ ...o, env: { USERNAME: "sean" } }, "keyring").text).toContain("<UserId>sean</UserId>");
     expect(loginItem({ ...o, env: { USERNAME: "sean", USERDOMAIN: "" } }, "keyring").text).toContain("<UserId>sean</UserId>");
@@ -366,13 +366,13 @@ describe("the login item", () => {
       expect(await disableAutostart(o)).toBe(false);
       const item = await enableAutostart(o, "ask-gui");
       expect(await fs.readFile(item.where, "utf8")).toBe(item.text);
-      expect(await autostartStatus(o)).toEqual({ where: item.where, source: "ask-gui", log: item.log });
+      expect(await autostartStatus(o)).toEqual({ where: item.where, source: "ask-gui", log: item.log, stale: false });
       // The log's directory exists for launchd, private to the user.
       const agentDir = join(o.root, "agent");
       expect((await fs.stat(agentDir)).isDirectory()).toBe(true);
       if (process.platform !== "win32") expect((await fs.stat(agentDir)).mode & 0o077).toBe(0);
       await enableAutostart(o, "keyring");
-      expect(await autostartStatus(o)).toEqual({ where: item.where, source: "keyring", log: item.log });
+      expect(await autostartStatus(o)).toEqual({ where: item.where, source: "keyring", log: item.log, stale: false });
       expect(await disableAutostart(o)).toBe(true);
       expect(await autostartStatus(o)).toBeUndefined();
     });
@@ -402,9 +402,12 @@ describe("the login item", () => {
     expect(p.calls.at(-1)!.args).toEqual(["/Create", "/TN", item.where, "/XML", file, "/F"]);
     await expect(fs.stat(file)).rejects.toMatchObject({ code: "ENOENT" });
     expect(tasks.get(item.where)).toBe(item.text);
-    expect(await autostartStatus(o)).toEqual({ where: item.where, source: "ask-gui", log: item.log });
+    expect(await autostartStatus(o)).toEqual({ where: item.where, source: "ask-gui", log: item.log, stale: false });
     await enableAutostart(o, "keyring");
-    expect(await autostartStatus(o)).toEqual({ where: item.where, source: "keyring", log: item.log });
+    expect(await autostartStatus(o)).toEqual({ where: item.where, source: "keyring", log: item.log, stale: false });
+    // A task an older wim made runs `wim agent start`: stale, so `wim signer autostart` rewrites it.
+    tasks.set(item.where, tasks.get(item.where)!.replace("wim signer start", "wim agent start"));
+    expect((await autostartStatus(o))!.stale).toBe(true);
     expect(await disableAutostart(o)).toBe(true);
     expect(tasks.size).toBe(0);
   });

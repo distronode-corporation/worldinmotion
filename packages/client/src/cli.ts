@@ -638,8 +638,9 @@ export async function main(argv: readonly string[], env: Record<string, string |
           flags: args.flags,
           wim: io.wim?.() ?? wimCommand(),
           mesh: () => ctx.mesh(),
-          // No message text on disk: a wake code or a task never lands in this session's files.
-          session: async (name) => MeshSession.open({ ...(await ctx.sessionOptions(name, "worker")), sessionKey: `worker:${name}`, redactStoredText: true }),
+          // No message text on disk: a wake code or a task never lands in this session's files. The
+          // signed frames ride along in memory, for a runner that verifies the sender itself.
+          session: async (name) => MeshSession.open({ ...(await ctx.sessionOptions(name, "worker")), sessionKey: `worker:${name}`, redactStoredText: true, withFrame: true }),
           name: nameFor(ctx, "worker"),
           untilStopped: () => ctx.untilStopped(),
           ...(io.workerDoctor === undefined ? {} : { doctor: io.workerDoctor }),

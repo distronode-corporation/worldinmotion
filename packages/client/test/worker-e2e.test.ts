@@ -33,7 +33,8 @@ async function filesHolding(dir: string, needle: string): Promise<string[]> {
     for (const e of await fs.readdir(d, { withFileTypes: true })) {
       const p = join(d, e.name);
       if (e.isDirectory()) await walk(p);
-      else if (e.isFile() && (await fs.readFile(p)).includes(needle)) hits.push(p);
+      // A file written atomically can be renamed away between the listing and the read.
+      else if (e.isFile() && (await fs.readFile(p).catch(() => Buffer.alloc(0))).includes(needle)) hits.push(p);
     }
   };
   await walk(dir);
@@ -44,12 +45,12 @@ async function setPolicy(on: TestDevice, of: TestDevice, level: Policy): Promise
   await new MeshFiles(on.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, policy: { ...c.policy, [of.device.id]: level } }));
 }
 
-async function runs(): Promise<{ id: string; profile: string; text: string; argv: string[] }[]> {
+async function runs(): Promise<{ id: string; profile: string; text: string; argv: string[]; frame?: unknown }[]> {
   const text = await fs.readFile(runsLog, "utf8").catch(() => "");
   return text
     .split("\n")
     .filter((l) => l !== "")
-    .map((l) => JSON.parse(l) as { id: string; profile: string; text: string; argv: string[] });
+    .map((l) => JSON.parse(l) as { id: string; profile: string; text: string; argv: string[]; frame?: unknown });
 }
 
 /** A session on `d` that records each message it is handed. */
@@ -182,7 +183,10 @@ describe("wim agent, end to end with a stub runner", () => {
     expect(answer.status).toBe("done");
     const job = (await runs()).slice(before);
     // The code is checked and stripped before the runner sees the text; the profile is parsed.
-    expect(job).toEqual([{ v: 1, id: out.id, from: { device: sender.device.id, address: me.s.address }, profile: "b", text: TASK, argv: ["agent", "runner", "--config", join(dirname(w.cfg), "runner.json")] }]);
+    expect(job).toHaveLength(1);
+    expect(job[0]).toMatchObject({ v: 2, id: out.id, from: { device: sender.device.id, address: me.s.address }, profile: "b", text: TASK, argv: ["agent", "runner", "--config", join(dirname(w.cfg), "runner.json")] });
+    // The signed frame rides along (contract v2), so a runner can check the sender itself.
+    expect(job[0]!.frame).toMatchObject({ id: out.id });
     // The room copy is the answer only: never the task, never the code.
     await until(() => room.got.some((m) => m.text.startsWith("done:")), 15_000, "the room copy");
     const copy = room.got.find((m) => m.text.startsWith("done:"))!;
@@ -335,7 +339,7 @@ describe("wim agent, limits and the timeout kill", () => {
     const log: string[] = [];
     const outcome = await runJob(
       { command: process.execPath, args: [join(tools, "stub-runner.mjs")], timeoutMs: 300, killGraceMs: 200, env: {} },
-      { v: 1, id: "m-eperm", from: { device: sender.device.id, address: "x@y" }, profile: "", text: "hang" },
+      { v: 2, id: "m-eperm", from: { device: sender.device.id, address: "x@y" }, profile: "", text: "hang" },
       {
         log: (l) => void log.push(l),
         killGroup: (pgid, signal) => {

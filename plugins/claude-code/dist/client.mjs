@@ -94622,6 +94622,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
   seen;
   seqs;
   o;
+  /** Frames of the items being accepted right now, by id (`withFrame`). */
+  frames = /* @__PURE__ */ new Map();
   now;
   log;
   answerMs;
@@ -95339,7 +95341,12 @@ var MeshSession = class _MeshSession extends EventEmitter {
     const address = this.address;
     if (await this.seen.has(p3.id, address, this.now())) return "dropped";
     if (!await this.seqs.isNew(address, msg.from.device, msg.from.sid, msg.seq)) return "dropped";
-    await this.accept(p3);
+    if (this.o.withFrame === true) this.frames.set(p3.id, msg);
+    try {
+      await this.accept(p3);
+    } finally {
+      this.frames.delete(p3.id);
+    }
     await this.seen.add(p3.id, address, dedupeExpiry(p3.at), this.now());
     await this.seqs.record(address, msg.from.device, msg.from.sid, msg.seq);
     return "accepted";
@@ -95729,7 +95736,10 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (entry !== void 0) await this.history.append(this.stored(entry));
     const written2 = { ...stored2, rendered: item.rendered };
     this.emit("item", written2);
-    if (entry !== void 0 && entry.ci === void 0) this.emit("message", { ...entry, cursor: written2.cursor });
+    if (entry !== void 0 && entry.ci === void 0) {
+      const frame = this.frames.get(entry.id);
+      this.emit("message", { ...entry, cursor: written2.cursor, ...frame === void 0 ? {} : { frame } });
+    }
     if (this.push !== void 0 && written2.relayed !== true && written2.forPerson !== true && written2.quiet !== true) {
       await this.push(written2);
       await this.take(written2.cursor);
@@ -97049,7 +97059,9 @@ function workerIO(s3, trusted2) {
             text: m4.text,
             relayed: m4.relayed === true,
             trusted: ok3,
-            ...m4.deadline === void 0 ? {} : { deadline: m4.deadline }
+            ...m4.deadline === void 0 ? {} : { deadline: m4.deadline },
+            // The signed frame, for a runner that verifies the sender itself (contract v2).
+            ...m4.frame === void 0 ? {} : { frame: m4.frame }
           });
         })();
       });
@@ -128583,7 +128595,7 @@ var ConfigSchema4 = external_exports.strictObject({
   }).refine((p3) => p3.allowed.includes(p3.default), { message: "profiles.default must be one of profiles.allowed" }).optional(),
   /** The command that runs one job (README, "The runner contract"). */
   runner: external_exports.strictObject({
-    /** An absolute path, or a name looked up on PATH. `wim worker init` writes the built-in runner's. */
+    /** An absolute path, or a name looked up on PATH. `wim agent init` writes the built-in runner's. */
     command: external_exports.string().min(1),
     /** Fixed arguments. Nothing from a message is ever put on the command line. */
     args: external_exports.array(external_exports.string()).default([]),
@@ -128742,11 +128754,12 @@ var DailyLedger = class _DailyLedger {
 import { spawn as nodeSpawn3 } from "node:child_process";
 var RUNNER_EXIT = { ok: 0, refused: 3, busy: 4, timeout: 5 };
 var RUNNER_MAX_BYTES = 64 * 1024;
+var RUNNER_MAX_REQUEST_BYTES = 1024 * 1024 + 8 * 1024;
 var MAX_STDERR_LINE = 500;
 var ignore3 = () => void 0;
 function encodeRequest(req) {
   const body2 = Buffer.from(JSON.stringify(req), "utf8");
-  if (body2.length > RUNNER_MAX_BYTES) throw new RangeError(`runner request is ${body2.length} bytes, over ${RUNNER_MAX_BYTES}`);
+  if (body2.length > RUNNER_MAX_REQUEST_BYTES) throw new RangeError(`runner request is ${body2.length} bytes, over ${RUNNER_MAX_REQUEST_BYTES}`);
   return body2;
 }
 function truncateUtf8(buf2, max) {
@@ -128961,7 +128974,7 @@ var Worker = class {
       killGraceMs: c5.runner.killGraceSeconds * 1e3,
       env: runnerEnv(this.o.env, c5.runner.passEnv)
     };
-    const req = { v: 1, id: item.id, from: { device: item.device, address: item.from }, profile, text: text2 };
+    const req = { v: 2, id: item.id, from: { device: item.device, address: item.from }, profile, text: text2, ...item.frame === void 0 ? {} : { frame: item.frame } };
     const started2 = this.o.now();
     this.o.log(`worker: job ${item.id} start from device ${item.device} profile ${profile === "" ? "-" : profile}`);
     const run2 = this.o.run ?? runJob;
@@ -129239,9 +129252,9 @@ async function privileged(config2, input2, deps, peer, as, noMetadata, asRoot, s
     else say(problem(`${input2.privilegedPath}: ${err.message}`));
     return;
   }
-  const needs = p3.lock.waitSeconds + p3.timeoutSeconds;
-  if (config2.runner.timeoutSeconds <= needs) say(problem(`runner.timeoutSeconds is ${config2.runner.timeoutSeconds}, but the privileged runner may take ${needs} s (lock wait ${p3.lock.waitSeconds} + job ${p3.timeoutSeconds}): set it above ${needs}`));
-  else say(ok2(`runner.timeoutSeconds ${config2.runner.timeoutSeconds} s covers the privileged runner's lock wait and job (${needs} s)`));
+  const needs = p3.lock.waitSeconds + p3.timeoutSeconds + p3.killGraceSeconds;
+  if (config2.runner.timeoutSeconds <= needs) say(problem(`runner.timeoutSeconds is ${config2.runner.timeoutSeconds}, but the privileged runner may take ${needs} s (lock wait ${p3.lock.waitSeconds} + job ${p3.timeoutSeconds} + kill grace ${p3.killGraceSeconds}): set it above ${needs}`));
+  else say(ok2(`runner.timeoutSeconds ${config2.runner.timeoutSeconds} s covers the privileged runner's lock wait, job and kill grace (${needs} s)`));
   const named = config2.profiles?.allowed ?? Object.keys(p3.profiles);
   for (const name of named) {
     const prof = p3.profiles[name];
@@ -129372,7 +129385,7 @@ function initNotes(o3, path2, left) {
 
 // ../agent/src/once.ts
 function parseRequest(text2) {
-  if (Buffer.byteLength(text2, "utf8") > RUNNER_MAX_BYTES) return `the request is over ${RUNNER_MAX_BYTES} bytes`;
+  if (Buffer.byteLength(text2, "utf8") > RUNNER_MAX_REQUEST_BYTES) return `the request is over ${RUNNER_MAX_REQUEST_BYTES} bytes`;
   let raw;
   try {
     raw = JSON.parse(text2);
@@ -129382,11 +129395,18 @@ function parseRequest(text2) {
   const r6 = raw;
   const from = typeof r6 === "object" && r6 !== null ? r6["from"] : void 0;
   const str3 = (v) => typeof v === "string";
-  if (typeof r6 !== "object" || r6 === null || r6["v"] !== 1) return 'expected {"v":1, ...}';
+  if (typeof r6 !== "object" || r6 === null || r6["v"] !== 2) return 'expected {"v":2, ...}';
   if (!str3(r6["id"]) || !str3(r6["profile"]) || !str3(r6["text"]) || typeof from !== "object" || from === null || !str3(from["device"]) || !str3(from["address"])) {
-    return 'expected {"v":1,"id":"...","from":{"device":"...","address":"..."},"profile":"...","text":"..."}';
+    return 'expected {"v":2,"id":"...","from":{"device":"...","address":"..."},"profile":"...","text":"..."} (and an optional "frame")';
   }
-  return { v: 1, id: r6["id"], from: { device: from["device"], address: from["address"] }, profile: r6["profile"], text: r6["text"] };
+  return {
+    v: 2,
+    id: r6["id"],
+    from: { device: from["device"], address: from["address"] },
+    profile: r6["profile"],
+    text: r6["text"],
+    ...r6["frame"] === void 0 ? {} : { frame: r6["frame"] }
+  };
 }
 function exitFor(o3) {
   switch (o3.kind) {
@@ -129560,10 +129580,10 @@ var Config = external_exports.strictObject({
   runDir: absolute.default("/run/wim-agent"),
   lock: external_exports.strictObject({ path: absolute.default("/run/wim-agent/job.lock"), waitSeconds: external_exports.number().int().min(0).max(86400).default(900) }).default({ path: "/run/wim-agent/job.lock", waitSeconds: 900 }),
   minMemAvailableMb: external_exports.number().int().min(0).default(900),
-  timeoutSeconds: seconds(86400).default(900),
+  timeoutSeconds: seconds(86400).default(1800),
   killGraceSeconds: seconds(300).default(15),
-  maxTaskChars: external_exports.number().int().min(1).max(6e4).default(8e3),
-  dailyJobs: external_exports.number().int().min(0).default(20),
+  maxTaskChars: external_exports.number().int().min(1).max(6e4).default(16e3),
+  dailyJobs: external_exports.number().int().min(0).default(50),
   statePath: absolute.default("/var/lib/wim-agent-privileged/state.json"),
   allowDevices: external_exports.array(external_exports.string().regex(/^[A-Za-z0-9_-]{16,64}$/)).optional(),
   allowLocal: external_exports.boolean().default(false),
@@ -130197,11 +130217,13 @@ var RunnerConfigSchema = external_exports.strictObject({
   profiles: external_exports.record(external_exports.string().regex(PROFILE_NAME), ProfileSchema).default({})
 });
 var RequestSchema2 = external_exports.strictObject({
-  v: external_exports.literal(1),
+  v: external_exports.literal(2),
   id: external_exports.string().min(1).max(64),
   from: external_exports.strictObject({ device: external_exports.string().min(1).max(64), address: external_exports.string().min(1).max(200) }),
   profile: external_exports.string().max(32),
-  text: external_exports.string()
+  text: external_exports.string(),
+  /** The signed frame: this runner trusts the worker that started it, so it does not need it. */
+  frame: external_exports.unknown().optional()
 });
 var RUNNER_PREAMBLE = [
   "You are running one job for a peer in worldinmotion, a messaging mesh between AI agent sessions.",
@@ -130215,7 +130237,7 @@ async function readStdin(stdin) {
   for await (const chunk of stdin) {
     const b5 = typeof chunk === "string" ? Buffer.from(chunk, "utf8") : chunk;
     size += b5.length;
-    if (size > RUNNER_MAX_BYTES) return void 0;
+    if (size > RUNNER_MAX_REQUEST_BYTES) return void 0;
     chunks.push(b5);
   }
   return Buffer.concat(chunks);
@@ -130280,13 +130302,13 @@ async function runnerMain(argv, io) {
   }
   const body2 = await readStdin(io.stdin);
   if (body2 === void 0) {
-    io.stderr(`wim-agent-runner: request over ${RUNNER_MAX_BYTES} bytes`);
+    io.stderr(`wim-agent-runner: request over ${RUNNER_MAX_REQUEST_BYTES} bytes`);
     return 1;
   }
   let req;
   try {
     const parsed2 = RequestSchema2.safeParse(JSON.parse(body2.toString("utf8")));
-    if (!parsed2.success) throw new Error("not a version 1 request");
+    if (!parsed2.success) throw new Error("not a version 2 request");
     req = parsed2.data;
   } catch (err) {
     io.stderr(`wim-agent-runner: bad request: ${err.message}`);
@@ -140041,8 +140063,9 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
           flags: args.flags,
           wim: io.wim?.() ?? wimCommand(),
           mesh: () => ctx.mesh(),
-          // No message text on disk: a wake code or a task never lands in this session's files.
-          session: async (name) => MeshSession.open({ ...await ctx.sessionOptions(name, "worker"), sessionKey: `worker:${name}`, redactStoredText: true }),
+          // No message text on disk: a wake code or a task never lands in this session's files. The
+          // signed frames ride along in memory, for a runner that verifies the sender itself.
+          session: async (name) => MeshSession.open({ ...await ctx.sessionOptions(name, "worker"), sessionKey: `worker:${name}`, redactStoredText: true, withFrame: true }),
           name: nameFor(ctx, "worker"),
           untilStopped: () => ctx.untilStopped(),
           ...io.workerDoctor === void 0 ? {} : { doctor: io.workerDoctor },

@@ -32,11 +32,11 @@ describe("workerIO", () => {
   it("hands over the signing device, relayed, trust and a deadline, and takes each item", async () => {
     const f = fakeSession();
     const got = items(workerIO(f.s, async (d) => d === "dev-ok"));
-    f.emit({ kind: "task", id: "m1", peer: "a@x", device: "dev-ok", text: "t", relayed: true, deadline: 99, cursor: 7 });
+    f.emit({ kind: "task", id: "m1", peer: "a@x", device: "dev-ok", text: "t", relayed: true, deadline: 99, frame: { id: "m1" }, cursor: 7 });
     f.emit({ kind: "msg", id: "m2", peer: "b@y", device: "dev-other", text: "u", cursor: 8 });
     await new Promise((r) => setImmediate(r));
     expect(got).toEqual([
-      { kind: "task", id: "m1", from: "a@x", device: "dev-ok", text: "t", relayed: true, trusted: true, deadline: 99 },
+      { kind: "task", id: "m1", from: "a@x", device: "dev-ok", text: "t", relayed: true, trusted: true, deadline: 99, frame: { id: "m1" } },
       { kind: "msg", id: "m2", from: "b@y", device: "dev-other", text: "u", relayed: false, trusted: false },
     ]);
     expect(f.taken).toEqual([7, 8]);

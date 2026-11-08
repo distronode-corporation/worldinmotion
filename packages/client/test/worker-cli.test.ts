@@ -170,7 +170,7 @@ describe("wim agent run --once", () => {
     const t = wt();
     const out: string[] = [];
     t.io.stdout.on("data", (c: Buffer) => void out.push(c.toString()));
-    feed(t, JSON.stringify({ v: 1, id: "m-once", from: { device: sender.device.id, address: "a@laptop" }, profile: "", text: "hi" }));
+    feed(t, JSON.stringify({ v: 2, id: "m-once", from: { device: sender.device.id, address: "a@laptop" }, profile: "", text: "hi" }));
     expect(await run(t, "agent", "run", "--once", cfg)).toBe(0);
     expect(out.join("")).toBe("ok m-once");
   });
@@ -190,7 +190,7 @@ describe("wim agent run --once", () => {
 describe("wim agent runner", () => {
   it("is the built-in SDK runner: it reads the request and refuses to start with no key", async () => {
     const t = wt({}, { ANTHROPIC_API_KEY: undefined });
-    feed(t, JSON.stringify({ v: 1, id: "m-r", from: { device: sender.device.id, address: "a@laptop" }, profile: "", text: "hi" }));
+    feed(t, JSON.stringify({ v: 2, id: "m-r", from: { device: sender.device.id, address: "a@laptop" }, profile: "", text: "hi" }));
     expect(await run(t, "agent", "runner")).toBe(1);
     expect(t.err.join("\n")).toContain("no API key");
   });

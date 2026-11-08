@@ -72,6 +72,8 @@ export function workerIO(s: MeshSession, trusted: (device: string) => Promise<bo
             relayed: m.relayed === true,
             trusted: ok,
             ...(m.deadline === undefined ? {} : { deadline: m.deadline }),
+            // The signed frame, for a runner that verifies the sender itself (contract v2).
+            ...(m.frame === undefined ? {} : { frame: m.frame }),
           });
         })();
       });

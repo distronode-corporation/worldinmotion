@@ -3,11 +3,11 @@
 // deployment by hand: no mesh, no sender check, no limits beyond the runner's own.
 
 import type { WorkerConfig } from "./config.ts";
-import { RUNNER_EXIT, RUNNER_MAX_BYTES, runJob, runnerEnv, type RunDeps, type RunnerOutcome, type RunnerRequest } from "./runner.ts";
+import { RUNNER_EXIT, RUNNER_MAX_BYTES, RUNNER_MAX_REQUEST_BYTES, runJob, runnerEnv, type RunDeps, type RunnerOutcome, type RunnerRequest } from "./runner.ts";
 
 /** Parses a runner request (the contract's stdin), or says what is wrong with it. */
 export function parseRequest(text: string): RunnerRequest | string {
-  if (Buffer.byteLength(text, "utf8") > RUNNER_MAX_BYTES) return `the request is over ${RUNNER_MAX_BYTES} bytes`;
+  if (Buffer.byteLength(text, "utf8") > RUNNER_MAX_REQUEST_BYTES) return `the request is over ${RUNNER_MAX_REQUEST_BYTES} bytes`;
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -17,11 +17,19 @@ export function parseRequest(text: string): RunnerRequest | string {
   const r = raw as Record<string, unknown> | null;
   const from = (typeof r === "object" && r !== null ? r["from"] : undefined) as Record<string, unknown> | undefined;
   const str = (v: unknown) => typeof v === "string";
-  if (typeof r !== "object" || r === null || r["v"] !== 1) return 'expected {"v":1, ...}';
+  if (typeof r !== "object" || r === null || r["v"] !== 2) return 'expected {"v":2, ...}';
   if (!str(r["id"]) || !str(r["profile"]) || !str(r["text"]) || typeof from !== "object" || from === null || !str(from["device"]) || !str(from["address"])) {
-    return 'expected {"v":1,"id":"...","from":{"device":"...","address":"..."},"profile":"...","text":"..."}';
+    return 'expected {"v":2,"id":"...","from":{"device":"...","address":"..."},"profile":"...","text":"..."} (and an optional "frame")';
   }
-  return { v: 1, id: r["id"] as string, from: { device: from["device"] as string, address: from["address"] as string }, profile: r["profile"] as string, text: r["text"] as string };
+  // A local job has no frame; one copied from a real request keeps it, for a runner that checks it.
+  return {
+    v: 2,
+    id: r["id"] as string,
+    from: { device: from["device"] as string, address: from["address"] as string },
+    profile: r["profile"] as string,
+    text: r["text"] as string,
+    ...(r["frame"] === undefined ? {} : { frame: r["frame"] }),
+  };
 }
 
 /** The exit code `run --once` ends with: the runner contract's, with 1 for any failure. */

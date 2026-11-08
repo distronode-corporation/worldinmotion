@@ -30,6 +30,7 @@ export interface PrivilegedView {
   defaultProfile: string;
   lock: { path: string; waitSeconds: number };
   timeoutSeconds: number;
+  killGraceSeconds: number;
   wakeCode?: { file: string } | { env: string };
   worker: { user: string };
   runDir: string;
@@ -347,10 +348,11 @@ async function privileged(
     return;
   }
 
-  // The runner answers its own timeout (exit 5), after waiting for its lock: the peer must wait longer.
-  const needs = p.lock.waitSeconds + p.timeoutSeconds;
-  if (config.runner.timeoutSeconds <= needs) say(problem(`runner.timeoutSeconds is ${config.runner.timeoutSeconds}, but the privileged runner may take ${needs} s (lock wait ${p.lock.waitSeconds} + job ${p.timeoutSeconds}): set it above ${needs}`));
-  else say(ok(`runner.timeoutSeconds ${config.runner.timeoutSeconds} s covers the privileged runner's lock wait and job (${needs} s)`));
+  // The runner answers its own timeout (exit 5), after waiting for its lock and its job's kill
+  // grace: the peer must wait longer.
+  const needs = p.lock.waitSeconds + p.timeoutSeconds + p.killGraceSeconds;
+  if (config.runner.timeoutSeconds <= needs) say(problem(`runner.timeoutSeconds is ${config.runner.timeoutSeconds}, but the privileged runner may take ${needs} s (lock wait ${p.lock.waitSeconds} + job ${p.timeoutSeconds} + kill grace ${p.killGraceSeconds}): set it above ${needs}`));
+  else say(ok(`runner.timeoutSeconds ${config.runner.timeoutSeconds} s covers the privileged runner's lock wait, job and kill grace (${needs} s)`));
 
   // Profiles: each one the worker accepts must exist in the runner, with its auth in place.
   // With wake.mode runner the runner parses the prefix, so every profile it has can be named.

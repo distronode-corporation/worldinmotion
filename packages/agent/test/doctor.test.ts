@@ -96,6 +96,7 @@ const privView = (over: Partial<PrivilegedView> = {}): PrivilegedView => ({
   defaultProfile: "a",
   lock: { path: "/run/w/job.lock", waitSeconds: 900 },
   timeoutSeconds: 1800,
+  killGraceSeconds: 15,
   wakeCode: { file: "/etc/w/wake-code" },
   worker: { user: "job" },
   runDir: "/run/w",
@@ -303,9 +304,9 @@ describe("privileged runner", () => {
   it("the limits are listed, and the peer's timeout must cover the runner's lock wait and job", async () => {
     const d = await doctor(privConfig(), healthyPriv());
     expect(d.has("info", /limits: tasks up to 16000 characters, 20 attempts per device per hour, 50 jobs a day, 2760 s a job, one job at a time/)).toBe(true);
-    expect(d.has("ok", /runner\.timeoutSeconds 2760 s covers the privileged runner's lock wait and job \(2700 s\)/)).toBe(true);
+    expect(d.has("ok", /runner\.timeoutSeconds 2760 s covers the privileged runner's lock wait, job and kill grace \(2715 s\)/)).toBe(true);
     const short = await doctor(privConfig({ runner: { command: "sudo", args: ["-n", LAUNCHER], timeoutSeconds: 1800 } }), healthyPriv());
-    expect(short.has("problem", /runner\.timeoutSeconds is 1800, but the privileged runner may take 2700 s \(lock wait 900 \+ job 1800\): set it above 2700/)).toBe(true);
+    expect(short.has("problem", /runner\.timeoutSeconds is 1800, but the privileged runner may take 2715 s \(lock wait 900 \+ job 1800 \+ kill grace 15\): set it above 2715/)).toBe(true);
   });
 
   it("the peer's unit must not run with NoNewPrivs, or sudo cannot work", async () => {

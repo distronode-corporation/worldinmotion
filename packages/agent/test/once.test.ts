@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadConfig } from "../src/config.ts";
 import { exitFor, parseRequest, runOnce } from "../src/once.ts";
-import { RUNNER_MAX_BYTES } from "../src/runner.ts";
+import { RUNNER_MAX_BYTES, RUNNER_MAX_REQUEST_BYTES } from "../src/runner.ts";
 
 const DEVICE = "A".repeat(22);
 let dir: string;
@@ -38,7 +38,7 @@ const config = (over: Record<string, unknown> = {}) =>
     limits: { ledgerPath: join(dir, "ledger.json") },
   });
 
-const req = (text: string, extra: Record<string, unknown> = {}) => JSON.stringify({ v: 1, id: "m1", from: { device: DEVICE, address: "a@b" }, profile: "p", text, ...extra });
+const req = (text: string, extra: Record<string, unknown> = {}) => JSON.stringify({ v: 2, id: "m1", from: { device: DEVICE, address: "a@b" }, profile: "p", text, ...extra });
 
 function io(env: Record<string, string> = {}) {
   const out: string[] = [];
@@ -48,14 +48,15 @@ function io(env: Record<string, string> = {}) {
 
 describe("parseRequest", () => {
   it("takes a contract request and nothing else", () => {
-    expect(parseRequest(req("hi"))).toEqual({ v: 1, id: "m1", from: { device: DEVICE, address: "a@b" }, profile: "p", text: "hi" });
+    expect(parseRequest(req("hi"))).toEqual({ v: 2, id: "m1", from: { device: DEVICE, address: "a@b" }, profile: "p", text: "hi" });
     expect(parseRequest("{")).toMatch(/^not valid JSON/);
-    expect(parseRequest("null")).toBe('expected {"v":1, ...}');
-    expect(parseRequest(JSON.stringify({ v: 2 }))).toBe('expected {"v":1, ...}');
+    expect(parseRequest("null")).toBe('expected {"v":2, ...}');
+    expect(parseRequest(JSON.stringify({ v: 1 }))).toBe('expected {"v":2, ...}');
     for (const bad of [{ id: 1 }, { from: null }, { from: "x" }, { from: { device: 1, address: "a" } }, { from: { device: "d" } }, { profile: 3 }, { text: null }]) {
-      expect(parseRequest(req("hi", bad))).toMatch(/^expected \{"v":1,"id"/);
+      expect(parseRequest(req("hi", bad))).toMatch(/^expected \{"v":2,"id"/);
     }
-    expect(parseRequest(" ".repeat(RUNNER_MAX_BYTES + 1))).toMatch(/over/);
+    expect(parseRequest(req("hi", { frame: { kind: "send" } }))).toMatchObject({ frame: { kind: "send" } });
+    expect(parseRequest(" ".repeat(RUNNER_MAX_REQUEST_BYTES + 1))).toMatch(/over/);
   });
 });
 
