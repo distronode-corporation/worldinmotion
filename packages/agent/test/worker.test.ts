@@ -107,14 +107,15 @@ describe("who may wake it", () => {
     expect(v.runs).toHaveLength(1);
   });
 
-  it("never runs relayed text, results or files", async () => {
+  it("never runs relayed or derived text, results or files", async () => {
     const w = await make();
     await w.send(item({ relayed: true }));
+    await w.send(item({ derived: true }));
     await w.send(item({ kind: "result" }));
     await w.send(item({ kind: "file" }));
     expect(w.runs).toEqual([]);
     expect(w.sent).toEqual([]);
-    expect(w.logs.map((l) => l.split(": ").at(-1))).toEqual(["relayed", "kind", "kind"]);
+    expect(w.logs.map((l) => l.split(": ").at(-1))).toEqual(["relayed", "derived", "kind", "kind"]);
   });
 });
 

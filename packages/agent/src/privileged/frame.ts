@@ -106,6 +106,7 @@ export function verifyFrame(frame: unknown, ctx: { senders: Record<string, Pinne
   const p = opened.value;
   if (p.kind !== "msg" && p.kind !== "task") throw new FrameError(`a ${p.kind} is never a job`);
   if (p.relayed === true) throw new FrameError("relayed text is never a job");
+  if (p.derived === true) throw new FrameError("derived text is never a job");
   return { id: p.id, device: p.from.device, at: p.at, text: p.text };
 }
 

@@ -97380,6 +97380,7 @@ function workerIO(s3, trusted2) {
             device: m4.device,
             text: m4.text,
             relayed: m4.relayed === true,
+            ...m4.derived === true ? { derived: true } : {},
             trusted: ok3,
             ...m4.deadline === void 0 ? {} : { deadline: m4.deadline },
             // The signed frame, for a runner that verifies the sender itself (contract v2).
@@ -129238,6 +129239,7 @@ var Worker = class {
     if (!this.allowed.has(item.device)) return this.refused(item, "not_allowed");
     if (c5.senders.requireTrusted && !item.trusted) return this.refused(item, "untrusted");
     if (item.relayed) return this.refused(item, "relayed");
+    if (item.derived === true) return this.refused(item, "derived");
     if (!this.rate.take(item.device)) {
       this.refused(item, "rate");
       return this.reply(item, BUSY2, "declined");
@@ -129971,6 +129973,7 @@ function verifyFrame(frame, ctx) {
   const p3 = opened2.value;
   if (p3.kind !== "msg" && p3.kind !== "task") throw new FrameError(`a ${p3.kind} is never a job`);
   if (p3.relayed === true) throw new FrameError("relayed text is never a job");
+  if (p3.derived === true) throw new FrameError("derived text is never a job");
   return { id: p3.id, device: p3.from.device, at: p3.at, text: p3.text };
 }
 var SEEN_WINDOW_MS = LIMITS.messageMaxAgeMs + LIMITS.messageMaxFutureMs;

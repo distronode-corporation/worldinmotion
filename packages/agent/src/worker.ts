@@ -18,6 +18,8 @@ export interface WorkerItem {
   text: string;
   /** The sender marked the text as not its own (another model's output, CI logs). */
   relayed: boolean;
+  /** Written while its sender handled another agent's message: information only, never a job. */
+  derived?: boolean;
   /** Whether the person trusts the sender device right now (`wim devices trust`). */
   trusted: boolean;
   /** Epoch milliseconds after which a task's answer is no longer wanted. */
@@ -60,7 +62,7 @@ export interface WorkerOptions {
   runDeps?: Omit<RunDeps, "log" | "stderr">;
 }
 
-type Refusal = "kind" | "no_device" | "not_allowed" | "untrusted" | "relayed" | "rate" | "too_long" | "code" | "profile" | "empty" | "busy" | "daily";
+type Refusal = "kind" | "no_device" | "not_allowed" | "untrusted" | "relayed" | "derived" | "rate" | "too_long" | "code" | "profile" | "empty" | "busy" | "daily";
 
 export class Worker {
   private readonly o: WorkerOptions;
@@ -109,6 +111,8 @@ export class Worker {
     if (c.senders.requireTrusted && !item.trusted) return this.refused(item, "untrusted");
     // Another model's output must not drive a job, or two agents could drive each other.
     if (item.relayed) return this.refused(item, "relayed");
+    // Nor text a session wrote while it handled another agent's message (information only).
+    if (item.derived === true) return this.refused(item, "derived");
 
     // Every attempt counts, accepted or not, so a wake code cannot be guessed at speed.
     if (!this.rate.take(item.device)) {

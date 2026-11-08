@@ -70,6 +70,7 @@ export function workerIO(s: MeshSession, trusted: (device: string) => Promise<bo
             device: m.device,
             text: m.text,
             relayed: m.relayed === true,
+            ...(m.derived === true ? { derived: true } : {}),
             trusted: ok,
             ...(m.deadline === undefined ? {} : { deadline: m.deadline }),
             // The signed frame, for a runner that verifies the sender itself (contract v2).

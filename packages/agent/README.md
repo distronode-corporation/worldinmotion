@@ -106,7 +106,7 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
 
 | case | reply (`msg`, or `result` with this status for a task) |
 |---|---|
-| device not on the list, not trusted, relayed text, a `result` or a `file` | nothing |
+| device not on the list, not trusted, relayed or derived text, a `result` or a `file` | nothing |
 | over `maxTaskChars` | `declined: the task is over N characters` (`declined`) |
 | wrong code or profile, or the runner exits 3 | `not accepted` (`declined`), or nothing with `silent` |
 | no task after the code and prefix | `declined: the message holds no task` (`declined`) |

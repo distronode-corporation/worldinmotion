@@ -1532,7 +1532,7 @@ to act on what another session says, so its edges are these.
 - **Who wakes it.** Only a device id on its allow-list, taken from the item's verified signature
   (the roster device whose key signed it), never the session or display name, which the sender
   picks. By default the person must also trust that device on the worker's own device, read for
-  every item. Relayed items, `result`s and files never start a job. A device not on the list is
+  every item. Relayed or derived items, `result`s and files never start a job. A device not on the list is
   ignored without a reply.
 - **The wake code.** Optional. Checked in constant time (both sides are hashed to 32 bytes and
   compared with `timingSafeEqual`), and counted against the sender's hourly attempts whether it

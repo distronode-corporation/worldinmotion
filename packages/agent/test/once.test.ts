@@ -21,7 +21,7 @@ beforeAll(async () => {
     `let s = ""; process.stdin.on("data", (c) => (s += c)); process.stdin.on("end", () => {
       const r = JSON.parse(s);
       process.stderr.write("stub got " + r.id + "\\n");
-      if (r.text === "big") { process.stdout.write("x".repeat(${RUNNER_MAX_BYTES} + 10)); process.exit(0); }
+      if (r.text === "big") { process.stdout.write("x".repeat(${RUNNER_MAX_BYTES} + 10), () => process.exit(0)); return; }
       if (r.text.startsWith("exit ")) process.exit(Number(r.text.slice(5)));
       if (r.text === "env") { process.stdout.write(String(process.env.KEEP) + "," + String(process.env.DROP)); process.exit(0); }
       process.stdout.write("answer for " + r.profile + ": " + r.text);

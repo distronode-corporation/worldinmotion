@@ -61,6 +61,10 @@ async function listener(d: TestDevice, name: string): Promise<{ s: MeshSession; 
   s.on("message", (m: Inbound) => {
     got.push(m);
     void s.take(m.cursor);
+    // The worker's answers are relayed, so reading one opens this session's `derived` window and
+    // the worker would (rightly) refuse its next task as information only. Each task here stands
+    // for one a person sends, not one an agent writes after reading an answer; the window closes.
+    (s as unknown as { derivedUntil: number }).derivedUntil = 0;
   });
   return { s, got };
 }
@@ -194,6 +198,17 @@ describe("wim agent, end to end with a stub runner", () => {
     expect(copy.text).not.toContain(CODE);
     expect(copy.text).not.toContain(TASK);
     expect(copy.relayed).toBe(true);
+  });
+
+  it("a task sent while the sender is still within its derived window is never run", async () => {
+    const before = (await runs()).length;
+    // Reading a relayed item (an answer) opens the window; the next send carries derived.
+    me.s.informed();
+    const out = await me.s.send(w.address, `${CODE} ${TASK}`, { kind: "task" });
+    await until(() => w.err.some((l) => l.includes(out.id) && l.endsWith("derived")), 15_000, "the refusal");
+    (me.s as unknown as { derivedUntil: number }).derivedUntil = 0;
+    expect((await runs()).slice(before)).toEqual([]);
+    expect(replyTo(me.got, out.id)).toBeUndefined();
   });
 
   it("a wrong code never runs, and the sender hears only 'not accepted'", async () => {

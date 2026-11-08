@@ -83,6 +83,7 @@ describe("verifyFrame", () => {
     expect(verifyFrame(seal("t", { kind: "task" }), ctx()).text).toBe("t");
     expect(() => verifyFrame(seal("r", { kind: "result", reply_to: "01JB0000000000000000000000" }), ctx())).toThrow(/a result is never a job/);
     expect(() => verifyFrame(seal("x", { relayed: true }), ctx())).toThrow(/relayed/);
+    expect(() => verifyFrame(seal("x", { derived: true }), ctx())).toThrow(/derived text is never a job/);
   });
 
   it("keeps seen ids for the whole freshness window", () => {

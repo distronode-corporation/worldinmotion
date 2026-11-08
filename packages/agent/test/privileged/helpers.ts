@@ -50,7 +50,7 @@ void hash;
 
 let seq = 0;
 /** A frame from `from` to the recipient's session, as the relay would deliver it. */
-export function seal(text: string, o: { from?: Device; to?: string; at?: number; kind?: "msg" | "task" | "result"; relayed?: boolean; prekey?: Prekey; reply_to?: string } = {}) {
+export function seal(text: string, o: { from?: Device; to?: string; at?: number; kind?: "msg" | "task" | "result"; relayed?: boolean; derived?: boolean; prekey?: Prekey; reply_to?: string } = {}) {
   const from = o.from ?? SENDER;
   return sealMessage({
     roster: roster([from, RECIPIENT]),
@@ -63,6 +63,7 @@ export function seal(text: string, o: { from?: Device; to?: string; at?: number;
     text,
     recipients: [RECIPIENT.id],
     ...(o.relayed === true ? { relayed: true } : {}),
+    ...(o.derived === true ? { derived: true } : {}),
     ...(o.reply_to === undefined ? {} : { reply_to: o.reply_to }),
     ...(o.kind === "result" ? { status: "done" as const } : {}),
     ...(o.prekey === undefined ? {} : { prekeys: { [RECIPIENT.id]: o.prekey } }),
