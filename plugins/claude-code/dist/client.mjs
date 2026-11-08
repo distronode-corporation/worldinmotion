@@ -724,8 +724,8 @@ var require_validation = __commonJS({
       0
       // 112 - 127
     ];
-    function isValidStatusCode(code3) {
-      return code3 >= 1e3 && code3 <= 1014 && code3 !== 1004 && code3 !== 1005 && code3 !== 1006 || code3 >= 3e3 && code3 <= 4999;
+    function isValidStatusCode(code2) {
+      return code2 >= 1e3 && code2 <= 1014 && code2 !== 1004 && code2 !== 1005 && code2 !== 1006 || code2 >= 3e3 && code2 <= 4999;
     }
     function _isValidUTF8(buf2) {
       const len = buf2.length;
@@ -1329,11 +1329,11 @@ var require_receiver = __commonJS({
             this.emit("conclude", 1005, EMPTY_BUFFER2);
             this.end();
           } else {
-            const code3 = data.readUInt16BE(0);
-            if (!isValidStatusCode(code3)) {
+            const code2 = data.readUInt16BE(0);
+            if (!isValidStatusCode(code2)) {
               const error64 = this.createError(
                 RangeError,
-                `invalid status code ${code3}`,
+                `invalid status code ${code2}`,
                 true,
                 1002,
                 "WS_ERR_INVALID_CLOSE_CODE"
@@ -1358,7 +1358,7 @@ var require_receiver = __commonJS({
               return;
             }
             this._loop = false;
-            this.emit("conclude", code3, buf2);
+            this.emit("conclude", code2, buf2);
             this.end();
           }
           this._state = GET_INFO;
@@ -1548,22 +1548,22 @@ var require_sender = __commonJS({
        * @param {Function} [cb] Callback
        * @public
        */
-      close(code3, data, mask, cb) {
+      close(code2, data, mask, cb) {
         let buf2;
-        if (code3 === void 0) {
+        if (code2 === void 0) {
           buf2 = EMPTY_BUFFER2;
-        } else if (typeof code3 !== "number" || !isValidStatusCode(code3)) {
+        } else if (typeof code2 !== "number" || !isValidStatusCode(code2)) {
           throw new TypeError("First argument must be a valid error code number");
         } else if (data === void 0 || !data.length) {
           buf2 = Buffer.allocUnsafe(2);
-          buf2.writeUInt16BE(code3, 0);
+          buf2.writeUInt16BE(code2, 0);
         } else {
           const length2 = Buffer.byteLength(data);
           if (length2 > 123) {
             throw new RangeError("The message must not be greater than 123 bytes");
           }
           buf2 = Buffer.allocUnsafe(2 + length2);
-          buf2.writeUInt16BE(code3, 0);
+          buf2.writeUInt16BE(code2, 0);
           if (typeof data === "string") {
             buf2.write(data, 2);
           } else if (isUint8Array(data)) {
@@ -2058,9 +2058,9 @@ var require_event_target = __commonJS({
             callListener(handler, this, event);
           };
         } else if (type === "close") {
-          wrapper = function onClose(code3, message2) {
+          wrapper = function onClose(code2, message2) {
             const event = new CloseEvent("close", {
-              code: code3,
+              code: code2,
               reason: message2.toString(),
               wasClean: this._closeFrameReceived && this._closeFrameSent
             });
@@ -2144,23 +2144,23 @@ var require_extension = __commonJS({
       let extensionName;
       let paramName;
       let start3 = -1;
-      let code3 = -1;
+      let code2 = -1;
       let end2 = -1;
       let i6 = 0;
       for (; i6 < header3.length; i6++) {
-        code3 = header3.charCodeAt(i6);
+        code2 = header3.charCodeAt(i6);
         if (extensionName === void 0) {
-          if (end2 === -1 && tokenChars[code3] === 1) {
+          if (end2 === -1 && tokenChars[code2] === 1) {
             if (start3 === -1) start3 = i6;
-          } else if (i6 !== 0 && (code3 === 32 || code3 === 9)) {
+          } else if (i6 !== 0 && (code2 === 32 || code2 === 9)) {
             if (end2 === -1 && start3 !== -1) end2 = i6;
-          } else if (code3 === 59 || code3 === 44) {
+          } else if (code2 === 59 || code2 === 44) {
             if (start3 === -1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
             const name = header3.slice(start3, end2);
-            if (code3 === 44) {
+            if (code2 === 44) {
               push(offers, name, params);
               params = /* @__PURE__ */ Object.create(null);
             } else {
@@ -2171,23 +2171,23 @@ var require_extension = __commonJS({
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
         } else if (paramName === void 0) {
-          if (end2 === -1 && tokenChars[code3] === 1) {
+          if (end2 === -1 && tokenChars[code2] === 1) {
             if (start3 === -1) start3 = i6;
-          } else if (code3 === 32 || code3 === 9) {
+          } else if (code2 === 32 || code2 === 9) {
             if (end2 === -1 && start3 !== -1) end2 = i6;
-          } else if (code3 === 59 || code3 === 44) {
+          } else if (code2 === 59 || code2 === 44) {
             if (start3 === -1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (end2 === -1) end2 = i6;
             push(params, header3.slice(start3, end2), true);
-            if (code3 === 44) {
+            if (code2 === 44) {
               push(offers, extensionName, params);
               params = /* @__PURE__ */ Object.create(null);
               extensionName = void 0;
             }
             start3 = end2 = -1;
-          } else if (code3 === 61 && start3 !== -1 && end2 === -1) {
+          } else if (code2 === 61 && start3 !== -1 && end2 === -1) {
             paramName = header3.slice(start3, i6);
             start3 = end2 = -1;
           } else {
@@ -2195,30 +2195,30 @@ var require_extension = __commonJS({
           }
         } else {
           if (isEscaping) {
-            if (tokenChars[code3] !== 1) {
+            if (tokenChars[code2] !== 1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
             if (start3 === -1) start3 = i6;
             else if (!mustUnescape) mustUnescape = true;
             isEscaping = false;
           } else if (inQuotes) {
-            if (tokenChars[code3] === 1) {
+            if (tokenChars[code2] === 1) {
               if (start3 === -1) start3 = i6;
-            } else if (code3 === 34 && start3 !== -1) {
+            } else if (code2 === 34 && start3 !== -1) {
               inQuotes = false;
               end2 = i6;
-            } else if (code3 === 92) {
+            } else if (code2 === 92) {
               isEscaping = true;
             } else {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
-          } else if (code3 === 34 && header3.charCodeAt(i6 - 1) === 61) {
+          } else if (code2 === 34 && header3.charCodeAt(i6 - 1) === 61) {
             inQuotes = true;
-          } else if (end2 === -1 && tokenChars[code3] === 1) {
+          } else if (end2 === -1 && tokenChars[code2] === 1) {
             if (start3 === -1) start3 = i6;
-          } else if (start3 !== -1 && (code3 === 32 || code3 === 9)) {
+          } else if (start3 !== -1 && (code2 === 32 || code2 === 9)) {
             if (end2 === -1) end2 = i6;
-          } else if (code3 === 59 || code3 === 44) {
+          } else if (code2 === 59 || code2 === 44) {
             if (start3 === -1) {
               throw new SyntaxError(`Unexpected character at index ${i6}`);
             }
@@ -2229,7 +2229,7 @@ var require_extension = __commonJS({
               mustUnescape = false;
             }
             push(params, paramName, value3);
-            if (code3 === 44) {
+            if (code2 === 44) {
               push(offers, extensionName, params);
               params = /* @__PURE__ */ Object.create(null);
               extensionName = void 0;
@@ -2241,7 +2241,7 @@ var require_extension = __commonJS({
           }
         }
       }
-      if (start3 === -1 || inQuotes || code3 === 32 || code3 === 9) {
+      if (start3 === -1 || inQuotes || code2 === 32 || code2 === 9) {
         throw new SyntaxError("Unexpected end of input");
       }
       if (end2 === -1) end2 = i6;
@@ -2288,8 +2288,8 @@ var require_websocket = __commonJS({
     var http3 = __require("http");
     var net = __require("net");
     var tls3 = __require("tls");
-    var { randomBytes: randomBytes6, createHash: createHash10 } = __require("crypto");
-    var { Duplex, Readable: Readable8 } = __require("stream");
+    var { randomBytes: randomBytes8, createHash: createHash11 } = __require("crypto");
+    var { Duplex, Readable: Readable9 } = __require("stream");
     var { URL: URL2 } = __require("url");
     var PerMessageDeflate2 = require_permessage_deflate();
     var Receiver2 = require_receiver();
@@ -2544,7 +2544,7 @@ var require_websocket = __commonJS({
        *     closing
        * @public
        */
-      close(code3, data) {
+      close(code2, data) {
         if (this.readyState === _WebSocket.CLOSED) return;
         if (this.readyState === _WebSocket.CONNECTING) {
           const msg = "WebSocket was closed before the connection was established";
@@ -2557,7 +2557,7 @@ var require_websocket = __commonJS({
           }
           return;
         }
-        this._sender.close(code3, data, !this._isServer, (err) => {
+        this._sender.close(code2, data, !this._isServer, (err) => {
           if (err) return;
           this._closeFrameSent = true;
           if (this._closeFrameReceived || this._receiver._writableState.errorEmitted) {
@@ -2839,7 +2839,7 @@ var require_websocket = __commonJS({
         }
       }
       const defaultPort = isSecure ? 443 : 80;
-      const key3 = randomBytes6(16).toString("base64");
+      const key3 = randomBytes8(16).toString("base64");
       const request2 = isSecure ? https2.request : http3.request;
       const protocolSet = /* @__PURE__ */ new Set();
       let perMessageDeflate;
@@ -2969,8 +2969,8 @@ var require_websocket = __commonJS({
           abortHandshake(websocket, socket, "Invalid Upgrade header");
           return;
         }
-        const digest2 = createHash10("sha1").update(key3 + GUID).digest("base64");
-        if (res.headers["sec-websocket-accept"] !== digest2) {
+        const digest3 = createHash11("sha1").update(key3 + GUID).digest("base64");
+        if (res.headers["sec-websocket-accept"] !== digest3) {
           abortHandshake(websocket, socket, "Invalid Sec-WebSocket-Accept header");
           return;
         }
@@ -3082,16 +3082,16 @@ var require_websocket = __commonJS({
         process.nextTick(cb, err);
       }
     }
-    function receiverOnConclude(code3, reason) {
+    function receiverOnConclude(code2, reason) {
       const websocket = this[kWebSocket];
       websocket._closeFrameReceived = true;
       websocket._closeMessage = reason;
-      websocket._closeCode = code3;
+      websocket._closeCode = code2;
       if (websocket._socket[kWebSocket] === void 0) return;
       websocket._socket.removeListener("data", socketOnData);
       process.nextTick(resume, websocket._socket);
-      if (code3 === 1005) websocket.close();
-      else websocket.close(code3, reason);
+      if (code2 === 1005) websocket.close();
+      else websocket.close(code2, reason);
     }
     function receiverOnDrain() {
       const websocket = this[kWebSocket];
@@ -3297,12 +3297,12 @@ var require_subprotocol = __commonJS({
       let end2 = -1;
       let i6 = 0;
       for (i6; i6 < header3.length; i6++) {
-        const code3 = header3.charCodeAt(i6);
-        if (end2 === -1 && tokenChars[code3] === 1) {
+        const code2 = header3.charCodeAt(i6);
+        if (end2 === -1 && tokenChars[code2] === 1) {
           if (start3 === -1) start3 = i6;
-        } else if (i6 !== 0 && (code3 === 32 || code3 === 9)) {
+        } else if (i6 !== 0 && (code2 === 32 || code2 === 9)) {
           if (end2 === -1 && start3 !== -1) end2 = i6;
-        } else if (code3 === 44) {
+        } else if (code2 === 44) {
           if (start3 === -1) {
             throw new SyntaxError(`Unexpected character at index ${i6}`);
           }
@@ -3338,7 +3338,7 @@ var require_websocket_server = __commonJS({
     var EventEmitter2 = __require("events");
     var http3 = __require("http");
     var { Duplex } = __require("stream");
-    var { createHash: createHash10 } = __require("crypto");
+    var { createHash: createHash11 } = __require("crypto");
     var extension2 = require_extension();
     var PerMessageDeflate2 = require_permessage_deflate();
     var subprotocol2 = require_subprotocol();
@@ -3604,9 +3604,9 @@ var require_websocket_server = __commonJS({
             req
           };
           if (this.options.verifyClient.length === 2) {
-            this.options.verifyClient(info2, (verified, code3, message2, headers) => {
+            this.options.verifyClient(info2, (verified, code2, message2, headers) => {
               if (!verified) {
-                return abortHandshake(socket, code3 || 401, message2, headers);
+                return abortHandshake(socket, code2 || 401, message2, headers);
               }
               this.completeUpgrade(
                 extensions,
@@ -3645,12 +3645,12 @@ var require_websocket_server = __commonJS({
           );
         }
         if (this._state > RUNNING) return abortHandshake(socket, 503);
-        const digest2 = createHash10("sha1").update(key3 + GUID).digest("base64");
+        const digest3 = createHash11("sha1").update(key3 + GUID).digest("base64");
         const headers = [
           "HTTP/1.1 101 Switching Protocols",
           "Upgrade: websocket",
           "Connection: Upgrade",
-          `Sec-WebSocket-Accept: ${digest2}`
+          `Sec-WebSocket-Accept: ${digest3}`
         ];
         const ws = new this.options.WebSocket(null, void 0, this.options);
         if (protocols.size) {
@@ -3706,8 +3706,8 @@ var require_websocket_server = __commonJS({
     function socketOnError() {
       this.destroy();
     }
-    function abortHandshake(socket, code3, message2, headers) {
-      message2 = message2 || http3.STATUS_CODES[code3];
+    function abortHandshake(socket, code2, message2, headers) {
+      message2 = message2 || http3.STATUS_CODES[code2];
       headers = {
         Connection: "close",
         "Content-Type": "text/html",
@@ -3716,17 +3716,17 @@ var require_websocket_server = __commonJS({
       };
       socket.once("finish", socket.destroy);
       socket.end(
-        `HTTP/1.1 ${code3} ${http3.STATUS_CODES[code3]}\r
+        `HTTP/1.1 ${code2} ${http3.STATUS_CODES[code2]}\r
 ` + Object.keys(headers).map((h6) => `${h6}: ${headers[h6]}`).join("\r\n") + "\r\n\r\n" + message2
       );
     }
-    function abortHandshakeOrEmitwsClientError(server, req, socket, code3, message2, headers) {
+    function abortHandshakeOrEmitwsClientError(server, req, socket, code2, message2, headers) {
       if (server.listenerCount("wsClientError")) {
         const err = new Error(message2);
         Error.captureStackTrace(err, abortHandshakeOrEmitwsClientError);
         server.emit("wsClientError", err, socket, req);
       } else {
-        abortHandshake(socket, code3, message2, headers);
+        abortHandshake(socket, code2, message2, headers);
       }
     }
   }
@@ -7864,11 +7864,11 @@ var init_externalDataInterceptor = __esm({
 // ../../node_modules/@smithy/core/dist-es/submodules/config/node-config-provider/getSelectorName.js
 function getSelectorName(functionString) {
   try {
-    const constants6 = new Set(Array.from(functionString.match(/([A-Z_]){3,}/g) ?? []));
-    constants6.delete("CONFIG");
-    constants6.delete("CONFIG_PREFIX_SEPARATOR");
-    constants6.delete("ENV");
-    return [...constants6].join(", ");
+    const constants7 = new Set(Array.from(functionString.match(/([A-Z_]){3,}/g) ?? []));
+    constants7.delete("CONFIG");
+    constants7.delete("CONFIG_PREFIX_SEPARATOR");
+    constants7.delete("ENV");
+    return [...constants7].join(", ");
   } catch (ignored) {
     return functionString;
   }
@@ -9873,8 +9873,8 @@ var init_ChecksumStream = __esm({
           return;
         }
         try {
-          const digest2 = await this.checksum.digest();
-          const received = this.base64Encoder(digest2);
+          const digest3 = await this.checksum.digest();
+          const received = this.base64Encoder(digest3);
           if (this.expectedChecksum !== received) {
             this.destroy(new Error(`Checksum mismatch: expected "${this.expectedChecksum}" but received "${received}" in response header "${this.checksumSourceLocation}".`));
             return;
@@ -10015,8 +10015,8 @@ var init_createChecksumStream_browser = __esm({
           controller.enqueue(chunk);
         },
         async flush(controller) {
-          const digest2 = await checksum2.digest();
-          const received = encoder3(digest2);
+          const digest3 = await checksum2.digest();
+          const received = encoder3(digest3);
           if (expectedChecksum !== received) {
             const error64 = new Error(`Checksum mismatch: expected "${expectedChecksum}" but received "${received}" in response header "${checksumSourceLocation}".`);
             controller.error(error64);
@@ -10254,8 +10254,8 @@ var init_getAwsChunkedEncodingStream_browser = __esm({
     getAwsChunkedEncodingStream = (readableStream, options) => {
       const { base64Encoder, bodyLengthChecker, checksumAlgorithmFn, checksumLocationName, streamHasher } = options;
       const checksumRequired = base64Encoder !== void 0 && bodyLengthChecker !== void 0 && checksumAlgorithmFn !== void 0 && checksumLocationName !== void 0 && streamHasher !== void 0;
-      const digest2 = checksumRequired ? streamHasher(checksumAlgorithmFn, readableStream) : void 0;
-      Promise.resolve(digest2).catch(() => {
+      const digest3 = checksumRequired ? streamHasher(checksumAlgorithmFn, readableStream) : void 0;
+      Promise.resolve(digest3).catch(() => {
       });
       const reader = readableStream.getReader();
       return new ReadableStream({
@@ -10265,7 +10265,7 @@ var init_getAwsChunkedEncodingStream_browser = __esm({
             controller.enqueue(`0\r
 `);
             if (checksumRequired) {
-              const checksum2 = base64Encoder(await digest2);
+              const checksum2 = base64Encoder(await digest3);
               controller.enqueue(`${checksumLocationName}:${checksum2}\r
 `);
               controller.enqueue(`\r
@@ -10293,8 +10293,8 @@ function getAwsChunkedEncodingStream2(stream, options) {
   }
   const { base64Encoder, bodyLengthChecker, checksumAlgorithmFn, checksumLocationName, streamHasher } = options;
   const checksumRequired = base64Encoder !== void 0 && checksumAlgorithmFn !== void 0 && checksumLocationName !== void 0 && streamHasher !== void 0;
-  const digest2 = checksumRequired ? streamHasher(checksumAlgorithmFn, readable) : void 0;
-  Promise.resolve(digest2).catch(() => {
+  const digest3 = checksumRequired ? streamHasher(checksumAlgorithmFn, readable) : void 0;
+  Promise.resolve(digest3).catch(() => {
   });
   const awsChunkedEncodingStream = new Readable4({
     read() {
@@ -10322,7 +10322,7 @@ function getAwsChunkedEncodingStream2(stream, options) {
       awsChunkedEncodingStream.push(`0\r
 `);
       if (checksumRequired) {
-        const checksum2 = base64Encoder(await digest2);
+        const checksum2 = base64Encoder(await digest3);
         awsChunkedEncodingStream.push(`${checksumLocationName}:${checksum2}\r
 `);
         awsChunkedEncodingStream.push(`\r
@@ -12105,15 +12105,15 @@ function getMessageUnmarshaller(deserializer, toUtf83) {
       unmodeledError.name = message2.headers[":error-code"].value;
       throw unmodeledError;
     } else if (messageType === "exception") {
-      const code3 = message2.headers[":exception-type"].value;
-      const exception = { [code3]: message2 };
+      const code2 = message2.headers[":exception-type"].value;
+      const exception = { [code2]: message2 };
       const deserializedException = await deserializer(exception);
       if (deserializedException.$unknown) {
         const error64 = new Error(toUtf83(message2.body));
-        error64.name = code3;
+        error64.name = code2;
         throw error64;
       }
-      throw deserializedException[code3];
+      throw deserializedException[code2];
     } else if (messageType === "event") {
       const event = {
         [message2.headers[":event-type"].value]: message2
@@ -14565,11 +14565,11 @@ var init_JsonShapeSerializer2 = __esm({
         }
         this.json[this.i++] = QUOTE;
       }
-      writeUnicodeEscape(code3) {
+      writeUnicodeEscape(code2) {
         let { json: json4, i: i6 } = this;
         json4[i6++] = BACKSLASH;
         json4[i6++] = 117;
-        const hex3 = code3.toString(16).padStart(4, "0");
+        const hex3 = code2.toString(16).padStart(4, "0");
         for (let j5 = 0; j5 < 4; ++j5) {
           json4[i6++] = hex3.charCodeAt(j5);
         }
@@ -19591,7 +19591,7 @@ var require_dist_cjs4 = __commonJS({
       }
       waitForReady(socket, connectionTimeout) {
         return new Promise((resolve5, reject) => {
-          const timeout = setTimeout(() => {
+          const timeout2 = setTimeout(() => {
             this.removeNotUsableSockets(socket.url);
             reject({
               $metadata: {
@@ -19601,7 +19601,7 @@ var require_dist_cjs4 = __commonJS({
             });
           }, connectionTimeout);
           socket.onopen = () => {
-            clearTimeout(timeout);
+            clearTimeout(timeout2);
             resolve5();
           };
         });
@@ -20949,7 +20949,7 @@ var require_dist_cjs7 = __commonJS({
     });
     var DEFAULT_TIMEOUT = 1e3;
     var DEFAULT_MAX_RETRIES = 0;
-    var providerConfigFromInit = ({ maxRetries = DEFAULT_MAX_RETRIES, timeout = DEFAULT_TIMEOUT }) => ({ maxRetries, timeout });
+    var providerConfigFromInit = ({ maxRetries = DEFAULT_MAX_RETRIES, timeout: timeout2 = DEFAULT_TIMEOUT }) => ({ maxRetries, timeout: timeout2 });
     function httpRequest(options) {
       return new Promise((resolve5, reject) => {
         const req = node_http.request({
@@ -20994,10 +20994,10 @@ var require_dist_cjs7 = __commonJS({
     var ENV_CMDS_RELATIVE_URI = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI";
     var ENV_CMDS_AUTH_TOKEN = "AWS_CONTAINER_AUTHORIZATION_TOKEN";
     var fromContainerMetadata = (init3 = {}) => {
-      const { timeout, maxRetries } = providerConfigFromInit(init3);
+      const { timeout: timeout2, maxRetries } = providerConfigFromInit(init3);
       return () => retry2(async () => {
         const requestOptions = await getCmdsUri({ logger: init3.logger });
-        const credsResponse = JSON.parse(await requestFromEcsImds(timeout, requestOptions));
+        const credsResponse = JSON.parse(await requestFromEcsImds(timeout2, requestOptions));
         if (!isImdsCredentials(credsResponse)) {
           throw new CredentialsProviderError2("Invalid response received from instance metadata service.", {
             logger: init3.logger
@@ -21006,7 +21006,7 @@ var require_dist_cjs7 = __commonJS({
         return fromImdsCredentials(credsResponse);
       }, maxRetries);
     };
-    var requestFromEcsImds = async (timeout, options) => {
+    var requestFromEcsImds = async (timeout2, options) => {
       if (process.env[ENV_CMDS_AUTH_TOKEN]) {
         options.headers = {
           ...options.headers,
@@ -21015,7 +21015,7 @@ var require_dist_cjs7 = __commonJS({
       }
       const buffer = await httpRequest({
         ...options,
-        timeout
+        timeout: timeout2
       });
       return buffer.toString();
     };
@@ -21152,7 +21152,7 @@ For more information, please visit: ` + STATIC_STABILITY_DOC_URL);
     var getInstanceMetadataProvider = (init3 = {}) => {
       let disableFetchToken = false;
       const { logger: logger2, profile } = init3;
-      const { timeout, maxRetries } = providerConfigFromInit(init3);
+      const { timeout: timeout2, maxRetries } = providerConfigFromInit(init3);
       const getCredentials = async (maxRetries2, options) => {
         const isImdsV1Fallback = disableFetchToken || options.headers?.[X_AWS_EC2_METADATA_TOKEN2] == null;
         if (isImdsV1Fallback) {
@@ -21216,11 +21216,11 @@ For more information, please visit: ` + STATIC_STABILITY_DOC_URL);
         const endpoint2 = await getInstanceMetadataEndpoint();
         if (disableFetchToken) {
           logger2?.debug("AWS SDK Instance Metadata", "using v1 fallback (no token fetch)");
-          return getCredentials(maxRetries, { ...endpoint2, timeout });
+          return getCredentials(maxRetries, { ...endpoint2, timeout: timeout2 });
         } else {
           let token;
           try {
-            token = (await getMetadataToken({ ...endpoint2, timeout })).toString();
+            token = (await getMetadataToken({ ...endpoint2, timeout: timeout2 })).toString();
           } catch (error64) {
             if (error64?.statusCode === 400) {
               throw Object.assign(error64, {
@@ -21230,14 +21230,14 @@ For more information, please visit: ` + STATIC_STABILITY_DOC_URL);
               disableFetchToken = true;
             }
             logger2?.debug("AWS SDK Instance Metadata", "using v1 fallback (initial)");
-            return getCredentials(maxRetries, { ...endpoint2, timeout });
+            return getCredentials(maxRetries, { ...endpoint2, timeout: timeout2 });
           }
           return getCredentials(maxRetries, {
             ...endpoint2,
             headers: {
               [X_AWS_EC2_METADATA_TOKEN2]: token
             },
-            timeout
+            timeout: timeout2
           });
         }
       };
@@ -21285,7 +21285,7 @@ var require_dist_cjs8 = __commonJS({
     exports.streamCollector = streamCollector7;
     var { buildQueryString: buildQueryString2, HttpResponse: HttpResponse3 } = (init_protocols(), __toCommonJS(protocols_exports));
     var node_https = __require("node:https");
-    var { Readable: Readable8 } = __require("node:stream");
+    var { Readable: Readable9 } = __require("node:stream");
     var http22 = __require("node:http2");
     function buildAbortError(abortSignal) {
       const reason = abortSignal && typeof abortSignal === "object" && "reason" in abortSignal ? abortSignal.reason : void 0;
@@ -21394,16 +21394,16 @@ var require_dist_cjs8 = __commonJS({
     var DEFER_EVENT_LISTENER_TIME = 3e3;
     var setSocketTimeout = (request2, reject, timeoutInMs = 0) => {
       const registerTimeout = (offset) => {
-        const timeout = timeoutInMs - offset;
+        const timeout2 = timeoutInMs - offset;
         const onTimeout = () => {
           request2.destroy();
           reject(Object.assign(new Error(`@smithy/node-http-handler - the request socket timed out after ${timeoutInMs} ms of inactivity (configured by client requestHandler).`), { name: "TimeoutError" }));
         };
         if (request2.socket) {
-          request2.socket.setTimeout(timeout, onTimeout);
+          request2.socket.setTimeout(timeout2, onTimeout);
           request2.on("close", () => request2.socket?.removeListener("timeout", onTimeout));
         } else {
-          request2.setTimeout(timeout, onTimeout);
+          request2.setTimeout(timeout2, onTimeout);
         }
       };
       if (0 < timeoutInMs && timeoutInMs < 6e3) {
@@ -21444,7 +21444,7 @@ var require_dist_cjs8 = __commonJS({
       }
     }
     function writeBody(httpRequest, body2) {
-      if (body2 instanceof Readable8) {
+      if (body2 instanceof Readable9) {
         body2.pipe(httpRequest);
         return;
       }
@@ -21858,8 +21858,8 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         session.on("error", ensureDestroyed);
         session.on("frameError", ensureDestroyed);
         session.on("close", ensureDestroyed);
-        const timeout = connectionConfiguration.requestTimeout ?? 3e5;
-        session.setTimeout(timeout, ensureDestroyed);
+        const timeout2 = connectionConfiguration.requestTimeout ?? 3e5;
+        session.setTimeout(timeout2, ensureDestroyed);
         ref2.retain();
         return ref2;
       }
@@ -21927,7 +21927,7 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
         return this.connectOptions === void 0 ? http22.connect(url2) : http22.connect(url2, this.connectOptions);
       }
     };
-    var { constants: constants6 } = http22;
+    var { constants: constants7 } = http22;
     var NodeHttp2Handler = class _NodeHttp2Handler {
       config;
       configProvider;
@@ -22017,8 +22017,8 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
           }
           const clientHttp2Stream = session.request({
             ...request2.headers,
-            [constants6.HTTP2_HEADER_PATH]: path2,
-            [constants6.HTTP2_HEADER_METHOD]: method
+            [constants7.HTTP2_HEADER_PATH]: path2,
+            [constants7.HTTP2_HEADER_METHOD]: method
           });
           if (effectiveRequestTimeout) {
             clientHttp2Stream.setTimeout(effectiveRequestTimeout, () => {
@@ -22042,8 +22042,8 @@ or increase socketAcquisitionWarningTimeout=(millis) in the NodeHttpHandler conf
               abortSignal.onabort = onAbort;
             }
           }
-          clientHttp2Stream.on("frameError", (type, code3, id3) => {
-            rejectWithDestroy(new Error(`Frame type id ${type} in stream id ${id3} has failed with code ${code3}.`));
+          clientHttp2Stream.on("frameError", (type, code2, id3) => {
+            rejectWithDestroy(new Error(`Frame type id ${type} in stream id ${id3} has failed with code ${code2}.`));
           });
           clientHttp2Stream.on("error", rejectWithDestroy);
           clientHttp2Stream.on("aborted", () => {
@@ -25177,9 +25177,9 @@ var init_AwsQueryProtocol = __esm({
         }, output2), dataObject);
       }
       loadQueryErrorCode(output2, data) {
-        const code3 = (data.Errors?.[0]?.Error ?? data.Errors?.Error ?? data.Error)?.Code;
-        if (code3 !== void 0) {
-          return code3;
+        const code2 = (data.Errors?.[0]?.Error ?? data.Errors?.Error ?? data.Error)?.Code;
+        if (code2 !== void 0) {
+          return code2;
         }
         if (output2.statusCode == 404) {
           return "NotFound";
@@ -29999,10 +29999,10 @@ var require_dist_cjs14 = __commonJS({
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2, parseKnownFiles: parseKnownFiles2, getProfileName: getProfileName2 } = (init_config2(), __toCommonJS(config_exports));
     var { HttpRequest: HttpRequest2 } = (init_protocols(), __toCommonJS(protocols_exports));
-    var { createHash: createHash10, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign3 } = __require("node:crypto");
+    var { createHash: createHash11, createPrivateKey: createPrivateKey2, createPublicKey: createPublicKey2, sign: sign3 } = __require("node:crypto");
     var { promises } = __require("node:fs");
     var { homedir: homedir4 } = __require("node:os");
-    var { dirname: dirname11, join: join28 } = __require("node:path");
+    var { dirname: dirname13, join: join29 } = __require("node:path");
     var LoginCredentialsFetcher = class _LoginCredentialsFetcher {
       profileData;
       init;
@@ -30158,7 +30158,7 @@ var require_dist_cjs14 = __commonJS({
       }
       async saveToken(token) {
         const tokenFilePath = this.getTokenFilePath();
-        const directory = dirname11(tokenFilePath);
+        const directory = dirname13(tokenFilePath);
         try {
           await promises.mkdir(directory, { recursive: true });
         } catch (error64) {
@@ -30166,10 +30166,10 @@ var require_dist_cjs14 = __commonJS({
         await promises.writeFile(tokenFilePath, JSON.stringify(token, null, 2), "utf8");
       }
       getTokenFilePath() {
-        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join28(homedir4(), ".aws", "login", "cache");
+        const directory = process.env.AWS_LOGIN_CACHE_DIRECTORY ?? join29(homedir4(), ".aws", "login", "cache");
         const loginSessionBytes = Buffer.from(this.loginSession, "utf8");
-        const loginSessionSha256 = createHash10("sha256").update(loginSessionBytes).digest("hex");
-        return join28(directory, `${loginSessionSha256}.json`);
+        const loginSessionSha256 = createHash11("sha256").update(loginSessionBytes).digest("hex");
+        return join29(directory, `${loginSessionSha256}.json`);
       }
       derToRawSignature(derSignature) {
         let offset = 2;
@@ -30769,7 +30769,7 @@ var require_dist_cjs18 = __commonJS({
 var require_dist_cjs19 = __commonJS({
   "../../node_modules/@aws-sdk/eventstream-handler-node/dist-cjs/index.js"(exports) {
     var { EventStreamCodec: EventStreamCodec2 } = (init_event_streams(), __toCommonJS(event_streams_exports));
-    var { Transform, Readable: Readable8, PassThrough: PassThrough5, pipeline: pipeline2 } = __require("node:stream");
+    var { Transform, Readable: Readable9, PassThrough: PassThrough5, pipeline: pipeline2 } = __require("node:stream");
     var EventSigningTransformStream = class extends Transform {
       priorSignature;
       messageSigner;
@@ -30841,7 +30841,7 @@ var require_dist_cjs19 = __commonJS({
       async handle(next, args, context = {}) {
         const request2 = args.request;
         const { body: payload2, query } = request2;
-        if (!(payload2 instanceof Readable8)) {
+        if (!(payload2 instanceof Readable9)) {
           throw new Error("Eventstream payload must be a Readable stream.");
         }
         request2.body = new PassThrough5({
@@ -34904,11 +34904,11 @@ var require_retry_operation = __commonJS({
         return false;
       }
       this._errors.push(err);
-      var timeout = this._timeouts.shift();
-      if (timeout === void 0) {
+      var timeout2 = this._timeouts.shift();
+      if (timeout2 === void 0) {
         if (this._cachedTimeouts) {
           this._errors.splice(0, this._errors.length - 1);
-          timeout = this._cachedTimeouts.slice(-1);
+          timeout2 = this._cachedTimeouts.slice(-1);
         } else {
           return false;
         }
@@ -34925,7 +34925,7 @@ var require_retry_operation = __commonJS({
           }
         }
         self2._fn(self2._attempts);
-      }, timeout);
+      }, timeout2);
       if (this._options.unref) {
         this._timer.unref();
       }
@@ -35030,9 +35030,9 @@ var require_retry = __commonJS({
     };
     exports.createTimeout = function(attempt, opts) {
       var random = opts.randomize ? Math.random() + 1 : 1;
-      var timeout = Math.round(random * Math.max(opts.minTimeout, 1) * Math.pow(opts.factor, attempt));
-      timeout = Math.min(timeout, opts.maxTimeout);
-      return timeout;
+      var timeout2 = Math.round(random * Math.max(opts.minTimeout, 1) * Math.pow(opts.factor, attempt));
+      timeout2 = Math.min(timeout2, opts.maxTimeout);
+      return timeout2;
     };
     exports.wrap = function(obj, options, methods) {
       if (options instanceof Array) {
@@ -35503,7 +35503,7 @@ var require_common = __commonJS({
           if (typeof res.data.error === "object") {
             message2 = "message" in res.data.error && typeof res.data.error.message === "string" ? res.data.error.message : message2;
             const status3 = "status" in res.data.error && typeof res.data.error.status === "string" ? res.data.error.status : res.statusText;
-            const code3 = "code" in res.data.error && typeof res.data.error.code === "number" ? res.data.error.code : res.status;
+            const code2 = "code" in res.data.error && typeof res.data.error.code === "number" ? res.data.error.code : res.status;
             if ("errors" in res.data.error && Array.isArray(res.data.error.errors)) {
               const errorMessages = [];
               for (const e6 of res.data.error.errors) {
@@ -35513,13 +35513,13 @@ var require_common = __commonJS({
               }
               return Object.assign({
                 message: errorMessages.join("\n") || message2,
-                code: code3,
+                code: code2,
                 status: status3
               }, res.data.error);
             }
             return Object.assign({
               message: message2,
-              code: code3,
+              code: code2,
               status: status3
             }, res.data.error);
           }
@@ -41727,8 +41727,8 @@ function _fileName(headerValue) {
   const match2 = m4[2] || m4[3] || "";
   let filename = match2.slice(match2.lastIndexOf("\\") + 1);
   filename = filename.replace(/%22/g, '"');
-  filename = filename.replace(/&#(\d{4});/g, (m5, code3) => {
-    return String.fromCharCode(code3);
+  filename = filename.replace(/&#(\d{4});/g, (m5, code2) => {
+    return String.fromCharCode(code2);
   });
   return filename;
 }
@@ -42530,8 +42530,8 @@ var redirectStatus, isRedirect;
 var init_is_redirect = __esm({
   "../../node_modules/node-fetch/src/utils/is-redirect.js"() {
     redirectStatus = /* @__PURE__ */ new Set([301, 302, 303, 307, 308]);
-    isRedirect = (code3) => {
-      return redirectStatus.has(code3);
+    isRedirect = (code2) => {
+      return redirectStatus.has(code2);
     };
   }
 });
@@ -46273,10 +46273,10 @@ var require_src4 = __commonJS({
             "ENOTFOUND",
             "ECONNREFUSED"
           ].includes(err.code.toString()))) {
-            let code3 = "UNKNOWN";
+            let code2 = "UNKNOWN";
             if (err.code)
-              code3 = err.code.toString();
-            process.emitWarning(`received unexpected error = ${err.message} code = ${code3}`, "MetadataLookupWarning");
+              code2 = err.code.toString();
+            process.emitWarning(`received unexpected error = ${err.message} code = ${code2}`, "MetadataLookupWarning");
           }
           return false;
         }
@@ -46312,10 +46312,10 @@ var require_base64_js = __commonJS({
     var lookup = [];
     var revLookup = [];
     var Arr = typeof Uint8Array !== "undefined" ? Uint8Array : Array;
-    var code3 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    for (i6 = 0, len = code3.length; i6 < len; ++i6) {
-      lookup[i6] = code3[i6];
-      revLookup[code3.charCodeAt(i6)] = i6;
+    var code2 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for (i6 = 0, len = code2.length; i6 < len; ++i6) {
+      lookup[i6] = code2[i6];
+      revLookup[code2.charCodeAt(i6)] = i6;
     }
     var i6;
     var len;
@@ -48441,12 +48441,12 @@ var require_jwa = __commonJS({
       };
     }
     var bufferEqual;
-    var timingSafeEqual4 = "timingSafeEqual" in crypto2 ? function timingSafeEqual5(a5, b5) {
+    var timingSafeEqual5 = "timingSafeEqual" in crypto2 ? function timingSafeEqual6(a5, b5) {
       if (a5.byteLength !== b5.byteLength) {
         return false;
       }
       return crypto2.timingSafeEqual(a5, b5);
-    } : function timingSafeEqual5(a5, b5) {
+    } : function timingSafeEqual6(a5, b5) {
       if (!bufferEqual) {
         bufferEqual = require_buffer_equal_constant_time();
       }
@@ -48455,7 +48455,7 @@ var require_jwa = __commonJS({
     function createHmacVerifier(bits) {
       return function verify3(thing, signature, secret) {
         var computedSig = createHmacSigner(bits)(thing, secret);
-        return timingSafeEqual4(Buffer4.from(signature), Buffer4.from(computedSig));
+        return timingSafeEqual5(Buffer4.from(signature), Buffer4.from(computedSig));
       };
     }
     function createKeySigner(bits) {
@@ -48881,9 +48881,9 @@ var require_errorWithCode = __commonJS({
     exports.ErrorWithCode = void 0;
     var ErrorWithCode = class extends Error {
       code;
-      constructor(message2, code3) {
+      constructor(message2, code2) {
         super(message2);
-        this.code = code3;
+        this.code = code2;
       }
     };
     exports.ErrorWithCode = ErrorWithCode;
@@ -51553,9 +51553,9 @@ var require_pluggable_auth_handler = __commonJS({
        * The exit code returned by the executable.
        */
       code;
-      constructor(message2, code3) {
-        super(`The executable failed with exit code: ${code3} and error message: ${message2}.`);
-        this.code = code3;
+      constructor(message2, code2) {
+        super(`The executable failed with exit code: ${code2} and error message: ${message2}.`);
+        this.code = code2;
         Object.setPrototypeOf(this, new.target.prototype);
       }
     };
@@ -51598,14 +51598,14 @@ var require_pluggable_auth_handler = __commonJS({
           child.stderr.on("data", (err) => {
             output2 += err;
           });
-          const timeout = setTimeout(() => {
+          const timeout2 = setTimeout(() => {
             child.removeAllListeners();
             child.kill();
             return reject(new Error("The executable failed to finish within the timeout specified."));
           }, this.timeoutMillis);
-          child.on("close", (code3) => {
-            clearTimeout(timeout);
-            if (code3 === 0) {
+          child.on("close", (code2) => {
+            clearTimeout(timeout2);
+            if (code2 === 0) {
               try {
                 const responseJson = JSON.parse(output2);
                 const response = new executable_response_1.ExecutableResponse(responseJson);
@@ -51617,7 +51617,7 @@ var require_pluggable_auth_handler = __commonJS({
                 return reject(new executable_response_1.ExecutableResponseError(`The executable returned an invalid response: ${output2}`));
               }
             } else {
-              return reject(new ExecutableError(output2, code3.toString()));
+              return reject(new ExecutableError(output2, code2.toString()));
             }
           });
         });
@@ -53565,9 +53565,9 @@ var require_code = __commonJS({
     };
     exports.Name = Name;
     var _Code = class extends _CodeOrName {
-      constructor(code3) {
+      constructor(code2) {
         super();
-        this._items = typeof code3 === "string" ? [code3] : code3;
+        this._items = typeof code2 === "string" ? [code2] : code2;
       }
       toString() {
         return this.str;
@@ -53594,13 +53594,13 @@ var require_code = __commonJS({
     exports._Code = _Code;
     exports.nil = new _Code("");
     function _(strs, ...args) {
-      const code3 = [strs[0]];
+      const code2 = [strs[0]];
       let i6 = 0;
       while (i6 < args.length) {
-        addCodeArg(code3, args[i6]);
-        code3.push(strs[++i6]);
+        addCodeArg(code2, args[i6]);
+        code2.push(strs[++i6]);
       }
-      return new _Code(code3);
+      return new _Code(code2);
     }
     exports._ = _;
     var plus = new _Code("+");
@@ -53616,13 +53616,13 @@ var require_code = __commonJS({
       return new _Code(expr);
     }
     exports.str = str3;
-    function addCodeArg(code3, arg) {
+    function addCodeArg(code2, arg) {
       if (arg instanceof _Code)
-        code3.push(...arg._items);
+        code2.push(...arg._items);
       else if (arg instanceof Name)
-        code3.push(arg);
+        code2.push(arg);
       else
-        code3.push(interpolate(arg));
+        code2.push(interpolate(arg));
     }
     exports.addCodeArg = addCodeArg;
     function optimize(expr) {
@@ -53806,7 +53806,7 @@ var require_scope = __commonJS({
         }, usedValues, getCode);
       }
       _reduceValues(values, valueCode, usedValues = {}, getCode) {
-        let code3 = code_1.nil;
+        let code2 = code_1.nil;
         for (const prefix in values) {
           const vs = values[prefix];
           if (!vs)
@@ -53819,16 +53819,16 @@ var require_scope = __commonJS({
             let c5 = valueCode(name);
             if (c5) {
               const def = this.opts.es5 ? exports.varKinds.var : exports.varKinds.const;
-              code3 = (0, code_1._)`${code3}${def} ${name} = ${c5};${this.opts._n}`;
+              code2 = (0, code_1._)`${code2}${def} ${name} = ${c5};${this.opts._n}`;
             } else if (c5 = getCode === null || getCode === void 0 ? void 0 : getCode(name)) {
-              code3 = (0, code_1._)`${code3}${c5}${this.opts._n}`;
+              code2 = (0, code_1._)`${code2}${c5}${this.opts._n}`;
             } else {
               throw new ValueError(name);
             }
             nameSet.set(name, UsedValueState.Completed);
           });
         }
-        return code3;
+        return code2;
       }
     };
     exports.ValueScope = ValueScope;
@@ -53913,11 +53913,11 @@ var require_codegen = __commonJS({
         const rhs = this.rhs === void 0 ? "" : ` = ${this.rhs}`;
         return `${varKind} ${this.name}${rhs};` + _n;
       }
-      optimizeNames(names, constants6) {
+      optimizeNames(names, constants7) {
         if (!names[this.name.str])
           return;
         if (this.rhs)
-          this.rhs = optimizeExpr(this.rhs, names, constants6);
+          this.rhs = optimizeExpr(this.rhs, names, constants7);
         return this;
       }
       get names() {
@@ -53934,10 +53934,10 @@ var require_codegen = __commonJS({
       render({ _n }) {
         return `${this.lhs} = ${this.rhs};` + _n;
       }
-      optimizeNames(names, constants6) {
+      optimizeNames(names, constants7) {
         if (this.lhs instanceof code_1.Name && !names[this.lhs.str] && !this.sideEffects)
           return;
-        this.rhs = optimizeExpr(this.rhs, names, constants6);
+        this.rhs = optimizeExpr(this.rhs, names, constants7);
         return this;
       }
       get names() {
@@ -53988,9 +53988,9 @@ var require_codegen = __commonJS({
       }
     };
     var AnyCode = class extends Node {
-      constructor(code3) {
+      constructor(code2) {
         super();
-        this.code = code3;
+        this.code = code2;
       }
       render({ _n }) {
         return `${this.code};` + _n;
@@ -53998,8 +53998,8 @@ var require_codegen = __commonJS({
       optimizeNodes() {
         return `${this.code}` ? this : void 0;
       }
-      optimizeNames(names, constants6) {
-        this.code = optimizeExpr(this.code, names, constants6);
+      optimizeNames(names, constants7) {
+        this.code = optimizeExpr(this.code, names, constants7);
         return this;
       }
       get names() {
@@ -54012,7 +54012,7 @@ var require_codegen = __commonJS({
         this.nodes = nodes5;
       }
       render(opts) {
-        return this.nodes.reduce((code3, n3) => code3 + n3.render(opts), "");
+        return this.nodes.reduce((code2, n3) => code2 + n3.render(opts), "");
       }
       optimizeNodes() {
         const { nodes: nodes5 } = this;
@@ -54028,12 +54028,12 @@ var require_codegen = __commonJS({
         }
         return nodes5.length > 0 ? this : void 0;
       }
-      optimizeNames(names, constants6) {
+      optimizeNames(names, constants7) {
         const { nodes: nodes5 } = this;
         let i6 = nodes5.length;
         while (i6--) {
           const n3 = nodes5[i6];
-          if (n3.optimizeNames(names, constants6))
+          if (n3.optimizeNames(names, constants7))
             continue;
           subtractNames(names, n3.names);
           nodes5.splice(i6, 1);
@@ -54060,10 +54060,10 @@ var require_codegen = __commonJS({
         this.condition = condition;
       }
       render(opts) {
-        let code3 = `if(${this.condition})` + super.render(opts);
+        let code2 = `if(${this.condition})` + super.render(opts);
         if (this.else)
-          code3 += "else " + this.else.render(opts);
-        return code3;
+          code2 += "else " + this.else.render(opts);
+        return code2;
       }
       optimizeNodes() {
         super.optimizeNodes();
@@ -54086,12 +54086,12 @@ var require_codegen = __commonJS({
           return void 0;
         return this;
       }
-      optimizeNames(names, constants6) {
+      optimizeNames(names, constants7) {
         var _a5;
-        this.else = (_a5 = this.else) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants6);
-        if (!(super.optimizeNames(names, constants6) || this.else))
+        this.else = (_a5 = this.else) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants7);
+        if (!(super.optimizeNames(names, constants7) || this.else))
           return;
-        this.condition = optimizeExpr(this.condition, names, constants6);
+        this.condition = optimizeExpr(this.condition, names, constants7);
         return this;
       }
       get names() {
@@ -54114,10 +54114,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.iteration})` + super.render(opts);
       }
-      optimizeNames(names, constants6) {
-        if (!super.optimizeNames(names, constants6))
+      optimizeNames(names, constants7) {
+        if (!super.optimizeNames(names, constants7))
           return;
-        this.iteration = optimizeExpr(this.iteration, names, constants6);
+        this.iteration = optimizeExpr(this.iteration, names, constants7);
         return this;
       }
       get names() {
@@ -54153,10 +54153,10 @@ var require_codegen = __commonJS({
       render(opts) {
         return `for(${this.varKind} ${this.name} ${this.loop} ${this.iterable})` + super.render(opts);
       }
-      optimizeNames(names, constants6) {
-        if (!super.optimizeNames(names, constants6))
+      optimizeNames(names, constants7) {
+        if (!super.optimizeNames(names, constants7))
           return;
-        this.iterable = optimizeExpr(this.iterable, names, constants6);
+        this.iterable = optimizeExpr(this.iterable, names, constants7);
         return this;
       }
       get names() {
@@ -54184,12 +54184,12 @@ var require_codegen = __commonJS({
     Return.kind = "return";
     var Try = class extends BlockNode {
       render(opts) {
-        let code3 = "try" + super.render(opts);
+        let code2 = "try" + super.render(opts);
         if (this.catch)
-          code3 += this.catch.render(opts);
+          code2 += this.catch.render(opts);
         if (this.finally)
-          code3 += this.finally.render(opts);
-        return code3;
+          code2 += this.finally.render(opts);
+        return code2;
       }
       optimizeNodes() {
         var _a5, _b;
@@ -54198,11 +54198,11 @@ var require_codegen = __commonJS({
         (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNodes();
         return this;
       }
-      optimizeNames(names, constants6) {
+      optimizeNames(names, constants7) {
         var _a5, _b;
-        super.optimizeNames(names, constants6);
-        (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants6);
-        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants6);
+        super.optimizeNames(names, constants7);
+        (_a5 = this.catch) === null || _a5 === void 0 ? void 0 : _a5.optimizeNames(names, constants7);
+        (_b = this.finally) === null || _b === void 0 ? void 0 : _b.optimizeNames(names, constants7);
         return this;
       }
       get names() {
@@ -54306,18 +54306,18 @@ var require_codegen = __commonJS({
       }
       // returns code for object literal for the passed argument list of key-value pairs
       object(...keyValues) {
-        const code3 = ["{"];
+        const code2 = ["{"];
         for (const [key3, value3] of keyValues) {
-          if (code3.length > 1)
-            code3.push(",");
-          code3.push(key3);
+          if (code2.length > 1)
+            code2.push(",");
+          code2.push(key3);
           if (key3 !== value3 || this.opts.es5) {
-            code3.push(":");
-            (0, code_1.addCodeArg)(code3, value3);
+            code2.push(":");
+            (0, code_1.addCodeArg)(code2, value3);
           }
         }
-        code3.push("}");
-        return new code_1._Code(code3);
+        code2.push("}");
+        return new code_1._Code(code2);
       }
       // `if` clause (or statement if `thenBody` and, optionally, `elseBody` are passed)
       if(condition, thenBody, elseBody) {
@@ -54503,7 +54503,7 @@ var require_codegen = __commonJS({
     function addExprNames(names, from) {
       return from instanceof code_1._CodeOrName ? addNames(names, from.names) : names;
     }
-    function optimizeExpr(expr, names, constants6) {
+    function optimizeExpr(expr, names, constants7) {
       if (expr instanceof code_1.Name)
         return replaceName(expr);
       if (!canOptimize(expr))
@@ -54518,14 +54518,14 @@ var require_codegen = __commonJS({
         return items;
       }, []));
       function replaceName(n3) {
-        const c5 = constants6[n3.str];
+        const c5 = constants7[n3.str];
         if (c5 === void 0 || names[n3.str] !== 1)
           return n3;
         delete names[n3.str];
         return c5;
       }
       function canOptimize(e6) {
-        return e6 instanceof code_1._Code && e6._items.some((c5) => c5 instanceof code_1.Name && names[c5.str] === 1 && constants6[c5.str] !== void 0);
+        return e6 instanceof code_1._Code && e6._items.some((c5) => c5 instanceof code_1.Name && names[c5.str] === 1 && constants7[c5.str] !== void 0);
       }
     }
     function subtractNames(names, from) {
@@ -56636,22 +56636,22 @@ var require_utils = __commonJS({
     }
     function stringArrayToHexStripped(input2) {
       let acc = "";
-      let code3 = 0;
+      let code2 = 0;
       let i6 = 0;
       for (i6 = 0; i6 < input2.length; i6++) {
-        code3 = input2[i6].charCodeAt(0);
-        if (code3 === 48) {
+        code2 = input2[i6].charCodeAt(0);
+        if (code2 === 48) {
           continue;
         }
-        if (!(code3 >= 48 && code3 <= 57 || code3 >= 65 && code3 <= 70 || code3 >= 97 && code3 <= 102)) {
+        if (!(code2 >= 48 && code2 <= 57 || code2 >= 65 && code2 <= 70 || code2 >= 97 && code2 <= 102)) {
           return "";
         }
         acc += input2[i6];
         break;
       }
       for (i6 += 1; i6 < input2.length; i6++) {
-        code3 = input2[i6].charCodeAt(0);
-        if (!(code3 >= 48 && code3 <= 57 || code3 >= 65 && code3 <= 70 || code3 >= 97 && code3 <= 102)) {
+        code2 = input2[i6].charCodeAt(0);
+        if (!(code2 >= 48 && code2 <= 57 || code2 >= 65 && code2 <= 70 || code2 >= 97 && code2 <= 102)) {
           return "";
         }
         acc += input2[i6];
@@ -56924,15 +56924,15 @@ var require_utils = __commonJS({
         if (isPathCharacter(ch)) {
           output2 += ch;
         } else {
-          const code3 = input2.charCodeAt(i6);
-          if (code3 < 128) {
-            output2 += isEscapeSafe(code3) ? ch : BYTE_HEX[code3];
-          } else if (code3 < 55296 || code3 > 57343) {
-            output2 += percentEncodeNonAscii(code3);
-          } else if (code3 <= 56319 && i6 + 1 < input2.length) {
+          const code2 = input2.charCodeAt(i6);
+          if (code2 < 128) {
+            output2 += isEscapeSafe(code2) ? ch : BYTE_HEX[code2];
+          } else if (code2 < 55296 || code2 > 57343) {
+            output2 += percentEncodeNonAscii(code2);
+          } else if (code2 <= 56319 && i6 + 1 < input2.length) {
             const low = input2.charCodeAt(i6 + 1);
             if (low >= 56320 && low <= 57343) {
-              output2 += percentEncodeNonAscii(65536 + (code3 - 55296 << 10) + (low - 56320));
+              output2 += percentEncodeNonAscii(65536 + (code2 - 55296 << 10) + (low - 56320));
               i6++;
             } else {
               output2 += percentEncodeNonAscii(65533);
@@ -56963,15 +56963,15 @@ var require_utils = __commonJS({
         if (isPathCharacter(ch) && (ch !== ":" || !firstSegment)) {
           output2 += ch;
         } else {
-          const code3 = input2.charCodeAt(i6);
-          if (code3 < 128) {
-            output2 += BYTE_HEX[code3];
-          } else if (code3 < 55296 || code3 > 57343) {
-            output2 += percentEncodeNonAscii(code3);
-          } else if (code3 <= 56319 && i6 + 1 < input2.length) {
+          const code2 = input2.charCodeAt(i6);
+          if (code2 < 128) {
+            output2 += BYTE_HEX[code2];
+          } else if (code2 < 55296 || code2 > 57343) {
+            output2 += percentEncodeNonAscii(code2);
+          } else if (code2 <= 56319 && i6 + 1 < input2.length) {
             const low = input2.charCodeAt(i6 + 1);
             if (low >= 56320 && low <= 57343) {
-              output2 += percentEncodeNonAscii(65536 + (code3 - 55296 << 10) + (low - 56320));
+              output2 += percentEncodeNonAscii(65536 + (code2 - 55296 << 10) + (low - 56320));
               i6++;
             } else {
               output2 += percentEncodeNonAscii(65533);
@@ -56998,15 +56998,15 @@ var require_utils = __commonJS({
         if (isAllowed(ch)) {
           output2 += ch;
         } else {
-          const code3 = input2.charCodeAt(i6);
-          if (code3 < 128) {
-            output2 += BYTE_HEX[code3];
-          } else if (code3 < 55296 || code3 > 57343) {
-            output2 += percentEncodeNonAscii(code3);
-          } else if (code3 <= 56319 && i6 + 1 < input2.length) {
+          const code2 = input2.charCodeAt(i6);
+          if (code2 < 128) {
+            output2 += BYTE_HEX[code2];
+          } else if (code2 < 55296 || code2 > 57343) {
+            output2 += percentEncodeNonAscii(code2);
+          } else if (code2 <= 56319 && i6 + 1 < input2.length) {
             const low = input2.charCodeAt(i6 + 1);
             if (low >= 56320 && low <= 57343) {
-              output2 += percentEncodeNonAscii(65536 + (code3 - 55296 << 10) + (low - 56320));
+              output2 += percentEncodeNonAscii(65536 + (code2 - 55296 << 10) + (low - 56320));
               i6++;
             } else {
               output2 += percentEncodeNonAscii(65533);
@@ -57051,15 +57051,15 @@ var require_utils = __commonJS({
         if (isQueryFragmentCharacter(ch)) {
           output2 += ch;
         } else {
-          const code3 = input2.charCodeAt(i6);
-          if (code3 < 128) {
-            output2 += isEscapeSafe(code3) ? ch : BYTE_HEX[code3];
-          } else if (code3 < 55296 || code3 > 57343) {
-            output2 += percentEncodeNonAscii(code3);
-          } else if (code3 <= 56319 && i6 + 1 < input2.length) {
+          const code2 = input2.charCodeAt(i6);
+          if (code2 < 128) {
+            output2 += isEscapeSafe(code2) ? ch : BYTE_HEX[code2];
+          } else if (code2 < 55296 || code2 > 57343) {
+            output2 += percentEncodeNonAscii(code2);
+          } else if (code2 <= 56319 && i6 + 1 < input2.length) {
             const low = input2.charCodeAt(i6 + 1);
             if (low >= 56320 && low <= 57343) {
-              output2 += percentEncodeNonAscii(65536 + (code3 - 55296 << 10) + (low - 56320));
+              output2 += percentEncodeNonAscii(65536 + (code2 - 55296 << 10) + (low - 56320));
               i6++;
             } else {
               output2 += percentEncodeNonAscii(65533);
@@ -60017,8 +60017,8 @@ var require_format = __commonJS({
             }
           }
           function getFormat(fmtDef) {
-            const code3 = fmtDef instanceof RegExp ? (0, codegen_1.regexpCode)(fmtDef) : opts.code.formats ? (0, codegen_1._)`${opts.code.formats}${(0, codegen_1.getProperty)(schema)}` : void 0;
-            const fmt = gen.scopeValue("formats", { key: schema, ref: fmtDef, code: code3 });
+            const code2 = fmtDef instanceof RegExp ? (0, codegen_1.regexpCode)(fmtDef) : opts.code.formats ? (0, codegen_1._)`${opts.code.formats}${(0, codegen_1.getProperty)(schema)}` : void 0;
+            const fmt = gen.scopeValue("formats", { key: schema, ref: fmtDef, code: code2 });
             if (typeof fmtDef == "object" && !(fmtDef instanceof RegExp)) {
               return [fmtDef.type || "string", fmtDef.validate, (0, codegen_1._)`${fmt}.validate`];
             }
@@ -62257,6 +62257,322 @@ var require_dist_cjs22 = __commonJS({
     exports.errorTypeRegistries = errorTypeRegistries5;
     exports.getDefaultRoleAssumer = getDefaultRoleAssumer3;
     exports.getDefaultRoleAssumerWithWebIdentity = getDefaultRoleAssumerWithWebIdentity3;
+  }
+});
+
+// ../../node_modules/@anthropic-ai/sdk/core/error.mjs
+var AnthropicError;
+var init_error = __esm({
+  "../../node_modules/@anthropic-ai/sdk/core/error.mjs"() {
+    AnthropicError = /* @__PURE__ */ (() => {
+      class AnthropicError2 extends Error {
+      }
+      return AnthropicError2;
+    })();
+  }
+});
+
+// ../../node_modules/@anthropic-ai/sdk/lib/credentials/types.mjs
+function requireSecureTokenEndpoint(baseURL) {
+  if (!baseURL)
+    return;
+  let u;
+  try {
+    u = new URL(baseURL);
+  } catch (err) {
+    throw new WorkloadIdentityError(`Invalid token endpoint base URL "${baseURL}": ${err}`);
+  }
+  if (u.protocol === "https:")
+    return;
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (u.protocol === "http:" && (host === "localhost" || host === "127.0.0.1" || host === "::1")) {
+    return;
+  }
+  throw new WorkloadIdentityError(`Refusing to send credential over non-https token endpoint "${baseURL}"`);
+}
+async function parseTokenResponse(resp, requestId) {
+  const text2 = await readLimitedText(resp);
+  let data;
+  try {
+    data = JSON.parse(text2);
+  } catch {
+    throw new WorkloadIdentityError(`Token endpoint returned non-JSON response (status ${resp.status})`, resp.status, redactSensitive(text2), requestId);
+  }
+  if (!data.access_token) {
+    throw new WorkloadIdentityError(`Token endpoint response missing access_token: ${JSON.stringify(redactSensitive(data))}`, resp.status, redactSensitive(data), requestId);
+  }
+  if (data.token_type && data.token_type.toLowerCase() !== "bearer") {
+    throw new WorkloadIdentityError(`Token endpoint response: unsupported token_type "${data.token_type}" (want Bearer)`, resp.status, redactSensitive(data), requestId);
+  }
+  return data;
+}
+function redactSensitive(body2) {
+  if (body2 == null)
+    return body2;
+  if (typeof body2 === "string") {
+    let parsed2;
+    try {
+      parsed2 = JSON.parse(body2);
+    } catch {
+      if (body2.length <= MAX_ERROR_BODY_CHARS)
+        return body2;
+      return body2.slice(0, MAX_ERROR_BODY_CHARS) + `... <${body2.length - MAX_ERROR_BODY_CHARS} more chars>`;
+    }
+    return JSON.stringify(redactSensitive(parsed2));
+  }
+  if (typeof body2 === "object" && !Array.isArray(body2)) {
+    const out = {};
+    for (const [k5, v] of Object.entries(body2)) {
+      if (SAFE_ERROR_KEYS.has(k5))
+        out[k5] = v;
+    }
+    return out;
+  }
+  return null;
+}
+async function readLimitedText(resp) {
+  if (!resp.body) {
+    return "";
+  }
+  const reader = resp.body.getReader();
+  const chunks = [];
+  let received = 0;
+  for (; ; ) {
+    const { done, value: value3 } = await reader.read();
+    if (done)
+      break;
+    if (received + value3.length > MAX_TOKEN_RESPONSE_BYTES) {
+      const remaining = MAX_TOKEN_RESPONSE_BYTES - received;
+      if (remaining > 0)
+        chunks.push(value3.subarray(0, remaining));
+      await reader.cancel();
+      break;
+    }
+    chunks.push(value3);
+    received += value3.length;
+  }
+  let merged;
+  if (chunks.length === 1) {
+    merged = chunks[0];
+  } else {
+    merged = new Uint8Array(chunks.reduce((n3, c5) => n3 + c5.length, 0));
+    let offset = 0;
+    for (const c5 of chunks) {
+      merged.set(c5, offset);
+      offset += c5.length;
+    }
+  }
+  return new TextDecoder("utf-8").decode(merged);
+}
+var GRANT_TYPE_JWT_BEARER, TOKEN_ENDPOINT, OAUTH_API_BETA_HEADER, FEDERATION_BETA_HEADER, ADVISORY_REFRESH_THRESHOLD_IN_SECONDS, MANDATORY_REFRESH_THRESHOLD_IN_SECONDS, ADVISORY_REFRESH_BACKOFF_IN_SECONDS, MAX_TOKEN_RESPONSE_BYTES, MAX_ERROR_BODY_CHARS, SAFE_ERROR_KEYS, WorkloadIdentityError;
+var init_types3 = __esm({
+  "../../node_modules/@anthropic-ai/sdk/lib/credentials/types.mjs"() {
+    init_error();
+    GRANT_TYPE_JWT_BEARER = "urn:ietf:params:oauth:grant-type:jwt-bearer";
+    TOKEN_ENDPOINT = "/v1/oauth/token";
+    OAUTH_API_BETA_HEADER = "oauth-2025-04-20";
+    FEDERATION_BETA_HEADER = "oidc-federation-2026-04-01";
+    ADVISORY_REFRESH_THRESHOLD_IN_SECONDS = 120;
+    MANDATORY_REFRESH_THRESHOLD_IN_SECONDS = 30;
+    ADVISORY_REFRESH_BACKOFF_IN_SECONDS = 5;
+    MAX_TOKEN_RESPONSE_BYTES = 1 << 20;
+    MAX_ERROR_BODY_CHARS = 2e3;
+    SAFE_ERROR_KEYS = /* @__PURE__ */ new Set(["error", "error_description", "error_uri"]);
+    WorkloadIdentityError = class extends AnthropicError {
+      constructor(message2, statusCode = null, body2 = null, requestId = null) {
+        super(message2);
+        this.statusCode = statusCode;
+        this.body = body2;
+        this.requestId = requestId;
+      }
+    };
+  }
+});
+
+// ../../node_modules/@anthropic-ai/sdk/internal/utils/time.mjs
+function nowAsSeconds() {
+  return Math.floor(Date.now() / 1e3);
+}
+var init_time = __esm({
+  "../../node_modules/@anthropic-ai/sdk/internal/utils/time.mjs"() {
+  }
+});
+
+// ../../node_modules/@anthropic-ai/sdk/version.mjs
+var VERSION;
+var init_version = __esm({
+  "../../node_modules/@anthropic-ai/sdk/version.mjs"() {
+    VERSION = "1.3.0";
+  }
+});
+
+// ../../node_modules/@anthropic-ai/sdk/lib/credentials/oidc-federation.mjs
+var oidc_federation_exports = {};
+__export(oidc_federation_exports, {
+  oidcFederationProvider: () => oidcFederationProvider
+});
+function oidcFederationProvider(config2) {
+  return async () => {
+    requireSecureTokenEndpoint(config2.baseURL);
+    const jwt2 = await config2.identityTokenProvider();
+    if (jwt2.length > 16 * 1024) {
+      throw new WorkloadIdentityError(`Identity token is ${Math.ceil(jwt2.length / 1024)} KiB, exceeds the 16 KiB assertion limit`);
+    }
+    const body2 = {
+      grant_type: GRANT_TYPE_JWT_BEARER,
+      assertion: jwt2,
+      federation_rule_id: config2.federationRuleId,
+      organization_id: config2.organizationId
+    };
+    if (config2.serviceAccountId) {
+      body2["service_account_id"] = config2.serviceAccountId;
+    }
+    if (config2.workspaceId) {
+      body2["workspace_id"] = config2.workspaceId;
+    }
+    const url2 = `${config2.baseURL}${TOKEN_ENDPOINT}`;
+    let resp;
+    try {
+      resp = await config2.fetch(url2, {
+        method: "POST",
+        redirect: "manual",
+        headers: {
+          "Content-Type": "application/json",
+          "anthropic-beta": `${OAUTH_API_BETA_HEADER},${FEDERATION_BETA_HEADER}`,
+          "User-Agent": config2.userAgent || `anthropic-sdk-typescript/${VERSION} oidcFederationProvider`
+        },
+        body: JSON.stringify(body2)
+      });
+    } catch (err) {
+      throw new WorkloadIdentityError(`Failed to reach token endpoint ${url2}: ${err}`);
+    }
+    const requestId = resp.headers.get("Request-Id");
+    if (!resp.ok) {
+      const text2 = await resp.text().catch(() => "");
+      const redacted = redactSensitive(text2);
+      let hint = "";
+      if (resp.status === 401) {
+        const hintMiddle = config2.workspaceId ? "" : "If your federation rule is scoped to multiple workspaces, set the ANTHROPIC_WORKSPACE_ID environment variable, the 'workspace_id' config key, or the `workspaceId` option. ";
+        hint = ` Ensure your federation rule matches your identity token. ${hintMiddle}View your authentication events in the Workload identity page of Claude Console for more details.`;
+      }
+      throw new WorkloadIdentityError(`Token exchange failed with status ${resp.status}${requestId ? ` (request-id ${requestId})` : ""}: ${redacted}${hint}`, resp.status, redacted, requestId);
+    }
+    const data = await parseTokenResponse(resp, requestId);
+    const expiresIn = Number(data.expires_in);
+    if (!Number.isFinite(expiresIn)) {
+      throw new WorkloadIdentityError(`Token endpoint response missing required fields: ${JSON.stringify(redactSensitive(data))}`, resp.status, redactSensitive(data), requestId);
+    }
+    return {
+      token: data.access_token,
+      expiresAt: nowAsSeconds() + expiresIn
+    };
+  };
+}
+var init_oidc_federation = __esm({
+  "../../node_modules/@anthropic-ai/sdk/lib/credentials/oidc-federation.mjs"() {
+    init_types3();
+    init_time();
+    init_version();
+  }
+});
+
+// ../../node_modules/@anthropic-ai/sdk/lib/credentials/token-cache.mjs
+var token_cache_exports = {};
+__export(token_cache_exports, {
+  TokenCache: () => TokenCache
+});
+var TokenCache;
+var init_token_cache = __esm({
+  "../../node_modules/@anthropic-ai/sdk/lib/credentials/token-cache.mjs"() {
+    init_types3();
+    init_time();
+    TokenCache = class {
+      constructor(provider, onAdvisoryRefreshError) {
+        this.cached = null;
+        this.pendingRefresh = null;
+        this.nextForce = false;
+        this.lastAdvisoryError = 0;
+        this.provider = provider;
+        this.onAdvisoryRefreshError = onAdvisoryRefreshError;
+      }
+      async getToken() {
+        const force = this.nextForce;
+        this.nextForce = false;
+        const cached2 = this.cached;
+        if (force || cached2 == null) {
+          const token2 = await this.refresh(force);
+          return token2.token;
+        }
+        if (cached2.expiresAt == null) {
+          return cached2.token;
+        }
+        const remaining = cached2.expiresAt - nowAsSeconds();
+        if (remaining > ADVISORY_REFRESH_THRESHOLD_IN_SECONDS) {
+          return cached2.token;
+        }
+        if (remaining > MANDATORY_REFRESH_THRESHOLD_IN_SECONDS) {
+          this.backgroundRefresh();
+          return cached2.token;
+        }
+        const token = await this.refresh();
+        return token.token;
+      }
+      /**
+       * Clears the cached token and marks the next {@link getToken} as a forced
+       * refresh, so the underlying provider bypasses any on-disk freshness check.
+       * Called after a 401 — the server has just told us the token is bad even
+       * if its `expires_at` still looks fresh.
+       */
+      invalidate() {
+        this.cached = null;
+        this.nextForce = true;
+      }
+      /**
+       * Mandatory refresh. Joins any in-flight refresh unless forced — a forced
+       * refresh must not coalesce into a non-forced one that may re-serve the
+       * same stale disk token.
+       */
+      refresh(force = false) {
+        if (this.pendingRefresh && !force) {
+          return this.pendingRefresh;
+        }
+        return this.doRefresh(force);
+      }
+      /**
+       * Advisory background refresh. Shares the same in-flight promise as
+       * mandatory refreshes for deduplication, but swallows errors so the
+       * stale cached token keeps being served. Backs off for
+       * {@link ADVISORY_REFRESH_BACKOFF_IN_SECONDS} after a failure so an
+       * outage during the advisory window doesn't hammer the token endpoint.
+       */
+      backgroundRefresh() {
+        if (this.pendingRefresh) {
+          return;
+        }
+        if (nowAsSeconds() - this.lastAdvisoryError < ADVISORY_REFRESH_BACKOFF_IN_SECONDS) {
+          return;
+        }
+        this.doRefresh().catch((err) => {
+          this.lastAdvisoryError = nowAsSeconds();
+          this.onAdvisoryRefreshError?.(err);
+        });
+      }
+      /**
+       * Core refresh. Sets {@link pendingRefresh} so concurrent callers
+       * (both advisory and mandatory) coalesce into a single provider call.
+       */
+      doRefresh(force = false) {
+        this.pendingRefresh = this.provider(force ? { forceRefresh: true } : void 0).then((token) => {
+          this.cached = token;
+          this.pendingRefresh = null;
+          return token;
+        }, (err) => {
+          this.pendingRefresh = null;
+          throw err;
+        });
+        return this.pendingRefresh;
+      }
+    };
   }
 });
 
@@ -65364,12 +65680,12 @@ function isIso7064Mod97(iban3) {
   let remainder = 0;
   const len = iban3.length;
   for (let i6 = 4; i6 < len; i6++) {
-    const code3 = iban3.charCodeAt(i6);
-    remainder = (code3 >= 65 ? remainder * 100 + (code3 - 55) : remainder * 10 + (code3 - 48)) % 97;
+    const code2 = iban3.charCodeAt(i6);
+    remainder = (code2 >= 65 ? remainder * 100 + (code2 - 55) : remainder * 10 + (code2 - 48)) % 97;
   }
   for (let i6 = 0; i6 < 4; i6++) {
-    const code3 = iban3.charCodeAt(i6);
-    remainder = (code3 >= 65 ? remainder * 100 + (code3 - 55) : remainder * 10 + (code3 - 48)) % 97;
+    const code2 = iban3.charCodeAt(i6);
+    remainder = (code2 >= 65 ? remainder * 100 + (code2 - 55) : remainder * 10 + (code2 - 48)) % 97;
   }
   return remainder === 1;
 }
@@ -75315,12 +75631,12 @@ function compileFn(schema, options) {
   doc.write(outputAccessor === null ? `return true;` : `return ${outputAccessor};`);
   const constantNames = ["INVALID", ...ctx.constants.keys()];
   const constantValues = [INVALID, ...ctx.constants.values()];
-  const code3 = doc.content.join("\n");
+  const code2 = doc.content.join("\n");
   const fullCode = options?.debug ? constantNames.length > 0 ? `// Constants: ${constantNames.join(", ")}
-${code3}` : code3 : "";
+${code2}` : code2 : "";
   const F2 = Function;
   const factoryCode = `return (input) => {
-${code3}
+${code2}
 }`;
   let fn;
   try {
@@ -83469,23 +83785,23 @@ var ServerResultSchema = union([
   CreateTaskResultSchema
 ]);
 var McpError = class _McpError extends Error {
-  constructor(code3, message2, data) {
-    super(`MCP error ${code3}: ${message2}`);
-    this.code = code3;
+  constructor(code2, message2, data) {
+    super(`MCP error ${code2}: ${message2}`);
+    this.code = code2;
     this.data = data;
     this.name = "McpError";
   }
   /**
    * Factory method to create the appropriate error type based on the error code and data
    */
-  static fromError(code3, message2, data) {
-    if (code3 === ErrorCode.UrlElicitationRequired && data) {
+  static fromError(code2, message2, data) {
+    if (code2 === ErrorCode.UrlElicitationRequired && data) {
       const errorData = data;
       if (errorData.elicitations) {
         return new UrlElicitationRequiredError(errorData.elicitations, message2);
       }
     }
-    return new _McpError(code3, message2, data);
+    return new _McpError(code2, message2, data);
   }
 };
 var UrlElicitationRequiredError = class extends McpError {
@@ -83649,9 +83965,9 @@ var ErrorCode2 = {
 };
 var A2AError = class extends Error {
   code;
-  constructor(code3, message2) {
+  constructor(code2, message2) {
     super(message2);
-    this.code = code3;
+    this.code = code2;
   }
 };
 var metadata = external_exports.record(external_exports.string(), external_exports.unknown());
@@ -84871,8 +85187,8 @@ var b64u = {
     let acc = 0;
     let j5 = 0;
     for (let i6 = 0; i6 < str3.length; i6++) {
-      const code3 = str3.charCodeAt(i6);
-      const v = code3 < 128 ? LOOKUP[code3] : 255;
+      const code2 = str3.charCodeAt(i6);
+      const v = code2 < 128 ? LOOKUP[code2] : 255;
       if (v === 255) throw new TypeError("b64u: invalid character");
       acc = (acc << 6 | v) & 65535;
       bits += 6;
@@ -85820,18 +86136,18 @@ function validateTableBytes(numPoints, fpBytes) {
   if (bytes3 > TABLE_BYTES_MAX)
     throw new Error("invalid window size: table would need ~" + Math.ceil(bytes3 / 2 ** 20) + " MiB, max " + TABLE_BYTES_MAX / 2 ** 20 + " MiB");
 }
-function probeRandomBytes(randomBytes6, length2) {
-  if (randomBytes6 === void 0)
+function probeRandomBytes(randomBytes8, length2) {
+  if (randomBytes8 === void 0)
     return void 0;
-  afunction(randomBytes6, "randomBytes");
+  afunction(randomBytes8, "randomBytes");
   try {
-    const probe3 = randomBytes6(length2);
+    const probe3 = randomBytes8(length2);
     if (!isBytes2(probe3) || probe3.length !== length2)
       return void 0;
   } catch {
     return void 0;
   }
-  return randomBytes6;
+  return randomBytes8;
 }
 function validateMSMPoints(points, c5) {
   aarray(points, "points");
@@ -85924,9 +86240,9 @@ var ScalarMultiplier = class {
   baseCanBeBlinded;
   bits;
   // Parametrized with a given Point class (not individual point)
-  constructor(Point, randomBytes6) {
+  constructor(Point, randomBytes8) {
     validatePointCons(Point);
-    this.randomBytes = probeRandomBytes(randomBytes6, BLIND_BYTES);
+    this.randomBytes = probeRandomBytes(randomBytes8, BLIND_BYTES);
     this.Point = Point;
     this.BASE = Point.BASE;
     this.ZERO = Point.ZERO;
@@ -86197,7 +86513,7 @@ function edwards(params, extraOpts = {}) {
   if (FpLegendre(Fp2, CURVE.d) !== -1)
     throw new Error("edwards: CURVE.d must be a non-square in Fp for complete addition formulas");
   validateObject(opts, {}, { uvRatio: "function", randomBytes: "function" });
-  const randomBytes6 = opts.randomBytes === void 0 ? randomBytes3 : opts.randomBytes;
+  const randomBytes8 = opts.randomBytes === void 0 ? randomBytes3 : opts.randomBytes;
   const MASK = _2n2 << BigInt(Fp2.BYTES * 8) - _1n4;
   function isOdd(n3) {
     if (!Fp2.isOdd)
@@ -86458,7 +86774,7 @@ function edwards(params, extraOpts = {}) {
     }
   }
   const normalize2 = (points) => normalizeZ(Point, points);
-  const wnaf = new ScalarMultiplier(Point, randomBytes6);
+  const wnaf = new ScalarMultiplier(Point, randomBytes8);
   if (wnaf.bits >= 6)
     Point.BASE.precompute(6);
   Object.freeze(Point.prototype);
@@ -86490,7 +86806,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
     if (outputLen !== expectedLen)
       throw new Error(`hash.outputLen must be ${expectedLen}, got ${outputLen}`);
   }
-  const randomBytes6 = opts.randomBytes === void 0 ? randomBytes3 : opts.randomBytes;
+  const randomBytes8 = opts.randomBytes === void 0 ? randomBytes3 : opts.randomBytes;
   const toMontgomery2 = opts.toMontgomery;
   const toMontgomerySecret2 = opts.toMontgomerySecret;
   const adjustScalarBytes2 = opts.adjustScalarBytes === void 0 ? (bytes3) => bytes3 : opts.adjustScalarBytes;
@@ -86580,7 +86896,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
     seed: _size2
   };
   function randomSecretKey(seed) {
-    seed = seed === void 0 ? randomBytes6(lengths.seed) : seed;
+    seed = seed === void 0 ? randomBytes8(lengths.seed) : seed;
     return abytes2(seed, lengths.seed, "seed");
   }
   function isValidSecretKey(key3) {
@@ -88164,8 +88480,8 @@ function describe3(error64) {
   const issue2 = error64.issues[0];
   return `${issue2.path.join(".") || "invite"}: ${issue2.message}`;
 }
-function parseInvite(code3) {
-  const text2 = typeof code3 === "string" ? code3.trim() : "";
+function parseInvite(code2) {
+  const text2 = typeof code2 === "string" ? code2.trim() : "";
   if (!text2.startsWith(PREFIX)) throw new Error("invalid invite code: it must start with wim1_");
   let json4;
   try {
@@ -88234,8 +88550,8 @@ function joinBody(invite2, name, keys, nonce) {
   if (!secret32Schema.safeParse(nonce).success) throw new TypeError("createJoin: nonce must be the 32-byte hello nonce");
   return { body: { t: "join", mesh: invite2.mesh, invite: invite2.inviteId, device, nonce }, device };
 }
-function verifyJoin(join28, secret, nonce) {
-  const parsed2 = safeParse3(joinOrBodySchema, join28);
+function verifyJoin(join29, secret, nonce) {
+  const parsed2 = safeParse3(joinOrBodySchema, join29);
   if (!parsed2.success) return fail("join_malformed");
   const { t: _t, ...j5 } = parsed2.data;
   if (j5.device.name.startsWith("recovery")) return fail("join_reserved_name");
@@ -88521,11 +88837,11 @@ function formatShortCode(k5, relay) {
   const where = relay === SHORT_CODE_RELAY ? "" : `@${relay.startsWith("wss://") ? relay.slice("wss://".length) : relay}`;
   return `${PREFIX2}${groups}${where}`;
 }
-function isShortCode(code3) {
-  return typeof code3 === "string" && code3.trim().toLowerCase().startsWith(PREFIX2);
+function isShortCode(code2) {
+  return typeof code2 === "string" && code2.trim().toLowerCase().startsWith(PREFIX2);
 }
-function parseShortCode(code3) {
-  const text2 = typeof code3 === "string" ? code3.trim() : "";
+function parseShortCode(code2) {
+  const text2 = typeof code2 === "string" ? code2.trim() : "";
   if (!isShortCode(text2)) throw new Error("invalid short invite code: it must start with wim2-");
   const at = text2.indexOf("@");
   const body2 = (at < 0 ? text2.slice(PREFIX2.length) : text2.slice(PREFIX2.length, at)).replace(/[\s-]/g, "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");
@@ -89195,6 +89511,12 @@ function dropUndefined(obj) {
 function sameTo(a5, b5) {
   return a5.length === b5.length && a5.every((x2, i6) => x2 === b5[i6]);
 }
+function openMessage(frame, ctx) {
+  const checked = checkFrame(frame, ctx);
+  if (!checked.ok) return checked;
+  const { me } = ctx;
+  return checkPlaintext(checked.value.f, openBox(me.keys.boxSec, me.prekey ?? (() => void 0), checked.value.req));
+}
 async function openMessageWith(frame, ctx) {
   const checked = checkFrame(frame, ctx);
   if (!checked.ok) return checked;
@@ -89460,8 +89782,8 @@ function createRecoveryIdentity(meshId, opts = {}) {
   const { record: record2, keys } = createRecoveryKeys(meshId, opts);
   return { record: record2, keys, code: recoveryCode(keys, { mesh: meshId, genesis: opts.genesis }) };
 }
-function parseRecoveryCode(code3, meshId) {
-  const text2 = typeof code3 === "string" ? code3.trim() : "";
+function parseRecoveryCode(code2, meshId) {
+  const text2 = typeof code2 === "string" ? code2.trim() : "";
   const dash = text2.lastIndexOf("-");
   if (!text2.startsWith(PREFIX3) || dash < PREFIX3.length) {
     throw new Error("invalid recovery code: it must look like wimrec1_...-XXXXXXXX");
@@ -89484,10 +89806,10 @@ function parseRecoveryCode(code3, meshId) {
   const keys = deviceKeysFromSecrets(b64u.decode(parsed2.data.sign), b64u.decode(parsed2.data.box));
   return { ...keys, mesh: parsed2.data.mesh, genesis: parsed2.data.genesis };
 }
-function verifyRecoveryChain(code3, chain2) {
+function verifyRecoveryChain(code2, chain2) {
   let parsed2;
   try {
-    parsed2 = parseRecoveryCode(code3);
+    parsed2 = parseRecoveryCode(code2);
   } catch {
     return fail("recovery_code_invalid");
   }
@@ -89810,11 +90132,11 @@ function ciRecipientCode(r6) {
   if (!body2.success) throw new TypeError("ciRecipientCode: a relay URL, a mesh id and a 32-byte signing key");
   return CODE_PREFIX + b64u.encode(canonBytes(body2.data));
 }
-function parseCiRecipientCode(code3) {
-  if (typeof code3 !== "string" || !code3.startsWith(CODE_PREFIX) || code3.length > 4096) return fail("malformed");
+function parseCiRecipientCode(code2) {
+  if (typeof code2 !== "string" || !code2.startsWith(CODE_PREFIX) || code2.length > 4096) return fail("malformed");
   let text2;
   try {
-    text2 = fromUtf8(b64u.decode(code3.slice(CODE_PREFIX.length)));
+    text2 = fromUtf8(b64u.decode(code2.slice(CODE_PREFIX.length)));
   } catch {
     return fail("malformed");
   }
@@ -90445,8 +90767,8 @@ function parseParams(schema, params) {
   const where = issue2.path.length > 0 ? `${issue2.path.join(".")}: ` : "";
   throw invalid(`Invalid parameters: ${where}${issue2.message}`);
 }
-function rpcError(id3, code3, message2) {
-  return { jsonrpc: "2.0", id: id3, error: { code: code3, message: message2 } };
+function rpcError(id3, code2, message2) {
+  return { jsonrpc: "2.0", id: id3, error: { code: code2, message: message2 } };
 }
 function iso2(ms) {
   return new Date(ms).toISOString();
@@ -91154,8 +91476,8 @@ function createFollowsLinks(platform2) {
 function busyRetries(platform2) {
   return platform2 === "win32" ? 50 : 0;
 }
-function momentarilyBusy(code3, platform2) {
-  return platform2 === "win32" && (code3 === "EPERM" || code3 === "EBUSY");
+function momentarilyBusy(code2, platform2) {
+  return platform2 === "win32" && (code2 === "EPERM" || code2 === "EBUSY");
 }
 function agentDirProblem(facts, platform2, myUid) {
   if (facts.isSymlink) return "it is a symbolic link";
@@ -92059,9 +92381,9 @@ var MAX_LINE = 4 * 1024 * 1024;
 var SignerError = class extends Error {
   name = "SignerError";
   code;
-  constructor(code3, message2) {
+  constructor(code2, message2) {
     super(message2);
-    this.code = code3;
+    this.code = code2;
   }
   /** The signer could not answer now (locked, gone, slow or busy); the same request may work later. */
   get transient() {
@@ -92357,8 +92679,8 @@ function checkDecision(raw, o3) {
   return d5;
 }
 function covers(d5, item) {
-  const digest2 = heldDigest(item);
-  return d5.items.some((i6) => i6.id === item.id && i6.digest === digest2);
+  const digest3 = heldDigest(item);
+  return d5.items.some((i6) => i6.id === item.id && i6.digest === digest3);
 }
 function decisionCode() {
   return String(randomInt(0, 1e6)).padStart(6, "0");
@@ -93525,8 +93847,8 @@ async function refusesLegacy(path2) {
 function unreadable(path2, why) {
   return `${path2}: ${why}, so this device refuses v0.1 boxes. \`wim legacy-boxes refuse\` or \`wim legacy-boxes accept\` rewrites it`;
 }
-function setLegacyBoxes(path2, refuse, env4) {
-  return writeAtomic(path2, refuse ? "refuse\n" : "accept\n", env4);
+function setLegacyBoxes(path2, refuse2, env4) {
+  return writeAtomic(path2, refuse2 ? "refuse\n" : "accept\n", env4);
 }
 function droppedPath(settingPath) {
   return join10(dirname4(settingPath), LEGACY_DROPPED_FILE);
@@ -93545,8 +93867,8 @@ function droppedLine(n3) {
 function droppedNotice(address) {
   return `A message from ${address} was dropped because it used the old box format (v0.1, no forward secrecy), which this device refuses (\`wim legacy-boxes\`). Its text was not read. The sender's device needs a current client.`;
 }
-function legacyBoxesLine(refuse) {
-  return refuse ? "v0.1 boxes are refused on this device: it never sends without forward secrecy and drops messages that arrive without it (`wim legacy-boxes`)" : "v0.1 boxes are accepted until 1.0 (the migration window): a relay that withholds prekeys can make a send go without forward secrecy. `wim legacy-boxes refuse` closes that on this device";
+function legacyBoxesLine(refuse2) {
+  return refuse2 ? "v0.1 boxes are refused on this device: it never sends without forward secrecy and drops messages that arrive without it (`wim legacy-boxes`)" : "v0.1 boxes are accepted until 1.0 (the migration window): a relay that withholds prekeys can make a send go without forward secrecy. `wim legacy-boxes refuse` closes that on this device";
 }
 function skippedNote(noPrekey) {
   return `Not sent to ${noPrekey.join(", ")}: no current prekey (a v0.1 client, or offline for over 48 hours), and this device refuses v0.1 boxes (\`wim legacy-boxes\`).`;
@@ -94097,9 +94419,9 @@ var WireError = class extends Error {
   name = "WireError";
   code;
   quote;
-  constructor(message2, code3, quote2) {
+  constructor(message2, code2, quote2) {
     super(message2);
-    this.code = code3;
+    this.code = code2;
     this.quote = quote2;
   }
 };
@@ -94109,8 +94431,8 @@ function relayText(text2) {
   const cut = chars2.length > RELAY_TEXT_MAX ? `${chars2.slice(0, RELAY_TEXT_MAX).join("")}\u2026` : text2;
   return sanitizeForDisplay(cut).replace(/\n/g, "<U+000A>").replace(/\t/g, " ");
 }
-function relayCode(code3) {
-  return /^[a-z][a-z_]{0,63}$/.test(code3) ? code3 : "relay_error";
+function relayCode(code2) {
+  return /^[a-z][a-z_]{0,63}$/.test(code2) ? code2 : "relay_error";
 }
 var UNKNOWN_MESH = "the relay does not know this mesh: an admin deleted it, or the relay removed it after it went unused, or the relay URL is wrong. `wim mesh delete` removes this device's copy";
 var AUTH_REFUSALS = /* @__PURE__ */ new Map([
@@ -94214,12 +94536,12 @@ var wsDialer = (url2, opts) => new Promise((resolve5, reject) => {
   ws.once("open", () => {
     resolve5({
       send: (text2) => ws.send(text2),
-      close: (code3, reason) => ws.close(code3, reason),
+      close: (code2, reason) => ws.close(code2, reason),
       onMessage: (cb) => {
         deliver = cb;
         for (const text2 of early.splice(0)) cb(text2);
       },
-      onClose: (cb) => ws.once("close", (code3, reason) => cb(code3, reason.toString()))
+      onClose: (cb) => ws.once("close", (code2, reason) => cb(code2, reason.toString()))
     });
   });
   ws.on("error", reject);
@@ -94235,16 +94557,16 @@ var Link = class _Link {
     this.socket = socket;
     let done;
     this.closed = new Promise((resolve5) => done = resolve5);
-    socket.onClose((code3, reason) => {
+    socket.onClose((code2, reason) => {
       this.isClosed = true;
       for (const w of this.waiters) {
         clearTimeout(w.timer);
-        const what2 = `the relay closed the connection (${code3})`;
+        const what2 = `the relay closed the connection (${code2})`;
         const quote2 = reason === "" ? void 0 : { what: what2, said: relayText(reason) };
-        w.reject(new WireError(quote2 === void 0 ? what2 : `the relay closed the connection (${code3} ${quote2.said})`, "closed", quote2));
+        w.reject(new WireError(quote2 === void 0 ? what2 : `the relay closed the connection (${code2} ${quote2.said})`, "closed", quote2));
       }
       this.waiters.clear();
-      done({ code: code3, reason });
+      done({ code: code2, reason });
     });
   }
   /** Dials and waits for the relay's `hello`. */
@@ -94310,8 +94632,8 @@ var Link = class _Link {
     }
     return answer;
   }
-  close(code3 = CLOSE.bye, reason = "") {
-    if (!this.isClosed) this.socket.close(code3, reason);
+  close(code2 = CLOSE.bye, reason = "") {
+    if (!this.isClosed) this.socket.close(code2, reason);
   }
 };
 function redactUrl(url2) {
@@ -94443,10 +94765,10 @@ var Connection = class {
       link.send({ t: "ping" });
     }, every);
   }
-  lost(code3, reason) {
+  lost(code2, reason) {
     clearInterval(this.beat);
     if (this.stopped) return;
-    const fatal = FATAL_CLOSE.get(code3);
+    const fatal = FATAL_CLOSE.get(code2);
     if (fatal !== void 0) {
       const said2 = this.refusal ?? (reason === "" ? void 0 : relayText(reason));
       const message2 = said2 === void 0 ? fatal : `${fatal} (${said2})`;
@@ -94494,9 +94816,9 @@ var ClientError = class extends Error {
   code;
   /** Set when the message quotes the relay's own words (an `error` frame). */
   quote;
-  constructor(message2, code3, quote2) {
+  constructor(message2, code2, quote2) {
     super(message2);
-    this.code = code3;
+    this.code = code2;
     this.quote = quote2;
   }
 };
@@ -96628,8 +96950,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
       const sent2 = await this.send(to, task, { kind: "task", id: id3 });
       if (!sent2.results.some((r6) => accepted(r6.status))) return { task_id: id3, results: sent2.results, pending: true };
       let timer;
-      const timeout = new Promise((r6) => timer = setTimeout(() => r6(void 0), timeoutMs));
-      const result = await Promise.race([got, timeout]);
+      const timeout2 = new Promise((r6) => timer = setTimeout(() => r6(void 0), timeoutMs));
+      const result = await Promise.race([got, timeout2]);
       clearTimeout(timer);
       return result === void 0 ? { task_id: id3, results: sent2.results, pending: true } : { task_id: id3, results: sent2.results, result };
     } finally {
@@ -96767,13 +97089,13 @@ ${frameEntry(entry)}`);
   async acquireLease(name, ttlMs, wait, waitMs) {
     const key3 = await this.keyFor(name);
     const link = await this.ready();
-    const timeout = wait ? waitMs : void 0;
+    const timeout2 = wait ? waitMs : void 0;
     const ask3 = (withTimeout) => link.request(
-      { t: "lease.acquire", key: key3, ttl: ttlMs, ...wait ? { wait: true } : {}, ...withTimeout ? { timeout } : {} },
+      { t: "lease.acquire", key: key3, ttl: ttlMs, ...wait ? { wait: true } : {}, ...withTimeout ? { timeout: timeout2 } : {} },
       (f7) => leaseAnswer(key3)(f7) || withTimeout && f7.t === "error" && f7.code === "malformed" && f7.ref === void 0,
-      (wait ? withTimeout ? timeout : ttlMs : 0) + this.answerMs
+      (wait ? withTimeout ? timeout2 : ttlMs : 0) + this.answerMs
     );
-    let answer = await ask3(timeout !== void 0);
+    let answer = await ask3(timeout2 !== void 0);
     if (answer.t === "error") {
       this.log("wim: the relay does not take a lease wait timeout; waiting up to the lease ttl instead");
       answer = await ask3(false);
@@ -108406,16 +108728,16 @@ function createUndiciNoTimeoutDispatcher$1() {
     }
   };
 }
-function createAttemptSignal(timeout, callerSignal) {
+function createAttemptSignal(timeout2, callerSignal) {
   const noop2 = () => {
   };
-  if (!(timeout && timeout > 0) && !callerSignal) {
+  if (!(timeout2 && timeout2 > 0) && !callerSignal) {
     return { signal: void 0, dispose: noop2 };
   }
   const controller = new AbortController();
   let timeoutHandle;
-  if (timeout && timeout > 0) {
-    timeoutHandle = setTimeout(() => controller.abort(), timeout);
+  if (timeout2 && timeout2 > 0) {
+    timeoutHandle = setTimeout(() => controller.abort(), timeout2);
     if (timeoutHandle && typeof timeoutHandle.unref === "function") {
       timeoutHandle.unref();
     }
@@ -108669,8 +108991,8 @@ var ApiClient = class {
     requestInit.headers = await this.getHeadersInternal(httpOptions, url2);
     return requestInit;
   }
-  async unaryApiCall(url2, requestInit, httpMethod, retryOptions, timeout, abortSignal, fetchFn) {
-    return this.apiCall(url2.toString(), Object.assign(Object.assign({}, requestInit), { method: httpMethod }), retryOptions, timeout, abortSignal, fetchFn).then(async (response) => {
+  async unaryApiCall(url2, requestInit, httpMethod, retryOptions, timeout2, abortSignal, fetchFn) {
+    return this.apiCall(url2.toString(), Object.assign(Object.assign({}, requestInit), { method: httpMethod }), retryOptions, timeout2, abortSignal, fetchFn).then(async (response) => {
       await throwErrorIfNotOK(response);
       return new HttpResponse2(response);
     }).catch((e6) => {
@@ -108681,8 +109003,8 @@ var ApiClient = class {
       }
     });
   }
-  async streamApiCall(url2, requestInit, httpMethod, retryOptions, timeout, abortSignal, fetchFn) {
-    return this.apiCall(url2.toString(), Object.assign(Object.assign({}, requestInit), { method: httpMethod }), retryOptions, timeout, abortSignal, fetchFn).then(async (response) => {
+  async streamApiCall(url2, requestInit, httpMethod, retryOptions, timeout2, abortSignal, fetchFn) {
+    return this.apiCall(url2.toString(), Object.assign(Object.assign({}, requestInit), { method: httpMethod }), retryOptions, timeout2, abortSignal, fetchFn).then(async (response) => {
       await throwErrorIfNotOK(response);
       return this.processStreamResponse(response);
     }).catch((e6) => {
@@ -108755,12 +109077,12 @@ var ApiClient = class {
       }
     });
   }
-  async apiCall(url2, requestInit, retryOptions, timeout, abortSignal, fetchFn) {
+  async apiCall(url2, requestInit, retryOptions, timeout2, abortSignal, fetchFn) {
     var _a5, _b, _c5, _d, _e5, _f;
     const fetchFunc = fetchFn !== null && fetchFn !== void 0 ? fetchFn : fetch;
     const retryableStatusCodes = (_a5 = retryOptions === null || retryOptions === void 0 ? void 0 : retryOptions.httpStatusCodes) !== null && _a5 !== void 0 ? _a5 : DEFAULT_RETRY_HTTP_STATUS_CODES;
     const runFetch = async () => {
-      const attempt = createAttemptSignal(timeout, abortSignal);
+      const attempt = createAttemptSignal(timeout2, abortSignal);
       let response;
       try {
         response = await fetchFunc(url2, Object.assign(Object.assign({}, requestInit), { signal: attempt.signal }));
@@ -108940,12 +109262,12 @@ function throwIfStreamErrorChunk(chunkString) {
     if (chunkJson !== null && typeof chunkJson === "object" && "error" in chunkJson && chunkJson["error"] !== null && typeof chunkJson["error"] === "object") {
       const errorJson = chunkJson["error"];
       const status3 = errorJson["status"];
-      const code3 = errorJson["code"];
+      const code2 = errorJson["code"];
       const errorMessage = `got status: ${status3}. ${JSON.stringify(chunkJson)}`;
-      if (typeof code3 === "number" && code3 >= 400 && code3 < 600) {
+      if (typeof code2 === "number" && code2 >= 400 && code2 < 600) {
         throw new ApiError({
           message: errorMessage,
-          status: code3
+          status: code2
         });
       }
     }
@@ -113401,14 +113723,14 @@ function matchStatusCode(response, codes) {
     return false;
   }
   return expectedCodes.some((ec) => {
-    const code3 = `${ec}`;
-    if (code3 === "default") {
+    const code2 = `${ec}`;
+    if (code2 === "default") {
       return true;
     }
-    if (!codeRangeRE$1.test(`${code3}`)) {
-      return code3 === actual;
+    if (!codeRangeRE$1.test(`${code2}`)) {
+      return code2 === actual;
     }
-    const expectFamily = code3.charAt(0);
+    const expectFamily = code2.charAt(0);
     if (!expectFamily) {
       throw new Error("Invalid status code range");
     }
@@ -113419,8 +113741,8 @@ function matchStatusCode(response, codes) {
     return actualFamily === expectFamily;
   });
 }
-function matchResponse(response, code3, contentTypePattern) {
-  return matchStatusCode(response, code3) && matchContentType(response, contentTypePattern);
+function matchResponse(response, code2, contentTypePattern) {
+  return matchStatusCode(response, code2) && matchContentType(response, contentTypePattern);
 }
 function isConnectionError(err) {
   if (typeof err !== "object" || err == null) {
@@ -113899,11 +114221,11 @@ function wrapFetcher(fn, options) {
 var codeRangeRE = new RegExp("^[0-9]xx$", "i");
 function isRetryableResponse(res, statusCodes) {
   const actual = `${res.status}`;
-  return statusCodes.some((code3) => {
-    if (!codeRangeRE.test(code3)) {
-      return code3 === actual;
+  return statusCodes.some((code2) => {
+    if (!codeRangeRE.test(code2)) {
+      return code2 === actual;
     }
-    const expectFamily = code3.charAt(0);
+    const expectFamily = code2.charAt(0);
     if (!expectFamily) {
       throw new Error("Invalid status code range");
     }
@@ -114636,9 +114958,9 @@ var SecurityErrorCode = {
   UnrecognisedSecurityType: "unrecognized_security_type"
 };
 var SecurityError = class _SecurityError extends Error {
-  constructor(code3, message2) {
+  constructor(code2, message2) {
     super(message2);
-    this.code = code3;
+    this.code = code2;
     this.name = "SecurityError";
   }
   static incomplete() {
@@ -118078,10 +118400,10 @@ function getGoogleGenAIAPIVersion(parentClient) {
 }
 function buildGoogleGenAIClient(parentClient, options = {}) {
   var _a5, _b, _c5, _d, _e5, _f, _g, _h4, _j, _k;
-  const { timeout } = options, rest = __rest(options, ["timeout"]);
+  const { timeout: timeout2 } = options, rest = __rest(options, ["timeout"]);
   const fetchFn = rest.http_client ? void 0 : (_a5 = parentClient.getFetch) === null || _a5 === void 0 ? void 0 : _a5.call(parentClient);
   const httpClient = (_b = rest.http_client) !== null && _b !== void 0 ? _b : fetchFn ? new HTTPClient({ fetcher: fetchFn }) : void 0;
-  const timeout_ms = (_d = (_c5 = rest.timeout_ms) !== null && _c5 !== void 0 ? _c5 : timeout) !== null && _d !== void 0 ? _d : (_e5 = parentClient.getTimeout) === null || _e5 === void 0 ? void 0 : _e5.call(parentClient);
+  const timeout_ms = (_d = (_c5 = rest.timeout_ms) !== null && _c5 !== void 0 ? _c5 : timeout2) !== null && _d !== void 0 ? _d : (_e5 = parentClient.getTimeout) === null || _e5 === void 0 ? void 0 : _e5.call(parentClient);
   const sdk2 = new GoogleGenAI$1(Object.assign(Object.assign({}, rest), { http_client: httpClient, api_version: (_f = rest.api_version) !== null && _f !== void 0 ? _f : getGoogleGenAIAPIVersion(parentClient), security: (_g = rest.security) !== null && _g !== void 0 ? _g : new GoogleGenAISecurityProvider({
     defaultHeaders: Object.assign(Object.assign({}, (_h4 = parentClient.getDefaultHeaders) === null || _h4 === void 0 ? void 0 : _h4.call(parentClient)), (_j = parentClient.getHeaders) === null || _j === void 0 ? void 0 : _j.call(parentClient)),
     getAuthHeaders: (url2) => parentClient.getAuthHeaders(url2)
@@ -118240,7 +118562,7 @@ function toGoogleGenAIRequestOptions(options, streaming = false) {
   if (!options && !streaming) {
     return void 0;
   }
-  const _e5 = options !== null && options !== void 0 ? options : {}, { timeout, maxRetries, defaultBaseURL, query, body: body2, fetchOptions } = _e5, rest = __rest(_e5, ["timeout", "maxRetries", "defaultBaseURL", "query", "body", "fetchOptions"]);
+  const _e5 = options !== null && options !== void 0 ? options : {}, { timeout: timeout2, maxRetries, defaultBaseURL, query, body: body2, fetchOptions } = _e5, rest = __rest(_e5, ["timeout", "maxRetries", "defaultBaseURL", "query", "body", "fetchOptions"]);
   const nextOptions = Object.assign({}, rest);
   if (isPlainObject2(query)) {
     nextOptions.extra_query = query;
@@ -118260,7 +118582,7 @@ function toGoogleGenAIRequestOptions(options, streaming = false) {
   if (server_url) {
     nextOptions.server_url = server_url;
   }
-  const timeout_ms = (_c5 = rest.timeout_ms) !== null && _c5 !== void 0 ? _c5 : timeout;
+  const timeout_ms = (_c5 = rest.timeout_ms) !== null && _c5 !== void 0 ? _c5 : timeout2;
   if (timeout_ms !== void 0) {
     nextOptions.timeout_ms = timeout_ms;
   }
@@ -122981,22 +123303,22 @@ async function storeShortCode(link, relay, fullCode, inviteExp, now) {
   const answer = await link.request({ t: "rdv.put", ...box, exp }, (f7) => f7.t === "rdv.stored" && f7.rdv === box.rdv || errorFor("rdv.put")(f7), 1e4).catch((error64) => error64);
   return shortOutcome(answer, formatShortCode(k5, relay), exp);
 }
-function shortOutcome(answer, code3, exp) {
+function shortOutcome(answer, code2, exp) {
   if (answer instanceof Error) return { shortRefused: `the relay did not store it (${answer.message})` };
-  if (answer.t !== "error") return { short: { code: code3, exp } };
+  if (answer.t !== "error") return { short: { code: code2, exp } };
   if (answer.code === "unknown_type" || answer.code === "unsupported") return { shortRefused: "this relay does not keep short codes" };
   return { shortRefused: relayRefusal("the relay refused it", answer).message };
 }
-async function resolveInvite(code3, fetcher, opts = {}) {
-  if (!isShortCode(code3)) return code3;
-  const short = readShort(code3);
+async function resolveInvite(code2, fetcher, opts = {}) {
+  if (!isShortCode(code2)) return code2;
+  const short = readShort(code2);
   const url2 = rdvUrl(short.relay, rdvId(short.k));
   const read = await fetcher(url2, { signal: AbortSignal.timeout(opts.timeoutMs ?? 15e3), redirect: "error", headers: { accept: "application/json" } }).then(async (res) => ({ status: res.status, body: await res.text() })).catch((error64) => error64);
   return openAnswer(short, read);
 }
-function readShort(code3) {
+function readShort(code2) {
   try {
-    return parseShortCode(code3);
+    return parseShortCode(code2);
   } catch (error64) {
     throw new SetupError(error64.message);
   }
@@ -123428,7 +123750,7 @@ var absent = () => void 0;
 async function removeOwnProof(path2, proof) {
   if (await fs10.readFile(path2, "utf8").catch(absent) === proof) await fs10.rm(path2, { force: true });
 }
-async function holdForShow(paths, code3, o3) {
+async function holdForShow(paths, code2, o3) {
   if (o3.platform !== "win32") await fs10.rm(paths.socket, { force: true });
   const proof = b64u.encode(randomBytes2(32));
   const expected = sha2562(utf8(proof));
@@ -123478,7 +123800,7 @@ async function holdForShow(paths, code3, o3) {
     }
     server.once("proved", (socket) => {
       sockets.delete(socket);
-      socket.end(`${code3}
+      socket.end(`${code2}
 `);
       finish(true);
     });
@@ -123529,9 +123851,9 @@ var Args = {
 };
 var RequestError = class extends Error {
   code;
-  constructor(code3, message2) {
+  constructor(code2, message2) {
     super(message2);
-    this.code = code3;
+    this.code = code2;
   }
 };
 function relayHost(relay) {
@@ -123629,13 +123951,13 @@ async function runEvents(d5) {
     for (const [k5, text2] of joins) if (!next.has(k5)) emit("join", { op: "remove", request: JSON.parse(text2) });
     joins = next;
   }
-  async function signed(ask3, verdict, ids, code3, peer) {
+  async function signed(ask3, verdict, ids, code2, peer) {
     if (d5.device.keyring.kind !== "signer") return void 0;
     const decide = d5.decide;
     if (decide === void 0) throw new RequestError("needs_signer", `${NEEDS_SIGNER}, and this process cannot ask it`);
     const held3 = new Set((await listAllHeld(d5.mesh, d5.env)).map((r6) => r6.id));
     if (verdict !== "resume" && !ids.some((id3) => held3.has(id3))) throw new RequestError("not_found", `no held message ${ids[0]}`);
-    const shown2 = code3 ?? decisionCode();
+    const shown2 = code2 ?? decisionCode();
     return ask3(() => decisionsFor((chunk) => decide({ mesh: s3.config.mesh, verdict, ids: chunk, code: shown2, ...peer === void 0 ? {} : { peer } }, stopping.signal), ids));
   }
   async function decideOne2(id3, verdict, decision) {
@@ -123644,7 +123966,7 @@ async function runEvents(d5) {
     const others = await decideHeld(d5.mesh, id3, verdict, d5.env, d5.now, s3.sid, decision);
     return mine || others > 0;
   }
-  async function decideSet2(ask3, held3, ids, verdict, code3) {
+  async function decideSet2(ask3, held3, ids, verdict, code2) {
     if (!ids.includes(held3) || !ids.every(isUlid)) throw new RequestError("input", "set must be the held ids shown, held among them");
     const rules = await loadCiRules(d5.mesh.ciRulesPath).catch(() => []);
     const rows = await listAllHeld(d5.mesh, d5.env);
@@ -123659,7 +123981,7 @@ async function runEvents(d5) {
     const gone = unique.filter((id3) => !now.some((r6) => r6.id === id3));
     const kept = now.filter((r6) => verdict === "approve" && pinsIds(r6)).map((r6) => r6.id);
     const go = now.filter((r6) => !kept.includes(r6.id));
-    const decisions = go.length === 0 ? void 0 : await signed(ask3, verdict, go.map((r6) => r6.id), code3);
+    const decisions = go.length === 0 ? void 0 : await signed(ask3, verdict, go.map((r6) => r6.id), code2);
     for (const r6 of go) {
       if (await decideIfHeld(r6.id, verdict, decisionFor(decisions, r6.id))) decided.push(r6.id);
       else gone.push(r6.id);
@@ -123870,11 +124192,11 @@ async function runEvents(d5) {
       }
       case "resume": {
         personOnly2(d5.agent, "releasing what the loop breaker held");
-        const { peer, code: code3 } = a5;
+        const { peer, code: code2 } = a5;
         const device = peer.split("@")[1];
         const paused2 = (await listAllHeld(d5.mesh, d5.env)).filter((r6) => r6.reason === "breaker" && r6.from.split("@")[1] === device).map((r6) => r6.id);
         let released = 0;
-        for (const decision of await signed(ask3, "resume", [...new Set(paused2)], code3, peer) ?? [void 0]) {
+        for (const decision of await signed(ask3, "resume", [...new Set(paused2)], code2, peer) ?? [void 0]) {
           released += await s3.resumePeer(peer, decision) + await resumeEverywhere(d5.mesh, peer, d5.env, d5.now, s3.sid, decision);
         }
         return { released };
@@ -123919,8 +124241,8 @@ async function runEvents(d5) {
       const result = await run2(op2, args.data, ask3);
       emit("response", { id: id3, ok: true, result });
     } catch (error64) {
-      const code3 = error64 instanceof RequestError ? error64.code : error64 instanceof ClientError ? error64.code === "secret" ? "refused" : error64.code === "bad_address" ? "input" : error64.code : "error";
-      emit("response", { ...id3 === void 0 ? {} : { id: id3 }, ok: false, error: { code: code3, message: error64.message } });
+      const code2 = error64 instanceof RequestError ? error64.code : error64 instanceof ClientError ? error64.code === "secret" ? "refused" : error64.code === "bad_address" ? "input" : error64.code : "error";
+      emit("response", { ...id3 === void 0 ? {} : { id: id3 }, ok: false, error: { code: code2, message: error64.message } });
     }
   }
   emit("hello", {
@@ -124034,14 +124356,14 @@ async function runSetupEvents(d5) {
         throw own2 === void 0 ? error64 : new RequestError(error64.code, own2);
       });
       const result = { device: { name: device.name, id: device.id }, mesh: `${made.mesh.slice(0, 4)}\u2026`, relay: relayHost(relay) };
-      const code3 = made.recoveryCode;
+      const code2 = made.recoveryCode;
       if (d5.signal.aborted) {
         emit("created", { mesh: result.mesh, recovery: "not_collected" });
         finish();
         return result;
       }
       return await new Promise((resolve5, reject) => {
-        holding = holdForShow(showPaths(d5.home.root, d5.platform), code3, {
+        holding = holdForShow(showPaths(d5.home.root, d5.platform), code2, {
           ms: d5.recoveryMs ?? LIMITS.recoveryShowWindowMs,
           signal: d5.signal,
           platform: d5.platform,
@@ -124062,16 +124384,16 @@ async function runSetupEvents(d5) {
       throw error64;
     }
   }
-  async function join28(a5) {
+  async function join29(a5) {
     personOnly2(d5.agent, "joining a mesh");
     if (joining || creating) throw new RequestError("busy", joining ? "a join is already waiting for an admin" : "a mesh is being created on this device");
     joining = true;
     try {
-      const code3 = await resolveInvite(a5.code, d5.fetch).catch((error64) => {
+      const code2 = await resolveInvite(a5.code, d5.fetch).catch((error64) => {
         throw error64 instanceof SetupError ? new RequestError("input", error64.message) : error64;
       });
       try {
-        parseInvite(code3);
+        parseInvite(code2);
       } catch {
         throw new RequestError("input", "not an invite code (wim1_... or wim2-...)");
       }
@@ -124081,7 +124403,7 @@ async function runSetupEvents(d5) {
         joinMesh({
           home: d5.home,
           device,
-          code: code3,
+          code: code2,
           dialer: d5.dialer,
           now: d5.now,
           showSas: (sas) => {
@@ -124133,11 +124455,11 @@ async function runSetupEvents(d5) {
       if (op2 !== "join" && op2 !== "create") throw new RequestError("setup", "this device is in no mesh yet: create or join one first");
       const args = (op2 === "join" ? SetupArgs : CreateArgs).safeParse(req.data.args ?? {});
       if (!args.success) throw new RequestError("input", args.error.issues.map((i6) => `${i6.path.join(".")}: ${i6.message}`).join("; "));
-      const answer = op2 === "join" ? join28(args.data) : making = create2(args.data);
+      const answer = op2 === "join" ? join29(args.data) : making = create2(args.data);
       emit("response", { id: id3, ok: true, result: await answer });
     } catch (error64) {
-      const code3 = error64 instanceof RequestError ? error64.code : "error";
-      emit("response", { ...id3 === void 0 ? {} : { id: id3 }, ok: false, error: { code: code3, message: sanitizeForDisplay(error64.message) } });
+      const code2 = error64 instanceof RequestError ? error64.code : "error";
+      emit("response", { ...id3 === void 0 ? {} : { id: id3 }, ok: false, error: { code: code2, message: sanitizeForDisplay(error64.message) } });
     }
     afterResponse?.();
   }
@@ -124388,11 +124710,11 @@ var Protocol = class {
     const controller = this._requestHandlerAbortControllers.get(notification.params.requestId);
     controller?.abort(notification.params.reason);
   }
-  _setupTimeout(messageId, timeout, maxTotalTimeout, onTimeout, resetTimeoutOnProgress = false) {
+  _setupTimeout(messageId, timeout2, maxTotalTimeout, onTimeout, resetTimeoutOnProgress = false) {
     this._timeoutInfo.set(messageId, {
-      timeoutId: setTimeout(onTimeout, timeout),
+      timeoutId: setTimeout(onTimeout, timeout2),
       startTime: Date.now(),
-      timeout,
+      timeout: timeout2,
       maxTotalTimeout,
       resetTimeoutOnProgress,
       onTimeout
@@ -124873,9 +125195,9 @@ var Protocol = class {
       options?.signal?.addEventListener("abort", () => {
         cancel(options?.signal?.reason);
       });
-      const timeout = options?.timeout ?? DEFAULT_REQUEST_TIMEOUT_MSEC;
-      const timeoutHandler = () => cancel(McpError.fromError(ErrorCode.RequestTimeout, "Request timed out", { timeout }));
-      this._setupTimeout(messageId, timeout, options?.maxTotalTimeout, timeoutHandler, options?.resetTimeoutOnProgress ?? false);
+      const timeout2 = options?.timeout ?? DEFAULT_REQUEST_TIMEOUT_MSEC;
+      const timeoutHandler = () => cancel(McpError.fromError(ErrorCode.RequestTimeout, "Request timed out", { timeout: timeout2 }));
+      this._setupTimeout(messageId, timeout2, options?.maxTotalTimeout, timeoutHandler, options?.resetTimeoutOnProgress ?? false);
       const relatedTaskId = relatedTask?.taskId;
       if (relatedTaskId) {
         const responseResolver = (response) => {
@@ -126867,9 +127189,9 @@ import { promises as fs13 } from "node:fs";
 import { createConnection as createConnection3, createServer as createServer3 } from "node:net";
 var AgentError = class extends Error {
   code;
-  constructor(code3, message2) {
+  constructor(code2, message2) {
     super(message2);
-    this.code = code3;
+    this.code = code2;
   }
 };
 var AGENT_RATE = { perSecond: 100, burst: 1e3 };
@@ -127053,9 +127375,9 @@ var Signer = class {
       if (op2 !== "hello" && op2 !== "status") this.counts[op2] = (this.counts[op2] ?? 0) + 1;
       return result;
     } catch (error64) {
-      const code3 = error64 instanceof AgentError ? error64.code : "bad_request";
-      entry.code = code3;
-      if (code3 === "refused") this.refused++;
+      const code2 = error64 instanceof AgentError ? error64.code : "bad_request";
+      entry.code = code2;
+      if (code2 === "refused") this.refused++;
       throw error64 instanceof AgentError ? error64 : new AgentError("bad_request", error64.message);
     } finally {
       this.o.log(entry);
@@ -127174,7 +127496,7 @@ var Signer = class {
   }
   keyOp(op2, a5, k5, signKey, entry) {
     const me = this.file.id;
-    const refuse = (why) => {
+    const refuse2 = (why) => {
       throw new AgentError("refused", why);
     };
     switch (op2) {
@@ -127182,12 +127504,12 @@ var Signer = class {
         const type = a5["type"];
         const obj = a5["obj"];
         entry.type = type;
-        if (type === "prekey") refuse("prekeys are made by the signer itself (the prekey operation)");
+        if (type === "prekey") refuse2("prekeys are made by the signer itself (the prekey operation)");
         const owner = OWNER[type];
         if (owner === void 0) throw new AgentError("bad_request", `no signature type ${JSON.stringify(type)}`);
-        if (owner(obj) !== me) refuse(`this ${type} object is not this device's`);
+        if (owner(obj) !== me) refuse2(`this ${type} object is not this device's`);
         if ((type === "auth" || type === "send") && !(typeof obj["at"] === "number" && Math.abs(obj["at"] - this.o.now()) <= SIGN_SKEW_MS)) {
-          refuse(`this ${type} object's time is not within ${SIGN_SKEW_MS / 6e4} minutes of the signer's clock`);
+          refuse2(`this ${type} object's time is not within ${SIGN_SKEW_MS / 6e4} minutes of the signer's clock`);
         }
         entry.mesh = typeof obj["mesh"] === "string" ? obj["mesh"] : void 0;
         const { sig: _sig, ...rest } = obj;
@@ -127198,7 +127520,7 @@ var Signer = class {
       case "seal": {
         const req = a5;
         Object.assign(entry, { mesh: req.mesh, peer: req.recipient });
-        if (req.sender !== me) refuse("a box from another device");
+        if (req.sender !== me) refuse2("a box from another device");
         const box = sealBox(k5.keys.boxSec, {
           mesh: req.mesh,
           sender: req.sender,
@@ -127214,7 +127536,7 @@ var Signer = class {
       case "open2": {
         const req = a5;
         Object.assign(entry, { mesh: req.mesh, peer: req.sender });
-        if (req.recipient !== me) refuse("a box to another device");
+        if (req.recipient !== me) refuse2("a box to another device");
         const open3 = { mesh: req.mesh, sender: req.sender, recipient: req.recipient, aad: b64u.decode(req.aad), senderBox: b64u.decode(req.senderBox), box: req.box };
         if (op2 === "open") return opened(openBox(k5.keys.boxSec, () => void 0, open3));
         return opened(this.openPrekeyBox(req.entry, open3, k5));
@@ -127223,7 +127545,7 @@ var Signer = class {
         const mesh = a5["mesh"];
         entry.mesh = mesh;
         const at = a5["at"];
-        if (Math.abs(at - this.o.now()) > SIGN_SKEW_MS) refuse(`a prekey's time must be within ${SIGN_SKEW_MS / 6e4} minutes of the signer's clock`);
+        if (Math.abs(at - this.o.now()) > SIGN_SKEW_MS) refuse2(`a prekey's time must be within ${SIGN_SKEW_MS / 6e4} minutes of the signer's clock`);
         const made = createPrekey({ mesh, deviceId: me, signSec: k5.keys.signSec, at });
         const sealed = sealPrekeySecret(k5.data, made.prekey, made.secret);
         made.secret.fill(0);
@@ -127232,7 +127554,7 @@ var Signer = class {
       case "adopt": {
         const prekey = a5["prekey"];
         entry.mesh = prekey.mesh;
-        if (prekey.device !== me || !verifyObject("prekey", prekey, b64u.decode(this.file.signPub))) refuse("not one of this device's prekeys");
+        if (prekey.device !== me || !verifyObject("prekey", prekey, b64u.decode(this.file.signPub))) refuse2("not one of this device's prekeys");
         return { sealed: sealPrekeySecret(k5.data, prekey, b64u.decode(a5["secret"])) };
       }
     }
@@ -127423,9 +127745,9 @@ function realToolTrust(platform2, stat3 = fs14.stat) {
       try {
         st = await stat3(p3);
       } catch (error64) {
-        const code3 = error64.code;
-        if (p3 === path2 && code3 === "ENOENT") return "missing";
-        return `${p3} cannot be checked (${String(code3)}), so it is not trusted to ask you`;
+        const code2 = error64.code;
+        if (p3 === path2 && code2 === "ENOENT") return "missing";
+        return `${p3} cannot be checked (${String(code2)}), so it is not trusted to ask you`;
       }
       if (st.uid !== 0 || (st.mode & 18) !== 0) return `${p3} is not root's alone, so it is not trusted to ask you (a program put in its place would answer for you)`;
     }
@@ -127463,9 +127785,9 @@ function runProgram(cmd, args, input2 = "", options = {}, spawn2 = nodeSpawn) {
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (d5) => stdout += d5);
     child.stderr.on("data", (d5) => stderr += d5);
-    child.once("close", (code3) => {
+    child.once("close", (code2) => {
       done();
-      resolve5({ code: code3, stdout, stderr, ...stopped ? { stopped } : {} });
+      resolve5({ code: code2, stdout, stderr, ...stopped ? { stopped } : {} });
     });
     child.stdin.on("error", () => void 0);
     child.stdin.end(input2);
@@ -127784,7 +128106,7 @@ function spawnDetached(command5, input2, spawn2 = nodeSpawn2) {
     const child = spawn2(command5[0], command5.slice(1), { detached: true, stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
     let out = "";
     child.once("error", reject);
-    child.once("close", (code3) => reject(new Error(`the signer exited before it was ready (code ${code3})`)));
+    child.once("close", (code2) => reject(new Error(`the signer exited before it was ready (code ${code2})`)));
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
       out += chunk;
@@ -128051,13 +128373,13 @@ async function start(ctx) {
 async function launch(ctx, passphrase) {
   if (ctx.flags.get("foreground") === true) {
     let failed;
-    const code3 = await runSigner(ctx, passphrase, (line2) => {
+    const code2 = await runSigner(ctx, passphrase, (line2) => {
       if (line2.startsWith("error ")) failed = line2.slice(6);
       else ctx.io.out(`Signer running in the foreground (pid ${ctx.io.pid}) at ${line2.split(" ").slice(2).join(" ")}. Ctrl-C or \`wim signer stop\` stops it.`);
     });
     if (failed !== void 0) throw new SetupError(failed);
     ctx.io.out("Signer stopped.");
-    return code3;
+    return code2;
   }
   if (ctx.io.startAgent === void 0) throw new SetupError("this program cannot start a background signer: use --foreground");
   const line = await ctx.io.startAgent(passphrase);
@@ -128349,9 +128671,9 @@ function ciEndpoint(r6) {
   return `${relayDialUrl(r6.relay, r6.mesh).replace(/^ws/, "http")}/ci`;
 }
 async function send(req, io) {
-  const code3 = parseCiRecipientCode(req.recipient ?? io.env[RECIPIENT_VAR]);
-  if (!code3.ok) return notSent(`the recipient code is missing or not a wimci1_ code (pass --recipient or set ${RECIPIENT_VAR})`);
-  const r6 = code3.value;
+  const code2 = parseCiRecipientCode(req.recipient ?? io.env[RECIPIENT_VAR]);
+  if (!code2.ok) return notSent(`the recipient code is missing or not a wimci1_ code (pass --recipient or set ${RECIPIENT_VAR})`);
+  const r6 = code2.value;
   const to = req.to;
   if (!isName(to)) return notSent("--to must name the session, 1 to 32 of a-z, 0-9 and -");
   const text2 = req.text ?? "";
@@ -128514,9 +128836,9 @@ async function allow(c5) {
   if (!await confirmTyped(c5.io, allowLines(rule, pins, patterns), "Allow it?")) return 1;
   const added = checkRule({ ...rule, ...pins === void 0 ? {} : { pins } });
   await updateCiRules(files.ciRulesPath, files.env, (rules) => (room(rules), [...rules, added]));
-  const { code: code3, mesh } = await recipient(files, device);
+  const { code: code2, mesh } = await recipient(files, device);
   c5.io.out("Allowed. Sessions of this device that are running tell the relay now; others when they next start.");
-  c5.io.out(`Recipient code for the job (not a secret): ${code3}`);
+  c5.io.out(`Recipient code for the job (not a secret): ${code2}`);
   if (rule.via === "github") {
     c5.io.out("In the job: `permissions: id-token: write`, then `wim ci notify --recipient <code> --to <session> --text <text>`.");
   } else {
@@ -128644,16 +128966,16 @@ ${lines.join("\n")}`);
 
 // ../agent/src/gate.ts
 import { createHash as createHash9, timingSafeEqual as timingSafeEqual3 } from "node:crypto";
-function codeMatches(given, code3) {
+function codeMatches(given, code2) {
   const a5 = createHash9("sha256").update(given, "utf8").digest();
-  const b5 = createHash9("sha256").update(code3, "utf8").digest();
-  return timingSafeEqual3(a5, b5) && code3 !== "";
+  const b5 = createHash9("sha256").update(code2, "utf8").digest();
+  return timingSafeEqual3(a5, b5) && code2 !== "";
 }
-function stripCode(text2, code3) {
+function stripCode(text2, code2) {
   const trimmed = text2.trimStart();
   const end2 = trimmed.search(/\s/);
   const word = end2 === -1 ? trimmed : trimmed.slice(0, end2);
-  if (!codeMatches(word, code3)) return { ok: false };
+  if (!codeMatches(word, code2)) return { ok: false };
   return { ok: true, rest: end2 === -1 ? "" : trimmed.slice(end2).trim() };
 }
 function parseProfile(text2, allowed, fallback2) {
@@ -128772,8 +129094,8 @@ function signalGroup(pgid, signal, kill, log3) {
   try {
     kill(-pgid, signal);
   } catch (err) {
-    const code3 = err.code;
-    if (code3 !== "ESRCH") log3(`worker: ${signal} to the runner's process group failed: ${code3 ?? String(err)}`);
+    const code2 = err.code;
+    if (code2 !== "ESRCH") log3(`worker: ${signal} to the runner's process group failed: ${code2 ?? String(err)}`);
   }
 }
 function runJob(spec, req, deps = {}) {
@@ -128839,10 +129161,10 @@ function runJob(spec, req, deps = {}) {
       log3(`worker: the runner did not start: ${err.message}`);
       finish({ kind: "failed", code: null, signal: null });
     });
-    child.once("close", (code3, signal) => {
+    child.once("close", (code2, signal) => {
       if (pending2 !== "") deps.stderr?.(pending2.slice(0, MAX_STDERR_LINE));
       if (timedOut) return finish({ kind: "timeout" });
-      switch (code3) {
+      switch (code2) {
         case RUNNER_EXIT.ok: {
           const { text: text2, truncated } = truncateUtf8(Buffer.concat(chunks), RUNNER_MAX_BYTES);
           return finish({ kind: "answered", answer: text2, truncated });
@@ -128854,7 +129176,7 @@ function runJob(spec, req, deps = {}) {
         case RUNNER_EXIT.timeout:
           return finish({ kind: "timeout" });
         default:
-          return finish({ kind: "failed", code: code3, signal });
+          return finish({ kind: "failed", code: code2, signal });
       }
     });
   });
@@ -129017,11 +129339,11 @@ var Worker = class {
 async function readCode(wake, env4, readFile7) {
   if (wake.mode !== "local") return void 0;
   const raw = wake.codeFile !== void 0 ? await readFile7(wake.codeFile) : env4[wake.codeEnv];
-  const code3 = (raw ?? "").trim();
-  if (code3 === "" || /\s/.test(code3)) {
+  const code2 = (raw ?? "").trim();
+  if (code2 === "" || /\s/.test(code2)) {
     throw new Error(`the wake code (${wake.codeFile ?? wake.codeEnv}) is empty or holds whitespace`);
   }
-  return code3;
+  return code2;
 }
 async function runWorker(config2, io, deps = {}) {
   const now = deps.now ?? Date.now;
@@ -129029,13 +129351,13 @@ async function runWorker(config2, io, deps = {}) {
 `));
   const env4 = deps.env ?? process.env;
   const read = deps.readFile ?? (async (path2) => (await import("node:fs/promises")).readFile(path2, "utf8"));
-  const code3 = await readCode(config2.wake, env4, read);
+  const code2 = await readCode(config2.wake, env4, read);
   const ledger = await DailyLedger.open(config2.limits.ledgerPath, config2.limits.dailyJobs, now);
   const worker = new Worker({
     config: config2,
     io,
     ledger,
-    ...code3 === void 0 ? {} : { code: code3 },
+    ...code2 === void 0 ? {} : { code: code2 },
     env: env4,
     now,
     log: log3,
@@ -129048,6 +129370,7 @@ async function runWorker(config2, io, deps = {}) {
 }
 
 // ../agent/src/doctor.ts
+import { dirname as dirname9, join as join23 } from "node:path";
 var MIN_NODE = [22, 18, 0];
 var METADATA_ADDRESSES = [
   { host: "169.254.169.254", port: 80 },
@@ -129058,7 +129381,7 @@ var ok2 = (line) => ({ level: "ok", line });
 var problem = (line) => ({ level: "problem", line });
 var skip = (line) => ({ level: "skip", line });
 var info = (line) => ({ level: "info", line });
-var code2 = (err) => err.code ?? err.message;
+var codeOf = (err) => err.code ?? err.message;
 function nodeSupported(have) {
   const parts = have.replace(/^v/, "").split(".").map(Number);
   for (let i6 = 0; i6 < MIN_NODE.length; i6++) {
@@ -129193,7 +129516,7 @@ async function directProfiles(config2, deps, peer, as, asRoot, say) {
   try {
     rc = JSON.parse(await deps.readText(path2));
   } catch (err) {
-    say(problem(`runner config ${path2}: ${code2(err)}`));
+    say(problem(`runner config ${path2}: ${codeOf(err)}`));
     return;
   }
   const listed3 = rc.profiles ?? {};
@@ -129208,7 +129531,7 @@ async function peerSecret(what2, file2, deps, peer, as, asRoot, say) {
   try {
     st = await deps.stat(file2);
   } catch (err) {
-    say(problem(`${what2} ${file2}: ${code2(err)}`));
+    say(problem(`${what2} ${file2}: ${codeOf(err)}`));
     return;
   }
   if ((st.mode & 23) !== 0) {
@@ -129235,7 +129558,7 @@ async function privileged(config2, input2, deps, peer, as, noMetadata, asRoot, s
       if (lines.length === 1 && lines[0] === want) say(ok2(`${input2.sudoersPath} holds exactly: ${want}`));
       else say(problem(`${input2.sudoersPath} must hold exactly one rule, \`${want}\` (found ${lines.length} rule line(s) that differ)`));
     } catch (err) {
-      say(problem(`${input2.sudoersPath}: ${code2(err)}`));
+      say(problem(`${input2.sudoersPath}: ${codeOf(err)}`));
     }
   }
   const nnp = await deps.noNewPrivs(input2.service);
@@ -129247,7 +129570,7 @@ async function privileged(config2, input2, deps, peer, as, noMetadata, asRoot, s
     p3 = await deps.loadPrivileged(input2.privilegedPath);
     say(ok2(`${input2.privilegedPath} is a valid privileged runner config`));
   } catch (err) {
-    const c5 = code2(err);
+    const c5 = codeOf(err);
     if (c5 === "EACCES") say(skip(`${input2.privilegedPath}: ${asRoot}`));
     else say(problem(`${input2.privilegedPath}: ${err.message}`));
     return;
@@ -129272,7 +129595,7 @@ async function privileged(config2, input2, deps, peer, as, noMetadata, asRoot, s
       if (st.uid !== 0 || (st.mode & 63) !== 0) say(problem(`profile ${name}: key file ${file2} must be owned by root with mode 600`));
       else say(ok2(`profile ${name}: key file ${file2} is root's alone (not shown)`));
     } catch (err) {
-      const c5 = code2(err);
+      const c5 = codeOf(err);
       say(c5 === "EACCES" ? skip(`profile ${name}: key file ${file2}: ${asRoot}`) : problem(`profile ${name}: key file ${file2}: ${c5}`));
     }
   }
@@ -129294,12 +129617,16 @@ async function privileged(config2, input2, deps, peer, as, noMetadata, asRoot, s
   else if (peer !== void 0 && job.uid === peer.uid) say(problem(`job user ${p3.worker.user} is the peer user: give jobs their own user`));
   else await noMetadata("job user", job);
   if (peer !== void 0) await noMetadata("peer user", peer);
+  const code2 = await deps.codeProblem().catch((err) => `it could not be checked (${codeOf(err)})`);
+  say(code2 === void 0 ? ok2("node and this wim, and every directory above them, are root's alone") : problem(`the privileged runner refuses code others can change: ${code2}`));
+  await rootDir(dirname9(p3.statePath), "the runner's state directory", deps, say);
+  if (p3.recipient !== void 0) await recipientFiles(p3.recipient, deps, say);
   try {
     const st = await deps.stat(p3.runDir);
     if (st.kind !== "dir" || st.uid !== 0 || (st.mode & 18) !== 0) say(problem(`${p3.runDir} must be a directory owned by root, not group or other writable`));
     else say(ok2(`${p3.runDir} (the lock ${p3.lock.path}) is root's to write`));
   } catch (err) {
-    say(problem(`${p3.runDir}: ${code2(err)} (the privileged runner creates it, or the deployment guide's tmpfiles line does)`));
+    say(problem(`${p3.runDir}: ${codeOf(err)} (the privileged runner creates it, or the deployment guide's tmpfiles line does)`));
   }
   for (const [role, user] of [["peer user", peer], ["job user", job]]) {
     if (user === void 0 || user.uid === 0) continue;
@@ -129317,13 +129644,59 @@ async function privileged(config2, input2, deps, peer, as, noMetadata, asRoot, s
     else say(problem(`peer user ${peer.name}: the read probe of ${p3.runDir} failed to run`));
   }
 }
+async function rootDir(path2, what2, deps, say) {
+  try {
+    const st = await deps.stat(path2);
+    if (st.kind !== "dir" || st.uid !== 0 || (st.mode & 63) !== 0) say(problem(`${what2} ${path2} must be a directory of root's alone (mode 700)`));
+    else say(ok2(`${what2} ${path2} is root's alone`));
+  } catch (err) {
+    const c5 = codeOf(err);
+    say(c5 === "ENOENT" ? info(`${what2} ${path2} does not exist yet: the runner creates it`) : problem(`${what2} ${path2}: ${c5}`));
+  }
+}
+async function recipientFiles(r6, deps, say) {
+  const owner = await deps.lookupUser(r6.user);
+  if (owner === void 0) {
+    say(problem(`recipient.user ${r6.user}: no such user`));
+    return;
+  }
+  for (const [file2, optional2] of [[join23(r6.home, "device.json"), false], [join23(r6.home, "meshes", r6.mesh, "prekeys.json"), true]]) {
+    let st;
+    try {
+      st = await deps.stat(file2);
+    } catch (err) {
+      const c5 = codeOf(err);
+      say(c5 === "ENOENT" && optional2 ? info(`${file2} does not exist yet: the session writes it when it first connects`) : problem(`${file2}: ${c5}`));
+      continue;
+    }
+    if (st.kind !== "file" || st.uid !== owner.uid || (st.mode & 63) !== 0) {
+      say(problem(`${file2} must be a file of ${r6.user}'s alone (mode 600)`));
+      continue;
+    }
+    if (optional2) {
+      say(ok2(`${file2} is ${r6.user}'s alone`));
+      continue;
+    }
+    const text2 = await deps.readText(file2).catch(() => void 0);
+    let v;
+    try {
+      v = text2 === void 0 ? void 0 : JSON.parse(text2).v;
+    } catch {
+      v = "not JSON";
+    }
+    if (text2 === void 0) say(skip(`${file2}: run \`sudo wim agent doctor\` to check it is in the clear`));
+    else if (v === 1) say(ok2(`${file2} is ${r6.user}'s alone, and in the clear as the runner needs`));
+    else if (v === "not JSON") say(problem(`${file2} is not valid JSON`));
+    else say(problem(`${file2} is encrypted (wim signer encrypt), so the runner cannot open frames: the worker's device keeps a plaintext key file (\`wim signer decrypt\`)`));
+  }
+}
 async function rootFile(path2, what2, deps, say) {
   try {
     const st = await deps.stat(path2);
     if (st.uid !== 0 || (st.mode & 18) !== 0) say(problem(`${what2} ${path2} must be owned by root and not group or other writable`));
     else say(ok2(`${what2} ${path2} is root's`));
   } catch (err) {
-    say(problem(`${what2} ${path2}: ${code2(err)}`));
+    say(problem(`${what2} ${path2}: ${codeOf(err)}`));
   }
 }
 function sdk(deps, say) {
@@ -129363,14 +129736,20 @@ function workerTemplate(o3) {
 function privilegedTemplate(o3) {
   const names = o3.profiles.length === 0 ? ["default"] : o3.profiles;
   const auth = (name) => o3.auth === "api-key" ? { type: "api-key", keyFile: `/etc/wim-agent/${name}.key` } : { type: "wif", organizationId: PLACEHOLDER, federationRuleId: PLACEHOLDER, serviceAccountId: PLACEHOLDER, identity: { type: "file", path: PLACEHOLDER } };
+  const senders2 = o3.allow.length === 0 ? { [PLACEHOLDER]: { sign: PLACEHOLDER, box: PLACEHOLDER } } : Object.fromEntries(o3.allow.map((id3) => {
+    const d5 = o3.roster.find((x2) => x2.id === id3);
+    return [id3, { sign: d5.sign, box: d5.box }];
+  }));
   return {
+    v: 1,
     profiles: Object.fromEntries(names.map((n3) => [n3, { auth: auth(n3) }])),
     defaultProfile: names[0],
     wakeCode: { file: "/etc/wim-agent/wake-code" },
     timeoutSeconds: LIMITS2.timeoutSeconds,
     maxTaskChars: LIMITS2.maxTaskChars,
     dailyJobs: LIMITS2.dailyJobs,
-    ...o3.allow.length === 0 ? {} : { allowDevices: [...o3.allow] }
+    senders: senders2,
+    recipient: { ...o3.recipient }
   };
 }
 function initNotes(o3, path2, left) {
@@ -129527,6 +129906,75 @@ async function serviceNoNewPrivs(service2, exec = defaultExec, read = (p3) => fs
   return value3 === void 0 ? { skip: `the status of ${service2}'s process ${pid} cannot be read here` } : { pid, value: value3 };
 }
 
+// ../agent/src/privileged/frame.ts
+var FrameError = class extends Error {
+  name = "FrameError";
+};
+function pinMatches(id3, sign3) {
+  try {
+    const bytes3 = b64u.decode(sign3);
+    return bytes3.length === 32 && deviceIdFromSignPub(bytes3) === id3;
+  } catch {
+    return false;
+  }
+}
+function parseRecipient(deviceJson, prekeysJson, now) {
+  let raw;
+  try {
+    raw = JSON.parse(deviceJson);
+  } catch {
+    throw new FrameError("the recipient's key file is not JSON");
+  }
+  if (raw?.v === 2) {
+    throw new FrameError("the recipient's key file is encrypted; the privileged runner needs a plaintext key file it can read as root");
+  }
+  let keys;
+  try {
+    keys = decodeKeys(raw);
+  } catch (error64) {
+    throw new FrameError(`the recipient's key file is unusable (${error64.message})`);
+  }
+  const prekeys = /* @__PURE__ */ new Map();
+  let file2;
+  try {
+    file2 = prekeysJson === void 0 ? void 0 : JSON.parse(prekeysJson);
+  } catch {
+  }
+  const list4 = file2?.v === 1 && Array.isArray(file2.keys) ? file2.keys : [];
+  for (const entry of list4) {
+    const pk = prekeySchema.safeParse(entry.prekey);
+    if (!pk.success || typeof entry.secret !== "string") continue;
+    const raw2 = b64u.decode(entry.secret);
+    if (raw2.length === 32 && prekeyDeleteAt(pk.data) > now) prekeys.set(pk.data.id, raw2);
+  }
+  return { deviceId: deviceIdFromSignPub(keys.signPub), keys, prekeys };
+}
+function verifyFrame(frame, ctx) {
+  const ids = Object.keys(ctx.senders);
+  const roster = {
+    mesh: ctx.mesh,
+    seq: Number.MAX_SAFE_INTEGER,
+    prev: null,
+    devices: ids.map((id3) => ({ id: id3, name: "pinned", sign: ctx.senders[id3].sign, box: ctx.senders[id3].box, role: "member", added: 0 })),
+    revoked: [],
+    by: ids[0],
+    at: 0,
+    sig: ""
+  };
+  const r6 = ctx.recipient;
+  const opened2 = openMessage(frame, {
+    roster,
+    me: { deviceId: r6.deviceId, keys: r6.keys, address: ctx.address, sid: "", rooms: [], prekey: (id3) => r6.prekeys.get(id3) },
+    now: ctx.now
+  });
+  if (!opened2.ok) throw new FrameError(`the frame does not verify (${opened2.reason})`);
+  const p3 = opened2.value;
+  if (p3.kind !== "msg" && p3.kind !== "task") throw new FrameError(`a ${p3.kind} is never a job`);
+  if (p3.relayed === true) throw new FrameError("relayed text is never a job");
+  return { id: p3.id, device: p3.from.device, at: p3.at, text: p3.text };
+}
+var SEEN_WINDOW_MS = LIMITS.messageMaxAgeMs + LIMITS.messageMaxFutureMs;
+
 // ../agent/src/privileged/config.ts
 var PRIVILEGED_CONFIG_PATH = "/etc/wim-agent/privileged.json";
 var PRIVILEGED_RUNNER_PATH = "/usr/local/sbin/wim-agent-privileged-runner";
@@ -129540,6 +129988,7 @@ var id2 = external_exports.string().regex(/^[A-Za-z0-9_-]{1,128}$/, "must be an 
 var unixUser = external_exports.string().regex(/^[a-z_][a-z0-9_-]{0,31}$/, "must be a user name");
 var profileName = external_exports.string().regex(PROFILE_NAME, "must be 1 to 32 of A-Z, a-z, 0-9, _ and -");
 var seconds = (max) => external_exports.number().int().min(1).max(max);
+var key32 = external_exports.string().regex(/^[A-Za-z0-9_-]{43}$/, "a 32-byte key in base64url");
 var Identity = external_exports.discriminatedUnion("type", [
   external_exports.strictObject({ type: external_exports.literal("aws-sts"), region: external_exports.string().regex(/^[a-z0-9-]{1,32}$/), durationSeconds: external_exports.number().int().min(60).max(3600).default(600) }),
   external_exports.strictObject({ type: external_exports.literal("gcp-metadata") }),
@@ -129562,6 +130011,8 @@ var Profile = external_exports.strictObject({
   model: external_exports.string().regex(/^[a-z0-9.-]{1,64}$/).default("claude-opus-5-5"),
   effort: external_exports.enum(["low", "medium", "high", "xhigh", "max"]).default("medium"),
   maxTurns: external_exports.number().int().min(1).max(500).default(20),
+  /** The highest max_tokens a request may ask for (the Agent SDK asks for 128000). */
+  maxTokens: external_exports.number().int().min(1).max(1e6).default(128e3),
   tools: external_exports.array(external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,63}$/)).max(64).default([...READ_ONLY_TOOLS]),
   unsafeTools: external_exports.boolean().default(false),
   auth: Auth
@@ -129585,12 +130036,26 @@ var Config = external_exports.strictObject({
   maxTaskChars: external_exports.number().int().min(1).max(6e4).default(16e3),
   dailyJobs: external_exports.number().int().min(0).default(50),
   statePath: absolute.default("/var/lib/wim-agent-privileged/state.json"),
-  allowDevices: external_exports.array(external_exports.string().regex(/^[A-Za-z0-9_-]{16,64}$/)).optional(),
+  /**
+   * The senders who may wake a job, by device id, with their public keys pinned here (from the
+   * roster: `wim devices --keys`). The runner checks each frame's signature against these keys
+   * itself, so a compromised peer cannot claim another sender.
+   */
+  senders: external_exports.record(external_exports.string().regex(/^[A-Za-z0-9_-]{22}$/), external_exports.strictObject({ sign: key32, box: key32 })).refine((s3) => Object.entries(s3).every(([id3, k5]) => pinMatches(id3, k5.sign)), { message: "each sender's id must be the one its sign key names" }).refine((s3) => Object.keys(s3).length > 0, { message: "at least one sender" }).optional(),
+  /** The receiving session: its device's key files (owned by the peer user), mesh and address. */
+  recipient: external_exports.strictObject({
+    home: absolute,
+    mesh: external_exports.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+    address: external_exports.string().regex(/^[a-z0-9-]{1,32}@[a-z0-9-]{1,32}$/),
+    user: unixUser
+  }).optional(),
+  /** The API the proxy forwards to. */
+  apiUrl: external_exports.string().regex(/^https:\/\/[^/\s]+$|^http:\/\/127\.0\.0\.1:\d+$/, "https://host, or http://127.0.0.1:port for a test").default("https://api.anthropic.com"),
   allowLocal: external_exports.boolean().default(false),
   wakeCode: WakeCode.optional(),
   defaultProfile: profileName,
   profiles: external_exports.record(profileName, Profile)
-}).refine((c5) => c5.defaultProfile in c5.profiles, { message: "defaultProfile must name a profile" });
+}).refine((c5) => c5.defaultProfile in c5.profiles, { message: "defaultProfile must name a profile" }).refine((c5) => c5.senders !== void 0 || c5.allowLocal, { message: "set senders, or allowLocal for local jobs only: a runner that would take a job from anyone does not start" }).refine((c5) => c5.senders === void 0 === (c5.recipient === void 0), { message: "senders and recipient go together" });
 var ConfigError = class extends Error {
   name = "ConfigError";
 };
@@ -129602,64 +130067,30 @@ function parsePrivilegedConfig(raw) {
   const c5 = r6.data;
   return { ...c5, worker: { ...c5.worker, cwd: c5.worker.cwd ?? `${c5.worker.home}/work` } };
 }
-function rootOwnedProblem(facts, secret) {
-  if (facts.uid !== 0) return "it is not owned by root";
-  if (secret && (facts.mode & 63) !== 0) return `it is readable by group or others (mode ${(facts.mode & 511).toString(8)})`;
+function ownerProblem(facts, rule) {
+  if (rule.owner === void 0) return void 0;
+  if (!facts.isFile) return "it is not a regular file";
+  if (facts.uid !== rule.owner) return `it is not owned by uid ${rule.owner}`;
+  if (rule.secret && (facts.mode & 63) !== 0) return `it is readable by group or others (mode ${(facts.mode & 511).toString(8)})`;
   if ((facts.mode & 18) !== 0) return `it is writable by group or others (mode ${(facts.mode & 511).toString(8)})`;
   return void 0;
 }
-async function loadPrivilegedConfig(path2, fs22, euid) {
-  if (euid === 0) {
-    const problem2 = rootOwnedProblem(await fs22.stat(path2), false);
-    if (problem2 !== void 0) throw new ConfigError(`refusing ${path2}: ${problem2}`);
-  }
-  const text2 = await fs22.readFile(path2);
+async function loadPrivilegedConfig(path2, read, euid) {
+  const text2 = await read(path2, { owner: euid === 0 ? 0 : void 0, secret: false });
   let raw;
   try {
     raw = JSON.parse(text2);
-  } catch (error64) {
-    throw new ConfigError(`${path2}: not valid JSON (${error64.message})`);
+  } catch {
+    throw new ConfigError(`${path2}: not valid JSON`);
   }
   return parsePrivilegedConfig(raw);
 }
 
-// ../agent/src/privileged/broker.ts
-var REFRESH_MS = 24e4;
-var TokenBroker = class {
-  o;
-  timer;
-  refreshing = Promise.resolve();
-  constructor(options) {
-    this.o = options;
-  }
-  /** Writes the first token; a failure here fails the job before the worker starts. */
-  async start() {
-    await this.write();
-    this.timer = this.o.setInterval(() => {
-      this.refreshing = this.write().catch((error64) => {
-        this.o.log(`token refresh failed: ${error64.name}`);
-      });
-    }, REFRESH_MS);
-  }
-  async write() {
-    const token = await this.o.mint();
-    const tmp = `${this.o.path}.new`;
-    await this.o.fs.writeFile(tmp, token, 416);
-    if (this.o.chown) await this.o.fs.chown(tmp, 0, this.o.gid);
-    await this.o.fs.rename(tmp, this.o.path);
-  }
-  /** Stops refreshing and removes the token file. */
-  async stop() {
-    this.o.clearInterval(this.timer);
-    await this.refreshing;
-    await this.o.fs.rm(this.o.path);
-    await this.o.fs.rm(`${this.o.path}.new`);
-  }
-};
-
 // ../agent/src/privileged/identity.ts
 var METADATA = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default";
 var FLAVOR = { "Metadata-Flavor": "Google" };
+var IDENTITY_TIMEOUT_MS = 2e4;
+var timeout = () => AbortSignal.timeout(IDENTITY_TIMEOUT_MS);
 var IdentityError = class extends Error {
   name = "IdentityError";
 };
@@ -129678,16 +130109,17 @@ async function fetchIdentityToken(identity, audience, deps) {
       return nonEmpty(await deps.awsWebIdentityToken({ region: identity.region, audience, durationSeconds: identity.durationSeconds }), "AWS STS");
     case "gcp-metadata": {
       const url2 = `${METADATA}/identity?audience=${encodeURIComponent(audience)}&format=full`;
-      return nonEmpty(await body(await deps.fetch(url2, { headers: FLAVOR }), "the GCP metadata server"), "the GCP metadata server");
+      return nonEmpty(await body(await deps.fetch(url2, { headers: FLAVOR, signal: timeout() }), "the GCP metadata server"), "the GCP metadata server");
     }
     case "gcp-impersonate": {
-      const access = JSON.parse(await body(await deps.fetch(`${METADATA}/token`, { headers: FLAVOR }), "the GCP metadata server"));
+      const access = JSON.parse(await body(await deps.fetch(`${METADATA}/token`, { headers: FLAVOR, signal: timeout() }), "the GCP metadata server"));
       if (typeof access.access_token !== "string") throw new IdentityError("the GCP metadata server returned no access token");
       const url2 = `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(identity.serviceAccount)}:generateIdToken`;
       const res = await deps.fetch(url2, {
         method: "POST",
         headers: { Authorization: `Bearer ${access.access_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ audience, includeEmail: true })
+        body: JSON.stringify({ audience, includeEmail: true }),
+        signal: timeout()
       });
       const out = JSON.parse(await body(res, "IAM Credentials generateIdToken"));
       if (typeof out.token !== "string") throw new IdentityError("IAM Credentials generateIdToken returned no token");
@@ -129700,30 +130132,159 @@ async function fetchIdentityToken(identity, audience, deps) {
 async function awsWebIdentityToken(input2) {
   const { STSClient: STSClient2, GetWebIdentityTokenCommand } = await Promise.resolve().then(() => __toESM(require_dist_cjs22(), 1));
   const out = await new STSClient2({ region: input2.region }).send(
-    new GetWebIdentityTokenCommand({ Audience: [input2.audience], SigningAlgorithm: "RS256", DurationSeconds: input2.durationSeconds })
+    new GetWebIdentityTokenCommand({ Audience: [input2.audience], SigningAlgorithm: "RS256", DurationSeconds: input2.durationSeconds }),
+    { abortSignal: AbortSignal.timeout(IDENTITY_TIMEOUT_MS) }
   );
   return out.WebIdentityToken ?? "";
 }
 
+// ../agent/src/privileged/auth.ts
+var AUTH_TIMEOUT_MS = 3e4;
+var OAUTH_BETA = "oauth-2025-04-20";
+async function loadAnthropicCredentials() {
+  const federation = await Promise.resolve().then(() => (init_oidc_federation(), oidc_federation_exports));
+  const cache5 = await Promise.resolve().then(() => (init_token_cache(), token_cache_exports));
+  return { oidcFederationProvider: federation.oidcFederationProvider, TokenCache: cache5.TokenCache };
+}
+function within2(p3, ms, what2) {
+  let timer;
+  const late = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what2} took longer than ${ms / 1e3} s`)), ms);
+  });
+  return Promise.race([p3, late]).finally(() => clearTimeout(timer));
+}
+async function upstreamAuth(auth, apiKey, upstream, deps) {
+  if (auth.type === "api-key") {
+    const key3 = apiKey;
+    return async () => ({ "x-api-key": key3 });
+  }
+  const sdk2 = await deps.credentials();
+  const timedFetch = ((url2, init3) => deps.fetch(url2, { ...init3, signal: AbortSignal.timeout(AUTH_TIMEOUT_MS) }));
+  const provider = sdk2.oidcFederationProvider({
+    identityTokenProvider: () => within2(fetchIdentityToken(auth.identity, auth.audience, deps.identity), AUTH_TIMEOUT_MS, "the identity token"),
+    federationRuleId: auth.federationRuleId,
+    organizationId: auth.organizationId,
+    serviceAccountId: auth.serviceAccountId,
+    ...auth.workspaceId === void 0 ? {} : { workspaceId: auth.workspaceId },
+    baseURL: upstream,
+    fetch: timedFetch
+  });
+  const cache5 = new sdk2.TokenCache(provider, (err) => deps.log(`token refresh failed: ${err.name}`));
+  const token = () => within2(cache5.getToken(), AUTH_TIMEOUT_MS * 2, "the token exchange");
+  await token();
+  return async () => ({ authorization: `Bearer ${await token()}`, "anthropic-beta": OAUTH_BETA });
+}
+
+// ../agent/src/privileged/proxy.ts
+import { createHash as createHash10, randomBytes as randomBytes5, timingSafeEqual as timingSafeEqual4 } from "node:crypto";
+import { createServer as createServer4 } from "node:http";
+import { Readable as Readable8 } from "node:stream";
+var PROXY_PATHS = ["/v1/messages", "/v1/messages/count_tokens"];
+var QUERIES = /* @__PURE__ */ new Set(["", "?beta=true"]);
+var DROP_REQUEST = /* @__PURE__ */ new Set(["host", "x-api-key", "authorization", "connection", "content-length", "transfer-encoding", "accept-encoding", "proxy-authorization", "keep-alive", "upgrade"]);
+var DROP_RESPONSE = /* @__PURE__ */ new Set(["connection", "content-length", "transfer-encoding", "content-encoding", "keep-alive", "set-cookie"]);
+var digest2 = (s3) => createHash10("sha256").update(s3, "utf8").digest();
+function refuse(res, status3, message2) {
+  res.writeHead(status3, { "content-type": "application/json" });
+  res.end(JSON.stringify({ type: "error", error: { type: status3 === 429 ? "rate_limit_error" : "invalid_request_error", message: message2 } }));
+}
+async function readBody2(req, max) {
+  const chunks = [];
+  let size = 0;
+  for await (const c5 of req) {
+    size += c5.length;
+    if (size <= max) chunks.push(c5);
+  }
+  return size > max ? void 0 : Buffer.concat(chunks).toString("utf8");
+}
+function checkBody(body2, o3, counted) {
+  let parsed2;
+  try {
+    parsed2 = JSON.parse(body2);
+  } catch {
+    return "the request body is not JSON";
+  }
+  const b5 = parsed2;
+  if (typeof b5 !== "object" || b5 === null || typeof b5.model !== "string" || !o3.models.includes(b5.model)) return "this job may not use that model";
+  if (counted && (typeof b5.max_tokens !== "number" || b5.max_tokens > o3.maxTokens)) return `max_tokens must be at most ${o3.maxTokens}`;
+  return void 0;
+}
+async function startProxy(o3) {
+  const key3 = `wimjob-${randomBytes5(32).toString("base64url")}`;
+  const want = digest2(key3);
+  let count = 0;
+  async function handle(req, res) {
+    const url2 = req.url;
+    const q3 = url2.indexOf("?");
+    const path2 = q3 === -1 ? url2 : url2.slice(0, q3);
+    const query = q3 === -1 ? "" : url2.slice(q3);
+    const given = req.headers["x-api-key"];
+    if (typeof given !== "string" || !timingSafeEqual4(digest2(given), want)) return refuse(res, 401, "not this job's key");
+    if (req.method !== "POST" || !PROXY_PATHS.includes(path2) || !QUERIES.has(query)) return refuse(res, 404, "not a path this job may call");
+    const body2 = await readBody2(req, o3.maxBodyBytes);
+    if (body2 === void 0) return refuse(res, 413, `the request body is over ${o3.maxBodyBytes} bytes`);
+    const messages = path2 === "/v1/messages";
+    const why = checkBody(body2, o3, messages);
+    if (why !== void 0) return refuse(res, 400, why);
+    if (messages && ++count > o3.maxRequests) return refuse(res, 429, `this job made its ${o3.maxRequests} requests`);
+    const headers = {};
+    for (const [k5, v] of Object.entries(req.headers)) if (!DROP_REQUEST.has(k5)) headers[k5] = String(v);
+    const auth = await o3.auth();
+    if (auth["anthropic-beta"] !== void 0 && headers["anthropic-beta"] !== void 0) auth["anthropic-beta"] = `${headers["anthropic-beta"]},${auth["anthropic-beta"]}`;
+    const upstream = await o3.fetch(`${o3.upstream}${path2}${query}`, { method: "POST", headers: { ...headers, ...auth }, body: body2, signal: AbortSignal.timeout(o3.requestTimeoutMs) });
+    const out = {};
+    upstream.headers.forEach((v, k5) => {
+      if (!DROP_RESPONSE.has(k5)) out[k5] = v;
+    });
+    res.writeHead(upstream.status, out);
+    o3.log(`proxy: ${path2} ${upstream.status} (request ${count} of ${o3.maxRequests})`);
+    if (upstream.body === null) return void res.end();
+    Readable8.fromWeb(upstream.body).on("error", () => res.destroy()).pipe(res);
+  }
+  const server = createServer4((req, res) => {
+    handle(req, res).catch((error64) => {
+      o3.log(`proxy: failed: ${error64.name}`);
+      refuse(res, 502, "the API could not be reached");
+    });
+  });
+  await new Promise((resolve5) => server.listen(0, "127.0.0.1", resolve5));
+  const port = server.address().port;
+  let closing;
+  return {
+    url: `http://127.0.0.1:${port}`,
+    key: key3,
+    requests: () => count,
+    close() {
+      closing ??= new Promise((resolve5) => {
+        server.close(() => resolve5());
+        server.closeAllConnections();
+      });
+      return closing;
+    }
+  };
+}
+
 // ../agent/src/privileged/request.ts
-var MAX_REQUEST_BYTES2 = RUNNER_MAX_BYTES;
+var MAX_REQUEST_BYTES2 = RUNNER_MAX_REQUEST_BYTES;
 var LOCAL_DEVICE = "local";
 var Request4 = external_exports.strictObject({
-  v: external_exports.literal(1),
+  v: external_exports.literal(2),
   id: external_exports.string().regex(/^[A-Za-z0-9_.:-]{1,128}$/),
   from: external_exports.strictObject({
     device: external_exports.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
     address: external_exports.string().regex(/^[a-z0-9-]{1,32}@[a-z0-9.-]{1,64}$/)
   }),
   profile: external_exports.string().max(32),
-  text: external_exports.string().refine((t2) => !t2.includes("\0"), "holds a NUL")
+  text: external_exports.string().refine((t2) => !t2.includes("\0"), "holds a NUL"),
+  /** The signed send frame the relay delivered (contract v2), verified by the runner itself. */
+  frame: external_exports.unknown().optional()
 });
 var Refusal = class extends Error {
   name = "Refusal";
   code;
-  constructor(code3, reason) {
+  constructor(code2, reason) {
     super(reason);
-    this.code = code3;
+    this.code = code2;
   }
 };
 var EXIT = { ...RUNNER_EXIT, failed: 1, usage: 2 };
@@ -129739,8 +130300,8 @@ function parseRequest2(data) {
   if (!r6.success) throw new Refusal(EXIT.usage, `request is malformed at ${r6.error.issues.map((i6) => i6.path.join(".") || "(top)").join(", ")}`);
   return r6.data;
 }
-function usableCode(code3) {
-  return code3.length >= 16 && !/\s/.test(code3);
+function usableCode(code2) {
+  return code2.length >= 16 && !/\s/.test(code2);
 }
 function chooseProfile(text2, packageProfile, profiles, fallback2) {
   const parsed2 = parseProfile(text2.trim(), profiles, fallback2);
@@ -129761,7 +130322,11 @@ var JobOptions = external_exports.strictObject({
   maxTurns: external_exports.number().int().min(1),
   tools: external_exports.array(external_exports.string()),
   cwd: external_exports.string(),
-  additionalDirectories: external_exports.array(external_exports.string())
+  additionalDirectories: external_exports.array(external_exports.string()),
+  /** Absolute paths the job's file tools may never read (the runner's own files, /proc, /sys). */
+  denyRead: external_exports.array(external_exports.string().regex(/^\//)),
+  /** Run commands in the SDK's sandbox (bubblewrap on Linux), with the same paths denied. */
+  sandbox: external_exports.boolean()
 });
 async function loadSdkQuery() {
   const sdk2 = await import("@anthropic-ai/claude-agent-sdk");
@@ -129781,23 +130346,21 @@ function sdkOptions(job, env4, abortController) {
     additionalDirectories: job.additionalDirectories,
     settingSources: [],
     persistSession: false,
+    // The file tools read nothing outside the working directories, and never the denied paths,
+    // whatever the model asks for (Read refuses /proc on its own; Grep and Glob do not).
+    settings: {
+      permissions: {
+        deny: job.denyRead.flatMap((p3) => [`Read(/${p3})`, `Read(/${p3}/**)`]),
+        blockReadsOutsideWorkingDirectories: true
+      }
+    },
+    ...job.sandbox ? { sandbox: { enabled: true, failIfUnavailable: true, allowUnsandboxedCommands: false, filesystem: { denyRead: job.denyRead } } } : {},
     // Replaces the child's environment entirely (the SDK does not merge it).
     env: env4,
     abortController
   };
 }
-var PASS = [
-  "HOME",
-  "PATH",
-  "LANG",
-  "ANTHROPIC_API_KEY",
-  "ANTHROPIC_IDENTITY_TOKEN_FILE",
-  "ANTHROPIC_FEDERATION_RULE_ID",
-  "ANTHROPIC_ORGANIZATION_ID",
-  "ANTHROPIC_SERVICE_ACCOUNT_ID",
-  "ANTHROPIC_WORKSPACE_ID",
-  "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"
-];
+var PASS = ["HOME", "PATH", "LANG", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"];
 async function workerMain(io) {
   if (io.uid === 0) {
     io.err("worker: refusing to run a job as root");
@@ -129820,109 +130383,139 @@ async function workerMain(io) {
   }
   const prompt = await io.readStdin();
   const query = await io.loadQuery();
-  let code3 = 1;
+  let code2 = 1;
   try {
     for await (const m4 of query({ prompt, options: sdkOptions(parsed2.data, env4, new AbortController()) })) {
       if (m4["type"] !== "result") continue;
       const text2 = typeof m4["result"] === "string" ? m4["result"] : String(m4["subtype"]);
       io.out(text2);
       io.err(`worker: cost_usd ${String(m4["total_cost_usd"])} turns ${String(m4["num_turns"])}`);
-      code3 = m4["is_error"] === true ? 1 : 0;
+      code2 = m4["is_error"] === true ? 1 : 0;
     }
   } catch (error64) {
     io.err(`worker: error ${error64.name}`);
-    code3 = 1;
+    code2 = 1;
   }
-  return code3;
+  return code2;
 }
 
 // ../agent/src/privileged/main.ts
 var MAX_ANSWER_BYTES = 60 * 1024;
 var TRUNCATED = "\n\n[answer truncated by the privileged runner]\n";
+var MAX_API_BODY_BYTES = 32 * 1024 * 1024;
+var EXTRA_REQUESTS = 5;
 var log = (deps, line) => deps.err(`wim-agent-privileged: ${line}`);
 function configPath(env4, euid) {
   const o3 = env4["WIM_AGENT_PRIVILEGED_CONFIG"];
   return euid !== 0 && o3 !== void 0 && o3 !== "" ? o3 : PRIVILEGED_CONFIG_PATH;
 }
-async function readRootSecret(path2, deps, what2) {
-  if (deps.euid === 0) {
-    const problem2 = rootOwnedProblem(await deps.configFs.stat(path2), true);
-    if (problem2 !== void 0) throw new Refusal(EXIT.failed, `refusing the ${what2} file: ${problem2}`);
-  }
-  return (await deps.configFs.readFile(path2)).replace(/\r?\n$/, "");
+var rootRule = (deps, secret) => ({ owner: deps.euid === 0 ? 0 : void 0, secret });
+async function readRootSecret(path2, deps) {
+  return (await deps.readFile(path2, rootRule(deps, true))).replace(/\r?\n$/, "");
 }
-async function checkSender(req, cfg, env4, deps) {
+async function recipientKeys(cfg, deps) {
+  const r6 = cfg.recipient;
+  const peer = await deps.lookupUser(r6.user);
+  const rule = { owner: deps.euid === 0 ? peer.uid : void 0, secret: true };
+  const device = await deps.readFile(`${r6.home}/device.json`, rule);
+  const prekeys = await deps.readFile(`${r6.home}/meshes/${r6.mesh}/prekeys.json`, rule).catch((error64) => {
+    if (error64.code === "ENOENT") return void 0;
+    throw error64;
+  });
+  return parseRecipient(device, prekeys, deps.now());
+}
+async function authenticate(req, cfg, env4, deps) {
   if (req.from.device === LOCAL_DEVICE) {
     const refused2 = new Refusal(EXIT.refused, "a local job needs allowLocal and a root caller outside sudo");
-    if (!(cfg.allowLocal && deps.uid === 0 && deps.euid === 0 && env4["SUDO_UID"] === void 0)) throw refused2;
+    if (!(cfg.allowLocal && deps.uid === 0 && deps.euid === 0 && env4["SUDO_UID"] === void 0 && req.frame === void 0)) throw refused2;
     const allRoot = await deps.ancestorsAllRoot();
     if (!allRoot) throw refused2;
-    return true;
+    return { local: true, text: req.text };
   }
-  if (cfg.allowDevices !== void 0 && !cfg.allowDevices.includes(req.from.device)) throw new Refusal(EXIT.refused, "sender device not on the allow-list");
-  return false;
+  if (cfg.senders === void 0) throw new Refusal(EXIT.refused, "no senders are pinned");
+  if (req.frame === void 0) throw new Refusal(EXIT.refused, "no signed frame");
+  let v;
+  try {
+    v = verifyFrame(req.frame, { senders: cfg.senders, mesh: cfg.recipient.mesh, address: cfg.recipient.address, recipient: await recipientKeys(cfg, deps), now: deps.now() });
+  } catch (error64) {
+    if (error64 instanceof FrameError) throw new Refusal(EXIT.refused, error64.message);
+    throw error64;
+  }
+  if (v.device !== req.from.device || v.id !== req.id || v.text !== req.text) throw new Refusal(EXIT.refused, "the request disagrees with its signed frame");
+  return { local: false, text: v.text, frameId: v.id, at: v.at };
 }
 async function wakeCode(cfg, env4, deps) {
   const source2 = cfg.wakeCode;
-  const code3 = "file" in source2 ? await readRootSecret(source2.file, deps, "wake code") : env4[source2.env] ?? "";
-  if (!usableCode(code3)) throw new Refusal(EXIT.failed, "the configured wake code is unusable (under 16 characters, or holds whitespace)");
-  return code3;
+  const code2 = "file" in source2 ? await readRootSecret(source2.file, deps) : env4[source2.env] ?? "";
+  if (!usableCode(code2)) throw new Refusal(EXIT.failed, "the configured wake code is unusable (under 16 characters, or holds whitespace)");
+  return code2;
 }
-async function countToday(cfg, deps) {
-  if (cfg.dailyJobs === 0) return;
-  const day = new Date(deps.now()).toISOString().slice(0, 10);
-  let state2 = { days: {} };
-  let text2;
-  try {
-    text2 = await deps.configFs.readFile(cfg.statePath);
-  } catch {
-  }
-  if (text2 !== void 0) {
-    try {
-      state2 = JSON.parse(text2);
-      if (typeof state2.days !== "object" || state2.days === null) throw new Error("no days");
-    } catch {
-      throw new Refusal(EXIT.failed, "the state file is damaged; a person must look at it");
-    }
-  }
-  const used = state2.days[day] ?? 0;
-  if (used >= cfg.dailyJobs) throw new Refusal(EXIT.busy, `daily cap of ${cfg.dailyJobs} jobs reached`);
-  const next = { days: { [day]: used + 1 } };
-  await deps.mkdir(cfg.statePath.slice(0, cfg.statePath.lastIndexOf("/")), 448);
-  await deps.brokerFs.writeFile(`${cfg.statePath}.new`, JSON.stringify(next), 384);
-  await deps.brokerFs.rename(`${cfg.statePath}.new`, cfg.statePath);
-}
-async function signIn(profile, cfg, gid, req, deps) {
-  const auth = profile.auth;
-  if (auth.type === "api-key") {
-    return { env: { ANTHROPIC_API_KEY: await readRootSecret(auth.keyFile, deps, "API key") } };
-  }
-  const path2 = `${cfg.runDir}/idtoken.${req.id.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 48)}.${deps.pid}`;
-  const broker = new TokenBroker({
-    path: path2,
-    gid,
-    chown: deps.euid === 0,
-    fs: deps.brokerFs,
-    log: (line) => log(deps, line),
-    setInterval: (fn, ms) => deps.setInterval(fn, ms),
-    clearInterval: (t2) => deps.clearInterval(t2),
-    mint: () => fetchIdentityToken(auth.identity, auth.audience, deps.identity)
+var DAY2 = /^\d{4}-\d{2}-\d{2}$/;
+var State = external_exports.strictObject({
+  days: external_exports.record(external_exports.string().regex(DAY2), external_exports.number().int().min(0)),
+  seen: external_exports.record(external_exports.string().regex(/^[A-Za-z0-9]{1,64}$/), external_exports.number().int().min(0)).default({})
+});
+async function admit(cfg, sender, deps) {
+  const now = deps.now();
+  const day = new Date(now).toISOString().slice(0, 10);
+  let state2 = { days: {}, seen: {} };
+  const text2 = await deps.readFile(cfg.statePath, rootRule(deps, true)).catch((error64) => {
+    if (error64.code === "ENOENT") return void 0;
+    throw error64;
   });
-  await broker.start();
-  const env4 = {
-    ANTHROPIC_IDENTITY_TOKEN_FILE: path2,
-    ANTHROPIC_FEDERATION_RULE_ID: auth.federationRuleId,
-    ANTHROPIC_ORGANIZATION_ID: auth.organizationId,
-    ANTHROPIC_SERVICE_ACCOUNT_ID: auth.serviceAccountId
+  if (text2 !== void 0) {
+    let parsed2;
+    try {
+      parsed2 = State.safeParse(JSON.parse(text2));
+    } catch {
+      parsed2 = void 0;
+    }
+    if (parsed2 === void 0 || !parsed2.success) throw new Refusal(EXIT.failed, "the state file is damaged; a person must look at it");
+    state2 = parsed2.data;
+  }
+  if (sender.frameId !== void 0 && Object.hasOwn(state2.seen, sender.frameId)) throw new Refusal(EXIT.refused, "this frame was run before");
+  const used = state2.days[day] ?? 0;
+  if (cfg.dailyJobs > 0 && used >= cfg.dailyJobs) throw new Refusal(EXIT.busy, `daily cap of ${cfg.dailyJobs} jobs reached`);
+  const seen = Object.fromEntries(Object.entries(state2.seen).filter(([, at]) => at > now - SEEN_WINDOW_MS));
+  if (sender.frameId !== void 0) seen[sender.frameId] = sender.at;
+  const next = { days: { [day]: used + 1 }, seen };
+  await deps.ensureDir(cfg.statePath.slice(0, cfg.statePath.lastIndexOf("/")), 448);
+  await deps.writeFile(cfg.statePath, JSON.stringify(next), 384);
+}
+function deniedPaths(cfg) {
+  const paths = ["/proc", "/sys", "/etc/wim-agent", cfg.runDir, cfg.lock.path, cfg.statePath];
+  if (cfg.recipient !== void 0) paths.push(cfg.recipient.home);
+  if (cfg.wakeCode !== void 0 && "file" in cfg.wakeCode) paths.push(cfg.wakeCode.file);
+  for (const p3 of Object.values(cfg.profiles)) {
+    if (p3.auth.type === "api-key") paths.push(p3.auth.keyFile);
+    else if (p3.auth.identity.type === "file") paths.push(p3.auth.identity.path);
+  }
+  return [...new Set(paths)];
+}
+async function signIn(profile, cfg, deps) {
+  const apiKey = profile.auth.type === "api-key" ? await readRootSecret(profile.auth.keyFile, deps) : void 0;
+  const identity = {
+    ...deps.identity,
+    // A token file is read as root: it must be root's, and not writable by anyone else.
+    readFile: (path2) => deps.readFile(path2, rootRule(deps, false))
   };
-  if (auth.workspaceId !== void 0) env4["ANTHROPIC_WORKSPACE_ID"] = auth.workspaceId;
-  return { env: env4, broker };
+  const auth = await upstreamAuth(profile.auth, apiKey, cfg.apiUrl, { identity, credentials: () => deps.credentials(), fetch: deps.fetch, log: (l3) => log(deps, l3) });
+  const proxy = await deps.startProxy({
+    upstream: cfg.apiUrl,
+    auth,
+    models: [profile.model],
+    maxTokens: profile.maxTokens,
+    maxRequests: profile.maxTurns + EXTRA_REQUESTS,
+    maxBodyBytes: MAX_API_BODY_BYTES,
+    requestTimeoutMs: cfg.timeoutSeconds * 1e3,
+    fetch: deps.fetch,
+    log: (l3) => log(deps, l3)
+  });
+  return { env: { ANTHROPIC_BASE_URL: proxy.url, ANTHROPIC_API_KEY: proxy.key }, stop: () => proxy.close() };
 }
 async function runJob2(cfg, profile, task, req, self2, deps) {
   const user = await deps.lookupUser(cfg.worker.user);
-  await deps.mkdir(cfg.runDir, 488);
-  if (deps.euid === 0) await deps.chown(cfg.runDir, 0, user.gid);
-  const auth = await signIn(profile, cfg, user.gid, req, deps);
+  const auth = await signIn(profile, cfg, deps);
   try {
     const job = JSON.stringify({
       model: profile.model,
@@ -129930,7 +130523,9 @@ async function runJob2(cfg, profile, task, req, self2, deps) {
       maxTurns: profile.maxTurns,
       tools: profile.tools,
       cwd: cfg.worker.cwd,
-      additionalDirectories: cfg.worker.additionalDirectories
+      additionalDirectories: cfg.worker.additionalDirectories,
+      denyRead: deniedPaths(cfg),
+      sandbox: profile.unsafeTools
     });
     const spec = {
       command: self2[0],
@@ -129970,28 +130565,33 @@ ${task}
     const timer = deps.setTimeout(() => stop("timeout"), cfg.timeoutSeconds * 1e3);
     const off = deps.onSignal(() => stop("signal"));
     const started2 = deps.now();
-    const code3 = await handle.exited;
+    const code2 = await handle.exited;
+    await auth.stop();
     deps.clearTimeout(timer);
     off();
     const secs = Math.round((deps.now() - started2) / 1e3);
     if (ended2 === "timeout") throw new Refusal(EXIT.timeout, `job timed out after ${cfg.timeoutSeconds} s`);
     if (ended2 === "signal") throw new Refusal(EXIT.timeout, "stopped by a signal while the job ran");
-    if (code3 !== 0) throw new Refusal(EXIT.failed, `job exited ${String(code3)} after ${secs} s`);
+    if (code2 !== 0) throw new Refusal(EXIT.failed, `job exited ${String(code2)} after ${secs} s`);
     log(deps, `job done in ${secs} s`);
     const answer = Buffer.concat(chunks);
     return truncated ? Buffer.concat([answer, Buffer.from(TRUNCATED)]) : answer;
   } finally {
-    await auth.broker?.stop();
+    await auth.stop();
   }
 }
 async function run(env4, self2, deps) {
-  const cfg = await loadPrivilegedConfig(configPath(env4, deps.euid), deps.configFs, deps.euid);
+  if (deps.euid === 0) {
+    const problem2 = await deps.codeProblem();
+    if (problem2 !== void 0) throw new Refusal(EXIT.failed, `refusing to run code others could change: ${problem2}`);
+  }
+  const cfg = await loadPrivilegedConfig(configPath(env4, deps.euid), deps.readFile, deps.euid);
   const req = parseRequest2(await deps.readStdin(MAX_REQUEST_BYTES2 + 1));
   const tag = `msg=${req.id} device=${req.from.device}`;
   try {
-    const local = await checkSender(req, cfg, env4, deps);
-    let text2 = req.text;
-    if (!local && cfg.wakeCode !== void 0) {
+    const sender = await authenticate(req, cfg, env4, deps);
+    let text2 = sender.text;
+    if (!sender.local && cfg.wakeCode !== void 0) {
       const stripped = stripCode(text2, await wakeCode(cfg, env4, deps));
       if (!stripped.ok) throw new Refusal(EXIT.refused, "no or wrong wake code");
       text2 = stripped.rest;
@@ -130003,10 +130603,11 @@ async function run(env4, self2, deps) {
     if (cfg.minMemAvailableMb > 0 && mem !== void 0 && mem < cfg.minMemAvailableMb) {
       throw new Refusal(EXIT.busy, `MemAvailable ${mem} MB is under ${cfg.minMemAvailableMb}`);
     }
+    await deps.ensureDir(cfg.runDir, 488);
     const lock = await deps.acquireLock(cfg.lock.path, cfg.lock.waitSeconds);
     if (lock === null) throw new Refusal(EXIT.busy, `job lock busy for ${cfg.lock.waitSeconds} s`);
     try {
-      await countToday(cfg, deps);
+      await admit(cfg, sender, deps);
       log(deps, `${tag} accepted: profile ${profile}, ${task.length} characters`);
       const answer = await runJob2(cfg, cfg.profiles[profile], task, req, self2, deps);
       log(deps, `${tag} answered, ${answer.length} bytes`);
@@ -130033,14 +130634,17 @@ async function privilegedMain(argv, env4, self2, deps) {
       log(deps, `${error64.message} (exit ${error64.code})`);
       return error64.code;
     }
-    log(deps, `failed: ${error64.name}: ${error64.message.slice(0, 300)}`);
+    const e6 = error64;
+    log(deps, e6 instanceof ConfigError ? `failed: ${e6.message.slice(0, 500)}` : `failed: ${e6.name}${typeof e6.code === "string" ? ` (${e6.code})` : ""}`);
     return EXIT.failed;
   }
 }
 
 // ../agent/src/privileged/system.ts
 import { execFile as execFile3, spawn } from "node:child_process";
-import { promises as fs15 } from "node:fs";
+import { randomBytes as randomBytes6 } from "node:crypto";
+import { constants as constants3, promises as fs15 } from "node:fs";
+import { dirname as dirname10 } from "node:path";
 var FLOCK_BUSY = 75;
 function lookupUser2(name, run2 = execFile3) {
   const one2 = (flag3) => new Promise((resolve5, reject) => {
@@ -130053,8 +130657,8 @@ function lookupUser2(name, run2 = execFile3) {
   return Promise.all([one2("-u"), one2("-g")]).then(([uid, gid]) => ({ uid, gid }));
 }
 async function acquireLock(path2, waitSeconds, flock = "flock") {
-  const file2 = await fs15.open(path2, "a", 416);
-  const code3 = await new Promise((resolve5, reject) => {
+  const file2 = await fs15.open(path2, constants3.O_WRONLY | constants3.O_CREAT | constants3.O_APPEND | constants3.O_NOFOLLOW, 416);
+  const code2 = await new Promise((resolve5, reject) => {
     const child = spawn(flock, ["-w", String(waitSeconds), "-E", String(FLOCK_BUSY), "3"], { stdio: ["ignore", "ignore", "ignore", file2.fd] });
     child.once("error", reject);
     child.once("exit", resolve5);
@@ -130062,10 +130666,10 @@ async function acquireLock(path2, waitSeconds, flock = "flock") {
     await file2.close();
     throw error64;
   });
-  if (code3 !== 0) {
+  if (code2 !== 0) {
     await file2.close();
-    if (code3 === FLOCK_BUSY) return null;
-    throw new Error(`flock exited ${String(code3)}`);
+    if (code2 === FLOCK_BUSY) return null;
+    throw new Error(`flock exited ${String(code2)}`);
   }
   return { release: () => file2.close() };
 }
@@ -130084,7 +130688,7 @@ function startJob(spec) {
   });
   const exited = new Promise((resolve5) => {
     child.once("error", () => resolve5(127));
-    child.once("close", (code3) => resolve5(code3));
+    child.once("close", (code2) => resolve5(code2));
   });
   child.stdin.on("error", () => void 0);
   child.stdin.end(spec.stdin);
@@ -130126,26 +130730,69 @@ function readAll(stream, max) {
     stream.once("error", reject);
   });
 }
-function systemDeps() {
+async function secureRead(path2, rule) {
+  const file2 = await fs15.open(path2, constants3.O_RDONLY | constants3.O_NOFOLLOW);
+  try {
+    const st = await file2.stat();
+    const problem2 = ownerProblem({ uid: st.uid, mode: st.mode, isFile: st.isFile() }, rule);
+    if (problem2 !== void 0) throw Object.assign(new Error(`refusing ${path2}: ${problem2}`), { code: "EUNSAFE" });
+    return await file2.readFile("utf8");
+  } finally {
+    await file2.close();
+  }
+}
+async function secureWrite(path2, data, mode, owner) {
+  const tmp = `${path2}.${randomBytes6(6).toString("hex")}.new`;
+  const file2 = await fs15.open(tmp, constants3.O_WRONLY | constants3.O_CREAT | constants3.O_EXCL | constants3.O_NOFOLLOW, mode);
+  try {
+    if (owner !== void 0) await file2.chown(owner.uid, owner.gid);
+    await file2.chmod(mode);
+    await file2.writeFile(data);
+    await file2.sync();
+  } catch (error64) {
+    await file2.close();
+    await fs15.rm(tmp, { force: true });
+    throw error64;
+  }
+  await file2.close();
+  await fs15.rename(tmp, path2);
+}
+async function secureDir(path2, mode, owner) {
+  await fs15.mkdir(path2, { recursive: true, mode });
+  const st = await fs15.lstat(path2);
+  if (!st.isDirectory()) throw Object.assign(new Error(`refusing ${path2}: it is not a directory`), { code: "EUNSAFE" });
+  if (owner === void 0) return;
+  if (st.uid !== owner.uid || (st.mode & 18) !== 0) throw Object.assign(new Error(`refusing ${path2}: it is not its owner's alone`), { code: "EUNSAFE" });
+  const dir = await fs15.open(path2, constants3.O_RDONLY | constants3.O_DIRECTORY | constants3.O_NOFOLLOW);
+  try {
+    await dir.chown(owner.uid, owner.gid);
+    await dir.chmod(mode);
+  } finally {
+    await dir.close();
+  }
+}
+async function codeProblem(paths) {
+  for (const p3 of paths) {
+    let at = await fs15.realpath(p3);
+    for (; ; ) {
+      const st = await fs15.lstat(at);
+      if (st.uid !== 0 || (st.mode & 18) !== 0) return `${at} is not root's alone`;
+      const up = dirname10(at);
+      if (up === at) break;
+      at = up;
+    }
+  }
+  return void 0;
+}
+function systemDeps(euid = process.geteuid()) {
   return {
-    euid: process.geteuid(),
+    euid,
     uid: process.getuid(),
     readStdin: (max) => readAll(process.stdin, max),
-    configFs: {
-      readFile: (p3) => fs15.readFile(p3, "utf8"),
-      stat: async (p3) => {
-        const s3 = await fs15.lstat(p3);
-        return { uid: s3.uid, mode: s3.isFile() ? s3.mode : 511 };
-      }
-    },
-    brokerFs: {
-      writeFile: (p3, d5, mode) => fs15.writeFile(p3, d5, { mode, flag: "w" }),
-      chown: (p3, u, g5) => fs15.chown(p3, u, g5),
-      rename: (a5, b5) => fs15.rename(a5, b5),
-      rm: (p3) => fs15.rm(p3, { force: true })
-    },
-    mkdir: async (p3, mode) => void await fs15.mkdir(p3, { recursive: true, mode }),
-    chown: (p3, u, g5) => fs15.chown(p3, u, g5),
+    readFile: secureRead,
+    writeFile: (p3, d5, mode) => secureWrite(p3, d5, mode, euid === 0 ? { uid: 0, gid: 0 } : void 0),
+    ensureDir: (p3, mode, gid) => secureDir(p3, mode, euid === 0 ? { uid: 0, gid: gid ?? 0 } : void 0),
+    codeProblem: () => codeProblem([process.execPath, process.argv[1]]),
     lookupUser: (name) => lookupUser2(name),
     acquireLock: (p3, w) => acquireLock(p3, w),
     memAvailableMb: () => memAvailableMb(),
@@ -130155,9 +130802,11 @@ function systemDeps() {
       fetch: (url2, init3) => fetch(url2, init3),
       readFile: (p3) => fs15.readFile(p3, "utf8")
     },
+    credentials: loadAnthropicCredentials,
+    fetch: (url2, init3) => fetch(url2, init3),
+    startProxy,
     startJob,
     now: Date.now,
-    pid: process.pid,
     onSignal(cb) {
       const sigs = ["SIGTERM", "SIGHUP", "SIGINT"];
       for (const s3 of sigs) process.on(s3, cb);
@@ -130167,8 +130816,6 @@ function systemDeps() {
     },
     setTimeout: (fn, ms) => setTimeout(fn, ms).unref(),
     clearTimeout: (t2) => clearTimeout(t2),
-    setInterval: (fn, ms) => setInterval(fn, ms).unref(),
-    clearInterval: (t2) => clearInterval(t2),
     out: (d5) => void process.stdout.write(d5),
     err: (line) => void process.stderr.write(`${line}
 `),
@@ -130365,12 +131012,12 @@ async function runnerMain(argv, io) {
 }
 
 // ../agent/src/kit.ts
-import { constants as constants3, promises as fs16 } from "node:fs";
-import { dirname as dirname9, join as join23 } from "node:path";
+import { constants as constants4, promises as fs16 } from "node:fs";
+import { dirname as dirname11, join as join24 } from "node:path";
 var KIT_ENTRIES = ["deploy", "docs/deploy.md", "docs/privileged-runner.md"];
 async function findKit(candidates) {
   for (const root5 of candidates) {
-    const all = await Promise.all(KIT_ENTRIES.map((e6) => fs16.access(join23(root5, e6)).then(() => true, () => false)));
+    const all = await Promise.all(KIT_ENTRIES.map((e6) => fs16.access(join24(root5, e6)).then(() => true, () => false)));
     if (all.every(Boolean)) return root5;
   }
   return void 0;
@@ -130380,15 +131027,15 @@ async function copyKit(from, to) {
   if (there !== void 0 && there.length > 0) throw new Error(`${to} is not empty: the kit is written only into a new or empty directory`);
   const written2 = [];
   const copy = async (rel) => {
-    const src = join23(from, rel);
+    const src = join24(from, rel);
     const st = await fs16.stat(src);
     if (st.isDirectory()) {
-      for (const name of (await fs16.readdir(src)).sort()) await copy(join23(rel, name));
+      for (const name of (await fs16.readdir(src)).sort()) await copy(join24(rel, name));
       return;
     }
-    const dst = join23(to, rel);
-    await fs16.mkdir(dirname9(dst), { recursive: true });
-    await fs16.copyFile(src, dst, constants3.COPYFILE_EXCL);
+    const dst = join24(to, rel);
+    await fs16.mkdir(dirname11(dst), { recursive: true });
+    await fs16.copyFile(src, dst, constants4.COPYFILE_EXCL);
     await fs16.chmod(dst, st.mode & 511);
     written2.push(rel);
   };
@@ -130398,10 +131045,10 @@ async function copyKit(from, to) {
 
 // src/workercli.ts
 import { fileURLToPath } from "node:url";
-import { constants as constants4, promises as fs17, readFileSync } from "node:fs";
+import { constants as constants5, promises as fs17, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { userInfo } from "node:os";
-import { delimiter, dirname as dirname10, isAbsolute as isAbsolute4, join as join24, resolve as resolve3 } from "node:path";
+import { delimiter, dirname as dirname12, isAbsolute as isAbsolute4, join as join25, resolve as resolve3 } from "node:path";
 var WORKER_USAGE = `wim agent init <config> [--mode direct|privileged] [--allow <device id>,...] [--profiles <name>,...] [--room <#room>] [--auth api-key|wif] [--wake-file <path>] [--kit <dir>] | wim agent init --kit <dir>
   wim agent doctor <config> [--peer-user <name>] [--privileged-config <path>] [--sudoers <path>] [--service <unit>]
   wim agent run --once <config> (one runner request, as JSON, on stdin)
@@ -130485,7 +131132,7 @@ async function kit(c5, dir) {
   const files = await copyKit(from, to).catch((err) => {
     throw new SetupError(err.message);
   });
-  c5.out(`Wrote the deployment kit to ${to} (${files.length} files). Its guide is ${join24(to, "docs", "deploy.md")}.`);
+  c5.out(`Wrote the deployment kit to ${to} (${files.length} files). Its guide is ${join25(to, "docs", "deploy.md")}.`);
 }
 async function init(c5, path2) {
   const mode = value2(c5, "mode") ?? "direct";
@@ -130494,8 +131141,8 @@ async function init(c5, path2) {
   if (auth !== "api-key" && auth !== "wif") throw new SetupError("--auth is api-key or wif");
   if (await exists(path2)) throw new SetupError(`${path2} exists: edit it, or remove it first`);
   const { device, files } = await c5.mesh();
-  const roster = (await RosterBook.open(files)).current.devices.map((d5) => ({ id: d5.id, name: d5.name }));
-  const dir = dirname10(resolve3(c5.cwd, path2));
+  const roster = (await RosterBook.open(files)).current.devices.map((d5) => ({ id: d5.id, name: d5.name, sign: d5.sign, box: d5.box }));
+  const dir = dirname12(resolve3(c5.cwd, path2));
   const room = value2(c5, "room");
   const wakeFile = value2(c5, "wake-file");
   const o3 = {
@@ -130506,8 +131153,10 @@ async function init(c5, path2) {
     profiles: list3(c5, "profiles"),
     auth,
     wim: c5.wim,
-    ledgerPath: join24(dir, "worker-ledger.json"),
+    ledgerPath: join25(dir, "worker-ledger.json"),
     launcher: PRIVILEGED_RUNNER_PATH,
+    // The worker's own session, as `wim agent serve` will run it, under the peer user.
+    recipient: { home: c5.home, mesh: (await files.loadConfig()).mesh, address: `${c5.name}@${device.name}`, user: value2(c5, "peer-user") ?? "wim-agent" },
     ...room === void 0 ? {} : { room },
     ...wakeFile === void 0 ? {} : { wakeFile: resolve3(c5.cwd, wakeFile) }
   };
@@ -130516,7 +131165,7 @@ async function init(c5, path2) {
   const worker = workerTemplate(o3);
   const written2 = [];
   if (mode === "direct" && o3.profiles.length > 0) {
-    const runnerPath = join24(dir, "runner.json");
+    const runnerPath = join25(dir, "runner.json");
     if (await exists(runnerPath)) throw new SetupError(`${runnerPath} exists: edit it, or remove it first`);
     await writeAtomic(runnerPath, `${JSON.stringify({ profiles: Object.fromEntries(o3.profiles.map((p3) => [p3, {}])) }, null, 2)}
 `, c5.fsEnv);
@@ -130524,7 +131173,7 @@ async function init(c5, path2) {
     written2.push(runnerPath);
   }
   if (mode === "privileged") {
-    const privPath = join24(dir, "privileged.json");
+    const privPath = join25(dir, "privileged.json");
     if (await exists(privPath)) throw new SetupError(`${privPath} exists: edit it, or remove it first`);
     await writeAtomic(privPath, `${JSON.stringify(privilegedTemplate(o3), null, 2)}
 `, c5.fsEnv);
@@ -130565,14 +131214,14 @@ function kindOf(st) {
   return st.isFile() ? "file" : st.isDirectory() ? "dir" : st.isSocket() ? "socket" : "other";
 }
 async function which(command5, path2) {
-  const exec = (p3) => fs17.access(p3, constants4.X_OK).then(
+  const exec = (p3) => fs17.access(p3, constants5.X_OK).then(
     () => p3,
     () => void 0
   );
   if (isAbsolute4(command5)) return exec(command5);
   if (command5.includes("/")) return void 0;
   for (const dir of (path2 ?? "").split(delimiter).filter((d5) => d5 !== "")) {
-    const found2 = await exec(join24(dir, command5));
+    const found2 = await exec(join25(dir, command5));
     if (found2 !== void 0) return found2;
   }
   return void 0;
@@ -130580,7 +131229,7 @@ async function which(command5, path2) {
 function sdkFrom(from) {
   try {
     const entry = createRequire(from).resolve("@anthropic-ai/claude-agent-sdk");
-    const pkg = JSON.parse(readFileSync(join24(dirname10(entry), "package.json"), "utf8"));
+    const pkg = JSON.parse(readFileSync(join25(dirname12(entry), "package.json"), "utf8"));
     return { version: typeof pkg.version === "string" ? pkg.version : "(unknown version)" };
   } catch {
     return void 0;
@@ -130604,8 +131253,9 @@ async function doctor(c5, path2) {
     mesh = { error: err.message };
   }
   const peerUser = value2(c5, "peer-user");
+  const uid = c5.uid ?? -1;
   const deps = {
-    uid: c5.uid ?? -1,
+    uid,
     userName: userInfo().username,
     nodeVersion: process.versions.node,
     env: c5.env,
@@ -130617,9 +131267,10 @@ async function doctor(c5, path2) {
     which: (command5) => which(command5, c5.env["PATH"]),
     sdk: () => sdkFrom(import.meta.url),
     // As root it also refuses a config another user could have written, as the runner does.
-    loadPrivileged: (p3) => loadPrivilegedConfig(p3, { readFile: (f7) => fs17.readFile(f7, "utf8"), stat: (f7) => fs17.stat(f7) }, c5.uid ?? -1),
+    loadPrivileged: (p3) => loadPrivilegedConfig(p3, secureRead, uid),
     sudoersLine,
     noNewPrivs: (service2) => serviceNoNewPrivs(service2),
+    codeProblem: () => codeProblem([process.execPath, c5.wim.at(-1)]),
     ...c5.doctor
   };
   const input2 = {
@@ -130671,11 +131322,11 @@ async function runSetup(d5) {
   requirePerson(d5.env, d5.io, "wim setup");
   if (d5.positional.length > 1) throw new SetupError("usage: wim setup [<invite code>] [--name <n>] [--relay <url>] [--key-env NAME]");
   const { io } = d5;
-  const code3 = d5.positional[0];
+  const code2 = d5.positional[0];
   const device = await d5.home.loadDevice();
   const meshes = device === void 0 ? [] : await d5.home.meshIds();
-  if (code3 !== void 0) {
-    await d5.join(code3);
+  if (code2 !== void 0) {
+    await d5.join(code2);
   } else if (meshes.length === 0) {
     const stopped = await firstMesh(d5, device?.name);
     if (stopped !== void 0) return stopped;
@@ -130829,8 +131480,8 @@ async function isAdminAnywhere(d5) {
 }
 
 // src/agentsetup.ts
-import { constants as constants5, promises as fs18 } from "node:fs";
-import { join as join25 } from "node:path";
+import { constants as constants6, promises as fs18 } from "node:fs";
+import { join as join26 } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 // ../../node_modules/smol-toml/dist/error.js
@@ -131782,7 +132433,7 @@ async function readConfig2(path2) {
   if (facts.isSymbolicLink()) throw new Refused("it is a symbolic link");
   if (!facts.isFile()) throw new Refused("it is not a regular file");
   if (facts.size > CONFIG_MAX) throw new Refused(`it is larger than ${CONFIG_MAX} bytes`);
-  const handle = await configOps.open(path2, constants5.O_RDONLY | noFollow(constants5));
+  const handle = await configOps.open(path2, constants6.O_RDONLY | noFollow(constants6));
   if (handle === void 0) throw new Refused("it cannot be opened, or it changed while it was read");
   try {
     return { text: await handle.readFile("utf8"), mode: facts.mode & 511, exists: true };
@@ -132000,7 +132651,7 @@ async function onPath(command5, env4, platform2) {
   for (const dir of (env4["PATH"] ?? "").split(pathFor(platform2).delimiter)) {
     if (dir === "") continue;
     for (const ext of exts) {
-      const facts = await fs18.stat(join25(dir, command5 + ext)).catch(() => void 0);
+      const facts = await fs18.stat(join26(dir, command5 + ext)).catch(() => void 0);
       if (facts?.isFile() === true && runnable(facts.mode, platform2)) return true;
     }
   }
@@ -135021,17 +135672,17 @@ function makePromiseBuffer(limit2 = 100) {
     );
     return task;
   }
-  function drain(timeout) {
+  function drain(timeout2) {
     if (!buffer.size) {
       return resolvedSyncPromise(true);
     }
     const drainPromise = Promise.allSettled(Array.from(buffer)).then(() => true);
-    if (!timeout) {
+    if (!timeout2) {
       return drainPromise;
     }
     const promises = [
       drainPromise,
-      new Promise((resolve5) => safeUnref(setTimeout(() => resolve5(false), timeout)))
+      new Promise((resolve5) => safeUnref(setTimeout(() => resolve5(false), timeout2)))
     ];
     return Promise.race(promises);
   }
@@ -135102,7 +135753,7 @@ function createTransport(options, makeRequest, buffer = makePromiseBuffer(
   options.bufferSize || DEFAULT_TRANSPORT_BUFFER_SIZE
 )) {
   let rateLimits = {};
-  const flush2 = (timeout) => buffer.drain(timeout);
+  const flush2 = (timeout2) => buffer.drain(timeout2);
   function recordItemLoss(reason, [headers, payload2], type) {
     const dataCategory = envelopeItemTypeToDataCategory(type);
     if (type === "transaction") {
@@ -135526,14 +136177,14 @@ var Client2 = class {
    * still events in the queue when the timeout is reached.
    */
   // @ts-expect-error - PromiseLike is a subset of Promise
-  async flush(timeout) {
+  async flush(timeout2) {
     const transport = this._transport;
     this.emit("flush");
     if (!transport) {
       return true;
     }
-    const clientFinished = await this._isClientDoneProcessing(timeout);
-    const transportFlushed = await transport.flush(timeout);
+    const clientFinished = await this._isClientDoneProcessing(timeout2);
+    const transportFlushed = await transport.flush(timeout2);
     return clientFinished && transportFlushed;
   }
   /**
@@ -135545,9 +136196,9 @@ var Client2 = class {
    * it doesn't.
    */
   // @ts-expect-error - PromiseLike is a subset of Promise
-  async close(timeout) {
+  async close(timeout2) {
     Object.defineProperty(this, CLOSED_CLIENT_SYMBOL, { value: true });
-    const result = await this.flush(timeout);
+    const result = await this.flush(timeout2);
     this.getOptions().enabled = false;
     this.emit("close");
     return result;
@@ -135765,9 +136416,9 @@ var Client2 = class {
    * @returns A promise which will resolve to `true` if processing is already done or finishes before the timeout, and
    * `false` otherwise
    */
-  async _isClientDoneProcessing(timeout) {
+  async _isClientDoneProcessing(timeout2) {
     let ticked = 0;
-    while (!timeout || ticked < timeout) {
+    while (!timeout2 || ticked < timeout2) {
       await new Promise((resolve5) => setTimeout(resolve5, 1));
       if (!this._numProcessing) {
         return true;
@@ -136432,7 +137083,7 @@ ${error64.message}`;
 // ../relay-core/src/relay.ts
 var MINUTE4 = 6e4;
 var HOUR3 = 60 * MINUTE4;
-var DAY2 = 24 * HOUR3;
+var DAY3 = 24 * HOUR3;
 var RETENTION_MS = LIMITS.roomHistoryLifetimeMs;
 var HISTORY_SWEEP_BATCH = 256;
 var RETAINED = ["roomHistoryLifetimeMs", "queueLifetimeMs", "blobLifetimeMs"];
@@ -136567,7 +137218,7 @@ var MeshRelay = class {
     this.store.pruneHistory(now - L.roomHistoryLifetimeMs, HISTORY_SWEEP_BATCH);
     this.store.pruneRooms();
     this.store.pruneChunks(now - L.blobLifetimeMs);
-    this.store.pruneBuckets(now - DAY2);
+    this.store.pruneBuckets(now - DAY3);
   }
   // ---- before auth ----
   preAuth(conn, st, text2) {
@@ -136607,19 +137258,19 @@ var MeshRelay = class {
    * never use it up. A mesh that does not exist is refused before that budget is touched.
    */
   recoverAuth(conn, st, f7) {
-    const refuse = (code3, message2, close) => {
-      this.error(conn, code3, message2, "auth");
-      this.shut(conn, st, close, code3);
+    const refuse2 = (code2, message2, close) => {
+      this.error(conn, code2, message2, "auth");
+      this.shut(conn, st, close, code2);
     };
-    if (!this.allowSource(st)) return refuse("limited", "too many recovery attempts from this address", CLOSE.limited);
-    if (!this.exists()) return refuse("unauthorized", "unknown mesh", CLOSE.unauthorized);
+    if (!this.allowSource(st)) return refuse2("limited", "too many recovery attempts from this address", CLOSE.limited);
+    if (!this.exists()) return refuse2("unauthorized", "unknown mesh", CLOSE.unauthorized);
     const L = this.limits;
     const now = this.host.now();
     const genesis = JSON.parse(this.store.getRoster(1).json);
     const v = verifyRecoverAuth(f7, { roster: this.roster(), genesis }, { relay: this.config.relayUrls, nonce: st.nonce, now, skewMs: L.authSkewMs });
-    if (!v.ok) return refuse("unauthorized", v.reason, CLOSE.unauthorized);
+    if (!v.ok) return refuse2("unauthorized", v.reason, CLOSE.unauthorized);
     const level = this.level("recover", L.recoveryPerMeshPerHour, L.recoveryPerMeshPerHour / HOUR3, now);
-    if (level < 1) return refuse("limited", "too many recovery attempts for this mesh", CLOSE.limited);
+    if (level < 1) return refuse2("limited", "too many recovery attempts for this mesh", CLOSE.limited);
     this.spend("recover", level, 1, now);
     this.host.setState(conn, { ...st, phase: "recover", deadline: 0, device: f7.device });
     this.emit(conn, { t: "recover.ready", roster: this.roster() });
@@ -136689,18 +137340,18 @@ var MeshRelay = class {
   }
   auth(conn, st, f7) {
     const now = this.host.now();
-    const refuse = (code3, message2) => {
-      this.error(conn, code3, message2, "auth");
-      this.shut(conn, st, code3 === "limited" ? CLOSE.limited : CLOSE.unauthorized, code3);
+    const refuse2 = (code2, message2) => {
+      this.error(conn, code2, message2, "auth");
+      this.shut(conn, st, code2 === "limited" ? CLOSE.limited : CLOSE.unauthorized, code2);
     };
-    if (f7.mesh !== this.config.meshId || !this.exists()) return refuse("unauthorized", "unknown mesh");
+    if (f7.mesh !== this.config.meshId || !this.exists()) return refuse2("unauthorized", "unknown mesh");
     const roster = this.roster();
     const device = roster.devices.find((d5) => d5.id === f7.device);
-    if (device === void 0) return refuse("unauthorized", "the device is not in the roster");
-    if (isRecoveryName(device.name)) return refuse("unauthorized", "recovery records do not connect");
+    if (device === void 0) return refuse2("unauthorized", "the device is not in the roster");
+    if (isRecoveryName(device.name)) return refuse2("unauthorized", "recovery records do not connect");
     const v = verifyAuth(f7, b64u.decode(device.sign), { relay: this.config.relayUrls, nonce: st.nonce, now, skewMs: this.limits.authSkewMs });
-    if (!v.ok) return refuse("unauthorized", v.reason);
-    if (f7.pin.seq > roster.seq) return refuse("unauthorized", "the pinned roster is newer than any this relay holds");
+    if (!v.ok) return refuse2("unauthorized", v.reason);
+    if (f7.pin.seq > roster.seq) return refuse2("unauthorized", "the pinned roster is newer than any this relay holds");
     const pinned = this.store.getRoster(f7.pin.seq);
     if (pinned.hash !== f7.pin.hash) {
       const fork = { at: now, seq: f7.pin.seq, kind: "pin", signer: f7.device, a: pinned.hash, b: f7.pin.hash };
@@ -136708,7 +137359,7 @@ var MeshRelay = class {
       this.host.log("fork", fork);
     }
     const claim2 = this.claim(f7, now);
-    if (typeof claim2 === "string") return refuse(claim2 === "limited" ? "limited" : "unauthorized", claim2);
+    if (typeof claim2 === "string") return refuse2(claim2 === "limited" ? "limited" : "unauthorized", claim2);
     const row = claim2;
     row.kind = f7.session.kind;
     row.resume = hash2(f7.session.resume);
@@ -137006,11 +137657,11 @@ var MeshRelay = class {
    * both (SPEC section 8).
    */
   notifyIdle(conn, s3, of, now) {
-    const refuse = (code3, message2) => this.emit(conn, { t: "error", code: code3, message: message2, ref: "notify_idle", of });
+    const refuse2 = (code2, message2) => this.emit(conn, { t: "error", code: code2, message: message2, ref: "notify_idle", of });
     const target = this.resolve(of);
-    if (typeof target === "string") return refuse("not_found", "no such session");
+    if (typeof target === "string") return refuse2("not_found", "no such session");
     const armed = this.store.idleFor(target.sid).some((r6) => r6.sub === s3.sid);
-    if (!armed && this.store.idleCount(s3.sid) >= this.limits.notifyIdlePerSession) return refuse("limited", "too many idle notices armed");
+    if (!armed && this.store.idleCount(s3.sid) >= this.limits.notifyIdlePerSession) return refuse2("limited", "too many idle notices armed");
     const exp = now + this.limits.idleNoticeLifetimeMs;
     this.store.putIdle({ sub: s3.sid, target: target.sid, exp, fired: null });
     this.emit(conn, { t: "idle.armed", of, exp });
@@ -137319,11 +137970,11 @@ var MeshRelay = class {
     const bytes3 = Math.floor(f7.data.length * 3 / 4);
     const replaced = existing === void 0 ? 0 : existing.bytes;
     const dayKey = `blob:${s3.device}`;
-    const day = this.level(dayKey, L.blobBytesPerDevicePerDay, L.blobBytesPerDevicePerDay / DAY2, now);
+    const day = this.level(dayKey, L.blobBytesPerDevicePerDay, L.blobBytesPerDevicePerDay / DAY3, now);
     if (this.store.blobBytes() - replaced + bytes3 > L.blobBytesPerMesh || day < bytes3) {
       return this.error(conn, "blob_quota", "blob storage limit reached", "blob.put");
     }
-    const meshDay = this.level("blob:mesh", L.blobBytesPerMeshPerDay, L.blobBytesPerMeshPerDay / DAY2, now);
+    const meshDay = this.level("blob:mesh", L.blobBytesPerMeshPerDay, L.blobBytesPerMeshPerDay / DAY3, now);
     if (meshDay < bytes3) return this.error(conn, "blob_quota", "this mesh's daily file allowance is used up; it refills over the day", "blob.put");
     this.spend("blob:mesh", meshDay, bytes3, now);
     this.spend(dayKey, day, bytes3, now);
@@ -137379,8 +138030,8 @@ var MeshRelay = class {
   rdvAnswer(conn, rdv, outcome) {
     if (this.host.getState(conn)?.phase !== "authed") return;
     if (outcome === "stored") return this.emit(conn, { t: "rdv.stored", rdv });
-    const [code3, message2] = RDV_REFUSALS[outcome];
-    this.error(conn, code3, message2, "rdv.put");
+    const [code2, message2] = RDV_REFUSALS[outcome];
+    this.error(conn, code2, message2, "rdv.put");
   }
   // ---- peer cards ----
   /**
@@ -137620,15 +138271,15 @@ var MeshRelay = class {
   spend(key3, level, cost, now) {
     this.store.putBucket({ bkey: key3, tokens: level - cost, at: now });
   }
-  shut(conn, st, code3, reason) {
+  shut(conn, st, code2, reason) {
     this.host.setState(conn, { ...st, phase: "closed" });
-    conn.close(code3, reason);
+    conn.close(code2, reason);
   }
   emit(conn, frame) {
     conn.send(JSON.stringify(frame));
   }
-  error(conn, code3, message2, ref2) {
-    this.emit(conn, { t: "error", code: code3, message: message2, ref: ref2 });
+  error(conn, code2, message2, ref2) {
+    this.emit(conn, { t: "error", code: code2, message: message2, ref: ref2 });
   }
 };
 function deliverText(cursor2, msg) {
@@ -138437,7 +139088,7 @@ import { createServer as createHttpsServer } from "node:https";
 import { networkInterfaces } from "node:os";
 
 // ../relay-node/src/tls.ts
-import { generateKeyPairSync as generateKeyPairSync2, randomBytes as randomBytes5, sign as sign2, X509Certificate } from "node:crypto";
+import { generateKeyPairSync as generateKeyPairSync2, randomBytes as randomBytes7, sign as sign2, X509Certificate } from "node:crypto";
 import { readFileSync as readFileSync2, writeFileSync } from "node:fs";
 function length(n3) {
   if (n3 < 128) return [n3];
@@ -138472,7 +139123,7 @@ function altName(host) {
 }
 function selfSignedCert(hosts, now) {
   const { privateKey, publicKey } = generateKeyPairSync2("ec", { namedCurve: "P-256" });
-  const serial = randomBytes5(16);
+  const serial = randomBytes7(16);
   serial[0] = serial[0] & 63 | 64;
   const name = seq(tlv(49, seq(oid("2.5.4.3"), tlv(12, Buffer.from("wim-relay")))));
   const algorithm = seq(oid(ECDSA_SHA256));
@@ -138522,7 +139173,7 @@ function lanAddress(interfaces) {
 
 // ../relay-node/src/server.ts
 var MINUTE5 = 6e4;
-var DAY3 = 864e5;
+var DAY4 = 864e5;
 var STATUS_TEXT = { 400: "Bad Request", 404: "Not Found", 429: "Too Many Requests" };
 function refuseUpgrade(socket, status3, error64, retryAfter) {
   const body2 = JSON.stringify({ error: error64 });
@@ -138536,7 +139187,7 @@ ${retry2}Content-Length: ${body2.length}\r
 ${body2}`);
 }
 var fetchJwks2 = (url2) => fetch(url2, { redirect: "error", signal: AbortSignal.timeout(5e3) });
-function readBody2(req, max) {
+function readBody3(req, max) {
   return new Promise((resolve5) => {
     const chunks = [];
     let size = 0;
@@ -138615,7 +139266,7 @@ async function start2(config2) {
     const wait = spendDial(source2, Date.now());
     if (wait > 0) return answerCi(res, { status: 429, body: { t: "error", code: "limited", message: "too many requests from this address; try again later" }, retryAfter: wait });
     if (config2.ci !== true) return answerCi(res, CI_NOT_FOUND);
-    const text2 = await readBody2(req, LIMITS.ciRequestBytes);
+    const text2 = await readBody3(req, LIMITS.ciRequestBytes);
     if (text2 === void 0) return answerCi(res, { status: 413, body: { t: "error", code: "too_large", message: "the request is over 32 KiB" } });
     const pre = await ciPrecheck(text2, { enabled: true, keys: (iss, kid) => ciKeys.key(iss, kid), now: Date.now() });
     if (!pre.ok) return answerCi(res, pre.answer);
@@ -138664,7 +139315,7 @@ async function start2(config2) {
     mesh.idle = idle;
   };
   const expireIdle = (days, now) => {
-    for (const row of db.all("SELECT mesh FROM relay_node_idle WHERE since <= ?", now - days * DAY3)) {
+    for (const row of db.all("SELECT mesh FROM relay_node_idle WHERE since <= ?", now - days * DAY4)) {
       const id3 = String(row["mesh"]);
       for (const s3 of meshes.get(id3)?.sockets.values() ?? []) {
         s3.ws.removeAllListeners("close");
@@ -138783,7 +139434,7 @@ async function start2(config2) {
         alive: true,
         source: source2,
         preAuth: true,
-        conn: { id: id3, send: (text2) => ws.send(text2), close: (code3, reason) => ws.close(code3, reason) }
+        conn: { id: id3, send: (text2) => ws.send(text2), close: (code2, reason) => ws.close(code2, reason) }
       };
       mesh.sockets.set(id3, entry);
       ws.on("message", (data, isBinary) => {
@@ -138854,7 +139505,7 @@ TLS pin (SPKI SHA-256, for the invite): ${tls3.pin}`);
 // src/selftest.ts
 import { promises as fs20 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute as isAbsolute5, join as join26, relative as relative3, resolve as resolve4, sep as sep2 } from "node:path";
+import { isAbsolute as isAbsolute5, join as join27, relative as relative3, resolve as resolve4, sep as sep2 } from "node:path";
 import { createInterface as createInterface2 } from "node:readline";
 import { PassThrough as PassThrough4 } from "node:stream";
 var SandboxError = class extends Error {
@@ -138910,7 +139561,7 @@ async function noLinks(root5, path2) {
   if (!inside2(root5, path2)) throw new SandboxError(`${path2} is outside the sandbox ${root5}`);
   let at = root5;
   for (const part of relative3(root5, path2).split(sep2).filter((p3) => p3 !== "")) {
-    at = join26(at, part);
+    at = join27(at, part);
     const st = await fs20.lstat(at).catch(() => void 0);
     if (st === void 0) return;
     if (st.isSymbolicLink()) throw new SandboxError(`${at} is a symbolic link`);
@@ -138935,10 +139586,10 @@ async function sweepStale(base2, now, ops = SWEEP_OPS) {
   const removed = [];
   for (const name of await fs20.readdir(base2).catch(() => [])) {
     if (!name.startsWith("wim-test-")) continue;
-    const dir = join26(base2, name);
+    const dir = join27(base2, name);
     const st = await ops.lstat(dir).catch(() => void 0);
     if (st === void 0 || !st.isDirectory() || ops.uid !== void 0 && st.uid !== ops.uid) continue;
-    const mark = await ops.lstat(join26(dir, SANDBOX_MARK)).catch(() => void 0);
+    const mark = await ops.lstat(join27(dir, SANDBOX_MARK)).catch(() => void 0);
     if (mark === void 0 || !mark.isFile() || now - mark.mtimeMs < STALE_MS) continue;
     if (await ops.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }).then(() => true, () => false)) removed.push(dir);
   }
@@ -138948,7 +139599,7 @@ var SIGNER_DEVICE = "sig";
 var SHORT_TMP = "/tmp";
 async function runBase(base2, platform2, fallback2 = SHORT_TMP) {
   const fits = async (dir) => {
-    const sock = agentEndpointFor(agentDir(join26(await fs20.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
+    const sock = agentEndpointFor(agentDir(join27(await fs20.realpath(dir), "wim-test-XXXXXX", SIGNER_DEVICE)), platform2, "");
     return endpointProblem(sock, platform2) === void 0;
   };
   if (await fits(base2)) return base2;
@@ -138975,8 +139626,8 @@ var Sandbox = class _Sandbox {
       if (inside2(resolved, at)) throw new SandboxError(`the temporary directory ${at} is inside this device's state ${resolved}: set TMPDIR to another directory`);
     }
     await sweepStale(at, Date.now());
-    const root5 = await fs20.mkdtemp(join26(at, "wim-test-"));
-    await fs20.writeFile(join26(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
+    const root5 = await fs20.mkdtemp(join27(at, "wim-test-"));
+    await fs20.writeFile(join27(root5, SANDBOX_MARK), "", { flag: "wx", mode: 384 }).catch(async (error64) => {
       await fs20.rm(root5, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
       throw error64;
     });
@@ -138997,7 +139648,7 @@ var Sandbox = class _Sandbox {
   }
   /** A new device's state directory, made now. Refused when anything is at its path already. */
   async device(name) {
-    const dir = join26(this.root, name);
+    const dir = join27(this.root, name);
     await noLinks(this.root, dir);
     await fs20.mkdir(dir, { mode: 448 }).catch((error64) => {
       throw new SandboxError(`refusing the state directory ${dir}: ${error64.message}`);
@@ -139007,7 +139658,7 @@ var Sandbox = class _Sandbox {
   }
   /** A device's state directory that the run never makes (a device not set up). Refused when anything is there. */
   async absent(name) {
-    const dir = join26(this.root, name);
+    const dir = join27(this.root, name);
     if (await fs20.lstat(dir).then(() => true, () => false)) throw new SandboxError(`refusing the state directory ${dir}: it already exists`);
     this.dirs.set(name, dir);
     return dir;
@@ -139050,7 +139701,7 @@ function grab(text2, re, what2) {
   if (m4 === null) throw new Error(`no ${what2} in the output`);
   return m4[1];
 }
-function within2(p3, ms, signal) {
+function within3(p3, ms, signal) {
   let reject;
   const late = new Promise((_, r6) => reject = r6);
   const t2 = setTimeout(() => reject(new Error(`timed out after ${ms / 1e3} s`)), ms);
@@ -139071,7 +139722,7 @@ async function runSteps(steps, before, signal, ms = STEP_MS) {
     }
     const t0 = Date.now();
     try {
-      await within2(before().then(step.run), ms, signal);
+      await within3(before().then(step.run), ms, signal);
       rows.push({ name: step.name, result: "pass", ms: Date.now() - t0 });
     } catch (error64) {
       if (error64 instanceof NotOffered) {
@@ -139219,8 +139870,8 @@ var Run2 = class {
   async cmd(dev, argv, answers2 = [], t2 = this.term(dev, answers2)) {
     const done = this.main(argv, t2.env, t2.io);
     this.running.push({ term: t2, done });
-    const code3 = await done;
-    return { code: code3, text: said(t2) };
+    const code2 = await done;
+    return { code: code2, text: said(t2) };
   }
   /** Runs `argv` on `dev` and fails the step unless it exits 0. */
   async ok(dev, argv, answers2 = []) {
@@ -139357,8 +140008,8 @@ async function joinThroughInvite(run2, name) {
   const joiner = await run2.device(name);
   const joinTerm = run2.term(joiner, ["n"]);
   const invite2 = await run2.background(a5, ["invite"], /On the new device, in a terminal/, ["n", () => sasIn(joinTerm)]);
-  const code3 = grab(said(invite2.term), /never through an agent\):\n {2}(\S+)/, "invite code");
-  const joined = await run2.cmd(joiner, ["join", code3, "--name", name], [], joinTerm);
+  const code2 = grab(said(invite2.term), /never through an agent\):\n {2}(\S+)/, "invite code");
+  const joined = await run2.cmd(joiner, ["join", code2, "--name", name], [], joinTerm);
   need(joined.code === 0, `\`wim join\` on ${name} exited ${joined.code}: ${lastLine(joined.text)}`);
   need(await invite2.done === 0, `\`wim invite\` on test-a failed: ${lastLine(said(invite2.term))}`);
   need(said(invite2.term).includes(`Admitted ${name}.`), "test-a did not say it admitted the device");
@@ -139383,7 +140034,7 @@ function ciStep(run2) {
       const B = run2.dev("test-b");
       const allowed = await run2.ok(B, ["ci", "allow", "github", CI_REPO, "--ref", "main", "--workflow", "notify.yml"], ["y"]);
       need(allowed.includes("could not be read from the provider's public API"), "the rule was pinned before any notice");
-      const code3 = grab(allowed, /Recipient code for the job \(not a secret\): (wimci1_\S+)/, "recipient code");
+      const code2 = grab(allowed, /Recipient code for the job \(not a secret\): (wimci1_\S+)/, "recipient code");
       const deploys = await run2.session(B, "deploys");
       const job = await run2.device("ci-job", false);
       const tokens = (async (input2, init3) => {
@@ -139394,7 +140045,7 @@ function ciStep(run2) {
       const env4 = { GITHUB_ACTIONS: "true", ACTIONS_ID_TOKEN_REQUEST_URL: TEST_TOKEN_URL, ACTIONS_ID_TOKEN_REQUEST_TOKEN: "sandbox" };
       await waitFor(() => deploys.ciSent, 15e3, "the session to tell the relay it takes CI notices");
       await deploys.listPeers();
-      const sent2 = await run2.cmd(job, ["ci", "notify", "--recipient", code3, "--to", "deploys", "--text", "the build passed"], [], run2.term(job, [], env4, tokens));
+      const sent2 = await run2.cmd(job, ["ci", "notify", "--recipient", code2, "--to", "deploys", "--text", "the build passed"], [], run2.term(job, [], env4, tokens));
       need(sent2.text.includes("wim ci notify: sent to deploys"), `the notice was not sent: ${lastLine(sent2.text)}`);
       const id3 = await waitFor(async () => /^ *(\S+) {2}ci:github:/m.exec(await run2.ok(B, ["held", "list"]))?.[1], 15e3, "the held CI notice");
       await run2.ok(B, ["held", "approve", id3], ["y"]);
@@ -139505,10 +140156,10 @@ function sandboxSteps(run2) {
         need((await b5.joinRoom("#qa")).includes("qa-a@test-a"), "the room does not list qa-a");
         await a5.send("#qa", "to the room");
         await arrived(b5, "to the room");
-        const dir = join26(run2.box.root, "files");
+        const dir = join27(run2.box.root, "files");
         await fs20.mkdir(dir);
-        await fs20.writeFile(join26(dir, "hello.txt"), "a small file");
-        await a5.sendFile("qa-b@test-b", join26(dir, "hello.txt"));
+        await fs20.writeFile(join27(dir, "hello.txt"), "a small file");
+        await a5.sendFile("qa-b@test-b", join27(dir, "hello.txt"));
         const saved = grab((await arrived(b5, "hello.txt")).rendered, /saved to (\S+)\./, "saved file");
         need(inside2(run2.box.root, saved) && await fs20.readFile(saved, "utf8") === "a small file", "the file did not arrive intact in the sandbox");
         need((await a5.acquireLease("qa", 6e4, false)).status === "granted", "the lease was not granted");
@@ -139626,7 +140277,7 @@ async function selfTest(o3) {
 }
 
 // src/cli.ts
-var VERSION = "0.1.10";
+var VERSION2 = "0.1.10";
 var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker"]);
 var OPTIONAL_VALUE_FLAGS = /* @__PURE__ */ new Set(["wait"]);
 var VALUE_FLAGS = /* @__PURE__ */ new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
@@ -139707,7 +140358,7 @@ function parseDuration(text2) {
   const unit = { ms: 1, s: 1e3, m: 6e4, h: 36e5, d: 864e5 }[m4[2] ?? "ms"];
   return Number(m4[1]) * unit;
 }
-var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
+var USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent sessions
 
   wim setup [<invite code>] [--name <device>] [--relay <url>] [--key-env NAME]
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
@@ -139743,7 +140394,7 @@ var USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sess
   ${WORKER_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
-var SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
+var SHORT_USAGE = `wim ${VERSION2}: end-to-end encrypted messages between AI agent sessions
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
@@ -139931,7 +140582,7 @@ async function main(argv, env4, io) {
   }
   const [command5, ...rest] = args.positional;
   if (command5 === void 0 && args.flags.get("version") === true) {
-    io.out(VERSION);
+    io.out(VERSION2);
     return 0;
   }
   if (command5 === "help" || args.flags.get("help") === true) {
@@ -139973,7 +140624,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
     dsn: bakedDsn("https://8a144e08992790fa91bbd33197e4b237@o4511933949083648.ingest.de.sentry.io/4512381403856976"),
     file: pathJoin(ctx.home.root, CRASH_REPORTS_FILE),
     env: env4,
-    release: `worldinmotion@${VERSION}`,
+    release: `worldinmotion@${VERSION2}`,
     command: command5 ?? "",
     platform: io.platform,
     known: { homedir: io.homedir, hostname: io.hostname },
@@ -139981,12 +140632,13 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
   });
   io.onUnexpected?.((reason) => void crash.report(reason, "unhandledRejection"));
   try {
+    const signer = () => agentCommand({ home: ctx.home, io, env: env4, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
     switch (command5) {
       case void 0:
         io.out(SHORT_USAGE);
         return 2;
       case "version":
-        io.out(VERSION);
+        io.out(VERSION2);
         return 0;
       case "setup":
         return await setup(ctx);
@@ -139999,7 +140651,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "invite":
         return await invite(ctx);
       case "join":
-        return await join27(ctx);
+        return await join28(ctx);
       case "devices":
         return await devices(ctx);
       case "peers":
@@ -140041,12 +140693,11 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
       case "legacy-boxes":
         return await legacyBoxes(ctx);
       case "signer":
-        return await agentCommand({ home: ctx.home, io, env: env4, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
+        return await signer();
       case "agent": {
-        const route = agentRoute(rest, args.flags);
-        if (route === "signer") {
+        if (agentRoute(rest, args.flags) === "signer") {
           io.err(signerRenamed(rest[0]));
-          return await agentCommand({ home: ctx.home, io, env: env4, args: rest, flags: args.flags, ...io.agentKdfN === void 0 ? {} : { kdfN: io.agentKdfN } });
+          return await signer();
         }
         return await workerCommand({
           env: env4,
@@ -140067,6 +140718,7 @@ ${(command5 === void 0 ? void 0 : commandUsage(command5)) ?? SHORT_USAGE}`);
           // signed frames ride along in memory, for a runner that verifies the sender itself.
           session: async (name) => MeshSession.open({ ...await ctx.sessionOptions(name, "worker"), sessionKey: `worker:${name}`, redactStoredText: true, withFrame: true }),
           name: nameFor(ctx, "worker"),
+          home: ctx.home.root,
           untilStopped: () => ctx.untilStopped(),
           ...io.workerDoctor === void 0 ? {} : { doctor: io.workerDoctor },
           ...io.workerKit === void 0 ? {} : { kitFrom: io.workerKit }
@@ -140198,7 +140850,7 @@ function setup(ctx) {
     ...ctx.io.tools === void 0 ? {} : { run: ctx.io.tools },
     toName: (text2) => toName(text2, "device"),
     create: (at, device) => createHere(ctx, at, true, device),
-    join: (code3) => joinWith(ctx, code3, false),
+    join: (code2) => joinWith(ctx, code2, false),
     register: (mesh) => registerCli(ctx, mesh),
     status: () => status2(ctx),
     agents: async () => setupAgents({
@@ -140260,16 +140912,16 @@ async function withoutKey(ctx, relay, keyEnv, tlsPin) {
   if (info2?.create === "key") return keyHint;
   return `it is not accepting new meshes, or ${keyHint}`;
 }
-async function showRecoveryCode(ctx, code3) {
+async function showRecoveryCode(ctx, code2) {
   if (canShowSecret(ctx.env, ctx.io.isTTY)) {
     ctx.io.out("");
     ctx.io.out(RECOVERY_TITLE);
-    ctx.io.out(`  ${code3}`);
+    ctx.io.out(`  ${code2}`);
     ctx.io.out("");
     return;
   }
   const why = notAPerson(ctx.env, ctx.io.isTTY);
-  const handed = await holdForShow(showPaths(ctx.home.root, ctx.io.platform), code3, {
+  const handed = await holdForShow(showPaths(ctx.home.root, ctx.io.platform), code2, {
     ms: LIMITS.recoveryShowWindowMs,
     signal: ctx.io.signal,
     platform: ctx.io.platform,
@@ -140293,8 +140945,8 @@ async function recovery(ctx) {
 async function showHeld(ctx, kind, before, after = [], wait = false) {
   const notHere = notAPerson(ctx.env, ctx.io.isTTY);
   if (notHere !== void 0) throw new SetupError(personOnly(notHere, `wim ${kind} show`));
-  const code3 = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform, kind));
-  for (const line of [...before, `  ${code3}`, ...after]) ctx.io.out(line);
+  const code2 = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform, kind));
+  for (const line of [...before, `  ${code2}`, ...after]) ctx.io.out(line);
   if (wait) await ctx.io.prompt(STORED_PROMPT);
   return 0;
 }
@@ -140355,15 +141007,15 @@ async function invite(ctx) {
     const made = await issueInvite(s3, { ttlMs: ttl, auto, own: own2, now: ctx.io.now, short: !full });
     const until = new Date(made.exp).toISOString();
     let unusable;
-    const code3 = made.short?.code ?? made.code;
+    const code2 = made.short?.code ?? made.code;
     if (canShowSecret(ctx.env, ctx.io.isTTY)) {
       ctx.io.out(INVITE_CODE_TITLE);
-      ctx.io.out(`  ${code3}`);
+      ctx.io.out(`  ${code2}`);
       ctx.io.out(INVITE_JOIN_LINE);
     } else {
       const why = notAPerson(ctx.env, ctx.io.isTTY);
       const ms = Math.min(LIMITS.recoveryShowWindowMs, made.exp - ctx.io.now());
-      offering = holdForShow(showPaths(ctx.home.root, ctx.io.platform, "invite"), code3, {
+      offering = holdForShow(showPaths(ctx.home.root, ctx.io.platform, "invite"), code2, {
         ms,
         signal: AbortSignal.any([ctx.io.signal, offerEnds.signal]),
         platform: ctx.io.platform,
@@ -140468,19 +141120,19 @@ async function askJoinTrust(ctx, files, roster, me, issuer) {
   }
   for (const name of held2) ctx.io.out(`Messages from ${name} are held for your approval. If it is your own: wim devices trust ${name}`);
 }
-async function join27(ctx) {
+async function join28(ctx) {
   const typed = ctx.args.positional[0];
   if (typed === void 0) throw new SetupError("usage: wim join <code>");
   await joinWith(ctx, typed, true);
   return 0;
 }
 async function joinWith(ctx, typed, hint) {
-  const code3 = await resolveInvite(typed, ctx.io.fetch);
+  const code2 = await resolveInvite(typed, ctx.io.fetch);
   const device = await ctx.home.loadDevice() ?? await ctx.home.createDevice(flag2(ctx.args, "name") ?? toName(ctx.io.hostname, "device"));
   const joined = await joinMesh({
     home: ctx.home,
     device,
-    code: code3,
+    code: code2,
     dialer: ctx.dialer,
     now: ctx.io.now,
     showSas: (sas) => {
@@ -140510,11 +141162,11 @@ function deviceRows(r6, config2) {
 }
 var DEVICE_ACTIONS = ["list", "trust", "untrust", "revoke", "promote", "pending", "admit"];
 async function devices(ctx) {
-  const [action = "list", name, code3] = ctx.args.positional;
+  const [action = "list", name, code2] = ctx.args.positional;
   if (!DEVICE_ACTIONS.includes(action)) throw new SetupError(`unknown devices action ${JSON.stringify(action)}
 ${commandUsage("devices")}`);
   if (action === "pending") return pending(ctx);
-  if (action === "admit") return admit(ctx, name, code3);
+  if (action === "admit") return admit2(ctx, name, code2);
   const { files } = await ctx.mesh();
   const book = await RosterBook.open(files);
   const config2 = await files.loadConfig();
@@ -140603,12 +141255,12 @@ async function pending(ctx) {
     await s3.stop({ ended: true });
   }
 }
-async function admit(ctx, name, code3) {
-  if (name === void 0 || code3 === void 0) throw new SetupError("usage: wim devices admit <name> <code>");
+async function admit2(ctx, name, code2) {
+  if (name === void 0 || code2 === void 0) throw new SetupError("usage: wim devices admit <name> <code>");
   if (!canConfirm(ctx.env, ctx.io)) throw new SetupError(`run \`wim devices admit\` in your own terminal: admitting a device is the person's decision, and ${noPerson2(ctx)}`);
   const s3 = await joinsSession(ctx);
   try {
-    const decision = await admitPending(s3, name, code3, ctx.io.now);
+    const decision = await admitPending(s3, name, code2, ctx.io.now);
     if (decision.outcome !== "admitted") throw new SetupError(`could not admit ${name}: ${decision.reason}`);
     ctx.io.out(`Admitted ${name}. The new device finishes joining when \`wim join\` runs there (it may be waiting already).`);
     ctx.io.out(admittedTrust(decision));
@@ -140732,17 +141384,17 @@ async function send2(ctx) {
     if (note !== void 0) ctx.io.out(note);
     ctx.io.out(`id ${out.id}`);
     const took = out.results.filter((r6) => accepted(r6.status)).map((r6) => r6.to);
-    const code3 = took.length === out.results.length ? 0 : 1;
-    if (took.length === 0) return code3;
+    const code2 = took.length === out.results.length ? 0 : 1;
+    if (took.length === 0) return code2;
     if (waitMs === void 0) {
       ctx.io.out("Neither routed nor queued means it was read. `wim send --wait 30s` waits for each recipient's receipt.");
-      return code3;
+      return code2;
     }
     ctx.io.out(`Waiting up to ${waitText} for receipts (Ctrl-C stops waiting; the message stays sent)...`);
     const paused = new PausedBy(files.pausedByPath, ctx.fsEnv, ctx.io.now);
     const pause = async (a5) => pauseFrom(await paused.active(), a5);
     const got = await waitForReceipts(ctx, receipts, took, waitMs, pause, (a5, b5) => ctx.io.out(`${heldWaitLine(a5, out.id, b5)}. Still waiting for it to be delivered...`));
-    return reportReceipts(ctx, out, took, got, code3, await pausesOf(took, got, pause));
+    return reportReceipts(ctx, out, took, got, code2, await pausesOf(took, got, pause));
   } finally {
     if (s3 !== void 0) await ctx.finish(s3);
   }
@@ -140755,7 +141407,7 @@ async function pausesOf(took, got, pause) {
   }
   return out;
 }
-function reportReceipts(ctx, out, took, got, code3, pauses) {
+function reportReceipts(ctx, out, took, got, code2, pauses) {
   const statusOf = new Map(out.results.map((r6) => [r6.to, r6.status]));
   for (const to of took) {
     const status3 = got.get(to);
@@ -140765,7 +141417,7 @@ function reportReceipts(ctx, out, took, got, code3, pauses) {
     else if (status3 !== void 0) ctx.io.out(receiptLine(to, status3, out.id));
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)]})`);
   }
-  return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code3;
+  return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code2;
 }
 async function ping(ctx) {
   const all = ctx.args.flags.get("all") === true;
@@ -140850,14 +141502,14 @@ async function events(ctx) {
   const agent = agentEnv(ctx.env);
   if (await ctx.home.loadDevice() === void 0 || (await ctx.home.meshIds()).length === 0) {
     const io = ctx.io;
-    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, platform: io.platform, ...agent === void 0 ? {} : { agent } });
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION2, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, platform: io.platform, ...agent === void 0 ? {} : { agent } });
     return 0;
   }
   const o3 = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);
   const s3 = await MeshSession.open({ ...o3, sessionKey: `events:${name}` });
   try {
     const decide = decider({ root: ctx.home.root, env: ctx.home.env, signPub: o3.device.keyring.signPub });
-    await runEvents({ session: s3, mesh: o3.mesh, env: ctx.fsEnv, device: o3.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, decide, ...agent === void 0 ? {} : { agent } });
+    await runEvents({ session: s3, mesh: o3.mesh, env: ctx.fsEnv, device: o3.device, version: VERSION2, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, decide, ...agent === void 0 ? {} : { agent } });
     return 0;
   } finally {
     await s3.stop();
@@ -140951,12 +141603,12 @@ async function signerDecision(ctx, files, req) {
   const file2 = await ctx.home.readKeyFile();
   if (file2 === void 0 || "plain" in file2) return void 0;
   const chunks = idChunks(req.ids).length;
-  const code3 = decisionCode();
+  const code2 = decisionCode();
   ctx.io.out(chunks === 1 ? "Confirm it in the signer too: its dialog, or the terminal it runs in." : `Confirm it in the signer too, in ${chunks} parts (at most ${MAX_DECISION_IDS} each): its dialog, or the terminal it runs in.`);
-  ctx.io.out(`The signer shows the code ${code3}: confirm only if it does.`);
+  ctx.io.out(`The signer shows the code ${code2}: confirm only if it does.`);
   const { mesh } = await files.loadConfig();
   const o3 = { root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file2.sealed.signPub) };
-  return decisionsFor((ids) => requestDecision(o3, { mesh, ...req, ids, code: code3 }), req.ids);
+  return decisionsFor((ids) => requestDecision(o3, { mesh, ...req, ids, code: code2 }), req.ids);
 }
 async function resumeSigned(ctx, files, peer, ids) {
   let n3 = 0;
@@ -141144,7 +141796,7 @@ async function mcp(ctx) {
     ...key3 === void 0 || key3 === "" ? {} : { sessionKey: key3 },
     channel: ctx.env["WIM_CHANNEL"] === "1",
     internalTools: kind === "claude-code",
-    version: VERSION,
+    version: VERSION2,
     ...ctx.io.ancestry === void 0 ? {} : { ancestry: ctx.io.ancestry }
   });
   const stdin = ctx.io.stdin;
@@ -141195,16 +141847,16 @@ async function service(ctx, which2) {
   }
 }
 async function recover2(ctx) {
-  const code3 = ctx.args.positional[0];
+  const code2 = ctx.args.positional[0];
   const relay = flag2(ctx.args, "relay");
-  if (code3 === void 0 || relay === void 0) throw new SetupError("usage: wim recover <code> --relay <url>");
+  if (code2 === void 0 || relay === void 0) throw new SetupError("usage: wim recover <code> --relay <url>");
   const device = await ctx.home.loadDevice() ?? await ctx.home.createDevice(flag2(ctx.args, "name") ?? toName(ctx.io.hostname, "device"));
   const tls3 = flag2(ctx.args, "tls");
   const revoke = (flag2(ctx.args, "revoke") ?? "").split(",").map((x2) => x2.trim()).filter((x2) => x2 !== "");
   const done = await recoverMesh({
     home: ctx.home,
     device,
-    code: code3,
+    code: code2,
     relay,
     revoke,
     dialer: ctx.dialer,
@@ -141330,10 +141982,10 @@ async function status2(ctx) {
   if (device !== void 0) {
     ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
     const setting = pathJoin(ctx.home.root, LEGACY_BOXES_FILE);
-    const refuse = (await refusesLegacy(setting)).refuse;
-    ctx.io.out(`${legacyBoxesLine(refuse)}.`);
+    const refuse2 = (await refusesLegacy(setting)).refuse;
+    ctx.io.out(`${legacyBoxesLine(refuse2)}.`);
     const dropped = await droppedCount(droppedPath(setting));
-    if (refuse || dropped > 0) ctx.io.out(droppedLine(dropped));
+    if (refuse2 || dropped > 0) ctx.io.out(droppedLine(dropped));
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m4 of meshes) for (const line of meshStatus(m4)) ctx.io.out(line);
   }

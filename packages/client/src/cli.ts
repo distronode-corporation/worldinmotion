@@ -555,6 +555,7 @@ export async function main(argv: readonly string[], env: Record<string, string |
   });
   io.onUnexpected?.((reason) => void crash.report(reason, "unhandledRejection"));
   try {
+    const signer = (): Promise<number> => agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
     switch (command) {
       case undefined:
         io.out(SHORT_USAGE);
@@ -615,13 +616,12 @@ export async function main(argv: readonly string[], env: Record<string, string |
       case "legacy-boxes":
         return await legacyBoxes(ctx);
       case "signer":
-        return await agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
+        return await signer();
       case "agent": {
-        const route = agentRoute(rest, args.flags);
-        if (route === "signer") {
+        if (agentRoute(rest, args.flags) === "signer") {
           // The signer's old name, kept for one release: old login items and habits still work.
           io.err(signerRenamed(rest[0]!));
-          return await agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
+          return await signer();
         }
         return await workerCommand({
           env,

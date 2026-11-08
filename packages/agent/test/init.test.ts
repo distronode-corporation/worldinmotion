@@ -77,6 +77,7 @@ describe("privilegedTemplate", () => {
   it("api-key profiles point at root-only key files", () => {
     const t = privilegedTemplate({ ...base, mode: "privileged", profiles: ["a", "b"] });
     expect(t).toEqual({
+      v: 1,
       profiles: { a: { auth: { type: "api-key", keyFile: "/etc/wim-agent/a.key" } }, b: { auth: { type: "api-key", keyFile: "/etc/wim-agent/b.key" } } },
       defaultProfile: "a",
       wakeCode: { file: "/etc/wim-agent/wake-code" },

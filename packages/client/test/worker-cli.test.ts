@@ -213,6 +213,10 @@ describe("wim agent privileged", () => {
     // Any other argument is refused by the CLI before the runner sees it.
     expect(await run(wt(), "agent", "privileged", "--config", "x")).toBe(2);
     expect(await run(wt(), "agent", "privileged", "extra")).toBe(2);
+    // With no arguments it is the runner itself; here, with no config of its own, it refuses.
+    const r = wt();
+    feed(r, "");
+    expect(await run(r, "agent", "privileged")).not.toBe(0);
   });
 });
 
@@ -269,6 +273,8 @@ describe("wim agent doctor", () => {
     const t = wt();
     expect(await run(t, "agent", "doctor", cfg, "--peer-user", "nobody", "--privileged-config", join(dir, "doctor-priv", "privileged.json"), "--sudoers", join(dir, "sudoers"))).toBe(1);
     expect(said(t)).toMatch(/privileged runner \S+: ENOENT|privileged runner \S+ is root's/);
+    // The template init wrote is one the privileged runner's own parser accepts.
+    expect(said(t)).toMatch(/ok +\S+privileged\.json is a valid privileged runner config/);
   });
 });
 

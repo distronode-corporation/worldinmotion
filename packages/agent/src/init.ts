@@ -83,6 +83,7 @@ export function privilegedTemplate(o: InitOptions): Record<string, unknown> {
           return [id, { sign: d.sign, box: d.box }];
         }));
   return {
+    v: 1,
     profiles: Object.fromEntries(names.map((n) => [n, { auth: auth(n) }])),
     defaultProfile: names[0],
     wakeCode: { file: "/etc/wim-agent/wake-code" },
