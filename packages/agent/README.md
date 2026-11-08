@@ -149,6 +149,10 @@ carry the SDK (it is large, with a native Claude Code build per platform), so in
 npm install --global worldinmotion @anthropic-ai/claude-agent-sdk
 ```
 
+For keyless authentication, profiles mapped to separate accounts and a code check under another
+OS user, use the privileged runner instead (`wim worker privileged`, see
+[docs/privileged-runner.md](docs/privileged-runner.md)).
+
 From a checkout of this repository, `node packages/agent/src/bin.ts` (`wim-agent-runner`) is the
 same runner.
 
