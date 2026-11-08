@@ -30357,7 +30357,7 @@ var require_dist_cjs16 = __commonJS({
   "../../node_modules/@aws-sdk/credential-provider-web-identity/dist-cjs/index.js"(exports) {
     var { setCredentialFeature: setCredentialFeature2 } = (init_client3(), __toCommonJS(client_exports2));
     var { CredentialsProviderError: CredentialsProviderError2, externalDataInterceptor: externalDataInterceptor2 } = (init_config2(), __toCommonJS(config_exports));
-    var { readFileSync: readFileSync3 } = __require("node:fs");
+    var { readFileSync: readFileSync4 } = __require("node:fs");
     var fromWebToken = (init3) => async (awsIdentityProperties) => {
       init3.logger?.debug("@aws-sdk/credential-provider-web-identity - fromWebToken");
       const { roleArn, roleSessionName, webIdentityToken, providerId, policyArns, policy, durationSeconds } = init3;
@@ -30398,7 +30398,7 @@ var require_dist_cjs16 = __commonJS({
       }
       const credentials = await fromWebToken({
         ...init3,
-        webIdentityToken: externalDataInterceptor2?.getTokenRecord?.()[webIdentityTokenFile] ?? readFileSync3(webIdentityTokenFile, { encoding: "ascii" }),
+        webIdentityToken: externalDataInterceptor2?.getTokenRecord?.()[webIdentityTokenFile] ?? readFileSync4(webIdentityTokenFile, { encoding: "ascii" }),
         roleArn,
         roleSessionName
       })(awsIdentityProperties);
@@ -66211,9 +66211,9 @@ var $ZodObjectJIT = /* @__PURE__ */ $constructor("$ZodObjectJIT", (inst, def) =>
           }`;
     doc.write(`const input = payload.value;`);
     const ids = /* @__PURE__ */ Object.create(null);
-    let counter = 0;
+    let counter2 = 0;
     for (const key3 of normalized.allKeys) {
-      ids[key3] = `key_${counter++}`;
+      ids[key3] = `key_${counter2++}`;
     }
     doc.write(memo2 ? `const newResult = memo.alloc(inst, payload, {}, ctx);` : `const newResult = {};`);
     for (const key3 of normalized.allKeys) {
@@ -87556,7 +87556,7 @@ var BLOCK_LEN = 64;
 var BLOCK_LEN32 = 16;
 var MAX_COUNTER = /* @__PURE__ */ (() => 2 ** 32 - 1)();
 var U32_EMPTY = /* @__PURE__ */ Uint32Array.of();
-function runCipher(core, sigma, key3, nonce, data, output2, counter, rounds) {
+function runCipher(core, sigma, key3, nonce, data, output2, counter2, rounds) {
   const len = data.length;
   const block = new Uint8Array(BLOCK_LEN);
   const b32 = u32(block);
@@ -87564,10 +87564,10 @@ function runCipher(core, sigma, key3, nonce, data, output2, counter, rounds) {
   const d32 = isAligned ? u32(data) : U32_EMPTY;
   const o32 = isAligned ? u32(output2) : U32_EMPTY;
   if (!isLE) {
-    for (let pos2 = 0; pos2 < len; counter++) {
-      core(sigma, key3, nonce, b32, counter, rounds);
+    for (let pos2 = 0; pos2 < len; counter2++) {
+      core(sigma, key3, nonce, b32, counter2, rounds);
       swap32IfBE(b32);
-      if (counter >= MAX_COUNTER)
+      if (counter2 >= MAX_COUNTER)
         throw new Error("arx: counter overflow");
       const take2 = Math.min(BLOCK_LEN, len - pos2);
       for (let j5 = 0, posj; j5 < take2; j5++) {
@@ -87578,9 +87578,9 @@ function runCipher(core, sigma, key3, nonce, data, output2, counter, rounds) {
     }
     return;
   }
-  for (let pos2 = 0; pos2 < len; counter++) {
-    core(sigma, key3, nonce, b32, counter, rounds);
-    if (counter >= MAX_COUNTER)
+  for (let pos2 = 0; pos2 < len; counter2++) {
+    core(sigma, key3, nonce, b32, counter2, rounds);
+    if (counter2 >= MAX_COUNTER)
       throw new Error("arx: counter overflow");
     const take2 = Math.min(BLOCK_LEN, len - pos2);
     if (isAligned && take2 === BLOCK_LEN) {
@@ -87609,7 +87609,7 @@ function createCipher(core, opts) {
   anumber3(rounds);
   abool2(counterRight);
   abool2(allowShortKeys);
-  return (key3, nonce, data, output2, counter = 0) => {
+  return (key3, nonce, data, output2, counter2 = 0) => {
     abytes3(key3, void 0, "key");
     abytes3(nonce, void 0, "nonce");
     abytes3(data, void 0, "data");
@@ -87618,8 +87618,8 @@ function createCipher(core, opts) {
     output2 = getOutput(len, output2, false);
     if (hasOutput)
       complexOverlapBytes(data, output2);
-    anumber3(counter);
-    if (counter < 0 || counter >= MAX_COUNTER)
+    anumber3(counter2);
+    if (counter2 < 0 || counter2 >= MAX_COUNTER)
       throw new Error("arx: counter overflow");
     const toClean = [];
     let l3 = key3.length;
@@ -87667,7 +87667,7 @@ function createCipher(core, opts) {
     }
     const n32 = swap32IfBE(u32(nonce));
     try {
-      runCipher(core, sigma, k32, n32, data, output2, counter, rounds);
+      runCipher(core, sigma, k32, n32, data, output2, counter2, rounds);
       return output2;
     } finally {
       clean2(...toClean);
@@ -88138,14 +88138,14 @@ function expand(hash3, prk, info2, length2 = 32, _recycled) {
   const { iHash, oHash } = hmac.create(hash3, prk);
   const T2 = _recycled ? prk : new Uint8Array(olen);
   const worker = blocks > 1 ? _recycled?.iHash || hash3.create() : void 0;
-  for (let counter = 0; counter < blocks - 1; counter++) {
-    HKDF_COUNTER[0] = counter + 1;
+  for (let counter2 = 0; counter2 < blocks - 1; counter2++) {
+    HKDF_COUNTER[0] = counter2 + 1;
     const iWork = iHash._cloneInto(worker);
-    if (counter)
+    if (counter2)
       iWork.update(T2);
     iWork.update(info2).update(HKDF_COUNTER).digestInto(T2);
     oHash._cloneInto(worker).update(T2).digestInto(T2);
-    okm.set(T2, olen * counter);
+    okm.set(T2, olen * counter2);
   }
   HKDF_COUNTER[0] = blocks;
   if (blocks > 1)
@@ -130037,9 +130037,10 @@ var Config = external_exports.strictObject({
   dailyJobs: external_exports.number().int().min(0).default(50),
   statePath: absolute.default("/var/lib/wim-agent-privileged/state.json"),
   /**
-   * The senders who may wake a job, by device id, with their public keys pinned here (from the
-   * roster: `wim devices --keys`). The runner checks each frame's signature against these keys
-   * itself, so a compromised peer cannot claim another sender.
+   * The senders who may wake a job, by device id, with their public keys pinned here. `wim agent
+   * init <dir>/agent.json --mode privileged --allow <ids>` writes them, and `recipient`, from the
+   * signed roster. The runner checks each frame's signature against these keys itself, so a
+   * compromised peer cannot claim another sender.
    */
   senders: external_exports.record(external_exports.string().regex(/^[A-Za-z0-9_-]{22}$/), external_exports.strictObject({ sign: key32, box: key32 })).refine((s3) => Object.entries(s3).every(([id3, k5]) => pinMatches(id3, k5.sign)), { message: "each sender's id must be the one its sign key names" }).refine((s3) => Object.keys(s3).length > 0, { message: "at least one sender" }).optional(),
   /** The receiving session: its device's key files (owned by the peer user), mesh and address. */
@@ -130513,8 +130514,14 @@ async function signIn(profile, cfg, deps) {
   });
   return { env: { ANTHROPIC_BASE_URL: proxy.url, ANTHROPIC_API_KEY: proxy.key }, stop: () => proxy.close() };
 }
-async function runJob2(cfg, profile, task, req, self2, deps) {
+async function prepareRunDir(cfg, deps) {
   const user = await deps.lookupUser(cfg.worker.user);
+  await deps.ensureDir(cfg.runDir, 488);
+  const lockDir = cfg.lock.path.slice(0, cfg.lock.path.lastIndexOf("/"));
+  if (lockDir !== "" && lockDir !== cfg.runDir) await deps.checkDir(lockDir);
+  return user;
+}
+async function runJob2(cfg, profile, task, req, self2, user, deps) {
   const auth = await signIn(profile, cfg, deps);
   try {
     const job = JSON.stringify({
@@ -130556,19 +130563,22 @@ ${task}
       for (const line of lines) if (line.startsWith("worker: ")) log(deps, line.slice(0, 300));
     });
     let ended2;
+    let grace;
     const stop = (why) => {
       if (ended2 !== void 0) return;
       ended2 = why;
       handle.killGroup("SIGTERM");
-      deps.setTimeout(() => handle.killGroup("SIGKILL"), cfg.killGraceSeconds * 1e3);
+      grace = deps.setTimeout(() => handle.killGroup("SIGKILL"), cfg.killGraceSeconds * 1e3);
     };
     const timer = deps.setTimeout(() => stop("timeout"), cfg.timeoutSeconds * 1e3);
     const off = deps.onSignal(() => stop("signal"));
     const started2 = deps.now();
     const code2 = await handle.exited;
-    await auth.stop();
     deps.clearTimeout(timer);
+    deps.clearTimeout(grace);
     off();
+    await auth.stop();
+    await handle.cleanup();
     const secs = Math.round((deps.now() - started2) / 1e3);
     if (ended2 === "timeout") throw new Refusal(EXIT.timeout, `job timed out after ${cfg.timeoutSeconds} s`);
     if (ended2 === "signal") throw new Refusal(EXIT.timeout, "stopped by a signal while the job ran");
@@ -130603,13 +130613,13 @@ async function run(env4, self2, deps) {
     if (cfg.minMemAvailableMb > 0 && mem !== void 0 && mem < cfg.minMemAvailableMb) {
       throw new Refusal(EXIT.busy, `MemAvailable ${mem} MB is under ${cfg.minMemAvailableMb}`);
     }
-    await deps.ensureDir(cfg.runDir, 488);
+    const user = await prepareRunDir(cfg, deps);
     const lock = await deps.acquireLock(cfg.lock.path, cfg.lock.waitSeconds);
     if (lock === null) throw new Refusal(EXIT.busy, `job lock busy for ${cfg.lock.waitSeconds} s`);
     try {
       await admit(cfg, sender, deps);
       log(deps, `${tag} accepted: profile ${profile}, ${task.length} characters`);
-      const answer = await runJob2(cfg, cfg.profiles[profile], task, req, self2, deps);
+      const answer = await runJob2(cfg, cfg.profiles[profile], task, req, self2, user, deps);
       log(deps, `${tag} answered, ${answer.length} bytes`);
       return answer;
     } finally {
@@ -130641,12 +130651,90 @@ async function privilegedMain(argv, env4, self2, deps) {
 }
 
 // ../agent/src/privileged/system.ts
-import { execFile as execFile3, spawn } from "node:child_process";
+import { execFile as execFile4, spawn } from "node:child_process";
 import { randomBytes as randomBytes6 } from "node:crypto";
 import { constants as constants3, promises as fs15 } from "node:fs";
 import { dirname as dirname10 } from "node:path";
+
+// ../agent/src/privileged/jobscope.ts
+import { execFile as execFile3, spawn as nodeSpawn5 } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+function detectScopeMode(euid, booted = existsSync("/run/systemd/system")) {
+  return euid === 0 && booted ? "system" : "none";
+}
+function ownSlice(mode, cgroup) {
+  const line = cgroup.split("\n").find((l3) => l3.startsWith("0::"));
+  if (line === void 0) return void 0;
+  const parts = line.slice(3).split("/").filter((p3) => p3 !== "");
+  const at = parts.findIndex((p3) => /^user@\d+\.service$/.test(p3));
+  const mine = at === -1 ? mode === "system" ? parts : [] : mode === "system" ? parts.slice(0, at) : parts.slice(at + 1);
+  return mine.filter((p3) => p3.endsWith(".slice")).pop();
+}
+var counter = 0;
+function scopeUnit(pid) {
+  counter += 1;
+  return `wim-agent-job-${pid}-${counter}`;
+}
+function defaultScope(euid, pid, booted, cgroup = () => readFileSync("/proc/self/cgroup", "utf8")) {
+  const mode = detectScopeMode(euid, booted);
+  if (mode === "none") return { mode, unit: "", drainMs: 2e3 };
+  const slice = ownSlice(mode, cgroup());
+  return { mode, unit: scopeUnit(pid), drainMs: 2e3, ...slice === void 0 ? {} : { slice } };
+}
+function runSystemctl(args) {
+  return new Promise((resolve5) => execFile3("systemctl", args, () => resolve5()));
+}
+function startScopedJob(spec, o3) {
+  const spawn2 = o3.spawn ?? nodeSpawn5;
+  const systemctl = o3.systemctl ?? runSystemctl;
+  const later = o3.setTimeout ?? ((fn, ms) => setTimeout(fn, ms).unref());
+  const cancel = o3.clearTimeout ?? ((t2) => clearTimeout(t2));
+  const scoped = o3.mode !== "none";
+  const manager = o3.mode === "user" ? ["--user"] : [];
+  const ids = spec.uid === void 0 ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
+  const literal2 = (a5) => a5.replaceAll("$", () => "$$");
+  const [command5, args] = scoped ? ["systemd-run", [...manager, "--scope", "--quiet", "--collect", `--unit=${o3.unit}`, ...o3.slice === void 0 ? [] : [`--slice=${o3.slice}`], ...ids, "--", literal2(spec.command), ...spec.args.map(literal2)]] : [spec.command, spec.args];
+  const child = spawn2(command5, args, {
+    cwd: spec.cwd,
+    env: scoped ? { ...spec.env, ...o3.scopeEnv } : spec.env,
+    detached: true,
+    stdio: ["pipe", "pipe", "pipe"],
+    ...scoped || spec.uid === void 0 ? {} : { uid: spec.uid, gid: spec.gid }
+  });
+  const exited = new Promise((resolve5) => {
+    child.once("error", () => resolve5(127));
+    child.once("exit", (code2) => resolve5(code2));
+  });
+  const closed = new Promise((resolve5) => child.once("close", () => resolve5()));
+  child.stdin.on("error", () => void 0);
+  child.stdin.end(spec.stdin);
+  const killGroup = (signal) => {
+    if (scoped) void systemctl([...manager, "kill", `--signal=${signal}`, "--kill-whom=all", `${o3.unit}.scope`]);
+    try {
+      process.kill(-child.pid, signal);
+    } catch {
+    }
+  };
+  return {
+    onStdout: (cb) => void child.stdout.on("data", cb),
+    onStderr: (cb) => void child.stderr.on("data", cb),
+    exited,
+    killGroup,
+    async cleanup() {
+      killGroup("SIGKILL");
+      let timer;
+      await Promise.race([closed, new Promise((resolve5) => timer = later(resolve5, o3.drainMs))]);
+      cancel(timer);
+      child.stdout.destroy();
+      child.stderr.destroy();
+      child.stdin.destroy();
+    }
+  };
+}
+
+// ../agent/src/privileged/system.ts
 var FLOCK_BUSY = 75;
-function lookupUser2(name, run2 = execFile3) {
+function lookupUser2(name, run2 = execFile4) {
   const one2 = (flag3) => new Promise((resolve5, reject) => {
     run2("id", [flag3, "--", name], { encoding: "utf8" }, (error64, stdout) => {
       const n3 = Number(String(stdout).trim());
@@ -130677,32 +130765,6 @@ async function memAvailableMb(path2 = "/proc/meminfo") {
   const text2 = await fs15.readFile(path2, "utf8").catch(() => "");
   const m4 = /^MemAvailable:\s+(\d+) kB$/m.exec(text2);
   return m4 === null ? void 0 : Math.floor(Number(m4[1]) / 1024);
-}
-function startJob(spec) {
-  const child = spawn(spec.command, spec.args, {
-    cwd: spec.cwd,
-    env: spec.env,
-    detached: true,
-    stdio: ["pipe", "pipe", "pipe"],
-    ...spec.uid === void 0 ? {} : { uid: spec.uid, gid: spec.gid }
-  });
-  const exited = new Promise((resolve5) => {
-    child.once("error", () => resolve5(127));
-    child.once("close", (code2) => resolve5(code2));
-  });
-  child.stdin.on("error", () => void 0);
-  child.stdin.end(spec.stdin);
-  return {
-    onStdout: (cb) => void child.stdout.on("data", cb),
-    onStderr: (cb) => void child.stderr.on("data", cb),
-    exited,
-    killGroup(signal) {
-      try {
-        process.kill(-child.pid, signal);
-      } catch {
-      }
-    }
-  };
 }
 async function ancestorsAllRoot(pid, proc = "/proc") {
   let at = pid;
@@ -130757,12 +130819,13 @@ async function secureWrite(path2, data, mode, owner) {
   await file2.close();
   await fs15.rename(tmp, path2);
 }
-async function secureDir(path2, mode, owner) {
+async function secureDir(path2, mode, owner, adopt = true) {
   await fs15.mkdir(path2, { recursive: true, mode });
   const st = await fs15.lstat(path2);
   if (!st.isDirectory()) throw Object.assign(new Error(`refusing ${path2}: it is not a directory`), { code: "EUNSAFE" });
   if (owner === void 0) return;
   if (st.uid !== owner.uid || (st.mode & 18) !== 0) throw Object.assign(new Error(`refusing ${path2}: it is not its owner's alone`), { code: "EUNSAFE" });
+  if (!adopt) return;
   const dir = await fs15.open(path2, constants3.O_RDONLY | constants3.O_DIRECTORY | constants3.O_NOFOLLOW);
   try {
     await dir.chown(owner.uid, owner.gid);
@@ -130792,6 +130855,7 @@ function systemDeps(euid = process.geteuid()) {
     readFile: secureRead,
     writeFile: (p3, d5, mode) => secureWrite(p3, d5, mode, euid === 0 ? { uid: 0, gid: 0 } : void 0),
     ensureDir: (p3, mode, gid) => secureDir(p3, mode, euid === 0 ? { uid: 0, gid: gid ?? 0 } : void 0),
+    checkDir: (p3) => secureDir(p3, 493, euid === 0 ? { uid: 0, gid: 0 } : void 0, false),
     codeProblem: () => codeProblem([process.execPath, process.argv[1]]),
     lookupUser: (name) => lookupUser2(name),
     acquireLock: (p3, w) => acquireLock(p3, w),
@@ -130805,7 +130869,7 @@ function systemDeps(euid = process.geteuid()) {
     credentials: loadAnthropicCredentials,
     fetch: (url2, init3) => fetch(url2, init3),
     startProxy,
-    startJob,
+    startJob: (spec) => startScopedJob(spec, defaultScope(euid, process.pid)),
     now: Date.now,
     onSignal(cb) {
       const sigs = ["SIGTERM", "SIGHUP", "SIGINT"];
@@ -131045,7 +131109,7 @@ async function copyKit(from, to) {
 
 // src/workercli.ts
 import { fileURLToPath } from "node:url";
-import { constants as constants5, promises as fs17, readFileSync } from "node:fs";
+import { constants as constants5, promises as fs17, readFileSync as readFileSync2 } from "node:fs";
 import { createRequire } from "node:module";
 import { userInfo } from "node:os";
 import { delimiter, dirname as dirname12, isAbsolute as isAbsolute4, join as join25, resolve as resolve3 } from "node:path";
@@ -131229,7 +131293,7 @@ async function which(command5, path2) {
 function sdkFrom(from) {
   try {
     const entry = createRequire(from).resolve("@anthropic-ai/claude-agent-sdk");
-    const pkg = JSON.parse(readFileSync(join25(dirname12(entry), "package.json"), "utf8"));
+    const pkg = JSON.parse(readFileSync2(join25(dirname12(entry), "package.json"), "utf8"));
     return { version: typeof pkg.version === "string" ? pkg.version : "(unknown version)" };
   } catch {
     return void 0;
@@ -131302,9 +131366,9 @@ var EXTENSION = "distronode.worldinmotion";
 var EXTENSION_INSTALL = ["--install-extension", EXTENSION, "--pre-release"];
 var SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${PLUGIN_INSTALL.join(" ")}`, `code ${EXTENSION_INSTALL.join(" ")}`];
 var TOOL_TIMEOUT_MS = 5 * 6e4;
-function execRunner(platform2, execFile4 = nodeExecFile2) {
+function execRunner(platform2, execFile5 = nodeExecFile2) {
   const exec = (file2, args, shell) => new Promise((resolve5, reject) => {
-    const child = execFile4(file2, args, { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (error64, stdout, stderr) => {
+    const child = execFile5(file2, args, { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (error64, stdout, stderr) => {
       if (error64 !== null && typeof error64.code !== "number") reject(error64);
       else resolve5({ code: error64 === null ? 0 : error64.code, stdout, stderr });
     });
@@ -139089,7 +139153,7 @@ import { networkInterfaces } from "node:os";
 
 // ../relay-node/src/tls.ts
 import { generateKeyPairSync as generateKeyPairSync2, randomBytes as randomBytes7, sign as sign2, X509Certificate } from "node:crypto";
-import { readFileSync as readFileSync2, writeFileSync } from "node:fs";
+import { readFileSync as readFileSync3, writeFileSync } from "node:fs";
 function length(n3) {
   if (n3 < 128) return [n3];
   const bytes3 = [];
@@ -139155,7 +139219,7 @@ function lanCert(db, hosts, now) {
   const certPath = `${db}.cert.pem`;
   let pair;
   try {
-    pair = { key: readFileSync2(keyPath, "utf8"), cert: readFileSync2(certPath, "utf8") };
+    pair = { key: readFileSync3(keyPath, "utf8"), cert: readFileSync3(certPath, "utf8") };
   } catch (e6) {
     if (e6.code !== "ENOENT") throw e6;
     pair = selfSignedCert(hosts, now);
