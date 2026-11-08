@@ -37,6 +37,8 @@ const RunnerConfigSchema = z.strictObject({
   keyFile: z.string().min(1).optional(),
   /** Added after the runner's own instructions, never instead of them. */
   systemPrompt: z.string().default(""),
+  /** A Claude Code executable to run instead of the one the SDK's platform package ships. */
+  claudeCodePath: z.string().min(1).optional(),
   /** Per-profile overrides; a request naming a profile not listed here is refused (exit 3). */
   profiles: z.record(z.string().regex(PROFILE_NAME), ProfileSchema).default({}),
 });
@@ -120,6 +122,7 @@ export function sdkOptions(config: RunnerConfig, profile: RunnerConfig["profiles
     maxTurns: config.maxTurns,
     ...(config.maxBudgetUsd === undefined ? {} : { maxBudgetUsd: config.maxBudgetUsd }),
     cwd: config.cwd ?? io.cwd,
+    ...(config.claudeCodePath === undefined ? {} : { pathToClaudeCodeExecutable: config.claudeCodePath }),
     env,
     abortController: abort,
     systemPrompt: { type: "preset", preset: "claude_code", append: extra === "" ? RUNNER_PREAMBLE : `${RUNNER_PREAMBLE}\n\n${extra}` },
