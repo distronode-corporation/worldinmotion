@@ -1373,7 +1373,7 @@ test('a waking notice (its device trusted, not paused, admitted) starts one turn
   expect(w.submitted).toHaveLength(1)
 })
 
-test('when busy-mesh cannot be written, nothing is submitted: the wake waits for a turn end that can write it', async ($, on) => {
+test('when busy-mesh cannot be written, nothing is submitted, and the idle timer hands it over once it can be (Seer, #137)', async ($, on) => {
   const clock = mock.clock(on)
   let isDenied = true
   const w = world(on, { isWriteDenied: path => isDenied && path === `${SESSION}/presence` })
@@ -1387,26 +1387,47 @@ test('when busy-mesh cannot be written, nothing is submitted: the wake waits for
   expect(w.submitted).toHaveLength(0)
   expect(w.dropped).toHaveLength(0)
   expect(w.files.get(`${SPOOL}/cursor`)).toBeUndefined()
-  // Not retried from the timer.
+  // Tried again from the idle timer: still nothing while presence cannot be written.
   await clock.advance(1000)
   await clock.settle()
   expect(w.submitted).toHaveLength(0)
 
-  // A turn end still cannot write it: still nothing.
-  await $.turn.start({ text: 'my own prompt', turnId: 't1' })
-  await $.turn.complete(COMPLETE)
-  await clock.settle()
-  expect(w.submitted).toHaveLength(0)
-
-  // Once presence can be written, the next turn end hands both over, once.
+  // Once it can be, the idle timer hands both over, once, with no turn end needed.
   isDenied = false
-  await $.turn.start({ text: 'my own prompt', turnId: 't2' })
-  await $.turn.complete({ ...COMPLETE, turnId: 't2' })
+  await clock.advance(1000)
   await clock.settle()
   expect(w.submitted).toHaveLength(1)
   expect(w.submitted[0]).toContain('is now idle')
   expect(w.submitted[0]).toContain('a trusted message')
   expect(w.files.get(`${SESSION}/presence`)).toBe('busy-mesh')
+  await clock.advance(1000)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+})
+
+test('while a turn runs the timer leaves what busy-mesh could not carry for that turn end, which hands it over once', async ($, on) => {
+  const clock = mock.clock(on)
+  let isDenied = true
+  const w = world(on, { isWriteDenied: path => isDenied && path === `${SESSION}/presence` })
+  await $.session.start(START)
+  w.files.set(...item(1, 'a trusted message'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+
+  // A turn of the person's starts: the timer waits for its end.
+  await $.turn.start({ text: 'my own prompt', turnId: 't1' })
+  isDenied = false
+  await clock.advance(1000)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(0)
+  await $.turn.complete(COMPLETE)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  expect(w.submitted[0]).toContain('a trusted message')
+  await clock.advance(1000)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
 })
 
 test('a submit the engine fails puts presence back as it stands', async ($, on) => {

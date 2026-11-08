@@ -536,7 +536,8 @@ receipt from it arrives.
   from before a reload hands an item over twice. The rendered frame carries the message id.
 - The mod polls `spool/` every 250 ms with `$.fs`, delivers items in order (`$.session.append`
   while the session is busy, `$.prompt.submit` while idle, after writing `busy-mesh` to the
-  presence file, and not at all when that write fails), and writes the newest delivered name to
+  presence file, and not at all when that write fails: what it carried is kept, and the next
+  idle poll tries again), and writes the newest delivered name to
   `spool/cursor`, never back. It starts after its own cursor or after `spool/cursor`, whichever is
   further on, so items the server's `inbox` or `wait` tool (or a channel push) already handed to the
   session are not delivered again. The server deletes items at or below the cursor and only then
