@@ -77,7 +77,7 @@ describe("wim mcp", () => {
     expect(props("ask")["to"]).toEqual({ type: "string", minLength: 1 });
     expect(props("rooms")["limit"]).toEqual({ type: "integer", minimum: 1, maximum: 50 });
     expect(props("send")["to"]!["description"]).toBe("name@device, #room, *, or a list");
-    expect(byName["send"]!.inputSchema["required"]).toEqual(["to", "text"]);
+    expect(byName["send"]!.inputSchema["required"]).toEqual(["to"]);
     expect(byName["wait"]!.description).toBe("Block until the next item arrives (default 110 s, max 300).");
     expect(byName["send_file"]!.description).toContain("at most 25 MiB");
     for (const t of [...PUBLIC_TOOLS, ...INTERNAL_TOOLS]) expect(t.inputSchema["$schema"]).toBeUndefined();
@@ -113,11 +113,33 @@ describe("wim mcp", () => {
     await server.current!.ready(3000);
     expect(text(await call("peers"))).toMatch(/^peer@two {2}mcp {2}idle {2}-$/m);
     const sent = await call("send", { to: "peer@two", text: "hi", notify_when_idle: true });
-    expect(sent.structuredContent).toMatchObject({ results: [{ to: "peer@two", status: "routed" }] });
+    expect(sent.structuredContent).toMatchObject({ results: [{ to: "peer@two", status: "routed" }], watching: [{ to: "peer@two", until: expect.stringMatching(/^\d{4}-\d\d-\d\dT.*Z$/) }] });
     expect(sent.structuredContent).not.toHaveProperty("watch_note");
-    // Past the relay's 16 the client refuses nothing (the relay decides): no note.
-    const many = Array.from({ length: 17 }, (_, n) => `w${n}@two`).join(",");
-    expect((await call("send", { to: many, text: "hi", notify_when_idle: true })).structuredContent).not.toHaveProperty("watch_note");
+    // Without notify_when_idle a send says nothing of watches.
+    expect((await call("send", { to: "peer@two", text: "plain" })).structuredContent).not.toHaveProperty("watching");
+    // With no text (or empty text), a send only arms: nothing goes to the peer.
+    await until(async () => (await peer.spool.unread()).some((i) => i.rendered.includes("plain")));
+    const before = (await peer.spool.unread()).length;
+    expect((await call("send", { to: ["w0@two", "#room"], notify_when_idle: true })).structuredContent).toEqual({
+      watching: [{ to: "w0@two", until: expect.any(String) }],
+      watch_note: "Idle notices are for name@device only, so none is armed for #room.",
+    });
+    expect((await call("send", { to: "w1@two", text: "", notify_when_idle: true })).structuredContent).toEqual({ watching: [{ to: "w1@two", until: expect.any(String) }] });
+    // No text and no notify_when_idle: nothing to do.
+    const bare = await call("send", { to: "peer@two" });
+    expect(bare.isError).toBe(true);
+    expect(text(bare)).toBe("invalid input: text: required unless notify_when_idle is true");
+    // Past the relay's 16 open watches the client refuses a new address itself, and says so.
+    const many = Array.from({ length: 15 }, (_, n) => `w${n + 2}@two`).join(",");
+    const full = (await call("send", { to: many, text: "hi", notify_when_idle: true })).structuredContent as { watching: unknown[]; watch_note: string };
+    expect(full.watching).toHaveLength(13);
+    expect(full.watch_note).toBe("This session already watches 16 sessions, the most it may, so none is armed for w15@two, w16@two (a watch ends at its notice, or 12 hours after the arm).");
+    await sleep(50);
+    expect((await peer.spool.unread()).length).toBe(before);
+    // The relay knows none of the w sessions: each arm comes back refused, and the agent is told (quietly).
+    const refusals = async () => (await server.current!.spool.unread()).filter((i) => i.kind === "notice" && i.quiet === true && i.rendered.includes("was not armed: the relay knows no session by that address"));
+    await until(async () => (await refusals()).length === 15);
+    expect(text(await call("inbox"))).toContain("was not armed");
     // A watch that cannot be recorded: the send still goes out, and its result says so.
     const watches = server.current!.files.watchesPath;
     await fs.rm(watches, { force: true });
@@ -273,6 +295,8 @@ describe("wim mcp", () => {
     // A relayed item (a CI notice) and a notice for the person wait too, and are never pushed.
     await pre.spool.write({ kind: "msg", from: "ci:github:o/r", device: "", id: "01J00000000000000000000003", at: 1, rendered: "relayed CI text", relayed: true, informs: true });
     await pre.spool.write({ kind: "notice", from: "ci:github:o/r", device: "", id: "01J00000000000000000000004", at: 1, rendered: "1 message held", held: 1, forPerson: true });
+    // A quiet idle notice (it may not start a turn) waits for the inbox as well.
+    await pre.spool.write({ kind: "notice", from: "w@two", device: "", id: "01J00000000000000000000005", at: 1, rendered: "w@two is now idle (quiet)", watched: devices[1]!.device.id, quiet: true });
     await pre.spool.write({ kind: "msg", from: "x@two", device: devices[1]!.device.id, id: "01J00000000000000000000001", at: 1, rendered: "waiting already" });
     await pre.stop();
     const { server, notes, client } = await connect({ device: devices[0]!, mesh, relay, name: "agent", channel: true, sessionKey: "chan" });
@@ -286,7 +310,7 @@ describe("wim mcp", () => {
     await until(() => notes.filter((n) => n.method === "notifications/claude/channel").length === 2);
     const pushed = notes.filter((n) => n.method === "notifications/claude/channel");
     expect(pushed[0]!.params).toMatchObject({ content: "waiting already" });
-    expect(pushed.some((n) => /relayed CI text|1 message held/.test(String(n.params!["content"])))).toBe(false);
+    expect(pushed.some((n) => /relayed CI text|1 message held|quiet/.test(String(n.params!["content"])))).toBe(false);
     expect(pushed[1]!.params).toMatchObject({ meta: { from: "peer@two", kind: "msg" } });
     expect(String(pushed[1]!.params!["content"])).toContain("pushed");
     await until(async () => (await server.current!.spool.unread()).length === 0);

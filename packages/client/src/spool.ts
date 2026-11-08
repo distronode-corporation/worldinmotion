@@ -27,6 +27,10 @@ export type SpoolItem = {
   informs?: true;
   /** A notice only the person can act on (restart this session): the plugin shows it, never starts a turn. */
   forPerson?: true;
+  /** On an idle notice: the roster device id of the session this session armed it for (SPEC section 8). */
+  watched?: string;
+  /** On an idle notice that may not start a turn (its device is not trusted, paused, or past the breaker's limit): it waits for `inbox`, `wait` or a running turn. */
+  quiet?: true;
 };
 
 const NAME = /^(\d{12})\.json$/;

@@ -77,7 +77,7 @@ import { PongBudget, type PingRow } from "./ping.ts";
 import { Invites, PendingJoins, screenJoin } from "./joins.ts";
 import { SignerError } from "./signer.ts";
 import { Spool, type SpoolItem } from "./spool.ts";
-import { Watches } from "./watches.ts";
+import { Watches, type Armed } from "./watches.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
 
 /** How many times a delivered frame may fail for a reason of its own before it is let go. */
@@ -520,6 +520,16 @@ export class MeshSession extends EventEmitter {
   private readonly ciParked: CiParked;
   /** The idle notices this session armed: a relay notice is taken only for one of them, once (watches.ts). */
   private readonly watches: Watches;
+  /**
+   * Arms to send at the next `ready`: one that could not be sent, and at a process's first
+   * `ready` every open watch (re-sending one the relay holds only renews it).
+   */
+  private readonly unsentArms = new Set<string>();
+  private armsResent = false;
+  /** Arms sent and not yet answered, with when: a relay refusal that names no address belongs to the only one (armRefused). */
+  private readonly armsInFlight = new Map<string, number>();
+  /** When watches are next checked for ones that lapsed with no notice. */
+  private lapseDue = 0;
   /** When parked CI notices are next checked again. */
   private ciParkedDue = 0;
   /** This minute's CI drop lines, and the drops past CI_DROP_LINES by reason. */
@@ -840,7 +850,35 @@ export class MeshSession extends EventEmitter {
     void this.sendCard(link, true);
     this.ciSent = undefined;
     void this.sendCiRules(link);
+    void this.resendArms(link).catch((e: unknown) => this.log(`wim: watches: ${(e as Error).message}`));
     this.retryParkedLater();
+  }
+
+  /**
+   * Sends the arms that are not at the relay yet (SPEC section 8): ones made while offline, and
+   * at a process's first `ready` every open watch, so an arm is not lost to a connection that
+   * dropped. A re-sent arm the relay already holds is only renewed there.
+   */
+  private async resendArms(link: Link): Promise<void> {
+    const open = (await this.watches.list()).map((w) => w.of);
+    const all = !this.armsResent;
+    this.armsResent = true;
+    for (const of of open) if (all || this.unsentArms.has(of)) this.sendArm(of, link);
+    for (const of of [...this.unsentArms]) if (!open.includes(of)) this.unsentArms.delete(of);
+  }
+
+  /** Sends one arm, or keeps it for the next `ready` when there is no connection. */
+  private sendArm(of: string, link: Link | undefined = this.link): void {
+    try {
+      if (link === undefined) throw new Error("offline");
+      link.send({ t: "notify_idle", of });
+      this.unsentArms.delete(of);
+      const now = this.now();
+      for (const [a, at] of this.armsInFlight) if (now - at > this.answerMs) this.armsInFlight.delete(a);
+      this.armsInFlight.set(of, now);
+    } catch {
+      this.unsentArms.add(of);
+    }
   }
 
   /**
@@ -942,6 +980,10 @@ export class MeshSession extends EventEmitter {
       }
       case "notice":
         void this.idleNotice(f.of).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
+        return;
+      case "error":
+        // Other refusals go to the request that waits for them; one for an arm has no waiter.
+        if (f.ref === "notify_idle") void this.armRefused(f).catch((e: unknown) => this.log(`wim: watches: ${(e as Error).message}`));
         return;
       case "join.request":
         // `wim invite` decides these as they come; every session of an admin device also keeps
@@ -1648,8 +1690,8 @@ export class MeshSession extends EventEmitter {
     // A CI notice is for the agent's inbox only: in-process consumers never act on it.
     if (entry !== undefined && entry.ci === undefined) this.emit("message", { ...entry, cursor: written.cursor } satisfies Inbound);
     // A relayed item must not start a turn, so it waits in the inbox instead of being pushed; a
-    // notice for the person is not the model's either.
-    if (this.push !== undefined && written.relayed !== true && written.forPerson !== true) {
+    // notice for the person is not the model's either, and a quiet one never starts a turn.
+    if (this.push !== undefined && written.relayed !== true && written.forPerson !== true && written.quiet !== true) {
       await this.push(written);
       await this.take(written.cursor);
     }
@@ -1659,11 +1701,78 @@ export class MeshSession extends EventEmitter {
   /**
    * A relay's idle notice (SPEC section 8): spooled only when this session armed one for that
    * address, it has not lapsed, and no notice took it yet; the watch is closed then. Any other is
-   * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4).
+   * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4). The notice names the
+   * address the agent armed, and the device that address names decides whether it may start a
+   * turn (mayWake): the relay cannot change which device that is. One that may not is `quiet`.
    */
   private async idleNotice(of: string): Promise<void> {
-    if (!(await this.watches.take(of, this.peers.get(of)?.sid))) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
-    await this.notice(of, `${of} is now idle (or has ended).`);
+    const watch = await this.watches.take(of, this.peers.get(of)?.sid);
+    if (watch === undefined) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
+    this.armsInFlight.delete(watch.of);
+    this.unsentArms.delete(watch.of);
+    const device = this.roster.devices.find((d) => d.name === watch.of.slice(watch.of.indexOf("@") + 1));
+    const wakes = device !== undefined && (await this.mayWake(device.id));
+    const renamed = of === watch.of ? "" : ` It now goes by ${of}.`;
+    await this.watchNotice(watch.of, `${watch.of} is now idle (or has ended).${renamed}`, device?.id, !wakes);
+  }
+
+  /**
+   * Whether an idle notice about `device` may start a turn (decision D2): the person trusts that
+   * device now, the loop breaker does not pause it, and the breaker admits one more automatic
+   * delivery from it, which it then counts. A policy that cannot be read is a no.
+   */
+  private async mayWake(device: string): Promise<boolean> {
+    const config = await this.o.mesh.loadConfig().catch(() => undefined);
+    if (config === undefined) return false;
+    this.config = config;
+    if (!isTrusted(config, device) || !this.breaker.admitWake(device)) return false;
+    this.countsChanged = true;
+    return true;
+  }
+
+  /** A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a turn. */
+  private async watchNotice(from: string, line: string, watched: string | undefined, quiet: boolean): Promise<void> {
+    const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line) };
+    await this.deliver({ ...item, ...(watched === undefined ? {} : { watched }), ...(quiet ? { quiet: true as const } : {}) }, undefined);
+  }
+
+  /**
+   * The relay refused an arm (`error` with ref `notify_idle`). It names the address only on a relay
+   * that sends `of` (and then only one this session armed counts), or when exactly one arm was
+   * sent and not yet answered: that watch is closed and the agent told, quietly. Otherwise the
+   * agent is told a refusal came, and the watches stay until they lapse. The relay's text is never
+   * passed on: the code is read against the ones SPEC section 8 names.
+   */
+  private async armRefused(f: ErrorFrame): Promise<void> {
+    const now = this.now();
+    for (const [of, at] of this.armsInFlight) if (now - at > this.answerMs) this.armsInFlight.delete(of);
+    const open = (await this.watches.list()).map((w) => w.of);
+    const said = (f as { of?: unknown }).of;
+    const inFlight = [...this.armsInFlight.keys()];
+    const named = typeof said === "string" && open.includes(said) ? said : inFlight.length === 1 && open.includes(inFlight[0]!) ? inFlight[0] : undefined;
+    const why =
+      f.code === "not_found"
+        ? "the relay knows no session by that address (it may have ended)"
+        : f.code === "limited"
+          ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay`
+          : "the relay refused it";
+    if (named === undefined) {
+      return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, undefined, true);
+    }
+    this.armsInFlight.delete(named);
+    await this.watches.drop(named);
+    await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, undefined, true);
+  }
+
+  /** Tells the agent, quietly, about each watch that lapsed with no notice: once a minute at most. */
+  private async lapseWatches(): Promise<void> {
+    if (this.now() < this.lapseDue) return;
+    this.lapseDue = this.now() + 60_000;
+    for (const w of await this.watches.lapse()) {
+      this.armsInFlight.delete(w.of);
+      this.unsentArms.delete(w.of);
+      await this.watchNotice(w.of, `no idle notice came for ${w.of} within 12 hours of the arm, so the watch lapsed and no notice will come for it. Arm it again if this session still needs to know.`, undefined, true);
+    }
   }
 
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
@@ -1735,6 +1844,7 @@ export class MeshSession extends EventEmitter {
     try {
       await this.sweep();
       await this.pruneLeases();
+      await this.lapseWatches();
       await this.readPresence();
       // The person's marks and the end of a cool-down change what is held and paused: on the
       // inbound queue, so neither interleaves with a message being admitted or held. Queued, not
@@ -2497,21 +2607,28 @@ export class MeshSession extends EventEmitter {
   }
 
   /**
-   * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
-   * recorded in `watches.json` first, so the notice is taken when it comes. The relay decides the
-   * limit; a watch it never fires lapses after 12 hours. Answers a note for the send's result when
-   * the watch could not be recorded.
+   * Arms one idle notice for each session address, recorded in `watches.json` first, so the notice
+   * is taken when it comes, and sent to the relay (at the next `ready` when offline). Rooms, `*`
+   * and anything else are not armed, nor a new address past the relay's limit of open watches; a
+   * watch with no notice lapses after 12 hours. Answers what is watched and until when, and a
+   * note for the send's result about anything not armed.
    */
-  async notifyWhenIdle(addresses: readonly string[]): Promise<string | undefined> {
+  async notifyWhenIdle(addresses: readonly string[]): Promise<{ watching: Array<{ to: string; until: number }>; note?: string }> {
     const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
+    const skipped = [...new Set(addresses.filter((of) => !wanted.includes(of)))];
+    const notes = skipped.length === 0 ? [] : [`Idle notices are for name@device only, so none is armed for ${skipped.map((a) => sanitizeForDisplay(a)).join(", ")}.`];
+    let armed: Armed;
     try {
-      await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
+      armed = await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
     } catch (error) {
       this.log(`wim: watches: ${(error as Error).message}`);
-      return `no idle notice armed: this session could not record the watch (${(error as Error).message})`;
+      return { watching: [], note: [`no idle notice armed: this session could not record the watch (${(error as Error).message})`, ...notes].join(" ") };
     }
-    for (const of of wanted) this.sendIfOpen({ t: "notify_idle", of });
-    return undefined;
+    if (armed.refused.length > 0) {
+      notes.push(`This session already watches ${LIMITS.notifyIdlePerSession} sessions, the most it may, so none is armed for ${armed.refused.join(", ")} (a watch ends at its notice, or 12 hours after the arm).`);
+    }
+    for (const w of armed.watching) this.sendArm(w.of);
+    return { watching: armed.watching.map((w) => ({ to: w.of, until: w.until })), ...(notes.length === 0 ? {} : { note: notes.join(" ") }) };
   }
 
   async rename(name: string): Promise<string> {

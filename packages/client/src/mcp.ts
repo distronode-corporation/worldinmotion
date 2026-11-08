@@ -51,8 +51,8 @@ const PUBLIC = {
   peers: { description: "List mesh sessions: address, kind, status, rooms, one per line. all: include long-offline ones.", input: z.object({ all: z.boolean().optional() }) },
   send: {
     description:
-      "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session), queued (that session is offline; the relay keeps it 24 h), or held (that session's loop breaker holds this device's messages; held_note says until when). None means delivered or read; history shows receipts that come back (delivered, or held on that device).",
-    input: z.object({ to: To, text: z.string(), reply_to: z.string().optional(), notify_when_idle: z.boolean().optional() }),
+      "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session), queued (that session is offline; the relay keeps it 24 h), or held (that session's loop breaker holds this device's messages; held_note says until when). None means delivered or read; history shows receipts that come back (delivered, or held on that device). notify_when_idle: one notice when each name@device next finishes a turn or ends (watching lists them; watch_note says what was not armed); with no text it only arms.",
+    input: z.object({ to: To, text: z.string().optional(), reply_to: z.string().optional(), notify_when_idle: z.boolean().optional() }),
   },
   ask: {
     description: `Send a task and wait for its result ${waiting}. Returns pending with a task id if none came.`,
@@ -134,14 +134,20 @@ const json = (v: Record<string, unknown>): CallToolResult => ({ content: [{ type
  * breaker holds this device's messages (`held`, SPEC section 12), and `watchNote`, which says why
  * an idle notice it asked for was not armed.
  */
-const sent = (o: SendOutcome, watchNote?: string): CallToolResult => {
+type Watched = Awaited<ReturnType<MeshSession["notifyWhenIdle"]>>;
+
+/** What a `send` with `notify_when_idle` adds: the watches, each until when, and what was not armed. */
+const watchFields = (w: Watched | undefined): Record<string, unknown> =>
+  w === undefined ? {} : { watching: w.watching.map((x) => ({ to: x.to, until: new Date(x.until).toISOString() })), ...(w.note === undefined ? {} : { watch_note: w.note }) };
+
+const sent = (o: SendOutcome, watched?: Watched): CallToolResult => {
   const held = o.results.flatMap((r) => (r.status === "held" ? [heldSendLine(r.to, r.breaker)] : []));
   const note = prekeyNote(o);
   return json({
     ...o,
     ...(note === undefined ? {} : { note }),
     ...(held.length === 0 ? {} : { held_note: held.join(" ") }),
-    ...(watchNote === undefined ? {} : { watch_note: watchNote }),
+    ...watchFields(watched),
   });
 };
 const fail = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }], isError: true });
@@ -342,8 +348,8 @@ export class WimMcp {
     s.start();
     this.session = s;
     await this.point(s);
-    // As MeshSession.deliver does: a relayed item, or a notice for the person, never starts a turn.
-    if (this.o.channel) for (const item of await s.spool.unread()) if (item.relayed !== true && item.forPerson !== true) await s.take(item.cursor).then(() => this.pushChannel(item));
+    // As MeshSession.deliver does: a relayed item, a notice for the person or a quiet one never starts a turn.
+    if (this.o.channel) for (const item of await s.spool.unread()) if (item.relayed !== true && item.forPerson !== true && item.quiet !== true) await s.take(item.cursor).then(() => this.pushChannel(item));
     return s;
   }
 
@@ -485,8 +491,12 @@ export class WimMcp {
       }
       case "send": {
         const i = a as In<"send">;
+        const watch = i.notify_when_idle === true;
+        // With notify_when_idle and no text, a send only arms the watch (SPEC section 8).
+        if (watch && (i.text === undefined || i.text === "")) return json(watchFields(await s.notifyWhenIdle(MeshSession.parseTo(i.to))));
+        if (i.text === undefined) return fail("invalid input: text: required unless notify_when_idle is true");
         const out = await s.send(i.to, i.text, i.reply_to === undefined ? {} : { reply_to: i.reply_to });
-        return sent(out, i.notify_when_idle === true ? await s.notifyWhenIdle(MeshSession.parseTo(i.to)) : undefined);
+        return sent(out, watch ? await s.notifyWhenIdle(MeshSession.parseTo(i.to)) : undefined);
       }
       case "ask": {
         const i = a as In<"ask">;

@@ -138,6 +138,27 @@ export class Breaker {
   }
 
   /**
+   * Decides whether an idle notice about `peer`'s session may start a turn (SPEC section 8), and
+   * counts it as one automatic delivery from `peer` when it may. Not while `peer` is paused (a
+   * cool-down that ended but was not released yet still holds), nor once the per-peer or total
+   * limit is reached. A notice is relay-authored and one per arm, so it never trips a pause and
+   * is not part of the ping-pong count: a notice that may not wake waits in the inbox instead.
+   */
+  admitWake(peer: string): boolean {
+    const now = this.now();
+    const held = this.paused.get(peer);
+    if (held !== undefined && (bounded(held, now).until > now || held.auto)) return false;
+    const limits = this.limits();
+    const since = now - HOUR;
+    const mine = this.recent(this.deliveries.get(peer), since).length;
+    let total = 0;
+    for (const list of this.deliveries.values()) total += this.recent(list, since).length;
+    if (mine >= limits.perPeerPerHour || total >= limits.totalPerHour) return false;
+    this.count(peer, 1);
+    return true;
+  }
+
+  /**
    * How many a cool-down's release may deliver now: the per-peer limit, and no more than is left
    * under the total, so a release never takes the hour's deliveries past the total limit.
    */
