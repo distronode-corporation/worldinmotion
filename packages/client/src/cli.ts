@@ -39,9 +39,11 @@ import { agentEnv, canConfirm, canShowSecret, confirmTyped, fetchHeldCode, holdF
 import { checkDialable, Link, UNKNOWN_MESH, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { resolveInvite } from "./shortcode.ts";
-import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
+import { AGENT_USAGE, agentCommand, wimCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
+import { WORKER_USAGE, workerCommand } from "./workercli.ts";
+import type { DoctorDeps } from "@worldinmotion/agent";
 import { RECOVERY_TITLE, runSetup, STORED_PROMPT, type ToolRun } from "./setup.ts";
 import { findLaunch, onPath, setupAgents } from "./agentsetup.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
@@ -92,6 +94,10 @@ export type CliIO = {
   programs?: Programs;
   /** Runs `claude` and `code` for `wim setup` (setup.ts `execRunner`); without it, neither is found. */
   tools?: ToolRun;
+  /** The command line that runs this wim, written into `wim worker init`'s config (default: this process's). */
+  wim?: () => string[];
+  /** Replaces `wim worker doctor`'s view of this machine (tests). */
+  workerDoctor?: Partial<DoctorDeps>;
   /** HTTP for `wim ci`, `wim a2a` and crash reports. */
   fetch: typeof fetch;
   /**
@@ -114,10 +120,10 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker"]);
 /** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
 const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
-const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
+const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -140,6 +146,7 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   bot: ["as", "take"],
   ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
   a2a: ["as", "take"],
+  worker: ["as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker"],
   recover: ["relay", "tls", "revoke", "name"],
   recovery: ["wait"],
   agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
@@ -249,6 +256,7 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim legacy-boxes [status | refuse | accept]
   wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
   ${AGENT_USAGE}
+  ${WORKER_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 
@@ -256,7 +264,7 @@ export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages betwee
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, legacy-boxes, test, agent.
+crash-reports, legacy-boxes, test, agent, worker.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -603,6 +611,28 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await crashReports(ctx, crash);
       case "legacy-boxes":
         return await legacyBoxes(ctx);
+      case "worker":
+        return await workerCommand({
+          env,
+          out: io.out,
+          err: io.err,
+          stdin: io.stdin,
+          stdout: io.stdout,
+          cwd: io.cwd,
+          now: io.now,
+          uid: io.uid,
+          signal: io.signal,
+          fsEnv: ctx.fsEnv,
+          positional: rest,
+          flags: args.flags,
+          wim: io.wim?.() ?? wimCommand(),
+          mesh: () => ctx.mesh(),
+          // No message text on disk: a wake code or a task never lands in this session's files.
+          session: async (name) => MeshSession.open({ ...(await ctx.sessionOptions(name, "worker")), sessionKey: `worker:${name}`, redactStoredText: true }),
+          name: nameFor(ctx, "worker"),
+          untilStopped: () => ctx.untilStopped(),
+          ...(io.workerDoctor === undefined ? {} : { doctor: io.workerDoctor }),
+        });
       case "agent":
         return await agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
       default:

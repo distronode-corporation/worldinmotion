@@ -43,8 +43,11 @@ const bundle = (dsn) => build({
   // The source already starts with a shebang, which esbuild keeps; CommonJS dependencies inside
   // an ES module bundle need a real `require` for Node built-ins.
   banner: { js: 'import { createRequire as __wimCreateRequire } from "node:module"; const require = __wimCreateRequire(import.meta.url);' },
-  // Optional native speed-ups of `ws`; it falls back to JavaScript without them.
-  external: ["bufferutil", "utf-8-validate"],
+  // Optional native speed-ups of `ws`; it falls back to JavaScript without them. The Claude Agent
+  // SDK is loaded by `wim worker runner` with a dynamic import, from wherever it is installed
+  // beside wim (`npm install --global worldinmotion @anthropic-ai/claude-agent-sdk`): it ships
+  // its own platform binary and licence, so it is never copied into this file.
+  external: ["bufferutil", "utf-8-validate", "@anthropic-ai/claude-agent-sdk"],
   plugins: [stubSupportsColor],
   legalComments: "eof",
   logLevel: "warning",
@@ -55,6 +58,7 @@ await bundle(dsn);
 const built = await readFile(out, "utf8");
 if (built.includes("__WIM_SENTRY_DSN__")) throw new Error(`${out} still reads ${DSN_GLOBAL}: the define did not replace it`);
 if (!built.includes(JSON.stringify(dsn))) throw new Error(`${out} does not carry the crash-report address`);
+if (!built.includes('import("@anthropic-ai/claude-agent-sdk")')) throw new Error(`${out} no longer loads the Agent SDK with a dynamic import: it must stay external`);
 await chmod(out, 0o755);
 await mkdir(dirname(plugin), { recursive: true });
 await copyFile(out, plugin);

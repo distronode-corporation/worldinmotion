@@ -4,6 +4,7 @@
 import type { MeshPort, MeshPeer, MeshResult, MeshTask, MeshMessage } from "@worldinmotion/a2a";
 import type { BotIO, BotItem, SendOptions as BotSendOptions } from "@worldinmotion/bot";
 import type { CiIO } from "@worldinmotion/ci";
+import type { WorkerIO, WorkerItem } from "@worldinmotion/agent";
 import { accepted, ClientError, type Inbound, type MeshSession, type SendOutcome } from "./client.ts";
 
 /** Each delivered item once, then marked taken so the spool stays empty and receipts go out. */
@@ -45,6 +46,45 @@ export function botIO(s: MeshSession): BotIO {
         ...(opts.reply_to === undefined ? {} : { reply_to: opts.reply_to }),
         ...(opts.status === undefined ? {} : { status: opts.status }),
       });
+    },
+  };
+}
+
+/**
+ * `wim worker`: each delivered message or task with the device that signed it, whether it says
+ * it relays others' text, and whether the person trusts that device now (`trusted` is asked for
+ * each item, so taking trust away stops the worker at once). Replies and room copies are always
+ * marked relayed: a model wrote them, not the session.
+ */
+export function workerIO(s: MeshSession, trusted: (device: string) => Promise<boolean>): WorkerIO {
+  const joined = new Set<string>();
+  return {
+    onItem(cb: (item: WorkerItem) => void): void {
+      onInbound(s, (m) => {
+        void (async () => {
+          const ok = m.device === undefined ? false : await trusted(m.device).catch(() => false);
+          cb({
+            kind: m.kind,
+            id: m.id,
+            from: m.peer,
+            device: m.device,
+            text: m.text,
+            relayed: m.relayed === true,
+            trusted: ok,
+            ...(m.deadline === undefined ? {} : { deadline: m.deadline }),
+          });
+        })();
+      });
+    },
+    async send(to, text, opts): Promise<void> {
+      requireDelivered(await s.send(to, text, { relayed: true, kind: opts.kind, reply_to: opts.reply_to, ...(opts.status === undefined ? {} : { status: opts.status }) }), to);
+    },
+    async post(room: string, text: string): Promise<void> {
+      if (!joined.has(room)) {
+        await s.joinRoom(room);
+        joined.add(room);
+      }
+      await s.send(room, text, { relayed: true });
     },
   };
 }
