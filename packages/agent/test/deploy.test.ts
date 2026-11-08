@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, onTestFinished } from "vitest";
+import { loadConfig } from "../src/config.ts";
 
 const DEPLOY = join(dirname(fileURLToPath(import.meta.url)), "..", "deploy");
 const IMDS = join(DEPLOY, "wim-agent-imds-block");
@@ -417,8 +418,10 @@ describe.skipIf(!linux)("wim-agent-privileged-runner launcher", () => {
     const dir = scratch();
     const p = join(dir, "launcher");
     const text = readFileSync(join(DEPLOY, "wim-agent-privileged-runner"), "utf8");
-    expect(text).toMatch(/^WIM_AGENT_BIN=\/usr\/local\/bin\/wim-agent-privileged-runner$/m);
-    writeFileSync(p, text.replace(/^WIM_AGENT_BIN=.*$/m, "WIM_AGENT_BIN=/usr/bin/printenv"), { mode: 0o755 });
+    expect(text).toMatch(/^WIM_BIN=\/usr\/local\/bin\/wim$/m);
+    expect(text).toMatch(/^exec \/usr\/bin\/env -i "\$@" "\$WIM_BIN" worker privileged$/m);
+    // printenv prints nothing for the names "worker" and "privileged", so only the environment shows.
+    writeFileSync(p, text.replace(/^WIM_BIN=.*$/m, "WIM_BIN=/usr/bin/printenv").replace('"$WIM_BIN" worker privileged', '"$WIM_BIN"'), { mode: 0o755 });
     return p;
   }
   const sh = (p: string, args: string[], env: Record<string, string>) => {
@@ -602,6 +605,7 @@ describe("deploy kit static rules", () => {
 
   it("the peer runs as its own unprivileged user, and keeps what sudo needs", () => {
     const peer = read("systemd/wim-agent.service");
+    expect(peer).toMatch(/^ExecStart=\/usr\/local\/bin\/wim worker serve \/etc\/wim-agent\/agent\.json --as agents$/m);
     expect(peer).toMatch(/^User=wim-agent$/m);
     expect(peer).not.toMatch(/^User=root$/m);
     // NoNewPrivileges would stop sudo; an IMDS IPAddressDeny on the unit would also bind the
@@ -625,6 +629,19 @@ describe("deploy kit static rules", () => {
     expect(unit).toMatch(/^SuccessExitStatus=75$/m);
     expect(unit).toMatch(/^ExecStart=\/usr\/local\/sbin\/wim-agent-job %i$/m);
     expect(read("systemd/wim-agent-job@.timer")).toMatch(/^Unit=wim-agent-job@%i\.service$/m);
+  });
+
+  it("the example peer config is valid and is the privileged layout: no code, sudo with no extra argument", () => {
+    const cfg = loadConfig(JSON.parse(read("config/agent.json")));
+    expect(cfg.wake.mode).toBe("runner");
+    expect(cfg.runner.command).toBe("/usr/bin/sudo");
+    expect(cfg.runner.args).toEqual(["-n", "/usr/local/sbin/wim-agent-privileged-runner"]);
+    expect(cfg.runner.passEnv).toEqual(["PATH", "LANG"]);
+    const priv = JSON.parse(read("config/privileged.json")) as { timeoutSeconds: number; killGraceSeconds: number; allowLocal: boolean; profiles: Record<string, { tools: string[] }> };
+    // The runner's own timeout fires first, so the sender hears "timed out", not a kill.
+    expect(cfg.runner.timeoutSeconds).toBeGreaterThan(priv.timeoutSeconds + priv.killGraceSeconds);
+    expect(priv.allowLocal).toBe(false);
+    for (const p of Object.values(priv.profiles)) expect(p.tools).toEqual(["Read", "Grep", "Glob"]);
   });
 
   it("the runtime directory is closed to the peer user", () => {

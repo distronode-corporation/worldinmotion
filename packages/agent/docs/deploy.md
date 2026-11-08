@@ -2,18 +2,17 @@
 
 This guide takes a fresh Linux machine to a running agent: a wim session that sleeps until one of
 your devices messages it, runs one Claude Agent SDK job, and replies. Everything is configuration:
-the files you install come from this package's `deploy/` directory, and nothing needs editing
-beyond the values marked `REPLACE_...` and the paths you choose to change.
+the files you install come from `packages/agent/deploy/` in the release you install, and nothing
+needs editing beyond the values marked `REPLACE_...` and the paths you choose to change.
 
-> The package name, `@worldinmotion/agent`, and the `wim worker` command are working names until
-> the 0.2.1 release notes confirm them.
+> `wim worker` is a working name until the 0.2.1 release notes confirm it.
 
 ## What runs, and as whom
 
 | Piece | User | Holds | Can reach |
 |---|---|---|---|
 | the peer, `wim worker serve` (`wim-agent.service`) | `wim-agent` | its wim device keys | the relay; one root program through sudo |
-| the privileged runner (`wim-agent-privileged-runner`) | root, per job | the model credential or the means to mint one; the wake code | the cloud metadata service |
+| the privileged runner (`wim worker privileged`, through `/usr/local/sbin/wim-agent-privileged-runner`) | root, per job | the model credential or the means to mint one; the wake code | the cloud metadata service |
 | the worker (the Agent SDK job) | `wim-agent-worker` | a short-lived model token, for one job | the model API; read-only tools in its own directory |
 | scheduled jobs (`wim-agent-job@<job>`) | root, then the worker | whatever `collect` and `post` need | as their scripts decide |
 
@@ -45,18 +44,24 @@ stake.
 
 Run every command below as root unless it says otherwise.
 
-## 1. Install the packages
+## 1. Install wim and the kit
 
-Install root-owned, so neither agent user can change the code that root runs:
+`wim` is the one npm package, `worldinmotion`; the Agent SDK installs beside it, since `wim` does
+not carry it. Install both root-owned, so neither agent user can change the code root runs:
 
 ```sh
-npm install -g --prefix /usr/local @worldinmotion/client@0.2.1 @worldinmotion/agent@0.2.1 @anthropic-ai/claude-agent-sdk@0.3.310
-KIT="$(npm root -g --prefix /usr/local)/@worldinmotion/agent/deploy"
-ls "$KIT"
+npm install --global --prefix /usr/local worldinmotion@0.2.1 @anthropic-ai/claude-agent-sdk@0.3.310
+find "$(npm root --global --prefix /usr/local)" -perm /022 -not -type l   # must print nothing
 ```
 
-Check that nothing under the global `node_modules` is writable by group or other:
-`find "$(npm root -g --prefix /usr/local)" -perm /022 -not -type l` prints nothing.
+The kit is not in the npm package. Take it from the same release's tag, and check the commit
+against the one the release page names:
+
+```sh
+git clone --quiet --depth 1 --branch v0.2.1 https://github.com/distronode-corporation/worldinmotion.git /usr/local/src/worldinmotion-0.2.1
+git -C /usr/local/src/worldinmotion-0.2.1 rev-parse HEAD
+KIT=/usr/local/src/worldinmotion-0.2.1/packages/agent/deploy
+```
 
 ## 2. Create the two users
 
@@ -143,6 +148,14 @@ runuser -u wim-agent -- env HOME=/var/lib/wim-agent WIM_HOME=/var/lib/wim-agent/
 runuser -u wim-agent -- env HOME=/var/lib/wim-agent WIM_HOME=/var/lib/wim-agent/wim wim devices untrust <device-name>
 ```
 
+On each device that will send to the agent, trust the agent's device for relayed text. Its
+replies are marked relayed, and a device trusted only plainly holds relayed messages for approval,
+so without this the answers wait in `wim held`:
+
+```sh
+wim devices trust <device-name> --relayed
+```
+
 ## 6. Configure the peer
 
 ```sh
@@ -207,8 +220,9 @@ Install the root program the peer calls:
 install -o root -g root -m 0755 "$KIT/wim-agent-privileged-runner" /usr/local/sbin/wim-agent-privileged-runner
 ```
 
-It refuses any argument and starts the package's runner with a fixed environment (it keeps only
-sudo's own `SUDO_*` variables, which the runner uses to tell the peer from a local job).
+It refuses any argument and runs `/usr/local/bin/wim worker privileged` with a fixed environment
+(it keeps only sudo's own `SUDO_*` variables, which the runner uses to tell the peer from a local
+job). Change `WIM_BIN` in it if your npm prefix is not `/usr/local`.
 
 ## 8. Allow the one sudo command
 
@@ -241,8 +255,8 @@ The unit deliberately leaves out `NoNewPrivileges=yes` and every option that imp
 
 - `grep NoNewPrivs /proc/$(systemctl show -p MainPID --value wim-agent)/status` prints `0`.
 - `wim-agent-imds-block verify wim-agent wim-agent-worker` passes.
-- From an allowed device: `wim send agent@<device-name> "<code> what is in the work directory?" --wait 20m`
-  gets an answer marked as relayed, within the timeout (`agent` is the unit's `--as` name).
+- From an allowed device: `wim send agents@<device-name> "<code> what is in the work directory?" --wait 20m`
+  gets an answer marked as relayed, within the timeout (`agents` is the unit's `--as` name).
 - From an allowed device with a wrong code: "not accepted" (or nothing with `replies.refused`
   `"silent"`), and it counts against that device's hourly attempts.
 - From a device not on the list: nothing at all, and the journal says only that a sender was
@@ -289,10 +303,12 @@ On a machine of your own with no cloud identity, the peer can run the package's 
 directly, as one user with an API key:
 
 - skip the worker user, the privileged runner, `privileged.json` and the sudoers file;
-- in `agent.json`: `"runner": {"command": "/usr/local/bin/wim-agent-runner"}` (the default),
+- in `agent.json`: `"runner": {"command": "/usr/local/bin/wim", "args": ["worker", "runner", "--config", "/etc/wim-agent/runner.json"]}`
+  (the built-in runner; its `runner.json` is in the package README),
   `"wake": {"mode": "local", "codeFile": "/etc/wim-agent/wake-code"}` with the code file owned by
   `wim-agent` and `0400`, and `profiles` if you want a prefix;
-- put the key in a file only `wim-agent` can read, and point the runner at it as its README says;
+- put the key in a file only `wim-agent` can read (`0400`), and name it as `keyFile` in
+  `runner.json`;
 - in the unit, with `systemctl edit wim-agent.service`, turn on the sandboxing that sudo ruled out:
 
   ```ini
@@ -321,7 +337,10 @@ compromise of both. Keep the metadata block (step 3) for `wim-agent` all the sam
 ## Upgrading
 
 ```sh
-npm install -g --prefix /usr/local @worldinmotion/client@<version> @worldinmotion/agent@<version>
-diff -r "$KIT" /etc/systemd/system/   # read the release notes, then re-install changed kit files
-systemctl daemon-reload && systemctl restart wim-agent.service
+npm install --global --prefix /usr/local worldinmotion@<version>
+git clone --quiet --depth 1 --branch v<version> https://github.com/distronode-corporation/worldinmotion.git /usr/local/src/worldinmotion-<version>
+diff -ru /usr/local/src/worldinmotion-0.2.1/packages/agent/deploy /usr/local/src/worldinmotion-<version>/packages/agent/deploy
 ```
+
+Read the release notes and that diff, re-install the kit files that changed, then
+`systemctl daemon-reload && systemctl restart wim-agent.service`.

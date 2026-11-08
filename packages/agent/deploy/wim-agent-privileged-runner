@@ -12,9 +12,10 @@
 # started itself, and accepts the "local" sender only from the latter. Dropping
 # them here would let the peer pass as a local job.
 #
-# WIM_AGENT_BIN is the package's bin as `npm install -g` put it; change it here
-# if your npm prefix is not /usr/local.
-WIM_AGENT_BIN=/usr/local/bin/wim-agent-privileged-runner
+# WIM_BIN is the `wim` command as `npm install -g worldinmotion` put it; change
+# it here if your npm prefix is not /usr/local. The privileged runner is its
+# `worker privileged` subcommand, which also refuses any further argument.
+WIM_BIN=/usr/local/bin/wim
 if [ "$#" -ne 0 ]; then
   echo "wim-agent-privileged-runner: takes no arguments" >&2
   exit 2
@@ -25,4 +26,4 @@ for v in SUDO_UID SUDO_GID SUDO_USER SUDO_COMMAND; do
   # shellcheck disable=SC2154  # isset is assigned by the eval above.
   if [ -n "$isset" ]; then eval "set -- \"\$@\" \"$v=\${$v}\""; fi
 done
-exec /usr/bin/env -i "$@" "$WIM_AGENT_BIN"
+exec /usr/bin/env -i "$@" "$WIM_BIN" worker privileged
