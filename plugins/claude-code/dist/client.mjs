@@ -91221,9 +91221,10 @@ var Spool = class _Spool {
     return run;
   }
   /**
-   * Deletes taken items and returns them, so the caller can send their receipts. A relayed item
-   * is kept in the relayed box instead: the plugin never starts a turn for one, so it stays
-   * readable through `inbox` until an agent reads it or the person dismisses it.
+   * Deletes taken items and returns them, so the caller can send their receipts. A relayed item,
+   * or a quiet notice, is kept in the relayed box instead: nothing starts a turn for one, so it
+   * stays readable through `inbox` until an agent reads it or the person dismisses it, even when
+   * the cursor passed it for a later item that was pushed.
    */
   async sweep(alreadyRead = /* @__PURE__ */ new Set()) {
     const upto = await this.cursor();
@@ -91232,7 +91233,7 @@ var Spool = class _Spool {
       if (Number(NAME2.exec(name)[1]) > upto) break;
       const item = await this.read(join7(this.dir, name));
       if (item === BUSY) continue;
-      if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+      if ((item?.relayed === true || item?.quiet === true) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
         await writeJson(join7(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }
@@ -91241,7 +91242,7 @@ var Spool = class _Spool {
     }
     return gone;
   }
-  /** Relayed items the cursor passed but nobody has read, oldest first. One still busy is left out this time. */
+  /** Relayed items and quiet notices the cursor passed but nobody has read, oldest first. One still busy is left out this time. */
   async relayed() {
     return (await this.box()).items;
   }
@@ -94966,7 +94967,7 @@ ${frameEntry(entry)}`);
    * once it is shown, so what it could not show stays unread.
    */
   async markRead(items) {
-    for (const i6 of items) if (i6.relayed === true) this.readRelayed.add(i6.id);
+    for (const i6 of items) if (i6.relayed === true || i6.quiet === true) this.readRelayed.add(i6.id);
     const newest = Math.max(0, ...items.map((i6) => i6.cursor));
     if (newest > this.spool.taken) await this.take(newest);
     await this.spool.dismissRelayed([...this.readRelayed]);

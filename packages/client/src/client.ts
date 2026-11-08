@@ -2965,7 +2965,7 @@ export class MeshSession extends EventEmitter {
    */
   async markRead(items: readonly SpoolItem[]): Promise<void> {
     // Read here, so no sweep (this one or a concurrent pass) keeps them in the relayed box.
-    for (const i of items) if (i.relayed === true) this.readRelayed.add(i.id);
+    for (const i of items) if (i.relayed === true || i.quiet === true) this.readRelayed.add(i.id);
     const newest = Math.max(0, ...items.map((i) => i.cursor));
     if (newest > this.spool.taken) await this.take(newest);
     // A pass that was already writing one to the box when the read began is undone here.

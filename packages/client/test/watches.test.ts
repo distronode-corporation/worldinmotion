@@ -364,7 +364,9 @@ describe("relay idle notices", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     await session(devices[1]!, mesh, relay, { name: "b" });
-    const a = await session(devices[0]!, mesh, relay, { name: "a", answerMs: 300 });
+    // The session's clock moves only when the test moves it, so an arm leaves the in-flight list only then.
+    let t = Date.now();
+    const a = await session(devices[0]!, mesh, relay, { name: "a", answerMs: 300, now: () => t });
     const quiet = async (): Promise<SpoolItem[]> => (await noticeItems(a)).filter((i) => i.quiet === true);
     const said = async (): Promise<string[]> => (await quiet()).map((i) => i.rendered.slice(LINE.length));
     const unknown = (why: string): string => `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`;
@@ -376,7 +378,7 @@ describe("relay idle notices", () => {
     expect((await quiet())[0]).not.toHaveProperty("watched");
     expect(await said()).toEqual([`the idle notice for gone@two was not armed: ${NOT_FOUND}. No notice will come for it.`]);
     expect(await watched(a)).toEqual([]);
-    await sleep(350);
+    t += 350;
     // Two in flight: neither refusal says which, so both watches stay.
     await a.notifyWhenIdle(["c@two", "d@two"]);
     await until(async () => (await quiet()).length === 3);
@@ -398,10 +400,10 @@ describe("relay idle notices", () => {
     // Nothing in flight any more (answered or older than the answer time): a refusal cannot be placed.
     // A new arm forgets the arms older than the answer time too.
     await a.notifyWhenIdle(["b@two"]);
-    await sleep(350);
+    t += 350;
     await a.notifyWhenIdle(["b@two"]);
     expect([...(a as unknown as { armsInFlight: Map<string, number> }).armsInFlight.keys()]).toEqual(["b@two"]);
-    await sleep(350);
+    t += 350;
     relay.inject(mesh, refusal("limited"));
     await until(async () => (await quiet()).length === 7);
     expect((await said())[6]).toBe(unknown("this session already has 16 armed at the relay"));
@@ -496,5 +498,11 @@ describe("whether an idle notice may start a turn", () => {
     relay.inject(mesh, idle("b@two"));
     await until(() => pushed.length === 1);
     expect(pushed[0]).toMatchObject({ from: "b@two", watched: devices[1]!.device.id });
+    // Pushing b moved the cursor past the quiet one: the sweep keeps it in the box, and inbox still returns it, once.
+    await a.tick();
+    expect(await a.spool.unread()).toEqual([]);
+    expect((await a.inbox(false)).map((i) => i.rendered)).toEqual([`${LINE}q@three is now idle (or has ended).`]);
+    await a.tick();
+    expect(await a.inbox(false)).toEqual([]);
   });
 });
