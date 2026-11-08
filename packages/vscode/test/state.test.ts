@@ -194,6 +194,29 @@ describe("Store: queries", () => {
   });
 });
 
+describe("askAbout", () => {
+  it("is a device another device added (by id), held here, and not marked Not Mine", () => {
+    const s = mesh();
+    const none = new Set<string>();
+    const build = device("build", { added_by: "buildbox", added_by_id: "dev-buildbox" });
+    expect(s.askAbout(build, none)).toBe(true);
+    expect(s.askAbout(build, new Set(["dev-build"]))).toBe(false);
+    // This device admitted it, so its invite decided; who added it is not known; trusted; this device.
+    expect(s.askAbout(device("build", { added_by: "laptop", added_by_id: "dev-laptop" }), none)).toBe(false);
+    expect(s.askAbout(device("build"), none)).toBe(false);
+    expect(s.askAbout(device("build", { added_by_id: "dev-buildbox", policy: "deliver" }), none)).toBe(false);
+    expect(s.askAbout(device("laptop", { added_by_id: "dev-buildbox", self: true }), none)).toBe(false);
+    // Ids decide, never names: an adder that took this device's name is still another device, and
+    // one whose name differs but whose id is this device's is this device.
+    expect(s.askAbout(device("build", { added_by: "laptop", added_by_id: "dev-other-laptop" }), none)).toBe(true);
+    expect(s.askAbout(device("build", { added_by: "renamed", added_by_id: "dev-laptop" }), none)).toBe(false);
+    // A name alone, from an older client, asks nothing.
+    expect(s.askAbout(device("build", { added_by: "buildbox" }), none)).toBe(false);
+    // Before a snapshot named this device, nothing is asked.
+    expect(new Store().askAbout(build, none)).toBe(false);
+  });
+});
+
 describe("counterparts", () => {
   it("is the sender for in, and the to list (or the joined peer) for out", () => {
     expect(counterparts(message("a"))).toEqual(["coder@buildbox"]);
@@ -283,5 +306,18 @@ describe("toNotify", () => {
     s.apply({ type: "peer", at: NOW, session: { address: "bot@laptop", kind: "bot", status: "idle", since: NOW, rooms: [], local: true } });
     expect(toNotify(s, ev({ session: "bot@laptop" }), true)).toBeUndefined();
     expect(toNotify(s, ev({}), true)).toEqual(message("m"));
+  });
+});
+
+describe("heldSets", () => {
+  it("orders items of one millisecond by id, keeps a room copy's id once, and sets apart a row with no set", () => {
+    const s = mesh({ held: [heldRow("b", { set: "k" }), heldRow("a", { set: "k" }), heldRow("c", { set: "k" }), heldRow("b", { set: "k", session: "agent@laptop" }), heldRow("z")] });
+    const sets = s.heldSets();
+    expect(sets.map((x) => [x.key, x.ids])).toEqual([
+      ["k", ["a", "b", "c"]],
+      ["one\nvscode@laptop\nz", ["z"]],
+    ]);
+    expect(sets[0]!.rows).toHaveLength(4);
+    expect(sets[1]!.title).toBe("coder@buildbox");
   });
 });

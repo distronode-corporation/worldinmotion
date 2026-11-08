@@ -24,7 +24,7 @@ export function signerState(store: Store): SignerState | undefined {
 }
 
 const SIGNER = {
-  running: { part: "$(key)", line: "Signer: running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`." },
+  running: { part: "$(key)", line: "Signer: running. It keeps running after VS Code closes, and stops at log out or `wim signer stop`." },
   stopped: {
     part: "$(key) signer stopped",
     line: "Signer: not running. This device's keys are encrypted, so nothing here works until it runs. Click to start it in a terminal (it asks for the passphrase there).",

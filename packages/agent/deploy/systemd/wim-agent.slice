@@ -1,0 +1,18 @@
+# /etc/systemd/system/wim-agent.slice
+# Everything the agent runs lives here: the peer, the privileged runner it
+# starts through sudo (same cgroup), the worker, and scheduled jobs. Together
+# they can never take more than these caps, so the agent cannot starve the
+# host's own work. Tune them to the machine; under contention the low weights
+# make the host's other services win.
+[Unit]
+Description=wim agent (capped)
+Before=slices.target
+
+[Slice]
+MemoryHigh=1000M
+MemoryMax=1200M
+MemorySwapMax=0
+CPUQuota=100%
+CPUWeight=20
+IOWeight=20
+TasksMax=512

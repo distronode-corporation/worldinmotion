@@ -279,8 +279,8 @@ describe("the signer step", { timeout: 60_000 }, () => {
             await run.open();
             const sig = await run.device("sig");
             await run.ok(sig, ["init", "--name", "sig"]);
-            await run.ok(sig, ["agent", "encrypt"]);
-            signer = (await run.background(sig, ["agent", "start", "--foreground"], /Signer running in the foreground/)).done;
+            await run.ok(sig, ["signer", "encrypt"]);
+            signer = (await run.background(sig, ["signer", "start", "--foreground"], /Signer running in the foreground/)).done;
             throw new Error("it broke");
           },
         },

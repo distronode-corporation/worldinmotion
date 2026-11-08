@@ -1,6 +1,9 @@
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { npmLayout } from "../packages/client/src/npxsetup.ts";
 
 // packaging/npm is the `worldinmotion` package that release.yml's npm job publishes with
 // provenance: the bundled client and nothing else to run. These are the properties that make
@@ -24,11 +27,18 @@ describe("the worldinmotion npm package", () => {
     expect((client.bin as Record<string, string>).wim).toBe("./dist/wim.mjs");
   });
 
+  it("puts wim.mjs where `npx worldinmotion setup` runs it from after a global install", () => {
+    // npxsetup.ts runs <global node_modules>/worldinmotion/wim.mjs: the package's name and its one bin.
+    const bin = (pkg.bin as Record<string, string>).wim!;
+    expect(join(npmLayout("/usr/local", "linux").modules, pkg.name as string, bin)).toBe(join("/usr/local/lib/node_modules/worldinmotion/wim.mjs"));
+    expect(pkg.files).toContain(bin);
+  });
+
   it("ships the bundle with no dependencies to install", () => {
     for (const field of ["dependencies", "optionalDependencies", "peerDependencies", "bundleDependencies"]) {
       expect(pkg[field]).toBeUndefined();
     }
-    expect(pkg.files).toEqual(["wim.mjs", "LICENSE", "NOTICE", "README.md"]);
+    expect(pkg.files).toEqual(["wim.mjs", "agent-kit", "LICENSE", "NOTICE", "README.md"]);
   });
 
   it("supports the same Node as the client", () => {
@@ -52,5 +62,31 @@ describe("the worldinmotion npm package", () => {
     expect(extension.name).toBe("worldinmotion");
     expect(extension.private).toBe(true);
     expect(json("package.json").workspaces).toEqual(["packages/*"]);
+  });
+});
+
+describe("the deployment kit in the npm package", () => {
+  it("is copied in by the release, from the tagged sources", () => {
+    const release = readFileSync(join(root, ".github", "workflows", "release.yml"), "utf8");
+    expect(release).toContain("node packaging/npm/agent-kit.mjs");
+    expect(readFileSync(join(root, ".gitignore"), "utf8")).toContain("packaging/npm/agent-kit/");
+  });
+
+  it("holds every file of the kit, modes kept, where `wim agent init --kit` looks (agent-kit/ beside wim.mjs)", () => {
+    const base = process.env["WIM_TEST_TMP"] || tmpdir();
+    mkdirSync(base, { recursive: true });
+    const out = mkdtempSync(join(base, "wim-npm-kit-"));
+    try {
+      const to = join(out, "agent-kit");
+      execFileSync(process.execPath, [join(root, "packaging", "npm", "agent-kit.mjs"), to], { stdio: "pipe" });
+      const walk = (d: string, rel = ""): string[] =>
+        readdirSync(join(d, rel), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(d, join(rel, e.name)) : [join(rel, e.name)]));
+      const kit = join(root, "packages", "agent");
+      const want = [...walk(kit, "deploy"), join("docs", "deploy.md"), join("docs", "privileged-runner.md")].sort();
+      expect(walk(to).sort()).toEqual(want);
+      for (const f of want) expect(statSync(join(to, f)).mode & 0o777).toBe(statSync(join(kit, f)).mode & 0o777);
+    } finally {
+      rmSync(out, { recursive: true, force: true });
+    }
   });
 });

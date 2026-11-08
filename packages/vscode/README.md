@@ -4,7 +4,7 @@ See and act on your [worldinmotion](https://github.com/distronode-corporation/wo
 sessions on it, their rooms and leases, the messages held for you, and a live view of who is
 talking to whom.
 
-> **Status: preview, v0.1.** Published as a pre-release. It works end to end, but the
+> **Status: preview, before v1.0.** Published as a pre-release. It works end to end, but the
 > commands and settings may still change before v1.0.
 
 ## Install
@@ -28,9 +28,21 @@ An activity bar container, **worldinmotion**, with four views:
   the thread with it.
 - **Rooms:** each room and its members.
 - **Leases:** each lease, its holder and the time left. The lease token is never shown.
-- **Held:** messages held for you, with **Approve** and **Refuse** buttons on each row. A
-  message held by two of this device's sessions shows once for each; deciding it decides
-  every copy.
+- **Held:** messages held for you, grouped under the device (or CI rule) that sent them, with
+  **Approve** and **Refuse** on each group and each row. Either opens the held-set dialog (below).
+  A message held by two of this device's sessions shows once for each; deciding it decides every
+  copy.
+
+**The held-set dialog.** Approve or Refuse opens a modal that lists everything held from that
+sender, in order, with the count and the time span. **Approve all** (or **Refuse all**) decides
+exactly what it listed: anything held from that sender after the dialog opened stays held for the
+next look. **Approve only this one** (or **Refuse only this one**) is offered when you started from
+a row. The default button, the one Enter presses, is **Keep them held**, and Escape cancels, so
+deciding is always a deliberate click. A CI notice whose approval pins its rule's ids is left out
+of Approve all and is approved only in a terminal (refusing the set covers it). When this device's
+keys are in the signer, a notification shows a six-digit code and the signer asks you to confirm in
+its own terminal or dialog: confirm only if it shows the same code. The extension waits up to 7
+minutes for that answer.
 
 A status bar item shows the connection state and the number of unread and held messages. Click
 it to open **Activity**, a view in the panel with:
@@ -47,35 +59,56 @@ Commands, in the editor and explorer context menus and the command palette:
 | Command | What it does |
 |---|---|
 | Send Message... | Sends a line you type to a session or room you pick (also a button on the Mesh view). |
-| Add a Device... / Admit a Device... / Join a Mesh... | Makes an invite, admits a device that asked to join (you type its comparison code), or joins this device to a mesh with a code. |
-| Start Signer | Runs `wim agent start` (or `unlock`) in a terminal. |
+| Create a Mesh... / Join with a Code... | On a device in no mesh yet (also buttons in the empty Mesh view): makes a mesh with this device as its admin, or joins one with an invite code. |
+| Add a Device... / Admit a Device... | Asks whose device it is (yours: it is trusted here once admitted; another person's: its messages stay held), makes an invite, or admits a device that asked to join (you type its comparison code). |
+| Review Trust... | Lists the other devices with their policy and who added them; offers Trust... and Not Mine for one held here, Untrust for a trusted one. |
+| Start Signer | Runs `wim signer start` (or `unlock`) in a terminal. |
 | Run Self-Test | Runs `wim test --json` with this window's client: throwaway devices and a relay on loopback, all removed at the end. A notification shows it running (Cancel asks the client to stop and remove what it made; the extension kills it if it has not exited after 10 seconds, and a later run removes what that left behind after a day); then a message says whether it passed, naming the first failed step, and **Show Steps** opens the **worldinmotion self-test** output with one row per step. Your device and meshes are not touched. |
 | Send Selection to... | Sends the selected text, headed with `path:startLine-endLine`, to a session or room you pick. |
 | Ask a Peer about the Selection... | Sends it as a `task`, with an optional question first. |
 | Send File to... | Sends a file from this machine with `send_file`. |
 | Open Thread | Shows the conversation with a peer as plain text in a read-only editor. |
-| Approve / Refuse | Decides a held message. |
+| Approve / Refuse | Opens the held-set dialog: everything held from that sender, then all of it or only the row you started from. |
 | Trust / Trust (including relayed text) / Untrust | On a device in the Mesh view; asks you to confirm the new policy first. |
 | Resume | On a session the breaker paused. |
 | Show Client Log / Restart Client | The client's log lines, and a fresh start. |
+| Show Activity / Refresh | Opens the Activity view; reads the mesh again. |
+| Turn Crash Reports On... / Turn Crash Reports Off | Opens a terminal running `wim crash-reports on` or `off` (see Safety model). |
 
 ## Set up this device
 
-The extension needs a device that is already on a mesh. Setting one up is a terminal step, in a
-terminal you opened yourself (Terminal > New Terminal), and the extension does not put a `wim`
-command on your `PATH`:
+VS Code alone needs no npm and no terminal command: the extension runs its own copy of the client.
+On a device in no mesh yet, the Mesh view is a welcome view: "This device is in no mesh yet. A mesh
+is the set of devices whose AI sessions can message each other, end to end encrypted.", with
+**Create a Mesh** and **Join with a Code** buttons (on another machine of yours, choose Join with a
+Code).
 
-1. [Terminal] Install `wim` (Node.js 22.18 or newer): `npm install --global worldinmotion`. If
-   `wim` is then not found, npm's global bin is not on your `PATH`:
-   `export PATH="$(npm prefix -g)/bin:$PATH"` (and add that line to your shell's profile).
-   Without npm, download `wim.mjs` from the [GitHub Release](https://github.com/distronode-corporation/worldinmotion/releases),
-   check it against `SHA256SUMS`, and run it as `node wim.mjs`.
-2. [Terminal] Run `wim init --name <device> --relay <url>` for a new mesh, or
-   `wim join <invite code>` to join one. [VS Code] To join, **worldinmotion: Join a Mesh...**
-   takes the invite code in a password field instead.
-3. [VS Code] Run **worldinmotion: Restart Client** from the command palette.
+- **Create a Mesh** (the first machine): name this device (its sessions get addresses like
+  `vscode@laptop`), pick a relay (the hosted relay, `wss://worldinmotion.distronode.com`, free
+  during the preview with no sign-up, or another relay's URL), and confirm in a dialog that names
+  the relay. Next comes the mesh's **recovery code**, shown once. It is as powerful as this
+  device, so it never appears in VS Code itself: **Show Recovery Code** opens a terminal running
+  `wim recovery show --wait`, which shows it until you press Enter. Keep it offline (a password
+  manager or paper), never in a chat. It waits 10 minutes; if nobody collects it, it is gone,
+  and `wim recovery rotate` in a terminal makes a new one. The extension then restarts its client
+  in the new mesh.
+- **Join with a Code** (each other machine): choose **I have an invite code** and paste the
+  `wim2-...` code from **Add a Device...** (or `wim invite`) on a device in the mesh, in a password
+  field. This device then shows its comparison code, which you type on that device. Once admitted,
+  the extension asks whether the device that admitted it is your own, then about each other device
+  on its own (Trust or Not Mine). The other way, a pairing code this device shows, is not in this
+  version yet.
 
-Until then the Mesh view says the device is not set up, with these steps. The repository's
+A device another device adds later is never trusted because that device is: a notification asks
+"laptop added build to this mesh. Is build your own device?" with **Trust...** and **Not Mine**
+(kept on this machine), and **Review Trust...** shows them all again.
+
+To use `wim` in a terminal as well (Node.js 22.18 or newer): `npm install --global worldinmotion`.
+If `wim` is then not found, npm's global bin is not on your `PATH`:
+`export PATH="$(npm prefix -g)/bin:$PATH"` (and add that line to your shell's profile). Without
+npm, download `wim.mjs` from the [GitHub Release](https://github.com/distronode-corporation/worldinmotion/releases),
+check it against `SHA256SUMS`, and run it as `node wim.mjs`. `wim init` and `wim join` in a
+terminal set a device up too; then run **worldinmotion: Restart Client**. The repository's
 [README](https://github.com/distronode-corporation/worldinmotion#first-run-three-machines-one-person)
 walks through three machines end to end.
 
@@ -113,6 +146,10 @@ client exits, the extension restarts it, waiting longer after each failure (1 s 
   checked against what the extension knows before anything happens.
 - **Threads are read-only text.** Each message's text is indented under a header line the
   extension writes, so a peer cannot fake one, and links are turned off in that editor.
+- **Creating and joining a mesh are yours.** They run only from the welcome buttons or a command
+  you run, ask for your typed answers and a click in a modal, and the client refuses them when it
+  was started with an agent's variables. The recovery code is shown only by `wim recovery show`
+  in a terminal you open, never in a view, notification or the client log.
 - **Approve, refuse, trust, untrust and resume are yours.** They run only from a click in a view
   or a command you run. They accept only items from the extension's own views, so nothing in a
   message, and no look-alike argument from elsewhere, can trigger one. Trust changes ask you to

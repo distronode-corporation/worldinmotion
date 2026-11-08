@@ -17,7 +17,10 @@ How a release reaches each install channel. Every channel carries the same clien
 
 The package `worldinmotion` is `wim.mjs` and its licence files, with one bin, `wim`, and no
 dependencies. With a single bin, `npx worldinmotion <command>` runs it, and a global install
-puts `wim` on the `PATH`.
+puts `wim` on the `PATH`. `npx worldinmotion setup` is `wim setup`: run from npx's cache, it
+installs this same version globally (`npm install --global worldinmotion@<version>`, after a typed
+`y`) and runs `wim setup` again from `<prefix>/lib/node_modules/worldinmotion/wim.mjs`
+(`<prefix>\node_modules\worldinmotion\wim.mjs` on Windows), the path agent configs then name.
 
 It is not a workspace package, for two reasons:
 

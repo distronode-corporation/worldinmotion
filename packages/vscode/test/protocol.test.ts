@@ -118,7 +118,29 @@ describe("parseLine: events", () => {
     expect(ev({ type: "setup", version: "1", device: { name: "x", id: "y" } })).toEqual({ type: "setup", at: 5, version: "1", device: { name: "x", id: "y" } });
     expect(invalid({ type: "setup", version: "1", device: "x" })).toBe("setup: device is not an object");
     expect(ev({ type: "joined", mesh: "ab…", devices: [{ name: "x", id: "y", role: "admin" }] })).toEqual({ type: "joined", at: 5, mesh: "ab…", devices: [{ name: "x", id: "y" }] });
+    // From 0.2.0: who admitted this device, and who added each other device when the client knows.
+    expect(ev({ type: "joined", mesh: "ab…", admitted_by: { name: "x", id: "y" }, devices: [{ name: "x", id: "y" }, { name: "z", id: "w", added_by: "x" }] })).toEqual({
+      type: "joined",
+      at: 5,
+      mesh: "ab…",
+      admitted_by: { name: "x", id: "y" },
+      devices: [{ name: "x", id: "y" }, { name: "z", id: "w", added_by: "x" }],
+    });
+    expect(invalid({ type: "joined", mesh: "ab…", admitted_by: "x", devices: [] })).toBe("joined: device is not an object");
+    expect(ev({ type: "joined", mesh: "ab…", admitted_other: { name: "b", id: "c", reason: "not_issuer" }, devices: [{ name: "b", id: "c", added_by_id: "d" }] })).toMatchObject({
+      admitted_other: { name: "b", id: "c", reason: "not_issuer" },
+      devices: [{ name: "b", id: "c", added_by_id: "d" }],
+    });
+    expect(invalid({ type: "joined", mesh: "ab…", admitted_other: { name: "b", id: "c", reason: "maybe" }, devices: [] })).toBe("joined: reason is not one of not_issuer, no_issuer");
+    expect(ev({ type: "join", op: "add", request: { name: "n", id: "d1", invite: "i1", at: 3, exp: 9, own: true } })).toMatchObject({ request: { own: true } });
+    expect(invalid({ type: "join", op: "add", request: { name: "n", id: "d1", invite: "i1", at: 3, exp: 9, own: "yes" } })).toBe("join: own is not a boolean");
+    expect(invalid({ type: "joined", mesh: "ab…", devices: [{ name: "z", id: "w", added_by: 3 }] })).toBe("joined: added_by is not a string");
+    expect(ev({ type: "device", name: "z", id: "w", role: "member", policy: "hold", self: false, added_by: "x" })).toMatchObject({ device: { added_by: "x" } });
+    expect(invalid({ type: "device", name: "z", id: "w", role: "member", policy: "hold", self: false, added_by: null })).toBe("device: added_by is not a string");
     expect(ev({ type: "join_failed", message: "gone" })).toEqual({ type: "join_failed", at: 5, message: "gone" });
+    expect(ev({ type: "created", mesh: "ab…", recovery: "shown" })).toEqual({ type: "created", at: 5, mesh: "ab…", recovery: "shown" });
+    expect(ev({ type: "created", mesh: "ab…", recovery: "not_collected" })).toMatchObject({ recovery: "not_collected" });
+    expect(parseLine(JSON.stringify({ v: 1, type: "created", at: 5, mesh: "ab…", recovery: "maybe" }))).toMatchObject({ kind: "invalid" });
   });
 
   it("refuses a snapshot with a bad list or row", () => {

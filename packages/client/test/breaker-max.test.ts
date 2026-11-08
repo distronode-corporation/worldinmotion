@@ -195,7 +195,8 @@ describe("L1 (continued)", () => {
     sp.write = async (i) => { if (fail && i.kind === "msg") { fail = false; throw enospc(); } return write(i); };
     await fs.mkdir(b.files.controlDir, { recursive: true });
     await fs.writeFile(`${b.files.controlDir}/resume-a@one`, "");
-    await until(() => lines.some((l) => l.startsWith("wim: housekeeping: ENOSPC")));
+    // Each item is released on its own: the one that failed is logged and stays held.
+    await until(() => lines.some((l) => /^wim: held message [0-9A-Z]{26}: .*ENOSPC.*; it stays held$/.test(l)));
     expect((await b.held.list()).map((h) => h.entry.text)).toEqual(["2"]);
   }, 30_000);
 });
@@ -236,9 +237,12 @@ describe("L4", () => {
     await b.resumePeer("a@one");
     await a.send("b@two", "a2");
     await until(async () => (await b.held.list()).length === 1 && b.pausedRows().length === 1);
-    await sleep(300);
+    // b has finished with a2, so it has told a of the new pause (which drops the owed lift); the
+    // held item is written before that, so it alone does not say so (seen once on windows-2025).
+    await handled(a, b, "b@two");
     await b.tick();
-    await sleep(300);
+    // Everything b sent a before this, a lift from that pass included, has been handled.
+    await handled(b, a, "a@one");
     expect(await pausedByCount(a)).toBe(1);
     expect((await a.send("b@two", "a3")).results[0]!.status).toBe("held");
   }, 30_000);
@@ -256,13 +260,13 @@ describe("L5", () => {
     const append = h.append.bind(b.history);
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
-    h.append = async (e) => { if (e.text === "slow") await gate; return append(e); };
+    let stuck = false;
+    h.append = async (e) => { if (e.text === "slow") { stuck = true; await gate; } return append(e); };
     await a.send("b@two", "slow");
-    await sleep(100);
+    await until(() => stuck, 10_000, "the slow frame waits on the inbound queue");
     const one = (await unread(b)).find((i) => i.id === sent.id)!;
     await b.spool.take(one.cursor);
-    await sleep(1000);
-    const delivered = (a.receipts.get(sent.id) ?? []).some((r) => r.status === "delivered");
+    const delivered = await until(() => (a.receipts.get(sent.id) ?? []).some((r) => r.status === "delivered"), 10_000, "the delivered receipt").then(() => true, () => false);
     release();
     expect(delivered).toBe(true);
   }, 30_000);

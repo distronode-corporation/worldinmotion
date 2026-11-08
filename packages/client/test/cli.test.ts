@@ -2,9 +2,9 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
-import { main, parseArgs, parseDuration, toName, USAGE } from "../src/cli.ts";
+import { main, OWN_QUESTION, parseArgs, parseDuration, toName, USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
-import { inviteCodeOf, makeMesh, POSIX_VIEW, RELAY, RelayHarness, run, said, sasOf, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
+import { framedText, inviteCodeOf, makeMesh, POSIX_VIEW, RELAY, RelayHarness, run, said, sasOf, scratch, sessionOpts, sleep, term, until } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -50,7 +50,8 @@ describe("setting up", () => {
     const b = term(await scratch("cli-b"), relay);
     // A wrong code is asked again; the code typed in lower case without its dash is accepted. The
     // admin never shows the code itself: the person reads it on the new device.
-    a.answers.push("AAAAA-AAAAA", () => sasOf(b).toLowerCase().replace("-", ""), "n");
+    // Not one of the person's own devices: asked before the code is shown, so nothing after the admit.
+    a.answers.push("n", "AAAAA-AAAAA", () => sasOf(b).toLowerCase().replace("-", ""));
     const inviting = run(a, "invite", "--exp", "1h");
     await until(() => a.out.some((l) => l.includes("wim1_")));
     expect(said(a)).toContain("On the new device, in a terminal: `wim join <code>`");
@@ -61,12 +62,15 @@ describe("setting up", () => {
     expect(said(a)).toMatch(/A device named my-host-local \(id \S+\) asks to join/);
     expect(said(a)).toMatch(/that is not this request's code/);
     expect(said(a)).toMatch(/Admitted my-host-local/);
-    expect(said(a)).toContain("Is my-host-local your own device? Trust its messages here? [y/N] ");
+    expect(said(a)).toContain(OWN_QUESTION);
+    expect(said(a).indexOf(OWN_QUESTION)).toBeLessThan(said(a).indexOf("wim1_"));
+    expect(said(a)).not.toContain("Is my-host-local your own device?");
+    expect(said(a)).not.toContain("This invite was for one of your own devices");
     expect(said(a)).toContain("Messages from my-host-local are held for your approval. If it is your own: wim devices trust my-host-local");
     expect(said(b)).toMatch(/Joined mesh/);
     expect(said(b)).toContain(`wim devices admit my-host-local ${sas}`);
     // The joiner was asked about the admin and said nothing: held.
-    expect(said(b)).toContain("Is laptop your own device?");
+    expect(said(b)).toContain("laptop admitted this device. Is laptop your own device? [y/N] ");
     expect(said(b)).toContain("Messages from laptop are held for your approval.");
 
     // devices: list, trust, trust --relayed, untrust, errors
@@ -94,7 +98,7 @@ describe("setting up", () => {
     const a = term(await scratch("cli-a"), relay);
     await run(a, "init", "--name", "laptop", "--relay", RELAY, "--no-recovery");
     const b = term(await scratch("cli-b"), relay);
-    a.answers.push("n");
+    a.answers.push("n", "n");
     const inviting = run(a, "invite", "--exp", "3s");
     await until(() => a.out.some((l) => l.includes("wim1_")));
     const code = a.out.find((l) => l.includes("wim1_"))!.trim();
@@ -204,10 +208,13 @@ describe("using a mesh", () => {
     await until(async () => (await s.held.list()).length === 2);
     await s.stop();
     expect(await run(b, "held", "list")).toBe(0);
-    const ids = b.out.filter((l) => / -> inbox /.test(l)).map((l) => l.split(" ")[0]!);
+    const ids = b.out.filter((l) => / -> inbox /.test(l)).map((l) => l.trim().split(" ")[0]!);
     expect(ids.length).toBe(2);
-    b.answers.push("y", "y");
+    expect(said(b)).toMatch(/held from device one \(device id [^)]+\): 2 messages, from \S+ to \S+/);
+    // Two from one device are one set: `one` decides only the item named, after both were shown.
+    b.answers.push("one", "y", "y");
     expect(await run(b, "held", "approve", ids[0]!)).toBe(0);
+    expect(said(b)).toContain(`Type all to approve all 2, or one to approve only ${ids[0]!} [all/one/N] `);
     expect(said(b)).toContain(`Held message ${ids[0]!}:`);
     expect(said(b)).toContain("  from     cli@one (device id ");
     expect(said(b)).toContain("  for      inbox on this device");
@@ -225,7 +232,7 @@ describe("using a mesh", () => {
     expect(said(b)).toContain("Resuming cli@one lifts the loop breaker's pause on device one and releases what it held from there (0 now on disk):");
     expect(await run(b, "held", "shrug", "x")).toBe(1);
     const back = await MeshSession.open({ ...sessionOpts(devices[1]!, mesh, relay, { name: "inbox" }), sessionKey: "key:inbox" });
-    expect((await back.spool.unread()).filter((i) => i.kind === "msg").map((i) => i.rendered.includes("first"))).toEqual([true]);
+    expect((await back.spool.unread()).filter((i) => i.kind === "msg").map((i) => framedText(i.rendered))).toEqual(["first"]);
     await back.stop();
   }, 20_000);
 

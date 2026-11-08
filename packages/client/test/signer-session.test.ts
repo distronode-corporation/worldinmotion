@@ -1,5 +1,5 @@
 // End to end through the signer: a device whose key file is encrypted runs sessions whose every
-// secret-key operation is a call to `wim agent`, against the in-process relay. Lock, unlock,
+// secret-key operation is a call to `wim signer`, against the in-process relay. Lock, unlock,
 // fallback to a plaintext key file, require_signer, and the way back (decrypt).
 
 import { b64u, createPrekey, generateDeviceKeys, randomBytes, sealMessage, type PrekeyBox, type SendFrame } from "@worldinmotion/protocol";
@@ -17,7 +17,7 @@ import { localDeviceKeyring, NeedsSigner } from "../src/keyring.ts";
 import { MeshFiles } from "../src/mesh.ts";
 import { SignerError } from "../src/signer.ts";
 import { openKeyFile, sealKeyFile } from "../src/vault.ts";
-import { FS, keysOf, makeMesh, newDevice, openSession, RelayHarness, until as untilEvent, type TestDevice } from "./helpers.ts";
+import { framedText, FS, keysOf, makeMesh, newDevice, openSession, RelayHarness, until as untilEvent, type TestDevice } from "./helpers.ts";
 
 // Every wait here is for an event (a delivery, a reconnect) polled every 5 ms, never a fixed sleep.
 // These tests run real meshes, signers and key files, so a loaded machine (seen on the iMac) can
@@ -294,7 +294,7 @@ describe("sessions through the signer", () => {
     }
     // Two copies were handled: the old connection's acks nothing, the new one's (a repeat, dropped) acks once.
     expect(acks().length - before).toBe(1);
-    expect((await a.spool.unread()).filter((i) => i.rendered.includes("once"))).toHaveLength(1);
+    expect((await a.spool.unread()).filter((i) => framedText(i.rendered) === "once")).toHaveLength(1);
   });
 
   it("a parked retry the locked signer refuses is neither lost nor left unhandled", async () => {
@@ -425,7 +425,7 @@ describe("sessions through the signer", () => {
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const one = devices[0]!;
     const { server } = await underSigner(one);
-    await expect(decryptDevice(one.home, PASS)).rejects.toThrow(/wim agent stop/);
+    await expect(decryptDevice(one.home, PASS)).rejects.toThrow(/wim signer stop/);
     await server.close();
     const files = new MeshFiles(one.home.meshDir(mesh), FS);
     // A sealed entry that no longer opens, and one that is not a prekey, are dropped on the way.
@@ -451,7 +451,7 @@ describe("loading the device: fallback and require_signer", () => {
   it("a plaintext key file is used as before, unless the signer is required", async () => {
     const d = await newDevice("plain");
     expect((await d.home.loadDevice())!.keyring.kind).toBe("local");
-    await expect(new Home(d.home.root, { ...d.home.env, requireSigner: true }).loadDevice()).rejects.toThrow(/requires the signer.*wim agent encrypt/);
+    await expect(new Home(d.home.root, { ...d.home.env, requireSigner: true }).loadDevice()).rejects.toThrow(/requires the signer.*wim signer encrypt/);
     await writeAgentSettings(d.home.root, { require_signer: true }, FS);
     await expect(d.home.loadDevice()).rejects.toThrow(/requires the signer/);
   });
@@ -463,7 +463,7 @@ describe("loading the device: fallback and require_signer", () => {
     await expect(encryptDevice(d.home, PASS, KDF)).rejects.toThrow(/already encrypted/);
     // The endpoint is known (on Windows: the pipe token exists) and nothing listens there.
     await agentEndpoint(d.home.root, d.home.env, true);
-    await expect(d.home.loadDevice()).rejects.toThrow(/no signer is running: run `wim agent start`/);
+    await expect(d.home.loadDevice()).rejects.toThrow(/no signer is running: run `wim signer start`/);
     await fs.rm(agentDir(d.home.root), { recursive: true });
     await expect(d.home.loadDevice()).rejects.toThrow(/no signer is running/);
     // A signer for another device answers at this device's endpoint.
@@ -484,7 +484,7 @@ describe("loading the device: fallback and require_signer", () => {
     const locked = new AgentServer({ signer: mine, endpoint: at, files: endpointFiles(process.platform) });
     await locked.listen();
     cleanup.push(() => locked.close());
-    await expect(d.home.loadDevice()).rejects.toThrow(/the signer is locked: run `wim agent unlock`/);
+    await expect(d.home.loadDevice()).rejects.toThrow(/the signer is locked: run `wim signer unlock`/);
   });
 
   it("refuses a malformed encrypted key file and one with no device", async () => {

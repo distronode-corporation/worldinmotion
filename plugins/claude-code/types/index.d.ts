@@ -12,6 +12,11 @@ export type WimLink = {
   held?: string
   /** Where the person's dismiss marks for relayed items go. */
   dismiss?: string
+  /**
+   * The device's keys are in the signer: a mark is no decision then (the client refuses it), so
+   * the pane's buttons say where to decide instead.
+   */
+  isSigned?: boolean
 }
 
 /** One delivered spool item, as the pane lists it. */
@@ -47,8 +52,9 @@ export type WimKept = {
 }
 
 /**
- * An item a bot, CI or gateway relayed for a device. It never starts a turn:
- * the pane lists it, and the person may hand it to the session.
+ * An item that never starts a turn: one a bot, CI or gateway relayed for a
+ * device, or a quiet notice (`isQuiet`). The pane lists it, and the person may
+ * hand it to the session.
  */
 export type WimRelayed = {
   name: string
@@ -62,6 +68,12 @@ export type WimRelayed = {
   isShown: boolean
   /** True once a dismiss mark told the client the person is done with it. */
   isDismissed: boolean
+  /**
+   * A notice the client spooled `quiet` (an idle notice that may not wake, a lapsed watch, a
+   * refused arm): listed apart from relayed items. Absent on a value stored before it existed,
+   * which was a relayed item.
+   */
+  isQuiet?: true
 }
 
 export type WimPeer = {
@@ -82,7 +94,18 @@ export type WimHeld = {
   preview: string
   /** Held by the loop breaker (not by policy): the pane also offers to resume its device. */
   isBreaker: boolean
+  /** The set it is decided with (one per sending device or CI rule); an older client's item is a set of its own. */
+  set: string
+  /** Who that set is from. */
+  setTitle: string
+  /** A CI notice: what its job claimed. */
+  ci?: string
+  /** A CI notice whose approval pins its rule's ids: those ids. It is approved only on its own, in a terminal. */
+  pins?: string
 }
+
+/** Held items decided together, oldest first; `ids` has each message once. */
+export type WimHeldSet = { key: string; title: string; items: WimHeld[]; first: number; last: number }
 
 /** A loop breaker pause the client reports: who tripped it, the rule with its numbers, and how it ends. */
 export type WimPaused = { from: string; why: string; ends: string }
@@ -118,8 +141,10 @@ declare module 'claude-code' {
       busy: boolean
       /** The running main-loop turn was started by the plugin with a mesh item. */
       meshTurn: boolean
-      /** Mesh items submitted whose turn has not started yet. */
-      pendingSubmits: Shaped<string[]>
+      /** Mesh items submitted whose turn has not started yet, with when each was submitted. */
+      pendingSubmits: Shaped<{ text: string; at: number }[]>
+      /** When the last main-loop turn ended. */
+      idleSince: number
       late: Shaped<WimLate[]>
       /** Spool items whose turn was dropped, waiting for a turn end to hand them over. */
       kept: Shaped<WimKept[]>

@@ -273,7 +273,7 @@ describe("Signer", () => {
     await m.signer.handle("lock", {});
     expect(m.signer.locked).toBe(true);
     expect(await code(m.signer.handle("prekey", { mesh: MESH, at: T }))).toBe("locked");
-    // Unlocking is a new signer (`wim agent unlock` restarts it): there is no such operation.
+    // Unlocking is a new signer (`wim signer unlock` restarts it): there is no such operation.
     expect(await code(m.signer.handle("unlock", { passphrase: "pass phrase" }))).toBe("bad_request");
     expect(m.signer.locked).toBe(true);
     const s = await m.signer.handle("status", {});

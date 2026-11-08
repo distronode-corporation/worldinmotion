@@ -10,6 +10,7 @@ import {
   isRecoveryName,
   isRoom,
   isVectorKey,
+  knownIdleWhy,
   leaseKey,
   LIMITS,
   openBlob,
@@ -23,12 +24,14 @@ import {
   signAuthWith,
   ulid,
   ulidTime,
+  isUlid,
   type BlobChunkFrame,
   type ErrorFrame,
   type Card,
   type CiClaims,
   type CiNotice,
   type FileInfo,
+  type IdleWhy,
   type JwksFetch,
   type JoinBody,
   type LeaseFrame,
@@ -60,23 +63,25 @@ import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciL
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
-import { HeldBox, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
-import { frameEntry, History, releasedFrame, type HistoryEntry } from "./history.ts";
+import { checkDecision, covers, DECISION_SKEW_MS, DECISION_TTL_MS, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
+import { HeldBox, useDecision, preview, takeMarks, type HeldItem, type KeylessFile, type Mark, type Verdict } from "./held.ts";
+import { frameEntry, History, KEEP_MS, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
 import { RosterBook, type MeshConfig, type MeshFiles, type Policy } from "./mesh.ts";
 import { resumeEverywhere } from "./offline.ts";
 import { PausedBy, readBreakerFile, savePauses, SentTo, type PausedByEntry, type PauseRow } from "./pauses.ts";
 import type { Notifier } from "./notify.ts";
+import { countDropped, droppedNotice, droppedPath, refusedLine, refusesLegacy, skippedNote } from "./legacyboxes.ts";
 import { PeerPrekeys, PrekeyStore } from "./prekeys.ts";
 import { isTrusted, noticeText, policyFor, policyLevel } from "./render.ts";
 import { SeenStore, SeqStore } from "./replay.ts";
-import { listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
+import { CLAIM_SHOWN_MS, IDLE_MARK, listSessions, newSessionState, SessionFiles, SessionKeys, type SessionState } from "./session.ts";
 import { NeedsSigner } from "./keyring.ts";
 import { PongBudget, type PingRow } from "./ping.ts";
 import { Invites, PendingJoins, screenJoin } from "./joins.ts";
 import { SignerError } from "./signer.ts";
-import { Spool, type SpoolItem } from "./spool.ts";
-import { Watches } from "./watches.ts";
+import { keptInBox, mayStartTurn, Spool, type SpoolItem } from "./spool.ts";
+import { Watches, type Armed } from "./watches.ts";
 import { Connection, errorFor, relayCode, relayText, WireError, type Dialer, type Link, type RelayQuote } from "./wire.ts";
 
 /** How many times a delivered frame may fail for a reason of its own before it is let go. */
@@ -137,6 +142,11 @@ export type SessionOptions = {
   kind: string;
   /** A stable key (a Claude Code session id, `WIM_SESSION_KEY`) that takes back an earlier session. */
   sessionKey?: string;
+  /**
+   * Takes over the offline session on this device that holds `name`, from any directory
+   * (`--take`, `WIM_TAKE=1`): refused while a live process holds the name (MeshSession.claimState).
+   */
+  take?: boolean;
   dialer: Dialer;
   env: FsEnv;
   now?: () => number;
@@ -161,12 +171,33 @@ export type SessionOptions = {
   debug?: boolean;
   /** How CI providers' token keys are fetched (SPEC section 18). Default `fetchJwks`; tests pass their own. */
   jwksFetch?: JwksFetch;
+  /**
+   * The device's `legacy-boxes` file (legacyboxes.ts), read at each send and each open: when it
+   * says `refuse`, no v0.1 box is sent or accepted (SPEC section 6b). Without one, the window.
+   */
+  legacyBoxesPath?: string;
+  /**
+   * Keeps no message text on disk (`wim worker`): an inbound item's spool file and history entry
+   * keep every field but the text, so ids, receipts and the audit trail still work while a wake
+   * code or a task never lands in this session's files. In-process consumers still get the text.
+   */
+  redactStoredText?: boolean;
+  /**
+   * Hands each delivered item's signed frame to in-process consumers (`Inbound.frame`), so a
+   * program the session passes it to can verify the sender itself (`wim agent` with a
+   * privileged runner). Kept in memory only, while the item is accepted.
+   */
+  withFrame?: boolean;
 };
 
 export type PeerRow = Peer & { card?: Card };
 
 /** A delivered item's verified fields, for in-process consumers. */
-export type Inbound = HistoryEntry & { cursor: number };
+export type Inbound = HistoryEntry & {
+  cursor: number;
+  /** The signed frame the item came in, as the relay delivered it, when the session keeps frames (`withFrame`). */
+  frame?: SendFrame;
+};
 
 /** What `post` sends: a message, or a ping, pong or pause of the client's own (SPEC section 12). */
 type Outgoing = Omit<SendOptions, "kind"> & { kind?: SendOptions["kind"] | "ping" | "pong" | "pause"; pause?: PauseInfo };
@@ -203,6 +234,10 @@ export type SendOptions = {
  * every recipient, because a v0.1 client drops a frame holding a `pk` or a scheme 2 box.
  * `unprotected` then names every device that got a scheme 1 box, without forward secrecy, and
  * `no_prekey` the devices that caused it. Both are absent when every box was sealed to a prekey.
+ *
+ * On a device that refuses v0.1 boxes (`wim legacy-boxes refuse`), a direct send naming such a
+ * device is refused instead, and a broadcast or room send skips it: `no_prekey` then names the
+ * devices skipped, and `unprotected` is absent.
  */
 export type SendOutcome = { id: string; results: SendRow[]; unprotected?: string[]; no_prekey?: string[] };
 
@@ -255,9 +290,67 @@ export function renamedLine(was: string, now: string): string {
   return `this session's address is ${now}, not ${was}: another session on this device holds that name. Give peers ${now}; messages sent to ${was} do not reach this session.`;
 }
 
+/** The notice for a session that got back the name it asked for, after the relay had given it `name-N`. */
+export function reclaimedLine(was: string, now: string): string {
+  return `this session's address is ${now} again, not ${was}: the name it asked for is free now. Give peers ${now}; messages sent to ${was} do not reach this session.`;
+}
+
+/**
+ * The one notice after a claim (`--take`, the `rename` tool's `take`): the address taken over, and
+ * what came with it. Held items stay the person's to decide.
+ */
+export function claimLine(address: string, c: { unread: number; held: number; leases: number }): string {
+  const n = (k: number, one: string, many: string): string => `${k} ${k === 1 ? one : many}`;
+  return `this session took over ${address}, an offline session on this device, with its queue, rooms, history and leases. With it came ${n(c.unread, "unread message", "unread messages")}, ${n(c.held, "held item", "held items")} and ${n(c.leases, "lease", "leases")}. Held items wait for the person on this device to approve or refuse (/wim, the Held view, or wim held list); a claim does not decide them.`;
+}
+
+/**
+ * The relay's answer to this session's lease request for `key`: any `lease` frame for it except
+ * an expiry with a token, which is the relay telling the holder its lease ended (onFrame), sent
+ * just before the answer to a request that found the lease past its `until`.
+ */
+function leaseAnswer(key: string): (f: RelayFrame) => boolean {
+  return (f) => f.t === "lease" && f.key === key && !(f.status === "expired" && f.token !== undefined);
+}
+
+/** Why a session no longer holds a lease it had a token for (leaseLostLine). */
+export type LeaseLoss = "expired" | "away" | "renew" | "release";
+
+/**
+ * The notice when this session learns it lost a lease (SPEC section 14): whatever the lease
+ * protected may now be another session's turn. `name` is shown as given (quoted by the caller).
+ */
+export function leaseLostLine(name: string, why: LeaseLoss): string {
+  const how = {
+    expired: "it expired (its ttl passed without a renew)",
+    away: "it ended while this session was offline or not running",
+    renew: "the relay refused to renew it: it had expired or ended",
+    release: "the relay refused the release: it had expired or ended before",
+  }[why];
+  return `this session no longer holds the lease ${name}: ${how}, and another session may hold it now. Stop any step it protected, and acquire it again before going on.`;
+}
+
+/**
+ * The notice after a same-project takeover that brought leases with it: the agent now holds them,
+ * though it never asked for them.
+ */
+export function inheritedLeasesLine(names: readonly string[]): string {
+  return `this session took over an earlier session from this working directory, and with it ${names.length} ${names.length === 1 ? "lease" : "leases"}: ${names.join(", ")}. Renew one before relying on it, or release it if this session does not need it.`;
+}
+
 /** What a person or an agent is told about a send that went without forward secrecy. */
 export function unprotectedNote(unprotected: readonly string[], noPrekey: readonly string[]): string {
   return `Sent without forward secrecy to ${unprotected.join(", ")}: no current prekey for ${noPrekey.join(", ")} (a v0.1 client, or offline for over 48 hours), so the whole send went in the v0.1 format.`;
+}
+
+/**
+ * The note a send's outcome carries about forward secrecy, if any: it went without (the window),
+ * or it skipped devices with no prekey (a device that refuses v0.1 boxes). An outcome from a watch
+ * that predates `no_prekey` has only `unprotected`.
+ */
+export function prekeyNote(o: { unprotected?: readonly string[]; no_prekey?: readonly string[] }): string | undefined {
+  if (o.unprotected !== undefined) return unprotectedNote(o.unprotected, o.no_prekey ?? o.unprotected);
+  return o.no_prekey === undefined ? undefined : skippedNote(o.no_prekey);
 }
 
 export type AskResult = { from: string; device: string; at: number; status: ResultStatus; text: string; id: string };
@@ -273,6 +366,14 @@ type SentTask = { at: number; any: boolean; addressees: string[] };
 
 const CARD_EVERY_MS = 60_000;
 export const PARKED_MAX = 64;
+/** How many ids of its own sends a session remembers, to know their receipts before history has them. */
+export const SENT_IDS_MAX = 4096;
+/** How many sent ids keep their receipts in memory (MeshSession.receipts). */
+export const RECEIPTS_MAX = 1024;
+/** How many history lookups for receipts of unknown ids may run at once; more are dropped. */
+export const RECEIPT_LOOKUPS_MAX = 4;
+/** How far ahead of this clock a send id's time may be and still be this session's. */
+const RECEIPT_SKEW_MS = 5 * 60_000;
 /** How long an answer to a handed-over send waits for the CLI that asked. */
 export const ANSWER_KEEP_MS = 5 * 60_000;
 const GROUP = (to: readonly string[]): boolean => to.some((a) => a === "*" || isRoom(a));
@@ -281,6 +382,12 @@ const PAUSE_TELL_MS = 10 * 60_000;
 
 /** Swallows a failure already reported to the caller of the promise it follows. */
 const ignore = (): undefined => undefined;
+/** What a session that keeps no message text writes in a spool file in place of the frame. */
+export const REDACTED_TEXT = "(this session keeps no message text on disk)";
+/** Where a file would have been saved, for a session that keeps no message content. */
+export const REDACTED_FILE = "(not saved: this session keeps no message content on disk)";
+/** What a session that keeps no text replies when its loop breaker refuses a sender's messages. */
+export const BREAKER_REFUSED = "busy: too many messages from your device for now, so they are refused, not kept; resend later";
 
 /** A running pause's record: the address of the message that tripped it, the sending sessions told, and whether its notices went out. */
 type PauseEntry = { from: string; told: Set<string>; announced: boolean };
@@ -308,6 +415,13 @@ type PauseMessage = Extract<Plaintext, { kind: "pause" }>;
 type Probe = Extract<Plaintext, { kind: "ping" | "pong" }>;
 
 /** The verified fields of a received plaintext, as history and the agent frame read them. */
+/** A held item's file without its decryption key (#132), for a session that keeps no content. */
+function keyless(file: FileInfo | undefined): { fileInfo?: KeylessFile } {
+  if (file === undefined) return {};
+  const { key: _key, ...rest } = file;
+  return { fileInfo: rest };
+}
+
 function entryOf(p: Message, from: string): HistoryEntry {
   return {
     dir: "in",
@@ -350,6 +464,22 @@ const CI_DROP_LINES = 10;
 const CI_DROP_WINDOW_MS = 60_000;
 
 /** One session on one mesh. */
+/** Why the relay refused an arm, from its code only: the relay's own text is never passed on (SPEC section 8). */
+export function armRefusedWhy(code: string): string {
+  if (code === "not_found") return "the relay knows no session by that address (it may have ended)";
+  return code === "limited" ? `this session already has ${LIMITS.notifyIdlePerSession} armed at the relay` : "the relay refused it";
+}
+
+/**
+ * What ended a watch, emitted as `watch` once its notice is in the spool (`wim wait-idle` reads
+ * it): the watched session's idle notice came (`why` when the relay said a reason this version
+ * knows), the relay refused the arm (`code`; `of` is unset when which arm is not known), or the
+ * watch lapsed. `until` is when the watch the idle notice closed would have lapsed, so a wait can
+ * tell its own arm from an older one of the session. `quiet`: the notice may not start a turn.
+ * `item` is the spooled notice.
+ */
+export type WatchEnd = { of?: string; end: "idle" | "refused" | "lapsed"; quiet: boolean; why?: IdleWhy; code?: string; until?: number; item: SpoolItem };
+
 export class MeshSession extends EventEmitter {
   readonly device: Device;
   readonly files: SessionFiles;
@@ -368,6 +498,8 @@ export class MeshSession extends EventEmitter {
   private readonly seen: SeenStore;
   private readonly seqs: SeqStore;
   private readonly o: SessionOptions;
+  /** Frames of the items being accepted right now, by id (`withFrame`). */
+  private readonly frames = new Map<string, SendFrame>();
   private readonly now: () => number;
   private readonly log: (line: string) => void;
   private readonly answerMs: number;
@@ -406,6 +538,8 @@ export class MeshSession extends EventEmitter {
   private gotCards!: () => void;
   /** Sender devices already told about once: a message this device could no longer read. */
   private readonly unreadable = new Set<string>();
+  /** Sender devices already told about once: a message dropped for its v0.1 box. */
+  private readonly legacyTold = new Set<string>();
   private stopped = false;
   private derivedUntil = 0;
   private sweeping: Promise<void> = Promise.resolve();
@@ -445,12 +579,37 @@ export class MeshSession extends EventEmitter {
   private readonly ciParked: CiParked;
   /** The idle notices this session armed: a relay notice is taken only for one of them, once (watches.ts). */
   private readonly watches: Watches;
+  /**
+   * Arms to send at the next `ready`: one that could not be sent, and at a process's first
+   * `ready` every open watch (re-sending one the relay holds only renews it).
+   */
+  private readonly unsentArms = new Set<string>();
+  private armsResent = false;
+  /**
+   * Arms sent and not yet answered, with when: a relay refusal is placed on one (armRefused). One
+   * that an unplaced refusal may have been for is `unsure`: it is never named by elimination.
+   */
+  private readonly armsInFlight = new Map<string, { at: number; unsure: boolean }>();
+  /** When watches are next checked for ones that lapsed with no notice. */
+  private lapseDue = 0;
   /** When parked CI notices are next checked again. */
   private ciParkedDue = 0;
   /** This minute's CI drop lines, and the drops past CI_DROP_LINES by reason. */
   private ciDrops = { since: 0, lines: 0, quiet: new Map<string, number>() };
   /** Delivery through MCP channel notifications instead of leaving items for the plugin. */
   push: ((item: SpoolItem) => Promise<void>) | undefined;
+  /** Whether this session was opened by a claim (`take`): it took over an offline session's address. */
+  takenOver = false;
+  /** Whether the claim notice is written or under way (claimNotice): once, retried at the next `ready` if it failed. */
+  private claimTold = false;
+  /** The claim notice under way, which `stop` waits for, so a one-off command does not exit before it. */
+  private claimNoticing: Promise<void> = Promise.resolve();
+  /** Whether this session was taken over by the same-project rule; its inherited leases are told once (checkLeases). */
+  private projectTaken = false;
+  /** The lease check of the last `ready` (checkLeases), which `stop` waits for. */
+  private leaseChecking: Promise<void> = Promise.resolve();
+  /** The relay's clock minus this one, from the last `hello` (lease `until` is the relay's time). */
+  private relayOffset = 0;
 
   private constructor(o: SessionOptions, files: SessionFiles, state: SessionState) {
     super();
@@ -475,14 +634,30 @@ export class MeshSession extends EventEmitter {
   }
 
   /**
-   * Opens a session: the one `sessionKey` names when its mapping is fresh and no live process
-   * holds it, else a new one. Claims the session's liveness lock.
+   * Opens a session: with `take`, the one a claim finds (claimState); else the one `sessionKey`
+   * names when its mapping is fresh and no live process holds it; else an earlier one from this
+   * directory (sameProject); else a new one. Claims the session's liveness lock.
    */
   static async open(o: SessionOptions): Promise<MeshSession> {
+    // An explicit claim comes first: the person asked for this name, not for the key's session.
+    return MeshSession.opened(o, o.take === true ? await MeshSession.claimState(o) : undefined);
+  }
+
+  /**
+   * A claim of the session named `o.name` (the MCP `rename` tool's `take`): opened, not started,
+   * or undefined when no session on this device has that name. Refused as `claimState` refuses.
+   */
+  static async claim(o: SessionOptions): Promise<MeshSession | undefined> {
+    const state = await MeshSession.claimState(o);
+    return state === undefined ? undefined : MeshSession.opened(o, state);
+  }
+
+  /** `open` once a claim, if any, has found its session (`claimed`, its lock already taken). */
+  private static async opened(o: SessionOptions, claimed: SessionState | undefined): Promise<MeshSession> {
     const now = o.now ?? Date.now;
     const keys = new SessionKeys(o.mesh, o.env, now);
-    let state: SessionState | undefined;
-    const known = o.sessionKey === undefined ? undefined : await keys.lookup(o.sessionKey);
+    let state = claimed;
+    const known = state !== undefined || o.sessionKey === undefined ? undefined : await keys.lookup(o.sessionKey);
     if (known !== undefined) {
       const kf = new SessionFiles(o.mesh, known.sid, o.env);
       const saved = await kf.load();
@@ -492,7 +667,8 @@ export class MeshSession extends EventEmitter {
         state = { ...(saved ?? { ...newSessionState(o.name, o.kind), sid: known.sid }), resume: known.resume, kind: o.kind };
       }
     }
-    state ??= await MeshSession.sameProject(o);
+    const project = state === undefined ? await MeshSession.sameProject(o) : undefined;
+    state ??= project;
     state ??= newSessionState(o.name, o.kind);
     if (o.cwd !== undefined) state = { ...state, cwd: o.cwd };
     const files = new SessionFiles(o.mesh, state.sid, o.env);
@@ -507,6 +683,8 @@ export class MeshSession extends EventEmitter {
     await files.save(state);
     if (o.sessionKey !== undefined) await keys.remember(o.sessionKey, state.sid, state.resume);
     const session = new MeshSession(o, files, state);
+    session.takenOver = claimed !== undefined;
+    session.projectTaken = project !== undefined;
     await session.load();
     await session.settleDelivered();
     await session.restorePauses();
@@ -514,20 +692,69 @@ export class MeshSession extends EventEmitter {
   }
 
   /**
-   * Same-project takeover (design.md, state on disk): an earlier session on this device with the
-   * same name and working directory, not ended and run by no live process, is taken back with
-   * its sid and resume secret, so the relay hands over its name, queue and rooms by proof.
-   * Sessions from another directory keep their name; this one then gets `name-N`.
+   * Same-project takeover (design.md, state on disk): an earlier session on this device that asked
+   * for the same name from the same working directory, not ended and run by no live process, is
+   * taken back with its sid and resume secret, so the relay hands over its name, queue and rooms
+   * by proof. One that holds the name itself comes first; one the relay gave `name-N` asks for
+   * `name` again. Sessions from another directory keep their name; this one then gets `name-N`.
    */
   private static async sameProject(o: SessionOptions): Promise<SessionState | undefined> {
     if (o.cwd === undefined) return undefined;
+    const found: Array<{ files: SessionFiles; saved: SessionState }> = [];
     for (const sid of (await listSessions(o.mesh)).reverse()) {
       const files = new SessionFiles(o.mesh, sid, o.env);
       const saved = await files.load();
-      if (saved?.name !== o.name || saved.cwd !== o.cwd || saved.ended === true) continue;
-      if (await files.claim()) return { ...saved, kind: o.kind };
+      if ((saved?.asked ?? saved?.name) !== o.name || saved!.cwd !== o.cwd || saved!.ended === true) continue;
+      found.push({ files, saved: saved! });
     }
+    // Stable: newest first within each group.
+    found.sort((a, b) => Number(b.saved.name === o.name) - Number(a.saved.name === o.name));
+    for (const { files, saved } of found) if (await files.claim()) return { ...saved, name: o.name, kind: o.kind };
     return undefined;
+  }
+
+  /**
+   * A claim (`--take`, `WIM_TAKE=1`, the `rename` tool's `take`): the session on this device whose
+   * saved name is `o.name`, from any directory, taken with its sid and resume secret, as the
+   * same-project rule takes one (design.md, taking a session back). Only one that did not end, is
+   * of this session's kind and whose liveness lock is free. While a live process holds the name,
+   * or only a session of another kind has it, the claim is refused out loud: never a `name-N`,
+   * never a replaced connection. Undefined when no session on this device has the name.
+   */
+  private static async claimState(o: SessionOptions): Promise<SessionState | undefined> {
+    const address = `${o.name}@${o.device.name}`;
+    const found: Array<{ files: SessionFiles; saved: SessionState }> = [];
+    for (const sid of (await listSessions(o.mesh)).reverse()) {
+      const files = new SessionFiles(o.mesh, sid, o.env);
+      const saved = await files.load();
+      if (saved?.name === o.name && saved.ended !== true) found.push({ files, saved });
+    }
+    const mine = found.find((f) => f.saved.kind === o.kind);
+    if (mine === undefined) {
+      if (found.length === 0) return undefined;
+      throw new ClientError(`cannot take ${address}: it belongs to a session of another kind on this device (${found[0]!.saved.kind}), so messages for that name are its own`, "name_kind");
+    }
+    const live = `cannot take ${address}: a live session on this device holds it now. A claim takes only an offline name; this one is left as it is`;
+    for (const f of found) if (f !== mine && (await f.files.isLiveElsewhere())) throw new ClientError(live, "name_live");
+    if (!(await mine.files.claim())) throw new ClientError(live, "name_live");
+    // The name asked for is now this one, so the same-project rule never hands it back as another.
+    // The claim is recorded for the person (`wim status`), the records of the last 24 hours kept.
+    const at = (o.now ?? Date.now)();
+    const claims = (mine.saved.claims ?? []).filter((c) => at - c.at < CLAIM_SHOWN_MS);
+    return { ...mine.saved, asked: o.name, claims: [...claims, { at, address, ...(o.cwd === undefined ? {} : { cwd: o.cwd }) }] };
+  }
+
+  /**
+   * Whether this session holds nothing anyone could miss: nothing unread or held, no lease, no
+   * room, and nothing sent (receipts and results come back to its sid). Such a session may end
+   * for good when another takes over its process (the `rename` tool's claim, the `hello` op).
+   */
+  async holdsNothing(): Promise<boolean> {
+    const st = this.state;
+    if (st.seq > 0 || st.rooms.length > 0 || this.heldLeases().length > 0) return false;
+    // Notices are this client's own lines (a `name-N`, say): nothing a peer sent.
+    const unread = (await this.spool.unread()).filter((i) => i.kind !== "notice");
+    return unread.length + (await this.held.list()).length === 0;
   }
 
   private async load(): Promise<void> {
@@ -581,7 +808,7 @@ export class MeshSession extends EventEmitter {
           },
           this.device.keyring,
         ),
-      onReady: (ready, link) => this.onReady(ready, link),
+      onReady: (ready, link, hello) => this.onReady(ready, link, hello.at),
       onFrame: (f) => this.onFrame(f),
       onFatal: (reason) => {
         this.log(`wim: ${reason}`);
@@ -619,6 +846,9 @@ export class MeshSession extends EventEmitter {
   async stop(opts: { ended?: boolean } = {}): Promise<void> {
     if (this.stopped) return;
     this.stopped = true;
+    // A claim notice under way is written before the connection goes.
+    await this.claimNoticing;
+    await this.leaseChecking;
     clearInterval(this.ticker);
     clearTimeout(this.retryTimer);
     this.conn?.stop({ ended: opts.ended === true });
@@ -654,7 +884,8 @@ export class MeshSession extends EventEmitter {
 
   // ---- connection ----
 
-  private async onReady(ready: ReadyFrame, link: Link): Promise<void> {
+  private async onReady(ready: ReadyFrame, link: Link, relayAt: number): Promise<void> {
+    this.relayOffset = relayAt - this.now();
     const roster = ready.roster;
     const pin = this.book.ref;
     // Walk forward from the pin; a relay that cannot show a valid chain is not believed.
@@ -664,10 +895,14 @@ export class MeshSession extends EventEmitter {
     const address = `${ready.name}@${this.device.name}`;
     // The address this session had, or for a new one the address it asked for.
     const was = this.state.address ?? `${this.state.name}@${this.device.name}`;
-    await this.save({ name: ready.name, address, cursor: Math.max(this.state.cursor, ready.cursor) });
+    // The name asked for is kept beside the one assigned, so a `name-N` is taken back as `name`.
+    const asked = this.state.asked ?? this.state.name;
+    await this.save({ name: ready.name, asked, address, cursor: Math.max(this.state.cursor, ready.cursor) });
     // The relay gave another name (another session on this device holds the one asked for): the
     // agent must learn its own address, or it gives peers one that does not reach it (issue #36).
-    if (address !== was) this.noticeLater(this.address, renamedLine(was, address));
+    if (address !== was) this.noticeLater(this.address, ready.name === asked ? reclaimedLine(was, address) : renamedLine(was, address));
+    if (this.takenOver && !this.claimTold) this.claimNotice(link);
+    this.checkLeases(link);
     this.peers.clear();
     for (const p of ready.peers) this.peers.set(p.address, p);
     this.emit("peers");
@@ -677,7 +912,64 @@ export class MeshSession extends EventEmitter {
     void this.sendCard(link, true);
     this.ciSent = undefined;
     void this.sendCiRules(link);
+    // Never rejects: a damaged file reads as no watches, and sending an arm never throws.
+    void this.resendArms(link);
     this.retryParkedLater();
+  }
+
+  /**
+   * Sends the arms that are not at the relay yet (SPEC section 8): ones made while offline, and
+   * at a process's first `ready` every open watch, so an arm is not lost to a connection that
+   * dropped. A re-sent arm the relay already holds is only renewed there.
+   */
+  private async resendArms(link: Link): Promise<void> {
+    const all = !this.armsResent;
+    this.armsResent = true;
+    // One that cannot be sent now is kept again by sendArm; one whose watch is gone is forgotten.
+    const unsent = new Set(this.unsentArms);
+    this.unsentArms.clear();
+    for (const { of } of await this.watches.open()) {
+      if (!all && !unsent.has(of)) continue;
+      // Read again, in order with the notices being taken, just before the send: a watch a held
+      // notice took meanwhile is not armed again.
+      if ((await this.watches.open()).some((w) => w.of === of)) this.sendArm(of, link);
+    }
+  }
+
+  /** Sends one arm, or keeps it for the next `ready` when there is no connection. */
+  private sendArm(of: string, link: Link | undefined = this.link): void {
+    try {
+      if (link === undefined) throw new Error("offline");
+      link.send({ t: "notify_idle", of });
+      this.unsentArms.delete(of);
+      this.pruneInFlight();
+      this.armsInFlight.set(of, { at: this.now(), unsure: false });
+    } catch {
+      this.unsentArms.add(of);
+    }
+  }
+
+  /**
+   * Writes the claim notice once (claimLine). The relay sends what it queued for the session right
+   * after `ready` and answers a later request only after that, so once the lease list is in, every
+   * queued message is on the inbound queue; the count is taken when those are spooled.
+   */
+  private claimNotice(link: Link): void {
+    this.claimTold = true;
+    this.claimNoticing = link
+      .request({ t: "lease.list" }, (f) => f.t === "leases", this.answerMs)
+      .then(async (f) => {
+        await this.inbound;
+        const unread = (await this.spool.unread()).filter((i) => i.kind !== "notice").length;
+        const held = (await this.held.list()).length;
+        const leases = (f as LeasesFrame).leases.filter((l) => l.holder === this.address).length;
+        await this.notice(this.address, claimLine(this.address, { unread, held, leases }));
+      })
+      .catch((e: unknown) => {
+        // The next `ready` tries again.
+        this.claimTold = false;
+        this.log(`wim: claim notice not written: ${(e as Error).message}`);
+      });
   }
 
   /**
@@ -746,16 +1038,16 @@ export class MeshSession extends EventEmitter {
         if (f.peer.address !== this.address) this.peers.set(f.peer.address, f.peer);
         this.emit("peers");
         return;
-      case "receipt": {
-        const list = this.receipts.get(f.id) ?? [];
-        list.push({ to: f.to, status: f.status });
-        this.receipts.set(f.id, list);
-        this.emit("receipt", f);
-        void this.recordReceipt(f).catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`));
+      case "receipt":
+        this.onReceipt(f);
         return;
-      }
       case "notice":
-        void this.idleNotice(f.of).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
+        void this.idleNotice(f.of, knownIdleWhy(f.why)).catch((e: unknown) => this.log(`wim: notice: ${(e as Error).message}`));
+        return;
+      case "error":
+        // Other refusals go to the request that waits for them; one for an arm has no waiter.
+        // On the inbound queue, so two refusals never both place themselves on the one arm in flight.
+        if (f.ref === "notify_idle") this.inbound = this.inbound.then(() => this.armRefused(f)).catch((e: unknown) => this.log(`wim: watches: ${(e as Error).message}`));
         return;
       case "join.request":
         // `wim invite` decides these as they come; every session of an admin device also keeps
@@ -775,6 +1067,10 @@ export class MeshSession extends EventEmitter {
       }
       case "card":
         this.takeCard(f.msg);
+        return;
+      case "lease":
+        // The relay tells a holder when its lease expires (SPEC section 14), answered or not.
+        if (f.status === "expired" && f.token !== undefined) void this.leaseLost(f.key, f.token, "expired").catch((e: unknown) => this.log(`wim: lease: ${(e as Error).message}`));
         return;
       case "ci.deliver": {
         const via = this.link;
@@ -851,8 +1147,15 @@ export class MeshSession extends EventEmitter {
     };
   }
 
-  private open(msg: SendFrame, history = false) {
-    return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history });
+  private async open(msg: SendFrame, history = false) {
+    // A device that refuses v0.1 boxes drops them as `legacy_box`, the reason 1.0 gives (SPEC section 6b).
+    const legacy = !(await this.refusesLegacy());
+    return openMessageWith(msg, { roster: this.roster, me: this.receiver(), now: this.now(), history, legacy });
+  }
+
+  /** Whether this device refuses v0.1 boxes now (`wim legacy-boxes`): read each time, so a change reaches a running session. */
+  private async refusesLegacy(): Promise<boolean> {
+    return this.o.legacyBoxesPath === undefined ? false : (await refusesLegacy(this.o.legacyBoxesPath)).refuse;
   }
 
   /**
@@ -1003,6 +1306,7 @@ export class MeshSession extends EventEmitter {
     if (!r.ok) {
       if (r.reason === "roster_fork" && this.link !== undefined) await this.probeFork(this.link, msg.roster.seq);
       if (r.reason === "key_expired") await this.unreadableFrom(msg);
+      if (r.reason === "legacy_box") await this.legacyFrom(msg);
       this.log(`wim: dropped ${msg.id}: ${r.reason}`);
       return "dropped";
     }
@@ -1024,7 +1328,14 @@ export class MeshSession extends EventEmitter {
     const address = this.address;
     if (await this.seen.has(p.id, address, this.now())) return "dropped";
     if (!(await this.seqs.isNew(address, msg.from.device, msg.from.sid, msg.seq))) return "dropped";
-    await this.accept(p);
+    // The verified frame rides along to in-process consumers that asked for it (`withFrame`),
+    // in memory only, for as long as this item is being accepted.
+    if (this.o.withFrame === true) this.frames.set(p.id, msg);
+    try {
+      await this.accept(p);
+    } finally {
+      this.frames.delete(p.id);
+    }
     await this.seen.add(p.id, address, dedupeExpiry(p.at), this.now());
     await this.seqs.record(address, msg.from.device, msg.from.sid, msg.seq);
     return "accepted";
@@ -1044,6 +1355,24 @@ export class MeshSession extends EventEmitter {
       `${msg.from.session}@${name}`,
       `A message from ${msg.from.session}@${name} could not be read: it was sealed to a prekey this device no longer holds (deleted 72 hours after it expired, or lost with this device's prekey file). Ask the sender to send it again.`,
     );
+  }
+
+  /**
+   * A message dropped for its v0.1 box, on a device that refuses them (SPEC section 6b): the
+   * session is told once per sender device, naming the first address seen, with no text (none was
+   * opened), and the device's count, which `wim status` shows, goes up by one. Keyed by the
+   * verified device, not the address: the session name is the sender's to choose, so one device
+   * could otherwise get a notice per name.
+   */
+  private async legacyFrom(msg: SendFrame): Promise<void> {
+    if (!this.legacyTold.has(msg.from.device)) {
+      this.legacyTold.add(msg.from.device);
+      // Its signature verified before the box was looked at, so the sender is in the roster.
+      const address = `${msg.from.session}@${this.roster.devices.find((d) => d.id === msg.from.device)!.name}`;
+      await this.notice(address, droppedNotice(address));
+    }
+    // Only a device with the setting's file refuses v0.1 boxes, so the path is set.
+    await countDropped(droppedPath(this.o.legacyBoxesPath!), this.o.env);
   }
 
   /** A message whose roster ref has our seq but another hash: ask the relay which roster it holds. */
@@ -1074,6 +1403,11 @@ export class MeshSession extends EventEmitter {
   }
 
   // ---- CI notices (SPEC section 18) ----
+
+  /** The CI rules as they are, for grouping held notices into sets (none when the file is missing or damaged). */
+  async ciRules(): Promise<CiRule[]> {
+    return (await this.ciRulesNow()) ?? [];
+  }
 
   /** The person's CI rules: undefined with no rules file; none when the file is damaged (logged once until it reads again). */
   private ciRulesNow(): Promise<CiRule[] | undefined> {
@@ -1294,7 +1628,9 @@ export class MeshSession extends EventEmitter {
       ...(p.kind === "file" ? { fileInfo: p.file } : {}),
     };
     // A file from a sender that is not delivered is not even fetched until the person approves.
-    if (policy === "hold") return this.hold({ ...held, reason: "policy" });
+    // A session that keeps no text holds only the metadata for the person's decision: a file
+    // without its key, since it is never fetched (#132).
+    if (policy === "hold") return this.hold(this.redacting ? { ...held, preview: REDACTED_TEXT, entry: this.stored(entry), ...keyless(p.kind === "file" ? p.file : undefined), reason: "policy" } : { ...held, reason: "policy" });
 
     // A trusted peer whose cool-down ended is released first (this runs on the inbound queue, as
     // every release does), so what it held comes before this, and this is counted after it. A
@@ -1309,6 +1645,16 @@ export class MeshSession extends EventEmitter {
         this.emit("breaker", { peer: from, state: "tripped", reason: pause.rule, ...breakerFields(pause) });
       }
       const record = this.pauseFrom.get(pause.peer)!;
+      if (this.redacting) {
+        // Holding it would put its text on disk: refused instead, and the sender hears once a pause.
+        this.receipt(p.id, "refused");
+        if (!record.announced) {
+          record.announced = true;
+          void this.send(from, BREAKER_REFUSED, { relayed: true, reply_to: p.id }).catch((e: unknown) => this.log(`wim: no busy reply sent to ${from}: ${(e as Error).message}`));
+        }
+        this.tellPaused(pause, record, from, p.id);
+        return;
+      }
       const under = { rule: pause.rule, count: pause.count, limit: pause.limit, minutes: pause.minutes, at: pause.at, until: pause.until, auto: pause.auto };
       // The notices go with the first hold that is written: one that failed leaves them for the next.
       await this.hold({ ...held, reason: "breaker", pause: under }, record.announced ? undefined : { person: pauseNotice(from, pause), agent: pauseNoticeForAgent(from, pause) });
@@ -1321,7 +1667,7 @@ export class MeshSession extends EventEmitter {
     const waiter = p.kind === "result" && !unsolicited ? this.askWaiters.get(p.reply_to) : undefined;
     if (waiter !== undefined && p.kind === "result") {
       // The asker is waiting in a tool call: hand it over there instead of waking the agent again.
-      await this.history.append(entry);
+      await this.history.append(this.stored(entry));
       waiter(p, from);
       this.receipt(p.id, "delivered");
       return;
@@ -1348,14 +1694,15 @@ export class MeshSession extends EventEmitter {
 
   /** Fetches a file if there is one, renders the frame and puts the item in the spool. */
   /** `written`: what a release from held/ records once the item is in the spool (decideNow). */
-  private async release(item: Omit<HeldItem, "reason">, file: FileInfo | undefined, written?: () => Promise<void>): Promise<void> {
+  private async release(item: Omit<HeldItem, "reason">, file: FileInfo | KeylessFile | undefined, written?: () => Promise<void>): Promise<void> {
     // A CI notice was framed when it arrived, and is always information only.
     if (item.ci !== undefined) {
       await this.deliver({ kind: item.kind, from: item.from, device: "", id: item.id, at: item.at, rendered: item.rendered, relayed: true, informs: true }, item.entry, written);
       return;
     }
     const entry = { ...item.entry };
-    if (file !== undefined) entry.savedTo = await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`);
+    // A session that keeps no message content does not fetch a file to disk either (and holds one without its key).
+    if (file !== undefined) entry.savedTo = "key" in file && !this.redacting ? await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`) : REDACTED_FILE;
     // The same trust decision as a release applied on disk (offline.ts).
     await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry, written);
   }
@@ -1415,20 +1762,34 @@ export class MeshSession extends EventEmitter {
     return run;
   }
 
+  private get redacting(): boolean {
+    return this.o.redactStoredText === true;
+  }
+
+  /** An inbound history entry as this session stores it: without its text when it keeps none. */
+  private stored(entry: HistoryEntry): HistoryEntry {
+    return this.redacting ? { ...entry, text: "", redacted: true } : entry;
+  }
+
   /** `afterWrite`: runs once the item is durably in the spool, before anything takes it from there. */
   private async deliverNow(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined, afterWrite?: () => Promise<void>): Promise<SpoolItem> {
     this.informed([item]);
-    const written = await this.spool.write(item);
+    const stored = await this.spool.write(this.redacting && item.kind !== "notice" ? { ...item, rendered: REDACTED_TEXT } : item);
     if (afterWrite !== undefined) await afterWrite();
     await this.save({});
-    if (entry !== undefined) await this.history.append(entry);
+    if (entry !== undefined) await this.history.append(this.stored(entry));
+    // The item as it arrived, for consumers in this process; the spool and history keep the redacted copy.
+    const written = { ...stored, rendered: item.rendered };
     this.emit("item", written);
     // In-process consumers (bot, ci, a2a adapters) read the verified fields, not the rendered frame.
     // A CI notice is for the agent's inbox only: in-process consumers never act on it.
-    if (entry !== undefined && entry.ci === undefined) this.emit("message", { ...entry, cursor: written.cursor } satisfies Inbound);
+    if (entry !== undefined && entry.ci === undefined) {
+      const frame = this.frames.get(entry.id);
+      this.emit("message", { ...entry, cursor: written.cursor, ...(frame === undefined ? {} : { frame }) } satisfies Inbound);
+    }
     // A relayed item must not start a turn, so it waits in the inbox instead of being pushed; a
-    // notice for the person is not the model's either.
-    if (this.push !== undefined && written.relayed !== true && written.forPerson !== true) {
+    // notice for the person is not the model's either, and a quiet one never starts a turn.
+    if (this.push !== undefined && mayStartTurn(written)) {
       await this.push(written);
       await this.take(written.cursor);
     }
@@ -1438,11 +1799,105 @@ export class MeshSession extends EventEmitter {
   /**
    * A relay's idle notice (SPEC section 8): spooled only when this session armed one for that
    * address, it has not lapsed, and no notice took it yet; the watch is closed then. Any other is
-   * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4).
+   * dropped, as a relay may lie in notices (SECURITY-MODEL section 5.4). The notice names the
+   * address the agent armed, and the device that address names decides whether it may start a
+   * turn (mayWake): the relay cannot change which device that is. One that may not is `quiet`.
    */
-  private async idleNotice(of: string): Promise<void> {
-    if (!(await this.watches.take(of, this.peers.get(of)?.sid))) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
-    await this.notice(of, `${of} is now idle (or has ended).`);
+  private async idleNotice(of: string, why: IdleWhy | undefined): Promise<void> {
+    const watch = await this.watches.take(of, this.peers.get(of)?.sid);
+    if (watch === undefined) return this.log(`wim: dropped a notice for ${sanitizeForDisplay(of)}: not asked for`);
+    this.armsInFlight.delete(watch.of);
+    this.unsentArms.delete(watch.of);
+    const device = this.roster.devices.find((d) => d.name === watch.of.slice(watch.of.indexOf("@") + 1));
+    const wakes = device !== undefined && (await this.mayWake(device.id, watch.of));
+    // Only the address the agent armed: never one the relay or the peer chose since (a rename).
+    await this.watchNotice(watch.of, `${watch.of} is now idle (or has ended).`, device?.id, !wakes, { of: watch.of, end: "idle", until: watch.until, ...(why === undefined ? {} : { why }) });
+  }
+
+  /**
+   * Whether an idle notice about `device` (the session `from`) may start a turn (decision D2):
+   * the person trusts that device now, the loop breaker does not pause it, and the breaker admits
+   * one more notice wake from it, which it then counts. A notice past a limit trips a pause on that
+   * device, as a message would: the person is told, and the agent quietly. A policy that cannot be
+   * read is a no.
+   */
+  private async mayWake(device: string, from: string): Promise<boolean> {
+    const config = await this.o.mesh.loadConfig().catch(() => undefined);
+    if (config === undefined || !isTrusted(config, device)) return false;
+    this.config = config;
+    const admitted = this.breaker.admitWake(device);
+    this.countsChanged = true;
+    if (admitted.ok) return true;
+    if (!admitted.newly) return false;
+    const pause = admitted.pause;
+    this.pauseFrom.set(pause.peer, { from, told: new Set(), announced: true });
+    await this.savePauses();
+    this.emit("breaker", { peer: from, state: "tripped", reason: pause.rule, ...breakerFields(pause) });
+    await this.notice(from, pauseNotice(from, pause), undefined, undefined, true);
+    await this.watchNotice(from, pauseNoticeForAgent(from, pause), undefined, true);
+    await this.o.notifier?.notify(`worldinmotion: paused ${from}: its idle notices reached the loop breaker's limit`);
+    return false;
+  }
+
+  /**
+   * A notice about a watch: `watched` names its device when known, and a `quiet` one never starts a
+   * turn. One that ends a watch (`end`) is also emitted as `watch` once it is spooled, for `wim
+   * wait-idle`.
+   */
+  private async watchNotice(from: string, line: string, watched: string | undefined, quiet: boolean, end?: Omit<WatchEnd, "quiet" | "item">): Promise<void> {
+    const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line) };
+    const written = await this.deliver({ ...item, ...(watched === undefined ? {} : { watched }), ...(quiet ? { quiet: true as const } : {}) }, undefined);
+    if (end !== undefined) this.emit("watch", { ...end, quiet, item: written } satisfies WatchEnd);
+  }
+
+  /** Forgets the arms in flight for longer than the answer time: a refusal now is not theirs. */
+  private pruneInFlight(): void {
+    const now = this.now();
+    for (const [of, a] of this.armsInFlight) if (now - a.at > this.answerMs) this.armsInFlight.delete(of);
+  }
+
+  /**
+   * The relay refused an arm (`error` with ref `notify_idle`), on the inbound queue. A refusal is
+   * taken only for an arm in flight or, when the relay sends `of`, for an open watch, and each uses
+   * one up, so there are never more refusal notices than arms and watches; any other is dropped and
+   * logged. It names an address when the relay's `of` is such an arm or watch, or when exactly one
+   * arm is in flight and no earlier refusal could have been for it: that watch is closed and the
+   * agent told, quietly.
+   * Otherwise the oldest arm in flight is used up, the rest become unsure, and the agent is told a
+   * refusal came; the watches stay until they lapse. The relay's text is never passed on: the code
+   * is read against the ones SPEC section 8 names.
+   */
+  private async armRefused(f: ErrorFrame): Promise<void> {
+    this.pruneInFlight();
+    const said = (f as { of?: unknown }).of;
+    const inFlight = [...this.armsInFlight];
+    const open = (await this.watches.open()).map((w) => w.of);
+    const byRelay = typeof said === "string" && (this.armsInFlight.has(said) || open.includes(said)) ? said : undefined;
+    if (byRelay === undefined && inFlight.length === 0) return this.log("wim: dropped a refusal of an idle notice: no arm was in flight");
+    const only = inFlight.length === 1 && !inFlight[0]![1].unsure ? inFlight[0]![0] : undefined;
+    const named = byRelay ?? only;
+    const why = armRefusedWhy(f.code);
+    if (named === undefined) {
+      this.armsInFlight.delete(inFlight[0]![0]);
+      for (const a of this.armsInFlight.values()) a.unsure = true;
+      return this.watchNotice(this.address, `an idle notice this session asked for was not armed: ${why}. Which address is not known, so its watch stays open until it lapses 12 hours after the arm.`, undefined, true, { end: "refused", code: f.code });
+    }
+    this.armsInFlight.delete(named);
+    // Its watch was taken or removed meanwhile: nothing is left to tell.
+    if (!open.includes(named)) return this.log(`wim: a refused idle notice for ${named} has no open watch`);
+    await this.watches.drop(named);
+    await this.watchNotice(named, `the idle notice for ${named} was not armed: ${why}. No notice will come for it.`, undefined, true, { of: named, end: "refused", code: f.code });
+  }
+
+  /** Tells the agent, quietly, about each watch that lapsed with no notice: once a minute at most. */
+  private async lapseWatches(): Promise<void> {
+    if (this.now() < this.lapseDue) return;
+    this.lapseDue = this.now() + 60_000;
+    for (const w of await this.watches.lapse()) {
+      this.armsInFlight.delete(w.of);
+      this.unsentArms.delete(w.of);
+      await this.watchNotice(w.of, `no idle notice came for ${w.of} within 12 hours of the arm, so the watch lapsed and no notice will come for it. Arm it again if this session still needs to know.`, undefined, true, { of: w.of, end: "lapsed" });
+    }
   }
 
   /** A notice from a handler that does not wait for it: a failure to write it is logged. */
@@ -1455,7 +1910,8 @@ export class MeshSession extends EventEmitter {
    * the person can act on it (restart this session).
    */
   async notice(from: string, line: string, held?: number, heldBy?: string, forPerson = false): Promise<void> {
-    const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line) };
+    // Quiet always: only an idle notice this session armed may start a turn (watchNotice).
+    const item = { kind: "notice" as const, from, device: "", id: ulid(this.now()), at: this.now(), rendered: noticeText(line), quiet: true as const };
     await this.deliver(
       { ...item, ...(held === undefined ? {} : { held }), ...(heldBy === undefined ? {} : { heldBy }), ...(forPerson ? { forPerson: true as const } : {}) },
       undefined,
@@ -1467,7 +1923,38 @@ export class MeshSession extends EventEmitter {
    * person through the plugin's toast, or the agent) learns that it waits for the recipient's
    * person and is not delivered. Branches before any await (see AgentServer.answerLine).
    */
-  private recordReceipt(f: { id: string; to: string; status: string }): Promise<void> {
+  private onReceipt(f: { id: string; to: string; status: string }): void {
+    if (this.sentIds.has(f.id)) return this.takeReceipt(f);
+    const dropped = (why: string): void => this.log(`wim: dropped a receipt for ${sanitizeForDisplay(f.id)}: ${why}`);
+    // Not sent by this run: sent before a restart (its history has it), or the relay's invention.
+    // Only an id history could hold is looked up, and only a few at a time.
+    const now = this.now();
+    if (!isUlid(f.id) || ulidTime(f.id) > now + RECEIPT_SKEW_MS || ulidTime(f.id) < now - KEEP_MS) return dropped("not a message this session sent");
+    if (this.receiptLookups >= RECEIPT_LOOKUPS_MAX) return dropped("too many receipts for unknown messages at once");
+    this.receiptLookups++;
+    void this.history
+      .find(f.id)
+      .then((entry) => (entry?.dir === "out" ? this.takeReceipt(f) : dropped("not a message this session sent")))
+      .catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`))
+      .finally(() => this.receiptLookups--);
+  }
+
+  /** Lookups in history for receipts this run does not know, under way now. */
+  private receiptLookups = 0;
+
+  /** A receipt for a message this session sent: kept for `send --wait` (the newest RECEIPTS_MAX ids), told, recorded. */
+  private takeReceipt(f: { id: string; to: string; status: string }): void {
+    const list = this.receipts.get(f.id) ?? [];
+    list.push({ to: f.to, status: f.status });
+    this.receipts.delete(f.id);
+    this.receipts.set(f.id, list);
+    if (this.receipts.size > RECEIPTS_MAX) this.receipts.delete(this.receipts.keys().next().value!);
+    this.emit("receipt", f);
+    void this.recordOwnReceipt(f).catch((e: unknown) => this.log(`wim: receipt: ${(e as Error).message}`));
+  }
+
+  /** A receipt for a message this session sent. */
+  private recordOwnReceipt(f: { id: string; to: string; status: string }): Promise<void> {
     const recorded = this.history.appendReceipt(f.id, { to: f.to, status: f.status, at: this.now() });
     // Something got through to that recipient: a later hold there is news again. (A pause it
     // reported is not over for that: the person there may have approved this one message alone.)
@@ -1483,6 +1970,15 @@ export class MeshSession extends EventEmitter {
 
   /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
   private readonly heldTold = new Set<string>();
+
+  /** Ids this run put on the wire, newest last, at most SENT_IDS_MAX: a receipt may come before the send is in history. */
+  private readonly sentIds = new Set<string>();
+
+  private noteSentId(id: string): void {
+    this.sentIds.delete(id);
+    this.sentIds.add(id);
+    if (this.sentIds.size > SENT_IDS_MAX) this.sentIds.delete(this.sentIds.values().next().value!);
+  }
 
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor: number): Promise<void> {
@@ -1513,11 +2009,18 @@ export class MeshSession extends EventEmitter {
     this.ticking = true;
     try {
       await this.sweep();
+      await this.pruneLeases();
+      await this.lapseWatches();
       await this.readPresence();
       // The person's marks and the end of a cool-down change what is held and paused: on the
       // inbound queue, so neither interleaves with a message being admitted or held. Queued, not
       // waited for, so a slow frame never holds up this pass (the sweep and its receipts).
-      for (const { id, verdict } of await this.held.takeMarks()) void this.onQueue(() => this.applyMark(id, verdict)).catch(ignore);
+      // With the keys in the signer, a mark file is no decision: anything of the user's can write one.
+      for (const { id, verdict } of await this.held.takeMarks()) {
+        if (this.signed) this.log(`wim: ${unsignedRefusal(`${verdict} mark for held message ${id}`)}; it stays held`);
+        else void this.onQueue(() => this.applyMark(id, verdict)).catch(ignore);
+      }
+      for (const raw of await this.held.takeDecisions()) void this.onQueue(() => this.applyDecision(raw)).catch(ignore);
       this.queueRelease();
       if (this.link !== undefined) await this.flushLifts();
       if (this.countsChanged) await this.savePauses();
@@ -1544,7 +2047,8 @@ export class MeshSession extends EventEmitter {
         const body = req === null ? undefined : await readJson(path).catch(() => undefined);
         // Taking a request is removing it: one that cannot be removed yet is left for the next pass.
         if (!(await tryRemove(path, this.o.env))) continue;
-        if (m !== null) void this.resumePeer(m[1]!).catch((e: unknown) => this.log(`wim: housekeeping: ${(e as Error).message}`));
+        if (m !== null && this.signed) this.log(`wim: ${unsignedRefusal(`resume of ${sanitizeForDisplay(m[1]!)}`)}`);
+        else if (m !== null) void this.onQueue(() => this.resumeNow(m[1]!)).catch((e: unknown) => this.log(`wim: housekeeping: ${(e as Error).message}`));
         if (req !== null && this.o.handover === true) await this.handOverSend(req[1]!, body);
       }
       await this.book.reload();
@@ -1563,11 +2067,14 @@ export class MeshSession extends EventEmitter {
 
   private async readPresence(): Promise<void> {
     const read = (await readText(this.files.presencePath))?.trim();
-    // `busy-mesh` (a turn the plugin started with a mesh item) is busy to the relay.
-    const text = read === "busy-mesh" ? "busy" : read;
-    if (text !== "busy" && text !== "idle") return;
-    if (this.sentPresence === text) return;
-    if (this.sendIfOpen({ t: "presence", status: text })) this.sentPresence = text;
+    // `busy-mesh` (a turn the plugin or a hook started with a mesh item) is busy to the relay. A
+    // turn mark (`idle <n>`, from `wim hook`) is idle, and a new mark is a new turn end: it is sent
+    // again even when the session was idle already, so each turn end fires armed notices.
+    const status = read === "busy-mesh" || read === "busy" ? "busy" : read === "idle" || IDLE_MARK.test(read ?? "") ? "idle" : undefined;
+    if (status === undefined) return;
+    const seen = status === "busy" ? status : read!;
+    if (this.sentPresence === seen) return;
+    if (this.sendIfOpen({ t: "presence", status })) this.sentPresence = seen;
   }
 
   /**
@@ -1585,18 +2092,19 @@ export class MeshSession extends EventEmitter {
     this.cardPk = pk;
     if (!force && !rotated && this.now() - this.cardAt < CARD_EVERY_MS) return;
     const card = this.o.cwd === undefined || !this.config.share_cards ? {} : await cardFor(this.o.cwd, this.config.share_cards === "full", this.o.userHome ?? homedir());
-    this.publishCard(link, card, await this.cardFrame(force || rotated, card), before);
+    this.publishCard(link, card, await this.cardFrame(force || rotated, card, await this.refusesLegacy()), before);
   }
 
   /**
    * The card frame to send, or undefined when the card is unchanged and nothing forces it. Not
    * async: the decision is taken before the seal (which may wait on the signer) and a seal that
-   * fails comes back as its error, so no branch follows an await (see publishCard).
+   * fails comes back as its error, so no branch follows an await (see publishCard). A device that
+   * refuses v0.1 boxes (`strict`) gives none to a device with no prekey: the card skips it.
    */
-  private cardFrame(always: boolean, card: Card): Promise<SendFrame | Error | undefined> {
+  private cardFrame(always: boolean, card: Card, strict: boolean): Promise<SendFrame | Error | undefined> {
     if (!always && sameCard(this.myCard, card)) return Promise.resolve(undefined);
     const ids = this.roster.devices.map((d) => d.id);
-    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, kind: "card", card, recipients: ids }).catch((error: unknown) => error as Error);
+    return sealMessageWith({ ...this.sealBase(["*"]), ...this.keysFor(ids, true).keys, ...(strict ? { legacy: false } : {}), kind: "card", card, recipients: ids }).catch((error: unknown) => error as Error);
   }
 
   /**
@@ -1632,9 +2140,82 @@ export class MeshSession extends EventEmitter {
     return run;
   }
 
-  /** The person's decision on a held message (the pane, `wim held`). Never reachable by a message. */
-  decide(id: string, verdict: Verdict): Promise<void> {
-    return this.onQueue(() => this.decideNow(id, verdict));
+  /**
+   * Whether this device's keys are in the signer: then a decision on held messages is taken only
+   * signed by it (`decide` with a decision, or a decision file), never from a mark file.
+   */
+  get signed(): boolean {
+    return this.device.keyring.kind === "signer";
+  }
+
+  /**
+   * The person's decision on a held message (a UI's events process, for its own session). Never
+   * reachable by a message. With the keys in the signer, `decision` must be the signer's, cover
+   * this item as it is held, and say `verdict`.
+   */
+  decide(id: string, verdict: Verdict, decision?: unknown): Promise<void> {
+    return this.onQueue(async () => {
+      if (this.signed) {
+        const item = await this.held.get(id);
+        const d = this.checked(decision);
+        if (typeof d === "string" || d.verdict !== verdict || (item !== undefined && !covers(d, item))) {
+          throw new ClientError(`${NEEDS_SIGNER}: ${typeof d === "string" ? d : `it does not ${verdict} ${id} as it is held`}`, "needs_signer");
+        }
+      }
+      return this.decideNow(id, verdict);
+    });
+  }
+
+  /**
+   * Whether this session has not acted on decision `d` yet; it is recorded as acted on now, in the
+   * mesh's record. A record that cannot be read refuses the decision (`needs_signer`).
+   */
+  private async firstUse(d: Decision): Promise<boolean> {
+    try {
+      return await useDecision(join(this.o.mesh.dir, "decisions.used"), `${this.sid} ${d.n}`, d.at + DECISION_TTL_MS + DECISION_SKEW_MS, this.now(), this.o.env);
+    } catch (error) {
+      throw new ClientError(`${NEEDS_SIGNER}: the record of decisions acted on cannot be read (${(error as Error).message}), so decision ${d.n} is not taken`, "needs_signer");
+    }
+  }
+
+  /** A decision this session may act on, or why not. */
+  private checked(raw: unknown): Decision | string {
+    const d = checkDecision(raw, { signPub: this.device.keyring.signPub, device: this.device.id, mesh: this.config.mesh, now: this.now() });
+    return "refused" in d ? `the decision is refused: ${d.refused}` : d;
+  }
+
+  /**
+   * A signed decision another process left (decision file): each copy held here that it covers,
+   * unchanged since the person was shown it, is decided; anything else stays held. `resume` also
+   * lifts the breaker's pause on its peer's device. Taken whether or not the keys are in the
+   * signer, since only the signer can make one.
+   */
+  private async applyDecision(raw: unknown): Promise<void> {
+    const d = this.checked(raw);
+    if (typeof d === "string") {
+      this.log(`wim: a decision file for held messages: ${d}; nothing changed`);
+      return;
+    }
+    const first = await this.firstUse(d).catch((error: unknown) => (error as Error).message);
+    if (first !== true) {
+      this.log(`wim: a decision file for held messages: ${first === false ? `decision ${d.n} was acted on already (a copy)` : first}; nothing changed`);
+      return;
+    }
+    const mine = new Set((await this.held.list()).filter((item) => covers(d, item)).map((i) => i.id));
+    // A resume releases only breaker holds (the signer signs no other for one).
+    if (d.verdict === "resume") await this.resumeNow(d.peer!, mine, d.at);
+    else for (const id of mine) await this.decideEach(id, d.verdict);
+  }
+
+  /** decideNow for one item of several: a failure is logged, and the rest are still decided. */
+  private async decideEach(id: string, verdict: Verdict): Promise<boolean> {
+    try {
+      await this.decideNow(id, verdict);
+      return true;
+    } catch (error) {
+      this.log(`wim: held message ${id}: ${(error as Error).message}; it stays held`);
+      return false;
+    }
   }
 
   private async decideNow(id: string, verdict: Verdict): Promise<void> {
@@ -1705,25 +2286,44 @@ export class MeshSession extends EventEmitter {
     }
   }
 
-  /** Lifts a breaker pause on a peer (by address) and releases what it held from that device. */
-  resumePeer(peer: string): Promise<number> {
-    return this.onQueue(() => this.resumeNow(peer));
+  /**
+   * Lifts a breaker pause on a peer (by address) and releases what it held from that device. With
+   * the keys in the signer, only with the signer's `resume` decision for that peer, and only the
+   * items it covers are released.
+   */
+  resumePeer(peer: string, decision?: unknown): Promise<number> {
+    return this.onQueue(async () => {
+      if (!this.signed) return this.resumeNow(peer);
+      const d = this.checked(decision);
+      if (typeof d === "string" || d.verdict !== "resume" || d.peer !== peer) throw new ClientError(`${NEEDS_SIGNER}: ${typeof d === "string" ? d : `it does not resume ${peer}`}`, "needs_signer");
+      if (!(await this.firstUse(d))) throw new ClientError(`${NEEDS_SIGNER}: decision ${d.n} was acted on already`, "needs_signer");
+      const mine = (await this.held.list()).filter((item) => covers(d, item));
+      return this.resumeNow(peer, new Set(mine.map((i) => i.id)), d.at);
+    });
   }
 
-  private async resumeNow(peer: string): Promise<number> {
+  /**
+   * The resume itself; `only`: release just these of what the pause held (a signed decision's).
+   * `before`: a signed decision's time; it lifts only a pause that started by then, so a copy of
+   * it played later lifts no pause that came after. Each item released on its own: one that fails
+   * is logged and stays held, and the rest go.
+   */
+  private async resumeNow(peer: string, only?: ReadonlySet<string>, before?: number): Promise<number> {
     const device = this.roster.devices.find((d) => d.name === peer.slice(peer.indexOf("@") + 1));
     if (device === undefined) return 0;
-    this.breaker.resume(device.id);
-    // The sessions told about the pause hear it lifted at the next pass, so their sends stop reporting `held`.
-    for (const to of this.pauseFrom.get(device.id)?.told ?? []) this.pendingLifts.add(to);
-    this.pauseFrom.delete(device.id);
-    await this.savePauses();
-    this.emit("breaker", { peer, state: "resumed" });
+    const pause = this.breaker.kept().find((p) => p.peer === device.id);
+    if (before === undefined || (pause !== undefined && pause.at <= before)) {
+      this.breaker.resume(device.id);
+      // The sessions told about the pause hear it lifted at the next pass, so their sends stop reporting `held`.
+      for (const to of this.pauseFrom.get(device.id)?.told ?? []) this.pendingLifts.add(to);
+      this.pauseFrom.delete(device.id);
+      await this.savePauses();
+      this.emit("breaker", { peer, state: "resumed" });
+    }
     let n = 0;
     for (const item of await this.held.list()) {
-      if (item.device !== device.id || item.reason !== "breaker") continue;
-      await this.decideNow(item.id, "approve");
-      n++;
+      if (item.device !== device.id || item.reason !== "breaker" || (only !== undefined && !only.has(item.id))) continue;
+      if (await this.decideEach(item.id, "approve")) n++;
     }
     return n;
   }
@@ -1761,14 +2361,16 @@ export class MeshSession extends EventEmitter {
    * ended meanwhile), the sessions told still hear a resume, a release in the last hour still makes
    * a second trip wait for the person, and lifts not yet sent go out. A pause that holds nothing
    * any more is not taken back (an older `wim held resume` released what it held without knowing
-   * this file, and the counts start over anyway); its sessions hear it lifted.
+   * this file, and the counts start over anyway); its sessions hear it lifted. A pause idle notices
+   * tripped (`wake`) is taken back whatever it holds: it never needed a message to stand.
    */
   private async restorePauses(): Promise<void> {
     const file = await readBreakerFile(this.files.breakerPath);
     const held = await this.held.list();
     for (const r of file.pauses) {
       const { from, told, ...pause } = r;
-      if (!held.some((h) => h.reason === "breaker" && h.device === pause.peer && h.pause !== undefined && h.pause.at === pause.at)) {
+      // A pause idle notices tripped holds no message of its own, and is kept all the same.
+      if (pause.wake !== true && !held.some((h) => h.reason === "breaker" && h.device === pause.peer && h.pause !== undefined && h.pause.at === pause.at)) {
         for (const to of told) this.pendingLifts.add(to);
         continue;
       }
@@ -1777,6 +2379,7 @@ export class MeshSession extends EventEmitter {
     }
     for (const [peer, at] of Object.entries(file.released)) this.breaker.restoreRelease(peer, at);
     for (const [peer, times] of Object.entries(file.counts)) this.breaker.restoreCounts(peer, times);
+    for (const [peer, times] of Object.entries(file.wakes)) this.breaker.restoreWakes(peer, times);
     for (const to of file.lifts) this.pendingLifts.add(to);
     await this.savePauses();
   }
@@ -1792,7 +2395,7 @@ export class MeshSession extends EventEmitter {
       this.countsChanged = false;
       return savePauses(
         this.files.breakerPath,
-        { pauses: this.rowsOf(this.breaker.kept()), released: this.breaker.releases(), lifts: [...this.pendingLifts], counts: this.breaker.counts() },
+        { pauses: this.rowsOf(this.breaker.kept()), released: this.breaker.releases(), lifts: [...this.pendingLifts], counts: this.breaker.counts(), wakes: this.breaker.wakeCounts() },
         this.o.env,
       );
     });
@@ -1995,14 +2598,16 @@ export class MeshSession extends EventEmitter {
    * A card always carries the prekeys (`card`): cards are how upgraded devices learn each other's
    * prekeys, and a downgraded card would leave a mixed mesh with no forward secrecy at all. A v0.1
    * client drops such a card, so it misses that session's labels and nothing else.
+   *
+   * A device that refuses v0.1 boxes (`strict`) never falls back either: it seals as from 1.0.
    */
-  private keysFor(ids: readonly string[], card = false): { keys: { prekeys: Record<string, Prekey>; prekey?: Prekey }; missing: string[] } {
+  private keysFor(ids: readonly string[], card = false, strict = false): { keys: { prekeys: Record<string, Prekey>; prekey?: Prekey }; missing: string[] } {
     const own = this.prekeys.current();
     const prekeys = this.peerKeys.forSend(this.roster, ids);
     if (own !== undefined && ids.includes(this.device.id)) prekeys[this.device.id] = own;
     const acting = new Set(this.roster.devices.filter((d) => !isRecoveryName(d.name)).map((d) => d.id));
     const missing = ids.filter((id) => acting.has(id) && !Object.hasOwn(prekeys, id));
-    if (missing.length > 0 && !card) return { keys: { prekeys: {} }, missing };
+    if (missing.length > 0 && !card && !strict) return { keys: { prekeys: {} }, missing };
     return { keys: own === undefined ? { prekeys } : { prekeys, prekey: own }, missing };
   }
 
@@ -2050,14 +2655,21 @@ export class MeshSession extends EventEmitter {
     for (const a of routed) if (!isRoom(a) && a !== "*") this.breaker.noteSent(this.pairOf(a).split("/")[0]!, (text ?? "").length);
     const name = (d: string): string => this.roster.devices.find((r) => r.id === d)!.name;
     const unprotected = this.legacyIds(frame).map(name);
-    const outcome: SendOutcome = { id, results: [...out.local, ...sent.results], ...(unprotected.length > 0 ? { unprotected, no_prekey: missing.map(name) } : {}) };
+    // Missing devices were sealed scheme 1 boxes (the window) or skipped (a device that refuses them).
+    const outcome: SendOutcome = {
+      id,
+      results: [...out.local, ...sent.results],
+      ...(missing.length > 0 ? { ...(unprotected.length > 0 ? { unprotected } : {}), no_prekey: missing.map(name) } : {}),
+    };
     return this.history.append({
       dir: "out",
       peer: routed.join(","),
       id,
       kind: opts.kind ?? "msg",
       at: frame.at,
-      text: text ?? "",
+      // A session that keeps no message text keeps none of what it sends either (an answer can quote files).
+      text: this.redacting ? "" : (text ?? ""),
+      ...(this.redacting ? { redacted: true as const } : {}),
       ...(opts.reply_to === undefined ? {} : { reply_to: opts.reply_to }),
       ...(opts.status === undefined ? {} : { status: opts.status }),
       ...(opts.file === undefined ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } }),
@@ -2115,7 +2727,8 @@ export class MeshSession extends EventEmitter {
     // frame goes out, so an overlapping send would reuse it or overtake it, and the receiver
     // would drop one as a replay.
     const { frame, missing, answer: answering } = await this.serially(async () => {
-      let sealed = await this.seal(id, routed, ids, text, opts);
+      const strict = await this.refusesLegacy();
+      let sealed = await this.seal(id, routed, ids, text, opts, strict);
       const link = await this.ready(this.answerMs);
       if (sealed.missing.length > 0) {
         // A device with no prekey may only be unknown so far: read what sibling sessions learned
@@ -2124,12 +2737,15 @@ export class MeshSession extends EventEmitter {
         let timer: NodeJS.Timeout | undefined;
         await Promise.race([this.cardsIn, new Promise<void>((resolve) => (timer = setTimeout(resolve, this.answerMs)))]);
         clearTimeout(timer);
-        if (Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id, routed, ids, text, opts);
+        if (sealed.frame === undefined || Object.keys(this.peerKeys.forSend(this.roster, sealed.missing)).length > 0) sealed = await this.seal(id, routed, ids, text, opts, strict, true);
       }
-      await this.save({ seq: sealed.frame.seq });
+      // Only a strict direct send that still waits on a prekey leaves no frame, and its last seal refused it.
+      await this.save({ seq: sealed.frame!.seq });
       // Recorded before sending, so a quick answer already finds its task.
       if (opts.kind === "task") await this.recordSentTask(id, routed);
-      return { frame: sealed.frame, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame, id) };
+      // Before the frame goes out, so its receipts are known as this session's.
+      this.noteSentId(id);
+      return { frame: sealed.frame!, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame!, id) };
     });
     const answer = await answering;
     if (answer.t === "error") throw relayRefusal("the relay refused the send", answer);
@@ -2178,15 +2794,25 @@ export class MeshSession extends EventEmitter {
     return run;
   }
 
-  /** Seals a message at the next seq; the secrets check and the protocol limits refuse here. */
-  private async seal(id: string, routed: string[], ids: string[], text: string | undefined, opts: Outgoing): Promise<{ frame: SendFrame; missing: string[] }> {
+  /**
+   * Seals a message at the next seq; the secrets check and the protocol limits refuse here. On a
+   * device that refuses v0.1 boxes (`strict`), a direct send naming a device with no prekey has no
+   * frame until `last`, the seal after waiting for prekeys, which refuses it (SPEC section 6b,
+   * from 1.0); a broadcast or room send skips such a device.
+   */
+  private async seal(id: string, routed: string[], ids: string[], text: string | undefined, opts: Outgoing, strict: boolean, last = false): Promise<{ frame?: SendFrame; missing: string[] }> {
     // A ping, pong or pause is the client's own, never written while handling anything (SPEC section 6a).
     const derived = opts.kind === "ping" || opts.kind === "pong" || opts.kind === "pause" ? false : await this.isDerived();
-    const { keys, missing } = this.keysFor(ids);
+    const { keys, missing } = this.keysFor(ids, false, strict);
+    if (strict && !GROUP(routed) && missing.length > 0) {
+      if (!last) return { missing };
+      throw new ClientError(refusedLine(missing.map((d) => this.roster.devices.find((r) => r.id === d)!.name)), "invalid");
+    }
     try {
       const frame = await sealMessageWith({
         ...this.sealBase(routed),
         ...keys,
+        ...(strict ? { legacy: false } : {}),
         id,
         kind: opts.kind ?? "msg",
         ...(text === undefined ? {} : { text }),
@@ -2252,21 +2878,33 @@ export class MeshSession extends EventEmitter {
   }
 
   /**
-   * Arms one idle notice for each session address (rooms, `*` and anything else are skipped),
-   * recorded in `watches.json` first, so the notice is taken when it comes. The relay decides the
-   * limit; a watch it never fires lapses after 12 hours. Answers a note for the send's result when
-   * the watch could not be recorded.
+   * Arms one idle notice for each session address, recorded in `watches.json` first, so the notice
+   * is taken when it comes, and sent to the relay (at the next `ready` when offline). Rooms, `*`
+   * and anything else are not armed, nor a new address past the relay's limit of open watches; a
+   * watch with no notice lapses after 12 hours. Answers what is watched and until when, and a
+   * note for the send's result about anything not armed.
    */
-  async notifyWhenIdle(addresses: readonly string[]): Promise<string | undefined> {
-    const wanted = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
+  async notifyWhenIdle(addresses: readonly string[]): Promise<{ watching: Array<{ to: string; until: number }>; note?: string }> {
+    // This session's own address, or one the relay's rows give its session id: a session never
+    // watches itself, so its own presence can never wake it.
+    const self = (of: string): boolean => of === this.address || this.peers.get(of)?.sid === this.state.sid;
+    const valid = [...new Set(addresses.filter((of) => sessionAddressSchema.safeParse(of).success))];
+    const wanted = valid.filter((of) => !self(of));
+    const skipped = [...new Set(addresses.filter((of) => !valid.includes(of)))];
+    const notes = skipped.length === 0 ? [] : [`Idle notices are for name@device only, so none is armed for ${skipped.map((a) => sanitizeForDisplay(a)).join(", ")}.`];
+    if (wanted.length < valid.length) notes.push("A session cannot watch itself, so none is armed for its own address.");
+    let armed: Armed;
     try {
-      await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
+      armed = await this.watches.arm(wanted.map((of) => ({ of, sid: this.peers.get(of)?.sid })));
     } catch (error) {
       this.log(`wim: watches: ${(error as Error).message}`);
-      return `no idle notice armed: this session could not record the watch (${(error as Error).message})`;
+      return { watching: [], note: [`no idle notice armed: this session could not record the watch (${(error as Error).message})`, ...notes].join(" ") };
     }
-    for (const of of wanted) this.sendIfOpen({ t: "notify_idle", of });
-    return undefined;
+    if (armed.refused.length > 0) {
+      notes.push(`This session already watches ${LIMITS.notifyIdlePerSession} sessions, the most it may, so none is armed for ${armed.refused.join(", ")} (a watch ends at its notice, or 12 hours after the arm).`);
+    }
+    for (const w of armed.watching) this.sendArm(w.of);
+    return { watching: armed.watching.map((w) => ({ to: w.of, until: w.until })), ...(notes.length === 0 ? {} : { note: notes.join(" ") }) };
   }
 
   async rename(name: string): Promise<string> {
@@ -2275,7 +2913,7 @@ export class MeshSession extends EventEmitter {
     const want = `${name}@${me.name}`;
     const answer = (await link.request({ t: "rename", name }, (f) => (f.t === "peer" && f.peer.address === want) || errorFor("rename")(f), this.answerMs)) as RelayFrame;
     if (answer.t === "error") throw relayRefusal("rename refused", answer);
-    await this.save({ name, address: want });
+    await this.save({ name, asked: name, address: want });
     return want;
   }
 
@@ -2371,24 +3009,42 @@ export class MeshSession extends EventEmitter {
     return key;
   }
 
-  async acquireLease(name: string, ttlMs: number, wait: boolean): Promise<LeaseFrame> {
+  /**
+   * Acquires a lease. With `wait`, a held lease is waited for up to `waitMs` (SPEC section 14's
+   * `timeout`), else up to `ttlMs` as before. A relay older than `timeout` refuses the frame as
+   * malformed (with no `ref`): the acquire is then asked again without it, waiting up to `ttlMs`.
+   */
+  async acquireLease(name: string, ttlMs: number, wait: boolean, waitMs?: number): Promise<LeaseFrame> {
     const key = await this.keyFor(name);
     const link = await this.ready();
-    const answer = (await link.request(
-      { t: "lease.acquire", key, ttl: ttlMs, ...(wait ? { wait: true } : {}) },
-      (f) => f.t === "lease" && f.key === key,
-      (wait ? ttlMs : 0) + (this.answerMs),
-    )) as LeaseFrame;
-    if (answer.status === "granted" && answer.token !== undefined) await this.save({ leases: { ...this.state.leases, [key]: answer.token } });
-    return answer;
+    const timeout = wait ? waitMs : undefined;
+    const ask = (withTimeout: boolean): Promise<RelayFrame> =>
+      link.request(
+        { t: "lease.acquire", key, ttl: ttlMs, ...(wait ? { wait: true } : {}), ...(withTimeout ? { timeout } : {}) },
+        (f) => leaseAnswer(key)(f) || (withTimeout && f.t === "error" && f.code === "malformed" && f.ref === undefined),
+        (wait ? (withTimeout ? timeout! : ttlMs) : 0) + this.answerMs,
+      );
+    let answer = await ask(timeout !== undefined);
+    if (answer.t === "error") {
+      this.log("wim: the relay does not take a lease wait timeout; waiting up to the lease ttl instead");
+      answer = await ask(false);
+    }
+    const lease = answer as LeaseFrame;
+    if (lease.status === "granted" && lease.token !== undefined) await this.keepLease(key, lease.token, lease.until);
+    return lease;
   }
 
+  /** Renews a lease. A refused renew is checked against the relay's list: a lease this session lost is dropped, and the agent told. */
   async renewLease(name: string, ttlMs: number): Promise<LeaseFrame> {
     const key = await this.keyFor(name);
     const token = this.state.leases[key];
     if (token === undefined) throw new ClientError(`this session does not hold the lease ${JSON.stringify(name)}`, "not_held");
     const link = await this.ready();
-    return (await link.request({ t: "lease.renew", key, token, ttl: ttlMs }, (f) => f.t === "lease" && f.key === key, this.answerMs)) as LeaseFrame;
+    const answer = (await link.request({ t: "lease.renew", key, token, ttl: ttlMs }, leaseAnswer(key), this.answerMs)) as LeaseFrame;
+    if (answer.status === "renewed") await this.keepLease(key, token, answer.until);
+    // Refused for a bad ttl or the 4-hour cap, the lease is still held: only a lost one is dropped.
+    else if (!(await this.stillHeld(link, key, token).catch(() => true))) await this.leaseLost(key, token, "renew");
+    return answer;
   }
 
   async releaseLease(name: string): Promise<LeaseFrame> {
@@ -2396,10 +3052,94 @@ export class MeshSession extends EventEmitter {
     const token = this.state.leases[key];
     if (token === undefined) throw new ClientError(`this session does not hold the lease ${JSON.stringify(name)}`, "not_held");
     const link = await this.ready();
-    const answer = (await link.request({ t: "lease.release", key, token }, (f) => f.t === "lease" && f.key === key, this.answerMs)) as LeaseFrame;
-    const { [key]: _gone, ...rest } = this.state.leases;
-    await this.save({ leases: rest });
+    const answer = (await link.request({ t: "lease.release", key, token }, leaseAnswer(key), this.answerMs)) as LeaseFrame;
+    // Refused, the lease had already ended: the agent learns that what it protected was not its own.
+    if (answer.status === "refused") await this.leaseLost(key, token, "release");
+    else await this.forgetLease(key, token);
     return answer;
+  }
+
+  /** Lease keys this session holds a token for, less those whose `until` has passed (relay clock). */
+  private heldLeases(): string[] {
+    const until = this.state.leaseUntil ?? {};
+    const now = this.relayNow();
+    return Object.keys(this.state.leases).filter((k) => !(until[k]! <= now));
+  }
+
+  private relayNow(): number {
+    return this.now() + this.relayOffset;
+  }
+
+  /** Keeps a lease's token and, when the relay gave one, its `until`. */
+  private async keepLease(key: string, token: number, until: number | undefined): Promise<void> {
+    const { [key]: _old, ...untils } = this.state.leaseUntil ?? {};
+    await this.save({ leases: { ...this.state.leases, [key]: token }, leaseUntil: until === undefined ? untils : { ...untils, [key]: until } });
+  }
+
+  /** Forgets a lease if this session still has `token` for it; true when it did. */
+  private async forgetLease(key: string, token: number): Promise<boolean> {
+    if (this.state.leases[key] !== token) return false;
+    const { [key]: _t, ...leases } = this.state.leases;
+    const { [key]: _u, ...leaseUntil } = this.state.leaseUntil ?? {};
+    await this.save({ leases, leaseUntil });
+    return true;
+  }
+
+  /** Forgets a lost lease and tells the agent, once: only while this session still has that token. */
+  private async leaseLost(key: string, token: number, why: LeaseLoss): Promise<void> {
+    if (!(await this.forgetLease(key, token))) return;
+    await this.notice(this.address, leaseLostLine(await this.leaseShown(key), why));
+  }
+
+  /** A lease as a notice names it: its plain name where this device knows it, else its key. */
+  private async leaseShown(key: string): Promise<string> {
+    return JSON.stringify(sanitizeForDisplay((await this.leaseNames())[key] ?? key));
+  }
+
+  /** Whether the relay lists this session as the lease's holder with `token`. */
+  private async stillHeld(link: Link, key: string, token: number): Promise<boolean> {
+    const f = (await link.request({ t: "lease.list" }, (x) => x.t === "leases", this.answerMs)) as LeasesFrame;
+    return f.leases.some((l) => l.key === key && l.holder === this.address && l.token === token);
+  }
+
+  /** Drops each lease whose `until` has passed (relay clock), telling the agent: from the housekeeping pass. */
+  private async pruneLeases(): Promise<void> {
+    const held = new Set(this.heldLeases());
+    for (const [key, token] of Object.entries(this.state.leases)) if (!held.has(key)) await this.leaseLost(key, token, "expired");
+  }
+
+  /**
+   * At each `ready`, asks the relay which leases this session holds (SPEC section 14 sends an
+   * expiry only to a connected holder): a token for a lease that ended meanwhile is dropped, and
+   * the agent told; one the relay holds for this session that it did not know (a grant after the
+   * client gave up waiting) is kept. After a same-project takeover the agent is told, once, which
+   * leases came with it. The tokens are taken when the list comes, so a grant after it is kept.
+   */
+  private checkLeases(link: Link): void {
+    const inherit = this.projectTaken;
+    if (Object.keys(this.state.leases).length === 0 && !inherit) return;
+    this.projectTaken = false;
+    this.leaseChecking = link
+      .request({ t: "lease.list" }, (f) => f.t === "leases", this.answerMs)
+      .then(async (f) => {
+        const had = Object.entries(this.state.leases);
+        const mine = new Map((f as LeasesFrame).leases.filter((l) => l.holder === this.address).map((l) => [l.key, l]));
+        for (const [key, token] of had) {
+          const l = mine.get(key);
+          // Held under another token, the session was granted it again (a wait it gave up on).
+          if (l === undefined) await this.leaseLost(key, token, "away");
+        }
+        for (const l of mine.values()) await this.keepLease(l.key, l.token, l.until);
+        if (!inherit || mine.size === 0) return;
+        const names: string[] = [];
+        for (const key of mine.keys()) names.push(await this.leaseShown(key));
+        await this.notice(this.address, inheritedLeasesLine(names));
+      })
+      .catch((e: unknown) => {
+        // The next `ready` asks again.
+        this.projectTaken ||= inherit;
+        this.log(`wim: leases not checked: ${(e as Error).message}`);
+      });
   }
 
   /** Current leases with plain names where this device knows them (else the key). */
@@ -2499,7 +3239,7 @@ export class MeshSession extends EventEmitter {
    */
   async markRead(items: readonly SpoolItem[]): Promise<void> {
     // Read here, so no sweep (this one or a concurrent pass) keeps them in the relayed box.
-    for (const i of items) if (i.relayed === true) this.readRelayed.add(i.id);
+    for (const i of items) if (keptInBox(i)) this.readRelayed.add(i.id);
     const newest = Math.max(0, ...items.map((i) => i.cursor));
     if (newest > this.spool.taken) await this.take(newest);
     // A pass that was already writing one to the box when the read began is undone here.
@@ -2530,6 +3270,8 @@ export class MeshSession extends EventEmitter {
         const first = items[0];
         if (over || first === undefined) return;
         finish();
+        // A relayed item or a quiet notice is read now, so the sweep does not keep it in the box for inbox.
+        if (keptInBox(first)) this.readRelayed.add(first.id);
         this.take(first.cursor).then(() => {
           this.informed([first]);
           resolve(first);

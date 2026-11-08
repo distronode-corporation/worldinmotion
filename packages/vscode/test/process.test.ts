@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { BACKOFF_MS, clientCommand, clientCwd, crashReportsTerminal, signerTerminal, EventsProcess, LineSplitter, MAX_LINE, REQUEST_TIMEOUT_MS, RequestError, STABLE_MS, type Child, type SpawnFn, type Timers } from "../src/process.ts";
+import { BACKOFF_MS, clientCommand, clientCwd, crashReportsTerminal, recoveryTerminal, signerTerminal, EventsProcess, LineSplitter, MAX_LINE, REQUEST_TIMEOUT_MS, RequestError, STABLE_MS, type Child, type SpawnFn, type Timers } from "../src/process.ts";
 import type { WimEvent } from "../src/protocol.ts";
 import { flush } from "./helpers.ts";
 
@@ -157,6 +157,21 @@ describe("EventsProcess", () => {
     await expect(q).rejects.toMatchObject({ code: "timeout" });
   });
 
+  it("reads the lines a client wrote before it exited, though they arrive after its exit", async () => {
+    const h = harness();
+    h.proc.start();
+    const c = h.children[0]!;
+    // The process is gone (`exit`) while its last line is still in the pipe; `close` comes once
+    // the pipes are drained, and only then is it finished with.
+    c.emit("exit", 0, null);
+    c.stdout.write(`${JSON.stringify({ v: 1, type: "created", at: 2, mesh: "ab…", recovery: "not_collected" })}\n`);
+    await flush();
+    expect(h.states).toEqual(["starting"]);
+    c.emit("close", 0, null);
+    expect(h.events).toEqual([{ type: "created", at: 2, mesh: "ab…", recovery: "not_collected" }]);
+    expect(h.states).toEqual(["starting", "exited: exited with code 0"]);
+  });
+
   it("refuses a request while not running", async () => {
     const h = harness();
     await expect(h.proc.request("snapshot")).rejects.toMatchObject({ code: "closed" });
@@ -168,7 +183,7 @@ describe("EventsProcess", () => {
     const p = h.proc.request("snapshot");
     h.children[0]!.stderr.write("wim: this device is not set up: run `wim init` first\n");
     await flush();
-    h.children[0]!.emit("exit", 2, null);
+    h.children[0]!.emit("close", 2, null);
     await expect(p).rejects.toMatchObject({ code: "closed", message: "the wim events process exited with code 2: wim: this device is not set up: run `wim init` first" });
     // Not running until the restart: a request is refused at once.
     await expect(h.proc.request("snapshot")).rejects.toMatchObject({ code: "closed", message: "the wim events process is not running" });
@@ -176,16 +191,16 @@ describe("EventsProcess", () => {
     expect(h.logs).toContain("restarting in 1 s");
     h.timers.fire(BACKOFF_MS[0]!);
     expect(h.children.length).toBe(2);
-    h.children[1]!.emit("exit", null, "SIGTERM");
+    h.children[1]!.emit("close", null, "SIGTERM");
     expect(h.states.at(-1)).toBe("exited: stopped by SIGTERM");
     h.timers.fire(BACKOFF_MS[1]!);
     for (let i = 2; i < BACKOFF_MS.length + 1; i += 1) {
-      h.children[i]!.emit("exit", 1, null);
+      h.children[i]!.emit("close", 1, null);
       h.timers.fire(BACKOFF_MS[Math.min(i, BACKOFF_MS.length - 1)]!);
     }
     // A process that stayed up long enough starts the backoff again from the first step.
     h.advance(STABLE_MS);
-    h.children.at(-1)!.emit("exit", 1, null);
+    h.children.at(-1)!.emit("close", 1, null);
     h.timers.fire(BACKOFF_MS[0]!);
     // Output from a replaced process is ignored.
     h.children[0]!.line({ v: 1, type: "connection", at: 1, state: "open" });
@@ -200,7 +215,7 @@ describe("EventsProcess", () => {
     h.proc.start();
     const c = h.children[0]!;
     c.emit("error", new Error("spawn wim ENOENT"));
-    c.emit("exit", -2, null);
+    c.emit("close", -2, null);
     expect(h.logs).toContain("could not run wim: spawn wim ENOENT");
     expect(h.states).toEqual(["starting", "exited: spawn wim ENOENT"]);
     c.stdin.emit("error", new Error("EPIPE"));
@@ -240,11 +255,11 @@ describe("EventsProcess", () => {
     await expect(p).rejects.toMatchObject({ code: "closed", message: "the wim events process stopped" });
     expect(c.killed).toBe(true);
     expect(c.stdin.writableEnded).toBe(true);
-    c.emit("exit", 0, null);
+    c.emit("close", 0, null);
     expect(h.timers.queue).toEqual([]);
     h.proc.restart();
     expect(h.children.length).toBe(2);
-    h.children[1]!.emit("exit", 1, null);
+    h.children[1]!.emit("close", 1, null);
     expect(h.timers.queue.length).toBe(1);
     h.proc.stop();
     expect(h.timers.queue).toEqual([]);
@@ -330,23 +345,39 @@ describe("clientCwd", () => {
 describe("signerTerminal", () => {
   const base = { extensionPath: "/ext", wimPath: "", execPath: "/electron", env: { HOME: "/h" }, telemetry: true, cwd: "/h", locked: false };
 
-  it("runs the bundled client's wim agent start on VS Code's Node, or unlock when the signer is locked", () => {
+  it("runs the bundled client's wim signer start on VS Code's Node, or unlock when the signer is locked", () => {
     expect(signerTerminal(base)).toEqual({
       name: "worldinmotion signer",
       shellPath: "/electron",
-      shellArgs: [join("/ext", "dist", "wim.mjs"), "agent", "start"],
+      shellArgs: [join("/ext", "dist", "wim.mjs"), "signer", "start"],
       env: { ELECTRON_RUN_AS_NODE: "1" },
       cwd: "/h",
     });
-    expect(signerTerminal({ ...base, locked: true }).shellArgs.slice(1)).toEqual(["agent", "unlock"]);
+    expect(signerTerminal({ ...base, locked: true }).shellArgs.slice(1)).toEqual(["signer", "unlock"]);
   });
 
   it("runs an executable wimPath as itself, with Electron's switch cleared", () => {
-    expect(signerTerminal({ ...base, wimPath: "/usr/local/bin/wim" })).toMatchObject({ shellPath: "/usr/local/bin/wim", shellArgs: ["agent", "start"], env: { ELECTRON_RUN_AS_NODE: null } });
+    expect(signerTerminal({ ...base, wimPath: "/usr/local/bin/wim" })).toMatchObject({ shellPath: "/usr/local/bin/wim", shellArgs: ["signer", "start"], env: { ELECTRON_RUN_AS_NODE: null } });
   });
 
   it("keeps crash reports off while VS Code's telemetry is off", () => {
     expect(signerTerminal({ ...base, telemetry: false }).env).toEqual({ ELECTRON_RUN_AS_NODE: "1", WIM_NO_CRASH_REPORTS: "1" });
+  });
+});
+
+describe("recoveryTerminal", () => {
+  const base = { extensionPath: "/ext", wimPath: "", execPath: "/electron", env: { HOME: "/h" }, telemetry: true, cwd: "/h" };
+
+  it("runs wim recovery show --wait with the bundled client, or wimPath, with crash reports off while telemetry is", () => {
+    expect(recoveryTerminal(base)).toEqual({
+      name: "worldinmotion recovery code",
+      shellPath: "/electron",
+      shellArgs: [join("/ext", "dist", "wim.mjs"), "recovery", "show", "--wait"],
+      env: { ELECTRON_RUN_AS_NODE: "1" },
+      cwd: "/h",
+    });
+    expect(recoveryTerminal({ ...base, wimPath: "/usr/local/bin/wim" })).toMatchObject({ shellPath: "/usr/local/bin/wim", shellArgs: ["recovery", "show", "--wait"] });
+    expect(recoveryTerminal({ ...base, telemetry: false }).env).toEqual({ ELECTRON_RUN_AS_NODE: "1", WIM_NO_CRASH_REPORTS: "1" });
   });
 });
 

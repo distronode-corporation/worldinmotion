@@ -34,6 +34,17 @@ export function heldKey(h: { session: string; id: string }): string {
   return `${h.session}\n${h.id}`;
 }
 
+/**
+ * Held items decided together: every row from one sending device, or under one CI rule, oldest
+ * first. `ids` has each message once (a room message held by two sessions is two rows, one id).
+ */
+export type HeldSet = { key: string; title: string; rows: HeldRow[]; ids: string[]; first: number; last: number };
+
+/** The set a held row is decided with; a row from a client that does not group is a set of its own. */
+export function heldSetKey(h: HeldRow): string {
+  return h.set ?? `one\n${heldKey(h)}`;
+}
+
 /** The key of a waiting join request: one device on one invite. */
 export function joinKey(j: { invite: string; id: string }): string {
   return `${j.invite}/${j.id}`;
@@ -71,6 +82,18 @@ export class Store {
 
   private changed(ev?: WimEvent): void {
     for (const fn of this.listeners) fn(ev);
+  }
+
+  /**
+   * Whether the person is asked about a device (SPEC section 6a): another device added it (the
+   * client read who from its verified roster chain), it is held here, and the person has not
+   * marked it Not Mine. One this device admitted was decided when it was invited.
+   */
+  askAbout(row: DeviceRow, notMine: { has(id: string): boolean }): boolean {
+    // Before a snapshot named this device, nothing is asked: a row cannot be told apart from one it
+    // added. Ids, never names, say which device added it.
+    const me = [...this.devices.values()].find((r) => r.self)?.id;
+    return me !== undefined && !row.self && row.policy === "hold" && row.added_by_id !== undefined && row.added_by_id !== me && !notMine.has(row.id);
   }
 
   /** This process's own session address, once `hello` has arrived. */
@@ -234,6 +257,21 @@ export class Store {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, members]) => ({ target: name, detail: `${members.length} ${members.length === 1 ? "member" : "members"}` }));
     return [...live, ...rooms];
+  }
+
+  /** Held rows as sets, each oldest first (the id breaking ties), the sets by their first item. */
+  heldSets(): HeldSet[] {
+    const rows = [...this.held.values()].sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const sets = new Map<string, HeldSet>();
+    for (const h of rows) {
+      const key = heldSetKey(h);
+      const set = sets.get(key) ?? { key, title: h.set_title ?? h.from, rows: [], ids: [], first: h.at, last: h.at };
+      set.rows.push(h);
+      if (!set.ids.includes(h.id)) set.ids.push(h.id);
+      set.last = h.at;
+      sets.set(key, set);
+    }
+    return [...sets.values()];
   }
 
   /** Every peer a thread can be opened with: sessions, rooms and anyone in recent messages. */

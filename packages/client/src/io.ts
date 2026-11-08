@@ -1,11 +1,15 @@
 // The real process as the CLI sees it: output, prompts, Ctrl-C, and the facts about the machine.
 
+import { fstatSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { createInterface, type Interface } from "node:readline";
 import { Writable, type Readable } from "node:stream";
 import { spawnDetached, wimCommand } from "./agentcli.ts";
-import { runProgram } from "./autostart.ts";
+import { realToolTrust, runProgram } from "./autostart.ts";
+import { execRunner } from "./setup.ts";
+import { inheritRelaunch } from "./npxsetup.ts";
 import type { CliIO } from "./cli.ts";
+import { ancestry, realAncestryDeps, realSignerChecks } from "./ancestry.ts";
 import { pidAlive } from "./platform.ts";
 
 /**
@@ -14,15 +18,23 @@ import { pidAlive } from "./platform.ts";
  * passphrase prompt as none given: a question alone would never settle then, and the process
  * would end with Node's "unsettled top-level await" instead. A line ended by a newline answers
  * the question; a last line without one comes as readline's `line` event, before its `close`.
+ *
+ * Ctrl-C at a prompt in a terminal reaches readline, not the process (the terminal is in raw
+ * mode), so it is handed to `stop`: the answer is "" and the command's signal aborts, as Ctrl-C
+ * anywhere else does. Once stopped, a later prompt answers "" at once.
  */
-function ask(input: Readable, open: () => Interface, question: string): Promise<string> {
+function ask(input: Readable, open: () => Interface, question: string, stop: AbortController): Promise<string> {
   // A stream that already ended (an earlier prompt read it to the end) never says so again.
-  if (input.readableEnded) return Promise.resolve("");
+  if (input.readableEnded || stop.signal.aborted) return Promise.resolve("");
   const rl = open();
   return new Promise<string>((resolve) => {
     rl.question(question, resolve);
     rl.once("line", resolve);
     rl.once("close", () => resolve(""));
+    rl.once("SIGINT", () => {
+      stop.abort();
+      resolve("");
+    });
   }).finally(() => rl.close());
 }
 
@@ -76,16 +88,18 @@ export function processIo(
     },
     // `wim mcp` owns stdout for the protocol, so diagnostics always go to stderr.
     err: (line) => void proc.stderr.write(`${line}\n`),
-    prompt: (question) => ask(proc.stdin, () => createInterface({ input: proc.stdin, output: proc.stderr }), question),
+    prompt: (question) => ask(proc.stdin, () => createInterface({ input: proc.stdin, output: proc.stderr }), question, stop),
     // The question goes to stderr; what is typed is echoed nowhere (readline writes it to a sink).
     promptSecret: async (question) => {
       proc.stderr.write(question);
-      const answer = await ask(proc.stdin, () => createInterface({ input: proc.stdin, output: new Writable({ write: (_chunk, _enc, done) => done() }), terminal: true }), "");
+      const answer = await ask(proc.stdin, () => createInterface({ input: proc.stdin, output: new Writable({ write: (_chunk, _enc, done) => done() }), terminal: true }), "", stop);
       proc.stderr.write("\n");
       return answer;
     },
-    startAgent: (passphrase) => spawnDetached([...machine.wim(), "agent", "serve"], passphrase),
-    programs: { platform: proc.platform, run: runProgram, wim: machine.wim() },
+    startAgent: (passphrase) => spawnDetached([...machine.wim(), "signer", "serve"], passphrase),
+    programs: { platform: proc.platform, run: runProgram, wim: machine.wim(), trust: realToolTrust(proc.platform) },
+    tools: execRunner(proc.platform),
+    relaunch: inheritRelaunch(),
     signal: stop.signal,
     cwd: proc.cwd(),
     homedir: machine.homedir(),
@@ -102,5 +116,7 @@ export function processIo(
     onUnexpected: (listener) => void unexpected.push(listener),
     // Orphaned children are re-parented, so a changed ppid means the parent died.
     parentGone: () => proc.ppid !== parent || !pidAlive(parent, machine.kill),
+    ancestry: (levels) => ancestry({ ...realAncestryDeps(proc.platform), pid: proc.pid, ppid: proc.ppid }, levels),
+    signerChecks: realSignerChecks({ ...realAncestryDeps(proc.platform), pid: proc.pid, ppid: proc.ppid }, () => fstatSync(0).rdev),
   };
 }

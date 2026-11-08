@@ -1,0 +1,30 @@
+# /etc/systemd/system/wim-agent-job@.service
+# One scheduled job: wim-agent-job@<job>.service runs
+# /usr/local/sbin/wim-agent-job <job> (collect, analyse through the privileged
+# runner, post). Its timer starts it; `systemctl start wim-agent-job@<job>` runs
+# it by hand. Root, because collect and post may use credentials the model must
+# never see; the analysis itself runs as the worker user.
+#
+# TimeoutStartSec, not RuntimeMaxSec, is the cap: RuntimeMaxSec has no effect
+# on Type=oneshot. Keep it above the runner's timeoutSeconds plus collect and
+# post. Exit 75 means the runner was busy (job lock, memory floor, daily cap):
+# logged, not a failure, and the next tick is the retry.
+[Unit]
+Description=wim agent job: %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Slice=wim-agent.slice
+ExecStartPre=/usr/local/sbin/wim-agent-imds-block apply wim-agent wim-agent-worker
+ExecStart=/usr/local/sbin/wim-agent-job %i
+TimeoutStartSec=1800
+SuccessExitStatus=75
+Restart=no
+Nice=10
+PrivateTmp=yes
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wim-agent-job-%i

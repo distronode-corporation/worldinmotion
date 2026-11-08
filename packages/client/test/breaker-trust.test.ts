@@ -266,7 +266,9 @@ describe("the sending side", () => {
     // From then on a's sends there report held.
     await until(async () => (await a.pausedBy.active())[`${devices[1]!.device.id}/b`] !== undefined);
     expect((await a.send("b@two", "2")).results).toEqual([{ to: "b@two", status: "held", relay: "routed", breaker: expect.objectContaining({ rule: "peer", count: 2, limit: 1 }) }]);
-  });
+    // Two sessions and a relay, like every other test here that has them, so their budget: it was
+    // the only one at the 5 s default, which a full suite's load can use up. Every wait is on state.
+  }, 30_000);
 
   it("hears the pause once a session, reports held, and takes a pause only as a label from a session it sent to", async () => {
     const { a, b, clocks, devices, mesh } = await pair(60);
@@ -327,17 +329,17 @@ describe("pauses on disk", () => {
     const dir = await scratch("pauses");
     const path = join(dir, "breaker.json");
     const row: PauseRow = { from: "a@one", told: ["a@one"], peer: "d", rule: "peer", count: 2, limit: 1, minutes: 60, at: 1, until: 100, auto: true };
-    await savePauses(path, { pauses: [row, { ...row, until: 5 }], released: { d: 1 }, lifts: ["x@two"], counts: { d: [1, 2] } }, FS);
+    await savePauses(path, { pauses: [row, { ...row, until: 5 }], released: { d: 1 }, lifts: ["x@two"], counts: { d: [1, 2] }, wakes: {} }, FS);
     expect(await readPauses(path, 10)).toEqual([row]);
     expect(await readPauses(join(dir, "missing.json"), 0)).toEqual([]);
     await fs.writeFile(path, JSON.stringify({ pauses: [null, 3, { ...row, rule: "other" }, { ...row, from: 1 }, { ...row, peer: 1 }, { ...row, count: 1.5 }, { ...row, auto: "yes" }, { ...row, told: "a@one" }, { ...row, told: [1] }, row] }));
     expect(await readPauses(path, 10)).toEqual([row]);
-    expect(await readBreakerFile(path)).toEqual({ pauses: [row], released: {}, lifts: [], counts: {} });
-    await fs.writeFile(path, JSON.stringify({ pauses: "none", released: { d: 5, e: "soon" }, lifts: ["x@two", 3], counts: { d: [1, "2", 3], e: "x" } }));
+    expect(await readBreakerFile(path)).toEqual({ pauses: [row], released: {}, lifts: [], counts: {}, wakes: {} });
+    await fs.writeFile(path, JSON.stringify({ pauses: "none", released: { d: 5, e: "soon" }, lifts: ["x@two", 3], counts: { d: [1, "2", 3], e: "x" }, wakes: { d: [4, "5"], e: 6 } }));
     expect(await readPauses(path, 10)).toEqual([]);
-    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: { d: 5 }, lifts: ["x@two"], counts: { d: [1, 3] } });
-    await fs.writeFile(path, JSON.stringify({ released: null, counts: null }));
-    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: {}, lifts: [], counts: {} });
+    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: { d: 5 }, lifts: ["x@two"], counts: { d: [1, 3] }, wakes: { d: [4] } });
+    await fs.writeFile(path, JSON.stringify({ released: null, counts: null, wakes: null }));
+    expect(await readBreakerFile(path)).toEqual({ pauses: [], released: {}, lifts: [], counts: {}, wakes: {} });
     await fs.writeFile(path, "{ not json");
     expect(await readPauses(path, 10)).toEqual([]);
     // Every session's, oldest first; a session whose state is gone is named "?".
@@ -345,7 +347,7 @@ describe("pauses on disk", () => {
     const [s1, s2] = [ulid(1), ulid(2)];
     for (const [sid, at] of [[s1, 5], [s2, 3]] as const) {
       await fs.mkdir(mesh.sessionDir(sid), { recursive: true });
-      await savePauses(join(mesh.sessionDir(sid), "breaker.json"), { pauses: [{ ...row, at }], released: {}, lifts: [], counts: {} }, FS);
+      await savePauses(join(mesh.sessionDir(sid), "breaker.json"), { pauses: [{ ...row, at }], released: {}, lifts: [], counts: {}, wakes: {} }, FS);
     }
     expect((await listAllPauses(mesh, FS, 10)).map((p) => [p.sid, p.session, p.at])).toEqual([[s2, "?", 3], [s1, "?", 5]]);
   });
@@ -554,15 +556,17 @@ describe("wim held approve for a breaker hold", () => {
     const ids = (await b.held.list()).map((h) => h.id);
     await b.stop();
     const t = term(devices[1]!.root, relay);
-    t.answers.push("no");
+    // The three are one set; `one` reaches the single-item prompt, which offers the resume.
+    t.answers.push("one", "no");
     expect(await run(t, "held", "approve", ids[0]!)).toBe(1);
+    expect(said(t)).toContain("Approving them releases these and keeps the loop breaker's pause on; `wim held resume <address>` lifts it.");
     expect(said(t)).toContain(`Type y to approve it, or resume to approve it and resume a@one (lifting the pause on device one and releasing the 2 others held from it) [y/resume/N] `);
     expect(said(t)).toContain("  held     because the loop breaker paused that peer on the per-peer limit: 2 messages from a@one in 60 minutes, limit 1; the pause runs until ");
     expect(t.err).toContain("wim: nothing changed.");
-    t.answers.push("y");
+    t.answers.push("one", "y");
     expect(await run(t, "held", "approve", ids[0]!)).toBe(0);
     expect(said(t)).toContain(`Approved ${ids[0]!}. The breaker still pauses a@one: \`wim held resume a@one\` lifts it.`);
-    t.answers.push("RESUME");
+    t.answers.push("one", "RESUME");
     expect(await run(t, "held", "approve", ids[1]!)).toBe(0);
     expect(said(t)).toContain(`Approved ${ids[1]!} and resumed a@one; released 2 held by the breaker.`);
     expect(await new HeldBox(b.files.heldDir, FS).list()).toEqual([]);

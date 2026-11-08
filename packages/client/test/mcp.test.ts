@@ -77,7 +77,7 @@ describe("wim mcp", () => {
     expect(props("ask")["to"]).toEqual({ type: "string", minLength: 1 });
     expect(props("rooms")["limit"]).toEqual({ type: "integer", minimum: 1, maximum: 50 });
     expect(props("send")["to"]!["description"]).toBe("name@device, #room, *, or a list");
-    expect(byName["send"]!.inputSchema["required"]).toEqual(["to", "text"]);
+    expect(byName["send"]!.inputSchema["required"]).toEqual(["to"]);
     expect(byName["wait"]!.description).toBe("Block until the next item arrives (default 110 s, max 300).");
     expect(byName["send_file"]!.description).toContain("at most 25 MiB");
     for (const t of [...PUBLIC_TOOLS, ...INTERNAL_TOOLS]) expect(t.inputSchema["$schema"]).toBeUndefined();
@@ -113,11 +113,37 @@ describe("wim mcp", () => {
     await server.current!.ready(3000);
     expect(text(await call("peers"))).toMatch(/^peer@two {2}mcp {2}idle {2}-$/m);
     const sent = await call("send", { to: "peer@two", text: "hi", notify_when_idle: true });
-    expect(sent.structuredContent).toMatchObject({ results: [{ to: "peer@two", status: "routed" }] });
+    expect(sent.structuredContent).toMatchObject({ results: [{ to: "peer@two", status: "routed" }], watching: [{ to: "peer@two", until: expect.stringMatching(/^\d{4}-\d\d-\d\dT.*Z$/) }] });
     expect(sent.structuredContent).not.toHaveProperty("watch_note");
-    // Past the relay's 16 the client refuses nothing (the relay decides): no note.
-    const many = Array.from({ length: 17 }, (_, n) => `w${n}@two`).join(",");
-    expect((await call("send", { to: many, text: "hi", notify_when_idle: true })).structuredContent).not.toHaveProperty("watch_note");
+    // Without notify_when_idle a send says nothing of watches.
+    expect((await call("send", { to: "peer@two", text: "plain" })).structuredContent).not.toHaveProperty("watching");
+    // With no text (or empty text), a send only arms: nothing goes to the peer.
+    await until(async () => (await peer.spool.unread()).some((i) => i.rendered.includes("plain")));
+    const before = (await peer.spool.unread()).length;
+    expect((await call("send", { to: ["w0@two", "#room"], notify_when_idle: true })).structuredContent).toEqual({
+      watching: [{ to: "w0@two", until: expect.any(String) }],
+      watch_note: "Idle notices are for name@device only, so none is armed for #room.",
+    });
+    expect((await call("send", { to: "w1@two", text: "", notify_when_idle: true })).structuredContent).toEqual({ watching: [{ to: "w1@two", until: expect.any(String) }] });
+    // A session never watches itself.
+    expect((await call("send", { to: "writer@one", notify_when_idle: true })).structuredContent).toEqual({ watching: [], watch_note: "A session cannot watch itself, so none is armed for its own address." });
+    // No text and no notify_when_idle: nothing to do.
+    const bare = await call("send", { to: "peer@two" });
+    expect(bare.isError).toBe(true);
+    expect(text(bare)).toBe("invalid input: text: required unless notify_when_idle is true");
+    // The relay knows none of the w sessions: each arm comes back refused, naming its address, and
+    // the agent is told (quietly); the watch is closed.
+    const refusals = async () => (await server.current!.spool.unread()).filter((i) => i.kind === "notice" && i.quiet === true && i.rendered.includes("was not armed: the relay knows no session by that address"));
+    await until(async () => (await refusals()).length === 2);
+    // Past the relay's 16 open watches the client refuses a new address itself, and says so.
+    const many = Array.from({ length: 17 }, (_, n) => `w${n + 2}@two`).join(",");
+    const full = (await call("send", { to: many, text: "hi", notify_when_idle: true })).structuredContent as { watching: unknown[]; watch_note: string };
+    expect(full.watching).toHaveLength(15);
+    expect(full.watch_note).toBe("This session already watches 16 sessions, the most it may, so none is armed for w17@two, w18@two (a watch ends at its notice, or 12 hours after the arm).");
+    await sleep(50);
+    expect((await peer.spool.unread()).length).toBe(before);
+    await until(async () => (await refusals()).length === 17);
+    expect(text(await call("inbox"))).toContain("was not armed");
     // A watch that cannot be recorded: the send still goes out, and its result says so.
     const watches = server.current!.files.watchesPath;
     await fs.rm(watches, { force: true });
@@ -170,6 +196,8 @@ describe("wim mcp", () => {
     // leases
     expect((await call("lease", { action: "acquire", name: "deploy", ttl_s: 30 })).structuredContent).toMatchObject({ name: "deploy", status: "granted" });
     expect((await call("lease", { action: "renew", name: "deploy" })).structuredContent).toMatchObject({ status: "renewed" });
+    // The holder asking again, with a wait of its own, is told it holds it.
+    expect((await call("lease", { action: "acquire", name: "deploy", wait: true, wait_s: 5 })).structuredContent).toMatchObject({ status: "granted" });
     expect((await call("lease", { action: "list" })).structuredContent).toMatchObject({ leases: [{ name: "deploy", holder: "writer@one" }] });
     await call("_hello", { claudeSessionId: "pub" });
     expect((await call("_leases")).structuredContent).toMatchObject({ leases: [{ name: "deploy", holder: "writer@one" }] });
@@ -227,9 +255,10 @@ describe("wim mcp", () => {
     await until(async () => (await s.spool.unread()).some((i) => i.relayed === true));
     const r = (await s.spool.unread()).find((i) => i.relayed === true)!;
     await s.take(r.cursor);
-    expect((await s.spool.relayed()).map((i) => i.id)).toEqual([r.id]);
-    expect(text(await call("inbox", { peek: true }))).toMatch(/^\(relayed: the sender passed on text it did not write itself\)/);
-    await fs.writeFile(join(dismiss, `${r.id}.dismiss`), "");
+    // The approved message from a held sender is there too: spooled quiet, it never started a turn.
+    expect((await s.spool.relayed()).map((i) => i.id)).toEqual([sent.id, r.id]);
+    expect(text(await call("inbox", { peek: true }))).toContain("(relayed: the sender passed on text it did not write itself)");
+    for (const id of [sent.id, r.id]) await fs.writeFile(join(dismiss, `${id}.dismiss`), "");
     await until(async () => (await s.spool.relayed()).length === 0);
   }, 20_000);
 
@@ -271,6 +300,8 @@ describe("wim mcp", () => {
     // A relayed item (a CI notice) and a notice for the person wait too, and are never pushed.
     await pre.spool.write({ kind: "msg", from: "ci:github:o/r", device: "", id: "01J00000000000000000000003", at: 1, rendered: "relayed CI text", relayed: true, informs: true });
     await pre.spool.write({ kind: "notice", from: "ci:github:o/r", device: "", id: "01J00000000000000000000004", at: 1, rendered: "1 message held", held: 1, forPerson: true });
+    // A quiet idle notice (it may not start a turn) waits for the inbox as well.
+    await pre.spool.write({ kind: "notice", from: "w@two", device: "", id: "01J00000000000000000000005", at: 1, rendered: "w@two is now idle (quiet)", watched: devices[1]!.device.id, quiet: true });
     await pre.spool.write({ kind: "msg", from: "x@two", device: devices[1]!.device.id, id: "01J00000000000000000000001", at: 1, rendered: "waiting already" });
     await pre.stop();
     const { server, notes, client } = await connect({ device: devices[0]!, mesh, relay, name: "agent", channel: true, sessionKey: "chan" });
@@ -284,11 +315,39 @@ describe("wim mcp", () => {
     await until(() => notes.filter((n) => n.method === "notifications/claude/channel").length === 2);
     const pushed = notes.filter((n) => n.method === "notifications/claude/channel");
     expect(pushed[0]!.params).toMatchObject({ content: "waiting already" });
-    expect(pushed.some((n) => /relayed CI text|1 message held/.test(String(n.params!["content"])))).toBe(false);
+    expect(pushed.some((n) => /relayed CI text|1 message held|quiet/.test(String(n.params!["content"])))).toBe(false);
     expect(pushed[1]!.params).toMatchObject({ meta: { from: "peer@two", kind: "msg" } });
     expect(String(pushed[1]!.params!["content"])).toContain("pushed");
     await until(async () => (await server.current!.spool.unread()).length === 0);
+    // A pushed item starts a mesh turn: busy-mesh is written before the push, so a send is derived.
+    expect((await fs.readFile(server.current!.files.presencePath, "utf8")).trim()).toBe("busy-mesh");
+    // When busy-mesh cannot be written, nothing is pushed: the item waits for inbox.
+    const presence = server.current!.files.presencePath;
+    await fs.rm(presence);
+    await fs.mkdir(presence);
+    await peer.send("agent@one", "not pushed");
+    await until(async () => (await server.current!.spool.unread()).some((i) => i.rendered.includes("not pushed")));
+    await sleep(50);
+    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toHaveLength(2);
+    await fs.rmdir(presence);
   }, 20_000);
+
+  it("pushes nothing waiting at start when busy-mesh cannot be written: it all waits for inbox", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
+    const pre = await MeshSession.open({ ...sessionOpts(devices[0]!, mesh, relay, { name: "agent" }), sessionKey: "key:chan2" });
+    await pre.spool.write({ kind: "msg", from: "x@two", device: devices[1]!.device.id, id: "01J00000000000000000000001", at: 1, rendered: "first" });
+    await pre.spool.write({ kind: "msg", from: "x@two", device: devices[1]!.device.id, id: "01J00000000000000000000002", at: 1, rendered: "second" });
+    await fs.rm(pre.files.presencePath, { force: true });
+    await fs.mkdir(pre.files.presencePath);
+    await pre.stop();
+    const { server, notes } = await connect({ device: devices[0]!, mesh, relay, name: "agent", channel: true, sessionKey: "chan2" });
+    await server.start();
+    await server.current!.ready(3000);
+    await sleep(50);
+    expect(notes.filter((n) => n.method === "notifications/claude/channel")).toEqual([]);
+    expect((await server.current!.spool.unread()).map((i) => i.rendered)).toEqual(["first", "second"]);
+  });
 
   it("keeps a fresh session when the remembered one is live in another process", async () => {
     const relay = new RelayHarness();

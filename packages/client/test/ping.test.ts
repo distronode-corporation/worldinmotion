@@ -19,6 +19,36 @@ async function session(...args: Parameters<typeof openSession>): Promise<MeshSes
   return s;
 }
 
+/** What the relay saw a device's sessions take: the cursor of each message delivered, and the acks. */
+type Acks = { handled(id: string): Promise<void> };
+
+/**
+ * Watches the frames between the relay and `device`'s sessions. `handled(id)` resolves once one of
+ * them has acked the frame that delivered message `id`: acks follow handling, so it was handled.
+ * Wraps whatever toClient and toRelay hooks are set later in the test.
+ */
+function watchAcks(relay: RelayHarness, device: string): Acks {
+  const conns = new Set<string>();
+  const cursors = new Map<string, number>();
+  let acked = -1;
+  const toRelay = relay.toRelay;
+  const toClient = relay.toClient;
+  relay.toRelay = (text, conn) => {
+    const f = JSON.parse(text) as { t: string; device?: string; cursor?: number };
+    if (f.t === "auth" && f.device === device) conns.add(conn);
+    if (f.t === "ack" && conns.has(conn)) acked = Math.max(acked, f.cursor!);
+    return toRelay === undefined ? text : toRelay(text, conn);
+  };
+  relay.toClient = (text, conn) => {
+    if (conns.has(conn) && text.startsWith('{"t":"deliver"')) {
+      const f = JSON.parse(text) as { cursor: number; msg: { id: string } };
+      cursors.set(f.msg.id, f.cursor);
+    }
+    return toClient === undefined ? text : toClient(text, conn);
+  };
+  return { handled: (id) => until(() => cursors.has(id) && acked >= cursors.get(id)!, undefined, `the ack of ${id}`) };
+}
+
 /** The send frames clients gave the relay (cards, in `card.set`, are not among them). */
 function sendsOf(relay: RelayHarness): string[] {
   return relay.sentByClients.filter((t) => t.startsWith('{"t":"send"'));
@@ -97,24 +127,56 @@ describe("ping and pong", () => {
     expect(sendsOf(relay).length).toBe(before);
   }, 20_000);
 
-  it("gets no pong from a device the person refuses, from an older client, or for a stale ping", async () => {
+  /**
+   * Proves a session sent no pong to a ping, by events rather than by waiting: once the
+   * receiver has acked the ping's frame it has handled it, and a pong it chose to send was then
+   * already queued (post() queues before its first await). Its sends go out one at a time, so once
+   * a message it sends afterwards has reached the relay, a pong would have reached it first.
+   */
+  async function noPong(relay: RelayHarness, acks: Acks, receiver: MeshSession, pingId: string): Promise<void> {
+    await acks.handled(pingId);
+    // Handled, and nothing reached the agent (checked before the message below draws a receipt).
+    expect(await receiver.spool.unread()).toEqual([]);
+    await receiver.send("a@one", "after the ping");
+    expect(sendsOf(relay).filter((t) => t.includes(`"session":"${receiver.address.split("@")[0]}"`))).toHaveLength(1);
+  }
+
+  /** Pings with no wait (the call ends once the relay has routed it), and returns the ping's id. */
+  async function pingNow(relay: RelayHarness, a: MeshSession, to: string): Promise<string> {
+    expect(await a.ping(to, 0)).toEqual([{ to, status: "routed" }]);
+    return (JSON.parse(sendsOf(relay).at(-1)!) as { id: string }).id;
+  }
+
+  it("gets no pong from a device the person refuses", async () => {
     const relay = new RelayHarness();
-    const { mesh, devices } = await makeMesh(relay, ["one", "two", "three"], { trust: false });
+    const { mesh, devices } = await makeMesh(relay, ["one", "two"], { trust: false });
+    const acks = watchAcks(relay, devices[1]!.device.id);
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const b = await session(devices[1]!, mesh, relay, { name: "b" });
     await setDevicePolicy(b.mesh, devices[0]!.device.id, "refuse");
-    expect(await a.ping("b@two", 150)).toEqual([{ to: "b@two", status: "routed" }]);
-    // An older client drops the unknown kind: no pong. Here its deliveries never arrive.
-    const c = await session(devices[2]!, mesh, relay, { name: "c" });
+    await noPong(relay, acks, b, await pingNow(relay, a, "b@two"));
+  }, 20_000);
+
+  it("gets no pong from an older client, which drops the unknown kind", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "three"], { trust: false });
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    const c = await session(devices[1]!, mesh, relay, { name: "c" });
+    // Here its deliveries never arrive, so nothing it sends can answer the ping.
     relay.toClient = (text) => (text.includes('"t":"deliver"') && text.includes('"to":["c@three"]') ? undefined : text);
-    expect(await a.ping("c@three", 150)).toEqual([{ to: "c@three", status: "routed" }]);
+    await pingNow(relay, a, "c@three");
     relay.toClient = undefined;
-    await c.stop();
-    // A receiver whose clock runs a minute and more ahead reads the ping as stale.
-    const late = await session(devices[2]!, mesh, relay, { name: "late", now: () => Date.now() + PING.freshMs + 1000 });
-    expect(await a.ping("late@three", 150)).toEqual([{ to: "late@three", status: "routed" }]);
-    await sleep(30);
-    expect(await late.spool.unread()).toEqual([]);
+    await c.send("a@one", "after the ping");
+    expect(sendsOf(relay).filter((t) => t.includes('"session":"c"'))).toHaveLength(1);
+  }, 20_000);
+
+  it("gets no pong for a stale ping: the receiver's clock runs a minute and more ahead", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one", "three"], { trust: false });
+    const acks = watchAcks(relay, devices[1]!.device.id);
+    const a = await session(devices[0]!, mesh, relay, { name: "a" });
+    const late = await session(devices[1]!, mesh, relay, { name: "late", now: () => Date.now() + PING.freshMs + 1000 });
+    await noPong(relay, acks, late, await pingNow(relay, a, "late@three"));
   }, 20_000);
 
   it("takes only pongs from the sessions it pinged, once each, and logs a pong it could not send", async () => {
@@ -123,14 +185,13 @@ describe("ping and pong", () => {
     const a = await session(devices[0]!, mesh, relay, { name: "a" });
     const lines: string[] = [];
     await session(devices[1]!, mesh, relay, { name: "b", answerMs: 100, log: (l) => void lines.push(l) });
-    await session(devices[1]!, mesh, relay, { name: "other" });
-    const third = await session(devices[1]!, mesh, relay, { name: "third" });
+    const other = await session(devices[1]!, mesh, relay, { name: "other" });
     const postAs = (s: MeshSession) => (s as unknown as { post: (to: string, text: undefined, o: object) => Promise<unknown> }).post.bind(s);
     // b's pong never reaches the relay.
     relay.toRelay = (text) => (text.startsWith('{"t":"send"') && text.includes('"session":"b"') ? undefined : text);
     // No time budget: the wait ends as soon as the relay has answered. The ping's pong waiter is in
     // place before ping() first awaits, so the pongs are fed to it by hand before the ping is even
-    // sent: other's, then other's again and one from third (never pinged), both dropped.
+    // sent: other's, then other's again and one from third (a session never pinged), both dropped.
     const pinging = a.ping(["b@two", "other@two"], 0);
     const waiters = (a as unknown as { pongWaiters: Map<string, (device: string, session: string) => void> }).pongWaiters;
     const [id, pong] = [...waiters][0]!;
@@ -143,9 +204,9 @@ describe("ping and pong", () => {
     expect(rows[1]).toMatchObject({ to: "other@two", status: "routed", ms: expect.any(Number) });
     expect(waiters.has(id)).toBe(false);
     // A pong for no ping at all is dropped too. a handles what arrives in order, so once the
-    // message third sends after it is in a's spool, the pong has been handled.
-    await postAs(third)("a@one", undefined, { kind: "pong", reply_to: "01K70000000000000000000B02" });
-    await third.send("a@one", "after the stray pong");
+    // message other sends after it is in a's spool, the pong has been handled.
+    await postAs(other)("a@one", undefined, { kind: "pong", reply_to: "01K70000000000000000000B02" });
+    await other.send("a@one", "after the stray pong");
     await until(async () => (await a.spool.unread()).some((i) => i.rendered.includes("after the stray pong")));
     await until(() => lines.some((l) => l.startsWith("wim: no pong sent to a@one")));
     relay.toRelay = undefined;

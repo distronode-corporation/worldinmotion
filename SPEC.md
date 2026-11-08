@@ -3,6 +3,17 @@
 Status: draft for v0.1. This document is the contract between clients and relays. Nothing here
 depends on Claude Code: any agent that can hold a WebSocket and do the crypto below can be a peer.
 
+Version note, unreleased: section 14 adds an optional `timeout` to `lease.acquire`, how long a
+`wait` lasts (without it a wait lasts the `ttl`, as before), and fixes three answers: a lease that
+expires is handed to a waiter whose wait was still running at the lease's `until`, even when the
+relay's sweep sees both ends at once; an acquire by the session that holds the lease is answered
+`granted` with its current `until` and `token` (it was `held`, naming the caller); and a client
+learns which of its leases ended while it was offline from `lease.list` when it reconnects (no new
+frame). An older relay refuses an acquire that carries `timeout` as `error { code: "malformed" }`
+with no `ref`; the reference client then asks again without it. An older client never sends
+`timeout`, and treats the new `granted` as the grant it is, so every existing client and relay is
+compatible and this is a `wim/1` change.
+
 Version note, unreleased: section 11 adds deleting a mesh: an admin device's session sends
 `mesh.delete { mesh }`, the relay answers `mesh.deleted { mesh }`, closes every connection on the
 mesh with the new close code 4005 and deletes the mesh as it deletes an idle one (section 8 lists
@@ -130,7 +141,7 @@ box to or from it. They are kept only for the migration window.
 
 **Where the keys are kept is not part of the wire.** A client MAY hold its device keys and prekey
 secrets in a separate process that signs, seals and opens for its sessions (the reference client's
-`wim agent`, SECURITY-MODEL section 5.8), or in a hardware or OS key store. Every signature, box
+`wim signer`, SECURITY-MODEL section 5.8), or in a hardware or OS key store. Every signature, box
 and frame is byte for byte what this section and sections 6 and 6b define, so peers and relays
 cannot tell, and nothing in this document changed when the reference client added its signer.
 
@@ -259,8 +270,16 @@ An admin device runs `invite` and gets a one-time code:
 ```
 wim1_<b64u(canon({ "relay": "wss://relay.example", "mesh": "<mesh id>", "secret": "<b64u 32 random bytes>",
                    "pin": { "seq": 3, "hash": "<hash of roster 3>" }, "exp": 1760000000000,
-                   "tls": "<optional: b64u SHA-256 of the relay certificate's SubjectPublicKeyInfo>" }))>
+                   "tls": "<optional: b64u SHA-256 of the relay certificate's SubjectPublicKeyInfo>",
+                   "by": "<optional: the device id of the admin that made the invite>" }))>
 ```
+
+- `by` (from 0.2.0) names the admin device that made the invite. Every admin receives a join
+  request, so the roster that adds the joiner may be signed by another admin; the joiner treats
+  the signer as the invite's maker only when it is `by` (section 6a). A code without `by` (from an
+  earlier client) names no maker. A malformed `by` is refused, and any other unknown field still
+  is: the code is a strict schema. So devices on 0.1.10 or older cannot read a code that carries
+  `by`, short or full, and must upgrade to 0.2.0 before joining with one.
 
 - `inviteId` = `b64u(H(UTF-8("wim/1 invite " + b64u(secret))))` truncated to 22 characters. The
   admin registers only the `inviteId`, `exp` and `pin` with the relay
@@ -518,6 +537,13 @@ person the receiving agent works for.
   instruction or approval. The frame MUST use a fresh random boundary per message, and any
   sequence in the text that could open or close a frame MUST be escaped.
 - A message MUST NOT answer a permission prompt, approve a tool call, or change inbound policy.
+  A client MAY set `deliver` for a device as part of the person's approval of its join, or of the
+  join that admitted this device, when that approval says so: an admin's invite recorded as for
+  one of the person's own devices (kept with the invite on that device, never in the code; never
+  for an auto-accept invite), or the joining person's answer about the device that admitted it,
+  asked as that join's approver only when it is the maker the invite code names (`by`, section 5).
+  That trust is between those two devices only: no device becomes trusted because a trusted
+  device added it or said so.
 - **Trusted devices can assign work.** A message of any kind, except relayed or derived text
   (below), from a device whose inbound policy is `deliver` (one the person chose to trust) is
   presented to the agent as a work assignment from a device its person trusts. The agent MAY carry
@@ -658,6 +684,17 @@ From 1.0, scheme 1 boxes are refused (`legacy_box`), senders never fall back to 
 broadcast or room send carries a box for every device that has a current prekey, and a direct send
 to a device without one is refused before it is sent.
 
+**Closing the window early.** Before 1.0, a client MAY refuse v0.1 boxes on a device set to do
+so: it then behaves as from 1.0 for that device, on send (cards included) and on receive, and
+gives the same `legacy_box` reason. Nothing changes on the wire. A v0.1 device then reads nothing
+that device sends and its messages are dropped there; the relay reports a broadcast or room member
+it got no box for as `invalid` (section 7). The reference client keeps the choice per device in
+`$WIM_HOME/legacy-boxes` (`wim legacy-boxes refuse`, off by default until 1.0); turning it back off
+is a person's decision at their own terminal, like trusting a device (SECURITY-MODEL.md section 7.2).
+When it drops a message as `legacy_box`, it tells the receiving session in a local notice, once per
+sender device per session, that names the sender and carries none of the message (which was never
+opened), and it counts the drop in `$WIM_HOME/legacy-boxes-dropped`, which `wim status` shows.
+
 **Failure modes.**
 
 - **A stale prekey at the sender.** A sender that missed a rotation seals to an older prekey; that
@@ -779,7 +816,9 @@ with a fresh nonce for every connection. The client answers within 10 seconds wi
   new connection takes over that name and its queue only if `hash(session.resume)` matches the
   holder's (an agent restarting keeps its messages); a matching `sid` alone is not enough, since
   sids appear in peer rows. Otherwise it gets `name-N` too. A `rename` to an offline holder's name follows the same rule, so it is
-  refused with `name_taken`. The relay answers with the name actually assigned.
+  refused with `name_taken`. The relay answers with the name actually assigned. (Informative: a
+  client on the same device that holds the offline session's sid and resume secret may claim its
+  name by connecting with them; this needs no other frame.)
 - A `sid` that is already online on another connection is taken over by the new connection only
   when the resume proof also matches (`hash(session.resume)` equals the stored one); otherwise the
   new `auth` is refused with `unauthorized`.
@@ -796,7 +835,7 @@ with a fresh nonce for every connection. The client answers within 10 seconds wi
 `peers`, `rename { name }`, `notify_idle { of: "<address>" }`, `invite.create { invite, exp, pin }`
 (admins), `roster.publish { roster }` (admins), `roster.get { from }`, `roster.fork { a, b }`,
 `room.join { room }`, `room.leave { room }`, `room.history { room, before?, limit? }` (section 13),
-`lease.acquire { key, ttl, wait? }`, `lease.renew { key, token, ttl }`, `lease.release { key, token }`,
+`lease.acquire { key, ttl, wait?, timeout? }`, `lease.renew { key, token, ttl }`, `lease.release { key, token }`,
 `lease.list`, `lease.watch { key }` (section 14), `blob.put { blob, index, last, n, data }`,
 `blob.get { blob, index }` (section 15), `card.set { msg }`, `cards.get { after? }` (section 17),
 `rdv.put { rdv, exp, n, c }` (admins; section 5, short invite codes), `ci.rules { tags, gitlab }`
@@ -805,13 +844,14 @@ ending for good (its name is freed, it leaves its rooms, its leases end, and lat
 `ended`).
 
 **Relay frames:** `hello`, `ready`, `sent`, `deliver`, `receipt`, `peers { peers }`,
-`peer { peer }` (one row changed), `notice { kind: "idle", of: "<address>" }`,
+`peer { peer }` (one row changed), `notice { kind: "idle", of: "<address>", why? }`,
+`idle.armed { of, exp }` (an answer to `notify_idle`),
 `roster { chain, more }`, `join.request { join }` (to admins), `joined { chain, more }` (to a
 joiner), `invite.created { invite }`, `recover.ready { roster }` (section 4a), `room.joined { room, members }`, `room.history { room, msgs, more }`,
 `lease { key, status, holder?, until?, token? }`, `leases { leases }`, `blob.stored { blob, index }`,
 `blob.chunk { blob, index, last, n, data }`, `cards { cards, more }`, `card { msg }` (section 17),
 `rdv.stored { rdv }` (section 5), `ci.rules { count }` and `ci.deliver { cursor, msg }` (section
-18), `mesh.deleted { mesh }` (section 11), `error { code, message, ref? }`, `pong`.
+18), `mesh.deleted { mesh }` (section 11), `error { code, message, ref?, of? }`, `pong`.
 
 CI senders do not use the WebSocket: they make two HTTP requests to `<relay>/v1/<mesh id>/ci`
 (section 18).
@@ -846,9 +886,10 @@ with backoff after any other code.
 | 4009 | relay | a newer connection took over this session or this join |
 | 4029 | relay | a rate or count limit was hit |
 
-**A peer row:** `{ "address": "reviewer@laptop", "sid": "<ULID>", "kind": "claude-code", "status": "idle" | "busy" | "offline", "since": ..., "rooms": ["#ops"] }`.
+**A peer row:** `{ "address": "reviewer@laptop", "sid": "<ULID>", "kind": "claude-code", "status": "idle" | "busy" | "offline", "since": ..., "rooms": ["#ops"], "presence": true }`.
 The `sid` is no secret (every recipient already sees it as `from.sid`); it lets a client match a
-session's card (section 17) by device id and sid.
+session's card (section 17) by device id and sid. `presence` is present, and `true`, once the
+session has sent `presence` on its current connection (see Idle notices below).
 
 **Keepalives and liveness.** These timings are what the reference client and relays do; they are
 informative, not requirements on other implementations.
@@ -874,11 +915,43 @@ acknowledges the cursor (section 7), so the client receives it once it runs agai
 connection or after reconnecting. `routed` never meant read; a sender that needs to know waits for
 the `delivered` receipt.
 
+**Presence.** A session reports `presence { status: "busy" }` while its agent works on a turn and
+`presence { status: "idle" }` when the turn ends. The relay fires idle notices on every `idle`
+report, even when the session was idle already, so a client SHOULD report `idle` at each turn end
+of its agent, not only when the status changes. The reference client does: the Claude Code plugin
+writes the status words, and `wim hook`, the turn hook of other agents, writes a new turn mark at
+every turn end that lets the agent stop, which the client sends as `idle`. A client that cannot
+tell a turn end sends nothing new, and a notice armed on it waits until it ends.
+
 **Idle notices.** `notify_idle` asks for one `notice` the next time that session reports `idle` or
-ends. It lapses after 12 hours, and a session may hold at most 16. A `notice` is the relay's word,
-so a client MAY drop one it did not arm: for an address it sent no `notify_idle` for, after the arm
-lapsed, or a second one for the same arm. The reference client keeps its arms in the session's
-`watches.json` and drops every such notice (SECURITY-MODEL section 5.4).
+ends. It lapses after 12 hours, and a session may hold at most 16. A relay refuses an arm with
+`error { code, ref: "notify_idle" }`: `not_found` when no session has that address, `limited`
+past the 16. A client keeps its own record of each `notify_idle` it sent, and accepts a `notice`
+only for an address it armed and has had no notice for since; it drops any other. One notice ends
+the arm. A client tells its agent when an arm lapses with no notice, and when it learns the relay
+refused one. A notice is relay-authored (section 6a): a label, never proof that the watched
+session finished anything. A client MUST NOT start an agent turn for a notice unless the device
+that the armed address names is one its person trusts and its loop breaker does not pause, and it
+counts each notice that starts a turn as an automatic delivery from that device. A client ignores
+any key of a `notice` it does not know, and its value, so a relay can add one. The reference client
+keeps its arms in the session's `watches.json`, at most 16 open as at the relay; sends an arm made
+while offline at its next `ready`, and every open one at a new process's first `ready` (a re-sent
+arm the relay holds is only renewed); and spools a notice that may not start a turn as `quiet`
+(SECURITY-MODEL sections 5.4 and 7.3).
+
+A relay also sends the notice when the watched session has been offline for 60 seconds without a
+new connection, and adds `why`: `idle`, `ended` or `offline`. A later relay may add other values,
+so a client takes a notice whose `why` it does not know as a notice with no known reason, never
+drops it for that. A notice that fires while the asking
+session is offline is kept until that session's next `ready` (after `ready` and the queued
+messages), within the arm's 12 hours; a later process of the session that takes it back with its
+resume secret (Names, above) gets it too. The relay answers each `notify_idle` it arms with
+`idle.armed { of, exp }`, `of` as the client sent it and `exp` when the arm lapses, and a refusal
+with `error { code, message, ref: "notify_idle", of }`. A peer row carries `"presence": true` once
+its session has sent `presence` on its current connection, so a row that reads `idle` because its
+session reports nothing can be told from one whose agent finished a turn. Clients MUST NOT depend
+on any of these: a relay that predates them (0.1.x) sends none, and a client that predates them
+ignores `idle.armed`, an unknown type, and the new keys. None of them adds a key to a client frame.
 
 ## 9. Limits (defaults; a relay MAY lower the relay-side ones)
 
@@ -899,6 +972,7 @@ lapsed, or a second one for the same arm. The reference client keeps its arms in
 | WebSocket dials per source address | 600 a minute, across every mesh on the relay |
 | connections before `auth` per source address | 256 open at once |
 | idle notices per session | 16, each lasting 12 hours |
+| idle notice offline grace | 60 seconds |
 | sessions per mesh | 256 |
 | sessions per device | 32 |
 | live invites per device | 16 |
@@ -958,8 +1032,9 @@ lapsed, or a second one for the same arm. The reference client keeps its arms in
 
 ## 10. What the relay can and cannot see
 
-It sees: mesh ids, device ids and names, session names, kinds and busy or idle status, who sends to
-whom, when, and how large. It cannot see message text, cannot add or remove devices, cannot forge
+It sees: mesh ids, device ids and names, session names, kinds and busy or idle status, which
+session asked to be told when which other session goes idle, who sends to whom, when, and how
+large. It cannot see message text, cannot add or remove devices, cannot forge
 or alter a message without the receiver dropping it, and cannot replay one past the receiver's
 dedupe and freshness window. It can drop or delay messages. It can withhold a roster update from a
 client for a while, but every message carries the sender's roster reference, so a receiver learns
@@ -1214,7 +1289,8 @@ a time).
 - The client names a lease; the relay sees only its key,
   `b64u(H(UTF-8("wim/1 lease " + meshId + " " + name)))` truncated to 22 characters. A short or
   guessable name can be recovered by trying candidates, so the key hides only hard-to-guess names.
-- Client frames: `lease.acquire { key, ttl, wait? }` (`ttl` in milliseconds, 1 second to 1 hour),
+- Client frames: `lease.acquire { key, ttl, wait?, timeout? }` (`ttl` and `timeout` in
+  milliseconds, 1 second to 1 hour),
   `lease.renew { key, token, ttl }`, `lease.release { key, token }`, `lease.list`, and
   `lease.watch { key }`.
 - The relay answers with `lease { key, status, holder?, until?, token? }`, where `status` is
@@ -1232,12 +1308,23 @@ a time).
   the grant. After that a
   renew is `refused`, and the holder must release and acquire again, going to the back of any wait
   queue.
+- An acquire by the session that already holds the lease is answered `granted` with the lease's
+  current `holder`, `until` and `token`. It does not extend the lease: `lease.renew` does.
 - With `wait: true`, an acquire that finds the lease held is queued, first come first served, and
-  answered `granted` when the lease frees, or `expired` if the waiter's own ttl passes first. A
-  waiting acquire counts against the session's lease limit, and a waiter that goes offline loses
-  its place.
+  answered `granted` when the lease frees, or `expired` if the wait passes first. The wait lasts
+  `timeout` when given, else `ttl`; the granted lease lasts `ttl` from the grant. A lease that
+  ends at its `until` goes to a waiter whose wait had not passed at that `until`, however late the
+  relay notices the expiry. A waiting acquire counts against the session's lease limit, and a
+  waiter that goes offline loses its place.
 - A lease ends at `until`, on `lease.release`, or when its holder session says `bye`. It does not
   end when the holder only disconnects: a network blip keeps it until `until`.
+- The relay sends the holder `lease { status: "expired", token }` when its lease expires, but only
+  while the holder is connected; an `expired` with a `token` is this notice, never the answer to a
+  request (an acquire, renew or release that finds the lease past its `until` gets the notice
+  first, then its answer). A holder that was offline learns which of its leases ended from
+  `lease.list` when it reconnects. A client SHOULD drop the token of a lease that ended (on this
+  notice, at its `until`, on a refused `lease.release`, or when `lease.list` no longer lists it)
+  and tell its agent, since what the lease protected may now be another session's turn.
 - `lease.watch` asks for one `lease { status: "released" | "expired" }` when the key next frees.
   A watch lapses after 1 hour.
 - Leases are advisory and the relay is trusted for them (section 10).

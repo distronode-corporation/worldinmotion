@@ -2,7 +2,7 @@ import { createGenesisRoster, generateDeviceKeys, hash, makeDeviceRecord, nextRo
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_BREAKER, MeshFiles, parseMeshConfig, RosterBook, type MeshConfig } from "../src/mesh.ts";
+import { addersOf, DEFAULT_BREAKER, MeshFiles, parseMeshConfig, RosterBook, type MeshConfig } from "../src/mesh.ts";
 import { FS, RELAY, scratch, rosterSeqs } from "./helpers.ts";
 
 const T = 1_760_000_000_000;
@@ -225,6 +225,41 @@ describe("RosterBook", () => {
     expect(await gbook.accept([otherGenesis])).toMatchObject({ ok: false, reason: "forked" });
   });
 
+  it("never moves its head back when a slower accept of an older roster finishes last (#114)", async () => {
+    const f = await files();
+    const { rosters, admin } = chain(3);
+    await f.createConfig(config(rosters[0]!), rosters.slice(0, 1));
+    const book = await RosterBook.open(f);
+    // Writes stay in memory, so everything but the stalled one settles within one turn; the first
+    // write of roster 2 (a relay push, say) stalls until released.
+    let pin = rosterRef(rosters[0]!);
+    f.updateConfig = async (change) => {
+      const next = change({ ...config(rosters[0]!), pin });
+      pin = next.pin;
+      return next;
+    };
+    let release!: () => void;
+    const stalled = new Promise<void>((r) => (release = r));
+    let first = true;
+    f.saveRoster = async () => {
+      if (!first) return;
+      first = false;
+      await stalled;
+    };
+    const slow = book.accept([rosters[1]!]);
+    // Meanwhile the same roster and its successor arrive another way (the publisher's own accept).
+    const fast = book.accept([rosters[1]!]).then(() => book.accept([rosters[2]!]));
+    await new Promise((r) => setImmediate(r));
+    release();
+    expect(await slow).toEqual({ ok: true, advanced: true });
+    expect(await fast).toEqual({ ok: true, advanced: true });
+    expect(book.current.seq).toBe(3);
+    expect(pin.seq).toBe(3);
+    // A roster made from that head is the next one, never a gap.
+    const next = nextRoster(book.current, { add: [makeDeviceRecord("d4", generateDeviceKeys(), "member", T)] }, { keys: admin }, T + 9);
+    expect(await book.accept([next])).toEqual({ ok: true, advanced: true });
+  });
+
   it("cannot prove a fork without the predecessor", async () => {
     const f = await files();
     const { rosters, admin } = chain(2);
@@ -232,5 +267,52 @@ describe("RosterBook", () => {
     const book = await RosterBook.open(f);
     const rival = nextRoster(rosters[0]!, { add: [makeDeviceRecord("rival", generateDeviceKeys(), "member", T)] }, { keys: admin }, T + 9);
     expect(await book.accept([rival])).toEqual({ ok: false, reason: "roster_mismatch" });
+  });
+});
+
+describe("addersOf", () => {
+  /** admin adds d2 and d3, promotes d2, which adds d5; d3 is revoked by then. */
+  function mixed() {
+    const { admin, rosters } = chain(3);
+    const d2 = generateDeviceKeys();
+    const r2 = nextRoster(rosters[0]!, { add: [makeDeviceRecord("d2", d2, "member", T)] }, { keys: admin }, T + 2);
+    const r3 = nextRoster(r2, { add: [makeDeviceRecord("d3", generateDeviceKeys(), "member", T)] }, { keys: admin }, T + 3);
+    const id2 = r2.devices[1]!.id;
+    const id3 = r3.devices[2]!.id;
+    const r4 = nextRoster(r3, { promote: [id2], revoke: [id3] }, { keys: admin }, T + 4);
+    const r5 = nextRoster(r4, { add: [makeDeviceRecord("d5", generateDeviceKeys(), "member", T)] }, { keys: d2 }, T + 5);
+    return { all: [rosters[0]!, r2, r3, r4, r5], id2, id5: r5.devices.at(-1)!.id, adminId: rosters[0]!.devices[0]!.id };
+  }
+
+  it("names the signer of the roster that added each device, never one for the genesis's", async () => {
+    const { all, id2, id5, adminId } = mixed();
+    const f = await files();
+    for (const r of all) await f.saveRoster(r);
+    const map = await addersOf(f, all.at(-1)!);
+    expect(map.get(id2)).toEqual({ id: adminId, name: "admin" });
+    expect(map.get(id5)).toEqual({ id: id2, name: "d2" });
+    expect(map.has(adminId)).toBe(false);
+    expect(await addersOf(f, all[0]!)).toEqual(new Map());
+  });
+
+  it("stops at a roster that is missing, unreadable, or not the one the next follows", async () => {
+    const { all, id2, id5 } = mixed();
+    const head = all.at(-1)!;
+    const save = async (skip: (seq: number) => Roster | "missing" | "junk" | undefined) => {
+      const f = await files();
+      for (const r of all) {
+        const instead = skip(r.seq);
+        if (instead === "missing") continue;
+        if (instead === "junk") await fs.mkdir(f.rostersDir, { recursive: true }).then(() => fs.writeFile(join(f.rostersDir, `${r.seq}.json`), "{}"));
+        else await f.saveRoster(instead ?? r);
+      }
+      return addersOf(f, head);
+    };
+    // Only the chain from the pin on: d2 was added before it, d5 after.
+    const missing = await save((seq) => (seq < 4 ? "missing" : undefined));
+    expect([missing.has(id2), missing.get(id5)?.name]).toEqual([false, "d2"]);
+    expect((await save((seq) => (seq === 4 ? "junk" : undefined))).size).toBe(0);
+    // Another roster at seq 4 (not the one seq 5 follows, by its hash): the walk ends there.
+    expect((await save((seq) => (seq === 4 ? { ...all[3]!, at: T + 99 } : undefined))).size).toBe(0);
   });
 });

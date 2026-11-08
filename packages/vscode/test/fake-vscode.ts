@@ -211,6 +211,8 @@ function freshState() {
     terminalCloses: new EventEmitter<FakeTerminal>(),
     commands: new Map<string, Command>(),
     executed: [] as { id: string; args: unknown[] }[],
+    /** Context keys set with the built-in `setContext` command. */
+    context: new Map<string, unknown>(),
     config: new Map<string, unknown>(),
     configEvents: new EventEmitter<{ affectsConfiguration(section: string): boolean }>(),
     /** VS Code's telemetry switch, and its change event. */
@@ -226,7 +228,7 @@ function freshState() {
     cancelProgress: false,
     outputShown: 0,
     statusItems: [] as FakeStatusBarItem[],
-    messages: [] as { level: "info" | "warning" | "error"; message: string; options?: unknown; items: string[] }[],
+    messages: [] as { level: "info" | "warning" | "error"; message: string; options?: unknown; items: string[]; raw: (string | MessageItem)[] }[],
     /** What the person answers to the next message with buttons: an item label, or undefined. */
     messageAnswers: [] as (string | undefined)[],
     quickPickAnswers: [] as QuickPickAnswer[],
@@ -324,15 +326,19 @@ class FakeStatusBarItem {
   }
 }
 
+export type MessageItem = { title: string; isCloseAffordance?: boolean };
+
 function message(level: "info" | "warning" | "error") {
   return (text: string, ...rest: unknown[]): Promise<string | undefined> => {
     const options = typeof rest[0] === "object" && rest[0] !== null ? rest.shift() : undefined;
-    const items = rest as string[];
-    fake.state.messages.push({ level, message: text, options, items });
+    // Items are strings or MessageItems (`title`, `isCloseAffordance`); a test answers by title.
+    const raw = rest as (string | MessageItem)[];
+    const items = raw.map((i) => (typeof i === "string" ? i : i.title));
+    fake.state.messages.push({ level, message: text, options, items, raw });
     if (items.length === 0) return Promise.resolve(undefined);
     const answer = fake.state.messageAnswers.shift();
     // The real API resolves to one of the items, or undefined when dismissed.
-    return Promise.resolve(answer !== undefined && items.includes(answer) ? answer : undefined);
+    return Promise.resolve(answer === undefined ? undefined : raw[items.indexOf(answer)]) as Promise<string | undefined>;
   };
 }
 
@@ -476,6 +482,7 @@ export const commands = {
   },
   async executeCommand(id: string, ...args: unknown[]): Promise<unknown> {
     fake.state.executed.push({ id, args });
+    if (id === "setContext") return void fake.state.context.set(args[0] as string, args[1]);
     const fn = fake.state.commands.get(id);
     if (fn !== undefined) return fn(...args);
     if (id.endsWith(".focus") && VIEW_IDS.has(id.slice(0, -".focus".length))) return undefined;

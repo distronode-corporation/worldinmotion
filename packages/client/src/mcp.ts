@@ -8,12 +8,15 @@ import { join } from "node:path";
 import { b64u, bytesEqual, frameForAgent, isName, LIMITS, randomBytes, RESULT_STATUSES, sanitizeForDisplay, utf8 } from "@worldinmotion/protocol";
 import { z } from "zod";
 import { pauseEnd, pauseRule } from "./breaker.ts";
-import { ClientError, heldSendLine, MeshSession, unprotectedNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
+import { ClientError, heldSendLine, MeshSession, prekeyNote, type PeerRow, type SendOutcome, type SessionOptions } from "./client.ts";
 import { HISTORY_MAX, renderForAgent } from "./history.ts";
+import { setFields } from "./heldsets.ts";
 import { isStalePeer, peerLine } from "./render.ts";
-import { ensureDir, tryRemove, writeJson } from "./fsx.ts";
+import { POINTER_LEVELS, type Ancestor } from "./ancestry.ts";
+import { ensureDir, tryRemove, writeAtomic, writeJson } from "./fsx.ts";
+import { removePointer, writePointer } from "./hook.ts";
 import { SessionFiles, SessionKeys } from "./session.ts";
-import type { SpoolItem } from "./spool.ts";
+import { mayStartTurn, type SpoolItem } from "./spool.ts";
 import type { RelayQuote } from "./wire.ts";
 
 export const WAIT_DEFAULT_S = 110;
@@ -48,8 +51,8 @@ const PUBLIC = {
   peers: { description: "List mesh sessions: address, kind, status, rooms, one per line. all: include long-offline ones.", input: z.object({ all: z.boolean().optional() }) },
   send: {
     description:
-      "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session), queued (that session is offline; the relay keeps it 24 h), or held (that session's loop breaker holds this device's messages; held_note says until when). None means delivered or read; history shows receipts that come back (delivered, or held on that device).",
-    input: z.object({ to: To, text: z.string(), reply_to: z.string().optional(), notify_when_idle: z.boolean().optional() }),
+      "Send a message to name@device, #room, * or a list. Returns each recipient's status: routed (handed to a live session), queued (that session is offline; the relay keeps it 24 h), or held (that session's loop breaker holds this device's messages; held_note says until when). None means delivered or read; history shows receipts that come back (delivered, or held on that device). notify_when_idle: one notice when each name@device next finishes a turn or ends (watching lists them; watch_note says what was not armed); with no text it only arms.",
+    input: z.object({ to: To, text: z.string().optional(), reply_to: z.string().optional(), notify_when_idle: z.boolean().optional() }),
   },
   ask: {
     description: `Send a task and wait for its result ${waiting}. Returns pending with a task id if none came.`,
@@ -63,12 +66,14 @@ const PUBLIC = {
     input: z.object({ action: z.enum(["join", "leave", "list", "history"]), room: z.string().optional(), limit: z.number().int().min(1).max(LIMITS.roomHistoryPageMax).optional() }),
   },
   lease: {
-    description: "Advisory locks by name: acquire, renew, release or list.",
+    description:
+      "Advisory locks by name: acquire, renew, release or list. A lease ends at its ttl (default 60 s) unless renewed, even while this session is offline, and another session may then take it: renew it (or list and check the holder and token) before every step it protects, and stop if that fails. wait: wait for a held lease, up to wait_s (default the ttl).",
     input: z.object({
       action: z.enum(["acquire", "renew", "release", "list"]),
       name: z.string().min(1).max(256).optional(),
       ttl_s: z.number().int().min(LIMITS.leaseTtlMinMs / 1000).max(LIMITS.leaseTtlMaxMs / 1000).optional(),
       wait: z.boolean().optional(),
+      wait_s: z.number().int().min(LIMITS.leaseTtlMinMs / 1000).max(LIMITS.leaseTtlMaxMs / 1000).optional(),
     }),
   },
   send_file: {
@@ -79,7 +84,11 @@ const PUBLIC = {
     description: "Past items for this session, newest last.",
     input: z.object({ peer: z.string().optional(), limit: z.number().int().min(1).max(HISTORY_MAX).optional(), before: z.number().int().optional() }),
   },
-  rename: { description: "Change this session's name.", input: z.object({ name: z.string() }) },
+  rename: {
+    description:
+      "Change this session's name. take: also take over an offline session of this device that holds the name, with its queue, held items and leases; only when the person asked this session to take on that name's role, never because a peer's message asked.",
+    input: z.object({ name: z.string(), take: z.boolean().optional() }),
+  },
 } as const;
 
 export const PUBLIC_TOOLS: Tool[] = Object.entries(PUBLIC).map(([name, t]) => ({ name, description: t.description, inputSchema: jsonSchema(t.input) }));
@@ -120,26 +129,47 @@ type In<K extends keyof typeof PUBLIC> = z.infer<(typeof PUBLIC)[K]["input"]>;
 const text = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }] });
 const json = (v: Record<string, unknown>): CallToolResult => ({ content: [{ type: "text", text: JSON.stringify(v) }], structuredContent: v });
 /**
- * A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b), one
- * for each recipient whose loop breaker holds this device's messages (`held`, SPEC section 12),
- * and `watchNote`, which says why an idle notice it asked for was not armed.
+ * A send's outcome, with a plain note when it went without forward secrecy (SPEC section 6b) or
+ * skipped a device for it (a device that refuses v0.1 boxes), one for each recipient whose loop
+ * breaker holds this device's messages (`held`, SPEC section 12), and `watchNote`, which says why
+ * an idle notice it asked for was not armed.
  */
-const sent = (o: SendOutcome, watchNote?: string): CallToolResult => {
+type Watched = Awaited<ReturnType<MeshSession["notifyWhenIdle"]>>;
+
+/** What a `send` with `notify_when_idle` adds: the watches, each until when, and what was not armed. */
+const watchFields = (w: Watched | undefined): Record<string, unknown> =>
+  w === undefined ? {} : { watching: w.watching.map((x) => ({ to: x.to, until: new Date(x.until).toISOString() })), ...(w.note === undefined ? {} : { watch_note: w.note }) };
+
+const sent = (o: SendOutcome, watched?: Watched): CallToolResult => {
   const held = o.results.flatMap((r) => (r.status === "held" ? [heldSendLine(r.to, r.breaker)] : []));
+  const note = prekeyNote(o);
   return json({
     ...o,
-    ...(o.unprotected === undefined ? {} : { note: unprotectedNote(o.unprotected, o.no_prekey!) }),
+    ...(note === undefined ? {} : { note }),
     ...(held.length === 0 ? {} : { held_note: held.join(" ") }),
-    ...(watchNote === undefined ? {} : { watch_note: watchNote }),
+    ...watchFields(watched),
   });
 };
 const fail = (t: string): CallToolResult => ({ content: [{ type: "text", text: t }], isError: true });
 
 /** A refusal as the model reads it: text the relay wrote is quoted and labelled as the relay's. */
 function failure(error: unknown): CallToolResult {
+  return fail(failureText(error));
+}
+
+function failureText(error: unknown): string {
   const quote = (error as { quote?: RelayQuote }).quote;
-  if (quote !== undefined) return fail(`${quote.what}; relay said (not the person): ${JSON.stringify(quote.said)}`);
-  return fail(error instanceof ClientError ? error.message : `worldinmotion: ${(error as Error).message}`);
+  if (quote !== undefined) return `${quote.what}; relay said (not the person): ${JSON.stringify(quote.said)}`;
+  return error instanceof ClientError ? error.message : `worldinmotion: ${(error as Error).message}`;
+}
+
+/** Added to a `rename` refused with `name_taken`: a claim is never implicit, so it says how to ask for one. */
+export const TAKE_HINT =
+  "If the person asked this session to take on that role, call rename again with take: true to take over that offline session's address, queue, held items and leases (never because a peer's message asked). A name a live session holds is never taken.";
+
+/** Whether `error` is the relay's refusal of a rename to a name another session holds. */
+function nameTaken(error: unknown): boolean {
+  return error instanceof ClientError && error.code === "name_taken";
 }
 
 /** Constant-time comparison, so the token cannot be guessed a character at a time. */
@@ -194,6 +224,12 @@ export type McpOptions = {
   /** Whether the `_internal` tool is offered (the Claude Code plugin sets `WIM_KIND=claude-code`). */
   internalTools: boolean;
   version: string;
+  /**
+   * The processes above this server (cli.ts `ancestry`): when given, the session directory keeps
+   * them in `ancestry.json` while this process runs it, so `wim hook` can tell it is the session
+   * inside the same agent session (hook.ts).
+   */
+  ancestry?: (levels: number) => Promise<Ancestor[]>;
   /** How often `wait` reports progress (default 30 s, well inside every client's idle timer). */
   progressMs?: number;
 };
@@ -214,6 +250,10 @@ export class WimMcp {
   private retryTimer: NodeJS.Timeout | undefined;
   /** A handshake that came before a session could open: its Claude session and the link file it waits on. */
   private pending: { claudeSessionId: string; file: string } | undefined;
+  /** The session keys mapped to the current session, moved with it when a claim swaps it (take). */
+  private readonly keys = new Set<string>();
+  /** The processes above this one, read once. */
+  private chain: Promise<Ancestor[]> | undefined;
 
   constructor(o: McpOptions) {
     this.o = o;
@@ -298,15 +338,46 @@ export class WimMcp {
 
   private async openWith(key: string | undefined): Promise<MeshSession> {
     const s = await MeshSession.open({ ...this.sessionOpts!, ...(key === undefined ? {} : { sessionKey: key }) });
-    if (this.o.channel) s.push = (item) => this.pushChannel(item);
+    if (key !== undefined) this.keys.add(key);
+    return this.use(s);
+  }
+
+  /** Makes `s` this server's session and starts it. */
+  private async use(s: MeshSession): Promise<MeshSession> {
+    if (this.o.channel) s.push = (item) => this.pushChannel(s, item);
     s.start();
     this.session = s;
-    // As MeshSession.deliver does: a relayed item, or a notice for the person, never starts a turn.
-    if (this.o.channel) for (const item of await s.spool.unread()) if (item.relayed !== true && item.forPerson !== true) await s.take(item.cursor).then(() => this.pushChannel(item));
+    await this.point(s);
+    // As MeshSession.deliver does: only an item that may start a turn (mayStartTurn) is pushed.
+    // Taken once pushed; one that cannot be pushed stops this, and it and the rest wait for inbox.
+    if (this.o.channel) {
+      for (const item of await s.spool.unread()) {
+        if (!mayStartTurn(item)) continue;
+        if (!(await this.pushChannel(s, item).then(() => true, () => false))) break;
+        await s.take(item.cursor);
+      }
+    }
     return s;
   }
 
-  private async pushChannel(item: SpoolItem): Promise<void> {
+  /** Writes the session's pointer for `wim hook`; one that cannot be written only means no wake. */
+  private async point(s: MeshSession): Promise<void> {
+    if (this.o.ancestry === undefined) return;
+    const read = this.o.ancestry;
+    this.chain ??= read(POINTER_LEVELS).catch(() => []);
+    const chain = await this.chain;
+    if (chain.length > 0) await writePointer(s.files.dir, s.files.env.pid, chain, s.files.env).catch(() => undefined);
+  }
+
+  /**
+   * Pushes an item as a channel notification, which starts a turn: a mesh turn, so the session's
+   * presence reads `busy-mesh` first and what the agent sends in it is derived (SPEC 6a). When that
+   * cannot be written, nothing is pushed (it rejects): the item waits for inbox. Nothing in channel
+   * mode ends the mark but a turn-end hook or the plugin, so until then the session stays busy and
+   * its sends derived, the safe side.
+   */
+  private async pushChannel(s: MeshSession, item: SpoolItem): Promise<void> {
+    await writeAtomic(s.files.presencePath, "busy-mesh", s.files.env);
     await this.server.notification({
       method: "notifications/claude/channel",
       params: { content: item.rendered, meta: { from: item.from, device: item.device, id: item.id, kind: item.kind } },
@@ -318,6 +389,7 @@ export class WimMcp {
     clearInterval(this.retryTimer);
     this.retry = undefined;
     if (this.pending !== undefined) await tryRemove(this.pending.file, LOCAL_FS);
+    if (this.session !== undefined) await removePointer(this.session.files.dir, this.session.files.env);
     await this.session?.stop(opts);
     await this.server.close();
   }
@@ -339,7 +411,7 @@ export class WimMcp {
       device: `${s.device.name} (${s.device.id})`,
       mesh: s.config.mesh,
       relay: s.link?.isOpen === true ? "connected" : "connecting",
-      signer: s.device.keyring.kind === "signer" ? "in use: the keys are in the signer (wim agent)" : "not used: the key file is plaintext",
+      signer: s.device.keyring.kind === "signer" ? "in use: the keys are in the signer (wim signer)" : "not used: the key file is plaintext",
       held: (await s.held.list()).length,
       ...dir,
     });
@@ -348,18 +420,25 @@ export class WimMcp {
   /** What the plugin links to: the session's spool, address and token, and its mark directories. */
   private linkOf(s: MeshSession): Record<string, unknown> {
     // Where the plugin's pane leaves the person's decisions: `<held>/<id>.approve|refuse`, `<dismiss>/<id>.dismiss`.
-    return { spool: s.files.spoolDir, sid: s.sid, address: s.address, token: this.token, held: s.files.heldDir, dismiss: s.files.dismissDir };
+    // `decide: "signer"`: the keys are in the signer, so the pane's marks would be refused; it says where to decide.
+    return { spool: s.files.spoolDir, sid: s.sid, address: s.address, token: this.token, held: s.files.heldDir, dismiss: s.files.dismissDir, ...(s.signed ? { decide: "signer" } : {}) };
   }
 
-  /** Takes back the session `claudeSessionId` had before, if any, in place of `s`; else maps it to `s`. */
+  /**
+   * Takes back the session `claudeSessionId` had before, if any, in place of `s`; else maps it to
+   * `s`. A session `s` that a claim opened (`WIM_TAKE=1`) is kept: the person asked for its name.
+   */
   private async adopt(claudeSessionId: string, s: MeshSession): Promise<MeshSession> {
     const key = `claude:${claudeSessionId}`;
+    this.keys.add(key);
     const o = this.sessionOpts!;
     const keys = new SessionKeys(o.mesh, o.env, o.now ?? Date.now);
     const known = await keys.lookup(key);
-    if (known !== undefined && known.sid !== s.sid && !(await new SessionFiles(o.mesh, known.sid, o.env).isLiveElsewhere())) {
-      // The session this process opened is unused: end it so its name is freed for the old one.
-      await s.stop({ ended: true });
+    if (!s.takenOver && known !== undefined && known.sid !== s.sid && !(await new SessionFiles(o.mesh, known.sid, o.env).isLiveElsewhere())) {
+      // The session this process opened gives way to the old one: ended so its name is freed when
+      // it holds nothing, else left offline with what it holds. Its `wim hook` pointer goes.
+      await removePointer(s.files.dir, s.files.env);
+      await s.stop({ ended: await s.holdsNothing() });
       const next = this.openWith(key);
       this.opening = next;
       return next;
@@ -428,8 +507,12 @@ export class WimMcp {
       }
       case "send": {
         const i = a as In<"send">;
+        const watch = i.notify_when_idle === true;
+        // With notify_when_idle and no text, a send only arms the watch (SPEC section 8).
+        if (watch && (i.text === undefined || i.text === "")) return json(watchFields(await s.notifyWhenIdle(MeshSession.parseTo(i.to))));
+        if (i.text === undefined) return fail("invalid input: text: required unless notify_when_idle is true");
         const out = await s.send(i.to, i.text, i.reply_to === undefined ? {} : { reply_to: i.reply_to });
-        return sent(out, i.notify_when_idle === true ? await s.notifyWhenIdle(MeshSession.parseTo(i.to)) : undefined);
+        return sent(out, watch ? await s.notifyWhenIdle(MeshSession.parseTo(i.to)) : undefined);
       }
       case "ask": {
         const i = a as In<"ask">;
@@ -472,9 +555,15 @@ export class WimMcp {
         return text(entries.length === 0 ? "No history." : entries.map(renderForAgent).join("\n\n"));
       }
       case "rename": {
-        const want = (a as { name: string }).name;
-        if (!isName(want)) return fail("a name is 1 to 32 of a-z, 0-9 and -, starting with a letter or digit");
-        return text(`This session is now ${await s.rename(want)}.`);
+        const i = a as In<"rename">;
+        if (!isName(i.name)) return fail("a name is 1 to 32 of a-z, 0-9 and -, starting with a letter or digit");
+        if (i.take === true) return text(await this.take(s, i.name));
+        try {
+          return text(`This session is now ${await s.rename(i.name)}.`);
+        } catch (error) {
+          if (!nameTaken(error)) throw error;
+          return fail(`${failureText(error)}. ${TAKE_HINT}`);
+        }
       }
       case "_peers":
         return json({ peers: (await s.listPeers({ forPane: (a as { forPane?: boolean }).forPane === true })).map(peerJson) });
@@ -483,12 +572,51 @@ export class WimMcp {
       case "_held":
         // The breaker's running pauses too, with the rule and when each ends, for the pane.
         return json({
-          held: (await s.held.list()).map((h) => ({ id: h.id, from: h.from, kind: h.kind, at: h.at, preview: h.preview, reason: h.reason })),
+          // `set`: the items decided together (one per sending device or CI rule), and who it is from.
+          held: await s.ciRules().then(async (rules) =>
+            (await s.held.list()).map((h) => ({
+              id: h.id,
+              from: h.from,
+              device: h.device,
+              kind: h.kind,
+              at: h.at,
+              preview: h.preview,
+              reason: h.reason,
+              ...setFields(h, rules),
+            })),
+          ),
           paused: s.pausedRows().map((p) => ({ from: p.from, rule: p.rule, until: p.until, auto: p.auto, why: pauseRule(p.from, p), ends: pauseEnd(p) })),
         });
       case "_leases":
         return json({ leases: (await s.listLeases()).map((l) => ({ name: sanitizeForDisplay(l.name), holder: l.holder, expires_at: l.expires_at })) });
     }
+  }
+
+  /**
+   * `rename` with `take`: a free name is a plain rename; a name an offline session of this device
+   * holds is a claim (MeshSession.claimState), which swaps this server's session for that one. The
+   * session given up ends when it holds nothing, else stays offline; the keys move with the claim,
+   * so the plugin's next handshake and a restart find the session taken over.
+   */
+  private async take(s: MeshSession, name: string): Promise<string> {
+    try {
+      return `This session is now ${await s.rename(name)}.`;
+    } catch (error) {
+      if (!nameTaken(error)) throw error;
+    }
+    const o = this.sessionOpts!;
+    const next = await MeshSession.claim({ ...o, name });
+    if (next === undefined) {
+      throw new ClientError(`cannot take ${name}: a session holds it that this device's state directory has no record of, so there is nothing to take over`, "name_taken");
+    }
+    // The session given up no longer wakes this agent; use() points `wim hook` at the one taken over.
+    await removePointer(s.files.dir, s.files.env);
+    await s.stop({ ended: await s.holdsNothing() });
+    const keys = new SessionKeys(o.mesh, o.env, o.now ?? Date.now);
+    for (const key of this.keys) await keys.remember(key, next.sid, next.state.resume);
+    this.opening = this.use(next);
+    await this.opening;
+    return `This session is now ${next.address}: it took over that offline session. A notice follows with what came with it.`;
   }
 
   private async rooms(s: MeshSession, i: In<"rooms">): Promise<CallToolResult> {
@@ -514,7 +642,9 @@ export class WimMcp {
     if (i.name === undefined) return fail(`lease ${i.action} needs a name`);
     const ttl = Math.min(LIMITS.leaseTtlMaxMs, (i.ttl_s ?? 60) * 1000);
     const answer =
-      i.action === "acquire" ? await s.acquireLease(i.name, ttl, i.wait === true) : i.action === "renew" ? await s.renewLease(i.name, ttl) : await s.releaseLease(i.name);
+      i.action === "acquire"
+        ? await s.acquireLease(i.name, ttl, i.wait === true, i.wait_s === undefined ? undefined : i.wait_s * 1000)
+        : i.action === "renew" ? await s.renewLease(i.name, ttl) : await s.releaseLease(i.name);
     const { t: _t, key: _k, ...rest } = answer;
     return json({ name: i.name, ...rest });
   }

@@ -141,12 +141,19 @@ describe("LeasesView", () => {
 });
 
 describe("HeldView", () => {
-  it("lists held items oldest first with an inline-action context value", () => {
+  it("lists a set per sender, oldest first, each item under it with an inline-action context value", () => {
     const s = mesh();
     s.apply({ type: "held", at: NOW, op: "add", item: heldRow("h0", { at: NOW - 5, reason: "breaker", file: { name: "a.bin", size: 2048, mime: "x/y" } }) });
     const v = new HeldView(s, new Nodes(), now);
-    const held = v.getChildren();
+    // A client that does not group: each row is a set of its own.
+    const sets = v.getChildren();
+    expect(sets.map((n) => item(v, n).label)).toEqual(["From coder@buildbox", "From coder@buildbox"]);
+    expect(item(v, sets[0]!)).toMatchObject({ contextValue: "heldSet", description: expect.stringMatching(/^1 message, \d\d:\d\d:\d\d$/), collapsibleState: TreeItemCollapsibleState.Expanded });
+    expect((item(v, sets[0]!).iconPath as ThemeIcon).id).toBe("debug-pause");
+    expect((item(v, sets[1]!).iconPath as ThemeIcon).id).toBe("inbox");
+    const held = sets.flatMap((n) => v.getChildren(n));
     expect(held.map((h) => (h as { id: string }).id)).toEqual(["h0", "h1"]);
+    expect(held.map((h) => v.getParent(h))).toEqual(sets);
     const file = item(v, held[0]!);
     expect(file).toMatchObject({ label: "coder@buildbox (msg)", description: "a.bin", contextValue: "held", id: "held:vscode@laptop:h0" });
     expect((file.iconPath as ThemeIcon).id).toBe("debug-pause");
@@ -157,14 +164,36 @@ describe("HeldView", () => {
     expect(plain.tooltip).toContain("Held by this device's policy");
     expect(plain.tooltip).toContain("Preview (another agent's text):\npreview");
     expect(v.getChildren(held[0]!)).toEqual([]);
+    expect(v.getParent(sets[0]!)).toBeUndefined();
     s.apply({ type: "held", at: NOW, op: "remove", item: heldRow("h1") });
     expect(item(v, held[1]!)).toMatchObject({ label: "(decided)", contextValue: undefined, id: "held:vscode@laptop:h1" });
+    expect(item(v, sets[1]!)).toMatchObject({ label: "(decided)", contextValue: undefined });
+    expect(v.getChildren(sets[1]!)).toEqual([]);
+    expect(v.getParent(held[1]!)).toBeUndefined();
   });
 
-  it("shows a message held by two local sessions as two rows", () => {
-    const s = mesh({ held: [heldRow("x", { session: "agent@laptop" }), heldRow("x")] });
+  it("groups by the set the client names, with its title, count and span, and marks a CI notice that pins ids", () => {
+    const set = { set: "device:dev-buildbox", set_title: "device buildbox (device id dev-buildbox)" };
+    const s = mesh({ held: [heldRow("b", { at: NOW + 60_000, ...set }), heldRow("a", { ...set }), heldRow("c", { set: "ci:R1", set_title: "CI rule github  o/r", from: "ci:github:o/r", device: "", ci: "github, o/r, refs/heads/main", pins: "repositoryId=1 ownerId=2" })] });
     const v = new HeldView(s, new Nodes(), now);
-    const held = v.getChildren();
+    const sets = v.getChildren();
+    expect(sets.map((n) => item(v, n).label)).toEqual(["From device buildbox (device id dev-buildbox)", "From CI rule github o/r"]);
+    expect(item(v, sets[0]!).description).toMatch(/^2 messages, \d\d:\d\d:\d\d to \d\d:\d\d:\d\d$/);
+    expect(item(v, sets[0]!).tooltip).toMatch(/^2 messages held from device buildbox \(device id dev-buildbox\), from .+ to .+\.\nApprove or Refuse shows them all together/);
+    expect(item(v, sets[1]!).description).toMatch(/^1 CI notice, /);
+    expect(v.getChildren(sets[0]!).map((h) => (h as { id: string }).id)).toEqual(["a", "b"]);
+    const ci = item(v, v.getChildren(sets[1]!)[0]!);
+    expect(ci.tooltip).toContain("Held by its CI rule.");
+    expect(ci.tooltip).toContain("CI: github, o/r, refs/heads/main");
+    expect(ci.tooltip).toContain("Approved only on its own, in a terminal: it pins repositoryId=1 ownerId=2");
+  });
+
+  it("shows a message held by two local sessions as two rows of one set", () => {
+    const s = mesh({ held: [heldRow("x", { session: "agent@laptop", set: "device:b" }), heldRow("x", { set: "device:b" })] });
+    const v = new HeldView(s, new Nodes(), now);
+    const [set] = v.getChildren();
+    const held = v.getChildren(set!);
+    expect(item(v, set!).description).toMatch(/^1 message, /);
     expect(held.map((h) => item(v, h).tooltip)).toEqual([expect.stringContaining("For agent@laptop"), expect.stringContaining("For vscode@laptop")]);
     s.apply({ type: "held", at: NOW, op: "remove", item: heldRow("x", { session: "agent@laptop" }) });
     expect(held.map((h) => item(v, h).label)).toEqual(["(decided)", "coder@buildbox (msg)"]);

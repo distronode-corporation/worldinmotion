@@ -205,8 +205,10 @@ describe("session edges", () => {
     await Promise.all([a.tick(), a.tick()]);
     expect(await fs.readdir(a.files.controlDir)).toEqual(["resume-x@y.123.tmp"]);
     await fs.writeFile(a.files.presencePath, "busy");
-    await sleep(80);
     const sent = () => relay.sentByClients.filter((t) => t === '{"t":"presence","status":"busy"}').length;
+    await until(() => sent() >= 1, undefined, "the busy presence");
+    // A second send would follow the first: give it the window the test always gave.
+    await sleep(80);
     expect(sent()).toBe(1);
   });
 

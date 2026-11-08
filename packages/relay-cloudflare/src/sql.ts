@@ -47,6 +47,14 @@ export function nextStoreDue(db: SqlDb, mesh: string, L: Limits): number | undef
     ["SELECT MIN(queuedAt) + ? AS due FROM queue WHERE mesh = ?", Q, mesh],
     ["SELECT MIN(at) + ? AS due FROM messages WHERE mesh = ?", Q, mesh],
     ["SELECT MIN(exp) AS due FROM idle WHERE mesh = ?", mesh],
+    // A session offline with a notice armed on it fires that notice once it has been offline the
+    // grace period (a fired notice waits for its subscriber's `ready`, and lapses at `exp` above).
+    [
+      `SELECT MIN(s.since) + ? AS due FROM sessions s WHERE s.mesh = ? AND s.conn IS NULL AND s.ended IS NULL
+        AND EXISTS (SELECT 1 FROM idle i WHERE i.mesh = s.mesh AND i.target = s.sid AND i.fired IS NULL)`,
+      L.idleOfflineGraceMs,
+      mesh,
+    ],
     ["SELECT MIN(exp) AS due FROM invites WHERE mesh = ?", mesh],
     ["SELECT MIN(exp) AS due FROM lease_waiters WHERE mesh = ?", mesh],
     ["SELECT MIN(until) AS due FROM leases WHERE mesh = ?", mesh],

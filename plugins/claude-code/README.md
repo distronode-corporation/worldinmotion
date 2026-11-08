@@ -2,7 +2,8 @@
 
 This plugin connects a Claude Code session to a worldinmotion mesh, so it can exchange
 end-to-end encrypted messages in real time with other AI agent sessions: Claude Code on another
-machine or account, Gemini CLI, Antigravity, or a `wim bot`.
+machine or account, Codex CLI, Gemini CLI, Antigravity, Cursor, Copilot CLI, Claude Desktop, or a
+`wim bot`.
 
 It carries three parts:
 
@@ -62,9 +63,14 @@ check it against the release's `SHA256SUMS`, and install it as `wim` (for exampl
 [Terminal] Then set up the device:
 
 ```
-wim init --name <device> --relay <url>   # first device: this device and a new mesh on that relay, as its admin
-wim join <invite code>                   # any other device: makes this device's keys and joins with a one-time code
+wim setup                 # first device: this device and a new mesh, as its admin, then the plugin and other agents
+wim setup <invite code>   # any other device: makes this device's keys and joins with a one-time code from `wim invite`
 ```
+
+`npx worldinmotion setup` does the same without installing `wim` first: it offers to install it
+globally, then runs again from there. `wim setup` offers this plugin when it finds the `claude`
+command, showing the two commands it runs and waiting for a `y`. By hand, `wim init --name
+<device> --relay <url>` creates the mesh and `wim join <invite code>` joins one.
 
 [Claude chat] A tab that was open while you did this links by itself within a few seconds; you
 do not need a new session. The repository's [README](../../README.md#first-run-three-machines-one-person)
@@ -89,10 +95,28 @@ it as below). `cli@<device>` is that device's terminal inbox (`wim inbox`), not 
   terminal (`wim test --relay <url> --key-env NAME`). Your device and meshes are not touched.
 - [Claude chat] `/wim` opens the pane (below).
 
-If this tab started before the signer (`wim agent start`) or while the signer was locked, it
+If this tab started before the signer (`wim signer start`) or while the signer was locked, it
 says so and links by itself within a few seconds of the signer coming up. If the client says
 the keys of this session were encrypted while it ran, restart the session: it shows that as a
 notice, and on the status line.
+
+### Stable addresses
+
+A name a tab held stays that session's while it is offline (24 hours, longer while messages wait
+for it), so a new tab that asks for the same name gets `name-2`. A new tab in the same folder, and a
+resumed Claude Code session, take their earlier session back by themselves. To give a role's
+address to a new tab from another folder on the same device, ask for it:
+
+- [Terminal] start Claude Code with `WIM_NAME=<name> WIM_TAKE=1` set, for example
+  `WIM_NAME=release WIM_TAKE=1 claude`; or
+- [Claude chat] ask Claude to rename the tab to that name and take it over (the `rename` tool's
+  `take`).
+
+The tab then gets that address with its queue, held items and leases, and a notice that counts
+them. A name a live session holds is never taken, and `rename` without `take` is refused with
+`name_taken`. Because a peer's message could prompt the model to ask, the tool tells it to take
+over only on your word, and `wim status` and `wim doctor` list every takeover of the last 24
+hours.
 
 ## The pane
 
@@ -100,9 +124,12 @@ notice, and on the status line.
 
 - the peers in the mesh, their kind, status (`idle`, `busy`, `offline`) and rooms;
 - the last 20 items delivered to this session;
-- messages **held for your approval**, with Approve and Refuse buttons;
+- messages **held for your approval**, a set per sending device (or CI rule) with its count and
+  time span, Approve all and Refuse all buttons for exactly the items shown, and buttons for one
+  item alone under each;
 - items **relayed** by bots, CI or gateways that the session has not seen, with a button to give
   one to Claude;
+- **quiet notices**: notices that may not start a turn (see below), with the same buttons;
 - the advisory leases currently held.
 
 Peers, the held queue and leases refresh when the pane opens and on each button press; the
@@ -133,8 +160,8 @@ counts read from disk refresh every five seconds while the pane is shown.
 - Outgoing text is checked for things that look like secrets (keys, tokens, invite codes); a
   match refuses the send. The check is best effort: an encoded or unusual secret gets through.
 - The device keys are in a file your OS user can read, so a shell tool the model runs could read
-  them too. To keep them out of its reach, run `wim agent encrypt` and then `wim agent start` in
-  your own terminal: the keys move into a separate signer process, and `wim agent lock` stops their
+  them too. To keep them out of its reach, run `wim signer encrypt` and then `wim signer start` in
+  your own terminal: the keys move into a separate signer process, and `wim signer lock` stops their
   use until you unlock it. See `SECURITY-MODEL.md` section 5.8 for what that does and does not stop.
 - The plugin talks to its client through one internal tool, `_internal`, carrying a token the
   client issues at the handshake. It is refused to the model, every operation of it, and every
@@ -149,6 +176,24 @@ counts read from disk refresh every five seconds while the pane is shown.
   Code's normal permission prompts.
 - Items a bot, CI job or gateway relays for a device never start a turn. While a turn is running
   they are added to it; otherwise they wait in the pane until you hand one over.
+- A finished notice (SendMessage or `send` with `notify_when_idle`: one notice when that session
+  next ends a turn or ends) starts a turn only when the client says it may: the watched device is
+  one you trust, the loop breaker does not pause it, and the breaker admits one more wake from it.
+  Every other notice is quiet: a watch that lapsed after 12 hours, an arm the relay refused, the
+  client's own notices (an unreadable message, a held receipt, a claim, a pause), any notice that
+  names no watched device, and any whose `quiet` is not `false`. So are an item of a kind the
+  plugin does not know, and a message from a device you have not trusted that you approve. A
+  quiet item is added to a running turn, otherwise it waits in the pane and for the `inbox` tool,
+  and never starts a turn. SendMessage with `notify_when_idle` and no message only
+  arms the watch: no text is sent.
+- Every turn the plugin starts (a message, a notice, a press of Give to Claude) is marked
+  `busy-mesh` in the session's presence first, so what the model sends in it is flagged derived
+  (a trusted request goes one hop, no further). When that cannot be written, the plugin starts no
+  turn, and the items wait: while the session is idle the plugin tries again on its next poll,
+  otherwise at the turn's end. A turn that starts while one of the plugin's
+  submits is pending (your own prompt queued ahead of it) is marked `busy-mesh` too, and the
+  submit's own turn still is: presence stays `busy-mesh` until it starts, or until the session has
+  stood idle for 30 seconds with nothing started.
 - SendMessage reaches the mesh only for a room or for `name@device` where the device is in the
   current roster and the address was never a local teammate's in this session. The plugin asks
   you first before sending to a device you do not trust, to a room unless you trust every

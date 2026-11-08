@@ -5,7 +5,7 @@ import { commandUsage, SHORT_USAGE } from "../src/cli.ts";
 import { MeshSession } from "../src/client.ts";
 import { processIo, type Proc } from "../src/io.ts";
 import { WimMcp } from "../src/mcp.ts";
-import { FS, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, breakerOf } from "./helpers.ts";
+import { FS, framedText, LIVE_PID, makeMesh, openSession, RelayHarness, run, said, scratch, sessionOpts, sleep, term, until, breakerOf } from "./helpers.ts";
 
 const open: Array<{ stop(): Promise<unknown> }> = [];
 afterEach(async () => {
@@ -24,7 +24,7 @@ describe("help", () => {
     expect(t.out.at(-1)).toMatch(/wim init \[--name/);
     expect(await run(t, "help")).toBe(0);
     expect(await run(t, "help", "send")).toBe(0);
-    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]");
+    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s> | --wait-idle [--timeout 12h]]");
     expect(await run(t, "send", "--help")).toBe(0);
     expect(t.out.at(-1)).toMatch(/^wim send /);
     expect(await run(t, "help", "nope")).toBe(2);
@@ -38,7 +38,8 @@ describe("help", () => {
       "wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]",
     ]);
     expect(commandUsage("recover")).toMatch(/^wim recover <code>/);
-    expect(commandUsage("recovery")).toBe("wim recovery show | wim recovery rotate");
+    expect(commandUsage("recovery")).toBe("wim recovery show [--wait] | wim recovery rotate");
+    expect(commandUsage("setup")).toBe("wim setup [<invite code>] [--name <device>] [--relay <url>] [--key-env NAME]");
     expect(commandUsage("a.*")).toBeUndefined();
   });
 });
@@ -141,7 +142,7 @@ describe("clean ends of wim mcp", () => {
     let err = "";
     (proc.stderr as PassThrough).on("data", (d: Buffer) => (err += d.toString()));
     processIo(proc, { homedir: () => "/h", hostname: () => "h", kill: () => undefined, wim: () => [] });
-    await sleep(10);
+    await until(() => err.includes("wim: unexpected error: plain\n"), undefined, "both errors on stderr");
     expect(err).toContain("wim: unexpected error: stray\nwim: unexpected error: plain\n");
   });
 });
@@ -264,7 +265,7 @@ describe("derived messages (revision 8)", () => {
     const held = await c.send("b@two", "info");
     await until(async () => (await b.held.list()).length === 1);
     await b.decide(held.id, "approve");
-    expect((await b.spool.unread()).find((i) => i.rendered.includes("info"))!.informs).toBe(true);
+    expect((await b.spool.unread()).find((i) => framedText(i.rendered) === "info")!.informs).toBe(true);
     await b.send("a@one", "inside the window");
     await until(async () => (await a.spool.unread()).length === 3);
     const third = (await a.spool.unread())[2]!.rendered;

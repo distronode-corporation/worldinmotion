@@ -2,7 +2,7 @@ import { createConnection } from "node:net";
 import { PassThrough } from "node:stream";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { botIO, ciIO, meshPort } from "../src/adapters.ts";
 import type { MeshSession } from "../src/client.ts";
 import { processIo, type Proc } from "../src/io.ts";
@@ -309,6 +309,69 @@ describe("holding a code for a person", () => {
     // The name is free again.
     expect(await holdForShow(paths, "INV", { ms: 10, signal: new AbortController().signal, platform: process.platform })).toBe(false);
   });
+});
+
+describe("holding a code: setup that fails or is stopped", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const tmpFiles = async (dir: string): Promise<string[]> => (await fs.readdir(dir)).filter((f) => f.endsWith(".tmp"));
+
+  it("ends at once when the signal aborted while the socket was being set up", async () => {
+    const dir = await scratch("hold-abort");
+    const paths = showPaths(dir, process.platform);
+    const stop = new AbortController();
+    let listening = false;
+    const started = Date.now();
+    const held = holdForShow(paths, "CODE", { ms: 60_000, signal: stop.signal, platform: process.platform, onListening: () => (listening = true) });
+    // holdForShow is at its first await: the abort comes before it adds its listener.
+    stop.abort();
+    expect(await held).toBe(false);
+    expect(Date.now() - started).toBeLessThan(10_000);
+    expect(listening).toBe(true);
+    await expect(fetchHeldCode(paths)).rejects.toThrow(/no recovery code is waiting/);
+    // The name is free again.
+    expect(await holdForShow(paths, "CODE", { ms: 10, signal: new AbortController().signal, platform: process.platform })).toBe(false);
+  });
+
+  it("closes the socket and throws the original error when removing the partial file fails too", async () => {
+    const dir = await scratch("hold-rm");
+    const paths = showPaths(dir, process.platform);
+    const realRm = fs.rm;
+    vi.spyOn(fs, "rename").mockRejectedValueOnce(Object.assign(new Error("EPERM: operation not permitted, rename"), { code: "EPERM" }));
+    // The proof's own removal before the write still works; only the cleanup of the partial file fails.
+    const rm = vi.spyOn(fs, "rm").mockImplementation(async (path, options) => {
+      if (String(path).endsWith(".tmp")) throw Object.assign(new Error("EBUSY: resource busy or locked, rm"), { code: "EBUSY" });
+      return realRm(path, options);
+    });
+    await expect(holdForShow(paths, "CODE", { ms: 10_000, signal: new AbortController().signal, platform: process.platform })).rejects.toThrow(/^EPERM: operation not permitted, rename$/);
+    expect(rm.mock.calls.some(([path]) => String(path).endsWith(".tmp"))).toBe(true);
+    vi.restoreAllMocks();
+    // The server was closed: the socket or pipe is free, and nothing answers on it.
+    await expect(fetchHeldCode(paths)).rejects.toThrow(/no recovery code is waiting/);
+    expect(await holdForShow(paths, "CODE", { ms: 10, signal: new AbortController().signal, platform: process.platform })).toBe(false);
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  for (const step of ["writeFile", "rename"] as const) {
+    it(`leaves no partial proof file when ${step} fails, and frees the name`, async () => {
+      const dir = await scratch(`hold-${step}`);
+      const paths = showPaths(dir, process.platform);
+      const real = { writeFile: fs.writeFile, rename: fs.rename };
+      if (step === "writeFile") {
+        // The file is made, then the write fails part-way (a full disk, say).
+        vi.spyOn(fs, "writeFile").mockImplementationOnce(async (file, data, options) => {
+          await real.writeFile(file, data, options);
+          throw Object.assign(new Error("ENOSPC: no space left on device"), { code: "ENOSPC" });
+        });
+      } else vi.spyOn(fs, "rename").mockRejectedValueOnce(Object.assign(new Error("EPERM: operation not permitted"), { code: "EPERM" }));
+      await expect(holdForShow(paths, "CODE", { ms: 10_000, signal: new AbortController().signal, platform: process.platform })).rejects.toThrow(step === "writeFile" ? /ENOSPC/ : /EPERM/);
+      expect(vi.mocked(fs[step])).toHaveBeenCalledTimes(1);
+      expect(await tmpFiles(dir)).toEqual([]);
+      expect(await fs.access(paths.proof).then(() => true, () => false)).toBe(false);
+      vi.restoreAllMocks();
+      expect(await holdForShow(paths, "CODE", { ms: 10, signal: new AbortController().signal, platform: process.platform })).toBe(false);
+      expect(await tmpFiles(dir)).toEqual([]);
+    });
+  }
 });
 
 describe("processIo", () => {

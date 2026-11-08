@@ -7,42 +7,52 @@ import { runGateway } from "./run-a2a.ts";
 import { loadConfig as loadGatewayConfig } from "@worldinmotion/a2a";
 import { loadConfig as loadBotConfig, runBot } from "@worldinmotion/bot";
 import { loadConfig as loadCiConfig, runCi } from "@worldinmotion/ci";
-import { isName, isRecoveryName, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
+import { b64u, isName, isRecoveryName, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { basename, join as pathJoin } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { admitPending, createMesh, decideJoin, deleteMesh, forgetMesh, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
 import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
-import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, unprotectedNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions } from "./client.ts";
+import { accepted, armRefusedWhy, ClientError, heldSendLine, MeshSession, pauseFrom, prekeyNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions, type WatchEnd } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
+import { decider, decisionCode, decisionFor, decisionsFor, idChunks, MAX_DECISION_IDS, requestDecision, type DecideRequest, type Decision } from "./decisions.ts";
 import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp, type Retried } from "./mcp.ts";
-import { MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
+import { HOOK_AGENTS, hookAnswer, readInput } from "./hook.ts";
+import type { Ancestor, SignerChecks } from "./ancestry.ts";
+import { addersOf, joinApproval, MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
-import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
+import { decideHeld, listAllHeld, resumeEverywhere, unsignedMarks } from "./offline.ts";
+import { approvableIds, ciText, countText, groupHeld, pinText, setOf, setTitle, spanText, type HeldSet } from "./heldsets.ts";
 import { pauseEnd, pauseRule } from "./breaker.ts";
 import { listAllPauses, PausedBy } from "./pauses.ts";
 import { homeChoice, type Platform } from "./platform.ts";
 import { isStalePeer, peerLine, policyLevel } from "./render.ts";
 import { PING, pingReport } from "./ping.ts";
-import { listSessions, SessionFiles, SessionKeys } from "./session.ts";
+import { listSessions, recentTakeovers, SessionFiles, SessionKeys } from "./session.ts";
 import type { SpoolItem } from "./spool.ts";
 import { LIMITS } from "@worldinmotion/protocol";
 import { agentEnv, canConfirm, canShowSecret, confirmTyped, fetchHeldCode, holdForShow, notAPerson, personOnly, requirePerson, showPaths, SHOW_WINDOW_MINUTES, type ShowKind } from "./secretout.ts";
 import { checkDialable, Link, UNKNOWN_MESH, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { resolveInvite } from "./shortcode.ts";
-import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
+import { agentCommand, SIGNER_USAGE, wimCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
+import { agentRoute, signerRenamed, WORKER_USAGE, workerCommand } from "./workercli.ts";
+import type { DoctorDeps } from "@worldinmotion/agent";
+import { RECOVERY_TITLE, runSetup, STORED_PROMPT, type ToolRun } from "./setup.ts";
+import { findLaunch, onPath, setupAgents } from "./agentsetup.ts";
+import { npxSetup, type Relaunch } from "./npxsetup.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
+import { droppedCount, droppedLine, droppedPath, LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
 import { selfTest } from "./selftest.ts";
 
-export const VERSION = "0.1.10";
+export const VERSION = "0.2.0";
 
 /** Everything the CLI touches outside itself, so tests can run every command in-process. */
 export type CliIO = {
@@ -77,12 +87,22 @@ export type CliIO = {
   connectMs?: number;
   /** Asks for a passphrase without echoing it (an interactive terminal only). */
   promptSecret?: (question: string) => Promise<string>;
-  /** Starts `wim agent serve` detached, hands it the passphrase, and returns its first line. */
+  /** Starts `wim signer serve` detached, hands it the passphrase, and returns its first line. */
   startAgent?: (passphrase: string) => Promise<string>;
-  /** scrypt cost for `wim agent encrypt` (tests pass a small one; default 2^17). */
+  /** scrypt cost for `wim signer encrypt` (tests pass a small one; default 2^17). */
   agentKdfN?: number;
-  /** Runs another program (the login item and passphrase prompts of `wim agent`), and wim's own command line. */
+  /** Runs another program (the login item and passphrase prompts of `wim signer`), and wim's own command line. */
   programs?: Programs;
+  /** Runs `claude` and `code` for `wim setup` (setup.ts `execRunner`); without it, neither is found. */
+  tools?: ToolRun;
+  /** Runs `wim setup` again from the copy it installed, in this terminal (npxsetup.ts). */
+  relaunch?: Relaunch;
+  /** The command line that runs this wim, written into `wim agent init`'s config (default: this process's). */
+  wim?: () => string[];
+  /** Replaces `wim agent doctor`'s view of this machine (tests). */
+  workerDoctor?: Partial<DoctorDeps>;
+  /** Where `wim agent init --kit` looks for the deployment kit (tests). */
+  workerKit?: readonly string[];
   /** HTTP for `wim ci`, `wim a2a` and crash reports. */
   fetch: typeof fetch;
   /**
@@ -92,6 +112,10 @@ export type CliIO = {
   onUnexpected?: (listener: (reason: unknown) => void) => void;
   /** True once the process that started this one is gone (`wim mcp` then ends its session). */
   parentGone: () => boolean;
+  /** The processes above this one, nearest first, at most `levels` (`wim mcp` and `wim hook`); undefined: not read. */
+  ancestry?: (levels: number) => Promise<Ancestor[]>;
+  /** What the signer checks about the processes above it before it asks the person (`wim signer`). */
+  signerChecks?: SignerChecks;
   /** How often `wim mcp` checks its parent (default 5 s) and how long a clean end may take (3 s). */
   parentPollMs?: number;
   /** How often `wim mcp` asks again while the device is not ready yet (default 5 s). */
@@ -101,32 +125,40 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "person"]);
-const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker", "any", "wait-idle"]);
+/** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
+const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
+const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
 
 /** The flags each command takes (USAGE lists them); any other flag is refused. */
 const COMMAND_FLAGS: Record<string, readonly string[]> = {
+  setup: ["name", "relay", "key-env"],
   init: ["name", "relay", "key-env", "tls", "no-recovery"],
   mesh: ["relay", "key-env", "tls", "no-recovery"],
   invite: ["exp", "auto", "full"],
   join: ["name"],
   devices: ["relayed", "all"],
-  peers: ["all", "as"],
-  send: ["allow-secret", "as", "wait"],
+  peers: ["all", "as", "take"],
+  send: ["allow-secret", "as", "take", "wait", "wait-idle", "timeout"],
+  "wait-idle": ["any", "json", "timeout", "as", "take"],
   ping: ["all", "timeout"],
-  watch: ["as"],
-  inbox: ["peek", "mark-read", "as"],
-  events: ["json", "as"],
+  watch: ["as", "take"],
+  inbox: ["peek", "mark-read", "as", "take"],
+  events: ["json", "as", "take"],
   history: ["session", "peer", "limit"],
-  bot: ["as"],
-  ci: ["as", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
-  a2a: ["as"],
+  bot: ["as", "take"],
+  ci: ["as", "take", "ref", "tag", "workflow", "event", "environment", "hold", "unprotected", "recipient", "to", "text", "via"],
+  a2a: ["as", "take"],
   recover: ["relay", "tls", "revoke", "name"],
-  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
+  recovery: ["wait"],
+  signer: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
+  // The worker, and the signer's words under their old name for one release (agentRoute).
+  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker", "kit", "service"],
   "crash-reports": [],
+  "legacy-boxes": [],
   test: ["json", "full", "relay", "key-env", "person"],
 };
 
@@ -157,7 +189,8 @@ export function parseArgs(argv: readonly string[]): Args {
     if (eq !== -1 && BOOLEAN_FLAGS.has(name)) throw new SetupError(`--${name} takes no value`);
     if (eq !== -1) flags.set(name, a.slice(eq + 1));
     else if (!VALUE_FLAGS.has(name)) flags.set(name, true);
-    else if (i + 1 < argv.length) flags.set(name, argv[++i]!);
+    else if (i + 1 < argv.length && !(OPTIONAL_VALUE_FLAGS.has(name) && argv[i + 1]!.startsWith("--"))) flags.set(name, argv[++i]!);
+    else if (OPTIONAL_VALUE_FLAGS.has(name)) flags.set(name, true);
     else throw new SetupError(`--${name} needs a value`);
   }
   return { positional, flags };
@@ -199,6 +232,7 @@ export function parseDuration(text: string): number {
 
 export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
+  wim setup [<invite code>] [--name <device>] [--relay <url>] [--key-env NAME]
   wim init [--name <device>] [--relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery]]
   wim mesh create --relay <url> [--key-env NAME] [--tls <pin>] [--no-recovery] | wim mesh delete
   wim invite [--exp 1h] [--auto] [--full] | wim invite show
@@ -206,14 +240,16 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]
+  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s> | --wait-idle [--timeout 12h]]
+  wim wait-idle <address,...> [--any] [--timeout 12h] [--json] [--as <name> [--take]]
   wim ping <address,...> | --all [--timeout 5s]
-  wim watch [--as <name>]
-  wim inbox [--peek | --mark-read] [--as <name>]
-  wim events --json [--as <name>]
+  wim watch [--as <name> [--take]]
+  wim inbox [--peek | --mark-read] [--as <name> [--take]]
+  wim events --json [--as <name> [--take]]
   wim held [list | approve <id> | refuse <id> | resume <peer>]
   wim history [--session <name>] [--peer <address>] [--limit N]
   wim mcp
+  wim hook gemini|antigravity|codex|cursor|copilot [start]
   wim bot <config.json> | wim ci <config.json> | wim a2a <config.json>
   wim ci allow github <owner/repo> (--ref <branch or full ref> | --tag <tag>) --workflow <file.yml> [--event <name,...>] [--environment <name>] [--hold]
   wim ci allow gitlab <group/project> (--ref <branch or full ref> | --tag <tag>) [--unprotected] [--environment <name>] [--hold]
@@ -221,20 +257,22 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim ci list | wim ci remove <n>
   wim ci notify --to <session> --text <text> [--recipient <wimci1_...>] [--via github|gitlab]
   wim recover <code> --relay <url> [--tls <pin>] [--revoke <name,...>]
-  wim recovery show | wim recovery rotate
+  wim recovery show [--wait] | wim recovery rotate
   wim status | wim doctor
   wim notify-test
   wim crash-reports [status | on | off]
+  wim legacy-boxes [status | refuse | accept]
   wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
-  ${AGENT_USAGE}
+  ${SIGNER_USAGE}
+  ${WORKER_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
-history, mcp, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, test, agent.
+Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, wait-idle, ping, watch, held,
+history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
+crash-reports, legacy-boxes, test, signer, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -310,6 +348,9 @@ class Ctx {
       debug: this.env["WIM_DEBUG"] === "1",
       cwd: this.io.cwd,
       ...(notifier === undefined ? {} : { notifier }),
+      legacyBoxesPath: pathJoin(this.home.root, LEGACY_BOXES_FILE),
+      // A claim of an offline session's name is only ever asked for (design.md, taking a session back).
+      ...(this.args.flags.get("take") === true || (this.env["WIM_TAKE"] === "1" && this.env["WIM_NAME"] === name) ? { take: true } : {}),
     };
   }
 
@@ -458,6 +499,8 @@ function notifyRefused(io: CliIO, why: string): number {
 
 /** Runs one `wim` command. Returns the process exit code. */
 export async function main(argv: readonly string[], env: Record<string, string | undefined>, io: CliIO): Promise<number> {
+  // An agent's turn-end hook: never an error, never exit 2 (which some agents read as "continue").
+  if (argv[0] === "hook") return hook(argv.slice(1), env, io);
   // `wim ci notify` never fails the CI job it runs in, not even on a bad flag (SPEC section 18).
   const notifying = argv[0] === "ci" && argv[1] === "notify";
   let args: Args;
@@ -517,6 +560,7 @@ export async function main(argv: readonly string[], env: Record<string, string |
   });
   io.onUnexpected?.((reason) => void crash.report(reason, "unhandledRejection"));
   try {
+    const signer = (): Promise<number> => agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
     switch (command) {
       case undefined:
         io.out(SHORT_USAGE);
@@ -524,6 +568,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
       case "version":
         io.out(VERSION);
         return 0;
+      case "setup":
+        return await setup(ctx);
       case "init":
         return await init(ctx);
       case "mesh":
@@ -540,6 +586,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await peers(ctx);
       case "send":
         return await send(ctx);
+      case "wait-idle":
+        return await waitIdle(ctx);
       case "ping":
         return await ping(ctx);
       case "watch":
@@ -572,8 +620,41 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await notifyTest(ctx);
       case "crash-reports":
         return await crashReports(ctx, crash);
-      case "agent":
-        return await agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
+      case "legacy-boxes":
+        return await legacyBoxes(ctx);
+      case "signer":
+        return await signer();
+      case "agent": {
+        if (agentRoute(rest, args.flags) === "signer") {
+          // The signer's old name, kept for one release: old login items and habits still work.
+          io.err(signerRenamed(rest[0]!));
+          return await signer();
+        }
+        return await workerCommand({
+          env,
+          out: io.out,
+          err: io.err,
+          stdin: io.stdin,
+          stdout: io.stdout,
+          cwd: io.cwd,
+          now: io.now,
+          uid: io.uid,
+          signal: io.signal,
+          fsEnv: ctx.fsEnv,
+          positional: rest,
+          flags: args.flags,
+          wim: io.wim?.() ?? wimCommand(),
+          mesh: () => ctx.mesh(),
+          // No message text on disk: a wake code or a task never lands in this session's files. The
+          // signed frames ride along in memory, for a runner that verifies the sender itself.
+          session: async (name) => MeshSession.open({ ...(await ctx.sessionOptions(name, "worker")), sessionKey: `worker:${name}`, redactStoredText: true, withFrame: true }),
+          name: nameFor(ctx, "worker"),
+          home: ctx.home.root,
+          untilStopped: () => ctx.untilStopped(),
+          ...(io.workerDoctor === undefined ? {} : { doctor: io.workerDoctor }),
+          ...(io.workerKit === undefined ? {} : { kitFrom: io.workerKit }),
+        });
+      }
       default:
         io.err(`unknown command ${JSON.stringify(command)}\n\n${USAGE}`);
         return 2;
@@ -629,6 +710,36 @@ async function crashReports(ctx: Ctx, crash: CrashReporter): Promise<number> {
   return 0;
 }
 
+/** What a person turning v0.1 boxes back on is told before saying yes. */
+export const LEGACY_ACCEPT_TERMS = [
+  "This reopens the migration window on this device (SPEC section 6b). Until 1.0, a relay that",
+  "withholds a device's prekey can then make your sends to it go without forward secrecy, and this",
+  "device again reads messages sent without it. Messages to and from v0.1 clients reach them again.",
+  "`wim legacy-boxes refuse` closes it again at any time.",
+];
+
+/**
+ * `wim legacy-boxes`: shows the setting, refuses v0.1 boxes (anyone: it only makes the device
+ * stricter), or accepts them again (a person only, asked first, since it weakens the device).
+ */
+async function legacyBoxes(ctx: Ctx): Promise<number> {
+  const action = ctx.args.positional[0] ?? "status";
+  const file = pathJoin(ctx.home.root, LEGACY_BOXES_FILE);
+  if (action === "refuse") {
+    await setLegacyBoxes(file, true, ctx.fsEnv);
+  } else if (action === "accept") {
+    requirePerson(ctx.env, ctx.io, "wim legacy-boxes accept");
+    if (!(await confirmTyped(ctx.io, LEGACY_ACCEPT_TERMS, "Accept v0.1 boxes again?"))) return 1;
+    await setLegacyBoxes(file, false, ctx.fsEnv);
+  } else if (action !== "status") {
+    throw new SetupError("usage: wim legacy-boxes [status | refuse | accept]");
+  }
+  const now = await refusesLegacy(file);
+  ctx.io.out(`${legacyBoxesLine(now.refuse)}.`);
+  if (now.problem !== undefined) ctx.io.out(`${now.problem}.`);
+  return 0;
+}
+
 async function init(ctx: Ctx): Promise<number> {
   const name = flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device");
   const device = await ctx.home.createDevice(name);
@@ -641,27 +752,7 @@ async function init(ctx: Ctx): Promise<number> {
 async function meshCreate(ctx: Ctx): Promise<number> {
   const relay = flag(ctx.args, "relay");
   if (relay === undefined) throw new SetupError("--relay <url> is required");
-  const keyEnv = flag(ctx.args, "key-env");
-  const key = keyEnv === undefined ? undefined : ctx.env[keyEnv];
-  if (keyEnv !== undefined && (key === undefined || key === "")) throw new SetupError(`${keyEnv} is not set`);
-  const tls = flag(ctx.args, "tls");
-  const device = await ctx.home.requireDevice();
-  const made = await createMesh({
-    home: ctx.home,
-    device,
-    relay,
-    dialer: ctx.dialer,
-    now: ctx.io.now,
-    ...(key === undefined ? {} : { key }),
-    ...(tls === undefined ? {} : { tls }),
-    recovery: ctx.args.flags.get("no-recovery") !== true,
-  }).catch(async (error: unknown) => {
-    if (!(error instanceof ClientError)) throw error;
-    // In this client's words; the relay's own text is not repeated.
-    if (error.code === "full") throw new ClientError(`${CREATE_REFUSED}: this relay has reached its limit of new meshes; run your own relay (packages/relay-node) or try another`, "full");
-    if (error.code !== "unauthorized") throw error;
-    throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls)}`, "unauthorized");
-  });
+  const made = await createHere(ctx, relay, ctx.args.flags.get("no-recovery") !== true);
   ctx.io.out(`Created mesh ${made.mesh} on ${relay}. This device is its admin.`);
   ctx.io.out("Next: `wim invite` to add another device.");
   if (made.recoveryCode !== undefined) await showRecoveryCode(ctx, made.recoveryCode);
@@ -670,6 +761,80 @@ async function meshCreate(ctx: Ctx): Promise<number> {
   if (!ctx.io.signal.aborted) await registerCli(ctx, made.mesh);
   ctx.io.out(STATUS_LINE);
   return ctx.io.signal.aborted ? STOPPED : 0;
+}
+
+/**
+ * Creates a mesh on `relay` with this device as its admin, for `wim mesh create` and `wim setup`,
+ * with `--key-env` and `--tls` from the command line. With `name`, a device that does not exist
+ * yet is made first (after the key is checked, so a missing one leaves nothing behind).
+ */
+async function createHere(ctx: Ctx, relay: string, recovery: boolean, name?: string): Promise<{ mesh: string; recoveryCode?: string }> {
+  const keyEnv = flag(ctx.args, "key-env");
+  const key = keyEnv === undefined ? undefined : ctx.env[keyEnv];
+  if (keyEnv !== undefined && (key === undefined || key === "")) throw new SetupError(`${keyEnv} is not set`);
+  const tls = flag(ctx.args, "tls");
+  const device = name === undefined ? await ctx.home.requireDevice() : ((await ctx.home.loadDevice()) ?? (await ctx.home.createDevice(name)));
+  return createMesh({
+    home: ctx.home,
+    device,
+    relay,
+    dialer: ctx.dialer,
+    now: ctx.io.now,
+    ...(key === undefined ? {} : { key }),
+    ...(tls === undefined ? {} : { tls }),
+    recovery,
+  }).catch(async (error: unknown) => {
+    if (!(error instanceof ClientError)) throw error;
+    // In this client's words; the relay's own text is not repeated.
+    if (error.code === "full") throw new ClientError(`${CREATE_REFUSED}: this relay has reached its limit of new meshes; run your own relay (packages/relay-node) or try another`, "full");
+    if (error.code !== "unauthorized") throw error;
+    throw new ClientError(`${CREATE_REFUSED}: ${await withoutKey(ctx, relay, keyEnv, tls)}`, "unauthorized");
+  });
+}
+
+/** `wim setup` (setup.ts), with the parts of this file it uses. */
+function setup(ctx: Ctx): Promise<number> {
+  const name = flag(ctx.args, "name");
+  const relay = flag(ctx.args, "relay");
+  return runSetup({
+    io: ctx.io,
+    env: ctx.env,
+    home: ctx.home,
+    homeWhy: ctx.homeWhy,
+    positional: ctx.args.positional,
+    ...(name === undefined ? {} : { name }),
+    ...(relay === undefined ? {} : { relay }),
+    ...(ctx.io.tools === undefined ? {} : { run: ctx.io.tools }),
+    toName: (text) => toName(text, "device"),
+    create: (at, device) => createHere(ctx, at, true, device),
+    join: (code) => joinWith(ctx, code, false),
+    register: (mesh) => registerCli(ctx, mesh),
+    status: () => status(ctx),
+    npx: () =>
+      npxSetup({
+        io: ctx.io,
+        env: ctx.env,
+        platform: ctx.io.platform,
+        homedir: ctx.io.homedir,
+        version: VERSION,
+        wim: ctx.io.programs?.wim,
+        // Every flag `wim setup` takes has a value; the code goes after `--`, so it is never read as a flag.
+        argv: ["setup", ...[...ctx.args.flags].map(([k, v]) => `--${k}=${String(v)}`), "--", ...ctx.args.positional],
+        run: ctx.io.tools,
+        relaunch: ctx.io.relaunch,
+      }),
+    agents: async () =>
+      setupAgents({
+        io: ctx.io,
+        env: ctx.env,
+        platform: ctx.io.platform,
+        homedir: ctx.io.homedir,
+        wimHome: ctx.home.root,
+        launch: await findLaunch(ctx.io.programs?.wim),
+        onPath: (command) => onPath(command, ctx.env, ctx.io.platform),
+        now: ctx.io.now,
+      }),
+  });
 }
 
 /** The exit code of a command a signal stopped (Ctrl-C, a kill, the terminal closing): 128 + SIGINT, what a shell reports for Ctrl-C. */
@@ -745,7 +910,7 @@ async function withoutKey(ctx: Ctx, relay: string, keyEnv: string | undefined, t
 async function showRecoveryCode(ctx: Ctx, code: string): Promise<void> {
   if (canShowSecret(ctx.env, ctx.io.isTTY)) {
     ctx.io.out("");
-    ctx.io.out("Recovery code (shown once; keep it offline, it is as powerful as an admin device):");
+    ctx.io.out(RECOVERY_TITLE);
     ctx.io.out(`  ${code}`);
     ctx.io.out("");
     return;
@@ -768,20 +933,26 @@ async function showRecoveryCode(ctx: Ctx, code: string): Promise<void> {
 
 async function recovery(ctx: Ctx): Promise<number> {
   const action = ctx.args.positional[0];
+  const wait = ctx.args.flags.get("wait");
+  // `--wait` takes no value, and only `show` waits.
+  if (wait !== undefined && (action !== "show" || wait !== true)) throw new SetupError(`usage: ${commandUsage("recovery")!}`);
   if (action === "rotate") return recoveryRotate(ctx);
-  if (action !== "show") throw new SetupError("usage: wim recovery show | wim recovery rotate");
-  return showHeld(ctx, "recovery", ["Recovery code (shown once; keep it offline, it is as powerful as an admin device):"]);
+  if (action !== "show") throw new SetupError(`usage: ${commandUsage("recovery")!}`);
+  return showHeld(ctx, "recovery", [RECOVERY_TITLE], [], wait === true);
 }
 
 /**
  * `wim recovery show` and `wim invite show`: the person, in a terminal of their own, collects a
- * code that a command run elsewhere (by an agent, or with its output piped) holds for them.
+ * code that a command run elsewhere (by an agent, or with its output piped) holds for them. With
+ * `wait` (`wim recovery show --wait`) it then waits for Enter, so a terminal that closes when its
+ * command ends (VS Code's) keeps the code on screen until the person has stored it.
  */
-async function showHeld(ctx: Ctx, kind: ShowKind, before: string[], after: string[] = []): Promise<number> {
+async function showHeld(ctx: Ctx, kind: ShowKind, before: string[], after: string[] = [], wait = false): Promise<number> {
   const notHere = notAPerson(ctx.env, ctx.io.isTTY);
   if (notHere !== undefined) throw new SetupError(personOnly(notHere, `wim ${kind} show`));
   const code = await fetchHeldCode(showPaths(ctx.home.root, ctx.io.platform, kind));
   for (const line of [...before, `  ${code}`, ...after]) ctx.io.out(line);
+  if (wait) await ctx.io.prompt(STORED_PROMPT);
   return 0;
 }
 
@@ -820,6 +991,7 @@ function noPerson(ctx: Ctx): string {
  */
 async function typedCode(ctx: Ctx, p: JoinPrompt): Promise<boolean> {
   ctx.io.out(`A device named ${p.name} (id ${p.id}) asks to join.`);
+  if (p.own) ctx.io.out(ownAdmitLine(p.name));
   for (let tries = 0; tries < 3; tries++) {
     const typed = (await ctx.io.prompt("Type the comparison code the new device shows (Enter to refuse): ")).trim();
     if (typed === "") return false;
@@ -828,6 +1000,9 @@ async function typedCode(ctx: Ctx, p: JoinPrompt): Promise<boolean> {
   }
   return false;
 }
+
+/** Said with every invite: its code names its maker (`by`, SPEC section 5), which 0.1.10 and older refuse. */
+export const OLDER_CANNOT_JOIN = "A device on wim 0.1.10 or older cannot read this code: upgrade it to 0.2.0 before it joins.";
 
 /** What a person reads above an invite code, wherever it is shown. */
 const INVITE_CODE_TITLE = "Invite code (single use; give it to the other device over a channel you trust, never through an agent):";
@@ -842,6 +1017,9 @@ async function invite(ctx: Ctx): Promise<number> {
   if (!auto && !canConfirm(ctx.env, ctx.io)) {
     throw new SetupError(`run \`wim invite\` in your own terminal: it asks you to type the code the new device shows, and ${noPerson(ctx)}. For an unattended device you control, \`wim invite --auto\` admits the first device that uses the code, and shows that code only in a terminal of your own`);
   }
+  // Asked before the code exists, so the answer is in the invite's record when the device joins;
+  // never in the code (SPEC section 5). `--auto` never trusts: nobody approves that join.
+  const own = !auto && /^y(es)?$/i.test((await ctx.io.prompt(OWN_QUESTION)).trim());
   const s = await ctx.session("invite", { keyed: false });
   // Ends the offer of a held code when this command ends, however it ends.
   const offerEnds = new AbortController();
@@ -854,7 +1032,7 @@ async function invite(ctx: Ctx): Promise<number> {
       wake?.();
     });
     const full = ctx.args.flags.get("full") === true;
-    const made = await issueInvite(s, { ttlMs: ttl, auto, now: ctx.io.now, short: !full });
+    const made = await issueInvite(s, { ttlMs: ttl, auto, own, now: ctx.io.now, short: !full });
     const until = new Date(made.exp).toISOString();
     // Why the invite cannot be used any more, once the person can no longer collect its code.
     let unusable: string | undefined;
@@ -889,8 +1067,8 @@ async function invite(ctx: Ctx): Promise<number> {
     }
     // A short code lives at most an hour at the relay; the invite itself may live longer.
     if (made.short !== undefined && made.short.exp < made.exp) ctx.io.out(`The short code works until ${new Date(made.short.exp).toISOString()}.`);
-    if (made.short !== undefined) ctx.io.out("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
     if (made.shortRefused !== undefined) ctx.io.out(`This is the full code: no short code, because ${made.shortRefused}.`);
+    ctx.io.out(OLDER_CANNOT_JOIN);
     ctx.io.out(`It expires at ${until}. Waiting for the device to join (Ctrl-C to stop)...`);
     for (;;) {
       if (ctx.io.signal.aborted || ctx.io.now() >= made.exp) {
@@ -924,8 +1102,7 @@ async function invite(ctx: Ctx): Promise<number> {
       if (decision.outcome === "ignored") continue;
       if (decision.outcome === "admitted") {
         ctx.io.out(`Admitted ${decision.name}.`);
-        // `--auto` is the unattended path: nobody is asked anything.
-        await askTrust(ctx, s.mesh, s.roster.devices.filter((d) => d.name === decision.name), !auto);
+        ctx.io.out(admittedTrust(decision));
         return 0;
       }
       ctx.io.err(`wim: refused the join: ${decision.reason}.`);
@@ -946,30 +1123,70 @@ async function invite(ctx: Ctx): Promise<number> {
   }
 }
 
+/** Asked by `wim invite` before it shows the code (SPEC section 6a). */
+export const OWN_QUESTION = "Is the new device one of yours? Its messages will then be trusted here when it joins. [y/N] ";
+
+/** Said before the person admits on an own-device invite, so the trust is not a surprise. */
+export function ownAdmitLine(name: string): string {
+  return `This invite was for one of your own devices: admitting ${name} trusts its messages here.`;
+}
+
+/** Every automatic trust says how to undo it. */
+export function trustedLine(name: string): string {
+  return `Trusted ${name}. wim devices untrust ${name} undoes it.`;
+}
+
+/** What an admit did to the new device's policy: trusted by an own-device invite, or held. */
+function admittedTrust(decision: { name?: string; trusted?: boolean }): string {
+  const name = decision.name!;
+  return decision.trusted === true ? trustedLine(name) : `Messages from ${name} are held for your approval. If it is your own: wim devices trust ${name}`;
+}
+
 /**
- * "Is X your own device?" after an admit or a join: a yes trusts it (policy `deliver`), as
- * `wim devices trust` would. Asked only of a person at the terminal (canConfirm); everyone else is
- * told the command.
+ * The joining side (SPEC section 6a): first the device that made the invite, when it is also the
+ * one that admitted this device (the only one whose approval this join was), then each other
+ * device on its own, naming who added it. A device that admitted this one without having made
+ * the invite (another admin; or any admitter, for a code from before 0.2.0 that names no maker)
+ * is said so first, and asked about like any other device. A yes trusts that one device (policy
+ * `deliver`); nothing is trusted because another device was. Asked only of a person at the
+ * terminal (canConfirm); everyone else is told the commands.
  */
-async function askTrust(ctx: Ctx, files: MeshFiles, devices: ReadonlyArray<{ name: string; id: string }>, ask = true): Promise<void> {
-  // Never empty: the device just admitted, or every device of the mesh just joined (an admin at least).
-  const names = devices.map((d) => d.name);
-  const one = names.length === 1;
-  const list = one ? names[0]! : `${names.slice(0, -1).join(", ")} and ${names.at(-1)!}`;
-  if (ask && canConfirm(ctx.env, ctx.io)) {
-    const question = one ? `Is ${list} your own device? Trust its messages here? [y/N] ` : `Are ${list} your own devices? Trust their messages here? [y/N] `;
-    if (/^y(es)?$/i.test((await ctx.io.prompt(question)).trim())) {
-      for (const d of devices) await setDevicePolicy(files, d.id, "deliver");
-      ctx.io.out(`Messages from ${list} are delivered here; text ${one ? "it relays" : "they relay"} from others is still held.`);
-      return;
-    }
+async function askJoinTrust(ctx: Ctx, files: MeshFiles, roster: Roster, me: string, issuer: string | undefined): Promise<void> {
+  const adders = await addersOf(files, roster);
+  const { admitter, approver } = joinApproval(adders, me, issuer);
+  if (admitter !== undefined && approver === undefined) {
+    ctx.io.out(
+      issuer === undefined
+        ? `This invite code does not say which device made it (it is from wim 0.1.x), so ${admitter.name}, which admitted this device, is asked about like any other device.`
+        : `Warning: ${admitter.name} admitted this device, but the invite was made by another device (id ${issuer}). If you did not expect ${admitter.name} to admit it, it may be someone else's: it is asked about like any other device.`,
+    );
   }
-  ctx.io.out(`Messages from ${list} are held for your approval. If ${one ? "it is" : "they are"} your own: wim devices trust ${one ? list : "--all"}`);
+  const others = roster.devices.filter((d) => d.id !== me && d.id !== approver?.id && !isRecoveryName(d.name));
+  const ask = canConfirm(ctx.env, ctx.io);
+  const held: string[] = [];
+  const one = async (d: { name: string; id: string }, question: string): Promise<void> => {
+    if (ask && /^y(es)?$/i.test((await ctx.io.prompt(question)).trim())) {
+      await setDevicePolicy(files, d.id, "deliver");
+      ctx.io.out(trustedLine(d.name));
+    } else held.push(d.name);
+  };
+  if (approver !== undefined) await one(approver, `${approver.name} admitted this device. Is ${approver.name} your own device? [y/N] `);
+  for (const d of others) {
+    const by = adders.get(d.id);
+    await one(d, `The mesh also has ${d.name}${by === undefined ? "" : ` (added by ${by.name})`}. Is ${d.name} your own device? [y/N] `);
+  }
+  for (const name of held) ctx.io.out(`Messages from ${name} are held for your approval. If it is your own: wim devices trust ${name}`);
 }
 
 async function join(ctx: Ctx): Promise<number> {
   const typed = ctx.args.positional[0];
   if (typed === undefined) throw new SetupError("usage: wim join <code>");
+  await joinWith(ctx, typed, true);
+  return 0;
+}
+
+/** `wim join <code>`, and `wim setup <code>` (which ends with its own status summary instead of the hint). */
+async function joinWith(ctx: Ctx, typed: string, hint: boolean): Promise<void> {
   // A short code is resolved through its relay first, so a mistyped one leaves no device behind.
   const code = await resolveInvite(typed, ctx.io.fetch);
   const device = (await ctx.home.loadDevice()) ?? (await ctx.home.createDevice(flag(ctx.args, "name") ?? toName(ctx.io.hostname, "device")));
@@ -986,11 +1203,9 @@ async function join(ctx: Ctx): Promise<number> {
     },
   });
   ctx.io.out(`Joined mesh ${joined.mesh}.`);
-  const others = joined.roster.devices.filter((d) => d.id !== device.id && !isRecoveryName(d.name));
-  await askTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), others);
+  await askJoinTrust(ctx, new MeshFiles(ctx.home.meshDir(joined.mesh), ctx.fsEnv), joined.roster, device.id, joined.issuer);
   await registerCli(ctx, joined.mesh);
-  ctx.io.out(STATUS_LINE);
-  return 0;
+  if (hint) ctx.io.out(STATUS_LINE);
 }
 
 /**
@@ -1123,7 +1338,7 @@ async function pending(ctx: Ctx): Promise<number> {
     const rows = await new PendingJoins(s.mesh, ctx.fsEnv).list(s.roster, new Invites(s.mesh, ctx.fsEnv, ctx.io.now), ctx.io.now());
     if (s.roster.devices.find((d) => d.id === s.device.id)!.role !== "admin") ctx.io.out("This device is not an admin, so no join requests come here.");
     else if (rows.length === 0) ctx.io.out("No device is waiting to join.");
-    for (const r of rows) ctx.io.out(`${r.name}  ${r.id}  asked ${new Date(r.at).toISOString()}  invite expires ${new Date(r.exp).toISOString()}`);
+    for (const r of rows) ctx.io.out(`${r.name}  ${r.id}  asked ${new Date(r.at).toISOString()}  invite expires ${new Date(r.exp).toISOString()}${r.own ? `  (${ownAdmitLine(r.name)})` : ""}`);
     if (rows.length > 0) ctx.io.out("In your own terminal, admit one with the comparison code it shows: wim devices admit <name> <code>");
     return 0;
   } finally {
@@ -1140,7 +1355,7 @@ async function admit(ctx: Ctx, name: string | undefined, code: string | undefine
     const decision = await admitPending(s, name, code, ctx.io.now);
     if (decision.outcome !== "admitted") throw new SetupError(`could not admit ${name}: ${decision.reason!}`);
     ctx.io.out(`Admitted ${name}. The new device finishes joining when \`wim join\` runs there (it may be waiting already).`);
-    await askTrust(ctx, s.mesh, s.roster.devices.filter((d) => d.name === name));
+    ctx.io.out(admittedTrust(decision));
     return 0;
   } finally {
     await s.stop({ ended: true });
@@ -1257,9 +1472,14 @@ async function send(ctx: Ctx): Promise<number> {
   if (to === undefined || words.length === 0) throw new SetupError("usage: wim send <to> <text...>");
   const name = nameFor(ctx, "cli");
   const text = words.join(" ");
+  if (ctx.args.flags.get("wait") === true) throw new SetupError("--wait needs a value: a duration such as 30s");
   const waitText = flag(ctx.args, "wait");
   const waitMs = waitText === undefined ? undefined : parseDuration(waitText);
   if (waitMs !== undefined && (waitMs === 0 || waitMs > WAIT_MAX_MS)) throw new SetupError("--wait takes a duration from 1ms to 1h, such as 30s");
+  const waitsIdle = ctx.args.flags.get("wait-idle") === true;
+  if (waitsIdle && waitMs !== undefined) throw new SetupError("--wait waits for receipts and --wait-idle for the sessions to finish: use one");
+  if (!waitsIdle && ctx.args.flags.has("timeout")) throw new SetupError("--timeout goes with --wait-idle");
+  const idle = waitsIdle ? idleOptions(ctx, to) : undefined;
   // The one place the secrets check can be skipped: a person, at this command line, for one send.
   // Not an agent, and not a pipe: the same rule as showing a recovery code (SECURITY-MODEL 7.4).
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
@@ -1270,9 +1490,18 @@ async function send(ctx: Ctx): Promise<number> {
   const { files } = await ctx.mesh();
   // The override is never handed over: it would travel in a file any process of this user can write.
   const watcher = allowSecrets ? undefined : await liveWatcher(files, name, ctx.fsEnv);
+  // The notice comes to the session that armed it, so the wait needs this one to itself.
+  if (idle !== undefined && watcher !== undefined) {
+    throw new SetupError(`a \`wim watch\` is reading as ${name} on this device, and --wait-idle needs a session of its own to hear the notice: use --as <name>`);
+  }
   // Offline after the command, not ended: replies queue for the next `wim watch` or `wim inbox` with this name.
   const s = watcher === undefined ? await ctx.session(name) : undefined;
+  const waiter = idle === undefined ? undefined : new IdleWait(ctx, s!, idle);
   try {
+    // Armed before the message goes, so a session that finishes at once is not missed; a watch
+    // that cannot be armed (this session's own address, the limit) sends nothing.
+    const refused = await waiter?.arm();
+    if (refused !== undefined) return refused;
     let out: SendAnswer;
     let receipts: () => Promise<ReadonlyArray<{ to: string; status: string }>>;
     if (watcher !== undefined) {
@@ -1307,13 +1536,18 @@ async function send(ctx: Ctx): Promise<number> {
         if (tabs.length > 0) ctx.io.out(`  live on ${device} now: ${tabs.map((a) => `${a} (claude-code)`).join(", ")}`);
       }
     }
-    // The migration window (SPEC section 6b): a device with no current prekey made the whole send
-    // v0.1. A watch from before `no_prekey` existed reports only `unprotected`.
-    if (out.unprotected !== undefined) ctx.io.out(unprotectedNote(out.unprotected, out.no_prekey ?? out.unprotected));
+    // A device with no current prekey (SPEC section 6b) made the whole send v0.1 (the window), or
+    // was skipped (this device refuses v0.1 boxes).
+    const note = prekeyNote(out);
+    if (note !== undefined) ctx.io.out(note);
     ctx.io.out(`id ${out.id}`);
     const took = out.results.filter((r) => accepted(r.status)).map((r) => r.to);
     const code = took.length === out.results.length ? 0 : 1;
     if (took.length === 0) return code;
+    if (waiter !== undefined) {
+      // The send's own failure (a recipient not taken) stands when every watch still finished.
+      return Math.max(code, await waiter.wait());
+    }
     if (waitMs === undefined) {
       ctx.io.out("Neither routed nor queued means it was read. `wim send --wait 30s` waits for each recipient's receipt.");
       return code;
@@ -1325,6 +1559,7 @@ async function send(ctx: Ctx): Promise<number> {
     const got = await waitForReceipts(ctx, receipts, took, waitMs, pause, (a, b) => ctx.io.out(`${heldWaitLine(a, out.id, b)}. Still waiting for it to be delivered...`));
     return reportReceipts(ctx, out, took, got, code, await pausesOf(took, got, pause));
   } finally {
+    waiter?.close();
     if (s !== undefined) await ctx.finish(s);
   }
 }
@@ -1355,6 +1590,155 @@ function reportReceipts(ctx: Ctx, out: SendAnswer, took: readonly string[], got:
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)!]})`);
   }
   return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code;
+}
+
+/** Exit codes of `wim wait-idle` and `wim send --wait-idle` (docs/peers.md, scripts). */
+export const WAIT_IDLE_EXIT = { finished: 0, refused: 1, timeout: 2 } as const;
+
+/** What a `wim wait-idle` waits for: session addresses, all of them or any one, for how long. */
+type IdleOptions = { addresses: string[]; any: boolean; json: boolean; timeoutMs: number; timeoutText: string };
+
+/** Reads `<address,...>`, `--any`, `--json` and `--timeout` (at most 12 hours, the life of a watch). */
+function idleOptions(ctx: Ctx, list: string): IdleOptions {
+  const addresses = MeshSession.parseTo(list);
+  const bad = addresses.filter((a) => !sessionAddressSchema.safeParse(a).success);
+  if (bad.length > 0) throw new SetupError(`a session's finished notice is for name@device addresses only, not ${bad.join(", ")}`);
+  const timeoutText = flag(ctx.args, "timeout") ?? "12h";
+  const timeoutMs = parseDuration(timeoutText);
+  if (timeoutMs === 0 || timeoutMs > LIMITS.idleNoticeLifetimeMs) throw new SetupError("--timeout takes a duration from 1ms to 12h (a watch lapses 12 hours after it is armed), such as 30m");
+  return { addresses, any: ctx.args.flags.get("any") === true, json: ctx.args.flags.get("json") === true, timeoutMs, timeoutText };
+}
+
+/** What a finished notice's `why` says, in words. */
+const IDLE_WHY: Readonly<Record<string, string>> = {
+  idle: "it reported the end of a turn",
+  ended: "it ended",
+  offline: "it has been offline for 60 seconds",
+};
+
+/**
+ * One wait for finished notices in a CLI session (design section 2.4): it listens before it arms,
+ * so no notice is missed, then prints one line per notice. The session reconnects by itself, and
+ * the client re-sends an arm not yet at the relay at the next `ready` (a relay keeps a notice that
+ * fired while this session was offline for that `ready`), so a dropped connection does not end
+ * the wait. Any notice for an armed address ends its wait, a quiet one too (one that may not start
+ * an agent turn): the line says it was quiet. Notices also stay in the session's inbox.
+ */
+class IdleWait {
+  private readonly ends: WatchEnd[] = [];
+  private readonly pending = new Set<string>();
+  /** When each of this wait's watches lapses: an idle notice that closed another watch is an older wait's. */
+  private readonly until = new Map<string, number>();
+  private readonly onEnd = (e: WatchEnd): void => void this.ends.push(e);
+
+  private readonly ctx: Ctx;
+  private readonly s: MeshSession;
+  private readonly o: IdleOptions;
+
+  constructor(ctx: Ctx, s: MeshSession, o: IdleOptions) {
+    this.ctx = ctx;
+    this.s = s;
+    this.o = o;
+    s.on("watch", this.onEnd);
+  }
+
+  close(): void {
+    this.s.off("watch", this.onEnd);
+  }
+
+  private line(text: string, json: Record<string, unknown>): void {
+    this.ctx.io.out(this.o.json ? JSON.stringify(json) : text);
+  }
+
+  /**
+   * Arms every address: undefined when the wait goes on (every address armed, or, with --any, at
+   * least one), else the exit code once each refusal is said. Without --any, its own address
+   * refuses the whole wait before anything is armed.
+   */
+  async arm(): Promise<number | undefined> {
+    const me = this.s.address;
+    if (this.o.addresses.includes(me)) {
+      this.line(`${me}: not watched: this command runs as ${me}, and a session never watches itself. Run it as another session with --as <name>.`, { of: me, end: "refused", code: "self" });
+      if (!this.o.any) return WAIT_IDLE_EXIT.refused;
+    }
+    const wanted = this.o.addresses.filter((a) => a !== me);
+    if (wanted.length === 0) return WAIT_IDLE_EXIT.refused;
+    // A notice the relay kept for an older arm of this session comes right after `ready`. One
+    // answer from the relay first, so that notice closes the older watch before this wait renews
+    // it (the `until` check in wait() then passes it over). Offline, the wait arms all the same.
+    await this.s.listPeers().catch(() => undefined);
+    const armed = await this.s.notifyWhenIdle(wanted);
+    for (const w of armed.watching) {
+      this.pending.add(w.to);
+      this.until.set(w.to, w.until);
+    }
+    const missed = wanted.filter((a) => !this.pending.has(a));
+    for (const of of missed) this.line(`${of}: not watched: ${armed.note!}`, { of, end: "refused", code: "local", note: armed.note });
+    return missed.length === 0 || (this.o.any && this.pending.size > 0) ? undefined : WAIT_IDLE_EXIT.refused;
+  }
+
+  /** Waits for the notices: 0 when every address (or one, with --any) has one, 1 on a refusal, 2 on the timeout. */
+  async wait(): Promise<number> {
+    const { ctx, o } = this;
+    const all = o.any ? "any of" : "each of";
+    if (!o.json) ctx.io.out(`Waiting up to ${o.timeoutText} for ${all} ${[...this.pending].join(", ")} to finish (Ctrl-C stops waiting). A finished notice is the relay's word that a turn ended, not proof the work is done.`);
+    const deadline = ctx.io.now() + o.timeoutMs;
+    let unnamed = 0;
+    for (;;) {
+      for (const e of this.ends.splice(0)) {
+        // An address of an older wait of this session, which the client armed again at `ready`,
+        // or a lapse: a watch of this wait lapses no sooner than its deadline (the timeout is at
+        // most a watch's 12 hours), so the deadline below ends the wait first or in this pass.
+        // An idle notice that closed a watch this wait did not arm (an older wait's, kept by the
+        // relay while this session was offline) says nothing about the turn this wait is for.
+        if (e.end === "lapsed" || (e.of !== undefined && !this.pending.has(e.of))) continue;
+        if (e.end === "idle" && e.until !== this.until.get(e.of!)) continue;
+        if (e.end === "idle") {
+          const why = e.why === undefined ? "it is idle or has ended" : IDLE_WHY[e.why]!;
+          const quiet = e.quiet ? " (a quiet notice: it would not start an agent turn, as that device is not trusted, is paused, or is past the loop breaker's limits)" : "";
+          this.line(`${e.of!}: finished: ${why}${quiet}`, { of: e.of, end: "idle", ...(e.why === undefined ? {} : { why: e.why }), quiet: e.quiet });
+          this.pending.delete(e.of!);
+          if (o.any || this.pending.size === 0) return WAIT_IDLE_EXIT.finished;
+          continue;
+        }
+        const why = armRefusedWhy(e.code!);
+        if (e.of === undefined) {
+          // An older relay that does not say which arm it refused.
+          this.line(`one of ${[...this.pending].join(", ")}: not watched: ${why} (the relay did not say which)`, { end: "refused", code: e.code });
+          unnamed += 1;
+        } else {
+          this.line(`${e.of}: not watched: ${why}`, { of: e.of, end: "refused", code: e.code });
+          this.pending.delete(e.of);
+        }
+        if (!o.any || unnamed >= this.pending.size) return WAIT_IDLE_EXIT.refused;
+      }
+      if (ctx.io.signal.aborted) return STOPPED;
+      if (ctx.io.now() >= deadline) {
+        this.line(`no finished notice within ${o.timeoutText} for ${[...this.pending].join(", ")}`, { end: "timeout", waiting: [...this.pending] });
+        return WAIT_IDLE_EXIT.timeout;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+}
+
+/**
+ * `wim wait-idle`: arms a finished notice for each address in a session of its own, and waits
+ * (design section 2.4). `wim wait-idle --now`, which answers at once from presence, comes with
+ * the client half of the relay change (N4), not here.
+ */
+async function waitIdle(ctx: Ctx): Promise<number> {
+  const [list, ...extra] = ctx.args.positional;
+  if (list === undefined || extra.length > 0) throw new SetupError(`usage: ${commandUsage("wait-idle")!}`);
+  const o = idleOptions(ctx, list);
+  const s = await ctx.session(nameFor(ctx, "cli"));
+  const waiter = new IdleWait(ctx, s, o);
+  try {
+    return (await waiter.arm()) ?? (await waiter.wait());
+  } finally {
+    waiter.close();
+    await ctx.finish(s);
+  }
 }
 
 /**
@@ -1472,13 +1856,14 @@ async function events(ctx: Ctx): Promise<number> {
   // A device in no mesh yet: the UI can join one (setup mode); any other problem is said as usual.
   if ((await ctx.home.loadDevice()) === undefined || (await ctx.home.meshIds()).length === 0) {
     const io = ctx.io;
-    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, ...(agent === undefined ? {} : { agent }) });
+    await runSetupEvents({ home: ctx.home, defaultName: toName(io.hostname, "device"), dialer: ctx.dialer, version: VERSION, write: io.out, input: io.stdin, signal: io.signal, now: io.now, fetch: io.fetch, platform: io.platform, ...(agent === undefined ? {} : { agent }) });
     return 0;
   }
   const o = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);
   const s = await MeshSession.open({ ...o, sessionKey: `events:${name}` });
   try {
-    await runEvents({ session: s, mesh: o.mesh, env: ctx.fsEnv, device: o.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, ...(agent === undefined ? {} : { agent }) });
+    const decide = decider({ root: ctx.home.root, env: ctx.home.env, signPub: o.device.keyring.signPub });
+    await runEvents({ session: s, mesh: o.mesh, env: ctx.fsEnv, device: o.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, decide, ...(agent === undefined ? {} : { agent }) });
     return 0;
   } finally {
     await s.stop();
@@ -1565,33 +1950,23 @@ async function held(ctx: Ctx): Promise<number> {
     const pauses = await listAllPauses(files, ctx.fsEnv, ctx.io.now());
     if (rows.length === 0 && pauses.length === 0) ctx.io.out("Nothing is held.");
     for (const p of pauses) ctx.io.out(`paused  ${sanitizeForDisplay(p.from)}'s device -> ${p.session}  breaker: ${pauseRule(sanitizeForDisplay(p.from), p)}; ${pauseEnd(p)}`);
-    for (const r of rows) ctx.io.out(heldLine(r));
+    // One set per sending device (or CI rule), decided together: `wim held approve` any of its ids.
+    const rules = await heldRules(files);
+    for (const set of groupHeld(rows, rules)) {
+      ctx.io.out(`held from ${setTitle(set.rows[0]!, rules)}: ${countText(set)}, ${spanText(set)}`);
+      for (const r of set.rows) ctx.io.out(`  ${heldLine(r)}`);
+    }
     return 0;
   }
   if (arg === undefined) throw new SetupError(`usage: wim held ${action} <${action === "resume" ? "peer" : "id"}>`);
   if (action === "approve" || action === "refuse") {
     personHere(ctx, `wim held ${action} ${arg}`);
     const all = await listAllHeld(files, ctx.fsEnv);
-    const rows = all.filter((r) => r.id === arg);
-    if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
-    const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
-    // A CI notice held because its rule had no ids yet: approving it pins them (SPEC section 18).
-    const pins = action === "approve" ? rows[0]!.ci?.pins : undefined;
-    // Refused before the prompt when it cannot pin, and pinned after it on the rules as they are
-    // then (another terminal may have removed or pinned the rule meanwhile).
-    const rules = pins === undefined ? undefined : await loadCiRules(files.ciRulesPath);
-    const refusal = rules === undefined ? undefined : pinRefusal(rules, rows[0]!.ci!.rule, pins!);
-    if (refusal !== undefined) throw refusal;
-    const details = heldDetails(rows, await files.loadConfig(), all, rules);
-    // A peer's breaker hold also offers to resume its device: approving one item leaves the pause on.
-    const resumable = action === "approve" && rows[0]!.reason === "breaker" && rows[0]!.ci === undefined;
-    if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
-    if (!(await confirmed(ctx, details, question))) return 1;
-    if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
-    const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
-    if (n === 0) throw new SetupError(`no held message ${arg}`);
-    ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
-    return 0;
+    const rules = await heldRules(files);
+    const set = setOf(all, rules, arg);
+    if (set === undefined) throw new SetupError(`no held message ${arg}`);
+    if (set.ids.length === 1) return decideOne(ctx, files, action, arg, all);
+    return decideSet(ctx, files, action, arg, set, rules);
   }
   if (action === "resume") {
     if (!sessionAddressSchema.safeParse(arg).success) throw new SetupError("usage: wim held resume <name@device>");
@@ -1600,11 +1975,124 @@ async function held(ctx: Ctx): Promise<number> {
     const paused = (await listAllHeld(files, ctx.fsEnv)).filter((r) => r.reason === "breaker" && r.from.split("@")[1] === device);
     const lines = [`Resuming ${arg} lifts the loop breaker's pause on device ${device} and releases what it held from there (${paused.length} now on disk):`, ...paused.map((r) => `  ${heldLine(r)}`)];
     if (!(await confirmed(ctx, lines, `Resume ${arg}?`))) return 1;
-    const n = await resumeEverywhere(files, arg, ctx.fsEnv, ctx.io.now);
+    const n = await resumeSigned(ctx, files, arg, paused.map((r) => r.id));
     ctx.io.out(`Resumed ${arg}; released ${n} held by the breaker.`);
     return 0;
   }
   throw new SetupError(`unknown held action ${action}`);
+}
+
+/**
+ * The signer's decisions when this device's keys are in it: the person confirms them once more, in
+ * the signer's own terminal or dialog, and only what the signer signs is decided. More ids than one
+ * decision takes are asked in chunks, each confirmed. Undefined with a plaintext key file: then the
+ * answer typed here is the decision, as before.
+ */
+async function signerDecision(ctx: Ctx, files: MeshFiles, req: Omit<DecideRequest, "mesh" | "code">): Promise<Decision[] | undefined> {
+  const file = await ctx.home.readKeyFile();
+  if (file === undefined || "plain" in file) return undefined;
+  const chunks = idChunks(req.ids).length;
+  const code = decisionCode();
+  ctx.io.out(chunks === 1 ? "Confirm it in the signer too: its dialog, or the terminal it runs in." : `Confirm it in the signer too, in ${chunks} parts (at most ${MAX_DECISION_IDS} each): its dialog, or the terminal it runs in.`);
+  ctx.io.out(`The signer shows the code ${code}: confirm only if it does.`);
+  const { mesh } = await files.loadConfig();
+  const o = { root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file.sealed.signPub) };
+  return decisionsFor((ids) => requestDecision(o, { mesh, ...req, ids, code }), req.ids);
+}
+
+/** A resume of `peer` over the breaker holds `ids`: one per signed decision, or one without a signer. */
+async function resumeSigned(ctx: Ctx, files: MeshFiles, peer: string, ids: readonly string[]): Promise<number> {
+  let n = 0;
+  for (const decision of (await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(ids)], peer })) ?? [undefined]) {
+    n += await resumeEverywhere(files, peer, ctx.fsEnv, ctx.io.now, undefined, decision);
+  }
+  return n;
+}
+
+/**
+ * The CI rules as they are, for grouping: an unreadable rules file groups every notice on its
+ * own (none is decided along with another), and a session then allows nothing anyway.
+ */
+function heldRules(files: MeshFiles): Promise<CiRule[]> {
+  return loadCiRules(files.ciRulesPath).catch(() => []);
+}
+
+/** One held item decided on its own: the only item of its set, or the person's explicit `one`. */
+async function decideOne(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse", arg: string, all: HeldRows): Promise<number> {
+  const rows = all.filter((r) => r.id === arg);
+  // Decided elsewhere while the set's prompt was open (`one` reads the held list again).
+  if (rows.length === 0) throw new SetupError(`no held message ${arg}`);
+  const question = action === "approve" ? `Approve it, delivering it to ${heldFor(rows)}?` : "Refuse it? It is dropped, never delivered.";
+  // A CI notice held because its rule had no ids yet: approving it pins them (SPEC section 18).
+  const pins = action === "approve" ? rows[0]!.ci?.pins : undefined;
+  // Refused before the prompt when it cannot pin, and pinned after it on the rules as they are
+  // then (another terminal may have removed or pinned the rule meanwhile).
+  const rules = pins === undefined ? undefined : await loadCiRules(files.ciRulesPath);
+  const refusal = rules === undefined ? undefined : pinRefusal(rules, rows[0]!.ci!.rule, pins!);
+  if (refusal !== undefined) throw refusal;
+  const details = heldDetails(rows, await files.loadConfig(), all, rules);
+  // A peer's breaker hold also offers to resume its device: approving one item leaves the pause on.
+  const resumable = action === "approve" && rows[0]!.reason === "breaker" && rows[0]!.ci === undefined;
+  if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
+  if (!(await confirmed(ctx, details, question))) return 1;
+  // Before the pin: a decision the signer is refused leaves the rule as it was.
+  const decision = decisionFor(await signerDecision(ctx, files, { verdict: action, ids: [arg] }), arg);
+  if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
+  const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now, undefined, decision);
+  if (n === 0) throw new SetupError(`no held message ${arg}`);
+  ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
+  return 0;
+}
+
+/**
+ * Every item held from one device (or under one CI rule), shown together before the person
+ * decides, and the decision covers exactly the ids shown: an item that arrives after the list
+ * was drawn stays held for the next look. `one` decides only the item named, after the whole set
+ * was shown, through the same prompt as a set of one.
+ */
+async function decideSet(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse", arg: string, set: HeldSet<HeldRows[number]>, rules: readonly CiRule[]): Promise<number> {
+  const covered = action === "approve" ? approvableIds(set) : set.ids;
+  const verb = action === "approve" ? "approve" : "refuse";
+  for (const line of setView(set, rules, await files.loadConfig())) ctx.io.out(line);
+  const all = covered.length === set.ids.length ? `all ${covered.length}` : `the ${covered.length} that do not pin ids`;
+  const options = covered.length === 0 ? `Type one to ${verb} only ${arg}` : `Type all to ${verb} ${all}, or one to ${verb} only ${arg}`;
+  const typed = (await ctx.io.prompt(`${options} [${covered.length === 0 ? "" : "all/"}one/N] `)).trim();
+  if (/^one$/i.test(typed)) return decideOne(ctx, files, action, arg, await listAllHeld(files, ctx.fsEnv));
+  if (!/^all$/i.test(typed) || covered.length === 0) {
+    ctx.io.err("wim: nothing changed.");
+    return 1;
+  }
+  const decisions = await signerDecision(ctx, files, { verdict: action, ids: covered });
+  const done: string[] = [];
+  for (const id of covered) if ((await decideHeld(files, id, action, ctx.fsEnv, ctx.io.now, undefined, decisionFor(decisions, id))) > 0) done.push(id);
+  const title = setTitle(set.rows[0]!, rules);
+  ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${done.length} held from ${title}: ${done.join(" ")}.`);
+  if (done.length < covered.length) ctx.io.out(`${covered.length - done.length} of the ${covered.length} shown had been decided elsewhere meanwhile.`);
+  for (const id of set.ids.filter((x) => !covered.includes(x))) ctx.io.out(`Still held: ${id} pins its rule's ids, so it is approved only on its own: wim held approve ${id}`);
+  const paused = set.rows.find((r) => r.reason === "breaker" && r.ci === undefined);
+  if (action === "approve" && paused !== undefined) ctx.io.out(`The breaker still pauses ${sanitizeForDisplay(paused.from)}: \`wim held resume ${paused.from}\` lifts it.`);
+  ctx.io.out("Anything held after this list was drawn stays held: wim held list shows it.");
+  return 0;
+}
+
+/** A set as the person reads it before deciding: who, how many, when, then each item in order. */
+function setView(set: HeldSet<HeldRows[number]>, rules: readonly CiRule[], config: MeshConfig): string[] {
+  const n = set.ids.length;
+  const lines = [`Held from ${setTitle(set.rows[0]!, rules)}: ${countText(set)}, ${spanText(set)}. Read them together: they are decided as one.`];
+  set.ids.forEach((id, i) => {
+    const rows = set.rows.filter((r) => r.id === id);
+    const r = rows[0]!;
+    const why = r.reason === "breaker" ? "the loop breaker paused it" : r.ci === undefined ? `its device's policy here is ${policyLevel(config, r.device)}` : "its CI rule holds it";
+    lines.push(`  ${i + 1} of ${n}  ${id}  ${sanitizeForDisplay(r.from)} -> ${heldFor(rows)}  ${r.kind}  ${new Date(r.at).toISOString()}  held because ${why}`);
+    if (r.ci !== undefined) lines.push(`           ci    ${ciText(r.entry)}`);
+    if (r.fileInfo !== undefined) lines.push(`           file  ${sanitizeForDisplay(r.fileInfo.name)} (${r.fileInfo.size} bytes, fetched once approved)`);
+    lines.push(`           text  ${r.preview}`);
+    if (r.ci?.pins !== undefined) lines.push(`           approve on its own: it pins ${pinText(r.ci.pins)}`);
+  });
+  if (set.rows.some((r) => r.reason === "breaker" && r.ci === undefined)) {
+    lines.push("  Approving them releases these and keeps the loop breaker's pause on; `wim held resume <address>` lifts it.");
+  }
+  return lines;
 }
 
 type HeldRows = Awaited<ReturnType<typeof listAllHeld>>;
@@ -1621,7 +2109,8 @@ async function approveOrResume(ctx: Ctx, files: MeshFiles, rows: HeldRows, all: 
   for (const line of details) ctx.io.out(line);
   const typed = (await ctx.io.prompt(`${question} Type y to approve it, or resume to approve it and resume ${sanitizeForDisplay(r.from)} (lifting the pause on device ${device} and releasing the ${others} other${others === 1 ? "" : "s"} held from it) [y/resume/N] `)).trim();
   if (/^resume$/i.test(typed)) {
-    const n = await resumeEverywhere(files, r.from, ctx.fsEnv, ctx.io.now);
+    const ids = [r.id, ...all.filter((o) => o.reason === "breaker" && o.id !== r.id && o.from.split("@")[1] === device).map((o) => o.id)];
+    const n = await resumeSigned(ctx, files, r.from, ids);
     ctx.io.out(`Approved ${r.id} and resumed ${sanitizeForDisplay(r.from)}; released ${n} held by the breaker.`);
     return 0;
   }
@@ -1629,7 +2118,8 @@ async function approveOrResume(ctx: Ctx, files: MeshFiles, rows: HeldRows, all: 
     ctx.io.err("wim: nothing changed.");
     return 1;
   }
-  if ((await decideHeld(files, r.id, "approve", ctx.fsEnv, ctx.io.now)) === 0) throw new SetupError(`no held message ${r.id}`);
+  const decision = decisionFor(await signerDecision(ctx, files, { verdict: "approve", ids: [r.id] }), r.id);
+  if ((await decideHeld(files, r.id, "approve", ctx.fsEnv, ctx.io.now, undefined, decision)) === 0) throw new SetupError(`no held message ${r.id}`);
   ctx.io.out(`Approved ${r.id}. The breaker still pauses ${sanitizeForDisplay(r.from)}: \`wim held resume ${r.from}\` lifts it.`);
   return 0;
 }
@@ -1682,8 +2172,6 @@ function heldDetails(rows: HeldRows, config: MeshConfig, all: HeldRows, rules: r
   ];
 }
 
-const pinText = (pins: Record<string, string>): string => Object.entries(pins).map(([k, v]) => `${k}=${v}`).join(" ");
-
 /**
  * For a CI notice whose approval pins its rule: every other held notice under the same rule with
  * the ids it carries, a warning when they differ (one of them is another repository that had the
@@ -1731,6 +2219,22 @@ async function history(ctx: Ctx): Promise<number> {
   return 0;
 }
 
+/**
+ * `wim hook <agent>`: the agent's turn-end hook (hook.ts). Prints the agent's continuation when
+ * trusted messages wait for this agent session, else what lets it stop; always exits 0.
+ * `wim hook <agent> start` is its turn-start hook: it marks the session busy and prints only what
+ * lets the turn go on. `WIM_DEBUG=1` says why on stderr.
+ */
+async function hook(rest: readonly string[], env: Record<string, string | undefined>, io: CliIO): Promise<number> {
+  const start = rest.length === 2 && rest[1] === "start";
+  const agent = rest.length === 1 || start ? rest[0]! : "";
+  const input = Object.hasOwn(HOOK_AGENTS, agent) ? await readInput(io.stdin) : undefined;
+  const answer = await hookAnswer({ agent, input, env, platform: io.platform, homedir: io.homedir, uid: io.uid, pid: io.pid, now: io.now, ...(start ? { event: "start" as const } : {}), ...(io.ancestry === undefined ? {} : { ancestry: io.ancestry }) });
+  if (answer.out !== "") io.out(answer.out);
+  if (env["WIM_DEBUG"] === "1") io.err(`wim hook: ${answer.why}`);
+  return 0;
+}
+
 /** `wim mcp`: the stdio MCP server. Starts even when the device is not set up, to say so. */
 async function mcp(ctx: Ctx): Promise<number> {
   const envKind = ctx.env["WIM_KIND"];
@@ -1757,6 +2261,7 @@ async function mcp(ctx: Ctx): Promise<number> {
     channel: ctx.env["WIM_CHANNEL"] === "1",
     internalTools: kind === "claude-code",
     version: VERSION,
+    ...(ctx.io.ancestry === undefined ? {} : { ancestry: ctx.io.ancestry }),
   });
   const stdin = ctx.io.stdin;
   // The agent closing its end of stdin is how an MCP client says it is gone.
@@ -1848,11 +2353,46 @@ async function recover(ctx: Ctx): Promise<number> {
   return 0;
 }
 
+/**
+ * How decisions on held messages are taken here. With the keys in the signer, each needs its
+ * confirmation, and any unsigned decision file found is a problem: nothing acts on it, and
+ * something of the user's wrote it. Without, the advice to run the signer (SECURITY-MODEL 7.2).
+ */
+async function decisionChecks(ctx: Ctx, emit: (c: Check) => void): Promise<void> {
+  const file = await ctx.home.readKeyFile().catch(() => undefined);
+  if (file === undefined) return;
+  if ("plain" in file) {
+    emit({ level: "info", line: "held messages: approved or refused by mark files that any process of yours can write, agents included; with the signer (`wim signer encrypt`, then `wim signer start`) each decision needs its confirmation too (SECURITY-MODEL 7.2)" });
+    return;
+  }
+  const found: string[] = [];
+  for (const id of await ctx.home.meshIds()) {
+    for (const path of await unsignedMarks(new MeshFiles(ctx.home.meshDir(id), ctx.fsEnv), ctx.fsEnv)) found.push(`mesh ${id}: ${path}`);
+  }
+  if (found.length === 0) emit({ level: "ok", line: "held messages: each decision needs the signer's confirmation" });
+  else emit({ level: "problem", line: `held messages: ${found.length} unsigned decision file${found.length === 1 ? "" : "s"}, refused while the keys are in the signer (${found.join("; ")}). Nothing acts on them: something of yours wrote them, so find what, then delete them` });
+}
+
 /** One line of `wim doctor`: a check that passed, a fact, or a problem to fix. */
 type Check = { level: "ok" | "info" | "problem"; line: string };
 
 /** What `wim status` sums up for one mesh, from the checks `wim doctor` runs. */
-type MeshSummary = { id: string; relay: string; seq?: number; devices?: number; admin?: boolean; online?: number; idleDays?: number | null };
+type MeshSummary = { id: string; relay: string; takeovers: string[]; seq?: number; devices?: number; admin?: boolean; online?: number; idleDays?: number | null; heldHere?: string[] };
+
+/**
+ * The devices another device added that this one still holds (SPEC section 6a: nothing is
+ * trusted because a trusted device added it), each with the command that trusts it. A device this
+ * one admitted was decided at its invite, and one older than this device's roster chain has no
+ * adder to name.
+ */
+async function heldHere(files: MeshFiles, roster: Roster, config: MeshConfig): Promise<string[]> {
+  const adders = await addersOf(files, roster);
+  return roster.devices.flatMap((d) => {
+    const by = adders.get(d.id);
+    if (by === undefined || by.id === config.device || d.id === config.device || isRecoveryName(d.name) || policyLevel(config, d.id) !== "hold") return [];
+    return [`held here, added by ${by.name}: ${d.name} (wim devices trust ${d.name})`];
+  });
+}
 
 /**
  * The checks of `wim doctor`, in order, each handed to `emit` as it is made: the state directory,
@@ -1873,7 +2413,7 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   try {
     device = await ctx.home.loadDevice();
     if (device === undefined) bad(`not set up yet, no device keys at ${ctx.home.devicePath}: run \`wim init\`, or \`wim join <code>\` with an invite`);
-    else ok(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim agent)" : "key file permissions are private"}`);
+    else ok(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim signer)" : "key file permissions are private"}`);
   } catch (error) {
     bad((error as Error).message);
   }
@@ -1881,13 +2421,18 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   const rootProblem = await ctx.home.rootProblem();
   if (rootProblem === undefined) ok(`state directory ${ctx.home.root}`);
   else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
+  await decisionChecks(ctx, emit);
   if (device === undefined) return { meshes };
+  const legacy = await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE));
+  info(legacyBoxesLine(legacy.refuse));
+  if (legacy.problem !== undefined) bad(legacy.problem);
   const me = device.id;
   for (const id of await ctx.home.meshIds()) {
     const files = new MeshFiles(ctx.home.meshDir(id), ctx.fsEnv);
     const config = await files.loadConfig();
-    const summary: MeshSummary = { id, relay: config.relay };
+    const summary: MeshSummary = { id, relay: config.relay, takeovers: await recentTakeovers(files, ctx.fsEnv, ctx.io.now()) };
     meshes.push(summary);
+    for (const line of summary.takeovers) info(`mesh ${id}: ${line}`);
     try {
       checkDialable(config.relay, config.tls);
       const { link, hello } = await Link.open(ctx.dialer, `${config.relay}/v1/${id}`, config.tls === undefined ? {} : { tlsPin: config.tls });
@@ -1917,6 +2462,7 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
         summary.devices = s.roster.devices.filter((d) => !isRecoveryName(d.name)).length;
         summary.admin = s.roster.devices.some((d) => d.id === me && d.role === "admin");
         summary.online = s.knownPeers().filter((p) => p.status !== "offline").length;
+        summary.heldHere = await heldHere(files, s.roster, s.config);
       } finally {
         await s.stop({ ended: true });
       }
@@ -1948,6 +2494,12 @@ async function status(ctx: Ctx): Promise<number> {
   for (const c of problems) ctx.io.out(`problem  ${c.line}`);
   if (device !== undefined) {
     ctx.io.out(`This device is ${device.name} (id ${device.id}).`);
+    const setting = pathJoin(ctx.home.root, LEGACY_BOXES_FILE);
+    const refuse = (await refusesLegacy(setting)).refuse;
+    ctx.io.out(`${legacyBoxesLine(refuse)}.`);
+    // Shown while the device refuses, and after, while there is a count to show.
+    const dropped = await droppedCount(droppedPath(setting));
+    if (refuse || dropped > 0) ctx.io.out(droppedLine(dropped));
     if (meshes.length === 0) ctx.io.out("It is in no mesh yet: `wim mesh create --relay <url>` makes one, or `wim join <code>` joins one with an invite.");
     for (const m of meshes) for (const line of meshStatus(m)) ctx.io.out(line);
   }
@@ -1958,13 +2510,17 @@ async function status(ctx: Ctx): Promise<number> {
 /** The lines `wim status` prints for one mesh. */
 function meshStatus(m: MeshSummary): string[] {
   const head = `Mesh ${m.id} on ${m.relay}:`;
-  if (m.seq === undefined) return [head, "  not connected: the problem above says why."];
+  // Shown whatever the relay says: each comes from this device's own state.
+  const takeovers = m.takeovers.map((line) => `  ${line}.`);
+  if (m.seq === undefined) return [head, ...takeovers, "  not connected: the problem above says why."];
   const others = m.devices! - 1;
   return [
     head,
     `  connected as ${m.admin! ? "an admin" : "a member"}; roster seq ${m.seq}; other devices: ${others}; other sessions online now: ${m.online!}.`,
     ...(others === 0 ? ["  Next: `wim invite` adds another device. Until one joins, `wim peers` shows no other sessions, which is expected."] : []),
+    ...m.heldHere!.map((line) => `  ${line}`),
     `  ${idleLine(m.idleDays)} An admin can delete it sooner: \`wim mesh delete\`.`,
+    ...takeovers,
   ];
 }
 

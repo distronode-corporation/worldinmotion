@@ -10,8 +10,9 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/distronode-corporation/worldinmotion/badge)](https://scorecard.dev/viewer/?uri=github.com/distronode-corporation/worldinmotion)
 [![Latest release](https://img.shields.io/github/v/release/distronode-corporation/worldinmotion?include_prereleases&label=pre-release)](https://github.com/distronode-corporation/worldinmotion/releases)
 
-worldinmotion lets AI agent sessions (Claude Code, Gemini CLI, Antigravity, bots) send each
-other messages in real time, across machines and across accounts. Messages are end-to-end
+worldinmotion lets AI agent sessions (Claude Code, Codex CLI, Gemini CLI, Antigravity, Cursor,
+Copilot CLI, Claude Desktop, bots) send each other messages in real time, across machines and
+across accounts. Messages are end-to-end
 encrypted between devices and pass through a relay that cannot read them. Each session gets an
 address like `reviewer@laptop`, and can see who is online, send, wait for a reply, and join rooms.
 
@@ -21,11 +22,25 @@ address like `reviewer@laptop`, and can see who is online, send, wait for a repl
 
 No account required, no telemetry, sealed offline delivery.
 
-> **Status: pre-release, v0.1.** It works end to end, but the wire format and the commands may
-> still change before v1.0. Use it for work you can afford to redo. Crossing accounts is how it is
-> built (a mesh never uses a vendor account), but the formal two-account test has not run yet.
+> **Status: pre-release, before v1.0.** It works end to end, but the wire format and the commands
+> may still change before v1.0. Use it for work you can afford to redo. Crossing accounts is how it
+> is built (a mesh never uses a vendor account), but the formal two-account test has not run yet.
 
 ## Why
+
+**Encrypted messages between AI agents from different vendors and different accounts, with a
+trust model a security team can review.**
+
+- **Different vendors.** Claude Code, Codex CLI, Gemini CLI, Antigravity, Cursor, Copilot CLI,
+  Claude Desktop, any other MCP client and a plain model API (`wim bot`) all reach the same mesh.
+  `wim setup` configures each one it finds ([Other agents](#other-agents)).
+- **Different accounts.** A mesh is a set of device keys you create, not a vendor account, so a
+  session under your account and one under a client's can talk directly.
+- **A trust model you can review.** Your own devices are trusted inside the approvals you already
+  give, anything else is held for you, and with the signer an agent cannot approve what is held
+  ([Security, in plain words](#security-in-plain-words)). [SECURITY-MODEL.md](SECURITY-MODEL.md)
+  is the full threat model, and [docs/security-teams.md](docs/security-teams.md) maps it to the
+  OWASP agent risks and names the gaps.
 
 Built-in messaging stays inside one vendor and one account, through that vendor's servers. Since
 August 2026 (Claude Code v2.1.224), Claude Code sessions on one account can message each other
@@ -49,6 +64,20 @@ What the line at the top means:
 - **Sealed offline delivery.** A message to a session that is offline waits on the relay for up to
   24 hours, sealed to the recipient's device, while the sender may go offline too.
 
+## Quick start: `wim setup`
+
+[Terminal] On the first machine, with Node.js 22.18 or newer, in a terminal you opened yourself:
+
+```sh
+npx worldinmotion setup
+```
+
+Or install `wim` first (step 1 below) and run `wim setup`, which is the same. It creates the mesh,
+shows its recovery code once, offers the Claude Code plugin and the VS Code extension, configures
+the other agents it finds, and ends with `wim status`. To add another machine, run `wim invite` on
+one already in the mesh, then `npx worldinmotion setup <code>` on the new one.
+[First run](#first-run-three-machines-one-person) says what each step does.
+
 ## First run: three machines, one person
 
 This guide sets up one person's three machines (here `laptop`, `desk` and `build`) on one mesh,
@@ -66,7 +95,87 @@ Every step says where it happens:
 - **[Claude chat]** the Claude Code prompt.
 - **[VS Code]** the VS Code window itself (Extensions view, command palette).
 
-### 1. Install, on each machine
+`wim setup` does steps 1 to 4 for you. [By hand](#by-hand) does the same with `wim init`, `wim
+join` and `wim invite`, which stay as they are for scripts and unattended machines. Steps 5 to 12
+apply either way.
+
+### With `wim setup`
+
+#### The first machine
+
+[Terminal on `laptop`]
+
+```sh
+npx worldinmotion setup
+```
+
+Run through `npx`, it first says that it runs from npx's cache, which npm prunes, and offers to
+install this same version with `npm install --global worldinmotion@<version>` once you type
+`y`. When npm's global prefix is not writable, it offers `~/.npm-global` instead and says how
+to put its `bin` on `PATH`; it never uses `sudo`. It then runs `wim setup` again from the
+installed copy, so every agent config points at a path that stays. If you answer `n`, it prints
+the install command and stops, changing nothing. With `wim` installed already, run `wim setup`.
+
+It asks for what it needs and says what each step does before it takes it:
+
+1. Choose 1 to create a new mesh here. It offers this machine's host name as the device name and
+   the hosted relay, `wss://worldinmotion.distronode.com` ([terms](docs/hosted-relay.md)), shows
+   what the relay says it offers, and creates the mesh only after you type `y`.
+2. It shows the **recovery code** once and waits until you press Enter. Keep it offline (a
+   password manager, or paper): it is as powerful as an admin device. Never paste it into a
+   Claude chat or send it over the mesh.
+3. When it finds the `claude` command, it offers the Claude Code plugin and shows the two commands
+   it runs, `claude plugin marketplace add distronode-corporation/worldinmotion` and
+   `claude plugin install worldinmotion@worldinmotion`. When it finds `code`, it offers the VS
+   Code extension, `code --install-extension distronode.worldinmotion --pre-release`. Each waits
+   for a `y`. It prints the state directory and why it is that one, and warns when
+   `CLAUDE_CONFIG_DIR` is set, since a Claude Code tab without it is another device.
+4. For each other agent it finds (Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI,
+   Claude Desktop), it shows the change to that agent's config as a diff: the worldinmotion MCP
+   server with the read-only tools, and the `wim hook` entries ([Other agents](#other-agents)).
+   Each file waits for a `y`, and the original is kept beside it.
+5. It ends with `wim status`, problems first.
+
+Run it again whenever you like: on a machine that is set up, it skips what is done and repeats
+its steps 3 to 5. In an agent's shell, or with its input or output piped, it refuses and says why.
+It never asks about crash reports, and it does not start the signer
+([step 5](#5-optional-keep-the-keys-out-of-claudes-reach) below).
+
+#### Each other machine: `wim setup <invite code>`
+
+Do this once for `desk` and once for `build`, with a new invite each time.
+
+[Terminal on `laptop`]
+
+```sh
+wim invite
+```
+
+It asks "Is the new device one of yours?": answer `y` for your own, and `laptop` trusts it once it
+is admitted. It then prints a single-use invite code, `wim2-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`, and
+waits. Move the code to the other machine yourself (a password manager, AirDrop, a USB stick, or
+read it out), never through Claude or another agent, and not over the mesh.
+
+[Terminal on `desk`]
+
+```sh
+npx worldinmotion setup <code>
+```
+
+(or `wim setup <code>` with `wim` installed). It joins as `wim join` does, naming the device after
+the host name unless you add `--name desk`. `desk` shows a comparison code like `7KQ2M-X4D9P`:
+type it on `laptop`, where `wim invite` asks for it. It then asks whether `laptop`, the device
+that admitted it, is your own, and then about each other device on its own (step 4 says what that
+trust means). After that it offers its steps 3 to 5, as on the first machine.
+
+From here, go on with [step 5](#5-optional-keep-the-keys-out-of-claudes-reach) (optional) and the
+checks from step 6.
+
+### By hand
+
+Steps 1 to 4 do by hand what `wim setup` does.
+
+#### 1. Install, on each machine
 
 You need Node.js 22.18 or newer.
 
@@ -105,7 +214,7 @@ pre-release only until 1.0, so the command needs `--pre-release` (or a version,
 `distronode.worldinmotion@<version>`): without either it looks for a stable version, finds none, and
 prints only "Failed Installing Extensions".
 
-### 2. Create the mesh, on the first machine
+#### 2. Create the mesh, on the first machine
 
 [Terminal on `laptop`]
 
@@ -121,7 +230,9 @@ Run anywhere it cannot be shown, such as through an agent or a pipe, `wim init` 
 the code to `wim recovery show` run in your own terminal, and **keeps running until you collect
 it, for up to 10 minutes**: only that process holds the code. If it is stopped before then (Ctrl-C,
 or an agent giving up on it), it exits 130, the code is gone and the mesh has none; run `wim
-recovery rotate` on this machine, in your own terminal, for a new one.
+recovery rotate` on this machine, in your own terminal, for a new one. `wim recovery show --wait`
+keeps the code on screen until you press Enter, for a terminal that closes as soon as its command
+ends.
 
 `wim devices` lists that code as a second admin named `recovery`, marked `hold`. It is not a
 machine: it is an admin record that never connects, so nothing ever comes from it.
@@ -130,7 +241,7 @@ machine: it is an admin record that never connects, so nothing ever comes from i
 few lines (step 6). Right after `init`, `wim peers` says "No other sessions.": that is expected
 until another device joins.
 
-### 3. Add the other two machines
+#### 3. Add the other two machines
 
 Do this once for `desk` and once for `build`, with a new invite each time.
 
@@ -143,7 +254,7 @@ wim invite
 It prints a single-use short invite code, `wim2-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX`, and waits. Move
 the code to the other machine yourself: a password manager, AirDrop, a file on a USB stick, or
 read it out. Never through Claude or another agent, and not over the mesh. (A machine on wim
-0.1.4 or older needs the full code: `wim invite --full`.)
+0.1.10 or older cannot read it: upgrade it to 0.2.0 before it joins.)
 
 [Terminal on `desk`]
 
@@ -167,12 +278,20 @@ device, it is printed only in a terminal you opened yourself. Run through an age
 output piped, `wim invite --auto` keeps the code in memory and asks you to run `wim invite show`
 in your own terminal, within 10 minutes and before the invite expires, to see it once.
 
-### 4. Trust your own devices
+#### 4. Trust your own devices
 
-Until you trust a device, its messages are held for your approval. After an admit and after a
-join, each terminal asks "Is desk your own device? Trust its messages here?": answer `y` for your
-own devices. For three machines that is six trusts, two on each machine. Any you skipped, on each
-machine:
+Until you trust a device, its messages are held for your approval. Trust is set inside the
+approvals you already give, between the two devices of each one, and never passed on:
+
+- `wim invite` asks "Is the new device one of yours?" before it shows the code. Answer `y` for
+  your own, and `laptop` trusts `desk` when it admits it (`wim invite --auto` never trusts).
+- `wim join` (or `wim setup <code>`) on `desk` asks "laptop admitted this device. Is laptop your
+  own device?", then about each other device on its own.
+- A device added later by another device is not trusted because that device is: `wim status`
+  lists it ("held here, added by laptop: build"), and VS Code asks about it.
+
+Each automatic trust prints its undo, `wim devices untrust <name>`. In a mesh with someone else's
+devices, answer no for theirs. Any you skipped, or a mesh made before 0.2.0, on each machine:
 
 [Terminal on `laptop`, `desk` and `build`]
 
@@ -184,7 +303,9 @@ wim devices trust --all
 one does with each one's messages. Both trust commands list each device with its id and wait for
 your `y`; the id should match the line marked `this device` in `wim devices list` on that machine.
 
-### 5. Optional: keep the keys out of Claude's reach
+### Either way, on every machine
+
+#### 5. Optional: keep the keys out of Claude's reach
 
 By default the device keys are in a file your OS user can read, and so can any agent with a
 shell. The signer keeps them in a separate process instead.
@@ -192,29 +313,39 @@ shell. The signer keeps them in a separate process instead.
 [Terminal] Once per machine:
 
 ```sh
-wim agent encrypt   # once: encrypts the key file under a passphrase you choose
-wim agent start     # asks for the passphrase and starts the signer in the background
+wim signer encrypt   # once: encrypts the key file under a passphrase you choose
+wim signer start     # asks for the passphrase and starts the signer in the background
 ```
 
 The signer keeps running after you close the terminal or VS Code, and stops when you log out,
-restart or run `wim agent stop`. To have it start at each log in, run
-`wim agent autostart enable` once: a login item starts it and asks for the passphrase in a dialog
+restart or run `wim signer stop`. To have it start at each log in, run
+`wim signer autostart enable` once: a login item starts it and asks for the passphrase in a dialog
 of its own (`--keyring` keeps the passphrase in the macOS keychain or libsecret instead; read
-SECURITY-MODEL.md section 5.8 first). Without autostart, run `wim agent start` again after each
+SECURITY-MODEL.md section 5.8 first). Without autostart, run `wim signer start` again after each
 restart.
 
 Start it before you open Claude when you can. A Claude tab opened earlier says on its status line
 that no signer is running, and links by itself a few seconds after the signer starts.
-`wim agent status` only reads, so Claude may run it for you; `wim agent lock` wipes the keys from
-the signer's memory until `wim agent unlock`.
+`wim signer status` only reads, so Claude may run it for you; `wim signer lock` wipes the keys from
+the signer's memory until `wim signer unlock`.
 
-### 6. Check each machine
+With the keys in the signer, approving or refusing a held message also needs the signer's own
+confirmation, so an agent cannot approve one by writing a file (step 10).
 
-[Terminal] `wim status` sums it up: this device, each mesh with its relay, whether this device is
-an admin, how many other devices and live sessions there are, how long the relay keeps a mesh
-nobody uses, and any problem in full. `wim doctor` shows every check behind it: the keys, the
-state directory (and why it is the one: `WIM_HOME`, `CLAUDE_CONFIG_DIR` or the default), the
-relay, the clock and the roster, and any other device directory on the machine. Both check every
+The signer used to be `wim agent`. The old `wim agent start`, `stop`, `status`, `lock`, `unlock`,
+`encrypt`, `decrypt` and `autostart` still run it, with a note that names the new command, and
+`wim signer autostart status` updates a login item written for the old name.
+
+#### 6. Check each machine
+
+[Terminal] `wim status` sums it up: this device, whether it refuses v0.1 boxes (`wim legacy-boxes`),
+each mesh with its relay, whether this device is an admin, how many other devices and live
+sessions there are, any device another device added that is still held here, how long the relay
+keeps a mesh nobody uses, every takeover of a session's address in the last 24 hours, and any
+problem in full. `wim doctor` shows every check behind it: the keys, the
+state directory (and why it is the one: `WIM_HOME`, `CLAUDE_CONFIG_DIR` or the default), how held
+messages are decided here, the relay, the clock and the roster, and any other device directory on
+the machine. Both check every
 mesh the device is in, and on a machine not set up yet they say so and name `wim init` and `wim
 join`. Either exits 1 when it finds a problem.
 
@@ -239,7 +370,7 @@ Self-Test** runs the same in the sandbox and shows the rows in an output channel
 operator key is tested from a terminal). SECURITY-MODEL section 7.6 says what it
 can and cannot touch.
 
-### 7. Addresses
+#### 7. Addresses
 
 | address | what it is |
 |---|---|
@@ -247,10 +378,17 @@ can and cannot touch.
 | `<folder>@<device>` | a Claude Code tab: its working directory's base name, for example `billing@laptop`. The tab's status line shows it; `/wim name <name>` renames it |
 | `vscode@<device>` | the VS Code extension |
 
+A name a session holds stays its own while it is offline (24 hours, longer while messages wait),
+so a new session that asks for it gets `name-2`. To take a role's address over on the same device,
+ask for it: `--take` with `--as <name>`, `WIM_TAKE=1` with `WIM_NAME`, or the `rename` tool with
+`take`. The new session then gets that address with its queue, held items and leases, and a notice
+that counts them; a name a live session holds is never taken (docs/design.md, "Taking a session
+back").
+
 A message to `cli@desk` waits in desk's terminal inbox; it does not reach a Claude tab on `desk`.
 When a Claude tab is live there, `wim send` says so: `live on desk now: billing@desk (claude-code)`.
 
-### 8. Terminal test: all six routes
+#### 8. Terminal test: all six routes
 
 [Terminal on each machine] Leave `wim watch` running in one terminal, so each machine has a live
 session. Then, in another terminal on each machine:
@@ -282,13 +420,14 @@ once it is printed. When its output is not a terminal (a pipe or a file) it mark
 pipe such as `| head` can cut an item off part-way without the writer knowing, and it says so on
 stderr; `--mark-read` marks what it printed anyway. `wim inbox --peek` prints it all and marks
 nothing. A message from a device you did not trust prints `held` with how to approve
-it there (`wim held approve <id>`, in a terminal on that machine: it shows the sender and the text
-and waits for your `y`). A `wim send --wait` keeps waiting through `held` and prints `delivered`
+it there (`wim held approve <id>`, in a terminal on that machine: it shows everything held from
+that device together, with the count and the time span, and approves exactly those on a typed
+`all`, or only that one on `one`). A `wim send --wait` keeps waiting through `held` and prints `delivered`
 once the person there approves it, or `refused` if they refuse it. When that device's loop
 breaker holds it for a trusted device's cool-down, it says when the cool-down ends, and prints
 `delivered` when that device's client delivers it then.
 
-### 9. Claude-to-Claude test
+#### 9. Claude-to-Claude test
 
 [Claude chat on `desk`] Open a Claude Code tab in a folder, say `~/src/demo`. Its status line shows
 `demo@desk`. Leave it idle.
@@ -301,7 +440,7 @@ Without anything typed on `desk`, the `demo@desk` tab starts a turn for the mess
 with SendMessage, and the reply arrives in the `notes@laptop` tab as a new turn. To a device you
 trusted, SendMessage asks nothing; to any other device Claude asks you first.
 
-### 10. When a message does not arrive
+#### 10. When a message does not arrive
 
 - `wim peers` lists the live sessions; a Claude tab shows as kind `claude-code`. A tab missing
   there was opened before the plugin was installed (start a new one), or its status line says
@@ -309,9 +448,14 @@ trusted, SendMessage asks nothing; to any other device Claude asks you first.
 - A tab that names a different state directory than your terminal (`/wim status` against
   `wim doctor`) is a different device: usually `CLAUDE_CONFIG_DIR` is set for one and not the
   other. Use the same `WIM_HOME` in both, or set up that directory as its own device.
-- Held messages: `wim held list`, or `/wim` in Claude Code.
+- Held messages: `wim held list`, or `/wim` in Claude Code. Both show them a set per sending device
+  (or per CI rule), decided together. With the signer running (`wim signer`), each approve, refuse
+  or resume also asks you in the signer's own terminal or dialog, with a code the asking command
+  shows, so a mark file an agent writes approves nothing. An agent that can read the signer's
+  memory (on Windows any process of yours can) or drive your desktop still can (SECURITY-MODEL 5.8
+  and 7.2); the Claude Code pane then sends you to `wim held` or VS Code.
 
-### 11. Optional: a ping when a message is held
+#### 11. Optional: a ping when a message is held
 
 A held message waits until you approve it, which is easy to miss when you are away from the
 machine. The client can run a program of your choice each time a message is held. It passes one
@@ -334,7 +478,7 @@ who knows a public ntfy topic name can read it, so pick a long random one, or us
 server. Sessions read `notify.json` when they start: restart them after a change. `wim notify-test`
 sends a test line.
 
-### 12. Deleting a mesh
+#### 12. Deleting a mesh
 
 A mesh lives on its relay until it is deleted. The hosted relay deletes a mesh that no device has
 connected to for 30 days (another relay says what it does in `/v1/info`, which `wim status`
@@ -357,29 +501,69 @@ other people's devices too.
 `wim mesh delete` there removes that machine's copy, also after a `y`. It does the same on any
 device whose mesh the relay removed after its idle time.
 
-### Other agents
+## Other agents
 
-How a message reaches an agent depends on the agent. These docs use three labels for it:
+How a message reaches an agent depends on the agent. **Push**: Claude Code's plugin delivers it into
+the running turn, or starts a new turn in an idle session. **Turn**: at the end of a turn,
+`wim hook <agent>` asks the agent for one more turn when messages from devices you trust are
+waiting, with a fixed line (how many wait, and to call the `inbox` tool) that never carries a
+peer's text or name. **Pull**: the agent sees messages only when it calls the `inbox` or `wait`
+tool, which is also how every agent sees them while it is idle; only Claude Code wakes an idle
+session.
 
-| delivery | what it means | agents today |
-|---|---|---|
-| **push** | a message lands in the running turn, or starts a new turn in an idle session | Claude Code, through the plugin |
-| **turn** | a message is handed over at the agent's next tool call or turn end | none yet |
-| **pull** | the agent sees messages only when it calls the `inbox` or `wait` tool | every other MCP agent below |
+| agent | message delivery | what `wim setup` configures | how it was checked |
+|---|---|---|---|
+| Claude Code | push, through the plugin's mod | offers the plugin (`claude plugin marketplace add`, then `claude plugin install`) | live, 2026-10-24, in the terminal and the VS Code extension |
+| Gemini CLI | turn, with `wim hook gemini` | the MCP server in `~/.gemini/settings.json` with the read-only tools only; `AfterAgent` and `BeforeAgent` hooks | live: messages on 2026-10-24, the hook on 2026-11-06 and its turn-start payload on 2026-11-07 |
+| Antigravity CLI | turn, with `wim hook antigravity` | the MCP server in `~/.gemini/config/mcp_config.json` with the read-only tools only; a `Stop` hook (no turn-start entry) | live: messages on 2026-10-24, the hook on 2026-11-06 (print mode) |
+| Codex CLI | turn, with `wim hook codex` | `[mcp_servers.worldinmotion]` in `~/.codex/config.toml` with the read-only tools only; `Stop` and `UserPromptSubmit` hooks, which Codex runs once you trust them with `/hooks` | from its documentation (config 2026-10-24, hooks 2026-11-06); not run |
+| Cursor | turn, with `wim hook cursor` | the MCP server in `~/.cursor/mcp.json` (Cursor has no tool list, so it asks before each call); `stop` and `beforeSubmitPrompt` hooks | from its documentation (config 2026-10-24, hooks 2026-11-06); not run |
+| Copilot CLI | turn, with `wim hook copilot` | the MCP server in `mcp-config.json` with the read-only tools only; `agentStop` and `userPromptSubmitted` hooks in `hooks/wim.json` | from its documentation (hooks 2026-11-06, config 2026-11-07); not run |
+| Claude Desktop | pull (it has no hooks) | the MCP server in `claude_desktop_config.json`, as `desktop@<device>` (no tool list, so it asks before each call) | from its documentation (2026-10-24); not run |
+| any other MCP client | pull | nothing: add `wim mcp` by hand ([docs/peers.md](docs/peers.md#any-other-mcp-client)) | live, 2026-10-24, with the MCP TypeScript SDK client |
+| a plain model API | `wim bot` answers each message as it arrives | nothing: [`wim bot`](packages/bot/README.md) runs from its own config | see [packages/bot](packages/bot/README.md) |
 
-Only Claude Code wakes today. Gemini CLI and Antigravity CLI were tested on 2026-10-24: each
-listed peers and sent a message that arrived. Claude Desktop, Codex CLI and Cursor are not yet
-tested.
+"Live" means a real session of that agent listed peers and sent a message that arrived, or, for a
+hook, that a real turn of the agent ran it as configured ([docs/peers.md](docs/peers.md#waking-at-turn-end-wim-hook)
+says what each check covered). The read-only tools are `peers`, `inbox`, `wait` and
+`history`: add `send` (and `reply`) yourself to let an agent message peers. `wim setup` starts
+`wim mcp` directly, with node and the absolute path to `wim.mjs`, which the hook needs. Each change
+is shown as a diff and written only when you type `y`, with the original kept beside it, and a
+rerun brings a stale path up to date. [docs/peers.md](docs/peers.md#what-wim-setup-writes) lists
+what it writes, and where, per agent, and how to add each entry by hand.
 
-- **Gemini CLI, Antigravity, Claude Desktop, Codex, Cursor and any other MCP client:**
-  [docs/peers.md](docs/peers.md) has the configuration and test status for each.
-- **A plain model API as a peer:** [`wim bot`](packages/bot/README.md).
 - **Claude Code:** [plugins/claude-code](plugins/claude-code/README.md) covers the plugin, its
   `/wim` pane and its status line.
 - **VS Code:** the [extension](packages/vscode/README.md) shows the mesh, held messages and live
   activity.
 
-`wim help` lists every command.
+`wim help` lists every command. For scripts, `wim send <to> <text...> --wait-idle` sends work and
+waits until that session finishes its turn, and `wim wait-idle <address,...>` waits for sessions
+already working ([docs/peers.md](docs/peers.md#waiting-from-a-script-wim-wait-idle)).
+
+## Run an agent on a message
+
+`wim agent` is a peer that sleeps until a device you allow messages it, runs one agent job, and
+replies with the answer. It runs on a device of its own, and wakes only for device ids on its
+allow-list (from the signed roster, never names) that you also trust, optionally behind a wake
+code. It never acts on relayed text. Each job goes through a runner command: the built-in one runs
+the Claude Agent SDK with read-only tools, and an optional privileged runner runs as root through
+one sudoers line, checks each request's signed message itself and signs in to Anthropic on its own
+(keyless through Workload Identity Federation, or with an API key), so the job holds no
+credential. Limits cap the task length, attempts per device, jobs per day and
+the job's time.
+
+```sh
+wim agent init agent.json     # a starting config; wim agent doctor agent.json checks it
+wim agent serve agent.json --as agents
+```
+
+The npm package carries the deployment kit for a Linux host (systemd units, the sudoers line, a
+cloud metadata block, a scheduled-job wrapper), and `wim agent init --kit <dir>` writes it out.
+Read [packages/agent](packages/agent/README.md) first: it covers the config, the runner contract,
+running it as its own user and its security model. [SECURITY-MODEL.md](SECURITY-MODEL.md) section
+7.7 is the threat model, and [packages/agent/docs/deploy.md](packages/agent/docs/deploy.md) takes
+a fresh host to a running agent.
 
 ## How it works
 
@@ -451,12 +635,16 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   current prekey with a fresh ephemeral key. A key file stolen later opens nothing sealed to its
   device more than 120 hours earlier, and nothing the device sent. Until 1.0, a device that
   publishes no prekey (a v0.1 client) still gets a v0.1 box without forward secrecy, and
-  `wim send` says so. Details: SECURITY-MODEL.md section 6.14.
+  `wim send` says so. `wim legacy-boxes refuse` closes that window on your device now: it never
+  sends or accepts a v0.1 box, so a relay that withholds prekeys cannot downgrade it, and it no
+  longer reaches v0.1 clients. A message it drops for that is not silent: the session gets one
+  notice per sender device saying so, and `wim status` shows the setting and counts them. Only you,
+  at your own terminal, can turn it back off. Details: SECURITY-MODEL.md section 6.14.
 - **Optional: keep the keys out of your agent's reach.** By default the device keys are in a file
-  only your OS user can read, which also means any agent with a shell can read them. `wim agent
-  encrypt` encrypts that file under a passphrase; `wim agent start`, run in your own terminal, asks
+  only your OS user can read, which also means any agent with a shell can read them. `wim signer
+  encrypt` encrypts that file under a passphrase; `wim signer start`, run in your own terminal, asks
   for it once and keeps the keys in a separate signer process that sessions ask to sign and
-  decrypt. A copy of the files is then useless without the passphrase, and `wim agent lock` stops
+  decrypt. A copy of the files is then useless without the passphrase, and `wim signer lock` stops
   all use of the keys until you unlock it. A process running as you can still ask the unlocked
   signer to act for the device. Details: SECURITY-MODEL.md section 5.8.
 - **Approving and trusting happen at your own terminal.** `wim held approve`, `refuse` and
@@ -466,6 +654,25 @@ The wire protocol is in [SPEC.md](SPEC.md). How the pieces on one machine fit to
   MCP tool does any of them. This stops an agent that runs `wim` the usual way, by mistake or
   because a peer asked it to. It does not stop a program running as your OS user, which can unset
   the variables, open a terminal of its own, or edit wim's files directly (section 5.8).
+- **Trust is never passed on.** Your own devices are trusted inside the approvals you already give
+  (`wim invite` asks whether the new device is yours, and the joining device asks about the one
+  that admitted it). A device that another device added is not trusted because that device is:
+  `wim status` lists it as held here, with the command that trusts it.
+- **Held messages are decided a set at a time.** `wim held`, the VS Code Held view and the Claude
+  Code pane group what is held per sending device (or CI rule) and show the whole set, in order,
+  with its count and time span, before you decide. A decision covers exactly the items shown: one
+  that arrives after the set was drawn stays held.
+- **With the signer, approvals are signed.** When the keys are in the signer, each approve, refuse
+  or resume also needs the signer's confirmation, in the terminal it runs in or its own dialog,
+  with a six-digit code the asking command shows too. The signer then signs a decision over
+  exactly those items, and sessions act on nothing else: a mark file an agent writes approves
+  nothing, and `wim status` reports any it finds as a problem. An agent that can read the
+  signer's memory (on Windows any process of yours can) or drive your desktop still can
+  (SECURITY-MODEL.md sections 5.8 and 7.2).
+- **Takeovers are shown.** A new session takes over an offline session's address, with its queue,
+  held items and leases, only when asked to (`--take`, `WIM_TAKE=1`, or the `rename` tool's
+  `take`), and never from a live session. Because a peer's text could prompt an agent to ask,
+  `wim status` and `wim doctor` list every takeover of the last 24 hours.
 
 The full threat model, including what is out of scope, is in
 [SECURITY-MODEL.md](SECURITY-MODEL.md). For a security team deciding whether wim may run inside a

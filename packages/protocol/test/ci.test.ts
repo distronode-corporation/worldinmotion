@@ -519,14 +519,18 @@ describe("what a relay keeps", () => {
   it("keeps the tag, counting key, a jti hash and the expiry, never a claim", async () => {
     const g = github();
     const r = await verifyCiToken(g.token, g.notice, fixtureKeys);
-    const seen = githubSeen((r as { value: GithubClaims }).value, MESH, DEVICE);
+    const claims = (r as { value: GithubClaims }).value;
+    const seen = githubSeen(claims, MESH, DEVICE);
     const exact = { mesh: MESH, device: DEVICE, iss: GITHUB_ISSUER, repo: "octo-org/deploys", ref: "refs/heads/main" };
     expect(seen.tags[0]).toBe(ciRuleTag(exact));
     expect(seen.tags).toEqual(ciCandidateTags(exact));
     expect(seen.tags).toContain(ciRuleTag({ ...exact, ref: "refs/heads/*" }));
     expect(seen.key).toBe(githubCountingKey(GITHUB_ISSUER, "65", "74"));
     expect(seen.jti).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(JSON.stringify(seen)).not.toContain("octo");
+    expect(seen.jti).toBe(b64u.encode(sha256(utf8(`${GITHUB_ISSUER} ${claims.jti}`))));
+    // Exactly these four fields, each checked above, so no claim is kept. (The tags hash a random
+    // device id, so matching words in the serialised record would fail now and then.)
+    expect(Object.keys(seen).sort()).toEqual(["exp", "jti", "key", "tags"]);
     expect(seen.exp).toBe((Math.floor(T / 1000) + 240) * 1000);
   });
 

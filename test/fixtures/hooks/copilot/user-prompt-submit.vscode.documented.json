@@ -1,0 +1,7 @@
+{
+  "hook_event_name": "UserPromptSubmit",
+  "session_id": "copilot-session-1",
+  "timestamp": "2026-11-06T20:13:20.000Z",
+  "cwd": "/home/user/project",
+  "prompt": "Reply with only the word READY."
+}

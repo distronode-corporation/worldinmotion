@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { dropMesh, meshCount, migrate, SCHEMA_VERSION, SqlStore, type SessionRow } from "../src/index.ts";
+import { dropMesh, meshCount, migrate, SCHEMA_VERSION, SqlStore, type IdleRow, type SessionRow } from "../src/index.ts";
 import { positional } from "../src/sql-store.ts";
 import { KINDS, makeStore, MESH, sqlDb } from "./helpers.ts";
 
@@ -25,9 +25,9 @@ describe.each(KINDS)("store contract (%s)", (kind) => {
     const s = makeStore(kind);
     s.putSession(session("A"));
     s.putSession(session("B"));
-    s.putIdle({ sub: "A", target: "B", exp: 9 });
-    s.putIdle({ sub: "B", target: "A", exp: 9 });
-    s.putIdle({ sub: "B", target: "B", exp: 9 });
+    s.putIdle({ sub: "A", target: "B", exp: 9, fired: null });
+    s.putIdle({ sub: "B", target: "A", exp: 9, fired: null });
+    s.putIdle({ sub: "B", target: "B", exp: 9, fired: null });
     s.putRoom({ room: "#r", created: 0, nextCursor: 1 });
     s.addMember("#r", "A");
     s.addMember("#r", "B");
@@ -39,7 +39,7 @@ describe.each(KINDS)("store contract (%s)", (kind) => {
     s.putWatch({ key: "k1", sid: "B", exp: 9 });
     s.deleteSession("A");
     expect(s.getSession("A")).toBeUndefined();
-    expect(s.idleFor("B")).toEqual([{ sub: "B", target: "B", exp: 9 }]);
+    expect(s.idleFor("B")).toEqual([{ sub: "B", target: "B", exp: 9, fired: null }]);
     expect(s.members("#r")).toEqual(["B"]);
     expect(s.leases().map((l) => l.key)).toEqual(["k2"]);
     expect(s.waiters("k2")).toEqual([]);
@@ -52,8 +52,8 @@ describe.each(KINDS)("store contract (%s)", (kind) => {
     const s = makeStore(kind);
     s.putSession(session("A"));
     s.putSession(session("B"));
-    s.putIdle({ sub: "A", target: "B", exp: 9 });
-    s.putIdle({ sub: "B", target: "A", exp: 9 });
+    s.putIdle({ sub: "A", target: "B", exp: 9, fired: null });
+    s.putIdle({ sub: "B", target: "A", exp: 9, fired: null });
     s.putMessage({ id: "m", sender: "A", at: 1, rcpts: ["A", "B"] });
     s.putRoom({ room: "#r", created: 0, nextCursor: 1 });
     s.addMember("#r", "A");
@@ -67,8 +67,8 @@ describe.each(KINDS)("store contract (%s)", (kind) => {
     expect(s.getSession("Z")!.sid).toBe("Z");
     expect(s.queue("Z", 0)).toHaveLength(1);
     expect(s.getMessage("m")).toEqual({ id: "m", sender: "Z", at: 1, rcpts: ["Z", "B"] });
-    expect(s.idleFor("B")).toEqual([{ sub: "Z", target: "B", exp: 9 }]);
-    expect(s.idleFor("Z")).toEqual([{ sub: "B", target: "Z", exp: 9 }]);
+    expect(s.idleFor("B")).toEqual([{ sub: "Z", target: "B", exp: 9, fired: null }]);
+    expect(s.idleFor("Z")).toEqual([{ sub: "B", target: "Z", exp: 9, fired: null }]);
     expect(s.roomsOf("Z")).toEqual(["#r"]);
     expect(s.getLease("k")!.holder).toBe("Z");
     expect(s.waiters("k").map((w) => w.sid)).toEqual(["Z", "B"]);
@@ -138,8 +138,8 @@ describe.each(KINDS)("store contract (%s)", (kind) => {
     s.putWatch({ key: "k", sid: "A", exp: 5 });
     s.putWatch({ key: "k", sid: "B", exp: 6 });
     s.pruneWatches(5);
-    s.putIdle({ sub: "A", target: "B", exp: 5 });
-    s.putIdle({ sub: "A", target: "C", exp: 6 });
+    s.putIdle({ sub: "A", target: "B", exp: 5, fired: null });
+    s.putIdle({ sub: "A", target: "C", exp: 6, fired: null });
     s.pruneIdle(5);
     expect(s.idleCount("A")).toBe(1);
     expect(s.watchesFor("k").map((w) => w.sid)).toEqual(["B"]);
@@ -150,6 +150,29 @@ describe.each(KINDS)("store contract (%s)", (kind) => {
     s.putMessage({ id: "m", sender: "A", at: 5, rcpts: ["B"] });
     s.pruneMessages(5);
     expect(s.getMessage("m")).toBeUndefined();
+  });
+
+  it("keeps why an idle row fired, lists a subscriber's rows and the armed ones, and re-arming clears the mark", () => {
+    const s = makeStore(kind);
+    s.putIdle({ sub: "A", target: "C", exp: 9, fired: null });
+    s.putIdle({ sub: "A", target: "B", exp: 9, fired: "offline" });
+    s.putIdle({ sub: "B", target: "C", exp: 9, fired: null });
+    const byTarget = (rows: IdleRow[]) => rows.sort((x, y) => x.target.localeCompare(y.target) || x.sub.localeCompare(y.sub));
+    expect(byTarget(s.idleBy("A"))).toEqual([
+      { sub: "A", target: "B", exp: 9, fired: "offline" },
+      { sub: "A", target: "C", exp: 9, fired: null },
+    ]);
+    expect(byTarget(s.idleArmed())).toEqual([
+      { sub: "A", target: "C", exp: 9, fired: null },
+      { sub: "B", target: "C", exp: 9, fired: null },
+    ]);
+    // A fired row still counts against the subscriber's limit until it is sent or lapses.
+    expect(s.idleCount("A")).toBe(2);
+    s.putIdle({ sub: "A", target: "B", exp: 12, fired: null });
+    expect(s.idleFor("B")).toEqual([{ sub: "A", target: "B", exp: 12, fired: null }]);
+    s.putIdle({ sub: "A", target: "B", exp: 12, fired: "ended" });
+    s.rekeySession("A", "Z");
+    expect(byTarget(s.idleBy("Z")).map((r) => r.fired)).toEqual(["ended", null]);
   });
 
   it("stores chunks with their last flag, and totals their bytes", () => {
@@ -203,6 +226,30 @@ describe("sql schema", () => {
     st.putSession(session("A"));
     st.enqueue({ sid: "A", cur: 1, id: "m", kind: "msg", fromDevice: "d", queuedAt: 1, bytes: 2, msg: "{}" });
     expect(st.queue("A", 0)).toHaveLength(1);
+  });
+
+  it("adds the idle table's fired column to a database an older relay wrote, keeping its rows armed", () => {
+    const raw = new DatabaseSync(":memory:");
+    const db = sqlDb(raw);
+    migrate(db);
+    // The idle table as schema 2 left it, with a row an older relay armed.
+    db.exec("ALTER TABLE idle DROP COLUMN fired");
+    raw.prepare("UPDATE wim_meta SET v = 2 WHERE k = 'schema'").run();
+    db.exec("INSERT INTO idle (mesh, sub, target, exp) VALUES (?, 'A', 'B', 9)", MESH);
+    migrate(db);
+    expect(db.one("SELECT v FROM wim_meta WHERE k = 'schema'")!["v"]).toBe(SCHEMA_VERSION);
+    expect(db.one("SELECT v FROM wim_meta WHERE k = 'reader'")!["v"]).toBe(1);
+    const st = new SqlStore(db, MESH);
+    expect(st.idleFor("B")).toEqual([{ sub: "A", target: "B", exp: 9, fired: null }]);
+    st.putIdle({ sub: "A", target: "C", exp: 9, fired: "idle" });
+    // An older relay rolled back onto it reads and writes the table as it always did: its columns
+    // are all still there, and the rows it inserts read as armed.
+    expect(db.all("SELECT sub, target, exp FROM idle WHERE mesh = ? ORDER BY target", MESH)).toEqual([
+      { sub: "A", target: "B", exp: 9 },
+      { sub: "A", target: "C", exp: 9 },
+    ]);
+    db.exec("INSERT INTO idle (mesh, sub, target, exp) VALUES (?, 'B', 'A', 7) ON CONFLICT (mesh, sub, target) DO UPDATE SET exp = excluded.exp", MESH);
+    expect(st.idleFor("A")).toEqual([{ sub: "B", target: "A", exp: 7, fired: null }]);
   });
 
   it("runs each step as one transaction, so a step that fails part-way leaves nothing behind", () => {

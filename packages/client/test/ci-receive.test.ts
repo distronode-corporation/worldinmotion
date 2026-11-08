@@ -433,9 +433,12 @@ describe("pin on approve", () => {
     // Another terminal adds a rule while the prompt is open: the pin keeps it.
     const extra = glRule();
     const t = term(w.phone.root, w.relay);
-    t.answers.push(async () => (await saveCiRules(w.files.ciRulesPath, [rule, extra], FS), "y"));
+    // Both are one set (one rule); neither is in "approve all", since each pins ids.
+    t.answers.push("one", async () => (await saveCiRules(w.files.ciRulesPath, [rule, extra], FS), "y"));
     expect(await run(t, "held", "approve", item.id)).toBe(0);
     const out = t.out.join("\n");
+    expect(out).toContain(`approve on its own: it pins repositoryId=75 ownerId=65`);
+    expect(t.out).toContain(`Type one to approve only ${item.id} [one/N] `);
     expect(out).toContain(`also     ${other.id} under this rule carries repositoryId=75 ownerId=65`);
     expect(out).toContain("WARNING  held notices under this rule carry different ids");
     expect(out).toContain("gh api repos/octo-org/deploys --jq '.id, .owner.id'");
@@ -452,8 +455,9 @@ describe("pin on approve", () => {
     // A held item under the rule that carries no ids (held after the rule was pinned) is not listed.
     await s.held.add({ ...(await s.held.get(item.id))!, id: ulid(), ci: { rule: rule.id } });
     const t = term(w.phone.root, w.relay);
-    t.answers.push(async () => (await saveCiRules(w.files.ciRulesPath, [], FS), "y"));
+    t.answers.push("one", async () => (await saveCiRules(w.files.ciRulesPath, [], FS), "y"));
     expect(await run(t, "held", "approve", item.id)).toBe(1);
+    expect(t.out).toContain(`Type all to approve the 1 that do not pin ids, or one to approve only ${item.id} [all/one/N] `);
     expect(t.err.join("\n")).toContain("the rule this notice matched was removed");
     expect(await loadCiRules(w.files.ciRulesPath)).toEqual([]);
     expect(await s.held.get(item.id)).toBeDefined();

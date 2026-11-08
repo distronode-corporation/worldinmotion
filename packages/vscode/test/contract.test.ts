@@ -6,21 +6,27 @@
 // - the plugin's peer line matches the client's own `peers` text for the same sessions;
 // - the extension's and the plugin's policy names, and the extension's trust dialog, match the
 //   client's;
-// - the extension reads the report the real `wim test --json` prints.
+// - the extension reads the report the real `wim test --json` prints;
+// - setup mode's `create` and `created` are what docs/events.md says and the extension reads.
 
-import { copyFileSync, mkdtempSync } from "node:fs";
+import { HOSTED_RELAY, LIMITS } from "@worldinmotion/protocol";
+import { copyFileSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { MeshSession } from "../../client/src/client.ts";
-import { runEvents } from "../../client/src/events.ts";
+import { runEvents, runSetupEvents } from "../../client/src/events.ts";
+import { Home } from "../../client/src/home.ts";
+import { fetchHeldCode, showPaths } from "../../client/src/secretout.ts";
 import { WimMcp } from "../../client/src/mcp.ts";
 import { MeshFiles, parseMeshConfig, trustLevel } from "../../client/src/mesh.ts";
 import { main } from "../../client/src/cli.ts";
 import { selfTest } from "../../client/src/selftest.ts";
-import { FS, makeMesh, openSession, RelayHarness, scratch, sessionOpts, term, until } from "../../client/test/helpers.ts";
+import type { SpoolItem } from "../../client/src/spool.ts";
+import { FS, makeMesh, openSession, RELAY, RelayHarness, scratch, sessionOpts, term, until } from "../../client/test/helpers.ts";
+import * as actions from "../src/actions.ts";
 import { TRUST } from "../src/actions.ts";
 import { historyRows, parseLine, POLICIES } from "../src/protocol.ts";
 import { parseReport } from "../src/selftest.ts";
@@ -35,6 +41,7 @@ import { Store } from "../src/state.ts";
  */
 type PluginParse = {
   ROUTE_POLICIES: readonly string[];
+  parseItem(text: string): Record<string, unknown> | undefined;
   parsePeers(value: unknown): unknown[];
   peerLine(peer: unknown): string;
 };
@@ -139,6 +146,44 @@ describe("the real wim events output, read by the extension", () => {
   });
 });
 
+describe("setup mode's create, read by the extension", () => {
+  const doc = readFileSync(fileURLToPath(new URL("../../../docs/events.md", import.meta.url)), "utf8");
+  const row = (first: string): string => doc.split("\n").find((l) => l.startsWith(`| \`${first}\` |`)) ?? "";
+
+  it("is documented with the fields the client writes and the extension sends", () => {
+    expect(row("create")).toMatch(/^\| `create` \| `name\?` .* `relay\?` .* \| `\{ device: \{ name, id \}, mesh, relay \}`/);
+    expect(row("created")).toMatch(/^\| `created` \| `mesh` .* `recovery`: `shown` .* or `not_collected`/);
+    expect(row("create")).toContain(HOSTED_RELAY);
+    expect(actions.HOSTED_RELAY).toBe(HOSTED_RELAY);
+    expect(actions.RECOVERY_MINUTES * 60_000).toBe(LIMITS.recoveryShowWindowMs);
+  });
+
+  it("parses every line of a real create, whose code only wim recovery show collects", async () => {
+    const relay = new RelayHarness();
+    const home = new Home(await scratch("contract-create"), { ...FS, uid: process.getuid?.() });
+    const lines: string[] = [];
+    const input = new PassThrough();
+    const stop = new AbortController();
+    const running = runSetupEvents({ home, defaultName: "fresh", dialer: relay.dialer, version: "t", write: (l) => void lines.push(l), input, signal: stop.signal, now: Date.now, fetch: relay.fetch, platform: process.platform });
+    cleanup.push(async () => {
+      stop.abort();
+      await running;
+    });
+    const store = new Store();
+    // The same request the extension's Create a Mesh... sends.
+    input.write(`${JSON.stringify({ v: 1, id: "c", op: "create", args: { name: "laptop", relay: RELAY } })}\n`);
+    await until(() => lines.some((l) => l.includes('"type":"response"')), 10_000, "the create answer");
+    const code = await fetchHeldCode(showPaths(home.root, process.platform));
+    await running;
+    const parsed = lines.map(parseLine);
+    for (const p of parsed) if (p.kind === "event") store.apply(p.event);
+    expect(parsed.map((p) => p.kind)).toEqual(["event", "response", "event"]);
+    expect(parsed[1]).toMatchObject({ kind: "response", response: { id: "c", ok: true, result: { device: { name: "laptop" }, relay: "127.0.0.1:4444" } } });
+    expect(parsed[2]).toMatchObject({ kind: "event", event: { type: "created", recovery: "shown" } });
+    expect(lines.join("\n")).not.toContain(code);
+  });
+});
+
 describe("the plugin's peer line", () => {
   it("reads as the client's own peers text for the same sessions", async () => {
     const relay = new RelayHarness();
@@ -165,6 +210,37 @@ describe("the plugin's peer line", () => {
     expect(fromPlugin).toEqual(fromClient);
     expect(fromClient.some((l) => l.includes("cwd="))).toBe(true);
     expect(fromClient.some((l) => l.includes("  -"))).toBe(true);
+  });
+});
+
+describe("spool items, read by the plugin", () => {
+  it("keeps every field the client writes that decides a turn, quiet and watched included", () => {
+    // Required: a field the client adds to SpoolItem fails this until the plugin's reading of it is decided.
+    const written = {
+      cursor: 7,
+      kind: "notice",
+      from: "bob@laptop-b",
+      device: "",
+      id: "01JAAAAAAAAAAAAAAAAAAAAAAA",
+      at: 1000,
+      rendered: "worldinmotion notice (from the local client, not from a peer or the person): bob@laptop-b is now idle (or has ended).",
+      held: 2,
+      heldBy: "carol@desk",
+      relayed: true,
+      informs: true,
+      forPerson: true,
+      watched: "wwwwwwwwwwwwwwwwwwwwww",
+      quiet: true,
+    } satisfies Required<SpoolItem>;
+    // `informs` is the client's own: it frames the item, and the plugin hands the rendered text over as is.
+    const { informs: _informs, ...read } = written;
+    expect(plugin.parseItem(JSON.stringify(written))).toEqual(read);
+    // `quiet` fails closed: any value but false (or none) keeps the item from waking.
+    for (const quiet of ["yes", 1, null, {}]) expect(plugin.parseItem(JSON.stringify({ ...written, quiet }))).toHaveProperty("quiet", true);
+    const waking = plugin.parseItem(JSON.stringify({ ...written, quiet: false, watched: "" }));
+    expect(waking).not.toHaveProperty("quiet");
+    expect(waking).not.toHaveProperty("watched");
+    expect(plugin.parseItem(JSON.stringify({ ...written, quiet: undefined }))).not.toHaveProperty("quiet");
   });
 });
 

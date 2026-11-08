@@ -1,6 +1,6 @@
 // The signer's passphrase from somewhere other than a terminal, and its start at log in
-// (`wim agent autostart`, docs/design.md, the signer): a login item per platform that runs
-// `wim agent start --foreground --ask-gui`, the native prompt `--ask-gui` shows, and the opt-in OS
+// (`wim signer autostart`, docs/design.md, the signer): a login item per platform that runs
+// `wim signer start --foreground --ask-gui`, the native prompt `--ask-gui` shows, and the opt-in OS
 // keyring `--keyring` reads (SECURITY-MODEL 5.8 says what each one exposes). Every function takes
 // the platform as a parameter, so each platform's branch runs in the tests on any machine.
 
@@ -10,29 +10,93 @@ import { promises as fs } from "node:fs";
 import { SetupError } from "./errors.ts";
 import { ensureDir, readText, removeFile, writeAtomic, type FsEnv } from "./fsx.ts";
 import { pathFor, type Platform } from "./platform.ts";
+import { dirname } from "node:path";
 
-export type RunResult = { code: number | null; stdout: string; stderr: string };
+/** `stopped`: the program was ended (its time ran out, or it was aborted), not answered. */
+export type RunResult = { code: number | null; stdout: string; stderr: string; stopped?: boolean };
+
+/** How long a program may run, and what ends it early; either ends it (`stopped` in the result). */
+export type RunOptions = { timeoutMs?: number; signal?: AbortSignal };
 
 /** Runs a program without a shell, `input` on its stdin; rejects when it cannot start (ENOENT: not installed). */
-export type Run = (cmd: string, args: readonly string[], input?: string) => Promise<RunResult>;
+export type Run = (cmd: string, args: readonly string[], input?: string, options?: RunOptions) => Promise<RunResult>;
 
 /**
- * What `wim agent` runs: other programs, the platform whose programs, paths and keyring those are,
- * and wim itself (for the login item's command line).
+ * Whether a dialog program may ask the person: `ok`, `missing` (not installed: the next one is
+ * tried), or why not. A program the user (so any agent of theirs) could replace would answer for
+ * the person, so it is refused, not passed over.
  */
-export type Programs = { platform: Platform; run: Run; wim: readonly string[] };
+export type ToolTrust = (path: string) => Promise<string>;
 
-export function runProgram(cmd: string, args: readonly string[], input = "", spawn: typeof nodeSpawn = nodeSpawn): Promise<RunResult> {
+/**
+ * What `wim signer` runs: other programs, the platform whose programs, paths and keyring those are,
+ * wim itself (for the login item's command line), and the check every dialog program passes first.
+ */
+export type Programs = { platform: Platform; run: Run; wim: readonly string[]; trust: ToolTrust };
+
+/**
+ * The real check for a dialog program: on POSIX the file and its directory must be owned by root
+ * and writable by nobody else (a system package's binary in /usr/bin), so neither the user nor an
+ * agent of theirs can put a program of their own in its place. Windows: the program is in
+ * System32, whose access lists Node cannot read; it is not checked.
+ */
+export function realToolTrust(platform: Platform, stat: (path: string) => Promise<{ uid: number; mode: number }> = fs.stat): ToolTrust {
+  return async (path) => {
+    if (platform === "win32") return "ok";
+    for (const p of [path, dirname(path)]) {
+      let st: { uid: number; mode: number };
+      try {
+        st = await stat(p);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (p === path && code === "ENOENT") return "missing";
+        return `${p} cannot be checked (${String(code)}), so it is not trusted to ask you`;
+      }
+      if (st.uid !== 0 || (st.mode & 0o022) !== 0) return `${p} is not root's alone, so it is not trusted to ask you (a program put in its place would answer for you)`;
+    }
+    return "ok";
+  };
+}
+
+/** The Windows directory from SystemRoot when it looks like one (`C:\Windows`), else `C:\Windows`. */
+export function windowsRoot(systemRoot: string | undefined): string {
+  return systemRoot !== undefined && /^[A-Za-z]:\\[^\\/:*?"<>|]+$/.test(systemRoot) ? systemRoot : "C:\\Windows";
+}
+
+/** Each dialog program by its absolute path, never looked up on PATH (a program earlier on PATH would answer for the person). */
+export function dialogProgram(name: "zenity" | "kdialog" | "osascript" | "powershell", root = windowsRoot(process.env["SystemRoot"])): string {
+  return name === "powershell" ? `${root}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe` : `/usr/bin/${name}`;
+}
+
+export function runProgram(cmd: string, args: readonly string[], input = "", options: RunOptions = {}, spawn: typeof nodeSpawn = nodeSpawn): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, [...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     let stdout = "";
     let stderr = "";
-    child.once("error", reject);
+    let stopped = false;
+    const stop = (): void => {
+      stopped = true;
+      child.kill();
+    };
+    const timer = options.timeoutMs === undefined ? undefined : setTimeout(stop, options.timeoutMs);
+    options.signal?.addEventListener("abort", stop, { once: true });
+    if (options.signal?.aborted === true) stop();
+    const done = (): void => {
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort", stop);
+    };
+    child.once("error", (error) => {
+      done();
+      reject(error);
+    });
     child.stdout!.setEncoding("utf8");
     child.stderr!.setEncoding("utf8");
     child.stdout!.on("data", (d: string) => (stdout += d));
     child.stderr!.on("data", (d: string) => (stderr += d));
-    child.once("close", (code) => resolve({ code, stdout, stderr }));
+    child.once("close", (code) => {
+      done();
+      resolve({ code, stdout, stderr, ...(stopped ? { stopped } : {}) });
+    });
     // A program that exits without reading its stdin makes the write fail (EPIPE): its exit says how it went.
     child.stdin!.on("error", () => undefined);
     child.stdin!.end(input);
@@ -71,8 +135,9 @@ export function psEncoded(script: string): string {
  */
 export function guiPrompts(platform: Platform, text: string): Array<{ cmd: string; args: string[] }> {
   if (platform === "darwin") {
-    const dialog = `display dialog "${text}" default answer "" with hidden answer with title "${GUI_TITLE}" buttons {"Cancel", "OK"} default button "OK"`;
-    return [{ cmd: "osascript", args: ["-e", dialog, "-e", "text returned of result"] }];
+    // The text is an argument, never part of the script: it names the process that asked.
+    const dialog = `display dialog (item 1 of argv) default answer "" with hidden answer with title "${GUI_TITLE}" buttons {"Cancel", "OK"} default button "OK"`;
+    return [{ cmd: dialogProgram("osascript"), args: ["-e", "on run argv", "-e", dialog, "-e", "text returned of result", "-e", "end run", text] }];
   }
   if (platform === "win32") {
     const script = [
@@ -81,11 +146,11 @@ export function guiPrompts(platform: Platform, text: string): Array<{ cmd: strin
       "if ($null -eq $c) { exit 1 }",
       "[Console]::Out.Write($c.GetNetworkCredential().Password)",
     ].join("; ");
-    return [{ cmd: "powershell.exe", args: ["-NoProfile", "-EncodedCommand", psEncoded(script)] }];
+    return [{ cmd: dialogProgram("powershell"), args: ["-NoProfile", "-EncodedCommand", psEncoded(script)] }];
   }
   return [
-    { cmd: "zenity", args: ["--entry", "--hide-text", `--title=${GUI_TITLE}`, `--text=${text}`] },
-    { cmd: "kdialog", args: ["--title", GUI_TITLE, "--password", text] },
+    { cmd: dialogProgram("zenity"), args: ["--entry", "--hide-text", `--title=${GUI_TITLE}`, `--text=${text}`] },
+    { cmd: dialogProgram("kdialog"), args: ["--title", GUI_TITLE, "--password", text] },
   ];
 }
 
@@ -96,18 +161,19 @@ export function guiPrompts(platform: Platform, text: string): Array<{ cmd: strin
  * (untranslated) "cannot open display" or "Failed to open display" passes over to the next tool;
  * any other failure is a cancel.
  */
-export async function askGui(platform: Platform, run: Run, text: string): Promise<string> {
+export async function askGui(platform: Platform, run: Run, text: string, trust: ToolTrust): Promise<string> {
   const prompts = guiPrompts(platform, text);
   let failure: string | undefined;
   for (const [i, p] of prompts.entries()) {
+    if (!(await trusted(trust, p.cmd))) continue;
     const got = answered(await run(p.cmd, p.args).catch(unlessMissing), p.cmd, i === prompts.length - 1);
     if (typeof got === "string") return got;
     failure = got?.failed ?? failure;
   }
   throw new SetupError(
     failure === undefined
-      ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim agent start` in your own terminal"
-      : `no passphrase prompt could be shown (${failure}): start the signer with \`wim agent start\` in your own terminal`,
+      ? "no passphrase prompt is available here (on Linux it needs zenity or kdialog in a desktop session): start the signer with `wim signer start` in your own terminal"
+      : `no passphrase prompt could be shown (${failure}): start the signer with \`wim signer start\` in your own terminal`,
   );
 }
 
@@ -117,6 +183,80 @@ function answered(r: RunResult | undefined, cmd: string, last: boolean): string 
   if (r.code === 0) return r.stdout.replace(/\r?\n$/, "");
   if (last || !/(cannot|failed to) open display/i.test(r.stderr)) throw new SetupError("the passphrase prompt was cancelled");
   return { failed: `${cmd}: ${r.stderr.trim().slice(0, 300)}` };
+}
+
+// ---- the signer's confirmation of a decision on held messages ----
+
+/** How long the signer's dialog waits for an answer before it counts as declined. */
+export const CONFIRM_SECONDS = 300;
+
+/**
+ * kdialog's text with nothing it could read as markup (it takes text that looks like HTML as rich
+ * text): the items' text comes from peers. Angle brackets and ampersands become plain ASCII.
+ */
+export function kdialogText(text: string): string {
+  return text.replace(/</g, "(").replace(/>/g, ")").replace(/&/g, "+");
+}
+
+/**
+ * The confirmation dialogs to try, in order, each exiting 0 only on the person's Sign. The text is
+ * never part of a script's code: osascript takes it as an argument, PowerShell as a quoted literal
+ * (psQuote) in an encoded command, zenity with markup off, kdialog with no markup left in it. Cancel is the default button where the tool
+ * lets it be.
+ */
+export function confirmPrompts(platform: Platform, text: string): Array<{ cmd: string; args: string[] }> {
+  if (platform === "darwin") {
+    const dialog = `display dialog (item 1 of argv) with title "${GUI_TITLE}" buttons {"Cancel", "Sign"} default button "Cancel" cancel button "Cancel" giving up after ${CONFIRM_SECONDS}`;
+    return [{ cmd: dialogProgram("osascript"), args: ["-e", "on run argv", "-e", dialog, "-e", "if gave up of result then error number -128", "-e", "end run", text] }];
+  }
+  if (platform === "win32") {
+    const script = [
+      "Add-Type -AssemblyName System.Windows.Forms",
+      `$r = [System.Windows.Forms.MessageBox]::Show(${psQuote(text)}, ${psQuote(GUI_TITLE)}, 'YesNo', 'Warning', 'Button2')`,
+      "if ($r -eq 'Yes') { exit 0 } else { exit 1 }",
+    ].join("; ");
+    return [{ cmd: dialogProgram("powershell"), args: ["-NoProfile", "-EncodedCommand", psEncoded(script)] }];
+  }
+  return [
+    { cmd: dialogProgram("zenity"), args: ["--question", "--no-markup", "--default-cancel", "--width=560", `--timeout=${CONFIRM_SECONDS}`, "--ok-label=Sign", "--cancel-label=Cancel", `--title=${GUI_TITLE}`, `--text=${text}`] },
+    { cmd: dialogProgram("kdialog"), args: ["--title", GUI_TITLE, "--yesno", kdialogText(text)] },
+  ];
+}
+
+/**
+ * Shows the signer's confirmation in a native dialog and resolves true only on Sign. A tool that
+ * is not installed, cannot reach a display or fails passes over to the next; when none can show
+ * it, the decision is refused with why.
+ */
+export async function confirmGui(platform: Platform, run: Run, lines: readonly string[], trust: ToolTrust, signal?: AbortSignal): Promise<boolean> {
+  const prompts = confirmPrompts(platform, lines.join("\n"));
+  let failure: string | undefined;
+  for (const p of prompts) {
+    if (!(await trusted(trust, p.cmd))) continue;
+    // Every dialog ends after CONFIRM_SECONDS (kdialog and the Windows box have no timer of their
+    // own), or when the asker goes away: either is a no.
+    const r = await run(p.cmd, p.args, "", { timeoutMs: CONFIRM_SECONDS * 1000, ...(signal === undefined ? {} : { signal }) }).catch(unlessMissing);
+    if (r === undefined) continue;
+    if (r.stopped === true) return false;
+    if (r.code === 0) return true;
+    // Cancel or No (1, kdialog's 2), or the dialog's time ran out (zenity's 5). Anything else (no
+    // display, a refused argument: zenity in a locale that is not UTF-8) passes to the next tool.
+    if ([1, 2, 5].includes(r.code ?? -1) && !/(cannot|failed to) open display/i.test(r.stderr)) return false;
+    failure = `${p.cmd}: ${r.stderr.trim().slice(0, 300) || `exit ${String(r.code)}`}`;
+  }
+  throw new SetupError(
+    failure === undefined
+      ? "the signer has no dialog to ask you in (on Linux it needs zenity or kdialog in a desktop session): run it with `wim signer start --foreground` in your own terminal, which asks there"
+      : `the signer could not show its dialog (${failure}): run it with \`wim signer start --foreground\` in your own terminal, which asks there`,
+  );
+}
+
+/** Whether a dialog program may be run: false when it is not installed; a refusal is thrown. */
+async function trusted(trust: ToolTrust, path: string): Promise<boolean> {
+  const t = await trust(path);
+  if (t === "missing") return false;
+  if (t !== "ok") throw new SetupError(t);
+  return true;
 }
 
 // ---- the OS keyring (`--keyring`, opt-in) ----
@@ -135,7 +275,7 @@ export function keyringKind(platform: Platform): KeyringKind | undefined {
 }
 
 export const NO_KEYRING =
-  "--keyring is not offered on Windows: Credential Manager gives a stored passphrase to any program you run, agents included, without asking. Use the passphrase dialog instead (`wim agent autostart enable`)";
+  "--keyring is not offered on Windows: Credential Manager gives a stored passphrase to any program you run, agents included, without asking. Use the passphrase dialog instead (`wim signer autostart enable`)";
 
 /** What the person is told before the passphrase is stored, per keyring. */
 export const KEYRING_WARNING: Record<KeyringKind, string[]> = {
@@ -145,7 +285,7 @@ export const KEYRING_WARNING: Record<KeyringKind, string[]> = {
   ],
   libsecret: [
     "WARNING: your keyring (libsecret) gives this passphrase to any program you run while the keyring is unlocked, which is all the time you are logged in. That includes agents and the tools they run.",
-    "An agent that reads it can decrypt device.json offline and act as this device: this undoes the protection the signer gives against agents. The passphrase dialog (`wim agent autostart enable` without --keyring) does not.",
+    "An agent that reads it can decrypt device.json offline and act as this device: this undoes the protection the signer gives against agents. The passphrase dialog (`wim signer autostart enable` without --keyring) does not.",
   ],
 };
 
@@ -204,7 +344,7 @@ export async function keyringRead(platform: Platform, run: Run, account: string)
 function decodeStored(r: RunResult): string {
   const hex = r.stdout.trim();
   if (r.code !== 0 || !/^(?:[0-9a-f]{2})+$/.test(hex)) {
-    throw new SetupError("no passphrase could be read from the keyring (not stored, or the read was denied): `wim agent autostart enable --keyring` stores it");
+    throw new SetupError("no passphrase could be read from the keyring (not stored, or the read was denied): `wim signer autostart enable --keyring` stores it");
   }
   return Buffer.from(hex, "hex").toString("utf8");
 }
@@ -267,7 +407,7 @@ function windowsUser(env: Record<string, string | undefined>): string {
 export function loginItem(o: AutostartOptions, source: LoginSource): LoginItem {
   const path = pathFor(o.platform);
   const id = keyringAccount(o.root);
-  const command = [...o.programs.wim, "agent", "start", "--foreground", `--${source}`];
+  const command = [...o.programs.wim, "signer", "start", "--foreground", `--${source}`];
   const log = path.join(o.root, "agent", "autostart.log");
   if (o.platform === "darwin") {
     const label = `worldinmotion.signer.${id}`;
@@ -299,7 +439,7 @@ export function loginItem(o: AutostartOptions, source: LoginSource): LoginItem {
     const text = [
       '<?xml version="1.0" encoding="UTF-16"?>',
       '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">',
-      `  <RegistrationInfo><Description>Starts the worldinmotion signer at log on: wim agent start --foreground --${source}</Description></RegistrationInfo>`,
+      `  <RegistrationInfo><Description>Starts the worldinmotion signer at log on: wim signer start --foreground --${source}</Description></RegistrationInfo>`,
       `  <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>${user}</UserId></LogonTrigger></Triggers>`,
       `  <Principals><Principal id="Author"><UserId>${user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>`,
       "  <Settings>",
@@ -399,10 +539,16 @@ export async function disableAutostart(o: AutostartOptions): Promise<boolean> {
 }
 
 /** The login item installed for this state directory, if any, and where it gets the passphrase. */
-export async function autostartStatus(o: AutostartOptions): Promise<{ where: string; source: LoginSource; log: string } | undefined> {
+export async function autostartStatus(o: AutostartOptions): Promise<{ where: string; source: LoginSource; log: string; stale: boolean } | undefined> {
   const item = loginItem(o, "ask-gui");
   const text = item.kind === "task" ? await taskText(o, item.where) : await readText(item.where);
-  return text === undefined ? undefined : { where: item.where, source: text.includes("--keyring") ? "keyring" : "ask-gui", log: item.log };
+  if (text === undefined) return undefined;
+  const source: LoginSource = text.includes("--keyring") ? "keyring" : "ask-gui";
+  // Stale: written for another command line, such as `wim agent start` before the signer became
+  // `wim signer`, or a wim that has moved. schtasks gives back its own XML, so a task is judged by
+  // the command its description names.
+  const stale = item.kind === "task" ? !text.includes(`wim signer start --foreground --${source}`) : text !== loginItem(o, source).text;
+  return { where: item.where, source, log: item.log, stale };
 }
 
 async function taskText(o: AutostartOptions, name: string): Promise<string | undefined> {

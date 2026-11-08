@@ -3,14 +3,20 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { activate, deactivate, JOIN_HINT, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
+import { activate, deactivate, NOT_MINE_KEY, RECOVERY_LOST, settings, SETUP_HINT, type TestApi } from "../src/extension.ts";
 import { ExtensionMode, fake, FakeTerminal, Position, Selection, TextDocument, Uri } from "./fake-vscode.ts";
 
 const PKG = fileURLToPath(new URL("..", import.meta.url));
 const FIXTURE = fileURLToPath(new URL("./fixtures/fake-wim.mjs", import.meta.url));
 const HELD = "01JFAKEHELD000000000000001";
 
-type Ctx = { subscriptions: { dispose(): unknown }[]; extensionUri: Uri; extensionPath: string; extensionMode: number };
+type Memento = { get<T>(key: string): T | undefined; update(key: string, value: unknown): Promise<void> };
+type Ctx = { subscriptions: { dispose(): unknown }[]; extensionUri: Uri; extensionPath: string; extensionMode: number; globalState: Memento };
+
+/** The extension's global state, in memory: what survives a restart of the extension in a test. */
+function memento(values = new Map<string, unknown>()): Memento & { values: Map<string, unknown> } {
+  return { values, get: <T>(key: string) => values.get(key) as T | undefined, update: async (key, value) => void values.set(key, value) };
+}
 
 /** Waits long enough for a loaded machine: the fake client is a real process. */
 const waitFor = <T>(check: () => T): Promise<T> => vi.waitFor(check, { timeout: 10_000, interval: 20 });
@@ -18,8 +24,8 @@ const waitFor = <T>(check: () => T): Promise<T> => vi.waitFor(check, { timeout: 
 let dir: string;
 let ctx: Ctx | undefined;
 
-function start(mode: number = ExtensionMode.Test): { api: TestApi | undefined; ctx: Ctx } {
-  ctx = { subscriptions: [], extensionUri: Uri.file(PKG), extensionPath: PKG, extensionMode: mode };
+function start(mode: number = ExtensionMode.Test, globalState: Memento = memento()): { api: TestApi | undefined; ctx: Ctx } {
+  ctx = { subscriptions: [], extensionUri: Uri.file(PKG), extensionPath: PKG, extensionMode: mode, globalState };
   return { api: activate(ctx as never), ctx };
 }
 
@@ -83,7 +89,9 @@ describe("startup", () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
     const { api } = start();
     await waitFor(() => expect(api!.store.setup).toEqual({}));
-    await waitFor(() => expect(fake.state.treeViews.get("worldinmotion.mesh")!.message).toBe(JOIN_HINT));
+    // The view has no text of its own, so its welcome content (Create a Mesh, Join with a Code) shows.
+    await waitFor(() => expect(fake.state.context.get("worldinmotion.state")).toBe("setup"));
+    expect(fake.state.treeViews.get("worldinmotion.mesh")!.message).toBeUndefined();
     expect(fake.state.output.filter((l) => l.startsWith("starting ")).length).toBe(1);
     expect(fake.state.messages).toHaveLength(0);
   });
@@ -113,11 +121,11 @@ describe("activate", () => {
     expect(fake.state.statusItems[0]!.text).toBe("$(broadcast) wim  $(inbox) 1");
     expect(fake.state.output[0]).toMatch(/^starting .*fake-wim\.mjs events --json --as vscode$/);
 
-    // Approve: one click, and the delivered message notifies, naming the sender only.
-    fake.state.messageAnswers.push("Open Thread");
+    // Approve: the modal shows the set, and the delivered message notifies, naming the sender only.
+    fake.state.messageAnswers.push("Approve all 1", "Open Thread");
     await fake.run("worldinmotion.approve", api!.nodes.held("vscode@laptop", HELD));
     await waitFor(() => expect(fake.state.shown.length).toBe(1));
-    expect(requests().find((r) => r.op === "approve")!.args).toEqual({ held: HELD });
+    expect(requests().find((r) => r.op === "approve")!.args).toEqual({ held: HELD, set: [HELD] });
     expect(fake.state.messages.find((m) => m.items.includes("Open Thread"))!.message).toBe("worldinmotion: a msg from coder@buildbox.");
     expect(fake.state.shown[0]!.getText()).toContain("    Could you look at the failing test in auth.ts? It fails on main");
     await waitFor(() => expect(t.get("worldinmotion.held")!.message).toBe("Nothing is held for you."));
@@ -166,7 +174,9 @@ describe("activate", () => {
     await fake.run("worldinmotion.askAboutSelection");
     await fake.run("worldinmotion.sendMessage");
     await fake.run("worldinmotion.sendFile", Uri.file(FIXTURE));
-    expect(requests().map((r) => r.op)).toEqual(expect.arrayContaining(["trust", "untrust", "resume", "refuse"]));
+    expect(requests().map((r) => r.op)).toEqual(expect.arrayContaining(["trust", "untrust", "resume"]));
+    // A held row decided meanwhile is no longer shown, so nothing is sent for it.
+    expect(requests().map((r) => r.op)).not.toContain("refuse");
 
     // A session name or client change restarts the client; other settings do not.
     const starts = () => fake.state.output.filter((l) => l.startsWith("starting ")).length;
@@ -218,10 +228,10 @@ describe("activate", () => {
     expect(starts()).toBe(1);
     await fake.run("worldinmotion.startSigner");
     const first = fake.state.terminals[0]!;
-    expect(first.options).toEqual({ name: "worldinmotion signer", shellPath: process.execPath, shellArgs: [FIXTURE, "agent", "start"], env: { ELECTRON_RUN_AS_NODE: "1" }, cwd: homedir() });
+    expect(first.options).toEqual({ name: "worldinmotion signer", shellPath: process.execPath, shellArgs: [FIXTURE, "signer", "start"], env: { ELECTRON_RUN_AS_NODE: "1" }, cwd: homedir() });
     expect(first.shown).toBe(1);
     fake.closeTerminal(first, 0);
-    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim agent stop`." });
+    expect(fake.state.messages.at(-1)).toMatchObject({ level: "info", message: "worldinmotion: the signer is running. It keeps running after VS Code closes, and stops at log out or `wim signer stop`." });
     expect(starts()).toBe(2);
 
     await fake.run("worldinmotion.startSigner");
@@ -241,9 +251,9 @@ describe("activate", () => {
     expect(starts()).toBe(4);
 
     // A locked signer is unlocked rather than started.
-    api!.store.exited("exited with code 1: wim: the signer is locked: run `wim agent unlock` in your own terminal");
+    api!.store.exited("exited with code 1: wim: the signer is locked: run `wim signer unlock` in your own terminal");
     await fake.run("worldinmotion.startSigner");
-    expect(fake.state.terminals[3]!.options.shellArgs).toEqual([FIXTURE, "agent", "unlock"]);
+    expect(fake.state.terminals[3]!.options.shellArgs).toEqual([FIXTURE, "signer", "unlock"]);
   });
 
   it("opens a terminal for wim crash-reports on and off, and restarts the client when VS Code's telemetry changes", async () => {
@@ -300,10 +310,11 @@ describe("activate", () => {
     const mesh = fake.state.treeViews.get("worldinmotion.mesh")!;
     await waitFor(() => expect(mesh.message).toMatch(/^Not connected \(closed: exited with code 2: wim: this device is not set up/));
     expect(mesh.message).toContain(` ${SETUP_HINT}`);
-    // npm first, with the PATH fix for a global prefix that is not on the PATH.
-    expect(SETUP_HINT).toContain("npm install --global worldinmotion");
-    expect(SETUP_HINT).toContain('export PATH="$(npm prefix -g)/bin:$PATH"');
-    expect(SETUP_HINT).toContain("open a terminal yourself (Terminal > New Terminal)");
+    expect(fake.state.context.get("worldinmotion.state")).toBe("closed");
+    // VS Code alone needs no npm: the extension's own client sets the device up from the Mesh view.
+    expect(SETUP_HINT).not.toMatch(/npm install/);
+    expect(SETUP_HINT).toContain("VS Code alone needs no npm");
+    expect(SETUP_HINT).toContain("Create a Mesh or Join with a Code in the Mesh view");
   });
 
   it("notifies for a message to a Claude Code tab on this device only when asked to, naming the tab", async () => {
@@ -326,35 +337,176 @@ describe("activate", () => {
     const { api } = start();
     const meshView = fake.state.treeViews.get("worldinmotion.mesh")!;
     await waitFor(() => expect(api!.store.setup).toEqual({}));
-    await waitFor(() => expect(meshView.message).toBe(JOIN_HINT));
+    await waitFor(() => expect(meshView.message).toBeUndefined());
     // The comparison code's dialog has no buttons; the trust question that follows does.
+    fake.state.quickPickAnswers.push((items) => items[1]);
     fake.state.inputAnswers.push("wim1_fake");
     fake.state.messageAnswers.push("Trust");
     await fake.run("worldinmotion.joinMesh");
     await waitFor(() => expect(fake.state.messages.some((m) => m.message === "worldinmotion: this device's comparison code is ABCDE-FGHJK")).toBe(true));
     // Joined: the client starts again in the mesh, and its first snapshot brings the question.
     await waitFor(() => expect(api!.store.hello).toBeDefined());
+    await waitFor(() => expect(fake.state.context.get("worldinmotion.state")).toBe("mesh"));
     await waitFor(() => expect(requests().find((r) => r.op === "trust")?.args).toEqual({ device: "buildbox", relayed: false }));
-    expect(fake.state.messages.filter((m) => m.message === 'Is "buildbox" your own device?').length).toBe(1);
-    // Add a Device...: the invite is copied, and the request on it asks for its code at once.
+    // Only the device that admitted this one is asked about, once.
+    expect(fake.state.messages.filter((m) => m.message.endsWith("your own device?")).map((m) => m.message)).toEqual(['"buildbox" admitted this device. Is "buildbox" your own device?']);
+    // Add a Device...: one of the person's own, the invite is copied, and the request on it asks for its code at once.
+    fake.state.quickPickAnswers.push((items) => items.find((i) => (i as { way: string }).way === "own"));
     fake.state.messageAnswers.push("Copy Invite Code");
     fake.state.inputAnswers.push("abcde-fghjk");
     await fake.run("worldinmotion.addDevice");
     await waitFor(() => expect(api!.store.devices.has("newbox")).toBe(true));
     expect(fake.state.clipboard).toMatch(/^wim1_fakeinv-/);
+    expect(requests().find((r) => r.op === "invite")!.args).toEqual({ own: true });
     expect(requests().find((r) => r.op === "admit")!.args).toEqual({ device: "newbox", code: "abcde-fghjk" });
+    await waitFor(() => expect(fake.state.messages.some((m) => m.message === "worldinmotion: admitted newbox. Trusted newbox. Untrust on it in the Mesh view (or wim devices untrust newbox) undoes it.")).toBe(true));
+    // This device added newbox: no notification asks about it.
+    expect(fake.state.messages.some((m) => /added newbox to this mesh/.test(m.message))).toBe(false);
     await waitFor(() => expect(api!.store.joins.size).toBe(0));
     await fake.run("worldinmotion.admitDevice");
     expect(fake.state.messages.at(-1)!.message).toBe("worldinmotion: no device is waiting to join.");
+  });
+
+  it("asks about a device another device added, keeps Not Mine across restarts, and lists it in Review Trust...", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "third-device");
+    const state = memento();
+    fake.state.messageAnswers.push("Not Mine");
+    const { api } = start(ExtensionMode.Test, state);
+    await waitFor(() => expect(api!.store.devices.has("desk")).toBe(true));
+    await waitFor(() => expect(state.values.get(NOT_MINE_KEY)).toEqual(["dev-desk"]));
+    const asked = fake.state.messages.filter((m) => m.message === "worldinmotion: buildbox added desk to this mesh. Is desk your own device?");
+    expect(asked).toEqual([expect.objectContaining({ level: "info", items: ["Trust...", "Not Mine"] })]);
+    fake.state.quickPickAnswers.push(() => undefined);
+    await fake.run("worldinmotion.reviewTrust");
+    expect((fake.state.quickPicks.at(-1)!.items as { label: string; description: string }[]).find((i) => i.label === "desk")!.description).toBe("hold, added by buildbox, not mine");
+    // Started again with the same state: desk is not asked about again.
+    stop();
+    const again = start(ExtensionMode.Test, state);
+    await waitFor(() => expect(again.api!.store.devices.has("desk")).toBe(true));
+    expect(fake.state.messages.filter((m) => /added desk/.test(m.message))).toHaveLength(1);
+    // Marked again: kept once, at the end.
+    await state.update(NOT_MINE_KEY, ["dev-desk", "dev-other"]);
+    fake.state.quickPickAnswers.push((items) => items.find((i) => (i as { label: string }).label === "desk"));
+    fake.state.messageAnswers.push("Not Mine");
+    await fake.run("worldinmotion.reviewTrust");
+    await waitFor(() => expect(state.values.get(NOT_MINE_KEY)).toEqual(["dev-other", "dev-desk"]));
+  });
+
+  it("asks about an undecided device already in the snapshot once, never a trusted one, and not again after a reconnect", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "third-snapshot");
+    const { api } = start();
+    await waitFor(() => expect(fake.state.messages.some((m) => m.message === "worldinmotion: buildbox added desk to this mesh. Is desk your own device?")).toBe(true));
+    // A second snapshot (a reconnect, or Refresh) asks nothing again.
+    await fake.run("worldinmotion.refresh");
+    await waitFor(() => expect(api!.store.devices.has("ci")).toBe(true));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(fake.state.messages.filter((m) => /added (desk|ci) to this mesh/.test(m.message)).map((m) => m.message)).toEqual(["worldinmotion: buildbox added desk to this mesh. Is desk your own device?"]);
+  });
+
+  it("does not ask whose a device is when a trusted one is untrusted", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "untrust-later");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.devices.get("ci")?.policy).toBe("hold"));
+    await new Promise((r) => setTimeout(r, 300));
+    // desk (never decided) is asked about; ci, trusted when first seen, is not, once untrusted.
+    expect(fake.state.messages.filter((m) => /added (desk|ci) to this mesh/.test(m.message)).map((m) => m.message)).toEqual(["worldinmotion: buildbox added desk to this mesh. Is desk your own device?"]);
+  });
+
+  it("asks once its adder becomes known, and not again for the same row", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "adder-later");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.devices.get("desk")?.added_by_id).toBe("dev-buildbox"));
+    await waitFor(() => expect(fake.state.messages.filter((m) => /added desk/.test(m.message))).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(fake.state.messages.filter((m) => /added desk/.test(m.message))).toHaveLength(1);
   });
 
   it("says when joining a mesh fails after the code was shown", async () => {
     vi.stubEnv("WIM_FAKE_SCENARIO", "setup-fail");
     const { api } = start();
     await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.quickPickAnswers.push((items) => items[1]);
     fake.state.inputAnswers.push("wim1_fake");
     await fake.run("worldinmotion.joinMesh");
     await waitFor(() => expect(fake.state.messages.at(-1)!.message).toBe("worldinmotion: joining the mesh failed: the relay went away"));
+  });
+
+  it("creates a mesh in setup mode, opens the recovery terminal, and restarts in the mesh on created", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    const { api } = start();
+    await waitFor(() => expect(fake.state.context.get("worldinmotion.state")).toBe("setup"));
+    fake.state.inputAnswers.push("laptop");
+    fake.state.quickPickAnswers.push((items) => items[0]);
+    fake.state.messageAnswers.push("Create Mesh", "Show Recovery Code");
+    await fake.run("worldinmotion.createMesh");
+    expect(requests().find((r) => r.op === "create")!.args).toEqual({ name: "laptop", relay: "wss://worldinmotion.distronode.com" });
+    // The code is shown only in this terminal, by the client's own `wim recovery show --wait`.
+    const t = fake.state.terminals.at(-1)!;
+    expect(t.options).toMatchObject({ name: "worldinmotion recovery code", shellArgs: [FIXTURE, "recovery", "show", "--wait"], env: { ELECTRON_RUN_AS_NODE: "1" }, cwd: homedir() });
+    expect(t.shown).toBe(1);
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    await waitFor(() => expect(fake.state.context.get("worldinmotion.state")).toBe("mesh"));
+    expect(fake.state.output.filter((l) => l.startsWith("starting ")).length).toBe(2);
+    expect(fake.state.messages.filter((m) => m.level === "warning")).toHaveLength(0);
+  });
+
+  it("says the recovery code is gone when the client holding it is restarted", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    vi.stubEnv("WIM_FAKE_RECOVERY", "hold");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.inputAnswers.push("laptop");
+    fake.state.quickPickAnswers.push((items) => items[0]);
+    fake.state.messageAnswers.push("Create Mesh", "Show Recovery Code");
+    await fake.run("worldinmotion.createMesh");
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(0);
+    await fake.run("worldinmotion.restart");
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toEqual([expect.objectContaining({ level: "warning" })]);
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    // Said once: a later restart has nothing to lose.
+    await fake.run("worldinmotion.restart");
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(1);
+  }, 20_000);
+
+  it("says the recovery code is gone, once, when the client holding it exits on its own", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    vi.stubEnv("WIM_FAKE_RECOVERY", "crash");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.inputAnswers.push("laptop");
+    fake.state.quickPickAnswers.push((items) => items[0]);
+    fake.state.messageAnswers.push("Create Mesh", "Show Recovery Code");
+    await fake.run("worldinmotion.createMesh");
+    await waitFor(() => expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toEqual([expect.objectContaining({ level: "warning" })]));
+    // Started again after its backoff, now in the mesh; a later restart has nothing to lose.
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    await fake.run("worldinmotion.restart");
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(1);
+  }, 20_000);
+
+  it("says nothing of a recovery code when a client that held none exits on its own and is restarted", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "exit-after-hello");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.connection.state).toBe("closed"));
+    await fake.run("worldinmotion.restart");
+    await waitFor(() => expect(fake.state.output.filter((l) => l.startsWith("starting ")).length).toBeGreaterThanOrEqual(2));
+    expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toHaveLength(0);
+  }, 20_000);
+
+  it("says when the recovery code was not collected", async () => {
+    vi.stubEnv("WIM_FAKE_SCENARIO", "setup");
+    vi.stubEnv("WIM_FAKE_RECOVERY", "lost");
+    const { api } = start();
+    await waitFor(() => expect(api!.store.setup).toEqual({}));
+    fake.state.inputAnswers.push("laptop");
+    fake.state.quickPickAnswers.push((items) => items[0]);
+    fake.state.messageAnswers.push("Create Mesh", undefined, undefined);
+    await fake.run("worldinmotion.createMesh");
+    await waitFor(() => expect(fake.state.messages.filter((m) => m.message === RECOVERY_LOST)).toEqual([expect.objectContaining({ level: "warning" })]));
+    expect(RECOVERY_LOST).toBe("worldinmotion: the recovery code was not collected and is gone. In a terminal: wim recovery rotate");
+    await waitFor(() => expect(api!.store.hello).toBeDefined());
+    expect(fake.state.terminals).toHaveLength(0);
   });
 
   it("logs and ignores a line of a newer contract version, and keeps going", async () => {

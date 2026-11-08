@@ -31,24 +31,26 @@ with its own keys and signer); `/wim status` in a Claude Code tab shows the plug
 ```
 $WIM_HOME/
   device.json            0600  device keys (protocol encodeKeys) + device name; or, after
-                               `wim agent encrypt`, version 2: the public keys and name in the
+                               `wim signer encrypt`, version 2: the public keys and name in the
                                clear and the secret keys and a data key encrypted (scrypt,
                                ChaCha20-Poly1305) under the passphrase
   crash-reports          0600  `on` or `off`, written by `wim crash-reports`: no file, or anything else,
                                is off (README, Crash reports)
-  agent/                 0700  the signer (`wim agent`), when one was ever started here
+  agent/                 0700  the signer (`wim signer`), when one was ever started here
     sock                 0600  its Unix socket (Windows: a named pipe `\\.\pipe\wim-agent-<token>`)
     pipe                 0600  Windows only: the pipe's random token
     config.json          0600  `require_signer`: refuse a plaintext key file
     log.jsonl            0600  one line per request: operation, type, mesh, peer device, outcome
-    autostart.log              what the login item (`wim agent autostart`) prints, errors included
+    autostart.log              what the login item (`wim signer autostart`) prints, errors included
   links/<random>.json  0600  a `wim mcp` whose plugin handshake came before a session could open
                                (the signer not up yet) writes the link here once it opens; the
                                plugin reads it (removed when that server ends)
   meshes/<mesh>/
     mesh.json            0600  relay URL, pinned roster {seq, hash}, my device id, policy
     rosters/<seq>.json         every verified roster
-    invites/<inviteId>.json 0600  issued invites: secret, exp, auto-accept flag, used
+    invites/<inviteId>.json 0600  issued invites: secret, exp, auto-accept flag, `own` (the person
+                               said the new device is theirs: its admit sets `deliver`; never with
+                               auto-accept, never in the code), used
     seen.json                  dedupe ids with expiry (H3), per device, shared by sessions (locked writes)
     seq.json                   SeqTracker state (M3)
     prekeys.json         0600  this device's prekeys and their secrets: rotated daily, each secret
@@ -61,7 +63,10 @@ $WIM_HOME/
       spool/                   inbound items for the agent (see below)
       spool/cursor             last item name the agent has taken
       relayed/                 relayed items, beside the spool: shown to the person, never a turn
-      presence                 "busy", "busy-mesh" or "idle", written by the plugin
+      presence                 "busy", "busy-mesh" or "idle", written by the plugin; or written by
+                               `wim hook`: "busy" at a turn start (never over "busy-mesh"),
+                               "busy-mesh" before a wake, and "idle <n>" (a new turn mark) at
+                               each turn end that lets the agent stop
       held/                    messages held for the person's approval (and approve/refuse marks)
       dismiss/                 dismiss marks for relayed items
       files/                   received files (safe names)
@@ -80,7 +85,42 @@ through a stable key (the Claude Code session id from the `_internal` op `hello`
 `meshes/<mesh>/claude/`, 7 days), or the earlier session on this device has the same name and the
 same working directory in its `session.json`, did not end (`bye { ended: true }`), and no live
 process holds its liveness lock. A session from another directory keeps its name, and the new one
-gets `name-N`. Whenever the relay assigns a session another address than the one it had (or, for a
+gets `name-N`. The client saves the name a session asked for (`asked` in `session.json`) beside the
+one the relay assigned, so the same-project rule also takes back a session that got `name-N` and
+asks for `name` again; an offline session that holds `name` itself is preferred, since the relay
+would give the other one `name-N` again while it holds the name.
+
+**A claim** takes over an offline name from any directory, and only when asked for: `--take` beside
+`--as <name>`, `WIM_TAKE=1` beside `WIM_NAME` (for `wim mcp`, too), or the MCP `rename` tool's
+`take` parameter. Without it, `rename` to a name an offline session holds is still refused with
+`name_taken`, with a hint that names `take`: a session never falls into another role's queue by
+accident. A claim finds the session on this device whose saved name is that name, not ended, of
+the same kind (the rule for terminal commands below holds for claims too) and with a free liveness
+lock, and reconnects with its sid and resume secret, so the relay hands over its queue, rooms,
+leases (same fencing token), cards and receipts by proof, and its held items, breaker state,
+history and tasks come with its directory. The lock is the gate: while a live process holds the
+name, or only a session of another kind has it, the claim is refused with the reason, never
+answered with `name-N` and never by replacing a live connection; of two processes that race for
+one name, exactly one takes its lock and the other is refused. A claim comes before a session key,
+which is then mapped to the session taken over. The session the claim replaces (the `rename`
+tool's, or one `hello` would give up) ends for good when it holds nothing (nothing sent, unread or
+held, no room, no lease), else it stays offline like any other. After a claim the session gets one
+notice: the address taken over and how many unread messages, held items and leases came with it.
+The count waits on a `lease.list` request sent after `ready`: this relies on the relay answering a
+request only after it has flushed the queue it sends on `ready` (both relays do), so every
+queued message is spooled before it is counted; the answer also gives the lease count.
+Held items stay the person's to approve or refuse. Because a peer's text can prompt an agent to
+claim, the `rename` tool tells agents to take only on the person's word, and every claim is
+recorded in the taken-over session's `session.json` (`claims`: when, the address, and the
+claiming process's working directory, kept 24 hours); `wim status` and `wim doctor` list the
+takeovers of the last 24 hours per mesh ("release@laptop was taken over 12 min ago by a session in
+/src/app"). A name the state directory has no record of
+(another `WIM_HOME`) cannot be claimed. A role that moves between machines needs more than a claim,
+since names are per device: by convention its holder joins a room (`#release`) and takes a lease
+(`role:release`), and senders address the room. A room gives no exclusivity (every member gets
+the work, and every member's session sends its own receipts), a lease is advisory and lapses at
+its TTL, and a send to a room with no members is not delivered live (room history keeps it, and
+history is never a task to act on). Whenever the relay assigns a session another address than the one it had (or, for a
 new session, asked for), the client writes it one `notice` for the agent: "this session's address
 is distronode-2@laptop, not distronode@laptop: another session on this device holds that name. Give
 peers distronode-2@laptop; messages sent to distronode@laptop do not reach this session." `/wim
@@ -104,13 +144,13 @@ kept like any offline one:
 - Leases the closed tab held are not released at close; they lapse at their TTL.
 - After 24 hours with nothing queued the relay forgets the session, and the name is free.
 
-## The signer (`wim agent`)
+## The signer (`wim signer`)
 
-Optional, and off until `wim agent encrypt`. The ssh-agent model: one process per device holds the
+Optional, and off until `wim signer encrypt`. The ssh-agent model: one process per device holds the
 device keys and the data key that seals prekey secrets, and sessions ask it for every operation
 that needs a secret key. What it does and does not protect is SECURITY-MODEL section 5.8.
 
-- `wim agent encrypt` encrypts `device.json` (version 2), seals every mesh's prekey secrets and sets
+- `wim signer encrypt` encrypts `device.json` (version 2), seals every mesh's prekey secrets and sets
   `require_signer`. A session already running keeps the plaintext keys it read; once it reads a
   sealed prekey it cannot open, it acknowledges nothing more on that connection and says once that
   it needs a restart, and the relay delivers those messages again to the restarted session. The
@@ -118,12 +158,12 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   left in the clear is sealed by the signer on the next schedule. A session that read sealed
   prekeys before a `decrypt` and a new `encrypt` (a new data key) reads the file again when a box
   does not open, and opens it then.
-  `wim agent decrypt` (signer stopped) writes the same keys back in the clear, opens the sealed
+  `wim signer decrypt` (signer stopped) writes the same keys back in the clear, opens the sealed
   prekeys and clears `require_signer`.
-- `wim agent start` asks for the passphrase and starts `wim agent serve` detached from the
+- `wim signer start` asks for the passphrase and starts `wim signer serve` detached from the
   terminal; the child reads the passphrase on stdin and prints `ready <pid> <endpoint>` or
   `error <why>`. Detached, it keeps running after the terminal or VS Code closes, and ends at log
-  out, restart or `wim agent stop`; the command says so, and `wim agent status` says where to
+  out, restart or `wim signer stop`; the command says so, and `wim signer status` says where to
   start one when none runs. The passphrase comes from the person's interactive terminal (no
   agent's variable set), or from `--passphrase-stdin` (a service manager, CI), `--ask-gui` (a
   native dialog: osascript, zenity or kdialog, the Windows PowerShell credential dialog; `start`
@@ -137,8 +177,8 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   `--foreground` runs it in the command itself, for systemd, launchd or CI. Nothing starts it
   unless the person sets that up: the passphrase needs the person, and a signer started from an
   agent's session would be that agent's descendant, which an OS may let it debug.
-- `wim agent autostart enable` installs a login item for the state directory (pinned as
-  `WIM_HOME`) that runs `wim agent start --foreground --ask-gui` at each log in: a launchd agent
+- `wim signer autostart enable` installs a login item for the state directory (pinned as
+  `WIM_HOME`) that runs `wim signer start --foreground --ask-gui` at each log in: a launchd agent
   (`~/Library/LaunchAgents/worldinmotion.signer.<id>.plist`), an XDG autostart entry
   (`$XDG_CONFIG_HOME/autostart/worldinmotion-signer-<id>.desktop`; XDG rather than a systemd user
   unit, because the dialog needs the desktop session's display), or a Windows logon task
@@ -148,7 +188,7 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   `StandardOutPath` and `StandardErrorPath`; `sh` in the XDG entry; PowerShell's `*>>` in the
   task), so a start that fails before the signer runs says why. The person types the passphrase
   into a dialog the login session started. It installs
-  only; `wim agent start` starts one now. `disable`, and `enable` without `--keyring`, remove any
+  only; `wim signer start` starts one now. `disable`, and `enable` without `--keyring`, remove any
   stored passphrase (`disable` the item too);
   `status` says whether one is installed and where it gets the passphrase.
   `enable --keyring` (only at the person's own terminal) stores the passphrase, checked against
@@ -156,13 +196,13 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   every read prompts) or libsecret (`secret-tool`, after a warning and a typed `yes`: any process
   of the user can read it while the keyring is unlocked), and the item then runs `--keyring`
   instead of `--ask-gui`. Not offered on Windows. SECURITY-MODEL 5.8 has the trade-offs.
-- `wim agent status`, `lock` and `stop` talk to the running signer. A lock is for good: `wim agent
+- `wim signer status`, `lock` and `stop` talk to the running signer. A lock is for good: `wim signer
   unlock` reads the passphrase, checks it against the key file, asks the locked signer to stop
   and starts a new one (`--foreground` as for `start`). The passphrase never goes over the socket,
   and the command sends nothing more to something that still answers after `stop`.
 - A session's device: a plaintext key file gives a keyring in the process, as before (refused when
   `require_signer` is set or `WIM_REQUIRE_SIGNER=1`). An encrypted one gives a keyring that calls
-  the signer; with no signer, or a locked one, the command says which `wim agent` command to run.
+  the signer; with no signer, or a locked one, the command says which `wim signer` command to run.
 - The socket speaks JSON lines: `{ "i", "op", "a" }`, answered `{ "i", "r" }` or
   `{ "i", "e": { "code", "message" } }`.
 - `hello`: the client sends a nonce and an X25519 key. The signer, locked or not, answers with
@@ -183,8 +223,15 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   device; `auth` and `send` only with an `at` within 5 minutes of the signer's clock; never a
   prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey entry; refused past
   its deletion time), `prekey` (makes one, dated within 5 minutes of the signer's clock: public
-  half and sealed secret), `adopt` (seals a clear prekey secret of this device's), `lock` (answers
-  `{ was }`, whether it was locked already, sealed: `wim agent lock` reports that, never the
+  half and sealed secret), `adopt` (seals a clear prekey secret of this device's), `decide` (from 0.2.0: `{ mesh, verdict:
+  "approve" | "refuse" | "resume", ids (at most 1000; a client asks for more in parts), peer? (a session address whose device is in the roster), code (six digits the asking process shows) }`; the signer reads those held items from the state
+  directory, shows them and the code to the person in its own terminal or dialog, one request at a time, and on
+  a yes answers `{ decision }`, signed with the device key over `wim-agent/2 held-decision\n` and
+  the canonical `{ v: 1, device, mesh, verdict, peer?, items: [{ id, digest }], at, n }`, each
+  digest the SHA-256 of the item's canonical JSON as read; refused when the person declines, when
+  none is held, when another decision is being asked, or when the signer has no way to ask:
+  SECURITY-MODEL 7.2), `lock` (answers
+  `{ was }`, whether it was locked already, sealed: `wim signer lock` reports that, never the
   hello's flag), `stop` (the signer stops listening before it answers, then closes every connection
   without waiting for its client). Before answering any request, and every 2 seconds, the signer
   checks that its endpoint still names its own socket (device and inode); if not, it locks and
@@ -217,7 +264,7 @@ Tools (few and short, to keep the per-request cost down):
 | tool | input | does |
 |---|---|---|
 | `peers` | `{ all? }` | lists sessions: address, kind, status, rooms. One line each. Long-offline sessions without a card are left out unless `all`. |
-| `send` | `{ to, text, reply_to?, notify_when_idle? }` | sends a message. `to` is an address, `#room`, `*`, or a list. Returns the per-recipient status. |
+| `send` | `{ to, text?, reply_to?, notify_when_idle? }` | sends a message. `to` is an address, `#room`, `*`, or a list. Returns the per-recipient status. With `notify_when_idle`, also arms one idle notice per `name@device` (SPEC section 8) and returns `watching: [{ to, until }]`, with `watch_note` for what was not armed (a room, `*`, past 16 open watches, or a watch that could not be recorded); with no `text` (or empty text) it only arms. `text` is required otherwise. |
 | `ask` | `{ to, task, timeout_s? }` | sends a `task` and waits (up to `timeout_s`, default 110, max 300) for its `result`; returns the result, or `pending` with the task id so the agent can pick the result up later from `inbox`. |
 | `reply` | `{ task_id, status, text }` | sends the `result` for a task you received. |
 | `inbox` | `{ peek? }` | returns unread items (messages, tasks, results, files) and marks them read unless `peek`. For agents without push delivery. |
@@ -466,18 +513,31 @@ receipt from it arrives.
   with five optional fields. A `notice` item carries `held: <count>` when it reports messages
   waiting for approval, or `heldBy: "<address>"` when a message this session sent is held for the
   approval of that address's person (a `held` receipt); the plugin shows either as a toast and
-  does not pass it to the model. A notice with none of the three flags is for the model, like a
-  message (the breaker's once-per-pause notice is one).
+  does not pass it to the model. A notice with none of the three flags is for the model, as
+  information: the client spools every notice of its own `quiet`.
   `forPerson: true` marks a notice only the person can act on (this session must be restarted
   to use the signer): the plugin shows it as a toast and on its status line, never as a turn.
   `relayed: true` marks text the sender passed on from a bot, CI or gateway: it never starts a
-  turn. `informs: true` marks an item framed as information only; handing it to the agent starts
+  turn. An idle notice this session armed carries `watched: "<device id>"`, the device its armed
+  address names, and `quiet: true` when it may not start a turn (that device is not trusted, is
+  paused, or is past the breaker's limits; SECURITY-MODEL section 7.3): a quiet notice waits for
+  `inbox`, `wait` or a running turn. So does the notice that a watch lapsed or was refused. Only a
+  message, task, result or file, or a notice with `watched`, and none with `quiet`, may start a
+  turn: the plugin, like `wim hook`, treats every other item (a notice from an older client, a kind
+  it does not know or none) as quiet, as it does a relayed item: appended
+  to a running turn, otherwise listed in its pane (under quiet notices), never submitted; any
+  `quiet` but `false` counts. Like a relayed item, a quiet notice for the agent the cursor passed
+  unread (a later item was pushed), and a notice from an older client that names no watch, is kept
+  in the `relayed/` box beside the spool until `inbox` returns it; one for the person (`held`,
+  `heldBy`, `forPerson`) is not. A held sender's message the person approves is spooled `quiet`. `informs: true` marks an item framed as information only; handing it to the agent starts
   the client's `derived` window, during which what the session sends is marked as derived from it. The mod hands
   each item to the session once: it claims an item (in `$.state`) before handing it over and gives
   the claim back only when that failed, so neither a failure later in a pass nor a pass still running
   from before a reload hands an item over twice. The rendered frame carries the message id.
 - The mod polls `spool/` every 250 ms with `$.fs`, delivers items in order (`$.session.append`
-  while the session is busy, `$.prompt.submit` while idle), and writes the newest delivered name to
+  while the session is busy, `$.prompt.submit` while idle, after writing `busy-mesh` to the
+  presence file, and not at all when that write fails: what it carried is kept, and the next
+  idle poll tries again), and writes the newest delivered name to
   `spool/cursor`, never back. It starts after its own cursor or after `spool/cursor`, whichever is
   further on, so items the server's `inbox` or `wait` tool (or a channel push) already handed to the
   session are not delivered again. The server deletes items at or below the cursor and only then
@@ -504,8 +564,9 @@ receipt from it arrives.
   `$.state`), so the text reaches the session once.
 - The mod writes `presence` from `turn.start`/`turn.complete` on the main loop: `idle`, `busy`, or
   `busy-mesh` for a turn a mesh item started. The server watches it, sends `presence` frames
-  (`busy-mesh` is `busy` to the relay), fires `notify_when_idle` notices, and marks what the session
-  sends during a `busy-mesh` turn as derived.
+  (`busy-mesh` is `busy` to the relay; a new `idle <n>` mark from `wim hook` is sent as `idle` even
+  when the session was idle already), and marks what the session sends during a `busy-mesh` turn as
+  derived. The relay fires `notify_when_idle` notices on each `idle` frame (SPEC section 8).
 
 ## Claude Code integration
 

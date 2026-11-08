@@ -271,7 +271,9 @@ describe("relay-node", () => {
   });
 
   it("refuses dials past the per-source budget with 429 and Retry-After, before any mesh state, until it refills", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
+    // The relay's tick is faked too, so it runs only when advanced: the idle-address sweep runs
+    // exactly once below, however slow the machine.
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
     try {
       const r = await relay({ trustProxy: true, tickMs: 10, limits: { dialsPerSourcePerMinute: 2 } });
       const url = r.relayUrls[0]!;
@@ -289,7 +291,7 @@ describe("relay-node", () => {
       expect((await upgradeAnswer(r.port, meshPath(), { ...WS_UPGRADE, "x-forwarded-for": "198.51.100.42" })).status).toBe(101);
       // The budget refills within a minute, and an idle address is forgotten.
       vi.setSystemTime(Date.now() + 60_000);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      vi.advanceTimersByTime(10);
       expect((await upgradeAnswer(r.port, meshPath(), { ...WS_UPGRADE, ...from })).status).toBe(101);
     } finally {
       vi.useRealTimers();
@@ -454,13 +456,14 @@ describe("relay-node", () => {
   });
 
   it("refills the shared budget over time and forgets idle addresses", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
+    // As above: the faked tick runs the idle-address sweep exactly once, when advanced.
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
     try {
       const r = await relay({ tickMs: 10, limits: { createJoinPerSourcePerHour: 1 } });
       expect(await createFrom(r.relayUrls[0]!, "x")).toBe("ok");
       expect(await createFrom(r.relayUrls[0]!, "x")).toBe("limited");
       vi.setSystemTime(Date.now() + 3_600_000);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      vi.advanceTimersByTime(10);
       expect(await createFrom(r.relayUrls[0]!, "x")).toBe("ok");
     } finally {
       vi.useRealTimers();

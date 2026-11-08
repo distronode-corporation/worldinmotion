@@ -181,17 +181,21 @@ export async function holdForShow(paths: ShowPaths, code: string, o: HoldOptions
     server.on("error", reject);
     server.listen(paths.socket, resolve);
   });
+  // The proof exists only while this process holds the socket or pipe, so it is never sent to
+  // a listener that took the name first.
+  // Written whole under another name, then renamed into place: a reader sees no proof or all
+  // of it, never the empty file a write in place shows first.
+  const partial = `${paths.proof}.${b64u.encode(randomBytes(6))}.tmp`;
   try {
-    // The proof exists only while this process holds the socket or pipe, so it is never sent to
-    // a listener that took the name first.
-    // Written whole under another name, then renamed into place: a reader sees no proof or all
-    // of it, never the empty file a write in place shows first.
     await fs.rm(paths.proof, { force: true });
-    const partial = `${paths.proof}.${b64u.encode(randomBytes(6))}.tmp`;
     await fs.writeFile(partial, proof, { mode: 0o600, flag: "wx" });
     await fs.rename(partial, paths.proof);
   } catch (error) {
+    // The socket or pipe is let go first, and nothing of a failed write stays behind in the
+    // state directory; a cleanup that fails too (a file another program holds open) is not the
+    // error to report.
     await new Promise((r) => server.close(r));
+    await fs.rm(partial, { force: true }).catch(() => undefined);
     throw error;
   }
   return new Promise((resolve) => {
@@ -212,7 +216,9 @@ export async function holdForShow(paths: ShowPaths, code: string, o: HoldOptions
       socket.end(`${code}\n`);
       finish(true);
     });
-    o.signal.addEventListener("abort", onAbort, { once: true });
+    // A signal that aborted while the socket was set up never fires again: that ends it at once.
+    if (o.signal.aborted) finish(false);
+    else o.signal.addEventListener("abort", onAbort, { once: true });
     (o.onListening ?? ignore)();
   });
 }

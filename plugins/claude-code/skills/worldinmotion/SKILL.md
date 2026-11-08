@@ -60,8 +60,8 @@ to type them into this chat box or behind `!`: both run them inside this session
 with the exact command and the words "in a terminal you opened yourself" (in VS Code: Terminal >
 New Terminal):
 
-- `wim agent start`, `wim agent unlock`, `wim agent encrypt`, `wim agent decrypt`,
-  `wim agent autostart enable`
+- `wim signer start`, `wim signer unlock`, `wim signer encrypt`, `wim signer decrypt`,
+  `wim signer autostart enable`
 - `wim invite` (it asks the person to type the new device's comparison code), `wim join`, and
   `wim devices admit <name> <code>`
 - `wim recovery show` and `wim invite show`
@@ -72,7 +72,7 @@ New Terminal):
 - any `wim send ... --allow-secret`
 
 These only read, so run them yourself when they help, and report what they say:
-`wim agent status`, `wim agent autostart status`, `wim status`, `wim doctor`, `wim peers`,
+`wim signer status`, `wim signer autostart status`, `wim status`, `wim doctor`, `wim peers`,
 `wim devices`, `wim devices pending`, `wim held list`, `wim history`.
 
 When a `wim init`, `wim mesh create` or `wim recovery rotate` you ran says the recovery code is

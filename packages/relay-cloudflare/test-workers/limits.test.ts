@@ -19,6 +19,23 @@ async function limiterRows(ip: string): Promise<unknown[]> {
   return runInDurableObject(await limiter(ip), (_o, state) => state.storage.sql.exec("SELECT name FROM sqlite_master WHERE name = 'bucket'").toArray());
 }
 
+/**
+ * Spends `n` of the address's tokens inside its limiter object, as `n` creates, joins or
+ * recovery attempts would, in one round trip. Each real attempt opens a socket and a mesh object
+ * (a few hundred ms in workerd, several times that on a busy machine), so the tests make only the
+ * few they are about and spend the rest here.
+ */
+async function spend(ip: string, n: number): Promise<void> {
+  const taken = await runInDurableObject(await limiter(ip), (o) => Array.from({ length: n }, () => o.take()));
+  expect(taken).toEqual(Array(n).fill(true));
+}
+
+/** The address's whole tokens left (the bucket refills one token every six minutes). */
+async function tokensLeft(ip: string): Promise<number> {
+  const rows = await runInDurableObject(await limiter(ip), (_o, state) => state.storage.sql.exec<{ tokens: number }>("SELECT tokens FROM bucket").toArray());
+  return Math.floor(rows[0]!.tokens);
+}
+
 /** Opens a socket from `ip` on a fresh mesh and sends a create; returns the answer and the socket. */
 async function createFrom(ip: string): Promise<{ answer: Record<string, any>; sock: Socket }> {
   const mesh = meshId();
@@ -51,29 +68,37 @@ describe("frame size limits", () => {
 });
 
 describe("the create and join limit per source address", () => {
-  it("counts creates from one address across meshes, then refuses, until the bucket expires", async () => {
+  it("counts creates from one address across meshes, then refuses", async () => {
     const ip = "198.51.100.9";
-    for (let i = 0; i < LIMITS.createJoinPerSourcePerHour; i++) {
+    // Two tokens left: one real create on each of two fresh meshes spends one each.
+    await spend(ip, LIMITS.createJoinPerSourcePerHour - 2);
+    for (const left of [1, 0]) {
       const { answer, sock } = await createFrom(ip);
-      expect(answer, `create ${i}`).toMatchObject({ t: "roster" });
+      expect(answer).toMatchObject({ t: "roster" });
+      expect(await tokensLeft(ip)).toBe(left);
       sock.close();
     }
     const { answer, sock } = await createFrom(ip);
     expect(answer).toMatchObject({ t: "error", code: "limited", ref: "create" });
     expect(await sock.closedWith()).toMatchObject({ code: 4029 });
+  });
 
-    // A join from the same address on another existing mesh is limited too.
+  it("refuses a join from a limited address on another existing mesh, and leaves other addresses alone", async () => {
+    const ip = "198.51.100.11";
+    await spend(ip, LIMITS.createJoinPerSourcePerHour);
     const m = await createMesh();
     const joiner = await Socket.open(m.mesh, { "cf-connecting-ip": ip });
     await joiner.next("hello");
     const body = { t: "join", mesh: m.mesh, invite: "A".repeat(22), device: { id: "A".repeat(22), name: "x", sign: "A".repeat(43), box: "A".repeat(43) }, nonce: "A".repeat(43), sig: "A".repeat(86), proof: "A".repeat(43) };
     joiner.send(body);
     expect(await joiner.next("error")).toMatchObject({ code: "limited", ref: "join" });
-
-    // Another address is unaffected.
     expect((await createFrom("198.51.100.10")).answer).toMatchObject({ t: "roster" });
+  });
 
-    // The bucket's alarm deletes it an hour after its last use; the address starts afresh.
+  it("deletes a bucket with its alarm an hour after its last use, so the address starts afresh", async () => {
+    const ip = "198.51.100.12";
+    await spend(ip, LIMITS.createJoinPerSourcePerHour);
+    expect((await createFrom(ip)).answer).toMatchObject({ t: "error", code: "limited" });
     expect(await runDurableObjectAlarm(await limiter(ip))).toBe(true);
     expect(await limiterRows(ip)).toEqual([]);
     expect((await createFrom(ip)).answer).toMatchObject({ t: "roster" });
@@ -88,7 +113,9 @@ describe("the create and join limit per source address", () => {
       sock.send(signRecoverAuth({ relay: RELAY, mesh: m.mesh, nonce, at: Date.now(), genesis: b64u.encode(randomBytes(32)) }, m.admin.keys));
       return sock.next("error");
     };
-    for (let i = 0; i < LIMITS.createJoinPerSourcePerHour; i++) {
+    // Two refused attempts spend the last two tokens: an attempt that fails its signature counts.
+    await spend(ip, LIMITS.createJoinPerSourcePerHour - 2);
+    for (let i = 0; i < 2; i++) {
       expect(await recoverFrom(ip), `attempt ${i}`).toMatchObject({ code: "unauthorized", ref: "auth" });
     }
     expect(await recoverFrom(ip)).toMatchObject({ code: "limited", message: "too many recovery attempts from this address", ref: "auth" });

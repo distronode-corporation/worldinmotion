@@ -13,6 +13,329 @@ body line with a bracket.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-08
+
+This release is built around one promise: encrypted messages between AI agents from different
+vendors and different accounts, with a trust model a security team can review. `npx worldinmotion
+setup` takes a machine from nothing to a mesh, offers the Claude Code plugin and the VS Code
+extension and configures every other agent it finds (Codex CLI, Gemini CLI, Antigravity CLI,
+Cursor, Copilot CLI, Claude Desktop), and `wim setup <invite code>` adds the next machine. Your own
+devices are trusted inside the approvals you already give, and nothing is passed on; held messages
+are decided a set at a time; with the signer, an agent cannot approve one; a device can refuse v0.1
+boxes now; and an address is taken over only on request, with each takeover listed by `wim status`.
+Agents other than Claude Code look again at turn end (`wim hook`), the finished notice is
+dependable on both sides, and `wim agent` runs one agent job when a device you allow messages it.
+The signer is now `wim signer`. A device on 0.1.10 or older cannot read the new invite codes:
+upgrade it before it joins.
+
+### Added
+
+#### First run
+
+- **`wim setup`, a guided first run on one machine.** In a terminal of your own it creates the
+  device and a mesh, offering the host name as the device name and the hosted relay as the relay,
+  shows what the relay says it offers, and asks for a typed `y` before it creates anything. It
+  shows the recovery code once and waits for Enter. When the `claude` or `code` command is
+  installed, it offers the Claude Code plugin or the VS Code extension, showing the commands it
+  runs (without a shell) and waiting for a `y`; it prints the state directory and why, and warns
+  when `CLAUDE_CONFIG_DIR` is set. It ends with `wim status`, problems first. Run again on a device
+  that is set up, it skips what is done. It refuses an agent's shell and piped input or output, as
+  the other person-only commands do, never asks about crash reports and does not start the
+  signer. `wim setup <invite code>` adds a machine to a mesh you already have: it joins as
+  `wim join` does, the joining side's trust questions included, then offers the same steps.
+  `wim init`, `wim join` and `wim invite --auto` are unchanged.
+- **`npx worldinmotion setup` works from nothing.** Run from npx's cache (`npx` or `npm exec`),
+  `wim setup` first says so, then offers, on a typed `y`, to install this exact version with
+  `npm install --global worldinmotion@<version>`, run without a shell. When npm's global prefix is
+  not writable it offers `~/.npm-global` instead (npm's prefix goes in its environment, not a
+  shell word) and says how to put that prefix's `bin` on `PATH`; it never uses `sudo`. It then
+  runs `wim setup` again from the installed copy, with the same flags and code, so every path it
+  writes into an agent's config is the stable one. On `n` it prints the install command and
+  stops before anything is made. The README's Quick start now starts with `npx worldinmotion
+  setup`, with the global install as the alternative.
+- **`wim setup` configures every agent it finds.** After the Claude Code and VS Code steps, it
+  looks for Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI and Claude Desktop (a
+  command on `PATH`, or the agent's config directory) and, for each, adds the worldinmotion MCP
+  server and the agent's `wim hook` entries: the turn end, and the turn start where the agent has
+  one (Gemini CLI `BeforeAgent`, Codex `UserPromptSubmit`, Cursor `beforeSubmitPrompt`, Copilot CLI
+  `userPromptSubmitted`; none for Antigravity, and Claude Desktop has no hooks). The server offers
+  only `peers`, `inbox`, `wait` and `history` where the agent has a tool list (Gemini CLI
+  `includeTools`, Antigravity `enabledTools`, Codex `enabled_tools`, Copilot CLI `tools`); Cursor
+  and Claude Desktop have none and ask before each call. The launch is direct, node and the
+  absolute path to `wim.mjs`, never npx, npm or a shell, so the hook's session match works. Each
+  file change is shown as a diff and written only on a typed `y`, with the original copied beside
+  it; only the worldinmotion entries are touched, JSON keeps its indentation and key order, and
+  Codex's `config.toml` changes only the worldinmotion lines. A rerun reports an entry that is right
+  as configured and offers a stale path as an update, keeping what you added to the entry. A file
+  that is a symbolic link, larger than 1 MiB, or not valid JSON or TOML is left alone
+  (docs/peers.md, "What `wim setup` writes").
+- **`wim recovery show --wait`** waits for Enter after showing the code, so a terminal that closes
+  when its command ends keeps the code on screen until the person has stored it.
+- **VS Code: Create a Mesh and Join with a Code from the empty Mesh view.** On a device in no mesh
+  yet the Mesh view shows a welcome text with both buttons (it reads the new `worldinmotion.state`
+  context key: `setup`, `mesh` or `closed`), and VS Code alone needs no npm. **Create a Mesh...**
+  asks for this device's name (when it has no keys yet), a relay (the hosted relay by default, or a
+  URL), and a confirmation in a modal that names the relay, then creates the mesh through the
+  extension's own client. The recovery code never appears in VS Code: **Show Recovery Code** opens a
+  terminal running `wim recovery show --wait`, and the extension restarts its client in the new mesh
+  once the code is collected or its 10 minutes end, saying so when it was not collected. **Join with
+  a Code...** (formerly Join a Mesh...) asks which code you have; the invite code path is unchanged,
+  and the pairing code path says it is not in this version yet. Underneath, `wim events` in setup
+  mode takes a new person-only request, `create { name?, relay? }`, answered once the code waits for
+  `wim recovery show`, then emits `created { mesh, recovery: "shown" | "not_collected" }` and ends
+  ([docs/events.md](docs/events.md)).
+
+#### Trust and approvals
+
+- **Your own devices are trusted inside the approvals you already give.** `wim invite` asks "Is the
+  new device one of yours? Its messages will then be trusted here when it joins. [y/N]" before it
+  shows the code, and keeps the answer in the invite's record on that device, never in the code; an
+  own-device invite sets `deliver` for the device it admits, and the question after the admit is
+  gone. `wim invite --auto` never trusts. On the joining side, `wim join` and the new
+  `wim setup <invite code>` ask about the device that admitted this one alone, then about each
+  other device on its own, replacing the one question that covered every device. Every automatic
+  trust prints its undo (`wim devices untrust <name>`). Nothing is transitive: a device another
+  device added is never trusted because that device is. `wim status` lists those as "held here,
+  added by laptop: build (wim devices trust build)", and the VS Code extension asks about each one
+  as it joins ("laptop added build to this mesh. Is build your own device?", with **Trust...** and
+  **Not Mine**, kept on that machine), with **Review Trust...** for all of them. **Add a Device...**
+  asks whose device it is first, and after **Join with a Code...** the extension asks about the
+  admitting device, then each other one, in modals. `wim events` takes `invite { own }`, answers
+  `admit` with `trusted`, adds `added_by` to device rows (read only from the verified roster chain)
+  and `admitted_by` to `joined` ([docs/events.md](docs/events.md), SPEC section 6a,
+  SECURITY-MODEL section 7.2). An invite code now names the admin that made it (`by`, SPEC section
+  5): the joining side asks about the device that admitted it as the approver only when that is
+  the maker, and otherwise says so and asks about it like any other device. Devices on 0.1.10
+  or older cannot read a 0.2.0 invite code and must upgrade to 0.2.0 before joining; `wim invite`
+  and Add a Device... say so. Admitting on an own-device invite says first that it trusts the
+  device (the comparison-code prompt, `wim devices pending`, the VS Code admit box).
+- **Held messages are decided a set at a time.** `wim held`, the `approve` and `refuse` requests of
+  `wim events`, the VS Code Held view and the Claude Code pane group what is held per sending device
+  (by its authenticated device id) and per CI rule (by the rule's id, so `wim ci remove` never
+  regroups), and show the whole set, in order, with its count and time span, before the person
+  decides. A decision covers exactly the ids shown: an item that arrives after the set was drawn
+  stays held. `wim held approve <id>` asks `all` or `one`; a set of one keeps the old prompt. `wim
+  events` takes `set` on `approve` and `refuse`, checks it is one set before deciding, and its held
+  rows carry `set`, `set_title`, `ci` and `pins`. The VS Code dialog is modal and lists the set,
+  with "Approve only this one" when started from a row; its default button (Enter) is "Keep them
+  held" and Escape cancels, so approving is always a deliberate click. A CI notice that pins its
+  rule's ids is never in "approve all" (refusing the set covers it), and approving a breaker set
+  keeps the pause on and says how to resume it. This closes the gap docs/security-teams.md named
+  (the held view showed one item at a time).
+- **With the signer, an agent cannot approve a held message.** On a device whose key file is
+  encrypted (`wim signer`), approving, refusing or resuming held messages needs the signer's own
+  confirmation: `wim held` and the events process (VS Code) ask the signer with a new `decide`
+  request, the signer reads the held items from disk itself, shows them in the terminal it runs in
+  (`--foreground`, a typed `y`) or in a native dialog, and on the person's yes signs a decision over
+  exactly those ids, each bound to a digest of the item it showed. Sessions release or drop only
+  what such a decision covers; an item that arrived later, a copy changed on disk and a replayed
+  decision release nothing, and a resume lifts only a pause that started before it was signed. The
+  asking command (or VS Code) shows a six-digit code that the signer shows too. The signer runs its
+  dialog programs by absolute path, only when they are root's alone (never from `PATH`, also for the
+  `--ask-gui` passphrase dialog, which now names the process that asked), ends every ask after 5
+  minutes or when the asker goes away, waits after a decline before it asks again, refuses an id
+  whose held copies differ in what it would show, takes a resume only for a roster device's breaker
+  holds, and refuses every decision when an agent is among the processes that started it. Mark files
+  (`held/<id>.approve`, `.refuse`, `.resume`, `control/resume-<peer>`) are refused while the keys
+  are in the signer, and `wim doctor` lists any it finds; a locked or stopped signer takes no
+  decision. The Claude Code pane's buttons then say to decide with `wim held` or VS Code, and VS
+  Code waits up to 7 minutes for the answer. Without a signer nothing changes, and `wim doctor`
+  advises running one. No wire or relay change (SECURITY-MODEL 7.1, 7.2 and 9; docs/design.md, the
+  signer).
+- **Close the downgrade window early.** `wim legacy-boxes refuse` makes a device refuse v0.1
+  boxes now, as every device will from 1.0 (SPEC section 6b): it never sends one (a direct send
+  to a device with no current prekey is refused with the reason, a broadcast, room send or card
+  skips that device and `wim send` names it), and it drops every one it receives as
+  `legacy_box`. A relay that withholds prekeys can no longer strip forward secrecy from that
+  device's sends. Anyone may turn it on; `wim legacy-boxes accept` turns it off and is the
+  person's alone (their own terminal and a typed `y`, as for `wim devices trust`), with no MCP
+  tool or events op. `wim status` and `wim doctor` show it. Off by default until 1.0. No wire
+  change.
+- **A dropped v0.1 box is told and counted.** With `wim legacy-boxes refuse` on, a message
+  dropped as `legacy_box` gives the session a local notice, once per sender device per session, that
+  names the sender and carries none of the message, and `wim status` shows how many this device
+  has dropped.
+- **Stable addresses: take over an offline name on the same device.** `--take` with `--as
+  <name>`, `WIM_TAKE=1` with `WIM_NAME` (also for `wim mcp`), and a `take` parameter on the MCP
+  `rename` tool claim the offline session on this device that holds the name, from any
+  directory, with its sid and resume secret: its queue, rooms, leases (same token), held items,
+  receipts and history come with it, and one notice counts what came. Only on request: `rename`
+  without `take` still answers `name_taken`, now with a hint. A name a live session holds, or a
+  session of another kind, is refused with the reason, never answered with `name-N`. The client
+  also saves the name a session asked for, so a session that got `name-N` is taken back under
+  its name when it is free. The Claude Code plugin links the tab again after the model renames
+  it. Since a peer's text can prompt a takeover, the tool asks agents to take only on the
+  person's word, and `wim status` and `wim doctor` list every takeover of the last 24 hours.
+  No wire or relay change.
+- **Receipts only for messages this session sent.** A receipt for any other id is dropped and
+  logged before it is kept or told: no event, no notice and no history line. At most four
+  unknown ids are looked up in history at once, and the receipts kept for `send --wait` are
+  bounded.
+
+#### Other agents and finished notices
+
+- **`wim hook <agent>`: other agents look again at turn end.** It is a turn-end hook for Gemini CLI,
+  Antigravity CLI, Codex CLI, Cursor and Copilot CLI. When a turn ends and messages from devices you
+  trust wait for that session, the hook asks the agent for one more turn. The request is a fixed
+  line: how many messages wait, and to call the `inbox` tool. It never holds a peer's text, name or
+  address. Each message is announced once per agent session. Held messages, untrusted devices,
+  relayed text, CI notices and paused devices never wake it, and anything unclear lets the agent
+  stop (exit 0 always). The hook counts only the `wim mcp` that the same agent session started,
+  which `wim mcp` now records in its session directory (`ancestry.json`) while it runs. `wim setup`
+  writes the hook entries, and [docs/peers.md](docs/peers.md) has them for each agent by hand.
+  Gemini CLI and Antigravity CLI were checked live; the other three follow their documentation. An
+  idle session still does not wake. The turn it asks for is a mesh turn: the session reads
+  `busy-mesh` before the hook asks, so what the agent sends in it is derived, and without that mark
+  there is no wake. Every turn end that lets the agent stop, aborted and failed turns included,
+  reports the session idle, so `notify_when_idle` now fires for these agents, and an optional
+  turn-start entry (`wim hook <agent> start`) shows it busy while it works.
+- **`wim hook copilot` reads Copilot CLI's VS Code-compatible events too.** An entry configured as
+  `Stop` or `UserPromptSubmit` gets snake_case payloads that name their event; the hook now wakes at
+  that `Stop` and marks that `UserPromptSubmit` busy, as it does for `agentStop` and
+  `userPromptSubmitted`.
+- **The finished notice (`notify_when_idle`) is dependable on the client side.** An arm made while
+  offline is sent at the next `ready`, and a new process of the session sends every open one at its
+  first. A notice starts a turn only when the device that the armed address names is one the person
+  trusts, the loop breaker does not pause it, and the breaker admits one more delivery from it,
+  which it then counts; any other notice is spooled `quiet` (new spool fields `watched` and `quiet`)
+  and waits for `inbox` or `wait`. A pause the notices trip holds through a restart of the session,
+  though it holds no message. The notice names the address the agent armed. A session may have at
+  most 16 open watches, as the relay allows: past that, `send` arms nothing more and says so in
+  `watch_note`. The agent is told, quietly, when a watch lapses after 12 hours with no notice, and
+  when the relay refuses an arm (`not_found`, `limited`), naming the address when it can tell which.
+  `send` returns `watching: [{ to, until }]`, and with `notify_when_idle` and no text it only arms.
+  `wim hook` counts finished notices this session asked for, with a fixed line of their own ("1
+  notice this session asked for is waiting in worldinmotion..."), and the turn it asks for is a mesh
+  turn as before. The wake rule moved to `wake.ts`, shared by the hook. Notice wakes are counted per
+  device on their own and toward the total; past a limit they trip a cool-down on that device, which
+  the person is told of. A session cannot watch its own address. A relay refusal is taken only for
+  an arm in flight (or, with `of`, an open watch), one per arm. A damaged `watches.json` is left as
+  it is, and arms are refused until it is removed. A channel push writes `busy-mesh` first, and
+  pushes nothing when it cannot. SPEC section 8 and SECURITY-MODEL sections 5.4, 6.10, 7.1 to 7.3
+  and 9 say so.
+- **Relay: dependable idle notices.** A relay now sends the notice armed with `notify_idle` (MCP
+  `send` with `notify_when_idle`) also when the watched session has been offline for 60 seconds
+  without reconnecting, so a session whose agent crashed or closed is reported too, and says why it
+  fired: `why` is `idle`, `ended` or `offline`. A notice that fires while the asking session is
+  offline is kept, within the arm's 12 hours, and sent after that session's next `ready`. Each arm
+  is answered with a new `idle.armed { of, exp }` frame, a refusal (`not_found`, `limited`) names
+  the address in `of`, and a peer row carries `"presence": true` once its session has sent
+  `presence` on its current connection. All of it is backward compatible: a 0.1.x client ignores
+  `idle.armed` and the new keys, and a 0.2.0 client works with a 0.1.x relay unchanged, since no
+  client frame gained a key. The SQL store adds a `fired` column to `idle` (schema 3, additive, so a
+  relay rolled back to 0.1.x still runs on the database). The hosted relay has it from its next
+  deploy (SPEC sections 8, 9 and 10).
+- **The Claude Code plugin honours `quiet`, and only an armed notice wakes.** An item starts a turn
+  only when it is a message, task, result or file, or an idle notice this session armed (it names
+  the watched device), and is not `quiet`. Any other notice, one from before the watch was named, an
+  item of an unknown kind or none, and one with a malformed `quiet` never start one. During a turn
+  such an item is added to it, otherwise it waits in the `/wim` pane, under quiet notices, apart
+  from relayed items, and for `inbox`. The client spools its own notices (unreadable or dropped
+  messages, held receipts, claims, releases, renames, lost leases, pauses) `quiet`, and a held
+  sender's message the person approves too, so the channel push skips them; the agent's ones, and
+  notices from an older client, wait in the box for `inbox`. A waking notice starts one turn, as
+  before. Every turn the plugin starts writes `busy-mesh` to the session's presence first, and when
+  that write fails nothing is submitted: the items wait, and the plugin tries again on its next poll
+  while the session is idle, or at the turn's end. A person's prompt that starts while a submit is
+  pending no longer takes that submit's place, presence stays `busy-mesh` until the submit's turn
+  starts, and pending submits are forgotten only after 30 seconds idle with nothing started.
+  SendMessage with `notify_when_idle` and no message (or an empty one) only arms the watch, sends no
+  text, and answers "worldinmotion will tell this session when `<to>` finishes". SECURITY-MODEL
+  section 7.3 and the plugin README say so.
+- **`wim wait-idle` and `wim send --wait-idle`, for scripts.** `wim wait-idle <address,...>` arms a
+  finished notice for each address in a CLI session and waits, printing one line per notice (one
+  JSON object per line with `--json`): exit 0 when every address has its notice (any one with
+  `--any`), 1 when a watch is refused (this command's own address, past the 16 open watches, or an
+  address the relay does not know; with `--any`, only once no address is left to wait for), and 2
+  at `--timeout` (default and most 12h, a watch's life).
+  `wim send <to> <text...> --wait-idle [--timeout 12h]` arms first, then sends, then waits the same
+  way, so a session that finishes at once is not missed. A quiet notice (about a device you do not
+  trust, or one the loop breaker pauses or limits) ends the wait too, and its line says it was
+  quiet. A dropped connection does not end the wait (docs/peers.md, "Waiting from a script").
+
+#### `wim agent`
+
+- **`wim agent`, a peer that wakes on a message and runs one agent job** (new package
+  `@worldinmotion/agent`). It runs a job only for a device id on its allow-list (from the signed
+  roster, never a name) that the person also trusts, optionally behind a wake code checked in
+  constant time (or left to the runner, so the worker's user never holds it), with an optional
+  `<profile>:` prefix from a configured list. Each job goes through a runner command: one JSON
+  request on stdin, the answer on stdout, exit codes for refused, busy and timed out, and a
+  SIGTERM-then-SIGKILL timeout on its process group. Limits: task length, attempts per device per
+  hour, one job at a time, a daily cap kept on disk (a request the runner refuses, or is busy for,
+  gives its slot back). Replies are marked relayed; a room copy
+  carries the answer only. The built-in runner (`wim agent runner`) uses the Claude Agent SDK with
+  an API key, `claude-opus-5-5` at medium effort, read-only tools, and no settings, hooks or MCP
+  servers from the machine (packages/agent/README.md, SECURITY-MODEL section 7.7).
+- **A privileged runner for `wim agent`, with keyless Anthropic sign-in.** The worker runs as an
+  unprivileged user and calls the privileged runner (`wim agent privileged`, behind a no-argument
+  launcher) through one sudoers line that allows no arguments. The runner trusts nothing the worker
+  says: each request carries the signed frame the relay delivered (RUNNER contract version 2), and
+  the runner checks its signature against sender keys pinned in its root-only config
+  (`/etc/wim-agent/privileged.json`), opens the box with the recipient device's keys, runs each
+  frame once, and only then checks the wake code (from a root-only file or the privileged side's
+  environment, in constant time) and the optional `name:` profile prefix. It refuses long or empty
+  tasks, caps the day's jobs, refuses to start when memory is low or when its own code could be
+  changed by anyone but root, and takes one job lock that a shell's `flock` on fd 9 shares. It then
+  runs one Claude Agent SDK job as a third user with read-only tools (`Read`, `Grep`, `Glob` unless
+  `unsafeTools` is set, then sandboxed), confined to its working directories and denied `/proc` and
+  every runner path, the profile's model and effort (default `claude-opus-5-5`, `medium`), a turn
+  cap and a timeout. The job holds no credential: the runner signs in itself (Workload Identity
+  Federation through the Anthropic SDK's own token exchange, from an AWS STS, GCE metadata,
+  impersonated GCP service account or file identity token, or an API key) and gives the job only a
+  loopback proxy and a key that is good for that job alone, which the proxy compares as bytes in
+  constant time. Every value it hands systemd-run (the scope's unit and slice, the ids, the command
+  line) is checked against an allow-list first, and the job is refused on anything else. Of the
+  job's stderr it logs only the worker's status lines, and keeps at most 500 characters of a line
+  while it waits for the end. See `packages/agent/docs/privileged-runner.md`.
+- **Sessions that keep no message text on disk** (`redactStoredText`, used by `wim agent`): spool
+  files and history entries keep every field but the text, the loop breaker refuses what it would
+  hold, and an untrusted device's item is held with its metadata only (a file without its key).
+
+### Changed
+
+- **The signer is `wim signer`** (`start`, `stop`, `status`, `lock`, `unlock`, `encrypt`,
+  `decrypt`, `autostart`), so `wim agent` can name the agent worker. The old `wim agent start`,
+  `status`, `lock`, `unlock`, `stop`, `encrypt`, `decrypt` and `autostart` still run the signer,
+  with a note on stderr. `wim agent serve` runs the signer (with the note) when it is given no
+  config path or any signer flag (`--foreground`, `--passphrase-stdin`, `--ask-gui`, `--keyring`,
+  `--allow-agent-passphrase`); with a config path and none of those it is the worker.
+  `wim signer autostart status` rewrites a login item written for another command line (an older
+  `wim agent start`, or a moved `wim`) in place, keeping its passphrase source. The signer's state
+  stays in `<WIM_HOME>/agent/`.
+
+- **The first-run docs follow `wim setup`.** The README's Quick start is `npx worldinmotion setup`
+  in a few lines; First run walks through `wim setup` and `wim setup <invite code>` on three
+  machines, with the manual path under By hand; Other agents is one table of each agent's message
+  delivery, what `wim setup` configures and how it was checked; a new section points to
+  `wim agent`; and Security, in plain words covers trust that is never passed on, held sets,
+  signed approvals and takeovers. The Claude Code plugin's README covers stable addresses
+  (`WIM_NAME`, `WIM_TAKE`), and the VS Code extension's the welcome view and the held-set dialog.
+
+### Fixed
+
+- **A lease that expires goes to the session waiting for it.** When a lease's `until` and its
+  waiter's wait ended within the same one-second relay sweep (always the case with the default
+  60 s on both sides), the waiter was told `expired` and the lease was left free with nobody
+  holding it. The relay now ends expired leases before expired waits, and hands the lease to a
+  waiter whose wait had not passed at the lease's `until`. `lease.acquire` takes an optional
+  `timeout`, how long to wait, apart from the lease's `ttl` (SPEC section 14); the MCP `lease`
+  tool takes it as `wait_s`. Without it a wait lasts the `ttl`, as before. A relay older than this
+  refuses the field, and the client asks again without it.
+- **A session that lost a lease is told.** The client drops the token and writes a notice for the
+  agent when the relay says the lease expired, when its `until` passes (also while offline), when
+  a renew is refused and the relay no longer lists it as the holder, when a release is refused,
+  and when it reconnects and `lease.list` shows that the lease ended while it was away. A re-acquire
+  after the `until` is answered with the new grant (the client took the expiry notice before it as
+  the answer). The `lease` tool's description tells agents to renew or check before every step a
+  lease protects.
+- **A new agent no longer inherits leases silently.** A same-project takeover writes one notice
+  naming the leases that came with it, and keeps the relay's tokens for them. An acquire by the
+  session that already holds the lease is answered `granted` with its token (it was `held`, naming
+  the caller itself).
+- **Expired lease tokens no longer pile up.** A token whose lease's `until` has passed is dropped,
+  so a session whose leases all ended holds nothing and can end cleanly.
+
 ## [0.1.10] - 2026-11-07
 
 ### Added
@@ -925,7 +1248,8 @@ The first pre-release. The wire format and the commands may still change before 
   MCP clients (`docs/peers.md`), the threat model (`SECURITY-MODEL.md`), and the hosted relay's
   terms (`docs/hosted-relay.md`).
 
-[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/distronode-corporation/worldinmotion/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.2.0
 [0.1.10]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.10
 [0.1.9]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.9
 [0.1.8]: https://github.com/distronode-corporation/worldinmotion/releases/tag/v0.1.8

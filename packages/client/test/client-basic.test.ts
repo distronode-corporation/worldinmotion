@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ClientError, MeshSession } from "../src/client.ts";
 import type { SpoolItem } from "../src/spool.ts";
-import { FS, LIVE_PID, makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until } from "./helpers.ts";
+import { framedText, FS, LIVE_PID, makeMesh, newDevice, openSession, RelayHarness, scratch, sessionOpts, sleep, until } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -99,7 +99,7 @@ describe("messaging", () => {
     await b.ready(3000);
     await a.send("b@two", "two");
     await until(async () => (await unread(b)).length === 2);
-    expect((await unread(b)).map((i) => i.rendered.includes("two"))).toEqual([false, true]);
+    expect((await unread(b)).map((i) => framedText(i.rendered))).toEqual(["one", "two"]);
   });
 
   it("reads the inbox, waits for the next item, and sends delivered receipts when taken", async () => {
@@ -161,7 +161,10 @@ describe("messaging", () => {
     await expect(a2.rename("writer")).rejects.toThrow(/rename refused/);
     const peers = await b.listPeers();
     expect(peers.map((p) => p.address).sort()).toEqual(["other@one", "writer@one"]);
-    expect(await a.notifyWhenIdle(["b@two", "#room", "bad"])).toBeUndefined();
+    expect(await a.notifyWhenIdle(["b@two", "#room", "bad"])).toEqual({
+      watching: [{ to: "b@two", until: expect.any(Number) }],
+      note: "Idle notices are for name@device only, so none is armed for #room, bad.",
+    });
     await sleep(30);
     await fs.writeFile(b.files.presencePath, "busy");
     await until(() => a.peers.get("b@two")?.status === "busy");

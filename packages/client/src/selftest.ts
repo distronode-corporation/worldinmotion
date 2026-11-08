@@ -734,14 +734,15 @@ const sasIn = (t: Term): Promise<string> => waitFor(() => /Its comparison code i
 
 /**
  * Joins `name` to the run's mesh through device A's invite, the person typing the comparison code
- * on A. Both trust questions are answered no: trust is a step of its own.
+ * on A. The own-device question and the joining side's are answered no: trust is a step of its own.
  */
 async function joinThroughInvite(run: Run, name: string): Promise<string> {
   const a = run.dev("test-a");
   const joiner = await run.device(name);
   // The person reads the code on the joining device's screen and types it on A.
   const joinTerm = run.term(joiner, ["n"]);
-  const invite = await run.background(a, ["invite"], /On the new device, in a terminal/, [() => sasIn(joinTerm), "n"]);
+  // Not one of the person's own: trust is a step of its own.
+  const invite = await run.background(a, ["invite"], /On the new device, in a terminal/, ["n", () => sasIn(joinTerm)]);
   // The short code, which the joining device resolves through the relay's rendezvous.
   const code = grab(said(invite.term), /never through an agent\):\n {2}(\S+)/, "invite code");
   const joined = await run.cmd(joiner, ["join", code, "--name", name], [], joinTerm);
@@ -762,7 +763,8 @@ const literally = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, 
 /** The id of the held message from `from` in `wim held list` on `dev`. */
 async function heldId(run: Run, dev: Dev, from: string): Promise<string> {
   const list = await run.ok(dev, ["held", "list"]);
-  return grab(list, new RegExp(`^(\\S+)  ${literally(from)} -> `, "m"), `held message from ${from}`);
+  // Each row is indented under its set's `held from` line.
+  return grab(list, new RegExp(`^ *(\\S+)  ${literally(from)} -> `, "m"), `held message from ${from}`);
 }
 
 /** Limits that hold the second message from a peer in an hour, for an hour. */
@@ -800,7 +802,7 @@ export function ciStep(run: Run): Step {
       await deploys.listPeers();
       const sent = await run.cmd(job, ["ci", "notify", "--recipient", code, "--to", "deploys", "--text", "the build passed"], [], run.term(job, [], env, tokens));
       need(sent.text.includes("wim ci notify: sent to deploys"), `the notice was not sent: ${lastLine(sent.text)}`);
-      const id = await waitFor(async () => /^(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15_000, "the held CI notice");
+      const id = await waitFor(async () => /^ *(\S+) {2}ci:github:/m.exec(await run.ok(B, ["held", "list"]))?.[1], 15_000, "the held CI notice");
       await run.ok(B, ["held", "approve", id], ["y"]);
       need((await run.ok(B, ["ci", "list"])).includes("ids repositoryId=1001 ownerId=1000"), "approving the notice did not pin the rule's ids");
       await arrived(deploys, "the build passed");
@@ -820,19 +822,19 @@ export function signerStep(run: Run): Step {
     run: async () => {
       const sig = await run.device(SIGNER_DEVICE);
       await run.ok(sig, ["init", "--name", SIGNER_DEVICE]);
-      need((await run.ok(sig, ["agent", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
+      need((await run.ok(sig, ["signer", "encrypt"])).includes("Encrypted"), "the keys were not encrypted");
       const running = /Signer running in the foreground \(pid \d+\) at (.+)\. Ctrl-C/;
-      const first = await run.background(sig, ["agent", "start", "--foreground"], running);
+      const first = await run.background(sig, ["signer", "start", "--foreground"], running);
       const at = grab(said(first.term), running, "signer endpoint");
       // The endpoint the device's own state names: a socket in it, or on Windows the pipe whose fresh name it keeps.
       need(at === (await agentEndpoint(sig.dir, { platform: run.io.platform, pid: run.io.pid, uid: run.io.uid }, false)), `the signer's endpoint ${at} is not the sandbox device's own`);
-      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["agent", "status"])), "the signer is not running unlocked");
-      need((await run.ok(sig, ["agent", "lock"])).includes("Signer locked"), "the signer did not lock");
-      need(/running \(pid \d+\), locked/.test(await run.ok(sig, ["agent", "status"])), "the signer is not locked");
-      const second = await run.background(sig, ["agent", "unlock", "--foreground"], running);
+      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["signer", "status"])), "the signer is not running unlocked");
+      need((await run.ok(sig, ["signer", "lock"])).includes("Signer locked"), "the signer did not lock");
+      need(/running \(pid \d+\), locked/.test(await run.ok(sig, ["signer", "status"])), "the signer is not locked");
+      const second = await run.background(sig, ["signer", "unlock", "--foreground"], running);
       need((await first.done) === 0, "the locked signer did not stop for the unlock");
-      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["agent", "status"])), "the signer did not unlock");
-      need((await run.ok(sig, ["agent", "stop"])).includes("Signer stopped."), "the signer did not stop");
+      need(/running \(pid \d+\), unlocked/.test(await run.ok(sig, ["signer", "status"])), "the signer did not unlock");
+      need((await run.ok(sig, ["signer", "stop"])).includes("Signer stopped."), "the signer did not stop");
       need((await second.done) === 0, "the signer did not end");
       need(!said(first.term).includes(run.passphrase) && !said(second.term).includes(run.passphrase), "the passphrase was printed");
     },

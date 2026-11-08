@@ -9,7 +9,16 @@
 //                      real client's line for a device that is not set up); "setup" (setup mode:
 //                      a device in no mesh yet, whose `join` succeeds and ends the process, after
 //                      which it starts in the mesh); "setup-fail" (setup mode, whose join fails
-//                      after its code was shown)
+//                      after its code was shown); in setup mode `create` succeeds, says
+//                      `created` (recovery "shown", or "not_collected" with WIM_FAKE_RECOVERY=lost)
+//                      and ends, after which it starts in the mesh; with WIM_FAKE_RECOVERY=hold it
+//                      keeps holding the code until it is stopped, and with =crash it exits
+//                      (code 1) while holding it, never saying `created`; "third-device" (in the
+//                      mesh, a device that buildbox added arrives after the snapshot); "third-snapshot"
+//                      (that device is already in the snapshot, as when it joined while VS Code
+//                      was closed, beside a trusted one buildbox added); "adder-later" (its row
+//                      comes first without its adder, then with it, then once more unchanged);
+//                      "untrust-later" (as third-snapshot, then the trusted one is untrusted)
 //   WIM_FAKE_TEST      for `test --json` (the self-test): see below
 
 import { appendFileSync, existsSync, statSync, writeFileSync } from "node:fs";
@@ -20,6 +29,15 @@ const argv = process.argv.slice(2);
 const as = argv.includes("--as") ? argv[argv.indexOf("--as") + 1] : "vscode";
 const scenario = process.env.WIM_FAKE_SCENARIO ?? "default";
 const log = process.env.WIM_FAKE_LOG;
+
+// `wim recovery show --wait` (the recovery terminal): a stand-in line with no code, then it waits
+// for Enter, as the client does.
+if (argv[0] === "recovery") {
+  if (log !== undefined) appendFileSync(log, `${JSON.stringify({ op: "recovery", args: { argv } })}\n`);
+  process.stdout.write("fake wim: the recovery code would be here. Press Enter once you have stored it.\n");
+  await new Promise((resolve) => createInterface({ input: process.stdin }).once("line", resolve));
+  process.exit(0);
+}
 
 // `wim test --json`: WIM_FAKE_TEST is "pass" (the default), "fail", "garbage" (no report, a line on
 // stderr) or "hang" (runs until it is stopped).
@@ -82,6 +100,8 @@ const held = new Map(
 );
 // Devices waiting to join, by invite/id; the comparison code the fake admits is FAKE_CODE.
 const joins = new Map();
+/** Whether each invite was made for one of the person's own devices. */
+const ownInvites = new Map();
 const FAKE_CODE = "ABCDE-FGHJK";
 const heldText = new Map([["01JFAKEHELD000000000000001", "Could you look at the failing test in auth.ts? It fails on main since this morning."]]);
 const history = [
@@ -96,6 +116,12 @@ const rooms = () => {
   for (const s of sessions) for (const r of s.rooms) byRoom.set(r, [...(byRoom.get(r) ?? []), s.address]);
   return [...byRoom].map(([name, members]) => ({ name, members }));
 };
+if (scenario === "third-snapshot" || scenario === "untrust-later") {
+  for (const d of [
+    { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false, added_by: "buildbox", added_by_id: "dev-buildbox" },
+    { name: "ci", id: "dev-ci", role: "member", policy: "deliver", self: false, added_by: "buildbox", added_by_id: "dev-buildbox" },
+  ]) devices.set(d.name, d);
+}
 const snapshot = () =>
   emit("snapshot", {
     devices: [...devices.values()],
@@ -184,6 +210,7 @@ function handle(line) {
       return respond(id, { released: 0 });
     case "invite": {
       const invite = `inv-${nextMessage++}`;
+      ownInvites.set(invite, args?.own === true);
       respond(id, { code: `wim1_fake${invite}`, invite, exp: Date.now() + 3_600_000 });
       // The new device asks to join soon after.
       setTimeout(() => {
@@ -199,10 +226,12 @@ function handle(line) {
       if (String(args.code).toUpperCase() !== FAKE_CODE) return fail(id, "mismatch", "that is not the comparison code of this request");
       joins.delete(`${request.invite}/${request.id}`);
       emit("join", { op: "remove", request });
-      const d = { name: request.name, id: request.id, role: "member", policy: "hold", self: false };
+      // An own-device invite trusts the device it admits; this device added it.
+      const trusted = ownInvites.get(request.invite) === true;
+      const d = { name: request.name, id: request.id, role: "member", policy: trusted ? "deliver" : "hold", self: false, added_by: "laptop", added_by_id: "dev-laptop" };
       devices.set(d.name, d);
       emit("device", d);
-      return respond(id, { device: request.name });
+      return respond(id, { device: request.name, trusted });
     }
     default:
       return fail(id, "input", `unknown op ${op}`);
@@ -229,13 +258,28 @@ function setupMode() {
   rl.on("line", (line) => {
     if (line.trim() === "") return;
     if (log !== undefined) appendFileSync(log, `${line}\n`);
-    const { id, op } = JSON.parse(line);
-    if (op !== "join") return fail(id, "setup", "this device is in no mesh yet: join one first");
+    const { id, op, args } = JSON.parse(line);
+    if (op === "create") {
+      // Holding: the device is in the mesh from now on. The marker is written before the answer,
+      // since the extension may stop this process as soon as it reads it.
+      const holds = process.env.WIM_FAKE_RECOVERY === "hold" || process.env.WIM_FAKE_RECOVERY === "crash";
+      if (holds && joinedMarker !== undefined) writeFileSync(joinedMarker, "");
+      respond(id, { device: { name: args?.name ?? "fresh", id: "dev-fresh" }, mesh: "f4ke…", relay: "relay.invalid" });
+      if (process.env.WIM_FAKE_RECOVERY === "crash") setTimeout(() => process.exit(1), 50);
+      if (holds) return;
+      setTimeout(() => {
+        if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
+        emit("created", { mesh: "f4ke…", recovery: process.env.WIM_FAKE_RECOVERY === "lost" ? "not_collected" : "shown" });
+        process.exit(0);
+      }, 30);
+      return;
+    }
+    if (op !== "join") return fail(id, "setup", "this device is in no mesh yet: create or join one first");
     respond(id, { device: { name: "fresh", id: "dev-fresh" }, code: FAKE_CODE });
     setTimeout(() => {
       if (scenario === "setup-fail") return emit("join_failed", { message: "the relay went away" });
       if (joinedMarker !== undefined) writeFileSync(joinedMarker, "");
-      emit("joined", { mesh: "f4ke…", devices: [{ name: "buildbox", id: "dev-buildbox" }] });
+      emit("joined", { mesh: "f4ke…", admitted_by: { name: "buildbox", id: "dev-buildbox" }, devices: [{ name: "buildbox", id: "dev-buildbox" }] });
       process.exit(0);
     }, 30);
   });
@@ -253,6 +297,20 @@ function inMesh() {
   emit("peer", { ...sessions[2], mood: "fine" });
   if (scenario === "bad-version") process.stdout.write(`${JSON.stringify({ v: 2, type: "hello", at: Date.now() })}\n`);
   // A message for a Claude Code tab on this device, not for this window's own session.
+  if (scenario === "untrust-later") setTimeout(() => emit("device", { ...devices.get("ci"), policy: "hold" }), 100);
+  if (scenario === "adder-later") {
+    const desk = { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false };
+    emit("device", desk);
+    const known = { ...desk, added_by: "buildbox", added_by_id: "dev-buildbox" };
+    devices.set(desk.name, known);
+    emit("device", known);
+    emit("device", known);
+  }
+  if (scenario === "third-device") {
+    const desk = { name: "desk", id: "dev-desk", role: "member", policy: "hold", self: false, added_by: "buildbox", added_by_id: "dev-buildbox" };
+    devices.set(desk.name, desk);
+    emit("device", desk);
+  }
   if (scenario === "tab-message") record({ id: messageId(), dir: "in", session: "reviewer@laptop", peer: "coder@buildbox", device: "dev-buildbox", kind: "msg", text: "for the tab", at: Date.now() });
 
   const rl = createInterface({ input: process.stdin });

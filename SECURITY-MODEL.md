@@ -245,11 +245,14 @@ Cannot:
 - Corrupt, reorder, swap or truncate a file's chunks without the receiver noticing (section 6.12).
 - Alter or forge a CI notice: a GitHub notice is signed by a one-time key its token binds, and a
   GitLab notice's token is inside the box, never shown to the relay (section 6.17).
-- Start agent turns with idle notices nobody asked for. A client takes a `notice` only for an
-  address its session armed with `notify_when_idle` (or, after that session renamed itself, for
-  the new address the relay's peer rows give the same session id), within the arm's 12 hours and
-  once; the watch is then closed. Any other notice is dropped and logged. A relay can still send
-  the one notice an arm asked for early, late or never.
+- Start agent turns with idle notices nobody asked for, or more than one per request. A client
+  takes a `notice` only for an address its session armed with `notify_when_idle` (or, after that
+  session renamed itself, for the new address the relay's peer rows give the same session id),
+  within the arm's 12 hours and once; the watch is then closed. Any other notice is dropped and
+  logged. Nor can it choose which device a notice is about: whether a notice may start a turn is
+  decided by the device the armed address names (section 7.3), and the notice names that address.
+  A relay can still send the one notice an arm asked for early (a false "finished"), late or
+  never, or claim it refused an arm: at most one turn per arm, 16 arms at a time, each counted.
 
 ### 5.5 Network attacker
 
@@ -371,10 +374,10 @@ the user's, and any process of the user can write `on` into it. A report is a sc
 README's "Crash reports (opt in)"), at most 5 a process, so the exposure is small; where it
 matters, `WIM_NO_CRASH_REPORTS=1` in the environment keeps reporting off whatever the file says.
 
-**With the signer (`wim agent`).** `wim agent encrypt` encrypts `device.json` under a passphrase
+**With the signer (`wim signer`).** `wim signer encrypt` encrypts `device.json` under a passphrase
 (scrypt with N = 2^17, r = 8, p = 1; ChaCha20-Poly1305, with the file's public fields as associated
 data) and seals every prekey secret in `prekeys.json` under a random data key that only the
-encrypted file holds. `wim agent start`, run by the person in their own terminal, asks for the
+encrypted file holds. `wim signer start`, run by the person in their own terminal, asks for the
 passphrase once and starts the signer: one process per device that holds the device keys and the
 data key in memory and answers sessions over a local socket. Sessions never read the keys; they
 ask the signer to sign, seal and open, and it answers. The wire is unchanged (SPEC section 3).
@@ -384,9 +387,9 @@ What it stops:
 - **Taking the keys away.** No file holds a secret key in the clear. A copy of `device.json` and
   `prekeys.json` is worth an offline guessing attack on the passphrase and nothing more, so the
   passphrase must be a strong one.
-- **New use after the signer is locked or stopped.** `wim agent lock` wipes the keys from the
+- **New use after the signer is locked or stopped.** `wim signer lock` wipes the keys from the
   signer's memory (as far as JavaScript can, below) and it refuses every key operation from then
-  on; `wim agent stop` ends it. Nothing on disk lets a process act for the device meanwhile: the
+  on; `wim signer stop` ends it. Nothing on disk lets a process act for the device meanwhile: the
   signer hands out signatures and opened boxes, never a key. What it signed while unlocked stays
   valid, though (below, "Signatures made while unlocked").
 - **A process in the middle of the socket, or in its place.** The signer proves itself with a key
@@ -399,7 +402,7 @@ What it stops:
   everything the hello says about the signer (`id`, `name`, its public keys, `locked`, `pid`): no
   client decision rests on an unsigned field. Both sides derive the connection's keys from the
   exchange, and every later line is sealed with ChaCha20-Poly1305, one key and a message counter
-  each way. A client sends nothing but the hello to what cannot prove itself, and `wim agent
+  each way. A client sends nothing but the hello to what cannot prove itself, and `wim signer
   lock`, `stop`, `unlock` and `status` fail (non-zero) against it. So a process that relays the
   hello (a proxy put at the socket path, or another instance of a Windows pipe) reads nothing and
   can neither change nor forge a line, not even turn "unlocked" into "locked"; swapping in its own
@@ -425,16 +428,16 @@ What it stops:
   therefore gets nothing more either. A swap that is undone between two checks is not seen here;
   the proof above is what stops it.
 - **Collecting the passphrase by posing as a locked signer.** The device's public key is in the
-  key file for anyone of the user to read, so a process could bind the endpoint (after `wim agent
+  key file for anyone of the user to read, so a process could bind the endpoint (after `wim signer
   stop`, which any process of the user may send) and answer `hello` as a locked signer, which has
   nothing to prove. It gets nothing for it. The passphrase never goes over the socket: there is no
-  unlock request. `wim agent unlock` reads the passphrase in the person's own command, checks it
+  unlock request. `wim signer unlock` reads the passphrase in the person's own command, checks it
   against the key file there, asks the locked signer to stop (a signer stops listening before it
   answers), and starts a new signer from that command, handing the passphrase only to the process
   it started, over that process's own stdin. If something still answers at the endpoint after
   `stop`, the command says so and sends it nothing more. Sessions likewise send a connection whose
   signer has not proved itself (above) nothing but the hello. `stop` checks afterwards that the
-  endpoint stopped answering. `wim agent start` does not let something that answers without the
+  endpoint stopped answering. `wim signer start` does not let something that answers without the
   proof stop it: it says so and starts a signer in its place (a POSIX socket file is replaced; on
   Windows the new signer takes a fresh pipe name). Two `start`s at once take a lock file while they
   check for a running signer and bind, so one binds and the other says one is running (without it,
@@ -458,7 +461,11 @@ What it does not stop:
   the signer is locked until it is revoked. The signer signs only objects that name this device,
   logs every request to `agent/log.jsonl` (operation, signature type, mesh and peer device; never a
   key or a plaintext), and rate limits key operations to 100 a second with a burst of 1000, which
-  slows a bulk misuse and does not prevent one.
+  slows a bulk misuse and does not prevent one. It may also ask for a decision on held messages
+  (`decide`), which the signer signs only after the person's yes in its own terminal or dialog
+  (section 7.2). Where it can read the signer's memory (below: on Windows by default) it can take
+  the device key and sign such a decision itself, so on Windows a signed decision stops an agent
+  that asks out of habit or because a peer asked, not one that means harm.
 - **Signatures made while unlocked.** What the signer signed stays valid after a lock or a stop: a
   `send` frame is accepted by receivers until it is 47 hours old by its `at` (SPEC section 6), an
   `auth` frame within the relay's 5-minute window, and a roster for good. A process that asks for
@@ -491,8 +498,18 @@ What it does not stop:
   Windows. Such a process is already more powerful than the user.
 - **Stopping or squatting the signer.** Any process of the user can stop the signer, or take its
   endpoint while it is stopped. That denies the device's sessions their keys (they report it), and
-  `wim agent unlock` and `wim agent start` report something that answers and is not the signer;
+  `wim signer unlock` and `wim signer start` report something that answers and is not the signer;
   it does not give that process the keys, the passphrase or any plaintext.
+- **A signer an agent started for itself.** An agent can clear its variables (`env -i`) and give
+  a signer a terminal of its own (a pseudo-terminal, `script`); with the passphrase (the person
+  typing it into a dialog that signer put up, `--ask-gui`) that signer would sign whatever the
+  agent typed at it. The signer therefore reads the processes above it when it starts (Linux:
+  `/proc/<pid>/environ` and `cmdline`; macOS: `ps -E`) and refuses every decision when one of them
+  was started with an agent's variables or runs an agent's program; in the foreground its input
+  must also be its controlling terminal (Linux). The passphrase dialog names the process that
+  started the signer. This is a check on the chain as it is when the signer starts: an agent
+  that first detaches its process (a new session whose parent is init or the session manager)
+  is not seen, and on Windows the parents are not read at all.
 - **Reading the signer's memory.** An administrator can. A process of the same user can where the
   OS lets it debug the signer: on Linux with `kernel.yama.ptrace_scope` 0 (with the usual 1, only
   an ancestor of the signer can), on Windows by default, on macOS only with debugging rights. That
@@ -503,7 +520,7 @@ What it does not stop:
   key's OpenSSL object, whose own copy OpenSSL frees when the object is collected; JavaScript cannot
   zero it. Strings remain until the runtime frees them: the passphrase as typed, and the key file's
   decrypted JSON while it is parsed.
-- **The passphrase at the keyboard.** A keylogger running as the person sees it. `wim agent start`,
+- **The passphrase at the keyboard.** A keylogger running as the person sees it. `wim signer start`,
   `unlock`, `encrypt` and `decrypt` ask for it at an interactive terminal with no agent's variables
   set, and keep it inside the command and the signer it starts. The other sources (stdin, a native
   dialog, the OS keyring) are below, under "Starting the signer, and where the passphrase comes
@@ -514,10 +531,10 @@ What it does not stop:
   full assurance after starting to use the signer, join the mesh with a new device and revoke the
   old one.
 
-**Starting the signer, and where the passphrase comes from.** `wim agent start` runs the signer
+**Starting the signer, and where the passphrase comes from.** `wim signer start` runs the signer
 detached from the command (its own session on POSIX, no console window on Windows), so it keeps
 running after the terminal or VS Code that started it closes. It ends at log out or restart, or
-with `wim agent stop`; nothing restarts it unless the person sets that up, and `wim agent status`
+with `wim signer stop`; nothing restarts it unless the person sets that up, and `wim signer status`
 says whether one runs. The passphrase reaches it in one of these ways:
 
 - **The person's own terminal** (the default): typed without echo, where no agent's variable is
@@ -525,17 +542,17 @@ says whether one runs. The passphrase reaches it in one of these ways:
 - **A native dialog** (`--ask-gui`, for `start` and `unlock`): osascript on macOS, zenity or
   kdialog on Linux, the Windows PowerShell credential dialog on Windows. `start` asks again, up to
   three times, while what was typed does not open the key file.
-- **At each log in** (`wim agent autostart enable`): a login item (a launchd agent on macOS, an
-  XDG autostart entry on Linux, a logon task on Windows) runs `wim agent start --foreground
+- **At each log in** (`wim signer autostart enable`): a login item (a launchd agent on macOS, an
+  XDG autostart entry on Linux, a logon task on Windows) runs `wim signer start --foreground
   --ask-gui` with the state directory pinned in `WIM_HOME`. This is the default way to start it
   without typing in a terminal: the dialog belongs to a process the login session started, so the
   person types the passphrase into something that is not an agent's descendant, and the signer
   that holds it is not one either (above, "Reading the signer's memory"). A process of the user can
   still put up a look-alike dialog of its own; a dialog that comes at any time other than log in,
   or after a `start` the person ran, is not the signer's.
-- **The OS keyring** (`--keyring`, opt-in, set up with `wim agent autostart enable --keyring` at
+- **The OS keyring** (`--keyring`, opt-in, set up with `wim signer autostart enable --keyring` at
   the person's own terminal): the login item reads the passphrase from the keyring, so nobody types
-  it. `wim agent autostart disable`, or `enable` without `--keyring`, removes the stored passphrase.
+  it. `wim signer autostart disable`, or `enable` without `--keyring`, removes the stored passphrase.
   What that exposes depends on the keyring, and enabling it says so first:
   - macOS: the login keychain, in an item added with no trusted application (`security
     add-generic-password -T ""`, the passphrase given over stdin, never on a command line), so
@@ -564,7 +581,7 @@ set no agent variable, so they need no opt-in.
 
 The signer is optional. With a plaintext key file and no signer, clients behave as before. An
 encrypted key file needs a running, unlocked signer, and clients say so. `require_signer` (in
-`agent/config.json`, set by `wim agent encrypt` and cleared by `wim agent decrypt`, or
+`agent/config.json`, set by `wim signer encrypt` and cleared by `wim signer decrypt`, or
 `WIM_REQUIRE_SIGNER=1`) makes clients refuse a plaintext key file: a guard against restoring an old
 plaintext backup by mistake, not against a process of the user, which can change the setting.
 
@@ -745,6 +762,12 @@ old by design. They are presented as history or labels, never as something to ac
   name and queue pass to a new connection only if it presents the same sid or the session's resume
   secret, kept 0600 with the session's state; a sid that is online elsewhere passes only with the
   resume secret. Two agents on one device that pick the same name do not read each other's queues.
+  A claim (`--take`, `WIM_TAKE=1`, the `rename` tool's `take`) uses only those resume secrets: it
+  needs read access to the state directory, as the device keys do, and adds no trust. A peer's
+  text can ask an agent to take over an offline name of its own device. That changes no trust and
+  reaches no other device, but it routes that name's queue, held items and leases to the agent
+  that took it, so the tool asks agents to take only on the person's word, and `wim status` shows
+  every takeover of the last 24 hours.
   These rules separate honest sessions; they are not a boundary against a hostile process under
   the same OS user, which is the device anyway (section 5.8). An offline session is kept for 24
   hours, and while its queue holds messages. A closed Claude Code tab is such an offline session
@@ -779,8 +802,9 @@ room names and membership, lease keys (a hash of mesh id and lease name, recover
 names), lease holders and timing, blob ids, sizes and timing, that a short invite code exists with
 the admin device that stored it, its size and when and from where it is fetched (never the invite), the full sender and recipient list of
 every message, timestamps, sizes, and receipt outcomes (which reveal when a person's policy held or
-refused an item), and each device's prekeys with their rotation times (they travel in clear
-headers). Message kinds, file names and card contents are inside the encryption.
+refused an item), each device's prekeys with their rotation times (they travel in clear
+headers), and which session asked for an idle notice about which other session. Message kinds,
+file names and card contents are inside the encryption.
 
 On a relay that takes CI senders (SPEC sections 10 and 18), also: each GitHub notice's ID token,
 read once to verify it and never stored, so for that moment every claim it carries (repository,
@@ -893,6 +917,26 @@ Limits:
   forward secrecy from every message that names it; the sender says so (`wim send` prints "Sent
   without forward secrecy to ...: no current prekey for ...", and the outcome lists both). Every
   scheme 1 box ever recorded opens with the static key.
+- **Closing the window early.** `wim legacy-boxes refuse` makes a device behave as from 1.0 now
+  (SPEC section 6b): it never seals a scheme 1 box (a direct send to a device with no current
+  prekey is refused, a broadcast, room send or card skips it), and it drops every scheme 1 box it
+  receives as `legacy_box`. A relay that withholds prekeys can then deny that device's sends to
+  the device it hides, but no longer strip their forward secrecy. Anyone may turn it on, an agent
+  included, since it only makes the device stricter. Turning it off (`wim legacy-boxes accept`) is
+  the person's alone, behind the guard of `wim devices trust` (section 7.2: their own terminal and
+  a typed `y`), and no MCP tool or events op reaches it. Like every file in the state directory,
+  the guard keeps agents from the command, not from `$WIM_HOME/legacy-boxes` itself (section 9).
+  It is off by default until 1.0; `wim status` and `wim doctor` show it. A file that reads as
+  neither `refuse` nor `accept` (garbage, or one that cannot be read) counts as refuse, and
+  `wim status` reports it as a problem. A device with it on
+  cannot talk to v0.1 clients, and boxes it recorded before turning it on are unchanged. A drop is
+  not silent: the receiving session gets a local notice (labelled as the client's, never a peer's)
+  once per sender device per session (keyed by the verified device, since the session name is the
+  sender's to choose), naming the first address seen and carrying none of the message, since
+  the box was never opened; and every drop adds one to `$WIM_HOME/legacy-boxes-dropped`, a bare
+  count that `wim status` shows. A sender in the roster, or a relay delivering its frames again, can
+  make the count grow, nothing more: the notice is once per device per session, so neither can
+  flood the spool.
 - **Deletion is a file rewrite.** It runs whenever a wim process for the mesh runs; a device that is
   switched off keeps what it held until a wim process next runs. Rewriting a file does not erase
   the old bytes from an SSD, a journaling or copy-on-write file system, a snapshot or a backup. A
@@ -1034,15 +1078,38 @@ Anything in your setup that treats user-role input as the person's (hooks, permi
 treat these the same way. An item that wakes an idle session starts a turn with the session's
 current permissions: in a permissive mode, a trusted device's request runs with nobody watching.
 
+**How `wim hook` asks other agents for a turn.** Gemini CLI, Antigravity CLI, Codex CLI, Cursor and
+Copilot CLI can run `wim hook <agent>` when a turn ends (docs/peers.md). Each hands the hook's text
+to the model as the person's next prompt or as a system message, never labelled as a hook (Gemini
+CLI, Codex and Cursor as the user; Antigravity as a system message to pay attention to), so it
+carries the weight of the person or the system. The text is therefore fixed: a count and the
+instruction to call the `inbox` tool ("2 messages from other AI sessions are waiting in
+worldinmotion. Call the worldinmotion inbox tool to read them."). An idle notice the session asked
+for is counted the same way, in a fixed line of its own ("1 notice this session asked for is
+waiting in worldinmotion..."), a count and never an address. No peer text, session name,
+address, device name, file name or any other field a peer or relay chose reaches it. The messages
+themselves reach the model only through `inbox`, inside the frame above. The turn the hook asks
+for is a mesh turn: before it prints the line, it writes the session's presence as `busy-mesh`, so
+what the agent sends in that turn is marked derived (SPEC 6a), as in a turn the Claude Code plugin
+starts. When that write fails, it prints no line. A turn end that lets the agent stop writes `idle`,
+which ends the mesh turn; with no single session found, it writes nothing, and a session left
+marked only marks more of what it sends as derived. Besides presence, the hook writes only its own
+record of what it announced, in the session's state directory, runs no shell (on macOS it runs
+`ps` directly, once, to read process start times), and lets the
+agent stop on any payload it does not recognise.
+
 The plugin's internal tool (`_internal`: handshake, peer rows, routing, the held queue, leases) is
 refused to the model by the plugin's hooks, and each call must also carry a random per-process
 token that only the plugin's first handshake receives. None of its operations decides anything for
 the person: approving, refusing and dismissing are not reachable through any tool the model can
-call. The plugin's pane records each decision as an empty mark file in the session's state
-directory, which the client applies. A mark file is still a file: any process under the OS user
-can write one (section 5.8), so an agent allowed to write files or run shell commands without a
-prompt can approve a held item. Keep the state directory outside what an agent may change
-unprompted. The tool exists only when `wim mcp` runs with `WIM_KIND=claude-code`, which only the
+call. Without the signer, the plugin's pane records each decision as an empty mark file in the
+session's state directory, which the client applies. A mark file is still a file: any process
+under the OS user can write one (section 5.8), so an agent allowed to write files or run shell
+commands without a prompt can approve a held item. Keep the state directory outside what an agent
+may change unprompted, or run the signer: with the device's keys in it, a decision is taken only
+signed by the signer after the person confirmed it there (section 7.2, "Decisions the signer
+signs"), every mark file is refused, and the pane's buttons say to decide with `wim held` or VS
+Code instead. The tool exists only when `wim mcp` runs with `WIM_KIND=claude-code`, which only the
 plugin sets; outside the plugin nothing refuses it to the model.
 
 ### 7.2 Inbound policy and work assignment
@@ -1051,22 +1118,62 @@ Policy is per sender device id: `deliver`, `deliver-relayed`, `hold` (wait for t
 `refuse`. Sessions on the same device, and devices the person trusts, are `deliver`;
 every other device is `hold`. Held items wait until the person approves them in the pane, in a
 local UI or at the command line. Only the person changes policy: at the command line (`wim devices
-trust` and `untrust`, one device or `--all`, and the "Is it your own device?" question that
-`wim invite`, `wim devices admit` and `wim join` ask at an interactive terminal), or with the trust
-and untrust actions of a local UI such as the VS Code extension, which asks the person to confirm
-the new policy first (section 7.5). No message, tool call or MCP request can change it.
+trust` and `untrust`, one device or `--all`), with the trust and untrust actions of a local UI such
+as the VS Code extension, which asks the person to confirm the new policy first (section 7.5), or
+as part of their approval of an own-device invite, pairwise, never transitive. `wim invite` asks
+"Is the new device one of yours?" before it shows the code (the VS Code Add a Device... pick asks
+the same), and the answer is kept in the invite's record on that admin device, never in the code;
+an own-device invite sets `deliver` for the device it admits, and nothing is asked after the admit.
+`wim invite --auto` never trusts: nobody approves that join. On the joining side, `wim join` and
+`wim setup <code>` ask first about the device that admitted this one, alone ("laptop admitted this
+device. Is laptop your own device?"), but only when the invite code names it as the invite's maker
+(`by`, SPEC section 5): every admin receives a join request, so in a mesh shared with another
+person their admin could add the device first. When the device that admitted it is not the maker,
+or the code names none (one from before 0.2.0), the joiner is told so and that device is asked
+about like any other. Then each other device is asked about on its own, never all at once; the
+VS Code extension asks the same in modals. On the admin side, the comparison-code prompt, `wim
+devices pending` and the VS Code admit box say when admitting will trust the device (an
+own-device invite). A device another device added later is never trusted
+because that device is: VS Code asks about it (Trust..., or Not Mine, kept on that machine), and
+`wim status` lists it as held. Every automatic trust prints its undo (`wim devices untrust`). No
+message, tool call or MCP request can change policy, and none can set an invite's `own` or the
+`added_by` a UI shows, which the client reads only from its own invite records and its verified
+roster chain; a UI compares the adder by its id (`added_by_id`), never its name. A joining device
+names the adder only of devices admitted after its invite's pin, the start of the chain it keeps. In a mesh with another person's devices, answer no for theirs: they stay at hold.
 `wim devices trust --all` trusts every device in the mesh, other people's included; it is for a
 mesh of your own devices.
 
+**Held items are decided a set at a time.** Every approve and refuse surface (`wim held`, the
+`approve` and `refuse` requests of `wim events`, the VS Code Held view and the Claude Code pane)
+groups what is held into sets: everything from one sending device, by the device id the client
+authenticated, and every CI notice under one CI rule, by the rule's id (which `wim ci remove` does
+not renumber). A notice whose rule was removed while it was held is a set of its own. The whole set
+is shown, in order, with its count and time span, before the person decides, so a request split
+across several harmless-looking messages (agent session smuggling, section 5.2) is read as one.
+The grouping and the count come from what the client authenticated, never from text a sender
+wrote, and each item's text is folded to one escaped line, so a message cannot imitate a heading,
+a count or another item. A decision covers exactly the ids shown: `wim held` takes the ids when it
+draws the set, and a UI sends them (`set` in `wim events`, one mark per id in the pane), so an item
+that arrives after the set was drawn stays held for the next look. The events process checks that
+every id it is sent belongs to one set before it decides any of them. Approving a set never covers
+a CI notice whose approval pins its rule's ids (section 6.17): each of those is marked in the set
+and approved on its own at the person's terminal; refusing the set covers it. Deciding one item
+alone stays possible, only as an explicit choice after the whole set was shown (`one` at the
+command line, "Approve only this one" in the VS Code dialog started from that item, the per-item
+buttons under the set in the pane). The VS Code dialog is modal, and neither Enter (its default button, "Keep them held") nor Escape decides anything. Who decides does not change: the
+same person-only rule below guards every path.
+
 **Who counts as the person.** At the command line, `wim held approve`, `refuse` and `resume`,
-`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`), and
-`wim mesh delete` run only when standard input and standard output are both an interactive
+`wim devices trust` and `untrust` (one device or `--all`, with or without `--relayed`),
+`wim legacy-boxes accept` (section 6.14), `wim mesh delete`, and `wim setup` (every path, before
+its first question) run only when standard input and standard output are both an interactive
 terminal and none of an agent's variables is set. They then show what is being decided (for a
 held item: the sender, its device id, the session it waits for, why it waits and its text; for a
 device: its name, role, id, and the policy now and after; for a mesh: its id, relay and every
-device it holds, and that this device's copy goes too) and act only on a typed `y` or `yes`. There is no flag that skips this,
-since an agent could pass a flag as easily as the person. The variables are the ones agent hosts
-set in the shells they run: `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` and
+device it holds, and that this device's copy goes too) and act only on a typed `y` or `yes`.
+There is no flag that skips this, since an agent could pass a flag as easily as the person. The
+variables are the ones agent hosts set in the shells they run: `CLAUDECODE`,
+`CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID` and
 `CLAUDE_CODE_MESSAGING_SOCKET` (Claude Code), `AI_AGENT`, `GEMINI_CLI`, `CURSOR_AGENT`,
 `CURSOR_TRACE_ID`, `OPENCODE`, `AIDER_MODEL`, `ANTIGRAVITY_AGENT`, `WIM_AGENT` and any `CODEX_`
 variable. Other `CLAUDE_CODE_` variables are not on the list, because people set some of them
@@ -1075,6 +1182,83 @@ device (section 5.6), and an events process started with these variables refuses
 decisions (section 7.5). No MCP tool approves, refuses, resumes, trusts or deletes a mesh, and the
 plugin's internal tool only reads. This stops an agent that runs the command itself, by habit or because
 a peer asked; it is a same-user check, not a boundary (section 9).
+
+**Decisions the signer signs.** With the device's key file encrypted (`wim signer encrypt`, section
+5.8), an approve, refuse or resume also needs the signer's own confirmation, and nothing else
+counts as one:
+
+- The deciding command (`wim held approve`, `refuse` and `resume` at the person's terminal, or the
+  events process for a local UI) asks the signer with a `decide` request naming the verdict, the
+  mesh and the held ids (for a resume, the peer), with a fresh six-digit code that the asking
+  command (or VS Code) shows the person. The signer reads those items from the state directory
+  itself, never from the request, and shows the code and each item (sender, sessions, kind, time,
+  its first line or, for a CI notice, the text that is delivered, escaped and on one line) in the
+  terminal it runs in (`wim signer start --foreground` at an interactive terminal: a typed `y`) or
+  else in a native dialog (zenity with markup off or kdialog, an AppleScript dialog that takes the
+  text as an argument, a Windows message box), whose default button is Cancel where the tool
+  allows it. Each dialog program is run by its absolute path (`/usr/bin/zenity`, `/usr/bin/kdialog`,
+  `/usr/bin/osascript`, Windows PowerShell under `%SystemRoot%`), never looked up on `PATH`, and on
+  Linux and macOS only when it and its directory are root's and writable by nobody else, so a
+  program of the user's put in its place cannot answer for the person; the passphrase dialog is
+  run the same way. A held copy that is not a well-formed item is not shown or signed, and an id
+  whose copies differ in what the person would be shown (in two sessions' held directories) is
+  refused, so one copy cannot be shown while another is released. A resume names a session address
+  whose device is in the mesh's roster, the dialog shows the roster's name and device id, and the
+  signer refuses one over anything but that device's breaker holds. It asks one decision at a
+  time; a second request meanwhile is refused, not queued, and after a decline it takes the next
+  only after a wait (10 seconds, doubling to 5 minutes; a yes starts it over). Every ask ends after
+  5 minutes, or when the asking process goes away (its connection closes: `wim events` stopping
+  drops its open asks), as a no; and the signer signs nothing for an asker that went away, even
+  on a later yes. One request names at most 1000 ids, the most a UI sends in one set, and covers
+  at most 8000 copies; a client with more (a resume of a long pause) asks in parts, each
+  confirmed.
+- Only on the person's yes does it sign, with the device key, a decision over exactly those ids,
+  each bound to a SHA-256 digest of the item as it read it, with the verdict, the mesh, the device,
+  its time and a fresh ULID (label `wim-agent/2 held-decision`, a label no other signature of the
+  key uses; the generic `sign` operation never makes one).
+- A session releases or drops an item only under a decision that verifies against the device's
+  public key, names this device and mesh, is at most 48 hours old and not dated ahead, and covers
+  that id with the digest of the item as it is held now. A decision reaches a session another
+  process runs as a file (`held/<ULID>.decision`); a session's own process (a UI's events process)
+  takes it with the request. An item the decision does not cover stays held: one that arrived
+  after the person was shown the set, one from another device, and a copy changed on disk after
+  the signer read it. Each session acts on a decision once: it records the session and the
+  decision's ULID in the mesh's `decisions.used`, under a lock, until the decision is too old to
+  take, and a record that cannot be read refuses the decision rather than starting over. A replay
+  does nothing in any case: its ids are decided already, and a resume lifts only a pause that
+  started before the person signed it, so a copy played later (in a session opened since, or
+  offline) lifts no pause that came after. A resume releases only the breaker holds it covers; a
+  covered item that fails to apply (a CI notice that pins its rule's ids) stays held and the rest
+  are still decided.
+- Mark files (`held/<id>.approve`, `.refuse` and `.resume`, and `control/resume-<peer>`) are
+  refused, with the reason in the session's log, and the items stay held; `wim doctor` lists any it
+  finds on disk. The Claude Code pane does not write them then: its buttons say where to decide.
+- A locked or stopped signer takes no decision: the request fails, and nothing is decided until
+  the person unlocks or starts it. A signer started under an agent's variables (`--allow-agent-passphrase`)
+  refuses every decision, since it cannot tell the person from the agent, and so does one with
+  neither a terminal nor a dialog to ask in.
+
+What it does not stop: the signer cannot tell who connected to its socket (section 5.8), so any
+process of the user may ask it for a decision; the person is the check, which is why the dialog
+says to decline anything they did not just ask for and shows the asking command's code, and why
+the signer shows what it read itself. A process of the user that drives the desktop (synthetic
+input on X11, accessibility rights on macOS, UI automation on Windows) could press Sign in the
+dialog, as it could type into a terminal. One that can read the signer's memory (on Windows by
+default, section 5.8) can sign a decision with the device key itself. A signer an agent started
+itself, detached from it before it starts, is not told from the person's (section 5.8, "A signer
+an agent started for itself"), and a person who types the passphrase into a dialog they did not
+expect hands the keys to whoever put it up.
+And it changes nothing about writing the spool: a process that can write the state directory can
+still put text straight into a session's spool, which the plugin delivers (section 5.8). Without
+the signer, decisions are taken as before, and `wim doctor` advises running it.
+
+**`wim setup` edits other agents' configs only on the person's typed `y`.** For each agent it finds
+(Codex CLI, Gemini CLI, Antigravity CLI, Cursor, Copilot CLI, Claude Desktop) it shows the change to
+each config file as a diff and writes it only on a typed `y`, after copying the original beside it
+(`<file>.wim-backup-<time>`). It touches only the worldinmotion MCP server entry and the
+`wim hook` entries, offers only the read-only tools (`peers`, `inbox`, `wait`, `history`) where
+the agent has a tool list, and leaves alone a file that is a symbolic link, is not a regular file,
+is larger than 1 MiB, or does not parse (docs/peers.md, "What `wim setup` writes").
 
 **Trusted devices can assign work.** An item from a `deliver` device, other than relayed text, is
 framed as a work assignment from a device the person trusts: the agent may carry it out within its
@@ -1104,6 +1288,16 @@ something it read, its requests arrive as trusted work everywhere you trust it. 
   permission mode; the receiving host's prompts and the agent's own judgment are the last line.
   Run sessions that accept work from other devices in a mode that still asks before risky tools.
 - **The breaker** caps how often any peer can wake an agent (section 7.3).
+- **What wakes another agent at turn end, and what never does.** `wim hook` asks for one more
+  turn only for unread messages, tasks, results and files that a device the person trusts now
+  sent itself, and idle notices this session armed about such a device that the client did not
+  spool as `quiet` (one per arm, section 7.3), in the spool of the one `wim mcp` running inside
+  the same agent session. Held items (they are not in the spool), items from untrusted devices,
+  relayed text, CI notices, other notices, notices for the person and items or notices about a
+  device the breaker has paused never count. The hook
+  names its session by the process that started `wim mcp` (pid and start time, recorded while
+  `wim mcp` runs); when it cannot name exactly one live session, it does not wake, and it never
+  counts another session's spool. An idle session never wakes this way.
 
 **The SendMessage bridge.** The Claude Code plugin takes the model's SendMessage calls whose
 recipient is a mesh address (`#room`, or `name@device` where the device is in the roster and the
@@ -1157,14 +1351,74 @@ being admitted run one at a time on the session's inbound queue, so none of them
 another, and a message the person or a release delivered is recorded as seen, so a copy the relay
 brings again is never delivered twice.
 
-The pause lifts when the person resumes the peer (`wim held resume`, Resume in a local UI, or
-"Approve and resume this device" on a held item, which approves that item and resumes its device
-in every session of this device), when its cool-down ends, or when the hour rolls over. The sessions
+The person decides what the breaker held a set at a time (section 7.2): approving a set releases
+those items and keeps the pause on, and every surface says so and names the resume. The pause lifts
+when the person resumes the peer (`wim held resume`, Resume in a local UI, or "Approve and resume
+this device" on a held item, which approves that item and resumes its device in every session of
+this device), when its cool-down ends, or when the hour rolls over. The sessions
 told about it hear it lifted, from the session's next process when it was resumed while not
 running. Approving and resuming stay the person's (section 7.1): no MCP tool, internal op, message
 or `pause` reaches them, and the client's own release at the end of a cool-down is a timer the
 person set in mesh.json, which an agent can only wait for. No message can change the limits or the
 trust.
+
+**Continuations count.** A turn-end continuation from `wim hook` adds no delivery the breaker did
+not admit: every item it counts was counted by the breaker when the client put it in the spool,
+exactly like the items the Claude Code plugin delivers, and the agent's replies feed the ping-pong
+detector as any send does. The hook writes nothing to the breaker. It reads the session's
+`breaker.json`, and a device with a running pause never wakes the agent. It also announces each
+item once per agent session, and lets a stop that already follows a continuation end where the
+agent says so (`stop_hook_active`), so a looping pair of agents gets at most one extra turn per
+admitted message. That extra turn is a mesh turn (section 7.1): what the agent sends in it is
+derived, so a trusted request it carries goes one hop, not two.
+
+**Finished notices count.** A client spools an idle notice as one that may start a turn only when
+the device that the armed address names is one the person trusts now, the breaker does not pause
+it, and the breaker admits one more notice wake from it. Notice wakes are counted per device on
+their own (so notices never use up a peer's messages) and toward the total with messages. A notice
+past the per-peer or total limit trips a pause on that device, as a message would: a cool-down the
+client ends by itself, of which the person is told, the agent quietly, and during which that
+device's messages are held too. Any other notice is spooled `quiet`: it waits for `inbox`, `wait`
+or a running turn. Notices do not feed the ping-pong detector, since they carry no text a peer
+wrote. A client accepts only notices it armed, one per arm, and never arms its own address, so an
+agent that re-arms on every notice and a peer that flaps its presence trip that cool-down. A turn a
+notice starts is a mesh turn: `wim hook` writes `busy-mesh` before its line, and a channel push
+writes it before the push, or does not push.
+
+**Only an armed notice may wake.** An item starts a turn only when it is a message, task, result
+or file, or an idle notice this session armed (it names the watched device), and the client did not
+spool it `quiet`. That is an allow-list on every path: `wim hook`, the channel push and the Claude
+Code plugin all apply it, so an item of a kind they do not know or with no kind, a notice of any
+other kind, one in a format from before the watch was named, and one whose `quiet` is malformed
+(any value but `false`) never start a turn. The client spools every notice of its own quiet (an
+unreadable or dropped message, a held receipt, a claim, a release, a rename, a lost lease, a pause),
+and a message from a held sender that the person approves quiet too: it is theirs to read, and
+`wim hook` would not wake for it either. The trust in that last rule is the one at release; `wim
+hook` checks trust and the breaker's pauses again when it reads, and the plugin, which cannot read
+them, relies on the client's mark. A quiet item for the agent, and a notice from an older client
+that names no watch, wait in the box for `inbox`. The plugin adds a quiet item to a running turn,
+as it does a relayed item, and otherwise leaves it in its pane and for `inbox`, never submitting it
+(a person's own press of "Give to Claude" in the pane is their act, as for a relayed item).
+
+**Every plugin turn is a mesh turn.** The plugin writes `busy-mesh` to the session's presence before
+it submits, and submits nothing when that write fails, as `wim hook` and the channel push do. The
+engine names no submit in the turn it starts, so a submit is matched to its turn by its text. A turn
+that starts while one is pending is marked a mesh turn too, and the submit stays pending until a
+turn with its exact text starts, so a person's prompt that runs first cannot leave the submit's own
+turn unmarked. While one is pending, presence stays `busy-mesh`, between turns as well. Pending
+submits are forgotten only once the session has stood idle for 30 seconds with no turn started
+since the last one ended and since the newest submit: nothing is queued then (a hook reworded the
+submit, or the engine merged it). A turn whose presence cannot be written is tried once more, then
+logged. A SendMessage that only arms a watch (no message) sends no text and asks the person
+nothing, whoever calls it: the arm alone cannot start a turn, since the client decides that when
+the notice comes.
+
+**Receipts are for sends.** A client takes a receipt only for a message this session sent: one it
+put on the wire in this process, or one its history records as sent. Any other is dropped and
+logged before it is kept, told to anyone or recorded, so a relay cannot raise held-receipt notices,
+events or history lines for ids it invents. Only an id history could hold (a ULID no older than
+history keeps, and not ahead of the clock) is looked up, at most four at a time, and the receipts
+kept in memory for `send --wait` are bounded.
 
 CI notices (section 6.17) are counted in a bucket of their own: per repository (by default 60 in
 an hour) and for all CI together (240), never toward the peer and total limits above, so a busy
@@ -1198,13 +1452,16 @@ lines over stdio ([docs/events.md](docs/events.md)). The VS Code extension is on
   show held items and decide them; it cannot bypass any of the three, and it has no way to skip
   the secret filter.
 - **The person's actions.** `approve`, `refuse`, `trust`, `untrust` and `resume` change what reaches
-  the agents, and `invite`, `admit` and (on a device in no mesh yet) `join` change the mesh, so
-  they are the person's. Only the process that started `wim events` holds its stdio, so only that
+  the agents, and `invite`, `admit` and (on a device in no mesh yet) `create` and `join` change the
+  mesh, so they are the person's. Only the process that started `wim events` holds its stdio, so only that
   UI can send them. The VS Code extension runs them only from a click in its own views, a command
   the person runs, or a dialog it shows, accepts only items from its own views as arguments, and
   asks the person to confirm a trust change in a dialog that names the device and the new policy.
   It admits a device only with the comparison code the person types from the new device's screen,
-  and copies an invite code with a button, never showing it. An events process started with an
+  and copies an invite code with a button, never showing it. A mesh it creates gets its recovery
+  code (section 5.7) only through `wim recovery show --wait` in a terminal the person opens with a
+  click: the events process holds the code in memory for that command, for ten minutes, and never
+  writes it in a line, so it never reaches a view, a notification or the client log. An events process started with an
   agent's variables (section 7.2) refuses every one of these actions with code `refused`. No
   events request deletes a mesh: that is `wim mesh delete`, at the person's own terminal only.
 - **Peer text stays text.** Message text, previews, addresses, card fields and file names are
@@ -1295,6 +1552,49 @@ That is safe only because of where the script can act, so isolation is the prope
   variables or without an interactive terminal on stdin and stdout, as a person-only command
   would. Each question is shown with its device and what the step expects.
 
+### 7.7 `wim agent`: a peer that runs agent jobs
+
+`wim agent` (package `@worldinmotion/agent`, README there) sleeps until a message arrives and
+runs one job through a runner command for an allowed sender. It is the one peer whose purpose is
+to act on what another session says, so its edges are these.
+
+- **Who wakes it.** Only a device id on its allow-list, taken from the item's verified signature
+  (the roster device whose key signed it), never the session or display name, which the sender
+  picks. By default the person must also trust that device on the worker's own device, read for
+  every item. Relayed or derived items, `result`s and files never start a job. A device not on the list is
+  ignored without a reply.
+- **The wake code.** Optional. Checked in constant time (both sides are hashed to 32 bytes and
+  compared with `timingSafeEqual`), and counted against the sender's hourly attempts whether it
+  matches or not. When the worker is configured to leave the code to the runner, the worker
+  process never reads it, and the runner (for example under another OS user) checks it.
+- **No message text on disk.** The worker's session uses `redactStoredText`: spool files and
+  history entries (received and sent) keep every field but the text, no file is fetched to
+  disk, an item the loop breaker would hold is refused
+  (with one `busy` reply per pause) rather than held, and an item from an untrusted device is held
+  for the person with its metadata only. So a wake code or a task never lands in plaintext under
+  the worker's state directory. Frames parked for a newer roster (section 6.4) stay encrypted.
+- **The runner contract.** One process per job, in its own process group, with the request on
+  stdin and only the configured environment variables. The request carries the signed frame the
+  message arrived in, so a runner under another OS user (the privileged runner) verifies the
+  sender and opens the box itself instead of believing the worker: a compromised worker can then
+  neither forge a sender nor replay a message it saw. Nothing from a message is put on a command
+  line. A timeout sends SIGTERM to the group, then SIGKILL after a grace period; a runner started
+  through `sudo` must enforce its own timeout too, because the worker cannot signal root-owned
+  processes.
+- **The built-in runner** loads no settings, hooks, `CLAUDE.md` or MCP servers from the machine,
+  denies every tool not listed (read-only tools by default), and keeps no session. Prompt
+  injection is contained, not prevented: the model reads only what its OS user and `cwd` allow,
+  and its answer goes only to the sender and the configured room.
+- **Spend.** Task length, attempts per device per hour, one job at a time, a job timeout, and a
+  daily job cap kept on disk (a ledger that cannot be read counts as the cap reached), on top of
+  wim's loop and cost breaker (section 7.3) and whatever limit the model provider enforces.
+- **Replies** are always marked relayed (H1), so each recipient must trust the worker's device
+  with `--relayed` to receive them, and a recipient's agent treats them as third-party text.
+- **What it does not cover.** A compromised allowed device acts within the limits; a compromise
+  of the worker's OS user gives its device keys (and the code, when the worker holds it); a tool
+  set that can change the machine turns every allowed message into a command. Run the worker as
+  its own unprivileged user (the package's `docs/deploy.md`).
+
 ## 8. The A2A gateway
 
 `wim a2a` connects the mesh to Agent2Agent agents in both directions.
@@ -1315,7 +1615,8 @@ That is safe only because of where the script can act, so isolation is the prope
 
 - Forward secrecy is bounded, not per message: a stolen key file opens what was sealed to its
   device in the last 120 hours. During the migration window a relay can force v0.1 boxes, which
-  have none, and every recorded v0.1 box opens with the static key.
+  have none, and every recorded v0.1 box opens with the static key. A device can close the window
+  now with `wim legacy-boxes refuse` (section 6.14), at the cost of reaching no v0.1 client.
 - Sessions on one device are not isolated; anything running as the OS user is the device. With the
   signer, it can no longer take the keys away, but it can ask the unlocked signer to act for the
   device (section 5.8).
@@ -1329,16 +1630,23 @@ That is safe only because of where the script can act, so isolation is the prope
 - A device you trust can assign work to all of your trusting sessions; a compromised or injected
   trusted device steers them within their permissions until you set it to `hold` or revoke it.
 - Relayed marking covers clients that forward text, not agents that restate what they read.
+- An idle notice is the relay's word and says nothing about the work itself. A session whose
+  agent reports no turns reads idle always, so a notice armed on it fires only when it ends. A
+  local process can write a session's presence, its `watches.json` and its spool, and so unmark a
+  mesh turn or arm a watch.
 - Room sends through the SendMessage bridge do not ask the person, and reach every device.
 - Revocation reaches a client with the next message from a peer that has seen it, or with the next
   roster push; in a quiet mesh that can take time.
 - Plugin-delivered prompts carry no engine-enforced peer origin; their framing says what they are.
 - Prompt-injection defences are framing, policy, the relayed flag and the breaker, not a guarantee.
-- The held view shows each item on its own, not the thread it belongs to, so a request split across
-  several items (agent session smuggling, section 5.2) is easy to approve piece by piece.
+- Held items are shown and decided a set at a time, per sending device or CI rule (section 7.2), not
+  per thread: a request split across two devices, or across a set the person approved and a later
+  one, is still read in pieces. Deciding one item alone after the set was shown stays possible.
 - The outbound secret filter is best effort, and does not look inside binary files.
-- Approval marks and policy are files under the OS user: a local process, or an agent allowed to
-  write files unprompted, can change them. So are the CI rules (`ci-rules.json`) and the
+- Without the signer, approval marks and policy are files under the OS user: a local process, or
+  an agent allowed to write files unprompted, can change them. With the signer, approvals are not:
+  each needs the signer's confirmation and signature (section 7.2), but the policy still is, and a
+  process that can write the state directory can still write into a spool directly (section 5.8). So are the CI rules (`ci-rules.json`) and the
   providers' keys a device keeps (`ci-jwks.json`): whoever writes the rules allows a repository,
   and whoever plants keys can forge notices that match any rule until the copy is a day old (a
   copy dated in the future is ignored).
@@ -1347,7 +1655,10 @@ That is safe only because of where the script can act, so isolation is the prope
   local UI, which cannot delete a mesh)
   stops an agent that runs the command or answers a prompt for its person by accident or habit. A
   process of the OS user can unset the variables, run a terminal of its own and type into it, or
-  write the mark files and the policy directly.
+  write the mark files and the policy directly. With the signer, a decision on held messages also
+  needs the person's yes in the signer's own terminal or dialog, which such a process gets by
+  driving the desktop, by reading the signer's memory (on Windows by default), or from a signer it
+  started detached with a passphrase the person typed into its dialog (sections 5.8 and 7.2).
 - Card working directories are shared with every member by default.
 - A GitLab CI notice is not bound to the job that sent it: whoever can read that job's variables
   can send one notice as its project, and the relay cannot filter GitLab notices, so anyone with a

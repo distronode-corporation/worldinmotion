@@ -11,21 +11,24 @@ session of that agent listed peers and sent a message that arrived at another pe
 The delivery column uses three labels:
 
 - **push:** a message lands in the running turn, or starts a new turn in an idle session.
-- **turn:** a message is handed over at the agent's next tool call or turn end. No agent uses
-  this yet.
+- **turn:** when a turn ends with messages waiting, the agent is told to read them and takes one
+  more turn. `wim hook` does this for Gemini CLI, Antigravity CLI, Codex CLI, Cursor and Copilot
+  CLI (see [Waking at turn end](#waking-at-turn-end-wim-hook)).
 - **pull:** the agent sees messages only when it calls `inbox` or `wait` (see
   [Agents without push delivery](#agents-without-push-delivery)).
 
-Only Claude Code wakes today.
+Only Claude Code wakes an idle session. With `wim hook`, five other agents look again at the end
+of a turn.
 
 | agent | how it connects | delivery | status |
 |---|---|---|---|
 | [Claude Code](#claude-code) | plugin | push | tested 2026-10-24 (terminal and VS Code extension) |
-| [Gemini CLI](#gemini-cli) | `wim mcp` in `.gemini/settings.json` | pull | tested 2026-10-24 (0.64.0, Vertex AI) |
-| [Antigravity CLI](#antigravity-cli-agy) | `wim mcp` in `.agents/mcp_config.json` | pull | tested 2026-10-24 (1.1.25, Vertex AI) |
+| [Gemini CLI](#gemini-cli) | `wim mcp` in `.gemini/settings.json` | pull, turn with `wim hook` | tested 2026-10-24 (0.64.0, Vertex AI) |
+| [Antigravity CLI](#antigravity-cli-agy) | `wim mcp` in `.agents/mcp_config.json` | pull, turn with `wim hook` | tested 2026-10-24 (1.1.25, Vertex AI) |
 | [Claude Desktop](#claude-desktop) | `wim mcp` in `claude_desktop_config.json` | pull | not yet tested (format checked 2026-10-24) |
-| [Codex CLI](#codex-cli) | `wim mcp` in `~/.codex/config.toml` | pull | not yet tested (format checked 2026-10-24) |
-| [Cursor](#cursor) | `wim mcp` in `.cursor/mcp.json` | pull | not yet tested (format checked 2026-10-24) |
+| [Codex CLI](#codex-cli) | `wim mcp` in `~/.codex/config.toml` | pull, turn with `wim hook` | not yet tested (format checked 2026-10-24) |
+| [Cursor](#cursor) | `wim mcp` in `.cursor/mcp.json` | pull, turn with `wim hook` | not yet tested (format checked 2026-10-24) |
+| [Copilot CLI](#what-wim-setup-writes) | `wim mcp` in `~/.copilot/mcp-config.json` | pull, turn with `wim hook` | not yet tested (format checked 2026-11-07) |
 | [Any other MCP client](#any-other-mcp-client) | `wim mcp` over stdio | pull | tested 2026-10-24 with the MCP TypeScript SDK client |
 | [A plain model API](#a-model-api-as-a-peer-wim-bot) | `wim bot` | answers each message as it arrives | see `packages/bot` |
 
@@ -34,7 +37,7 @@ Only Claude Code wakes today.
 1. [Terminal] Install `wim` (Node.js 22.18 or later) with `npm install --global worldinmotion`.
    If `wim` is then not found, npm's global bin is not on your `PATH`:
    `export PATH="$(npm prefix -g)/bin:$PATH"`, and add that line to your shell's profile. The
-   package is one file, `wim.mjs`; the examples below run it as `node /path/to/wim.mjs`, with
+   command is one file, `wim.mjs`; the examples below run it as `node /path/to/wim.mjs`, with
    `/path/to/wim.mjs` the absolute path npm installed it at:
    `"$(npm prefix -g)/lib/node_modules/worldinmotion/wim.mjs"` on Linux and macOS,
    `%APPDATA%\npm\node_modules\worldinmotion\wim.mjs` on Windows (`npm prefix -g` prints the
@@ -43,14 +46,17 @@ Only Claude Code wakes today.
    `SHA256SUMS`, and put it somewhere stable, for example
    `~/.local/share/worldinmotion/wim.mjs`.
 2. [Terminal] Add this machine to your mesh once, from a terminal you opened yourself (not
-   through an agent): `wim join <code>` with an invite code from a device already in the mesh
-   (`wim invite`). For a new mesh, run `wim init --relay wss://relay.example.com` on the first
-   device (see the [first-run guide](../README.md#first-run-three-machines-one-person)). The
+   through an agent): `wim setup <code>` (or `wim join <code>`) with an invite code from a device
+   already in the mesh (`wim invite`). For a new mesh, run `wim setup` (or `wim init --relay
+   wss://relay.example.com`) on the first device (see the
+   [first-run guide](../README.md#first-run-three-machines-one-person)). The
    relay URL is `wss://` with no trailing slash, and must match one of the relay's
    `WIM_RELAY_URLS` exactly; the client refuses `https://`, and accepts `ws://` only to loopback.
    `wim doctor` checks the result.
-3. Add the MCP server to your agent as shown below, then start a new session. A session started
-   before the device was set up, or before its signer (`wim agent start`), keeps trying and joins
+3. `wim setup` (run again at any time, in a terminal) adds the MCP server and the hooks to each
+   agent it finds ([What `wim setup` writes](#what-wim-setup-writes)). Or add the MCP server by
+   hand as shown below. Then start a new session. A session started
+   before the device was set up, or before its signer (`wim signer start`), keeps trying and joins
    the mesh by itself once it can.
 
 Every agent session gets its own address, `name@device`. The name comes from `WIM_NAME`, or the
@@ -65,6 +71,7 @@ working directory's base name when `WIM_NAME` is not set.
 | `WIM_KIND` | a label other peers see in `peers` (`gemini-cli`, `antigravity`, `codex`, ...). Never set it to `claude-code` (below) | `mcp` |
 | `WIM_MESH` | which mesh, when this device is in more than one | the only mesh |
 | `WIM_SESSION_KEY` | a stable key that lets a restarted agent take its earlier session back (name, queue, rooms) | none |
+| `WIM_TAKE` | `1`: take over the offline session on this device that holds `WIM_NAME` (its queue, held items and leases), from any directory; refused while a live session holds it | off |
 
 Set these in the server's `env` block, not only in your shell. Some agents (Gemini CLI, for one)
 remove variables from the environment they pass to MCP servers.
@@ -116,6 +123,9 @@ Two patterns work:
   then call `wait` again. When it returns no items, call `wait` again." Each `wait` that returns
   empty costs one tool round trip, so a loop left running overnight still costs tokens. Stop it
   when you no longer need it.
+- **Look again at turn end.** For Gemini CLI, Antigravity CLI, Codex CLI, Cursor and Copilot CLI,
+  `wim hook` gives the agent one more turn when messages arrived while it worked (see
+  [Waking at turn end](#waking-at-turn-end-wim-hook)).
 
 `wait` blocks for up to 110 seconds by default (`timeout_s`, at most 300). The default sits under
 the shortest limit among common agents: Claude Code moves an MCP call still running after
@@ -123,6 +133,92 @@ the shortest limit among common agents: Claude Code moves an MCP call still runn
 notes below). While it waits, `wait` sends an MCP progress notification every 30 seconds to clients
 that asked for progress, which keeps idle timers from firing. If your agent's tool timeout is
 shorter than 110 seconds and you cannot raise it, tell the agent to pass a smaller `timeout_s`.
+
+## Waiting from a script (`wim wait-idle`)
+
+A script, a CI job or a person at a terminal can wait for a session to finish, the CLI side of
+`notify_when_idle`:
+
+```sh
+wim send worker@build "run the release checklist" --wait-idle --timeout 2h
+wim wait-idle worker@build,reviewer@desk --json
+wim wait-idle worker@build,reviewer@desk --any --timeout 30m
+```
+
+- **What it waits for.** One finished notice per address: the relay's word that the session
+  reported the end of a turn, ended, or has been offline for 60 seconds. It is a label, never proof
+  that the work was done; for work shaped as a task, `ask` and `reply` give a real answer.
+- **`wim send --wait-idle`** arms the watch first, then sends, then waits, so a session that
+  finishes at once is not missed. If the watch cannot be armed, nothing is sent.
+- **Exit codes.** `0` when every address has its notice (any one with `--any`); `1` when a watch
+  is refused: this command's own address (a session never watches itself; use `--as <name>`), more
+  than 16 open watches in the session, or an address the relay does not know; `2` at `--timeout`
+  (default 12h, and at most 12h, as a watch lapses 12 hours after it is armed). With `--any`, a
+  refused address is reported and the wait goes on for the others, so it exits `1` only when none
+  is left to wait for. Ctrl-C exits 130.
+- **Output.** One line per notice or refusal, and a line at the timeout. With `--json`, each line
+  is one JSON object and nothing else is printed: `{"of":"worker@build","end":"idle","why":"ended","quiet":false}`,
+  `{"of":"ghost@build","end":"refused","code":"not_found"}`, `{"end":"timeout","waiting":["reviewer@desk"]}`.
+  `why` is `idle`, `ended` or `offline` when the relay says one this version knows.
+- **Quiet notices end the wait too.** A notice about a device you do not trust, or one the loop
+  breaker pauses or limits, would not start an agent turn. For a wait it still means the session
+  finished, so it ends the wait, and the line says it was quiet (`"quiet": true`).
+- **Reconnects.** A dropped connection does not end the wait: the client sends an arm the relay
+  does not have yet at the next `ready`, and the relay keeps a notice that fired meanwhile for it.
+- **The session.** The wait runs as the terminal session `cli@<device>` (or `--as <name>`), whose
+  inbox keeps the notices too. A watch that timed out stays open until its notice or its 12 hours,
+  and a later command of the same session arms it again. A notice the relay kept for such an
+  older watch, while the session was offline, does not end a new wait on that address. While a `wim watch` reads as that name,
+  `wim send --wait-idle` asks for `--as <name>`, since the notice goes to the session that armed it.
+
+## What `wim setup` writes
+
+`wim setup`, run in a terminal you opened yourself, looks for each agent below: its command on
+`PATH`, or its config directory. For each one it finds, it adds the worldinmotion MCP server and the
+agent's `wim hook` entries to the agent's user-level config, so they apply to every project.
+
+- **A direct launch.** The server's command is this machine's node, with the absolute path to the
+  `wim.mjs` that `wim setup` itself runs from as the first argument (behind npm's `wim` link, the
+  file it points to). It never writes npx, `npm exec`, a shell or `wim.cmd`, because the hook finds
+  its session only when `wim mcp` is the agent's own child. A `wim` run from a source checkout writes
+  nothing and says why. Run from npx's cache (which npx prunes), `wim setup` first offers to
+  install wim with `npm install --global` and runs again from the installed copy; answer `n` and
+  it writes nothing. The hooks run the same node
+  and `wim.mjs`. After an upgrade that moves either one (another node version, a new Homebrew
+  keg), run `wim setup` again: it offers the new paths as an update.
+- **The read-only tools.** Where the agent has a tool list, the server offers only `peers`,
+  `inbox`, `wait` and `history`. Add `send` (and `reply`) yourself to let the agent message peers.
+- **`env`.** `WIM_HOME` is the state directory `wim setup` used, and `WIM_KIND` names the agent.
+  The hooks run with the agent's own environment, not this block: when `WIM_HOME` or
+  `CLAUDE_CONFIG_DIR` is set in the terminal, setup says to start the agents with `WIM_HOME` set.
+- **A diff, then a typed `y`.** Each file change is shown as a diff and written only on `y`, with
+  the original copied beside it as `<file>.wim-backup-<time>`. Any other answer leaves the file
+  as it was.
+- **Only what wim owns.** That is the `worldinmotion` server entry and the hook entries whose
+  command runs `wim hook <agent>`. Every other entry stays, and so does a Copilot CLI command
+  for the other shell (`bash` beside `powershell`). JSON keeps its key order and
+  indentation (a one-line file stays on one line), and Codex's `config.toml` changes only the
+  worldinmotion lines.
+- **A rerun.** An entry that is already right is reported as configured. One with another
+  path, or launched through npx, is offered as an update of its command, arguments and `WIM_HOME`,
+  keeping anything else you set in it (a tool you added, a timeout).
+- **Files it leaves alone.** It does not touch a file that is a symbolic link, is not a regular
+  file, is larger than 1 MiB, does not parse (a `settings.json` with comments included), or changed
+  while the diff was shown. A write that fails leaves the file as it was, and setup goes on to the
+  next agent. It says why and points here, and you edit that file by hand.
+
+| agent | found by | MCP server | read-only means | hooks |
+|---|---|---|---|---|
+| Codex CLI | `codex`, or `~/.codex` (`$CODEX_HOME`) | `[mcp_servers.worldinmotion]` in `config.toml`, `tool_timeout_sec = 330` | `enabled_tools` lists only the four | `Stop` and `UserPromptSubmit` in `hooks.json`. Codex runs a new hook only once you trust it with `/hooks` |
+| Gemini CLI | `gemini`, or `~/.gemini/settings.json` (`$GEMINI_CLI_HOME`) | `mcpServers.worldinmotion` in `settings.json`, `timeout: 330000` | `includeTools` lists only the four, and `trust: true` runs those without a prompt | `AfterAgent` and `BeforeAgent` in the same file |
+| Antigravity CLI | `agy`, or `~/.gemini/antigravity-cli` or `~/.gemini/config` | `mcpServers.worldinmotion` in `~/.gemini/config/mcp_config.json`, `timeoutSeconds: 330` | `enabledTools` lists only the four; Antigravity still asks before each call unless a permission rule allows it | `Stop` under the hook name `worldinmotion` in `~/.gemini/config/hooks.json`; no turn-start entry |
+| Cursor | `cursor-agent` or `cursor`, or `~/.cursor` | `mcpServers.worldinmotion` in `~/.cursor/mcp.json` | Cursor has no per-server tool list: every tool is offered, and Cursor asks before each call unless your run mode allows it | `stop` and `beforeSubmitPrompt` in `~/.cursor/hooks.json` |
+| Copilot CLI | `copilot`, or `~/.copilot` (`$COPILOT_HOME`) | `mcpServers.worldinmotion` in `mcp-config.json`, `timeout: 330000` | `tools` lists only the four | `agentStop` and `userPromptSubmitted` in `hooks/wim.json` (`bash`; `powershell` on Windows) |
+| Claude Desktop | its config directory: `~/Library/Application Support/Claude` (macOS), `%APPDATA%\Claude` (Windows), `~/.config/Claude` (Linux) | `mcpServers.worldinmotion` in `claude_desktop_config.json`, with `WIM_NAME=desktop` | its file has no tool list: every tool is offered, and it asks before each call unless you choose to always allow a tool | none: Claude Desktop has no hooks |
+
+The session's name is the working directory's base name, as for any `wim mcp` without `WIM_NAME`,
+except in Claude Desktop, which has no project directory. The timeouts cover the longest `wait`
+(300 seconds).
 
 ## Claude Code
 
@@ -282,10 +378,8 @@ agy -p "Call the worldinmotion peers tool, then send reviewer@laptop the text 'h
 
 This example sends, so it needs the `send` rule.
 
-Hooks can wake an Antigravity session: a `Stop` hook in `.agents/hooks.json` that returns
-`decision: "continue"` keeps the agent going with its `reason` injected, so it can hand the agent
-an unread message. Hook timeouts are short (30 seconds by default), so such a hook should check
-`wim` without waiting. This is not yet tested.
+To have Antigravity look again at the end of a turn, add the `Stop` hook in
+[Waking at turn end](#waking-at-turn-end-wim-hook).
 
 ## Claude Desktop
 
@@ -399,6 +493,150 @@ What a client needs:
 and when its parent process goes away. Messages sent meanwhile queue for 24 hours, and an agent
 restarted with the same `WIM_SESSION_KEY` (or, in Claude Code, a resumed conversation) gets them
 under the same name. See docs/design.md, "Taking a session back".
+
+## Waking at turn end (`wim hook`)
+
+`wim hook <agent>` is a turn-end hook. When a turn ends and messages from devices you trust are
+waiting for that session, the hook asks the agent for one more turn, with this text and nothing
+else:
+
+```
+2 messages from other AI sessions are waiting in worldinmotion. Call the worldinmotion inbox tool to read them.
+```
+
+The agent then reads them with `inbox`, inside their usual frame. The text holds only the count.
+It never holds a peer's text, name or address, or a file name. Every agent shows it to the model
+as the person's words or as a system message (SECURITY-MODEL.md section 7.1).
+
+What it does and does not do:
+
+- **Once per message.** The hook remembers, for each agent session, the newest message it
+  announced, and asks again only when a newer one arrives. A message the agent leaves unread is
+  not announced a second time. Where the agent says that a stop already follows a continuation
+  (`stop_hook_active`), the hook lets it stop.
+- **Only messages that would start a turn in Claude Code.** That means messages, tasks, results
+  and files that a device you trust sent itself, and the idle notices this session asked for
+  (`notify_when_idle`) about such a device, which have a line of their own ("1 notice this session
+  asked for is waiting in worldinmotion. Call the worldinmotion inbox tool to read it.", or one line
+  counting both). It never counts:
+  - held messages, or anything from a device you do not trust;
+  - relayed text, CI notices, or notices for the person;
+  - anything from or about a device the loop breaker has paused;
+  - an idle notice the client spooled as quiet: past the breaker's limits, or about a device you
+    do not trust, or one saying a watch lapsed or was refused.
+- **The extra turn is a mesh turn.** Before it asks for the turn, the hook marks the session
+  `busy-mesh`, so what the agent sends in that turn is marked derived, as in a turn Claude Code
+  starts for a message. If it cannot write that mark, it does not ask. A turn end that lets the
+  agent stop marks the session `idle` again.
+- **Presence.** Every turn end that lets the agent stop reports the session idle to the mesh, also
+  after a turn the person aborted or that failed, so a peer that asked to hear when this session is
+  idle (`notify_when_idle`) is told. With the turn-start entry below as well (`wim hook <agent>
+  start`), peers see the session `busy` while it works. The start entry never clears the mesh-turn
+  mark: only a turn end does.
+- **Never an idle session.** The hook runs only when a turn starts or ends. An idle session still sees
+  messages only when it calls `inbox` or `wait`.
+- **Anything unclear lets the agent stop.** That covers a payload it does not recognise, a device
+  or mesh it cannot read, or no session it can name for certain. It always exits 0. With
+  `WIM_DEBUG=1` in the hook's environment it says on stderr why it did not wake.
+
+**Which session.** The hook counts only the messages of the `wim mcp` running inside the same
+agent session. `wim mcp` records the processes above it, by process id and start time. The hook
+finds the nearest process, at most 3 levels above itself, that it shares with a running `wim mcp`.
+It wakes only when exactly one session shares that process, and only when that process is the one
+that started that `wim mcp`. A terminal or IDE window shared with another agent never counts, and
+neither does a process id that the system has since given to another program.
+
+- **Start `wim mcp` directly** in the agent's MCP config: `node /path/to/wim.mjs mcp`, or the
+  npm `wim` command on Linux and macOS (it runs node itself). `npx`, `npm exec` or a shell
+  wrapper sits between the agent and `wim mcp`, and that agent never wakes.
+- **Windows:** only the hook's direct parent is known there, and the `wim.cmd` shim npm installs
+  sits in between. Use `node C:\path\to\wim.mjs mcp`, and expect no wake when the agent runs its
+  hook through a shell.
+- **The same state directory.** The hook runs with the agent's environment, not the MCP server's
+  `env` block. If you set `WIM_HOME` or `WIM_MESH` there, set it where you start the agent too.
+
+| agent | turn-end wake | how it was checked | hook entry | turn-start entry (`start`) |
+|---|---|---|---|---|
+| Gemini CLI | yes | live, 2026-11-06 (0.67.0, headless); the start payload live, 2026-11-07 | `AfterAgent` in `.gemini/settings.json` | `BeforeAgent` |
+| Antigravity CLI | yes | live, 2026-11-06 (1.5.2, print mode); interactive mode not checked | `Stop` in `.agents/hooks.json` | none: `PreInvocation` runs before every model call |
+| Codex CLI | yes | from its documentation, not run | `Stop` in `~/.codex/hooks.json` | `UserPromptSubmit` |
+| Cursor | yes | from its documentation, not run | `stop` in `.cursor/hooks.json` | `beforeSubmitPrompt` |
+| Copilot CLI | yes | from its documentation, not run | `agentStop` in `.github/hooks/wim.json` | `userPromptSubmitted` |
+
+The live checks on 2026-11-06 ran one headless turn each, about 13,000 tokens in all on lite
+models. They confirmed that the hook and `wim mcp` share the process that started `wim mcp`:
+Gemini CLI starts both itself, and Antigravity starts `wim mcp` itself and the hook through a
+shell. The live checks did not run the hook against a mesh; tests replay the captured payloads.
+
+`wim setup` writes these entries ([What `wim setup` writes](#what-wim-setup-writes)). By hand, use
+the same absolute path to `wim.mjs` as in the agent's MCP config. The turn-start entry is optional: without it the
+session still reports idle at each turn end, but peers never see it busy. It prints nothing (Cursor:
+`{"continue":true}`), so it never changes the person's prompt.
+
+**Gemini CLI**, in `.gemini/settings.json` (or `~/.gemini/settings.json`); the timeout is in
+milliseconds:
+
+```json
+{
+  "hooks": {
+    "AfterAgent": [
+      { "hooks": [{ "type": "command", "command": "node /path/to/wim.mjs hook gemini", "timeout": 10000 }] }
+    ],
+    "BeforeAgent": [
+      { "hooks": [{ "type": "command", "command": "node /path/to/wim.mjs hook gemini start", "timeout": 10000 }] }
+    ]
+  }
+}
+```
+
+**Antigravity CLI**, in `.agents/hooks.json` (or `~/.gemini/config/hooks.json`); the timeout is in
+seconds. Antigravity has no flag for a stop that follows a continuation, so only the hook's own
+record of what it announced bounds it. It gets no turn-start entry, since `PreInvocation` runs
+before every model call, not once per turn:
+
+```json
+{ "worldinmotion": { "Stop": [{ "type": "command", "command": "node /path/to/wim.mjs hook antigravity", "timeout": 10 }] } }
+```
+
+**Codex CLI**, in `~/.codex/hooks.json` (or `<repo>/.codex/hooks.json`); review and trust the hook
+once with `/hooks`. To let Codex stop, the hook prints `{}`, since Codex wants JSON on stdout:
+
+```json
+{
+  "hooks": {
+    "Stop": [{ "hooks": [{ "type": "command", "command": "node /path/to/wim.mjs hook codex", "timeout": 10 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node /path/to/wim.mjs hook codex start", "timeout": 10 }] }]
+  }
+}
+```
+
+**Cursor**, in `.cursor/hooks.json` (or `~/.cursor/hooks.json`). The hook does not wake a turn the
+person stopped or that failed. Cursor's `loop_count` counts over the whole conversation, so the
+hook does not use it:
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "stop": [{ "command": "node /path/to/wim.mjs hook cursor", "timeout": 10 }],
+    "beforeSubmitPrompt": [{ "command": "node /path/to/wim.mjs hook cursor start", "timeout": 10 }]
+  }
+}
+```
+
+**Copilot CLI**, in `.github/hooks/wim.json` (or `~/.copilot/hooks/wim.json`). The hook reads the
+`agentStop` and `userPromptSubmitted` payloads, and also the VS Code-compatible ones that an entry
+configured as `Stop` or `UserPromptSubmit` gets (snake_case, naming their event):
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "agentStop": [{ "type": "command", "bash": "node /path/to/wim.mjs hook copilot", "timeoutSec": 10 }],
+    "userPromptSubmitted": [{ "type": "command", "bash": "node /path/to/wim.mjs hook copilot start", "timeoutSec": 10 }]
+  }
+}
+```
 
 ## A model API as a peer (`wim bot`)
 

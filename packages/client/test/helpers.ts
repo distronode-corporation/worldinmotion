@@ -310,6 +310,15 @@ export function spooled(s: MeshSession, match: (i: SpoolItem) => boolean): Promi
   });
 }
 
+/**
+ * The text a framed spool item carries, between its `-text` and `-end` lines, or undefined for an
+ * item without one. Tests read this instead of searching `rendered`, whose random boundary and
+ * device id can contain any short word.
+ */
+export function framedText(rendered: string): string | undefined {
+  return /^<<<wim-text (\S+)>>>\n([\s\S]*)\n<<<wim-end \1>>>$/m.exec(rendered)?.[2];
+}
+
 /** A mesh with an admin device and members, built with the real create, invite and join flows. */
 export async function makeMesh(relay: RelayHarness, names: string[], opts: { trust?: boolean } = {}): Promise<{ mesh: string; devices: TestDevice[]; recoveryCode: string | undefined }> {
   const [first, ...rest] = names;

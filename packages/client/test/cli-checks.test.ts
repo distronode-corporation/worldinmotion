@@ -48,7 +48,7 @@ describe("flags", () => {
     expect(await run(t, "-h")).toBe(0);
     expect(t.out.at(-1)).toBe(USAGE);
     expect(await run(t, "send", "-h")).toBe(0);
-    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name>] [--wait <30s>]");
+    expect(t.out.at(-1)).toBe("wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s> | --wait-idle [--timeout 12h]]");
   });
 
   it("refuses a --limit that is not a positive whole number, and an unknown devices action", async () => {

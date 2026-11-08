@@ -12,8 +12,7 @@ export interface Child {
   stdin: { write(chunk: string): boolean; end(): void; on(ev: "error", fn: (err: Error) => void): unknown } | null;
   stdout: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
   stderr: { on(ev: "data", fn: (chunk: Buffer) => void): unknown } | null;
-  on(ev: "exit", fn: (code: number | null, signal: string | null) => void): unknown;
-  /** After `exit`, once stdout and stderr are closed too: all output has been read. */
+  /** After the process exited, once stdout and stderr are closed too: all output has been read. */
   on(ev: "close", fn: (code: number | null, signal: string | null) => void): unknown;
   on(ev: "error", fn: (err: Error) => void): unknown;
   kill(): boolean;
@@ -196,7 +195,9 @@ export class EventsProcess {
       this.opts.log(`could not run ${cmd.cmd}: ${e.message}`);
       this.exited(child, e.message);
     });
-    child.on("exit", (code, signal) => {
+    // `close`, not `exit`: the last lines (a `created`, say) may still be in the pipe at `exit`,
+    // and nothing is read from a child once it is finished with.
+    child.on("close", (code, signal) => {
       const why = signal === null ? `exited with code ${code}` : `stopped by ${signal}`;
       this.exited(child, lastErr === "" ? why : `${why}: ${lastErr}`);
     });
@@ -310,13 +311,13 @@ export function selfTestCommand(o: ClientOptions & { cwd: string }): Command {
 }
 
 /**
- * The integrated terminal that starts the signer (`wim agent start`, or `unlock` when it is
+ * The integrated terminal that starts the signer (`wim signer start`, or `unlock` when it is
  * locked) with the same client as `wim events`. The person types the passphrase there, in a
  * terminal they opened by running the command, not in one an agent drives. The terminal adds its
  * `env` to VS Code's own, so only Electron's run-as-Node switch is set (or cleared).
  */
 export function signerTerminal(o: ClientOptions & { locked: boolean; cwd: string }): TerminalSpec {
-  return clientTerminal(o, "worldinmotion signer", ["agent", o.locked ? "unlock" : "start"]);
+  return clientTerminal(o, "worldinmotion signer", ["signer", o.locked ? "unlock" : "start"]);
 }
 
 /** What `vscode.window.createTerminal` is given. */
@@ -329,6 +330,16 @@ export type TerminalSpec = { name: string; shellPath: string; shellArgs: string[
  */
 export function crashReportsTerminal(o: ClientOptions & { on: boolean; cwd: string }): TerminalSpec {
   return clientTerminal(o, "worldinmotion crash reports", ["crash-reports", o.on ? "on" : "off"]);
+}
+
+/**
+ * The integrated terminal for `wim recovery show --wait`, with the same client as `wim events`: a
+ * new mesh's recovery code appears there, and only there, in a terminal the person opened by
+ * clicking, never in a view, notification or output channel. `--wait` keeps it on screen until
+ * the person presses Enter, since VS Code closes the terminal when its command ends.
+ */
+export function recoveryTerminal(o: ClientOptions & { cwd: string }): TerminalSpec {
+  return clientTerminal(o, "worldinmotion recovery code", ["recovery", "show", "--wait"]);
 }
 
 /** A terminal running the client with `rest`; its `env` is added to VS Code's own. */

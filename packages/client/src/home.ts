@@ -94,13 +94,13 @@ export class Home {
     if (file === undefined) return undefined;
     if ("plain" in file) {
       if (this.env.requireSigner === true || (await readAgentSettings(this.root)).require_signer === true) {
-        throw new SetupError(`${this.devicePath} is not encrypted, and this device requires the signer: run \`wim agent encrypt\`, then \`wim agent start\``);
+        throw new SetupError(`${this.devicePath} is not encrypted, and this device requires the signer: run \`wim signer encrypt\`, then \`wim signer start\``);
       }
       return file.plain;
     }
     const sealed = file.sealed;
     const signPub = b64u.decode(sealed.signPub);
-    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim agent start\` in a terminal you opened yourself`;
+    const notRunning = `the device keys in ${this.devicePath} are encrypted and no signer is running: run \`wim signer start\` in a terminal you opened yourself`;
     // Found again for each connection: the session outlives a signer restart.
     const client = new SignerClient({ endpoint: () => agentEndpoint(this.root, this.env, false), expect: signPub });
     let hello;
@@ -112,7 +112,7 @@ export class Home {
     }
     if (hello.locked) {
       client.close();
-      throw new NotReadyYet("the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
+      throw new NotReadyYet("the signer is locked: run `wim signer unlock` in a terminal you opened yourself");
     }
     return { name: sealed.name, id: sealed.id, keyring: signerKeyring(client, { signPub, boxPub: b64u.decode(sealed.boxPub) }) };
   }
