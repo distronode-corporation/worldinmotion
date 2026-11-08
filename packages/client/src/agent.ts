@@ -387,9 +387,10 @@ export class Signer {
       // A resume may lift a pause that holds nothing yet; anything else decides something held.
       if (items.length === 0 && req.verdict !== "resume") throw new AgentError("refused", "none of these ids is held on this device");
       const yes = await desk.confirm(decisionView(req, items, peer), gone);
+      // An asker that went away is no decline of the person's: it starts no wait.
+      if (gone?.aborted === true) throw new AgentError("refused", "the process that asked went away before you answered: nothing was signed");
       this.declined = yes ? { until: 0, ms: 0 } : this.nextBackoff();
       if (!yes) throw new AgentError("refused", "you declined it in the signer: nothing changed");
-      if (gone?.aborted === true) throw new AgentError("refused", "the process that asked went away before you answered: nothing was signed");
       const signKey = this.signKey;
       if (signKey === undefined) throw new AgentError("locked", "the signer was locked before it signed: nothing changed");
       const at = this.o.now();

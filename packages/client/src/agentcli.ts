@@ -298,22 +298,25 @@ export function desk(ctx: AgentCtx): Desk {
   };
   if (ctx.flags.get("foreground") === true && cannotConfirm(ctx.env, ctx.io) === undefined) {
     const question = "Type y to sign this decision; anything else declines it [y/N] ";
-    // A question nobody answered in time is still read: the next ask takes its answer, never a second reader.
-    let pending: Promise<string> | undefined;
+    // A question nobody answered in time is still being read. What is typed there answers nothing:
+    // it is taken and dropped, and only then is the next decision asked, so a yes meant for one
+    // decision never signs another, and the terminal never has two readers.
+    let stale: Promise<string> | undefined;
     return {
       read,
       device,
       confirm: async (lines, gone) => {
         await guard(true);
         for (const line of lines) ctx.io.out(line);
-        if (pending !== undefined) ctx.io.out(question);
-        const answer = (pending ??= ctx.io.prompt(question));
+        if (stale !== undefined) ctx.io.out("An earlier question is still open and counts for nothing: press Enter, then answer this one.");
+        const answer = stale === undefined ? ctx.io.prompt(question) : stale.then(() => ctx.io.prompt(question));
         const typed = await within(answer, CONFIRM_SECONDS * 1000, gone);
         if (typed === undefined) {
+          stale = answer;
           ctx.io.out("No answer in time, or the process that asked went away: declined.");
           return false;
         }
-        pending = undefined;
+        stale = undefined;
         return /^y(es)?$/i.test(typed.trim());
       },
     };

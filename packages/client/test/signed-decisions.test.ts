@@ -293,6 +293,12 @@ describe("the signer's decide", () => {
     expect(await decide()).toBe(declined);
     clock.now += 9_999;
     expect(await decide()).toBe(waiting(1));
+    // An asker that went away starts no wait.
+    const away = await bare({ read: async () => [{ item: a, session: "s" }], confirm: async (_l, gone) => (gone as AbortSignal | undefined)?.aborted !== true && false }, { firstMs: 10_000, maxMs: 25_000 });
+    const gone = new AbortController();
+    gone.abort();
+    expect(await code(away.signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }, gone.signal))).toBe("refused: the process that asked went away before you answered: nothing was signed");
+    expect(await code(away.signer.handle("decide", { code: CODE, mesh: MESH, verdict: "approve", ids: [a.id] }))).toBe(declined);
     // The default wait: 10 s, at most 5 minutes.
     expect(DECLINE_BACKOFF).toEqual({ firstMs: 10_000, maxMs: 300_000 });
     const plain = await bare({ read: async () => [{ item: a, session: "s" }], confirm: async () => false }, "default");
@@ -350,7 +356,7 @@ describe("the signer's own desk (wim agent)", () => {
     for (const answer of ["y", "YES", " yes "]) expect(await ask(signerDesk((await ctxFor({ foreground: true, answer })).ctx))).toBe(true);
   });
 
-  it("ends an ask when the asker goes away, and the next ask takes the answer of a question still open", async () => {
+  it("ends an ask when the asker goes away, and drops what is typed at a question still open", async () => {
     let answer!: (a: string) => void;
     let prompts = 0;
     const fg = await ctxFor({ foreground: true, prompt: () => (prompts++, new Promise<string>((r) => (answer = r))) });
@@ -361,18 +367,25 @@ describe("the signer's own desk (wim agent)", () => {
     gone.abort();
     expect(await first).toBe(false);
     expect(fg.out).toEqual(["first", "No answer in time, or the process that asked went away: declined."]);
-    // Asked again: the question already open is not asked a second time; what is typed answers this one.
+    // Asked again: what is typed at the question still open is dropped, never this decision's answer.
     const second = ask(d, ["second"]);
     await until(() => fg.out.includes("second"), "shown");
-    expect(fg.out.at(-1)).toBe("Type y to sign this decision; anything else declines it [y/N] ");
+    expect(fg.out.at(-1)).toBe("An earlier question is still open and counts for nothing: press Enter, then answer this one.");
     answer("y");
-    expect(await second).toBe(true);
-    expect(prompts).toBe(1);
-    // A pre-aborted ask declines at once; the question after it is a new one.
+    await until(() => prompts === 2, "asked anew");
+    answer("n");
+    expect(await second).toBe(false);
+    // Answered, the next ask is a question of its own; a pre-aborted one declines at once.
     const done = new AbortController();
     done.abort();
     expect(await ask(d, ["third"], done.signal)).toBe(false);
-    expect(prompts).toBe(2);
+    expect(prompts).toBe(3);
+    const fourth = ask(d, ["fourth"]);
+    await until(() => fg.out.includes("fourth"), "shown");
+    answer("y");
+    await until(() => prompts === 4, "asked after the stale one");
+    answer("y");
+    expect(await fourth).toBe(true);
     // What is waited for: an answer, a time that runs out, or the asker gone.
     expect(await within(Promise.resolve("y"), 1000)).toBe("y");
     expect(await within(new Promise<string>(() => undefined), 20)).toBeUndefined();

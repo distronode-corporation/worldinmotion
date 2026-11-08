@@ -125565,9 +125565,9 @@ var Signer = class {
       if (signed.length > MAX_DECISION_ITEMS) throw new AgentError("refused", `these ids are held in ${signed.length} copies, more than one decision takes (${MAX_DECISION_ITEMS}): ask for fewer at once`);
       if (items.length === 0 && req.verdict !== "resume") throw new AgentError("refused", "none of these ids is held on this device");
       const yes3 = await desk2.confirm(decisionView(req, items, peer), gone);
+      if (gone?.aborted === true) throw new AgentError("refused", "the process that asked went away before you answered: nothing was signed");
       this.declined = yes3 ? { until: 0, ms: 0 } : this.nextBackoff();
       if (!yes3) throw new AgentError("refused", "you declined it in the signer: nothing changed");
-      if (gone?.aborted === true) throw new AgentError("refused", "the process that asked went away before you answered: nothing was signed");
       const signKey = this.signKey;
       if (signKey === void 0) throw new AgentError("locked", "the signer was locked before it signed: nothing changed");
       const at = this.o.now();
@@ -126412,21 +126412,22 @@ function desk(ctx) {
   };
   if (ctx.flags.get("foreground") === true && cannotConfirm(ctx.env, ctx.io) === void 0) {
     const question = "Type y to sign this decision; anything else declines it [y/N] ";
-    let pending2;
+    let stale;
     return {
       read,
       device,
       confirm: async (lines, gone) => {
         await guard(true);
         for (const line of lines) ctx.io.out(line);
-        if (pending2 !== void 0) ctx.io.out(question);
-        const answer = pending2 ??= ctx.io.prompt(question);
+        if (stale !== void 0) ctx.io.out("An earlier question is still open and counts for nothing: press Enter, then answer this one.");
+        const answer = stale === void 0 ? ctx.io.prompt(question) : stale.then(() => ctx.io.prompt(question));
         const typed = await within(answer, CONFIRM_SECONDS * 1e3, gone);
         if (typed === void 0) {
+          stale = answer;
           ctx.io.out("No answer in time, or the process that asked went away: declined.");
           return false;
         }
-        pending2 = void 0;
+        stale = void 0;
         return /^y(es)?$/i.test(typed.trim());
       }
     };
