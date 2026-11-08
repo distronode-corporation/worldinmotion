@@ -49,6 +49,16 @@ body line with a bracket.
   relay rolled back to 0.1.x still runs on the database). The hosted relay has it from its next
   deploy (SPEC sections 8, 9 and 10).
 
+- **`wim wait-idle` and `wim send --wait-idle`, for scripts.** `wim wait-idle <address,...>` arms a
+  finished notice for each address in a CLI session and waits, printing one line per notice (one
+  JSON object per line with `--json`): exit 0 when every address has its notice (any one with
+  `--any`), 1 when a watch is refused (this command's own address, past the 16 open watches, or an
+  address the relay does not know), and 2 at `--timeout` (default and most 12h, a watch's life).
+  `wim send <to> <text...> --wait-idle [--timeout 12h]` arms first, then sends, then waits the same
+  way, so a session that finishes at once is not missed. A quiet notice (about a device you do not
+  trust, or one the loop breaker pauses or limits) ends the wait too, and its line says it was
+  quiet. A dropped connection does not end the wait (docs/peers.md, "Waiting from a script").
+
 - **Your own devices are trusted inside the approvals you already give.** `wim invite` asks "Is the
   new device one of yours? Its messages will then be trusted here when it joins. [y/N]" before it
   shows the code, and keeps the answer in the invite's record on that device, never in the code; an

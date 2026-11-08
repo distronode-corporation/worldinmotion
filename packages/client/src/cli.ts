@@ -14,7 +14,7 @@ import type { Readable, Writable } from "node:stream";
 import { admitPending, createMesh, decideJoin, deleteMesh, forgetMesh, issueInvite, joinMesh, promoteDevice, recoverMesh, revokeDevice, rotateRecovery, type JoinPrompt } from "./admin.ts";
 import { Invites, PendingJoins, sameCode } from "./joins.ts";
 import { botIO, ciIO } from "./adapters.ts";
-import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, prekeyNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions } from "./client.ts";
+import { accepted, armRefusedWhy, ClientError, heldSendLine, MeshSession, pauseFrom, prekeyNote, type HeldBreaker, type Inbound, type SendRow, type SessionOptions, type WatchEnd } from "./client.ts";
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
@@ -111,7 +111,7 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "any", "wait-idle"]);
 /** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
 const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
 const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
@@ -128,7 +128,8 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   join: ["name"],
   devices: ["relayed", "all"],
   peers: ["all", "as", "take"],
-  send: ["allow-secret", "as", "take", "wait"],
+  send: ["allow-secret", "as", "take", "wait", "wait-idle", "timeout"],
+  "wait-idle": ["any", "json", "timeout", "as", "take"],
   ping: ["all", "timeout"],
   watch: ["as", "take"],
   inbox: ["peek", "mark-read", "as", "take"],
@@ -223,7 +224,8 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim devices [list | trust <name>|--all [--relayed] | untrust <name>|--all | revoke <name> | promote <name>]
   wim devices pending | wim devices admit <name> <code>
   wim peers [--all]
-  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s>]
+  wim send <to> <text...> [--allow-secret] [--as <name> [--take]] [--wait <30s> | --wait-idle [--timeout 12h]]
+  wim wait-idle <address,...> [--any] [--timeout 12h] [--json] [--as <name> [--take]]
   wim ping <address,...> | --all [--timeout 5s]
   wim watch [--as <name> [--take]]
   wim inbox [--peek | --mark-read] [--as <name> [--take]]
@@ -251,7 +253,7 @@ Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 
 export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI agent sessions
 
-Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
+Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, wait-idle, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
 crash-reports, legacy-boxes, test, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
@@ -566,6 +568,8 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await peers(ctx);
       case "send":
         return await send(ctx);
+      case "wait-idle":
+        return await waitIdle(ctx);
       case "ping":
         return await ping(ctx);
       case "watch":
@@ -1410,6 +1414,10 @@ async function send(ctx: Ctx): Promise<number> {
   const waitText = flag(ctx.args, "wait");
   const waitMs = waitText === undefined ? undefined : parseDuration(waitText);
   if (waitMs !== undefined && (waitMs === 0 || waitMs > WAIT_MAX_MS)) throw new SetupError("--wait takes a duration from 1ms to 1h, such as 30s");
+  const waitsIdle = ctx.args.flags.get("wait-idle") === true;
+  if (waitsIdle && waitMs !== undefined) throw new SetupError("--wait waits for receipts and --wait-idle for the sessions to finish: use one");
+  if (!waitsIdle && ctx.args.flags.has("timeout")) throw new SetupError("--timeout goes with --wait-idle");
+  const idle = waitsIdle ? idleOptions(ctx, to) : undefined;
   // The one place the secrets check can be skipped: a person, at this command line, for one send.
   // Not an agent, and not a pipe: the same rule as showing a recovery code (SECURITY-MODEL 7.4).
   const allowSecrets = ctx.args.flags.get("allow-secret") === true;
@@ -1420,9 +1428,18 @@ async function send(ctx: Ctx): Promise<number> {
   const { files } = await ctx.mesh();
   // The override is never handed over: it would travel in a file any process of this user can write.
   const watcher = allowSecrets ? undefined : await liveWatcher(files, name, ctx.fsEnv);
+  // The notice comes to the session that armed it, so the wait needs this one to itself.
+  if (idle !== undefined && watcher !== undefined) {
+    throw new SetupError(`a \`wim watch\` is reading as ${name} on this device, and --wait-idle needs a session of its own to hear the notice: use --as <name>`);
+  }
   // Offline after the command, not ended: replies queue for the next `wim watch` or `wim inbox` with this name.
   const s = watcher === undefined ? await ctx.session(name) : undefined;
+  const waiter = idle === undefined ? undefined : new IdleWait(ctx, s!, idle);
   try {
+    // Armed before the message goes, so a session that finishes at once is not missed; a watch
+    // that cannot be armed (this session's own address, the limit) sends nothing.
+    const refused = await waiter?.arm();
+    if (refused !== undefined) return refused;
     let out: SendAnswer;
     let receipts: () => Promise<ReadonlyArray<{ to: string; status: string }>>;
     if (watcher !== undefined) {
@@ -1465,6 +1482,10 @@ async function send(ctx: Ctx): Promise<number> {
     const took = out.results.filter((r) => accepted(r.status)).map((r) => r.to);
     const code = took.length === out.results.length ? 0 : 1;
     if (took.length === 0) return code;
+    if (waiter !== undefined) {
+      // The send's own failure (a recipient not taken) stands when every watch still finished.
+      return Math.max(code, await waiter.wait());
+    }
     if (waitMs === undefined) {
       ctx.io.out("Neither routed nor queued means it was read. `wim send --wait 30s` waits for each recipient's receipt.");
       return code;
@@ -1476,6 +1497,7 @@ async function send(ctx: Ctx): Promise<number> {
     const got = await waitForReceipts(ctx, receipts, took, waitMs, pause, (a, b) => ctx.io.out(`${heldWaitLine(a, out.id, b)}. Still waiting for it to be delivered...`));
     return reportReceipts(ctx, out, took, got, code, await pausesOf(took, got, pause));
   } finally {
+    waiter?.close();
     if (s !== undefined) await ctx.finish(s);
   }
 }
@@ -1506,6 +1528,138 @@ function reportReceipts(ctx: Ctx, out: SendAnswer, took: readonly string[], got:
     else ctx.io.out(`${to}: no receipt yet (still ${statusOf.get(to)}: ${SENT_MEANING[statusOf.get(to)!]})`);
   }
   return [...got.values()].some((st) => st === "refused" || st === "expired") ? 1 : code;
+}
+
+/** Exit codes of `wim wait-idle` and `wim send --wait-idle` (docs/peers.md, scripts). */
+export const WAIT_IDLE_EXIT = { finished: 0, refused: 1, timeout: 2 } as const;
+
+/** What a `wim wait-idle` waits for: session addresses, all of them or any one, for how long. */
+type IdleOptions = { addresses: string[]; any: boolean; json: boolean; timeoutMs: number; timeoutText: string };
+
+/** Reads `<address,...>`, `--any`, `--json` and `--timeout` (at most 12 hours, the life of a watch). */
+function idleOptions(ctx: Ctx, list: string): IdleOptions {
+  const addresses = MeshSession.parseTo(list);
+  const bad = addresses.filter((a) => !sessionAddressSchema.safeParse(a).success);
+  if (bad.length > 0) throw new SetupError(`a session's finished notice is for name@device addresses only, not ${bad.join(", ")}`);
+  const timeoutText = flag(ctx.args, "timeout") ?? "12h";
+  const timeoutMs = parseDuration(timeoutText);
+  if (timeoutMs === 0 || timeoutMs > LIMITS.idleNoticeLifetimeMs) throw new SetupError("--timeout takes a duration from 1ms to 12h (a watch lapses 12 hours after it is armed), such as 30m");
+  return { addresses, any: ctx.args.flags.get("any") === true, json: ctx.args.flags.get("json") === true, timeoutMs, timeoutText };
+}
+
+/** What a finished notice's `why` says, in words. */
+const IDLE_WHY: Readonly<Record<string, string>> = {
+  idle: "it reported the end of a turn",
+  ended: "it ended",
+  offline: "it has been offline for 60 seconds",
+};
+
+/**
+ * One wait for finished notices in a CLI session (design section 2.4): it listens before it arms,
+ * so no notice is missed, then prints one line per notice. The session reconnects by itself, and
+ * the client re-sends an arm not yet at the relay at the next `ready` (a relay keeps a notice that
+ * fired while this session was offline for that `ready`), so a dropped connection does not end
+ * the wait. Any notice for an armed address ends its wait, a quiet one too (one that may not start
+ * an agent turn): the line says it was quiet. Notices also stay in the session's inbox.
+ */
+class IdleWait {
+  private readonly ends: WatchEnd[] = [];
+  private readonly pending = new Set<string>();
+  private readonly onEnd = (e: WatchEnd): void => void this.ends.push(e);
+
+  private readonly ctx: Ctx;
+  private readonly s: MeshSession;
+  private readonly o: IdleOptions;
+
+  constructor(ctx: Ctx, s: MeshSession, o: IdleOptions) {
+    this.ctx = ctx;
+    this.s = s;
+    this.o = o;
+    s.on("watch", this.onEnd);
+  }
+
+  close(): void {
+    this.s.off("watch", this.onEnd);
+  }
+
+  private line(text: string, json: Record<string, unknown>): void {
+    this.ctx.io.out(this.o.json ? JSON.stringify(json) : text);
+  }
+
+  /** Arms every address: undefined when all are armed, else the exit code once each refusal is said. */
+  async arm(): Promise<number | undefined> {
+    const me = this.s.address;
+    if (this.o.addresses.includes(me)) {
+      this.line(`${me}: not watched: this command runs as ${me}, and a session never watches itself. Run it as another session with --as <name>.`, { of: me, end: "refused", code: "self" });
+      return WAIT_IDLE_EXIT.refused;
+    }
+    const armed = await this.s.notifyWhenIdle(this.o.addresses);
+    for (const w of armed.watching) this.pending.add(w.to);
+    const missed = this.o.addresses.filter((a) => !this.pending.has(a));
+    if (missed.length === 0) return undefined;
+    for (const of of missed) this.line(`${of}: not watched: ${armed.note!}`, { of, end: "refused", code: "local", note: armed.note });
+    return WAIT_IDLE_EXIT.refused;
+  }
+
+  /** Waits for the notices: 0 when every address (or one, with --any) has one, 1 on a refusal, 2 on the timeout. */
+  async wait(): Promise<number> {
+    const { ctx, o } = this;
+    const all = o.any ? "any of" : "each of";
+    if (!o.json) ctx.io.out(`Waiting up to ${o.timeoutText} for ${all} ${[...this.pending].join(", ")} to finish (Ctrl-C stops waiting). A finished notice is the relay's word that a turn ended, not proof the work is done.`);
+    const deadline = ctx.io.now() + o.timeoutMs;
+    let unnamed = 0;
+    for (;;) {
+      for (const e of this.ends.splice(0)) {
+        // An address of an older wait of this session, which the client armed again at `ready`,
+        // or a lapse: a watch of this wait lapses no sooner than its deadline (the timeout is at
+        // most a watch's 12 hours), so the deadline below ends the wait first or in this pass.
+        if (e.end === "lapsed" || (e.of !== undefined && !this.pending.has(e.of))) continue;
+        if (e.end === "idle") {
+          const why = e.why === undefined ? "it is idle or has ended" : IDLE_WHY[e.why]!;
+          const quiet = e.quiet ? " (a quiet notice: it would not start an agent turn, as that device is not trusted, is paused, or is past the loop breaker's limits)" : "";
+          this.line(`${e.of!}: finished: ${why}${quiet}`, { of: e.of, end: "idle", ...(e.why === undefined ? {} : { why: e.why }), quiet: e.quiet });
+          this.pending.delete(e.of!);
+          if (o.any || this.pending.size === 0) return WAIT_IDLE_EXIT.finished;
+          continue;
+        }
+        const why = armRefusedWhy(e.code!);
+        if (e.of === undefined) {
+          // An older relay that does not say which arm it refused.
+          this.line(`one of ${[...this.pending].join(", ")}: not watched: ${why} (the relay did not say which)`, { end: "refused", code: e.code });
+          unnamed += 1;
+        } else {
+          this.line(`${e.of}: not watched: ${why}`, { of: e.of, end: "refused", code: e.code });
+          this.pending.delete(e.of);
+        }
+        if (!o.any || unnamed >= this.pending.size) return WAIT_IDLE_EXIT.refused;
+      }
+      if (ctx.io.signal.aborted) return STOPPED;
+      if (ctx.io.now() >= deadline) {
+        this.line(`no finished notice within ${o.timeoutText} for ${[...this.pending].join(", ")}`, { end: "timeout", waiting: [...this.pending] });
+        return WAIT_IDLE_EXIT.timeout;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+}
+
+/**
+ * `wim wait-idle`: arms a finished notice for each address in a session of its own, and waits
+ * (design section 2.4). `wim wait-idle --now`, which answers at once from presence, comes with
+ * the client half of the relay change (N4), not here.
+ */
+async function waitIdle(ctx: Ctx): Promise<number> {
+  const [list, ...extra] = ctx.args.positional;
+  if (list === undefined || extra.length > 0) throw new SetupError(`usage: ${commandUsage("wait-idle")!}`);
+  const o = idleOptions(ctx, list);
+  const s = await ctx.session(nameFor(ctx, "cli"));
+  const waiter = new IdleWait(ctx, s, o);
+  try {
+    return (await waiter.arm()) ?? (await waiter.wait());
+  } finally {
+    waiter.close();
+    await ctx.finish(s);
+  }
 }
 
 /**
