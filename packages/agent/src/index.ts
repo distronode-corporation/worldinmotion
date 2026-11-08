@@ -25,6 +25,7 @@ export {
   FAILED,
   NO_TASK,
   NOT_ACCEPTED,
+  NOT_ACCEPTED_DERIVED,
   readCode,
   runWorker,
   TIMED_OUT,

@@ -129193,6 +129193,7 @@ function runnerEnv(env4, names) {
 
 // ../agent/src/worker.ts
 var NOT_ACCEPTED = "not accepted";
+var NOT_ACCEPTED_DERIVED = "not accepted: derived";
 var BUSY2 = "busy: another job is running, or this device sent too many messages this hour; try again later";
 var DAILY_CAP = "declined: today's job limit is reached";
 var FAILED2 = "the job failed; the worker's operator can see why in its log";
@@ -129239,7 +129240,11 @@ var Worker = class {
     if (!this.allowed.has(item.device)) return this.refused(item, "not_allowed");
     if (c5.senders.requireTrusted && !item.trusted) return this.refused(item, "untrusted");
     if (item.relayed) return this.refused(item, "relayed");
-    if (item.derived === true) return this.refused(item, "derived");
+    if (item.derived === true) {
+      this.refused(item, "derived");
+      if (this.o.config.replies.refused === "generic") await this.reply(item, NOT_ACCEPTED_DERIVED, "declined");
+      return;
+    }
     if (!this.rate.take(item.device)) {
       this.refused(item, "rate");
       return this.reply(item, BUSY2, "declined");

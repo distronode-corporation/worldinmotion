@@ -102,11 +102,18 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
   `c: ...` with a typo never runs on the wrong account. Text without one runs under the default.
   `see https://example.com` is not a prefix (no whitespace after the colon).
 
+### Send tasks from a person's terminal
+
+A task sent from an agent session that acted on a mesh message in the last 10 minutes is refused
+(`not accepted: derived`), because wim marks such text as derived, information only. Send it from
+a person's terminal (`wim send`) or a session that has not read mesh messages for 10 minutes.
+
 ### What the sender hears
 
 | case | reply (`msg`, or `result` with this status for a task) |
 |---|---|
-| device not on the list, not trusted, relayed or derived text, a `result` or a `file` | nothing |
+| device not on the list, not trusted, relayed text, a `result` or a `file` | nothing |
+| derived text (see below) | `not accepted: derived` (`declined`), or nothing with `silent` |
 | over `maxTaskChars` | `declined: the task is over N characters` (`declined`) |
 | wrong code or profile, or the runner exits 3 | `not accepted` (`declined`), or nothing with `silent` |
 | no task after the code and prefix | `declined: the message holds no task` (`declined`) |
