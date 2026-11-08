@@ -206,9 +206,12 @@ export class Worker {
         }
         return;
       }
+      // The runner ran no job, so today's allowance is not spent on it (#134).
       case "refused":
+        await this.o.ledger.giveBack();
         return this.refuse(item, "code");
       case "busy":
+        await this.o.ledger.giveBack();
         return this.reply(item, BUSY, "declined");
       case "timeout":
         return this.reply(item, TIMED_OUT, "timeout");

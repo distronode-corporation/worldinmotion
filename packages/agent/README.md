@@ -87,7 +87,7 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
 | `limits.ledgerPath` | required | A JSON file holding today's job count, so a restart does not reset the daily cap. |
 | `limits.maxTaskChars` | `16000` | Longest message accepted. |
 | `limits.perSenderPerHour` | `20` | Attempts per device in any rolling hour, refused ones too, so a code cannot be guessed at speed. |
-| `limits.dailyJobs` | `50` | Jobs started per UTC day, across all senders. A job counts when it starts. |
+| `limits.dailyJobs` | `50` | Jobs started per UTC day, across all senders. A job counts when it starts, and is given back when the runner refuses it or is busy (exit 3 or 4), since no job ran. |
 | `replies.refused` | `generic` | What an allowed device hears when its code or profile is refused: `not accepted`, or nothing (`silent`). A device not on the list never hears anything. |
 | `replies.room` | none | A room that also gets each answer. The copy is the answer only: never the task, the raw text or the code. |
 
@@ -283,8 +283,9 @@ through the worker.
 ### Spend
 
 Each job is capped by `maxTurns`, `maxBudgetUsd` (optional), `timeoutSeconds`, and per day by
-`dailyJobs`, counted on disk before the job starts. Keep the key's own spend limit at the provider
-too: the worker's caps are counts, not money.
+`dailyJobs`, counted on disk before the job starts (and given back when the runner refuses the
+request or is busy). Keep the key's own spend limit at the provider too: the worker's caps are
+counts, not money.
 
 ### What is kept on disk
 

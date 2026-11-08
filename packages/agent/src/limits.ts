@@ -40,8 +40,9 @@ export function utcDay(ms: number): string {
 
 /**
  * Jobs started per UTC day, on disk so a restart does not reset the cap. A job is counted before
- * it starts: one that fails still used the allowance. A file that cannot be read as a ledger
- * counts as the cap reached for today, so a corrupt file never lifts the limit.
+ * it starts: one that fails or times out still used the allowance, and one the runner refused or
+ * was busy for (so no job ran) is given back. A file that cannot be read as a ledger counts as the
+ * cap reached for today, so a corrupt file never lifts the limit.
  */
 export class DailyLedger {
   private readonly path: string;
@@ -94,10 +95,24 @@ export class DailyLedger {
     }
     if (this.jobs >= this.cap) return false;
     this.jobs++;
+    await this.save();
+    return true;
+  }
+
+  /**
+   * Gives back the job the last `take` counted, when the runner ran none: it refused the request
+   * (a wrong wake code, a profile or sender it does not take) or was busy (#134). A job is taken
+   * and given back within one run, and one runs at a time, so this is that job's day.
+   */
+  async giveBack(): Promise<void> {
+    this.jobs--;
+    await this.save();
+  }
+
+  private async save(): Promise<void> {
     await mkdir(dirname(this.path), { recursive: true });
     const tmp = `${this.path}.${process.pid}.tmp`;
     await writeFile(tmp, `${JSON.stringify({ day: this.day, jobs: this.jobs })}\n`, { mode: 0o600 });
     await rename(tmp, this.path);
-    return true;
   }
 }
