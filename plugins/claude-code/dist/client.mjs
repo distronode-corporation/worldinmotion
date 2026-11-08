@@ -91134,9 +91134,15 @@ function frameEntry(e6, trust = "inform") {
 }
 function releasedFrame(config2, device, entry) {
   const level = policyLevel(config2, device);
-  const works = (level === "deliver" || level === "deliver-relayed") && entry.relayed !== true && entry.derived !== true;
+  const trusted2 = level === "deliver" || level === "deliver-relayed";
+  const works = trusted2 && entry.relayed !== true && entry.derived !== true;
   const trust = !works ? "inform" : device === config2.device ? "self" : "assign";
-  return { rendered: frameEntry(entry, trust), ...entry.relayed === true ? { relayed: true } : {}, ...trust === "inform" ? { informs: true } : {} };
+  return {
+    rendered: frameEntry(entry, trust),
+    ...entry.relayed === true ? { relayed: true } : {},
+    ...trust === "inform" ? { informs: true } : {},
+    ...trusted2 ? {} : { quiet: true }
+  };
 }
 function renderForAgent(e6) {
   if (e6.dir === "in") {
@@ -91751,6 +91757,15 @@ function cursorNumber(text2) {
   const m4 = NAME2.exec((text2 ?? "").trim());
   return m4 === null ? 0 : Number(m4[1]);
 }
+function keptInBox(item) {
+  if (item.relayed === true) return true;
+  if (item.held !== void 0 || item.heldBy !== void 0 || item.forPerson === true) return false;
+  return item.quiet === true || item.kind === "notice" && item.watched === void 0;
+}
+function mayStartTurn(item) {
+  if (item.relayed === true || item.forPerson === true || item.quiet === true) return false;
+  return ["msg", "task", "result", "file"].some((kind) => kind === item.kind) || item.kind === "notice" && item.watched !== void 0 && item.watched !== "";
+}
 var Spool = class _Spool {
   /** The highest item number handed out so far, never reused. */
   last;
@@ -91846,9 +91861,10 @@ var Spool = class _Spool {
   }
   /**
    * Deletes taken items and returns them, so the caller can send their receipts. A relayed item,
-   * or a quiet notice, is kept in the relayed box instead: nothing starts a turn for one, so it
-   * stays readable through `inbox` until an agent reads it or the person dismisses it, even when
-   * the cursor passed it for a later item that was pushed.
+   * or a quiet notice for the agent, is kept in the relayed box instead: nothing starts a turn for
+   * one, so it stays readable through `inbox` until an agent reads it or the person dismisses it,
+   * even when the cursor passed it for a later item that was pushed. A notice for the person (held
+   * counts, a held receipt, a restart) is theirs, shown by the plugin, and goes like any item.
    */
   async sweep(alreadyRead = /* @__PURE__ */ new Set()) {
     const upto = await this.cursor();
@@ -91857,7 +91873,7 @@ var Spool = class _Spool {
       if (Number(NAME2.exec(name)[1]) > upto) break;
       const item = await this.read(join8(this.dir, name));
       if (item === BUSY) continue;
-      if ((item?.relayed === true || item?.quiet === true) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
+      if (item !== void 0 && keptInBox(item) && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
         await writeJson(join8(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }
@@ -93065,6 +93081,10 @@ function prekeyNote(o3) {
 }
 var CARD_EVERY_MS = 6e4;
 var PARKED_MAX = 64;
+var SENT_IDS_MAX = 4096;
+var RECEIPTS_MAX = 1024;
+var RECEIPT_LOOKUPS_MAX = 4;
+var RECEIPT_SKEW_MS = 5 * 6e4;
 var ANSWER_KEEP_MS = 5 * 6e4;
 var GROUP = (to) => to.some((a5) => a5 === "*" || isRoom(a5));
 var PAUSE_TELL_MS = 10 * 6e4;
@@ -93593,14 +93613,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
         if (f7.peer.address !== this.address) this.peers.set(f7.peer.address, f7.peer);
         this.emit("peers");
         return;
-      case "receipt": {
-        const list3 = this.receipts.get(f7.id) ?? [];
-        list3.push({ to: f7.to, status: f7.status });
-        this.receipts.set(f7.id, list3);
-        this.emit("receipt", f7);
-        void this.recordReceipt(f7).catch((e6) => this.log(`wim: receipt: ${e6.message}`));
+      case "receipt":
+        this.onReceipt(f7);
         return;
-      }
       case "notice":
         void this.idleNotice(f7.of).catch((e6) => this.log(`wim: notice: ${e6.message}`));
         return;
@@ -94209,7 +94224,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (entry !== void 0) await this.history.append(entry);
     this.emit("item", written2);
     if (entry !== void 0 && entry.ci === void 0) this.emit("message", { ...entry, cursor: written2.cursor });
-    if (this.push !== void 0 && written2.relayed !== true && written2.forPerson !== true && written2.quiet !== true) {
+    if (this.push !== void 0 && mayStartTurn(written2)) {
       await this.push(written2);
       await this.take(written2.cursor);
     }
@@ -94315,7 +94330,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * the person can act on it (restart this session).
    */
   async notice(from, line, held2, heldBy, forPerson = false) {
-    const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line) };
+    const item = { kind: "notice", from, device: "", id: ulid3(this.now()), at: this.now(), rendered: noticeText(line), quiet: true };
     await this.deliver(
       { ...item, ...held2 === void 0 ? {} : { held: held2 }, ...heldBy === void 0 ? {} : { heldBy }, ...forPerson ? { forPerson: true } : {} },
       void 0
@@ -94326,7 +94341,29 @@ var MeshSession = class _MeshSession extends EventEmitter {
    * person through the plugin's toast, or the agent) learns that it waits for the recipient's
    * person and is not delivered. Branches before any await (see AgentServer.answerLine).
    */
-  recordReceipt(f7) {
+  onReceipt(f7) {
+    if (this.sentIds.has(f7.id)) return this.takeReceipt(f7);
+    const dropped = (why) => this.log(`wim: dropped a receipt for ${sanitizeForDisplay(f7.id)}: ${why}`);
+    const now = this.now();
+    if (!isUlid(f7.id) || ulidTime(f7.id) > now + RECEIPT_SKEW_MS || ulidTime(f7.id) < now - KEEP_MS) return dropped("not a message this session sent");
+    if (this.receiptLookups >= RECEIPT_LOOKUPS_MAX) return dropped("too many receipts for unknown messages at once");
+    this.receiptLookups++;
+    void this.history.find(f7.id).then((entry) => entry?.dir === "out" ? this.takeReceipt(f7) : dropped("not a message this session sent")).catch((e6) => this.log(`wim: receipt: ${e6.message}`)).finally(() => this.receiptLookups--);
+  }
+  /** Lookups in history for receipts this run does not know, under way now. */
+  receiptLookups = 0;
+  /** A receipt for a message this session sent: kept for `send --wait` (the newest RECEIPTS_MAX ids), told, recorded. */
+  takeReceipt(f7) {
+    const list3 = this.receipts.get(f7.id) ?? [];
+    list3.push({ to: f7.to, status: f7.status });
+    this.receipts.delete(f7.id);
+    this.receipts.set(f7.id, list3);
+    if (this.receipts.size > RECEIPTS_MAX) this.receipts.delete(this.receipts.keys().next().value);
+    this.emit("receipt", f7);
+    void this.recordOwnReceipt(f7).catch((e6) => this.log(`wim: receipt: ${e6.message}`));
+  }
+  /** A receipt for a message this session sent. */
+  recordOwnReceipt(f7) {
     const recorded = this.history.appendReceipt(f7.id, { to: f7.to, status: f7.status, at: this.now() });
     if (f7.status === "delivered") this.heldTold.delete(f7.to);
     if (f7.status !== "held") return recorded;
@@ -94337,6 +94374,13 @@ var MeshSession = class _MeshSession extends EventEmitter {
   }
   /** Recipients whose `held` receipt the agent was told about, since the last `delivered` from each. */
   heldTold = /* @__PURE__ */ new Set();
+  /** Ids this run put on the wire, newest last, at most SENT_IDS_MAX: a receipt may come before the send is in history. */
+  sentIds = /* @__PURE__ */ new Set();
+  noteSentId(id2) {
+    this.sentIds.delete(id2);
+    this.sentIds.add(id2);
+    if (this.sentIds.size > SENT_IDS_MAX) this.sentIds.delete(this.sentIds.values().next().value);
+  }
   /** Marks spool items read up to `cursor`; the next sweep deletes them and sends receipts. */
   async take(cursor2) {
     await this.spool.take(cursor2);
@@ -94988,6 +95032,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       }
       await this.save({ seq: sealed.frame.seq });
       if (opts.kind === "task") await this.recordSentTask(id2, routed);
+      this.noteSentId(id2);
       return { frame: sealed.frame, missing: sealed.missing, answer: this.sendFrame(link, sealed.frame, id2) };
     });
     const answer = await answering;
@@ -95427,7 +95472,7 @@ ${frameEntry(entry)}`);
    * once it is shown, so what it could not show stays unread.
    */
   async markRead(items) {
-    for (const i6 of items) if (i6.relayed === true || i6.quiet === true) this.readRelayed.add(i6.id);
+    for (const i6 of items) if (keptInBox(i6)) this.readRelayed.add(i6.id);
     const newest = Math.max(0, ...items.map((i6) => i6.cursor));
     if (newest > this.spool.taken) await this.take(newest);
     await this.spool.dismissRelayed([...this.readRelayed]);
@@ -95453,7 +95498,7 @@ ${frameEntry(entry)}`);
         const first = items[0];
         if (over || first === void 0) return;
         finish();
-        if (first.relayed === true || first.quiet === true) this.readRelayed.add(first.id);
+        if (keptInBox(first)) this.readRelayed.add(first.id);
         this.take(first.cursor).then(() => {
           this.informed([first]);
           resolve4(first);
@@ -124916,7 +124961,7 @@ var WimMcp = class {
     await this.point(s3);
     if (this.o.channel) {
       for (const item of await s3.spool.unread()) {
-        if (item.relayed === true || item.forPerson === true || item.quiet === true) continue;
+        if (!mayStartTurn(item)) continue;
         if (!await this.pushChannel(s3, item).then(() => true, () => false)) break;
         await s3.take(item.cursor);
       }
