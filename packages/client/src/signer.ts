@@ -128,6 +128,8 @@ export class SignerClient {
   private readonly now: () => number;
   private conn: Conn | undefined;
   private opening: Promise<Conn> | undefined;
+  /** The socket of a connection still being made (connect and hello), so close() can end it too. */
+  private dialing: Socket | undefined;
   private next = 0;
 
   /**
@@ -160,9 +162,10 @@ export class SignerClient {
     return (await this.connected()).hello!;
   }
 
-  /** Drops the connection; its pending calls fail as `unavailable`. */
+  /** Drops the connection, or the one still being made; its pending calls fail as `unavailable`. */
   close(): void {
     this.conn?.socket.destroy();
+    this.dialing?.destroy();
   }
 
   private send(conn: Conn, op: string, a: Record<string, unknown>, timeoutMs = this.timeoutMs): Promise<Record<string, unknown>> {
@@ -200,8 +203,11 @@ export class SignerClient {
     this.endpoint = at;
     return new Promise<Conn>((resolve, reject) => {
       const socket = this.connect(at);
+      this.dialing = socket;
       const conn: Conn = { socket, pending: new Map(), buffered: "" };
       socket.setEncoding("utf8");
+      // Closed before the hello was checked (close() while dialing): no connection, and nothing more is sent.
+      socket.once("close", () => reject(new SignerError("unavailable", "the connection to the signer was closed")));
       // Before the connection: no signer there. After it: the close that follows fails what is pending.
       socket.on("error", (error: NodeJS.ErrnoException) => {
         reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error.code ?? error.message}): run \`wim agent start\` in a terminal you opened yourself`));
@@ -211,6 +217,7 @@ export class SignerClient {
         socket.once("close", () => this.dropped(conn));
         this.greet(conn).then(
           () => {
+            this.dialing = undefined;
             this.conn = conn;
             resolve(conn);
           },

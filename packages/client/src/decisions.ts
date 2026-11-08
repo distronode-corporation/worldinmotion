@@ -137,6 +137,9 @@ export async function requestDecision(o: { root: string; env: AgentEnv; signPub:
   stop?.addEventListener("abort", onStop, { once: true });
   try {
     stop?.throwIfAborted();
+    // Connected and checked first, then the stop looked at again: one given while connecting sends no `decide`.
+    await client.hello();
+    stop?.throwIfAborted();
     const r = await client.call("decide", { mesh: req.mesh, verdict: req.verdict, ids: [...req.ids], ...(req.peer === undefined ? {} : { peer: req.peer }) }, DECIDE_WAIT_MS);
     return r["decision"] as Decision;
   } catch (error) {

@@ -877,3 +877,37 @@ describe("stopping while the person reads the signer, and ids no longer held", (
     expect((await listAllHeld(w.files, FS)).map((r) => r.id)).toEqual([m.id]);
   });
 });
+
+describe("a stop that lands while connecting to the signer", () => {
+  it("closes the socket mid-handshake, sends no decide, and returns at once", async () => {
+    const { createServer } = await import("node:net");
+    const root = await scratch("dialing");
+    const env = { platform: process.platform, pid: process.pid, uid: process.getuid?.() };
+    const at = (await agentEndpoint(root, env, true))!;
+    const seen: string[] = [];
+    let closed = false;
+    let connected!: () => void;
+    const reached = new Promise<void>((r) => (connected = r));
+    // Takes the hello and never answers it: the handshake is held open.
+    const server = createServer((socket) => {
+      socket.setEncoding("utf8");
+      socket.on("data", (chunk: string) => {
+        for (const line of chunk.split("\n").filter((l) => l !== "")) seen.push((JSON.parse(line) as { op: string }).op);
+        connected();
+      });
+      socket.on("error", () => undefined);
+      socket.on("close", () => (closed = true));
+    });
+    await new Promise<void>((r) => server.listen(at, () => r()));
+    cleanup.push(() => new Promise<void>((r) => server.close(() => r())));
+    const stop = new AbortController();
+    const asked = requestDecision({ root, env, signPub: randomBytes(32) }, { mesh: b64u.encode(randomBytes(16)), verdict: "approve", ids: [ulid()] }, stop.signal);
+    await reached;
+    const started = Date.now();
+    stop.abort();
+    await expect(asked).rejects.toThrow(`${NEEDS_SIGNER}: stopped before the signer answered; nothing was decided`);
+    expect(Date.now() - started).toBeLessThan(2_000);
+    await until(() => closed, "the socket closed");
+    expect(seen).toEqual(["hello"]);
+  });
+});

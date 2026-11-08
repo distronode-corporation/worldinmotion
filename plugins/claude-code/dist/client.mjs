@@ -90566,6 +90566,8 @@ var SignerClient = class {
   now;
   conn;
   opening;
+  /** The socket of a connection still being made (connect and hello), so close() can end it too. */
+  dialing;
   next = 0;
   /**
    * `endpoint` is the signer's address, or a function that finds it again for each new connection
@@ -90593,9 +90595,10 @@ var SignerClient = class {
   async hello() {
     return (await this.connected()).hello;
   }
-  /** Drops the connection; its pending calls fail as `unavailable`. */
+  /** Drops the connection, or the one still being made; its pending calls fail as `unavailable`. */
   close() {
     this.conn?.socket.destroy();
+    this.dialing?.destroy();
   }
   send(conn, op2, a5, timeoutMs = this.timeoutMs) {
     const i6 = ++this.next;
@@ -90628,8 +90631,10 @@ var SignerClient = class {
     this.endpoint = at;
     return new Promise((resolve4, reject) => {
       const socket = this.connect(at);
+      this.dialing = socket;
       const conn = { socket, pending: /* @__PURE__ */ new Map(), buffered: "" };
       socket.setEncoding("utf8");
+      socket.once("close", () => reject(new SignerError("unavailable", "the connection to the signer was closed")));
       socket.on("error", (error64) => {
         reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error64.code ?? error64.message}): run \`wim agent start\` in a terminal you opened yourself`));
       });
@@ -90638,6 +90643,7 @@ var SignerClient = class {
         socket.once("close", () => this.dropped(conn));
         this.greet(conn).then(
           () => {
+            this.dialing = void 0;
             this.conn = conn;
             resolve4(conn);
           },
@@ -90790,6 +90796,8 @@ async function requestDecision(o3, req, stop) {
   const onStop = () => client.close();
   stop?.addEventListener("abort", onStop, { once: true });
   try {
+    stop?.throwIfAborted();
+    await client.hello();
     stop?.throwIfAborted();
     const r6 = await client.call("decide", { mesh: req.mesh, verdict: req.verdict, ids: [...req.ids], ...req.peer === void 0 ? {} : { peer: req.peer } }, DECIDE_WAIT_MS);
     return r6["decision"];
