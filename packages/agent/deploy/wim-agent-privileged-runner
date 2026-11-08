@@ -14,7 +14,7 @@
 #
 # WIM_BIN is the `wim` command as `npm install -g worldinmotion` put it; change
 # it here if your npm prefix is not /usr/local. The privileged runner is its
-# `worker privileged` subcommand, which also refuses any further argument.
+# `agent privileged` subcommand, which also refuses any further argument.
 WIM_BIN=/usr/local/bin/wim
 if [ "$#" -ne 0 ]; then
   echo "wim-agent-privileged-runner: takes no arguments" >&2
@@ -26,4 +26,4 @@ for v in SUDO_UID SUDO_GID SUDO_USER SUDO_COMMAND; do
   # shellcheck disable=SC2154  # isset is assigned by the eval above.
   if [ -n "$isset" ]; then eval "set -- \"\$@\" \"$v=\${$v}\""; fi
 done
-exec /usr/bin/env -i "$@" "$WIM_BIN" worker privileged
+exec /usr/bin/env -i "$@" "$WIM_BIN" agent privileged

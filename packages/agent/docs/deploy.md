@@ -2,17 +2,17 @@
 
 This guide takes a fresh Linux machine to a running agent: a wim session that sleeps until one of
 your devices messages it, runs one Claude Agent SDK job, and replies. Everything is configuration:
-the files you install come from `packages/agent/deploy/` in the release you install, and nothing
+the files you install come with `wim` itself (the npm package carries this kit), and nothing
 needs editing beyond the values marked `REPLACE_...` and the paths you choose to change.
 
-> `wim worker` is a working name until the 0.2.1 release notes confirm it.
+> `wim agent` is a working name until the 0.2.1 release notes confirm it.
 
 ## What runs, and as whom
 
 | Piece | User | Holds | Can reach |
 |---|---|---|---|
-| the peer, `wim worker serve` (`wim-agent.service`) | `wim-agent` | its wim device keys | the relay; one root program through sudo |
-| the privileged runner (`wim worker privileged`, through `/usr/local/sbin/wim-agent-privileged-runner`) | root, per job | the model credential or the means to mint one; the wake code | the cloud metadata service |
+| the peer, `wim agent serve` (`wim-agent.service`) | `wim-agent` | its wim device keys | the relay; one root program through sudo |
+| the privileged runner (`wim agent privileged`, through `/usr/local/sbin/wim-agent-privileged-runner`) | root, per job | the model credential or the means to mint one; the wake code | the cloud metadata service |
 | the worker (the Agent SDK job) | `wim-agent-worker` | a short-lived model token, for one job | the model API; read-only tools in its own directory |
 | scheduled jobs (`wim-agent-job@<job>`) | root, then the worker | whatever `collect` and `post` need | as their scripts decide |
 
@@ -54,14 +54,16 @@ npm install --global --prefix /usr/local worldinmotion@0.2.1 @anthropic-ai/claud
 find "$(npm root --global --prefix /usr/local)" -perm /022 -not -type l   # must print nothing
 ```
 
-The kit is not in the npm package. Take it from the same release's tag, and check the commit
-against the one the release page names:
+The npm package carries the kit, the same files as `packages/agent/deploy/` in the repository at
+that release, with their modes:
 
 ```sh
-git clone --quiet --depth 1 --branch v0.2.1 https://github.com/distronode-corporation/worldinmotion.git /usr/local/src/worldinmotion-0.2.1
-git -C /usr/local/src/worldinmotion-0.2.1 rev-parse HEAD
-KIT=/usr/local/src/worldinmotion-0.2.1/packages/agent/deploy
+KIT="$(npm root --global --prefix /usr/local)/worldinmotion/agent-kit/deploy"
+ls "$KIT"
 ```
+
+`wim agent init <config> --kit <dir>` writes the same tree into a directory of your choice
+instead (it never overwrites), if you would rather review or keep the files elsewhere.
 
 ## 2. Create the two users
 
@@ -222,7 +224,7 @@ Install the root program the peer calls:
 install -o root -g root -m 0755 "$KIT/wim-agent-privileged-runner" /usr/local/sbin/wim-agent-privileged-runner
 ```
 
-It refuses any argument and runs `/usr/local/bin/wim worker privileged` with a fixed environment
+It refuses any argument and runs `/usr/local/bin/wim agent privileged` with a fixed environment
 (it keeps only sudo's own `SUDO_*` variables, which the runner uses to tell the peer from a local
 job). Change `WIM_BIN` in it if your npm prefix is not `/usr/local`.
 
@@ -305,7 +307,7 @@ On a machine of your own with no cloud identity, the peer can run the package's 
 directly, as one user with an API key:
 
 - skip the worker user, the privileged runner, `privileged.json` and the sudoers file;
-- in `agent.json`: `"runner": {"command": "/usr/local/bin/wim", "args": ["worker", "runner", "--config", "/etc/wim-agent/runner.json"]}`
+- in `agent.json`: `"runner": {"command": "/usr/local/bin/wim", "args": ["agent", "runner", "--config", "/etc/wim-agent/runner.json"]}`
   (the built-in runner; its `runner.json` is in the package README),
   `"wake": {"mode": "local", "codeFile": "/etc/wim-agent/wake-code"}` with the code file owned by
   `wim-agent` and `0400`, and `profiles` if you want a prefix;
@@ -339,9 +341,9 @@ compromise of both. Keep the metadata block (step 3) for `wim-agent` all the sam
 ## Upgrading
 
 ```sh
+OLD="$(mktemp -d)"; cp -a "$KIT/." "$OLD/"
 npm install --global --prefix /usr/local worldinmotion@<version>
-git clone --quiet --depth 1 --branch v<version> https://github.com/distronode-corporation/worldinmotion.git /usr/local/src/worldinmotion-<version>
-diff -ru /usr/local/src/worldinmotion-0.2.1/packages/agent/deploy /usr/local/src/worldinmotion-<version>/packages/agent/deploy
+diff -ru "$OLD" "$KIT"
 ```
 
 Read the release notes and that diff, re-install the kit files that changed, then

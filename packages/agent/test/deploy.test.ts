@@ -419,9 +419,9 @@ describe.skipIf(!linux)("wim-agent-privileged-runner launcher", () => {
     const p = join(dir, "launcher");
     const text = readFileSync(join(DEPLOY, "wim-agent-privileged-runner"), "utf8");
     expect(text).toMatch(/^WIM_BIN=\/usr\/local\/bin\/wim$/m);
-    expect(text).toMatch(/^exec \/usr\/bin\/env -i "\$@" "\$WIM_BIN" worker privileged$/m);
+    expect(text).toMatch(/^exec \/usr\/bin\/env -i "\$@" "\$WIM_BIN" agent privileged$/m);
     // printenv prints nothing for the names "worker" and "privileged", so only the environment shows.
-    writeFileSync(p, text.replace(/^WIM_BIN=.*$/m, "WIM_BIN=/usr/bin/printenv").replace('"$WIM_BIN" worker privileged', '"$WIM_BIN"'), { mode: 0o755 });
+    writeFileSync(p, text.replace(/^WIM_BIN=.*$/m, "WIM_BIN=/usr/bin/printenv").replace('"$WIM_BIN" agent privileged', '"$WIM_BIN"'), { mode: 0o755 });
     return p;
   }
   const sh = (p: string, args: string[], env: Record<string, string>) => {
@@ -614,7 +614,7 @@ describe("deploy kit static rules", () => {
 
   it("the peer runs as its own unprivileged user, and keeps what sudo needs", () => {
     const peer = read("systemd/wim-agent.service");
-    expect(peer).toMatch(/^ExecStart=\/usr\/local\/bin\/wim worker serve \/etc\/wim-agent\/agent\.json --as agents$/m);
+    expect(peer).toMatch(/^ExecStart=\/usr\/local\/bin\/wim agent serve \/etc\/wim-agent\/agent\.json --as agents$/m);
     expect(peer).toMatch(/^User=wim-agent$/m);
     expect(peer).not.toMatch(/^User=root$/m);
     // NoNewPrivileges would stop sudo; an IMDS IPAddressDeny on the unit would also bind the
