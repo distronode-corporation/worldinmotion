@@ -42,6 +42,8 @@ export const LIMITS = {
   idleNoticeLifetimeMs: 12 * HOUR,
   /** Armed `notify_idle` requests per session. */
   notifyIdlePerSession: 16,
+  /** How long a watched session stays offline, with no new connection, before its idle notices fire. */
+  idleOfflineGraceMs: 60 * 1000,
   /** Sessions in one mesh. */
   sessionsPerMesh: 256,
   /** Sessions on one device. */

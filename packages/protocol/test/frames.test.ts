@@ -6,6 +6,7 @@ import {
   createJoin,
   generateDeviceKeys,
   hash,
+  knownIdleWhy,
   LIMITS,
   nextRoster,
   parseInvite,
@@ -184,8 +185,17 @@ const relayCases: Array<[string, object, object[]]> = [
     { t: "peers", peers: [peer] },
     [{ t: "peers", peers: [{ ...peer, address: "*" }] }, { t: "peers", peers: [{ ...peer, rooms: ["ops"] }] }, { t: "peers", peers: [{ ...peer, sid: "x" }] }],
   ],
-  ["peer", { t: "peer", peer }, [{ t: "peer", peer: { ...peer, since: -1 } }]],
-  ["notice", { t: "notice", kind: "idle", of: "reviewer@laptop" }, [{ t: "notice", kind: "busy", of: "a@b" }]],
+  [
+    "peer",
+    { t: "peer", peer: { ...peer, presence: true } },
+    [{ t: "peer", peer: { ...peer, since: -1 } }, { t: "peer", peer: { ...peer, presence: false } }, { t: "peer", peer: { ...peer, presence: "yes" } }],
+  ],
+  ["notice", { t: "notice", kind: "idle", of: "reviewer@laptop", why: "offline" }, [{ t: "notice", kind: "busy", of: "a@b" }, { t: "notice", kind: "idle", of: "a@b", why: "" }, { t: "notice", kind: "idle", of: "a@b", why: "x".repeat(65) }, { t: "notice", kind: "idle", of: "a@b", why: 3 }]],
+  [
+    "idle.armed",
+    { t: "idle.armed", of: "reviewer@laptop", exp: T0 },
+    [{ t: "idle.armed", of: "#ops", exp: T0 }, { t: "idle.armed", of: "reviewer@laptop" }, { t: "idle.armed", exp: T0 }],
+  ],
   [
     "roster",
     { t: "roster", chain, more: true },
@@ -200,8 +210,8 @@ const relayCases: Array<[string, object, object[]]> = [
   ["joined", { t: "joined", chain, more: false }, [{ t: "joined", chain: [], more: false }, { t: "joined", chain }]],
   [
     "error",
-    { t: "error", code: "unknown_type", message: "no such frame", ref: "frob" },
-    [{ t: "error", code: "", message: "x" }, { t: "error", code: "x", message: "m".repeat(4097) }],
+    { t: "error", code: "not_found", message: "no such session", ref: "notify_idle", of: "reviewer@laptop" },
+    [{ t: "error", code: "", message: "x" }, { t: "error", code: "x", message: "m".repeat(4097) }, { t: "error", code: "limited", message: "x", of: "*" }],
   ],
   [
     "room.joined",
@@ -236,6 +246,16 @@ const relayCases: Array<[string, object, object[]]> = [
   // pong has no fields to get wrong; unknown keys are kept like on every relay frame.
   ["pong", { t: "pong" }, []],
 ];
+
+describe("idle notice reasons", () => {
+  it("takes a notice with a reason this version does not know, and reads that reason as unknown", () => {
+    const later = { t: "notice", kind: "idle", of: "reviewer@laptop", why: "suspended" };
+    expect(parseRelayFrame(JSON.stringify(later))).toEqual({ ok: true, value: later });
+    expect(knownIdleWhy("suspended")).toBeUndefined();
+    expect(knownIdleWhy(undefined)).toBeUndefined();
+    for (const why of ["idle", "ended", "offline"] as const) expect(knownIdleWhy(why)).toBe(why);
+  });
+});
 
 describe("parseClientFrame", () => {
   for (const [t, valid, invalid] of clientCases) {

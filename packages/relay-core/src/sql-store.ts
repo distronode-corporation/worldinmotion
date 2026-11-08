@@ -126,6 +126,15 @@ const MIGRATIONS: { reader: number; sql: string[] }[] = [
       `CREATE TABLE ci_jtis (mesh TEXT NOT NULL, jti TEXT NOT NULL, exp INTEGER NOT NULL, PRIMARY KEY (mesh, jti))`,
     ],
   },
+  // Dependable idle notices (SPEC section 8): why a row fired while its subscriber was offline,
+  // kept until the subscriber's next `ready`. Additive, so its reader stays 1: an older relay never
+  // reads the column and its new rows leave it NULL (armed). A row it finds fired but not yet sent
+  // it treats as armed, so that notice comes on the target's next idle report instead; one it
+  // re-arms keeps its mark, so after a roll forward it is sent at the subscriber's next `ready`.
+  {
+    reader: 1,
+    sql: [`ALTER TABLE idle ADD COLUMN fired TEXT`],
+  },
 ];
 
 /** The schema version this code writes. */
@@ -217,7 +226,13 @@ const toInvite = (r: SqlRow): InviteRow => ({
 });
 const toRoster = (r: SqlRow): RosterRow => ({ seq: num(r["seq"]), hash: str(r["hash"]), json: str(r["json"]) });
 const toJoin = (r: SqlRow): JoinRow => ({ invite: str(r["invite"]), device: str(r["device"]), body: str(r["body"]), exp: num(r["exp"]) });
-const toIdle = (r: SqlRow): IdleRow => ({ sub: str(r["sub"]), target: str(r["target"]), exp: num(r["exp"]) });
+const toIdle = (r: SqlRow): IdleRow => ({
+  sub: str(r["sub"]),
+  target: str(r["target"]),
+  exp: num(r["exp"]),
+  fired: strOrNull(r["fired"]) as IdleRow["fired"],
+});
+const IDLE_COLS = "sub, target, exp, fired";
 const toHistory = (r: SqlRow): HistoryRow => ({ room: str(r["room"]), cur: num(r["cur"]), at: num(r["at"]), msg: str(r["msg"]) });
 const toLease = (r: SqlRow): LeaseRow => ({
   key: str(r["lkey"]),
@@ -507,15 +522,24 @@ export class SqlStore implements MeshStore {
 
   putIdle(row: IdleRow): void {
     this.run(
-      "INSERT INTO idle (mesh, sub, target, exp) VALUES (?, ?, ?, ?) ON CONFLICT (mesh, sub, target) DO UPDATE SET exp = excluded.exp",
+      "INSERT INTO idle (mesh, sub, target, exp, fired) VALUES (?, ?, ?, ?, ?) ON CONFLICT (mesh, sub, target) DO UPDATE SET exp = excluded.exp, fired = excluded.fired",
       row.sub,
       row.target,
       row.exp,
+      row.fired,
     );
   }
 
   idleFor(target: string): IdleRow[] {
-    return this.all("SELECT sub, target, exp FROM idle WHERE mesh = ? AND target = ? ORDER BY sub", target).map(toIdle);
+    return this.all(`SELECT ${IDLE_COLS} FROM idle WHERE mesh = ? AND target = ? ORDER BY sub`, target).map(toIdle);
+  }
+
+  idleBy(sub: string): IdleRow[] {
+    return this.all(`SELECT ${IDLE_COLS} FROM idle WHERE mesh = ? AND sub = ? ORDER BY target`, sub).map(toIdle);
+  }
+
+  idleArmed(): IdleRow[] {
+    return this.all(`SELECT ${IDLE_COLS} FROM idle WHERE mesh = ? AND fired IS NULL ORDER BY target, sub`).map(toIdle);
   }
 
   idleCount(sub: string): number {

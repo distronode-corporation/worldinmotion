@@ -7,6 +7,8 @@
  * other state is the small per-connection object in `ConnState` (see relay.ts).
  */
 
+import type { IdleWhy } from "@worldinmotion/protocol";
+
 /** One stored roster version: its seq, `hash(roster)`, and the roster as JSON text. */
 export type RosterRow = { seq: number; hash: string; json: string };
 
@@ -69,8 +71,12 @@ export type QueueItem = {
 /** Which session sent a message, and which sessions it was addressed to, for routing receipts. */
 export type MessageRow = { id: string; sender: string; at: number; rcpts: string[] };
 
-/** An armed `notify_idle`: `sub` wants one notice when `target` next reports idle or ends. */
-export type IdleRow = { sub: string; target: string; exp: number };
+/**
+ * An armed `notify_idle`: `sub` wants one notice when `target` next reports idle, ends or has been
+ * offline for the grace period. `fired` is null while armed; once the notice fired while `sub` was
+ * offline, it says why, and the row is kept until `exp` to be sent after `sub`'s next `ready`.
+ */
+export type IdleRow = { sub: string; target: string; exp: number; fired: IdleWhy | null };
 
 /** A token bucket: `tokens` left as of time `at`. */
 export type BucketRow = { bkey: string; tokens: number; at: number };
@@ -156,9 +162,13 @@ export interface MeshStore {
   /** Forgets messages recorded at or before `before`. */
   pruneMessages(before: number): void;
 
-  /** Inserts or refreshes a subscription (one per subscriber and target). */
+  /** Inserts or replaces a subscription (one per subscriber and target). */
   putIdle(row: IdleRow): void;
   idleFor(target: string): IdleRow[];
+  /** The subscriptions `sub` holds, armed or fired. */
+  idleBy(sub: string): IdleRow[];
+  /** Every subscription not fired yet, of every subscriber and target. */
+  idleArmed(): IdleRow[];
   idleCount(sub: string): number;
   deleteIdle(sub: string, target: string): void;
   /** Deletes subscriptions with `exp <= now`. */
