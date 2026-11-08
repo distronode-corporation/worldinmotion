@@ -1312,7 +1312,9 @@ turn the plugin starts is a mesh turn: it writes `busy-mesh` to the session's pr
 submits, and submits nothing when that write fails, as `wim hook` and the channel push do. A turn
 that starts while one of its submits is pending is marked a mesh turn too, and the submit stays
 pending until a turn with its exact text starts, so a person's prompt that runs first cannot leave
-the submit's own turn unmarked; while one is pending, presence never drops to plain `busy`. A
+the submit's own turn unmarked; while one is pending, presence never drops to plain `busy`. A submit
+that three turns start ahead of without it is taken as reworded by a hook and forgotten, so a
+submit's own turn behind more than two queued prompts of the person's is the one case left unmarked. A
 SendMessage that only arms a watch (no message) sends no text and asks the person nothing, whoever
 calls it: the arm alone cannot start a turn, since the client decides that when the notice comes.
 

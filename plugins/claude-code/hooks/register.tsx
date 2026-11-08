@@ -89,10 +89,14 @@ const cursor = atom({ plugin: 'worldinmotion', key: 'cursor' } as const, '', { s
 const busy = atom({ plugin: 'worldinmotion', key: 'busy' } as const, false)
 // True while the running main-loop turn is one the plugin started with a mesh item.
 const meshTurn = atom({ plugin: 'worldinmotion', key: 'meshTurn' } as const, false)
-// Mesh submits not yet seen to start their turn, by text.
+// Mesh submits not yet seen to start their turn, by text, each with the turns
+// that started since without it.
 const pendingSubmits = atom({ plugin: 'worldinmotion', key: 'pendingSubmits' } as const, [], {
-  shape: 'pending-1',
+  shape: 'pending-2',
 })
+// How many turns may start ahead of a pending submit (prompts queued before it)
+// before it counts as reworded and is forgotten.
+const PENDING_MISSES = 3
 // Why the tab is not linked, in the client's words; '' once it is.
 const problem = atom({ plugin: 'worldinmotion', key: 'problem' } as const, '', { shape: 'problem-1' })
 // Notices the client meant for the person (a restart it needs), newest last.
@@ -253,7 +257,7 @@ async function submit($: EngineInterface, text: string): Promise<boolean> {
     $.ui.log('worldinmotion: a delivery waits: this session could not be marked busy-mesh (its presence file), so no turn was started')
     return false
   }
-  await update($, pendingSubmits, list => [...list, text])
+  await update($, pendingSubmits, list => [...list, { text, misses: 0 }])
   const sent = await $.prompt.submit({ text }).catch(async error => {
     await forgetSubmit($, text)
     await writePresenceNow($)
@@ -267,10 +271,13 @@ async function submit($: EngineInterface, text: string): Promise<boolean> {
 }
 
 async function forgetSubmit($: EngineInterface, text: string): Promise<void> {
-  await update($, pendingSubmits, list => {
-    const at = list.indexOf(text)
-    return at < 0 ? list : [...list.slice(0, at), ...list.slice(at + 1)]
-  })
+  await update($, pendingSubmits, list => withoutText(list, text))
+}
+
+/** The list without the oldest entry of `text`, or the list itself when it has none. */
+function withoutText<T extends { text: string }>(list: T[], text: string): T[] {
+  const at = list.findIndex(one => one.text === text)
+  return at < 0 ? list : [...list.slice(0, at), ...list.slice(at + 1)]
 }
 
 /**
@@ -279,14 +286,18 @@ async function forgetSubmit($: EngineInterface, text: string): Promise<void> {
  * that matches none (the person's prompt queued ahead of a submit, or a submit
  * a hook reworded) is still marked mesh, and the entries stay: consuming one
  * would let the submit's own turn start later as plain busy, not derived.
- * Misreading a person's turn as mesh only marks more sends as derived.
+ * Each entry counts the turns that started without it, and one that misses
+ * PENDING_MISSES is taken as reworded and forgotten, so a reworded submit
+ * marks only the next few turns. Misreading a person's turn as mesh only
+ * marks more sends as derived.
  */
 async function takeSubmit($: EngineInterface, text: string): Promise<boolean> {
   let isMesh = false
   await update($, pendingSubmits, list => {
     isMesh = list.length > 0
-    const at = list.indexOf(text)
-    return at < 0 ? list : [...list.slice(0, at), ...list.slice(at + 1)]
+    const rest = withoutText(list, text)
+    if (rest !== list) return rest
+    return list.map(one => ({ ...one, misses: one.misses + 1 })).filter(one => one.misses < PENDING_MISSES)
   })
   return isMesh
 }

@@ -136,8 +136,8 @@ declare module 'claude-code' {
       busy: boolean
       /** The running main-loop turn was started by the plugin with a mesh item. */
       meshTurn: boolean
-      /** Mesh items submitted whose turn has not started yet. */
-      pendingSubmits: Shaped<string[]>
+      /** Mesh items submitted whose turn has not started yet, with the turns that started since without them. */
+      pendingSubmits: Shaped<{ text: string; misses: number }[]>
       late: Shaped<WimLate[]>
       /** Spool items whose turn was dropped, waiting for a turn end to hand them over. */
       kept: Shaped<WimKept[]>

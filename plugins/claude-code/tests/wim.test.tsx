@@ -1522,6 +1522,28 @@ test('a person\'s prompt that starts ahead of a pending submit leaves it pending
   expect(presence()).toBe('busy')
 })
 
+test('a submit a hook reworded is forgotten after three turns start without it: later prompts are the person\'s again', async ($, on) => {
+  const clock = mock.clock(on)
+  const w = world(on)
+  await $.session.start(START)
+  w.files.set(...item(1, 'please run the tests'))
+  await clock.advance(250)
+  await clock.settle()
+  expect(w.submitted).toHaveLength(1)
+  const presence = () => w.files.get(`${SESSION}/presence`)
+
+  // Its turn starts with other text (a hook reworded it), and so do the two after: all marked mesh.
+  for (const [at, text] of ['reworded by a hook', 'my own prompt', 'another prompt'].entries()) {
+    await $.turn.start({ text, turnId: `t${at}` })
+    expect(presence()).toBe('busy-mesh')
+    await $.turn.complete({ ...COMPLETE, turnId: `t${at}` })
+    await clock.settle()
+  }
+  // Forgotten now: the person's next turn is plain busy.
+  await $.turn.start({ text: 'a later prompt', turnId: 't9' })
+  expect(presence()).toBe('busy')
+})
+
 test('a drop during a mesh turn puts presence back to busy-mesh, not busy', async ($, on) => {
   const clock = mock.clock(on)
   const w = world(on, { dropWhen: text => (text.includes('second') ? 'blocked' : undefined) })
