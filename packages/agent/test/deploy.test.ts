@@ -589,6 +589,15 @@ describe("deploy kit static rules", () => {
     expect(lines[0]).not.toMatch(/[*?[\]]|SETENV|env_keep/);
   });
 
+  it.skipIf(!linux || spawnSync("bash", ["-c", "command -v visudo"]).status !== 0)("visudo parses the sudoers example", () => {
+    const dir = scratch();
+    const copy = join(dir, "wim-agent");
+    writeFileSync(copy, read("sudoers/wim-agent"), { mode: 0o440 });
+    const r = spawnSync("visudo", ["-cf", copy], { encoding: "utf8" });
+    expect(r.stdout + r.stderr).toMatch(/parsed OK/);
+    expect(r.status).toBe(0);
+  });
+
   it("every unit runs only kit programs from /usr/local/sbin, and every job runs in the capped slice", () => {
     const units = readdirSync(join(DEPLOY, "systemd"));
     expect(units).toEqual(expect.arrayContaining(["wim-agent.service", "wim-agent.slice", "wim-agent-job@.service", "wim-agent-job@.timer"]));

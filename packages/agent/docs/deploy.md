@@ -204,10 +204,12 @@ other-writable or has a key it does not know. The parts to fill:
   - `{"type": "api-key", "keyFile": "/etc/wim-agent/anthropic-key"}`: a key in a root-only file
     (`0600`). The worker gets it for the job only.
   - `{"type": "wif", ...}`: keyless Workload Identity Federation. The runner mints a short-lived
-    identity token from the machine's cloud identity (`aws-sts`, `gcp-metadata`,
-    `gcp-impersonate`, or a token `file`), the worker exchanges it for a short-lived model token,
-    and no API key exists anywhere. Fill in the organization, rule, service account and workspace
-    ids from your Claude Console's workload identity page (ids, not secrets).
+    identity token from the machine's own cloud identity, and the worker exchanges it for a
+    short-lived model token, so no API key exists anywhere. `identity` is one of
+    `{"type": "aws-sts", "region": "<region>"}`, `{"type": "gcp-metadata"}`,
+    `{"type": "gcp-impersonate", "serviceAccount": "<email>"}` or `{"type": "file", "path": "<token file>"}`.
+    Fill in `organizationId`, `federationRuleId`, `serviceAccountId` and `workspaceId` from your
+    Claude Console's workload identity page (ids, not secrets).
 - `tools`: `["Read", "Grep", "Glob"]` is read-only and the default. Adding `Bash`, `Edit`,
   `Write` or a network tool lets anyone who can wake the agent run that tool as the worker user,
   on this host, steered by text they wrote or by any file or page the job reads (prompt
