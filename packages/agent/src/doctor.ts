@@ -3,7 +3,8 @@
 // user it checks what that user can see and says which checks need root. Nothing is written,
 // nothing is sent, and no file's content (a key, a code, a token) is ever printed.
 
-import { dirname, join } from "node:path";
+// The privileged runner and the files it reads are POSIX: their paths are joined as POSIX paths.
+import { posix } from "node:path";
 import type { WorkerConfig } from "./config.ts";
 import type { NoNewPrivs, ProbeAnswer, ProbeOp, UserId } from "./probe.ts";
 
@@ -410,7 +411,7 @@ async function privileged(
   const code = await deps.codeProblem().catch((err: unknown) => `it could not be checked (${codeOf(err)})`);
   say(code === undefined ? ok("node and this wim, and every directory above them, are root's alone") : problem(`the privileged runner refuses code others can change: ${code}`));
 
-  await rootDir(dirname(p.statePath), "the runner's state directory", deps, say);
+  await rootDir(posix.dirname(p.statePath), "the runner's state directory", deps, say);
   if (p.recipient !== undefined) await recipientFiles(p.recipient, deps, say);
 
   // The lock: only root (the runner) takes it, so neither user may write where it lives.
@@ -462,7 +463,7 @@ async function recipientFiles(r: NonNullable<PrivilegedView["recipient"]>, deps:
     say(problem(`recipient.user ${r.user}: no such user`));
     return;
   }
-  for (const [file, optional] of [[join(r.home, "device.json"), false], [join(r.home, "meshes", r.mesh, "prekeys.json"), true]] as const) {
+  for (const [file, optional] of [[posix.join(r.home, "device.json"), false], [posix.join(r.home, "meshes", r.mesh, "prekeys.json"), true]] as const) {
     let st: FileStat;
     try {
       st = await deps.stat(file);

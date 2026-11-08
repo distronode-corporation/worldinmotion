@@ -6,6 +6,7 @@
 
 import { promises as fs } from "node:fs";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DAILY_CAP, NOT_ACCEPTED, runJob, TIMED_OUT } from "@worldinmotion/agent";
 import type { Inbound, MeshSession } from "../src/client.ts";
@@ -108,7 +109,7 @@ process.stdin.on("end", () => {
   await fs.writeFile(
     join(tools, "sdk-runner.mjs"),
     `import { appendFileSync } from "node:fs";
-import { runnerMain } from ${JSON.stringify(join(AGENT_SRC, "sdk-runner.ts"))};
+import { runnerMain } from ${JSON.stringify(pathToFileURL(join(AGENT_SRC, "sdk-runner.ts")).href)};
 const query = async function* ({ prompt, options }) {
   appendFileSync(${JSON.stringify(join(tools, "sdk.log"))}, JSON.stringify({ prompt, model: options.model, effort: options.effort, tools: options.tools, permissionMode: options.permissionMode, settingSources: options.settingSources }) + "\\n");
   yield { type: "system", subtype: "init" };

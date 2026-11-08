@@ -113,12 +113,16 @@ describe("runOnce, through a real runner process", () => {
     expect(o.err).toContain("wim agent run: the runner failed (exit 7)");
   });
 
-  it("a runner killed by a signal, and one that never started", async () => {
+  // Windows has no signals: a process there ends with an exit code.
+  it.skipIf(process.platform === "win32")("a runner killed by a signal", async () => {
     const o = io();
     const killer = join(dir, "self-kill.mjs");
     await writeFile(killer, `process.stdin.resume(); process.kill(process.pid, "SIGKILL");`);
     expect(await runOnce(config({ args: [killer] }), req("x"), o.io)).toBe(1);
     expect(o.err).toContain("wim agent run: the runner failed (signal SIGKILL)");
+  });
+
+  it("a runner that never started", async () => {
     const p = io();
     expect(await runOnce(config({ command: join(dir, "no-such-runner") }), req("x"), p.io)).toBe(1);
     expect(p.err).toContain("wim agent run: the runner failed (it did not start)");
