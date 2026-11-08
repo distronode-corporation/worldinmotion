@@ -100,6 +100,15 @@ describe("startScopedJob with a stand-in process", () => {
     expect(f.calls[0]!.options["env"]).toEqual({ PATH: "/usr/bin", XDG_RUNTIME_DIR: "/run/user/1000" });
   });
 
+  it("a scope keeps every $ in the command line literal (systemd-run would expand it), and no scope leaves it alone", () => {
+    const f = fakeSpawn();
+    const spec: JobSpec = { ...SPEC, command: "/opt/$dir/node", args: ["-e", "x$HOME${Y}$$"] };
+    startScopedJob(spec, { mode: "user", unit: "u", drainMs: 10, spawn: f.spawnFn, systemctl: async () => undefined });
+    expect(f.calls[0]!.args.slice(-3)).toEqual(["/opt/$$dir/node", "-e", "x$$HOME$${Y}$$$$"]);
+    startScopedJob(spec, { mode: "none", unit: "", drainMs: 10, spawn: f.spawnFn });
+    expect(f.calls[1]).toMatchObject({ command: "/opt/$dir/node", args: ["-e", "x$HOME${Y}$$"] });
+  });
+
   it("no scope: the command itself, switched by the spawn when ids are given", () => {
     const f = fakeSpawn();
     startScopedJob(SPEC, { mode: "none", unit: "", drainMs: 10, spawn: f.spawnFn });
@@ -171,8 +180,14 @@ const alive = (pid: number): boolean => {
 };
 const userScopes = linux && process.geteuid!() !== 0 && spawnSync("systemd-run", ["--user", "--scope", "--quiet", "true"], { stdio: "ignore", timeout: 10_000 }).status === 0;
 const USER_ENV = { XDG_RUNTIME_DIR: process.env["XDG_RUNTIME_DIR"] ?? "" };
-/** The reviewer's repro: the leader starts `setsid sh -c 'sleep 8'` in the background, records its pid and exits. */
-const ESCAPE = (pidFile: string) => `setsid sh -c 'sleep 8' & echo $! > '${pidFile}'; echo leader done`;
+/**
+ * The reviewer's repro: the leader starts `setsid sh -c 'sleep 8'` in the background and exits.
+ * The escaped shell writes its own pid only once setsid() has run, and the leader waits for
+ * that file, so the leader never exits (and its group is never killed) while the child is still
+ * in the leader's process group: that race once made the no-scope case kill the child early.
+ */
+const ESCAPE = (pidFile: string) =>
+  `setsid sh -c 'echo $$ > "$0"; exec sleep 8' '${pidFile}' & while [ ! -s '${pidFile}' ]; do sleep 0.05; done; echo leader done`;
 const shSpec = (script: string): JobSpec => ({ command: "/bin/sh", args: ["-c", script], cwd: dir, env: { PATH: "/usr/bin:/bin" }, stdin: "" });
 
 describe.runIf(linux)("the setsid escape, with real processes", () => {

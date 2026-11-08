@@ -82,8 +82,11 @@ export function startScopedJob(spec: JobSpec, o: ScopeOptions): JobHandle {
   const scoped = o.mode !== "none";
   const manager = o.mode === "user" ? ["--user"] : [];
   const ids = spec.uid === undefined ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
+  // systemd-run expands `$NAME` and `${NAME}` in the command it runs (from its own environment),
+  // and `$$` is its escape for a literal `$`, so every `$` of the job's command line is doubled.
+  const literal = (a: string): string => a.replaceAll("$", () => "$$");
   const [command, args] = scoped
-    ? ["systemd-run", [...manager, "--scope", "--quiet", "--collect", `--unit=${o.unit}`, ...(o.slice === undefined ? [] : [`--slice=${o.slice}`]), ...ids, "--", spec.command, ...spec.args]]
+    ? ["systemd-run", [...manager, "--scope", "--quiet", "--collect", `--unit=${o.unit}`, ...(o.slice === undefined ? [] : [`--slice=${o.slice}`]), ...ids, "--", literal(spec.command), ...spec.args.map(literal)]]
     : [spec.command, spec.args];
   const child = spawn(command, args, {
     cwd: spec.cwd,
