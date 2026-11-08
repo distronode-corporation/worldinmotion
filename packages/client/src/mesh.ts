@@ -377,3 +377,42 @@ export async function setDevicePolicy(files: MeshFiles, deviceId: string, level:
 export function trustLevel(action: "trust" | "untrust", relayed: boolean): Policy {
   return action === "untrust" ? "hold" : relayed ? "deliver-relayed" : "deliver";
 }
+
+/** The device that signed the roster adding a device, as that roster's predecessor named it. */
+export type Adder = { id: string; name: string };
+
+/**
+ * Who added each device of `head` (events `added_by`, `wim status`): the signer of the first
+ * stored roster that lists it, walking back from the head while the roster before is stored here.
+ * Read only from rosters this device verified (each signed by an admin of the one before), so no
+ * message or relay frame can name an adder. Missing for the genesis's devices (nobody added them),
+ * and for devices older than the earliest roster stored here (a joining device keeps the chain
+ * from its invite's pin on).
+ */
+export async function addersOf(files: MeshFiles, head: Roster): Promise<Map<string, Adder>> {
+  const out = new Map<string, Adder>();
+  let cur = head;
+  while (cur.seq > 1) {
+    // Only the roster this one follows (its `prev` hash), naming its signer; anything else on disk
+    // (missing, unreadable, another roster) ends the walk, and the devices before it read as unknown.
+    const prev = await files.loadRoster(cur.seq - 1).catch(() => undefined);
+    const by = prev !== undefined && hash(prev) === cur.prev ? prev.devices.find((d) => d.id === cur.by) : undefined;
+    if (by === undefined) break;
+    for (const d of cur.devices) if (!prev!.devices.some((p) => p.id === d.id)) out.set(d.id, { id: by.id, name: by.name });
+    cur = prev!;
+  }
+  return out;
+}
+
+/**
+ * Whose approval a join was (SPEC section 6a), for the joining device: the device that signed the
+ * roster adding it (`admitter`) is the `approver` only when the invite code names it as the
+ * invite's maker (`issuer`). Every admin receives a join request, so another admin, another
+ * person's in a shared mesh, can add the device first; and a code from before 0.2.0 names no
+ * maker. Either way there is no approver, and the admitter is asked about like any other device.
+ */
+export function joinApproval(adders: ReadonlyMap<string, Adder>, me: string, issuer: string | undefined): { admitter?: Adder; approver?: Adder } {
+  const admitter = adders.get(me);
+  if (admitter === undefined) return {};
+  return admitter.id === issuer ? { admitter, approver: admitter } : { admitter };
+}

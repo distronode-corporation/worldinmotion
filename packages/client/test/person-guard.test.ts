@@ -19,7 +19,10 @@ import { HeldBox } from "../src/held.ts";
 import { listAllHeld } from "../src/offline.ts";
 import { SessionFiles } from "../src/session.ts";
 import { agentEnv, AGENT_ENV_VARS, cannotConfirm } from "../src/secretout.ts";
-import { FS, makeMesh, openSession, RelayHarness, run, said, sessionOpts, term, until, type Term } from "./helpers.ts";
+import { decideJoin, issueInvite, joinMesh } from "../src/admin.ts";
+import { OWN_QUESTION } from "../src/cli.ts";
+import { Invites } from "../src/joins.ts";
+import { FS, makeMesh, newDevice, openSession, RelayHarness, run, said, sessionOpts, term, until, type Term } from "./helpers.ts";
 
 const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
@@ -230,4 +233,80 @@ describe("only a person approves held messages and trusts devices", () => {
     expect(cannotConfirm({}, { isTTY: true, inputIsTTY: true })).toBeUndefined();
     expect(cannotConfirm({ AI_AGENT: "x" }, { isTTY: false, inputIsTTY: false })).toMatch(/^AI_AGENT is set/);
   });
+});
+
+describe("own-device trust stays inside the person's approval", () => {
+  it("refuses wim invite to every non-person before it asks whether the device is theirs", async () => {
+    const relay = new RelayHarness();
+    const { devices } = await makeMesh(relay, ["one"]);
+    for (const h of HOSTILE) {
+      const t = hostileTerm(devices[0]!.root, relay, h);
+      expect(await run(t, "invite"), h.what).toBe(1);
+      expect(said(t), h.what).not.toContain(OWN_QUESTION);
+      expect(t.answers.length, h.what).toBe(3);
+    }
+  }, 30_000);
+
+  it("never trusts on an --auto invite: nothing is asked, and the device it admits is held", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const t = term(devices[0]!.root, relay);
+    t.answers.push("y", "y");
+    const inviting = run(t, "invite", "--auto");
+    await until(() => said(t).includes("wim1_"));
+    const joiner = await newDevice("bot");
+    await joinMesh({ home: joiner.home, device: joiner.device, code: /wim1_\S+/.exec(said(t))![0], dialer: relay.dialer, now: Date.now, showSas: () => undefined });
+    expect(await inviting).toBe(0);
+    expect(said(t)).not.toContain("[y/N]");
+    expect(t.answers.length).toBe(2);
+    expect(said(t)).toContain("Messages from bot are held for your approval. If it is your own: wim devices trust bot");
+    const files = new MeshFiles(devices[0]!.home.meshDir(mesh), FS);
+    expect((await files.loadConfig()).policy[joiner.device.id]).toBeUndefined();
+    // Asked for both, the client records no `own` on an auto-accept invite; a record edited to say
+    // both is still not trusted, since nobody approved that join.
+    const s = await openSession(devices[0]!, mesh, relay, { name: "inviter", kind: "cli" });
+    try {
+      const invites = new Invites(files, FS, Date.now);
+      for (const edited of [false, true]) {
+        const inv = await issueInvite(s, { ttlMs: 600_000, auto: true, own: true, now: Date.now });
+        const record = (await invites.get(inv.inviteId))!;
+        expect(record.own).toBeUndefined();
+        if (edited) await invites.put({ ...record, own: true });
+        const d = await newDevice(edited ? "edited" : "asked");
+        const decided = new Promise<unknown>((resolve) => s.once("join", (body) => void decideJoin(s, body, async () => true, Date.now).then(resolve)));
+        await Promise.all([joinMesh({ home: d.home, device: d.device, code: inv.code, dialer: relay.dialer, now: Date.now, showSas: () => undefined }), decided]);
+        expect(await decided).toEqual({ outcome: "admitted", name: d.device.name });
+        expect((await files.loadConfig()).policy[d.device.id]).toBeUndefined();
+      }
+    } finally {
+      await s.stop({ ended: true });
+    }
+  }, 30_000);
+
+  it("trusts only on the record: a join request that claims own is held like any other", async () => {
+    const relay = new RelayHarness();
+    const { mesh, devices } = await makeMesh(relay, ["one"]);
+    const s = await openSession(devices[0]!, mesh, relay, { name: "inviter", kind: "cli" });
+    try {
+      const inv = await issueInvite(s, { ttlMs: 600_000, auto: false, now: Date.now });
+      const d = await newDevice("claims");
+      // The relay's frame with `own` added is not the request the device signed: refused. The
+      // signed one is admitted, held.
+      const decided = new Promise<unknown[]>((resolve) =>
+        s.once("join", (body) =>
+          void (async () => {
+            const claimed = await decideJoin(s, { ...(body as object), own: true, trusted: true } as never, async () => true, Date.now);
+            resolve([claimed, await decideJoin(s, body as never, async () => true, Date.now)]);
+          })(),
+        ),
+      );
+      await Promise.all([joinMesh({ home: d.home, device: d.device, code: inv.code, dialer: relay.dialer, now: Date.now, showSas: () => undefined }), decided]);
+      const [claimed, real] = await decided;
+      expect(claimed).toMatchObject({ outcome: "refused" });
+      expect(real).toEqual({ outcome: "admitted", name: "claims" });
+      expect((await new MeshFiles(devices[0]!.home.meshDir(mesh), FS).loadConfig()).policy[d.device.id]).toBeUndefined();
+    } finally {
+      await s.stop({ ended: true });
+    }
+  }, 20_000);
 });
