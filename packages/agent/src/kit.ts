@@ -31,7 +31,8 @@ export async function copyKit(from: string, to: string): Promise<string[]> {
     const src = join(from, rel);
     const st = await fs.stat(src);
     if (st.isDirectory()) {
-      for (const name of (await fs.readdir(src)).sort()) await copy(join(rel, name));
+      // Relative names use "/" on every platform, as KIT_ENTRIES does.
+      for (const name of (await fs.readdir(src)).sort()) await copy(`${rel}/${name}`);
       return;
     }
     const dst = join(to, rel);

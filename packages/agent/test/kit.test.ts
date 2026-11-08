@@ -25,8 +25,8 @@ describe("the deployment kit", () => {
   it("is copied whole, modes kept, into a new directory", async () => {
     const to = join(dir, "out");
     const files = await copyKit(REPO_KIT, to);
-    expect(files).toContain(join("docs", "deploy.md"));
-    expect(files).toContain(join("deploy", "wim-agent-privileged-runner"));
+    expect(files).toContain("docs/deploy.md");
+    expect(files).toContain("deploy/wim-agent-privileged-runner");
     expect(files.filter((f) => f.startsWith("deploy")).length).toBeGreaterThan(5);
     if (POSIX) {
       const launcher = await stat(join(to, "deploy", "wim-agent-privileged-runner"));

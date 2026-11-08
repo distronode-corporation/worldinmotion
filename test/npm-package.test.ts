@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -65,7 +65,9 @@ describe("the deployment kit in the npm package", () => {
   });
 
   it("holds every file of the kit, modes kept, where `wim agent init --kit` looks (agent-kit/ beside wim.mjs)", () => {
-    const out = mkdtempSync(join(process.env["WIM_TEST_TMP"] || tmpdir(), "wim-npm-kit-"));
+    const base = process.env["WIM_TEST_TMP"] || tmpdir();
+    mkdirSync(base, { recursive: true });
+    const out = mkdtempSync(join(base, "wim-npm-kit-"));
     try {
       const to = join(out, "agent-kit");
       execFileSync(process.execPath, [join(root, "packaging", "npm", "agent-kit.mjs"), to], { stdio: "pipe" });
