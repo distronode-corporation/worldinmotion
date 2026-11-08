@@ -23,7 +23,7 @@ body line with a bracket.
   request on stdin, the answer on stdout, exit codes for refused, busy and timed out, and a
   SIGTERM-then-SIGKILL timeout on its process group. Limits: task length, attempts per device per
   hour, one job at a time, a daily cap kept on disk. Replies are marked relayed; a room copy
-  carries the answer only. The built-in runner (`wim-agent-runner`) uses the Claude Agent SDK with
+  carries the answer only. The built-in runner (`wim worker runner`) uses the Claude Agent SDK with
   an API key, `claude-opus-5-5` at medium effort, read-only tools, and no settings, hooks or MCP
   servers from the machine (packages/agent/README.md, SECURITY-MODEL section 7.7).
 - **Sessions that keep no message text on disk** (`redactStoredText`, used by `wim worker`): spool

@@ -62,8 +62,8 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
   "wake": { "mode": "local", "codeFile": "/etc/wim-worker/wake-code" },
   "profiles": { "allowed": ["a", "b"], "default": "a" },
   "runner": {
-    "command": "/usr/bin/node",
-    "args": ["/usr/lib/node_modules/@worldinmotion/agent/src/bin.ts", "--config", "/etc/wim-worker/runner.json"]
+    "command": "/usr/local/bin/wim",
+    "args": ["worker", "runner", "--config", "/etc/wim-worker/runner.json"]
   },
   "limits": { "ledgerPath": "/var/lib/wim-worker/ledger.json", "dailyJobs": 20 },
   "replies": { "refused": "generic", "room": "#agents" }
@@ -140,13 +140,17 @@ A runner is any program. The worker starts one per job, in its own process group
 
 ## The built-in runner
 
-`wim-agent-runner` (or `wim worker runner`) runs one job through the
-[Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk), which is an
-optional peer dependency: install it next to this package.
+`wim worker runner` runs one job through the
+[Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk). `wim` does not
+carry the SDK (it is large, with a native Claude Code build per platform), so install it next to
+`wim`:
 
 ```sh
-npm install --global @worldinmotion/agent @anthropic-ai/claude-agent-sdk
+npm install --global worldinmotion @anthropic-ai/claude-agent-sdk
 ```
+
+From a checkout of this repository, `node packages/agent/src/bin.ts` (`wim-agent-runner`) is the
+same runner.
 
 It authenticates with an Anthropic API key from `ANTHROPIC_API_KEY` or `keyFile`. Its config
 (`--config <file>`, optional):
@@ -207,7 +211,7 @@ Group=wim-worker
 StateDirectory=wim-worker
 Environment=WIM_HOME=/var/lib/wim-worker/wim
 Environment=HOME=/var/lib/wim-worker
-ExecStart=/usr/bin/wim worker serve /etc/wim-worker/worker.json --as agents
+ExecStart=/usr/local/bin/wim worker serve /etc/wim-worker/worker.json --as agents
 Restart=on-failure
 RestartSec=10
 NoNewPrivileges=yes
