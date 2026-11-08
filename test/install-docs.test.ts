@@ -52,7 +52,7 @@ describe("the README's quick start", () => {
     const named = [...quick.matchAll(/`wim ([a-z-]+)/g)].map((m) => m[1]!);
     expect(named).toContain("setup");
     for (const c of named) expect(commandUsage(c)).toBeDefined();
-    expect(commandUsage("setup")).toBe("wim setup [--name <device>] [--relay <url>] [--key-env NAME]");
+    expect(commandUsage("setup")).toBe("wim setup [<invite code>] [--name <device>] [--relay <url>] [--key-env NAME]");
     expect(commandUsage("recovery")).toContain("wim recovery show [--wait]");
     expect(text).toContain("`wim recovery show --wait`");
   });

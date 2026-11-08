@@ -48,7 +48,9 @@ $WIM_HOME/
   meshes/<mesh>/
     mesh.json            0600  relay URL, pinned roster {seq, hash}, my device id, policy
     rosters/<seq>.json         every verified roster
-    invites/<inviteId>.json 0600  issued invites: secret, exp, auto-accept flag, used
+    invites/<inviteId>.json 0600  issued invites: secret, exp, auto-accept flag, `own` (the person
+                               said the new device is theirs: its admit sets `deliver`; never with
+                               auto-accept, never in the code), used
     seen.json                  dedupe ids with expiry (H3), per device, shared by sessions (locked writes)
     seq.json                   SeqTracker state (M3)
     prekeys.json         0600  this device's prekeys and their secrets: rotated daily, each secret

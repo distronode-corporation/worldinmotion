@@ -4,6 +4,7 @@
 import { b64u, canonBytes, createInvite, formatShortCode, LIMITS, newShortKey, parseInvite, rdvId, sealRdv, SHORT_CODE_RELAY, type RelayFrame } from "@worldinmotion/protocol";
 import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
+import { OLDER_CANNOT_JOIN } from "../src/cli.ts";
 import { ClientError } from "../src/client.ts";
 import { SetupError } from "../src/errors.ts";
 import { runSetupEvents } from "../src/events.ts";
@@ -49,13 +50,13 @@ describe("resolveInvite", () => {
     expect(rdvUrl("wss://relay.example/x", "ID")).toBe("https://relay.example/x/v1/rdv/ID");
   });
 
-  it("opens a short code whose box holds a code from 0.2.0 (with `by`), and the code reads as without it", async () => {
+  it("opens a short code whose box holds a code with `by`, which reads back with it", async () => {
     const code = full();
     const body = JSON.parse(new TextDecoder().decode(b64u.decode(code.slice(5)))) as Record<string, unknown>;
     const newer = `wim1_${b64u.encode(canonBytes({ ...body, by: "PxJjk3xiwFWIWhuMwaIsqQ" }))}`;
     const { short, fetcher } = stored(newer);
     expect(await resolveInvite(short, fetcher)).toBe(newer);
-    expect(parseInvite(newer)).toEqual(parseInvite(code));
+    expect(parseInvite(newer)).toEqual({ ...parseInvite(code), by: "PxJjk3xiwFWIWhuMwaIsqQ" });
   });
 
   it("refuses a mistyped short code before asking the relay", async () => {
@@ -136,12 +137,14 @@ describe("wim invite and wim join with a short code", () => {
     const a = term(await scratch("sc-a"), relay);
     expect(await run(a, "init", "--name", "laptop", "--relay", RELAY, "--no-recovery")).toBe(0);
     const b = term(await scratch("sc-b"), relay, { fetch: relay.fetch });
-    a.answers.push(() => sasOf(b));
+    a.answers.push("n", () => sasOf(b));
     const inviting = run(a, "invite");
     await until(() => a.out.some((l) => l.includes("wim2-")));
     const short = /wim2-\S+/.exec(said(a))![0];
     expect(said(a)).not.toMatch(/wim1_/);
-    expect(said(a)).toContain("A device on wim 0.1.4 or older needs a full code: `wim invite --full`.");
+    // Every invite says that a device on 0.1.10 or older cannot read it (the code names its maker).
+    expect(said(a)).toContain(OLDER_CANNOT_JOIN);
+    expect(said(a)).not.toContain("0.1.4");
     expect(said(a)).not.toContain("The short code works until");
     expect(await run(b, "join", short, "--name", "server")).toBe(0);
     expect(await inviting).toBe(0);
@@ -149,7 +152,7 @@ describe("wim invite and wim join with a short code", () => {
 
     // --full: no box at the relay, and the full code.
     const c = term(await scratch("sc-c"), relay);
-    a.answers.push(() => sasOf(c));
+    a.answers.push("n", () => sasOf(c));
     const sent = relay.sentByClients.length;
     a.out.length = 0;
     const again = run(a, "invite", "--full");

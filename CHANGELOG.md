@@ -15,11 +15,28 @@ body line with a bracket.
 
 ### Added
 
-- **Invite codes from 0.2.0 are read.** 0.2.0 adds `by`, the device id of the admin that made
-  the invite, to the invite code. This version accepts it (checked as a device id, so a malformed
-  one is still refused) and ignores it, so a device on it can join with a 0.2.0 admin's invite,
-  short code or full. Any other unknown field is still refused; 0.1.10 and older refuse `by`
-  (SPEC section 5).
+- **Your own devices are trusted inside the approvals you already give.** `wim invite` asks "Is the
+  new device one of yours? Its messages will then be trusted here when it joins. [y/N]" before it
+  shows the code, and keeps the answer in the invite's record on that device, never in the code; an
+  own-device invite sets `deliver` for the device it admits, and the question after the admit is
+  gone. `wim invite --auto` never trusts. On the joining side, `wim join` and the new
+  `wim setup <invite code>` ask about the device that admitted this one alone, then about each
+  other device on its own, replacing the one question that covered every device. Every automatic
+  trust prints its undo (`wim devices untrust <name>`). Nothing is transitive: a device another
+  device added is never trusted because that device is. `wim status` lists those as "held here,
+  added by laptop: build (wim devices trust build)", and the VS Code extension asks about each one
+  as it joins ("laptop added build to this mesh. Is build your own device?", with **Trust...** and
+  **Not Mine**, kept on that machine), with **Review Trust...** for all of them. **Add a Device...**
+  asks whose device it is first, and after **Join with a Code...** the extension asks about the
+  admitting device, then each other one, in modals. `wim events` takes `invite { own }`, answers
+  `admit` with `trusted`, adds `added_by` to device rows (read only from the verified roster chain)
+  and `admitted_by` to `joined` ([docs/events.md](docs/events.md), SPEC section 6a,
+  SECURITY-MODEL section 7.2). An invite code now names the admin that made it (`by`, SPEC section
+  5): the joining side asks about the device that admitted it as the approver only when that is
+  the maker, and otherwise says so and asks about it like any other device. Devices on 0.1.10
+  or older cannot read a 0.2.0 invite code and must upgrade to 0.2.0 before joining; `wim invite`
+  and Add a Device... say so. Admitting on an own-device invite says first that it trusts the
+  device (the comparison-code prompt, `wim devices pending`, the VS Code admit box).
 
 - **VS Code: Create a Mesh and Join with a Code from the empty Mesh view.** On a device in no
   mesh yet the Mesh view shows a welcome text with both buttons (it reads the new

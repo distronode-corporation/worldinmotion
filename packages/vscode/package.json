@@ -177,6 +177,11 @@
         "category": "worldinmotion"
       },
       {
+        "command": "worldinmotion.reviewTrust",
+        "title": "Review Trust...",
+        "category": "worldinmotion"
+      },
+      {
         "command": "worldinmotion.createMesh",
         "title": "Create a Mesh...",
         "category": "worldinmotion"
