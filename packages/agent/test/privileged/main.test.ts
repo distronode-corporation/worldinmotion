@@ -55,6 +55,7 @@ function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: numb
     },
     writeFile: async (p, d, mode) => void files.set(p, { text: d, uid: 0, mode }),
     ensureDir: async (p, mode) => void (dirs.push(p), ops.push(`dir ${p} ${mode.toString(8)}`)),
+    checkDir: async (p) => void ops.push(`check ${p}`),
     codeProblem: async () => opts.codeProblem,
     lookupUser: async (name) => (name === RECIPIENT_CFG.user ? PEER : WORKER),
     acquireLock: async (p) => (ops.push(`lock ${p}`), opts.lockBusy === true ? null : { release: async () => void (ops.push("unlock"), released++) }),
@@ -494,10 +495,12 @@ describe("privilegedMain: directories before the lock, and the job's end", () =>
   it("also makes the lock's own directory when the lock lives elsewhere, but never touches /", async () => {
     const h = harness(minimal({ lock: { path: "/run/shared/job.lock", waitSeconds: 5 } }));
     expect(await run(h)).toBe(0);
-    expect(h.ops.indexOf("dir /run/shared 755")).toBeLessThan(h.ops.indexOf("lock /run/shared/job.lock"));
+    // A lock directory outside runDir is only checked: it may be shared, with its own group and mode.
+    expect(h.ops.indexOf("check /run/shared")).toBeLessThan(h.ops.indexOf("lock /run/shared/job.lock"));
+    expect(h.ops).not.toContain("dir /run/shared 755");
     const top = harness(minimal({ lock: { path: "/job.lock", waitSeconds: 5 } }));
     expect(await run(top)).toBe(0);
-    expect(top.ops.filter((o) => o.startsWith("dir ") && o.includes(" 755"))).toEqual([]);
+    expect(top.ops.filter((o) => o.startsWith("check "))).toEqual([]);
   });
 
   it("at the leader's exit closes the proxy first, then cleans up the job, then releases the lock", async () => {

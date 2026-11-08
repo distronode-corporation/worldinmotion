@@ -135,7 +135,7 @@ others (refused otherwise). Unknown keys are refused. As a non-root user (for tr
 |---|---|---|
 | `worker.user`, `worker.home`, `worker.cwd` | `wim-agent-worker`, `/var/lib/wim-agent-worker`, `<home>/work` | The job's user, its `HOME` and working directory. `worker.additionalDirectories` lists more directories the job may read. |
 | `runDir` | `/run/wim-agent` | The runner's own directory, root-owned and made before the lock is taken. |
-| `lock.path`, `lock.waitSeconds` | `/run/wim-agent/job.lock`, `900` | One job at a time on the host. The lock is a BSD `flock`, the same one a shell takes with `exec 9>"$LOCK"; flock -w 900 9`, so scheduled jobs and messages queue behind each other. It is never opened through a symlink. Needs util-linux `flock`. |
+| `lock.path`, `lock.waitSeconds` | `/run/wim-agent/job.lock`, `900` | One job at a time on the host. The lock is a BSD `flock`, the same one a shell takes with `exec 9>"$LOCK"; flock -w 900 9`, so scheduled jobs and messages queue behind each other. It is never opened through a symlink. A lock directory outside `runDir` is made if missing, otherwise only checked (a directory, root's, no group or other write) and never re-owned, so it can be one the scheduled jobs share with their own group and mode. Needs util-linux `flock`. |
 | `minMemAvailableMb` | `900` | Busy (4) when `MemAvailable` is under this; `0` turns it off. |
 | `timeoutSeconds`, `killGraceSeconds` | `1800`, `15` | The job gets TERM at the timeout, then KILL after the grace. Keep the worker's own timeout longer than `lock.waitSeconds + timeoutSeconds + killGraceSeconds`. |
 | `maxTaskChars` | `16000` | Longer tasks are refused (3). |
