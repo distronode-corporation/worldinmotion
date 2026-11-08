@@ -139,12 +139,14 @@ export async function secureWrite(path: string, data: string, mode: number, owne
  * with an `owner` (root, in production), owned by it with no group or other write bit; then set
  * to that owner and `mode` through a handle on the directory itself.
  */
-export async function secureDir(path: string, mode: number, owner: { uid: number; gid: number } | undefined): Promise<void> {
+export async function secureDir(path: string, mode: number, owner: { uid: number; gid: number } | undefined, adopt = true): Promise<void> {
   await fs.mkdir(path, { recursive: true, mode });
   const st = await fs.lstat(path);
   if (!st.isDirectory()) throw Object.assign(new Error(`refusing ${path}: it is not a directory`), { code: "EUNSAFE" });
   if (owner === undefined) return;
   if (st.uid !== owner.uid || (st.mode & 0o022) !== 0) throw Object.assign(new Error(`refusing ${path}: it is not its owner's alone`), { code: "EUNSAFE" });
+  // A directory another system shares (a lock's) is checked, never re-owned or re-moded.
+  if (!adopt) return;
   const dir = await fs.open(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
   try {
     await dir.chown(owner.uid, owner.gid);
@@ -182,6 +184,7 @@ export function systemDeps(euid = process.geteuid!()): PrivilegedDeps {
     readFile: secureRead,
     writeFile: (p, d, mode) => secureWrite(p, d, mode, euid === 0 ? { uid: 0, gid: 0 } : undefined),
     ensureDir: (p, mode, gid) => secureDir(p, mode, euid === 0 ? { uid: 0, gid: gid ?? 0 } : undefined),
+    checkDir: (p) => secureDir(p, 0o755, euid === 0 ? { uid: 0, gid: 0 } : undefined, false),
     codeProblem: () => codeProblem([process.execPath, process.argv[1]!]),
     lookupUser: (name) => lookupUser(name),
     acquireLock: (p, w) => acquireLock(p, w),

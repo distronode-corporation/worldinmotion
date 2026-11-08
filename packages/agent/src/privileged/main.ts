@@ -59,6 +59,11 @@ export interface PrivilegedDeps {
   writeFile(path: string, data: string, mode: number): Promise<void>;
   /** Makes (or checks) a directory: not a symlink, root-owned when root, no group or other write. */
   ensureDir(path: string, mode: number, gid?: number): Promise<void>;
+  /**
+   * Makes a directory if it is missing, else only checks it (a directory, not a symlink, root's,
+   * no group or other write) without changing its owner or mode: for one another system shares.
+   */
+  checkDir(path: string): Promise<void>;
   /** Why the code this process runs could be changed by someone other than root, if it could. */
   codeProblem(): Promise<string | undefined>;
   lookupUser(name: string): Promise<{ uid: number; gid: number }>;
@@ -240,7 +245,8 @@ async function prepareRunDir(cfg: PrivilegedConfig, deps: PrivilegedDeps): Promi
   // Each directory is checked as it is made: a directory, not a symlink, root's alone.
   await deps.ensureDir(cfg.runDir, 0o750);
   const lockDir = cfg.lock.path.slice(0, cfg.lock.path.lastIndexOf("/"));
-  if (lockDir !== "" && lockDir !== cfg.runDir) await deps.ensureDir(lockDir, 0o755);
+  // The lock may live in a directory the scheduled jobs own (another group, its own mode): check it, never re-own it.
+  if (lockDir !== "" && lockDir !== cfg.runDir) await deps.checkDir(lockDir);
   return user;
 }
 

@@ -200,6 +200,18 @@ describe.runIf(linux)("secureDir", () => {
     expect((await fs.stat(d)).mode & 0o777).toBe(0o750);
     await secureDir(d, 0o700, undefined);
   });
+  it("only checks a shared directory: never changes its owner or mode", async () => {
+    const shared = join(dir, "shared");
+    await fs.mkdir(shared, { mode: 0o750 });
+    await fs.chmod(shared, 0o750);
+    await secureDir(shared, 0o700, me(), false);
+    expect((await fs.stat(shared)).mode & 0o777).toBe(0o750);
+    const made = join(dir, "shared-new");
+    await secureDir(made, 0o755, me(), false);
+    expect((await fs.stat(made)).isDirectory()).toBe(true);
+    await fs.chmod(shared, 0o770);
+    await expect(secureDir(shared, 0o700, me(), false)).rejects.toMatchObject({ code: "EUNSAFE" });
+  });
   it("refuses a symlink, a file, another owner, and a directory others can write", async () => {
     const real = join(dir, "real-dir");
     await fs.mkdir(real);
@@ -240,6 +252,9 @@ describe.runIf(linux)("systemDeps", () => {
     await d.writeFile(f, "one", 0o640);
     expect(await d.readFile(f, { owner: undefined, secret: false })).toBe("one");
     await d.ensureDir(join(dir, "m", "n"), 0o750);
+    await fs.chmod(join(dir, "m", "n"), 0o750);
+    await d.checkDir(join(dir, "m", "n"));
+    expect((await fs.stat(join(dir, "m", "n"))).mode & 0o777).toBe(0o750);
     expect((await fs.stat(join(dir, "m", "n"))).isDirectory()).toBe(true);
     expect(await d.codeProblem()).toEqual(process.getuid!() === 0 ? expect.anything() : expect.stringMatching(/is not root's alone/));
 
@@ -301,5 +316,6 @@ describe.runIf(linux)("systemDeps", () => {
     await fs.mkdir(join(dir, "mine"), { recursive: true });
     await expect(d.ensureDir(join(dir, "mine"), 0o700)).rejects.toMatchObject({ code: "EUNSAFE" });
     await expect(d.ensureDir(join(dir, "mine"), 0o750, 991)).rejects.toMatchObject({ code: "EUNSAFE" });
+    await expect(d.checkDir(join(dir, "mine"))).rejects.toMatchObject({ code: "EUNSAFE" });
   });
 });

@@ -154,7 +154,10 @@ npm install --global worldinmotion @anthropic-ai/claude-agent-sdk
 
 For keyless authentication, profiles mapped to separate accounts and a code check under another
 OS user, use the privileged runner instead (`wim agent privileged`, see
-[docs/privileged-runner.md](docs/privileged-runner.md)).
+[docs/privileged-runner.md](docs/privileged-runner.md)). It verifies each request's signed frame
+itself, so it needs the worker device's key file in plaintext (not `wim signer encrypt`), readable
+by root. Its keyless sign-in also uses `@anthropic-ai/sdk`, an optional peer: install it beside
+`wim` with the Agent SDK.
 
 From a checkout of this repository, `node packages/agent/src/bin.ts` (`wim-agent-runner`) is the
 same runner.
