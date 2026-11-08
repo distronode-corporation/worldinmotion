@@ -1,11 +1,12 @@
 // The RUNNER contract's request, read strictly, and the decisions that need the privileged
 // side: who sent it, the wake code, and which profile runs it. Nothing here logs text.
 
-import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { parseProfile } from "../gate.ts";
+import { RUNNER_EXIT, RUNNER_MAX_BYTES } from "../runner.ts";
 
 /** The contract's limit on the stdin request, in bytes. */
-export const MAX_REQUEST_BYTES = 64 * 1024;
+export const MAX_REQUEST_BYTES = RUNNER_MAX_BYTES;
 
 /** The sender a root caller outside sudo (a scheduled job) names when `allowLocal` is on. */
 export const LOCAL_DEVICE = "local";
@@ -17,7 +18,7 @@ const Request = z.strictObject({
     device: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
     address: z.string().regex(/^[a-z0-9-]{1,32}@[a-z0-9.-]{1,64}$/),
   }),
-  profile: z.string().max(16),
+  profile: z.string().max(32),
   text: z.string().refine((t) => !t.includes("\0"), "holds a NUL"),
 });
 
@@ -33,7 +34,8 @@ export class Refusal extends Error {
   }
 }
 
-export const EXIT = { ok: 0, failed: 1, usage: 2, refused: 3, busy: 4, timeout: 5 } as const;
+/** The contract's codes, plus 1 (failed) and 2 (bad argv or request), which the worker reads as failed. */
+export const EXIT = { ...RUNNER_EXIT, failed: 1, usage: 2 } as const;
 
 export function parseRequest(data: Buffer): ParsedRequest {
   if (data.length > MAX_REQUEST_BYTES) throw new Refusal(EXIT.refused, `request over ${MAX_REQUEST_BYTES} bytes`);
@@ -53,42 +55,15 @@ export function usableCode(code: string): boolean {
   return code.length >= 16 && !/\s/.test(code);
 }
 
-/**
- * The text after the wake code, or undefined when the text does not start with the code
- * followed by whitespace or its end. The first code-length bytes are always compared in full
- * (zero-padded when the text is shorter), so the time says nothing about how much of a guess
- * was right. The code's length is not secret.
- */
-export function stripCode(text: string, code: string): string | undefined {
-  const want = Buffer.from(code, "utf8");
-  const got = Buffer.from(text, "utf8");
-  const head = Buffer.alloc(want.length);
-  got.copy(head, 0, 0, want.length);
-  const same = timingSafeEqual(head, want);
-  const rest = got.subarray(want.length);
-  const boundary = rest.length === 0 || /^\s/.test(rest.subarray(0, 4).toString("utf8"));
-  if (!same || got.length < want.length || !boundary) return undefined;
-  return rest.toString("utf8");
-}
-
-// Anything shaped like a prefix (`word:` then whitespace or the end) is a profile choice and
-// must be on the allow-list: `c: ...` is refused rather than run on the default profile.
-const PREFIX = /^([A-Za-z0-9_-]{1,16}):(?=\s|$)/;
-
 /** The profile and the task. `packageProfile` is what the worker parsed, if anything. */
 export function chooseProfile(text: string, packageProfile: string, profiles: readonly string[], fallback: string): { profile: string; task: string } {
-  let body = text.trim();
-  let chosen: string | undefined;
-  const m = PREFIX.exec(body);
-  if (m !== null) {
-    chosen = m[1]!;
-    if (!profiles.includes(chosen)) throw new Refusal(EXIT.refused, "profile prefix not on the allow-list");
-    body = body.slice(m[0].length).trim();
-  }
+  const parsed = parseProfile(text.trim(), profiles, fallback);
+  if (!parsed.ok) throw new Refusal(EXIT.refused, "profile prefix not on the allow-list");
+  const prefixed = parsed.task !== text.trim();
   if (packageProfile !== "") {
     if (!profiles.includes(packageProfile)) throw new Refusal(EXIT.refused, "request profile not on the allow-list");
-    if (chosen !== undefined && chosen !== packageProfile) throw new Refusal(EXIT.refused, "request profile and text prefix disagree");
-    chosen = packageProfile;
+    if (prefixed && parsed.profile !== packageProfile) throw new Refusal(EXIT.refused, "request profile and text prefix disagree");
+    return { profile: packageProfile, task: parsed.task.trim() };
   }
-  return { profile: chosen ?? fallback, task: body };
+  return { profile: parsed.profile, task: parsed.task.trim() };
 }

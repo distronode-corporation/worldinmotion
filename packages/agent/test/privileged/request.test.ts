@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chooseProfile, EXIT, MAX_REQUEST_BYTES, parseRequest, Refusal, stripCode, usableCode } from "../../src/privileged/request.ts";
+import { chooseProfile, EXIT, MAX_REQUEST_BYTES, parseRequest, Refusal, usableCode } from "../../src/privileged/request.ts";
 import { request } from "./helpers.ts";
 
 const buf = (o: unknown) => Buffer.from(JSON.stringify(o));
@@ -48,27 +48,6 @@ describe("usableCode", () => {
     expect(usableCode("0123456789abcdef")).toBe(true);
     expect(usableCode("0123456789abcde")).toBe(false);
     expect(usableCode("0123456789 abcdef")).toBe(false);
-  });
-});
-
-describe("stripCode", () => {
-  const code = "wake-0123456789abcdef";
-  it("strips the code and keeps the rest", () => {
-    expect(stripCode(`${code} b: do it`, code)).toBe(" b: do it");
-    expect(stripCode(`${code}\ndo it`, code)).toBe("\ndo it");
-    expect(stripCode(code, code)).toBe("");
-  });
-  it("refuses a wrong code, a short text, no code and a code run on into a word", () => {
-    expect(stripCode(`wake-0123456789abcdeX do it`, code)).toBeUndefined();
-    expect(stripCode("wake", code)).toBeUndefined();
-    expect(stripCode("do it", code)).toBeUndefined();
-    expect(stripCode(`${code}x do it`, code)).toBeUndefined();
-  });
-  it("refuses a text that is the code's prefix padded with NULs", () => {
-    expect(stripCode("wake-0123456789abcde", "wake-0123456789abcde\0")).toBeUndefined();
-  });
-  it("handles multibyte text after the code", () => {
-    expect(stripCode(`${code}　中`, code)).toBe("　中");
   });
 });
 

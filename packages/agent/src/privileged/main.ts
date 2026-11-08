@@ -7,7 +7,8 @@
 import { TokenBroker, type BrokerFs } from "./broker.ts";
 import { loadPrivilegedConfig, PRIVILEGED_CONFIG_PATH, rootOwnedProblem, type ConfigFs, type PrivilegedConfig, type Profile } from "./config.ts";
 import { fetchIdentityToken, type IdentityDeps } from "./identity.ts";
-import { chooseProfile, EXIT, LOCAL_DEVICE, MAX_REQUEST_BYTES, parseRequest, Refusal, stripCode, usableCode, type ParsedRequest } from "./request.ts";
+import { stripCode } from "../gate.ts";
+import { chooseProfile, EXIT, LOCAL_DEVICE, MAX_REQUEST_BYTES, parseRequest, Refusal, usableCode, type ParsedRequest } from "./request.ts";
 import { workerMain, type WorkerIO } from "./worker.ts";
 
 /** The answer's cap on stdout, under the contract's 64 KiB with room for the note. */
@@ -237,8 +238,8 @@ async function run(env: Record<string, string | undefined>, self: string[], deps
     let text = req.text;
     if (!local && cfg.wakeCode !== undefined) {
       const stripped = stripCode(text, await wakeCode(cfg, env, deps));
-      if (stripped === undefined) throw new Refusal(EXIT.refused, "no or wrong wake code");
-      text = stripped;
+      if (!stripped.ok) throw new Refusal(EXIT.refused, "no or wrong wake code");
+      text = stripped.rest;
     }
     const { profile, task } = chooseProfile(text, req.profile, Object.keys(cfg.profiles), cfg.defaultProfile);
     if (task === "") throw new Refusal(EXIT.refused, "empty task");

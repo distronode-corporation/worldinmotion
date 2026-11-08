@@ -3,6 +3,7 @@
 // sign-in, the wake code's source, the job user, the lock and the limits.
 
 import { z } from "zod";
+import { PROFILE_NAME } from "../config.ts";
 
 export const PRIVILEGED_CONFIG_PATH = "/etc/wim-agent/privileged.json";
 export const PRIVILEGED_RUNNER_PATH = "/usr/local/sbin/wim-agent-privileged-runner";
@@ -20,7 +21,7 @@ export const ANTHROPIC_AUDIENCE = "https://api.anthropic.com";
 const absolute = z.string().regex(/^\/[^\0]*$/, "must be an absolute path");
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/, "must be an id of letters, digits, _ and -");
 const unixUser = z.string().regex(/^[a-z_][a-z0-9_-]{0,31}$/, "must be a user name");
-const profileName = z.string().regex(/^[a-z0-9_-]{1,16}$/, "must be 1 to 16 of a-z, 0-9, _ and -");
+const profileName = z.string().regex(PROFILE_NAME, "must be 1 to 32 of A-Z, a-z, 0-9, _ and -");
 const seconds = (max: number) => z.number().int().min(1).max(max);
 
 const Identity = z.discriminatedUnion("type", [

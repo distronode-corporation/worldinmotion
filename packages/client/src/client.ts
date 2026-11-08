@@ -173,6 +173,12 @@ export type SessionOptions = {
    * says `refuse`, no v0.1 box is sent or accepted (SPEC section 6b). Without one, the window.
    */
   legacyBoxesPath?: string;
+  /**
+   * Keeps no message text on disk (`wim worker`): an inbound item's spool file and history entry
+   * keep every field but the text, so ids, receipts and the audit trail still work while a wake
+   * code or a task never lands in this session's files. In-process consumers still get the text.
+   */
+  redactStoredText?: boolean;
 };
 
 export type PeerRow = Peer & { card?: Card };
@@ -355,6 +361,8 @@ const PAUSE_TELL_MS = 10 * 60_000;
 
 /** Swallows a failure already reported to the caller of the promise it follows. */
 const ignore = (): undefined => undefined;
+/** What a session that keeps no message text writes in a spool file in place of the frame. */
+export const REDACTED_TEXT = "(this session keeps no message text on disk)";
 
 /** A running pause's record: the address of the message that tripped it, the sending sessions told, and whether its notices went out. */
 type PauseEntry = { from: string; told: Set<string>; announced: boolean };
@@ -1595,7 +1603,7 @@ export class MeshSession extends EventEmitter {
     const waiter = p.kind === "result" && !unsolicited ? this.askWaiters.get(p.reply_to) : undefined;
     if (waiter !== undefined && p.kind === "result") {
       // The asker is waiting in a tool call: hand it over there instead of waking the agent again.
-      await this.history.append(entry);
+      await this.history.append(this.stored(entry));
       waiter(p, from);
       this.receipt(p.id, "delivered");
       return;
@@ -1689,13 +1697,24 @@ export class MeshSession extends EventEmitter {
     return run;
   }
 
+  private get redacting(): boolean {
+    return this.o.redactStoredText === true;
+  }
+
+  /** An inbound history entry as this session stores it: without its text when it keeps none. */
+  private stored(entry: HistoryEntry): HistoryEntry {
+    return this.redacting ? { ...entry, text: "", redacted: true } : entry;
+  }
+
   /** `afterWrite`: runs once the item is durably in the spool, before anything takes it from there. */
   private async deliverNow(item: Omit<SpoolItem, "cursor">, entry: HistoryEntry | undefined, afterWrite?: () => Promise<void>): Promise<SpoolItem> {
     this.informed([item]);
-    const written = await this.spool.write(item);
+    const stored = await this.spool.write(this.redacting && item.kind !== "notice" ? { ...item, rendered: REDACTED_TEXT } : item);
     if (afterWrite !== undefined) await afterWrite();
     await this.save({});
-    if (entry !== undefined) await this.history.append(entry);
+    if (entry !== undefined) await this.history.append(this.stored(entry));
+    // The item as it arrived, for consumers in this process; the spool and history keep the redacted copy.
+    const written = { ...stored, rendered: item.rendered };
     this.emit("item", written);
     // In-process consumers (bot, ci, a2a adapters) read the verified fields, not the rendered frame.
     // A CI notice is for the agent's inbox only: in-process consumers never act on it.
