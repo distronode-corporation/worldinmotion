@@ -5,6 +5,8 @@
     { "path": "./packages/protocol/test" },
     { "path": "./packages/bot" },
     { "path": "./packages/bot/test" },
+    { "path": "./packages/agent" },
+    { "path": "./packages/agent/test" },
     { "path": "./packages/ci" },
     { "path": "./packages/ci/test" },
     { "path": "./packages/a2a" },

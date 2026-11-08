@@ -1,0 +1,42 @@
+{
+  "name": "@worldinmotion/agent",
+  "version": "0.1.10",
+  "description": "wim worker: a worldinmotion peer that sleeps until an allowed device messages it, then runs one agent job through a runner command and replies",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./sdk-runner": "./src/sdk-runner.ts",
+    "./privileged": "./src/privileged.ts"
+  },
+  "bin": {
+    "wim-agent-runner": "./src/bin.ts",
+    "wim-agent-privileged-runner": "./src/bin-privileged.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.310",
+    "@aws-sdk/client-sts": "3.1156.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    },
+    "@aws-sdk/client-sts": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.310",
+    "@aws-sdk/client-sts": "3.1156.0"
+  }
+}
