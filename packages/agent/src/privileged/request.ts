@@ -57,15 +57,15 @@ export function usableCode(code: string): boolean {
   return code.length >= 16 && !/\s/.test(code);
 }
 
-/** The profile and the task. `packageProfile` is what the worker parsed, if anything. */
+/**
+ * The profile and the task, from the signed text only: its prefix, or the default without one.
+ * `packageProfile` is what the unprivileged worker says it parsed. It is never believed: a
+ * non-empty one must name the same profile the signed text does, so a compromised worker cannot
+ * move a signed message onto another profile.
+ */
 export function chooseProfile(text: string, packageProfile: string, profiles: readonly string[], fallback: string): { profile: string; task: string } {
   const parsed = parseProfile(text.trim(), profiles, fallback);
   if (!parsed.ok) throw new Refusal(EXIT.refused, "profile prefix not on the allow-list");
-  const prefixed = parsed.task !== text.trim();
-  if (packageProfile !== "") {
-    if (!profiles.includes(packageProfile)) throw new Refusal(EXIT.refused, "request profile not on the allow-list");
-    if (prefixed && parsed.profile !== packageProfile) throw new Refusal(EXIT.refused, "request profile and text prefix disagree");
-    return { profile: packageProfile, task: parsed.task.trim() };
-  }
+  if (packageProfile !== "" && packageProfile !== parsed.profile) throw new Refusal(EXIT.refused, "request profile does not match the signed text");
   return { profile: parsed.profile, task: parsed.task.trim() };
 }

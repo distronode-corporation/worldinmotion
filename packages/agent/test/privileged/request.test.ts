@@ -80,12 +80,14 @@ describe("chooseProfile", () => {
     expect(chooseProfile("time is 10:30", "", profiles, "a")).toEqual({ profile: "a", task: "time is 10:30" });
     expect(chooseProfile("http://x", "", profiles, "a")).toEqual({ profile: "a", task: "http://x" });
   });
-  it("uses the package's profile when it agrees or there is no prefix", () => {
-    expect(chooseProfile("do it", "b", profiles, "a")).toEqual({ profile: "b", task: "do it" });
+  it("takes the package's profile only when the signed text names the same one", () => {
     expect(chooseProfile("b: do it", "b", profiles, "a")).toEqual({ profile: "b", task: "do it" });
+    expect(chooseProfile("do it", "a", profiles, "a")).toEqual({ profile: "a", task: "do it" });
   });
-  it("refuses a package profile off the list, or one that disagrees with the prefix", () => {
+  it("refuses a package profile the signed text does not name, so a worker cannot pick one", () => {
+    // No prefix means the default: a worker asking for another profile is refused.
+    expect(refusal(() => chooseProfile("do it", "b", profiles, "a")).message).toMatch(/does not match the signed text/);
     expect(refusal(() => chooseProfile("do it", "z", profiles, "a")).code).toBe(EXIT.refused);
-    expect(refusal(() => chooseProfile("a: do it", "b", profiles, "a")).message).toMatch(/disagree/);
+    expect(refusal(() => chooseProfile("a: do it", "b", profiles, "a")).message).toMatch(/does not match/);
   });
 });
