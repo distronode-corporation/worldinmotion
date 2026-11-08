@@ -91,6 +91,11 @@ describe("the auth proxy", () => {
     expect((await call(p, { key: null })).status).toBe(401);
     expect((await call(p, { key: `${p.key}x` })).status).toBe(401);
     expect((await call(p, { key: "", path: "/v1/oauth/token" })).status).toBe(401);
+    // As long as the key, and differing only in its last character: compared as bytes, not hashed.
+    const last = p.key.at(-1) === "A" ? "B" : "A";
+    expect((await call(p, { key: `${p.key.slice(0, -1)}${last}` })).status).toBe(401);
+    // As many characters as the key but more bytes: refused by its length, never compared.
+    expect((await call(p, { key: `${p.key.slice(0, -1)}\u00e9` })).status).toBe(401);
     expect(seen.length).toBe(0);
   });
 
