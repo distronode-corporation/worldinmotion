@@ -129,13 +129,13 @@ describe.each(COMBOS)("idle notices: $client client against $relay relay", ({ ol
 
   it("arms, takes the notice when the watched session's turn ends, and is told of a refusal only by a relay that sends one", async () => {
     const { seen, a, b } = await setup();
-    expect(await a.notifyWhenIdle(["b@two"])).toBeUndefined();
+    expect((await a.notifyWhenIdle(["b@two"])).note).toBeUndefined();
     await until(() => seen.some((f) => f["t"] === "idle.armed") || oldClient || oldRelay);
     await fs.writeFile(b.files.presencePath, "busy");
     await until(() => a.peers.get("b@two")?.status === "busy");
     await fs.writeFile(b.files.presencePath, "idle");
     await until(async () => (await notices(a, "b@two")) === 1);
-    expect(await a.notifyWhenIdle(["x@two"])).toBeUndefined();
+    expect((await a.notifyWhenIdle(["x@two"])).note).toBeUndefined();
     await until(() => seen.some((f) => f["t"] === "error" && f["ref"] === "notify_idle"));
     // The session still works after every new frame: a message goes through both ways.
     expect((await a.send("b@two", "still here")).results[0]!.status).toBe("routed");

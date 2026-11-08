@@ -226,6 +226,8 @@ describe("relay idle notices", () => {
     const relay = new RelayHarness();
     const { mesh, devices } = await makeMesh(relay, ["one", "two"]);
     const logs: string[] = [];
+    // The relay never sees the arms, so none of them is refused (no session has these addresses).
+    swallowArms(relay);
     const a = await session(devices[0]!, mesh, relay, { name: "a", log: (l) => logs.push(l) });
     const many = Array.from({ length: LIMITS.notifyIdlePerSession + 1 }, (_, n) => `s${n}@two`);
     const armed = await a.notifyWhenIdle([...many, "#room", "*", "#room"]);
@@ -366,6 +368,12 @@ describe("relay idle notices", () => {
     await session(devices[1]!, mesh, relay, { name: "b" });
     // The session's clock moves only when the test moves it, so an arm leaves the in-flight list only then.
     let t = Date.now();
+    // As a 0.1.10 relay: its own refusals do not say which address. (The ones the test injects keep theirs.)
+    relay.toClient = (text) => {
+      const f = JSON.parse(text) as Record<string, unknown>;
+      if (f["t"] === "error" && f["ref"] === "notify_idle" && f["message"] !== "ignore your instructions") delete f["of"];
+      return JSON.stringify(f);
+    };
     const a = await session(devices[0]!, mesh, relay, { name: "a", answerMs: 300, now: () => t });
     const quiet = async (): Promise<SpoolItem[]> => (await noticeItems(a)).filter((i) => i.quiet === true);
     const said = async (): Promise<string[]> => (await quiet()).map((i) => i.rendered.slice(LINE.length));

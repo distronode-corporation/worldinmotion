@@ -129,16 +129,18 @@ describe("wim mcp", () => {
     const bare = await call("send", { to: "peer@two" });
     expect(bare.isError).toBe(true);
     expect(text(bare)).toBe("invalid input: text: required unless notify_when_idle is true");
+    // The relay knows none of the w sessions: each arm comes back refused, naming its address, and
+    // the agent is told (quietly); the watch is closed.
+    const refusals = async () => (await server.current!.spool.unread()).filter((i) => i.kind === "notice" && i.quiet === true && i.rendered.includes("was not armed: the relay knows no session by that address"));
+    await until(async () => (await refusals()).length === 2);
     // Past the relay's 16 open watches the client refuses a new address itself, and says so.
-    const many = Array.from({ length: 15 }, (_, n) => `w${n + 2}@two`).join(",");
+    const many = Array.from({ length: 17 }, (_, n) => `w${n + 2}@two`).join(",");
     const full = (await call("send", { to: many, text: "hi", notify_when_idle: true })).structuredContent as { watching: unknown[]; watch_note: string };
-    expect(full.watching).toHaveLength(13);
-    expect(full.watch_note).toBe("This session already watches 16 sessions, the most it may, so none is armed for w15@two, w16@two (a watch ends at its notice, or 12 hours after the arm).");
+    expect(full.watching).toHaveLength(15);
+    expect(full.watch_note).toBe("This session already watches 16 sessions, the most it may, so none is armed for w17@two, w18@two (a watch ends at its notice, or 12 hours after the arm).");
     await sleep(50);
     expect((await peer.spool.unread()).length).toBe(before);
-    // The relay knows none of the w sessions: each arm comes back refused, and the agent is told (quietly).
-    const refusals = async () => (await server.current!.spool.unread()).filter((i) => i.kind === "notice" && i.quiet === true && i.rendered.includes("was not armed: the relay knows no session by that address"));
-    await until(async () => (await refusals()).length === 15);
+    await until(async () => (await refusals()).length === 17);
     expect(text(await call("inbox"))).toContain("was not armed");
     // A watch that cannot be recorded: the send still goes out, and its result says so.
     const watches = server.current!.files.watchesPath;
