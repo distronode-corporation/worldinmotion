@@ -32,7 +32,8 @@ async function filesHolding(dir: string, needle: string): Promise<string[]> {
     for (const e of await fs.readdir(d, { withFileTypes: true })) {
       const p = join(d, e.name);
       if (e.isDirectory()) await walk(p);
-      else if (e.isFile() && (await fs.readFile(p)).includes(needle)) hits.push(p);
+      // A file renamed away between the listing and the read (an atomic write's temporary) holds nothing.
+      else if (e.isFile() && (await fs.readFile(p).catch((err: NodeJS.ErrnoException) => (err.code === "ENOENT" ? Buffer.alloc(0) : Promise.reject(err)))).includes(needle)) hits.push(p);
     }
   };
   await walk(dir);
