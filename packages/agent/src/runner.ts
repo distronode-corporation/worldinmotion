@@ -4,9 +4,9 @@
 
 import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from "node:child_process";
 
-/** The request a runner reads from stdin: version 1. */
+/** The request a runner reads from stdin: version 2. */
 export interface RunnerRequest {
-  v: 1;
+  v: 2;
   /** The wim message id. */
   id: string;
   from: { device: string; address: string };
@@ -14,13 +14,21 @@ export interface RunnerRequest {
   profile: string;
   /** The task. Raw text, including any wake code, when the worker holds no code (wake.mode `runner`). */
   text: string;
+  /**
+   * The signed send frame the message came in, as the client parsed it, so a runner can verify the
+   * sender and open the box itself rather than trust the worker. Absent when the item has none.
+   */
+  frame?: unknown;
 }
 
 /** What each runner exit code means. Any other code is a failure. */
 export const RUNNER_EXIT = { ok: 0, refused: 3, busy: 4, timeout: 5 } as const;
 
-/** The most a request or an answer may be, in bytes of UTF-8. */
+/** The most an answer may be, in bytes of UTF-8. */
 export const RUNNER_MAX_BYTES = 64 * 1024;
+
+/** The most a request may be: a frame up to the relay's own limit (1 MiB + 4 KiB), plus the fields around it. */
+export const RUNNER_MAX_REQUEST_BYTES = 1024 * 1024 + 8 * 1024;
 
 export type RunnerOutcome =
   | { kind: "answered"; answer: string; truncated: boolean }
@@ -53,7 +61,7 @@ const ignore = (): undefined => undefined;
 /** Encodes a request, refusing one over the contract's limit. */
 export function encodeRequest(req: RunnerRequest): Buffer {
   const body = Buffer.from(JSON.stringify(req), "utf8");
-  if (body.length > RUNNER_MAX_BYTES) throw new RangeError(`runner request is ${body.length} bytes, over ${RUNNER_MAX_BYTES}`);
+  if (body.length > RUNNER_MAX_REQUEST_BYTES) throw new RangeError(`runner request is ${body.length} bytes, over ${RUNNER_MAX_REQUEST_BYTES}`);
   return body;
 }
 

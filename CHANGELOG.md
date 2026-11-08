@@ -15,7 +15,7 @@ body line with a bracket.
 
 ### Added
 
-- **`wim worker`, a peer that wakes on a message and runs one agent job** (new package
+- **`wim agent`, a peer that wakes on a message and runs one agent job** (new package
   `@worldinmotion/agent`). It runs a job only for a device id on its allow-list (from the signed
   roster, never a name) that the person also trusts, optionally behind a wake code checked in
   constant time (or left to the runner, so the worker's user never holds it), with an optional
@@ -23,15 +23,15 @@ body line with a bracket.
   request on stdin, the answer on stdout, exit codes for refused, busy and timed out, and a
   SIGTERM-then-SIGKILL timeout on its process group. Limits: task length, attempts per device per
   hour, one job at a time, a daily cap kept on disk. Replies are marked relayed; a room copy
-  carries the answer only. The built-in runner (`wim worker runner`) uses the Claude Agent SDK with
+  carries the answer only. The built-in runner (`wim agent runner`) uses the Claude Agent SDK with
   an API key, `claude-opus-5-5` at medium effort, read-only tools, and no settings, hooks or MCP
   servers from the machine (packages/agent/README.md, SECURITY-MODEL section 7.7).
-- **Sessions that keep no message text on disk** (`redactStoredText`, used by `wim worker`): spool
+- **Sessions that keep no message text on disk** (`redactStoredText`, used by `wim agent`): spool
   files and history entries keep every field but the text, the loop breaker refuses what it would
   hold, and an untrusted device's item is held with its metadata only.
 
 - **With the signer, an agent cannot approve a held message.** On a device whose key file is
-  encrypted (`wim agent`), approving, refusing or resuming held messages needs the signer's own
+  encrypted (`wim signer`), approving, refusing or resuming held messages needs the signer's own
   confirmation: `wim held` and the events process (VS Code) ask the signer with a new `decide`
   request, the signer reads the held items from disk itself, shows them in the terminal it runs in
   (`--foreground`, a typed `y`) or in a native dialog, and on the person's yes signs a decision over
@@ -209,20 +209,33 @@ body line with a bracket.
   names the sender and carries none of the message, and `wim status` shows how many this device
   has dropped.
 
-- **A privileged runner for `wim worker`, with keyless Anthropic sign-in.** The worker runs as an
-  unprivileged user and calls `wim-agent-privileged-runner` through one sudoers line that allows
-  no arguments. The runner reads a root-only config (`/etc/wim-agent/privileged.json`), checks the
-  sender's device id again and the wake code (from a root-only file or the privileged side's
-  environment, in constant time), maps the optional `name:` prefix to a profile, and refuses long
-  or empty tasks. It caps the day's jobs, refuses to start when memory is low, and takes one job
-  lock that a shell's `flock` on fd 9 shares. It then runs one Claude Agent SDK job as a third user
-  with read-only tools (`Read`, `Grep`, `Glob` unless `unsafeTools` is set), the profile's model
-  and effort (default `claude-opus-5-5`, `medium`), a turn cap and a timeout that ends the job's
-  whole process group. The job signs in with Workload Identity Federation: the runner mints an
-  identity token (AWS STS `GetWebIdentityToken`, the GCE metadata server, an impersonated GCP
-  service account, or a token file) into a file only the job's group can read, and replaces it
-  every 240 seconds from a timer in its own process. Neither the peer nor the job holds cloud
-  credentials. An API key profile is also available. See `packages/agent/docs/privileged-runner.md`.
+- **A privileged runner for `wim agent`, with keyless Anthropic sign-in.** The worker runs as an
+  unprivileged user and calls the privileged runner (`wim agent privileged`, behind a no-argument
+  launcher) through one sudoers line that allows no arguments. The runner reads a root-only config
+  (`/etc/wim-agent/privileged.json`), checks the sender's device id again and the wake code (from a
+  root-only file or the privileged side's environment, in constant time), maps the optional `name:`
+  prefix to a profile, and refuses long or empty tasks. It caps the day's jobs, refuses to start
+  when memory is low, and takes one job lock that a shell's `flock` on fd 9 shares. It then runs one
+  Claude Agent SDK job as a third user with read-only tools (`Read`, `Grep`, `Glob` unless
+  `unsafeTools` is set), the profile's model and effort (default `claude-opus-5-5`, `medium`), a
+  turn cap and a timeout that ends the job's whole process group. The job signs in with Workload
+  Identity Federation: the runner mints an identity token (AWS STS `GetWebIdentityToken`, the GCE
+  metadata server, an impersonated GCP service account, or a token file) into a file only the job's
+  group can read, and replaces it every 240 seconds from a timer in its own process. Neither the
+  peer nor the job holds cloud credentials. An API key profile is also available. See
+  `packages/agent/docs/privileged-runner.md`.
+
+### Changed
+
+- **The signer is `wim signer`** (`start`, `stop`, `status`, `lock`, `unlock`, `encrypt`,
+  `decrypt`, `autostart`), so `wim agent` can name the agent worker. The old `wim agent start`,
+  `status`, `lock`, `unlock`, `stop`, `encrypt`, `decrypt` and `autostart` still run the signer,
+  with a note on stderr. `wim agent serve` runs the signer (with the note) when it is given no
+  config path or any signer flag (`--foreground`, `--passphrase-stdin`, `--ask-gui`, `--keyring`,
+  `--allow-agent-passphrase`); with a config path and none of those it is the worker.
+  `wim signer autostart status` rewrites a login item written for another command line (an older
+  `wim agent start`, or a moved `wim`) in place, keeping its passphrase source. The signer's state
+  stays in `<WIM_HOME>/agent/`.
 
 ### Fixed
 

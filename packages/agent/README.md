@@ -1,6 +1,6 @@
 # @worldinmotion/agent
 
-`wim worker`: a worldinmotion peer that sleeps until a message arrives, decides whether the
+`wim agent`: a worldinmotion peer that sleeps until a message arrives, decides whether the
 sender may wake it, runs one agent job through a runner command, and replies with the answer.
 
 - **Who may wake it** is a list of device ids from the signed roster, never names. By default the
@@ -39,7 +39,7 @@ Read [Security model](#security-model) before you run one.
 5. **Write a config** (below) and a runner config, and start it:
 
 ```sh
-wim worker serve agent.json --as agents
+wim agent serve agent.json --as agents
 ```
 
 The session is named `worker` unless `--as <name>` or `WIM_NAME` says otherwise. It runs until it
@@ -49,8 +49,8 @@ is stopped; its log goes to stderr. Then, from an allowed device:
 wim send agents@<worker device> "list the TODO comments in src/"
 ```
 
-`wim worker init` writes a starting config, `wim worker doctor` checks one, and
-`wim worker run --once` runs one job from a request on stdin, without the mesh.
+`wim agent init` writes a starting config, `wim agent doctor` checks one, and
+`wim agent run --once` runs one job from a request on stdin, without the mesh.
 
 ## Configuration
 
@@ -79,7 +79,7 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
 | `profiles.allowed`, `profiles.default` | none | Profile names a task may start with as `<name>: `. Not allowed with `wake.mode` `runner`. |
 | `runner.command` | required | The runner: an absolute path, or a name on `PATH`. |
 | `runner.args` | `[]` | Fixed arguments. Nothing from a message is ever put on a command line. |
-| `runner.timeoutSeconds` | `1800` | Longest a job may take. A task's own deadline wins when sooner. |
+| `runner.timeoutSeconds` | `1800` | Longest a job may take. A task's own deadline wins when sooner. With the privileged runner, set it above that runner's lock wait plus its own timeout plus grace (`wim agent init` writes 2760), or a job still queued behind the lock is killed. |
 | `runner.killGraceSeconds` | `15` | After the timeout, SIGTERM goes to the runner's process group, then SIGKILL this much later. |
 | `runner.passEnv` | `PATH HOME LANG LC_ALL TZ TMPDIR ANTHROPIC_API_KEY` | The only environment variables the runner inherits. Never the wake code's. |
 | `runner.logStderr` | `true` | Copy the runner's stderr to the worker's log, 500 characters a line at most. |
@@ -121,15 +121,18 @@ JSON. Unknown keys are refused, so a typo fails at startup. Times are in seconds
 A runner is any program. The worker starts one per job, in its own process group:
 
 - **Invocation**: `<runner.command> <runner.args...>`. No message content is ever on argv.
-- **stdin**: one JSON object, UTF-8, at most 64 KiB:
+- **stdin**: one JSON object, UTF-8, at most 1 MiB + 8 KiB:
 
   ```json
-  {"v":1,"id":"<message id>","from":{"device":"<device id>","address":"<name@device>"},"profile":"<prefix or empty>","text":"<task>"}
+  {"v":2,"id":"<message id>","from":{"device":"<device id>","address":"<name@device>"},"profile":"<prefix or empty>","text":"<task>","frame":{ "...": "the signed send frame" }}
   ```
 
   `text` is the raw text, wake code included, when the worker holds no code (`wake.mode`
   `runner`). `from.device` is the id that signed the message; `from.address` is the sender's
-  chosen name, for display only.
+  chosen name, for display only. `frame` is the signed `send` frame the message arrived in
+  (SPEC.md), so a runner that does not trust the worker (one under another OS user) can verify the
+  signature against the roster, open the box with the device's keys and compare it with `text`,
+  `id` and `from`, and keep its own replay record. It is absent for an item that has none.
 - **stdout**: the answer, UTF-8, at most 64 KiB (the worker cuts a longer one and says so).
 - **stderr**: log lines for the operator. Never put the task, a code or a key there.
 - **Exit code**: `0` answered; `3` refused (bad code, profile or sender); `4` busy or
@@ -140,7 +143,7 @@ A runner is any program. The worker starts one per job, in its own process group
 
 ## The built-in runner
 
-`wim worker runner` runs one job through the
+`wim agent runner` runs one job through the
 [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk). `wim` does not
 carry the SDK (it is large, with a native Claude Code build per platform), so install it next to
 `wim`:
@@ -150,7 +153,7 @@ npm install --global worldinmotion @anthropic-ai/claude-agent-sdk
 ```
 
 For keyless authentication, profiles mapped to separate accounts and a code check under another
-OS user, use the privileged runner instead (`wim worker privileged`, see
+OS user, use the privileged runner instead (`wim agent privileged`, see
 [docs/privileged-runner.md](docs/privileged-runner.md)).
 
 From a checkout of this repository, `node packages/agent/src/bin.ts` (`wim-agent-runner`) is the
@@ -205,7 +208,7 @@ sudo -u wim-agent env WIM_HOME=/var/lib/wim-agent/wim wim join <code>
 ```ini
 # /etc/systemd/system/wim-agent.service
 [Unit]
-Description=wim worker (agent jobs)
+Description=wim agent (agent jobs)
 After=network-online.target
 Wants=network-online.target
 
@@ -215,7 +218,7 @@ Group=wim-agent
 StateDirectory=wim-agent
 Environment=WIM_HOME=/var/lib/wim-agent/wim
 Environment=HOME=/var/lib/wim-agent
-ExecStart=/usr/local/bin/wim worker serve /etc/wim-agent/agent.json --as agents
+ExecStart=/usr/local/bin/wim agent serve /etc/wim-agent/agent.json --as agents
 Restart=on-failure
 RestartSec=10
 NoNewPrivileges=yes

@@ -14,8 +14,9 @@ describe("parsePrivilegedConfig", () => {
     expect(c.worker).toEqual({ user: "wim-agent-worker", home: "/var/lib/wim-agent-worker", cwd: "/var/lib/wim-agent-worker/work", additionalDirectories: [] });
     expect(c.lock).toEqual({ path: "/run/wim-agent/job.lock", waitSeconds: 900 });
     expect(c.minMemAvailableMb).toBe(900);
-    expect(c.timeoutSeconds).toBe(900);
-    expect(c.dailyJobs).toBe(20);
+    expect(c.timeoutSeconds).toBe(1800);
+    expect(c.maxTaskChars).toBe(16000);
+    expect(c.dailyJobs).toBe(50);
     expect(c.allowLocal).toBe(false);
     expect(c.allowDevices).toBeUndefined();
     expect(c.wakeCode).toBeUndefined();
