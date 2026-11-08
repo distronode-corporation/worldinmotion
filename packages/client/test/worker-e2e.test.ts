@@ -206,10 +206,10 @@ describe("wim agent, end to end with a stub runner", () => {
     // Reading a relayed item (an answer) opens the window; the next send carries derived.
     me.s.informed();
     const out = await me.s.send(w.address, `${CODE} ${TASK}`, { kind: "task" });
-    await until(() => w.err.some((l) => l.includes(out.id) && l.endsWith("derived")), 15_000, "the refusal");
+    await until(() => replyTo(me.got, out.id) !== undefined, 15_000, "the refusal");
     (me.s as unknown as { derivedUntil: number }).derivedUntil = 0;
+    expect(replyTo(me.got, out.id)!.text).toBe("not accepted: derived");
     expect((await runs()).slice(before)).toEqual([]);
-    expect(replyTo(me.got, out.id)).toBeUndefined();
   });
 
   it("a wrong code never runs, and the sender hears only 'not accepted'", async () => {

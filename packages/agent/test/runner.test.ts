@@ -119,6 +119,11 @@ describe("runJob", () => {
     await new Promise((r) => setTimeout(r, 120));
   });
 
+  it("times out with the default kill on any platform (one that has no process groups only logs it)", async () => {
+    const spec = await stub(`setTimeout(() => process.exit(0), 400);`, { timeoutMs: 50, killGraceMs: 20 });
+    expect(await runJob(spec, req, { log: () => undefined })).toEqual({ kind: "timeout" });
+  });
+
   it("logs EPERM on the kill (a runner under sudo) without failing", async () => {
     const spec = await stub(`setTimeout(() => process.exit(0), 400);`, { timeoutMs: 50, killGraceMs: 20 });
     const logs: string[] = [];

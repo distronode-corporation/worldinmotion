@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DailyLedger } from "../src/limits.ts";
 import type { RunnerOutcome, RunnerRequest, RunnerSpec } from "../src/runner.ts";
-import { BUSY, DAILY_CAP, FAILED, NO_TASK, NOT_ACCEPTED, readCode, runWorker, TIMED_OUT, TRUNCATED_NOTE, Worker, type WorkerItem, type WorkerIO } from "../src/worker.ts";
+import { BUSY, DAILY_CAP, FAILED, NO_TASK, NOT_ACCEPTED, NOT_ACCEPTED_DERIVED, readCode, runWorker, TIMED_OUT, TRUNCATED_NOTE, Worker, type WorkerItem, type WorkerIO } from "../src/worker.ts";
 import { clock, config, DESKTOP, LAPTOP, scratchDir, STRANGER } from "./helpers.ts";
 
 const CODE = "Zq7-wake-91";
@@ -110,12 +110,16 @@ describe("who may wake it", () => {
   it("never runs relayed or derived text, results or files", async () => {
     const w = await make();
     await w.send(item({ relayed: true }));
-    await w.send(item({ derived: true }));
     await w.send(item({ kind: "result" }));
     await w.send(item({ kind: "file" }));
+    await w.send(item({ derived: true }));
     expect(w.runs).toEqual([]);
-    expect(w.sent).toEqual([]);
-    expect(w.logs.map((l) => l.split(": ").at(-1))).toEqual(["relayed", "derived", "kind", "kind"]);
+    // Only the derived one hears why, as a generic refusal; with silent refusals not even that.
+    expect(w.sent.map((s) => s.text)).toEqual([NOT_ACCEPTED_DERIVED]);
+    const q = await make({ replies: { refused: "silent" } });
+    await q.send(item({ derived: true }));
+    expect(q.sent).toEqual([]);
+    expect(w.logs.map((l) => l.split(": ").at(-1))).toEqual(["relayed", "kind", "kind", "derived"]);
   });
 });
 
