@@ -1568,7 +1568,8 @@ to act on what another session says, so its edges are these.
   matches or not. When the worker is configured to leave the code to the runner, the worker
   process never reads it, and the runner (for example under another OS user) checks it.
 - **No message text on disk.** The worker's session uses `redactStoredText`: spool files and
-  history entries keep every field but the text, an item the loop breaker would hold is refused
+  history entries (received and sent) keep every field but the text, no file is fetched to
+  disk, an item the loop breaker would hold is refused
   (with one `busy` reply per pause) rather than held, and an item from an untrusted device is held
   for the person with its metadata only. So a wake code or a task never lands in plaintext under
   the worker's state directory. Frames parked for a newer roster (section 6.4) stay encrypted.

@@ -94918,6 +94918,7 @@ var GROUP = (to) => to.some((a5) => a5 === "*" || isRoom(a5));
 var PAUSE_TELL_MS = 10 * 6e4;
 var ignore = () => void 0;
 var REDACTED_TEXT = "(this session keeps no message text on disk)";
+var REDACTED_FILE = "(not saved: this session keeps no message content on disk)";
 var BREAKER_REFUSED = "busy: too many messages from your device for now, so they are refused, not kept; resend later";
 function breakerFields(p3) {
   return { count: p3.count, limit: p3.limit, minutes: p3.minutes, until: p3.until, auto: p3.auto };
@@ -96013,7 +96014,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
       return;
     }
     const entry = { ...item.entry };
-    if (file2 !== void 0) entry.savedTo = await this.fetchFile(item.id, file2).catch((e6) => `(not saved: ${e6.message})`);
+    if (file2 !== void 0) entry.savedTo = this.redacting ? REDACTED_FILE : await this.fetchFile(item.id, file2).catch((e6) => `(not saved: ${e6.message})`);
     await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry, written2);
   }
   /** `pause`: the breaker tripped on this item, which the person and (once) the agent are told. */
@@ -96841,7 +96842,9 @@ var MeshSession = class _MeshSession extends EventEmitter {
       id: id3,
       kind: opts.kind ?? "msg",
       at: frame.at,
-      text: text2 ?? "",
+      // A session that keeps no message text keeps none of what it sends either (an answer can quote files).
+      text: this.redacting ? "" : text2 ?? "",
+      ...this.redacting ? { redacted: true } : {},
       ...opts.reply_to === void 0 ? {} : { reply_to: opts.reply_to },
       ...opts.status === void 0 ? {} : { status: opts.status },
       ...opts.file === void 0 ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } },

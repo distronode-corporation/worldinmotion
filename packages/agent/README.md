@@ -17,8 +17,9 @@ sender may wake it, runs one agent job through a runner command, and replies wit
   relayed text (another model's output), so two agents cannot drive each other.
 - **Replies are marked relayed**, like `wim bot`'s: a model wrote them, not the session. An
   optional room copy carries the answer only.
-- **Nothing of a message on disk**: the worker's session keeps no message text in its spool,
-  history or held items, and its log names ids, devices and reasons, never a text or a code.
+- **Nothing of a message on disk**: the worker's session keeps no message text (received or
+  sent) in its spool, history or held items, and fetches no file to disk. Its log names ids,
+  devices and reasons, never a text or a code.
 
 Read [Security model](#security-model) before you run one.
 

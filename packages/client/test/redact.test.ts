@@ -6,13 +6,13 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BREAKER_REFUSED, REDACTED_TEXT, type Inbound, type MeshSession } from "../src/client.ts";
+import { BREAKER_REFUSED, REDACTED_FILE, REDACTED_TEXT, type Inbound, type MeshSession } from "../src/client.ts";
 import { HeldBox } from "../src/held.ts";
 import { History } from "../src/history.ts";
 import { MeshFiles, type BreakerLimits } from "../src/mesh.ts";
 import { SessionFiles } from "../src/session.ts";
 import { verifyObject } from "@worldinmotion/protocol";
-import { FS, keysOf, makeMesh, openSession, RelayHarness, until, type TestDevice } from "./helpers.ts";
+import { FS, keysOf, makeMesh, openSession, RelayHarness, scratch, until, type TestDevice } from "./helpers.ts";
 
 const open: MeshSession[] = [];
 afterEach(async () => {
@@ -157,6 +157,26 @@ describe("redactStoredText", () => {
     expect(verifyObject("send", { ...sent, at: 1 } as { sig: string }, keysOf(l.device).signPub)).toBe(false);
     expect(got.find((m) => m.text === "hello")!.frame).toBeUndefined();
     expect((worker as unknown as { frames: Map<string, unknown> }).frames.size).toBe(0);
+    expect(await filesHolding(w.root, CODE)).toEqual([]);
+  });
+
+  it("keeps none of what it sends, and fetches no file to disk (Seer, #131)", async () => {
+    const { w, l, mesh, worker, user, got } = await setup(true);
+    await new MeshFiles(l.home.meshDir(mesh), FS).updateConfig((c) => ({ ...c, policy: { ...c.policy, [w.device.id]: "deliver-relayed" } }));
+    const answer = "the answer quotes Qx81secretFILEline";
+    const out = await worker.send("me@laptop", answer, { relayed: true });
+    const userGot: Inbound[] = [];
+    user.on("message", (m: Inbound) => userGot.push(m));
+    await until(() => userGot.some((m) => m.id === out.id));
+    const history = await new History(new SessionFiles(new MeshFiles(w.home.meshDir(mesh), FS), worker.sid, FS).historyPath, Date.now).query();
+    expect(history.find((e) => e.id === out.id)).toMatchObject({ dir: "out", text: "", redacted: true });
+    const src = join(await scratch("files"), "notes.txt");
+    await fs.writeFile(src, "Zr5fileCONTENTq2");
+    await user.sendFile("agents@worker", src, `${CODE} caption`);
+    await until(() => got.some((m) => m.kind === "file"));
+    expect(got.find((m) => m.kind === "file")!.savedTo).toBe(REDACTED_FILE);
+    expect(await filesHolding(w.root, "Qx81secretFILEline")).toEqual([]);
+    expect(await filesHolding(w.root, "Zr5fileCONTENTq2")).toEqual([]);
     expect(await filesHolding(w.root, CODE)).toEqual([]);
   });
 });

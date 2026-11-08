@@ -384,6 +384,8 @@ const PAUSE_TELL_MS = 10 * 60_000;
 const ignore = (): undefined => undefined;
 /** What a session that keeps no message text writes in a spool file in place of the frame. */
 export const REDACTED_TEXT = "(this session keeps no message text on disk)";
+/** Where a file would have been saved, for a session that keeps no message content. */
+export const REDACTED_FILE = "(not saved: this session keeps no message content on disk)";
 /** What a session that keeps no text replies when its loop breaker refuses a sender's messages. */
 export const BREAKER_REFUSED = "busy: too many messages from your device for now, so they are refused, not kept; resend later";
 
@@ -1691,7 +1693,8 @@ export class MeshSession extends EventEmitter {
       return;
     }
     const entry = { ...item.entry };
-    if (file !== undefined) entry.savedTo = await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`);
+    // A session that keeps no message content does not fetch a file to disk either.
+    if (file !== undefined) entry.savedTo = this.redacting ? REDACTED_FILE : await this.fetchFile(item.id, file).catch((e: unknown) => `(not saved: ${(e as Error).message})`);
     // The same trust decision as a release applied on disk (offline.ts).
     await this.deliver({ kind: item.kind, from: item.from, device: item.device, id: item.id, at: item.at, ...releasedFrame(this.config, item.device, entry) }, entry, written);
   }
@@ -2654,7 +2657,9 @@ export class MeshSession extends EventEmitter {
       id,
       kind: opts.kind ?? "msg",
       at: frame.at,
-      text: text ?? "",
+      // A session that keeps no message text keeps none of what it sends either (an answer can quote files).
+      text: this.redacting ? "" : (text ?? ""),
+      ...(this.redacting ? { redacted: true as const } : {}),
       ...(opts.reply_to === undefined ? {} : { reply_to: opts.reply_to }),
       ...(opts.status === undefined ? {} : { status: opts.status }),
       ...(opts.file === undefined ? {} : { file: { name: opts.file.name, size: opts.file.size, mime: opts.file.mime } }),
