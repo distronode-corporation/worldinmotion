@@ -91,8 +91,9 @@ wim-agent-imds-block verify wim-agent wim-agent-worker
 ```
 
 `apply` uses nftables when `nft` exists (one table, `inet wim_agent_imds`) and iptables
-otherwise, and also blocks AWS's IPv6 metadata address. Add any other address with
-`--also <address>`. `verify` checks that the rule is in place and that a connection as each user
+otherwise. Besides 169.254.169.254 it blocks the other places a cloud hands out credentials: the
+AWS container and EKS Pod Identity endpoints and the AWS and GCP IPv6 metadata addresses (the
+script's header lists them). Add any other address with `--also <address>`. `verify` checks that the rule is in place and that a connection as each user
 fails, then tries the address as root as a control: on a cloud VM it prints `control root reaches`;
 if root cannot reach it either, the host has no metadata service and only the rule check means
 anything.
@@ -249,6 +250,11 @@ systemctl daemon-reload
 systemctl enable --now wim-agent.service
 journalctl -u wim-agent -f
 ```
+
+Under systemd, the runner puts each job in its own transient scope (`systemd-run --scope`) inside
+the peer's slice, and ending the job kills the whole scope, so nothing a job starts can outlive it,
+even a process that left the job's process group. `systemd-cgls` shows a running job as
+`wim-agent-job-<pid>-<n>.scope`. Without systemd it falls back to the process group.
 
 The unit deliberately leaves out `NoNewPrivileges=yes` and every option that implies it for a
 `User=` unit (`LockPersonality=`, `RestrictRealtime=`, `ProtectKernelTunables=`,

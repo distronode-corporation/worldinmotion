@@ -114,6 +114,10 @@ esac`);
   return { env, read, calls, imds: (args: string[], extra: Record<string, string> = {}) => run(IMDS, args, env(extra)) };
 }
 
+/** Every metadata and credential endpoint the block covers by default (AWS, GCP, Azure, ECS, EKS). */
+const V4 = ["169.254.169.254", "169.254.170.2", "169.254.170.23"];
+const V6 = ["fd00:ec2::254", "fd00:ec2::23", "fd20:ce::254"];
+
 describe.skipIf(!linux)("wim-agent-imds-block", () => {
   it.each([[[]], [["block", "agent"]], [["apply"]], [["apply", "--backend"]], [["apply", "--backend", "pf", "agent"]], [["apply", "--also"]], [["apply", "-x", "agent"]]])(
     "refuses a bad command line %j with exit 2",
@@ -163,7 +167,8 @@ describe.skipIf(!linux)("wim-agent-imds-block", () => {
     for (const uid of ["990", "991"]) {
       expect(table).toContain(`meta skuid ${uid} ip daddr 169.254.169.254 reject`);
       expect(table).toContain(`meta skuid ${uid} ip daddr 192.0.2.7 reject`);
-      expect(table).toContain(`meta skuid ${uid} ip6 daddr fd00:ec2::254 reject`);
+      for (const a of V4) expect(table).toContain(`meta skuid ${uid} ip daddr ${a} reject`);
+      for (const a of V6) expect(table).toContain(`meta skuid ${uid} ip6 daddr ${a} reject`);
       expect(table).toContain(`meta skuid ${uid} ip6 daddr 2001:db8::7 reject`);
     }
     expect(rig.calls()).not.toContain("delete table");
@@ -182,20 +187,15 @@ describe.skipIf(!linux)("wim-agent-imds-block", () => {
   it("iptables: apply inserts each rule once, however often it runs", () => {
     const rig = imdsRig({ nft: false });
     for (let i = 0; i < 3; i++) expect(rig.imds(["apply", "--backend", "iptables", "agent", "worker"]).code).toBe(0);
-    expect(rig.read("iptables").trim().split("\n").sort()).toEqual([
-      "OUTPUT -m owner --uid-owner 990 -d 169.254.169.254 -j REJECT",
-      "OUTPUT -m owner --uid-owner 991 -d 169.254.169.254 -j REJECT",
-    ]);
-    expect(rig.read("ip6tables").trim().split("\n").sort()).toEqual([
-      "OUTPUT -m owner --uid-owner 990 -d fd00:ec2::254 -j REJECT",
-      "OUTPUT -m owner --uid-owner 991 -d fd00:ec2::254 -j REJECT",
-    ]);
+    const rules = (addrs: string[]) => ["990", "991"].flatMap((u) => addrs.map((a) => `OUTPUT -m owner --uid-owner ${u} -d ${a} -j REJECT`)).sort();
+    expect(rig.read("iptables").trim().split("\n").sort()).toEqual(rules(V4));
+    expect(rig.read("ip6tables").trim().split("\n").sort()).toEqual(rules(V6));
   });
 
   it("iptables: without ip6tables only the IPv4 rules are written", () => {
     const rig = imdsRig({ nft: false, ip6: false });
     expect(rig.imds(["apply", "agent"]).code).toBe(0);
-    expect(rig.read("iptables").trim()).toBe("OUTPUT -m owner --uid-owner 990 -d 169.254.169.254 -j REJECT");
+    expect(rig.read("iptables").trim().split("\n")).toEqual(V4.map((a) => `OUTPUT -m owner --uid-owner 990 -d ${a} -j REJECT`));
     expect(rig.calls()).not.toContain("ip6tables");
   });
 

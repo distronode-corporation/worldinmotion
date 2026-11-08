@@ -13,9 +13,15 @@
 # short-lived token) keeps the route. The rule matches the socket owner's uid, so
 # it holds for every program the user runs, whatever its proxy or DNS settings.
 #
-# Addresses blocked: 169.254.169.254 (the IPv4 metadata address on AWS, GCP and
-# Azure; the GCP metadata host name resolves to it), and on IPv6 the AWS metadata
-# address. Add any other with --also (a GCP IPv6-only VM, say).
+# Addresses blocked by default:
+#   169.254.169.254   the IPv4 metadata address on AWS, GCP and Azure (the GCP
+#                     metadata host name resolves to it)
+#   169.254.170.2     the AWS container credentials endpoint (ECS)
+#   169.254.170.23    the AWS EKS Pod Identity agent
+#   fd00:ec2::254     the AWS IPv6 metadata address
+#   fd00:ec2::23      the AWS EKS Pod Identity agent on IPv6
+#   fd20:ce::254      the GCP IPv6 metadata address
+# Add any other with --also.
 #
 # Backends: nft writes one table, `inet wim_agent_imds`, rebuilt whole on each
 # apply (so it is idempotent and `remove` is one command). iptables inserts one
@@ -34,8 +40,8 @@
 set -euo pipefail
 
 TABLE="wim_agent_imds"
-V4=(169.254.169.254)
-V6=(fd00:ec2::254)
+V4=(169.254.169.254 169.254.170.2 169.254.170.23)
+V6=(fd00:ec2::254 fd00:ec2::23 fd20:ce::254)
 
 die() { echo "wim-agent-imds-block: $*" >&2; exit "${2:-2}"; }
 usage() { die "usage: wim-agent-imds-block apply|verify|remove [--backend auto|nft|iptables] [--also ADDR]... USER..."; }
