@@ -60,6 +60,7 @@ import { checkCiNotice, CI_BREAKER, CI_PARKED_MAX, ciBucket, ciFrom, CiKeys, ciL
 import { isPinned, readCiRules, rulesFrame, type CiPins, type CiRule } from "./cirules.ts";
 import { mimeFor, saveReceived, secretsInFile, unsendable, wireFileName } from "./files.ts";
 import { ensureDir, listDir, noFollow, openNoFollow, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
+import { checkDecision, covers, NEEDS_SIGNER, unsignedRefusal, type Decision } from "./decisions.ts";
 import { HeldBox, preview, takeMarks, type HeldItem, type Mark, type Verdict } from "./held.ts";
 import { frameEntry, History, releasedFrame, type HistoryEntry } from "./history.ts";
 import type { Device } from "./home.ts";
@@ -1739,7 +1740,12 @@ export class MeshSession extends EventEmitter {
       // The person's marks and the end of a cool-down change what is held and paused: on the
       // inbound queue, so neither interleaves with a message being admitted or held. Queued, not
       // waited for, so a slow frame never holds up this pass (the sweep and its receipts).
-      for (const { id, verdict } of await this.held.takeMarks()) void this.onQueue(() => this.applyMark(id, verdict)).catch(ignore);
+      // With the keys in the signer, a mark file is no decision: anything of the user's can write one.
+      for (const { id, verdict } of await this.held.takeMarks()) {
+        if (this.signed) this.log(`wim: ${unsignedRefusal(`${verdict} mark for held message ${id}`)}; it stays held`);
+        else void this.onQueue(() => this.applyMark(id, verdict)).catch(ignore);
+      }
+      for (const raw of await this.held.takeDecisions()) void this.onQueue(() => this.applyDecision(raw)).catch(ignore);
       this.queueRelease();
       if (this.link !== undefined) await this.flushLifts();
       if (this.countsChanged) await this.savePauses();
@@ -1766,7 +1772,8 @@ export class MeshSession extends EventEmitter {
         const body = req === null ? undefined : await readJson(path).catch(() => undefined);
         // Taking a request is removing it: one that cannot be removed yet is left for the next pass.
         if (!(await tryRemove(path, this.o.env))) continue;
-        if (m !== null) void this.resumePeer(m[1]!).catch((e: unknown) => this.log(`wim: housekeeping: ${(e as Error).message}`));
+        if (m !== null && this.signed) this.log(`wim: ${unsignedRefusal(`resume of ${sanitizeForDisplay(m[1]!)}`)}`);
+        else if (m !== null) void this.onQueue(() => this.resumeNow(m[1]!)).catch((e: unknown) => this.log(`wim: housekeeping: ${(e as Error).message}`));
         if (req !== null && this.o.handover === true) await this.handOverSend(req[1]!, body);
       }
       await this.book.reload();
@@ -1858,9 +1865,58 @@ export class MeshSession extends EventEmitter {
     return run;
   }
 
-  /** The person's decision on a held message (the pane, `wim held`). Never reachable by a message. */
-  decide(id: string, verdict: Verdict): Promise<void> {
-    return this.onQueue(() => this.decideNow(id, verdict));
+  /**
+   * Whether this device's keys are in the signer: then a decision on held messages is taken only
+   * signed by it (`decide` with a decision, or a decision file), never from a mark file.
+   */
+  get signed(): boolean {
+    return this.device.keyring.kind === "signer";
+  }
+
+  /**
+   * The person's decision on a held message (a UI's events process, for its own session). Never
+   * reachable by a message. With the keys in the signer, `decision` must be the signer's, cover
+   * this item as it is held, and say `verdict`.
+   */
+  decide(id: string, verdict: Verdict, decision?: unknown): Promise<void> {
+    return this.onQueue(async () => {
+      if (this.signed) {
+        const item = await this.held.get(id);
+        const d = this.checked(decision);
+        if (typeof d === "string" || d.verdict !== verdict || (item !== undefined && !covers(d, item))) {
+          throw new ClientError(`${NEEDS_SIGNER}: ${typeof d === "string" ? d : `it does not ${verdict} ${id} as it is held`}`, "needs_signer");
+        }
+      }
+      return this.decideNow(id, verdict);
+    });
+  }
+
+  /** A decision this session may act on, or why not. */
+  private checked(raw: unknown): Decision | string {
+    const d = checkDecision(raw, { signPub: this.device.keyring.signPub, device: this.device.id, mesh: this.config.mesh, now: this.now() });
+    return "refused" in d ? `the decision is refused: ${d.refused}` : d;
+  }
+
+  /**
+   * A signed decision another process left (decision file): each copy held here that it covers,
+   * unchanged since the person was shown it, is decided; anything else stays held. `resume` also
+   * lifts the breaker's pause on its peer's device. Taken whether or not the keys are in the
+   * signer, since only the signer can make one.
+   */
+  private async applyDecision(raw: unknown): Promise<void> {
+    const d = this.checked(raw);
+    if (typeof d === "string") {
+      this.log(`wim: a decision file for held messages: ${d}; nothing changed`);
+      return;
+    }
+    const mine = (await this.held.list()).filter((item) => covers(d, item));
+    if (d.verdict === "resume") {
+      await this.resumeNow(d.peer!, new Set(mine.map((i) => i.id)));
+      // A policy hold has no pause to lift: it is approved like the rest.
+      for (const item of mine) if ((await this.held.get(item.id)) !== undefined) await this.decideNow(item.id, "approve");
+      return;
+    }
+    for (const item of mine) await this.decideNow(item.id, d.verdict);
   }
 
   private async decideNow(id: string, verdict: Verdict): Promise<void> {
@@ -1931,12 +1987,23 @@ export class MeshSession extends EventEmitter {
     }
   }
 
-  /** Lifts a breaker pause on a peer (by address) and releases what it held from that device. */
-  resumePeer(peer: string): Promise<number> {
-    return this.onQueue(() => this.resumeNow(peer));
+  /**
+   * Lifts a breaker pause on a peer (by address) and releases what it held from that device. With
+   * the keys in the signer, only with the signer's `resume` decision for that peer, and only the
+   * items it covers are released.
+   */
+  resumePeer(peer: string, decision?: unknown): Promise<number> {
+    return this.onQueue(async () => {
+      if (!this.signed) return this.resumeNow(peer);
+      const d = this.checked(decision);
+      if (typeof d === "string" || d.verdict !== "resume" || d.peer !== peer) throw new ClientError(`${NEEDS_SIGNER}: ${typeof d === "string" ? d : `it does not resume ${peer}`}`, "needs_signer");
+      const mine = (await this.held.list()).filter((item) => covers(d, item));
+      return this.resumeNow(peer, new Set(mine.map((i) => i.id)));
+    });
   }
 
-  private async resumeNow(peer: string): Promise<number> {
+  /** The resume itself; `only`: release just these of what the pause held (a signed decision's). */
+  private async resumeNow(peer: string, only?: ReadonlySet<string>): Promise<number> {
     const device = this.roster.devices.find((d) => d.name === peer.slice(peer.indexOf("@") + 1));
     if (device === undefined) return 0;
     this.breaker.resume(device.id);
@@ -1947,7 +2014,7 @@ export class MeshSession extends EventEmitter {
     this.emit("breaker", { peer, state: "resumed" });
     let n = 0;
     for (const item of await this.held.list()) {
-      if (item.device !== device.id || item.reason !== "breaker") continue;
+      if (item.device !== device.id || item.reason !== "breaker" || (only !== undefined && !only.has(item.id))) continue;
       await this.decideNow(item.id, "approve");
       n++;
     }

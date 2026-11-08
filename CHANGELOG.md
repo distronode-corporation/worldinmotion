@@ -15,6 +15,20 @@ body line with a bracket.
 
 ### Added
 
+- **With the signer, an agent cannot approve a held message.** On a device whose key file is
+  encrypted (`wim agent`), approving, refusing or resuming held messages needs the signer's own
+  confirmation: `wim held` and the events process (VS Code) ask the signer with a new `decide`
+  request, the signer reads the held items from disk itself, shows them in the terminal it runs in
+  (`--foreground`, a typed `y`) or in a native dialog, and on the person's yes signs a decision over
+  exactly those ids, each bound to a digest of the item it showed. Sessions release or drop only
+  what such a decision covers; an item that arrived later, a copy changed on disk and a replayed
+  decision release nothing. Mark files (`held/<id>.approve`, `.refuse`, `.resume`,
+  `control/resume-<peer>`) are refused while the keys are in the signer, and `wim doctor` lists any
+  it finds; a locked or stopped signer takes no decision. The Claude Code pane's buttons then say
+  to decide with `wim held` or VS Code, and VS Code waits up to 7 minutes for the answer. Without a
+  signer nothing changes, and `wim doctor` advises running one. No wire or relay change
+  (SECURITY-MODEL 7.1, 7.2 and 9; docs/design.md, the signer).
+
 - **Invite codes from 0.2.0 are read.** 0.2.0 adds `by`, the device id of the admin that made
   the invite, to the invite code. This version accepts it (checked as a device id, so a malformed
   one is still refused) and ignores it, so a device on it can join with a 0.2.0 admin's invite,

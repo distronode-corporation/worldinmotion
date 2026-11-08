@@ -7582,7 +7582,7 @@ var init_getProfileName = __esm({
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js
 import { createHash as createHash4 } from "node:crypto";
-import { join as join12 } from "node:path";
+import { join as join13 } from "node:path";
 var getSSOTokenFilepath;
 var init_getSSOTokenFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getSSOTokenFilepath.js"() {
@@ -7590,7 +7590,7 @@ var init_getSSOTokenFilepath = __esm({
     getSSOTokenFilepath = (id2) => {
       const hasher = createHash4("sha1");
       const cacheName = hasher.update(id2).digest("hex");
-      return join12(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
+      return join13(getHomeDir(), ".aws", "sso", "cache", `${cacheName}.json`);
     };
   }
 });
@@ -7645,24 +7645,24 @@ var init_getConfigData = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getConfigFilepath.js
-import { join as join13 } from "node:path";
+import { join as join14 } from "node:path";
 var ENV_CONFIG_PATH, getConfigFilepath;
 var init_getConfigFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getConfigFilepath.js"() {
     init_getHomeDir();
     ENV_CONFIG_PATH = "AWS_CONFIG_FILE";
-    getConfigFilepath = () => process.env[ENV_CONFIG_PATH] || join13(getHomeDir(), ".aws", "config");
+    getConfigFilepath = () => process.env[ENV_CONFIG_PATH] || join14(getHomeDir(), ".aws", "config");
   }
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getCredentialsFilepath.js
-import { join as join14 } from "node:path";
+import { join as join15 } from "node:path";
 var ENV_CREDENTIALS_PATH, getCredentialsFilepath;
 var init_getCredentialsFilepath = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/getCredentialsFilepath.js"() {
     init_getHomeDir();
     ENV_CREDENTIALS_PATH = "AWS_SHARED_CREDENTIALS_FILE";
-    getCredentialsFilepath = () => process.env[ENV_CREDENTIALS_PATH] || join14(getHomeDir(), ".aws", "credentials");
+    getCredentialsFilepath = () => process.env[ENV_CREDENTIALS_PATH] || join15(getHomeDir(), ".aws", "credentials");
   }
 });
 
@@ -7742,7 +7742,7 @@ var init_readFile = __esm({
 });
 
 // ../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/loadSharedConfigFiles.js
-import { join as join15 } from "node:path";
+import { join as join16 } from "node:path";
 var swallowError, loadSharedConfigFiles;
 var init_loadSharedConfigFiles = __esm({
   "../../node_modules/@smithy/core/dist-es/submodules/config/shared-ini-file-loader/loadSharedConfigFiles.js"() {
@@ -7760,11 +7760,11 @@ var init_loadSharedConfigFiles = __esm({
       const relativeHomeDirPrefix = "~/";
       let resolvedFilepath = filepath;
       if (filepath.startsWith(relativeHomeDirPrefix)) {
-        resolvedFilepath = join15(homeDir, filepath.slice(2));
+        resolvedFilepath = join16(homeDir, filepath.slice(2));
       }
       let resolvedConfigFilepath = configFilepath;
       if (configFilepath.startsWith(relativeHomeDirPrefix)) {
-        resolvedConfigFilepath = join15(homeDir, configFilepath.slice(2));
+        resolvedConfigFilepath = join16(homeDir, configFilepath.slice(2));
       }
       const parsedFiles = await Promise.all([
         readFile3(resolvedConfigFilepath, {
@@ -22202,12 +22202,12 @@ var require_dist_cjs9 = __commonJS({
     var fromHttp = (options = {}) => {
       options.logger?.debug("@aws-sdk/credential-provider-http - fromHttp");
       let host;
-      const relative3 = options.awsContainerCredentialsRelativeUri ?? process.env[AWS_CONTAINER_CREDENTIALS_RELATIVE_URI];
+      const relative4 = options.awsContainerCredentialsRelativeUri ?? process.env[AWS_CONTAINER_CREDENTIALS_RELATIVE_URI];
       const full = options.awsContainerCredentialsFullUri ?? process.env[AWS_CONTAINER_CREDENTIALS_FULL_URI];
       const token = options.awsContainerAuthorizationToken ?? process.env[AWS_CONTAINER_AUTHORIZATION_TOKEN];
       const tokenFile = options.awsContainerAuthorizationTokenFile ?? process.env[AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE];
       const warn2 = options.logger?.constructor?.name === "NoOpLogger" || !options.logger?.warn ? console.warn : options.logger.warn.bind(options.logger);
-      if (relative3 && full) {
+      if (relative4 && full) {
         warn2("@aws-sdk/credential-provider-http: you have set both awsContainerCredentialsRelativeUri and awsContainerCredentialsFullUri.");
         warn2("awsContainerCredentialsRelativeUri will take precedence.");
       }
@@ -22215,8 +22215,8 @@ var require_dist_cjs9 = __commonJS({
         warn2("@aws-sdk/credential-provider-http: you have set both awsContainerAuthorizationToken and awsContainerAuthorizationTokenFile.");
         warn2("awsContainerAuthorizationTokenFile will take precedence.");
       }
-      if (relative3) {
-        host = `${DEFAULT_LINK_LOCAL_HOST}${relative3}`;
+      if (relative4) {
+        host = `${DEFAULT_LINK_LOCAL_HOST}${relative4}`;
       } else if (full) {
         host = full;
       } else {
@@ -41651,7 +41651,7 @@ var require_node_domexception = __commonJS({
 });
 
 // ../../node_modules/fetch-blob/from.js
-import { statSync, createReadStream as createReadStream2, promises as fs6 } from "node:fs";
+import { statSync, createReadStream as createReadStream2, promises as fs7 } from "node:fs";
 import { basename as basename5 } from "node:path";
 var import_node_domexception, stat, blobFromSync, blobFrom, fileFrom, fileFromSync, fromBlob, fromFile, BlobDataItem;
 var init_from = __esm({
@@ -41659,7 +41659,7 @@ var init_from = __esm({
     import_node_domexception = __toESM(require_node_domexception(), 1);
     init_file();
     init_fetch_blob();
-    ({ stat } = fs6);
+    ({ stat } = fs7);
     blobFromSync = (path2, type) => fromBlob(statSync(path2), path2, type);
     blobFrom = (path2, type) => stat(path2).then((stat3) => fromBlob(stat3, path2, type));
     fileFrom = (path2, type) => stat(path2).then((stat3) => fromFile(stat3, path2, type));
@@ -48453,7 +48453,7 @@ var require_jwa = __commonJS({
       return bufferEqual(a5, b5);
     };
     function createHmacVerifier(bits) {
-      return function verify2(thing, signature, secret) {
+      return function verify3(thing, signature, secret) {
         var computedSig = createHmacSigner(bits)(thing, secret);
         return timingSafeEqual3(Buffer4.from(signature), Buffer4.from(computedSig));
       };
@@ -48468,7 +48468,7 @@ var require_jwa = __commonJS({
       };
     }
     function createKeyVerifier(bits) {
-      return function verify2(thing, signature, publicKey) {
+      return function verify3(thing, signature, publicKey) {
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase643(signature);
@@ -48491,7 +48491,7 @@ var require_jwa = __commonJS({
       };
     }
     function createPSSKeyVerifier(bits) {
-      return function verify2(thing, signature, publicKey) {
+      return function verify3(thing, signature, publicKey) {
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase643(signature);
@@ -48514,7 +48514,7 @@ var require_jwa = __commonJS({
     }
     function createECDSAVerifer(bits) {
       var inner = createKeyVerifier(bits);
-      return function verify2(thing, signature, publicKey) {
+      return function verify3(thing, signature, publicKey) {
         signature = formatEcdsa.joseToDer(signature, "ES" + bits).toString("base64");
         var result = inner(thing, signature, publicKey);
         return result;
@@ -48526,7 +48526,7 @@ var require_jwa = __commonJS({
       };
     }
     function createNoneVerifier() {
-      return function verify2(thing, signature) {
+      return function verify3(thing, signature) {
         return signature === "";
       };
     }
@@ -48740,7 +48740,7 @@ var require_verify_stream = __commonJS({
       }.bind(this));
     }
     util.inherits(VerifyStream, Stream4);
-    VerifyStream.prototype.verify = function verify2() {
+    VerifyStream.prototype.verify = function verify3() {
       try {
         var valid = jwsVerify(this.signature.buffer, this.algorithm, this.key.buffer);
         var obj = jwsDecode(this.signature.buffer, this.encoding);
@@ -57414,50 +57414,50 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative3, options, skipNormalization) {
+    function resolveComponent(base, relative4, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse4(serialize(base, options), options);
-        relative3 = parse4(serialize(relative3, options), options);
+        relative4 = parse4(serialize(relative4, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative3.scheme) {
-        target.scheme = relative3.scheme;
-        target.userinfo = relative3.userinfo;
-        target.host = relative3.host;
-        target.port = relative3.port;
-        target.path = removeDotSegments(relative3.path || "");
-        target.query = relative3.query;
+      if (!options.tolerant && relative4.scheme) {
+        target.scheme = relative4.scheme;
+        target.userinfo = relative4.userinfo;
+        target.host = relative4.host;
+        target.port = relative4.port;
+        target.path = removeDotSegments(relative4.path || "");
+        target.query = relative4.query;
       } else {
-        if (relative3.userinfo !== void 0 || relative3.host !== void 0 || relative3.port !== void 0) {
-          target.userinfo = relative3.userinfo;
-          target.host = relative3.host;
-          target.port = relative3.port;
-          target.path = removeDotSegments(relative3.path || "");
-          target.query = relative3.query;
+        if (relative4.userinfo !== void 0 || relative4.host !== void 0 || relative4.port !== void 0) {
+          target.userinfo = relative4.userinfo;
+          target.host = relative4.host;
+          target.port = relative4.port;
+          target.path = removeDotSegments(relative4.path || "");
+          target.query = relative4.query;
         } else {
-          if (!relative3.path) {
+          if (!relative4.path) {
             target.path = base.path;
-            if (relative3.query !== void 0) {
-              target.query = relative3.query;
+            if (relative4.query !== void 0) {
+              target.query = relative4.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative3.path[0] === "/") {
-              target.path = removeDotSegments(relative3.path);
+            if (relative4.path[0] === "/") {
+              target.path = removeDotSegments(relative4.path);
             } else {
               const baseHasAuthority = base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0;
               if (baseHasAuthority && !base.path) {
-                target.path = "/" + relative3.path;
+                target.path = "/" + relative4.path;
               } else if (!base.path) {
-                target.path = relative3.path;
+                target.path = relative4.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative3.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative4.path;
               }
               target.path = base.scheme === void 0 && !baseHasAuthority && target.path[0] !== "/" ? removeDotSegmentsRelative(target.path) : removeDotSegments(target.path);
             }
-            target.query = relative3.query;
+            target.query = relative4.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -57465,7 +57465,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative3.fragment;
+      target.fragment = relative4.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -85039,7 +85039,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
   const verifyOpts = {
     zip215: opts.zip215
   };
-  function verify2(sig, msg, publicKey, options = verifyOpts) {
+  function verify3(sig, msg, publicKey, options = verifyOpts) {
     validateObject(options);
     const { context } = options;
     const zip215 = options.zip215 === void 0 ? !!verifyOpts.zip215 : options.zip215;
@@ -85112,7 +85112,7 @@ function eddsa(Point, cHash, eddsaOpts = {}) {
     keygen: createKeygen(randomSecretKey, getPublicKey),
     getPublicKey,
     sign: sign3,
-    verify: verify2,
+    verify: verify3,
     utils,
     Point,
     lengths
@@ -89329,9 +89329,9 @@ async function startGateway(config2, mesh, deps = {}) {
 
 // src/client.ts
 import { EventEmitter } from "node:events";
-import { constants as fsConstants, promises as fs5 } from "node:fs";
+import { constants as fsConstants, promises as fs6 } from "node:fs";
 import { homedir } from "node:os";
-import { basename as basename4, join as join11, resolve as resolve2 } from "node:path";
+import { basename as basename4, join as join12, resolve as resolve2 } from "node:path";
 
 // src/breaker.ts
 var HOUR2 = 36e5;
@@ -90201,8 +90201,142 @@ function secretsInFile(bytes3) {
   return findSecrets(new TextDecoder("utf-8", { fatal: false }).decode(bytes3));
 }
 
-// src/held.ts
+// src/decisions.ts
+import { sign as edSign, verify as verify2 } from "node:crypto";
+
+// src/agentpath.ts
+import { promises as fs3 } from "node:fs";
 import { join as join3 } from "node:path";
+
+// src/errors.ts
+var SetupError = class extends Error {
+  name = "SetupError";
+};
+var NotReadyYet = class extends SetupError {
+};
+
+// src/agentpath.ts
+function agentDir(root5) {
+  return join3(root5, "agent");
+}
+function agentLogPath(root5) {
+  return join3(agentDir(root5), "log.jsonl");
+}
+function settingsPath(root5) {
+  return join3(agentDir(root5), "config.json");
+}
+async function agentEndpoint(root5, env3, create2) {
+  const dir = agentDir(root5);
+  if (create2) await ensureDir(dir);
+  let stat3;
+  try {
+    stat3 = await fs3.lstat(dir);
+  } catch {
+    return void 0;
+  }
+  const token = env3.platform === "win32" ? await pipeToken(join3(dir, "pipe"), env3, create2) : "";
+  if (token === void 0) return void 0;
+  const endpoint2 = agentEndpointFor(dir, env3.platform, token);
+  const tooLong = endpointProblem(endpoint2, env3.platform);
+  if (tooLong !== void 0) throw new SetupError(tooLong);
+  const problem = agentDirProblem({ mode: stat3.mode, uid: stat3.uid, isDirectory: stat3.isDirectory(), isSymlink: stat3.isSymbolicLink() }, env3.platform, env3.uid);
+  if (problem !== void 0) throw new SetupError(`refusing to use ${dir}: ${problem}`);
+  return endpoint2;
+}
+async function pipeToken(path2, env3, create2) {
+  if (!create2) return (await readText(path2))?.trim();
+  const token = b64u.encode(randomBytes2(16));
+  await writeAtomic(path2, token, env3);
+  return token;
+}
+function startLockPath(root5) {
+  return join3(agentDir(root5), "start.lock");
+}
+async function retireEndpoint(root5, env3, endpoint2) {
+  if (env3.platform !== "win32") return;
+  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs3.rm(join3(agentDir(root5), "pipe"), { force: true });
+}
+async function readAgentSettings(root5) {
+  const raw = await readJson(settingsPath(root5));
+  return { require_signer: raw?.require_signer === true };
+}
+async function writeAgentSettings(root5, settings, env3) {
+  await writeJson(settingsPath(root5), settings, env3);
+}
+function endpointFiles(platform2) {
+  if (platform2 === "win32") return { clear: async () => void 0, secure: async () => void 0, id: async () => "pipe" };
+  return {
+    clear: (endpoint2) => fs3.rm(endpoint2, { force: true }),
+    secure: (endpoint2) => fs3.chmod(endpoint2, 384),
+    id: (endpoint2) => fs3.lstat(endpoint2, { bigint: true }).then((s3) => `${s3.dev}:${s3.ino}`, () => void 0)
+  };
+}
+
+// src/channel.ts
+import { createHash as createHash3, createPublicKey, diffieHellman, generateKeyPairSync, hkdfSync } from "node:crypto";
+var HELLO_LABEL = "wim-agent/2 hello\n";
+var CERT_LABEL = "wim-agent/2 signer\n";
+var ED25519_SPKI = Buffer.from("302a300506032b6570032100", "hex");
+function certBytes(body) {
+  return Buffer.concat([Buffer.from(CERT_LABEL, "utf8"), canonBytes(body)]);
+}
+function runKey() {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(ED25519_SPKI.length)) };
+}
+function ed25519Public(pub) {
+  return createPublicKey({ key: Buffer.concat([ED25519_SPKI, pub]), format: "der", type: "spki" });
+}
+var X25519_SPKI = Buffer.from("302a300506032b656e032100", "hex");
+function ephemeral() {
+  const { privateKey, publicKey } = generateKeyPairSync("x25519");
+  return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(X25519_SPKI.length)) };
+}
+function helloTranscript(nonce, clientPub, serverPub, info) {
+  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce, clientPub, serverPub, canonBytes(info)]);
+}
+var Channel = class _Channel {
+  sendKey;
+  recvKey;
+  sent = 0;
+  received = 0;
+  constructor(sendKey, recvKey) {
+    this.sendKey = sendKey;
+    this.recvKey = recvKey;
+  }
+  static nonce(n3) {
+    const nonce = Buffer.alloc(12);
+    nonce.writeUIntBE(n3, 6, 6);
+    return nonce;
+  }
+  /** Seals one line's text: b64u of ciphertext and tag. */
+  seal(text2) {
+    return b64u.encode(chacha20poly1305(this.sendKey, _Channel.nonce(this.sent++)).encrypt(Buffer.from(text2, "utf8")));
+  }
+  /** Opens what the other end sealed next; undefined for anything else. */
+  open(sealed) {
+    try {
+      const plain = chacha20poly1305(this.recvKey, _Channel.nonce(this.received)).decrypt(b64u.decode(sealed));
+      this.received++;
+      return Buffer.from(plain).toString("utf8");
+    } catch {
+      return void 0;
+    }
+  }
+};
+function channelFor(side, mine, theirPub, transcript) {
+  const shared = diffieHellman({ privateKey: mine, publicKey: createPublicKey({ key: Buffer.concat([X25519_SPKI, theirPub]), format: "der", type: "spki" }) });
+  const salt = createHash3("sha256").update(transcript).digest();
+  const keys = new Uint8Array(hkdfSync("sha256", shared, salt, "wim-agent/2 channel", 64));
+  shared.fill(0);
+  const toSigner = keys.slice(0, 32);
+  const toClient = keys.slice(32);
+  keys.fill(0);
+  return side === "client" ? new Channel(toSigner, toClient) : new Channel(toClient, toSigner);
+}
+
+// src/held.ts
+import { join as join4 } from "node:path";
 function preview(text2, max = 120) {
   const line = sanitizeForDisplay(text2).replace(/\s+/g, " ").trim();
   return line.length > max ? `${line.slice(0, max - 1)}\u2026` : line;
@@ -90215,7 +90349,7 @@ var HeldBox = class {
     this.env = env3;
   }
   path(id2) {
-    return join3(this.dir, `${id2}.json`);
+    return join4(this.dir, `${id2}.json`);
   }
   async add(item) {
     await writeJson(this.path(item.id), item, this.env);
@@ -90244,16 +90378,16 @@ var HeldBox = class {
    * (`settle`); one that stops before the mark leaves the item in the spool, which the next reads.
    */
   async markDelivered(id2) {
-    await writeAtomic(join3(this.dir, `${id2}.delivered`), "", this.env);
+    await writeAtomic(join4(this.dir, `${id2}.delivered`), "", this.env);
   }
   /** Whether `id` was written to the spool already (markDelivered). */
   async wasDelivered(id2) {
-    return await readText(join3(this.dir, `${id2}.delivered`)) !== void 0;
+    return await readText(join4(this.dir, `${id2}.delivered`)) !== void 0;
   }
   /** Takes a delivered item out of held/: its entry first, then its mark. */
   async settle(id2) {
     await this.remove(id2);
-    await removeFile(join3(this.dir, `${id2}.delivered`));
+    await removeFile(join4(this.dir, `${id2}.delivered`));
   }
   /** The ids with a delivered mark, entry or not. */
   async deliveredMarks() {
@@ -90264,7 +90398,25 @@ var HeldBox = class {
   }
   /** Leaves a decision for the process that runs this session. */
   async mark(id2, verdict) {
-    await writeAtomic(join3(this.dir, `${id2}.${verdict}`), "", this.env);
+    await writeAtomic(join4(this.dir, `${id2}.${verdict}`), "", this.env);
+  }
+  /** Leaves a signed decision for the process that runs this session (a device whose keys are in the signer). */
+  async leaveDecision(d5) {
+    await writeJson(join4(this.dir, `${d5.n}.decision`), d5, this.env);
+  }
+  /**
+   * Signed decisions left by other processes, consumed as they are read: what each file holds,
+   * unchecked (the session checks the signature). One that cannot be removed yet waits for the next pass.
+   */
+  async takeDecisions() {
+    const out = [];
+    for (const name of (await listFiles(this.dir)).sort()) {
+      if (!/^[0-9A-Z]{26}\.decision$/.test(name)) continue;
+      const path2 = join4(this.dir, name);
+      const raw = await readJson(path2).catch(() => void 0);
+      if (await tryRemove(path2, this.env)) out.push(raw);
+    }
+    return out;
   }
   /** Decisions left by other processes (`wim held`, the plugin's pane), consumed as they are read. */
   async takeMarks() {
@@ -90276,15 +90428,369 @@ async function takeMarks(dir, marks, env3) {
   for (const name of (await listFiles(dir)).sort()) {
     const m4 = /^([0-9A-Z]{26})\.([a-z]+)$/.exec(name);
     if (m4 === null || !marks.includes(m4[2])) continue;
-    if (!await tryRemove(join3(dir, name), env3)) continue;
+    if (!await tryRemove(join4(dir, name), env3)) continue;
     out.push({ id: m4[1], mark: m4[2] });
   }
   return out;
 }
 
+// src/signer.ts
+import { verify } from "node:crypto";
+import { createConnection } from "node:net";
+
+// src/keyring.ts
+function openWithClearPrekey(entry, req) {
+  return openBox(void 0, () => entry.secret, req);
+}
+var NeedsSigner = class extends Error {
+  name = "NeedsSigner";
+  constructor() {
+    super("this device's keys were encrypted (wim agent encrypt) while this session was running: restart it so it uses the signer; messages it cannot open meanwhile are not acknowledged, and the relay delivers them again");
+  }
+};
+function localDeviceKeyring(keys) {
+  const ring = localKeyring(keys);
+  const deviceId = deviceIdFromSignPub(keys.signPub);
+  return {
+    kind: "local",
+    signPub: ring.signPub,
+    boxPub: ring.boxPub,
+    sign: ring.sign,
+    seal: ring.seal,
+    open: ring.open,
+    newPrekey: async (mesh, at) => createPrekey({ mesh, deviceId, signSec: keys.signSec, at }),
+    // A sealed entry opens only in the signer, which this process is not using: the key file
+    // was encrypted while it ran. Not "key_expired", which would drop the message for good.
+    openPrekey: async (entry, req) => {
+      if ("sealed" in entry) throw new NeedsSigner();
+      return openWithClearPrekey(entry, req);
+    },
+    adopt: async (entry) => entry,
+    // Nothing is held open: the keys are in this process.
+    close: () => void 0
+  };
+}
+
+// src/signer.ts
+var MAX_LINE = 4 * 1024 * 1024;
+var SignerError = class extends Error {
+  name = "SignerError";
+  code;
+  constructor(code2, message2) {
+    super(message2);
+    this.code = code2;
+  }
+  /** The signer could not answer now (locked, gone, slow or busy); the same request may work later. */
+  get transient() {
+    return ["locked", "unavailable", "timeout", "rate_limited"].includes(this.code);
+  }
+};
+var LOCKED_OPS = /* @__PURE__ */ new Set(["status", "lock", "stop"]);
+var CERT_SKEW_MS = 5 * 6e4;
+function encodeSeal(req) {
+  return {
+    mesh: req.mesh,
+    sender: req.sender,
+    recipient: req.recipient,
+    aad: b64u.encode(req.aad),
+    recipientBox: b64u.encode(req.recipientBox),
+    plaintext: b64u.encode(req.plaintext),
+    ...req.prekey === void 0 ? {} : { prekey: { id: req.prekey.id, pub: b64u.encode(req.prekey.pub) } }
+  };
+}
+function encodeOpen(req) {
+  return { mesh: req.mesh, sender: req.sender, recipient: req.recipient, aad: b64u.encode(req.aad), senderBox: b64u.encode(req.senderBox), box: req.box };
+}
+function isObject2(value2) {
+  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2);
+}
+function unseal(channel, line) {
+  let value2;
+  try {
+    value2 = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  return isObject2(value2) ? channel.open(value2["x"]) : void 0;
+}
+function parseAnswer(line) {
+  let value2;
+  try {
+    value2 = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  if (!isObject2(value2)) return void 0;
+  const { i: i6, r: r6, e: e6 } = value2;
+  if (e6 !== void 0) return isObject2(e6) && typeof e6["code"] === "string" && typeof e6["message"] === "string" ? { i: i6, e: { code: e6["code"], message: e6["message"] } } : void 0;
+  return isObject2(r6) ? { i: i6, r: r6 } : void 0;
+}
+var SignerClient = class {
+  /** The endpoint last connected to (or given). */
+  endpoint;
+  where;
+  expect;
+  timeoutMs;
+  connect;
+  now;
+  conn;
+  opening;
+  next = 0;
+  /**
+   * `endpoint` is the signer's address, or a function that finds it again for each new connection
+   * (a session outlives a signer restart, and on Windows each start has a new pipe name).
+   */
+  constructor(o3) {
+    this.now = o3.now ?? Date.now;
+    const at = o3.endpoint;
+    this.endpoint = typeof at === "string" ? at : "";
+    this.where = typeof at === "string" ? async () => at : at;
+    this.expect = o3.expect;
+    this.timeoutMs = o3.timeoutMs ?? 3e4;
+    this.connect = o3.connect ?? ((endpoint2) => createConnection(endpoint2));
+  }
+  /**
+   * Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer
+   * within `timeoutMs` (the client's own by default; a `decide` waits for the person).
+   */
+  async call(op2, a5 = {}, timeoutMs = this.timeoutMs) {
+    const conn = await this.connected();
+    if (conn.hello.locked && !LOCKED_OPS.has(op2)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
+    return this.send(conn, op2, a5, timeoutMs);
+  }
+  /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
+  async hello() {
+    return (await this.connected()).hello;
+  }
+  /** Drops the connection; its pending calls fail as `unavailable`. */
+  close() {
+    this.conn?.socket.destroy();
+  }
+  send(conn, op2, a5, timeoutMs = this.timeoutMs) {
+    const i6 = ++this.next;
+    return new Promise((resolve4, reject) => {
+      const timer = setTimeout(() => {
+        conn.pending.delete(i6);
+        this.idle(conn);
+        reject(new SignerError("timeout", `the signer did not answer ${op2} in ${timeoutMs} ms`));
+      }, timeoutMs);
+      conn.pending.set(i6, { resolve: resolve4, reject, timer });
+      conn.socket.ref();
+      const text2 = JSON.stringify({ i: i6, op: op2, a: a5 });
+      conn.socket.write(`${conn.channel === void 0 ? text2 : JSON.stringify({ x: conn.channel.seal(text2) })}
+`);
+    });
+  }
+  idle(conn) {
+    if (conn.pending.size === 0) conn.socket.unref();
+  }
+  connected() {
+    if (this.conn !== void 0) return Promise.resolve(this.conn);
+    this.opening ??= this.open().finally(() => this.opening = void 0);
+    return this.opening;
+  }
+  async open() {
+    return this.connectTo(await this.where());
+  }
+  connectTo(at) {
+    if (at === void 0) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in a terminal you opened yourself"));
+    this.endpoint = at;
+    return new Promise((resolve4, reject) => {
+      const socket = this.connect(at);
+      const conn = { socket, pending: /* @__PURE__ */ new Map(), buffered: "" };
+      socket.setEncoding("utf8");
+      socket.on("error", (error64) => {
+        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error64.code ?? error64.message}): run \`wim agent start\` in a terminal you opened yourself`));
+      });
+      socket.once("connect", () => {
+        socket.on("data", (chunk) => this.take(conn, chunk));
+        socket.once("close", () => this.dropped(conn));
+        this.greet(conn).then(
+          () => {
+            this.conn = conn;
+            resolve4(conn);
+          },
+          (error64) => {
+            socket.destroy();
+            reject(error64);
+          }
+        );
+      });
+    });
+  }
+  async greet(conn) {
+    const nonce = randomBytes2(32);
+    const mine = ephemeral();
+    const hello = await this.send(conn, "hello", { nonce: b64u.encode(nonce), epub: b64u.encode(mine.pub) });
+    this.check(conn, hello, nonce, mine);
+    return hello;
+  }
+  /**
+   * Checks a hello and opens the channel: the run key certified by the device key, and the run
+   * key's signature over this connection's transcript. Any missing or malformed field is a mismatch.
+   */
+  check(conn, hello, nonce, mine) {
+    if (this.expect !== void 0 && hello.signPub !== b64u.encode(this.expect)) {
+      throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
+    }
+    try {
+      const { sig, ...body } = hello.cert;
+      const info = { id: hello.id, name: hello.name, signPub: hello.signPub, boxPub: hello.boxPub, locked: hello.locked, pid: hello.pid };
+      const theirs = b64u.decode(hello.epub);
+      const transcript = helloTranscript(nonce, mine.pub, theirs, info);
+      const now = this.now();
+      const certified = verify(null, certBytes(body), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(sig));
+      const current = body.locked === hello.locked && body.pid === hello.pid && body.issued <= now + CERT_SKEW_MS && now < body.expires;
+      if (!certified || !current || !verify(null, transcript, ed25519Public(b64u.decode(body.pub)), b64u.decode(hello.proof))) throw new Error("bad proof");
+      conn.channel = channelFor("client", mine.privateKey, theirs, transcript);
+    } catch {
+      throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it is this device's signer`);
+    }
+    conn.hello = hello;
+  }
+  take(conn, chunk) {
+    conn.buffered += chunk;
+    if (conn.buffered.length > MAX_LINE) {
+      conn.socket.destroy();
+      return;
+    }
+    for (let nl = conn.buffered.indexOf("\n"); nl !== -1; nl = conn.buffered.indexOf("\n")) {
+      const line = conn.buffered.slice(0, nl);
+      conn.buffered = conn.buffered.slice(nl + 1);
+      const answer = parseAnswer(conn.channel === void 0 ? line : unseal(conn.channel, line) ?? "");
+      if (answer === void 0) {
+        conn.socket.destroy();
+        return;
+      }
+      const waiting3 = conn.pending.get(answer.i);
+      if (waiting3 === void 0) continue;
+      conn.pending.delete(answer.i);
+      clearTimeout(waiting3.timer);
+      this.idle(conn);
+      if ("e" in answer) waiting3.reject(new SignerError(answer.e.code, answer.e.message));
+      else waiting3.resolve(answer.r);
+    }
+  }
+  dropped(conn) {
+    if (this.conn === conn) this.conn = void 0;
+    for (const [i6, waiting3] of conn.pending) {
+      conn.pending.delete(i6);
+      clearTimeout(waiting3.timer);
+      waiting3.reject(new SignerError("unavailable", "the signer closed the connection"));
+    }
+  }
+};
+function signerKeyring(client, pub) {
+  const opened2 = (r6) => typeof r6["opened"] === "string" ? b64u.decode(r6["opened"]) : r6["reason"];
+  return {
+    kind: "signer",
+    signPub: pub.signPub,
+    boxPub: pub.boxPub,
+    sign: async (type, obj) => (await client.call("sign", { type, obj }))["sig"],
+    seal: async (req) => (await client.call("seal", encodeSeal(req)))["box"],
+    // Only scheme 1 opens with the device key; a scheme 2 box needs its prekey's entry (openPrekey).
+    open: async (req) => "s" in req.box ? "key_expired" : opened2(await client.call("open", encodeOpen(req))),
+    openPrekey: async (entry, req) => "secret" in entry ? openWithClearPrekey(entry, req) : opened2(await client.call("open2", { ...encodeOpen(req), entry })),
+    newPrekey: async (mesh, at) => {
+      const r6 = await client.call("prekey", { mesh, at });
+      return { prekey: r6["prekey"], sealed: r6["sealed"] };
+    },
+    adopt: async (entry) => {
+      if ("sealed" in entry) return entry;
+      const r6 = await client.call("adopt", { prekey: entry.prekey, secret: b64u.encode(entry.secret) });
+      return { prekey: entry.prekey, sealed: r6["sealed"] };
+    },
+    close: () => client.close()
+  };
+}
+
+// src/decisions.ts
+var DECISION_TTL_MS = 48 * 60 * 6e4;
+var DECISION_SKEW_MS = 5 * 6e4;
+var DECIDE_WAIT_MS = 6 * 6e4;
+var MAX_DECISION_IDS = 500;
+var LABEL = "wim-agent/2 held-decision\n";
+var ulidSchema2 = external_exports.string().refine(isUlid, "expected a ULID");
+var digestSchema = external_exports.string().regex(/^[A-Za-z0-9_-]{43}$/, "expected a digest");
+var decisionSchema = external_exports.strictObject({
+  v: external_exports.literal(1),
+  device: external_exports.string().refine(isId22, "expected a device id"),
+  mesh: external_exports.string().max(64),
+  verdict: external_exports.enum(["approve", "refuse", "resume"]),
+  peer: external_exports.string().min(1).max(200).optional(),
+  items: external_exports.array(external_exports.strictObject({ id: ulidSchema2, digest: digestSchema })).max(MAX_DECISION_IDS * 8),
+  at: external_exports.int().min(0),
+  n: ulidSchema2,
+  sig: external_exports.string().max(200)
+});
+function heldDigest(item) {
+  return b64u.encode(sha2562(canonBytes(item)));
+}
+function signedBytes2(body) {
+  return new Uint8Array(Buffer.concat([utf8(LABEL), canonBytes(body)]));
+}
+function signDecision(body, signKey) {
+  return { ...body, sig: b64u.encode(edSign(null, signedBytes2(body), signKey)) };
+}
+function checkDecision(raw, o3) {
+  const parsed2 = decisionSchema.safeParse(raw);
+  if (!parsed2.success) return { refused: "it is not a decision" };
+  const d5 = parsed2.data;
+  if (d5.device !== o3.device || d5.mesh !== o3.mesh) return { refused: "it is for another device or mesh" };
+  if (d5.verdict === "resume" && d5.peer === void 0) return { refused: "a resume names no peer" };
+  const { sig, ...body } = d5;
+  let good = false;
+  try {
+    good = verify2(null, signedBytes2(body), ed25519Public(o3.signPub), b64u.decode(sig));
+  } catch {
+    good = false;
+  }
+  if (!good) return { refused: "its signature is not this device's signer's" };
+  if (o3.now - d5.at > DECISION_TTL_MS) return { refused: `it is more than ${DECISION_TTL_MS / 36e5} hours old` };
+  if (d5.at - o3.now > DECISION_SKEW_MS) return { refused: "it is dated in the future" };
+  return d5;
+}
+function covers(d5, item) {
+  const digest2 = heldDigest(item);
+  return d5.items.some((i6) => i6.id === item.id && i6.digest === digest2);
+}
+async function requestDecision(o3, req) {
+  const client = new SignerClient({ endpoint: () => agentEndpoint(o3.root, o3.env, false), expect: o3.signPub });
+  try {
+    const r6 = await client.call("decide", { mesh: req.mesh, verdict: req.verdict, ids: [...req.ids], ...req.peer === void 0 ? {} : { peer: req.peer } }, DECIDE_WAIT_MS);
+    return r6["decision"];
+  } catch (error64) {
+    throw new SetupError(`${NEEDS_SIGNER}: ${error64.message}`);
+  } finally {
+    client.close();
+  }
+}
+function decider(o3) {
+  return (req) => requestDecision(o3, req);
+}
+var NEEDS_SIGNER = "this device's keys are in the signer, so a decision on held messages needs the signer to confirm it with you";
+function unsignedRefusal(what2) {
+  return `refused an unsigned ${what2}: this device's keys are in the signer, so a decision on held messages is taken only with the signer's confirmation (\`wim held\` in your own terminal, or VS Code). A file anything can write is not one`;
+}
+var SHOWN = 10;
+function decisionView(req, copies) {
+  const ids = [...new Set(copies.map((c5) => c5.item.id))];
+  const n3 = ids.length === 1 ? "1 held message" : `${ids.length} held messages`;
+  const what2 = req.verdict === "approve" ? `Approve ${n3}: they are delivered to your agents.` : req.verdict === "refuse" ? `Refuse ${n3}: they are dropped, never delivered.` : `Resume ${sanitizeForDisplay(req.peer)}: lift the loop breaker's pause on its device and release ${n3}.`;
+  const lines = ["worldinmotion signer: a process on this computer asks you to decide on held messages.", "Confirm only if you just asked for this yourself (wim held, VS Code). If you did not, choose Cancel.", what2];
+  for (const [i6, id2] of ids.slice(0, SHOWN).entries()) {
+    const mine = copies.filter((c5) => c5.item.id === id2);
+    const r6 = mine[0].item;
+    lines.push(`${i6 + 1}. from ${sanitizeForDisplay(r6.from)} to ${mine.map((c5) => sanitizeForDisplay(c5.session)).join(", ")}, ${r6.kind}, ${new Date(r6.at).toISOString()}: ${preview(r6.entry.text, 100)}`);
+  }
+  if (ids.length > SHOWN) lines.push(`... and ${ids.length - SHOWN} more.`);
+  lines.push(`mesh ${req.mesh}`);
+  return lines;
+}
+
 // src/history.ts
-import { promises as fs3 } from "node:fs";
-import { basename as basename3, dirname as dirname3, join as join4 } from "node:path";
+import { promises as fs4 } from "node:fs";
+import { basename as basename3, dirname as dirname3, join as join5 } from "node:path";
 
 // src/render.ts
 function noticeText(line) {
@@ -90360,9 +90866,9 @@ var History = class {
   }
   async appendLine(value2) {
     await ensureDir(dirname3(this.path));
-    const size = await fs3.stat(this.path).then((s3) => s3.size, () => 0);
+    const size = await fs4.stat(this.path).then((s3) => s3.size, () => 0);
     if (size >= this.rotateBytes) await this.rotate();
-    await fs3.appendFile(this.path, `${JSON.stringify(value2)}
+    await fs4.appendFile(this.path, `${JSON.stringify(value2)}
 `, { mode: 384 });
   }
   rotated() {
@@ -90374,10 +90880,10 @@ var History = class {
   async rotate() {
     const now = this.now();
     const stem = basename3(this.path, ".jsonl");
-    await fs3.rename(this.path, join4(dirname3(this.path), `${stem}-${ulid3(now)}.jsonl`));
+    await fs4.rename(this.path, join5(dirname3(this.path), `${stem}-${ulid3(now)}.jsonl`));
     for (const name of await this.rotated()) {
       const id2 = name.slice(stem.length + 1, -6);
-      if (!isUlid(id2) || ulidTime(id2) < now - KEEP_MS) await removeFile(join4(dirname3(this.path), name));
+      if (!isUlid(id2) || ulidTime(id2) < now - KEEP_MS) await removeFile(join5(dirname3(this.path), name));
     }
   }
   /**
@@ -90402,7 +90908,7 @@ var History = class {
   }
   /** The current file's size: where a reader that wants only what is written later starts (receiptsFrom). */
   size() {
-    return fs3.stat(this.path).then((s3) => s3.size, () => 0);
+    return fs4.stat(this.path).then((s3) => s3.size, () => 0);
   }
   /**
    * The receipts for message `id` written to the current file from byte `from` on, oldest first.
@@ -90412,7 +90918,7 @@ var History = class {
    * being written does not parse yet, and is read whole by the next call from the same `from`.
    */
   async receiptsFrom(id2, from) {
-    const handle = await fs3.open(this.path, "r").catch(() => void 0);
+    const handle = await fs4.open(this.path, "r").catch(() => void 0);
     if (handle === void 0) return [];
     try {
       const { size } = await handle.stat();
@@ -90435,7 +90941,7 @@ var History = class {
   }
   /** Visits entries (and receipts, to `receipt`) newest first, damaged lines skipped, until `visit` returns true. */
   async scan(visit3, receipt = () => void 0) {
-    const files = [...(await this.rotated()).map((n3) => join4(dirname3(this.path), n3)), this.path];
+    const files = [...(await this.rotated()).map((n3) => join5(dirname3(this.path), n3)), this.path];
     for (const file2 of files.reverse()) {
       const lines = (await readText(file2) ?? "").split("\n").filter((l3) => l3 !== "").reverse();
       if (visitLines(lines, visit3, receipt)) return;
@@ -90523,7 +91029,7 @@ function renderForPerson(e6) {
 }
 
 // src/mesh.ts
-import { join as join5 } from "node:path";
+import { join as join6 } from "node:path";
 var COOLDOWN_MAX_MINUTES = 60;
 var DEFAULT_BREAKER = { perPeerPerHour: 120, totalPerHour: 300, pingPong: true, pingPongExchanges: 32, cooldownMinutes: 10 };
 var WRITTEN_BREAKER = { perPeerPerHour: 20, totalPerHour: 60, pingPong: true, pingPongExchanges: 8 };
@@ -90583,66 +91089,66 @@ var MeshFiles = class {
     this.env = env3;
   }
   get configPath() {
-    return join5(this.dir, "mesh.json");
+    return join6(this.dir, "mesh.json");
   }
   get rostersDir() {
-    return join5(this.dir, "rosters");
+    return join6(this.dir, "rosters");
   }
   get invitesDir() {
-    return join5(this.dir, "invites");
+    return join6(this.dir, "invites");
   }
   /** Join requests this admin device keeps for its person (`wim devices pending`). */
   get joinsDir() {
-    return join5(this.dir, "joins");
+    return join6(this.dir, "joins");
   }
   get sessionsDir() {
-    return join5(this.dir, "sessions");
+    return join6(this.dir, "sessions");
   }
   get keysDir() {
-    return join5(this.dir, "claude");
+    return join6(this.dir, "claude");
   }
   get seenPath() {
-    return join5(this.dir, "seen.json");
+    return join6(this.dir, "seen.json");
   }
   get seqPath() {
-    return join5(this.dir, "seq.json");
+    return join6(this.dir, "seq.json");
   }
   get leaseNamesPath() {
-    return join5(this.dir, "leases.json");
+    return join6(this.dir, "leases.json");
   }
   /** This device's prekeys and their secrets (SPEC section 6b), shared by its sessions. */
   get prekeysPath() {
-    return join5(this.dir, "prekeys.json");
+    return join6(this.dir, "prekeys.json");
   }
   /** The newest verified prekey of each peer device. */
   get peerPrekeysPath() {
-    return join5(this.dir, "peer-prekeys.json");
+    return join6(this.dir, "peer-prekeys.json");
   }
   /** The person's CI sender rules (SPEC section 18): which repositories may send this device notices. */
   get ciRulesPath() {
-    return join5(this.dir, "ci-rules.json");
+    return join6(this.dir, "ci-rules.json");
   }
   /** The CI providers' token keys this device fetched itself, kept at most 24 hours. */
   get ciJwksPath() {
-    return join5(this.dir, "ci-jwks.json");
+    return join6(this.dir, "ci-jwks.json");
   }
   /**
    * The peer sessions whose loop breaker said it holds this device's messages (a `pause`, SPEC
    * section 12), so every session of this device reports a send to them as `held`.
    */
   get pausedByPath() {
-    return join5(this.dir, "paused-by.json");
+    return join6(this.dir, "paused-by.json");
   }
   /** The peer sessions this device's sessions sent to in the last hour: a `pause` counts only from one (pauses.ts). */
   get sentToPath() {
-    return join5(this.dir, "sent-to.json");
+    return join6(this.dir, "sent-to.json");
   }
   /** The admin signing lock (SPEC section 4): one writer signs a roster at a time. */
   get rosterLock() {
-    return join5(this.dir, "roster.lock");
+    return join6(this.dir, "roster.lock");
   }
   sessionDir(sid) {
-    return join5(this.sessionsDir, sid);
+    return join6(this.sessionsDir, sid);
   }
   async loadConfig() {
     const raw = await readJson(this.configPath);
@@ -90662,17 +91168,17 @@ var MeshFiles = class {
     }, this.env);
   }
   async saveRoster(r6) {
-    await writeJson(join5(this.rostersDir, `${r6.seq}.json`), r6, this.env);
+    await writeJson(join6(this.rostersDir, `${r6.seq}.json`), r6, this.env);
   }
   async loadRoster(seq2) {
-    const raw = await readJson(join5(this.rostersDir, `${seq2}.json`));
+    const raw = await readJson(join6(this.rostersDir, `${seq2}.json`));
     if (raw === void 0) return void 0;
     const parsed2 = rosterSchema.safeParse(raw);
     if (!parsed2.success) throw new Error(`${this.rostersDir}/${seq2}.json is not a roster`);
     return parsed2.data;
   }
   async saveForkEvidence(a5, b5) {
-    await writeJson(join5(this.rostersDir, `fork-${a5.seq}.json`), { a: a5, b: b5 }, this.env);
+    await writeJson(join6(this.rostersDir, `fork-${a5.seq}.json`), { a: a5, b: b5 }, this.env);
   }
 };
 var RosterBook = class _RosterBook {
@@ -90772,10 +91278,10 @@ function trustLevel(action, relayed2) {
 }
 
 // src/offline.ts
-import { join as join8 } from "node:path";
+import { join as join9, relative as relative2 } from "node:path";
 
 // src/session.ts
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
 var CLAIM_SHOWN_MS = 24 * 3600 * 1e3;
 function parseClaims(raw) {
   return raw.flatMap(
@@ -90834,60 +91340,60 @@ var SessionFiles = class {
     this.dir = mesh.sessionDir(sid);
   }
   get statePath() {
-    return join6(this.dir, "session.json");
+    return join7(this.dir, "session.json");
   }
   get spoolDir() {
-    return join6(this.dir, "spool");
+    return join7(this.dir, "spool");
   }
   get cursorPath() {
-    return join6(this.dir, "spool", "cursor");
+    return join7(this.dir, "spool", "cursor");
   }
   get presencePath() {
-    return join6(this.dir, "presence");
+    return join7(this.dir, "presence");
   }
   get heldDir() {
-    return join6(this.dir, "held");
+    return join7(this.dir, "held");
   }
   /** The loop breaker's running pauses in this session, for `wim held list` (pauses.ts). */
   get breakerPath() {
-    return join6(this.dir, "breaker.json");
+    return join7(this.dir, "breaker.json");
   }
   /** Dismiss marks for relayed items (`<id>.dismiss`), left by the plugin's pane. */
   get dismissDir() {
-    return join6(this.dir, "dismiss");
+    return join7(this.dir, "dismiss");
   }
   get filesDir() {
-    return join6(this.dir, "files");
+    return join7(this.dir, "files");
   }
   get historyPath() {
-    return join6(this.dir, "history.jsonl");
+    return join7(this.dir, "history.jsonl");
   }
   /** CI notices acknowledged while their provider's keys could not be fetched, to be checked again. */
   get ciParkedPath() {
-    return join6(this.dir, "ci-parked.json");
+    return join7(this.dir, "ci-parked.json");
   }
   /** The idle notices this session armed, so a notice nobody asked for is dropped (watches.ts). */
   get watchesPath() {
-    return join6(this.dir, "watches.json");
+    return join7(this.dir, "watches.json");
   }
   get tasksPath() {
-    return join6(this.dir, "tasks.json");
+    return join7(this.dir, "tasks.json");
   }
   get sentTasksPath() {
-    return join6(this.dir, "sent-tasks.json");
+    return join7(this.dir, "sent-tasks.json");
   }
   get behindDir() {
-    return join6(this.dir, "behind");
+    return join7(this.dir, "behind");
   }
   get controlDir() {
-    return join6(this.dir, "control");
+    return join7(this.dir, "control");
   }
   get liveLock() {
-    return join6(this.dir, "live.lock");
+    return join7(this.dir, "live.lock");
   }
   /** Written by a session that takes handed-over sends (`wim watch`): the pid of its process. */
   get handoverPath() {
-    return join6(this.dir, "handover");
+    return join7(this.dir, "handover");
   }
   async load() {
     return parseSessionState(await readJson(this.statePath));
@@ -90942,7 +91448,7 @@ var SessionKeys = class {
     this.now = now;
   }
   path(key3) {
-    return join6(this.mesh.keysDir, `${b64u.encode(sha2562(utf8(key3))).slice(0, 22)}.json`);
+    return join7(this.mesh.keysDir, `${b64u.encode(sha2562(utf8(key3))).slice(0, 22)}.json`);
   }
   /** The session a key names, if its mapping is still fresh. Expired mappings are deleted. */
   async lookup(key3) {
@@ -90957,7 +91463,7 @@ var SessionKeys = class {
   async prune() {
     const cutoff = this.now() - SESSION_KEY_TTL_MS;
     for (const name of await listDir(this.mesh.keysDir)) {
-      const path2 = join6(this.mesh.keysDir, name);
+      const path2 = join7(this.mesh.keysDir, name);
       const raw = await readJson(path2).catch(() => void 0);
       if (raw === void 0 || typeof raw.used !== "number" || raw.used < cutoff) await removeFile(path2);
     }
@@ -91071,7 +91577,7 @@ var SentTo = class {
 };
 
 // src/spool.ts
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 var NAME2 = /^(\d{12})\.json$/;
 var itemName = (cursor2) => `${String(cursor2).padStart(12, "0")}.json`;
 var BUSY = /* @__PURE__ */ Symbol("busy");
@@ -91093,12 +91599,12 @@ var Spool = class _Spool {
   env;
   constructor(dir, env3, last) {
     this.dir = dir;
-    this.relayedDir = join7(dir, "..", "relayed");
+    this.relayedDir = join8(dir, "..", "relayed");
     this.env = env3;
     this.last = last;
   }
   get cursorPath() {
-    return join7(this.dir, "cursor");
+    return join8(this.dir, "cursor");
   }
   /** Opens a spool, numbering after the highest of `last`, any item on disk and the cursor. */
   static async open(dir, env3, last) {
@@ -91127,7 +91633,7 @@ var Spool = class _Spool {
   async write(item) {
     const cursor2 = ++this.last;
     const full = { cursor: cursor2, ...item };
-    await writeJson(join7(this.dir, itemName(cursor2)), full, this.env);
+    await writeJson(join8(this.dir, itemName(cursor2)), full, this.env);
     return full;
   }
   /**
@@ -91140,7 +91646,7 @@ var Spool = class _Spool {
     const out = [];
     for (const name of await this.names()) {
       if (Number(NAME2.exec(name)[1]) <= after) continue;
-      const item = await this.read(join7(this.dir, name));
+      const item = await this.read(join8(this.dir, name));
       if (item === BUSY) break;
       if (item !== void 0) out.push(item);
     }
@@ -91182,13 +91688,13 @@ var Spool = class _Spool {
     const gone = [];
     for (const name of await this.names()) {
       if (Number(NAME2.exec(name)[1]) > upto) break;
-      const item = await this.read(join7(this.dir, name));
+      const item = await this.read(join8(this.dir, name));
       if (item === BUSY) continue;
       if (item?.relayed === true && !alreadyRead.has(item.id) && !this.boxed.has(name)) {
-        await writeJson(join7(this.relayedDir, name), item, this.env);
+        await writeJson(join8(this.relayedDir, name), item, this.env);
         this.boxed.add(name);
       }
-      if (!await tryRemove(join7(this.dir, name), this.env)) continue;
+      if (!await tryRemove(join8(this.dir, name), this.env)) continue;
       if (item !== void 0) gone.push(item);
     }
     return gone;
@@ -91202,7 +91708,7 @@ var Spool = class _Spool {
     const items = [];
     let busy = false;
     for (const name of (await listDir(this.relayedDir)).filter((n3) => NAME2.test(n3)).sort()) {
-      const item = await this.read(join7(this.relayedDir, name));
+      const item = await this.read(join8(this.relayedDir, name));
       if (item === BUSY) busy = true;
       else if (item !== void 0) items.push(item);
     }
@@ -91219,7 +91725,7 @@ var Spool = class _Spool {
     const left = [];
     for (const item of items) {
       if (ids !== void 0 && !ids.includes(item.id)) continue;
-      if (await tryRemove(join7(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
+      if (await tryRemove(join8(this.relayedDir, itemName(item.cursor)), this.env)) removed++;
       else left.push(item.id);
     }
     if (busy) {
@@ -91251,23 +91757,30 @@ async function applyOffline(files, item, verdict, config2, env3, now) {
   await new History(files.historyPath, now).append(item.entry);
   await box.settle(item.id);
 }
-async function decideHeld(mesh, id2, verdict, env3, now, skipSid) {
+function coveredBy(decision, row) {
+  if (decision === void 0) return true;
+  const { sid: _sid, session: _session, ...item } = row;
+  return covers(decision, item);
+}
+async function decideHeld(mesh, id2, verdict, env3, now, skipSid, decision) {
   let n3 = 0;
   const config2 = await mesh.loadConfig();
   const rules = await loadCiRules(mesh.ciRulesPath).catch(() => []);
   for (const row of await listAllHeld(mesh, env3)) {
-    if (row.id !== id2 || row.sid === skipSid) continue;
+    if (row.id !== id2 || row.sid === skipSid || !coveredBy(decision, row)) continue;
     const pins = row.ci?.pins;
     if (verdict === "approve" && pins !== void 0 && !isPinned(rules, row.ci.rule, pins)) continue;
     const files = new SessionFiles(mesh, row.sid, env3);
     const later = await files.isLiveElsewhere() || verdict === "approve" && row.fileInfo !== void 0;
-    if (later) await new HeldBox(files.heldDir, env3).mark(id2, verdict);
+    const box = new HeldBox(files.heldDir, env3);
+    if (later && decision !== void 0) await box.leaveDecision(decision);
+    else if (later) await box.mark(id2, verdict);
     else await applyOffline(files, row, verdict, config2, env3, now);
     n3++;
   }
   return n3;
 }
-async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
+async function resumeEverywhere(mesh, peer, env3, now, skipSid, decision) {
   let released = 0;
   const config2 = await mesh.loadConfig();
   const device = peer.split("@")[1];
@@ -91275,20 +91788,21 @@ async function resumeEverywhere(mesh, peer, env3, now, skipSid) {
     const files = new SessionFiles(mesh, sid, env3);
     const ours = (await readText(files.liveLock))?.trim() === String(env3.pid);
     if (!ours && !await files.claim()) {
-      await writeAtomic(join8(files.controlDir, `resume-${peer}`), "", env3);
+      if (decision !== void 0) await new HeldBox(files.heldDir, env3).leaveDecision(decision);
+      else await writeAtomic(join9(files.controlDir, `resume-${peer}`), "", env3);
       continue;
     }
     try {
-      released += await resumeOffline(files, device, config2, env3, now);
+      released += await resumeOffline(files, device, config2, env3, now, decision);
     } finally {
       if (!ours) await files.release();
     }
   }
   return released;
 }
-async function resumeOffline(files, device, config2, env3, now) {
+async function resumeOffline(files, device, config2, env3, now, decision) {
   const box = new HeldBox(files.heldDir, env3);
-  const items = (await box.list()).filter((item) => item.from.split("@")[1] === device && item.reason === "breaker");
+  const items = (await box.list()).filter((item) => item.from.split("@")[1] === device && item.reason === "breaker" && (decision === void 0 || covers(decision, item)));
   const file2 = await readBreakerFile(files.breakerPath);
   const resumed = file2.pauses.filter((p3) => p3.from.split("@")[1] === device);
   const ids = /* @__PURE__ */ new Set([...resumed.map((p3) => p3.peer), ...items.map((i6) => i6.device)]);
@@ -91303,22 +91817,32 @@ async function resumeOffline(files, device, config2, env3, now) {
     env3
   );
   for (const item of items) {
-    if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
+    if (item.fileInfo !== void 0 && decision !== void 0) await box.leaveDecision(decision);
+    else if (item.fileInfo !== void 0) await box.mark(item.id, "approve");
     else await applyOffline(files, item, "approve", config2, env3, now);
   }
   return items.length;
 }
+async function unsignedMarks(mesh, env3) {
+  const out = [];
+  for (const sid of await listSessions(mesh)) {
+    const files = new SessionFiles(mesh, sid, env3);
+    for (const name of await listFiles(files.heldDir)) if (/^[0-9A-Z]{26}\.(approve|refuse|resume)$/.test(name)) out.push(relative2(mesh.dir, join9(files.heldDir, name)));
+    for (const name of await listFiles(files.controlDir)) if (name.startsWith("resume-") && !name.endsWith(".tmp")) out.push(relative2(mesh.dir, join9(files.controlDir, name)));
+  }
+  return out.sort();
+}
 
 // src/legacyboxes.ts
-import { promises as fs4 } from "node:fs";
-import { dirname as dirname4, join as join9 } from "node:path";
+import { promises as fs5 } from "node:fs";
+import { dirname as dirname4, join as join10 } from "node:path";
 var LEGACY_BOXES_FILE = "legacy-boxes";
 var LEGACY_DROPPED_FILE = "legacy-boxes-dropped";
 var MAX_BYTES = 16;
 async function refusesLegacy(path2) {
   let text2;
   try {
-    text2 = await fs4.readFile(path2, "utf8");
+    text2 = await fs5.readFile(path2, "utf8");
   } catch (error64) {
     if (error64.code === "ENOENT") return { refuse: false };
     return { refuse: true, problem: unreadable(path2, `it cannot be read: ${error64.code ?? "error"}`) };
@@ -91335,7 +91859,7 @@ function setLegacyBoxes(path2, refuse, env3) {
   return writeAtomic(path2, refuse ? "refuse\n" : "accept\n", env3);
 }
 function droppedPath(settingPath) {
-  return join9(dirname4(settingPath), LEGACY_DROPPED_FILE);
+  return join10(dirname4(settingPath), LEGACY_DROPPED_FILE);
 }
 async function droppedCount(path2) {
   const n3 = Number(await readText(path2) ?? "0");
@@ -91593,39 +92117,6 @@ var SeqStore = class _SeqStore {
   }
 };
 
-// src/keyring.ts
-function openWithClearPrekey(entry, req) {
-  return openBox(void 0, () => entry.secret, req);
-}
-var NeedsSigner = class extends Error {
-  name = "NeedsSigner";
-  constructor() {
-    super("this device's keys were encrypted (wim agent encrypt) while this session was running: restart it so it uses the signer; messages it cannot open meanwhile are not acknowledged, and the relay delivers them again");
-  }
-};
-function localDeviceKeyring(keys) {
-  const ring = localKeyring(keys);
-  const deviceId = deviceIdFromSignPub(keys.signPub);
-  return {
-    kind: "local",
-    signPub: ring.signPub,
-    boxPub: ring.boxPub,
-    sign: ring.sign,
-    seal: ring.seal,
-    open: ring.open,
-    newPrekey: async (mesh, at) => createPrekey({ mesh, deviceId, signSec: keys.signSec, at }),
-    // A sealed entry opens only in the signer, which this process is not using: the key file
-    // was encrypted while it ran. Not "key_expired", which would drop the message for good.
-    openPrekey: async (entry, req) => {
-      if ("sealed" in entry) throw new NeedsSigner();
-      return openWithClearPrekey(entry, req);
-    },
-    adopt: async (entry) => entry,
-    // Nothing is held open: the keys are in this process.
-    close: () => void 0
-  };
-}
-
 // src/ping.ts
 var PING = {
   /** A ping older than this is not answered: one that waited in an offline session's queue is stale. */
@@ -91685,7 +92176,7 @@ function pingReport(rows, from, waitMs) {
 }
 
 // src/joins.ts
-import { join as join10 } from "node:path";
+import { join as join11 } from "node:path";
 var Invites = class {
   files;
   env;
@@ -91696,7 +92187,7 @@ var Invites = class {
     this.now = now;
   }
   path(id2) {
-    return join10(this.files.invitesDir, `${id2}.json`);
+    return join11(this.files.invitesDir, `${id2}.json`);
   }
   async get(id2) {
     if (!/^[A-Za-z0-9_-]{22}$/.test(id2)) return void 0;
@@ -91749,7 +92240,7 @@ var PendingJoins = class {
     this.env = env3;
   }
   path(invite2, device) {
-    return join10(this.files.joinsDir, `${invite2}.${device}.json`);
+    return join11(this.files.joinsDir, `${invite2}.${device}.json`);
   }
   /** Keeps a screened request. True when it was not kept before. */
   async save(body, exp, now) {
@@ -91757,15 +92248,15 @@ var PendingJoins = class {
     const fresh = await readJson(path2).catch(() => void 0) === void 0;
     await writeJson(path2, { v: 1, at: now, exp, body }, this.env);
     const names = (await this.entries()).sort((x2, y) => x2.file.at - y.file.at).map((e6) => e6.name);
-    for (const name of names.slice(0, Math.max(0, names.length - PENDING_MAX))) await tryRemove(join10(this.files.joinsDir, name), this.env);
+    for (const name of names.slice(0, Math.max(0, names.length - PENDING_MAX))) await tryRemove(join11(this.files.joinsDir, name), this.env);
     return fresh;
   }
   async entries() {
     const out = [];
     for (const name of await listFiles(this.files.joinsDir)) {
       if (!name.endsWith(".json")) continue;
-      const file2 = await readJson(join10(this.files.joinsDir, name)).catch(() => void 0);
-      if (typeof file2?.at !== "number" || typeof file2.exp !== "number" || verifyJoin(file2.body).ok !== true) await tryRemove(join10(this.files.joinsDir, name), this.env);
+      const file2 = await readJson(join11(this.files.joinsDir, name)).catch(() => void 0);
+      if (typeof file2?.at !== "number" || typeof file2.exp !== "number" || verifyJoin(file2.body).ok !== true) await tryRemove(join11(this.files.joinsDir, name), this.env);
       else out.push({ name, file: file2 });
     }
     return out;
@@ -91780,7 +92271,7 @@ var PendingJoins = class {
       const d5 = file2.body.device;
       const known = roster.devices.some((x2) => x2.id === d5.id) || roster.revoked.includes(d5.id);
       const live = file2.exp > now && (await invites.get(file2.body.invite))?.used === false;
-      if (known || !live) await tryRemove(join10(this.files.joinsDir, name), this.env);
+      if (known || !live) await tryRemove(join11(this.files.joinsDir, name), this.env);
       else rows.push({ name: d5.name, id: d5.id, invite: file2.body.invite, at: file2.at, exp: file2.exp, body: file2.body });
     }
     return rows.sort((x2, y) => x2.at - y.at);
@@ -91788,307 +92279,10 @@ var PendingJoins = class {
   /** Drops every request on an invite (it was used), or one device's request on it. */
   async remove(invite2, device) {
     for (const name of await listFiles(this.files.joinsDir)) {
-      if (name.startsWith(`${invite2}.${device ?? ""}`)) await tryRemove(join10(this.files.joinsDir, name), this.env);
+      if (name.startsWith(`${invite2}.${device ?? ""}`)) await tryRemove(join11(this.files.joinsDir, name), this.env);
     }
   }
 };
-
-// src/signer.ts
-import { verify } from "node:crypto";
-
-// src/channel.ts
-import { createHash as createHash3, createPublicKey, diffieHellman, generateKeyPairSync, hkdfSync } from "node:crypto";
-var HELLO_LABEL = "wim-agent/2 hello\n";
-var CERT_LABEL = "wim-agent/2 signer\n";
-var ED25519_SPKI = Buffer.from("302a300506032b6570032100", "hex");
-function certBytes(body) {
-  return Buffer.concat([Buffer.from(CERT_LABEL, "utf8"), canonBytes(body)]);
-}
-function runKey() {
-  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
-  return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(ED25519_SPKI.length)) };
-}
-function ed25519Public(pub) {
-  return createPublicKey({ key: Buffer.concat([ED25519_SPKI, pub]), format: "der", type: "spki" });
-}
-var X25519_SPKI = Buffer.from("302a300506032b656e032100", "hex");
-function ephemeral() {
-  const { privateKey, publicKey } = generateKeyPairSync("x25519");
-  return { privateKey, pub: new Uint8Array(publicKey.export({ format: "der", type: "spki" }).subarray(X25519_SPKI.length)) };
-}
-function helloTranscript(nonce, clientPub, serverPub, info) {
-  return Buffer.concat([Buffer.from(HELLO_LABEL, "utf8"), nonce, clientPub, serverPub, canonBytes(info)]);
-}
-var Channel = class _Channel {
-  sendKey;
-  recvKey;
-  sent = 0;
-  received = 0;
-  constructor(sendKey, recvKey) {
-    this.sendKey = sendKey;
-    this.recvKey = recvKey;
-  }
-  static nonce(n3) {
-    const nonce = Buffer.alloc(12);
-    nonce.writeUIntBE(n3, 6, 6);
-    return nonce;
-  }
-  /** Seals one line's text: b64u of ciphertext and tag. */
-  seal(text2) {
-    return b64u.encode(chacha20poly1305(this.sendKey, _Channel.nonce(this.sent++)).encrypt(Buffer.from(text2, "utf8")));
-  }
-  /** Opens what the other end sealed next; undefined for anything else. */
-  open(sealed) {
-    try {
-      const plain = chacha20poly1305(this.recvKey, _Channel.nonce(this.received)).decrypt(b64u.decode(sealed));
-      this.received++;
-      return Buffer.from(plain).toString("utf8");
-    } catch {
-      return void 0;
-    }
-  }
-};
-function channelFor(side, mine, theirPub, transcript) {
-  const shared = diffieHellman({ privateKey: mine, publicKey: createPublicKey({ key: Buffer.concat([X25519_SPKI, theirPub]), format: "der", type: "spki" }) });
-  const salt = createHash3("sha256").update(transcript).digest();
-  const keys = new Uint8Array(hkdfSync("sha256", shared, salt, "wim-agent/2 channel", 64));
-  shared.fill(0);
-  const toSigner = keys.slice(0, 32);
-  const toClient = keys.slice(32);
-  keys.fill(0);
-  return side === "client" ? new Channel(toSigner, toClient) : new Channel(toClient, toSigner);
-}
-
-// src/signer.ts
-import { createConnection } from "node:net";
-var MAX_LINE = 4 * 1024 * 1024;
-var SignerError = class extends Error {
-  name = "SignerError";
-  code;
-  constructor(code2, message2) {
-    super(message2);
-    this.code = code2;
-  }
-  /** The signer could not answer now (locked, gone, slow or busy); the same request may work later. */
-  get transient() {
-    return ["locked", "unavailable", "timeout", "rate_limited"].includes(this.code);
-  }
-};
-var LOCKED_OPS = /* @__PURE__ */ new Set(["status", "lock", "stop"]);
-var CERT_SKEW_MS = 5 * 6e4;
-function encodeSeal(req) {
-  return {
-    mesh: req.mesh,
-    sender: req.sender,
-    recipient: req.recipient,
-    aad: b64u.encode(req.aad),
-    recipientBox: b64u.encode(req.recipientBox),
-    plaintext: b64u.encode(req.plaintext),
-    ...req.prekey === void 0 ? {} : { prekey: { id: req.prekey.id, pub: b64u.encode(req.prekey.pub) } }
-  };
-}
-function encodeOpen(req) {
-  return { mesh: req.mesh, sender: req.sender, recipient: req.recipient, aad: b64u.encode(req.aad), senderBox: b64u.encode(req.senderBox), box: req.box };
-}
-function isObject2(value2) {
-  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2);
-}
-function unseal(channel, line) {
-  let value2;
-  try {
-    value2 = JSON.parse(line);
-  } catch {
-    return void 0;
-  }
-  return isObject2(value2) ? channel.open(value2["x"]) : void 0;
-}
-function parseAnswer(line) {
-  let value2;
-  try {
-    value2 = JSON.parse(line);
-  } catch {
-    return void 0;
-  }
-  if (!isObject2(value2)) return void 0;
-  const { i: i6, r: r6, e: e6 } = value2;
-  if (e6 !== void 0) return isObject2(e6) && typeof e6["code"] === "string" && typeof e6["message"] === "string" ? { i: i6, e: { code: e6["code"], message: e6["message"] } } : void 0;
-  return isObject2(r6) ? { i: i6, r: r6 } : void 0;
-}
-var SignerClient = class {
-  /** The endpoint last connected to (or given). */
-  endpoint;
-  where;
-  expect;
-  timeoutMs;
-  connect;
-  now;
-  conn;
-  opening;
-  next = 0;
-  /**
-   * `endpoint` is the signer's address, or a function that finds it again for each new connection
-   * (a session outlives a signer restart, and on Windows each start has a new pipe name).
-   */
-  constructor(o3) {
-    this.now = o3.now ?? Date.now;
-    const at = o3.endpoint;
-    this.endpoint = typeof at === "string" ? at : "";
-    this.where = typeof at === "string" ? async () => at : at;
-    this.expect = o3.expect;
-    this.timeoutMs = o3.timeoutMs ?? 3e4;
-    this.connect = o3.connect ?? ((endpoint2) => createConnection(endpoint2));
-  }
-  /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
-  async call(op2, a5 = {}) {
-    const conn = await this.connected();
-    if (conn.hello.locked && !LOCKED_OPS.has(op2)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
-    return this.send(conn, op2, a5);
-  }
-  /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
-  async hello() {
-    return (await this.connected()).hello;
-  }
-  /** Drops the connection; its pending calls fail as `unavailable`. */
-  close() {
-    this.conn?.socket.destroy();
-  }
-  send(conn, op2, a5) {
-    const i6 = ++this.next;
-    return new Promise((resolve4, reject) => {
-      const timer = setTimeout(() => {
-        conn.pending.delete(i6);
-        this.idle(conn);
-        reject(new SignerError("timeout", `the signer did not answer ${op2} in ${this.timeoutMs} ms`));
-      }, this.timeoutMs);
-      conn.pending.set(i6, { resolve: resolve4, reject, timer });
-      conn.socket.ref();
-      const text2 = JSON.stringify({ i: i6, op: op2, a: a5 });
-      conn.socket.write(`${conn.channel === void 0 ? text2 : JSON.stringify({ x: conn.channel.seal(text2) })}
-`);
-    });
-  }
-  idle(conn) {
-    if (conn.pending.size === 0) conn.socket.unref();
-  }
-  connected() {
-    if (this.conn !== void 0) return Promise.resolve(this.conn);
-    this.opening ??= this.open().finally(() => this.opening = void 0);
-    return this.opening;
-  }
-  async open() {
-    return this.connectTo(await this.where());
-  }
-  connectTo(at) {
-    if (at === void 0) return Promise.reject(new SignerError("unavailable", "no signer is running: run `wim agent start` in a terminal you opened yourself"));
-    this.endpoint = at;
-    return new Promise((resolve4, reject) => {
-      const socket = this.connect(at);
-      const conn = { socket, pending: /* @__PURE__ */ new Map(), buffered: "" };
-      socket.setEncoding("utf8");
-      socket.on("error", (error64) => {
-        reject(new SignerError("unavailable", `no signer answers at ${this.endpoint} (${error64.code ?? error64.message}): run \`wim agent start\` in a terminal you opened yourself`));
-      });
-      socket.once("connect", () => {
-        socket.on("data", (chunk) => this.take(conn, chunk));
-        socket.once("close", () => this.dropped(conn));
-        this.greet(conn).then(
-          () => {
-            this.conn = conn;
-            resolve4(conn);
-          },
-          (error64) => {
-            socket.destroy();
-            reject(error64);
-          }
-        );
-      });
-    });
-  }
-  async greet(conn) {
-    const nonce = randomBytes2(32);
-    const mine = ephemeral();
-    const hello = await this.send(conn, "hello", { nonce: b64u.encode(nonce), epub: b64u.encode(mine.pub) });
-    this.check(conn, hello, nonce, mine);
-    return hello;
-  }
-  /**
-   * Checks a hello and opens the channel: the run key certified by the device key, and the run
-   * key's signature over this connection's transcript. Any missing or malformed field is a mismatch.
-   */
-  check(conn, hello, nonce, mine) {
-    if (this.expect !== void 0 && hello.signPub !== b64u.encode(this.expect)) {
-      throw new SignerError("mismatch", `the signer at ${this.endpoint} holds another device's keys (${hello.id})`);
-    }
-    try {
-      const { sig, ...body } = hello.cert;
-      const info = { id: hello.id, name: hello.name, signPub: hello.signPub, boxPub: hello.boxPub, locked: hello.locked, pid: hello.pid };
-      const theirs = b64u.decode(hello.epub);
-      const transcript = helloTranscript(nonce, mine.pub, theirs, info);
-      const now = this.now();
-      const certified = verify(null, certBytes(body), ed25519Public(b64u.decode(hello.signPub)), b64u.decode(sig));
-      const current = body.locked === hello.locked && body.pid === hello.pid && body.issued <= now + CERT_SKEW_MS && now < body.expires;
-      if (!certified || !current || !verify(null, transcript, ed25519Public(b64u.decode(body.pub)), b64u.decode(hello.proof))) throw new Error("bad proof");
-      conn.channel = channelFor("client", mine.privateKey, theirs, transcript);
-    } catch {
-      throw new SignerError("mismatch", `the signer at ${this.endpoint} could not prove it is this device's signer`);
-    }
-    conn.hello = hello;
-  }
-  take(conn, chunk) {
-    conn.buffered += chunk;
-    if (conn.buffered.length > MAX_LINE) {
-      conn.socket.destroy();
-      return;
-    }
-    for (let nl = conn.buffered.indexOf("\n"); nl !== -1; nl = conn.buffered.indexOf("\n")) {
-      const line = conn.buffered.slice(0, nl);
-      conn.buffered = conn.buffered.slice(nl + 1);
-      const answer = parseAnswer(conn.channel === void 0 ? line : unseal(conn.channel, line) ?? "");
-      if (answer === void 0) {
-        conn.socket.destroy();
-        return;
-      }
-      const waiting3 = conn.pending.get(answer.i);
-      if (waiting3 === void 0) continue;
-      conn.pending.delete(answer.i);
-      clearTimeout(waiting3.timer);
-      this.idle(conn);
-      if ("e" in answer) waiting3.reject(new SignerError(answer.e.code, answer.e.message));
-      else waiting3.resolve(answer.r);
-    }
-  }
-  dropped(conn) {
-    if (this.conn === conn) this.conn = void 0;
-    for (const [i6, waiting3] of conn.pending) {
-      conn.pending.delete(i6);
-      clearTimeout(waiting3.timer);
-      waiting3.reject(new SignerError("unavailable", "the signer closed the connection"));
-    }
-  }
-};
-function signerKeyring(client, pub) {
-  const opened2 = (r6) => typeof r6["opened"] === "string" ? b64u.decode(r6["opened"]) : r6["reason"];
-  return {
-    kind: "signer",
-    signPub: pub.signPub,
-    boxPub: pub.boxPub,
-    sign: async (type, obj) => (await client.call("sign", { type, obj }))["sig"],
-    seal: async (req) => (await client.call("seal", encodeSeal(req)))["box"],
-    // Only scheme 1 opens with the device key; a scheme 2 box needs its prekey's entry (openPrekey).
-    open: async (req) => "s" in req.box ? "key_expired" : opened2(await client.call("open", encodeOpen(req))),
-    openPrekey: async (entry, req) => "secret" in entry ? openWithClearPrekey(entry, req) : opened2(await client.call("open2", { ...encodeOpen(req), entry })),
-    newPrekey: async (mesh, at) => {
-      const r6 = await client.call("prekey", { mesh, at });
-      return { prekey: r6["prekey"], sealed: r6["sealed"] };
-    },
-    adopt: async (entry) => {
-      if ("sealed" in entry) return entry;
-      const r6 = await client.call("adopt", { prekey: entry.prekey, secret: b64u.encode(entry.secret) });
-      return { prekey: entry.prekey, sealed: r6["sealed"] };
-    },
-    close: () => client.close()
-  };
-}
 
 // src/watches.ts
 var WATCHES_KEPT = 4 * LIMITS.notifyIdlePerSession;
@@ -93343,8 +93537,8 @@ var MeshSession = class _MeshSession extends EventEmitter {
     if (!r6.ok && r6.reason === "roster_behind") {
       if (!parked) {
         const waiting3 = (await listDir(this.files.behindDir)).sort();
-        for (const name of waiting3.slice(0, Math.max(0, waiting3.length - (PARKED_MAX - 1)))) await removeFile(join11(this.files.behindDir, name));
-        await writeJson(join11(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
+        for (const name of waiting3.slice(0, Math.max(0, waiting3.length - (PARKED_MAX - 1)))) await removeFile(join12(this.files.behindDir, name));
+        await writeJson(join12(this.files.behindDir, `${msg.id}.json`), msg, this.o.env);
       }
       return "behind";
     }
@@ -93417,7 +93611,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async retryParked() {
     for (const name of await listDir(this.files.behindDir)) {
-      const path2 = join11(this.files.behindDir, name);
+      const path2 = join12(this.files.behindDir, name);
       const msg = await readJson(path2).catch(() => void 0);
       const outcome = msg === void 0 ? "dropped" : await this.check(msg, true).catch((e6) => this.parkedFailed(name, e6));
       if (outcome !== "behind") await tryRemove(path2, this.o.env);
@@ -93817,29 +94011,34 @@ var MeshSession = class _MeshSession extends EventEmitter {
       await this.sweep();
       await this.pruneLeases();
       await this.readPresence();
-      for (const { id: id2, verdict } of await this.held.takeMarks()) void this.onQueue(() => this.applyMark(id2, verdict)).catch(ignore);
+      for (const { id: id2, verdict } of await this.held.takeMarks()) {
+        if (this.signed) this.log(`wim: ${unsignedRefusal(`${verdict} mark for held message ${id2}`)}; it stays held`);
+        else void this.onQueue(() => this.applyMark(id2, verdict)).catch(ignore);
+      }
+      for (const raw of await this.held.takeDecisions()) void this.onQueue(() => this.applyDecision(raw)).catch(ignore);
       this.queueRelease();
       if (this.link !== void 0) await this.flushLifts();
       if (this.countsChanged) await this.savePauses();
       const dismissed = (await takeMarks(this.files.dismissDir, ["dismiss"], this.o.env)).map((m4) => m4.id);
       if (dismissed.length > 0) {
         const { left } = await this.spool.dismissRelayed(dismissed);
-        for (const id2 of left) await writeAtomic(join11(this.files.dismissDir, `${id2}.dismiss`), "", this.o.env);
+        for (const id2 of left) await writeAtomic(join12(this.files.dismissDir, `${id2}.dismiss`), "", this.o.env);
       }
       for (const name of await listDir(this.files.controlDir)) {
         if (name.endsWith(".tmp")) continue;
         const done = /^send-([0-9A-Z]{26})\.done\.json$/.exec(name);
         if (done !== null) {
-          if (ulidTime(done[1]) < this.now() - ANSWER_KEEP_MS) await removeFile(join11(this.files.controlDir, name));
+          if (ulidTime(done[1]) < this.now() - ANSWER_KEEP_MS) await removeFile(join12(this.files.controlDir, name));
           continue;
         }
         const m4 = /^resume-(.+)$/.exec(name);
         const req = /^send-([0-9A-Z]{26})\.json$/.exec(name);
         if (req !== null && this.o.handover !== true) continue;
-        const path2 = join11(this.files.controlDir, name);
+        const path2 = join12(this.files.controlDir, name);
         const body = req === null ? void 0 : await readJson(path2).catch(() => void 0);
         if (!await tryRemove(path2, this.o.env)) continue;
-        if (m4 !== null) void this.resumePeer(m4[1]).catch((e6) => this.log(`wim: housekeeping: ${e6.message}`));
+        if (m4 !== null && this.signed) this.log(`wim: ${unsignedRefusal(`resume of ${sanitizeForDisplay(m4[1])}`)}`);
+        else if (m4 !== null) void this.onQueue(() => this.resumeNow(m4[1])).catch((e6) => this.log(`wim: housekeeping: ${e6.message}`));
         if (req !== null && this.o.handover === true) await this.handOverSend(req[1], body);
       }
       await this.book.reload();
@@ -93916,9 +94115,54 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.inbound = run.then(ignore, ignore);
     return run;
   }
-  /** The person's decision on a held message (the pane, `wim held`). Never reachable by a message. */
-  decide(id2, verdict) {
-    return this.onQueue(() => this.decideNow(id2, verdict));
+  /**
+   * Whether this device's keys are in the signer: then a decision on held messages is taken only
+   * signed by it (`decide` with a decision, or a decision file), never from a mark file.
+   */
+  get signed() {
+    return this.device.keyring.kind === "signer";
+  }
+  /**
+   * The person's decision on a held message (a UI's events process, for its own session). Never
+   * reachable by a message. With the keys in the signer, `decision` must be the signer's, cover
+   * this item as it is held, and say `verdict`.
+   */
+  decide(id2, verdict, decision) {
+    return this.onQueue(async () => {
+      if (this.signed) {
+        const item = await this.held.get(id2);
+        const d5 = this.checked(decision);
+        if (typeof d5 === "string" || d5.verdict !== verdict || item !== void 0 && !covers(d5, item)) {
+          throw new ClientError(`${NEEDS_SIGNER}: ${typeof d5 === "string" ? d5 : `it does not ${verdict} ${id2} as it is held`}`, "needs_signer");
+        }
+      }
+      return this.decideNow(id2, verdict);
+    });
+  }
+  /** A decision this session may act on, or why not. */
+  checked(raw) {
+    const d5 = checkDecision(raw, { signPub: this.device.keyring.signPub, device: this.device.id, mesh: this.config.mesh, now: this.now() });
+    return "refused" in d5 ? `the decision is refused: ${d5.refused}` : d5;
+  }
+  /**
+   * A signed decision another process left (decision file): each copy held here that it covers,
+   * unchanged since the person was shown it, is decided; anything else stays held. `resume` also
+   * lifts the breaker's pause on its peer's device. Taken whether or not the keys are in the
+   * signer, since only the signer can make one.
+   */
+  async applyDecision(raw) {
+    const d5 = this.checked(raw);
+    if (typeof d5 === "string") {
+      this.log(`wim: a decision file for held messages: ${d5}; nothing changed`);
+      return;
+    }
+    const mine = (await this.held.list()).filter((item) => covers(d5, item));
+    if (d5.verdict === "resume") {
+      await this.resumeNow(d5.peer, new Set(mine.map((i6) => i6.id)));
+      for (const item of mine) if (await this.held.get(item.id) !== void 0) await this.decideNow(item.id, "approve");
+      return;
+    }
+    for (const item of mine) await this.decideNow(item.id, d5.verdict);
   }
   async decideNow(id2, verdict) {
     const item = await this.held.get(id2);
@@ -93965,7 +94209,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
    */
   async handOverSend(id2, body) {
     const r6 = body;
-    const answer = join11(this.files.controlDir, `send-${id2}.done.json`);
+    const answer = join12(this.files.controlDir, `send-${id2}.done.json`);
     try {
       if (typeof r6?.to !== "string" || typeof r6.text !== "string") throw new ClientError("malformed send request", "malformed");
       const out = await this.send(r6.to, r6.text);
@@ -93977,11 +94221,22 @@ var MeshSession = class _MeshSession extends EventEmitter {
       await writeJson(answer, { ok: false, error: error64.message }, this.o.env);
     }
   }
-  /** Lifts a breaker pause on a peer (by address) and releases what it held from that device. */
-  resumePeer(peer) {
-    return this.onQueue(() => this.resumeNow(peer));
+  /**
+   * Lifts a breaker pause on a peer (by address) and releases what it held from that device. With
+   * the keys in the signer, only with the signer's `resume` decision for that peer, and only the
+   * items it covers are released.
+   */
+  resumePeer(peer, decision) {
+    return this.onQueue(async () => {
+      if (!this.signed) return this.resumeNow(peer);
+      const d5 = this.checked(decision);
+      if (typeof d5 === "string" || d5.verdict !== "resume" || d5.peer !== peer) throw new ClientError(`${NEEDS_SIGNER}: ${typeof d5 === "string" ? d5 : `it does not resume ${peer}`}`, "needs_signer");
+      const mine = (await this.held.list()).filter((item) => covers(d5, item));
+      return this.resumeNow(peer, new Set(mine.map((i6) => i6.id)));
+    });
   }
-  async resumeNow(peer) {
+  /** The resume itself; `only`: release just these of what the pause held (a signed decision's). */
+  async resumeNow(peer, only) {
     const device = this.roster.devices.find((d5) => d5.name === peer.slice(peer.indexOf("@") + 1));
     if (device === void 0) return 0;
     this.breaker.resume(device.id);
@@ -93991,7 +94246,7 @@ var MeshSession = class _MeshSession extends EventEmitter {
     this.emit("breaker", { peer, state: "resumed" });
     let n3 = 0;
     for (const item of await this.held.list()) {
-      if (item.device !== device.id || item.reason !== "breaker") continue;
+      if (item.device !== device.id || item.reason !== "breaker" || only !== void 0 && !only.has(item.id)) continue;
       await this.decideNow(item.id, "approve");
       n3++;
     }
@@ -94702,11 +94957,11 @@ ${frameEntry(entry)}`);
   // ---- files ----
   /** Uploads a file's encrypted chunks, then sends the `file` message that carries its key. */
   async sendFile(toInput, path2, caption) {
-    const full = await fs5.realpath(resolve2(path2)).catch(() => void 0);
+    const full = await fs6.realpath(resolve2(path2)).catch(() => void 0);
     if (full === void 0) throw new ClientError(`not a regular file: ${path2}`, "not_found");
     const wimHome = resolve2(this.o.mesh.dir, "..", "..");
     const userHome = this.o.userHome ?? homedir();
-    const why = unsendable(full, await fs5.realpath(wimHome), await fs5.realpath(userHome).catch(() => resolve2(userHome)));
+    const why = unsendable(full, await fs6.realpath(wimHome), await fs6.realpath(userHome).catch(() => resolve2(userHome)));
     if (why !== void 0) throw new ClientError(`refusing to send ${path2}: ${why}`, "forbidden");
     const flags = fsConstants.O_RDONLY | noFollow(fsConstants) | fsConstants.O_NONBLOCK;
     const handle = await openNoFollow(full, flags);
@@ -94979,7 +95234,7 @@ function beforeBilling(err) {
 var import_p_retry = __toESM(require_p_retry(), 1);
 var import_google_auth_library = __toESM(require_src5(), 1);
 import { createWriteStream } from "fs";
-import * as fs7 from "fs/promises";
+import * as fs8 from "fs/promises";
 import { writeFile } from "fs/promises";
 import { Readable as Readable7 } from "node:stream";
 import { finished } from "node:stream/promises";
@@ -118560,7 +118815,7 @@ var NodeUploader = class {
   async stat(file2) {
     const fileStat = { size: 0, type: void 0 };
     if (typeof file2 === "string") {
-      const originalStat = await fs7.stat(file2);
+      const originalStat = await fs8.stat(file2);
       fileStat.size = originalStat.size;
       fileStat.type = this.inferMimeType(file2);
       return fileStat;
@@ -118708,7 +118963,7 @@ var NodeUploader = class {
     let fileHandle;
     const fileName = path.basename(file2);
     try {
-      fileHandle = await fs7.open(file2, "r");
+      fileHandle = await fs8.open(file2, "r");
       if (!fileHandle) {
         throw new Error(`Failed to open file`);
       }
@@ -120523,74 +120778,6 @@ import { rm } from "node:fs/promises";
 import { promises as fs9 } from "node:fs";
 import { join as join17 } from "node:path";
 
-// src/agentpath.ts
-import { promises as fs8 } from "node:fs";
-import { join as join16 } from "node:path";
-
-// src/errors.ts
-var SetupError = class extends Error {
-  name = "SetupError";
-};
-var NotReadyYet = class extends SetupError {
-};
-
-// src/agentpath.ts
-function agentDir(root5) {
-  return join16(root5, "agent");
-}
-function agentLogPath(root5) {
-  return join16(agentDir(root5), "log.jsonl");
-}
-function settingsPath(root5) {
-  return join16(agentDir(root5), "config.json");
-}
-async function agentEndpoint(root5, env3, create2) {
-  const dir = agentDir(root5);
-  if (create2) await ensureDir(dir);
-  let stat3;
-  try {
-    stat3 = await fs8.lstat(dir);
-  } catch {
-    return void 0;
-  }
-  const token = env3.platform === "win32" ? await pipeToken(join16(dir, "pipe"), env3, create2) : "";
-  if (token === void 0) return void 0;
-  const endpoint2 = agentEndpointFor(dir, env3.platform, token);
-  const tooLong = endpointProblem(endpoint2, env3.platform);
-  if (tooLong !== void 0) throw new SetupError(tooLong);
-  const problem = agentDirProblem({ mode: stat3.mode, uid: stat3.uid, isDirectory: stat3.isDirectory(), isSymlink: stat3.isSymbolicLink() }, env3.platform, env3.uid);
-  if (problem !== void 0) throw new SetupError(`refusing to use ${dir}: ${problem}`);
-  return endpoint2;
-}
-async function pipeToken(path2, env3, create2) {
-  if (!create2) return (await readText(path2))?.trim();
-  const token = b64u.encode(randomBytes2(16));
-  await writeAtomic(path2, token, env3);
-  return token;
-}
-function startLockPath(root5) {
-  return join16(agentDir(root5), "start.lock");
-}
-async function retireEndpoint(root5, env3, endpoint2) {
-  if (env3.platform !== "win32") return;
-  if (await agentEndpoint(root5, env3, false) === endpoint2) await fs8.rm(join16(agentDir(root5), "pipe"), { force: true });
-}
-async function readAgentSettings(root5) {
-  const raw = await readJson(settingsPath(root5));
-  return { require_signer: raw?.require_signer === true };
-}
-async function writeAgentSettings(root5, settings, env3) {
-  await writeJson(settingsPath(root5), settings, env3);
-}
-function endpointFiles(platform2) {
-  if (platform2 === "win32") return { clear: async () => void 0, secure: async () => void 0, id: async () => "pipe" };
-  return {
-    clear: (endpoint2) => fs8.rm(endpoint2, { force: true }),
-    secure: (endpoint2) => fs8.chmod(endpoint2, 384),
-    id: (endpoint2) => fs8.lstat(endpoint2, { bigint: true }).then((s3) => `${s3.dev}:${s3.ino}`, () => void 0)
-  };
-}
-
 // src/vault.ts
 import { scrypt } from "node:crypto";
 import { promisify as promisify2 } from "node:util";
@@ -121469,10 +121656,15 @@ async function runEvents(d5) {
     for (const [k5, text2] of joins) if (!next.has(k5)) emit("join", { op: "remove", request: JSON.parse(text2) });
     joins = next;
   }
-  async function decideOne2(id2, verdict) {
+  async function signed(verdict, ids, peer) {
+    if (d5.device.keyring.kind !== "signer") return void 0;
+    if (d5.decide === void 0) throw new RequestError("needs_signer", `${NEEDS_SIGNER}, and this process cannot ask it`);
+    return d5.decide({ mesh: s3.config.mesh, verdict, ids, ...peer === void 0 ? {} : { peer } });
+  }
+  async function decideOne2(id2, verdict, decision) {
     const mine = await s3.held.get(id2) !== void 0;
-    if (mine) await s3.decide(id2, verdict);
-    const others = await decideHeld(d5.mesh, id2, verdict, d5.env, d5.now, s3.sid);
+    if (mine) await s3.decide(id2, verdict, decision);
+    const others = await decideHeld(d5.mesh, id2, verdict, d5.env, d5.now, s3.sid, decision);
     return mine || others > 0;
   }
   async function decideSet2(held3, ids, verdict) {
@@ -121487,18 +121679,19 @@ async function runEvents(d5) {
     const stranger = now.find((r6) => setKey(r6, rules) !== key3);
     if (stranger !== void 0) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held3}: each set is decided on its own`);
     const decided = [];
-    const kept = [];
     const gone = unique.filter((id2) => !now.some((r6) => r6.id === id2));
-    for (const r6 of now) {
-      if (verdict === "approve" && pinsIds(r6)) kept.push(r6.id);
-      else if (await decideIfHeld(r6.id, verdict)) decided.push(r6.id);
+    const kept = now.filter((r6) => verdict === "approve" && pinsIds(r6)).map((r6) => r6.id);
+    const go = now.filter((r6) => !kept.includes(r6.id));
+    const decision = go.length === 0 ? void 0 : await signed(verdict, go.map((r6) => r6.id));
+    for (const r6 of go) {
+      if (await decideIfHeld(r6.id, verdict, decision)) decided.push(r6.id);
       else gone.push(r6.id);
     }
     return { decided, kept, gone };
   }
-  async function decideIfHeld(id2, verdict) {
+  async function decideIfHeld(id2, verdict, decision) {
     try {
-      return await decideOne2(id2, verdict);
+      return await decideOne2(id2, verdict, decision);
     } catch (error64) {
       if (error64 instanceof ClientError && error64.code === "not_found") return false;
       throw error64;
@@ -121684,7 +121877,7 @@ async function runEvents(d5) {
         if (!isUlid(i6.held)) throw new RequestError("input", "held must be a held message id");
         const verdict = op2 === "approve" ? "approve" : "refuse";
         if (i6.set !== void 0) return decideSet2(i6.held, i6.set, verdict);
-        if (!await decideOne2(i6.held, verdict)) throw new RequestError("not_found", `no held message ${i6.held}`);
+        if (!await decideOne2(i6.held, verdict, await signed(verdict, [i6.held]))) throw new RequestError("not_found", `no held message ${i6.held}`);
         return {};
       }
       case "trust":
@@ -121701,7 +121894,10 @@ async function runEvents(d5) {
       case "resume": {
         personOnly2(d5.agent, "releasing what the loop breaker held");
         const peer = a5.peer;
-        const released = await s3.resumePeer(peer) + await resumeEverywhere(d5.mesh, peer, d5.env, d5.now, s3.sid);
+        const device = peer.split("@")[1];
+        const paused2 = (await listAllHeld(d5.mesh, d5.env)).filter((r6) => r6.reason === "breaker" && r6.from.split("@")[1] === device).map((r6) => r6.id);
+        const decision = await signed("resume", [...new Set(paused2)], peer);
+        const released = await s3.resumePeer(peer, decision) + await resumeEverywhere(d5.mesh, peer, d5.env, d5.now, s3.sid, decision);
         return { released };
       }
       case "invite": {
@@ -124251,7 +124447,7 @@ var WimMcp = class {
   }
   /** What the plugin links to: the session's spool, address and token, and its mark directories. */
   linkOf(s3) {
-    return { spool: s3.files.spoolDir, sid: s3.sid, address: s3.address, token: this.token, held: s3.files.heldDir, dismiss: s3.files.dismissDir };
+    return { spool: s3.files.spoolDir, sid: s3.sid, address: s3.address, token: this.token, held: s3.files.heldDir, dismiss: s3.files.dismissDir, ...s3.signed ? { decide: "signer" } : {} };
   }
   /**
    * Takes back the session `claudeSessionId` had before, if any, in place of `s`; else maps it to
@@ -124568,7 +124764,7 @@ import { spawn as nodeSpawn2 } from "node:child_process";
 import { join as join22 } from "node:path";
 
 // src/agent.ts
-import { createPrivateKey, sign as edSign } from "node:crypto";
+import { createPrivateKey, sign as edSign2 } from "node:crypto";
 import { promises as fs13 } from "node:fs";
 import { createConnection as createConnection3, createServer as createServer3 } from "node:net";
 var AgentError = class extends Error {
@@ -124644,6 +124840,12 @@ var ARGS = {
   open2: open2Args,
   prekey: external_exports.strictObject({ mesh: boxArgs.mesh, at: external_exports.int().min(0) }),
   adopt: external_exports.strictObject({ prekey: prekeySchema, secret: bytes2(32) }),
+  decide: external_exports.strictObject({
+    mesh: boxArgs.mesh,
+    verdict: external_exports.enum(["approve", "refuse", "resume"]),
+    ids: external_exports.array(external_exports.string().refine(isUlid, "expected a held id")).max(MAX_DECISION_IDS),
+    peer: external_exports.string().min(1).max(200).optional()
+  }),
   lock: external_exports.strictObject({}),
   stop: external_exports.strictObject({})
 };
@@ -124685,6 +124887,8 @@ var Signer = class {
   counts = {};
   refused = 0;
   limited = 0;
+  /** A `decide` is waiting for the person: another is refused meanwhile, never queued behind it. */
+  deciding = false;
   o;
   constructor(o3) {
     this.o = o3;
@@ -124716,7 +124920,7 @@ var Signer = class {
     const key3 = runKey();
     const now = this.o.now();
     const body = { pub: b64u.encode(key3.pub), locked, issued: now, expires: now + RUN_LIFETIME_MS, pid: this.o.pid };
-    this.run = { privateKey: key3.privateKey, body, sig: b64u.encode(edSign(null, certBytes(body), signKey)) };
+    this.run = { privateKey: key3.privateKey, body, sig: b64u.encode(edSign2(null, certBytes(body), signKey)) };
   }
   /**
    * An unlocked signer issues a new run key when its certificate is half spent, or was issued
@@ -124778,7 +124982,43 @@ var Signer = class {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
     }
+    if (op2 === "decide") return this.decide(a5, entry);
     return this.keyOp(op2, a5, keys, this.signKey, entry);
+  }
+  /**
+   * A decision on held messages, signed only once the person confirmed it here: the signer reads
+   * every held copy of the ids from disk itself, shows them in its own terminal or dialog, and
+   * signs those ids, each with the digest of the copy it showed. One at a time. A lock while the
+   * person reads it signs nothing.
+   */
+  async decide(req, entry) {
+    entry.mesh = req.mesh;
+    const desk2 = this.o.desk;
+    if (desk2 === void 0) throw new AgentError("refused", "this signer takes no decisions on held messages");
+    if (!(typeof desk2.confirm === "function")) throw new AgentError("refused", desk2.confirm.cannot);
+    if (req.verdict === "resume" && req.peer === void 0) throw new AgentError("bad_request", "decide: a resume names its peer");
+    if (this.deciding) throw new AgentError("refused", "the signer is already asking you about another decision: answer that one first");
+    this.deciding = true;
+    try {
+      const items = await desk2.read(req.mesh, req.ids);
+      if (items.length === 0 && req.verdict !== "resume") throw new AgentError("refused", "none of these ids is held on this device");
+      if (!await desk2.confirm(decisionView(req, items))) throw new AgentError("refused", "you declined it in the signer: nothing changed");
+      const signKey = this.signKey;
+      if (signKey === void 0) throw new AgentError("locked", "the signer was locked before it signed: nothing changed");
+      const at = this.o.now();
+      const seen = /* @__PURE__ */ new Set();
+      const signed = [];
+      for (const { item } of items) {
+        const one = { id: item.id, digest: heldDigest(item) };
+        if (seen.has(`${one.id} ${one.digest}`)) continue;
+        seen.add(`${one.id} ${one.digest}`);
+        signed.push(one);
+      }
+      const body = { v: 1, device: this.file.id, mesh: req.mesh, verdict: req.verdict, ...req.peer === void 0 ? {} : { peer: req.peer }, items: signed, at, n: ulid3(at) };
+      return { decision: signDecision(body, signKey) };
+    } finally {
+      this.deciding = false;
+    }
   }
   /**
    * Who it is and whether it is locked (HelloInfo), its own channel key, its run key's certificate,
@@ -124793,7 +125033,7 @@ var Signer = class {
     const mine = ephemeral();
     const transcript = helloTranscript(nonce, clientPub, mine.pub, info);
     const channel = channelFor("signer", mine.privateKey, clientPub, transcript);
-    return { ...info, epub: b64u.encode(mine.pub), cert: { ...this.run.body, sig: this.run.sig }, proof: b64u.encode(edSign(null, transcript, this.run.privateKey)), [CHANNEL]: channel };
+    return { ...info, epub: b64u.encode(mine.pub), cert: { ...this.run.body, sig: this.run.sig }, proof: b64u.encode(edSign2(null, transcript, this.run.privateKey)), [CHANNEL]: channel };
   }
   keyOp(op2, a5, k5, signKey, entry) {
     const me = this.file.id;
@@ -124816,7 +125056,7 @@ var Signer = class {
         const { sig: _sig, ...rest } = obj;
         const message2 = Buffer.concat([Buffer.from(`wim/1 ${type}
 `, "utf8"), canonBytes(rest)]);
-        return { sig: b64u.encode(edSign(null, message2, signKey)) };
+        return { sig: b64u.encode(edSign2(null, message2, signKey)) };
       }
       case "seal": {
         const req = a5;
@@ -125097,6 +125337,42 @@ function answered(r6, cmd, last) {
   if (r6.code === 0) return r6.stdout.replace(/\r?\n$/, "");
   if (last || !/(cannot|failed to) open display/i.test(r6.stderr)) throw new SetupError("the passphrase prompt was cancelled");
   return { failed: `${cmd}: ${r6.stderr.trim().slice(0, 300)}` };
+}
+var CONFIRM_SECONDS = 300;
+function kdialogText(text2) {
+  return text2.replace(/</g, "(").replace(/>/g, ")").replace(/&/g, "+");
+}
+function confirmPrompts(platform2, text2) {
+  if (platform2 === "darwin") {
+    const dialog = `display dialog (item 1 of argv) with title "${GUI_TITLE}" buttons {"Cancel", "Sign"} default button "Cancel" cancel button "Cancel" giving up after ${CONFIRM_SECONDS}`;
+    return [{ cmd: "osascript", args: ["-e", "on run argv", "-e", dialog, "-e", "if gave up of result then error number -128", "-e", "end run", text2] }];
+  }
+  if (platform2 === "win32") {
+    const script = [
+      "Add-Type -AssemblyName System.Windows.Forms",
+      `$r = [System.Windows.Forms.MessageBox]::Show(${psQuote(text2)}, ${psQuote(GUI_TITLE)}, 'YesNo', 'Warning', 'Button2')`,
+      "if ($r -eq 'Yes') { exit 0 } else { exit 1 }"
+    ].join("; ");
+    return [{ cmd: "powershell.exe", args: ["-NoProfile", "-EncodedCommand", psEncoded(script)] }];
+  }
+  return [
+    { cmd: "zenity", args: ["--question", "--no-markup", "--default-cancel", "--width=560", `--timeout=${CONFIRM_SECONDS}`, "--ok-label=Sign", "--cancel-label=Cancel", `--title=${GUI_TITLE}`, `--text=${text2}`] },
+    { cmd: "kdialog", args: ["--title", GUI_TITLE, "--yesno", kdialogText(text2)] }
+  ];
+}
+async function confirmGui(platform2, run, lines) {
+  const prompts = confirmPrompts(platform2, lines.join("\n"));
+  let failure4;
+  for (const p3 of prompts) {
+    const r6 = await run(p3.cmd, p3.args).catch(unlessMissing);
+    if (r6 === void 0) continue;
+    if (r6.code === 0) return true;
+    if ([1, 2, 5].includes(r6.code ?? -1) && !/(cannot|failed to) open display/i.test(r6.stderr)) return false;
+    failure4 = `${p3.cmd}: ${r6.stderr.trim().slice(0, 300) || `exit ${String(r6.code)}`}`;
+  }
+  throw new SetupError(
+    failure4 === void 0 ? "the signer has no dialog to ask you in (on Linux it needs zenity or kdialog in a desktop session): run it with `wim agent start --foreground` in your own terminal, which asks there" : `the signer could not show its dialog (${failure4}): run it with \`wim agent start --foreground\` in your own terminal, which asks there`
+  );
 }
 function keyringKind(platform2) {
   if (platform2 === "darwin") return "keychain";
@@ -125440,7 +125716,7 @@ async function runSigner(ctx, passphrase, ready) {
   }
   const { root: root5, env: env3 } = ctx.home;
   const log2 = new AgentLog(agentLogPath(root5));
-  const signer = new Signer({ file: file2, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e6) => log2.write(e6) });
+  const signer = new Signer({ file: file2, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e6) => log2.write(e6), desk: desk(ctx) });
   let bound2;
   try {
     await ensureDir(agentDir(root5));
@@ -125475,6 +125751,34 @@ async function runSigner(ctx, passphrase, ready) {
   log2.write({ at: ctx.io.now(), op: "exit", ok: true });
   await log2.flushed();
   return 0;
+}
+function desk(ctx) {
+  const fsEnv = { platform: ctx.io.platform, pid: ctx.io.pid };
+  const read = async (mesh, ids) => {
+    const rows = await listAllHeld(new MeshFiles(ctx.home.meshDir(mesh), fsEnv), fsEnv);
+    return rows.filter((r6) => ids.includes(r6.id)).map(({ sid: _sid, session, ...item }) => ({ item, session }));
+  };
+  const agent = agentEnv(ctx.env);
+  if (agent !== void 0) {
+    return {
+      read,
+      confirm: {
+        cannot: `${agent} was set where this signer started, so it runs in an agent's environment and cannot tell you from the agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`
+      }
+    };
+  }
+  if (ctx.flags.get("foreground") === true && cannotConfirm(ctx.env, ctx.io) === void 0) {
+    return {
+      read,
+      confirm: async (lines) => {
+        for (const line of lines) ctx.io.out(line);
+        return /^y(es)?$/i.test((await ctx.io.prompt("Type y to sign this decision; anything else declines it [y/N] ")).trim());
+      }
+    };
+  }
+  const p3 = ctx.io.programs;
+  if (p3 === void 0) return { read, confirm: { cannot: "this signer has no terminal or dialog to ask you in: start it with `wim agent start --foreground` in your own terminal" } };
+  return { read, confirm: (lines) => confirmGui(p3.platform, p3.run, lines) };
 }
 async function proven(at, expect) {
   const client = new SignerClient({ endpoint: at, expect });
@@ -132957,7 +133261,7 @@ TLS pin (SPKI SHA-256, for the invite): ${tls3.pin}`);
 // src/selftest.ts
 import { promises as fs16 } from "node:fs";
 import { tmpdir } from "node:os";
-import { isAbsolute as isAbsolute4, join as join23, relative as relative2, resolve as resolve3, sep as sep2 } from "node:path";
+import { isAbsolute as isAbsolute4, join as join23, relative as relative3, resolve as resolve3, sep as sep2 } from "node:path";
 import { createInterface as createInterface2 } from "node:readline";
 import { PassThrough as PassThrough4 } from "node:stream";
 var SandboxError = class extends Error {
@@ -132996,7 +133300,7 @@ function scriptedTerm(spec) {
 }
 var said = (t2) => [...t2.out, ...t2.err].join("\n");
 function inside2(root5, path2) {
-  const rel = relative2(root5, path2);
+  const rel = relative3(root5, path2);
   return rel !== ".." && !rel.startsWith(`..${sep2}`) && !isAbsolute4(rel);
 }
 function onLoopback(url2) {
@@ -133012,7 +133316,7 @@ async function noLinks(root5, path2) {
   if (await fs16.realpath(root5) !== root5) throw new SandboxError(`the sandbox ${root5} is reached through a symbolic link`);
   if (!inside2(root5, path2)) throw new SandboxError(`${path2} is outside the sandbox ${root5}`);
   let at = root5;
-  for (const part of relative2(root5, path2).split(sep2).filter((p3) => p3 !== "")) {
+  for (const part of relative3(root5, path2).split(sep2).filter((p3) => p3 !== "")) {
     at = join23(at, part);
     const st = await fs16.lstat(at).catch(() => void 0);
     if (st === void 0) return;
@@ -134889,7 +135193,8 @@ async function events(ctx) {
   const o3 = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);
   const s3 = await MeshSession.open({ ...o3, sessionKey: `events:${name}` });
   try {
-    await runEvents({ session: s3, mesh: o3.mesh, env: ctx.fsEnv, device: o3.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, ...agent === void 0 ? {} : { agent } });
+    const decide = decider({ root: ctx.home.root, env: ctx.home.env, signPub: o3.device.keyring.signPub });
+    await runEvents({ session: s3, mesh: o3.mesh, env: ctx.fsEnv, device: o3.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, decide, ...agent === void 0 ? {} : { agent } });
     return 0;
   } finally {
     await s3.stop();
@@ -134973,11 +135278,19 @@ async function held(ctx) {
     const paused = (await listAllHeld(files, ctx.fsEnv)).filter((r6) => r6.reason === "breaker" && r6.from.split("@")[1] === device);
     const lines = [`Resuming ${arg} lifts the loop breaker's pause on device ${device} and releases what it held from there (${paused.length} now on disk):`, ...paused.map((r6) => `  ${heldLine(r6)}`)];
     if (!await confirmed(ctx, lines, `Resume ${arg}?`)) return 1;
-    const n3 = await resumeEverywhere(files, arg, ctx.fsEnv, ctx.io.now);
+    const decision = await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(paused.map((r6) => r6.id))], peer: arg });
+    const n3 = await resumeEverywhere(files, arg, ctx.fsEnv, ctx.io.now, void 0, decision);
     ctx.io.out(`Resumed ${arg}; released ${n3} held by the breaker.`);
     return 0;
   }
   throw new SetupError(`unknown held action ${action}`);
+}
+async function signerDecision(ctx, files, req) {
+  const file2 = await ctx.home.readKeyFile();
+  if (file2 === void 0 || "plain" in file2) return void 0;
+  ctx.io.out("Confirm it in the signer too: its dialog, or the terminal it runs in.");
+  const { mesh } = await files.loadConfig();
+  return requestDecision({ root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file2.sealed.signPub) }, { mesh, ...req });
 }
 function heldRules(files) {
   return loadCiRules(files.ciRulesPath).catch(() => []);
@@ -134994,8 +135307,9 @@ async function decideOne(ctx, files, action, arg, all) {
   const resumable = action === "approve" && rows[0].reason === "breaker" && rows[0].ci === void 0;
   if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
   if (!await confirmed(ctx, details, question)) return 1;
+  const decision = await signerDecision(ctx, files, { verdict: action, ids: [arg] });
   if (pins !== void 0) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0].ci.rule, pins));
-  const n3 = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
+  const n3 = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now, void 0, decision);
   if (n3 === 0) throw new SetupError(`no held message ${arg}`);
   ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
   return 0;
@@ -135012,8 +135326,9 @@ async function decideSet(ctx, files, action, arg, set2, rules) {
     ctx.io.err("wim: nothing changed.");
     return 1;
   }
+  const decision = await signerDecision(ctx, files, { verdict: action, ids: covered });
   const done = [];
-  for (const id2 of covered) if (await decideHeld(files, id2, action, ctx.fsEnv, ctx.io.now) > 0) done.push(id2);
+  for (const id2 of covered) if (await decideHeld(files, id2, action, ctx.fsEnv, ctx.io.now, void 0, decision) > 0) done.push(id2);
   const title = setTitle(set2.rows[0], rules);
   ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${done.length} held from ${title}: ${done.join(" ")}.`);
   if (done.length < covered.length) ctx.io.out(`${covered.length - done.length} of the ${covered.length} shown had been decided elsewhere meanwhile.`);
@@ -135048,7 +135363,8 @@ async function approveOrResume(ctx, files, rows, all, details, question) {
   for (const line of details) ctx.io.out(line);
   const typed = (await ctx.io.prompt(`${question} Type y to approve it, or resume to approve it and resume ${sanitizeForDisplay(r6.from)} (lifting the pause on device ${device} and releasing the ${others} other${others === 1 ? "" : "s"} held from it) [y/resume/N] `)).trim();
   if (/^resume$/i.test(typed)) {
-    const n3 = await resumeEverywhere(files, r6.from, ctx.fsEnv, ctx.io.now);
+    const ids = [r6.id, ...all.filter((o3) => o3.reason === "breaker" && o3.id !== r6.id && o3.from.split("@")[1] === device).map((o3) => o3.id)];
+    const n3 = await resumeEverywhere(files, r6.from, ctx.fsEnv, ctx.io.now, void 0, await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(ids)], peer: r6.from }));
     ctx.io.out(`Approved ${r6.id} and resumed ${sanitizeForDisplay(r6.from)}; released ${n3} held by the breaker.`);
     return 0;
   }
@@ -135056,7 +135372,8 @@ async function approveOrResume(ctx, files, rows, all, details, question) {
     ctx.io.err("wim: nothing changed.");
     return 1;
   }
-  if (await decideHeld(files, r6.id, "approve", ctx.fsEnv, ctx.io.now) === 0) throw new SetupError(`no held message ${r6.id}`);
+  const decision = await signerDecision(ctx, files, { verdict: "approve", ids: [r6.id] });
+  if (await decideHeld(files, r6.id, "approve", ctx.fsEnv, ctx.io.now, void 0, decision) === 0) throw new SetupError(`no held message ${r6.id}`);
   ctx.io.out(`Approved ${r6.id}. The breaker still pauses ${sanitizeForDisplay(r6.from)}: \`wim held resume ${r6.from}\` lifts it.`);
   return 0;
 }
@@ -135234,6 +135551,20 @@ async function recover2(ctx) {
   await showRecoveryCode(ctx, done.recoveryCode);
   return 0;
 }
+async function decisionChecks(ctx, emit) {
+  const file2 = await ctx.home.readKeyFile().catch(() => void 0);
+  if (file2 === void 0) return;
+  if ("plain" in file2) {
+    emit({ level: "info", line: "held messages: approved or refused by mark files that any process of yours can write, agents included; with the signer (`wim agent encrypt`, then `wim agent start`) each decision needs its confirmation too (SECURITY-MODEL 7.2)" });
+    return;
+  }
+  const found = [];
+  for (const id2 of await ctx.home.meshIds()) {
+    for (const path2 of await unsignedMarks(new MeshFiles(ctx.home.meshDir(id2), ctx.fsEnv), ctx.fsEnv)) found.push(`mesh ${id2}: ${path2}`);
+  }
+  if (found.length === 0) emit({ level: "ok", line: "held messages: each decision needs the signer's confirmation" });
+  else emit({ level: "problem", line: `held messages: ${found.length} unsigned decision file${found.length === 1 ? "" : "s"}, refused while the keys are in the signer (${found.join("; ")}). Nothing acts on them: something of yours wrote them, so find what, then delete them` });
+}
 async function checkup(ctx, emit) {
   const meshes = [];
   const ok2 = (line) => emit({ level: "ok", line });
@@ -135254,6 +135585,7 @@ async function checkup(ctx, emit) {
   const rootProblem = await ctx.home.rootProblem();
   if (rootProblem === void 0) ok2(`state directory ${ctx.home.root}`);
   else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
+  await decisionChecks(ctx, emit);
   if (device === void 0) return { meshes };
   const legacy = await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE));
   info(legacyBoxesLine(legacy.refuse));

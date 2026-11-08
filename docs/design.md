@@ -221,7 +221,14 @@ that needs a secret key. What it does and does not protect is SECURITY-MODEL sec
   device; `auth` and `send` only with an `at` within 5 minutes of the signer's clock; never a
   prekey), `seal`, `open` (scheme 1), `open2` (scheme 2, with the sealed prekey entry; refused past
   its deletion time), `prekey` (makes one, dated within 5 minutes of the signer's clock: public
-  half and sealed secret), `adopt` (seals a clear prekey secret of this device's), `lock` (answers
+  half and sealed secret), `adopt` (seals a clear prekey secret of this device's), `decide` (from 0.2.0: `{ mesh, verdict:
+  "approve" | "refuse" | "resume", ids, peer? }`; the signer reads those held items from the state
+  directory, shows them to the person in its own terminal or dialog, one request at a time, and on
+  a yes answers `{ decision }`, signed with the device key over `wim-agent/2 held-decision\n` and
+  the canonical `{ v: 1, device, mesh, verdict, peer?, items: [{ id, digest }], at, n }`, each
+  digest the SHA-256 of the item's canonical JSON as read; refused when the person declines, when
+  none is held, when another decision is being asked, or when the signer has no way to ask:
+  SECURITY-MODEL 7.2), `lock` (answers
   `{ was }`, whether it was locked already, sealed: `wim agent lock` reports that, never the
   hello's flag), `stop` (the signer stops listening before it answers, then closes every connection
   without waiting for its client). Before answering any request, and every 2 seconds, the signer

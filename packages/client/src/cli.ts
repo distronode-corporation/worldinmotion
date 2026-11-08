@@ -7,7 +7,7 @@ import { runGateway } from "./run-a2a.ts";
 import { loadConfig as loadGatewayConfig } from "@worldinmotion/a2a";
 import { loadConfig as loadBotConfig, runBot } from "@worldinmotion/bot";
 import { loadConfig as loadCiConfig, runCi } from "@worldinmotion/ci";
-import { isName, isRecoveryName, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
+import { b64u, isName, isRecoveryName, parseJson, sanitizeForDisplay, sessionAddressSchema, ulid, type Roster } from "@worldinmotion/protocol";
 import { promises as fs } from "node:fs";
 import { basename, join as pathJoin } from "node:path";
 import type { Readable, Writable } from "node:stream";
@@ -18,13 +18,14 @@ import { accepted, ClientError, heldSendLine, MeshSession, pauseFrom, prekeyNote
 import { readJson, readText, tryRemove, whileBusy, writeAtomic, type FsEnv } from "./fsx.ts";
 import { deviceDirs, Home, SetupError, NotReadyYet, type Device } from "./home.ts";
 import { History, renderForPerson } from "./history.ts";
+import { decider, requestDecision, type DecideRequest, type Decision } from "./decisions.ts";
 import { runEvents, runSetupEvents } from "./events.ts";
 import { WimMcp, type Retried } from "./mcp.ts";
 import { HOOK_AGENTS, hookAnswer, readInput } from "./hook.ts";
 import type { Ancestor } from "./ancestry.ts";
 import { MeshFiles, RosterBook, setDevicePolicy, trustLevel, type MeshConfig, type Policy } from "./mesh.ts";
 import { loadNotifier, quiet, type Notifier } from "./notify.ts";
-import { decideHeld, listAllHeld, resumeEverywhere } from "./offline.ts";
+import { decideHeld, listAllHeld, resumeEverywhere, unsignedMarks } from "./offline.ts";
 import { approvableIds, ciText, countText, groupHeld, pinText, setOf, setTitle, spanText, type HeldSet } from "./heldsets.ts";
 import { pauseEnd, pauseRule } from "./breaker.ts";
 import { listAllPauses, PausedBy } from "./pauses.ts";
@@ -1572,7 +1573,8 @@ async function events(ctx: Ctx): Promise<number> {
   const o = await ctx.sessionOptions(name, isName(envKind) ? envKind : "vscode", true);
   const s = await MeshSession.open({ ...o, sessionKey: `events:${name}` });
   try {
-    await runEvents({ session: s, mesh: o.mesh, env: ctx.fsEnv, device: o.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, ...(agent === undefined ? {} : { agent }) });
+    const decide = decider({ root: ctx.home.root, env: ctx.home.env, signPub: o.device.keyring.signPub });
+    await runEvents({ session: s, mesh: o.mesh, env: ctx.fsEnv, device: o.device, version: VERSION, write: ctx.io.out, input: ctx.io.stdin, signal: ctx.io.signal, now: ctx.io.now, decide, ...(agent === undefined ? {} : { agent }) });
     return 0;
   } finally {
     await s.stop();
@@ -1684,11 +1686,25 @@ async function held(ctx: Ctx): Promise<number> {
     const paused = (await listAllHeld(files, ctx.fsEnv)).filter((r) => r.reason === "breaker" && r.from.split("@")[1] === device);
     const lines = [`Resuming ${arg} lifts the loop breaker's pause on device ${device} and releases what it held from there (${paused.length} now on disk):`, ...paused.map((r) => `  ${heldLine(r)}`)];
     if (!(await confirmed(ctx, lines, `Resume ${arg}?`))) return 1;
-    const n = await resumeEverywhere(files, arg, ctx.fsEnv, ctx.io.now);
+    const decision = await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(paused.map((r) => r.id))], peer: arg });
+    const n = await resumeEverywhere(files, arg, ctx.fsEnv, ctx.io.now, undefined, decision);
     ctx.io.out(`Resumed ${arg}; released ${n} held by the breaker.`);
     return 0;
   }
   throw new SetupError(`unknown held action ${action}`);
+}
+
+/**
+ * The signer's decision when this device's keys are in it: the person confirms it once more, in
+ * the signer's own terminal or dialog, and only what the signer signs is decided. Undefined with a
+ * plaintext key file: then the answer typed here is the decision, as before.
+ */
+async function signerDecision(ctx: Ctx, files: MeshFiles, req: Omit<DecideRequest, "mesh">): Promise<Decision | undefined> {
+  const file = await ctx.home.readKeyFile();
+  if (file === undefined || "plain" in file) return undefined;
+  ctx.io.out("Confirm it in the signer too: its dialog, or the terminal it runs in.");
+  const { mesh } = await files.loadConfig();
+  return requestDecision({ root: ctx.home.root, env: ctx.home.env, signPub: b64u.decode(file.sealed.signPub) }, { mesh, ...req });
 }
 
 /**
@@ -1717,8 +1733,10 @@ async function decideOne(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse
   const resumable = action === "approve" && rows[0]!.reason === "breaker" && rows[0]!.ci === undefined;
   if (resumable) return approveOrResume(ctx, files, rows, all, details, question);
   if (!(await confirmed(ctx, details, question))) return 1;
+  // Before the pin: a decision the signer is refused leaves the rule as it was.
+  const decision = await signerDecision(ctx, files, { verdict: action, ids: [arg] });
   if (pins !== undefined) await updateCiRules(files.ciRulesPath, files.env, (now) => pinRule(now, rows[0]!.ci!.rule, pins));
-  const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now);
+  const n = await decideHeld(files, arg, action, ctx.fsEnv, ctx.io.now, undefined, decision);
   if (n === 0) throw new SetupError(`no held message ${arg}`);
   ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${arg}.`);
   return 0;
@@ -1742,8 +1760,9 @@ async function decideSet(ctx: Ctx, files: MeshFiles, action: "approve" | "refuse
     ctx.io.err("wim: nothing changed.");
     return 1;
   }
+  const decision = await signerDecision(ctx, files, { verdict: action, ids: covered });
   const done: string[] = [];
-  for (const id of covered) if ((await decideHeld(files, id, action, ctx.fsEnv, ctx.io.now)) > 0) done.push(id);
+  for (const id of covered) if ((await decideHeld(files, id, action, ctx.fsEnv, ctx.io.now, undefined, decision)) > 0) done.push(id);
   const title = setTitle(set.rows[0]!, rules);
   ctx.io.out(`${action === "approve" ? "Approved" : "Refused"} ${done.length} held from ${title}: ${done.join(" ")}.`);
   if (done.length < covered.length) ctx.io.out(`${covered.length - done.length} of the ${covered.length} shown had been decided elsewhere meanwhile.`);
@@ -1788,7 +1807,8 @@ async function approveOrResume(ctx: Ctx, files: MeshFiles, rows: HeldRows, all: 
   for (const line of details) ctx.io.out(line);
   const typed = (await ctx.io.prompt(`${question} Type y to approve it, or resume to approve it and resume ${sanitizeForDisplay(r.from)} (lifting the pause on device ${device} and releasing the ${others} other${others === 1 ? "" : "s"} held from it) [y/resume/N] `)).trim();
   if (/^resume$/i.test(typed)) {
-    const n = await resumeEverywhere(files, r.from, ctx.fsEnv, ctx.io.now);
+    const ids = [r.id, ...all.filter((o) => o.reason === "breaker" && o.id !== r.id && o.from.split("@")[1] === device).map((o) => o.id)];
+    const n = await resumeEverywhere(files, r.from, ctx.fsEnv, ctx.io.now, undefined, await signerDecision(ctx, files, { verdict: "resume", ids: [...new Set(ids)], peer: r.from }));
     ctx.io.out(`Approved ${r.id} and resumed ${sanitizeForDisplay(r.from)}; released ${n} held by the breaker.`);
     return 0;
   }
@@ -1796,7 +1816,8 @@ async function approveOrResume(ctx: Ctx, files: MeshFiles, rows: HeldRows, all: 
     ctx.io.err("wim: nothing changed.");
     return 1;
   }
-  if ((await decideHeld(files, r.id, "approve", ctx.fsEnv, ctx.io.now)) === 0) throw new SetupError(`no held message ${r.id}`);
+  const decision = await signerDecision(ctx, files, { verdict: "approve", ids: [r.id] });
+  if ((await decideHeld(files, r.id, "approve", ctx.fsEnv, ctx.io.now, undefined, decision)) === 0) throw new SetupError(`no held message ${r.id}`);
   ctx.io.out(`Approved ${r.id}. The breaker still pauses ${sanitizeForDisplay(r.from)}: \`wim held resume ${r.from}\` lifts it.`);
   return 0;
 }
@@ -2030,6 +2051,26 @@ async function recover(ctx: Ctx): Promise<number> {
   return 0;
 }
 
+/**
+ * How decisions on held messages are taken here. With the keys in the signer, each needs its
+ * confirmation, and any unsigned decision file found is a problem: nothing acts on it, and
+ * something of the user's wrote it. Without, the advice to run the signer (SECURITY-MODEL 7.2).
+ */
+async function decisionChecks(ctx: Ctx, emit: (c: Check) => void): Promise<void> {
+  const file = await ctx.home.readKeyFile().catch(() => undefined);
+  if (file === undefined) return;
+  if ("plain" in file) {
+    emit({ level: "info", line: "held messages: approved or refused by mark files that any process of yours can write, agents included; with the signer (`wim agent encrypt`, then `wim agent start`) each decision needs its confirmation too (SECURITY-MODEL 7.2)" });
+    return;
+  }
+  const found: string[] = [];
+  for (const id of await ctx.home.meshIds()) {
+    for (const path of await unsignedMarks(new MeshFiles(ctx.home.meshDir(id), ctx.fsEnv), ctx.fsEnv)) found.push(`mesh ${id}: ${path}`);
+  }
+  if (found.length === 0) emit({ level: "ok", line: "held messages: each decision needs the signer's confirmation" });
+  else emit({ level: "problem", line: `held messages: ${found.length} unsigned decision file${found.length === 1 ? "" : "s"}, refused while the keys are in the signer (${found.join("; ")}). Nothing acts on them: something of yours wrote them, so find what, then delete them` });
+}
+
 /** One line of `wim doctor`: a check that passed, a fact, or a problem to fix. */
 type Check = { level: "ok" | "info" | "problem"; line: string };
 
@@ -2063,6 +2104,7 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   const rootProblem = await ctx.home.rootProblem();
   if (rootProblem === undefined) ok(`state directory ${ctx.home.root}`);
   else if (rootProblem !== null) bad(`state directory ${ctx.home.root}: ${rootProblem}`);
+  await decisionChecks(ctx, emit);
   if (device === undefined) return { meshes };
   const legacy = await refusesLegacy(pathJoin(ctx.home.root, LEGACY_BOXES_FILE));
   info(legacyBoxesLine(legacy.refuse));

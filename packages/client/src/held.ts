@@ -6,6 +6,7 @@ import { isUlid, sanitizeForDisplay, type FileInfo } from "@worldinmotion/protoc
 import { join } from "node:path";
 import { listDir, listFiles, readJson, readText, removeFile, tryRemove, writeAtomic, writeJson, type FsEnv } from "./fsx.ts";
 import type { Pause } from "./breaker.ts";
+import type { Decision } from "./decisions.ts";
 import type { HistoryEntry } from "./history.ts";
 import type { SpoolKind } from "./spool.ts";
 
@@ -112,6 +113,26 @@ export class HeldBox {
   /** Leaves a decision for the process that runs this session. */
   async mark(id: string, verdict: Mark): Promise<void> {
     await writeAtomic(join(this.dir, `${id}.${verdict}`), "", this.env);
+  }
+
+  /** Leaves a signed decision for the process that runs this session (a device whose keys are in the signer). */
+  async leaveDecision(d: Decision): Promise<void> {
+    await writeJson(join(this.dir, `${d.n}.decision`), d, this.env);
+  }
+
+  /**
+   * Signed decisions left by other processes, consumed as they are read: what each file holds,
+   * unchecked (the session checks the signature). One that cannot be removed yet waits for the next pass.
+   */
+  async takeDecisions(): Promise<unknown[]> {
+    const out: unknown[] = [];
+    for (const name of (await listFiles(this.dir)).sort()) {
+      if (!/^[0-9A-Z]{26}\.decision$/.test(name)) continue;
+      const path = join(this.dir, name);
+      const raw = await readJson(path).catch(() => undefined);
+      if (await tryRemove(path, this.env)) out.push(raw);
+    }
+    return out;
   }
 
   /** Decisions left by other processes (`wim held`, the plugin's pane), consumed as they are read. */

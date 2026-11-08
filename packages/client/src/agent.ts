@@ -9,6 +9,8 @@
 import {
   b64u,
   boxSchema,
+  isUlid,
+  ulid,
   canonBytes,
   createPrekey,
   isMeshId,
@@ -27,6 +29,7 @@ import { createConnection, createServer, type Server, type Socket } from "node:n
 import { z } from "zod";
 import type { EndpointFiles } from "./agentpath.ts";
 import { certBytes, channelFor, ephemeral, helloTranscript, runKey, type CertBody, type Channel, type HelloInfo } from "./channel.ts";
+import { decisionView, heldDigest, MAX_DECISION_IDS, signDecision, type DecisionItem, type HeldCopy } from "./decisions.ts";
 import { MAX_LINE, unseal } from "./signer.ts";
 import { openPrekeySecret, sealPrekeySecret, type SealedKeyFile, type Unlocked } from "./vault.ts";
 
@@ -120,6 +123,12 @@ const ARGS = {
   open2: open2Args,
   prekey: z.strictObject({ mesh: boxArgs.mesh, at: z.int().min(0) }),
   adopt: z.strictObject({ prekey: prekeySchema, secret: bytes(32) }),
+  decide: z.strictObject({
+    mesh: boxArgs.mesh,
+    verdict: z.enum(["approve", "refuse", "resume"]),
+    ids: z.array(z.string().refine(isUlid, "expected a held id")).max(MAX_DECISION_IDS),
+    peer: z.string().min(1).max(200).optional(),
+  }),
   lock: z.strictObject({}),
   stop: z.strictObject({}),
 };
@@ -167,6 +176,16 @@ export const RUN_LIFETIME_MS = 24 * 60 * 60_000;
 /** Present on a `hello` answer whose signer opened a channel; JSON.stringify leaves symbol keys out. */
 export const CHANNEL: unique symbol = Symbol("channel");
 
+/**
+ * How the signer takes a decision on held messages (`decide`): it reads the items from the state
+ * directory itself, and asks the person in its own terminal or dialog. `confirm` is why it cannot
+ * ask when it cannot (it runs under an agent's variables, or has neither).
+ */
+export type Desk = {
+  read: (mesh: string, ids: readonly string[]) => Promise<HeldCopy[]>;
+  confirm: ((lines: string[]) => Promise<boolean>) | { cannot: string };
+};
+
 export type SignerOptions = {
   file: SealedKeyFile;
   unlocked: Unlocked;
@@ -174,6 +193,8 @@ export type SignerOptions = {
   pid: number;
   log: (entry: LogEntry) => void;
   rate?: { perSecond: number; burst: number };
+  /** Without one, every `decide` is refused. */
+  desk?: Desk;
 };
 
 /**
@@ -198,6 +219,8 @@ export class Signer {
   private readonly counts: Record<string, number> = {};
   private refused = 0;
   private limited = 0;
+  /** A `decide` is waiting for the person: another is refused meanwhile, never queued behind it. */
+  private deciding = false;
   private readonly o: SignerOptions;
 
   constructor(o: SignerOptions) {
@@ -303,7 +326,45 @@ export class Signer {
       this.limited++;
       throw new AgentError("rate_limited", "too many signer operations; slow down");
     }
-    return this.keyOp(op as Exclude<Op, "hello" | "status" | "lock" | "stop">, a, keys, this.signKey!, entry);
+    if (op === "decide") return this.decide(a as z.infer<typeof ARGS.decide>, entry);
+    return this.keyOp(op as Exclude<Op, "hello" | "status" | "lock" | "stop" | "decide">, a, keys, this.signKey!, entry);
+  }
+
+  /**
+   * A decision on held messages, signed only once the person confirmed it here: the signer reads
+   * every held copy of the ids from disk itself, shows them in its own terminal or dialog, and
+   * signs those ids, each with the digest of the copy it showed. One at a time. A lock while the
+   * person reads it signs nothing.
+   */
+  private async decide(req: z.infer<typeof ARGS.decide>, entry: LogEntry): Promise<Record<string, unknown>> {
+    entry.mesh = req.mesh;
+    const desk = this.o.desk;
+    if (desk === undefined) throw new AgentError("refused", "this signer takes no decisions on held messages");
+    if (!(typeof desk.confirm === "function")) throw new AgentError("refused", desk.confirm.cannot);
+    if (req.verdict === "resume" && req.peer === undefined) throw new AgentError("bad_request", "decide: a resume names its peer");
+    if (this.deciding) throw new AgentError("refused", "the signer is already asking you about another decision: answer that one first");
+    this.deciding = true;
+    try {
+      const items = await desk.read(req.mesh, req.ids);
+      // A resume may lift a pause that holds nothing yet; anything else decides something held.
+      if (items.length === 0 && req.verdict !== "resume") throw new AgentError("refused", "none of these ids is held on this device");
+      if (!(await desk.confirm(decisionView(req, items)))) throw new AgentError("refused", "you declined it in the signer: nothing changed");
+      const signKey = this.signKey;
+      if (signKey === undefined) throw new AgentError("locked", "the signer was locked before it signed: nothing changed");
+      const at = this.o.now();
+      const seen = new Set<string>();
+      const signed: DecisionItem[] = [];
+      for (const { item } of items) {
+        const one = { id: item.id, digest: heldDigest(item) };
+        if (seen.has(`${one.id} ${one.digest}`)) continue;
+        seen.add(`${one.id} ${one.digest}`);
+        signed.push(one);
+      }
+      const body = { v: 1 as const, device: this.file.id, mesh: req.mesh, verdict: req.verdict, ...(req.peer === undefined ? {} : { peer: req.peer }), items: signed, at, n: ulid(at) };
+      return { decision: signDecision(body, signKey) };
+    } finally {
+      this.deciding = false;
+    }
   }
 
   /**

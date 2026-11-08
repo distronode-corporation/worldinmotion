@@ -144,12 +144,15 @@ export class SignerClient {
     this.connect = o.connect ?? ((endpoint) => createConnection(endpoint));
   }
 
-  /** Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer. */
-  async call(op: string, a: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+  /**
+   * Asks the signer; rejects with a SignerError when it refuses, is not there, or does not answer
+   * within `timeoutMs` (the client's own by default; a `decide` waits for the person).
+   */
+  async call(op: string, a: Record<string, unknown> = {}, timeoutMs = this.timeoutMs): Promise<Record<string, unknown>> {
     const conn = await this.connected();
     // A signer that proved it is locked is sent nothing a locked signer could not answer.
     if (conn.hello!.locked && !LOCKED_OPS.has(op)) throw new SignerError("locked", "the signer is locked: run `wim agent unlock` in a terminal you opened yourself");
-    return this.send(conn, op, a);
+    return this.send(conn, op, a, timeoutMs);
   }
 
   /** The `hello` of the current connection (made now if there is none), checked against `expect`. */
@@ -162,14 +165,14 @@ export class SignerClient {
     this.conn?.socket.destroy();
   }
 
-  private send(conn: Conn, op: string, a: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private send(conn: Conn, op: string, a: Record<string, unknown>, timeoutMs = this.timeoutMs): Promise<Record<string, unknown>> {
     const i = ++this.next;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         conn.pending.delete(i);
         this.idle(conn);
-        reject(new SignerError("timeout", `the signer did not answer ${op} in ${this.timeoutMs} ms`));
-      }, this.timeoutMs);
+        reject(new SignerError("timeout", `the signer did not answer ${op} in ${timeoutMs} ms`));
+      }, timeoutMs);
       conn.pending.set(i, { resolve, reject, timer });
       // A connection with calls in flight keeps the process alive; an idle one does not.
       conn.socket.ref();

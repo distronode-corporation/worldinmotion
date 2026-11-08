@@ -7,14 +7,16 @@
 import { b64u, encodeKeys, prekeySchema, randomBytes, type Prekey } from "@worldinmotion/protocol";
 import { spawn as nodeSpawn } from "node:child_process";
 import { join } from "node:path";
-import { AgentLog, AgentServer, answers, Signer } from "./agent.ts";
+import { AgentLog, AgentServer, answers, Signer, type Desk } from "./agent.ts";
 import { agentDir, agentEndpoint, agentLogPath, endpointFiles, readAgentSettings, retireEndpoint, startLockPath, writeAgentSettings } from "./agentpath.ts";
 import type { CliIO } from "./cli.ts";
 import { SetupError } from "./errors.ts";
 import { ensureDir, readJson, withLock, writeAtomic, writeJson } from "./fsx.ts";
 import type { Home } from "./home.ts";
-import { agentEnv, notAPerson, personOnly } from "./secretout.ts";
-import { askGui, autostartStatus, disableAutostart, enableAutostart, GUI_AGAIN, GUI_ASK, KEYRING_WARNING, keyringAccount, keyringClear, keyringKind, keyringRead, keyringStore, NO_KEYRING, type AutostartOptions, type Programs } from "./autostart.ts";
+import { agentEnv, cannotConfirm, notAPerson, personOnly } from "./secretout.ts";
+import { askGui, confirmGui, autostartStatus, disableAutostart, enableAutostart, GUI_AGAIN, GUI_ASK, KEYRING_WARNING, keyringAccount, keyringClear, keyringKind, keyringRead, keyringStore, NO_KEYRING, type AutostartOptions, type Programs } from "./autostart.ts";
+import { MeshFiles } from "./mesh.ts";
+import { listAllHeld } from "./offline.ts";
 import { SignerClient } from "./signer.ts";
 import { BadPassphrase, openKeyFile, openPrekeySecret, sealKeyFile, sealPrekeySecret, type SealedKeyFile } from "./vault.ts";
 
@@ -214,7 +216,7 @@ async function runSigner(ctx: AgentCtx, passphrase: string, ready: (line: string
   }
   const { root, env } = ctx.home;
   const log = new AgentLog(agentLogPath(root));
-  const signer = new Signer({ file, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e) => log.write(e) });
+  const signer = new Signer({ file, unlocked, now: ctx.io.now, pid: ctx.io.pid, log: (e) => log.write(e), desk: desk(ctx) });
   let bound: { server: AgentServer; at: string };
   try {
     await ensureDir(agentDir(root));
@@ -253,6 +255,41 @@ async function runSigner(ctx: AgentCtx, passphrase: string, ready: (line: string
   log.write({ at: ctx.io.now(), op: "exit", ok: true });
   await log.flushed();
   return 0;
+}
+
+/**
+ * How this signer takes decisions on held messages: it reads the held items from this state
+ * directory itself, and asks in the terminal it runs in (`--foreground` at an interactive
+ * terminal), else in a native dialog. A signer started under an agent's variables asks nobody: it
+ * cannot tell the person from the agent, so it refuses every decision.
+ */
+export function desk(ctx: AgentCtx): Desk {
+  const fsEnv = { platform: ctx.io.platform, pid: ctx.io.pid };
+  const read: Desk["read"] = async (mesh, ids) => {
+    const rows = await listAllHeld(new MeshFiles(ctx.home.meshDir(mesh), fsEnv), fsEnv);
+    return rows.filter((r) => ids.includes(r.id)).map(({ sid: _sid, session, ...item }) => ({ item, session }));
+  };
+  const agent = agentEnv(ctx.env);
+  if (agent !== undefined) {
+    return {
+      read,
+      confirm: {
+        cannot: `${agent} was set where this signer started, so it runs in an agent's environment and cannot tell you from the agent: a decision on held messages needs a signer you started yourself (\`wim agent start\` in your own terminal, or at log in)`,
+      },
+    };
+  }
+  if (ctx.flags.get("foreground") === true && cannotConfirm(ctx.env, ctx.io) === undefined) {
+    return {
+      read,
+      confirm: async (lines) => {
+        for (const line of lines) ctx.io.out(line);
+        return /^y(es)?$/i.test((await ctx.io.prompt("Type y to sign this decision; anything else declines it [y/N] ")).trim());
+      },
+    };
+  }
+  const p = ctx.io.programs;
+  if (p === undefined) return { read, confirm: { cannot: "this signer has no terminal or dialog to ask you in: start it with `wim agent start --foreground` in your own terminal" } };
+  return { read, confirm: (lines) => confirmGui(p.platform, p.run, lines) };
 }
 
 /**

@@ -83,6 +83,12 @@ successor.
 | `trust` | `device` (name), `relayed?`: boolean | `{ policy }` |
 | `untrust` | `device` | `{ policy: "hold" }` |
 | `resume` | `peer` (address): lifts a breaker pause | `{ released }` |
+
+On a device whose keys are in the signer (from 0.2.0), `approve`, `refuse` and `resume` wait for
+the person to confirm in the signer's own terminal or dialog before they decide anything (up to 6
+minutes; a UI gives them that long), and fail with the signer's reason when it is locked or not
+running, has no way to ask, or the person declines. Only what the signer signed is decided: a
+resume releases the breaker holds it showed (SECURITY-MODEL section 7.2).
 | `invite` | `exp?` (milliseconds the invite lives, 1 minute to 7 days, default 1 hour) | `{ code, invite, exp, full? }`: the invite code for the new device, its id, and when the code stops working. On a relay that keeps short codes, `code` is the short `wim2-` code (SPEC section 5), `exp` its end (at most an hour away, never past the invite's), and `full` the full `wim1_` code for a device on wim 0.1.4 or older; elsewhere `code` is the full code and there is no `full`. Never auto-accepting. |
 | `admit` | `device` (the waiting device's name), `code` (the comparison code the new device shows, as the person typed it) | `{ device }`; code `mismatch` when no waiting request from that name has that code, `not_found` when none waits |
 

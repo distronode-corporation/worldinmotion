@@ -119,6 +119,68 @@ function answered(r: RunResult | undefined, cmd: string, last: boolean): string 
   return { failed: `${cmd}: ${r.stderr.trim().slice(0, 300)}` };
 }
 
+// ---- the signer's confirmation of a decision on held messages ----
+
+/** How long the signer's dialog waits for an answer before it counts as declined. */
+export const CONFIRM_SECONDS = 300;
+
+/**
+ * kdialog's text with nothing it could read as markup (it takes text that looks like HTML as rich
+ * text): the items' text comes from peers. Angle brackets and ampersands become plain ASCII.
+ */
+export function kdialogText(text: string): string {
+  return text.replace(/</g, "(").replace(/>/g, ")").replace(/&/g, "+");
+}
+
+/**
+ * The confirmation dialogs to try, in order, each exiting 0 only on the person's Sign. The text is
+ * never part of a script's code: osascript takes it as an argument, PowerShell as a quoted literal
+ * (psQuote) in an encoded command, zenity with markup off, kdialog with no markup left in it. Cancel is the default button where the tool
+ * lets it be.
+ */
+export function confirmPrompts(platform: Platform, text: string): Array<{ cmd: string; args: string[] }> {
+  if (platform === "darwin") {
+    const dialog = `display dialog (item 1 of argv) with title "${GUI_TITLE}" buttons {"Cancel", "Sign"} default button "Cancel" cancel button "Cancel" giving up after ${CONFIRM_SECONDS}`;
+    return [{ cmd: "osascript", args: ["-e", "on run argv", "-e", dialog, "-e", "if gave up of result then error number -128", "-e", "end run", text] }];
+  }
+  if (platform === "win32") {
+    const script = [
+      "Add-Type -AssemblyName System.Windows.Forms",
+      `$r = [System.Windows.Forms.MessageBox]::Show(${psQuote(text)}, ${psQuote(GUI_TITLE)}, 'YesNo', 'Warning', 'Button2')`,
+      "if ($r -eq 'Yes') { exit 0 } else { exit 1 }",
+    ].join("; ");
+    return [{ cmd: "powershell.exe", args: ["-NoProfile", "-EncodedCommand", psEncoded(script)] }];
+  }
+  return [
+    { cmd: "zenity", args: ["--question", "--no-markup", "--default-cancel", "--width=560", `--timeout=${CONFIRM_SECONDS}`, "--ok-label=Sign", "--cancel-label=Cancel", `--title=${GUI_TITLE}`, `--text=${text}`] },
+    { cmd: "kdialog", args: ["--title", GUI_TITLE, "--yesno", kdialogText(text)] },
+  ];
+}
+
+/**
+ * Shows the signer's confirmation in a native dialog and resolves true only on Sign. A tool that
+ * is not installed, cannot reach a display or fails passes over to the next; when none can show
+ * it, the decision is refused with why.
+ */
+export async function confirmGui(platform: Platform, run: Run, lines: readonly string[]): Promise<boolean> {
+  const prompts = confirmPrompts(platform, lines.join("\n"));
+  let failure: string | undefined;
+  for (const p of prompts) {
+    const r = await run(p.cmd, p.args).catch(unlessMissing);
+    if (r === undefined) continue;
+    if (r.code === 0) return true;
+    // Cancel or No (1, kdialog's 2), or the dialog's time ran out (zenity's 5). Anything else (no
+    // display, a refused argument: zenity in a locale that is not UTF-8) passes to the next tool.
+    if ([1, 2, 5].includes(r.code ?? -1) && !/(cannot|failed to) open display/i.test(r.stderr)) return false;
+    failure = `${p.cmd}: ${r.stderr.trim().slice(0, 300) || `exit ${String(r.code)}`}`;
+  }
+  throw new SetupError(
+    failure === undefined
+      ? "the signer has no dialog to ask you in (on Linux it needs zenity or kdialog in a desktop session): run it with `wim agent start --foreground` in your own terminal, which asks there"
+      : `the signer could not show its dialog (${failure}): run it with \`wim agent start --foreground\` in your own terminal, which asks there`,
+  );
+}
+
 // ---- the OS keyring (`--keyring`, opt-in) ----
 
 export type KeyringKind = "keychain" | "libsecret";

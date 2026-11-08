@@ -355,7 +355,9 @@ trusted, SendMessage asks nothing; to any other device Claude asks you first.
   `wim doctor`) is a different device: usually `CLAUDE_CONFIG_DIR` is set for one and not the
   other. Use the same `WIM_HOME` in both, or set up that directory as its own device.
 - Held messages: `wim held list`, or `/wim` in Claude Code. Both show them a set per sending device
-  (or per CI rule), decided together.
+  (or per CI rule), decided together. With the signer running (`wim agent`), each approve, refuse
+  or resume also asks you in the signer's own terminal or dialog, so an agent that can write files
+  cannot approve one; the Claude Code pane then sends you to `wim held` or VS Code.
 
 ### 11. Optional: a ping when a message is held
 

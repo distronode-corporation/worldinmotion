@@ -22,6 +22,7 @@ import { resolveInvite, type BoxFetcher } from "./shortcode.ts";
 import { decideHeld, listAllHeld, resumeEverywhere, type HeldRow } from "./offline.ts";
 import { loadCiRules, type CiRule } from "./cirules.ts";
 import type { Verdict } from "./held.ts";
+import { NEEDS_SIGNER, type DecideRequest, type Decision, type DecisionVerdict } from "./decisions.ts";
 import { pinsIds, setFields, setKey } from "./heldsets.ts";
 import { listAllPauses } from "./pauses.ts";
 import { policyLevel } from "./render.ts";
@@ -65,6 +66,11 @@ export type EventsDeps = {
    * `invite`, `admit`, `approve`, `refuse`, `resume`, `trust` and `untrust` are refused when one is set.
    */
   agent?: string;
+  /**
+   * Asks this device's signer for a decision on held messages (decisions.ts requestDecision). Used
+   * when the keys are in the signer: then an approve, refuse or resume goes ahead only signed.
+   */
+  decide?: (req: DecideRequest) => Promise<Decision>;
 };
 
 type Row = Record<string, unknown>;
@@ -215,12 +221,22 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     joins = next;
   }
 
+  /**
+   * The signer's decision over `ids` when this device's keys are in it (the person confirms it in
+   * the signer's own terminal or dialog); undefined when they are not, and nothing changes.
+   */
+  async function signed(verdict: DecisionVerdict, ids: readonly string[], peer?: string): Promise<Decision | undefined> {
+    if (d.device.keyring.kind !== "signer") return undefined;
+    if (d.decide === undefined) throw new RequestError("needs_signer", `${NEEDS_SIGNER}, and this process cannot ask it`);
+    return d.decide({ mesh: s.config.mesh, verdict, ids, ...(peer === undefined ? {} : { peer }) });
+  }
+
   /** Decides one held id wherever it is held; false when nothing held it. */
-  async function decideOne(id: string, verdict: Verdict): Promise<boolean> {
+  async function decideOne(id: string, verdict: Verdict, decision: Decision | undefined): Promise<boolean> {
     // This process decides its own items itself (it can send the receipt); others on disk.
     const mine = (await s.held.get(id)) !== undefined;
-    if (mine) await s.decide(id, verdict);
-    const others = await decideHeld(d.mesh, id, verdict, d.env, d.now, s.sid);
+    if (mine) await s.decide(id, verdict, decision);
+    const others = await decideHeld(d.mesh, id, verdict, d.env, d.now, s.sid, decision);
     return mine || others > 0;
   }
 
@@ -244,20 +260,21 @@ export async function runEvents(d: EventsDeps): Promise<void> {
     const stranger = now.find((r) => setKey(r, rules) !== key);
     if (stranger !== undefined) throw new RequestError("input", `${stranger.id} is not held in the same set as ${held}: each set is decided on its own`);
     const decided: string[] = [];
-    const kept: string[] = [];
     const gone = unique.filter((id) => !now.some((r) => r.id === id));
-    for (const r of now) {
-      if (verdict === "approve" && pinsIds(r)) kept.push(r.id);
-      else if (await decideIfHeld(r.id, verdict)) decided.push(r.id);
+    const kept = now.filter((r) => verdict === "approve" && pinsIds(r)).map((r) => r.id);
+    const go = now.filter((r) => !kept.includes(r.id));
+    const decision = go.length === 0 ? undefined : await signed(verdict, go.map((r) => r.id));
+    for (const r of go) {
+      if (await decideIfHeld(r.id, verdict, decision)) decided.push(r.id);
       else gone.push(r.id);
     }
     return { decided, kept, gone };
   }
 
   /** decideOne, with an item decided elsewhere meanwhile (not found) as false; any other error is thrown. */
-  async function decideIfHeld(id: string, verdict: Verdict): Promise<boolean> {
+  async function decideIfHeld(id: string, verdict: Verdict, decision: Decision | undefined): Promise<boolean> {
     try {
-      return await decideOne(id, verdict);
+      return await decideOne(id, verdict, decision);
     } catch (error) {
       if (error instanceof ClientError && error.code === "not_found") return false;
       throw error;
@@ -486,7 +503,7 @@ export async function runEvents(d: EventsDeps): Promise<void> {
         if (!isUlid(i.held)) throw new RequestError("input", "held must be a held message id");
         const verdict = op === "approve" ? "approve" : "refuse";
         if (i.set !== undefined) return decideSet(i.held, i.set, verdict);
-        if (!(await decideOne(i.held, verdict))) throw new RequestError("not_found", `no held message ${i.held}`);
+        if (!(await decideOne(i.held, verdict, await signed(verdict, [i.held])))) throw new RequestError("not_found", `no held message ${i.held}`);
         return {};
       }
       case "trust":
@@ -503,7 +520,11 @@ export async function runEvents(d: EventsDeps): Promise<void> {
       case "resume": {
         personOnly(d.agent, "releasing what the loop breaker held");
         const peer = (a as { peer: string }).peer;
-        const released = (await s.resumePeer(peer)) + (await resumeEverywhere(d.mesh, peer, d.env, d.now, s.sid));
+        // What the pause holds now, for the signer to show: a resume releases only those.
+        const device = peer.split("@")[1];
+        const paused = (await listAllHeld(d.mesh, d.env)).filter((r) => r.reason === "breaker" && r.from.split("@")[1] === device).map((r) => r.id);
+        const decision = await signed("resume", [...new Set(paused)], peer);
+        const released = (await s.resumePeer(peer, decision)) + (await resumeEverywhere(d.mesh, peer, d.env, d.now, s.sid, decision));
         return { released };
       }
       case "invite": {
