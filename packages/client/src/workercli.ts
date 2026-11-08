@@ -322,14 +322,14 @@ async function doctor(c: WorkerCli, path: string): Promise<number> {
     stat: statOf,
     readText: (p) => fs.readFile(p, "utf8"),
     lookupUser: (name) => lookupUser(name),
-    probe: (as, op) => probe(as, op),
+    probe,
     which: (command) => which(command, c.env["PATH"]),
     sdk: () => sdkFrom(import.meta.url),
     // As root it also refuses a config another user could have written, as the runner does.
     loadPrivileged: (p) => loadPrivilegedConfig(p, secureRead, uid),
     sudoersLine,
     noNewPrivs: (service) => serviceNoNewPrivs(service),
-    codeProblem: () => codeProblem([process.execPath, c.wim.at(-1)!]),
+    codeProblem: codeProblem.bind(undefined, [process.execPath, c.wim.at(-1)!]),
     ...c.doctor,
   };
   const input = {

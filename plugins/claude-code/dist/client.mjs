@@ -131390,14 +131390,14 @@ async function doctor(c5, path2) {
     stat: statOf,
     readText: (p3) => fs17.readFile(p3, "utf8"),
     lookupUser: (name) => lookupUser(name),
-    probe: (as, op2) => probe(as, op2),
+    probe,
     which: (command5) => which(command5, c5.env["PATH"]),
     sdk: () => sdkFrom(import.meta.url),
     // As root it also refuses a config another user could have written, as the runner does.
     loadPrivileged: (p3) => loadPrivilegedConfig(p3, secureRead, uid),
     sudoersLine,
     noNewPrivs: (service2) => serviceNoNewPrivs(service2),
-    codeProblem: () => codeProblem([process.execPath, c5.wim.at(-1)]),
+    codeProblem: codeProblem.bind(void 0, [process.execPath, c5.wim.at(-1)]),
     ...c5.doctor
   };
   const input2 = {

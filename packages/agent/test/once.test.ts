@@ -1,4 +1,7 @@
+import type { ChildProcess } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { PassThrough } from "node:stream";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -120,6 +123,16 @@ describe("runOnce, through a real runner process", () => {
     await writeFile(killer, `process.stdin.resume(); process.kill(process.pid, "SIGKILL");`);
     expect(await runOnce(config({ args: [killer] }), req("x"), o.io)).toBe(1);
     expect(o.err).toContain("wim agent run: the runner failed (signal SIGKILL)");
+  });
+
+  it("names the signal of a runner a signal ended, on every platform (a stand-in child)", async () => {
+    const o = io();
+    const child = Object.assign(new EventEmitter(), { pid: 1, stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough() });
+    const run = runOnce(config(), req("x"), o.io, { spawn: () => child as unknown as ChildProcess });
+    await new Promise((r) => setImmediate(r));
+    child.emit("close", null, "SIGTERM");
+    expect(await run).toBe(1);
+    expect(o.err).toContain("wim agent run: the runner failed (signal SIGTERM)");
   });
 
   it("a runner that never started", async () => {
