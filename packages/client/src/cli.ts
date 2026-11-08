@@ -46,6 +46,7 @@ import { agentRoute, signerRenamed, WORKER_USAGE, workerCommand } from "./worker
 import type { DoctorDeps } from "@worldinmotion/agent";
 import { RECOVERY_TITLE, runSetup, STORED_PROMPT, type ToolRun } from "./setup.ts";
 import { findLaunch, onPath, setupAgents } from "./agentsetup.ts";
+import { npxSetup, type Relaunch } from "./npxsetup.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
 import { bakedDsn, CRASH_REPORTS_FILE, CrashReporter, forcedOff, readConsent } from "./crash.ts";
 import { droppedCount, droppedLine, droppedPath, LEGACY_BOXES_FILE, legacyBoxesLine, refusesLegacy, setLegacyBoxes } from "./legacyboxes.ts";
@@ -94,6 +95,8 @@ export type CliIO = {
   programs?: Programs;
   /** Runs `claude` and `code` for `wim setup` (setup.ts `execRunner`); without it, neither is found. */
   tools?: ToolRun;
+  /** Runs `wim setup` again from the copy it installed, in this terminal (npxsetup.ts). */
+  relaunch?: Relaunch;
   /** The command line that runs this wim, written into `wim agent init`'s config (default: this process's). */
   wim?: () => string[];
   /** Replaces `wim agent doctor`'s view of this machine (tests). */
@@ -807,6 +810,19 @@ function setup(ctx: Ctx): Promise<number> {
     join: (code) => joinWith(ctx, code, false),
     register: (mesh) => registerCli(ctx, mesh),
     status: () => status(ctx),
+    npx: () =>
+      npxSetup({
+        io: ctx.io,
+        env: ctx.env,
+        platform: ctx.io.platform,
+        homedir: ctx.io.homedir,
+        version: VERSION,
+        wim: ctx.io.programs?.wim,
+        // Every flag `wim setup` takes has a value; the code goes after `--`, so it is never read as a flag.
+        argv: ["setup", ...[...ctx.args.flags].map(([k, v]) => `--${k}=${String(v)}`), "--", ...ctx.args.positional],
+        run: ctx.io.tools,
+        relaunch: ctx.io.relaunch,
+      }),
     agents: async () =>
       setupAgents({
         io: ctx.io,

@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { parse as parseToml } from "smol-toml";
 import { noFollow, openNoFollow, realFsEnv, writeAtomic, writeNew } from "./fsx.ts";
+import { inNpxCache } from "./npxsetup.ts";
 import { pathFor, type Platform } from "./platform.ts";
 
 /** The MCP server's name in every agent's config. */
@@ -565,7 +566,7 @@ export async function findLaunch(wim: readonly string[] | undefined): Promise<La
   if (script === undefined) return `${wim.at(-1)!} cannot be found`;
   if (!/[\\/]wim\.mjs$/.test(script)) return `it runs from ${script}, not from wim.mjs (a source checkout?)`;
   // npx runs from a cache it prunes: an agent config pointing there breaks later, with no word.
-  if (/[\\/]_npx[\\/]/.test(script)) return `it runs from npx's cache (${script}), which npx prunes: install it with \`npm install --global worldinmotion\` and run \`wim setup\` again`;
+  if (inNpxCache(script)) return `it runs from npx's cache (${script}), which npx prunes: install it with \`npm install --global worldinmotion\` and run \`wim setup\` again`;
   return { node: wim[0]!, script };
 }
 

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { npmLayout } from "../packages/client/src/npxsetup.ts";
 
 // packaging/npm is the `worldinmotion` package that release.yml's npm job publishes with
 // provenance: the bundled client and nothing else to run. These are the properties that make
@@ -24,6 +25,13 @@ describe("the worldinmotion npm package", () => {
   it("has exactly one bin, wim, so npx runs it whatever the package is called", () => {
     expect(pkg.bin).toEqual({ wim: "wim.mjs" });
     expect((client.bin as Record<string, string>).wim).toBe("./dist/wim.mjs");
+  });
+
+  it("puts wim.mjs where `npx worldinmotion setup` runs it from after a global install", () => {
+    // npxsetup.ts runs <global node_modules>/worldinmotion/wim.mjs: the package's name and its one bin.
+    const bin = (pkg.bin as Record<string, string>).wim!;
+    expect(join(npmLayout("/usr/local", "linux").modules, pkg.name as string, bin)).toBe(join("/usr/local/lib/node_modules/worldinmotion/wim.mjs"));
+    expect(pkg.files).toContain(bin);
   });
 
   it("ships the bundle with no dependencies to install", () => {

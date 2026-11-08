@@ -15,6 +15,15 @@ body line with a bracket.
 
 ### Added
 
+- **`npx worldinmotion setup` works from nothing.** Run from npx's cache (`npx` or `npm exec`),
+  `wim setup` first says so, then offers, on a typed `y`, to install this exact version with
+  `npm install --global worldinmotion@<version>`, run without a shell. When npm's global prefix is
+  not writable it offers `~/.npm-global` instead (npm's prefix goes in its environment, not a
+  shell word) and says how to put that prefix's `bin` on `PATH`; it never uses `sudo`. It then
+  runs `wim setup` again from the installed copy, with the same flags and code, so every path it
+  writes into an agent's config is the stable one. On `n` it prints the install command and
+  stops before anything is made. The README's Quick start now starts with `npx worldinmotion
+  setup`, with the global install as the alternative.
 - **`wim agent`, a peer that wakes on a message and runs one agent job** (new package
   `@worldinmotion/agent`). It runs a job only for a device id on its allow-list (from the signed
   roster, never a name) that the person also trusts, optionally behind a wake code checked in

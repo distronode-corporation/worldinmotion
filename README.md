@@ -51,12 +51,20 @@ What the line at the top means:
 
 ## Quick start: `wim setup`
 
-[Terminal] On the first machine, once `wim` is installed (step 1 below), in a terminal you
-opened yourself:
+[Terminal] On the first machine, with Node.js 22.18 or newer, in a terminal you opened yourself:
 
 ```sh
-wim setup
+npx worldinmotion setup
 ```
+
+Or install `wim` first (step 1 below) and run `wim setup`, which is the same.
+
+Run through `npx`, it first says that it runs from npx's cache, which npm prunes, and offers to
+install this same version with `npm install --global worldinmotion@<version>` once you type
+`y`. When npm's global prefix is not writable, it offers `~/.npm-global` instead and says how
+to put its `bin` on `PATH`; it never uses `sudo`. It then runs `wim setup` again from the
+installed copy, so every agent config points at a path that stays. If you answer `n`, it prints
+the install command and stops, changing nothing.
 
 It asks for what it needs and says what each step does before it takes it:
 

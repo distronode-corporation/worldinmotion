@@ -6,7 +6,8 @@
 //
 // Only a person runs it: `requirePerson` comes before anything else, on every path, and every step
 // that changes something waits for a typed y. It never asks about crash reports (README, Crash
-// reports: nothing asks you to) and never starts the signer.
+// reports: nothing asks you to) and never starts the signer. Run from npx's cache, it first offers to
+// install wim at a stable path and runs again from there (npxsetup.ts).
 
 import { HOSTED_RELAY, isName, sanitizeForDisplay } from "@worldinmotion/protocol";
 import { execFile as nodeExecFile } from "node:child_process";
@@ -42,15 +43,16 @@ export const SETUP_COMMANDS = [`claude ${MARKETPLACE_ADD.join(" ")}`, `claude ${
 
 /**
  * Runs another program with fixed arguments, without a shell, and gives its exit code and output.
- * It rejects with an `ENOENT` error when the program is not installed.
+ * `env` is added to this process's environment for it. It rejects with an `ENOENT` error when the
+ * program is not installed.
  */
-export type ToolRun = (cmd: string, args: readonly string[]) => Promise<RunResult>;
+export type ToolRun = (cmd: string, args: readonly string[], env?: Record<string, string>) => Promise<RunResult>;
 
 /** The part of `child_process.execFile` the runner uses. */
 type ExecFile = (
   file: string,
   args: readonly string[],
-  options: { shell: boolean; windowsHide: boolean; timeout: number; maxBuffer: number },
+  options: { shell: boolean; windowsHide: boolean; timeout: number; maxBuffer: number; env?: NodeJS.ProcessEnv },
   callback: (error: (Error & { code?: unknown }) | null, stdout: string, stderr: string) => void,
 ) => { stdin: { end(): void } | null };
 
@@ -61,22 +63,24 @@ const TOOL_TIMEOUT_MS = 5 * 60_000;
  * The real runner: `execFile`, with no shell. On Windows `claude` and `code` are usually `.cmd`
  * files, which Node runs only through a shell, so there the program is looked up with `where`
  * first (a missing one is ENOENT, as elsewhere) and then run with `shell: true`. Every argument
- * is one of the constants in this file, never text from a person or a peer.
+ * is a constant here or in npxsetup.ts (with this wim's own version), never text from a person or
+ * a peer; a path npm needs goes in `env`, which no shell splits.
  */
 export function execRunner(platform: Platform, execFile: ExecFile = nodeExecFile as unknown as ExecFile): ToolRun {
-  const exec = (file: string, args: readonly string[], shell: boolean): Promise<RunResult> =>
+  const exec = (file: string, args: readonly string[], shell: boolean, env?: Record<string, string>): Promise<RunResult> =>
     new Promise((resolve, reject) => {
-      const child = execFile(file, args, { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
+      const options = { shell, windowsHide: true, timeout: TOOL_TIMEOUT_MS, maxBuffer: 1024 * 1024, ...(env === undefined ? {} : { env: { ...process.env, ...env } }) };
+      const child = execFile(file, args, options, (error, stdout, stderr) => {
         if (error !== null && typeof error.code !== "number") reject(error);
         else resolve({ code: error === null ? 0 : (error.code as number), stdout, stderr });
       });
       // Nothing is typed into a tool: one that asks a question reads end of input.
       child.stdin?.end();
     });
-  if (platform !== "win32") return (cmd, args) => exec(cmd, args, false);
-  return async (cmd, args) => {
+  if (platform !== "win32") return (cmd, args, env) => exec(cmd, args, false, env);
+  return async (cmd, args, env) => {
     if ((await exec("where", [cmd], false)).code !== 0) throw Object.assign(new Error(`${cmd} is not installed`), { code: "ENOENT" });
-    return exec(cmd, args, true);
+    return exec(cmd, args, true, env);
   };
 }
 
@@ -117,6 +121,11 @@ export type SetupDeps = {
   status: () => Promise<number>;
   /** The step for the other agents (agentsetup.ts), after Claude Code and VS Code. */
   agents: () => Promise<void>;
+  /**
+   * Run from npx's cache: install wim at a stable path and run setup from there (npxsetup.ts).
+   * Its exit code ends this setup; undefined, setup goes on here.
+   */
+  npx: () => Promise<number | undefined>;
 };
 
 /** The exit code of a command a signal stopped, as cli.ts uses it. */
@@ -128,6 +137,9 @@ const yes = (answer: string): boolean => /^y(es)?$/i.test(answer.trim());
 export async function runSetup(d: SetupDeps): Promise<number> {
   requirePerson(d.env, d.io, "wim setup");
   if (d.positional.length > 1) throw new SetupError("usage: wim setup [<invite code>] [--name <n>] [--relay <url>] [--key-env NAME]");
+  // First, before anything is made: a config written from npx's cache would point at a path npm prunes.
+  const relaunched = await d.npx();
+  if (relaunched !== undefined) return relaunched;
   const { io } = d;
   const code = d.positional[0];
   const device = await d.home.loadDevice();

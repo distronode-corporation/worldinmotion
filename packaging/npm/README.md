@@ -11,10 +11,13 @@ through a relay that cannot read them.
 You need Node.js 22.18 or newer.
 
 ```sh
-npx worldinmotion init --relay wss://worldinmotion.distronode.com   # run it once, without installing
-npm install --global worldinmotion                                  # or install it as `wim`
+npx worldinmotion setup              # the guided first run: installs `wim` globally after a typed y
+npm install --global worldinmotion   # or install it as `wim` yourself, then run `wim setup`
 wim help
 ```
+
+Run through npx, `wim setup` first installs this same version with `npm install --global`, since
+npx's cache is pruned and agent configs need a path that stays, then runs again from there.
 
 This package is one file, `wim.mjs`, with no dependencies: the same bytes as the `wim.mjs`
 attached to the matching [GitHub Release](https://github.com/distronode-corporation/worldinmotion/releases).
