@@ -99,7 +99,8 @@ function published(tree, path, bytes, version) {
   const text = bytes.toString("utf8");
   if (path === "README.md") return Buffer.from(publishedReadme(text, where));
   if (path === "wim.mjs") {
-    const declared = [...text.matchAll(/^var VERSION = "([^"]*)";$/gm)].map((m) => m[1]);
+    // esbuild renames the client's VERSION (VERSION2, ...) when a bundled dependency declares one too.
+    const declared = [...text.matchAll(/^var VERSION\d* = "([^"]*)";$/gm)].map((m) => m[1]);
     if (declared.length !== 1) throw new Error(`${where}: not a wim client bundle (${declared.length} VERSION declarations, expected one)`);
     if (declared[0] !== version) throw new Error(`${where}: the bundle is wim ${declared[0]}, not this release's ${version}`);
   }

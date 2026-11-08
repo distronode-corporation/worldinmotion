@@ -145,7 +145,7 @@ export async function runSetup(d: SetupDeps): Promise<number> {
   // Ctrl-C at one of its questions (io.ts hands it to the signal): stop before the status checks.
   if (io.signal.aborted) return STOPPED;
   io.out("");
-  io.out("Optional: `wim agent encrypt` keeps this device's keys under a passphrase, in a signer process instead of a file agents can read (README, step 5).");
+  io.out("Optional: `wim signer encrypt` keeps this device's keys under a passphrase, in a signer process instead of a file agents can read (README, step 5).");
   if (await isAdminAnywhere(d)) {
     io.out("To add another machine: run `wim invite` here, then `wim setup <code>` on it.");
   }

@@ -399,7 +399,8 @@ jobs:
         run: gh release edit "$TAG" --draft=false
 
   # npm: `npx worldinmotion` and `npm install --global worldinmotion` (which installs `wim`).
-  # The package is packaging/npm: wim.mjs and nothing else to run, no dependencies, because
+  # The package is packaging/npm: wim.mjs and nothing else to run (beside agent-kit/, the
+  # worker's deployment kit as plain files), no dependencies, because
   # the workspace packages export TypeScript sources, which Node refuses to strip inside
   # node_modules. The file is the one `client` built and `draft` attested, checked against
   # SHA256SUMS again here. Trusted publishing: npm exchanges this job's OIDC token for a
@@ -439,6 +440,8 @@ jobs:
           (cd assets && sha256sum -c SHA256SUMS)
           cp assets/wim.mjs packaging/npm/wim.mjs
           cp LICENSE NOTICE packaging/npm/
+          # The deployment kit `wim agent init --kit` writes out, from the tagged sources.
+          node packaging/npm/agent-kit.mjs
           have="$(node -p 'require("./packaging/npm/package.json").version')"
           if [ "$have" != "$VERSION" ]; then
             echo "::error::packaging/npm/package.json is $have, the tag is $VERSION."

@@ -120,7 +120,7 @@ describe("the signer's socket", () => {
     // A second client with the wrong expectation is refused before it asks anything.
     const wrong = new SignerClient({ endpoint: r.at, expect: generateDeviceKeys().signPub });
     expect((await failure(wrong.call("status"))).code).toBe("mismatch");
-    // One without an expectation (`wim agent status` on a plaintext key file) talks to it.
+    // One without an expectation (`wim signer status` on a plaintext key file) talks to it.
     const any = new SignerClient({ endpoint: r.at });
     expect((await any.call("status"))["id"]).toBe(r.id);
     any.close();
@@ -193,7 +193,7 @@ describe("the signer's socket", () => {
   });
 
   it("stops without waiting for a client that keeps its end of a connection open", async () => {
-    // On Windows the client of `wim agent unlock` was still connected when the old signer
+    // On Windows the client of `wim signer unlock` was still connected when the old signer
     // stopped, and the old signer waited for it. Here a client that never closes its end.
     const r = await running();
     const { createConnection } = await import("node:net");
@@ -445,7 +445,7 @@ describe("a process in the middle (independent review, finding 1)", () => {
     expect(r.signer.locked).toBe(true);
   });
 
-  it.skipIf(process.platform === "win32")("the reported attack: the socket renamed away, a proxy at its path; `wim agent lock` cannot be faked", async () => {
+  it.skipIf(process.platform === "win32")("the reported attack: the socket renamed away, a proxy at its path; `wim signer lock` cannot be faked", async () => {
     const r = await running();
     const { promises: fsp } = await import("node:fs");
     const real = `${r.at}.real`;
@@ -520,7 +520,7 @@ describe("SignerClient", () => {
     const e = await failure(new SignerClient({ endpoint: at }).call("status"));
     expect(e).toBeInstanceOf(SignerError);
     expect(e.code).toBe("unavailable");
-    expect(e.message).toMatch(/wim agent start/);
+    expect(e.message).toMatch(/wim signer start/);
     const { Socket: NetSocket } = await import("node:net");
     const odd = new SignerClient({
       endpoint: "nowhere",

@@ -164,6 +164,10 @@ describe("buildTrees refuses", () => {
     const two = join(scratch, "two.mjs");
     writeFileSync(two, `var VERSION = "${version}";\nvar VERSION = "${version}";\n`);
     expect(refusal(() => build({ bundle: two }))).toMatch(/\(2 VERSION declarations/);
+    // A dependency's own VERSION (declared with no value) only renames the client's.
+    const renamed = join(scratch, "renamed.mjs");
+    writeFileSync(renamed, `var VERSION;\nvar VERSION2 = "9.9.9";\n`);
+    expect(refusal(() => build({ bundle: renamed }))).toBe(`github/wim.mjs: the bundle is wim 9.9.9, not this release's ${version}`);
   });
 
   it("a file in a source folder that the tree does not list, or one it lists that is missing", () => {

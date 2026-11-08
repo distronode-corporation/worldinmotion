@@ -412,7 +412,7 @@ export class WimMcp {
       device: `${s.device.name} (${s.device.id})`,
       mesh: s.config.mesh,
       relay: s.link?.isOpen === true ? "connected" : "connecting",
-      signer: s.device.keyring.kind === "signer" ? "in use: the keys are in the signer (wim agent)" : "not used: the key file is plaintext",
+      signer: s.device.keyring.kind === "signer" ? "in use: the keys are in the signer (wim signer)" : "not used: the key file is plaintext",
       held: (await s.held.list()).length,
       ...dir,
     });

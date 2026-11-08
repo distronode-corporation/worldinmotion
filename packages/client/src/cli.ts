@@ -39,9 +39,11 @@ import { agentEnv, canConfirm, canShowSecret, confirmTyped, fetchHeldCode, holdF
 import { checkDialable, Link, UNKNOWN_MESH, WireError, wsDialer, type Dialer } from "./wire.ts";
 import { describeInfo, fetchRelayInfo } from "./relayinfo.ts";
 import { resolveInvite } from "./shortcode.ts";
-import { AGENT_USAGE, agentCommand } from "./agentcli.ts";
+import { agentCommand, SIGNER_USAGE, wimCommand } from "./agentcli.ts";
 import type { Programs } from "./autostart.ts";
 import { CI_ACTIONS, ciCommand } from "./cicli.ts";
+import { agentRoute, signerRenamed, WORKER_USAGE, workerCommand } from "./workercli.ts";
+import type { DoctorDeps } from "@worldinmotion/agent";
 import { RECOVERY_TITLE, runSetup, STORED_PROMPT, type ToolRun } from "./setup.ts";
 import { findLaunch, onPath, setupAgents } from "./agentsetup.ts";
 import { loadCiRules, pinRule, updateCiRules, type CiPins, type CiRule } from "./cirules.ts";
@@ -84,14 +86,20 @@ export type CliIO = {
   connectMs?: number;
   /** Asks for a passphrase without echoing it (an interactive terminal only). */
   promptSecret?: (question: string) => Promise<string>;
-  /** Starts `wim agent serve` detached, hands it the passphrase, and returns its first line. */
+  /** Starts `wim signer serve` detached, hands it the passphrase, and returns its first line. */
   startAgent?: (passphrase: string) => Promise<string>;
-  /** scrypt cost for `wim agent encrypt` (tests pass a small one; default 2^17). */
+  /** scrypt cost for `wim signer encrypt` (tests pass a small one; default 2^17). */
   agentKdfN?: number;
-  /** Runs another program (the login item and passphrase prompts of `wim agent`), and wim's own command line. */
+  /** Runs another program (the login item and passphrase prompts of `wim signer`), and wim's own command line. */
   programs?: Programs;
   /** Runs `claude` and `code` for `wim setup` (setup.ts `execRunner`); without it, neither is found. */
   tools?: ToolRun;
+  /** The command line that runs this wim, written into `wim agent init`'s config (default: this process's). */
+  wim?: () => string[];
+  /** Replaces `wim agent doctor`'s view of this machine (tests). */
+  workerDoctor?: Partial<DoctorDeps>;
+  /** Where `wim agent init --kit` looks for the deployment kit (tests). */
+  workerKit?: readonly string[];
   /** HTTP for `wim ci`, `wim a2a` and crash reports. */
   fetch: typeof fetch;
   /**
@@ -103,7 +111,7 @@ export type CliIO = {
   parentGone: () => boolean;
   /** The processes above this one, nearest first, at most `levels` (`wim mcp` and `wim hook`); undefined: not read. */
   ancestry?: (levels: number) => Promise<Ancestor[]>;
-  /** What the signer checks about the processes above it before it asks the person (`wim agent`). */
+  /** What the signer checks about the processes above it before it asks the person (`wim signer`). */
   signerChecks?: SignerChecks;
   /** How often `wim mcp` checks its parent (default 5 s) and how long a clean end may take (3 s). */
   parentPollMs?: number;
@@ -114,10 +122,10 @@ export type CliIO = {
 
 type Args = { positional: string[]; flags: Map<string, string | true> };
 
-const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person"]);
+const BOOLEAN_FLAGS = new Set(["auto", "full", "allow-secret", "no-recovery", "relayed", "help", "version", "all", "json", "foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "peek", "mark-read", "hold", "unprotected", "take", "person", "once", "worker"]);
 /** Value flags whose value may be left out, as the last word or before another flag: `wim recovery show --wait`. */
 const OPTIONAL_VALUE_FLAGS = new Set(["wait"]);
-const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via"]);
+const VALUE_FLAGS = new Set(["as", "exp", "key-env", "limit", "mesh", "name", "peer", "relay", "revoke", "session", "timeout", "tls", "wait", "ref", "tag", "workflow", "event", "environment", "recipient", "to", "text", "via", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "config", "kit", "service"]);
 
 /** Flags every command takes. */
 const COMMON_FLAGS = ["mesh", "help"];
@@ -142,7 +150,9 @@ const COMMAND_FLAGS: Record<string, readonly string[]> = {
   a2a: ["as", "take"],
   recover: ["relay", "tls", "revoke", "name"],
   recovery: ["wait"],
-  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
+  signer: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase"],
+  // The worker, and the signer's words under their old name for one release (agentRoute).
+  agent: ["foreground", "passphrase-stdin", "ask-gui", "keyring", "allow-agent-passphrase", "as", "take", "mode", "allow", "profiles", "room", "auth", "wake-file", "peer-user", "privileged-config", "sudoers", "once", "config", "worker", "kit", "service"],
   "crash-reports": [],
   "legacy-boxes": [],
   test: ["json", "full", "relay", "key-env", "person"],
@@ -248,7 +258,8 @@ export const USAGE = `wim ${VERSION}: end-to-end encrypted messages between AI a
   wim crash-reports [status | on | off]
   wim legacy-boxes [status | refuse | accept]
   wim test [--full] [--relay <url> [--key-env NAME]] [--person] [--json]
-  ${AGENT_USAGE}
+  ${SIGNER_USAGE}
+  ${WORKER_USAGE}
 
 Common: --mesh <id> (or WIM_MESH) when this device is in more than one mesh.`;
 
@@ -256,7 +267,7 @@ export const SHORT_USAGE = `wim ${VERSION}: end-to-end encrypted messages betwee
 
 Commands: setup, init, mesh create, mesh delete, invite, join, devices, peers, send, ping, watch, held,
 history, mcp, hook, bot, ci, a2a, recover, recovery show, recovery rotate, status, doctor, notify-test,
-crash-reports, legacy-boxes, test, agent.
+crash-reports, legacy-boxes, test, signer, agent.
 Run \`wim help\` for all of them, or \`wim help <command>\` for one.`;
 
 /** The usage lines for one command, or undefined when there is no such command. */
@@ -544,6 +555,7 @@ export async function main(argv: readonly string[], env: Record<string, string |
   });
   io.onUnexpected?.((reason) => void crash.report(reason, "unhandledRejection"));
   try {
+    const signer = (): Promise<number> => agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
     switch (command) {
       case undefined:
         io.out(SHORT_USAGE);
@@ -603,8 +615,39 @@ export async function main(argv: readonly string[], env: Record<string, string |
         return await crashReports(ctx, crash);
       case "legacy-boxes":
         return await legacyBoxes(ctx);
-      case "agent":
-        return await agentCommand({ home: ctx.home, io, env, args: rest, flags: args.flags, ...(io.agentKdfN === undefined ? {} : { kdfN: io.agentKdfN }) });
+      case "signer":
+        return await signer();
+      case "agent": {
+        if (agentRoute(rest, args.flags) === "signer") {
+          // The signer's old name, kept for one release: old login items and habits still work.
+          io.err(signerRenamed(rest[0]!));
+          return await signer();
+        }
+        return await workerCommand({
+          env,
+          out: io.out,
+          err: io.err,
+          stdin: io.stdin,
+          stdout: io.stdout,
+          cwd: io.cwd,
+          now: io.now,
+          uid: io.uid,
+          signal: io.signal,
+          fsEnv: ctx.fsEnv,
+          positional: rest,
+          flags: args.flags,
+          wim: io.wim?.() ?? wimCommand(),
+          mesh: () => ctx.mesh(),
+          // No message text on disk: a wake code or a task never lands in this session's files. The
+          // signed frames ride along in memory, for a runner that verifies the sender itself.
+          session: async (name) => MeshSession.open({ ...(await ctx.sessionOptions(name, "worker")), sessionKey: `worker:${name}`, redactStoredText: true, withFrame: true }),
+          name: nameFor(ctx, "worker"),
+          home: ctx.home.root,
+          untilStopped: () => ctx.untilStopped(),
+          ...(io.workerDoctor === undefined ? {} : { doctor: io.workerDoctor }),
+          ...(io.workerKit === undefined ? {} : { kitFrom: io.workerKit }),
+        });
+      }
       default:
         io.err(`unknown command ${JSON.stringify(command)}\n\n${USAGE}`);
         return 2;
@@ -2132,7 +2175,7 @@ async function decisionChecks(ctx: Ctx, emit: (c: Check) => void): Promise<void>
   const file = await ctx.home.readKeyFile().catch(() => undefined);
   if (file === undefined) return;
   if ("plain" in file) {
-    emit({ level: "info", line: "held messages: approved or refused by mark files that any process of yours can write, agents included; with the signer (`wim agent encrypt`, then `wim agent start`) each decision needs its confirmation too (SECURITY-MODEL 7.2)" });
+    emit({ level: "info", line: "held messages: approved or refused by mark files that any process of yours can write, agents included; with the signer (`wim signer encrypt`, then `wim signer start`) each decision needs its confirmation too (SECURITY-MODEL 7.2)" });
     return;
   }
   const found: string[] = [];
@@ -2183,7 +2226,7 @@ async function checkup(ctx: Ctx, emit: (c: Check) => void): Promise<{ device?: D
   try {
     device = await ctx.home.loadDevice();
     if (device === undefined) bad(`not set up yet, no device keys at ${ctx.home.devicePath}: run \`wim init\`, or \`wim join <code>\` with an invite`);
-    else ok(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim agent)" : "key file permissions are private"}`);
+    else ok(`device ${device.name} (${device.id}); ${device.keyring.kind === "signer" ? "keys held by the signer (wim signer)" : "key file permissions are private"}`);
   } catch (error) {
     bad((error as Error).message);
   }

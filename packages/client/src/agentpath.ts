@@ -1,4 +1,4 @@
-// Where the signer (`wim agent`) lives on disk: its private directory under the state directory,
+// Where the signer (`wim signer`) lives on disk: its private directory under the state directory,
 // its endpoint (a Unix socket, or a named pipe on Windows), its log and its settings.
 
 import { b64u, randomBytes } from "@worldinmotion/protocol";

@@ -100,7 +100,7 @@ describe("wim mcp and a signer that is not up yet", () => {
     expect(before.isError).toBeUndefined();
     const pending = before.structuredContent as { pending: boolean; problem: string; link: string; token: string };
     expect(pending.pending).toBe(true);
-    expect(pending.problem).toMatch(/encrypted and no signer is running: run `wim agent start` in a terminal you opened yourself/);
+    expect(pending.problem).toMatch(/encrypted and no signer is running: run `wim signer start` in a terminal you opened yourself/);
     expect(pending.link.startsWith(join(one.root, "links"))).toBe(true);
     // `status` answers without the token: it is how a tab that cannot link learns why.
     const down = await internal("status", {});
@@ -122,7 +122,7 @@ describe("wim mcp and a signer that is not up yet", () => {
       address: "agent@one",
       device: `one (${one.device.id})`,
       mesh,
-      signer: "in use: the keys are in the signer (wim agent)",
+      signer: "in use: the keys are in the signer (wim signer)",
       held: 0,
       state_dir: one.root,
     });

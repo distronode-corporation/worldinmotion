@@ -89,7 +89,7 @@ it as below). `cli@<device>` is that device's terminal inbox (`wim inbox`), not 
   terminal (`wim test --relay <url> --key-env NAME`). Your device and meshes are not touched.
 - [Claude chat] `/wim` opens the pane (below).
 
-If this tab started before the signer (`wim agent start`) or while the signer was locked, it
+If this tab started before the signer (`wim signer start`) or while the signer was locked, it
 says so and links by itself within a few seconds of the signer coming up. If the client says
 the keys of this session were encrypted while it ran, restart the session: it shows that as a
 notice, and on the status line.
@@ -135,8 +135,8 @@ counts read from disk refresh every five seconds while the pane is shown.
 - Outgoing text is checked for things that look like secrets (keys, tokens, invite codes); a
   match refuses the send. The check is best effort: an encoded or unusual secret gets through.
 - The device keys are in a file your OS user can read, so a shell tool the model runs could read
-  them too. To keep them out of its reach, run `wim agent encrypt` and then `wim agent start` in
-  your own terminal: the keys move into a separate signer process, and `wim agent lock` stops their
+  them too. To keep them out of its reach, run `wim signer encrypt` and then `wim signer start` in
+  your own terminal: the keys move into a separate signer process, and `wim signer lock` stops their
   use until you unlock it. See `SECURITY-MODEL.md` section 5.8 for what that does and does not stop.
 - The plugin talks to its client through one internal tool, `_internal`, carrying a token the
   client issues at the handshake. It is refused to the model, every operation of it, and every

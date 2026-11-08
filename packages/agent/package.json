@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./sdk-runner": "./src/sdk-runner.ts",
-    "./privileged": "./src/privileged.ts"
+    "./privileged": "./src/privileged.ts",
+    "./kit": "./src/kit.ts"
   },
   "bin": {
     "wim-agent-runner": "./src/bin.ts",
@@ -15,7 +16,9 @@
   },
   "files": [
     "src",
-    "README.md"
+    "README.md",
+    "deploy",
+    "docs"
   ],
   "engines": {
     "node": ">=22.18.0"
