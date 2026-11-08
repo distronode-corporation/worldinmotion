@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ANSWER_BYTES, privilegedMain, type JobHandle, type JobSpec, type PrivilegedDeps } from "../../src/privileged/main.ts";
+import { MAX_ANSWER_BYTES, MAX_STDERR_LINE, privilegedMain, type JobHandle, type JobSpec, type PrivilegedDeps } from "../../src/privileged/main.ts";
 import type { ProxyOptions } from "../../src/privileged/proxy.ts";
 import { DEVICE, device, minimal, RECIPIENT_CFG, recipientKeyFile, request, requestFor, seal, WIF } from "./helpers.ts";
 
@@ -12,7 +12,8 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 interface Job {
   out?: string | Buffer;
-  err?: string;
+  /** Written to stderr, one chunk per string. */
+  err?: string | string[];
   code?: number | null;
   /** Never exits until killed. */
   hang?: boolean;
@@ -102,7 +103,7 @@ function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: numb
       };
       queueMicrotask(() => {
         if (job.out !== undefined) onOut(Buffer.isBuffer(job.out) ? job.out : Buffer.from(job.out));
-        if (job.err !== undefined) onErr(Buffer.from(job.err));
+        for (const chunk of [job.err ?? []].flat()) onErr(Buffer.from(chunk));
         if (job.hang !== true) resolve(job.code ?? 0);
       });
       return handle;
@@ -234,6 +235,23 @@ describe("privilegedMain: the happy path", () => {
     const h = harness(minimal(), { job: { out: Buffer.alloc(MAX_ANSWER_BYTES + 10, 0x61) } });
     expect(await run(h)).toBe(0);
     expect(h.output()).toMatch(/^a{61440}\n\n\[answer truncated by the privileged runner\]\n$/);
+  });
+
+  it("keeps at most a line's worth of stderr while it waits for a newline, and drops the rest of that line (#133)", async () => {
+    const flood = "b".repeat(1024 * 1024);
+    const unended = "worker: never ends ".padEnd(MAX_STDERR_LINE + 1, "c");
+    const err = [`worker: ${"a".repeat(MAX_STDERR_LINE)}`, flood, `${flood}worker: forged\nworker: after\n`, unended];
+    const h = harness(minimal(), { job: { out: "the answer", err } });
+    expect(await run(h)).toBe(0);
+    expect(h.output()).toBe("the answer");
+    // A long line is let go at the cap: its start is logged as the worker's status line would be,
+    // its end (even one that looks like a status line) is not, and a line that never ends is
+    // logged by its start too, which before the cap waited in memory for a newline.
+    expect(h.log.filter((l) => l.includes("worker: "))).toEqual([
+      `wim-agent-privileged: worker: ${"a".repeat(292)}`,
+      "wim-agent-privileged: worker: after",
+      `wim-agent-privileged: ${unended.slice(0, 300)}`,
+    ]);
   });
 });
 

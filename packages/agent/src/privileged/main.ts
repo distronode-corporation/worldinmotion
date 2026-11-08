@@ -22,6 +22,8 @@ const TRUNCATED = "\n\n[answer truncated by the privileged runner]\n";
 export const MAX_API_BODY_BYTES = 32 * 1024 * 1024;
 /** Requests beyond the profile's turns a job may make (retries, token counts). */
 const EXTRA_REQUESTS = 5;
+/** The longest stderr line the runner keeps while it waits for the newline (#133); a status line is logged at 300. */
+export const MAX_STDERR_LINE = 500;
 
 export interface JobSpec {
   command: string;
@@ -284,11 +286,26 @@ async function runJob(cfg: PrivilegedConfig, profile: Profile, task: string, req
       size += kept.length;
     });
     let errTail = "";
+    // Past MAX_STDERR_LINE, the rest of a line is dropped up to its newline: a job writing stderr
+    // without newlines would otherwise grow errTail until the runner fails (#133).
+    let dropping = false;
+    // Only the worker's own status lines: a raw SDK error could quote the task. The end of a line
+    // too long to keep is never one, whatever it starts with.
+    const status = (line: string): void => {
+      if (!dropping && line.startsWith("worker: ")) log(deps, line.slice(0, 300));
+    };
     handle.onStderr((chunk) => {
       const lines = (errTail + chunk.toString("utf8")).split("\n");
       errTail = lines.pop()!;
-      // Only the worker's own status lines: a raw SDK error could quote the task.
-      for (const line of lines) if (line.startsWith("worker: ")) log(deps, line.slice(0, 300));
+      for (const line of lines) {
+        status(line);
+        dropping = false;
+      }
+      if (errTail.length > MAX_STDERR_LINE) {
+        status(errTail);
+        errTail = "";
+        dropping = true;
+      }
     });
 
     let ended: "timeout" | "signal" | undefined;
