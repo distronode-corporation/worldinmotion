@@ -65,6 +65,31 @@ export function defaultScope(euid: number, pid: number, booted?: boolean, cgroup
   return { mode, unit: scopeUnit(pid), drainMs: 2000, ...(slice === undefined ? {} : { slice }) };
 }
 
+/** A unit name the runner gives systemd: letters, digits, `_`, `.` and `-`, not starting with `-` (an option). */
+const UNIT_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,199}$/;
+/** A slice to join, by the same rule, ending in `.slice` (the root slice `-.slice` is never one). */
+const SLICE_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,193}\.slice$/;
+/** C0 controls and DEL: nothing in a command line the runner builds has one. */
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+/**
+ * Checks every value that reaches systemd-run's or systemctl's argv before anything runs, and
+ * refuses the job on any other: the unit and slice names against an allow-list (they come from
+ * the runner's pid and its own cgroup file), the ids as whole numbers, the command as an absolute
+ * path, and no control character in the command or its arguments. None of them reaches a shell:
+ * systemd-run execs the command itself, and its own `$` expansion is escaped below.
+ */
+export function checkScoped(spec: JobSpec, o: ScopeOptions): void {
+  const bad = (what: string): never => {
+    throw new Error(`refusing to start the job: ${what}`);
+  };
+  if (!UNIT_NAME.test(o.unit)) bad("the scope's unit name is not one the runner makes");
+  if (o.slice !== undefined && !SLICE_NAME.test(o.slice)) bad("the slice name is not one the runner can join");
+  for (const id of [spec.uid, spec.gid]) if (id !== undefined && !(Number.isSafeInteger(id) && id >= 0)) bad("a user or group id is not a whole number");
+  if (!spec.command.startsWith("/")) bad("the command is not an absolute path");
+  if ([spec.command, ...spec.args].some((a) => CONTROL.test(a))) bad("the command line holds a control character");
+}
+
 function runSystemctl(args: string[]): Promise<void> {
   return new Promise((resolve) => execFile("systemctl", args, () => resolve()));
 }
@@ -80,6 +105,7 @@ export function startScopedJob(spec: JobSpec, o: ScopeOptions): JobHandle {
   const later = o.setTimeout ?? ((fn: () => void, ms: number) => setTimeout(fn, ms).unref());
   const cancel = o.clearTimeout ?? ((t: unknown) => clearTimeout(t as NodeJS.Timeout));
   const scoped = o.mode !== "none";
+  if (scoped) checkScoped(spec, o);
   const manager = o.mode === "user" ? ["--user"] : [];
   const ids = spec.uid === undefined ? [] : [`--uid=${spec.uid}`, `--gid=${spec.gid}`];
   // systemd-run expands `$NAME` and `${NAME}` in the command it runs (from its own environment),
