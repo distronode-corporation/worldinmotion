@@ -1,0 +1,29 @@
+#!/bin/sh
+# /usr/local/sbin/wim-agent-privileged-runner   (root:root 0755)
+#
+# The one program the peer user may run as root (deploy/sudoers/wim-agent).
+# It starts the package's privileged runner with a clean, fixed environment, so
+# nothing the caller set (NODE_OPTIONS, a PATH, a proxy) reaches a root process,
+# and refuses every argument: the request comes on stdin only (RUNNER contract
+# v1). The sudoers line already forbids arguments; this is the second lock.
+#
+# ⚠ The SUDO_* variables sudo sets ARE passed on. The runner reads SUDO_UID to
+# tell a request that came through sudo (the peer) from a scheduled job root
+# started itself, and accepts the "local" sender only from the latter. Dropping
+# them here would let the peer pass as a local job.
+#
+# WIM_BIN is the `wim` command as `npm install -g worldinmotion` put it; change
+# it here if your npm prefix is not /usr/local. The privileged runner is its
+# `worker privileged` subcommand, which also refuses any further argument.
+WIM_BIN=/usr/local/bin/wim
+if [ "$#" -ne 0 ]; then
+  echo "wim-agent-privileged-runner: takes no arguments" >&2
+  exit 2
+fi
+set -- PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8
+for v in SUDO_UID SUDO_GID SUDO_USER SUDO_COMMAND; do
+  eval "isset=\${$v+x}"
+  # shellcheck disable=SC2154  # isset is assigned by the eval above.
+  if [ -n "$isset" ]; then eval "set -- \"\$@\" \"$v=\${$v}\""; fi
+done
+exec /usr/bin/env -i "$@" "$WIM_BIN" worker privileged

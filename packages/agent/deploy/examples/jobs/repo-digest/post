@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# post <answer-file> <input-dir>: keep the answer as a dated report, and, when
+# this job's directory holds a `webhook` file (root 0600, one line: the URL),
+# send it there as JSON. The URL may carry its own token, which is why it lives
+# in a root-only file and never on a command line: curl reads it from a config
+# file on stdin.
+set -euo pipefail
+answer="$1"
+here="$(dirname "$0")"
+job="$(basename "$here")"
+reports="${WIM_AGENT_REPORTS:-/var/lib/wim-agent-reports}"
+install -d -m 0700 "$reports"
+cp "$answer" "$reports/$job-$(date -u +%Y%m%dT%H%M%SZ).md"
+
+if [ -r "$here/webhook" ]; then
+  url="$(head -n1 "$here/webhook")"
+  [[ "$url" =~ ^https?://[^[:space:]\"\\]+$ ]] || { echo "post: webhook is not a plain http(s) URL" >&2; exit 1; }
+  body="$(mktemp "$reports/.body.XXXXXX")"
+  trap 'rm -f "$body"' EXIT
+  node -e 'process.stdout.write(JSON.stringify({ text: require("node:fs").readFileSync(process.argv[1], "utf8") }))' "$answer" > "$body"
+  printf 'url = "%s"\n' "$url" \
+    | curl -sS --fail --max-time 30 -K - -H 'Content-Type: application/json' --data-binary "@$body" -o /dev/null
+fi

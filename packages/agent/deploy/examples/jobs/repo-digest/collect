@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# collect <input-dir>: the last 24 hours of commits on one branch of a local
+# clone, as plain files for the worker to read. Root runs this, so the clone
+# and any credential it fetches with stay out of the worker's reach; the worker
+# only ever sees these files.
+#
+# Config (in this job's directory, root-owned):
+#   repo     one line: the path of a local clone root keeps up to date
+#   branch   optional, one line: the branch (default main)
+# Exit 3 when there were no commits: the wrapper then makes no model call.
+set -euo pipefail
+in="$1"
+here="$(dirname "$0")"
+repo="$(head -n1 "$here/repo")"
+branch="main"
+[ ! -r "$here/branch" ] || branch="$(head -n1 "$here/branch")"
+[[ "$branch" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "collect: bad branch name" >&2; exit 1; }
+
+git -C "$repo" fetch -q origin "$branch"
+git -C "$repo" log --since='24 hours ago' --format='%H %an %aI %s' "origin/$branch" > "$in/commits.txt"
+[ -s "$in/commits.txt" ] || exit 3
+
+mkdir -p "$in/diffs"
+n=0 total=0
+while read -r sha _; do
+  n=$((n + 1))
+  f="$in/diffs/$(printf '%02d' "$n")-${sha:0:12}.diff"
+  # A per-commit and a total budget keep the prompt inside the runner's limits.
+  git -C "$repo" show --stat --patch -U3 --format=fuller "$sha" | head -c 24000 > "$f"
+  total=$((total + $(wc -c < "$f")))
+  if [ "$total" -ge 200000 ] || [ "$n" -ge 40 ]; then
+    echo "(budget reached after $n commits; later commits not included)" >> "$in/commits.txt"
+    break
+  fi
+done < "$in/commits.txt"
