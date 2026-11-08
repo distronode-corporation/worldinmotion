@@ -4,27 +4,52 @@
     "user": "wim-agent-worker",
     "home": "/var/lib/wim-agent-worker",
     "cwd": "/var/lib/wim-agent-worker/work",
-    "additionalDirectories": ["/var/lib/wim-agent-worker/in"]
+    "additionalDirectories": [
+      "/var/lib/wim-agent-worker/in"
+    ]
   },
   "runDir": "/run/wim-agent",
-  "lock": { "path": "/run/wim-agent/job.lock", "waitSeconds": 900 },
+  "lock": {
+    "path": "/run/wim-agent/job.lock",
+    "waitSeconds": 900
+  },
   "minMemAvailableMb": 900,
-  "timeoutSeconds": 900,
+  "timeoutSeconds": 1800,
   "killGraceSeconds": 15,
-  "maxTaskChars": 8000,
-  "dailyJobs": 20,
+  "maxTaskChars": 16000,
+  "dailyJobs": 50,
   "statePath": "/var/lib/wim-agent-privileged/state.json",
-  "allowDevices": ["REPLACE_WITH_DEVICE_ID", "REPLACE_WITH_DEVICE_I2"],
+  "senders": {
+    "REPLACE_WITH_DEVICE_ID": {
+      "sign": "REPLACE_WITH_ITS_SIGN_KEY",
+      "box": "REPLACE_WITH_ITS_BOX_KEY"
+    }
+  },
+  "recipient": {
+    "home": "/var/lib/wim-agent/wim",
+    "mesh": "REPLACE_WITH_MESH_ID",
+    "address": "agents@REPLACE-WITH-DEVICE-NAME",
+    "user": "wim-agent"
+  },
   "allowLocal": false,
-  "wakeCode": { "file": "/etc/wim-agent/wake-code" },
+  "wakeCode": {
+    "file": "/etc/wim-agent/wake-code"
+  },
   "defaultProfile": "main",
   "profiles": {
     "main": {
       "model": "claude-opus-5-5",
       "effort": "medium",
       "maxTurns": 20,
-      "tools": ["Read", "Grep", "Glob"],
-      "auth": { "type": "api-key", "keyFile": "/etc/wim-agent/anthropic-key" }
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "auth": {
+        "type": "api-key",
+        "keyFile": "/etc/wim-agent/anthropic-key"
+      }
     }
   }
 }

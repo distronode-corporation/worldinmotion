@@ -2,28 +2,36 @@
 # /usr/local/sbin/wim-agent-privileged-runner   (root:root 0755)
 #
 # The one program the peer user may run as root (deploy/sudoers/wim-agent).
-# It starts the package's privileged runner with a clean, fixed environment, so
-# nothing the caller set (NODE_OPTIONS, a PATH, a proxy) reaches a root process,
-# and refuses every argument: the request comes on stdin only (RUNNER contract
-# v1). The sudoers line already forbids arguments; this is the second lock.
+# It starts the privileged runner, `wim agent privileged`, by absolute paths
+# with a clean, fixed environment, so nothing the caller set (NODE_OPTIONS, a
+# PATH, a proxy) reaches a root process, and refuses every argument: the
+# request comes on stdin only (RUNNER contract v2). The sudoers line already
+# forbids arguments; this is the second lock.
 #
 # ⚠ The SUDO_* variables sudo sets ARE passed on. The runner reads SUDO_UID to
 # tell a request that came through sudo (the peer) from a scheduled job root
 # started itself, and accepts the "local" sender only from the latter. Dropping
 # them here would let the peer pass as a local job.
 #
-# WIM_BIN is the `wim` command as `npm install -g worldinmotion` put it; change
-# it here if your npm prefix is not /usr/local. The privileged runner is its
-# `agent privileged` subcommand, which also refuses any further argument.
-WIM_BIN=/usr/local/bin/wim
+# NODE and WIM_MJS name your install; both must be right (docs/deploy.md, "The
+# root launcher"):
+#   NODE     node's absolute path: readlink -f "$(command -v node)"
+#   WIM_MJS  the bundled wim.mjs of the global install:
+#            "$(npm root --global --prefix /usr/local)/worldinmotion/wim.mjs"
+#            never the package's TypeScript sources (Node does not strip types
+#            under node_modules).
+# As root the runner refuses to start unless both, and every directory above
+# them, are root's alone.
+NODE=/usr/bin/node
+WIM_MJS=/usr/local/lib/node_modules/worldinmotion/wim.mjs
 if [ "$#" -ne 0 ]; then
   echo "wim-agent-privileged-runner: takes no arguments" >&2
   exit 2
 fi
-set -- PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8
+set -- PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 HOME=/root
 for v in SUDO_UID SUDO_GID SUDO_USER SUDO_COMMAND; do
   eval "isset=\${$v+x}"
   # shellcheck disable=SC2154  # isset is assigned by the eval above.
   if [ -n "$isset" ]; then eval "set -- \"\$@\" \"$v=\${$v}\""; fi
 done
-exec /usr/bin/env -i "$@" "$WIM_BIN" agent privileged
+exec /usr/bin/env -i "$@" "$NODE" "$WIM_MJS" agent privileged

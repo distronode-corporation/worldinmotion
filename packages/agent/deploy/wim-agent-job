@@ -18,7 +18,7 @@
 #              the answer (an issue comment, a wim room, a mail). Without it
 #              the answer goes to the journal.
 #
-# The analysis step is the privileged runner (RUNNER contract v1 on stdin), so a
+# The analysis step is the privileged runner (RUNNER contract v2 on stdin), so a
 # scheduled job gets the same worker user, read-only tools, timeout, daily cap,
 # memory floor and job lock as a job a message wakes. It sends from.device
 # "local", which the runner accepts only from root outside sudo, and only when
@@ -66,13 +66,21 @@ read_conf() {
   [ -n "$ENABLED" ] || die "$1: enabled=yes|no is required" 78
 }
 
-# request <id> <profile> <text-file>: the RUNNER contract v1 object.
+# The contract's limit on a request, in bytes: RUNNER_MAX_REQUEST_BYTES in
+# packages/agent/src/runner.ts (a test keeps the two equal).
+MAX_REQUEST_BYTES=1056768
+
+# request <id> <profile> <text-file>: the RUNNER contract v2 object. A local job
+# carries no signed frame: the runner accepts "local" only from root outside
+# sudo, with allowLocal on. Exits 3 when the request is over the limit.
 request() {
   node -e '
-const [id, profile, file] = process.argv.slice(1);
+const [id, profile, file, max] = process.argv.slice(1);
 const text = require("node:fs").readFileSync(file, "utf8");
-process.stdout.write(JSON.stringify({ v: 1, id, from: { device: "local", address: "local@localhost" }, profile, text }));
-' "$1" "$2" "$3"
+const body = Buffer.from(JSON.stringify({ v: 2, id, from: { device: "local", address: "local@localhost" }, profile, text }), "utf8");
+if (body.length > Number(max)) process.exit(3);
+process.stdout.write(body);
+' "$1" "$2" "$3" "$MAX_REQUEST_BYTES"
 }
 
 main() {
@@ -119,7 +127,12 @@ main() {
     printf '\n\nThe inputs for this run are files under %s:\n' "$in"
     (cd "$in" && find . -type f | sed 's|^\./|- |' | LC_ALL=C sort)
   } > "$WORK/text"
-  request "job-$job-$stamp" "$PROFILE" "$WORK/text" > "$WORK/request.json"
+  rc=0; request "job-$job-$stamp" "$PROFILE" "$WORK/text" > "$WORK/request.json" || rc=$?
+  case "$rc" in
+    0) ;;
+    3) die "$job: the prompt and input list are over the contract's $MAX_REQUEST_BYTES bytes";;
+    *) die "$job: could not build the request (exit $rc)";;
+  esac
   rc=0; "$RUNNER" < "$WORK/request.json" > "$WORK/answer" || rc=$?
   case "$rc" in
     0) ;;

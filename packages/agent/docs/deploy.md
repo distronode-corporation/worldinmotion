@@ -13,7 +13,7 @@ needs editing beyond the values marked `REPLACE_...` and the paths you choose to
 |---|---|---|---|
 | the peer, `wim agent serve` (`wim-agent.service`) | `wim-agent` | its wim device keys | the relay; one root program through sudo |
 | the privileged runner (`wim agent privileged`, through `/usr/local/sbin/wim-agent-privileged-runner`) | root, per job | the model credential or the means to mint one; the wake code | the cloud metadata service |
-| the worker (the Agent SDK job) | `wim-agent-worker` | a short-lived model token, for one job | the model API; read-only tools in its own directory |
+| the worker (the Agent SDK job) | `wim-agent-worker` | no credential: a loopback proxy address and a key that works only there, for one job | the model API through that proxy; read-only tools in its own directory |
 | scheduled jobs (`wim-agent-job@<job>`) | root, then the worker | whatever `collect` and `post` need | as their scripts decide |
 
 The split is the security model (README, SECURITY-MODEL section). In short:
@@ -26,7 +26,7 @@ The split is the security model (README, SECURITY-MODEL section). In short:
   ever reaches a command line, and the runner re-checks the sender, the code, the profile and the
   limits on its own.
 - **The worker runs the model, so it gets the least**: its own user, read-only tools by default,
-  no metadata service, and a token that expires minutes after the job.
+  no metadata service, and no credential at all ("The job's credential", below).
 - **All of it shares one capped slice** (`wim-agent.slice`), so a runaway job cannot starve the
   host, and one job lock, so a message and a scheduled job never run at once.
 
@@ -81,8 +81,8 @@ Neither user may be in any other group, and neither gets a login shell or a pass
 ## 3. Close the metadata service to both users
 
 On a cloud VM, any process that can reach the metadata address (169.254.169.254 on AWS, GCP and
-Azure) can ask it for the instance's credentials. Only root needs it, to mint the worker's
-short-lived token, so the peer and the worker are blocked by uid:
+Azure) can ask it for the instance's credentials. Only root needs it, for the runner to sign in
+for each job, so the peer and the worker are blocked by uid:
 
 ```sh
 install -o root -g root -m 0755 "$KIT/wim-agent-imds-block" /usr/local/sbin/wim-agent-imds-block
@@ -192,7 +192,24 @@ install -o root -g root -m 0600 "$KIT/config/privileged.json" /etc/wim-agent/pri
 Edit `/etc/wim-agent/privileged.json`. The runner refuses the file when it is group- or
 other-writable or has a key it does not know. The parts to fill:
 
-- `allowDevices`: the same device ids, checked a second time on the root side.
+- `senders` and `recipient`: who may wake a job, by device id with that device's two public keys
+  pinned here, and the peer's own session, which the runner needs to open each message. The
+  runner checks every message's signature against the pinned keys itself, so even a compromised
+  peer cannot pass a message off as one of yours. Do not type these: `wim agent init` writes them
+  from the signed roster. Run it as the peer user, then install its output over the example:
+
+  ```sh
+  install -d -o wim-agent -g wim-agent -m 0700 /var/lib/wim-agent/init
+  runuser -u wim-agent -- env HOME=/var/lib/wim-agent WIM_HOME=/var/lib/wim-agent/wim \
+    wim agent init /var/lib/wim-agent/init/agent.json --mode privileged \
+      --allow <device id>,<device id> --peer-user wim-agent --as agents
+  install -o root -g root -m 0600 /var/lib/wim-agent/init/privileged.json /etc/wim-agent/privileged.json
+  ```
+
+  It fills `senders` (each allowed id with its sign and box keys) and `recipient` (`home` the
+  peer's `WIM_HOME`, the mesh id, `address` `agents@<device-name>`, and `user` `wim-agent`, who
+  must own the key files there). A sender's id must be the one its sign key names, or the file is
+  refused. Then edit the rest of the file as below.
 - `wakeCode.file`: the wake code, if you want one (recommended). Make it long and random, and
   keep it only here and in your own password manager:
 
@@ -205,10 +222,10 @@ other-writable or has a key it does not know. The parts to fill:
 - `profiles`: one per account or model setup a message may pick with a `<name>:` prefix, and
   `defaultProfile` for messages with none. Each profile's `auth` is one of:
   - `{"type": "api-key", "keyFile": "/etc/wim-agent/anthropic-key"}`: a key in a root-only file
-    (`0600`). The worker gets it for the job only.
+    (`0600`). Only the runner reads it.
   - `{"type": "wif", ...}`: keyless Workload Identity Federation. The runner mints a short-lived
-    identity token from the machine's own cloud identity, and the worker exchanges it for a
-    short-lived model token, so no API key exists anywhere. `identity` is one of
+    identity token from the machine's own cloud identity and exchanges it for a short-lived
+    model token itself, so no API key exists anywhere. `identity` is one of
     `{"type": "aws-sts", "region": "<region>"}`, `{"type": "gcp-metadata"}`,
     `{"type": "gcp-impersonate", "serviceAccount": "<email>"}` or `{"type": "file", "path": "<token file>"}`.
     Fill in `organizationId`, `federationRuleId`, `serviceAccountId` and `workspaceId` from your
@@ -219,15 +236,49 @@ other-writable or has a key it does not know. The parts to fill:
   injection). Keep the worker's directories free of anything it should not see before you do.
 - `allowLocal`: `true` only if you install scheduled jobs (step 10).
 
+### The job's credential
+
+The job holds none. For each job the runner signs in itself, keeps the credential in its own
+memory, and starts a proxy on `127.0.0.1` with a random key for that job. The job gets only
+`ANTHROPIC_BASE_URL` (the proxy) and `ANTHROPIC_API_KEY` (that key). No token file is written
+anywhere: nothing on disk is worth reading.
+
+The job can read its own key (it is in its environment), and so can anything a prompt talks it
+into. That is acceptable because the key is worth nothing elsewhere: the proxy accepts it only
+from this host, only for the two calls the Agent SDK makes, only for the profile's model and
+token ceiling, only within the job's request allowance, and only until the job ends, when the
+proxy closes. Leaking it gives an attacker less than the job already had.
+
+### The root launcher
+
 Install the root program the peer calls:
 
 ```sh
 install -o root -g root -m 0755 "$KIT/wim-agent-privileged-runner" /usr/local/sbin/wim-agent-privileged-runner
 ```
 
-It refuses any argument and runs `/usr/local/bin/wim agent privileged` with a fixed environment
-(it keeps only sudo's own `SUDO_*` variables, which the runner uses to tell the peer from a local
-job). Change `WIM_BIN` in it if your npm prefix is not `/usr/local`.
+It refuses any argument and runs `wim agent privileged` by absolute paths with a fixed
+environment, keeping only sudo's `SUDO_*` variables, which the runner uses to tell the peer from
+a local job. Two lines in it name your install, and both must be right:
+
+- `NODE`: node's absolute path (`readlink -f "$(command -v node)"`), never a name looked up on
+  `PATH`;
+- `WIM_MJS`: the bundled `wim.mjs` of the global install,
+  `$(npm root --global --prefix /usr/local)/worldinmotion/wim.mjs`. Never point it at the
+  package's TypeScript sources: Node does not strip types under `node_modules`.
+
+As root the runner refuses to start unless node, the bundle and every directory above each of
+them is owned by root and writable by nobody else: a code tree the peer could change would let it
+change what root runs. Check both paths before the first start; every line `namei` prints must
+show `root root` and no group or other `w`:
+
+```sh
+namei -l "$(readlink -f /usr/bin/node)" "$(npm root --global --prefix /usr/local)/worldinmotion/wim.mjs"
+```
+
+Keep sudo's `secure_path` set (the default on most distributions; `sudo -V` as root shows it), so
+nothing the peer controls is on the `PATH` sudo itself uses. The launcher sets its own `PATH`
+anyway.
 
 ## 8. Allow the one sudo command
 
@@ -337,7 +388,8 @@ compromise of both. Keep the metadata block (step 3) for `wim-agent` all the sam
 
 ## Stopping it
 
-- One sender: untrust its device on the peer, or take its id off both allow-lists.
+- One sender: untrust its device on the peer, or take its id out of `senders.devices` in
+  `agent.json` and out of `senders` in `privileged.json`.
 - Everyone: `systemctl stop wim-agent.service`. Scheduled jobs: `enabled=no` in a job's
   `job.conf`, or `systemctl disable --now wim-agent-job@<job>.timer`.
 - Spend: the daily cap in both configs, and the spend limit on the model workspace the profiles

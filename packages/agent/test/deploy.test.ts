@@ -10,6 +10,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { loadConfig } from "../src/config.ts";
+import { RUNNER_MAX_REQUEST_BYTES } from "../src/runner.ts";
+import { parsePrivilegedConfig } from "../src/privileged/config.ts";
+import { MESH, SENDER } from "./privileged/helpers.ts";
 
 const DEPLOY = join(dirname(fileURLToPath(import.meta.url)), "..", "deploy");
 const IMDS = join(DEPLOY, "wim-agent-imds-block");
@@ -346,14 +349,16 @@ describe.skipIf(!linux)("wim-agent-job", () => {
     expect(existsSync(rig.seen)).toBe(false);
   });
 
-  it("collect, analyse, answer to the journal: the runner gets one contract v1 request on stdin and no argv", () => {
+  it("collect, analyse, answer to the journal: the runner gets one contract v2 request on stdin and no argv", () => {
     const rig = jobRig();
     rig.hook("collect", `printf 'x' > "$1/b.txt"; mkdir "$1/sub"; printf 'y' > "$1/sub/a.txt"; chmod 0666 "$1/b.txt"`);
     const r = rig.run();
     expect(r.code).toBe(0);
     expect(r.out).toBe("the answer");
     const req = rig.request();
-    expect(req.v).toBe(1);
+    expect(req.v).toBe(2);
+    // A local job carries no signed frame: the runner accepts "local" only from root outside sudo.
+    expect(Object.keys(req).sort()).toEqual(["from", "id", "profile", "text", "v"]);
     expect(req.id).toMatch(/^job-digest-\d{8}T\d{6}Z$/);
     expect(req.from).toEqual({ device: "local", address: "local@localhost" });
     expect(req.profile).toBe("main");
@@ -405,6 +410,34 @@ describe.skipIf(!linux)("wim-agent-job", () => {
     expect(existsSync(join(rig.dir, "posted"))).toBe(false);
   });
 
+  it("keeps the contract's request limit, the one the package exports", () => {
+    const text = readFileSync(JOB, "utf8");
+    expect(text).toMatch(new RegExp(`^MAX_REQUEST_BYTES=${RUNNER_MAX_REQUEST_BYTES}$`, "m"));
+  });
+
+  it("refuses a request over the contract's limit before the runner starts", () => {
+    const rig = jobRig();
+    writeFileSync(join(rig.job, "prompt.md"), "x".repeat(RUNNER_MAX_REQUEST_BYTES), { mode: 0o644 });
+    const r = rig.run();
+    expect(r.code).toBe(1);
+    expect(r.err).toMatch(new RegExp(`over the contract's ${RUNNER_MAX_REQUEST_BYTES} bytes`));
+    expect(existsSync(rig.seen)).toBe(false);
+  });
+
+  it("fails cleanly when the request cannot be built (no node on PATH)", () => {
+    const rig = jobRig();
+    const bin = join(rig.dir, "bin");
+    mkdirSync(bin);
+    for (const t of ["stat", "id", "date", "mktemp", "rm", "install", "chgrp", "chmod", "cat", "find", "sed", "sort", "timeout"]) {
+      const at = spawnSync(BASH, ["-c", `command -v ${t}`], { encoding: "utf8" }).stdout.trim();
+      stub(bin, t, `exec ${at} "$@"`);
+    }
+    const r = rig.run(["digest"], { PATH: bin });
+    expect(r.code).toBe(1);
+    expect(r.err).toMatch(/could not build the request \(exit 127\)/);
+    expect(existsSync(rig.seen)).toBe(false);
+  });
+
   it("leaves no scratch files behind", () => {
     const rig = jobRig();
     rig.run();
@@ -418,12 +451,22 @@ describe.skipIf(!linux)("wim-agent-privileged-runner launcher", () => {
     const dir = scratch();
     const p = join(dir, "launcher");
     const text = readFileSync(join(DEPLOY, "wim-agent-privileged-runner"), "utf8");
-    expect(text).toMatch(/^WIM_BIN=\/usr\/local\/bin\/wim$/m);
-    expect(text).toMatch(/^exec \/usr\/bin\/env -i "\$@" "\$WIM_BIN" agent privileged$/m);
-    // printenv prints nothing for the names "worker" and "privileged", so only the environment shows.
-    writeFileSync(p, text.replace(/^WIM_BIN=.*$/m, "WIM_BIN=/usr/bin/printenv").replace('"$WIM_BIN" agent privileged', '"$WIM_BIN"'), { mode: 0o755 });
+    // Node by its absolute path, and the bundle, never TypeScript under node_modules.
+    expect(text).toMatch(/^NODE=\/usr\/bin\/node$/m);
+    expect(text).toMatch(/^WIM_MJS=\/usr\/local\/lib\/node_modules\/worldinmotion\/wim\.mjs$/m);
+    expect(text).toMatch(/^exec \/usr\/bin\/env -i "\$@" "\$NODE" "\$WIM_MJS" agent privileged$/m);
+    // printenv in place of node, with the bundle and the subcommand dropped, so only the environment shows.
+    writeFileSync(p, text.replace(/^NODE=.*$/m, "NODE=/usr/bin/printenv").replace('"$NODE" "$WIM_MJS" agent privileged', '"$NODE"'), { mode: 0o755 });
     return p;
   }
+
+  it("names only absolute paths, and no TypeScript source", () => {
+    const text = readFileSync(join(DEPLOY, "wim-agent-privileged-runner"), "utf8");
+    for (const m of text.matchAll(/^(NODE|WIM_MJS)=(.*)$/gm)) {
+      expect(m[2], m[1]).toMatch(/^\//);
+      expect(m[2], m[1]).not.toMatch(/\.ts$/);
+    }
+  });
   const sh = (p: string, args: string[], env: Record<string, string>) => {
     const r = spawnSync("/bin/sh", [p, ...args], { env, encoding: "utf8" });
     return { code: r.status, out: r.stdout, err: r.stderr };
@@ -439,12 +482,13 @@ describe.skipIf(!linux)("wim-agent-privileged-runner launcher", () => {
   it("passes a fixed environment and nothing the caller set", () => {
     const r = sh(launcher(), [], { PATH: "/evil", NODE_OPTIONS: "--require /evil.js", HTTPS_PROXY: "http://evil", HOME: "/evil" });
     expect(r.code).toBe(0);
-    expect(r.out.trim().split("\n").sort()).toEqual(["LANG=C.UTF-8", "PATH=/usr/local/bin:/usr/bin:/bin"]);
+    expect(r.out.trim().split("\n").sort()).toEqual(["HOME=/root", "LANG=C.UTF-8", "PATH=/usr/local/bin:/usr/bin:/bin"]);
   });
 
   it("keeps sudo's SUDO_* markers, exactly, so the runner can tell the peer from a local root job", () => {
     const r = sh(launcher(), [], { SUDO_UID: "990", SUDO_GID: "990", SUDO_USER: 'wim agent"$(x)', SUDO_COMMAND: "/usr/local/sbin/wim-agent-privileged-runner", OTHER: "1" });
     expect(r.out.trim().split("\n").sort()).toEqual([
+      "HOME=/root",
       "LANG=C.UTF-8",
       "PATH=/usr/local/bin:/usr/bin:/bin",
       "SUDO_COMMAND=/usr/local/sbin/wim-agent-privileged-runner",
@@ -646,15 +690,31 @@ describe("deploy kit static rules", () => {
     expect(cfg.runner.command).toBe("/usr/bin/sudo");
     expect(cfg.runner.args).toEqual(["-n", "/usr/local/sbin/wim-agent-privileged-runner"]);
     expect(cfg.runner.passEnv).toEqual(["PATH", "LANG"]);
-    const priv = JSON.parse(read("config/privileged.json")) as { timeoutSeconds: number; killGraceSeconds: number; allowLocal: boolean; profiles: Record<string, { tools: string[] }> };
-    // The runner's own timeout fires first, so the sender hears "timed out", not a kill.
-    expect(cfg.runner.timeoutSeconds).toBeGreaterThan(priv.timeoutSeconds + priv.killGraceSeconds);
+    const priv = JSON.parse(read("config/privileged.json")) as { timeoutSeconds: number; killGraceSeconds: number; lock: { waitSeconds: number }; allowLocal: boolean; profiles: Record<string, { tools: string[] }> };
+    // The runner's own timeout fires first (after the longest lock wait), so the sender hears "timed out", not a kill.
+    expect(cfg.runner.timeoutSeconds).toBeGreaterThan(priv.lock.waitSeconds + priv.timeoutSeconds + priv.killGraceSeconds);
     expect(priv.allowLocal).toBe(false);
     for (const p of Object.values(priv.profiles)) expect(p.tools).toEqual(["Read", "Grep", "Glob"]);
   });
 
-  it("the runtime directory is closed to the peer user", () => {
-    expect(live(read("tmpfiles/wim-agent.conf"))).toEqual(["d /run/wim-agent 0750 root wim-agent-worker -"]);
+  it("the example privileged config, once its placeholders are filled, is what the runner accepts", () => {
+    const text = read("config/privileged.json");
+    expect(text).not.toMatch(/allowDevices|idtoken|ANTHROPIC_IDENTITY_TOKEN_FILE/);
+    const filled = text
+      .replaceAll("REPLACE_WITH_DEVICE_ID", SENDER.id)
+      .replaceAll("REPLACE_WITH_ITS_SIGN_KEY", SENDER.sign)
+      .replaceAll("REPLACE_WITH_ITS_BOX_KEY", SENDER.box)
+      .replaceAll("REPLACE_WITH_MESH_ID", MESH)
+      .replaceAll("REPLACE-WITH-DEVICE-NAME", "server");
+    expect(filled).not.toContain("REPLACE");
+    const cfg = parsePrivilegedConfig(JSON.parse(filled));
+    expect(Object.keys(cfg.senders!)).toEqual([SENDER.id]);
+    expect(cfg.recipient).toEqual({ home: "/var/lib/wim-agent/wim", mesh: MESH, address: "agents@server", user: "wim-agent" });
+    expect(cfg.runDir).toBe("/run/wim-agent");
+  });
+
+  it("the runtime directory is root's alone, as the runner makes it", () => {
+    expect(live(read("tmpfiles/wim-agent.conf"))).toEqual(["d /run/wim-agent 0750 root root -"]);
   });
 
 });
