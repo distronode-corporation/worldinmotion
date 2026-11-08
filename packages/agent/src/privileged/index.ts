@@ -6,5 +6,5 @@ export { REFRESH_MS, TokenBroker, type BrokerFs, type BrokerOptions } from "./br
 export { awsWebIdentityToken, fetchIdentityToken, IdentityError, type IdentityDeps } from "./identity.ts";
 export { MAX_ANSWER_BYTES, privilegedMain, type JobHandle, type JobSpec, type Lock, type PrivilegedDeps } from "./main.ts";
 export { chooseProfile, EXIT, LOCAL_DEVICE, MAX_REQUEST_BYTES, parseRequest, Refusal, usableCode } from "./request.ts";
-export { acquireLock, FLOCK_BUSY, lookupUser, memAvailableMb, readAll, startJob, systemDeps } from "./system.ts";
+export { acquireLock, ancestorsAllRoot, FLOCK_BUSY, lookupUser, memAvailableMb, readAll, startJob, systemDeps } from "./system.ts";
 export { loadSdkQuery, sdkOptions, workerMain, type JobOptions, type Query, type WorkerIO } from "./worker.ts";

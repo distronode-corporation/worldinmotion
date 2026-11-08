@@ -51,6 +51,8 @@ export interface PrivilegedDeps {
   /** Null when the lock stayed busy for the whole wait. */
   acquireLock(path: string, waitSeconds: number): Promise<Lock | null>;
   memAvailableMb(): Promise<number | undefined>;
+  /** Whether every ancestor process up to pid 1 has real uid 0 (no non-root caller anywhere above). */
+  ancestorsAllRoot(): Promise<boolean>;
   identity: IdentityDeps;
   startJob(spec: JobSpec): JobHandle;
   now(): number;
@@ -84,10 +86,12 @@ async function readRootSecret(path: string, deps: PrivilegedDeps, what: string):
 }
 
 /** Who may wake a job: a listed device, or a root caller outside sudo naming `local`. */
-function checkSender(req: ParsedRequest, cfg: PrivilegedConfig, env: Record<string, string | undefined>, deps: PrivilegedDeps): boolean {
+async function checkSender(req: ParsedRequest, cfg: PrivilegedConfig, env: Record<string, string | undefined>, deps: PrivilegedDeps): Promise<boolean> {
   if (req.from.device === LOCAL_DEVICE) {
-    // sudo always sets SUDO_UID, and the peer cannot clear it: a `local` job came from root itself.
-    const local = cfg.allowLocal && deps.uid === 0 && deps.euid === 0 && env["SUDO_UID"] === undefined;
+    // Two signals that a `local` job came from root itself: sudo always sets SUDO_UID (a wrapper
+    // could scrub it), and no process above this one runs as anyone but root (which no wrapper
+    // can change: a sudo call from the peer has the peer among its ancestors).
+    const local = cfg.allowLocal && deps.uid === 0 && deps.euid === 0 && env["SUDO_UID"] === undefined && (await deps.ancestorsAllRoot());
     if (!local) throw new Refusal(EXIT.refused, "a local job needs allowLocal and a root caller outside sudo");
     return true;
   }
@@ -234,7 +238,7 @@ async function run(env: Record<string, string | undefined>, self: string[], deps
   const req = parseRequest(await deps.readStdin(MAX_REQUEST_BYTES + 1));
   const tag = `msg=${req.id} device=${req.from.device}`;
   try {
-    const local = checkSender(req, cfg, env, deps);
+    const local = await checkSender(req, cfg, env, deps);
     let text = req.text;
     if (!local && cfg.wakeCode !== undefined) {
       const stripped = stripCode(text, await wakeCode(cfg, env, deps));

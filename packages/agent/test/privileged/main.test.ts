@@ -13,7 +13,7 @@ interface Job {
   hang?: boolean;
 }
 
-function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: number; files?: Record<string, { text: string; uid?: number; mode?: number }>; job?: Job; lockBusy?: boolean; mem?: number; badState?: string } = {}) {
+function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: number; files?: Record<string, { text: string; uid?: number; mode?: number }>; job?: Job; lockBusy?: boolean; mem?: number; badState?: string; ancestorsRoot?: boolean } = {}) {
   const files = new Map<string, { text: string; uid: number; mode: number }>();
   files.set("/cfg.json", { text: JSON.stringify(cfg), uid: 0, mode: 0o100644 });
   for (const [p, f] of Object.entries(opts.files ?? {})) files.set(p, { text: f.text, uid: f.uid ?? 0, mode: f.mode ?? 0o100600 });
@@ -56,6 +56,7 @@ function harness(cfg: Record<string, unknown>, opts: { euid?: number; uid?: numb
     lookupUser: async () => ({ uid: 990, gid: 991 }),
     acquireLock: async () => (opts.lockBusy === true ? null : { release: async () => void released++ }),
     memAvailableMb: async () => opts.mem,
+    ancestorsAllRoot: async () => opts.ancestorsRoot ?? true,
     identity: { awsWebIdentityToken: async () => "aws.jwt", fetch: async () => ({ ok: true, status: 200, text: async () => "" }), readFile: async () => "" },
     startJob(spec) {
       specs.push(spec);
@@ -298,11 +299,16 @@ describe("privilegedMain: senders, codes and profiles", () => {
     off.setStdin(local);
     expect(await run(off)).toBe(3);
 
+    // A wrapper that scrubbed SUDO_UID still leaves the peer among the ancestors.
+    const scrubbed = asRoot(harness(cfg, { ancestorsRoot: false }));
+    scrubbed.setStdin(local);
+    expect(await run(scrubbed)).toBe(3);
+
     const notRoot = asRoot(harness(cfg, { uid: 999 }));
     notRoot.setStdin(local);
     expect(await run(notRoot)).toBe(3);
 
-    const user = harness(cfg, { euid: 1000 });
+    const user = harness(cfg, { euid: 1000, uid: 0 });
     user.setStdin(local);
     expect(await run(user)).toBe(3);
   });

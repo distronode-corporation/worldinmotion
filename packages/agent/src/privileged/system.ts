@@ -81,6 +81,26 @@ export function startJob(spec: JobSpec): JobHandle {
   };
 }
 
+/**
+ * Whether every process from `pid`'s parent up to pid 1 runs with real uid 0. A sudo call from
+ * the peer always has the peer (a non-root real uid) among its ancestors, whatever a wrapper
+ * does to the environment; a scheduled job started by systemd as root has only root above it.
+ */
+export async function ancestorsAllRoot(pid: number, proc = "/proc"): Promise<boolean> {
+  let at = pid;
+  for (let hops = 0; hops < 64; hops++) {
+    const status = await fs.readFile(`${proc}/${at}/status`, "utf8").catch(() => "");
+    const ppid = /^PPid:\s+(\d+)$/m.exec(status);
+    const uid = /^Uid:\s+(\d+)\s/m.exec(status);
+    if (ppid === null || uid === null) return false;
+    if (at !== pid && uid[1] !== "0") return false;
+    const parent = Number(ppid[1]);
+    if (at === 1 || parent === 0) return true;
+    at = parent;
+  }
+  return false;
+}
+
 export function readAll(stream: NodeJS.ReadableStream, max: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -117,6 +137,7 @@ export function systemDeps(): PrivilegedDeps {
     lookupUser: (name) => lookupUser(name),
     acquireLock: (p, w) => acquireLock(p, w),
     memAvailableMb: () => memAvailableMb(),
+    ancestorsAllRoot: () => ancestorsAllRoot(process.pid),
     identity: {
       awsWebIdentityToken,
       fetch: (url, init) => fetch(url, init),

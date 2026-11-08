@@ -3,7 +3,7 @@ import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { PassThrough, Readable } from "node:stream";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { acquireLock, FLOCK_BUSY, lookupUser, memAvailableMb, readAll, startJob, systemDeps } from "../../src/privileged/system.ts";
+import { acquireLock, ancestorsAllRoot, FLOCK_BUSY, lookupUser, memAvailableMb, readAll, startJob, systemDeps } from "../../src/privileged/system.ts";
 
 let dir: string;
 beforeAll(async () => {
@@ -110,6 +110,29 @@ describe.runIf(linux)("startJob", () => {
   });
 });
 
+describe("ancestorsAllRoot", () => {
+  async function tree(name: string, procs: Record<number, { ppid: number; uid: number }>): Promise<string> {
+    const root = join(dir, name);
+    for (const [pid, p] of Object.entries(procs)) {
+      await fs.mkdir(join(root, pid), { recursive: true });
+      await fs.writeFile(join(root, pid, "status"), `Name:\tx\nPPid:\t${p.ppid}\nUid:\t${p.uid}\t${p.uid}\t${p.uid}\t${p.uid}\n`);
+    }
+    return root;
+  }
+  it("is true when only root runs above us, up to pid 1 or a top with no parent", async () => {
+    expect(await ancestorsAllRoot(30, await tree("p1", { 30: { ppid: 20, uid: 0 }, 20: { ppid: 1, uid: 0 }, 1: { ppid: 0, uid: 0 } }))).toBe(true);
+    expect(await ancestorsAllRoot(30, await tree("p2", { 30: { ppid: 7, uid: 1000 }, 7: { ppid: 0, uid: 0 } }))).toBe(true);
+  });
+  it("is false with a non-root ancestor (a peer calling sudo), an unreadable link, or a loop", async () => {
+    expect(await ancestorsAllRoot(30, await tree("p3", { 30: { ppid: 20, uid: 0 }, 20: { ppid: 10, uid: 0 }, 10: { ppid: 1, uid: 998 }, 1: { ppid: 0, uid: 0 } }))).toBe(false);
+    expect(await ancestorsAllRoot(30, await tree("p4", { 30: { ppid: 20, uid: 0 } }))).toBe(false);
+    expect(await ancestorsAllRoot(30, await tree("p5", { 30: { ppid: 5, uid: 0 }, 5: { ppid: 6, uid: 0 }, 6: { ppid: 5, uid: 0 } }))).toBe(false);
+  });
+  it.runIf(linux && process.getuid!() !== 0)("is false for this test run, whose user is not root", async () => {
+    expect(await ancestorsAllRoot(process.pid)).toBe(false);
+  });
+});
+
 describe("readAll", () => {
   it("reads to the end, at most max bytes", async () => {
     expect((await readAll(Readable.from([Buffer.from("abc"), Buffer.from("def"), Buffer.from("ghi")]), 4)).toString()).toBe("abcd");
@@ -148,6 +171,7 @@ describe.runIf(linux)("systemDeps", () => {
     const lock = await d.acquireLock(join(dir, "d.lock"), 0);
     await lock!.release();
     expect(await d.memAvailableMb()).toBeGreaterThan(0);
+    expect(await d.ancestorsAllRoot()).toBe(process.getuid!() === 0);
     expect(await d.startJob(spec("process.exit(0)")).exited).toBe(0);
     expect(d.now()).toBeGreaterThan(0);
 

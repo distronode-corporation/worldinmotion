@@ -37,8 +37,8 @@ describe("fetchIdentityToken", () => {
   it("impersonates a service account through IAM Credentials", async () => {
     const answers = [res(200, JSON.stringify({ access_token: "ya29" })), res(200, JSON.stringify({ token: "sa.jwt" }))];
     const d = deps({ fetch: async (url, init) => (d.calls.push({ url, init }), answers.shift()!) });
-    expect(await fetchIdentityToken({ type: "gcp-impersonate", serviceAccount: "jobs@p.iam.gserviceaccount.com" }, AUD, d)).toBe("sa.jwt");
-    expect(d.calls[1]!.url).toBe("https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/jobs%40p.iam.gserviceaccount.com:generateIdToken");
+    expect(await fetchIdentityToken({ type: "gcp-impersonate", serviceAccount: "worker@example.com" }, AUD, d)).toBe("sa.jwt");
+    expect(d.calls[1]!.url).toBe("https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/worker%40example.com:generateIdToken");
     expect(d.calls[1]!.init).toEqual({
       method: "POST",
       headers: { Authorization: "Bearer ya29", "Content-Type": "application/json" },

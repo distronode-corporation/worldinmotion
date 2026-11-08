@@ -31,7 +31,7 @@ describe("parsePrivilegedConfig", () => {
   it("takes every identity and the API key form", () => {
     const profiles = {
       a: { auth: { ...WIF, identity: { type: "gcp-metadata" } } },
-      b: { auth: { ...WIF, identity: { type: "gcp-impersonate", serviceAccount: "jobs@p.iam.gserviceaccount.com" } } },
+      b: { auth: { ...WIF, identity: { type: "gcp-impersonate", serviceAccount: "worker@example.com" } } },
       c: { auth: { ...WIF, identity: { type: "file", path: "/var/run/token" } } },
       d: { auth: { type: "api-key", keyFile: "/etc/wim-agent/key" } },
     };
